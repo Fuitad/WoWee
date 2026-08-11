@@ -3912,6 +3912,28 @@ int lua_EditBox_SetText(lua_State* L) {
         callScriptOnTable(L, 1, "OnTextSet", 0);
         inSetText = false;
     }
+    // OnTextChanged is deliberately NOT fired here, and this is not because it
+    // should not be — WoW fires it for a text set from code as well as for
+    // typing, and FrameXML is written expecting that. It is because firing it
+    // *synchronously* is wrong, which was measured rather than reasoned:
+    //
+    // MoneyInputFrame_SetCopper counts the boxes it is about to change so its
+    // own edits are not mistaken for the player's. It calls SetNumber and then
+    // increments expectChanges on the next line. A synchronous OnTextChanged
+    // runs between those two, sees expectChanges at 0, sets it to nil, and the
+    // increment then does nil + 1 — moneyinputframe.lua:48, every time money
+    // is put into a trade or a mail.
+    //
+    // So WoW's is deferred: queued during the call and run after the script
+    // that caused it. Firing it needs that queue, which this engine has no
+    // mechanism for.
+    //
+    // What it costs today, measured: SetCopper(frame, 12345) changes all three
+    // boxes and leaves expectChanges at 3, and nothing ever decrements it. The
+    // next two edits the player makes to that money frame take the swallow
+    // branch — onValueChangedFunc does not run, so the amount is set and the
+    // total beside it does not move until the third keystroke. Reachable from
+    // the send-mail money box, the trade money box, and the money popups.
     return 0;
 }
 int lua_EditBox_GetText(lua_State* L) {
@@ -3942,6 +3964,9 @@ int lua_EditBox_SetNumber(lua_State* L) {
     }
     w->editText = buf;
     w->cursorPos = w->editText.size();
+    // No OnTextChanged, for the reason written out at SetText above: WoW fires
+    // one and defers it, and firing it synchronously breaks the caller that
+    // needs it most.
     return 0;
 }
 /// AddHistoryLine(text) — remember a line that was sent from this box.
