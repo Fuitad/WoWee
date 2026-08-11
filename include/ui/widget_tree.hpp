@@ -201,6 +201,15 @@ struct Widget {
     /// placeholder its XML shipped with, long after it read something else.
     bool autoSized = false;
     std::string measuredText;
+    /// The size and face the rect above was measured with.
+    ///
+    /// Remembering only the text was not enough: the interface's own typeface
+    /// is registered after the first frames have already been laid out, so a
+    /// label measured before that kept a rect built from the fallback font and
+    /// was never measured again, its text not having changed. Every one of them
+    /// then drew glyphs wider than the box they were given.
+    float measuredSize = 0.0f;
+    std::string measuredFace;
     /// A label that declared a width and left its height at zero: WoW's
     /// wrapping paragraph. The width is the box to wrap inside and the height
     /// is however many lines that takes — the opposite of autoSized, where the

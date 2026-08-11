@@ -108,8 +108,8 @@ private:
                                          std::string& resolvedOut);
 
     void sizeTooltips(WidgetTree& tree);
-    /// One line saying where the backpack's coin amounts and coin pictures land.
-    void reportMoneyFrameGeometry(WidgetTree& tree);
+    /// Labels whose glyphs are wider than the rect they were given.
+    void reportOverflowingText(WidgetTree& tree);
 
     /// Draw a string that may carry WoW's inline colour markup, as runs.
     /// wrapWidth of zero draws one line, which is what an auto-sized label

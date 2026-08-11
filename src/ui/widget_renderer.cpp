@@ -271,16 +271,6 @@ void WidgetRenderer::sizeFontStrings(WidgetTree& tree) {
             w->wrapsToWidth ||
             (!w->autoSized && w->width > 0.0f && w->height <= 0.0f);
 
-        // Already the right size for this text. A label that was measured
-        // before and has since changed what it says is measured again; one
-        // sized by its XML is left alone.
-        if (paragraph) {
-            if (w->measuredText == w->text) continue;
-        } else {
-            if (w->autoSized && w->measuredText == w->text) continue;
-            if (!w->autoSized && w->width > 0.0f && w->height > 0.0f) continue;
-        }
-
         // The size the draw will use, not a flat twelve.
         //
         // A label with no fontHeight of its own is drawn at the current font
@@ -299,6 +289,28 @@ void WidgetRenderer::sizeFontStrings(WidgetTree& tree) {
             return runFont->CalcTextSizeA(size, FLT_MAX, 0.0f, piece.c_str()).x;
         };
 
+        // Already the right size for this text, measured the way it would be
+        // measured now. A label that has changed what it says is measured
+        // again; one sized by its XML is left alone.
+        //
+        // The size and the face are part of that question. The interface's own
+        // typeface is registered after the first frames have been laid out, and
+        // a label measured before that kept a rect built from the fallback font
+        // for the rest of the session — its text had not changed, so nothing
+        // ever looked again. Every one of them then drew glyphs wider than the
+        // box it was given, the backpack's coin amounts among them: that rect
+        // is anchored to end exactly where the coin picture begins, so the
+        // overspill lands on the coin.
+        const bool sameMeasurement = w->measuredText == w->text &&
+                                     w->measuredSize == size &&
+                                     w->measuredFace == w->fontFace;
+        if (paragraph) {
+            if (sameMeasurement) continue;
+        } else {
+            if (w->autoSized && sameMeasurement) continue;
+            if (!w->autoSized && w->width > 0.0f && w->height > 0.0f) continue;
+        }
+
         if (paragraph) {
             // The width stays as declared and the height follows the wrap.
             // autoSized stays false on purpose: it is what the draw reads to
@@ -311,6 +323,8 @@ void WidgetRenderer::sizeFontStrings(WidgetTree& tree) {
             w->wrappedLines = rows > 0 ? rows : 1;
             w->height = size * 1.2f * static_cast<float>(w->wrappedLines);
             w->measuredText = w->text;
+            w->measuredSize = size;
+            w->measuredFace = w->fontFace;
             continue;
         }
 
@@ -329,6 +343,8 @@ void WidgetRenderer::sizeFontStrings(WidgetTree& tree) {
         }
         w->autoSized = true;
         w->measuredText = w->text;
+        w->measuredSize = size;
+        w->measuredFace = w->fontFace;
     }
 }
 
@@ -920,52 +936,61 @@ void WidgetRenderer::layout(WidgetTree& tree, float screenW, float screenH) {
 
     tree.layout(screenW, screenH);
 
-    reportMoneyFrameGeometry(tree);
+    reportOverflowingText(tree);
 }
 
-/// Where the backpack's coin amounts and coin pictures actually end up.
+/// Labels whose glyphs are wider than the rect they were given.
 ///
-/// Reported because the two disagree on screen and agree in every measurement
-/// that can be taken without the client running: the number is drawn over the
-/// coin, and the rects say it ends exactly where the coin begins. Something
-/// between the rect and the glyphs differs in a real run — a face with other
-/// metrics, a scale, a font object's own height — and this prints all of it at
-/// once so one run settles which.
+/// A font string with no width of its own is measured and the rect it gets is
+/// that measurement, so the two agree by construction — unless the draw and the
+/// measure disagree about the face or the size, and then the text runs out of
+/// its own right edge. Where the label is anchored so that its right edge is
+/// something else's left edge, that overspill lands on top of whatever is
+/// there: the backpack's coin amounts are drawn over the coins that way.
 ///
-/// Once every ten seconds, and only while the bag is up.
-void WidgetRenderer::reportMoneyFrameGeometry(WidgetTree& tree) {
-    static double lastAt = -1000.0;
-    const double now = ImGui::GetTime();
-    if (now - lastAt < 10.0) return;
-
-    const Widget* button = tree.findByName("ContainerFrame1MoneyFrameGoldButton");
-    const Widget* text = tree.findByName("ContainerFrame1MoneyFrameGoldButtonText");
-    if (!button || !text || !button->shown || text->text.empty()) return;
-    lastAt = now;
-
-    // The icon is the button's normal art, whichever child carries it.
-    const Widget* icon = nullptr;
+/// Named nothing in particular so it catches whichever label it happens to be,
+/// and each name is said once.
+void WidgetRenderer::reportOverflowingText(WidgetTree& tree) {
     for (size_t id = 1; id < tree.size(); ++id) {
         const Widget* w = tree.get(static_cast<uint32_t>(id));
-        if (w && w->buttonArt != ButtonArt::None && tree.get(w->parent) == button) {
-            icon = w;
-            break;
-        }
-    }
+        if (!w || w->kind != WidgetKind::FontString) continue;
+        if (!w->autoSized || w->text.empty() || w->rectW <= 0.0f) continue;
 
-    const float measured = interfaceTextWidth(text->text, text->fontFace, text->fontHeight);
-    LOG_WARNING("Money geometry: text \"", text->text, "\" rect=(", text->left, "..",
-                text->left + text->rectW, ") w=", text->rectW,
-                " measured=", measured,
-                " fontHeight=", text->fontHeight,
-                " size=", interfaceFontSize(text->fontHeight),
-                " face=", text->fontFace.empty() ? "(default)" : text->fontFace.c_str(),
-                " currentFontSize=", ImGui::GetFontSize(),
-                " | button=(", button->left, "..", button->left + button->rectW,
-                ") w=", button->rectW,
-                " | icon=", icon ? "(" : "(none",
-                icon ? icon->left : 0.0f, "..", icon ? icon->left + icon->rectW : 0.0f,
-                ") scale=", tree.uiScale());
+        // Against the width this label was measured to need, not against a
+        // fresh measurement: a label stretched between two anchors is given
+        // their span and is legitimately narrower than its text, which is
+        // ordinary clipping and not what this is for. What is worth saying is
+        // a label that asked for a width, was measured, and then got a rect
+        // narrower than the answer.
+        //
+        // A pixel of slack, because rounding between the two is not a fault.
+        // Through the scale its chain is drawn at: the rect is in scaled units
+        // and the measurement is not, so a frame that has been scaled down —
+        // every boss frame is — would otherwise read as an overflow when it is
+        // simply smaller.
+        float chainScale = 1.0f;
+        for (uint32_t up = static_cast<uint32_t>(id), guard = 0;
+             up != 0 && guard <= tree.size(); ++guard) {
+            const Widget* node = tree.get(up);
+            if (!node) break;
+            chainScale *= node->scale;
+            up = node->parent;
+        }
+        const float drawn = w->width * chainScale;
+        if (w->width <= 0.0f || w->rectW >= drawn - 1.0f) continue;
+
+        static std::set<std::string> said;
+        const std::string key = w->name.empty() ? std::string("(unnamed)") : w->name;
+        if (!said.insert(key).second) continue;
+        LOG_WARNING("Text wider than its rect: ", key, " \"", w->text,
+                    "\" draws ", drawn, " into ", w->rectW,
+                    " — fontHeight=", w->fontHeight,
+                    " size=", interfaceFontSize(w->fontHeight),
+                    " face=", w->fontFace.empty() ? "(default)" : w->fontFace.c_str(),
+                    " currentFontSize=", ImGui::GetFontSize(),
+                    " scale=", tree.uiScale(),
+                    " — whatever its right edge is anchored to is being drawn over");
+    }
 }
 
 // What is on screen, and what should be but is not.
