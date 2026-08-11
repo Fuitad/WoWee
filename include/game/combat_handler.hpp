@@ -101,6 +101,24 @@ public:
     void targetLastTarget();
     void targetEnemy(bool reverse);
     void targetFriend(bool reverse);
+
+    /// The four narrower cycles WoW binds keys to, and which answered nothing.
+    ///
+    /// Same walk as the two above with a tighter test: only players, or only
+    /// the people in your group. Bindings.xml gives each of them a key by
+    /// default, so each was a key that did nothing at all.
+    void targetNearestEnemyPlayer(bool reverse);
+    void targetNearestFriendPlayer(bool reverse);
+    void targetNearestPartyMember(bool reverse);
+    void targetNearestRaidMember(bool reverse);
+
+    /// Back to the last hostile, or the last friendly, target.
+    ///
+    /// TargetLastTarget remembers one target whatever it was; these remember one
+    /// of each, which is what makes them useful — a healer's last friendly
+    /// target survives half a fight's worth of tab-targeting.
+    void targetLastEnemy();
+    void targetLastFriend();
     void tabTarget(float playerX, float playerY, float playerZ);
     void assistTarget();
 
@@ -131,6 +149,23 @@ private:
     // Last tab-target press (steady-clock ms); a pause restarts the cycle
     // from the nearest enemy instead of resuming a stale rotation.
     uint64_t lastTabTargetMs_ = 0;
+
+    // One remembered target of each kind, for targetLastEnemy/Friend. Written
+    // by setTarget as the old target is let go, so they are the target before
+    // this one rather than this one.
+    uint64_t lastEnemyTargetGuid_ = 0;
+    uint64_t lastFriendTargetGuid_ = 0;
+
+    /// The walk both cycles do: everything alive within range that `wanted`
+    /// accepts, nearest first, then step to the next one past the current
+    /// target. Written out twice with two predicates before this, and the two
+    /// had already drifted — one skipped the dead and the other did not, which
+    /// is right both times and was not written down anywhere.
+    void cycleTarget(bool reverse, const char* noneMessage,
+                     const std::function<bool(uint64_t, Entity&)>& wanted);
+
+    /// Whether a guid is in the player's group.
+    bool isGroupMemberGuid(uint64_t guid) const;
 
     // --- Packet handlers ---
     void handleAttackStart(network::Packet& packet);

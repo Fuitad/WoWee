@@ -1591,6 +1591,24 @@ void GameHandler::targetEnemy(bool reverse) {
 void GameHandler::targetFriend(bool reverse) {
     if (combatHandler_) combatHandler_->targetFriend(reverse);
 }
+void GameHandler::targetNearestEnemyPlayer(bool reverse) {
+    if (combatHandler_) combatHandler_->targetNearestEnemyPlayer(reverse);
+}
+void GameHandler::targetNearestFriendPlayer(bool reverse) {
+    if (combatHandler_) combatHandler_->targetNearestFriendPlayer(reverse);
+}
+void GameHandler::targetNearestPartyMember(bool reverse) {
+    if (combatHandler_) combatHandler_->targetNearestPartyMember(reverse);
+}
+void GameHandler::targetNearestRaidMember(bool reverse) {
+    if (combatHandler_) combatHandler_->targetNearestRaidMember(reverse);
+}
+void GameHandler::targetLastEnemy() {
+    if (combatHandler_) combatHandler_->targetLastEnemy();
+}
+void GameHandler::targetLastFriend() {
+    if (combatHandler_) combatHandler_->targetLastFriend();
+}
 
 void GameHandler::inspectTarget() {
     if (socialHandler_) socialHandler_->inspectTarget();

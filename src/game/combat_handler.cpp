@@ -1229,9 +1229,21 @@ void CombatHandler::setTarget(uint64_t guid) {
     // Looted-out, unskinnable corpses cannot be selected.
     if (!isSelectableUnit(guid)) return;
 
-    // Save previous target
+    // Save previous target — once as "the last one whatever it was", which is
+    // what TargetLastTarget flips back to, and once under its kind, which is
+    // what makes TargetLastEnemy and TargetLastFriend worth having: a healer's
+    // last friendly target survives half a fight's worth of tab-targeting.
     if (owner_.getTargetGuid() != 0) {
-        owner_.lastTargetGuidRef() = owner_.getTargetGuid();
+        const uint64_t previous = owner_.getTargetGuid();
+        owner_.lastTargetGuidRef() = previous;
+        auto entity = owner_.getEntityManager().getEntity(previous);
+        if (auto* unit = dynamic_cast<Unit*>(entity.get())) {
+            if (unit->isHostile() || isAggressiveTowardPlayer(previous)) {
+                lastEnemyTargetGuid_ = previous;
+            } else {
+                lastFriendTargetGuid_ = previous;
+            }
+        }
     }
 
     owner_.setTargetGuidRaw(guid);
@@ -1348,128 +1360,123 @@ void CombatHandler::targetLastTarget() {
     owner_.lastTargetGuidRef() = temp;
 }
 
-void CombatHandler::targetEnemy(bool reverse) {
+void CombatHandler::cycleTarget(bool reverse, const char* noneMessage,
+                                const std::function<bool(uint64_t, Entity&)>& wanted) {
     constexpr float kRangeSq = 40.0f * 40.0f;
 
-    // Player position for the range gate and nearest-first ordering
     float px = 0.0f, py = 0.0f, pz = 0.0f;
     if (auto self = owner_.getEntityManager().getEntity(owner_.getPlayerGuid())) {
         px = self->getX(); py = self->getY(); pz = self->getZ();
     }
 
-    // Living hostiles within range, nearest first. Corpses are never
-    // /targetenemy candidates — that's what mouse looting is for.
     struct Cand { uint64_t guid; float distSq; };
     std::vector<Cand> cands;
-    auto& entities = owner_.getEntityManager().getEntities();
-    for (const auto& [guid, entity] : entities) {
-        auto t = entity->getType();
-        if (t != ObjectType::UNIT && t != ObjectType::PLAYER) continue;
-        if (guid == owner_.getPlayerGuid()) continue;
-        auto* unit = dynamic_cast<Unit*>(entity.get());
-        if (!unit || unit->getHealth() == 0) continue;
-        if (!unit->isHostile() && !isAggressiveTowardPlayer(guid)) continue;
-        float dx = entity->getX() - px;
-        float dy = entity->getY() - py;
-        float dz = entity->getZ() - pz;
-        float distSq = dx*dx + dy*dy + dz*dz;
+    for (const auto& [guid, entity] : owner_.getEntityManager().getEntities()) {
+        if (!entity || guid == owner_.getPlayerGuid()) continue;
+        const float dx = entity->getX() - px;
+        const float dy = entity->getY() - py;
+        const float dz = entity->getZ() - pz;
+        const float distSq = dx * dx + dy * dy + dz * dz;
         if (distSq > kRangeSq) continue;
+        if (!wanted(guid, *entity)) continue;
         cands.push_back({guid, distSq});
     }
     std::sort(cands.begin(), cands.end(),
               [](const Cand& a, const Cand& b) { return a.distSq < b.distSq; });
 
-    std::vector<uint64_t> hostiles;
-    hostiles.reserve(cands.size());
-    for (const auto& c : cands) hostiles.push_back(c.guid);
-
-    if (hostiles.empty()) {
-        owner_.addSystemChatMessage("No enemies in range.");
+    if (cands.empty()) {
+        owner_.addSystemChatMessage(noneMessage);
         return;
     }
 
-    // Find current target in list
-    auto it = std::find(hostiles.begin(), hostiles.end(), owner_.getTargetGuid());
+    std::vector<uint64_t> order;
+    order.reserve(cands.size());
+    for (const auto& c : cands) order.push_back(c.guid);
 
-    if (it == hostiles.end()) {
-        // Not currently targeting a hostile, target first one
-        setTarget(reverse ? hostiles.back() : hostiles.front());
+    // Not on the list: start at the near end, or the far one going backwards.
+    auto it = std::find(order.begin(), order.end(), owner_.getTargetGuid());
+    if (it == order.end()) {
+        setTarget(reverse ? order.back() : order.front());
+        return;
+    }
+    if (reverse) {
+        setTarget(it == order.begin() ? order.back() : *(it - 1));
     } else {
-        // Cycle to next/previous
-        if (reverse) {
-            if (it == hostiles.begin()) {
-                setTarget(hostiles.back());
-            } else {
-                setTarget(*(--it));
-            }
-        } else {
-            ++it;
-            if (it == hostiles.end()) {
-                setTarget(hostiles.front());
-            } else {
-                setTarget(*it);
-            }
-        }
+        auto next = it + 1;
+        setTarget(next == order.end() ? order.front() : *next);
     }
 }
 
+bool CombatHandler::isGroupMemberGuid(uint64_t guid) const {
+    for (const auto& m : owner_.getPartyData().members) {
+        if (m.guid == guid) return true;
+    }
+    return false;
+}
+
+void CombatHandler::targetEnemy(bool reverse) {
+    // Corpses are never candidates — that is what mouse looting is for.
+    cycleTarget(reverse, "No enemies in range.", [this](uint64_t guid, Entity& e) {
+        const auto t = e.getType();
+        if (t != ObjectType::UNIT && t != ObjectType::PLAYER) return false;
+        auto* unit = dynamic_cast<Unit*>(&e);
+        if (!unit || unit->getHealth() == 0) return false;
+        return unit->isHostile() || isAggressiveTowardPlayer(guid);
+    });
+}
+
 void CombatHandler::targetFriend(bool reverse) {
-    constexpr float kRangeSq = 40.0f * 40.0f;
+    // Dead friends stay targetable — you need to select them to resurrect them.
+    cycleTarget(reverse, "No friendly targets in range.", [](uint64_t, Entity& e) {
+        return e.getType() == ObjectType::PLAYER;
+    });
+}
 
-    float px = 0.0f, py = 0.0f, pz = 0.0f;
-    if (auto self = owner_.getEntityManager().getEntity(owner_.getPlayerGuid())) {
-        px = self->getX(); py = self->getY(); pz = self->getZ();
-    }
+void CombatHandler::targetNearestEnemyPlayer(bool reverse) {
+    cycleTarget(reverse, "No enemy players in range.", [this](uint64_t guid, Entity& e) {
+        if (e.getType() != ObjectType::PLAYER) return false;
+        auto* unit = dynamic_cast<Unit*>(&e);
+        if (!unit || unit->getHealth() == 0) return false;
+        return unit->isHostile() || isAggressiveTowardPlayer(guid);
+    });
+}
 
-    // Friendly players within range, nearest first. Dead friends stay
-    // targetable — you need to select them to resurrect them.
-    struct Cand { uint64_t guid; float distSq; };
-    std::vector<Cand> cands;
-    auto& entities = owner_.getEntityManager().getEntities();
-    for (const auto& [guid, entity] : entities) {
-        if (entity->getType() != ObjectType::PLAYER || guid == owner_.getPlayerGuid()) continue;
-        float dx = entity->getX() - px;
-        float dy = entity->getY() - py;
-        float dz = entity->getZ() - pz;
-        float distSq = dx*dx + dy*dy + dz*dz;
-        if (distSq > kRangeSq) continue;
-        cands.push_back({guid, distSq});
-    }
-    std::sort(cands.begin(), cands.end(),
-              [](const Cand& a, const Cand& b) { return a.distSq < b.distSq; });
+void CombatHandler::targetNearestFriendPlayer(bool reverse) {
+    cycleTarget(reverse, "No friendly players in range.", [](uint64_t, Entity& e) {
+        if (e.getType() != ObjectType::PLAYER) return false;
+        auto* unit = dynamic_cast<Unit*>(&e);
+        return unit && !unit->isHostile();
+    });
+}
 
-    std::vector<uint64_t> friendlies;
-    friendlies.reserve(cands.size());
-    for (const auto& c : cands) friendlies.push_back(c.guid);
+void CombatHandler::targetNearestPartyMember(bool reverse) {
+    cycleTarget(reverse, "No party members in range.", [this](uint64_t guid, Entity&) {
+        return isGroupMemberGuid(guid);
+    });
+}
 
-    if (friendlies.empty()) {
-        owner_.addSystemChatMessage("No friendly targets in range.");
+void CombatHandler::targetNearestRaidMember(bool reverse) {
+    // The same roster: a raid is what the group list calls itself when it has
+    // grown past five, and the members arrive in the same list either way.
+    cycleTarget(reverse, "No raid members in range.", [this](uint64_t guid, Entity&) {
+        return isGroupMemberGuid(guid);
+    });
+}
+
+void CombatHandler::targetLastEnemy() {
+    if (lastEnemyTargetGuid_ == 0) {
+        owner_.addSystemChatMessage("No previous enemy target.");
         return;
     }
+    setTarget(lastEnemyTargetGuid_);
+}
 
-    // Find current target in list
-    auto it = std::find(friendlies.begin(), friendlies.end(), owner_.getTargetGuid());
-
-    if (it == friendlies.end()) {
-        // Not currently targeting a friend, target first one
-        setTarget(reverse ? friendlies.back() : friendlies.front());
-    } else {
-        // Cycle to next/previous
-        if (reverse) {
-            if (it == friendlies.begin()) {
-                setTarget(friendlies.back());
-            } else {
-                setTarget(*(--it));
-            }
-        } else {
-            ++it;
-            if (it == friendlies.end()) {
-                setTarget(friendlies.front());
-            } else {
-                setTarget(*it);
-            }
-        }
+void CombatHandler::targetLastFriend() {
+    if (lastFriendTargetGuid_ == 0) {
+        owner_.addSystemChatMessage("No previous friendly target.");
+        return;
     }
+    setTarget(lastFriendTargetGuid_);
 }
 
 void CombatHandler::tabTarget(float playerX, float playerY, float playerZ) {

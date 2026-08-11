@@ -574,6 +574,12 @@ public:
     void targetLastTarget();
     void targetEnemy(bool reverse = false);
     void targetFriend(bool reverse = false);
+    void targetNearestEnemyPlayer(bool reverse = false);
+    void targetNearestFriendPlayer(bool reverse = false);
+    void targetNearestPartyMember(bool reverse = false);
+    void targetNearestRaidMember(bool reverse = false);
+    void targetLastEnemy();
+    void targetLastFriend();
 
     // Inspection
     void inspectTarget();

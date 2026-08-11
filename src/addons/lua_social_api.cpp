@@ -310,6 +310,14 @@ static int lua_GetFriendInfo(lua_State* L) {
 /// replaced wholesale whenever SMSG_GUILD_ROSTER arrives and a cache would go
 /// stale exactly when the panel redraws.
 namespace {
+/// The direction argument these targeting commands take: Bindings.xml gives
+/// each of them two keys, one plain and one with a 1 for backwards.
+inline bool wantsReverseArg(lua_State* L) {
+    return lua_toboolean(L, 1) != 0 || (lua_isnumber(L, 1) && lua_tonumber(L, 1) != 0);
+}
+}  // namespace
+
+namespace {
 
 /// Turn every addon this client knows about on or off.
 ///
@@ -3501,12 +3509,30 @@ void registerSocialLuaAPI(lua_State* L) {
                 // one last-target is tracked rather than one per side — so
                 // wiring these to the nearest thing would target the wrong
                 // unit, which is worse than not answering the command.
-                {"TargetLastEnemy",           [](lua_State* L) -> int { (void)L; return 0; }},
-                {"TargetLastFriend",          [](lua_State* L) -> int { (void)L; return 0; }},
-                {"TargetNearestEnemyPlayer",  [](lua_State* L) -> int { (void)L; return 0; }},
-                {"TargetNearestFriendPlayer", [](lua_State* L) -> int { (void)L; return 0; }},
-                {"TargetNearestPartyMember",  [](lua_State* L) -> int { (void)L; return 0; }},
-                {"TargetNearestRaidMember",   [](lua_State* L) -> int { (void)L; return 0; }},
+                {"TargetLastEnemy", [](lua_State* L) -> int {
+                    if (auto* gh = getGameHandler(L)) gh->targetLastEnemy();
+                    return 0;
+                }},
+                {"TargetLastFriend", [](lua_State* L) -> int {
+                    if (auto* gh = getGameHandler(L)) gh->targetLastFriend();
+                    return 0;
+                }},
+                {"TargetNearestEnemyPlayer", [](lua_State* L) -> int {
+                    if (auto* gh = getGameHandler(L)) gh->targetNearestEnemyPlayer(wantsReverseArg(L));
+                    return 0;
+                }},
+                {"TargetNearestFriendPlayer", [](lua_State* L) -> int {
+                    if (auto* gh = getGameHandler(L)) gh->targetNearestFriendPlayer(wantsReverseArg(L));
+                    return 0;
+                }},
+                {"TargetNearestPartyMember", [](lua_State* L) -> int {
+                    if (auto* gh = getGameHandler(L)) gh->targetNearestPartyMember(wantsReverseArg(L));
+                    return 0;
+                }},
+                {"TargetNearestRaidMember", [](lua_State* L) -> int {
+                    if (auto* gh = getGameHandler(L)) gh->targetNearestRaidMember(wantsReverseArg(L));
+                    return 0;
+                }},
                 {"StartDuel", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             const char* unit = luaL_optstring(L, 1, "target");
