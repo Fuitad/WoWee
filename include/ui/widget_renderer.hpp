@@ -110,6 +110,8 @@ private:
     void sizeTooltips(WidgetTree& tree);
     /// Labels whose glyphs are wider than the rect they were given.
     void reportOverflowingText(WidgetTree& tree);
+    /// Labels holding a coin amount with a letter on the end of it.
+    void reportLetteredAmounts(WidgetTree& tree);
 
     /// Draw a string that may carry WoW's inline colour markup, as runs.
     /// wrapWidth of zero draws one line, which is what an auto-sized label

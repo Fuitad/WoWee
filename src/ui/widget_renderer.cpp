@@ -937,6 +937,7 @@ void WidgetRenderer::layout(WidgetTree& tree, float screenW, float screenH) {
     tree.layout(screenW, screenH);
 
     reportOverflowingText(tree);
+    reportLetteredAmounts(tree);
 }
 
 /// Labels whose glyphs are wider than the rect they were given.
@@ -950,6 +951,39 @@ void WidgetRenderer::layout(WidgetTree& tree, float screenW, float screenH) {
 ///
 /// Named nothing in particular so it catches whichever label it happens to be,
 /// and each name is said once.
+/// Labels holding a coin amount with a letter on the end of it.
+///
+/// "19g", "81s", "56c" — WoW writes the amount and the coin's picture, and the
+/// only thing in the interface that writes the letter is the colourblind branch
+/// of MoneyFrame_Update. Reported over three passes as letters beside the coins
+/// in the backpack, and turning that branch off did not stop it, so whatever
+/// writes them is somewhere else. This says which label holds one, by name.
+void WidgetRenderer::reportLetteredAmounts(WidgetTree& tree) {
+    for (size_t id = 1; id < tree.size(); ++id) {
+        const Widget* w = tree.get(static_cast<uint32_t>(id));
+        if (!w || w->kind != WidgetKind::FontString || w->text.empty()) continue;
+        // A run of digits with a single g, s or c after it and nothing else.
+        const std::string& s = w->text;
+        const char last = s.back();
+        if (last != 'g' && last != 's' && last != 'c') continue;
+        if (s.size() < 2) continue;
+        bool digits = true;
+        for (size_t i = 0; i + 1 < s.size(); ++i) {
+            if (s[i] < '0' || s[i] > '9') { digits = false; break; }
+        }
+        if (!digits) continue;
+
+        static std::set<std::string> said;
+        const std::string key = w->name.empty() ? std::string("(unnamed)") : w->name;
+        if (!said.insert(key).second) continue;
+        LOG_WARNING("Coin amount written with a letter: ", key, " holds \"", s,
+                    "\" — WoW writes the amount and the coin's picture, and only "
+                    "MoneyFrame_Update's colourblind branch writes the letter. "
+                    "ENABLE_COLORBLIND_MODE is \"", "0", "\" here, so this came "
+                    "from somewhere else");
+    }
+}
+
 void WidgetRenderer::reportOverflowingText(WidgetTree& tree) {
     for (size_t id = 1; id < tree.size(); ++id) {
         const Widget* w = tree.get(static_cast<uint32_t>(id));

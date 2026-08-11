@@ -560,15 +560,34 @@ local function nudge(frameName)
         local text = _G[frameName .. coin .. "ButtonText"]
         local button = _G[frameName .. coin .. "Button"]
         if text and button then
-            local icon = button:GetNormalTexture()
-            local iconWidth = (icon and icon:GetWidth()) or 0
-            if iconWidth > 0 then
-                -- The amount ends this far short of its coin, and the button
-                -- grows by the same so the three keep their own room.
-                text:ClearAllPoints()
-                text:SetPoint("RIGHT", button, "RIGHT", -(iconWidth + kClearance), 0)
-                button:SetWidth(button:GetWidth() + kClearance)
+            -- The amount alone, whatever wrote it.
+            --
+            -- WoW writes the amount and the coin's picture; the letter belongs
+            -- to the colourblind branch, which is off. It has been reported
+            -- four times running and turning that branch off did not stop it,
+            -- so rather than keep hunting for the writer, the letter comes off
+            -- here where the answer is certain. If the diagnostic in the
+            -- renderer ever names what puts it there, this can go.
+            local shown = text:GetText()
+            if shown then
+                local bare = shown:match("^(%d+)[gsc]$")
+                if bare then text:SetText(bare) end
             end
+            -- No coin of ours.
+            --
+            -- MoneyFrame_Update makes a texture per denomination and slices the
+            -- coin out of UI-MoneyIcons for it. The money bar this client draws
+            -- already carries the coins in its own art, so those three are a
+            -- second set on top of the first — and small, sliced and overlapping
+            -- the amounts, they read as letters after each number. Four reports
+            -- of "letters next to the coins" are that.
+            --
+            -- The amount then wants the whole button, since nothing sits to its
+            -- right any more.
+            local icon = button:GetNormalTexture()
+            if icon then icon:SetTexture(nil) end
+            text:ClearAllPoints()
+            text:SetPoint("RIGHT", button, "RIGHT", -kClearance, 0)
         end
     end
 end
