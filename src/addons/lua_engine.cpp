@@ -3,6 +3,7 @@
 #include "ui/text_markup.hpp"
 #include "ui/plural_escape.hpp"
 #include "ui/widget_tree.hpp"
+#include "ui/interface_fonts.hpp"
 #include "ui/ui_colors.hpp"
 #include "ui/framexml_takeover.hpp"
 #include <chrono>
@@ -667,17 +668,15 @@ int lua_Region_SetHeight(lua_State* L) {
 /// not be a frame in flight to ask, and an estimate is far better than nothing:
 /// the alternative was answering nil, and MoneyFrame does
 /// SetWidth(GetTextWidth() + iconWidth) — arithmetic that loses the file.
-float measureTextWidth(const std::string& text, float fontHeight) {
-    if (text.empty()) return 0.0f;
-    const float size = fontHeight > 0.0f ? fontHeight : 12.0f;
-    if (ImGui::GetCurrentContext() != nullptr) {
-        if (ImFont* font = ImGui::GetFont()) {
-            return font->CalcTextSizeA(size, FLT_MAX, 0.0f, text.c_str()).x;
-        }
-    }
-    // Roughly half the height per character, which is about right for the
-    // proportional faces the interface uses.
-    return static_cast<float>(text.size()) * size * 0.5f;
+float measureTextWidth(const std::string& text, const std::string& fontFace,
+                       float fontHeight) {
+    // Through the same function the renderer draws with, so a widget sized to
+    // its own text gets the width its own text will occupy. Measuring in this
+    // client's face at a flat twelve while drawing in the interface's at its
+    // real height made every self-sized label narrower than what went in it —
+    // MoneyFrame sizes all three coin buttons that way, and the gold, silver
+    // and copper ran into one another.
+    return wowee::ui::interfaceTextWidth(text, fontFace, fontHeight);
 }
 
 /// The font string a widget measures: itself if it is one, and otherwise the
@@ -696,7 +695,7 @@ const wowee::ui::Widget* textWidgetOf(lua_State* L, int index) {
 
 int lua_Region_GetTextWidth(lua_State* L) {
     const auto* w = textWidgetOf(L, 1);
-    lua_pushnumber(L, w ? measureTextWidth(w->text, w->fontHeight) : 0.0);
+    lua_pushnumber(L, w ? measureTextWidth(w->text, w->fontFace, w->fontHeight) : 0.0);
     return 1;
 }
 
@@ -774,7 +773,7 @@ int lua_Region_GetWidth(lua_State* L) {
         // _G[name.."Text"]:GetWidth(), so answering zero made every tab on the
         // character sheet collapse to the width of its two end textures, with
         // the label clipped out of sight inside it.
-        lua_pushnumber(L, measureTextWidth(w->text, w->fontHeight));
+        lua_pushnumber(L, measureTextWidth(w->text, w->fontFace, w->fontHeight));
         return 1;
     }
     lua_pushnumber(L, w ? (w->rectW > 0.0f ? w->rectW / es : w->width) : 0.0);

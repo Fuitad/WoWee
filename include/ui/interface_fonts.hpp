@@ -22,4 +22,25 @@ void registerInterfaceFace(const std::string& pathOrName, ImFont* font);
 /// in which case the caller should draw with whatever it was already using.
 ImFont* interfaceFace(const std::string& pathOrName);
 
+/// How wide a piece of text is, in interface units.
+///
+/// The one answer to that question. It was asked twice with two different
+/// answers: the renderer drew a font string in the interface's own face at the
+/// widget's height, and GetTextWidth measured it in whatever face this client
+/// had current at a flat twelve points. Anything that sizes itself from its own
+/// text — and MoneyFrame sizes all three coin buttons that way — came out
+/// narrower than the digits drawn in it, so the numbers ran into each other.
+///
+/// `fontFace` is the widget's own, `fontHeight` its own point size; zero for
+/// either means the default, which is what the renderer falls back to too.
+float interfaceTextWidth(const std::string& text, const std::string& fontFace,
+                         float fontHeight);
+
+/// The face a widget draws in, resolved the way the renderer resolves it: its
+/// own, then the interface default, then whatever is current.
+ImFont* interfaceFaceOrDefault(const std::string& fontFace);
+
+/// The point size a widget draws at, given the height it asked for.
+float interfaceFontSize(float fontHeight);
+
 } // namespace wowee::ui
