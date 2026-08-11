@@ -162,66 +162,50 @@ int handleExportJson(int& i, int argc, char** argv) {
     // open format. Each achievement emits scalar fields plus
     // criteria array; criterion.kind, faction, and flags emit
     // dual int + name forms.
-    std::string base = argv[++i];
-    std::string outPath;
-    if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = cli::withoutExt(base, ".wach");
-    if (outPath.empty()) outPath = base + ".wach.json";
-    if (!wowee::pipeline::WoweeAchievementLoader::exists(base)) {
-        return reportMissing("export-wach-json", "WACH", base, ".wach");
-    }
-    auto c = wowee::pipeline::WoweeAchievementLoader::load(base);
-    nlohmann::json j;
-    j["name"] = c.name;
-    nlohmann::json arr = nlohmann::json::array();
-    for (const auto& e : c.entries) {
-        nlohmann::json je;
-        je["achievementId"] = e.achievementId;
-        je["categoryId"] = e.categoryId;
-        je["name"] = e.name;
-        je["description"] = e.description;
-        je["iconPath"] = e.iconPath;
-        je["titleReward"] = e.titleReward;
-        je["points"] = e.points;
-        je["minLevel"] = e.minLevel;
-        je["faction"] = e.faction;
-        je["factionName"] = wowee::pipeline::WoweeAchievement::factionName(e.faction);
-        je["flags"] = e.flags;
-        nlohmann::json fa = nlohmann::json::array();
-        if (e.flags & wowee::pipeline::WoweeAchievement::HiddenUntilEarned) fa.push_back("hidden");
-        if (e.flags & wowee::pipeline::WoweeAchievement::ServerFirst)       fa.push_back("server-first");
-        if (e.flags & wowee::pipeline::WoweeAchievement::RealmFirst)        fa.push_back("realm-first");
-        if (e.flags & wowee::pipeline::WoweeAchievement::Tracking)          fa.push_back("tracking");
-        if (e.flags & wowee::pipeline::WoweeAchievement::Counter)           fa.push_back("counter");
-        if (e.flags & wowee::pipeline::WoweeAchievement::Account)           fa.push_back("account");
-        je["flagsList"] = fa;
-        nlohmann::json ca = nlohmann::json::array();
-        for (const auto& cr : e.criteria) {
-            ca.push_back({
-                {"criteriaId", cr.criteriaId},
-                {"kind", cr.kind},
-                {"kindName", wowee::pipeline::WoweeAchievement::criteriaKindName(cr.kind)},
-                {"targetId", cr.targetId},
-                {"quantity", cr.quantity},
-                {"description", cr.description},
-            });
+    return cli::exportCatalogJson<wowee::pipeline::WoweeAchievementLoader>(
+        i, argc, argv, "wach", "WACH", "achievements ",
+        [](const auto& c) {
+        nlohmann::json j;
+        j["name"] = c.name;
+        nlohmann::json arr = nlohmann::json::array();
+        for (const auto& e : c.entries) {
+            nlohmann::json je;
+            je["achievementId"] = e.achievementId;
+            je["categoryId"] = e.categoryId;
+            je["name"] = e.name;
+            je["description"] = e.description;
+            je["iconPath"] = e.iconPath;
+            je["titleReward"] = e.titleReward;
+            je["points"] = e.points;
+            je["minLevel"] = e.minLevel;
+            je["faction"] = e.faction;
+            je["factionName"] = wowee::pipeline::WoweeAchievement::factionName(e.faction);
+            je["flags"] = e.flags;
+            nlohmann::json fa = nlohmann::json::array();
+            if (e.flags & wowee::pipeline::WoweeAchievement::HiddenUntilEarned) fa.push_back("hidden");
+            if (e.flags & wowee::pipeline::WoweeAchievement::ServerFirst)       fa.push_back("server-first");
+            if (e.flags & wowee::pipeline::WoweeAchievement::RealmFirst)        fa.push_back("realm-first");
+            if (e.flags & wowee::pipeline::WoweeAchievement::Tracking)          fa.push_back("tracking");
+            if (e.flags & wowee::pipeline::WoweeAchievement::Counter)           fa.push_back("counter");
+            if (e.flags & wowee::pipeline::WoweeAchievement::Account)           fa.push_back("account");
+            je["flagsList"] = fa;
+            nlohmann::json ca = nlohmann::json::array();
+            for (const auto& cr : e.criteria) {
+                ca.push_back({
+                    {"criteriaId", cr.criteriaId},
+                    {"kind", cr.kind},
+                    {"kindName", wowee::pipeline::WoweeAchievement::criteriaKindName(cr.kind)},
+                    {"targetId", cr.targetId},
+                    {"quantity", cr.quantity},
+                    {"description", cr.description},
+                });
+            }
+            je["criteria"] = ca;
+            arr.push_back(je);
         }
-        je["criteria"] = ca;
-        arr.push_back(je);
-    }
-    j["entries"] = arr;
-    std::ofstream out(outPath);
-    if (!out) {
-        std::fprintf(stderr,
-            "export-wach-json: cannot write %s\n", outPath.c_str());
-        return 1;
-    }
-    out << j.dump(2) << "\n";
-    out.close();
-    std::printf("Wrote %s\n", outPath.c_str());
-    std::printf("  source       : %s.wach\n", base.c_str());
-    std::printf("  achievements : %zu\n", c.entries.size());
-    return 0;
+        j["entries"] = arr;
+            return j;
+        });
 }
 
 int handleImportJson(int& i, int argc, char** argv) {

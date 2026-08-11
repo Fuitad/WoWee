@@ -143,52 +143,36 @@ int handleExportJson(int& i, int argc, char** argv) {
     // open format. Vec3 fields (center / boxDims / dest)
     // become 3-element JSON arrays. Shape and kind emit dual
     // int + name forms.
-    std::string base = argv[++i];
-    std::string outPath;
-    if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = cli::withoutExt(base, ".wtrg");
-    if (outPath.empty()) outPath = base + ".wtrg.json";
-    if (!wowee::pipeline::WoweeTriggerLoader::exists(base)) {
-        return reportMissing("export-wtrg-json", "WTRG", base, ".wtrg");
-    }
-    auto c = wowee::pipeline::WoweeTriggerLoader::load(base);
-    nlohmann::json j;
-    j["name"] = c.name;
-    nlohmann::json arr = nlohmann::json::array();
-    for (const auto& e : c.entries) {
-        arr.push_back({
-            {"triggerId", e.triggerId},
-            {"mapId", e.mapId},
-            {"areaId", e.areaId},
-            {"name", e.name},
-            {"center", {e.center.x, e.center.y, e.center.z}},
-            {"shape", e.shape},
-            {"shapeName", wowee::pipeline::WoweeTrigger::shapeName(e.shape)},
-            {"kind", e.kind},
-            {"kindName", wowee::pipeline::WoweeTrigger::kindName(e.kind)},
-            {"boxDims", {e.boxDims.x, e.boxDims.y, e.boxDims.z}},
-            {"radius", e.radius},
-            {"actionTarget", e.actionTarget},
-            {"dest", {e.dest.x, e.dest.y, e.dest.z}},
-            {"destOrientation", e.destOrientation},
-            {"requiredQuestId", e.requiredQuestId},
-            {"requiredItemId", e.requiredItemId},
-            {"minLevel", e.minLevel},
+    return cli::exportCatalogJson<wowee::pipeline::WoweeTriggerLoader>(
+        i, argc, argv, "wtrg", "WTRG", "triggers ",
+        [](const auto& c) {
+        nlohmann::json j;
+        j["name"] = c.name;
+        nlohmann::json arr = nlohmann::json::array();
+        for (const auto& e : c.entries) {
+            arr.push_back({
+                {"triggerId", e.triggerId},
+                {"mapId", e.mapId},
+                {"areaId", e.areaId},
+                {"name", e.name},
+                {"center", {e.center.x, e.center.y, e.center.z}},
+                {"shape", e.shape},
+                {"shapeName", wowee::pipeline::WoweeTrigger::shapeName(e.shape)},
+                {"kind", e.kind},
+                {"kindName", wowee::pipeline::WoweeTrigger::kindName(e.kind)},
+                {"boxDims", {e.boxDims.x, e.boxDims.y, e.boxDims.z}},
+                {"radius", e.radius},
+                {"actionTarget", e.actionTarget},
+                {"dest", {e.dest.x, e.dest.y, e.dest.z}},
+                {"destOrientation", e.destOrientation},
+                {"requiredQuestId", e.requiredQuestId},
+                {"requiredItemId", e.requiredItemId},
+                {"minLevel", e.minLevel},
+            });
+        }
+        j["entries"] = arr;
+            return j;
         });
-    }
-    j["entries"] = arr;
-    std::ofstream out(outPath);
-    if (!out) {
-        std::fprintf(stderr,
-            "export-wtrg-json: cannot write %s\n", outPath.c_str());
-        return 1;
-    }
-    out << j.dump(2) << "\n";
-    out.close();
-    std::printf("Wrote %s\n", outPath.c_str());
-    std::printf("  source   : %s.wtrg\n", base.c_str());
-    std::printf("  triggers : %zu\n", c.entries.size());
-    return 0;
 }
 
 int handleImportJson(int& i, int argc, char** argv) {

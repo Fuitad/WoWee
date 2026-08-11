@@ -138,52 +138,36 @@ int handleExportJson(int& i, int argc, char** argv) {
     // open format. Each template emits scalar fields plus
     // attachments array; categoryId emits dual int + name
     // forms.
-    std::string base = argv[++i];
-    std::string outPath;
-    if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = cli::withoutExt(base, ".wmal");
-    if (outPath.empty()) outPath = base + ".wmal.json";
-    if (!wowee::pipeline::WoweeMailLoader::exists(base)) {
-        return reportMissing("export-wmal-json", "WMAL", base, ".wmal");
-    }
-    auto c = wowee::pipeline::WoweeMailLoader::load(base);
-    nlohmann::json j;
-    j["name"] = c.name;
-    nlohmann::json arr = nlohmann::json::array();
-    for (const auto& e : c.entries) {
-        nlohmann::json je;
-        je["templateId"] = e.templateId;
-        je["senderNpcId"] = e.senderNpcId;
-        je["subject"] = e.subject;
-        je["body"] = e.body;
-        je["senderName"] = e.senderName;
-        je["moneyCopperAttached"] = e.moneyCopperAttached;
-        je["categoryId"] = e.categoryId;
-        je["categoryName"] = wowee::pipeline::WoweeMail::categoryName(e.categoryId);
-        je["cod"] = e.cod;
-        je["returnable"] = e.returnable;
-        je["expiryDays"] = e.expiryDays;
-        nlohmann::json att = nlohmann::json::array();
-        for (const auto& a : e.attachments) {
-            att.push_back({{"itemId", a.itemId},
-                            {"quantity", a.quantity}});
+    return cli::exportCatalogJson<wowee::pipeline::WoweeMailLoader>(
+        i, argc, argv, "wmal", "WMAL", "templates ",
+        [](const auto& c) {
+        nlohmann::json j;
+        j["name"] = c.name;
+        nlohmann::json arr = nlohmann::json::array();
+        for (const auto& e : c.entries) {
+            nlohmann::json je;
+            je["templateId"] = e.templateId;
+            je["senderNpcId"] = e.senderNpcId;
+            je["subject"] = e.subject;
+            je["body"] = e.body;
+            je["senderName"] = e.senderName;
+            je["moneyCopperAttached"] = e.moneyCopperAttached;
+            je["categoryId"] = e.categoryId;
+            je["categoryName"] = wowee::pipeline::WoweeMail::categoryName(e.categoryId);
+            je["cod"] = e.cod;
+            je["returnable"] = e.returnable;
+            je["expiryDays"] = e.expiryDays;
+            nlohmann::json att = nlohmann::json::array();
+            for (const auto& a : e.attachments) {
+                att.push_back({{"itemId", a.itemId},
+                                {"quantity", a.quantity}});
+            }
+            je["attachments"] = att;
+            arr.push_back(je);
         }
-        je["attachments"] = att;
-        arr.push_back(je);
-    }
-    j["entries"] = arr;
-    std::ofstream out(outPath);
-    if (!out) {
-        std::fprintf(stderr,
-            "export-wmal-json: cannot write %s\n", outPath.c_str());
-        return 1;
-    }
-    out << j.dump(2) << "\n";
-    out.close();
-    std::printf("Wrote %s\n", outPath.c_str());
-    std::printf("  source    : %s.wmal\n", base.c_str());
-    std::printf("  templates : %zu\n", c.entries.size());
-    return 0;
+        j["entries"] = arr;
+            return j;
+        });
 }
 
 int handleImportJson(int& i, int argc, char** argv) {

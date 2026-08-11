@@ -143,65 +143,49 @@ int handleExportJson(int& i, int argc, char** argv) {
     // round-trips all 18 scalar fields plus the stats array.
     // Both quality / itemClass / inventoryType emit dual int +
     // name forms so a hand-author can use either.
-    std::string base = argv[++i];
-    std::string outPath;
-    if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = cli::withoutExt(base, ".wit");
-    if (outPath.empty()) outPath = base + ".wit.json";
-    if (!wowee::pipeline::WoweeItemLoader::exists(base)) {
-        return reportMissing("export-wit-json", "WIT", base, ".wit");
-    }
-    auto c = wowee::pipeline::WoweeItemLoader::load(base);
-    nlohmann::json j;
-    j["name"] = c.name;
-    nlohmann::json arr = nlohmann::json::array();
-    for (const auto& e : c.entries) {
-        nlohmann::json je;
-        je["itemId"] = e.itemId;
-        je["displayId"] = e.displayId;
-        je["quality"] = e.quality;
-        je["qualityName"] = wowee::pipeline::WoweeItem::qualityName(e.quality);
-        je["itemClass"] = e.itemClass;
-        je["itemClassName"] = wowee::pipeline::WoweeItem::classNameOf(e.itemClass);
-        je["itemSubClass"] = e.itemSubClass;
-        je["inventoryType"] = e.inventoryType;
-        je["slotName"] = wowee::pipeline::WoweeItem::slotName(e.inventoryType);
-        je["flags"] = e.flags;
-        je["requiredLevel"] = e.requiredLevel;
-        je["itemLevel"] = e.itemLevel;
-        je["sellPriceCopper"] = e.sellPriceCopper;
-        je["buyPriceCopper"] = e.buyPriceCopper;
-        je["maxStack"] = e.maxStack;
-        je["durability"] = e.durability;
-        je["damageMin"] = e.damageMin;
-        je["damageMax"] = e.damageMax;
-        je["attackSpeedMs"] = e.attackSpeedMs;
-        nlohmann::json sa = nlohmann::json::array();
-        for (const auto& s : e.stats) {
-            sa.push_back({
-                {"type", s.type},
-                {"typeName", wowee::pipeline::WoweeItem::statName(s.type)},
-                {"value", s.value},
-            });
+    return cli::exportCatalogJson<wowee::pipeline::WoweeItemLoader>(
+        i, argc, argv, "wit", "WIT", "entries ",
+        [](const auto& c) {
+        nlohmann::json j;
+        j["name"] = c.name;
+        nlohmann::json arr = nlohmann::json::array();
+        for (const auto& e : c.entries) {
+            nlohmann::json je;
+            je["itemId"] = e.itemId;
+            je["displayId"] = e.displayId;
+            je["quality"] = e.quality;
+            je["qualityName"] = wowee::pipeline::WoweeItem::qualityName(e.quality);
+            je["itemClass"] = e.itemClass;
+            je["itemClassName"] = wowee::pipeline::WoweeItem::classNameOf(e.itemClass);
+            je["itemSubClass"] = e.itemSubClass;
+            je["inventoryType"] = e.inventoryType;
+            je["slotName"] = wowee::pipeline::WoweeItem::slotName(e.inventoryType);
+            je["flags"] = e.flags;
+            je["requiredLevel"] = e.requiredLevel;
+            je["itemLevel"] = e.itemLevel;
+            je["sellPriceCopper"] = e.sellPriceCopper;
+            je["buyPriceCopper"] = e.buyPriceCopper;
+            je["maxStack"] = e.maxStack;
+            je["durability"] = e.durability;
+            je["damageMin"] = e.damageMin;
+            je["damageMax"] = e.damageMax;
+            je["attackSpeedMs"] = e.attackSpeedMs;
+            nlohmann::json sa = nlohmann::json::array();
+            for (const auto& s : e.stats) {
+                sa.push_back({
+                    {"type", s.type},
+                    {"typeName", wowee::pipeline::WoweeItem::statName(s.type)},
+                    {"value", s.value},
+                });
+            }
+            je["stats"] = sa;
+            je["name"] = e.name;
+            je["description"] = e.description;
+            arr.push_back(je);
         }
-        je["stats"] = sa;
-        je["name"] = e.name;
-        je["description"] = e.description;
-        arr.push_back(je);
-    }
-    j["entries"] = arr;
-    std::ofstream out(outPath);
-    if (!out) {
-        std::fprintf(stderr,
-            "export-wit-json: cannot write %s\n", outPath.c_str());
-        return 1;
-    }
-    out << j.dump(2) << "\n";
-    out.close();
-    std::printf("Wrote %s\n", outPath.c_str());
-    std::printf("  source  : %s.wit\n", base.c_str());
-    std::printf("  entries : %zu\n", c.entries.size());
-    return 0;
+        j["entries"] = arr;
+            return j;
+        });
 }
 
 int handleImportJson(int& i, int argc, char** argv) {

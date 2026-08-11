@@ -128,32 +128,16 @@ int handleInfo(int& i, int argc, char** argv) {
 }
 
 int handleExportJson(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    std::string outPath;
-    if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = cli::withoutExt(base, ".wsuf");
-    if (outPath.empty()) outPath = base + ".wsuf.json";
-    if (!wowee::pipeline::WoweeItemSuffixLoader::exists(base)) {
-        return reportMissing("export-wsuf-json", "WSUF", base, ".wsuf");
-    }
-    auto c = wowee::pipeline::WoweeItemSuffixLoader::load(base);
-    nlohmann::json j;
-    j["name"] = c.name;
-    nlohmann::json arr = nlohmann::json::array();
-    for (const auto& e : c.entries) appendEntryJson(arr, e);
-    j["entries"] = arr;
-    std::ofstream out(outPath);
-    if (!out) {
-        std::fprintf(stderr,
-            "export-wsuf-json: cannot write %s\n", outPath.c_str());
-        return 1;
-    }
-    out << j.dump(2) << "\n";
-    out.close();
-    std::printf("Wrote %s\n", outPath.c_str());
-    std::printf("  source   : %s.wsuf\n", base.c_str());
-    std::printf("  suffixes : %zu\n", c.entries.size());
-    return 0;
+    return cli::exportCatalogJson<wowee::pipeline::WoweeItemSuffixLoader>(
+        i, argc, argv, "wsuf", "WSUF", "suffixes ",
+        [](const auto& c) {
+        nlohmann::json j;
+        j["name"] = c.name;
+        nlohmann::json arr = nlohmann::json::array();
+        for (const auto& e : c.entries) appendEntryJson(arr, e);
+        j["entries"] = arr;
+            return j;
+        });
 }
 
 int handleImportJson(int& i, int argc, char** argv) {

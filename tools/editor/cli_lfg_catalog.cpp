@@ -125,52 +125,36 @@ int handleExportJson(int& i, int argc, char** argv) {
     // plus dual int + name forms for difficulty (4 values)
     // and expansionRequired (4 values) so hand-edits can
     // use either representation.
-    std::string base = argv[++i];
-    std::string outPath;
-    if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = cli::withoutExt(base, ".wlfg");
-    if (outPath.empty()) outPath = base + ".wlfg.json";
-    if (!wowee::pipeline::WoweeLFGDungeonLoader::exists(base)) {
-        return reportMissing("export-wlfg-json", "WLFG", base, ".wlfg");
-    }
-    auto c = wowee::pipeline::WoweeLFGDungeonLoader::load(base);
-    nlohmann::json j;
-    j["name"] = c.name;
-    nlohmann::json arr = nlohmann::json::array();
-    for (const auto& e : c.entries) {
-        arr.push_back({
-            {"dungeonId", e.dungeonId},
-            {"name", e.name},
-            {"description", e.description},
-            {"mapId", e.mapId},
-            {"minLevel", e.minLevel},
-            {"maxLevel", e.maxLevel},
-            {"recommendedLevel", e.recommendedLevel},
-            {"minGearLevel", e.minGearLevel},
-            {"difficulty", e.difficulty},
-            {"difficultyName", wowee::pipeline::WoweeLFGDungeon::difficultyName(e.difficulty)},
-            {"groupSize", e.groupSize},
-            {"requiredRolesMask", e.requiredRolesMask},
-            {"expansionRequired", e.expansionRequired},
-            {"expansionRequiredName", wowee::pipeline::WoweeLFGDungeon::expansionRequiredName(e.expansionRequired)},
-            {"queueRewardItemId", e.queueRewardItemId},
-            {"queueRewardEmblemCount", e.queueRewardEmblemCount},
-            {"firstClearAchievement", e.firstClearAchievement},
+    return cli::exportCatalogJson<wowee::pipeline::WoweeLFGDungeonLoader>(
+        i, argc, argv, "wlfg", "WLFG", "dungeons ",
+        [](const auto& c) {
+        nlohmann::json j;
+        j["name"] = c.name;
+        nlohmann::json arr = nlohmann::json::array();
+        for (const auto& e : c.entries) {
+            arr.push_back({
+                {"dungeonId", e.dungeonId},
+                {"name", e.name},
+                {"description", e.description},
+                {"mapId", e.mapId},
+                {"minLevel", e.minLevel},
+                {"maxLevel", e.maxLevel},
+                {"recommendedLevel", e.recommendedLevel},
+                {"minGearLevel", e.minGearLevel},
+                {"difficulty", e.difficulty},
+                {"difficultyName", wowee::pipeline::WoweeLFGDungeon::difficultyName(e.difficulty)},
+                {"groupSize", e.groupSize},
+                {"requiredRolesMask", e.requiredRolesMask},
+                {"expansionRequired", e.expansionRequired},
+                {"expansionRequiredName", wowee::pipeline::WoweeLFGDungeon::expansionRequiredName(e.expansionRequired)},
+                {"queueRewardItemId", e.queueRewardItemId},
+                {"queueRewardEmblemCount", e.queueRewardEmblemCount},
+                {"firstClearAchievement", e.firstClearAchievement},
+            });
+        }
+        j["entries"] = arr;
+            return j;
         });
-    }
-    j["entries"] = arr;
-    std::ofstream out(outPath);
-    if (!out) {
-        std::fprintf(stderr,
-            "export-wlfg-json: cannot write %s\n", outPath.c_str());
-        return 1;
-    }
-    out << j.dump(2) << "\n";
-    out.close();
-    std::printf("Wrote %s\n", outPath.c_str());
-    std::printf("  source   : %s.wlfg\n", base.c_str());
-    std::printf("  dungeons : %zu\n", c.entries.size());
-    return 0;
 }
 
 int handleImportJson(int& i, int argc, char** argv) {

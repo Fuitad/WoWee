@@ -112,46 +112,30 @@ int handleInfo(int& i, int argc, char** argv) {
 }
 
 int handleExportJson(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    std::string outPath;
-    if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = cli::withoutExt(base, ".wqso");
-    if (outPath.empty()) outPath = base + ".wqso.json";
-    if (!wowee::pipeline::WoweeQuestSortLoader::exists(base)) {
-        return reportMissing("export-wqso-json", "WQSO", base, ".wqso");
-    }
-    auto c = wowee::pipeline::WoweeQuestSortLoader::load(base);
-    nlohmann::json j;
-    j["name"] = c.name;
-    nlohmann::json arr = nlohmann::json::array();
-    for (const auto& e : c.entries) {
-        arr.push_back({
-            {"sortId", e.sortId},
-            {"name", e.name},
-            {"displayName", e.displayName},
-            {"description", e.description},
-            {"iconPath", e.iconPath},
-            {"sortKind", e.sortKind},
-            {"sortKindName", wowee::pipeline::WoweeQuestSort::sortKindName(e.sortKind)},
-            {"displayPriority", e.displayPriority},
-            {"targetProfessionId", e.targetProfessionId},
-            {"targetClassMask", e.targetClassMask},
-            {"targetFactionId", e.targetFactionId},
+    return cli::exportCatalogJson<wowee::pipeline::WoweeQuestSortLoader>(
+        i, argc, argv, "wqso", "WQSO", "sorts  ",
+        [](const auto& c) {
+        nlohmann::json j;
+        j["name"] = c.name;
+        nlohmann::json arr = nlohmann::json::array();
+        for (const auto& e : c.entries) {
+            arr.push_back({
+                {"sortId", e.sortId},
+                {"name", e.name},
+                {"displayName", e.displayName},
+                {"description", e.description},
+                {"iconPath", e.iconPath},
+                {"sortKind", e.sortKind},
+                {"sortKindName", wowee::pipeline::WoweeQuestSort::sortKindName(e.sortKind)},
+                {"displayPriority", e.displayPriority},
+                {"targetProfessionId", e.targetProfessionId},
+                {"targetClassMask", e.targetClassMask},
+                {"targetFactionId", e.targetFactionId},
+            });
+        }
+        j["entries"] = arr;
+            return j;
         });
-    }
-    j["entries"] = arr;
-    std::ofstream out(outPath);
-    if (!out) {
-        std::fprintf(stderr,
-            "export-wqso-json: cannot write %s\n", outPath.c_str());
-        return 1;
-    }
-    out << j.dump(2) << "\n";
-    out.close();
-    std::printf("Wrote %s\n", outPath.c_str());
-    std::printf("  source : %s.wqso\n", base.c_str());
-    std::printf("  sorts  : %zu\n", c.entries.size());
-    return 0;
 }
 
 int handleImportJson(int& i, int argc, char** argv) {

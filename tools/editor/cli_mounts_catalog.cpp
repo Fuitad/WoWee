@@ -122,52 +122,36 @@ int handleExportJson(int& i, int argc, char** argv) {
     // open format. Each mount emits all 14 scalar fields
     // plus dual int + name forms for kind / faction /
     // category.
-    std::string base = argv[++i];
-    std::string outPath;
-    if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = cli::withoutExt(base, ".wmou");
-    if (outPath.empty()) outPath = base + ".wmou.json";
-    if (!wowee::pipeline::WoweeMountLoader::exists(base)) {
-        return reportMissing("export-wmou-json", "WMOU", base, ".wmou");
-    }
-    auto c = wowee::pipeline::WoweeMountLoader::load(base);
-    nlohmann::json j;
-    j["name"] = c.name;
-    nlohmann::json arr = nlohmann::json::array();
-    for (const auto& e : c.entries) {
-        arr.push_back({
-            {"mountId", e.mountId},
-            {"name", e.name},
-            {"description", e.description},
-            {"iconPath", e.iconPath},
-            {"displayId", e.displayId},
-            {"summonSpellId", e.summonSpellId},
-            {"itemIdToLearn", e.itemIdToLearn},
-            {"requiredSkillId", e.requiredSkillId},
-            {"requiredSkillRank", e.requiredSkillRank},
-            {"speedPercent", e.speedPercent},
-            {"mountKind", e.mountKind},
-            {"mountKindName", wowee::pipeline::WoweeMount::kindName(e.mountKind)},
-            {"factionId", e.factionId},
-            {"factionName", wowee::pipeline::WoweeMount::factionName(e.factionId)},
-            {"categoryId", e.categoryId},
-            {"categoryName", wowee::pipeline::WoweeMount::categoryName(e.categoryId)},
-            {"raceMask", e.raceMask},
+    return cli::exportCatalogJson<wowee::pipeline::WoweeMountLoader>(
+        i, argc, argv, "wmou", "WMOU", "mounts ",
+        [](const auto& c) {
+        nlohmann::json j;
+        j["name"] = c.name;
+        nlohmann::json arr = nlohmann::json::array();
+        for (const auto& e : c.entries) {
+            arr.push_back({
+                {"mountId", e.mountId},
+                {"name", e.name},
+                {"description", e.description},
+                {"iconPath", e.iconPath},
+                {"displayId", e.displayId},
+                {"summonSpellId", e.summonSpellId},
+                {"itemIdToLearn", e.itemIdToLearn},
+                {"requiredSkillId", e.requiredSkillId},
+                {"requiredSkillRank", e.requiredSkillRank},
+                {"speedPercent", e.speedPercent},
+                {"mountKind", e.mountKind},
+                {"mountKindName", wowee::pipeline::WoweeMount::kindName(e.mountKind)},
+                {"factionId", e.factionId},
+                {"factionName", wowee::pipeline::WoweeMount::factionName(e.factionId)},
+                {"categoryId", e.categoryId},
+                {"categoryName", wowee::pipeline::WoweeMount::categoryName(e.categoryId)},
+                {"raceMask", e.raceMask},
+            });
+        }
+        j["entries"] = arr;
+            return j;
         });
-    }
-    j["entries"] = arr;
-    std::ofstream out(outPath);
-    if (!out) {
-        std::fprintf(stderr,
-            "export-wmou-json: cannot write %s\n", outPath.c_str());
-        return 1;
-    }
-    out << j.dump(2) << "\n";
-    out.close();
-    std::printf("Wrote %s\n", outPath.c_str());
-    std::printf("  source : %s.wmou\n", base.c_str());
-    std::printf("  mounts : %zu\n", c.entries.size());
-    return 0;
 }
 
 int handleImportJson(int& i, int argc, char** argv) {

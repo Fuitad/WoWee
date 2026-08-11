@@ -118,47 +118,31 @@ int handleExportJson(int& i, int argc, char** argv) {
     // open format. Each tip emits all 11 scalar fields plus
     // a dual int + name form for displayKind so hand-edits
     // can use either representation.
-    std::string base = argv[++i];
-    std::string outPath;
-    if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = cli::withoutExt(base, ".wgtp");
-    if (outPath.empty()) outPath = base + ".wgtp.json";
-    if (!wowee::pipeline::WoweeGameTipLoader::exists(base)) {
-        return reportMissing("export-wgtp-json", "WGTP", base, ".wgtp");
-    }
-    auto c = wowee::pipeline::WoweeGameTipLoader::load(base);
-    nlohmann::json j;
-    j["name"] = c.name;
-    nlohmann::json arr = nlohmann::json::array();
-    for (const auto& e : c.entries) {
-        arr.push_back({
-            {"tipId", e.tipId},
-            {"name", e.name},
-            {"text", e.text},
-            {"iconPath", e.iconPath},
-            {"displayKind", e.displayKind},
-            {"displayKindName", wowee::pipeline::WoweeGameTip::displayKindName(e.displayKind)},
-            {"audienceFilter", e.audienceFilter},
-            {"minLevel", e.minLevel},
-            {"maxLevel", e.maxLevel},
-            {"displayWeight", e.displayWeight},
-            {"conditionId", e.conditionId},
-            {"requiredClassMask", e.requiredClassMask},
+    return cli::exportCatalogJson<wowee::pipeline::WoweeGameTipLoader>(
+        i, argc, argv, "wgtp", "WGTP", "tips   ",
+        [](const auto& c) {
+        nlohmann::json j;
+        j["name"] = c.name;
+        nlohmann::json arr = nlohmann::json::array();
+        for (const auto& e : c.entries) {
+            arr.push_back({
+                {"tipId", e.tipId},
+                {"name", e.name},
+                {"text", e.text},
+                {"iconPath", e.iconPath},
+                {"displayKind", e.displayKind},
+                {"displayKindName", wowee::pipeline::WoweeGameTip::displayKindName(e.displayKind)},
+                {"audienceFilter", e.audienceFilter},
+                {"minLevel", e.minLevel},
+                {"maxLevel", e.maxLevel},
+                {"displayWeight", e.displayWeight},
+                {"conditionId", e.conditionId},
+                {"requiredClassMask", e.requiredClassMask},
+            });
+        }
+        j["entries"] = arr;
+            return j;
         });
-    }
-    j["entries"] = arr;
-    std::ofstream out(outPath);
-    if (!out) {
-        std::fprintf(stderr,
-            "export-wgtp-json: cannot write %s\n", outPath.c_str());
-        return 1;
-    }
-    out << j.dump(2) << "\n";
-    out.close();
-    std::printf("Wrote %s\n", outPath.c_str());
-    std::printf("  source : %s.wgtp\n", base.c_str());
-    std::printf("  tips   : %zu\n", c.entries.size());
-    return 0;
 }
 
 int handleImportJson(int& i, int argc, char** argv) {

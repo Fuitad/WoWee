@@ -15,6 +15,7 @@
  */
 
 #include <cstdio>
+#include <fstream>
 #include <cstdint>
 #include <string>
 #include <unordered_set>
@@ -124,6 +125,42 @@ inline int reportValidation(const std::string& tag, const std::string& base, boo
         return 0;
     }
     return printValidationIssues(errors, warnings);
+}
+
+/// Run a format's --export-*-json handler: resolve the paths, refuse if the
+/// file is not there, load it, build the JSON, write it, and say what was
+/// written.
+///
+/// `build` is the only part that knows the format. `countLabel` is the word
+/// each handler prints beside the entry count, with whatever padding it used —
+/// "mechanics ", "slots   " — so the output is unchanged down to the column the
+/// colon lands in.
+template <typename Loader, typename Build>
+int exportCatalogJson(int& i, int argc, char** argv, const char* tag, const char* label,
+                      const char* countLabel, Build build) {
+    std::string base = argv[++i];
+    std::string outPath;
+    if (parseOptArg(i, argc, argv)) outPath = argv[++i];
+    const std::string extension = std::string(".") + tag;
+    base = withoutExt(base, extension);
+    if (outPath.empty()) outPath = base + extension + ".json";
+    if (!Loader::exists(base)) {
+        return reportMissing((std::string("export-") + tag + "-json").c_str(), label,
+                             base, extension.c_str());
+    }
+    const auto catalog = Loader::load(base);
+    const nlohmann::json j = build(catalog);
+    std::ofstream out(outPath);
+    if (!out) {
+        std::fprintf(stderr, "export-%s-json: cannot write %s\n", tag, outPath.c_str());
+        return 1;
+    }
+    out << j.dump(2) << "\n";
+    out.close();
+    std::printf("Wrote %s\n", outPath.c_str());
+    std::printf("  source    : %s%s\n", base.c_str(), extension.c_str());
+    std::printf("  %s: %zu\n", countLabel, catalog.entries.size());
+    return 0;
 }
 
 /// Ids already seen while validating, so the second one can be reported.

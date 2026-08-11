@@ -118,48 +118,32 @@ int handleExportJson(int& i, int argc, char** argv) {
     // open format. Each channel emits all 10 scalar fields
     // plus dual int + name forms for channelType and
     // factionAccess (so hand-edits can use either form).
-    std::string base = argv[++i];
-    std::string outPath;
-    if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = cli::withoutExt(base, ".wchn");
-    if (outPath.empty()) outPath = base + ".wchn.json";
-    if (!wowee::pipeline::WoweeChannelLoader::exists(base)) {
-        return reportMissing("export-wchn-json", "WCHN", base, ".wchn");
-    }
-    auto c = wowee::pipeline::WoweeChannelLoader::load(base);
-    nlohmann::json j;
-    j["name"] = c.name;
-    nlohmann::json arr = nlohmann::json::array();
-    for (const auto& e : c.entries) {
-        arr.push_back({
-            {"channelId", e.channelId},
-            {"name", e.name},
-            {"description", e.description},
-            {"channelType", e.channelType},
-            {"channelTypeName", wowee::pipeline::WoweeChannel::channelTypeName(e.channelType)},
-            {"factionAccess", e.factionAccess},
-            {"factionAccessName", wowee::pipeline::WoweeChannel::factionAccessName(e.factionAccess)},
-            {"autoJoin", e.autoJoin},
-            {"announce", e.announce},
-            {"moderated", e.moderated},
-            {"minLevel", e.minLevel},
-            {"areaIdGate", e.areaIdGate},
-            {"mapIdGate", e.mapIdGate},
+    return cli::exportCatalogJson<wowee::pipeline::WoweeChannelLoader>(
+        i, argc, argv, "wchn", "WCHN", "channels ",
+        [](const auto& c) {
+        nlohmann::json j;
+        j["name"] = c.name;
+        nlohmann::json arr = nlohmann::json::array();
+        for (const auto& e : c.entries) {
+            arr.push_back({
+                {"channelId", e.channelId},
+                {"name", e.name},
+                {"description", e.description},
+                {"channelType", e.channelType},
+                {"channelTypeName", wowee::pipeline::WoweeChannel::channelTypeName(e.channelType)},
+                {"factionAccess", e.factionAccess},
+                {"factionAccessName", wowee::pipeline::WoweeChannel::factionAccessName(e.factionAccess)},
+                {"autoJoin", e.autoJoin},
+                {"announce", e.announce},
+                {"moderated", e.moderated},
+                {"minLevel", e.minLevel},
+                {"areaIdGate", e.areaIdGate},
+                {"mapIdGate", e.mapIdGate},
+            });
+        }
+        j["entries"] = arr;
+            return j;
         });
-    }
-    j["entries"] = arr;
-    std::ofstream out(outPath);
-    if (!out) {
-        std::fprintf(stderr,
-            "export-wchn-json: cannot write %s\n", outPath.c_str());
-        return 1;
-    }
-    out << j.dump(2) << "\n";
-    out.close();
-    std::printf("Wrote %s\n", outPath.c_str());
-    std::printf("  source   : %s.wchn\n", base.c_str());
-    std::printf("  channels : %zu\n", c.entries.size());
-    return 0;
 }
 
 int handleImportJson(int& i, int argc, char** argv) {

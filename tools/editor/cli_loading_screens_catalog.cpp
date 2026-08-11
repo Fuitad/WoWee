@@ -117,49 +117,33 @@ int handleExportJson(int& i, int argc, char** argv) {
     // Mirrors the JSON pairs added for every other novel
     // open format. Each screen emits all 11 scalar fields
     // plus a dual int + name form for expansionRequired.
-    std::string base = argv[++i];
-    std::string outPath;
-    if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = cli::withoutExt(base, ".wlds");
-    if (outPath.empty()) outPath = base + ".wlds.json";
-    if (!wowee::pipeline::WoweeLoadingScreenLoader::exists(base)) {
-        return reportMissing("export-wlds-json", "WLDS", base, ".wlds");
-    }
-    auto c = wowee::pipeline::WoweeLoadingScreenLoader::load(base);
-    nlohmann::json j;
-    j["name"] = c.name;
-    nlohmann::json arr = nlohmann::json::array();
-    for (const auto& e : c.entries) {
-        arr.push_back({
-            {"screenId", e.screenId},
-            {"mapId", e.mapId},
-            {"name", e.name},
-            {"description", e.description},
-            {"texturePath", e.texturePath},
-            {"iconPath", e.iconPath},
-            {"attribution", e.attribution},
-            {"minLevel", e.minLevel},
-            {"maxLevel", e.maxLevel},
-            {"displayWeight", e.displayWeight},
-            {"expansionRequired", e.expansionRequired},
-            {"expansionRequiredName", wowee::pipeline::WoweeLoadingScreen::expansionGateName(e.expansionRequired)},
-            {"isAnimated", e.isAnimated},
-            {"isWideAspect", e.isWideAspect},
+    return cli::exportCatalogJson<wowee::pipeline::WoweeLoadingScreenLoader>(
+        i, argc, argv, "wlds", "WLDS", "screens ",
+        [](const auto& c) {
+        nlohmann::json j;
+        j["name"] = c.name;
+        nlohmann::json arr = nlohmann::json::array();
+        for (const auto& e : c.entries) {
+            arr.push_back({
+                {"screenId", e.screenId},
+                {"mapId", e.mapId},
+                {"name", e.name},
+                {"description", e.description},
+                {"texturePath", e.texturePath},
+                {"iconPath", e.iconPath},
+                {"attribution", e.attribution},
+                {"minLevel", e.minLevel},
+                {"maxLevel", e.maxLevel},
+                {"displayWeight", e.displayWeight},
+                {"expansionRequired", e.expansionRequired},
+                {"expansionRequiredName", wowee::pipeline::WoweeLoadingScreen::expansionGateName(e.expansionRequired)},
+                {"isAnimated", e.isAnimated},
+                {"isWideAspect", e.isWideAspect},
+            });
+        }
+        j["entries"] = arr;
+            return j;
         });
-    }
-    j["entries"] = arr;
-    std::ofstream out(outPath);
-    if (!out) {
-        std::fprintf(stderr,
-            "export-wlds-json: cannot write %s\n", outPath.c_str());
-        return 1;
-    }
-    out << j.dump(2) << "\n";
-    out.close();
-    std::printf("Wrote %s\n", outPath.c_str());
-    std::printf("  source  : %s.wlds\n", base.c_str());
-    std::printf("  screens : %zu\n", c.entries.size());
-    return 0;
 }
 
 int handleImportJson(int& i, int argc, char** argv) {

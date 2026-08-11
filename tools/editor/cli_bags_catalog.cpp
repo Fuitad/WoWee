@@ -118,46 +118,30 @@ int handleExportJson(int& i, int argc, char** argv) {
     // use either representation. acceptsBagSubclassMask is
     // dumped as a raw uint32 — users hand-edit using the
     // kAccepts* bit constants documented in the header.
-    std::string base = argv[++i];
-    std::string outPath;
-    if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = cli::withoutExt(base, ".wbnk");
-    if (outPath.empty()) outPath = base + ".wbnk.json";
-    if (!wowee::pipeline::WoweeBagSlotLoader::exists(base)) {
-        return reportMissing("export-wbnk-json", "WBNK", base, ".wbnk");
-    }
-    auto c = wowee::pipeline::WoweeBagSlotLoader::load(base);
-    nlohmann::json j;
-    j["name"] = c.name;
-    nlohmann::json arr = nlohmann::json::array();
-    for (const auto& e : c.entries) {
-        arr.push_back({
-            {"bagSlotId", e.bagSlotId},
-            {"name", e.name},
-            {"description", e.description},
-            {"bagKind", e.bagKind},
-            {"bagKindName", wowee::pipeline::WoweeBagSlot::bagKindName(e.bagKind)},
-            {"containerSize", e.containerSize},
-            {"displayOrder", e.displayOrder},
-            {"isUnlocked", e.isUnlocked},
-            {"fixedBagItemId", e.fixedBagItemId},
-            {"unlockCostCopper", e.unlockCostCopper},
-            {"acceptsBagSubclassMask", e.acceptsBagSubclassMask},
+    return cli::exportCatalogJson<wowee::pipeline::WoweeBagSlotLoader>(
+        i, argc, argv, "wbnk", "WBNK", "slots  ",
+        [](const auto& c) {
+        nlohmann::json j;
+        j["name"] = c.name;
+        nlohmann::json arr = nlohmann::json::array();
+        for (const auto& e : c.entries) {
+            arr.push_back({
+                {"bagSlotId", e.bagSlotId},
+                {"name", e.name},
+                {"description", e.description},
+                {"bagKind", e.bagKind},
+                {"bagKindName", wowee::pipeline::WoweeBagSlot::bagKindName(e.bagKind)},
+                {"containerSize", e.containerSize},
+                {"displayOrder", e.displayOrder},
+                {"isUnlocked", e.isUnlocked},
+                {"fixedBagItemId", e.fixedBagItemId},
+                {"unlockCostCopper", e.unlockCostCopper},
+                {"acceptsBagSubclassMask", e.acceptsBagSubclassMask},
+            });
+        }
+        j["entries"] = arr;
+            return j;
         });
-    }
-    j["entries"] = arr;
-    std::ofstream out(outPath);
-    if (!out) {
-        std::fprintf(stderr,
-            "export-wbnk-json: cannot write %s\n", outPath.c_str());
-        return 1;
-    }
-    out << j.dump(2) << "\n";
-    out.close();
-    std::printf("Wrote %s\n", outPath.c_str());
-    std::printf("  source : %s.wbnk\n", base.c_str());
-    std::printf("  slots  : %zu\n", c.entries.size());
-    return 0;
 }
 
 int handleImportJson(int& i, int argc, char** argv) {

@@ -112,46 +112,30 @@ int handleInfo(int& i, int argc, char** argv) {
 }
 
 int handleExportJson(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    std::string outPath;
-    if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = cli::withoutExt(base, ".wcrr");
-    if (outPath.empty()) outPath = base + ".wcrr.json";
-    if (!wowee::pipeline::WoweeCombatRatingLoader::exists(base)) {
-        return reportMissing("export-wcrr-json", "WCRR", base, ".wcrr");
-    }
-    auto c = wowee::pipeline::WoweeCombatRatingLoader::load(base);
-    nlohmann::json j;
-    j["name"] = c.name;
-    nlohmann::json arr = nlohmann::json::array();
-    for (const auto& e : c.entries) {
-        arr.push_back({
-            {"ratingType", e.ratingType},
-            {"name", e.name},
-            {"description", e.description},
-            {"iconPath", e.iconPath},
-            {"ratingKind", e.ratingKind},
-            {"ratingKindName", wowee::pipeline::WoweeCombatRating::ratingKindName(e.ratingKind)},
-            {"pointsAtL1", e.pointsAtL1},
-            {"pointsAtL60", e.pointsAtL60},
-            {"pointsAtL70", e.pointsAtL70},
-            {"pointsAtL80", e.pointsAtL80},
-            {"maxBenefitPercent", e.maxBenefitPercent},
+    return cli::exportCatalogJson<wowee::pipeline::WoweeCombatRatingLoader>(
+        i, argc, argv, "wcrr", "WCRR", "ratings ",
+        [](const auto& c) {
+        nlohmann::json j;
+        j["name"] = c.name;
+        nlohmann::json arr = nlohmann::json::array();
+        for (const auto& e : c.entries) {
+            arr.push_back({
+                {"ratingType", e.ratingType},
+                {"name", e.name},
+                {"description", e.description},
+                {"iconPath", e.iconPath},
+                {"ratingKind", e.ratingKind},
+                {"ratingKindName", wowee::pipeline::WoweeCombatRating::ratingKindName(e.ratingKind)},
+                {"pointsAtL1", e.pointsAtL1},
+                {"pointsAtL60", e.pointsAtL60},
+                {"pointsAtL70", e.pointsAtL70},
+                {"pointsAtL80", e.pointsAtL80},
+                {"maxBenefitPercent", e.maxBenefitPercent},
+            });
+        }
+        j["entries"] = arr;
+            return j;
         });
-    }
-    j["entries"] = arr;
-    std::ofstream out(outPath);
-    if (!out) {
-        std::fprintf(stderr,
-            "export-wcrr-json: cannot write %s\n", outPath.c_str());
-        return 1;
-    }
-    out << j.dump(2) << "\n";
-    out.close();
-    std::printf("Wrote %s\n", outPath.c_str());
-    std::printf("  source  : %s.wcrr\n", base.c_str());
-    std::printf("  ratings : %zu\n", c.entries.size());
-    return 0;
 }
 
 int handleImportJson(int& i, int argc, char** argv) {

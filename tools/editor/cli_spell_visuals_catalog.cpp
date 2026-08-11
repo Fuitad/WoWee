@@ -119,51 +119,35 @@ int handleExportJson(int& i, int argc, char** argv) {
     // open format. Each visual kit emits all 12 scalar fields
     // and 4 model-path strings — there are no enums to widen
     // with name forms, so the mapping is straightforward.
-    std::string base = argv[++i];
-    std::string outPath;
-    if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = cli::withoutExt(base, ".wsvk");
-    if (outPath.empty()) outPath = base + ".wsvk.json";
-    if (!wowee::pipeline::WoweeSpellVisualKitLoader::exists(base)) {
-        return reportMissing("export-wsvk-json", "WSVK", base, ".wsvk");
-    }
-    auto c = wowee::pipeline::WoweeSpellVisualKitLoader::load(base);
-    nlohmann::json j;
-    j["name"] = c.name;
-    nlohmann::json arr = nlohmann::json::array();
-    for (const auto& e : c.entries) {
-        arr.push_back({
-            {"visualKitId", e.visualKitId},
-            {"name", e.name},
-            {"description", e.description},
-            {"castEffectModelPath", e.castEffectModelPath},
-            {"projectileModelPath", e.projectileModelPath},
-            {"impactEffectModelPath", e.impactEffectModelPath},
-            {"handEffectModelPath", e.handEffectModelPath},
-            {"precastAnimId", e.precastAnimId},
-            {"castAnimId", e.castAnimId},
-            {"impactAnimId", e.impactAnimId},
-            {"castSoundId", e.castSoundId},
-            {"impactSoundId", e.impactSoundId},
-            {"projectileSpeed", e.projectileSpeed},
-            {"projectileGravity", e.projectileGravity},
-            {"castDurationMs", e.castDurationMs},
-            {"impactRadius", e.impactRadius},
+    return cli::exportCatalogJson<wowee::pipeline::WoweeSpellVisualKitLoader>(
+        i, argc, argv, "wsvk", "WSVK", "visuals ",
+        [](const auto& c) {
+        nlohmann::json j;
+        j["name"] = c.name;
+        nlohmann::json arr = nlohmann::json::array();
+        for (const auto& e : c.entries) {
+            arr.push_back({
+                {"visualKitId", e.visualKitId},
+                {"name", e.name},
+                {"description", e.description},
+                {"castEffectModelPath", e.castEffectModelPath},
+                {"projectileModelPath", e.projectileModelPath},
+                {"impactEffectModelPath", e.impactEffectModelPath},
+                {"handEffectModelPath", e.handEffectModelPath},
+                {"precastAnimId", e.precastAnimId},
+                {"castAnimId", e.castAnimId},
+                {"impactAnimId", e.impactAnimId},
+                {"castSoundId", e.castSoundId},
+                {"impactSoundId", e.impactSoundId},
+                {"projectileSpeed", e.projectileSpeed},
+                {"projectileGravity", e.projectileGravity},
+                {"castDurationMs", e.castDurationMs},
+                {"impactRadius", e.impactRadius},
+            });
+        }
+        j["entries"] = arr;
+            return j;
         });
-    }
-    j["entries"] = arr;
-    std::ofstream out(outPath);
-    if (!out) {
-        std::fprintf(stderr,
-            "export-wsvk-json: cannot write %s\n", outPath.c_str());
-        return 1;
-    }
-    out << j.dump(2) << "\n";
-    out.close();
-    std::printf("Wrote %s\n", outPath.c_str());
-    std::printf("  source  : %s.wsvk\n", base.c_str());
-    std::printf("  visuals : %zu\n", c.entries.size());
-    return 0;
 }
 
 int handleImportJson(int& i, int argc, char** argv) {

@@ -117,48 +117,32 @@ int handleExportJson(int& i, int argc, char** argv) {
     // Mirrors the JSON pairs added for every other novel
     // open format. Each mechanic emits all 9 scalar fields
     // plus dual int + name forms for drCategory and dispelType.
-    std::string base = argv[++i];
-    std::string outPath;
-    if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = cli::withoutExt(base, ".wsmc");
-    if (outPath.empty()) outPath = base + ".wsmc.json";
-    if (!wowee::pipeline::WoweeSpellMechanicLoader::exists(base)) {
-        return reportMissing("export-wsmc-json", "WSMC", base, ".wsmc");
-    }
-    auto c = wowee::pipeline::WoweeSpellMechanicLoader::load(base);
-    nlohmann::json j;
-    j["name"] = c.name;
-    nlohmann::json arr = nlohmann::json::array();
-    for (const auto& e : c.entries) {
-        arr.push_back({
-            {"mechanicId", e.mechanicId},
-            {"name", e.name},
-            {"description", e.description},
-            {"iconPath", e.iconPath},
-            {"breaksOnDamage", e.breaksOnDamage},
-            {"canBeDispelled", e.canBeDispelled},
-            {"drCategory", e.drCategory},
-            {"drCategoryName", wowee::pipeline::WoweeSpellMechanic::drCategoryName(e.drCategory)},
-            {"dispelType", e.dispelType},
-            {"dispelTypeName", wowee::pipeline::WoweeSpellMechanic::dispelTypeName(e.dispelType)},
-            {"defaultDurationMs", e.defaultDurationMs},
-            {"maxStacks", e.maxStacks},
-            {"conflictsMask", e.conflictsMask},
+    return cli::exportCatalogJson<wowee::pipeline::WoweeSpellMechanicLoader>(
+        i, argc, argv, "wsmc", "WSMC", "mechanics ",
+        [](const auto& c) {
+        nlohmann::json j;
+        j["name"] = c.name;
+        nlohmann::json arr = nlohmann::json::array();
+        for (const auto& e : c.entries) {
+            arr.push_back({
+                {"mechanicId", e.mechanicId},
+                {"name", e.name},
+                {"description", e.description},
+                {"iconPath", e.iconPath},
+                {"breaksOnDamage", e.breaksOnDamage},
+                {"canBeDispelled", e.canBeDispelled},
+                {"drCategory", e.drCategory},
+                {"drCategoryName", wowee::pipeline::WoweeSpellMechanic::drCategoryName(e.drCategory)},
+                {"dispelType", e.dispelType},
+                {"dispelTypeName", wowee::pipeline::WoweeSpellMechanic::dispelTypeName(e.dispelType)},
+                {"defaultDurationMs", e.defaultDurationMs},
+                {"maxStacks", e.maxStacks},
+                {"conflictsMask", e.conflictsMask},
+            });
+        }
+        j["entries"] = arr;
+            return j;
         });
-    }
-    j["entries"] = arr;
-    std::ofstream out(outPath);
-    if (!out) {
-        std::fprintf(stderr,
-            "export-wsmc-json: cannot write %s\n", outPath.c_str());
-        return 1;
-    }
-    out << j.dump(2) << "\n";
-    out.close();
-    std::printf("Wrote %s\n", outPath.c_str());
-    std::printf("  source    : %s.wsmc\n", base.c_str());
-    std::printf("  mechanics : %zu\n", c.entries.size());
-    return 0;
 }
 
 int handleImportJson(int& i, int argc, char** argv) {

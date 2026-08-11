@@ -126,54 +126,38 @@ int handleExportJson(int& i, int argc, char** argv) {
     // open format. Vec3 fields (allianceStart / hordeStart)
     // become 3-element JSON arrays. objectiveKind emits dual
     // int + name forms.
-    std::string base = argv[++i];
-    std::string outPath;
-    if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = cli::withoutExt(base, ".wbgd");
-    if (outPath.empty()) outPath = base + ".wbgd.json";
-    if (!wowee::pipeline::WoweeBattlegroundLoader::exists(base)) {
-        return reportMissing("export-wbgd-json", "WBGD", base, ".wbgd");
-    }
-    auto c = wowee::pipeline::WoweeBattlegroundLoader::load(base);
-    nlohmann::json j;
-    j["name"] = c.name;
-    nlohmann::json arr = nlohmann::json::array();
-    for (const auto& e : c.entries) {
-        arr.push_back({
-            {"battlegroundId", e.battlegroundId},
-            {"mapId", e.mapId},
-            {"name", e.name},
-            {"description", e.description},
-            {"objectiveKind", e.objectiveKind},
-            {"objectiveKindName", wowee::pipeline::WoweeBattleground::objectiveKindName(e.objectiveKind)},
-            {"minPlayersPerSide", e.minPlayersPerSide},
-            {"maxPlayersPerSide", e.maxPlayersPerSide},
-            {"minLevel", e.minLevel},
-            {"maxLevel", e.maxLevel},
-            {"scoreToWin", e.scoreToWin},
-            {"timeLimitSeconds", e.timeLimitSeconds},
-            {"bracketSize", e.bracketSize},
-            {"allianceStart", {e.allianceStart.x, e.allianceStart.y, e.allianceStart.z}},
-            {"allianceFacing", e.allianceFacing},
-            {"hordeStart", {e.hordeStart.x, e.hordeStart.y, e.hordeStart.z}},
-            {"hordeFacing", e.hordeFacing},
-            {"respawnTimeSeconds", e.respawnTimeSeconds},
-            {"markTokenId", e.markTokenId},
+    return cli::exportCatalogJson<wowee::pipeline::WoweeBattlegroundLoader>(
+        i, argc, argv, "wbgd", "WBGD", "bgs    ",
+        [](const auto& c) {
+        nlohmann::json j;
+        j["name"] = c.name;
+        nlohmann::json arr = nlohmann::json::array();
+        for (const auto& e : c.entries) {
+            arr.push_back({
+                {"battlegroundId", e.battlegroundId},
+                {"mapId", e.mapId},
+                {"name", e.name},
+                {"description", e.description},
+                {"objectiveKind", e.objectiveKind},
+                {"objectiveKindName", wowee::pipeline::WoweeBattleground::objectiveKindName(e.objectiveKind)},
+                {"minPlayersPerSide", e.minPlayersPerSide},
+                {"maxPlayersPerSide", e.maxPlayersPerSide},
+                {"minLevel", e.minLevel},
+                {"maxLevel", e.maxLevel},
+                {"scoreToWin", e.scoreToWin},
+                {"timeLimitSeconds", e.timeLimitSeconds},
+                {"bracketSize", e.bracketSize},
+                {"allianceStart", {e.allianceStart.x, e.allianceStart.y, e.allianceStart.z}},
+                {"allianceFacing", e.allianceFacing},
+                {"hordeStart", {e.hordeStart.x, e.hordeStart.y, e.hordeStart.z}},
+                {"hordeFacing", e.hordeFacing},
+                {"respawnTimeSeconds", e.respawnTimeSeconds},
+                {"markTokenId", e.markTokenId},
+            });
+        }
+        j["entries"] = arr;
+            return j;
         });
-    }
-    j["entries"] = arr;
-    std::ofstream out(outPath);
-    if (!out) {
-        std::fprintf(stderr,
-            "export-wbgd-json: cannot write %s\n", outPath.c_str());
-        return 1;
-    }
-    out << j.dump(2) << "\n";
-    out.close();
-    std::printf("Wrote %s\n", outPath.c_str());
-    std::printf("  source : %s.wbgd\n", base.c_str());
-    std::printf("  bgs    : %zu\n", c.entries.size());
-    return 0;
 }
 
 int handleImportJson(int& i, int argc, char** argv) {

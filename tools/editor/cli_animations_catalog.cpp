@@ -113,45 +113,29 @@ int handleExportJson(int& i, int argc, char** argv) {
     // open format. Each animation emits all 8 scalar fields
     // plus a dual int + name form for behaviorTier so
     // hand-edits can use either representation.
-    std::string base = argv[++i];
-    std::string outPath;
-    if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = cli::withoutExt(base, ".wani");
-    if (outPath.empty()) outPath = base + ".wani.json";
-    if (!wowee::pipeline::WoweeAnimationLoader::exists(base)) {
-        return reportMissing("export-wani-json", "WANI", base, ".wani");
-    }
-    auto c = wowee::pipeline::WoweeAnimationLoader::load(base);
-    nlohmann::json j;
-    j["name"] = c.name;
-    nlohmann::json arr = nlohmann::json::array();
-    for (const auto& e : c.entries) {
-        arr.push_back({
-            {"animationId", e.animationId},
-            {"name", e.name},
-            {"description", e.description},
-            {"fallbackId", e.fallbackId},
-            {"behaviorId", e.behaviorId},
-            {"behaviorTier", e.behaviorTier},
-            {"behaviorTierName", wowee::pipeline::WoweeAnimation::behaviorTierName(e.behaviorTier)},
-            {"flags", e.flags},
-            {"weaponFlags", e.weaponFlags},
-            {"loopDurationMs", e.loopDurationMs},
+    return cli::exportCatalogJson<wowee::pipeline::WoweeAnimationLoader>(
+        i, argc, argv, "wani", "WANI", "animations ",
+        [](const auto& c) {
+        nlohmann::json j;
+        j["name"] = c.name;
+        nlohmann::json arr = nlohmann::json::array();
+        for (const auto& e : c.entries) {
+            arr.push_back({
+                {"animationId", e.animationId},
+                {"name", e.name},
+                {"description", e.description},
+                {"fallbackId", e.fallbackId},
+                {"behaviorId", e.behaviorId},
+                {"behaviorTier", e.behaviorTier},
+                {"behaviorTierName", wowee::pipeline::WoweeAnimation::behaviorTierName(e.behaviorTier)},
+                {"flags", e.flags},
+                {"weaponFlags", e.weaponFlags},
+                {"loopDurationMs", e.loopDurationMs},
+            });
+        }
+        j["entries"] = arr;
+            return j;
         });
-    }
-    j["entries"] = arr;
-    std::ofstream out(outPath);
-    if (!out) {
-        std::fprintf(stderr,
-            "export-wani-json: cannot write %s\n", outPath.c_str());
-        return 1;
-    }
-    out << j.dump(2) << "\n";
-    out.close();
-    std::printf("Wrote %s\n", outPath.c_str());
-    std::printf("  source     : %s.wani\n", base.c_str());
-    std::printf("  animations : %zu\n", c.entries.size());
-    return 0;
 }
 
 int handleImportJson(int& i, int argc, char** argv) {

@@ -112,44 +112,28 @@ int handleExportJson(int& i, int argc, char** argv) {
     // Mirrors the JSON pairs added for every other novel
     // open format. Each skill emits all 8 scalar fields plus
     // dual int + name forms for categoryId.
-    std::string base = argv[++i];
-    std::string outPath;
-    if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = cli::withoutExt(base, ".wskl");
-    if (outPath.empty()) outPath = base + ".wskl.json";
-    if (!wowee::pipeline::WoweeSkillLoader::exists(base)) {
-        return reportMissing("export-wskl-json", "WSKL", base, ".wskl");
-    }
-    auto c = wowee::pipeline::WoweeSkillLoader::load(base);
-    nlohmann::json j;
-    j["name"] = c.name;
-    nlohmann::json arr = nlohmann::json::array();
-    for (const auto& e : c.entries) {
-        arr.push_back({
-            {"skillId", e.skillId},
-            {"name", e.name},
-            {"description", e.description},
-            {"categoryId", e.categoryId},
-            {"categoryName", wowee::pipeline::WoweeSkill::categoryName(e.categoryId)},
-            {"canTrain", e.canTrain},
-            {"maxRank", e.maxRank},
-            {"rankPerLevel", e.rankPerLevel},
-            {"iconPath", e.iconPath},
+    return cli::exportCatalogJson<wowee::pipeline::WoweeSkillLoader>(
+        i, argc, argv, "wskl", "WSKL", "skills ",
+        [](const auto& c) {
+        nlohmann::json j;
+        j["name"] = c.name;
+        nlohmann::json arr = nlohmann::json::array();
+        for (const auto& e : c.entries) {
+            arr.push_back({
+                {"skillId", e.skillId},
+                {"name", e.name},
+                {"description", e.description},
+                {"categoryId", e.categoryId},
+                {"categoryName", wowee::pipeline::WoweeSkill::categoryName(e.categoryId)},
+                {"canTrain", e.canTrain},
+                {"maxRank", e.maxRank},
+                {"rankPerLevel", e.rankPerLevel},
+                {"iconPath", e.iconPath},
+            });
+        }
+        j["entries"] = arr;
+            return j;
         });
-    }
-    j["entries"] = arr;
-    std::ofstream out(outPath);
-    if (!out) {
-        std::fprintf(stderr,
-            "export-wskl-json: cannot write %s\n", outPath.c_str());
-        return 1;
-    }
-    out << j.dump(2) << "\n";
-    out.close();
-    std::printf("Wrote %s\n", outPath.c_str());
-    std::printf("  source : %s.wskl\n", base.c_str());
-    std::printf("  skills : %zu\n", c.entries.size());
-    return 0;
 }
 
 int handleImportJson(int& i, int argc, char** argv) {

@@ -163,90 +163,74 @@ int handleExportJson(int& i, int argc, char** argv) {
     // Mirrors the JSON pairs added for every other novel
     // open format. Each guild emits header scalars plus the
     // ranks / members / bankTabs / perks sub-arrays.
-    std::string base = argv[++i];
-    std::string outPath;
-    if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = cli::withoutExt(base, ".wgld");
-    if (outPath.empty()) outPath = base + ".wgld.json";
-    if (!wowee::pipeline::WoweeGuildLoader::exists(base)) {
-        return reportMissing("export-wgld-json", "WGLD", base, ".wgld");
-    }
-    auto c = wowee::pipeline::WoweeGuildLoader::load(base);
-    nlohmann::json j;
-    j["name"] = c.name;
-    nlohmann::json arr = nlohmann::json::array();
-    for (const auto& e : c.entries) {
-        nlohmann::json je;
-        je["guildId"] = e.guildId;
-        je["name"] = e.name;
-        je["leaderName"] = e.leaderName;
-        je["motd"] = e.motd;
-        je["info"] = e.info;
-        je["creationDate"] = e.creationDate;
-        je["experience"] = e.experience;
-        je["level"] = e.level;
-        je["factionId"] = e.factionId;
-        je["factionName"] = wowee::pipeline::WoweeGuild::factionName(e.factionId);
-        je["bankCopper"] = e.bankCopper;
-        je["emblem"] = e.emblem;
-        nlohmann::json ranks = nlohmann::json::array();
-        for (const auto& r : e.ranks) {
-            ranks.push_back({
-                {"rankIndex", r.rankIndex},
-                {"name", r.name},
-                {"permissionsMask", r.permissionsMask},
-                {"moneyPerDayCopper", r.moneyPerDayCopper},
-            });
+    return cli::exportCatalogJson<wowee::pipeline::WoweeGuildLoader>(
+        i, argc, argv, "wgld", "WGLD", "guilds ",
+        [](const auto& c) {
+        nlohmann::json j;
+        j["name"] = c.name;
+        nlohmann::json arr = nlohmann::json::array();
+        for (const auto& e : c.entries) {
+            nlohmann::json je;
+            je["guildId"] = e.guildId;
+            je["name"] = e.name;
+            je["leaderName"] = e.leaderName;
+            je["motd"] = e.motd;
+            je["info"] = e.info;
+            je["creationDate"] = e.creationDate;
+            je["experience"] = e.experience;
+            je["level"] = e.level;
+            je["factionId"] = e.factionId;
+            je["factionName"] = wowee::pipeline::WoweeGuild::factionName(e.factionId);
+            je["bankCopper"] = e.bankCopper;
+            je["emblem"] = e.emblem;
+            nlohmann::json ranks = nlohmann::json::array();
+            for (const auto& r : e.ranks) {
+                ranks.push_back({
+                    {"rankIndex", r.rankIndex},
+                    {"name", r.name},
+                    {"permissionsMask", r.permissionsMask},
+                    {"moneyPerDayCopper", r.moneyPerDayCopper},
+                });
+            }
+            je["ranks"] = ranks;
+            nlohmann::json members = nlohmann::json::array();
+            for (const auto& m : e.members) {
+                members.push_back({
+                    {"characterName", m.characterName},
+                    {"rankIndex", m.rankIndex},
+                    {"joinedDate", m.joinedDate},
+                    {"publicNote", m.publicNote},
+                    {"officerNote", m.officerNote},
+                });
+            }
+            je["members"] = members;
+            nlohmann::json tabs = nlohmann::json::array();
+            for (const auto& t : e.bankTabs) {
+                tabs.push_back({
+                    {"tabIndex", t.tabIndex},
+                    {"name", t.name},
+                    {"iconPath", t.iconPath},
+                    {"depositPermissionMask", t.depositPermissionMask},
+                    {"withdrawPermissionMask", t.withdrawPermissionMask},
+                    {"viewPermissionMask", t.viewPermissionMask},
+                });
+            }
+            je["bankTabs"] = tabs;
+            nlohmann::json perks = nlohmann::json::array();
+            for (const auto& p : e.perks) {
+                perks.push_back({
+                    {"perkId", p.perkId},
+                    {"name", p.name},
+                    {"spellId", p.spellId},
+                    {"requiredGuildLevel", p.requiredGuildLevel},
+                });
+            }
+            je["perks"] = perks;
+            arr.push_back(je);
         }
-        je["ranks"] = ranks;
-        nlohmann::json members = nlohmann::json::array();
-        for (const auto& m : e.members) {
-            members.push_back({
-                {"characterName", m.characterName},
-                {"rankIndex", m.rankIndex},
-                {"joinedDate", m.joinedDate},
-                {"publicNote", m.publicNote},
-                {"officerNote", m.officerNote},
-            });
-        }
-        je["members"] = members;
-        nlohmann::json tabs = nlohmann::json::array();
-        for (const auto& t : e.bankTabs) {
-            tabs.push_back({
-                {"tabIndex", t.tabIndex},
-                {"name", t.name},
-                {"iconPath", t.iconPath},
-                {"depositPermissionMask", t.depositPermissionMask},
-                {"withdrawPermissionMask", t.withdrawPermissionMask},
-                {"viewPermissionMask", t.viewPermissionMask},
-            });
-        }
-        je["bankTabs"] = tabs;
-        nlohmann::json perks = nlohmann::json::array();
-        for (const auto& p : e.perks) {
-            perks.push_back({
-                {"perkId", p.perkId},
-                {"name", p.name},
-                {"spellId", p.spellId},
-                {"requiredGuildLevel", p.requiredGuildLevel},
-            });
-        }
-        je["perks"] = perks;
-        arr.push_back(je);
-    }
-    j["entries"] = arr;
-    std::ofstream out(outPath);
-    if (!out) {
-        std::fprintf(stderr,
-            "export-wgld-json: cannot write %s\n", outPath.c_str());
-        return 1;
-    }
-    out << j.dump(2) << "\n";
-    out.close();
-    std::printf("Wrote %s\n", outPath.c_str());
-    std::printf("  source : %s.wgld\n", base.c_str());
-    std::printf("  guilds : %zu\n", c.entries.size());
-    return 0;
+        j["entries"] = arr;
+            return j;
+        });
 }
 
 int handleImportJson(int& i, int argc, char** argv) {

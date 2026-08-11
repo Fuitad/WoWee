@@ -115,44 +115,28 @@ int handleExportJson(int& i, int argc, char** argv) {
     // open format. Each binding emits all 7 scalar fields
     // plus a dual int + name form for category so hand-edits
     // can use either representation.
-    std::string base = argv[++i];
-    std::string outPath;
-    if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = cli::withoutExt(base, ".wkbd");
-    if (outPath.empty()) outPath = base + ".wkbd.json";
-    if (!wowee::pipeline::WoweeKeyBindingLoader::exists(base)) {
-        return reportMissing("export-wkbd-json", "WKBD", base, ".wkbd");
-    }
-    auto c = wowee::pipeline::WoweeKeyBindingLoader::load(base);
-    nlohmann::json j;
-    j["name"] = c.name;
-    nlohmann::json arr = nlohmann::json::array();
-    for (const auto& e : c.entries) {
-        arr.push_back({
-            {"bindingId", e.bindingId},
-            {"actionName", e.actionName},
-            {"description", e.description},
-            {"defaultKey", e.defaultKey},
-            {"alternateKey", e.alternateKey},
-            {"category", e.category},
-            {"categoryName", wowee::pipeline::WoweeKeyBinding::categoryName(e.category)},
-            {"isUserOverridable", e.isUserOverridable},
-            {"sortOrder", e.sortOrder},
+    return cli::exportCatalogJson<wowee::pipeline::WoweeKeyBindingLoader>(
+        i, argc, argv, "wkbd", "WKBD", "bindings ",
+        [](const auto& c) {
+        nlohmann::json j;
+        j["name"] = c.name;
+        nlohmann::json arr = nlohmann::json::array();
+        for (const auto& e : c.entries) {
+            arr.push_back({
+                {"bindingId", e.bindingId},
+                {"actionName", e.actionName},
+                {"description", e.description},
+                {"defaultKey", e.defaultKey},
+                {"alternateKey", e.alternateKey},
+                {"category", e.category},
+                {"categoryName", wowee::pipeline::WoweeKeyBinding::categoryName(e.category)},
+                {"isUserOverridable", e.isUserOverridable},
+                {"sortOrder", e.sortOrder},
+            });
+        }
+        j["entries"] = arr;
+            return j;
         });
-    }
-    j["entries"] = arr;
-    std::ofstream out(outPath);
-    if (!out) {
-        std::fprintf(stderr,
-            "export-wkbd-json: cannot write %s\n", outPath.c_str());
-        return 1;
-    }
-    out << j.dump(2) << "\n";
-    out.close();
-    std::printf("Wrote %s\n", outPath.c_str());
-    std::printf("  source   : %s.wkbd\n", base.c_str());
-    std::printf("  bindings : %zu\n", c.entries.size());
-    return 0;
 }
 
 int handleImportJson(int& i, int argc, char** argv) {

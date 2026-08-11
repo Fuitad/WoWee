@@ -121,50 +121,34 @@ int handleExportJson(int& i, int argc, char** argv) {
     // Mirrors the JSON pairs added for every other novel
     // open format. Each house emits all 12 scalar fields
     // plus dual int + name forms for factionAccess.
-    std::string base = argv[++i];
-    std::string outPath;
-    if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = cli::withoutExt(base, ".wauc");
-    if (outPath.empty()) outPath = base + ".wauc.json";
-    if (!wowee::pipeline::WoweeAuctionLoader::exists(base)) {
-        return reportMissing("export-wauc-json", "WAUC", base, ".wauc");
-    }
-    auto c = wowee::pipeline::WoweeAuctionLoader::load(base);
-    nlohmann::json j;
-    j["name"] = c.name;
-    nlohmann::json arr = nlohmann::json::array();
-    for (const auto& e : c.entries) {
-        arr.push_back({
-            {"houseId", e.houseId},
-            {"auctioneerNpcId", e.auctioneerNpcId},
-            {"name", e.name},
-            {"factionAccess", e.factionAccess},
-            {"factionAccessName", wowee::pipeline::WoweeAuction::factionAccessName(e.factionAccess)},
-            {"baseDepositRateBp", e.baseDepositRateBp},
-            {"houseCutRateBp", e.houseCutRateBp},
-            {"maxBidCopper", e.maxBidCopper},
-            {"shortHours", e.shortHours},
-            {"mediumHours", e.mediumHours},
-            {"longHours", e.longHours},
-            {"shortMultBp", e.shortMultBp},
-            {"mediumMultBp", e.mediumMultBp},
-            {"longMultBp", e.longMultBp},
-            {"disallowedClassMask", e.disallowedClassMask},
+    return cli::exportCatalogJson<wowee::pipeline::WoweeAuctionLoader>(
+        i, argc, argv, "wauc", "WAUC", "houses ",
+        [](const auto& c) {
+        nlohmann::json j;
+        j["name"] = c.name;
+        nlohmann::json arr = nlohmann::json::array();
+        for (const auto& e : c.entries) {
+            arr.push_back({
+                {"houseId", e.houseId},
+                {"auctioneerNpcId", e.auctioneerNpcId},
+                {"name", e.name},
+                {"factionAccess", e.factionAccess},
+                {"factionAccessName", wowee::pipeline::WoweeAuction::factionAccessName(e.factionAccess)},
+                {"baseDepositRateBp", e.baseDepositRateBp},
+                {"houseCutRateBp", e.houseCutRateBp},
+                {"maxBidCopper", e.maxBidCopper},
+                {"shortHours", e.shortHours},
+                {"mediumHours", e.mediumHours},
+                {"longHours", e.longHours},
+                {"shortMultBp", e.shortMultBp},
+                {"mediumMultBp", e.mediumMultBp},
+                {"longMultBp", e.longMultBp},
+                {"disallowedClassMask", e.disallowedClassMask},
+            });
+        }
+        j["entries"] = arr;
+            return j;
         });
-    }
-    j["entries"] = arr;
-    std::ofstream out(outPath);
-    if (!out) {
-        std::fprintf(stderr,
-            "export-wauc-json: cannot write %s\n", outPath.c_str());
-        return 1;
-    }
-    out << j.dump(2) << "\n";
-    out.close();
-    std::printf("Wrote %s\n", outPath.c_str());
-    std::printf("  source : %s.wauc\n", base.c_str());
-    std::printf("  houses : %zu\n", c.entries.size());
-    return 0;
 }
 
 int handleImportJson(int& i, int argc, char** argv) {

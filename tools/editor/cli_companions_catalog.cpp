@@ -119,49 +119,33 @@ int handleExportJson(int& i, int argc, char** argv) {
     // open format. Each companion emits all 9 scalar fields
     // plus dual int + name forms for companionKind / rarity
     // / factionRestriction so hand-edits can use either.
-    std::string base = argv[++i];
-    std::string outPath;
-    if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = cli::withoutExt(base, ".wcmp");
-    if (outPath.empty()) outPath = base + ".wcmp.json";
-    if (!wowee::pipeline::WoweeCompanionLoader::exists(base)) {
-        return reportMissing("export-wcmp-json", "WCMP", base, ".wcmp");
-    }
-    auto c = wowee::pipeline::WoweeCompanionLoader::load(base);
-    nlohmann::json j;
-    j["name"] = c.name;
-    nlohmann::json arr = nlohmann::json::array();
-    for (const auto& e : c.entries) {
-        arr.push_back({
-            {"companionId", e.companionId},
-            {"creatureId", e.creatureId},
-            {"name", e.name},
-            {"description", e.description},
-            {"iconPath", e.iconPath},
-            {"companionKind", e.companionKind},
-            {"companionKindName", wowee::pipeline::WoweeCompanion::companionKindName(e.companionKind)},
-            {"rarity", e.rarity},
-            {"rarityName", wowee::pipeline::WoweeCompanion::rarityName(e.rarity)},
-            {"factionRestriction", e.factionRestriction},
-            {"factionRestrictionName", wowee::pipeline::WoweeCompanion::factionRestrictionName(e.factionRestriction)},
-            {"learnSpellId", e.learnSpellId},
-            {"itemId", e.itemId},
-            {"idleSoundId", e.idleSoundId},
+    return cli::exportCatalogJson<wowee::pipeline::WoweeCompanionLoader>(
+        i, argc, argv, "wcmp", "WCMP", "companions ",
+        [](const auto& c) {
+        nlohmann::json j;
+        j["name"] = c.name;
+        nlohmann::json arr = nlohmann::json::array();
+        for (const auto& e : c.entries) {
+            arr.push_back({
+                {"companionId", e.companionId},
+                {"creatureId", e.creatureId},
+                {"name", e.name},
+                {"description", e.description},
+                {"iconPath", e.iconPath},
+                {"companionKind", e.companionKind},
+                {"companionKindName", wowee::pipeline::WoweeCompanion::companionKindName(e.companionKind)},
+                {"rarity", e.rarity},
+                {"rarityName", wowee::pipeline::WoweeCompanion::rarityName(e.rarity)},
+                {"factionRestriction", e.factionRestriction},
+                {"factionRestrictionName", wowee::pipeline::WoweeCompanion::factionRestrictionName(e.factionRestriction)},
+                {"learnSpellId", e.learnSpellId},
+                {"itemId", e.itemId},
+                {"idleSoundId", e.idleSoundId},
+            });
+        }
+        j["entries"] = arr;
+            return j;
         });
-    }
-    j["entries"] = arr;
-    std::ofstream out(outPath);
-    if (!out) {
-        std::fprintf(stderr,
-            "export-wcmp-json: cannot write %s\n", outPath.c_str());
-        return 1;
-    }
-    out << j.dump(2) << "\n";
-    out.close();
-    std::printf("Wrote %s\n", outPath.c_str());
-    std::printf("  source     : %s.wcmp\n", base.c_str());
-    std::printf("  companions : %zu\n", c.entries.size());
-    return 0;
 }
 
 int handleImportJson(int& i, int argc, char** argv) {

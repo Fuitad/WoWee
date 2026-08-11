@@ -115,47 +115,31 @@ int handleExportJson(int& i, int argc, char** argv) {
     // Mirrors the JSON pairs added for every other novel
     // open format. Each condition emits all 9 scalar fields
     // plus dual int + name forms for kind and aggregator.
-    std::string base = argv[++i];
-    std::string outPath;
-    if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = cli::withoutExt(base, ".wpcd");
-    if (outPath.empty()) outPath = base + ".wpcd.json";
-    if (!wowee::pipeline::WoweeConditionLoader::exists(base)) {
-        return reportMissing("export-wpcd-json", "WPCD", base, ".wpcd");
-    }
-    auto c = wowee::pipeline::WoweeConditionLoader::load(base);
-    nlohmann::json j;
-    j["name"] = c.name;
-    nlohmann::json arr = nlohmann::json::array();
-    for (const auto& e : c.entries) {
-        arr.push_back({
-            {"conditionId", e.conditionId},
-            {"groupId", e.groupId},
-            {"name", e.name},
-            {"description", e.description},
-            {"kind", e.kind},
-            {"kindName", wowee::pipeline::WoweeCondition::kindName(e.kind)},
-            {"aggregator", e.aggregator},
-            {"aggregatorName", wowee::pipeline::WoweeCondition::aggregatorName(e.aggregator)},
-            {"negated", e.negated},
-            {"targetId", e.targetId},
-            {"minValue", e.minValue},
-            {"maxValue", e.maxValue},
+    return cli::exportCatalogJson<wowee::pipeline::WoweeConditionLoader>(
+        i, argc, argv, "wpcd", "WPCD", "conditions ",
+        [](const auto& c) {
+        nlohmann::json j;
+        j["name"] = c.name;
+        nlohmann::json arr = nlohmann::json::array();
+        for (const auto& e : c.entries) {
+            arr.push_back({
+                {"conditionId", e.conditionId},
+                {"groupId", e.groupId},
+                {"name", e.name},
+                {"description", e.description},
+                {"kind", e.kind},
+                {"kindName", wowee::pipeline::WoweeCondition::kindName(e.kind)},
+                {"aggregator", e.aggregator},
+                {"aggregatorName", wowee::pipeline::WoweeCondition::aggregatorName(e.aggregator)},
+                {"negated", e.negated},
+                {"targetId", e.targetId},
+                {"minValue", e.minValue},
+                {"maxValue", e.maxValue},
+            });
+        }
+        j["entries"] = arr;
+            return j;
         });
-    }
-    j["entries"] = arr;
-    std::ofstream out(outPath);
-    if (!out) {
-        std::fprintf(stderr,
-            "export-wpcd-json: cannot write %s\n", outPath.c_str());
-        return 1;
-    }
-    out << j.dump(2) << "\n";
-    out.close();
-    std::printf("Wrote %s\n", outPath.c_str());
-    std::printf("  source     : %s.wpcd\n", base.c_str());
-    std::printf("  conditions : %zu\n", c.entries.size());
-    return 0;
 }
 
 int handleImportJson(int& i, int argc, char** argv) {

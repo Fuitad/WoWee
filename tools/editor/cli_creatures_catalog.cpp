@@ -164,80 +164,64 @@ int handleExportJson(int& i, int argc, char** argv) {
     // open format. Each creature emits all 22 scalar fields
     // plus dual int + name forms for typeId, familyId, and
     // both flag bitsets so the importer accepts either form.
-    std::string base = argv[++i];
-    std::string outPath;
-    if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = cli::withoutExt(base, ".wcrt");
-    if (outPath.empty()) outPath = base + ".wcrt.json";
-    if (!wowee::pipeline::WoweeCreatureLoader::exists(base)) {
-        return reportMissing("export-wcrt-json", "WCRT", base, ".wcrt");
-    }
-    auto c = wowee::pipeline::WoweeCreatureLoader::load(base);
-    nlohmann::json j;
-    j["name"] = c.name;
-    nlohmann::json arr = nlohmann::json::array();
-    for (const auto& e : c.entries) {
-        nlohmann::json je;
-        je["creatureId"] = e.creatureId;
-        je["displayId"] = e.displayId;
-        je["name"] = e.name;
-        je["subname"] = e.subname;
-        je["minLevel"] = e.minLevel;
-        je["maxLevel"] = e.maxLevel;
-        je["baseHealth"] = e.baseHealth;
-        je["healthPerLevel"] = e.healthPerLevel;
-        je["baseMana"] = e.baseMana;
-        je["manaPerLevel"] = e.manaPerLevel;
-        je["factionId"] = e.factionId;
-        je["npcFlags"] = e.npcFlags;
-        nlohmann::json npcArr = nlohmann::json::array();
-        if (e.npcFlags & wowee::pipeline::WoweeCreature::Vendor)       npcArr.push_back("vendor");
-        if (e.npcFlags & wowee::pipeline::WoweeCreature::QuestGiver)   npcArr.push_back("quest");
-        if (e.npcFlags & wowee::pipeline::WoweeCreature::Trainer)      npcArr.push_back("trainer");
-        if (e.npcFlags & wowee::pipeline::WoweeCreature::Banker)       npcArr.push_back("banker");
-        if (e.npcFlags & wowee::pipeline::WoweeCreature::Innkeeper)    npcArr.push_back("innkeeper");
-        if (e.npcFlags & wowee::pipeline::WoweeCreature::FlightMaster) npcArr.push_back("flight");
-        if (e.npcFlags & wowee::pipeline::WoweeCreature::Auctioneer)   npcArr.push_back("auction");
-        if (e.npcFlags & wowee::pipeline::WoweeCreature::Repair)       npcArr.push_back("repair");
-        if (e.npcFlags & wowee::pipeline::WoweeCreature::Stable)       npcArr.push_back("stable");
-        je["npcFlagsList"] = npcArr;
-        je["typeId"] = e.typeId;
-        je["typeName"] = wowee::pipeline::WoweeCreature::typeName(e.typeId);
-        je["familyId"] = e.familyId;
-        je["familyName"] = wowee::pipeline::WoweeCreature::familyName(e.familyId);
-        je["damageMin"] = e.damageMin;
-        je["damageMax"] = e.damageMax;
-        je["attackSpeedMs"] = e.attackSpeedMs;
-        je["baseArmor"] = e.baseArmor;
-        je["walkSpeed"] = e.walkSpeed;
-        je["runSpeed"] = e.runSpeed;
-        je["gossipId"] = e.gossipId;
-        je["equippedMain"] = e.equippedMain;
-        je["equippedOffhand"] = e.equippedOffhand;
-        je["equippedRanged"] = e.equippedRanged;
-        je["aiFlags"] = e.aiFlags;
-        nlohmann::json aiArr = nlohmann::json::array();
-        if (e.aiFlags & wowee::pipeline::WoweeCreature::AiPassive)    aiArr.push_back("passive");
-        if (e.aiFlags & wowee::pipeline::WoweeCreature::AiAggressive) aiArr.push_back("aggressive");
-        if (e.aiFlags & wowee::pipeline::WoweeCreature::AiFleeLowHp)  aiArr.push_back("flee");
-        if (e.aiFlags & wowee::pipeline::WoweeCreature::AiCallHelp)   aiArr.push_back("call-help");
-        if (e.aiFlags & wowee::pipeline::WoweeCreature::AiNoLeash)    aiArr.push_back("no-leash");
-        je["aiFlagsList"] = aiArr;
-        arr.push_back(je);
-    }
-    j["entries"] = arr;
-    std::ofstream out(outPath);
-    if (!out) {
-        std::fprintf(stderr,
-            "export-wcrt-json: cannot write %s\n", outPath.c_str());
-        return 1;
-    }
-    out << j.dump(2) << "\n";
-    out.close();
-    std::printf("Wrote %s\n", outPath.c_str());
-    std::printf("  source  : %s.wcrt\n", base.c_str());
-    std::printf("  entries : %zu\n", c.entries.size());
-    return 0;
+    return cli::exportCatalogJson<wowee::pipeline::WoweeCreatureLoader>(
+        i, argc, argv, "wcrt", "WCRT", "entries ",
+        [](const auto& c) {
+        nlohmann::json j;
+        j["name"] = c.name;
+        nlohmann::json arr = nlohmann::json::array();
+        for (const auto& e : c.entries) {
+            nlohmann::json je;
+            je["creatureId"] = e.creatureId;
+            je["displayId"] = e.displayId;
+            je["name"] = e.name;
+            je["subname"] = e.subname;
+            je["minLevel"] = e.minLevel;
+            je["maxLevel"] = e.maxLevel;
+            je["baseHealth"] = e.baseHealth;
+            je["healthPerLevel"] = e.healthPerLevel;
+            je["baseMana"] = e.baseMana;
+            je["manaPerLevel"] = e.manaPerLevel;
+            je["factionId"] = e.factionId;
+            je["npcFlags"] = e.npcFlags;
+            nlohmann::json npcArr = nlohmann::json::array();
+            if (e.npcFlags & wowee::pipeline::WoweeCreature::Vendor)       npcArr.push_back("vendor");
+            if (e.npcFlags & wowee::pipeline::WoweeCreature::QuestGiver)   npcArr.push_back("quest");
+            if (e.npcFlags & wowee::pipeline::WoweeCreature::Trainer)      npcArr.push_back("trainer");
+            if (e.npcFlags & wowee::pipeline::WoweeCreature::Banker)       npcArr.push_back("banker");
+            if (e.npcFlags & wowee::pipeline::WoweeCreature::Innkeeper)    npcArr.push_back("innkeeper");
+            if (e.npcFlags & wowee::pipeline::WoweeCreature::FlightMaster) npcArr.push_back("flight");
+            if (e.npcFlags & wowee::pipeline::WoweeCreature::Auctioneer)   npcArr.push_back("auction");
+            if (e.npcFlags & wowee::pipeline::WoweeCreature::Repair)       npcArr.push_back("repair");
+            if (e.npcFlags & wowee::pipeline::WoweeCreature::Stable)       npcArr.push_back("stable");
+            je["npcFlagsList"] = npcArr;
+            je["typeId"] = e.typeId;
+            je["typeName"] = wowee::pipeline::WoweeCreature::typeName(e.typeId);
+            je["familyId"] = e.familyId;
+            je["familyName"] = wowee::pipeline::WoweeCreature::familyName(e.familyId);
+            je["damageMin"] = e.damageMin;
+            je["damageMax"] = e.damageMax;
+            je["attackSpeedMs"] = e.attackSpeedMs;
+            je["baseArmor"] = e.baseArmor;
+            je["walkSpeed"] = e.walkSpeed;
+            je["runSpeed"] = e.runSpeed;
+            je["gossipId"] = e.gossipId;
+            je["equippedMain"] = e.equippedMain;
+            je["equippedOffhand"] = e.equippedOffhand;
+            je["equippedRanged"] = e.equippedRanged;
+            je["aiFlags"] = e.aiFlags;
+            nlohmann::json aiArr = nlohmann::json::array();
+            if (e.aiFlags & wowee::pipeline::WoweeCreature::AiPassive)    aiArr.push_back("passive");
+            if (e.aiFlags & wowee::pipeline::WoweeCreature::AiAggressive) aiArr.push_back("aggressive");
+            if (e.aiFlags & wowee::pipeline::WoweeCreature::AiFleeLowHp)  aiArr.push_back("flee");
+            if (e.aiFlags & wowee::pipeline::WoweeCreature::AiCallHelp)   aiArr.push_back("call-help");
+            if (e.aiFlags & wowee::pipeline::WoweeCreature::AiNoLeash)    aiArr.push_back("no-leash");
+            je["aiFlagsList"] = aiArr;
+            arr.push_back(je);
+        }
+        j["entries"] = arr;
+            return j;
+        });
 }
 
 int handleImportJson(int& i, int argc, char** argv) {

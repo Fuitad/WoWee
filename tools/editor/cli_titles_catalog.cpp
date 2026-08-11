@@ -112,45 +112,29 @@ int handleExportJson(int& i, int argc, char** argv) {
     // Mirrors the JSON pairs added for every other novel
     // open format. Each title emits all 8 scalar fields
     // plus dual int + name forms for category and prefix.
-    std::string base = argv[++i];
-    std::string outPath;
-    if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = cli::withoutExt(base, ".wtit");
-    if (outPath.empty()) outPath = base + ".wtit.json";
-    if (!wowee::pipeline::WoweeTitleLoader::exists(base)) {
-        return reportMissing("export-wtit-json", "WTIT", base, ".wtit");
-    }
-    auto c = wowee::pipeline::WoweeTitleLoader::load(base);
-    nlohmann::json j;
-    j["name"] = c.name;
-    nlohmann::json arr = nlohmann::json::array();
-    for (const auto& e : c.entries) {
-        arr.push_back({
-            {"titleId", e.titleId},
-            {"name", e.name},
-            {"nameMale", e.nameMale},
-            {"nameFemale", e.nameFemale},
-            {"iconPath", e.iconPath},
-            {"prefix", e.prefix},
-            {"prefixName", e.prefix ? "prefix" : "suffix"},
-            {"category", e.category},
-            {"categoryName", wowee::pipeline::WoweeTitle::categoryName(e.category)},
-            {"sortOrder", e.sortOrder},
+    return cli::exportCatalogJson<wowee::pipeline::WoweeTitleLoader>(
+        i, argc, argv, "wtit", "WTIT", "titles ",
+        [](const auto& c) {
+        nlohmann::json j;
+        j["name"] = c.name;
+        nlohmann::json arr = nlohmann::json::array();
+        for (const auto& e : c.entries) {
+            arr.push_back({
+                {"titleId", e.titleId},
+                {"name", e.name},
+                {"nameMale", e.nameMale},
+                {"nameFemale", e.nameFemale},
+                {"iconPath", e.iconPath},
+                {"prefix", e.prefix},
+                {"prefixName", e.prefix ? "prefix" : "suffix"},
+                {"category", e.category},
+                {"categoryName", wowee::pipeline::WoweeTitle::categoryName(e.category)},
+                {"sortOrder", e.sortOrder},
+            });
+        }
+        j["entries"] = arr;
+            return j;
         });
-    }
-    j["entries"] = arr;
-    std::ofstream out(outPath);
-    if (!out) {
-        std::fprintf(stderr,
-            "export-wtit-json: cannot write %s\n", outPath.c_str());
-        return 1;
-    }
-    out << j.dump(2) << "\n";
-    out.close();
-    std::printf("Wrote %s\n", outPath.c_str());
-    std::printf("  source : %s.wtit\n", base.c_str());
-    std::printf("  titles : %zu\n", c.entries.size());
-    return 0;
 }
 
 int handleImportJson(int& i, int argc, char** argv) {

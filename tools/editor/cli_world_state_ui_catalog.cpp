@@ -120,50 +120,34 @@ int handleExportJson(int& i, int argc, char** argv) {
     // open format. Each world state emits all 11 scalar
     // fields plus dual int + name forms for displayKind
     // and panelPosition so hand-edits can use either.
-    std::string base = argv[++i];
-    std::string outPath;
-    if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = cli::withoutExt(base, ".wwui");
-    if (outPath.empty()) outPath = base + ".wwui.json";
-    if (!wowee::pipeline::WoweeWorldStateUILoader::exists(base)) {
-        return reportMissing("export-wwui-json", "WWUI", base, ".wwui");
-    }
-    auto c = wowee::pipeline::WoweeWorldStateUILoader::load(base);
-    nlohmann::json j;
-    j["name"] = c.name;
-    nlohmann::json arr = nlohmann::json::array();
-    for (const auto& e : c.entries) {
-        arr.push_back({
-            {"worldStateId", e.worldStateId},
-            {"name", e.name},
-            {"description", e.description},
-            {"iconPath", e.iconPath},
-            {"displayKind", e.displayKind},
-            {"displayKindName", wowee::pipeline::WoweeWorldStateUI::displayKindName(e.displayKind)},
-            {"panelPosition", e.panelPosition},
-            {"panelPositionName", wowee::pipeline::WoweeWorldStateUI::panelPositionName(e.panelPosition)},
-            {"alwaysVisible", e.alwaysVisible},
-            {"hideWhenZero", e.hideWhenZero},
-            {"mapId", e.mapId},
-            {"areaId", e.areaId},
-            {"variableIndex", e.variableIndex},
-            {"defaultValue", e.defaultValue},
-            {"iconColorRGBA", e.iconColorRGBA},
+    return cli::exportCatalogJson<wowee::pipeline::WoweeWorldStateUILoader>(
+        i, argc, argv, "wwui", "WWUI", "states ",
+        [](const auto& c) {
+        nlohmann::json j;
+        j["name"] = c.name;
+        nlohmann::json arr = nlohmann::json::array();
+        for (const auto& e : c.entries) {
+            arr.push_back({
+                {"worldStateId", e.worldStateId},
+                {"name", e.name},
+                {"description", e.description},
+                {"iconPath", e.iconPath},
+                {"displayKind", e.displayKind},
+                {"displayKindName", wowee::pipeline::WoweeWorldStateUI::displayKindName(e.displayKind)},
+                {"panelPosition", e.panelPosition},
+                {"panelPositionName", wowee::pipeline::WoweeWorldStateUI::panelPositionName(e.panelPosition)},
+                {"alwaysVisible", e.alwaysVisible},
+                {"hideWhenZero", e.hideWhenZero},
+                {"mapId", e.mapId},
+                {"areaId", e.areaId},
+                {"variableIndex", e.variableIndex},
+                {"defaultValue", e.defaultValue},
+                {"iconColorRGBA", e.iconColorRGBA},
+            });
+        }
+        j["entries"] = arr;
+            return j;
         });
-    }
-    j["entries"] = arr;
-    std::ofstream out(outPath);
-    if (!out) {
-        std::fprintf(stderr,
-            "export-wwui-json: cannot write %s\n", outPath.c_str());
-        return 1;
-    }
-    out << j.dump(2) << "\n";
-    out.close();
-    std::printf("Wrote %s\n", outPath.c_str());
-    std::printf("  source : %s.wwui\n", base.c_str());
-    std::printf("  states : %zu\n", c.entries.size());
-    return 0;
 }
 
 int handleImportJson(int& i, int argc, char** argv) {

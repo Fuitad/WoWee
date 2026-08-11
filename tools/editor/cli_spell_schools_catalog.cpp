@@ -116,48 +116,32 @@ int handleExportJson(int& i, int argc, char** argv) {
     // open format. WSCH has no enum fields with name forms
     // — just raw numeric school bits and flag bytes — so
     // the JSON mapping is a direct dump.
-    std::string base = argv[++i];
-    std::string outPath;
-    if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = cli::withoutExt(base, ".wsch");
-    if (outPath.empty()) outPath = base + ".wsch.json";
-    if (!wowee::pipeline::WoweeSpellSchoolLoader::exists(base)) {
-        return reportMissing("export-wsch-json", "WSCH", base, ".wsch");
-    }
-    auto c = wowee::pipeline::WoweeSpellSchoolLoader::load(base);
-    nlohmann::json j;
-    j["name"] = c.name;
-    nlohmann::json arr = nlohmann::json::array();
-    for (const auto& e : c.entries) {
-        arr.push_back({
-            {"schoolId", e.schoolId},
-            {"name", e.name},
-            {"description", e.description},
-            {"iconPath", e.iconPath},
-            {"canBeImmune", e.canBeImmune},
-            {"canBeAbsorbed", e.canBeAbsorbed},
-            {"canBeReflected", e.canBeReflected},
-            {"canCrit", e.canCrit},
-            {"colorRGBA", e.colorRGBA},
-            {"baseResistanceCap", e.baseResistanceCap},
-            {"castSoundId", e.castSoundId},
-            {"impactSoundId", e.impactSoundId},
-            {"combinedSchoolMask", e.combinedSchoolMask},
+    return cli::exportCatalogJson<wowee::pipeline::WoweeSpellSchoolLoader>(
+        i, argc, argv, "wsch", "WSCH", "schools ",
+        [](const auto& c) {
+        nlohmann::json j;
+        j["name"] = c.name;
+        nlohmann::json arr = nlohmann::json::array();
+        for (const auto& e : c.entries) {
+            arr.push_back({
+                {"schoolId", e.schoolId},
+                {"name", e.name},
+                {"description", e.description},
+                {"iconPath", e.iconPath},
+                {"canBeImmune", e.canBeImmune},
+                {"canBeAbsorbed", e.canBeAbsorbed},
+                {"canBeReflected", e.canBeReflected},
+                {"canCrit", e.canCrit},
+                {"colorRGBA", e.colorRGBA},
+                {"baseResistanceCap", e.baseResistanceCap},
+                {"castSoundId", e.castSoundId},
+                {"impactSoundId", e.impactSoundId},
+                {"combinedSchoolMask", e.combinedSchoolMask},
+            });
+        }
+        j["entries"] = arr;
+            return j;
         });
-    }
-    j["entries"] = arr;
-    std::ofstream out(outPath);
-    if (!out) {
-        std::fprintf(stderr,
-            "export-wsch-json: cannot write %s\n", outPath.c_str());
-        return 1;
-    }
-    out << j.dump(2) << "\n";
-    out.close();
-    std::printf("Wrote %s\n", outPath.c_str());
-    std::printf("  source  : %s.wsch\n", base.c_str());
-    std::printf("  schools : %zu\n", c.entries.size());
-    return 0;
 }
 
 int handleImportJson(int& i, int argc, char** argv) {

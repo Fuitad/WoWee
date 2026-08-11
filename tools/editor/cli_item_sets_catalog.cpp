@@ -132,32 +132,16 @@ int handleExportJson(int& i, int argc, char** argv) {
     // keep hand-edits compact. classMask is dumped as a raw
     // integer; users can hand-edit using the bit positions
     // documented in the WCHC catalog.
-    std::string base = argv[++i];
-    std::string outPath;
-    if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = cli::withoutExt(base, ".wset");
-    if (outPath.empty()) outPath = base + ".wset.json";
-    if (!wowee::pipeline::WoweeItemSetLoader::exists(base)) {
-        return reportMissing("export-wset-json", "WSET", base, ".wset");
-    }
-    auto c = wowee::pipeline::WoweeItemSetLoader::load(base);
-    nlohmann::json j;
-    j["name"] = c.name;
-    nlohmann::json arr = nlohmann::json::array();
-    for (const auto& e : c.entries) appendEntryJson(arr, e);
-    j["entries"] = arr;
-    std::ofstream out(outPath);
-    if (!out) {
-        std::fprintf(stderr,
-            "export-wset-json: cannot write %s\n", outPath.c_str());
-        return 1;
-    }
-    out << j.dump(2) << "\n";
-    out.close();
-    std::printf("Wrote %s\n", outPath.c_str());
-    std::printf("  source : %s.wset\n", base.c_str());
-    std::printf("  sets   : %zu\n", c.entries.size());
-    return 0;
+    return cli::exportCatalogJson<wowee::pipeline::WoweeItemSetLoader>(
+        i, argc, argv, "wset", "WSET", "sets   ",
+        [](const auto& c) {
+        nlohmann::json j;
+        j["name"] = c.name;
+        nlohmann::json arr = nlohmann::json::array();
+        for (const auto& e : c.entries) appendEntryJson(arr, e);
+        j["entries"] = arr;
+            return j;
+        });
 }
 
 int handleImportJson(int& i, int argc, char** argv) {

@@ -147,69 +147,53 @@ int handleExportJson(int& i, int argc, char** argv) {
     // open format. Each spell emits all 18 scalar fields
     // plus dual int + name forms for school, targetType,
     // effectKind, and the flags bitset.
-    std::string base = argv[++i];
-    std::string outPath;
-    if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = cli::withoutExt(base, ".wspl");
-    if (outPath.empty()) outPath = base + ".wspl.json";
-    if (!wowee::pipeline::WoweeSpellLoader::exists(base)) {
-        return reportMissing("export-wspl-json", "WSPL", base, ".wspl");
-    }
-    auto c = wowee::pipeline::WoweeSpellLoader::load(base);
-    nlohmann::json j;
-    j["name"] = c.name;
-    nlohmann::json arr = nlohmann::json::array();
-    for (const auto& e : c.entries) {
-        nlohmann::json je;
-        je["spellId"] = e.spellId;
-        je["name"] = e.name;
-        je["description"] = e.description;
-        je["iconPath"] = e.iconPath;
-        je["school"] = e.school;
-        je["schoolName"] = wowee::pipeline::WoweeSpell::schoolName(e.school);
-        je["targetType"] = e.targetType;
-        je["targetTypeName"] = wowee::pipeline::WoweeSpell::targetTypeName(e.targetType);
-        je["effectKind"] = e.effectKind;
-        je["effectKindName"] = wowee::pipeline::WoweeSpell::effectKindName(e.effectKind);
-        je["castTimeMs"] = e.castTimeMs;
-        je["cooldownMs"] = e.cooldownMs;
-        je["gcdMs"] = e.gcdMs;
-        je["manaCost"] = e.manaCost;
-        je["rangeMin"] = e.rangeMin;
-        je["rangeMax"] = e.rangeMax;
-        je["minLevel"] = e.minLevel;
-        je["maxStacks"] = e.maxStacks;
-        je["durationMs"] = e.durationMs;
-        je["effectValueMin"] = e.effectValueMin;
-        je["effectValueMax"] = e.effectValueMax;
-        je["effectMisc"] = e.effectMisc;
-        je["flags"] = e.flags;
-        nlohmann::json fa = nlohmann::json::array();
-        if (e.flags & wowee::pipeline::WoweeSpell::Passive)        fa.push_back("passive");
-        if (e.flags & wowee::pipeline::WoweeSpell::Hidden)         fa.push_back("hidden");
-        if (e.flags & wowee::pipeline::WoweeSpell::Channeled)      fa.push_back("channeled");
-        if (e.flags & wowee::pipeline::WoweeSpell::Ranged)         fa.push_back("ranged");
-        if (e.flags & wowee::pipeline::WoweeSpell::AreaOfEffect)   fa.push_back("aoe");
-        if (e.flags & wowee::pipeline::WoweeSpell::Triggered)      fa.push_back("triggered");
-        if (e.flags & wowee::pipeline::WoweeSpell::UnitTargetOnly) fa.push_back("unit-only");
-        if (e.flags & wowee::pipeline::WoweeSpell::FriendlyOnly)   fa.push_back("friendly");
-        if (e.flags & wowee::pipeline::WoweeSpell::HostileOnly)    fa.push_back("hostile");
-        je["flagsList"] = fa;
-        arr.push_back(je);
-    }
-    j["entries"] = arr;
-    std::ofstream out(outPath);
-    if (!out) {
-        std::fprintf(stderr,
-            "export-wspl-json: cannot write %s\n", outPath.c_str());
-        return 1;
-    }
-    out << j.dump(2) << "\n";
-    out.close();
-    std::printf("Wrote %s\n", outPath.c_str());
-    std::printf("  source : %s.wspl\n", base.c_str());
-    std::printf("  spells : %zu\n", c.entries.size());
-    return 0;
+    return cli::exportCatalogJson<wowee::pipeline::WoweeSpellLoader>(
+        i, argc, argv, "wspl", "WSPL", "spells ",
+        [](const auto& c) {
+        nlohmann::json j;
+        j["name"] = c.name;
+        nlohmann::json arr = nlohmann::json::array();
+        for (const auto& e : c.entries) {
+            nlohmann::json je;
+            je["spellId"] = e.spellId;
+            je["name"] = e.name;
+            je["description"] = e.description;
+            je["iconPath"] = e.iconPath;
+            je["school"] = e.school;
+            je["schoolName"] = wowee::pipeline::WoweeSpell::schoolName(e.school);
+            je["targetType"] = e.targetType;
+            je["targetTypeName"] = wowee::pipeline::WoweeSpell::targetTypeName(e.targetType);
+            je["effectKind"] = e.effectKind;
+            je["effectKindName"] = wowee::pipeline::WoweeSpell::effectKindName(e.effectKind);
+            je["castTimeMs"] = e.castTimeMs;
+            je["cooldownMs"] = e.cooldownMs;
+            je["gcdMs"] = e.gcdMs;
+            je["manaCost"] = e.manaCost;
+            je["rangeMin"] = e.rangeMin;
+            je["rangeMax"] = e.rangeMax;
+            je["minLevel"] = e.minLevel;
+            je["maxStacks"] = e.maxStacks;
+            je["durationMs"] = e.durationMs;
+            je["effectValueMin"] = e.effectValueMin;
+            je["effectValueMax"] = e.effectValueMax;
+            je["effectMisc"] = e.effectMisc;
+            je["flags"] = e.flags;
+            nlohmann::json fa = nlohmann::json::array();
+            if (e.flags & wowee::pipeline::WoweeSpell::Passive)        fa.push_back("passive");
+            if (e.flags & wowee::pipeline::WoweeSpell::Hidden)         fa.push_back("hidden");
+            if (e.flags & wowee::pipeline::WoweeSpell::Channeled)      fa.push_back("channeled");
+            if (e.flags & wowee::pipeline::WoweeSpell::Ranged)         fa.push_back("ranged");
+            if (e.flags & wowee::pipeline::WoweeSpell::AreaOfEffect)   fa.push_back("aoe");
+            if (e.flags & wowee::pipeline::WoweeSpell::Triggered)      fa.push_back("triggered");
+            if (e.flags & wowee::pipeline::WoweeSpell::UnitTargetOnly) fa.push_back("unit-only");
+            if (e.flags & wowee::pipeline::WoweeSpell::FriendlyOnly)   fa.push_back("friendly");
+            if (e.flags & wowee::pipeline::WoweeSpell::HostileOnly)    fa.push_back("hostile");
+            je["flagsList"] = fa;
+            arr.push_back(je);
+        }
+        j["entries"] = arr;
+            return j;
+        });
 }
 
 int handleImportJson(int& i, int argc, char** argv) {

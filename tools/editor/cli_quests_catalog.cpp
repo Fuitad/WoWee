@@ -183,87 +183,71 @@ int handleExportJson(int& i, int argc, char** argv) {
     // Mirrors the JSON pairs added for every other novel
     // open format. Each quest emits all 14 scalar fields plus
     // the variable-length objectives + rewards arrays.
-    std::string base = argv[++i];
-    std::string outPath;
-    if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = cli::withoutExt(base, ".wqt");
-    if (outPath.empty()) outPath = base + ".wqt.json";
-    if (!wowee::pipeline::WoweeQuestLoader::exists(base)) {
-        return reportMissing("export-wqt-json", "WQT", base, ".wqt");
-    }
-    auto c = wowee::pipeline::WoweeQuestLoader::load(base);
-    nlohmann::json j;
-    j["name"] = c.name;
-    nlohmann::json arr = nlohmann::json::array();
-    for (const auto& e : c.entries) {
-        nlohmann::json je;
-        je["questId"] = e.questId;
-        je["title"] = e.title;
-        je["objective"] = e.objective;
-        je["description"] = e.description;
-        je["minLevel"] = e.minLevel;
-        je["questLevel"] = e.questLevel;
-        je["maxLevel"] = e.maxLevel;
-        je["requiredClassMask"] = e.requiredClassMask;
-        je["requiredRaceMask"] = e.requiredRaceMask;
-        je["prevQuestId"] = e.prevQuestId;
-        je["nextQuestId"] = e.nextQuestId;
-        je["giverCreatureId"] = e.giverCreatureId;
-        je["turninCreatureId"] = e.turninCreatureId;
-        nlohmann::json oa = nlohmann::json::array();
-        for (const auto& o : e.objectives) {
-            oa.push_back({
-                {"kind", o.kind},
-                {"kindName", wowee::pipeline::WoweeQuest::objectiveKindName(o.kind)},
-                {"targetId", o.targetId},
-                {"quantity", o.quantity},
-            });
+    return cli::exportCatalogJson<wowee::pipeline::WoweeQuestLoader>(
+        i, argc, argv, "wqt", "WQT", "quests ",
+        [](const auto& c) {
+        nlohmann::json j;
+        j["name"] = c.name;
+        nlohmann::json arr = nlohmann::json::array();
+        for (const auto& e : c.entries) {
+            nlohmann::json je;
+            je["questId"] = e.questId;
+            je["title"] = e.title;
+            je["objective"] = e.objective;
+            je["description"] = e.description;
+            je["minLevel"] = e.minLevel;
+            je["questLevel"] = e.questLevel;
+            je["maxLevel"] = e.maxLevel;
+            je["requiredClassMask"] = e.requiredClassMask;
+            je["requiredRaceMask"] = e.requiredRaceMask;
+            je["prevQuestId"] = e.prevQuestId;
+            je["nextQuestId"] = e.nextQuestId;
+            je["giverCreatureId"] = e.giverCreatureId;
+            je["turninCreatureId"] = e.turninCreatureId;
+            nlohmann::json oa = nlohmann::json::array();
+            for (const auto& o : e.objectives) {
+                oa.push_back({
+                    {"kind", o.kind},
+                    {"kindName", wowee::pipeline::WoweeQuest::objectiveKindName(o.kind)},
+                    {"targetId", o.targetId},
+                    {"quantity", o.quantity},
+                });
+            }
+            je["objectives"] = oa;
+            je["xpReward"] = e.xpReward;
+            je["moneyCopperReward"] = e.moneyCopperReward;
+            nlohmann::json ra = nlohmann::json::array();
+            for (const auto& r : e.rewardItems) {
+                nlohmann::json jr;
+                jr["itemId"] = r.itemId;
+                jr["qty"] = r.qty;
+                jr["pickFlags"] = r.pickFlags;
+                nlohmann::json pa = nlohmann::json::array();
+                if (r.pickFlags & wowee::pipeline::WoweeQuest::AutoGiven)
+                    pa.push_back("auto");
+                if (r.pickFlags & wowee::pipeline::WoweeQuest::PlayerChoice)
+                    pa.push_back("choice");
+                jr["pickFlagsList"] = pa;
+                ra.push_back(jr);
+            }
+            je["rewardItems"] = ra;
+            je["flags"] = e.flags;
+            nlohmann::json fa = nlohmann::json::array();
+            if (e.flags & wowee::pipeline::WoweeQuest::Daily)        fa.push_back("daily");
+            if (e.flags & wowee::pipeline::WoweeQuest::Weekly)       fa.push_back("weekly");
+            if (e.flags & wowee::pipeline::WoweeQuest::Raid)         fa.push_back("raid");
+            if (e.flags & wowee::pipeline::WoweeQuest::Group)        fa.push_back("group");
+            if (e.flags & wowee::pipeline::WoweeQuest::AutoComplete) fa.push_back("auto-complete");
+            if (e.flags & wowee::pipeline::WoweeQuest::AutoAccept)   fa.push_back("auto-accept");
+            if (e.flags & wowee::pipeline::WoweeQuest::Repeatable)   fa.push_back("repeatable");
+            if (e.flags & wowee::pipeline::WoweeQuest::ClassQuest)   fa.push_back("class");
+            if (e.flags & wowee::pipeline::WoweeQuest::Pvp)          fa.push_back("pvp");
+            je["flagsList"] = fa;
+            arr.push_back(je);
         }
-        je["objectives"] = oa;
-        je["xpReward"] = e.xpReward;
-        je["moneyCopperReward"] = e.moneyCopperReward;
-        nlohmann::json ra = nlohmann::json::array();
-        for (const auto& r : e.rewardItems) {
-            nlohmann::json jr;
-            jr["itemId"] = r.itemId;
-            jr["qty"] = r.qty;
-            jr["pickFlags"] = r.pickFlags;
-            nlohmann::json pa = nlohmann::json::array();
-            if (r.pickFlags & wowee::pipeline::WoweeQuest::AutoGiven)
-                pa.push_back("auto");
-            if (r.pickFlags & wowee::pipeline::WoweeQuest::PlayerChoice)
-                pa.push_back("choice");
-            jr["pickFlagsList"] = pa;
-            ra.push_back(jr);
-        }
-        je["rewardItems"] = ra;
-        je["flags"] = e.flags;
-        nlohmann::json fa = nlohmann::json::array();
-        if (e.flags & wowee::pipeline::WoweeQuest::Daily)        fa.push_back("daily");
-        if (e.flags & wowee::pipeline::WoweeQuest::Weekly)       fa.push_back("weekly");
-        if (e.flags & wowee::pipeline::WoweeQuest::Raid)         fa.push_back("raid");
-        if (e.flags & wowee::pipeline::WoweeQuest::Group)        fa.push_back("group");
-        if (e.flags & wowee::pipeline::WoweeQuest::AutoComplete) fa.push_back("auto-complete");
-        if (e.flags & wowee::pipeline::WoweeQuest::AutoAccept)   fa.push_back("auto-accept");
-        if (e.flags & wowee::pipeline::WoweeQuest::Repeatable)   fa.push_back("repeatable");
-        if (e.flags & wowee::pipeline::WoweeQuest::ClassQuest)   fa.push_back("class");
-        if (e.flags & wowee::pipeline::WoweeQuest::Pvp)          fa.push_back("pvp");
-        je["flagsList"] = fa;
-        arr.push_back(je);
-    }
-    j["entries"] = arr;
-    std::ofstream out(outPath);
-    if (!out) {
-        std::fprintf(stderr,
-            "export-wqt-json: cannot write %s\n", outPath.c_str());
-        return 1;
-    }
-    out << j.dump(2) << "\n";
-    out.close();
-    std::printf("Wrote %s\n", outPath.c_str());
-    std::printf("  source : %s.wqt\n", base.c_str());
-    std::printf("  quests : %zu\n", c.entries.size());
-    return 0;
+        j["entries"] = arr;
+            return j;
+        });
 }
 
 int handleImportJson(int& i, int argc, char** argv) {

@@ -148,57 +148,41 @@ int handleExportJson(int& i, int argc, char** argv) {
     // open format. Each menu emits scalar fields plus the
     // options array; option.kind and requiredFlags emit dual
     // int + name forms.
-    std::string base = argv[++i];
-    std::string outPath;
-    if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = cli::withoutExt(base, ".wgsp");
-    if (outPath.empty()) outPath = base + ".wgsp.json";
-    if (!wowee::pipeline::WoweeGossipLoader::exists(base)) {
-        return reportMissing("export-wgsp-json", "WGSP", base, ".wgsp");
-    }
-    auto c = wowee::pipeline::WoweeGossipLoader::load(base);
-    nlohmann::json j;
-    j["name"] = c.name;
-    nlohmann::json arr = nlohmann::json::array();
-    for (const auto& e : c.entries) {
-        nlohmann::json je;
-        je["menuId"] = e.menuId;
-        je["titleText"] = e.titleText;
-        nlohmann::json opts = nlohmann::json::array();
-        for (const auto& o : e.options) {
-            nlohmann::json jo;
-            jo["optionId"] = o.optionId;
-            jo["text"] = o.text;
-            jo["kind"] = o.kind;
-            jo["kindName"] = wowee::pipeline::WoweeGossip::optionKindName(o.kind);
-            jo["actionTarget"] = o.actionTarget;
-            jo["requiredFlags"] = o.requiredFlags;
-            nlohmann::json fa = nlohmann::json::array();
-            if (o.requiredFlags & wowee::pipeline::WoweeGossip::AllianceOnly) fa.push_back("alliance");
-            if (o.requiredFlags & wowee::pipeline::WoweeGossip::HordeOnly)    fa.push_back("horde");
-            if (o.requiredFlags & wowee::pipeline::WoweeGossip::Coinpouch)    fa.push_back("coin");
-            if (o.requiredFlags & wowee::pipeline::WoweeGossip::QuestGated)   fa.push_back("quest-gated");
-            if (o.requiredFlags & wowee::pipeline::WoweeGossip::Closes)       fa.push_back("closes");
-            jo["requiredFlagsList"] = fa;
-            jo["moneyCostCopper"] = o.moneyCostCopper;
-            opts.push_back(jo);
+    return cli::exportCatalogJson<wowee::pipeline::WoweeGossipLoader>(
+        i, argc, argv, "wgsp", "WGSP", "menus  ",
+        [](const auto& c) {
+        nlohmann::json j;
+        j["name"] = c.name;
+        nlohmann::json arr = nlohmann::json::array();
+        for (const auto& e : c.entries) {
+            nlohmann::json je;
+            je["menuId"] = e.menuId;
+            je["titleText"] = e.titleText;
+            nlohmann::json opts = nlohmann::json::array();
+            for (const auto& o : e.options) {
+                nlohmann::json jo;
+                jo["optionId"] = o.optionId;
+                jo["text"] = o.text;
+                jo["kind"] = o.kind;
+                jo["kindName"] = wowee::pipeline::WoweeGossip::optionKindName(o.kind);
+                jo["actionTarget"] = o.actionTarget;
+                jo["requiredFlags"] = o.requiredFlags;
+                nlohmann::json fa = nlohmann::json::array();
+                if (o.requiredFlags & wowee::pipeline::WoweeGossip::AllianceOnly) fa.push_back("alliance");
+                if (o.requiredFlags & wowee::pipeline::WoweeGossip::HordeOnly)    fa.push_back("horde");
+                if (o.requiredFlags & wowee::pipeline::WoweeGossip::Coinpouch)    fa.push_back("coin");
+                if (o.requiredFlags & wowee::pipeline::WoweeGossip::QuestGated)   fa.push_back("quest-gated");
+                if (o.requiredFlags & wowee::pipeline::WoweeGossip::Closes)       fa.push_back("closes");
+                jo["requiredFlagsList"] = fa;
+                jo["moneyCostCopper"] = o.moneyCostCopper;
+                opts.push_back(jo);
+            }
+            je["options"] = opts;
+            arr.push_back(je);
         }
-        je["options"] = opts;
-        arr.push_back(je);
-    }
-    j["entries"] = arr;
-    std::ofstream out(outPath);
-    if (!out) {
-        std::fprintf(stderr,
-            "export-wgsp-json: cannot write %s\n", outPath.c_str());
-        return 1;
-    }
-    out << j.dump(2) << "\n";
-    out.close();
-    std::printf("Wrote %s\n", outPath.c_str());
-    std::printf("  source : %s.wgsp\n", base.c_str());
-    std::printf("  menus  : %zu\n", c.entries.size());
-    return 0;
+        j["entries"] = arr;
+            return j;
+        });
 }
 
 int handleImportJson(int& i, int argc, char** argv) {

@@ -171,72 +171,56 @@ int handleExportJson(int& i, int argc, char** argv) {
     // open format. Each NPC emits scalar + greeting fields
     // plus the spell-offer and item-offer arrays. The
     // kindMask emits dual int + name forms.
-    std::string base = argv[++i];
-    std::string outPath;
-    if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = cli::withoutExt(base, ".wtrn");
-    if (outPath.empty()) outPath = base + ".wtrn.json";
-    if (!wowee::pipeline::WoweeTrainerLoader::exists(base)) {
-        return reportMissing("export-wtrn-json", "WTRN", base, ".wtrn");
-    }
-    auto c = wowee::pipeline::WoweeTrainerLoader::load(base);
-    nlohmann::json j;
-    j["name"] = c.name;
-    nlohmann::json arr = nlohmann::json::array();
-    for (const auto& e : c.entries) {
-        nlohmann::json je;
-        je["npcId"] = e.npcId;
-        je["kindMask"] = e.kindMask;
-        je["kindMaskName"] = wowee::pipeline::WoweeTrainer::kindMaskName(e.kindMask);
-        nlohmann::json km = nlohmann::json::array();
-        if (e.kindMask & wowee::pipeline::WoweeTrainer::Trainer) km.push_back("trainer");
-        if (e.kindMask & wowee::pipeline::WoweeTrainer::Vendor)  km.push_back("vendor");
-        je["kindList"] = km;
-        je["greeting"] = e.greeting;
-        nlohmann::json sa = nlohmann::json::array();
-        for (const auto& s : e.spells) {
-            sa.push_back({
-                {"spellId", s.spellId},
-                {"moneyCostCopper", s.moneyCostCopper},
-                {"requiredSkillId", s.requiredSkillId},
-                {"requiredSkillRank", s.requiredSkillRank},
-                {"requiredLevel", s.requiredLevel},
-            });
-        }
-        je["spells"] = sa;
-        nlohmann::json ia = nlohmann::json::array();
-        for (const auto& it : e.items) {
-            nlohmann::json ji;
-            ji["itemId"] = it.itemId;
-            // Emit "unlimited" string when stock is the sentinel
-            // value so JSON is friendlier to hand-edit. Importer
-            // accepts either form.
-            if (it.stockCount == wowee::pipeline::WoweeTrainer::kUnlimitedStock) {
-                ji["stockCount"] = "unlimited";
-            } else {
-                ji["stockCount"] = it.stockCount;
+    return cli::exportCatalogJson<wowee::pipeline::WoweeTrainerLoader>(
+        i, argc, argv, "wtrn", "WTRN", "npcs   ",
+        [](const auto& c) {
+        nlohmann::json j;
+        j["name"] = c.name;
+        nlohmann::json arr = nlohmann::json::array();
+        for (const auto& e : c.entries) {
+            nlohmann::json je;
+            je["npcId"] = e.npcId;
+            je["kindMask"] = e.kindMask;
+            je["kindMaskName"] = wowee::pipeline::WoweeTrainer::kindMaskName(e.kindMask);
+            nlohmann::json km = nlohmann::json::array();
+            if (e.kindMask & wowee::pipeline::WoweeTrainer::Trainer) km.push_back("trainer");
+            if (e.kindMask & wowee::pipeline::WoweeTrainer::Vendor)  km.push_back("vendor");
+            je["kindList"] = km;
+            je["greeting"] = e.greeting;
+            nlohmann::json sa = nlohmann::json::array();
+            for (const auto& s : e.spells) {
+                sa.push_back({
+                    {"spellId", s.spellId},
+                    {"moneyCostCopper", s.moneyCostCopper},
+                    {"requiredSkillId", s.requiredSkillId},
+                    {"requiredSkillRank", s.requiredSkillRank},
+                    {"requiredLevel", s.requiredLevel},
+                });
             }
-            ji["restockSec"] = it.restockSec;
-            ji["extendedCost"] = it.extendedCost;
-            ji["moneyCostCopper"] = it.moneyCostCopper;
-            ia.push_back(ji);
+            je["spells"] = sa;
+            nlohmann::json ia = nlohmann::json::array();
+            for (const auto& it : e.items) {
+                nlohmann::json ji;
+                ji["itemId"] = it.itemId;
+                // Emit "unlimited" string when stock is the sentinel
+                // value so JSON is friendlier to hand-edit. Importer
+                // accepts either form.
+                if (it.stockCount == wowee::pipeline::WoweeTrainer::kUnlimitedStock) {
+                    ji["stockCount"] = "unlimited";
+                } else {
+                    ji["stockCount"] = it.stockCount;
+                }
+                ji["restockSec"] = it.restockSec;
+                ji["extendedCost"] = it.extendedCost;
+                ji["moneyCostCopper"] = it.moneyCostCopper;
+                ia.push_back(ji);
+            }
+            je["items"] = ia;
+            arr.push_back(je);
         }
-        je["items"] = ia;
-        arr.push_back(je);
-    }
-    j["entries"] = arr;
-    std::ofstream out(outPath);
-    if (!out) {
-        std::fprintf(stderr,
-            "export-wtrn-json: cannot write %s\n", outPath.c_str());
-        return 1;
-    }
-    out << j.dump(2) << "\n";
-    out.close();
-    std::printf("Wrote %s\n", outPath.c_str());
-    std::printf("  source : %s.wtrn\n", base.c_str());
-    std::printf("  npcs   : %zu\n", c.entries.size());
-    return 0;
+        j["entries"] = arr;
+            return j;
+        });
 }
 
 int handleImportJson(int& i, int argc, char** argv) {

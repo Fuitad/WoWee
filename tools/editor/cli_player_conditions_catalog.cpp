@@ -121,50 +121,34 @@ int handleExportJson(int& i, int argc, char** argv) {
     // open format. Each condition emits all 11 scalar fields
     // plus dual int + name forms for conditionKind /
     // comparisonOp / chainOp so hand-edits can use either.
-    std::string base = argv[++i];
-    std::string outPath;
-    if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = cli::withoutExt(base, ".wpcn");
-    if (outPath.empty()) outPath = base + ".wpcn.json";
-    if (!wowee::pipeline::WoweePlayerConditionLoader::exists(base)) {
-        return reportMissing("export-wpcn-json", "WPCN", base, ".wpcn");
-    }
-    auto c = wowee::pipeline::WoweePlayerConditionLoader::load(base);
-    nlohmann::json j;
-    j["name"] = c.name;
-    nlohmann::json arr = nlohmann::json::array();
-    for (const auto& e : c.entries) {
-        arr.push_back({
-            {"conditionId", e.conditionId},
-            {"name", e.name},
-            {"description", e.description},
-            {"conditionKind", e.conditionKind},
-            {"conditionKindName", wowee::pipeline::WoweePlayerCondition::conditionKindName(e.conditionKind)},
-            {"comparisonOp", e.comparisonOp},
-            {"comparisonOpName", wowee::pipeline::WoweePlayerCondition::comparisonOpName(e.comparisonOp)},
-            {"chainOp", e.chainOp},
-            {"chainOpName", wowee::pipeline::WoweePlayerCondition::chainOpName(e.chainOp)},
-            {"targetIdA", e.targetIdA},
-            {"targetIdB", e.targetIdB},
-            {"intValueA", e.intValueA},
-            {"intValueB", e.intValueB},
-            {"chainNextId", e.chainNextId},
-            {"failMessage", e.failMessage},
+    return cli::exportCatalogJson<wowee::pipeline::WoweePlayerConditionLoader>(
+        i, argc, argv, "wpcn", "WPCN", "conditions ",
+        [](const auto& c) {
+        nlohmann::json j;
+        j["name"] = c.name;
+        nlohmann::json arr = nlohmann::json::array();
+        for (const auto& e : c.entries) {
+            arr.push_back({
+                {"conditionId", e.conditionId},
+                {"name", e.name},
+                {"description", e.description},
+                {"conditionKind", e.conditionKind},
+                {"conditionKindName", wowee::pipeline::WoweePlayerCondition::conditionKindName(e.conditionKind)},
+                {"comparisonOp", e.comparisonOp},
+                {"comparisonOpName", wowee::pipeline::WoweePlayerCondition::comparisonOpName(e.comparisonOp)},
+                {"chainOp", e.chainOp},
+                {"chainOpName", wowee::pipeline::WoweePlayerCondition::chainOpName(e.chainOp)},
+                {"targetIdA", e.targetIdA},
+                {"targetIdB", e.targetIdB},
+                {"intValueA", e.intValueA},
+                {"intValueB", e.intValueB},
+                {"chainNextId", e.chainNextId},
+                {"failMessage", e.failMessage},
+            });
+        }
+        j["entries"] = arr;
+            return j;
         });
-    }
-    j["entries"] = arr;
-    std::ofstream out(outPath);
-    if (!out) {
-        std::fprintf(stderr,
-            "export-wpcn-json: cannot write %s\n", outPath.c_str());
-        return 1;
-    }
-    out << j.dump(2) << "\n";
-    out.close();
-    std::printf("Wrote %s\n", outPath.c_str());
-    std::printf("  source     : %s.wpcn\n", base.c_str());
-    std::printf("  conditions : %zu\n", c.entries.size());
-    return 0;
 }
 
 int handleImportJson(int& i, int argc, char** argv) {

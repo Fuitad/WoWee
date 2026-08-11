@@ -124,51 +124,35 @@ int handleExportJson(int& i, int argc, char** argv) {
     // open format. Each holiday emits all 13 scalar fields
     // plus dual int + name forms for holidayKind and
     // recurrence so hand-edits can use either representation.
-    std::string base = argv[++i];
-    std::string outPath;
-    if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = cli::withoutExt(base, ".whol");
-    if (outPath.empty()) outPath = base + ".whol.json";
-    if (!wowee::pipeline::WoweeHolidayLoader::exists(base)) {
-        return reportMissing("export-whol-json", "WHOL", base, ".whol");
-    }
-    auto c = wowee::pipeline::WoweeHolidayLoader::load(base);
-    nlohmann::json j;
-    j["name"] = c.name;
-    nlohmann::json arr = nlohmann::json::array();
-    for (const auto& e : c.entries) {
-        arr.push_back({
-            {"holidayId", e.holidayId},
-            {"name", e.name},
-            {"description", e.description},
-            {"iconPath", e.iconPath},
-            {"holidayKind", e.holidayKind},
-            {"holidayKindName", wowee::pipeline::WoweeHoliday::holidayKindName(e.holidayKind)},
-            {"recurrence", e.recurrence},
-            {"recurrenceName", wowee::pipeline::WoweeHoliday::recurrenceName(e.recurrence)},
-            {"startMonth", e.startMonth},
-            {"startDay", e.startDay},
-            {"durationHours", e.durationHours},
-            {"holidayQuestId", e.holidayQuestId},
-            {"bossCreatureId", e.bossCreatureId},
-            {"itemRewardId", e.itemRewardId},
-            {"areaIdGate", e.areaIdGate},
-            {"mapIdGate", e.mapIdGate},
+    return cli::exportCatalogJson<wowee::pipeline::WoweeHolidayLoader>(
+        i, argc, argv, "whol", "WHOL", "holidays ",
+        [](const auto& c) {
+        nlohmann::json j;
+        j["name"] = c.name;
+        nlohmann::json arr = nlohmann::json::array();
+        for (const auto& e : c.entries) {
+            arr.push_back({
+                {"holidayId", e.holidayId},
+                {"name", e.name},
+                {"description", e.description},
+                {"iconPath", e.iconPath},
+                {"holidayKind", e.holidayKind},
+                {"holidayKindName", wowee::pipeline::WoweeHoliday::holidayKindName(e.holidayKind)},
+                {"recurrence", e.recurrence},
+                {"recurrenceName", wowee::pipeline::WoweeHoliday::recurrenceName(e.recurrence)},
+                {"startMonth", e.startMonth},
+                {"startDay", e.startDay},
+                {"durationHours", e.durationHours},
+                {"holidayQuestId", e.holidayQuestId},
+                {"bossCreatureId", e.bossCreatureId},
+                {"itemRewardId", e.itemRewardId},
+                {"areaIdGate", e.areaIdGate},
+                {"mapIdGate", e.mapIdGate},
+            });
+        }
+        j["entries"] = arr;
+            return j;
         });
-    }
-    j["entries"] = arr;
-    std::ofstream out(outPath);
-    if (!out) {
-        std::fprintf(stderr,
-            "export-whol-json: cannot write %s\n", outPath.c_str());
-        return 1;
-    }
-    out << j.dump(2) << "\n";
-    out.close();
-    std::printf("Wrote %s\n", outPath.c_str());
-    std::printf("  source   : %s.whol\n", base.c_str());
-    std::printf("  holidays : %zu\n", c.entries.size());
-    return 0;
 }
 
 int handleImportJson(int& i, int argc, char** argv) {

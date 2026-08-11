@@ -135,57 +135,41 @@ int handleExportJson(int& i, int argc, char** argv) {
     // open format. Each lock emits scalar fields plus the
     // 5 fixed channel slots; channel.kind emits dual int +
     // name forms.
-    std::string base = argv[++i];
-    std::string outPath;
-    if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = cli::withoutExt(base, ".wlck");
-    if (outPath.empty()) outPath = base + ".wlck.json";
-    if (!wowee::pipeline::WoweeLockLoader::exists(base)) {
-        return reportMissing("export-wlck-json", "WLCK", base, ".wlck");
-    }
-    auto c = wowee::pipeline::WoweeLockLoader::load(base);
-    nlohmann::json j;
-    j["name"] = c.name;
-    nlohmann::json arr = nlohmann::json::array();
-    for (const auto& e : c.entries) {
-        std::string fs;
-        appendLockFlagsStr(fs, e.flags);
-        nlohmann::json je;
-        je["lockId"] = e.lockId;
-        je["name"] = e.name;
-        je["flags"] = e.flags;
-        nlohmann::json fa = nlohmann::json::array();
-        if (e.flags & wowee::pipeline::WoweeLock::DestructOnOpen) fa.push_back("destruct");
-        if (e.flags & wowee::pipeline::WoweeLock::RespawnOnKey)   fa.push_back("respawn");
-        if (e.flags & wowee::pipeline::WoweeLock::TrapOnFail)     fa.push_back("trap");
-        je["flagsList"] = fa;
-        nlohmann::json chans = nlohmann::json::array();
-        for (int k = 0; k < wowee::pipeline::WoweeLock::kChannelSlots; ++k) {
-            const auto& ch = e.channels[k];
-            chans.push_back({
-                {"slot", k},
-                {"kind", ch.kind},
-                {"kindName", wowee::pipeline::WoweeLock::channelKindName(ch.kind)},
-                {"skillRequired", ch.skillRequired},
-                {"targetId", ch.targetId},
-            });
+    return cli::exportCatalogJson<wowee::pipeline::WoweeLockLoader>(
+        i, argc, argv, "wlck", "WLCK", "locks  ",
+        [](const auto& c) {
+        nlohmann::json j;
+        j["name"] = c.name;
+        nlohmann::json arr = nlohmann::json::array();
+        for (const auto& e : c.entries) {
+            std::string fs;
+            appendLockFlagsStr(fs, e.flags);
+            nlohmann::json je;
+            je["lockId"] = e.lockId;
+            je["name"] = e.name;
+            je["flags"] = e.flags;
+            nlohmann::json fa = nlohmann::json::array();
+            if (e.flags & wowee::pipeline::WoweeLock::DestructOnOpen) fa.push_back("destruct");
+            if (e.flags & wowee::pipeline::WoweeLock::RespawnOnKey)   fa.push_back("respawn");
+            if (e.flags & wowee::pipeline::WoweeLock::TrapOnFail)     fa.push_back("trap");
+            je["flagsList"] = fa;
+            nlohmann::json chans = nlohmann::json::array();
+            for (int k = 0; k < wowee::pipeline::WoweeLock::kChannelSlots; ++k) {
+                const auto& ch = e.channels[k];
+                chans.push_back({
+                    {"slot", k},
+                    {"kind", ch.kind},
+                    {"kindName", wowee::pipeline::WoweeLock::channelKindName(ch.kind)},
+                    {"skillRequired", ch.skillRequired},
+                    {"targetId", ch.targetId},
+                });
+            }
+            je["channels"] = chans;
+            arr.push_back(je);
         }
-        je["channels"] = chans;
-        arr.push_back(je);
-    }
-    j["entries"] = arr;
-    std::ofstream out(outPath);
-    if (!out) {
-        std::fprintf(stderr,
-            "export-wlck-json: cannot write %s\n", outPath.c_str());
-        return 1;
-    }
-    out << j.dump(2) << "\n";
-    out.close();
-    std::printf("Wrote %s\n", outPath.c_str());
-    std::printf("  source : %s.wlck\n", base.c_str());
-    std::printf("  locks  : %zu\n", c.entries.size());
-    return 0;
+        j["entries"] = arr;
+            return j;
+        });
 }
 
 int handleImportJson(int& i, int argc, char** argv) {

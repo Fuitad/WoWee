@@ -132,57 +132,41 @@ int handleExportJson(int& i, int argc, char** argv) {
     // open format. Each faction emits all 13 scalar fields
     // plus the variable-length enemies + friends arrays and
     // a string-array form for the reputation flag bitset.
-    std::string base = argv[++i];
-    std::string outPath;
-    if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = cli::withoutExt(base, ".wfac");
-    if (outPath.empty()) outPath = base + ".wfac.json";
-    if (!wowee::pipeline::WoweeFactionLoader::exists(base)) {
-        return reportMissing("export-wfac-json", "WFAC", base, ".wfac");
-    }
-    auto c = wowee::pipeline::WoweeFactionLoader::load(base);
-    nlohmann::json j;
-    j["name"] = c.name;
-    nlohmann::json arr = nlohmann::json::array();
-    for (const auto& e : c.entries) {
-        nlohmann::json je;
-        je["factionId"] = e.factionId;
-        je["parentFactionId"] = e.parentFactionId;
-        je["name"] = e.name;
-        je["description"] = e.description;
-        je["reputationFlags"] = e.reputationFlags;
-        nlohmann::json fa = nlohmann::json::array();
-        if (e.reputationFlags & wowee::pipeline::WoweeFaction::VisibleOnTab) fa.push_back("visible");
-        if (e.reputationFlags & wowee::pipeline::WoweeFaction::AtWarDefault) fa.push_back("at-war");
-        if (e.reputationFlags & wowee::pipeline::WoweeFaction::Hidden)       fa.push_back("hidden");
-        if (e.reputationFlags & wowee::pipeline::WoweeFaction::NoReputation) fa.push_back("no-rep");
-        if (e.reputationFlags & wowee::pipeline::WoweeFaction::IsHeader)     fa.push_back("header");
-        je["reputationFlagsList"] = fa;
-        je["baseReputation"] = e.baseReputation;
-        je["thresholdHostile"] = e.thresholdHostile;
-        je["thresholdUnfriendly"] = e.thresholdUnfriendly;
-        je["thresholdNeutral"] = e.thresholdNeutral;
-        je["thresholdFriendly"] = e.thresholdFriendly;
-        je["thresholdHonored"] = e.thresholdHonored;
-        je["thresholdRevered"] = e.thresholdRevered;
-        je["thresholdExalted"] = e.thresholdExalted;
-        je["enemies"] = e.enemies;
-        je["friends"] = e.friends;
-        arr.push_back(je);
-    }
-    j["entries"] = arr;
-    std::ofstream out(outPath);
-    if (!out) {
-        std::fprintf(stderr,
-            "export-wfac-json: cannot write %s\n", outPath.c_str());
-        return 1;
-    }
-    out << j.dump(2) << "\n";
-    out.close();
-    std::printf("Wrote %s\n", outPath.c_str());
-    std::printf("  source   : %s.wfac\n", base.c_str());
-    std::printf("  factions : %zu\n", c.entries.size());
-    return 0;
+    return cli::exportCatalogJson<wowee::pipeline::WoweeFactionLoader>(
+        i, argc, argv, "wfac", "WFAC", "factions ",
+        [](const auto& c) {
+        nlohmann::json j;
+        j["name"] = c.name;
+        nlohmann::json arr = nlohmann::json::array();
+        for (const auto& e : c.entries) {
+            nlohmann::json je;
+            je["factionId"] = e.factionId;
+            je["parentFactionId"] = e.parentFactionId;
+            je["name"] = e.name;
+            je["description"] = e.description;
+            je["reputationFlags"] = e.reputationFlags;
+            nlohmann::json fa = nlohmann::json::array();
+            if (e.reputationFlags & wowee::pipeline::WoweeFaction::VisibleOnTab) fa.push_back("visible");
+            if (e.reputationFlags & wowee::pipeline::WoweeFaction::AtWarDefault) fa.push_back("at-war");
+            if (e.reputationFlags & wowee::pipeline::WoweeFaction::Hidden)       fa.push_back("hidden");
+            if (e.reputationFlags & wowee::pipeline::WoweeFaction::NoReputation) fa.push_back("no-rep");
+            if (e.reputationFlags & wowee::pipeline::WoweeFaction::IsHeader)     fa.push_back("header");
+            je["reputationFlagsList"] = fa;
+            je["baseReputation"] = e.baseReputation;
+            je["thresholdHostile"] = e.thresholdHostile;
+            je["thresholdUnfriendly"] = e.thresholdUnfriendly;
+            je["thresholdNeutral"] = e.thresholdNeutral;
+            je["thresholdFriendly"] = e.thresholdFriendly;
+            je["thresholdHonored"] = e.thresholdHonored;
+            je["thresholdRevered"] = e.thresholdRevered;
+            je["thresholdExalted"] = e.thresholdExalted;
+            je["enemies"] = e.enemies;
+            je["friends"] = e.friends;
+            arr.push_back(je);
+        }
+        j["entries"] = arr;
+            return j;
+        });
 }
 
 int handleImportJson(int& i, int argc, char** argv) {

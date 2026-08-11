@@ -120,49 +120,33 @@ int handleExportJson(int& i, int argc, char** argv) {
     // open format. Each event emits all 11 scalar fields
     // plus dual int + name forms for holidayKind and
     // factionGroup.
-    std::string base = argv[++i];
-    std::string outPath;
-    if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = cli::withoutExt(base, ".wsea");
-    if (outPath.empty()) outPath = base + ".wsea.json";
-    if (!wowee::pipeline::WoweeEventLoader::exists(base)) {
-        return reportMissing("export-wsea-json", "WSEA", base, ".wsea");
-    }
-    auto c = wowee::pipeline::WoweeEventLoader::load(base);
-    nlohmann::json j;
-    j["name"] = c.name;
-    nlohmann::json arr = nlohmann::json::array();
-    for (const auto& e : c.entries) {
-        arr.push_back({
-            {"eventId", e.eventId},
-            {"name", e.name},
-            {"description", e.description},
-            {"iconPath", e.iconPath},
-            {"announceMessage", e.announceMessage},
-            {"startDate", e.startDate},
-            {"duration_seconds", e.duration_seconds},
-            {"recurrenceDays", e.recurrenceDays},
-            {"holidayKind", e.holidayKind},
-            {"holidayKindName", wowee::pipeline::WoweeEvent::holidayKindName(e.holidayKind)},
-            {"factionGroup", e.factionGroup},
-            {"factionGroupName", wowee::pipeline::WoweeEvent::factionGroupName(e.factionGroup)},
-            {"bonusXpPercent", e.bonusXpPercent},
-            {"tokenIdReward", e.tokenIdReward},
+    return cli::exportCatalogJson<wowee::pipeline::WoweeEventLoader>(
+        i, argc, argv, "wsea", "WSEA", "events ",
+        [](const auto& c) {
+        nlohmann::json j;
+        j["name"] = c.name;
+        nlohmann::json arr = nlohmann::json::array();
+        for (const auto& e : c.entries) {
+            arr.push_back({
+                {"eventId", e.eventId},
+                {"name", e.name},
+                {"description", e.description},
+                {"iconPath", e.iconPath},
+                {"announceMessage", e.announceMessage},
+                {"startDate", e.startDate},
+                {"duration_seconds", e.duration_seconds},
+                {"recurrenceDays", e.recurrenceDays},
+                {"holidayKind", e.holidayKind},
+                {"holidayKindName", wowee::pipeline::WoweeEvent::holidayKindName(e.holidayKind)},
+                {"factionGroup", e.factionGroup},
+                {"factionGroupName", wowee::pipeline::WoweeEvent::factionGroupName(e.factionGroup)},
+                {"bonusXpPercent", e.bonusXpPercent},
+                {"tokenIdReward", e.tokenIdReward},
+            });
+        }
+        j["entries"] = arr;
+            return j;
         });
-    }
-    j["entries"] = arr;
-    std::ofstream out(outPath);
-    if (!out) {
-        std::fprintf(stderr,
-            "export-wsea-json: cannot write %s\n", outPath.c_str());
-        return 1;
-    }
-    out << j.dump(2) << "\n";
-    out.close();
-    std::printf("Wrote %s\n", outPath.c_str());
-    std::printf("  source : %s.wsea\n", base.c_str());
-    std::printf("  events : %zu\n", c.entries.size());
-    return 0;
 }
 
 int handleImportJson(int& i, int argc, char** argv) {

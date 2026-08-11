@@ -141,32 +141,16 @@ int handleExportJson(int& i, int argc, char** argv) {
     // plus a dual int + name form for profession, plus a
     // nested reagents[] array (only non-empty slots are
     // emitted to keep hand-edits compact).
-    std::string base = argv[++i];
-    std::string outPath;
-    if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = cli::withoutExt(base, ".wtsk");
-    if (outPath.empty()) outPath = base + ".wtsk.json";
-    if (!wowee::pipeline::WoweeTradeSkillLoader::exists(base)) {
-        return reportMissing("export-wtsk-json", "WTSK", base, ".wtsk");
-    }
-    auto c = wowee::pipeline::WoweeTradeSkillLoader::load(base);
-    nlohmann::json j;
-    j["name"] = c.name;
-    nlohmann::json arr = nlohmann::json::array();
-    for (const auto& e : c.entries) appendEntryJson(arr, e);
-    j["entries"] = arr;
-    std::ofstream out(outPath);
-    if (!out) {
-        std::fprintf(stderr,
-            "export-wtsk-json: cannot write %s\n", outPath.c_str());
-        return 1;
-    }
-    out << j.dump(2) << "\n";
-    out.close();
-    std::printf("Wrote %s\n", outPath.c_str());
-    std::printf("  source  : %s.wtsk\n", base.c_str());
-    std::printf("  recipes : %zu\n", c.entries.size());
-    return 0;
+    return cli::exportCatalogJson<wowee::pipeline::WoweeTradeSkillLoader>(
+        i, argc, argv, "wtsk", "WTSK", "recipes ",
+        [](const auto& c) {
+        nlohmann::json j;
+        j["name"] = c.name;
+        nlohmann::json arr = nlohmann::json::array();
+        for (const auto& e : c.entries) appendEntryJson(arr, e);
+        j["entries"] = arr;
+            return j;
+        });
 }
 
 int handleImportJson(int& i, int argc, char** argv) {

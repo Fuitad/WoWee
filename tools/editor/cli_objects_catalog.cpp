@@ -131,57 +131,41 @@ int handleExportJson(int& i, int argc, char** argv) {
     // Mirrors the JSON pairs added for every other novel
     // open format. Each object emits all 13 scalar fields
     // plus dual int + name forms for typeId and flags.
-    std::string base = argv[++i];
-    std::string outPath;
-    if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = cli::withoutExt(base, ".wgot");
-    if (outPath.empty()) outPath = base + ".wgot.json";
-    if (!wowee::pipeline::WoweeGameObjectLoader::exists(base)) {
-        return reportMissing("export-wgot-json", "WGOT", base, ".wgot");
-    }
-    auto c = wowee::pipeline::WoweeGameObjectLoader::load(base);
-    nlohmann::json j;
-    j["name"] = c.name;
-    nlohmann::json arr = nlohmann::json::array();
-    for (const auto& e : c.entries) {
-        nlohmann::json je;
-        je["objectId"] = e.objectId;
-        je["displayId"] = e.displayId;
-        je["name"] = e.name;
-        je["typeId"] = e.typeId;
-        je["typeName"] = wowee::pipeline::WoweeGameObject::typeName(e.typeId);
-        je["size"] = e.size;
-        je["castBarCaption"] = e.castBarCaption;
-        je["requiredSkill"] = e.requiredSkill;
-        je["requiredSkillValue"] = e.requiredSkillValue;
-        je["lockId"] = e.lockId;
-        je["lootTableId"] = e.lootTableId;
-        je["minOpenTimeMs"] = e.minOpenTimeMs;
-        je["maxOpenTimeMs"] = e.maxOpenTimeMs;
-        je["flags"] = e.flags;
-        nlohmann::json fa = nlohmann::json::array();
-        if (e.flags & wowee::pipeline::WoweeGameObject::Disabled)        fa.push_back("disabled");
-        if (e.flags & wowee::pipeline::WoweeGameObject::ScriptOnly)      fa.push_back("script-only");
-        if (e.flags & wowee::pipeline::WoweeGameObject::UsableFromMount) fa.push_back("from-mount");
-        if (e.flags & wowee::pipeline::WoweeGameObject::Despawn)         fa.push_back("despawn");
-        if (e.flags & wowee::pipeline::WoweeGameObject::Frozen)          fa.push_back("frozen");
-        if (e.flags & wowee::pipeline::WoweeGameObject::QuestGated)      fa.push_back("quest-gated");
-        je["flagsList"] = fa;
-        arr.push_back(je);
-    }
-    j["entries"] = arr;
-    std::ofstream out(outPath);
-    if (!out) {
-        std::fprintf(stderr,
-            "export-wgot-json: cannot write %s\n", outPath.c_str());
-        return 1;
-    }
-    out << j.dump(2) << "\n";
-    out.close();
-    std::printf("Wrote %s\n", outPath.c_str());
-    std::printf("  source  : %s.wgot\n", base.c_str());
-    std::printf("  objects : %zu\n", c.entries.size());
-    return 0;
+    return cli::exportCatalogJson<wowee::pipeline::WoweeGameObjectLoader>(
+        i, argc, argv, "wgot", "WGOT", "objects ",
+        [](const auto& c) {
+        nlohmann::json j;
+        j["name"] = c.name;
+        nlohmann::json arr = nlohmann::json::array();
+        for (const auto& e : c.entries) {
+            nlohmann::json je;
+            je["objectId"] = e.objectId;
+            je["displayId"] = e.displayId;
+            je["name"] = e.name;
+            je["typeId"] = e.typeId;
+            je["typeName"] = wowee::pipeline::WoweeGameObject::typeName(e.typeId);
+            je["size"] = e.size;
+            je["castBarCaption"] = e.castBarCaption;
+            je["requiredSkill"] = e.requiredSkill;
+            je["requiredSkillValue"] = e.requiredSkillValue;
+            je["lockId"] = e.lockId;
+            je["lootTableId"] = e.lootTableId;
+            je["minOpenTimeMs"] = e.minOpenTimeMs;
+            je["maxOpenTimeMs"] = e.maxOpenTimeMs;
+            je["flags"] = e.flags;
+            nlohmann::json fa = nlohmann::json::array();
+            if (e.flags & wowee::pipeline::WoweeGameObject::Disabled)        fa.push_back("disabled");
+            if (e.flags & wowee::pipeline::WoweeGameObject::ScriptOnly)      fa.push_back("script-only");
+            if (e.flags & wowee::pipeline::WoweeGameObject::UsableFromMount) fa.push_back("from-mount");
+            if (e.flags & wowee::pipeline::WoweeGameObject::Despawn)         fa.push_back("despawn");
+            if (e.flags & wowee::pipeline::WoweeGameObject::Frozen)          fa.push_back("frozen");
+            if (e.flags & wowee::pipeline::WoweeGameObject::QuestGated)      fa.push_back("quest-gated");
+            je["flagsList"] = fa;
+            arr.push_back(je);
+        }
+        j["entries"] = arr;
+            return j;
+        });
 }
 
 int handleImportJson(int& i, int argc, char** argv) {

@@ -113,45 +113,29 @@ int handleExportJson(int& i, int argc, char** argv) {
     // open format. Each glyph emits all 8 scalar fields plus
     // a dual int + name form for glyphType so hand-edits can
     // use either representation.
-    std::string base = argv[++i];
-    std::string outPath;
-    if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = cli::withoutExt(base, ".wgly");
-    if (outPath.empty()) outPath = base + ".wgly.json";
-    if (!wowee::pipeline::WoweeGlyphLoader::exists(base)) {
-        return reportMissing("export-wgly-json", "WGLY", base, ".wgly");
-    }
-    auto c = wowee::pipeline::WoweeGlyphLoader::load(base);
-    nlohmann::json j;
-    j["name"] = c.name;
-    nlohmann::json arr = nlohmann::json::array();
-    for (const auto& e : c.entries) {
-        arr.push_back({
-            {"glyphId", e.glyphId},
-            {"name", e.name},
-            {"description", e.description},
-            {"iconPath", e.iconPath},
-            {"glyphType", e.glyphType},
-            {"glyphTypeName", wowee::pipeline::WoweeGlyph::glyphTypeName(e.glyphType)},
-            {"spellId", e.spellId},
-            {"itemId", e.itemId},
-            {"classMask", e.classMask},
-            {"requiredLevel", e.requiredLevel},
+    return cli::exportCatalogJson<wowee::pipeline::WoweeGlyphLoader>(
+        i, argc, argv, "wgly", "WGLY", "glyphs ",
+        [](const auto& c) {
+        nlohmann::json j;
+        j["name"] = c.name;
+        nlohmann::json arr = nlohmann::json::array();
+        for (const auto& e : c.entries) {
+            arr.push_back({
+                {"glyphId", e.glyphId},
+                {"name", e.name},
+                {"description", e.description},
+                {"iconPath", e.iconPath},
+                {"glyphType", e.glyphType},
+                {"glyphTypeName", wowee::pipeline::WoweeGlyph::glyphTypeName(e.glyphType)},
+                {"spellId", e.spellId},
+                {"itemId", e.itemId},
+                {"classMask", e.classMask},
+                {"requiredLevel", e.requiredLevel},
+            });
+        }
+        j["entries"] = arr;
+            return j;
         });
-    }
-    j["entries"] = arr;
-    std::ofstream out(outPath);
-    if (!out) {
-        std::fprintf(stderr,
-            "export-wgly-json: cannot write %s\n", outPath.c_str());
-        return 1;
-    }
-    out << j.dump(2) << "\n";
-    out.close();
-    std::printf("Wrote %s\n", outPath.c_str());
-    std::printf("  source : %s.wgly\n", base.c_str());
-    std::printf("  glyphs : %zu\n", c.entries.size());
-    return 0;
 }
 
 int handleImportJson(int& i, int argc, char** argv) {

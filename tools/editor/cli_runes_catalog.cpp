@@ -121,46 +121,30 @@ int handleExportJson(int& i, int argc, char** argv) {
     // open format. Each rune cost emits all 9 scalar fields
     // plus a dual int + name form for spellTreeBranch so
     // hand-edits can use either representation.
-    std::string base = argv[++i];
-    std::string outPath;
-    if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = cli::withoutExt(base, ".wrun");
-    if (outPath.empty()) outPath = base + ".wrun.json";
-    if (!wowee::pipeline::WoweeRuneCostLoader::exists(base)) {
-        return reportMissing("export-wrun-json", "WRUN", base, ".wrun");
-    }
-    auto c = wowee::pipeline::WoweeRuneCostLoader::load(base);
-    nlohmann::json j;
-    j["name"] = c.name;
-    nlohmann::json arr = nlohmann::json::array();
-    for (const auto& e : c.entries) {
-        arr.push_back({
-            {"runeCostId", e.runeCostId},
-            {"spellId", e.spellId},
-            {"name", e.name},
-            {"description", e.description},
-            {"bloodCost", e.bloodCost},
-            {"frostCost", e.frostCost},
-            {"unholyCost", e.unholyCost},
-            {"anyDeathConvertCost", e.anyDeathConvertCost},
-            {"runicPowerCost", e.runicPowerCost},
-            {"spellTreeBranch", e.spellTreeBranch},
-            {"spellTreeBranchName", wowee::pipeline::WoweeRuneCost::spellTreeBranchName(e.spellTreeBranch)},
+    return cli::exportCatalogJson<wowee::pipeline::WoweeRuneCostLoader>(
+        i, argc, argv, "wrun", "WRUN", "costs  ",
+        [](const auto& c) {
+        nlohmann::json j;
+        j["name"] = c.name;
+        nlohmann::json arr = nlohmann::json::array();
+        for (const auto& e : c.entries) {
+            arr.push_back({
+                {"runeCostId", e.runeCostId},
+                {"spellId", e.spellId},
+                {"name", e.name},
+                {"description", e.description},
+                {"bloodCost", e.bloodCost},
+                {"frostCost", e.frostCost},
+                {"unholyCost", e.unholyCost},
+                {"anyDeathConvertCost", e.anyDeathConvertCost},
+                {"runicPowerCost", e.runicPowerCost},
+                {"spellTreeBranch", e.spellTreeBranch},
+                {"spellTreeBranchName", wowee::pipeline::WoweeRuneCost::spellTreeBranchName(e.spellTreeBranch)},
+            });
+        }
+        j["entries"] = arr;
+            return j;
         });
-    }
-    j["entries"] = arr;
-    std::ofstream out(outPath);
-    if (!out) {
-        std::fprintf(stderr,
-            "export-wrun-json: cannot write %s\n", outPath.c_str());
-        return 1;
-    }
-    out << j.dump(2) << "\n";
-    out.close();
-    std::printf("Wrote %s\n", outPath.c_str());
-    std::printf("  source : %s.wrun\n", base.c_str());
-    std::printf("  costs  : %zu\n", c.entries.size());
-    return 0;
 }
 
 int handleImportJson(int& i, int argc, char** argv) {

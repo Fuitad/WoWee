@@ -134,55 +134,39 @@ int handleExportJson(int& i, int argc, char** argv) {
     // emitted as 3-element arrays; kind and flags both have
     // dual int + string-array forms so the importer accepts
     // either.
-    std::string base = argv[++i];
-    std::string outPath;
-    if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = cli::withoutExt(base, ".wspn");
-    if (outPath.empty()) outPath = base + ".wspn.json";
-    if (!wowee::pipeline::WoweeSpawnsLoader::exists(base)) {
-        return reportMissing("export-wspn-json", "WSPN", base, ".wspn");
-    }
-    auto c = wowee::pipeline::WoweeSpawnsLoader::load(base);
-    nlohmann::json j;
-    j["name"] = c.name;
-    nlohmann::json arr = nlohmann::json::array();
-    for (const auto& e : c.entries) {
-        nlohmann::json je;
-        je["kind"] = e.kind;
-        je["kindName"] = wowee::pipeline::WoweeSpawns::kindName(e.kind);
-        je["entryId"] = e.entryId;
-        je["position"] = {e.position.x, e.position.y, e.position.z};
-        je["rotation"] = {e.rotation.x, e.rotation.y, e.rotation.z};
-        je["scale"] = e.scale;
-        je["flags"] = e.flags;
-        nlohmann::json fa = nlohmann::json::array();
-        if (e.flags & wowee::pipeline::WoweeSpawns::Disabled)
-            fa.push_back("disabled");
-        if (e.flags & wowee::pipeline::WoweeSpawns::EventOnly)
-            fa.push_back("event-only");
-        if (e.flags & wowee::pipeline::WoweeSpawns::QuestPhased)
-            fa.push_back("quest-phased");
-        je["flagsList"] = fa;
-        je["respawnSec"] = e.respawnSec;
-        je["factionId"] = e.factionId;
-        je["questIdRequired"] = e.questIdRequired;
-        je["wanderRadius"] = e.wanderRadius;
-        je["label"] = e.label;
-        arr.push_back(je);
-    }
-    j["entries"] = arr;
-    std::ofstream out(outPath);
-    if (!out) {
-        std::fprintf(stderr,
-            "export-wspn-json: cannot write %s\n", outPath.c_str());
-        return 1;
-    }
-    out << j.dump(2) << "\n";
-    out.close();
-    std::printf("Wrote %s\n", outPath.c_str());
-    std::printf("  source  : %s.wspn\n", base.c_str());
-    std::printf("  entries : %zu\n", c.entries.size());
-    return 0;
+    return cli::exportCatalogJson<wowee::pipeline::WoweeSpawnsLoader>(
+        i, argc, argv, "wspn", "WSPN", "entries ",
+        [](const auto& c) {
+        nlohmann::json j;
+        j["name"] = c.name;
+        nlohmann::json arr = nlohmann::json::array();
+        for (const auto& e : c.entries) {
+            nlohmann::json je;
+            je["kind"] = e.kind;
+            je["kindName"] = wowee::pipeline::WoweeSpawns::kindName(e.kind);
+            je["entryId"] = e.entryId;
+            je["position"] = {e.position.x, e.position.y, e.position.z};
+            je["rotation"] = {e.rotation.x, e.rotation.y, e.rotation.z};
+            je["scale"] = e.scale;
+            je["flags"] = e.flags;
+            nlohmann::json fa = nlohmann::json::array();
+            if (e.flags & wowee::pipeline::WoweeSpawns::Disabled)
+                fa.push_back("disabled");
+            if (e.flags & wowee::pipeline::WoweeSpawns::EventOnly)
+                fa.push_back("event-only");
+            if (e.flags & wowee::pipeline::WoweeSpawns::QuestPhased)
+                fa.push_back("quest-phased");
+            je["flagsList"] = fa;
+            je["respawnSec"] = e.respawnSec;
+            je["factionId"] = e.factionId;
+            je["questIdRequired"] = e.questIdRequired;
+            je["wanderRadius"] = e.wanderRadius;
+            je["label"] = e.label;
+            arr.push_back(je);
+        }
+        j["entries"] = arr;
+            return j;
+        });
 }
 
 int handleImportJson(int& i, int argc, char** argv) {

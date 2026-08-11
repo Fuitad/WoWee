@@ -123,51 +123,35 @@ int handleExportJson(int& i, int argc, char** argv) {
     // open format. Each rank emits all 12 scalar fields plus
     // a dual int + name form for rankKind so hand-edits can
     // use either representation.
-    std::string base = argv[++i];
-    std::string outPath;
-    if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = cli::withoutExt(base, ".wpvp");
-    if (outPath.empty()) outPath = base + ".wpvp.json";
-    if (!wowee::pipeline::WoweePVPRankLoader::exists(base)) {
-        return reportMissing("export-wpvp-json", "WPVP", base, ".wpvp");
-    }
-    auto c = wowee::pipeline::WoweePVPRankLoader::load(base);
-    nlohmann::json j;
-    j["name"] = c.name;
-    nlohmann::json arr = nlohmann::json::array();
-    for (const auto& e : c.entries) {
-        arr.push_back({
-            {"rankId", e.rankId},
-            {"name", e.name},
-            {"factionAllianceName", e.factionAllianceName},
-            {"factionHordeName", e.factionHordeName},
-            {"description", e.description},
-            {"rankKind", e.rankKind},
-            {"rankKindName", wowee::pipeline::WoweePVPRank::rankKindName(e.rankKind)},
-            {"minBracketLevel", e.minBracketLevel},
-            {"maxBracketLevel", e.maxBracketLevel},
-            {"minHonorOrRating", e.minHonorOrRating},
-            {"rewardEmblems", e.rewardEmblems},
-            {"titleId", e.titleId},
-            {"chestItemId", e.chestItemId},
-            {"glovesItemId", e.glovesItemId},
-            {"shouldersItemId", e.shouldersItemId},
-            {"bracketBgId", e.bracketBgId},
+    return cli::exportCatalogJson<wowee::pipeline::WoweePVPRankLoader>(
+        i, argc, argv, "wpvp", "WPVP", "ranks  ",
+        [](const auto& c) {
+        nlohmann::json j;
+        j["name"] = c.name;
+        nlohmann::json arr = nlohmann::json::array();
+        for (const auto& e : c.entries) {
+            arr.push_back({
+                {"rankId", e.rankId},
+                {"name", e.name},
+                {"factionAllianceName", e.factionAllianceName},
+                {"factionHordeName", e.factionHordeName},
+                {"description", e.description},
+                {"rankKind", e.rankKind},
+                {"rankKindName", wowee::pipeline::WoweePVPRank::rankKindName(e.rankKind)},
+                {"minBracketLevel", e.minBracketLevel},
+                {"maxBracketLevel", e.maxBracketLevel},
+                {"minHonorOrRating", e.minHonorOrRating},
+                {"rewardEmblems", e.rewardEmblems},
+                {"titleId", e.titleId},
+                {"chestItemId", e.chestItemId},
+                {"glovesItemId", e.glovesItemId},
+                {"shouldersItemId", e.shouldersItemId},
+                {"bracketBgId", e.bracketBgId},
+            });
+        }
+        j["entries"] = arr;
+            return j;
         });
-    }
-    j["entries"] = arr;
-    std::ofstream out(outPath);
-    if (!out) {
-        std::fprintf(stderr,
-            "export-wpvp-json: cannot write %s\n", outPath.c_str());
-        return 1;
-    }
-    out << j.dump(2) << "\n";
-    out.close();
-    std::printf("Wrote %s\n", outPath.c_str());
-    std::printf("  source : %s.wpvp\n", base.c_str());
-    std::printf("  ranks  : %zu\n", c.entries.size());
-    return 0;
 }
 
 int handleImportJson(int& i, int argc, char** argv) {

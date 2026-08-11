@@ -120,49 +120,33 @@ int handleExportJson(int& i, int argc, char** argv) {
     // open format. Each feature emits all 9 scalar fields
     // plus dual int + name forms for featureKind / sexId /
     // requiresExpansion so hand-edits can use either.
-    std::string base = argv[++i];
-    std::string outPath;
-    if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = cli::withoutExt(base, ".wchf");
-    if (outPath.empty()) outPath = base + ".wchf.json";
-    if (!wowee::pipeline::WoweeCharFeatureLoader::exists(base)) {
-        return reportMissing("export-wchf-json", "WCHF", base, ".wchf");
-    }
-    auto c = wowee::pipeline::WoweeCharFeatureLoader::load(base);
-    nlohmann::json j;
-    j["name"] = c.name;
-    nlohmann::json arr = nlohmann::json::array();
-    for (const auto& e : c.entries) {
-        arr.push_back({
-            {"featureId", e.featureId},
-            {"raceId", e.raceId},
-            {"name", e.name},
-            {"description", e.description},
-            {"texturePath", e.texturePath},
-            {"featureKind", e.featureKind},
-            {"featureKindName", wowee::pipeline::WoweeCharFeature::featureKindName(e.featureKind)},
-            {"sexId", e.sexId},
-            {"sexIdName", wowee::pipeline::WoweeCharFeature::sexIdName(e.sexId)},
-            {"variationIndex", e.variationIndex},
-            {"requiresExpansion", e.requiresExpansion},
-            {"requiresExpansionName", wowee::pipeline::WoweeCharFeature::expansionGateName(e.requiresExpansion)},
-            {"geosetGroupBits", e.geosetGroupBits},
-            {"hairColorOverlayId", e.hairColorOverlayId},
+    return cli::exportCatalogJson<wowee::pipeline::WoweeCharFeatureLoader>(
+        i, argc, argv, "wchf", "WCHF", "features ",
+        [](const auto& c) {
+        nlohmann::json j;
+        j["name"] = c.name;
+        nlohmann::json arr = nlohmann::json::array();
+        for (const auto& e : c.entries) {
+            arr.push_back({
+                {"featureId", e.featureId},
+                {"raceId", e.raceId},
+                {"name", e.name},
+                {"description", e.description},
+                {"texturePath", e.texturePath},
+                {"featureKind", e.featureKind},
+                {"featureKindName", wowee::pipeline::WoweeCharFeature::featureKindName(e.featureKind)},
+                {"sexId", e.sexId},
+                {"sexIdName", wowee::pipeline::WoweeCharFeature::sexIdName(e.sexId)},
+                {"variationIndex", e.variationIndex},
+                {"requiresExpansion", e.requiresExpansion},
+                {"requiresExpansionName", wowee::pipeline::WoweeCharFeature::expansionGateName(e.requiresExpansion)},
+                {"geosetGroupBits", e.geosetGroupBits},
+                {"hairColorOverlayId", e.hairColorOverlayId},
+            });
+        }
+        j["entries"] = arr;
+            return j;
         });
-    }
-    j["entries"] = arr;
-    std::ofstream out(outPath);
-    if (!out) {
-        std::fprintf(stderr,
-            "export-wchf-json: cannot write %s\n", outPath.c_str());
-        return 1;
-    }
-    out << j.dump(2) << "\n";
-    out.close();
-    std::printf("Wrote %s\n", outPath.c_str());
-    std::printf("  source   : %s.wchf\n", base.c_str());
-    std::printf("  features : %zu\n", c.entries.size());
-    return 0;
 }
 
 int handleImportJson(int& i, int argc, char** argv) {

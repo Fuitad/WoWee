@@ -127,51 +127,35 @@ int handleExportJson(int& i, int argc, char** argv) {
     // open format. Each token emits all 8 scalar fields
     // plus dual int + name forms for category and the flags
     // bitset.
-    std::string base = argv[++i];
-    std::string outPath;
-    if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = cli::withoutExt(base, ".wtkn");
-    if (outPath.empty()) outPath = base + ".wtkn.json";
-    if (!wowee::pipeline::WoweeTokenLoader::exists(base)) {
-        return reportMissing("export-wtkn-json", "WTKN", base, ".wtkn");
-    }
-    auto c = wowee::pipeline::WoweeTokenLoader::load(base);
-    nlohmann::json j;
-    j["name"] = c.name;
-    nlohmann::json arr = nlohmann::json::array();
-    for (const auto& e : c.entries) {
-        nlohmann::json je;
-        je["tokenId"] = e.tokenId;
-        je["name"] = e.name;
-        je["description"] = e.description;
-        je["iconPath"] = e.iconPath;
-        je["category"] = e.category;
-        je["categoryName"] = wowee::pipeline::WoweeToken::categoryName(e.category);
-        je["maxBalance"] = e.maxBalance;
-        je["weeklyCap"] = e.weeklyCap;
-        je["flags"] = e.flags;
-        nlohmann::json fa = nlohmann::json::array();
-        if (e.flags & wowee::pipeline::WoweeToken::AccountWide)       fa.push_back("account");
-        if (e.flags & wowee::pipeline::WoweeToken::Tradeable)         fa.push_back("trade");
-        if (e.flags & wowee::pipeline::WoweeToken::HiddenUntilEarned) fa.push_back("hidden");
-        if (e.flags & wowee::pipeline::WoweeToken::ResetsOnLogout)    fa.push_back("resets");
-        if (e.flags & wowee::pipeline::WoweeToken::ConvertsToGold)    fa.push_back("to-gold");
-        je["flagsList"] = fa;
-        arr.push_back(je);
-    }
-    j["entries"] = arr;
-    std::ofstream out(outPath);
-    if (!out) {
-        std::fprintf(stderr,
-            "export-wtkn-json: cannot write %s\n", outPath.c_str());
-        return 1;
-    }
-    out << j.dump(2) << "\n";
-    out.close();
-    std::printf("Wrote %s\n", outPath.c_str());
-    std::printf("  source : %s.wtkn\n", base.c_str());
-    std::printf("  tokens : %zu\n", c.entries.size());
-    return 0;
+    return cli::exportCatalogJson<wowee::pipeline::WoweeTokenLoader>(
+        i, argc, argv, "wtkn", "WTKN", "tokens ",
+        [](const auto& c) {
+        nlohmann::json j;
+        j["name"] = c.name;
+        nlohmann::json arr = nlohmann::json::array();
+        for (const auto& e : c.entries) {
+            nlohmann::json je;
+            je["tokenId"] = e.tokenId;
+            je["name"] = e.name;
+            je["description"] = e.description;
+            je["iconPath"] = e.iconPath;
+            je["category"] = e.category;
+            je["categoryName"] = wowee::pipeline::WoweeToken::categoryName(e.category);
+            je["maxBalance"] = e.maxBalance;
+            je["weeklyCap"] = e.weeklyCap;
+            je["flags"] = e.flags;
+            nlohmann::json fa = nlohmann::json::array();
+            if (e.flags & wowee::pipeline::WoweeToken::AccountWide)       fa.push_back("account");
+            if (e.flags & wowee::pipeline::WoweeToken::Tradeable)         fa.push_back("trade");
+            if (e.flags & wowee::pipeline::WoweeToken::HiddenUntilEarned) fa.push_back("hidden");
+            if (e.flags & wowee::pipeline::WoweeToken::ResetsOnLogout)    fa.push_back("resets");
+            if (e.flags & wowee::pipeline::WoweeToken::ConvertsToGold)    fa.push_back("to-gold");
+            je["flagsList"] = fa;
+            arr.push_back(je);
+        }
+        j["entries"] = arr;
+            return j;
+        });
 }
 
 int handleImportJson(int& i, int argc, char** argv) {
