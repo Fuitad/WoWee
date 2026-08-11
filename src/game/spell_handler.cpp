@@ -4592,17 +4592,37 @@ void SpellHandler::handleSpellInstaKillLog(network::Packet& packet) {
 
 // ---- handleSpellLogExecute per-effect parsers (extracted to reduce nesting) ----
 
+namespace {
+
+/// The target guid an effect-log entry opens with, in whichever form this
+/// server writes it.
+///
+/// SMSG_SPELLLOGEXECUTE names its target with a packed guid, and some cores
+/// write a full eight-byte one instead — which is what exeUsesFullGuid decides,
+/// once, for the whole packet. Each per-effect parser then had to read it that
+/// way, with the right guard for each form: eight bytes for a full guid, and
+/// for a packed one a byte plus the check that the mask's bytes are all there.
+///
+/// Written out in three of them. False means the packet cannot honour it, and
+/// every caller answers that the same way — abandon the rest of the packet,
+/// because a target read short leaves every field after it misaligned.
+bool readEffectLogTarget(network::Packet& packet, bool usesFullGuid, uint64_t& out) {
+    if (!packet.hasRemaining(usesFullGuid ? 8u : 1u)) return false;
+    if (!usesFullGuid && !packet.hasFullPackedGuid()) return false;
+    out = usesFullGuid ? packet.readUInt64() : packet.readPackedGuid();
+    return true;
+}
+
+}  // namespace
+
 void SpellHandler::parseEffectPowerDrain(network::Packet& packet, uint32_t effectLogCount,
                                           uint64_t caster, uint32_t spellId,
                                           bool isPlayerCaster, bool usesFullGuid) {
     // SPELL_EFFECT_POWER_DRAIN: packed_guid target + uint32 amount + uint32 powerType + float multiplier
     const uint64_t playerGuid = owner_.getPlayerGuid();
     for (uint32_t li = 0; li < effectLogCount; ++li) {
-        if (!packet.hasRemaining(usesFullGuid ? 8u : 1u)
-            || (!usesFullGuid && !packet.hasFullPackedGuid())) {
-            packet.skipAll(); break;
-        }
-        uint64_t drainTarget = usesFullGuid ? packet.readUInt64() : packet.readPackedGuid();
+        uint64_t drainTarget = 0;
+        if (!readEffectLogTarget(packet, usesFullGuid, drainTarget)) { packet.skipAll(); break; }
         if (!packet.hasRemaining(12)) { packet.skipAll(); break; }
         uint32_t drainAmount = packet.readUInt32();
         uint32_t drainPower  = packet.readUInt32(); // 0=mana,1=rage,3=energy,6=runic
@@ -4639,11 +4659,8 @@ void SpellHandler::parseEffectHealthLeech(network::Packet& packet, uint32_t effe
     // SPELL_EFFECT_HEALTH_LEECH: packed_guid target + uint32 amount + float multiplier
     const uint64_t playerGuid = owner_.getPlayerGuid();
     for (uint32_t li = 0; li < effectLogCount; ++li) {
-        if (!packet.hasRemaining(usesFullGuid ? 8u : 1u)
-            || (!usesFullGuid && !packet.hasFullPackedGuid())) {
-            packet.skipAll(); break;
-        }
-        uint64_t leechTarget = usesFullGuid ? packet.readUInt64() : packet.readPackedGuid();
+        uint64_t leechTarget = 0;
+        if (!readEffectLogTarget(packet, usesFullGuid, leechTarget)) { packet.skipAll(); break; }
         if (!packet.hasRemaining(8)) { packet.skipAll(); break; }
         uint32_t leechAmount = packet.readUInt32();
         float    leechMult   = packet.readFloat();
@@ -4700,11 +4717,8 @@ void SpellHandler::parseEffectInterruptCast(network::Packet& packet, uint32_t ef
     // SPELL_EFFECT_INTERRUPT_CAST: packed_guid target + uint32 interrupted_spell_id
     const uint64_t playerGuid = owner_.getPlayerGuid();
     for (uint32_t li = 0; li < effectLogCount; ++li) {
-        if (!packet.hasRemaining(usesFullGuid ? 8u : 1u)
-            || (!usesFullGuid && !packet.hasFullPackedGuid())) {
-            packet.skipAll(); break;
-        }
-        uint64_t icTarget = usesFullGuid ? packet.readUInt64() : packet.readPackedGuid();
+        uint64_t icTarget = 0;
+        if (!readEffectLogTarget(packet, usesFullGuid, icTarget)) { packet.skipAll(); break; }
         if (!packet.hasRemaining(4)) { packet.skipAll(); break; }
         uint32_t icSpellId = packet.readUInt32();
         // Clear the interrupted unit's cast bar immediately
