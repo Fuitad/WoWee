@@ -354,7 +354,7 @@ blurb:SetText("This client's own settings, under the headings below. "
     .. "there when you opened the panel.")
 
 local elsewhere = root:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
-elsewhere:SetPoint("TOPLEFT", 16, -110)
+elsewhere:SetPoint("TOPLEFT", 16, -240)
 elsewhere:SetText("In the game's own panels")
 
 local elsewhereRule = root:CreateTexture(nil, "ARTWORK")
@@ -362,10 +362,10 @@ elsewhereRule:SetTexture("Interface\\Buttons\\WHITE8X8")
 elsewhereRule:SetVertexColor(0.5, 0.42, 0.22, 0.7)
 elsewhereRule:SetWidth(560)
 elsewhereRule:SetHeight(1)
-elsewhereRule:SetPoint("TOPLEFT", 16, -128)
+elsewhereRule:SetPoint("TOPLEFT", 16, -258)
 
 local elsewhereText = root:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-elsewhereText:SetPoint("TOPLEFT", 16, -138)
+elsewhereText:SetPoint("TOPLEFT", 16, -268)
 elsewhereText:SetWidth(560)
 elsewhereText:SetJustifyH("LEFT")
 elsewhereText:SetJustifyV("TOP")
@@ -383,7 +383,7 @@ elsewhereText:SetText(
 -- What this build is. The version comes from the client rather than being
 -- written here, where it would go stale the first time a tag was cut.
 local aboutTitle = root:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
-aboutTitle:SetPoint("TOPLEFT", 16, -260)
+aboutTitle:SetPoint("TOPLEFT", 16, -370)
 aboutTitle:SetText("About")
 
 local aboutRule = root:CreateTexture(nil, "ARTWORK")
@@ -391,10 +391,10 @@ aboutRule:SetTexture("Interface\\Buttons\\WHITE8X8")
 aboutRule:SetVertexColor(0.5, 0.42, 0.22, 0.7)
 aboutRule:SetWidth(560)
 aboutRule:SetHeight(1)
-aboutRule:SetPoint("TOPLEFT", 16, -278)
+aboutRule:SetPoint("TOPLEFT", 16, -388)
 
 local aboutText = root:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-aboutText:SetPoint("TOPLEFT", 16, -288)
+aboutText:SetPoint("TOPLEFT", 16, -398)
 aboutText:SetWidth(560)
 aboutText:SetJustifyH("LEFT")
 aboutText:SetJustifyV("TOP")
@@ -409,7 +409,7 @@ aboutText:SetText("WoWee — a World of Warcraft client\n"
 -- reported missing. Typing here lists what matches and, more to the point,
 -- says which panel each one is on.
 local searchTitle = root:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
-searchTitle:SetPoint("TOPLEFT", 16, -186)
+searchTitle:SetPoint("TOPLEFT", 16, -104)
 searchTitle:SetText("Find a setting")
 
 local searchRule = root:CreateTexture(nil, "ARTWORK")
@@ -417,10 +417,10 @@ searchRule:SetTexture("Interface\\Buttons\\WHITE8X8")
 searchRule:SetVertexColor(0.5, 0.42, 0.22, 0.7)
 searchRule:SetWidth(560)
 searchRule:SetHeight(1)
-searchRule:SetPoint("TOPLEFT", 16, -204)
+searchRule:SetPoint("TOPLEFT", 16, -122)
 
 local searchBox = CreateFrame("EditBox", "WoweeOptionsSearchBox", root, "InputBoxTemplate")
-searchBox:SetPoint("TOPLEFT", 22, -212)
+searchBox:SetPoint("TOPLEFT", 22, -130)
 searchBox:SetWidth(280)
 searchBox:SetHeight(20)
 searchBox:SetAutoFocus(false)
@@ -429,7 +429,7 @@ searchBox:SetAutoFocus(false)
 -- headless runner cannot enumerate a frame's regions.
 local searchResults = root:CreateFontString("WoweeOptionsSearchResults",
                                            "ARTWORK", "GameFontHighlightSmall")
-searchResults:SetPoint("TOPLEFT", 16, -240)
+searchResults:SetPoint("TOPLEFT", 16, -158)
 searchResults:SetWidth(560)
 searchResults:SetJustifyH("LEFT")
 searchResults:SetJustifyV("TOP")
@@ -449,9 +449,11 @@ local function runSearch(query)
         if lower(setting.label):find(query, 1, true) or
            lower(setting.key):find(query, 1, true) then
             found = found + 1
-            -- Eight is what fits above the About block; the count below says
-            -- how many more there are rather than pretending these are all.
-            if found <= 8 then
+            -- Five is what fits between the box and the next heading; the
+            -- count below says how many more rather than pretending these are
+            -- all of them. Eight was the first guess and it ran the results
+            -- straight through the two blocks under it.
+            if found <= 5 then
                 shown[#shown + 1] = "|cffffd100" .. setting.label ..
                                     "|r  —  " .. setting.category
             end
@@ -459,9 +461,9 @@ local function runSearch(query)
     end
     if found == 0 then
         searchResults:SetText("|cff909090No setting matches that.|r")
-    elseif found > 8 then
+    elseif found > 5 then
         searchResults:SetText(table.concat(shown, "\n") ..
-            "\n|cff909090... and " .. (found - 8) .. " more|r")
+            "\n|cff909090... and " .. (found - 5) .. " more|r")
     else
         searchResults:SetText(table.concat(shown, "\n"))
     end
