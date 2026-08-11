@@ -2456,7 +2456,11 @@ void SocialHandler::handleGuildEvent(network::Packet& packet) {
                 msg = data.strings[0] + " has demoted " + data.strings[1] + " to " + data.strings[2] + ".";
             break;
         case GuildEvent::MOTD:
-            if (data.numStrings >= 1) msg = "Guild MOTD: " + data.strings[0];
+            // The interface writes this one itself, from the GUILD_MOTD event
+            // fired further down: chatframe.lua formats GUILD_MOTD_TEMPLATE
+            // and adds it. Only the client's own window needs a line here.
+            if (data.numStrings >= 1 && !ui::frameXmlOwns(ui::UiElement::Chat))
+                msg = "Guild MOTD: " + data.strings[0];
             break;
         case GuildEvent::JOINED:
             if (data.numStrings >= 1) msg = data.strings[0] + " has joined the guild.";

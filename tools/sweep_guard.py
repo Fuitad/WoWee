@@ -48,6 +48,12 @@ CHECKS = [
     ("settings_persist_check.py",
      r"^(\d+) written but never read back", 0,
      "settings saved to the config file and never loaded"),
+    # Both halves still write to the chat window. The handler adds a line and
+    # fires the event; chatframe.lua's own branch formats the same fact from
+    # the event and adds it too, and the player reads it twice.
+    ("chat_line_twice_check.py",
+     r"^(\d+) of them written a second time", 0,
+     "chat lines the interface already writes"),
     ("handover_halves_check.py",
      r"^(\d+) with no frameXmlOwns gate", 0,
      "elements this client keeps drawing after handing them over"),
