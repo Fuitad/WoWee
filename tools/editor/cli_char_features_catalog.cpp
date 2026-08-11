@@ -4,6 +4,7 @@
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
+#include "pipeline/wowee_expansion_names.hpp"
 #include "pipeline/wowee_char_features.hpp"
 #include <nlohmann/json.hpp>
 
@@ -186,12 +187,9 @@ int handleImportJson(int& i, int argc, char** argv) {
         if (s == "female") return wowee::pipeline::WoweeCharFeature::Female;
         return wowee::pipeline::WoweeCharFeature::Male;
     };
+    // The same four words the exporter writes, from beside them.
     auto expansionFromName = [](const std::string& s) -> uint8_t {
-        if (s == "classic") return wowee::pipeline::WoweeCharFeature::Classic;
-        if (s == "tbc")     return wowee::pipeline::WoweeCharFeature::TBC;
-        if (s == "wotlk")   return wowee::pipeline::WoweeCharFeature::WotLK;
-        if (s == "turtle")  return wowee::pipeline::WoweeCharFeature::TurtleWoW;
-        return wowee::pipeline::WoweeCharFeature::Classic;
+        return wowee::pipeline::expansionFromName(s);
     };
     wowee::pipeline::WoweeCharFeature c;
     c.name = j.value("name", std::string{});

@@ -4,6 +4,7 @@
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
+#include "pipeline/wowee_expansion_names.hpp"
 #include "pipeline/wowee_loading_screens.hpp"
 #include <nlohmann/json.hpp>
 
@@ -166,12 +167,9 @@ int handleImportJson(int& i, int argc, char** argv) {
             jsonPath.c_str(), e.what());
         return 1;
     }
+    // The same four words the exporter writes, from beside them.
     auto expansionFromName = [](const std::string& s) -> uint8_t {
-        if (s == "classic") return wowee::pipeline::WoweeLoadingScreen::Classic;
-        if (s == "tbc")     return wowee::pipeline::WoweeLoadingScreen::TBC;
-        if (s == "wotlk")   return wowee::pipeline::WoweeLoadingScreen::WotLK;
-        if (s == "turtle")  return wowee::pipeline::WoweeLoadingScreen::TurtleWoW;
-        return wowee::pipeline::WoweeLoadingScreen::Classic;
+        return wowee::pipeline::expansionFromName(s);
     };
     wowee::pipeline::WoweeLoadingScreen c;
     c.name = j.value("name", std::string{});

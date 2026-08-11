@@ -520,17 +520,7 @@ bool ItemQueryResponseParser::parse(network::Packet& packet, ItemQueryResponseDa
         }
         uint32_t statType = packet.readUInt32();
         int32_t statValue = static_cast<int32_t>(packet.readUInt32());
-        switch (statType) {
-            case 3: data.agility = statValue; break;
-            case 4: data.strength = statValue; break;
-            case 5: data.intellect = statValue; break;
-            case 6: data.spirit = statValue; break;
-            case 7: data.stamina = statValue; break;
-            default:
-                if (statValue != 0)
-                    data.extraStats.push_back({statType, statValue});
-                break;
-        }
+        data.applyStat(statType, statValue);
     }
 
     // ScalingStatDistribution and ScalingStatValue

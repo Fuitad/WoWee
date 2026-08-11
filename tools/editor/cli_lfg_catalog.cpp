@@ -4,6 +4,7 @@
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
+#include "pipeline/wowee_expansion_names.hpp"
 #include "pipeline/wowee_lfg.hpp"
 #include <nlohmann/json.hpp>
 
@@ -184,12 +185,9 @@ int handleImportJson(int& i, int argc, char** argv) {
         if (s == "hardmode") return wowee::pipeline::WoweeLFGDungeon::Hardmode;
         return wowee::pipeline::WoweeLFGDungeon::Normal;
     };
+    // The same four words the exporter writes, from beside them.
     auto expansionFromName = [](const std::string& s) -> uint8_t {
-        if (s == "classic") return wowee::pipeline::WoweeLFGDungeon::Classic;
-        if (s == "tbc")     return wowee::pipeline::WoweeLFGDungeon::TBC;
-        if (s == "wotlk")   return wowee::pipeline::WoweeLFGDungeon::WotLK;
-        if (s == "turtle")  return wowee::pipeline::WoweeLFGDungeon::TurtleWoW;
-        return wowee::pipeline::WoweeLFGDungeon::Classic;
+        return wowee::pipeline::expansionFromName(s);
     };
     wowee::pipeline::WoweeLFGDungeon c;
     c.name = j.value("name", std::string{});

@@ -1,3 +1,4 @@
+#include "pipeline/wowee_expansion_names.hpp"
 #include "pipeline/wowee_loading_screens.hpp"
 #include "pipeline/wowee_binary_io.hpp"
 
@@ -24,13 +25,9 @@ WoweeLoadingScreen::findById(uint32_t screenId) const {
 }
 
 const char* WoweeLoadingScreen::expansionGateName(uint8_t e) {
-    switch (e) {
-        case Classic:   return "classic";
-        case TBC:       return "tbc";
-        case WotLK:     return "wotlk";
-        case TurtleWoW: return "turtle";
-        default:        return "unknown";
-    }
+    // The word is the sidecar's, shared with the other two formats
+    // that gate on an expansion and with the importers that read them.
+    return expansionName(e);
 }
 
 bool WoweeLoadingScreenLoader::save(const WoweeLoadingScreen& cat,

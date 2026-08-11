@@ -1809,6 +1809,33 @@ struct ItemQueryResponseData {
     // Generic stat pairs for non-primary stats (hit, crit, haste, AP, SP, etc.)
     struct ExtraStat { uint32_t statType = 0; int32_t statValue = 0; };
     std::vector<ExtraStat> extraStats;
+
+    /// File one (type, value) pair from an item query into this item.
+    ///
+    /// Five of the ITEM_MOD ids have a field of their own here because
+    /// everything reads them; the rest are kept as they came so the tooltip can
+    /// name them. A pair with a zero value is a slot the item does not use —
+    /// every item ships the full run of them — and is dropped rather than
+    /// listed as "+0".
+    ///
+    /// Written out twice before this, once in the WotLK parser and once in the
+    /// vanilla one, and the two did not agree. The vanilla copy wrapped the
+    /// whole switch in `if (statType != 0)`, and ITEM_MOD_MANA is 0 — so a
+    /// vanilla item with +Mana on it lost that line, while the same item on
+    /// WotLK kept it. This is the wire's own format and does not differ by
+    /// expansion; only the code did.
+    void applyStat(uint32_t statType, int32_t statValue) {
+        switch (statType) {
+            case 3: agility = statValue; break;
+            case 4: strength = statValue; break;
+            case 5: intellect = statValue; break;
+            case 6: spirit = statValue; break;
+            case 7: stamina = statValue; break;
+            default:
+                if (statValue != 0) extraStats.push_back({statType, statValue});
+                break;
+        }
+    }
     uint32_t startQuestId = 0;  // Non-zero: item begins a quest
     // Gem socket slots (WotLK/TBC): 0=no socket; color mask: 1=Meta,2=Red,4=Yellow,8=Blue
     std::array<uint32_t, 3> socketColor{};
