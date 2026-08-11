@@ -216,11 +216,7 @@ if (ImGui::SliderFloat("Mouse Sensitivity", &pendingMouseSensitivity, 0.05f, 1.0
     saveCallback();
 }
 if (ImGui::Checkbox("Invert Mouse", &pendingInvertMouse)) {
-    if (renderer) {
-        if (auto* cameraController = renderer->getCameraController()) {
-            cameraController->setInvertMouse(pendingInvertMouse);
-        }
-    }
+    applySettingSideEffects("invertmouse");
     saveCallback();
 }
 if (ImGui::Checkbox("Extended Camera Zoom", &pendingExtendedZoom)) {
@@ -376,23 +372,18 @@ if (ImGui::Button("Restore Gameplay Defaults", ImVec2(-1, 0))) {
     pendingBagScale = InventoryScreen::recommendedBagScale(ImGui::GetIO().DisplaySize.y);
     inventoryScreen.setBagScale(pendingBagScale);
     pendingShowMicroMenu = false;
-    uiOpacity_ = 0.65f;
     minimapRotate_ = false;
-    minimapSquare_ = false;
-    minimapNpcDots_ = false;
-    showMinimapClock_ = false;
-    showMinimapCoordinates_ = false;
     if (renderer) {
-        if (auto* cameraController = renderer->getCameraController()) {
-            cameraController->setMouseSensitivity(pendingMouseSensitivity);
-            cameraController->setInvertMouse(pendingInvertMouse);
-            cameraController->setExtendedZoom(pendingExtendedZoom);
-            cameraController->setSmoothCameraFollow(pendingSmoothCameraFollow);
-        }
-        if (auto* minimap = renderer->getMinimap()) {
-            minimap->setRotateWithCamera(minimapRotate_);
-            minimap->setSquareShape(minimapSquare_);
-        }
+        if (auto* minimap = renderer->getMinimap()) minimap->setRotateWithCamera(false);
+    }
+    // The applied copies of these — uiOpacity_, minimapSquare_ and the three
+    // beside it — were assigned here as well as beside their sliders, which is
+    // the same fact in two places and was already one short: the micro menu was
+    // reset and nothing was told.
+    for (const char* key : {"mousespeed", "invertmouse", "extendedzoom",
+                            "smoothfollow", "uiopacity", "minimapsquare",
+                            "minimapnpcdots", "minimapclock", "minimapcoords"}) {
+        applySettingSideEffects(key);
     }
     saveCallback();
 }
@@ -850,15 +841,12 @@ void SettingsPanel::renderSettingsWindow(InventoryScreen& inventoryScreen, ChatP
                 ImGui::Spacing();
 
                 if (ImGui::Checkbox("Fullscreen", &pendingFullscreen)) {
-                    window->setFullscreen(pendingFullscreen);
-                    if (pendingFullscreen) {
-                        window->applyResolution(pendingResolutionWidth, pendingResolutionHeight);
-                    }
+                    applySettingSideEffects("fullscreen");
                     updateGraphicsPresetFromCurrentSettings();
                     saveCallback();
                 }
                 if (ImGui::Checkbox("VSync", &pendingVsync)) {
-                    window->setVsync(pendingVsync);
+                    applySettingSideEffects("vsync");
                     updateGraphicsPresetFromCurrentSettings();
                     saveCallback();
                 }
@@ -902,18 +890,14 @@ void SettingsPanel::renderSettingsWindow(InventoryScreen& inventoryScreen, ChatP
                         ImGui::Combo("Anti-Aliasing (FSR3)", &disabled, "Off (FSR3 active)\0", 1);
                         ImGui::EndDisabled();
                     } else if (ImGui::Combo("Anti-Aliasing", &pendingAntiAliasing, aaLabels, 4)) {
-                        static const VkSampleCountFlagBits aaSamples[] = {
-                            VK_SAMPLE_COUNT_1_BIT, VK_SAMPLE_COUNT_2_BIT,
-                            VK_SAMPLE_COUNT_4_BIT, VK_SAMPLE_COUNT_8_BIT
-                        };
-                        if (renderer) renderer->setMsaaSamples(aaSamples[pendingAntiAliasing]);
+                        applySettingSideEffects("antialiasing");
                         updateGraphicsPresetFromCurrentSettings();
                         saveCallback();
                     }
                     // FXAA — post-process, combinable with MSAA or FSR3
                     {
                         if (ImGui::Checkbox("FXAA (post-process)", &pendingFXAA)) {
-                            if (renderer) renderer->getPostProcessPipeline()->setFXAAEnabled(pendingFXAA);
+                            applySettingSideEffects("fxaa");
                             updateGraphicsPresetFromCurrentSettings();
                             saveCallback();
                         }
@@ -936,11 +920,7 @@ void SettingsPanel::renderSettingsWindow(InventoryScreen& inventoryScreen, ChatP
                     int fsrMode = pendingUpscalingMode;
                     if (ImGui::Combo("Upscaling", &fsrMode, fsrModeLabels, 3)) {
                         pendingUpscalingMode = fsrMode;
-                        pendingFSR = (fsrMode == 1);
-                        if (renderer) {
-                            renderer->setFSREnabled(fsrMode == 1);
-                            renderer->setFSR2Enabled(fsrMode == 2);
-                        }
+                        applySettingSideEffects("upscaling");
                         saveCallback();
                     }
                     if (fsrMode > 0) {
@@ -949,7 +929,7 @@ void SettingsPanel::renderSettingsWindow(InventoryScreen& inventoryScreen, ChatP
                                 renderer->getPostProcessPipeline()->isAmdFsr2SdkAvailable() ? "AMD FidelityFX SDK" : "Internal fallback");
                             if (renderer->getPostProcessPipeline()->isAmdFsr3FramegenSdkAvailable()) {
                                 if (ImGui::Checkbox("AMD FSR3 Frame Generation (Experimental)", &pendingAMDFramegen)) {
-                                    renderer->getPostProcessPipeline()->setAmdFsr3FramegenEnabled(pendingAMDFramegen);
+                                    applySettingSideEffects("framegen");
                                     saveCallback();
                                 }
                                 const char* runtimeStatus = "Unavailable";
@@ -989,22 +969,17 @@ void SettingsPanel::renderSettingsWindow(InventoryScreen& inventoryScreen, ChatP
                         }
                         if (ImGui::Combo("FSR Quality", &fsrQualityDisplay, fsrQualityLabels, 4)) {
                             pendingFSRQuality = displayToInternal[fsrQualityDisplay];
-                            if (renderer) renderer->getPostProcessPipeline()->setFSRQuality(fsrScaleFactors[pendingFSRQuality]);
+                            applySettingSideEffects("fsrquality");
                             saveCallback();
                         }
                         if (ImGui::SliderFloat("FSR Sharpness", &pendingFSRSharpness, 0.0f, 2.0f, "%.1f")) {
-                            if (renderer) renderer->getPostProcessPipeline()->setFSRSharpness(pendingFSRSharpness);
+                            applySettingSideEffects("fsrsharpness");
                             saveCallback();
                         }
                         if (fsrMode == 2) {
                             ImGui::SeparatorText("FSR3 Tuning");
                             if (ImGui::SliderFloat("Jitter Sign", &pendingFSR2JitterSign, -2.0f, 2.0f, "%.2f")) {
-                                if (renderer) {
-                                    renderer->getPostProcessPipeline()->setFSR2DebugTuning(
-                                        pendingFSR2JitterSign,
-                                        pendingFSR2MotionVecScaleX,
-                                        pendingFSR2MotionVecScaleY);
-                                }
+                                applySettingSideEffects("fsrjittersign");
                                 saveCallback();
                             }
                             ImGui::TextDisabled("Tip: 0.38 is the current recommended default.");
@@ -1017,51 +992,23 @@ void SettingsPanel::renderSettingsWindow(InventoryScreen& inventoryScreen, ChatP
                     saveCallback();
                 }
                 if (ImGui::Checkbox("Normal Mapping", &pendingNormalMapping)) {
-                    if (renderer) {
-                        if (auto* wr = renderer->getWMORenderer()) {
-                            wr->setNormalMappingEnabled(pendingNormalMapping);
-                        }
-                        if (auto* cr = renderer->getCharacterRenderer()) {
-                            cr->setNormalMappingEnabled(pendingNormalMapping);
-                        }
-                    }
+                    applySettingSideEffects("normalmapping");
                     saveCallback();
                 }
                 if (pendingNormalMapping) {
                     if (ImGui::SliderFloat("Normal Map Strength", &pendingNormalMapStrength, 0.0f, 2.0f, "%.1f")) {
-                        if (renderer) {
-                            if (auto* wr = renderer->getWMORenderer()) {
-                                wr->setNormalMapStrength(pendingNormalMapStrength);
-                            }
-                            if (auto* cr = renderer->getCharacterRenderer()) {
-                                cr->setNormalMapStrength(pendingNormalMapStrength);
-                            }
-                        }
+                        applySettingSideEffects("normalmapstrength");
                         saveCallback();
                     }
                 }
                 if (ImGui::Checkbox("Parallax Mapping", &pendingPOM)) {
-                    if (renderer) {
-                        if (auto* wr = renderer->getWMORenderer()) {
-                            wr->setPOMEnabled(pendingPOM);
-                        }
-                        if (auto* cr = renderer->getCharacterRenderer()) {
-                            cr->setPOMEnabled(pendingPOM);
-                        }
-                    }
+                    applySettingSideEffects("parallax");
                     saveCallback();
                 }
                 if (pendingPOM) {
                     const char* pomLabels[] = { "Low", "Medium", "High" };
                     if (ImGui::Combo("Parallax Quality", &pendingPOMQuality, pomLabels, 3)) {
-                        if (renderer) {
-                            if (auto* wr = renderer->getWMORenderer()) {
-                                wr->setPOMQuality(pendingPOMQuality);
-                            }
-                            if (auto* cr = renderer->getCharacterRenderer()) {
-                                cr->setPOMQuality(pendingPOMQuality);
-                            }
-                        }
+                        applySettingSideEffects("parallaxquality");
                         saveCallback();
                     }
                 }
@@ -1086,7 +1033,7 @@ void SettingsPanel::renderSettingsWindow(InventoryScreen& inventoryScreen, ChatP
 
                 ImGui::SetNextItemWidth(200.0f);
                 if (ImGui::SliderInt("Brightness", &pendingBrightness, 0, 100, "%d%%")) {
-                    if (renderer) renderer->getPostProcessPipeline()->setBrightness(static_cast<float>(pendingBrightness) / 50.0f);
+                    applySettingSideEffects("brightness");
                     saveCallback();
                 }
 
@@ -1095,6 +1042,14 @@ void SettingsPanel::renderSettingsWindow(InventoryScreen& inventoryScreen, ChatP
                 ImGui::Spacing();
 
                 if (ImGui::Button("Restore Video Defaults", ImVec2(-1, 0))) {
+                    // The values, then one pass to push them. This used to
+                    // assign fourteen fields and then repeat, in a different
+                    // order, every renderer call that the sliders above already
+                    // make — and it did not repeat all of them: the resolution
+                    // was applied and the anti-aliasing was hardcoded back to
+                    // one sample rather than read from the field it had just
+                    // set, which is the same value only for as long as the
+                    // default stays zero.
                     pendingFullscreen = kDefaultFullscreen;
                     pendingVsync = kDefaultVsync;
                     pendingShadows = kDefaultShadows;
@@ -1105,40 +1060,23 @@ void SettingsPanel::renderSettingsWindow(InventoryScreen& inventoryScreen, ChatP
                     pendingNormalMapStrength = 0.8f;
                     pendingPOM = true;
                     pendingPOMQuality = 1;
+                    pendingWaterRefraction = false;
+                    pendingBrightness = 50;
                     pendingResIndex = defaultResIndex;
                     pendingResolutionWidth = kDefaultResW;
                     pendingResolutionHeight = kDefaultResH;
-                    pendingBrightness = 50;
-                    window->setFullscreen(pendingFullscreen);
-                    window->setVsync(pendingVsync);
+                    for (const char* key : {"fullscreen", "vsync", "shadows",
+                                            "shadowdistance", "groundclutter",
+                                            "antialiasing", "normalmapping",
+                                            "normalmapstrength", "parallax",
+                                            "parallaxquality", "waterrefraction",
+                                            "brightness"}) {
+                        applySettingSideEffects(key);
+                    }
+                    // Not a setting with a key of its own: the window is told
+                    // directly, as it is by the resolution dropdown.
                     window->applyResolution(pendingResolutionWidth, pendingResolutionHeight);
-                    if (renderer) renderer->getPostProcessPipeline()->setBrightness(1.0f);
-                    pendingWaterRefraction = false;
-                    if (renderer) {
-                        renderer->setShadowsEnabled(pendingShadows);
-                        renderer->setShadowDistance(pendingShadowDistance);
-                    }
-                    if (renderer) renderer->setWaterRefractionEnabled(pendingWaterRefraction);
-                    if (renderer) renderer->setMsaaSamples(VK_SAMPLE_COUNT_1_BIT);
-                    if (renderer) {
-                        if (auto* tm = renderer->getTerrainManager()) {
-                            tm->setGroundClutterDensityScale(static_cast<float>(pendingGroundClutterDensity) / 100.0f);
-                        }
-                    }
-                    if (renderer) {
-                        if (auto* wr = renderer->getWMORenderer()) {
-                            wr->setNormalMappingEnabled(pendingNormalMapping);
-                            wr->setNormalMapStrength(pendingNormalMapStrength);
-                            wr->setPOMEnabled(pendingPOM);
-                            wr->setPOMQuality(pendingPOMQuality);
-                        }
-                        if (auto* cr = renderer->getCharacterRenderer()) {
-                            cr->setNormalMappingEnabled(pendingNormalMapping);
-                            cr->setNormalMapStrength(pendingNormalMapStrength);
-                            cr->setPOMEnabled(pendingPOM);
-                            cr->setPOMQuality(pendingPOMQuality);
-                        }
-                    }
+                    updateGraphicsPresetFromCurrentSettings();
                     saveCallback();
                 }
 
@@ -1230,140 +1168,73 @@ void SettingsPanel::applyWindowUiScale() {
     appliedWindowUiScale_ = pendingWindowUiScale;
 }
 
-void SettingsPanel::applyGraphicsPreset(GraphicsPreset preset) {
-    auto* renderer = services_.renderer;
+namespace {
 
-    // Define preset values based on quality level
-    switch (preset) {
-        case GraphicsPreset::LOW: {
-            pendingViewDistance = 600.0f;
-            pendingShadows = false;
-            pendingShadowDistance = 100.0f;
-            pendingAntiAliasing = 0;  // Off
-            pendingNormalMapping = false;
-            pendingPOM = false;
-            pendingGroundClutterDensity = 25;
-            if (renderer) {
-                renderer->setViewDistance(pendingViewDistance);
-                renderer->setShadowsEnabled(false);
-                renderer->setMsaaSamples(VK_SAMPLE_COUNT_1_BIT);
-                if (auto* wr = renderer->getWMORenderer()) {
-                    wr->setNormalMappingEnabled(false);
-                    wr->setPOMEnabled(false);
-                }
-                if (auto* cr = renderer->getCharacterRenderer()) {
-                    cr->setNormalMappingEnabled(false);
-                    cr->setPOMEnabled(false);
-                }
-                if (auto* tm = renderer->getTerrainManager()) {
-                    tm->setGroundClutterDensityScale(0.25f);
-                }
-            }
-            break;
-        }
-        case GraphicsPreset::MEDIUM: {
-            pendingViewDistance = 1000.0f;
-            pendingShadows = true;
-            pendingShadowDistance = 200.0f;
-            pendingAntiAliasing = 1;  // 2x MSAA
-            pendingNormalMapping = true;
-            pendingNormalMapStrength = 0.6f;
-            pendingPOM = true;
-            pendingPOMQuality = 0;  // Low
-            pendingGroundClutterDensity = 60;
-            if (renderer) {
-                renderer->setViewDistance(pendingViewDistance);
-                renderer->setShadowsEnabled(true);
-                renderer->setShadowDistance(200.0f);
-                renderer->setMsaaSamples(VK_SAMPLE_COUNT_2_BIT);
-                if (auto* wr = renderer->getWMORenderer()) {
-                    wr->setNormalMappingEnabled(true);
-                    wr->setNormalMapStrength(0.6f);
-                    wr->setPOMEnabled(true);
-                    wr->setPOMQuality(0);
-                }
-                if (auto* cr = renderer->getCharacterRenderer()) {
-                    cr->setNormalMappingEnabled(true);
-                    cr->setNormalMapStrength(0.6f);
-                    cr->setPOMEnabled(true);
-                    cr->setPOMQuality(0);
-                }
-                if (auto* tm = renderer->getTerrainManager()) {
-                    tm->setGroundClutterDensityScale(0.60f);
-                }
-            }
-            break;
-        }
-        case GraphicsPreset::HIGH: {
-            pendingViewDistance = 1600.0f;
-            pendingShadows = true;
-            pendingShadowDistance = 350.0f;
-            pendingAntiAliasing = 2;  // 4x MSAA
-            pendingNormalMapping = true;
-            pendingNormalMapStrength = 0.8f;
-            pendingPOM = true;
-            pendingPOMQuality = 1;  // Medium
-            pendingGroundClutterDensity = 100;
-            if (renderer) {
-                renderer->setViewDistance(pendingViewDistance);
-                renderer->setShadowsEnabled(true);
-                renderer->setShadowDistance(350.0f);
-                renderer->setMsaaSamples(VK_SAMPLE_COUNT_4_BIT);
-                if (auto* wr = renderer->getWMORenderer()) {
-                    wr->setNormalMappingEnabled(true);
-                    wr->setNormalMapStrength(0.8f);
-                    wr->setPOMEnabled(true);
-                    wr->setPOMQuality(1);
-                }
-                if (auto* cr = renderer->getCharacterRenderer()) {
-                    cr->setNormalMappingEnabled(true);
-                    cr->setNormalMapStrength(0.8f);
-                    cr->setPOMEnabled(true);
-                    cr->setPOMQuality(1);
-                }
-                if (auto* tm = renderer->getTerrainManager()) {
-                    tm->setGroundClutterDensityScale(1.0f);
-                }
-            }
-            break;
-        }
-        case GraphicsPreset::ULTRA: {
-            pendingViewDistance = 2400.0f;
-            pendingShadows = true;
-            pendingShadowDistance = 500.0f;
-            pendingAntiAliasing = 3;  // 8x MSAA
-            pendingFXAA = true;       // FXAA on top of MSAA for maximum smoothness
-            pendingNormalMapping = true;
-            pendingNormalMapStrength = 1.2f;
-            pendingPOM = true;
-            pendingPOMQuality = 2;  // High
-            pendingGroundClutterDensity = 150;
-            if (renderer) {
-                renderer->setViewDistance(pendingViewDistance);
-                renderer->setShadowsEnabled(true);
-                renderer->setShadowDistance(500.0f);
-                renderer->setMsaaSamples(VK_SAMPLE_COUNT_8_BIT);
-                renderer->getPostProcessPipeline()->setFXAAEnabled(true);
-                if (auto* wr = renderer->getWMORenderer()) {
-                    wr->setNormalMappingEnabled(true);
-                    wr->setNormalMapStrength(1.2f);
-                    wr->setPOMEnabled(true);
-                    wr->setPOMQuality(2);
-                }
-                if (auto* cr = renderer->getCharacterRenderer()) {
-                    cr->setNormalMappingEnabled(true);
-                    cr->setNormalMapStrength(1.2f);
-                    cr->setPOMEnabled(true);
-                    cr->setPOMQuality(2);
-                }
-                if (auto* tm = renderer->getTerrainManager()) {
-                    tm->setGroundClutterDensityScale(1.5f);
-                }
-            }
-            break;
-        }
-        default:
-            break;
+/// What each quality preset means, in the order Low, Medium, High, Ultra.
+///
+/// One row per preset, where there used to be a block per preset — the same
+/// ten settings assigned and then pushed at the renderer four times over. The
+/// blocks had drifted apart, as four copies of one fact do:
+///
+///   * Low set a shadow distance of 100 and never told the renderer, so the
+///     field said 100 and the shadows stayed at whatever the last preset left.
+///   * Only Ultra had an opinion about FXAA. Going from Ultra to Low turned
+///     everything else down and left FXAA running.
+///   * Low left the normal map strength and parallax quality at whatever they
+///     were, which does not matter while both are off and does the moment one
+///     is switched back on by hand.
+///
+/// Reading them as a table is also what lets a preset be recognised again
+/// afterwards without writing the numbers out a second time.
+struct GraphicsPresetValues {
+    float viewDistance;
+    bool  shadows;
+    float shadowDistance;
+    int   antiAliasing;      ///< index into the four the panel offers
+    bool  fxaa;
+    bool  normalMapping;
+    float normalMapStrength;
+    bool  parallax;
+    int   parallaxQuality;
+    int   groundClutter;     ///< percent
+};
+
+constexpr GraphicsPresetValues kGraphicsPresets[] = {
+    /* Low    */ { 600.0f, false, 100.0f, 0, false, false, 0.6f, false, 0,  25},
+    /* Medium */ {1000.0f, true,  200.0f, 1, false, true,  0.6f, true,  0,  60},
+    /* High   */ {1600.0f, true,  350.0f, 2, false, true,  0.8f, true,  1, 100},
+    /* Ultra  */ {2400.0f, true,  500.0f, 3, true,  true,  1.2f, true,  2, 150},
+};
+
+/// The settings a preset has an opinion about, in the order it sets them.
+constexpr const char* kGraphicsPresetKeys[] = {
+    "viewdistance", "shadows", "shadowdistance", "antialiasing", "fxaa",
+    "normalmapping", "normalmapstrength", "parallax", "parallaxquality",
+    "groundclutter",
+};
+
+}  // namespace
+
+void SettingsPanel::applyGraphicsPreset(GraphicsPreset preset) {
+    // Custom is not a set of values — it is the name for "these are whatever
+    // you made them", so it changes nothing but the marker.
+    const int index = static_cast<int>(preset) - 1;
+    if (index >= 0 && index < static_cast<int>(std::size(kGraphicsPresets))) {
+        const auto& p = kGraphicsPresets[index];
+        pendingViewDistance      = p.viewDistance;
+        pendingShadows           = p.shadows;
+        pendingShadowDistance    = p.shadowDistance;
+        pendingAntiAliasing      = p.antiAliasing;
+        pendingFXAA              = p.fxaa;
+        pendingNormalMapping     = p.normalMapping;
+        pendingNormalMapStrength = p.normalMapStrength;
+        pendingPOM               = p.parallax;
+        pendingPOMQuality        = p.parallaxQuality;
+        pendingGroundClutterDensity = p.groundClutter;
+        // Each one goes to the thing it affects through the one function that
+        // knows where that is, rather than through a second copy of the same
+        // renderer calls written out here.
+        for (const char* key : kGraphicsPresetKeys) applySettingSideEffects(key);
     }
 
     currentGraphicsPreset = preset;
@@ -1371,46 +1242,31 @@ void SettingsPanel::applyGraphicsPreset(GraphicsPreset preset) {
 }
 
 void SettingsPanel::updateGraphicsPresetFromCurrentSettings() {
-    // Check if current settings match any preset, otherwise mark as CUSTOM
-    // This is a simplified check; could be enhanced with more detailed matching
-
-    auto matchesPreset = [this](GraphicsPreset preset) -> bool {
-        switch (preset) {
-            case GraphicsPreset::LOW:
-                return pendingViewDistance >= 580.0f && pendingViewDistance <= 620.0f &&
-                       !pendingShadows && pendingAntiAliasing == 0 && !pendingNormalMapping && !pendingPOM &&
-                       pendingGroundClutterDensity <= 30;
-            case GraphicsPreset::MEDIUM:
-                return pendingViewDistance >= 980.0f && pendingViewDistance <= 1020.0f &&
-                       pendingShadows && pendingShadowDistance >= 180 && pendingShadowDistance <= 220 &&
-                       pendingAntiAliasing == 1 && pendingNormalMapping && pendingPOM &&
-                       pendingGroundClutterDensity >= 50 && pendingGroundClutterDensity <= 70;
-            case GraphicsPreset::HIGH:
-                return pendingViewDistance >= 1580.0f && pendingViewDistance <= 1620.0f &&
-                       pendingShadows && pendingShadowDistance >= 330 && pendingShadowDistance <= 370 &&
-                       pendingAntiAliasing == 2 && pendingNormalMapping && pendingPOM &&
-                       pendingGroundClutterDensity >= 90 && pendingGroundClutterDensity <= 110;
-            case GraphicsPreset::ULTRA:
-                return pendingViewDistance >= 2380.0f && pendingShadows &&
-                       pendingShadowDistance >= 480 && pendingAntiAliasing == 3 &&
-                       pendingFXAA && pendingNormalMapping && pendingPOM && pendingGroundClutterDensity >= 140;
-            default:
-                return false;
+    // A preset is the current one when the settings are what it sets. The
+    // floats are compared with a little room because they arrive off sliders.
+    //
+    // This was a second copy of the table above, written as a range per field
+    // per preset — the same numbers again, plus or minus twenty. A preset whose
+    // values were changed in one place and not the other would have stopped
+    // recognising itself and read as Custom for good.
+    for (int i = 0; i < static_cast<int>(std::size(kGraphicsPresets)); ++i) {
+        const auto& p = kGraphicsPresets[i];
+        const bool matches =
+            std::abs(pendingViewDistance - p.viewDistance) <= 20.0f &&
+            pendingShadows == p.shadows &&
+            // A preset with shadows off says nothing about how far they reach.
+            (!p.shadows || std::abs(pendingShadowDistance - p.shadowDistance) <= 20.0f) &&
+            pendingAntiAliasing == p.antiAliasing &&
+            pendingFXAA == p.fxaa &&
+            pendingNormalMapping == p.normalMapping &&
+            pendingPOM == p.parallax &&
+            std::abs(pendingGroundClutterDensity - p.groundClutter) <= 10;
+        if (matches) {
+            pendingGraphicsPreset = static_cast<GraphicsPreset>(i + 1);
+            return;
         }
-    };
-
-    // Try to match a preset, otherwise mark as custom
-    if (matchesPreset(GraphicsPreset::LOW)) {
-        pendingGraphicsPreset = GraphicsPreset::LOW;
-    } else if (matchesPreset(GraphicsPreset::MEDIUM)) {
-        pendingGraphicsPreset = GraphicsPreset::MEDIUM;
-    } else if (matchesPreset(GraphicsPreset::HIGH)) {
-        pendingGraphicsPreset = GraphicsPreset::HIGH;
-    } else if (matchesPreset(GraphicsPreset::ULTRA)) {
-        pendingGraphicsPreset = GraphicsPreset::ULTRA;
-    } else {
-        pendingGraphicsPreset = GraphicsPreset::CUSTOM;
     }
+    pendingGraphicsPreset = GraphicsPreset::CUSTOM;
 }
 
 std::string SettingsPanel::getSettingsPath() {
