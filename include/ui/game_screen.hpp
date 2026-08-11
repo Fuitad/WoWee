@@ -336,6 +336,19 @@ private:
     void renderMinimapReadouts(const MinimapFrame& frame, game::GameHandler& gameHandler,
                                bool minimapInputBlocked);
 
+    /// The mute, friends and zoom buttons around the ring.
+    void renderMinimapButtons(game::GameHandler& gameHandler, float centerX,
+                              float centerY, float mapRadius);
+
+    /// The optional clock at the bottom right of the ring.
+    void renderMinimapClock(float centerX, float centerY, float mapRadius);
+
+    /// The stack under the minimap — mail, talent points, queues, latency,
+    /// durability. One function because they share a running Y and stack
+    /// without gaps whichever of them apply.
+    void renderMinimapIndicators(game::GameHandler& gameHandler, float centerX,
+                                 float centerY, float mapRadius);
+
     void renderMinimapChrome(game::GameHandler& gameHandler, float centerX,
                              float centerY, float mapRadius);
     void refreshQuestObjectiveCache(game::GameHandler& gameHandler);

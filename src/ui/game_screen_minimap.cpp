@@ -204,21 +204,21 @@ bool GameScreen::MinimapFrame::projectCanonical(float wowX, float wowY,
     return project(core::coords::canonicalToRender(glm::vec3(wowX, wowY, 0.0f)), sx, sy);
 }
 
-void GameScreen::renderMinimapChrome(game::GameHandler& gameHandler, float centerX,
-                                     float centerY, float mapRadius) {
-    // The caller already has both; taking the handler by reference rather than
-    // dereferencing services_ keeps this from being the one place that assumes
-    // it is there.
+// The three buttons around the ring: mute at the top right, friends at the top
+// left, zoom at the bottom.
+//
+// All three are the client's own. FrameXML's cluster brings its own and this
+// whole pass is skipped when it owns the minimap.
+void GameScreen::renderMinimapButtons(game::GameHandler& gameHandler, float centerX, float centerY, float mapRadius) {
     auto* renderer = services_.renderer;
     auto* minimap = renderer ? renderer->getMinimap() : nullptr;
     if (!minimap) return;
-    // The same work the settings panel does when a volume changes — it was a
-    // second copy of applyAudioVolumes, every manager listed again, which is two
-    // places to remember when a manager is added.
-    auto applyMuteState = [&]() {
+    // The same work the settings panel does when a volume changes. It used to be
+    // a second copy of applyAudioVolumes with every manager listed again, which
+    // was two places to remember when a manager was added.
+    auto applyMuteState = [this]() {
         settingsPanel_.applyAudioVolumes(services_.audioCoordinator);
     };
-
     // Speaker mute button at the minimap top-right corner
     ImGui::SetNextWindowPos(ImVec2(centerX + mapRadius - 26.0f, centerY - mapRadius + 4.0f), ImGuiCond_Always);
     ImGui::SetNextWindowSize(ImVec2(22.0f, 22.0f), ImGuiCond_Always);
@@ -340,6 +340,14 @@ void GameScreen::renderMinimapChrome(game::GameHandler& gameHandler, float cente
     }
     ImGui::End();
 
+}
+
+// The clock at the bottom right of the ring, when it is wanted. Local time,
+// which is what the setting means by it.
+void GameScreen::renderMinimapClock(float centerX, float centerY, float mapRadius) {
+    auto* renderer = services_.renderer;
+    auto* minimap = renderer ? renderer->getMinimap() : nullptr;
+    if (!minimap) return;
     // Optional clock display at bottom-right of minimap (local time).
     if (settingsPanel_.showMinimapClock_) {
         auto now = std::chrono::system_clock::now();
@@ -371,6 +379,18 @@ void GameScreen::renderMinimapChrome(game::GameHandler& gameHandler, float cente
         ImGui::End();
     }
 
+}
+
+// The stack under the minimap: new mail, unspent talent points, a battleground
+// queue, the Dungeon Finder, calendar invites, a flight, latency and low
+// durability.
+//
+// They share one running Y so that whichever of them apply stack without gaps —
+// that shared cursor is why they are one function rather than eight.
+void GameScreen::renderMinimapIndicators(game::GameHandler& gameHandler, float centerX, float centerY, float mapRadius) {
+    auto* renderer = services_.renderer;
+    auto* minimap = renderer ? renderer->getMinimap() : nullptr;
+    if (!minimap) return;
     // Indicators below the minimap (stacked: new mail, then BG queue, then latency)
 
     float indicatorX = centerX - mapRadius;
@@ -590,6 +610,19 @@ void GameScreen::renderMinimapChrome(game::GameHandler& gameHandler, float cente
         }
     }
 
+}
+
+void GameScreen::renderMinimapChrome(game::GameHandler& gameHandler, float centerX,
+                                     float centerY, float mapRadius) {
+    // The caller already has both; taking the handler by reference rather than
+    // dereferencing services_ keeps this from being the one place that assumes
+    // it is there.
+    auto* renderer = services_.renderer;
+    auto* minimap = renderer ? renderer->getMinimap() : nullptr;
+    if (!minimap) return;
+    renderMinimapButtons(gameHandler, centerX, centerY, mapRadius);
+    renderMinimapClock(centerX, centerY, mapRadius);
+    renderMinimapIndicators(gameHandler, centerX, centerY, mapRadius);
 }
 
 // Every nearby unit as a dot, and a quest objective as a larger gold one.
