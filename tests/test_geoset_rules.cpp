@@ -192,3 +192,42 @@ TEST_CASE("equipment selects a variant after the bare one", "[geoset]") {
         CHECK(geosetGroup(equippedGeoset(kGeosetBareShins, 9)) == 5);
     }
 }
+
+TEST_CASE("a night elf's eyes glow and nobody else's do", "[geoset]") {
+    // Group 17 is the eye-glow overlay. The NPC path restored it for race 4 and
+    // the player path never added it at all, so a night elf player looked out of
+    // pale eyes while every night elf standing beside them glowed.
+    const auto nightElf = wowee::core::bareCharacterGeosets(1, 1, 1, 1, 4);
+    CHECK(nightElf.count(wowee::core::kGeosetEyeGlow) == 1);
+
+    SECTION("every other playable race has it off") {
+        for (uint8_t race : {1, 2, 3, 5, 6, 7, 8, 10, 11}) {
+            const auto other = wowee::core::bareCharacterGeosets(1, 1, 1, 1, race);
+            CHECK(other.count(wowee::core::kGeosetEyeGlow) == 0);
+        }
+    }
+
+    SECTION("a caller that does not say the race gets no glow") {
+        // The default, which is what a path with no race to hand asks for.
+        const auto unknown = wowee::core::bareCharacterGeosets(1, 1, 1, 1);
+        CHECK(unknown.count(wowee::core::kGeosetEyeGlow) == 0);
+    }
+}
+
+TEST_CASE("the ears are the variant that has ears on it", "[geoset]") {
+    // Three of the four places that built this set named 702 and the fourth
+    // named 701, which is the bare head. The character composed through that
+    // one lost its ears.
+    const auto bare = wowee::core::bareCharacterGeosets(1, 1, 1, 1, 4);
+    CHECK(bare.count(wowee::core::kGeosetDefaultEars) == 1);
+    CHECK(wowee::core::kGeosetDefaultEars == 702);
+}
+
+TEST_CASE("no cloak group is chosen before the equipment is known", "[geoset]") {
+    // Naming the cloak mesh gives an untextured cape to someone wearing none,
+    // and naming the no-cloak panel is wrong on the models that have no such
+    // panel. The equipment pass decides.
+    const auto bare = wowee::core::bareCharacterGeosets(1, 1, 1, 1, 4);
+    CHECK(bare.count(wowee::core::kGeosetNoCape) == 0);
+    CHECK(bare.count(wowee::core::kGeosetWithCape) == 0);
+}

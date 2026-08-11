@@ -46,6 +46,14 @@ constexpr uint16_t kGeosetBareFeet         = 2002;  // Group 20: bare feet
 /// one it has. Stock models carry neither and are unaffected.
 constexpr uint16_t kGeosetBareFeetAlt      = 2001;
 
+/// Group 17: the eye-glow overlay — the mesh that makes a night elf's eyes
+/// shine rather than sit there pale.
+///
+/// Off for everyone else, which is why the renderer strips group 17 from any
+/// model drawn without a geoset filter: an NPC given the whole model drew
+/// glowing eyes whatever it was.
+constexpr uint16_t kGeosetEyeGlow          = 1701;
+
 
 /// The body part a geoset id belongs to: 501 and 505 are both group 5, boots.
 constexpr uint16_t geosetGroup(uint16_t id) { return static_cast<uint16_t>(id / 100); }
@@ -119,6 +127,20 @@ constexpr uint32_t appearanceKey(uint8_t race, uint8_t sex, uint8_t variation) {
            static_cast<uint32_t>(variation);
 }
 
+/// Whether a race's eyes glow.
+///
+/// Night elves', and only theirs among the playable races — it is not an option
+/// they choose, both sexes have it and always have. The NPC path had this rule
+/// and the player path did not, so a night elf player looked out of pale eyes
+/// while every night elf standing next to them glowed.
+///
+/// Death knights glow too, whatever their race, and are not handled here: that
+/// depends on the class rather than the model and the paths that build these
+/// sets do not all know it.
+inline bool raceHasGlowingEyes(uint8_t raceId) {
+    return raceId == 4;  // NightElf
+}
+
 /// The geosets a character shows with nothing equipped, before any armour is
 /// known: the body, the chosen hair scalp, the chosen facial features, and the
 /// bare variant of every equipment group.
@@ -134,11 +156,13 @@ constexpr uint32_t appearanceKey(uint8_t race, uint8_t sex, uint8_t variation) {
 inline std::unordered_set<uint16_t> bareCharacterGeosets(uint16_t hairScalp,
                                                          uint16_t facial100,
                                                          uint16_t facial200,
-                                                         uint16_t facial300) {
+                                                         uint16_t facial300,
+                                                         uint8_t raceId = 0) {
     std::unordered_set<uint16_t> geosets;
     geosets.insert(0);                      // the body
     if (hairScalp != 0) geosets.insert(hairScalp);
     addFacialHairGeosets(geosets, facial100, facial200, facial300);
+    if (raceHasGlowingEyes(raceId)) geosets.insert(kGeosetEyeGlow);
 
     geosets.insert(kGeosetBareForearms);    // no gloves
     geosets.insert(kGeosetBareShins);       // no boots

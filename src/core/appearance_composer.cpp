@@ -306,7 +306,7 @@ std::unordered_set<uint16_t> AppearanceComposer::buildDefaultPlayerGeosets(uint8
     }
 
     std::unordered_set<uint16_t> activeGeosets =
-        bareCharacterGeosets(selectedHairScalp, facial100, facial200, facial300);
+        bareCharacterGeosets(selectedHairScalp, facial100, facial200, facial300, raceId);
 
     return activeGeosets;
 }

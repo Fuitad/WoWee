@@ -53,19 +53,15 @@ namespace {
 // one for the equipped composition — and they had already drifted: only one of
 // them knew about the second bare-feet id, and only one of them treated a zero
 // facial variant as "none" rather than as geoset x00.
-void insertBodyAndHeadGeosets(std::unordered_set<uint16_t>& out, uint16_t scalp,
-                              const EntitySpawner::FacialHairGeosets* facial) {
-    out.insert(0);
-    out.insert(scalp);
-    if (facial) {
-        addFacialHairGeosets(out, facial->geoset100, facial->geoset200, facial->geoset300);
-    } else {
-        // No row for this character. The first variant of each group is the
-        // safe default, and on most models it is the absence of the feature.
-        out.insert(kGeosetDefaultConnector);
-        out.insert(201);
-        out.insert(301);
-    }
+std::unordered_set<uint16_t> bareGeosetsFor(uint16_t scalp,
+                                            const EntitySpawner::FacialHairGeosets* facial,
+                                            uint8_t raceId) {
+    // No row for this character: the first variant of each facial group, which
+    // on most models is the absence of the feature.
+    const uint16_t f100 = facial ? facial->geoset100 : 1;
+    const uint16_t f200 = facial ? facial->geoset200 : 1;
+    const uint16_t f300 = facial ? facial->geoset300 : 1;
+    return bareCharacterGeosets(scalp, f100, f200, f300, raceId);
 }
 
 uint16_t selectHairScalpGeoset(const std::unordered_map<uint32_t, uint16_t>& hairGeosets,
@@ -285,20 +281,14 @@ void EntitySpawner::spawnOnlinePlayer(uint64_t guid,
 
     // Geosets: body + selected hair/facial hair. Do not enable every group-0
     // submesh; that activates all hair scalp variants at once.
-    std::unordered_set<uint16_t> activeGeosets;
     const uint16_t selectedHairScalp = selectHairScalpGeoset(hairGeosetMap_, raceId, genderId, hairStyleId);
     auto itFacial = facialHairGeosetMap_.find(appearanceKey(raceId, genderId, facialFeatures));
-    insertBodyAndHeadGeosets(activeGeosets, selectedHairScalp,
-                             itFacial != facialHairGeosetMap_.end() ? &itFacial->second : nullptr);
-    activeGeosets.insert(kGeosetBareForearms);
-    activeGeosets.insert(kGeosetBareShins);
-    activeGeosets.insert(kGeosetDefaultEars);
-    activeGeosets.insert(kGeosetBareSleeves);
-    activeGeosets.insert(kGeosetDefaultKneepads);
-    activeGeosets.insert(kGeosetBarePants);
+    std::unordered_set<uint16_t> activeGeosets = bareGeosetsFor(
+        selectedHairScalp,
+        itFacial != facialHairGeosetMap_.end() ? &itFacial->second : nullptr, raceId);
+    // This one is drawn before equipment is known and wants the no-cloak panel;
+    // the shared set leaves group 15 alone so the equipment pass can decide.
     activeGeosets.insert(kGeosetNoCape);
-    activeGeosets.insert(kGeosetBareFeet);
-    activeGeosets.insert(kGeosetBareFeetAlt);
     charRenderer->setActiveGeosets(instanceId, activeGeosets);
 
     if (deadCreatureGuids_.count(guid)) {
@@ -410,17 +400,16 @@ void EntitySpawner::setOnlinePlayerEquipment(uint64_t guid,
     // keep other-player rendering consistent with the local character preview.
     // Group 4 (4xx) = forearms/gloves, 5 (5xx) = shins/boots, 8 (8xx) = wrists/sleeves,
     // 13 (13xx) = legs/trousers.  Missing defaults caused the shin-mesh gap (status.md).
-    std::unordered_set<uint16_t> geosets;
     uint8_t hairStyleId = static_cast<uint8_t>((st.appearanceBytes >> 16) & 0xFF);
     const uint16_t selectedHairScalp = selectHairScalpGeoset(hairGeosetMap_, st.raceId, st.genderId, hairStyleId);
     auto itFacial = facialHairGeosetMap_.find(
         appearanceKey(st.raceId, st.genderId, st.facialFeatures));
-    insertBodyAndHeadGeosets(geosets, selectedHairScalp,
-                             itFacial != facialHairGeosetMap_.end() ? &itFacial->second : nullptr);
-    geosets.insert(701);                  // Ears
-    geosets.insert(kGeosetDefaultKneepads); // Kneepads
-    geosets.insert(kGeosetBareFeet);        // Bare feet mesh, both spellings:
-    geosets.insert(kGeosetBareFeetAlt);     // the HD models disagree on the number
+    // The same bare set as everywhere else. This built its own and had drifted:
+    // it named ears 701 where the other three name 702, which is the variant
+    // that has ears on it — so a player composed through this path lost them.
+    std::unordered_set<uint16_t> geosets = bareGeosetsFor(
+        selectedHairScalp,
+        itFacial != facialHairGeosetMap_.end() ? &itFacial->second : nullptr, st.raceId);
 
     const uint32_t geosetGroup1Field = idiL ? (*idiL)["GeosetGroup1"] : 7;
     const uint32_t geosetGroup3Field = idiL ? (*idiL)["GeosetGroup3"] : 9;

@@ -165,7 +165,7 @@ std::unordered_set<uint16_t> CharacterPreview::buildBaseGeosets() {
     // its feet the other way stood in the portrait without them, and it named
     // the no-cloak panel, which the HD models do not carry.
     std::unordered_set<uint16_t> activeGeosets =
-        core::bareCharacterGeosets(selectedHairScalp, facial100, facial200, facial300);
+        core::bareCharacterGeosets(selectedHairScalp, facial100, facial200, facial300, raceId);
 
     return activeGeosets;
 }
