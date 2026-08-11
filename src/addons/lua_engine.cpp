@@ -7066,24 +7066,29 @@ void LuaEngine::registerCoreAPI() {
         "do\n"
         "  local function cc(r,g,b)\n"
         "    local t = {r=r, g=g, b=b}\n"
-        "    t.colorStr = string.format('%02x%02x%02x', math.floor(r*255), math.floor(g*255), math.floor(b*255))\n"
+        "    t.colorStr = string.format('%02x%02x%02x', math.floor(r*255+0.5), math.floor(g*255+0.5), math.floor(b*255+0.5))\n"
         "    function t:GenerateHexColor() return '|cff' .. self.colorStr end\n"
         "    function t:GenerateHexColorMarkup() return '|cff' .. self.colorStr end\n"
         "    return t\n"
         "  end\n"
-        "  RAID_CLASS_COLORS = {\n"
-        "    WARRIOR=cc(0.78,0.61,0.43), PALADIN=cc(0.96,0.55,0.73),\n"
-        "    HUNTER=cc(0.67,0.83,0.45), ROGUE=cc(1.0,0.96,0.41),\n"
-        "    PRIEST=cc(1.0,1.0,1.0), DEATHKNIGHT=cc(0.77,0.12,0.23),\n"
-        "    SHAMAN=cc(0.0,0.44,0.87), MAGE=cc(0.41,0.80,0.94),\n"
-        "    WARLOCK=cc(0.58,0.51,0.79), DRUID=cc(1.0,0.49,0.04),\n"
-        "  }\n"
+        "  RAID_CLASS_COLORS = {}\n"
+        "  __WoweeClassColor = cc\n"
         "end\n"
         // GetClassColor(className) — returns r, g, b, colorString
+        //
+        // The hex is computed rather than read off the entry. FrameXML's
+        // constants.lua assigns RAID_CLASS_COLORS its own plain table, replacing
+        // the one built above and the colorStr on every entry with it — so
+        // reading the field answered nil for every class the moment the
+        // interface loaded. The fallback's string was eight hex digits where the
+        // success path's was six, which an addon writing '|cff' .. str renders
+        // as a colour code with a stray f after it.
         "function GetClassColor(className)\n"
-        "    local c = RAID_CLASS_COLORS[className]\n"
-        "    if c then return c.r, c.g, c.b, c.colorStr end\n"
-        "    return 1, 1, 1, 'ffffffff'\n"
+        "    local c = RAID_CLASS_COLORS and RAID_CLASS_COLORS[className]\n"
+        "    if not c then return 1, 1, 1, 'ffffff' end\n"
+        "    return c.r, c.g, c.b,\n"
+        "        c.colorStr or string.format('%02x%02x%02x',\n"
+        "            math.floor(c.r * 255 + 0.5), math.floor(c.g * 255 + 0.5), math.floor(c.b * 255 + 0.5))\n"
         "end\n"
         // QuestDifficultyColors table for quest level coloring
         "QuestDifficultyColors = {\n"
@@ -7109,6 +7114,26 @@ void LuaEngine::registerCoreAPI() {
         "end\n"
         "GetCoinText = GetCoinTextureString\n"
     );
+
+    // RAID_CLASS_COLORS, filled from the same table this client colours a name
+    // with rather than written out a second time in Lua. The two copies did
+    // agree, which is the only reason it was never a bug; a class recoloured on
+    // one side and not the other would have shown as a party list and a chat
+    // line disagreeing about the same player.
+    {
+        std::string classColors = "do local cc = __WoweeClassColor\n";
+        for (uint8_t classId = 1; classId < std::size(kLuaClassTokens); ++classId) {
+            const char* token = kLuaClassTokens[classId];
+            if (!token || !*token) continue;  // 10 is unused, and 0 is no class
+            const ImVec4 c = ui::getClassColor(classId);
+            char line[160];
+            std::snprintf(line, sizeof(line), "RAID_CLASS_COLORS.%s = cc(%.6g,%.6g,%.6g)\n",
+                          token, c.x, c.y, c.z);
+            classColors += line;
+        }
+        classColors += "__WoweeClassColor = nil end\n";
+        bootstrap(classColors.c_str());
+    }
 
     // UIDropDownMenu framework — minimal compat for addons using dropdown menus
     bootstrap(
