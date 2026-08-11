@@ -106,7 +106,8 @@ WoweeChatLinks WoweeChatLinksLoader::makeStandardLinks(
         "|cffffffff|Hitem:%d:%d:%d:%d|h[%s]|h|r",
         "%s",
         "inv"));
-    // Quest link: |cff808080|Hquest:questId:level|h
+    // Quest link: |cffffff00|Hquest:questId:level|h — the comment here said
+    // 808080, which is not the colour the line below writes.
     // [Name]|h|r. Gray color for completable quests.
     c.entries.push_back(makeLink(
         2, "Quest Hyperlink",
@@ -119,8 +120,10 @@ WoweeChatLinks WoweeChatLinksLoader::makeStandardLinks(
     c.entries.push_back(makeLink(
         3, "Spell Hyperlink",
         L::Spell, 0,
-        0xFFFFFFFFu /* white */,
-        "|cffffffff|Hspell:%d|h[%s]|h|r",
+        // ff71d5ff, which is what retail writes a spell link in. This said
+        // white, and the spellbook said gold: three colours for one link.
+        0xFF71D5FFu,
+        "|cff71d5ff|Hspell:%d|h[%s]|h|r",
         "%s",
         "spell"));
     // Achievement link.

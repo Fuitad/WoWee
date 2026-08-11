@@ -1,6 +1,7 @@
 // lua_spell_api.cpp — Spell info, casting, auras, and targeting Lua API bindings.
 // Extracted from lua_engine.cpp as part of §5.1 (Tame LuaEngine).
 #include "addons/lua_api_helpers.hpp"
+#include "game/item_text.hpp"
 #include "addons/lua_engine.hpp"
 
 namespace wowee::addons {
@@ -939,9 +940,8 @@ static int lua_GetSpellLink(lua_State* L) {
     if (spellId == 0) { return luaReturnNil(L); }
     std::string name = gh->getSpellName(spellId);
     if (name.empty()) { return luaReturnNil(L); }
-    char link[256];
-    snprintf(link, sizeof(link), "|cff71d5ff|Hspell:%u|h[%s]|h|r", spellId, name.c_str());
-    lua_pushstring(L, link);
+    const std::string link = game::spellChatLink(spellId, name);
+    lua_pushstring(L, link.c_str());
     return 1;
 }
 

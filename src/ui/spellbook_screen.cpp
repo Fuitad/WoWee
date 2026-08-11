@@ -777,11 +777,8 @@ void SpellbookScreen::render(game::GameHandler& gameHandler, pipeline::AssetMana
                                 }
                             }
                             if (ImGui::MenuItem("Copy Spell Link")) {
-                                char linkBuf[256];
-                                snprintf(linkBuf, sizeof(linkBuf),
-                                    "|cffffd000|Hspell:%u|h[%s]|h|r",
-                                    info->spellId, info->name.c_str());
-                                pendingChatSpellLink_ = linkBuf;
+                                pendingChatSpellLink_ =
+                                    game::spellChatLink(info->spellId, info->name);
                             }
                             ImGui::EndPopup();
                         }
@@ -875,12 +872,10 @@ void SpellbookScreen::render(game::GameHandler& gameHandler, pipeline::AssetMana
                         if (rowHovered) {
                             // Shift-click to insert spell link into chat
                             if (rowClicked && ImGui::GetIO().KeyShift && !info->name.empty()) {
-                                // WoW spell link format: |cffffd000|Hspell:<spellId>|h[Name]|h|r
-                                char linkBuf[256];
-                                snprintf(linkBuf, sizeof(linkBuf),
-                                    "|cffffd000|Hspell:%u|h[%s]|h|r",
-                                    info->spellId, info->name.c_str());
-                                pendingChatSpellLink_ = linkBuf;
+                                // Retail writes a spell link in ff71d5ff; this said
+                                // ffd000, which is the gold an item name uses.
+                                pendingChatSpellLink_ =
+                                    game::spellChatLink(info->spellId, info->name);
                             }
                             // Start drag on click (not passive, not shift-click)
                             else if (rowClicked && !isPassive && !ImGui::GetIO().KeyShift) {

@@ -157,5 +157,17 @@ inline std::string itemChatLink(uint32_t itemId, uint32_t quality, const std::st
            std::to_string(itemId) + ":0:0:0:0:0:0:0:0|h[" + name + "]|h|r";
 }
 
+
+/// A chat hyperlink for a spell.
+///
+/// The colour is not a choice: retail writes a spell link in ff71d5ff, and a
+/// player who links a spell expects the same blue every other client shows.
+/// Four places built one here and produced three different colours — the
+/// spellbook's context menu gold, the chat-link catalog white, and only the
+/// Lua API the blue. Linking the same spell two ways gave two colours.
+inline std::string spellChatLink(uint32_t spellId, const std::string& name) {
+    return "|cff71d5ff|Hspell:" + std::to_string(spellId) + "|h[" + name + "]|h|r";
+}
+
 }  // namespace game
 }  // namespace wowee
