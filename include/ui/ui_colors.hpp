@@ -141,6 +141,33 @@ inline const char* getInventorySlotName(uint32_t inventoryType) {
     }
 }
 
+// ---- Aura border colours ----
+//
+// One colour per dispel type, and green for anything that is a buff. Five
+// places drew this border and four agreed; the raid panel's copy was a shade
+// off on all four types — brighter magic, deeper curse, lighter disease and
+// poison — so the same debuff was one colour on a unit frame and another in the
+// raid list.
+//
+// The four that agreed are the ones kept, on the same grounds as any other
+// majority: they are what the game has been showing.
+inline ImVec4 dispelTypeColor(uint8_t dispelType) {
+    switch (dispelType) {
+        case 1:  return ImVec4(0.15f, 0.50f, 1.00f, 0.9f);  // magic: blue
+        case 2:  return ImVec4(0.70f, 0.20f, 0.90f, 0.9f);  // curse: purple
+        case 3:  return ImVec4(0.55f, 0.30f, 0.10f, 0.9f);  // disease: brown
+        case 4:  return ImVec4(0.10f, 0.70f, 0.10f, 0.9f);  // poison: green
+        default: return ImVec4(0.80f, 0.20f, 0.20f, 0.9f);  // undispellable: red
+    }
+}
+
+/// The border an aura icon is drawn with: green when it is a buff, otherwise
+/// the colour of what would remove it.
+inline ImVec4 auraBorderColor(bool isBuff, uint8_t dispelType) {
+    if (isBuff) return ImVec4(0.2f, 0.8f, 0.2f, 0.9f);
+    return dispelTypeColor(dispelType);
+}
+
 // ---- Binding type display ----
 inline void renderBindingType(uint32_t bindType) {
     if (const char* text = game::itemBindText(bindType)) {

@@ -1005,21 +1005,8 @@ void CombatUI::renderBuffBar(game::GameHandler& gameHandler,
             ImGui::PushID(static_cast<int>(i) + (pass * 256));
 
             // Determine border color: buffs = green; debuffs use WoW dispel-type colors
-            ImVec4 borderColor;
-            if (isBuff) {
-                borderColor = ImVec4(0.2f, 0.8f, 0.2f, 0.9f);  // green
-            } else {
-                // Debuff: color by dispel type (0=none/red, 1=magic/blue, 2=curse/purple,
-                //         3=disease/brown, 4=poison/green, other=dark-red)
-                uint8_t dt = gameHandler.getSpellDispelType(aura.spellId);
-                switch (dt) {
-                    case 1:  borderColor = ImVec4(0.15f, 0.50f, 1.00f, 0.9f); break;  // magic: blue
-                    case 2:  borderColor = ImVec4(0.70f, 0.20f, 0.90f, 0.9f); break;  // curse: purple
-                    case 3:  borderColor = ImVec4(0.55f, 0.30f, 0.10f, 0.9f); break;  // disease: brown
-                    case 4:  borderColor = ImVec4(0.10f, 0.70f, 0.10f, 0.9f); break;  // poison: green
-                    default: borderColor = ImVec4(0.80f, 0.20f, 0.20f, 0.9f); break;  // other: red
-                }
-            }
+            const ImVec4 borderColor =
+                wowee::ui::auraBorderColor(isBuff, gameHandler.getSpellDispelType(aura.spellId));
 
             // Try to get spell icon
             VkDescriptorSet iconTex = VK_NULL_HANDLE;

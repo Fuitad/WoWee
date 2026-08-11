@@ -281,14 +281,11 @@ void SocialPanel::renderPartyFrames(game::GameHandler& gameHandler,
                                 uint8_t dt = gameHandler.getSpellDispelType(aura.spellId);
                                 if (dt == 0 || dt > 4 || shown[dt]) continue;
                                 shown[dt] = true;
-                                ImVec4 dc;
-                                switch (dt) {
-                                    case 1: dc = ImVec4(0.25f, 0.50f, 1.00f, 0.90f); break; // Magic: blue
-                                    case 2: dc = ImVec4(0.70f, 0.15f, 0.90f, 0.90f); break; // Curse: purple
-                                    case 3: dc = ImVec4(0.65f, 0.45f, 0.10f, 0.90f); break; // Disease: brown
-                                    case 4: dc = ImVec4(0.10f, 0.75f, 0.10f, 0.90f); break; // Poison: green
-                                    default: continue;
-                                }
+                                // The same four colours the unit frames use.
+                                // This copy was a shade off on every one of
+                                // them, so a curse was one purple here and
+                                // another on the target frame.
+                                const ImVec4 dc = dispelTypeColor(dt);
                                 ImU32 dotColU = ImGui::ColorConvertFloat4ToU32(dc);
                                 draw->AddCircleFilled(ImVec2(dotX, dotY), DOT_R, dotColU);
                                 draw->AddCircle(ImVec2(dotX, dotY), DOT_R + 0.5f, IM_COL32(0, 0, 0, 160), 8, 1.0f);
@@ -589,14 +586,10 @@ void SocialPanel::renderPartyFrames(game::GameHandler& gameHandler,
                             uint8_t dt = gameHandler.getSpellDispelType(aura.spellId);
                             if (dt == 0 || dt > 4 || shown[dt]) continue;
                             shown[dt] = true;
-                            ImVec4 dotCol;
-                            switch (dt) {
-                                case 1: dotCol = ImVec4(0.25f, 0.50f, 1.00f, 1.0f); break; // Magic: blue
-                                case 2: dotCol = ImVec4(0.70f, 0.15f, 0.90f, 1.0f); break; // Curse: purple
-                                case 3: dotCol = ImVec4(0.65f, 0.45f, 0.10f, 1.0f); break; // Disease: brown
-                                case 4: dotCol = ImVec4(0.10f, 0.75f, 0.10f, 1.0f); break; // Poison: green
-                                default: break;
-                            }
+                            // Fully opaque here — it is a button rather than a
+                            // border — but the same four hues.
+                            ImVec4 dotCol = dispelTypeColor(dt);
+                            dotCol.w = 1.0f;
                             ImGui::PushStyleColor(ImGuiCol_Button, dotCol);
                             ImGui::PushStyleColor(ImGuiCol_ButtonHovered, dotCol);
                             ImGui::Button("##d", ImVec2(8.0f, 8.0f));
@@ -900,17 +893,16 @@ void SocialPanel::renderBossFrames(game::GameHandler& gameHandler,
                                 // Boss buffs: gold for important enrage/shield types
                                 borderCol = ImVec4(0.8f, 0.6f, 0.1f, 0.9f);
                             } else {
-                                uint8_t dt = gameHandler.getSpellDispelType(aura.spellId);
-                                switch (dt) {
-                                    case 1: borderCol = ImVec4(0.15f, 0.50f, 1.00f, 0.9f); break;
-                                    case 2: borderCol = ImVec4(0.70f, 0.20f, 0.90f, 0.9f); break;
-                                    case 3: borderCol = ImVec4(0.55f, 0.30f, 0.10f, 0.9f); break;
-                                    case 4: borderCol = ImVec4(0.10f, 0.70f, 0.10f, 0.9f); break;
-                                    default: borderCol = isPlayerCast
+                                // The four dispel colours, but not the shared
+                                // default: an undispellable debuff is drawn
+                                // orange-red here when the player cast it, so a
+                                // raid leader can see their own DoTs.
+                                const uint8_t dt = gameHandler.getSpellDispelType(aura.spellId);
+                                borderCol = (dt >= 1 && dt <= 4)
+                                    ? dispelTypeColor(dt)
+                                    : (isPlayerCast
                                         ? ImVec4(0.90f, 0.30f, 0.10f, 0.9f)   // player DoT: orange-red
-                                        : ImVec4(0.60f, 0.20f, 0.20f, 0.9f);  // other debuff: dark red
-                                        break;
-                                }
+                                        : ImVec4(0.60f, 0.20f, 0.20f, 0.9f)); // other debuff: dark red
                             }
 
                             VkDescriptorSet baIcon = assetMgr
