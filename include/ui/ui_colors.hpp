@@ -68,6 +68,29 @@ namespace colors {
     constexpr ImVec4 kGold   = {1.00f, 0.82f, 0.00f, 1.0f};
     constexpr ImVec4 kSilver = {0.80f, 0.80f, 0.80f, 1.0f};
     constexpr ImVec4 kCopper = {0.72f, 0.45f, 0.20f, 1.0f};
+// ---- Power bar colour ----
+//
+// Five places mapped a power type to its bar colour and none of them covered
+// the same set. The pet frame stopped at Energy, so a hunter pet — the one unit
+// whose power is Happiness — drew a mana-blue bar for it. The focus frame had
+// no Focus and no Happiness either.
+//
+// `fallback` is what an unrecognised type gets. Mana blue everywhere except the
+// raid list, which greys a power it does not know rather than claiming it is
+// mana.
+inline ImVec4 powerTypeColor(uint8_t powerType, ImVec4 fallback = kManaBlue) {
+    switch (powerType) {
+        case 0: return kManaBlue;
+        case 1: return kDarkRed;            // rage
+        case 2: return kOrange;             // focus
+        case 3: return kEnergyYellow;       // energy
+        case 4: return kHappinessGreen;     // happiness — a hunter pet's
+        case 6: return kRunicRed;           // runic power
+        case 7: return kSoulShardPurple;    // soul shards
+        default: return fallback;
+    }
+}
+
 } // namespace colors
 
 // ---- Item quality colors ----

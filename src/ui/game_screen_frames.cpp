@@ -312,25 +312,12 @@ void GameScreen::renderPlayerFrame(game::GameHandler& gameHandler) {
             if (maxPower == 0 && (powerType == 1 || powerType == 2 || powerType == 3 || powerType == 6)) maxPower = 100;
             if (maxPower > 0) {
                 float mpPct = static_cast<float>(power) / static_cast<float>(maxPower);
-                ImVec4 powerColor;
-                switch (powerType) {
-                    case 0: {
-                        // Mana: pulse desaturated blue when critically low (< 20%)
-                        if (mpPct < 0.2f) {
-                            float pulse = 0.6f + 0.4f * std::sin(static_cast<float>(ImGui::GetTime()) * 3.0f);
-                            powerColor = ImVec4(0.1f, 0.1f, 0.8f * pulse, 1.0f);
-                        } else {
-                            powerColor = colors::kManaBlue;
-                        }
-                        break;
-                    }
-                    case 1: powerColor = colors::kDarkRed; break; // Rage (red)
-                    case 2: powerColor = colors::kOrange; break; // Focus (orange)
-                    case 3: powerColor = colors::kEnergyYellow; break; // Energy (yellow)
-                    case 4: powerColor = colors::kHappinessGreen; break; // Happiness (green)
-                    case 6: powerColor = colors::kRunicRed; break; // Runic Power (crimson)
-                    case 7: powerColor = colors::kSoulShardPurple; break; // Soul Shards (purple)
-                    default: powerColor = colors::kManaBlue; break;
+                ImVec4 powerColor = colors::powerTypeColor(powerType);
+                // The player's own frame pulses its mana bar below a fifth, which
+                // no other frame does.
+                if (powerType == 0 && mpPct < 0.2f) {
+                    float pulse = 0.6f + 0.4f * std::sin(static_cast<float>(ImGui::GetTime()) * 3.0f);
+                    powerColor = ImVec4(0.1f, 0.1f, 0.8f * pulse, 1.0f);
                 }
                 ImGui::PushStyleColor(ImGuiCol_PlotHistogram, powerColor);
                 char mpOverlay[64];
@@ -660,13 +647,7 @@ void GameScreen::renderPetFrame(game::GameHandler& gameHandler) {
         if (maxPower > 0) {
             float mpPct = static_cast<float>(power) / static_cast<float>(maxPower);
             ImVec4 powerColor;
-            switch (powerType) {
-                case 0: powerColor = colors::kManaBlue; break; // Mana
-                case 1: powerColor = colors::kDarkRed; break; // Rage
-                case 2: powerColor = colors::kOrange; break; // Focus (hunter pets)
-                case 3: powerColor = colors::kEnergyYellow; break; // Energy
-                default: powerColor = colors::kManaBlue; break;
-            }
+            powerColor = colors::powerTypeColor(static_cast<uint8_t>(powerType));
             ImGui::PushStyleColor(ImGuiCol_PlotHistogram, powerColor);
             char mpText[32];
             snprintf(mpText, sizeof(mpText), "%u/%u", power, maxPower);
@@ -1378,16 +1359,7 @@ void GameScreen::renderTargetFrame(game::GameHandler& gameHandler) {
                 if (targetMaxPower > 0) {
                     float mpPct = static_cast<float>(targetPower) / static_cast<float>(targetMaxPower);
                     ImVec4 targetPowerColor;
-                    switch (targetPowerType) {
-                        case 0: targetPowerColor = colors::kManaBlue; break; // Mana (blue)
-                        case 1: targetPowerColor = colors::kDarkRed; break; // Rage (red)
-                        case 2: targetPowerColor = colors::kOrange; break; // Focus (orange)
-                        case 3: targetPowerColor = colors::kEnergyYellow; break; // Energy (yellow)
-                        case 4: targetPowerColor = colors::kHappinessGreen; break; // Happiness (green)
-                        case 6: targetPowerColor = colors::kRunicRed; break; // Runic Power (crimson)
-                        case 7: targetPowerColor = colors::kSoulShardPurple; break; // Soul Shards (purple)
-                        default: targetPowerColor = colors::kManaBlue; break;
-                    }
+                    targetPowerColor = colors::powerTypeColor(static_cast<uint8_t>(targetPowerType));
                     ImGui::PushStyleColor(ImGuiCol_PlotHistogram, targetPowerColor);
                     char mpOverlay[64];
                     snprintf(mpOverlay, sizeof(mpOverlay), "%u / %u", targetPower, targetMaxPower);
@@ -2208,13 +2180,7 @@ void GameScreen::renderFocusFrame(game::GameHandler& gameHandler) {
                 if (maxPwr > 0) {
                     float mpPct = static_cast<float>(pwr) / static_cast<float>(maxPwr);
                     ImVec4 pwrColor;
-                    switch (pType) {
-                        case 0: pwrColor = colors::kManaBlue; break;
-                        case 1: pwrColor = colors::kDarkRed; break;
-                        case 3: pwrColor = colors::kEnergyYellow; break;
-                        case 6: pwrColor = colors::kRunicRed; break;
-                        default: pwrColor = colors::kManaBlue; break;
-                    }
+                    pwrColor = colors::powerTypeColor(static_cast<uint8_t>(pType));
                     ImGui::PushStyleColor(ImGuiCol_PlotHistogram, pwrColor);
                     ImGui::ProgressBar(mpPct, ImVec2(-1, 10), "");
                     ImGui::PopStyleColor();

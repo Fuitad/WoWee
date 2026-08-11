@@ -539,17 +539,10 @@ void SocialPanel::renderPartyFrames(game::GameHandler& gameHandler,
             // Power bar (mana/rage/energy) from party stats — hidden for dead/offline/OOR
             if (!memberDead && !memberOffline && member.hasPartyStats && member.maxPower > 0) {
                 float powerPct = static_cast<float>(member.curPower) / static_cast<float>(member.maxPower);
-                ImVec4 powerColor;
-                switch (member.powerType) {
-                    case 0: powerColor = colors::kManaBlue; break; // Mana (blue)
-                    case 1: powerColor = colors::kDarkRed; break; // Rage (red)
-                    case 2: powerColor = colors::kOrange; break; // Focus (orange)
-                    case 3: powerColor = colors::kEnergyYellow; break; // Energy (yellow)
-                    case 4: powerColor = colors::kHappinessGreen; break; // Happiness (green)
-                    case 6: powerColor = colors::kRunicRed; break; // Runic Power (crimson)
-                    case 7: powerColor = colors::kSoulShardPurple; break; // Soul Shards (purple)
-                    default: powerColor = kColorDarkGray; break;
-                }
+                // Grey for a power this client does not know, rather than
+                // claiming it is mana the way the unit frames do.
+                const ImVec4 powerColor =
+                    colors::powerTypeColor(member.powerType, kColorDarkGray);
                 ImGui::PushStyleColor(ImGuiCol_PlotHistogram, powerColor);
                 ImGui::ProgressBar(powerPct, ImVec2(-1, 8), "");
                 ImGui::PopStyleColor();
