@@ -261,7 +261,9 @@
     "EffectMiscValue2": 112,
     "EffectMiscValueB0": 113,
     "EffectMiscValueB1": 114,
-    "EffectMiscValueB2": 115
+    "EffectMiscValueB2": 115,
+    "RecoveryTime": 29,
+    "CategoryRecoveryTime": 30
   },
   "SpellIcon": {
     "ID": 0,

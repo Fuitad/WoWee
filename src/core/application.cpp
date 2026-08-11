@@ -984,7 +984,11 @@ bool Application::initialize() {
                         const auto* spL = pipeline::getActiveDBCLayout() ? pipeline::getActiveDBCLayout()->getLayout("Spell") : nullptr;
                         if (sDbc && sDbc->isLoaded()) {
                             uint32_t idF = spL ? (*spL)["ID"] : 0;
-                            uint32_t ctF = spL ? (*spL)["CastingTimeIndex"] : 134; // WotLK default
+                            // From the file's shape — Classic and Turtle named
+                            // this 15, which is RequiresSpellFocus and zero for
+                            // every spell.
+                            uint32_t ctF = pipeline::detectSpellTimingFields(sDbc.get(), spL)
+                                               .castingTimeIndex;
                             uint32_t rF  = spL ? (*spL)["RangeIndex"] : 132;
                             uint32_t ptF = UINT32_MAX, mcF = UINT32_MAX;
                             if (spL) {

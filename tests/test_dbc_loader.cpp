@@ -424,3 +424,62 @@ TEST_CASE("resolveEnchantItemVisuals walks enchant to effect model paths", "[dbc
     auto none = resolveEnchantItemVisuals(2629, &plain, &visuals, &effects, nullptr);
     for (const auto& m : none) REQUIRE(m.empty());
 }
+
+TEST_CASE("Spell.dbc's timing columns come from the file's shape", "[dbc][spell]") {
+    // The three columns move together as the record grows, and which shape an
+    // install has is a property of the file rather than of the expansion being
+    // played — a Classic profile with no Spell.dbc of its own reads the shared
+    // WotLK one. These three widths are the real files: Vanilla 173 fields, TBC
+    // 216, WotLK 234.
+    //
+    // Verified against them by finding the hearthstone: spell 8690's category
+    // recovery is 1800000 at field 20 in the Vanilla-shaped file, 3600000 at 24
+    // in TBC's (its cooldown was an hour then), and 1800000 at 30 in WotLK's.
+    auto shapeOf = [](uint32_t fieldCount) {
+        std::vector<uint32_t> row(fieldCount, 0);
+        row[0] = 8690;
+        auto data = buildSyntheticDBC(1, fieldCount, {row}, std::string(1, '\0'));
+        DBCFile dbc;
+        REQUIRE(dbc.load(data));
+        return wowee::pipeline::detectSpellTimingFields(&dbc, nullptr);
+    };
+
+    SECTION("Vanilla 1.12 and Turtle") {
+        const auto f = shapeOf(173);
+        CHECK(f.castingTimeIndex == 18);
+        CHECK(f.recoveryTime == 19);
+        CHECK(f.categoryRecoveryTime == 20);
+    }
+    SECTION("TBC 2.4.3") {
+        const auto f = shapeOf(216);
+        CHECK(f.castingTimeIndex == 22);
+        CHECK(f.recoveryTime == 23);
+        CHECK(f.categoryRecoveryTime == 24);
+    }
+    SECTION("WotLK 3.3.5a") {
+        const auto f = shapeOf(234);
+        CHECK(f.castingTimeIndex == 28);
+        CHECK(f.recoveryTime == 29);
+        CHECK(f.categoryRecoveryTime == 30);
+    }
+
+    SECTION("a layout that disagrees with the shape is not followed") {
+        // Classic's and Turtle's both named CastingTimeIndex 15, which is
+        // RequiresSpellFocus and reads zero for every spell in the game.
+        wowee::pipeline::DBCFieldMap wrong;
+        wrong.fields["CastingTimeIndex"] = 15;
+        std::vector<uint32_t> row(173, 0);
+        row[0] = 8690;
+        auto data = buildSyntheticDBC(1, 173, {row}, std::string(1, '\0'));
+        DBCFile dbc;
+        REQUIRE(dbc.load(data));
+        CHECK(wowee::pipeline::detectSpellTimingFields(&dbc, &wrong).castingTimeIndex == 18);
+    }
+
+    SECTION("a file too short for the columns names none of them") {
+        const auto f = shapeOf(12);
+        CHECK(f.castingTimeIndex == 0);
+        CHECK(f.recoveryTime == 0);
+        CHECK(f.categoryRecoveryTime == 0);
+    }
+}

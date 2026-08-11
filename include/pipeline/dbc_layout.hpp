@@ -134,6 +134,32 @@ FacialHairFields detectFacialHairFields(const DBCFile* dbc, const DBCFieldMap* f
  * @param sieL JSON-derived field map (may be null — field count decides).
  * @return Name field index for this particular DBC binary.
  */
+/// Spell.dbc's three timing columns, which move together as the record grows.
+struct SpellTimingFields {
+    uint32_t castingTimeIndex;      ///< → SpellCastTimes.dbc
+    uint32_t recoveryTime;          ///< the spell's own cooldown, in ms
+    uint32_t categoryRecoveryTime;  ///< its category's cooldown, in ms
+};
+
+/**
+ * Resolve those three from the file rather than from dbc_layouts.json.
+ *
+ * The record is 173 fields in Vanilla, 216 in TBC and 234 in WotLK, and the
+ * three columns sit at 18/19/20, 22/23/24 and 28/29/30 respectively. Which one
+ * an install has is a property of the file, not of the expansion being played —
+ * a Classic profile with no Spell.dbc of its own reads the shared WotLK one.
+ *
+ * The JSON had CastingTimeIndex at 15 for Classic and Turtle, which is
+ * RequiresSpellFocus and reads zero for every spell, and named neither cooldown
+ * column at all outside TBC. A missing name answers 0xFFFFFFFF, the read is
+ * skipped, and every cooldown this client works out for itself came back zero.
+ *
+ * @param dbc    Loaded Spell.dbc (must not be null).
+ * @param spellL JSON-derived field map, consulted only for CastingTimeIndex and
+ *               only when it agrees with the shape — see the note above.
+ */
+SpellTimingFields detectSpellTimingFields(const DBCFile* dbc, const DBCFieldMap* spellL);
+
 uint32_t detectEnchantmentNameField(const DBCFile* dbc, const DBCFieldMap* sieL);
 
 /**

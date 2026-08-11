@@ -1971,6 +1971,18 @@ void SpellHandler::handleSpellGo(network::Packet& packet) {
         if (restorationLoop) {
             owner_.setStandState(1); // UNIT_STAND_STATE_SIT
         }
+        // Start the cooldown the moment the cast lands, the way the real client
+        // does. The server sends SMSG_SPELL_COOLDOWN only when it is correcting
+        // a cooldown the client is expected to have worked out for itself, so
+        // waiting for one meant most abilities showed no swirl at all — and the
+        // hearthstone, whose thirty minutes live in its spell's category
+        // recovery, showed none until you clicked it a second time and the
+        // refusal seeded it.
+        //
+        // Anything at or under the global cooldown is ignored inside, and an
+        // existing cooldown is left alone, so this cannot shorten one.
+        seedCooldownFromSpellInfo(data.spellId);
+
         // Play cast-complete sound
         if (!owner_.isProfessionSpell(data.spellId) && !rangedWeaponAttack)
             playSpellCastSound(data.spellId);
@@ -3052,8 +3064,13 @@ void SpellHandler::loadSpellNameCache() const {
     const uint32_t rangeIdxField = spellL ? spellL->field("RangeIndex") : 0xFFFFFFFF;
     const uint32_t targetAuraStateField = spellL ? spellL->field("TargetAuraState") : 0xFFFFFFFF;
     const uint32_t spellVisualIdField = spellL ? spellL->field("SpellVisualID") : 0xFFFFFFFF;
-    const uint32_t recoveryField = spellL ? spellL->field("RecoveryTime") : 0xFFFFFFFF;
-    const uint32_t categoryRecoveryField = spellL ? spellL->field("CategoryRecoveryTime") : 0xFFFFFFFF;
+    // Read off the file's own shape. Only TBC's layout named these two, so on
+    // WotLK, Classic and Turtle every cooldown this client worked out for itself
+    // came back zero — which is most of them, since the server sends a cooldown
+    // only when it is correcting one the client should already have.
+    const auto timing = pipeline::detectSpellTimingFields(dbc.get(), spellL);
+    const uint32_t recoveryField = timing.recoveryTime;
+    const uint32_t categoryRecoveryField = timing.categoryRecoveryTime;
 
     uint32_t count = dbc->getRecordCount();
     for (uint32_t i = 0; i < count; ++i) {

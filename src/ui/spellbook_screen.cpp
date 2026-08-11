@@ -175,7 +175,9 @@ void SpellbookScreen::loadSpellDBC(pipeline::AssetManager* assetManager) {
         try { descriptionField = (*spellL)["Description"]; } catch (...) {}
         try { powerTypeField   = (*spellL)["PowerType"]; } catch (...) {}
         try { manaCostField    = (*spellL)["ManaCost"]; } catch (...) {}
-        try { castTimeIdxField = (*spellL)["CastingTimeIndex"]; } catch (...) {}
+        // From the file's own shape rather than the expansion's name for it:
+        // Classic and Turtle named this 15, which is RequiresSpellFocus.
+        castTimeIdxField = pipeline::detectSpellTimingFields(dbc.get(), spellL).castingTimeIndex;
         try { rangeIdxField    = (*spellL)["RangeIndex"]; } catch (...) {}
         try { casterAuraStateField = (*spellL)["CasterAuraState"]; } catch (...) {}
         try { casterAuraStateNotField = (*spellL)["CasterAuraStateNot"]; } catch (...) {}
