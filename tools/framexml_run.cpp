@@ -69,6 +69,7 @@
 #include <filesystem>
 #include <cstring>
 #include <cstdlib>
+#include "core/env.hpp"
 #include <string>
 #include <set>
 #include <vector>
@@ -84,20 +85,10 @@ int main(int argc, char** argv) {
     // And its own config corner, for the same reason: the missing-API list and
     // the Lua error list are rewritten on exit, and both are read from when a
     // report is being diagnosed.
-    if (!std::getenv("WOWEE_CONFIG_ROOT")) {
-#ifdef _WIN32
-        _putenv_s("WOWEE_CONFIG_ROOT", "logs/framexml_run_config");
-#else
-        setenv("WOWEE_CONFIG_ROOT", "logs/framexml_run_config", 0);
-#endif
-    }
-    if (!std::getenv("WOWEE_LOG_FILE")) {
-#ifdef _WIN32
-        _putenv_s("WOWEE_LOG_FILE", "framexml_run.log");
-#else
-        setenv("WOWEE_LOG_FILE", "framexml_run.log", 0);
-#endif
-    }
+    // Both only if the caller has not chosen one, which setEnvVar's overwrite
+    // flag says directly.
+    wowee::core::setEnvVar("WOWEE_CONFIG_ROOT", "logs/framexml_run_config", false);
+    wowee::core::setEnvVar("WOWEE_LOG_FILE", "framexml_run.log", false);
     if (argc < 2) {
         std::fprintf(stderr,
                      "usage: framexml_run <assetPath> [expression ...]\n"
@@ -109,7 +100,7 @@ int main(int argc, char** argv) {
     // FrameXML owns nothing unless it is asked to, and a harness that owns
     // nothing takes the client's side of every handover — which is not the
     // side being tested. Set before anything reads it.
-    ::setenv("WOWEE_FRAMEXML_UI", "all", 0);
+    wowee::core::setEnvVar("WOWEE_FRAMEXML_UI", "all", false);
 
     wowee::addons::AddonManager mgr;
     if (!mgr.initialize(nullptr)) {

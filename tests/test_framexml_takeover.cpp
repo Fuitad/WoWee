@@ -18,6 +18,7 @@
 
 #include <cstdlib>
 #include <string>
+#include "core/env.hpp"
 
 using namespace wowee::ui;
 
@@ -28,8 +29,8 @@ namespace {
 /// Otherwise a developer who happens to be running with WOWEE_FRAMEXML_UI set
 /// gets a failure that says nothing about the code.
 const bool kCleanEnvironment = [] {
-    ::unsetenv("WOWEE_FRAMEXML_UI");
-    ::unsetenv("WOWEE_LOAD_FRAMEXML");
+    wowee::core::unsetEnvVar("WOWEE_FRAMEXML_UI");
+    wowee::core::unsetEnvVar("WOWEE_LOAD_FRAMEXML");
     return true;
 }();
 

@@ -4,6 +4,7 @@
 #include <exception>
 #include <csignal>
 #include <cstdlib>
+#include "core/env.hpp"
 #include <cctype>
 #include <filesystem>
 #include <string>
@@ -106,7 +107,7 @@ static void selectMacUserDataPath() {
     }
 
     if (hasManifest) {
-        setenv("WOW_DATA_PATH", dataRoot.c_str(), 0);
+        wowee::core::setEnvVar("WOW_DATA_PATH", dataRoot.c_str(), /*overwrite=*/false);
     }
 }
 #endif
