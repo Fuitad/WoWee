@@ -1,4 +1,5 @@
 #include "cli_bake.hpp"
+#include "gltf_glb.hpp"
 #include "cli_weld.hpp"
 
 #include "pipeline/wowee_model.hpp"
@@ -227,33 +228,17 @@ int handleBakeZoneGlb(int& i, int argc, char** argv) {
     gj["scenes"] = nlohmann::json::array({nlohmann::json{
         {"nodes", sceneNodes}
     }});
-    std::string jsonStr = gj.dump();
-    while (jsonStr.size() % 4 != 0) jsonStr += ' ';
-    uint32_t jsonLen = static_cast<uint32_t>(jsonStr.size());
-    uint32_t binLen = binSize;
-    uint32_t totalLen = 12 + 8 + jsonLen + 8 + binLen;
-    std::ofstream out(outPath, std::ios::binary);
-    if (!out) {
-        std::fprintf(stderr, "Failed to open output: %s\n", outPath.c_str());
+    // The container — header, chunks and the padding each needs — is shared
+    // with the other exporters here.
+    std::string glbError;
+    if (!writeGlb(outPath, gj, bin, glbError)) {
+        std::fprintf(stderr, "Failed to write GLB: %s\n", glbError.c_str());
         return 1;
     }
-    uint32_t magic = 0x46546C67, version = 2;
-    out.write(reinterpret_cast<const char*>(&magic), 4);
-    out.write(reinterpret_cast<const char*>(&version), 4);
-    out.write(reinterpret_cast<const char*>(&totalLen), 4);
-    uint32_t jsonChunkType = 0x4E4F534A;
-    out.write(reinterpret_cast<const char*>(&jsonLen), 4);
-    out.write(reinterpret_cast<const char*>(&jsonChunkType), 4);
-    out.write(jsonStr.data(), jsonLen);
-    uint32_t binChunkType = 0x004E4942;
-    out.write(reinterpret_cast<const char*>(&binLen), 4);
-    out.write(reinterpret_cast<const char*>(&binChunkType), 4);
-    out.write(reinterpret_cast<const char*>(bin.data()), binLen);
-    out.close();
     std::printf("Baked %s -> %s\n", zoneDir.c_str(), outPath.c_str());
     std::printf("  %d tile(s), %u verts, %u tris, %zu meshes, %u-byte BIN\n",
                 loadedTiles, totalV, totalI / 3,
-                meshes.size(), binLen);
+                meshes.size(), static_cast<uint32_t>(bin.size()));
     return 0;
 }
 
@@ -874,32 +859,14 @@ int handleBakeProjectStlOrGlb(int& i, int argc, char** argv) {
     gj["meshes"] = meshes;
     gj["nodes"] = nodes;
     gj["scenes"] = nlohmann::json::array({{{"nodes", sceneNodes}}});
-    std::string jsonStr = gj.dump();
-    while (jsonStr.size() % 4 != 0) jsonStr += ' ';
-    uint32_t jsonLen = static_cast<uint32_t>(jsonStr.size());
-    uint32_t binLen = binSize;
-    uint32_t totalLen = 12 + 8 + jsonLen + 8 + binLen;
-    std::ofstream out(outPath, std::ios::binary);
-    if (!out) {
-        std::fprintf(stderr, "%s: cannot write %s\n", cmdName, outPath.c_str());
+    std::string glbError;
+    if (!writeGlb(outPath, gj, bin, glbError)) {
+        std::fprintf(stderr, "%s: %s\n", cmdName, glbError.c_str());
         return 1;
     }
-    uint32_t magic = 0x46546C67, version = 2;
-    out.write(reinterpret_cast<const char*>(&magic), 4);
-    out.write(reinterpret_cast<const char*>(&version), 4);
-    out.write(reinterpret_cast<const char*>(&totalLen), 4);
-    uint32_t jt = 0x4E4F534A;
-    out.write(reinterpret_cast<const char*>(&jsonLen), 4);
-    out.write(reinterpret_cast<const char*>(&jt), 4);
-    out.write(jsonStr.data(), jsonLen);
-    uint32_t bt = 0x004E4942;
-    out.write(reinterpret_cast<const char*>(&binLen), 4);
-    out.write(reinterpret_cast<const char*>(&bt), 4);
-    out.write(reinterpret_cast<const char*>(bin.data()), binLen);
-    out.close();
     std::printf("Baked %s -> %s\n", projectDir.c_str(), outPath.c_str());
     std::printf("  %d zone(s), %d tiles, %u verts, %u tris, %u-byte BIN\n",
-                totalZones, totalTiles, totalV, totalI / 3, binLen);
+                totalZones, totalTiles, totalV, totalI / 3, static_cast<uint32_t>(bin.size()));
     return 0;
 }
 

@@ -1,4 +1,5 @@
 #include "cli_wom_io.hpp"
+#include "gltf_glb.hpp"
 #include "cli_catalog_paths.hpp"
 
 #include "pipeline/wowee_model.hpp"
@@ -265,41 +266,16 @@ int handleExportGlb(int& i, int argc, char** argv) {
     gj["meshes"] = nlohmann::json::array({nlohmann::json{
         {"primitives", primitives}
     }});
-    // Serialize JSON to bytes; pad to 4-byte boundary with spaces
-    // (glTF spec requires JSON chunk padded with 0x20).
-    std::string jsonStr = gj.dump();
-    while (jsonStr.size() % 4 != 0) jsonStr += ' ';
-    // BIN chunk pads to 4-byte boundary with zeros (already
-    // satisfied since binSize = idxOff + iCount*4 and idxOff is
-    // 4-byte aligned).
-    uint32_t jsonLen = static_cast<uint32_t>(jsonStr.size());
-    uint32_t binLen = binSize;
-    uint32_t totalLen = 12 + 8 + jsonLen + 8 + binLen;
-    std::ofstream out(outPath, std::ios::binary);
-    if (!out) {
-        std::fprintf(stderr, "Failed to open output: %s\n", outPath.c_str());
+    // The container itself — header, JSON chunk, BIN chunk, and the padding
+    // each of them needs — is the same for every exporter here.
+    std::string glbError;
+    if (!writeGlb(outPath, gj, bin, glbError)) {
+        std::fprintf(stderr, "Failed to write GLB: %s\n", glbError.c_str());
         return 1;
     }
-    // Header: magic, version, total length (all little-endian uint32)
-    uint32_t magic = 0x46546C67;  // 'glTF'
-    uint32_t version = 2;
-    out.write(reinterpret_cast<const char*>(&magic), 4);
-    out.write(reinterpret_cast<const char*>(&version), 4);
-    out.write(reinterpret_cast<const char*>(&totalLen), 4);
-    // JSON chunk header + payload
-    uint32_t jsonChunkType = 0x4E4F534A;  // 'JSON'
-    out.write(reinterpret_cast<const char*>(&jsonLen), 4);
-    out.write(reinterpret_cast<const char*>(&jsonChunkType), 4);
-    out.write(jsonStr.data(), jsonLen);
-    // BIN chunk header + payload
-    uint32_t binChunkType = 0x004E4942;  // 'BIN\0'
-    out.write(reinterpret_cast<const char*>(&binLen), 4);
-    out.write(reinterpret_cast<const char*>(&binChunkType), 4);
-    out.write(reinterpret_cast<const char*>(bin.data()), binLen);
-    out.close();
     std::printf("Exported %s.wom -> %s\n", base.c_str(), outPath.c_str());
     std::printf("  %u verts, %u tris, %zu primitive(s), %u-byte binary chunk\n",
-                vCount, iCount / 3, primitives.size(), binLen);
+                vCount, iCount / 3, primitives.size(), binSize);
     return 0;
 }
 

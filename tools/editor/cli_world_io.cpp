@@ -1,4 +1,5 @@
 #include "cli_world_io.hpp"
+#include "gltf_glb.hpp"
 #include "cli_catalog_paths.hpp"
 
 #include "pipeline/wowee_building.hpp"
@@ -153,34 +154,17 @@ int handleExportWobGlb(int& i, int argc, char** argv) {
     gj["meshes"] = nlohmann::json::array({nlohmann::json{
         {"primitives", primitives}
     }});
-    std::string jsonStr = gj.dump();
-    while (jsonStr.size() % 4 != 0) jsonStr += ' ';
-    uint32_t jsonLen = static_cast<uint32_t>(jsonStr.size());
-    uint32_t binLen = binSize;
-    uint32_t totalLen = 12 + 8 + jsonLen + 8 + binLen;
-    std::ofstream out(outPath, std::ios::binary);
-    if (!out) {
-        std::fprintf(stderr, "Failed to open output: %s\n", outPath.c_str());
+    // The container — header, chunks and the padding each needs — is shared
+    // with the other exporters here.
+    std::string glbError;
+    if (!writeGlb(outPath, gj, bin, glbError)) {
+        std::fprintf(stderr, "Failed to write GLB: %s\n", glbError.c_str());
         return 1;
     }
-    uint32_t magic = 0x46546C67;
-    uint32_t version = 2;
-    out.write(reinterpret_cast<const char*>(&magic), 4);
-    out.write(reinterpret_cast<const char*>(&version), 4);
-    out.write(reinterpret_cast<const char*>(&totalLen), 4);
-    uint32_t jsonChunkType = 0x4E4F534A;
-    out.write(reinterpret_cast<const char*>(&jsonLen), 4);
-    out.write(reinterpret_cast<const char*>(&jsonChunkType), 4);
-    out.write(jsonStr.data(), jsonLen);
-    uint32_t binChunkType = 0x004E4942;
-    out.write(reinterpret_cast<const char*>(&binLen), 4);
-    out.write(reinterpret_cast<const char*>(&binChunkType), 4);
-    out.write(reinterpret_cast<const char*>(bin.data()), binLen);
-    out.close();
     std::printf("Exported %s.wob -> %s\n", base.c_str(), outPath.c_str());
     std::printf("  %zu groups -> %zu primitives, %u verts, %u tris, %u-byte BIN\n",
                 bld.groups.size(), primitives.size(),
-                totalV, totalI / 3, binLen);
+                totalV, totalI / 3, static_cast<uint32_t>(bin.size()));
     return 0;
 }
 
@@ -342,32 +326,16 @@ int handleExportWhmGlb(int& i, int argc, char** argv) {
     gj["meshes"] = nlohmann::json::array({nlohmann::json{
         {"primitives", primitives}
     }});
-    std::string jsonStr = gj.dump();
-    while (jsonStr.size() % 4 != 0) jsonStr += ' ';
-    uint32_t jsonLen = static_cast<uint32_t>(jsonStr.size());
-    uint32_t binLen = binSize;
-    uint32_t totalLen = 12 + 8 + jsonLen + 8 + binLen;
-    std::ofstream out(outPath, std::ios::binary);
-    if (!out) {
-        std::fprintf(stderr, "Failed to open output: %s\n", outPath.c_str());
+    // The container — header, chunks and the padding each needs — is shared
+    // with the other exporters here.
+    std::string glbError;
+    if (!writeGlb(outPath, gj, bin, glbError)) {
+        std::fprintf(stderr, "Failed to write GLB: %s\n", glbError.c_str());
         return 1;
     }
-    uint32_t magic = 0x46546C67, version = 2;
-    out.write(reinterpret_cast<const char*>(&magic), 4);
-    out.write(reinterpret_cast<const char*>(&version), 4);
-    out.write(reinterpret_cast<const char*>(&totalLen), 4);
-    uint32_t jsonChunkType = 0x4E4F534A;
-    out.write(reinterpret_cast<const char*>(&jsonLen), 4);
-    out.write(reinterpret_cast<const char*>(&jsonChunkType), 4);
-    out.write(jsonStr.data(), jsonLen);
-    uint32_t binChunkType = 0x004E4942;
-    out.write(reinterpret_cast<const char*>(&binLen), 4);
-    out.write(reinterpret_cast<const char*>(&binChunkType), 4);
-    out.write(reinterpret_cast<const char*>(bin.data()), binLen);
-    out.close();
     std::printf("Exported %s.whm -> %s\n", base.c_str(), outPath.c_str());
     std::printf("  %d chunks loaded, %u verts, %u tris, %zu primitives, %u-byte BIN\n",
-                loadedChunks, totalV, totalI / 3, primitives.size(), binLen);
+                loadedChunks, totalV, totalI / 3, primitives.size(), static_cast<uint32_t>(bin.size()));
     return 0;
 }
 
