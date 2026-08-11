@@ -3886,6 +3886,30 @@ int lua_ColorSelect_GetColorRGB(lua_State* L) {
 /// SetCooldown(start, duration) — both on GetTime's clock. A zero duration is
 /// how FrameXML clears one, and it must read as nothing running rather than as
 /// a sweep that never finishes.
+/// Remember an edit box whose text was set from code, so its OnTextChanged can
+/// be run after the script that set it — which is when WoW runs one.
+///
+/// Deferred rather than immediate, and the difference is not academic.
+/// MoneyInputFrame_SetCopper calls SetNumber and increments its expectChanges
+/// counter on the *next line*; a handler that runs inside SetNumber sees the
+/// counter before that increment, clears it, and the increment then does
+/// nil + 1. Queuing here and draining in dispatchOnUpdate puts the handler
+/// after the whole of SetCopper, which is the order the interface is written
+/// for.
+///
+/// The queue is a Lua table rather than a list of widget pointers so that a
+/// frame going away between the set and the drain is Lua's problem rather than
+/// a dangling read. Same reason __WoweeOnUpdateFrames is a table.
+static void queueTextChanged(lua_State* L, int frameIndex) {
+    const int abs = frameIndex > 0 ? frameIndex : lua_gettop(L) + frameIndex + 1;
+    lua_getglobal(L, "__WoweePendingTextChanged");
+    if (!lua_istable(L, -1)) { lua_pop(L, 1); return; }
+    const int n = static_cast<int>(lua_objlen(L, -1));
+    lua_pushvalue(L, abs);
+    lua_rawseti(L, -2, n + 1);
+    lua_pop(L, 1);
+}
+
 /// An edit box keeps its own text, so SetText on one is not the font string's.
 /// FrameXML uses the same name for both and the widget decides which it means.
 int lua_EditBox_SetText(lua_State* L) {
@@ -3912,7 +3936,9 @@ int lua_EditBox_SetText(lua_State* L) {
         callScriptOnTable(L, 1, "OnTextSet", 0);
         inSetText = false;
     }
-    // OnTextChanged is deliberately NOT fired here, and this is not because it
+    queueTextChanged(L, 1);
+    // Not fired here, deferred — the reasoning, and what it cost while nothing
+    // fired at all:, and this is not because it
     // should not be — WoW fires it for a text set from code as well as for
     // typing, and FrameXML is written expecting that. It is because firing it
     // *synchronously* is wrong, which was measured rather than reasoned:
@@ -3964,7 +3990,8 @@ int lua_EditBox_SetNumber(lua_State* L) {
     }
     w->editText = buf;
     w->cursorPos = w->editText.size();
-    // No OnTextChanged, for the reason written out at SetText above: WoW fires
+    queueTextChanged(L, 1);
+    // Deferred, not fired here, for the reason written out at SetText above: WoW fires
     // one and defers it, and firing it synchronously breaks the caller that
     // needs it most.
     return 0;
@@ -4846,6 +4873,20 @@ void LuaEngine::registerCoreAPI() {
         return 0;
     }, 1);
     lua_setglobal(L_, "__WoweeOpenClientSettings");
+
+    // Run the deferred OnTextChanged queue now rather than at the next frame.
+    //
+    // The frame loop drains this; the headless runner has no frame loop, and
+    // the behaviour it guards — MoneyInputFrame absorbing its own edits — is
+    // exactly the kind that is only visible once the drain has happened. A
+    // seam in the same __Wowee* idiom as the rest.
+    lua_pushlightuserdata(L_, this);
+    lua_pushcclosure(L_, [](lua_State* L) -> int {
+        auto* self = static_cast<LuaEngine*>(lua_touserdata(L, lua_upvalueindex(1)));
+        if (self) self->drainPendingTextChanged();
+        return 0;
+    }, 1);
+    lua_setglobal(L_, "__WoweeDrainTextChanged");
 
     lua_pushcfunction(L_, lua_wowee_setAnimOffset);
     lua_setglobal(L_, "__WoweeSetAnimOffset");
@@ -6064,6 +6105,10 @@ void LuaEngine::registerCoreAPI() {
     // OnUpdate frame tracking table
     lua_newtable(L_);
     lua_setglobal(L_, "__WoweeOnUpdateFrames");
+
+    // Edit boxes whose text was set from code and still owe an OnTextChanged.
+    lua_newtable(L_);
+    lua_setglobal(L_, "__WoweePendingTextChanged");
 
     // widget id -> frame table, so a hit test can find the scripts to run.
     lua_newtable(L_);
@@ -9620,6 +9665,44 @@ void LuaEngine::expireMessages(float elapsed) {
     }
 }
 
+/// Run the OnTextChanged handlers owed by text set from code since the last
+/// frame.
+///
+/// The queue is taken and cleared before anything runs, so a handler that sets
+/// text again is queued for the next frame rather than extending this drain —
+/// which is what stops MoneyInputFrame's own edits from chasing their own tail.
+void LuaEngine::drainPendingTextChanged() {
+    if (!L_) return;
+    lua_getglobal(L_, "__WoweePendingTextChanged");
+    if (!lua_istable(L_, -1)) { lua_pop(L_, 1); return; }
+    const int count = static_cast<int>(lua_objlen(L_, -1));
+    if (count == 0) { lua_pop(L_, 1); return; }
+
+    // Swap in a fresh table first: a handler that sets text lands in the new
+    // one and waits a frame.
+    lua_newtable(L_);
+    lua_setglobal(L_, "__WoweePendingTextChanged");
+
+    for (int i = 1; i <= count; ++i) {
+        lua_rawgeti(L_, -1, i);
+        if (lua_istable(L_, -1)) {
+            // The caret first. Setting text moves it to the end, which in WoW
+            // is a cursor change, and ScrollingEdit_OnCursorChanged is the only
+            // thing that ever sets self.cursorOffset — which
+            // ScrollingEdit_OnTextChanged then negates. Firing the text change
+            // without the cursor change reaches `-nil` on the first code-set
+            // text in every multi-line box: the mail body, the macro editor,
+            // the guild information pane.
+            if (const auto* w = widgetOf(L_, lua_gettop(L_))) {
+                fireCursorChanged(w->id);
+            }
+            callScriptOnTable(L_, lua_gettop(L_), "OnTextChanged", 0);
+        }
+        lua_pop(L_, 1);
+    }
+    lua_pop(L_, 1);
+}
+
 void LuaEngine::dispatchOnUpdate(float elapsed) {
     // Asked for by the check, and answered here because only this side can ask
     // the interface anything.
@@ -9628,6 +9711,8 @@ void LuaEngine::dispatchOnUpdate(float elapsed) {
     expireMessages(elapsed);
 
     if (!L_) return;
+
+    drainPendingTextChanged();
 
     // Animations first, so a frame's own OnUpdate sees this frame's values
     // rather than the previous one's.
