@@ -193,6 +193,13 @@ bool AudioEngine::initialize() {
     return true;
 }
 
+std::string AudioEngine::getOutputDeviceName() const {
+    if (!initialized_ || !engine_) return {};
+    const ma_device* device = ma_engine_get_device(const_cast<ma_engine*>(engine_));
+    if (!device || device->playback.name[0] == '\0') return {};
+    return device->playback.name;
+}
+
 void AudioEngine::shutdown() {
     if (!initialized_) {
         return;

@@ -2094,6 +2094,32 @@ static int lua_SetMultisampleFormat(lua_State* L) {
 /// The general rule that a list-returning function says "none" by returning
 /// nothing still holds; this one is a caller that defined its own sentinel and
 /// checks for it first.
+/// The sound output drivers the Sound panel can offer, which is one.
+///
+/// AudioOptionsSoundPanelHardwareDropDown_Initialize loops from 0 to num-1 and
+/// adds a button per driver. With num zero it added none, and an empty
+/// dropdown does not draw empty — UIDropDownMenu_Refresh walks the shared
+/// DropDownList1 buttons, so it reads whichever list was built last and takes
+/// its text. The same shape that put a screen resolution in the Multisampling
+/// box put someone else's answer in Game Sound Output.
+///
+/// This client opens whichever playback device the system offers and does not
+/// switch between them, so the list is that one device by name — the truth
+/// rather than a stub, and the shape GetScreenResolutions already takes.
+static int lua_Sound_GetNumOutputDrivers(lua_State* L) {
+    lua_pushnumber(L, audio::AudioEngine::instance().isInitialized() ? 1 : 0);
+    return 1;
+}
+
+/// The driver at that index, counted from zero as the panel counts it.
+static int lua_Sound_GetOutputDriverNameByIndex(lua_State* L) {
+    const int index = static_cast<int>(luaL_optnumber(L, 1, -1));
+    std::string name = audio::AudioEngine::instance().getOutputDeviceName();
+    if (index != 0 || name.empty()) { lua_pushnil(L); return 1; }
+    lua_pushstring(L, name.c_str());
+    return 1;
+}
+
 static int lua_GetRefreshRates(lua_State* L) {
     lua_pushnumber(L, 0);
     return 1;
@@ -5217,7 +5243,7 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"GetBattlegroundInfo",      lua_GetBattlegroundInfo},
                 {"RequestBattlegroundInstanceInfo", lua_RequestBattlegroundInstanceInfo},
                 {"GetCurrentMapDungeonLevel", lua_ReturnZero},
-                {"Sound_GameSystem_GetNumOutputDrivers", lua_ReturnZero},
+                {"Sound_GameSystem_GetNumOutputDrivers", lua_Sound_GetNumOutputDrivers},
                 {"Sound_ChatSystem_GetNumInputDrivers",  lua_ReturnZero},
                 {"Sound_ChatSystem_GetNumOutputDrivers", lua_ReturnZero},
                 {"Sound_ChatSystem_GetInputDriverNameByIndex",  lua_ReturnNil},
@@ -5511,7 +5537,7 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"UpdateWorldMapArrowFrames",   lua_ReturnNothing},
                 {"SetSelectedSkill", [](lua_State* L) -> int {
             selectedSkill() = static_cast<int>(luaL_optnumber(L, 1, 0)); return 0; }},
-                {"Sound_GameSystem_GetOutputDriverNameByIndex", lua_ReturnNil},
+                {"Sound_GameSystem_GetOutputDriverNameByIndex", lua_Sound_GetOutputDriverNameByIndex},
                 {"PlaySound",           lua_PlaySound},
                 {"PlaySoundFile",       lua_PlaySoundFile},
                 {"GetPlayerMapPosition", lua_GetPlayerMapPosition},

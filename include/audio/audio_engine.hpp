@@ -29,6 +29,15 @@ public:
     void shutdown();
     bool isInitialized() const { return initialized_; }
 
+    /// The playback device miniaudio actually opened, by name.
+    ///
+    /// For the Sound panel's output dropdown, which lists the drivers the
+    /// client can use. This client opens whichever device the system offers
+    /// and does not switch between them, so the list is this one name — the
+    /// truth rather than a guess, and the same shape the video panel's
+    /// resolution list already takes. Empty if the engine is not up.
+    std::string getOutputDeviceName() const;
+
     // Master volume (0.0 = silent, 1.0 = full)
     void setMasterVolume(float volume);
     float getMasterVolume() const { return masterVolume_; }
