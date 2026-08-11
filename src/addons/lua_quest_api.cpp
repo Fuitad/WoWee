@@ -1486,6 +1486,27 @@ static uint8_t talentClassId(game::GameHandler* gh, bool inspect) {
     return gh ? gh->getPlayerClass() : 0;
 }
 
+/// A class's talent tabs, in the order the interface numbers them.
+///
+/// Which tab is tab 1 is the whole of this: the interface asks for tabs by
+/// index and expects them in orderIndex order, and a tab list built any other
+/// way silently renames every tab. Four places worked it out for themselves —
+/// GetNumTalentTabs, GetTalentTabInfo, the talent lookup and resolveTalentId —
+/// and they agreed, which is luck rather than design in a file where the index
+/// conventions have bitten before.
+static std::vector<const game::GameHandler::TalentTabEntry*> classTalentTabs(
+        game::GameHandler* gh, uint8_t classId) {
+    std::vector<const game::GameHandler::TalentTabEntry*> tabs;
+    if (!gh || classId == 0) return tabs;
+    const uint32_t classMask = 1u << (classId - 1);
+    for (const auto& [tabId, tab] : gh->getAllTalentTabs()) {
+        if (tab.classMask & classMask) tabs.push_back(&tab);
+    }
+    std::sort(tabs.begin(), tabs.end(),
+              [](const auto* a, const auto* b) { return a->orderIndex < b->orderIndex; });
+    return tabs;
+}
+
 /// The rank a talent is at, for whoever is being asked about.
 static int talentRankFor(game::GameHandler* gh, bool inspect, uint32_t talentId) {
     if (!gh) return 0;
@@ -1539,14 +1560,7 @@ static int lua_GetTalentTabInfo(lua_State* L) {
     if (wantsPetTalents(L, 3)) return luaReturnNil(L);
     const bool inspect = lua_toboolean(L, 2) != 0;
     uint8_t classId = talentClassId(gh, inspect);
-    uint32_t classMask = (classId > 0) ? (1u << (classId - 1)) : 0;
-    // Find the Nth tab for this class (sorted by orderIndex)
-    std::vector<const game::GameHandler::TalentTabEntry*> classTabs;
-    for (const auto& [tabId, tab] : gh->getAllTalentTabs()) {
-        if (tab.classMask & classMask) classTabs.push_back(&tab);
-    }
-    std::sort(classTabs.begin(), classTabs.end(),
-        [](const auto* a, const auto* b) { return a->orderIndex < b->orderIndex; });
+    const auto classTabs = classTalentTabs(gh, classId);
     if (tabIndex > static_cast<int>(classTabs.size())) {
         return luaReturnNil(L);
     }
@@ -1595,13 +1609,7 @@ static int lua_GetNumTalents(lua_State* L) {
     if (wantsPetTalents(L, 3)) { return luaReturnZero(L); }
     if (!gh || tabIndex < 1) { return luaReturnZero(L); }
     uint8_t classId = talentClassId(gh, lua_toboolean(L, 2) != 0);
-    uint32_t classMask = (classId > 0) ? (1u << (classId - 1)) : 0;
-    std::vector<const game::GameHandler::TalentTabEntry*> classTabs;
-    for (const auto& [tabId, tab] : gh->getAllTalentTabs()) {
-        if (tab.classMask & classMask) classTabs.push_back(&tab);
-    }
-    std::sort(classTabs.begin(), classTabs.end(),
-        [](const auto* a, const auto* b) { return a->orderIndex < b->orderIndex; });
+    const auto classTabs = classTalentTabs(gh, classId);
     if (tabIndex > static_cast<int>(classTabs.size())) {
         return luaReturnZero(L);
     }
@@ -1641,14 +1649,7 @@ const game::TalentEntry* talentAt(game::GameHandler* gh,
                                   uint8_t classIdOverride) {
     if (!gh || tabIndex < 1 || talentIndex < 1) return nullptr;
     const uint8_t classId = classIdOverride ? classIdOverride : gh->getPlayerClass();
-    const uint32_t classMask = (classId > 0) ? (1u << (classId - 1)) : 0;
-
-    std::vector<const game::GameHandler::TalentTabEntry*> classTabs;
-    for (const auto& [tabId, tab] : gh->getAllTalentTabs()) {
-        if (tab.classMask & classMask) classTabs.push_back(&tab);
-    }
-    std::sort(classTabs.begin(), classTabs.end(),
-        [](const auto* a, const auto* b) { return a->orderIndex < b->orderIndex; });
+    const auto classTabs = classTalentTabs(gh, classId);
     if (tabIndex > static_cast<int>(classTabs.size())) return nullptr;
 
     const uint32_t targetTabId = classTabs[tabIndex - 1]->tabId;
@@ -2067,13 +2068,7 @@ static const game::TrainerSpell* shownTrainerService(game::GameHandler* gh, int 
 static uint32_t resolveTalentId(game::GameHandler* gh, int tabIndex, int talentIndex) {
     if (!gh || tabIndex < 1 || talentIndex < 1) return 0;
     const uint8_t classId = gh->getPlayerClass();
-    const uint32_t classMask = (classId > 0) ? (1u << (classId - 1)) : 0;
-    std::vector<const game::GameHandler::TalentTabEntry*> classTabs;
-    for (const auto& [tabId, tab] : gh->getAllTalentTabs()) {
-        if (tab.classMask & classMask) classTabs.push_back(&tab);
-    }
-    std::sort(classTabs.begin(), classTabs.end(),
-              [](const auto* a, const auto* b) { return a->orderIndex < b->orderIndex; });
+    const auto classTabs = classTalentTabs(gh, classId);
     if (tabIndex > static_cast<int>(classTabs.size())) return 0;
 
     std::vector<const game::GameHandler::TalentEntry*> tabTalents;
