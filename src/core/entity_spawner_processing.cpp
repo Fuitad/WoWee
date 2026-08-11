@@ -536,11 +536,16 @@ void EntitySpawner::processCreatureSpawnQueue(bool unlimited) {
                         std::string lower = m2Path;
                         std::transform(lower.begin(), lower.end(), lower.begin(),
                                        [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+                        // Every humanoid NPC in the world announced itself
+                        // here, which is thirty-nine lines a session saying a
+                        // model loaded correctly. At debug: the log carries
+                        // warnings and above, and what belongs there is what
+                        // went wrong.
                         if (lower.rfind("character\\", 0) == 0) {
-                            LOG_WARNING("Humanoid NPC model loaded: displayId=", s.displayId,
-                                        " ", m2Path, " vertices=", model->vertices.size(),
-                                        " bones=", model->bones.size(),
-                                        " submeshes=", model->batches.size());
+                            LOG_DEBUG("Humanoid NPC model loaded: displayId=", s.displayId,
+                                      " ", m2Path, " vertices=", model->vertices.size(),
+                                      " bones=", model->bones.size(),
+                                      " submeshes=", model->batches.size());
                         }
                     }
 

@@ -1928,10 +1928,19 @@ void CharacterRenderer::setupModelBuffers(M2ModelGPU& gpuModel) {
             if (bi >= 128) ge128Count++;
         }
     }
-    if (outOfRangeCount > 0 || ge128Count > 0) {
-        LOG_WARNING("VERTEX DIAG: model bones=", numBones, " verts=", vertCount,
-                    " outOfRange=", outOfRangeCount, " (nonzeroWeight=", nonzeroWeightOOR, ")",
-                    " ge128=", ge128Count);
+    // A bone index past the end of the bone list, which is a broken model or a
+    // misread one.
+    //
+    // An index at or above 128 is not that: it is what any model with more than
+    // 128 bones has, and the character models have 219. Warning on it fired on
+    // every character in the world and reported outOfRange=0 every time — a
+    // line per model saying nothing was wrong, in a log whose whole value is
+    // that what is in it is.
+    if (outOfRangeCount > 0) {
+        LOG_WARNING("Model has bone indices past its bone list: bones=", numBones,
+                    " verts=", vertCount, " outOfRange=", outOfRangeCount,
+                    " (nonzeroWeight=", nonzeroWeightOOR, ")",
+                    " — those vertices skin to nothing and collapse to the origin");
     }
 
     // Accumulate tangent/bitangent per triangle
@@ -2864,7 +2873,10 @@ void CharacterRenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet,
                             chosenType = gpuModel.data.textures[sl].type;
                     }
                     VkTexture* rt = resolveBatchTexture(instance, gpuModel, batch);
-                    core::Logger::getInstance().warning(
+                    // At debug: this canary was for heads resolving to the
+                    // white texture, and they resolve to a texture. Twenty-four
+                    // of them a session is noise in a log read for faults.
+                    core::Logger::getInstance().debug(
                         "Head batch: instance=", pair.first, " model=", instance.modelId,
                         " geoset=", batch.submeshId, " firstSlotType=", chosenType,
                         " resolved=", (rt == whiteTexture_.get() ? "WHITE"

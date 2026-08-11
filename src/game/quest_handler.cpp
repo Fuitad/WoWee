@@ -1118,7 +1118,13 @@ void QuestHandler::registerOpcodes(DispatchTable& table) {
             for (const auto& it : objs.items)
                 if (it.itemId != 0 || it.required > 0) ++objItems;
         }
-        LOG_WARNING("Quest text parse: id=", questId,
+        // At debug now. This was raised to warning for two reports — a blank
+        // description panel and no objectives on screen — and both are answered:
+        // the string block starts sixty-five fields in, not fifty-seven, and a
+        // session's worth of quests now parse with a real title, real
+        // objectives and a real description every time. Kept, because it is the
+        // thing that showed the fault, and one WOWEE_LOG_LEVEL=debug away.
+        LOG_DEBUG("Quest text parse: id=", questId,
                     " classicLayout=", isClassicLayout ? "yes" : "no",
                     " title=\"", parsed.title.substr(0, 40),
                     "\" (", parsed.title.size(), " ch) objectives=",
