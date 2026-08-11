@@ -514,6 +514,12 @@ private:
 
         // Per-collision-triangle MOPY flags (indexed by collision tri index, i.e. triStart/3)
         std::vector<uint8_t> triMopyFlags;
+        /// True when no triangle in this group blocks: no collision hull, and
+        /// nothing rendered that is not detail. Detail never blocks, so such a
+        /// group is walk-through in its entirety — which is a thing to be
+        /// walked through only if it was meant to be, and Darkshore's bridges
+        /// are 428 triangles of it.
+        bool noBlockingTriangles = false;
 
         // Scratch bitset for deduplicating triangle queries (sized to numTriangles)
         mutable std::vector<uint8_t> triVisited;

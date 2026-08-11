@@ -2205,7 +2205,8 @@ bool WMORenderer::createGroupResources(const pipeline::WMOGroup& group, GroupRes
         // triangles at all, or none that block, is the whole of what "walked
         // through it" looks like from here.
         const size_t tris = resources.collisionIndices.size() / 3;
-        if (tris == 0 || (hull == 0 && renderedSolid == 0)) {
+        resources.noBlockingTriangles = (tris > 0 && hull == 0 && renderedSolid == 0);
+        if (tris == 0 || resources.noBlockingTriangles) {
             LOG_WARNING("WMO group offers no floor: verts=",
                         resources.collisionVertices.size(),
                         " tris=", tris,
@@ -3785,7 +3786,17 @@ bool WMORenderer::checkWallCollision(const glm::vec3& from, const glm::vec3& to,
                 //    were walk-through when only 0x08 blocked.
                 // Detail/decorative (0x04: gears, railings, webs) never blocks.
                 uint32_t triIdx = triStart / 3;
-                if (!group.triMopyFlags.empty() && triIdx < group.triMopyFlags.size()) {
+                // Detail never blocks — unless it is all the group has.
+                //
+                // A group whose every triangle is detail has nothing left to
+                // stand on or walk into once detail is excluded, and a group
+                // that offers no collision at all is not what the flag means:
+                // 0x04 marks the gears and railings *among* solid geometry, so
+                // that they do not block. Darkshore's bridges are 428 triangles
+                // and every one of them is detail, which is why they are walked
+                // through.
+                if (!group.noBlockingTriangles &&
+                    !group.triMopyFlags.empty() && triIdx < group.triMopyFlags.size()) {
                     uint8_t mopy = group.triMopyFlags[triIdx];
                     if (mopy != 0) {
                         const bool collisionHull = (mopy & 0x08) != 0;
