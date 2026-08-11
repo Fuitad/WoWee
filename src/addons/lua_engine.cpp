@@ -368,6 +368,44 @@ wowee::ui::Widget* measuredWidgetOf(lua_State* L, int index) {
     return tree->get(id);
 }
 
+/// A name a script handed to an anchoring call, resolved to a widget.
+///
+/// $parent is not only markup. FrameXML writes it in runtime strings too —
+/// OptionsListButton_OnLoad anchors its own label with
+///
+///     self.text:SetPoint("RIGHT", "$parentToggle", "LEFT", -2, 0)
+///
+/// and the token means there what it means in the XML: the parent of the
+/// region the call is on. Looked up literally it is nothing, and SetPoint's
+/// fallback then anchors to the parent itself — so that label's RIGHT edge
+/// landed on the button's LEFT edge, two units inside its own LEFT, and the
+/// region came out at negative width. That is every row of the Video, Sound
+/// and Interface category lists: registered, selectable, and drawn as an empty
+/// box with the panels beside it working perfectly.
+///
+/// Twenty-two sites across FrameXML and the Blizzard addons write a name this
+/// way, the achievement frame's three columns among them.
+uint32_t widgetIdByAnchorName(lua_State* L, int selfIndex, const char* name) {
+    auto* tree = wowee::addons::getWidgetTree(L);
+    if (!tree || !name) return 0;
+    std::string resolved = name;
+    if (resolved.compare(0, 7, "$parent") == 0) {
+        const wowee::ui::Widget* self = tree->get(widgetIdOf(L, selfIndex));
+        const wowee::ui::Widget* parent = self ? tree->get(self->parent) : nullptr;
+        if (!parent || parent->name.empty()) return 0;
+        resolved = parent->name + resolved.substr(7);
+    }
+    lua_getglobal(L, resolved.c_str());
+    uint32_t id = lua_istable(L, -1) ? widgetIdOf(L, lua_gettop(L)) : 0;
+    lua_pop(L, 1);
+    // A region named in its markup is published as a global; one named at
+    // runtime is not always, and the tree knows both.
+    if (id == 0) {
+        if (const wowee::ui::Widget* w = tree->findByName(resolved)) id = w->id;
+    }
+    return id;
+}
+
 LuaEngine* engineFrom(lua_State* L);
 
 /// Report a script that raised, from the free functions that call one.
@@ -409,11 +447,9 @@ int lua_Region_SetPoint(lua_State* L) {
         a.relativeTo = widgetIdOf(L, argi);
         ++argi;
     } else if (lua_isstring(L, argi) && !lua_isnumber(L, argi)) {
-        // A name rather than the frame itself; resolve through the global it
-        // was published under, which is how FrameXML refers to most things.
-        lua_getglobal(L, lua_tostring(L, argi));
-        if (lua_istable(L, -1)) a.relativeTo = widgetIdOf(L, lua_gettop(L));
-        lua_pop(L, 1);
+        // A name rather than the frame itself, $parent included, which is how
+        // FrameXML refers to most things.
+        a.relativeTo = widgetIdByAnchorName(L, 1, lua_tostring(L, argi));
         ++argi;
     } else if (lua_isnil(L, argi)) {
         // Explicitly nil, which means the parent — and which still occupies its
@@ -455,9 +491,7 @@ int lua_Region_SetAllPoints(lua_State* L) {
     uint32_t target = 0;
     if (lua_istable(L, 2)) target = widgetIdOf(L, 2);
     else if (lua_isstring(L, 2)) {
-        lua_getglobal(L, lua_tostring(L, 2));
-        if (lua_istable(L, -1)) target = widgetIdOf(L, lua_gettop(L));
-        lua_pop(L, 1);
+        target = widgetIdByAnchorName(L, 1, lua_tostring(L, 2));
     }
     // A frame cannot fill itself. FrameXML's own UIParent is declared
     // setAllPoints and its parent is named UIParent — but CreateFrame publishes

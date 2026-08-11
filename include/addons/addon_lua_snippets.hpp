@@ -32,6 +32,16 @@ local ROOT = "WoWee"
 -- category that outgrows both columns is a category that wants splitting;
 -- rather than clip it, the layout keeps going down the second column and the
 -- overflow is visible, which is the version of this failure someone notices.
+-- Which of the three options frames each category belongs on. The game menu
+-- has a button for each, and a setting the player cannot reach from one of
+-- them may as well not exist.
+local kCategoryHost = {
+    ["Graphics"]     = "video",
+    ["Upscaling"]    = "video",
+    ["Display"]      = "video",
+    ["Sound"]        = "audio",
+}
+
 local COLUMN_X      = {16, 326}
 local COLUMN_TOP    = -52
 local COLUMN_BOTTOM = -436
@@ -332,7 +342,52 @@ local function buildPanel(category, settings)
         panel.refresh()
     end
 
-    InterfaceOptions_AddCategory(panel, true)
+    -- Where a player will actually look for it.
+    --
+    -- These were all registered into Interface Options' AddOns tab, which is
+    -- two levels down from the game menu and is where an addon's settings go —
+    -- not the client's own. Reported as the options still being missing, and
+    -- fairly: pressing Video showed the game's video panel and nothing of ours.
+    --
+    -- So each category goes to the frame its own button opens. The graphics
+    -- ones join Video, the sound ones join Sound, and the rest join the
+    -- Interface list beside the game's own categories.
+    local host = kCategoryHost[category]
+    if host == "video" and VideoOptionsFrame and OptionsFrame_AddCategory then
+        OptionsFrame_AddCategory(VideoOptionsFrame, panel)
+    elseif host == "audio" and AudioOptionsFrame and OptionsFrame_AddCategory then
+        OptionsFrame_AddCategory(AudioOptionsFrame, panel)
+    else
+        InterfaceOptions_AddCategory(panel)
+    end
+end
+
+-- A heading of our own on each frame that hosts one of our categories.
+--
+-- Both AddCategory functions nest a panel under an existing one whose name
+-- matches panel.parent, so a heading registered first collects everything
+-- after it. Without one our Sound category sat directly beside the game's own
+-- Sound and the list read as two of the same thing.
+local function addHostHeading(hostFrame, blurbText)
+    local heading = CreateFrame("Frame", "WoweeOptionsHeading" .. tostring(hostFrame))
+    heading.name = ROOT
+    local title = heading:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
+    title:SetPoint("TOPLEFT", 16, -16)
+    title:SetText(ROOT)
+    local blurb = heading:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+    blurb:SetPoint("TOPLEFT", 16, -48)
+    blurb:SetWidth(560)
+    blurb:SetJustifyH("LEFT")
+    blurb:SetJustifyV("TOP")
+    blurb:SetText(blurbText)
+    heading.okay = function() end
+    heading.cancel = function() end
+    heading.default = function() end
+    heading.refresh = function() end
+    if hostFrame and OptionsFrame_AddCategory then
+        OptionsFrame_AddCategory(hostFrame, heading)
+    end
+    return heading
 end
 
 -- The root. It holds no controls of its own: what it is for is to say what
@@ -481,10 +536,28 @@ root.okay = function() end
 root.cancel = function() end
 root.default = function() end
 root.refresh = function() end
-InterfaceOptions_AddCategory(root, true)
+-- The Game tab, not the AddOns one. This is the client's own settings, not an
+-- addon's, and the AddOns tab is two levels down from the button a player
+-- presses.
+InterfaceOptions_AddCategory(root)
 
-for _, category in ipairs(order) do
-    buildPanel(category, byCategory[category])
+-- The headings first: a category can only nest under a name already in that
+-- frame's list.
+if VideoOptionsFrame then
+    addHostHeading(VideoOptionsFrame,
+        "This client's own graphics settings, under the headings below. "
+        .. "The game's own Resolution and Effects panels are above.")
+end
+if AudioOptionsFrame then
+    addHostHeading(AudioOptionsFrame,
+        "This client's own sound settings. The game's Sound panel above "
+        .. "carries the master, music, ambience and effects volumes.")
+end
+
+-- Backwards, because a nested category is inserted directly after its parent:
+-- registering in schema order would list them in the opposite one.
+for i = #order, 1, -1 do
+    buildPanel(order[i], byCategory[order[i]])
 end
 )LUA";
 

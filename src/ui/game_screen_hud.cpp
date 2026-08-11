@@ -287,6 +287,32 @@ void GameScreen::updateCharacterGeosets(game::Inventory& inventory) {
         }
     }
 
+    // Bald with nothing on your head, which is the reported bug and the one
+    // thing this function can say for certain about it.
+    //
+    // Group 0 holds the body (geoset 0) and one scalp. Wearing a helm that
+    // covers hair replaces the style scalp with 1, the bald cap — that is the
+    // branch above. With no helm equipped there is nothing to do that, so a
+    // set whose only group-0 members are 0 and 1 means the scalp was never
+    // selected rather than removed, and the fault is upstream in
+    // buildDefaultPlayerGeosets or the hair map it reads.
+    //
+    // Silent whenever it is working: it can only fire when the character is
+    // bare-headed and bald. The measurement that ruled out the DBC is at
+    // entity_spawner.cpp, and what remains unproven is which of the two
+    // possible answers this is.
+    if (!hasEquippedType({1})) {
+        bool hasStyleScalp = false;
+        for (uint16_t g : geosets) {
+            if (g / 100 == 0 && g != 0 && g != 1) { hasStyleScalp = true; break; }
+        }
+        if (!hasStyleScalp && geosets.count(1) > 0) {
+            LOG_WARNING("Player geosets carry the bald cap with no helm equipped — "
+                        "the hair scalp was never selected. Hair style byte and "
+                        "CharHairGeosets lookup are the two places to look.");
+        }
+    }
+
     // Groups 17 and 18 are the Death Knight / Night Elf eye glow. Nothing here
     // should ever select one, and the renderer only auto-skips them when no
     // geoset filter is applied — with a filter, whatever is in this set is what
