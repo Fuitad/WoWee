@@ -35,6 +35,11 @@ local ROOT = "WoWee"
 -- Which of the three options frames each category belongs on. The game menu
 -- has a button for each, and a setting the player cannot reach from one of
 -- them may as well not exist.
+-- Every setting by key, so a greyed control can name the one it waits on by
+-- its label rather than by its schema key.
+local byKey = {}
+for _, s in ipairs(list) do byKey[s.key] = s end
+
 local kCategoryHost = {
     ["Graphics"]     = "video",
     ["Upscaling"]    = "video",
@@ -67,6 +72,37 @@ end
 -- Without it these panels offered the FSR quality dropdown with upscaling off
 -- and the anti-aliasing dropdown while FSR 3 was doing its own — controls that
 -- answer, save, and change nothing.
+-- What a greyed control is waiting for, in words.
+--
+-- The schema states the condition as "shadows" or "upscaling!=2", which says
+-- nothing to a player looking at a slider that will not move. Reported as
+-- "drop downs are greyed out" with no idea which of them were deliberate.
+local function waitingOn(setting)
+    local test = setting.enabledwhen
+    if not test or test == "" then return nil end
+    local key, want = test:match("^(.-)!=(.*)$")
+    local negated = key ~= nil
+    if not key then key, want = test:match("^(.-)=(.*)$") end
+    if not key then key = test end
+    local other = byKey[key]
+    local name = other and other.label or key
+    if want == nil then
+        return "Available when " .. name .. " is on."
+    end
+    -- The value by its own label where the schema names one, so the line reads
+    -- "when Upscaling is not FSR 2" rather than "is not 2".
+    local choice = want
+    if other and other.choices and other.choices ~= "" then
+        local i = 0
+        for piece in (other.choices .. "|"):gmatch("([^|]*)|") do
+            if tostring(i) == want then choice = piece break end
+            i = i + 1
+        end
+    end
+    if negated then return "Available when " .. name .. " is not " .. choice .. "." end
+    return "Available when " .. name .. " is " .. choice .. "."
+end
+
 local function isEnabled(setting)
     local test = setting.enabledwhen
     if not test or test == "" then return true end
@@ -98,6 +134,13 @@ local function setEnabled(widget, label, enabled)
     else
         label:SetTextColor(0.5, 0.5, 0.5)
     end
+end
+
+-- The tooltip with the reason under it, when there is one.
+local function joinReason(tip, reason)
+    if not reason then return tip end
+    if not tip or tip == "" then return reason end
+    return tip .. "\n" .. reason
 end
 
 -- The game's own hover text, one line per line of the schema's tooltip.
@@ -160,7 +203,8 @@ local function addCheckButton(layout, panel, setting, onChanged)
         -- a slider drag, so there is nothing to throttle here.
         if onChanged then onChanged(setting.key) end
     end)
-    withTooltip(button, setting.label, setting.tooltip)
+    withTooltip(button, setting.label,
+                joinReason(setting.tooltip, waitingOn(setting)))
     return {
         read = function()
             button:SetChecked(WoweeGetSetting(setting.key) == "1")
@@ -191,7 +235,8 @@ local function addSlider(layout, panel, setting)
         showValue(value)
         WoweeSetSetting(setting.key, tostring(value))
     end)
-    withTooltip(slider, setting.label, setting.tooltip)
+    withTooltip(slider, setting.label,
+                joinReason(setting.tooltip, waitingOn(setting)))
     return {
         read = function()
             local value = tonumber(WoweeGetSetting(setting.key)) or setting.min
@@ -245,7 +290,8 @@ local function addDropdown(layout, panel, setting, onChanged)
             UIDropDownMenu_AddButton(info, level)
         end
     end)
-    withTooltip(dropdown, setting.label, setting.tooltip)
+    withTooltip(dropdown, setting.label,
+                joinReason(setting.tooltip, waitingOn(setting)))
     return {
         read = function()
             UIDropDownMenu_SetText(dropdown, choices[selected()] or "")
