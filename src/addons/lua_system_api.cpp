@@ -921,6 +921,17 @@ constexpr ClientCVarBinding kClientCVars[] = {
     // to set.
     {"groundeffectdensity",  "groundclutter"},
     {"sound_sfxvolume",      "effectsvolume"},
+    // Three that were each written out four times over — a getter and a setter
+    // on LuaServices, a lambda in Application, and a branch in each of GetCVar
+    // and SetCVar — because the client had no key for them when they were
+    // added. It has now, so they are rows like the rest.
+    {"gxvsync",              "vsync"},
+    {"mouseinvertpitch",     "invertmouse"},
+    // The client keeps this one and pushes it at the game handler each frame,
+    // so writing the setting is what makes the checkbox stick across a session
+    // as well as within one. The branch it replaces wrote the handler directly
+    // and never saved.
+    {"autolootdefault",      "autoloot"},
 };
 
 const ClientCVarBinding* findClientCVar(const std::string& lowerName) {
@@ -954,16 +965,6 @@ static int lua_GetCVar(lua_State* L) {
             lua_pushstring(L, svc->getMinimapRotate() ? "1" : "0");
             return 1;
         }
-    } else if (n == "gxvsync") {
-        if (auto* svc = getLuaServices(L); svc && svc->getVsync) {
-            lua_pushstring(L, svc->getVsync() ? "1" : "0");
-            return 1;
-        }
-    } else if (n == "mouseinvertpitch") {
-        if (auto* svc = getLuaServices(L); svc && svc->getInvertMouse) {
-            lua_pushstring(L, svc->getInvertMouse() ? "1" : "0");
-            return 1;
-        }
     } else if (n == "chatbubbles") {
         if (auto* svc = getLuaServices(L); svc && svc->getChatBubblesShown) {
             lua_pushstring(L, svc->getChatBubblesShown() ? "1" : "0");
@@ -991,15 +992,6 @@ static int lua_GetCVar(lua_State* L) {
             } else {
                 lua_pushstring(L, ui::settingNumberText(v).c_str());
             }
-            return 1;
-        }
-    } else if (n == "autolootdefault") {
-        // Asked of the client, like its neighbours. The interface options put
-        // a checkbox on this and the client has a real auto-loot setting, and
-        // the two had never met: the store answered a default of "1" while
-        // autoLoot_ starts false, so the box was ticked and looting was not.
-        if (auto* gh = getGameHandler(L)) {
-            lua_pushstring(L, gh->isAutoLoot() ? "1" : "0");
             return 1;
         }
     } else if (n == "autoselfcast") {
@@ -1200,20 +1192,9 @@ static int lua_SetCVar(lua_State* L) {
             svc->setMinimapRotate(value != "0");
     } else if (key == "autoselfcast") {
         if (auto* gh = getGameHandler(L)) gh->setAutoSelfCast(value != "0");
-    } else if (key == "gxvsync") {
-        if (auto* svc = getLuaServices(L); svc && svc->setVsync)
-            svc->setVsync(value != "0");
-    } else if (key == "mouseinvertpitch") {
-        if (auto* svc = getLuaServices(L); svc && svc->setInvertMouse)
-            svc->setInvertMouse(value != "0");
     } else if (key == "chatbubbles") {
         if (auto* svc = getLuaServices(L); svc && svc->setChatBubblesShown)
             svc->setChatBubblesShown(value != "0");
-    } else if (key == "autolootdefault") {
-        // The checkbox wrote to the store and stopped there, so the interface's
-        // auto-loot option did nothing at all — the client keeps the setting
-        // and nothing was telling it.
-        if (auto* gh = getGameHandler(L)) gh->setAutoLoot(value != "0");
     }
     // Announced, because nine frames listen for it — the options panels redraw
     // themselves from this rather than from the click that caused it.

@@ -183,13 +183,10 @@ struct LuaServices {
     /// — so the number it writes has no scale to convert from, and the camera's
     /// own sensitivity runs 0.05 to 1. Mapping one onto the other would be a
     /// guess about both ends.
-    std::function<bool()> getInvertMouse;
-    std::function<void(bool)> setInvertMouse;
-
-    /// Display pacing, for gxVSync on the video options panel.
-    std::function<bool()> getVsync;
-    std::function<void(bool)> setVsync;
-
+    /// mouseInvertPitch and gxVSync had a pair each here. Both are rows in
+    /// kClientCVars now — the client has settings keys for them, which it did
+    /// not when they were written, and a row costs nothing where a pair costs
+    /// four places to keep in step.
     /// Windowed or full screen, for gxWindow — applied by RestartGx rather
     /// than by the SetCVar that precedes it, which is the order the video
     /// panel works in: it writes every changed CVar, then restarts the device

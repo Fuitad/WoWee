@@ -161,16 +161,6 @@ float clickDragThreshold() {
 }
 }
 
-bool GameScreen::getVsync() const {
-    return services_.window ? services_.window->isVsyncEnabled()
-                            : settingsPanel_.pendingVsync;
-}
-
-void GameScreen::setVsync(bool enabled) {
-    settingsPanel_.pendingVsync = enabled;
-    if (services_.window) services_.window->setVsync(enabled);
-}
-
 bool GameScreen::getFullscreen() const {
     return services_.window ? services_.window->isFullscreen()
                             : settingsPanel_.pendingFullscreen;

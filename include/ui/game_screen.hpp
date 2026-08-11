@@ -60,11 +60,12 @@ public:
     /// the window once at init and writes to disk on save. Setting only the
     /// window would leave that copy stale, so opening this client's own options
     /// afterwards would show the old value and save it back.
-    bool getVsync() const;
-    void setVsync(bool enabled);
-
+    /// The pacing pair used to be here too. It is the "vsync" setting now,
+    /// which keeps both records in one place and saves it as well — this held
+    /// only the window and the pending field.
+    ///
     /// Windowed or full screen, for gxWindow. Both records again, for the same
-    /// reason as the pacing above.
+    /// reason.
     bool getFullscreen() const;
     void setFullscreen(bool enabled);
 
