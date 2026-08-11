@@ -260,60 +260,52 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = cli::withoutExt(base, ".wbgd");
-    if (!wowee::pipeline::WoweeBattlegroundLoader::exists(base)) {
-        return reportMissing("validate-wbgd", "WBGD", base, ".wbgd");
-    }
-    auto c = wowee::pipeline::WoweeBattlegroundLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    cli::DuplicateIdCheck idsSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (bgId=" + std::to_string(e.battlegroundId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.battlegroundId == 0) {
-            errors.push_back(ctx + ": battlegroundId is 0");
+    return cli::validateCatalog<wowee::pipeline::WoweeBattlegroundLoader>(
+        i, argc, argv, "wbgd", "WBGD",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (bgId=" + std::to_string(e.battlegroundId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.battlegroundId == 0) {
+                errors.push_back(ctx + ": battlegroundId is 0");
+            }
+            if (e.name.empty()) errors.push_back(ctx + ": name is empty");
+            if (e.objectiveKind > wowee::pipeline::WoweeBattleground::CarryObject) {
+                errors.push_back(ctx + ": objectiveKind " +
+                    std::to_string(e.objectiveKind) + " not in 0..5");
+            }
+            if (e.minPlayersPerSide == 0 || e.maxPlayersPerSide == 0) {
+                errors.push_back(ctx + ": player count is 0");
+            }
+            if (e.minPlayersPerSide > e.maxPlayersPerSide) {
+                errors.push_back(ctx +
+                    ": minPlayersPerSide > maxPlayersPerSide");
+            }
+            if (e.minLevel > e.maxLevel) {
+                errors.push_back(ctx + ": minLevel > maxLevel");
+            }
+            if (e.scoreToWin == 0) {
+                errors.push_back(ctx +
+                    ": scoreToWin is 0 (no win condition)");
+            }
+            // Annihilation BGs typically have respawnTimeSeconds=0
+            // (no respawn until match ends). Other kinds need
+            // respawn > 0 or the losing side can't recover.
+            if (e.objectiveKind != wowee::pipeline::WoweeBattleground::Annihilation &&
+                e.respawnTimeSeconds == 0) {
+                warnings.push_back(ctx +
+                    ": non-annihilation BG with respawnTimeSeconds=0 "
+                    "(losing side cannot recover)");
+            }
+            if (!idsSeen.add(e.battlegroundId)) errors.push_back(ctx + ": duplicate battlegroundId");
         }
-        if (e.name.empty()) errors.push_back(ctx + ": name is empty");
-        if (e.objectiveKind > wowee::pipeline::WoweeBattleground::CarryObject) {
-            errors.push_back(ctx + ": objectiveKind " +
-                std::to_string(e.objectiveKind) + " not in 0..5");
-        }
-        if (e.minPlayersPerSide == 0 || e.maxPlayersPerSide == 0) {
-            errors.push_back(ctx + ": player count is 0");
-        }
-        if (e.minPlayersPerSide > e.maxPlayersPerSide) {
-            errors.push_back(ctx +
-                ": minPlayersPerSide > maxPlayersPerSide");
-        }
-        if (e.minLevel > e.maxLevel) {
-            errors.push_back(ctx + ": minLevel > maxLevel");
-        }
-        if (e.scoreToWin == 0) {
-            errors.push_back(ctx +
-                ": scoreToWin is 0 (no win condition)");
-        }
-        // Annihilation BGs typically have respawnTimeSeconds=0
-        // (no respawn until match ends). Other kinds need
-        // respawn > 0 or the losing side can't recover.
-        if (e.objectiveKind != wowee::pipeline::WoweeBattleground::Annihilation &&
-            e.respawnTimeSeconds == 0) {
-            warnings.push_back(ctx +
-                ": non-annihilation BG with respawnTimeSeconds=0 "
-                "(losing side cannot recover)");
-        }
-        if (!idsSeen.add(e.battlegroundId)) errors.push_back(ctx + ": duplicate battlegroundId");
-    }
-    return cli::reportValidation("wbgd", base, jsonOut, errors, warnings,
-                                 formatted("%zu battlegrounds, all bgIds unique", c.entries.size()));
+            return formatted("%zu battlegrounds, all bgIds unique", c.entries.size());
+        });
 }
 
 } // namespace

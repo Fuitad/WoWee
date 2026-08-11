@@ -271,91 +271,83 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = cli::withoutExt(base, ".wspr");
-    if (!wowee::pipeline::WoweeSpellReagentLoader::exists(base)) {
-        return reportMissing("validate-wspr", "WSPR", base, ".wspr");
-    }
-    auto c = wowee::pipeline::WoweeSpellReagentLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    cli::DuplicateIdCheck idsSeen;
-    std::vector<uint32_t> spellsSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.reagentSetId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.reagentSetId == 0)
-            errors.push_back(ctx + ": reagentSetId is 0");
-        if (e.name.empty())
-            errors.push_back(ctx + ": name is empty");
-        if (e.spellId == 0)
-            errors.push_back(ctx +
-                ": spellId is 0 — missing WSPL cross-ref");
-        if (e.reagentKind > wowee::pipeline::WoweeSpellReagent::Tradeable) {
-            errors.push_back(ctx + ": reagentKind " +
-                std::to_string(e.reagentKind) + " not in 0..4");
-        }
-        // Per-slot checks: itemId+count must be both set or both clear
-        int usedSlots = 0;
-        for (int s = 0; s < wowee::pipeline::WoweeSpellReagent::kMaxReagentSlots; ++s) {
-            uint32_t it = e.reagentItemId[s];
-            uint32_t cnt = e.reagentCount[s];
-            if (it != 0 && cnt == 0) {
-                warnings.push_back(ctx +
-                    ": slot " + std::to_string(s) +
-                    " has itemId=" + std::to_string(it) +
-                    " but count=0 — reagent will not be consumed");
-            } else if (it == 0 && cnt != 0) {
-                warnings.push_back(ctx +
-                    ": slot " + std::to_string(s) +
-                    " has count=" + std::to_string(cnt) +
-                    " but itemId=0 — count is unreachable");
+    return cli::validateCatalog<wowee::pipeline::WoweeSpellReagentLoader>(
+        i, argc, argv, "wspr", "WSPR",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        std::vector<uint32_t> spellsSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.reagentSetId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.reagentSetId == 0)
+                errors.push_back(ctx + ": reagentSetId is 0");
+            if (e.name.empty())
+                errors.push_back(ctx + ": name is empty");
+            if (e.spellId == 0)
+                errors.push_back(ctx +
+                    ": spellId is 0 — missing WSPL cross-ref");
+            if (e.reagentKind > wowee::pipeline::WoweeSpellReagent::Tradeable) {
+                errors.push_back(ctx + ": reagentKind " +
+                    std::to_string(e.reagentKind) + " not in 0..4");
             }
-            if (it != 0) ++usedSlots;
-        }
-        // SoulShard kind should reference item 6265 in slot 0.
-        // Other shard ids are server-custom but the canonical
-        // case is worth flagging.
-        if (e.reagentKind == wowee::pipeline::WoweeSpellReagent::SoulShard &&
-            e.reagentItemId[0] != 6265 && e.reagentItemId[0] != 0) {
-            warnings.push_back(ctx +
-                ": SoulShard kind with non-canonical reagent " +
-                "id " + std::to_string(e.reagentItemId[0]) +
-                " in slot 0 (canonical Soul Shard is item 6265)");
-        }
-        // FocusedItem kind: reagent is required to cast but
-        // not consumed. Should still have an itemId set.
-        if (e.reagentKind == wowee::pipeline::WoweeSpellReagent::FocusedItem &&
-            usedSlots == 0) {
-            warnings.push_back(ctx +
-                ": FocusedItem kind with no reagent slots set " +
-                "— focused-item gating has nothing to gate");
-        }
-        if (!idsSeen.add(e.reagentSetId)) errors.push_back(ctx + ": duplicate reagentSetId");
-        // Two reagent sets for the same spell collide —
-        // engine would honor only the first.
-        if (e.spellId != 0) {
-            for (uint32_t prevSpell : spellsSeen) {
-                if (prevSpell == e.spellId) {
+            // Per-slot checks: itemId+count must be both set or both clear
+            int usedSlots = 0;
+            for (int s = 0; s < wowee::pipeline::WoweeSpellReagent::kMaxReagentSlots; ++s) {
+                uint32_t it = e.reagentItemId[s];
+                uint32_t cnt = e.reagentCount[s];
+                if (it != 0 && cnt == 0) {
                     warnings.push_back(ctx +
-                        ": duplicate spellId " +
-                        std::to_string(e.spellId) +
-                        " — only first reagent set will be used");
-                    break;
+                        ": slot " + std::to_string(s) +
+                        " has itemId=" + std::to_string(it) +
+                        " but count=0 — reagent will not be consumed");
+                } else if (it == 0 && cnt != 0) {
+                    warnings.push_back(ctx +
+                        ": slot " + std::to_string(s) +
+                        " has count=" + std::to_string(cnt) +
+                        " but itemId=0 — count is unreachable");
                 }
+                if (it != 0) ++usedSlots;
             }
-            spellsSeen.push_back(e.spellId);
+            // SoulShard kind should reference item 6265 in slot 0.
+            // Other shard ids are server-custom but the canonical
+            // case is worth flagging.
+            if (e.reagentKind == wowee::pipeline::WoweeSpellReagent::SoulShard &&
+                e.reagentItemId[0] != 6265 && e.reagentItemId[0] != 0) {
+                warnings.push_back(ctx +
+                    ": SoulShard kind with non-canonical reagent " +
+                    "id " + std::to_string(e.reagentItemId[0]) +
+                    " in slot 0 (canonical Soul Shard is item 6265)");
+            }
+            // FocusedItem kind: reagent is required to cast but
+            // not consumed. Should still have an itemId set.
+            if (e.reagentKind == wowee::pipeline::WoweeSpellReagent::FocusedItem &&
+                usedSlots == 0) {
+                warnings.push_back(ctx +
+                    ": FocusedItem kind with no reagent slots set " +
+                    "— focused-item gating has nothing to gate");
+            }
+            if (!idsSeen.add(e.reagentSetId)) errors.push_back(ctx + ": duplicate reagentSetId");
+            // Two reagent sets for the same spell collide —
+            // engine would honor only the first.
+            if (e.spellId != 0) {
+                for (uint32_t prevSpell : spellsSeen) {
+                    if (prevSpell == e.spellId) {
+                        warnings.push_back(ctx +
+                            ": duplicate spellId " +
+                            std::to_string(e.spellId) +
+                            " — only first reagent set will be used");
+                        break;
+                    }
+                }
+                spellsSeen.push_back(e.spellId);
+            }
         }
-    }
-    return cli::reportValidation("wspr", base, jsonOut, errors, warnings,
-                                 formatted("%zu reagent sets, all reagentSetIds unique, all spell ids set", c.entries.size()));
+            return formatted("%zu reagent sets, all reagentSetIds unique, all spell ids set", c.entries.size());
+        });
 }
 
 } // namespace

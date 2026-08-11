@@ -327,62 +327,54 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = cli::withoutExt(base, ".wach");
-    if (!wowee::pipeline::WoweeAchievementLoader::exists(base)) {
-        return reportMissing("validate-wach", "WACH", base, ".wach");
-    }
-    auto c = wowee::pipeline::WoweeAchievementLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    cli::DuplicateIdCheck idsSeen;
-    idsSeen.reserve(c.entries.size());
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.achievementId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.achievementId == 0) {
-            errors.push_back(ctx + ": achievementId is 0");
-        }
-        if (e.name.empty()) {
-            errors.push_back(ctx + ": name is empty");
-        }
-        if (e.faction > wowee::pipeline::WoweeAchievement::FactionHorde) {
-            errors.push_back(ctx + ": faction " +
-                std::to_string(e.faction) + " not in 0..2");
-        }
-        if (e.criteria.empty()) {
-            warnings.push_back(ctx +
-                ": no criteria (achievement can never be earned)");
-        }
-        for (size_t ci = 0; ci < e.criteria.size(); ++ci) {
-            const auto& cr = e.criteria[ci];
-            std::string cctx = ctx + " criterion " + std::to_string(ci);
-            if (cr.kind > wowee::pipeline::WoweeAchievement::CompleteAchievement) {
-                errors.push_back(cctx + ": kind " +
-                    std::to_string(cr.kind) + " not in 0..8");
+    return cli::validateCatalog<wowee::pipeline::WoweeAchievementLoader>(
+        i, argc, argv, "wach", "WACH",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        idsSeen.reserve(c.entries.size());
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.achievementId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.achievementId == 0) {
+                errors.push_back(ctx + ": achievementId is 0");
             }
-            if (cr.quantity == 0) {
-                errors.push_back(cctx + ": quantity is 0");
+            if (e.name.empty()) {
+                errors.push_back(ctx + ": name is empty");
             }
-            // ReachLevel and Counter-style criteria can have
-            // targetId=0; everything else needs a real target.
-            bool needsTarget =
-                cr.kind != wowee::pipeline::WoweeAchievement::ReachLevel;
-            if (needsTarget && cr.targetId == 0) {
-                errors.push_back(cctx + ": targetId is 0 (no resource referenced)");
+            if (e.faction > wowee::pipeline::WoweeAchievement::FactionHorde) {
+                errors.push_back(ctx + ": faction " +
+                    std::to_string(e.faction) + " not in 0..2");
             }
+            if (e.criteria.empty()) {
+                warnings.push_back(ctx +
+                    ": no criteria (achievement can never be earned)");
+            }
+            for (size_t ci = 0; ci < e.criteria.size(); ++ci) {
+                const auto& cr = e.criteria[ci];
+                std::string cctx = ctx + " criterion " + std::to_string(ci);
+                if (cr.kind > wowee::pipeline::WoweeAchievement::CompleteAchievement) {
+                    errors.push_back(cctx + ": kind " +
+                        std::to_string(cr.kind) + " not in 0..8");
+                }
+                if (cr.quantity == 0) {
+                    errors.push_back(cctx + ": quantity is 0");
+                }
+                // ReachLevel and Counter-style criteria can have
+                // targetId=0; everything else needs a real target.
+                bool needsTarget =
+                    cr.kind != wowee::pipeline::WoweeAchievement::ReachLevel;
+                if (needsTarget && cr.targetId == 0) {
+                    errors.push_back(cctx + ": targetId is 0 (no resource referenced)");
+                }
+            }
+            if (!idsSeen.add(e.achievementId)) errors.push_back(ctx + ": duplicate achievementId");
         }
-        if (!idsSeen.add(e.achievementId)) errors.push_back(ctx + ": duplicate achievementId");
-    }
-    return cli::reportValidation("wach", base, jsonOut, errors, warnings,
-                                 formatted("%zu achievements (%u criteria), all IDs unique", c.entries.size(), totalCriteria(c)));
+            return formatted("%zu achievements (%u criteria), all IDs unique", c.entries.size(), totalCriteria(c));
+        });
 }
 
 } // namespace

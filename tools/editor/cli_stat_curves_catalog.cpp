@@ -240,62 +240,54 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = cli::withoutExt(base, ".wstm");
-    if (!wowee::pipeline::WoweeStatCurveLoader::exists(base)) {
-        return reportMissing("validate-wstm", "WSTM", base, ".wstm");
-    }
-    auto c = wowee::pipeline::WoweeStatCurveLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    cli::DuplicateIdCheck idsSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.curveId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.curveId == 0)
-            errors.push_back(ctx + ": curveId is 0");
-        if (e.name.empty())
-            errors.push_back(ctx + ": name is empty");
-        if (e.curveKind > wowee::pipeline::WoweeStatCurve::Misc) {
-            errors.push_back(ctx + ": curveKind " +
-                std::to_string(e.curveKind) + " not in 0..6");
+    return cli::validateCatalog<wowee::pipeline::WoweeStatCurveLoader>(
+        i, argc, argv, "wstm", "WSTM",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.curveId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.curveId == 0)
+                errors.push_back(ctx + ": curveId is 0");
+            if (e.name.empty())
+                errors.push_back(ctx + ": name is empty");
+            if (e.curveKind > wowee::pipeline::WoweeStatCurve::Misc) {
+                errors.push_back(ctx + ": curveKind " +
+                    std::to_string(e.curveKind) + " not in 0..6");
+            }
+            if (e.minLevel > e.maxLevel) {
+                errors.push_back(ctx + ": minLevel " +
+                    std::to_string(e.minLevel) +
+                    " > maxLevel " + std::to_string(e.maxLevel) +
+                    " — curve will never apply");
+            }
+            if (e.maxLevel > 80) {
+                warnings.push_back(ctx +
+                    ": maxLevel " + std::to_string(e.maxLevel) +
+                    " > 80 — characters cap at 80 in WotLK");
+            }
+            if (e.multiplier == 0.0f)
+                warnings.push_back(ctx +
+                    ": multiplier=0 — curve always evaluates to 0");
+            if (e.multiplier < 0.0f)
+                warnings.push_back(ctx +
+                    ": multiplier=" + std::to_string(e.multiplier) +
+                    " (< 0) — inverts the curve, double-check this "
+                    "is intentional");
+            // Negative perLevelDelta is unusual — most stats
+            // grow with level.
+            if (e.perLevelDelta < 0.0f)
+                warnings.push_back(ctx +
+                    ": perLevelDelta=" + std::to_string(e.perLevelDelta) +
+                    " (< 0) — curve shrinks with level, double-check");
+            if (!idsSeen.add(e.curveId)) errors.push_back(ctx + ": duplicate curveId");
         }
-        if (e.minLevel > e.maxLevel) {
-            errors.push_back(ctx + ": minLevel " +
-                std::to_string(e.minLevel) +
-                " > maxLevel " + std::to_string(e.maxLevel) +
-                " — curve will never apply");
-        }
-        if (e.maxLevel > 80) {
-            warnings.push_back(ctx +
-                ": maxLevel " + std::to_string(e.maxLevel) +
-                " > 80 — characters cap at 80 in WotLK");
-        }
-        if (e.multiplier == 0.0f)
-            warnings.push_back(ctx +
-                ": multiplier=0 — curve always evaluates to 0");
-        if (e.multiplier < 0.0f)
-            warnings.push_back(ctx +
-                ": multiplier=" + std::to_string(e.multiplier) +
-                " (< 0) — inverts the curve, double-check this "
-                "is intentional");
-        // Negative perLevelDelta is unusual — most stats
-        // grow with level.
-        if (e.perLevelDelta < 0.0f)
-            warnings.push_back(ctx +
-                ": perLevelDelta=" + std::to_string(e.perLevelDelta) +
-                " (< 0) — curve shrinks with level, double-check");
-        if (!idsSeen.add(e.curveId)) errors.push_back(ctx + ": duplicate curveId");
-    }
-    return cli::reportValidation("wstm", base, jsonOut, errors, warnings,
-                                 formatted("%zu curves, all curveIds unique, all minLevel<=maxLevel", c.entries.size()));
+            return formatted("%zu curves, all curveIds unique, all minLevel<=maxLevel", c.entries.size());
+        });
 }
 
 } // namespace

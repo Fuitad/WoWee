@@ -219,56 +219,48 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = cli::withoutExt(base, ".wgly");
-    if (!wowee::pipeline::WoweeGlyphLoader::exists(base)) {
-        return reportMissing("validate-wgly", "WGLY", base, ".wgly");
-    }
-    auto c = wowee::pipeline::WoweeGlyphLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    cli::DuplicateIdCheck idsSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.glyphId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.glyphId == 0)
-            errors.push_back(ctx + ": glyphId is 0");
-        if (e.name.empty())
-            errors.push_back(ctx + ": name is empty");
-        if (e.spellId == 0)
-            errors.push_back(ctx + ": spellId is 0 "
-                "(glyph applies no aura)");
-        if (e.glyphType > wowee::pipeline::WoweeGlyph::Prime) {
-            errors.push_back(ctx + ": glyphType " +
-                std::to_string(e.glyphType) + " not in 0..2");
+    return cli::validateCatalog<wowee::pipeline::WoweeGlyphLoader>(
+        i, argc, argv, "wgly", "WGLY",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.glyphId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.glyphId == 0)
+                errors.push_back(ctx + ": glyphId is 0");
+            if (e.name.empty())
+                errors.push_back(ctx + ": name is empty");
+            if (e.spellId == 0)
+                errors.push_back(ctx + ": spellId is 0 "
+                    "(glyph applies no aura)");
+            if (e.glyphType > wowee::pipeline::WoweeGlyph::Prime) {
+                errors.push_back(ctx + ": glyphType " +
+                    std::to_string(e.glyphType) + " not in 0..2");
+            }
+            if (e.classMask == 0) {
+                errors.push_back(ctx +
+                    ": classMask=0 (no class can use this glyph)");
+            }
+            if (e.itemId == 0) {
+                warnings.push_back(ctx + ": itemId=0 "
+                    "(no inscribed item — glyph can't be taught)");
+            }
+            // WotLK glyphs unlock at character level 25 (minor),
+            // 50 (major), 70 (major), 80 (prime). Anything below
+            // 15 is suspicious.
+            if (e.requiredLevel != 0 && e.requiredLevel < 15) {
+                warnings.push_back(ctx + ": requiredLevel=" +
+                    std::to_string(e.requiredLevel) +
+                    " below WotLK glyph threshold (25)");
+            }
+            if (!idsSeen.add(e.glyphId)) errors.push_back(ctx + ": duplicate glyphId");
         }
-        if (e.classMask == 0) {
-            errors.push_back(ctx +
-                ": classMask=0 (no class can use this glyph)");
-        }
-        if (e.itemId == 0) {
-            warnings.push_back(ctx + ": itemId=0 "
-                "(no inscribed item — glyph can't be taught)");
-        }
-        // WotLK glyphs unlock at character level 25 (minor),
-        // 50 (major), 70 (major), 80 (prime). Anything below
-        // 15 is suspicious.
-        if (e.requiredLevel != 0 && e.requiredLevel < 15) {
-            warnings.push_back(ctx + ": requiredLevel=" +
-                std::to_string(e.requiredLevel) +
-                " below WotLK glyph threshold (25)");
-        }
-        if (!idsSeen.add(e.glyphId)) errors.push_back(ctx + ": duplicate glyphId");
-    }
-    return cli::reportValidation("wgly", base, jsonOut, errors, warnings,
-                                 formatted("%zu glyphs, all glyphIds unique", c.entries.size()));
+            return formatted("%zu glyphs, all glyphIds unique", c.entries.size());
+        });
 }
 
 } // namespace

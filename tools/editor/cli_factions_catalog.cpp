@@ -272,72 +272,64 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = cli::withoutExt(base, ".wfac");
-    if (!wowee::pipeline::WoweeFactionLoader::exists(base)) {
-        return reportMissing("validate-wfac", "WFAC", base, ".wfac");
-    }
-    auto c = wowee::pipeline::WoweeFactionLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    cli::DuplicateIdCheck idsSeen;
-    idsSeen.reserve(c.entries.size());
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.factionId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.factionId == 0) {
-            errors.push_back(ctx + ": factionId is 0");
-        }
-        if (e.name.empty()) {
-            errors.push_back(ctx + ": name is empty");
-        }
-        // Threshold ordering: hostile < unfriendly < neutral <
-        // friendly < honored < revered < exalted.
-        if (e.thresholdHostile >= e.thresholdUnfriendly ||
-            e.thresholdUnfriendly >= e.thresholdNeutral ||
-            e.thresholdNeutral >= e.thresholdFriendly ||
-            e.thresholdFriendly >= e.thresholdHonored ||
-            e.thresholdHonored >= e.thresholdRevered ||
-            e.thresholdRevered >= e.thresholdExalted) {
-            errors.push_back(ctx +
-                ": reputation thresholds not strictly ascending "
-                "(hostile<unfriendly<neutral<friendly<honored<revered<exalted)");
-        }
-        // Self-relationship: a faction can't be its own enemy.
-        for (uint32_t en : e.enemies) {
-            if (en == e.factionId) {
-                errors.push_back(ctx + ": faction lists itself as enemy");
-                break;
+    return cli::validateCatalog<wowee::pipeline::WoweeFactionLoader>(
+        i, argc, argv, "wfac", "WFAC",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        idsSeen.reserve(c.entries.size());
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.factionId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.factionId == 0) {
+                errors.push_back(ctx + ": factionId is 0");
             }
-        }
-        for (uint32_t fr : e.friends) {
-            if (fr == e.factionId) {
-                errors.push_back(ctx + ": faction lists itself as friend");
-                break;
+            if (e.name.empty()) {
+                errors.push_back(ctx + ": name is empty");
             }
-        }
-        // A faction in both enemies AND friends is incoherent.
-        for (uint32_t en : e.enemies) {
-            for (uint32_t fr : e.friends) {
-                if (en == fr) {
-                    errors.push_back(ctx +
-                        ": faction " + std::to_string(en) +
-                        " appears in both enemies and friends");
+            // Threshold ordering: hostile < unfriendly < neutral <
+            // friendly < honored < revered < exalted.
+            if (e.thresholdHostile >= e.thresholdUnfriendly ||
+                e.thresholdUnfriendly >= e.thresholdNeutral ||
+                e.thresholdNeutral >= e.thresholdFriendly ||
+                e.thresholdFriendly >= e.thresholdHonored ||
+                e.thresholdHonored >= e.thresholdRevered ||
+                e.thresholdRevered >= e.thresholdExalted) {
+                errors.push_back(ctx +
+                    ": reputation thresholds not strictly ascending "
+                    "(hostile<unfriendly<neutral<friendly<honored<revered<exalted)");
+            }
+            // Self-relationship: a faction can't be its own enemy.
+            for (uint32_t en : e.enemies) {
+                if (en == e.factionId) {
+                    errors.push_back(ctx + ": faction lists itself as enemy");
                     break;
                 }
             }
+            for (uint32_t fr : e.friends) {
+                if (fr == e.factionId) {
+                    errors.push_back(ctx + ": faction lists itself as friend");
+                    break;
+                }
+            }
+            // A faction in both enemies AND friends is incoherent.
+            for (uint32_t en : e.enemies) {
+                for (uint32_t fr : e.friends) {
+                    if (en == fr) {
+                        errors.push_back(ctx +
+                            ": faction " + std::to_string(en) +
+                            " appears in both enemies and friends");
+                        break;
+                    }
+                }
+            }
+            if (!idsSeen.add(e.factionId)) errors.push_back(ctx + ": duplicate factionId");
         }
-        if (!idsSeen.add(e.factionId)) errors.push_back(ctx + ": duplicate factionId");
-    }
-    return cli::reportValidation("wfac", base, jsonOut, errors, warnings,
-                                 formatted("%zu factions, all factionIds unique", c.entries.size()));
+            return formatted("%zu factions, all factionIds unique", c.entries.size());
+        });
 }
 
 } // namespace

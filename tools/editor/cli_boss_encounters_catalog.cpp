@@ -221,77 +221,69 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = cli::withoutExt(base, ".wbos");
-    if (!wowee::pipeline::WoweeBossEncounterLoader::exists(base)) {
-        return reportMissing("validate-wbos", "WBOS", base, ".wbos");
-    }
-    auto c = wowee::pipeline::WoweeBossEncounterLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    cli::DuplicateIdCheck idsSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.encounterId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.encounterId == 0)
-            errors.push_back(ctx + ": encounterId is 0");
-        if (e.name.empty())
-            errors.push_back(ctx + ": name is empty");
-        if (e.bossCreatureId == 0)
-            errors.push_back(ctx +
-                ": bossCreatureId is 0 — encounter has no boss");
-        if (e.mapId == 0)
-            errors.push_back(ctx +
-                ": mapId is 0 — encounter is unbound to a map");
-        if (e.phaseCount == 0)
-            errors.push_back(ctx +
-                ": phaseCount is 0 — encounter has no phases");
-        if (e.requiredPartySize == 0)
-            errors.push_back(ctx +
-                ": requiredPartySize is 0 — invalid group size");
-        if (e.requiredPartySize > 40)
-            warnings.push_back(ctx +
-                ": requiredPartySize " +
-                std::to_string(e.requiredPartySize) +
-                " > 40 (max raid size)");
-        // Standard sizes are 5/10/25/40 — anything else is a
-        // server-custom raid size, worth flagging.
-        if (e.requiredPartySize != 5 && e.requiredPartySize != 10 &&
-            e.requiredPartySize != 25 && e.requiredPartySize != 40) {
-            warnings.push_back(ctx +
-                ": non-standard requiredPartySize " +
-                std::to_string(e.requiredPartySize) +
-                " (canonical sizes are 5/10/25/40)");
+    return cli::validateCatalog<wowee::pipeline::WoweeBossEncounterLoader>(
+        i, argc, argv, "wbos", "WBOS",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.encounterId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.encounterId == 0)
+                errors.push_back(ctx + ": encounterId is 0");
+            if (e.name.empty())
+                errors.push_back(ctx + ": name is empty");
+            if (e.bossCreatureId == 0)
+                errors.push_back(ctx +
+                    ": bossCreatureId is 0 — encounter has no boss");
+            if (e.mapId == 0)
+                errors.push_back(ctx +
+                    ": mapId is 0 — encounter is unbound to a map");
+            if (e.phaseCount == 0)
+                errors.push_back(ctx +
+                    ": phaseCount is 0 — encounter has no phases");
+            if (e.requiredPartySize == 0)
+                errors.push_back(ctx +
+                    ": requiredPartySize is 0 — invalid group size");
+            if (e.requiredPartySize > 40)
+                warnings.push_back(ctx +
+                    ": requiredPartySize " +
+                    std::to_string(e.requiredPartySize) +
+                    " > 40 (max raid size)");
+            // Standard sizes are 5/10/25/40 — anything else is a
+            // server-custom raid size, worth flagging.
+            if (e.requiredPartySize != 5 && e.requiredPartySize != 10 &&
+                e.requiredPartySize != 25 && e.requiredPartySize != 40) {
+                warnings.push_back(ctx +
+                    ": non-standard requiredPartySize " +
+                    std::to_string(e.requiredPartySize) +
+                    " (canonical sizes are 5/10/25/40)");
+            }
+            // berserkSpellId without enrageTimerMs is contradictory
+            // (the spell never fires).
+            if (e.berserkSpellId != 0 && e.enrageTimerMs == 0) {
+                warnings.push_back(ctx +
+                    ": berserkSpellId=" +
+                    std::to_string(e.berserkSpellId) +
+                    " set but enrageTimerMs=0 — spell will never "
+                    "fire (no enrage countdown)");
+            }
+            // Enrage > 30 minutes is suspicious — typical raid
+            // encounters cap at ~15-20 minutes.
+            if (e.enrageTimerMs > 1800000) {
+                warnings.push_back(ctx +
+                    ": enrageTimerMs " +
+                    std::to_string(e.enrageTimerMs) +
+                    " > 30 min (1800000ms) — exceptionally long "
+                    "soft enrage, double-check");
+            }
+            if (!idsSeen.add(e.encounterId)) errors.push_back(ctx + ": duplicate encounterId");
         }
-        // berserkSpellId without enrageTimerMs is contradictory
-        // (the spell never fires).
-        if (e.berserkSpellId != 0 && e.enrageTimerMs == 0) {
-            warnings.push_back(ctx +
-                ": berserkSpellId=" +
-                std::to_string(e.berserkSpellId) +
-                " set but enrageTimerMs=0 — spell will never "
-                "fire (no enrage countdown)");
-        }
-        // Enrage > 30 minutes is suspicious — typical raid
-        // encounters cap at ~15-20 minutes.
-        if (e.enrageTimerMs > 1800000) {
-            warnings.push_back(ctx +
-                ": enrageTimerMs " +
-                std::to_string(e.enrageTimerMs) +
-                " > 30 min (1800000ms) — exceptionally long "
-                "soft enrage, double-check");
-        }
-        if (!idsSeen.add(e.encounterId)) errors.push_back(ctx + ": duplicate encounterId");
-    }
-    return cli::reportValidation("wbos", base, jsonOut, errors, warnings,
-                                 formatted("%zu encounters, all encounterIds unique", c.entries.size()));
+            return formatted("%zu encounters, all encounterIds unique", c.entries.size());
+        });
 }
 
 } // namespace

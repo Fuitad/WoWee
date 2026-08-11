@@ -256,87 +256,79 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = cli::withoutExt(base, ".wacr");
-    if (!wowee::pipeline::WoweeAchievementCriteriaLoader::exists(base)) {
-        return reportMissing("validate-wacr", "WACR", base, ".wacr");
-    }
-    auto c = wowee::pipeline::WoweeAchievementCriteriaLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    cli::DuplicateIdCheck idsSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.criteriaId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.criteriaId == 0)
-            errors.push_back(ctx + ": criteriaId is 0");
-        if (e.name.empty())
-            errors.push_back(ctx + ": name is empty");
-        if (e.achievementId == 0)
-            errors.push_back(ctx +
-                ": achievementId is 0 — missing WACH cross-ref");
-        if (e.criteriaType > wowee::pipeline::WoweeAchievementCriteria::Misc) {
-            errors.push_back(ctx + ": criteriaType " +
-                std::to_string(e.criteriaType) + " not in 0..12");
+    return cli::validateCatalog<wowee::pipeline::WoweeAchievementCriteriaLoader>(
+        i, argc, argv, "wacr", "WACR",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.criteriaId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.criteriaId == 0)
+                errors.push_back(ctx + ": criteriaId is 0");
+            if (e.name.empty())
+                errors.push_back(ctx + ": name is empty");
+            if (e.achievementId == 0)
+                errors.push_back(ctx +
+                    ": achievementId is 0 — missing WACH cross-ref");
+            if (e.criteriaType > wowee::pipeline::WoweeAchievementCriteria::Misc) {
+                errors.push_back(ctx + ": criteriaType " +
+                    std::to_string(e.criteriaType) + " not in 0..12");
+            }
+            if (e.requiredCount == 0)
+                warnings.push_back(ctx +
+                    ": requiredCount is 0 — criteria completes "
+                    "instantly on first progress event");
+            // Type-specific cross-ref checks.
+            switch (e.criteriaType) {
+                case wowee::pipeline::WoweeAchievementCriteria::KillCreature:
+                case wowee::pipeline::WoweeAchievementCriteria::CompleteQuest:
+                case wowee::pipeline::WoweeAchievementCriteria::EarnReputation:
+                case wowee::pipeline::WoweeAchievementCriteria::ExploreZone:
+                case wowee::pipeline::WoweeAchievementCriteria::LootItem:
+                case wowee::pipeline::WoweeAchievementCriteria::UseItem:
+                case wowee::pipeline::WoweeAchievementCriteria::CastSpell:
+                case wowee::pipeline::WoweeAchievementCriteria::DungeonRun:
+                    if (e.targetId == 0) {
+                        warnings.push_back(ctx +
+                            ": " +
+                            wowee::pipeline::WoweeAchievementCriteria::criteriaTypeName(e.criteriaType) +
+                            " kind requires targetId — engine cannot "
+                            "track progression without it");
+                    }
+                    break;
+                case wowee::pipeline::WoweeAchievementCriteria::ReachLevel:
+                    if (e.requiredCount > 80) {
+                        warnings.push_back(ctx +
+                            ": ReachLevel with requiredCount=" +
+                            std::to_string(e.requiredCount) +
+                            " > 80 — character cap is 80 in WotLK");
+                    }
+                    break;
+                case wowee::pipeline::WoweeAchievementCriteria::EarnGold:
+                case wowee::pipeline::WoweeAchievementCriteria::GainHonor:
+                case wowee::pipeline::WoweeAchievementCriteria::PvPKill:
+                case wowee::pipeline::WoweeAchievementCriteria::Misc:
+                    break;     // no specific cross-ref required
+            }
+            // timeLimitMs > 0 with non-time-sensitive criteria
+            // is suspicious — the engine ignores it for kinds
+            // like ReachLevel.
+            if (e.timeLimitMs != 0 &&
+                (e.criteriaType == wowee::pipeline::WoweeAchievementCriteria::ReachLevel ||
+                 e.criteriaType == wowee::pipeline::WoweeAchievementCriteria::EarnGold)) {
+                warnings.push_back(ctx +
+                    ": timeLimitMs " + std::to_string(e.timeLimitMs) +
+                    " set on a non-time-sensitive criteria type — "
+                    "engine will ignore");
+            }
+            if (!idsSeen.add(e.criteriaId)) errors.push_back(ctx + ": duplicate criteriaId");
         }
-        if (e.requiredCount == 0)
-            warnings.push_back(ctx +
-                ": requiredCount is 0 — criteria completes "
-                "instantly on first progress event");
-        // Type-specific cross-ref checks.
-        switch (e.criteriaType) {
-            case wowee::pipeline::WoweeAchievementCriteria::KillCreature:
-            case wowee::pipeline::WoweeAchievementCriteria::CompleteQuest:
-            case wowee::pipeline::WoweeAchievementCriteria::EarnReputation:
-            case wowee::pipeline::WoweeAchievementCriteria::ExploreZone:
-            case wowee::pipeline::WoweeAchievementCriteria::LootItem:
-            case wowee::pipeline::WoweeAchievementCriteria::UseItem:
-            case wowee::pipeline::WoweeAchievementCriteria::CastSpell:
-            case wowee::pipeline::WoweeAchievementCriteria::DungeonRun:
-                if (e.targetId == 0) {
-                    warnings.push_back(ctx +
-                        ": " +
-                        wowee::pipeline::WoweeAchievementCriteria::criteriaTypeName(e.criteriaType) +
-                        " kind requires targetId — engine cannot "
-                        "track progression without it");
-                }
-                break;
-            case wowee::pipeline::WoweeAchievementCriteria::ReachLevel:
-                if (e.requiredCount > 80) {
-                    warnings.push_back(ctx +
-                        ": ReachLevel with requiredCount=" +
-                        std::to_string(e.requiredCount) +
-                        " > 80 — character cap is 80 in WotLK");
-                }
-                break;
-            case wowee::pipeline::WoweeAchievementCriteria::EarnGold:
-            case wowee::pipeline::WoweeAchievementCriteria::GainHonor:
-            case wowee::pipeline::WoweeAchievementCriteria::PvPKill:
-            case wowee::pipeline::WoweeAchievementCriteria::Misc:
-                break;     // no specific cross-ref required
-        }
-        // timeLimitMs > 0 with non-time-sensitive criteria
-        // is suspicious — the engine ignores it for kinds
-        // like ReachLevel.
-        if (e.timeLimitMs != 0 &&
-            (e.criteriaType == wowee::pipeline::WoweeAchievementCriteria::ReachLevel ||
-             e.criteriaType == wowee::pipeline::WoweeAchievementCriteria::EarnGold)) {
-            warnings.push_back(ctx +
-                ": timeLimitMs " + std::to_string(e.timeLimitMs) +
-                " set on a non-time-sensitive criteria type — "
-                "engine will ignore");
-        }
-        if (!idsSeen.add(e.criteriaId)) errors.push_back(ctx + ": duplicate criteriaId");
-    }
-    return cli::reportValidation("wacr", base, jsonOut, errors, warnings,
-                                 formatted("%zu criteria, all criteriaIds unique", c.entries.size()));
+            return formatted("%zu criteria, all criteriaIds unique", c.entries.size());
+        });
 }
 
 } // namespace

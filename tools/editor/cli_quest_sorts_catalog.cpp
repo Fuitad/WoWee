@@ -230,67 +230,59 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = cli::withoutExt(base, ".wqso");
-    if (!wowee::pipeline::WoweeQuestSortLoader::exists(base)) {
-        return reportMissing("validate-wqso", "WQSO", base, ".wqso");
-    }
-    auto c = wowee::pipeline::WoweeQuestSortLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    cli::DuplicateIdCheck idsSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.sortId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.sortId == 0)
-            errors.push_back(ctx + ": sortId is 0");
-        if (e.name.empty())
-            errors.push_back(ctx + ": name is empty");
-        if (e.displayName.empty())
-            errors.push_back(ctx +
-                ": displayName is empty (UI would show no header)");
-        if (e.sortKind > wowee::pipeline::WoweeQuestSort::Tournament) {
-            errors.push_back(ctx + ": sortKind " +
-                std::to_string(e.sortKind) + " not in 0..11");
+    return cli::validateCatalog<wowee::pipeline::WoweeQuestSortLoader>(
+        i, argc, argv, "wqso", "WQSO",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.sortId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.sortId == 0)
+                errors.push_back(ctx + ": sortId is 0");
+            if (e.name.empty())
+                errors.push_back(ctx + ": name is empty");
+            if (e.displayName.empty())
+                errors.push_back(ctx +
+                    ": displayName is empty (UI would show no header)");
+            if (e.sortKind > wowee::pipeline::WoweeQuestSort::Tournament) {
+                errors.push_back(ctx + ": sortKind " +
+                    std::to_string(e.sortKind) + " not in 0..11");
+            }
+            // ClassQuest sortKind requires a non-zero classMask
+            // — otherwise it's not actually class-restricted.
+            if (e.sortKind == wowee::pipeline::WoweeQuestSort::ClassQuest &&
+                e.targetClassMask == 0) {
+                errors.push_back(ctx +
+                    ": ClassQuest kind with targetClassMask=0 "
+                    "(should pick at least one class bit)");
+            }
+            // Profession sortKind requires a profession ID hint —
+            // 0 means Blacksmithing in the WTSK enum but having
+            // it left as zero with non-Blacksmithing kind might
+            // be a typo. Warn rather than error since 0 IS a
+            // valid profession value.
+            if (e.sortKind == wowee::pipeline::WoweeQuestSort::Profession &&
+                e.targetProfessionId == 0 &&
+                e.name.find("Blacksmith") == std::string::npos) {
+                warnings.push_back(ctx +
+                    ": Profession kind with targetProfessionId=0 "
+                    "(0=Blacksmithing in WTSK; verify intent)");
+            }
+            // Reputation sortKind needs a factionId.
+            if (e.sortKind == wowee::pipeline::WoweeQuestSort::Reputation &&
+                e.targetFactionId == 0) {
+                errors.push_back(ctx +
+                    ": Reputation kind with targetFactionId=0 "
+                    "(no faction to grind reputation with)");
+            }
+            if (!idsSeen.add(e.sortId)) errors.push_back(ctx + ": duplicate sortId");
         }
-        // ClassQuest sortKind requires a non-zero classMask
-        // — otherwise it's not actually class-restricted.
-        if (e.sortKind == wowee::pipeline::WoweeQuestSort::ClassQuest &&
-            e.targetClassMask == 0) {
-            errors.push_back(ctx +
-                ": ClassQuest kind with targetClassMask=0 "
-                "(should pick at least one class bit)");
-        }
-        // Profession sortKind requires a profession ID hint —
-        // 0 means Blacksmithing in the WTSK enum but having
-        // it left as zero with non-Blacksmithing kind might
-        // be a typo. Warn rather than error since 0 IS a
-        // valid profession value.
-        if (e.sortKind == wowee::pipeline::WoweeQuestSort::Profession &&
-            e.targetProfessionId == 0 &&
-            e.name.find("Blacksmith") == std::string::npos) {
-            warnings.push_back(ctx +
-                ": Profession kind with targetProfessionId=0 "
-                "(0=Blacksmithing in WTSK; verify intent)");
-        }
-        // Reputation sortKind needs a factionId.
-        if (e.sortKind == wowee::pipeline::WoweeQuestSort::Reputation &&
-            e.targetFactionId == 0) {
-            errors.push_back(ctx +
-                ": Reputation kind with targetFactionId=0 "
-                "(no faction to grind reputation with)");
-        }
-        if (!idsSeen.add(e.sortId)) errors.push_back(ctx + ": duplicate sortId");
-    }
-    return cli::reportValidation("wqso", base, jsonOut, errors, warnings,
-                                 formatted("%zu sorts, all sortIds unique, all kind-target pairings consistent", c.entries.size()));
+            return formatted("%zu sorts, all sortIds unique, all kind-target pairings consistent", c.entries.size());
+        });
 }
 
 } // namespace

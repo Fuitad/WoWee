@@ -237,53 +237,45 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = cli::withoutExt(base, ".wauc");
-    if (!wowee::pipeline::WoweeAuctionLoader::exists(base)) {
-        return reportMissing("validate-wauc", "WAUC", base, ".wauc");
-    }
-    auto c = wowee::pipeline::WoweeAuctionLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    cli::DuplicateIdCheck idsSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.houseId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.houseId == 0) errors.push_back(ctx + ": houseId is 0");
-        if (e.name.empty()) errors.push_back(ctx + ": name is empty");
-        if (e.factionAccess > wowee::pipeline::WoweeAuction::Both) {
-            errors.push_back(ctx + ": factionAccess " +
-                std::to_string(e.factionAccess) + " not in 0..3");
+    return cli::validateCatalog<wowee::pipeline::WoweeAuctionLoader>(
+        i, argc, argv, "wauc", "WAUC",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.houseId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.houseId == 0) errors.push_back(ctx + ": houseId is 0");
+            if (e.name.empty()) errors.push_back(ctx + ": name is empty");
+            if (e.factionAccess > wowee::pipeline::WoweeAuction::Both) {
+                errors.push_back(ctx + ": factionAccess " +
+                    std::to_string(e.factionAccess) + " not in 0..3");
+            }
+            if (e.shortHours == 0 || e.mediumHours == 0 || e.longHours == 0) {
+                errors.push_back(ctx + ": duration tier is 0 (no listing time)");
+            }
+            if (e.shortHours > e.mediumHours ||
+                e.mediumHours > e.longHours) {
+                errors.push_back(ctx +
+                    ": durations must satisfy short <= medium <= long");
+            }
+            // Cut rate > 50% is suspicious; rates > 100% mean the
+            // seller pays the house more than the buyer paid.
+            if (e.houseCutRateBp > 5000) {
+                warnings.push_back(ctx +
+                    ": houseCutRateBp > 5000 (>50% cut — verify intentional)");
+            }
+            if (e.houseCutRateBp >= wowee::pipeline::WoweeAuction::kBpDenominator) {
+                errors.push_back(ctx +
+                    ": houseCutRateBp >= 10000 (>=100% cut — seller loses money)");
+            }
+            if (!idsSeen.add(e.houseId)) errors.push_back(ctx + ": duplicate houseId");
         }
-        if (e.shortHours == 0 || e.mediumHours == 0 || e.longHours == 0) {
-            errors.push_back(ctx + ": duration tier is 0 (no listing time)");
-        }
-        if (e.shortHours > e.mediumHours ||
-            e.mediumHours > e.longHours) {
-            errors.push_back(ctx +
-                ": durations must satisfy short <= medium <= long");
-        }
-        // Cut rate > 50% is suspicious; rates > 100% mean the
-        // seller pays the house more than the buyer paid.
-        if (e.houseCutRateBp > 5000) {
-            warnings.push_back(ctx +
-                ": houseCutRateBp > 5000 (>50% cut — verify intentional)");
-        }
-        if (e.houseCutRateBp >= wowee::pipeline::WoweeAuction::kBpDenominator) {
-            errors.push_back(ctx +
-                ": houseCutRateBp >= 10000 (>=100% cut — seller loses money)");
-        }
-        if (!idsSeen.add(e.houseId)) errors.push_back(ctx + ": duplicate houseId");
-    }
-    return cli::reportValidation("wauc", base, jsonOut, errors, warnings,
-                                 formatted("%zu houses, all houseIds unique", c.entries.size()));
+            return formatted("%zu houses, all houseIds unique", c.entries.size());
+        });
 }
 
 } // namespace

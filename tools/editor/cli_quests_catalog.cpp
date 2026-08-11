@@ -386,83 +386,75 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = cli::withoutExt(base, ".wqt");
-    if (!wowee::pipeline::WoweeQuestLoader::exists(base)) {
-        return reportMissing("validate-wqt", "WQT", base, ".wqt");
-    }
-    auto c = wowee::pipeline::WoweeQuestLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    cli::DuplicateIdCheck idsSeen;
-    idsSeen.reserve(c.entries.size());
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "quest " + std::to_string(e.questId);
-        if (!e.title.empty()) ctx += " (" + e.title + ")";
-        if (e.questId == 0) {
-            errors.push_back(ctx + ": questId is 0");
-        }
-        if (e.minLevel == 0) {
-            errors.push_back(ctx + ": minLevel is 0");
-        }
-        if (e.maxLevel != 0 && e.maxLevel < e.minLevel) {
-            errors.push_back(ctx + ": maxLevel < minLevel");
-        }
-        if (e.title.empty()) {
-            errors.push_back(ctx + ": title is empty");
-        }
-        // A quest with no objectives only makes sense if it's
-        // a chain-bridge (auto-complete on dialogue).
-        if (e.objectives.empty() &&
-            !(e.flags & wowee::pipeline::WoweeQuest::AutoComplete)) {
-            warnings.push_back(ctx +
-                ": no objectives and not AutoComplete (player can't finish)");
-        }
-        // No reward at all is technically valid for chain bridges
-        // but is usually a mistake.
-        if (e.xpReward == 0 && e.moneyCopperReward == 0 &&
-            e.rewardItems.empty()) {
-            warnings.push_back(ctx + ": no rewards (xp / money / items)");
-        }
-        // Daily without Repeatable is contradictory.
-        if ((e.flags & wowee::pipeline::WoweeQuest::Daily) &&
-            !(e.flags & wowee::pipeline::WoweeQuest::Repeatable)) {
-            warnings.push_back(ctx +
-                ": Daily quest is not flagged Repeatable");
-        }
-        for (size_t oi = 0; oi < e.objectives.size(); ++oi) {
-            const auto& o = e.objectives[oi];
-            std::string octx = ctx + " obj " + std::to_string(oi);
-            if (o.targetId == 0) {
-                errors.push_back(octx + ": targetId is 0");
+    return cli::validateCatalog<wowee::pipeline::WoweeQuestLoader>(
+        i, argc, argv, "wqt", "WQT",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        idsSeen.reserve(c.entries.size());
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "quest " + std::to_string(e.questId);
+            if (!e.title.empty()) ctx += " (" + e.title + ")";
+            if (e.questId == 0) {
+                errors.push_back(ctx + ": questId is 0");
             }
-            if (o.quantity == 0) {
-                errors.push_back(octx + ": quantity is 0");
+            if (e.minLevel == 0) {
+                errors.push_back(ctx + ": minLevel is 0");
             }
-            if (o.kind > wowee::pipeline::WoweeQuest::SpellCast) {
-                errors.push_back(octx + ": kind " +
-                    std::to_string(o.kind) + " not in known range 0..5");
+            if (e.maxLevel != 0 && e.maxLevel < e.minLevel) {
+                errors.push_back(ctx + ": maxLevel < minLevel");
             }
+            if (e.title.empty()) {
+                errors.push_back(ctx + ": title is empty");
+            }
+            // A quest with no objectives only makes sense if it's
+            // a chain-bridge (auto-complete on dialogue).
+            if (e.objectives.empty() &&
+                !(e.flags & wowee::pipeline::WoweeQuest::AutoComplete)) {
+                warnings.push_back(ctx +
+                    ": no objectives and not AutoComplete (player can't finish)");
+            }
+            // No reward at all is technically valid for chain bridges
+            // but is usually a mistake.
+            if (e.xpReward == 0 && e.moneyCopperReward == 0 &&
+                e.rewardItems.empty()) {
+                warnings.push_back(ctx + ": no rewards (xp / money / items)");
+            }
+            // Daily without Repeatable is contradictory.
+            if ((e.flags & wowee::pipeline::WoweeQuest::Daily) &&
+                !(e.flags & wowee::pipeline::WoweeQuest::Repeatable)) {
+                warnings.push_back(ctx +
+                    ": Daily quest is not flagged Repeatable");
+            }
+            for (size_t oi = 0; oi < e.objectives.size(); ++oi) {
+                const auto& o = e.objectives[oi];
+                std::string octx = ctx + " obj " + std::to_string(oi);
+                if (o.targetId == 0) {
+                    errors.push_back(octx + ": targetId is 0");
+                }
+                if (o.quantity == 0) {
+                    errors.push_back(octx + ": quantity is 0");
+                }
+                if (o.kind > wowee::pipeline::WoweeQuest::SpellCast) {
+                    errors.push_back(octx + ": kind " +
+                        std::to_string(o.kind) + " not in known range 0..5");
+                }
+            }
+            for (size_t ri = 0; ri < e.rewardItems.size(); ++ri) {
+                const auto& r = e.rewardItems[ri];
+                std::string rctx = ctx + " reward " + std::to_string(ri);
+                if (r.itemId == 0) {
+                    errors.push_back(rctx + ": itemId is 0");
+                }
+                if (r.qty == 0) {
+                    errors.push_back(rctx + ": qty is 0");
+                }
+            }
+            if (!idsSeen.add(e.questId)) errors.push_back(ctx + ": duplicate questId");
         }
-        for (size_t ri = 0; ri < e.rewardItems.size(); ++ri) {
-            const auto& r = e.rewardItems[ri];
-            std::string rctx = ctx + " reward " + std::to_string(ri);
-            if (r.itemId == 0) {
-                errors.push_back(rctx + ": itemId is 0");
-            }
-            if (r.qty == 0) {
-                errors.push_back(rctx + ": qty is 0");
-            }
-        }
-        if (!idsSeen.add(e.questId)) errors.push_back(ctx + ": duplicate questId");
-    }
-    return cli::reportValidation("wqt", base, jsonOut, errors, warnings,
-                                 formatted("%zu quests, all questIds unique", c.entries.size()));
+            return formatted("%zu quests, all questIds unique", c.entries.size());
+        });
 }
 
 } // namespace

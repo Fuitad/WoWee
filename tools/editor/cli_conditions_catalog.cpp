@@ -243,60 +243,52 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = cli::withoutExt(base, ".wpcd");
-    if (!wowee::pipeline::WoweeConditionLoader::exists(base)) {
-        return reportMissing("validate-wpcd", "WPCD", base, ".wpcd");
-    }
-    auto c = wowee::pipeline::WoweeConditionLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    cli::DuplicateIdCheck idsSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.conditionId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.conditionId == 0) {
-            errors.push_back(ctx + ": conditionId is 0");
+    return cli::validateCatalog<wowee::pipeline::WoweeConditionLoader>(
+        i, argc, argv, "wpcd", "WPCD",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.conditionId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.conditionId == 0) {
+                errors.push_back(ctx + ": conditionId is 0");
+            }
+            if (e.kind > wowee::pipeline::WoweeCondition::HasTitle) {
+                errors.push_back(ctx + ": kind " +
+                    std::to_string(e.kind) + " not in 0..16");
+            }
+            if (e.aggregator > wowee::pipeline::WoweeCondition::Or) {
+                errors.push_back(ctx + ": aggregator " +
+                    std::to_string(e.aggregator) + " not in 0..1");
+            }
+            // Most kinds need a non-zero targetId. Exceptions:
+            // AlwaysTrue / AlwaysFalse (no target), MinLevel /
+            // MaxLevel (use minValue), TeamSize (uses min/max),
+            // GuildLevel (uses minValue).
+            bool needsTarget =
+                e.kind != wowee::pipeline::WoweeCondition::AlwaysTrue &&
+                e.kind != wowee::pipeline::WoweeCondition::AlwaysFalse &&
+                e.kind != wowee::pipeline::WoweeCondition::MinLevel &&
+                e.kind != wowee::pipeline::WoweeCondition::MaxLevel &&
+                e.kind != wowee::pipeline::WoweeCondition::TeamSize &&
+                e.kind != wowee::pipeline::WoweeCondition::GuildLevel;
+            if (needsTarget && e.targetId == 0) {
+                errors.push_back(ctx +
+                    ": kind needs a non-zero targetId");
+            }
+            if (e.kind == wowee::pipeline::WoweeCondition::TeamSize &&
+                e.minValue > 0 && e.maxValue > 0 &&
+                e.minValue > e.maxValue) {
+                errors.push_back(ctx + ": team-size minValue > maxValue");
+            }
+            if (!idsSeen.add(e.conditionId)) errors.push_back(ctx + ": duplicate conditionId");
         }
-        if (e.kind > wowee::pipeline::WoweeCondition::HasTitle) {
-            errors.push_back(ctx + ": kind " +
-                std::to_string(e.kind) + " not in 0..16");
-        }
-        if (e.aggregator > wowee::pipeline::WoweeCondition::Or) {
-            errors.push_back(ctx + ": aggregator " +
-                std::to_string(e.aggregator) + " not in 0..1");
-        }
-        // Most kinds need a non-zero targetId. Exceptions:
-        // AlwaysTrue / AlwaysFalse (no target), MinLevel /
-        // MaxLevel (use minValue), TeamSize (uses min/max),
-        // GuildLevel (uses minValue).
-        bool needsTarget =
-            e.kind != wowee::pipeline::WoweeCondition::AlwaysTrue &&
-            e.kind != wowee::pipeline::WoweeCondition::AlwaysFalse &&
-            e.kind != wowee::pipeline::WoweeCondition::MinLevel &&
-            e.kind != wowee::pipeline::WoweeCondition::MaxLevel &&
-            e.kind != wowee::pipeline::WoweeCondition::TeamSize &&
-            e.kind != wowee::pipeline::WoweeCondition::GuildLevel;
-        if (needsTarget && e.targetId == 0) {
-            errors.push_back(ctx +
-                ": kind needs a non-zero targetId");
-        }
-        if (e.kind == wowee::pipeline::WoweeCondition::TeamSize &&
-            e.minValue > 0 && e.maxValue > 0 &&
-            e.minValue > e.maxValue) {
-            errors.push_back(ctx + ": team-size minValue > maxValue");
-        }
-        if (!idsSeen.add(e.conditionId)) errors.push_back(ctx + ": duplicate conditionId");
-    }
-    return cli::reportValidation("wpcd", base, jsonOut, errors, warnings,
-                                 formatted("%zu conditions, all conditionIds unique", c.entries.size()));
+            return formatted("%zu conditions, all conditionIds unique", c.entries.size());
+        });
 }
 
 } // namespace

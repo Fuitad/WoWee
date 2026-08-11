@@ -227,65 +227,57 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = cli::withoutExt(base, ".wmac");
-    if (!wowee::pipeline::WoweeMacroLoader::exists(base)) {
-        return reportMissing("validate-wmac", "WMAC", base, ".wmac");
-    }
-    auto c = wowee::pipeline::WoweeMacroLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    cli::DuplicateIdCheck idsSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.macroId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.macroId == 0)
-            errors.push_back(ctx + ": macroId is 0");
-        if (e.name.empty())
-            errors.push_back(ctx + ": name is empty");
-        if (e.macroBody.empty())
-            errors.push_back(ctx +
-                ": macroBody is empty (macro does nothing)");
-        if (e.macroKind > wowee::pipeline::WoweeMacro::SharedMacro) {
-            errors.push_back(ctx + ": macroKind " +
-                std::to_string(e.macroKind) + " not in 0..4");
+    return cli::validateCatalog<wowee::pipeline::WoweeMacroLoader>(
+        i, argc, argv, "wmac", "WMAC",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.macroId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.macroId == 0)
+                errors.push_back(ctx + ": macroId is 0");
+            if (e.name.empty())
+                errors.push_back(ctx + ": name is empty");
+            if (e.macroBody.empty())
+                errors.push_back(ctx +
+                    ": macroBody is empty (macro does nothing)");
+            if (e.macroKind > wowee::pipeline::WoweeMacro::SharedMacro) {
+                errors.push_back(ctx + ": macroKind " +
+                    std::to_string(e.macroKind) + " not in 0..4");
+            }
+            if (e.maxLength != 0 && e.macroBody.size() > e.maxLength) {
+                errors.push_back(ctx +
+                    ": macroBody length " +
+                    std::to_string(e.macroBody.size()) +
+                    " exceeds maxLength " +
+                    std::to_string(e.maxLength));
+            }
+            // Macro body must start with `/` (slash command) — any
+            // line that doesn't is a stray comment / orphan text.
+            if (!e.macroBody.empty() && e.macroBody[0] != '/' &&
+                e.macroBody[0] != '#') {
+                warnings.push_back(ctx +
+                    ": macroBody doesn't start with '/' or '#' "
+                    "(likely missing slash on first line)");
+            }
+            // SystemSlash macros are run by the engine, not by the
+            // player — assigning a class restriction makes no sense
+            // since the slash command is shared by all classes.
+            if (e.macroKind == wowee::pipeline::WoweeMacro::SystemSlash &&
+                e.requiredClassMask != 0) {
+                warnings.push_back(ctx +
+                    ": SystemSlash kind with requiredClassMask != 0 "
+                    "(slash commands are class-agnostic)");
+            }
+            if (!idsSeen.add(e.macroId)) errors.push_back(ctx + ": duplicate macroId");
         }
-        if (e.maxLength != 0 && e.macroBody.size() > e.maxLength) {
-            errors.push_back(ctx +
-                ": macroBody length " +
-                std::to_string(e.macroBody.size()) +
-                " exceeds maxLength " +
-                std::to_string(e.maxLength));
-        }
-        // Macro body must start with `/` (slash command) — any
-        // line that doesn't is a stray comment / orphan text.
-        if (!e.macroBody.empty() && e.macroBody[0] != '/' &&
-            e.macroBody[0] != '#') {
-            warnings.push_back(ctx +
-                ": macroBody doesn't start with '/' or '#' "
-                "(likely missing slash on first line)");
-        }
-        // SystemSlash macros are run by the engine, not by the
-        // player — assigning a class restriction makes no sense
-        // since the slash command is shared by all classes.
-        if (e.macroKind == wowee::pipeline::WoweeMacro::SystemSlash &&
-            e.requiredClassMask != 0) {
-            warnings.push_back(ctx +
-                ": SystemSlash kind with requiredClassMask != 0 "
-                "(slash commands are class-agnostic)");
-        }
-        if (!idsSeen.add(e.macroId)) errors.push_back(ctx + ": duplicate macroId");
-    }
-    return cli::reportValidation("wmac", base, jsonOut, errors, warnings,
-                                 formatted("%zu macros, all macroIds unique, "
-                    "all bodies within length cap", c.entries.size()));
+            return formatted("%zu macros, all macroIds unique, "
+                    "all bodies within length cap", c.entries.size());
+        });
 }
 
 } // namespace

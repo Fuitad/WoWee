@@ -22,6 +22,9 @@
 
 #include <nlohmann/json.hpp>
 
+#include "cli_arg_parse.hpp"
+#include "cli_catalog_paths.hpp"
+
 namespace wowee {
 namespace editor {
 namespace cli {
@@ -59,6 +62,36 @@ inline int printValidationIssues(const std::vector<std::string>& errors,
         for (const auto& e : errors) std::printf("    - %s\n", e.c_str());
     }
     return errors.empty() ? 0 : 1;
+}
+
+/// Run a format's --validate-* handler: resolve the path, refuse if the file is
+/// not there, load it, note an empty catalog, run the format's own checks, and
+/// report.
+///
+/// Everything but those checks was written out in each of the 138 handlers —
+/// twelve lines of preamble and eight of report around the part that actually
+/// knows something about the format. `check` fills the two lists and answers
+/// the one line that describes what OK means for it.
+template <typename Loader, typename Check>
+int validateCatalog(int& i, int argc, char** argv, const char* tag, const char* label,
+                    Check check) {
+    std::string base = argv[++i];
+    const bool jsonOut = consumeJsonFlag(i, argc, argv);
+    const std::string extension = std::string(".") + tag;
+    base = withoutExt(base, extension);
+    if (!Loader::exists(base)) {
+        return reportMissing((std::string("validate-") + tag).c_str(), label,
+                             base, extension.c_str());
+    }
+    const auto catalog = Loader::load(base);
+    std::vector<std::string> errors;
+    std::vector<std::string> warnings;
+    // A file that read as nothing is a warning rather than an error: an empty
+    // catalog is a legal file, and it is also what a truncated one comes back
+    // as, so saying so is the only way to tell them apart.
+    if (catalog.entries.empty()) warnings.push_back("catalog has zero entries");
+    const std::string okLine = check(catalog, errors, warnings);
+    return reportValidation(tag, base, jsonOut, errors, warnings, okLine);
 }
 
 /// printf into a std::string, for the one line a format writes about itself.

@@ -277,70 +277,62 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = cli::withoutExt(base, ".wtrg");
-    if (!wowee::pipeline::WoweeTriggerLoader::exists(base)) {
-        return reportMissing("validate-wtrg", "WTRG", base, ".wtrg");
-    }
-    auto c = wowee::pipeline::WoweeTriggerLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    cli::DuplicateIdCheck idsSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.triggerId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.triggerId == 0) errors.push_back(ctx + ": triggerId is 0");
-        if (e.shape > wowee::pipeline::WoweeTrigger::ShapeSphere) {
-            errors.push_back(ctx + ": shape " +
-                std::to_string(e.shape) + " not in 0..1");
-        }
-        if (e.kind > wowee::pipeline::WoweeTrigger::KindWaypoint) {
-            errors.push_back(ctx + ": kind " +
-                std::to_string(e.kind) + " not in 0..6");
-        }
-        if (!std::isfinite(e.center.x) ||
-            !std::isfinite(e.center.y) ||
-            !std::isfinite(e.center.z)) {
-            errors.push_back(ctx + ": center not finite");
-        }
-        // Sphere needs positive radius; box needs at least one
-        // positive half-extent.
-        if (e.shape == wowee::pipeline::WoweeTrigger::ShapeSphere) {
-            if (!std::isfinite(e.radius) || e.radius <= 0) {
+    return cli::validateCatalog<wowee::pipeline::WoweeTriggerLoader>(
+        i, argc, argv, "wtrg", "WTRG",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.triggerId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.triggerId == 0) errors.push_back(ctx + ": triggerId is 0");
+            if (e.shape > wowee::pipeline::WoweeTrigger::ShapeSphere) {
+                errors.push_back(ctx + ": shape " +
+                    std::to_string(e.shape) + " not in 0..1");
+            }
+            if (e.kind > wowee::pipeline::WoweeTrigger::KindWaypoint) {
+                errors.push_back(ctx + ": kind " +
+                    std::to_string(e.kind) + " not in 0..6");
+            }
+            if (!std::isfinite(e.center.x) ||
+                !std::isfinite(e.center.y) ||
+                !std::isfinite(e.center.z)) {
+                errors.push_back(ctx + ": center not finite");
+            }
+            // Sphere needs positive radius; box needs at least one
+            // positive half-extent.
+            if (e.shape == wowee::pipeline::WoweeTrigger::ShapeSphere) {
+                if (!std::isfinite(e.radius) || e.radius <= 0) {
+                    errors.push_back(ctx +
+                        ": sphere shape requires positive radius");
+                }
+            } else {
+                if (e.boxDims.x <= 0 && e.boxDims.y <= 0 && e.boxDims.z <= 0) {
+                    errors.push_back(ctx +
+                        ": box shape has all-zero half-extents");
+                }
+            }
+            // Teleport / InstanceEntrance must have a destination.
+            if (e.kind == wowee::pipeline::WoweeTrigger::KindTeleport ||
+                e.kind == wowee::pipeline::WoweeTrigger::KindInstanceEntrance) {
+                if (e.dest.x == 0 && e.dest.y == 0 && e.dest.z == 0) {
+                    warnings.push_back(ctx +
+                        ": teleport / instance trigger has dest=(0,0,0)");
+                }
+            }
+            // Quest exploration must reference a quest id.
+            if (e.kind == wowee::pipeline::WoweeTrigger::KindQuestExploration &&
+                e.actionTarget == 0) {
                 errors.push_back(ctx +
-                    ": sphere shape requires positive radius");
+                    ": KindQuestExploration requires actionTarget=questId");
             }
-        } else {
-            if (e.boxDims.x <= 0 && e.boxDims.y <= 0 && e.boxDims.z <= 0) {
-                errors.push_back(ctx +
-                    ": box shape has all-zero half-extents");
-            }
+            if (!idsSeen.add(e.triggerId)) errors.push_back(ctx + ": duplicate triggerId");
         }
-        // Teleport / InstanceEntrance must have a destination.
-        if (e.kind == wowee::pipeline::WoweeTrigger::KindTeleport ||
-            e.kind == wowee::pipeline::WoweeTrigger::KindInstanceEntrance) {
-            if (e.dest.x == 0 && e.dest.y == 0 && e.dest.z == 0) {
-                warnings.push_back(ctx +
-                    ": teleport / instance trigger has dest=(0,0,0)");
-            }
-        }
-        // Quest exploration must reference a quest id.
-        if (e.kind == wowee::pipeline::WoweeTrigger::KindQuestExploration &&
-            e.actionTarget == 0) {
-            errors.push_back(ctx +
-                ": KindQuestExploration requires actionTarget=questId");
-        }
-        if (!idsSeen.add(e.triggerId)) errors.push_back(ctx + ": duplicate triggerId");
-    }
-    return cli::reportValidation("wtrg", base, jsonOut, errors, warnings,
-                                 formatted("%zu triggers, all triggerIds unique", c.entries.size()));
+            return formatted("%zu triggers, all triggerIds unique", c.entries.size());
+        });
 }
 
 } // namespace

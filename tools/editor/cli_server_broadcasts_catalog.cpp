@@ -304,90 +304,82 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = cli::withoutExt(base, ".wscb");
-    if (!wowee::pipeline::WoweeServerBroadcastsLoader::exists(base)) {
-        return reportMissing("validate-wscb", "WSCB", base, ".wscb");
-    }
-    auto c = wowee::pipeline::WoweeServerBroadcastsLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    cli::DuplicateIdCheck idsSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.broadcastId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.broadcastId == 0)
-            errors.push_back(ctx + ": broadcastId is 0");
-        if (e.name.empty())
-            errors.push_back(ctx + ": name is empty");
-        if (e.messageText.empty())
-            errors.push_back(ctx + ": messageText is empty "
-                "— broadcast would deliver no payload");
-        if (e.factionFilter == 0 || e.factionFilter > 3) {
-            errors.push_back(ctx + ": factionFilter " +
-                std::to_string(e.factionFilter) +
-                " out of range (must be 1=A / 2=H / 3=Both)");
+    return cli::validateCatalog<wowee::pipeline::WoweeServerBroadcastsLoader>(
+        i, argc, argv, "wscb", "WSCB",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.broadcastId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.broadcastId == 0)
+                errors.push_back(ctx + ": broadcastId is 0");
+            if (e.name.empty())
+                errors.push_back(ctx + ": name is empty");
+            if (e.messageText.empty())
+                errors.push_back(ctx + ": messageText is empty "
+                    "— broadcast would deliver no payload");
+            if (e.factionFilter == 0 || e.factionFilter > 3) {
+                errors.push_back(ctx + ": factionFilter " +
+                    std::to_string(e.factionFilter) +
+                    " out of range (must be 1=A / 2=H / 3=Both)");
+            }
+            if (e.channelKind > 4) {
+                errors.push_back(ctx + ": channelKind " +
+                    std::to_string(e.channelKind) +
+                    " out of range (must be 0..4)");
+            }
+            if (e.minLevel > 0 && e.maxLevel > 0 &&
+                e.minLevel > e.maxLevel) {
+                errors.push_back(ctx + ": minLevel " +
+                    std::to_string(e.minLevel) +
+                    " > maxLevel " + std::to_string(e.maxLevel));
+            }
+            // Periodic broadcasts (interval>0) make sense
+            // mainly on SystemChannel and HelpTip. Login/MOTD
+            // with interval>0 is a configuration mistake —
+            // those fire on session enter, not on a timer.
+            using S = wowee::pipeline::WoweeServerBroadcasts;
+            if (e.intervalSeconds > 0 &&
+                (e.channelKind == S::Login ||
+                 e.channelKind == S::MOTD)) {
+                warnings.push_back(ctx +
+                    ": intervalSeconds=" +
+                    std::to_string(e.intervalSeconds) +
+                    " on " + channelKindName(e.channelKind) +
+                    " channel — login/MOTD fire on session "
+                    "enter, not on a timer; interval likely "
+                    "ignored");
+            }
+            // Very short intervals would spam players. Warn
+            // below 60 seconds; reject below 10 seconds.
+            if (e.intervalSeconds > 0 && e.intervalSeconds < 10) {
+                errors.push_back(ctx + ": intervalSeconds " +
+                    std::to_string(e.intervalSeconds) +
+                    " < 10 — would spam players faster than "
+                    "they can read");
+            } else if (e.intervalSeconds > 0 &&
+                       e.intervalSeconds < 60) {
+                warnings.push_back(ctx + ": intervalSeconds " +
+                    std::to_string(e.intervalSeconds) +
+                    " < 60 — broadcast fires more than once "
+                    "per minute; verify if intentional");
+            }
+            // Message length sanity: WoW chat message buffer
+            // is ~255 chars; over that, server may truncate.
+            if (e.messageText.size() > 255) {
+                warnings.push_back(ctx + ": messageText is " +
+                    std::to_string(e.messageText.size()) +
+                    " chars (>255) — server may truncate on "
+                    "delivery");
+            }
+            if (!idsSeen.add(e.broadcastId)) errors.push_back(ctx + ": duplicate broadcastId");
         }
-        if (e.channelKind > 4) {
-            errors.push_back(ctx + ": channelKind " +
-                std::to_string(e.channelKind) +
-                " out of range (must be 0..4)");
-        }
-        if (e.minLevel > 0 && e.maxLevel > 0 &&
-            e.minLevel > e.maxLevel) {
-            errors.push_back(ctx + ": minLevel " +
-                std::to_string(e.minLevel) +
-                " > maxLevel " + std::to_string(e.maxLevel));
-        }
-        // Periodic broadcasts (interval>0) make sense
-        // mainly on SystemChannel and HelpTip. Login/MOTD
-        // with interval>0 is a configuration mistake —
-        // those fire on session enter, not on a timer.
-        using S = wowee::pipeline::WoweeServerBroadcasts;
-        if (e.intervalSeconds > 0 &&
-            (e.channelKind == S::Login ||
-             e.channelKind == S::MOTD)) {
-            warnings.push_back(ctx +
-                ": intervalSeconds=" +
-                std::to_string(e.intervalSeconds) +
-                " on " + channelKindName(e.channelKind) +
-                " channel — login/MOTD fire on session "
-                "enter, not on a timer; interval likely "
-                "ignored");
-        }
-        // Very short intervals would spam players. Warn
-        // below 60 seconds; reject below 10 seconds.
-        if (e.intervalSeconds > 0 && e.intervalSeconds < 10) {
-            errors.push_back(ctx + ": intervalSeconds " +
-                std::to_string(e.intervalSeconds) +
-                " < 10 — would spam players faster than "
-                "they can read");
-        } else if (e.intervalSeconds > 0 &&
-                   e.intervalSeconds < 60) {
-            warnings.push_back(ctx + ": intervalSeconds " +
-                std::to_string(e.intervalSeconds) +
-                " < 60 — broadcast fires more than once "
-                "per minute; verify if intentional");
-        }
-        // Message length sanity: WoW chat message buffer
-        // is ~255 chars; over that, server may truncate.
-        if (e.messageText.size() > 255) {
-            warnings.push_back(ctx + ": messageText is " +
-                std::to_string(e.messageText.size()) +
-                " chars (>255) — server may truncate on "
-                "delivery");
-        }
-        if (!idsSeen.add(e.broadcastId)) errors.push_back(ctx + ": duplicate broadcastId");
-    }
-    return cli::reportValidation("wscb", base, jsonOut, errors, warnings,
-                                 formatted("%zu broadcasts, all ids unique", c.entries.size()));
+            return formatted("%zu broadcasts, all ids unique", c.entries.size());
+        });
 }
 
 } // namespace

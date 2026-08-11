@@ -250,45 +250,37 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = cli::withoutExt(base, ".wtkn");
-    if (!wowee::pipeline::WoweeTokenLoader::exists(base)) {
-        return reportMissing("validate-wtkn", "WTKN", base, ".wtkn");
-    }
-    auto c = wowee::pipeline::WoweeTokenLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    cli::DuplicateIdCheck idsSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.tokenId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.tokenId == 0) errors.push_back(ctx + ": tokenId is 0");
-        if (e.name.empty()) errors.push_back(ctx + ": name is empty");
-        if (e.category > wowee::pipeline::WoweeToken::Holiday) {
-            errors.push_back(ctx + ": category " +
-                std::to_string(e.category) + " not in 0..5");
+    return cli::validateCatalog<wowee::pipeline::WoweeTokenLoader>(
+        i, argc, argv, "wtkn", "WTKN",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.tokenId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.tokenId == 0) errors.push_back(ctx + ": tokenId is 0");
+            if (e.name.empty()) errors.push_back(ctx + ": name is empty");
+            if (e.category > wowee::pipeline::WoweeToken::Holiday) {
+                errors.push_back(ctx + ": category " +
+                    std::to_string(e.category) + " not in 0..5");
+            }
+            if (e.weeklyCap > 0 && e.maxBalance > 0 &&
+                e.weeklyCap > e.maxBalance) {
+                warnings.push_back(ctx +
+                    ": weeklyCap exceeds maxBalance (cap is unreachable)");
+            }
+            if ((e.flags & wowee::pipeline::WoweeToken::ResetsOnLogout) &&
+                (e.flags & wowee::pipeline::WoweeToken::AccountWide)) {
+                errors.push_back(ctx +
+                    ": ResetsOnLogout and AccountWide both set (incoherent)");
+            }
+            if (!idsSeen.add(e.tokenId)) errors.push_back(ctx + ": duplicate tokenId");
         }
-        if (e.weeklyCap > 0 && e.maxBalance > 0 &&
-            e.weeklyCap > e.maxBalance) {
-            warnings.push_back(ctx +
-                ": weeklyCap exceeds maxBalance (cap is unreachable)");
-        }
-        if ((e.flags & wowee::pipeline::WoweeToken::ResetsOnLogout) &&
-            (e.flags & wowee::pipeline::WoweeToken::AccountWide)) {
-            errors.push_back(ctx +
-                ": ResetsOnLogout and AccountWide both set (incoherent)");
-        }
-        if (!idsSeen.add(e.tokenId)) errors.push_back(ctx + ": duplicate tokenId");
-    }
-    return cli::reportValidation("wtkn", base, jsonOut, errors, warnings,
-                                 formatted("%zu tokens, all tokenIds unique", c.entries.size()));
+            return formatted("%zu tokens, all tokenIds unique", c.entries.size());
+        });
 }
 
 } // namespace

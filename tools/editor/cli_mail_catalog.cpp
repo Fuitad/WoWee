@@ -261,69 +261,61 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = cli::withoutExt(base, ".wmal");
-    if (!wowee::pipeline::WoweeMailLoader::exists(base)) {
-        return reportMissing("validate-wmal", "WMAL", base, ".wmal");
-    }
-    auto c = wowee::pipeline::WoweeMailLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    cli::DuplicateIdCheck idsSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.templateId) + ")";
-        if (e.templateId == 0) errors.push_back(ctx + ": templateId is 0");
-        if (e.subject.empty()) errors.push_back(ctx + ": subject is empty");
-        if (e.senderNpcId == 0 && e.senderName.empty()) {
-            errors.push_back(ctx +
-                ": neither senderNpcId nor senderName set (no displayable sender)");
-        }
-        if (e.categoryId > wowee::pipeline::WoweeMail::ReturnedMail) {
-            errors.push_back(ctx + ": categoryId " +
-                std::to_string(e.categoryId) + " not in 0..7");
-        }
-        if (e.expiryDays == 0) {
-            warnings.push_back(ctx +
-                ": expiryDays=0 (mail expires immediately)");
-        }
-        if (e.cod && e.moneyCopperAttached == 0) {
-            warnings.push_back(ctx +
-                ": cod=1 but moneyCopperAttached=0 (free COD)");
-        }
-        // Mail with no money + no items is informational only.
-        // Legitimate for GM correspondence (text-only notices)
-        // and for the Auction category where the runtime fills
-        // in the real outcome (winning bid amount / sold item)
-        // at send time. Flag only for the categories where
-        // empty mail is genuinely a typo.
-        if (e.moneyCopperAttached == 0 && e.attachments.empty() &&
-            e.categoryId != wowee::pipeline::WoweeMail::GmCorrespondence &&
-            e.categoryId != wowee::pipeline::WoweeMail::Auction &&
-            e.categoryId != wowee::pipeline::WoweeMail::ReturnedMail) {
-            warnings.push_back(ctx +
-                ": no money + no items (informational mail only)");
-        }
-        for (size_t ai = 0; ai < e.attachments.size(); ++ai) {
-            const auto& a = e.attachments[ai];
-            if (a.itemId == 0) {
-                errors.push_back(ctx + " attachment " + std::to_string(ai) +
-                    ": itemId is 0");
+    return cli::validateCatalog<wowee::pipeline::WoweeMailLoader>(
+        i, argc, argv, "wmal", "WMAL",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.templateId) + ")";
+            if (e.templateId == 0) errors.push_back(ctx + ": templateId is 0");
+            if (e.subject.empty()) errors.push_back(ctx + ": subject is empty");
+            if (e.senderNpcId == 0 && e.senderName.empty()) {
+                errors.push_back(ctx +
+                    ": neither senderNpcId nor senderName set (no displayable sender)");
             }
-            if (a.quantity == 0) {
-                errors.push_back(ctx + " attachment " + std::to_string(ai) +
-                    ": quantity is 0");
+            if (e.categoryId > wowee::pipeline::WoweeMail::ReturnedMail) {
+                errors.push_back(ctx + ": categoryId " +
+                    std::to_string(e.categoryId) + " not in 0..7");
             }
+            if (e.expiryDays == 0) {
+                warnings.push_back(ctx +
+                    ": expiryDays=0 (mail expires immediately)");
+            }
+            if (e.cod && e.moneyCopperAttached == 0) {
+                warnings.push_back(ctx +
+                    ": cod=1 but moneyCopperAttached=0 (free COD)");
+            }
+            // Mail with no money + no items is informational only.
+            // Legitimate for GM correspondence (text-only notices)
+            // and for the Auction category where the runtime fills
+            // in the real outcome (winning bid amount / sold item)
+            // at send time. Flag only for the categories where
+            // empty mail is genuinely a typo.
+            if (e.moneyCopperAttached == 0 && e.attachments.empty() &&
+                e.categoryId != wowee::pipeline::WoweeMail::GmCorrespondence &&
+                e.categoryId != wowee::pipeline::WoweeMail::Auction &&
+                e.categoryId != wowee::pipeline::WoweeMail::ReturnedMail) {
+                warnings.push_back(ctx +
+                    ": no money + no items (informational mail only)");
+            }
+            for (size_t ai = 0; ai < e.attachments.size(); ++ai) {
+                const auto& a = e.attachments[ai];
+                if (a.itemId == 0) {
+                    errors.push_back(ctx + " attachment " + std::to_string(ai) +
+                        ": itemId is 0");
+                }
+                if (a.quantity == 0) {
+                    errors.push_back(ctx + " attachment " + std::to_string(ai) +
+                        ": quantity is 0");
+                }
+            }
+            if (!idsSeen.add(e.templateId)) errors.push_back(ctx + ": duplicate templateId");
         }
-        if (!idsSeen.add(e.templateId)) errors.push_back(ctx + ": duplicate templateId");
-    }
-    return cli::reportValidation("wmal", base, jsonOut, errors, warnings,
-                                 formatted("%zu templates, all templateIds unique", c.entries.size()));
+            return formatted("%zu templates, all templateIds unique", c.entries.size());
+        });
 }
 
 } // namespace

@@ -285,72 +285,64 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = cli::withoutExt(base, ".wsef");
-    if (!wowee::pipeline::WoweeSpellEffectTypeLoader::exists(base)) {
-        return reportMissing("validate-wsef", "WSEF", base, ".wsef");
-    }
-    auto c = wowee::pipeline::WoweeSpellEffectTypeLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    cli::DuplicateIdCheck idsSeen;
-    constexpr uint8_t kKnownFlagMask =
-        wowee::pipeline::WoweeSpellEffectType::RequiresTarget |
-        wowee::pipeline::WoweeSpellEffectType::RequiresLineOfSight |
-        wowee::pipeline::WoweeSpellEffectType::IsHostileEffect |
-        wowee::pipeline::WoweeSpellEffectType::IsBeneficialEffect |
-        wowee::pipeline::WoweeSpellEffectType::IgnoresImmunities |
-        wowee::pipeline::WoweeSpellEffectType::TriggersGCD;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.effectId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.name.empty())
-            errors.push_back(ctx + ": name is empty");
-        if (e.effectKind > wowee::pipeline::WoweeSpellEffectType::Misc) {
-            errors.push_back(ctx + ": effectKind " +
-                std::to_string(e.effectKind) + " not in 0..9");
+    return cli::validateCatalog<wowee::pipeline::WoweeSpellEffectTypeLoader>(
+        i, argc, argv, "wsef", "WSEF",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        constexpr uint8_t kKnownFlagMask =
+            wowee::pipeline::WoweeSpellEffectType::RequiresTarget |
+            wowee::pipeline::WoweeSpellEffectType::RequiresLineOfSight |
+            wowee::pipeline::WoweeSpellEffectType::IsHostileEffect |
+            wowee::pipeline::WoweeSpellEffectType::IsBeneficialEffect |
+            wowee::pipeline::WoweeSpellEffectType::IgnoresImmunities |
+            wowee::pipeline::WoweeSpellEffectType::TriggersGCD;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.effectId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.name.empty())
+                errors.push_back(ctx + ": name is empty");
+            if (e.effectKind > wowee::pipeline::WoweeSpellEffectType::Misc) {
+                errors.push_back(ctx + ": effectKind " +
+                    std::to_string(e.effectKind) + " not in 0..9");
+            }
+            if (e.behaviorFlags & ~kKnownFlagMask) {
+                warnings.push_back(ctx +
+                    ": behaviorFlags has bits outside known mask " +
+                    "(0x" + std::to_string(e.behaviorFlags & ~kKnownFlagMask) +
+                    ") — engine will ignore unknown flags");
+            }
+            // Both Hostile and Beneficial set is contradictory.
+            if ((e.behaviorFlags & wowee::pipeline::WoweeSpellEffectType::IsHostileEffect) &&
+                (e.behaviorFlags & wowee::pipeline::WoweeSpellEffectType::IsBeneficialEffect)) {
+                warnings.push_back(ctx +
+                    ": both IsHostileEffect and IsBeneficialEffect "
+                    "flags set — engine treats this as Hostile (flag "
+                    "wins) but the contradiction suggests a config bug");
+            }
+            // Damage kind without TriggersGCD is unusual.
+            if (e.effectKind == wowee::pipeline::WoweeSpellEffectType::Damage &&
+                !(e.behaviorFlags & wowee::pipeline::WoweeSpellEffectType::TriggersGCD) &&
+                e.effectId != 13) {  // EnvironmentalDamage doesn't trigger GCD
+                warnings.push_back(ctx +
+                    ": Damage kind without TriggersGCD — most damage "
+                    "effects should be on the GCD; double-check this "
+                    "is intentional");
+            }
+            // Heal kind without IsBeneficialEffect is suspicious.
+            if (e.effectKind == wowee::pipeline::WoweeSpellEffectType::Heal &&
+                !(e.behaviorFlags & wowee::pipeline::WoweeSpellEffectType::IsBeneficialEffect)) {
+                warnings.push_back(ctx +
+                    ": Heal kind without IsBeneficialEffect — "
+                    "engine treats heals as ungated, may damage enemies");
+            }
+            if (!idsSeen.add(e.effectId)) errors.push_back(ctx + ": duplicate effectId");
         }
-        if (e.behaviorFlags & ~kKnownFlagMask) {
-            warnings.push_back(ctx +
-                ": behaviorFlags has bits outside known mask " +
-                "(0x" + std::to_string(e.behaviorFlags & ~kKnownFlagMask) +
-                ") — engine will ignore unknown flags");
-        }
-        // Both Hostile and Beneficial set is contradictory.
-        if ((e.behaviorFlags & wowee::pipeline::WoweeSpellEffectType::IsHostileEffect) &&
-            (e.behaviorFlags & wowee::pipeline::WoweeSpellEffectType::IsBeneficialEffect)) {
-            warnings.push_back(ctx +
-                ": both IsHostileEffect and IsBeneficialEffect "
-                "flags set — engine treats this as Hostile (flag "
-                "wins) but the contradiction suggests a config bug");
-        }
-        // Damage kind without TriggersGCD is unusual.
-        if (e.effectKind == wowee::pipeline::WoweeSpellEffectType::Damage &&
-            !(e.behaviorFlags & wowee::pipeline::WoweeSpellEffectType::TriggersGCD) &&
-            e.effectId != 13) {  // EnvironmentalDamage doesn't trigger GCD
-            warnings.push_back(ctx +
-                ": Damage kind without TriggersGCD — most damage "
-                "effects should be on the GCD; double-check this "
-                "is intentional");
-        }
-        // Heal kind without IsBeneficialEffect is suspicious.
-        if (e.effectKind == wowee::pipeline::WoweeSpellEffectType::Heal &&
-            !(e.behaviorFlags & wowee::pipeline::WoweeSpellEffectType::IsBeneficialEffect)) {
-            warnings.push_back(ctx +
-                ": Heal kind without IsBeneficialEffect — "
-                "engine treats heals as ungated, may damage enemies");
-        }
-        if (!idsSeen.add(e.effectId)) errors.push_back(ctx + ": duplicate effectId");
-    }
-    return cli::reportValidation("wsef", base, jsonOut, errors, warnings,
-                                 formatted("%zu effects, all effectIds unique", c.entries.size()));
+            return formatted("%zu effects, all effectIds unique", c.entries.size());
+        });
 }
 
 } // namespace

@@ -371,63 +371,55 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = cli::withoutExt(base, ".wcrt");
-    if (!wowee::pipeline::WoweeCreatureLoader::exists(base)) {
-        return reportMissing("validate-wcrt", "WCRT", base, ".wcrt");
-    }
-    auto c = wowee::pipeline::WoweeCreatureLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    cli::DuplicateIdCheck idsSeen;
-    idsSeen.reserve(c.entries.size());
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.creatureId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.creatureId == 0) {
-            errors.push_back(ctx + ": creatureId is 0");
+    return cli::validateCatalog<wowee::pipeline::WoweeCreatureLoader>(
+        i, argc, argv, "wcrt", "WCRT",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        idsSeen.reserve(c.entries.size());
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.creatureId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.creatureId == 0) {
+                errors.push_back(ctx + ": creatureId is 0");
+            }
+            if (e.minLevel == 0) {
+                errors.push_back(ctx + ": minLevel is 0");
+            }
+            if (e.minLevel > e.maxLevel) {
+                errors.push_back(ctx + ": minLevel > maxLevel");
+            }
+            if (e.baseHealth == 0) {
+                errors.push_back(ctx + ": baseHealth is 0 (creature dies on spawn)");
+            }
+            if (e.damageMin > e.damageMax) {
+                errors.push_back(ctx + ": damageMin > damageMax");
+            }
+            if (e.attackSpeedMs == 0) {
+                errors.push_back(ctx + ": attackSpeedMs is 0 (would divide by zero)");
+            }
+            if (e.runSpeed <= 0 || e.walkSpeed <= 0) {
+                errors.push_back(ctx + ": walk/runSpeed must be positive");
+            }
+            // Conflicting AI flags: passive AND aggressive is incoherent.
+            if ((e.aiFlags & wowee::pipeline::WoweeCreature::AiPassive) &&
+                (e.aiFlags & wowee::pipeline::WoweeCreature::AiAggressive)) {
+                warnings.push_back(ctx + ": both AiPassive and AiAggressive set");
+            }
+            // Vendor + hostile is rare but possible (gnomish merchants
+            // surrounded by hostile NPCs); flag as warning to catch typos.
+            if ((e.npcFlags & wowee::pipeline::WoweeCreature::Vendor) &&
+                (e.aiFlags & wowee::pipeline::WoweeCreature::AiAggressive)) {
+                warnings.push_back(ctx +
+                    ": vendor with aggressive AI (player can't trade)");
+            }
+            if (!idsSeen.add(e.creatureId)) errors.push_back(ctx + ": duplicate creatureId");
         }
-        if (e.minLevel == 0) {
-            errors.push_back(ctx + ": minLevel is 0");
-        }
-        if (e.minLevel > e.maxLevel) {
-            errors.push_back(ctx + ": minLevel > maxLevel");
-        }
-        if (e.baseHealth == 0) {
-            errors.push_back(ctx + ": baseHealth is 0 (creature dies on spawn)");
-        }
-        if (e.damageMin > e.damageMax) {
-            errors.push_back(ctx + ": damageMin > damageMax");
-        }
-        if (e.attackSpeedMs == 0) {
-            errors.push_back(ctx + ": attackSpeedMs is 0 (would divide by zero)");
-        }
-        if (e.runSpeed <= 0 || e.walkSpeed <= 0) {
-            errors.push_back(ctx + ": walk/runSpeed must be positive");
-        }
-        // Conflicting AI flags: passive AND aggressive is incoherent.
-        if ((e.aiFlags & wowee::pipeline::WoweeCreature::AiPassive) &&
-            (e.aiFlags & wowee::pipeline::WoweeCreature::AiAggressive)) {
-            warnings.push_back(ctx + ": both AiPassive and AiAggressive set");
-        }
-        // Vendor + hostile is rare but possible (gnomish merchants
-        // surrounded by hostile NPCs); flag as warning to catch typos.
-        if ((e.npcFlags & wowee::pipeline::WoweeCreature::Vendor) &&
-            (e.aiFlags & wowee::pipeline::WoweeCreature::AiAggressive)) {
-            warnings.push_back(ctx +
-                ": vendor with aggressive AI (player can't trade)");
-        }
-        if (!idsSeen.add(e.creatureId)) errors.push_back(ctx + ": duplicate creatureId");
-    }
-    return cli::reportValidation("wcrt", base, jsonOut, errors, warnings,
-                                 formatted("%zu creatures, all creatureIds unique", c.entries.size()));
+            return formatted("%zu creatures, all creatureIds unique", c.entries.size());
+        });
 }
 
 } // namespace

@@ -276,59 +276,51 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = cli::withoutExt(base, ".wgot");
-    if (!wowee::pipeline::WoweeGameObjectLoader::exists(base)) {
-        return reportMissing("validate-wgot", "WGOT", base, ".wgot");
-    }
-    auto c = wowee::pipeline::WoweeGameObjectLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    cli::DuplicateIdCheck idsSeen;
-    idsSeen.reserve(c.entries.size());
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.objectId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.objectId == 0) {
-            errors.push_back(ctx + ": objectId is 0");
+    return cli::validateCatalog<wowee::pipeline::WoweeGameObjectLoader>(
+        i, argc, argv, "wgot", "WGOT",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        idsSeen.reserve(c.entries.size());
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.objectId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.objectId == 0) {
+                errors.push_back(ctx + ": objectId is 0");
+            }
+            if (e.size <= 0.0f) {
+                errors.push_back(ctx + ": size <= 0");
+            }
+            if (e.minOpenTimeMs > e.maxOpenTimeMs) {
+                errors.push_back(ctx + ": minOpenTimeMs > maxOpenTimeMs");
+            }
+            // Gathering nodes need a skill requirement to be useful.
+            if ((e.typeId == wowee::pipeline::WoweeGameObject::HerbNode ||
+                 e.typeId == wowee::pipeline::WoweeGameObject::MineralNode ||
+                 e.typeId == wowee::pipeline::WoweeGameObject::FishingNode) &&
+                e.requiredSkill == 0) {
+                warnings.push_back(ctx +
+                    ": gathering node has no required skill (anyone can harvest)");
+            }
+            // Chest with no loot table is rare but possible (event-spawn
+            // chests fill via script).
+            if (e.typeId == wowee::pipeline::WoweeGameObject::Chest &&
+                e.lootTableId == 0) {
+                warnings.push_back(ctx +
+                    ": chest has no lootTableId (script must populate)");
+            }
+            // requiredSkillValue without requiredSkill is incoherent.
+            if (e.requiredSkill == 0 && e.requiredSkillValue > 0) {
+                errors.push_back(ctx +
+                    ": requiredSkillValue > 0 but requiredSkill is 0");
+            }
+            if (!idsSeen.add(e.objectId)) errors.push_back(ctx + ": duplicate objectId");
         }
-        if (e.size <= 0.0f) {
-            errors.push_back(ctx + ": size <= 0");
-        }
-        if (e.minOpenTimeMs > e.maxOpenTimeMs) {
-            errors.push_back(ctx + ": minOpenTimeMs > maxOpenTimeMs");
-        }
-        // Gathering nodes need a skill requirement to be useful.
-        if ((e.typeId == wowee::pipeline::WoweeGameObject::HerbNode ||
-             e.typeId == wowee::pipeline::WoweeGameObject::MineralNode ||
-             e.typeId == wowee::pipeline::WoweeGameObject::FishingNode) &&
-            e.requiredSkill == 0) {
-            warnings.push_back(ctx +
-                ": gathering node has no required skill (anyone can harvest)");
-        }
-        // Chest with no loot table is rare but possible (event-spawn
-        // chests fill via script).
-        if (e.typeId == wowee::pipeline::WoweeGameObject::Chest &&
-            e.lootTableId == 0) {
-            warnings.push_back(ctx +
-                ": chest has no lootTableId (script must populate)");
-        }
-        // requiredSkillValue without requiredSkill is incoherent.
-        if (e.requiredSkill == 0 && e.requiredSkillValue > 0) {
-            errors.push_back(ctx +
-                ": requiredSkillValue > 0 but requiredSkill is 0");
-        }
-        if (!idsSeen.add(e.objectId)) errors.push_back(ctx + ": duplicate objectId");
-    }
-    return cli::reportValidation("wgot", base, jsonOut, errors, warnings,
-                                 formatted("%zu objects, all objectIds unique", c.entries.size()));
+            return formatted("%zu objects, all objectIds unique", c.entries.size());
+        });
 }
 
 } // namespace

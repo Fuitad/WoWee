@@ -309,71 +309,63 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = cli::withoutExt(base, ".whrt");
-    if (!wowee::pipeline::WoweeHearthBindsLoader::exists(base)) {
-        return reportMissing("validate-whrt", "WHRT", base, ".whrt");
-    }
-    auto c = wowee::pipeline::WoweeHearthBindsLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    cli::DuplicateIdCheck idsSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.bindId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.bindId == 0)
-            errors.push_back(ctx + ": bindId is 0");
-        if (e.name.empty())
-            errors.push_back(ctx + ": name is empty");
-        if (e.factionMask == 0 || e.factionMask > 3) {
-            errors.push_back(ctx + ": factionMask " +
-                std::to_string(e.factionMask) +
-                " out of range (must be 1=A / 2=H / 3=Both)");
+    return cli::validateCatalog<wowee::pipeline::WoweeHearthBindsLoader>(
+        i, argc, argv, "whrt", "WHRT",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.bindId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.bindId == 0)
+                errors.push_back(ctx + ": bindId is 0");
+            if (e.name.empty())
+                errors.push_back(ctx + ": name is empty");
+            if (e.factionMask == 0 || e.factionMask > 3) {
+                errors.push_back(ctx + ": factionMask " +
+                    std::to_string(e.factionMask) +
+                    " out of range (must be 1=A / 2=H / 3=Both)");
+            }
+            if (e.bindKind > 5) {
+                errors.push_back(ctx + ": bindKind " +
+                    std::to_string(e.bindKind) +
+                    " out of range (must be 0..5)");
+            }
+            // Bind position must not be at origin (probably
+            // unset). Origin coords often indicate a forgotten
+            // SetPosition call in a content authoring tool.
+            if (e.x == 0.0f && e.y == 0.0f && e.z == 0.0f) {
+                warnings.push_back(ctx +
+                    ": position is (0,0,0) — likely forgotten "
+                    "SetPosition; bind would teleport player to "
+                    "world origin");
+            }
+            // Inn-kind bindings should have an NPC bind clerk
+            // (the innkeeper). SpecialPort bindings often
+            // don't. Warn if Inn and npcId=0.
+            using H = wowee::pipeline::WoweeHearthBinds;
+            if (e.bindKind == H::Inn && e.npcId == 0) {
+                warnings.push_back(ctx +
+                    ": Inn bind has no NPC innkeeper (npcId=0). "
+                    "Inn bindings should reference the WCRT "
+                    "innkeeper entry.");
+            }
+            // Quest-given bindings without level gate are
+            // suspicious — quest binds usually require level
+            // (Theramore at 30+, Wyrmrest at 70+).
+            if (e.bindKind == H::Quest && e.levelMin == 0) {
+                warnings.push_back(ctx +
+                    ": Quest bind has levelMin=0 — quest "
+                    "bindings usually have a minimum level "
+                    "gate; verify if intentional");
+            }
+            if (!idsSeen.add(e.bindId)) errors.push_back(ctx + ": duplicate bindId");
         }
-        if (e.bindKind > 5) {
-            errors.push_back(ctx + ": bindKind " +
-                std::to_string(e.bindKind) +
-                " out of range (must be 0..5)");
-        }
-        // Bind position must not be at origin (probably
-        // unset). Origin coords often indicate a forgotten
-        // SetPosition call in a content authoring tool.
-        if (e.x == 0.0f && e.y == 0.0f && e.z == 0.0f) {
-            warnings.push_back(ctx +
-                ": position is (0,0,0) — likely forgotten "
-                "SetPosition; bind would teleport player to "
-                "world origin");
-        }
-        // Inn-kind bindings should have an NPC bind clerk
-        // (the innkeeper). SpecialPort bindings often
-        // don't. Warn if Inn and npcId=0.
-        using H = wowee::pipeline::WoweeHearthBinds;
-        if (e.bindKind == H::Inn && e.npcId == 0) {
-            warnings.push_back(ctx +
-                ": Inn bind has no NPC innkeeper (npcId=0). "
-                "Inn bindings should reference the WCRT "
-                "innkeeper entry.");
-        }
-        // Quest-given bindings without level gate are
-        // suspicious — quest binds usually require level
-        // (Theramore at 30+, Wyrmrest at 70+).
-        if (e.bindKind == H::Quest && e.levelMin == 0) {
-            warnings.push_back(ctx +
-                ": Quest bind has levelMin=0 — quest "
-                "bindings usually have a minimum level "
-                "gate; verify if intentional");
-        }
-        if (!idsSeen.add(e.bindId)) errors.push_back(ctx + ": duplicate bindId");
-    }
-    return cli::reportValidation("whrt", base, jsonOut, errors, warnings,
-                                 formatted("%zu binds, all bindIds unique", c.entries.size()));
+            return formatted("%zu binds, all bindIds unique", c.entries.size());
+        });
 }
 
 } // namespace

@@ -242,65 +242,57 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = cli::withoutExt(base, ".wbkd");
-    if (!wowee::pipeline::WoweeNPCServiceLoader::exists(base)) {
-        return reportMissing("validate-wbkd", "WBKD", base, ".wbkd");
-    }
-    auto c = wowee::pipeline::WoweeNPCServiceLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    cli::DuplicateIdCheck idsSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.serviceId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.serviceId == 0)
-            errors.push_back(ctx + ": serviceId is 0");
-        if (e.name.empty())
-            errors.push_back(ctx + ": name is empty");
-        if (e.serviceKind > wowee::pipeline::WoweeNPCService::Misc) {
-            errors.push_back(ctx + ": serviceKind " +
-                std::to_string(e.serviceKind) + " not in 0..11");
+    return cli::validateCatalog<wowee::pipeline::WoweeNPCServiceLoader>(
+        i, argc, argv, "wbkd", "WBKD",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.serviceId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.serviceId == 0)
+                errors.push_back(ctx + ": serviceId is 0");
+            if (e.name.empty())
+                errors.push_back(ctx + ": name is empty");
+            if (e.serviceKind > wowee::pipeline::WoweeNPCService::Misc) {
+                errors.push_back(ctx + ": serviceKind " +
+                    std::to_string(e.serviceKind) + " not in 0..11");
+            }
+            // Mailbox is a gameobject service, not an NPC —
+            // shouldn't have a gossipTextId. Warn so authors
+            // double-check.
+            if (e.serviceKind == wowee::pipeline::WoweeNPCService::Mailbox &&
+                e.gossipTextId != 0) {
+                warnings.push_back(ctx +
+                    ": Mailbox kind with gossipTextId=" +
+                    std::to_string(e.gossipTextId) +
+                    " — mailboxes are gameobject services with "
+                    "no NPC dialogue; gossip will not display");
+            }
+            // Innkeeper without a gossip text reads as a silent
+            // bind interaction — usually a missing link.
+            if (e.serviceKind == wowee::pipeline::WoweeNPCService::Innkeeper &&
+                e.gossipTextId == 0) {
+                warnings.push_back(ctx +
+                    ": Innkeeper kind with gossipTextId=0 — "
+                    "no welcome/bind dialogue, will silently bind");
+            }
+            // Battlemaster gold cost > 0 is unusual — battle
+            // queues are typically free.
+            if (e.serviceKind == wowee::pipeline::WoweeNPCService::Battlemaster &&
+                e.requiresGold > 0) {
+                warnings.push_back(ctx +
+                    ": Battlemaster kind with requiresGold=" +
+                    std::to_string(e.requiresGold) +
+                    " — battle queue services are typically free");
+            }
+            if (!idsSeen.add(e.serviceId)) errors.push_back(ctx + ": duplicate serviceId");
         }
-        // Mailbox is a gameobject service, not an NPC —
-        // shouldn't have a gossipTextId. Warn so authors
-        // double-check.
-        if (e.serviceKind == wowee::pipeline::WoweeNPCService::Mailbox &&
-            e.gossipTextId != 0) {
-            warnings.push_back(ctx +
-                ": Mailbox kind with gossipTextId=" +
-                std::to_string(e.gossipTextId) +
-                " — mailboxes are gameobject services with "
-                "no NPC dialogue; gossip will not display");
-        }
-        // Innkeeper without a gossip text reads as a silent
-        // bind interaction — usually a missing link.
-        if (e.serviceKind == wowee::pipeline::WoweeNPCService::Innkeeper &&
-            e.gossipTextId == 0) {
-            warnings.push_back(ctx +
-                ": Innkeeper kind with gossipTextId=0 — "
-                "no welcome/bind dialogue, will silently bind");
-        }
-        // Battlemaster gold cost > 0 is unusual — battle
-        // queues are typically free.
-        if (e.serviceKind == wowee::pipeline::WoweeNPCService::Battlemaster &&
-            e.requiresGold > 0) {
-            warnings.push_back(ctx +
-                ": Battlemaster kind with requiresGold=" +
-                std::to_string(e.requiresGold) +
-                " — battle queue services are typically free");
-        }
-        if (!idsSeen.add(e.serviceId)) errors.push_back(ctx + ": duplicate serviceId");
-    }
-    return cli::reportValidation("wbkd", base, jsonOut, errors, warnings,
-                                 formatted("%zu services, all serviceIds unique", c.entries.size()));
+            return formatted("%zu services, all serviceIds unique", c.entries.size());
+        });
 }
 
 } // namespace

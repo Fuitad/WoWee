@@ -223,70 +223,62 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = cli::withoutExt(base, ".wsvk");
-    if (!wowee::pipeline::WoweeSpellVisualKitLoader::exists(base)) {
-        return reportMissing("validate-wsvk", "WSVK", base, ".wsvk");
-    }
-    auto c = wowee::pipeline::WoweeSpellVisualKitLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    cli::DuplicateIdCheck idsSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.visualKitId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.visualKitId == 0)
-            errors.push_back(ctx + ": visualKitId is 0");
-        if (e.name.empty())
-            errors.push_back(ctx + ": name is empty");
-        if (e.projectileSpeed < 0.0f)
-            errors.push_back(ctx + ": projectileSpeed " +
-                std::to_string(e.projectileSpeed) +
-                " negative (use 0 for instant)");
-        if (e.projectileGravity < 0.0f)
-            errors.push_back(ctx + ": projectileGravity " +
-                std::to_string(e.projectileGravity) +
-                " negative (use 0 for straight line)");
-        if (e.impactRadius < 0.0f)
-            errors.push_back(ctx + ": impactRadius " +
-                std::to_string(e.impactRadius) +
-                " negative (use 0 for single-target)");
-        // Projectile model + zero speed = projectile defined
-        // but never travels. Inverse: speed > 0 + no model =
-        // invisible projectile. Both are usually mistakes.
-        if (!e.projectileModelPath.empty() &&
-            e.projectileSpeed == 0.0f) {
-            warnings.push_back(ctx +
-                ": projectileModelPath set but projectileSpeed=0 "
-                "(model never travels)");
+    return cli::validateCatalog<wowee::pipeline::WoweeSpellVisualKitLoader>(
+        i, argc, argv, "wsvk", "WSVK",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.visualKitId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.visualKitId == 0)
+                errors.push_back(ctx + ": visualKitId is 0");
+            if (e.name.empty())
+                errors.push_back(ctx + ": name is empty");
+            if (e.projectileSpeed < 0.0f)
+                errors.push_back(ctx + ": projectileSpeed " +
+                    std::to_string(e.projectileSpeed) +
+                    " negative (use 0 for instant)");
+            if (e.projectileGravity < 0.0f)
+                errors.push_back(ctx + ": projectileGravity " +
+                    std::to_string(e.projectileGravity) +
+                    " negative (use 0 for straight line)");
+            if (e.impactRadius < 0.0f)
+                errors.push_back(ctx + ": impactRadius " +
+                    std::to_string(e.impactRadius) +
+                    " negative (use 0 for single-target)");
+            // Projectile model + zero speed = projectile defined
+            // but never travels. Inverse: speed > 0 + no model =
+            // invisible projectile. Both are usually mistakes.
+            if (!e.projectileModelPath.empty() &&
+                e.projectileSpeed == 0.0f) {
+                warnings.push_back(ctx +
+                    ": projectileModelPath set but projectileSpeed=0 "
+                    "(model never travels)");
+            }
+            if (e.projectileModelPath.empty() &&
+                e.projectileSpeed > 0.0f) {
+                warnings.push_back(ctx +
+                    ": projectileSpeed > 0 but no projectileModelPath "
+                    "(invisible projectile)");
+            }
+            // No effect model AND no animation AND no sound = the
+            // visual kit has no observable effect at all.
+            if (e.castEffectModelPath.empty() &&
+                e.impactEffectModelPath.empty() &&
+                e.handEffectModelPath.empty() &&
+                e.castAnimId == 0 && e.impactAnimId == 0 &&
+                e.castSoundId == 0 && e.impactSoundId == 0) {
+                warnings.push_back(ctx +
+                    ": no models, animations, or sounds — visual kit has no observable effect");
+            }
+            if (!idsSeen.add(e.visualKitId)) errors.push_back(ctx + ": duplicate visualKitId");
         }
-        if (e.projectileModelPath.empty() &&
-            e.projectileSpeed > 0.0f) {
-            warnings.push_back(ctx +
-                ": projectileSpeed > 0 but no projectileModelPath "
-                "(invisible projectile)");
-        }
-        // No effect model AND no animation AND no sound = the
-        // visual kit has no observable effect at all.
-        if (e.castEffectModelPath.empty() &&
-            e.impactEffectModelPath.empty() &&
-            e.handEffectModelPath.empty() &&
-            e.castAnimId == 0 && e.impactAnimId == 0 &&
-            e.castSoundId == 0 && e.impactSoundId == 0) {
-            warnings.push_back(ctx +
-                ": no models, animations, or sounds — visual kit has no observable effect");
-        }
-        if (!idsSeen.add(e.visualKitId)) errors.push_back(ctx + ": duplicate visualKitId");
-    }
-    return cli::reportValidation("wsvk", base, jsonOut, errors, warnings,
-                                 formatted("%zu visual kits, all visualKitIds unique", c.entries.size()));
+            return formatted("%zu visual kits, all visualKitIds unique", c.entries.size());
+        });
 }
 
 } // namespace

@@ -234,75 +234,67 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = cli::withoutExt(base, ".wact");
-    if (!wowee::pipeline::WoweeActionBarLoader::exists(base)) {
-        return reportMissing("validate-wact", "WACT", base, ".wact");
-    }
-    auto c = wowee::pipeline::WoweeActionBarLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    cli::DuplicateIdCheck idsSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.bindingId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.bindingId == 0)
-            errors.push_back(ctx + ": bindingId is 0");
-        if (e.name.empty())
-            errors.push_back(ctx + ": name is empty");
-        if (e.classMask == 0)
-            errors.push_back(ctx +
-                ": classMask is 0 — no class can use this binding");
-        if (e.barMode > wowee::pipeline::WoweeActionBar::Custom) {
-            errors.push_back(ctx + ": barMode " +
-                std::to_string(e.barMode) + " not in 0..6");
+    return cli::validateCatalog<wowee::pipeline::WoweeActionBarLoader>(
+        i, argc, argv, "wact", "WACT",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.bindingId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.bindingId == 0)
+                errors.push_back(ctx + ": bindingId is 0");
+            if (e.name.empty())
+                errors.push_back(ctx + ": name is empty");
+            if (e.classMask == 0)
+                errors.push_back(ctx +
+                    ": classMask is 0 — no class can use this binding");
+            if (e.barMode > wowee::pipeline::WoweeActionBar::Custom) {
+                errors.push_back(ctx + ": barMode " +
+                    std::to_string(e.barMode) + " not in 0..6");
+            }
+            if (e.buttonSlot > 143) {
+                warnings.push_back(ctx +
+                    ": buttonSlot " + std::to_string(e.buttonSlot) +
+                    " > 143 (12 bars × 12 slots = 144 max)");
+            }
+            // Both spellId and itemId set is contradictory.
+            if (e.spellId != 0 && e.itemId != 0) {
+                warnings.push_back(ctx +
+                    ": both spellId and itemId set — engine prefers "
+                    "spellId; itemId is ignored");
+            }
+            // Neither set means an empty button.
+            if (e.spellId == 0 && e.itemId == 0) {
+                warnings.push_back(ctx +
+                    ": both spellId=0 and itemId=0 — button will be empty");
+            }
+            if (!idsSeen.add(e.bindingId)) errors.push_back(ctx + ": duplicate bindingId");
         }
-        if (e.buttonSlot > 143) {
-            warnings.push_back(ctx +
-                ": buttonSlot " + std::to_string(e.buttonSlot) +
-                " > 143 (12 bars × 12 slots = 144 max)");
+        // Cross-entry: detect (classMask, barMode, buttonSlot)
+        // collisions where overlapping classes would fight for
+        // the same physical slot.
+        for (size_t a = 0; a < c.entries.size(); ++a) {
+            for (size_t b = a + 1; b < c.entries.size(); ++b) {
+                const auto& ea = c.entries[a];
+                const auto& eb = c.entries[b];
+                if (ea.barMode != eb.barMode) continue;
+                if (ea.buttonSlot != eb.buttonSlot) continue;
+                if ((ea.classMask & eb.classMask) == 0) continue;
+                warnings.push_back(
+                    "entries " + std::to_string(a) + " (" +
+                    ea.name + ") and " + std::to_string(b) + " (" +
+                    eb.name + ") share " +
+                    wowee::pipeline::WoweeActionBar::barModeName(ea.barMode) +
+                    " bar slot " + std::to_string(ea.buttonSlot) +
+                    " for overlapping classMask — slot collision");
+            }
         }
-        // Both spellId and itemId set is contradictory.
-        if (e.spellId != 0 && e.itemId != 0) {
-            warnings.push_back(ctx +
-                ": both spellId and itemId set — engine prefers "
-                "spellId; itemId is ignored");
-        }
-        // Neither set means an empty button.
-        if (e.spellId == 0 && e.itemId == 0) {
-            warnings.push_back(ctx +
-                ": both spellId=0 and itemId=0 — button will be empty");
-        }
-        if (!idsSeen.add(e.bindingId)) errors.push_back(ctx + ": duplicate bindingId");
-    }
-    // Cross-entry: detect (classMask, barMode, buttonSlot)
-    // collisions where overlapping classes would fight for
-    // the same physical slot.
-    for (size_t a = 0; a < c.entries.size(); ++a) {
-        for (size_t b = a + 1; b < c.entries.size(); ++b) {
-            const auto& ea = c.entries[a];
-            const auto& eb = c.entries[b];
-            if (ea.barMode != eb.barMode) continue;
-            if (ea.buttonSlot != eb.buttonSlot) continue;
-            if ((ea.classMask & eb.classMask) == 0) continue;
-            warnings.push_back(
-                "entries " + std::to_string(a) + " (" +
-                ea.name + ") and " + std::to_string(b) + " (" +
-                eb.name + ") share " +
-                wowee::pipeline::WoweeActionBar::barModeName(ea.barMode) +
-                " bar slot " + std::to_string(ea.buttonSlot) +
-                " for overlapping classMask — slot collision");
-        }
-    }
-    return cli::reportValidation("wact", base, jsonOut, errors, warnings,
-                                 formatted("%zu bindings, all bindingIds unique, no slot collisions", c.entries.size()));
+            return formatted("%zu bindings, all bindingIds unique, no slot collisions", c.entries.size());
+        });
 }
 
 } // namespace

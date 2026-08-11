@@ -222,70 +222,62 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = cli::withoutExt(base, ".wcrr");
-    if (!wowee::pipeline::WoweeCombatRatingLoader::exists(base)) {
-        return reportMissing("validate-wcrr", "WCRR", base, ".wcrr");
-    }
-    auto c = wowee::pipeline::WoweeCombatRatingLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    cli::DuplicateIdCheck idsSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.ratingType);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.ratingType == 0)
-            errors.push_back(ctx + ": ratingType is 0");
-        if (e.name.empty())
-            errors.push_back(ctx + ": name is empty");
-        if (e.ratingKind > wowee::pipeline::WoweeCombatRating::Other) {
-            errors.push_back(ctx + ": ratingKind " +
-                std::to_string(e.ratingKind) + " not in 0..4");
+    return cli::validateCatalog<wowee::pipeline::WoweeCombatRatingLoader>(
+        i, argc, argv, "wcrr", "WCRR",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.ratingType);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.ratingType == 0)
+                errors.push_back(ctx + ": ratingType is 0");
+            if (e.name.empty())
+                errors.push_back(ctx + ": name is empty");
+            if (e.ratingKind > wowee::pipeline::WoweeCombatRating::Other) {
+                errors.push_back(ctx + ": ratingKind " +
+                    std::to_string(e.ratingKind) + " not in 0..4");
+            }
+            // Conversion floor must be > 0 — division by zero
+            // would crash the stat resolver.
+            if (e.pointsAtL1 <= 0.0f || e.pointsAtL60 <= 0.0f ||
+                e.pointsAtL70 <= 0.0f || e.pointsAtL80 <= 0.0f) {
+                errors.push_back(ctx +
+                    ": one or more pointsAtLN values <= 0 "
+                    "(divide-by-zero risk in stat resolver)");
+            }
+            if (e.maxBenefitPercent <= 0.0f) {
+                errors.push_back(ctx +
+                    ": maxBenefitPercent " +
+                    std::to_string(e.maxBenefitPercent) +
+                    " <= 0 (rating would never grant any benefit)");
+            }
+            // The conversion curve should be monotonic-ascending
+            // (more rating needed at higher levels). A flat or
+            // descending curve is plausible only for direct 1:1
+            // ratings (SpellPower / SpellPenetration / MP5).
+            bool flat = e.pointsAtL1 == e.pointsAtL60 &&
+                         e.pointsAtL60 == e.pointsAtL70 &&
+                         e.pointsAtL70 == e.pointsAtL80;
+            bool ascending = e.pointsAtL1 <= e.pointsAtL60 &&
+                              e.pointsAtL60 <= e.pointsAtL70 &&
+                              e.pointsAtL70 <= e.pointsAtL80;
+            if (!flat && !ascending) {
+                warnings.push_back(ctx +
+                    ": conversion curve non-monotonic (" +
+                    std::to_string(e.pointsAtL1) + " / " +
+                    std::to_string(e.pointsAtL60) + " / " +
+                    std::to_string(e.pointsAtL70) + " / " +
+                    std::to_string(e.pointsAtL80) +
+                    ") — typically rating cost ascends with level");
+            }
+            if (!idsSeen.add(e.ratingType)) errors.push_back(ctx + ": duplicate ratingType");
         }
-        // Conversion floor must be > 0 — division by zero
-        // would crash the stat resolver.
-        if (e.pointsAtL1 <= 0.0f || e.pointsAtL60 <= 0.0f ||
-            e.pointsAtL70 <= 0.0f || e.pointsAtL80 <= 0.0f) {
-            errors.push_back(ctx +
-                ": one or more pointsAtLN values <= 0 "
-                "(divide-by-zero risk in stat resolver)");
-        }
-        if (e.maxBenefitPercent <= 0.0f) {
-            errors.push_back(ctx +
-                ": maxBenefitPercent " +
-                std::to_string(e.maxBenefitPercent) +
-                " <= 0 (rating would never grant any benefit)");
-        }
-        // The conversion curve should be monotonic-ascending
-        // (more rating needed at higher levels). A flat or
-        // descending curve is plausible only for direct 1:1
-        // ratings (SpellPower / SpellPenetration / MP5).
-        bool flat = e.pointsAtL1 == e.pointsAtL60 &&
-                     e.pointsAtL60 == e.pointsAtL70 &&
-                     e.pointsAtL70 == e.pointsAtL80;
-        bool ascending = e.pointsAtL1 <= e.pointsAtL60 &&
-                          e.pointsAtL60 <= e.pointsAtL70 &&
-                          e.pointsAtL70 <= e.pointsAtL80;
-        if (!flat && !ascending) {
-            warnings.push_back(ctx +
-                ": conversion curve non-monotonic (" +
-                std::to_string(e.pointsAtL1) + " / " +
-                std::to_string(e.pointsAtL60) + " / " +
-                std::to_string(e.pointsAtL70) + " / " +
-                std::to_string(e.pointsAtL80) +
-                ") — typically rating cost ascends with level");
-        }
-        if (!idsSeen.add(e.ratingType)) errors.push_back(ctx + ": duplicate ratingType");
-    }
-    return cli::reportValidation("wcrr", base, jsonOut, errors, warnings,
-                                 formatted("%zu ratings, all ratingTypes unique, all curves monotonic", c.entries.size()));
+            return formatted("%zu ratings, all ratingTypes unique, all curves monotonic", c.entries.size());
+        });
 }
 
 } // namespace

@@ -249,52 +249,44 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = cli::withoutExt(base, ".wchn");
-    if (!wowee::pipeline::WoweeChannelLoader::exists(base)) {
-        return reportMissing("validate-wchn", "WCHN", base, ".wchn");
-    }
-    auto c = wowee::pipeline::WoweeChannelLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    cli::DuplicateIdCheck idsSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.channelId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.channelId == 0) errors.push_back(ctx + ": channelId is 0");
-        if (e.name.empty()) errors.push_back(ctx + ": name is empty");
-        if (e.channelType > wowee::pipeline::WoweeChannel::Pvp) {
-            errors.push_back(ctx + ": channelType " +
-                std::to_string(e.channelType) + " not in 0..9");
+    return cli::validateCatalog<wowee::pipeline::WoweeChannelLoader>(
+        i, argc, argv, "wchn", "WCHN",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.channelId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.channelId == 0) errors.push_back(ctx + ": channelId is 0");
+            if (e.name.empty()) errors.push_back(ctx + ": name is empty");
+            if (e.channelType > wowee::pipeline::WoweeChannel::Pvp) {
+                errors.push_back(ctx + ": channelType " +
+                    std::to_string(e.channelType) + " not in 0..9");
+            }
+            if (e.factionAccess > wowee::pipeline::WoweeChannel::Both) {
+                errors.push_back(ctx + ": factionAccess " +
+                    std::to_string(e.factionAccess) + " not in 0..2");
+            }
+            // AreaLocal / Zone channels with no area gate aren't broken,
+            // but world / continent channels with an area gate is
+            // contradictory.
+            if ((e.channelType == wowee::pipeline::WoweeChannel::World ||
+                 e.channelType == wowee::pipeline::WoweeChannel::Continent) &&
+                (e.areaIdGate != 0 || e.mapIdGate != 0)) {
+                warnings.push_back(ctx +
+                    ": world/continent channel with area or map gate "
+                    "(gate is silently ignored at runtime)");
+            }
+            if (e.minLevel == 0) {
+                warnings.push_back(ctx + ": minLevel=0 (no level gate at all)");
+            }
+            if (!idsSeen.add(e.channelId)) errors.push_back(ctx + ": duplicate channelId");
         }
-        if (e.factionAccess > wowee::pipeline::WoweeChannel::Both) {
-            errors.push_back(ctx + ": factionAccess " +
-                std::to_string(e.factionAccess) + " not in 0..2");
-        }
-        // AreaLocal / Zone channels with no area gate aren't broken,
-        // but world / continent channels with an area gate is
-        // contradictory.
-        if ((e.channelType == wowee::pipeline::WoweeChannel::World ||
-             e.channelType == wowee::pipeline::WoweeChannel::Continent) &&
-            (e.areaIdGate != 0 || e.mapIdGate != 0)) {
-            warnings.push_back(ctx +
-                ": world/continent channel with area or map gate "
-                "(gate is silently ignored at runtime)");
-        }
-        if (e.minLevel == 0) {
-            warnings.push_back(ctx + ": minLevel=0 (no level gate at all)");
-        }
-        if (!idsSeen.add(e.channelId)) errors.push_back(ctx + ": duplicate channelId");
-    }
-    return cli::reportValidation("wchn", base, jsonOut, errors, warnings,
-                                 formatted("%zu channels, all channelIds unique", c.entries.size()));
+            return formatted("%zu channels, all channelIds unique", c.entries.size());
+        });
 }
 
 } // namespace

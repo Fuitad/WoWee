@@ -333,81 +333,73 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = cli::withoutExt(base, ".wtrn");
-    if (!wowee::pipeline::WoweeTrainerLoader::exists(base)) {
-        return reportMissing("validate-wtrn", "WTRN", base, ".wtrn");
-    }
-    auto c = wowee::pipeline::WoweeTrainerLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    cli::DuplicateIdCheck idsSeen;
-    idsSeen.reserve(c.entries.size());
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (npcId=" + std::to_string(e.npcId) + ")";
-        if (e.npcId == 0) {
-            errors.push_back(ctx + ": npcId is 0");
-        }
-        if (e.kindMask == 0) {
-            errors.push_back(ctx + ": kindMask is 0 (NPC offers nothing)");
-        }
-        // Trainer kind needs spells; vendor kind needs items.
-        if ((e.kindMask & wowee::pipeline::WoweeTrainer::Trainer) &&
-            e.spells.empty()) {
-            warnings.push_back(ctx +
-                ": flagged Trainer but has no spells");
-        }
-        if ((e.kindMask & wowee::pipeline::WoweeTrainer::Vendor) &&
-            e.items.empty()) {
-            warnings.push_back(ctx +
-                ": flagged Vendor but has no items");
-        }
-        // Items / spells with kindMask not matching are dead config.
-        if (!(e.kindMask & wowee::pipeline::WoweeTrainer::Trainer) &&
-            !e.spells.empty()) {
-            warnings.push_back(ctx +
-                ": has " + std::to_string(e.spells.size()) +
-                " spells but Trainer bit not set (spells will be ignored)");
-        }
-        if (!(e.kindMask & wowee::pipeline::WoweeTrainer::Vendor) &&
-            !e.items.empty()) {
-            warnings.push_back(ctx +
-                ": has " + std::to_string(e.items.size()) +
-                " items but Vendor bit not set (items will be ignored)");
-        }
-        for (size_t si = 0; si < e.spells.size(); ++si) {
-            const auto& s = e.spells[si];
-            std::string sctx = ctx + " spell " + std::to_string(si);
-            if (s.spellId == 0) {
-                errors.push_back(sctx + ": spellId is 0");
+    return cli::validateCatalog<wowee::pipeline::WoweeTrainerLoader>(
+        i, argc, argv, "wtrn", "WTRN",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        idsSeen.reserve(c.entries.size());
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (npcId=" + std::to_string(e.npcId) + ")";
+            if (e.npcId == 0) {
+                errors.push_back(ctx + ": npcId is 0");
             }
-        }
-        for (size_t ii = 0; ii < e.items.size(); ++ii) {
-            const auto& it = e.items[ii];
-            std::string ictx = ctx + " item " + std::to_string(ii);
-            if (it.itemId == 0) {
-                errors.push_back(ictx + ": itemId is 0");
+            if (e.kindMask == 0) {
+                errors.push_back(ctx + ": kindMask is 0 (NPC offers nothing)");
             }
-            // Finite stock with restockSec=0 means "single fill"
-            // — usually intentional but worth surfacing.
-            if (it.stockCount != wowee::pipeline::WoweeTrainer::kUnlimitedStock &&
-                it.restockSec == 0 && it.stockCount > 0) {
-                warnings.push_back(ictx +
-                    ": finite stock with restockSec=0 (no automatic refresh)");
+            // Trainer kind needs spells; vendor kind needs items.
+            if ((e.kindMask & wowee::pipeline::WoweeTrainer::Trainer) &&
+                e.spells.empty()) {
+                warnings.push_back(ctx +
+                    ": flagged Trainer but has no spells");
             }
+            if ((e.kindMask & wowee::pipeline::WoweeTrainer::Vendor) &&
+                e.items.empty()) {
+                warnings.push_back(ctx +
+                    ": flagged Vendor but has no items");
+            }
+            // Items / spells with kindMask not matching are dead config.
+            if (!(e.kindMask & wowee::pipeline::WoweeTrainer::Trainer) &&
+                !e.spells.empty()) {
+                warnings.push_back(ctx +
+                    ": has " + std::to_string(e.spells.size()) +
+                    " spells but Trainer bit not set (spells will be ignored)");
+            }
+            if (!(e.kindMask & wowee::pipeline::WoweeTrainer::Vendor) &&
+                !e.items.empty()) {
+                warnings.push_back(ctx +
+                    ": has " + std::to_string(e.items.size()) +
+                    " items but Vendor bit not set (items will be ignored)");
+            }
+            for (size_t si = 0; si < e.spells.size(); ++si) {
+                const auto& s = e.spells[si];
+                std::string sctx = ctx + " spell " + std::to_string(si);
+                if (s.spellId == 0) {
+                    errors.push_back(sctx + ": spellId is 0");
+                }
+            }
+            for (size_t ii = 0; ii < e.items.size(); ++ii) {
+                const auto& it = e.items[ii];
+                std::string ictx = ctx + " item " + std::to_string(ii);
+                if (it.itemId == 0) {
+                    errors.push_back(ictx + ": itemId is 0");
+                }
+                // Finite stock with restockSec=0 means "single fill"
+                // — usually intentional but worth surfacing.
+                if (it.stockCount != wowee::pipeline::WoweeTrainer::kUnlimitedStock &&
+                    it.restockSec == 0 && it.stockCount > 0) {
+                    warnings.push_back(ictx +
+                        ": finite stock with restockSec=0 (no automatic refresh)");
+                }
+            }
+            if (!idsSeen.add(e.npcId)) errors.push_back(ctx + ": duplicate npcId");
         }
-        if (!idsSeen.add(e.npcId)) errors.push_back(ctx + ": duplicate npcId");
-    }
-    return cli::reportValidation("wtrn", base, jsonOut, errors, warnings,
-                                 formatted("%zu npcs, %u spell offers, %u item offers", c.entries.size(),
+            return formatted("%zu npcs, %u spell offers, %u item offers", c.entries.size(),
                     totalSpellOffers(c),
-                    totalItemOffers(c)));
+                    totalItemOffers(c));
+        });
 }
 
 } // namespace

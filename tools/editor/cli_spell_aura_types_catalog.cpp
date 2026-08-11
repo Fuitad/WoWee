@@ -277,64 +277,56 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = cli::withoutExt(base, ".waur");
-    if (!wowee::pipeline::WoweeSpellAuraTypeLoader::exists(base)) {
-        return reportMissing("validate-waur", "WAUR", base, ".waur");
-    }
-    auto c = wowee::pipeline::WoweeSpellAuraTypeLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    cli::DuplicateIdCheck idsSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.auraTypeId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.name.empty())
-            errors.push_back(ctx + ": name is empty");
-        if (e.auraKind > wowee::pipeline::WoweeSpellAuraType::Misc) {
-            errors.push_back(ctx + ": auraKind " +
-                std::to_string(e.auraKind) + " not in 0..8");
+    return cli::validateCatalog<wowee::pipeline::WoweeSpellAuraTypeLoader>(
+        i, argc, argv, "waur", "WAUR",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.auraTypeId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.name.empty())
+                errors.push_back(ctx + ": name is empty");
+            if (e.auraKind > wowee::pipeline::WoweeSpellAuraType::Misc) {
+                errors.push_back(ctx + ": auraKind " +
+                    std::to_string(e.auraKind) + " not in 0..8");
+            }
+            if (e.targetingHint > wowee::pipeline::WoweeSpellAuraType::BeneficialOnly) {
+                errors.push_back(ctx + ": targetingHint " +
+                    std::to_string(e.targetingHint) + " not in 0..3");
+            }
+            // Periodic kind requires updateFrequencyMs > 0.
+            if (e.auraKind == wowee::pipeline::WoweeSpellAuraType::Periodic &&
+                e.updateFrequencyMs == 0) {
+                errors.push_back(ctx +
+                    ": Periodic kind requires updateFrequencyMs > 0 "
+                    "— aura would never tick");
+            }
+            // Non-periodic with updateFrequencyMs > 0 is suspicious.
+            if (e.auraKind != wowee::pipeline::WoweeSpellAuraType::Periodic &&
+                e.auraKind != wowee::pipeline::WoweeSpellAuraType::Trigger &&
+                e.updateFrequencyMs != 0) {
+                warnings.push_back(ctx +
+                    ": " +
+                    wowee::pipeline::WoweeSpellAuraType::auraKindName(e.auraKind) +
+                    " kind with updateFrequencyMs=" +
+                    std::to_string(e.updateFrequencyMs) +
+                    " — non-periodic auras don't tick, engine ignores");
+            }
+            // maxStackCount > 0 with isStackable=0 is contradictory.
+            if (e.isStackable == 0 && e.maxStackCount > 0) {
+                warnings.push_back(ctx +
+                    ": maxStackCount=" + std::to_string(e.maxStackCount) +
+                    " set but isStackable=false — stack cap is "
+                    "unreachable");
+            }
+            if (!idsSeen.add(e.auraTypeId)) errors.push_back(ctx + ": duplicate auraTypeId");
         }
-        if (e.targetingHint > wowee::pipeline::WoweeSpellAuraType::BeneficialOnly) {
-            errors.push_back(ctx + ": targetingHint " +
-                std::to_string(e.targetingHint) + " not in 0..3");
-        }
-        // Periodic kind requires updateFrequencyMs > 0.
-        if (e.auraKind == wowee::pipeline::WoweeSpellAuraType::Periodic &&
-            e.updateFrequencyMs == 0) {
-            errors.push_back(ctx +
-                ": Periodic kind requires updateFrequencyMs > 0 "
-                "— aura would never tick");
-        }
-        // Non-periodic with updateFrequencyMs > 0 is suspicious.
-        if (e.auraKind != wowee::pipeline::WoweeSpellAuraType::Periodic &&
-            e.auraKind != wowee::pipeline::WoweeSpellAuraType::Trigger &&
-            e.updateFrequencyMs != 0) {
-            warnings.push_back(ctx +
-                ": " +
-                wowee::pipeline::WoweeSpellAuraType::auraKindName(e.auraKind) +
-                " kind with updateFrequencyMs=" +
-                std::to_string(e.updateFrequencyMs) +
-                " — non-periodic auras don't tick, engine ignores");
-        }
-        // maxStackCount > 0 with isStackable=0 is contradictory.
-        if (e.isStackable == 0 && e.maxStackCount > 0) {
-            warnings.push_back(ctx +
-                ": maxStackCount=" + std::to_string(e.maxStackCount) +
-                " set but isStackable=false — stack cap is "
-                "unreachable");
-        }
-        if (!idsSeen.add(e.auraTypeId)) errors.push_back(ctx + ": duplicate auraTypeId");
-    }
-    return cli::reportValidation("waur", base, jsonOut, errors, warnings,
-                                 formatted("%zu auras, all auraTypeIds unique", c.entries.size()));
+            return formatted("%zu auras, all auraTypeIds unique", c.entries.size());
+        });
 }
 
 } // namespace

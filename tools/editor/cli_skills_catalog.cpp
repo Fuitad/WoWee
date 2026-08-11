@@ -216,56 +216,48 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = cli::withoutExt(base, ".wskl");
-    if (!wowee::pipeline::WoweeSkillLoader::exists(base)) {
-        return reportMissing("validate-wskl", "WSKL", base, ".wskl");
-    }
-    auto c = wowee::pipeline::WoweeSkillLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    cli::DuplicateIdCheck idsSeen;
-    idsSeen.reserve(c.entries.size());
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.skillId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.skillId == 0) {
-            errors.push_back(ctx + ": skillId is 0");
+    return cli::validateCatalog<wowee::pipeline::WoweeSkillLoader>(
+        i, argc, argv, "wskl", "WSKL",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        idsSeen.reserve(c.entries.size());
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.skillId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.skillId == 0) {
+                errors.push_back(ctx + ": skillId is 0");
+            }
+            if (e.name.empty()) {
+                errors.push_back(ctx + ": name is empty");
+            }
+            if (e.maxRank == 0) {
+                errors.push_back(ctx + ": maxRank is 0");
+            }
+            if (e.categoryId > wowee::pipeline::WoweeSkill::WeaponSpec) {
+                errors.push_back(ctx + ": categoryId " +
+                    std::to_string(e.categoryId) + " not in 0..7");
+            }
+            // Languages have maxRank=1 (you either know it or you don't);
+            // anything else with maxRank=1 is suspicious.
+            if (e.maxRank == 1 &&
+                e.categoryId != wowee::pipeline::WoweeSkill::Language) {
+                warnings.push_back(ctx +
+                    ": maxRank=1 on non-Language skill (only languages cap at 1)");
+            }
+            // Weapon skills should auto-grow (rankPerLevel > 0).
+            if (e.categoryId == wowee::pipeline::WoweeSkill::Weapon &&
+                e.rankPerLevel == 0) {
+                warnings.push_back(ctx +
+                    ": weapon skill with rankPerLevel=0 (won't auto-grow on use)");
+            }
+            if (!idsSeen.add(e.skillId)) errors.push_back(ctx + ": duplicate skillId");
         }
-        if (e.name.empty()) {
-            errors.push_back(ctx + ": name is empty");
-        }
-        if (e.maxRank == 0) {
-            errors.push_back(ctx + ": maxRank is 0");
-        }
-        if (e.categoryId > wowee::pipeline::WoweeSkill::WeaponSpec) {
-            errors.push_back(ctx + ": categoryId " +
-                std::to_string(e.categoryId) + " not in 0..7");
-        }
-        // Languages have maxRank=1 (you either know it or you don't);
-        // anything else with maxRank=1 is suspicious.
-        if (e.maxRank == 1 &&
-            e.categoryId != wowee::pipeline::WoweeSkill::Language) {
-            warnings.push_back(ctx +
-                ": maxRank=1 on non-Language skill (only languages cap at 1)");
-        }
-        // Weapon skills should auto-grow (rankPerLevel > 0).
-        if (e.categoryId == wowee::pipeline::WoweeSkill::Weapon &&
-            e.rankPerLevel == 0) {
-            warnings.push_back(ctx +
-                ": weapon skill with rankPerLevel=0 (won't auto-grow on use)");
-        }
-        if (!idsSeen.add(e.skillId)) errors.push_back(ctx + ": duplicate skillId");
-    }
-    return cli::reportValidation("wskl", base, jsonOut, errors, warnings,
-                                 formatted("%zu skills, all skillIds unique", c.entries.size()));
+            return formatted("%zu skills, all skillIds unique", c.entries.size());
+        });
 }
 
 } // namespace

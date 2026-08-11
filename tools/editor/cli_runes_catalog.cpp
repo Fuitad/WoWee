@@ -231,79 +231,71 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = cli::withoutExt(base, ".wrun");
-    if (!wowee::pipeline::WoweeRuneCostLoader::exists(base)) {
-        return reportMissing("validate-wrun", "WRUN", base, ".wrun");
-    }
-    auto c = wowee::pipeline::WoweeRuneCostLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    cli::DuplicateIdCheck idsSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.runeCostId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.runeCostId == 0)
-            errors.push_back(ctx + ": runeCostId is 0");
-        if (e.name.empty())
-            errors.push_back(ctx + ": name is empty");
-        if (e.spellId == 0)
-            errors.push_back(ctx +
-                ": spellId is 0 (rune cost not bound to a WSPL spell)");
-        if (e.spellTreeBranch > wowee::pipeline::WoweeRuneCost::Generic) {
-            errors.push_back(ctx + ": spellTreeBranch " +
-                std::to_string(e.spellTreeBranch) + " not in 0..3");
+    return cli::validateCatalog<wowee::pipeline::WoweeRuneCostLoader>(
+        i, argc, argv, "wrun", "WRUN",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.runeCostId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.runeCostId == 0)
+                errors.push_back(ctx + ": runeCostId is 0");
+            if (e.name.empty())
+                errors.push_back(ctx + ": name is empty");
+            if (e.spellId == 0)
+                errors.push_back(ctx +
+                    ": spellId is 0 (rune cost not bound to a WSPL spell)");
+            if (e.spellTreeBranch > wowee::pipeline::WoweeRuneCost::Generic) {
+                errors.push_back(ctx + ": spellTreeBranch " +
+                    std::to_string(e.spellTreeBranch) + " not in 0..3");
+            }
+            // A DK has 6 runes total (2 of each kind) — a single
+            // ability cost shouldn't exceed 2 of any one type
+            // because the system can't satisfy it.
+            if (e.bloodCost > 2)
+                errors.push_back(ctx + ": bloodCost " +
+                    std::to_string(e.bloodCost) + " exceeds 2 (DK only "
+                    "has 2 blood runes)");
+            if (e.frostCost > 2)
+                errors.push_back(ctx + ": frostCost " +
+                    std::to_string(e.frostCost) + " exceeds 2");
+            if (e.unholyCost > 2)
+                errors.push_back(ctx + ": unholyCost " +
+                    std::to_string(e.unholyCost) + " exceeds 2");
+            // A spell with no rune cost AND no runic-power cost
+            // is weird — every DK ability either consumes
+            // resources, generates them, or applies a stance.
+            // We don't have stance info here, so warn.
+            bool noResourceCost = e.bloodCost == 0 && e.frostCost == 0 &&
+                                  e.unholyCost == 0 &&
+                                  e.anyDeathConvertCost == 0 &&
+                                  e.runicPowerCost == 0;
+            if (noResourceCost) {
+                warnings.push_back(ctx +
+                    ": no rune or runic-power cost — verify this is "
+                    "intentional (passive / stance / forms only)");
+            }
+            // RP cost > 100 isn't possible — max RP cap is 100.
+            if (e.runicPowerCost > 100) {
+                errors.push_back(ctx +
+                    ": runicPowerCost " +
+                    std::to_string(e.runicPowerCost) +
+                    " exceeds 100 (DK runic power max)");
+            }
+            if (e.runicPowerCost < -25) {
+                warnings.push_back(ctx +
+                    ": runicPowerCost " +
+                    std::to_string(e.runicPowerCost) +
+                    " generates more than 25 RP per cast — unusual");
+            }
+            if (!idsSeen.add(e.runeCostId)) errors.push_back(ctx + ": duplicate runeCostId");
         }
-        // A DK has 6 runes total (2 of each kind) — a single
-        // ability cost shouldn't exceed 2 of any one type
-        // because the system can't satisfy it.
-        if (e.bloodCost > 2)
-            errors.push_back(ctx + ": bloodCost " +
-                std::to_string(e.bloodCost) + " exceeds 2 (DK only "
-                "has 2 blood runes)");
-        if (e.frostCost > 2)
-            errors.push_back(ctx + ": frostCost " +
-                std::to_string(e.frostCost) + " exceeds 2");
-        if (e.unholyCost > 2)
-            errors.push_back(ctx + ": unholyCost " +
-                std::to_string(e.unholyCost) + " exceeds 2");
-        // A spell with no rune cost AND no runic-power cost
-        // is weird — every DK ability either consumes
-        // resources, generates them, or applies a stance.
-        // We don't have stance info here, so warn.
-        bool noResourceCost = e.bloodCost == 0 && e.frostCost == 0 &&
-                              e.unholyCost == 0 &&
-                              e.anyDeathConvertCost == 0 &&
-                              e.runicPowerCost == 0;
-        if (noResourceCost) {
-            warnings.push_back(ctx +
-                ": no rune or runic-power cost — verify this is "
-                "intentional (passive / stance / forms only)");
-        }
-        // RP cost > 100 isn't possible — max RP cap is 100.
-        if (e.runicPowerCost > 100) {
-            errors.push_back(ctx +
-                ": runicPowerCost " +
-                std::to_string(e.runicPowerCost) +
-                " exceeds 100 (DK runic power max)");
-        }
-        if (e.runicPowerCost < -25) {
-            warnings.push_back(ctx +
-                ": runicPowerCost " +
-                std::to_string(e.runicPowerCost) +
-                " generates more than 25 RP per cast — unusual");
-        }
-        if (!idsSeen.add(e.runeCostId)) errors.push_back(ctx + ": duplicate runeCostId");
-    }
-    return cli::reportValidation("wrun", base, jsonOut, errors, warnings,
-                                 formatted("%zu rune costs, all runeCostIds unique, all costs within DK budget", c.entries.size()));
+            return formatted("%zu rune costs, all runeCostIds unique, all costs within DK budget", c.entries.size());
+        });
 }
 
 } // namespace

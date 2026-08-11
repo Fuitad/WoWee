@@ -253,63 +253,55 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = cli::withoutExt(base, ".wsmc");
-    if (!wowee::pipeline::WoweeSpellMechanicLoader::exists(base)) {
-        return reportMissing("validate-wsmc", "WSMC", base, ".wsmc");
-    }
-    auto c = wowee::pipeline::WoweeSpellMechanicLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    cli::DuplicateIdCheck idsSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.mechanicId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.mechanicId == 0)
-            errors.push_back(ctx + ": mechanicId is 0");
-        if (e.name.empty())
-            errors.push_back(ctx + ": name is empty");
-        if (e.drCategory > wowee::pipeline::WoweeSpellMechanic::DRMisc) {
-            errors.push_back(ctx + ": drCategory " +
-                std::to_string(e.drCategory) + " not in 0..7");
+    return cli::validateCatalog<wowee::pipeline::WoweeSpellMechanicLoader>(
+        i, argc, argv, "wsmc", "WSMC",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.mechanicId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.mechanicId == 0)
+                errors.push_back(ctx + ": mechanicId is 0");
+            if (e.name.empty())
+                errors.push_back(ctx + ": name is empty");
+            if (e.drCategory > wowee::pipeline::WoweeSpellMechanic::DRMisc) {
+                errors.push_back(ctx + ": drCategory " +
+                    std::to_string(e.drCategory) + " not in 0..7");
+            }
+            if (e.dispelType > wowee::pipeline::WoweeSpellMechanic::DispelStealth) {
+                errors.push_back(ctx + ": dispelType " +
+                    std::to_string(e.dispelType) + " not in 0..6");
+            }
+            if (e.maxStacks == 0) {
+                errors.push_back(ctx +
+                    ": maxStacks=0 (mechanic could never apply)");
+            }
+            // canBeDispelled=1 with dispelType=None is contradictory
+            // — without a dispel category, no spell can target this
+            // mechanic for removal.
+            if (e.canBeDispelled &&
+                e.dispelType == wowee::pipeline::WoweeSpellMechanic::DispelNone) {
+                errors.push_back(ctx +
+                    ": canBeDispelled=1 but dispelType=none "
+                    "(no dispel spell can target this)");
+            }
+            // A mechanic that conflicts with itself is wrong —
+            // `conflictsMask & (1 << mechanicId)` would mean the
+            // mechanic blocks itself.
+            if (e.mechanicId < 32 &&
+                (e.conflictsMask & (1u << e.mechanicId))) {
+                errors.push_back(ctx +
+                    ": conflictsMask includes own mechanicId bit "
+                    "(mechanic conflicts with itself)");
+            }
+            if (!idsSeen.add(e.mechanicId)) errors.push_back(ctx + ": duplicate mechanicId");
         }
-        if (e.dispelType > wowee::pipeline::WoweeSpellMechanic::DispelStealth) {
-            errors.push_back(ctx + ": dispelType " +
-                std::to_string(e.dispelType) + " not in 0..6");
-        }
-        if (e.maxStacks == 0) {
-            errors.push_back(ctx +
-                ": maxStacks=0 (mechanic could never apply)");
-        }
-        // canBeDispelled=1 with dispelType=None is contradictory
-        // — without a dispel category, no spell can target this
-        // mechanic for removal.
-        if (e.canBeDispelled &&
-            e.dispelType == wowee::pipeline::WoweeSpellMechanic::DispelNone) {
-            errors.push_back(ctx +
-                ": canBeDispelled=1 but dispelType=none "
-                "(no dispel spell can target this)");
-        }
-        // A mechanic that conflicts with itself is wrong —
-        // `conflictsMask & (1 << mechanicId)` would mean the
-        // mechanic blocks itself.
-        if (e.mechanicId < 32 &&
-            (e.conflictsMask & (1u << e.mechanicId))) {
-            errors.push_back(ctx +
-                ": conflictsMask includes own mechanicId bit "
-                "(mechanic conflicts with itself)");
-        }
-        if (!idsSeen.add(e.mechanicId)) errors.push_back(ctx + ": duplicate mechanicId");
-    }
-    return cli::reportValidation("wsmc", base, jsonOut, errors, warnings,
-                                 formatted("%zu mechanics, all mechanicIds unique", c.entries.size()));
+            return formatted("%zu mechanics, all mechanicIds unique", c.entries.size());
+        });
 }
 
 } // namespace

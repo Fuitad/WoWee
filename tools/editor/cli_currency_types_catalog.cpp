@@ -252,66 +252,58 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = cli::withoutExt(base, ".wctr");
-    if (!wowee::pipeline::WoweeCurrencyTypeLoader::exists(base)) {
-        return reportMissing("validate-wctr", "WCTR", base, ".wctr");
-    }
-    auto c = wowee::pipeline::WoweeCurrencyTypeLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    cli::DuplicateIdCheck idsSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.currencyId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.currencyId == 0)
-            errors.push_back(ctx + ": currencyId is 0");
-        if (e.name.empty())
-            errors.push_back(ctx + ": name is empty");
-        if (e.currencyKind > wowee::pipeline::WoweeCurrencyType::Misc) {
-            errors.push_back(ctx + ": currencyKind " +
-                std::to_string(e.currencyKind) + " not in 0..5");
+    return cli::validateCatalog<wowee::pipeline::WoweeCurrencyTypeLoader>(
+        i, argc, argv, "wctr", "WCTR",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.currencyId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.currencyId == 0)
+                errors.push_back(ctx + ": currencyId is 0");
+            if (e.name.empty())
+                errors.push_back(ctx + ": name is empty");
+            if (e.currencyKind > wowee::pipeline::WoweeCurrencyType::Misc) {
+                errors.push_back(ctx + ": currencyKind " +
+                    std::to_string(e.currencyKind) + " not in 0..5");
+            }
+            if (e.maxQuantity != 0 &&
+                e.maxQuantityWeekly != 0 &&
+                e.maxQuantityWeekly > e.maxQuantity) {
+                warnings.push_back(ctx +
+                    ": maxQuantityWeekly " +
+                    std::to_string(e.maxQuantityWeekly) +
+                    " > maxQuantity " +
+                    std::to_string(e.maxQuantity) +
+                    " — weekly cap exceeds absolute cap, "
+                    "weekly cap will never be reached");
+            }
+            // Faction tokens with no categoryId can't reference
+            // a faction — break the rep gate.
+            if (e.currencyKind == wowee::pipeline::WoweeCurrencyType::FactionToken &&
+                e.categoryId == 0) {
+                warnings.push_back(ctx +
+                    ": FactionToken kind with categoryId=0 — "
+                    "no faction is associated, rep gate will not "
+                    "trigger");
+            }
+            // Currencies with no caps at all and no item backing
+            // are likely misconfigured.
+            if (e.maxQuantity == 0 && e.maxQuantityWeekly == 0 &&
+                e.itemId == 0 && e.iconPath.empty()) {
+                warnings.push_back(ctx +
+                    ": no caps + no itemId + no iconPath — "
+                    "currency has no display data and unbounded "
+                    "earn rate");
+            }
+            if (!idsSeen.add(e.currencyId)) errors.push_back(ctx + ": duplicate currencyId");
         }
-        if (e.maxQuantity != 0 &&
-            e.maxQuantityWeekly != 0 &&
-            e.maxQuantityWeekly > e.maxQuantity) {
-            warnings.push_back(ctx +
-                ": maxQuantityWeekly " +
-                std::to_string(e.maxQuantityWeekly) +
-                " > maxQuantity " +
-                std::to_string(e.maxQuantity) +
-                " — weekly cap exceeds absolute cap, "
-                "weekly cap will never be reached");
-        }
-        // Faction tokens with no categoryId can't reference
-        // a faction — break the rep gate.
-        if (e.currencyKind == wowee::pipeline::WoweeCurrencyType::FactionToken &&
-            e.categoryId == 0) {
-            warnings.push_back(ctx +
-                ": FactionToken kind with categoryId=0 — "
-                "no faction is associated, rep gate will not "
-                "trigger");
-        }
-        // Currencies with no caps at all and no item backing
-        // are likely misconfigured.
-        if (e.maxQuantity == 0 && e.maxQuantityWeekly == 0 &&
-            e.itemId == 0 && e.iconPath.empty()) {
-            warnings.push_back(ctx +
-                ": no caps + no itemId + no iconPath — "
-                "currency has no display data and unbounded "
-                "earn rate");
-        }
-        if (!idsSeen.add(e.currencyId)) errors.push_back(ctx + ": duplicate currencyId");
-    }
-    return cli::reportValidation("wctr", base, jsonOut, errors, warnings,
-                                 formatted("%zu currencies, all currencyIds unique", c.entries.size()));
+            return formatted("%zu currencies, all currencyIds unique", c.entries.size());
+        });
 }
 
 } // namespace

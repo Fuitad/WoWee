@@ -322,83 +322,75 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = cli::withoutExt(base, ".wcef");
-    if (!wowee::pipeline::WoweeCreatureFamilyLoader::exists(base)) {
-        return reportMissing("validate-wcef", "WCEF", base, ".wcef");
-    }
-    auto c = wowee::pipeline::WoweeCreatureFamilyLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    cli::DuplicateIdCheck idsSeen;
-    constexpr uint32_t kKnownFoodMask =
-        wowee::pipeline::WoweeCreatureFamily::Meat |
-        wowee::pipeline::WoweeCreatureFamily::Fish |
-        wowee::pipeline::WoweeCreatureFamily::Bread |
-        wowee::pipeline::WoweeCreatureFamily::Cheese |
-        wowee::pipeline::WoweeCreatureFamily::Fruit |
-        wowee::pipeline::WoweeCreatureFamily::Fungus |
-        wowee::pipeline::WoweeCreatureFamily::Raw;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.familyId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.familyId == 0)
-            errors.push_back(ctx + ": familyId is 0");
-        if (e.name.empty())
-            errors.push_back(ctx + ": name is empty");
-        if (e.familyKind > wowee::pipeline::WoweeCreatureFamily::Exotic) {
-            errors.push_back(ctx + ": familyKind " +
-                std::to_string(e.familyKind) + " not in 0..5");
+    return cli::validateCatalog<wowee::pipeline::WoweeCreatureFamilyLoader>(
+        i, argc, argv, "wcef", "WCEF",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        constexpr uint32_t kKnownFoodMask =
+            wowee::pipeline::WoweeCreatureFamily::Meat |
+            wowee::pipeline::WoweeCreatureFamily::Fish |
+            wowee::pipeline::WoweeCreatureFamily::Bread |
+            wowee::pipeline::WoweeCreatureFamily::Cheese |
+            wowee::pipeline::WoweeCreatureFamily::Fruit |
+            wowee::pipeline::WoweeCreatureFamily::Fungus |
+            wowee::pipeline::WoweeCreatureFamily::Raw;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.familyId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.familyId == 0)
+                errors.push_back(ctx + ": familyId is 0");
+            if (e.name.empty())
+                errors.push_back(ctx + ": name is empty");
+            if (e.familyKind > wowee::pipeline::WoweeCreatureFamily::Exotic) {
+                errors.push_back(ctx + ": familyKind " +
+                    std::to_string(e.familyKind) + " not in 0..5");
+            }
+            if (e.petTalentTree > wowee::pipeline::WoweeCreatureFamily::Cunning) {
+                errors.push_back(ctx + ": petTalentTree " +
+                    std::to_string(e.petTalentTree) + " not in 0..3");
+            }
+            if (e.petFoodTypes & ~kKnownFoodMask) {
+                warnings.push_back(ctx +
+                    ": petFoodTypes has bits outside known mask " +
+                    "(0x" + std::to_string(e.petFoodTypes & ~kKnownFoodMask) +
+                    ") — engine will ignore unknown food types");
+            }
+            // NotPet families should not specify a talent tree —
+            // confusing if they do.
+            if (e.familyKind == wowee::pipeline::WoweeCreatureFamily::NotPet &&
+                e.petTalentTree != wowee::pipeline::WoweeCreatureFamily::TreeNone) {
+                warnings.push_back(ctx +
+                    ": NotPet family with petTalentTree=" +
+                    wowee::pipeline::WoweeCreatureFamily::petTalentTreeName(e.petTalentTree) +
+                    " — talent tree is irrelevant for non-pet kinds");
+            }
+            // Exotic families above level 80 won't be tamable
+            // by anyone (level cap).
+            if (e.familyKind == wowee::pipeline::WoweeCreatureFamily::Exotic &&
+                e.minLevelForTame > 80) {
+                warnings.push_back(ctx +
+                    ": Exotic family with minLevelForTame=" +
+                    std::to_string(e.minLevelForTame) +
+                    " > 80 — no hunter can reach this level");
+            }
+            // Pet kinds with no food types set means they can't
+            // be fed — common bug, especially for hand-edited
+            // sidecars.
+            if ((e.familyKind == wowee::pipeline::WoweeCreatureFamily::Beast ||
+                 e.familyKind == wowee::pipeline::WoweeCreatureFamily::Exotic) &&
+                e.petFoodTypes == 0) {
+                warnings.push_back(ctx +
+                    ": pet-able family with no food types set — "
+                    "hunter pet will starve, no food will satisfy it");
+            }
+            if (!idsSeen.add(e.familyId)) errors.push_back(ctx + ": duplicate familyId");
         }
-        if (e.petTalentTree > wowee::pipeline::WoweeCreatureFamily::Cunning) {
-            errors.push_back(ctx + ": petTalentTree " +
-                std::to_string(e.petTalentTree) + " not in 0..3");
-        }
-        if (e.petFoodTypes & ~kKnownFoodMask) {
-            warnings.push_back(ctx +
-                ": petFoodTypes has bits outside known mask " +
-                "(0x" + std::to_string(e.petFoodTypes & ~kKnownFoodMask) +
-                ") — engine will ignore unknown food types");
-        }
-        // NotPet families should not specify a talent tree —
-        // confusing if they do.
-        if (e.familyKind == wowee::pipeline::WoweeCreatureFamily::NotPet &&
-            e.petTalentTree != wowee::pipeline::WoweeCreatureFamily::TreeNone) {
-            warnings.push_back(ctx +
-                ": NotPet family with petTalentTree=" +
-                wowee::pipeline::WoweeCreatureFamily::petTalentTreeName(e.petTalentTree) +
-                " — talent tree is irrelevant for non-pet kinds");
-        }
-        // Exotic families above level 80 won't be tamable
-        // by anyone (level cap).
-        if (e.familyKind == wowee::pipeline::WoweeCreatureFamily::Exotic &&
-            e.minLevelForTame > 80) {
-            warnings.push_back(ctx +
-                ": Exotic family with minLevelForTame=" +
-                std::to_string(e.minLevelForTame) +
-                " > 80 — no hunter can reach this level");
-        }
-        // Pet kinds with no food types set means they can't
-        // be fed — common bug, especially for hand-edited
-        // sidecars.
-        if ((e.familyKind == wowee::pipeline::WoweeCreatureFamily::Beast ||
-             e.familyKind == wowee::pipeline::WoweeCreatureFamily::Exotic) &&
-            e.petFoodTypes == 0) {
-            warnings.push_back(ctx +
-                ": pet-able family with no food types set — "
-                "hunter pet will starve, no food will satisfy it");
-        }
-        if (!idsSeen.add(e.familyId)) errors.push_back(ctx + ": duplicate familyId");
-    }
-    return cli::reportValidation("wcef", base, jsonOut, errors, warnings,
-                                 formatted("%zu families, all familyIds unique", c.entries.size()));
+            return formatted("%zu families, all familyIds unique", c.entries.size());
+        });
 }
 
 } // namespace

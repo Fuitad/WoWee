@@ -253,72 +253,64 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = cli::withoutExt(base, ".wwui");
-    if (!wowee::pipeline::WoweeWorldStateUILoader::exists(base)) {
-        return reportMissing("validate-wwui", "WWUI", base, ".wwui");
-    }
-    auto c = wowee::pipeline::WoweeWorldStateUILoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    cli::DuplicateIdCheck idsSeen;
-    std::vector<uint32_t> varsSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.worldStateId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.worldStateId == 0)
-            errors.push_back(ctx + ": worldStateId is 0");
-        if (e.name.empty())
-            errors.push_back(ctx + ": name is empty");
-        if (e.displayKind > wowee::pipeline::WoweeWorldStateUI::Custom) {
-            errors.push_back(ctx + ": displayKind " +
-                std::to_string(e.displayKind) + " not in 0..5");
-        }
-        if (e.panelPosition > wowee::pipeline::WoweeWorldStateUI::Center) {
-            errors.push_back(ctx + ": panelPosition " +
-                std::to_string(e.panelPosition) + " not in 0..4");
-        }
-        if (e.variableIndex == 0) {
-            warnings.push_back(ctx + ": variableIndex=0 "
-                "(not bound to a server-side variable)");
-        }
-        // alwaysVisible + hideWhenZero is contradictory —
-        // hide-when-zero implicitly negates always-visible
-        // when the value happens to be 0.
-        if (e.alwaysVisible && e.hideWhenZero) {
-            warnings.push_back(ctx +
-                ": both alwaysVisible and hideWhenZero set "
-                "(hideWhenZero wins when value=0)");
-        }
-        // Two world-state entries sharing the same
-        // (mapId, variableIndex) pair conflict — they'd both
-        // try to read the same server slot at the same time.
-        for (size_t m = 0; m < k; ++m) {
-            const auto& other = c.entries[m];
-            if (other.mapId == e.mapId && e.mapId != 0 &&
-                other.variableIndex == e.variableIndex &&
-                e.variableIndex != 0) {
-                warnings.push_back(ctx +
-                    ": shares (mapId=" + std::to_string(e.mapId) +
-                    ", variableIndex=" +
-                    std::to_string(e.variableIndex) +
-                    ") with entry " + std::to_string(m) +
-                    " — values will collide");
-                break;
+    return cli::validateCatalog<wowee::pipeline::WoweeWorldStateUILoader>(
+        i, argc, argv, "wwui", "WWUI",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        std::vector<uint32_t> varsSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.worldStateId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.worldStateId == 0)
+                errors.push_back(ctx + ": worldStateId is 0");
+            if (e.name.empty())
+                errors.push_back(ctx + ": name is empty");
+            if (e.displayKind > wowee::pipeline::WoweeWorldStateUI::Custom) {
+                errors.push_back(ctx + ": displayKind " +
+                    std::to_string(e.displayKind) + " not in 0..5");
             }
+            if (e.panelPosition > wowee::pipeline::WoweeWorldStateUI::Center) {
+                errors.push_back(ctx + ": panelPosition " +
+                    std::to_string(e.panelPosition) + " not in 0..4");
+            }
+            if (e.variableIndex == 0) {
+                warnings.push_back(ctx + ": variableIndex=0 "
+                    "(not bound to a server-side variable)");
+            }
+            // alwaysVisible + hideWhenZero is contradictory —
+            // hide-when-zero implicitly negates always-visible
+            // when the value happens to be 0.
+            if (e.alwaysVisible && e.hideWhenZero) {
+                warnings.push_back(ctx +
+                    ": both alwaysVisible and hideWhenZero set "
+                    "(hideWhenZero wins when value=0)");
+            }
+            // Two world-state entries sharing the same
+            // (mapId, variableIndex) pair conflict — they'd both
+            // try to read the same server slot at the same time.
+            for (size_t m = 0; m < k; ++m) {
+                const auto& other = c.entries[m];
+                if (other.mapId == e.mapId && e.mapId != 0 &&
+                    other.variableIndex == e.variableIndex &&
+                    e.variableIndex != 0) {
+                    warnings.push_back(ctx +
+                        ": shares (mapId=" + std::to_string(e.mapId) +
+                        ", variableIndex=" +
+                        std::to_string(e.variableIndex) +
+                        ") with entry " + std::to_string(m) +
+                        " — values will collide");
+                    break;
+                }
+            }
+            if (!idsSeen.add(e.worldStateId)) errors.push_back(ctx + ": duplicate worldStateId");
+            varsSeen.push_back(e.variableIndex);
         }
-        if (!idsSeen.add(e.worldStateId)) errors.push_back(ctx + ": duplicate worldStateId");
-        varsSeen.push_back(e.variableIndex);
-    }
-    return cli::reportValidation("wwui", base, jsonOut, errors, warnings,
-                                 formatted("%zu world states, all worldStateIds unique", c.entries.size()));
+            return formatted("%zu world states, all worldStateIds unique", c.entries.size());
+        });
 }
 
 } // namespace

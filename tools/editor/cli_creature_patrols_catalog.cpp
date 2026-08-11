@@ -286,59 +286,51 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = cli::withoutExt(base, ".wcmr");
-    if (!wowee::pipeline::WoweeCreaturePatrolLoader::exists(base)) {
-        return reportMissing("validate-wcmr", "WCMR", base, ".wcmr");
-    }
-    auto c = wowee::pipeline::WoweeCreaturePatrolLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    cli::DuplicateIdCheck idsSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.pathId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.pathId == 0)
-            errors.push_back(ctx + ": pathId is 0");
-        if (e.name.empty())
-            errors.push_back(ctx + ": name is empty");
-        if (e.creatureGuid == 0)
-            errors.push_back(ctx +
-                ": creatureGuid is 0 — path is unbound to any spawn");
-        if (e.pathKind > wowee::pipeline::WoweeCreaturePatrol::Random) {
-            errors.push_back(ctx + ": pathKind " +
-                std::to_string(e.pathKind) + " not in 0..3");
+    return cli::validateCatalog<wowee::pipeline::WoweeCreaturePatrolLoader>(
+        i, argc, argv, "wcmr", "WCMR",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.pathId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.pathId == 0)
+                errors.push_back(ctx + ": pathId is 0");
+            if (e.name.empty())
+                errors.push_back(ctx + ": name is empty");
+            if (e.creatureGuid == 0)
+                errors.push_back(ctx +
+                    ": creatureGuid is 0 — path is unbound to any spawn");
+            if (e.pathKind > wowee::pipeline::WoweeCreaturePatrol::Random) {
+                errors.push_back(ctx + ": pathKind " +
+                    std::to_string(e.pathKind) + " not in 0..3");
+            }
+            if (e.moveType > wowee::pipeline::WoweeCreaturePatrol::Swim) {
+                errors.push_back(ctx + ": moveType " +
+                    std::to_string(e.moveType) + " not in 0..3");
+            }
+            if (e.waypoints.empty())
+                errors.push_back(ctx + ": no waypoints — path has nothing to walk");
+            if (e.waypoints.size() == 1)
+                warnings.push_back(ctx +
+                    ": only 1 waypoint — creature will idle in place");
+            // Loop with fewer than 3 waypoints is degenerate
+            // (back and forth between 2 points isn't a loop).
+            if (e.pathKind == wowee::pipeline::WoweeCreaturePatrol::Loop &&
+                e.waypoints.size() < 3) {
+                warnings.push_back(ctx +
+                    ": Loop with " +
+                    std::to_string(e.waypoints.size()) +
+                    " waypoints — fewer than 3 makes Loop "
+                    "indistinguishable from Reverse");
+            }
+            if (!idsSeen.add(e.pathId)) errors.push_back(ctx + ": duplicate pathId");
         }
-        if (e.moveType > wowee::pipeline::WoweeCreaturePatrol::Swim) {
-            errors.push_back(ctx + ": moveType " +
-                std::to_string(e.moveType) + " not in 0..3");
-        }
-        if (e.waypoints.empty())
-            errors.push_back(ctx + ": no waypoints — path has nothing to walk");
-        if (e.waypoints.size() == 1)
-            warnings.push_back(ctx +
-                ": only 1 waypoint — creature will idle in place");
-        // Loop with fewer than 3 waypoints is degenerate
-        // (back and forth between 2 points isn't a loop).
-        if (e.pathKind == wowee::pipeline::WoweeCreaturePatrol::Loop &&
-            e.waypoints.size() < 3) {
-            warnings.push_back(ctx +
-                ": Loop with " +
-                std::to_string(e.waypoints.size()) +
-                " waypoints — fewer than 3 makes Loop "
-                "indistinguishable from Reverse");
-        }
-        if (!idsSeen.add(e.pathId)) errors.push_back(ctx + ": duplicate pathId");
-    }
-    return cli::reportValidation("wcmr", base, jsonOut, errors, warnings,
-                                 formatted("%zu paths, all pathIds unique", c.entries.size()));
+            return formatted("%zu paths, all pathIds unique", c.entries.size());
+        });
 }
 
 } // namespace

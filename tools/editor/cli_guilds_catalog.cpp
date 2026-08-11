@@ -358,81 +358,73 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = cli::withoutExt(base, ".wgld");
-    if (!wowee::pipeline::WoweeGuildLoader::exists(base)) {
-        return reportMissing("validate-wgld", "WGLD", base, ".wgld");
-    }
-    auto c = wowee::pipeline::WoweeGuildLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    cli::DuplicateIdCheck idsSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "guild " + std::to_string(k) +
-                          " (id=" + std::to_string(e.guildId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.guildId == 0) errors.push_back(ctx + ": guildId is 0");
-        if (e.name.empty()) errors.push_back(ctx + ": name is empty");
-        if (e.leaderName.empty()) {
-            errors.push_back(ctx + ": leaderName is empty");
-        }
-        if (e.factionId > wowee::pipeline::WoweeGuild::Horde) {
-            errors.push_back(ctx + ": factionId " +
-                std::to_string(e.factionId) + " not in 0..1");
-        }
-        if (e.ranks.empty()) {
-            errors.push_back(ctx + ": no ranks (cannot have any members)");
-        }
-        // Validate that each member's rankIndex resolves.
-        uint8_t maxRankIdx = 0;
-        for (const auto& r : e.ranks) {
-            if (r.rankIndex > maxRankIdx) maxRankIdx = r.rankIndex;
-        }
-        for (size_t mi = 0; mi < e.members.size(); ++mi) {
-            const auto& m = e.members[mi];
-            if (m.rankIndex > maxRankIdx) {
-                errors.push_back(ctx + " member " + std::to_string(mi) +
-                    " (" + m.characterName + "): rankIndex " +
-                    std::to_string(m.rankIndex) +
-                    " exceeds highest defined rank " +
-                    std::to_string(maxRankIdx));
+    return cli::validateCatalog<wowee::pipeline::WoweeGuildLoader>(
+        i, argc, argv, "wgld", "WGLD",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "guild " + std::to_string(k) +
+                              " (id=" + std::to_string(e.guildId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.guildId == 0) errors.push_back(ctx + ": guildId is 0");
+            if (e.name.empty()) errors.push_back(ctx + ": name is empty");
+            if (e.leaderName.empty()) {
+                errors.push_back(ctx + ": leaderName is empty");
             }
-            if (m.characterName.empty()) {
-                errors.push_back(ctx + " member " + std::to_string(mi) +
-                    ": characterName is empty");
+            if (e.factionId > wowee::pipeline::WoweeGuild::Horde) {
+                errors.push_back(ctx + ": factionId " +
+                    std::to_string(e.factionId) + " not in 0..1");
             }
-        }
-        // Bank tab indices should be unique.
-        std::vector<uint8_t> tabIdxSeen;
-        for (const auto& t : e.bankTabs) {
-            for (uint8_t prev : tabIdxSeen) {
-                if (prev == t.tabIndex) {
-                    errors.push_back(ctx +
-                        ": duplicate bank tabIndex " +
-                        std::to_string(t.tabIndex));
-                    break;
+            if (e.ranks.empty()) {
+                errors.push_back(ctx + ": no ranks (cannot have any members)");
+            }
+            // Validate that each member's rankIndex resolves.
+            uint8_t maxRankIdx = 0;
+            for (const auto& r : e.ranks) {
+                if (r.rankIndex > maxRankIdx) maxRankIdx = r.rankIndex;
+            }
+            for (size_t mi = 0; mi < e.members.size(); ++mi) {
+                const auto& m = e.members[mi];
+                if (m.rankIndex > maxRankIdx) {
+                    errors.push_back(ctx + " member " + std::to_string(mi) +
+                        " (" + m.characterName + "): rankIndex " +
+                        std::to_string(m.rankIndex) +
+                        " exceeds highest defined rank " +
+                        std::to_string(maxRankIdx));
+                }
+                if (m.characterName.empty()) {
+                    errors.push_back(ctx + " member " + std::to_string(mi) +
+                        ": characterName is empty");
                 }
             }
-            tabIdxSeen.push_back(t.tabIndex);
-        }
-        // Perks should reference a non-zero spellId.
-        for (size_t pi = 0; pi < e.perks.size(); ++pi) {
-            const auto& p = e.perks[pi];
-            if (p.spellId == 0) {
-                warnings.push_back(ctx + " perk " + std::to_string(pi) +
-                    " (" + p.name + "): spellId is 0 (perk does nothing)");
+            // Bank tab indices should be unique.
+            std::vector<uint8_t> tabIdxSeen;
+            for (const auto& t : e.bankTabs) {
+                for (uint8_t prev : tabIdxSeen) {
+                    if (prev == t.tabIndex) {
+                        errors.push_back(ctx +
+                            ": duplicate bank tabIndex " +
+                            std::to_string(t.tabIndex));
+                        break;
+                    }
+                }
+                tabIdxSeen.push_back(t.tabIndex);
             }
+            // Perks should reference a non-zero spellId.
+            for (size_t pi = 0; pi < e.perks.size(); ++pi) {
+                const auto& p = e.perks[pi];
+                if (p.spellId == 0) {
+                    warnings.push_back(ctx + " perk " + std::to_string(pi) +
+                        " (" + p.name + "): spellId is 0 (perk does nothing)");
+                }
+            }
+            if (!idsSeen.add(e.guildId)) errors.push_back(ctx + ": duplicate guildId");
         }
-        if (!idsSeen.add(e.guildId)) errors.push_back(ctx + ": duplicate guildId");
-    }
-    return cli::reportValidation("wgld", base, jsonOut, errors, warnings,
-                                 formatted("%zu guilds, all guildIds unique", c.entries.size()));
+            return formatted("%zu guilds, all guildIds unique", c.entries.size());
+        });
 }
 
 } // namespace

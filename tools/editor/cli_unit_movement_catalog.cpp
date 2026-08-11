@@ -237,71 +237,63 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = cli::withoutExt(base, ".wumv");
-    if (!wowee::pipeline::WoweeUnitMovementLoader::exists(base)) {
-        return reportMissing("validate-wumv", "WUMV", base, ".wumv");
-    }
-    auto c = wowee::pipeline::WoweeUnitMovementLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    cli::DuplicateIdCheck idsSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.moveTypeId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.moveTypeId == 0)
-            errors.push_back(ctx + ": moveTypeId is 0");
-        if (e.name.empty())
-            errors.push_back(ctx + ": name is empty");
-        if (e.movementCategory > wowee::pipeline::WoweeUnitMovement::TempBuff) {
-            errors.push_back(ctx + ": movementCategory " +
-                std::to_string(e.movementCategory) + " not in 0..11");
+    return cli::validateCatalog<wowee::pipeline::WoweeUnitMovementLoader>(
+        i, argc, argv, "wumv", "WUMV",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.moveTypeId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.moveTypeId == 0)
+                errors.push_back(ctx + ": moveTypeId is 0");
+            if (e.name.empty())
+                errors.push_back(ctx + ": name is empty");
+            if (e.movementCategory > wowee::pipeline::WoweeUnitMovement::TempBuff) {
+                errors.push_back(ctx + ": movementCategory " +
+                    std::to_string(e.movementCategory) + " not in 0..11");
+            }
+            if (e.baseMultiplier <= 0.0f) {
+                errors.push_back(ctx +
+                    ": baseMultiplier " +
+                    std::to_string(e.baseMultiplier) +
+                    " <= 0 (would freeze unit in place)");
+            }
+            if (e.maxMultiplier < e.baseMultiplier) {
+                errors.push_back(ctx + ": maxMultiplier " +
+                    std::to_string(e.maxMultiplier) +
+                    " < baseMultiplier " +
+                    std::to_string(e.baseMultiplier) +
+                    " (cap below floor — base would be clamped down)");
+            }
+            // Baseline movement (Walk/Run/Swim/Turn) should have
+            // a positive baseSpeed — TempBuff entries are
+            // multiplier-only and may have baseSpeed=0.
+            bool isBaseline =
+                e.movementCategory >= wowee::pipeline::WoweeUnitMovement::Walk &&
+                e.movementCategory <= wowee::pipeline::WoweeUnitMovement::FlyBack;
+            if (isBaseline && e.baseSpeed <= 0.0f) {
+                errors.push_back(ctx +
+                    ": baseline movement category with baseSpeed " +
+                    std::to_string(e.baseSpeed) + " <= 0 — unit "
+                    "won't move on this category");
+            }
+            // Run speed below walk speed is suspicious — flag.
+            // Run is ~7.0y/s, walk is ~2.5y/s in canonical WoW.
+            if (e.movementCategory == wowee::pipeline::WoweeUnitMovement::Run &&
+                e.baseSpeed < 3.0f) {
+                warnings.push_back(ctx +
+                    ": Run baseSpeed " +
+                    std::to_string(e.baseSpeed) +
+                    " unusually slow (canonical 7.0y/s) — verify intent");
+            }
+            if (!idsSeen.add(e.moveTypeId)) errors.push_back(ctx + ": duplicate moveTypeId");
         }
-        if (e.baseMultiplier <= 0.0f) {
-            errors.push_back(ctx +
-                ": baseMultiplier " +
-                std::to_string(e.baseMultiplier) +
-                " <= 0 (would freeze unit in place)");
-        }
-        if (e.maxMultiplier < e.baseMultiplier) {
-            errors.push_back(ctx + ": maxMultiplier " +
-                std::to_string(e.maxMultiplier) +
-                " < baseMultiplier " +
-                std::to_string(e.baseMultiplier) +
-                " (cap below floor — base would be clamped down)");
-        }
-        // Baseline movement (Walk/Run/Swim/Turn) should have
-        // a positive baseSpeed — TempBuff entries are
-        // multiplier-only and may have baseSpeed=0.
-        bool isBaseline =
-            e.movementCategory >= wowee::pipeline::WoweeUnitMovement::Walk &&
-            e.movementCategory <= wowee::pipeline::WoweeUnitMovement::FlyBack;
-        if (isBaseline && e.baseSpeed <= 0.0f) {
-            errors.push_back(ctx +
-                ": baseline movement category with baseSpeed " +
-                std::to_string(e.baseSpeed) + " <= 0 — unit "
-                "won't move on this category");
-        }
-        // Run speed below walk speed is suspicious — flag.
-        // Run is ~7.0y/s, walk is ~2.5y/s in canonical WoW.
-        if (e.movementCategory == wowee::pipeline::WoweeUnitMovement::Run &&
-            e.baseSpeed < 3.0f) {
-            warnings.push_back(ctx +
-                ": Run baseSpeed " +
-                std::to_string(e.baseSpeed) +
-                " unusually slow (canonical 7.0y/s) — verify intent");
-        }
-        if (!idsSeen.add(e.moveTypeId)) errors.push_back(ctx + ": duplicate moveTypeId");
-    }
-    return cli::reportValidation("wumv", base, jsonOut, errors, warnings,
-                                 formatted("%zu movement types, all moveTypeIds unique, all multipliers consistent", c.entries.size()));
+            return formatted("%zu movement types, all moveTypeIds unique, all multipliers consistent", c.entries.size());
+        });
 }
 
 } // namespace

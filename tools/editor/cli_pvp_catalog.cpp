@@ -250,92 +250,84 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = cli::withoutExt(base, ".wpvp");
-    if (!wowee::pipeline::WoweePVPRankLoader::exists(base)) {
-        return reportMissing("validate-wpvp", "WPVP", base, ".wpvp");
-    }
-    auto c = wowee::pipeline::WoweePVPRankLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    cli::DuplicateIdCheck idsSeen;
-    // Track threshold monotonicity within a single rankKind —
-    // arena ratings should ascend (1500 < 1750 < ...), so a
-    // catalog with two arena entries at the same rating or
-    // a higher-id entry below a lower-id entry is suspicious.
-    uint32_t prevHonorByKind[5] = {0, 0, 0, 0, 0};
-    bool prevHonorSeen[5] = {false, false, false, false, false};
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.rankId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.rankId == 0)
-            errors.push_back(ctx + ": rankId is 0");
-        if (e.name.empty())
-            errors.push_back(ctx + ": name is empty");
-        if (e.rankKind > wowee::pipeline::WoweePVPRank::ConquestPoint) {
-            errors.push_back(ctx + ": rankKind " +
-                std::to_string(e.rankKind) + " not in 0..4");
-        }
-        if (e.minBracketLevel > e.maxBracketLevel) {
-            errors.push_back(ctx + ": minBracketLevel " +
-                std::to_string(e.minBracketLevel) +
-                " > maxBracketLevel " +
-                std::to_string(e.maxBracketLevel));
-        }
-        // Vanilla honor ranks must use VanillaHonor kind and
-        // have minHonor > 0 (rank 1 is the implicit baseline).
-        if (e.rankKind == wowee::pipeline::WoweePVPRank::VanillaHonor &&
-            e.minHonorOrRating == 0) {
-            warnings.push_back(ctx +
-                ": VanillaHonor kind with minHonor=0 "
-                "(rank 1 baseline — verify intentional)");
-        }
-        // Arena ratings below 1500 don't unlock any reward —
-        // 1500 is the WoW arena floor.
-        if (e.rankKind == wowee::pipeline::WoweePVPRank::ArenaRating &&
-            e.minHonorOrRating < 1500) {
-            warnings.push_back(ctx +
-                ": ArenaRating with rating " +
-                std::to_string(e.minHonorOrRating) +
-                " below 1500 floor");
-        }
-        // Faction alternate names — vanilla ranks have
-        // distinct alliance / horde names; arena tiers share
-        // the same name on both factions. Either is valid; an
-        // empty alliance name + non-empty horde (or vice
-        // versa) is a typo signal.
-        if (e.factionAllianceName.empty() !=
-            e.factionHordeName.empty()) {
-            warnings.push_back(ctx +
-                ": only one faction-alternate name set "
-                "(alliance='" + e.factionAllianceName +
-                "', horde='" + e.factionHordeName + "')");
-        }
-        // Threshold monotonicity within rankKind.
-        if (e.rankKind < 5) {
-            if (prevHonorSeen[e.rankKind] &&
-                e.minHonorOrRating < prevHonorByKind[e.rankKind]) {
-                warnings.push_back(ctx +
-                    ": threshold " +
-                    std::to_string(e.minHonorOrRating) +
-                    " below previous " +
-                    std::to_string(prevHonorByKind[e.rankKind]) +
-                    " in same rankKind (non-monotonic)");
+    return cli::validateCatalog<wowee::pipeline::WoweePVPRankLoader>(
+        i, argc, argv, "wpvp", "WPVP",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        // Track threshold monotonicity within a single rankKind —
+        // arena ratings should ascend (1500 < 1750 < ...), so a
+        // catalog with two arena entries at the same rating or
+        // a higher-id entry below a lower-id entry is suspicious.
+        uint32_t prevHonorByKind[5] = {0, 0, 0, 0, 0};
+        bool prevHonorSeen[5] = {false, false, false, false, false};
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.rankId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.rankId == 0)
+                errors.push_back(ctx + ": rankId is 0");
+            if (e.name.empty())
+                errors.push_back(ctx + ": name is empty");
+            if (e.rankKind > wowee::pipeline::WoweePVPRank::ConquestPoint) {
+                errors.push_back(ctx + ": rankKind " +
+                    std::to_string(e.rankKind) + " not in 0..4");
             }
-            prevHonorByKind[e.rankKind] = e.minHonorOrRating;
-            prevHonorSeen[e.rankKind] = true;
+            if (e.minBracketLevel > e.maxBracketLevel) {
+                errors.push_back(ctx + ": minBracketLevel " +
+                    std::to_string(e.minBracketLevel) +
+                    " > maxBracketLevel " +
+                    std::to_string(e.maxBracketLevel));
+            }
+            // Vanilla honor ranks must use VanillaHonor kind and
+            // have minHonor > 0 (rank 1 is the implicit baseline).
+            if (e.rankKind == wowee::pipeline::WoweePVPRank::VanillaHonor &&
+                e.minHonorOrRating == 0) {
+                warnings.push_back(ctx +
+                    ": VanillaHonor kind with minHonor=0 "
+                    "(rank 1 baseline — verify intentional)");
+            }
+            // Arena ratings below 1500 don't unlock any reward —
+            // 1500 is the WoW arena floor.
+            if (e.rankKind == wowee::pipeline::WoweePVPRank::ArenaRating &&
+                e.minHonorOrRating < 1500) {
+                warnings.push_back(ctx +
+                    ": ArenaRating with rating " +
+                    std::to_string(e.minHonorOrRating) +
+                    " below 1500 floor");
+            }
+            // Faction alternate names — vanilla ranks have
+            // distinct alliance / horde names; arena tiers share
+            // the same name on both factions. Either is valid; an
+            // empty alliance name + non-empty horde (or vice
+            // versa) is a typo signal.
+            if (e.factionAllianceName.empty() !=
+                e.factionHordeName.empty()) {
+                warnings.push_back(ctx +
+                    ": only one faction-alternate name set "
+                    "(alliance='" + e.factionAllianceName +
+                    "', horde='" + e.factionHordeName + "')");
+            }
+            // Threshold monotonicity within rankKind.
+            if (e.rankKind < 5) {
+                if (prevHonorSeen[e.rankKind] &&
+                    e.minHonorOrRating < prevHonorByKind[e.rankKind]) {
+                    warnings.push_back(ctx +
+                        ": threshold " +
+                        std::to_string(e.minHonorOrRating) +
+                        " below previous " +
+                        std::to_string(prevHonorByKind[e.rankKind]) +
+                        " in same rankKind (non-monotonic)");
+                }
+                prevHonorByKind[e.rankKind] = e.minHonorOrRating;
+                prevHonorSeen[e.rankKind] = true;
+            }
+            if (!idsSeen.add(e.rankId)) errors.push_back(ctx + ": duplicate rankId");
         }
-        if (!idsSeen.add(e.rankId)) errors.push_back(ctx + ": duplicate rankId");
-    }
-    return cli::reportValidation("wpvp", base, jsonOut, errors, warnings,
-                                 formatted("%zu ranks, all rankIds unique, all thresholds monotonic", c.entries.size()));
+            return formatted("%zu ranks, all rankIds unique, all thresholds monotonic", c.entries.size());
+        });
 }
 
 } // namespace

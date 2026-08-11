@@ -295,72 +295,64 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = cli::withoutExt(base, ".wspc");
-    if (!wowee::pipeline::WoweeSpellPowerCostLoader::exists(base)) {
-        return reportMissing("validate-wspc", "WSPC", base, ".wspc");
-    }
-    auto c = wowee::pipeline::WoweeSpellPowerCostLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    cli::DuplicateIdCheck idsSeen;
-    constexpr uint32_t kKnownFlagMask =
-        wowee::pipeline::WoweeSpellPowerCost::RequiresCombatStance |
-        wowee::pipeline::WoweeSpellPowerCost::RefundOnMiss |
-        wowee::pipeline::WoweeSpellPowerCost::DoublesInForm |
-        wowee::pipeline::WoweeSpellPowerCost::ScalesWithMastery;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.powerCostId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.powerCostId == 0)
-            errors.push_back(ctx + ": powerCostId is 0");
-        if (e.name.empty())
-            errors.push_back(ctx + ": name is empty");
-        if (e.powerType > wowee::pipeline::WoweeSpellPowerCost::NoCost) {
-            errors.push_back(ctx + ": powerType " +
-                std::to_string(e.powerType) + " not in 0..11");
+    return cli::validateCatalog<wowee::pipeline::WoweeSpellPowerCostLoader>(
+        i, argc, argv, "wspc", "WSPC",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        constexpr uint32_t kKnownFlagMask =
+            wowee::pipeline::WoweeSpellPowerCost::RequiresCombatStance |
+            wowee::pipeline::WoweeSpellPowerCost::RefundOnMiss |
+            wowee::pipeline::WoweeSpellPowerCost::DoublesInForm |
+            wowee::pipeline::WoweeSpellPowerCost::ScalesWithMastery;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.powerCostId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.powerCostId == 0)
+                errors.push_back(ctx + ": powerCostId is 0");
+            if (e.name.empty())
+                errors.push_back(ctx + ": name is empty");
+            if (e.powerType > wowee::pipeline::WoweeSpellPowerCost::NoCost) {
+                errors.push_back(ctx + ": powerType " +
+                    std::to_string(e.powerType) + " not in 0..11");
+            }
+            if (e.percentOfBase < 0.0f || e.percentOfBase > 1.0f) {
+                warnings.push_back(ctx +
+                    ": percentOfBase " + std::to_string(e.percentOfBase) +
+                    " is outside [0..1] — may overflow caster's max power");
+            }
+            if (e.costFlags & ~kKnownFlagMask) {
+                warnings.push_back(ctx +
+                    ": costFlags has bits outside known mask " +
+                    "(0x" + std::to_string(e.costFlags & ~kKnownFlagMask) +
+                    ") — engine will ignore unknown flags");
+            }
+            // NoCost type with non-zero cost values is
+            // contradictory.
+            if (e.powerType == wowee::pipeline::WoweeSpellPowerCost::NoCost &&
+                (e.baseCost != 0 || e.perLevelCost != 0 ||
+                 e.percentOfBase != 0.0f)) {
+                warnings.push_back(ctx +
+                    ": NoCost type with non-zero cost fields — "
+                    "engine treats this as free regardless");
+            }
+            // Spell with no cost fields set when not NoCost — is
+            // probably misconfigured (would be free).
+            if (e.powerType != wowee::pipeline::WoweeSpellPowerCost::NoCost &&
+                e.baseCost == 0 && e.perLevelCost == 0 &&
+                e.percentOfBase == 0.0f) {
+                warnings.push_back(ctx +
+                    ": no cost fields set but powerType is " +
+                    wowee::pipeline::WoweeSpellPowerCost::powerTypeName(e.powerType) +
+                    " — spell will cast for free, switch to NoCost type if intended");
+            }
+            if (!idsSeen.add(e.powerCostId)) errors.push_back(ctx + ": duplicate powerCostId");
         }
-        if (e.percentOfBase < 0.0f || e.percentOfBase > 1.0f) {
-            warnings.push_back(ctx +
-                ": percentOfBase " + std::to_string(e.percentOfBase) +
-                " is outside [0..1] — may overflow caster's max power");
-        }
-        if (e.costFlags & ~kKnownFlagMask) {
-            warnings.push_back(ctx +
-                ": costFlags has bits outside known mask " +
-                "(0x" + std::to_string(e.costFlags & ~kKnownFlagMask) +
-                ") — engine will ignore unknown flags");
-        }
-        // NoCost type with non-zero cost values is
-        // contradictory.
-        if (e.powerType == wowee::pipeline::WoweeSpellPowerCost::NoCost &&
-            (e.baseCost != 0 || e.perLevelCost != 0 ||
-             e.percentOfBase != 0.0f)) {
-            warnings.push_back(ctx +
-                ": NoCost type with non-zero cost fields — "
-                "engine treats this as free regardless");
-        }
-        // Spell with no cost fields set when not NoCost — is
-        // probably misconfigured (would be free).
-        if (e.powerType != wowee::pipeline::WoweeSpellPowerCost::NoCost &&
-            e.baseCost == 0 && e.perLevelCost == 0 &&
-            e.percentOfBase == 0.0f) {
-            warnings.push_back(ctx +
-                ": no cost fields set but powerType is " +
-                wowee::pipeline::WoweeSpellPowerCost::powerTypeName(e.powerType) +
-                " — spell will cast for free, switch to NoCost type if intended");
-        }
-        if (!idsSeen.add(e.powerCostId)) errors.push_back(ctx + ": duplicate powerCostId");
-    }
-    return cli::reportValidation("wspc", base, jsonOut, errors, warnings,
-                                 formatted("%zu buckets, all powerCostIds unique", c.entries.size()));
+            return formatted("%zu buckets, all powerCostIds unique", c.entries.size());
+        });
 }
 
 } // namespace

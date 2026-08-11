@@ -269,71 +269,63 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = cli::withoutExt(base, ".wlfg");
-    if (!wowee::pipeline::WoweeLFGDungeonLoader::exists(base)) {
-        return reportMissing("validate-wlfg", "WLFG", base, ".wlfg");
-    }
-    auto c = wowee::pipeline::WoweeLFGDungeonLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    cli::DuplicateIdCheck idsSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.dungeonId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.dungeonId == 0)
-            errors.push_back(ctx + ": dungeonId is 0");
-        if (e.name.empty())
-            errors.push_back(ctx + ": name is empty");
-        if (e.mapId == 0)
-            errors.push_back(ctx +
-                ": mapId is 0 (dungeon has no instance map)");
-        if (e.difficulty > wowee::pipeline::WoweeLFGDungeon::Hardmode) {
-            errors.push_back(ctx + ": difficulty " +
-                std::to_string(e.difficulty) + " not in 0..3");
+    return cli::validateCatalog<wowee::pipeline::WoweeLFGDungeonLoader>(
+        i, argc, argv, "wlfg", "WLFG",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.dungeonId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.dungeonId == 0)
+                errors.push_back(ctx + ": dungeonId is 0");
+            if (e.name.empty())
+                errors.push_back(ctx + ": name is empty");
+            if (e.mapId == 0)
+                errors.push_back(ctx +
+                    ": mapId is 0 (dungeon has no instance map)");
+            if (e.difficulty > wowee::pipeline::WoweeLFGDungeon::Hardmode) {
+                errors.push_back(ctx + ": difficulty " +
+                    std::to_string(e.difficulty) + " not in 0..3");
+            }
+            if (e.expansionRequired > wowee::pipeline::WoweeLFGDungeon::TurtleWoW) {
+                errors.push_back(ctx + ": expansionRequired " +
+                    std::to_string(e.expansionRequired) + " not in 0..3");
+            }
+            if (e.minLevel > e.maxLevel) {
+                errors.push_back(ctx + ": minLevel " +
+                    std::to_string(e.minLevel) + " > maxLevel " +
+                    std::to_string(e.maxLevel));
+            }
+            if (e.recommendedLevel != 0 &&
+                (e.recommendedLevel < e.minLevel ||
+                 e.recommendedLevel > e.maxLevel)) {
+                warnings.push_back(ctx + ": recommendedLevel " +
+                    std::to_string(e.recommendedLevel) +
+                    " outside [" + std::to_string(e.minLevel) +
+                    ", " + std::to_string(e.maxLevel) + "]");
+            }
+            // Common group sizes: 5 (dungeon), 10/25 (raid),
+            // 40 (vanilla raid). Other values are unusual but
+            // not technically wrong.
+            if (e.groupSize != 5 && e.groupSize != 10 &&
+                e.groupSize != 25 && e.groupSize != 40) {
+                warnings.push_back(ctx + ": groupSize " +
+                    std::to_string(e.groupSize) +
+                    " is unusual (5 / 10 / 25 / 40 are canonical)");
+            }
+            if (e.requiredRolesMask == 0) {
+                errors.push_back(ctx +
+                    ": requiredRolesMask=0 (no role requirement — "
+                    "queue won't form a balanced group)");
+            }
+            if (!idsSeen.add(e.dungeonId)) errors.push_back(ctx + ": duplicate dungeonId");
         }
-        if (e.expansionRequired > wowee::pipeline::WoweeLFGDungeon::TurtleWoW) {
-            errors.push_back(ctx + ": expansionRequired " +
-                std::to_string(e.expansionRequired) + " not in 0..3");
-        }
-        if (e.minLevel > e.maxLevel) {
-            errors.push_back(ctx + ": minLevel " +
-                std::to_string(e.minLevel) + " > maxLevel " +
-                std::to_string(e.maxLevel));
-        }
-        if (e.recommendedLevel != 0 &&
-            (e.recommendedLevel < e.minLevel ||
-             e.recommendedLevel > e.maxLevel)) {
-            warnings.push_back(ctx + ": recommendedLevel " +
-                std::to_string(e.recommendedLevel) +
-                " outside [" + std::to_string(e.minLevel) +
-                ", " + std::to_string(e.maxLevel) + "]");
-        }
-        // Common group sizes: 5 (dungeon), 10/25 (raid),
-        // 40 (vanilla raid). Other values are unusual but
-        // not technically wrong.
-        if (e.groupSize != 5 && e.groupSize != 10 &&
-            e.groupSize != 25 && e.groupSize != 40) {
-            warnings.push_back(ctx + ": groupSize " +
-                std::to_string(e.groupSize) +
-                " is unusual (5 / 10 / 25 / 40 are canonical)");
-        }
-        if (e.requiredRolesMask == 0) {
-            errors.push_back(ctx +
-                ": requiredRolesMask=0 (no role requirement — "
-                "queue won't form a balanced group)");
-        }
-        if (!idsSeen.add(e.dungeonId)) errors.push_back(ctx + ": duplicate dungeonId");
-    }
-    return cli::reportValidation("wlfg", base, jsonOut, errors, warnings,
-                                 formatted("%zu dungeons, all dungeonIds unique, all level ranges valid", c.entries.size()));
+            return formatted("%zu dungeons, all dungeonIds unique, all level ranges valid", c.entries.size());
+        });
 }
 
 } // namespace

@@ -267,66 +267,58 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = cli::withoutExt(base, ".wspn");
-    if (!wowee::pipeline::WoweeSpawnsLoader::exists(base)) {
-        return reportMissing("validate-wspn", "WSPN", base, ".wspn");
-    }
-    auto c = wowee::pipeline::WoweeSpawnsLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k);
-        if (!e.label.empty()) ctx += " (" + e.label + ")";
-        if (e.kind > wowee::pipeline::WoweeSpawns::Doodad) {
-            errors.push_back(ctx + ": kind " + std::to_string(e.kind) +
-                             " not in known range 0..2");
+    return cli::validateCatalog<wowee::pipeline::WoweeSpawnsLoader>(
+        i, argc, argv, "wspn", "WSPN",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k);
+            if (!e.label.empty()) ctx += " (" + e.label + ")";
+            if (e.kind > wowee::pipeline::WoweeSpawns::Doodad) {
+                errors.push_back(ctx + ": kind " + std::to_string(e.kind) +
+                                 " not in known range 0..2");
+            }
+            if (!std::isfinite(e.position.x) ||
+                !std::isfinite(e.position.y) ||
+                !std::isfinite(e.position.z) ||
+                !std::isfinite(e.rotation.x) ||
+                !std::isfinite(e.rotation.y) ||
+                !std::isfinite(e.rotation.z)) {
+                errors.push_back(ctx + ": position/rotation not finite");
+            }
+            if (!std::isfinite(e.scale) || e.scale <= 0) {
+                errors.push_back(ctx + ": scale not finite or <= 0");
+            }
+            if (!std::isfinite(e.wanderRadius) || e.wanderRadius < 0) {
+                errors.push_back(ctx + ": wanderRadius not finite or < 0");
+            }
+            // Doodads should not have a respawn timer (they are
+            // permanent visual props). Catch the common misuse.
+            if (e.kind == wowee::pipeline::WoweeSpawns::Doodad &&
+                e.respawnSec != 0) {
+                warnings.push_back(ctx +
+                    ": doodad has non-zero respawnSec — doodads are static");
+            }
+            // Creatures with respawn 0 will spawn once and never
+            // come back; flag as a warning since it's almost
+            // always a mistake.
+            if (e.kind == wowee::pipeline::WoweeSpawns::Creature &&
+                e.respawnSec == 0 &&
+                !(e.flags & wowee::pipeline::WoweeSpawns::EventOnly)) {
+                warnings.push_back(ctx +
+                    ": creature with respawnSec=0 will not respawn after kill");
+            }
+            if (e.entryId == 0) {
+                warnings.push_back(ctx +
+                    ": entryId is 0 (no template referenced)");
+            }
         }
-        if (!std::isfinite(e.position.x) ||
-            !std::isfinite(e.position.y) ||
-            !std::isfinite(e.position.z) ||
-            !std::isfinite(e.rotation.x) ||
-            !std::isfinite(e.rotation.y) ||
-            !std::isfinite(e.rotation.z)) {
-            errors.push_back(ctx + ": position/rotation not finite");
-        }
-        if (!std::isfinite(e.scale) || e.scale <= 0) {
-            errors.push_back(ctx + ": scale not finite or <= 0");
-        }
-        if (!std::isfinite(e.wanderRadius) || e.wanderRadius < 0) {
-            errors.push_back(ctx + ": wanderRadius not finite or < 0");
-        }
-        // Doodads should not have a respawn timer (they are
-        // permanent visual props). Catch the common misuse.
-        if (e.kind == wowee::pipeline::WoweeSpawns::Doodad &&
-            e.respawnSec != 0) {
-            warnings.push_back(ctx +
-                ": doodad has non-zero respawnSec — doodads are static");
-        }
-        // Creatures with respawn 0 will spawn once and never
-        // come back; flag as a warning since it's almost
-        // always a mistake.
-        if (e.kind == wowee::pipeline::WoweeSpawns::Creature &&
-            e.respawnSec == 0 &&
-            !(e.flags & wowee::pipeline::WoweeSpawns::EventOnly)) {
-            warnings.push_back(ctx +
-                ": creature with respawnSec=0 will not respawn after kill");
-        }
-        if (e.entryId == 0) {
-            warnings.push_back(ctx +
-                ": entryId is 0 (no template referenced)");
-        }
-    }
-    return cli::reportValidation("wspn", base, jsonOut, errors, warnings,
-                                 formatted("%zu entries (creature=%u object=%u doodad=%u)", c.entries.size(),
+            return formatted("%zu entries (creature=%u object=%u doodad=%u)", c.entries.size(),
                     c.countByKind(wowee::pipeline::WoweeSpawns::Creature),
                     c.countByKind(wowee::pipeline::WoweeSpawns::GameObject),
-                    c.countByKind(wowee::pipeline::WoweeSpawns::Doodad)));
+                    c.countByKind(wowee::pipeline::WoweeSpawns::Doodad));
+        });
 }
 
 } // namespace

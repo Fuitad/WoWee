@@ -243,70 +243,62 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = cli::withoutExt(base, ".wsrg");
-    if (!wowee::pipeline::WoweeSpellRangeLoader::exists(base)) {
-        return reportMissing("validate-wsrg", "WSRG", base, ".wsrg");
-    }
-    auto c = wowee::pipeline::WoweeSpellRangeLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    cli::DuplicateIdCheck idsSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.rangeId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.rangeId == 0)
-            errors.push_back(ctx + ": rangeId is 0");
-        if (e.name.empty())
-            errors.push_back(ctx + ": name is empty");
-        if (e.rangeKind > wowee::pipeline::WoweeSpellRange::Unlimited) {
-            errors.push_back(ctx + ": rangeKind " +
-                std::to_string(e.rangeKind) + " not in 0..6");
+    return cli::validateCatalog<wowee::pipeline::WoweeSpellRangeLoader>(
+        i, argc, argv, "wsrg", "WSRG",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.rangeId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.rangeId == 0)
+                errors.push_back(ctx + ": rangeId is 0");
+            if (e.name.empty())
+                errors.push_back(ctx + ": name is empty");
+            if (e.rangeKind > wowee::pipeline::WoweeSpellRange::Unlimited) {
+                errors.push_back(ctx + ": rangeKind " +
+                    std::to_string(e.rangeKind) + " not in 0..6");
+            }
+            if (e.minRange < 0.0f || e.maxRange < 0.0f ||
+                e.minRangeFriendly < 0.0f ||
+                e.maxRangeFriendly < 0.0f) {
+                errors.push_back(ctx +
+                    ": negative range value (ranges must be >= 0)");
+            }
+            if (e.minRange > e.maxRange) {
+                errors.push_back(ctx + ": minRange " +
+                    std::to_string(e.minRange) +
+                    " > maxRange " + std::to_string(e.maxRange));
+            }
+            if (e.minRangeFriendly > e.maxRangeFriendly) {
+                errors.push_back(ctx + ": minRangeFriendly " +
+                    std::to_string(e.minRangeFriendly) +
+                    " > maxRangeFriendly " +
+                    std::to_string(e.maxRangeFriendly));
+            }
+            // Self-kind should have max range = 0; otherwise the
+            // engine would treat it as targeted.
+            if (e.rangeKind == wowee::pipeline::WoweeSpellRange::Self &&
+                (e.maxRange != 0.0f || e.maxRangeFriendly != 0.0f)) {
+                warnings.push_back(ctx +
+                    ": Self kind with non-zero maxRange — engine "
+                    "treats this as targeted, not self-only");
+            }
+            // Melee-kind should be 0..5y by canonical convention.
+            if (e.rangeKind == wowee::pipeline::WoweeSpellRange::Melee &&
+                e.maxRange > 8.0f) {
+                warnings.push_back(ctx +
+                    ": Melee kind with maxRange " +
+                    std::to_string(e.maxRange) +
+                    " > 8 (canonical melee is 5y)");
+            }
+            if (!idsSeen.add(e.rangeId)) errors.push_back(ctx + ": duplicate rangeId");
         }
-        if (e.minRange < 0.0f || e.maxRange < 0.0f ||
-            e.minRangeFriendly < 0.0f ||
-            e.maxRangeFriendly < 0.0f) {
-            errors.push_back(ctx +
-                ": negative range value (ranges must be >= 0)");
-        }
-        if (e.minRange > e.maxRange) {
-            errors.push_back(ctx + ": minRange " +
-                std::to_string(e.minRange) +
-                " > maxRange " + std::to_string(e.maxRange));
-        }
-        if (e.minRangeFriendly > e.maxRangeFriendly) {
-            errors.push_back(ctx + ": minRangeFriendly " +
-                std::to_string(e.minRangeFriendly) +
-                " > maxRangeFriendly " +
-                std::to_string(e.maxRangeFriendly));
-        }
-        // Self-kind should have max range = 0; otherwise the
-        // engine would treat it as targeted.
-        if (e.rangeKind == wowee::pipeline::WoweeSpellRange::Self &&
-            (e.maxRange != 0.0f || e.maxRangeFriendly != 0.0f)) {
-            warnings.push_back(ctx +
-                ": Self kind with non-zero maxRange — engine "
-                "treats this as targeted, not self-only");
-        }
-        // Melee-kind should be 0..5y by canonical convention.
-        if (e.rangeKind == wowee::pipeline::WoweeSpellRange::Melee &&
-            e.maxRange > 8.0f) {
-            warnings.push_back(ctx +
-                ": Melee kind with maxRange " +
-                std::to_string(e.maxRange) +
-                " > 8 (canonical melee is 5y)");
-        }
-        if (!idsSeen.add(e.rangeId)) errors.push_back(ctx + ": duplicate rangeId");
-    }
-    return cli::reportValidation("wsrg", base, jsonOut, errors, warnings,
-                                 formatted("%zu ranges, all rangeIds unique, all min<=max", c.entries.size()));
+            return formatted("%zu ranges, all rangeIds unique, all min<=max", c.entries.size());
+        });
 }
 
 } // namespace

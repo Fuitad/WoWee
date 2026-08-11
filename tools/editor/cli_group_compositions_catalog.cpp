@@ -243,76 +243,68 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = cli::withoutExt(base, ".wgrp");
-    if (!wowee::pipeline::WoweeGroupCompositionLoader::exists(base)) {
-        return reportMissing("validate-wgrp", "WGRP", base, ".wgrp");
-    }
-    auto c = wowee::pipeline::WoweeGroupCompositionLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    cli::DuplicateIdCheck idsSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.compId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.compId == 0)
-            errors.push_back(ctx + ": compId is 0");
-        if (e.name.empty())
-            errors.push_back(ctx + ": name is empty");
-        if (e.mapId == 0)
-            errors.push_back(ctx +
-                ": mapId is 0 — composition is unbound to a map");
-        if (e.minPartySize > e.maxPartySize) {
-            errors.push_back(ctx + ": minPartySize " +
-                std::to_string(e.minPartySize) +
-                " > maxPartySize " +
-                std::to_string(e.maxPartySize));
+    return cli::validateCatalog<wowee::pipeline::WoweeGroupCompositionLoader>(
+        i, argc, argv, "wgrp", "WGRP",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.compId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.compId == 0)
+                errors.push_back(ctx + ": compId is 0");
+            if (e.name.empty())
+                errors.push_back(ctx + ": name is empty");
+            if (e.mapId == 0)
+                errors.push_back(ctx +
+                    ": mapId is 0 — composition is unbound to a map");
+            if (e.minPartySize > e.maxPartySize) {
+                errors.push_back(ctx + ": minPartySize " +
+                    std::to_string(e.minPartySize) +
+                    " > maxPartySize " +
+                    std::to_string(e.maxPartySize));
+            }
+            // Sum of required roles must fit in the party size.
+            uint32_t requiredSum = e.requiredTanks +
+                                    e.requiredHealers +
+                                    e.requiredDamageDealers;
+            if (requiredSum > e.maxPartySize) {
+                errors.push_back(ctx +
+                    ": required roles sum " + std::to_string(requiredSum) +
+                    " > maxPartySize " +
+                    std::to_string(e.maxPartySize) +
+                    " — composition can never be filled");
+            }
+            if (requiredSum < e.minPartySize) {
+                warnings.push_back(ctx +
+                    ": required roles sum " + std::to_string(requiredSum) +
+                    " < minPartySize " +
+                    std::to_string(e.minPartySize) +
+                    " — extra slots have no role requirement");
+            }
+            // Standard sizes: 5 / 10 / 25 / 40.
+            if (e.maxPartySize != 5 && e.maxPartySize != 10 &&
+                e.maxPartySize != 25 && e.maxPartySize != 40) {
+                warnings.push_back(ctx +
+                    ": non-standard maxPartySize " +
+                    std::to_string(e.maxPartySize) +
+                    " (canonical sizes are 5/10/25/40)");
+            }
+            // Zero-tank composition is unusual but legal for
+            // tank-immune content; warn so the author confirms.
+            if (e.requiredTanks == 0) {
+                warnings.push_back(ctx +
+                    ": requiredTanks=0 — zero-tank composition. "
+                    "Legal for tank-immune fights but unusual; "
+                    "double-check this is intentional");
+            }
+            if (!idsSeen.add(e.compId)) errors.push_back(ctx + ": duplicate compId");
         }
-        // Sum of required roles must fit in the party size.
-        uint32_t requiredSum = e.requiredTanks +
-                                e.requiredHealers +
-                                e.requiredDamageDealers;
-        if (requiredSum > e.maxPartySize) {
-            errors.push_back(ctx +
-                ": required roles sum " + std::to_string(requiredSum) +
-                " > maxPartySize " +
-                std::to_string(e.maxPartySize) +
-                " — composition can never be filled");
-        }
-        if (requiredSum < e.minPartySize) {
-            warnings.push_back(ctx +
-                ": required roles sum " + std::to_string(requiredSum) +
-                " < minPartySize " +
-                std::to_string(e.minPartySize) +
-                " — extra slots have no role requirement");
-        }
-        // Standard sizes: 5 / 10 / 25 / 40.
-        if (e.maxPartySize != 5 && e.maxPartySize != 10 &&
-            e.maxPartySize != 25 && e.maxPartySize != 40) {
-            warnings.push_back(ctx +
-                ": non-standard maxPartySize " +
-                std::to_string(e.maxPartySize) +
-                " (canonical sizes are 5/10/25/40)");
-        }
-        // Zero-tank composition is unusual but legal for
-        // tank-immune content; warn so the author confirms.
-        if (e.requiredTanks == 0) {
-            warnings.push_back(ctx +
-                ": requiredTanks=0 — zero-tank composition. "
-                "Legal for tank-immune fights but unusual; "
-                "double-check this is intentional");
-        }
-        if (!idsSeen.add(e.compId)) errors.push_back(ctx + ": duplicate compId");
-    }
-    return cli::reportValidation("wgrp", base, jsonOut, errors, warnings,
-                                 formatted("%zu compositions, all compIds unique", c.entries.size()));
+            return formatted("%zu compositions, all compIds unique", c.entries.size());
+        });
 }
 
 } // namespace

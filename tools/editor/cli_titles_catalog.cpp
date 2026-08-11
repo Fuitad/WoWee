@@ -221,46 +221,38 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = cli::withoutExt(base, ".wtit");
-    if (!wowee::pipeline::WoweeTitleLoader::exists(base)) {
-        return reportMissing("validate-wtit", "WTIT", base, ".wtit");
-    }
-    auto c = wowee::pipeline::WoweeTitleLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    cli::DuplicateIdCheck idsSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.titleId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.titleId == 0) errors.push_back(ctx + ": titleId is 0");
-        if (e.name.empty()) errors.push_back(ctx + ": name is empty");
-        if (e.category > wowee::pipeline::WoweeTitle::Custom) {
-            errors.push_back(ctx + ": category " +
-                std::to_string(e.category) + " not in 0..7");
+    return cli::validateCatalog<wowee::pipeline::WoweeTitleLoader>(
+        i, argc, argv, "wtit", "WTIT",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.titleId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.titleId == 0) errors.push_back(ctx + ": titleId is 0");
+            if (e.name.empty()) errors.push_back(ctx + ": name is empty");
+            if (e.category > wowee::pipeline::WoweeTitle::Custom) {
+                errors.push_back(ctx + ": category " +
+                    std::to_string(e.category) + " not in 0..7");
+            }
+            // If gender variants are set, both should be set (otherwise
+            // the runtime fall-back to canonical leaves one gender
+            // displaying the wrong form).
+            if (!e.nameMale.empty() && e.nameFemale.empty()) {
+                warnings.push_back(ctx +
+                    ": nameMale set but nameFemale empty (mixed-gender display)");
+            }
+            if (!e.nameFemale.empty() && e.nameMale.empty()) {
+                warnings.push_back(ctx +
+                    ": nameFemale set but nameMale empty (mixed-gender display)");
+            }
+            if (!idsSeen.add(e.titleId)) errors.push_back(ctx + ": duplicate titleId");
         }
-        // If gender variants are set, both should be set (otherwise
-        // the runtime fall-back to canonical leaves one gender
-        // displaying the wrong form).
-        if (!e.nameMale.empty() && e.nameFemale.empty()) {
-            warnings.push_back(ctx +
-                ": nameMale set but nameFemale empty (mixed-gender display)");
-        }
-        if (!e.nameFemale.empty() && e.nameMale.empty()) {
-            warnings.push_back(ctx +
-                ": nameFemale set but nameMale empty (mixed-gender display)");
-        }
-        if (!idsSeen.add(e.titleId)) errors.push_back(ctx + ": duplicate titleId");
-    }
-    return cli::reportValidation("wtit", base, jsonOut, errors, warnings,
-                                 formatted("%zu titles, all titleIds unique", c.entries.size()));
+            return formatted("%zu titles, all titleIds unique", c.entries.size());
+        });
 }
 
 } // namespace

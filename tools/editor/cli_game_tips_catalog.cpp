@@ -233,61 +233,53 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = cli::withoutExt(base, ".wgtp");
-    if (!wowee::pipeline::WoweeGameTipLoader::exists(base)) {
-        return reportMissing("validate-wgtp", "WGTP", base, ".wgtp");
-    }
-    auto c = wowee::pipeline::WoweeGameTipLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    cli::DuplicateIdCheck idsSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.tipId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.tipId == 0)
-            errors.push_back(ctx + ": tipId is 0");
-        if (e.name.empty())
-            errors.push_back(ctx + ": name is empty");
-        if (e.text.empty())
-            errors.push_back(ctx + ": text is empty");
-        if (e.displayKind > wowee::pipeline::WoweeGameTip::Hint) {
-            errors.push_back(ctx + ": displayKind " +
-                std::to_string(e.displayKind) + " not in 0..3");
+    return cli::validateCatalog<wowee::pipeline::WoweeGameTipLoader>(
+        i, argc, argv, "wgtp", "WGTP",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.tipId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.tipId == 0)
+                errors.push_back(ctx + ": tipId is 0");
+            if (e.name.empty())
+                errors.push_back(ctx + ": name is empty");
+            if (e.text.empty())
+                errors.push_back(ctx + ": text is empty");
+            if (e.displayKind > wowee::pipeline::WoweeGameTip::Hint) {
+                errors.push_back(ctx + ": displayKind " +
+                    std::to_string(e.displayKind) + " not in 0..3");
+            }
+            if (e.audienceFilter == 0) {
+                errors.push_back(ctx +
+                    ": audienceFilter=0 (tip would never be shown)");
+            }
+            if (e.minLevel > e.maxLevel) {
+                errors.push_back(ctx + ": minLevel " +
+                    std::to_string(e.minLevel) + " > maxLevel " +
+                    std::to_string(e.maxLevel));
+            }
+            if (e.displayWeight == 0) {
+                warnings.push_back(ctx +
+                    ": displayWeight=0 (tip is in pool but never picked)");
+            }
+            // Tutorial / Hint kinds typically need to be brief —
+            // > 280 characters won't fit cleanly on screen.
+            bool brief = e.displayKind == wowee::pipeline::WoweeGameTip::Tutorial ||
+                          e.displayKind == wowee::pipeline::WoweeGameTip::Hint;
+            if (brief && e.text.size() > 280) {
+                warnings.push_back(ctx +
+                    ": text length " + std::to_string(e.text.size()) +
+                    " exceeds 280 chars (tutorial/hint should be brief)");
+            }
+            if (!idsSeen.add(e.tipId)) errors.push_back(ctx + ": duplicate tipId");
         }
-        if (e.audienceFilter == 0) {
-            errors.push_back(ctx +
-                ": audienceFilter=0 (tip would never be shown)");
-        }
-        if (e.minLevel > e.maxLevel) {
-            errors.push_back(ctx + ": minLevel " +
-                std::to_string(e.minLevel) + " > maxLevel " +
-                std::to_string(e.maxLevel));
-        }
-        if (e.displayWeight == 0) {
-            warnings.push_back(ctx +
-                ": displayWeight=0 (tip is in pool but never picked)");
-        }
-        // Tutorial / Hint kinds typically need to be brief —
-        // > 280 characters won't fit cleanly on screen.
-        bool brief = e.displayKind == wowee::pipeline::WoweeGameTip::Tutorial ||
-                      e.displayKind == wowee::pipeline::WoweeGameTip::Hint;
-        if (brief && e.text.size() > 280) {
-            warnings.push_back(ctx +
-                ": text length " + std::to_string(e.text.size()) +
-                " exceeds 280 chars (tutorial/hint should be brief)");
-        }
-        if (!idsSeen.add(e.tipId)) errors.push_back(ctx + ": duplicate tipId");
-    }
-    return cli::reportValidation("wgtp", base, jsonOut, errors, warnings,
-                                 formatted("%zu tips, all tipIds unique, all level ranges valid", c.entries.size()));
+            return formatted("%zu tips, all tipIds unique, all level ranges valid", c.entries.size());
+        });
 }
 
 } // namespace

@@ -267,67 +267,59 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = cli::withoutExt(base, ".wlck");
-    if (!wowee::pipeline::WoweeLockLoader::exists(base)) {
-        return reportMissing("validate-wlck", "WLCK", base, ".wlck");
-    }
-    auto c = wowee::pipeline::WoweeLockLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    cli::DuplicateIdCheck idsSeen;
-    idsSeen.reserve(c.entries.size());
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.lockId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.lockId == 0) {
-            errors.push_back(ctx + ": lockId is 0");
+    return cli::validateCatalog<wowee::pipeline::WoweeLockLoader>(
+        i, argc, argv, "wlck", "WLCK",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        idsSeen.reserve(c.entries.size());
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.lockId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.lockId == 0) {
+                errors.push_back(ctx + ": lockId is 0");
+            }
+            // At least one channel must be active or the lock can
+            // never be opened.
+            bool anyActive = false;
+            for (int ci = 0; ci < wowee::pipeline::WoweeLock::kChannelSlots; ++ci) {
+                const auto& ch = e.channels[ci];
+                if (ch.kind != wowee::pipeline::WoweeLock::ChannelNone) {
+                    anyActive = true;
+                }
+                if (ch.kind > wowee::pipeline::WoweeLock::ChannelDamage) {
+                    errors.push_back(ctx + " slot " + std::to_string(ci) +
+                        ": kind " + std::to_string(ch.kind) +
+                        " not in known range 0..4");
+                }
+                // Item / Spell / Lockpick channels need a non-zero
+                // targetId; Damage channels don't.
+                if ((ch.kind == wowee::pipeline::WoweeLock::ChannelItem ||
+                     ch.kind == wowee::pipeline::WoweeLock::ChannelSpell ||
+                     ch.kind == wowee::pipeline::WoweeLock::ChannelLockpick) &&
+                    ch.targetId == 0) {
+                    errors.push_back(ctx + " slot " + std::to_string(ci) +
+                        ": kind requires non-zero targetId");
+                }
+                // skillRequired only meaningful for Lockpick — flag
+                // odd usage on other kinds.
+                if (ch.kind != wowee::pipeline::WoweeLock::ChannelLockpick &&
+                    ch.kind != wowee::pipeline::WoweeLock::ChannelNone &&
+                    ch.skillRequired != 0) {
+                    warnings.push_back(ctx + " slot " + std::to_string(ci) +
+                        ": skillRequired set on non-Lockpick channel (ignored at runtime)");
+                }
+            }
+            if (!anyActive) {
+                errors.push_back(ctx + ": all 5 channels are None (lock can never open)");
+            }
+            if (!idsSeen.add(e.lockId)) errors.push_back(ctx + ": duplicate lockId");
         }
-        // At least one channel must be active or the lock can
-        // never be opened.
-        bool anyActive = false;
-        for (int ci = 0; ci < wowee::pipeline::WoweeLock::kChannelSlots; ++ci) {
-            const auto& ch = e.channels[ci];
-            if (ch.kind != wowee::pipeline::WoweeLock::ChannelNone) {
-                anyActive = true;
-            }
-            if (ch.kind > wowee::pipeline::WoweeLock::ChannelDamage) {
-                errors.push_back(ctx + " slot " + std::to_string(ci) +
-                    ": kind " + std::to_string(ch.kind) +
-                    " not in known range 0..4");
-            }
-            // Item / Spell / Lockpick channels need a non-zero
-            // targetId; Damage channels don't.
-            if ((ch.kind == wowee::pipeline::WoweeLock::ChannelItem ||
-                 ch.kind == wowee::pipeline::WoweeLock::ChannelSpell ||
-                 ch.kind == wowee::pipeline::WoweeLock::ChannelLockpick) &&
-                ch.targetId == 0) {
-                errors.push_back(ctx + " slot " + std::to_string(ci) +
-                    ": kind requires non-zero targetId");
-            }
-            // skillRequired only meaningful for Lockpick — flag
-            // odd usage on other kinds.
-            if (ch.kind != wowee::pipeline::WoweeLock::ChannelLockpick &&
-                ch.kind != wowee::pipeline::WoweeLock::ChannelNone &&
-                ch.skillRequired != 0) {
-                warnings.push_back(ctx + " slot " + std::to_string(ci) +
-                    ": skillRequired set on non-Lockpick channel (ignored at runtime)");
-            }
-        }
-        if (!anyActive) {
-            errors.push_back(ctx + ": all 5 channels are None (lock can never open)");
-        }
-        if (!idsSeen.add(e.lockId)) errors.push_back(ctx + ": duplicate lockId");
-    }
-    return cli::reportValidation("wlck", base, jsonOut, errors, warnings,
-                                 formatted("%zu locks, all lockIds unique", c.entries.size()));
+            return formatted("%zu locks, all lockIds unique", c.entries.size());
+        });
 }
 
 } // namespace

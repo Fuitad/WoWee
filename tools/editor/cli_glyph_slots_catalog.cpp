@@ -234,75 +234,67 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = cli::withoutExt(base, ".wgfs");
-    if (!wowee::pipeline::WoweeGlyphSlotLoader::exists(base)) {
-        return reportMissing("validate-wgfs", "WGFS", base, ".wgfs");
-    }
-    auto c = wowee::pipeline::WoweeGlyphSlotLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    cli::DuplicateIdCheck idsSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.slotId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.slotId == 0)
-            errors.push_back(ctx + ": slotId is 0");
-        if (e.name.empty())
-            errors.push_back(ctx + ": name is empty");
-        if (e.slotKind > wowee::pipeline::WoweeGlyphSlot::Prime) {
-            errors.push_back(ctx + ": slotKind " +
-                std::to_string(e.slotKind) + " not in 0..2");
+    return cli::validateCatalog<wowee::pipeline::WoweeGlyphSlotLoader>(
+        i, argc, argv, "wgfs", "WGFS",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.slotId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.slotId == 0)
+                errors.push_back(ctx + ": slotId is 0");
+            if (e.name.empty())
+                errors.push_back(ctx + ": name is empty");
+            if (e.slotKind > wowee::pipeline::WoweeGlyphSlot::Prime) {
+                errors.push_back(ctx + ": slotKind " +
+                    std::to_string(e.slotKind) + " not in 0..2");
+            }
+            if (e.requiredClassMask == 0) {
+                errors.push_back(ctx +
+                    ": requiredClassMask is 0 — no class can use "
+                    "this slot");
+            }
+            if (e.minLevelToUnlock > 80) {
+                warnings.push_back(ctx +
+                    ": minLevelToUnlock " +
+                    std::to_string(e.minLevelToUnlock) +
+                    " > 80 — slot will never unlock at WotLK cap");
+            }
+            if (e.displayOrder > 4) {
+                warnings.push_back(ctx +
+                    ": displayOrder " +
+                    std::to_string(e.displayOrder) +
+                    " > 4 — UI typically shows only 3-4 slots per kind");
+            }
+            if (!idsSeen.add(e.slotId)) errors.push_back(ctx + ": duplicate slotId");
         }
-        if (e.requiredClassMask == 0) {
-            errors.push_back(ctx +
-                ": requiredClassMask is 0 — no class can use "
-                "this slot");
+        // Cross-entry check: detect overlapping (kind,order)
+        // pairs within the same class — two slots claiming the
+        // same UI position would collide.
+        for (size_t a = 0; a < c.entries.size(); ++a) {
+            for (size_t b = a + 1; b < c.entries.size(); ++b) {
+                const auto& ea = c.entries[a];
+                const auto& eb = c.entries[b];
+                if (ea.slotKind != eb.slotKind) continue;
+                if (ea.displayOrder != eb.displayOrder) continue;
+                if ((ea.requiredClassMask & eb.requiredClassMask) == 0)
+                    continue;
+                warnings.push_back(
+                    "entries " + std::to_string(a) + " (" +
+                    ea.name + ") and " + std::to_string(b) +
+                    " (" + eb.name + ") share " +
+                    wowee::pipeline::WoweeGlyphSlot::slotKindName(ea.slotKind) +
+                    " kind + displayOrder " +
+                    std::to_string(ea.displayOrder) +
+                    " for overlapping classMask — UI position collision");
+            }
         }
-        if (e.minLevelToUnlock > 80) {
-            warnings.push_back(ctx +
-                ": minLevelToUnlock " +
-                std::to_string(e.minLevelToUnlock) +
-                " > 80 — slot will never unlock at WotLK cap");
-        }
-        if (e.displayOrder > 4) {
-            warnings.push_back(ctx +
-                ": displayOrder " +
-                std::to_string(e.displayOrder) +
-                " > 4 — UI typically shows only 3-4 slots per kind");
-        }
-        if (!idsSeen.add(e.slotId)) errors.push_back(ctx + ": duplicate slotId");
-    }
-    // Cross-entry check: detect overlapping (kind,order)
-    // pairs within the same class — two slots claiming the
-    // same UI position would collide.
-    for (size_t a = 0; a < c.entries.size(); ++a) {
-        for (size_t b = a + 1; b < c.entries.size(); ++b) {
-            const auto& ea = c.entries[a];
-            const auto& eb = c.entries[b];
-            if (ea.slotKind != eb.slotKind) continue;
-            if (ea.displayOrder != eb.displayOrder) continue;
-            if ((ea.requiredClassMask & eb.requiredClassMask) == 0)
-                continue;
-            warnings.push_back(
-                "entries " + std::to_string(a) + " (" +
-                ea.name + ") and " + std::to_string(b) +
-                " (" + eb.name + ") share " +
-                wowee::pipeline::WoweeGlyphSlot::slotKindName(ea.slotKind) +
-                " kind + displayOrder " +
-                std::to_string(ea.displayOrder) +
-                " for overlapping classMask — UI position collision");
-        }
-    }
-    return cli::reportValidation("wgfs", base, jsonOut, errors, warnings,
-                                 formatted("%zu slots, all slotIds unique, no UI overlaps", c.entries.size()));
+            return formatted("%zu slots, all slotIds unique, no UI overlaps", c.entries.size());
+        });
 }
 
 } // namespace

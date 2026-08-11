@@ -218,80 +218,72 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = cli::withoutExt(base, ".wceq");
-    if (!wowee::pipeline::WoweeCreatureEquipmentLoader::exists(base)) {
-        return reportMissing("validate-wceq", "WCEQ", base, ".wceq");
-    }
-    auto c = wowee::pipeline::WoweeCreatureEquipmentLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    cli::DuplicateIdCheck idsSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.equipmentId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.equipmentId == 0)
-            errors.push_back(ctx + ": equipmentId is 0");
-        if (e.name.empty())
-            errors.push_back(ctx + ": name is empty");
-        if (e.creatureId == 0)
-            errors.push_back(ctx +
-                ": creatureId is 0 (loadout not bound to a WCRT entry)");
-        // All three slots empty = nothing to render. Most
-        // useful for "unarmed but visible" creatures, so
-        // warn rather than error.
-        if (e.mainHandItemId == 0 && e.offHandItemId == 0 &&
-            e.rangedItemId == 0) {
-            warnings.push_back(ctx +
-                ": all three slots empty (creature is unarmed)");
+    return cli::validateCatalog<wowee::pipeline::WoweeCreatureEquipmentLoader>(
+        i, argc, argv, "wceq", "WCEQ",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.equipmentId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.equipmentId == 0)
+                errors.push_back(ctx + ": equipmentId is 0");
+            if (e.name.empty())
+                errors.push_back(ctx + ": name is empty");
+            if (e.creatureId == 0)
+                errors.push_back(ctx +
+                    ": creatureId is 0 (loadout not bound to a WCRT entry)");
+            // All three slots empty = nothing to render. Most
+            // useful for "unarmed but visible" creatures, so
+            // warn rather than error.
+            if (e.mainHandItemId == 0 && e.offHandItemId == 0 &&
+                e.rangedItemId == 0) {
+                warnings.push_back(ctx +
+                    ": all three slots empty (creature is unarmed)");
+            }
+            // dual-wield flag set but no offhand item, OR no
+            // mainhand — both are inconsistent.
+            if ((e.equipFlags &
+                 wowee::pipeline::WoweeCreatureEquipment::kFlagDualWield) &&
+                (e.mainHandItemId == 0 || e.offHandItemId == 0)) {
+                errors.push_back(ctx +
+                    ": kFlagDualWield set but missing mainhand or offhand "
+                    "item (dual-wield needs both slots filled)");
+            }
+            // shield flag set but no offhand item.
+            if ((e.equipFlags &
+                 wowee::pipeline::WoweeCreatureEquipment::kFlagShieldOffhand) &&
+                e.offHandItemId == 0) {
+                errors.push_back(ctx +
+                    ": kFlagShieldOffhand set but offHandItemId=0");
+            }
+            // dual-wield + shield are mutually exclusive — can't
+            // hold a shield AND a second weapon in the offhand.
+            if ((e.equipFlags &
+                 wowee::pipeline::WoweeCreatureEquipment::kFlagDualWield) &&
+                (e.equipFlags &
+                 wowee::pipeline::WoweeCreatureEquipment::kFlagShieldOffhand)) {
+                errors.push_back(ctx +
+                    ": both kFlagDualWield and kFlagShieldOffhand set "
+                    "(mutually exclusive)");
+            }
+            // 2H polearm flag set with an offhand item — polearms
+            // occupy both hands.
+            if ((e.equipFlags &
+                 wowee::pipeline::WoweeCreatureEquipment::kFlagPolearmTwoHand) &&
+                e.offHandItemId != 0) {
+                errors.push_back(ctx +
+                    ": kFlagPolearmTwoHand set but offHandItemId=" +
+                    std::to_string(e.offHandItemId) +
+                    " (2H polearm occupies both hands)");
+            }
+            if (!idsSeen.add(e.equipmentId)) errors.push_back(ctx + ": duplicate equipmentId");
         }
-        // dual-wield flag set but no offhand item, OR no
-        // mainhand — both are inconsistent.
-        if ((e.equipFlags &
-             wowee::pipeline::WoweeCreatureEquipment::kFlagDualWield) &&
-            (e.mainHandItemId == 0 || e.offHandItemId == 0)) {
-            errors.push_back(ctx +
-                ": kFlagDualWield set but missing mainhand or offhand "
-                "item (dual-wield needs both slots filled)");
-        }
-        // shield flag set but no offhand item.
-        if ((e.equipFlags &
-             wowee::pipeline::WoweeCreatureEquipment::kFlagShieldOffhand) &&
-            e.offHandItemId == 0) {
-            errors.push_back(ctx +
-                ": kFlagShieldOffhand set but offHandItemId=0");
-        }
-        // dual-wield + shield are mutually exclusive — can't
-        // hold a shield AND a second weapon in the offhand.
-        if ((e.equipFlags &
-             wowee::pipeline::WoweeCreatureEquipment::kFlagDualWield) &&
-            (e.equipFlags &
-             wowee::pipeline::WoweeCreatureEquipment::kFlagShieldOffhand)) {
-            errors.push_back(ctx +
-                ": both kFlagDualWield and kFlagShieldOffhand set "
-                "(mutually exclusive)");
-        }
-        // 2H polearm flag set with an offhand item — polearms
-        // occupy both hands.
-        if ((e.equipFlags &
-             wowee::pipeline::WoweeCreatureEquipment::kFlagPolearmTwoHand) &&
-            e.offHandItemId != 0) {
-            errors.push_back(ctx +
-                ": kFlagPolearmTwoHand set but offHandItemId=" +
-                std::to_string(e.offHandItemId) +
-                " (2H polearm occupies both hands)");
-        }
-        if (!idsSeen.add(e.equipmentId)) errors.push_back(ctx + ": duplicate equipmentId");
-    }
-    return cli::reportValidation("wceq", base, jsonOut, errors, warnings,
-                                 formatted("%zu loadouts, all equipmentIds unique, all flag combos consistent", c.entries.size()));
+            return formatted("%zu loadouts, all equipmentIds unique, all flag combos consistent", c.entries.size());
+        });
 }
 
 } // namespace

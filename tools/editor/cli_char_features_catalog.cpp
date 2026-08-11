@@ -265,71 +265,63 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = cli::withoutExt(base, ".wchf");
-    if (!wowee::pipeline::WoweeCharFeatureLoader::exists(base)) {
-        return reportMissing("validate-wchf", "WCHF", base, ".wchf");
-    }
-    auto c = wowee::pipeline::WoweeCharFeatureLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    cli::DuplicateIdCheck idsSeen;
-    // (race, sex, kind, variation) tuples must be unique —
-    // duplicates would shadow each other in the carousel.
-    std::set<std::string> tupleSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.featureId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.featureId == 0)
-            errors.push_back(ctx + ": featureId is 0");
-        if (e.name.empty())
-            errors.push_back(ctx + ": name is empty");
-        if (e.raceId == 0)
-            errors.push_back(ctx +
-                ": raceId is 0 (feature not bound to a WCHC race)");
-        if (e.featureKind > wowee::pipeline::WoweeCharFeature::Markings) {
-            errors.push_back(ctx + ": featureKind " +
-                std::to_string(e.featureKind) + " not in 0..8");
+    return cli::validateCatalog<wowee::pipeline::WoweeCharFeatureLoader>(
+        i, argc, argv, "wchf", "WCHF",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        // (race, sex, kind, variation) tuples must be unique —
+        // duplicates would shadow each other in the carousel.
+        std::set<std::string> tupleSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.featureId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.featureId == 0)
+                errors.push_back(ctx + ": featureId is 0");
+            if (e.name.empty())
+                errors.push_back(ctx + ": name is empty");
+            if (e.raceId == 0)
+                errors.push_back(ctx +
+                    ": raceId is 0 (feature not bound to a WCHC race)");
+            if (e.featureKind > wowee::pipeline::WoweeCharFeature::Markings) {
+                errors.push_back(ctx + ": featureKind " +
+                    std::to_string(e.featureKind) + " not in 0..8");
+            }
+            if (e.sexId > wowee::pipeline::WoweeCharFeature::Female) {
+                errors.push_back(ctx + ": sexId " +
+                    std::to_string(e.sexId) + " not in 0..1");
+            }
+            if (e.requiresExpansion > wowee::pipeline::WoweeCharFeature::TurtleWoW) {
+                errors.push_back(ctx + ": requiresExpansion " +
+                    std::to_string(e.requiresExpansion) + " not in 0..3");
+            }
+            if (e.texturePath.empty()) {
+                errors.push_back(ctx +
+                    ": texturePath is empty (feature has no texture)");
+            }
+            // Check tuple uniqueness.
+            std::string tuple =
+                std::to_string(e.raceId) + "/" +
+                std::to_string(e.sexId) + "/" +
+                std::to_string(e.featureKind) + "/" +
+                std::to_string(e.variationIndex);
+            if (tupleSeen.count(tuple)) {
+                errors.push_back(ctx +
+                    ": duplicate (race=" + std::to_string(e.raceId) +
+                    ", sex=" + std::to_string(e.sexId) +
+                    ", kind=" + std::to_string(e.featureKind) +
+                    ", variation=" + std::to_string(e.variationIndex) +
+                    ") — would shadow earlier entry in carousel");
+            }
+            tupleSeen.insert(tuple);
+            if (!idsSeen.add(e.featureId)) errors.push_back(ctx + ": duplicate featureId");
         }
-        if (e.sexId > wowee::pipeline::WoweeCharFeature::Female) {
-            errors.push_back(ctx + ": sexId " +
-                std::to_string(e.sexId) + " not in 0..1");
-        }
-        if (e.requiresExpansion > wowee::pipeline::WoweeCharFeature::TurtleWoW) {
-            errors.push_back(ctx + ": requiresExpansion " +
-                std::to_string(e.requiresExpansion) + " not in 0..3");
-        }
-        if (e.texturePath.empty()) {
-            errors.push_back(ctx +
-                ": texturePath is empty (feature has no texture)");
-        }
-        // Check tuple uniqueness.
-        std::string tuple =
-            std::to_string(e.raceId) + "/" +
-            std::to_string(e.sexId) + "/" +
-            std::to_string(e.featureKind) + "/" +
-            std::to_string(e.variationIndex);
-        if (tupleSeen.count(tuple)) {
-            errors.push_back(ctx +
-                ": duplicate (race=" + std::to_string(e.raceId) +
-                ", sex=" + std::to_string(e.sexId) +
-                ", kind=" + std::to_string(e.featureKind) +
-                ", variation=" + std::to_string(e.variationIndex) +
-                ") — would shadow earlier entry in carousel");
-        }
-        tupleSeen.insert(tuple);
-        if (!idsSeen.add(e.featureId)) errors.push_back(ctx + ": duplicate featureId");
-    }
-    return cli::reportValidation("wchf", base, jsonOut, errors, warnings,
-                                 formatted("%zu features, all featureIds unique, "
-                    "all (race,sex,kind,variation) tuples unique", c.entries.size()));
+            return formatted("%zu features, all featureIds unique, "
+                    "all (race,sex,kind,variation) tuples unique", c.entries.size());
+        });
 }
 
 } // namespace

@@ -241,83 +241,75 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = cli::withoutExt(base, ".wbnk");
-    if (!wowee::pipeline::WoweeBagSlotLoader::exists(base)) {
-        return reportMissing("validate-wbnk", "WBNK", base, ".wbnk");
-    }
-    auto c = wowee::pipeline::WoweeBagSlotLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    cli::DuplicateIdCheck idsSeen;
-    // displayOrder values within the same bagKind should be
-    // unique — duplicates would cause UI shuffle ambiguity.
-    std::set<std::string> orderSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.bagSlotId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.bagSlotId == 0)
-            errors.push_back(ctx + ": bagSlotId is 0");
-        if (e.name.empty())
-            errors.push_back(ctx + ": name is empty");
-        if (e.bagKind > wowee::pipeline::WoweeBagSlot::Wallet) {
-            errors.push_back(ctx + ": bagKind " +
-                std::to_string(e.bagKind) + " not in 0..7");
+    return cli::validateCatalog<wowee::pipeline::WoweeBagSlotLoader>(
+        i, argc, argv, "wbnk", "WBNK",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        // displayOrder values within the same bagKind should be
+        // unique — duplicates would cause UI shuffle ambiguity.
+        std::set<std::string> orderSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.bagSlotId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.bagSlotId == 0)
+                errors.push_back(ctx + ": bagSlotId is 0");
+            if (e.name.empty())
+                errors.push_back(ctx + ": name is empty");
+            if (e.bagKind > wowee::pipeline::WoweeBagSlot::Wallet) {
+                errors.push_back(ctx + ": bagKind " +
+                    std::to_string(e.bagKind) + " not in 0..7");
+            }
+            // A slot that's not unlocked but has unlockCostCopper=0
+            // can never be unlocked through normal gameplay — flag.
+            if (e.isUnlocked == 0 && e.unlockCostCopper == 0) {
+                warnings.push_back(ctx +
+                    ": isUnlocked=0 with unlockCostCopper=0 "
+                    "(slot can never be unlocked in-game)");
+            }
+            // A fixed-bag slot (containerSize > 0, fixedBagItemId
+            // = 0) with a non-zero acceptsBagSubclassMask is
+            // contradictory — fixed slots don't accept equippable
+            // bags. The starter MainBackpack illustrates this:
+            // size=16, mask=0.
+            if (e.containerSize > 0 && e.fixedBagItemId == 0 &&
+                e.acceptsBagSubclassMask != 0) {
+                warnings.push_back(ctx +
+                    ": fixed-size slot (containerSize=" +
+                    std::to_string(e.containerSize) +
+                    ") with non-zero acceptsBagSubclassMask "
+                    "(equippable bag would be ignored)");
+            }
+            // A variable slot (containerSize=0) with mask=0 can
+            // never accept any bag.
+            if (e.containerSize == 0 && e.acceptsBagSubclassMask == 0 &&
+                e.bagKind != wowee::pipeline::WoweeBagSlot::Stable) {
+                errors.push_back(ctx +
+                    ": variable slot (containerSize=0) with "
+                    "acceptsBagSubclassMask=0 — no bag can fit here");
+            }
+            // (bagKind, displayOrder) tuple uniqueness — within
+            // the same kind the UI sorts by displayOrder, so
+            // duplicates would cause ambiguous ordering.
+            std::string tuple =
+                std::to_string(e.bagKind) + "/" +
+                std::to_string(e.displayOrder);
+            if (orderSeen.count(tuple)) {
+                warnings.push_back(ctx +
+                    ": duplicate (bagKind=" +
+                    wowee::pipeline::WoweeBagSlot::bagKindName(e.bagKind) +
+                    ", displayOrder=" +
+                    std::to_string(e.displayOrder) +
+                    ") — UI sort order is ambiguous");
+            }
+            orderSeen.insert(tuple);
+            if (!idsSeen.add(e.bagSlotId)) errors.push_back(ctx + ": duplicate bagSlotId");
         }
-        // A slot that's not unlocked but has unlockCostCopper=0
-        // can never be unlocked through normal gameplay — flag.
-        if (e.isUnlocked == 0 && e.unlockCostCopper == 0) {
-            warnings.push_back(ctx +
-                ": isUnlocked=0 with unlockCostCopper=0 "
-                "(slot can never be unlocked in-game)");
-        }
-        // A fixed-bag slot (containerSize > 0, fixedBagItemId
-        // = 0) with a non-zero acceptsBagSubclassMask is
-        // contradictory — fixed slots don't accept equippable
-        // bags. The starter MainBackpack illustrates this:
-        // size=16, mask=0.
-        if (e.containerSize > 0 && e.fixedBagItemId == 0 &&
-            e.acceptsBagSubclassMask != 0) {
-            warnings.push_back(ctx +
-                ": fixed-size slot (containerSize=" +
-                std::to_string(e.containerSize) +
-                ") with non-zero acceptsBagSubclassMask "
-                "(equippable bag would be ignored)");
-        }
-        // A variable slot (containerSize=0) with mask=0 can
-        // never accept any bag.
-        if (e.containerSize == 0 && e.acceptsBagSubclassMask == 0 &&
-            e.bagKind != wowee::pipeline::WoweeBagSlot::Stable) {
-            errors.push_back(ctx +
-                ": variable slot (containerSize=0) with "
-                "acceptsBagSubclassMask=0 — no bag can fit here");
-        }
-        // (bagKind, displayOrder) tuple uniqueness — within
-        // the same kind the UI sorts by displayOrder, so
-        // duplicates would cause ambiguous ordering.
-        std::string tuple =
-            std::to_string(e.bagKind) + "/" +
-            std::to_string(e.displayOrder);
-        if (orderSeen.count(tuple)) {
-            warnings.push_back(ctx +
-                ": duplicate (bagKind=" +
-                wowee::pipeline::WoweeBagSlot::bagKindName(e.bagKind) +
-                ", displayOrder=" +
-                std::to_string(e.displayOrder) +
-                ") — UI sort order is ambiguous");
-        }
-        orderSeen.insert(tuple);
-        if (!idsSeen.add(e.bagSlotId)) errors.push_back(ctx + ": duplicate bagSlotId");
-    }
-    return cli::reportValidation("wbnk", base, jsonOut, errors, warnings,
-                                 formatted("%zu slots, all bagSlotIds unique, no order ambiguity", c.entries.size()));
+            return formatted("%zu slots, all bagSlotIds unique, no order ambiguity", c.entries.size());
+        });
 }
 
 } // namespace

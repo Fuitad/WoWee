@@ -259,67 +259,59 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = cli::withoutExt(base, ".whol");
-    if (!wowee::pipeline::WoweeHolidayLoader::exists(base)) {
-        return reportMissing("validate-whol", "WHOL", base, ".whol");
-    }
-    auto c = wowee::pipeline::WoweeHolidayLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    cli::DuplicateIdCheck idsSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.holidayId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.holidayId == 0)
-            errors.push_back(ctx + ": holidayId is 0");
-        if (e.name.empty())
-            errors.push_back(ctx + ": name is empty");
-        if (e.holidayKind > wowee::pipeline::WoweeHoliday::Special) {
-            errors.push_back(ctx + ": holidayKind " +
-                std::to_string(e.holidayKind) + " not in 0..5");
-        }
-        if (e.recurrence > wowee::pipeline::WoweeHoliday::OneTime) {
-            errors.push_back(ctx + ": recurrence " +
-                std::to_string(e.recurrence) + " not in 0..3");
-        }
-        if (e.durationHours == 0) {
-            errors.push_back(ctx +
-                ": durationHours=0 (holiday window has no length)");
-        }
-        // Annual / Monthly / OneTime require a real calendar
-        // start. WeeklyRecur is exempt — it triggers based on
-        // weekday rather than fixed date.
-        if (e.recurrence != wowee::pipeline::WoweeHoliday::WeeklyRecur) {
-            if (e.startMonth == 0 || e.startMonth > 12) {
-                errors.push_back(ctx + ": startMonth " +
-                    std::to_string(e.startMonth) +
-                    " not in 1..12 (required for non-weekly recurrence)");
+    return cli::validateCatalog<wowee::pipeline::WoweeHolidayLoader>(
+        i, argc, argv, "whol", "WHOL",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.holidayId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.holidayId == 0)
+                errors.push_back(ctx + ": holidayId is 0");
+            if (e.name.empty())
+                errors.push_back(ctx + ": name is empty");
+            if (e.holidayKind > wowee::pipeline::WoweeHoliday::Special) {
+                errors.push_back(ctx + ": holidayKind " +
+                    std::to_string(e.holidayKind) + " not in 0..5");
             }
-            if (e.startDay == 0 || e.startDay > 31) {
-                errors.push_back(ctx + ": startDay " +
-                    std::to_string(e.startDay) + " not in 1..31");
+            if (e.recurrence > wowee::pipeline::WoweeHoliday::OneTime) {
+                errors.push_back(ctx + ": recurrence " +
+                    std::to_string(e.recurrence) + " not in 0..3");
             }
+            if (e.durationHours == 0) {
+                errors.push_back(ctx +
+                    ": durationHours=0 (holiday window has no length)");
+            }
+            // Annual / Monthly / OneTime require a real calendar
+            // start. WeeklyRecur is exempt — it triggers based on
+            // weekday rather than fixed date.
+            if (e.recurrence != wowee::pipeline::WoweeHoliday::WeeklyRecur) {
+                if (e.startMonth == 0 || e.startMonth > 12) {
+                    errors.push_back(ctx + ": startMonth " +
+                        std::to_string(e.startMonth) +
+                        " not in 1..12 (required for non-weekly recurrence)");
+                }
+                if (e.startDay == 0 || e.startDay > 31) {
+                    errors.push_back(ctx + ": startDay " +
+                        std::to_string(e.startDay) + " not in 1..31");
+                }
+            }
+            // Holidays with no quest, no boss, AND no reward have
+            // no in-game presence beyond a calendar entry — useful
+            // for simple banner-only events but worth flagging.
+            if (e.holidayQuestId == 0 && e.bossCreatureId == 0 &&
+                e.itemRewardId == 0) {
+                warnings.push_back(ctx +
+                    ": no quest, boss, or reward — calendar-only event");
+            }
+            if (!idsSeen.add(e.holidayId)) errors.push_back(ctx + ": duplicate holidayId");
         }
-        // Holidays with no quest, no boss, AND no reward have
-        // no in-game presence beyond a calendar entry — useful
-        // for simple banner-only events but worth flagging.
-        if (e.holidayQuestId == 0 && e.bossCreatureId == 0 &&
-            e.itemRewardId == 0) {
-            warnings.push_back(ctx +
-                ": no quest, boss, or reward — calendar-only event");
-        }
-        if (!idsSeen.add(e.holidayId)) errors.push_back(ctx + ": duplicate holidayId");
-    }
-    return cli::reportValidation("whol", base, jsonOut, errors, warnings,
-                                 formatted("%zu holidays, all holidayIds unique", c.entries.size()));
+            return formatted("%zu holidays, all holidayIds unique", c.entries.size());
+        });
 }
 
 } // namespace

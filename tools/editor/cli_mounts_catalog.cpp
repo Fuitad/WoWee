@@ -267,64 +267,56 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = cli::withoutExt(base, ".wmou");
-    if (!wowee::pipeline::WoweeMountLoader::exists(base)) {
-        return reportMissing("validate-wmou", "WMOU", base, ".wmou");
-    }
-    auto c = wowee::pipeline::WoweeMountLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    cli::DuplicateIdCheck idsSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.mountId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.mountId == 0) errors.push_back(ctx + ": mountId is 0");
-        if (e.name.empty()) errors.push_back(ctx + ": name is empty");
-        if (e.summonSpellId == 0) {
-            errors.push_back(ctx + ": summonSpellId is 0 (mount cannot be cast)");
+    return cli::validateCatalog<wowee::pipeline::WoweeMountLoader>(
+        i, argc, argv, "wmou", "WMOU",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.mountId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.mountId == 0) errors.push_back(ctx + ": mountId is 0");
+            if (e.name.empty()) errors.push_back(ctx + ": name is empty");
+            if (e.summonSpellId == 0) {
+                errors.push_back(ctx + ": summonSpellId is 0 (mount cannot be cast)");
+            }
+            if (e.mountKind > wowee::pipeline::WoweeMount::Aquatic) {
+                errors.push_back(ctx + ": mountKind " +
+                    std::to_string(e.mountKind) + " not in 0..4");
+            }
+            if (e.factionId > wowee::pipeline::WoweeMount::Horde) {
+                errors.push_back(ctx + ": factionId " +
+                    std::to_string(e.factionId) + " not in 0..2");
+            }
+            if (e.categoryId > wowee::pipeline::WoweeMount::ClassMount) {
+                errors.push_back(ctx + ": categoryId " +
+                    std::to_string(e.categoryId) + " not in 0..7");
+            }
+            if (e.speedPercent == 0) {
+                warnings.push_back(ctx +
+                    ": speedPercent=0 (mount provides no speed bonus)");
+            }
+            // Flying / Hybrid mounts need >= journeyman riding
+            // (rank 150 in canonical Classic+TBC scaling).
+            if ((e.mountKind == wowee::pipeline::WoweeMount::Flying ||
+                 e.mountKind == wowee::pipeline::WoweeMount::Hybrid) &&
+                e.requiredSkillRank < 150) {
+                warnings.push_back(ctx +
+                    ": flying mount with riding rank < 150 (player can't fly)");
+            }
+            // Racial category needs raceMask; non-racial shouldn't have one.
+            if (e.categoryId == wowee::pipeline::WoweeMount::Racial &&
+                e.raceMask == 0) {
+                warnings.push_back(ctx +
+                    ": Racial category but raceMask=0 (any race can use)");
+            }
+            if (!idsSeen.add(e.mountId)) errors.push_back(ctx + ": duplicate mountId");
         }
-        if (e.mountKind > wowee::pipeline::WoweeMount::Aquatic) {
-            errors.push_back(ctx + ": mountKind " +
-                std::to_string(e.mountKind) + " not in 0..4");
-        }
-        if (e.factionId > wowee::pipeline::WoweeMount::Horde) {
-            errors.push_back(ctx + ": factionId " +
-                std::to_string(e.factionId) + " not in 0..2");
-        }
-        if (e.categoryId > wowee::pipeline::WoweeMount::ClassMount) {
-            errors.push_back(ctx + ": categoryId " +
-                std::to_string(e.categoryId) + " not in 0..7");
-        }
-        if (e.speedPercent == 0) {
-            warnings.push_back(ctx +
-                ": speedPercent=0 (mount provides no speed bonus)");
-        }
-        // Flying / Hybrid mounts need >= journeyman riding
-        // (rank 150 in canonical Classic+TBC scaling).
-        if ((e.mountKind == wowee::pipeline::WoweeMount::Flying ||
-             e.mountKind == wowee::pipeline::WoweeMount::Hybrid) &&
-            e.requiredSkillRank < 150) {
-            warnings.push_back(ctx +
-                ": flying mount with riding rank < 150 (player can't fly)");
-        }
-        // Racial category needs raceMask; non-racial shouldn't have one.
-        if (e.categoryId == wowee::pipeline::WoweeMount::Racial &&
-            e.raceMask == 0) {
-            warnings.push_back(ctx +
-                ": Racial category but raceMask=0 (any race can use)");
-        }
-        if (!idsSeen.add(e.mountId)) errors.push_back(ctx + ": duplicate mountId");
-    }
-    return cli::reportValidation("wmou", base, jsonOut, errors, warnings,
-                                 formatted("%zu mounts, all mountIds unique", c.entries.size()));
+            return formatted("%zu mounts, all mountIds unique", c.entries.size());
+        });
 }
 
 } // namespace

@@ -257,63 +257,55 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = cli::withoutExt(base, ".wsnd");
-    if (!wowee::pipeline::WoweeSoundLoader::exists(base)) {
-        return reportMissing("validate-wsnd", "WSND", base, ".wsnd");
-    }
-    auto c = wowee::pipeline::WoweeSoundLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    // Per-entry checks plus a duplicate-soundId scan.
-    std::vector<uint32_t> idsSeen;
-    idsSeen.reserve(c.entries.size());
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.soundId) + ")";
-        if (e.kind > wowee::pipeline::WoweeSound::Combat) {
-            errors.push_back(ctx + ": kind " + std::to_string(e.kind) +
-                             " not in known range 0..6");
-        }
-        // Reject NaN/inf early — these crash audio engines.
-        if (!std::isfinite(e.volume) ||
-            !std::isfinite(e.minDistance) ||
-            !std::isfinite(e.maxDistance)) {
-            errors.push_back(ctx + ": volume/min/max distance not finite");
-        }
-        if (e.volume < 0.0f || e.volume > 4.0f) {
-            warnings.push_back(ctx + ": volume " +
-                std::to_string(e.volume) +
-                " outside typical 0..4 range");
-        }
-        // 3D sounds need min < max; non-3D sounds usually have
-        // both at 0 (positional fields ignored at runtime).
-        if (e.flags & wowee::pipeline::WoweeSound::Is3D) {
-            if (e.minDistance < 0 || e.maxDistance <= e.minDistance) {
-                errors.push_back(ctx +
-                    ": 3d sound needs minDistance >= 0 and "
-                    "maxDistance > minDistance");
+    return cli::validateCatalog<wowee::pipeline::WoweeSoundLoader>(
+        i, argc, argv, "wsnd", "WSND",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        // Per-entry checks plus a duplicate-soundId scan.
+        std::vector<uint32_t> idsSeen;
+        idsSeen.reserve(c.entries.size());
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.soundId) + ")";
+            if (e.kind > wowee::pipeline::WoweeSound::Combat) {
+                errors.push_back(ctx + ": kind " + std::to_string(e.kind) +
+                                 " not in known range 0..6");
             }
-        }
-        if (e.filePath.empty()) {
-            errors.push_back(ctx + ": filePath is empty");
-        }
-        for (uint32_t prev : idsSeen) {
-            if (prev == e.soundId) {
-                errors.push_back(ctx +
-                    ": soundId already used by an earlier entry");
-                break;
+            // Reject NaN/inf early — these crash audio engines.
+            if (!std::isfinite(e.volume) ||
+                !std::isfinite(e.minDistance) ||
+                !std::isfinite(e.maxDistance)) {
+                errors.push_back(ctx + ": volume/min/max distance not finite");
             }
+            if (e.volume < 0.0f || e.volume > 4.0f) {
+                warnings.push_back(ctx + ": volume " +
+                    std::to_string(e.volume) +
+                    " outside typical 0..4 range");
+            }
+            // 3D sounds need min < max; non-3D sounds usually have
+            // both at 0 (positional fields ignored at runtime).
+            if (e.flags & wowee::pipeline::WoweeSound::Is3D) {
+                if (e.minDistance < 0 || e.maxDistance <= e.minDistance) {
+                    errors.push_back(ctx +
+                        ": 3d sound needs minDistance >= 0 and "
+                        "maxDistance > minDistance");
+                }
+            }
+            if (e.filePath.empty()) {
+                errors.push_back(ctx + ": filePath is empty");
+            }
+            for (uint32_t prev : idsSeen) {
+                if (prev == e.soundId) {
+                    errors.push_back(ctx +
+                        ": soundId already used by an earlier entry");
+                    break;
+                }
+            }
+            idsSeen.push_back(e.soundId);
         }
-        idsSeen.push_back(e.soundId);
-    }
-    return cli::reportValidation("wsnd", base, jsonOut, errors, warnings,
-                                 formatted("%zu entries, all sound IDs unique", c.entries.size()));
+            return formatted("%zu entries, all sound IDs unique", c.entries.size());
+        });
 }
 
 } // namespace

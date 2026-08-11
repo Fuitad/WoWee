@@ -246,51 +246,43 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = cli::withoutExt(base, ".wsea");
-    if (!wowee::pipeline::WoweeEventLoader::exists(base)) {
-        return reportMissing("validate-wsea", "WSEA", base, ".wsea");
-    }
-    auto c = wowee::pipeline::WoweeEventLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    cli::DuplicateIdCheck idsSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.eventId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.eventId == 0) errors.push_back(ctx + ": eventId is 0");
-        if (e.name.empty()) errors.push_back(ctx + ": name is empty");
-        if (e.holidayKind > wowee::pipeline::WoweeEvent::WorldEvent) {
-            errors.push_back(ctx + ": holidayKind " +
-                std::to_string(e.holidayKind) + " not in 0..6");
+    return cli::validateCatalog<wowee::pipeline::WoweeEventLoader>(
+        i, argc, argv, "wsea", "WSEA",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.eventId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.eventId == 0) errors.push_back(ctx + ": eventId is 0");
+            if (e.name.empty()) errors.push_back(ctx + ": name is empty");
+            if (e.holidayKind > wowee::pipeline::WoweeEvent::WorldEvent) {
+                errors.push_back(ctx + ": holidayKind " +
+                    std::to_string(e.holidayKind) + " not in 0..6");
+            }
+            if (e.factionGroup > wowee::pipeline::WoweeEvent::FactionHorde) {
+                errors.push_back(ctx + ": factionGroup " +
+                    std::to_string(e.factionGroup) + " not in 0..2");
+            }
+            if (e.duration_seconds == 0) {
+                errors.push_back(ctx + ": duration_seconds is 0 (event never runs)");
+            }
+            if (e.recurrenceDays > 0 &&
+                e.duration_seconds > e.recurrenceDays * 24u * 3600u) {
+                errors.push_back(ctx +
+                    ": duration exceeds recurrence period (events would overlap)");
+            }
+            if (e.bonusXpPercent > 200) {
+                warnings.push_back(ctx +
+                    ": bonusXpPercent > 200 (very high — verify intentional)");
+            }
+            if (!idsSeen.add(e.eventId)) errors.push_back(ctx + ": duplicate eventId");
         }
-        if (e.factionGroup > wowee::pipeline::WoweeEvent::FactionHorde) {
-            errors.push_back(ctx + ": factionGroup " +
-                std::to_string(e.factionGroup) + " not in 0..2");
-        }
-        if (e.duration_seconds == 0) {
-            errors.push_back(ctx + ": duration_seconds is 0 (event never runs)");
-        }
-        if (e.recurrenceDays > 0 &&
-            e.duration_seconds > e.recurrenceDays * 24u * 3600u) {
-            errors.push_back(ctx +
-                ": duration exceeds recurrence period (events would overlap)");
-        }
-        if (e.bonusXpPercent > 200) {
-            warnings.push_back(ctx +
-                ": bonusXpPercent > 200 (very high — verify intentional)");
-        }
-        if (!idsSeen.add(e.eventId)) errors.push_back(ctx + ": duplicate eventId");
-    }
-    return cli::reportValidation("wsea", base, jsonOut, errors, warnings,
-                                 formatted("%zu events, all eventIds unique", c.entries.size()));
+            return formatted("%zu events, all eventIds unique", c.entries.size());
+        });
 }
 
 } // namespace

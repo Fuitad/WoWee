@@ -310,58 +310,50 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = cli::withoutExt(base, ".wlot");
-    if (!wowee::pipeline::WoweeLootLoader::exists(base)) {
-        return reportMissing("validate-wlot", "WLOT", base, ".wlot");
-    }
-    auto c = wowee::pipeline::WoweeLootLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    cli::DuplicateIdCheck idsSeen;
-    idsSeen.reserve(c.entries.size());
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (creatureId=" + std::to_string(e.creatureId) + ")";
-        if (e.creatureId == 0) {
-            errors.push_back(ctx + ": creatureId is 0");
-        }
-        if (e.moneyMinCopper > e.moneyMaxCopper) {
-            errors.push_back(ctx + ": moneyMin > moneyMax");
-        }
-        if (e.dropCount == 0 && !e.itemDrops.empty()) {
-            warnings.push_back(ctx +
-                ": dropCount=0 but item drops are defined (none will be rolled)");
-        }
-        for (size_t di = 0; di < e.itemDrops.size(); ++di) {
-            const auto& d = e.itemDrops[di];
-            std::string dctx = ctx + " drop " + std::to_string(di) +
-                                " (itemId=" + std::to_string(d.itemId) + ")";
-            if (d.itemId == 0) {
-                errors.push_back(dctx + ": itemId is 0");
+    return cli::validateCatalog<wowee::pipeline::WoweeLootLoader>(
+        i, argc, argv, "wlot", "WLOT",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        idsSeen.reserve(c.entries.size());
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (creatureId=" + std::to_string(e.creatureId) + ")";
+            if (e.creatureId == 0) {
+                errors.push_back(ctx + ": creatureId is 0");
             }
-            if (!std::isfinite(d.chancePercent) ||
-                d.chancePercent < 0.0f || d.chancePercent > 100.0f) {
-                errors.push_back(dctx +
-                    ": chancePercent must be in 0..100, got " +
-                    std::to_string(d.chancePercent));
+            if (e.moneyMinCopper > e.moneyMaxCopper) {
+                errors.push_back(ctx + ": moneyMin > moneyMax");
             }
-            if (d.minQty == 0) {
-                warnings.push_back(dctx + ": minQty=0 (drop with zero quantity)");
+            if (e.dropCount == 0 && !e.itemDrops.empty()) {
+                warnings.push_back(ctx +
+                    ": dropCount=0 but item drops are defined (none will be rolled)");
             }
-            if (d.minQty > d.maxQty) {
-                errors.push_back(dctx + ": minQty > maxQty");
+            for (size_t di = 0; di < e.itemDrops.size(); ++di) {
+                const auto& d = e.itemDrops[di];
+                std::string dctx = ctx + " drop " + std::to_string(di) +
+                                    " (itemId=" + std::to_string(d.itemId) + ")";
+                if (d.itemId == 0) {
+                    errors.push_back(dctx + ": itemId is 0");
+                }
+                if (!std::isfinite(d.chancePercent) ||
+                    d.chancePercent < 0.0f || d.chancePercent > 100.0f) {
+                    errors.push_back(dctx +
+                        ": chancePercent must be in 0..100, got " +
+                        std::to_string(d.chancePercent));
+                }
+                if (d.minQty == 0) {
+                    warnings.push_back(dctx + ": minQty=0 (drop with zero quantity)");
+                }
+                if (d.minQty > d.maxQty) {
+                    errors.push_back(dctx + ": minQty > maxQty");
+                }
             }
+            if (!idsSeen.add(e.creatureId)) errors.push_back(ctx + ": duplicate creatureId");
         }
-        if (!idsSeen.add(e.creatureId)) errors.push_back(ctx + ": duplicate creatureId");
-    }
-    return cli::reportValidation("wlot", base, jsonOut, errors, warnings,
-                                 formatted("%zu tables, %u total drops, all creatureIds unique", c.entries.size(), totalDrops(c)));
+            return formatted("%zu tables, %u total drops, all creatureIds unique", c.entries.size(), totalDrops(c));
+        });
 }
 
 } // namespace

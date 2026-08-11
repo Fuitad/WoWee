@@ -234,67 +234,59 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = cli::withoutExt(base, ".wifs");
-    if (!wowee::pipeline::WoweeItemFlagsLoader::exists(base)) {
-        return reportMissing("validate-wifs", "WIFS", base, ".wifs");
-    }
-    auto c = wowee::pipeline::WoweeItemFlagsLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    cli::DuplicateIdCheck idsSeen;
-    std::vector<uint32_t> bitsSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.flagId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.flagId == 0)
-            errors.push_back(ctx + ": flagId is 0");
-        if (e.name.empty())
-            errors.push_back(ctx + ": name is empty");
-        if (e.flagKind > wowee::pipeline::WoweeItemFlags::Misc) {
-            errors.push_back(ctx + ": flagKind " +
-                std::to_string(e.flagKind) + " not in 0..6");
-        }
-        if (e.bitMask == 0) {
-            errors.push_back(ctx +
-                ": bitMask is 0 — flag will never match anything");
-        }
-        // bitMask should typically be a single bit (power
-        // of 2). Multi-bit masks are valid but unusual —
-        // warn so author can confirm.
-        if (e.bitMask != 0 && (e.bitMask & (e.bitMask - 1)) != 0) {
-            warnings.push_back(ctx +
-                ": bitMask 0x" + std::to_string(e.bitMask) +
-                " is not a single bit (multi-bit flags are "
-                "unusual; usually you want one of the "
-                "individual bits)");
-        }
-        if (!idsSeen.add(e.flagId)) errors.push_back(ctx + ": duplicate flagId");
-        // Two flags claiming the same bit is a serious
-        // collision — engine would only match the first
-        // entry's name when decoding.
-        if (e.bitMask != 0) {
-            for (uint32_t prevBit : bitsSeen) {
-                if (prevBit == e.bitMask) {
-                    errors.push_back(ctx +
-                        ": duplicate bitMask 0x" +
-                        std::to_string(e.bitMask) +
-                        " — collides with another entry");
-                    break;
-                }
+    return cli::validateCatalog<wowee::pipeline::WoweeItemFlagsLoader>(
+        i, argc, argv, "wifs", "WIFS",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        std::vector<uint32_t> bitsSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.flagId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.flagId == 0)
+                errors.push_back(ctx + ": flagId is 0");
+            if (e.name.empty())
+                errors.push_back(ctx + ": name is empty");
+            if (e.flagKind > wowee::pipeline::WoweeItemFlags::Misc) {
+                errors.push_back(ctx + ": flagKind " +
+                    std::to_string(e.flagKind) + " not in 0..6");
             }
-            bitsSeen.push_back(e.bitMask);
+            if (e.bitMask == 0) {
+                errors.push_back(ctx +
+                    ": bitMask is 0 — flag will never match anything");
+            }
+            // bitMask should typically be a single bit (power
+            // of 2). Multi-bit masks are valid but unusual —
+            // warn so author can confirm.
+            if (e.bitMask != 0 && (e.bitMask & (e.bitMask - 1)) != 0) {
+                warnings.push_back(ctx +
+                    ": bitMask 0x" + std::to_string(e.bitMask) +
+                    " is not a single bit (multi-bit flags are "
+                    "unusual; usually you want one of the "
+                    "individual bits)");
+            }
+            if (!idsSeen.add(e.flagId)) errors.push_back(ctx + ": duplicate flagId");
+            // Two flags claiming the same bit is a serious
+            // collision — engine would only match the first
+            // entry's name when decoding.
+            if (e.bitMask != 0) {
+                for (uint32_t prevBit : bitsSeen) {
+                    if (prevBit == e.bitMask) {
+                        errors.push_back(ctx +
+                            ": duplicate bitMask 0x" +
+                            std::to_string(e.bitMask) +
+                            " — collides with another entry");
+                        break;
+                    }
+                }
+                bitsSeen.push_back(e.bitMask);
+            }
         }
-    }
-    return cli::reportValidation("wifs", base, jsonOut, errors, warnings,
-                                 formatted("%zu flags, all flagIds + bitMasks unique", c.entries.size()));
+            return formatted("%zu flags, all flagIds + bitMasks unique", c.entries.size());
+        });
 }
 
 } // namespace

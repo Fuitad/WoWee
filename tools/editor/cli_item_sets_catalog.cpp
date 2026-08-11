@@ -244,100 +244,92 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = cli::withoutExt(base, ".wset");
-    if (!wowee::pipeline::WoweeItemSetLoader::exists(base)) {
-        return reportMissing("validate-wset", "WSET", base, ".wset");
-    }
-    auto c = wowee::pipeline::WoweeItemSetLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    cli::DuplicateIdCheck idsSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.setId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.setId == 0)
-            errors.push_back(ctx + ": setId is 0");
-        if (e.name.empty())
-            errors.push_back(ctx + ": name is empty");
-        if (e.pieceCount == 0)
-            errors.push_back(ctx +
-                ": pieceCount=0 (set has no items)");
-        if (e.pieceCount > wowee::pipeline::WoweeItemSet::kMaxPieces) {
-            errors.push_back(ctx + ": pieceCount " +
-                std::to_string(e.pieceCount) + " exceeds kMaxPieces (8)");
-        }
-        if (e.bonusCount > wowee::pipeline::WoweeItemSet::kMaxBonuses) {
-            errors.push_back(ctx + ": bonusCount " +
-                std::to_string(e.bonusCount) + " exceeds kMaxBonuses (4)");
-        }
-        // Verify the populated piece slots are non-zero and
-        // the unpopulated tail is zero — drift between
-        // pieceCount and the actual slot data confuses the
-        // runtime resolver.
-        for (size_t p = 0; p < wowee::pipeline::WoweeItemSet::kMaxPieces;
-             ++p) {
-            if (p < e.pieceCount) {
-                if (e.itemIds[p] == 0) {
-                    errors.push_back(ctx + ": piece slot " +
-                        std::to_string(p) + " is 0 but pieceCount=" +
-                        std::to_string(e.pieceCount));
+    return cli::validateCatalog<wowee::pipeline::WoweeItemSetLoader>(
+        i, argc, argv, "wset", "WSET",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.setId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.setId == 0)
+                errors.push_back(ctx + ": setId is 0");
+            if (e.name.empty())
+                errors.push_back(ctx + ": name is empty");
+            if (e.pieceCount == 0)
+                errors.push_back(ctx +
+                    ": pieceCount=0 (set has no items)");
+            if (e.pieceCount > wowee::pipeline::WoweeItemSet::kMaxPieces) {
+                errors.push_back(ctx + ": pieceCount " +
+                    std::to_string(e.pieceCount) + " exceeds kMaxPieces (8)");
+            }
+            if (e.bonusCount > wowee::pipeline::WoweeItemSet::kMaxBonuses) {
+                errors.push_back(ctx + ": bonusCount " +
+                    std::to_string(e.bonusCount) + " exceeds kMaxBonuses (4)");
+            }
+            // Verify the populated piece slots are non-zero and
+            // the unpopulated tail is zero — drift between
+            // pieceCount and the actual slot data confuses the
+            // runtime resolver.
+            for (size_t p = 0; p < wowee::pipeline::WoweeItemSet::kMaxPieces;
+                 ++p) {
+                if (p < e.pieceCount) {
+                    if (e.itemIds[p] == 0) {
+                        errors.push_back(ctx + ": piece slot " +
+                            std::to_string(p) + " is 0 but pieceCount=" +
+                            std::to_string(e.pieceCount));
+                    }
+                } else {
+                    if (e.itemIds[p] != 0) {
+                        warnings.push_back(ctx + ": piece slot " +
+                            std::to_string(p) + " has itemId=" +
+                            std::to_string(e.itemIds[p]) +
+                            " but is past pieceCount " +
+                            std::to_string(e.pieceCount) +
+                            " (silently ignored at runtime)");
+                    }
                 }
-            } else {
-                if (e.itemIds[p] != 0) {
-                    warnings.push_back(ctx + ": piece slot " +
-                        std::to_string(p) + " has itemId=" +
-                        std::to_string(e.itemIds[p]) +
-                        " but is past pieceCount " +
+            }
+            // Bonus thresholds must be ascending and within
+            // pieceCount — a bonus that requires more pieces
+            // than the set has can never trigger.
+            uint8_t prevThreshold = 0;
+            for (size_t b = 0; b < e.bonusCount; ++b) {
+                uint8_t t = e.bonusThresholds[b];
+                uint32_t s = e.bonusSpellIds[b];
+                if (t == 0) {
+                    errors.push_back(ctx + ": bonus " +
+                        std::to_string(b) + " has threshold=0");
+                }
+                if (t > e.pieceCount) {
+                    errors.push_back(ctx + ": bonus " +
+                        std::to_string(b) + " threshold " +
+                        std::to_string(t) + " > pieceCount " +
                         std::to_string(e.pieceCount) +
-                        " (silently ignored at runtime)");
+                        " (bonus can never trigger)");
                 }
+                if (s == 0) {
+                    errors.push_back(ctx + ": bonus " +
+                        std::to_string(b) +
+                        " threshold set but spellId=0 "
+                        "(bonus has no aura)");
+                }
+                if (b > 0 && t <= prevThreshold) {
+                    errors.push_back(ctx + ": bonus " +
+                        std::to_string(b) + " threshold " +
+                        std::to_string(t) +
+                        " not strictly greater than previous " +
+                        std::to_string(prevThreshold));
+                }
+                prevThreshold = t;
             }
+            if (!idsSeen.add(e.setId)) errors.push_back(ctx + ": duplicate setId");
         }
-        // Bonus thresholds must be ascending and within
-        // pieceCount — a bonus that requires more pieces
-        // than the set has can never trigger.
-        uint8_t prevThreshold = 0;
-        for (size_t b = 0; b < e.bonusCount; ++b) {
-            uint8_t t = e.bonusThresholds[b];
-            uint32_t s = e.bonusSpellIds[b];
-            if (t == 0) {
-                errors.push_back(ctx + ": bonus " +
-                    std::to_string(b) + " has threshold=0");
-            }
-            if (t > e.pieceCount) {
-                errors.push_back(ctx + ": bonus " +
-                    std::to_string(b) + " threshold " +
-                    std::to_string(t) + " > pieceCount " +
-                    std::to_string(e.pieceCount) +
-                    " (bonus can never trigger)");
-            }
-            if (s == 0) {
-                errors.push_back(ctx + ": bonus " +
-                    std::to_string(b) +
-                    " threshold set but spellId=0 "
-                    "(bonus has no aura)");
-            }
-            if (b > 0 && t <= prevThreshold) {
-                errors.push_back(ctx + ": bonus " +
-                    std::to_string(b) + " threshold " +
-                    std::to_string(t) +
-                    " not strictly greater than previous " +
-                    std::to_string(prevThreshold));
-            }
-            prevThreshold = t;
-        }
-        if (!idsSeen.add(e.setId)) errors.push_back(ctx + ": duplicate setId");
-    }
-    return cli::reportValidation("wset", base, jsonOut, errors, warnings,
-                                 formatted("%zu sets, all setIds unique, all bonus thresholds reachable", c.entries.size()));
+            return formatted("%zu sets, all setIds unique, all bonus thresholds reachable", c.entries.size());
+        });
 }
 
 } // namespace

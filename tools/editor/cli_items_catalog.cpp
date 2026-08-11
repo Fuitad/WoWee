@@ -331,74 +331,66 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = cli::withoutExt(base, ".wit");
-    if (!wowee::pipeline::WoweeItemLoader::exists(base)) {
-        return reportMissing("validate-wit", "WIT", base, ".wit");
-    }
-    auto c = wowee::pipeline::WoweeItemLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    cli::DuplicateIdCheck idsSeen;
-    idsSeen.reserve(c.entries.size());
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.itemId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.itemId == 0) {
-            errors.push_back(ctx + ": itemId is 0");
-        }
-        if (e.quality > wowee::pipeline::WoweeItem::Heirloom) {
-            errors.push_back(ctx + ": quality " +
-                std::to_string(e.quality) + " not in 0..7");
-        }
-        // Weapon class implies damage fields > 0 and a 1H/2H slot.
-        if (e.itemClass == wowee::pipeline::WoweeItem::Weapon) {
-            if (e.damageMin == 0 || e.damageMax == 0) {
-                errors.push_back(ctx + ": weapon has zero damage");
+    return cli::validateCatalog<wowee::pipeline::WoweeItemLoader>(
+        i, argc, argv, "wit", "WIT",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        idsSeen.reserve(c.entries.size());
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.itemId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.itemId == 0) {
+                errors.push_back(ctx + ": itemId is 0");
             }
-            if (e.damageMin > e.damageMax) {
-                errors.push_back(ctx + ": damageMin > damageMax");
+            if (e.quality > wowee::pipeline::WoweeItem::Heirloom) {
+                errors.push_back(ctx + ": quality " +
+                    std::to_string(e.quality) + " not in 0..7");
             }
-            if (e.attackSpeedMs == 0) {
-                errors.push_back(ctx + ": weapon has zero attackSpeedMs");
+            // Weapon class implies damage fields > 0 and a 1H/2H slot.
+            if (e.itemClass == wowee::pipeline::WoweeItem::Weapon) {
+                if (e.damageMin == 0 || e.damageMax == 0) {
+                    errors.push_back(ctx + ": weapon has zero damage");
+                }
+                if (e.damageMin > e.damageMax) {
+                    errors.push_back(ctx + ": damageMin > damageMax");
+                }
+                if (e.attackSpeedMs == 0) {
+                    errors.push_back(ctx + ": weapon has zero attackSpeedMs");
+                }
+                if (e.inventoryType != wowee::pipeline::WoweeItem::Weapon1H &&
+                    e.inventoryType != wowee::pipeline::WoweeItem::Weapon2H &&
+                    e.inventoryType != wowee::pipeline::WoweeItem::Ranged) {
+                    warnings.push_back(ctx + ": weapon has non-weapon inventoryType");
+                }
             }
-            if (e.inventoryType != wowee::pipeline::WoweeItem::Weapon1H &&
-                e.inventoryType != wowee::pipeline::WoweeItem::Weapon2H &&
-                e.inventoryType != wowee::pipeline::WoweeItem::Ranged) {
-                warnings.push_back(ctx + ": weapon has non-weapon inventoryType");
+            // Equippable items should have non-zero durability (catches
+            // common armor authoring oversight).
+            if (e.inventoryType != wowee::pipeline::WoweeItem::NonEquip &&
+                e.durability == 0) {
+                warnings.push_back(ctx +
+                    ": equippable item with durability=0");
             }
+            // Stack-of-one items shouldn't have maxStack > 1
+            // (unique-equip case is already guarded by the Unique flag).
+            if (e.inventoryType != wowee::pipeline::WoweeItem::NonEquip &&
+                e.maxStack > 1) {
+                warnings.push_back(ctx +
+                    ": equippable item with maxStack > 1");
+            }
+            // Buy price should be greater than sell price (vendor margin).
+            if (e.buyPriceCopper > 0 && e.sellPriceCopper > 0 &&
+                e.sellPriceCopper >= e.buyPriceCopper) {
+                warnings.push_back(ctx +
+                    ": sellPrice >= buyPrice (vendor would lose money)");
+            }
+            if (!idsSeen.add(e.itemId)) errors.push_back(ctx + ": duplicate itemId");
         }
-        // Equippable items should have non-zero durability (catches
-        // common armor authoring oversight).
-        if (e.inventoryType != wowee::pipeline::WoweeItem::NonEquip &&
-            e.durability == 0) {
-            warnings.push_back(ctx +
-                ": equippable item with durability=0");
-        }
-        // Stack-of-one items shouldn't have maxStack > 1
-        // (unique-equip case is already guarded by the Unique flag).
-        if (e.inventoryType != wowee::pipeline::WoweeItem::NonEquip &&
-            e.maxStack > 1) {
-            warnings.push_back(ctx +
-                ": equippable item with maxStack > 1");
-        }
-        // Buy price should be greater than sell price (vendor margin).
-        if (e.buyPriceCopper > 0 && e.sellPriceCopper > 0 &&
-            e.sellPriceCopper >= e.buyPriceCopper) {
-            warnings.push_back(ctx +
-                ": sellPrice >= buyPrice (vendor would lose money)");
-        }
-        if (!idsSeen.add(e.itemId)) errors.push_back(ctx + ": duplicate itemId");
-    }
-    return cli::reportValidation("wit", base, jsonOut, errors, warnings,
-                                 formatted("%zu items, all itemIds unique", c.entries.size()));
+            return formatted("%zu items, all itemIds unique", c.entries.size());
+        });
 }
 
 } // namespace

@@ -280,72 +280,64 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = cli::withoutExt(base, ".wtbr");
-    if (!wowee::pipeline::WoweeTokenRewardLoader::exists(base)) {
-        return reportMissing("validate-wtbr", "WTBR", base, ".wtbr");
-    }
-    auto c = wowee::pipeline::WoweeTokenRewardLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    cli::DuplicateIdCheck idsSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.tokenRewardId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.tokenRewardId == 0)
-            errors.push_back(ctx + ": tokenRewardId is 0");
-        if (e.name.empty())
-            errors.push_back(ctx + ": name is empty");
-        if (e.spentTokenItemId == 0)
-            errors.push_back(ctx +
-                ": spentTokenItemId is 0 — missing token currency");
-        if (e.spentTokenCount == 0)
-            errors.push_back(ctx +
-                ": spentTokenCount is 0 — would grant reward for free");
-        if (e.rewardKind > wowee::pipeline::WoweeTokenReward::Cosmetic) {
-            errors.push_back(ctx + ": rewardKind " +
-                std::to_string(e.rewardKind) + " not in 0..7");
+    return cli::validateCatalog<wowee::pipeline::WoweeTokenRewardLoader>(
+        i, argc, argv, "wtbr", "WTBR",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.tokenRewardId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.tokenRewardId == 0)
+                errors.push_back(ctx + ": tokenRewardId is 0");
+            if (e.name.empty())
+                errors.push_back(ctx + ": name is empty");
+            if (e.spentTokenItemId == 0)
+                errors.push_back(ctx +
+                    ": spentTokenItemId is 0 — missing token currency");
+            if (e.spentTokenCount == 0)
+                errors.push_back(ctx +
+                    ": spentTokenCount is 0 — would grant reward for free");
+            if (e.rewardKind > wowee::pipeline::WoweeTokenReward::Cosmetic) {
+                errors.push_back(ctx + ": rewardKind " +
+                    std::to_string(e.rewardKind) + " not in 0..7");
+            }
+            if (e.requiredFactionStanding > wowee::pipeline::WoweeTokenReward::Exalted) {
+                errors.push_back(ctx + ": requiredFactionStanding " +
+                    std::to_string(e.requiredFactionStanding) +
+                    " not in 0..7");
+            }
+            if (e.rewardId == 0)
+                warnings.push_back(ctx +
+                    ": rewardId is 0 — no actual reward target, "
+                    "vendor will offer the entry but grant nothing");
+            // requiredFactionStanding > Neutral with no
+            // requiredFactionId is contradictory — the gate
+            // can't apply.
+            if (e.requiredFactionStanding > wowee::pipeline::WoweeTokenReward::Neutral &&
+                e.requiredFactionId == 0) {
+                warnings.push_back(ctx +
+                    ": requiredFactionStanding=" +
+                    wowee::pipeline::WoweeTokenReward::factionStandingName(e.requiredFactionStanding) +
+                    " set but requiredFactionId=0 — rep gate "
+                    "has no faction to check, gate will be ignored");
+            }
+            // Currency conversion to same item is suspicious
+            // (1 X -> N X is usually a config bug).
+            if (e.rewardKind == wowee::pipeline::WoweeTokenReward::Currency &&
+                e.rewardId == e.spentTokenItemId) {
+                warnings.push_back(ctx +
+                    ": Currency conversion from item " +
+                    std::to_string(e.spentTokenItemId) +
+                    " to itself — usually a typo");
+            }
+            if (!idsSeen.add(e.tokenRewardId)) errors.push_back(ctx + ": duplicate tokenRewardId");
         }
-        if (e.requiredFactionStanding > wowee::pipeline::WoweeTokenReward::Exalted) {
-            errors.push_back(ctx + ": requiredFactionStanding " +
-                std::to_string(e.requiredFactionStanding) +
-                " not in 0..7");
-        }
-        if (e.rewardId == 0)
-            warnings.push_back(ctx +
-                ": rewardId is 0 — no actual reward target, "
-                "vendor will offer the entry but grant nothing");
-        // requiredFactionStanding > Neutral with no
-        // requiredFactionId is contradictory — the gate
-        // can't apply.
-        if (e.requiredFactionStanding > wowee::pipeline::WoweeTokenReward::Neutral &&
-            e.requiredFactionId == 0) {
-            warnings.push_back(ctx +
-                ": requiredFactionStanding=" +
-                wowee::pipeline::WoweeTokenReward::factionStandingName(e.requiredFactionStanding) +
-                " set but requiredFactionId=0 — rep gate "
-                "has no faction to check, gate will be ignored");
-        }
-        // Currency conversion to same item is suspicious
-        // (1 X -> N X is usually a config bug).
-        if (e.rewardKind == wowee::pipeline::WoweeTokenReward::Currency &&
-            e.rewardId == e.spentTokenItemId) {
-            warnings.push_back(ctx +
-                ": Currency conversion from item " +
-                std::to_string(e.spentTokenItemId) +
-                " to itself — usually a typo");
-        }
-        if (!idsSeen.add(e.tokenRewardId)) errors.push_back(ctx + ": duplicate tokenRewardId");
-    }
-    return cli::reportValidation("wtbr", base, jsonOut, errors, warnings,
-                                 formatted("%zu rewards, all tokenRewardIds unique", c.entries.size()));
+            return formatted("%zu rewards, all tokenRewardIds unique", c.entries.size());
+        });
 }
 
 } // namespace

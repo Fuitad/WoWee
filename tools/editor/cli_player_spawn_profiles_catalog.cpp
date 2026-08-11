@@ -260,81 +260,73 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = cli::withoutExt(base, ".wpsp");
-    if (!wowee::pipeline::WoweePlayerSpawnProfileLoader::exists(base)) {
-        return reportMissing("validate-wpsp", "WPSP", base, ".wpsp");
-    }
-    auto c = wowee::pipeline::WoweePlayerSpawnProfileLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    cli::DuplicateIdCheck idsSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.profileId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.profileId == 0)
-            errors.push_back(ctx + ": profileId is 0");
-        if (e.name.empty())
-            errors.push_back(ctx + ": name is empty");
-        if (e.raceMask == 0)
-            errors.push_back(ctx +
-                ": raceMask is 0 — no race can spawn here");
-        if (e.classMask == 0)
-            errors.push_back(ctx +
-                ": classMask is 0 — no class can spawn here");
-        if (e.startingLevel == 0)
-            errors.push_back(ctx + ": startingLevel is 0");
-        if (e.startingLevel > 80)
-            warnings.push_back(ctx +
-                ": startingLevel " +
-                std::to_string(e.startingLevel) +
-                " > 80 — character will spawn above WotLK level cap");
-        // (0,0,0) spawn position is suspicious — usually a
-        // forgotten coord on a hand-edited entry.
-        if (e.spawnX == 0.0f && e.spawnY == 0.0f && e.spawnZ == 0.0f) {
-            warnings.push_back(ctx +
-                ": spawn position is (0,0,0) — likely an "
-                "uninitialized entry");
-        }
-        // Item count without item id (or vice versa) is a
-        // misconfiguration.
-        auto checkItem = [&](uint32_t id, uint32_t count, int slot) {
-            if (id == 0 && count != 0) {
+    return cli::validateCatalog<wowee::pipeline::WoweePlayerSpawnProfileLoader>(
+        i, argc, argv, "wpsp", "WPSP",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.profileId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.profileId == 0)
+                errors.push_back(ctx + ": profileId is 0");
+            if (e.name.empty())
+                errors.push_back(ctx + ": name is empty");
+            if (e.raceMask == 0)
+                errors.push_back(ctx +
+                    ": raceMask is 0 — no race can spawn here");
+            if (e.classMask == 0)
+                errors.push_back(ctx +
+                    ": classMask is 0 — no class can spawn here");
+            if (e.startingLevel == 0)
+                errors.push_back(ctx + ": startingLevel is 0");
+            if (e.startingLevel > 80)
                 warnings.push_back(ctx +
-                    ": startingItem" + std::to_string(slot) +
-                    " has count=" + std::to_string(count) +
-                    " but id=0 — item will not be granted");
-            } else if (id != 0 && count == 0) {
+                    ": startingLevel " +
+                    std::to_string(e.startingLevel) +
+                    " > 80 — character will spawn above WotLK level cap");
+            // (0,0,0) spawn position is suspicious — usually a
+            // forgotten coord on a hand-edited entry.
+            if (e.spawnX == 0.0f && e.spawnY == 0.0f && e.spawnZ == 0.0f) {
                 warnings.push_back(ctx +
-                    ": startingItem" + std::to_string(slot) +
-                    " has id=" + std::to_string(id) +
-                    " but count=0 — item will not be granted");
+                    ": spawn position is (0,0,0) — likely an "
+                    "uninitialized entry");
             }
-        };
-        checkItem(e.startingItem1Id, e.startingItem1Count, 1);
-        checkItem(e.startingItem2Id, e.startingItem2Count, 2);
-        checkItem(e.startingItem3Id, e.startingItem3Count, 3);
-        checkItem(e.startingItem4Id, e.startingItem4Count, 4);
-        // DK spawning at lvl < 55 is misconfigured (DKs
-        // always start at 55).
-        constexpr uint32_t CLS_DK_BIT = 1u << 5;
-        if ((e.classMask & CLS_DK_BIT) && e.startingLevel < 55) {
-            warnings.push_back(ctx +
-                ": Death Knight class with startingLevel=" +
-                std::to_string(e.startingLevel) +
-                " — DKs canonically start at level 55");
+            // Item count without item id (or vice versa) is a
+            // misconfiguration.
+            auto checkItem = [&](uint32_t id, uint32_t count, int slot) {
+                if (id == 0 && count != 0) {
+                    warnings.push_back(ctx +
+                        ": startingItem" + std::to_string(slot) +
+                        " has count=" + std::to_string(count) +
+                        " but id=0 — item will not be granted");
+                } else if (id != 0 && count == 0) {
+                    warnings.push_back(ctx +
+                        ": startingItem" + std::to_string(slot) +
+                        " has id=" + std::to_string(id) +
+                        " but count=0 — item will not be granted");
+                }
+            };
+            checkItem(e.startingItem1Id, e.startingItem1Count, 1);
+            checkItem(e.startingItem2Id, e.startingItem2Count, 2);
+            checkItem(e.startingItem3Id, e.startingItem3Count, 3);
+            checkItem(e.startingItem4Id, e.startingItem4Count, 4);
+            // DK spawning at lvl < 55 is misconfigured (DKs
+            // always start at 55).
+            constexpr uint32_t CLS_DK_BIT = 1u << 5;
+            if ((e.classMask & CLS_DK_BIT) && e.startingLevel < 55) {
+                warnings.push_back(ctx +
+                    ": Death Knight class with startingLevel=" +
+                    std::to_string(e.startingLevel) +
+                    " — DKs canonically start at level 55");
+            }
+            if (!idsSeen.add(e.profileId)) errors.push_back(ctx + ": duplicate profileId");
         }
-        if (!idsSeen.add(e.profileId)) errors.push_back(ctx + ": duplicate profileId");
-    }
-    return cli::reportValidation("wpsp", base, jsonOut, errors, warnings,
-                                 formatted("%zu profiles, all profileIds unique, all masks set", c.entries.size()));
+            return formatted("%zu profiles, all profileIds unique, all masks set", c.entries.size());
+        });
 }
 
 } // namespace

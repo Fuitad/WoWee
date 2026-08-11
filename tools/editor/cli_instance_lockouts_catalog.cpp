@@ -256,69 +256,61 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = cli::withoutExt(base, ".whld");
-    if (!wowee::pipeline::WoweeInstanceLockoutLoader::exists(base)) {
-        return reportMissing("validate-whld", "WHLD", base, ".whld");
-    }
-    auto c = wowee::pipeline::WoweeInstanceLockoutLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    cli::DuplicateIdCheck idsSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.lockoutId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.lockoutId == 0)
-            errors.push_back(ctx + ": lockoutId is 0");
-        if (e.name.empty())
-            errors.push_back(ctx + ": name is empty");
-        if (e.raidLockoutKind > wowee::pipeline::WoweeInstanceLockout::Custom) {
-            errors.push_back(ctx + ": raidLockoutKind " +
-                std::to_string(e.raidLockoutKind) + " not in 0..3");
+    return cli::validateCatalog<wowee::pipeline::WoweeInstanceLockoutLoader>(
+        i, argc, argv, "whld", "WHLD",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.lockoutId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.lockoutId == 0)
+                errors.push_back(ctx + ": lockoutId is 0");
+            if (e.name.empty())
+                errors.push_back(ctx + ": name is empty");
+            if (e.raidLockoutKind > wowee::pipeline::WoweeInstanceLockout::Custom) {
+                errors.push_back(ctx + ": raidLockoutKind " +
+                    std::to_string(e.raidLockoutKind) + " not in 0..3");
+            }
+            if (e.resetIntervalMs == 0)
+                errors.push_back(ctx +
+                    ": resetIntervalMs is 0 — lockout would never reset");
+            // Standard sizes are 5/10/25/40 — anything else is a
+            // server-custom raid size.
+            if (e.raidGroupSize != 5 && e.raidGroupSize != 10 &&
+                e.raidGroupSize != 25 && e.raidGroupSize != 40) {
+                warnings.push_back(ctx +
+                    ": non-standard raidGroupSize " +
+                    std::to_string(e.raidGroupSize) +
+                    " (canonical sizes are 5/10/25/40)");
+            }
+            // Daily kind with non-daily interval is suspicious.
+            if (e.raidLockoutKind == wowee::pipeline::WoweeInstanceLockout::Daily &&
+                e.resetIntervalMs != wowee::pipeline::WoweeInstanceLockout::kDailyMs) {
+                warnings.push_back(ctx +
+                    ": Daily kind with resetIntervalMs " +
+                    std::to_string(e.resetIntervalMs) +
+                    " — canonical Daily is 86400000ms (24h)");
+            }
+            // Weekly kind with non-weekly interval is suspicious.
+            if (e.raidLockoutKind == wowee::pipeline::WoweeInstanceLockout::Weekly &&
+                e.resetIntervalMs != wowee::pipeline::WoweeInstanceLockout::kWeeklyMs) {
+                warnings.push_back(ctx +
+                    ": Weekly kind with resetIntervalMs " +
+                    std::to_string(e.resetIntervalMs) +
+                    " — canonical Weekly is 604800000ms (7d)");
+            }
+            if (e.maxBossKillsPerLockout == 0)
+                warnings.push_back(ctx +
+                    ": maxBossKillsPerLockout=0 — instance grants no "
+                    "lockout-bound kills, every visit is fresh");
+            if (!idsSeen.add(e.lockoutId)) errors.push_back(ctx + ": duplicate lockoutId");
         }
-        if (e.resetIntervalMs == 0)
-            errors.push_back(ctx +
-                ": resetIntervalMs is 0 — lockout would never reset");
-        // Standard sizes are 5/10/25/40 — anything else is a
-        // server-custom raid size.
-        if (e.raidGroupSize != 5 && e.raidGroupSize != 10 &&
-            e.raidGroupSize != 25 && e.raidGroupSize != 40) {
-            warnings.push_back(ctx +
-                ": non-standard raidGroupSize " +
-                std::to_string(e.raidGroupSize) +
-                " (canonical sizes are 5/10/25/40)");
-        }
-        // Daily kind with non-daily interval is suspicious.
-        if (e.raidLockoutKind == wowee::pipeline::WoweeInstanceLockout::Daily &&
-            e.resetIntervalMs != wowee::pipeline::WoweeInstanceLockout::kDailyMs) {
-            warnings.push_back(ctx +
-                ": Daily kind with resetIntervalMs " +
-                std::to_string(e.resetIntervalMs) +
-                " — canonical Daily is 86400000ms (24h)");
-        }
-        // Weekly kind with non-weekly interval is suspicious.
-        if (e.raidLockoutKind == wowee::pipeline::WoweeInstanceLockout::Weekly &&
-            e.resetIntervalMs != wowee::pipeline::WoweeInstanceLockout::kWeeklyMs) {
-            warnings.push_back(ctx +
-                ": Weekly kind with resetIntervalMs " +
-                std::to_string(e.resetIntervalMs) +
-                " — canonical Weekly is 604800000ms (7d)");
-        }
-        if (e.maxBossKillsPerLockout == 0)
-            warnings.push_back(ctx +
-                ": maxBossKillsPerLockout=0 — instance grants no "
-                "lockout-bound kills, every visit is fresh");
-        if (!idsSeen.add(e.lockoutId)) errors.push_back(ctx + ": duplicate lockoutId");
-    }
-    return cli::reportValidation("whld", base, jsonOut, errors, warnings,
-                                 formatted("%zu lockouts, all lockoutIds unique", c.entries.size()));
+            return formatted("%zu lockouts, all lockoutIds unique", c.entries.size());
+        });
 }
 
 } // namespace

@@ -217,62 +217,54 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = cli::withoutExt(base, ".wstc");
-    if (!wowee::pipeline::WoweeStableSlotLoader::exists(base)) {
-        return reportMissing("validate-wstc", "WSTC", base, ".wstc");
-    }
-    auto c = wowee::pipeline::WoweeStableSlotLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    cli::DuplicateIdCheck idsSeen;
-    std::vector<uint8_t> ordersSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.slotId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.slotId == 0)
-            errors.push_back(ctx + ": slotId is 0");
-        if (e.name.empty())
-            errors.push_back(ctx + ": name is empty");
-        if (e.minLevelToUnlock > 80) {
-            warnings.push_back(ctx +
-                ": minLevelToUnlock " +
-                std::to_string(e.minLevelToUnlock) +
-                " > 80 — slot unreachable at WotLK cap");
-        }
-        // Premium slot with non-zero cost is contradictory —
-        // donator slots should be free (status-gated, not
-        // gold-gated).
-        if (e.isPremium && e.copperCost > 0) {
-            warnings.push_back(ctx +
-                ": Premium slot with copperCost=" +
-                std::to_string(e.copperCost) +
-                " — donator slots are typically free; the gate "
-                "is donor status, not gold");
-        }
-        if (!idsSeen.add(e.slotId)) errors.push_back(ctx + ": duplicate slotId");
-        // Two slots with the same displayOrder collide in
-        // the stable UI — only the first would render.
-        for (uint8_t prevOrd : ordersSeen) {
-            if (prevOrd == e.displayOrder) {
+    return cli::validateCatalog<wowee::pipeline::WoweeStableSlotLoader>(
+        i, argc, argv, "wstc", "WSTC",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        std::vector<uint8_t> ordersSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.slotId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.slotId == 0)
+                errors.push_back(ctx + ": slotId is 0");
+            if (e.name.empty())
+                errors.push_back(ctx + ": name is empty");
+            if (e.minLevelToUnlock > 80) {
                 warnings.push_back(ctx +
-                    ": duplicate displayOrder " +
-                    std::to_string(e.displayOrder) +
-                    " — stable UI position collision");
-                break;
+                    ": minLevelToUnlock " +
+                    std::to_string(e.minLevelToUnlock) +
+                    " > 80 — slot unreachable at WotLK cap");
             }
+            // Premium slot with non-zero cost is contradictory —
+            // donator slots should be free (status-gated, not
+            // gold-gated).
+            if (e.isPremium && e.copperCost > 0) {
+                warnings.push_back(ctx +
+                    ": Premium slot with copperCost=" +
+                    std::to_string(e.copperCost) +
+                    " — donator slots are typically free; the gate "
+                    "is donor status, not gold");
+            }
+            if (!idsSeen.add(e.slotId)) errors.push_back(ctx + ": duplicate slotId");
+            // Two slots with the same displayOrder collide in
+            // the stable UI — only the first would render.
+            for (uint8_t prevOrd : ordersSeen) {
+                if (prevOrd == e.displayOrder) {
+                    warnings.push_back(ctx +
+                        ": duplicate displayOrder " +
+                        std::to_string(e.displayOrder) +
+                        " — stable UI position collision");
+                    break;
+                }
+            }
+            ordersSeen.push_back(e.displayOrder);
         }
-        ordersSeen.push_back(e.displayOrder);
-    }
-    return cli::reportValidation("wstc", base, jsonOut, errors, warnings,
-                                 formatted("%zu slots, all slotIds unique, no UI collisions", c.entries.size()));
+            return formatted("%zu slots, all slotIds unique, no UI collisions", c.entries.size());
+        });
 }
 
 } // namespace

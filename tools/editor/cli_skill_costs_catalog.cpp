@@ -255,70 +255,62 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = cli::withoutExt(base, ".wscs");
-    if (!wowee::pipeline::WoweeSkillCostLoader::exists(base)) {
-        return reportMissing("validate-wscs", "WSCS", base, ".wscs");
-    }
-    auto c = wowee::pipeline::WoweeSkillCostLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    cli::DuplicateIdCheck idsSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.costId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.costId == 0)
-            errors.push_back(ctx + ": costId is 0");
-        if (e.name.empty())
-            errors.push_back(ctx + ": name is empty");
-        if (e.costKind > wowee::pipeline::WoweeSkillCost::Misc) {
-            errors.push_back(ctx + ": costKind " +
-                std::to_string(e.costKind) + " not in 0..4");
+    return cli::validateCatalog<wowee::pipeline::WoweeSkillCostLoader>(
+        i, argc, argv, "wscs", "WSCS",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.costId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.costId == 0)
+                errors.push_back(ctx + ": costId is 0");
+            if (e.name.empty())
+                errors.push_back(ctx + ": name is empty");
+            if (e.costKind > wowee::pipeline::WoweeSkillCost::Misc) {
+                errors.push_back(ctx + ": costKind " +
+                    std::to_string(e.costKind) + " not in 0..4");
+            }
+            if (e.minSkillToLearn >= e.maxSkillUnlocked) {
+                errors.push_back(ctx +
+                    ": minSkillToLearn " +
+                    std::to_string(e.minSkillToLearn) +
+                    " >= maxSkillUnlocked " +
+                    std::to_string(e.maxSkillUnlocked) +
+                    " — tier provides no skill range");
+            }
+            if (e.requiredLevel > 80) {
+                warnings.push_back(ctx +
+                    ": requiredLevel " +
+                    std::to_string(e.requiredLevel) +
+                    " > 80 — tier unreachable at WotLK cap");
+            }
+            // Riding skill at lvl < 20 is unusual (Apprentice
+            // requires lvl 20).
+            if (e.costKind == wowee::pipeline::WoweeSkillCost::RidingSkill &&
+                e.requiredLevel < 20) {
+                warnings.push_back(ctx +
+                    ": Riding skill with requiredLevel=" +
+                    std::to_string(e.requiredLevel) +
+                    " < 20 — canonical Apprentice Riding unlocks "
+                    "at level 20");
+            }
+            // Profession with cost=0 is unusual — every standard
+            // profession tier costs at least a copper.
+            if (e.costKind == wowee::pipeline::WoweeSkillCost::Profession &&
+                e.copperCost == 0) {
+                warnings.push_back(ctx +
+                    ": Profession kind with copperCost=0 — "
+                    "unusual, profession tiers normally cost "
+                    "at least a copper");
+            }
+            if (!idsSeen.add(e.costId)) errors.push_back(ctx + ": duplicate costId");
         }
-        if (e.minSkillToLearn >= e.maxSkillUnlocked) {
-            errors.push_back(ctx +
-                ": minSkillToLearn " +
-                std::to_string(e.minSkillToLearn) +
-                " >= maxSkillUnlocked " +
-                std::to_string(e.maxSkillUnlocked) +
-                " — tier provides no skill range");
-        }
-        if (e.requiredLevel > 80) {
-            warnings.push_back(ctx +
-                ": requiredLevel " +
-                std::to_string(e.requiredLevel) +
-                " > 80 — tier unreachable at WotLK cap");
-        }
-        // Riding skill at lvl < 20 is unusual (Apprentice
-        // requires lvl 20).
-        if (e.costKind == wowee::pipeline::WoweeSkillCost::RidingSkill &&
-            e.requiredLevel < 20) {
-            warnings.push_back(ctx +
-                ": Riding skill with requiredLevel=" +
-                std::to_string(e.requiredLevel) +
-                " < 20 — canonical Apprentice Riding unlocks "
-                "at level 20");
-        }
-        // Profession with cost=0 is unusual — every standard
-        // profession tier costs at least a copper.
-        if (e.costKind == wowee::pipeline::WoweeSkillCost::Profession &&
-            e.copperCost == 0) {
-            warnings.push_back(ctx +
-                ": Profession kind with copperCost=0 — "
-                "unusual, profession tiers normally cost "
-                "at least a copper");
-        }
-        if (!idsSeen.add(e.costId)) errors.push_back(ctx + ": duplicate costId");
-    }
-    return cli::reportValidation("wscs", base, jsonOut, errors, warnings,
-                                 formatted("%zu tiers, all costIds unique", c.entries.size()));
+            return formatted("%zu tiers, all costIds unique", c.entries.size());
+        });
 }
 
 } // namespace

@@ -244,89 +244,81 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = cli::withoutExt(base, ".wcdf");
-    if (!wowee::pipeline::WoweeCreatureDifficultyLoader::exists(base)) {
-        return reportMissing("validate-wcdf", "WCDF", base, ".wcdf");
-    }
-    auto c = wowee::pipeline::WoweeCreatureDifficultyLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    cli::DuplicateIdCheck idsSeen;
-    std::vector<uint32_t> baseSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.difficultyId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.difficultyId == 0)
-            errors.push_back(ctx + ": difficultyId is 0");
-        if (e.name.empty())
-            errors.push_back(ctx + ": name is empty");
-        if (e.spawnGroupKind > wowee::pipeline::WoweeCreatureDifficulty::WorldBoss) {
-            errors.push_back(ctx + ": spawnGroupKind " +
-                std::to_string(e.spawnGroupKind) + " not in 0..5");
-        }
-        if (e.baseCreatureId == 0)
-            errors.push_back(ctx +
-                ": baseCreatureId is 0 — missing WCRT cross-ref");
-        // World bosses don't scale, so all 4 variant fields
-        // should be 0 (engine falls through to base).
-        if (e.spawnGroupKind == wowee::pipeline::WoweeCreatureDifficulty::WorldBoss &&
-            (e.normal10Id || e.normal25Id || e.heroic10Id || e.heroic25Id)) {
-            warnings.push_back(ctx +
-                ": WorldBoss kind with non-zero variant ids — "
-                "world bosses don't scale, set variant fields to 0");
-        }
-        // The asymmetric case n25 set without n10 is
-        // suspicious — typically a typo, since raid
-        // sequencing always introduces n10 alongside n25.
-        // (5-man bosses legitimately have only n10/h10, so
-        // we don't warn on missing n25 alone.)
-        if (e.spawnGroupKind == wowee::pipeline::WoweeCreatureDifficulty::Boss &&
-            e.normal25Id && !e.normal10Id) {
-            warnings.push_back(ctx +
-                ": Boss has normal25Id but not normal10Id — "
-                "raid sequencing introduces n10 alongside n25; "
-                "this is probably a typo");
-        }
-        if (!idsSeen.add(e.difficultyId)) errors.push_back(ctx + ": duplicate difficultyId");
-        // Two routes for the same base creature collide —
-        // engine would only honor the first.
-        if (e.baseCreatureId != 0) {
-            for (uint32_t prevBase : baseSeen) {
-                if (prevBase == e.baseCreatureId) {
+    return cli::validateCatalog<wowee::pipeline::WoweeCreatureDifficultyLoader>(
+        i, argc, argv, "wcdf", "WCDF",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        std::vector<uint32_t> baseSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.difficultyId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.difficultyId == 0)
+                errors.push_back(ctx + ": difficultyId is 0");
+            if (e.name.empty())
+                errors.push_back(ctx + ": name is empty");
+            if (e.spawnGroupKind > wowee::pipeline::WoweeCreatureDifficulty::WorldBoss) {
+                errors.push_back(ctx + ": spawnGroupKind " +
+                    std::to_string(e.spawnGroupKind) + " not in 0..5");
+            }
+            if (e.baseCreatureId == 0)
+                errors.push_back(ctx +
+                    ": baseCreatureId is 0 — missing WCRT cross-ref");
+            // World bosses don't scale, so all 4 variant fields
+            // should be 0 (engine falls through to base).
+            if (e.spawnGroupKind == wowee::pipeline::WoweeCreatureDifficulty::WorldBoss &&
+                (e.normal10Id || e.normal25Id || e.heroic10Id || e.heroic25Id)) {
+                warnings.push_back(ctx +
+                    ": WorldBoss kind with non-zero variant ids — "
+                    "world bosses don't scale, set variant fields to 0");
+            }
+            // The asymmetric case n25 set without n10 is
+            // suspicious — typically a typo, since raid
+            // sequencing always introduces n10 alongside n25.
+            // (5-man bosses legitimately have only n10/h10, so
+            // we don't warn on missing n25 alone.)
+            if (e.spawnGroupKind == wowee::pipeline::WoweeCreatureDifficulty::Boss &&
+                e.normal25Id && !e.normal10Id) {
+                warnings.push_back(ctx +
+                    ": Boss has normal25Id but not normal10Id — "
+                    "raid sequencing introduces n10 alongside n25; "
+                    "this is probably a typo");
+            }
+            if (!idsSeen.add(e.difficultyId)) errors.push_back(ctx + ": duplicate difficultyId");
+            // Two routes for the same base creature collide —
+            // engine would only honor the first.
+            if (e.baseCreatureId != 0) {
+                for (uint32_t prevBase : baseSeen) {
+                    if (prevBase == e.baseCreatureId) {
+                        warnings.push_back(ctx +
+                            ": duplicate baseCreatureId " +
+                            std::to_string(e.baseCreatureId) +
+                            " — only the first route entry will be honored");
+                        break;
+                    }
+                }
+                baseSeen.push_back(e.baseCreatureId);
+            }
+            // Check for self-reference loops (base == any
+            // variant) which are valid for world bosses but
+            // nonsensical otherwise.
+            if (e.spawnGroupKind != wowee::pipeline::WoweeCreatureDifficulty::WorldBoss) {
+                if ((e.normal10Id == e.baseCreatureId &&
+                     e.normal25Id == e.baseCreatureId &&
+                     e.heroic10Id == e.baseCreatureId &&
+                     e.heroic25Id == e.baseCreatureId) &&
+                    e.normal10Id != 0) {
                     warnings.push_back(ctx +
-                        ": duplicate baseCreatureId " +
-                        std::to_string(e.baseCreatureId) +
-                        " — only the first route entry will be honored");
-                    break;
+                        ": all four variants point at baseCreatureId — "
+                        "creature doesn't scale; consider WorldBoss kind");
                 }
             }
-            baseSeen.push_back(e.baseCreatureId);
         }
-        // Check for self-reference loops (base == any
-        // variant) which are valid for world bosses but
-        // nonsensical otherwise.
-        if (e.spawnGroupKind != wowee::pipeline::WoweeCreatureDifficulty::WorldBoss) {
-            if ((e.normal10Id == e.baseCreatureId &&
-                 e.normal25Id == e.baseCreatureId &&
-                 e.heroic10Id == e.baseCreatureId &&
-                 e.heroic25Id == e.baseCreatureId) &&
-                e.normal10Id != 0) {
-                warnings.push_back(ctx +
-                    ": all four variants point at baseCreatureId — "
-                    "creature doesn't scale; consider WorldBoss kind");
-            }
-        }
-    }
-    return cli::reportValidation("wcdf", base, jsonOut, errors, warnings,
-                                 formatted("%zu routes, all difficultyIds unique, all base ids set", c.entries.size()));
+            return formatted("%zu routes, all difficultyIds unique, all base ids set", c.entries.size());
+        });
 }
 
 } // namespace

@@ -317,88 +317,80 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = cli::withoutExt(base, ".wvhc");
-    if (!wowee::pipeline::WoweeVehicleLoader::exists(base)) {
-        return reportMissing("validate-wvhc", "WVHC", base, ".wvhc");
-    }
-    auto c = wowee::pipeline::WoweeVehicleLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    cli::DuplicateIdCheck idsSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.vehicleId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.vehicleId == 0) errors.push_back(ctx + ": vehicleId is 0");
-        if (e.name.empty()) errors.push_back(ctx + ": name is empty");
-        if (e.creatureId == 0)
-            errors.push_back(ctx + ": creatureId is 0 "
-                "(no rendered model)");
-        if (e.vehicleKind > wowee::pipeline::WoweeVehicle::SiegeWeapon) {
-            errors.push_back(ctx + ": vehicleKind " +
-                std::to_string(e.vehicleKind) + " not in 0..7");
-        }
-        if (e.movementKind > wowee::pipeline::WoweeVehicle::AmphibiousGW) {
-            errors.push_back(ctx + ": movementKind " +
-                std::to_string(e.movementKind) + " not in 0..5");
-        }
-        if (e.powerType > wowee::pipeline::WoweeVehicle::None) {
-            errors.push_back(ctx + ": powerType " +
-                std::to_string(e.powerType) + " not in 0..4");
-        }
-        if (e.seats.empty()) {
-            errors.push_back(ctx +
-                ": no seats (vehicle has no rideable position)");
-        }
-        // Flying vehicles MUST be on Air or AmphibiousAW
-        // movement, otherwise they fall through the world.
-        if ((e.vehicleKind == wowee::pipeline::WoweeVehicle::FlyingMount ||
-             e.vehicleKind == wowee::pipeline::WoweeVehicle::Gunship) &&
-            e.movementKind != wowee::pipeline::WoweeVehicle::Air &&
-            e.movementKind != wowee::pipeline::WoweeVehicle::AmphibiousAW) {
-            errors.push_back(ctx +
-                ": flying vehicle without Air/AmphibiousAW movement "
-                "(would fall through world)");
-        }
-        // Driver-flag exclusivity check.
-        int driverCount = 0;
-        std::vector<uint8_t> seatIdxSeen;
-        for (size_t si = 0; si < e.seats.size(); ++si) {
-            const auto& s = e.seats[si];
-            if (s.seatFlags & wowee::pipeline::WoweeVehicle::kSeatDriver) {
-                ++driverCount;
+    return cli::validateCatalog<wowee::pipeline::WoweeVehicleLoader>(
+        i, argc, argv, "wvhc", "WVHC",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.vehicleId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.vehicleId == 0) errors.push_back(ctx + ": vehicleId is 0");
+            if (e.name.empty()) errors.push_back(ctx + ": name is empty");
+            if (e.creatureId == 0)
+                errors.push_back(ctx + ": creatureId is 0 "
+                    "(no rendered model)");
+            if (e.vehicleKind > wowee::pipeline::WoweeVehicle::SiegeWeapon) {
+                errors.push_back(ctx + ": vehicleKind " +
+                    std::to_string(e.vehicleKind) + " not in 0..7");
             }
-            for (uint8_t prev : seatIdxSeen) {
-                if (prev == s.seatIndex) {
-                    errors.push_back(ctx + ": seat[" +
-                        std::to_string(si) + "] duplicate seatIndex=" +
-                        std::to_string(s.seatIndex));
-                    break;
+            if (e.movementKind > wowee::pipeline::WoweeVehicle::AmphibiousGW) {
+                errors.push_back(ctx + ": movementKind " +
+                    std::to_string(e.movementKind) + " not in 0..5");
+            }
+            if (e.powerType > wowee::pipeline::WoweeVehicle::None) {
+                errors.push_back(ctx + ": powerType " +
+                    std::to_string(e.powerType) + " not in 0..4");
+            }
+            if (e.seats.empty()) {
+                errors.push_back(ctx +
+                    ": no seats (vehicle has no rideable position)");
+            }
+            // Flying vehicles MUST be on Air or AmphibiousAW
+            // movement, otherwise they fall through the world.
+            if ((e.vehicleKind == wowee::pipeline::WoweeVehicle::FlyingMount ||
+                 e.vehicleKind == wowee::pipeline::WoweeVehicle::Gunship) &&
+                e.movementKind != wowee::pipeline::WoweeVehicle::Air &&
+                e.movementKind != wowee::pipeline::WoweeVehicle::AmphibiousAW) {
+                errors.push_back(ctx +
+                    ": flying vehicle without Air/AmphibiousAW movement "
+                    "(would fall through world)");
+            }
+            // Driver-flag exclusivity check.
+            int driverCount = 0;
+            std::vector<uint8_t> seatIdxSeen;
+            for (size_t si = 0; si < e.seats.size(); ++si) {
+                const auto& s = e.seats[si];
+                if (s.seatFlags & wowee::pipeline::WoweeVehicle::kSeatDriver) {
+                    ++driverCount;
                 }
+                for (uint8_t prev : seatIdxSeen) {
+                    if (prev == s.seatIndex) {
+                        errors.push_back(ctx + ": seat[" +
+                            std::to_string(si) + "] duplicate seatIndex=" +
+                            std::to_string(s.seatIndex));
+                        break;
+                    }
+                }
+                seatIdxSeen.push_back(s.seatIndex);
             }
-            seatIdxSeen.push_back(s.seatIndex);
+            if (driverCount == 0) {
+                warnings.push_back(ctx +
+                    ": no seat marked kSeatDriver "
+                    "(no one can steer this vehicle)");
+            }
+            if (driverCount > 1) {
+                errors.push_back(ctx +
+                    ": multiple seats marked kSeatDriver (driverCount=" +
+                    std::to_string(driverCount) + ")");
+            }
+            if (!idsSeen.add(e.vehicleId)) errors.push_back(ctx + ": duplicate vehicleId");
         }
-        if (driverCount == 0) {
-            warnings.push_back(ctx +
-                ": no seat marked kSeatDriver "
-                "(no one can steer this vehicle)");
-        }
-        if (driverCount > 1) {
-            errors.push_back(ctx +
-                ": multiple seats marked kSeatDriver (driverCount=" +
-                std::to_string(driverCount) + ")");
-        }
-        if (!idsSeen.add(e.vehicleId)) errors.push_back(ctx + ": duplicate vehicleId");
-    }
-    return cli::reportValidation("wvhc", base, jsonOut, errors, warnings,
-                                 formatted("%zu vehicles, %zu seats, all vehicleIds unique", c.entries.size(), totalSeats(c)));
+            return formatted("%zu vehicles, %zu seats, all vehicleIds unique", c.entries.size(), totalSeats(c));
+        });
 }
 
 } // namespace

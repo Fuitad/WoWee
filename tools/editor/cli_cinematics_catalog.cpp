@@ -246,63 +246,55 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = cli::withoutExt(base, ".wcms");
-    if (!wowee::pipeline::WoweeCinematicLoader::exists(base)) {
-        return reportMissing("validate-wcms", "WCMS", base, ".wcms");
-    }
-    auto c = wowee::pipeline::WoweeCinematicLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    cli::DuplicateIdCheck idsSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.cinematicId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.cinematicId == 0)
-            errors.push_back(ctx + ": cinematicId is 0");
-        if (e.name.empty())
-            errors.push_back(ctx + ": name is empty");
-        if (e.mediaPath.empty())
-            errors.push_back(ctx + ": mediaPath is empty");
-        if (e.kind > wowee::pipeline::WoweeCinematic::Slideshow) {
-            errors.push_back(ctx + ": kind " +
-                std::to_string(e.kind) + " not in 0..4");
+    return cli::validateCatalog<wowee::pipeline::WoweeCinematicLoader>(
+        i, argc, argv, "wcms", "WCMS",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.cinematicId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.cinematicId == 0)
+                errors.push_back(ctx + ": cinematicId is 0");
+            if (e.name.empty())
+                errors.push_back(ctx + ": name is empty");
+            if (e.mediaPath.empty())
+                errors.push_back(ctx + ": mediaPath is empty");
+            if (e.kind > wowee::pipeline::WoweeCinematic::Slideshow) {
+                errors.push_back(ctx + ": kind " +
+                    std::to_string(e.kind) + " not in 0..4");
+            }
+            if (e.triggerKind > wowee::pipeline::WoweeCinematic::LevelUp) {
+                errors.push_back(ctx + ": triggerKind " +
+                    std::to_string(e.triggerKind) + " not in 0..8");
+            }
+            // Triggers other than Manual/Login require a non-zero
+            // target id (questId, mapId, classId, achievementId etc).
+            if (e.triggerKind != wowee::pipeline::WoweeCinematic::Manual &&
+                e.triggerKind != wowee::pipeline::WoweeCinematic::Login &&
+                e.triggerKind != wowee::pipeline::WoweeCinematic::LevelUp &&
+                e.triggerTargetId == 0) {
+                errors.push_back(ctx +
+                    ": triggerKind " +
+                    wowee::pipeline::WoweeCinematic::triggerKindName(e.triggerKind) +
+                    " requires a non-zero triggerTargetId");
+            }
+            if (e.durationSeconds == 0) {
+                warnings.push_back(ctx + ": durationSeconds=0 "
+                    "(cinematic will be skipped instantly)");
+            }
+            if (e.kind == wowee::pipeline::WoweeCinematic::PreRenderedVideo &&
+                e.skippable == 0) {
+                warnings.push_back(ctx + ": pre-rendered video is "
+                    "non-skippable (player can't escape)");
+            }
+            if (!idsSeen.add(e.cinematicId)) errors.push_back(ctx + ": duplicate cinematicId");
         }
-        if (e.triggerKind > wowee::pipeline::WoweeCinematic::LevelUp) {
-            errors.push_back(ctx + ": triggerKind " +
-                std::to_string(e.triggerKind) + " not in 0..8");
-        }
-        // Triggers other than Manual/Login require a non-zero
-        // target id (questId, mapId, classId, achievementId etc).
-        if (e.triggerKind != wowee::pipeline::WoweeCinematic::Manual &&
-            e.triggerKind != wowee::pipeline::WoweeCinematic::Login &&
-            e.triggerKind != wowee::pipeline::WoweeCinematic::LevelUp &&
-            e.triggerTargetId == 0) {
-            errors.push_back(ctx +
-                ": triggerKind " +
-                wowee::pipeline::WoweeCinematic::triggerKindName(e.triggerKind) +
-                " requires a non-zero triggerTargetId");
-        }
-        if (e.durationSeconds == 0) {
-            warnings.push_back(ctx + ": durationSeconds=0 "
-                "(cinematic will be skipped instantly)");
-        }
-        if (e.kind == wowee::pipeline::WoweeCinematic::PreRenderedVideo &&
-            e.skippable == 0) {
-            warnings.push_back(ctx + ": pre-rendered video is "
-                "non-skippable (player can't escape)");
-        }
-        if (!idsSeen.add(e.cinematicId)) errors.push_back(ctx + ": duplicate cinematicId");
-    }
-    return cli::reportValidation("wcms", base, jsonOut, errors, warnings,
-                                 formatted("%zu cinematics, all cinematicIds unique", c.entries.size()));
+            return formatted("%zu cinematics, all cinematicIds unique", c.entries.size());
+        });
 }
 
 } // namespace

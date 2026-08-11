@@ -229,75 +229,67 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = cli::withoutExt(base, ".wkbd");
-    if (!wowee::pipeline::WoweeKeyBindingLoader::exists(base)) {
-        return reportMissing("validate-wkbd", "WKBD", base, ".wkbd");
-    }
-    auto c = wowee::pipeline::WoweeKeyBindingLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    cli::DuplicateIdCheck idsSeen;
-    std::set<std::string> actionsSeen;
-    std::set<std::string> primaryKeysSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.bindingId);
-        if (!e.actionName.empty()) ctx += " " + e.actionName;
-        ctx += ")";
-        if (e.bindingId == 0)
-            errors.push_back(ctx + ": bindingId is 0");
-        if (e.actionName.empty())
-            errors.push_back(ctx + ": actionName is empty");
-        if (e.defaultKey.empty())
-            errors.push_back(ctx + ": defaultKey is empty");
-        if (e.category > wowee::pipeline::WoweeKeyBinding::Other) {
-            errors.push_back(ctx + ": category " +
-                std::to_string(e.category) + " not in 0..8");
-        }
-        if (e.alternateKey == e.defaultKey && !e.defaultKey.empty()) {
-            errors.push_back(ctx +
-                ": alternateKey == defaultKey (no point in alt)");
-        }
-        // Action name should be SCREAMING_SNAKE — anything
-        // with lowercase is suspect.
-        for (char ch : e.actionName) {
-            if (ch >= 'a' && ch <= 'z') {
-                warnings.push_back(ctx +
-                    ": actionName contains lowercase chars "
-                    "(convention is SCREAMING_SNAKE)");
-                break;
+    return cli::validateCatalog<wowee::pipeline::WoweeKeyBindingLoader>(
+        i, argc, argv, "wkbd", "WKBD",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        std::set<std::string> actionsSeen;
+        std::set<std::string> primaryKeysSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.bindingId);
+            if (!e.actionName.empty()) ctx += " " + e.actionName;
+            ctx += ")";
+            if (e.bindingId == 0)
+                errors.push_back(ctx + ": bindingId is 0");
+            if (e.actionName.empty())
+                errors.push_back(ctx + ": actionName is empty");
+            if (e.defaultKey.empty())
+                errors.push_back(ctx + ": defaultKey is empty");
+            if (e.category > wowee::pipeline::WoweeKeyBinding::Other) {
+                errors.push_back(ctx + ": category " +
+                    std::to_string(e.category) + " not in 0..8");
             }
-        }
-        // Duplicate primary keys would conflict at runtime —
-        // last one binding loaded wins, leaving the first
-        // silently shadowed.
-        if (!e.defaultKey.empty()) {
-            if (primaryKeysSeen.count(e.defaultKey)) {
-                errors.push_back(ctx + ": defaultKey '" +
-                    e.defaultKey +
-                    "' already bound by an earlier entry "
-                    "(would shadow that binding)");
-            }
-            primaryKeysSeen.insert(e.defaultKey);
-        }
-        if (!e.actionName.empty()) {
-            if (actionsSeen.count(e.actionName)) {
+            if (e.alternateKey == e.defaultKey && !e.defaultKey.empty()) {
                 errors.push_back(ctx +
-                    ": duplicate actionName '" + e.actionName + "'");
+                    ": alternateKey == defaultKey (no point in alt)");
             }
-            actionsSeen.insert(e.actionName);
+            // Action name should be SCREAMING_SNAKE — anything
+            // with lowercase is suspect.
+            for (char ch : e.actionName) {
+                if (ch >= 'a' && ch <= 'z') {
+                    warnings.push_back(ctx +
+                        ": actionName contains lowercase chars "
+                        "(convention is SCREAMING_SNAKE)");
+                    break;
+                }
+            }
+            // Duplicate primary keys would conflict at runtime —
+            // last one binding loaded wins, leaving the first
+            // silently shadowed.
+            if (!e.defaultKey.empty()) {
+                if (primaryKeysSeen.count(e.defaultKey)) {
+                    errors.push_back(ctx + ": defaultKey '" +
+                        e.defaultKey +
+                        "' already bound by an earlier entry "
+                        "(would shadow that binding)");
+                }
+                primaryKeysSeen.insert(e.defaultKey);
+            }
+            if (!e.actionName.empty()) {
+                if (actionsSeen.count(e.actionName)) {
+                    errors.push_back(ctx +
+                        ": duplicate actionName '" + e.actionName + "'");
+                }
+                actionsSeen.insert(e.actionName);
+            }
+            if (!idsSeen.add(e.bindingId)) errors.push_back(ctx + ": duplicate bindingId");
         }
-        if (!idsSeen.add(e.bindingId)) errors.push_back(ctx + ": duplicate bindingId");
-    }
-    return cli::reportValidation("wkbd", base, jsonOut, errors, warnings,
-                                 formatted("%zu bindings, all bindingIds unique, "
-                    "no key conflicts", c.entries.size()));
+            return formatted("%zu bindings, all bindingIds unique, "
+                    "no key conflicts", c.entries.size());
+        });
 }
 
 } // namespace

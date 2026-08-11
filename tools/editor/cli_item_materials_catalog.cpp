@@ -321,76 +321,68 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = cli::withoutExt(base, ".wmat");
-    if (!wowee::pipeline::WoweeItemMaterialLoader::exists(base)) {
-        return reportMissing("validate-wmat", "WMAT", base, ".wmat");
-    }
-    auto c = wowee::pipeline::WoweeItemMaterialLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    cli::DuplicateIdCheck idsSeen;
-    constexpr uint32_t kKnownFlagMask =
-        wowee::pipeline::WoweeItemMaterial::IsBreakable |
-        wowee::pipeline::WoweeItemMaterial::IsMagical |
-        wowee::pipeline::WoweeItemMaterial::IsFlammable |
-        wowee::pipeline::WoweeItemMaterial::IsConductive |
-        wowee::pipeline::WoweeItemMaterial::IsHolyCharged |
-        wowee::pipeline::WoweeItemMaterial::IsCursed;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.materialId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.materialId == 0)
-            errors.push_back(ctx + ": materialId is 0");
-        if (e.name.empty())
-            errors.push_back(ctx + ": name is empty");
-        if (e.materialKind > wowee::pipeline::WoweeItemMaterial::Hide) {
-            errors.push_back(ctx + ": materialKind " +
-                std::to_string(e.materialKind) + " not in 0..11");
+    return cli::validateCatalog<wowee::pipeline::WoweeItemMaterialLoader>(
+        i, argc, argv, "wmat", "WMAT",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        constexpr uint32_t kKnownFlagMask =
+            wowee::pipeline::WoweeItemMaterial::IsBreakable |
+            wowee::pipeline::WoweeItemMaterial::IsMagical |
+            wowee::pipeline::WoweeItemMaterial::IsFlammable |
+            wowee::pipeline::WoweeItemMaterial::IsConductive |
+            wowee::pipeline::WoweeItemMaterial::IsHolyCharged |
+            wowee::pipeline::WoweeItemMaterial::IsCursed;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.materialId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.materialId == 0)
+                errors.push_back(ctx + ": materialId is 0");
+            if (e.name.empty())
+                errors.push_back(ctx + ": name is empty");
+            if (e.materialKind > wowee::pipeline::WoweeItemMaterial::Hide) {
+                errors.push_back(ctx + ": materialKind " +
+                    std::to_string(e.materialKind) + " not in 0..11");
+            }
+            if (e.weightCategory > wowee::pipeline::WoweeItemMaterial::Heavy) {
+                errors.push_back(ctx + ": weightCategory " +
+                    std::to_string(e.weightCategory) + " not in 0..2");
+            }
+            if (e.materialFlags & ~kKnownFlagMask) {
+                warnings.push_back(ctx +
+                    ": materialFlags has bits outside known mask " +
+                    "(0x" + std::to_string(e.materialFlags & ~kKnownFlagMask) +
+                    ") — engine will ignore unknown flags");
+            }
+            // Contradictory flag combos.
+            if ((e.materialFlags & wowee::pipeline::WoweeItemMaterial::IsHolyCharged) &&
+                (e.materialFlags & wowee::pipeline::WoweeItemMaterial::IsCursed)) {
+                warnings.push_back(ctx +
+                    ": both IsHolyCharged and IsCursed flags set — "
+                    "engine will pick one (typically IsCursed wins)");
+            }
+            // Plate kind is canonically heavy. Cloth is light.
+            if (e.materialKind == wowee::pipeline::WoweeItemMaterial::Plate &&
+                e.weightCategory != wowee::pipeline::WoweeItemMaterial::Heavy) {
+                warnings.push_back(ctx +
+                    ": Plate kind with weightCategory=" +
+                    wowee::pipeline::WoweeItemMaterial::weightCategoryName(e.weightCategory) +
+                    " — plate armor is canonically heavy");
+            }
+            if (e.materialKind == wowee::pipeline::WoweeItemMaterial::Cloth &&
+                e.weightCategory != wowee::pipeline::WoweeItemMaterial::Light) {
+                warnings.push_back(ctx +
+                    ": Cloth kind with weightCategory=" +
+                    wowee::pipeline::WoweeItemMaterial::weightCategoryName(e.weightCategory) +
+                    " — cloth is canonically light");
+            }
+            if (!idsSeen.add(e.materialId)) errors.push_back(ctx + ": duplicate materialId");
         }
-        if (e.weightCategory > wowee::pipeline::WoweeItemMaterial::Heavy) {
-            errors.push_back(ctx + ": weightCategory " +
-                std::to_string(e.weightCategory) + " not in 0..2");
-        }
-        if (e.materialFlags & ~kKnownFlagMask) {
-            warnings.push_back(ctx +
-                ": materialFlags has bits outside known mask " +
-                "(0x" + std::to_string(e.materialFlags & ~kKnownFlagMask) +
-                ") — engine will ignore unknown flags");
-        }
-        // Contradictory flag combos.
-        if ((e.materialFlags & wowee::pipeline::WoweeItemMaterial::IsHolyCharged) &&
-            (e.materialFlags & wowee::pipeline::WoweeItemMaterial::IsCursed)) {
-            warnings.push_back(ctx +
-                ": both IsHolyCharged and IsCursed flags set — "
-                "engine will pick one (typically IsCursed wins)");
-        }
-        // Plate kind is canonically heavy. Cloth is light.
-        if (e.materialKind == wowee::pipeline::WoweeItemMaterial::Plate &&
-            e.weightCategory != wowee::pipeline::WoweeItemMaterial::Heavy) {
-            warnings.push_back(ctx +
-                ": Plate kind with weightCategory=" +
-                wowee::pipeline::WoweeItemMaterial::weightCategoryName(e.weightCategory) +
-                " — plate armor is canonically heavy");
-        }
-        if (e.materialKind == wowee::pipeline::WoweeItemMaterial::Cloth &&
-            e.weightCategory != wowee::pipeline::WoweeItemMaterial::Light) {
-            warnings.push_back(ctx +
-                ": Cloth kind with weightCategory=" +
-                wowee::pipeline::WoweeItemMaterial::weightCategoryName(e.weightCategory) +
-                " — cloth is canonically light");
-        }
-        if (!idsSeen.add(e.materialId)) errors.push_back(ctx + ": duplicate materialId");
-    }
-    return cli::reportValidation("wmat", base, jsonOut, errors, warnings,
-                                 formatted("%zu materials, all materialIds unique", c.entries.size()));
+            return formatted("%zu materials, all materialIds unique", c.entries.size());
+        });
 }
 
 } // namespace

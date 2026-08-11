@@ -286,64 +286,56 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = cli::withoutExt(base, ".wscd");
-    if (!wowee::pipeline::WoweeSpellCooldownLoader::exists(base)) {
-        return reportMissing("validate-wscd", "WSCD", base, ".wscd");
-    }
-    auto c = wowee::pipeline::WoweeSpellCooldownLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    cli::DuplicateIdCheck idsSeen;
-    constexpr uint32_t kKnownFlagMask =
-        wowee::pipeline::WoweeSpellCooldown::AffectedByHaste |
-        wowee::pipeline::WoweeSpellCooldown::SharedWithItems |
-        wowee::pipeline::WoweeSpellCooldown::OnGCDStart |
-        wowee::pipeline::WoweeSpellCooldown::IgnoresCooldownReduction;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.bucketId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.bucketId == 0)
-            errors.push_back(ctx + ": bucketId is 0");
-        if (e.name.empty())
-            errors.push_back(ctx + ": name is empty");
-        if (e.bucketKind > wowee::pipeline::WoweeSpellCooldown::Misc) {
-            errors.push_back(ctx + ": bucketKind " +
-                std::to_string(e.bucketKind) + " not in 0..4");
+    return cli::validateCatalog<wowee::pipeline::WoweeSpellCooldownLoader>(
+        i, argc, argv, "wscd", "WSCD",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        constexpr uint32_t kKnownFlagMask =
+            wowee::pipeline::WoweeSpellCooldown::AffectedByHaste |
+            wowee::pipeline::WoweeSpellCooldown::SharedWithItems |
+            wowee::pipeline::WoweeSpellCooldown::OnGCDStart |
+            wowee::pipeline::WoweeSpellCooldown::IgnoresCooldownReduction;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.bucketId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.bucketId == 0)
+                errors.push_back(ctx + ": bucketId is 0");
+            if (e.name.empty())
+                errors.push_back(ctx + ": name is empty");
+            if (e.bucketKind > wowee::pipeline::WoweeSpellCooldown::Misc) {
+                errors.push_back(ctx + ": bucketKind " +
+                    std::to_string(e.bucketKind) + " not in 0..4");
+            }
+            if (e.categoryFlags & ~kKnownFlagMask) {
+                warnings.push_back(ctx +
+                    ": categoryFlags has bits outside known mask " +
+                    "(0x" + std::to_string(e.categoryFlags & ~kKnownFlagMask) +
+                    ") — engine will ignore unknown flags");
+            }
+            // Global bucket should be GCD-marked. Otherwise the
+            // engine wouldn't trigger it on cast start.
+            if (e.bucketKind == wowee::pipeline::WoweeSpellCooldown::Global &&
+                !(e.categoryFlags & wowee::pipeline::WoweeSpellCooldown::OnGCDStart)) {
+                warnings.push_back(ctx +
+                    ": Global kind without OnGCDStart flag — "
+                    "engine will not trigger this on cast start");
+            }
+            // SharedWithItems on a Spell-only bucket is
+            // contradictory.
+            if (e.bucketKind == wowee::pipeline::WoweeSpellCooldown::Spell &&
+                (e.categoryFlags & wowee::pipeline::WoweeSpellCooldown::SharedWithItems)) {
+                warnings.push_back(ctx +
+                    ": Spell kind with SharedWithItems flag — "
+                    "switch kind to Item or Misc, or drop the flag");
+            }
+            if (!idsSeen.add(e.bucketId)) errors.push_back(ctx + ": duplicate bucketId");
         }
-        if (e.categoryFlags & ~kKnownFlagMask) {
-            warnings.push_back(ctx +
-                ": categoryFlags has bits outside known mask " +
-                "(0x" + std::to_string(e.categoryFlags & ~kKnownFlagMask) +
-                ") — engine will ignore unknown flags");
-        }
-        // Global bucket should be GCD-marked. Otherwise the
-        // engine wouldn't trigger it on cast start.
-        if (e.bucketKind == wowee::pipeline::WoweeSpellCooldown::Global &&
-            !(e.categoryFlags & wowee::pipeline::WoweeSpellCooldown::OnGCDStart)) {
-            warnings.push_back(ctx +
-                ": Global kind without OnGCDStart flag — "
-                "engine will not trigger this on cast start");
-        }
-        // SharedWithItems on a Spell-only bucket is
-        // contradictory.
-        if (e.bucketKind == wowee::pipeline::WoweeSpellCooldown::Spell &&
-            (e.categoryFlags & wowee::pipeline::WoweeSpellCooldown::SharedWithItems)) {
-            warnings.push_back(ctx +
-                ": Spell kind with SharedWithItems flag — "
-                "switch kind to Item or Misc, or drop the flag");
-        }
-        if (!idsSeen.add(e.bucketId)) errors.push_back(ctx + ": duplicate bucketId");
-    }
-    return cli::reportValidation("wscd", base, jsonOut, errors, warnings,
-                                 formatted("%zu buckets, all bucketIds unique", c.entries.size()));
+            return formatted("%zu buckets, all bucketIds unique", c.entries.size());
+        });
 }
 
 } // namespace

@@ -215,62 +215,54 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = cli::withoutExt(base, ".wiqr");
-    if (!wowee::pipeline::WoweeItemQualityLoader::exists(base)) {
-        return reportMissing("validate-wiqr", "WIQR", base, ".wiqr");
-    }
-    auto c = wowee::pipeline::WoweeItemQualityLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    cli::DuplicateIdCheck idsSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.qualityId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.name.empty())
-            errors.push_back(ctx + ": name is empty");
-        if (e.vendorPriceMultiplier < 0.0f) {
-            errors.push_back(ctx +
-                ": vendorPriceMultiplier < 0 — vendor would "
-                "pay the player to take items");
+    return cli::validateCatalog<wowee::pipeline::WoweeItemQualityLoader>(
+        i, argc, argv, "wiqr", "WIQR",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.qualityId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.name.empty())
+                errors.push_back(ctx + ": name is empty");
+            if (e.vendorPriceMultiplier < 0.0f) {
+                errors.push_back(ctx +
+                    ": vendorPriceMultiplier < 0 — vendor would "
+                    "pay the player to take items");
+            }
+            if (e.maxLevelToDrop != 0 &&
+                e.minLevelToDrop > e.maxLevelToDrop) {
+                errors.push_back(ctx + ": minLevelToDrop " +
+                    std::to_string(e.minLevelToDrop) +
+                    " > maxLevelToDrop " +
+                    std::to_string(e.maxLevelToDrop) +
+                    " — quality will never drop");
+            }
+            if (e.minLevelToDrop > 80) {
+                warnings.push_back(ctx +
+                    ": minLevelToDrop " +
+                    std::to_string(e.minLevelToDrop) +
+                    " > 80 — quality unreachable at WotLK cap");
+            }
+            if (e.vendorPriceMultiplier > 100.0f) {
+                warnings.push_back(ctx +
+                    ": vendorPriceMultiplier " +
+                    std::to_string(e.vendorPriceMultiplier) +
+                    "x is very high — sanity check the economy");
+            }
+            // Pure transparent color is suspicious (alpha=0).
+            if ((e.nameColorRGBA & 0xFF000000u) == 0) {
+                warnings.push_back(ctx +
+                    ": nameColorRGBA has alpha=0 — text will be "
+                    "invisible in tooltips");
+            }
+            if (!idsSeen.add(e.qualityId)) errors.push_back(ctx + ": duplicate qualityId");
         }
-        if (e.maxLevelToDrop != 0 &&
-            e.minLevelToDrop > e.maxLevelToDrop) {
-            errors.push_back(ctx + ": minLevelToDrop " +
-                std::to_string(e.minLevelToDrop) +
-                " > maxLevelToDrop " +
-                std::to_string(e.maxLevelToDrop) +
-                " — quality will never drop");
-        }
-        if (e.minLevelToDrop > 80) {
-            warnings.push_back(ctx +
-                ": minLevelToDrop " +
-                std::to_string(e.minLevelToDrop) +
-                " > 80 — quality unreachable at WotLK cap");
-        }
-        if (e.vendorPriceMultiplier > 100.0f) {
-            warnings.push_back(ctx +
-                ": vendorPriceMultiplier " +
-                std::to_string(e.vendorPriceMultiplier) +
-                "x is very high — sanity check the economy");
-        }
-        // Pure transparent color is suspicious (alpha=0).
-        if ((e.nameColorRGBA & 0xFF000000u) == 0) {
-            warnings.push_back(ctx +
-                ": nameColorRGBA has alpha=0 — text will be "
-                "invisible in tooltips");
-        }
-        if (!idsSeen.add(e.qualityId)) errors.push_back(ctx + ": duplicate qualityId");
-    }
-    return cli::reportValidation("wiqr", base, jsonOut, errors, warnings,
-                                 formatted("%zu tiers, all qualityIds unique", c.entries.size()));
+            return formatted("%zu tiers, all qualityIds unique", c.entries.size());
+        });
 }
 
 } // namespace

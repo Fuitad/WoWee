@@ -234,77 +234,69 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = cli::withoutExt(base, ".wsdr");
-    if (!wowee::pipeline::WoweeSpellDurationLoader::exists(base)) {
-        return reportMissing("validate-wsdr", "WSDR", base, ".wsdr");
-    }
-    auto c = wowee::pipeline::WoweeSpellDurationLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    cli::DuplicateIdCheck idsSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.durationId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.durationId == 0)
-            errors.push_back(ctx + ": durationId is 0");
-        if (e.name.empty())
-            errors.push_back(ctx + ": name is empty");
-        if (e.durationKind > wowee::pipeline::WoweeSpellDuration::UntilDeath) {
-            errors.push_back(ctx + ": durationKind " +
-                std::to_string(e.durationKind) + " not in 0..4");
+    return cli::validateCatalog<wowee::pipeline::WoweeSpellDurationLoader>(
+        i, argc, argv, "wsdr", "WSDR",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.durationId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.durationId == 0)
+                errors.push_back(ctx + ": durationId is 0");
+            if (e.name.empty())
+                errors.push_back(ctx + ": name is empty");
+            if (e.durationKind > wowee::pipeline::WoweeSpellDuration::UntilDeath) {
+                errors.push_back(ctx + ": durationKind " +
+                    std::to_string(e.durationKind) + " not in 0..4");
+            }
+            if (e.maxDurationMs < 0)
+                errors.push_back(ctx + ": maxDurationMs < 0");
+            if (e.perLevelMs < 0)
+                warnings.push_back(ctx +
+                    ": perLevelMs < 0 — duration shrinks with "
+                    "level, double-check this is intentional");
+            // Instant kind should have base == 0.
+            if (e.durationKind == wowee::pipeline::WoweeSpellDuration::Instant &&
+                e.baseDurationMs != 0) {
+                warnings.push_back(ctx +
+                    ": Instant kind with baseDurationMs=" +
+                    std::to_string(e.baseDurationMs) +
+                    " — engine will track it as a timed aura");
+            }
+            // UntilCancelled / UntilDeath should signal "no
+            // timer" via baseDurationMs<0; otherwise the engine
+            // would tick down to expiry.
+            if ((e.durationKind == wowee::pipeline::WoweeSpellDuration::UntilCancelled ||
+                 e.durationKind == wowee::pipeline::WoweeSpellDuration::UntilDeath) &&
+                e.baseDurationMs >= 0) {
+                warnings.push_back(ctx +
+                    ": permanent kind with non-negative "
+                    "baseDurationMs — engine treats this as timed; "
+                    "set baseDurationMs=-1 to flag as no-timer");
+            }
+            // Timed/TickBased should have base > 0.
+            if ((e.durationKind == wowee::pipeline::WoweeSpellDuration::Timed ||
+                 e.durationKind == wowee::pipeline::WoweeSpellDuration::TickBased) &&
+                e.baseDurationMs <= 0) {
+                errors.push_back(ctx +
+                    ": Timed/TickBased kind requires "
+                    "baseDurationMs > 0");
+            }
+            // maxDurationMs<base is contradictory.
+            if (e.maxDurationMs > 0 && e.baseDurationMs > e.maxDurationMs) {
+                errors.push_back(ctx + ": baseDurationMs " +
+                    std::to_string(e.baseDurationMs) +
+                    " > maxDurationMs " +
+                    std::to_string(e.maxDurationMs));
+            }
+            if (!idsSeen.add(e.durationId)) errors.push_back(ctx + ": duplicate durationId");
         }
-        if (e.maxDurationMs < 0)
-            errors.push_back(ctx + ": maxDurationMs < 0");
-        if (e.perLevelMs < 0)
-            warnings.push_back(ctx +
-                ": perLevelMs < 0 — duration shrinks with "
-                "level, double-check this is intentional");
-        // Instant kind should have base == 0.
-        if (e.durationKind == wowee::pipeline::WoweeSpellDuration::Instant &&
-            e.baseDurationMs != 0) {
-            warnings.push_back(ctx +
-                ": Instant kind with baseDurationMs=" +
-                std::to_string(e.baseDurationMs) +
-                " — engine will track it as a timed aura");
-        }
-        // UntilCancelled / UntilDeath should signal "no
-        // timer" via baseDurationMs<0; otherwise the engine
-        // would tick down to expiry.
-        if ((e.durationKind == wowee::pipeline::WoweeSpellDuration::UntilCancelled ||
-             e.durationKind == wowee::pipeline::WoweeSpellDuration::UntilDeath) &&
-            e.baseDurationMs >= 0) {
-            warnings.push_back(ctx +
-                ": permanent kind with non-negative "
-                "baseDurationMs — engine treats this as timed; "
-                "set baseDurationMs=-1 to flag as no-timer");
-        }
-        // Timed/TickBased should have base > 0.
-        if ((e.durationKind == wowee::pipeline::WoweeSpellDuration::Timed ||
-             e.durationKind == wowee::pipeline::WoweeSpellDuration::TickBased) &&
-            e.baseDurationMs <= 0) {
-            errors.push_back(ctx +
-                ": Timed/TickBased kind requires "
-                "baseDurationMs > 0");
-        }
-        // maxDurationMs<base is contradictory.
-        if (e.maxDurationMs > 0 && e.baseDurationMs > e.maxDurationMs) {
-            errors.push_back(ctx + ": baseDurationMs " +
-                std::to_string(e.baseDurationMs) +
-                " > maxDurationMs " +
-                std::to_string(e.maxDurationMs));
-        }
-        if (!idsSeen.add(e.durationId)) errors.push_back(ctx + ": duplicate durationId");
-    }
-    return cli::reportValidation("wsdr", base, jsonOut, errors, warnings,
-                                 formatted("%zu buckets, all durationIds unique", c.entries.size()));
+            return formatted("%zu buckets, all durationIds unique", c.entries.size());
+        });
 }
 
 } // namespace

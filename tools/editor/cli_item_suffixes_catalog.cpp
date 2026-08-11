@@ -239,77 +239,69 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = cli::withoutExt(base, ".wsuf");
-    if (!wowee::pipeline::WoweeItemSuffixLoader::exists(base)) {
-        return reportMissing("validate-wsuf", "WSUF", base, ".wsuf");
-    }
-    auto c = wowee::pipeline::WoweeItemSuffixLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    cli::DuplicateIdCheck idsSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.suffixId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.suffixId == 0)
-            errors.push_back(ctx + ": suffixId is 0");
-        if (e.name.empty())
-            errors.push_back(ctx + ": name is empty");
-        if (e.suffixCategory > wowee::pipeline::WoweeItemSuffix::Crafted) {
-            errors.push_back(ctx + ": suffixCategory " +
-                std::to_string(e.suffixCategory) + " not in 0..4");
-        }
-        if (e.itemQualityFloor > e.itemQualityCeiling) {
-            errors.push_back(ctx + ": itemQualityFloor " +
-                std::to_string(e.itemQualityFloor) +
-                " > itemQualityCeiling " +
-                std::to_string(e.itemQualityCeiling));
-        }
-        if (e.itemQualityCeiling > 7) {
-            errors.push_back(ctx + ": itemQualityCeiling " +
-                std::to_string(e.itemQualityCeiling) +
-                " not in 0..7 (poor / common / uncommon / rare / "
-                "epic / legendary / artifact / heirloom)");
-        }
-        // A suffix with no stats is mechanically meaningless —
-        // it would just rename the item without changing it.
-        bool anyStat = false;
-        for (size_t s = 0;
-             s < wowee::pipeline::WoweeItemSuffix::kMaxStats; ++s) {
-            if (e.statKind[s] != 0 || e.statValuePoints[s] != 0) {
-                anyStat = true;
-                // statKind must be paired with non-zero
-                // statValuePoints (and vice versa).
-                if (e.statKind[s] != 0 && e.statValuePoints[s] == 0) {
-                    errors.push_back(ctx + ": stat slot " +
-                        std::to_string(s) + " has statKind=" +
-                        std::to_string(e.statKind[s]) +
-                        " but statValuePoints=0");
-                }
-                if (e.statKind[s] == 0 && e.statValuePoints[s] != 0) {
-                    errors.push_back(ctx + ": stat slot " +
-                        std::to_string(s) +
-                        " has statValuePoints=" +
-                        std::to_string(e.statValuePoints[s]) +
-                        " but statKind=0");
+    return cli::validateCatalog<wowee::pipeline::WoweeItemSuffixLoader>(
+        i, argc, argv, "wsuf", "WSUF",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.suffixId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.suffixId == 0)
+                errors.push_back(ctx + ": suffixId is 0");
+            if (e.name.empty())
+                errors.push_back(ctx + ": name is empty");
+            if (e.suffixCategory > wowee::pipeline::WoweeItemSuffix::Crafted) {
+                errors.push_back(ctx + ": suffixCategory " +
+                    std::to_string(e.suffixCategory) + " not in 0..4");
+            }
+            if (e.itemQualityFloor > e.itemQualityCeiling) {
+                errors.push_back(ctx + ": itemQualityFloor " +
+                    std::to_string(e.itemQualityFloor) +
+                    " > itemQualityCeiling " +
+                    std::to_string(e.itemQualityCeiling));
+            }
+            if (e.itemQualityCeiling > 7) {
+                errors.push_back(ctx + ": itemQualityCeiling " +
+                    std::to_string(e.itemQualityCeiling) +
+                    " not in 0..7 (poor / common / uncommon / rare / "
+                    "epic / legendary / artifact / heirloom)");
+            }
+            // A suffix with no stats is mechanically meaningless —
+            // it would just rename the item without changing it.
+            bool anyStat = false;
+            for (size_t s = 0;
+                 s < wowee::pipeline::WoweeItemSuffix::kMaxStats; ++s) {
+                if (e.statKind[s] != 0 || e.statValuePoints[s] != 0) {
+                    anyStat = true;
+                    // statKind must be paired with non-zero
+                    // statValuePoints (and vice versa).
+                    if (e.statKind[s] != 0 && e.statValuePoints[s] == 0) {
+                        errors.push_back(ctx + ": stat slot " +
+                            std::to_string(s) + " has statKind=" +
+                            std::to_string(e.statKind[s]) +
+                            " but statValuePoints=0");
+                    }
+                    if (e.statKind[s] == 0 && e.statValuePoints[s] != 0) {
+                        errors.push_back(ctx + ": stat slot " +
+                            std::to_string(s) +
+                            " has statValuePoints=" +
+                            std::to_string(e.statValuePoints[s]) +
+                            " but statKind=0");
+                    }
                 }
             }
+            if (!anyStat) {
+                warnings.push_back(ctx +
+                    ": no stats — suffix renames item but adds nothing");
+            }
+            if (!idsSeen.add(e.suffixId)) errors.push_back(ctx + ": duplicate suffixId");
         }
-        if (!anyStat) {
-            warnings.push_back(ctx +
-                ": no stats — suffix renames item but adds nothing");
-        }
-        if (!idsSeen.add(e.suffixId)) errors.push_back(ctx + ": duplicate suffixId");
-    }
-    return cli::reportValidation("wsuf", base, jsonOut, errors, warnings,
-                                 formatted("%zu suffixes, all suffixIds unique, all stat slots paired", c.entries.size()));
+            return formatted("%zu suffixes, all suffixIds unique, all stat slots paired", c.entries.size());
+        });
 }
 
 } // namespace

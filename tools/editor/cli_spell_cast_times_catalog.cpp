@@ -236,66 +236,58 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = cli::withoutExt(base, ".wsct");
-    if (!wowee::pipeline::WoweeSpellCastTimeLoader::exists(base)) {
-        return reportMissing("validate-wsct", "WSCT", base, ".wsct");
-    }
-    auto c = wowee::pipeline::WoweeSpellCastTimeLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    cli::DuplicateIdCheck idsSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.castTimeId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.castTimeId == 0)
-            errors.push_back(ctx + ": castTimeId is 0");
-        if (e.name.empty())
-            errors.push_back(ctx + ": name is empty");
-        if (e.castKind > wowee::pipeline::WoweeSpellCastTime::ChargeCast) {
-            errors.push_back(ctx + ": castKind " +
-                std::to_string(e.castKind) + " not in 0..4");
+    return cli::validateCatalog<wowee::pipeline::WoweeSpellCastTimeLoader>(
+        i, argc, argv, "wsct", "WSCT",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.castTimeId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.castTimeId == 0)
+                errors.push_back(ctx + ": castTimeId is 0");
+            if (e.name.empty())
+                errors.push_back(ctx + ": name is empty");
+            if (e.castKind > wowee::pipeline::WoweeSpellCastTime::ChargeCast) {
+                errors.push_back(ctx + ": castKind " +
+                    std::to_string(e.castKind) + " not in 0..4");
+            }
+            if (e.baseCastMs < 0)
+                errors.push_back(ctx + ": baseCastMs < 0");
+            if (e.perLevelMs < 0)
+                warnings.push_back(ctx +
+                    ": perLevelMs < 0 — cast time shrinks with "
+                    "level, double-check this is intentional");
+            if (e.maxCastMs > 0 && e.minCastMs > e.maxCastMs) {
+                errors.push_back(ctx + ": minCastMs " +
+                    std::to_string(e.minCastMs) +
+                    " > maxCastMs " + std::to_string(e.maxCastMs));
+            }
+            // Instant kind should have base == 0 — otherwise the
+            // engine would still display a cast bar.
+            if (e.castKind == wowee::pipeline::WoweeSpellCastTime::Instant &&
+                e.baseCastMs != 0) {
+                warnings.push_back(ctx +
+                    ": Instant kind with baseCastMs=" +
+                    std::to_string(e.baseCastMs) +
+                    " — engine will draw a cast bar (use Cast "
+                    "kind if that's intended)");
+            }
+            // Channel kind should have base > 0 — otherwise it
+            // would tick once and immediately end.
+            if (e.castKind == wowee::pipeline::WoweeSpellCastTime::Channel &&
+                e.baseCastMs <= 0) {
+                errors.push_back(ctx +
+                    ": Channel kind requires baseCastMs > 0 "
+                    "(channel duration)");
+            }
+            if (!idsSeen.add(e.castTimeId)) errors.push_back(ctx + ": duplicate castTimeId");
         }
-        if (e.baseCastMs < 0)
-            errors.push_back(ctx + ": baseCastMs < 0");
-        if (e.perLevelMs < 0)
-            warnings.push_back(ctx +
-                ": perLevelMs < 0 — cast time shrinks with "
-                "level, double-check this is intentional");
-        if (e.maxCastMs > 0 && e.minCastMs > e.maxCastMs) {
-            errors.push_back(ctx + ": minCastMs " +
-                std::to_string(e.minCastMs) +
-                " > maxCastMs " + std::to_string(e.maxCastMs));
-        }
-        // Instant kind should have base == 0 — otherwise the
-        // engine would still display a cast bar.
-        if (e.castKind == wowee::pipeline::WoweeSpellCastTime::Instant &&
-            e.baseCastMs != 0) {
-            warnings.push_back(ctx +
-                ": Instant kind with baseCastMs=" +
-                std::to_string(e.baseCastMs) +
-                " — engine will draw a cast bar (use Cast "
-                "kind if that's intended)");
-        }
-        // Channel kind should have base > 0 — otherwise it
-        // would tick once and immediately end.
-        if (e.castKind == wowee::pipeline::WoweeSpellCastTime::Channel &&
-            e.baseCastMs <= 0) {
-            errors.push_back(ctx +
-                ": Channel kind requires baseCastMs > 0 "
-                "(channel duration)");
-        }
-        if (!idsSeen.add(e.castTimeId)) errors.push_back(ctx + ": duplicate castTimeId");
-    }
-    return cli::reportValidation("wsct", base, jsonOut, errors, warnings,
-                                 formatted("%zu buckets, all castTimeIds unique, all min<=max", c.entries.size()));
+            return formatted("%zu buckets, all castTimeIds unique, all min<=max", c.entries.size());
+        });
 }
 
 } // namespace

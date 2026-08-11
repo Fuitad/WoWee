@@ -264,60 +264,52 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = cli::withoutExt(base, ".wcmp");
-    if (!wowee::pipeline::WoweeCompanionLoader::exists(base)) {
-        return reportMissing("validate-wcmp", "WCMP", base, ".wcmp");
-    }
-    auto c = wowee::pipeline::WoweeCompanionLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    cli::DuplicateIdCheck idsSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.companionId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.companionId == 0)
-            errors.push_back(ctx + ": companionId is 0");
-        if (e.name.empty())
-            errors.push_back(ctx + ": name is empty");
-        if (e.creatureId == 0)
-            errors.push_back(ctx +
-                ": creatureId is 0 (companion has no rendered model)");
-        if (e.learnSpellId == 0)
-            errors.push_back(ctx +
-                ": learnSpellId is 0 (no spell to summon companion)");
-        if (e.companionKind > wowee::pipeline::WoweeCompanion::UndeadCritter) {
-            errors.push_back(ctx + ": companionKind " +
-                std::to_string(e.companionKind) + " not in 0..7");
+    return cli::validateCatalog<wowee::pipeline::WoweeCompanionLoader>(
+        i, argc, argv, "wcmp", "WCMP",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.companionId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.companionId == 0)
+                errors.push_back(ctx + ": companionId is 0");
+            if (e.name.empty())
+                errors.push_back(ctx + ": name is empty");
+            if (e.creatureId == 0)
+                errors.push_back(ctx +
+                    ": creatureId is 0 (companion has no rendered model)");
+            if (e.learnSpellId == 0)
+                errors.push_back(ctx +
+                    ": learnSpellId is 0 (no spell to summon companion)");
+            if (e.companionKind > wowee::pipeline::WoweeCompanion::UndeadCritter) {
+                errors.push_back(ctx + ": companionKind " +
+                    std::to_string(e.companionKind) + " not in 0..7");
+            }
+            if (e.rarity > wowee::pipeline::WoweeCompanion::Epic) {
+                errors.push_back(ctx + ": rarity " +
+                    std::to_string(e.rarity) + " not in 0..3");
+            }
+            if (e.factionRestriction > wowee::pipeline::WoweeCompanion::HordeOnly) {
+                errors.push_back(ctx + ": factionRestriction " +
+                    std::to_string(e.factionRestriction) + " not in 0..2");
+            }
+            // Epic rarity without an itemId is unusual — promo
+            // pets typically have a redemption code item or
+            // collector's edition box.
+            if (e.rarity == wowee::pipeline::WoweeCompanion::Epic &&
+                e.itemId == 0) {
+                warnings.push_back(ctx +
+                    ": Epic rarity but itemId=0 (no source item — "
+                    "verify intentional for code-only redemption)");
+            }
+            if (!idsSeen.add(e.companionId)) errors.push_back(ctx + ": duplicate companionId");
         }
-        if (e.rarity > wowee::pipeline::WoweeCompanion::Epic) {
-            errors.push_back(ctx + ": rarity " +
-                std::to_string(e.rarity) + " not in 0..3");
-        }
-        if (e.factionRestriction > wowee::pipeline::WoweeCompanion::HordeOnly) {
-            errors.push_back(ctx + ": factionRestriction " +
-                std::to_string(e.factionRestriction) + " not in 0..2");
-        }
-        // Epic rarity without an itemId is unusual — promo
-        // pets typically have a redemption code item or
-        // collector's edition box.
-        if (e.rarity == wowee::pipeline::WoweeCompanion::Epic &&
-            e.itemId == 0) {
-            warnings.push_back(ctx +
-                ": Epic rarity but itemId=0 (no source item — "
-                "verify intentional for code-only redemption)");
-        }
-        if (!idsSeen.add(e.companionId)) errors.push_back(ctx + ": duplicate companionId");
-    }
-    return cli::reportValidation("wcmp", base, jsonOut, errors, warnings,
-                                 formatted("%zu companions, all companionIds unique", c.entries.size()));
+            return formatted("%zu companions, all companionIds unique", c.entries.size());
+        });
 }
 
 } // namespace
