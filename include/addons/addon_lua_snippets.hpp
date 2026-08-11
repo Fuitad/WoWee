@@ -273,6 +273,11 @@ for _, setting in ipairs(list) do
     table.insert(byCategory[setting.category], setting)
 end
 
+-- Every panel registered, and every heading they nest under, so both can be
+-- opened once the whole list exists.
+local registered = {}
+local headings = {}
+
 local function buildPanel(category, settings)
     local panel = CreateFrame("Frame", "WoweeOptions" .. slug(category))
     panel.name = category
@@ -360,6 +365,7 @@ local function buildPanel(category, settings)
     else
         InterfaceOptions_AddCategory(panel)
     end
+    table.insert(registered, panel)
 end
 
 -- A heading of our own on each frame that hosts one of our categories.
@@ -387,6 +393,7 @@ local function addHostHeading(hostFrame, blurbText)
     if hostFrame and OptionsFrame_AddCategory then
         OptionsFrame_AddCategory(hostFrame, heading)
     end
+    table.insert(headings, heading)
     return heading
 end
 
@@ -559,6 +566,32 @@ end
 for i = #order, 1, -1 do
     buildPanel(order[i], byCategory[order[i]])
 end
+
+-- Open, rather than folded away behind a plus sign.
+--
+-- Nesting a category hides it: AddCategory marks the new parent collapsed and
+-- every child hidden, which is right for the game's own sub-panels and wrong
+-- here. Everything this client adds is nested, so a player who opened Video
+-- looking for it would find one row reading WoWee and nothing else — the same
+-- thing as missing, which is how it was reported.
+--
+-- This is the state the toggle leaves them in, written directly because there
+-- is no button to click yet: the parents are open and the children are not
+-- hidden. Clicking the toggle still folds them away afterwards.
+table.insert(headings, root)
+for _, heading in ipairs(headings) do
+    heading.collapsed = false
+end
+for _, panel in ipairs(registered) do
+    panel.hidden = false
+end
+if VideoOptionsFrame and VideoOptionsFrame.categoryFrame then
+    VideoOptionsFrame.categoryFrame:update()
+end
+if AudioOptionsFrame and AudioOptionsFrame.categoryFrame then
+    AudioOptionsFrame.categoryFrame:update()
+end
+if InterfaceCategoryList_Update then InterfaceCategoryList_Update() end
 )LUA";
 
 /// Move the coin amounts off the coins, and take off the coin textures the
