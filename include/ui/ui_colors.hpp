@@ -13,6 +13,11 @@ namespace colors {
     constexpr ImVec4 kBrightGreen = {0.3f, 1.0f, 0.3f, 1.0f};
     constexpr ImVec4 kYellow      = {1.0f, 1.0f, 0.3f, 1.0f};
     constexpr ImVec4 kGray        = {0.6f, 0.6f, 0.6f, 1.0f};
+    // The three steps of the level-difficulty scale that had no name, written
+    // out identically at each of the places that drew one.
+    constexpr ImVec4 kSkullRed       = {1.0f, 0.1f, 0.1f, 1.0f};
+    constexpr ImVec4 kDifficultOrange= {1.0f, 0.5f, 0.1f, 1.0f};
+    constexpr ImVec4 kEvenYellow     = {1.0f, 1.0f, 0.1f, 1.0f};
     constexpr ImVec4 kDarkGray    = {0.5f, 0.5f, 0.5f, 1.0f};
     constexpr ImVec4 kLightGray   = {0.7f, 0.7f, 0.7f, 1.0f};
     constexpr ImVec4 kWhite       = {1.0f, 1.0f, 1.0f, 1.0f};

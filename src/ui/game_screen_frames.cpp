@@ -1007,29 +1007,11 @@ void GameScreen::renderTargetFrame(game::GameHandler& gameHandler) {
             uint32_t tgtDynFlags = u->getDynamicFlags();
             bool tgtTapped = (tgtDynFlags & 0x0004) != 0 && (tgtDynFlags & 0x0008) == 0;
             if (tgtTapped) {
-                hostileColor = kColorGray; // Grey — tapped by other
+                hostileColor = kColorGray;  // grey — tapped by someone else
             } else {
-            // WoW level-based color for hostile mobs
-            uint32_t playerLv = gameHandler.getPlayerLevel();
-            uint32_t mobLv = u->getLevel();
-            if (mobLv == 0) {
-                // Level 0 = unknown/?? (e.g. high-level raid bosses) — always skull red
-                hostileColor = ImVec4(1.0f, 0.1f, 0.1f, 1.0f);
-            } else {
-                int32_t diff = static_cast<int32_t>(mobLv) - static_cast<int32_t>(playerLv);
-                if (game::GameHandler::killXp(playerLv, mobLv) == 0) {
-                    hostileColor = kColorGray; // Grey - no XP
-                } else if (diff >= 10) {
-                    hostileColor = ImVec4(1.0f, 0.1f, 0.1f, 1.0f); // Red - skull/very hard
-                } else if (diff >= 5) {
-                    hostileColor = ImVec4(1.0f, 0.5f, 0.1f, 1.0f); // Orange - hard
-                } else if (diff >= -2) {
-                    hostileColor = ImVec4(1.0f, 1.0f, 0.1f, 1.0f); // Yellow - even
-                } else {
-                    hostileColor = kColorBrightGreen; // Green - easy
-                }
+                hostileColor = helpers::levelDifficultyColor(gameHandler.getPlayerLevel(),
+                                                             u->getLevel());
             }
-            } // end tapped else
         } else {
             hostileColor = kColorBrightGreen; // Friendly
         }
@@ -1939,24 +1921,9 @@ void GameScreen::renderFocusFrame(game::GameHandler& gameHandler) {
             if (focTapped) {
                 focusColor = kColorGray;
             } else {
-            uint32_t playerLv = gameHandler.getPlayerLevel();
-            uint32_t mobLv = u->getLevel();
-            if (mobLv == 0) {
-                focusColor = ImVec4(1.0f, 0.1f, 0.1f, 1.0f); // ?? level = skull red
-            } else {
-                int32_t diff = static_cast<int32_t>(mobLv) - static_cast<int32_t>(playerLv);
-                if (game::GameHandler::killXp(playerLv, mobLv) == 0)
-                    focusColor = kColorGray;
-                else if (diff >= 10)
-                    focusColor = ImVec4(1.0f, 0.1f, 0.1f, 1.0f);
-                else if (diff >= 5)
-                    focusColor = ImVec4(1.0f, 0.5f, 0.1f, 1.0f);
-                else if (diff >= -2)
-                    focusColor = ImVec4(1.0f, 1.0f, 0.1f, 1.0f);
-                else
-                    focusColor = kColorBrightGreen;
+                focusColor = helpers::levelDifficultyColor(gameHandler.getPlayerLevel(),
+                                                           u->getLevel());
             }
-            } // end tapped else
         } else {
             focusColor = kColorBrightGreen;
         }

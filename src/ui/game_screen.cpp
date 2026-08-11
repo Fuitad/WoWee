@@ -944,20 +944,9 @@ void GameScreen::render(game::GameHandler& gameHandler) {
                     if (unit->getHealth() == 0 && unit->getMaxHealth() > 0) {
                         circleColor = glm::vec3(0.5f, 0.5f, 0.5f); // gray (dead)
                     } else if (unit->isHostile() || gameHandler.isAggressiveTowardPlayer(target->getGuid())) {
-                        uint32_t playerLv = gameHandler.getPlayerLevel();
-                        uint32_t mobLv = unit->getLevel();
-                        int32_t diff = static_cast<int32_t>(mobLv) - static_cast<int32_t>(playerLv);
-                        if (game::GameHandler::killXp(playerLv, mobLv) == 0) {
-                            circleColor = glm::vec3(0.6f, 0.6f, 0.6f); // grey
-                        } else if (diff >= 10) {
-                            circleColor = glm::vec3(1.0f, 0.1f, 0.1f); // red
-                        } else if (diff >= 5) {
-                            circleColor = glm::vec3(1.0f, 0.5f, 0.1f); // orange
-                        } else if (diff >= -2) {
-                            circleColor = glm::vec3(1.0f, 1.0f, 0.1f); // yellow
-                        } else {
-                            circleColor = glm::vec3(0.3f, 1.0f, 0.3f); // green
-                        }
+                        const ImVec4 c = ui::helpers::levelDifficultyColor(
+                            gameHandler.getPlayerLevel(), unit->getLevel());
+                        circleColor = glm::vec3(c.x, c.y, c.z);
                     } else {
                         circleColor = glm::vec3(0.3f, 1.0f, 0.3f); // green (friendly)
                     }
