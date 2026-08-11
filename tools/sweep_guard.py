@@ -54,6 +54,13 @@ CHECKS = [
     # glm arrives with an imported target, and Linux has a system copy that
     # hides a missing link entirely. Every one of these built green here and
     # failed on macOS, one per CI run, because the build stops at the first.
+    # Clang calls these -Wunused-private-field and only some versions do: the
+    # Windows CI image reported two that clang 18 on Linux does not, so a local
+    # build is not a gate for this class. The ceiling is where the count stands
+    # today, not an endorsement of it; it exists so the number can only fall.
+    ("unused_member_check.py",
+     r"^(\d+) members stored and never read", 34,
+     "class members stored and never read"),
     ("test_glm_link_check.py",
      r"^(\d+) reach glm without it", 0,
      "test targets that build on Linux and fail on macOS"),
