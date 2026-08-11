@@ -50,7 +50,7 @@ constexpr SettingDesc kSchema[] = {
      "Low|Medium|High", 1, "parallax"},
 
     // --------------------------------------------------------------- Upscaling
-    {"upscaling", "Upscaling", SettingKind::Enum, 0, 2, 1, "Upscaling", "",
+    {"upscaling", "Upscaling", SettingKind::Enum, 0, 2, 1, "Upscaling", "Mode",
      "Render below your resolution and scale up. FSR 1 is spatial and cheap;\n"
      "FSR 3 is temporal and sharper, and does its own anti-aliasing.",
      "Off|FSR 1 (spatial)|FSR 3 (temporal)", 0},
@@ -74,7 +74,7 @@ constexpr SettingDesc kSchema[] = {
      "currently looks right; the rest of the range is for finding out why.", "", 0.38f, "upscaling=2"},
 
     // ----------------------------------------------------------------- Display
-    {"fullscreen", "Fullscreen", SettingKind::Bool, 0, 0, 0, "Display", "",
+    {"fullscreen", "Fullscreen", SettingKind::Bool, 0, 0, 0, "Display", "Screen",
      "Takes effect the next time the window is rebuilt.", "", 0},
     {"vsync", "Vertical sync", SettingKind::Bool, 0, 0, 0, "Display", "",
      "Wait for the display before showing a frame. Removes tearing, and\n"
@@ -83,7 +83,7 @@ constexpr SettingDesc kSchema[] = {
      "50 is neutral.", "", 50},
 
     // ------------------------------------------------------------------ Camera
-    {"fov", "Field of view", SettingKind::Float, 45, 110, 1, "Camera", "",
+    {"fov", "Field of view", SettingKind::Float, 45, 110, 1, "Camera", "View",
      "How wide a view the camera takes. 70 is what the original client shows.", "", 70},
     {"extendedzoom", "Extended zoom out", SettingKind::Bool, 0, 0, 0, "Camera", "",
      "Allow the camera further back than the original client permits.", "", 0},
@@ -101,7 +101,7 @@ constexpr SettingDesc kSchema[] = {
      "Push the mouse forward to look up.", "", 0},
 
     // --------------------------------------------------------------- Interface
-    {"uiopacity", "Window opacity", SettingKind::Int, 20, 100, 5, "Interface", "",
+    {"uiopacity", "Window opacity", SettingKind::Int, 20, 100, 5, "Interface", "Windows",
      "How solid this client's own windows are drawn.", "", 65},
     {"windowuiscale", "Window scale", SettingKind::Float, 0.75f, 1.5f, 0.05f, "Interface", "",
      "Fonts, controls and spacing in this client's own windows. Not the\n"
@@ -124,7 +124,7 @@ constexpr SettingDesc kSchema[] = {
     // north-up in this client and the control has not worked for as long as it
     // has existed. A tickbox that unticks itself is worse here than no tickbox
     // at all, so this list does not offer one.
-    {"minimapsquare", "Square minimap", SettingKind::Bool, 0, 0, 0, "Minimap", "",
+    {"minimapsquare", "Square minimap", SettingKind::Bool, 0, 0, 0, "Minimap", "Appearance",
      "Draw the map as a square rather than a circle.", "", 0},
     {"minimapnpcdots", "Nearby NPC dots", SettingKind::Bool, 0, 0, 0, "Minimap", "",
      "Mark creatures near you on the map.", "", 0},
@@ -133,7 +133,7 @@ constexpr SettingDesc kSchema[] = {
 
     // ------------------------------------------------------------- Action Bars
     {"actionbarscale", "Action bar scale", SettingKind::Float, 0.5f, 1.5f, 0.05f,
-     "Action Bars", "", "Size of every action bar slot.", "", 1},
+     "Action Bars", "Scale", "Size of every action bar slot.", "", 1},
     {"buffbarscale", "Buff bar scale", SettingKind::Float, 0.75f, 1.5f, 0.05f,
      "Action Bars", "", "Size of the buff and debuff icons, on top of the automatic scaling\n"
      "this client does for the display it is on.", "", 1},
@@ -174,8 +174,10 @@ constexpr SettingDesc kSchema[] = {
      "your health.", "", 1},
 
     // ------------------------------------------------------------------- Sound
-    {"musicvolume", "Music", SettingKind::Int, 0, 100, 5, "Sound", "",
+    {"musicvolume", "Music", SettingKind::Int, 0, 100, 5, "Sound", "Music and ambience",
      "", "", 30},
+    {"woweemusic", "WoWee soundtrack", SettingKind::Bool, 0, 0, 0, "Sound", "",
+     "Include this client's own music alongside the game's.", "", 1},
     {"ambientvolume", "Ambience", SettingKind::Int, 0, 100, 5, "Sound", "",
      "Wind, water, birds and the rest of the world's own noise.", "", 100},
     {"bellvolume", "City bells", SettingKind::Int, 0, 100, 5, "Sound", "",
@@ -196,8 +198,6 @@ constexpr SettingDesc kSchema[] = {
     {"npcvoicevolume", "NPC voices", SettingKind::Int, 0, 100, 5, "Sound", "Voices", "", "", 100},
     {"characterspeech", "Character speech", SettingKind::Bool, 0, 0, 0, "Sound", "",
      "Your own character's grunts and greetings.", "", 1},
-    {"woweemusic", "WoWee soundtrack", SettingKind::Bool, 0, 0, 0, "Sound", "",
-     "Include this client's own music alongside the game's.", "", 1},
 
     // -------------------------------------------------------------------- Chat
     //
