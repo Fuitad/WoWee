@@ -2550,13 +2550,39 @@ void WMORenderer::WMOInstance::updateModelMatrix() {
     modelMatrix = glm::mat4(1.0f);
     modelMatrix = glm::translate(modelMatrix, position);
 
-    // Apply MODF placement rotation (WoW-to-GL coordinate transform)
-    // WoW Ry(B)*Rx(A)*Rz(C) becomes GL Rz(B)*Ry(-A)*Rx(-C)
-    // rotation stored as (-C, -A, B) in radians by caller
-    // Apply in Z, Y, X order to get Rz(B) * Ry(-A) * Rx(-C)
-    modelMatrix = glm::rotate(modelMatrix, rotation.z, glm::vec3(0.0f, 0.0f, 1.0f));
-    modelMatrix = glm::rotate(modelMatrix, rotation.y, glm::vec3(0.0f, 1.0f, 0.0f));
-    modelMatrix = glm::rotate(modelMatrix, rotation.x, glm::vec3(1.0f, 0.0f, 0.0f));
+    // MODF placement rotation, stored as (-C, -A, B) in radians by the caller
+    // and composed Z, Y, X to give Rz(B) * Ry(-A) * Rx(-C).
+    //
+    // Switchable, because a constant offset cannot be what is wrong here. A
+    // WMO yaw offset of -10 degrees puts Darkshore's bridges right and the
+    // buildings out — and an offset that helps one placement and hurts another
+    // is not an offset error at all. What behaves that way is the composition:
+    // with no pitch and no roll every order is the same rotation, so a building
+    // placed flat looks right whatever this is, and only something genuinely
+    // tilted — a bridge over a ravine — can tell them apart.
+    //
+    // The doodads compose X, Y, Z and are correct, and MDDF and MODF are said
+    // to store the rotation identically. If that is so, xyz is what this should
+    // be, and it is one launch to find out:
+    //
+    //   WOWEE_WMO_ROT_ORDER=xyz|xzy|yxz|yzx|zxy|zyx   default zyx, as before
+    static const std::string kOrder = [] {
+        const char* raw = std::getenv("WOWEE_WMO_ROT_ORDER");
+        std::string v = (raw && *raw) ? raw : "zyx";
+        std::transform(v.begin(), v.end(), v.begin(), [](unsigned char c) {
+            return static_cast<char>(std::tolower(c));
+        });
+        if (v.size() != 3 || v.find_first_not_of("xyz") != std::string::npos) return std::string("zyx");
+        return v;
+    }();
+    for (char axis : kOrder) {
+        switch (axis) {
+            case 'x': modelMatrix = glm::rotate(modelMatrix, rotation.x, glm::vec3(1, 0, 0)); break;
+            case 'y': modelMatrix = glm::rotate(modelMatrix, rotation.y, glm::vec3(0, 1, 0)); break;
+            case 'z': modelMatrix = glm::rotate(modelMatrix, rotation.z, glm::vec3(0, 0, 1)); break;
+            default: break;
+        }
+    }
 
     modelMatrix = glm::scale(modelMatrix, glm::vec3(scale));
 
