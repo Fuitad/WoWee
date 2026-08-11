@@ -1300,6 +1300,256 @@ void GameScreen::renderMinimapPlayerArrow(const MinimapFrame& frame) {
 
 }
 
+// The wheel and the ctrl+click, when this client owns the ring.
+//
+// Both are FrameXML's when it draws the minimap: Minimap_OnClick pings through
+// PingLocation and the cluster's own buttons zoom, so running these too would
+// ping twice and zoom two steps a notch.
+void GameScreen::handleMinimapInput(const MinimapFrame& frame, game::GameHandler& gameHandler,
+                                    bool minimapInputBlocked) {
+    auto* renderer = services_.renderer;
+    auto* minimap = renderer ? renderer->getMinimap() : nullptr;
+    if (!minimap) return;
+    // Skip minimap input when an ImGui window (bag, settings, etc.) is in front.
+    //
+    // ...and entirely when FrameXML draws the minimap, because then the frame
+    // is a widget with its own handlers: Minimap_OnClick pings through
+    // PingLocation and the cluster's zoom buttons and OnMouseWheel change the
+    // zoom. Running both would ping twice and zoom two steps per notch.
+
+    // Scroll wheel over minimap → zoom in/out
+    if (!minimapInputBlocked) {
+        float wheel = ImGui::GetIO().MouseWheel;
+        if (wheel != 0.0f) {
+            if (cursorOverMinimap(frame.centerX, frame.centerY, frame.mapRadius)) {
+                if (wheel > 0.0f)
+                    minimap->zoomIn();
+                else
+                    minimap->zoomOut();
+            }
+        }
+    }
+
+    // Ctrl+click on minimap → send minimap ping to party
+    if (!minimapInputBlocked && ImGui::IsMouseClicked(0) && ImGui::GetIO().KeyCtrl) {
+        ImVec2 mouse = ImGui::GetMousePos();
+        float mdx = mouse.x - frame.centerX;
+        float mdy = mouse.y - frame.centerY;
+        if (cursorOverMinimap(frame.centerX, frame.centerY, frame.mapRadius)) {
+            // frame.playerRender is in render coords; add the delta the click means
+            // to get a render position, then convert to canonical.
+            const glm::vec2 d = minimapOffsetToRenderDelta(mdx, mdy, frame.view);
+            glm::vec3 clickRender = frame.playerRender + glm::vec3(d.x, d.y, 0.0f);
+            glm::vec3 clickCanon = core::coords::renderToCanonical(clickRender);
+            gameHandler.sendMinimapPing(clickCanon.x, clickCanon.y);
+        }
+    }
+
+}
+
+// What is written on and around the ring: the coordinates, the zone name, the
+// instance difficulty, and the tooltip and menu the cursor brings up.
+//
+// Marks go on the map; these describe it.
+void GameScreen::renderMinimapReadouts(const MinimapFrame& frame, game::GameHandler& gameHandler,
+                                       bool minimapInputBlocked) {
+    auto* renderer = services_.renderer;
+    auto* minimap = renderer ? renderer->getMinimap() : nullptr;
+    if (!minimap) return;
+    ImDrawList* drawList = frame.drawList;
+    // Optional persistent coordinate display below the minimap.
+    if (settingsPanel_.showMinimapCoordinates_) {
+        glm::vec3 playerCanon = core::coords::renderToCanonical(frame.playerRender);
+        char coordBuf[32];
+        std::snprintf(coordBuf, sizeof(coordBuf), "%.1f, %.1f", playerCanon.x, playerCanon.y);
+
+        ImFont* font = ImGui::GetFont();
+        float fontSize = ImGui::GetFontSize();
+        ImVec2 textSz = font->CalcTextSizeA(fontSize, FLT_MAX, 0.0f, coordBuf);
+
+        float tx = frame.centerX - textSz.x * 0.5f;
+        float ty = frame.centerY + frame.mapRadius + 3.0f;
+
+        // Semi-transparent dark background pill
+        float pad = 3.0f;
+        drawList->AddRectFilled(
+            ImVec2(tx - pad, ty - pad),
+            ImVec2(tx + textSz.x + pad, ty + textSz.y + pad),
+            IM_COL32(0, 0, 0, 140), 4.0f);
+        // Coordinate text in warm yellow
+        drawList->AddText(font, fontSize, ImVec2(tx, ty), IM_COL32(230, 220, 140, 255), coordBuf);
+    }
+
+    // Zone name display — drawn inside the top edge of the minimap circle
+    {
+        std::string zoneName;
+        // The live terrain-derived zone first; the server's only if that has
+        // nothing. The server tells us its zone on SMSG_INIT_WORLD_STATES and
+        // at no other time, so preferring it left this label naming the last
+        // zone the server announced rather than the one being walked through.
+        uint32_t zoneId = renderer ? renderer->getCurrentZoneId() : 0u;
+        const uint32_t serverZoneId = gameHandler.getWorldStateZoneId();
+        if (zoneId == 0) zoneId = serverZoneId;
+        // Said once each time the pair changes. The two disagreeing is not by
+        // itself a fault — the server only revises its answer when it notices
+        // a zone change — but a disagreement that persists while standing
+        // still means the server has the player somewhere else, which is also
+        // why no creatures would arrive. This prints both names and the
+        // position, which is what tells those two cases apart.
+        if (serverZoneId != 0 && zoneId != 0 && serverZoneId != zoneId) {
+            static uint64_t lastReported = 0;
+            const uint64_t pair = (static_cast<uint64_t>(serverZoneId) << 32) | zoneId;
+            if (pair != lastReported) {
+                lastReported = pair;
+                const auto& mi = gameHandler.getMovementInfo();
+                LOG_WARNING("Zone disagreement: server says ", serverZoneId, " (",
+                            gameHandler.getWhoAreaName(serverZoneId),
+                            "), terrain under the player says ", zoneId, " (",
+                            gameHandler.getWhoAreaName(zoneId),
+                            ") at canonical ", mi.x, ", ", mi.y, ", ", mi.z);
+            }
+        }
+        if (zoneId != 0) {
+            zoneName = gameHandler.getWhoAreaName(zoneId);
+            if (zoneName.empty()) {
+                if (auto* zmRenderer = renderer ? renderer->getZoneManager() : nullptr) {
+                    if (const game::ZoneInfo* zi = zmRenderer->getZoneInfo(zoneId)) {
+                        zoneName = zi->name;
+                    }
+                }
+            }
+        }
+        if (zoneName.empty() && renderer) {
+            zoneName = renderer->getCurrentZoneName();
+        }
+        if (!zoneName.empty()) {
+            ImFont* font = ImGui::GetFont();
+            float fontSize = ImGui::GetFontSize();
+
+            const char* weatherIcon = nullptr;
+            ImU32 weatherColor = IM_COL32(255, 255, 255, 200);
+            const uint32_t weatherType = gameHandler.getWeatherType();
+            const float weatherIntensity = gameHandler.getWeatherIntensity();
+            if (weatherType == 1 && weatherIntensity > 0.05f) {
+                weatherIcon = " \xe2\x9b\x86"; // Rain
+                weatherColor = IM_COL32(140, 180, 240, 220);
+            } else if (weatherType == 2 && weatherIntensity > 0.05f) {
+                weatherIcon = " \xe2\x9d\x84"; // Snow
+                weatherColor = IM_COL32(210, 230, 255, 220);
+            } else if (weatherType == 3 && weatherIntensity > 0.05f) {
+                weatherIcon = " \xe2\x98\x81"; // Storm/fog
+                weatherColor = IM_COL32(160, 160, 190, 220);
+            }
+
+            const std::string fullLabel = weatherIcon ? zoneName + weatherIcon : zoneName;
+            ImVec2 ts = font->CalcTextSizeA(fontSize, FLT_MAX, 0.0f, fullLabel.c_str());
+            float tx = frame.centerX - ts.x * 0.5f;
+            float ty = frame.centerY - frame.mapRadius + 4.0f;  // just inside top edge of the circle
+            float pad = 2.0f;
+            drawList->AddRectFilled(
+                ImVec2(tx - pad, ty - pad),
+                ImVec2(tx + ts.x + pad, ty + ts.y + pad),
+                IM_COL32(0, 0, 0, 160), 2.0f);
+            drawList->AddText(font, fontSize, ImVec2(tx + 1.0f, ty + 1.0f),
+                              IM_COL32(0, 0, 0, 180), zoneName.c_str());
+            drawList->AddText(font, fontSize, ImVec2(tx, ty),
+                              IM_COL32(255, 230, 150, 220), zoneName.c_str());
+            if (weatherIcon) {
+                const ImVec2 nameSize = font->CalcTextSizeA(
+                    fontSize, FLT_MAX, 0.0f, zoneName.c_str());
+                drawList->AddText(font, fontSize, ImVec2(tx + nameSize.x, ty),
+                                  weatherColor, weatherIcon);
+            }
+        }
+    }
+
+    // Instance difficulty indicator — just below zone name, inside minimap top edge
+    if (gameHandler.isInInstance()) {
+        static constexpr const char* kDiffLabels[] = {"Normal", "Heroic", "25 Normal", "25 Heroic"};
+        uint32_t diff = gameHandler.getInstanceDifficulty();
+        const char* label = (diff < 4) ? kDiffLabels[diff] : "Unknown";
+
+        ImFont* font = ImGui::GetFont();
+        float fontSize = ImGui::GetFontSize() * 0.85f;
+        ImVec2 ts = font->CalcTextSizeA(fontSize, FLT_MAX, 0.0f, label);
+        float tx = frame.centerX - ts.x * 0.5f;
+        // Position below zone name: top edge + zone font size + small gap
+        float ty = frame.centerY - frame.mapRadius + 4.0f + ImGui::GetFontSize() + 2.0f;
+        float pad = 2.0f;
+
+        // Color-code: heroic=orange, normal=light gray
+        ImU32 bgCol = gameHandler.isInstanceHeroic() ? IM_COL32(120, 60, 0, 180) : IM_COL32(0, 0, 0, 160);
+        ImU32 textCol = gameHandler.isInstanceHeroic() ? IM_COL32(255, 180, 50, 255) : IM_COL32(200, 200, 200, 220);
+
+        drawList->AddRectFilled(
+            ImVec2(tx - pad, ty - pad),
+            ImVec2(tx + ts.x + pad, ty + ts.y + pad),
+            bgCol, 2.0f);
+        drawList->AddText(font, fontSize, ImVec2(tx, ty), textCol, label);
+    }
+
+    // Hover tooltip and right-click context menu
+    {
+        ImVec2 mouse = ImGui::GetMousePos();
+        float mdx = mouse.x - frame.centerX;
+        float mdy = mouse.y - frame.centerY;
+        bool overMinimap = !minimapInputBlocked && cursorOverMinimap(frame.centerX, frame.centerY, frame.mapRadius);
+
+        if (overMinimap) {
+            ImGui::BeginTooltip();
+            if (settingsPanel_.showMinimapCoordinates_) {
+                // Compute the world coordinate under the mouse cursor.
+                const glm::vec2 hover = minimapOffsetToRenderDelta(mdx, mdy, frame.view);
+                glm::vec3 hoverRender(frame.playerRender.x + hover.x, frame.playerRender.y + hover.y,
+                                      frame.playerRender.z);
+                glm::vec3 hoverCanon = core::coords::renderToCanonical(hoverRender);
+                ImGui::TextColored(ImVec4(0.9f, 0.85f, 0.5f, 1.0f), "%.1f, %.1f", hoverCanon.x, hoverCanon.y);
+            }
+            ImGui::TextColored(colors::kMediumGray, "Ctrl+click to ping");
+            ImGui::EndTooltip();
+
+            if (ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
+                ImGui::OpenPopup("##minimapContextMenu");
+            }
+        }
+
+        if (ImGui::BeginPopup("##minimapContextMenu")) {
+            ImGui::TextColored(ui::colors::kTooltipGold, "Minimap");
+            ImGui::Separator();
+
+            // Zoom controls
+            if (ImGui::MenuItem("Zoom In")) {
+                minimap->zoomIn();
+            }
+            if (ImGui::MenuItem("Zoom Out")) {
+                minimap->zoomOut();
+            }
+
+            ImGui::Separator();
+
+            // Toggle options with checkmarks
+            bool rotWithCam = minimap->isRotateWithCamera();
+            if (ImGui::MenuItem("Rotate with Camera", nullptr, rotWithCam)) {
+                minimap->setRotateWithCamera(!rotWithCam);
+            }
+
+            bool squareShape = minimap->isSquareShape();
+            if (ImGui::MenuItem("Square Shape", nullptr, squareShape)) {
+                minimap->setSquareShape(!squareShape);
+            }
+
+            bool npcDots = settingsPanel_.minimapNpcDots_;
+            if (ImGui::MenuItem("Show NPC Dots", nullptr, npcDots)) {
+                settingsPanel_.minimapNpcDots_ = !settingsPanel_.minimapNpcDots_;
+            }
+
+            ImGui::EndPopup();
+        }
+    }
+
+
+}
+
 void GameScreen::renderMinimapMarkers(game::GameHandler& gameHandler) {
     const auto& statuses = gameHandler.getNpcQuestStatuses();
     auto* renderer = services_.renderer;
@@ -1424,235 +1674,15 @@ void GameScreen::renderMinimapMarkers(game::GameHandler& gameHandler) {
     renderMinimapBattlegroundPositions(frame, gameHandler);
     renderMinimapCorpseMarker(frame, gameHandler);
     renderMinimapPlayerArrow(frame);
-    // Skip minimap input when an ImGui window (bag, settings, etc.) is in front.
-    //
-    // ...and entirely when FrameXML draws the minimap, because then the frame
-    // is a widget with its own handlers: Minimap_OnClick pings through
-    // PingLocation and the cluster's zoom buttons and OnMouseWheel change the
-    // zoom. Running both would ping twice and zoom two steps per notch.
+    // Blocked by any window in front, and entirely when FrameXML draws the
+    // minimap — then the ring is a widget with its own handlers, and running
+    // both would ping twice and zoom two steps a notch. Both halves below need
+    // the answer, so it is worked out once here.
     ImGuiContext& g = *ImGui::GetCurrentContext();
     const bool minimapInputBlocked =
         (g.HoveredWindow != nullptr) || frameXmlOwns(UiElement::Minimap);
-
-    // Scroll wheel over minimap → zoom in/out
-    if (!minimapInputBlocked) {
-        float wheel = ImGui::GetIO().MouseWheel;
-        if (wheel != 0.0f) {
-            if (cursorOverMinimap(centerX, centerY, mapRadius)) {
-                if (wheel > 0.0f)
-                    minimap->zoomIn();
-                else
-                    minimap->zoomOut();
-            }
-        }
-    }
-
-    // Ctrl+click on minimap → send minimap ping to party
-    if (!minimapInputBlocked && ImGui::IsMouseClicked(0) && ImGui::GetIO().KeyCtrl) {
-        ImVec2 mouse = ImGui::GetMousePos();
-        float mdx = mouse.x - centerX;
-        float mdy = mouse.y - centerY;
-        if (cursorOverMinimap(centerX, centerY, mapRadius)) {
-            // playerRender is in render coords; add the delta the click means
-            // to get a render position, then convert to canonical.
-            const glm::vec2 d = minimapOffsetToRenderDelta(mdx, mdy, minimapView);
-            glm::vec3 clickRender = playerRender + glm::vec3(d.x, d.y, 0.0f);
-            glm::vec3 clickCanon = core::coords::renderToCanonical(clickRender);
-            gameHandler.sendMinimapPing(clickCanon.x, clickCanon.y);
-        }
-    }
-
-    // Optional persistent coordinate display below the minimap.
-    if (settingsPanel_.showMinimapCoordinates_) {
-        glm::vec3 playerCanon = core::coords::renderToCanonical(playerRender);
-        char coordBuf[32];
-        std::snprintf(coordBuf, sizeof(coordBuf), "%.1f, %.1f", playerCanon.x, playerCanon.y);
-
-        ImFont* font = ImGui::GetFont();
-        float fontSize = ImGui::GetFontSize();
-        ImVec2 textSz = font->CalcTextSizeA(fontSize, FLT_MAX, 0.0f, coordBuf);
-
-        float tx = centerX - textSz.x * 0.5f;
-        float ty = centerY + mapRadius + 3.0f;
-
-        // Semi-transparent dark background pill
-        float pad = 3.0f;
-        drawList->AddRectFilled(
-            ImVec2(tx - pad, ty - pad),
-            ImVec2(tx + textSz.x + pad, ty + textSz.y + pad),
-            IM_COL32(0, 0, 0, 140), 4.0f);
-        // Coordinate text in warm yellow
-        drawList->AddText(font, fontSize, ImVec2(tx, ty), IM_COL32(230, 220, 140, 255), coordBuf);
-    }
-
-    // Zone name display — drawn inside the top edge of the minimap circle
-    {
-        std::string zoneName;
-        // The live terrain-derived zone first; the server's only if that has
-        // nothing. The server tells us its zone on SMSG_INIT_WORLD_STATES and
-        // at no other time, so preferring it left this label naming the last
-        // zone the server announced rather than the one being walked through.
-        uint32_t zoneId = renderer ? renderer->getCurrentZoneId() : 0u;
-        const uint32_t serverZoneId = gameHandler.getWorldStateZoneId();
-        if (zoneId == 0) zoneId = serverZoneId;
-        // Said once each time the pair changes. The two disagreeing is not by
-        // itself a fault — the server only revises its answer when it notices
-        // a zone change — but a disagreement that persists while standing
-        // still means the server has the player somewhere else, which is also
-        // why no creatures would arrive. This prints both names and the
-        // position, which is what tells those two cases apart.
-        if (serverZoneId != 0 && zoneId != 0 && serverZoneId != zoneId) {
-            static uint64_t lastReported = 0;
-            const uint64_t pair = (static_cast<uint64_t>(serverZoneId) << 32) | zoneId;
-            if (pair != lastReported) {
-                lastReported = pair;
-                const auto& mi = gameHandler.getMovementInfo();
-                LOG_WARNING("Zone disagreement: server says ", serverZoneId, " (",
-                            gameHandler.getWhoAreaName(serverZoneId),
-                            "), terrain under the player says ", zoneId, " (",
-                            gameHandler.getWhoAreaName(zoneId),
-                            ") at canonical ", mi.x, ", ", mi.y, ", ", mi.z);
-            }
-        }
-        if (zoneId != 0) {
-            zoneName = gameHandler.getWhoAreaName(zoneId);
-            if (zoneName.empty()) {
-                if (auto* zmRenderer = renderer ? renderer->getZoneManager() : nullptr) {
-                    if (const game::ZoneInfo* zi = zmRenderer->getZoneInfo(zoneId)) {
-                        zoneName = zi->name;
-                    }
-                }
-            }
-        }
-        if (zoneName.empty() && renderer) {
-            zoneName = renderer->getCurrentZoneName();
-        }
-        if (!zoneName.empty()) {
-            ImFont* font = ImGui::GetFont();
-            float fontSize = ImGui::GetFontSize();
-
-            const char* weatherIcon = nullptr;
-            ImU32 weatherColor = IM_COL32(255, 255, 255, 200);
-            const uint32_t weatherType = gameHandler.getWeatherType();
-            const float weatherIntensity = gameHandler.getWeatherIntensity();
-            if (weatherType == 1 && weatherIntensity > 0.05f) {
-                weatherIcon = " \xe2\x9b\x86"; // Rain
-                weatherColor = IM_COL32(140, 180, 240, 220);
-            } else if (weatherType == 2 && weatherIntensity > 0.05f) {
-                weatherIcon = " \xe2\x9d\x84"; // Snow
-                weatherColor = IM_COL32(210, 230, 255, 220);
-            } else if (weatherType == 3 && weatherIntensity > 0.05f) {
-                weatherIcon = " \xe2\x98\x81"; // Storm/fog
-                weatherColor = IM_COL32(160, 160, 190, 220);
-            }
-
-            const std::string fullLabel = weatherIcon ? zoneName + weatherIcon : zoneName;
-            ImVec2 ts = font->CalcTextSizeA(fontSize, FLT_MAX, 0.0f, fullLabel.c_str());
-            float tx = centerX - ts.x * 0.5f;
-            float ty = centerY - mapRadius + 4.0f;  // just inside top edge of the circle
-            float pad = 2.0f;
-            drawList->AddRectFilled(
-                ImVec2(tx - pad, ty - pad),
-                ImVec2(tx + ts.x + pad, ty + ts.y + pad),
-                IM_COL32(0, 0, 0, 160), 2.0f);
-            drawList->AddText(font, fontSize, ImVec2(tx + 1.0f, ty + 1.0f),
-                              IM_COL32(0, 0, 0, 180), zoneName.c_str());
-            drawList->AddText(font, fontSize, ImVec2(tx, ty),
-                              IM_COL32(255, 230, 150, 220), zoneName.c_str());
-            if (weatherIcon) {
-                const ImVec2 nameSize = font->CalcTextSizeA(
-                    fontSize, FLT_MAX, 0.0f, zoneName.c_str());
-                drawList->AddText(font, fontSize, ImVec2(tx + nameSize.x, ty),
-                                  weatherColor, weatherIcon);
-            }
-        }
-    }
-
-    // Instance difficulty indicator — just below zone name, inside minimap top edge
-    if (gameHandler.isInInstance()) {
-        static constexpr const char* kDiffLabels[] = {"Normal", "Heroic", "25 Normal", "25 Heroic"};
-        uint32_t diff = gameHandler.getInstanceDifficulty();
-        const char* label = (diff < 4) ? kDiffLabels[diff] : "Unknown";
-
-        ImFont* font = ImGui::GetFont();
-        float fontSize = ImGui::GetFontSize() * 0.85f;
-        ImVec2 ts = font->CalcTextSizeA(fontSize, FLT_MAX, 0.0f, label);
-        float tx = centerX - ts.x * 0.5f;
-        // Position below zone name: top edge + zone font size + small gap
-        float ty = centerY - mapRadius + 4.0f + ImGui::GetFontSize() + 2.0f;
-        float pad = 2.0f;
-
-        // Color-code: heroic=orange, normal=light gray
-        ImU32 bgCol = gameHandler.isInstanceHeroic() ? IM_COL32(120, 60, 0, 180) : IM_COL32(0, 0, 0, 160);
-        ImU32 textCol = gameHandler.isInstanceHeroic() ? IM_COL32(255, 180, 50, 255) : IM_COL32(200, 200, 200, 220);
-
-        drawList->AddRectFilled(
-            ImVec2(tx - pad, ty - pad),
-            ImVec2(tx + ts.x + pad, ty + ts.y + pad),
-            bgCol, 2.0f);
-        drawList->AddText(font, fontSize, ImVec2(tx, ty), textCol, label);
-    }
-
-    // Hover tooltip and right-click context menu
-    {
-        ImVec2 mouse = ImGui::GetMousePos();
-        float mdx = mouse.x - centerX;
-        float mdy = mouse.y - centerY;
-        bool overMinimap = !minimapInputBlocked && cursorOverMinimap(centerX, centerY, mapRadius);
-
-        if (overMinimap) {
-            ImGui::BeginTooltip();
-            if (settingsPanel_.showMinimapCoordinates_) {
-                // Compute the world coordinate under the mouse cursor.
-                const glm::vec2 hover = minimapOffsetToRenderDelta(mdx, mdy, minimapView);
-                glm::vec3 hoverRender(playerRender.x + hover.x, playerRender.y + hover.y,
-                                      playerRender.z);
-                glm::vec3 hoverCanon = core::coords::renderToCanonical(hoverRender);
-                ImGui::TextColored(ImVec4(0.9f, 0.85f, 0.5f, 1.0f), "%.1f, %.1f", hoverCanon.x, hoverCanon.y);
-            }
-            ImGui::TextColored(colors::kMediumGray, "Ctrl+click to ping");
-            ImGui::EndTooltip();
-
-            if (ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
-                ImGui::OpenPopup("##minimapContextMenu");
-            }
-        }
-
-        if (ImGui::BeginPopup("##minimapContextMenu")) {
-            ImGui::TextColored(ui::colors::kTooltipGold, "Minimap");
-            ImGui::Separator();
-
-            // Zoom controls
-            if (ImGui::MenuItem("Zoom In")) {
-                minimap->zoomIn();
-            }
-            if (ImGui::MenuItem("Zoom Out")) {
-                minimap->zoomOut();
-            }
-
-            ImGui::Separator();
-
-            // Toggle options with checkmarks
-            bool rotWithCam = minimap->isRotateWithCamera();
-            if (ImGui::MenuItem("Rotate with Camera", nullptr, rotWithCam)) {
-                minimap->setRotateWithCamera(!rotWithCam);
-            }
-
-            bool squareShape = minimap->isSquareShape();
-            if (ImGui::MenuItem("Square Shape", nullptr, squareShape)) {
-                minimap->setSquareShape(!squareShape);
-            }
-
-            bool npcDots = settingsPanel_.minimapNpcDots_;
-            if (ImGui::MenuItem("Show NPC Dots", nullptr, npcDots)) {
-                settingsPanel_.minimapNpcDots_ = !settingsPanel_.minimapNpcDots_;
-            }
-
-            ImGui::EndPopup();
-        }
-    }
-
-
+    handleMinimapInput(frame, gameHandler, minimapInputBlocked);
+    renderMinimapReadouts(frame, gameHandler, minimapInputBlocked);
     // The furniture around the map — zoom buttons, clock, indicators — is
     // FrameXML's when FrameXML draws the ring, so it answers the ownership
     // question separately from the blips above.

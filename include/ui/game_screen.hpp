@@ -328,6 +328,14 @@ private:
     void renderMinimapCorpseMarker(const MinimapFrame& frame, game::GameHandler& gameHandler);
     void renderMinimapPlayerArrow(const MinimapFrame& frame);
 
+    /// The wheel and the ctrl+click, when this client owns the ring.
+    void handleMinimapInput(const MinimapFrame& frame, game::GameHandler& gameHandler,
+                            bool minimapInputBlocked);
+
+    /// The coordinates, zone name, difficulty and hover menu written on the ring.
+    void renderMinimapReadouts(const MinimapFrame& frame, game::GameHandler& gameHandler,
+                               bool minimapInputBlocked);
+
     void renderMinimapChrome(game::GameHandler& gameHandler, float centerX,
                              float centerY, float mapRadius);
     void refreshQuestObjectiveCache(game::GameHandler& gameHandler);
