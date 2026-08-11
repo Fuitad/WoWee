@@ -9374,7 +9374,22 @@ void LuaEngine::dispatchMouse(float x, float y, float screenH, MouseButtons butt
                                 return frameHasScript(w, "OnHyperlinkClick");
                             });
                         const ui::Widget* ownerW = owner ? widgets_.get(owner) : nullptr;
-                        if (owner != 0 && ownerW && ownerW->hyperlinksEnabled) {
+                        // Only when the link is what the mouse is actually on.
+                        //
+                        // A link rect is filed wherever its text was drawn and
+                        // says nothing about what has been opened over the top
+                        // of it since. Hoisting this check out of the block
+                        // below took that away with the gate: a window drawn
+                        // over the chat left the chat still answering clicks
+                        // through it, because the rect was still there.
+                        //
+                        // Nothing under the cursor at all is the chat's own
+                        // case — the window is click-through, so the hit test
+                        // finds no widget and the link is the only thing there.
+                        const bool linkIsWhatIsUnderTheCursor =
+                            hit == 0 || ui::isSelfOrDescendantOf(widgets_, hit, owner);
+                        if (owner != 0 && ownerW && ownerW->hyperlinksEnabled &&
+                            linkIsWhatIsUnderTheCursor) {
                             callFrameScript3(owner, "OnHyperlinkClick",
                                              hitLink->link.c_str(),
                                              hitLink->text.c_str(), b.name);

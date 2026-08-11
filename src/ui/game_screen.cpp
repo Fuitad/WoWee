@@ -1393,7 +1393,18 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
         else              chatPanel_.activateInput();
     }
 
-    const bool textFocus = chatPanel_.isChatInputActive() || io.WantTextInput;
+    // Anything at all is taking typed input: this client's chat box, an ImGui
+    // field, or one of the interface's own edit boxes.
+    //
+    // That third one was left out, and the block of game hotkeys further down
+    // asks only this. So every one of them fired while the player was typing
+    // into a FrameXML box — H opened the titles window from the middle of a
+    // mail recipient, C opened the character sheet, I the bags, and the digits
+    // fired action bar slots. The two places that had noticed named the
+    // interface's box separately, which is how the third came to be missing
+    // from the rest.
+    const bool textFocus = chatPanel_.isChatInputActive() || io.WantTextInput ||
+                           interfaceTakingTypedInput();
 
     // Game hotkeys — gate on textFocus (chat/text-input active) rather than
     // WantCaptureKeyboard so that toggle keys like M, C, I still work when an
@@ -1404,7 +1415,7 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
         // to the next field, the box that had it has let go by the time this
         // is asked — and cycling between two fields of a form would have
         // changed the player's target on every press.
-        if (!textFocus && !interfaceTakingTypedInput() &&
+        if (!textFocus &&
             !interfaceConsumedKey(ImGuiKey_Tab) &&
             input.isKeyJustPressed(SDL_SCANCODE_TAB)) {
             const auto& movement = gameHandler.getMovementInfo();
@@ -1450,7 +1461,7 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
                             "so no press can reach the chain");
             }
         }
-        if (escapePressed && (textFocus || interfaceTakingTypedInput())) {
+        if (escapePressed && textFocus) {
             LOG_WARNING("Escape: swallowed before the chain — chat input ",
                      chatPanel_.isChatInputActive() ? "active" : "idle",
                      ", ImGui wants text: ", io.WantTextInput ? "yes" : "no",

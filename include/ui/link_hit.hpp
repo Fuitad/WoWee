@@ -78,5 +78,24 @@ uint32_t findScriptOwner(const Tree& tree, uint32_t start, HasScript hasScript) 
     return 0;
 }
 
+/// Whether `node` is `ancestor`, or sits beneath it in the tree.
+///
+/// What decides whether a link under the cursor is actually the thing being
+/// clicked. A link rect is filed wherever its text was drawn, and nothing about
+/// the rect says whether a window has since been opened over the top of it — so
+/// a link answers a click only when the frame the mouse is really on belongs to
+/// the same chain.
+template <typename Tree>
+bool isSelfOrDescendantOf(const Tree& tree, uint32_t node, uint32_t ancestor) {
+    if (ancestor == 0) return false;
+    uint32_t guard = 0;
+    for (uint32_t w = node; w != 0 && guard <= tree.size(); ++guard) {
+        if (w == ancestor) return true;
+        const auto* n = tree.get(w);
+        w = n ? n->parent : 0;
+    }
+    return false;
+}
+
 }  // namespace ui
 }  // namespace wowee
