@@ -24,61 +24,15 @@ void ItemTooltipRenderer::render(
     if (!info || !info->valid) return;
 
     auto findComparableEquipped = [&](uint8_t inventoryType) -> const game::ItemSlot* {
-        using ES = game::EquipSlot;
+        // The same mapping the bags use, from beside the enum that names it.
         const auto& inv = gameHandler.getInventory();
-        auto slotPtr = [&](ES slot) -> const game::ItemSlot* {
+        for (game::EquipSlot slot : game::comparableEquipSlots(inventoryType)) {
             const auto& s = inv.getEquipSlot(slot);
-            return s.empty() ? nullptr : &s;
-        };
-        switch (inventoryType) {
-            case 1: return slotPtr(ES::HEAD);
-            case 2: return slotPtr(ES::NECK);
-            case 3: return slotPtr(ES::SHOULDERS);
-            case 4: return slotPtr(ES::SHIRT);
-            case 5:
-            case 20: return slotPtr(ES::CHEST);
-            case 6: return slotPtr(ES::WAIST);
-            case 7: return slotPtr(ES::LEGS);
-            case 8: return slotPtr(ES::FEET);
-            case 9: return slotPtr(ES::WRISTS);
-            case 10: return slotPtr(ES::HANDS);
-            case 11: {
-                if (auto* s = slotPtr(ES::RING1)) return s;
-                return slotPtr(ES::RING2);
-            }
-            case 12: {
-                if (auto* s = slotPtr(ES::TRINKET1)) return s;
-                return slotPtr(ES::TRINKET2);
-            }
-            case 13:
-                if (auto* s = slotPtr(ES::MAIN_HAND)) return s;
-                return slotPtr(ES::OFF_HAND);
-            case 14:
-            case 22:
-            case 23: return slotPtr(ES::OFF_HAND);
-            case 15:
-            case 25:
-            case 26: return slotPtr(ES::RANGED);
-            case 16: return slotPtr(ES::BACK);
-            case 17:
-            case 21: return slotPtr(ES::MAIN_HAND);
-            case 18:
-                for (int i = 0; i < game::Inventory::NUM_BAG_SLOTS; ++i) {
-                    auto slot = static_cast<ES>(static_cast<int>(ES::BAG1) + i);
-                    if (auto* s = slotPtr(slot)) return s;
-                }
-                return nullptr;
-            case 19: return slotPtr(ES::TABARD);
-            default: return nullptr;
+            if (!s.empty()) return &s;
         }
+        return nullptr;
     };
 
-    auto isWeaponInventoryType = [](uint32_t invType) {
-        switch (invType) {
-            case 13: case 15: case 17: case 21: case 25: case 26: return true;
-            default: return false;
-        }
-    };
 
     auto appendBonus = [](std::string& out, int32_t val, const char* shortName) {
         if (val <= 0) return;
@@ -119,7 +73,7 @@ void ItemTooltipRenderer::render(
         }
     }
 
-    const bool isWeapon = isWeaponInventoryType(info->inventoryType);
+    const bool isWeapon = game::isWeaponInventoryType(info->inventoryType);
 
     // Item level (after slot/subclass)
     if (info->itemLevel > 0)
@@ -444,7 +398,7 @@ void ItemTooltipRenderer::render(
                 ImGui::SameLine();
             }
             ImGui::TextColored(InventoryScreen::getQualityColor(eq->item.quality), "%s", eq->item.name.c_str());
-            if (isWeaponInventoryType(eq->item.inventoryType) &&
+            if (game::isWeaponInventoryType(eq->item.inventoryType) &&
                 eq->item.damageMax > 0.0f && eq->item.delayMs > 0) {
                 float speed = static_cast<float>(eq->item.delayMs) / 1000.0f;
                 float dps = ((eq->item.damageMin + eq->item.damageMax) * 0.5f) / speed;

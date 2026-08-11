@@ -15,6 +15,7 @@
 #include <vector>
 
 #include "core/character_paths.hpp"
+#include "game/inventory.hpp"
 #include "game/item_text.hpp"
 #include "pipeline/item_textures.hpp"
 #include "pipeline/m2_loader.hpp"
@@ -158,6 +159,57 @@ TEST_CASE("item stat names follow ITEM_MOD, not the shifted table", "[item]") {
     SECTION("an id no expansion sends has nothing to say") {
         CHECK(game::itemStatName(49) == nullptr);
         CHECK(game::itemStatName(999) == nullptr);
+    }
+}
+
+TEST_CASE("which equipped slot an item is compared against", "[item]") {
+    using wowee::game::EquipSlot;
+    using wowee::game::comparableEquipSlots;
+
+    SECTION("the pairs, where an item could be in either") {
+        // The reason this returns a list rather than one slot: a ring in the
+        // second finger is still the ring to compare a new ring against, and a
+        // one-hander may be in either hand.
+        CHECK(comparableEquipSlots(11) ==
+              std::vector<EquipSlot>{EquipSlot::RING1, EquipSlot::RING2});
+        CHECK(comparableEquipSlots(12) ==
+              std::vector<EquipSlot>{EquipSlot::TRINKET1, EquipSlot::TRINKET2});
+        CHECK(comparableEquipSlots(13) ==
+              std::vector<EquipSlot>{EquipSlot::MAIN_HAND, EquipSlot::OFF_HAND});
+    }
+
+    SECTION("the INVTYPEs that share a slot") {
+        // A robe is chest, a shield and a held-in-off-hand are both off hand,
+        // and thrown and guns are both ranged. Each of these was a fall-through
+        // in two switches that had to agree.
+        CHECK(comparableEquipSlots(20) == comparableEquipSlots(5));   // robe, chest
+        CHECK(comparableEquipSlots(14) == comparableEquipSlots(23));  // shield, holdable
+        CHECK(comparableEquipSlots(25) == comparableEquipSlots(15));  // thrown, bow
+        CHECK(comparableEquipSlots(26) == comparableEquipSlots(15));  // gun, bow
+        CHECK(comparableEquipSlots(17) == comparableEquipSlots(21));  // two-hand, main hand
+    }
+
+    SECTION("a bag is compared against every bag slot") {
+        CHECK(comparableEquipSlots(18).size() == 4);
+        CHECK(comparableEquipSlots(18).front() == EquipSlot::BAG1);
+        CHECK(comparableEquipSlots(18).back() == EquipSlot::BAG4);
+    }
+
+    SECTION("what is not equipped has nothing to compare") {
+        CHECK(comparableEquipSlots(0).empty());   // not equippable
+        CHECK(comparableEquipSlots(24).empty());  // ammo — a quiver slot this client has no equivalent for
+        CHECK(comparableEquipSlots(200).empty());
+    }
+
+    SECTION("a weapon is what has damage to put beside another's") {
+        // The shield sits in a weapon slot and is not one: comparing its
+        // damage per second against a sword's would be comparing zero.
+        CHECK(wowee::game::isWeaponInventoryType(13));
+        CHECK(wowee::game::isWeaponInventoryType(17));
+        CHECK(wowee::game::isWeaponInventoryType(26));
+        CHECK_FALSE(wowee::game::isWeaponInventoryType(14));
+        CHECK_FALSE(wowee::game::isWeaponInventoryType(23));
+        CHECK_FALSE(wowee::game::isWeaponInventoryType(1));
     }
 }
 

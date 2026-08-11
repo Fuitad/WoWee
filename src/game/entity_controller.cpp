@@ -22,24 +22,6 @@ namespace game {
 
 namespace {
 
-const char* worldStateName(WorldState state) {
-    switch (state) {
-        case WorldState::DISCONNECTED: return "DISCONNECTED";
-        case WorldState::CONNECTING: return "CONNECTING";
-        case WorldState::CONNECTED: return "CONNECTED";
-        case WorldState::CHALLENGE_RECEIVED: return "CHALLENGE_RECEIVED";
-        case WorldState::AUTH_SENT: return "AUTH_SENT";
-        case WorldState::AUTHENTICATED: return "AUTHENTICATED";
-        case WorldState::READY: return "READY";
-        case WorldState::CHAR_LIST_REQUESTED: return "CHAR_LIST_REQUESTED";
-        case WorldState::CHAR_LIST_RECEIVED: return "CHAR_LIST_RECEIVED";
-        case WorldState::ENTERING_WORLD: return "ENTERING_WORLD";
-        case WorldState::IN_WORLD: return "IN_WORLD";
-        case WorldState::FAILED: return "FAILED";
-    }
-    return "UNKNOWN";
-}
-
 bool envFlagEnabled(const char* key, bool defaultValue = false) {
     const char* raw = std::getenv(key);
     if (!raw || !*raw) return defaultValue;

@@ -60,6 +60,83 @@ namespace InvType {
     constexpr uint8_t RANGED_GUN    = 26;  // Gun / Crossbow / Wand
 } // namespace InvType
 
+/// Whether an item of this INVTYPE is a weapon, for the purpose of comparing
+/// two of them: damage per second is worth showing side by side, armour is not.
+///
+/// Held-in-off-hand and shields are deliberately not weapons here — they occupy
+/// a weapon slot and have no damage to compare.
+///
+/// Written out twice before this, in the bags and in the chat tooltip, as a
+/// switch over the bare numbers rather than the names two dozen lines above.
+inline bool isWeaponInventoryType(uint8_t inventoryType) {
+    switch (inventoryType) {
+        case InvType::ONE_HAND:
+        case InvType::RANGED_BOW:
+        case InvType::TWO_HAND:
+        case InvType::MAIN_HAND:
+        case InvType::THROWN:
+        case InvType::RANGED_GUN:
+            return true;
+        default:
+            return false;
+    }
+}
+
+/// The equipped slots an item of this INVTYPE should be compared against, in
+/// the order to try them.
+///
+/// Usually one. Two where the item could go in either of a pair — rings,
+/// trinkets, and a one-hander that may be in the off hand — and every bag slot
+/// for a bag. Empty for anything that is not equipped at all.
+///
+/// This mapping is WoW's, not this client's, and it was written out twice: once
+/// for the bags' comparison tooltip and once for the chat link's. They agreed,
+/// which is luck rather than design — the stat-name table beside them in the
+/// same two files did not, and was shifted by one from 34 up for long enough
+/// that a resilience item read as haste.
+inline std::vector<EquipSlot> comparableEquipSlots(uint8_t inventoryType) {
+    using ES = EquipSlot;
+    switch (inventoryType) {
+        case InvType::HEAD:      return {ES::HEAD};
+        case InvType::NECK:      return {ES::NECK};
+        case InvType::SHOULDERS: return {ES::SHOULDERS};
+        case InvType::SHIRT:     return {ES::SHIRT};
+        case InvType::CHEST:
+        case InvType::ROBE:      return {ES::CHEST};
+        case InvType::WAIST:     return {ES::WAIST};
+        case InvType::LEGS:      return {ES::LEGS};
+        case InvType::FEET:      return {ES::FEET};
+        case InvType::WRISTS:    return {ES::WRISTS};
+        case InvType::HANDS:     return {ES::HANDS};
+        case InvType::FINGER:    return {ES::RING1, ES::RING2};
+        case InvType::TRINKET:   return {ES::TRINKET1, ES::TRINKET2};
+        // A one-hander can be wielded in either hand, so the main hand is tried
+        // first and the off hand second.
+        case InvType::ONE_HAND:  return {ES::MAIN_HAND, ES::OFF_HAND};
+        case InvType::SHIELD:
+        case InvType::OFF_HAND:
+        case InvType::HOLDABLE:  return {ES::OFF_HAND};
+        case InvType::RANGED_BOW:
+        case InvType::THROWN:
+        case InvType::RANGED_GUN: return {ES::RANGED};
+        case InvType::BACK:      return {ES::BACK};
+        case InvType::TWO_HAND:
+        case InvType::MAIN_HAND: return {ES::MAIN_HAND};
+        case InvType::BAG: {
+            // Counted off the enum rather than against Inventory::NUM_BAG_SLOTS,
+            // which is declared further down this file — and which would be a
+            // second place to say how many bags there are.
+            std::vector<EquipSlot> bags;
+            for (int s = static_cast<int>(ES::BAG1); s <= static_cast<int>(ES::BAG4); ++s) {
+                bags.push_back(static_cast<ES>(s));
+            }
+            return bags;
+        }
+        case InvType::TABARD:    return {ES::TABARD};
+        default:                 return {};
+    }
+}
+
 struct ItemDef {
     uint32_t itemId = 0;
     std::string name;

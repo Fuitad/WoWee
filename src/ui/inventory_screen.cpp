@@ -150,53 +150,13 @@ struct ComparableEquipped {
 };
 
 ComparableEquipped findComparableEquipped(const game::Inventory& inventory, uint8_t inventoryType) {
-    using ES = game::EquipSlot;
-    auto slotPtr = [&](ES slot) -> ComparableEquipped {
+    // Which slots to try is WoW's mapping and lives beside the enum; this only
+    // walks them and stops at the first one holding something.
+    for (game::EquipSlot slot : game::comparableEquipSlots(inventoryType)) {
         const auto& s = inventory.getEquipSlot(slot);
-        return s.empty() ? ComparableEquipped{} : ComparableEquipped{&s, slot};
-    };
-
-    switch (inventoryType) {
-        case 1: return slotPtr(ES::HEAD);
-        case 2: return slotPtr(ES::NECK);
-        case 3: return slotPtr(ES::SHOULDERS);
-        case 4: return slotPtr(ES::SHIRT);
-        case 5:
-        case 20: return slotPtr(ES::CHEST);
-        case 6: return slotPtr(ES::WAIST);
-        case 7: return slotPtr(ES::LEGS);
-        case 8: return slotPtr(ES::FEET);
-        case 9: return slotPtr(ES::WRISTS);
-        case 10: return slotPtr(ES::HANDS);
-        case 11: {
-            if (auto s = slotPtr(ES::RING1)) return s;
-            return slotPtr(ES::RING2);
-        }
-        case 12: {
-            if (auto s = slotPtr(ES::TRINKET1)) return s;
-            return slotPtr(ES::TRINKET2);
-        }
-        case 13: // One-hand
-            if (auto s = slotPtr(ES::MAIN_HAND)) return s;
-            return slotPtr(ES::OFF_HAND);
-        case 14:
-        case 22:
-        case 23: return slotPtr(ES::OFF_HAND);
-        case 15:
-        case 25:
-        case 26: return slotPtr(ES::RANGED);
-        case 16: return slotPtr(ES::BACK);
-        case 17:
-        case 21: return slotPtr(ES::MAIN_HAND);
-        case 18: // bag
-            for (int i = 0; i < game::Inventory::NUM_BAG_SLOTS; ++i) {
-                auto slot = static_cast<ES>(static_cast<int>(ES::BAG1) + i);
-                if (auto s = slotPtr(slot)) return s;
-            }
-            return {};
-        case 19: return slotPtr(ES::TABARD);
-        default: return {};
+        if (!s.empty()) return ComparableEquipped{&s, slot};
     }
+    return {};
 }
 
 void renderEquippedEnhancements(
@@ -3282,20 +3242,7 @@ void InventoryScreen::renderItemTooltip(const game::ItemDef& item, const game::I
             renderItemTypeWarningIfNeeded(gameHandler_, qi->itemClass, qi->subClass);
     }
 
-    auto isWeaponInventoryType = [](uint32_t invType) {
-        switch (invType) {
-            case 13: // One-Hand
-            case 15: // Ranged
-            case 17: // Two-Hand
-            case 21: // Main Hand
-            case 25: // Thrown
-            case 26: // Ranged Right
-                return true;
-            default:
-                return false;
-        }
-    };
-    const bool isWeapon = isWeaponInventoryType(item.inventoryType);
+    const bool isWeapon = game::isWeaponInventoryType(item.inventoryType);
 
     // Compact stats view for weapons: damage range + speed + DPS
     ImVec4 green(0.0f, 1.0f, 0.0f, 1.0f);
@@ -3653,7 +3600,7 @@ void InventoryScreen::renderItemTooltip(const game::ItemDef& item, const game::I
             };
 
             // DPS comparison for weapons
-            if (isWeaponInventoryType(item.inventoryType) && isWeaponInventoryType(eq->item.inventoryType)) {
+            if (game::isWeaponInventoryType(item.inventoryType) && game::isWeaponInventoryType(eq->item.inventoryType)) {
                 float newDps = 0.0f, eqDps = 0.0f;
                 if (item.damageMax > 0.0f && item.delayMs > 0)
                     newDps = ((item.damageMin + item.damageMax) * 0.5f) / (item.delayMs / 1000.0f);
