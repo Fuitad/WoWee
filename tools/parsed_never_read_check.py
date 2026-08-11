@@ -98,6 +98,22 @@ EXPECTED = {
     # "1 = show window", and the one place that builds SMSG_SHOWTAXINODES
     # always writes 1 — the packet arriving *is* the instruction to open it.
     ("ShowTaxiNodesData", "windowInfo"): "the only send site always writes 1",
+    # The charter list a registrar sends. Both of these are on the wire and
+    # neither has a consumer, and the reason is the same for both: the arena
+    # registrar's three tabs are told apart by the charter's *item name* —
+    # "Arena Team Charter (2v2)" and its siblings — which GetPetitionItemInfo
+    # already answers from the item query. The type word would say the same
+    # thing a second time.
+    #
+    # The signature requirement is not shown at a registrar at all. It appears
+    # on the charter once you hold one, and that comes from SMSG_PETITION_SHOW,
+    # which this client does read — signaturesRequired is filled from it, and
+    # was the fix that stopped every charter reading "x / 9".
+    ("PetitionShowlistData", "charterType"): "the item name already says which team size",
+    ("PetitionShowlistData", "requiredSigs"): "shown from SMSG_PETITION_SHOW, not the list",
+    # Same field on the per-charter struct inside that list, for the same
+    # reason.
+    ("Charter", "requiredSigs"): "shown from SMSG_PETITION_SHOW, not the list",
 }
 
 
