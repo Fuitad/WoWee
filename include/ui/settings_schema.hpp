@@ -49,6 +49,14 @@ struct SettingDesc {
     const char* section;   ///< the heading above it on that panel; "" continues the last
     const char* tooltip;   ///< one or two lines shown on hover; "" for none
     const char* choices;   ///< Enum only: the labels, separated by '|', index order
+    /// What this setting is when nobody has chosen. 0 or 1 for a Bool, the
+    /// chosen index for an Enum.
+    ///
+    /// Here so that "restore defaults" is one fact rather than several. It was
+    /// three lists before — one in each of the settings window's three restore
+    /// buttons — and the options panels had no defaults at all, so the button
+    /// the game puts on every one of them was a function that did nothing.
+    float defaultValue;
 };
 
 /// A setting's value as a string, the way a CVar carries one.

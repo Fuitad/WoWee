@@ -215,6 +215,14 @@ public:
     /// a setting added to the schema appears in both.
     void drawSchemaCategory(const char* category, const std::function<void()>& saveCallback);
 
+    /// Put every setting in `category` back to what the schema says it is when
+    /// nobody has chosen. A null category restores all of them.
+    ///
+    /// One list rather than one per restore button — there were three, and each
+    /// of them was free to disagree with the value the client actually starts
+    /// with, which is the same list a fourth time.
+    void restoreSchemaDefaults(const char* category);
+
     /// Apply the persisted global ImGui window scale without compounding ratios.
     void applyWindowUiScale();
 

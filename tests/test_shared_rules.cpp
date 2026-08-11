@@ -67,6 +67,17 @@ TEST_CASE("the settings schema is something a panel can be built from", "[settin
         CHECK(std::string(d.category) != "");
         keys.push_back(d.key);
 
+        // A default outside the control's own range cannot be selected, so
+        // pressing Defaults would move the value somewhere the slider then
+        // refuses to show — and the panel would read back a different number
+        // from the one that was just written.
+        if (d.kind == ui::SettingKind::Bool) {
+            CHECK((d.defaultValue == 0.0f || d.defaultValue == 1.0f));
+        } else {
+            CHECK(d.defaultValue >= d.minValue);
+            CHECK(d.defaultValue <= d.maxValue);
+        }
+
         if (d.kind == ui::SettingKind::Enum) {
             // The value is the chosen index, so the choices have to cover the
             // range exactly — one label per value from min to max.

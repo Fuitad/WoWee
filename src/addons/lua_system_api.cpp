@@ -3746,6 +3746,7 @@ static int lua_WoweeSettingList(lua_State* L) {
         lua_pushstring(L, d.section);  lua_setfield(L, -2, "section");
         lua_pushstring(L, d.tooltip);  lua_setfield(L, -2, "tooltip");
         lua_pushstring(L, d.choices);  lua_setfield(L, -2, "choices");
+        lua_pushnumber(L, d.defaultValue); lua_setfield(L, -2, "default");
         lua_rawseti(L, -2, static_cast<int>(i) + 1);
     }
     return 1;

@@ -689,7 +689,16 @@ local function buildPanel(category, settings)
         end
         panel.refresh()
     end
-    panel.default = function() end
+    -- The game puts a Defaults button on every options panel, and this was a
+    -- function that did nothing — the schema had no defaults to put back. It
+    -- has now, so the button does what it says for this panel's settings and
+    -- leaves every other panel's alone.
+    panel.default = function()
+        for _, setting in ipairs(settings) do
+            WoweeSetSetting(setting.key, tostring(setting.default))
+        end
+        panel.refresh()
+    end
 
     InterfaceOptions_AddCategory(panel, true)
 end

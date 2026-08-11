@@ -134,29 +134,19 @@ void SettingsPanel::renderSettingsGameplayTab(std::function<void()> saveCallback
     ImGui::Spacing();
 
     if (ImGui::Button("Restore Gameplay Defaults", ImVec2(-1, 0))) {
-        pendingMouseSensitivity = 0.2f;
-        pendingInvertMouse = false;
-        pendingExtendedZoom = false;
-        pendingSmoothCameraFollow = false;
-        pendingUiOpacity = 65;
-        pendingMinimapSquare = false;
-        pendingMinimapNpcDots = false;
-        pendingShowMinimapClock = false;
-        pendingShowMinimapCoordinates = false;
-        pendingSeparateBags = true;
-        pendingShowKeyring = true;
-        pendingBagScale = InventoryScreen::recommendedBagScale(ImGui::GetIO().DisplaySize.y);
-        pendingShowMicroMenu = false;
-        // The applied copies of these — uiOpacity_, minimapSquare_ and the
-        // three beside it — were assigned here as well as beside their
-        // sliders, which is the same fact in two places and was already one
-        // short: the micro menu was reset and nothing was told.
-        for (const char* key : {"mousespeed", "invertmouse", "extendedzoom",
-                                "smoothfollow", "uiopacity", "minimapsquare",
-                                "minimapnpcdots", "minimapclock", "minimapcoords",
-                                "separatebags", "showkeyring", "bagscale"}) {
-            applySettingSideEffects(key);
+        for (const char* category : {"Camera", "Interface", "Minimap",
+                                     "Action Bars", "Combat & HUD",
+                                     "Gameplay", "Chat"}) {
+            restoreSchemaDefaults(category);
         }
+        // Two the schema cannot hold. Mouse look speed belongs to the game's
+        // own Interface panel, and the bag scale's default depends on the
+        // display it is being shown on — a constant would make the bags small
+        // on a large screen, which is what the recommendation exists to avoid.
+        pendingMouseSensitivity = 0.2f;
+        applySettingSideEffects("mousespeed");
+        pendingBagScale = InventoryScreen::recommendedBagScale(ImGui::GetIO().DisplaySize.y);
+        applySettingSideEffects("bagscale");
         saveCallback();
     }
 
@@ -312,19 +302,10 @@ drawSchemaCategory("Sound", saveCallback);
 ImGui::EndChild();
 
 if (ImGui::Button("Restore Audio Defaults", ImVec2(-1, 0))) {
+    restoreSchemaDefaults("Sound");
+    // Master is not in that list — the game's own Sound panel drives it — so
+    // it is the one value still named here.
     pendingMasterVolume = 100;
-    pendingMusicVolume = 30; // default music volume
-    pendingAmbientVolume = 100;
-    pendingBellVolume = 50;
-    pendingUiVolume = 100;
-    pendingCombatVolume = 100;
-    pendingSpellVolume = 100;
-    pendingMovementVolume = 100;
-    pendingFootstepVolume = 100;
-    pendingNpcVoiceVolume = 100;
-    pendingMountVolume = 70;
-    pendingActivityVolume = 100;
-    pendingCharacterSpeech = true;
     applyAudioSettings();
 }
 
@@ -394,9 +375,10 @@ void SettingsPanel::renderSettingsWindow(ChatPanel& chatPanel,
     constexpr int kResCount = kNumDisplayResolutions;
     constexpr int kDefaultResW = 1920;
     constexpr int kDefaultResH = 1080;
-    constexpr bool kDefaultFullscreen = false;
-    constexpr bool kDefaultVsync = true;
-    constexpr bool kDefaultShadows = true;
+    // Fullscreen, vsync and shadows had constants here too. They are in the
+    // schema now, where the options panels can read them as well; ground
+    // clutter stays because it is not in the schema — the game's own Video
+    // panel drives it.
     constexpr int kDefaultGroundClutterDensity = 100;
 
     int defaultResIndex = 0;
@@ -727,39 +709,24 @@ void SettingsPanel::renderSettingsWindow(ChatPanel& chatPanel,
                 ImGui::Spacing();
 
                 if (ImGui::Button("Restore Video Defaults", ImVec2(-1, 0))) {
-                    // The values, then one pass to push them. This used to
-                    // assign fourteen fields and then repeat, in a different
-                    // order, every renderer call that the sliders above already
-                    // make — and it did not repeat all of them: the resolution
-                    // was applied and the anti-aliasing was hardcoded back to
-                    // one sample rather than read from the field it had just
-                    // set, which is the same value only for as long as the
-                    // default stays zero.
-                    pendingFullscreen = kDefaultFullscreen;
-                    pendingVsync = kDefaultVsync;
-                    pendingShadows = kDefaultShadows;
-                    pendingShadowDistance = 300.0f;
+                    // Three categories, because the settings window puts on one
+                    // tab what the options panels put on three. The values are
+                    // the schema's; this used to name fourteen of them, and it
+                    // then re-issued the renderer calls the sliders above
+                    // already make — in a different order, and with the sample
+                    // count hardcoded back to one rather than read from the
+                    // field it had just set.
+                    for (const char* category : {"Graphics", "Upscaling", "Display"}) {
+                        restoreSchemaDefaults(category);
+                    }
+                    // Ground clutter and the resolution are not in the schema:
+                    // the game's own Video panel drives both, so they are the
+                    // two still named here.
                     pendingGroundClutterDensity = kDefaultGroundClutterDensity;
-                    pendingAntiAliasing = 0;
-                    pendingNormalMapping = true;
-                    pendingNormalMapStrength = 0.8f;
-                    pendingPOM = true;
-                    pendingPOMQuality = 1;
-                    pendingWaterRefraction = false;
-                    pendingBrightness = 50;
+                    applySettingSideEffects("groundclutter");
                     pendingResIndex = defaultResIndex;
                     pendingResolutionWidth = kDefaultResW;
                     pendingResolutionHeight = kDefaultResH;
-                    for (const char* key : {"fullscreen", "vsync", "shadows",
-                                            "shadowdistance", "groundclutter",
-                                            "antialiasing", "normalmapping",
-                                            "normalmapstrength", "parallax",
-                                            "parallaxquality", "waterrefraction",
-                                            "brightness"}) {
-                        applySettingSideEffects(key);
-                    }
-                    // Not a setting with a key of its own: the window is told
-                    // directly, as it is by the resolution dropdown.
                     window->applyResolution(pendingResolutionWidth, pendingResolutionHeight);
                     updateGraphicsPresetFromCurrentSettings();
                     saveCallback();
@@ -910,6 +877,16 @@ void SettingsPanel::drawSchemaCategory(const char* category,
             ImGui::SetTooltip("%s", d.tooltip);
         }
         if (changed && saveCallback) saveCallback();
+    }
+}
+
+void SettingsPanel::restoreSchemaDefaults(const char* category) {
+    std::size_t count = 0;
+    const auto* schema = clientSettingsSchema(count);
+    for (std::size_t i = 0; i < count; ++i) {
+        const auto& d = schema[i];
+        if (category && std::string(d.category) != category) continue;
+        setSettingValue(d.key, settingNumberText(d.defaultValue));
     }
 }
 

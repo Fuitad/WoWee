@@ -23,93 +23,93 @@ constexpr SettingDesc kSchema[] = {
     {"graphicspreset", "Quality preset", SettingKind::Enum, 0, 4, 1, "Graphics", "Quality",
      "Sets every graphics option at once. Changing any of them afterwards\n"
      "moves this to Custom.",
-     "Custom|Low|Medium|High|Ultra"},
+     "Custom|Low|Medium|High|Ultra", 0},
     {"shadows", "Shadows", SettingKind::Bool, 0, 0, 0, "Graphics", "",
-     "Cast shadows from the sun and from lights.", ""},
+     "Cast shadows from the sun and from lights.", "", 1},
     {"shadowdistance", "Shadow distance", SettingKind::Float, 40, 500, 10, "Graphics", "",
-     "How far from you shadows are still drawn.", ""},
+     "How far from you shadows are still drawn.", "", 300},
     {"waterrefraction", "Water refraction", SettingKind::Bool, 0, 0, 0, "Graphics", "",
-     "Bend what is seen through water, rather than drawing it flat.", ""},
+     "Bend what is seen through water, rather than drawing it flat.", "", 0},
 
     {"antialiasing", "Anti-aliasing", SettingKind::Enum, 0, 3, 1, "Graphics", "Anti-aliasing",
      "Multisampling. Costs memory as well as time, and has no effect while\n"
      "FSR 3 is upscaling — FSR does its own.",
-     "Off|2x MSAA|4x MSAA|8x MSAA"},
+     "Off|2x MSAA|4x MSAA|8x MSAA", 0},
     {"fxaa", "FXAA", SettingKind::Bool, 0, 0, 0, "Graphics", "",
      "Smooths edges after everything else is drawn. Cheap, slightly soft,\n"
-     "and can be used together with MSAA or FSR.", ""},
+     "and can be used together with MSAA or FSR.", "", 0},
 
     {"normalmapping", "Normal mapping", SettingKind::Bool, 0, 0, 0, "Graphics", "Surfaces",
-     "Light stone and cloth by their surface detail rather than flat.", ""},
+     "Light stone and cloth by their surface detail rather than flat.", "", 1},
     {"normalmapstrength", "Normal map strength", SettingKind::Float, 0, 2, 0.1f, "Graphics", "",
-     "How pronounced that surface detail is. 1 is as authored.", ""},
+     "How pronounced that surface detail is. 1 is as authored.", "", 0.8f},
     {"parallax", "Parallax mapping", SettingKind::Bool, 0, 0, 0, "Graphics", "",
-     "Give bricks and cobbles real depth when seen at an angle.", ""},
+     "Give bricks and cobbles real depth when seen at an angle.", "", 1},
     {"parallaxquality", "Parallax quality", SettingKind::Enum, 0, 2, 1, "Graphics", "",
      "How many steps each surface is traced with: 16, 32 or 64.",
-     "Low|Medium|High"},
+     "Low|Medium|High", 1},
 
     // --------------------------------------------------------------- Upscaling
     {"upscaling", "Upscaling", SettingKind::Enum, 0, 2, 1, "Upscaling", "",
      "Render below your resolution and scale up. FSR 1 is spatial and cheap;\n"
      "FSR 3 is temporal and sharper, and does its own anti-aliasing.",
-     "Off|FSR 1 (spatial)|FSR 3 (temporal)"},
+     "Off|FSR 1 (spatial)|FSR 3 (temporal)", 0},
     {"fsrquality", "FSR quality", SettingKind::Enum, 0, 3, 1, "Upscaling", "",
      "How far below your resolution the world is drawn.",
-     "Ultra Quality (77%)|Quality (67%)|Balanced (59%)|Native (100%)"},
+     "Ultra Quality (77%)|Quality (67%)|Balanced (59%)|Native (100%)", 3},
     {"fsrsharpness", "FSR sharpness", SettingKind::Float, 0, 2, 0.1f, "Upscaling", "",
-     "Sharpening applied after upscaling.", ""},
+     "Sharpening applied after upscaling.", "", 1.6f},
     {"framegen", "Frame generation", SettingKind::Bool, 0, 0, 0, "Upscaling", "",
      "Experimental. FSR 3 only, and only where AMD's runtime is present —\n"
-     "it is known broken on RADV/Mesa.", ""},
+     "it is known broken on RADV/Mesa.", "", 0},
     {"fsrjittersign", "Jitter sign", SettingKind::Float, -2, 2, 0.02f, "Upscaling", "FSR 3 tuning",
      "Which way FSR 3's sub-pixel jitter is applied. 0.38 is the value that\n"
-     "currently looks right; the rest of the range is for finding out why.", ""},
+     "currently looks right; the rest of the range is for finding out why.", "", 0.38f},
 
     // ----------------------------------------------------------------- Display
     {"fullscreen", "Fullscreen", SettingKind::Bool, 0, 0, 0, "Display", "",
-     "Takes effect the next time the window is rebuilt.", ""},
+     "Takes effect the next time the window is rebuilt.", "", 0},
     {"vsync", "Vertical sync", SettingKind::Bool, 0, 0, 0, "Display", "",
      "Wait for the display before showing a frame. Removes tearing, and\n"
-     "caps the frame rate at your refresh rate.", ""},
+     "caps the frame rate at your refresh rate.", "", 1},
     {"brightness", "Brightness", SettingKind::Int, 0, 100, 1, "Display", "",
-     "50 is neutral.", ""},
+     "50 is neutral.", "", 50},
 
     // ------------------------------------------------------------------ Camera
     {"fov", "Field of view", SettingKind::Float, 45, 110, 1, "Camera", "",
-     "How wide a view the camera takes. 70 is what the original client shows.", ""},
+     "How wide a view the camera takes. 70 is what the original client shows.", "", 70},
     {"extendedzoom", "Extended zoom out", SettingKind::Bool, 0, 0, 0, "Camera", "",
-     "Allow the camera further back than the original client permits.", ""},
+     "Allow the camera further back than the original client permits.", "", 0},
     {"camerastiffness", "Camera stiffness", SettingKind::Float, 5, 100, 1, "Camera", "",
      "How closely the camera keeps up with you. Higher is tighter and less\n"
-     "floaty.", ""},
+     "floaty.", "", 30},
     {"pivotheight", "Pivot height", SettingKind::Float, 0, 3, 0.1f, "Camera", "",
      "How far above your feet the camera turns around. Lower feels more\n"
-     "attached to the character.", ""},
+     "attached to the character.", "", 1.6f},
     {"smoothfollow", "Smooth follow", SettingKind::Bool, 0, 0, 0, "Camera", "",
-     "Keep easing the camera while you turn, rather than snapping behind you.", ""},
+     "Keep easing the camera while you turn, rather than snapping behind you.", "", 0},
     {"idleorbit", "Idle orbit", SettingKind::Bool, 0, 0, 0, "Camera", "",
-     "Drift the camera slowly around you while you stand still.", ""},
+     "Drift the camera slowly around you while you stand still.", "", 1},
     {"invertmouse", "Invert mouse look", SettingKind::Bool, 0, 0, 0, "Camera", "Mouse",
-     "Push the mouse forward to look up.", ""},
+     "Push the mouse forward to look up.", "", 0},
 
     // --------------------------------------------------------------- Interface
     {"uiopacity", "Window opacity", SettingKind::Int, 20, 100, 5, "Interface", "",
-     "How solid this client's own windows are drawn.", ""},
+     "How solid this client's own windows are drawn.", "", 65},
     {"windowuiscale", "Window scale", SettingKind::Float, 0.75f, 1.5f, 0.05f, "Interface", "",
      "Fonts, controls and spacing in this client's own windows. Not the\n"
-     "interface's scale, which is in the game's own Video panel.", ""},
+     "interface's scale, which is in the game's own Video panel.", "", 1},
     {"latencymeter", "Latency meter", SettingKind::Bool, 0, 0, 0, "Interface", "",
-     "The round trip to the server, beside the minimap.", ""},
+     "The round trip to the server, beside the minimap.", "", 1},
     {"micromenu", "Micro menu buttons", SettingKind::Bool, 0, 0, 0, "Interface", "",
-     "The row of shortcuts to the character sheet, spellbook and the rest.", ""},
+     "The row of shortcuts to the character sheet, spellbook and the rest.", "", 0},
 
     {"bagscale", "Bag scale", SettingKind::Float, 0.75f, 1.5f, 0.05f, "Interface", "Bags",
-     "Size of the bag windows.", ""},
+     "Size of the bag windows.", "", 1},
     {"separatebags", "Separate bag windows", SettingKind::Bool, 0, 0, 0, "Interface", "",
-     "One window per bag, rather than everything in one.", ""},
+     "One window per bag, rather than everything in one.", "", 1},
     {"showkeyring", "Show keyring", SettingKind::Bool, 0, 0, 0, "Interface", "",
-     "The key ring beside the bags.", ""},
+     "The key ring beside the bags.", "", 1},
 
     // ----------------------------------------------------------------- Minimap
     // Rotate-with-camera is deliberately absent. The settings window still
@@ -118,79 +118,79 @@ constexpr SettingDesc kSchema[] = {
     // has existed. A tickbox that unticks itself is worse here than no tickbox
     // at all, so this list does not offer one.
     {"minimapsquare", "Square minimap", SettingKind::Bool, 0, 0, 0, "Minimap", "",
-     "Draw the map as a square rather than a circle.", ""},
+     "Draw the map as a square rather than a circle.", "", 0},
     {"minimapnpcdots", "Nearby NPC dots", SettingKind::Bool, 0, 0, 0, "Minimap", "",
-     "Mark creatures near you on the map.", ""},
+     "Mark creatures near you on the map.", "", 0},
     {"minimapcoords", "Coordinates", SettingKind::Bool, 0, 0, 0, "Minimap", "",
-     "Show your position below the map.", ""},
+     "Show your position below the map.", "", 0},
 
     // ------------------------------------------------------------- Action Bars
     {"actionbarscale", "Action bar scale", SettingKind::Float, 0.5f, 1.5f, 0.05f,
-     "Action Bars", "", "Size of every action bar slot.", ""},
+     "Action Bars", "", "Size of every action bar slot.", "", 1},
     {"buffbarscale", "Buff bar scale", SettingKind::Float, 0.75f, 1.5f, 0.05f,
      "Action Bars", "", "Size of the buff and debuff icons, on top of the automatic scaling\n"
-     "this client does for the display it is on.", ""},
+     "this client does for the display it is on.", "", 1},
 
     {"showbar2", "Bottom left bar", SettingKind::Bool, 0, 0, 0, "Action Bars", "Extra bars",
-     "The second bar, above the main one. Client action page 6.", ""},
+     "The second bar, above the main one. Client action page 6.", "", 0},
     {"bar2offsetx", "Bottom left — across", SettingKind::Float, -600, 600, 10,
-     "Action Bars", "", "Move that bar sideways from its default place.", ""},
+     "Action Bars", "", "Move that bar sideways from its default place.", "", 0},
     {"bar2offsety", "Bottom left — up", SettingKind::Float, -400, 400, 10,
-     "Action Bars", "", "Move that bar up or down from its default place.", ""},
+     "Action Bars", "", "Move that bar up or down from its default place.", "", 0},
     {"showrightbar", "Right side bar", SettingKind::Bool, 0, 0, 0, "Action Bars", "",
-     "The upright bar at the right edge. Client action page 3.", ""},
+     "The upright bar at the right edge. Client action page 3.", "", 0},
     {"rightbaroffsety", "Right side — up", SettingKind::Float, -400, 400, 10,
-     "Action Bars", "", "Move it up or down from the middle of the screen.", ""},
+     "Action Bars", "", "Move it up or down from the middle of the screen.", "", 0},
     {"showleftbar", "Left side bar", SettingKind::Bool, 0, 0, 0, "Action Bars", "",
-     "The upright bar at the left edge. Client action page 4.", ""},
+     "The upright bar at the left edge. Client action page 4.", "", 0},
     {"leftbaroffsety", "Left side — up", SettingKind::Float, -400, 400, 10,
-     "Action Bars", "", "Move it up or down from the middle of the screen.", ""},
+     "Action Bars", "", "Move it up or down from the middle of the screen.", "", 0},
 
     // ------------------------------------------------------------ Combat & HUD
     {"nameplatescale", "Nameplate scale", SettingKind::Float, 0.5f, 2.0f, 0.05f,
-     "Combat & HUD", "Nameplates", "Size of the bars over creatures' heads.", ""},
+     "Combat & HUD", "Nameplates", "Size of the bars over creatures' heads.", "", 1},
 
     {"dpsmeter", "Damage meter", SettingKind::Bool, 0, 0, 0, "Combat & HUD", "Trackers",
      "Your damage and healing per second, above the action bar, while you\n"
-     "are in combat.", ""},
+     "are in combat.", "", 0},
     {"cooldowntracker", "Cooldown tracker", SettingKind::Bool, 0, 0, 0, "Combat & HUD", "",
-     "Your longer cooldowns as they run, beside the action bar.", ""},
+     "Your longer cooldowns as they run, beside the action bar.", "", 0},
     {"raretracker", "Rare tracker", SettingKind::Bool, 0, 0, 0, "Combat & HUD", "",
-     "Mark rare creatures near you on both maps.", ""},
+     "Mark rare creatures near you on both maps.", "", 0},
     {"chesttracker", "Chest tracker", SettingKind::Bool, 0, 0, 0, "Combat & HUD", "",
-     "Mark chests near you on both maps.", ""},
+     "Mark chests near you on both maps.", "", 0},
 
     {"damageflash", "Damage flash", SettingKind::Bool, 0, 0, 0, "Combat & HUD", "Screen effects",
-     "A red vignette at the edges of the screen when you are hit.", ""},
+     "A red vignette at the edges of the screen when you are hit.", "", 1},
     {"lowhealthvignette", "Low health vignette", SettingKind::Bool, 0, 0, 0,
      "Combat & HUD", "", "A red edge that pulses while you are below a fifth of\n"
-     "your health.", ""},
+     "your health.", "", 1},
 
     // ------------------------------------------------------------------- Sound
     {"musicvolume", "Music", SettingKind::Int, 0, 100, 5, "Sound", "",
-     "", ""},
+     "", "", 30},
     {"ambientvolume", "Ambience", SettingKind::Int, 0, 100, 5, "Sound", "",
-     "Wind, water, birds and the rest of the world's own noise.", ""},
+     "Wind, water, birds and the rest of the world's own noise.", "", 100},
     {"bellvolume", "City bells", SettingKind::Int, 0, 100, 5, "Sound", "",
-     "The hour struck in the capital cities.", ""},
+     "The hour struck in the capital cities.", "", 50},
 
     {"uivolume", "Interface", SettingKind::Int, 0, 100, 5, "Sound", "Effects",
      "Clicks, bag sounds and window noises. Each of these is a balance\n"
      "against the others; the Sound Effects slider in the game's own Sound\n"
-     "panel scales all of them together.", ""},
-    {"combatvolume", "Combat", SettingKind::Int, 0, 100, 5, "Sound", "", "", ""},
-    {"spellvolume", "Spells", SettingKind::Int, 0, 100, 5, "Sound", "", "", ""},
-    {"movementvolume", "Movement", SettingKind::Int, 0, 100, 5, "Sound", "", "", ""},
-    {"footstepvolume", "Footsteps", SettingKind::Int, 0, 100, 5, "Sound", "", "", ""},
-    {"mountvolume", "Mounts", SettingKind::Int, 0, 100, 5, "Sound", "", "", ""},
+     "panel scales all of them together.", "", 100},
+    {"combatvolume", "Combat", SettingKind::Int, 0, 100, 5, "Sound", "", "", "", 100},
+    {"spellvolume", "Spells", SettingKind::Int, 0, 100, 5, "Sound", "", "", "", 100},
+    {"movementvolume", "Movement", SettingKind::Int, 0, 100, 5, "Sound", "", "", "", 100},
+    {"footstepvolume", "Footsteps", SettingKind::Int, 0, 100, 5, "Sound", "", "", "", 100},
+    {"mountvolume", "Mounts", SettingKind::Int, 0, 100, 5, "Sound", "", "", "", 70},
     {"activityvolume", "Activity", SettingKind::Int, 0, 100, 5, "Sound", "",
-     "Fishing, mining, forges and the rest.", ""},
+     "Fishing, mining, forges and the rest.", "", 100},
 
-    {"npcvoicevolume", "NPC voices", SettingKind::Int, 0, 100, 5, "Sound", "Voices", "", ""},
+    {"npcvoicevolume", "NPC voices", SettingKind::Int, 0, 100, 5, "Sound", "Voices", "", "", 100},
     {"characterspeech", "Character speech", SettingKind::Bool, 0, 0, 0, "Sound", "",
-     "Your own character's grunts and greetings.", ""},
+     "Your own character's grunts and greetings.", "", 1},
     {"woweemusic", "WoWee soundtrack", SettingKind::Bool, 0, 0, 0, "Sound", "",
-     "Include this client's own music alongside the game's.", ""},
+     "Include this client's own music alongside the game's.", "", 1},
 
     // -------------------------------------------------------------------- Chat
     //
@@ -204,21 +204,21 @@ constexpr SettingDesc kSchema[] = {
     // settings window drive a chat panel that is not shown at all while
     // FrameXML owns chat, which is every run by default.
     {"joingeneral", "General", SettingKind::Bool, 0, 0, 0, "Chat", "Channels to join",
-     "The zone-wide channel.", ""},
+     "The zone-wide channel.", "", 1},
     {"jointrade", "Trade", SettingKind::Bool, 0, 0, 0, "Chat", "",
-     "City-wide, and only in a city.", ""},
+     "City-wide, and only in a city.", "", 1},
     {"joinlocaldefense", "LocalDefense", SettingKind::Bool, 0, 0, 0, "Chat", "",
-     "Attacks on your zone.", ""},
-    {"joinlfg", "LookingForGroup", SettingKind::Bool, 0, 0, 0, "Chat", "", "", ""},
-    {"joinlocal", "Local", SettingKind::Bool, 0, 0, 0, "Chat", "", "", ""},
+     "Attacks on your zone.", "", 1},
+    {"joinlfg", "LookingForGroup", SettingKind::Bool, 0, 0, 0, "Chat", "", "", "", 1},
+    {"joinlocal", "Local", SettingKind::Bool, 0, 0, 0, "Chat", "", "", "", 1},
 
     // ---------------------------------------------------------------- Gameplay
     {"autoloot", "Auto loot", SettingKind::Bool, 0, 0, 0, "Gameplay", "Looting",
-     "Take everything from a corpse without opening the window.", ""},
+     "Take everything from a corpse without opening the window.", "", 0},
     {"autosellgrey", "Sell grey items", SettingKind::Bool, 0, 0, 0, "Gameplay", "",
-     "Sell your grey items whenever you open a merchant.", ""},
+     "Sell your grey items whenever you open a merchant.", "", 0},
     {"autorepair", "Repair at vendors", SettingKind::Bool, 0, 0, 0, "Gameplay", "",
-     "Repair whenever you open a merchant who can.", ""},
+     "Repair whenever you open a merchant who can.", "", 0},
 };
 
 }  // namespace
