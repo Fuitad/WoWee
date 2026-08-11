@@ -262,6 +262,221 @@ uint32_t M2Renderer::gatherLocalLights(const glm::vec3& cameraPos,
     return count;
 }
 
+/// The nine main-pass pipelines, built once at startup and again after a
+/// device loss.
+///
+/// Both paths used to build them: initialize() here and recreatePipelines() in
+/// m2_renderer_instance.cpp, which was a copy of these 190 lines that had
+/// drifted only in its comments. Eighty-seven overlapping twelve-line blocks —
+/// the largest duplicate in the tree. A change to any blend state, depth mode
+/// or vertex layout landed in whichever copy was in front of whoever made it,
+/// and the one that did not get it only showed after a device loss.
+///
+/// The one thing that genuinely differed is the ribbon pipeline layout, which
+/// is created here and is now created only when there is not one already: the
+/// rebuild destroys pipelines and keeps layouts.
+bool M2Renderer::buildMainPassPipelines(VkDescriptorSetLayout perFrameLayout) {
+    VkDevice device = vkCtx_->getDevice();
+
+    // --- Load shaders ---
+    rendering::VkShaderModule m2Vert, m2Frag;
+    rendering::VkShaderModule particleVert, particleFrag;
+    rendering::VkShaderModule smokeVert, smokeFrag;
+
+    (void)m2Vert.loadFromFile(device, "assets/shaders/m2.vert.spv");
+    (void)m2Frag.loadFromFile(device, "assets/shaders/m2.frag.spv");
+    (void)particleVert.loadFromFile(device, "assets/shaders/m2_particle.vert.spv");
+    (void)particleFrag.loadFromFile(device, "assets/shaders/m2_particle.frag.spv");
+    (void)smokeVert.loadFromFile(device, "assets/shaders/m2_smoke.vert.spv");
+    (void)smokeFrag.loadFromFile(device, "assets/shaders/m2_smoke.frag.spv");
+
+    if (!m2Vert.isValid() || !m2Frag.isValid()) {
+        LOG_ERROR("M2: Missing required shaders, cannot build pipelines");
+        return false;
+    }
+
+    VkRenderPass mainPass = vkCtx_->getImGuiRenderPass();
+
+    // --- Build M2 model pipelines ---
+    // Vertex input: 18 floats = 72 bytes stride
+    // loc 0: vec3 pos (0), loc 1: vec3 normal (12), loc 2: vec2 uv0 (24),
+    // loc 5: vec2 uv1 (32), loc 3: vec4 boneWeights (40), loc 4: vec4 boneIndices (56)
+    VkVertexInputBindingDescription m2Binding{};
+    m2Binding.binding = 0;
+    m2Binding.stride = 18 * sizeof(float);
+    m2Binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+    std::vector<VkVertexInputAttributeDescription> m2Attrs = {
+        {0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0},                     // position
+        {1, 0, VK_FORMAT_R32G32B32_SFLOAT, 3 * sizeof(float)},     // normal
+        {2, 0, VK_FORMAT_R32G32_SFLOAT, 6 * sizeof(float)},        // texCoord0
+        {5, 0, VK_FORMAT_R32G32_SFLOAT, 8 * sizeof(float)},        // texCoord1
+        {3, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 10 * sizeof(float)}, // boneWeights
+        {4, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 14 * sizeof(float)}, // boneIndices (float)
+    };
+
+    // Pipeline derivatives — opaque is the base, others derive from it for shared state optimization
+    auto buildM2Pipeline = [&](VkPipelineColorBlendAttachmentState blendState, bool depthWrite,
+                               VkPipelineCreateFlags flags = 0, VkPipeline basePipeline = VK_NULL_HANDLE,
+                               bool alphaToCoverage = false) -> VkPipeline {
+        auto builder = PipelineBuilder()
+            .setShaders(m2Vert.stageInfo(VK_SHADER_STAGE_VERTEX_BIT),
+                        m2Frag.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT))
+            .setVertexInput({m2Binding}, m2Attrs)
+            .setTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
+            .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
+            .setDepthTest(!skyMode_, skyMode_ ? false : depthWrite,
+                          skyMode_ ? VK_COMPARE_OP_ALWAYS : VK_COMPARE_OP_LESS_OR_EQUAL)
+            .setColorBlendAttachment(blendState)
+            .setMultisample(vkCtx_->getMsaaSamples());
+        // MSAA alpha-to-coverage dithers the shader's sharpened cutout alpha
+        // across samples for smooth foliage/leaf silhouettes.
+        if (alphaToCoverage) builder.setAlphaToCoverage(true);
+        return builder
+            .setLayout(pipelineLayout_)
+            .setRenderPass(mainPass)
+            .setDynamicStates(viewportAndScissorDynamic())
+            .setFlags(flags)
+            .setBasePipeline(basePipeline)
+            .build(device, vkCtx_->getPipelineCache());
+    };
+
+    opaquePipeline_ = buildM2Pipeline(PipelineBuilder::blendDisabled(), true,
+                                      VK_PIPELINE_CREATE_ALLOW_DERIVATIVES_BIT);
+    alphaTestPipeline_ = buildM2Pipeline(PipelineBuilder::blendAlpha(), true,
+                                         VK_PIPELINE_CREATE_DERIVATIVE_BIT, opaquePipeline_,
+                                         /*alphaToCoverage=*/true);
+    alphaPipeline_ = buildM2Pipeline(PipelineBuilder::blendAlpha(), false,
+                                     VK_PIPELINE_CREATE_DERIVATIVE_BIT, opaquePipeline_);
+    additivePipeline_ = buildM2Pipeline(PipelineBuilder::blendAdditive(), false,
+                                        VK_PIPELINE_CREATE_DERIVATIVE_BIT, opaquePipeline_);
+
+    // --- Build particle pipelines ---
+    if (particleVert.isValid() && particleFrag.isValid()) {
+        VkVertexInputBindingDescription pBind{};
+        pBind.binding = 0;
+        pBind.stride = 9 * sizeof(float); // pos3 + color4 + size1 + tile1
+        pBind.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+        std::vector<VkVertexInputAttributeDescription> pAttrs = {
+            {0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0},                    // position
+            {1, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 3 * sizeof(float)}, // color
+            {2, 0, VK_FORMAT_R32_SFLOAT, 7 * sizeof(float)},          // size
+            {3, 0, VK_FORMAT_R32_SFLOAT, 8 * sizeof(float)},          // tile
+        };
+
+        auto buildParticlePipeline = [&](VkPipelineColorBlendAttachmentState blend) -> VkPipeline {
+            return PipelineBuilder()
+                .setShaders(particleVert.stageInfo(VK_SHADER_STAGE_VERTEX_BIT),
+                            particleFrag.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT))
+                .setVertexInput({pBind}, pAttrs)
+                .setTopology(VK_PRIMITIVE_TOPOLOGY_POINT_LIST)
+                .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
+                .setDepthTest(true, false, VK_COMPARE_OP_LESS_OR_EQUAL)
+                .setColorBlendAttachment(blend)
+                .setMultisample(vkCtx_->getMsaaSamples())
+                .setLayout(particlePipelineLayout_)
+                .setRenderPass(mainPass)
+                .setDynamicStates(viewportAndScissorDynamic())
+                .build(device, vkCtx_->getPipelineCache());
+        };
+
+        particlePipeline_ = buildParticlePipeline(PipelineBuilder::blendAlpha());
+        particleAdditivePipeline_ = buildParticlePipeline(PipelineBuilder::blendAdditive());
+    }
+
+    // --- Build smoke pipeline ---
+    if (smokeVert.isValid() && smokeFrag.isValid()) {
+        VkVertexInputBindingDescription sBind{};
+        sBind.binding = 0;
+        sBind.stride = 6 * sizeof(float); // pos3 + lifeRatio1 + size1 + isSpark1
+        sBind.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+        std::vector<VkVertexInputAttributeDescription> sAttrs = {
+            {0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0},           // position
+            {1, 0, VK_FORMAT_R32_SFLOAT, 3 * sizeof(float)}, // lifeRatio
+            {2, 0, VK_FORMAT_R32_SFLOAT, 4 * sizeof(float)}, // size
+            {3, 0, VK_FORMAT_R32_SFLOAT, 5 * sizeof(float)}, // isSpark
+        };
+
+        smokePipeline_ = PipelineBuilder()
+            .setShaders(smokeVert.stageInfo(VK_SHADER_STAGE_VERTEX_BIT),
+                        smokeFrag.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT))
+            .setVertexInput({sBind}, sAttrs)
+            .setTopology(VK_PRIMITIVE_TOPOLOGY_POINT_LIST)
+            .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
+            .setDepthTest(true, false, VK_COMPARE_OP_LESS_OR_EQUAL)
+            .setColorBlendAttachment(PipelineBuilder::blendAlpha())
+            .setMultisample(vkCtx_->getMsaaSamples())
+            .setLayout(smokePipelineLayout_)
+            .setRenderPass(mainPass)
+            .setDynamicStates(viewportAndScissorDynamic())
+            .build(device, vkCtx_->getPipelineCache());
+    }
+
+    // --- Build ribbon pipelines ---
+    // Vertex format: pos(3) + color(3) + alpha(1) + uv(2) = 9 floats = 36 bytes
+    {
+        rendering::VkShaderModule ribVert, ribFrag;
+        (void)ribVert.loadFromFile(device, "assets/shaders/m2_ribbon.vert.spv");
+        (void)ribFrag.loadFromFile(device, "assets/shaders/m2_ribbon.frag.spv");
+        if (ribVert.isValid() && ribFrag.isValid()) {
+            // Reuse particleTexLayout_ for set 1 (single texture sampler).
+            // Only once: a pipeline layout outlives the pipelines built from
+            // it, and a device-loss rebuild destroys the pipelines alone. The
+            // rebuild path used to be a copy of this function that simply did
+            // not have these six lines, which is the whole reason the two
+            // could drift.
+            if (ribbonPipelineLayout_ == VK_NULL_HANDLE) {
+                VkDescriptorSetLayout ribLayouts[] = {perFrameLayout, particleTexLayout_};
+                VkPipelineLayoutCreateInfo lci{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
+                lci.setLayoutCount = 2;
+                lci.pSetLayouts = ribLayouts;
+                vkCreatePipelineLayout(device, &lci, nullptr, &ribbonPipelineLayout_);
+            }
+
+            VkVertexInputBindingDescription rBind{};
+            rBind.binding = 0;
+            rBind.stride = 9 * sizeof(float);
+            rBind.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+            std::vector<VkVertexInputAttributeDescription> rAttrs = {
+                {0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0},                    // pos
+                {1, 0, VK_FORMAT_R32G32B32_SFLOAT, 3 * sizeof(float)},    // color
+                {2, 0, VK_FORMAT_R32_SFLOAT,       6 * sizeof(float)},    // alpha
+                {3, 0, VK_FORMAT_R32G32_SFLOAT,    7 * sizeof(float)},    // uv
+            };
+
+            auto buildRibbonPipeline = [&](VkPipelineColorBlendAttachmentState blend) -> VkPipeline {
+                return PipelineBuilder()
+                    .setShaders(ribVert.stageInfo(VK_SHADER_STAGE_VERTEX_BIT),
+                                ribFrag.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT))
+                    .setVertexInput({rBind}, rAttrs)
+                    .setTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP)
+                    .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
+                    .setDepthTest(true, false, VK_COMPARE_OP_LESS_OR_EQUAL)
+                    .setColorBlendAttachment(blend)
+                    .setMultisample(vkCtx_->getMsaaSamples())
+                    .setLayout(ribbonPipelineLayout_)
+                    .setRenderPass(mainPass)
+                    .setDynamicStates(viewportAndScissorDynamic())
+                    .build(device, vkCtx_->getPipelineCache());
+            };
+
+            ribbonPipeline_         = buildRibbonPipeline(PipelineBuilder::blendAlpha());
+            ribbonAdditivePipeline_ = buildRibbonPipeline(PipelineBuilder::blendAdditive());
+        }
+        ribVert.destroy(); ribFrag.destroy();
+    }
+
+    // Clean up shader modules
+    m2Vert.destroy(); m2Frag.destroy();
+    particleVert.destroy(); particleFrag.destroy();
+    smokeVert.destroy(); smokeFrag.destroy();
+
+    return true;
+}
+
 bool M2Renderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout,
                             pipeline::AssetManager* assets) {
     if (initialized_) { assetManager = assets; return true; }
@@ -749,194 +964,8 @@ bool M2Renderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout
         vkCreatePipelineLayout(device, &ci, nullptr, &smokePipelineLayout_);
     }
 
-    // --- Load shaders ---
-    rendering::VkShaderModule m2Vert, m2Frag;
-    rendering::VkShaderModule particleVert, particleFrag;
-    rendering::VkShaderModule smokeVert, smokeFrag;
-
-    (void)m2Vert.loadFromFile(device, "assets/shaders/m2.vert.spv");
-    (void)m2Frag.loadFromFile(device, "assets/shaders/m2.frag.spv");
-    (void)particleVert.loadFromFile(device, "assets/shaders/m2_particle.vert.spv");
-    (void)particleFrag.loadFromFile(device, "assets/shaders/m2_particle.frag.spv");
-    (void)smokeVert.loadFromFile(device, "assets/shaders/m2_smoke.vert.spv");
-    (void)smokeFrag.loadFromFile(device, "assets/shaders/m2_smoke.frag.spv");
-
-    if (!m2Vert.isValid() || !m2Frag.isValid()) {
-        LOG_ERROR("M2: Missing required shaders, cannot initialize");
-        return false;
-    }
-
-    VkRenderPass mainPass = vkCtx_->getImGuiRenderPass();
-
-    // --- Build M2 model pipelines ---
-    // Vertex input: 18 floats = 72 bytes stride
-    // loc 0: vec3 pos (0), loc 1: vec3 normal (12), loc 2: vec2 uv0 (24),
-    // loc 5: vec2 uv1 (32), loc 3: vec4 boneWeights (40), loc 4: vec4 boneIndices (56)
-    VkVertexInputBindingDescription m2Binding{};
-    m2Binding.binding = 0;
-    m2Binding.stride = 18 * sizeof(float);
-    m2Binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-    std::vector<VkVertexInputAttributeDescription> m2Attrs = {
-        {0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0},                     // position
-        {1, 0, VK_FORMAT_R32G32B32_SFLOAT, 3 * sizeof(float)},     // normal
-        {2, 0, VK_FORMAT_R32G32_SFLOAT, 6 * sizeof(float)},        // texCoord0
-        {5, 0, VK_FORMAT_R32G32_SFLOAT, 8 * sizeof(float)},        // texCoord1
-        {3, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 10 * sizeof(float)}, // boneWeights
-        {4, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 14 * sizeof(float)}, // boneIndices (float)
-    };
-
-    // Pipeline derivatives — opaque is the base, others derive from it for shared state optimization
-    auto buildM2Pipeline = [&](VkPipelineColorBlendAttachmentState blendState, bool depthWrite,
-                               VkPipelineCreateFlags flags = 0, VkPipeline basePipeline = VK_NULL_HANDLE,
-                               bool alphaToCoverage = false) -> VkPipeline {
-        auto builder = PipelineBuilder()
-            .setShaders(m2Vert.stageInfo(VK_SHADER_STAGE_VERTEX_BIT),
-                        m2Frag.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT))
-            .setVertexInput({m2Binding}, m2Attrs)
-            .setTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
-            .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
-            .setDepthTest(!skyMode_, skyMode_ ? false : depthWrite,
-                          skyMode_ ? VK_COMPARE_OP_ALWAYS : VK_COMPARE_OP_LESS_OR_EQUAL)
-            .setColorBlendAttachment(blendState)
-            .setMultisample(vkCtx_->getMsaaSamples());
-        // MSAA alpha-to-coverage dithers the shader's sharpened cutout alpha
-        // across samples for smooth foliage/leaf silhouettes.
-        if (alphaToCoverage) builder.setAlphaToCoverage(true);
-        return builder
-            .setLayout(pipelineLayout_)
-            .setRenderPass(mainPass)
-            .setDynamicStates(viewportAndScissorDynamic())
-            .setFlags(flags)
-            .setBasePipeline(basePipeline)
-            .build(device, vkCtx_->getPipelineCache());
-    };
-
-    opaquePipeline_ = buildM2Pipeline(PipelineBuilder::blendDisabled(), true,
-                                      VK_PIPELINE_CREATE_ALLOW_DERIVATIVES_BIT);
-    alphaTestPipeline_ = buildM2Pipeline(PipelineBuilder::blendAlpha(), true,
-                                         VK_PIPELINE_CREATE_DERIVATIVE_BIT, opaquePipeline_,
-                                         /*alphaToCoverage=*/true);
-    alphaPipeline_ = buildM2Pipeline(PipelineBuilder::blendAlpha(), false,
-                                     VK_PIPELINE_CREATE_DERIVATIVE_BIT, opaquePipeline_);
-    additivePipeline_ = buildM2Pipeline(PipelineBuilder::blendAdditive(), false,
-                                        VK_PIPELINE_CREATE_DERIVATIVE_BIT, opaquePipeline_);
-
-    // --- Build particle pipelines ---
-    if (particleVert.isValid() && particleFrag.isValid()) {
-        VkVertexInputBindingDescription pBind{};
-        pBind.binding = 0;
-        pBind.stride = 9 * sizeof(float); // pos3 + color4 + size1 + tile1
-        pBind.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-        std::vector<VkVertexInputAttributeDescription> pAttrs = {
-            {0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0},                    // position
-            {1, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 3 * sizeof(float)}, // color
-            {2, 0, VK_FORMAT_R32_SFLOAT, 7 * sizeof(float)},          // size
-            {3, 0, VK_FORMAT_R32_SFLOAT, 8 * sizeof(float)},          // tile
-        };
-
-        auto buildParticlePipeline = [&](VkPipelineColorBlendAttachmentState blend) -> VkPipeline {
-            return PipelineBuilder()
-                .setShaders(particleVert.stageInfo(VK_SHADER_STAGE_VERTEX_BIT),
-                            particleFrag.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT))
-                .setVertexInput({pBind}, pAttrs)
-                .setTopology(VK_PRIMITIVE_TOPOLOGY_POINT_LIST)
-                .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
-                .setDepthTest(true, false, VK_COMPARE_OP_LESS_OR_EQUAL)
-                .setColorBlendAttachment(blend)
-                .setMultisample(vkCtx_->getMsaaSamples())
-                .setLayout(particlePipelineLayout_)
-                .setRenderPass(mainPass)
-                .setDynamicStates(viewportAndScissorDynamic())
-                .build(device, vkCtx_->getPipelineCache());
-        };
-
-        particlePipeline_ = buildParticlePipeline(PipelineBuilder::blendAlpha());
-        particleAdditivePipeline_ = buildParticlePipeline(PipelineBuilder::blendAdditive());
-    }
-
-    // --- Build smoke pipeline ---
-    if (smokeVert.isValid() && smokeFrag.isValid()) {
-        VkVertexInputBindingDescription sBind{};
-        sBind.binding = 0;
-        sBind.stride = 6 * sizeof(float); // pos3 + lifeRatio1 + size1 + isSpark1
-        sBind.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-        std::vector<VkVertexInputAttributeDescription> sAttrs = {
-            {0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0},           // position
-            {1, 0, VK_FORMAT_R32_SFLOAT, 3 * sizeof(float)}, // lifeRatio
-            {2, 0, VK_FORMAT_R32_SFLOAT, 4 * sizeof(float)}, // size
-            {3, 0, VK_FORMAT_R32_SFLOAT, 5 * sizeof(float)}, // isSpark
-        };
-
-        smokePipeline_ = PipelineBuilder()
-            .setShaders(smokeVert.stageInfo(VK_SHADER_STAGE_VERTEX_BIT),
-                        smokeFrag.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT))
-            .setVertexInput({sBind}, sAttrs)
-            .setTopology(VK_PRIMITIVE_TOPOLOGY_POINT_LIST)
-            .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
-            .setDepthTest(true, false, VK_COMPARE_OP_LESS_OR_EQUAL)
-            .setColorBlendAttachment(PipelineBuilder::blendAlpha())
-            .setMultisample(vkCtx_->getMsaaSamples())
-            .setLayout(smokePipelineLayout_)
-            .setRenderPass(mainPass)
-            .setDynamicStates(viewportAndScissorDynamic())
-            .build(device, vkCtx_->getPipelineCache());
-    }
-
-    // --- Build ribbon pipelines ---
-    // Vertex format: pos(3) + color(3) + alpha(1) + uv(2) = 9 floats = 36 bytes
-    {
-        rendering::VkShaderModule ribVert, ribFrag;
-        (void)ribVert.loadFromFile(device, "assets/shaders/m2_ribbon.vert.spv");
-        (void)ribFrag.loadFromFile(device, "assets/shaders/m2_ribbon.frag.spv");
-        if (ribVert.isValid() && ribFrag.isValid()) {
-            // Reuse particleTexLayout_ for set 1 (single texture sampler)
-            VkDescriptorSetLayout ribLayouts[] = {perFrameLayout, particleTexLayout_};
-            VkPipelineLayoutCreateInfo lci{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
-            lci.setLayoutCount = 2;
-            lci.pSetLayouts = ribLayouts;
-            vkCreatePipelineLayout(device, &lci, nullptr, &ribbonPipelineLayout_);
-
-            VkVertexInputBindingDescription rBind{};
-            rBind.binding = 0;
-            rBind.stride = 9 * sizeof(float);
-            rBind.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-            std::vector<VkVertexInputAttributeDescription> rAttrs = {
-                {0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0},                    // pos
-                {1, 0, VK_FORMAT_R32G32B32_SFLOAT, 3 * sizeof(float)},    // color
-                {2, 0, VK_FORMAT_R32_SFLOAT,       6 * sizeof(float)},    // alpha
-                {3, 0, VK_FORMAT_R32G32_SFLOAT,    7 * sizeof(float)},    // uv
-            };
-
-            auto buildRibbonPipeline = [&](VkPipelineColorBlendAttachmentState blend) -> VkPipeline {
-                return PipelineBuilder()
-                    .setShaders(ribVert.stageInfo(VK_SHADER_STAGE_VERTEX_BIT),
-                                ribFrag.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT))
-                    .setVertexInput({rBind}, rAttrs)
-                    .setTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP)
-                    .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
-                    .setDepthTest(true, false, VK_COMPARE_OP_LESS_OR_EQUAL)
-                    .setColorBlendAttachment(blend)
-                    .setMultisample(vkCtx_->getMsaaSamples())
-                    .setLayout(ribbonPipelineLayout_)
-                    .setRenderPass(mainPass)
-                    .setDynamicStates(viewportAndScissorDynamic())
-                    .build(device, vkCtx_->getPipelineCache());
-            };
-
-            ribbonPipeline_         = buildRibbonPipeline(PipelineBuilder::blendAlpha());
-            ribbonAdditivePipeline_ = buildRibbonPipeline(PipelineBuilder::blendAdditive());
-        }
-        ribVert.destroy(); ribFrag.destroy();
-    }
-
-    // Clean up shader modules
-    m2Vert.destroy(); m2Frag.destroy();
-    particleVert.destroy(); particleFrag.destroy();
-    smokeVert.destroy(); smokeFrag.destroy();
+    perFrameLayout_ = perFrameLayout;
+    if (!buildMainPassPipelines(perFrameLayout)) return false;
 
     // --- Create dynamic particle buffers (mapped for CPU writes) ---
     {

@@ -479,6 +479,11 @@ public:
 
     void recreatePipelines();
 
+    /// Build the nine main-pass pipelines. Called by initialize() and again by
+    /// recreatePipelines() after a device loss, which is the reason it exists:
+    /// the two used to be separate copies of the same 190 lines.
+    bool buildMainPassPipelines(VkDescriptorSetLayout perFrameLayout);
+
     // Stats
     bool isInitialized() const { return initialized_; }
     uint32_t getModelCount() const { return static_cast<uint32_t>(models.size()); }
@@ -542,6 +547,9 @@ private:
     VkPipeline ribbonPipeline_ = VK_NULL_HANDLE;          // Alpha-blend ribbons
     VkPipeline ribbonAdditivePipeline_ = VK_NULL_HANDLE;  // Additive ribbons
     VkPipelineLayout ribbonPipelineLayout_ = VK_NULL_HANDLE;
+    /// The per-frame set layout initialize() was given. recreatePipelines()
+    /// runs long after that call and needs the same one.
+    VkDescriptorSetLayout perFrameLayout_ = VK_NULL_HANDLE;
 
     // Descriptor set layouts
     VkDescriptorSetLayout materialSetLayout_ = VK_NULL_HANDLE;  // set 1
