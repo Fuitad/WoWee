@@ -3368,7 +3368,6 @@ void registerSocialLuaAPI(lua_State* L) {
             if (gh && id != 0) gh->togglePetSpellAutocast(id);
             return 0;
         }},
-                {"PetAggressiveMode",    [](lua_State* L) -> int { (void)L; return 0; }},
                 // The four chat-window list editors moved to
                 // lua_system_api.cpp, beside the chat window store they write
                 // to. Two registrations of one name would be settled by load
@@ -3412,7 +3411,28 @@ void registerSocialLuaAPI(lua_State* L) {
         }},
                 {"ChannelToggleAnnouncements", [](lua_State* L) -> int { (void)L; return 0; }},
                 {"DisplayChannelOwner",      [](lua_State* L) -> int { (void)L; return 0; }},
-                {"ListChannels",             [](lua_State* L) -> int { (void)L; return 0; }},
+                {"ListChannels", [](lua_State* L) -> int {
+                    // /chatlist. The client knows exactly this — which channels
+                    // it is in and what number each one has — and answered
+                    // nothing, so the command printed nothing and read as a
+                    // command that does not exist.
+                    //
+                    // Members are a separate question this client cannot answer,
+                    // which is why ListChannelByName is still inert: it lists who
+                    // is in one, and the server is never asked.
+                    auto* gh = getGameHandler(L);
+                    if (!gh) return 0;
+                    const auto& joined = gh->getJoinedChannels();
+                    if (joined.empty()) {
+                        gh->addSystemChatMessage("You are not in any channels.");
+                        return 0;
+                    }
+                    for (size_t i = 0; i < joined.size(); ++i) {
+                        gh->addSystemChatMessage(
+                            std::to_string(i + 1) + ". " + joined[i]);
+                    }
+                    return 0;
+                }},
                 {"ListChannelByName",        [](lua_State* L) -> int { (void)L; return 0; }},
                 // SetChannelPassword(channel, password) — the same shape again,
                 // and the one place an empty second string is meant: sending

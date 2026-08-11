@@ -2428,6 +2428,16 @@ void registerActionLuaAPI(lua_State* L) {
                     game::pet::packPetAction(game::pet::ActionType::Reaction, game::pet::kDefensive), 0);
             return 0;
         }},
+                // The third stance, which was a no-op in another file entirely
+                // — so a hunter could set a pet passive or defensive and not
+                // aggressive, and the button for it did nothing.
+                {"PetAggressiveMode", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            if (gh && gh->hasPet())
+                gh->sendPetAction(
+                    game::pet::packPetAction(game::pet::ActionType::Reaction, game::pet::kAggressive), 0);
+            return 0;
+        }},
     };
     for (const auto& [name, func] : api) {
         lua_pushcfunction(L, func);
