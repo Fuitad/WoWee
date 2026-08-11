@@ -165,6 +165,36 @@ int exportCatalogJson(int& i, int argc, char** argv, const char* tag, const char
     return 0;
 }
 
+/// Read a flag mask that a sidecar may have written either as a number or as
+/// the names joined by bars — "meat|fish|raw".
+///
+/// The splitting is the same in every format that does this: take up to the
+/// next bar, fold it to lower case, look it up, or it in. Six importers wrote
+/// that loop out, and getting the last token wrong — the one with no bar after
+/// it — silently drops a flag.
+///
+/// `tokenToFlag` is the only part that is each format's own, and it stays
+/// there: the words are that format's vocabulary and the bits are its own
+/// numbering. It answers 0 for a word it does not know, which is how an
+/// unrecognised name is ignored rather than guessed at.
+template <typename TokenToFlag>
+uint32_t flagMaskFromJson(const nlohmann::json& jv, TokenToFlag tokenToFlag) {
+    if (jv.is_number_integer() || jv.is_number_unsigned()) return jv.get<uint32_t>();
+    if (!jv.is_string()) return 0;
+    const std::string joined = jv.get<std::string>();
+    uint32_t mask = 0;
+    std::size_t pos = 0;
+    while (pos < joined.size()) {
+        std::size_t end = joined.find('|', pos);
+        if (end == std::string::npos) end = joined.size();
+        std::string token = joined.substr(pos, end - pos);
+        for (char& c : token) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+        mask |= tokenToFlag(token);
+        pos = end + 1;
+    }
+    return mask;
+}
+
 /// Ids already seen while validating, so the second one can be reported.
 ///
 /// 84 handlers kept a std::vector and walked the whole of it for every entry,

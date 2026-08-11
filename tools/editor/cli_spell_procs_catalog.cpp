@@ -187,35 +187,24 @@ int handleExportJson(int& i, int argc, char** argv) {
 
 uint32_t parseProcFlagsField(const nlohmann::json& jv) {
     using F = wowee::pipeline::WoweeSpellProc;
-    if (jv.is_number_integer() || jv.is_number_unsigned())
-        return jv.get<uint32_t>();
-    if (jv.is_string()) {
-        std::string s = jv.get<std::string>();
-        uint32_t out = 0;
-        size_t pos = 0;
-        while (pos < s.size()) {
-            size_t end = s.find('|', pos);
-            if (end == std::string::npos) end = s.size();
-            std::string tok = s.substr(pos, end - pos);
-            for (auto& ch : tok) ch = static_cast<char>(std::tolower(ch));
-            if (tok == "dealtmeleeautoattack")  out |= F::DealtMeleeAutoAttack;
-            else if (tok == "dealtmeleespell")  out |= F::DealtMeleeSpell;
-            else if (tok == "takenmeleeautoattack") out |= F::TakenMeleeAutoAttack;
-            else if (tok == "takenmeleespell")  out |= F::TakenMeleeSpell;
-            else if (tok == "dealtrangedautoattack") out |= F::DealtRangedAutoAttack;
-            else if (tok == "dealtrangedspell") out |= F::DealtRangedSpell;
-            else if (tok == "dealtspell")       out |= F::DealtSpell;
-            else if (tok == "dealtspellheal")   out |= F::DealtSpellHeal;
-            else if (tok == "takenspell")       out |= F::TakenSpell;
-            else if (tok == "onkill")           out |= F::OnKill;
-            else if (tok == "ondeath")          out |= F::OnDeath;
-            else if (tok == "oncastfinished")   out |= F::OnCastFinished;
-            else if (tok == "critical")         out |= F::Critical;
-            pos = end + 1;
-        }
-        return out;
-    }
-    return 0;
+    // The splitting is shared; the words and the bits are this
+    // format's own.
+    return cli::flagMaskFromJson(jv, [](const std::string& token) -> uint32_t {
+        if (token == "dealtmeleeautoattack") return F::DealtMeleeAutoAttack;
+        if (token == "dealtmeleespell") return F::DealtMeleeSpell;
+        if (token == "takenmeleeautoattack") return F::TakenMeleeAutoAttack;
+        if (token == "takenmeleespell") return F::TakenMeleeSpell;
+        if (token == "dealtrangedautoattack") return F::DealtRangedAutoAttack;
+        if (token == "dealtrangedspell") return F::DealtRangedSpell;
+        if (token == "dealtspell") return F::DealtSpell;
+        if (token == "dealtspellheal") return F::DealtSpellHeal;
+        if (token == "takenspell") return F::TakenSpell;
+        if (token == "onkill") return F::OnKill;
+        if (token == "ondeath") return F::OnDeath;
+        if (token == "oncastfinished") return F::OnCastFinished;
+        if (token == "critical") return F::Critical;
+        return 0;
+    });
 }
 
 int handleImportJson(int& i, int argc, char** argv) {

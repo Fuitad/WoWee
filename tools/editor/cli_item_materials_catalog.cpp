@@ -227,28 +227,17 @@ uint8_t parseWeightCategoryToken(const nlohmann::json& jv,
 
 uint32_t parseMaterialFlagsField(const nlohmann::json& jv) {
     using F = wowee::pipeline::WoweeItemMaterial;
-    if (jv.is_number_integer() || jv.is_number_unsigned())
-        return jv.get<uint32_t>();
-    if (jv.is_string()) {
-        std::string s = jv.get<std::string>();
-        uint32_t out = 0;
-        size_t pos = 0;
-        while (pos < s.size()) {
-            size_t end = s.find('|', pos);
-            if (end == std::string::npos) end = s.size();
-            std::string tok = s.substr(pos, end - pos);
-            for (auto& ch : tok) ch = static_cast<char>(std::tolower(ch));
-            if (tok == "isbreakable")        out |= F::IsBreakable;
-            else if (tok == "ismagical")     out |= F::IsMagical;
-            else if (tok == "isflammable")   out |= F::IsFlammable;
-            else if (tok == "isconductive")  out |= F::IsConductive;
-            else if (tok == "isholycharged") out |= F::IsHolyCharged;
-            else if (tok == "iscursed")      out |= F::IsCursed;
-            pos = end + 1;
-        }
-        return out;
-    }
-    return 0;
+    // The splitting is shared; the words and the bits are this
+    // format's own.
+    return cli::flagMaskFromJson(jv, [](const std::string& token) -> uint32_t {
+        if (token == "isbreakable") return F::IsBreakable;
+        if (token == "ismagical") return F::IsMagical;
+        if (token == "isflammable") return F::IsFlammable;
+        if (token == "isconductive") return F::IsConductive;
+        if (token == "isholycharged") return F::IsHolyCharged;
+        if (token == "iscursed") return F::IsCursed;
+        return 0;
+    });
 }
 
 int handleImportJson(int& i, int argc, char** argv) {

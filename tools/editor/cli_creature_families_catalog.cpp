@@ -225,29 +225,18 @@ uint8_t parseTalentTreeToken(const nlohmann::json& jv,
 
 uint32_t parseFoodTypesField(const nlohmann::json& jv) {
     using F = wowee::pipeline::WoweeCreatureFamily;
-    if (jv.is_number_integer() || jv.is_number_unsigned())
-        return jv.get<uint32_t>();
-    if (jv.is_string()) {
-        std::string s = jv.get<std::string>();
-        uint32_t out = 0;
-        size_t pos = 0;
-        while (pos < s.size()) {
-            size_t end = s.find('|', pos);
-            if (end == std::string::npos) end = s.size();
-            std::string tok = s.substr(pos, end - pos);
-            for (auto& ch : tok) ch = static_cast<char>(std::tolower(ch));
-            if (tok == "meat")        out |= F::Meat;
-            else if (tok == "fish")   out |= F::Fish;
-            else if (tok == "bread")  out |= F::Bread;
-            else if (tok == "cheese") out |= F::Cheese;
-            else if (tok == "fruit")  out |= F::Fruit;
-            else if (tok == "fungus") out |= F::Fungus;
-            else if (tok == "raw")    out |= F::Raw;
-            pos = end + 1;
-        }
-        return out;
-    }
-    return 0;
+    // The splitting is shared; the words and the bits are this
+    // format's own.
+    return cli::flagMaskFromJson(jv, [](const std::string& token) -> uint32_t {
+        if (token == "meat") return F::Meat;
+        if (token == "fish") return F::Fish;
+        if (token == "bread") return F::Bread;
+        if (token == "cheese") return F::Cheese;
+        if (token == "fruit") return F::Fruit;
+        if (token == "fungus") return F::Fungus;
+        if (token == "raw") return F::Raw;
+        return 0;
+    });
 }
 
 int handleImportJson(int& i, int argc, char** argv) {

@@ -245,7 +245,11 @@ int handleValidate(int& i, int argc, char** argv) {
         [](const auto& c, std::vector<std::string>& errors,
            std::vector<std::string>& warnings) {
         // Per-entry checks plus a duplicate-soundId scan.
-        std::vector<uint32_t> idsSeen;
+        //
+        // The scan used to be a walk of every id seen so far, for every entry —
+        // quadratic in the catalog, which is what DuplicateIdCheck was written
+        // to stop. The message is unchanged; only the bookkeeping moved.
+        cli::DuplicateIdCheck idsSeen;
         idsSeen.reserve(c.entries.size());
         for (size_t k = 0; k < c.entries.size(); ++k) {
             const auto& e = c.entries[k];
@@ -278,14 +282,10 @@ int handleValidate(int& i, int argc, char** argv) {
             if (e.filePath.empty()) {
                 errors.push_back(ctx + ": filePath is empty");
             }
-            for (uint32_t prev : idsSeen) {
-                if (prev == e.soundId) {
-                    errors.push_back(ctx +
-                        ": soundId already used by an earlier entry");
-                    break;
-                }
+            if (!idsSeen.add(e.soundId)) {
+                errors.push_back(ctx +
+                    ": soundId already used by an earlier entry");
             }
-            idsSeen.push_back(e.soundId);
         }
             return formatted("%zu entries, all sound IDs unique", c.entries.size());
         });

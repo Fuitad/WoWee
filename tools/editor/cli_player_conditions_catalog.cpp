@@ -276,13 +276,14 @@ int handleValidate(int& i, int argc, char** argv) {
     if (c.entries.empty()) {
         warnings.push_back("catalog has zero entries");
     }
+    cli::DuplicateIdCheck idsUnique;
+    idsUnique.reserve(c.entries.size());
     std::vector<uint32_t> idsSeen;
     for (const auto& e : c.entries) idsSeen.push_back(e.conditionId);
     auto idExists = [&](uint32_t id) {
         for (uint32_t a : idsSeen) if (a == id) return true;
         return false;
     };
-    std::vector<uint32_t> dupCheck;
     for (size_t k = 0; k < c.entries.size(); ++k) {
         const auto& e = c.entries[k];
         std::string ctx = "entry " + std::to_string(k) +
@@ -331,12 +332,11 @@ int handleValidate(int& i, int argc, char** argv) {
                 ": chainNextId set but chainOp=none "
                 "(silently ignored at runtime)");
         }
-        // duplicates
-        for (size_t m = 0; m < k; ++m) {
-            if (c.entries[m].conditionId == e.conditionId) {
-                errors.push_back(ctx + ": duplicate conditionId");
-                break;
-            }
+        // Duplicates. Was a walk of every earlier entry, for every entry;
+        // there was also a dupCheck vector declared beside it that nothing
+        // ever touched.
+        if (!idsUnique.add(e.conditionId)) {
+            errors.push_back(ctx + ": duplicate conditionId");
         }
     }
     return cli::reportValidation("wpcn", base, jsonOut, errors, warnings,

@@ -208,26 +208,15 @@ uint8_t parsePowerTypeToken(const nlohmann::json& jv,
 
 uint32_t parseCostFlagsField(const nlohmann::json& jv) {
     using F = wowee::pipeline::WoweeSpellPowerCost;
-    if (jv.is_number_integer() || jv.is_number_unsigned())
-        return jv.get<uint32_t>();
-    if (jv.is_string()) {
-        std::string s = jv.get<std::string>();
-        uint32_t out = 0;
-        size_t pos = 0;
-        while (pos < s.size()) {
-            size_t end = s.find('|', pos);
-            if (end == std::string::npos) end = s.size();
-            std::string tok = s.substr(pos, end - pos);
-            for (auto& ch : tok) ch = static_cast<char>(std::tolower(ch));
-            if (tok == "requirescombatstance") out |= F::RequiresCombatStance;
-            else if (tok == "refundonmiss")    out |= F::RefundOnMiss;
-            else if (tok == "doublesinform")   out |= F::DoublesInForm;
-            else if (tok == "scaleswithmastery") out |= F::ScalesWithMastery;
-            pos = end + 1;
-        }
-        return out;
-    }
-    return 0;
+    // The splitting is shared; the words and the bits are this
+    // format's own.
+    return cli::flagMaskFromJson(jv, [](const std::string& token) -> uint32_t {
+        if (token == "requirescombatstance") return F::RequiresCombatStance;
+        if (token == "refundonmiss") return F::RefundOnMiss;
+        if (token == "doublesinform") return F::DoublesInForm;
+        if (token == "scaleswithmastery") return F::ScalesWithMastery;
+        return 0;
+    });
 }
 
 int handleImportJson(int& i, int argc, char** argv) {
