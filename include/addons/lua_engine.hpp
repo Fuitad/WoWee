@@ -57,6 +57,8 @@ public:
     void dispatchOnUpdate(float elapsed);
     /// Run the OnTextChanged handlers owed by text set from code.
     void drainPendingTextChanged();
+    /// Run the OnAnimFinished handlers owed by frames shown to animate.
+    void drainPendingAnimFinished();
     /// Age message-frame lines and drop the expired ones.
     void expireMessages(float elapsed);
 

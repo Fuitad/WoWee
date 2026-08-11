@@ -2792,6 +2792,28 @@ int lua_Button_IsEnabled(lua_State* L) {
     return 1;
 }
 
+/// Remember a frame that was just shown and declares OnAnimFinished, so that
+/// script can be run once the show has returned.
+///
+/// Only frames that declare it are queued, which in this whole interface is the
+/// bag buttons' item animation and nothing else.
+static void queueAnimFinished(lua_State* L, int frameIndex) {
+    const int abs = frameIndex > 0 ? frameIndex : lua_gettop(L) + frameIndex + 1;
+    lua_getfield(L, abs, "__scripts");
+    if (!lua_istable(L, -1)) { lua_pop(L, 1); return; }
+    lua_getfield(L, -1, "OnAnimFinished");
+    const bool has = lua_isfunction(L, -1);
+    lua_pop(L, 2);
+    if (!has) return;
+
+    lua_getglobal(L, "__WoweePendingAnimFinished");
+    if (!lua_istable(L, -1)) { lua_pop(L, 1); return; }
+    const int n = static_cast<int>(lua_objlen(L, -1));
+    lua_pushvalue(L, abs);
+    lua_rawseti(L, -2, n + 1);
+    lua_pop(L, 1);
+}
+
 int lua_Region_Show(lua_State* L) {
     if (auto* w = widgetOf(L, 1)) {
         // Counted, not just set. A hide and a show in the same breath leave the
@@ -2802,6 +2824,19 @@ int lua_Region_Show(lua_State* L) {
         w->shown = true;
     }
     lua_pushboolean(L, 1); lua_setfield(L, 1, "__visible");
+    // A frame shown to play a model animation has already finished it.
+    //
+    // The bag buttons each carry a <Model> that shows itself on ITEM_PUSH and
+    // hides itself again from OnAnimFinished — the item flying into the bag.
+    // This client plays no model sequences: SetSequence is one of the handful
+    // of widget methods that answer with a no-op, so there is no animation to
+    // finish and nothing ever fired that script. The frame went up on the first
+    // item looted and stayed up, one per bag button, until a reload.
+    //
+    // Queued rather than called here, for the same reason the text change is:
+    // the handler runs Hide, and running it inside Show is the sort of ordering
+    // the interface does not expect.
+    queueAnimFinished(L, 1);
     return 0;
 }
 int lua_Region_Hide(lua_State* L) {
@@ -6109,6 +6144,10 @@ void LuaEngine::registerCoreAPI() {
     // Edit boxes whose text was set from code and still owe an OnTextChanged.
     lua_newtable(L_);
     lua_setglobal(L_, "__WoweePendingTextChanged");
+
+    // Frames shown that owe an OnAnimFinished — see queueAnimFinished.
+    lua_newtable(L_);
+    lua_setglobal(L_, "__WoweePendingAnimFinished");
 
     // widget id -> frame table, so a hit test can find the scripts to run.
     lua_newtable(L_);
@@ -9671,8 +9710,27 @@ void LuaEngine::expireMessages(float elapsed) {
 /// The queue is taken and cleared before anything runs, so a handler that sets
 /// text again is queued for the next frame rather than extending this drain —
 /// which is what stops MoneyInputFrame's own edits from chasing their own tail.
+/// Run the OnAnimFinished handlers owed by frames shown to play an animation
+/// this client does not play.
+void LuaEngine::drainPendingAnimFinished() {
+    if (!L_) return;
+    lua_getglobal(L_, "__WoweePendingAnimFinished");
+    if (!lua_istable(L_, -1)) { lua_pop(L_, 1); return; }
+    const int count = static_cast<int>(lua_objlen(L_, -1));
+    if (count == 0) { lua_pop(L_, 1); return; }
+    lua_newtable(L_);
+    lua_setglobal(L_, "__WoweePendingAnimFinished");
+    for (int i = 1; i <= count; ++i) {
+        lua_rawgeti(L_, -1, i);
+        if (lua_istable(L_, -1)) callScriptOnTable(L_, lua_gettop(L_), "OnAnimFinished", 0);
+        lua_pop(L_, 1);
+    }
+    lua_pop(L_, 1);
+}
+
 void LuaEngine::drainPendingTextChanged() {
     if (!L_) return;
+    drainPendingAnimFinished();
     lua_getglobal(L_, "__WoweePendingTextChanged");
     if (!lua_istable(L_, -1)) { lua_pop(L_, 1); return; }
     const int count = static_cast<int>(lua_objlen(L_, -1));
