@@ -49,345 +49,118 @@
 
 namespace wowee { namespace ui {
 
+// The interface tab: the client's own windows, its bars, and what it draws
+// over the world.
+//
+// Three schema categories drawn in order, and one button. Every control here
+// used to be written out — a slider, an apply, a saveCallback and a greyed
+// note beside it, sixty lines of them — with the note saying something the
+// options panel on the other side of the bridge said differently or not at
+// all. Both windows read the same rows now.
 void SettingsPanel::renderSettingsInterfaceTab(std::function<void()> saveCallback) {
-ImGui::Spacing();
-ImGui::BeginChild("InterfaceSettings", ImVec2(0, -1), true);
-
-ImGui::SeparatorText("Window UI");
-ImGui::Spacing();
-ImGui::SetNextItemWidth(200.0f);
-ImGui::SliderFloat("Window UI Scale", &pendingWindowUiScale, 0.75f, 1.5f, "%.2fx");
-if (ImGui::IsItemActive()) {
-    // Keep the window and slider stationary while the pointer is dragging.
-    windowUiScaleEditing_ = true;
-}
-if (ImGui::IsItemDeactivatedAfterEdit()) {
-    windowUiScaleEditing_ = false;
-    saveCallback();
-}
-ImGui::SameLine();
-ImGui::TextDisabled("(fonts, controls, and spacing)");
-ImGui::Spacing();
-
-ImGui::SeparatorText("Buff Bar");
-ImGui::Spacing();
-ImGui::SetNextItemWidth(200.0f);
-if (ImGui::SliderFloat("Buff Bar Scale", &pendingBuffBarScale, 0.75f, 1.5f, "%.2fx")) {
-    saveCallback();
-}
-ImGui::SameLine();
-ImGui::TextDisabled("(on top of automatic resolution scaling)");
-ImGui::Spacing();
-
-ImGui::SeparatorText("Action Bars");
-ImGui::Spacing();
-ImGui::SetNextItemWidth(200.0f);
-if (ImGui::SliderFloat("Action Bar Scale", &pendingActionBarScale, 0.5f, 1.5f, "%.2fx")) {
-    saveCallback();
-}
-ImGui::Spacing();
-
-if (ImGui::Checkbox("Show Bottom Left Bar", &pendingShowActionBar2)) {
-    saveCallback();
-}
-ImGui::SameLine();
-ImGui::TextDisabled("(client action page 6)");
-
-if (pendingShowActionBar2) {
     ImGui::Spacing();
-    ImGui::TextUnformatted("Bottom Left Bar Position Offset");
-    ImGui::SetNextItemWidth(160.0f);
-    if (ImGui::SliderFloat("Horizontal##bar2x", &pendingActionBar2OffsetX, -600.0f, 600.0f, "%.0f px")) {
-        saveCallback();
-    }
-    ImGui::SetNextItemWidth(160.0f);
-    if (ImGui::SliderFloat("Vertical##bar2y", &pendingActionBar2OffsetY, -400.0f, 400.0f, "%.0f px")) {
-        saveCallback();
-    }
-    if (ImGui::Button("Reset Position##bar2")) {
+    ImGui::BeginChild("InterfaceSettings", ImVec2(0, -1), true);
+
+    ImGui::SeparatorText("Interface");
+    drawSchemaCategory("Interface", saveCallback);
+
+    ImGui::Spacing();
+    ImGui::SeparatorText("Action Bars");
+    drawSchemaCategory("Action Bars", saveCallback);
+    // Not a setting: the two offsets are, and this is the way back to where
+    // they started without dragging both sliders to zero by eye.
+    if (ImGui::Button("Reset Bottom Left Position")) {
         pendingActionBar2OffsetX = 0.0f;
         pendingActionBar2OffsetY = 0.0f;
         saveCallback();
     }
+
+    ImGui::Spacing();
+    ImGui::SeparatorText("Combat & HUD");
+    drawSchemaCategory("Combat & HUD", saveCallback);
+
+    ImGui::EndChild();
 }
 
-ImGui::Spacing();
-if (ImGui::Checkbox("Show Right Side Bar", &pendingShowRightBar)) {
-    saveCallback();
-}
-ImGui::SameLine();
-ImGui::TextDisabled("(client action page 3)");
-if (pendingShowRightBar) {
-    ImGui::SetNextItemWidth(160.0f);
-    if (ImGui::SliderFloat("Vertical Offset##rbar", &pendingRightBarOffsetY, -400.0f, 400.0f, "%.0f px")) {
-        saveCallback();
-    }
-}
-
-ImGui::Spacing();
-if (ImGui::Checkbox("Show Left Side Bar", &pendingShowLeftBar)) {
-    saveCallback();
-}
-ImGui::SameLine();
-ImGui::TextDisabled("(client action page 4)");
-if (pendingShowLeftBar) {
-    ImGui::SetNextItemWidth(160.0f);
-    if (ImGui::SliderFloat("Vertical Offset##lbar", &pendingLeftBarOffsetY, -400.0f, 400.0f, "%.0f px")) {
-        saveCallback();
-    }
-}
-
-ImGui::Spacing();
-if (ImGui::Checkbox("Show Micro Menu Buttons", &pendingShowMicroMenu)) {
-    saveCallback();
-}
-ImGui::SameLine();
-ImGui::TextDisabled("(bottom-left window shortcuts)");
-
-ImGui::Spacing();
-ImGui::SeparatorText("Nameplates");
-ImGui::Spacing();
-ImGui::SetNextItemWidth(200.0f);
-if (ImGui::SliderFloat("Nameplate Scale", &nameplateScale_, 0.5f, 2.0f, "%.2fx")) {
-    saveCallback();
-}
-
-ImGui::Spacing();
-ImGui::SeparatorText("Network");
-ImGui::Spacing();
-if (ImGui::Checkbox("Show Latency Meter", &pendingShowLatencyMeter)) {
-    showLatencyMeter_ = pendingShowLatencyMeter;
-    saveCallback();
-}
-ImGui::SameLine();
-ImGui::TextDisabled("(ms indicator near minimap)");
-
-if (ImGui::Checkbox("Show DPS/HPS Meter", &showDPSMeter_)) {
-    saveCallback();
-}
-ImGui::SameLine();
-ImGui::TextDisabled("(damage/healing per second above action bar)");
-
-if (ImGui::Checkbox("Show Cooldown Tracker", &showCooldownTracker_)) {
-    saveCallback();
-}
-ImGui::SameLine();
-ImGui::TextDisabled("(active spell cooldowns near action bar)");
-
-if (ImGui::Checkbox("Show Rare Tracker", &showRareTracker_)) {
-    saveCallback();
-}
-ImGui::SameLine();
-ImGui::TextDisabled("(mark nearby spawned rares on the world map and minimap)");
-
-if (ImGui::Checkbox("Show Chest Tracker", &showChestTracker_)) {
-    saveCallback();
-}
-ImGui::SameLine();
-ImGui::TextDisabled("(mark nearby spawned loot chests on the world map and minimap)");
-
-ImGui::Spacing();
-ImGui::SeparatorText("Screen Effects");
-ImGui::Spacing();
-if (ImGui::Checkbox("Damage Flash", &damageFlashEnabled_)) {
-    saveCallback();
-}
-ImGui::SameLine();
-ImGui::TextDisabled("(red vignette on taking damage)");
-
-if (ImGui::Checkbox("Low Health Vignette", &lowHealthVignetteEnabled_)) {
-    saveCallback();
-}
-ImGui::SameLine();
-ImGui::TextDisabled("(pulsing red edges below 20%% HP)");
-
-ImGui::EndChild();
-}
-
+// The gameplay tab: the camera, the minimap, and what the client does for you
+// at a corpse or a vendor.
+//
+// The mouse-look speed is drawn from the schema like the rest even though the
+// game's own Interface panel drives it too — it is a control this window has
+// always had, and both write the same value through the same setter, so they
+// cannot disagree.
 void SettingsPanel::renderSettingsGameplayTab(std::function<void()> saveCallback) {
     auto* renderer = services_.renderer;
-ImGui::Spacing();
-ImGui::BeginChild("GameplaySettings", ImVec2(0, -1), true);
+    ImGui::Spacing();
+    ImGui::BeginChild("GameplaySettings", ImVec2(0, -1), true);
 
-ImGui::Text("Controls");
-ImGui::Separator();
-if (ImGui::SliderFloat("Mouse Sensitivity", &pendingMouseSensitivity, 0.05f, 1.0f, "%.2f")) {
-    applySettingSideEffects("mousespeed");
-    saveCallback();
-}
-if (ImGui::Checkbox("Invert Mouse", &pendingInvertMouse)) {
-    applySettingSideEffects("invertmouse");
-    saveCallback();
-}
-if (ImGui::Checkbox("Extended Camera Zoom", &pendingExtendedZoom)) {
-    applySettingSideEffects("extendedzoom");
-    saveCallback();
-}
-if (ImGui::SliderFloat("Camera Stiffness", &pendingCameraStiffness, 5.0f, 100.0f, "%.0f")) {
-    applySettingSideEffects("camerastiffness");
-    saveCallback();
-}
-ImGui::SetItemTooltip("Higher = tighter camera with less sway. Default: 30");
-if (ImGui::Checkbox("Smooth Camera Follow", &pendingSmoothCameraFollow)) {
-    applySettingSideEffects("smoothfollow");
-    saveCallback();
-}
-ImGui::SetItemTooltip("Camera keeps drifting toward its position even while turning,\n"
-                      "for a floaty, slightly detached follow. Off = turning moves the\n"
-                      "camera 1:1 with your input.");
-if (ImGui::SliderFloat("Camera Pivot Height", &pendingPivotHeight, 0.0f, 3.0f, "%.1f")) {
-    applySettingSideEffects("pivotheight");
-    saveCallback();
-}
-ImGui::SetItemTooltip("Height of camera orbit point above feet. Lower = less detached feel. Default: 1.8");
-if (ImGui::IsItemHovered())
-    ImGui::SetTooltip("Allow the camera to zoom out further than normal");
+    ImGui::SeparatorText("Camera");
+    ImGui::SetNextItemWidth(200.0f);
+    if (ImGui::SliderFloat("Mouse Sensitivity", &pendingMouseSensitivity, 0.05f, 1.0f, "%.2f")) {
+        applySettingSideEffects("mousespeed");
+        saveCallback();
+    }
+    drawSchemaCategory("Camera", saveCallback);
 
-if (ImGui::Checkbox("Idle Camera Orbit", &pendingIdleCameraOrbit)) {
-    applySettingSideEffects("idleorbit");
-    saveCallback();
-}
-
-if (ImGui::SliderFloat("Field of View", &pendingFov, 45.0f, 110.0f, "%.0f°")) {
-    applySettingSideEffects("fov");
-    saveCallback();
-}
-if (ImGui::IsItemHovered())
-    ImGui::SetTooltip("Camera field of view in degrees (default: 70)");
-
-ImGui::Spacing();
-ImGui::Spacing();
-
-ImGui::Text("Interface");
-ImGui::Separator();
-if (ImGui::SliderInt("UI Opacity", &pendingUiOpacity, 20, 100, "%d%%")) {
-    applySettingSideEffects("uiopacity");
-    saveCallback();
-}
-if (ImGui::Checkbox("Rotate Minimap", &pendingMinimapRotate)) {
-    // Force north-up minimap.
-    minimapRotate_ = false;
-    pendingMinimapRotate = false;
-    if (renderer) {
-        if (auto* minimap = renderer->getMinimap()) {
-            minimap->setRotateWithCamera(false);
+    ImGui::Spacing();
+    ImGui::SeparatorText("Minimap");
+    drawSchemaCategory("Minimap", saveCallback);
+    // Not settings: the zoom is the minimap's own state, stepped rather than
+    // chosen, and there is no value to store for it.
+    ImGui::Text("Zoom:");
+    ImGui::SameLine();
+    if (ImGui::Button("  -  ")) {
+        if (renderer) {
+            if (auto* minimap = renderer->getMinimap()) { minimap->zoomOut(); saveCallback(); }
         }
     }
-    saveCallback();
-}
-if (ImGui::Checkbox("Square Minimap", &pendingMinimapSquare)) {
-    applySettingSideEffects("minimapsquare");
-    saveCallback();
-}
-if (ImGui::Checkbox("Show Nearby NPC Dots", &pendingMinimapNpcDots)) {
-    minimapNpcDots_ = pendingMinimapNpcDots;
-    saveCallback();
-}
-if (ImGui::Checkbox("Show Minimap Clock", &pendingShowMinimapClock)) {
-    showMinimapClock_ = pendingShowMinimapClock;
-    saveCallback();
-}
-if (ImGui::Checkbox("Show Minimap Coordinates", &pendingShowMinimapCoordinates)) {
-    showMinimapCoordinates_ = pendingShowMinimapCoordinates;
-    saveCallback();
-}
-// Zoom controls
-ImGui::Text("Minimap Zoom:");
-ImGui::SameLine();
-if (ImGui::Button("  -  ")) {
-    if (renderer) {
-        if (auto* minimap = renderer->getMinimap()) {
-            minimap->zoomOut();
-            saveCallback();
+    ImGui::SameLine();
+    if (ImGui::Button("  +  ")) {
+        if (renderer) {
+            if (auto* minimap = renderer->getMinimap()) { minimap->zoomIn(); saveCallback(); }
         }
     }
-}
-ImGui::SameLine();
-if (ImGui::Button("  +  ")) {
-    if (renderer) {
-        if (auto* minimap = renderer->getMinimap()) {
-            minimap->zoomIn();
-            saveCallback();
+
+    ImGui::Spacing();
+    ImGui::SeparatorText("Gameplay");
+    drawSchemaCategory("Gameplay", saveCallback);
+
+    ImGui::Spacing();
+    ImGui::SeparatorText("Chat");
+    drawSchemaCategory("Chat", saveCallback);
+
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    if (ImGui::Button("Restore Gameplay Defaults", ImVec2(-1, 0))) {
+        pendingMouseSensitivity = 0.2f;
+        pendingInvertMouse = false;
+        pendingExtendedZoom = false;
+        pendingSmoothCameraFollow = false;
+        pendingUiOpacity = 65;
+        pendingMinimapSquare = false;
+        pendingMinimapNpcDots = false;
+        pendingShowMinimapClock = false;
+        pendingShowMinimapCoordinates = false;
+        pendingSeparateBags = true;
+        pendingShowKeyring = true;
+        pendingBagScale = InventoryScreen::recommendedBagScale(ImGui::GetIO().DisplaySize.y);
+        pendingShowMicroMenu = false;
+        // The applied copies of these — uiOpacity_, minimapSquare_ and the
+        // three beside it — were assigned here as well as beside their
+        // sliders, which is the same fact in two places and was already one
+        // short: the micro menu was reset and nothing was told.
+        for (const char* key : {"mousespeed", "invertmouse", "extendedzoom",
+                                "smoothfollow", "uiopacity", "minimapsquare",
+                                "minimapnpcdots", "minimapclock", "minimapcoords",
+                                "separatebags", "showkeyring", "bagscale"}) {
+            applySettingSideEffects(key);
         }
+        saveCallback();
     }
-}
 
-ImGui::Spacing();
-ImGui::Text("Loot");
-ImGui::Separator();
-if (ImGui::Checkbox("Auto Loot", &pendingAutoLoot)) {
-    saveCallback();  // per-frame sync applies pendingAutoLoot to gameHandler
-}
-if (ImGui::IsItemHovered())
-    ImGui::SetTooltip("Automatically pick up all items when looting");
-if (ImGui::Checkbox("Auto Sell Greys", &pendingAutoSellGrey)) {
-    saveCallback();
-}
-if (ImGui::IsItemHovered())
-    ImGui::SetTooltip("Automatically sell all grey (poor quality) items when opening a vendor");
-if (ImGui::Checkbox("Auto Repair", &pendingAutoRepair)) {
-    saveCallback();
-}
-if (ImGui::IsItemHovered())
-    ImGui::SetTooltip("Automatically repair all damaged equipment when opening an armorer vendor");
-
-ImGui::Spacing();
-ImGui::Text("Bags");
-ImGui::Separator();
-ImGui::SetNextItemWidth(200.0f);
-if (ImGui::SliderFloat("Bag & Window Scale", &pendingBagScale, 0.75f, 1.5f, "%.2fx")) {
-    applySettingSideEffects("bagscale");
-    saveCallback();
-}
-ImGui::SameLine();
-ImGui::TextDisabled("(high-resolution default is larger)");
-if (ImGui::Checkbox("Separate Bag Windows", &pendingSeparateBags)) {
-    applySettingSideEffects("separatebags");
-    saveCallback();
-}
-if (ImGui::Checkbox("Show Key Ring", &pendingShowKeyring)) {
-    applySettingSideEffects("showkeyring");
-    saveCallback();
-}
-
-ImGui::Spacing();
-ImGui::Separator();
-ImGui::Spacing();
-
-if (ImGui::Button("Restore Gameplay Defaults", ImVec2(-1, 0))) {
-    pendingMouseSensitivity = 0.2f;
-    pendingInvertMouse = false;
-    pendingExtendedZoom = false;
-    pendingSmoothCameraFollow = false;
-    pendingUiOpacity = 65;
-    pendingMinimapRotate = false;
-    pendingMinimapSquare = false;
-    pendingMinimapNpcDots = false;
-    pendingShowMinimapClock = false;
-    pendingShowMinimapCoordinates = false;
-    pendingSeparateBags = true;
-    pendingShowKeyring = true;
-    pendingBagScale = InventoryScreen::recommendedBagScale(ImGui::GetIO().DisplaySize.y);
-    pendingShowMicroMenu = false;
-    minimapRotate_ = false;
-    if (renderer) {
-        if (auto* minimap = renderer->getMinimap()) minimap->setRotateWithCamera(false);
-    }
-    // The applied copies of these — uiOpacity_, minimapSquare_ and the three
-    // beside it — were assigned here as well as beside their sliders, which is
-    // the same fact in two places and was already one short: the micro menu was
-    // reset and nothing was told.
-    for (const char* key : {"mousespeed", "invertmouse", "extendedzoom",
-                            "smoothfollow", "uiopacity", "minimapsquare",
-                            "minimapnpcdots", "minimapclock", "minimapcoords",
-                            "separatebags", "showkeyring", "bagscale"}) {
-        applySettingSideEffects(key);
-    }
-    saveCallback();
-}
-
-ImGui::EndChild();
-
+    ImGui::EndChild();
 }
 
 void SettingsPanel::renderSettingsControlsTab(std::function<void()> saveCallback) {
@@ -1124,6 +897,15 @@ void SettingsPanel::drawSchemaCategory(const char* category,
                 break;
             }
         }
+        // The one setting whose control cannot simply apply as it moves: the
+        // window scale resizes the window the slider is in, so applying it
+        // per frame walks the slider out from under the pointer. The flag is
+        // what applyWindowUiScale waits on, and it is read every frame from
+        // GameScreen rather than called from here.
+        if (std::string(d.key) == "windowuiscale") {
+            if (ImGui::IsItemActive()) windowUiScaleEditing_ = true;
+            if (ImGui::IsItemDeactivatedAfterEdit()) windowUiScaleEditing_ = false;
+        }
         if (d.tooltip[0] != '\0' && ImGui::IsItemHovered()) {
             ImGui::SetTooltip("%s", d.tooltip);
         }
@@ -1553,6 +1335,8 @@ void SettingsPanel::applySettingSideEffects(const std::string& key) {
         showMinimapClock_ = pendingShowMinimapClock;
     } else if (key == "minimapcoords") {
         showMinimapCoordinates_ = pendingShowMinimapCoordinates;
+    } else if (key == "latencymeter") {
+        showLatencyMeter_ = pendingShowLatencyMeter;
     } else if (key == "separatebags") {
         if (inventoryScreen_) inventoryScreen_->setSeparateBags(pendingSeparateBags);
     } else if (key == "showkeyring") {

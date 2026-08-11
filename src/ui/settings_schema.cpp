@@ -97,11 +97,12 @@ constexpr SettingDesc kSchema[] = {
     {"uiopacity", "Window opacity", SettingKind::Int, 20, 100, 5, "Interface", "",
      "How solid this client's own windows are drawn.", ""},
     {"windowuiscale", "Window scale", SettingKind::Float, 0.75f, 1.5f, 0.05f, "Interface", "",
-     "Size of this client's own windows.", ""},
+     "Fonts, controls and spacing in this client's own windows. Not the\n"
+     "interface's scale, which is in the game's own Video panel.", ""},
     {"latencymeter", "Latency meter", SettingKind::Bool, 0, 0, 0, "Interface", "",
-     "Show the round trip to the server.", ""},
+     "The round trip to the server, beside the minimap.", ""},
     {"micromenu", "Micro menu buttons", SettingKind::Bool, 0, 0, 0, "Interface", "",
-     "The row of small buttons for the character sheet, spellbook and the rest.", ""},
+     "The row of shortcuts to the character sheet, spellbook and the rest.", ""},
 
     {"bagscale", "Bag scale", SettingKind::Float, 0.75f, 1.5f, 0.05f, "Interface", "Bags",
      "Size of the bag windows.", ""},
@@ -127,20 +128,21 @@ constexpr SettingDesc kSchema[] = {
     {"actionbarscale", "Action bar scale", SettingKind::Float, 0.5f, 1.5f, 0.05f,
      "Action Bars", "", "Size of every action bar slot.", ""},
     {"buffbarscale", "Buff bar scale", SettingKind::Float, 0.75f, 1.5f, 0.05f,
-     "Action Bars", "", "Size of the buff and debuff icons.", ""},
+     "Action Bars", "", "Size of the buff and debuff icons, on top of the automatic scaling\n"
+     "this client does for the display it is on.", ""},
 
     {"showbar2", "Bottom left bar", SettingKind::Bool, 0, 0, 0, "Action Bars", "Extra bars",
-     "The second bar, above the main one.", ""},
+     "The second bar, above the main one. Client action page 6.", ""},
     {"bar2offsetx", "Bottom left — across", SettingKind::Float, -600, 600, 10,
      "Action Bars", "", "Move that bar sideways from its default place.", ""},
     {"bar2offsety", "Bottom left — up", SettingKind::Float, -400, 400, 10,
      "Action Bars", "", "Move that bar up or down from its default place.", ""},
     {"showrightbar", "Right side bar", SettingKind::Bool, 0, 0, 0, "Action Bars", "",
-     "The upright bar at the right edge.", ""},
+     "The upright bar at the right edge. Client action page 3.", ""},
     {"rightbaroffsety", "Right side — up", SettingKind::Float, -400, 400, 10,
      "Action Bars", "", "Move it up or down from the middle of the screen.", ""},
     {"showleftbar", "Left side bar", SettingKind::Bool, 0, 0, 0, "Action Bars", "",
-     "The upright bar at the left edge.", ""},
+     "The upright bar at the left edge. Client action page 4.", ""},
     {"leftbaroffsety", "Left side — up", SettingKind::Float, -400, 400, 10,
      "Action Bars", "", "Move it up or down from the middle of the screen.", ""},
 
@@ -149,16 +151,17 @@ constexpr SettingDesc kSchema[] = {
      "Combat & HUD", "Nameplates", "Size of the bars over creatures' heads.", ""},
 
     {"dpsmeter", "Damage meter", SettingKind::Bool, 0, 0, 0, "Combat & HUD", "Trackers",
-     "Your damage and healing per second, while you are in combat.", ""},
+     "Your damage and healing per second, above the action bar, while you\n"
+     "are in combat.", ""},
     {"cooldowntracker", "Cooldown tracker", SettingKind::Bool, 0, 0, 0, "Combat & HUD", "",
-     "Your longer cooldowns, as they run.", ""},
+     "Your longer cooldowns as they run, beside the action bar.", ""},
     {"raretracker", "Rare tracker", SettingKind::Bool, 0, 0, 0, "Combat & HUD", "",
      "Mark rare creatures near you on both maps.", ""},
     {"chesttracker", "Chest tracker", SettingKind::Bool, 0, 0, 0, "Combat & HUD", "",
      "Mark chests near you on both maps.", ""},
 
     {"damageflash", "Damage flash", SettingKind::Bool, 0, 0, 0, "Combat & HUD", "Screen effects",
-     "Flash the edges of the screen when you are hit.", ""},
+     "A red vignette at the edges of the screen when you are hit.", ""},
     {"lowhealthvignette", "Low health vignette", SettingKind::Bool, 0, 0, 0,
      "Combat & HUD", "", "A red edge that pulses while you are below a fifth of\n"
      "your health.", ""},
