@@ -163,6 +163,24 @@ inline std::string normalizePath(std::string base, const std::string& extension)
     return base;
 }
 
+/// Four colour channels as the single uint32 these formats store.
+///
+/// Red is the low byte and alpha the high one, which is the order the renderer
+/// and ImGui both want and the reverse of how the channels are usually said
+/// aloud. That is the whole reason this is a function: written out by hand,
+/// the shift that is easy to get wrong is the one you cannot see is wrong —
+/// a file whose blue and red are swapped loads, validates, round-trips, and
+/// simply looks incorrect.
+///
+/// It was written out by hand in fifty-nine of these formats, identically. One
+/// of them differing would have been one format's colours quietly reversed.
+inline uint32_t packRgba(uint8_t r, uint8_t g, uint8_t b, uint8_t a = 0xFF) {
+    return (static_cast<uint32_t>(a) << 24) |
+           (static_cast<uint32_t>(b) << 16) |
+           (static_cast<uint32_t>(g) << 8) |
+           static_cast<uint32_t>(r);
+}
+
 /// Make the directory an output file is about to be written into, if it needs
 /// making and can be made.
 ///
