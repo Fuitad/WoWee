@@ -1206,6 +1206,7 @@ static std::string modifiedClickBinding(lua_State* L, const std::string& action)
 static bool modifiersHeldFor(const std::string& binding) {
     if (binding.empty() || binding == "NONE") return false;
     bool wantShift = false, wantCtrl = false, wantAlt = false;
+    std::string wantButton;
     size_t at = 0;
     while (at <= binding.size()) {
         const size_t dash = binding.find('-', at);
@@ -1214,10 +1215,26 @@ static bool modifiersHeldFor(const std::string& binding) {
         if (part == "SHIFT") wantShift = true;
         else if (part == "CTRL") wantCtrl = true;
         else if (part == "ALT") wantAlt = true;
+        // A binding names a button as often as it names a modifier, and the
+        // two named actions on the same modifier are told apart by nothing
+        // else: CHATLINK is SHIFT-BUTTON1 and SOCKETITEM is SHIFT-BUTTON2.
+        // Reading only the modifier made both true on any shift-click, so
+        // shift-clicking an item in a bag put the link in chat and opened the
+        // socketing window behind it — or, when the link could not be
+        // inserted, only the socketing window.
+        else if (part == "BUTTON1") wantButton = "LeftButton";
+        else if (part == "BUTTON2") wantButton = "RightButton";
         if (dash == std::string::npos) break;
         at = dash + 1;
     }
     if (!wantShift && !wantCtrl && !wantAlt) return false;
+    if (!wantButton.empty()) {
+        // Only while a click is being dispatched. Asked at any other moment —
+        // an OnUpdate deciding what a tooltip should say — the modifier alone
+        // is the whole of the question, and the button has not been pressed.
+        const std::string& clicking = currentClickButton();
+        if (!clicking.empty() && clicking != wantButton) return false;
+    }
     return (!wantShift || shiftHeld()) && (!wantCtrl || ctrlHeld()) &&
            (!wantAlt || altHeld());
 }

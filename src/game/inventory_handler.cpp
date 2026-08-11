@@ -1989,7 +1989,18 @@ void InventoryHandler::fireBagUpdates() {
     // Every bag, because the callers that reach here know the inventory changed
     // without always knowing which bag it was, and an interface that redraws a
     // bag it did not need to is cheaper than one that never redraws at all.
-    for (int bag = 0; bag <= 4; ++bag) fire("BAG_UPDATE", {std::to_string(bag)});
+    //
+    // Every bag means the seven bank bags as well. The interface numbers them
+    // straight after the four worn ones — NUM_BAG_SLOTS + 1 upward — and each
+    // bank bag's frame redraws from BAG_UPDATE carrying its own number, exactly
+    // as a worn bag's does. Stopping at four left them out, so an item moved
+    // into or out of a purchased bank bag sat on screen where it had been until
+    // the bank was closed and reopened. The bank's own twenty-eight slots are
+    // not here: they are player fields rather than a container, and they are
+    // told through PLAYERBANKSLOTS_CHANGED.
+    constexpr int kLastWornBag = game::Inventory::NUM_BAG_SLOTS;          // 1..4
+    constexpr int kLastBankBag = kLastWornBag + game::slots::kBankBagCount;  // 5..11
+    for (int bag = 0; bag <= kLastBankBag; ++bag) fire("BAG_UPDATE", {std::to_string(bag)});
     // The character sheet redraws from this one rather than from BAG_UPDATE, so
     // both go out together — equipping something changes a bag and a slot.
     fire("UNIT_INVENTORY_CHANGED", {"player"});

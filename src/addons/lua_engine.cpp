@@ -9348,6 +9348,16 @@ void LuaEngine::dispatchMouse(float x, float y, float screenH, MouseButtons butt
                     draggingButton_ = -1;
                 }
 
+                // Which button this is, for the whole of the dispatch below:
+                // a modified-click binding names a button as well as a
+                // modifier, and IsModifiedClick has no other way to know.
+                struct ClickButtonScope {
+                    explicit ClickButtonScope(const char* name) {
+                        wowee::addons::currentClickButton() = name ? name : "";
+                    }
+                    ~ClickButtonScope() { wowee::addons::currentClickButton().clear(); }
+                } clickButtonScope{b.name};
+
                 const bool takesIt = frameAcceptsClick(pressedWid_[i], b.name);
                 // Resolved the same way the press was, or a press on a bar and
                 // a release on the same bar would compare an ancestor against a

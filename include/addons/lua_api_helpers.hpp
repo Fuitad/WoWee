@@ -94,6 +94,19 @@ struct CursorItemSlot {
     int slot = 0;    ///< 1-based within the bag, or the equipment slot
     bool equipped = false;
 };
+/// Which mouse button the click being dispatched right now belongs to —
+/// "LeftButton", "RightButton", or empty between clicks.
+///
+/// A modified-click binding names a button as well as a modifier:
+/// SOCKETITEM is SHIFT-BUTTON2 where CHATLINK is SHIFT-BUTTON1. Answering
+/// IsModifiedClick from the modifier alone made every shift-click a socket
+/// click as well as a link click, so shift-clicking an item in a bag opened
+/// the socketing window.
+inline std::string& currentClickButton() {
+    static std::string button;
+    return button;
+}
+
 inline CursorItemSlot& cursorItemSlot() {
     static CursorItemSlot held;
     return held;
