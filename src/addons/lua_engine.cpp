@@ -753,7 +753,11 @@ int lua_Region_GetTextHeight(lua_State* L) {
     // drew, and FrameXML sizes panels from it — a quest description or an
     // options paragraph asked how tall it was, was told twelve, and the frame
     // around it was built to fit one line of the several on screen.
-    const float line = (w->fontHeight > 0.0f) ? w->fontHeight : 12.0f;
+    // The size it is actually drawn at, which is what interfaceFontSize
+    // answers. Three places asked this question with three different
+    // fallbacks — twelve here, twelve below, fourteen in the edit box — and a
+    // label with no declared height is drawn at none of them.
+    const float line = wowee::ui::interfaceFontSize(w->fontHeight);
     const int lines = (w->wrappedLines > 0) ? w->wrappedLines : 1;
     lua_pushnumber(L, line * 1.2 * lines);
     return 1;
@@ -3130,7 +3134,7 @@ int lua_FontString_SetFont(lua_State* L) {
 int lua_FontString_GetFont(lua_State* L) {
     const auto* w = widgetOf(L, 1);
     lua_pushstring(L, "Fonts\\FRIZQT__.TTF");
-    lua_pushnumber(L, w && w->fontHeight > 0.0f ? w->fontHeight : 12.0);
+    lua_pushnumber(L, wowee::ui::interfaceFontSize(w ? w->fontHeight : 0.0f));
     lua_pushstring(L, "");
     return 3;
 }
@@ -7801,7 +7805,7 @@ void LuaEngine::fireCursorChanged(uint32_t wid) {
     for (size_t i = 0; i < upTo; ++i) {
         if (w->editText[i] == '\n') ++line;
     }
-    const double lineH = (w->fontHeight > 0.0f) ? w->fontHeight : 14.0;
+    const double lineH = wowee::ui::interfaceFontSize(w->fontHeight);
     callFrameScript4Numbers(wid, "OnCursorChanged", 0.0,
                             -static_cast<double>(line) * lineH, 0.0, lineH);
 }

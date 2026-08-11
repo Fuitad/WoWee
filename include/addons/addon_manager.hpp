@@ -27,6 +27,8 @@ public:
     /// Interface Options, built from the schema. Runs after FrameXML, because
     /// InterfaceOptions_AddCategory is FrameXML's.
     void registerWoweeOptionsPanel();
+    /// Move the coin amounts off the coins they are drawn against.
+    void giveCoinAmountsClearance();
 
     bool loadFrameXml(const std::string& frameXmlDir);
     /// Where FrameXML lives, remembered at scan time so the loader can find it.

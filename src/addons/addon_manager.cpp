@@ -346,6 +346,7 @@ void AddonManager::loadAllAddons() {
         // it is overwritten when the real one loads, and registering against the
         // stub would put the panel nowhere.
         registerWoweeOptionsPanel();
+        giveCoinAmountsClearance();
         // Said once, after the interface is up: anything neither handed over
         // nor hidden is about to be on screen twice.
         ui::frameXmlReportUnaccountedElements();
@@ -514,6 +515,62 @@ end
 )LUA";
     if (!luaEngine_.executeString(kPanelScript)) {
         LOG_WARNING("Wowee options panel did not register: ", luaEngine_.lastError());
+    }
+}
+
+void AddonManager::giveCoinAmountsClearance() {
+    // Move the coin amounts off the coins.
+    //
+    // MoneyFrame_Update anchors each amount so its right edge is exactly the
+    // left edge of that denomination's coin — SetPoint("RIGHT", -iconWidth) —
+    // which leaves no room at all. On screen the numbers are drawn over the
+    // coins; in every measurement that can be taken here they are not, and the
+    // rects are right down to the tenth of a unit: the gold amount ends at
+    // 723.4 and its coin starts at 723.4, the next button begins four units
+    // after the previous one ends.
+    //
+    // So this is clearance rather than a diagnosis, and it is worth saying so:
+    // a few units of room costs nothing and fixes what is actually on screen,
+    // where knowing exactly why has cost a great deal and has not.
+    //
+    // Hooked rather than edited into MoneyFrame.lua, so the interface's own
+    // file stays Blizzard's and this stays visible as ours.
+    static const char* kScript = R"LUA(
+local kClearance = 4
+
+local function nudge(frameName)
+    for _, coin in ipairs({"Gold", "Silver", "Copper"}) do
+        local text = _G[frameName .. coin .. "ButtonText"]
+        local button = _G[frameName .. coin .. "Button"]
+        if text and button then
+            -- Anchored to the button's right, less the coin's width and this
+            -- much again. The button is widened to match so the three do not
+            -- shuffle into each other.
+            local icon = button:GetNormalTexture()
+            local iconWidth = (icon and icon:GetWidth()) or 0
+            if iconWidth > 0 then
+                text:ClearAllPoints()
+                text:SetPoint("RIGHT", button, "RIGHT", -(iconWidth + kClearance), 0)
+                button:SetWidth(button:GetWidth() + kClearance)
+            end
+        end
+    end
+end
+
+local original = MoneyFrame_Update
+if type(original) == "function" then
+    MoneyFrame_Update = function(frameName, money, ...)
+        original(frameName, money, ...)
+        -- The frame may be named or handed over as a table, as the original
+        -- accepts both.
+        local name = frameName
+        if type(name) == "table" then name = name:GetName() end
+        if name then nudge(name) end
+    end
+end
+)LUA";
+    if (!luaEngine_.executeString(kScript)) {
+        LOG_WARNING("Coin amount clearance did not apply: ", luaEngine_.lastError());
     }
 }
 
