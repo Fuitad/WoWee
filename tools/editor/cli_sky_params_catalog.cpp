@@ -23,15 +23,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweeSkyParams& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeSkyParamsLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wskp\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeSkyParams& c,
                      const std::string& base) {
@@ -46,7 +37,7 @@ int handleGenStormwind(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wskp");
     auto c = wowee::pipeline::WoweeSkyParamsLoader::makeStormwindDay(name);
-    if (!saveOrError(c, base, "gen-skp")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSkyParamsLoader>(c, base, "gen-skp", ".wskp")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -57,7 +48,7 @@ int handleGenArctic(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wskp");
     auto c = wowee::pipeline::WoweeSkyParamsLoader::makeNorthrendArctic(name);
-    if (!saveOrError(c, base, "gen-skp-arctic")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSkyParamsLoader>(c, base, "gen-skp-arctic", ".wskp")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -68,7 +59,7 @@ int handleGenHellfire(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wskp");
     auto c = wowee::pipeline::WoweeSkyParamsLoader::makeOutlandHellfire(name);
-    if (!saveOrError(c, base, "gen-skp-hellfire")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSkyParamsLoader>(c, base, "gen-skp-hellfire", ".wskp")) return 1;
     printGenSummary(c, base);
     return 0;
 }

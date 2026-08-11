@@ -67,15 +67,6 @@ const char* populationName(uint8_t p) {
     }
 }
 
-bool saveOrError(const wowee::pipeline::WoweeRealmList& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeRealmListLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wmsp\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeRealmList& c,
                      const std::string& base) {
@@ -90,7 +81,7 @@ int handleGenSingle(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wmsp");
     auto c = wowee::pipeline::WoweeRealmListLoader::makeSingleRealm(name);
-    if (!saveOrError(c, base, "gen-msp")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeRealmListLoader>(c, base, "gen-msp", ".wmsp")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -101,7 +92,7 @@ int handleGenCluster(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wmsp");
     auto c = wowee::pipeline::WoweeRealmListLoader::makePvPCluster(name);
-    if (!saveOrError(c, base, "gen-msp-cluster")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeRealmListLoader>(c, base, "gen-msp-cluster", ".wmsp")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -112,7 +103,7 @@ int handleGenMultiExp(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wmsp");
     auto c = wowee::pipeline::WoweeRealmListLoader::makeMultiExpansion(name);
-    if (!saveOrError(c, base, "gen-msp-multi")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeRealmListLoader>(c, base, "gen-msp-multi", ".wmsp")) return 1;
     printGenSummary(c, base);
     return 0;
 }

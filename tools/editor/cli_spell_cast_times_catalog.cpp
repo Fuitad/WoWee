@@ -21,15 +21,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweeSpellCastTime& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeSpellCastTimeLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wsct\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeSpellCastTime& c,
                      const std::string& base) {
@@ -44,7 +35,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wsct");
     auto c = wowee::pipeline::WoweeSpellCastTimeLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-sct")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellCastTimeLoader>(c, base, "gen-sct", ".wsct")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -55,7 +46,7 @@ int handleGenChannel(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wsct");
     auto c = wowee::pipeline::WoweeSpellCastTimeLoader::makeChannel(name);
-    if (!saveOrError(c, base, "gen-sct-channel")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellCastTimeLoader>(c, base, "gen-sct-channel", ".wsct")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -66,7 +57,7 @@ int handleGenRamp(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wsct");
     auto c = wowee::pipeline::WoweeSpellCastTimeLoader::makeRamp(name);
-    if (!saveOrError(c, base, "gen-sct-ramp")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellCastTimeLoader>(c, base, "gen-sct-ramp", ".wsct")) return 1;
     printGenSummary(c, base);
     return 0;
 }

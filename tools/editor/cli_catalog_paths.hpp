@@ -12,6 +12,7 @@
  * wrong for any extension that is not four letters.
  */
 
+#include <cstdio>
 #include <string>
 
 namespace wowee {
@@ -41,6 +42,20 @@ inline std::string baseFromJsonPath(std::string path, const std::string& extensi
         return path;
     }
     return withoutExt(withoutExt(std::move(path), ".json"), extension);
+}
+
+/// Save a catalog, or say on stderr which command failed and to what path.
+///
+/// Every one of the 139 format handlers defined this as a file-local function
+/// with its own types and its own extension baked into the message. The
+/// extension is the only thing that varied, and it is derivable — a catalog is
+/// always written to "<base><extension>".
+template <typename Loader, typename Catalog>
+bool saveOrError(const Catalog& cat, const std::string& base, const char* cmd,
+                 const char* extension) {
+    if (Loader::save(cat, base)) return true;
+    std::fprintf(stderr, "%s: failed to save %s%s\n", cmd, base.c_str(), extension);
+    return false;
 }
 
 }  // namespace cli

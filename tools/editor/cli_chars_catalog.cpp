@@ -20,15 +20,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweeChars& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeCharsLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wchc\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeChars& c,
                      const std::string& base) {
@@ -44,7 +35,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wchc");
     auto c = wowee::pipeline::WoweeCharsLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-chars")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCharsLoader>(c, base, "gen-chars", ".wchc")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -55,7 +46,7 @@ int handleGenAlliance(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wchc");
     auto c = wowee::pipeline::WoweeCharsLoader::makeAlliance(name);
-    if (!saveOrError(c, base, "gen-chars-alliance")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCharsLoader>(c, base, "gen-chars-alliance", ".wchc")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -66,7 +57,7 @@ int handleGenAllRaces(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wchc");
     auto c = wowee::pipeline::WoweeCharsLoader::makeAllRaces(name);
-    if (!saveOrError(c, base, "gen-chars-allraces")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCharsLoader>(c, base, "gen-chars-allraces", ".wchc")) return 1;
     printGenSummary(c, base);
     return 0;
 }

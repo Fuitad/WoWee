@@ -20,15 +20,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweeSpellMechanic& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeSpellMechanicLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wsmc\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeSpellMechanic& c,
                      const std::string& base) {
@@ -43,7 +34,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wsmc");
     auto c = wowee::pipeline::WoweeSpellMechanicLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-smc")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellMechanicLoader>(c, base, "gen-smc", ".wsmc")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -54,7 +45,7 @@ int handleGenHardCC(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wsmc");
     auto c = wowee::pipeline::WoweeSpellMechanicLoader::makeHardCC(name);
-    if (!saveOrError(c, base, "gen-smc-hard")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellMechanicLoader>(c, base, "gen-smc-hard", ".wsmc")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -65,7 +56,7 @@ int handleGenRoots(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wsmc");
     auto c = wowee::pipeline::WoweeSpellMechanicLoader::makeRoots(name);
-    if (!saveOrError(c, base, "gen-smc-roots")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellMechanicLoader>(c, base, "gen-smc-roots", ".wsmc")) return 1;
     printGenSummary(c, base);
     return 0;
 }

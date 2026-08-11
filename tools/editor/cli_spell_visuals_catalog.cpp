@@ -20,15 +20,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweeSpellVisualKit& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeSpellVisualKitLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wsvk\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeSpellVisualKit& c,
                      const std::string& base) {
@@ -43,7 +34,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wsvk");
     auto c = wowee::pipeline::WoweeSpellVisualKitLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-svk")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellVisualKitLoader>(c, base, "gen-svk", ".wsvk")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -54,7 +45,7 @@ int handleGenCombat(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wsvk");
     auto c = wowee::pipeline::WoweeSpellVisualKitLoader::makeCombat(name);
-    if (!saveOrError(c, base, "gen-svk-combat")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellVisualKitLoader>(c, base, "gen-svk-combat", ".wsvk")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -65,7 +56,7 @@ int handleGenUtility(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wsvk");
     auto c = wowee::pipeline::WoweeSpellVisualKitLoader::makeUtility(name);
-    if (!saveOrError(c, base, "gen-svk-utility")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellVisualKitLoader>(c, base, "gen-svk-utility", ".wsvk")) return 1;
     printGenSummary(c, base);
     return 0;
 }

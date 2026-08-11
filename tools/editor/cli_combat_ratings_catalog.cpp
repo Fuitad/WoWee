@@ -20,15 +20,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweeCombatRating& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeCombatRatingLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wcrr\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeCombatRating& c,
                      const std::string& base) {
@@ -43,7 +34,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wcrr");
     auto c = wowee::pipeline::WoweeCombatRatingLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-crr")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCombatRatingLoader>(c, base, "gen-crr", ".wcrr")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -54,7 +45,7 @@ int handleGenDefensive(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wcrr");
     auto c = wowee::pipeline::WoweeCombatRatingLoader::makeDefensive(name);
-    if (!saveOrError(c, base, "gen-crr-defensive")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCombatRatingLoader>(c, base, "gen-crr-defensive", ".wcrr")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -65,7 +56,7 @@ int handleGenSpell(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wcrr");
     auto c = wowee::pipeline::WoweeCombatRatingLoader::makeSpell(name);
-    if (!saveOrError(c, base, "gen-crr-spell")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCombatRatingLoader>(c, base, "gen-crr-spell", ".wcrr")) return 1;
     printGenSummary(c, base);
     return 0;
 }

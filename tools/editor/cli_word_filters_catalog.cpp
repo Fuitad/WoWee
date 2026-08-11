@@ -46,15 +46,6 @@ const char* severityName(uint8_t s) {
     }
 }
 
-bool saveOrError(const wowee::pipeline::WoweeWordFilters& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeWordFiltersLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wwfl\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeWordFilters& c,
                      const std::string& base) {
@@ -69,7 +60,7 @@ int handleGenSpam(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wwfl");
     auto c = wowee::pipeline::WoweeWordFiltersLoader::makeSpamRMT(name);
-    if (!saveOrError(c, base, "gen-wfl")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeWordFiltersLoader>(c, base, "gen-wfl", ".wwfl")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -80,7 +71,7 @@ int handleGenCaps(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wwfl");
     auto c = wowee::pipeline::WoweeWordFiltersLoader::makeAllCaps(name);
-    if (!saveOrError(c, base, "gen-wfl-caps")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeWordFiltersLoader>(c, base, "gen-wfl-caps", ".wwfl")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -91,7 +82,7 @@ int handleGenURL(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wwfl");
     auto c = wowee::pipeline::WoweeWordFiltersLoader::makeURLDetect(name);
-    if (!saveOrError(c, base, "gen-wfl-url")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeWordFiltersLoader>(c, base, "gen-wfl-url", ".wwfl")) return 1;
     printGenSummary(c, base);
     return 0;
 }

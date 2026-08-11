@@ -20,15 +20,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweeStableSlot& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeStableSlotLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wstc\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeStableSlot& c,
                      const std::string& base) {
@@ -43,7 +34,7 @@ int handleGenStandard(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wstc");
     auto c = wowee::pipeline::WoweeStableSlotLoader::makeStandard(name);
-    if (!saveOrError(c, base, "gen-stc")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeStableSlotLoader>(c, base, "gen-stc", ".wstc")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -54,7 +45,7 @@ int handleGenCata(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wstc");
     auto c = wowee::pipeline::WoweeStableSlotLoader::makeCata(name);
-    if (!saveOrError(c, base, "gen-stc-cata")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeStableSlotLoader>(c, base, "gen-stc-cata", ".wstc")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -65,7 +56,7 @@ int handleGenPremium(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wstc");
     auto c = wowee::pipeline::WoweeStableSlotLoader::makePremium(name);
-    if (!saveOrError(c, base, "gen-stc-premium")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeStableSlotLoader>(c, base, "gen-stc-premium", ".wstc")) return 1;
     printGenSummary(c, base);
     return 0;
 }

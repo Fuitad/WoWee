@@ -21,15 +21,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweeBagSlot& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeBagSlotLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wbnk\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeBagSlot& c,
                      const std::string& base) {
@@ -44,7 +35,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wbnk");
     auto c = wowee::pipeline::WoweeBagSlotLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-bnk")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeBagSlotLoader>(c, base, "gen-bnk", ".wbnk")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -55,7 +46,7 @@ int handleGenBank(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wbnk");
     auto c = wowee::pipeline::WoweeBagSlotLoader::makeBank(name);
-    if (!saveOrError(c, base, "gen-bnk-bank")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeBagSlotLoader>(c, base, "gen-bnk-bank", ".wbnk")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -66,7 +57,7 @@ int handleGenSpecial(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wbnk");
     auto c = wowee::pipeline::WoweeBagSlotLoader::makeSpecial(name);
-    if (!saveOrError(c, base, "gen-bnk-special")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeBagSlotLoader>(c, base, "gen-bnk-special", ".wbnk")) return 1;
     printGenSummary(c, base);
     return 0;
 }

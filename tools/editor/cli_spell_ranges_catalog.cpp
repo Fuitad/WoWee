@@ -21,15 +21,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweeSpellRange& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeSpellRangeLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wsrg\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeSpellRange& c,
                      const std::string& base) {
@@ -44,7 +35,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wsrg");
     auto c = wowee::pipeline::WoweeSpellRangeLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-srg")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellRangeLoader>(c, base, "gen-srg", ".wsrg")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -55,7 +46,7 @@ int handleGenRanged(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wsrg");
     auto c = wowee::pipeline::WoweeSpellRangeLoader::makeRanged(name);
-    if (!saveOrError(c, base, "gen-srg-ranged")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellRangeLoader>(c, base, "gen-srg-ranged", ".wsrg")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -66,7 +57,7 @@ int handleGenFriendly(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wsrg");
     auto c = wowee::pipeline::WoweeSpellRangeLoader::makeFriendly(name);
-    if (!saveOrError(c, base, "gen-srg-friendly")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellRangeLoader>(c, base, "gen-srg-friendly", ".wsrg")) return 1;
     printGenSummary(c, base);
     return 0;
 }

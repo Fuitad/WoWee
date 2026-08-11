@@ -20,15 +20,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweeItemQuality& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeItemQualityLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wiqr\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeItemQuality& c,
                      const std::string& base) {
@@ -43,7 +34,7 @@ int handleGenStandard(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wiqr");
     auto c = wowee::pipeline::WoweeItemQualityLoader::makeStandard(name);
-    if (!saveOrError(c, base, "gen-iqr")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeItemQualityLoader>(c, base, "gen-iqr", ".wiqr")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -54,7 +45,7 @@ int handleGenServerCustom(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wiqr");
     auto c = wowee::pipeline::WoweeItemQualityLoader::makeServerCustom(name);
-    if (!saveOrError(c, base, "gen-iqr-server")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeItemQualityLoader>(c, base, "gen-iqr-server", ".wiqr")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -65,7 +56,7 @@ int handleGenRaidTiers(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wiqr");
     auto c = wowee::pipeline::WoweeItemQualityLoader::makeRaidTiers(name);
-    if (!saveOrError(c, base, "gen-iqr-raid")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeItemQualityLoader>(c, base, "gen-iqr-raid", ".wiqr")) return 1;
     printGenSummary(c, base);
     return 0;
 }

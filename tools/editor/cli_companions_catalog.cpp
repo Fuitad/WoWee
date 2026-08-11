@@ -20,15 +20,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweeCompanion& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeCompanionLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wcmp\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeCompanion& c,
                      const std::string& base) {
@@ -43,7 +34,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wcmp");
     auto c = wowee::pipeline::WoweeCompanionLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-cmp")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCompanionLoader>(c, base, "gen-cmp", ".wcmp")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -54,7 +45,7 @@ int handleGenRare(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wcmp");
     auto c = wowee::pipeline::WoweeCompanionLoader::makeRare(name);
-    if (!saveOrError(c, base, "gen-cmp-rare")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCompanionLoader>(c, base, "gen-cmp-rare", ".wcmp")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -65,7 +56,7 @@ int handleGenFaction(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wcmp");
     auto c = wowee::pipeline::WoweeCompanionLoader::makeFaction(name);
-    if (!saveOrError(c, base, "gen-cmp-faction")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCompanionLoader>(c, base, "gen-cmp-faction", ".wcmp")) return 1;
     printGenSummary(c, base);
     return 0;
 }

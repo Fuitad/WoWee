@@ -33,15 +33,6 @@ const char* factionAccessName(uint8_t f) {
     }
 }
 
-bool saveOrError(const wowee::pipeline::WoweeAuctionHouses& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeAuctionHousesLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wauh\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeAuctionHouses& c,
                      const std::string& base) {
@@ -57,7 +48,7 @@ int handleGenStormwind(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wauh");
     auto c = wowee::pipeline::WoweeAuctionHousesLoader::
         makeStormwindAH(name);
-    if (!saveOrError(c, base, "gen-auh-stormwind")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeAuctionHousesLoader>(c, base, "gen-auh-stormwind", ".wauh")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -69,7 +60,7 @@ int handleGenOrgrimmar(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wauh");
     auto c = wowee::pipeline::WoweeAuctionHousesLoader::
         makeOrgrimmarAH(name);
-    if (!saveOrError(c, base, "gen-auh-orgrimmar")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeAuctionHousesLoader>(c, base, "gen-auh-orgrimmar", ".wauh")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -81,7 +72,7 @@ int handleGenBootyBay(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wauh");
     auto c = wowee::pipeline::WoweeAuctionHousesLoader::
         makeBootyBayAH(name);
-    if (!saveOrError(c, base, "gen-auh-bootybay")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeAuctionHousesLoader>(c, base, "gen-auh-bootybay", ".wauh")) return 1;
     printGenSummary(c, base);
     return 0;
 }

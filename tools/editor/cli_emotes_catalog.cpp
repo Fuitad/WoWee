@@ -53,15 +53,6 @@ const char* ttsHintName(uint8_t h) {
     }
 }
 
-bool saveOrError(const wowee::pipeline::WoweeEmotes& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeEmotesLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wemo\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeEmotes& c,
                      const std::string& base) {
@@ -76,7 +67,7 @@ int handleGenBasic(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wemo");
     auto c = wowee::pipeline::WoweeEmotesLoader::makeBasic(name);
-    if (!saveOrError(c, base, "gen-emo")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeEmotesLoader>(c, base, "gen-emo", ".wemo")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -87,7 +78,7 @@ int handleGenCombat(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wemo");
     auto c = wowee::pipeline::WoweeEmotesLoader::makeCombat(name);
-    if (!saveOrError(c, base, "gen-emo-combat")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeEmotesLoader>(c, base, "gen-emo-combat", ".wemo")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -98,7 +89,7 @@ int handleGenRolePlay(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wemo");
     auto c = wowee::pipeline::WoweeEmotesLoader::makeRolePlay(name);
-    if (!saveOrError(c, base, "gen-emo-rp")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeEmotesLoader>(c, base, "gen-emo-rp", ".wemo")) return 1;
     printGenSummary(c, base);
     return 0;
 }

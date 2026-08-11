@@ -41,15 +41,6 @@ const char* portalKindName(uint8_t k) {
     }
 }
 
-bool saveOrError(const wowee::pipeline::WoweeMagePortals& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeMagePortalsLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wprt\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeMagePortals& c,
                      const std::string& base) {
@@ -65,7 +56,7 @@ int handleGenAlliance(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wprt");
     auto c = wowee::pipeline::WoweeMagePortalsLoader::
         makeAllianceCities(name);
-    if (!saveOrError(c, base, "gen-prt-alliance")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeMagePortalsLoader>(c, base, "gen-prt-alliance", ".wprt")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -77,7 +68,7 @@ int handleGenHorde(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wprt");
     auto c = wowee::pipeline::WoweeMagePortalsLoader::
         makeHordeCities(name);
-    if (!saveOrError(c, base, "gen-prt-horde")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeMagePortalsLoader>(c, base, "gen-prt-horde", ".wprt")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -89,7 +80,7 @@ int handleGenTeleports(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wprt");
     auto c = wowee::pipeline::WoweeMagePortalsLoader::
         makeTeleports(name);
-    if (!saveOrError(c, base, "gen-prt-teleports")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeMagePortalsLoader>(c, base, "gen-prt-teleports", ".wprt")) return 1;
     printGenSummary(c, base);
     return 0;
 }

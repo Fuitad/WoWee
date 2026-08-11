@@ -47,15 +47,6 @@ std::string ccImmunityString(uint16_t mask) {
     return out.empty() ? "none" : out;
 }
 
-bool saveOrError(const wowee::pipeline::WoweeCreatureResists& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeCreatureResistsLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wcre\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeCreatureResists& c,
                      const std::string& base) {
@@ -70,7 +61,7 @@ int handleGenBosses(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wcre");
     auto c = wowee::pipeline::WoweeCreatureResistsLoader::makeRaidBosses(name);
-    if (!saveOrError(c, base, "gen-cre")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCreatureResistsLoader>(c, base, "gen-cre", ".wcre")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -81,7 +72,7 @@ int handleGenElites(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wcre");
     auto c = wowee::pipeline::WoweeCreatureResistsLoader::makeElites(name);
-    if (!saveOrError(c, base, "gen-cre-elites")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCreatureResistsLoader>(c, base, "gen-cre-elites", ".wcre")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -92,7 +83,7 @@ int handleGenImmunities(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wcre");
     auto c = wowee::pipeline::WoweeCreatureResistsLoader::makeImmunities(name);
-    if (!saveOrError(c, base, "gen-cre-immune")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCreatureResistsLoader>(c, base, "gen-cre-immune", ".wcre")) return 1;
     printGenSummary(c, base);
     return 0;
 }

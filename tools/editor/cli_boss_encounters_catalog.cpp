@@ -20,15 +20,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweeBossEncounter& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeBossEncounterLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wbos\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeBossEncounter& c,
                      const std::string& base) {
@@ -43,7 +34,7 @@ int handleGenFiveMan(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wbos");
     auto c = wowee::pipeline::WoweeBossEncounterLoader::makeFiveMan(name);
-    if (!saveOrError(c, base, "gen-bos")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeBossEncounterLoader>(c, base, "gen-bos", ".wbos")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -54,7 +45,7 @@ int handleGenRaid10(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wbos");
     auto c = wowee::pipeline::WoweeBossEncounterLoader::makeRaid10(name);
-    if (!saveOrError(c, base, "gen-bos-raid10")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeBossEncounterLoader>(c, base, "gen-bos-raid10", ".wbos")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -65,7 +56,7 @@ int handleGenWorldBoss(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wbos");
     auto c = wowee::pipeline::WoweeBossEncounterLoader::makeWorldBoss(name);
-    if (!saveOrError(c, base, "gen-bos-world")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeBossEncounterLoader>(c, base, "gen-bos-world", ".wbos")) return 1;
     printGenSummary(c, base);
     return 0;
 }

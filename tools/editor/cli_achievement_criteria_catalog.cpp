@@ -21,15 +21,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweeAchievementCriteria& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeAchievementCriteriaLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wacr\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeAchievementCriteria& c,
                      const std::string& base) {
@@ -44,7 +35,7 @@ int handleGenKill(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wacr");
     auto c = wowee::pipeline::WoweeAchievementCriteriaLoader::makeKill(name);
-    if (!saveOrError(c, base, "gen-acr")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeAchievementCriteriaLoader>(c, base, "gen-acr", ".wacr")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -55,7 +46,7 @@ int handleGenQuest(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wacr");
     auto c = wowee::pipeline::WoweeAchievementCriteriaLoader::makeQuest(name);
-    if (!saveOrError(c, base, "gen-acr-quest")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeAchievementCriteriaLoader>(c, base, "gen-acr-quest", ".wacr")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -66,7 +57,7 @@ int handleGenMixed(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wacr");
     auto c = wowee::pipeline::WoweeAchievementCriteriaLoader::makeMixed(name);
-    if (!saveOrError(c, base, "gen-acr-mixed")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeAchievementCriteriaLoader>(c, base, "gen-acr-mixed", ".wacr")) return 1;
     printGenSummary(c, base);
     return 0;
 }

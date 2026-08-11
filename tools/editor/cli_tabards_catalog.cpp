@@ -44,15 +44,6 @@ const char* borderPatternName(uint8_t p) {
     }
 }
 
-bool saveOrError(const wowee::pipeline::WoweeTabards& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeTabardsLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wtbd\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeTabards& c,
                      const std::string& base) {
@@ -67,7 +58,7 @@ int handleGenAlliance(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wtbd");
     auto c = wowee::pipeline::WoweeTabardsLoader::makeAllianceClassic(name);
-    if (!saveOrError(c, base, "gen-tbd")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeTabardsLoader>(c, base, "gen-tbd", ".wtbd")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -78,7 +69,7 @@ int handleGenHorde(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wtbd");
     auto c = wowee::pipeline::WoweeTabardsLoader::makeHordeClassic(name);
-    if (!saveOrError(c, base, "gen-tbd-horde")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeTabardsLoader>(c, base, "gen-tbd-horde", ".wtbd")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -89,7 +80,7 @@ int handleGenFaction(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wtbd");
     auto c = wowee::pipeline::WoweeTabardsLoader::makeFactionVendor(name);
-    if (!saveOrError(c, base, "gen-tbd-faction")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeTabardsLoader>(c, base, "gen-tbd-faction", ".wtbd")) return 1;
     printGenSummary(c, base);
     return 0;
 }

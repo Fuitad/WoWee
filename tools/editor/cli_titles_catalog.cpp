@@ -20,15 +20,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweeTitle& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeTitleLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wtit\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeTitle& c,
                      const std::string& base) {
@@ -43,7 +34,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wtit");
     auto c = wowee::pipeline::WoweeTitleLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-titles")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeTitleLoader>(c, base, "gen-titles", ".wtit")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -54,7 +45,7 @@ int handleGenPvp(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wtit");
     auto c = wowee::pipeline::WoweeTitleLoader::makePvp(name);
-    if (!saveOrError(c, base, "gen-titles-pvp")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeTitleLoader>(c, base, "gen-titles-pvp", ".wtit")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -65,7 +56,7 @@ int handleGenAchievement(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wtit");
     auto c = wowee::pipeline::WoweeTitleLoader::makeAchievement(name);
-    if (!saveOrError(c, base, "gen-titles-achievement")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeTitleLoader>(c, base, "gen-titles-achievement", ".wtit")) return 1;
     printGenSummary(c, base);
     return 0;
 }

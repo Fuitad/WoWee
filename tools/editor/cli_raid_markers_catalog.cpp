@@ -33,15 +33,6 @@ const char* markerKindName(uint8_t k) {
     }
 }
 
-bool saveOrError(const wowee::pipeline::WoweeRaidMarkers& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeRaidMarkersLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wmar\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeRaidMarkers& c,
                      const std::string& base) {
@@ -56,7 +47,7 @@ int handleGenRaid(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wmar");
     auto c = wowee::pipeline::WoweeRaidMarkersLoader::makeRaidTargets(name);
-    if (!saveOrError(c, base, "gen-mar")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeRaidMarkersLoader>(c, base, "gen-mar", ".wmar")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -67,7 +58,7 @@ int handleGenWorld(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wmar");
     auto c = wowee::pipeline::WoweeRaidMarkersLoader::makeWorldMapPins(name);
-    if (!saveOrError(c, base, "gen-mar-world")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeRaidMarkersLoader>(c, base, "gen-mar-world", ".wmar")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -78,7 +69,7 @@ int handleGenParty(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wmar");
     auto c = wowee::pipeline::WoweeRaidMarkersLoader::makeParty(name);
-    if (!saveOrError(c, base, "gen-mar-party")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeRaidMarkersLoader>(c, base, "gen-mar-party", ".wmar")) return 1;
     printGenSummary(c, base);
     return 0;
 }

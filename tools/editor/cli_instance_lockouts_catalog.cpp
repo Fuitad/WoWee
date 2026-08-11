@@ -21,15 +21,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweeInstanceLockout& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeInstanceLockoutLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.whld\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeInstanceLockout& c,
                      const std::string& base) {
@@ -44,7 +35,7 @@ int handleGenRaidWeekly(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".whld");
     auto c = wowee::pipeline::WoweeInstanceLockoutLoader::makeRaidWeekly(name);
-    if (!saveOrError(c, base, "gen-hld")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeInstanceLockoutLoader>(c, base, "gen-hld", ".whld")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -55,7 +46,7 @@ int handleGenDungeonDaily(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".whld");
     auto c = wowee::pipeline::WoweeInstanceLockoutLoader::makeDungeonDaily(name);
-    if (!saveOrError(c, base, "gen-hld-dungeon")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeInstanceLockoutLoader>(c, base, "gen-hld-dungeon", ".whld")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -66,7 +57,7 @@ int handleGenWorldEvent(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".whld");
     auto c = wowee::pipeline::WoweeInstanceLockoutLoader::makeWorldEvent(name);
-    if (!saveOrError(c, base, "gen-hld-event")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeInstanceLockoutLoader>(c, base, "gen-hld-event", ".whld")) return 1;
     printGenSummary(c, base);
     return 0;
 }

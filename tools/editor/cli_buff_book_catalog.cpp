@@ -54,15 +54,6 @@ std::string targetMaskString(uint8_t m) {
     return out;
 }
 
-bool saveOrError(const wowee::pipeline::WoweeBuffBook& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeBuffBookLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wbab\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeBuffBook& c,
                      const std::string& base) {
@@ -77,7 +68,7 @@ int handleGenMage(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wbab");
     auto c = wowee::pipeline::WoweeBuffBookLoader::makeMage(name);
-    if (!saveOrError(c, base, "gen-bab")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeBuffBookLoader>(c, base, "gen-bab", ".wbab")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -88,7 +79,7 @@ int handleGenDruid(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wbab");
     auto c = wowee::pipeline::WoweeBuffBookLoader::makeDruid(name);
-    if (!saveOrError(c, base, "gen-bab-druid")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeBuffBookLoader>(c, base, "gen-bab-druid", ".wbab")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -99,7 +90,7 @@ int handleGenRaidMax(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wbab");
     auto c = wowee::pipeline::WoweeBuffBookLoader::makeRaidMax(name);
-    if (!saveOrError(c, base, "gen-bab-raid")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeBuffBookLoader>(c, base, "gen-bab-raid", ".wbab")) return 1;
     printGenSummary(c, base);
     return 0;
 }

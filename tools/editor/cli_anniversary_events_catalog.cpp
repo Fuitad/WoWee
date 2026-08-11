@@ -54,16 +54,6 @@ const char* weekdayName(uint8_t d) {
     return d <= 6 ? kDays[d] : "?";
 }
 
-bool saveOrError(const wowee::pipeline::WoweeAnniversaryEvents& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeAnniversaryEventsLoader::save(
-            c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wanv\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeAnniversaryEvents& c,
                      const std::string& base) {
@@ -79,7 +69,7 @@ int handleGenHolidays(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wanv");
     auto c = wowee::pipeline::WoweeAnniversaryEventsLoader::
         makeStandardHolidays(name);
-    if (!saveOrError(c, base, "gen-anv")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeAnniversaryEventsLoader>(c, base, "gen-anv", ".wanv")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -91,7 +81,7 @@ int handleGenBonus(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wanv");
     auto c = wowee::pipeline::WoweeAnniversaryEventsLoader::
         makeBonusEvents(name);
-    if (!saveOrError(c, base, "gen-anv-bonus")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeAnniversaryEventsLoader>(c, base, "gen-anv-bonus", ".wanv")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -103,7 +93,7 @@ int handleGenAnniversary(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wanv");
     auto c = wowee::pipeline::WoweeAnniversaryEventsLoader::
         makeAnniversary(name);
-    if (!saveOrError(c, base, "gen-anv-launch")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeAnniversaryEventsLoader>(c, base, "gen-anv-launch", ".wanv")) return 1;
     printGenSummary(c, base);
     return 0;
 }

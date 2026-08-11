@@ -45,15 +45,6 @@ const char* evadeBehaviorName(uint8_t e) {
     }
 }
 
-bool saveOrError(const wowee::pipeline::WoweeCreatureBehavior& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeCreatureBehaviorLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wbhv\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeCreatureBehavior& c,
                      const std::string& base) {
@@ -69,7 +60,7 @@ int handleGenMelee(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wbhv");
     auto c = wowee::pipeline::WoweeCreatureBehaviorLoader::
         makeMeleeBehaviors(name);
-    if (!saveOrError(c, base, "gen-bhv-melee")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCreatureBehaviorLoader>(c, base, "gen-bhv-melee", ".wbhv")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -81,7 +72,7 @@ int handleGenCaster(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wbhv");
     auto c = wowee::pipeline::WoweeCreatureBehaviorLoader::
         makeCasterBehaviors(name);
-    if (!saveOrError(c, base, "gen-bhv-caster")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCreatureBehaviorLoader>(c, base, "gen-bhv-caster", ".wbhv")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -93,7 +84,7 @@ int handleGenBoss(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wbhv");
     auto c = wowee::pipeline::WoweeCreatureBehaviorLoader::
         makeBossBehaviors(name);
-    if (!saveOrError(c, base, "gen-bhv-boss")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCreatureBehaviorLoader>(c, base, "gen-bhv-boss", ".wbhv")) return 1;
     printGenSummary(c, base);
     return 0;
 }

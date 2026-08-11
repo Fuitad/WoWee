@@ -21,15 +21,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweeSpellDuration& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeSpellDurationLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wsdr\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeSpellDuration& c,
                      const std::string& base) {
@@ -44,7 +35,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wsdr");
     auto c = wowee::pipeline::WoweeSpellDurationLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-sdr")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellDurationLoader>(c, base, "gen-sdr", ".wsdr")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -55,7 +46,7 @@ int handleGenBuffs(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wsdr");
     auto c = wowee::pipeline::WoweeSpellDurationLoader::makeBuffs(name);
-    if (!saveOrError(c, base, "gen-sdr-buffs")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellDurationLoader>(c, base, "gen-sdr-buffs", ".wsdr")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -66,7 +57,7 @@ int handleGenDot(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wsdr");
     auto c = wowee::pipeline::WoweeSpellDurationLoader::makeDot(name);
-    if (!saveOrError(c, base, "gen-sdr-dot")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellDurationLoader>(c, base, "gen-sdr-dot", ".wsdr")) return 1;
     printGenSummary(c, base);
     return 0;
 }

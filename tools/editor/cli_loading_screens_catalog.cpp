@@ -20,15 +20,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweeLoadingScreen& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeLoadingScreenLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wlds\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeLoadingScreen& c,
                      const std::string& base) {
@@ -43,7 +34,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wlds");
     auto c = wowee::pipeline::WoweeLoadingScreenLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-lds")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeLoadingScreenLoader>(c, base, "gen-lds", ".wlds")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -54,7 +45,7 @@ int handleGenInstances(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wlds");
     auto c = wowee::pipeline::WoweeLoadingScreenLoader::makeInstances(name);
-    if (!saveOrError(c, base, "gen-lds-instances")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeLoadingScreenLoader>(c, base, "gen-lds-instances", ".wlds")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -65,7 +56,7 @@ int handleGenRaidIntros(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wlds");
     auto c = wowee::pipeline::WoweeLoadingScreenLoader::makeRaidIntros(name);
-    if (!saveOrError(c, base, "gen-lds-raid")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeLoadingScreenLoader>(c, base, "gen-lds-raid", ".wlds")) return 1;
     printGenSummary(c, base);
     return 0;
 }

@@ -20,15 +20,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweeGuild& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeGuildLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wgld\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeGuild& c,
                      const std::string& base) {
@@ -43,7 +34,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wgld");
     auto c = wowee::pipeline::WoweeGuildLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-guilds")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeGuildLoader>(c, base, "gen-guilds", ".wgld")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -54,7 +45,7 @@ int handleGenFull(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wgld");
     auto c = wowee::pipeline::WoweeGuildLoader::makeFull(name);
-    if (!saveOrError(c, base, "gen-guilds-full")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeGuildLoader>(c, base, "gen-guilds-full", ".wgld")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -65,7 +56,7 @@ int handleGenFactionPair(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wgld");
     auto c = wowee::pipeline::WoweeGuildLoader::makeFactionPair(name);
-    if (!saveOrError(c, base, "gen-guilds-pair")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeGuildLoader>(c, base, "gen-guilds-pair", ".wgld")) return 1;
     printGenSummary(c, base);
     return 0;
 }

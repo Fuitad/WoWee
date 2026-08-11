@@ -35,15 +35,6 @@ void appendSpellFlagsStr(std::string& s, uint32_t flags) {
     else if (s.back() == ' ') s.pop_back();
 }
 
-bool saveOrError(const wowee::pipeline::WoweeSpell& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeSpellLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wspl\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeSpell& c,
                      const std::string& base) {
@@ -58,7 +49,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wspl");
     auto c = wowee::pipeline::WoweeSpellLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-spells")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellLoader>(c, base, "gen-spells", ".wspl")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -69,7 +60,7 @@ int handleGenMage(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wspl");
     auto c = wowee::pipeline::WoweeSpellLoader::makeMage(name);
-    if (!saveOrError(c, base, "gen-spells-mage")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellLoader>(c, base, "gen-spells-mage", ".wspl")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -80,7 +71,7 @@ int handleGenWarrior(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wspl");
     auto c = wowee::pipeline::WoweeSpellLoader::makeWarrior(name);
-    if (!saveOrError(c, base, "gen-spells-warrior")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellLoader>(c, base, "gen-spells-warrior", ".wspl")) return 1;
     printGenSummary(c, base);
     return 0;
 }

@@ -20,15 +20,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweeGroupComposition& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeGroupCompositionLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wgrp\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeGroupComposition& c,
                      const std::string& base) {
@@ -43,7 +34,7 @@ int handleGenFiveMan(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wgrp");
     auto c = wowee::pipeline::WoweeGroupCompositionLoader::makeFiveMan(name);
-    if (!saveOrError(c, base, "gen-grp")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeGroupCompositionLoader>(c, base, "gen-grp", ".wgrp")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -54,7 +45,7 @@ int handleGenRaid10(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wgrp");
     auto c = wowee::pipeline::WoweeGroupCompositionLoader::makeRaid10(name);
-    if (!saveOrError(c, base, "gen-grp-raid10")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeGroupCompositionLoader>(c, base, "gen-grp-raid10", ".wgrp")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -65,7 +56,7 @@ int handleGenRaid25(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wgrp");
     auto c = wowee::pipeline::WoweeGroupCompositionLoader::makeRaid25(name);
-    if (!saveOrError(c, base, "gen-grp-raid25")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeGroupCompositionLoader>(c, base, "gen-grp-raid25", ".wgrp")) return 1;
     printGenSummary(c, base);
     return 0;
 }

@@ -73,15 +73,6 @@ std::string activeValueString(
     }
 }
 
-bool saveOrError(const wowee::pipeline::WoweeServerConfig& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeServerConfigLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wcfg\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeServerConfig& c,
                      const std::string& base) {
@@ -96,7 +87,7 @@ int handleGenRates(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wcfg");
     auto c = wowee::pipeline::WoweeServerConfigLoader::makeRates(name);
-    if (!saveOrError(c, base, "gen-cfg")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeServerConfigLoader>(c, base, "gen-cfg", ".wcfg")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -107,7 +98,7 @@ int handleGenPerf(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wcfg");
     auto c = wowee::pipeline::WoweeServerConfigLoader::makePerformance(name);
-    if (!saveOrError(c, base, "gen-cfg-perf")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeServerConfigLoader>(c, base, "gen-cfg-perf", ".wcfg")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -118,7 +109,7 @@ int handleGenSecurity(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wcfg");
     auto c = wowee::pipeline::WoweeServerConfigLoader::makeSecurity(name);
-    if (!saveOrError(c, base, "gen-cfg-sec")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeServerConfigLoader>(c, base, "gen-cfg-sec", ".wcfg")) return 1;
     printGenSummary(c, base);
     return 0;
 }

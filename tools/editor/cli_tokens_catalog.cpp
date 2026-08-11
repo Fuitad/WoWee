@@ -30,15 +30,6 @@ void appendTknFlagsStr(std::string& s, uint32_t flags) {
     else if (s.back() == ' ') s.pop_back();
 }
 
-bool saveOrError(const wowee::pipeline::WoweeToken& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeTokenLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wtkn\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeToken& c,
                      const std::string& base) {
@@ -53,7 +44,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wtkn");
     auto c = wowee::pipeline::WoweeTokenLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-tokens")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeTokenLoader>(c, base, "gen-tokens", ".wtkn")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -64,7 +55,7 @@ int handleGenPvp(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wtkn");
     auto c = wowee::pipeline::WoweeTokenLoader::makePvp(name);
-    if (!saveOrError(c, base, "gen-tokens-pvp")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeTokenLoader>(c, base, "gen-tokens-pvp", ".wtkn")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -75,7 +66,7 @@ int handleGenSeasonal(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wtkn");
     auto c = wowee::pipeline::WoweeTokenLoader::makeSeasonal(name);
-    if (!saveOrError(c, base, "gen-tokens-seasonal")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeTokenLoader>(c, base, "gen-tokens-seasonal", ".wtkn")) return 1;
     printGenSummary(c, base);
     return 0;
 }

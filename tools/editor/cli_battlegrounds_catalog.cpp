@@ -20,15 +20,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweeBattleground& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeBattlegroundLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wbgd\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeBattleground& c,
                      const std::string& base) {
@@ -43,7 +34,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wbgd");
     auto c = wowee::pipeline::WoweeBattlegroundLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-bg")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeBattlegroundLoader>(c, base, "gen-bg", ".wbgd")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -54,7 +45,7 @@ int handleGenClassic(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wbgd");
     auto c = wowee::pipeline::WoweeBattlegroundLoader::makeClassic(name);
-    if (!saveOrError(c, base, "gen-bg-classic")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeBattlegroundLoader>(c, base, "gen-bg-classic", ".wbgd")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -65,7 +56,7 @@ int handleGenArena(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wbgd");
     auto c = wowee::pipeline::WoweeBattlegroundLoader::makeArena(name);
-    if (!saveOrError(c, base, "gen-bg-arena")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeBattlegroundLoader>(c, base, "gen-bg-arena", ".wbgd")) return 1;
     printGenSummary(c, base);
     return 0;
 }

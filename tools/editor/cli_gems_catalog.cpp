@@ -20,15 +20,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweeGem& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeGemLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wgem\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeGem& c,
                      const std::string& base) {
@@ -44,7 +35,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wgem");
     auto c = wowee::pipeline::WoweeGemLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-gems")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeGemLoader>(c, base, "gen-gems", ".wgem")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -55,7 +46,7 @@ int handleGenGemSet(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wgem");
     auto c = wowee::pipeline::WoweeGemLoader::makeGemSet(name);
-    if (!saveOrError(c, base, "gen-gems-set")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeGemLoader>(c, base, "gen-gems-set", ".wgem")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -66,7 +57,7 @@ int handleGenEnchants(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wgem");
     auto c = wowee::pipeline::WoweeGemLoader::makeEnchants(name);
-    if (!saveOrError(c, base, "gen-gems-enchants")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeGemLoader>(c, base, "gen-gems-enchants", ".wgem")) return 1;
     printGenSummary(c, base);
     return 0;
 }

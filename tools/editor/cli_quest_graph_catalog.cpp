@@ -47,15 +47,6 @@ const char* factionAccessName(uint8_t f) {
     }
 }
 
-bool saveOrError(const wowee::pipeline::WoweeQuestGraph& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeQuestGraphLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wqgr\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeQuestGraph& c,
                      const std::string& base) {
@@ -71,7 +62,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wqgr");
     auto c = wowee::pipeline::WoweeQuestGraphLoader::
         makeStarterChain(name);
-    if (!saveOrError(c, base, "gen-qgr-starter")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeQuestGraphLoader>(c, base, "gen-qgr-starter", ".wqgr")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -83,7 +74,7 @@ int handleGenBranched(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wqgr");
     auto c = wowee::pipeline::WoweeQuestGraphLoader::
         makeBranchedChain(name);
-    if (!saveOrError(c, base, "gen-qgr-branched")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeQuestGraphLoader>(c, base, "gen-qgr-branched", ".wqgr")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -95,7 +86,7 @@ int handleGenDailies(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wqgr");
     auto c = wowee::pipeline::WoweeQuestGraphLoader::
         makeDailies(name);
-    if (!saveOrError(c, base, "gen-qgr-dailies")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeQuestGraphLoader>(c, base, "gen-qgr-dailies", ".wqgr")) return 1;
     printGenSummary(c, base);
     return 0;
 }

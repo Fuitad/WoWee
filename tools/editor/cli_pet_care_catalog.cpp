@@ -39,15 +39,6 @@ const char* actionKindName(uint8_t k) {
     }
 }
 
-bool saveOrError(const wowee::pipeline::WoweePetCare& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweePetCareLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wpcr\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweePetCare& c,
                      const std::string& base) {
@@ -62,7 +53,7 @@ int handleGenHunter(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wpcr");
     auto c = wowee::pipeline::WoweePetCareLoader::makeHunterCare(name);
-    if (!saveOrError(c, base, "gen-pcr")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweePetCareLoader>(c, base, "gen-pcr", ".wpcr")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -73,7 +64,7 @@ int handleGenStable(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wpcr");
     auto c = wowee::pipeline::WoweePetCareLoader::makeStableActions(name);
-    if (!saveOrError(c, base, "gen-pcr-stable")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweePetCareLoader>(c, base, "gen-pcr-stable", ".wpcr")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -84,7 +75,7 @@ int handleGenWarlock(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wpcr");
     auto c = wowee::pipeline::WoweePetCareLoader::makeWarlockMinions(name);
-    if (!saveOrError(c, base, "gen-pcr-warlock")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweePetCareLoader>(c, base, "gen-pcr-warlock", ".wpcr")) return 1;
     printGenSummary(c, base);
     return 0;
 }

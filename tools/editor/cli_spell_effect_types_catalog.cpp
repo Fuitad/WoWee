@@ -21,15 +21,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweeSpellEffectType& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeSpellEffectTypeLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wsef\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeSpellEffectType& c,
                      const std::string& base) {
@@ -44,7 +35,7 @@ int handleGenDamage(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wsef");
     auto c = wowee::pipeline::WoweeSpellEffectTypeLoader::makeDamage(name);
-    if (!saveOrError(c, base, "gen-sef")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellEffectTypeLoader>(c, base, "gen-sef", ".wsef")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -55,7 +46,7 @@ int handleGenHealing(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wsef");
     auto c = wowee::pipeline::WoweeSpellEffectTypeLoader::makeHealing(name);
-    if (!saveOrError(c, base, "gen-sef-healing")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellEffectTypeLoader>(c, base, "gen-sef-healing", ".wsef")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -66,7 +57,7 @@ int handleGenAura(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wsef");
     auto c = wowee::pipeline::WoweeSpellEffectTypeLoader::makeAura(name);
-    if (!saveOrError(c, base, "gen-sef-aura")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellEffectTypeLoader>(c, base, "gen-sef-aura", ".wsef")) return 1;
     printGenSummary(c, base);
     return 0;
 }

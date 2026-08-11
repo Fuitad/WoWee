@@ -23,15 +23,6 @@ std::string stripWomxExt(std::string base) {
     return base;
 }
 
-bool saveOrError(const wowee::pipeline::WoweeWorldMap& m,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeWorldMapLoader::save(m, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.womx\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeWorldMap& m,
                      const std::string& base) {
@@ -51,7 +42,7 @@ int handleGenContinent(int& i, int argc, char** argv) {
     if (i + 1 < argc && argv[i + 1][0] != '-') mapName = argv[++i];
     base = stripWomxExt(base);
     auto m = wowee::pipeline::WoweeWorldMapLoader::makeContinent(mapName);
-    if (!saveOrError(m, base, "gen-world-map")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeWorldMapLoader>(m, base, "gen-world-map", ".womx")) return 1;
     printGenSummary(m, base);
     return 0;
 }
@@ -62,7 +53,7 @@ int handleGenInstance(int& i, int argc, char** argv) {
     if (i + 1 < argc && argv[i + 1][0] != '-') mapName = argv[++i];
     base = stripWomxExt(base);
     auto m = wowee::pipeline::WoweeWorldMapLoader::makeInstance(mapName);
-    if (!saveOrError(m, base, "gen-world-map-instance")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeWorldMapLoader>(m, base, "gen-world-map-instance", ".womx")) return 1;
     printGenSummary(m, base);
     return 0;
 }
@@ -73,7 +64,7 @@ int handleGenArena(int& i, int argc, char** argv) {
     if (i + 1 < argc && argv[i + 1][0] != '-') mapName = argv[++i];
     base = stripWomxExt(base);
     auto m = wowee::pipeline::WoweeWorldMapLoader::makeArena(mapName);
-    if (!saveOrError(m, base, "gen-world-map-arena")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeWorldMapLoader>(m, base, "gen-world-map-arena", ".womx")) return 1;
     printGenSummary(m, base);
     return 0;
 }

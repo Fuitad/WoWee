@@ -21,15 +21,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweeSkillCost& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeSkillCostLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wscs\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeSkillCost& c,
                      const std::string& base) {
@@ -44,7 +35,7 @@ int handleGenProfession(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wscs");
     auto c = wowee::pipeline::WoweeSkillCostLoader::makeProfession(name);
-    if (!saveOrError(c, base, "gen-scs")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSkillCostLoader>(c, base, "gen-scs", ".wscs")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -55,7 +46,7 @@ int handleGenWeapon(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wscs");
     auto c = wowee::pipeline::WoweeSkillCostLoader::makeWeapon(name);
-    if (!saveOrError(c, base, "gen-scs-weapon")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSkillCostLoader>(c, base, "gen-scs-weapon", ".wscs")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -66,7 +57,7 @@ int handleGenRiding(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wscs");
     auto c = wowee::pipeline::WoweeSkillCostLoader::makeRiding(name);
-    if (!saveOrError(c, base, "gen-scs-riding")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSkillCostLoader>(c, base, "gen-scs-riding", ".wscs")) return 1;
     printGenSummary(c, base);
     return 0;
 }

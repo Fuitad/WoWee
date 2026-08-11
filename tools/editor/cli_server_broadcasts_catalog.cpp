@@ -42,15 +42,6 @@ const char* factionFilterName(uint8_t f) {
     }
 }
 
-bool saveOrError(const wowee::pipeline::WoweeServerBroadcasts& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeServerBroadcastsLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wscb\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeServerBroadcasts& c,
                      const std::string& base) {
@@ -65,7 +56,7 @@ int handleGenMotd(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wscb");
     auto c = wowee::pipeline::WoweeServerBroadcastsLoader::makeMotd(name);
-    if (!saveOrError(c, base, "gen-scb")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeServerBroadcastsLoader>(c, base, "gen-scb", ".wscb")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -76,7 +67,7 @@ int handleGenMaintenance(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wscb");
     auto c = wowee::pipeline::WoweeServerBroadcastsLoader::makeMaintenance(name);
-    if (!saveOrError(c, base, "gen-scb-maintenance")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeServerBroadcastsLoader>(c, base, "gen-scb-maintenance", ".wscb")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -87,7 +78,7 @@ int handleGenHelpTips(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wscb");
     auto c = wowee::pipeline::WoweeServerBroadcastsLoader::makeHelpTips(name);
-    if (!saveOrError(c, base, "gen-scb-helptips")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeServerBroadcastsLoader>(c, base, "gen-scb-helptips", ".wscb")) return 1;
     printGenSummary(c, base);
     return 0;
 }

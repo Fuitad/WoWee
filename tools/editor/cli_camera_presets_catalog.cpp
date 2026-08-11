@@ -35,15 +35,6 @@ const char* purposeKindName(uint8_t k) {
     }
 }
 
-bool saveOrError(const wowee::pipeline::WoweeCameraPresets& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeCameraPresetsLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wcam\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeCameraPresets& c,
                      const std::string& base) {
@@ -59,7 +50,7 @@ int handleGenCombat(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wcam");
     auto c = wowee::pipeline::WoweeCameraPresetsLoader::
         makeCombatPresets(name);
-    if (!saveOrError(c, base, "gen-cam-combat")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCameraPresetsLoader>(c, base, "gen-cam-combat", ".wcam")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -71,7 +62,7 @@ int handleGenMounted(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wcam");
     auto c = wowee::pipeline::WoweeCameraPresetsLoader::
         makeMountedPresets(name);
-    if (!saveOrError(c, base, "gen-cam-mounted")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCameraPresetsLoader>(c, base, "gen-cam-mounted", ".wcam")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -83,7 +74,7 @@ int handleGenCinematic(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wcam");
     auto c = wowee::pipeline::WoweeCameraPresetsLoader::
         makeCinematicPresets(name);
-    if (!saveOrError(c, base, "gen-cam-cinematic")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCameraPresetsLoader>(c, base, "gen-cam-cinematic", ".wcam")) return 1;
     printGenSummary(c, base);
     return 0;
 }

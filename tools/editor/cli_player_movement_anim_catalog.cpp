@@ -57,15 +57,6 @@ const char* genderName(uint8_t g) {
     return g == 0 ? "M" : (g == 1 ? "F" : "?");
 }
 
-bool saveOrError(const wowee::pipeline::WoweePlayerMovementAnim& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweePlayerMovementAnimLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wphm\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweePlayerMovementAnim& c,
                      const std::string& base) {
@@ -81,7 +72,7 @@ int handleGenHuman(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wphm");
     auto c = wowee::pipeline::WoweePlayerMovementAnimLoader::
         makeHumanMovement(name);
-    if (!saveOrError(c, base, "gen-phm-human")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweePlayerMovementAnimLoader>(c, base, "gen-phm-human", ".wphm")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -93,7 +84,7 @@ int handleGenOrc(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wphm");
     auto c = wowee::pipeline::WoweePlayerMovementAnimLoader::
         makeOrcMovement(name);
-    if (!saveOrError(c, base, "gen-phm-orc")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweePlayerMovementAnimLoader>(c, base, "gen-phm-orc", ".wphm")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -105,7 +96,7 @@ int handleGenUndead(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wphm");
     auto c = wowee::pipeline::WoweePlayerMovementAnimLoader::
         makeUndeadMovement(name);
-    if (!saveOrError(c, base, "gen-phm-undead")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweePlayerMovementAnimLoader>(c, base, "gen-phm-undead", ".wphm")) return 1;
     printGenSummary(c, base);
     return 0;
 }

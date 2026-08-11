@@ -21,15 +21,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweeLoot& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeLootLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wlot\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 uint32_t totalDrops(const wowee::pipeline::WoweeLoot& c) {
     uint32_t n = 0;
@@ -51,7 +42,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wlot");
     auto c = wowee::pipeline::WoweeLootLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-loot")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeLootLoader>(c, base, "gen-loot", ".wlot")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -62,7 +53,7 @@ int handleGenBandit(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wlot");
     auto c = wowee::pipeline::WoweeLootLoader::makeBandit(name);
-    if (!saveOrError(c, base, "gen-loot-bandit")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeLootLoader>(c, base, "gen-loot-bandit", ".wlot")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -73,7 +64,7 @@ int handleGenBoss(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wlot");
     auto c = wowee::pipeline::WoweeLootLoader::makeBoss(name);
-    if (!saveOrError(c, base, "gen-loot-boss")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeLootLoader>(c, base, "gen-loot-boss", ".wlot")) return 1;
     printGenSummary(c, base);
     return 0;
 }

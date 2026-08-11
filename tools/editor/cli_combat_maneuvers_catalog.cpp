@@ -34,15 +34,6 @@ const char* categoryKindName(uint8_t k) {
     }
 }
 
-bool saveOrError(const wowee::pipeline::WoweeCombatManeuvers& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeCombatManeuversLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wcmg\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeCombatManeuvers& c,
                      const std::string& base) {
@@ -60,7 +51,7 @@ int handleGenWarrior(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wcmg");
     auto c = wowee::pipeline::WoweeCombatManeuversLoader::makeWarrior(name);
-    if (!saveOrError(c, base, "gen-cmg")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCombatManeuversLoader>(c, base, "gen-cmg", ".wcmg")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -71,7 +62,7 @@ int handleGenDruid(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wcmg");
     auto c = wowee::pipeline::WoweeCombatManeuversLoader::makeDruid(name);
-    if (!saveOrError(c, base, "gen-cmg-druid")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCombatManeuversLoader>(c, base, "gen-cmg-druid", ".wcmg")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -82,7 +73,7 @@ int handleGenAllMutex(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wcmg");
     auto c = wowee::pipeline::WoweeCombatManeuversLoader::makeAllMutex(name);
-    if (!saveOrError(c, base, "gen-cmg-all")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCombatManeuversLoader>(c, base, "gen-cmg-all", ".wcmg")) return 1;
     printGenSummary(c, base);
     return 0;
 }

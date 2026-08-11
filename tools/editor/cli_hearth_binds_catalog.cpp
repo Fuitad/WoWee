@@ -43,15 +43,6 @@ const char* factionMaskName(uint8_t f) {
     }
 }
 
-bool saveOrError(const wowee::pipeline::WoweeHearthBinds& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeHearthBindsLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.whrt\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeHearthBinds& c,
                      const std::string& base) {
@@ -66,7 +57,7 @@ int handleGenStarterCities(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".whrt");
     auto c = wowee::pipeline::WoweeHearthBindsLoader::makeStarterCities(name);
-    if (!saveOrError(c, base, "gen-hrt")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeHearthBindsLoader>(c, base, "gen-hrt", ".whrt")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -77,7 +68,7 @@ int handleGenCapitals(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".whrt");
     auto c = wowee::pipeline::WoweeHearthBindsLoader::makeCapitals(name);
-    if (!saveOrError(c, base, "gen-hrt-capitals")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeHearthBindsLoader>(c, base, "gen-hrt-capitals", ".whrt")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -88,7 +79,7 @@ int handleGenStarterInns(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".whrt");
     auto c = wowee::pipeline::WoweeHearthBindsLoader::makeStarterInns(name);
-    if (!saveOrError(c, base, "gen-hrt-inns")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeHearthBindsLoader>(c, base, "gen-hrt-inns", ".whrt")) return 1;
     printGenSummary(c, base);
     return 0;
 }

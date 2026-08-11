@@ -20,15 +20,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweeSpellSchool& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeSpellSchoolLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wsch\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeSpellSchool& c,
                      const std::string& base) {
@@ -43,7 +34,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wsch");
     auto c = wowee::pipeline::WoweeSpellSchoolLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-sch")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellSchoolLoader>(c, base, "gen-sch", ".wsch")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -54,7 +45,7 @@ int handleGenMagical(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wsch");
     auto c = wowee::pipeline::WoweeSpellSchoolLoader::makeMagical(name);
-    if (!saveOrError(c, base, "gen-sch-magical")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellSchoolLoader>(c, base, "gen-sch-magical", ".wsch")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -65,7 +56,7 @@ int handleGenCombined(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wsch");
     auto c = wowee::pipeline::WoweeSpellSchoolLoader::makeCombined(name);
-    if (!saveOrError(c, base, "gen-sch-combined")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellSchoolLoader>(c, base, "gen-sch-combined", ".wsch")) return 1;
     printGenSummary(c, base);
     return 0;
 }

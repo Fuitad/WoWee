@@ -39,15 +39,6 @@ const char* classIdName(uint8_t c) {
     }
 }
 
-bool saveOrError(const wowee::pipeline::WoweeCombatStats& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeCombatStatsLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wcst\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeCombatStats& c,
                      const std::string& base) {
@@ -63,7 +54,7 @@ int handleGenWarrior(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wcst");
     auto c = wowee::pipeline::WoweeCombatStatsLoader::
         makeWarriorStats(name);
-    if (!saveOrError(c, base, "gen-cst-warrior")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCombatStatsLoader>(c, base, "gen-cst-warrior", ".wcst")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -75,7 +66,7 @@ int handleGenMage(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wcst");
     auto c = wowee::pipeline::WoweeCombatStatsLoader::
         makeMageStats(name);
-    if (!saveOrError(c, base, "gen-cst-mage")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCombatStatsLoader>(c, base, "gen-cst-mage", ".wcst")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -87,7 +78,7 @@ int handleGenStarting(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wcst");
     auto c = wowee::pipeline::WoweeCombatStatsLoader::
         makeStartingLevels(name);
-    if (!saveOrError(c, base, "gen-cst-starting")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCombatStatsLoader>(c, base, "gen-cst-starting", ".wcst")) return 1;
     printGenSummary(c, base);
     return 0;
 }

@@ -20,15 +20,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweePlayerSpawnProfile& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweePlayerSpawnProfileLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wpsp\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweePlayerSpawnProfile& c,
                      const std::string& base) {
@@ -43,7 +34,7 @@ int handleGenAlliance(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wpsp");
     auto c = wowee::pipeline::WoweePlayerSpawnProfileLoader::makeAlliance(name);
-    if (!saveOrError(c, base, "gen-psp")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweePlayerSpawnProfileLoader>(c, base, "gen-psp", ".wpsp")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -54,7 +45,7 @@ int handleGenHorde(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wpsp");
     auto c = wowee::pipeline::WoweePlayerSpawnProfileLoader::makeHorde(name);
-    if (!saveOrError(c, base, "gen-psp-horde")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweePlayerSpawnProfileLoader>(c, base, "gen-psp-horde", ".wpsp")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -65,7 +56,7 @@ int handleGenDeathKnight(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wpsp");
     auto c = wowee::pipeline::WoweePlayerSpawnProfileLoader::makeDeathKnight(name);
-    if (!saveOrError(c, base, "gen-psp-dk")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweePlayerSpawnProfileLoader>(c, base, "gen-psp-dk", ".wpsp")) return 1;
     printGenSummary(c, base);
     return 0;
 }

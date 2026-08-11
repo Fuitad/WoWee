@@ -20,15 +20,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweeAnimation& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeAnimationLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wani\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeAnimation& c,
                      const std::string& base) {
@@ -43,7 +34,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wani");
     auto c = wowee::pipeline::WoweeAnimationLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-animations")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeAnimationLoader>(c, base, "gen-animations", ".wani")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -54,7 +45,7 @@ int handleGenCombat(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wani");
     auto c = wowee::pipeline::WoweeAnimationLoader::makeCombat(name);
-    if (!saveOrError(c, base, "gen-animations-combat")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeAnimationLoader>(c, base, "gen-animations-combat", ".wani")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -65,7 +56,7 @@ int handleGenMovement(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wani");
     auto c = wowee::pipeline::WoweeAnimationLoader::makeMovement(name);
-    if (!saveOrError(c, base, "gen-animations-movement")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeAnimationLoader>(c, base, "gen-animations-movement", ".wani")) return 1;
     printGenSummary(c, base);
     return 0;
 }

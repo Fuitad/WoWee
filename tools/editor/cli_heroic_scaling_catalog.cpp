@@ -21,15 +21,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweeHeroicScaling& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeHeroicScalingLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.whrd\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeHeroicScaling& c,
                      const std::string& base) {
@@ -44,7 +35,7 @@ int handleGen5man(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".whrd");
     auto c = wowee::pipeline::WoweeHeroicScalingLoader::makeWotLK5manHeroic(name);
-    if (!saveOrError(c, base, "gen-hrd")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeHeroicScalingLoader>(c, base, "gen-hrd", ".whrd")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -55,7 +46,7 @@ int handleGenRaid25(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".whrd");
     auto c = wowee::pipeline::WoweeHeroicScalingLoader::makeRaid25Heroic(name);
-    if (!saveOrError(c, base, "gen-hrd-raid25")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeHeroicScalingLoader>(c, base, "gen-hrd-raid25", ".whrd")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -66,7 +57,7 @@ int handleGenChallenge(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".whrd");
     auto c = wowee::pipeline::WoweeHeroicScalingLoader::makeChallengeMode(name);
-    if (!saveOrError(c, base, "gen-hrd-cm")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeHeroicScalingLoader>(c, base, "gen-hrd-cm", ".whrd")) return 1;
     printGenSummary(c, base);
     return 0;
 }

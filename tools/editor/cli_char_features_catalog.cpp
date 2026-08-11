@@ -21,15 +21,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweeCharFeature& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeCharFeatureLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wchf\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeCharFeature& c,
                      const std::string& base) {
@@ -44,7 +35,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wchf");
     auto c = wowee::pipeline::WoweeCharFeatureLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-chf")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCharFeatureLoader>(c, base, "gen-chf", ".wchf")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -55,7 +46,7 @@ int handleGenBloodElf(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wchf");
     auto c = wowee::pipeline::WoweeCharFeatureLoader::makeBloodElfFemale(name);
-    if (!saveOrError(c, base, "gen-chf-bloodelf")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCharFeatureLoader>(c, base, "gen-chf-bloodelf", ".wchf")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -66,7 +57,7 @@ int handleGenTauren(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wchf");
     auto c = wowee::pipeline::WoweeCharFeatureLoader::makeTauren(name);
-    if (!saveOrError(c, base, "gen-chf-tauren")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCharFeatureLoader>(c, base, "gen-chf-tauren", ".wchf")) return 1;
     printGenSummary(c, base);
     return 0;
 }

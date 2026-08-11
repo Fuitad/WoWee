@@ -55,15 +55,6 @@ const char* namespaceName(uint8_t n) {
     }
 }
 
-bool saveOrError(const wowee::pipeline::WoweeLocalization& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeLocalizationLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wlan\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeLocalization& c,
                      const std::string& base) {
@@ -78,7 +69,7 @@ int handleGenUI(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wlan");
     auto c = wowee::pipeline::WoweeLocalizationLoader::makeUIBasics(name);
-    if (!saveOrError(c, base, "gen-lan")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeLocalizationLoader>(c, base, "gen-lan", ".wlan")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -89,7 +80,7 @@ int handleGenQuest(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wlan");
     auto c = wowee::pipeline::WoweeLocalizationLoader::makeQuestSample(name);
-    if (!saveOrError(c, base, "gen-lan-quest")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeLocalizationLoader>(c, base, "gen-lan-quest", ".wlan")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -100,7 +91,7 @@ int handleGenTooltip(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wlan");
     auto c = wowee::pipeline::WoweeLocalizationLoader::makeTooltipSet(name);
-    if (!saveOrError(c, base, "gen-lan-tooltip")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeLocalizationLoader>(c, base, "gen-lan-tooltip", ".wlan")) return 1;
     printGenSummary(c, base);
     return 0;
 }

@@ -20,15 +20,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweeLiquid& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeLiquidLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wliq\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeLiquid& c,
                      const std::string& base) {
@@ -43,7 +34,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wliq");
     auto c = wowee::pipeline::WoweeLiquidLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-liquids")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeLiquidLoader>(c, base, "gen-liquids", ".wliq")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -54,7 +45,7 @@ int handleGenMagical(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wliq");
     auto c = wowee::pipeline::WoweeLiquidLoader::makeMagical(name);
-    if (!saveOrError(c, base, "gen-liquids-magical")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeLiquidLoader>(c, base, "gen-liquids-magical", ".wliq")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -65,7 +56,7 @@ int handleGenHazardous(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wliq");
     auto c = wowee::pipeline::WoweeLiquidLoader::makeHazardous(name);
-    if (!saveOrError(c, base, "gen-liquids-hazardous")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeLiquidLoader>(c, base, "gen-liquids-hazardous", ".wliq")) return 1;
     printGenSummary(c, base);
     return 0;
 }

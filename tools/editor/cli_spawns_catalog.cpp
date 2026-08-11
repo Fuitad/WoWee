@@ -21,15 +21,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweeSpawns& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeSpawnsLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wspn\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeSpawns& c,
                      const std::string& base) {
@@ -48,7 +39,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wspn");
     auto c = wowee::pipeline::WoweeSpawnsLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-spawns")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpawnsLoader>(c, base, "gen-spawns", ".wspn")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -59,7 +50,7 @@ int handleGenCamp(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wspn");
     auto c = wowee::pipeline::WoweeSpawnsLoader::makeCamp(name);
-    if (!saveOrError(c, base, "gen-spawns-camp")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpawnsLoader>(c, base, "gen-spawns-camp", ".wspn")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -70,7 +61,7 @@ int handleGenVillage(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wspn");
     auto c = wowee::pipeline::WoweeSpawnsLoader::makeVillage(name);
-    if (!saveOrError(c, base, "gen-spawns-village")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpawnsLoader>(c, base, "gen-spawns-village", ".wspn")) return 1;
     printGenSummary(c, base);
     return 0;
 }

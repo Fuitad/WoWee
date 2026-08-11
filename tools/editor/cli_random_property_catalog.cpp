@@ -21,15 +21,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweeRandomProperty& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeRandomPropertyLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wirc\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeRandomProperty& c,
                      const std::string& base) {
@@ -45,7 +36,7 @@ int handleGenBear(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wirc");
     auto c = wowee::pipeline::WoweeRandomPropertyLoader::
         makeOfTheBear(name);
-    if (!saveOrError(c, base, "gen-irc-bear")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeRandomPropertyLoader>(c, base, "gen-irc-bear", ".wirc")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -57,7 +48,7 @@ int handleGenEagle(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wirc");
     auto c = wowee::pipeline::WoweeRandomPropertyLoader::
         makeOfTheEagle(name);
-    if (!saveOrError(c, base, "gen-irc-eagle")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeRandomPropertyLoader>(c, base, "gen-irc-eagle", ".wirc")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -69,7 +60,7 @@ int handleGenTiger(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wirc");
     auto c = wowee::pipeline::WoweeRandomPropertyLoader::
         makeOfTheTiger(name);
-    if (!saveOrError(c, base, "gen-irc-tiger")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeRandomPropertyLoader>(c, base, "gen-irc-tiger", ".wirc")) return 1;
     printGenSummary(c, base);
     return 0;
 }

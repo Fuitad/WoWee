@@ -31,15 +31,6 @@ const char* edgeFadeModeName(uint8_t m) {
     }
 }
 
-bool saveOrError(const wowee::pipeline::WoweeSpellMarkers& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeSpellMarkersLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wspm\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeSpellMarkers& c,
                      const std::string& base) {
@@ -54,7 +45,7 @@ int handleGenMage(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wspm");
     auto c = wowee::pipeline::WoweeSpellMarkersLoader::makeMageAoE(name);
-    if (!saveOrError(c, base, "gen-spm")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellMarkersLoader>(c, base, "gen-spm", ".wspm")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -65,7 +56,7 @@ int handleGenRaid(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wspm");
     auto c = wowee::pipeline::WoweeSpellMarkersLoader::makeRaidHazards(name);
-    if (!saveOrError(c, base, "gen-spm-raid")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellMarkersLoader>(c, base, "gen-spm-raid", ".wspm")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -76,7 +67,7 @@ int handleGenEnvironment(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wspm");
     auto c = wowee::pipeline::WoweeSpellMarkersLoader::makeEnvironment(name);
-    if (!saveOrError(c, base, "gen-spm-env")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellMarkersLoader>(c, base, "gen-spm-env", ".wspm")) return 1;
     printGenSummary(c, base);
     return 0;
 }

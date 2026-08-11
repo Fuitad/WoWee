@@ -20,15 +20,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweeLFGDungeon& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeLFGDungeonLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wlfg\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeLFGDungeon& c,
                      const std::string& base) {
@@ -43,7 +34,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wlfg");
     auto c = wowee::pipeline::WoweeLFGDungeonLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-lfg")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeLFGDungeonLoader>(c, base, "gen-lfg", ".wlfg")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -54,7 +45,7 @@ int handleGenHeroic(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wlfg");
     auto c = wowee::pipeline::WoweeLFGDungeonLoader::makeHeroic(name);
-    if (!saveOrError(c, base, "gen-lfg-heroic")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeLFGDungeonLoader>(c, base, "gen-lfg-heroic", ".wlfg")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -65,7 +56,7 @@ int handleGenRaid(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wlfg");
     auto c = wowee::pipeline::WoweeLFGDungeonLoader::makeRaid(name);
-    if (!saveOrError(c, base, "gen-lfg-raid")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeLFGDungeonLoader>(c, base, "gen-lfg-raid", ".wlfg")) return 1;
     printGenSummary(c, base);
     return 0;
 }

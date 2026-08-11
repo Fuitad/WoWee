@@ -21,15 +21,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweeActionBar& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeActionBarLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wact\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeActionBar& c,
                      const std::string& base) {
@@ -44,7 +35,7 @@ int handleGenWarrior(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wact");
     auto c = wowee::pipeline::WoweeActionBarLoader::makeWarrior(name);
-    if (!saveOrError(c, base, "gen-act")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeActionBarLoader>(c, base, "gen-act", ".wact")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -55,7 +46,7 @@ int handleGenMage(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wact");
     auto c = wowee::pipeline::WoweeActionBarLoader::makeMage(name);
-    if (!saveOrError(c, base, "gen-act-mage")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeActionBarLoader>(c, base, "gen-act-mage", ".wact")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -66,7 +57,7 @@ int handleGenHunterPet(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wact");
     auto c = wowee::pipeline::WoweeActionBarLoader::makeHunterPet(name);
-    if (!saveOrError(c, base, "gen-act-pet")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeActionBarLoader>(c, base, "gen-act-pet", ".wact")) return 1;
     printGenSummary(c, base);
     return 0;
 }

@@ -21,15 +21,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweeSpellCooldown& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeSpellCooldownLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wscd\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeSpellCooldown& c,
                      const std::string& base) {
@@ -44,7 +35,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wscd");
     auto c = wowee::pipeline::WoweeSpellCooldownLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-cdb")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellCooldownLoader>(c, base, "gen-cdb", ".wscd")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -55,7 +46,7 @@ int handleGenClass(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wscd");
     auto c = wowee::pipeline::WoweeSpellCooldownLoader::makeClass(name);
-    if (!saveOrError(c, base, "gen-cdb-class")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellCooldownLoader>(c, base, "gen-cdb-class", ".wscd")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -66,7 +57,7 @@ int handleGenItems(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wscd");
     auto c = wowee::pipeline::WoweeSpellCooldownLoader::makeItems(name);
-    if (!saveOrError(c, base, "gen-cdb-items")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellCooldownLoader>(c, base, "gen-cdb-items", ".wscd")) return 1;
     printGenSummary(c, base);
     return 0;
 }

@@ -21,15 +21,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweeTokenReward& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeTokenRewardLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wtbr\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeTokenReward& c,
                      const std::string& base) {
@@ -44,7 +35,7 @@ int handleGenRaid(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wtbr");
     auto c = wowee::pipeline::WoweeTokenRewardLoader::makeRaidTokens(name);
-    if (!saveOrError(c, base, "gen-tbr")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeTokenRewardLoader>(c, base, "gen-tbr", ".wtbr")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -55,7 +46,7 @@ int handleGenPvP(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wtbr");
     auto c = wowee::pipeline::WoweeTokenRewardLoader::makePvP(name);
-    if (!saveOrError(c, base, "gen-tbr-pvp")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeTokenRewardLoader>(c, base, "gen-tbr-pvp", ".wtbr")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -66,7 +57,7 @@ int handleGenFaction(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wtbr");
     auto c = wowee::pipeline::WoweeTokenRewardLoader::makeFaction(name);
-    if (!saveOrError(c, base, "gen-tbr-faction")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeTokenRewardLoader>(c, base, "gen-tbr-faction", ".wtbr")) return 1;
     printGenSummary(c, base);
     return 0;
 }

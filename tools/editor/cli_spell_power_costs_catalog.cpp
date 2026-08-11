@@ -21,15 +21,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweeSpellPowerCost& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeSpellPowerCostLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wspc\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeSpellPowerCost& c,
                      const std::string& base) {
@@ -44,7 +35,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wspc");
     auto c = wowee::pipeline::WoweeSpellPowerCostLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-spc")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellPowerCostLoader>(c, base, "gen-spc", ".wspc")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -55,7 +46,7 @@ int handleGenRage(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wspc");
     auto c = wowee::pipeline::WoweeSpellPowerCostLoader::makeRage(name);
-    if (!saveOrError(c, base, "gen-spc-rage")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellPowerCostLoader>(c, base, "gen-spc-rage", ".wspc")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -66,7 +57,7 @@ int handleGenMixed(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wspc");
     auto c = wowee::pipeline::WoweeSpellPowerCostLoader::makeMixed(name);
-    if (!saveOrError(c, base, "gen-spc-mixed")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellPowerCostLoader>(c, base, "gen-spc-mixed", ".wspc")) return 1;
     printGenSummary(c, base);
     return 0;
 }

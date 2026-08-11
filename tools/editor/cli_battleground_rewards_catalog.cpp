@@ -31,17 +31,6 @@ const char* bgName(uint16_t bgId) {
     }
 }
 
-bool saveOrError(
-    const wowee::pipeline::WoweeBattlegroundRewards& c,
-    const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeBattlegroundRewardsLoader::save(
-            c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wbrd\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(
     const wowee::pipeline::WoweeBattlegroundRewards& c,
@@ -58,7 +47,7 @@ int handleGenAV(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wbrd");
     auto c = wowee::pipeline::WoweeBattlegroundRewardsLoader::
         makeAlteracValley(name);
-    if (!saveOrError(c, base, "gen-brd-av")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeBattlegroundRewardsLoader>(c, base, "gen-brd-av", ".wbrd")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -70,7 +59,7 @@ int handleGenWSG(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wbrd");
     auto c = wowee::pipeline::WoweeBattlegroundRewardsLoader::
         makeWarsong(name);
-    if (!saveOrError(c, base, "gen-brd-wsg")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeBattlegroundRewardsLoader>(c, base, "gen-brd-wsg", ".wbrd")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -82,7 +71,7 @@ int handleGenAB(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wbrd");
     auto c = wowee::pipeline::WoweeBattlegroundRewardsLoader::
         makeArathiBasin(name);
-    if (!saveOrError(c, base, "gen-brd-ab")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeBattlegroundRewardsLoader>(c, base, "gen-brd-ab", ".wbrd")) return 1;
     printGenSummary(c, base);
     return 0;
 }

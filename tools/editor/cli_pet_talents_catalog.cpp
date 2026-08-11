@@ -31,15 +31,6 @@ const char* treeKindName(uint8_t k) {
     }
 }
 
-bool saveOrError(const wowee::pipeline::WoweePetTalents& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweePetTalentsLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wptt\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweePetTalents& c,
                      const std::string& base) {
@@ -58,7 +49,7 @@ int handleGenFerocity(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wptt");
     auto c = wowee::pipeline::WoweePetTalentsLoader::makeFerocity(name);
-    if (!saveOrError(c, base, "gen-ptt")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweePetTalentsLoader>(c, base, "gen-ptt", ".wptt")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -69,7 +60,7 @@ int handleGenCunning(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wptt");
     auto c = wowee::pipeline::WoweePetTalentsLoader::makeCunning(name);
-    if (!saveOrError(c, base, "gen-ptt-cunning")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweePetTalentsLoader>(c, base, "gen-ptt-cunning", ".wptt")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -80,7 +71,7 @@ int handleGenTenacity(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wptt");
     auto c = wowee::pipeline::WoweePetTalentsLoader::makeTenacity(name);
-    if (!saveOrError(c, base, "gen-ptt-tenacity")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweePetTalentsLoader>(c, base, "gen-ptt-tenacity", ".wptt")) return 1;
     printGenSummary(c, base);
     return 0;
 }

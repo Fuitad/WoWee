@@ -32,15 +32,6 @@ const char* factionFilterName(uint8_t f) {
     }
 }
 
-bool saveOrError(const wowee::pipeline::WoweePvPRanks& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweePvPRanksLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wprg\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweePvPRanks& c,
                      const std::string& base) {
@@ -55,7 +46,7 @@ int handleGenAlliance(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wprg");
     auto c = wowee::pipeline::WoweePvPRanksLoader::makeAllianceRanks(name);
-    if (!saveOrError(c, base, "gen-prg")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweePvPRanksLoader>(c, base, "gen-prg", ".wprg")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -66,7 +57,7 @@ int handleGenHorde(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wprg");
     auto c = wowee::pipeline::WoweePvPRanksLoader::makeHordeRanks(name);
-    if (!saveOrError(c, base, "gen-prg-horde")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweePvPRanksLoader>(c, base, "gen-prg-horde", ".wprg")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -77,7 +68,7 @@ int handleGenHigh(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wprg");
     auto c = wowee::pipeline::WoweePvPRanksLoader::makeHighRanks(name);
-    if (!saveOrError(c, base, "gen-prg-high")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweePvPRanksLoader>(c, base, "gen-prg-high", ".wprg")) return 1;
     printGenSummary(c, base);
     return 0;
 }

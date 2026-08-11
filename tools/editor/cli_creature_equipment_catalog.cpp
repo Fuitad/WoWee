@@ -20,15 +20,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweeCreatureEquipment& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeCreatureEquipmentLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wceq\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeCreatureEquipment& c,
                      const std::string& base) {
@@ -43,7 +34,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wceq");
     auto c = wowee::pipeline::WoweeCreatureEquipmentLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-ceq")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCreatureEquipmentLoader>(c, base, "gen-ceq", ".wceq")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -54,7 +45,7 @@ int handleGenBosses(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wceq");
     auto c = wowee::pipeline::WoweeCreatureEquipmentLoader::makeBosses(name);
-    if (!saveOrError(c, base, "gen-ceq-bosses")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCreatureEquipmentLoader>(c, base, "gen-ceq-bosses", ".wceq")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -65,7 +56,7 @@ int handleGenRanged(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wceq");
     auto c = wowee::pipeline::WoweeCreatureEquipmentLoader::makeRanged(name);
-    if (!saveOrError(c, base, "gen-ceq-ranged")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCreatureEquipmentLoader>(c, base, "gen-ceq-ranged", ".wceq")) return 1;
     printGenSummary(c, base);
     return 0;
 }

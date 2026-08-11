@@ -34,15 +34,6 @@ const char* triggerEventName(uint8_t e) {
     }
 }
 
-bool saveOrError(const wowee::pipeline::WoweeTutorialSteps& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeTutorialStepsLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wtur\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeTutorialSteps& c,
                      const std::string& base) {
@@ -58,7 +49,7 @@ int handleGenNewbie(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wtur");
     auto c = wowee::pipeline::WoweeTutorialStepsLoader::
         makeNewbieFlow(name);
-    if (!saveOrError(c, base, "gen-tut-newbie")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeTutorialStepsLoader>(c, base, "gen-tut-newbie", ".wtur")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -70,7 +61,7 @@ int handleGenLevelUp(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wtur");
     auto c = wowee::pipeline::WoweeTutorialStepsLoader::
         makeLevelUpFlow(name);
-    if (!saveOrError(c, base, "gen-tut-levelup")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeTutorialStepsLoader>(c, base, "gen-tut-levelup", ".wtur")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -82,7 +73,7 @@ int handleGenBg(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wtur");
     auto c = wowee::pipeline::WoweeTutorialStepsLoader::
         makeBgFlow(name);
-    if (!saveOrError(c, base, "gen-tut-bg")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeTutorialStepsLoader>(c, base, "gen-tut-bg", ".wtur")) return 1;
     printGenSummary(c, base);
     return 0;
 }

@@ -20,15 +20,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweeCinematic& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeCinematicLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wcms\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeCinematic& c,
                      const std::string& base) {
@@ -43,7 +34,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wcms");
     auto c = wowee::pipeline::WoweeCinematicLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-cinematics")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCinematicLoader>(c, base, "gen-cinematics", ".wcms")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -54,7 +45,7 @@ int handleGenIntros(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wcms");
     auto c = wowee::pipeline::WoweeCinematicLoader::makeIntros(name);
-    if (!saveOrError(c, base, "gen-cinematics-intros")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCinematicLoader>(c, base, "gen-cinematics-intros", ".wcms")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -65,7 +56,7 @@ int handleGenQuests(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wcms");
     auto c = wowee::pipeline::WoweeCinematicLoader::makeQuestCinematics(name);
-    if (!saveOrError(c, base, "gen-cinematics-quests")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCinematicLoader>(c, base, "gen-cinematics-quests", ".wcms")) return 1;
     printGenSummary(c, base);
     return 0;
 }

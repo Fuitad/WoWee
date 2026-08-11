@@ -20,15 +20,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweeTrainer& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeTrainerLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wtrn\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 uint32_t totalSpellOffers(const wowee::pipeline::WoweeTrainer& c) {
     uint32_t n = 0;
@@ -58,7 +49,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wtrn");
     auto c = wowee::pipeline::WoweeTrainerLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-trainers")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeTrainerLoader>(c, base, "gen-trainers", ".wtrn")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -69,7 +60,7 @@ int handleGenMage(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wtrn");
     auto c = wowee::pipeline::WoweeTrainerLoader::makeMageTrainer(name);
-    if (!saveOrError(c, base, "gen-trainers-mage")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeTrainerLoader>(c, base, "gen-trainers-mage", ".wtrn")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -80,7 +71,7 @@ int handleGenWeaponVendor(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wtrn");
     auto c = wowee::pipeline::WoweeTrainerLoader::makeWeaponVendor(name);
-    if (!saveOrError(c, base, "gen-trainers-weapons")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeTrainerLoader>(c, base, "gen-trainers-weapons", ".wtrn")) return 1;
     printGenSummary(c, base);
     return 0;
 }

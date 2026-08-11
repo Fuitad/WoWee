@@ -20,15 +20,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweeUnitMovement& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeUnitMovementLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wumv\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeUnitMovement& c,
                      const std::string& base) {
@@ -43,7 +34,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wumv");
     auto c = wowee::pipeline::WoweeUnitMovementLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-umv")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeUnitMovementLoader>(c, base, "gen-umv", ".wumv")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -54,7 +45,7 @@ int handleGenFlight(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wumv");
     auto c = wowee::pipeline::WoweeUnitMovementLoader::makeFlight(name);
-    if (!saveOrError(c, base, "gen-umv-flight")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeUnitMovementLoader>(c, base, "gen-umv-flight", ".wumv")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -65,7 +56,7 @@ int handleGenBuffs(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wumv");
     auto c = wowee::pipeline::WoweeUnitMovementLoader::makeBuffs(name);
-    if (!saveOrError(c, base, "gen-umv-buffs")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeUnitMovementLoader>(c, base, "gen-umv-buffs", ".wumv")) return 1;
     printGenSummary(c, base);
     return 0;
 }

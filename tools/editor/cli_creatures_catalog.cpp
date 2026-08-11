@@ -44,15 +44,6 @@ void appendAiFlagsStr(std::string& s, uint32_t flags) {
     else if (s.back() == ' ') s.pop_back();
 }
 
-bool saveOrError(const wowee::pipeline::WoweeCreature& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeCreatureLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wcrt\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeCreature& c,
                      const std::string& base) {
@@ -67,7 +58,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wcrt");
     auto c = wowee::pipeline::WoweeCreatureLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-creatures")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCreatureLoader>(c, base, "gen-creatures", ".wcrt")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -78,7 +69,7 @@ int handleGenBandit(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wcrt");
     auto c = wowee::pipeline::WoweeCreatureLoader::makeBandit(name);
-    if (!saveOrError(c, base, "gen-creatures-bandit")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCreatureLoader>(c, base, "gen-creatures-bandit", ".wcrt")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -89,7 +80,7 @@ int handleGenMerchants(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wcrt");
     auto c = wowee::pipeline::WoweeCreatureLoader::makeMerchants(name);
-    if (!saveOrError(c, base, "gen-creatures-merchants")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCreatureLoader>(c, base, "gen-creatures-merchants", ".wcrt")) return 1;
     printGenSummary(c, base);
     return 0;
 }

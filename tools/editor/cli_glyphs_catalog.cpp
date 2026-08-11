@@ -20,15 +20,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweeGlyph& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeGlyphLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wgly\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeGlyph& c,
                      const std::string& base) {
@@ -43,7 +34,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wgly");
     auto c = wowee::pipeline::WoweeGlyphLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-glyphs")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeGlyphLoader>(c, base, "gen-glyphs", ".wgly")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -54,7 +45,7 @@ int handleGenWarrior(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wgly");
     auto c = wowee::pipeline::WoweeGlyphLoader::makeWarrior(name);
-    if (!saveOrError(c, base, "gen-glyphs-warrior")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeGlyphLoader>(c, base, "gen-glyphs-warrior", ".wgly")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -65,7 +56,7 @@ int handleGenUniversal(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wgly");
     auto c = wowee::pipeline::WoweeGlyphLoader::makeUniversal(name);
-    if (!saveOrError(c, base, "gen-glyphs-universal")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeGlyphLoader>(c, base, "gen-glyphs-universal", ".wgly")) return 1;
     printGenSummary(c, base);
     return 0;
 }

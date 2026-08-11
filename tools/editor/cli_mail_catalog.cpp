@@ -20,15 +20,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweeMail& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeMailLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wmal\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeMail& c,
                      const std::string& base) {
@@ -43,7 +34,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wmal");
     auto c = wowee::pipeline::WoweeMailLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-mail")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeMailLoader>(c, base, "gen-mail", ".wmal")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -54,7 +45,7 @@ int handleGenHoliday(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wmal");
     auto c = wowee::pipeline::WoweeMailLoader::makeHoliday(name);
-    if (!saveOrError(c, base, "gen-mail-holiday")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeMailLoader>(c, base, "gen-mail-holiday", ".wmal")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -65,7 +56,7 @@ int handleGenAuction(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wmal");
     auto c = wowee::pipeline::WoweeMailLoader::makeAuction(name);
-    if (!saveOrError(c, base, "gen-mail-auction")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeMailLoader>(c, base, "gen-mail-auction", ".wmal")) return 1;
     printGenSummary(c, base);
     return 0;
 }

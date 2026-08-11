@@ -20,15 +20,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweeAuction& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeAuctionLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wauc\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeAuction& c,
                      const std::string& base) {
@@ -43,7 +34,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wauc");
     auto c = wowee::pipeline::WoweeAuctionLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-auction")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeAuctionLoader>(c, base, "gen-auction", ".wauc")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -54,7 +45,7 @@ int handleGenPair(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wauc");
     auto c = wowee::pipeline::WoweeAuctionLoader::makeFactionPair(name);
-    if (!saveOrError(c, base, "gen-auction-pair")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeAuctionLoader>(c, base, "gen-auction-pair", ".wauc")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -65,7 +56,7 @@ int handleGenRestricted(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wauc");
     auto c = wowee::pipeline::WoweeAuctionLoader::makeRestricted(name);
-    if (!saveOrError(c, base, "gen-auction-restricted")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeAuctionLoader>(c, base, "gen-auction-restricted", ".wauc")) return 1;
     printGenSummary(c, base);
     return 0;
 }

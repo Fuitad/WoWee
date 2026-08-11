@@ -21,15 +21,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweeTrigger& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeTriggerLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wtrg\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeTrigger& c,
                      const std::string& base) {
@@ -44,7 +35,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wtrg");
     auto c = wowee::pipeline::WoweeTriggerLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-triggers")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeTriggerLoader>(c, base, "gen-triggers", ".wtrg")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -55,7 +46,7 @@ int handleGenDungeon(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wtrg");
     auto c = wowee::pipeline::WoweeTriggerLoader::makeDungeon(name);
-    if (!saveOrError(c, base, "gen-triggers-dungeon")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeTriggerLoader>(c, base, "gen-triggers-dungeon", ".wtrg")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -66,7 +57,7 @@ int handleGenFlightPath(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wtrg");
     auto c = wowee::pipeline::WoweeTriggerLoader::makeFlightPath(name);
-    if (!saveOrError(c, base, "gen-triggers-flightpath")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeTriggerLoader>(c, base, "gen-triggers-flightpath", ".wtrg")) return 1;
     printGenSummary(c, base);
     return 0;
 }

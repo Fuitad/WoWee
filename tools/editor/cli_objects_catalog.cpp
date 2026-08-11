@@ -31,15 +31,6 @@ void appendObjFlagsStr(std::string& s, uint32_t flags) {
     else if (s.back() == ' ') s.pop_back();
 }
 
-bool saveOrError(const wowee::pipeline::WoweeGameObject& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeGameObjectLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wgot\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeGameObject& c,
                      const std::string& base) {
@@ -54,7 +45,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wgot");
     auto c = wowee::pipeline::WoweeGameObjectLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-objects")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeGameObjectLoader>(c, base, "gen-objects", ".wgot")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -65,7 +56,7 @@ int handleGenDungeon(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wgot");
     auto c = wowee::pipeline::WoweeGameObjectLoader::makeDungeon(name);
-    if (!saveOrError(c, base, "gen-objects-dungeon")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeGameObjectLoader>(c, base, "gen-objects-dungeon", ".wgot")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -76,7 +67,7 @@ int handleGenGather(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wgot");
     auto c = wowee::pipeline::WoweeGameObjectLoader::makeGather(name);
-    if (!saveOrError(c, base, "gen-objects-gather")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeGameObjectLoader>(c, base, "gen-objects-gather", ".wgot")) return 1;
     printGenSummary(c, base);
     return 0;
 }

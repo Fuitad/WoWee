@@ -20,15 +20,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweeVehicle& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeVehicleLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wvhc\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 size_t totalSeats(const wowee::pipeline::WoweeVehicle& c) {
     size_t n = 0;
@@ -50,7 +41,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wvhc");
     auto c = wowee::pipeline::WoweeVehicleLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-vehicles")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeVehicleLoader>(c, base, "gen-vehicles", ".wvhc")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -61,7 +52,7 @@ int handleGenSiege(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wvhc");
     auto c = wowee::pipeline::WoweeVehicleLoader::makeSiege(name);
-    if (!saveOrError(c, base, "gen-vehicles-siege")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeVehicleLoader>(c, base, "gen-vehicles-siege", ".wvhc")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -72,7 +63,7 @@ int handleGenFlying(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wvhc");
     auto c = wowee::pipeline::WoweeVehicleLoader::makeFlying(name);
-    if (!saveOrError(c, base, "gen-vehicles-flying")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeVehicleLoader>(c, base, "gen-vehicles-flying", ".wvhc")) return 1;
     printGenSummary(c, base);
     return 0;
 }

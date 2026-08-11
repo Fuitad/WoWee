@@ -20,15 +20,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweeMount& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeMountLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wmou\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeMount& c,
                      const std::string& base) {
@@ -43,7 +34,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wmou");
     auto c = wowee::pipeline::WoweeMountLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-mounts")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeMountLoader>(c, base, "gen-mounts", ".wmou")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -54,7 +45,7 @@ int handleGenRacial(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wmou");
     auto c = wowee::pipeline::WoweeMountLoader::makeRacial(name);
-    if (!saveOrError(c, base, "gen-mounts-racial")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeMountLoader>(c, base, "gen-mounts-racial", ".wmou")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -65,7 +56,7 @@ int handleGenFlying(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wmou");
     auto c = wowee::pipeline::WoweeMountLoader::makeFlying(name);
-    if (!saveOrError(c, base, "gen-mounts-flying")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeMountLoader>(c, base, "gen-mounts-flying", ".wmou")) return 1;
     printGenSummary(c, base);
     return 0;
 }

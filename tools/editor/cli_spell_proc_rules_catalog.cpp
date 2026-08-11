@@ -37,15 +37,6 @@ const char* triggerEventName(uint8_t e) {
     }
 }
 
-bool saveOrError(const wowee::pipeline::WoweeSpellProcRules& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeSpellProcRulesLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wprc\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeSpellProcRules& c,
                      const std::string& base) {
@@ -61,7 +52,7 @@ int handleGenWeapon(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wprc");
     auto c = wowee::pipeline::WoweeSpellProcRulesLoader::
         makeWeaponProcs(name);
-    if (!saveOrError(c, base, "gen-prc-weapon")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellProcRulesLoader>(c, base, "gen-prc-weapon", ".wprc")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -73,7 +64,7 @@ int handleGenRet(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wprc");
     auto c = wowee::pipeline::WoweeSpellProcRulesLoader::
         makeRetPaladin(name);
-    if (!saveOrError(c, base, "gen-prc-ret")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellProcRulesLoader>(c, base, "gen-prc-ret", ".wprc")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -85,7 +76,7 @@ int handleGenRage(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wprc");
     auto c = wowee::pipeline::WoweeSpellProcRulesLoader::
         makeRageGen(name);
-    if (!saveOrError(c, base, "gen-prc-rage")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellProcRulesLoader>(c, base, "gen-prc-rage", ".wprc")) return 1;
     printGenSummary(c, base);
     return 0;
 }

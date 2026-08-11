@@ -28,15 +28,6 @@ void appendLockFlagsStr(std::string& s, uint32_t flags) {
     else if (s.back() == ' ') s.pop_back();
 }
 
-bool saveOrError(const wowee::pipeline::WoweeLock& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeLockLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wlck\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeLock& c,
                      const std::string& base) {
@@ -51,7 +42,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wlck");
     auto c = wowee::pipeline::WoweeLockLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-locks")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeLockLoader>(c, base, "gen-locks", ".wlck")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -62,7 +53,7 @@ int handleGenDungeon(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wlck");
     auto c = wowee::pipeline::WoweeLockLoader::makeDungeon(name);
-    if (!saveOrError(c, base, "gen-locks-dungeon")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeLockLoader>(c, base, "gen-locks-dungeon", ".wlck")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -73,7 +64,7 @@ int handleGenProfessions(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wlck");
     auto c = wowee::pipeline::WoweeLockLoader::makeProfessions(name);
-    if (!saveOrError(c, base, "gen-locks-professions")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeLockLoader>(c, base, "gen-locks-professions", ".wlck")) return 1;
     printGenSummary(c, base);
     return 0;
 }

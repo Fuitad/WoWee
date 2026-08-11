@@ -47,15 +47,6 @@ const char* genderHintName(uint8_t g) {
     }
 }
 
-bool saveOrError(const wowee::pipeline::WoweeVoiceovers& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeVoiceoversLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wvox\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeVoiceovers& c,
                      const std::string& base) {
@@ -70,7 +61,7 @@ int handleGenQuest(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wvox");
     auto c = wowee::pipeline::WoweeVoiceoversLoader::makeQuestgiver(name);
-    if (!saveOrError(c, base, "gen-vox")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeVoiceoversLoader>(c, base, "gen-vox", ".wvox")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -81,7 +72,7 @@ int handleGenBoss(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wvox");
     auto c = wowee::pipeline::WoweeVoiceoversLoader::makeBoss(name);
-    if (!saveOrError(c, base, "gen-vox-boss")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeVoiceoversLoader>(c, base, "gen-vox-boss", ".wvox")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -92,7 +83,7 @@ int handleGenVendor(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wvox");
     auto c = wowee::pipeline::WoweeVoiceoversLoader::makeVendor(name);
-    if (!saveOrError(c, base, "gen-vox-vendor")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeVoiceoversLoader>(c, base, "gen-vox-vendor", ".wvox")) return 1;
     printGenSummary(c, base);
     return 0;
 }

@@ -35,15 +35,6 @@ const char* tradeSkillName(uint16_t s) {
     }
 }
 
-bool saveOrError(const wowee::pipeline::WoweeCraftingRecipes& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeCraftingRecipesLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wcra\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeCraftingRecipes& c,
                      const std::string& base) {
@@ -59,7 +50,7 @@ int handleGenAlchemy(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wcra");
     auto c = wowee::pipeline::WoweeCraftingRecipesLoader::
         makeAlchemyPotions(name);
-    if (!saveOrError(c, base, "gen-cra-alchemy")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCraftingRecipesLoader>(c, base, "gen-cra-alchemy", ".wcra")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -71,7 +62,7 @@ int handleGenEngineering(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wcra");
     auto c = wowee::pipeline::WoweeCraftingRecipesLoader::
         makeEngineering(name);
-    if (!saveOrError(c, base, "gen-cra-engineering")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCraftingRecipesLoader>(c, base, "gen-cra-engineering", ".wcra")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -83,7 +74,7 @@ int handleGenBlacksmithing(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wcra");
     auto c = wowee::pipeline::WoweeCraftingRecipesLoader::
         makeBlacksmithing(name);
-    if (!saveOrError(c, base, "gen-cra-blacksmithing")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCraftingRecipesLoader>(c, base, "gen-cra-blacksmithing", ".wcra")) return 1;
     printGenSummary(c, base);
     return 0;
 }

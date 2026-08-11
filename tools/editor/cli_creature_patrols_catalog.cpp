@@ -21,15 +21,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweeCreaturePatrol& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeCreaturePatrolLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wcmr\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeCreaturePatrol& c,
                      const std::string& base) {
@@ -47,7 +38,7 @@ int handleGenPatrol(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wcmr");
     auto c = wowee::pipeline::WoweeCreaturePatrolLoader::makePatrol(name);
-    if (!saveOrError(c, base, "gen-cmr")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCreaturePatrolLoader>(c, base, "gen-cmr", ".wcmr")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -58,7 +49,7 @@ int handleGenCity(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wcmr");
     auto c = wowee::pipeline::WoweeCreaturePatrolLoader::makeCity(name);
-    if (!saveOrError(c, base, "gen-cmr-city")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCreaturePatrolLoader>(c, base, "gen-cmr-city", ".wcmr")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -69,7 +60,7 @@ int handleGenBoss(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wcmr");
     auto c = wowee::pipeline::WoweeCreaturePatrolLoader::makeBoss(name);
-    if (!saveOrError(c, base, "gen-cmr-boss")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCreaturePatrolLoader>(c, base, "gen-cmr-boss", ".wcmr")) return 1;
     printGenSummary(c, base);
     return 0;
 }

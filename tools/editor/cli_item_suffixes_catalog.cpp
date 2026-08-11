@@ -20,15 +20,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweeItemSuffix& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeItemSuffixLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wsuf\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeItemSuffix& c,
                      const std::string& base) {
@@ -43,7 +34,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wsuf");
     auto c = wowee::pipeline::WoweeItemSuffixLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-suf")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeItemSuffixLoader>(c, base, "gen-suf", ".wsuf")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -54,7 +45,7 @@ int handleGenMagical(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wsuf");
     auto c = wowee::pipeline::WoweeItemSuffixLoader::makeMagical(name);
-    if (!saveOrError(c, base, "gen-suf-magical")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeItemSuffixLoader>(c, base, "gen-suf-magical", ".wsuf")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -65,7 +56,7 @@ int handleGenPvP(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wsuf");
     auto c = wowee::pipeline::WoweeItemSuffixLoader::makePvP(name);
-    if (!saveOrError(c, base, "gen-suf-pvp")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeItemSuffixLoader>(c, base, "gen-suf-pvp", ".wsuf")) return 1;
     printGenSummary(c, base);
     return 0;
 }

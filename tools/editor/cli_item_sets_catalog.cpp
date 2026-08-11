@@ -20,15 +20,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweeItemSet& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeItemSetLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wset\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeItemSet& c,
                      const std::string& base) {
@@ -43,7 +34,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wset");
     auto c = wowee::pipeline::WoweeItemSetLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-itset")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeItemSetLoader>(c, base, "gen-itset", ".wset")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -54,7 +45,7 @@ int handleGenTier(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wset");
     auto c = wowee::pipeline::WoweeItemSetLoader::makeTier(name);
-    if (!saveOrError(c, base, "gen-itset-tier")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeItemSetLoader>(c, base, "gen-itset-tier", ".wset")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -65,7 +56,7 @@ int handleGenPvP(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wset");
     auto c = wowee::pipeline::WoweeItemSetLoader::makePvP(name);
-    if (!saveOrError(c, base, "gen-itset-pvp")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeItemSetLoader>(c, base, "gen-itset-pvp", ".wset")) return 1;
     printGenSummary(c, base);
     return 0;
 }

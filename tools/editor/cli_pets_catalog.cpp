@@ -20,15 +20,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweePet& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweePetLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wpet\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweePet& c,
                      const std::string& base) {
@@ -44,7 +35,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wpet");
     auto c = wowee::pipeline::WoweePetLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-pets")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweePetLoader>(c, base, "gen-pets", ".wpet")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -55,7 +46,7 @@ int handleGenHunter(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wpet");
     auto c = wowee::pipeline::WoweePetLoader::makeHunter(name);
-    if (!saveOrError(c, base, "gen-pets-hunter")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweePetLoader>(c, base, "gen-pets-hunter", ".wpet")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -66,7 +57,7 @@ int handleGenWarlock(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wpet");
     auto c = wowee::pipeline::WoweePetLoader::makeWarlock(name);
-    if (!saveOrError(c, base, "gen-pets-warlock")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweePetLoader>(c, base, "gen-pets-warlock", ".wpet")) return 1;
     printGenSummary(c, base);
     return 0;
 }

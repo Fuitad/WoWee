@@ -20,15 +20,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweeEvent& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeEventLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wsea\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeEvent& c,
                      const std::string& base) {
@@ -43,7 +34,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wsea");
     auto c = wowee::pipeline::WoweeEventLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-events")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeEventLoader>(c, base, "gen-events", ".wsea")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -54,7 +45,7 @@ int handleGenYearly(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wsea");
     auto c = wowee::pipeline::WoweeEventLoader::makeYearly(name);
-    if (!saveOrError(c, base, "gen-events-yearly")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeEventLoader>(c, base, "gen-events-yearly", ".wsea")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -65,7 +56,7 @@ int handleGenBonusWeekends(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wsea");
     auto c = wowee::pipeline::WoweeEventLoader::makeBonusWeekends(name);
-    if (!saveOrError(c, base, "gen-events-weekends")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeEventLoader>(c, base, "gen-events-weekends", ".wsea")) return 1;
     printGenSummary(c, base);
     return 0;
 }

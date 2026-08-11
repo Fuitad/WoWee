@@ -47,15 +47,6 @@ const char* targetingFilterName(uint8_t t) {
     }
 }
 
-bool saveOrError(const wowee::pipeline::WoweeTradeRules& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeTradeRulesLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wtrd\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeTradeRules& c,
                      const std::string& base) {
@@ -70,7 +61,7 @@ int handleGenStandard(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wtrd");
     auto c = wowee::pipeline::WoweeTradeRulesLoader::makeStandard(name);
-    if (!saveOrError(c, base, "gen-trd")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeTradeRulesLoader>(c, base, "gen-trd", ".wtrd")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -81,7 +72,7 @@ int handleGenServerAdmin(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wtrd");
     auto c = wowee::pipeline::WoweeTradeRulesLoader::makeServerAdmin(name);
-    if (!saveOrError(c, base, "gen-trd-admin")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeTradeRulesLoader>(c, base, "gen-trd-admin", ".wtrd")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -92,7 +83,7 @@ int handleGenRMT(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wtrd");
     auto c = wowee::pipeline::WoweeTradeRulesLoader::makeRMTPrevent(name);
-    if (!saveOrError(c, base, "gen-trd-rmt")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeTradeRulesLoader>(c, base, "gen-trd-rmt", ".wtrd")) return 1;
     printGenSummary(c, base);
     return 0;
 }

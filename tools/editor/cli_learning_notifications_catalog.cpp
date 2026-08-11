@@ -56,16 +56,6 @@ const char* factionFilterName(uint8_t f) {
     }
 }
 
-bool saveOrError(const wowee::pipeline::WoweeLearningNotifications& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeLearningNotificationsLoader::save(
-            c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wldn\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeLearningNotifications& c,
                      const std::string& base) {
@@ -81,7 +71,7 @@ int handleGenLevels(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wldn");
     auto c = wowee::pipeline::WoweeLearningNotificationsLoader::
         makeLevelMilestones(name);
-    if (!saveOrError(c, base, "gen-ldn")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeLearningNotificationsLoader>(c, base, "gen-ldn", ".wldn")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -93,7 +83,7 @@ int handleGenAccount(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wldn");
     auto c = wowee::pipeline::WoweeLearningNotificationsLoader::
         makeAccountUnlocks(name);
-    if (!saveOrError(c, base, "gen-ldn-account")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeLearningNotificationsLoader>(c, base, "gen-ldn-account", ".wldn")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -105,7 +95,7 @@ int handleGenReputation(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wldn");
     auto c = wowee::pipeline::WoweeLearningNotificationsLoader::
         makeReputation(name);
-    if (!saveOrError(c, base, "gen-ldn-rep")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeLearningNotificationsLoader>(c, base, "gen-ldn-rep", ".wldn")) return 1;
     printGenSummary(c, base);
     return 0;
 }

@@ -99,15 +99,6 @@ bool readEnumField(const nlohmann::json& je,
     return true;
 }
 
-bool saveOrError(const wowee::pipeline::WoweeGlobalChannels& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeGlobalChannelsLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wgch\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeGlobalChannels& c,
                      const std::string& base) {
@@ -123,7 +114,7 @@ int handleGenStandard(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wgch");
     auto c = wowee::pipeline::WoweeGlobalChannelsLoader::
         makeStandardChannels(name);
-    if (!saveOrError(c, base, "gen-gch")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeGlobalChannelsLoader>(c, base, "gen-gch", ".wgch")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -135,7 +126,7 @@ int handleGenRoleplay(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wgch");
     auto c = wowee::pipeline::WoweeGlobalChannelsLoader::
         makeRoleplay(name);
-    if (!saveOrError(c, base, "gen-gch-rp")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeGlobalChannelsLoader>(c, base, "gen-gch-rp", ".wgch")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -147,7 +138,7 @@ int handleGenAdmin(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wgch");
     auto c = wowee::pipeline::WoweeGlobalChannelsLoader::
         makeAdminChannels(name);
-    if (!saveOrError(c, base, "gen-gch-admin")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeGlobalChannelsLoader>(c, base, "gen-gch-admin", ".wgch")) return 1;
     printGenSummary(c, base);
     return 0;
 }

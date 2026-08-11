@@ -20,15 +20,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweeMacro& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeMacroLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wmac\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeMacro& c,
                      const std::string& base) {
@@ -43,7 +34,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wmac");
     auto c = wowee::pipeline::WoweeMacroLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-mac")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeMacroLoader>(c, base, "gen-mac", ".wmac")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -54,7 +45,7 @@ int handleGenCombat(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wmac");
     auto c = wowee::pipeline::WoweeMacroLoader::makeCombat(name);
-    if (!saveOrError(c, base, "gen-mac-combat")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeMacroLoader>(c, base, "gen-mac-combat", ".wmac")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -65,7 +56,7 @@ int handleGenUtility(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wmac");
     auto c = wowee::pipeline::WoweeMacroLoader::makeUtility(name);
-    if (!saveOrError(c, base, "gen-mac-utility")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeMacroLoader>(c, base, "gen-mac-utility", ".wmac")) return 1;
     printGenSummary(c, base);
     return 0;
 }

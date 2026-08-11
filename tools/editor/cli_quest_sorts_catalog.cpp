@@ -20,15 +20,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweeQuestSort& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeQuestSortLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wqso\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeQuestSort& c,
                      const std::string& base) {
@@ -43,7 +34,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wqso");
     auto c = wowee::pipeline::WoweeQuestSortLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-qso")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeQuestSortLoader>(c, base, "gen-qso", ".wqso")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -54,7 +45,7 @@ int handleGenClass(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wqso");
     auto c = wowee::pipeline::WoweeQuestSortLoader::makeClass(name);
-    if (!saveOrError(c, base, "gen-qso-class")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeQuestSortLoader>(c, base, "gen-qso-class", ".wqso")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -65,7 +56,7 @@ int handleGenProfession(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wqso");
     auto c = wowee::pipeline::WoweeQuestSortLoader::makeProfession(name);
-    if (!saveOrError(c, base, "gen-qso-profession")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeQuestSortLoader>(c, base, "gen-qso-profession", ".wqso")) return 1;
     printGenSummary(c, base);
     return 0;
 }

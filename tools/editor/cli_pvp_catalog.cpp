@@ -20,15 +20,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweePVPRank& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweePVPRankLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wpvp\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweePVPRank& c,
                      const std::string& base) {
@@ -43,7 +34,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wpvp");
     auto c = wowee::pipeline::WoweePVPRankLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-pvp")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweePVPRankLoader>(c, base, "gen-pvp", ".wpvp")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -54,7 +45,7 @@ int handleGenAllianceFull(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wpvp");
     auto c = wowee::pipeline::WoweePVPRankLoader::makeAllianceFull(name);
-    if (!saveOrError(c, base, "gen-pvp-alliance")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweePVPRankLoader>(c, base, "gen-pvp-alliance", ".wpvp")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -65,7 +56,7 @@ int handleGenArena(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wpvp");
     auto c = wowee::pipeline::WoweePVPRankLoader::makeArenaTiers(name);
-    if (!saveOrError(c, base, "gen-pvp-arena")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweePVPRankLoader>(c, base, "gen-pvp-arena", ".wpvp")) return 1;
     printGenSummary(c, base);
     return 0;
 }

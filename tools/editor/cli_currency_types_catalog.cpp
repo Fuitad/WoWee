@@ -21,15 +21,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweeCurrencyType& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeCurrencyTypeLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wctr\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeCurrencyType& c,
                      const std::string& base) {
@@ -44,7 +35,7 @@ int handleGenPvP(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wctr");
     auto c = wowee::pipeline::WoweeCurrencyTypeLoader::makePvP(name);
-    if (!saveOrError(c, base, "gen-ctr")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCurrencyTypeLoader>(c, base, "gen-ctr", ".wctr")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -55,7 +46,7 @@ int handleGenPvE(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wctr");
     auto c = wowee::pipeline::WoweeCurrencyTypeLoader::makePvE(name);
-    if (!saveOrError(c, base, "gen-ctr-pve")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCurrencyTypeLoader>(c, base, "gen-ctr-pve", ".wctr")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -66,7 +57,7 @@ int handleGenFactionTokens(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wctr");
     auto c = wowee::pipeline::WoweeCurrencyTypeLoader::makeFactionTokens(name);
-    if (!saveOrError(c, base, "gen-ctr-faction")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCurrencyTypeLoader>(c, base, "gen-ctr-faction", ".wctr")) return 1;
     printGenSummary(c, base);
     return 0;
 }

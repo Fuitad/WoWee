@@ -23,15 +23,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweeMinimapLevels& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeMinimapLevelsLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wmnl\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeMinimapLevels& c,
                      const std::string& base) {
@@ -46,7 +37,7 @@ int handleGenStormwind(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wmnl");
     auto c = wowee::pipeline::WoweeMinimapLevelsLoader::makeStormwind(name);
-    if (!saveOrError(c, base, "gen-mnl")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeMinimapLevelsLoader>(c, base, "gen-mnl", ".wmnl")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -57,7 +48,7 @@ int handleGenDalaran(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wmnl");
     auto c = wowee::pipeline::WoweeMinimapLevelsLoader::makeDalaran(name);
-    if (!saveOrError(c, base, "gen-mnl-dalaran")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeMinimapLevelsLoader>(c, base, "gen-mnl-dalaran", ".wmnl")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -68,7 +59,7 @@ int handleGenUndercity(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wmnl");
     auto c = wowee::pipeline::WoweeMinimapLevelsLoader::makeUndercity(name);
-    if (!saveOrError(c, base, "gen-mnl-undercity")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeMinimapLevelsLoader>(c, base, "gen-mnl-undercity", ".wmnl")) return 1;
     printGenSummary(c, base);
     return 0;
 }

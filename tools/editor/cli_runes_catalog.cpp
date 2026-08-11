@@ -20,15 +20,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweeRuneCost& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeRuneCostLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wrun\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeRuneCost& c,
                      const std::string& base) {
@@ -43,7 +34,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wrun");
     auto c = wowee::pipeline::WoweeRuneCostLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-rune")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeRuneCostLoader>(c, base, "gen-rune", ".wrun")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -54,7 +45,7 @@ int handleGenBlood(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wrun");
     auto c = wowee::pipeline::WoweeRuneCostLoader::makeBlood(name);
-    if (!saveOrError(c, base, "gen-rune-blood")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeRuneCostLoader>(c, base, "gen-rune-blood", ".wrun")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -65,7 +56,7 @@ int handleGenFrost(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wrun");
     auto c = wowee::pipeline::WoweeRuneCostLoader::makeFrost(name);
-    if (!saveOrError(c, base, "gen-rune-frost")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeRuneCostLoader>(c, base, "gen-rune-frost", ".wrun")) return 1;
     printGenSummary(c, base);
     return 0;
 }

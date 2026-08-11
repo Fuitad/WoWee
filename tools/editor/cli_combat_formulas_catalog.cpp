@@ -49,15 +49,6 @@ const char* inputStatKindName(uint8_t k) {
     }
 }
 
-bool saveOrError(const wowee::pipeline::WoweeCombatFormulas& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeCombatFormulasLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wcfr\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeCombatFormulas& c,
                      const std::string& base) {
@@ -73,7 +64,7 @@ int handleGenWarrior(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wcfr");
     auto c = wowee::pipeline::WoweeCombatFormulasLoader::
         makeWarriorFormulas(name);
-    if (!saveOrError(c, base, "gen-cfr-warrior")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCombatFormulasLoader>(c, base, "gen-cfr-warrior", ".wcfr")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -85,7 +76,7 @@ int handleGenMage(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wcfr");
     auto c = wowee::pipeline::WoweeCombatFormulasLoader::
         makeMageFormulas(name);
-    if (!saveOrError(c, base, "gen-cfr-mage")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCombatFormulasLoader>(c, base, "gen-cfr-mage", ".wcfr")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -97,7 +88,7 @@ int handleGenRogue(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wcfr");
     auto c = wowee::pipeline::WoweeCombatFormulasLoader::
         makeRogueFormulas(name);
-    if (!saveOrError(c, base, "gen-cfr-rogue")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCombatFormulasLoader>(c, base, "gen-cfr-rogue", ".wcfr")) return 1;
     printGenSummary(c, base);
     return 0;
 }

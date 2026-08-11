@@ -33,16 +33,6 @@ const char* standingTierName(int32_t standing) {
     return "Hated";
 }
 
-bool saveOrError(const wowee::pipeline::WoweeReputationRewards& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeReputationRewardsLoader::save(
-            c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wrpr\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeReputationRewards& c,
                      const std::string& base) {
@@ -65,7 +55,7 @@ int handleGenArgent(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wrpr");
     auto c = wowee::pipeline::WoweeReputationRewardsLoader::
         makeArgentCrusade(name);
-    if (!saveOrError(c, base, "gen-rpr")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeReputationRewardsLoader>(c, base, "gen-rpr", ".wrpr")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -77,7 +67,7 @@ int handleGenKaluak(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wrpr");
     auto c = wowee::pipeline::WoweeReputationRewardsLoader::
         makeKaluak(name);
-    if (!saveOrError(c, base, "gen-rpr-kaluak")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeReputationRewardsLoader>(c, base, "gen-rpr-kaluak", ".wrpr")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -89,7 +79,7 @@ int handleGenAccord(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wrpr");
     auto c = wowee::pipeline::WoweeReputationRewardsLoader::
         makeAccordTabard(name);
-    if (!saveOrError(c, base, "gen-rpr-accord")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeReputationRewardsLoader>(c, base, "gen-rpr-accord", ".wrpr")) return 1;
     printGenSummary(c, base);
     return 0;
 }

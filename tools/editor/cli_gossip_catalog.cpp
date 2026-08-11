@@ -30,15 +30,6 @@ void appendOptFlagsStr(std::string& s, uint32_t flags) {
     else if (s.back() == ' ') s.pop_back();
 }
 
-bool saveOrError(const wowee::pipeline::WoweeGossip& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeGossipLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wgsp\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 uint32_t totalOptions(const wowee::pipeline::WoweeGossip& c) {
     uint32_t n = 0;
@@ -60,7 +51,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wgsp");
     auto c = wowee::pipeline::WoweeGossipLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-gossip")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeGossipLoader>(c, base, "gen-gossip", ".wgsp")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -71,7 +62,7 @@ int handleGenInnkeeper(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wgsp");
     auto c = wowee::pipeline::WoweeGossipLoader::makeInnkeeper(name);
-    if (!saveOrError(c, base, "gen-gossip-innkeeper")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeGossipLoader>(c, base, "gen-gossip-innkeeper", ".wgsp")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -82,7 +73,7 @@ int handleGenQuestGiver(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wgsp");
     auto c = wowee::pipeline::WoweeGossipLoader::makeQuestGiver(name);
-    if (!saveOrError(c, base, "gen-gossip-questgiver")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeGossipLoader>(c, base, "gen-gossip-questgiver", ".wgsp")) return 1;
     printGenSummary(c, base);
     return 0;
 }

@@ -22,15 +22,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweeGuildBank& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeGuildBankLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wgbk\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeGuildBank& c,
                      const std::string& base) {
@@ -46,7 +37,7 @@ int handleGenStandard(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wgbk");
     auto c = wowee::pipeline::WoweeGuildBankLoader::
         makeStandardBank(name);
-    if (!saveOrError(c, base, "gen-gbk")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeGuildBankLoader>(c, base, "gen-gbk", ".wgbk")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -58,7 +49,7 @@ int handleGenRaid(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wgbk");
     auto c = wowee::pipeline::WoweeGuildBankLoader::
         makeRaidGuild(name);
-    if (!saveOrError(c, base, "gen-gbk-raid")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeGuildBankLoader>(c, base, "gen-gbk-raid", ".wgbk")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -70,7 +61,7 @@ int handleGenSmall(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wgbk");
     auto c = wowee::pipeline::WoweeGuildBankLoader::
         makeSmallGuild(name);
-    if (!saveOrError(c, base, "gen-gbk-small")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeGuildBankLoader>(c, base, "gen-gbk-small", ".wgbk")) return 1;
     printGenSummary(c, base);
     return 0;
 }

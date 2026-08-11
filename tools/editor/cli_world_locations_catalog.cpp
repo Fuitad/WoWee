@@ -56,15 +56,6 @@ const char* skillIdName(uint16_t s) {
     }
 }
 
-bool saveOrError(const wowee::pipeline::WoweeWorldLocations& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeWorldLocationsLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wloc\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeWorldLocations& c,
                      const std::string& base) {
@@ -80,7 +71,7 @@ int handleGenAlliancePOIs(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wloc");
     auto c = wowee::pipeline::WoweeWorldLocationsLoader::
         makeAlliancePOIs(name);
-    if (!saveOrError(c, base, "gen-loc-poi")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeWorldLocationsLoader>(c, base, "gen-loc-poi", ".wloc")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -92,7 +83,7 @@ int handleGenHerbalism(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wloc");
     auto c = wowee::pipeline::WoweeWorldLocationsLoader::
         makeHerbalismNodes(name);
-    if (!saveOrError(c, base, "gen-loc-herb")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeWorldLocationsLoader>(c, base, "gen-loc-herb", ".wloc")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -104,7 +95,7 @@ int handleGenRareSpawns(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wloc");
     auto c = wowee::pipeline::WoweeWorldLocationsLoader::
         makeRareSpawns(name);
-    if (!saveOrError(c, base, "gen-loc-rare")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeWorldLocationsLoader>(c, base, "gen-loc-rare", ".wloc")) return 1;
     printGenSummary(c, base);
     return 0;
 }

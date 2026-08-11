@@ -20,15 +20,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweeChannel& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeChannelLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wchn\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeChannel& c,
                      const std::string& base) {
@@ -43,7 +34,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wchn");
     auto c = wowee::pipeline::WoweeChannelLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-channels")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeChannelLoader>(c, base, "gen-channels", ".wchn")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -54,7 +45,7 @@ int handleGenCity(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wchn");
     auto c = wowee::pipeline::WoweeChannelLoader::makeCity(name);
-    if (!saveOrError(c, base, "gen-channels-city")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeChannelLoader>(c, base, "gen-channels-city", ".wchn")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -65,7 +56,7 @@ int handleGenModerated(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wchn");
     auto c = wowee::pipeline::WoweeChannelLoader::makeModerated(name);
-    if (!saveOrError(c, base, "gen-channels-moderated")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeChannelLoader>(c, base, "gen-channels-moderated", ".wchn")) return 1;
     printGenSummary(c, base);
     return 0;
 }

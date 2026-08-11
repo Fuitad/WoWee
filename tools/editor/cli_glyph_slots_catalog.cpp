@@ -21,15 +21,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweeGlyphSlot& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeGlyphSlotLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wgfs\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeGlyphSlot& c,
                      const std::string& base) {
@@ -44,7 +35,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wgfs");
     auto c = wowee::pipeline::WoweeGlyphSlotLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-gfs")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeGlyphSlotLoader>(c, base, "gen-gfs", ".wgfs")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -55,7 +46,7 @@ int handleGenWotlk(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wgfs");
     auto c = wowee::pipeline::WoweeGlyphSlotLoader::makeWotlk(name);
-    if (!saveOrError(c, base, "gen-gfs-wotlk")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeGlyphSlotLoader>(c, base, "gen-gfs-wotlk", ".wgfs")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -66,7 +57,7 @@ int handleGenCata(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wgfs");
     auto c = wowee::pipeline::WoweeGlyphSlotLoader::makeCata(name);
-    if (!saveOrError(c, base, "gen-gfs-cata")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeGlyphSlotLoader>(c, base, "gen-gfs-cata", ".wgfs")) return 1;
     printGenSummary(c, base);
     return 0;
 }

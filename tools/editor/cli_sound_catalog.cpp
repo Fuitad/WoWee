@@ -29,15 +29,6 @@ void appendFlagsStr(std::string& s, uint32_t flags) {
     else if (s.back() == ' ') s.pop_back();
 }
 
-bool saveOrError(const wowee::pipeline::WoweeSound& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeSoundLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wsnd\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeSound& c,
                      const std::string& base) {
@@ -52,7 +43,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     if (i + 1 < argc && argv[i + 1][0] != '-') name = argv[++i];
     base = cli::withoutExt(base, ".wsnd");
     auto c = wowee::pipeline::WoweeSoundLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-sound-catalog")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSoundLoader>(c, base, "gen-sound-catalog", ".wsnd")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -63,7 +54,7 @@ int handleGenAmbient(int& i, int argc, char** argv) {
     if (i + 1 < argc && argv[i + 1][0] != '-') name = argv[++i];
     base = cli::withoutExt(base, ".wsnd");
     auto c = wowee::pipeline::WoweeSoundLoader::makeAmbient(name);
-    if (!saveOrError(c, base, "gen-sound-catalog-ambient")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSoundLoader>(c, base, "gen-sound-catalog-ambient", ".wsnd")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -74,7 +65,7 @@ int handleGenTavern(int& i, int argc, char** argv) {
     if (i + 1 < argc && argv[i + 1][0] != '-') name = argv[++i];
     base = cli::withoutExt(base, ".wsnd");
     auto c = wowee::pipeline::WoweeSoundLoader::makeTavern(name);
-    if (!saveOrError(c, base, "gen-sound-catalog-tavern")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSoundLoader>(c, base, "gen-sound-catalog-tavern", ".wsnd")) return 1;
     printGenSummary(c, base);
     return 0;
 }

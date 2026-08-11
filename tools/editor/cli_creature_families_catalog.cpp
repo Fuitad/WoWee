@@ -21,15 +21,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweeCreatureFamily& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeCreatureFamilyLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wcef\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeCreatureFamily& c,
                      const std::string& base) {
@@ -44,7 +35,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wcef");
     auto c = wowee::pipeline::WoweeCreatureFamilyLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-cef")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCreatureFamilyLoader>(c, base, "gen-cef", ".wcef")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -55,7 +46,7 @@ int handleGenFerocity(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wcef");
     auto c = wowee::pipeline::WoweeCreatureFamilyLoader::makeFerocity(name);
-    if (!saveOrError(c, base, "gen-cef-ferocity")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCreatureFamilyLoader>(c, base, "gen-cef-ferocity", ".wcef")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -66,7 +57,7 @@ int handleGenExotic(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wcef");
     auto c = wowee::pipeline::WoweeCreatureFamilyLoader::makeExotic(name);
-    if (!saveOrError(c, base, "gen-cef-exotic")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCreatureFamilyLoader>(c, base, "gen-cef-exotic", ".wcef")) return 1;
     printGenSummary(c, base);
     return 0;
 }

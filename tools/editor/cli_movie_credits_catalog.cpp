@@ -35,15 +35,6 @@ const char* categoryName(uint8_t k) {
     }
 }
 
-bool saveOrError(const wowee::pipeline::WoweeMovieCredits& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeMovieCreditsLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wmvc\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeMovieCredits& c,
                      const std::string& base) {
@@ -61,7 +52,7 @@ int handleGenWotLK(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wmvc");
     auto c = wowee::pipeline::WoweeMovieCreditsLoader::makeWotLKIntro(name);
-    if (!saveOrError(c, base, "gen-mvc")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeMovieCreditsLoader>(c, base, "gen-mvc", ".wmvc")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -72,7 +63,7 @@ int handleGenQuest(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wmvc");
     auto c = wowee::pipeline::WoweeMovieCreditsLoader::makeQuestCinema(name);
-    if (!saveOrError(c, base, "gen-mvc-quest")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeMovieCreditsLoader>(c, base, "gen-mvc-quest", ".wmvc")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -83,7 +74,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wmvc");
     auto c = wowee::pipeline::WoweeMovieCreditsLoader::makeStarterRoll(name);
-    if (!saveOrError(c, base, "gen-mvc-starter")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeMovieCreditsLoader>(c, base, "gen-mvc-starter", ".wmvc")) return 1;
     printGenSummary(c, base);
     return 0;
 }

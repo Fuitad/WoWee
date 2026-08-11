@@ -34,15 +34,6 @@ void appendQuestFlagsStr(std::string& s, uint32_t flags) {
     else if (s.back() == ' ') s.pop_back();
 }
 
-bool saveOrError(const wowee::pipeline::WoweeQuest& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeQuestLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wqt\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeQuest& c,
                      const std::string& base) {
@@ -57,7 +48,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wqt");
     auto c = wowee::pipeline::WoweeQuestLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-quests")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeQuestLoader>(c, base, "gen-quests", ".wqt")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -68,7 +59,7 @@ int handleGenChain(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wqt");
     auto c = wowee::pipeline::WoweeQuestLoader::makeChain(name);
-    if (!saveOrError(c, base, "gen-quests-chain")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeQuestLoader>(c, base, "gen-quests-chain", ".wqt")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -79,7 +70,7 @@ int handleGenDaily(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wqt");
     auto c = wowee::pipeline::WoweeQuestLoader::makeDaily(name);
-    if (!saveOrError(c, base, "gen-quests-daily")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeQuestLoader>(c, base, "gen-quests-daily", ".wqt")) return 1;
     printGenSummary(c, base);
     return 0;
 }

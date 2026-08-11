@@ -21,15 +21,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweeItemMaterial& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeItemMaterialLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wmat\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeItemMaterial& c,
                      const std::string& base) {
@@ -44,7 +35,7 @@ int handleGenArmor(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wmat");
     auto c = wowee::pipeline::WoweeItemMaterialLoader::makeArmor(name);
-    if (!saveOrError(c, base, "gen-mat")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeItemMaterialLoader>(c, base, "gen-mat", ".wmat")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -55,7 +46,7 @@ int handleGenWeapon(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wmat");
     auto c = wowee::pipeline::WoweeItemMaterialLoader::makeWeapon(name);
-    if (!saveOrError(c, base, "gen-mat-weapon")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeItemMaterialLoader>(c, base, "gen-mat-weapon", ".wmat")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -66,7 +57,7 @@ int handleGenMagical(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wmat");
     auto c = wowee::pipeline::WoweeItemMaterialLoader::makeMagical(name);
-    if (!saveOrError(c, base, "gen-mat-magical")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeItemMaterialLoader>(c, base, "gen-mat-magical", ".wmat")) return 1;
     printGenSummary(c, base);
     return 0;
 }

@@ -21,15 +21,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweeItemFlags& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeItemFlagsLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wifs\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeItemFlags& c,
                      const std::string& base) {
@@ -44,7 +35,7 @@ int handleGenStandard(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wifs");
     auto c = wowee::pipeline::WoweeItemFlagsLoader::makeStandard(name);
-    if (!saveOrError(c, base, "gen-ifs")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeItemFlagsLoader>(c, base, "gen-ifs", ".wifs")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -55,7 +46,7 @@ int handleGenBinding(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wifs");
     auto c = wowee::pipeline::WoweeItemFlagsLoader::makeBinding(name);
-    if (!saveOrError(c, base, "gen-ifs-binding")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeItemFlagsLoader>(c, base, "gen-ifs-binding", ".wifs")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -66,7 +57,7 @@ int handleGenServer(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wifs");
     auto c = wowee::pipeline::WoweeItemFlagsLoader::makeServer(name);
-    if (!saveOrError(c, base, "gen-ifs-server")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeItemFlagsLoader>(c, base, "gen-ifs-server", ".wifs")) return 1;
     printGenSummary(c, base);
     return 0;
 }

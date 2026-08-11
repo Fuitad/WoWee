@@ -22,15 +22,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweeCreatureDifficulty& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeCreatureDifficultyLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wcdf\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeCreatureDifficulty& c,
                      const std::string& base) {
@@ -45,7 +36,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wcdf");
     auto c = wowee::pipeline::WoweeCreatureDifficultyLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-cdf")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCreatureDifficultyLoader>(c, base, "gen-cdf", ".wcdf")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -56,7 +47,7 @@ int handleGenWotlkRaid(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wcdf");
     auto c = wowee::pipeline::WoweeCreatureDifficultyLoader::makeWotlkRaid(name);
-    if (!saveOrError(c, base, "gen-cdf-wotlk-raid")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCreatureDifficultyLoader>(c, base, "gen-cdf-wotlk-raid", ".wcdf")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -67,7 +58,7 @@ int handleGenFiveMan(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wcdf");
     auto c = wowee::pipeline::WoweeCreatureDifficultyLoader::makeFiveMan(name);
-    if (!saveOrError(c, base, "gen-cdf-fiveman")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCreatureDifficultyLoader>(c, base, "gen-cdf-fiveman", ".wcdf")) return 1;
     printGenSummary(c, base);
     return 0;
 }

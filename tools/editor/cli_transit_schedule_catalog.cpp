@@ -43,15 +43,6 @@ const char* factionAccessName(uint8_t f) {
     }
 }
 
-bool saveOrError(const wowee::pipeline::WoweeTransitSchedule& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeTransitScheduleLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wtsc\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeTransitSchedule& c,
                      const std::string& base) {
@@ -67,7 +58,7 @@ int handleGenZeppelins(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wtsc");
     auto c = wowee::pipeline::WoweeTransitScheduleLoader::
         makeZeppelins(name);
-    if (!saveOrError(c, base, "gen-trn-zeppelins")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeTransitScheduleLoader>(c, base, "gen-trn-zeppelins", ".wtsc")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -79,7 +70,7 @@ int handleGenBoats(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wtsc");
     auto c = wowee::pipeline::WoweeTransitScheduleLoader::
         makeBoats(name);
-    if (!saveOrError(c, base, "gen-trn-boats")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeTransitScheduleLoader>(c, base, "gen-trn-boats", ".wtsc")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -91,7 +82,7 @@ int handleGenTaxis(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wtsc");
     auto c = wowee::pipeline::WoweeTransitScheduleLoader::
         makeTaxis(name);
-    if (!saveOrError(c, base, "gen-trn-taxis")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeTransitScheduleLoader>(c, base, "gen-trn-taxis", ".wtsc")) return 1;
     printGenSummary(c, base);
     return 0;
 }

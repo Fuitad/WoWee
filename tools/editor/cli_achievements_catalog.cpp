@@ -31,15 +31,6 @@ void appendAchFlagsStr(std::string& s, uint32_t flags) {
     else if (s.back() == ' ') s.pop_back();
 }
 
-bool saveOrError(const wowee::pipeline::WoweeAchievement& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeAchievementLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wach\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 uint32_t totalCriteria(const wowee::pipeline::WoweeAchievement& c) {
     uint32_t n = 0;
@@ -61,7 +52,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wach");
     auto c = wowee::pipeline::WoweeAchievementLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-achievements")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeAchievementLoader>(c, base, "gen-achievements", ".wach")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -72,7 +63,7 @@ int handleGenBandit(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wach");
     auto c = wowee::pipeline::WoweeAchievementLoader::makeBandit(name);
-    if (!saveOrError(c, base, "gen-achievements-bandit")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeAchievementLoader>(c, base, "gen-achievements-bandit", ".wach")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -83,7 +74,7 @@ int handleGenMeta(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wach");
     auto c = wowee::pipeline::WoweeAchievementLoader::makeMeta(name);
-    if (!saveOrError(c, base, "gen-achievements-meta")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeAchievementLoader>(c, base, "gen-achievements-meta", ".wach")) return 1;
     printGenSummary(c, base);
     return 0;
 }

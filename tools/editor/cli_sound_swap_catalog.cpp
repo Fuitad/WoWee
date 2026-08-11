@@ -34,15 +34,6 @@ const char* conditionKindName(uint8_t k) {
     }
 }
 
-bool saveOrError(const wowee::pipeline::WoweeSoundSwap& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeSoundSwapLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wswp\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeSoundSwap& c,
                      const std::string& base) {
@@ -58,7 +49,7 @@ int handleGenBosses(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wswp");
     auto c = wowee::pipeline::WoweeSoundSwapLoader::
         makeBossOverrides(name);
-    if (!saveOrError(c, base, "gen-swp-bosses")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSoundSwapLoader>(c, base, "gen-swp-bosses", ".wswp")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -70,7 +61,7 @@ int handleGenRace(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wswp");
     auto c = wowee::pipeline::WoweeSoundSwapLoader::
         makeRaceVoices(name);
-    if (!saveOrError(c, base, "gen-swp-race")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSoundSwapLoader>(c, base, "gen-swp-race", ".wswp")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -82,7 +73,7 @@ int handleGenUI(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wswp");
     auto c = wowee::pipeline::WoweeSoundSwapLoader::
         makeGlobalUI(name);
-    if (!saveOrError(c, base, "gen-swp-ui")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSoundSwapLoader>(c, base, "gen-swp-ui", ".wswp")) return 1;
     printGenSummary(c, base);
     return 0;
 }

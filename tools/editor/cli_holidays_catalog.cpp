@@ -20,15 +20,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweeHoliday& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeHolidayLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.whol\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeHoliday& c,
                      const std::string& base) {
@@ -43,7 +34,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".whol");
     auto c = wowee::pipeline::WoweeHolidayLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-holidays")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeHolidayLoader>(c, base, "gen-holidays", ".whol")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -54,7 +45,7 @@ int handleGenWeekly(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".whol");
     auto c = wowee::pipeline::WoweeHolidayLoader::makeWeekly(name);
-    if (!saveOrError(c, base, "gen-holidays-weekly")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeHolidayLoader>(c, base, "gen-holidays-weekly", ".whol")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -65,7 +56,7 @@ int handleGenSpecial(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".whol");
     auto c = wowee::pipeline::WoweeHolidayLoader::makeSpecial(name);
-    if (!saveOrError(c, base, "gen-holidays-special")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeHolidayLoader>(c, base, "gen-holidays-special", ".whol")) return 1;
     printGenSummary(c, base);
     return 0;
 }

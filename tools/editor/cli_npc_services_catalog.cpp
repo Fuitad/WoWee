@@ -21,15 +21,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweeNPCService& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeNPCServiceLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wbkd\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeNPCService& c,
                      const std::string& base) {
@@ -44,7 +35,7 @@ int handleGenCity(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wbkd");
     auto c = wowee::pipeline::WoweeNPCServiceLoader::makeCity(name);
-    if (!saveOrError(c, base, "gen-bkd")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeNPCServiceLoader>(c, base, "gen-bkd", ".wbkd")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -55,7 +46,7 @@ int handleGenBattle(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wbkd");
     auto c = wowee::pipeline::WoweeNPCServiceLoader::makeBattle(name);
-    if (!saveOrError(c, base, "gen-bkd-battle")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeNPCServiceLoader>(c, base, "gen-bkd-battle", ".wbkd")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -66,7 +57,7 @@ int handleGenProfession(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wbkd");
     auto c = wowee::pipeline::WoweeNPCServiceLoader::makeProfession(name);
-    if (!saveOrError(c, base, "gen-bkd-profession")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeNPCServiceLoader>(c, base, "gen-bkd-profession", ".wbkd")) return 1;
     printGenSummary(c, base);
     return 0;
 }

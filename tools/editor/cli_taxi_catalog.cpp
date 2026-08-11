@@ -21,15 +21,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweeTaxi& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeTaxiLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wtax\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 uint32_t totalWaypoints(const wowee::pipeline::WoweeTaxi& c) {
     uint32_t n = 0;
@@ -52,7 +43,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wtax");
     auto c = wowee::pipeline::WoweeTaxiLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-taxi")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeTaxiLoader>(c, base, "gen-taxi", ".wtax")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -63,7 +54,7 @@ int handleGenRegion(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wtax");
     auto c = wowee::pipeline::WoweeTaxiLoader::makeRegion(name);
-    if (!saveOrError(c, base, "gen-taxi-region")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeTaxiLoader>(c, base, "gen-taxi-region", ".wtax")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -74,7 +65,7 @@ int handleGenContinent(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wtax");
     auto c = wowee::pipeline::WoweeTaxiLoader::makeContinent(name);
-    if (!saveOrError(c, base, "gen-taxi-continent")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeTaxiLoader>(c, base, "gen-taxi-continent", ".wtax")) return 1;
     printGenSummary(c, base);
     return 0;
 }

@@ -20,15 +20,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweeWorldStateUI& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeWorldStateUILoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wwui\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeWorldStateUI& c,
                      const std::string& base) {
@@ -43,7 +34,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wwui");
     auto c = wowee::pipeline::WoweeWorldStateUILoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-wsui")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeWorldStateUILoader>(c, base, "gen-wsui", ".wwui")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -54,7 +45,7 @@ int handleGenWintergrasp(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wwui");
     auto c = wowee::pipeline::WoweeWorldStateUILoader::makeWintergrasp(name);
-    if (!saveOrError(c, base, "gen-wsui-wintergrasp")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeWorldStateUILoader>(c, base, "gen-wsui-wintergrasp", ".wwui")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -65,7 +56,7 @@ int handleGenDungeon(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wwui");
     auto c = wowee::pipeline::WoweeWorldStateUILoader::makeDungeon(name);
-    if (!saveOrError(c, base, "gen-wsui-dungeon")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeWorldStateUILoader>(c, base, "gen-wsui-dungeon", ".wwui")) return 1;
     printGenSummary(c, base);
     return 0;
 }

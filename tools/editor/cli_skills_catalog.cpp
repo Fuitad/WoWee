@@ -20,15 +20,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweeSkill& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeSkillLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wskl\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeSkill& c,
                      const std::string& base) {
@@ -43,7 +34,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wskl");
     auto c = wowee::pipeline::WoweeSkillLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-skills")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSkillLoader>(c, base, "gen-skills", ".wskl")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -54,7 +45,7 @@ int handleGenProfessions(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wskl");
     auto c = wowee::pipeline::WoweeSkillLoader::makeProfessions(name);
-    if (!saveOrError(c, base, "gen-skills-professions")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSkillLoader>(c, base, "gen-skills-professions", ".wskl")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -65,7 +56,7 @@ int handleGenWeapons(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wskl");
     auto c = wowee::pipeline::WoweeSkillLoader::makeWeapons(name);
-    if (!saveOrError(c, base, "gen-skills-weapons")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSkillLoader>(c, base, "gen-skills-weapons", ".wskl")) return 1;
     printGenSummary(c, base);
     return 0;
 }

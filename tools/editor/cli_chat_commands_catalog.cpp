@@ -46,15 +46,6 @@ const char* categoryName(uint8_t c) {
     }
 }
 
-bool saveOrError(const wowee::pipeline::WoweeChatCommands& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeChatCommandsLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wcmd\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeChatCommands& c,
                      const std::string& base) {
@@ -70,7 +61,7 @@ int handleGenBasic(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wcmd");
     auto c = wowee::pipeline::WoweeChatCommandsLoader::
         makeBasicCommands(name);
-    if (!saveOrError(c, base, "gen-cmd-basic")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeChatCommandsLoader>(c, base, "gen-cmd-basic", ".wcmd")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -82,7 +73,7 @@ int handleGenMovement(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wcmd");
     auto c = wowee::pipeline::WoweeChatCommandsLoader::
         makeMovementCommands(name);
-    if (!saveOrError(c, base, "gen-cmd-movement")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeChatCommandsLoader>(c, base, "gen-cmd-movement", ".wcmd")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -94,7 +85,7 @@ int handleGenAdmin(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wcmd");
     auto c = wowee::pipeline::WoweeChatCommandsLoader::
         makeAdminCommands(name);
-    if (!saveOrError(c, base, "gen-cmd-admin")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeChatCommandsLoader>(c, base, "gen-cmd-admin", ".wcmd")) return 1;
     printGenSummary(c, base);
     return 0;
 }

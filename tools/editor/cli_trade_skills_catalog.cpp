@@ -20,15 +20,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweeTradeSkill& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeTradeSkillLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wtsk\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeTradeSkill& c,
                      const std::string& base) {
@@ -43,7 +34,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wtsk");
     auto c = wowee::pipeline::WoweeTradeSkillLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-tsk")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeTradeSkillLoader>(c, base, "gen-tsk", ".wtsk")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -54,7 +45,7 @@ int handleGenBlacksmithing(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wtsk");
     auto c = wowee::pipeline::WoweeTradeSkillLoader::makeBlacksmithing(name);
-    if (!saveOrError(c, base, "gen-tsk-blacksmithing")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeTradeSkillLoader>(c, base, "gen-tsk-blacksmithing", ".wtsk")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -65,7 +56,7 @@ int handleGenAlchemy(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wtsk");
     auto c = wowee::pipeline::WoweeTradeSkillLoader::makeAlchemy(name);
-    if (!saveOrError(c, base, "gen-tsk-alchemy")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeTradeSkillLoader>(c, base, "gen-tsk-alchemy", ".wtsk")) return 1;
     printGenSummary(c, base);
     return 0;
 }

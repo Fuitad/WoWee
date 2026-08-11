@@ -48,15 +48,6 @@ const char* qualityName(uint8_t q) {
     }
 }
 
-bool saveOrError(const wowee::pipeline::WoweeLootModes& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeLootModesLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wlma\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeLootModes& c,
                      const std::string& base) {
@@ -71,7 +62,7 @@ int handleGenStandard(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wlma");
     auto c = wowee::pipeline::WoweeLootModesLoader::makeStandard(name);
-    if (!saveOrError(c, base, "gen-lma")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeLootModesLoader>(c, base, "gen-lma", ".wlma")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -82,7 +73,7 @@ int handleGenRaid(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wlma");
     auto c = wowee::pipeline::WoweeLootModesLoader::makeRaidPolicies(name);
-    if (!saveOrError(c, base, "gen-lma-raid")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeLootModesLoader>(c, base, "gen-lma-raid", ".wlma")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -93,7 +84,7 @@ int handleGenAFK(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wlma");
     auto c = wowee::pipeline::WoweeLootModesLoader::makeAFKPrevention(name);
-    if (!saveOrError(c, base, "gen-lma-afk")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeLootModesLoader>(c, base, "gen-lma-afk", ".wlma")) return 1;
     printGenSummary(c, base);
     return 0;
 }

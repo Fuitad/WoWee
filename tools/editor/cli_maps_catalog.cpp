@@ -20,15 +20,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweeMaps& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeMapsLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wms\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeMaps& c,
                      const std::string& base) {
@@ -44,7 +35,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wms");
     auto c = wowee::pipeline::WoweeMapsLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-maps")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeMapsLoader>(c, base, "gen-maps", ".wms")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -55,7 +46,7 @@ int handleGenClassic(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wms");
     auto c = wowee::pipeline::WoweeMapsLoader::makeClassic(name);
-    if (!saveOrError(c, base, "gen-maps-classic")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeMapsLoader>(c, base, "gen-maps-classic", ".wms")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -66,7 +57,7 @@ int handleGenBgArena(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wms");
     auto c = wowee::pipeline::WoweeMapsLoader::makeBgArena(name);
-    if (!saveOrError(c, base, "gen-maps-bgarena")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeMapsLoader>(c, base, "gen-maps-bgarena", ".wms")) return 1;
     printGenSummary(c, base);
     return 0;
 }

@@ -24,15 +24,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweeAddonManifest& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeAddonManifestLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wmod\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeAddonManifest& c,
                      const std::string& base) {
@@ -48,7 +39,7 @@ int handleGenStandard(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wmod");
     auto c = wowee::pipeline::WoweeAddonManifestLoader::
         makeStandardAddons(name);
-    if (!saveOrError(c, base, "gen-mod")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeAddonManifestLoader>(c, base, "gen-mod", ".wmod")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -60,7 +51,7 @@ int handleGenUI(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wmod");
     auto c = wowee::pipeline::WoweeAddonManifestLoader::
         makeUIReplacement(name);
-    if (!saveOrError(c, base, "gen-mod-ui")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeAddonManifestLoader>(c, base, "gen-mod-ui", ".wmod")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -72,7 +63,7 @@ int handleGenUtility(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wmod");
     auto c = wowee::pipeline::WoweeAddonManifestLoader::
         makeUtility(name);
-    if (!saveOrError(c, base, "gen-mod-util")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeAddonManifestLoader>(c, base, "gen-mod-util", ".wmod")) return 1;
     printGenSummary(c, base);
     return 0;
 }

@@ -21,15 +21,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweeSpellAuraType& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeSpellAuraTypeLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.waur\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeSpellAuraType& c,
                      const std::string& base) {
@@ -44,7 +35,7 @@ int handleGenPeriodic(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".waur");
     auto c = wowee::pipeline::WoweeSpellAuraTypeLoader::makePeriodic(name);
-    if (!saveOrError(c, base, "gen-aur")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellAuraTypeLoader>(c, base, "gen-aur", ".waur")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -55,7 +46,7 @@ int handleGenStatMod(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".waur");
     auto c = wowee::pipeline::WoweeSpellAuraTypeLoader::makeStatMod(name);
-    if (!saveOrError(c, base, "gen-aur-stats")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellAuraTypeLoader>(c, base, "gen-aur-stats", ".waur")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -66,7 +57,7 @@ int handleGenMovement(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".waur");
     auto c = wowee::pipeline::WoweeSpellAuraTypeLoader::makeMovement(name);
-    if (!saveOrError(c, base, "gen-aur-movement")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellAuraTypeLoader>(c, base, "gen-aur-movement", ".waur")) return 1;
     printGenSummary(c, base);
     return 0;
 }

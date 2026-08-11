@@ -20,15 +20,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweePlayerCondition& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweePlayerConditionLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wpcn\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweePlayerCondition& c,
                      const std::string& base) {
@@ -43,7 +34,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wpcn");
     auto c = wowee::pipeline::WoweePlayerConditionLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-pcn")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweePlayerConditionLoader>(c, base, "gen-pcn", ".wpcn")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -54,7 +45,7 @@ int handleGenQuestGates(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wpcn");
     auto c = wowee::pipeline::WoweePlayerConditionLoader::makeQuestGates(name);
-    if (!saveOrError(c, base, "gen-pcn-quest-gates")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweePlayerConditionLoader>(c, base, "gen-pcn-quest-gates", ".wpcn")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -65,7 +56,7 @@ int handleGenComposite(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wpcn");
     auto c = wowee::pipeline::WoweePlayerConditionLoader::makeComposite(name);
-    if (!saveOrError(c, base, "gen-pcn-composite")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweePlayerConditionLoader>(c, base, "gen-pcn-composite", ".wpcn")) return 1;
     printGenSummary(c, base);
     return 0;
 }

@@ -21,15 +21,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweeKeyBinding& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeKeyBindingLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wkbd\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeKeyBinding& c,
                      const std::string& base) {
@@ -44,7 +35,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wkbd");
     auto c = wowee::pipeline::WoweeKeyBindingLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-kbd")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeKeyBindingLoader>(c, base, "gen-kbd", ".wkbd")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -55,7 +46,7 @@ int handleGenMovement(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wkbd");
     auto c = wowee::pipeline::WoweeKeyBindingLoader::makeMovement(name);
-    if (!saveOrError(c, base, "gen-kbd-movement")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeKeyBindingLoader>(c, base, "gen-kbd-movement", ".wkbd")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -66,7 +57,7 @@ int handleGenUI(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wkbd");
     auto c = wowee::pipeline::WoweeKeyBindingLoader::makeUIPanels(name);
-    if (!saveOrError(c, base, "gen-kbd-ui")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeKeyBindingLoader>(c, base, "gen-kbd-ui", ".wkbd")) return 1;
     printGenSummary(c, base);
     return 0;
 }

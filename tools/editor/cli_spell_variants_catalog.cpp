@@ -35,15 +35,6 @@ const char* conditionKindName(uint8_t k) {
     }
 }
 
-bool saveOrError(const wowee::pipeline::WoweeSpellVariants& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeSpellVariantsLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wspv\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeSpellVariants& c,
                      const std::string& base) {
@@ -58,7 +49,7 @@ int handleGenWarrior(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wspv");
     auto c = wowee::pipeline::WoweeSpellVariantsLoader::makeWarriorStance(name);
-    if (!saveOrError(c, base, "gen-spv")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellVariantsLoader>(c, base, "gen-spv", ".wspv")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -69,7 +60,7 @@ int handleGenTalent(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wspv");
     auto c = wowee::pipeline::WoweeSpellVariantsLoader::makeTalentMod(name);
-    if (!saveOrError(c, base, "gen-spv-talent")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellVariantsLoader>(c, base, "gen-spv-talent", ".wspv")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -80,7 +71,7 @@ int handleGenRacial(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wspv");
     auto c = wowee::pipeline::WoweeSpellVariantsLoader::makeRacial(name);
-    if (!saveOrError(c, base, "gen-spv-racial")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellVariantsLoader>(c, base, "gen-spv-racial", ".wspv")) return 1;
     printGenSummary(c, base);
     return 0;
 }

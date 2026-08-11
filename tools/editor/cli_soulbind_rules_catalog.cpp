@@ -50,15 +50,6 @@ const char* qualityName(uint8_t q) {
     }
 }
 
-bool saveOrError(const wowee::pipeline::WoweeSoulbindRules& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeSoulbindRulesLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wbnd\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeSoulbindRules& c,
                      const std::string& base) {
@@ -74,7 +65,7 @@ int handleGenVanilla(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wbnd");
     auto c = wowee::pipeline::WoweeSoulbindRulesLoader::
         makeVanillaPolicy(name);
-    if (!saveOrError(c, base, "gen-bnd-vanilla")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSoulbindRulesLoader>(c, base, "gen-bnd-vanilla", ".wbnd")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -86,7 +77,7 @@ int handleGenTBC(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wbnd");
     auto c = wowee::pipeline::WoweeSoulbindRulesLoader::
         makeTBCPolicy(name);
-    if (!saveOrError(c, base, "gen-bnd-tbc")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSoulbindRulesLoader>(c, base, "gen-bnd-tbc", ".wbnd")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -98,7 +89,7 @@ int handleGenWotLK(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wbnd");
     auto c = wowee::pipeline::WoweeSoulbindRulesLoader::
         makeWotLKPolicy(name);
-    if (!saveOrError(c, base, "gen-bnd-wotlk")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSoulbindRulesLoader>(c, base, "gen-bnd-wotlk", ".wbnd")) return 1;
     printGenSummary(c, base);
     return 0;
 }

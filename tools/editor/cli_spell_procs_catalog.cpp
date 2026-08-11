@@ -21,15 +21,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweeSpellProc& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeSpellProcLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wsps\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeSpellProc& c,
                      const std::string& base) {
@@ -44,7 +35,7 @@ int handleGenWeapon(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wsps");
     auto c = wowee::pipeline::WoweeSpellProcLoader::makeWeapon(name);
-    if (!saveOrError(c, base, "gen-sps")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellProcLoader>(c, base, "gen-sps", ".wsps")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -55,7 +46,7 @@ int handleGenAura(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wsps");
     auto c = wowee::pipeline::WoweeSpellProcLoader::makeAura(name);
-    if (!saveOrError(c, base, "gen-sps-aura")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellProcLoader>(c, base, "gen-sps-aura", ".wsps")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -66,7 +57,7 @@ int handleGenTalent(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wsps");
     auto c = wowee::pipeline::WoweeSpellProcLoader::makeTalent(name);
-    if (!saveOrError(c, base, "gen-sps-talent")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellProcLoader>(c, base, "gen-sps-talent", ".wsps")) return 1;
     printGenSummary(c, base);
     return 0;
 }

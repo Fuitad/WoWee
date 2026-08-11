@@ -34,15 +34,6 @@ const char* linkKindName(uint8_t k) {
     }
 }
 
-bool saveOrError(const wowee::pipeline::WoweeChatLinks& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeChatLinksLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wlnk\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeChatLinks& c,
                      const std::string& base) {
@@ -58,7 +49,7 @@ int handleGenStandard(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wlnk");
     auto c = wowee::pipeline::WoweeChatLinksLoader::
         makeStandardLinks(name);
-    if (!saveOrError(c, base, "gen-lnk-std")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeChatLinksLoader>(c, base, "gen-lnk-std", ".wlnk")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -70,7 +61,7 @@ int handleGenTalentTrade(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wlnk");
     auto c = wowee::pipeline::WoweeChatLinksLoader::
         makeTalentTrade(name);
-    if (!saveOrError(c, base, "gen-lnk-talent")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeChatLinksLoader>(c, base, "gen-lnk-talent", ".wlnk")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -82,7 +73,7 @@ int handleGenColorVariants(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wlnk");
     auto c = wowee::pipeline::WoweeChatLinksLoader::
         makeColorVariants(name);
-    if (!saveOrError(c, base, "gen-lnk-quality")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeChatLinksLoader>(c, base, "gen-lnk-quality", ".wlnk")) return 1;
     printGenSummary(c, base);
     return 0;
 }

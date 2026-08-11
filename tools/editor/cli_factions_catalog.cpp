@@ -30,15 +30,6 @@ void appendRepFlagsStr(std::string& s, uint32_t flags) {
     else if (s.back() == ' ') s.pop_back();
 }
 
-bool saveOrError(const wowee::pipeline::WoweeFaction& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeFactionLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wfac\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeFaction& c,
                      const std::string& base) {
@@ -53,7 +44,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wfac");
     auto c = wowee::pipeline::WoweeFactionLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-factions")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeFactionLoader>(c, base, "gen-factions", ".wfac")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -64,7 +55,7 @@ int handleGenAlliance(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wfac");
     auto c = wowee::pipeline::WoweeFactionLoader::makeAlliance(name);
-    if (!saveOrError(c, base, "gen-factions-alliance")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeFactionLoader>(c, base, "gen-factions-alliance", ".wfac")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -75,7 +66,7 @@ int handleGenWildlife(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wfac");
     auto c = wowee::pipeline::WoweeFactionLoader::makeWildlife(name);
-    if (!saveOrError(c, base, "gen-factions-wildlife")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeFactionLoader>(c, base, "gen-factions-wildlife", ".wfac")) return 1;
     printGenSummary(c, base);
     return 0;
 }

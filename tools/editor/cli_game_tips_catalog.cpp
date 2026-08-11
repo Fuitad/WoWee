@@ -20,15 +20,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweeGameTip& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeGameTipLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wgtp\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeGameTip& c,
                      const std::string& base) {
@@ -43,7 +34,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wgtp");
     auto c = wowee::pipeline::WoweeGameTipLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-tips")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeGameTipLoader>(c, base, "gen-tips", ".wgtp")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -54,7 +45,7 @@ int handleGenNewPlayer(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wgtp");
     auto c = wowee::pipeline::WoweeGameTipLoader::makeNewPlayer(name);
-    if (!saveOrError(c, base, "gen-tips-new-player")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeGameTipLoader>(c, base, "gen-tips-new-player", ".wgtp")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -65,7 +56,7 @@ int handleGenAdvanced(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) name = argv[++i];
     base = cli::withoutExt(base, ".wgtp");
     auto c = wowee::pipeline::WoweeGameTipLoader::makeAdvanced(name);
-    if (!saveOrError(c, base, "gen-tips-advanced")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeGameTipLoader>(c, base, "gen-tips-advanced", ".wgtp")) return 1;
     printGenSummary(c, base);
     return 0;
 }

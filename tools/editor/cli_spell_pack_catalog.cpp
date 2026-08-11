@@ -22,15 +22,6 @@ namespace cli {
 
 namespace {
 
-bool saveOrError(const wowee::pipeline::WoweeSpellPack& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeSpellPackLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wspk\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeSpellPack& c,
                      const std::string& base) {
@@ -46,7 +37,7 @@ int handleGenWarrior(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wspk");
     auto c = wowee::pipeline::WoweeSpellPackLoader::
         makeWarriorPack(name);
-    if (!saveOrError(c, base, "gen-spk-warrior")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellPackLoader>(c, base, "gen-spk-warrior", ".wspk")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -58,7 +49,7 @@ int handleGenMage(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wspk");
     auto c = wowee::pipeline::WoweeSpellPackLoader::
         makeMagePack(name);
-    if (!saveOrError(c, base, "gen-spk-mage")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellPackLoader>(c, base, "gen-spk-mage", ".wspk")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -70,7 +61,7 @@ int handleGenRogue(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wspk");
     auto c = wowee::pipeline::WoweeSpellPackLoader::
         makeRoguePack(name);
-    if (!saveOrError(c, base, "gen-spk-rogue")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellPackLoader>(c, base, "gen-spk-rogue", ".wspk")) return 1;
     printGenSummary(c, base);
     return 0;
 }
