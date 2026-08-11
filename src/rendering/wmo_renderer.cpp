@@ -2930,6 +2930,32 @@ static bool rayAABBRange(const glm::vec3& origin, const glm::vec3& dir,
     return true;
 }
 
+/// The triangles a ray could hit inside one group, fetched from its grid.
+///
+/// Between where the ray enters the group's box and where it leaves it, not
+/// around the ray's origin. Those are the same place only while the ray is
+/// vertical in the group's own space, and a placement with pitch makes it lean
+/// — see the note in getFloorHeight. False when the ray misses the box.
+///
+/// Written out three times before this, once per query, which is two more
+/// chances to look in the wrong place.
+template <typename Group>
+static bool trianglesAlongRay(const Group& group, const glm::vec3& localOrigin,
+                              const glm::vec3& localDir, std::vector<uint32_t>& out) {
+    float tEnter = 0.0f, tExit = 0.0f;
+    if (!rayAABBRange(localOrigin, localDir, group.boundingBoxMin,
+                      group.boundingBoxMax, tEnter, tExit)) {
+        return false;
+    }
+    const glm::vec3 enter = localOrigin + localDir * tEnter;
+    const glm::vec3 exit = localOrigin + localDir * tExit;
+    group.getTrianglesInRange(std::min(enter.x, exit.x) - 1.0f,
+                              std::min(enter.y, exit.y) - 1.0f,
+                              std::max(enter.x, exit.x) + 1.0f,
+                              std::max(enter.y, exit.y) + 1.0f, out);
+    return true;
+}
+
 static bool rayIntersectsAABB(const glm::vec3& origin, const glm::vec3& dir,
                                const glm::vec3& bmin, const glm::vec3& bmax) {
     float tmin = -1e30f, tmax = 1e30f;
@@ -3358,17 +3384,7 @@ std::optional<float> WMORenderer::getFloorHeight(float glX, float glY, float glZ
         //
         // Darkshore's bridges are the placements with pitch. They are also the
         // ones you fall through.
-        float tEnter = 0.0f, tExit = 0.0f;
-        if (!rayAABBRange(localOrigin, localDir, group.boundingBoxMin,
-                          group.boundingBoxMax, tEnter, tExit)) {
-            return;
-        }
-        const glm::vec3 enter = localOrigin + localDir * tEnter;
-        const glm::vec3 exit = localOrigin + localDir * tExit;
-        group.getTrianglesInRange(
-            std::min(enter.x, exit.x) - 1.0f, std::min(enter.y, exit.y) - 1.0f,
-            std::max(enter.x, exit.x) + 1.0f, std::max(enter.y, exit.y) + 1.0f,
-            tl_triScratch);
+        if (!trianglesAlongRay(group, localOrigin, localDir, tl_triScratch)) return;
 
         for (uint32_t triStart : tl_triScratch) {
             const glm::vec3& v0 = verts[indices[triStart]];
@@ -3610,18 +3626,7 @@ std::optional<float> WMORenderer::getInstanceFloorHeight(uint32_t instanceId,
         // reason getFloorHeight gives: a vertical world ray is not vertical in
         // the local space of anything with pitch, and its origin is five
         // hundred units away from what it crosses.
-        float tEnter = 0.0f, tExit = 0.0f;
-        if (!rayAABBRange(localOrigin, localDir, group.boundingBoxMin,
-                          group.boundingBoxMax, tEnter, tExit)) {
-            continue;
-        }
-        const glm::vec3 enter = localOrigin + localDir * tEnter;
-        const glm::vec3 exit = localOrigin + localDir * tExit;
-        group.getTrianglesInRange(std::min(enter.x, exit.x) - 1.0f,
-                                  std::min(enter.y, exit.y) - 1.0f,
-                                  std::max(enter.x, exit.x) + 1.0f,
-                                  std::max(enter.y, exit.y) + 1.0f,
-                                  tl_triScratch);
+        if (!trianglesAlongRay(group, localOrigin, localDir, tl_triScratch)) continue;
         for (uint32_t triStart : tl_triScratch) {
             const auto& verts = group.collisionVertices;
             const auto& indices = group.collisionIndices;
@@ -3736,18 +3741,7 @@ void WMORenderer::debugDumpGroupsAtPosition(float glX, float glY, float glZ) con
             // the ray enters the group and where it leaves — and this stays as
             // the check that they agree.
             std::vector<uint32_t> gridTris;
-            {
-                float tEnter = 0.0f, tExit = 0.0f;
-                if (rayAABBRange(localOrigin, localDir, group.boundingBoxMin,
-                                 group.boundingBoxMax, tEnter, tExit)) {
-                    const glm::vec3 enter = localOrigin + localDir * tEnter;
-                    const glm::vec3 exit = localOrigin + localDir * tExit;
-                    group.getTrianglesInRange(std::min(enter.x, exit.x) - 1.0f,
-                                              std::min(enter.y, exit.y) - 1.0f,
-                                              std::max(enter.x, exit.x) + 1.0f,
-                                              std::max(enter.y, exit.y) + 1.0f, gridTris);
-                }
-            }
+            trianglesAlongRay(group, localOrigin, localDir, gridTris);
             int gridFloorTris = 0;
             float gridClosestZ = 0.0f, gridClosestDist = 1e30f;
             for (uint32_t triStart : gridTris) {
