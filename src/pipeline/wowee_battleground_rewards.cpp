@@ -45,11 +45,8 @@ WoweeBattlegroundRewards::findByBg(uint16_t bgId) const {
 bool WoweeBattlegroundRewardsLoader::save(
     const WoweeBattlegroundRewards& cat,
     const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const auto& e) {
         writePOD(os, e.rewardId);
         writePOD(os, e.battlegroundId);
         writePOD(os, e.bracketIndex);
@@ -62,8 +59,7 @@ bool WoweeBattlegroundRewardsLoader::save(
         writePOD(os, e.bonusItemId);
         writePOD(os, e.bonusItemCount);
         writePOD(os, e.pad0);
-    }
-    return os.good();
+    });
 }
 
 WoweeBattlegroundRewards WoweeBattlegroundRewardsLoader::load(

@@ -34,11 +34,8 @@ WoweeCreatureBehavior::findByKind(uint8_t creatureKind) const {
 bool WoweeCreatureBehaviorLoader::save(
     const WoweeCreatureBehavior& cat,
     const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const auto& e) {
         writePOD(os, e.behaviorId);
         writeStr(os, e.name);
         writePOD(os, e.creatureKind);
@@ -57,8 +54,7 @@ bool WoweeCreatureBehaviorLoader::save(
             writePOD(os, s.useChancePct);
             writePOD(os, s.pad1);
         }
-    }
-    return os.good();
+    });
 }
 
 WoweeCreatureBehavior WoweeCreatureBehaviorLoader::load(

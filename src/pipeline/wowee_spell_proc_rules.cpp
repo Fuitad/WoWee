@@ -42,11 +42,8 @@ WoweeSpellProcRules::findByEvent(uint8_t triggerEvent) const {
 bool WoweeSpellProcRulesLoader::save(
     const WoweeSpellProcRules& cat,
     const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const auto& e) {
         writePOD(os, e.procRuleId);
         writeStr(os, e.name);
         writePOD(os, e.sourceSpellId);
@@ -57,8 +54,7 @@ bool WoweeSpellProcRulesLoader::save(
         writePOD(os, e.internalCooldownMs);
         writePOD(os, e.procFlagsMask);
         writePOD(os, e.pad0);
-    }
-    return os.good();
+    });
 }
 
 WoweeSpellProcRules WoweeSpellProcRulesLoader::load(

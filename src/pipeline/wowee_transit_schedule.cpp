@@ -53,11 +53,8 @@ WoweeTransitSchedule::findDeparturesFromMap(uint32_t mapId) const {
 bool WoweeTransitScheduleLoader::save(
     const WoweeTransitSchedule& cat,
     const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const auto& e) {
         writePOD(os, e.routeId);
         writeStr(os, e.name);
         writePOD(os, e.vehicleType);
@@ -75,8 +72,7 @@ bool WoweeTransitScheduleLoader::save(
         writePOD(os, e.travelDurationSec);
         writePOD(os, e.capacity);
         writePOD(os, e.pad1);
-    }
-    return os.good();
+    });
 }
 
 WoweeTransitSchedule WoweeTransitScheduleLoader::load(

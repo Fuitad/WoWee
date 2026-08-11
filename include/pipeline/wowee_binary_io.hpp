@@ -220,15 +220,28 @@ inline bool catalogExists(const std::string& basePath, const std::string& extens
 /// the same in every one of them, and is the part that has to be right for the
 /// file to be readable at all. `writeEntry` writes one entry's fields in order
 /// and is the only thing a format actually supplies.
+/// The same, for a catalog whose collection is not called `entries`.
+///
+/// Eight of these formats name theirs for what it holds — classes, gems,
+/// keyframes, maps — which reads better in their own code and put them outside
+/// the reach of the version above, so they kept writing the scaffolding out.
+/// The name and the container are arguments here instead.
+template <typename Entries, typename WriteEntry>
+bool saveCatalogEntries(const std::string& basePath, const char magic[4], uint32_t version,
+                        const std::string& extension, const std::string& name,
+                        const Entries& entries, WriteEntry writeEntry) {
+    std::ofstream os(normalizePath(basePath, extension), std::ios::binary);
+    if (!os) return false;
+    writeCatalogHeader(os, magic, version, name, static_cast<uint32_t>(entries.size()));
+    for (const auto& e : entries) writeEntry(os, e);
+    return os.good();
+}
+
 template <typename Catalog, typename WriteEntry>
 bool saveCatalog(const Catalog& cat, const std::string& basePath, const char magic[4],
                  uint32_t version, const std::string& extension, WriteEntry writeEntry) {
-    std::ofstream os(normalizePath(basePath, extension), std::ios::binary);
-    if (!os) return false;
-    writeCatalogHeader(os, magic, version, cat.name,
-                       static_cast<uint32_t>(cat.entries.size()));
-    for (const auto& e : cat.entries) writeEntry(os, e);
-    return os.good();
+    return saveCatalogEntries(basePath, magic, version, extension, cat.name, cat.entries,
+                              writeEntry);
 }
 
 /// Read a catalog back. An empty result means it could not be read.

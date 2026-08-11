@@ -19,11 +19,9 @@ constexpr char kExtension[] = ".wol";
 
 bool WoweeLightLoader::save(const WoweeLight& light,
                             const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t kfCount = static_cast<uint32_t>(light.keyframes.size());
-    writeCatalogHeader(os, kMagic, kVersion, light.name, kfCount);
-    for (const auto& kf : light.keyframes) {
+    return saveCatalogEntries(basePath, kMagic, kVersion, kExtension,
+                              light.name, light.keyframes,
+                              [](std::ofstream& os, const auto& kf) {
         writePOD(os, kf.timeOfDayMin);
         writePOD(os, kf.ambientColor);
         writePOD(os, kf.directionalColor);
@@ -31,8 +29,7 @@ bool WoweeLightLoader::save(const WoweeLight& light,
         writePOD(os, kf.fogColor);
         writePOD(os, kf.fogStart);
         writePOD(os, kf.fogEnd);
-    }
-    return os.good();
+    });
 }
 
 WoweeLight WoweeLightLoader::load(const std::string& basePath) {

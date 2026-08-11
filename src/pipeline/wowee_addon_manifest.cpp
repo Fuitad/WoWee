@@ -73,11 +73,8 @@ WoweeAddonManifest::findDependents(uint32_t addonId) const {
 bool WoweeAddonManifestLoader::save(
     const WoweeAddonManifest& cat,
     const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const auto& e) {
         writePOD(os, e.addonId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -89,8 +86,7 @@ bool WoweeAddonManifestLoader::save(
         writePOD(os, e.pad0);
         writeU32Vec(os, e.dependencies);
         writeU32Vec(os, e.optionalDependencies);
-    }
-    return os.good();
+    });
 }
 
 WoweeAddonManifest WoweeAddonManifestLoader::load(

@@ -48,11 +48,8 @@ WoweeCombatFormulas::findApplicable(uint8_t outputStatKind,
 bool WoweeCombatFormulasLoader::save(
     const WoweeCombatFormulas& cat,
     const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const auto& e) {
         writePOD(os, e.formulaId);
         writeStr(os, e.name);
         writePOD(os, e.outputStatKind);
@@ -62,8 +59,7 @@ bool WoweeCombatFormulasLoader::save(
         writePOD(os, e.classRestriction);
         writePOD(os, e.pad0);
         writePOD(os, e.conversionRatioFp_x100);
-    }
-    return os.good();
+    });
 }
 
 WoweeCombatFormulas WoweeCombatFormulasLoader::load(

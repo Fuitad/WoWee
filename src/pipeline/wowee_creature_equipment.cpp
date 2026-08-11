@@ -26,11 +26,8 @@ WoweeCreatureEquipment::findById(uint32_t equipmentId) const {
 bool WoweeCreatureEquipmentLoader::save(
     const WoweeCreatureEquipment& cat,
     const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const auto& e) {
         writePOD(os, e.equipmentId);
         writePOD(os, e.creatureId);
         writeStr(os, e.name);
@@ -43,8 +40,7 @@ bool WoweeCreatureEquipmentLoader::save(
         writePOD(os, e.rangedSlot);
         writePOD(os, e.equipFlags);
         writePOD(os, e.mainHandVisualId);
-    }
-    return os.good();
+    });
 }
 
 WoweeCreatureEquipment WoweeCreatureEquipmentLoader::load(

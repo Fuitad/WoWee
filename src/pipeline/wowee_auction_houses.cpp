@@ -46,11 +46,8 @@ WoweeAuctionHouses::findByFaction(uint8_t faction) const {
 bool WoweeAuctionHousesLoader::save(
     const WoweeAuctionHouses& cat,
     const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const auto& e) {
         writePOD(os, e.ahId);
         writeStr(os, e.name);
         writePOD(os, e.factionAccess);
@@ -62,8 +59,7 @@ bool WoweeAuctionHousesLoader::save(
         writePOD(os, e.pad1);
         writePOD(os, e.feePerSlot);
         writePOD(os, e.npcAuctioneerId);
-    }
-    return os.good();
+    });
 }
 
 WoweeAuctionHouses WoweeAuctionHousesLoader::load(

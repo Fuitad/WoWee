@@ -32,11 +32,9 @@ const WoweeTalent::Talent* WoweeTalent::findTalent(uint32_t talentId) const {
 
 bool WoweeTalentLoader::save(const WoweeTalent& cat,
                              const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t treeCount = static_cast<uint32_t>(cat.trees.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, treeCount);
-    for (const auto& t : cat.trees) {
+    return saveCatalogEntries(basePath, kMagic, kVersion, kExtension,
+                              cat.name, cat.trees,
+                              [](std::ofstream& os, const auto& t) {
         writePOD(os, t.treeId);
         writeStr(os, t.name);
         writeStr(os, t.iconPath);
@@ -59,8 +57,7 @@ bool WoweeTalentLoader::save(const WoweeTalent& cat,
                 writePOD(os, a.rankSpellIds[r]);
             }
         }
-    }
-    return os.good();
+    });
 }
 
 WoweeTalent WoweeTalentLoader::load(const std::string& basePath) {

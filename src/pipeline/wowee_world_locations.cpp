@@ -44,11 +44,8 @@ WoweeWorldLocations::findByMapAndKind(uint32_t mapId,
 bool WoweeWorldLocationsLoader::save(
     const WoweeWorldLocations& cat,
     const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const auto& e) {
         writePOD(os, e.locationId);
         writeStr(os, e.name);
         writePOD(os, e.mapId);
@@ -64,8 +61,7 @@ bool WoweeWorldLocationsLoader::save(
         writePOD(os, e.discoverableXp);
         writePOD(os, e.requiredSkillId);
         writePOD(os, e.requiredSkillLevel);
-    }
-    return os.good();
+    });
 }
 
 WoweeWorldLocations WoweeWorldLocationsLoader::load(

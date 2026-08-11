@@ -59,11 +59,8 @@ const char* WoweeCreatureDifficulty::spawnGroupKindName(uint8_t k) {
 bool WoweeCreatureDifficultyLoader::save(
     const WoweeCreatureDifficulty& cat,
     const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const auto& e) {
         writePOD(os, e.difficultyId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -77,8 +74,7 @@ bool WoweeCreatureDifficultyLoader::save(
         writePOD(os, e.pad1);
         writePOD(os, e.pad2);
         writePOD(os, e.iconColorRGBA);
-    }
-    return os.good();
+    });
 }
 
 WoweeCreatureDifficulty WoweeCreatureDifficultyLoader::load(

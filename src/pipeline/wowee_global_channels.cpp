@@ -46,11 +46,8 @@ WoweeGlobalChannels::findAutoJoinForZone(uint32_t mapId) const {
 bool WoweeGlobalChannelsLoader::save(
     const WoweeGlobalChannels& cat,
     const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const auto& e) {
         writePOD(os, e.channelId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -63,8 +60,7 @@ bool WoweeGlobalChannelsLoader::save(
         writePOD(os, e.pad0);
         writePOD(os, e.zoneDefaultMapId);
         writePOD(os, e.iconColorRGBA);
-    }
-    return os.good();
+    });
 }
 
 WoweeGlobalChannels WoweeGlobalChannelsLoader::load(

@@ -56,11 +56,8 @@ WoweeReputationRewards::findByFaction(uint32_t factionId) const {
 bool WoweeReputationRewardsLoader::save(
     const WoweeReputationRewards& cat,
     const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const auto& e) {
         writePOD(os, e.tierId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -79,8 +76,7 @@ bool WoweeReputationRewardsLoader::save(
             e.unlockedRecipeIds.size());
         writePOD(os, recipeCount);
         for (uint32_t id : e.unlockedRecipeIds) writePOD(os, id);
-    }
-    return os.good();
+    });
 }
 
 WoweeReputationRewards WoweeReputationRewardsLoader::load(

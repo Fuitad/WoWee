@@ -34,11 +34,8 @@ WoweeAnniversaryEvents::findByKind(uint8_t eventKind) const {
 bool WoweeAnniversaryEventsLoader::save(
     const WoweeAnniversaryEvents& cat,
     const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const auto& e) {
         writePOD(os, e.eventId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -52,8 +49,7 @@ bool WoweeAnniversaryEventsLoader::save(
         writePOD(os, e.payloadSpellId);
         writePOD(os, e.payloadItemId);
         writePOD(os, e.iconColorRGBA);
-    }
-    return os.good();
+    });
 }
 
 WoweeAnniversaryEvents WoweeAnniversaryEventsLoader::load(

@@ -36,11 +36,8 @@ WoweeRandomProperty::findBySlot(uint8_t slotMask) const {
 bool WoweeRandomPropertyLoader::save(
     const WoweeRandomProperty& cat,
     const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const auto& e) {
         writePOD(os, e.poolId);
         writeStr(os, e.name);
         writePOD(os, e.scaleLevel);
@@ -54,8 +51,7 @@ bool WoweeRandomPropertyLoader::save(
             writePOD(os, en.enchantId);
             writePOD(os, en.weight);
         }
-    }
-    return os.good();
+    });
 }
 
 WoweeRandomProperty WoweeRandomPropertyLoader::load(

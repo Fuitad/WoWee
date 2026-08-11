@@ -49,11 +49,8 @@ WoweePlayerMovementAnim::findByRaceGender(uint8_t raceId,
 bool WoweePlayerMovementAnimLoader::save(
     const WoweePlayerMovementAnim& cat,
     const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const auto& e) {
         writePOD(os, e.mapId);
         writePOD(os, e.raceId);
         writePOD(os, e.genderId);
@@ -63,8 +60,7 @@ bool WoweePlayerMovementAnimLoader::save(
         writePOD(os, e.variantAnimId);
         writePOD(os, e.transitionMs);
         writePOD(os, e.pad1);
-    }
-    return os.good();
+    });
 }
 
 WoweePlayerMovementAnim WoweePlayerMovementAnimLoader::load(
