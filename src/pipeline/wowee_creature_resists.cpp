@@ -38,12 +38,9 @@ WoweeCreatureResists::findByCreature(uint32_t creatureEntry) const {
 }
 
 bool WoweeCreatureResistsLoader::save(const WoweeCreatureResists& cat,
-                                        const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeCreatureResists::Entry& e) {
         writePOD(os, e.resistId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -63,25 +60,15 @@ bool WoweeCreatureResistsLoader::save(const WoweeCreatureResists& cat,
         writePOD(os, e.pad2);
         writePOD(os, e.pad3);
         writePOD(os, e.iconColorRGBA);
-    }
-    return os.good();
+                       });
 }
 
 WoweeCreatureResists WoweeCreatureResistsLoader::load(
     const std::string& basePath) {
-    WoweeCreatureResists out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.resistId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name) || !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
+    return loadCatalog<WoweeCreatureResists>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeCreatureResists::Entry& e) {
+        if (!readPOD(is, e.resistId)) { return false; }
+        if (!readStr(is, e.name) || !readStr(is, e.description)) { return false; }
         if (!readPOD(is, e.creatureEntry) ||
             !readPOD(is, e.holyResist) ||
             !readPOD(is, e.fireResist) ||
@@ -97,16 +84,13 @@ WoweeCreatureResists WoweeCreatureResistsLoader::load(
             !readPOD(is, e.pad1) ||
             !readPOD(is, e.pad2) ||
             !readPOD(is, e.pad3) ||
-            !readPOD(is, e.iconColorRGBA)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.iconColorRGBA)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeCreatureResistsLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeCreatureResists WoweeCreatureResistsLoader::makeRaidBosses(

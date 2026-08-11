@@ -35,12 +35,9 @@ const char* WoweeMacro::macroKindName(uint8_t k) {
 }
 
 bool WoweeMacroLoader::save(const WoweeMacro& cat,
-                            const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeMacro::Entry& e) {
         writePOD(os, e.macroId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -52,42 +49,28 @@ bool WoweeMacroLoader::save(const WoweeMacro& cat,
         writePOD(os, e.requiredClassMask);
         writePOD(os, e.maxLength);
         writePadding(os, 2);
-    }
-    return os.good();
+                       });
 }
 
-WoweeMacro WoweeMacroLoader::load(const std::string& basePath) {
-    WoweeMacro out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.macroId)) {
-            out.entries.clear(); return out;
-        }
+WoweeMacro WoweeMacroLoader::load(
+    const std::string& basePath) {
+    return loadCatalog<WoweeMacro>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeMacro::Entry& e) {
+        if (!readPOD(is, e.macroId)) { return false; }
         if (!readStr(is, e.name) || !readStr(is, e.description) ||
             !readStr(is, e.iconPath) || !readStr(is, e.macroBody) ||
-            !readStr(is, e.bindKey)) {
-            out.entries.clear(); return out;
-        }
-        if (!readPOD(is, e.macroKind)) {
-            out.entries.clear(); return out;
-        }
-        if (!skipPadding(is, 3)) { out.entries.clear(); return out; }
+            !readStr(is, e.bindKey)) { return false; }
+        if (!readPOD(is, e.macroKind)) { return false; }
+        if (!skipPadding(is, 3)) { return false; }
         if (!readPOD(is, e.requiredClassMask) ||
-            !readPOD(is, e.maxLength)) {
-            out.entries.clear(); return out;
-        }
-        if (!skipPadding(is, 2)) { out.entries.clear(); return out; }
-    }
-    return out;
+            !readPOD(is, e.maxLength)) { return false; }
+        if (!skipPadding(is, 2)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeMacroLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeMacro WoweeMacroLoader::makeStarter(

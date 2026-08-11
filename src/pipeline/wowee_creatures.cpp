@@ -55,12 +55,9 @@ const char* WoweeCreature::familyName(uint8_t f) {
 }
 
 bool WoweeCreatureLoader::save(const WoweeCreature& cat,
-                               const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeCreature::Entry& e) {
         writePOD(os, e.creatureId);
         writePOD(os, e.displayId);
         writeStr(os, e.name);
@@ -87,25 +84,16 @@ bool WoweeCreatureLoader::save(const WoweeCreature& cat,
         writePOD(os, e.equippedOffhand);
         writePOD(os, e.equippedRanged);
         writePOD(os, e.aiFlags);
-    }
-    return os.good();
+                       });
 }
 
-WoweeCreature WoweeCreatureLoader::load(const std::string& basePath) {
-    WoweeCreature out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
+WoweeCreature WoweeCreatureLoader::load(
+    const std::string& basePath) {
+    return loadCatalog<WoweeCreature>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeCreature::Entry& e) {
         if (!readPOD(is, e.creatureId) ||
-            !readPOD(is, e.displayId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name) || !readStr(is, e.subname)) {
-            out.entries.clear(); return out;
-        }
+            !readPOD(is, e.displayId)) { return false; }
+        if (!readStr(is, e.name) || !readStr(is, e.subname)) { return false; }
         if (!readPOD(is, e.minLevel) ||
             !readPOD(is, e.maxLevel) ||
             !readPOD(is, e.baseHealth) ||
@@ -115,10 +103,8 @@ WoweeCreature WoweeCreatureLoader::load(const std::string& basePath) {
             !readPOD(is, e.factionId) ||
             !readPOD(is, e.npcFlags) ||
             !readPOD(is, e.typeId) ||
-            !readPOD(is, e.familyId)) {
-            out.entries.clear(); return out;
-        }
-        if (!skipPadding(is, 2)) { out.entries.clear(); return out; }
+            !readPOD(is, e.familyId)) { return false; }
+        if (!skipPadding(is, 2)) { return false; }
         if (!readPOD(is, e.damageMin) ||
             !readPOD(is, e.damageMax) ||
             !readPOD(is, e.attackSpeedMs) ||
@@ -129,16 +115,13 @@ WoweeCreature WoweeCreatureLoader::load(const std::string& basePath) {
             !readPOD(is, e.equippedMain) ||
             !readPOD(is, e.equippedOffhand) ||
             !readPOD(is, e.equippedRanged) ||
-            !readPOD(is, e.aiFlags)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.aiFlags)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeCreatureLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeCreature WoweeCreatureLoader::makeStarter(const std::string& catalogName) {

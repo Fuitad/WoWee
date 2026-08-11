@@ -63,48 +63,31 @@ bool WoweeCreatureBehaviorLoader::save(
 
 WoweeCreatureBehavior WoweeCreatureBehaviorLoader::load(
     const std::string& basePath) {
-    WoweeCreatureBehavior out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.behaviorId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name)) {
-            out.entries.clear(); return out;
-        }
+    return loadCatalog<WoweeCreatureBehavior>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeCreatureBehavior::Entry& e) {
+        if (!readPOD(is, e.behaviorId)) { return false; }
+        if (!readStr(is, e.name)) { return false; }
         if (!readPOD(is, e.creatureKind) ||
             !readPOD(is, e.evadeBehavior) ||
             !readPOD(is, e.pad0) ||
             !readPOD(is, e.aggroRadius) ||
             !readPOD(is, e.leashRadius) ||
             !readPOD(is, e.corpseDurationSec) ||
-            !readPOD(is, e.mainAttackSpellId)) {
-            out.entries.clear(); return out;
-        }
+            !readPOD(is, e.mainAttackSpellId)) { return false; }
         uint32_t specCount = 0;
-        if (!readPOD(is, specCount)) {
-            out.entries.clear(); return out;
-        }
+        if (!readPOD(is, specCount)) { return false; }
         // Sanity cap — real bosses cap at ~6
         // abilities; format cap 32.
-        if (specCount > 32) {
-            out.entries.clear(); return out;
-        }
+        if (specCount > 32) { return false; }
         e.specialAbilities.resize(specCount);
         for (auto& s : e.specialAbilities) {
             if (!readPOD(is, s.spellId) ||
                 !readPOD(is, s.cooldownMs) ||
                 !readPOD(is, s.useChancePct) ||
-                !readPOD(is, s.pad1)) {
-                out.entries.clear(); return out;
-            }
+                !readPOD(is, s.pad1)) { return false; }
         }
-    }
-    return out;
+                                  return true;
+                              });
 }
 
 bool WoweeCreatureBehaviorLoader::exists(

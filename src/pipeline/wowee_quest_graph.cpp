@@ -70,12 +70,9 @@ WoweeQuestGraph::findByZone(uint32_t zoneId) const {
 }
 
 bool WoweeQuestGraphLoader::save(const WoweeQuestGraph& cat,
-                                   const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeQuestGraph::Entry& e) {
         writePOD(os, e.questId);
         writeStr(os, e.name);
         writePOD(os, e.minLevel);
@@ -90,25 +87,15 @@ bool WoweeQuestGraphLoader::save(const WoweeQuestGraph& cat,
         writePOD(os, e.pad1);
         writeU32Vec(os, e.prevQuestIds);
         writeU32Vec(os, e.followupQuestIds);
-    }
-    return os.good();
+                       });
 }
 
 WoweeQuestGraph WoweeQuestGraphLoader::load(
     const std::string& basePath) {
-    WoweeQuestGraph out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.questId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name)) {
-            out.entries.clear(); return out;
-        }
+    return loadCatalog<WoweeQuestGraph>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeQuestGraph::Entry& e) {
+        if (!readPOD(is, e.questId)) { return false; }
+        if (!readStr(is, e.name)) { return false; }
         if (!readPOD(is, e.minLevel) ||
             !readPOD(is, e.maxLevel) ||
             !readPOD(is, e.questType) ||
@@ -118,20 +105,15 @@ WoweeQuestGraph WoweeQuestGraphLoader::load(
             !readPOD(is, e.zoneId) ||
             !readPOD(is, e.chainHeadHint) ||
             !readPOD(is, e.pad0) ||
-            !readPOD(is, e.pad1)) {
-            out.entries.clear(); return out;
-        }
+            !readPOD(is, e.pad1)) { return false; }
         if (!readU32Vec(is, e.prevQuestIds) ||
-            !readU32Vec(is, e.followupQuestIds)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readU32Vec(is, e.followupQuestIds)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeQuestGraphLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 namespace {

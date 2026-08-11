@@ -68,30 +68,19 @@ bool WoweeCombatFormulasLoader::save(
 
 WoweeCombatFormulas WoweeCombatFormulasLoader::load(
     const std::string& basePath) {
-    WoweeCombatFormulas out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.formulaId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name)) {
-            out.entries.clear(); return out;
-        }
+    return loadCatalog<WoweeCombatFormulas>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeCombatFormulas::Entry& e) {
+        if (!readPOD(is, e.formulaId)) { return false; }
+        if (!readStr(is, e.name)) { return false; }
         if (!readPOD(is, e.outputStatKind) ||
             !readPOD(is, e.inputStatKind) ||
             !readPOD(is, e.levelMin) ||
             !readPOD(is, e.levelMax) ||
             !readPOD(is, e.classRestriction) ||
             !readPOD(is, e.pad0) ||
-            !readPOD(is, e.conversionRatioFp_x100)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.conversionRatioFp_x100)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeCombatFormulasLoader::exists(

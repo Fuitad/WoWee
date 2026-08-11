@@ -31,12 +31,9 @@ WoweeSpellSchool::findById(uint32_t schoolId) const {
 }
 
 bool WoweeSpellSchoolLoader::save(const WoweeSpellSchool& cat,
-                                   const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeSpellSchool::Entry& e) {
         writePOD(os, e.schoolId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -50,26 +47,16 @@ bool WoweeSpellSchoolLoader::save(const WoweeSpellSchool& cat,
         writePOD(os, e.castSoundId);
         writePOD(os, e.impactSoundId);
         writePOD(os, e.combinedSchoolMask);
-    }
-    return os.good();
+                       });
 }
 
 WoweeSpellSchool WoweeSpellSchoolLoader::load(
     const std::string& basePath) {
-    WoweeSpellSchool out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.schoolId)) {
-            out.entries.clear(); return out;
-        }
+    return loadCatalog<WoweeSpellSchool>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeSpellSchool::Entry& e) {
+        if (!readPOD(is, e.schoolId)) { return false; }
         if (!readStr(is, e.name) || !readStr(is, e.description) ||
-            !readStr(is, e.iconPath)) {
-            out.entries.clear(); return out;
-        }
+            !readStr(is, e.iconPath)) { return false; }
         if (!readPOD(is, e.canBeImmune) ||
             !readPOD(is, e.canBeAbsorbed) ||
             !readPOD(is, e.canBeReflected) ||
@@ -78,16 +65,13 @@ WoweeSpellSchool WoweeSpellSchoolLoader::load(
             !readPOD(is, e.baseResistanceCap) ||
             !readPOD(is, e.castSoundId) ||
             !readPOD(is, e.impactSoundId) ||
-            !readPOD(is, e.combinedSchoolMask)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.combinedSchoolMask)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeSpellSchoolLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeSpellSchool WoweeSpellSchoolLoader::makeStarter(

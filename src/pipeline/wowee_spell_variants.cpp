@@ -44,12 +44,9 @@ WoweeSpellVariants::findByBaseSpell(uint32_t baseSpellId) const {
 }
 
 bool WoweeSpellVariantsLoader::save(const WoweeSpellVariants& cat,
-                                      const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeSpellVariants::Entry& e) {
         writePOD(os, e.variantId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -61,25 +58,15 @@ bool WoweeSpellVariantsLoader::save(const WoweeSpellVariants& cat,
         writePOD(os, e.pad1);
         writePOD(os, e.conditionValue);
         writePOD(os, e.iconColorRGBA);
-    }
-    return os.good();
+                       });
 }
 
 WoweeSpellVariants WoweeSpellVariantsLoader::load(
     const std::string& basePath) {
-    WoweeSpellVariants out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.variantId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name) || !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
+    return loadCatalog<WoweeSpellVariants>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeSpellVariants::Entry& e) {
+        if (!readPOD(is, e.variantId)) { return false; }
+        if (!readStr(is, e.name) || !readStr(is, e.description)) { return false; }
         if (!readPOD(is, e.baseSpellId) ||
             !readPOD(is, e.variantSpellId) ||
             !readPOD(is, e.conditionKind) ||
@@ -87,16 +74,13 @@ WoweeSpellVariants WoweeSpellVariantsLoader::load(
             !readPOD(is, e.pad0) ||
             !readPOD(is, e.pad1) ||
             !readPOD(is, e.conditionValue) ||
-            !readPOD(is, e.iconColorRGBA)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.iconColorRGBA)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeSpellVariantsLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeSpellVariants WoweeSpellVariantsLoader::makeWarriorStance(

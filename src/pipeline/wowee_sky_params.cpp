@@ -47,12 +47,9 @@ WoweeSkyParams::findByArea(uint32_t mapId,
 }
 
 bool WoweeSkyParamsLoader::save(const WoweeSkyParams& cat,
-                                  const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeSkyParams::Entry& e) {
         writePOD(os, e.skyId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -73,25 +70,15 @@ bool WoweeSkyParamsLoader::save(const WoweeSkyParams& cat,
         writePOD(os, e.pad3);
         writePOD(os, e.pad4);
         writePOD(os, e.iconColorRGBA);
-    }
-    return os.good();
+                       });
 }
 
 WoweeSkyParams WoweeSkyParamsLoader::load(
     const std::string& basePath) {
-    WoweeSkyParams out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.skyId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name) || !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
+    return loadCatalog<WoweeSkyParams>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeSkyParams::Entry& e) {
+        if (!readPOD(is, e.skyId)) { return false; }
+        if (!readStr(is, e.name) || !readStr(is, e.description)) { return false; }
         if (!readPOD(is, e.mapId) ||
             !readPOD(is, e.areaId) ||
             !readPOD(is, e.timeOfDayHour) ||
@@ -108,16 +95,13 @@ WoweeSkyParams WoweeSkyParamsLoader::load(
             !readPOD(is, e.cloudSpeedX10) ||
             !readPOD(is, e.pad3) ||
             !readPOD(is, e.pad4) ||
-            !readPOD(is, e.iconColorRGBA)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.iconColorRGBA)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeSkyParamsLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeSkyParams WoweeSkyParamsLoader::makeStormwindDay(

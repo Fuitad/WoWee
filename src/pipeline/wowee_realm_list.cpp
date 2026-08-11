@@ -47,12 +47,9 @@ WoweeRealmList::findByType(uint8_t realmType) const {
 }
 
 bool WoweeRealmListLoader::save(const WoweeRealmList& cat,
-                                  const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeRealmList::Entry& e) {
         writePOD(os, e.realmId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -71,26 +68,17 @@ bool WoweeRealmListLoader::save(const WoweeRealmList& cat,
         writePOD(os, e.pad1);
         writePOD(os, e.buildNumber);
         writePOD(os, e.iconColorRGBA);
-    }
-    return os.good();
+                       });
 }
 
-WoweeRealmList WoweeRealmListLoader::load(const std::string& basePath) {
-    WoweeRealmList out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.realmId)) {
-            out.entries.clear(); return out;
-        }
+WoweeRealmList WoweeRealmListLoader::load(
+    const std::string& basePath) {
+    return loadCatalog<WoweeRealmList>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeRealmList::Entry& e) {
+        if (!readPOD(is, e.realmId)) { return false; }
         if (!readStr(is, e.name) ||
             !readStr(is, e.description) ||
-            !readStr(is, e.address)) {
-            out.entries.clear(); return out;
-        }
+            !readStr(is, e.address)) { return false; }
         if (!readPOD(is, e.realmType) ||
             !readPOD(is, e.realmCategory) ||
             !readPOD(is, e.expansion) ||
@@ -104,16 +92,13 @@ WoweeRealmList WoweeRealmListLoader::load(const std::string& basePath) {
             !readPOD(is, e.versionPatch) ||
             !readPOD(is, e.pad1) ||
             !readPOD(is, e.buildNumber) ||
-            !readPOD(is, e.iconColorRGBA)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.iconColorRGBA)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeRealmListLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeRealmList WoweeRealmListLoader::makeSingleRealm(

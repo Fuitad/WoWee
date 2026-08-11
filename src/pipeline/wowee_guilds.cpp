@@ -30,12 +30,9 @@ const char* WoweeGuild::factionName(uint8_t f) {
 }
 
 bool WoweeGuildLoader::save(const WoweeGuild& cat,
-                            const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeGuild::Entry& e) {
         writePOD(os, e.guildId);
         writeStr(os, e.name);
         writeStr(os, e.leaderName);
@@ -96,8 +93,7 @@ bool WoweeGuildLoader::save(const WoweeGuild& cat,
             writePOD(os, p.requiredGuildLevel);
             writePadding(os, 2);
         }
-    }
-    return os.good();
+                       });
 }
 
 WoweeGuild WoweeGuildLoader::load(const std::string& basePath) {
@@ -172,8 +168,7 @@ WoweeGuild WoweeGuildLoader::load(const std::string& basePath) {
 }
 
 bool WoweeGuildLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 namespace {

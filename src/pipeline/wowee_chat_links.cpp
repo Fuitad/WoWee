@@ -31,12 +31,9 @@ WoweeChatLinks::findByKind(uint8_t linkKind) const {
 }
 
 bool WoweeChatLinksLoader::save(const WoweeChatLinks& cat,
-                                  const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeChatLinks::Entry& e) {
         writePOD(os, e.linkId);
         writeStr(os, e.name);
         writePOD(os, e.linkKind);
@@ -46,43 +43,28 @@ bool WoweeChatLinksLoader::save(const WoweeChatLinks& cat,
         writeStr(os, e.linkTemplate);
         writeStr(os, e.tooltipTemplate);
         writeStr(os, e.iconRule);
-    }
-    return os.good();
+                       });
 }
 
 WoweeChatLinks WoweeChatLinksLoader::load(
     const std::string& basePath) {
-    WoweeChatLinks out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.linkId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name)) {
-            out.entries.clear(); return out;
-        }
+    return loadCatalog<WoweeChatLinks>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeChatLinks::Entry& e) {
+        if (!readPOD(is, e.linkId)) { return false; }
+        if (!readStr(is, e.name)) { return false; }
         if (!readPOD(is, e.linkKind) ||
             !readPOD(is, e.requireServerLookup) ||
             !readPOD(is, e.pad0) ||
-            !readPOD(is, e.colorRGBA)) {
-            out.entries.clear(); return out;
-        }
+            !readPOD(is, e.colorRGBA)) { return false; }
         if (!readStr(is, e.linkTemplate) ||
             !readStr(is, e.tooltipTemplate) ||
-            !readStr(is, e.iconRule)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readStr(is, e.iconRule)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeChatLinksLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 namespace {

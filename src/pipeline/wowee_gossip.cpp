@@ -43,12 +43,9 @@ const char* WoweeGossip::optionKindName(uint8_t k) {
 }
 
 bool WoweeGossipLoader::save(const WoweeGossip& cat,
-                             const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeGossip::Entry& e) {
         writePOD(os, e.menuId);
         writeStr(os, e.titleText);
         uint8_t optCount = static_cast<uint8_t>(
@@ -65,49 +62,35 @@ bool WoweeGossipLoader::save(const WoweeGossip& cat,
             writePOD(os, o.requiredFlags);
             writePOD(os, o.moneyCostCopper);
         }
-    }
-    return os.good();
+                       });
 }
 
-WoweeGossip WoweeGossipLoader::load(const std::string& basePath) {
-    WoweeGossip out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.menuId)) { out.entries.clear(); return out; }
-        if (!readStr(is, e.titleText)) { out.entries.clear(); return out; }
+WoweeGossip WoweeGossipLoader::load(
+    const std::string& basePath) {
+    return loadCatalog<WoweeGossip>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeGossip::Entry& e) {
+        if (!readPOD(is, e.menuId)) { return false; }
+        if (!readStr(is, e.titleText)) { return false; }
         uint8_t optCount = 0;
-        if (!readPOD(is, optCount)) { out.entries.clear(); return out; }
-        if (!skipPadding(is, 3)) { out.entries.clear(); return out; }
+        if (!readPOD(is, optCount)) { return false; }
+        if (!skipPadding(is, 3)) { return false; }
         e.options.resize(optCount);
         for (uint8_t k = 0; k < optCount; ++k) {
             auto& o = e.options[k];
-            if (!readPOD(is, o.optionId)) {
-                out.entries.clear(); return out;
-            }
-            if (!readStr(is, o.text)) {
-                out.entries.clear(); return out;
-            }
-            if (!readPOD(is, o.kind)) {
-                out.entries.clear(); return out;
-            }
-            if (!skipPadding(is, 3)) { out.entries.clear(); return out; }
+            if (!readPOD(is, o.optionId)) { return false; }
+            if (!readStr(is, o.text)) { return false; }
+            if (!readPOD(is, o.kind)) { return false; }
+            if (!skipPadding(is, 3)) { return false; }
             if (!readPOD(is, o.actionTarget) ||
                 !readPOD(is, o.requiredFlags) ||
-                !readPOD(is, o.moneyCostCopper)) {
-                out.entries.clear(); return out;
-            }
+                !readPOD(is, o.moneyCostCopper)) { return false; }
         }
-    }
-    return out;
+                                  return true;
+                              });
 }
 
 bool WoweeGossipLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeGossip WoweeGossipLoader::makeStarter(const std::string& catalogName) {

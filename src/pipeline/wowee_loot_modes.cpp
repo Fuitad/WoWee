@@ -39,12 +39,9 @@ WoweeLootModes::findByKind(uint8_t modeKind) const {
 }
 
 bool WoweeLootModesLoader::save(const WoweeLootModes& cat,
-                                  const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeLootModes::Entry& e) {
         writePOD(os, e.modeId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -57,8 +54,7 @@ bool WoweeLootModesLoader::save(const WoweeLootModes& cat,
         writePOD(os, e.pad1);
         writePOD(os, e.pad2);
         writePOD(os, e.iconColorRGBA);
-    }
-    return os.good();
+                       });
 }
 
 WoweeLootModes WoweeLootModesLoader::load(
@@ -92,8 +88,7 @@ WoweeLootModes WoweeLootModesLoader::load(
 }
 
 bool WoweeLootModesLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeLootModes WoweeLootModesLoader::makeStandard(

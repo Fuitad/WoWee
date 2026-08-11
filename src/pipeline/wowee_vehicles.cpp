@@ -60,12 +60,9 @@ const char* WoweeVehicle::powerTypeName(uint8_t p) {
 }
 
 bool WoweeVehicleLoader::save(const WoweeVehicle& cat,
-                              const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeVehicle::Entry& e) {
         writePOD(os, e.vehicleId);
         writePOD(os, e.creatureId);
         writeStr(os, e.name);
@@ -91,65 +88,45 @@ bool WoweeVehicleLoader::save(const WoweeVehicle& cat,
             writePOD(os, s.exitSpellId);
             writePOD(os, s.passengerYaw);
         }
-    }
-    return os.good();
+                       });
 }
 
-WoweeVehicle WoweeVehicleLoader::load(const std::string& basePath) {
-    WoweeVehicle out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
+WoweeVehicle WoweeVehicleLoader::load(
+    const std::string& basePath) {
+    return loadCatalog<WoweeVehicle>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeVehicle::Entry& e) {
         if (!readPOD(is, e.vehicleId) ||
-            !readPOD(is, e.creatureId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name) || !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
+            !readPOD(is, e.creatureId)) { return false; }
+        if (!readStr(is, e.name) || !readStr(is, e.description)) { return false; }
         uint8_t seatCount = 0;
         if (!readPOD(is, e.vehicleKind) ||
             !readPOD(is, e.movementKind) ||
-            !readPOD(is, seatCount)) {
-            out.entries.clear(); return out;
-        }
-        if (!skipPadding(is, 1)) { out.entries.clear(); return out; }
+            !readPOD(is, seatCount)) { return false; }
+        if (!skipPadding(is, 1)) { return false; }
         if (!readPOD(is, e.turnSpeed) ||
             !readPOD(is, e.pitchSpeed) ||
             !readPOD(is, e.flightCapabilityId) ||
-            !readPOD(is, e.powerType)) {
-            out.entries.clear(); return out;
-        }
-        if (!skipPadding(is, 3)) { out.entries.clear(); return out; }
-        if (!readPOD(is, e.maxPower)) {
-            out.entries.clear(); return out;
-        }
-        if (seatCount > 64) { out.entries.clear(); return out; }
+            !readPOD(is, e.powerType)) { return false; }
+        if (!skipPadding(is, 3)) { return false; }
+        if (!readPOD(is, e.maxPower)) { return false; }
+        if (seatCount > 64) { return false; }
         e.seats.resize(seatCount);
         for (auto& s : e.seats) {
             if (!readPOD(is, s.seatIndex) ||
                 !readPOD(is, s.seatFlags) ||
-                !readPOD(is, s.attachmentId)) {
-                out.entries.clear(); return out;
-            }
+                !readPOD(is, s.attachmentId)) { return false; }
             uint8_t spad = 0;
-            if (!readPOD(is, spad)) { out.entries.clear(); return out; }
+            if (!readPOD(is, spad)) { return false; }
             if (!readPOD(is, s.controlSpellId) ||
                 !readPOD(is, s.exitSpellId) ||
-                !readPOD(is, s.passengerYaw)) {
-                out.entries.clear(); return out;
-            }
+                !readPOD(is, s.passengerYaw)) { return false; }
         }
-    }
-    return out;
+                                  return true;
+                              });
 }
 
 bool WoweeVehicleLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeVehicle WoweeVehicleLoader::makeStarter(const std::string& catalogName) {

@@ -33,12 +33,9 @@ const char* WoweeSpawns::kindName(uint8_t k) {
 }
 
 bool WoweeSpawnsLoader::save(const WoweeSpawns& cat,
-                             const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeSpawns::Entry& e) {
         writePOD(os, e.kind);
         writePadding(os, 3);
         writePOD(os, e.entryId);
@@ -55,21 +52,16 @@ bool WoweeSpawnsLoader::save(const WoweeSpawns& cat,
         writePOD(os, e.questIdRequired);
         writePOD(os, e.wanderRadius);
         writeStr(os, e.label);
-    }
-    return os.good();
+                       });
 }
 
-WoweeSpawns WoweeSpawnsLoader::load(const std::string& basePath) {
-    WoweeSpawns out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.kind)) { out.entries.clear(); return out; }
-        if (!skipPadding(is, 3)) { out.entries.clear(); return out; }
-        if (!readPOD(is, e.entryId)) { out.entries.clear(); return out; }
+WoweeSpawns WoweeSpawnsLoader::load(
+    const std::string& basePath) {
+    return loadCatalog<WoweeSpawns>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeSpawns::Entry& e) {
+        if (!readPOD(is, e.kind)) { return false; }
+        if (!skipPadding(is, 3)) { return false; }
+        if (!readPOD(is, e.entryId)) { return false; }
         if (!readPOD(is, e.position.x) ||
             !readPOD(is, e.position.y) ||
             !readPOD(is, e.position.z) ||
@@ -81,18 +73,14 @@ WoweeSpawns WoweeSpawnsLoader::load(const std::string& basePath) {
             !readPOD(is, e.respawnSec) ||
             !readPOD(is, e.factionId) ||
             !readPOD(is, e.questIdRequired) ||
-            !readPOD(is, e.wanderRadius)) {
-            out.entries.clear();
-            return out;
-        }
-        if (!readStr(is, e.label)) { out.entries.clear(); return out; }
-    }
-    return out;
+            !readPOD(is, e.wanderRadius)) { return false; }
+        if (!readStr(is, e.label)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeSpawnsLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeSpawns WoweeSpawnsLoader::makeStarter(const std::string& catalogName) {

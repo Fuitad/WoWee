@@ -41,12 +41,9 @@ WoweeHeroicScaling::findForInstance(uint32_t mapId,
 }
 
 bool WoweeHeroicScalingLoader::save(const WoweeHeroicScaling& cat,
-                                      const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeHeroicScaling::Entry& e) {
         writePOD(os, e.scalingId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -61,25 +58,15 @@ bool WoweeHeroicScalingLoader::save(const WoweeHeroicScaling& cat,
         writePOD(os, e.pad1);
         writePOD(os, e.pad2);
         writePOD(os, e.iconColorRGBA);
-    }
-    return os.good();
+                       });
 }
 
 WoweeHeroicScaling WoweeHeroicScalingLoader::load(
     const std::string& basePath) {
-    WoweeHeroicScaling out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.scalingId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name) || !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
+    return loadCatalog<WoweeHeroicScaling>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeHeroicScaling::Entry& e) {
+        if (!readPOD(is, e.scalingId)) { return false; }
+        if (!readStr(is, e.name) || !readStr(is, e.description)) { return false; }
         if (!readPOD(is, e.mapId) ||
             !readPOD(is, e.difficultyId) ||
             !readPOD(is, e.itemLevelDelta) ||
@@ -90,16 +77,13 @@ WoweeHeroicScaling WoweeHeroicScalingLoader::load(
             !readPOD(is, e.pad0) ||
             !readPOD(is, e.pad1) ||
             !readPOD(is, e.pad2) ||
-            !readPOD(is, e.iconColorRGBA)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.iconColorRGBA)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeHeroicScalingLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeHeroicScaling WoweeHeroicScalingLoader::makeWotLK5manHeroic(

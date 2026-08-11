@@ -68,13 +68,8 @@ bool WoweeBattlegroundRewardsLoader::save(
 
 WoweeBattlegroundRewards WoweeBattlegroundRewardsLoader::load(
     const std::string& basePath) {
-    WoweeBattlegroundRewards out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
+    return loadCatalog<WoweeBattlegroundRewards>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeBattlegroundRewards::Entry& e) {
         if (!readPOD(is, e.rewardId) ||
             !readPOD(is, e.battlegroundId) ||
             !readPOD(is, e.bracketIndex) ||
@@ -86,11 +81,9 @@ WoweeBattlegroundRewards WoweeBattlegroundRewardsLoader::load(
             !readPOD(is, e.lossMarks) ||
             !readPOD(is, e.bonusItemId) ||
             !readPOD(is, e.bonusItemCount) ||
-            !readPOD(is, e.pad0)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.pad0)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeBattlegroundRewardsLoader::exists(

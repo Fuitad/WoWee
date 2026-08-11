@@ -56,12 +56,9 @@ const char* WoweeSpellAuraType::targetingHintName(uint8_t t) {
 }
 
 bool WoweeSpellAuraTypeLoader::save(const WoweeSpellAuraType& cat,
-                                     const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeSpellAuraType::Entry& e) {
         writePOD(os, e.auraTypeId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -71,40 +68,27 @@ bool WoweeSpellAuraTypeLoader::save(const WoweeSpellAuraType& cat,
         writePOD(os, e.maxStackCount);
         writePOD(os, e.updateFrequencyMs);
         writePOD(os, e.iconColorRGBA);
-    }
-    return os.good();
+                       });
 }
 
 WoweeSpellAuraType WoweeSpellAuraTypeLoader::load(
     const std::string& basePath) {
-    WoweeSpellAuraType out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.auraTypeId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name) || !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
+    return loadCatalog<WoweeSpellAuraType>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeSpellAuraType::Entry& e) {
+        if (!readPOD(is, e.auraTypeId)) { return false; }
+        if (!readStr(is, e.name) || !readStr(is, e.description)) { return false; }
         if (!readPOD(is, e.auraKind) ||
             !readPOD(is, e.targetingHint) ||
             !readPOD(is, e.isStackable) ||
             !readPOD(is, e.maxStackCount) ||
             !readPOD(is, e.updateFrequencyMs) ||
-            !readPOD(is, e.iconColorRGBA)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.iconColorRGBA)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeSpellAuraTypeLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeSpellAuraType WoweeSpellAuraTypeLoader::makePeriodic(

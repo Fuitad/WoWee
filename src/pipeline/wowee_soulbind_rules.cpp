@@ -51,12 +51,9 @@ WoweeSoulbindRules::findByBindKind(uint8_t bindKind) const {
 }
 
 bool WoweeSoulbindRulesLoader::save(const WoweeSoulbindRules& cat,
-                                      const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeSoulbindRules::Entry& e) {
         writePOD(os, e.ruleId);
         writeStr(os, e.name);
         writePOD(os, e.bindKind);
@@ -68,25 +65,15 @@ bool WoweeSoulbindRulesLoader::save(const WoweeSoulbindRules& cat,
         writePOD(os, e.pad1);
         writePOD(os, e.tradableWindowSec);
         writeStr(os, e.description);
-    }
-    return os.good();
+                       });
 }
 
 WoweeSoulbindRules WoweeSoulbindRulesLoader::load(
     const std::string& basePath) {
-    WoweeSoulbindRules out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.ruleId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name)) {
-            out.entries.clear(); return out;
-        }
+    return loadCatalog<WoweeSoulbindRules>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeSoulbindRules::Entry& e) {
+        if (!readPOD(is, e.ruleId)) { return false; }
+        if (!readStr(is, e.name)) { return false; }
         if (!readPOD(is, e.bindKind) ||
             !readPOD(is, e.itemQualityFloor) ||
             !readPOD(is, e.tradableForRaidGroup) ||
@@ -94,14 +81,10 @@ WoweeSoulbindRules WoweeSoulbindRulesLoader::load(
             !readPOD(is, e.accountBoundCrossFaction) ||
             !readPOD(is, e.pad0) ||
             !readPOD(is, e.pad1) ||
-            !readPOD(is, e.tradableWindowSec)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.tradableWindowSec)) { return false; }
+        if (!readStr(is, e.description)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeSoulbindRulesLoader::exists(

@@ -57,12 +57,9 @@ const char* WoweeMount::categoryName(uint8_t c) {
 }
 
 bool WoweeMountLoader::save(const WoweeMount& cat,
-                            const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeMount::Entry& e) {
         writePOD(os, e.mountId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -78,23 +75,16 @@ bool WoweeMountLoader::save(const WoweeMount& cat,
         writePOD(os, e.categoryId);
         writePadding(os, 1);
         writePOD(os, e.raceMask);
-    }
-    return os.good();
+                       });
 }
 
-WoweeMount WoweeMountLoader::load(const std::string& basePath) {
-    WoweeMount out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.mountId)) { out.entries.clear(); return out; }
+WoweeMount WoweeMountLoader::load(
+    const std::string& basePath) {
+    return loadCatalog<WoweeMount>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeMount::Entry& e) {
+        if (!readPOD(is, e.mountId)) { return false; }
         if (!readStr(is, e.name) || !readStr(is, e.description) ||
-            !readStr(is, e.iconPath)) {
-            out.entries.clear(); return out;
-        }
+            !readStr(is, e.iconPath)) { return false; }
         if (!readPOD(is, e.displayId) ||
             !readPOD(is, e.summonSpellId) ||
             !readPOD(is, e.itemIdToLearn) ||
@@ -103,22 +93,15 @@ WoweeMount WoweeMountLoader::load(const std::string& basePath) {
             !readPOD(is, e.speedPercent) ||
             !readPOD(is, e.mountKind) ||
             !readPOD(is, e.factionId) ||
-            !readPOD(is, e.categoryId)) {
-            out.entries.clear(); return out;
-        }
-        if (!skipPadding(is, 1)) {
-            out.entries.clear(); return out;
-        }
-        if (!readPOD(is, e.raceMask)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.categoryId)) { return false; }
+        if (!skipPadding(is, 1)) { return false; }
+        if (!readPOD(is, e.raceMask)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeMountLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeMount WoweeMountLoader::makeStarter(const std::string& catalogName) {

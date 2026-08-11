@@ -80,12 +80,9 @@ const char* WoweeCreaturePatrol::moveTypeName(uint8_t m) {
 }
 
 bool WoweeCreaturePatrolLoader::save(const WoweeCreaturePatrol& cat,
-                                      const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeCreaturePatrol::Entry& e) {
         writePOD(os, e.pathId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -103,56 +100,39 @@ bool WoweeCreaturePatrolLoader::save(const WoweeCreaturePatrol& cat,
             writePOD(os, w.delayMs);
         }
         writePOD(os, e.iconColorRGBA);
-    }
-    return os.good();
+                       });
 }
 
 WoweeCreaturePatrol WoweeCreaturePatrolLoader::load(
     const std::string& basePath) {
-    WoweeCreaturePatrol out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.pathId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name) || !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
+    return loadCatalog<WoweeCreaturePatrol>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeCreaturePatrol::Entry& e) {
+        if (!readPOD(is, e.pathId)) { return false; }
+        if (!readStr(is, e.name) || !readStr(is, e.description)) { return false; }
         if (!readPOD(is, e.creatureGuid) ||
             !readPOD(is, e.pathKind) ||
             !readPOD(is, e.moveType) ||
             !readPOD(is, e.pad0) ||
-            !readPOD(is, e.pad1)) {
-            out.entries.clear(); return out;
-        }
+            !readPOD(is, e.pad1)) { return false; }
         uint32_t wpCount = 0;
-        if (!readPOD(is, wpCount)) { out.entries.clear(); return out; }
+        if (!readPOD(is, wpCount)) { return false; }
         // Cap to keep a corrupted file from allocating
         // gigabytes — 64K waypoints per path is plenty.
-        if (wpCount > (1u << 16)) { out.entries.clear(); return out; }
+        if (wpCount > (1u << 16)) { return false; }
         e.waypoints.resize(wpCount);
         for (auto& w : e.waypoints) {
             if (!readPOD(is, w.x) ||
                 !readPOD(is, w.y) ||
                 !readPOD(is, w.z) ||
-                !readPOD(is, w.delayMs)) {
-                out.entries.clear(); return out;
-            }
+                !readPOD(is, w.delayMs)) { return false; }
         }
-        if (!readPOD(is, e.iconColorRGBA)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+        if (!readPOD(is, e.iconColorRGBA)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeCreaturePatrolLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeCreaturePatrol WoweeCreaturePatrolLoader::makePatrol(

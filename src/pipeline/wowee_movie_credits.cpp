@@ -44,12 +44,9 @@ WoweeMovieCredits::findByCinematic(uint32_t cinematicId) const {
 }
 
 bool WoweeMovieCreditsLoader::save(const WoweeMovieCredits& cat,
-                                     const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeMovieCredits::Entry& e) {
         writePOD(os, e.rollId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -66,25 +63,15 @@ bool WoweeMovieCreditsLoader::save(const WoweeMovieCredits& cat,
             e.lines.size());
         writePOD(os, lineCount);
         for (const auto& L : e.lines) writeStr(os, L);
-    }
-    return os.good();
+                       });
 }
 
 WoweeMovieCredits WoweeMovieCreditsLoader::load(
     const std::string& basePath) {
-    WoweeMovieCredits out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.rollId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name) || !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
+    return loadCatalog<WoweeMovieCredits>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeMovieCredits::Entry& e) {
+        if (!readPOD(is, e.rollId)) { return false; }
+        if (!readStr(is, e.name) || !readStr(is, e.description)) { return false; }
         if (!readPOD(is, e.cinematicId) ||
             !readPOD(is, e.category) ||
             !readPOD(is, e.pad0) ||
@@ -93,29 +80,20 @@ WoweeMovieCredits WoweeMovieCreditsLoader::load(
             !readPOD(is, e.orderHint) ||
             !readPOD(is, e.pad4) ||
             !readPOD(is, e.pad5) ||
-            !readPOD(is, e.iconColorRGBA)) {
-            out.entries.clear(); return out;
-        }
+            !readPOD(is, e.iconColorRGBA)) { return false; }
         uint32_t lineCount = 0;
-        if (!readPOD(is, lineCount)) {
-            out.entries.clear(); return out;
-        }
-        if (lineCount > 4096) {
-            out.entries.clear(); return out;
-        }
+        if (!readPOD(is, lineCount)) { return false; }
+        if (lineCount > 4096) { return false; }
         e.lines.resize(lineCount);
         for (uint32_t k = 0; k < lineCount; ++k) {
-            if (!readStr(is, e.lines[k])) {
-                out.entries.clear(); return out;
-            }
+            if (!readStr(is, e.lines[k])) { return false; }
         }
-    }
-    return out;
+                                  return true;
+                              });
 }
 
 bool WoweeMovieCreditsLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeMovieCredits WoweeMovieCreditsLoader::makeWotLKIntro(

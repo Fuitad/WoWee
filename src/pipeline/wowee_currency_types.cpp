@@ -60,12 +60,9 @@ const char* WoweeCurrencyType::currencyKindName(uint8_t k) {
 }
 
 bool WoweeCurrencyTypeLoader::save(const WoweeCurrencyType& cat,
-                                    const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeCurrencyType::Entry& e) {
         writePOD(os, e.currencyId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -79,25 +76,15 @@ bool WoweeCurrencyTypeLoader::save(const WoweeCurrencyType& cat,
         writePOD(os, e.pad1);
         writeStr(os, e.iconPath);
         writePOD(os, e.iconColorRGBA);
-    }
-    return os.good();
+                       });
 }
 
 WoweeCurrencyType WoweeCurrencyTypeLoader::load(
     const std::string& basePath) {
-    WoweeCurrencyType out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.currencyId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name) || !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
+    return loadCatalog<WoweeCurrencyType>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeCurrencyType::Entry& e) {
+        if (!readPOD(is, e.currencyId)) { return false; }
+        if (!readStr(is, e.name) || !readStr(is, e.description)) { return false; }
         if (!readPOD(is, e.itemId) ||
             !readPOD(is, e.maxQuantity) ||
             !readPOD(is, e.maxQuantityWeekly) ||
@@ -105,22 +92,15 @@ WoweeCurrencyType WoweeCurrencyTypeLoader::load(
             !readPOD(is, e.currencyKind) ||
             !readPOD(is, e.isAccountWide) ||
             !readPOD(is, e.pad0) ||
-            !readPOD(is, e.pad1)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.iconPath)) {
-            out.entries.clear(); return out;
-        }
-        if (!readPOD(is, e.iconColorRGBA)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.pad1)) { return false; }
+        if (!readStr(is, e.iconPath)) { return false; }
+        if (!readPOD(is, e.iconColorRGBA)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeCurrencyTypeLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeCurrencyType WoweeCurrencyTypeLoader::makePvP(

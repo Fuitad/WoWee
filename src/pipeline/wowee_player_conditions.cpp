@@ -70,12 +70,9 @@ const char* WoweePlayerCondition::chainOpName(uint8_t c) {
 }
 
 bool WoweePlayerConditionLoader::save(const WoweePlayerCondition& cat,
-                                       const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweePlayerCondition::Entry& e) {
         writePOD(os, e.conditionId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -89,48 +86,31 @@ bool WoweePlayerConditionLoader::save(const WoweePlayerCondition& cat,
         writePOD(os, e.intValueB);
         writePOD(os, e.chainNextId);
         writeStr(os, e.failMessage);
-    }
-    return os.good();
+                       });
 }
 
 WoweePlayerCondition WoweePlayerConditionLoader::load(
     const std::string& basePath) {
-    WoweePlayerCondition out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.conditionId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name) || !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
+    return loadCatalog<WoweePlayerCondition>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweePlayerCondition::Entry& e) {
+        if (!readPOD(is, e.conditionId)) { return false; }
+        if (!readStr(is, e.name) || !readStr(is, e.description)) { return false; }
         if (!readPOD(is, e.conditionKind) ||
             !readPOD(is, e.comparisonOp) ||
-            !readPOD(is, e.chainOp)) {
-            out.entries.clear(); return out;
-        }
-        if (!skipPadding(is, 1)) { out.entries.clear(); return out; }
+            !readPOD(is, e.chainOp)) { return false; }
+        if (!skipPadding(is, 1)) { return false; }
         if (!readPOD(is, e.targetIdA) ||
             !readPOD(is, e.targetIdB) ||
             !readPOD(is, e.intValueA) ||
             !readPOD(is, e.intValueB) ||
-            !readPOD(is, e.chainNextId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.failMessage)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.chainNextId)) { return false; }
+        if (!readStr(is, e.failMessage)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweePlayerConditionLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweePlayerCondition WoweePlayerConditionLoader::makeStarter(

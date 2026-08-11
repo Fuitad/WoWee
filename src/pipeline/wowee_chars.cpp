@@ -229,8 +229,7 @@ WoweeChars WoweeCharsLoader::load(const std::string& basePath) {
 }
 
 bool WoweeCharsLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeChars WoweeCharsLoader::makeStarter(const std::string& catalogName) {

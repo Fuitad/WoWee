@@ -69,13 +69,8 @@ bool WoweePlayerMovementAnimLoader::save(
 
 WoweePlayerMovementAnim WoweePlayerMovementAnimLoader::load(
     const std::string& basePath) {
-    WoweePlayerMovementAnim out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
+    return loadCatalog<WoweePlayerMovementAnim>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweePlayerMovementAnim::Entry& e) {
         if (!readPOD(is, e.mapId) ||
             !readPOD(is, e.raceId) ||
             !readPOD(is, e.genderId) ||
@@ -84,11 +79,9 @@ WoweePlayerMovementAnim WoweePlayerMovementAnimLoader::load(
             !readPOD(is, e.baseAnimId) ||
             !readPOD(is, e.variantAnimId) ||
             !readPOD(is, e.transitionMs) ||
-            !readPOD(is, e.pad1)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.pad1)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweePlayerMovementAnimLoader::exists(

@@ -54,12 +54,9 @@ const char* WoweeCondition::aggregatorName(uint8_t a) {
 }
 
 bool WoweeConditionLoader::save(const WoweeCondition& cat,
-                                const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeCondition::Entry& e) {
         writePOD(os, e.conditionId);
         writePOD(os, e.groupId);
         writeStr(os, e.name);
@@ -71,45 +68,29 @@ bool WoweeConditionLoader::save(const WoweeCondition& cat,
         writePOD(os, e.targetId);
         writePOD(os, e.minValue);
         writePOD(os, e.maxValue);
-    }
-    return os.good();
+                       });
 }
 
-WoweeCondition WoweeConditionLoader::load(const std::string& basePath) {
-    WoweeCondition out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
+WoweeCondition WoweeConditionLoader::load(
+    const std::string& basePath) {
+    return loadCatalog<WoweeCondition>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeCondition::Entry& e) {
         if (!readPOD(is, e.conditionId) ||
-            !readPOD(is, e.groupId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name) || !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
+            !readPOD(is, e.groupId)) { return false; }
+        if (!readStr(is, e.name) || !readStr(is, e.description)) { return false; }
         if (!readPOD(is, e.kind) ||
             !readPOD(is, e.aggregator) ||
-            !readPOD(is, e.negated)) {
-            out.entries.clear(); return out;
-        }
-        if (!skipPadding(is, 1)) {
-            out.entries.clear(); return out;
-        }
+            !readPOD(is, e.negated)) { return false; }
+        if (!skipPadding(is, 1)) { return false; }
         if (!readPOD(is, e.targetId) ||
             !readPOD(is, e.minValue) ||
-            !readPOD(is, e.maxValue)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.maxValue)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeConditionLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeCondition WoweeConditionLoader::makeStarter(const std::string& catalogName) {

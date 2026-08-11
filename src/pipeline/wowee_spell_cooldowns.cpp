@@ -42,12 +42,9 @@ const char* WoweeSpellCooldown::bucketKindName(uint8_t k) {
 }
 
 bool WoweeSpellCooldownLoader::save(const WoweeSpellCooldown& cat,
-                                     const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeSpellCooldown::Entry& e) {
         writePOD(os, e.bucketId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -56,41 +53,26 @@ bool WoweeSpellCooldownLoader::save(const WoweeSpellCooldown& cat,
         writePOD(os, e.cooldownMs);
         writePOD(os, e.categoryFlags);
         writePOD(os, e.iconColorRGBA);
-    }
-    return os.good();
+                       });
 }
 
 WoweeSpellCooldown WoweeSpellCooldownLoader::load(
     const std::string& basePath) {
-    WoweeSpellCooldown out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.bucketId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name) || !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
-        if (!readPOD(is, e.bucketKind)) {
-            out.entries.clear(); return out;
-        }
-        if (!skipPadding(is, 3)) { out.entries.clear(); return out; }
+    return loadCatalog<WoweeSpellCooldown>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeSpellCooldown::Entry& e) {
+        if (!readPOD(is, e.bucketId)) { return false; }
+        if (!readStr(is, e.name) || !readStr(is, e.description)) { return false; }
+        if (!readPOD(is, e.bucketKind)) { return false; }
+        if (!skipPadding(is, 3)) { return false; }
         if (!readPOD(is, e.cooldownMs) ||
             !readPOD(is, e.categoryFlags) ||
-            !readPOD(is, e.iconColorRGBA)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.iconColorRGBA)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeSpellCooldownLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeSpellCooldown WoweeSpellCooldownLoader::makeStarter(

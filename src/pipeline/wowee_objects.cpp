@@ -46,12 +46,9 @@ const char* WoweeGameObject::typeName(uint8_t t) {
 }
 
 bool WoweeGameObjectLoader::save(const WoweeGameObject& cat,
-                                 const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeGameObject::Entry& e) {
         writePOD(os, e.objectId);
         writePOD(os, e.displayId);
         writeStr(os, e.name);
@@ -66,29 +63,18 @@ bool WoweeGameObjectLoader::save(const WoweeGameObject& cat,
         writePOD(os, e.minOpenTimeMs);
         writePOD(os, e.maxOpenTimeMs);
         writePOD(os, e.flags);
-    }
-    return os.good();
+                       });
 }
 
-WoweeGameObject WoweeGameObjectLoader::load(const std::string& basePath) {
-    WoweeGameObject out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
+WoweeGameObject WoweeGameObjectLoader::load(
+    const std::string& basePath) {
+    return loadCatalog<WoweeGameObject>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeGameObject::Entry& e) {
         if (!readPOD(is, e.objectId) ||
-            !readPOD(is, e.displayId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name)) {
-            out.entries.clear(); return out;
-        }
-        if (!readPOD(is, e.typeId)) {
-            out.entries.clear(); return out;
-        }
-        if (!skipPadding(is, 3)) { out.entries.clear(); return out; }
+            !readPOD(is, e.displayId)) { return false; }
+        if (!readStr(is, e.name)) { return false; }
+        if (!readPOD(is, e.typeId)) { return false; }
+        if (!skipPadding(is, 3)) { return false; }
         if (!readPOD(is, e.size) ||
             !readStr(is, e.castBarCaption) ||
             !readPOD(is, e.requiredSkill) ||
@@ -97,16 +83,13 @@ WoweeGameObject WoweeGameObjectLoader::load(const std::string& basePath) {
             !readPOD(is, e.lootTableId) ||
             !readPOD(is, e.minOpenTimeMs) ||
             !readPOD(is, e.maxOpenTimeMs) ||
-            !readPOD(is, e.flags)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.flags)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeGameObjectLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeGameObject WoweeGameObjectLoader::makeStarter(const std::string& catalogName) {

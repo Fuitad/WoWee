@@ -96,12 +96,9 @@ const char* WoweeItem::statName(uint8_t t) {
 }
 
 bool WoweeItemLoader::save(const WoweeItem& cat,
-                           const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeItem::Entry& e) {
         writePOD(os, e.itemId);
         writePOD(os, e.displayId);
         writePOD(os, e.quality);
@@ -133,18 +130,13 @@ bool WoweeItemLoader::save(const WoweeItem& cat,
         }
         writeStr(os, e.name);
         writeStr(os, e.description);
-    }
-    return os.good();
+                       });
 }
 
-WoweeItem WoweeItemLoader::load(const std::string& basePath) {
-    WoweeItem out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
+WoweeItem WoweeItemLoader::load(
+    const std::string& basePath) {
+    return loadCatalog<WoweeItem>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeItem::Entry& e) {
         if (!readPOD(is, e.itemId) ||
             !readPOD(is, e.displayId) ||
             !readPOD(is, e.quality) ||
@@ -160,39 +152,24 @@ WoweeItem WoweeItemLoader::load(const std::string& basePath) {
             !readPOD(is, e.durability) ||
             !readPOD(is, e.damageMin) ||
             !readPOD(is, e.damageMax) ||
-            !readPOD(is, e.attackSpeedMs)) {
-            out.entries.clear();
-            return out;
-        }
+            !readPOD(is, e.attackSpeedMs)) { return false; }
         uint8_t statCount = 0;
-        if (!readPOD(is, statCount)) {
-            out.entries.clear(); return out;
-        }
-        if (!skipPadding(is, 3)) { out.entries.clear(); return out; }
+        if (!readPOD(is, statCount)) { return false; }
+        if (!skipPadding(is, 3)) { return false; }
         e.stats.resize(statCount);
         for (uint8_t k = 0; k < statCount; ++k) {
-            if (!readPOD(is, e.stats[k].type)) {
-                out.entries.clear(); return out;
-            }
+            if (!readPOD(is, e.stats[k].type)) { return false; }
             uint8_t spad = 0;
-            if (!readPOD(is, spad)) {
-                out.entries.clear(); return out;
-            }
-            if (!readPOD(is, e.stats[k].value)) {
-                out.entries.clear(); return out;
-            }
+            if (!readPOD(is, spad)) { return false; }
+            if (!readPOD(is, e.stats[k].value)) { return false; }
         }
-        if (!readStr(is, e.name) || !readStr(is, e.description)) {
-            out.entries.clear();
-            return out;
-        }
-    }
-    return out;
+        if (!readStr(is, e.name) || !readStr(is, e.description)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeItemLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeItem WoweeItemLoader::makeStarter(const std::string& catalogName) {

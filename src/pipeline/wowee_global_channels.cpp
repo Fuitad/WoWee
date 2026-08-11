@@ -76,19 +76,10 @@ bool WoweeGlobalChannelsLoader::save(
 
 WoweeGlobalChannels WoweeGlobalChannelsLoader::load(
     const std::string& basePath) {
-    WoweeGlobalChannels out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.channelId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name) || !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
+    return loadCatalog<WoweeGlobalChannels>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeGlobalChannels::Entry& e) {
+        if (!readPOD(is, e.channelId)) { return false; }
+        if (!readStr(is, e.name) || !readStr(is, e.description)) { return false; }
         if (!readPOD(is, e.channelKind) ||
             !readPOD(is, e.accessKind) ||
             !readPOD(is, e.passwordRequired) ||
@@ -97,11 +88,9 @@ WoweeGlobalChannels WoweeGlobalChannelsLoader::load(
             !readPOD(is, e.topicSetByMods) ||
             !readPOD(is, e.pad0) ||
             !readPOD(is, e.zoneDefaultMapId) ||
-            !readPOD(is, e.iconColorRGBA)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.iconColorRGBA)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeGlobalChannelsLoader::exists(

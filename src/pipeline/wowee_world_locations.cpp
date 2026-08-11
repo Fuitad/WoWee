@@ -70,19 +70,10 @@ bool WoweeWorldLocationsLoader::save(
 
 WoweeWorldLocations WoweeWorldLocationsLoader::load(
     const std::string& basePath) {
-    WoweeWorldLocations out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.locationId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name)) {
-            out.entries.clear(); return out;
-        }
+    return loadCatalog<WoweeWorldLocations>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeWorldLocations::Entry& e) {
+        if (!readPOD(is, e.locationId)) { return false; }
+        if (!readStr(is, e.name)) { return false; }
         if (!readPOD(is, e.mapId) ||
             !readPOD(is, e.areaId) ||
             !readPOD(is, e.x) ||
@@ -95,11 +86,9 @@ WoweeWorldLocations WoweeWorldLocationsLoader::load(
             !readPOD(is, e.respawnSec) ||
             !readPOD(is, e.discoverableXp) ||
             !readPOD(is, e.requiredSkillId) ||
-            !readPOD(is, e.requiredSkillLevel)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.requiredSkillLevel)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeWorldLocationsLoader::exists(

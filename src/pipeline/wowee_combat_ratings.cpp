@@ -35,12 +35,9 @@ const char* WoweeCombatRating::ratingKindName(uint8_t k) {
 }
 
 bool WoweeCombatRatingLoader::save(const WoweeCombatRating& cat,
-                                    const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeCombatRating::Entry& e) {
         writePOD(os, e.ratingType);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -52,44 +49,29 @@ bool WoweeCombatRatingLoader::save(const WoweeCombatRating& cat,
         writePOD(os, e.pointsAtL70);
         writePOD(os, e.pointsAtL80);
         writePOD(os, e.maxBenefitPercent);
-    }
-    return os.good();
+                       });
 }
 
 WoweeCombatRating WoweeCombatRatingLoader::load(
     const std::string& basePath) {
-    WoweeCombatRating out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.ratingType)) {
-            out.entries.clear(); return out;
-        }
+    return loadCatalog<WoweeCombatRating>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeCombatRating::Entry& e) {
+        if (!readPOD(is, e.ratingType)) { return false; }
         if (!readStr(is, e.name) || !readStr(is, e.description) ||
-            !readStr(is, e.iconPath)) {
-            out.entries.clear(); return out;
-        }
-        if (!readPOD(is, e.ratingKind)) {
-            out.entries.clear(); return out;
-        }
-        if (!skipPadding(is, 3)) { out.entries.clear(); return out; }
+            !readStr(is, e.iconPath)) { return false; }
+        if (!readPOD(is, e.ratingKind)) { return false; }
+        if (!skipPadding(is, 3)) { return false; }
         if (!readPOD(is, e.pointsAtL1) ||
             !readPOD(is, e.pointsAtL60) ||
             !readPOD(is, e.pointsAtL70) ||
             !readPOD(is, e.pointsAtL80) ||
-            !readPOD(is, e.maxBenefitPercent)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.maxBenefitPercent)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeCombatRatingLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeCombatRating WoweeCombatRatingLoader::makeStarter(

@@ -53,12 +53,9 @@ const char* WoweeCreatureFamily::petTalentTreeName(uint8_t t) {
 }
 
 bool WoweeCreatureFamilyLoader::save(const WoweeCreatureFamily& cat,
-                                      const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeCreatureFamily::Entry& e) {
         writePOD(os, e.familyId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -69,41 +66,28 @@ bool WoweeCreatureFamilyLoader::save(const WoweeCreatureFamily& cat,
         writePOD(os, e.skillLine);
         writePOD(os, e.petFoodTypes);
         writePOD(os, e.iconColorRGBA);
-    }
-    return os.good();
+                       });
 }
 
 WoweeCreatureFamily WoweeCreatureFamilyLoader::load(
     const std::string& basePath) {
-    WoweeCreatureFamily out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.familyId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name) || !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
+    return loadCatalog<WoweeCreatureFamily>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeCreatureFamily::Entry& e) {
+        if (!readPOD(is, e.familyId)) { return false; }
+        if (!readStr(is, e.name) || !readStr(is, e.description)) { return false; }
         if (!readPOD(is, e.familyKind) ||
             !readPOD(is, e.petTalentTree) ||
             !readPOD(is, e.minLevelForTame) ||
             !readPOD(is, e.pad0) ||
             !readPOD(is, e.skillLine) ||
             !readPOD(is, e.petFoodTypes) ||
-            !readPOD(is, e.iconColorRGBA)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.iconColorRGBA)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeCreatureFamilyLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeCreatureFamily WoweeCreatureFamilyLoader::makeStarter(

@@ -61,12 +61,9 @@ const char* WoweeSpellCastTime::castKindName(uint8_t k) {
 }
 
 bool WoweeSpellCastTimeLoader::save(const WoweeSpellCastTime& cat,
-                                     const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeSpellCastTime::Entry& e) {
         writePOD(os, e.castTimeId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -77,43 +74,28 @@ bool WoweeSpellCastTimeLoader::save(const WoweeSpellCastTime& cat,
         writePOD(os, e.minCastMs);
         writePOD(os, e.maxCastMs);
         writePOD(os, e.iconColorRGBA);
-    }
-    return os.good();
+                       });
 }
 
 WoweeSpellCastTime WoweeSpellCastTimeLoader::load(
     const std::string& basePath) {
-    WoweeSpellCastTime out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.castTimeId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name) || !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
-        if (!readPOD(is, e.castKind)) {
-            out.entries.clear(); return out;
-        }
-        if (!skipPadding(is, 3)) { out.entries.clear(); return out; }
+    return loadCatalog<WoweeSpellCastTime>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeSpellCastTime::Entry& e) {
+        if (!readPOD(is, e.castTimeId)) { return false; }
+        if (!readStr(is, e.name) || !readStr(is, e.description)) { return false; }
+        if (!readPOD(is, e.castKind)) { return false; }
+        if (!skipPadding(is, 3)) { return false; }
         if (!readPOD(is, e.baseCastMs) ||
             !readPOD(is, e.perLevelMs) ||
             !readPOD(is, e.minCastMs) ||
             !readPOD(is, e.maxCastMs) ||
-            !readPOD(is, e.iconColorRGBA)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.iconColorRGBA)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeSpellCastTimeLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeSpellCastTime WoweeSpellCastTimeLoader::makeStarter(

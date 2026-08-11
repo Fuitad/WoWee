@@ -35,12 +35,9 @@ const char* WoweeItemSuffix::suffixCategoryName(uint8_t c) {
 }
 
 bool WoweeItemSuffixLoader::save(const WoweeItemSuffix& cat,
-                                  const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeItemSuffix::Entry& e) {
         writePOD(os, e.suffixId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -56,51 +53,33 @@ bool WoweeItemSuffixLoader::save(const WoweeItemSuffix& cat,
         for (size_t k = 0; k < WoweeItemSuffix::kMaxStats; ++k) {
             writePOD(os, e.statValuePoints[k]);
         }
-    }
-    return os.good();
+                       });
 }
 
-WoweeItemSuffix WoweeItemSuffixLoader::load(const std::string& basePath) {
-    WoweeItemSuffix out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.suffixId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name) || !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
+WoweeItemSuffix WoweeItemSuffixLoader::load(
+    const std::string& basePath) {
+    return loadCatalog<WoweeItemSuffix>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeItemSuffix::Entry& e) {
+        if (!readPOD(is, e.suffixId)) { return false; }
+        if (!readStr(is, e.name) || !readStr(is, e.description)) { return false; }
         if (!readPOD(is, e.itemQualityFloor) ||
             !readPOD(is, e.itemQualityCeiling) ||
-            !readPOD(is, e.suffixCategory)) {
-            out.entries.clear(); return out;
-        }
-        if (!skipPadding(is, 1)) { out.entries.clear(); return out; }
-        if (!readPOD(is, e.restrictedSlotMask)) {
-            out.entries.clear(); return out;
-        }
+            !readPOD(is, e.suffixCategory)) { return false; }
+        if (!skipPadding(is, 1)) { return false; }
+        if (!readPOD(is, e.restrictedSlotMask)) { return false; }
         for (size_t k = 0; k < WoweeItemSuffix::kMaxStats; ++k) {
-            if (!readPOD(is, e.statKind[k])) {
-                out.entries.clear(); return out;
-            }
+            if (!readPOD(is, e.statKind[k])) { return false; }
         }
-        if (!skipPadding(is, 3)) { out.entries.clear(); return out; }
+        if (!skipPadding(is, 3)) { return false; }
         for (size_t k = 0; k < WoweeItemSuffix::kMaxStats; ++k) {
-            if (!readPOD(is, e.statValuePoints[k])) {
-                out.entries.clear(); return out;
-            }
+            if (!readPOD(is, e.statValuePoints[k])) { return false; }
         }
-    }
-    return out;
+                                  return true;
+                              });
 }
 
 bool WoweeItemSuffixLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeItemSuffix WoweeItemSuffixLoader::makeStarter(

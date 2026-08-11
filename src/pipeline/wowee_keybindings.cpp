@@ -46,12 +46,9 @@ const char* WoweeKeyBinding::categoryName(uint8_t c) {
 }
 
 bool WoweeKeyBindingLoader::save(const WoweeKeyBinding& cat,
-                                  const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeKeyBinding::Entry& e) {
         writePOD(os, e.bindingId);
         writeStr(os, e.actionName);
         writeStr(os, e.description);
@@ -61,40 +58,28 @@ bool WoweeKeyBindingLoader::save(const WoweeKeyBinding& cat,
         writePOD(os, e.isUserOverridable);
         writePOD(os, e.sortOrder);
         writePadding(os, 1);
-    }
-    return os.good();
+                       });
 }
 
-WoweeKeyBinding WoweeKeyBindingLoader::load(const std::string& basePath) {
-    WoweeKeyBinding out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.bindingId)) {
-            out.entries.clear(); return out;
-        }
+WoweeKeyBinding WoweeKeyBindingLoader::load(
+    const std::string& basePath) {
+    return loadCatalog<WoweeKeyBinding>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeKeyBinding::Entry& e) {
+        if (!readPOD(is, e.bindingId)) { return false; }
         if (!readStr(is, e.actionName) ||
             !readStr(is, e.description) ||
             !readStr(is, e.defaultKey) ||
-            !readStr(is, e.alternateKey)) {
-            out.entries.clear(); return out;
-        }
+            !readStr(is, e.alternateKey)) { return false; }
         if (!readPOD(is, e.category) ||
             !readPOD(is, e.isUserOverridable) ||
-            !readPOD(is, e.sortOrder)) {
-            out.entries.clear(); return out;
-        }
-        if (!skipPadding(is, 1)) { out.entries.clear(); return out; }
-    }
-    return out;
+            !readPOD(is, e.sortOrder)) { return false; }
+        if (!skipPadding(is, 1)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeKeyBindingLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeKeyBinding WoweeKeyBindingLoader::makeStarter(

@@ -36,20 +36,16 @@ const char* WoweeWeather::typeName(uint32_t typeId) {
 }
 
 bool WoweeWeatherLoader::save(const WoweeWeather& w,
-                              const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(w.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, w.name, entryCount);
-    for (const auto& e : w.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(w, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeWeather::Entry& e) {
         writePOD(os, e.weatherTypeId);
         writePOD(os, e.minIntensity);
         writePOD(os, e.maxIntensity);
         writePOD(os, e.weight);
         writePOD(os, e.minDurationSec);
         writePOD(os, e.maxDurationSec);
-    }
-    return os.good();
+                       });
 }
 
 WoweeWeather WoweeWeatherLoader::load(const std::string& basePath) {
@@ -77,8 +73,7 @@ WoweeWeather WoweeWeatherLoader::load(const std::string& basePath) {
 }
 
 bool WoweeWeatherLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeWeather WoweeWeatherLoader::makeTemperate(const std::string& zoneName) {

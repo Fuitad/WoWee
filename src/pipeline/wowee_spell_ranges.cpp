@@ -44,12 +44,9 @@ const char* WoweeSpellRange::rangeKindName(uint8_t k) {
 }
 
 bool WoweeSpellRangeLoader::save(const WoweeSpellRange& cat,
-                                  const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeSpellRange::Entry& e) {
         writePOD(os, e.rangeId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -60,42 +57,28 @@ bool WoweeSpellRangeLoader::save(const WoweeSpellRange& cat,
         writePOD(os, e.minRangeFriendly);
         writePOD(os, e.maxRangeFriendly);
         writePOD(os, e.iconColorRGBA);
-    }
-    return os.good();
+                       });
 }
 
-WoweeSpellRange WoweeSpellRangeLoader::load(const std::string& basePath) {
-    WoweeSpellRange out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.rangeId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name) || !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
-        if (!readPOD(is, e.rangeKind)) {
-            out.entries.clear(); return out;
-        }
-        if (!skipPadding(is, 3)) { out.entries.clear(); return out; }
+WoweeSpellRange WoweeSpellRangeLoader::load(
+    const std::string& basePath) {
+    return loadCatalog<WoweeSpellRange>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeSpellRange::Entry& e) {
+        if (!readPOD(is, e.rangeId)) { return false; }
+        if (!readStr(is, e.name) || !readStr(is, e.description)) { return false; }
+        if (!readPOD(is, e.rangeKind)) { return false; }
+        if (!skipPadding(is, 3)) { return false; }
         if (!readPOD(is, e.minRange) ||
             !readPOD(is, e.maxRange) ||
             !readPOD(is, e.minRangeFriendly) ||
             !readPOD(is, e.maxRangeFriendly) ||
-            !readPOD(is, e.iconColorRGBA)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.iconColorRGBA)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeSpellRangeLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeSpellRange WoweeSpellRangeLoader::makeStarter(

@@ -47,12 +47,9 @@ WoweeTabards::findApproved() const {
 }
 
 bool WoweeTabardsLoader::save(const WoweeTabards& cat,
-                                const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeTabards::Entry& e) {
         writePOD(os, e.tabardId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -69,24 +66,15 @@ bool WoweeTabardsLoader::save(const WoweeTabards& cat,
         writePOD(os, e.pad1);
         writePOD(os, e.pad2);
         writePOD(os, e.iconColorRGBA);
-    }
-    return os.good();
+                       });
 }
 
-WoweeTabards WoweeTabardsLoader::load(const std::string& basePath) {
-    WoweeTabards out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.tabardId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name) || !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
+WoweeTabards WoweeTabardsLoader::load(
+    const std::string& basePath) {
+    return loadCatalog<WoweeTabards>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeTabards::Entry& e) {
+        if (!readPOD(is, e.tabardId)) { return false; }
+        if (!readStr(is, e.name) || !readStr(is, e.description)) { return false; }
         if (!readPOD(is, e.backgroundPattern) ||
             !readPOD(is, e.borderPattern) ||
             !readPOD(is, e.emblemId) ||
@@ -99,16 +87,13 @@ WoweeTabards WoweeTabardsLoader::load(const std::string& basePath) {
             !readPOD(is, e.pad0) ||
             !readPOD(is, e.pad1) ||
             !readPOD(is, e.pad2) ||
-            !readPOD(is, e.iconColorRGBA)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.iconColorRGBA)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeTabardsLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeTabards WoweeTabardsLoader::makeAllianceClassic(

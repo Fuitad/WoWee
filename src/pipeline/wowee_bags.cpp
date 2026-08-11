@@ -38,12 +38,9 @@ const char* WoweeBagSlot::bagKindName(uint8_t k) {
 }
 
 bool WoweeBagSlotLoader::save(const WoweeBagSlot& cat,
-                               const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeBagSlot::Entry& e) {
         writePOD(os, e.bagSlotId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -54,40 +51,28 @@ bool WoweeBagSlotLoader::save(const WoweeBagSlot& cat,
         writePOD(os, e.fixedBagItemId);
         writePOD(os, e.unlockCostCopper);
         writePOD(os, e.acceptsBagSubclassMask);
-    }
-    return os.good();
+                       });
 }
 
-WoweeBagSlot WoweeBagSlotLoader::load(const std::string& basePath) {
-    WoweeBagSlot out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.bagSlotId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name) || !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
+WoweeBagSlot WoweeBagSlotLoader::load(
+    const std::string& basePath) {
+    return loadCatalog<WoweeBagSlot>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeBagSlot::Entry& e) {
+        if (!readPOD(is, e.bagSlotId)) { return false; }
+        if (!readStr(is, e.name) || !readStr(is, e.description)) { return false; }
         if (!readPOD(is, e.bagKind) ||
             !readPOD(is, e.containerSize) ||
             !readPOD(is, e.displayOrder) ||
             !readPOD(is, e.isUnlocked) ||
             !readPOD(is, e.fixedBagItemId) ||
             !readPOD(is, e.unlockCostCopper) ||
-            !readPOD(is, e.acceptsBagSubclassMask)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.acceptsBagSubclassMask)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeBagSlotLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeBagSlot WoweeBagSlotLoader::makeStarter(

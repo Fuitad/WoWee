@@ -63,19 +63,10 @@ bool WoweeSpellProcRulesLoader::save(
 
 WoweeSpellProcRules WoweeSpellProcRulesLoader::load(
     const std::string& basePath) {
-    WoweeSpellProcRules out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.procRuleId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name)) {
-            out.entries.clear(); return out;
-        }
+    return loadCatalog<WoweeSpellProcRules>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeSpellProcRules::Entry& e) {
+        if (!readPOD(is, e.procRuleId)) { return false; }
+        if (!readStr(is, e.name)) { return false; }
         if (!readPOD(is, e.sourceSpellId) ||
             !readPOD(is, e.procEffectSpellId) ||
             !readPOD(is, e.triggerEvent) ||
@@ -83,11 +74,9 @@ WoweeSpellProcRules WoweeSpellProcRulesLoader::load(
             !readPOD(is, e.procChancePct) ||
             !readPOD(is, e.internalCooldownMs) ||
             !readPOD(is, e.procFlagsMask) ||
-            !readPOD(is, e.pad0)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.pad0)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeSpellProcRulesLoader::exists(

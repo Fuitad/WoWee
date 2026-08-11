@@ -61,12 +61,9 @@ const char* WoweeSkillCost::costKindName(uint8_t k) {
 }
 
 bool WoweeSkillCostLoader::save(const WoweeSkillCost& cat,
-                                 const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeSkillCost::Entry& e) {
         writePOD(os, e.costId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -79,25 +76,15 @@ bool WoweeSkillCostLoader::save(const WoweeSkillCost& cat,
         writePOD(os, e.pad1);
         writePOD(os, e.copperCost);
         writePOD(os, e.iconColorRGBA);
-    }
-    return os.good();
+                       });
 }
 
 WoweeSkillCost WoweeSkillCostLoader::load(
     const std::string& basePath) {
-    WoweeSkillCost out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.costId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name) || !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
+    return loadCatalog<WoweeSkillCost>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeSkillCost::Entry& e) {
+        if (!readPOD(is, e.costId)) { return false; }
+        if (!readStr(is, e.name) || !readStr(is, e.description)) { return false; }
         if (!readPOD(is, e.skillRankIndex) ||
             !readPOD(is, e.minSkillToLearn) ||
             !readPOD(is, e.maxSkillUnlocked) ||
@@ -106,16 +93,13 @@ WoweeSkillCost WoweeSkillCostLoader::load(
             !readPOD(is, e.pad0) ||
             !readPOD(is, e.pad1) ||
             !readPOD(is, e.copperCost) ||
-            !readPOD(is, e.iconColorRGBA)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.iconColorRGBA)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeSkillCostLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeSkillCost WoweeSkillCostLoader::makeProfession(

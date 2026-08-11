@@ -57,12 +57,9 @@ const char* WoweeCompanion::factionRestrictionName(uint8_t f) {
 }
 
 bool WoweeCompanionLoader::save(const WoweeCompanion& cat,
-                                 const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeCompanion::Entry& e) {
         writePOD(os, e.companionId);
         writePOD(os, e.creatureId);
         writeStr(os, e.name);
@@ -75,44 +72,30 @@ bool WoweeCompanionLoader::save(const WoweeCompanion& cat,
         writePOD(os, e.learnSpellId);
         writePOD(os, e.itemId);
         writePOD(os, e.idleSoundId);
-    }
-    return os.good();
+                       });
 }
 
-WoweeCompanion WoweeCompanionLoader::load(const std::string& basePath) {
-    WoweeCompanion out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
+WoweeCompanion WoweeCompanionLoader::load(
+    const std::string& basePath) {
+    return loadCatalog<WoweeCompanion>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeCompanion::Entry& e) {
         if (!readPOD(is, e.companionId) ||
-            !readPOD(is, e.creatureId)) {
-            out.entries.clear(); return out;
-        }
+            !readPOD(is, e.creatureId)) { return false; }
         if (!readStr(is, e.name) || !readStr(is, e.description) ||
-            !readStr(is, e.iconPath)) {
-            out.entries.clear(); return out;
-        }
+            !readStr(is, e.iconPath)) { return false; }
         if (!readPOD(is, e.companionKind) ||
             !readPOD(is, e.rarity) ||
-            !readPOD(is, e.factionRestriction)) {
-            out.entries.clear(); return out;
-        }
-        if (!skipPadding(is, 1)) { out.entries.clear(); return out; }
+            !readPOD(is, e.factionRestriction)) { return false; }
+        if (!skipPadding(is, 1)) { return false; }
         if (!readPOD(is, e.learnSpellId) ||
             !readPOD(is, e.itemId) ||
-            !readPOD(is, e.idleSoundId)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.idleSoundId)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeCompanionLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeCompanion WoweeCompanionLoader::makeStarter(

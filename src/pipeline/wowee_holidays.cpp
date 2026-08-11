@@ -45,12 +45,9 @@ const char* WoweeHoliday::recurrenceName(uint8_t r) {
 }
 
 bool WoweeHolidayLoader::save(const WoweeHoliday& cat,
-                              const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeHoliday::Entry& e) {
         writePOD(os, e.holidayId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -66,47 +63,33 @@ bool WoweeHolidayLoader::save(const WoweeHoliday& cat,
         writePOD(os, e.itemRewardId);
         writePOD(os, e.areaIdGate);
         writePOD(os, e.mapIdGate);
-    }
-    return os.good();
+                       });
 }
 
-WoweeHoliday WoweeHolidayLoader::load(const std::string& basePath) {
-    WoweeHoliday out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.holidayId)) {
-            out.entries.clear(); return out;
-        }
+WoweeHoliday WoweeHolidayLoader::load(
+    const std::string& basePath) {
+    return loadCatalog<WoweeHoliday>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeHoliday::Entry& e) {
+        if (!readPOD(is, e.holidayId)) { return false; }
         if (!readStr(is, e.name) || !readStr(is, e.description) ||
-            !readStr(is, e.iconPath)) {
-            out.entries.clear(); return out;
-        }
+            !readStr(is, e.iconPath)) { return false; }
         if (!readPOD(is, e.holidayKind) ||
             !readPOD(is, e.recurrence) ||
             !readPOD(is, e.startMonth) ||
             !readPOD(is, e.startDay) ||
-            !readPOD(is, e.durationHours)) {
-            out.entries.clear(); return out;
-        }
-        if (!skipPadding(is, 2)) { out.entries.clear(); return out; }
+            !readPOD(is, e.durationHours)) { return false; }
+        if (!skipPadding(is, 2)) { return false; }
         if (!readPOD(is, e.holidayQuestId) ||
             !readPOD(is, e.bossCreatureId) ||
             !readPOD(is, e.itemRewardId) ||
             !readPOD(is, e.areaIdGate) ||
-            !readPOD(is, e.mapIdGate)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.mapIdGate)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeHolidayLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeHoliday WoweeHolidayLoader::makeStarter(const std::string& catalogName) {

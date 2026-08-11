@@ -41,12 +41,9 @@ const char* WoweeTitle::categoryName(uint8_t c) {
 }
 
 bool WoweeTitleLoader::save(const WoweeTitle& cat,
-                            const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeTitle::Entry& e) {
         writePOD(os, e.titleId);
         writeStr(os, e.name);
         writeStr(os, e.nameMale);
@@ -55,35 +52,25 @@ bool WoweeTitleLoader::save(const WoweeTitle& cat,
         writePOD(os, e.prefix);
         writePOD(os, e.category);
         writePOD(os, e.sortOrder);
-    }
-    return os.good();
+                       });
 }
 
-WoweeTitle WoweeTitleLoader::load(const std::string& basePath) {
-    WoweeTitle out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.titleId)) { out.entries.clear(); return out; }
+WoweeTitle WoweeTitleLoader::load(
+    const std::string& basePath) {
+    return loadCatalog<WoweeTitle>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeTitle::Entry& e) {
+        if (!readPOD(is, e.titleId)) { return false; }
         if (!readStr(is, e.name) || !readStr(is, e.nameMale) ||
-            !readStr(is, e.nameFemale) || !readStr(is, e.iconPath)) {
-            out.entries.clear(); return out;
-        }
+            !readStr(is, e.nameFemale) || !readStr(is, e.iconPath)) { return false; }
         if (!readPOD(is, e.prefix) ||
             !readPOD(is, e.category) ||
-            !readPOD(is, e.sortOrder)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.sortOrder)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeTitleLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeTitle WoweeTitleLoader::makeStarter(const std::string& catalogName) {

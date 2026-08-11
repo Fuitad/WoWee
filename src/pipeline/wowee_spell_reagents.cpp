@@ -59,12 +59,9 @@ const char* WoweeSpellReagent::reagentKindName(uint8_t k) {
 }
 
 bool WoweeSpellReagentLoader::save(const WoweeSpellReagent& cat,
-                                    const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeSpellReagent::Entry& e) {
         writePOD(os, e.reagentSetId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -78,52 +75,33 @@ bool WoweeSpellReagentLoader::save(const WoweeSpellReagent& cat,
         writePOD(os, e.pad1);
         writePOD(os, e.pad2);
         writePOD(os, e.iconColorRGBA);
-    }
-    return os.good();
+                       });
 }
 
 WoweeSpellReagent WoweeSpellReagentLoader::load(
     const std::string& basePath) {
-    WoweeSpellReagent out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.reagentSetId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name) || !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
-        if (!readPOD(is, e.spellId)) {
-            out.entries.clear(); return out;
+    return loadCatalog<WoweeSpellReagent>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeSpellReagent::Entry& e) {
+        if (!readPOD(is, e.reagentSetId)) { return false; }
+        if (!readStr(is, e.name) || !readStr(is, e.description)) { return false; }
+        if (!readPOD(is, e.spellId)) { return false; }
+        for (int s = 0; s < WoweeSpellReagent::kMaxReagentSlots; ++s) {
+            if (!readPOD(is, e.reagentItemId[s])) { return false; }
         }
         for (int s = 0; s < WoweeSpellReagent::kMaxReagentSlots; ++s) {
-            if (!readPOD(is, e.reagentItemId[s])) {
-                out.entries.clear(); return out;
-            }
-        }
-        for (int s = 0; s < WoweeSpellReagent::kMaxReagentSlots; ++s) {
-            if (!readPOD(is, e.reagentCount[s])) {
-                out.entries.clear(); return out;
-            }
+            if (!readPOD(is, e.reagentCount[s])) { return false; }
         }
         if (!readPOD(is, e.reagentKind) ||
             !readPOD(is, e.pad0) ||
             !readPOD(is, e.pad1) ||
             !readPOD(is, e.pad2) ||
-            !readPOD(is, e.iconColorRGBA)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.iconColorRGBA)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeSpellReagentLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeSpellReagent WoweeSpellReagentLoader::makeMage(

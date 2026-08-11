@@ -37,12 +37,9 @@ const char* WoweeSound::kindName(uint8_t k) {
 }
 
 bool WoweeSoundLoader::save(const WoweeSound& cat,
-                            const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeSound::Entry& e) {
         writePOD(os, e.soundId);
         writePOD(os, e.kind);
         writePadding(os, 3);
@@ -52,34 +49,28 @@ bool WoweeSoundLoader::save(const WoweeSound& cat,
         writePOD(os, e.maxDistance);
         writeStr(os, e.filePath);
         writeStr(os, e.label);
-    }
-    return os.good();
+                       });
 }
 
-WoweeSound WoweeSoundLoader::load(const std::string& basePath) {
-    WoweeSound out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.soundId)) { out.entries.clear(); return out; }
-        if (!readPOD(is, e.kind))    { out.entries.clear(); return out; }
-        if (!skipPadding(is, 3)) { out.entries.clear(); return out; }
-        if (!readPOD(is, e.flags))       { out.entries.clear(); return out; }
-        if (!readPOD(is, e.volume))      { out.entries.clear(); return out; }
-        if (!readPOD(is, e.minDistance)) { out.entries.clear(); return out; }
-        if (!readPOD(is, e.maxDistance)) { out.entries.clear(); return out; }
-        if (!readStr(is, e.filePath))    { out.entries.clear(); return out; }
-        if (!readStr(is, e.label))       { out.entries.clear(); return out; }
-    }
-    return out;
+WoweeSound WoweeSoundLoader::load(
+    const std::string& basePath) {
+    return loadCatalog<WoweeSound>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeSound::Entry& e) {
+        if (!readPOD(is, e.soundId)) { return false; }
+        if (!readPOD(is, e.kind))    { return false; }
+        if (!skipPadding(is, 3)) { return false; }
+        if (!readPOD(is, e.flags))       { return false; }
+        if (!readPOD(is, e.volume))      { return false; }
+        if (!readPOD(is, e.minDistance)) { return false; }
+        if (!readPOD(is, e.maxDistance)) { return false; }
+        if (!readStr(is, e.filePath))    { return false; }
+        if (!readStr(is, e.label))       { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeSoundLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeSound WoweeSoundLoader::makeStarter(const std::string& catalogName) {

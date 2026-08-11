@@ -41,12 +41,9 @@ const char* WoweeQuestSort::sortKindName(uint8_t k) {
 }
 
 bool WoweeQuestSortLoader::save(const WoweeQuestSort& cat,
-                                 const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeQuestSort::Entry& e) {
         writePOD(os, e.sortId);
         writeStr(os, e.name);
         writeStr(os, e.displayName);
@@ -58,42 +55,28 @@ bool WoweeQuestSortLoader::save(const WoweeQuestSort& cat,
         writePadding(os, 1);
         writePOD(os, e.targetClassMask);
         writePOD(os, e.targetFactionId);
-    }
-    return os.good();
+                       });
 }
 
-WoweeQuestSort WoweeQuestSortLoader::load(const std::string& basePath) {
-    WoweeQuestSort out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.sortId)) {
-            out.entries.clear(); return out;
-        }
+WoweeQuestSort WoweeQuestSortLoader::load(
+    const std::string& basePath) {
+    return loadCatalog<WoweeQuestSort>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeQuestSort::Entry& e) {
+        if (!readPOD(is, e.sortId)) { return false; }
         if (!readStr(is, e.name) || !readStr(is, e.displayName) ||
-            !readStr(is, e.description) || !readStr(is, e.iconPath)) {
-            out.entries.clear(); return out;
-        }
+            !readStr(is, e.description) || !readStr(is, e.iconPath)) { return false; }
         if (!readPOD(is, e.sortKind) ||
             !readPOD(is, e.displayPriority) ||
-            !readPOD(is, e.targetProfessionId)) {
-            out.entries.clear(); return out;
-        }
-        if (!skipPadding(is, 1)) { out.entries.clear(); return out; }
+            !readPOD(is, e.targetProfessionId)) { return false; }
+        if (!skipPadding(is, 1)) { return false; }
         if (!readPOD(is, e.targetClassMask) ||
-            !readPOD(is, e.targetFactionId)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.targetFactionId)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeQuestSortLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeQuestSort WoweeQuestSortLoader::makeStarter(

@@ -34,12 +34,9 @@ const char* WoweeLoadingScreen::expansionGateName(uint8_t e) {
 }
 
 bool WoweeLoadingScreenLoader::save(const WoweeLoadingScreen& cat,
-                                     const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeLoadingScreen::Entry& e) {
         writePOD(os, e.screenId);
         writePOD(os, e.mapId);
         writeStr(os, e.name);
@@ -55,48 +52,33 @@ bool WoweeLoadingScreenLoader::save(const WoweeLoadingScreen& cat,
         writePOD(os, e.isAnimated);
         writePOD(os, e.isWideAspect);
         writePadding(os, 1);
-    }
-    return os.good();
+                       });
 }
 
 WoweeLoadingScreen WoweeLoadingScreenLoader::load(
     const std::string& basePath) {
-    WoweeLoadingScreen out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
+    return loadCatalog<WoweeLoadingScreen>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeLoadingScreen::Entry& e) {
         if (!readPOD(is, e.screenId) ||
-            !readPOD(is, e.mapId)) {
-            out.entries.clear(); return out;
-        }
+            !readPOD(is, e.mapId)) { return false; }
         if (!readStr(is, e.name) || !readStr(is, e.description) ||
             !readStr(is, e.texturePath) ||
             !readStr(is, e.iconPath) ||
-            !readStr(is, e.attribution)) {
-            out.entries.clear(); return out;
-        }
+            !readStr(is, e.attribution)) { return false; }
         if (!readPOD(is, e.minLevel) ||
             !readPOD(is, e.maxLevel) ||
-            !readPOD(is, e.displayWeight)) {
-            out.entries.clear(); return out;
-        }
-        if (!skipPadding(is, 2)) { out.entries.clear(); return out; }
+            !readPOD(is, e.displayWeight)) { return false; }
+        if (!skipPadding(is, 2)) { return false; }
         if (!readPOD(is, e.expansionRequired) ||
             !readPOD(is, e.isAnimated) ||
-            !readPOD(is, e.isWideAspect)) {
-            out.entries.clear(); return out;
-        }
-        if (!skipPadding(is, 1)) { out.entries.clear(); return out; }
-    }
-    return out;
+            !readPOD(is, e.isWideAspect)) { return false; }
+        if (!skipPadding(is, 1)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeLoadingScreenLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeLoadingScreen WoweeLoadingScreenLoader::makeStarter(

@@ -35,12 +35,9 @@ const char* WoweeAnimation::behaviorTierName(uint8_t t) {
 }
 
 bool WoweeAnimationLoader::save(const WoweeAnimation& cat,
-                                const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeAnimation::Entry& e) {
         writePOD(os, e.animationId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -51,42 +48,28 @@ bool WoweeAnimationLoader::save(const WoweeAnimation& cat,
         writePOD(os, e.flags);
         writePOD(os, e.weaponFlags);
         writePOD(os, e.loopDurationMs);
-    }
-    return os.good();
+                       });
 }
 
-WoweeAnimation WoweeAnimationLoader::load(const std::string& basePath) {
-    WoweeAnimation out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.animationId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name) || !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
+WoweeAnimation WoweeAnimationLoader::load(
+    const std::string& basePath) {
+    return loadCatalog<WoweeAnimation>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeAnimation::Entry& e) {
+        if (!readPOD(is, e.animationId)) { return false; }
+        if (!readStr(is, e.name) || !readStr(is, e.description)) { return false; }
         if (!readPOD(is, e.fallbackId) ||
             !readPOD(is, e.behaviorId) ||
-            !readPOD(is, e.behaviorTier)) {
-            out.entries.clear(); return out;
-        }
-        if (!skipPadding(is, 3)) { out.entries.clear(); return out; }
+            !readPOD(is, e.behaviorTier)) { return false; }
+        if (!skipPadding(is, 3)) { return false; }
         if (!readPOD(is, e.flags) ||
             !readPOD(is, e.weaponFlags) ||
-            !readPOD(is, e.loopDurationMs)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.loopDurationMs)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeAnimationLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeAnimation WoweeAnimationLoader::makeStarter(const std::string& catalogName) {

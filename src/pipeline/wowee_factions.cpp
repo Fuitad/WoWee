@@ -33,12 +33,9 @@ bool WoweeFaction::isHostile(uint32_t aFactionId, uint32_t bFactionId) const {
 }
 
 bool WoweeFactionLoader::save(const WoweeFaction& cat,
-                              const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeFaction::Entry& e) {
         writePOD(os, e.factionId);
         writePOD(os, e.parentFactionId);
         writeStr(os, e.name);
@@ -62,25 +59,16 @@ bool WoweeFactionLoader::save(const WoweeFaction& cat,
         writePOD(os, frCount);
         writePadding(os, 3);
         for (uint8_t k = 0; k < frCount; ++k) writePOD(os, e.friends[k]);
-    }
-    return os.good();
+                       });
 }
 
-WoweeFaction WoweeFactionLoader::load(const std::string& basePath) {
-    WoweeFaction out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
+WoweeFaction WoweeFactionLoader::load(
+    const std::string& basePath) {
+    return loadCatalog<WoweeFaction>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeFaction::Entry& e) {
         if (!readPOD(is, e.factionId) ||
-            !readPOD(is, e.parentFactionId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name) || !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
+            !readPOD(is, e.parentFactionId)) { return false; }
+        if (!readStr(is, e.name) || !readStr(is, e.description)) { return false; }
         if (!readPOD(is, e.reputationFlags) ||
             !readPOD(is, e.baseReputation) ||
             !readPOD(is, e.thresholdHostile) ||
@@ -89,34 +77,27 @@ WoweeFaction WoweeFactionLoader::load(const std::string& basePath) {
             !readPOD(is, e.thresholdFriendly) ||
             !readPOD(is, e.thresholdHonored) ||
             !readPOD(is, e.thresholdRevered) ||
-            !readPOD(is, e.thresholdExalted)) {
-            out.entries.clear(); return out;
-        }
+            !readPOD(is, e.thresholdExalted)) { return false; }
         uint8_t enCount = 0;
-        if (!readPOD(is, enCount)) { out.entries.clear(); return out; }
-        if (!skipPadding(is, 3)) { out.entries.clear(); return out; }
+        if (!readPOD(is, enCount)) { return false; }
+        if (!skipPadding(is, 3)) { return false; }
         e.enemies.resize(enCount);
         for (uint8_t k = 0; k < enCount; ++k) {
-            if (!readPOD(is, e.enemies[k])) {
-                out.entries.clear(); return out;
-            }
+            if (!readPOD(is, e.enemies[k])) { return false; }
         }
         uint8_t frCount = 0;
-        if (!readPOD(is, frCount)) { out.entries.clear(); return out; }
-        if (!skipPadding(is, 3)) { out.entries.clear(); return out; }
+        if (!readPOD(is, frCount)) { return false; }
+        if (!skipPadding(is, 3)) { return false; }
         e.friends.resize(frCount);
         for (uint8_t k = 0; k < frCount; ++k) {
-            if (!readPOD(is, e.friends[k])) {
-                out.entries.clear(); return out;
-            }
+            if (!readPOD(is, e.friends[k])) { return false; }
         }
-    }
-    return out;
+                                  return true;
+                              });
 }
 
 bool WoweeFactionLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeFaction WoweeFactionLoader::makeStarter(const std::string& catalogName) {

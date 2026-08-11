@@ -44,12 +44,9 @@ const char* WoweeEvent::factionGroupName(uint8_t f) {
 }
 
 bool WoweeEventLoader::save(const WoweeEvent& cat,
-                            const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeEvent::Entry& e) {
         writePOD(os, e.eventId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -63,42 +60,30 @@ bool WoweeEventLoader::save(const WoweeEvent& cat,
         writePOD(os, e.bonusXpPercent);
         writePadding(os, 3);
         writePOD(os, e.tokenIdReward);
-    }
-    return os.good();
+                       });
 }
 
-WoweeEvent WoweeEventLoader::load(const std::string& basePath) {
-    WoweeEvent out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.eventId)) { out.entries.clear(); return out; }
+WoweeEvent WoweeEventLoader::load(
+    const std::string& basePath) {
+    return loadCatalog<WoweeEvent>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeEvent::Entry& e) {
+        if (!readPOD(is, e.eventId)) { return false; }
         if (!readStr(is, e.name) || !readStr(is, e.description) ||
-            !readStr(is, e.iconPath) || !readStr(is, e.announceMessage)) {
-            out.entries.clear(); return out;
-        }
+            !readStr(is, e.iconPath) || !readStr(is, e.announceMessage)) { return false; }
         if (!readPOD(is, e.startDate) ||
             !readPOD(is, e.duration_seconds) ||
             !readPOD(is, e.recurrenceDays) ||
             !readPOD(is, e.holidayKind) ||
             !readPOD(is, e.factionGroup) ||
-            !readPOD(is, e.bonusXpPercent)) {
-            out.entries.clear(); return out;
-        }
-        if (!skipPadding(is, 3)) { out.entries.clear(); return out; }
-        if (!readPOD(is, e.tokenIdReward)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.bonusXpPercent)) { return false; }
+        if (!skipPadding(is, 3)) { return false; }
+        if (!readPOD(is, e.tokenIdReward)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeEventLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeEvent WoweeEventLoader::makeStarter(const std::string& catalogName) {

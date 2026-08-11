@@ -44,12 +44,9 @@ WoweeRaidMarkers::findByKind(uint8_t markerKind) const {
 }
 
 bool WoweeRaidMarkersLoader::save(const WoweeRaidMarkers& cat,
-                                    const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeRaidMarkers::Entry& e) {
         writePOD(os, e.markerId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -60,45 +57,28 @@ bool WoweeRaidMarkersLoader::save(const WoweeRaidMarkers& cat,
         writeStr(os, e.iconPath);
         writeStr(os, e.displayChar);
         writePOD(os, e.iconColorRGBA);
-    }
-    return os.good();
+                       });
 }
 
 WoweeRaidMarkers WoweeRaidMarkersLoader::load(
     const std::string& basePath) {
-    WoweeRaidMarkers out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.markerId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name) || !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
+    return loadCatalog<WoweeRaidMarkers>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeRaidMarkers::Entry& e) {
+        if (!readPOD(is, e.markerId)) { return false; }
+        if (!readStr(is, e.name) || !readStr(is, e.description)) { return false; }
         if (!readPOD(is, e.markerKind) ||
             !readPOD(is, e.priority) ||
             !readPOD(is, e.pad0) ||
-            !readPOD(is, e.pad1)) {
-            out.entries.clear(); return out;
-        }
+            !readPOD(is, e.pad1)) { return false; }
         if (!readStr(is, e.iconPath) ||
-            !readStr(is, e.displayChar)) {
-            out.entries.clear(); return out;
-        }
-        if (!readPOD(is, e.iconColorRGBA)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readStr(is, e.displayChar)) { return false; }
+        if (!readPOD(is, e.iconColorRGBA)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeRaidMarkersLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeRaidMarkers WoweeRaidMarkersLoader::makeRaidTargets(

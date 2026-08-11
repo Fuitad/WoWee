@@ -48,12 +48,9 @@ const char* WoweeChannel::factionAccessName(uint8_t f) {
 }
 
 bool WoweeChannelLoader::save(const WoweeChannel& cat,
-                              const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeChannel::Entry& e) {
         writePOD(os, e.channelId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -66,44 +63,30 @@ bool WoweeChannelLoader::save(const WoweeChannel& cat,
         writePOD(os, e.minLevel);
         writePOD(os, e.areaIdGate);
         writePOD(os, e.mapIdGate);
-    }
-    return os.good();
+                       });
 }
 
-WoweeChannel WoweeChannelLoader::load(const std::string& basePath) {
-    WoweeChannel out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.channelId)) { out.entries.clear(); return out; }
-        if (!readStr(is, e.name) || !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
+WoweeChannel WoweeChannelLoader::load(
+    const std::string& basePath) {
+    return loadCatalog<WoweeChannel>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeChannel::Entry& e) {
+        if (!readPOD(is, e.channelId)) { return false; }
+        if (!readStr(is, e.name) || !readStr(is, e.description)) { return false; }
         if (!readPOD(is, e.channelType) ||
             !readPOD(is, e.factionAccess) ||
             !readPOD(is, e.autoJoin) ||
             !readPOD(is, e.announce) ||
-            !readPOD(is, e.moderated)) {
-            out.entries.clear(); return out;
-        }
-        if (!skipPadding(is, 1)) {
-            out.entries.clear(); return out;
-        }
+            !readPOD(is, e.moderated)) { return false; }
+        if (!skipPadding(is, 1)) { return false; }
         if (!readPOD(is, e.minLevel) ||
             !readPOD(is, e.areaIdGate) ||
-            !readPOD(is, e.mapIdGate)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.mapIdGate)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeChannelLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeChannel WoweeChannelLoader::makeStarter(const std::string& catalogName) {

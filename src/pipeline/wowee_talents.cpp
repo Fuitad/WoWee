@@ -111,8 +111,7 @@ WoweeTalent WoweeTalentLoader::load(const std::string& basePath) {
 }
 
 bool WoweeTalentLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeTalent WoweeTalentLoader::makeStarter(const std::string& catalogName) {

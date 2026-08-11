@@ -49,12 +49,9 @@ const char* WoweeCinematic::triggerKindName(uint8_t t) {
 }
 
 bool WoweeCinematicLoader::save(const WoweeCinematic& cat,
-                                const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeCinematic::Entry& e) {
         writePOD(os, e.cinematicId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -66,45 +63,29 @@ bool WoweeCinematicLoader::save(const WoweeCinematic& cat,
         writePOD(os, e.durationSeconds);
         writePOD(os, e.triggerTargetId);
         writePOD(os, e.soundtrackId);
-    }
-    return os.good();
+                       });
 }
 
-WoweeCinematic WoweeCinematicLoader::load(const std::string& basePath) {
-    WoweeCinematic out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.cinematicId)) {
-            out.entries.clear(); return out;
-        }
+WoweeCinematic WoweeCinematicLoader::load(
+    const std::string& basePath) {
+    return loadCatalog<WoweeCinematic>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeCinematic::Entry& e) {
+        if (!readPOD(is, e.cinematicId)) { return false; }
         if (!readStr(is, e.name) || !readStr(is, e.description) ||
-            !readStr(is, e.mediaPath)) {
-            out.entries.clear(); return out;
-        }
+            !readStr(is, e.mediaPath)) { return false; }
         if (!readPOD(is, e.kind) ||
             !readPOD(is, e.triggerKind) ||
-            !readPOD(is, e.skippable)) {
-            out.entries.clear(); return out;
-        }
-        if (!skipPadding(is, 1)) {
-            out.entries.clear(); return out;
-        }
+            !readPOD(is, e.skippable)) { return false; }
+        if (!skipPadding(is, 1)) { return false; }
         if (!readPOD(is, e.durationSeconds) ||
             !readPOD(is, e.triggerTargetId) ||
-            !readPOD(is, e.soundtrackId)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.soundtrackId)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeCinematicLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeCinematic WoweeCinematicLoader::makeStarter(const std::string& catalogName) {

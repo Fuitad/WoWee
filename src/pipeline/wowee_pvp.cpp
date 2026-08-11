@@ -34,12 +34,9 @@ const char* WoweePVPRank::rankKindName(uint8_t k) {
 }
 
 bool WoweePVPRankLoader::save(const WoweePVPRank& cat,
-                               const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweePVPRank::Entry& e) {
         writePOD(os, e.rankId);
         writeStr(os, e.name);
         writeStr(os, e.factionAllianceName);
@@ -57,52 +54,36 @@ bool WoweePVPRankLoader::save(const WoweePVPRank& cat,
         writePOD(os, e.glovesItemId);
         writePOD(os, e.shouldersItemId);
         writePOD(os, e.bracketBgId);
-    }
-    return os.good();
+                       });
 }
 
-WoweePVPRank WoweePVPRankLoader::load(const std::string& basePath) {
-    WoweePVPRank out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.rankId)) {
-            out.entries.clear(); return out;
-        }
+WoweePVPRank WoweePVPRankLoader::load(
+    const std::string& basePath) {
+    return loadCatalog<WoweePVPRank>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweePVPRank::Entry& e) {
+        if (!readPOD(is, e.rankId)) { return false; }
         if (!readStr(is, e.name) ||
             !readStr(is, e.factionAllianceName) ||
             !readStr(is, e.factionHordeName) ||
-            !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
+            !readStr(is, e.description)) { return false; }
         if (!readPOD(is, e.rankKind) ||
             !readPOD(is, e.minBracketLevel) ||
-            !readPOD(is, e.maxBracketLevel)) {
-            out.entries.clear(); return out;
-        }
-        if (!skipPadding(is, 1)) { out.entries.clear(); return out; }
+            !readPOD(is, e.maxBracketLevel)) { return false; }
+        if (!skipPadding(is, 1)) { return false; }
         if (!readPOD(is, e.minHonorOrRating) ||
-            !readPOD(is, e.rewardEmblems)) {
-            out.entries.clear(); return out;
-        }
-        if (!skipPadding(is, 2)) { out.entries.clear(); return out; }
+            !readPOD(is, e.rewardEmblems)) { return false; }
+        if (!skipPadding(is, 2)) { return false; }
         if (!readPOD(is, e.titleId) ||
             !readPOD(is, e.chestItemId) ||
             !readPOD(is, e.glovesItemId) ||
             !readPOD(is, e.shouldersItemId) ||
-            !readPOD(is, e.bracketBgId)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.bracketBgId)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweePVPRankLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweePVPRank WoweePVPRankLoader::makeStarter(

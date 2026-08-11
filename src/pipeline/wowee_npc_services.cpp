@@ -58,12 +58,9 @@ const char* WoweeNPCService::serviceKindName(uint8_t k) {
 }
 
 bool WoweeNPCServiceLoader::save(const WoweeNPCService& cat,
-                                  const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeNPCService::Entry& e) {
         writePOD(os, e.serviceId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -75,24 +72,15 @@ bool WoweeNPCServiceLoader::save(const WoweeNPCService& cat,
         writePOD(os, e.factionRequiredId);
         writePOD(os, e.gossipTextId);
         writePOD(os, e.iconColorRGBA);
-    }
-    return os.good();
+                       });
 }
 
-WoweeNPCService WoweeNPCServiceLoader::load(const std::string& basePath) {
-    WoweeNPCService out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.serviceId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name) || !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
+WoweeNPCService WoweeNPCServiceLoader::load(
+    const std::string& basePath) {
+    return loadCatalog<WoweeNPCService>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeNPCService::Entry& e) {
+        if (!readPOD(is, e.serviceId)) { return false; }
+        if (!readStr(is, e.name) || !readStr(is, e.description)) { return false; }
         if (!readPOD(is, e.serviceKind) ||
             !readPOD(is, e.pad0) ||
             !readPOD(is, e.pad1) ||
@@ -100,16 +88,13 @@ WoweeNPCService WoweeNPCServiceLoader::load(const std::string& basePath) {
             !readPOD(is, e.requiresGold) ||
             !readPOD(is, e.factionRequiredId) ||
             !readPOD(is, e.gossipTextId) ||
-            !readPOD(is, e.iconColorRGBA)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.iconColorRGBA)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeNPCServiceLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeNPCService WoweeNPCServiceLoader::makeCity(

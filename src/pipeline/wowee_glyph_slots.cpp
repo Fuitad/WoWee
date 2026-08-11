@@ -49,12 +49,9 @@ const char* WoweeGlyphSlot::slotKindName(uint8_t k) {
 }
 
 bool WoweeGlyphSlotLoader::save(const WoweeGlyphSlot& cat,
-                                 const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeGlyphSlot::Entry& e) {
         writePOD(os, e.slotId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -64,40 +61,27 @@ bool WoweeGlyphSlotLoader::save(const WoweeGlyphSlot& cat,
         writePOD(os, e.pad0);
         writePOD(os, e.requiredClassMask);
         writePOD(os, e.iconColorRGBA);
-    }
-    return os.good();
+                       });
 }
 
 WoweeGlyphSlot WoweeGlyphSlotLoader::load(
     const std::string& basePath) {
-    WoweeGlyphSlot out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.slotId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name) || !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
+    return loadCatalog<WoweeGlyphSlot>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeGlyphSlot::Entry& e) {
+        if (!readPOD(is, e.slotId)) { return false; }
+        if (!readStr(is, e.name) || !readStr(is, e.description)) { return false; }
         if (!readPOD(is, e.slotKind) ||
             !readPOD(is, e.displayOrder) ||
             !readPOD(is, e.minLevelToUnlock) ||
             !readPOD(is, e.pad0) ||
             !readPOD(is, e.requiredClassMask) ||
-            !readPOD(is, e.iconColorRGBA)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.iconColorRGBA)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeGlyphSlotLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeGlyphSlot WoweeGlyphSlotLoader::makeStarter(

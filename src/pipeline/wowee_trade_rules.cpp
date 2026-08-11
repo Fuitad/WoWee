@@ -39,12 +39,9 @@ WoweeTradeRules::findByKind(uint8_t ruleKind) const {
 }
 
 bool WoweeTradeRulesLoader::save(const WoweeTradeRules& cat,
-                                   const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeTradeRules::Entry& e) {
         writePOD(os, e.ruleId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -55,41 +52,28 @@ bool WoweeTradeRulesLoader::save(const WoweeTradeRules& cat,
         writePOD(os, e.itemCategoryFilter);
         writePOD(os, e.goldEscrowMaxCopper);
         writePOD(os, e.iconColorRGBA);
-    }
-    return os.good();
+                       });
 }
 
 WoweeTradeRules WoweeTradeRulesLoader::load(
     const std::string& basePath) {
-    WoweeTradeRules out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.ruleId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name) || !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
+    return loadCatalog<WoweeTradeRules>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeTradeRules::Entry& e) {
+        if (!readPOD(is, e.ruleId)) { return false; }
+        if (!readStr(is, e.name) || !readStr(is, e.description)) { return false; }
         if (!readPOD(is, e.ruleKind) ||
             !readPOD(is, e.targetingFilter) ||
             !readPOD(is, e.levelRequirement) ||
             !readPOD(is, e.priority) ||
             !readPOD(is, e.itemCategoryFilter) ||
             !readPOD(is, e.goldEscrowMaxCopper) ||
-            !readPOD(is, e.iconColorRGBA)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.iconColorRGBA)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeTradeRulesLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeTradeRules WoweeTradeRulesLoader::makeStandard(

@@ -46,12 +46,9 @@ WoweeEmotes::findByKind(uint8_t emoteKind) const {
 }
 
 bool WoweeEmotesLoader::save(const WoweeEmotes& cat,
-                                const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeEmotes::Entry& e) {
         writePOD(os, e.emoteId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -65,48 +62,32 @@ bool WoweeEmotesLoader::save(const WoweeEmotes& cat,
         writePOD(os, e.requiredRace);
         writePOD(os, e.ttsHint);
         writePOD(os, e.iconColorRGBA);
-    }
-    return os.good();
+                       });
 }
 
-WoweeEmotes WoweeEmotesLoader::load(const std::string& basePath) {
-    WoweeEmotes out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.emoteId)) {
-            out.entries.clear(); return out;
-        }
+WoweeEmotes WoweeEmotesLoader::load(
+    const std::string& basePath) {
+    return loadCatalog<WoweeEmotes>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeEmotes::Entry& e) {
+        if (!readPOD(is, e.emoteId)) { return false; }
         if (!readStr(is, e.name) ||
             !readStr(is, e.description) ||
-            !readStr(is, e.slashCommand)) {
-            out.entries.clear(); return out;
-        }
+            !readStr(is, e.slashCommand)) { return false; }
         if (!readPOD(is, e.animationId) ||
-            !readPOD(is, e.soundId)) {
-            out.entries.clear(); return out;
-        }
+            !readPOD(is, e.soundId)) { return false; }
         if (!readStr(is, e.targetMessage) ||
-            !readStr(is, e.noTargetMessage)) {
-            out.entries.clear(); return out;
-        }
+            !readStr(is, e.noTargetMessage)) { return false; }
         if (!readPOD(is, e.emoteKind) ||
             !readPOD(is, e.sex) ||
             !readPOD(is, e.requiredRace) ||
             !readPOD(is, e.ttsHint) ||
-            !readPOD(is, e.iconColorRGBA)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.iconColorRGBA)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeEmotesLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeEmotes WoweeEmotesLoader::makeBasic(

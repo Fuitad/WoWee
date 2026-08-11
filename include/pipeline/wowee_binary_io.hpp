@@ -162,5 +162,56 @@ inline std::string normalizePath(std::string base, const std::string& extension)
     return base;
 }
 
+/// Whether a catalog file is there to be read.
+///
+/// A hundred and twenty-one formats each wrote these two lines out.
+inline bool catalogExists(const std::string& basePath, const std::string& extension) {
+    std::ifstream is(normalizePath(basePath, extension), std::ios::binary);
+    return is.good();
+}
+
+/// Write a catalog: its header, then `writeEntry` once per entry.
+///
+/// The scaffolding around a format's field list — open the file, count the
+/// entries, put the header down, loop, report whether the stream survived — is
+/// the same in every one of them, and is the part that has to be right for the
+/// file to be readable at all. `writeEntry` writes one entry's fields in order
+/// and is the only thing a format actually supplies.
+template <typename Catalog, typename WriteEntry>
+bool saveCatalog(const Catalog& cat, const std::string& basePath, const char magic[4],
+                 uint32_t version, const std::string& extension, WriteEntry writeEntry) {
+    std::ofstream os(normalizePath(basePath, extension), std::ios::binary);
+    if (!os) return false;
+    writeCatalogHeader(os, magic, version, cat.name,
+                       static_cast<uint32_t>(cat.entries.size()));
+    for (const auto& e : cat.entries) writeEntry(os, e);
+    return os.good();
+}
+
+/// Read a catalog back. An empty result means it could not be read.
+///
+/// `readEntry` fills one entry and answers false the moment a field runs off the
+/// end of the file. Every format had to remember to empty the half-filled list
+/// on that path and return, at each of the several places a field could fail;
+/// forgetting once would have handed back entries built from whatever the reader
+/// left in them. That is here now, and once.
+template <typename Catalog, typename ReadEntry>
+Catalog loadCatalog(const std::string& basePath, const char magic[4], uint32_t version,
+                    const std::string& extension, ReadEntry readEntry) {
+    Catalog out;
+    std::ifstream is(normalizePath(basePath, extension), std::ios::binary);
+    if (!is) return out;
+    uint32_t entryCount = 0;
+    if (!readCatalogHeader(is, magic, version, out.name, entryCount)) return out;
+    out.entries.resize(entryCount);
+    for (auto& e : out.entries) {
+        if (!readEntry(is, e)) {
+            out.entries.clear();
+            return out;
+        }
+    }
+    return out;
+}
+
 }  // namespace pipeline
 }  // namespace wowee

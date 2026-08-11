@@ -128,8 +128,7 @@ WoweeTaxi WoweeTaxiLoader::load(const std::string& basePath) {
 }
 
 bool WoweeTaxiLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeTaxi WoweeTaxiLoader::makeStarter(const std::string& catalogName) {

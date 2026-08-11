@@ -32,12 +32,9 @@ WoweeGuildBank::findByGuild(uint32_t guildId) const {
 }
 
 bool WoweeGuildBankLoader::save(const WoweeGuildBank& cat,
-                                  const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeGuildBank::Entry& e) {
         writePOD(os, e.tabId);
         writePOD(os, e.guildId);
         writeStr(os, e.tabName);
@@ -49,45 +46,30 @@ bool WoweeGuildBankLoader::save(const WoweeGuildBank& cat,
              r < WoweeGuildBank::kRankCount; ++r) {
             writePOD(os, e.perRankWithdrawalLimit[r]);
         }
-    }
-    return os.good();
+                       });
 }
 
 WoweeGuildBank WoweeGuildBankLoader::load(
     const std::string& basePath) {
-    WoweeGuildBank out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
+    return loadCatalog<WoweeGuildBank>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeGuildBank::Entry& e) {
         if (!readPOD(is, e.tabId) ||
-            !readPOD(is, e.guildId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.tabName)) {
-            out.entries.clear(); return out;
-        }
+            !readPOD(is, e.guildId)) { return false; }
+        if (!readStr(is, e.tabName)) { return false; }
         if (!readPOD(is, e.iconIndex) ||
             !readPOD(is, e.depositOnly) ||
             !readPOD(is, e.pad0) ||
-            !readPOD(is, e.slotCount)) {
-            out.entries.clear(); return out;
-        }
+            !readPOD(is, e.slotCount)) { return false; }
         for (uint32_t r = 0;
              r < WoweeGuildBank::kRankCount; ++r) {
-            if (!readPOD(is, e.perRankWithdrawalLimit[r])) {
-                out.entries.clear(); return out;
-            }
+            if (!readPOD(is, e.perRankWithdrawalLimit[r])) { return false; }
         }
-    }
-    return out;
+                                  return true;
+                              });
 }
 
 bool WoweeGuildBankLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 namespace {

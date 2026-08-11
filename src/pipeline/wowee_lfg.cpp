@@ -44,12 +44,9 @@ const char* WoweeLFGDungeon::expansionRequiredName(uint8_t e) {
 }
 
 bool WoweeLFGDungeonLoader::save(const WoweeLFGDungeon& cat,
-                                  const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeLFGDungeon::Entry& e) {
         writePOD(os, e.dungeonId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -66,25 +63,15 @@ bool WoweeLFGDungeonLoader::save(const WoweeLFGDungeon& cat,
         writePOD(os, e.queueRewardEmblemCount);
         writePadding(os, 2);
         writePOD(os, e.firstClearAchievement);
-    }
-    return os.good();
+                       });
 }
 
 WoweeLFGDungeon WoweeLFGDungeonLoader::load(
     const std::string& basePath) {
-    WoweeLFGDungeon out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.dungeonId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name) || !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
+    return loadCatalog<WoweeLFGDungeon>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeLFGDungeon::Entry& e) {
+        if (!readPOD(is, e.dungeonId)) { return false; }
+        if (!readStr(is, e.name) || !readStr(is, e.description)) { return false; }
         if (!readPOD(is, e.mapId) ||
             !readPOD(is, e.minLevel) ||
             !readPOD(is, e.maxLevel) ||
@@ -95,20 +82,15 @@ WoweeLFGDungeon WoweeLFGDungeonLoader::load(
             !readPOD(is, e.requiredRolesMask) ||
             !readPOD(is, e.expansionRequired) ||
             !readPOD(is, e.queueRewardItemId) ||
-            !readPOD(is, e.queueRewardEmblemCount)) {
-            out.entries.clear(); return out;
-        }
-        if (!skipPadding(is, 2)) { out.entries.clear(); return out; }
-        if (!readPOD(is, e.firstClearAchievement)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.queueRewardEmblemCount)) { return false; }
+        if (!skipPadding(is, 2)) { return false; }
+        if (!readPOD(is, e.firstClearAchievement)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeLFGDungeonLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeLFGDungeon WoweeLFGDungeonLoader::makeStarter(

@@ -76,46 +76,29 @@ bool WoweeCraftingRecipesLoader::save(
 
 WoweeCraftingRecipes WoweeCraftingRecipesLoader::load(
     const std::string& basePath) {
-    WoweeCraftingRecipes out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
+    return loadCatalog<WoweeCraftingRecipes>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeCraftingRecipes::Entry& e) {
         if (!readPOD(is, e.recipeId) ||
-            !readPOD(is, e.spellId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name)) {
-            out.entries.clear(); return out;
-        }
+            !readPOD(is, e.spellId)) { return false; }
+        if (!readStr(is, e.name)) { return false; }
         if (!readPOD(is, e.tradeSkillId) ||
             !readPOD(is, e.requiredSkillLevel) ||
             !readPOD(is, e.producedItemId) ||
             !readPOD(is, e.producedCount) ||
             !readPOD(is, e.categoryId) ||
-            !readPOD(is, e.learnedFromItemId)) {
-            out.entries.clear(); return out;
-        }
+            !readPOD(is, e.learnedFromItemId)) { return false; }
         uint32_t reagentCount = 0;
-        if (!readPOD(is, reagentCount)) {
-            out.entries.clear(); return out;
-        }
+        if (!readPOD(is, reagentCount)) { return false; }
         // Sanity cap — no recipe should have more than
         // 32 reagents; vanilla cap is 8.
-        if (reagentCount > 32) {
-            out.entries.clear(); return out;
-        }
+        if (reagentCount > 32) { return false; }
         e.reagents.resize(reagentCount);
         for (auto& r : e.reagents) {
             if (!readPOD(is, r.itemId) ||
-                !readPOD(is, r.count)) {
-                out.entries.clear(); return out;
-            }
+                !readPOD(is, r.count)) { return false; }
         }
-    }
-    return out;
+                                  return true;
+                              });
 }
 
 bool WoweeCraftingRecipesLoader::exists(

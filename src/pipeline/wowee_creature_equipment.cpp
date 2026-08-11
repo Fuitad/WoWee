@@ -49,20 +49,11 @@ bool WoweeCreatureEquipmentLoader::save(
 
 WoweeCreatureEquipment WoweeCreatureEquipmentLoader::load(
     const std::string& basePath) {
-    WoweeCreatureEquipment out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
+    return loadCatalog<WoweeCreatureEquipment>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeCreatureEquipment::Entry& e) {
         if (!readPOD(is, e.equipmentId) ||
-            !readPOD(is, e.creatureId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name) || !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
+            !readPOD(is, e.creatureId)) { return false; }
+        if (!readStr(is, e.name) || !readStr(is, e.description)) { return false; }
         if (!readPOD(is, e.mainHandItemId) ||
             !readPOD(is, e.offHandItemId) ||
             !readPOD(is, e.rangedItemId) ||
@@ -70,16 +61,13 @@ WoweeCreatureEquipment WoweeCreatureEquipmentLoader::load(
             !readPOD(is, e.offHandSlot) ||
             !readPOD(is, e.rangedSlot) ||
             !readPOD(is, e.equipFlags) ||
-            !readPOD(is, e.mainHandVisualId)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.mainHandVisualId)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeCreatureEquipmentLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeCreatureEquipment WoweeCreatureEquipmentLoader::makeStarter(

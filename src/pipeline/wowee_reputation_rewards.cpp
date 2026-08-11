@@ -92,56 +92,33 @@ bool WoweeReputationRewardsLoader::save(
 
 WoweeReputationRewards WoweeReputationRewardsLoader::load(
     const std::string& basePath) {
-    WoweeReputationRewards out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.tierId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name) || !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
+    return loadCatalog<WoweeReputationRewards>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeReputationRewards::Entry& e) {
+        if (!readPOD(is, e.tierId)) { return false; }
+        if (!readStr(is, e.name) || !readStr(is, e.description)) { return false; }
         if (!readPOD(is, e.factionId) ||
             !readPOD(is, e.minStanding) ||
             !readPOD(is, e.discountPct) ||
             !readPOD(is, e.grantsTabard) ||
             !readPOD(is, e.grantsMount) ||
             !readPOD(is, e.pad0) ||
-            !readPOD(is, e.iconColorRGBA)) {
-            out.entries.clear(); return out;
-        }
+            !readPOD(is, e.iconColorRGBA)) { return false; }
         uint32_t itemCount = 0;
-        if (!readPOD(is, itemCount)) {
-            out.entries.clear(); return out;
-        }
-        if (itemCount > (1u << 16)) {
-            out.entries.clear(); return out;
-        }
+        if (!readPOD(is, itemCount)) { return false; }
+        if (itemCount > (1u << 16)) { return false; }
         e.unlockedItemIds.resize(itemCount);
         for (uint32_t k = 0; k < itemCount; ++k) {
-            if (!readPOD(is, e.unlockedItemIds[k])) {
-                out.entries.clear(); return out;
-            }
+            if (!readPOD(is, e.unlockedItemIds[k])) { return false; }
         }
         uint32_t recipeCount = 0;
-        if (!readPOD(is, recipeCount)) {
-            out.entries.clear(); return out;
-        }
-        if (recipeCount > (1u << 16)) {
-            out.entries.clear(); return out;
-        }
+        if (!readPOD(is, recipeCount)) { return false; }
+        if (recipeCount > (1u << 16)) { return false; }
         e.unlockedRecipeIds.resize(recipeCount);
         for (uint32_t k = 0; k < recipeCount; ++k) {
-            if (!readPOD(is, e.unlockedRecipeIds[k])) {
-                out.entries.clear(); return out;
-            }
+            if (!readPOD(is, e.unlockedRecipeIds[k])) { return false; }
         }
-    }
-    return out;
+                                  return true;
+                              });
 }
 
 bool WoweeReputationRewardsLoader::exists(

@@ -53,12 +53,9 @@ WoweePvPRanks::findByTier(uint8_t faction, uint8_t tier) const {
 }
 
 bool WoweePvPRanksLoader::save(const WoweePvPRanks& cat,
-                                 const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweePvPRanks::Entry& e) {
         writePOD(os, e.rankId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -71,47 +68,30 @@ bool WoweePvPRanksLoader::save(const WoweePvPRanks& cat,
         writeStr(os, e.titlePrefix);
         writePOD(os, e.gearItemId);
         writePOD(os, e.iconColorRGBA);
-    }
-    return os.good();
+                       });
 }
 
 WoweePvPRanks WoweePvPRanksLoader::load(
     const std::string& basePath) {
-    WoweePvPRanks out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.rankId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name) || !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
+    return loadCatalog<WoweePvPRanks>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweePvPRanks::Entry& e) {
+        if (!readPOD(is, e.rankId)) { return false; }
+        if (!readStr(is, e.name) || !readStr(is, e.description)) { return false; }
         if (!readPOD(is, e.factionFilter) ||
             !readPOD(is, e.tier) ||
             !readPOD(is, e.pad0) ||
             !readPOD(is, e.pad1) ||
             !readPOD(is, e.honorRequiredWeekly) ||
-            !readPOD(is, e.honorRequiredAchieve)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.titlePrefix)) {
-            out.entries.clear(); return out;
-        }
+            !readPOD(is, e.honorRequiredAchieve)) { return false; }
+        if (!readStr(is, e.titlePrefix)) { return false; }
         if (!readPOD(is, e.gearItemId) ||
-            !readPOD(is, e.iconColorRGBA)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.iconColorRGBA)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweePvPRanksLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweePvPRanks WoweePvPRanksLoader::makeAllianceRanks(

@@ -47,12 +47,9 @@ WoweeBossEncounter::findByBossCreature(uint32_t bossCreatureId) const {
 }
 
 bool WoweeBossEncounterLoader::save(const WoweeBossEncounter& cat,
-                                     const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeBossEncounter::Entry& e) {
         writePOD(os, e.encounterId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -68,25 +65,15 @@ bool WoweeBossEncounterLoader::save(const WoweeBossEncounter& cat,
         writePOD(os, e.recommendedItemLevel);
         writePOD(os, e.pad2);
         writePOD(os, e.iconColorRGBA);
-    }
-    return os.good();
+                       });
 }
 
 WoweeBossEncounter WoweeBossEncounterLoader::load(
     const std::string& basePath) {
-    WoweeBossEncounter out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.encounterId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name) || !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
+    return loadCatalog<WoweeBossEncounter>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeBossEncounter::Entry& e) {
+        if (!readPOD(is, e.encounterId)) { return false; }
+        if (!readStr(is, e.name) || !readStr(is, e.description)) { return false; }
         if (!readPOD(is, e.bossCreatureId) ||
             !readPOD(is, e.mapId) ||
             !readPOD(is, e.difficultyId) ||
@@ -98,16 +85,13 @@ WoweeBossEncounter WoweeBossEncounterLoader::load(
             !readPOD(is, e.pad1) ||
             !readPOD(is, e.recommendedItemLevel) ||
             !readPOD(is, e.pad2) ||
-            !readPOD(is, e.iconColorRGBA)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.iconColorRGBA)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeBossEncounterLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeBossEncounter WoweeBossEncounterLoader::makeFiveMan(

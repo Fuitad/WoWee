@@ -66,12 +66,9 @@ const char* WoweeSpellPowerCost::powerTypeName(uint8_t k) {
 }
 
 bool WoweeSpellPowerCostLoader::save(const WoweeSpellPowerCost& cat,
-                                      const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeSpellPowerCost::Entry& e) {
         writePOD(os, e.powerCostId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -82,43 +79,28 @@ bool WoweeSpellPowerCostLoader::save(const WoweeSpellPowerCost& cat,
         writePOD(os, e.percentOfBase);
         writePOD(os, e.costFlags);
         writePOD(os, e.iconColorRGBA);
-    }
-    return os.good();
+                       });
 }
 
 WoweeSpellPowerCost WoweeSpellPowerCostLoader::load(
     const std::string& basePath) {
-    WoweeSpellPowerCost out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.powerCostId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name) || !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
-        if (!readPOD(is, e.powerType)) {
-            out.entries.clear(); return out;
-        }
-        if (!skipPadding(is, 3)) { out.entries.clear(); return out; }
+    return loadCatalog<WoweeSpellPowerCost>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeSpellPowerCost::Entry& e) {
+        if (!readPOD(is, e.powerCostId)) { return false; }
+        if (!readStr(is, e.name) || !readStr(is, e.description)) { return false; }
+        if (!readPOD(is, e.powerType)) { return false; }
+        if (!skipPadding(is, 3)) { return false; }
         if (!readPOD(is, e.baseCost) ||
             !readPOD(is, e.perLevelCost) ||
             !readPOD(is, e.percentOfBase) ||
             !readPOD(is, e.costFlags) ||
-            !readPOD(is, e.iconColorRGBA)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.iconColorRGBA)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeSpellPowerCostLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeSpellPowerCost WoweeSpellPowerCostLoader::makeStarter(

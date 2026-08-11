@@ -42,12 +42,9 @@ const char* WoweeUnitMovement::movementCategoryName(uint8_t c) {
 }
 
 bool WoweeUnitMovementLoader::save(const WoweeUnitMovement& cat,
-                                    const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeUnitMovement::Entry& e) {
         writePOD(os, e.moveTypeId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -62,47 +59,32 @@ bool WoweeUnitMovementLoader::save(const WoweeUnitMovement& cat,
         writePOD(os, e.defaultDurationMs);
         writePOD(os, e.stackingPriority);
         writePadding(os, 3);
-    }
-    return os.good();
+                       });
 }
 
 WoweeUnitMovement WoweeUnitMovementLoader::load(
     const std::string& basePath) {
-    WoweeUnitMovement out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.moveTypeId)) {
-            out.entries.clear(); return out;
-        }
+    return loadCatalog<WoweeUnitMovement>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeUnitMovement::Entry& e) {
+        if (!readPOD(is, e.moveTypeId)) { return false; }
         if (!readStr(is, e.name) || !readStr(is, e.description) ||
-            !readStr(is, e.iconPath)) {
-            out.entries.clear(); return out;
-        }
+            !readStr(is, e.iconPath)) { return false; }
         if (!readPOD(is, e.movementCategory) ||
             !readPOD(is, e.requiresFlight) ||
-            !readPOD(is, e.canStackBuffs)) {
-            out.entries.clear(); return out;
-        }
-        if (!skipPadding(is, 1)) { out.entries.clear(); return out; }
+            !readPOD(is, e.canStackBuffs)) { return false; }
+        if (!skipPadding(is, 1)) { return false; }
         if (!readPOD(is, e.baseSpeed) ||
             !readPOD(is, e.baseMultiplier) ||
             !readPOD(is, e.maxMultiplier) ||
             !readPOD(is, e.defaultDurationMs) ||
-            !readPOD(is, e.stackingPriority)) {
-            out.entries.clear(); return out;
-        }
-        if (!skipPadding(is, 3)) { out.entries.clear(); return out; }
-    }
-    return out;
+            !readPOD(is, e.stackingPriority)) { return false; }
+        if (!skipPadding(is, 3)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeUnitMovementLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeUnitMovement WoweeUnitMovementLoader::makeStarter(

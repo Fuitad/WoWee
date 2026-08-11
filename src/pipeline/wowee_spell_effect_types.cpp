@@ -47,12 +47,9 @@ const char* WoweeSpellEffectType::effectKindName(uint8_t k) {
 }
 
 bool WoweeSpellEffectTypeLoader::save(const WoweeSpellEffectType& cat,
-                                       const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeSpellEffectType::Entry& e) {
         writePOD(os, e.effectId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -62,40 +59,27 @@ bool WoweeSpellEffectTypeLoader::save(const WoweeSpellEffectType& cat,
         writePOD(os, e.pad1);
         writePOD(os, e.baseAmount);
         writePOD(os, e.iconColorRGBA);
-    }
-    return os.good();
+                       });
 }
 
 WoweeSpellEffectType WoweeSpellEffectTypeLoader::load(
     const std::string& basePath) {
-    WoweeSpellEffectType out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.effectId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name) || !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
+    return loadCatalog<WoweeSpellEffectType>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeSpellEffectType::Entry& e) {
+        if (!readPOD(is, e.effectId)) { return false; }
+        if (!readStr(is, e.name) || !readStr(is, e.description)) { return false; }
         if (!readPOD(is, e.effectKind) ||
             !readPOD(is, e.behaviorFlags) ||
             !readPOD(is, e.pad0) ||
             !readPOD(is, e.pad1) ||
             !readPOD(is, e.baseAmount) ||
-            !readPOD(is, e.iconColorRGBA)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.iconColorRGBA)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeSpellEffectTypeLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeSpellEffectType WoweeSpellEffectTypeLoader::makeDamage(

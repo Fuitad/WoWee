@@ -57,12 +57,9 @@ const char* WoweeCharFeature::expansionGateName(uint8_t e) {
 }
 
 bool WoweeCharFeatureLoader::save(const WoweeCharFeature& cat,
-                                   const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeCharFeature::Entry& e) {
         writePOD(os, e.featureId);
         writePOD(os, e.raceId);
         writeStr(os, e.name);
@@ -74,42 +71,29 @@ bool WoweeCharFeatureLoader::save(const WoweeCharFeature& cat,
         writePOD(os, e.requiresExpansion);
         writePOD(os, e.geosetGroupBits);
         writePOD(os, e.hairColorOverlayId);
-    }
-    return os.good();
+                       });
 }
 
 WoweeCharFeature WoweeCharFeatureLoader::load(
     const std::string& basePath) {
-    WoweeCharFeature out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
+    return loadCatalog<WoweeCharFeature>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeCharFeature::Entry& e) {
         if (!readPOD(is, e.featureId) ||
-            !readPOD(is, e.raceId)) {
-            out.entries.clear(); return out;
-        }
+            !readPOD(is, e.raceId)) { return false; }
         if (!readStr(is, e.name) || !readStr(is, e.description) ||
-            !readStr(is, e.texturePath)) {
-            out.entries.clear(); return out;
-        }
+            !readStr(is, e.texturePath)) { return false; }
         if (!readPOD(is, e.featureKind) ||
             !readPOD(is, e.sexId) ||
             !readPOD(is, e.variationIndex) ||
             !readPOD(is, e.requiresExpansion) ||
             !readPOD(is, e.geosetGroupBits) ||
-            !readPOD(is, e.hairColorOverlayId)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.hairColorOverlayId)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeCharFeatureLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeCharFeature WoweeCharFeatureLoader::makeStarter(

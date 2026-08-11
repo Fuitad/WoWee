@@ -58,12 +58,9 @@ const char* WoweeItemMaterial::weightCategoryName(uint8_t w) {
 }
 
 bool WoweeItemMaterialLoader::save(const WoweeItemMaterial& cat,
-                                    const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeItemMaterial::Entry& e) {
         writePOD(os, e.materialId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -75,25 +72,15 @@ bool WoweeItemMaterialLoader::save(const WoweeItemMaterial& cat,
         writePOD(os, e.impactSoundId);
         writePOD(os, e.materialFlags);
         writePOD(os, e.iconColorRGBA);
-    }
-    return os.good();
+                       });
 }
 
 WoweeItemMaterial WoweeItemMaterialLoader::load(
     const std::string& basePath) {
-    WoweeItemMaterial out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.materialId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name) || !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
+    return loadCatalog<WoweeItemMaterial>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeItemMaterial::Entry& e) {
+        if (!readPOD(is, e.materialId)) { return false; }
+        if (!readStr(is, e.name) || !readStr(is, e.description)) { return false; }
         if (!readPOD(is, e.materialKind) ||
             !readPOD(is, e.weightCategory) ||
             !readPOD(is, e.pad0) ||
@@ -101,16 +88,13 @@ WoweeItemMaterial WoweeItemMaterialLoader::load(
             !readPOD(is, e.foleySoundId) ||
             !readPOD(is, e.impactSoundId) ||
             !readPOD(is, e.materialFlags) ||
-            !readPOD(is, e.iconColorRGBA)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.iconColorRGBA)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeItemMaterialLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeItemMaterial WoweeItemMaterialLoader::makeArmor(

@@ -38,12 +38,9 @@ const char* WoweeSkill::categoryName(uint8_t c) {
 }
 
 bool WoweeSkillLoader::save(const WoweeSkill& cat,
-                            const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeSkill::Entry& e) {
         writePOD(os, e.skillId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -53,41 +50,27 @@ bool WoweeSkillLoader::save(const WoweeSkill& cat,
         writePOD(os, e.maxRank);
         writePOD(os, e.rankPerLevel);
         writeStr(os, e.iconPath);
-    }
-    return os.good();
+                       });
 }
 
-WoweeSkill WoweeSkillLoader::load(const std::string& basePath) {
-    WoweeSkill out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.skillId)) { out.entries.clear(); return out; }
-        if (!readStr(is, e.name) || !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
+WoweeSkill WoweeSkillLoader::load(
+    const std::string& basePath) {
+    return loadCatalog<WoweeSkill>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeSkill::Entry& e) {
+        if (!readPOD(is, e.skillId)) { return false; }
+        if (!readStr(is, e.name) || !readStr(is, e.description)) { return false; }
         if (!readPOD(is, e.categoryId) ||
-            !readPOD(is, e.canTrain)) {
-            out.entries.clear(); return out;
-        }
-        if (!skipPadding(is, 2)) { out.entries.clear(); return out; }
+            !readPOD(is, e.canTrain)) { return false; }
+        if (!skipPadding(is, 2)) { return false; }
         if (!readPOD(is, e.maxRank) ||
-            !readPOD(is, e.rankPerLevel)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.iconPath)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.rankPerLevel)) { return false; }
+        if (!readStr(is, e.iconPath)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeSkillLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeSkill WoweeSkillLoader::makeStarter(const std::string& catalogName) {

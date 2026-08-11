@@ -60,43 +60,26 @@ bool WoweeRandomPropertyLoader::save(
 
 WoweeRandomProperty WoweeRandomPropertyLoader::load(
     const std::string& basePath) {
-    WoweeRandomProperty out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.poolId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name)) {
-            out.entries.clear(); return out;
-        }
+    return loadCatalog<WoweeRandomProperty>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeRandomProperty::Entry& e) {
+        if (!readPOD(is, e.poolId)) { return false; }
+        if (!readStr(is, e.name)) { return false; }
         if (!readPOD(is, e.scaleLevel) ||
             !readPOD(is, e.allowedSlotsMask) ||
             !readPOD(is, e.allowedClassesMask) ||
-            !readPOD(is, e.totalWeight)) {
-            out.entries.clear(); return out;
-        }
+            !readPOD(is, e.totalWeight)) { return false; }
         uint32_t enchantCount = 0;
-        if (!readPOD(is, enchantCount)) {
-            out.entries.clear(); return out;
-        }
+        if (!readPOD(is, enchantCount)) { return false; }
         // Sanity cap — vanilla pools never exceed 12
         // enchants; format cap 64.
-        if (enchantCount > 64) {
-            out.entries.clear(); return out;
-        }
+        if (enchantCount > 64) { return false; }
         e.enchants.resize(enchantCount);
         for (auto& en : e.enchants) {
             if (!readPOD(is, en.enchantId) ||
-                !readPOD(is, en.weight)) {
-                out.entries.clear(); return out;
-            }
+                !readPOD(is, en.weight)) { return false; }
         }
-    }
-    return out;
+                                  return true;
+                              });
 }
 
 bool WoweeRandomPropertyLoader::exists(

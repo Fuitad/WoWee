@@ -33,12 +33,9 @@ WoweeSoundSwap::findByOriginalSound(uint32_t soundId) const {
 }
 
 bool WoweeSoundSwapLoader::save(const WoweeSoundSwap& cat,
-                                  const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeSoundSwap::Entry& e) {
         writePOD(os, e.ruleId);
         writeStr(os, e.name);
         writePOD(os, e.originalSoundId);
@@ -47,40 +44,27 @@ bool WoweeSoundSwapLoader::save(const WoweeSoundSwap& cat,
         writePOD(os, e.priorityIndex);
         writePOD(os, e.gainAdjustDb_x10);
         writePOD(os, e.conditionValue);
-    }
-    return os.good();
+                       });
 }
 
 WoweeSoundSwap WoweeSoundSwapLoader::load(
     const std::string& basePath) {
-    WoweeSoundSwap out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.ruleId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name)) {
-            out.entries.clear(); return out;
-        }
+    return loadCatalog<WoweeSoundSwap>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeSoundSwap::Entry& e) {
+        if (!readPOD(is, e.ruleId)) { return false; }
+        if (!readStr(is, e.name)) { return false; }
         if (!readPOD(is, e.originalSoundId) ||
             !readPOD(is, e.replacementSoundId) ||
             !readPOD(is, e.conditionKind) ||
             !readPOD(is, e.priorityIndex) ||
             !readPOD(is, e.gainAdjustDb_x10) ||
-            !readPOD(is, e.conditionValue)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.conditionValue)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeSoundSwapLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 namespace {

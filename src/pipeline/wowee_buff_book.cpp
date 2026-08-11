@@ -60,12 +60,9 @@ WoweeBuffBook::findChainTip(uint32_t buffId) const {
 }
 
 bool WoweeBuffBookLoader::save(const WoweeBuffBook& cat,
-                                 const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeBuffBook::Entry& e) {
         writePOD(os, e.buffId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -80,24 +77,15 @@ bool WoweeBuffBookLoader::save(const WoweeBuffBook& cat,
         writePOD(os, e.previousRankId);
         writePOD(os, e.nextRankId);
         writePOD(os, e.iconColorRGBA);
-    }
-    return os.good();
+                       });
 }
 
-WoweeBuffBook WoweeBuffBookLoader::load(const std::string& basePath) {
-    WoweeBuffBook out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.buffId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name) || !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
+WoweeBuffBook WoweeBuffBookLoader::load(
+    const std::string& basePath) {
+    return loadCatalog<WoweeBuffBook>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeBuffBook::Entry& e) {
+        if (!readPOD(is, e.buffId)) { return false; }
+        if (!readStr(is, e.name) || !readStr(is, e.description)) { return false; }
         if (!readPOD(is, e.spellId) ||
             !readPOD(is, e.castClassMask) ||
             !readPOD(is, e.targetTypeMask) ||
@@ -108,16 +96,13 @@ WoweeBuffBook WoweeBuffBookLoader::load(const std::string& basePath) {
             !readPOD(is, e.duration) ||
             !readPOD(is, e.previousRankId) ||
             !readPOD(is, e.nextRankId) ||
-            !readPOD(is, e.iconColorRGBA)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.iconColorRGBA)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeBuffBookLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeBuffBook WoweeBuffBookLoader::makeMage(

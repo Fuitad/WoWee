@@ -49,12 +49,9 @@ WoweePetTalents::findAtCell(uint8_t treeKind, uint8_t tier,
 }
 
 bool WoweePetTalentsLoader::save(const WoweePetTalents& cat,
-                                   const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweePetTalents::Entry& e) {
         writePOD(os, e.talentId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -72,25 +69,15 @@ bool WoweePetTalentsLoader::save(const WoweePetTalents& cat,
             e.spellIdsByRank.size());
         writePOD(os, spellCount);
         for (uint32_t s : e.spellIdsByRank) writePOD(os, s);
-    }
-    return os.good();
+                       });
 }
 
 WoweePetTalents WoweePetTalentsLoader::load(
     const std::string& basePath) {
-    WoweePetTalents out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.talentId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name) || !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
+    return loadCatalog<WoweePetTalents>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweePetTalents::Entry& e) {
+        if (!readPOD(is, e.talentId)) { return false; }
+        if (!readStr(is, e.name) || !readStr(is, e.description)) { return false; }
         if (!readPOD(is, e.treeKind) ||
             !readPOD(is, e.tier) ||
             !readPOD(is, e.column) ||
@@ -100,29 +87,20 @@ WoweePetTalents WoweePetTalentsLoader::load(
             !readPOD(is, e.pad0) ||
             !readPOD(is, e.pad1) ||
             !readPOD(is, e.pad2) ||
-            !readPOD(is, e.iconColorRGBA)) {
-            out.entries.clear(); return out;
-        }
+            !readPOD(is, e.iconColorRGBA)) { return false; }
         uint32_t spellCount = 0;
-        if (!readPOD(is, spellCount)) {
-            out.entries.clear(); return out;
-        }
-        if (spellCount > 16) {
-            out.entries.clear(); return out;
-        }
+        if (!readPOD(is, spellCount)) { return false; }
+        if (spellCount > 16) { return false; }
         e.spellIdsByRank.resize(spellCount);
         for (uint32_t k = 0; k < spellCount; ++k) {
-            if (!readPOD(is, e.spellIdsByRank[k])) {
-                out.entries.clear(); return out;
-            }
+            if (!readPOD(is, e.spellIdsByRank[k])) { return false; }
         }
-    }
-    return out;
+                                  return true;
+                              });
 }
 
 bool WoweePetTalentsLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweePetTalents WoweePetTalentsLoader::makeFerocity(

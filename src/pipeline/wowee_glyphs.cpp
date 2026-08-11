@@ -32,12 +32,9 @@ const char* WoweeGlyph::glyphTypeName(uint8_t t) {
 }
 
 bool WoweeGlyphLoader::save(const WoweeGlyph& cat,
-                            const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeGlyph::Entry& e) {
         writePOD(os, e.glyphId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -49,43 +46,29 @@ bool WoweeGlyphLoader::save(const WoweeGlyph& cat,
         writePOD(os, e.classMask);
         writePOD(os, e.requiredLevel);
         writePadding(os, 2);
-    }
-    return os.good();
+                       });
 }
 
-WoweeGlyph WoweeGlyphLoader::load(const std::string& basePath) {
-    WoweeGlyph out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.glyphId)) {
-            out.entries.clear(); return out;
-        }
+WoweeGlyph WoweeGlyphLoader::load(
+    const std::string& basePath) {
+    return loadCatalog<WoweeGlyph>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeGlyph::Entry& e) {
+        if (!readPOD(is, e.glyphId)) { return false; }
         if (!readStr(is, e.name) || !readStr(is, e.description) ||
-            !readStr(is, e.iconPath)) {
-            out.entries.clear(); return out;
-        }
-        if (!readPOD(is, e.glyphType)) {
-            out.entries.clear(); return out;
-        }
-        if (!skipPadding(is, 3)) { out.entries.clear(); return out; }
+            !readStr(is, e.iconPath)) { return false; }
+        if (!readPOD(is, e.glyphType)) { return false; }
+        if (!skipPadding(is, 3)) { return false; }
         if (!readPOD(is, e.spellId) ||
             !readPOD(is, e.itemId) ||
             !readPOD(is, e.classMask) ||
-            !readPOD(is, e.requiredLevel)) {
-            out.entries.clear(); return out;
-        }
-        if (!skipPadding(is, 2)) { out.entries.clear(); return out; }
-    }
-    return out;
+            !readPOD(is, e.requiredLevel)) { return false; }
+        if (!skipPadding(is, 2)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeGlyphLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeGlyph WoweeGlyphLoader::makeStarter(const std::string& catalogName) {

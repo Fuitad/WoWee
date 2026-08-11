@@ -24,12 +24,9 @@ WoweeSpellVisualKit::findById(uint32_t visualKitId) const {
 }
 
 bool WoweeSpellVisualKitLoader::save(const WoweeSpellVisualKit& cat,
-                                     const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeSpellVisualKit::Entry& e) {
         writePOD(os, e.visualKitId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -46,29 +43,19 @@ bool WoweeSpellVisualKitLoader::save(const WoweeSpellVisualKit& cat,
         writePOD(os, e.projectileGravity);
         writePOD(os, e.castDurationMs);
         writePOD(os, e.impactRadius);
-    }
-    return os.good();
+                       });
 }
 
 WoweeSpellVisualKit WoweeSpellVisualKitLoader::load(
     const std::string& basePath) {
-    WoweeSpellVisualKit out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.visualKitId)) {
-            out.entries.clear(); return out;
-        }
+    return loadCatalog<WoweeSpellVisualKit>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeSpellVisualKit::Entry& e) {
+        if (!readPOD(is, e.visualKitId)) { return false; }
         if (!readStr(is, e.name) || !readStr(is, e.description) ||
             !readStr(is, e.castEffectModelPath) ||
             !readStr(is, e.projectileModelPath) ||
             !readStr(is, e.impactEffectModelPath) ||
-            !readStr(is, e.handEffectModelPath)) {
-            out.entries.clear(); return out;
-        }
+            !readStr(is, e.handEffectModelPath)) { return false; }
         if (!readPOD(is, e.precastAnimId) ||
             !readPOD(is, e.castAnimId) ||
             !readPOD(is, e.impactAnimId) ||
@@ -77,16 +64,13 @@ WoweeSpellVisualKit WoweeSpellVisualKitLoader::load(
             !readPOD(is, e.projectileSpeed) ||
             !readPOD(is, e.projectileGravity) ||
             !readPOD(is, e.castDurationMs) ||
-            !readPOD(is, e.impactRadius)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.impactRadius)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeSpellVisualKitLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeSpellVisualKit WoweeSpellVisualKitLoader::makeStarter(

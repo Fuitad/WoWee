@@ -44,12 +44,9 @@ WoweeMagePortals::findByFaction(uint8_t faction) const {
 }
 
 bool WoweeMagePortalsLoader::save(const WoweeMagePortals& cat,
-                                    const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeMagePortals::Entry& e) {
         writePOD(os, e.portalId);
         writePOD(os, e.spellId);
         writeStr(os, e.destinationName);
@@ -63,26 +60,16 @@ bool WoweeMagePortalsLoader::save(const WoweeMagePortals& cat,
         writePOD(os, e.levelRequirement);
         writePOD(os, e.reagentCount);
         writePOD(os, e.reagentItemId);
-    }
-    return os.good();
+                       });
 }
 
 WoweeMagePortals WoweeMagePortalsLoader::load(
     const std::string& basePath) {
-    WoweeMagePortals out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
+    return loadCatalog<WoweeMagePortals>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeMagePortals::Entry& e) {
         if (!readPOD(is, e.portalId) ||
-            !readPOD(is, e.spellId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.destinationName)) {
-            out.entries.clear(); return out;
-        }
+            !readPOD(is, e.spellId)) { return false; }
+        if (!readStr(is, e.destinationName)) { return false; }
         if (!readPOD(is, e.destX) ||
             !readPOD(is, e.destY) ||
             !readPOD(is, e.destZ) ||
@@ -92,11 +79,9 @@ WoweeMagePortals WoweeMagePortalsLoader::load(
             !readPOD(is, e.portalKind) ||
             !readPOD(is, e.levelRequirement) ||
             !readPOD(is, e.reagentCount) ||
-            !readPOD(is, e.reagentItemId)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.reagentItemId)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeMagePortalsLoader::exists(

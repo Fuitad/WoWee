@@ -61,12 +61,9 @@ const char* WoweeInstanceLockout::lockoutKindName(uint8_t k) {
 }
 
 bool WoweeInstanceLockoutLoader::save(const WoweeInstanceLockout& cat,
-                                       const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeInstanceLockout::Entry& e) {
         writePOD(os, e.lockoutId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -78,8 +75,7 @@ bool WoweeInstanceLockoutLoader::save(const WoweeInstanceLockout& cat,
         writePOD(os, e.raidLockoutKind);
         writePOD(os, e.raidGroupSize);
         writePOD(os, e.iconColorRGBA);
-    }
-    return os.good();
+                       });
 }
 
 WoweeInstanceLockout WoweeInstanceLockoutLoader::load(
@@ -112,8 +108,7 @@ WoweeInstanceLockout WoweeInstanceLockoutLoader::load(
 }
 
 bool WoweeInstanceLockoutLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeInstanceLockout WoweeInstanceLockoutLoader::makeRaidWeekly(

@@ -60,12 +60,9 @@ const char* WoweeTalentTab::roleHintName(uint8_t r) {
 }
 
 bool WoweeTalentTabLoader::save(const WoweeTalentTab& cat,
-                                 const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeTalentTab::Entry& e) {
         writePOD(os, e.tabId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -77,46 +74,29 @@ bool WoweeTalentTabLoader::save(const WoweeTalentTab& cat,
         writeStr(os, e.iconPath);
         writeStr(os, e.backgroundFile);
         writePOD(os, e.iconColorRGBA);
-    }
-    return os.good();
+                       });
 }
 
 WoweeTalentTab WoweeTalentTabLoader::load(
     const std::string& basePath) {
-    WoweeTalentTab out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.tabId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name) || !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
+    return loadCatalog<WoweeTalentTab>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeTalentTab::Entry& e) {
+        if (!readPOD(is, e.tabId)) { return false; }
+        if (!readStr(is, e.name) || !readStr(is, e.description)) { return false; }
         if (!readPOD(is, e.classMask) ||
             !readPOD(is, e.displayOrder) ||
             !readPOD(is, e.roleHint) ||
             !readPOD(is, e.pad0) ||
-            !readPOD(is, e.pad1)) {
-            out.entries.clear(); return out;
-        }
+            !readPOD(is, e.pad1)) { return false; }
         if (!readStr(is, e.iconPath) ||
-            !readStr(is, e.backgroundFile)) {
-            out.entries.clear(); return out;
-        }
-        if (!readPOD(is, e.iconColorRGBA)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readStr(is, e.backgroundFile)) { return false; }
+        if (!readPOD(is, e.iconColorRGBA)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeTalentTabLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeTalentTab WoweeTalentTabLoader::makeWarrior(

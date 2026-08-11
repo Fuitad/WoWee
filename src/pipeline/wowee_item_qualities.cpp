@@ -41,12 +41,9 @@ bool WoweeItemQuality::canDropAtLevel(uint32_t qualityId,
 }
 
 bool WoweeItemQualityLoader::save(const WoweeItemQuality& cat,
-                                   const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeItemQuality::Entry& e) {
         writePOD(os, e.qualityId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -58,44 +55,29 @@ bool WoweeItemQualityLoader::save(const WoweeItemQuality& cat,
         writePOD(os, e.canBeDisenchanted);
         writePOD(os, e.pad0);
         writeStr(os, e.inventoryBorderTexture);
-    }
-    return os.good();
+                       });
 }
 
 WoweeItemQuality WoweeItemQualityLoader::load(
     const std::string& basePath) {
-    WoweeItemQuality out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.qualityId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name) || !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
+    return loadCatalog<WoweeItemQuality>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeItemQuality::Entry& e) {
+        if (!readPOD(is, e.qualityId)) { return false; }
+        if (!readStr(is, e.name) || !readStr(is, e.description)) { return false; }
         if (!readPOD(is, e.nameColorRGBA) ||
             !readPOD(is, e.borderColorRGBA) ||
             !readPOD(is, e.vendorPriceMultiplier) ||
             !readPOD(is, e.minLevelToDrop) ||
             !readPOD(is, e.maxLevelToDrop) ||
             !readPOD(is, e.canBeDisenchanted) ||
-            !readPOD(is, e.pad0)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.inventoryBorderTexture)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.pad0)) { return false; }
+        if (!readStr(is, e.inventoryBorderTexture)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeItemQualityLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeItemQuality WoweeItemQualityLoader::makeStandard(

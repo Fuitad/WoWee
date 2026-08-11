@@ -47,12 +47,9 @@ WoweePetCare::findByKind(uint8_t actionKind) const {
 }
 
 bool WoweePetCareLoader::save(const WoweePetCare& cat,
-                                const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweePetCare::Entry& e) {
         writePOD(os, e.actionId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -67,24 +64,15 @@ bool WoweePetCareLoader::save(const WoweePetCare& cat,
         writePOD(os, e.castTimeMs);
         writePOD(os, e.cooldownSec);
         writePOD(os, e.iconColorRGBA);
-    }
-    return os.good();
+                       });
 }
 
-WoweePetCare WoweePetCareLoader::load(const std::string& basePath) {
-    WoweePetCare out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.actionId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name) || !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
+WoweePetCare WoweePetCareLoader::load(
+    const std::string& basePath) {
+    return loadCatalog<WoweePetCare>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweePetCare::Entry& e) {
+        if (!readPOD(is, e.actionId)) { return false; }
+        if (!readStr(is, e.name) || !readStr(is, e.description)) { return false; }
         if (!readPOD(is, e.spellId) ||
             !readPOD(is, e.classFilter) ||
             !readPOD(is, e.actionKind) ||
@@ -95,16 +83,13 @@ WoweePetCare WoweePetCareLoader::load(const std::string& basePath) {
             !readPOD(is, e.reagentItemId) ||
             !readPOD(is, e.castTimeMs) ||
             !readPOD(is, e.cooldownSec) ||
-            !readPOD(is, e.iconColorRGBA)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.iconColorRGBA)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweePetCareLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweePetCare WoweePetCareLoader::makeHunterCare(

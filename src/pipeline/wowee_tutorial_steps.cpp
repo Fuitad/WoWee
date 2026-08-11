@@ -37,12 +37,9 @@ WoweeTutorialSteps::findByEvent(uint8_t triggerEvent) const {
 }
 
 bool WoweeTutorialStepsLoader::save(const WoweeTutorialSteps& cat,
-                                      const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeTutorialSteps::Entry& e) {
         writePOD(os, e.tutId);
         writeStr(os, e.name);
         writePOD(os, e.stepIndex);
@@ -54,45 +51,30 @@ bool WoweeTutorialStepsLoader::save(const WoweeTutorialSteps& cat,
         writeStr(os, e.title);
         writeStr(os, e.body);
         writeStr(os, e.targetUIElementName);
-    }
-    return os.good();
+                       });
 }
 
 WoweeTutorialSteps WoweeTutorialStepsLoader::load(
     const std::string& basePath) {
-    WoweeTutorialSteps out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.tutId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name)) {
-            out.entries.clear(); return out;
-        }
+    return loadCatalog<WoweeTutorialSteps>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeTutorialSteps::Entry& e) {
+        if (!readPOD(is, e.tutId)) { return false; }
+        if (!readStr(is, e.name)) { return false; }
         if (!readPOD(is, e.stepIndex) ||
             !readPOD(is, e.triggerEvent) ||
             !readPOD(is, e.pad0) ||
             !readPOD(is, e.triggerValue) ||
             !readPOD(is, e.iconIndex) ||
-            !readPOD(is, e.hideAfterSec)) {
-            out.entries.clear(); return out;
-        }
+            !readPOD(is, e.hideAfterSec)) { return false; }
         if (!readStr(is, e.title) ||
             !readStr(is, e.body) ||
-            !readStr(is, e.targetUIElementName)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readStr(is, e.targetUIElementName)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeTutorialStepsLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 namespace {

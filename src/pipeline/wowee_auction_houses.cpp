@@ -68,19 +68,10 @@ bool WoweeAuctionHousesLoader::save(
 
 WoweeAuctionHouses WoweeAuctionHousesLoader::load(
     const std::string& basePath) {
-    WoweeAuctionHouses out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.ahId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name)) {
-            out.entries.clear(); return out;
-        }
+    return loadCatalog<WoweeAuctionHouses>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeAuctionHouses::Entry& e) {
+        if (!readPOD(is, e.ahId)) { return false; }
+        if (!readStr(is, e.name)) { return false; }
         if (!readPOD(is, e.factionAccess) ||
             !readPOD(is, e.pad0) ||
             !readPOD(is, e.depositRatePct) ||
@@ -89,11 +80,9 @@ WoweeAuctionHouses WoweeAuctionHousesLoader::load(
             !readPOD(is, e.maxListingDurationHours) ||
             !readPOD(is, e.pad1) ||
             !readPOD(is, e.feePerSlot) ||
-            !readPOD(is, e.npcAuctioneerId)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.npcAuctioneerId)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeAuctionHousesLoader::exists(

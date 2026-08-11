@@ -44,12 +44,9 @@ const char* WoweeTradeSkill::professionName(uint8_t p) {
 }
 
 bool WoweeTradeSkillLoader::save(const WoweeTradeSkill& cat,
-                                  const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeTradeSkill::Entry& e) {
         writePOD(os, e.recipeId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -73,29 +70,18 @@ bool WoweeTradeSkillLoader::save(const WoweeTradeSkill& cat,
         for (size_t k = 0; k < WoweeTradeSkill::kMaxReagents; ++k) {
             writePOD(os, e.reagentCount[k]);
         }
-    }
-    return os.good();
+                       });
 }
 
-WoweeTradeSkill WoweeTradeSkillLoader::load(const std::string& basePath) {
-    WoweeTradeSkill out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.recipeId)) {
-            out.entries.clear(); return out;
-        }
+WoweeTradeSkill WoweeTradeSkillLoader::load(
+    const std::string& basePath) {
+    return loadCatalog<WoweeTradeSkill>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeTradeSkill::Entry& e) {
+        if (!readPOD(is, e.recipeId)) { return false; }
         if (!readStr(is, e.name) || !readStr(is, e.description) ||
-            !readStr(is, e.iconPath)) {
-            out.entries.clear(); return out;
-        }
-        if (!readPOD(is, e.profession)) {
-            out.entries.clear(); return out;
-        }
-        if (!skipPadding(is, 3)) { out.entries.clear(); return out; }
+            !readStr(is, e.iconPath)) { return false; }
+        if (!readPOD(is, e.profession)) { return false; }
+        if (!skipPadding(is, 3)) { return false; }
         if (!readPOD(is, e.skillId) ||
             !readPOD(is, e.orangeRank) ||
             !readPOD(is, e.yellowRank) ||
@@ -104,30 +90,21 @@ WoweeTradeSkill WoweeTradeSkillLoader::load(const std::string& basePath) {
             !readPOD(is, e.craftSpellId) ||
             !readPOD(is, e.producedItemId) ||
             !readPOD(is, e.producedMinCount) ||
-            !readPOD(is, e.producedMaxCount)) {
-            out.entries.clear(); return out;
-        }
-        if (!skipPadding(is, 2)) { out.entries.clear(); return out; }
-        if (!readPOD(is, e.toolItemId)) {
-            out.entries.clear(); return out;
+            !readPOD(is, e.producedMaxCount)) { return false; }
+        if (!skipPadding(is, 2)) { return false; }
+        if (!readPOD(is, e.toolItemId)) { return false; }
+        for (size_t k = 0; k < WoweeTradeSkill::kMaxReagents; ++k) {
+            if (!readPOD(is, e.reagentItemId[k])) { return false; }
         }
         for (size_t k = 0; k < WoweeTradeSkill::kMaxReagents; ++k) {
-            if (!readPOD(is, e.reagentItemId[k])) {
-                out.entries.clear(); return out;
-            }
+            if (!readPOD(is, e.reagentCount[k])) { return false; }
         }
-        for (size_t k = 0; k < WoweeTradeSkill::kMaxReagents; ++k) {
-            if (!readPOD(is, e.reagentCount[k])) {
-                out.entries.clear(); return out;
-            }
-        }
-    }
-    return out;
+                                  return true;
+                              });
 }
 
 bool WoweeTradeSkillLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeTradeSkill WoweeTradeSkillLoader::makeStarter(

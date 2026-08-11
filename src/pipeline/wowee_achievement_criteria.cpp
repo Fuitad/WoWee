@@ -90,19 +90,10 @@ bool WoweeAchievementCriteriaLoader::save(
 
 WoweeAchievementCriteria WoweeAchievementCriteriaLoader::load(
     const std::string& basePath) {
-    WoweeAchievementCriteria out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.criteriaId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name) || !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
+    return loadCatalog<WoweeAchievementCriteria>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeAchievementCriteria::Entry& e) {
+        if (!readPOD(is, e.criteriaId)) { return false; }
+        if (!readStr(is, e.name) || !readStr(is, e.description)) { return false; }
         if (!readPOD(is, e.achievementId) ||
             !readPOD(is, e.targetId) ||
             !readPOD(is, e.requiredCount) ||
@@ -111,11 +102,9 @@ WoweeAchievementCriteria WoweeAchievementCriteriaLoader::load(
             !readPOD(is, e.progressOrder) ||
             !readPOD(is, e.pad0) ||
             !readPOD(is, e.pad1) ||
-            !readPOD(is, e.iconColorRGBA)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.iconColorRGBA)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeAchievementCriteriaLoader::exists(

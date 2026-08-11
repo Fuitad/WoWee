@@ -68,12 +68,9 @@ WoweeSpellPack::findByClass(uint8_t classId) const {
 }
 
 bool WoweeSpellPackLoader::save(const WoweeSpellPack& cat,
-                                  const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeSpellPack::Entry& e) {
         writePOD(os, e.packId);
         writePOD(os, e.classId);
         writePOD(os, e.tabIndex);
@@ -81,39 +78,26 @@ bool WoweeSpellPackLoader::save(const WoweeSpellPack& cat,
         writePOD(os, e.pad0);
         writeStr(os, e.tabName);
         writeU32Vec(os, e.spellIds);
-    }
-    return os.good();
+                       });
 }
 
 WoweeSpellPack WoweeSpellPackLoader::load(
     const std::string& basePath) {
-    WoweeSpellPack out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
+    return loadCatalog<WoweeSpellPack>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeSpellPack::Entry& e) {
         if (!readPOD(is, e.packId) ||
             !readPOD(is, e.classId) ||
             !readPOD(is, e.tabIndex) ||
             !readPOD(is, e.iconIndex) ||
-            !readPOD(is, e.pad0)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.tabName)) {
-            out.entries.clear(); return out;
-        }
-        if (!readU32Vec(is, e.spellIds)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.pad0)) { return false; }
+        if (!readStr(is, e.tabName)) { return false; }
+        if (!readU32Vec(is, e.spellIds)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeSpellPackLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 namespace {

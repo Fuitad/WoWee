@@ -95,34 +95,21 @@ bool WoweeAddonManifestLoader::save(
 
 WoweeAddonManifest WoweeAddonManifestLoader::load(
     const std::string& basePath) {
-    WoweeAddonManifest out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.addonId)) {
-            out.entries.clear(); return out;
-        }
+    return loadCatalog<WoweeAddonManifest>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeAddonManifest::Entry& e) {
+        if (!readPOD(is, e.addonId)) { return false; }
         if (!readStr(is, e.name) ||
             !readStr(is, e.description) ||
             !readStr(is, e.version) ||
-            !readStr(is, e.author)) {
-            out.entries.clear(); return out;
-        }
+            !readStr(is, e.author)) { return false; }
         if (!readPOD(is, e.minClientBuild) ||
             !readPOD(is, e.requiresSavedVariables) ||
             !readPOD(is, e.loadOnDemand) ||
-            !readPOD(is, e.pad0)) {
-            out.entries.clear(); return out;
-        }
+            !readPOD(is, e.pad0)) { return false; }
         if (!readU32Vec(is, e.dependencies) ||
-            !readU32Vec(is, e.optionalDependencies)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readU32Vec(is, e.optionalDependencies)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeAddonManifestLoader::exists(

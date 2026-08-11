@@ -157,8 +157,7 @@ WoweePet WoweePetLoader::load(const std::string& basePath) {
 }
 
 bool WoweePetLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweePet WoweePetLoader::makeStarter(const std::string& catalogName) {

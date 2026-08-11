@@ -60,8 +60,7 @@ WoweeLight WoweeLightLoader::load(const std::string& basePath) {
 }
 
 bool WoweeLightLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeLight::Keyframe WoweeLightLoader::sampleAtTime(

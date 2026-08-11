@@ -32,12 +32,9 @@ const char* WoweeAuction::factionAccessName(uint8_t f) {
 }
 
 bool WoweeAuctionLoader::save(const WoweeAuction& cat,
-                              const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeAuction::Entry& e) {
         writePOD(os, e.houseId);
         writePOD(os, e.auctioneerNpcId);
         writeStr(os, e.name);
@@ -54,51 +51,35 @@ bool WoweeAuctionLoader::save(const WoweeAuction& cat,
         writePOD(os, e.mediumMultBp);
         writePOD(os, e.longMultBp);
         writePOD(os, e.disallowedClassMask);
-    }
-    return os.good();
+                       });
 }
 
-WoweeAuction WoweeAuctionLoader::load(const std::string& basePath) {
-    WoweeAuction out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
+WoweeAuction WoweeAuctionLoader::load(
+    const std::string& basePath) {
+    return loadCatalog<WoweeAuction>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeAuction::Entry& e) {
         if (!readPOD(is, e.houseId) ||
-            !readPOD(is, e.auctioneerNpcId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name)) {
-            out.entries.clear(); return out;
-        }
-        if (!readPOD(is, e.factionAccess)) {
-            out.entries.clear(); return out;
-        }
-        if (!skipPadding(is, 3)) { out.entries.clear(); return out; }
+            !readPOD(is, e.auctioneerNpcId)) { return false; }
+        if (!readStr(is, e.name)) { return false; }
+        if (!readPOD(is, e.factionAccess)) { return false; }
+        if (!skipPadding(is, 3)) { return false; }
         if (!readPOD(is, e.baseDepositRateBp) ||
             !readPOD(is, e.houseCutRateBp) ||
             !readPOD(is, e.maxBidCopper) ||
             !readPOD(is, e.shortHours) ||
             !readPOD(is, e.mediumHours) ||
-            !readPOD(is, e.longHours)) {
-            out.entries.clear(); return out;
-        }
-        if (!skipPadding(is, 2)) { out.entries.clear(); return out; }
+            !readPOD(is, e.longHours)) { return false; }
+        if (!skipPadding(is, 2)) { return false; }
         if (!readPOD(is, e.shortMultBp) ||
             !readPOD(is, e.mediumMultBp) ||
             !readPOD(is, e.longMultBp) ||
-            !readPOD(is, e.disallowedClassMask)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.disallowedClassMask)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeAuctionLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeAuction WoweeAuctionLoader::makeStarter(const std::string& catalogName) {

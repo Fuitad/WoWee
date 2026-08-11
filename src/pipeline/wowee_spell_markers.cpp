@@ -38,12 +38,9 @@ WoweeSpellMarkers::findBySpell(uint32_t spellId) const {
 }
 
 bool WoweeSpellMarkersLoader::save(const WoweeSpellMarkers& cat,
-                                     const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeSpellMarkers::Entry& e) {
         writePOD(os, e.markerId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -59,25 +56,15 @@ bool WoweeSpellMarkersLoader::save(const WoweeSpellMarkers& cat,
         writePOD(os, e.pad0);
         writePOD(os, e.tickSoundId);
         writePOD(os, e.iconColorRGBA);
-    }
-    return os.good();
+                       });
 }
 
 WoweeSpellMarkers WoweeSpellMarkersLoader::load(
     const std::string& basePath) {
-    WoweeSpellMarkers out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.markerId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name) || !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
+    return loadCatalog<WoweeSpellMarkers>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeSpellMarkers::Entry& e) {
+        if (!readPOD(is, e.markerId)) { return false; }
+        if (!readStr(is, e.name) || !readStr(is, e.description)) { return false; }
         if (!readPOD(is, e.spellId) ||
             !readStr(is, e.groundTexturePath) ||
             !readPOD(is, e.radius) ||
@@ -89,16 +76,13 @@ WoweeSpellMarkers WoweeSpellMarkersLoader::load(
             !readPOD(is, e.destroyOnCancel) ||
             !readPOD(is, e.pad0) ||
             !readPOD(is, e.tickSoundId) ||
-            !readPOD(is, e.iconColorRGBA)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.iconColorRGBA)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeSpellMarkersLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeSpellMarkers WoweeSpellMarkersLoader::makeMageAoE(

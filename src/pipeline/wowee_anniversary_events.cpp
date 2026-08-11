@@ -65,19 +65,10 @@ bool WoweeAnniversaryEventsLoader::save(
 
 WoweeAnniversaryEvents WoweeAnniversaryEventsLoader::load(
     const std::string& basePath) {
-    WoweeAnniversaryEvents out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.eventId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name) || !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
+    return loadCatalog<WoweeAnniversaryEvents>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeAnniversaryEvents::Entry& e) {
+        if (!readPOD(is, e.eventId)) { return false; }
+        if (!readStr(is, e.name) || !readStr(is, e.description)) { return false; }
         if (!readPOD(is, e.eventKind) ||
             !readPOD(is, e.recurrenceKind) ||
             !readPOD(is, e.startMonth) ||
@@ -87,11 +78,9 @@ WoweeAnniversaryEvents WoweeAnniversaryEventsLoader::load(
             !readPOD(is, e.pad1) ||
             !readPOD(is, e.payloadSpellId) ||
             !readPOD(is, e.payloadItemId) ||
-            !readPOD(is, e.iconColorRGBA)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.iconColorRGBA)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeAnniversaryEventsLoader::exists(

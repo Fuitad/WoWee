@@ -48,12 +48,9 @@ const char* WoweeAchievement::factionName(uint8_t f) {
 }
 
 bool WoweeAchievementLoader::save(const WoweeAchievement& cat,
-                                  const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeAchievement::Entry& e) {
         writePOD(os, e.achievementId);
         writePOD(os, e.categoryId);
         writeStr(os, e.name);
@@ -76,55 +73,39 @@ bool WoweeAchievementLoader::save(const WoweeAchievement& cat,
             writePOD(os, cr.quantity);
             writeStr(os, cr.description);
         }
-    }
-    return os.good();
+                       });
 }
 
-WoweeAchievement WoweeAchievementLoader::load(const std::string& basePath) {
-    WoweeAchievement out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
+WoweeAchievement WoweeAchievementLoader::load(
+    const std::string& basePath) {
+    return loadCatalog<WoweeAchievement>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeAchievement::Entry& e) {
         if (!readPOD(is, e.achievementId) ||
-            !readPOD(is, e.categoryId)) {
-            out.entries.clear(); return out;
-        }
+            !readPOD(is, e.categoryId)) { return false; }
         if (!readStr(is, e.name) || !readStr(is, e.description) ||
-            !readStr(is, e.iconPath) || !readStr(is, e.titleReward)) {
-            out.entries.clear(); return out;
-        }
+            !readStr(is, e.iconPath) || !readStr(is, e.titleReward)) { return false; }
         if (!readPOD(is, e.points) ||
             !readPOD(is, e.minLevel) ||
-            !readPOD(is, e.faction)) {
-            out.entries.clear(); return out;
-        }
+            !readPOD(is, e.faction)) { return false; }
         uint8_t critCount = 0;
-        if (!readPOD(is, critCount)) { out.entries.clear(); return out; }
-        if (!readPOD(is, e.flags)) { out.entries.clear(); return out; }
+        if (!readPOD(is, critCount)) { return false; }
+        if (!readPOD(is, e.flags)) { return false; }
         e.criteria.resize(critCount);
         for (uint8_t k = 0; k < critCount; ++k) {
             auto& cr = e.criteria[k];
             if (!readPOD(is, cr.criteriaId) ||
-                !readPOD(is, cr.kind)) {
-                out.entries.clear(); return out;
-            }
-            if (!skipPadding(is, 3)) { out.entries.clear(); return out; }
+                !readPOD(is, cr.kind)) { return false; }
+            if (!skipPadding(is, 3)) { return false; }
             if (!readPOD(is, cr.targetId) ||
                 !readPOD(is, cr.quantity) ||
-                !readStr(is, cr.description)) {
-                out.entries.clear(); return out;
-            }
+                !readStr(is, cr.description)) { return false; }
         }
-    }
-    return out;
+                                  return true;
+                              });
 }
 
 bool WoweeAchievementLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeAchievement WoweeAchievementLoader::makeStarter(const std::string& catalogName) {

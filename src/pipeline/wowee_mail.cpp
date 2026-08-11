@@ -36,12 +36,9 @@ const char* WoweeMail::categoryName(uint8_t c) {
 }
 
 bool WoweeMailLoader::save(const WoweeMail& cat,
-                           const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeMail::Entry& e) {
         writePOD(os, e.templateId);
         writePOD(os, e.senderNpcId);
         writeStr(os, e.subject);
@@ -62,54 +59,38 @@ bool WoweeMailLoader::save(const WoweeMail& cat,
             writePOD(os, a.quantity);
             writePadding(os, 2);
         }
-    }
-    return os.good();
+                       });
 }
 
-WoweeMail WoweeMailLoader::load(const std::string& basePath) {
-    WoweeMail out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
+WoweeMail WoweeMailLoader::load(
+    const std::string& basePath) {
+    return loadCatalog<WoweeMail>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeMail::Entry& e) {
         if (!readPOD(is, e.templateId) ||
-            !readPOD(is, e.senderNpcId)) {
-            out.entries.clear(); return out;
-        }
+            !readPOD(is, e.senderNpcId)) { return false; }
         if (!readStr(is, e.subject) || !readStr(is, e.body) ||
-            !readStr(is, e.senderName)) {
-            out.entries.clear(); return out;
-        }
-        if (!readPOD(is, e.moneyCopperAttached)) {
-            out.entries.clear(); return out;
-        }
+            !readStr(is, e.senderName)) { return false; }
+        if (!readPOD(is, e.moneyCopperAttached)) { return false; }
         uint8_t attCount = 0;
         if (!readPOD(is, attCount) ||
             !readPOD(is, e.categoryId) ||
             !readPOD(is, e.cod) ||
             !readPOD(is, e.returnable) ||
-            !readPOD(is, e.expiryDays)) {
-            out.entries.clear(); return out;
-        }
-        if (!skipPadding(is, 2)) { out.entries.clear(); return out; }
+            !readPOD(is, e.expiryDays)) { return false; }
+        if (!skipPadding(is, 2)) { return false; }
         e.attachments.resize(attCount);
         for (uint8_t k = 0; k < attCount; ++k) {
             auto& a = e.attachments[k];
             if (!readPOD(is, a.itemId) ||
-                !readPOD(is, a.quantity)) {
-                out.entries.clear(); return out;
-            }
-            if (!skipPadding(is, 2)) { out.entries.clear(); return out; }
+                !readPOD(is, a.quantity)) { return false; }
+            if (!skipPadding(is, 2)) { return false; }
         }
-    }
-    return out;
+                                  return true;
+                              });
 }
 
 bool WoweeMailLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeMail WoweeMailLoader::makeStarter(const std::string& catalogName) {

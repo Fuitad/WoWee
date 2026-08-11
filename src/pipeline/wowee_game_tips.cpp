@@ -33,12 +33,9 @@ const char* WoweeGameTip::displayKindName(uint8_t k) {
 }
 
 bool WoweeGameTipLoader::save(const WoweeGameTip& cat,
-                              const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeGameTip::Entry& e) {
         writePOD(os, e.tipId);
         writeStr(os, e.name);
         writeStr(os, e.text);
@@ -52,47 +49,31 @@ bool WoweeGameTipLoader::save(const WoweeGameTip& cat,
         writePadding(os, 2);
         writePOD(os, e.conditionId);
         writePOD(os, e.requiredClassMask);
-    }
-    return os.good();
+                       });
 }
 
-WoweeGameTip WoweeGameTipLoader::load(const std::string& basePath) {
-    WoweeGameTip out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.tipId)) {
-            out.entries.clear(); return out;
-        }
+WoweeGameTip WoweeGameTipLoader::load(
+    const std::string& basePath) {
+    return loadCatalog<WoweeGameTip>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeGameTip::Entry& e) {
+        if (!readPOD(is, e.tipId)) { return false; }
         if (!readStr(is, e.name) || !readStr(is, e.text) ||
-            !readStr(is, e.iconPath)) {
-            out.entries.clear(); return out;
-        }
-        if (!readPOD(is, e.displayKind)) {
-            out.entries.clear(); return out;
-        }
-        if (!skipPadding(is, 3)) { out.entries.clear(); return out; }
+            !readStr(is, e.iconPath)) { return false; }
+        if (!readPOD(is, e.displayKind)) { return false; }
+        if (!skipPadding(is, 3)) { return false; }
         if (!readPOD(is, e.audienceFilter) ||
             !readPOD(is, e.minLevel) ||
             !readPOD(is, e.maxLevel) ||
-            !readPOD(is, e.displayWeight)) {
-            out.entries.clear(); return out;
-        }
-        if (!skipPadding(is, 2)) { out.entries.clear(); return out; }
+            !readPOD(is, e.displayWeight)) { return false; }
+        if (!skipPadding(is, 2)) { return false; }
         if (!readPOD(is, e.conditionId) ||
-            !readPOD(is, e.requiredClassMask)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.requiredClassMask)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeGameTipLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeGameTip WoweeGameTipLoader::makeStarter(

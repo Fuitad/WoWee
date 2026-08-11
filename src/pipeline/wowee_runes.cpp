@@ -34,12 +34,9 @@ const char* WoweeRuneCost::spellTreeBranchName(uint8_t b) {
 }
 
 bool WoweeRuneCostLoader::save(const WoweeRuneCost& cat,
-                                const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeRuneCost::Entry& e) {
         writePOD(os, e.runeCostId);
         writePOD(os, e.spellId);
         writeStr(os, e.name);
@@ -52,44 +49,30 @@ bool WoweeRuneCostLoader::save(const WoweeRuneCost& cat,
         writePadding(os, 2);
         writePOD(os, e.spellTreeBranch);
         writePadding(os, 3);
-    }
-    return os.good();
+                       });
 }
 
-WoweeRuneCost WoweeRuneCostLoader::load(const std::string& basePath) {
-    WoweeRuneCost out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
+WoweeRuneCost WoweeRuneCostLoader::load(
+    const std::string& basePath) {
+    return loadCatalog<WoweeRuneCost>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeRuneCost::Entry& e) {
         if (!readPOD(is, e.runeCostId) ||
-            !readPOD(is, e.spellId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name) || !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
+            !readPOD(is, e.spellId)) { return false; }
+        if (!readStr(is, e.name) || !readStr(is, e.description)) { return false; }
         if (!readPOD(is, e.bloodCost) ||
             !readPOD(is, e.frostCost) ||
             !readPOD(is, e.unholyCost) ||
             !readPOD(is, e.anyDeathConvertCost) ||
-            !readPOD(is, e.runicPowerCost)) {
-            out.entries.clear(); return out;
-        }
-        if (!skipPadding(is, 2)) { out.entries.clear(); return out; }
-        if (!readPOD(is, e.spellTreeBranch)) {
-            out.entries.clear(); return out;
-        }
-        if (!skipPadding(is, 3)) { out.entries.clear(); return out; }
-    }
-    return out;
+            !readPOD(is, e.runicPowerCost)) { return false; }
+        if (!skipPadding(is, 2)) { return false; }
+        if (!readPOD(is, e.spellTreeBranch)) { return false; }
+        if (!skipPadding(is, 3)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeRuneCostLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeRuneCost WoweeRuneCostLoader::makeStarter(

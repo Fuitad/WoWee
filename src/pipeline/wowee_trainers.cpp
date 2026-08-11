@@ -32,12 +32,9 @@ std::string WoweeTrainer::kindMaskName(uint8_t k) {
 }
 
 bool WoweeTrainerLoader::save(const WoweeTrainer& cat,
-                              const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeTrainer::Entry& e) {
         writePOD(os, e.npcId);
         writePOD(os, e.kindMask);
         writePadding(os, 3);
@@ -64,27 +61,18 @@ bool WoweeTrainerLoader::save(const WoweeTrainer& cat,
             writePOD(os, it.extendedCost);
             writePOD(os, it.moneyCostCopper);
         }
-    }
-    return os.good();
+                       });
 }
 
-WoweeTrainer WoweeTrainerLoader::load(const std::string& basePath) {
-    WoweeTrainer out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.npcId) || !readPOD(is, e.kindMask)) {
-            out.entries.clear(); return out;
-        }
-        if (!skipPadding(is, 3)) { out.entries.clear(); return out; }
-        if (!readStr(is, e.greeting)) { out.entries.clear(); return out; }
+WoweeTrainer WoweeTrainerLoader::load(
+    const std::string& basePath) {
+    return loadCatalog<WoweeTrainer>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeTrainer::Entry& e) {
+        if (!readPOD(is, e.npcId) || !readPOD(is, e.kindMask)) { return false; }
+        if (!skipPadding(is, 3)) { return false; }
+        if (!readStr(is, e.greeting)) { return false; }
         uint16_t spellCount = 0, itemCount = 0;
-        if (!readPOD(is, spellCount) || !readPOD(is, itemCount)) {
-            out.entries.clear(); return out;
-        }
+        if (!readPOD(is, spellCount) || !readPOD(is, itemCount)) { return false; }
         e.spells.resize(spellCount);
         for (uint16_t k = 0; k < spellCount; ++k) {
             auto& s = e.spells[k];
@@ -92,9 +80,7 @@ WoweeTrainer WoweeTrainerLoader::load(const std::string& basePath) {
                 !readPOD(is, s.moneyCostCopper) ||
                 !readPOD(is, s.requiredSkillId) ||
                 !readPOD(is, s.requiredSkillRank) ||
-                !readPOD(is, s.requiredLevel)) {
-                out.entries.clear(); return out;
-            }
+                !readPOD(is, s.requiredLevel)) { return false; }
         }
         e.items.resize(itemCount);
         for (uint16_t k = 0; k < itemCount; ++k) {
@@ -103,17 +89,14 @@ WoweeTrainer WoweeTrainerLoader::load(const std::string& basePath) {
                 !readPOD(is, it.stockCount) ||
                 !readPOD(is, it.restockSec) ||
                 !readPOD(is, it.extendedCost) ||
-                !readPOD(is, it.moneyCostCopper)) {
-                out.entries.clear(); return out;
-            }
+                !readPOD(is, it.moneyCostCopper)) { return false; }
         }
-    }
-    return out;
+                                  return true;
+                              });
 }
 
 bool WoweeTrainerLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeTrainer WoweeTrainerLoader::makeStarter(const std::string& catalogName) {

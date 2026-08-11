@@ -32,12 +32,9 @@ WoweeCameraPresets::findByPurpose(uint8_t purposeKind) const {
 }
 
 bool WoweeCameraPresetsLoader::save(const WoweeCameraPresets& cat,
-                                      const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeCameraPresets::Entry& e) {
         writePOD(os, e.presetId);
         writeStr(os, e.name);
         writePOD(os, e.purposeKind);
@@ -49,25 +46,15 @@ bool WoweeCameraPresetsLoader::save(const WoweeCameraPresets& cat,
         writePOD(os, e.yawOffsetDegrees);
         writePOD(os, e.shoulderOffsetMeters);
         writePOD(os, e.focusBoneId);
-    }
-    return os.good();
+                       });
 }
 
 WoweeCameraPresets WoweeCameraPresetsLoader::load(
     const std::string& basePath) {
-    WoweeCameraPresets out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.presetId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name)) {
-            out.entries.clear(); return out;
-        }
+    return loadCatalog<WoweeCameraPresets>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeCameraPresets::Entry& e) {
+        if (!readPOD(is, e.presetId)) { return false; }
+        if (!readStr(is, e.name)) { return false; }
         if (!readPOD(is, e.purposeKind) ||
             !readPOD(is, e.motionDamping) ||
             !readPOD(is, e.pad0) ||
@@ -76,16 +63,13 @@ WoweeCameraPresets WoweeCameraPresetsLoader::load(
             !readPOD(is, e.pitchDegrees) ||
             !readPOD(is, e.yawOffsetDegrees) ||
             !readPOD(is, e.shoulderOffsetMeters) ||
-            !readPOD(is, e.focusBoneId)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.focusBoneId)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeCameraPresetsLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 namespace {

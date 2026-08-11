@@ -58,12 +58,9 @@ WoweeMinimapLevels::findByArea(uint32_t mapId,
 }
 
 bool WoweeMinimapLevelsLoader::save(const WoweeMinimapLevels& cat,
-                                      const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeMinimapLevels::Entry& e) {
         writePOD(os, e.levelId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -78,25 +75,15 @@ bool WoweeMinimapLevelsLoader::save(const WoweeMinimapLevels& cat,
         writeStr(os, e.texturePath);
         writeStr(os, e.displayName);
         writePOD(os, e.iconColorRGBA);
-    }
-    return os.good();
+                       });
 }
 
 WoweeMinimapLevels WoweeMinimapLevelsLoader::load(
     const std::string& basePath) {
-    WoweeMinimapLevels out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.levelId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name) || !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
+    return loadCatalog<WoweeMinimapLevels>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeMinimapLevels::Entry& e) {
+        if (!readPOD(is, e.levelId)) { return false; }
+        if (!readStr(is, e.name) || !readStr(is, e.description)) { return false; }
         if (!readPOD(is, e.mapId) ||
             !readPOD(is, e.areaId) ||
             !readPOD(is, e.levelIndex) ||
@@ -104,23 +91,16 @@ WoweeMinimapLevels WoweeMinimapLevelsLoader::load(
             !readPOD(is, e.pad1) ||
             !readPOD(is, e.pad2) ||
             !readPOD(is, e.minZ) ||
-            !readPOD(is, e.maxZ)) {
-            out.entries.clear(); return out;
-        }
+            !readPOD(is, e.maxZ)) { return false; }
         if (!readStr(is, e.texturePath) ||
-            !readStr(is, e.displayName)) {
-            out.entries.clear(); return out;
-        }
-        if (!readPOD(is, e.iconColorRGBA)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readStr(is, e.displayName)) { return false; }
+        if (!readPOD(is, e.iconColorRGBA)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeMinimapLevelsLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeMinimapLevels WoweeMinimapLevelsLoader::makeStormwind(

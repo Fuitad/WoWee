@@ -64,12 +64,9 @@ const char* WoweeActionBar::barModeName(uint8_t m) {
 }
 
 bool WoweeActionBarLoader::save(const WoweeActionBar& cat,
-                                 const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeActionBar::Entry& e) {
         writePOD(os, e.bindingId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -81,24 +78,15 @@ bool WoweeActionBarLoader::save(const WoweeActionBar& cat,
         writePOD(os, e.pad0);
         writePOD(os, e.pad1);
         writePOD(os, e.iconColorRGBA);
-    }
-    return os.good();
+                       });
 }
 
-WoweeActionBar WoweeActionBarLoader::load(const std::string& basePath) {
-    WoweeActionBar out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.bindingId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name) || !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
+WoweeActionBar WoweeActionBarLoader::load(
+    const std::string& basePath) {
+    return loadCatalog<WoweeActionBar>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeActionBar::Entry& e) {
+        if (!readPOD(is, e.bindingId)) { return false; }
+        if (!readStr(is, e.name) || !readStr(is, e.description)) { return false; }
         if (!readPOD(is, e.classMask) ||
             !readPOD(is, e.spellId) ||
             !readPOD(is, e.itemId) ||
@@ -106,16 +94,13 @@ WoweeActionBar WoweeActionBarLoader::load(const std::string& basePath) {
             !readPOD(is, e.barMode) ||
             !readPOD(is, e.pad0) ||
             !readPOD(is, e.pad1) ||
-            !readPOD(is, e.iconColorRGBA)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.iconColorRGBA)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeActionBarLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeActionBar WoweeActionBarLoader::makeWarrior(

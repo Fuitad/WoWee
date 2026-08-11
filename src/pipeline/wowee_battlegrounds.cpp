@@ -35,12 +35,9 @@ const char* WoweeBattleground::objectiveKindName(uint8_t k) {
 }
 
 bool WoweeBattlegroundLoader::save(const WoweeBattleground& cat,
-                                   const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeBattleground::Entry& e) {
         writePOD(os, e.battlegroundId);
         writePOD(os, e.mapId);
         writeStr(os, e.name);
@@ -66,41 +63,26 @@ bool WoweeBattlegroundLoader::save(const WoweeBattleground& cat,
         writePOD(os, e.respawnTimeSeconds);
         writePadding(os, 2);
         writePOD(os, e.markTokenId);
-    }
-    return os.good();
+                       });
 }
 
-WoweeBattleground WoweeBattlegroundLoader::load(const std::string& basePath) {
-    WoweeBattleground out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
+WoweeBattleground WoweeBattlegroundLoader::load(
+    const std::string& basePath) {
+    return loadCatalog<WoweeBattleground>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeBattleground::Entry& e) {
         if (!readPOD(is, e.battlegroundId) ||
-            !readPOD(is, e.mapId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name) || !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
+            !readPOD(is, e.mapId)) { return false; }
+        if (!readStr(is, e.name) || !readStr(is, e.description)) { return false; }
         if (!readPOD(is, e.objectiveKind) ||
             !readPOD(is, e.minPlayersPerSide) ||
-            !readPOD(is, e.maxPlayersPerSide)) {
-            out.entries.clear(); return out;
-        }
-        if (!skipPadding(is, 1)) {
-            out.entries.clear(); return out;
-        }
+            !readPOD(is, e.maxPlayersPerSide)) { return false; }
+        if (!skipPadding(is, 1)) { return false; }
         if (!readPOD(is, e.minLevel) ||
             !readPOD(is, e.maxLevel) ||
             !readPOD(is, e.scoreToWin) ||
             !readPOD(is, e.timeLimitSeconds) ||
-            !readPOD(is, e.bracketSize)) {
-            out.entries.clear(); return out;
-        }
-        if (!skipPadding(is, 3)) { out.entries.clear(); return out; }
+            !readPOD(is, e.bracketSize)) { return false; }
+        if (!skipPadding(is, 3)) { return false; }
         if (!readPOD(is, e.allianceStart.x) ||
             !readPOD(is, e.allianceStart.y) ||
             !readPOD(is, e.allianceStart.z) ||
@@ -109,20 +91,15 @@ WoweeBattleground WoweeBattlegroundLoader::load(const std::string& basePath) {
             !readPOD(is, e.hordeStart.y) ||
             !readPOD(is, e.hordeStart.z) ||
             !readPOD(is, e.hordeFacing) ||
-            !readPOD(is, e.respawnTimeSeconds)) {
-            out.entries.clear(); return out;
-        }
-        if (!skipPadding(is, 2)) { out.entries.clear(); return out; }
-        if (!readPOD(is, e.markTokenId)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.respawnTimeSeconds)) { return false; }
+        if (!skipPadding(is, 2)) { return false; }
+        if (!readPOD(is, e.markTokenId)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeBattlegroundLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeBattleground WoweeBattlegroundLoader::makeStarter(const std::string& catalogName) {

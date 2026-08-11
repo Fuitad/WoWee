@@ -42,12 +42,9 @@ WoweeVoiceovers::findForTrigger(uint32_t npcId,
 }
 
 bool WoweeVoiceoversLoader::save(const WoweeVoiceovers& cat,
-                                   const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeVoiceovers::Entry& e) {
         writePOD(os, e.voiceId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -64,51 +61,34 @@ bool WoweeVoiceoversLoader::save(const WoweeVoiceovers& cat,
         writePOD(os, e.pad2);
         writePOD(os, e.pad3);
         writePOD(os, e.iconColorRGBA);
-    }
-    return os.good();
+                       });
 }
 
 WoweeVoiceovers WoweeVoiceoversLoader::load(
     const std::string& basePath) {
-    WoweeVoiceovers out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.voiceId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name) || !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
+    return loadCatalog<WoweeVoiceovers>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeVoiceovers::Entry& e) {
+        if (!readPOD(is, e.voiceId)) { return false; }
+        if (!readStr(is, e.name) || !readStr(is, e.description)) { return false; }
         if (!readPOD(is, e.npcId) ||
             !readPOD(is, e.eventKind) ||
             !readPOD(is, e.genderHint) ||
             !readPOD(is, e.variantIndex) ||
-            !readPOD(is, e.pad0)) {
-            out.entries.clear(); return out;
-        }
+            !readPOD(is, e.pad0)) { return false; }
         if (!readStr(is, e.audioPath) ||
-            !readStr(is, e.transcript)) {
-            out.entries.clear(); return out;
-        }
+            !readStr(is, e.transcript)) { return false; }
         if (!readPOD(is, e.durationMs) ||
             !readPOD(is, e.volumeDb) ||
             !readPOD(is, e.pad1) ||
             !readPOD(is, e.pad2) ||
             !readPOD(is, e.pad3) ||
-            !readPOD(is, e.iconColorRGBA)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.iconColorRGBA)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeVoiceoversLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeVoiceovers WoweeVoiceoversLoader::makeQuestgiver(

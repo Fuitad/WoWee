@@ -49,12 +49,9 @@ WoweeCombatManeuvers::findGroupForSpell(uint32_t spellId) const {
 }
 
 bool WoweeCombatManeuversLoader::save(const WoweeCombatManeuvers& cat,
-                                       const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeCombatManeuvers::Entry& e) {
         writePOD(os, e.groupId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -67,53 +64,34 @@ bool WoweeCombatManeuversLoader::save(const WoweeCombatManeuvers& cat,
         uint32_t memberCount = static_cast<uint32_t>(e.members.size());
         writePOD(os, memberCount);
         for (uint32_t m : e.members) writePOD(os, m);
-    }
-    return os.good();
+                       });
 }
 
 WoweeCombatManeuvers WoweeCombatManeuversLoader::load(
     const std::string& basePath) {
-    WoweeCombatManeuvers out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.groupId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name) || !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
+    return loadCatalog<WoweeCombatManeuvers>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeCombatManeuvers::Entry& e) {
+        if (!readPOD(is, e.groupId)) { return false; }
+        if (!readStr(is, e.name) || !readStr(is, e.description)) { return false; }
         if (!readPOD(is, e.classMask) ||
             !readPOD(is, e.categoryKind) ||
             !readPOD(is, e.exclusive) ||
             !readPOD(is, e.pad0) ||
             !readPOD(is, e.pad1) ||
-            !readPOD(is, e.iconColorRGBA)) {
-            out.entries.clear(); return out;
-        }
+            !readPOD(is, e.iconColorRGBA)) { return false; }
         uint32_t memberCount = 0;
-        if (!readPOD(is, memberCount)) {
-            out.entries.clear(); return out;
-        }
-        if (memberCount > (1u << 16)) {
-            out.entries.clear(); return out;
-        }
+        if (!readPOD(is, memberCount)) { return false; }
+        if (memberCount > (1u << 16)) { return false; }
         e.members.resize(memberCount);
         for (uint32_t k = 0; k < memberCount; ++k) {
-            if (!readPOD(is, e.members[k])) {
-                out.entries.clear(); return out;
-            }
+            if (!readPOD(is, e.members[k])) { return false; }
         }
-    }
-    return out;
+                                  return true;
+                              });
 }
 
 bool WoweeCombatManeuversLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeCombatManeuvers WoweeCombatManeuversLoader::makeWarrior(

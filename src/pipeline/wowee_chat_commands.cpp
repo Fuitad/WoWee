@@ -45,12 +45,9 @@ WoweeChatCommands::findByMinSecurity(uint8_t playerSec) const {
 }
 
 bool WoweeChatCommandsLoader::save(const WoweeChatCommands& cat,
-                                     const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeChatCommands::Entry& e) {
         writePOD(os, e.cmdId);
         writeStr(os, e.command);
         writePOD(os, e.minSecurityLevel);
@@ -66,58 +63,37 @@ bool WoweeChatCommandsLoader::save(const WoweeChatCommands& cat,
         for (const auto& a : e.aliases) {
             writeStr(os, a);
         }
-    }
-    return os.good();
+                       });
 }
 
 WoweeChatCommands WoweeChatCommandsLoader::load(
     const std::string& basePath) {
-    WoweeChatCommands out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.cmdId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.command)) {
-            out.entries.clear(); return out;
-        }
+    return loadCatalog<WoweeChatCommands>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeChatCommands::Entry& e) {
+        if (!readPOD(is, e.cmdId)) { return false; }
+        if (!readStr(is, e.command)) { return false; }
         if (!readPOD(is, e.minSecurityLevel) ||
             !readPOD(is, e.category) ||
             !readPOD(is, e.isHidden) ||
             !readPOD(is, e.pad0) ||
-            !readPOD(is, e.throttleMs)) {
-            out.entries.clear(); return out;
-        }
+            !readPOD(is, e.throttleMs)) { return false; }
         if (!readStr(is, e.argSchema) ||
-            !readStr(is, e.helpText)) {
-            out.entries.clear(); return out;
-        }
+            !readStr(is, e.helpText)) { return false; }
         uint32_t aliasCount = 0;
-        if (!readPOD(is, aliasCount)) {
-            out.entries.clear(); return out;
-        }
+        if (!readPOD(is, aliasCount)) { return false; }
         // Sanity cap — no command should have more
         // than 32 aliases.
-        if (aliasCount > 32) {
-            out.entries.clear(); return out;
-        }
+        if (aliasCount > 32) { return false; }
         e.aliases.resize(aliasCount);
         for (auto& a : e.aliases) {
-            if (!readStr(is, a)) {
-                out.entries.clear(); return out;
-            }
+            if (!readStr(is, a)) { return false; }
         }
-    }
-    return out;
+                                  return true;
+                              });
 }
 
 bool WoweeChatCommandsLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 namespace {

@@ -46,12 +46,9 @@ const char* WoweeLiquid::liquidKindName(uint8_t k) {
 }
 
 bool WoweeLiquidLoader::save(const WoweeLiquid& cat,
-                             const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeLiquid::Entry& e) {
         writePOD(os, e.liquidId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -70,26 +67,17 @@ bool WoweeLiquidLoader::save(const WoweeLiquid& cat,
         writePOD(os, e.flowDirection);
         writePOD(os, e.flowSpeed);
         writePOD(os, e.viscosity);
-    }
-    return os.good();
+                       });
 }
 
-WoweeLiquid WoweeLiquidLoader::load(const std::string& basePath) {
-    WoweeLiquid out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.liquidId)) {
-            out.entries.clear(); return out;
-        }
+WoweeLiquid WoweeLiquidLoader::load(
+    const std::string& basePath) {
+    return loadCatalog<WoweeLiquid>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeLiquid::Entry& e) {
+        if (!readPOD(is, e.liquidId)) { return false; }
         if (!readStr(is, e.name) || !readStr(is, e.description) ||
             !readStr(is, e.shaderPath) ||
-            !readStr(is, e.materialPath)) {
-            out.entries.clear(); return out;
-        }
+            !readStr(is, e.materialPath)) { return false; }
         if (!readPOD(is, e.liquidKind) ||
             !readPOD(is, e.fogColorR) ||
             !readPOD(is, e.fogColorG) ||
@@ -102,16 +90,13 @@ WoweeLiquid WoweeLiquidLoader::load(const std::string& basePath) {
             !readPOD(is, e.minimapColor) ||
             !readPOD(is, e.flowDirection) ||
             !readPOD(is, e.flowSpeed) ||
-            !readPOD(is, e.viscosity)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.viscosity)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeLiquidLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeLiquid WoweeLiquidLoader::makeStarter(const std::string& catalogName) {

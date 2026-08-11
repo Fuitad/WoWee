@@ -56,12 +56,9 @@ const char* WoweeStatCurve::curveKindName(uint8_t k) {
 }
 
 bool WoweeStatCurveLoader::save(const WoweeStatCurve& cat,
-                                 const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!os) return false;
-    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeStatCurve::Entry& e) {
         writePOD(os, e.curveId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -73,24 +70,15 @@ bool WoweeStatCurveLoader::save(const WoweeStatCurve& cat,
         writePOD(os, e.perLevelDelta);
         writePOD(os, e.multiplier);
         writePOD(os, e.iconColorRGBA);
-    }
-    return os.good();
+                       });
 }
 
-WoweeStatCurve WoweeStatCurveLoader::load(const std::string& basePath) {
-    WoweeStatCurve out;
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    if (!is) return out;
-    uint32_t entryCount = 0;
-    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.curveId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name) || !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
+WoweeStatCurve WoweeStatCurveLoader::load(
+    const std::string& basePath) {
+    return loadCatalog<WoweeStatCurve>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeStatCurve::Entry& e) {
+        if (!readPOD(is, e.curveId)) { return false; }
+        if (!readStr(is, e.name) || !readStr(is, e.description)) { return false; }
         if (!readPOD(is, e.curveKind) ||
             !readPOD(is, e.minLevel) ||
             !readPOD(is, e.maxLevel) ||
@@ -98,16 +86,13 @@ WoweeStatCurve WoweeStatCurveLoader::load(const std::string& basePath) {
             !readPOD(is, e.baseValue) ||
             !readPOD(is, e.perLevelDelta) ||
             !readPOD(is, e.multiplier) ||
-            !readPOD(is, e.iconColorRGBA)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.iconColorRGBA)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeStatCurveLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeStatCurve WoweeStatCurveLoader::makeCrit(
