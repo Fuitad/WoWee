@@ -59,11 +59,39 @@ SKIP = {
 PARSES_NAMED_ONLY_ON_PURPOSE = {"widget_field_check.py"}
 
 
+# The game data a sweep reads is not all in the repository: Data/expansions and
+# Data/opcodes are tracked, the extracted interface and the DBC files are the
+# player's own. A sweep whose input is absent is not a sweep that cannot run.
+DATA_INPUTS = {
+    "Data/interface": TOOLS.parent / "Data/interface",
+    "Data/db": TOOLS.parent / "Data/db",
+}
+
+
+def missing_input(path):
+    """The data directory this sweep reads and this checkout does not have."""
+    try:
+        source = path.read_text(errors="ignore")
+    except OSError:
+        return None
+    for name, directory in DATA_INPUTS.items():
+        if name in source and not directory.is_dir():
+            return name
+    return None
+
+
 def main():
     guard = (TOOLS / "sweep_guard.py").read_text(errors="ignore")
-    checked, broken = [], []
+    checked, broken, skipped = [], [], []
     for path in sorted(TOOLS.glob("*.py")):
         if path.name in SKIP or f'"{path.name}"' in guard:
+            continue
+        absent = missing_input(path)
+        if absent:
+            # Not run, and counted separately. On a checkout without the
+            # extracted interface these raise FileNotFoundError, which reads
+            # exactly like a broken sweep and is not one.
+            skipped.append((path.name, absent))
             continue
         checked.append(path.name)
         try:
@@ -84,6 +112,11 @@ def main():
                            f"exit {done.returncode} with nothing on stderr"))
 
     print(f"{len(checked)} sweep(s) run that sweep_guard does not\n")
+    if skipped:
+        print(f"{len(skipped)} skipped, their data not in this checkout:\n")
+        for name, why in skipped:
+            print(f"  {name:38} needs {why}")
+        print()
     print(f"{len(broken)} that cannot run:\n")
     for name, why in broken:
         print(f"  {name}")

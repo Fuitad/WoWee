@@ -46,6 +46,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 RUNNER = ROOT / "build" / "bin" / "framexml_run"
 DATA = ROOT / "Data"
+# What this actually needs. Data/expansions and Data/opcodes are tracked, so a
+# checkout with no extracted interface still has a Data directory — and testing
+# for that one ran the whole sweep against an interface that is not there.
+INTERFACE = ROOT / "Data/interface"
 
 # The panel each addon exists to draw. Eight of these are the load-on-demand
 # entries in framexml_takeover.cpp's check list, which is where the frame name
@@ -94,7 +98,7 @@ PIECE = (
 
 
 def main():
-    if not RUNNER.is_file() or not DATA.is_dir():
+    if not RUNNER.is_file() or not DATA.is_dir() or not INTERFACE.is_dir():
         print("framexml_run or Data is missing — nothing opened.")
         return 0
 

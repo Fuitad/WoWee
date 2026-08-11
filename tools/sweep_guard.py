@@ -825,6 +825,37 @@ SENTENCES = [
 ]
 
 
+# The game data a sweep reads is not in the repository. Data/expansions and
+# Data/opcodes are tracked; the extracted interface and the DBC files are the
+# player's own, so CI has a Data directory with neither in it.
+#
+# A sweep whose input is absent does not report zero — it reports whatever it
+# can see, which is nothing, and the shape of that report is not the shape this
+# guard reads. Eleven of them came back either unreadable or wildly over
+# ceiling on a checkout without the interface: framexml_promised_frames counted
+# 226 frames "nothing declares" because nothing declares anything when there
+# are no XML files to declare it in.
+#
+# Skipped and said so, which is what the framexml_run checks below already do.
+# A guard that cannot see its subject must say so rather than pass or fail.
+DATA_INPUTS = {
+    "Data/interface": ROOT / "Data/interface",
+    "Data/db": ROOT / "Data/db",
+}
+
+
+def missing_input(tool):
+    """The data directory this sweep reads and this checkout does not have."""
+    try:
+        source = (TOOLS / tool).read_text()
+    except OSError:
+        return None
+    for path, directory in DATA_INPUTS.items():
+        if path in source and not directory.is_dir():
+            return path
+    return None
+
+
 def run(tool):
     out = subprocess.run([sys.executable, str(TOOLS / tool)],
                          capture_output=True, text=True)
@@ -1387,11 +1418,19 @@ def main():
         outputs.setdefault(tool, None)
     for tool, *_ in SENTENCES:
         outputs.setdefault(tool, None)
+    skipped = {}
     for tool in outputs:
+        absent = missing_input(tool)
+        if absent:
+            skipped[tool] = absent
+            continue
         outputs[tool] = run(tool)
 
     failures = []
     for tool, pattern, ceiling, what in CHECKS:
+        if tool in skipped:
+            print(f"  skip    -       {what} (no {skipped[tool]})")
+            continue
         m = re.search(pattern, outputs[tool], re.M)
         if not m:
             failures.append(f"{tool}: could not read its own count for "
@@ -1405,6 +1444,9 @@ def main():
             failures.append(f"{tool}: {found} {what}, ceiling is {ceiling}")
 
     for tool, sentence, what in SENTENCES:
+        if tool in skipped:
+            print(f"  skip    -       {what} (no {skipped[tool]})")
+            continue
         clean = sentence in outputs[tool]
         print(f"  {'ok ' if clean else 'OVER'}    -       {what}")
         if not clean:

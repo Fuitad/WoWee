@@ -1150,18 +1150,32 @@ void AuthScreen::loadLoginGraphicsState() {
         std::string key = line.substr(0, eq);
         std::string val = line.substr(eq + 1);
 
+        // Clamped to the same ranges GameScreen::loadSettings uses.
+        //
+        // Without this a value the file holds outside the range is kept, shown
+        // against a slider that cannot represent it, and written straight back
+        // on Apply — while the game clamps the same value on the way in. A
+        // config carrying view_distance=0 showed the slider pinned at the far
+        // left reading 0 and stayed there for good, with the world drawing at
+        // 400 regardless. Reported as settings "always saved as low".
+        const auto clampF = [](float v, float lo, float hi) {
+            return v < lo ? lo : (v > hi ? hi : v);
+        };
+        const auto clampI = [](int v, int lo, int hi) {
+            return v < lo ? lo : (v > hi ? hi : v);
+        };
         if (key == "graphics_preset")       loginGfx_.preset        = std::stoi(val);
         else if (key == "shadows")          loginGfx_.shadows        = (val == "1");
-        else if (key == "shadow_distance")  loginGfx_.shadowDistance = std::stof(val);
-        else if (key == "view_distance")    loginGfx_.viewDistance   = std::stof(val);
-        else if (key == "antialiasing")     loginGfx_.antiAliasing   = std::stoi(val);
+        else if (key == "shadow_distance")  loginGfx_.shadowDistance = clampF(std::stof(val), 50.0f, 500.0f);
+        else if (key == "view_distance")    loginGfx_.viewDistance   = clampF(std::stof(val), 400.0f, 2400.0f);
+        else if (key == "antialiasing")     loginGfx_.antiAliasing   = clampI(std::stoi(val), 0, 3);
         else if (key == "fxaa")             loginGfx_.fxaa           = (val == "1");
         else if (key == "normal_mapping")   loginGfx_.normalMapping  = (val == "1");
         else if (key == "pom")              loginGfx_.pom            = (val == "1");
         else if (key == "pom_quality")      loginGfx_.pomQuality     = std::stoi(val);
         else if (key == "upscaling_mode")   loginGfx_.upscalingMode  = std::stoi(val);
         else if (key == "water_refraction") loginGfx_.waterRefraction = (val == "1");
-        else if (key == "ground_clutter_density") loginGfx_.groundClutter = std::stoi(val);
+        else if (key == "ground_clutter_density") loginGfx_.groundClutter = clampI(std::stoi(val), 0, 150);
         else if (key == "brightness")       loginGfx_.brightness     = std::stoi(val);
         else if (key == "vsync")            loginGfx_.vsync          = (val == "1");
         else if (key == "fullscreen")       loginGfx_.fullscreen     = (val == "1");
@@ -1257,11 +1271,14 @@ void AuthScreen::renderLoginSettingsWindow() {
                            400.0f, 2400.0f, "%.0f");
 
         // Anti-aliasing
-        const char* aaNames[] = {"Off", "2x MSAA", "4x MSAA"};
+        // The same four the settings schema offers. This list had three, so
+        // 8x could be set in the game and never shown or chosen here — and
+        // picking any mode here wrote a value this list could not name back.
+        const char* aaNames[] = {"Off", "2x MSAA", "4x MSAA", "8x MSAA"};
         ImGui::Text("Anti-Aliasing:");
         ImGui::SameLine();
         ImGui::SetNextItemWidth(130.0f);
-        ImGui::Combo("##aa", &loginGfx_.antiAliasing, aaNames, 3);
+        ImGui::Combo("##aa", &loginGfx_.antiAliasing, aaNames, IM_ARRAYSIZE(aaNames));
 
         ImGui::Checkbox("FXAA",           &loginGfx_.fxaa);
         ImGui::Checkbox("Normal Mapping", &loginGfx_.normalMapping);
@@ -1282,7 +1299,9 @@ void AuthScreen::renderLoginSettingsWindow() {
         ImGui::Text("Ground Clutter:");
         ImGui::SameLine();
         ImGui::SetNextItemWidth(200.0f);
-        ImGui::SliderInt("##clutter", &loginGfx_.groundClutter, 0, 200);
+        // 150, not 200: GameScreen::loadSettings clamps there, so the last
+        // fifty units of this slider were silently discarded at login.
+        ImGui::SliderInt("##clutter", &loginGfx_.groundClutter, 0, 150);
 
         // Brightness
         ImGui::Text("Brightness:");
