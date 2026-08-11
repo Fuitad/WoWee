@@ -479,10 +479,6 @@ VkDescriptorSet SpellbookScreen::getSpellIcon(uint32_t iconId, pipeline::AssetMa
 
     // Rate-limit GPU uploads to avoid a multi-frame stall when switching tabs.
     // Icons not loaded this frame will be retried next frame (progressive load).
-    static int loadsThisFrame = 0;
-    static int lastImGuiFrame = -1;
-    int curFrame = ImGui::GetFrameCount();
-    if (curFrame != lastImGuiFrame) { loadsThisFrame = 0; lastImGuiFrame = curFrame; }
     // Defer without caching — returning null here allows retry next frame when
     // the budget resets, rather than permanently blacklisting the icon as missing
     if (!claimUiTextureUpload()) return VK_NULL_HANDLE;
@@ -513,7 +509,6 @@ VkDescriptorSet SpellbookScreen::getSpellIcon(uint32_t iconId, pipeline::AssetMa
         return VK_NULL_HANDLE;
     }
 
-    ++loadsThisFrame;
     VkDescriptorSet ds = vkCtx->uploadImGuiTexture(image.data.data(), image.width, image.height);
     spellIconCache[iconId] = ds;
     return ds;

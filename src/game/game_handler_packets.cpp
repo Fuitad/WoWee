@@ -1740,7 +1740,7 @@ void GameHandler::registerRemainingOpcodes() {
         if (addonEventCallback_) addonEventCallback_("TALENTS_INVOLUNTARILY_RESET", {});
         packet.skipAll();
     };
-    dispatchTable_[Opcode::SMSG_SET_REST_START] = [this](network::Packet& packet) {
+    dispatchTable_[Opcode::SMSG_SET_REST_START] = [](network::Packet& packet) {
         // The rest-XP accumulation start time, not a statement about where the
         // player is standing: the server sends it on login wherever that is.
         // Resting itself comes from PLAYER_FLAGS_RESTING, which entity_controller
@@ -3110,7 +3110,7 @@ void GameHandler::registerRemainingOpcodes() {
         packet.skipAll();
     };
     // uint32 unixTime — server's current unix timestamp; use to sync gameTime_
-    dispatchTable_[Opcode::SMSG_SERVERTIME] = [this](network::Packet& packet) {
+    dispatchTable_[Opcode::SMSG_SERVERTIME] = [](network::Packet& packet) {
         // uint32 unixTime — server's current unix timestamp; use to sync gameTime_
         // A unix timestamp, which is not a time of day. It used to be stored
         // in gameTime_ alongside values in three other units, so whichever

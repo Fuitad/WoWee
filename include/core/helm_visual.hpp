@@ -19,6 +19,14 @@ namespace pipeline { class AssetManager; }
 
 namespace core {
 
+/// The M2 attachment point a helmet hangs from. Attachment 0 is the shield
+/// mount; 11 is the head.
+///
+/// Written out separately in appearance_composer, entity_spawner and
+/// entity_spawner_player, which is how one of the three came to keep its copy
+/// after it stopped attaching anything.
+constexpr uint32_t kAttachHelm = 11;
+
 struct HelmVisual {
     /// Candidate model paths, most specific first. The caller loads them in
     /// order because only it knows how to load an M2, and stops at the first

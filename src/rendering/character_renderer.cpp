@@ -1900,7 +1900,7 @@ void CharacterRenderer::setupModelBuffers(M2ModelGPU& gpuModel) {
 
     // Copy base vertex data
     size_t numBones = model.bones.size();
-    int outOfRangeCount = 0, ge128Count = 0, nonzeroWeightOOR = 0;
+    int outOfRangeCount = 0, nonzeroWeightOOR = 0;
     for (size_t i = 0; i < vertCount; i++) {
         const auto& src = model.vertices[i];
         auto& dst = gpuVerts[i];
@@ -1919,7 +1919,6 @@ void CharacterRenderer::setupModelBuffers(M2ModelGPU& gpuModel) {
                 outOfRangeCount++;
                 if (bw > 0) nonzeroWeightOOR++;
             }
-            if (bi >= 128) ge128Count++;
         }
     }
     // A bone index past the end of the bone list, which is a broken model or a

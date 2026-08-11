@@ -25,7 +25,6 @@ namespace {
 constexpr uint32_t kAttachShield = 0;
 // M2 attachment 11 is the helm; 0 is the shield mount, which is where head
 // gear was going — attached successfully, on the forearm, invisible on the head.
-constexpr uint32_t kAttachHelm = 11;
 constexpr uint32_t kAttachRightHand = 1;
 constexpr uint32_t kAttachLeftHand = 2;
 constexpr uint32_t kAttachRightHip = 9;

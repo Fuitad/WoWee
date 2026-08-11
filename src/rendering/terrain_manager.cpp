@@ -95,7 +95,6 @@ constexpr uint8_t ALPHA_COUNT_MASK  = 0x7F;  // RLE command: count bits
 constexpr float kRand16Max = 65535.0f;
 
 // Placement transform constants
-constexpr float kDegToRad = 3.14159f / 180.0f;
 constexpr float kInv1024  = 1.0f / 1024.0f;
 
 int computeTerrainWorkerCount() {

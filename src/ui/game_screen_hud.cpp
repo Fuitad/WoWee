@@ -822,10 +822,6 @@ VkDescriptorSet GameScreen::getSpellIcon(uint32_t spellId, pipeline::AssetManage
 
     // Rate-limit GPU uploads per frame to prevent stalls when many icons are uncached
     // (e.g., first login, after loading screen, or many new auras appearing at once).
-    static int gsLoadsThisFrame = 0;
-    static int gsLastImGuiFrame = -1;
-    int gsCurFrame = ImGui::GetFrameCount();
-    if (gsCurFrame != gsLastImGuiFrame) { gsLoadsThisFrame = 0; gsLastImGuiFrame = gsCurFrame; }
     if (!claimUiTextureUpload()) return VK_NULL_HANDLE;  // defer — do NOT cache null here
 
     // Look up spellId -> SpellIconID -> icon path
@@ -863,7 +859,6 @@ VkDescriptorSet GameScreen::getSpellIcon(uint32_t spellId, pipeline::AssetManage
         return VK_NULL_HANDLE;
     }
 
-    ++gsLoadsThisFrame;
     VkDescriptorSet ds = vkCtx->uploadImGuiTexture(image.data.data(), image.width, image.height);
     spellIconCache_[spellId] = ds;
     return ds;

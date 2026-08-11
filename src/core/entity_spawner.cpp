@@ -5,8 +5,6 @@
 #include "pipeline/item_textures.hpp"
 #include "core/helm_visual.hpp"
 
-// M2 attachment 11 is the helm; 0 is the shield mount.
-namespace { constexpr uint32_t kAttachHelm = 11; }
 #include "core/coordinates.hpp"
 #include "core/logger.hpp"
 #include "rendering/renderer.hpp"

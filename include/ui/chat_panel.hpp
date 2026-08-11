@@ -255,10 +255,6 @@ public:
     void setBubblesShown(bool shown) { bubbleManager_.setBubblesShown(shown); }
 private:
 
-    // ---- Whisper toast state (populated in render, rendered by GameScreen/ToastManager) ----
-    // Whisper scanning lives here because it's tightly coupled to chat history iteration.
-    size_t whisperSeenCount_ = 0;
-
     // ---- Helpers ----
     void sendChatMessage(game::GameHandler& gameHandler);
     static int inputTextCallback(ImGuiInputTextCallbackData* data);
@@ -267,8 +263,6 @@ private:
     // Cached game handler for input callback (set each frame in render)
     game::GameHandler* cachedGameHandler_ = nullptr;
 
-    // Join channel input buffer
-    char joinChannelBuffer_[128] = "";
 
     // Slash command flags (accumulated, consumed by GameScreen)
     SlashCommands slashCmds_;

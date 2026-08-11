@@ -4744,10 +4744,6 @@ VkDescriptorSet WindowManager::getAchievementIcon(uint32_t spellIconId) {
     // Rate-limit GPU uploads per frame to avoid a stall when the list first scrolls
     // into view with many uncached icons; leave uncached (do NOT store null) so a
     // later frame retries.
-    static int achLoadsThisFrame = 0;
-    static int achLastFrame = -1;
-    int curFrame = ImGui::GetFrameCount();
-    if (curFrame != achLastFrame) { achLoadsThisFrame = 0; achLastFrame = curFrame; }
     if (!claimUiTextureUpload()) return VK_NULL_HANDLE;
 
     auto pit = achievementIconPaths_.find(spellIconId);
@@ -4765,7 +4761,6 @@ VkDescriptorSet WindowManager::getAchievementIcon(uint32_t spellIconId) {
     auto* vkCtx = window ? window->getVkContext() : nullptr;
     if (!vkCtx) return VK_NULL_HANDLE;  // no context yet — retry next frame
 
-    ++achLoadsThisFrame;
     VkDescriptorSet ds = vkCtx->uploadImGuiTexture(image.data.data(), image.width, image.height);
     achievementIconCache_[spellIconId] = ds;
     return ds;

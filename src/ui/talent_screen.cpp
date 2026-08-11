@@ -818,12 +818,7 @@ VkDescriptorSet TalentScreen::getSpellIcon(uint32_t iconId, pipeline::AssetManag
     // to a tab whose icons are not yet cached (each upload is a blocking GPU op).
     // Allow at most 4 new icon loads per frame; the rest show a blank icon and
     // load on the next frame, spreading the cost across ~5 frames.
-    static int loadsThisFrame = 0;
-    static int lastImGuiFrame = -1;
-    int curFrame = ImGui::GetFrameCount();
-    if (curFrame != lastImGuiFrame) { loadsThisFrame = 0; lastImGuiFrame = curFrame; }
     if (!claimUiTextureUpload()) return VK_NULL_HANDLE;  // defer, don't cache null
-    ++loadsThisFrame;
 
     auto pit = spellIconPaths.find(iconId);
     if (pit == spellIconPaths.end()) {
