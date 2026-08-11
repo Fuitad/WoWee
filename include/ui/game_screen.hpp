@@ -74,6 +74,9 @@ public:
     /// index it drew the combo with, and writes all three to disk.
     int getResolutionIndex() const;
     void setResolutionIndex(int index);
+    /// Anti-aliasing, as a row in the four modes the panels offer.
+    int getAntiAliasingIndex() const;
+    void setAntiAliasingIndex(int index);
 
     // Gamma, as WoW's video options mean it: 1.0 is untouched, and the client
     // keeps the same number as a 0-100 brightness where 50 is neutral. Exposed

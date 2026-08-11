@@ -162,6 +162,21 @@ void GameScreen::setResolutionIndex(int index) {
                                           settingsPanel_.pendingResolutionHeight);
 }
 
+/// Anti-aliasing, shared with the interface's own Multisampling dropdown.
+///
+/// Through applySettingSideEffects rather than by writing the field, so the
+/// renderer is told: the field alone is the value with nothing applying it,
+/// which is the shape [[state_without_an_event]] describes.
+int GameScreen::getAntiAliasingIndex() const {
+    return settingsPanel_.pendingAntiAliasing;
+}
+
+void GameScreen::setAntiAliasingIndex(int index) {
+    if (index < 0 || index > 3) return;
+    settingsPanel_.pendingAntiAliasing = index;
+    settingsPanel_.applySettingSideEffects("antialiasing");
+}
+
 void GameScreen::setServices(const UIServices& services) {
     services_ = services;
     // Settings are loaded by the constructor before services are injected.

@@ -660,6 +660,12 @@ bool Application::initialize() {
         luaSvc.getResolutionIndex = [uim = uiManager.get()]() -> int {
             return uim ? uim->getGameScreen().getResolutionIndex() : 0;
         };
+        luaSvc.getAntiAliasingIndex = [uim = uiManager.get()]() -> int {
+            return uim ? uim->getGameScreen().getAntiAliasingIndex() : 0;
+        };
+        luaSvc.setAntiAliasingIndex = [uim = uiManager.get()](int i) {
+            if (uim) uim->getGameScreen().setAntiAliasingIndex(i);
+        };
         luaSvc.setResolutionIndex = [uim = uiManager.get()](int i) {
             if (uim) uim->getGameScreen().setResolutionIndex(i);
         };

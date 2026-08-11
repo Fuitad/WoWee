@@ -200,6 +200,13 @@ struct LuaServices {
     std::function<int()> getResolutionIndex;
     std::function<void(int)> setResolutionIndex;
 
+    /// Anti-aliasing, as a row in the same four modes this client's own panel
+    /// offers. The video panel's Multisampling dropdown is built from
+    /// GetMultisampleFormats and hands back the row, so the list and the index
+    /// have to be one thing here too.
+    std::function<int()> getAntiAliasingIndex;
+    std::function<void(int)> setAntiAliasingIndex;
+
     /// The barber shop's selectors, for the interface's own barber panel.
     ///
     /// Selector numbers are FrameXML's BarberShopFrameSelector IDs: 1 hair

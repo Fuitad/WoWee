@@ -2048,6 +2048,57 @@ static int lua_GetCurrentResolution(lua_State* L) {
 // A no-op before this, which is why the comment beside RestoreVideoResolutionDefaults
 // could say nothing above it was settable. Both records are moved together, so
 // this client's own options do not show the size it had before.
+/// The four anti-aliasing modes, in the shape the video panel reads them.
+///
+/// VideoOptionsResolutionPanel_GetMultisampleFormats walks its varargs in
+/// threes — colour bits, depth bits, sample count — and formats each into
+/// MULTISAMPLING_FORMAT_STRING. The colour and depth numbers are this client's
+/// swapchain and depth buffer, which do not change with the mode; only the
+/// sample count does, and those are the same four the client's own
+/// Anti-aliasing setting offers.
+static int lua_GetMultisampleFormats(lua_State* L) {
+    static constexpr int kSamples[] = {1, 2, 4, 8};
+    for (int samples : kSamples) {
+        lua_pushnumber(L, 32);        // colour bits
+        lua_pushnumber(L, 24);        // depth bits
+        lua_pushnumber(L, samples);
+    }
+    return 3 * static_cast<int>(sizeof(kSamples) / sizeof(kSamples[0]));
+}
+
+/// The row of the list above that is in force, counted from one.
+static int lua_GetCurrentMultisampleFormat(lua_State* L) {
+    auto* svc = getLuaServices(L);
+    const int row = (svc && svc->getAntiAliasingIndex) ? svc->getAntiAliasingIndex() : 0;
+    lua_pushnumber(L, std::clamp(row, 0, 3) + 1);
+    return 1;
+}
+
+/// SetMultisampleFormat(row) — the dropdown's row, counted from one.
+static int lua_SetMultisampleFormat(lua_State* L) {
+    auto* svc = getLuaServices(L);
+    const int row = static_cast<int>(luaL_optnumber(L, 1, 0));
+    if (svc && svc->setAntiAliasingIndex && row >= 1) svc->setAntiAliasingIndex(row - 1);
+    return 0;
+}
+
+/// GetRefreshRates() — one zero, which is this API's own word for "none".
+///
+/// Not nothing. VideoOptionsResolutionPanel_GetRefreshRates tests for exactly
+/// one argument equal to zero and, finding it, disables the dropdown and greys
+/// its label and text — which is what the real client does in windowed mode,
+/// where the desktop owns the refresh rate. Returning nothing instead runs its
+/// loop zero times, and the control was left blank, enabled and clickable with
+/// nothing behind it.
+///
+/// The general rule that a list-returning function says "none" by returning
+/// nothing still holds; this one is a caller that defined its own sentinel and
+/// checks for it first.
+static int lua_GetRefreshRates(lua_State* L) {
+    lua_pushnumber(L, 0);
+    return 1;
+}
+
 static int lua_SetScreenResolution(lua_State* L) {
     auto* svc = getLuaServices(L);
     const int row = static_cast<int>(luaL_optnumber(L, 1, 0));
@@ -4293,24 +4344,28 @@ void registerSystemLuaAPI(lua_State* L) {
             return 1;
         }},
                 {"GetNumArenaOpponents",     lua_ReturnZero},
-                {"GetCurrentMultisampleFormat", lua_ReturnOne},
+                {"GetCurrentMultisampleFormat", lua_GetCurrentMultisampleFormat},
                 // These hand back a list, not a value: the caller walks it with
                 // select("#", ...) and reads it in groups. One number makes the
                 // loop run once against nils, which is worse than an empty
                 // list — for anything returning a list, nothing is the right
                 // way to say there is none.
-                // The anti-aliasing dropdown, left empty on purpose. It walks
-                // its formats in threes — colourBits, depthBits, samples — so
-                // the shape is answerable, and this client has 1x/2x/4x/8x MSAA
-                // behind the same kind of index the resolution dropdown uses.
-                // What it cannot say is that MSAA is unavailable while FSR is
-                // running, which is a rule the settings panel enforces by
-                // disabling its own combo. A dropdown that offers four modes
-                // and silently applies none of them is worse than one that
-                // offers nothing, and emptying it when FSR toggles mid-session
-                // is not a state the panel expects either.
-                {"GetMultisampleFormats",    lua_ReturnNothing},
-                {"GetRefreshRates",          lua_ReturnNothing},
+                // The anti-aliasing dropdown, which used to be left empty on
+                // the argument that offering modes was worse than offering
+                // none. Empty was worse than either: UIDropDownMenu_Refresh
+                // walks the shared DropDownList1 buttons, so a dropdown that
+                // adds none of its own reads whichever list was built last and
+                // takes its text. Multisampling showed "1280x720 (Wide)",
+                // copied from the Resolution dropdown three controls away.
+                //
+                // The four modes are real and are the same four this client's
+                // own panel offers, so choosing one applies it. MSAA is moot
+                // while FSR is upscaling — which is why the client's own combo
+                // disables itself there — but the choice is still recorded and
+                // still takes effect when FSR is off, which is what that combo
+                // does with it too.
+                {"GetMultisampleFormats",    lua_GetMultisampleFormats},
+                {"GetRefreshRates",          lua_GetRefreshRates},
                 // ---- The options panels behind the game menu ----
                 //
                 // Every reader here was bound and none of the writers were, so
@@ -4327,7 +4382,7 @@ void registerSystemLuaAPI(lua_State* L) {
                 // what is set. These accept the call and change nothing, which
                 // is the truth rather than a stub.
                 {"SetScreenResolution",      lua_SetScreenResolution},
-                {"SetMultisampleFormat",     lua_ReturnNothing},
+                {"SetMultisampleFormat",     lua_SetMultisampleFormat},
                 // Resolution and windowed mode are settable now, so this one
                 // has something to put back and does not do it. Left rather
                 // than guessed: the defaults live as function-local constants
