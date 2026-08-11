@@ -870,6 +870,436 @@ void GameScreen::renderMinimapChests(const MinimapFrame& frame, const EntityList
 
 }
 
+// The ! and ? over a quest giver, from the status the server sends per NPC.
+void GameScreen::renderMinimapQuestGivers(const MinimapFrame& frame, const QuestStatusMap& statuses,
+                                         game::GameHandler& gameHandler) {
+    for (const auto& [guid, status] : statuses) {
+        ImU32 dotColor;
+        const char* marker = nullptr;
+        if (status == game::QuestGiverStatus::AVAILABLE) {
+            dotColor = IM_COL32(255, 210, 0, 255);
+            marker = "!";
+        } else if (status == game::QuestGiverStatus::AVAILABLE_LOW) {
+            dotColor = IM_COL32(160, 160, 160, 255);
+            marker = "!";
+        } else if (status == game::QuestGiverStatus::REWARD ||
+                   status == game::QuestGiverStatus::REWARD_REP) {
+            dotColor = IM_COL32(255, 210, 0, 255);
+            marker = "?";
+        } else if (status == game::QuestGiverStatus::INCOMPLETE) {
+            dotColor = IM_COL32(160, 160, 160, 255);
+            marker = "?";
+        } else {
+            continue;
+        }
+
+        auto entity = gameHandler.getEntityManager().getEntity(guid);
+        if (!entity) continue;
+
+        float sx = 0.0f, sy = 0.0f;
+        if (!frame.projectEntity(*entity, sx, sy)) continue;
+
+        // Draw dot with marker text
+        frame.drawList->AddCircleFilled(ImVec2(sx, sy), 5.0f, dotColor);
+        ImFont* font = ImGui::GetFont();
+        ImVec2 textSize = font->CalcTextSizeA(11.0f, FLT_MAX, 0.0f, marker);
+        frame.drawList->AddText(font, 11.0f,
+            ImVec2(sx - textSize.x * 0.5f, sy - textSize.y * 0.5f),
+            IM_COL32(0, 0, 0, 255), marker);
+
+        // Show NPC name and quest status on hover
+        {
+            ImVec2 mouse = ImGui::GetMousePos();
+            if (cursorNearBlip(sx, sy)) {
+                std::string npcName;
+                if (entity->getType() == game::ObjectType::UNIT) {
+                    auto npcUnit = std::static_pointer_cast<game::Unit>(entity);
+                    npcName = npcUnit->getName();
+                }
+                if (!npcName.empty()) {
+                    bool hasQuest = (status == game::QuestGiverStatus::AVAILABLE ||
+                                     status == game::QuestGiverStatus::AVAILABLE_LOW);
+                    ImGui::SetTooltip("%s\n%s", npcName.c_str(),
+                                      hasQuest ? "Has a quest for you" : "Quest ready to turn in");
+                }
+            }
+        }
+    }
+
+}
+
+// A gold X over an NPC a tracked quest still needs killed.
+//
+// Skips any NPC that already has a ! or a ?: a quest giver marker is more
+// specific than an objective marker at the same NPC.
+void GameScreen::renderMinimapQuestKills(const MinimapFrame& frame, const EntityList& minimapUnits,
+                                        const QuestStatusMap& statuses,
+                                        game::GameHandler& gameHandler) {
+    // Quest kill objective markers — highlight live NPCs matching active quest kill objectives
+    {
+        // Build map of NPC entry → (quest title, current, required) for tooltips
+        struct KillInfo { std::string questTitle; uint32_t current = 0; uint32_t required = 0; };
+        std::unordered_map<uint32_t, KillInfo> killInfoMap;
+        const auto& mapVisibleIds = gameHandler.getMapVisibleQuestIds();
+        for (const auto& quest : gameHandler.getQuestLog()) {
+            if (quest.complete) continue;
+            if (!mapVisibleIds.count(quest.questId)) continue;
+            for (const auto& obj : quest.killObjectives) {
+                if (obj.npcOrGoId <= 0 || obj.required == 0) continue;
+                uint32_t npcEntry = static_cast<uint32_t>(obj.npcOrGoId);
+                auto it = quest.killCounts.find(npcEntry);
+                uint32_t current = (it != quest.killCounts.end()) ? it->second.first : 0;
+                if (current < obj.required) {
+                    killInfoMap[npcEntry] = { quest.title, current, obj.required };
+                }
+            }
+        }
+
+        if (!killInfoMap.empty()) {
+            ImVec2 mouse = ImGui::GetMousePos();
+            for (const auto& entity : minimapUnits) {
+                auto unit = std::static_pointer_cast<game::Unit>(entity);
+                if (!unit || unit->getHealth() == 0) continue;
+                // A quest giver/turn-in marker is more specific than an objective
+                // marker at the same NPC. Do not paint the objective X over ! or ?.
+                if (statuses.find(entity->getGuid()) != statuses.end()) continue;
+                auto infoIt = killInfoMap.find(unit->getEntry());
+                if (infoIt == killInfoMap.end()) continue;
+
+                float sx = 0.0f, sy = 0.0f;
+                if (!frame.projectEntity(*entity, sx, sy)) continue;
+
+                // Gold circle with a dark "x" mark — indicates a quest kill target
+                frame.drawList->AddCircleFilled(ImVec2(sx, sy), 5.0f, IM_COL32(255, 185, 0, 240));
+                frame.drawList->AddCircle(ImVec2(sx, sy), 5.5f, IM_COL32(0, 0, 0, 180), 12, 1.0f);
+                frame.drawList->AddLine(ImVec2(sx - 2.5f, sy - 2.5f), ImVec2(sx + 2.5f, sy + 2.5f),
+                                  IM_COL32(20, 20, 20, 230), 1.2f);
+                frame.drawList->AddLine(ImVec2(sx + 2.5f, sy - 2.5f), ImVec2(sx - 2.5f, sy + 2.5f),
+                                  IM_COL32(20, 20, 20, 230), 1.2f);
+
+                // Tooltip on hover
+                if (cursorNearBlip(sx, sy)) {
+                    const auto& ki = infoIt->second;
+                    const std::string& npcName = unit->getName();
+                    if (!npcName.empty()) {
+                        ImGui::SetTooltip("%s\n%s: %u/%u",
+                            npcName.c_str(),
+                            ki.questTitle.empty() ? "Quest" : ki.questTitle.c_str(),
+                            ki.current, ki.required);
+                    } else {
+                        ImGui::SetTooltip("%s: %u/%u",
+                            ki.questTitle.empty() ? "Quest" : ki.questTitle.c_str(),
+                            ki.current, ki.required);
+                    }
+                }
+            }
+        }
+    }
+
+}
+
+// The points a gossip window has pointed at — quest and service targets.
+void GameScreen::renderMinimapGossipPois(const MinimapFrame& frame, game::GameHandler& gameHandler) {
+    // Gossip POI markers (quest / NPC navigation targets)
+    for (const auto& poi : gameHandler.getGossipPois()) {
+        if (poi.questObjectiveIndex != -2 &&
+            !gameHandler.isQuestShownOnMap(poi.data)) {
+            continue;
+        }
+        // Convert WoW canonical coords to render coords for minimap projection
+        float sx = 0.0f, sy = 0.0f;
+        if (!frame.projectCanonical(poi.x, poi.y, sx, sy)) continue;
+
+        // Draw as a cyan diamond with tooltip on hover
+        const float d = 5.0f;
+        ImVec2 pts[4] = {
+            { sx,     sy - d },
+            { sx + d, sy     },
+            { sx,     sy + d },
+            { sx - d, sy     },
+        };
+        frame.drawList->AddConvexPolyFilled(pts, 4, IM_COL32(0, 210, 255, 220));
+        frame.drawList->AddPolyline(pts, 4, IM_COL32(255, 255, 255, 160), true, 1.0f);
+
+        // Show name label if cursor is within ~8px
+        ImVec2 cursorPos = ImGui::GetMousePos();
+        float dx = cursorPos.x - sx, dy = cursorPos.y - sy;
+        if (!poi.name.empty() && (dx * dx + dy * dy) < 64.0f) {
+            ImGui::SetTooltip("%s", poi.name.c_str());
+        }
+    }
+
+}
+
+// What a party member pinged, for as long as the ping lasts.
+void GameScreen::renderMinimapPings(const MinimapFrame& frame, game::GameHandler& gameHandler) {
+    // Minimap pings from party members
+    for (const auto& ping : gameHandler.getMinimapPings()) {
+        float sx = 0.0f, sy = 0.0f;
+        if (!frame.projectCanonical(ping.wowX, ping.wowY, sx, sy)) continue;
+
+        float t = ping.age / game::GameHandler::MinimapPing::LIFETIME;
+        float alpha = 1.0f - t;
+        float pulse = 1.0f + 1.5f * t;  // expands outward as it fades
+
+        ImU32 col  = IM_COL32(255, 220, 0, static_cast<int>(alpha * 200));
+        ImU32 col2 = IM_COL32(255, 150, 0, static_cast<int>(alpha * 100));
+        float r1 = 4.0f * pulse;
+        float r2 = 8.0f * pulse;
+        frame.drawList->AddCircle(ImVec2(sx, sy), r1, col, 16, 2.0f);
+        frame.drawList->AddCircle(ImVec2(sx, sy), r2, col2, 16, 1.0f);
+        frame.drawList->AddCircleFilled(ImVec2(sx, sy), 2.5f, col);
+    }
+
+}
+
+// One dot per party member, with the raid mark above it.
+//
+// There were two of these drawing at the same point until recently — a square
+// from one pass and this circle over it.
+void GameScreen::renderMinimapPartyDots(const MinimapFrame& frame, game::GameHandler& gameHandler) {
+    // Party member dots on minimap
+    {
+        const auto& partyData = gameHandler.getPartyData();
+        const uint64_t leaderGuid = partyData.leaderGuid;
+        for (const auto& member : partyData.members) {
+            if (!member.isOnline || !member.hasPartyStats) continue;
+            if (member.posX == 0 && member.posY == 0) continue;
+
+            // posX/posY follow same server axis convention as minimap pings:
+            // server posX = east/west axis → canonical Y (west)
+            // server posY = north/south axis → canonical X (north)
+            float wowX = static_cast<float>(member.posY);
+            float wowY = static_cast<float>(member.posX);
+            float sx = 0.0f, sy = 0.0f;
+            if (!frame.projectCanonical(wowX, wowY, sx, sy)) continue;
+
+            ImU32 dotColor;
+            {
+                // Grey for a corpse or a ghost, which the other party-dot pass
+                // that used to draw over this one was the only thing saying.
+                const bool isDead  = (member.onlineStatus & 0x0020) != 0;
+                const bool isGhost = (member.onlineStatus & 0x0010) != 0;
+                auto mEnt = gameHandler.getEntityManager().getEntity(member.guid);
+                uint8_t cid = entityClassId(mEnt.get());
+                dotColor = (isDead || isGhost)
+                    ? IM_COL32(140, 140, 140, 200)
+                    : (cid != 0)
+                        ? classColorU32(cid, 235)
+                        : (member.guid == leaderGuid)
+                            ? IM_COL32(255, 210, 0, 235)
+                            : IM_COL32(100, 180, 255, 235);
+            }
+            frame.drawList->AddCircleFilled(ImVec2(sx, sy), 4.0f, dotColor);
+            frame.drawList->AddCircle(ImVec2(sx, sy), 4.0f, IM_COL32(255, 255, 255, 160), 12, 1.0f);
+
+            // Raid mark: the marker artwork drawn small above the dot
+            {
+                uint8_t pmk = gameHandler.getEntityRaidMark(member.guid);
+                if (pmk < game::GameHandler::kRaidMarkCount) {
+                    if (VkDescriptorSet markTex = ui::getRaidTargetIcon(pmk, services_.assetManager)) {
+                        constexpr float kMarkSize = 10.0f;
+                        frame.drawList->AddImage((ImTextureID)(uintptr_t)markTex,
+                            ImVec2(sx - kMarkSize * 0.5f, sy - 4.0f - kMarkSize),
+                            ImVec2(sx + kMarkSize * 0.5f, sy - 4.0f));
+                    }
+                }
+            }
+
+            if (!member.name.empty() && cursorNearBlip(sx, sy)) {
+                uint8_t pmk2 = gameHandler.getEntityRaidMark(member.guid);
+                if (pmk2 < game::GameHandler::kRaidMarkCount) {
+                    static constexpr const char* kMarkNames[] = {
+                        "Star", "Circle", "Diamond", "Triangle",
+                        "Moon", "Square", "Cross", "Skull"
+                    };
+                    ImGui::SetTooltip("%s {%s}", member.name.c_str(), kMarkNames[pmk2]);
+                } else {
+                    ImGui::SetTooltip("%s", member.name.c_str());
+                }
+            }
+        }
+    }
+
+}
+
+// Flag carriers and the other positions a battleground reports.
+void GameScreen::renderMinimapBattlegroundPositions(const MinimapFrame& frame, game::GameHandler& gameHandler) {
+    // BG flag carrier / important player positions (MSG_BATTLEGROUND_PLAYER_POSITIONS)
+    {
+        const auto& bgPositions = gameHandler.getBgPlayerPositions();
+        if (!bgPositions.empty()) {
+            ImVec2 mouse = ImGui::GetMousePos();
+            // group 0 = typically ally-held flag / first list; group 1 = enemy
+            static const ImU32 kBgGroupColors[2] = {
+                IM_COL32( 80, 180, 255, 240),  // group 0: blue (alliance)
+                IM_COL32(220,  50,  50, 240),  // group 1: red  (horde)
+            };
+            for (const auto& bp : bgPositions) {
+                // Packet coords: wowX=canonical X (north), wowY=canonical Y (west)
+                float sx = 0.0f, sy = 0.0f;
+                if (!frame.projectCanonical(bp.wowX, bp.wowY, sx, sy)) continue;
+
+                ImU32 col = kBgGroupColors[bp.group & 1];
+
+                // Draw a flag-like diamond icon
+                const float r = 5.0f;
+                ImVec2 top  (sx,       sy - r);
+                ImVec2 right(sx + r,   sy    );
+                ImVec2 bot  (sx,       sy + r);
+                ImVec2 left (sx - r,   sy    );
+                frame.drawList->AddQuadFilled(top, right, bot, left, col);
+                frame.drawList->AddQuad(top, right, bot, left, IM_COL32(255, 255, 255, 180), 1.0f);
+
+                if (cursorNearBlip(sx, sy)) {
+                    // Show entity name if available, otherwise guid
+                    auto ent = gameHandler.getEntityManager().getEntity(bp.guid);
+                    if (ent) {
+                        std::string nm;
+                        if (ent->getType() == game::ObjectType::PLAYER) {
+                            auto pl = std::static_pointer_cast<game::Unit>(ent);
+                            nm = pl ? pl->getName() : "";
+                        }
+                        if (!nm.empty())
+                            ImGui::SetTooltip("Flag carrier: %s", nm.c_str());
+                        else
+                            ImGui::SetTooltip("Flag carrier");
+                    } else {
+                        ImGui::SetTooltip("Flag carrier");
+                    }
+                }
+            }
+        }
+    }
+
+}
+
+// Where the corpse is, while the player is a ghost.
+//
+// Unlike every marker above it, a corpse off the edge of the map is not
+// skipped — it becomes an arrow at the rim pointing at it, which is why this
+// one keeps the render position rather than only the projected point.
+void GameScreen::renderMinimapCorpseMarker(const MinimapFrame& frame, game::GameHandler& gameHandler) {
+    // Corpse direction indicator — shown when player is a ghost
+    if (gameHandler.isPlayerGhost()) {
+        float corpseCanX = 0.0f, corpseCanY = 0.0f;
+        if (gameHandler.getCorpseCanonicalPos(corpseCanX, corpseCanY)) {
+            // The render position is kept: unlike the loops above, a corpse off
+            // the edge is not skipped — it gets a direction arrow at the rim,
+            // and that needs the direction.
+            const glm::vec3 corpseRender =
+                core::coords::canonicalToRender(glm::vec3(corpseCanX, corpseCanY, 0.0f));
+            float csx = 0.0f, csy = 0.0f;
+            const bool onMap = frame.project(corpseRender, csx, csy);
+
+            if (onMap) {
+                // Draw a small skull-like X marker at the corpse position
+                const float r = 5.0f;
+                frame.drawList->AddCircleFilled(ImVec2(csx, csy), r + 1.0f, IM_COL32(0, 0, 0, 140), 12);
+                frame.drawList->AddCircle(ImVec2(csx, csy), r + 1.0f, IM_COL32(200, 200, 220, 220), 12, 1.5f);
+                // Draw an X in the circle
+                frame.drawList->AddLine(ImVec2(csx - 3.0f, csy - 3.0f), ImVec2(csx + 3.0f, csy + 3.0f),
+                                  IM_COL32(180, 180, 220, 255), 1.5f);
+                frame.drawList->AddLine(ImVec2(csx + 3.0f, csy - 3.0f), ImVec2(csx - 3.0f, csy + 3.0f),
+                                  IM_COL32(180, 180, 220, 255), 1.5f);
+                // Tooltip on hover
+                if (cursorNearBlip(csx, csy)) {
+                    float dist = gameHandler.getCorpseDistance();
+                    if (dist >= 0.0f)
+                        ImGui::SetTooltip("Your corpse (%.0f yd)", dist);
+                    else
+                        ImGui::SetTooltip("Your corpse");
+                }
+            } else {
+                // Corpse is outside minimap — draw an edge arrow pointing toward it
+                float dx = corpseRender.x - frame.playerRender.x;
+                float dy = corpseRender.y - frame.playerRender.y;
+                // Only the direction is wanted here, and the projection's
+                // scale is uniform and positive, so it falls out of the
+                // normalisation below.
+                const glm::vec2 dir = renderDeltaToMinimapOffset(dx, dy, frame.view);
+                float rx = dir.x;
+                float ry = dir.y;
+                float len = std::sqrt(rx * rx + ry * ry);
+                if (len > 0.001f) {
+                    float nx = rx / len;
+                    float ny = ry / len;
+                    // Place arrow at the minimap edge
+                    float edgeR = frame.mapRadius - 7.0f;
+                    float ax = frame.centerX + nx * edgeR;
+                    float ay = frame.centerY + ny * edgeR;
+                    // Arrow pointing outward (toward corpse)
+                    float arrowLen = 6.0f;
+                    float arrowW = 3.5f;
+                    ImVec2 tip(ax + nx * arrowLen, ay + ny * arrowLen);
+                    ImVec2 left(ax - ny * arrowW - nx * arrowLen * 0.4f,
+                                ay + nx * arrowW - ny * arrowLen * 0.4f);
+                    ImVec2 right(ax + ny * arrowW - nx * arrowLen * 0.4f,
+                                 ay - nx * arrowW - ny * arrowLen * 0.4f);
+                    frame.drawList->AddTriangleFilled(tip, left, right, IM_COL32(180, 180, 240, 230));
+                    frame.drawList->AddTriangle(tip, left, right, IM_COL32(0, 0, 0, 180), 1.0f);
+                    // Tooltip on hover
+                    if (cursorNearBlip(ax, ay, kArrowHoverRadius)) {
+                        float dist = gameHandler.getCorpseDistance();
+                        if (dist >= 0.0f)
+                            ImGui::SetTooltip("Your corpse (%.0f yd)", dist);
+                        else
+                            ImGui::SetTooltip("Your corpse");
+                    }
+                }
+            }
+        }
+    }
+
+}
+
+// The player, at the centre, pointing where the camera looks.
+//
+// On a rotating minimap the map itself turns so forward is screen-up; on a
+// fixed one the arrow turns instead.
+void GameScreen::renderMinimapPlayerArrow(const MinimapFrame& frame) {
+    auto* renderer = services_.renderer;
+    auto* minimap = renderer ? renderer->getMinimap() : nullptr;
+    if (!minimap) return;
+    // Player position arrow at minimap center, pointing in camera facing direction.
+    // On a rotating minimap the map already turns so forward = screen-up; on a fixed
+    // minimap we rotate the arrow to match the player's compass heading.
+    {
+        // Compute screen-space facing direction for the arrow.
+        // frame.bearing = clockwise angle from screen-north (0 = facing north/up).
+        float arrowAngle = 0.0f; // 0 = pointing up (north)
+        if (!minimap->isRotateWithCamera()) {
+            // Fixed minimap: arrow must show actual facing relative to north.
+            // Match the mirrored minimap texture by flipping the arrow's
+            // visual north/south component.
+            arrowAngle = -glm::radians(renderer->getCharacterYaw());
+        }
+        // Screen direction the arrow tip points toward
+        float nx =  std::sin(arrowAngle); // screen +X = east
+        float ny = -std::cos(arrowAngle); // screen -Y = north
+
+        // Draw a chevron-style arrow: tip, two base corners, and a notch at the back
+        const float tipLen  = 8.0f;  // tip forward distance
+        const float baseW   = 5.0f;  // half-width at base
+        const float notchIn = 3.0f;  // how far back the center notch sits
+        // Perpendicular direction (rotated 90°)
+        float px =  ny; // perpendicular x
+        float py = -nx; // perpendicular y
+
+        ImVec2 tip  (frame.centerX + nx * tipLen,  frame.centerY + ny * tipLen);
+        ImVec2 baseL(frame.centerX - nx * baseW + px * baseW,  frame.centerY - ny * baseW + py * baseW);
+        ImVec2 baseR(frame.centerX - nx * baseW - px * baseW,  frame.centerY - ny * baseW - py * baseW);
+        ImVec2 notch(frame.centerX - nx * (baseW - notchIn),   frame.centerY - ny * (baseW - notchIn));
+
+        // Fill: bright white with slight gold tint, dark outline for readability
+        frame.drawList->AddTriangleFilled(tip, baseL, notch, IM_COL32(255, 248, 200, 245));
+        frame.drawList->AddTriangleFilled(tip, notch, baseR, IM_COL32(255, 248, 200, 245));
+        frame.drawList->AddTriangle(tip, baseL, notch, IM_COL32(60, 40, 0, 200), 1.2f);
+        frame.drawList->AddTriangle(tip, notch, baseR, IM_COL32(60, 40, 0, 200), 1.2f);
+    }
+
+}
+
 void GameScreen::renderMinimapMarkers(game::GameHandler& gameHandler) {
     const auto& statuses = gameHandler.getNpcQuestStatuses();
     auto* renderer = services_.renderer;
@@ -986,385 +1416,14 @@ void GameScreen::renderMinimapMarkers(game::GameHandler& gameHandler) {
     renderMinimapObjectDots(frame, minimapGameObjects, minimapQuestGoEntries, gameHandler);
     renderMinimapChests(frame, minimapGameObjects, gameHandler);
 
-    for (const auto& [guid, status] : statuses) {
-        ImU32 dotColor;
-        const char* marker = nullptr;
-        if (status == game::QuestGiverStatus::AVAILABLE) {
-            dotColor = IM_COL32(255, 210, 0, 255);
-            marker = "!";
-        } else if (status == game::QuestGiverStatus::AVAILABLE_LOW) {
-            dotColor = IM_COL32(160, 160, 160, 255);
-            marker = "!";
-        } else if (status == game::QuestGiverStatus::REWARD ||
-                   status == game::QuestGiverStatus::REWARD_REP) {
-            dotColor = IM_COL32(255, 210, 0, 255);
-            marker = "?";
-        } else if (status == game::QuestGiverStatus::INCOMPLETE) {
-            dotColor = IM_COL32(160, 160, 160, 255);
-            marker = "?";
-        } else {
-            continue;
-        }
-
-        auto entity = gameHandler.getEntityManager().getEntity(guid);
-        if (!entity) continue;
-
-        float sx = 0.0f, sy = 0.0f;
-        if (!frame.projectEntity(*entity, sx, sy)) continue;
-
-        // Draw dot with marker text
-        drawList->AddCircleFilled(ImVec2(sx, sy), 5.0f, dotColor);
-        ImFont* font = ImGui::GetFont();
-        ImVec2 textSize = font->CalcTextSizeA(11.0f, FLT_MAX, 0.0f, marker);
-        drawList->AddText(font, 11.0f,
-            ImVec2(sx - textSize.x * 0.5f, sy - textSize.y * 0.5f),
-            IM_COL32(0, 0, 0, 255), marker);
-
-        // Show NPC name and quest status on hover
-        {
-            ImVec2 mouse = ImGui::GetMousePos();
-            if (cursorNearBlip(sx, sy)) {
-                std::string npcName;
-                if (entity->getType() == game::ObjectType::UNIT) {
-                    auto npcUnit = std::static_pointer_cast<game::Unit>(entity);
-                    npcName = npcUnit->getName();
-                }
-                if (!npcName.empty()) {
-                    bool hasQuest = (status == game::QuestGiverStatus::AVAILABLE ||
-                                     status == game::QuestGiverStatus::AVAILABLE_LOW);
-                    ImGui::SetTooltip("%s\n%s", npcName.c_str(),
-                                      hasQuest ? "Has a quest for you" : "Quest ready to turn in");
-                }
-            }
-        }
-    }
-
-    // Quest kill objective markers — highlight live NPCs matching active quest kill objectives
-    {
-        // Build map of NPC entry → (quest title, current, required) for tooltips
-        struct KillInfo { std::string questTitle; uint32_t current = 0; uint32_t required = 0; };
-        std::unordered_map<uint32_t, KillInfo> killInfoMap;
-        const auto& mapVisibleIds = gameHandler.getMapVisibleQuestIds();
-        for (const auto& quest : gameHandler.getQuestLog()) {
-            if (quest.complete) continue;
-            if (!mapVisibleIds.count(quest.questId)) continue;
-            for (const auto& obj : quest.killObjectives) {
-                if (obj.npcOrGoId <= 0 || obj.required == 0) continue;
-                uint32_t npcEntry = static_cast<uint32_t>(obj.npcOrGoId);
-                auto it = quest.killCounts.find(npcEntry);
-                uint32_t current = (it != quest.killCounts.end()) ? it->second.first : 0;
-                if (current < obj.required) {
-                    killInfoMap[npcEntry] = { quest.title, current, obj.required };
-                }
-            }
-        }
-
-        if (!killInfoMap.empty()) {
-            ImVec2 mouse = ImGui::GetMousePos();
-            for (const auto& entity : minimapUnits) {
-                auto unit = std::static_pointer_cast<game::Unit>(entity);
-                if (!unit || unit->getHealth() == 0) continue;
-                // A quest giver/turn-in marker is more specific than an objective
-                // marker at the same NPC. Do not paint the objective X over ! or ?.
-                if (statuses.find(entity->getGuid()) != statuses.end()) continue;
-                auto infoIt = killInfoMap.find(unit->getEntry());
-                if (infoIt == killInfoMap.end()) continue;
-
-                float sx = 0.0f, sy = 0.0f;
-                if (!frame.projectEntity(*entity, sx, sy)) continue;
-
-                // Gold circle with a dark "x" mark — indicates a quest kill target
-                drawList->AddCircleFilled(ImVec2(sx, sy), 5.0f, IM_COL32(255, 185, 0, 240));
-                drawList->AddCircle(ImVec2(sx, sy), 5.5f, IM_COL32(0, 0, 0, 180), 12, 1.0f);
-                drawList->AddLine(ImVec2(sx - 2.5f, sy - 2.5f), ImVec2(sx + 2.5f, sy + 2.5f),
-                                  IM_COL32(20, 20, 20, 230), 1.2f);
-                drawList->AddLine(ImVec2(sx + 2.5f, sy - 2.5f), ImVec2(sx - 2.5f, sy + 2.5f),
-                                  IM_COL32(20, 20, 20, 230), 1.2f);
-
-                // Tooltip on hover
-                if (cursorNearBlip(sx, sy)) {
-                    const auto& ki = infoIt->second;
-                    const std::string& npcName = unit->getName();
-                    if (!npcName.empty()) {
-                        ImGui::SetTooltip("%s\n%s: %u/%u",
-                            npcName.c_str(),
-                            ki.questTitle.empty() ? "Quest" : ki.questTitle.c_str(),
-                            ki.current, ki.required);
-                    } else {
-                        ImGui::SetTooltip("%s: %u/%u",
-                            ki.questTitle.empty() ? "Quest" : ki.questTitle.c_str(),
-                            ki.current, ki.required);
-                    }
-                }
-            }
-        }
-    }
-
-    // Gossip POI markers (quest / NPC navigation targets)
-    for (const auto& poi : gameHandler.getGossipPois()) {
-        if (poi.questObjectiveIndex != -2 &&
-            !gameHandler.isQuestShownOnMap(poi.data)) {
-            continue;
-        }
-        // Convert WoW canonical coords to render coords for minimap projection
-        float sx = 0.0f, sy = 0.0f;
-        if (!frame.projectCanonical(poi.x, poi.y, sx, sy)) continue;
-
-        // Draw as a cyan diamond with tooltip on hover
-        const float d = 5.0f;
-        ImVec2 pts[4] = {
-            { sx,     sy - d },
-            { sx + d, sy     },
-            { sx,     sy + d },
-            { sx - d, sy     },
-        };
-        drawList->AddConvexPolyFilled(pts, 4, IM_COL32(0, 210, 255, 220));
-        drawList->AddPolyline(pts, 4, IM_COL32(255, 255, 255, 160), true, 1.0f);
-
-        // Show name label if cursor is within ~8px
-        ImVec2 cursorPos = ImGui::GetMousePos();
-        float dx = cursorPos.x - sx, dy = cursorPos.y - sy;
-        if (!poi.name.empty() && (dx * dx + dy * dy) < 64.0f) {
-            ImGui::SetTooltip("%s", poi.name.c_str());
-        }
-    }
-
-    // Minimap pings from party members
-    for (const auto& ping : gameHandler.getMinimapPings()) {
-        float sx = 0.0f, sy = 0.0f;
-        if (!frame.projectCanonical(ping.wowX, ping.wowY, sx, sy)) continue;
-
-        float t = ping.age / game::GameHandler::MinimapPing::LIFETIME;
-        float alpha = 1.0f - t;
-        float pulse = 1.0f + 1.5f * t;  // expands outward as it fades
-
-        ImU32 col  = IM_COL32(255, 220, 0, static_cast<int>(alpha * 200));
-        ImU32 col2 = IM_COL32(255, 150, 0, static_cast<int>(alpha * 100));
-        float r1 = 4.0f * pulse;
-        float r2 = 8.0f * pulse;
-        drawList->AddCircle(ImVec2(sx, sy), r1, col, 16, 2.0f);
-        drawList->AddCircle(ImVec2(sx, sy), r2, col2, 16, 1.0f);
-        drawList->AddCircleFilled(ImVec2(sx, sy), 2.5f, col);
-    }
-
-    // Party member dots on minimap
-    {
-        const auto& partyData = gameHandler.getPartyData();
-        const uint64_t leaderGuid = partyData.leaderGuid;
-        for (const auto& member : partyData.members) {
-            if (!member.isOnline || !member.hasPartyStats) continue;
-            if (member.posX == 0 && member.posY == 0) continue;
-
-            // posX/posY follow same server axis convention as minimap pings:
-            // server posX = east/west axis → canonical Y (west)
-            // server posY = north/south axis → canonical X (north)
-            float wowX = static_cast<float>(member.posY);
-            float wowY = static_cast<float>(member.posX);
-            float sx = 0.0f, sy = 0.0f;
-            if (!frame.projectCanonical(wowX, wowY, sx, sy)) continue;
-
-            ImU32 dotColor;
-            {
-                // Grey for a corpse or a ghost, which the other party-dot pass
-                // that used to draw over this one was the only thing saying.
-                const bool isDead  = (member.onlineStatus & 0x0020) != 0;
-                const bool isGhost = (member.onlineStatus & 0x0010) != 0;
-                auto mEnt = gameHandler.getEntityManager().getEntity(member.guid);
-                uint8_t cid = entityClassId(mEnt.get());
-                dotColor = (isDead || isGhost)
-                    ? IM_COL32(140, 140, 140, 200)
-                    : (cid != 0)
-                        ? classColorU32(cid, 235)
-                        : (member.guid == leaderGuid)
-                            ? IM_COL32(255, 210, 0, 235)
-                            : IM_COL32(100, 180, 255, 235);
-            }
-            drawList->AddCircleFilled(ImVec2(sx, sy), 4.0f, dotColor);
-            drawList->AddCircle(ImVec2(sx, sy), 4.0f, IM_COL32(255, 255, 255, 160), 12, 1.0f);
-
-            // Raid mark: the marker artwork drawn small above the dot
-            {
-                uint8_t pmk = gameHandler.getEntityRaidMark(member.guid);
-                if (pmk < game::GameHandler::kRaidMarkCount) {
-                    if (VkDescriptorSet markTex = ui::getRaidTargetIcon(pmk, services_.assetManager)) {
-                        constexpr float kMarkSize = 10.0f;
-                        drawList->AddImage((ImTextureID)(uintptr_t)markTex,
-                            ImVec2(sx - kMarkSize * 0.5f, sy - 4.0f - kMarkSize),
-                            ImVec2(sx + kMarkSize * 0.5f, sy - 4.0f));
-                    }
-                }
-            }
-
-            if (!member.name.empty() && cursorNearBlip(sx, sy)) {
-                uint8_t pmk2 = gameHandler.getEntityRaidMark(member.guid);
-                if (pmk2 < game::GameHandler::kRaidMarkCount) {
-                    static constexpr const char* kMarkNames[] = {
-                        "Star", "Circle", "Diamond", "Triangle",
-                        "Moon", "Square", "Cross", "Skull"
-                    };
-                    ImGui::SetTooltip("%s {%s}", member.name.c_str(), kMarkNames[pmk2]);
-                } else {
-                    ImGui::SetTooltip("%s", member.name.c_str());
-                }
-            }
-        }
-    }
-
-    // BG flag carrier / important player positions (MSG_BATTLEGROUND_PLAYER_POSITIONS)
-    {
-        const auto& bgPositions = gameHandler.getBgPlayerPositions();
-        if (!bgPositions.empty()) {
-            ImVec2 mouse = ImGui::GetMousePos();
-            // group 0 = typically ally-held flag / first list; group 1 = enemy
-            static const ImU32 kBgGroupColors[2] = {
-                IM_COL32( 80, 180, 255, 240),  // group 0: blue (alliance)
-                IM_COL32(220,  50,  50, 240),  // group 1: red  (horde)
-            };
-            for (const auto& bp : bgPositions) {
-                // Packet coords: wowX=canonical X (north), wowY=canonical Y (west)
-                float sx = 0.0f, sy = 0.0f;
-                if (!frame.projectCanonical(bp.wowX, bp.wowY, sx, sy)) continue;
-
-                ImU32 col = kBgGroupColors[bp.group & 1];
-
-                // Draw a flag-like diamond icon
-                const float r = 5.0f;
-                ImVec2 top  (sx,       sy - r);
-                ImVec2 right(sx + r,   sy    );
-                ImVec2 bot  (sx,       sy + r);
-                ImVec2 left (sx - r,   sy    );
-                drawList->AddQuadFilled(top, right, bot, left, col);
-                drawList->AddQuad(top, right, bot, left, IM_COL32(255, 255, 255, 180), 1.0f);
-
-                if (cursorNearBlip(sx, sy)) {
-                    // Show entity name if available, otherwise guid
-                    auto ent = gameHandler.getEntityManager().getEntity(bp.guid);
-                    if (ent) {
-                        std::string nm;
-                        if (ent->getType() == game::ObjectType::PLAYER) {
-                            auto pl = std::static_pointer_cast<game::Unit>(ent);
-                            nm = pl ? pl->getName() : "";
-                        }
-                        if (!nm.empty())
-                            ImGui::SetTooltip("Flag carrier: %s", nm.c_str());
-                        else
-                            ImGui::SetTooltip("Flag carrier");
-                    } else {
-                        ImGui::SetTooltip("Flag carrier");
-                    }
-                }
-            }
-        }
-    }
-
-    // Corpse direction indicator — shown when player is a ghost
-    if (gameHandler.isPlayerGhost()) {
-        float corpseCanX = 0.0f, corpseCanY = 0.0f;
-        if (gameHandler.getCorpseCanonicalPos(corpseCanX, corpseCanY)) {
-            // The render position is kept: unlike the loops above, a corpse off
-            // the edge is not skipped — it gets a direction arrow at the rim,
-            // and that needs the direction.
-            const glm::vec3 corpseRender =
-                core::coords::canonicalToRender(glm::vec3(corpseCanX, corpseCanY, 0.0f));
-            float csx = 0.0f, csy = 0.0f;
-            const bool onMap = frame.project(corpseRender, csx, csy);
-
-            if (onMap) {
-                // Draw a small skull-like X marker at the corpse position
-                const float r = 5.0f;
-                drawList->AddCircleFilled(ImVec2(csx, csy), r + 1.0f, IM_COL32(0, 0, 0, 140), 12);
-                drawList->AddCircle(ImVec2(csx, csy), r + 1.0f, IM_COL32(200, 200, 220, 220), 12, 1.5f);
-                // Draw an X in the circle
-                drawList->AddLine(ImVec2(csx - 3.0f, csy - 3.0f), ImVec2(csx + 3.0f, csy + 3.0f),
-                                  IM_COL32(180, 180, 220, 255), 1.5f);
-                drawList->AddLine(ImVec2(csx + 3.0f, csy - 3.0f), ImVec2(csx - 3.0f, csy + 3.0f),
-                                  IM_COL32(180, 180, 220, 255), 1.5f);
-                // Tooltip on hover
-                if (cursorNearBlip(csx, csy)) {
-                    float dist = gameHandler.getCorpseDistance();
-                    if (dist >= 0.0f)
-                        ImGui::SetTooltip("Your corpse (%.0f yd)", dist);
-                    else
-                        ImGui::SetTooltip("Your corpse");
-                }
-            } else {
-                // Corpse is outside minimap — draw an edge arrow pointing toward it
-                float dx = corpseRender.x - playerRender.x;
-                float dy = corpseRender.y - playerRender.y;
-                // Only the direction is wanted here, and the projection's
-                // scale is uniform and positive, so it falls out of the
-                // normalisation below.
-                const glm::vec2 dir = renderDeltaToMinimapOffset(dx, dy, minimapView);
-                float rx = dir.x;
-                float ry = dir.y;
-                float len = std::sqrt(rx * rx + ry * ry);
-                if (len > 0.001f) {
-                    float nx = rx / len;
-                    float ny = ry / len;
-                    // Place arrow at the minimap edge
-                    float edgeR = mapRadius - 7.0f;
-                    float ax = centerX + nx * edgeR;
-                    float ay = centerY + ny * edgeR;
-                    // Arrow pointing outward (toward corpse)
-                    float arrowLen = 6.0f;
-                    float arrowW = 3.5f;
-                    ImVec2 tip(ax + nx * arrowLen, ay + ny * arrowLen);
-                    ImVec2 left(ax - ny * arrowW - nx * arrowLen * 0.4f,
-                                ay + nx * arrowW - ny * arrowLen * 0.4f);
-                    ImVec2 right(ax + ny * arrowW - nx * arrowLen * 0.4f,
-                                 ay - nx * arrowW - ny * arrowLen * 0.4f);
-                    drawList->AddTriangleFilled(tip, left, right, IM_COL32(180, 180, 240, 230));
-                    drawList->AddTriangle(tip, left, right, IM_COL32(0, 0, 0, 180), 1.0f);
-                    // Tooltip on hover
-                    if (cursorNearBlip(ax, ay, kArrowHoverRadius)) {
-                        float dist = gameHandler.getCorpseDistance();
-                        if (dist >= 0.0f)
-                            ImGui::SetTooltip("Your corpse (%.0f yd)", dist);
-                        else
-                            ImGui::SetTooltip("Your corpse");
-                    }
-                }
-            }
-        }
-    }
-
-    // Player position arrow at minimap center, pointing in camera facing direction.
-    // On a rotating minimap the map already turns so forward = screen-up; on a fixed
-    // minimap we rotate the arrow to match the player's compass heading.
-    {
-        // Compute screen-space facing direction for the arrow.
-        // bearing = clockwise angle from screen-north (0 = facing north/up).
-        float arrowAngle = 0.0f; // 0 = pointing up (north)
-        if (!minimap->isRotateWithCamera()) {
-            // Fixed minimap: arrow must show actual facing relative to north.
-            // Match the mirrored minimap texture by flipping the arrow's
-            // visual north/south component.
-            arrowAngle = -glm::radians(renderer->getCharacterYaw());
-        }
-        // Screen direction the arrow tip points toward
-        float nx =  std::sin(arrowAngle); // screen +X = east
-        float ny = -std::cos(arrowAngle); // screen -Y = north
-
-        // Draw a chevron-style arrow: tip, two base corners, and a notch at the back
-        const float tipLen  = 8.0f;  // tip forward distance
-        const float baseW   = 5.0f;  // half-width at base
-        const float notchIn = 3.0f;  // how far back the center notch sits
-        // Perpendicular direction (rotated 90°)
-        float px =  ny; // perpendicular x
-        float py = -nx; // perpendicular y
-
-        ImVec2 tip  (centerX + nx * tipLen,  centerY + ny * tipLen);
-        ImVec2 baseL(centerX - nx * baseW + px * baseW,  centerY - ny * baseW + py * baseW);
-        ImVec2 baseR(centerX - nx * baseW - px * baseW,  centerY - ny * baseW - py * baseW);
-        ImVec2 notch(centerX - nx * (baseW - notchIn),   centerY - ny * (baseW - notchIn));
-
-        // Fill: bright white with slight gold tint, dark outline for readability
-        drawList->AddTriangleFilled(tip, baseL, notch, IM_COL32(255, 248, 200, 245));
-        drawList->AddTriangleFilled(tip, notch, baseR, IM_COL32(255, 248, 200, 245));
-        drawList->AddTriangle(tip, baseL, notch, IM_COL32(60, 40, 0, 200), 1.2f);
-        drawList->AddTriangle(tip, notch, baseR, IM_COL32(60, 40, 0, 200), 1.2f);
-    }
-
+    renderMinimapQuestGivers(frame, statuses, gameHandler);
+    renderMinimapQuestKills(frame, minimapUnits, statuses, gameHandler);
+    renderMinimapGossipPois(frame, gameHandler);
+    renderMinimapPings(frame, gameHandler);
+    renderMinimapPartyDots(frame, gameHandler);
+    renderMinimapBattlegroundPositions(frame, gameHandler);
+    renderMinimapCorpseMarker(frame, gameHandler);
+    renderMinimapPlayerArrow(frame);
     // Skip minimap input when an ImGui window (bag, settings, etc.) is in front.
     //
     // ...and entirely when FrameXML draws the minimap, because then the frame

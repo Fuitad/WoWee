@@ -298,6 +298,9 @@ private:
     /// are independent of each other — each walks its own list and draws its own
     /// shape — so the only thing that kept them together was the locals they
     /// shared, which MinimapFrame now carries.
+    /// Quest-giver status per NPC guid, as the server reports it.
+    using QuestStatusMap = std::unordered_map<uint64_t, game::QuestGiverStatus>;
+
     void renderMinimapNpcDots(const MinimapFrame& frame, const EntityList& units,
                               const EntrySet& questEntries);
     void renderMinimapFlightMasters(const MinimapFrame& frame, const EntityList& units);
@@ -311,6 +314,19 @@ private:
                                  game::GameHandler& gameHandler);
     void renderMinimapChests(const MinimapFrame& frame, const EntityList& objects,
                              game::GameHandler& gameHandler);
+
+    void renderMinimapQuestGivers(const MinimapFrame& frame, const QuestStatusMap& statuses,
+                                  game::GameHandler& gameHandler);
+    void renderMinimapQuestKills(const MinimapFrame& frame, const EntityList& units,
+                                 const QuestStatusMap& statuses,
+                                 game::GameHandler& gameHandler);
+    void renderMinimapGossipPois(const MinimapFrame& frame, game::GameHandler& gameHandler);
+    void renderMinimapPings(const MinimapFrame& frame, game::GameHandler& gameHandler);
+    void renderMinimapPartyDots(const MinimapFrame& frame, game::GameHandler& gameHandler);
+    void renderMinimapBattlegroundPositions(const MinimapFrame& frame,
+                                            game::GameHandler& gameHandler);
+    void renderMinimapCorpseMarker(const MinimapFrame& frame, game::GameHandler& gameHandler);
+    void renderMinimapPlayerArrow(const MinimapFrame& frame);
 
     void renderMinimapChrome(game::GameHandler& gameHandler, float centerX,
                              float centerY, float mapRadius);
