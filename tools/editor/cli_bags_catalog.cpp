@@ -125,9 +125,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wbnk");
     if (outPath.empty()) outPath = base + ".wbnk.json";
     if (!wowee::pipeline::WoweeBagSlotLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wbnk-json: WBNK not found: %s.wbnk\n", base.c_str());
-        return 1;
+        return reportMissing("export-wbnk-json", "WBNK", base, ".wbnk");
     }
     auto c = wowee::pipeline::WoweeBagSlotLoader::load(base);
     nlohmann::json j;
@@ -247,9 +245,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wbnk");
     if (!wowee::pipeline::WoweeBagSlotLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wbnk: WBNK not found: %s.wbnk\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wbnk", "WBNK", base, ".wbnk");
     }
     auto c = wowee::pipeline::WoweeBagSlotLoader::load(base);
     std::vector<std::string> errors;

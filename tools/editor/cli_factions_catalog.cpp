@@ -139,9 +139,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wfac");
     if (outPath.empty()) outPath = base + ".wfac.json";
     if (!wowee::pipeline::WoweeFactionLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wfac-json: WFAC not found: %s.wfac\n", base.c_str());
-        return 1;
+        return reportMissing("export-wfac-json", "WFAC", base, ".wfac");
     }
     auto c = wowee::pipeline::WoweeFactionLoader::load(base);
     nlohmann::json j;
@@ -278,9 +276,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wfac");
     if (!wowee::pipeline::WoweeFactionLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wfac: WFAC not found: %s.wfac\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wfac", "WFAC", base, ".wfac");
     }
     auto c = wowee::pipeline::WoweeFactionLoader::load(base);
     std::vector<std::string> errors;

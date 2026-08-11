@@ -239,9 +239,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wtle");
     if (!wowee::pipeline::WoweeTalentTabLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wtle: WTLE not found: %s.wtle\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wtle", "WTLE", base, ".wtle");
     }
     auto c = wowee::pipeline::WoweeTalentTabLoader::load(base);
     std::vector<std::string> errors;

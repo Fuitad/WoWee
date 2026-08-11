@@ -128,9 +128,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wrun");
     if (outPath.empty()) outPath = base + ".wrun.json";
     if (!wowee::pipeline::WoweeRuneCostLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wrun-json: WRUN not found: %s.wrun\n", base.c_str());
-        return 1;
+        return reportMissing("export-wrun-json", "WRUN", base, ".wrun");
     }
     auto c = wowee::pipeline::WoweeRuneCostLoader::load(base);
     nlohmann::json j;
@@ -237,9 +235,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wrun");
     if (!wowee::pipeline::WoweeRuneCostLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wrun: WRUN not found: %s.wrun\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wrun", "WRUN", base, ".wrun");
     }
     auto c = wowee::pipeline::WoweeRuneCostLoader::load(base);
     std::vector<std::string> errors;

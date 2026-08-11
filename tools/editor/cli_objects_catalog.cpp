@@ -138,9 +138,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wgot");
     if (outPath.empty()) outPath = base + ".wgot.json";
     if (!wowee::pipeline::WoweeGameObjectLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wgot-json: WGOT not found: %s.wgot\n", base.c_str());
-        return 1;
+        return reportMissing("export-wgot-json", "WGOT", base, ".wgot");
     }
     auto c = wowee::pipeline::WoweeGameObjectLoader::load(base);
     nlohmann::json j;
@@ -282,9 +280,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wgot");
     if (!wowee::pipeline::WoweeGameObjectLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wgot: WGOT not found: %s.wgot\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wgot", "WGOT", base, ".wgot");
     }
     auto c = wowee::pipeline::WoweeGameObjectLoader::load(base);
     std::vector<std::string> errors;

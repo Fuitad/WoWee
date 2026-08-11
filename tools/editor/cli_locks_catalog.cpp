@@ -142,9 +142,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wlck");
     if (outPath.empty()) outPath = base + ".wlck.json";
     if (!wowee::pipeline::WoweeLockLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wlck-json: WLCK not found: %s.wlck\n", base.c_str());
-        return 1;
+        return reportMissing("export-wlck-json", "WLCK", base, ".wlck");
     }
     auto c = wowee::pipeline::WoweeLockLoader::load(base);
     nlohmann::json j;
@@ -273,9 +271,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wlck");
     if (!wowee::pipeline::WoweeLockLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wlck: WLCK not found: %s.wlck\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wlck", "WLCK", base, ".wlck");
     }
     auto c = wowee::pipeline::WoweeLockLoader::load(base);
     std::vector<std::string> errors;

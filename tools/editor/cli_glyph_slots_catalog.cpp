@@ -238,9 +238,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wgfs");
     if (!wowee::pipeline::WoweeGlyphSlotLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wgfs: WGFS not found: %s.wgfs\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wgfs", "WGFS", base, ".wgfs");
     }
     auto c = wowee::pipeline::WoweeGlyphSlotLoader::load(base);
     std::vector<std::string> errors;

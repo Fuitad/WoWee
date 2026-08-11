@@ -165,9 +165,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wpet");
     if (outPath.empty()) outPath = base + ".wpet.json";
     if (!wowee::pipeline::WoweePetLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wpet-json: WPET not found: %s.wpet\n", base.c_str());
-        return 1;
+        return reportMissing("export-wpet-json", "WPET", base, ".wpet");
     }
     auto c = wowee::pipeline::WoweePetLoader::load(base);
     nlohmann::json j;
@@ -326,9 +324,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wpet");
     if (!wowee::pipeline::WoweePetLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wpet: WPET not found: %s.wpet\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wpet", "WPET", base, ".wpet");
     }
     auto c = wowee::pipeline::WoweePetLoader::load(base);
     std::vector<std::string> errors;

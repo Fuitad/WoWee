@@ -150,9 +150,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wtrg");
     if (outPath.empty()) outPath = base + ".wtrg.json";
     if (!wowee::pipeline::WoweeTriggerLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wtrg-json: WTRG not found: %s.wtrg\n", base.c_str());
-        return 1;
+        return reportMissing("export-wtrg-json", "WTRG", base, ".wtrg");
     }
     auto c = wowee::pipeline::WoweeTriggerLoader::load(base);
     nlohmann::json j;
@@ -283,9 +281,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wtrg");
     if (!wowee::pipeline::WoweeTriggerLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wtrg: WTRG not found: %s.wtrg\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wtrg", "WTRG", base, ".wtrg");
     }
     auto c = wowee::pipeline::WoweeTriggerLoader::load(base);
     std::vector<std::string> errors;

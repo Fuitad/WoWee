@@ -137,9 +137,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wsnd");
     if (outPath.empty()) outPath = base + ".wsnd.json";
     if (!wowee::pipeline::WoweeSoundLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wsnd-json: WSND not found: %s.wsnd\n", base.c_str());
-        return 1;
+        return reportMissing("export-wsnd-json", "WSND", base, ".wsnd");
     }
     auto c = wowee::pipeline::WoweeSoundLoader::load(base);
     nlohmann::json j;
@@ -263,9 +261,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wsnd");
     if (!wowee::pipeline::WoweeSoundLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wsnd: WSND not found: %s.wsnd\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wsnd", "WSND", base, ".wsnd");
     }
     auto c = wowee::pipeline::WoweeSoundLoader::load(base);
     std::vector<std::string> errors;

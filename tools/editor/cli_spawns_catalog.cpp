@@ -141,9 +141,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wspn");
     if (outPath.empty()) outPath = base + ".wspn.json";
     if (!wowee::pipeline::WoweeSpawnsLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wspn-json: WSPN not found: %s.wspn\n", base.c_str());
-        return 1;
+        return reportMissing("export-wspn-json", "WSPN", base, ".wspn");
     }
     auto c = wowee::pipeline::WoweeSpawnsLoader::load(base);
     nlohmann::json j;
@@ -273,9 +271,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wspn");
     if (!wowee::pipeline::WoweeSpawnsLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wspn: WSPN not found: %s.wspn\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wspn", "WSPN", base, ".wspn");
     }
     auto c = wowee::pipeline::WoweeSpawnsLoader::load(base);
     std::vector<std::string> errors;

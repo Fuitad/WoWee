@@ -126,9 +126,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wcmp");
     if (outPath.empty()) outPath = base + ".wcmp.json";
     if (!wowee::pipeline::WoweeCompanionLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wcmp-json: WCMP not found: %s.wcmp\n", base.c_str());
-        return 1;
+        return reportMissing("export-wcmp-json", "WCMP", base, ".wcmp");
     }
     auto c = wowee::pipeline::WoweeCompanionLoader::load(base);
     nlohmann::json j;
@@ -270,9 +268,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wcmp");
     if (!wowee::pipeline::WoweeCompanionLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wcmp: WCMP not found: %s.wcmp\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wcmp", "WCMP", base, ".wcmp");
     }
     auto c = wowee::pipeline::WoweeCompanionLoader::load(base);
     std::vector<std::string> errors;

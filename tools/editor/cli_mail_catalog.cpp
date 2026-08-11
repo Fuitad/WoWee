@@ -145,9 +145,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wmal");
     if (outPath.empty()) outPath = base + ".wmal.json";
     if (!wowee::pipeline::WoweeMailLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wmal-json: WMAL not found: %s.wmal\n", base.c_str());
-        return 1;
+        return reportMissing("export-wmal-json", "WMAL", base, ".wmal");
     }
     auto c = wowee::pipeline::WoweeMailLoader::load(base);
     nlohmann::json j;
@@ -267,9 +265,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wmal");
     if (!wowee::pipeline::WoweeMailLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wmal: WMAL not found: %s.wmal\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wmal", "WMAL", base, ".wmal");
     }
     auto c = wowee::pipeline::WoweeMailLoader::load(base);
     std::vector<std::string> errors;

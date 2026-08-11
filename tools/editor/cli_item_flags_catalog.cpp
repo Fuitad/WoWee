@@ -238,9 +238,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wifs");
     if (!wowee::pipeline::WoweeItemFlagsLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wifs: WIFS not found: %s.wifs\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wifs", "WIFS", base, ".wifs");
     }
     auto c = wowee::pipeline::WoweeItemFlagsLoader::load(base);
     std::vector<std::string> errors;

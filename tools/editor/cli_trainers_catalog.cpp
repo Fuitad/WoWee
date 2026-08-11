@@ -178,9 +178,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wtrn");
     if (outPath.empty()) outPath = base + ".wtrn.json";
     if (!wowee::pipeline::WoweeTrainerLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wtrn-json: WTRN not found: %s.wtrn\n", base.c_str());
-        return 1;
+        return reportMissing("export-wtrn-json", "WTRN", base, ".wtrn");
     }
     auto c = wowee::pipeline::WoweeTrainerLoader::load(base);
     nlohmann::json j;
@@ -339,9 +337,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wtrn");
     if (!wowee::pipeline::WoweeTrainerLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wtrn: WTRN not found: %s.wtrn\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wtrn", "WTRN", base, ".wtrn");
     }
     auto c = wowee::pipeline::WoweeTrainerLoader::load(base);
     std::vector<std::string> errors;

@@ -58,6 +58,17 @@ bool saveOrError(const Catalog& cat, const std::string& base, const char* cmd,
     return false;
 }
 
+/// Report a catalog that is not there, and answer the process exit code.
+///
+/// Written out at each of the 153 places a handler checks whether the file it
+/// was asked about exists. `tag` is the format's own name for itself in a
+/// message — "WSMC" — and the path is always "<base><extension>".
+inline int reportMissing(const char* cmd, const char* tag, const std::string& base,
+                         const char* extension) {
+    std::fprintf(stderr, "%s: %s not found: %s%s\n", cmd, tag, base.c_str(), extension);
+    return 1;
+}
+
 }  // namespace cli
 }  // namespace editor
 }  // namespace wowee

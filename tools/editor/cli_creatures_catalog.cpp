@@ -171,9 +171,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wcrt");
     if (outPath.empty()) outPath = base + ".wcrt.json";
     if (!wowee::pipeline::WoweeCreatureLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wcrt-json: WCRT not found: %s.wcrt\n", base.c_str());
-        return 1;
+        return reportMissing("export-wcrt-json", "WCRT", base, ".wcrt");
     }
     auto c = wowee::pipeline::WoweeCreatureLoader::load(base);
     nlohmann::json j;
@@ -377,9 +375,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wcrt");
     if (!wowee::pipeline::WoweeCreatureLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wcrt: WCRT not found: %s.wcrt\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wcrt", "WCRT", base, ".wcrt");
     }
     auto c = wowee::pipeline::WoweeCreatureLoader::load(base);
     std::vector<std::string> errors;

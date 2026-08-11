@@ -122,9 +122,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wkbd");
     if (outPath.empty()) outPath = base + ".wkbd.json";
     if (!wowee::pipeline::WoweeKeyBindingLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wkbd-json: WKBD not found: %s.wkbd\n", base.c_str());
-        return 1;
+        return reportMissing("export-wkbd-json", "WKBD", base, ".wkbd");
     }
     auto c = wowee::pipeline::WoweeKeyBindingLoader::load(base);
     nlohmann::json j;
@@ -235,9 +233,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wkbd");
     if (!wowee::pipeline::WoweeKeyBindingLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wkbd: WKBD not found: %s.wkbd\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wkbd", "WKBD", base, ".wkbd");
     }
     auto c = wowee::pipeline::WoweeKeyBindingLoader::load(base);
     std::vector<std::string> errors;

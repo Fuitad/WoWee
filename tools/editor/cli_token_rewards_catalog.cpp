@@ -284,9 +284,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wtbr");
     if (!wowee::pipeline::WoweeTokenRewardLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wtbr: WTBR not found: %s.wtbr\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wtbr", "WTBR", base, ".wtbr");
     }
     auto c = wowee::pipeline::WoweeTokenRewardLoader::load(base);
     std::vector<std::string> errors;

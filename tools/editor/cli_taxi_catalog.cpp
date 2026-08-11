@@ -158,9 +158,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wtax");
     if (outPath.empty()) outPath = base + ".wtax.json";
     if (!wowee::pipeline::WoweeTaxiLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wtax-json: WTAX not found: %s.wtax\n", base.c_str());
-        return 1;
+        return reportMissing("export-wtax-json", "WTAX", base, ".wtax");
     }
     auto c = wowee::pipeline::WoweeTaxiLoader::load(base);
     nlohmann::json j;
@@ -288,9 +286,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wtax");
     if (!wowee::pipeline::WoweeTaxiLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wtax: WTAX not found: %s.wtax\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wtax", "WTAX", base, ".wtax");
     }
     auto c = wowee::pipeline::WoweeTaxiLoader::load(base);
     std::vector<std::string> errors;

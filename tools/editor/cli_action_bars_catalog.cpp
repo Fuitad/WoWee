@@ -238,9 +238,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wact");
     if (!wowee::pipeline::WoweeActionBarLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wact: WACT not found: %s.wact\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wact", "WACT", base, ".wact");
     }
     auto c = wowee::pipeline::WoweeActionBarLoader::load(base);
     std::vector<std::string> errors;

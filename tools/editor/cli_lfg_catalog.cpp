@@ -132,9 +132,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wlfg");
     if (outPath.empty()) outPath = base + ".wlfg.json";
     if (!wowee::pipeline::WoweeLFGDungeonLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wlfg-json: WLFG not found: %s.wlfg\n", base.c_str());
-        return 1;
+        return reportMissing("export-wlfg-json", "WLFG", base, ".wlfg");
     }
     auto c = wowee::pipeline::WoweeLFGDungeonLoader::load(base);
     nlohmann::json j;
@@ -275,9 +273,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wlfg");
     if (!wowee::pipeline::WoweeLFGDungeonLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wlfg: WLFG not found: %s.wlfg\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wlfg", "WLFG", base, ".wlfg");
     }
     auto c = wowee::pipeline::WoweeLFGDungeonLoader::load(base);
     std::vector<std::string> errors;

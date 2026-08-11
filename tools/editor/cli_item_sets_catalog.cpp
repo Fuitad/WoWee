@@ -139,9 +139,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wset");
     if (outPath.empty()) outPath = base + ".wset.json";
     if (!wowee::pipeline::WoweeItemSetLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wset-json: WSET not found: %s.wset\n", base.c_str());
-        return 1;
+        return reportMissing("export-wset-json", "WSET", base, ".wset");
     }
     auto c = wowee::pipeline::WoweeItemSetLoader::load(base);
     nlohmann::json j;
@@ -250,9 +248,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wset");
     if (!wowee::pipeline::WoweeItemSetLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wset: WSET not found: %s.wset\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wset", "WSET", base, ".wset");
     }
     auto c = wowee::pipeline::WoweeItemSetLoader::load(base);
     std::vector<std::string> errors;

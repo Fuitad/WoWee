@@ -247,9 +247,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wgrp");
     if (!wowee::pipeline::WoweeGroupCompositionLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wgrp: WGRP not found: %s.wgrp\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wgrp", "WGRP", base, ".wgrp");
     }
     auto c = wowee::pipeline::WoweeGroupCompositionLoader::load(base);
     std::vector<std::string> errors;

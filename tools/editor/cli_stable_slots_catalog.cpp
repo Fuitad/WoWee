@@ -221,9 +221,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wstc");
     if (!wowee::pipeline::WoweeStableSlotLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wstc: WSTC not found: %s.wstc\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wstc", "WSTC", base, ".wstc");
     }
     auto c = wowee::pipeline::WoweeStableSlotLoader::load(base);
     std::vector<std::string> errors;

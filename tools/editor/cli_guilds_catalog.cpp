@@ -170,9 +170,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wgld");
     if (outPath.empty()) outPath = base + ".wgld.json";
     if (!wowee::pipeline::WoweeGuildLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wgld-json: WGLD not found: %s.wgld\n", base.c_str());
-        return 1;
+        return reportMissing("export-wgld-json", "WGLD", base, ".wgld");
     }
     auto c = wowee::pipeline::WoweeGuildLoader::load(base);
     nlohmann::json j;
@@ -364,9 +362,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wgld");
     if (!wowee::pipeline::WoweeGuildLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wgld: WGLD not found: %s.wgld\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wgld", "WGLD", base, ".wgld");
     }
     auto c = wowee::pipeline::WoweeGuildLoader::load(base);
     std::vector<std::string> errors;

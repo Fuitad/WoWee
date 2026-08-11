@@ -244,9 +244,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wstm");
     if (!wowee::pipeline::WoweeStatCurveLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wstm: WSTM not found: %s.wstm\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wstm", "WSTM", base, ".wstm");
     }
     auto c = wowee::pipeline::WoweeStatCurveLoader::load(base);
     std::vector<std::string> errors;

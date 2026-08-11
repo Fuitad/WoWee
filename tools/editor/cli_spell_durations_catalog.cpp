@@ -238,9 +238,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wsdr");
     if (!wowee::pipeline::WoweeSpellDurationLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wsdr: WSDR not found: %s.wsdr\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wsdr", "WSDR", base, ".wsdr");
     }
     auto c = wowee::pipeline::WoweeSpellDurationLoader::load(base);
     std::vector<std::string> errors;

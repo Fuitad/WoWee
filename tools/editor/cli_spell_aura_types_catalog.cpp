@@ -281,9 +281,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".waur");
     if (!wowee::pipeline::WoweeSpellAuraTypeLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-waur: WAUR not found: %s.waur\n", base.c_str());
-        return 1;
+        return reportMissing("validate-waur", "WAUR", base, ".waur");
     }
     auto c = wowee::pipeline::WoweeSpellAuraTypeLoader::load(base);
     std::vector<std::string> errors;

@@ -290,9 +290,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wcmr");
     if (!wowee::pipeline::WoweeCreaturePatrolLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wcmr: WCMR not found: %s.wcmr\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wcmr", "WCMR", base, ".wcmr");
     }
     auto c = wowee::pipeline::WoweeCreaturePatrolLoader::load(base);
     std::vector<std::string> errors;

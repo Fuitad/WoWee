@@ -337,9 +337,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wemo");
     if (!wowee::pipeline::WoweeEmotesLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wemo: WEMO not found: %s.wemo\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wemo", "WEMO", base, ".wemo");
     }
     auto c = wowee::pipeline::WoweeEmotesLoader::load(base);
     std::vector<std::string> errors;

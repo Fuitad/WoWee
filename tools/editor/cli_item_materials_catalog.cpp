@@ -325,9 +325,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wmat");
     if (!wowee::pipeline::WoweeItemMaterialLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wmat: WMAT not found: %s.wmat\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wmat", "WMAT", base, ".wmat");
     }
     auto c = wowee::pipeline::WoweeItemMaterialLoader::load(base);
     std::vector<std::string> errors;

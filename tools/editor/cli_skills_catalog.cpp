@@ -119,9 +119,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wskl");
     if (outPath.empty()) outPath = base + ".wskl.json";
     if (!wowee::pipeline::WoweeSkillLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wskl-json: WSKL not found: %s.wskl\n", base.c_str());
-        return 1;
+        return reportMissing("export-wskl-json", "WSKL", base, ".wskl");
     }
     auto c = wowee::pipeline::WoweeSkillLoader::load(base);
     nlohmann::json j;
@@ -222,9 +220,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wskl");
     if (!wowee::pipeline::WoweeSkillLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wskl: WSKL not found: %s.wskl\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wskl", "WSKL", base, ".wskl");
     }
     auto c = wowee::pipeline::WoweeSkillLoader::load(base);
     std::vector<std::string> errors;

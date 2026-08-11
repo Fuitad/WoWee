@@ -119,9 +119,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wqso");
     if (outPath.empty()) outPath = base + ".wqso.json";
     if (!wowee::pipeline::WoweeQuestSortLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wqso-json: WQSO not found: %s.wqso\n", base.c_str());
-        return 1;
+        return reportMissing("export-wqso-json", "WQSO", base, ".wqso");
     }
     auto c = wowee::pipeline::WoweeQuestSortLoader::load(base);
     nlohmann::json j;
@@ -236,9 +234,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wqso");
     if (!wowee::pipeline::WoweeQuestSortLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wqso: WQSO not found: %s.wqso\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wqso", "WQSO", base, ".wqso");
     }
     auto c = wowee::pipeline::WoweeQuestSortLoader::load(base);
     std::vector<std::string> errors;

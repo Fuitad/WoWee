@@ -153,9 +153,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wms");
     if (outPath.empty()) outPath = base + ".wms.json";
     if (!wowee::pipeline::WoweeMapsLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wms-json: WMS not found: %s.wms\n", base.c_str());
-        return 1;
+        return reportMissing("export-wms-json", "WMS", base, ".wms");
     }
     auto c = wowee::pipeline::WoweeMapsLoader::load(base);
     nlohmann::json j;
@@ -308,9 +306,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wms");
     if (!wowee::pipeline::WoweeMapsLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wms: WMS not found: %s.wms\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wms", "WMS", base, ".wms");
     }
     auto c = wowee::pipeline::WoweeMapsLoader::load(base);
     std::vector<std::string> errors;

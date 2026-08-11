@@ -120,9 +120,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wgly");
     if (outPath.empty()) outPath = base + ".wgly.json";
     if (!wowee::pipeline::WoweeGlyphLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wgly-json: WGLY not found: %s.wgly\n", base.c_str());
-        return 1;
+        return reportMissing("export-wgly-json", "WGLY", base, ".wgly");
     }
     auto c = wowee::pipeline::WoweeGlyphLoader::load(base);
     nlohmann::json j;
@@ -225,9 +223,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wgly");
     if (!wowee::pipeline::WoweeGlyphLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wgly: WGLY not found: %s.wgly\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wgly", "WGLY", base, ".wgly");
     }
     auto c = wowee::pipeline::WoweeGlyphLoader::load(base);
     std::vector<std::string> errors;

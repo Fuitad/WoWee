@@ -127,9 +127,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wsea");
     if (outPath.empty()) outPath = base + ".wsea.json";
     if (!wowee::pipeline::WoweeEventLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wsea-json: WSEA not found: %s.wsea\n", base.c_str());
-        return 1;
+        return reportMissing("export-wsea-json", "WSEA", base, ".wsea");
     }
     auto c = wowee::pipeline::WoweeEventLoader::load(base);
     nlohmann::json j;
@@ -252,9 +250,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wsea");
     if (!wowee::pipeline::WoweeEventLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wsea: WSEA not found: %s.wsea\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wsea", "WSEA", base, ".wsea");
     }
     auto c = wowee::pipeline::WoweeEventLoader::load(base);
     std::vector<std::string> errors;

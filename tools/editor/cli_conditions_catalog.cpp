@@ -122,9 +122,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wpcd");
     if (outPath.empty()) outPath = base + ".wpcd.json";
     if (!wowee::pipeline::WoweeConditionLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wpcd-json: WPCD not found: %s.wpcd\n", base.c_str());
-        return 1;
+        return reportMissing("export-wpcd-json", "WPCD", base, ".wpcd");
     }
     auto c = wowee::pipeline::WoweeConditionLoader::load(base);
     nlohmann::json j;
@@ -249,9 +247,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wpcd");
     if (!wowee::pipeline::WoweeConditionLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wpcd: WPCD not found: %s.wpcd\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wpcd", "WPCD", base, ".wpcd");
     }
     auto c = wowee::pipeline::WoweeConditionLoader::load(base);
     std::vector<std::string> errors;

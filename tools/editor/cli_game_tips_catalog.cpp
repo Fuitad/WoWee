@@ -125,9 +125,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wgtp");
     if (outPath.empty()) outPath = base + ".wgtp.json";
     if (!wowee::pipeline::WoweeGameTipLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wgtp-json: WGTP not found: %s.wgtp\n", base.c_str());
-        return 1;
+        return reportMissing("export-wgtp-json", "WGTP", base, ".wgtp");
     }
     auto c = wowee::pipeline::WoweeGameTipLoader::load(base);
     nlohmann::json j;
@@ -239,9 +237,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wgtp");
     if (!wowee::pipeline::WoweeGameTipLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wgtp: WGTP not found: %s.wgtp\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wgtp", "WGTP", base, ".wgtp");
     }
     auto c = wowee::pipeline::WoweeGameTipLoader::load(base);
     std::vector<std::string> errors;

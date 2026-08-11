@@ -133,9 +133,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wbgd");
     if (outPath.empty()) outPath = base + ".wbgd.json";
     if (!wowee::pipeline::WoweeBattlegroundLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wbgd-json: WBGD not found: %s.wbgd\n", base.c_str());
-        return 1;
+        return reportMissing("export-wbgd-json", "WBGD", base, ".wbgd");
     }
     auto c = wowee::pipeline::WoweeBattlegroundLoader::load(base);
     nlohmann::json j;
@@ -266,9 +264,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wbgd");
     if (!wowee::pipeline::WoweeBattlegroundLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wbgd: WBGD not found: %s.wbgd\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wbgd", "WBGD", base, ".wbgd");
     }
     auto c = wowee::pipeline::WoweeBattlegroundLoader::load(base);
     std::vector<std::string> errors;

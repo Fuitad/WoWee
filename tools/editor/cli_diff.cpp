@@ -390,9 +390,7 @@ int handleDiffWom(int& i, int argc, char** argv) {
     }
     for (const auto& base : {aBase, bBase}) {
         if (!wowee::pipeline::WoweeModelLoader::exists(base)) {
-            std::fprintf(stderr,
-                "diff-wom: WOM not found: %s.wom\n", base.c_str());
-            return 1;
+            return reportMissing("diff-wom", "WOM", base, ".wom");
         }
     }
     auto a = wowee::pipeline::WoweeModelLoader::load(aBase);
@@ -481,9 +479,7 @@ int handleDiffWob(int& i, int argc, char** argv) {
     }
     for (const auto& base : {aBase, bBase}) {
         if (!wowee::pipeline::WoweeBuildingLoader::exists(base)) {
-            std::fprintf(stderr,
-                "diff-wob: WOB not found: %s.wob\n", base.c_str());
-            return 1;
+            return reportMissing("diff-wob", "WOB", base, ".wob");
         }
     }
     auto a = wowee::pipeline::WoweeBuildingLoader::load(aBase);

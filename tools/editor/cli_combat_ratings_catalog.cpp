@@ -119,9 +119,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wcrr");
     if (outPath.empty()) outPath = base + ".wcrr.json";
     if (!wowee::pipeline::WoweeCombatRatingLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wcrr-json: WCRR not found: %s.wcrr\n", base.c_str());
-        return 1;
+        return reportMissing("export-wcrr-json", "WCRR", base, ".wcrr");
     }
     auto c = wowee::pipeline::WoweeCombatRatingLoader::load(base);
     nlohmann::json j;
@@ -228,9 +226,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wcrr");
     if (!wowee::pipeline::WoweeCombatRatingLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wcrr: WCRR not found: %s.wcrr\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wcrr", "WCRR", base, ".wcrr");
     }
     auto c = wowee::pipeline::WoweeCombatRatingLoader::load(base);
     std::vector<std::string> errors;

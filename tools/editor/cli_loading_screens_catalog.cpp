@@ -124,9 +124,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wlds");
     if (outPath.empty()) outPath = base + ".wlds.json";
     if (!wowee::pipeline::WoweeLoadingScreenLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wlds-json: WLDS not found: %s.wlds\n", base.c_str());
-        return 1;
+        return reportMissing("export-wlds-json", "WLDS", base, ".wlds");
     }
     auto c = wowee::pipeline::WoweeLoadingScreenLoader::load(base);
     nlohmann::json j;
@@ -240,9 +238,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wlds");
     if (!wowee::pipeline::WoweeLoadingScreenLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wlds: WLDS not found: %s.wlds\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wlds", "WLDS", base, ".wlds");
     }
     auto c = wowee::pipeline::WoweeLoadingScreenLoader::load(base);
     std::vector<std::string> errors;

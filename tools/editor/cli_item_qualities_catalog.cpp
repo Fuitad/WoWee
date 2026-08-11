@@ -219,9 +219,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wiqr");
     if (!wowee::pipeline::WoweeItemQualityLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wiqr: WIQR not found: %s.wiqr\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wiqr", "WIQR", base, ".wiqr");
     }
     auto c = wowee::pipeline::WoweeItemQualityLoader::load(base);
     std::vector<std::string> errors;

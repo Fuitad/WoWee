@@ -275,9 +275,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wspr");
     if (!wowee::pipeline::WoweeSpellReagentLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wspr: WSPR not found: %s.wspr\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wspr", "WSPR", base, ".wspr");
     }
     auto c = wowee::pipeline::WoweeSpellReagentLoader::load(base);
     std::vector<std::string> errors;

@@ -128,9 +128,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wpcn");
     if (outPath.empty()) outPath = base + ".wpcn.json";
     if (!wowee::pipeline::WoweePlayerConditionLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wpcn-json: WPCN not found: %s.wpcn\n", base.c_str());
-        return 1;
+        return reportMissing("export-wpcn-json", "WPCN", base, ".wpcn");
     }
     auto c = wowee::pipeline::WoweePlayerConditionLoader::load(base);
     nlohmann::json j;
@@ -287,9 +285,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wpcn");
     if (!wowee::pipeline::WoweePlayerConditionLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wpcn: WPCN not found: %s.wpcn\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wpcn", "WPCN", base, ".wpcn");
     }
     auto c = wowee::pipeline::WoweePlayerConditionLoader::load(base);
     std::vector<std::string> errors;

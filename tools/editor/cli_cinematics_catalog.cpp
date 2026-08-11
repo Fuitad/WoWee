@@ -126,9 +126,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wcms");
     if (outPath.empty()) outPath = base + ".wcms.json";
     if (!wowee::pipeline::WoweeCinematicLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wcms-json: WCMS not found: %s.wcms\n", base.c_str());
-        return 1;
+        return reportMissing("export-wcms-json", "WCMS", base, ".wcms");
     }
     auto c = wowee::pipeline::WoweeCinematicLoader::load(base);
     nlohmann::json j;
@@ -252,9 +250,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wcms");
     if (!wowee::pipeline::WoweeCinematicLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wcms: WCMS not found: %s.wcms\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wcms", "WCMS", base, ".wcms");
     }
     auto c = wowee::pipeline::WoweeCinematicLoader::load(base);
     std::vector<std::string> errors;

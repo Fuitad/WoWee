@@ -260,9 +260,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wacr");
     if (!wowee::pipeline::WoweeAchievementCriteriaLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wacr: WACR not found: %s.wacr\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wacr", "WACR", base, ".wacr");
     }
     auto c = wowee::pipeline::WoweeAchievementCriteriaLoader::load(base);
     std::vector<std::string> errors;

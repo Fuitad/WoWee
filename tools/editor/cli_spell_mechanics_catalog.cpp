@@ -124,9 +124,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wsmc");
     if (outPath.empty()) outPath = base + ".wsmc.json";
     if (!wowee::pipeline::WoweeSpellMechanicLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wsmc-json: WSMC not found: %s.wsmc\n", base.c_str());
-        return 1;
+        return reportMissing("export-wsmc-json", "WSMC", base, ".wsmc");
     }
     auto c = wowee::pipeline::WoweeSpellMechanicLoader::load(base);
     nlohmann::json j;
@@ -259,9 +257,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wsmc");
     if (!wowee::pipeline::WoweeSpellMechanicLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wsmc: WSMC not found: %s.wsmc\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wsmc", "WSMC", base, ".wsmc");
     }
     auto c = wowee::pipeline::WoweeSpellMechanicLoader::load(base);
     std::vector<std::string> errors;

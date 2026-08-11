@@ -153,9 +153,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wgem");
     if (outPath.empty()) outPath = base + ".wgem.json";
     if (!wowee::pipeline::WoweeGemLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wgem-json: WGEM not found: %s.wgem\n", base.c_str());
-        return 1;
+        return reportMissing("export-wgem-json", "WGEM", base, ".wgem");
     }
     auto c = wowee::pipeline::WoweeGemLoader::load(base);
     nlohmann::json j;
@@ -305,9 +303,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wgem");
     if (!wowee::pipeline::WoweeGemLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wgem: WGEM not found: %s.wgem\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wgem", "WGEM", base, ".wgem");
     }
     auto c = wowee::pipeline::WoweeGemLoader::load(base);
     std::vector<std::string> errors;

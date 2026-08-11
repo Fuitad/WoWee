@@ -148,9 +148,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wtal");
     if (outPath.empty()) outPath = base + ".wtal.json";
     if (!wowee::pipeline::WoweeTalentLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wtal-json: WTAL not found: %s.wtal\n", base.c_str());
-        return 1;
+        return reportMissing("export-wtal-json", "WTAL", base, ".wtal");
     }
     auto c = wowee::pipeline::WoweeTalentLoader::load(base);
     nlohmann::json j;
@@ -268,9 +266,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wtal");
     if (!wowee::pipeline::WoweeTalentLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wtal: WTAL not found: %s.wtal\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wtal", "WTAL", base, ".wtal");
     }
     auto c = wowee::pipeline::WoweeTalentLoader::load(base);
     std::vector<std::string> errors;

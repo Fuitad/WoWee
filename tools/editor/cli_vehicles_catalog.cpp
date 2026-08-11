@@ -146,9 +146,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wvhc");
     if (outPath.empty()) outPath = base + ".wvhc.json";
     if (!wowee::pipeline::WoweeVehicleLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wvhc-json: WVHC not found: %s.wvhc\n", base.c_str());
-        return 1;
+        return reportMissing("export-wvhc-json", "WVHC", base, ".wvhc");
     }
     auto c = wowee::pipeline::WoweeVehicleLoader::load(base);
     nlohmann::json j;
@@ -323,9 +321,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wvhc");
     if (!wowee::pipeline::WoweeVehicleLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wvhc: WVHC not found: %s.wvhc\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wvhc", "WVHC", base, ".wvhc");
     }
     auto c = wowee::pipeline::WoweeVehicleLoader::load(base);
     std::vector<std::string> errors;

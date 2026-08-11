@@ -308,9 +308,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wscb");
     if (!wowee::pipeline::WoweeServerBroadcastsLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wscb: WSCB not found: %s.wscb\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wscb", "WSCB", base, ".wscb");
     }
     auto c = wowee::pipeline::WoweeServerBroadcastsLoader::load(base);
     std::vector<std::string> errors;

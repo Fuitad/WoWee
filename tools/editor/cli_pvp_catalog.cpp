@@ -130,9 +130,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wpvp");
     if (outPath.empty()) outPath = base + ".wpvp.json";
     if (!wowee::pipeline::WoweePVPRankLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wpvp-json: WPVP not found: %s.wpvp\n", base.c_str());
-        return 1;
+        return reportMissing("export-wpvp-json", "WPVP", base, ".wpvp");
     }
     auto c = wowee::pipeline::WoweePVPRankLoader::load(base);
     nlohmann::json j;
@@ -256,9 +254,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wpvp");
     if (!wowee::pipeline::WoweePVPRankLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wpvp: WPVP not found: %s.wpvp\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wpvp", "WPVP", base, ".wpvp");
     }
     auto c = wowee::pipeline::WoweePVPRankLoader::load(base);
     std::vector<std::string> errors;

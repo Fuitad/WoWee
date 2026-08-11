@@ -313,9 +313,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".whrt");
     if (!wowee::pipeline::WoweeHearthBindsLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-whrt: WHRT not found: %s.whrt\n", base.c_str());
-        return 1;
+        return reportMissing("validate-whrt", "WHRT", base, ".whrt");
     }
     auto c = wowee::pipeline::WoweeHearthBindsLoader::load(base);
     std::vector<std::string> errors;

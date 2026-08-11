@@ -169,9 +169,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wach");
     if (outPath.empty()) outPath = base + ".wach.json";
     if (!wowee::pipeline::WoweeAchievementLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wach-json: WACH not found: %s.wach\n", base.c_str());
-        return 1;
+        return reportMissing("export-wach-json", "WACH", base, ".wach");
     }
     auto c = wowee::pipeline::WoweeAchievementLoader::load(base);
     nlohmann::json j;
@@ -333,9 +331,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wach");
     if (!wowee::pipeline::WoweeAchievementLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wach: WACH not found: %s.wach\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wach", "WACH", base, ".wach");
     }
     auto c = wowee::pipeline::WoweeAchievementLoader::load(base);
     std::vector<std::string> errors;

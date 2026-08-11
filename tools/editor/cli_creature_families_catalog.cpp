@@ -326,9 +326,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wcef");
     if (!wowee::pipeline::WoweeCreatureFamilyLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wcef: WCEF not found: %s.wcef\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wcef", "WCEF", base, ".wcef");
     }
     auto c = wowee::pipeline::WoweeCreatureFamilyLoader::load(base);
     std::vector<std::string> errors;

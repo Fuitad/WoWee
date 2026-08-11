@@ -247,9 +247,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wsrg");
     if (!wowee::pipeline::WoweeSpellRangeLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wsrg: WSRG not found: %s.wsrg\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wsrg", "WSRG", base, ".wsrg");
     }
     auto c = wowee::pipeline::WoweeSpellRangeLoader::load(base);
     std::vector<std::string> errors;

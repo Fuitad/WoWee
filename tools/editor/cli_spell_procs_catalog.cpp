@@ -283,9 +283,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wsps");
     if (!wowee::pipeline::WoweeSpellProcLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wsps: WSPS not found: %s.wsps\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wsps", "WSPS", base, ".wsps");
     }
     auto c = wowee::pipeline::WoweeSpellProcLoader::load(base);
     std::vector<std::string> errors;

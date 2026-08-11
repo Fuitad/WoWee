@@ -259,9 +259,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wscs");
     if (!wowee::pipeline::WoweeSkillCostLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wscs: WSCS not found: %s.wscs\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wscs", "WSCS", base, ".wscs");
     }
     auto c = wowee::pipeline::WoweeSkillCostLoader::load(base);
     std::vector<std::string> errors;

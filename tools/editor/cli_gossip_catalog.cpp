@@ -155,9 +155,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wgsp");
     if (outPath.empty()) outPath = base + ".wgsp.json";
     if (!wowee::pipeline::WoweeGossipLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wgsp-json: WGSP not found: %s.wgsp\n", base.c_str());
-        return 1;
+        return reportMissing("export-wgsp-json", "WGSP", base, ".wgsp");
     }
     auto c = wowee::pipeline::WoweeGossipLoader::load(base);
     nlohmann::json j;
@@ -299,9 +297,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wgsp");
     if (!wowee::pipeline::WoweeGossipLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wgsp: WGSP not found: %s.wgsp\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wgsp", "WGSP", base, ".wgsp");
     }
     auto c = wowee::pipeline::WoweeGossipLoader::load(base);
     std::vector<std::string> errors;

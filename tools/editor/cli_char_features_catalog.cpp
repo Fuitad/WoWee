@@ -127,9 +127,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wchf");
     if (outPath.empty()) outPath = base + ".wchf.json";
     if (!wowee::pipeline::WoweeCharFeatureLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wchf-json: WCHF not found: %s.wchf\n", base.c_str());
-        return 1;
+        return reportMissing("export-wchf-json", "WCHF", base, ".wchf");
     }
     auto c = wowee::pipeline::WoweeCharFeatureLoader::load(base);
     nlohmann::json j;
@@ -271,9 +269,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wchf");
     if (!wowee::pipeline::WoweeCharFeatureLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wchf: WCHF not found: %s.wchf\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wchf", "WCHF", base, ".wchf");
     }
     auto c = wowee::pipeline::WoweeCharFeatureLoader::load(base);
     std::vector<std::string> errors;

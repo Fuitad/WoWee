@@ -127,9 +127,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wwui");
     if (outPath.empty()) outPath = base + ".wwui.json";
     if (!wowee::pipeline::WoweeWorldStateUILoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wwui-json: WWUI not found: %s.wwui\n", base.c_str());
-        return 1;
+        return reportMissing("export-wwui-json", "WWUI", base, ".wwui");
     }
     auto c = wowee::pipeline::WoweeWorldStateUILoader::load(base);
     nlohmann::json j;
@@ -259,9 +257,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wwui");
     if (!wowee::pipeline::WoweeWorldStateUILoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wwui: WWUI not found: %s.wwui\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wwui", "WWUI", base, ".wwui");
     }
     auto c = wowee::pipeline::WoweeWorldStateUILoader::load(base);
     std::vector<std::string> errors;

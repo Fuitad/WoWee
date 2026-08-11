@@ -124,9 +124,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wmac");
     if (outPath.empty()) outPath = base + ".wmac.json";
     if (!wowee::pipeline::WoweeMacroLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wmac-json: WMAC not found: %s.wmac\n", base.c_str());
-        return 1;
+        return reportMissing("export-wmac-json", "WMAC", base, ".wmac");
     }
     auto c = wowee::pipeline::WoweeMacroLoader::load(base);
     nlohmann::json j;
@@ -233,9 +231,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wmac");
     if (!wowee::pipeline::WoweeMacroLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wmac: WMAC not found: %s.wmac\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wmac", "WMAC", base, ".wmac");
     }
     auto c = wowee::pipeline::WoweeMacroLoader::load(base);
     std::vector<std::string> errors;

@@ -256,9 +256,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wctr");
     if (!wowee::pipeline::WoweeCurrencyTypeLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wctr: WCTR not found: %s.wctr\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wctr", "WCTR", base, ".wctr");
     }
     auto c = wowee::pipeline::WoweeCurrencyTypeLoader::load(base);
     std::vector<std::string> errors;

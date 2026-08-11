@@ -128,9 +128,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wauc");
     if (outPath.empty()) outPath = base + ".wauc.json";
     if (!wowee::pipeline::WoweeAuctionLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wauc-json: WAUC not found: %s.wauc\n", base.c_str());
-        return 1;
+        return reportMissing("export-wauc-json", "WAUC", base, ".wauc");
     }
     auto c = wowee::pipeline::WoweeAuctionLoader::load(base);
     nlohmann::json j;
@@ -243,9 +241,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wauc");
     if (!wowee::pipeline::WoweeAuctionLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wauc: WAUC not found: %s.wauc\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wauc", "WAUC", base, ".wauc");
     }
     auto c = wowee::pipeline::WoweeAuctionLoader::load(base);
     std::vector<std::string> errors;

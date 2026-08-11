@@ -290,9 +290,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wscd");
     if (!wowee::pipeline::WoweeSpellCooldownLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wscd: WSCD not found: %s.wscd\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wscd", "WSCD", base, ".wscd");
     }
     auto c = wowee::pipeline::WoweeSpellCooldownLoader::load(base);
     std::vector<std::string> errors;

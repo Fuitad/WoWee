@@ -119,9 +119,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wtit");
     if (outPath.empty()) outPath = base + ".wtit.json";
     if (!wowee::pipeline::WoweeTitleLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wtit-json: WTIT not found: %s.wtit\n", base.c_str());
-        return 1;
+        return reportMissing("export-wtit-json", "WTIT", base, ".wtit");
     }
     auto c = wowee::pipeline::WoweeTitleLoader::load(base);
     nlohmann::json j;
@@ -227,9 +225,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wtit");
     if (!wowee::pipeline::WoweeTitleLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wtit: WTIT not found: %s.wtit\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wtit", "WTIT", base, ".wtit");
     }
     auto c = wowee::pipeline::WoweeTitleLoader::load(base);
     std::vector<std::string> errors;

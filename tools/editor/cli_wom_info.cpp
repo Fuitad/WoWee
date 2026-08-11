@@ -721,9 +721,7 @@ int handleExportBonesDot(int& i, int argc, char** argv) {
     if (base.size() >= 4 && base.substr(base.size() - 4) == ".wom")
         base = base.substr(0, base.size() - 4);
     if (!wowee::pipeline::WoweeModelLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-bones-dot: WOM not found: %s.wom\n", base.c_str());
-        return 1;
+        return reportMissing("export-bones-dot", "WOM", base, ".wom");
     }
     if (outPath.empty()) outPath = base + ".bones.dot";
     auto wom = wowee::pipeline::WoweeModelLoader::load(base);

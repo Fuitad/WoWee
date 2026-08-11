@@ -132,9 +132,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wliq");
     if (outPath.empty()) outPath = base + ".wliq.json";
     if (!wowee::pipeline::WoweeLiquidLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wliq-json: WLIQ not found: %s.wliq\n", base.c_str());
-        return 1;
+        return reportMissing("export-wliq-json", "WLIQ", base, ".wliq");
     }
     auto c = wowee::pipeline::WoweeLiquidLoader::load(base);
     nlohmann::json j;
@@ -261,9 +259,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wliq");
     if (!wowee::pipeline::WoweeLiquidLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wliq: WLIQ not found: %s.wliq\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wliq", "WLIQ", base, ".wliq");
     }
     auto c = wowee::pipeline::WoweeLiquidLoader::load(base);
     std::vector<std::string> errors;

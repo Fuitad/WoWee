@@ -129,9 +129,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wmou");
     if (outPath.empty()) outPath = base + ".wmou.json";
     if (!wowee::pipeline::WoweeMountLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wmou-json: WMOU not found: %s.wmou\n", base.c_str());
-        return 1;
+        return reportMissing("export-wmou-json", "WMOU", base, ".wmou");
     }
     auto c = wowee::pipeline::WoweeMountLoader::load(base);
     nlohmann::json j;
@@ -273,9 +271,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wmou");
     if (!wowee::pipeline::WoweeMountLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wmou: WMOU not found: %s.wmou\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wmou", "WMOU", base, ".wmou");
     }
     auto c = wowee::pipeline::WoweeMountLoader::load(base);
     std::vector<std::string> errors;

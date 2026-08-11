@@ -120,9 +120,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wani");
     if (outPath.empty()) outPath = base + ".wani.json";
     if (!wowee::pipeline::WoweeAnimationLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wani-json: WANI not found: %s.wani\n", base.c_str());
-        return 1;
+        return reportMissing("export-wani-json", "WANI", base, ".wani");
     }
     auto c = wowee::pipeline::WoweeAnimationLoader::load(base);
     nlohmann::json j;
@@ -227,9 +225,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wani");
     if (!wowee::pipeline::WoweeAnimationLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wani: WANI not found: %s.wani\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wani", "WANI", base, ".wani");
     }
     auto c = wowee::pipeline::WoweeAnimationLoader::load(base);
     std::vector<std::string> errors;
