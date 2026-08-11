@@ -728,6 +728,13 @@ struct Emitter {
             static const char* kMouseScripts[] = {
                 "OnEnter", "OnLeave", "OnMouseDown", "OnMouseUp",
                 "OnDragStart", "OnReceiveDrag",
+                // The hyperlink scripts are deliberately not here. A chat frame
+                // declares OnHyperlinkClick and Blizzard's own
+                // FloatingChatFrameTemplate then sets enableMouse="false" over
+                // it, because a chat window is click-through by design — and
+                // links in it are still clickable in a real client. So a link
+                // is not the frame's click to take, and the hit test for one
+                // runs whether or not the frame beneath it wants the mouse.
             };
             bool wantsMouse = false;
             for (const XmlNode& child : node.children) {

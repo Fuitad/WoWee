@@ -9343,30 +9343,36 @@ void LuaEngine::dispatchMouse(float x, float y, float screenH, MouseButtons butt
                 // a release on the same bar would compare an ancestor against a
                 // child and never match.
                 const uint32_t releasedOn = clickOwnerOf(hit, b.name);
-                if (!wasDragged && pressedWid_[i] == releasedOn &&
-                    (!pressed || pressed->enabled) && takesIt) {
-                    // PreClick and PostClick bracket the click. Secure buttons
-                    // use them to set up and tear down around an action, and
-                    // an addon that only has PostClick would otherwise never
-                    // hear that its button was used.
-                    // A link under the cursor is answered before the button
-                    // it sits on. FrameXML puts OnHyperlinkClick on the chat
-                    // frame, not on the font string the text is drawn in, so
-                    // the handler is looked for up the parent chain — and a
-                    // frame that declares none lets the click carry on as an
-                    // ordinary one.
-                    bool tookLink = false;
+
+                // A link is not the frame's click to take.
+                //
+                // This used to sit inside the block below, which needs the
+                // frame under the cursor to accept an ordinary click. A chat
+                // window does not: ChatFrameTemplate declares OnHyperlinkClick
+                // and FloatingChatFrameTemplate sets enableMouse="false" over
+                // it, because a chat window is click-through by design. So the
+                // press landed on no widget, the gate never opened, and no item
+                // link in chat could be clicked — while the same link in a
+                // tooltip or a quest frame, which do take clicks, worked.
+                //
+                // FrameXML puts the handler on the chat frame rather than on
+                // the font string the text is drawn in, so it is looked for up
+                // the parent chain. A frame that declares none lets the click
+                // carry on as an ordinary one.
+                //
+                // A frame can turn its own links off without giving up the
+                // handler: FCF_SetUninteractable does exactly that to a window
+                // made click-through, and the GM chat addon does it while a
+                // ticket is being written. The click then carries on to
+                // whatever is underneath, as it would if the link were not
+                // there.
+                bool tookLink = false;
+                if (!wasDragged) {
                     if (const ui::LinkRect* hitLink = widgets_.linkAt(x, y)) {
                         const uint32_t owner = ui::findScriptOwner(
                             widgets_, hitLink->widget, [this](uint32_t w) {
                                 return frameHasScript(w, "OnHyperlinkClick");
                             });
-                        // A frame can turn its own links off without giving up
-                        // the handler: FCF_SetUninteractable does exactly that
-                        // to a chat window made click-through, and the GM chat
-                        // addon does it while a ticket is being written. The
-                        // click then carries on to whatever is underneath, as
-                        // it would if the link were not there.
                         const ui::Widget* ownerW = owner ? widgets_.get(owner) : nullptr;
                         if (owner != 0 && ownerW && ownerW->hyperlinksEnabled) {
                             callFrameScript3(owner, "OnHyperlinkClick",
@@ -9375,35 +9381,37 @@ void LuaEngine::dispatchMouse(float x, float y, float screenH, MouseButtons butt
                             tookLink = true;
                         }
                     }
-                    // A click that landed on a link is spent. WoW does not
-                    // run the chat frame's OnClick as well when an item link
-                    // is opened, and running both here would scroll the frame
-                    // or drop focus underneath the tooltip that just appeared.
-                    if (!tookLink) {
-                        // A check button flips itself before its handler runs,
-                        // and nothing here did it — checked moved only when
-                        // Lua called SetChecked. Handlers that read their own
-                        // state to decide what a click meant therefore saw the
-                        // same answer every time.
-                        //
-                        // The mail inbox is the clearest of them:
-                        // InboxFrame_OnClick opens the letter when
-                        // self:GetChecked() and hides OpenMailFrame when not,
-                        // so every click on a message took the closing branch
-                        // and no mail could be read. Every options checkbox
-                        // reading GetChecked in its OnClick had the same fault.
-                        //
-                        // Before PreClick, which is where WoW does it, so a
-                        // handler calling SetChecked itself still has the last
-                        // word.
-                        if (auto* cb = widgets_.get(pressedWid_[i]);
-                            cb && cb->enabled && cb->objectType == "CheckButton") {
-                            cb->checked = !cb->checked;
-                        }
-                        callFrameScript(pressedWid_[i], "PreClick", b.name);
-                        callFrameScript(pressedWid_[i], "OnClick", b.name);
-                        callFrameScript(pressedWid_[i], "PostClick", b.name);
+                }
+
+                if (!tookLink && !wasDragged && pressedWid_[i] == releasedOn &&
+                    (!pressed || pressed->enabled) && takesIt) {
+                    // PreClick and PostClick bracket the click. Secure buttons
+                    // use them to set up and tear down around an action, and
+                    // an addon that only has PostClick would otherwise never
+                    // hear that its button was used.
+                    // A check button flips itself before its handler runs,
+                    // and nothing here did it — checked moved only when
+                    // Lua called SetChecked. Handlers that read their own
+                    // state to decide what a click meant therefore saw the
+                    // same answer every time.
+                    //
+                    // The mail inbox is the clearest of them:
+                    // InboxFrame_OnClick opens the letter when
+                    // self:GetChecked() and hides OpenMailFrame when not,
+                    // so every click on a message took the closing branch
+                    // and no mail could be read. Every options checkbox
+                    // reading GetChecked in its OnClick had the same fault.
+                    //
+                    // Before PreClick, which is where WoW does it, so a
+                    // handler calling SetChecked itself still has the last
+                    // word.
+                    if (auto* cb = widgets_.get(pressedWid_[i]);
+                        cb && cb->enabled && cb->objectType == "CheckButton") {
+                        cb->checked = !cb->checked;
                     }
+                    callFrameScript(pressedWid_[i], "PreClick", b.name);
+                    callFrameScript(pressedWid_[i], "OnClick", b.name);
+                    callFrameScript(pressedWid_[i], "PostClick", b.name);
 
                     // A second click on the same frame, soon enough after the
                     // first, is also a double click — WoW sends both, and the
