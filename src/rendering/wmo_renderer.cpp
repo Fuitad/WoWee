@@ -2183,6 +2183,27 @@ bool WMORenderer::createGroupResources(const pipeline::WMOGroup& group, GroupRes
     // Build 2D spatial grid for fast collision triangle lookup
     resources.buildCollisionGrid();
 
+    // What this group offers to stand on, said once per group.
+    //
+    // Darkshore's bridges are walked through, and they are WMOs rather than
+    // doodads — world/wmo/kalimdor/collidabledoodads/darkshore/bridge — so the
+    // floor under them is this list. A group that draws and has no triangles
+    // here, or whose triangles are all detail, is a floor that cannot be found,
+    // and neither shows up as anything but falling.
+    {
+        size_t hull = 0, renderedSolid = 0, detail = 0;
+        for (uint8_t mopy : resources.triMopyFlags) {
+            if (mopy & 0x08) ++hull;
+            if ((mopy & 0x20) && !(mopy & 0x04)) ++renderedSolid;
+            if (mopy & 0x04) ++detail;
+        }
+        LOG_INFO("WMO group collision: verts=", resources.collisionVertices.size(),
+                 " tris=", resources.collisionIndices.size() / 3,
+                 " hull(0x08)=", hull,
+                 " renderedSolid(0x20 not 0x04)=", renderedSolid,
+                 " detail(0x04)=", detail);
+    }
+
     // Create batches
     if (!group.batches.empty()) {
         for (const auto& batch : group.batches) {

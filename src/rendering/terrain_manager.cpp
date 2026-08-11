@@ -64,19 +64,30 @@ namespace {
 ///
 /// MDDF and MODF store the rotation identically and both paths built this the
 /// same way, written out twice; it is one function now.
-glm::vec3 placementEuler(const float rotation[3]) {
+glm::vec3 placementEuler(const float rotation[3], bool isWmo) {
     auto degrees = [](const char* key, float fallback) {
         const char* raw = std::getenv(key);
         if (!raw || !*raw) return fallback;
         try { return std::stof(raw); } catch (...) { return fallback; }
     };
-    static const float kX = degrees("WOWEE_ADT_ROT_X", 0.0f);
-    static const float kY = degrees("WOWEE_ADT_ROT_Y", 0.0f);
-    static const float kZ = degrees("WOWEE_ADT_ROT_Z", degrees("WOWEE_ADT_ROT_YAW", 180.0f));
+    // The two chunks get their own offsets, because they are not the same
+    // question. Setting one offset for both moved Darkshore's bridges nearly
+    // right and put every doodad in the world wrong — which says the doodads
+    // were already correct and only the buildings are not. The bridges are
+    // WMOs: world/wmo/kalimdor/collidabledoodads/darkshore/bridge.
+    static const float kMdX = degrees("WOWEE_ADT_ROT_X", 0.0f);
+    static const float kMdY = degrees("WOWEE_ADT_ROT_Y", 0.0f);
+    static const float kMdZ = degrees("WOWEE_ADT_ROT_Z", degrees("WOWEE_ADT_ROT_YAW", 180.0f));
+    static const float kWmoX = degrees("WOWEE_WMO_ROT_X", 0.0f);
+    static const float kWmoY = degrees("WOWEE_WMO_ROT_Y", 0.0f);
+    static const float kWmoZ = degrees("WOWEE_WMO_ROT_Z", 180.0f);
+    const float x = isWmo ? kWmoX : kMdX;
+    const float y = isWmo ? kWmoY : kMdY;
+    const float z = isWmo ? kWmoZ : kMdZ;
     constexpr float kDeg = 3.14159265358979323846f / 180.0f;
-    return glm::vec3((-rotation[2] + kX) * kDeg,
-                     (-rotation[0] + kY) * kDeg,
-                     (rotation[1] + kZ) * kDeg);
+    return glm::vec3((-rotation[2] + x) * kDeg,
+                     (-rotation[0] + y) * kDeg,
+                     (rotation[1] + z) * kDeg);
 }
 
 
@@ -718,7 +729,7 @@ std::shared_ptr<PendingTile> TerrainManager::prepareTile(int x, int y) {
         p.modelId = modelId;
         p.uniqueId = placement.uniqueId;
         p.position = glPos;
-        p.rotation = placementEuler(placement.rotation);
+        p.rotation = placementEuler(placement.rotation, false);
         p.scale = placement.scale * kInv1024;
         pending->m2Placements.push_back(p);
     }
@@ -812,7 +823,7 @@ std::shared_ptr<PendingTile> TerrainManager::prepareTile(int x, int y) {
                                                        placement.position[1],
                                                        placement.position[2]);
 
-                glm::vec3 rot = placementEuler(placement.rotation);
+                glm::vec3 rot = placementEuler(placement.rotation, true);
 
                 // Pre-load WMO doodads (M2 models inside WMO)
                 if (!workerRunning.load()) return nullptr;

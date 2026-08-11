@@ -65,36 +65,6 @@ inline int printValidationIssues(const std::vector<std::string>& errors,
     return errors.empty() ? 0 : 1;
 }
 
-/// Run a format's --validate-* handler: resolve the path, refuse if the file is
-/// not there, load it, note an empty catalog, run the format's own checks, and
-/// report.
-///
-/// Everything but those checks was written out in each of the 138 handlers —
-/// twelve lines of preamble and eight of report around the part that actually
-/// knows something about the format. `check` fills the two lists and answers
-/// the one line that describes what OK means for it.
-template <typename Loader, typename Check>
-int validateCatalog(int& i, int argc, char** argv, const char* tag, const char* label,
-                    Check check) {
-    std::string base = argv[++i];
-    const bool jsonOut = consumeJsonFlag(i, argc, argv);
-    const std::string extension = std::string(".") + tag;
-    base = withoutExt(base, extension);
-    if (!Loader::exists(base)) {
-        return reportMissing((std::string("validate-") + tag).c_str(), label,
-                             base, extension.c_str());
-    }
-    const auto catalog = Loader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    // A file that read as nothing is a warning rather than an error: an empty
-    // catalog is a legal file, and it is also what a truncated one comes back
-    // as, so saying so is the only way to tell them apart.
-    if (catalog.entries.empty()) warnings.push_back("catalog has zero entries");
-    const std::string okLine = check(catalog, errors, warnings);
-    return reportValidation(tag, base, jsonOut, errors, warnings, okLine);
-}
-
 /// printf into a std::string, for the one line a format writes about itself.
 template <typename... Args>
 inline std::string formatted(const char* fmt, Args... args) {
@@ -126,6 +96,38 @@ inline int reportValidation(const std::string& tag, const std::string& base, boo
     }
     return printValidationIssues(errors, warnings);
 }
+
+/// Run a format's --validate-* handler: resolve the path, refuse if the file is
+/// not there, load it, note an empty catalog, run the format's own checks, and
+/// report.
+///
+/// Everything but those checks was written out in each of the 138 handlers —
+/// twelve lines of preamble and eight of report around the part that actually
+/// knows something about the format. `check` fills the two lists and answers
+/// the one line that describes what OK means for it.
+template <typename Loader, typename Check>
+int validateCatalog(int& i, int argc, char** argv, const char* tag, const char* label,
+                    Check check) {
+    std::string base = argv[++i];
+    const bool jsonOut = consumeJsonFlag(i, argc, argv);
+    const std::string extension = std::string(".") + tag;
+    base = withoutExt(base, extension);
+    if (!Loader::exists(base)) {
+        return reportMissing((std::string("validate-") + tag).c_str(), label,
+                             base, extension.c_str());
+    }
+    const auto catalog = Loader::load(base);
+    std::vector<std::string> errors;
+    std::vector<std::string> warnings;
+    // A file that read as nothing is a warning rather than an error: an empty
+    // catalog is a legal file, and it is also what a truncated one comes back
+    // as, so saying so is the only way to tell them apart.
+    if (catalog.entries.empty()) warnings.push_back("catalog has zero entries");
+    const std::string okLine = check(catalog, errors, warnings);
+    return reportValidation(tag, base, jsonOut, errors, warnings, okLine);
+}
+
+
 
 /// Run a format's --export-*-json handler: resolve the paths, refuse if the
 /// file is not there, load it, build the JSON, write it, and say what was
@@ -177,6 +179,49 @@ public:
 private:
     std::unordered_set<uint32_t> seen_;
 };
+
+/// Run a format's --import-*-json handler: read the JSON, build the catalog
+/// from it, write it, and say what was written.
+///
+/// `build` is the only part that knows the format — it turns the parsed JSON
+/// into a catalog. Everything around it is the same in all 139 handlers: the
+/// path arithmetic, opening the file, parsing it, the two failure messages, the
+/// save and its failure message, and the three lines of summary.
+template <typename Loader, typename Catalog, typename Build>
+int importCatalogJson(int& i, int argc, char** argv, const char* tag,
+                      const char* countLabel, Build build) {
+    const std::string jsonPath = argv[++i];
+    std::string outBase;
+    if (parseOptArg(i, argc, argv)) outBase = argv[++i];
+    const std::string extension = std::string(".") + tag;
+    if (outBase.empty()) outBase = baseFromJsonPath(jsonPath, extension);
+    outBase = withoutExt(outBase, extension);
+
+    std::ifstream in(jsonPath);
+    if (!in) {
+        std::fprintf(stderr, "import-%s-json: cannot read %s\n", tag, jsonPath.c_str());
+        return 1;
+    }
+    nlohmann::json j;
+    try {
+        in >> j;
+    } catch (const std::exception& e) {
+        std::fprintf(stderr, "import-%s-json: bad JSON in %s: %s\n",
+                     tag, jsonPath.c_str(), e.what());
+        return 1;
+    }
+
+    const Catalog c = build(j);
+    if (!Loader::save(c, outBase)) {
+        std::fprintf(stderr, "import-%s-json: failed to save %s%s\n",
+                     tag, outBase.c_str(), extension.c_str());
+        return 1;
+    }
+    std::printf("Wrote %s%s\n", outBase.c_str(), extension.c_str());
+    std::printf("  source    : %s\n", jsonPath.c_str());
+    std::printf("  %s: %zu\n", countLabel, c.entries.size());
+    return 0;
+}
 
 }  // namespace cli
 }  // namespace editor
