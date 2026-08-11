@@ -85,14 +85,18 @@ public:
         bool sprinting = false;
         bool movingForward = false;
         bool movingBackward = false;
-        bool autoRunning = false;
         bool strafeLeft = false;
         bool strafeRight = false;
         bool grounded = true;
         bool jumping = false;
         bool swimming = false;
         bool sitting = false;
-        bool flyingActive = false;
+        // No flyingActive. The mount path asks the camera controller directly,
+        // and an unmounted flying character has no animation path at all —
+        // ActivityFSM branches on swimming, jumping, moving and sitting, and
+        // there is no flight among them. That is a gap rather than something
+        // this field was covering: it was filled in every frame and read
+        // nowhere, which is a harder thing to notice than a missing branch.
         bool ascending = false;
         bool descending = false;
         bool jumpKeyPressed = false;

@@ -265,7 +265,6 @@ private:
         size_t amdFsr3UpscaleDispatchCount = 0;
         size_t amdFsr3FramegenDispatchCount = 0;
         size_t amdFsr3FallbackCount = 0;
-        uint64_t amdFsr3InteropSyncValue = 1;
         float jitterSign = 0.38f;
         float motionVecScaleX = 1.0f;
         float motionVecScaleY = 1.0f;

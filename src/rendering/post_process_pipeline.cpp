@@ -858,7 +858,6 @@ bool PostProcessPipeline::initFSR2Resources() {
     fsr2_.amdFsr3UpscaleDispatchCount = 0;
     fsr2_.amdFsr3FramegenDispatchCount = 0;
     fsr2_.amdFsr3FallbackCount = 0;
-    fsr2_.amdFsr3InteropSyncValue = 1;
 #if WOWEE_HAS_AMD_FSR2
     LOG_INFO("FSR2: AMD FidelityFX SDK detected at build time.");
 #else
@@ -1303,7 +1302,6 @@ void PostProcessPipeline::destroyFSR2Resources() {
     fsr2_.framegenOutputValid = false;
     fsr2_.amdFsr3RuntimePath = "Path C";
     fsr2_.amdFsr3RuntimeLastError.clear();
-    fsr2_.amdFsr3InteropSyncValue = 1;
 #if WOWEE_HAS_AMD_FSR3_FRAMEGEN
     if (fsr2_.amdFsr3Runtime) {
         fsr2_.amdFsr3Runtime->shutdown();

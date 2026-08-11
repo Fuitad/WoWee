@@ -1158,7 +1158,6 @@ void AnimationController::updateCharacterAnimation() {
     fi.sprinting = cameraController->isSprinting();
     fi.movingForward = cameraController->isMovingForward();
     fi.movingBackward = cameraController->isMovingBackward();
-    fi.autoRunning = cameraController->isAutoRunning();
     fi.strafeLeft = cameraController->isStrafingLeft();
     fi.strafeRight = cameraController->isStrafingRight();
     // See setM2TransportRiding() comment: real physics correctly reports "not grounded"
@@ -1168,7 +1167,6 @@ void AnimationController::updateCharacterAnimation() {
     fi.jumping = cameraController->isJumping();
     fi.swimming = cameraController->isSwimming();
     fi.sitting = cameraController->isSitting();
-    fi.flyingActive = cameraController->isFlyingActive();
     fi.ascending = cameraController->isAscending();
     fi.descending = cameraController->isDescending();
     fi.jumpKeyPressed = cameraController->isJumpKeyPressed();

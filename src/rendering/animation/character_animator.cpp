@@ -168,7 +168,6 @@ AnimOutput CharacterAnimator::resolveAnimation() {
     actIn.grounded = fi.grounded;
     actIn.swimming = fi.swimming;
     actIn.sitting = fi.sitting;
-    actIn.stunned = combat_.isStunned();
     actIn.currentAnimId = fi.currentAnimId;
     actIn.currentAnimTime = fi.currentAnimTime;
     actIn.currentAnimDuration = fi.currentAnimDuration;

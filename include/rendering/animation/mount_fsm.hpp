@@ -76,10 +76,10 @@ public:
         bool mountAnimLoop = true;
         bool mountAnimChanged = false;  // true = should call playAnimation
 
-        // Rider animation
-        uint32_t riderAnimId = 0;
-        bool riderAnimLoop = true;
-        bool riderAnimChanged = false;
+        // No rider animation here. The caller resolves what the rider does from
+        // its own capability set — a flight variant of the seated pose where the
+        // model has one — and never read the three fields this used to carry,
+        // one of which was never even written.
 
         // Mount procedural motion
         float mountBob = 0.0f;         // Vertical bob offset
@@ -92,7 +92,6 @@ public:
         bool playRearUpSound = false;
         bool playIdleSound = false;
         bool triggerMountJump = false;  // Tell camera controller to jump
-        bool fidgetStarted = false;
     };
 
     void configure(const MountAnimSet& anims, bool taxiFlight);

@@ -161,9 +161,7 @@ MountFSM::Output MountFSM::evaluate(const Input& in) {
     out.mountRoll = roll_;
 
     // ── Rider animation ─────────────────────────────────────────────────
-    out.riderAnimId = anim::MOUNT;
-    out.riderAnimLoop = true;
-    // (Flight rider variants handled by the caller via capability set, not here)
+    // The rider is the caller's to resolve; see MountFSM::Output.
 
     // ── Taxi flight branch ──────────────────────────────────────────────
     if (onTaxi) {
@@ -327,7 +325,6 @@ MountFSM::Output MountFSM::evaluate(const Input& in) {
             out.mountAnimId = fidgetAnim;
             out.mountAnimLoop = false;
             out.mountAnimChanged = true;
-            out.fidgetStarted = true;
             lastMountAnim_ = out.mountAnimId;
             return out;
         }
