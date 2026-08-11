@@ -239,6 +239,14 @@ public:
     void readItemInBag(int bagIndex, int slotIndex);
     void destroyItem(uint8_t bag, uint8_t slot, uint8_t count = 1);
     void splitItem(uint8_t srcBag, uint8_t srcSlot, uint8_t count);
+    /// Split `count` off a stack into a named slot.
+    ///
+    /// The interface's SplitContainerItem does not choose a destination: it puts
+    /// the split portion on the cursor and the drop decides. Choosing one here
+    /// is right only for this client's own bag window, which has no cursor to
+    /// put it on.
+    void splitItemTo(uint8_t srcBag, uint8_t srcSlot,
+                     uint8_t dstBag, uint8_t dstSlot, uint8_t count);
     void swapContainerItems(uint8_t srcBag, uint8_t srcSlot, uint8_t dstBag, uint8_t dstSlot);
     /// Read and write a model slot by the wire's flat numbering.
     bool readWireSlot(uint8_t container, uint8_t slot, game::ItemDef& out) const;

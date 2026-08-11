@@ -718,6 +718,7 @@ static bool cursorWireSlot(uint8_t& bag, uint8_t& slot) {
 /// Put the cursor down.
 static void clearCursorItem(lua_State* L) {
     s_cursorMoney = 0;
+    s_cursorSplit = 0;
     setCursorType(L, CursorType::NONE);
     s_cursorId = 0;
     s_cursorSlot = 0;
@@ -801,6 +802,17 @@ static void pickupFromContainerSlot(lua_State* L, game::GameHandler* gh,
                     " — nothing there to pick up");
     }
 }
+
+void pickupSplitFromContainer(lua_State* L, game::GameHandler* gh,
+                              int bag, int slot, int count) {
+    pickupFromContainerSlot(L, gh, bag, slot);
+    // Only if the pickup took: an empty slot leaves the cursor alone, and an
+    // amount left on it would ride along with whatever is picked up next.
+    if (s_cursorType == CursorType::ITEM && count > 0) {
+        s_cursorSplit = static_cast<uint32_t>(count);
+    }
+}
+
 
 /// PickupItem(id | "name" | link) — put an item on the cursor by naming it
 /// rather than by pointing at a slot.
@@ -927,7 +939,14 @@ static int lua_PickupContainerItem(lua_State* L) {
         }
 
         const int wasBag = s_cursorBag, wasSlot = s_cursorSlot;
-        gh->swapContainerItems(srcBag, srcSlot, dstBag, dstSlot);
+        // Part of a stack moves as a split rather than a swap: a swap would
+        // send the whole thing, which is not what was picked up.
+        if (s_cursorSplit > 0) {
+            gh->splitItemTo(srcBag, srcSlot, dstBag, dstSlot,
+                            static_cast<uint8_t>(s_cursorSplit));
+        } else {
+            gh->swapContainerItems(srcBag, srcSlot, dstBag, dstSlot);
+        }
         clearCursorItem(L);
         gh->fireAddonEvent("ITEM_LOCK_CHANGED",
                            {std::to_string(wasBag), std::to_string(wasSlot)});

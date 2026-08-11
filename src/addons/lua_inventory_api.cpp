@@ -982,8 +982,17 @@ static int lua_SplitContainerItem(lua_State* L) {
     // Every container the interface can name, through the one mapping.
     // bankframe splits from BANK_CONTAINER, which this could not name before.
     if (!containerItemSlot(gh->getInventory(), bag, slot)) return 0;
-    gh->splitItem(containerWireBag(bag), containerWireSlot(bag, slot),
-                  static_cast<uint8_t>(count));
+
+    // WoW's SplitContainerItem picks the split portion up rather than moving
+    // it: the stack-split dialog calls this, and the player then drops what
+    // they are carrying wherever they meant it to go. This sent the split to
+    // the first free bag slot instead, so a stack could only ever be broken in
+    // half where it already was — the drop had nothing to carry and moving part
+    // of a stack anywhere else was impossible through the interface.
+    //
+    // The guild bank already worked this way: the amount rides on the cursor
+    // and the drop names the destination.
+    pickupSplitFromContainer(L, gh, bag, slot, count);
     return 0;
 }
 

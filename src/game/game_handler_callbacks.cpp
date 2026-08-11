@@ -3344,6 +3344,10 @@ void GameHandler::destroyItem(uint8_t bag, uint8_t slot, uint8_t count) {
 void GameHandler::splitItem(uint8_t srcBag, uint8_t srcSlot, uint8_t count) {
     if (inventoryHandler_) inventoryHandler_->splitItem(srcBag, srcSlot, count);
 }
+void GameHandler::splitItemTo(uint8_t srcBag, uint8_t srcSlot,
+                              uint8_t dstBag, uint8_t dstSlot, uint8_t count) {
+    if (inventoryHandler_) inventoryHandler_->splitItemTo(srcBag, srcSlot, dstBag, dstSlot, count);
+}
 
 void GameHandler::useItemBySlot(int backpackIndex, bool confirmed, uint64_t unitTarget) {
     if (inventoryHandler_) inventoryHandler_->useItemBySlot(backpackIndex, confirmed, unitTarget);

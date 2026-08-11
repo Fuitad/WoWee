@@ -3012,6 +3012,8 @@ public:
     void readItemInBag(int bagIndex, int slotIndex);
     void destroyItem(uint8_t bag, uint8_t slot, uint8_t count = 1);
     void splitItem(uint8_t srcBag, uint8_t srcSlot, uint8_t count);
+    void splitItemTo(uint8_t srcBag, uint8_t srcSlot,
+                     uint8_t dstBag, uint8_t dstSlot, uint8_t count);
     void swapContainerItems(uint8_t srcBag, uint8_t srcSlot, uint8_t dstBag, uint8_t dstSlot);
 
     /// Merge partial stacks, then order every bag slot, and send the moves.

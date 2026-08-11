@@ -1950,33 +1950,34 @@ void InventoryHandler::destroyItem(uint8_t bag, uint8_t slot, uint8_t count) {
     owner_.getSocket()->send(packet);
 }
 
-void InventoryHandler::splitItem(uint8_t srcBag, uint8_t srcSlot, uint8_t count) {
+void InventoryHandler::splitItemTo(uint8_t srcBag, uint8_t srcSlot,
+                                   uint8_t dstBag, uint8_t dstSlot, uint8_t count) {
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
     if (count == 0) return;
+    LOG_INFO("splitItem: src(bag=", (int)srcBag, " slot=", (int)srcSlot,
+             ") count=", (int)count, " -> dst(bag=", (int)dstBag,
+             " slot=", (int)dstSlot, ")");
+    owner_.getSocket()->send(SplitItemPacket::build(srcBag, srcSlot, dstBag, dstSlot, count));
+}
 
-    int freeBp = owner_.inventoryRef().findFreeBackpackSlot();
+void InventoryHandler::splitItem(uint8_t srcBag, uint8_t srcSlot, uint8_t count) {
+    // No destination given: the first free slot, which is what this client's
+    // own bag window means by a split. The interface means something else and
+    // says where it wants it — see splitItemTo.
+    const int freeBp = owner_.inventoryRef().findFreeBackpackSlot();
     if (freeBp >= 0) {
-        uint8_t dstBag = 0xFF;
-        uint8_t dstSlot = static_cast<uint8_t>(Inventory::NUM_EQUIP_SLOTS + freeBp);
-        LOG_INFO("splitItem: src(bag=", (int)srcBag, " slot=", (int)srcSlot,
-                 ") count=", (int)count, " -> dst(bag=0xFF slot=", (int)dstSlot, ")");
-        auto packet = SplitItemPacket::build(srcBag, srcSlot, dstBag, dstSlot, count);
-        owner_.getSocket()->send(packet);
+        splitItemTo(srcBag, srcSlot, 0xFF,
+                    static_cast<uint8_t>(Inventory::NUM_EQUIP_SLOTS + freeBp), count);
         return;
     }
     for (int b = 0; b < owner_.inventoryRef().NUM_BAG_SLOTS; b++) {
-        int bagSize = owner_.inventoryRef().getBagSize(b);
+        const int bagSize = owner_.inventoryRef().getBagSize(b);
         for (int s = 0; s < bagSize; s++) {
-            if (owner_.inventoryRef().getBagSlot(b, s).empty()) {
-                uint8_t dstBag = static_cast<uint8_t>(Inventory::FIRST_BAG_EQUIP_SLOT + b);
-                uint8_t dstSlot = static_cast<uint8_t>(s);
-                LOG_INFO("splitItem: src(bag=", (int)srcBag, " slot=", (int)srcSlot,
-                         ") count=", (int)count, " -> dst(bag=", (int)dstBag,
-                         " slot=", (int)dstSlot, ")");
-                auto packet = SplitItemPacket::build(srcBag, srcSlot, dstBag, dstSlot, count);
-                owner_.getSocket()->send(packet);
-                return;
-            }
+            if (!owner_.inventoryRef().getBagSlot(b, s).empty()) continue;
+            splitItemTo(srcBag, srcSlot,
+                        static_cast<uint8_t>(Inventory::FIRST_BAG_EQUIP_SLOT + b),
+                        static_cast<uint8_t>(s), count);
+            return;
         }
     }
     owner_.raiseUiError("Cannot split: no free inventory slots.");

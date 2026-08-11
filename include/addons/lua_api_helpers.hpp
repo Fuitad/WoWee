@@ -823,6 +823,15 @@ int cursorEquipSlot();
 /// FrameXML's merchant window does. Buying happens when it is dropped.
 void pickupMerchantItem(lua_State* L, int index);
 
+/// Pick up part of a stack: the same pickup a whole one does, with the amount
+/// riding on the cursor until the drop names a destination.
+///
+/// What WoW's SplitContainerItem means. Splitting to a slot chosen here instead
+/// left the drop with nothing to carry, so part of a stack could never be moved
+/// anywhere through the interface.
+void pickupSplitFromContainer(lua_State* L, game::GameHandler* gh,
+                              int bag, int slot, int count);
+
 /// Buy whatever vendor entry the cursor is holding and put the cursor down.
 /// False when it is holding something else, so a caller can fall through to
 /// its normal handling.
