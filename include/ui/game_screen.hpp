@@ -168,7 +168,6 @@ private:
 
     // UI state
     bool showEntityWindow = false;
-    bool showChatWindow = true;
     bool showMinimap_ = true;  // M key toggles minimap
     bool showNameplates_ = true;  // V key toggles enemy/NPC nameplates
     uint64_t nameplateCtxGuid_ = 0; // GUID of nameplate right-clicked (0 = none)

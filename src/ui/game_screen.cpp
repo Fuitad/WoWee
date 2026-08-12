@@ -475,14 +475,15 @@ void GameScreen::render(game::GameHandler& gameHandler) {
         renderEntityList(gameHandler);
     }
 
-    if (showChatWindow && !frameXmlOwns(UiElement::Chat)) {
-        chatPanel_.getSpellIcon = [this](uint32_t id, pipeline::AssetManager* am) {
-            return getSpellIcon(id, am);
-        };
-        if (!chatPanel_.saveSettingsFn)
-            chatPanel_.saveSettingsFn = [this]() { saveSettings(); };
-        chatPanel_.render(gameHandler, inventoryScreen, spellbookScreen, questLogScreen);
-        // Process slash commands that affect GameScreen state
+    // The chat window is FrameXML's and this client no longer draws one, but
+    // the slash commands still belong here: FrameXML's edit box hands an
+    // unknown command to runClientChatCommand, which is this client's own
+    // registry, and the handlers set the flags read below.
+    //
+    // These used to sit inside the same gate as the window that is gone, so
+    // every one of them ran, set its flag, and had it read by nobody:
+    // /inspect, /threat, /bgscore, /gm and /who all did nothing at all.
+    {
         auto cmds = chatPanel_.consumeSlashCommands();
         if (cmds.showInspect) socialPanel_.openInspectWindow(gameHandler);
         if (cmds.toggleThreat) combatUI_.showThreatWindow_ = !combatUI_.showThreatWindow_;

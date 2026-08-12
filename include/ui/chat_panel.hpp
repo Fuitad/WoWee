@@ -174,7 +174,6 @@ private:
     bool chatInputActive_ = false;
     int  chatInputCooldown_ = 0;  // frames to suppress re-activation after send
     int  selectedChatType_ = 0;  // 0=SAY .. 10=CHANNEL
-    int  lastChatType_     = 0;
     int  selectedChannelIdx_ = 0;
     bool chatInputMoveCursorToEnd_ = false;
     bool refocusChatInput_ = false;
@@ -184,14 +183,10 @@ private:
     int chatHistoryIdx_ = -1;
 
     // ---- History search filter ----
-    bool chatFilterActive_ = false;
     char chatFilterBuffer_[128] = "";
-    int  chatFilterMatches_ = 0;   // result count from the previous frame
-    bool refocusFilterInput_ = false;
 
     // Programmatic tab switch (Ctrl+wheel / quick menu); applied next frame
     // via ImGuiTabItemFlags_SetSelected, -1 = none pending.
-    int pendingChatTab_ = -1;
 
     /** Sync the input chat type to a newly activated tab (Guild tab → guild
      *  chat, Whispers tab → whisper with last sender, Trade/LFG → channel). */
@@ -212,8 +207,6 @@ private:
     void registerAllCommands();
 
     // Markup parser + renderer (Phase 2)
-    ChatMarkupParser markupParser_;
-    ChatMarkupRenderer markupRenderer_;
 
     // Per-message render cache. A chat line's formatted text and parsed
     // segments are immutable once built (modulo sender-name resolution and
@@ -226,25 +219,15 @@ private:
         std::string fullMsg;         // plain text (for Copy Message)
         std::vector<ChatSegment> segments;
     };
-    std::unordered_map<uint64_t, CachedChatLine> chatLineCache_;
-    std::string chatCacheSelfName_;  // cache cleared when this changes
 
     // Tab-completion (Phase 5 - delegated to ChatTabCompleter)
-    ChatTabCompleter tabCompleter_;
 
     // Mention notification
-    size_t chatMentionSeenCount_ = 0;
 
     // ---- Chat tabs (delegated to ChatTabManager) ----
-    ChatTabManager tabManager_;
 
     // ---- Chat window visual state ----
-    bool  chatScrolledUp_          = false;
-    bool  chatForceScrollToBottom_ = false;
     // windowLocked is in settings.windowLocked (kept in sync via reference)
-    bool& chatWindowLocked_        = settings.windowLocked;
-    ImVec2 chatWindowPos_          = ImVec2(0.0f, 0.0f);
-    bool  chatWindowPosInit_       = false;
 
     // ---- Chat bubbles (delegated to ChatBubbleManager) ----
     ChatBubbleManager bubbleManager_;
