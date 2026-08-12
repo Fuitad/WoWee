@@ -599,6 +599,20 @@ add_test(NAME asset_manifest_load COMMAND test_asset_manifest_load
          WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
 register_test_target(test_asset_manifest_load)
 
+# ── test_macro_text ──────────────────────────────────────────
+# Reading a macro body. The action bar and the chat panel each had their own
+# copy of the line walk, neither with a test.
+add_executable(test_macro_text
+    test_macro_text.cpp
+    ${TEST_COMMON_SOURCES}
+    ${CMAKE_SOURCE_DIR}/src/ui/macro_text.cpp)
+target_include_directories(test_macro_text PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_macro_text SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_macro_text PRIVATE catch2_main)
+wowee_test_link_glm(test_macro_text)
+add_test(NAME macro_text COMMAND test_macro_text)
+register_test_target(test_macro_text)
+
 # ── test_movement_flags ──────────────────────────────────────
 # What the movement flag word means. Two handlers spelled these out against
 # their own copy of the flags; they now both ask MovementInfo. Header-only, so

@@ -140,15 +140,6 @@ std::string castFailureMessage(const GameHandler& owner, uint32_t spellId,
                   : ("Spell cast failed (error " + std::to_string(result) + ")");
 }
 
-uint64_t targetGuidForUseItem(GameHandler& owner, const ItemQueryResponseData* info) {
-    if (!info || !info->valid || info->itemClass != kItemClassConsumable) return 0;
-    if (isBandageItem(info)) {
-        return owner.getPlayerGuid();
-    }
-    if (info->subClass == kConsumableSubclassItemEnhancement) return 0;
-    return owner.getPlayerGuid();
-}
-
 bool isGatherSpellId(uint32_t spellId) {
     static constexpr uint32_t kGatherRanks[] = {
         2575, 2576, 3564, 10248, 29354, // Mining
@@ -1217,104 +1208,6 @@ void SpellHandler::confirmPetUnlearn() {
         "next login rather than on request.");
     petUnlearnGuid_ = 0;
     petUnlearnCost_ = 0;
-}
-
-uint32_t SpellHandler::findOnUseSpellId(uint32_t itemId) const {
-    if (auto* info = owner_.getItemInfo(itemId)) {
-        for (const auto& sp : info->spells) {
-            // spellTrigger 0 = "Use", 5 = "No Delay" - both are player-activated on-use effects
-            if (sp.spellId != 0 && (sp.spellTrigger == 0 || sp.spellTrigger == 5)) {
-                return sp.spellId;
-            }
-        }
-    }
-    return 0;
-}
-
-void SpellHandler::useItemBySlot(int backpackIndex) {
-    if (backpackIndex < 0 || backpackIndex >= owner_.inventoryRef().getBackpackSize()) return;
-    const auto& slot = owner_.inventoryRef().getBackpackSlot(backpackIndex);
-    if (slot.empty()) return;
-
-    uint64_t itemGuid = owner_.backpackSlotGuidsRef()[backpackIndex];
-    if (itemGuid == 0) {
-        itemGuid = owner_.resolveOnlineItemGuid(slot.item.itemId);
-    }
-
-    if (itemGuid != 0 && owner_.getState() == WorldState::IN_WORLD && owner_.getSocket()) {
-        uint32_t useSpellId = findOnUseSpellId(slot.item.itemId);
-        const auto* itemInfo = owner_.getItemInfo(slot.item.itemId);
-        const uint64_t targetGuid = targetGuidForUseItem(owner_, itemInfo);
-        auto packet = owner_.getPacketParsers()
-            ? owner_.getPacketParsers()->buildUseItem(0xFF, static_cast<uint8_t>(Inventory::NUM_EQUIP_SLOTS + backpackIndex), itemGuid, useSpellId, targetGuid)
-            : UseItemPacket::build(0xFF, static_cast<uint8_t>(Inventory::NUM_EQUIP_SLOTS + backpackIndex), itemGuid, useSpellId, targetGuid);
-        owner_.getSocket()->send(packet);
-    } else if (itemGuid == 0) {
-        owner_.raiseUiError("Cannot use that item right now.");
-    }
-}
-
-void SpellHandler::useItemInBag(int bagIndex, int slotIndex) {
-    if (bagIndex < 0 || bagIndex >= owner_.inventoryRef().NUM_BAG_SLOTS) return;
-    if (slotIndex < 0 || slotIndex >= owner_.inventoryRef().getBagSize(bagIndex)) return;
-    const auto& slot = owner_.inventoryRef().getBagSlot(bagIndex, slotIndex);
-    if (slot.empty()) return;
-
-    uint64_t itemGuid = 0;
-    uint64_t bagGuid = owner_.equipSlotGuidsRef()[Inventory::FIRST_BAG_EQUIP_SLOT + bagIndex];
-    if (bagGuid != 0) {
-        auto it = owner_.containerContentsRef().find(bagGuid);
-        if (it != owner_.containerContentsRef().end() && slotIndex < static_cast<int>(it->second.numSlots)) {
-            itemGuid = it->second.slotGuids[slotIndex];
-        }
-    }
-    if (itemGuid == 0) {
-        itemGuid = owner_.resolveOnlineItemGuid(slot.item.itemId);
-    }
-
-    LOG_INFO("useItemInBag: bag=", bagIndex, " slot=", slotIndex, " itemId=", slot.item.itemId,
-             " itemGuid=0x", std::hex, itemGuid, std::dec);
-
-    if (itemGuid != 0 && owner_.getState() == WorldState::IN_WORLD && owner_.getSocket()) {
-        uint32_t useSpellId = findOnUseSpellId(slot.item.itemId);
-        uint8_t wowBag = static_cast<uint8_t>(Inventory::FIRST_BAG_EQUIP_SLOT + bagIndex);
-        const auto* itemInfo = owner_.getItemInfo(slot.item.itemId);
-        const uint64_t targetGuid = targetGuidForUseItem(owner_, itemInfo);
-        auto packet = owner_.getPacketParsers()
-            ? owner_.getPacketParsers()->buildUseItem(wowBag, static_cast<uint8_t>(slotIndex), itemGuid, useSpellId, targetGuid)
-            : UseItemPacket::build(wowBag, static_cast<uint8_t>(slotIndex), itemGuid, useSpellId, targetGuid);
-        LOG_INFO("useItemInBag: sending CMSG_USE_ITEM, bag=", (int)wowBag, " slot=", slotIndex,
-                 " packetSize=", packet.getSize());
-        owner_.getSocket()->send(packet);
-    } else if (itemGuid == 0) {
-        LOG_WARNING("Use item in bag failed: missing item GUID for bag ", bagIndex, " slot ", slotIndex);
-        owner_.raiseUiError("Cannot use that item right now.");
-    }
-}
-
-void SpellHandler::useItemById(uint32_t itemId) {
-    if (itemId == 0) return;
-    LOG_DEBUG("useItemById: searching for itemId=", itemId);
-    for (int i = 0; i < owner_.inventoryRef().getBackpackSize(); i++) {
-        const auto& slot = owner_.inventoryRef().getBackpackSlot(i);
-        if (!slot.empty() && slot.item.itemId == itemId) {
-            LOG_DEBUG("useItemById: found itemId=", itemId, " at backpack slot ", i);
-            useItemBySlot(i);
-            return;
-        }
-    }
-    for (int bag = 0; bag < owner_.inventoryRef().NUM_BAG_SLOTS; bag++) {
-        int bagSize = owner_.inventoryRef().getBagSize(bag);
-        for (int slot = 0; slot < bagSize; slot++) {
-            const auto& bagSlot = owner_.inventoryRef().getBagSlot(bag, slot);
-            if (!bagSlot.empty() && bagSlot.item.itemId == itemId) {
-                LOG_DEBUG("useItemById: found itemId=", itemId, " in bag ", bag, " slot ", slot);
-                useItemInBag(bag, slot);
-                return;
-            }
-        }
-    }
-    LOG_WARNING("useItemById: itemId=", itemId, " not found in inventory");
 }
 
 const std::vector<SpellHandler::SpellBookTab>& SpellHandler::getSpellBookTabs() {

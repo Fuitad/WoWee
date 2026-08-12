@@ -825,6 +825,7 @@ set(WOWEE_SOURCES
     src/rendering/character_renderer.cpp
     src/rendering/character_preview.cpp
     src/rendering/wmo_renderer.cpp
+    src/rendering/imgui_texture.cpp
     src/rendering/bone_slots.cpp
     src/rendering/normal_map.cpp
     src/rendering/m2_renderer.cpp
@@ -901,6 +902,7 @@ set(WOWEE_SOURCES
     src/ui/game_screen_hud.cpp
     src/ui/game_screen_minimap.cpp
     src/ui/chat_panel.cpp
+    src/ui/macro_text.cpp
     src/ui/chat/chat_settings.cpp
     src/ui/chat/chat_input.cpp
     src/ui/chat/chat_utils.cpp
@@ -2068,6 +2070,7 @@ add_executable(wowee_editor
     src/rendering/m2_renderer_render.cpp
     src/rendering/m2_model_classifier.cpp
     src/rendering/wmo_renderer.cpp
+    src/rendering/imgui_texture.cpp
     src/rendering/bone_slots.cpp
     src/rendering/normal_map.cpp
     src/rendering/frustum.cpp

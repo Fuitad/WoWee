@@ -45,6 +45,20 @@ SETTLED = {
         "declarations match because it is a facade; the bodies do not, and "
         "guild_commands, social_panel and lua_social_api all reach it through "
         "GameHandler.",
+    ("src/core/entity_spawner_player.cpp", "src/rendering/character_preview.cpp"):
+        "The equipment-to-geoset pick, in the world and in the paper doll. The "
+        "shared run of erases and inserts is genuinely the same, and the two "
+        "ends of it are not: the preview substitutes within a geoset group "
+        "where the spawner takes the exact index, and the preview keeps hair "
+        "under a helm on purpose because it draws no head attachment, so "
+        "hiding it would leave a bald head and no helmet. Merging the middle "
+        "means agreeing on those two first.",
+    ("include/game/game_handler.hpp", "include/game/inventory_handler.hpp"):
+        "The same facade as the pair above, for bags, mail, the bank, the "
+        "guild bank and the auction house. The declarations match because "
+        "GameHandler forwards; the bodies do not. The one way this pair can "
+        "actually go wrong is a writable accessor that skips the forwarding, "
+        "which tools/forwarding_ref_check.py pins at zero.",
     ("src/game/packet_parsers_classic.cpp", "src/game/world_packets_entity.cpp"):
         "The classic and WotLK item-query readers. WotLK scores two candidate "
         "price layouts against each other to decide which the server sent, "

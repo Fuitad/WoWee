@@ -1,5 +1,6 @@
 // player_marker_layer.cpp - Directional player arrow on the world map.
 // Uses the WoW worldmapplayericon.blp texture, rendered as a rotated quad.
+#include "rendering/imgui_texture.hpp"
 #include "rendering/world_map/layers/player_marker_layer.hpp"
 #include "rendering/world_map/coordinate_projection.hpp"
 #include "rendering/vk_texture.hpp"
@@ -43,32 +44,16 @@ void PlayerMarkerLayer::ensureTexture() {
     if (loadAttempted_ || !vkCtx_ || !assetManager_) return;
     loadAttempted_ = true;
 
-    VkDevice device = vkCtx_->getDevice();
-
-    auto blp = assetManager_->loadTexture("Interface\\Minimap\\MinimapArrow.blp");
-    if (!blp.isValid()) {
-        LOG_WARNING("PlayerMarkerLayer: MinimapArrow.blp not found");
+    auto loaded = loadImGuiTexture(*assetManager_, *vkCtx_,
+                                   "Interface\\Minimap\\MinimapArrow.blp");
+    if (!loaded) {
+        LOG_WARNING("PlayerMarkerLayer: icon texture unavailable");
         return;
     }
-    auto tex = std::make_unique<VkTexture>();
-    if (!tex->upload(*vkCtx_, blp.data.data(), blp.width, blp.height,
-                     VK_FORMAT_R8G8B8A8_UNORM, false))
-        return;
-    if (!tex->createSampler(device, VK_FILTER_LINEAR, VK_FILTER_LINEAR,
-                            VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, 1.0f)) {
-        tex->destroy(device, vkCtx_->getAllocator());
-        return;
-    }
-    VkDescriptorSet ds = ImGui_ImplVulkan_AddTexture(
-        tex->getSampler(), tex->getImageView(),
-        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-    if (!ds) {
-        tex->destroy(device, vkCtx_->getAllocator());
-        return;
-    }
-    texture_ = std::move(tex);
-    imguiDS_ = ds;
-    LOG_INFO("PlayerMarkerLayer: loaded MinimapArrow.blp ", blp.width, "x", blp.height);
+    texture_ = std::move(loaded.texture);
+    imguiDS_ = loaded.descriptorSet;
+    LOG_INFO("PlayerMarkerLayer: loaded MinimapArrow.blp ", loaded.texture->getWidth(), "x",
+             loaded.texture->getHeight());
 }
 
 void PlayerMarkerLayer::render(const LayerContext& ctx) {

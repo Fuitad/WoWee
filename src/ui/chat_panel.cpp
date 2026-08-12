@@ -1,3 +1,4 @@
+#include "ui/macro_text.hpp"
 #include "ui/chat_panel.hpp"
 #include "ui/chat/chat_utils.hpp"
 #include "ui/chat/macro_evaluator.hpp"
@@ -172,32 +173,11 @@ ChatPanel::SlashCommands ChatPanel::consumeSlashCommands() {
     return result;
 }
 
-namespace {
-} // anonymous namespace
-
-// Collect all non-comment, non-empty lines from a macro body.
-static std::vector<std::string> allMacroCommands(const std::string& macroText) {
-    std::vector<std::string> cmds;
-    size_t pos = 0;
-    while (pos <= macroText.size()) {
-        size_t nl = macroText.find('\n', pos);
-        std::string line = (nl != std::string::npos) ? macroText.substr(pos, nl - pos) : macroText.substr(pos);
-        if (!line.empty() && line.back() == '\r') line.pop_back();
-        size_t start = line.find_first_not_of(" \t");
-        if (start != std::string::npos) line = line.substr(start);
-        if (!line.empty() && line.front() != '#')
-            cmds.push_back(std::move(line));
-        if (nl == std::string::npos) break;
-        pos = nl + 1;
-    }
-    return cmds;
-}
-
 // Execute all non-comment lines of a macro body in sequence.
 void ChatPanel::executeMacroText(game::GameHandler& gameHandler,
                                   const std::string& macroText) {
     macroStopped_ = false;
-    for (const auto& cmd : allMacroCommands(macroText)) {
+    for (const auto& cmd : macroCommandLines(macroText)) {
         strncpy(chatInputBuffer_, cmd.c_str(), sizeof(chatInputBuffer_) - 1);
         chatInputBuffer_[sizeof(chatInputBuffer_) - 1] = '\0';
         sendChatMessage(gameHandler);

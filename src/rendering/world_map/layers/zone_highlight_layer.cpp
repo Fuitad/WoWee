@@ -1,5 +1,6 @@
 // zone_highlight_layer.cpp - Continent view zone rectangles + hover effects.
 // Extracted from WorldMap::renderZoneHighlights (Phase 8 of refactoring plan).
+#include "rendering/imgui_texture.hpp"
 #include "rendering/world_map/layers/zone_highlight_layer.hpp"
 #include "rendering/world_map/coordinate_projection.hpp"
 #include "rendering/vk_texture.hpp"
@@ -106,30 +107,13 @@ void ZoneHighlightLayer::ensureHighlight(const std::string& key,
         }
     }
 
-    VkDevice device = vkCtx_->getDevice();
-
-    auto tex = std::make_unique<VkTexture>();
-    if (!tex->upload(*vkCtx_, blpImage.data.data(), blpImage.width, blpImage.height,
-                     VK_FORMAT_R8G8B8A8_UNORM, false)) {
+    auto loaded = makeImGuiTexture(*vkCtx_, blpImage);
+    if (!loaded) {
         missingHighlights_.insert(key);
         return;
     }
-    if (!tex->createSampler(device, VK_FILTER_LINEAR, VK_FILTER_LINEAR,
-                            VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, 1.0f)) {
-        tex->destroy(device, vkCtx_->getAllocator());
-        missingHighlights_.insert(key);
-        return;
-    }
-
-    VkDescriptorSet ds = ImGui_ImplVulkan_AddTexture(
-        tex->getSampler(), tex->getImageView(),
-        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-
-    if (!ds) {
-        tex->destroy(device, vkCtx_->getAllocator());
-        missingHighlights_.insert(key);
-        return;
-    }
+    auto tex = std::move(loaded.texture);
+    VkDescriptorSet ds = loaded.descriptorSet;
 
     HighlightEntry entry;
     entry.texture = std::move(tex);
