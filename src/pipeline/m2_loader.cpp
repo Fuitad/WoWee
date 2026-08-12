@@ -455,7 +455,7 @@ std::string readString(const std::vector<uint8_t>& data, uint32_t offset, uint32
     return std::string(reinterpret_cast<const char*>(&data[offset]), actualLen);
 }
 
-enum class TrackType { VEC3, QUAT_COMPRESSED, FLOAT, FIXED16 };
+enum class TrackType { VEC3, QUAT_COMPRESSED, FLOAT, FIXED16, BYTE_BOOL };
 
 // M2 sequence flag: when set, keyframe data is embedded in the M2 file.
 // When clear, data lives in an external .anim file and the M2 offsets are
@@ -510,6 +510,7 @@ void parseAnimTrack(const std::vector<uint8_t>& data,
         size_t keyElementSize;
         if (type == TrackType::FLOAT) keyElementSize = sizeof(float);
         else if (type == TrackType::FIXED16) keyElementSize = sizeof(int16_t);
+        else if (type == TrackType::BYTE_BOOL) keyElementSize = sizeof(uint8_t);
         else if (type == TrackType::VEC3) keyElementSize = sizeof(float) * 3;
         else keyElementSize = sizeof(int16_t) * 4;
         if (keyOffset + keyCount * keyElementSize > data.size()) {
@@ -528,6 +529,15 @@ void parseAnimTrack(const std::vector<uint8_t>& data,
             for (int16_t v : raw) {
                 track.sequences[i].floatValues.push_back(
                     std::clamp(static_cast<float>(v) / 32767.0f, 0.0f, 1.0f));
+            }
+        } else if (type == TrackType::BYTE_BOOL) {
+            // One byte per key, and only ever 0 or 1. Reading these as floats
+            // turns a 1 into a denormal of about 1.4e-45, which passes for
+            // zero at every threshold downstream and hides the ribbon.
+            track.sequences[i].floatValues.reserve(keyCount);
+            for (uint32_t k = 0; k < keyCount; k++) {
+                track.sequences[i].floatValues.push_back(
+                    readValue<uint8_t>(data, keyOffset + k) != 0 ? 1.0f : 0.0f);
             }
         } else if (type == TrackType::VEC3) {
             // Translation/scale: float[3] per key
@@ -1570,34 +1580,8 @@ M2Model M2Loader::load(const std::vector<uint8_t>& m2Data) {
                 // alphaTrack M2TrackDisk at 0x38 (fixed16: int16/32767)
                 // Same nested-array layout as parseAnimTrack but keys are int16.
                 if (base + 0x38 + sizeof(M2TrackDisk) <= m2Data.size()) {
-                    M2TrackDisk disk = readValue<M2TrackDisk>(m2Data, base + 0x38);
-                    auto& track = rib.alphaTrack;
-                    track.interpolationType = disk.interpolationType;
-                    track.globalSequence    = disk.globalSequence;
-                    uint32_t nSeqs = disk.nTimestamps;
-                    if (nSeqs > 0 && nSeqs <= 4096) {
-                        track.sequences.resize(nSeqs);
-                        for (uint32_t s = 0; s < nSeqs; s++) {
-                            if (s < ribSeqFlags.size() && !(ribSeqFlags[s] & kM2SeqFlagEmbeddedData)) continue;
-                            uint32_t tsHdr  = disk.ofsTimestamps + s * 8;
-                            uint32_t keyHdr = disk.ofsKeys + s * 8;
-                            if (tsHdr + 8 > m2Data.size() || keyHdr + 8 > m2Data.size()) continue;
-                            uint32_t tsCount = readValue<uint32_t>(m2Data, tsHdr);
-                            uint32_t tsOfs   = readValue<uint32_t>(m2Data, tsHdr + 4);
-                            uint32_t kCount  = readValue<uint32_t>(m2Data, keyHdr);
-                            uint32_t kOfs    = readValue<uint32_t>(m2Data, keyHdr + 4);
-                            if (tsCount == 0 || kCount == 0) continue;
-                            if (tsOfs + tsCount * 4 > m2Data.size()) continue;
-                            if (kOfs + kCount * sizeof(int16_t) > m2Data.size()) continue;
-                            track.sequences[s].timestamps = readArray<uint32_t>(m2Data, tsOfs, tsCount);
-                            auto raw = readArray<int16_t>(m2Data, kOfs, kCount);
-                            track.sequences[s].floatValues.reserve(raw.size());
-                            for (auto v : raw) {
-                                track.sequences[s].floatValues.push_back(
-                                    static_cast<float>(v) / 32767.0f);
-                            }
-                        }
-                    }
+                    parseAnimTrack(m2Data, readValue<M2TrackDisk>(m2Data, base + 0x38),
+                                   rib.alphaTrack, TrackType::FIXED16, ribSeqFlags);
                 }
 
                 // heightAboveTrack M2TrackDisk at 0x4C (float)
@@ -1628,33 +1612,8 @@ M2Model M2Loader::load(const std::vector<uint8_t>& m2Data) {
                 // Must read as uint8 and convert to float, else 0x01 reads as
                 // float ~1.4e-45 which fails the visibility > 0.5 check.
                 if (base + 0x98 + sizeof(M2TrackDisk) <= m2Data.size()) {
-                    M2TrackDisk disk = readValue<M2TrackDisk>(m2Data, base + 0x98);
-                    auto& track = rib.visibilityTrack;
-                    track.interpolationType = disk.interpolationType;
-                    track.globalSequence    = disk.globalSequence;
-                    uint32_t nSeqs = disk.nTimestamps;
-                    if (nSeqs > 0 && nSeqs <= 4096) {
-                        track.sequences.resize(nSeqs);
-                        for (uint32_t s = 0; s < nSeqs; s++) {
-                            if (s < ribSeqFlags.size() && !(ribSeqFlags[s] & kM2SeqFlagEmbeddedData)) continue;
-                            uint32_t tsHdr  = disk.ofsTimestamps + s * 8;
-                            uint32_t keyHdr = disk.ofsKeys + s * 8;
-                            if (tsHdr + 8 > m2Data.size() || keyHdr + 8 > m2Data.size()) continue;
-                            uint32_t tsCount = readValue<uint32_t>(m2Data, tsHdr);
-                            uint32_t tsOfs   = readValue<uint32_t>(m2Data, tsHdr + 4);
-                            uint32_t kCount  = readValue<uint32_t>(m2Data, keyHdr);
-                            uint32_t kOfs    = readValue<uint32_t>(m2Data, keyHdr + 4);
-                            if (tsCount == 0 || kCount == 0) continue;
-                            if (tsOfs + tsCount * 4 > m2Data.size()) continue;
-                            if (kOfs + kCount * sizeof(uint8_t) > m2Data.size()) continue;
-                            track.sequences[s].timestamps = readArray<uint32_t>(m2Data, tsOfs, tsCount);
-                            track.sequences[s].floatValues.reserve(kCount);
-                            for (uint32_t k = 0; k < kCount; k++) {
-                                uint8_t raw = readValue<uint8_t>(m2Data, kOfs + k);
-                                track.sequences[s].floatValues.push_back(raw != 0 ? 1.0f : 0.0f);
-                            }
-                        }
-                    }
+                    parseAnimTrack(m2Data, readValue<M2TrackDisk>(m2Data, base + 0x98),
+                                   rib.visibilityTrack, TrackType::BYTE_BOOL, ribSeqFlags);
                 }
 
                 // Skip garbage emitters (common M2 artifact: alternating emitters

@@ -402,6 +402,24 @@ target_link_libraries(test_srp PRIVATE catch2_main OpenSSL::SSL OpenSSL::Crypto)
 add_test(NAME srp COMMAND test_srp)
 register_test_target(test_srp)
 
+# ── test_m2_ribbon_tracks ────────────────────────────────────
+# A ribbon emitter's alpha and visibility tracks, whose keys are fixed16 and
+# bytes rather than floats. Real-asset coverage; skips when unextracted.
+add_executable(test_m2_ribbon_tracks
+    test_m2_ribbon_tracks.cpp
+    ${TEST_COMMON_SOURCES}
+    ${CMAKE_SOURCE_DIR}/src/pipeline/m2_loader.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/logger.cpp
+)
+target_include_directories(test_m2_ribbon_tracks PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_m2_ribbon_tracks SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
+target_compile_definitions(test_m2_ribbon_tracks PRIVATE
+    WOWEE_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+target_link_libraries(test_m2_ribbon_tracks PRIVATE catch2_main)
+wowee_test_link_glm(test_m2_ribbon_tracks)
+add_test(NAME m2_ribbon_tracks COMMAND test_m2_ribbon_tracks)
+register_test_target(test_m2_ribbon_tracks)
+
 # ── test_chunk_surface ───────────────────────────────────────
 # Where a point inside a terrain chunk sits in the world. The clutter and
 # doodad scatterers each had their own copy, including the crossed axes.
