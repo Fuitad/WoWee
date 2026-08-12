@@ -1866,3 +1866,18 @@ target_compile_definitions(test_settings_apply_on_load PRIVATE
 target_link_libraries(test_settings_apply_on_load PRIVATE catch2_main)
 add_test(NAME settings_apply_on_load COMMAND test_settings_apply_on_load)
 register_test_target(test_settings_apply_on_load)
+
+# ── test_light_coords ────────────────────────────────────────
+# Where Light.dbc says a light volume is. The scale was 1.0 against a file
+# storing thirty-sixths of a yard on mirrored, swapped, corner-origin axes,
+# so no volume matched anywhere and every zone fell back to default light.
+add_executable(test_light_coords
+    test_light_coords.cpp
+    ${TEST_COMMON_SOURCES})
+target_include_directories(test_light_coords PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_light_coords SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_light_coords PRIVATE catch2_main)
+wowee_test_link_glm(test_light_coords)
+add_test(NAME light_coords COMMAND test_light_coords)
+register_test_target(test_light_coords)

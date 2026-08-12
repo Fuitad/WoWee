@@ -1,4 +1,5 @@
 #include "rendering/lighting_manager.hpp"
+#include "rendering/light_coords.hpp"
 #include <glm/gtc/constants.hpp>
 #include "pipeline/asset_manager.hpp"
 #include "pipeline/dbc_loader.hpp"
@@ -11,8 +12,6 @@
 namespace wowee {
 namespace rendering {
 
-// Light coordinate scaling (test with 1.0f first, then try 36.0f if distances seem off)
-constexpr float LIGHT_COORD_SCALE = 1.0f;
 
 // WoW's Light.dbc stores time-of-day as half-minutes (0..2879).
 // 24 hours × 60 minutes × 2 = 2880 half-minute ticks per day cycle.
@@ -93,14 +92,20 @@ bool LightingManager::loadLightDbc(pipeline::AssetManager* assetManager) {
         volume.lightId = dbc->getUInt32(i, lL ? (*lL)["ID"] : 0);
         volume.mapId = dbc->getUInt32(i, lL ? (*lL)["MapID"] : 1);
 
-        // Position (note: DBC stores as x,z,y - need to swap!)
-        float x = dbc->getFloat(i, lL ? (*lL)["X"] : 2);
-        float z = dbc->getFloat(i, lL ? (*lL)["Z"] : 3);
-        float y = dbc->getFloat(i, lL ? (*lL)["Y"] : 4);
-        volume.position = glm::vec3(x, y, z);  // Convert to x,y,z
+        // Into world space: thirty-sixths of a yard on the tile grid's axes,
+        // which are mirrored and swapped against the world's. Checked against
+        // six zones whose world coordinates are known - Tirisfal, Undercity,
+        // Stormwind, Ironforge, Westfall and Booty Bay - each of which lands
+        // inside a volume only under this mapping.
+        const float dbcX = dbc->getFloat(i, lL ? (*lL)["X"] : 2);
+        const float dbcZ = dbc->getFloat(i, lL ? (*lL)["Z"] : 3);
+        const float dbcY = dbc->getFloat(i, lL ? (*lL)["Y"] : 4);
+        volume.position = lightPositionToWorld(dbcX, dbcY, dbcZ);
 
-        volume.innerRadius = dbc->getFloat(i, lL ? (*lL)["InnerRadius"] : 5);
-        volume.outerRadius = dbc->getFloat(i, lL ? (*lL)["OuterRadius"] : 6);
+        volume.innerRadius =
+            dbc->getFloat(i, lL ? (*lL)["InnerRadius"] : 5) / LIGHT_COORD_UNITS_PER_YARD;
+        volume.outerRadius =
+            dbc->getFloat(i, lL ? (*lL)["OuterRadius"] : 6) / LIGHT_COORD_UNITS_PER_YARD;
 
         // LightParams IDs for different conditions
         volume.lightParamsId = dbc->getUInt32(i, lL ? (*lL)["LightParamsID"] : 7);
@@ -428,9 +433,7 @@ std::vector<LightingManager::WeightedVolume> LightingManager::findLightVolumes(c
     weighted.reserve(volumes.size());
 
     for (const auto& volume : volumes) {
-        // Apply coordinate scaling (test with 1.0f, try 36.0f if distances are off)
-        glm::vec3 scaledPos = volume.position * LIGHT_COORD_SCALE;
-        glm::vec3 toPlayer = playerPos - scaledPos;
+        glm::vec3 toPlayer = playerPos - volume.position;
         float distSq = glm::dot(toPlayer, toPlayer);
 
         float weight = 0.0f;
