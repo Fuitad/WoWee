@@ -167,15 +167,7 @@ uint32_t M2Renderer::createInstance(uint32_t modelId, const glm::vec3& position,
         particleOnlyInstanceIndices_.push_back(idx);
     }
     instanceIndexById[instance.id] = idx;
-    GridCell minCell = toCell(instance.worldBoundsMin);
-    GridCell maxCell = toCell(instance.worldBoundsMax);
-    for (int z = minCell.z; z <= maxCell.z; z++) {
-        for (int y = minCell.y; y <= maxCell.y; y++) {
-            for (int x = minCell.x; x <= maxCell.x; x++) {
-                spatialGrid[GridCell{x, y, z}].push_back(instance.id);
-            }
-        }
-    }
+    insertBounds(spatialGrid, instance.worldBoundsMin, instance.worldBoundsMax, instance.id);
 
     return instance.id;
 }
@@ -296,15 +288,7 @@ uint32_t M2Renderer::createInstanceWithMatrix(uint32_t modelId, const glm::mat4&
         particleOnlyInstanceIndices_.push_back(idx);
     }
     instanceIndexById[instance.id] = idx;
-    GridCell minCell = toCell(instance.worldBoundsMin);
-    GridCell maxCell = toCell(instance.worldBoundsMax);
-    for (int z = minCell.z; z <= maxCell.z; z++) {
-        for (int y = minCell.y; y <= maxCell.y; y++) {
-            for (int x = minCell.x; x <= maxCell.x; x++) {
-                spatialGrid[GridCell{x, y, z}].push_back(instance.id);
-            }
-        }
-    }
+    insertBounds(spatialGrid, instance.worldBoundsMin, instance.worldBoundsMax, instance.id);
 
     return instance.id;
 }

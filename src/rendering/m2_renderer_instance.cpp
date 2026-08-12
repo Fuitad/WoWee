@@ -40,9 +40,10 @@ void M2Renderer::setInstancePosition(uint32_t instanceId, const glm::vec3& posit
     if (idxIt == instanceIndexById.end()) return;
     auto& inst = instances[idxIt->second];
 
-    // Save old grid cells
-    GridCell oldMinCell = toCell(inst.worldBoundsMin);
-    GridCell oldMaxCell = toCell(inst.worldBoundsMax);
+    // The box the instance is filed under, which is what it has to be taken
+    // out of once it has moved.
+    const glm::vec3 oldBoundsMin = inst.worldBoundsMin;
+    const glm::vec3 oldBoundsMax = inst.worldBoundsMax;
 
     inst.position = position;
     inst.updateModelMatrix();
@@ -56,29 +57,8 @@ void M2Renderer::setInstancePosition(uint32_t instanceId, const glm::vec3& posit
     }
 
     // Incrementally update spatial grid
-    GridCell newMinCell = toCell(inst.worldBoundsMin);
-    GridCell newMaxCell = toCell(inst.worldBoundsMax);
-    if (oldMinCell.x != newMinCell.x || oldMinCell.y != newMinCell.y || oldMinCell.z != newMinCell.z ||
-        oldMaxCell.x != newMaxCell.x || oldMaxCell.y != newMaxCell.y || oldMaxCell.z != newMaxCell.z) {
-        for (int z = oldMinCell.z; z <= oldMaxCell.z; z++) {
-            for (int y = oldMinCell.y; y <= oldMaxCell.y; y++) {
-                for (int x = oldMinCell.x; x <= oldMaxCell.x; x++) {
-                    auto it = spatialGrid.find(GridCell{x, y, z});
-                    if (it != spatialGrid.end()) {
-                        auto& vec = it->second;
-                        vec.erase(std::remove(vec.begin(), vec.end(), instanceId), vec.end());
-                    }
-                }
-            }
-        }
-        for (int z = newMinCell.z; z <= newMaxCell.z; z++) {
-            for (int y = newMinCell.y; y <= newMaxCell.y; y++) {
-                for (int x = newMinCell.x; x <= newMaxCell.x; x++) {
-                    spatialGrid[GridCell{x, y, z}].push_back(instanceId);
-                }
-            }
-        }
-    }
+    refileBounds(spatialGrid, oldBoundsMin, oldBoundsMax,
+                 inst.worldBoundsMin, inst.worldBoundsMax, instanceId);
 }
 
 void M2Renderer::setInstanceAnimationFrozen(uint32_t instanceId, bool frozen) {
@@ -155,8 +135,8 @@ void M2Renderer::setInstanceTransform(uint32_t instanceId, const glm::mat4& tran
     auto& inst = instances[idxIt->second];
 
     // Remove old grid cells before updating bounds
-    GridCell oldMinCell = toCell(inst.worldBoundsMin);
-    GridCell oldMaxCell = toCell(inst.worldBoundsMax);
+    const glm::vec3 oldBoundsMin = inst.worldBoundsMin;
+    const glm::vec3 oldBoundsMax = inst.worldBoundsMax;
     const glm::vec3 oldPosition = inst.position;
 
     // Update model matrix directly
@@ -202,31 +182,8 @@ void M2Renderer::setInstanceTransform(uint32_t instanceId, const glm::mat4& tran
     }
 
     // Incrementally update spatial grid (remove old cells, add new cells)
-    GridCell newMinCell = toCell(inst.worldBoundsMin);
-    GridCell newMaxCell = toCell(inst.worldBoundsMax);
-    if (oldMinCell.x != newMinCell.x || oldMinCell.y != newMinCell.y || oldMinCell.z != newMinCell.z ||
-        oldMaxCell.x != newMaxCell.x || oldMaxCell.y != newMaxCell.y || oldMaxCell.z != newMaxCell.z) {
-        // Remove from old cells
-        for (int z = oldMinCell.z; z <= oldMaxCell.z; z++) {
-            for (int y = oldMinCell.y; y <= oldMaxCell.y; y++) {
-                for (int x = oldMinCell.x; x <= oldMaxCell.x; x++) {
-                    auto it = spatialGrid.find(GridCell{x, y, z});
-                    if (it != spatialGrid.end()) {
-                        auto& vec = it->second;
-                        vec.erase(std::remove(vec.begin(), vec.end(), instanceId), vec.end());
-                    }
-                }
-            }
-        }
-        // Add to new cells
-        for (int z = newMinCell.z; z <= newMaxCell.z; z++) {
-            for (int y = newMinCell.y; y <= newMaxCell.y; y++) {
-                for (int x = newMinCell.x; x <= newMaxCell.x; x++) {
-                    spatialGrid[GridCell{x, y, z}].push_back(instanceId);
-                }
-            }
-        }
-    }
+    refileBounds(spatialGrid, oldBoundsMin, oldBoundsMax,
+                 inst.worldBoundsMin, inst.worldBoundsMax, instanceId);
     // No spatialIndexDirty_ = true - handled incrementally
 }
 
@@ -239,19 +196,7 @@ void M2Renderer::removeInstance(uint32_t instanceId) {
     auto& inst = instances[idx];
 
     // Remove from spatial grid incrementally (same pattern as the move-update path)
-    GridCell minCell = toCell(inst.worldBoundsMin);
-    GridCell maxCell = toCell(inst.worldBoundsMax);
-    for (int z = minCell.z; z <= maxCell.z; z++) {
-        for (int y = minCell.y; y <= maxCell.y; y++) {
-            for (int x = minCell.x; x <= maxCell.x; x++) {
-                auto gIt = spatialGrid.find(GridCell{x, y, z});
-                if (gIt != spatialGrid.end()) {
-                    auto& vec = gIt->second;
-                    vec.erase(std::remove(vec.begin(), vec.end(), instanceId), vec.end());
-                }
-            }
-        }
-    }
+    eraseBounds(spatialGrid, inst.worldBoundsMin, inst.worldBoundsMax, instanceId);
 
     // Remove from dedup map
     if (!inst.cachedIsGroundDetail) {
@@ -480,14 +425,6 @@ void M2Renderer::resetQueryStats() {
     queryCallCount = 0;
 }
 
-M2Renderer::GridCell M2Renderer::toCell(const glm::vec3& p) const {
-    return GridCell{
-        static_cast<int>(std::floor(p.x / SPATIAL_CELL_SIZE)),
-        static_cast<int>(std::floor(p.y / SPATIAL_CELL_SIZE)),
-        static_cast<int>(std::floor(p.z / SPATIAL_CELL_SIZE))
-    };
-}
-
 void M2Renderer::rebuildSpatialIndex() {
     spatialGrid.clear();
     instanceIndexById.clear();
@@ -532,15 +469,7 @@ void M2Renderer::rebuildSpatialIndex() {
             particleOnlyInstanceIndices_.push_back(i);
         }
 
-        GridCell minCell = toCell(inst.worldBoundsMin);
-        GridCell maxCell = toCell(inst.worldBoundsMax);
-        for (int z = minCell.z; z <= maxCell.z; z++) {
-            for (int y = minCell.y; y <= maxCell.y; y++) {
-                for (int x = minCell.x; x <= maxCell.x; x++) {
-                    spatialGrid[GridCell{x, y, z}].push_back(inst.id);
-                }
-            }
-        }
+        insertBounds(spatialGrid, inst.worldBoundsMin, inst.worldBoundsMax, inst.id);
     }
     spatialIndexDirty_ = false;
 }
@@ -548,25 +477,14 @@ void M2Renderer::rebuildSpatialIndex() {
 void M2Renderer::gatherCandidates(const glm::vec3& queryMin, const glm::vec3& queryMax,
                                   std::vector<size_t>& outIndices) const {
     outIndices.clear();
-    tl_m2_candidateIdScratch.clear();
 
-    GridCell minCell = toCell(queryMin);
-    GridCell maxCell = toCell(queryMax);
-    for (int z = minCell.z; z <= maxCell.z; z++) {
-        for (int y = minCell.y; y <= maxCell.y; y++) {
-            for (int x = minCell.x; x <= maxCell.x; x++) {
-                auto it = spatialGrid.find(GridCell{x, y, z});
-                if (it == spatialGrid.end()) continue;
-                for (uint32_t id : it->second) {
-                    if (!tl_m2_candidateIdScratch.insert(id).second) continue;
-                    auto idxIt = instanceIndexById.find(id);
-                    if (idxIt != instanceIndexById.end()) {
-                        outIndices.push_back(idxIt->second);
-                    }
-                }
-            }
-        }
-    }
+    gatherIds(spatialGrid, queryMin, queryMax, tl_m2_candidateIdScratch,
+              [&](uint32_t id) {
+                  auto idxIt = instanceIndexById.find(id);
+                  if (idxIt != instanceIndexById.end()) {
+                      outIndices.push_back(idxIt->second);
+                  }
+              });
 
     // Safety fallback to preserve collision correctness if the spatial index
     // misses candidates (e.g. during streaming churn).

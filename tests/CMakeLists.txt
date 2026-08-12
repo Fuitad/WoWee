@@ -570,6 +570,20 @@ wowee_test_link_glm(test_normal_map)
 add_test(NAME normal_map COMMAND test_normal_map)
 register_test_target(test_normal_map)
 
+# ── test_spatial_grid ────────────────────────────────────────
+# The uniform grid the M2 and WMO renderers narrow collision queries with. Both
+# had their own copy, private to a renderer and unreachable without a Vulkan
+# context, so this is its first test.
+add_executable(test_spatial_grid
+    test_spatial_grid.cpp
+    ${TEST_COMMON_SOURCES})
+target_include_directories(test_spatial_grid PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_spatial_grid SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_spatial_grid PRIVATE catch2_main)
+wowee_test_link_glm(test_spatial_grid)
+add_test(NAME spatial_grid COMMAND test_spatial_grid)
+register_test_target(test_spatial_grid)
+
 # ── test_asset_manifest_load ───────────────────────────────────────────
 # The 32 MB asset manifest, pinned so a change to how it is read cannot change
 # what it read. Skips when Data/manifest.json is not in the checkout.

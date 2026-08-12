@@ -1060,15 +1060,7 @@ uint32_t WMORenderer::createInstance(uint32_t modelId, const glm::vec3& position
     instances.push_back(instance);
     size_t idx = instances.size() - 1;
     instanceIndexById[instance.id] = idx;
-    GridCell minCell = toCell(instance.worldBoundsMin);
-    GridCell maxCell = toCell(instance.worldBoundsMax);
-    for (int z = minCell.z; z <= maxCell.z; z++) {
-        for (int y = minCell.y; y <= maxCell.y; y++) {
-            for (int x = minCell.x; x <= maxCell.x; x++) {
-                spatialGrid[GridCell{x, y, z}].push_back(instance.id);
-            }
-        }
-    }
+    insertBounds(spatialGrid, instance.worldBoundsMin, instance.worldBoundsMax, instance.id);
     core::Logger::getInstance().debug("Created WMO instance ", instance.id, " (model ", modelId, ")");
     return instance.id;
 }
@@ -1474,14 +1466,6 @@ void WMORenderer::precomputeFloorCache() {
                                      newEntries, " new entries, total ", precomputedFloorGrid.size());
 }
 
-WMORenderer::GridCell WMORenderer::toCell(const glm::vec3& p) const {
-    return GridCell{
-        static_cast<int>(std::floor(p.x / SPATIAL_CELL_SIZE)),
-        static_cast<int>(std::floor(p.y / SPATIAL_CELL_SIZE)),
-        static_cast<int>(std::floor(p.z / SPATIAL_CELL_SIZE))
-    };
-}
-
 void WMORenderer::rebuildSpatialIndex() {
     spatialGrid.clear();
     instanceIndexById.clear();
@@ -1491,40 +1475,21 @@ void WMORenderer::rebuildSpatialIndex() {
         const auto& inst = instances[i];
         instanceIndexById[inst.id] = i;
 
-        GridCell minCell = toCell(inst.worldBoundsMin);
-        GridCell maxCell = toCell(inst.worldBoundsMax);
-        for (int z = minCell.z; z <= maxCell.z; z++) {
-            for (int y = minCell.y; y <= maxCell.y; y++) {
-                for (int x = minCell.x; x <= maxCell.x; x++) {
-                    spatialGrid[GridCell{x, y, z}].push_back(inst.id);
-                }
-            }
-        }
+        insertBounds(spatialGrid, inst.worldBoundsMin, inst.worldBoundsMax, inst.id);
     }
 }
 
 void WMORenderer::gatherCandidates(const glm::vec3& queryMin, const glm::vec3& queryMax,
                                    std::vector<size_t>& outIndices) const {
     outIndices.clear();
-    tl_candidateIdScratch.clear();
 
-    GridCell minCell = toCell(queryMin);
-    GridCell maxCell = toCell(queryMax);
-    for (int z = minCell.z; z <= maxCell.z; z++) {
-        for (int y = minCell.y; y <= maxCell.y; y++) {
-            for (int x = minCell.x; x <= maxCell.x; x++) {
-                auto it = spatialGrid.find(GridCell{x, y, z});
-                if (it == spatialGrid.end()) continue;
-                for (uint32_t id : it->second) {
-                    if (!tl_candidateIdScratch.insert(id).second) continue;
-                    auto idxIt = instanceIndexById.find(id);
-                    if (idxIt != instanceIndexById.end()) {
-                        outIndices.push_back(idxIt->second);
-                    }
-                }
-            }
-        }
-    }
+    gatherIds(spatialGrid, queryMin, queryMax, tl_candidateIdScratch,
+              [&](uint32_t id) {
+                  auto idxIt = instanceIndexById.find(id);
+                  if (idxIt != instanceIndexById.end()) {
+                      outIndices.push_back(idxIt->second);
+                  }
+              });
 
     // Safety fallback: if the grid misses due streaming/index drift, avoid
     // tunneling by scanning all instances instead of returning no candidates.
