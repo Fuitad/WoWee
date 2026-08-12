@@ -277,6 +277,9 @@ public:
     };
     bool isMailboxOpen() const { return mailboxOpen_; }
     const std::vector<MailMessage>& getMailInbox() const { return mailInbox_; }
+    /// Writable, for the backfill that fills in a mail's sender once the name
+    /// packet for that guid arrives.
+    std::vector<MailMessage>& mailInboxRef() { return mailInbox_; }
     int getSelectedMailIndex() const { return selectedMailIndex_; }
     void setSelectedMailIndex(int idx) { selectedMailIndex_ = idx; }
     bool isMailComposeOpen() const { return showMailCompose_; }
@@ -443,6 +446,12 @@ public:
     const AuctionListResult& getAuctionBrowseResults() const { return auctionBrowseResults_; }
     const AuctionListResult& getAuctionOwnerResults() const { return auctionOwnerResults_; }
     const AuctionListResult& getAuctionBidderResults() const { return auctionBidderResults_; }
+    /// Writable, for the one thing that reorders a result set in place: the
+    /// panel's own column sort. The server sends a list and the client sorts
+    /// it, which is what the real client does too, there is no re-query.
+    AuctionListResult& auctionBrowseResultsRef() { return auctionBrowseResults_; }
+    AuctionListResult& auctionOwnerResultsRef()  { return auctionOwnerResults_; }
+    AuctionListResult& auctionBidderResultsRef() { return auctionBidderResults_; }
     int getAuctionActiveTab() const { return auctionActiveTab_; }
     void setAuctionActiveTab(int tab) { auctionActiveTab_ = tab; }
     float getAuctionSearchDelay() const { return auctionSearchDelayTimer_; }

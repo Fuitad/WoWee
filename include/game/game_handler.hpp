@@ -3173,10 +3173,15 @@ public:
     const AuctionListResult& getAuctionBidderResults() const;
     /// Writable, for the one thing that reorders a result set in place: the
     /// panel's own column sort. The server sends a list and the client sorts
-    /// it, which is what the real client does too - there is no re-query.
-    AuctionListResult& auctionBrowseResultsRef() { return auctionBrowseResults_; }
-    AuctionListResult& auctionOwnerResultsRef()  { return auctionOwnerResults_; }
-    AuctionListResult& auctionBidderResultsRef() { return auctionBidderResults_; }
+    /// it, which is what the real client does too, there is no re-query.
+    ///
+    /// These forward exactly as the const getters above do. They used to hand
+    /// out this class's own copy while every reader took the inventory
+    /// handler's, so the sort ran on a list nothing displayed and clicking a
+    /// column header did nothing at all.
+    AuctionListResult& auctionBrowseResultsRef();
+    AuctionListResult& auctionOwnerResultsRef();
+    AuctionListResult& auctionBidderResultsRef();
     int getAuctionActiveTab() const;
     void setAuctionActiveTab(int tab);
     float getAuctionSearchDelay() const;
@@ -3509,7 +3514,7 @@ public:
     auto& lastContactListMaskRef() { return lastContactListMask_; }
     auto& lastWhisperSenderRef() { return lastWhisperSender_; }
     auto& lastWhisperSenderGuidRef() { return lastWhisperSenderGuid_; }
-    auto& mailInboxRef() { return mailInbox_; }
+    std::vector<MailMessage>& mailInboxRef();
 
     // ── World, Map & Zones ───────────────────────────────────────────
     auto& currentMapIdRef() { return currentMapId_; }

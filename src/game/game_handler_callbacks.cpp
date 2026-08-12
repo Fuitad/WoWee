@@ -1303,6 +1303,10 @@ const std::vector<MailMessage>& GameHandler::getMailInbox() const {
     if (inventoryHandler_) return inventoryHandler_->getMailInbox();
     return mailInbox_;
 }
+std::vector<MailMessage>& GameHandler::mailInboxRef() {
+    if (inventoryHandler_) return inventoryHandler_->mailInboxRef();
+    return mailInbox_;
+}
 std::string GameHandler::getMailDisplaySubject(const MailMessage& mail) {
     if (mail.messageType != 2) return mail.subject;
 
@@ -1394,12 +1398,24 @@ const AuctionListResult& GameHandler::getAuctionBrowseResults() const {
     if (inventoryHandler_) return inventoryHandler_->getAuctionBrowseResults();
     return auctionBrowseResults_;
 }
+AuctionListResult& GameHandler::auctionBrowseResultsRef() {
+    if (inventoryHandler_) return inventoryHandler_->auctionBrowseResultsRef();
+    return auctionBrowseResults_;
+}
 const AuctionListResult& GameHandler::getAuctionOwnerResults() const {
     if (inventoryHandler_) return inventoryHandler_->getAuctionOwnerResults();
     return auctionOwnerResults_;
 }
+AuctionListResult& GameHandler::auctionOwnerResultsRef() {
+    if (inventoryHandler_) return inventoryHandler_->auctionOwnerResultsRef();
+    return auctionOwnerResults_;
+}
 const AuctionListResult& GameHandler::getAuctionBidderResults() const {
     if (inventoryHandler_) return inventoryHandler_->getAuctionBidderResults();
+    return auctionBidderResults_;
+}
+AuctionListResult& GameHandler::auctionBidderResultsRef() {
+    if (inventoryHandler_) return inventoryHandler_->auctionBidderResultsRef();
     return auctionBidderResults_;
 }
 int GameHandler::getAuctionActiveTab() const {
