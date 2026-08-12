@@ -231,6 +231,37 @@ void BLPLoader::decompressDXT1(const uint8_t* src, uint8_t* dst, int width, int 
     }
 }
 
+namespace {
+
+/// Writes one decoded 4x4 block into the image, taking each pixel's alpha from
+/// the caller.
+///
+/// DXT3 and DXT5 differ only in where alpha comes from - four bits a pixel
+/// against a three-bit index into an interpolated ramp - and each carried its
+/// own copy of the walk that clips the block against the image edge and writes
+/// the colour. A texture whose width is not a multiple of four relies on that
+/// clip, and it was written twice.
+template <typename AlphaFor>
+void writeBlockPixels(const DxtColorBlock& colors, uint8_t* dst,
+                      int width, int height, int bx, int by, AlphaFor&& alphaFor) {
+    for (int py = 0; py < 4; py++) {
+        for (int px = 0; px < 4; px++) {
+            const int x = bx * 4 + px;
+            const int y = by * 4 + py;
+            if (x >= width || y >= height) continue;
+
+            const int index = colors.indexAt(px, py);
+            uint8_t* pixel = dst + (y * width + x) * 4;
+            pixel[0] = colors.rgb[index][0];
+            pixel[1] = colors.rgb[index][1];
+            pixel[2] = colors.rgb[index][2];
+            pixel[3] = alphaFor(px, py);
+        }
+    }
+}
+
+}  // namespace
+
 void BLPLoader::decompressDXT3(const uint8_t* src, uint8_t* dst, int width, int height) {
     // DXT3 decompression (16 bytes per 4x4 block - 8 bytes alpha + 8 bytes color)
     int blockWidth = (width + 3) / 4;
@@ -252,26 +283,12 @@ void BLPLoader::decompressDXT3(const uint8_t* src, uint8_t* dst, int width, int 
             const DxtColorBlock colors =
                 decodeDxtColorBlock(block + 8, /*allowPunchThrough=*/false);
 
-            for (int py = 0; py < 4; py++) {
-                for (int px = 0; px < 4; px++) {
-                    int x = bx * 4 + px;
-                    int y = by * 4 + py;
-
-                    if (x >= width || y >= height) continue;
-
-                    const int index = colors.indexAt(px, py);
-                    uint8_t* pixel = dst + (y * width + x) * 4;
-
-                    pixel[0] = colors.rgb[index][0];
-                    pixel[1] = colors.rgb[index][1];
-                    pixel[2] = colors.rgb[index][2];
-
-                    // Apply 4-bit alpha: scale [0..15] → [0..255] via (n * 255 / 15)
-                    int alphaIndex = py * 4 + px;
-                    uint8_t alpha4 = (alphaBlock >> (alphaIndex * 4)) & 0xF;
-                    pixel[3] = alpha4 * 255 / 15;
-                }
-            }
+            // Four bits a pixel, scaled from [0..15] to [0..255].
+            writeBlockPixels(colors, dst, width, height, bx, by,
+                             [&](int px, int py) -> uint8_t {
+                const uint8_t alpha4 = (alphaBlock >> ((py * 4 + px) * 4)) & 0xF;
+                return static_cast<uint8_t>(alpha4 * 255 / 15);
+            });
         }
     }
 }
@@ -321,25 +338,11 @@ void BLPLoader::decompressDXT5(const uint8_t* src, uint8_t* dst, int width, int 
             const DxtColorBlock colors =
                 decodeDxtColorBlock(block + 8, /*allowPunchThrough=*/false);
 
-            for (int py = 0; py < 4; py++) {
-                for (int px = 0; px < 4; px++) {
-                    int x = bx * 4 + px;
-                    int y = by * 4 + py;
-
-                    if (x >= width || y >= height) continue;
-
-                    const int index = colors.indexAt(px, py);
-                    uint8_t* pixel = dst + (y * width + x) * 4;
-
-                    pixel[0] = colors.rgb[index][0];
-                    pixel[1] = colors.rgb[index][1];
-                    pixel[2] = colors.rgb[index][2];
-
-                    // Apply interpolated alpha
-                    int alphaIdx = (alphaIndices >> ((py * 4 + px) * 3)) & 0x7;
-                    pixel[3] = alphas[alphaIdx];
-                }
-            }
+            // A three-bit index into the eight-entry ramp built above.
+            writeBlockPixels(colors, dst, width, height, bx, by,
+                             [&](int px, int py) -> uint8_t {
+                return alphas[(alphaIndices >> ((py * 4 + px) * 3)) & 0x7];
+            });
         }
     }
 }
