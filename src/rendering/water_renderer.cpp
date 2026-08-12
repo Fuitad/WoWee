@@ -1,3 +1,4 @@
+#include "rendering/water_mask.hpp"
 #include "rendering/water_renderer.hpp"
 #include "rendering/water_mask.hpp"
 #include "rendering/vk_context.hpp"
@@ -1330,26 +1331,9 @@ void WaterRenderer::createWaterMesh(WaterSurface& surface) {
     // Generate indices respecting render mask (same logic as GL version)
     for (int y = 0; y < gridHeight - 1; y++) {
         for (int x = 0; x < gridWidth - 1; x++) {
-            bool renderTile = true;
-            if (!surface.mask.empty()) {
-                int tileIndex;
-                if (surface.wmoId == 0 && surface.width <= 8 && surface.mask.size() >= 8) {
-                    // Per-chunk terrain surfaces carry the canonical
-                    // chunk-wide 8x8 mask: bit = row*8 + col, LSB-first.
-                    int cx = static_cast<int>(surface.xOffset) + x;
-                    int cy = static_cast<int>(surface.yOffset) + y;
-                    tileIndex = cy * 8 + cx;
-                } else {
-                    // Merged terrain and WMO masks are packed width×height,
-                    // row-major, LSB-first.
-                    tileIndex = y * surface.width + x;
-                }
-                int byteIndex = tileIndex / 8;
-                int bitIndex = tileIndex % 8;
-                if (byteIndex < static_cast<int>(surface.mask.size())) {
-                    renderTile = (surface.mask[byteIndex] & (1 << bitIndex)) != 0;
-                }
-            }
+            const bool renderTile =
+                waterCellRendered(surface.mask, surface.wmoId, surface.width,
+                                  surface.xOffset, surface.yOffset, x, y);
 
             if (!renderTile) continue;
 
@@ -1460,21 +1444,9 @@ std::optional<float> WaterRenderer::getWaterHeightAt(float glX, float glY) const
         if (iy >= surface.height) { iy = surface.height - 1; fy = 1.0f; }
         if (ix < 0 || iy < 0) continue;
 
-        if (!surface.mask.empty()) {
-            int tileIndex;
-            if (surface.wmoId == 0 && surface.width <= 8 && surface.mask.size() >= 8) {
-                tileIndex = (static_cast<int>(surface.yOffset) + iy) * 8 +
-                            (static_cast<int>(surface.xOffset) + ix);
-            } else {
-                tileIndex = iy * surface.width + ix;
-            }
-            int byteIndex = tileIndex / 8;
-            int bitIndex = tileIndex % 8;
-            if (byteIndex < static_cast<int>(surface.mask.size())) {
-                uint8_t maskByte = surface.mask[byteIndex];
-                bool renderTile = (maskByte & (1 << bitIndex)) != 0;
-                if (!renderTile) continue;
-            }
+        if (!waterCellRendered(surface.mask, surface.wmoId, surface.width,
+                               surface.xOffset, surface.yOffset, ix, iy)) {
+            continue;
         }
 
         int idx00 = iy * gridWidth + ix;
@@ -1522,21 +1494,9 @@ std::optional<float> WaterRenderer::getNearestWaterHeightAt(float glX, float glY
         if (iy >= surface.height) { iy = surface.height - 1; fy = 1.0f; }
         if (ix < 0 || iy < 0) continue;
 
-        if (!surface.mask.empty()) {
-            int tileIndex;
-            if (surface.wmoId == 0 && surface.width <= 8 && surface.mask.size() >= 8) {
-                tileIndex = (static_cast<int>(surface.yOffset) + iy) * 8 +
-                            (static_cast<int>(surface.xOffset) + ix);
-            } else {
-                tileIndex = iy * surface.width + ix;
-            }
-            int byteIndex = tileIndex / 8;
-            int bitIndex = tileIndex % 8;
-            if (byteIndex < static_cast<int>(surface.mask.size())) {
-                uint8_t maskByte = surface.mask[byteIndex];
-                bool renderTile = (maskByte & (1 << bitIndex)) != 0;
-                if (!renderTile) continue;
-            }
+        if (!waterCellRendered(surface.mask, surface.wmoId, surface.width,
+                               surface.xOffset, surface.yOffset, ix, iy)) {
+            continue;
         }
 
         int idx00 = iy * gridWidth + ix;
@@ -1588,21 +1548,9 @@ std::optional<uint16_t> WaterRenderer::getWaterTypeAt(float glX, float glY) cons
         if (iy >= surface.height) iy = surface.height - 1;
         if (ix < 0 || iy < 0) continue;
 
-        if (!surface.mask.empty()) {
-            int tileIndex;
-            if (surface.wmoId == 0 && surface.width <= 8 && surface.mask.size() >= 8) {
-                tileIndex = (static_cast<int>(surface.yOffset) + iy) * 8 +
-                            (static_cast<int>(surface.xOffset) + ix);
-            } else {
-                tileIndex = iy * surface.width + ix;
-            }
-            int byteIndex = tileIndex / 8;
-            int bitIndex = tileIndex % 8;
-            if (byteIndex < static_cast<int>(surface.mask.size())) {
-                uint8_t maskByte = surface.mask[byteIndex];
-                bool renderTile = (maskByte & (1 << bitIndex)) != 0;
-                if (!renderTile) continue;
-            }
+        if (!waterCellRendered(surface.mask, surface.wmoId, surface.width,
+                               surface.xOffset, surface.yOffset, ix, iy)) {
+            continue;
         }
 
         float h = surface.minHeight;

@@ -12,6 +12,7 @@
 #include <vector>
 
 using wowee::rendering::chunkWaterMask;
+using wowee::rendering::waterCellRendered;
 
 namespace {
 
@@ -94,6 +95,71 @@ TEST_CASE("row is the y axis and column the x") {
     REQUIRE(has(m, 2, 0));
     REQUIRE(!has(m, 0, 1));   // would be set if width and height were swapped
     REQUIRE(!has(m, 3, 0));
+}
+
+
+// ---- waterCellRendered: the same rule asked one cell at a time ----
+
+// Absent is not empty, here as everywhere else in this file.
+TEST_CASE("no mask means every cell is water") {
+    REQUIRE(waterCellRendered({}, 0, 8, 0, 0, 0, 0));
+    REQUIRE(waterCellRendered({}, 42, 4, 2, 2, 3, 3));
+}
+
+// LSB-first within the byte. Reading MSB-first mirrors every group of eight
+// cells, which on a lake looks like the shoreline data being wrong rather than
+// like a bit order.
+TEST_CASE("cells are read LSB-first") {
+    REQUIRE(waterCellRendered(maskWithTiles({0}), 0, 8, 0, 0, 0, 0));
+    REQUIRE(!waterCellRendered(maskWithTiles({0}), 0, 8, 0, 0, 1, 0));
+    REQUIRE(waterCellRendered(maskWithTiles({7}), 0, 8, 0, 0, 7, 0));
+    REQUIRE(!waterCellRendered(maskWithTiles({7}), 0, 8, 0, 0, 0, 0));
+}
+
+// A terrain surface's rect is a window onto the chunk-wide mask, so its own
+// cell (0,0) is whatever chunk cell its offsets name.
+TEST_CASE("a chunk-wide mask is indexed through the rect's offsets") {
+    const auto m = maskWithTiles({3 * 8 + 4});   // row 3, col 4
+    REQUIRE(waterCellRendered(m, 0, 2, /*xOffset=*/4, /*yOffset=*/3, 0, 0));
+    REQUIRE(!waterCellRendered(m, 0, 2, 4, 3, 1, 0));
+    // Ignoring the offsets would read bit 0 and answer for the wrong corner.
+    REQUIRE(!waterCellRendered(m, 0, 2, 4, 3, 0, 1));
+}
+
+// WMO liquid is packed by its own width, and its offsets mean nothing here.
+TEST_CASE("a WMO mask is packed by its own width") {
+    const auto m = maskWithTiles({1});
+    REQUIRE(!waterCellRendered(m, /*wmoId=*/7, 4, 4, 3, 0, 0));
+    REQUIRE(waterCellRendered(m, 7, 4, 4, 3, 1, 0));
+    // Row 1 of a width-4 surface starts at tile 4.
+    REQUIRE(waterCellRendered(maskWithTiles({4}), 7, 4, 4, 3, 0, 1));
+}
+
+// Under eight bytes cannot describe an 8x8 chunk, so the packed reading is the
+// only one left even for terrain. The boundary decides which of two different
+// answers a cell gets, so it is worth stating.
+TEST_CASE("a mask too short to be chunk-wide is read as packed") {
+    std::vector<uint8_t> shortMask(4, 0);
+    shortMask[0] = 0x01;
+    REQUIRE(waterCellRendered(shortMask, 0, 8, 4, 3, 0, 0));
+    // Same bit, eight bytes: now chunk-wide, and cell (0,0) of a rect at (4,3)
+    // is tile 28, which is clear.
+    REQUIRE(!waterCellRendered(maskWithTiles({0}), 0, 8, 4, 3, 0, 0));
+}
+
+// Wider than eight means a merged surface rather than one chunk's rect.
+TEST_CASE("a wide terrain surface is packed rather than chunk-wide") {
+    std::vector<uint8_t> m(32, 0);
+    m[2] = 0x01;    // tile 16
+    REQUIRE(waterCellRendered(m, 0, 16, 0, 0, 0, 1));   // 1 * 16 + 0
+    REQUIRE(!waterCellRendered(m, 0, 16, 0, 0, 1, 1));
+}
+
+// Past the end is water, which is also why this can never read out of bounds.
+TEST_CASE("a cell past the end of the mask is water") {
+    const std::vector<uint8_t> m(8, 0);
+    REQUIRE(waterCellRendered(m, 7, 8, 0, 0, 0, 100));
+    REQUIRE(waterCellRendered(m, 0, 8, 7, 7, 7, 7));
 }
 
 }  // namespace
