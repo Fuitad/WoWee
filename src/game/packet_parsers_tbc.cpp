@@ -928,18 +928,13 @@ bool TbcPacketParsers::parseItemQueryResponse(network::Packet& packet, ItemQuery
         }
         uint32_t statType  = packet.readUInt32();
         int32_t  statValue = static_cast<int32_t>(packet.readUInt32());
-        if (statType == 0) continue;
-        switch (statType) {
-            case 3: data.agility  = statValue; break;
-            case 4: data.strength = statValue; break;
-            case 5: data.intellect = statValue; break;
-            case 6: data.spirit   = statValue; break;
-            case 7: data.stamina  = statValue; break;
-            default:
-                if (statValue != 0)
-                    data.extraStats.push_back({statType, statValue});
-                break;
-        }
+        // Through applyStat, which is what the classic and WotLK readers of
+        // this same block already call. The copy here mapped the five named
+        // stats identically and differed in one line: it skipped statType 0
+        // outright. That is ITEM_MOD_MANA, so a +Mana item lost its mana on
+        // TBC and kept it on either side of TBC, and extraStats is what the
+        // tooltip draws its green lines from.
+        data.applyStat(statType, statValue);
     }
     // TBC: NO ScalingStatDistribution, NO ScalingStatValue (WotLK-only)
 

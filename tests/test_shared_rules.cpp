@@ -18,6 +18,7 @@
 #include "core/character_paths.hpp"
 #include "game/inventory.hpp"
 #include "game/item_text.hpp"
+#include "game/world_packets.hpp"
 #include "pipeline/item_textures.hpp"
 #include "pipeline/m2_loader.hpp"
 #include "pipeline/wowee_binary_io.hpp"
@@ -478,5 +479,48 @@ TEST_CASE("a format's extension is added only when it is missing", "[formats]") 
 
     SECTION("a name shorter than the extension") {
         CHECK(pipeline::normalizePath("a", ".wtkn") == "a.wtkn");
+    }
+}
+
+// Which stat an item's stat slot sets, which three readers of the same block
+// share.
+//
+// SMSG_ITEM_QUERY_SINGLE_RESPONSE carries its stats as (type, value) pairs and
+// every expansion reads them the same way, so applyStat is the one place that
+// says what a type means. The TBC reader used to spell the mapping out again
+// and differed in a single line: it skipped type 0 before the switch. That is
+// ITEM_MOD_MANA, confirmed against the server's ItemTemplate.h, so a +Mana
+// item lost its mana on TBC and kept it on either side of TBC.
+TEST_CASE("an item's stat slot keeps every type, including mana", "[shared]") {
+    using wowee::game::ItemQueryResponseData;
+
+    SECTION("the five named stats land in their own fields") {
+        ItemQueryResponseData data;
+        data.applyStat(3, 11);
+        data.applyStat(4, 12);
+        data.applyStat(5, 13);
+        data.applyStat(6, 14);
+        data.applyStat(7, 15);
+        CHECK(data.agility == 11);
+        CHECK(data.strength == 12);
+        CHECK(data.intellect == 13);
+        CHECK(data.spirit == 14);
+        CHECK(data.stamina == 15);
+        CHECK(data.extraStats.empty());
+    }
+
+    SECTION("type 0 is mana and is kept, not dropped") {
+        ItemQueryResponseData data;
+        data.applyStat(0, 240);
+        REQUIRE(data.extraStats.size() == 1);
+        CHECK(data.extraStats[0].statType == 0u);
+        CHECK(data.extraStats[0].statValue == 240);
+    }
+
+    SECTION("a zero value is not worth a line") {
+        ItemQueryResponseData data;
+        data.applyStat(0, 0);
+        data.applyStat(43, 0);
+        CHECK(data.extraStats.empty());
     }
 }
