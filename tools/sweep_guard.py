@@ -813,6 +813,15 @@ CHECKS = [
     ("dead_symbol_check.py",
      r"^(\d+) of those outside the \.w\* format headers", 2,
      "declared functions with no caller"),
+    # `return 8` hands back the top eight of the stack, so a pop between the
+    # values a binding built and its return slides the window down onto
+    # whatever was underneath. GetAddOnInfo shipped that way: the entry table
+    # arrived as the name and loadable as nil, so every addon read as
+    # unloadable. Zero, and the tool is verified against the code as it stood
+    # before the fix.
+    ("lua_return_window_check.py",
+     r"^(\d+) that pop after building them", 0,
+     "bindings that pop after building their return values"),
 ]
 
 # Prose rather than a count: the chunk checker says one of two sentences.
