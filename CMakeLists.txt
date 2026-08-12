@@ -2156,6 +2156,17 @@ message(STATUS "  SDL2: ${SDL2_VERSION}")
 message(STATUS "  OpenSSL: ${OPENSSL_VERSION}")
 message(STATUS "  ImGui: ${IMGUI_DIR}")
 message(STATUS "  ASAN: ${WOWEE_ENABLE_ASAN}")
+if(APPLE)
+    # Release CI pins this (13.0); a local build that leaves it unset is stamped
+    # with the build host's own OS version and will not launch on anything
+    # older. Worth seeing which one you got.
+    if(CMAKE_OSX_DEPLOYMENT_TARGET)
+        message(STATUS "  macOS target: ${CMAKE_OSX_DEPLOYMENT_TARGET}")
+    else()
+        message(STATUS "  macOS target: build host's version "
+                       "(pass -DCMAKE_OSX_DEPLOYMENT_TARGET=13.0 to match release CI)")
+    endif()
+endif()
 message(STATUS "")
 
 # ---- CPack packaging ----
