@@ -33,7 +33,7 @@ WoweeCollision WoweeCollisionBuilder::fromTerrain(const ADTTerrain& terrain,
     col.tileX = terrain.coord.x;
     col.tileY = terrain.coord.y;
 
-    float steepCos = std::cos(steepAngle * 3.14159265f / 180.0f);
+    float steepCos = std::cos(steepAngle * core::coords::PI / 180.0f);
 
     float tileSize = core::coords::TILE_SIZE;
     float chunkSize = tileSize / 16.0f;

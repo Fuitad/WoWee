@@ -2768,8 +2768,8 @@ void MovementHandler::updateClientTaxi(float deltaTime) {
 
     float currentOrientation = movementInfo.orientation;
     float orientDiff = targetOrientation - currentOrientation;
-    while (orientDiff > 3.14159265f) orientDiff -= 6.28318530f;
-    while (orientDiff < -3.14159265f) orientDiff += 6.28318530f;
+    while (orientDiff > core::coords::PI) orientDiff -= core::coords::TWO_PI;
+    while (orientDiff < -core::coords::PI) orientDiff += core::coords::TWO_PI;
     float roll = -orientDiff * 2.5f;
     roll = std::clamp(roll, -0.7f, 0.7f);
 

@@ -409,9 +409,9 @@ void WorldLoader::loadMapGeometry(uint32_t mapId, const std::string& mapName,
                 // coordinates relative to the WMO, not relative to map corner).
                 glm::vec3 wmoPos(0.0f);
                 glm::vec3 wmoRot(
-                    -wdtInfo.rotation[2] * 3.14159f / 180.0f,
-                    -wdtInfo.rotation[0] * 3.14159f / 180.0f,
-                    (wdtInfo.rotation[1] + 180.0f) * 3.14159f / 180.0f
+                    -wdtInfo.rotation[2] * core::coords::PI / 180.0f,
+                    -wdtInfo.rotation[0] * core::coords::PI / 180.0f,
+                    (wdtInfo.rotation[1] + 180.0f) * core::coords::PI / 180.0f
                 );
                 if (wdtInfo.position[0] != 0.0f || wdtInfo.position[1] != 0.0f || wdtInfo.position[2] != 0.0f) {
                     wmoPos = core::coords::adtToWorld(
