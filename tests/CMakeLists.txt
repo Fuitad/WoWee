@@ -1881,3 +1881,19 @@ target_link_libraries(test_light_coords PRIVATE catch2_main)
 wowee_test_link_glm(test_light_coords)
 add_test(NAME light_coords COMMAND test_light_coords)
 register_test_target(test_light_coords)
+
+# ── test_light_bands ─────────────────────────────────────────
+# Which LightParams row and channel a light band belongs to, and where its
+# fields are. The block mapping was off by one in both terms and the field
+# indices by one, so 12024 of 15300 colour bands read as empty.
+add_executable(test_light_bands
+    test_light_bands.cpp
+    ${TEST_COMMON_SOURCES})
+target_include_directories(test_light_bands PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_light_bands SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS})
+target_compile_definitions(test_light_bands PRIVATE
+    WOWEE_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+target_link_libraries(test_light_bands PRIVATE catch2_main)
+add_test(NAME light_bands COMMAND test_light_bands)
+register_test_target(test_light_bands)

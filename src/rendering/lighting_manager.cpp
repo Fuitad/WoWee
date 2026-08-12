@@ -1,5 +1,6 @@
 #include "rendering/lighting_manager.hpp"
 #include "rendering/light_coords.hpp"
+#include "rendering/light_band_block.hpp"
 #include <glm/gtc/constants.hpp>
 #include "pipeline/asset_manager.hpp"
 #include "pipeline/dbc_loader.hpp"
@@ -191,28 +192,31 @@ bool LightingManager::loadLightBandDbcs(pipeline::AssetManager* assetManager) {
             // Block index = LightParamsID * 18 + channel
             const auto* libL = pipeline::getActiveDBCLayout() ? pipeline::getActiveDBCLayout()->getLayout("LightIntBand") : nullptr;
             for (uint32_t i = 0; i < dbc->getRecordCount(); ++i) {
-                uint32_t blockIndex = dbc->getUInt32(i, libL ? (*libL)["BlockIndex"] : 1);
-                uint32_t lightParamsId = blockIndex / 18;
-                uint32_t channelIndex = blockIndex % 18;
+                const uint32_t blockIndex =
+                    dbc->getUInt32(i, libL ? (*libL)["BlockIndex"] : 0);
+                const LightBandSlot slot =
+                    lightBandSlot(blockIndex, LIGHT_INT_CHANNELS);
+                if (!slot.valid) continue;
 
-                auto it = lightParamsProfiles_.find(lightParamsId);
+                auto it = lightParamsProfiles_.find(slot.lightParamsId);
                 if (it == lightParamsProfiles_.end()) continue;
 
+                const uint32_t channelIndex = slot.channel;
                 if (channelIndex >= LightParamsProfile::COLOR_CHANNEL_COUNT) continue;
 
                 ColorBand& band = it->second.colorBands[channelIndex];
-                band.numKeyframes = dbc->getUInt32(i, libL ? (*libL)["NumKeyframes"] : 2);
+                band.numKeyframes = dbc->getUInt32(i, libL ? (*libL)["NumKeyframes"] : 1);
                 if (band.numKeyframes > 16) band.numKeyframes = 16;
 
                 // Read time keys (field 3-18) - stored as uint16 half-minutes
-                uint32_t timeKeyBase = libL ? (*libL)["TimeKey0"] : 3;
+                uint32_t timeKeyBase = libL ? (*libL)["TimeKey0"] : 2;
                 for (uint8_t k = 0; k < band.numKeyframes && k < 16; ++k) {
                     uint32_t timeValue = dbc->getUInt32(i, timeKeyBase + k);
                     band.times[k] = static_cast<uint16_t>(timeValue % kHalfMinutesPerDay);  // Clamp to valid range
                 }
 
                 // Read color values (field 19-34) - stored as BGRA packed uint32
-                uint32_t valueBase = libL ? (*libL)["Value0"] : 19;
+                uint32_t valueBase = libL ? (*libL)["Value0"] : 18;
                 for (uint8_t k = 0; k < band.numKeyframes && k < 16; ++k) {
                     uint32_t colorBGRA = dbc->getUInt32(i, valueBase + k);
                     band.colors[k] = dbcColorToVec3(colorBGRA);
@@ -233,28 +237,31 @@ bool LightingManager::loadLightBandDbcs(pipeline::AssetManager* assetManager) {
             // Block index = LightParamsID * 6 + channel
             const auto* lfbL = pipeline::getActiveDBCLayout() ? pipeline::getActiveDBCLayout()->getLayout("LightFloatBand") : nullptr;
             for (uint32_t i = 0; i < dbc->getRecordCount(); ++i) {
-                uint32_t blockIndex = dbc->getUInt32(i, lfbL ? (*lfbL)["BlockIndex"] : 1);
-                uint32_t lightParamsId = blockIndex / 6;
-                uint32_t channelIndex = blockIndex % 6;
+                const uint32_t blockIndex =
+                    dbc->getUInt32(i, lfbL ? (*lfbL)["BlockIndex"] : 0);
+                const LightBandSlot slot =
+                    lightBandSlot(blockIndex, LIGHT_FLOAT_CHANNELS);
+                if (!slot.valid) continue;
 
-                auto it = lightParamsProfiles_.find(lightParamsId);
+                auto it = lightParamsProfiles_.find(slot.lightParamsId);
                 if (it == lightParamsProfiles_.end()) continue;
 
+                const uint32_t channelIndex = slot.channel;
                 if (channelIndex >= LightParamsProfile::FLOAT_CHANNEL_COUNT) continue;
 
                 FloatBand& band = it->second.floatBands[channelIndex];
-                band.numKeyframes = dbc->getUInt32(i, lfbL ? (*lfbL)["NumKeyframes"] : 2);
+                band.numKeyframes = dbc->getUInt32(i, lfbL ? (*lfbL)["NumKeyframes"] : 1);
                 if (band.numKeyframes > 16) band.numKeyframes = 16;
 
                 // Read time keys (field 3-18)
-                uint32_t timeKeyBase = lfbL ? (*lfbL)["TimeKey0"] : 3;
+                uint32_t timeKeyBase = lfbL ? (*lfbL)["TimeKey0"] : 2;
                 for (uint8_t k = 0; k < band.numKeyframes && k < 16; ++k) {
                     uint32_t timeValue = dbc->getUInt32(i, timeKeyBase + k);
                     band.times[k] = static_cast<uint16_t>(timeValue % kHalfMinutesPerDay);  // Clamp to valid range
                 }
 
                 // Read float values (field 19-34)
-                uint32_t valueBase = lfbL ? (*lfbL)["Value0"] : 19;
+                uint32_t valueBase = lfbL ? (*lfbL)["Value0"] : 18;
                 for (uint8_t k = 0; k < band.numKeyframes && k < 16; ++k) {
                     band.values[k] = dbc->getFloat(i, valueBase + k);
                 }
