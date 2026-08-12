@@ -2,10 +2,10 @@
 
 ## Unreleased - the original interface
 
-Work on the `framexml-ui-transition` branch. None of this is in a tagged build yet.
+The FrameXML interface transition, merged to `master`. None of it is in a tagged build yet.
 
-### Corrected - work in this branch that was built against the wrong model
-Four things were written down here that the client already owned. A copy does not fail; it answers plausibly and slightly wrong, which is why none of the checks in this branch caught any of them.
+### Corrected - work here that was built against the wrong model
+Four things were written down here that the client already owned. A copy does not fail; it answers plausibly and slightly wrong, which is why none of the checks on this work caught any of them.
 - **Equipment sets are the server's.** They were kept in a file beside this client, so the character's real sets were invisible and anything saved through the manager would not have existed for anyone else - this client's own paperdoll included
 - **A key the client acts on is read from the client**, every time it is asked. It was copied once at startup, and the settings panel can rebind it
 - **The reputation thresholds have one home**, shared by both interfaces. They agreed except at the top of the last band, which nothing else constrained: a faction at exalted drew an almost empty bar

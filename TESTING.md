@@ -118,7 +118,6 @@ tests/
 
   # Chat
   test_chat_markup_parser.cpp             - Item link and markup parsing
-  test_chat_tab_completer.cpp             - Tab-completion for names and commands
   test_gm_commands.cpp                    - GM command data table and dispatch
   test_macro_evaluator.cpp                - Macro conditional evaluation
 ```

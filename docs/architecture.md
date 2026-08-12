@@ -285,11 +285,16 @@ Wowee follows a modular architecture with clear separation of concerns:
 - `SettingsScreen` - Graphics presets (LOW/MEDIUM/HIGH/ULTRA), audio, keybindings
 
 **Chat System** (`src/ui/chat/`) - Modular chat architecture:
-- `ChatPanel` - Main chat UI (tabs, input, message display)
+
+FrameXML owns the chat window itself - tabs, input, message display, and name
+completion are the interface's, not this client's. What remains here is what
+FrameXML calls into, plus what the client draws in the world.
+
+- `ChatPanel` - Command registry host, bubbles, and the helpers FrameXML calls
+  (`setWhisperTarget`, `insertChatLink`). Does not render a chat window
 - `ChatInput` - Input handling and history
-- `ChatTabManager` - Tab creation, switching, per-tab filters
-- `ChatTabCompleter` - Tab-completion for player names, commands, channels
-- `ChatCommandRegistry` - Slash command dispatch with `IChatCommand` interface
+- `ChatCommandRegistry` - Slash command dispatch with `IChatCommand` interface.
+  FrameXML's edit box routes unknown commands here via `runClientChatCommand`
 - `ChatMarkupParser` / `ChatMarkupRenderer` - Item link parsing and colored rich-text rendering
 - `ChatBubbleManager` - Floating chat bubbles above entities
 - `ChatSettings` - Per-channel color, font size, timestamp options

@@ -45,11 +45,8 @@
 namespace wowee { namespace ui {
 
 ChatPanel::ChatPanel() {
-    // ChatTabManager constructor handles tab initialization
     registerAllCommands();
 }
-
-// Tab init and filtering moved to ChatTabManager (Phase 1.3)
 
 
 

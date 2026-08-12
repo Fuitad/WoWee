@@ -1,6 +1,6 @@
 # Project Status
 
-**Last updated**: 2026-07-09
+**Last updated**: 2026-08-11
 
 ## What This Repo Is
 
@@ -53,6 +53,14 @@ Recent fixes (July 2026):
 - Strafing reworked: torso-twist via SpineLow bone rotation instead of dedicated strafe animations
 - Camera smoothing snaps 1:1 during active drag/keyboard turn to reduce input lag
 - Mount strafing uses MOUNT_RUN_LEFT/RIGHT when available
+
+Recent work (August 2026):
+
+- FrameXML interface transition: the original interface owns the chat window, and this client's own was removed along with the tab manager and completer that served it. The command registry, macro evaluation, and chat bubbles stay - FrameXML's edit box routes unknown slash commands into `runClientChatCommand`. See the Unreleased section of `CHANGELOG.md`
+- Warnings are errors: `WOWEE_WARNINGS_AS_ERRORS` (default ON) puts `-Werror` / `/WX` on the `wowee` target. Turn it off for a bisect or an unfamiliar compiler
+- AMD FidelityFX SDK backends are off by default (`WOWEE_ENABLE_AMD_FSR2`, `WOWEE_ENABLE_AMD_FSR3_FRAMEGEN`). This client's own FSR 1 and `fsr2_*` compute shaders are in-tree and unaffected
+- 89 test suites registered with CTest, up from the 31 noted above
+- macOS: SIGPIPE is ignored at startup, so a send to a dropped connection no longer terminates the client; crash backtraces now work there as well as on Linux
 
 In progress / known gaps:
 

@@ -10,8 +10,8 @@ When enabled, zero-cost zone markers instrument the following critical paths.
 
 > **Setup**: Tracy is *not* vendored in this repo. `CMakeLists.txt` looks for
 > `extern/tracy/public/TracyClient.cpp` and `extern/tracy/public/` headers
-> (lines 1045-1050). Clone Tracy into that path before configuring with
-> `-DWOWEE_ENABLE_TRACY=ON`:
+> under `WOWEE_ENABLE_TRACY`. Clone Tracy into that path before configuring
+> with `-DWOWEE_ENABLE_TRACY=ON`:
 >
 > ```bash
 > git clone --depth 1 --branch v0.11.1 https://github.com/wolfpld/tracy extern/tracy
