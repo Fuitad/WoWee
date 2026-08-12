@@ -40,6 +40,7 @@
 #include <unordered_set>
 #include <unordered_map>
 #include "core/local_time.hpp"
+#include "ui/framexml_takeover.hpp"
 
 namespace {
     // Common ImGui colors (aliases)
@@ -1144,10 +1145,47 @@ void ChatPanel::renderBubbles(game::GameHandler& gameHandler) {
 // setupCallbacks delegates to ChatBubbleManager (Phase 1.4)
 void ChatPanel::setupCallbacks(game::GameHandler& gameHandler) {
     bubbleManager_.setupCallback(gameHandler);
+    // Also here, not only in render(): with the chat window handed to FrameXML
+    // this panel is never drawn, and the handler cached there was left null for
+    // the entry points below that still have callers.
+    cachedGameHandler_ = &gameHandler;
 }
+
+namespace {
+
+/// A string as Lua source, so a link's own punctuation cannot end it early.
+std::string asLuaString(const std::string& text) {
+    std::string out = "\"";
+    for (char c : text) {
+        if (c == '\\' || c == '"') out += '\\';
+        out += c;
+    }
+    out += '"';
+    return out;
+}
+
+}  // namespace
 
 void ChatPanel::insertChatLink(const std::string& link) {
     if (link.empty()) return;
+    // Shift-clicking an item, spell or achievement anywhere in the client
+    // comes here, from seventeen call sites. With the chat window handed to
+    // FrameXML, appending to this panel's buffer wrote into a box that is
+    // never drawn, so every one of those clicks did nothing at all.
+    //
+    // ChatEdit_InsertLink is what the interface uses for the same gesture: it
+    // finds the active edit box, opening one if none is, and inserts there.
+    if (frameXmlOwns(UiElement::Chat)) {
+        if (cachedGameHandler_) {
+            // Insert into the open box, or open one holding the link.
+            // ChatEdit_InsertLink answers false when no edit box is active,
+            // and on its own that drops the click entirely.
+            cachedGameHandler_->runInterfaceCommand(
+                "local l = " + asLuaString(link) +
+                " if not ChatEdit_InsertLink(l) then ChatFrame_OpenChat(l) end");
+        }
+        return;
+    }
     size_t curLen = strlen(chatInputBuffer_);
     if (curLen + link.size() + 1 <= sizeof(chatInputBuffer_)) {
         strncat(chatInputBuffer_, link.c_str(), sizeof(chatInputBuffer_) - curLen - 1);
@@ -1157,6 +1195,10 @@ void ChatPanel::insertChatLink(const std::string& link) {
 }
 
 void ChatPanel::activateSlashInput() {
+    if (frameXmlOwns(UiElement::Chat)) {
+        if (cachedGameHandler_) cachedGameHandler_->runInterfaceCommand("ChatFrame_OpenChat(\"/\")");
+        return;
+    }
     refocusChatInput_ = true;
     chatInputBuffer_[0] = '/';
     chatInputBuffer_[1] = '\0';
@@ -1164,6 +1206,10 @@ void ChatPanel::activateSlashInput() {
 }
 
 void ChatPanel::activateInput() {
+    if (frameXmlOwns(UiElement::Chat)) {
+        if (cachedGameHandler_) cachedGameHandler_->runInterfaceCommand("ChatFrame_OpenChat(\"\")");
+        return;
+    }
     if (chatInputCooldown_ > 0) return;
     refocusChatInput_ = true;
 }
