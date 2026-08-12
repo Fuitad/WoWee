@@ -1287,6 +1287,16 @@ if(MSVC)
     endif()
 else()
     target_compile_options(wowee PRIVATE -Wall -Wextra -Wpedantic -Wno-missing-field-initializers)
+    # A constant left behind by a deleted function is not in -Wall for C++ on
+    # every clang, and the macOS and Windows runners have it where the clang
+    # here does not, so it failed two of five CI jobs and no local build.
+    #
+    # Clang only. GCC applies the same flag to header constants that exist to
+    # write down a whole wire enum, InvType::AMMO and GuildEvent::SIGNED_ON
+    # among them, and those are documentation rather than dead code.
+    if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        target_compile_options(wowee PRIVATE -Wunused-const-variable)
+    endif()
     if(WOWEE_WARNINGS_AS_ERRORS)
         target_compile_options(wowee PRIVATE -Werror)
     endif()
@@ -2134,6 +2144,9 @@ if(NOT MSVC)
         -Wall -Wextra -Wpedantic
         -Wno-missing-field-initializers
         -Wno-unused-parameter)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        target_compile_options(wowee_editor PRIVATE -Wunused-const-variable)
+    endif()
     if(WOWEE_WARNINGS_AS_ERRORS)
         target_compile_options(wowee_editor PRIVATE -Werror)
     endif()
