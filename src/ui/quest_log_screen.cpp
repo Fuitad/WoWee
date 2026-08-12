@@ -14,6 +14,53 @@ namespace wowee { namespace ui {
 
 namespace {
 
+/// One list of reward items, with icons and tooltips.
+///
+/// The quest detail pane shows two of these, the rewards a quest always gives
+/// and the ones the player chooses between, and they were drawn by two copies
+/// of the same twenty lines. Nothing is drawn at all when the list holds no
+/// real item, which is why the heading is inside here: an empty "You will
+/// receive:" above nothing is worse than no heading.
+template <typename Items>
+void renderRewardItemList(const char* heading, const Items& items,
+                          game::GameHandler& gameHandler, InventoryScreen& invScreen) {
+    bool any = false;
+    for (const auto& ri : items) {
+        if (ri.itemId) { any = true; break; }
+    }
+    if (!any) return;
+
+    ImGui::TextDisabled("%s", heading);
+    for (const auto& ri : items) {
+        if (!ri.itemId) continue;
+
+        std::string name = "Item " + std::to_string(ri.itemId);
+        uint32_t dispId = 0;
+        const auto* info = gameHandler.getItemInfo(ri.itemId);
+        if (info && info->valid) {
+            if (!info->name.empty()) name = info->name;
+            dispId = info->displayInfoId;
+        }
+
+        VkDescriptorSet icon = dispId ? invScreen.getItemIcon(dispId) : VK_NULL_HANDLE;
+        if (icon) {
+            ImGui::Image((ImTextureID)(uintptr_t)icon, ImVec2(16, 16));
+            ImGui::SameLine();
+        }
+        if (ri.count > 1) {
+            ImGui::Text("%s x%u", name.c_str(), ri.count);
+        } else {
+            ImGui::Text("%s", name.c_str());
+        }
+        if (info && info->valid && ImGui::IsItemHovered()) {
+            ImGui::BeginTooltip();
+            invScreen.renderItemTooltip(*info, &gameHandler.getInventory());
+            ImGui::EndTooltip();
+        }
+    }
+}
+
+
 std::string cleanQuestTitleForUi(const std::string& raw, uint32_t questId) {
     std::string s = raw;
 
@@ -452,66 +499,12 @@ void QuestLogScreen::render(game::GameHandler& gameHandler, InventoryScreen& inv
                     }
 
                     // Guaranteed reward items
-                    bool anyFixed = false;
-                    for (const auto& ri : sel.rewardItems) if (ri.itemId) { anyFixed = true; break; }
-                    if (anyFixed) {
-                        ImGui::TextDisabled("You will receive:");
-                        for (const auto& ri : sel.rewardItems) {
-                            if (!ri.itemId) continue;
-                            std::string name = "Item " + std::to_string(ri.itemId);
-                            uint32_t dispId = 0;
-                            const auto* info = gameHandler.getItemInfo(ri.itemId);
-                            if (info && info->valid) {
-                                if (!info->name.empty()) name = info->name;
-                                dispId = info->displayInfoId;
-                            }
-                            VkDescriptorSet icon = dispId ? invScreen.getItemIcon(dispId) : VK_NULL_HANDLE;
-                            if (icon) {
-                                ImGui::Image((ImTextureID)(uintptr_t)icon, ImVec2(16, 16));
-                                ImGui::SameLine();
-                            }
-                            if (ri.count > 1)
-                                ImGui::Text("%s x%u", name.c_str(), ri.count);
-                            else
-                                ImGui::Text("%s", name.c_str());
-                            if (info && info->valid && ImGui::IsItemHovered()) {
-                                ImGui::BeginTooltip();
-                                invScreen.renderItemTooltip(*info, &gameHandler.getInventory());
-                                ImGui::EndTooltip();
-                            }
-                        }
-                    }
+                    renderRewardItemList("You will receive:", sel.rewardItems,
+                                         gameHandler, invScreen);
 
                     // Choice reward items
-                    bool anyChoice = false;
-                    for (const auto& ri : sel.rewardChoiceItems) if (ri.itemId) { anyChoice = true; break; }
-                    if (anyChoice) {
-                        ImGui::TextDisabled("Choose one of:");
-                        for (const auto& ri : sel.rewardChoiceItems) {
-                            if (!ri.itemId) continue;
-                            std::string name = "Item " + std::to_string(ri.itemId);
-                            uint32_t dispId = 0;
-                            const auto* info = gameHandler.getItemInfo(ri.itemId);
-                            if (info && info->valid) {
-                                if (!info->name.empty()) name = info->name;
-                                dispId = info->displayInfoId;
-                            }
-                            VkDescriptorSet icon = dispId ? invScreen.getItemIcon(dispId) : VK_NULL_HANDLE;
-                            if (icon) {
-                                ImGui::Image((ImTextureID)(uintptr_t)icon, ImVec2(16, 16));
-                                ImGui::SameLine();
-                            }
-                            if (ri.count > 1)
-                                ImGui::Text("%s x%u", name.c_str(), ri.count);
-                            else
-                                ImGui::Text("%s", name.c_str());
-                            if (info && info->valid && ImGui::IsItemHovered()) {
-                                ImGui::BeginTooltip();
-                                invScreen.renderItemTooltip(*info, &gameHandler.getInventory());
-                                ImGui::EndTooltip();
-                            }
-                        }
-                    }
+                    renderRewardItemList("Choose one of:", sel.rewardChoiceItems,
+                                         gameHandler, invScreen);
                 }
 
                 // Track / Share / Abandon buttons
