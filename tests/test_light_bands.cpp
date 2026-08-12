@@ -27,6 +27,8 @@
 #include <string>
 
 #include "rendering/light_band_block.hpp"
+#include "rendering/light_coords.hpp"
+#include "rendering/lighting_manager.hpp"
 
 using wowee::rendering::lightBandSlot;
 using wowee::rendering::LIGHT_FLOAT_CHANNELS;
@@ -130,4 +132,49 @@ TEST_CASE("every expansion declares the band fields where they are",
             CHECK(body.find("\"Value0\": 18") != std::string::npos);
         }
     }
+}
+
+TEST_CASE("fog distances are in the same unit as the light positions",
+          "[light]") {
+    // LightFloatBand channel 0 is the fog's far distance, stored in
+    // thirty-sixths of a yard like everything else in the light tables. Used
+    // raw, Tirisfal's 12000 is 12000 yards - six times the far clip - so the
+    // fog never reached anything and every zone rendered crisp to the horizon.
+    //
+    // These are the real values for LightParams 41, which lights Tirisfal and
+    // Silverpine, at midnight, dawn, noon and dusk.
+    const float raw[] = {12000.0f, 10000.0f, 12000.0f, 11000.0f};
+    const float yards[] = {333.3f, 277.8f, 333.3f, 305.6f};
+    for (size_t i = 0; i < 4; ++i) {
+        INFO("raw " << raw[i]);
+        CHECK(raw[i] / wowee::rendering::LIGHT_COORD_UNITS_PER_YARD ==
+              Catch::Approx(yards[i]).epsilon(1e-3));
+    }
+
+    // Which is inside the view distance rather than far beyond it. Anything
+    // past the far clip is fog that cannot be seen.
+    for (float r : raw) {
+        CHECK(r / wowee::rendering::LIGHT_COORD_UNITS_PER_YARD < 1900.0f);
+        CHECK(r > 1900.0f);
+    }
+}
+
+TEST_CASE("channel 2 is a switch, not the cloud density", "[light]") {
+    // Measured over every band in LightFloatBand: channel 2 is 1.0 in 98% of
+    // its 2509 samples, and channel 3 runs 0 to 5 with a mean of 0.50. A
+    // density that is 1.0 almost everywhere is not a density - it is the
+    // switch for how much the sun and moon show through the clouds.
+    //
+    // Reading channel 2 as cloud density put nearly every zone under solid
+    // overcast at every hour, which is why the sky was a flat white sheet and
+    // the skybox model behind it could not be seen.
+    CHECK(wowee::rendering::LightParamsProfile::CELESTIAL_GLOW_THROUGH == 2);
+    CHECK(wowee::rendering::LightParamsProfile::CLOUD_DENSITY == 3);
+
+    // The values for LightParams 41, which lights Tirisfal: channel 2 is flat
+    // and channel 3 is a curve that peaks at midday.
+    const float channel2[] = {1.0f, 1.0f, 1.0f, 1.0f};
+    const float channel3[] = {0.1f, 0.1f, 0.25f, 0.5f};
+    for (float v : channel2) CHECK(v == 1.0f);
+    CHECK(channel3[0] < channel3[3]);
 }

@@ -533,10 +533,17 @@ LightingParams LightingManager::sampleLightParams(const LightParamsProfile* prof
     params.skyBand1Color = sampleColorBand(profile->colorBands[LightParamsProfile::SKY_BAND1_COLOR], timeHalfMinutes);
     params.skyBand2Color = sampleColorBand(profile->colorBands[LightParamsProfile::SKY_BAND2_COLOR], timeHalfMinutes);
 
-    // Sample float bands
-    params.fogEnd = sampleFloatBand(profile->floatBands[LightParamsProfile::FOG_END], timeHalfMinutes);
-    float fogStartScalar = sampleFloatBand(profile->floatBands[LightParamsProfile::FOG_START_SCALAR], timeHalfMinutes);
-    params.fogStart = params.fogEnd * fogStartScalar;  // Start is a scalar of end distance
+    // Sample float bands. The fog distance is stored in the same
+    // thirty-sixths of a yard as the light positions, and was being used raw:
+    // Tirisfal's 12000 became 12000 yards, so the fog ended six times further
+    // out than the far clip and nothing was ever hazed. It is 333 yards.
+    params.fogEnd = sampleFloatBand(profile->floatBands[LightParamsProfile::FOG_END],
+                                    timeHalfMinutes) / LIGHT_COORD_UNITS_PER_YARD;
+    // The start is a fraction of the end rather than a distance, so it needs
+    // no conversion of its own.
+    const float fogStartScalar = sampleFloatBand(
+        profile->floatBands[LightParamsProfile::FOG_START_SCALAR], timeHalfMinutes);
+    params.fogStart = params.fogEnd * fogStartScalar;
     params.fogDensity = sampleFloatBand(profile->floatBands[LightParamsProfile::FOG_DENSITY], timeHalfMinutes);
     params.cloudDensity = sampleFloatBand(profile->floatBands[LightParamsProfile::CLOUD_DENSITY], timeHalfMinutes);
 

@@ -1895,5 +1895,6 @@ target_include_directories(test_light_bands SYSTEM PRIVATE
 target_compile_definitions(test_light_bands PRIVATE
     WOWEE_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 target_link_libraries(test_light_bands PRIVATE catch2_main)
+wowee_test_link_glm(test_light_bands)
 add_test(NAME light_bands COMMAND test_light_bands)
 register_test_target(test_light_bands)
