@@ -65,7 +65,7 @@ int handleAddQuestObjective(int& i, int argc, char** argv) {
     std::string targetName = argv[++i];
     std::string path = zoneDir + "/quests.json";
     if (!std::filesystem::exists(path)) {
-        std::fprintf(stderr, "add-quest-objective: %s not found — run --add-quest first\n",
+        std::fprintf(stderr, "add-quest-objective: %s not found - run --add-quest first\n",
                      path.c_str());
         return 1;
     }

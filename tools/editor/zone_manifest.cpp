@@ -20,7 +20,7 @@ bool ZoneManifest::save(const std::string& path) const {
     j["displayName"] = displayName;
     j["mapId"] = mapId;
     j["biome"] = biome;
-    // Scrub before serialization — nlohmann throws on NaN/inf, which would
+    // Scrub before serialization - nlohmann throws on NaN/inf, which would
     // wipe the entire manifest save and lose all zone settings.
     j["baseHeight"] = std::isfinite(baseHeight) ? baseHeight : 100.0f;
     j["hasCreatures"] = hasCreatures;
@@ -89,7 +89,7 @@ bool ZoneManifest::load(const std::string& path) {
         displayName = j.value("displayName", mapName);
         biome = j.value("biome", "");
         description = j.value("description", "");
-        // Cap to AzerothCore map_dbc/area_table_dbc string limits — keeps
+        // Cap to AzerothCore map_dbc/area_table_dbc string limits - keeps
         // the SQL export valid and the README readable.
         if (mapName.size() > 100) mapName.resize(100);
         if (displayName.size() > 100) displayName.resize(100);
@@ -97,7 +97,7 @@ bool ZoneManifest::load(const std::string& path) {
         if (description.size() > 4096) description.resize(4096);
         mapId = j.value("mapId", 9000u);
         baseHeight = j.value("baseHeight", 100.0f);
-        // Sanitize edited values — baseHeight propagates into terrain mesh
+        // Sanitize edited values - baseHeight propagates into terrain mesh
         // generation; volume into audio mixer.
         if (!std::isfinite(baseHeight)) baseHeight = 100.0f;
         hasCreatures = j.value("hasCreatures", false);
@@ -134,7 +134,7 @@ bool ZoneManifest::load(const std::string& path) {
             ambienceNight = a.value("ambienceNight", "");
             musicVolume = a.value("musicVolume", 0.7f);
             ambienceVolume = a.value("ambienceVolume", 0.5f);
-            // Clamp volumes to [0, 1] and reject NaN — mixer would otherwise
+            // Clamp volumes to [0, 1] and reject NaN - mixer would otherwise
             // produce silent or clipping output.
             if (!std::isfinite(musicVolume)) musicVolume = 0.7f;
             if (!std::isfinite(ambienceVolume)) ambienceVolume = 0.5f;

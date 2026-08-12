@@ -49,7 +49,7 @@ TEST_CASE("Classic completion state does not alias the first kill count", "[ques
 // The server names them QUEST_STATE_COMPLETE = 0x0001 and QUEST_STATE_FAIL =
 // 0x0002 (Player.h:619). The complete bit was read for as long as the quest
 // log has existed and the fail bit next to it was dropped, so a timed quest
-// that ran out looked exactly like one still running — and the tracker, which
+// that ran out looked exactly like one still running - and the tracker, which
 // writes `if ( isComplete and isComplete < 0 )`, had no way to reach that
 // branch.
 //

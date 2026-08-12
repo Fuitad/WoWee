@@ -1,7 +1,7 @@
 """Whether a line sits in an if/else chain that tests who owns an element.
 
-Shared by the three checks that ask it — window_route_check, window_flag_check
-and dialog_gate_check — because all three had the same bug independently and
+Shared by the three checks that ask it - window_route_check, window_flag_check
+and dialog_gate_check - because all three had the same bug independently and
 fixing it three times is how the three would drift apart.
 
 THE BUG THIS EXISTS TO PREVENT
@@ -13,16 +13,16 @@ fourteen dialogs in a row, a block of slash-command branches. The line above an
 ungated entry is almost always the *previous* entry's ownership check, so the
 ungated one borrows it and the report comes out clean.
 
-It was found three times, at three different window widths — twenty-four lines,
-six, and two — each tuned narrower after the last was caught, and each still
+It was found three times, at three different window widths - twenty-four lines,
+six, and two - each tuned narrower after the last was caught, and each still
 wrong for the same reason. Proximity is not the question. The shape of the
 branch is.
 
 WHAT IT DOES
 
 Answers the same line first, then walks upwards through exactly the shapes a
-branch is made of — `else`, `else if`, a statement belonging to the other
-branch, a comment — and stops at the first `if`, answering whether that one
+branch is made of - `else`, `else if`, a statement belonging to the other
+branch, a comment - and stops at the first `if`, answering whether that one
 tests ownership. For an entry with no branch of its own the first `if` reached
 is the control itself (`if (button(...))`, `if (cmds.showWho)`), so a
 neighbour's gate cannot be borrowed however close it sits.
@@ -36,7 +36,7 @@ import re
 OWNERSHIP = ("frameXmlOwns", "AreFrameXml", "IsFrameXml", "frameXmlChat")
 
 #: How many statements up to look before giving up. Generous, because the walk
-#: stops at the first `if` regardless — the bound is a backstop, not the rule.
+#: stops at the first `if` regardless - the bound is a backstop, not the rule.
 BUDGET = 12
 
 
@@ -52,7 +52,7 @@ def gated(lines, index, words=OWNERSHIP):
 
     # Whether an `else` has been passed on the way up. It decides what an
     # `if (C) stmt;` one-liner means: with an else behind us that line is our
-    # own branch's condition, and without one it is the *previous entry* — a
+    # own branch's condition, and without one it is the *previous entry* - a
     # whole dialog or button of its own, whose gate is not ours to borrow.
     seen_else = bool(re.match(r"\}?\s*else\b", line.strip()))
 

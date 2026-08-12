@@ -137,7 +137,7 @@ WoweeVehicle WoweeVehicleLoader::makeStarter(const std::string& catalogName) {
         WoweeVehicle::Entry e;
         e.vehicleId = 1; e.creatureId = 28829;
         e.name = "Mechano-Hog";
-        e.description = "Engineering chopper — driver + 1 passenger.";
+        e.description = "Engineering chopper - driver + 1 passenger.";
         e.vehicleKind = WoweeVehicle::Chopper;
         e.movementKind = WoweeVehicle::Ground;
         e.powerType = WoweeVehicle::Energy;
@@ -158,7 +158,7 @@ WoweeVehicle WoweeVehicleLoader::makeStarter(const std::string& catalogName) {
         WoweeVehicle::Entry e;
         e.vehicleId = 2; e.creatureId = 1908;
         e.name = "Wind Rider";
-        e.description = "Horde flying mount — single rider.";
+        e.description = "Horde flying mount - single rider.";
         e.vehicleKind = WoweeVehicle::FlyingMount;
         e.movementKind = WoweeVehicle::Air;
         // flightCapabilityId 1 matches WMNT.makeStarter mountId.
@@ -225,15 +225,15 @@ WoweeVehicle WoweeVehicleLoader::makeSiege(const std::string& catalogName) {
     };
     add(100, 28593, "Demolisher",
         WoweeVehicle::Demolisher, WoweeVehicle::Pyrite,
-        50990, 50652, "2-seat catapult — driver steers, "
+        50990, 50652, "2-seat catapult - driver steers, "
                        "gunner launches boulders.");
     add(101, 28781, "Glaive Thrower",
         WoweeVehicle::SiegeWeapon, WoweeVehicle::Pyrite,
-        53908, 0,    "Single-seat ballista — fires armor-piercing "
+        53908, 0,    "Single-seat ballista - fires armor-piercing "
                        "glaives.");
     add(102, 33113, "Salvaged Cannon",
         WoweeVehicle::SiegeWeapon, WoweeVehicle::Heat,
-        62307, 0,    "Stationary cannon — overheats on rapid fire.");
+        62307, 0,    "Stationary cannon - overheats on rapid fire.");
     return c;
 }
 
@@ -272,7 +272,7 @@ WoweeVehicle WoweeVehicleLoader::makeFlying(const std::string& catalogName) {
     add(201, 478,   "Storm Gryphon",  2, 0,
         "Single-seat alliance flying mount.");
     add(202, 30414, "Twilight Drake", 3, 1,
-        "2-seat drake — driver + 1 passenger.");
+        "2-seat drake - driver + 1 passenger.");
     return c;
 }
 

@@ -48,7 +48,7 @@ public:
 
     const std::vector<TocFile>& getAddons() const { return addons_; }
     /// The addons that wait to be asked for. Half the interface's own panels
-    /// are here — the talent tree, the achievements, the macro editor — and
+    /// are here - the talent tree, the achievements, the macro editor - and
     /// each is loaded whole or not at all, so one of them raising during load
     /// costs its entire panel rather than degrading it.
     const std::vector<TocFile>& getLoadOnDemandAddons() const { return lodAddons_; }
@@ -103,7 +103,7 @@ private:
     ///
     /// The caller says ".../interface/FrameXML" and this install has
     /// ".../interface/framexml". loadFrameXml resolves that to open it, and
-    /// the resolved spelling was thrown away with the local it was kept in —
+    /// the resolved spelling was thrown away with the local it was kept in -
     /// so every later use of the member was a path that does not exist, on any
     /// filesystem that cares about case.
     std::string frameXmlResolvedDir_;

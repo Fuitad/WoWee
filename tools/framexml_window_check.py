@@ -3,9 +3,9 @@
 
 Every window the original interface can put on screen has to be exactly one of:
 
-  * **owned** — FrameXML draws it and this client's own render call is gated on
+  * **owned** - FrameXML draws it and this client's own render call is gated on
     frameXmlOwns(UiElement::X), or
-  * **suppressed** — this client draws it and FrameXML's copy is hidden.
+  * **suppressed** - this client draws it and FrameXML's copy is hidden.
 
 Neither means both appear, one on top of the other. That is not hypothetical:
 UIErrorsFrame showed every server refusal twice because this client fires
@@ -85,7 +85,7 @@ def uiParentTemplates():
 
     A frame does not have to say parent="UIParent" itself. GroupLootFrame1
     through 4 say only inherits="GroupLootFrameTemplate", and it is the
-    template that names the parent — so looking for the literal attribute
+    template that names the parent - so looking for the literal attribute
     walked straight past four top-level windows, which then drew beside this
     client's own roll dialog with nothing reporting it.
     """
@@ -245,7 +245,7 @@ def main():
             print(f"    {name:<38} {element}")
         print("    A name nothing declares suppresses nothing.\n")
 
-    print("Neither owned nor suppressed — check whether this client draws one:")
+    print("Neither owned nor suppressed - check whether this client draws one:")
     for name, source in sorted(unknown.items()):
         print(f"    {name:<32} {source}")
     print("\nIf this client draws the same thing, name the frame in "
@@ -259,7 +259,7 @@ def checkInherits():
     """Every inherits= naming something the XML never declares.
 
     A frame that inherits a template which is not there loses every part the
-    template would have given it — its art, its regions, its scripts — and
+    template would have given it - its art, its regions, its scripts - and
     says nothing. Same for a font string naming a font object that does not
     exist: the text draws in whatever the default is.
 
@@ -268,7 +268,7 @@ def checkInherits():
     looks like a frame whose parts failed to draw.
 
     inherits= names either a virtual frame template *or* a virtual FontString
-    template *or* a <Font> object, so all three count as declarations —
+    template *or* a <Font> object, so all three count as declarations -
     counting only <Font> reported four false positives on the first run.
     """
     FRAME_TAGS = (r'(?:Frame|Button|CheckButton|StatusBar|Slider|EditBox'
@@ -303,7 +303,7 @@ def checkInherits():
     if not missing:
         print("Every inherits= resolves.")
         return
-    print("\nInherited but never declared — the frame loses everything the "
+    print("\nInherited but never declared - the frame loses everything the "
           "template would have given it:")
     for name, files in sorted(missing.items(), key=lambda kv: -len(kv[1])):
         print(f"    {name:<38} {len(files)} uses, e.g. {files[0]}")

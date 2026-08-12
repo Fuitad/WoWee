@@ -260,7 +260,7 @@ int handleValidate(int& i, int argc, char** argv) {
             }
             if (e.bonusXpPercent > 200) {
                 warnings.push_back(ctx +
-                    ": bonusXpPercent > 200 (very high — verify intentional)");
+                    ": bonusXpPercent > 200 (very high - verify intentional)");
             }
             if (!idsSeen.add(e.eventId)) errors.push_back(ctx + ": duplicate eventId");
         }

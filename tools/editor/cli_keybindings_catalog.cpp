@@ -191,7 +191,7 @@ int handleImportJson(int& i, int argc, char** argv) {
                     je["categoryName"].get<std::string>());
             }
             // isUserOverridable defaults to 1 (overridable)
-            // when omitted — matches the typical case for
+            // when omitted - matches the typical case for
             // game-action bindings.
             e.isUserOverridable = static_cast<uint8_t>(
                 je.value("isUserOverridable", 1));
@@ -239,7 +239,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 errors.push_back(ctx +
                     ": alternateKey == defaultKey (no point in alt)");
             }
-            // Action name should be SCREAMING_SNAKE — anything
+            // Action name should be SCREAMING_SNAKE - anything
             // with lowercase is suspect.
             for (char ch : e.actionName) {
                 if (ch >= 'a' && ch <= 'z') {
@@ -249,7 +249,7 @@ int handleValidate(int& i, int argc, char** argv) {
                     break;
                 }
             }
-            // Duplicate primary keys would conflict at runtime —
+            // Duplicate primary keys would conflict at runtime -
             // last one binding loaded wins, leaving the first
             // silently shadowed.
             if (!e.defaultKey.empty()) {

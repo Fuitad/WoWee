@@ -1,4 +1,4 @@
-// lua_lfg_api.cpp — the dungeon finder.
+// lua_lfg_api.cpp - the dungeon finder.
 //
 // Split out rather than added to a neighbour because it is a whole panel's
 // worth of surface: lfdframe.lua, lfgframe.lua and lfrframe.lua between them
@@ -11,11 +11,11 @@
 //   * The dungeon list is real, read from LFGDungeons.dbc through
 //     GameHandler::getLfgDungeons(). Names, levels, groups, difficulty and
 //     faction all come from the file.
-//   * The queue is real — joining, leaving, roles and the queued list go
+//   * The queue is real - joining, leaving, roles and the queued list go
 //     through the LFG verbs this client has had all along.
 //   * Locks and rewards are real, off SMSG_LFG_PLAYER_INFO.
 //   * The boot vote is real, including who is being voted on and whether this
-//     player has answered — the victim arrives as a guid, not a name.
+//     player has answered - the victim arrives as a guid, not a name.
 //   * The role check knows which dungeons it is for and how many are
 //     answering it.
 //   * The proposal's per-member detail, party backfill and the raid browser's
@@ -42,7 +42,7 @@ namespace wowee::addons {
 namespace {
 
 /// FrameXML numbers a category header with the negative of its group id, and
-/// keeps headers and dungeons in one key space — LFGIsIDHeader is `id < 0`,
+/// keeps headers and dungeons in one key space - LFGIsIDHeader is `id < 0`,
 /// while LFGListUpdateHeaderEnabledAndLockedStates indexes the same lists by
 /// the groupID it read out of the info table. So the groupID reported for a
 /// dungeon has to be the header's id, not the raw number from the DBC.
@@ -89,8 +89,8 @@ bool isRaidSide(const game::LfgDungeon& d) {
 }
 
 /// Which dungeons the player has ticked, and which headers are folded up.
-/// Both are the panel's own state — FrameXML says so in a comment, "we
-/// maintain this list in Lua" — and the only reason they are here is that it
+/// Both are the panel's own state - FrameXML says so in a comment, "we
+/// maintain this list in Lua" - and the only reason they are here is that it
 /// asks the client for the starting value.
 std::unordered_map<int, bool>& enabledDungeons() {
     static std::unordered_map<int, bool> enabled;
@@ -104,7 +104,7 @@ std::unordered_map<int, bool>& collapsedHeaders() {
 int luaReturnTrue(lua_State* L)    { lua_pushboolean(L, 1); return 1; }
 int luaReturnNothing(lua_State* L) { (void)L; return 0; }
 
-/// The roles the player has offered. Kept on the handler now — the ready
+/// The roles the player has offered. Kept on the handler now - the ready
 /// dialog names the role it found you a group for, and a static in this file
 /// was not somewhere GetLFGProposal could reach.
 uint8_t offeredRoles(game::GameHandler* gh) {
@@ -120,8 +120,8 @@ void pushChoiceOrder(lua_State* L, game::GameHandler* gh, bool dungeonSide) {
     int n = 0;
     uint32_t lastGroup = 0;
     for (const auto& d : gh->getLfgDungeons()) {
-        // groupId 0 is a row that belongs under no header — the old
-        // per-zone entries — and LFDList_DefaultFilterFunction drops them
+        // groupId 0 is a row that belongs under no header - the old
+        // per-zone entries - and LFDList_DefaultFilterFunction drops them
         // anyway. Leaving them out here keeps the list honest either way.
         if (d.groupId == 0) continue;
         if (dungeonSide ? !isDungeonSide(d) : !isRaidSide(d)) continue;
@@ -136,8 +136,8 @@ void pushChoiceOrder(lua_State* L, game::GameHandler* gh, bool dungeonSide) {
 }
 
 /// One row of the info table: the twelve values LFG_RETURN_VALUES names, in
-/// its order. Getting this order wrong is invisible — every read is by index
-/// through that table — so it is written out here field by field.
+/// its order. Getting this order wrong is invisible - every read is by index
+/// through that table - so it is written out here field by field.
 void pushInfoRow(lua_State* L, const char* name, int typeId, int minLevel,
                  int maxLevel, int recLevel, int minRecLevel, int maxRecLevel,
                  int expansion, int groupId, const char* texture,
@@ -165,7 +165,7 @@ void registerLfgLuaAPI(lua_State* L) {
 
     // ---- The catalogue ----
 
-    // GetLFDChoiceInfo(t) / GetLFRChoiceInfo — every listable row keyed by id,
+    // GetLFDChoiceInfo(t) / GetLFRChoiceInfo - every listable row keyed by id,
     // headers included. FrameXML calls this once and keeps the result: "this
     // will never change (without a patch)".
     {"GetLFDChoiceInfo", [](lua_State* L) -> int {
@@ -227,7 +227,7 @@ void registerLfgLuaAPI(lua_State* L) {
         return 1;
     }},
     // Which dungeons the server will not let this character queue for. It
-    // says so in SMSG_LFG_PLAYER_INFO, which this client skipped wholesale —
+    // says so in SMSG_LFG_PLAYER_INFO, which this client skipped wholesale -
     // so every dungeon listed as queueable and the server did the refusing.
     {"GetLFDChoiceLockedState", [](lua_State* L) -> int {
         auto* gh = getGameHandler(L);
@@ -243,11 +243,11 @@ void registerLfgLuaAPI(lua_State* L) {
     // GetLFDLockInfo(dungeonID, index) → playerName, lockedReason
     //
     // The reason is the server's lock status, which indexes
-    // LFG_INSTANCE_INVALID_CODES directly — 1 expansion, 2 level too low, 3
+    // LFG_INSTANCE_INVALID_CODES directly - 1 expansion, 2 level too low, 3
     // too high, 4 and 5 gear, 6 raid locked. The name stays nil: the player
     // block names nobody, and the party block that would is a different packet
     // this client does not read.
-    // How many players the lock list covers. One — this character. The counting
+    // How many players the lock list covers. One - this character. The counting
     // table answers zero for it, which was right while nothing was parsed and
     // is not now: a zero here means the loop that prints why you cannot queue
     // never runs, so the tooltip shows its heading and no reason.
@@ -364,7 +364,7 @@ void registerLfgLuaAPI(lua_State* L) {
         // join rather than a choice between them.
         //
         // This used to send the first entry of an unordered map and stop, which
-        // is not the first dungeon the player picked — it is whichever one the
+        // is not the first dungeon the player picked - it is whichever one the
         // container happened to hand back, and a different one between runs.
         std::vector<uint32_t> chosen;
         for (const auto& [id, on] : enabledDungeons()) {
@@ -376,7 +376,7 @@ void registerLfgLuaAPI(lua_State* L) {
     }},
     // The two buttons on the dungeon-ready dialog, and the same pair on the
     // minimap's queue menu. Neither was bound, so a pop that did appear could
-    // not be answered — and it did not appear either, because LFG_PROPOSAL_SHOW
+    // not be answered - and it did not appear either, because LFG_PROPOSAL_SHOW
     // was not fired.
     {"AcceptProposal", [](lua_State* L) -> int {
         auto* gh = getGameHandler(L);
@@ -405,8 +405,8 @@ void registerLfgLuaAPI(lua_State* L) {
         }
         return 1;
     }},
-    // Whether a row can be queued for at all. Nothing is locked here — see
-    // GetLFDChoiceLockedState — so the answer is yes and the server decides.
+    // Whether a row can be queued for at all. Nothing is locked here - see
+    // GetLFDChoiceLockedState - so the answer is yes and the server decides.
     {"IsLFGDungeonJoinable", luaReturnTrue},
     // GetLFGQueueStats() → hasData, leaderNeeds, tankNeeds, healerNeeds,
     //   dpsNeeds, instanceType, instanceName, averageWait, tankWait,
@@ -414,7 +414,7 @@ void registerLfgLuaAPI(lua_State* L) {
     //
     // This answered nil because the numbers never arrived: the queue-status
     // handler required a longer packet than the server sends and returned
-    // before reading any of it. With that fixed the whole row is real — how
+    // before reading any of it. With that fixed the whole row is real - how
     // many of each role the queue still wants, and how long each has been
     // waiting.
     {"GetLFGQueueStats", [](lua_State* L) -> int {
@@ -452,8 +452,8 @@ void registerLfgLuaAPI(lua_State* L) {
     // GetLFGProposalMember(index) → isLeader, role, level, responded,
     //                                accepted, name, class
     //
-    // The proposal does carry its group — role, whether it is you, whether the
-    // player has answered and what they said — once the header is read at the
+    // The proposal does carry its group - role, whether it is you, whether the
+    // player has answered and what they said - once the header is read at the
     // right offsets. What it does not carry is names, levels or classes: the
     // server sends none, so those stay nil rather than being invented, and the
     // dialog draws a role icon and a tick per row, which is what it is for.
@@ -464,17 +464,17 @@ void registerLfgLuaAPI(lua_State* L) {
         const auto& members = gh->getLfgProposalMembers();
         if (index > static_cast<int>(members.size())) return luaReturnNil(L);
         const auto& m = members[static_cast<size_t>(index) - 1];
-        lua_pushboolean(L, 0);                       // 1: isLeader — not sent
+        lua_pushboolean(L, 0);                       // 1: isLeader - not sent
         // The same tokens GetTexCoordsForRole indexes by. The mask is the one
         // SetLFGRoles sends: 2 tank, 4 healer, 8 damage.
         lua_pushstring(L, (m.role & 0x02) ? "TANK"
                         : (m.role & 0x04) ? "HEALER"
                                           : "DAMAGER");   // 2: role
-        lua_pushnil(L);                              // 3: level — not sent
+        lua_pushnil(L);                              // 3: level - not sent
         lua_pushboolean(L, m.answered ? 1 : 0);      // 4: responded
         lua_pushboolean(L, m.accepted ? 1 : 0);      // 5: accepted
-        lua_pushnil(L);                              // 6: name — not sent
-        lua_pushnil(L);                              // 7: class — not sent
+        lua_pushnil(L);                              // 6: name - not sent
+        lua_pushnil(L);                              // 7: class - not sent
         return 7;
     }},
     {"GetLFGProposalEncounter", [](lua_State* L) -> int { return luaReturnNil(L); }},
@@ -483,7 +483,7 @@ void registerLfgLuaAPI(lua_State* L) {
     //
     // Answered nil under a note saying the target's name and the reason were
     // not parsed. The reason was parsed all along, and the name is the victim
-    // guid the same handler reads — the packet carries no name, which is why
+    // guid the same handler reads - the packet carries no name, which is why
     // looking for one found nothing. The three flags in front of the guid were
     // read and dropped; without them the dialog cannot tell a vote it has
     // already answered from one it has not.
@@ -495,7 +495,7 @@ void registerLfgLuaAPI(lua_State* L) {
         lua_pushboolean(L, gh->getLfgBootMyVote() ? 1 : 0);
         // Sent as it is even when the guid has not resolved yet. lfdframe gates
         // the popup on this being truthy, and an empty string is truthy in Lua
-        // — so a name still in flight costs a blank in the question rather than
+        // - so a name still in flight costs a blank in the question rather than
         // the vote itself, and the victim is a party member whose name the
         // roster almost always already has.
         lua_pushstring(L, gh->getLfgBootTargetName().c_str());
@@ -511,7 +511,7 @@ void registerLfgLuaAPI(lua_State* L) {
     // Numbers, not nil, and that matters more than the values:
     // LFDDungeonReadyDialog_UpdateRewards does
     // `moneyBase + moneyVar * numRandoms` on the line after asking, so a nil
-    // raises — and it runs from the same branch of the ready dialog that draws
+    // raises - and it runs from the same branch of the ready dialog that draws
     // the rest, which is the branch a fresh pop opens in.
     //
     // The server sends one money and one experience figure with the variable
@@ -542,12 +542,12 @@ void registerLfgLuaAPI(lua_State* L) {
     //
     // Two of them run on their own: LFDDungeonReadyPopup asks for both lock
     // infos in its OnShow, and suppressing that popup does not stop its
-    // handlers — a hidden frame still runs them — so with LFG_PROPOSAL_SHOW
+    // handlers - a hidden frame still runs them - so with LFG_PROPOSAL_SHOW
     // fired, forming a group raised on a nil global whether or not this
     // element had been handed over.
     // Sorting the raid browser's result list by a column. The browser itself is
-    // not built here — the SearchLFG family it belongs to is deliberately
-    // unfinished — but this one is an OnClick on a column header, so leaving it
+    // not built here - the SearchLFG family it belongs to is deliberately
+    // unfinished - but this one is an OnClick on a column header, so leaving it
     // unbound meant clicking a header raised instead of doing nothing.
     {"SearchLFGSort", [](lua_State* L) -> int { (void)L; return 0; }},
     {"LeaveLFG", [](lua_State* L) -> int {
@@ -619,7 +619,7 @@ void registerLfgLuaAPI(lua_State* L) {
         return luaReturnNil(L);
     }},
     // The random dungeon's own row, which the picker shows above the list.
-    // GetNumRandomDungeons() — how many of the catalogue are the random kind.
+    // GetNumRandomDungeons() - how many of the catalogue are the random kind.
     //
     // Unbound, so opening the dungeon finder's type dropdown called a nil
     // global and raised. Type 6 is random, which is the same field
@@ -639,7 +639,7 @@ void registerLfgLuaAPI(lua_State* L) {
     //
     // An index into the random dungeons, counted the same way as the call
     // above, and the id first. This took a dungeon id and answered name and
-    // type — so the one caller, which walks 1..GetNumRandomDungeons and reads
+    // type - so the one caller, which walks 1..GetNumRandomDungeons and reads
     // id and name, looked up dungeon 1, then dungeon 2, and put the name into
     // the id and the type into the name. IsLFGDungeonJoinable was then asked
     // about a string.
@@ -657,7 +657,7 @@ void registerLfgLuaAPI(lua_State* L) {
         }
         return luaReturnNil(L);
     }},
-    // GetLFGDungeonInfo(id) — the same twelve values as a row of the info
+    // GetLFGDungeonInfo(id) - the same twelve values as a row of the info
     // table, asked one at a time. Answered from the same catalogue.
     {"GetLFGDungeonInfo", [](lua_State* L) -> int {
         auto* gh = getGameHandler(L);
@@ -679,7 +679,7 @@ void registerLfgLuaAPI(lua_State* L) {
             lua_pushinteger(L, maxPlayersFor(d));
             // Fourteen, not twelve. LFG_RETURN_VALUES names the first dozen and
             // stops, but LFDQueueFrameRandom_UpdateFrame reads two more off the
-            // end — and it is the last of them that decides whether a dungeon
+            // end - and it is the last of them that decides whether a dungeon
             // is drawn as a holiday at all, so without it the seasonal bosses
             // were listed as ordinary random dungeons with the wrong artwork.
             lua_pushstring(L, d.description.c_str());   // 13: description

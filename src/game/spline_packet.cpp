@@ -1,5 +1,5 @@
 // src/game/spline_packet.cpp
-// Consolidated spline packet parsing — replaces 7 duplicated parsing locations.
+// Consolidated spline packet parsing - replaces 7 duplicated parsing locations.
 // Ported from: world_packets.cpp, world_packets_entity.cpp, packet_parsers_classic.cpp,
 //              packet_parsers_tbc.cpp, movement_handler.cpp.
 #include "game/spline_packet.hpp"
@@ -131,7 +131,7 @@ bool parseMonsterMoveFacing(network::Packet& packet, MonsterMoveData& data, bool
     }
 
     if (data.moveType == 2) {
-        // FacingSpot — a point to look at, which nothing here needs; read past.
+        // FacingSpot - a point to look at, which nothing here needs; read past.
         if (!packet.hasRemaining(12)) return false;
         packet.readFloat();
         packet.readFloat();
@@ -473,7 +473,7 @@ bool parseWotlkMoveUpdateSpline(
         }
     }
 
-    // Try 3: No ANIMATION — vertAccel+effectStart only when PARABOLIC set
+    // Try 3: No ANIMATION - vertAccel+effectStart only when PARABOLIC set
     if (!splineParsed) {
         packet.setReadPos(beforeSplineHeader);
         out.hasAnimation = false;
@@ -495,7 +495,7 @@ bool parseWotlkMoveUpdateSpline(
         }
     }
 
-    // Try 4: No header at all — just durationMod+durationModNext then points
+    // Try 4: No header at all - just durationMod+durationModNext then points
     if (!splineParsed) {
         packet.setReadPos(beforeSplineHeader);
         if (bytesAvailable(8)) {
@@ -509,7 +509,7 @@ bool parseWotlkMoveUpdateSpline(
         }
     }
 
-    // Try 5: bare points (no WotLK header at all — some spline types skip everything)
+    // Try 5: bare points (no WotLK header at all - some spline types skip everything)
     if (!splineParsed) {
         packet.setReadPos(beforeSplineHeader);
         splineParsed = tryParseSplinePoints(false, "bare-uncompressed");

@@ -33,7 +33,7 @@ WoweeTransitSchedule::findAccessibleByFaction(uint8_t faction) const {
             out.push_back(&e);
         } else if (e.factionAccess == Neutral) {
             // Neutral routes are accessible to ALL
-            // factions including Both — Booty Bay /
+            // factions including Both - Booty Bay /
             // Ratchet style.
             out.push_back(&e);
         }
@@ -251,7 +251,7 @@ WoweeTransitSchedule WoweeTransitScheduleLoader::makeTaxis(
         c.entries.push_back(e);
     };
     // Capacity=0 for taxis: each gryphon/wyvern is a
-    // solo ride, no shared seating — interval matters
+    // solo ride, no shared seating - interval matters
     // only for the visual gryphon respawn timer at the
     // taxi master.
     add(20, "Stormwind to Ironforge",

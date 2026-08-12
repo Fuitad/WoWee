@@ -422,7 +422,7 @@ void ZoneManager::initialize() {
     tileToZone[14 * 100 + 16] = 1657;
     tileToZone[14 * 100 + 17] = 1657;
 
-    // Seed removed — music shuffle now uses a local mt19937 (see pickMusicTrack).
+    // Seed removed - music shuffle now uses a local mt19937 (see pickMusicTrack).
 
     LOG_INFO("Zone manager initialized: ", zones.size(), " zones, ", tileToZone.size(), " tile mappings");
 }
@@ -440,8 +440,8 @@ bool ZoneManager::isOutdoorPvpArea(uint32_t areaId) const {
     if (areaId == 0) return false;
     auto it = areaFlags_.find(areaId);
     if (it == areaFlags_.end()) return false;
-    // The eleven objective subzones — the Plaguelands towers, Halaa, the
-    // Hellfire towers, Twin Spire Ruins, the Bone Wastes — and Wintergrasp,
+    // The eleven objective subzones - the Plaguelands towers, Halaa, the
+    // Hellfire towers, Twin Spire Ruins, the Bone Wastes - and Wintergrasp,
     // whose eighteen areas are marked with a flag of their own rather than
     // this one.
     constexpr uint32_t kOutdoorPvp  = 0x00008000u;

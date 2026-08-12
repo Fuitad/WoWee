@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Glyph catalog (.wgly) — novel replacement for
+// Wowee Open Glyph catalog (.wgly) - novel replacement for
 // Blizzard's GlyphProperties.dbc + GlyphSlot.dbc plus the
 // AzerothCore-style glyph_properties SQL tables. The 42nd
 // open format added to the editor.
@@ -44,8 +44,8 @@ namespace pipeline {
 //     requiredLevel (uint16) / pad[2]
 struct WoweeGlyph {
     enum GlyphType : uint8_t {
-        Major = 0,    // Major glyph slot — gameplay-defining
-        Minor = 1,    // Minor glyph slot — convenience / cosmetic
+        Major = 0,    // Major glyph slot - gameplay-defining
+        Minor = 1,    // Minor glyph slot - convenience / cosmetic
         Prime = 2,    // Prime slot (Cataclysm-style backport)
     };
 
@@ -93,12 +93,12 @@ public:
 
     // Preset emitters used by --gen-glyphs* variants.
     //
-    //   makeStarter — 3 glyphs (1 warrior, 1 mage, 1 rogue)
+    //   makeStarter - 3 glyphs (1 warrior, 1 mage, 1 rogue)
     //                  showing a representative Major slot
     //                  pick per role.
-    //   makeWarrior — 6 warrior glyphs (3 major + 3 minor)
+    //   makeWarrior - 6 warrior glyphs (3 major + 3 minor)
     //                  demonstrating a per-class allotment.
-    //   makeUniversal — 4 glyphs with classMask=kClassAll
+    //   makeUniversal - 4 glyphs with classMask=kClassAll
     //                    (utility / generic effects that any
     //                    class can inscribe).
     static WoweeGlyph makeStarter(const std::string& catalogName);

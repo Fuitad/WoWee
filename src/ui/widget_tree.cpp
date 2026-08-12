@@ -100,7 +100,7 @@ uint32_t WidgetTree::create(WidgetKind kind, uint32_t parent, const std::string&
         widgets_[parent].children.push_back(id);
         // Its place in the stack, known now rather than at the first layout.
         //
-        // GetFrameLevel answers with this, and FrameXML asks during OnLoad —
+        // GetFrameLevel answers with this, and FrameXML asks during OnLoad -
         // RaiseFrameLevel is frame:SetFrameLevel(frame:GetFrameLevel() + 1),
         // and a frame that has never been laid out answered zero. So the
         // adjustment was computed against nothing: MainMenuBarArtFrame set
@@ -117,7 +117,7 @@ void WidgetTree::setParent(uint32_t id, uint32_t newParent) {
     markLayoutDirty();
     Widget* w = get(id);
     if (!w || id == rootId_) return;
-    // SetParent(nil) detaches to the screen — above UIParent, not under it.
+    // SetParent(nil) detaches to the screen - above UIParent, not under it.
     // This is exactly what WorldMap_ToggleSizeUp does before the map is shown
     // full screen: with the screen and UIParent being one node, nil landed
     // back on UIParent and the map was hidden by the same call that was
@@ -126,7 +126,7 @@ void WidgetTree::setParent(uint32_t id, uint32_t newParent) {
     if (newParent == w->parent) return;
     if (!get(newParent)) return;
 
-    // A frame cannot be put inside itself or inside anything it contains —
+    // A frame cannot be put inside itself or inside anything it contains -
     // layout walks children and would never come back.
     for (uint32_t up = newParent; up != 0;) {
         if (up == id) return;
@@ -165,7 +165,7 @@ void WidgetTree::setPortraitUnit(uint32_t id, const std::string& unit) {
         }
         portraitUnitOf_.erase(had);
         // The handle as well as the claim. Dropping off the list only stops
-        // the updates, so the face it was last given would stay on screen —
+        // the updates, so the face it was last given would stay on screen -
         // which is how the next target wore the player's face, and a game
         // object made it obvious by having no portrait of its own to overwrite
         // it with.
@@ -185,7 +185,7 @@ const std::vector<uint32_t>& WidgetTree::portraitsFor(const std::string& unit) c
 
 Widget* WidgetTree::findByName(std::string_view name) {
     if (name.empty()) return nullptr;
-    // Backwards, so the last frame to take the name is the one found — the
+    // Backwards, so the last frame to take the name is the one found - the
     // same rule as the global it was published under.
     for (auto it = widgets_.rbegin(); it != widgets_.rend(); ++it) {
         if (it->id != 0 && it->name == name) return &*it;
@@ -222,7 +222,7 @@ void WidgetTree::setWidth(uint32_t id, float width) {
     // is not being capped, meaning let the label size itself.
     //
     // Taken literally it left the label zero wide, and a region with no width
-    // is not drawn at all — which is why every tab on the character sheet had
+    // is not drawn at all - which is why every tab on the character sheet had
     // its text set correctly and showed nothing. Clearing the measured mark
     // is what lets it be measured again; without that the label keeps the
     // zero, because it has already been measured once and its text has not
@@ -246,7 +246,7 @@ void WidgetTree::setHeight(uint32_t id, float height) {
     Widget* w = get(id);
     if (!w || !std::isfinite(height)) return;
     // Zero height on a font string is "be as tall as your text needs", the
-    // same shape SetWidth(0) handles above — and it needs the same clearing of
+    // same shape SetWidth(0) handles above - and it needs the same clearing of
     // the measured mark, for a reason that is easy to miss: the string is only
     // re-measured when the text it holds differs from the text it was last
     // measured with. Zero the height, then set the SAME words back, and the
@@ -259,7 +259,7 @@ void WidgetTree::setHeight(uint32_t id, float height) {
     // and collapsing the tracker runs ClearDisplay through OnSizeChanged. The
     // rebuild then writes each objective back unchanged, so every line measured
     // zero and the tracker showed its POI badges over empty rows. Objectives
-    // whose text had changed in the meantime — a kill count ticking over — were
+    // whose text had changed in the meantime - a kill count ticking over - were
     // re-measured and did appear, which is what made it look intermittent.
     if (height <= 0.0f && w->kind == WidgetKind::FontString) {
         w->measuredText.clear();
@@ -306,7 +306,7 @@ namespace {
 /// everywhere else in WoW: a positive right inset lets that much of the frame
 /// hang past the right edge, and a negative one holds it that much clear of it.
 ///
-/// The world map names the case exactly — SetClampRectInsets(0, 0, 0, -60)
+/// The world map names the case exactly - SetClampRectInsets(0, 0, 0, -60)
 /// with "don't overlap the xp/rep bars" beside it, so a negative bottom keeps
 /// the frame sixty above the bottom edge rather than letting it reach.
 void clampInside(const Widget& screen, float rectW, float rectH,
@@ -336,7 +336,7 @@ void WidgetTree::resizeBy(uint32_t id, const std::string& point,
     if (!w) return;
 
     // A frame sized by two opposing anchors has no width of its own to change,
-    // so pin it to what it is currently drawn at first — the same reason
+    // so pin it to what it is currently drawn at first - the same reason
     // pinToCurrentPosition does this before a move.
     if (w->width <= 0.0f)  w->width  = w->rectW;
     if (w->height <= 0.0f) w->height = w->rectH;
@@ -344,7 +344,7 @@ void WidgetTree::resizeBy(uint32_t id, const std::string& point,
     const bool movesLeft   = point.find("LEFT")   != std::string::npos;
     const bool movesBottom = point.find("BOTTOM") != std::string::npos;
     // A corner with neither LEFT nor RIGHT in it does not change the width, and
-    // the same for TOP/BOTTOM and the height — "BOTTOM" alone is a bottom edge.
+    // the same for TOP/BOTTOM and the height - "BOTTOM" alone is a bottom edge.
     const bool changesW = movesLeft || point.find("RIGHT") != std::string::npos;
     const bool changesH = movesBottom || point.find("TOP") != std::string::npos;
 
@@ -374,7 +374,7 @@ void WidgetTree::nudge(uint32_t id, float dx, float dy) {
     if (!w) return;
     // A clamped frame stops at the screen edge. The rect used is the one the
     // last layout produced, which is a frame behind the cursor and close
-    // enough — the alternative is re-solving the whole tree per mouse move.
+    // enough - the alternative is re-solving the whole tree per mouse move.
     //
     // A frame already outside is pulled back rather than pinned where it is:
     // that is what lets one recover, and it is what WoW does when a clamped
@@ -397,7 +397,7 @@ void WidgetTree::nudge(uint32_t id, float dx, float dy) {
 /// Move every descendant that carries its own level by the same amount.
 ///
 /// A child's level is relative to its parent in WoW, and FrameXML sets levels
-/// freely — RaiseFrameLevelByTwo alone is used throughout. Without this, a
+/// freely - RaiseFrameLevelByTwo alone is used throughout. Without this, a
 /// raised window keeps its own art in front but leaves anything that set its
 /// own level behind: the character sheet's name label sat at 6 while the panel
 /// it belongs to went to 174, and sorting by level drew the name underneath
@@ -422,7 +422,7 @@ void WidgetTree::raise(uint32_t id) {
     // The highest of the *others*, not of everything including this frame.
     //
     // Seeded with w->effLevel, a frame already on top still came out one
-    // higher, so every call added one whether or not anything was above it —
+    // higher, so every call added one whether or not anything was above it -
     // and ShowUIPanel raises on every panel open. Levels ratcheted all session:
     // a quest frame that starts at 3 was found at 344 in a play session, and
     // two frames raising alternately climb without bound.
@@ -449,7 +449,7 @@ void WidgetTree::lower(uint32_t id) {
     if (!w) return;
     // The lowest of the others, for the same reason raise takes the highest of
     // the others: seeded with this frame's own level, a frame already at the
-    // bottom went one lower on every call, and level zero is the floor — so
+    // bottom went one lower on every call, and level zero is the floor - so
     // this leaked in the other direction until it hit it.
     int lowest = INT_MAX;
     for (const Widget& other : widgets_) {
@@ -473,14 +473,14 @@ void WidgetTree::addPoint(uint32_t id, const Anchor& anchor) {
     // Geometry that is not a number never enters the tree. Once one does it
     // spreads: the frame's rect goes to nan, everything anchored to it
     // follows, and a nan rect is hit by every mouse position because every
-    // comparison against a nan is false — which stops the camera turning
+    // comparison against a nan is false - which stops the camera turning
     // anywhere on screen. FrameXML computes offsets as fractions of the
     // screen, so an arithmetic slip upstream arrives here rather than being
     // caught where it was made.
     if (!std::isfinite(anchor.x) || !std::isfinite(anchor.y)) return;
     // One anchor per point: setting a point that is already set replaces it
     // rather than adding a second. FrameXML depends on this, because it
-    // repositions frames with a bare SetPoint and no ClearAllPoints —
+    // repositions frames with a bare SetPoint and no ClearAllPoints -
     // UIParentManageFramePositions moves the durability frame with
     // SetPoint("TOPRIGHT", ...), expecting it to displace the TOPRIGHT the XML
     // declared. Keeping both left two constraints on the same edge, which is
@@ -567,7 +567,7 @@ void WidgetTree::resolveChain(uint32_t id, float screenW, float screenH, int& de
     Widget* w = get(id);
     if (!w || w->resolvedGen == layoutGeneration_) return;
     // The screen and UIParent are placed by the full pass and have no anchors
-    // of their own — running the anchor solver over them would give the screen
+    // of their own - running the anchor solver over them would give the screen
     // a rect derived from nothing, and everything measured against it after
     // that. They are already correct; the walk stops on them.
     if (id == rootId_ || id == uiParentId_) {
@@ -670,8 +670,8 @@ void WidgetTree::layoutWidgetSelf(uint32_t id, float screenW, float screenH) {
     const Widget* parent = get(w->parent);
 
     // A frame with no anchor points is not displayed. That is WoW's rule, and
-    // without it every frame FrameXML declares without anchors — a money
-    // frame, a dropdown, a quest reward panel — falls to the centre-on-parent
+    // without it every frame FrameXML declares without anchors - a money
+    // frame, a dropdown, a quest reward panel - falls to the centre-on-parent
     // default and sits in the middle of the screen looking like a bug in
     // something else. Regions differ: an unanchored one fills its parent, and
     // that is handled below.
@@ -679,7 +679,7 @@ void WidgetTree::layoutWidgetSelf(uint32_t id, float screenW, float screenH) {
     // The root is the exception: it is the screen, and has nothing to anchor
     // to.
     // A scroll frame's scroll child is the other exception: it carries no
-    // anchors because SetScrollChild positions it, not the anchor solver — the
+    // anchors because SetScrollChild positions it, not the anchor solver - the
     // scroll frame places it at its own top-left and slides it by the scroll
     // offset. Treating it as unanchored marked it, and therefore every element
     // inside it, invisible: the quest dialog's title, description and
@@ -707,12 +707,12 @@ void WidgetTree::layoutWidgetSelf(uint32_t id, float screenW, float screenH) {
     //
     // But it starts at the scroll *child*, not at every child of the scroll
     // frame. A scroll frame's own children include its scroll bar, and the bar
-    // sits alongside the window rather than inside it — 329 to 345 on a frame
+    // sits alongside the window rather than inside it - 329 to 345 on a frame
     // spanning 23 to 323 for the quest dialog. Clipping it to the window put
     // every scroll bar in the interface entirely outside its own clip rect,
     // which does not trim them, it deletes them: the bar, its track, its
     // thumb and both buttons were laid out, drawn, and cut away to nothing.
-    // Found by sweeping for content clipped away sideways — vertical is
+    // Found by sweeping for content clipped away sideways - vertical is
     // ordinary, since a scroll child is meant to be taller than its window,
     // but nothing scrolls back into view from beside it.
     const bool clippedByParent = parent && parent->isScrollFrame &&
@@ -764,14 +764,14 @@ void WidgetTree::layoutWidgetSelf(uint32_t id, float screenW, float screenH) {
             return;
         }
         // A frame is resized on an axis only when two anchors pin *opposite
-        // edges* of it — a 0 and a 1. That is the rule WoW follows, and the
+        // edges* of it - a 0 and a 1. That is the rule WoW follows, and the
         // difference from "any two fractions that differ" is not academic.
         //
         // The reputation rows are built from both: the XML anchors each row's
         // TOPRIGHT under the previous row, and ReputationFrame_SetRowType then
         // adds a LEFT anchor to set the indent. On x those are 0 and 1, so the
         // row correctly spans from its indent to the frame's right edge. On y
-        // they are 1 (a top edge) and 0.5 (a centre) — not opposite edges, and
+        // they are 1 (a top edge) and 0.5 (a centre) - not opposite edges, and
         // nothing WoW would resize from.
         //
         // Deriving a height from an edge and a centre gave twice the distance
@@ -792,15 +792,15 @@ void WidgetTree::layoutWidgetSelf(uint32_t id, float screenW, float screenH) {
             // region. It happens with art that assumes more room than it got:
             // a scroll bar's middle stretches from the top piece's bottom to
             // the bottom piece's top, and on a bar shorter than the two pieces
-            // together those are the wrong way round — the macro frame's bar
+            // together those are the wrong way round - the macro frame's bar
             // is 146 tall and its two ends are 102 and 106, so the middle
             // solved to minus 55. Retail's art overlaps the same way there;
             // the overlap is not the fault, carrying the negative onward is.
             //
             // Nothing downstream means anything by it. A rect with a negative
             // extent is inverted rather than empty, so every containment test
-            // it takes part in — what clips it, what it clips, whether a click
-            // is inside it — answers about a region that is not there.
+            // it takes part in - what clips it, what it clips, whether a click
+            // is inside it - answers about a region that is not there.
             if (outSize < 0.0f) outSize = 0.0f;
         } else {
             // Positioned by the first anchor that names an *edge* on this
@@ -809,8 +809,8 @@ void WidgetTree::layoutWidgetSelf(uint32_t id, float screenW, float screenH) {
             // An anchor constrains both axes whether or not it meant to. LEFT
             // is the left edge and the vertical centre; BOTTOM is the bottom
             // edge and the horizontal centre. So a frame given LEFT, RIGHT and
-            // BOTTOM — which is how the talent frame's points bar is written,
-            // and it is a common shape — has three constraints on y: two
+            // BOTTOM - which is how the talent frame's points bar is written,
+            // and it is a common shape - has three constraints on y: two
             // centres that came along with the horizontal pair, and the one
             // that was actually about y. Taking the first put the bar at its
             // parent's vertical centre and ignored the bottom edge it was
@@ -823,7 +823,7 @@ void WidgetTree::layoutWidgetSelf(uint32_t id, float screenW, float screenH) {
             // An edge is the specific statement and a centre is the incidental
             // one, so the edge wins. This does not change the case above,
             // where two opposite edges size the axis, nor the one the
-            // reputation rows depend on — their y constraints are a top edge
+            // reputation rows depend on - their y constraints are a top edge
             // and a centre, and the top edge is both the first anchor and the
             // edge, so it is chosen either way.
             size_t pick = 0;
@@ -864,14 +864,14 @@ void WidgetTree::layoutWidgetSelf(uint32_t id, float screenW, float screenH) {
         // width comes out of the pair and its height out of nothing. A region
         // with no height is not drawn, so the highlight behind every tab on the
         // character sheet, the merchant, the mail, the friends list and the
-        // auction house — sixteen of them — was built, positioned, and never
+        // auction house - sixteen of them - was built, positioned, and never
         // seen. Nothing about it reads wrong from Lua: it is shown, it has its
         // texture, and only the one number that decides whether any of it
         // reaches the screen is missing.
         //
         // Only for button art, and only for an axis that came out empty, so a
-        // highlight that does declare its own size — TabButtonTemplate's says
-        // 5 by 32 — keeps it.
+        // highlight that does declare its own size - TabButtonTemplate's says
+        // 5 by 32 - keeps it.
         if (w->buttonArt != ButtonArt::None && parent) {
             if (w->rectW <= 0.0f) { w->left   = pLeft;   w->rectW = pW; }
             if (w->rectH <= 0.0f) { w->bottom = pBottom; w->rectH = pH; }
@@ -884,14 +884,14 @@ void WidgetTree::layoutWidgetSelf(uint32_t id, float screenW, float screenH) {
 
     // The scroll offset, applied to the child a scroll frame holds. Scrolling
     // down means seeing content further down a taller child, which is the
-    // child moving up — and up is a larger bottom in these coordinates.
+    // child moving up - and up is a larger bottom in these coordinates.
     if (parent && parent->isScrollFrame && parent->scrollChild == id) {
         w->left   -= parent->scrollX;
         w->bottom += parent->scrollY;
     }
 
     // A slider's grip goes where its value says. <ThumbTexture> declares a size
-    // and no anchors — in WoW the slider is what places it — so the ordinary
+    // and no anchors - in WoW the slider is what places it - so the ordinary
     // solve fell through to "unanchored, centre it on the parent" and every
     // scroll bar in the interface drew its knob at the middle of the track and
     // left it there, whatever the bar was worth. It reads as a scroll bar you
@@ -919,7 +919,7 @@ void WidgetTree::layoutWidgetSelf(uint32_t id, float screenW, float screenH) {
     // was dragged there.
     //
     // GameTooltipTemplate declares clampedToScreen="true" and every tooltip in
-    // the interface inherits it, but the clamp lived only in the drag path —
+    // the interface inherits it, but the clamp lived only in the drag path -
     // and a tooltip is never dragged. It is anchored beside whatever it
     // describes, so one owned by a frame near an edge simply ran off it: the
     // minimap's calendar button put its tooltip past the right of the screen,
@@ -957,7 +957,7 @@ uint32_t WidgetTree::hitTestFor(float x, float y, bool forWheel) const {
         if (w.rectW <= 0.0f || w.rectH <= 0.0f) continue;
         // A rect with a NaN in it matches *everything*. Every comparison
         // against a NaN is false, so both `x < left` and `x > right` are false
-        // and the frame below is treated as hit wherever the cursor is — and
+        // and the frame below is treated as hit wherever the cursor is - and
         // one mouse-enabled frame answering every hit test tells the rest of
         // the client the interface owns the mouse, so the camera stops turning
         // and never starts again. A chat window whose saved position had gone
@@ -977,7 +977,7 @@ uint32_t WidgetTree::hitTestFor(float x, float y, bool forWheel) const {
         if (y < hy0 || y > hy1) continue;
         // Scrolled out of sight is out of reach. A scroll frame shows a window
         // onto a taller child, and the part of that child above or below the
-        // window is not drawn — so it must not be clickable either, or a quest
+        // window is not drawn - so it must not be clickable either, or a quest
         // log answers clicks on entries nobody can see.
         if (w.clipTo != 0) {
             const Widget* clip = get(w.clipTo);
@@ -1050,20 +1050,20 @@ void WidgetTree::collectDrawOrder() {
         if (!w.visible) continue;
         if (w.alpha <= 0.001f) continue;
         // Frames are containers, except when they carry a backdrop or are a
-        // status bar — then the frame itself has something to paint, and it
+        // status bar - then the frame itself has something to paint, and it
         // paints underneath its own regions because they sit a level above it.
         // A frame the client renders into paints itself, the same as one with
         // a backdrop. The paperdoll's model frame is a frame, not a texture,
         // so without this the character would be rendered and never drawn.
         // An edit box paints its own text and its caret, the way a status bar
-        // paints its fill and a message frame its lines — so it belongs with
+        // paints its fill and a message frame its lines - so it belongs with
         // them here and not with the containers.
         //
         // Without it the chat box was dropped as "a frame with nothing of its
         // own to paint": the say bar opened, took the focus and filled with
         // what was typed, and every character went into a widget that was never
         // drawn. The bar itself still appeared, because its art is child
-        // textures and those draw on their own — so it looked like an empty box
+        // textures and those draw on their own - so it looked like an empty box
         // rather than a missing one.
         //
         // Not gated on holding text. The caret is what says which box is
@@ -1089,7 +1089,7 @@ void WidgetTree::collectDrawOrder() {
     // own regions, ranked by the layer the fill asked for.
     //
     // Without this the fill went under everything the bar owns, whatever it
-    // declared — and a bar with a dark backing of its own wore it over the
+    // declared - and a bar with a dark backing of its own wore it over the
     // fill. The cast bar is exactly that: a BACKGROUND backing, a BORDER fill
     // and ARTWORK border art, which has to come out in that order.
     auto sortLevel = [](const Widget* w) {
@@ -1108,7 +1108,7 @@ void WidgetTree::collectDrawOrder() {
                   if (la != lb) return la < lb;
                   if (a->subLevel != b->subLevel) return a->subLevel < b->subLevel;
                   // Ties resolve by creation order, so a region added later sits
-                  // on top of one added earlier — the same rule the real client
+                  // on top of one added earlier - the same rule the real client
                   // uses within a layer.
                   return a->creationOrder < b->creationOrder;
               });

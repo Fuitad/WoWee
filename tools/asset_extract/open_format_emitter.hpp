@@ -2,7 +2,7 @@
 
 // Convert proprietary Blizzard formats to wowee open formats as a
 // post-extraction pass. Each emit*() reads a single file from disk and
-// writes the open-format equivalent SIDE-BY-SIDE — the original file is
+// writes the open-format equivalent SIDE-BY-SIDE - the original file is
 // left untouched so private servers (AzerothCore/TrinityCore) that
 // expect .blp/.dbc/.m2/.wmo continue to work unchanged.
 //
@@ -23,7 +23,7 @@ struct OpenFormatStats {
     uint32_t whmOk = 0, whmFail = 0;
     uint32_t wocOk = 0, wocFail = 0;
     // Files where the sidecar already existed and was newer than the
-    // proprietary source — skipped (incremental mode).
+    // proprietary source - skipped (incremental mode).
     uint32_t skipped = 0;
 };
 
@@ -33,7 +33,7 @@ bool emitPngFromBlp(const std::string& blpPath, const std::string& pngPath);
 
 // Convert one DBC file on disk to a JSON side-file.
 // JSON layout: {format, source, recordCount, fieldCount, records:[[...], ...]}
-// — same schema the editor's runtime DBC loader (loadJSON) accepts so
+// - same schema the editor's runtime DBC loader (loadJSON) accepts so
 // the output drops into custom_zones/<zone>/data/ directly.
 bool emitJsonFromDbc(const std::string& dbcPath, const std::string& jsonPath);
 

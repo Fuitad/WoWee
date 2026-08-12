@@ -129,7 +129,7 @@ bool TerrainRenderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameL
     vertexAttribs[3] = { 3, 0, VK_FORMAT_R32G32_SFLOAT,
         static_cast<uint32_t>(offsetof(pipeline::TerrainVertex, layerUV)) };
 
-    // --- Build fill pipeline (base for derivatives — shared state optimization) ---
+    // --- Build fill pipeline (base for derivatives - shared state optimization) ---
     VkRenderPass mainPass = vkCtx->getImGuiRenderPass();
 
     pipeline = PipelineBuilder()
@@ -294,7 +294,7 @@ void TerrainRenderer::recreatePipelines() {
 
     VkRenderPass mainPass = vkCtx->getImGuiRenderPass();
 
-    // Rebuild fill pipeline (base for derivatives — shared state optimization)
+    // Rebuild fill pipeline (base for derivatives - shared state optimization)
     pipeline = PipelineBuilder()
         .setShaders(vertShader.stageInfo(VK_SHADER_STAGE_VERTEX_BIT),
                     fragShader.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT))
@@ -350,7 +350,7 @@ void TerrainRenderer::shutdown() {
 
     clear();
     // clear() defers chunk destruction, and no further frames will run to drain
-    // the queue — so run it now, while the descriptor pools those lambdas free
+    // the queue - so run it now, while the descriptor pools those lambdas free
     // sets from are still alive. Without this every resident chunk's vertex and
     // index buffers outlived the device: twenty thousand of each.
     vkCtx->flushDeferredCleanup();
@@ -421,7 +421,7 @@ bool TerrainRenderer::loadTerrain(const pipeline::TerrainMesh& mesh,
                 } else {
                     LOG_WARNING("Terrain[", tileX, ",", tileY, "] chunk[", x, ",", y,
                                 "] base textureId ", baseTexId, " >= texturePaths size ",
-                                texturePaths.size(), " — white fallback");
+                                texturePaths.size(), " - white fallback");
                     gpuChunk.baseTexture = whiteTexture.get();
                 }
 
@@ -436,7 +436,7 @@ bool TerrainRenderer::loadTerrain(const pipeline::TerrainMesh& mesh,
                         LOG_WARNING("Terrain[", tileX, ",", tileY, "] chunk[", x, ",", y,
                                     "] layer[", i, "] textureId ", layer.textureId,
                                     " >= texturePaths size ", texturePaths.size(),
-                                    " — white fallback");
+                                    " - white fallback");
                     }
                     gpuChunk.layerTextures[li] = layerTex;
 
@@ -471,12 +471,12 @@ bool TerrainRenderer::loadTerrain(const pipeline::TerrainMesh& mesh,
             allocCI.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
 
             VmaAllocationInfo mapInfo{};
-            // Check return value — a null UBO handle would cause the GPU to
+            // Check return value - a null UBO handle would cause the GPU to
             // read from an invalid descriptor, crashing the driver under
             // memory pressure instead of gracefully skipping the chunk.
             if (vmaCreateBuffer(vkCtx->getAllocator(), &bufCI, &allocCI,
                                 &gpuChunk.paramsUBO, &gpuChunk.paramsAlloc, &mapInfo) != VK_SUCCESS) {
-                LOG_WARNING("Terrain chunk UBO allocation failed — skipping chunk");
+                LOG_WARNING("Terrain chunk UBO allocation failed - skipping chunk");
                 destroyChunkGPU(gpuChunk);
                 continue;
             }
@@ -530,7 +530,7 @@ bool TerrainRenderer::loadTerrainIncremental(const pipeline::TerrainMesh& mesh,
             } else {
                 LOG_WARNING("Terrain[", tileX, ",", tileY, "] chunk[", cx, ",", cy,
                             "] base textureId ", baseTexId, " >= texturePaths size ",
-                            texturePaths.size(), " — white fallback");
+                            texturePaths.size(), " - white fallback");
                 gpuChunk.baseTexture = whiteTexture.get();
             }
 
@@ -545,7 +545,7 @@ bool TerrainRenderer::loadTerrainIncremental(const pipeline::TerrainMesh& mesh,
                     LOG_WARNING("Terrain[", tileX, ",", tileY, "] chunk[", cx, ",", cy,
                                 "] layer[", i, "] textureId ", layer.textureId,
                                 " >= texturePaths size ", texturePaths.size(),
-                                " — white fallback");
+                                " - white fallback");
                 }
                 gpuChunk.layerTextures[li] = layerTex;
 
@@ -582,7 +582,7 @@ bool TerrainRenderer::loadTerrainIncremental(const pipeline::TerrainMesh& mesh,
         if (vmaCreateBuffer(vkCtx->getAllocator(), &bufCI, &allocCI,
                             &gpuChunk.paramsUBO, &gpuChunk.paramsAlloc, &mapInfo) != VK_SUCCESS) {
             LOG_WARNING("Terrain[", tileX, ",", tileY, "] chunk UBO allocation failed"
-                        " — retrying next frame");
+                        " - retrying next frame");
             destroyChunkGPU(gpuChunk);
             chunkIndex--;
             break;
@@ -599,7 +599,7 @@ bool TerrainRenderer::loadTerrainIncremental(const pipeline::TerrainMesh& mesh,
             // every resident tile and its sets come back only through
             // deferAfterAllFrameFences, so a tile arriving while an unloaded
             // one is still in flight can find the pool momentarily full. A
-            // dropped chunk was never retried — the tile counted as loaded
+            // dropped chunk was never retried - the tile counted as loaded
             // with a hole in it, and the hole stayed for the rest of the
             // session. Stepping the index back and leaving means the caller
             // sees "not finished" and comes back once the frees have landed.
@@ -676,7 +676,7 @@ VkTexture* TerrainRenderer::loadTexture(const std::string& path) {
     }
     pipeline::BLPImage blp = assetManager->loadTexture(key);
     if (!blp.isValid()) {
-        // Return white fallback but don't cache the failure — allow retry
+        // Return white fallback but don't cache the failure - allow retry
         // on next tile load in case the asset becomes available.
         if (loggedTextureLoadFails_.insert(key).second) {
             LOG_WARNING("Failed to load texture: ", path);
@@ -926,7 +926,7 @@ void TerrainRenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, c
         if (useMegaBuffers && chunk.megaBaseVertex >= 0) {
             // Rebound if a fallback chunk bound its own buffers since. The mega
             // buffers are bound once before the loop, and a chunk without a
-            // place in them binds its own — which stays bound for whatever comes
+            // place in them binds its own - which stays bound for whatever comes
             // next. A chunk after that one then drew its mega offsets against a
             // single chunk's buffer: firstIndex 6,290,784 into 3,072 bytes,
             // which is what took the GPU down.
@@ -1036,7 +1036,7 @@ void TerrainRenderer::renderShadow(VkCommandBuffer cmd, const glm::mat4& lightSp
     vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, shadowPipelineLayout_,
         0, 1, &shadowParams_.set, 0, nullptr);
 
-    // Identity model matrix — terrain vertices are already in world space
+    // Identity model matrix - terrain vertices are already in world space
     static const glm::mat4 identity(1.0f);
     ShadowPush push{ lightSpaceMatrix, identity };
     vkCmdPushConstants(cmd, shadowPipelineLayout_, VK_SHADER_STAGE_VERTEX_BIT,

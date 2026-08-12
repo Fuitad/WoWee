@@ -123,7 +123,7 @@ int handleInfoZoneOverview(int& i, int argc, char** argv) {
             manifestPath.c_str());
         return 1;
     }
-    // Cheap content counts via direct JSON parse — avoids
+    // Cheap content counts via direct JSON parse - avoids
     // standing up the full editor classes for an overview.
     auto countArray = [&](const std::string& fname,
                             const std::string& key) {

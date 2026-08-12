@@ -171,22 +171,22 @@ WoweeSpellSchool WoweeSpellSchoolLoader::makeCombined(
         e.baseResistanceCap = 365;
         c.entries.push_back(e);
     };
-    // Hybrid schools — combinedSchoolMask is the bitmask of
+    // Hybrid schools - combinedSchoolMask is the bitmask of
     // canonical schools they qualify as. Spell engine uses the
     // LOWER resistance of the combined set, so hybrids bypass
     // single-school resist gear.
     add(0x80000001, "Spellfire",
         WoweeSpellSchool::kSchoolFire | WoweeSpellSchool::kSchoolArcane,
         230, 100, 200,
-        "Combined Fire+Arcane — bypasses single-school resist.");
+        "Combined Fire+Arcane - bypasses single-school resist.");
     add(0x80000002, "Spellshadow",
         WoweeSpellSchool::kSchoolShadow | WoweeSpellSchool::kSchoolArcane,
         140, 50, 200,
-        "Combined Shadow+Arcane — Shadow priest specialty.");
+        "Combined Shadow+Arcane - Shadow priest specialty.");
     add(0x80000003, "Spellfrost",
         WoweeSpellSchool::kSchoolFrost | WoweeSpellSchool::kSchoolArcane,
         130, 180, 240,
-        "Combined Frost+Arcane — Frostfire bolt class.");
+        "Combined Frost+Arcane - Frostfire bolt class.");
     return c;
 }
 

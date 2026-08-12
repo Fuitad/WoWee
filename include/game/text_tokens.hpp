@@ -1,7 +1,7 @@
 #pragma once
 
 /**
- * text_tokens.hpp — the $-tokens WoW's text is written with.
+ * text_tokens.hpp - the $-tokens WoW's text is written with.
  *
  * Quest text, gossip, item text and what an NPC says all arrive from the server
  * with the player left as a blank: "$N, I need your help" and "$gsir:madam;".
@@ -23,7 +23,7 @@ namespace game {
 class GameHandler;
 
 /// Who the text is being written for. Everything resolveTextTokens needs to
-/// know about the reader, and nothing else — so the substitution itself can be
+/// know about the reader, and nothing else - so the substitution itself can be
 /// exercised without a client attached to it.
 struct TextSubject {
     std::string name = "Adventurer";
@@ -41,7 +41,7 @@ TextSubject textSubjectFor(GameHandler& gameHandler);
 /// Fill in the $-tokens in a piece of server text for the logged-in character.
 ///
 /// $n/$N name, $c/$C class, $r/$R race, $b/$B a line break, $p/$o/$s/$S the
-/// pronouns, and $gmale:female; — or male:female:neutral; — choosing by gender.
+/// pronouns, and $gmale:female; - or male:female:neutral; - choosing by gender.
 /// A `|n` is a line break too. Text with no '$' in it comes straight back.
 std::string resolveTextTokens(const std::string& text, GameHandler& gameHandler);
 

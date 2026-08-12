@@ -38,7 +38,7 @@ public:
     void declineQuest();
     /// Clear the open detail page and tell the interface it is done, so the
     /// quest frame closes. Accepting a quest dismisses the page the same as
-    /// declining it does — the interface only closes on QUEST_FINISHED, and
+    /// declining it does - the interface only closes on QUEST_FINISHED, and
     /// the accept path used to reset the state without firing it, so this
     /// client's own window shut and FrameXML's stayed open.
     void dismissQuestDetails();
@@ -60,16 +60,16 @@ public:
     /// It used to stay false for a hundred milliseconds after the details
     /// arrived, to give the item queries fired alongside them time to come
     /// back. That delay belonged to *this* client's own window, which draws
-    /// reward icons and wants their names first — but it gated every reader,
+    /// reward icons and wants their names first - but it gated every reader,
     /// and the interface asks the instant it is told.
     ///
     /// What that cost: QUEST_DETAIL fires as the packet is handled, FrameXML
     /// runs QuestInfo_Display, and QuestInfo_ShowRewards asks how many rewards
-    /// there are. For a hundred milliseconds the answer was none — so it hid
+    /// there are. For a hundred milliseconds the answer was none - so it hid
     /// the rewards block and returned nil, and a nil return is what tells
     /// QuestInfo_Display not to reparent it. The delay then expired, something
     /// called QuestInfo_ShowRewards directly, and it filled the block in and
-    /// showed it — still parented to UIParent, still at the position its XML
+    /// showed it - still parented to UIParent, still at the position its XML
     /// gave it. The reward list appeared in the middle of the screen, outside
     /// the quest frame, and closing the frame did not take it away because it
     /// was never inside it.
@@ -140,7 +140,7 @@ public:
             uint32_t required = 0;
         };
         std::array<ItemObjective, 6> itemObjectives{};
-        // The quest's start item — "SrcItemId" on the wire — which is the
+        // The quest's start item - "SrcItemId" on the wire - which is the
         // usable item some quests hand you and the watch frame draws a button
         // for. Zero when the quest has none, which is most of them.
         uint32_t sourceItemId = 0;
@@ -155,8 +155,8 @@ public:
     std::vector<QuestLogEntry>& questLogRef() { return questLog_; }
 
     /// Where a quest sits in the log, counting from one, or zero if it is not
-    /// in it. This is what the interface means by a quest index — every quest
-    /// log API takes it, and QUEST_WATCH_UPDATE carries it — and it is not the
+    /// in it. This is what the interface means by a quest index - every quest
+    /// log API takes it, and QUEST_WATCH_UPDATE carries it - and it is not the
     /// quest id, which is what was being sent in its place.
     int questLogIndexOf(uint32_t questId) const {
         for (size_t i = 0; i < questLog_.size(); ++i) {
@@ -222,7 +222,7 @@ public:
     // Reconcile collect-item objective progress against the player's actual
     // bag contents. In 3.3.5a the server does not push item objective counts
     // (unlike kill credit, which arrives packed in the quest-log update
-    // fields) — the authentic client derives them by counting matching item
+    // fields) - the authentic client derives them by counting matching item
     // IDs in the bags. Called after every inventory rebuild. `carriedCounts`
     // maps itemId -> total quantity currently held across backpack + bags.
     void reconcileItemObjectivesFromInventory(
@@ -246,7 +246,7 @@ public:
     /// are dead: every reader forwards here. So a character switch left the
     /// previous character's quest log and quest-giver marks in place until the
     /// server happened to overwrite them.
-    /// Tell the interface a quest moved — see the definition for why the
+    /// Tell the interface a quest moved - see the definition for why the
     /// three events go together.
     void announceQuestLogChanged(uint32_t questId);
 

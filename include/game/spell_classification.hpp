@@ -18,7 +18,7 @@ namespace spellclass {
 /// SpellRange calls melee "Combat Range", and every melee ability resolves to it.
 inline constexpr float kCombatRangeYards = 5.0f;
 
-/// Returned when SpellRange.dbc was unavailable — nothing may be inferred from it.
+/// Returned when SpellRange.dbc was unavailable - nothing may be inferred from it.
 inline constexpr float kUnknownRange = -1.0f;
 
 /// "Self Only" range: the spell cannot reach another unit, so it lands on the caster
@@ -39,13 +39,13 @@ inline bool isMeleeRange(float maxRange) {
 ///
 /// The column says what a spell expects to be aimed at, which is the only
 /// honest way to tell a heal or a buff from a nuke: both are APPLY_AURA, and
-/// both can share a school. Verified against the shipped data — Flash Heal,
+/// both can share a school. Verified against the shipped data - Flash Heal,
 /// Rejuvenation, Mark of the Wild, Arcane Intellect and Blessing of Might all
 /// read 21, while Smite, Fireball, Shadow Bolt and Shadow Word: Pain read 6.
 enum ImplicitTarget : uint32_t {
     kImplicitTargetCaster = 1,   ///< Lands on the caster whatever is selected.
     kImplicitTargetEnemy  = 6,   ///< Needs a hostile unit.
-    kImplicitTargetAlly   = 21,  ///< Needs a friendly unit — heals and buffs.
+    kImplicitTargetAlly   = 21,  ///< Needs a friendly unit - heals and buffs.
     kImplicitTargetAny    = 25,  ///< Either, e.g. Dispel Magic.
 };
 
@@ -95,8 +95,8 @@ enum class RestChannelKind {
     DRINK,
     POTION,
     ALCOHOL,
-    /// The undead racial. Grouped here because it is the same kind of thing —
-    /// a channel whose whole visible content is the eating animation — but it
+    /// The undead racial. Grouped here because it is the same kind of thing -
+    /// a channel whose whole visible content is the eating animation - but it
     /// is neither seated nor a single swig: the character stays standing over
     /// the corpse and eats for the length of the channel.
     CANNIBALIZE

@@ -6,7 +6,7 @@
 A static popup is the last thing between a player and an irreversible action:
 "this item will bind to you", "abandon your pet", "log out". Its OnAccept is a
 button somebody presses on purpose. If that body calls a name nothing binds, the
-click raises — and because the dialog is built, shown, and takes the click
+click raises - and because the dialog is built, shown, and takes the click
 first, the failure looks like the game ignoring a decision the player already
 made, rather than like a missing feature.
 
@@ -20,7 +20,7 @@ asking for confirmation, and raising.
 WHAT IT LOOKS FOR
 
 Every StaticPopupDialogs entry, every function-valued hook in it, and every
-capitalised call inside those hooks. Method calls are skipped — `self:GetText()`
+capitalised call inside those hooks. Method calls are skipped - `self:GetText()`
 and `self.editBox:SetText()` are widget methods and belong to the other sweep.
 
 WHAT IT CANNOT SEE
@@ -83,8 +83,8 @@ def hooks(body):
 #:
 #: A set rather than a count, because a count only says how many: fix one,
 #: introduce another, and the number never moves. handler_announce_check was
-#: pinned that way and hid a real one — the guild roster being emptied on
-#: leaving a guild with nobody told — for as long as the count was all that was
+#: pinned that way and hid a real one - the guild roster being emptied on
+#: leaving a guild with nobody told - for as long as the count was all that was
 #: pinned.
 #:
 #: Each of these belongs to a popup this client cannot put on screen. Checked
@@ -99,7 +99,7 @@ EXPECTED = {
     # The events are fired nowhere; the item socketing frame raises the same
     # two popups from its Socket button, but only behind
     # GetSocketItemRefundable and GetSocketItemBoundTradeable, which both
-    # answer nil — the per-item timer behind them is server state this client
+    # answer nil - the per-item timer behind them is server state this client
     # is never sent, and answering yes would promise a refund that does not
     # exist.
     "EndRefund": "END_REFUND unreachable by event or by click",
@@ -115,9 +115,9 @@ def main():
     popups = ROOT / "Data/interface/framexml/staticpopup.lua"
     text = popups.read_text(errors="ignore")
     # Line comments as well as block ones. Blizzard leaves dead calls in
-    # these hooks with a note beside them — CAMP's OnAccept carries
+    # these hooks with a note beside them - CAMP's OnAccept carries
     # `--ForceLogout();` under a line saying forced logout is not
-    # finished — and counting those reported names nothing calls.
+    # finished - and counting those reported names nothing calls.
     text = re.sub(r"--\[\[.*?\]\]", "", text, flags=re.S)
     text = without_comments(text)
     blocks = re.findall(r'StaticPopupDialogs\["(\w+)"\]\s*=\s*\{(.*?)\n\};',
@@ -128,8 +128,8 @@ def main():
         for hook_name, hook_body in hooks(body):
             # Names the hook declares for itself are not globals it is
             # missing. INSTANCE_LOCK's OnUpdate reads its own OnCancel out of
-            # the popup table and then calls it — `local OnCancel =
-            # StaticPopupDialogs["INSTANCE_LOCK"].OnCancel` — which read as a
+            # the popup table and then calls it - `local OnCancel =
+            # StaticPopupDialogs["INSTANCE_LOCK"].OnCancel` - which read as a
             # call to a global nothing answers.
             local = set(re.findall(r"\blocal\s+([\w,\s]+?)\s*=", hook_body))
             local = {n.strip() for group in local for n in group.split(",")}

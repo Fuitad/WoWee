@@ -257,7 +257,7 @@ void GameHandler::registerCoreOpcodes() {
         if (packet.hasRemaining(4)) {
             uint32_t serverTime = packet.readUInt32();
             // The world state timer bar counts from this and had nothing to
-            // count from — it was read and logged and dropped.
+            // count from - it was read and logged and dropped.
             if (addonEventCallback_)
                 addonEventCallback_("WORLD_STATE_UI_TIMER_UPDATE", {std::to_string(serverTime)});
             LOG_DEBUG("SMSG_WORLD_STATE_UI_TIMER_UPDATE: serverTime=", serverTime);
@@ -287,7 +287,7 @@ void GameHandler::registerCoreOpcodes() {
             // value, maxvalue, scale, paused, label). Sending the type as a
             // number and omitting the label left it matching no timer and
             // dividing a nil.
-            // The names WoW passes, not the wire's own ordering words — see
+            // The names WoW passes, not the wire's own ordering words - see
             // kMirrorTimerNames, which every path that names a timer shares.
             const char* timerName = (type < 3) ? kMirrorTimerNames[type] : "BREATH";
             const char* timerLabel = (type < 3) ? kMirrorTimerLabels[type] : "Breath";
@@ -382,7 +382,7 @@ void GameHandler::registerCoreOpcodes() {
         if (isLost) knownTitleBits_.erase(titleBit);
         else        knownTitleBits_.insert(titleBit);
         // And announce it. The set is read by IsTitleKnown, which the character
-        // sheet's title dropdown builds itself from — but only when told to
+        // sheet's title dropdown builds itself from - but only when told to
         // rebuild, and this is what tells it. Without it a title earned mid
         // session did not appear in the list until the sheet was reopened.
         fireAddonEvent("KNOWN_TITLES_UPDATE", {});
@@ -398,7 +398,7 @@ void GameHandler::registerCoreOpcodes() {
         // This read a four-byte result and required thirteen bytes. A refusal
         // is one byte, so no rename error was ever shown; a success carries the
         // name, so it usually cleared the guard and then took three bytes of
-        // the guid as part of the result — which read as an enormous number,
+        // the guid as part of the result - which read as an enormous number,
         // fell past the error table and reported the rename as failed.
         if (packet.hasRemaining(1)) {
             const uint8_t result = packet.readUInt8();
@@ -443,14 +443,14 @@ void GameHandler::registerCoreOpcodes() {
         addSystemChatMessage(pbMsg);
     };
     // The innkeeper asking whether to make this the player's home. It was
-    // skipped because this client's own gossip window never waited for it — it
+    // skipped because this client's own gossip window never waited for it - it
     // matches the option's English text and sends the activate itself. FrameXML
     // draws the gossip window now and follows the real flow: the server asks,
     // a popup accepts, and the reply goes back.
     dispatchTable_[Opcode::SMSG_BINDER_CONFIRM] = [this](network::Packet& packet) {
         binderGuid_ = packet.hasRemaining(8) ? packet.readUInt64() : 0;
         // Who is asking. StaticPopup_Show("CONFIRM_BINDER", arg1) puts the name
-        // into "Do you want to make <name> your new home?" — without it the
+        // into "Do you want to make <name> your new home?" - without it the
         // question had a hole where the innkeeper should be.
         fireAddonEvent("CONFIRM_BINDER", {lookupName(binderGuid_)});
     };
@@ -525,7 +525,7 @@ void GameHandler::registerCoreOpcodes() {
             }
         }
     };
-    // Consume silently — opcodes we receive but don't need to act on
+    // Consume silently - opcodes we receive but don't need to act on
     for (auto op : {
         Opcode::SMSG_FLIGHT_SPLINE_SYNC, Opcode::SMSG_FORCE_DISPLAY_UPDATE,
         Opcode::SMSG_FORCE_SEND_QUEUED_PACKETS, Opcode::SMSG_FORCE_SET_VEHICLE_REC_ID,
@@ -533,14 +533,14 @@ void GameHandler::registerCoreOpcodes() {
         Opcode::SMSG_DYNAMIC_DROP_ROLL_RESULT, Opcode::SMSG_DESTRUCTIBLE_BUILDING_DAMAGE,
     }) { registerSkipHandler(op); }
 
-    // Game object despawn animation — reset state to closed before actual despawn
+    // Game object despawn animation - reset state to closed before actual despawn
     dispatchTable_[Opcode::SMSG_GAMEOBJECT_DESPAWN_ANIM] = [this](network::Packet& packet) {
         if (!packet.hasRemaining(8)) return;
         uint64_t guid = packet.readUInt64();
         // Trigger a CLOSE animation / freeze before the object is removed
         if (gameObjectStateCallback_) gameObjectStateCallback_(guid, 0);
     };
-    // Game object reset state — return to READY(closed) state
+    // Game object reset state - return to READY(closed) state
     dispatchTable_[Opcode::SMSG_GAMEOBJECT_RESET_STATE] = [this](network::Packet& packet) {
         if (!packet.hasRemaining(8)) return;
         uint64_t guid = packet.readUInt64();
@@ -559,7 +559,7 @@ void GameHandler::registerCoreOpcodes() {
         LOG_INFO("SMSG_FORCED_DEATH_UPDATE: player force-killed");
         packet.skipAll();
     };
-    // SMSG_DEFENSE_MESSAGE — moved to ChatHandler::registerOpcodes
+    // SMSG_DEFENSE_MESSAGE - moved to ChatHandler::registerOpcodes
     dispatchTable_[Opcode::SMSG_CORPSE_RECLAIM_DELAY] = [this](network::Packet& packet) {
         if (packet.hasRemaining(4)) {
             uint32_t delayMs = packet.readUInt32();
@@ -613,7 +613,7 @@ void GameHandler::registerCoreOpcodes() {
         //
         // This paired the coordinates with the second, and everything that
         // reads corpseMapId_ compares it against the map the player is
-        // standing on — every other writer sets it to exactly that. So a
+        // standing on - every other writer sets it to exactly that. So a
         // corpse in a dungeon gave a position on the outdoor map filed under
         // the dungeon's id, and the check `currentMapId_ != corpseMapId_`
         // refused to show it precisely where it would have been useful.
@@ -890,7 +890,7 @@ void GameHandler::registerCoreOpcodes() {
             resurrectIsSpiritHealer_ = true;
             resurrectRequestPending_ = true;
             // The spirit healer's prompt is CONFIRM_XP_LOSS, not
-            // RESURRECT_REQUEST — uiparent.lua answers it with the durability
+            // RESURRECT_REQUEST - uiparent.lua answers it with the durability
             // and sickness warning and its Accept calls AcceptXPLoss. Nothing
             // fired it, and the only thing that could reach
             // activateSpiritHealer was this client's own gossip window, so with
@@ -909,8 +909,8 @@ void GameHandler::registerCoreOpcodes() {
         //   uint32 0               only when the spell overrides the timer
         //
         // The length was never read, so readString took the first byte of it
-        // as the whole name — a control character, for any name shorter than
-        // two hundred and fifty-five — and the dialog was raised offering a
+        // as the whole name - a control character, for any name shorter than
+        // two hundred and fifty-five - and the dialog was raised offering a
         // resurrection from that. Everything after it was out of step too, so
         // the sickness flag was never read at all.
         if (!packet.hasRemaining(12)) { packet.skipAll(); return; }
@@ -927,7 +927,7 @@ void GameHandler::registerCoreOpcodes() {
         if (!casterGuid) return;
         resurrectCasterGuid_ = casterGuid;
         // A creature offering this is a spirit healer, and that is what the
-        // sickness flag says — it is set for every non-player caster.
+        // sickness flag says - it is set for every non-player caster.
         resurrectIsSpiritHealer_ = false;
         resurrectHasSickness_ = sickness;
         resurrectHasTimer_ = hasTimer;
@@ -994,7 +994,7 @@ void GameHandler::registerCoreOpcodes() {
             // else will. chatframe.lua's own ZONE_UNDER_ATTACK branch calls
             // AddMessage with ZONE_UNDER_ATTACK formatted from arg1, so with
             // the interface in charge the player read every attack twice in
-            // chat and a third time on the error line — which the real client
+            // chat and a third time on the error line - which the real client
             // never puts it on at all. Booty Bay under sustained attack filled
             // the window.
             if (!ui::frameXmlOwns(ui::UiElement::Chat)) {
@@ -1022,7 +1022,7 @@ void GameHandler::registerCoreOpcodes() {
 
         // Parsed and said in chat and announced to nobody. UIParent_OnEvent
         // answers this by joining the queue and raising the countdown dialog,
-        // and it was never told — so the reply arrived, the line was printed,
+        // and it was never told - so the reply arrived, the line was printed,
         // and the resurrection it was counting down to was one this player had
         // not joined.
         fireAddonEvent("AREA_SPIRIT_HEALER_IN_RANGE", {});
@@ -1068,9 +1068,9 @@ void GameHandler::registerCoreOpcodes() {
         }
     };
 
-    // SMSG_SERVER_MESSAGE — moved to ChatHandler::registerOpcodes
-    // SMSG_CHAT_SERVER_MESSAGE — moved to ChatHandler::registerOpcodes
-    // SMSG_AREA_TRIGGER_MESSAGE — moved to ChatHandler::registerOpcodes
+    // SMSG_SERVER_MESSAGE - moved to ChatHandler::registerOpcodes
+    // SMSG_CHAT_SERVER_MESSAGE - moved to ChatHandler::registerOpcodes
+    // SMSG_AREA_TRIGGER_MESSAGE - moved to ChatHandler::registerOpcodes
     dispatchTable_[Opcode::SMSG_TRIGGER_CINEMATIC] = [this](network::Packet& packet) {
         packet.skipAll();
         network::Packet ack(wireOpcode(Opcode::CMSG_NEXT_CINEMATIC_CAMERA));
@@ -1090,7 +1090,7 @@ void GameHandler::registerCoreOpcodes() {
     };
     dispatchTable_[Opcode::SMSG_TRANSFER_ABORTED] = [this](network::Packet& packet) {
         // uint32 mapId + uint8 reason, and a further uint8 for exactly three of
-        // them — the expansion level, the difficulty and the unique message.
+        // them - the expansion level, the difficulty and the unique message.
         //
         // Every code from 0x01 on named the wrong failure. The table here was
         // shifted against Player.h's own enum: 0x02 is a full instance and was
@@ -1126,7 +1126,7 @@ void GameHandler::registerCoreOpcodes() {
         addUIError(abortMsg);
         addSystemChatMessage(abortMsg);
         LOG_WARNING("SMSG_TRANSFER_ABORTED: reason 0x", std::hex,
-                    static_cast<int>(reason), std::dec, " — ", abortMsg);
+                    static_cast<int>(reason), std::dec, " - ", abortMsg);
     };
 
     // Taxi
@@ -1202,7 +1202,7 @@ void GameHandler::registerCoreOpcodes() {
     dispatchTable_[Opcode::SMSG_SOCKET_GEMS_RESULT] = [this](network::Packet& packet) {
         // There is no result field. Item::SendUpdateSockets writes the item's
         // guid and then the four enchantment ids now in its sockets, and sends
-        // it only when the sockets were actually changed — so arriving *is* the
+        // it only when the sockets were actually changed - so arriving *is* the
         // success. This read a uint32 at offset zero and called it the result,
         // which is the low half of the item's guid: never zero, so socketing a
         // gem always reported that it had failed.
@@ -1226,7 +1226,7 @@ void GameHandler::registerCoreOpcodes() {
         handleAllAchievementData(packet);
     };
     // Both are errors rather than remarks, and the real client shows them on
-    // the error line rather than in the chat log — ERR_FISH_NOT_HOOKED and
+    // the error line rather than in the chat log - ERR_FISH_NOT_HOOKED and
     // ERR_FISH_ESCAPED are globalstrings. raiseUiError puts them there, fires
     // UI_ERROR_MESSAGE so the interface's own error frame draws them, and
     // keeps the chat line this client has always written.
@@ -1242,7 +1242,7 @@ void GameHandler::registerCoreOpcodes() {
     // ---- Auto-repeat / auras / dispel / totem ----
     dispatchTable_[Opcode::SMSG_CANCEL_AUTO_REPEAT] = [this](network::Packet& /*packet*/) {
         // The server saying a repeating spell has stopped. Nothing in this
-        // client's own interface reads it, which is why it did nothing — but
+        // client's own interface reads it, which is why it did nothing - but
         // the action button flashes for as long as one is running and stops on
         // exactly this.
         fireAddonEvent("STOP_AUTOREPEAT_SPELL", {});
@@ -1336,7 +1336,7 @@ void GameHandler::registerCoreOpcodes() {
             rem -= 4;
             if (i >= ACTION_BAR_SLOTS) continue;
             if (packed == 0) {
-                // Empty slot — only clear if not already set to Attack/Hearthstone defaults
+                // Empty slot - only clear if not already set to Attack/Hearthstone defaults
                 // so we don't wipe hardcoded fallbacks when the server sends zeros.
                 continue;
             }
@@ -1356,7 +1356,7 @@ void GameHandler::registerCoreOpcodes() {
                 case 0x01: slot.type = ActionBarSlot::ITEM;  slot.id = id; break;  // Classic item
                 case 0x80: slot.type = ActionBarSlot::ITEM;  slot.id = id; break;  // TBC/WotLK item
                 case 0x40: slot.type = ActionBarSlot::MACRO; slot.id = id; break;  // macro (all expansions)
-                default:   continue;  // unknown — leave as-is
+                default:   continue;  // unknown - leave as-is
             }
             actionBar[i] = slot;
         }
@@ -1425,7 +1425,7 @@ void GameHandler::registerCoreOpcodes() {
                     for (auto& ch : characters) {
                         if (ch.guid == playerGuid) {
                             ch.level = serverPlayerLevel_;
-                            break;  // was 'return' — must NOT exit here or level-up notification is skipped
+                            break;  // was 'return' - must NOT exit here or level-up notification is skipped
                         }
                     }
                     if (newLevel > oldLevel) {
@@ -1443,7 +1443,7 @@ void GameHandler::registerCoreOpcodes() {
                         // level, health, power, talent points, then the five
                         // stats. The chat frame tests the third against zero
                         // to decide whether to mention mana, so sending only
-                        // the level was an error on every level gained — and
+                        // the level was an error on every level gained - and
                         // every one of these was already parsed above.
                         //
                         // Talent points are zero: the packet carries no such
@@ -1509,7 +1509,7 @@ void GameHandler::registerCoreOpcodes() {
                 // A timed criteria also drives the tracker's countdown. The
                 // message says how far into the window the player is; how long
                 // the window is comes from the DBC, so the two have to be put
-                // together here — the interface reads the pair and works out a
+                // together here - the interface reads the pair and works out a
                 // start time from them.
                 //
                 // Fired for any timed criteria rather than only tracked ones.
@@ -1553,7 +1553,7 @@ void GameHandler::registerCoreOpcodes() {
 
 }
 
-// Everything else — inspects, quests, auctions, spells, calendars,
+// Everything else - inspects, quests, auctions, spells, calendars,
 // battlefields, voice, and a long tail that is consumed and ignored.
 //
 // Named for what it is rather than given a theme it does not have: it arrived
@@ -1616,9 +1616,9 @@ void GameHandler::registerRemainingOpcodes() {
             }
         }
     };
-    // Server-script text message — display in system chat
+    // Server-script text message - display in system chat
     dispatchTable_[Opcode::SMSG_SCRIPT_MESSAGE] = [this](network::Packet& packet) {
-        // Server-script text message — display in system chat
+        // Server-script text message - display in system chat
         std::string msg = packet.readString();
         if (!msg.empty()) {
             addSystemChatMessage(msg);
@@ -1689,8 +1689,8 @@ void GameHandler::registerRemainingOpcodes() {
     // auctionId(u32) + action(u32) + error(u32) + itemEntry(u32) + randomPropertyId(u32) + ...
     // action: 0=sold/won, 1=expired, 2=bid placed on your auction
     // auctionHouseId(u32) + auctionId(u32) + bidderGuid(u64) + bidAmount(u32) + outbidAmount(u32) + itemEntry(u32) + randomPropertyId(u32)
-    // uint32 auctionId + uint32 itemEntry + uint32 itemRandom — auction expired/cancelled
-    // uint64 containerGuid — tells client to open this container
+    // uint32 auctionId + uint32 itemEntry + uint32 itemRandom - auction expired/cancelled
+    // uint64 containerGuid - tells client to open this container
     // The actual items come via update packets; we just log this.
     // PackedGuid (player guid) + uint32 vehicleId
     // vehicleId == 0 means the player left the vehicle
@@ -1710,7 +1710,7 @@ void GameHandler::registerRemainingOpcodes() {
         if (wasInVehicle != nowInVehicle) {
             if (vehicleStateCallback_) vehicleStateCallback_(nowInVehicle, newVehicleId);
             // Announced as well as stored. The state was kept and handed to
-            // this client's own bar, and the interface heard nothing — so the
+            // this client's own bar, and the interface heard nothing - so the
             // leave-vehicle button, which redraws on VEHICLE_UPDATE, never
             // learned there was a vehicle to leave.
             fireAddonEvent("VEHICLE_UPDATE", {});
@@ -1728,7 +1728,7 @@ void GameHandler::registerRemainingOpcodes() {
             taxiNpcHasRoutes_[npcGuid] = (status != 0);
         }
     };
-    // SMSG_GUILD_DECLINE — moved to SocialHandler::registerOpcodes
+    // SMSG_GUILD_DECLINE - moved to SocialHandler::registerOpcodes
     // Clear cached talent data so the talent screen reflects the reset.
     dispatchTable_[Opcode::SMSG_TALENTS_INVOLUNTARILY_RESET] = [this](network::Packet& packet) {
         // Clear cached talent data so the talent screen reflects the reset.
@@ -1795,9 +1795,9 @@ void GameHandler::registerRemainingOpcodes() {
             entityController_->invalidatePlayerName(guid);
         }
     };
-    // uint32 movieId — we don't play movies; acknowledge immediately.
+    // uint32 movieId - we don't play movies; acknowledge immediately.
     dispatchTable_[Opcode::SMSG_TRIGGER_MOVIE] = [this](network::Packet& packet) {
-        // uint32 movieId — we don't play movies; acknowledge immediately.
+        // uint32 movieId - we don't play movies; acknowledge immediately.
         packet.skipAll();
         // WotLK servers expect CMSG_COMPLETE_MOVIE after the movie finishes;
         // without it, the server may hang or disconnect the client.
@@ -1822,9 +1822,9 @@ void GameHandler::registerRemainingOpcodes() {
         if (openLfgCallback_) openLfgCallback_();
         packet.skipAll();
     };
-    // uint32 result — LFG auto-join attempt failed (player selected auto-join at queue time)
+    // uint32 result - LFG auto-join attempt failed (player selected auto-join at queue time)
     dispatchTable_[Opcode::SMSG_LFG_AUTOJOIN_FAILED] = [this](network::Packet& packet) {
-        // uint32 result — LFG auto-join attempt failed (player selected auto-join at queue time)
+        // uint32 result - LFG auto-join attempt failed (player selected auto-join at queue time)
         if (packet.hasRemaining(4)) {
             uint32_t result = packet.readUInt32();
             (void)result;
@@ -1846,9 +1846,9 @@ void GameHandler::registerRemainingOpcodes() {
         addSystemChatMessage("Your party leader is currently Looking for More.");
         packet.skipAll();
     };
-    // uint32 zoneId + uint8 level_min + uint8 level_max — player queued for meeting stone
+    // uint32 zoneId + uint8 level_min + uint8 level_max - player queued for meeting stone
     dispatchTable_[Opcode::SMSG_MEETINGSTONE_SETQUEUE] = [this](network::Packet& packet) {
-        // uint32 zoneId + uint8 level_min + uint8 level_max — player queued for meeting stone
+        // uint32 zoneId + uint8 level_min + uint8 level_max - player queued for meeting stone
         if (packet.hasRemaining(6)) {
             uint32_t zoneId   = packet.readUInt32();
             uint8_t  levelMin = packet.readUInt8();
@@ -1883,9 +1883,9 @@ void GameHandler::registerRemainingOpcodes() {
         LOG_DEBUG("SMSG_MEETINGSTONE_IN_PROGRESS");
         packet.skipAll();
     };
-    // uint64 memberGuid — a player was added to your group via meeting stone
+    // uint64 memberGuid - a player was added to your group via meeting stone
     dispatchTable_[Opcode::SMSG_MEETINGSTONE_MEMBER_ADDED] = [this](network::Packet& packet) {
-        // uint64 memberGuid — a player was added to your group via meeting stone
+        // uint64 memberGuid - a player was added to your group via meeting stone
         if (packet.hasRemaining(8)) {
             uint64_t memberGuid = packet.readUInt64();
             const auto& memberName = lookupName(memberGuid);
@@ -1898,10 +1898,10 @@ void GameHandler::registerRemainingOpcodes() {
             LOG_INFO("SMSG_MEETINGSTONE_MEMBER_ADDED: guid=0x", std::hex, memberGuid, std::dec);
         }
     };
-    // uint8 reason — failed to join group via meeting stone
+    // uint8 reason - failed to join group via meeting stone
     // 0=target_not_in_lfg, 1=target_in_party, 2=target_invalid_map, 3=target_not_available
     dispatchTable_[Opcode::SMSG_MEETINGSTONE_JOINFAILED] = [this](network::Packet& packet) {
-        // uint8 reason — failed to join group via meeting stone
+        // uint8 reason - failed to join group via meeting stone
         // 0=target_not_in_lfg, 1=target_in_party, 2=target_invalid_map, 3=target_not_available
         static const char* kMeetingstoneErrors[] = {
             "Target player is not using the Meeting Stone.",
@@ -1928,7 +1928,7 @@ void GameHandler::registerRemainingOpcodes() {
     // a single byte of it. Little-endian kept the comparison working for the
     // delete, whose value is nine, and broke the other two outright: creating a
     // ticket answers 2 and updating one answers 4, and both were compared
-    // against 1 — so a ticket that went through reported that it had not.
+    // against 1 - so a ticket that went through reported that it had not.
     constexpr uint32_t kTicketAlreadyExists = 1, kTicketCreated = 2,
                        kTicketUpdated = 4, kTicketDeleted = 9;
     dispatchTable_[Opcode::SMSG_GMTICKET_CREATE] = [this](network::Packet& packet) {
@@ -1955,7 +1955,7 @@ void GameHandler::registerRemainingOpcodes() {
         }
     };
     // WotLK 3.3.5a format:
-    //   uint8  status  — 1=no ticket, 6=has open ticket, 3=closed, 10=suspended
+    //   uint8  status  - 1=no ticket, 6=has open ticket, 3=closed, 10=suspended
     // If status == 6 (GMTICKET_STATUS_HASTEXT):
     //   cstring ticketText
     //   uint32  ticketAge       (seconds old)
@@ -1963,7 +1963,7 @@ void GameHandler::registerRemainingOpcodes() {
     //   float   waitTimeHours   (estimated GM wait time)
     dispatchTable_[Opcode::SMSG_GMTICKET_GETTICKET] = [this](network::Packet& packet) {
         // WotLK 3.3.5a format:
-        //   uint8  status  — 1=no ticket, 6=has open ticket, 3=closed, 10=suspended
+        //   uint8  status  - 1=no ticket, 6=has open ticket, 3=closed, 10=suspended
         // If status == 6 (GMTICKET_STATUS_HASTEXT):
         //   cstring ticketText
         //   uint32  ticketAge       (seconds old)
@@ -1971,7 +1971,7 @@ void GameHandler::registerRemainingOpcodes() {
         //   float   waitTimeHours   (estimated GM wait time)
         if (!packet.hasRemaining(1)) { packet.skipAll(); return; }
         uint8_t gmStatus = packet.readUInt8();
-        // Status 6 = GMTICKET_STATUS_HASTEXT — open ticket with text
+        // Status 6 = GMTICKET_STATUS_HASTEXT - open ticket with text
         if (gmStatus == 6 && packet.hasRemaining(1)) {
             gmTicketText_    = packet.readString();
             uint32_t ageSec  = (packet.hasRemaining(4)) ? packet.readUInt32() : 0;
@@ -1996,7 +1996,7 @@ void GameHandler::registerRemainingOpcodes() {
 
             // The interface measures all of this in days and works the wait out
             // itself, as (oldestTicketTime - ticketAge). This packet gives the
-            // wait directly, so the oldest time is the age plus it — which
+            // wait directly, so the oldest time is the age plus it - which
             // arrives at the same number the server meant.
             //
             // updateTime says how stale the estimate is; anything over an hour
@@ -2051,7 +2051,7 @@ void GameHandler::registerRemainingOpcodes() {
                 : "GM support is currently unavailable.");
             LOG_INFO("SMSG_GMTICKET_SYSTEMSTATUS: available=", gmSupportAvailable_);
             // The help frame disables its "open a ticket" button on anything
-            // but GMTICKET_QUEUE_STATUS_ENABLED, which is the number 1 — and
+            // but GMTICKET_QUEUE_STATUS_ENABLED, which is the number 1 - and
             // gets it from here. Parsed and stored and never said, so a closed
             // queue looked open until the ticket was refused.
             fireAddonEvent("UPDATE_GM_STATUS", {gmSupportAvailable_ ? "1" : "0"});
@@ -2084,7 +2084,7 @@ void GameHandler::registerRemainingOpcodes() {
     //
     // The polarity was inverted as well. The server sends
     // 255 - cooldown * 51, so 255 means the cooldown has fully elapsed and the
-    // rune is ready, and 0 means it was just spent — the opposite of what
+    // rune is ready, and 0 means it was just spent - the opposite of what
     // `1 - cd/255` computed.
     //
     // The type is in here too and was never read, so a rune converted to Death
@@ -2143,8 +2143,8 @@ void GameHandler::registerRemainingOpcodes() {
         // four bytes on the wire.
         //
         // What was here read the type as a slot index and the rest as a guid,
-        // which put every engaging boss in slot zero — the value of
-        // ENCOUNTER_FRAME_ENGAGE — and wrote a disengaging one into slot one
+        // which put every engaging boss in slot zero - the value of
+        // ENCOUNTER_FRAME_ENGAGE - and wrote a disengaging one into slot one
         // instead of clearing it. The five-byte guard also dropped a refresh
         // outright.
         enum : uint32_t {
@@ -2165,7 +2165,7 @@ void GameHandler::registerRemainingOpcodes() {
             if (!packet.hasRemaining(1)) { packet.skipAll(); return; }
             const uint64_t unit = packet.readPackedGuid();
             // Non-zero means the encounter wants this unit in a particular
-            // frame — Halion's two bodies ask for one and two. Zero, which is
+            // frame - Halion's two bodies ask for one and two. Zero, which is
             // the default and what most scripts send, means anywhere.
             const uint8_t priority = packet.hasRemaining(1) ? packet.readUInt8() : 0;
             if (!unit) break;
@@ -2291,8 +2291,8 @@ void GameHandler::registerRemainingOpcodes() {
     // It also said the wrong thing. The message was "you must be in a raid
     // group to enter this instance", and that is not what the server sends
     // this for: UpdateHomebindTime raises it when the player is standing in an
-    // instance they are not valid for — saved to a different id, or in a party
-    // inside a raid — and the sixty seconds is until they are teleported to a
+    // instance they are not valid for - saved to a different id, or in a party
+    // inside a raid - and the sixty seconds is until they are teleported to a
     // graveyard. A player got one line of the wrong explanation and no
     // countdown at all.
     dispatchTable_[Opcode::SMSG_RAID_GROUP_ONLY] = [this](network::Packet& packet) {
@@ -2344,7 +2344,7 @@ void GameHandler::registerRemainingOpcodes() {
             resp.writeUInt32(splitType);
             resp.writeString("3.3.5");
             socket->send(resp);
-            LOG_DEBUG("SMSG_REALM_SPLIT splitType=", splitType, " — sent CMSG_REALM_SPLIT ack");
+            LOG_DEBUG("SMSG_REALM_SPLIT splitType=", splitType, " - sent CMSG_REALM_SPLIT ack");
         }
     };
     dispatchTable_[Opcode::SMSG_REAL_GROUP_UPDATE] = [this](network::Packet& packet) {
@@ -2417,9 +2417,9 @@ void GameHandler::registerRemainingOpcodes() {
         }
         if (auto* sv = renderer->getSpellVisualSystem()) sv->playSpellVisual(impVisualId, spawnPos, /*useImpactKit=*/true);
     };
-    // SMSG_READ_ITEM_OK — moved to InventoryHandler::registerOpcodes
-    // SMSG_READ_ITEM_FAILED — moved to InventoryHandler::registerOpcodes
-    // SMSG_QUERY_QUESTS_COMPLETED_RESPONSE — moved to QuestHandler::registerOpcodes
+    // SMSG_READ_ITEM_OK - moved to InventoryHandler::registerOpcodes
+    // SMSG_READ_ITEM_FAILED - moved to InventoryHandler::registerOpcodes
+    // SMSG_QUERY_QUESTS_COMPLETED_RESPONSE - moved to QuestHandler::registerOpcodes
     dispatchTable_[Opcode::SMSG_NPC_WONT_TALK] = [this](network::Packet& packet) {
         addUIError("That creature can't talk to you right now.");
         raiseUiError("That creature can't talk to you right now.");
@@ -2429,7 +2429,7 @@ void GameHandler::registerRemainingOpcodes() {
     // (SMSG_PET_UNLEARN_CONFIRM → registered by SpellHandler, which owns the
     // pending-unlearn state the confirm dialog reads. Handling it here wrote
     // to dead duplicate members and the dialog never appeared.)
-    // These pet opcodes have incompatible formats — just consume the packet.
+    // These pet opcodes have incompatible formats - just consume the packet.
     // Previously they shared the unlearn handler, which misinterpreted sound IDs
     // or GUID lists as unlearn costs and could trigger a bogus unlearn dialog.
     for (auto op : { Opcode::SMSG_PET_GUIDS, Opcode::SMSG_PET_DISMISS_SOUND,
@@ -2506,7 +2506,7 @@ void GameHandler::registerRemainingOpcodes() {
             // INSPECT_READY is a later expansion's name and nothing in this
             // interface listens for it. The inspect paperdoll refreshes on
             // UNIT_INVENTORY_CHANGED for the unit it is showing, so the gear
-            // arrived and the window was never told — it kept whatever it had
+            // arrived and the window was never told - it kept whatever it had
             // when it opened. Fired for the unit token this guid answers to,
             // and only when it answers to one: an inspected player who is not
             // the target has no token for the interface to match against.
@@ -2575,9 +2575,9 @@ void GameHandler::registerRemainingOpcodes() {
         }
         packet.skipAll();
     };
-    // SMSG_REFER_A_FRIEND_EXPIRED — moved to SocialHandler::registerOpcodes
-    // SMSG_REFER_A_FRIEND_FAILURE — moved to SocialHandler::registerOpcodes
-    // SMSG_REPORT_PVP_AFK_RESULT — moved to SocialHandler::registerOpcodes
+    // SMSG_REFER_A_FRIEND_EXPIRED - moved to SocialHandler::registerOpcodes
+    // SMSG_REFER_A_FRIEND_FAILURE - moved to SocialHandler::registerOpcodes
+    // SMSG_REPORT_PVP_AFK_RESULT - moved to SocialHandler::registerOpcodes
     dispatchTable_[Opcode::SMSG_RESPOND_INSPECT_ACHIEVEMENTS] = [this](network::Packet& packet) {
         loadAchievementNameCache();
         if (!packet.hasRemaining(1)) return;
@@ -2642,23 +2642,23 @@ void GameHandler::registerRemainingOpcodes() {
         }
     };
     // WotLK 3.3.5a format:
-    //   uint64 mirrorGuid — GUID of the mirror image unit
-    //   uint32 displayId  — display ID to render the image with
-    //   uint8  raceId     — race of caster
-    //   uint8  genderFlag — gender of caster
-    //   uint8  classId    — class of caster
-    //   uint64 casterGuid — GUID of the player who cast the spell
+    //   uint64 mirrorGuid - GUID of the mirror image unit
+    //   uint32 displayId  - display ID to render the image with
+    //   uint8  raceId     - race of caster
+    //   uint8  genderFlag - gender of caster
+    //   uint8  classId    - class of caster
+    //   uint64 casterGuid - GUID of the player who cast the spell
     //   Followed by equipped item display IDs (11 × uint32) if casterGuid != 0
     // Purpose: tells client how to render the image (same appearance as caster).
     // We parse the GUIDs so units render correctly via their existing display IDs.
     dispatchTable_[Opcode::SMSG_MIRRORIMAGE_DATA] = [this](network::Packet& packet) {
         // WotLK 3.3.5a format:
-        //   uint64 mirrorGuid — GUID of the mirror image unit
-        //   uint32 displayId  — display ID to render the image with
-        //   uint8  raceId     — race of caster
-        //   uint8  genderFlag — gender of caster
-        //   uint8  classId    — class of caster
-        //   uint64 casterGuid — GUID of the player who cast the spell
+        //   uint64 mirrorGuid - GUID of the mirror image unit
+        //   uint32 displayId  - display ID to render the image with
+        //   uint8  raceId     - race of caster
+        //   uint8  genderFlag - gender of caster
+        //   uint8  classId    - class of caster
+        //   uint64 casterGuid - GUID of the player who cast the spell
         //   Followed by equipped item display IDs (11 × uint32) if casterGuid != 0
         // Purpose: tells client how to render the image (same appearance as caster).
         // We parse the GUIDs so units render correctly via their existing display IDs.
@@ -2685,7 +2685,7 @@ void GameHandler::registerRemainingOpcodes() {
     };
     // uint64 battlefieldGuid + uint32 zoneId + uint64 expireUnixTime (seconds)
     dispatchTable_[Opcode::SMSG_BATTLEFIELD_MGR_ENTRY_INVITE] = [this](network::Packet& packet) {
-        // uint32 battleId + uint32 zoneId + uint32 acceptTime — twelve bytes.
+        // uint32 battleId + uint32 zoneId + uint32 acceptTime - twelve bytes.
         //
         // This required twenty and read a 64-bit guid and a 64-bit time that
         // the server does not send, so it returned on the length check every
@@ -2723,7 +2723,7 @@ void GameHandler::registerRemainingOpcodes() {
         LOG_INFO("SMSG_BATTLEFIELD_MGR_ENTRY_INVITE: zoneId=", bfZoneId);
     };
     dispatchTable_[Opcode::SMSG_BATTLEFIELD_MGR_ENTERED] = [this](network::Packet& packet) {
-        // uint32 battleId, then three flags — seven bytes. This read a 64-bit
+        // uint32 battleId, then three flags - seven bytes. This read a 64-bit
         // guid the server does not send and guarded eight, so on a seven-byte
         // packet it never ran: entering Wintergrasp announced nothing.
         if (packet.hasRemaining(7)) {
@@ -2745,7 +2745,7 @@ void GameHandler::registerRemainingOpcodes() {
     };
     // uint64 battlefieldGuid + uint32 battlefieldId + uint64 expireTime
     dispatchTable_[Opcode::SMSG_BATTLEFIELD_MGR_QUEUE_INVITE] = [this](network::Packet& packet) {
-        // uint32 battleId + uint8 warmup — five bytes, and this required
+        // uint32 battleId + uint8 warmup - five bytes, and this required
         // twenty. Same shape as the entry invite above: never ran, and the
         // event it fires was recorded as one the server never sends.
         if (!packet.hasRemaining(5)) {
@@ -2795,7 +2795,7 @@ void GameHandler::registerRemainingOpcodes() {
                                            : "Battlefield queue request failed.";
             addSystemChatMessage(std::string("Battlefield: ") + msg);
         }
-        // The battle id and whether the queue took, in that order — the
+        // The battle id and whether the queue took, in that order - the
         // interface reads both to say which battlefield answered and how.
         if (addonEventCallback_) {
             addonEventCallback_("BATTLEFIELD_MGR_QUEUE_REQUEST_RESPONSE",
@@ -2811,7 +2811,7 @@ void GameHandler::registerRemainingOpcodes() {
         // flag across nine bytes, so the guard alone kept it from running.
         //
         // AzerothCore declares this opcode and never sends it, so nothing here
-        // has been exercised — but a wrong reading is worse than an untested
+        // has been exercised - but a wrong reading is worse than an untested
         // one, and the frame that answers it is live.
         if (!packet.hasRemaining(4)) { packet.skipAll(); return; }
         const uint32_t battleId = packet.readUInt32();
@@ -2831,7 +2831,7 @@ void GameHandler::registerRemainingOpcodes() {
         // writes exactly that.
         //
         // This guarded seventeen and read a guid, two thirty-two-bit fields and
-        // a flag, so it never ran once — and the reason it treated as a small
+        // a flag, so it never ran once - and the reason it treated as a small
         // enum is a bit mask, which would have named the wrong thing if it had.
         if (!packet.hasRemaining(7)) { packet.skipAll(); return; }
         const uint32_t battleId = packet.readUInt32();
@@ -2864,7 +2864,7 @@ void GameHandler::registerRemainingOpcodes() {
 
         // battleID, playerExited, relocated, battleActive, lowLevel. The four
         // flags are booleans in the middle of the list, so they go through
-        // eventBool — a zero here would read as true and pick the wrong dialog.
+        // eventBool - a zero here would read as true and pick the wrong dialog.
         fireAddonEvent("BATTLEFIELD_MGR_EJECTED",
                        {std::to_string(battleId),
                         eventBool(exited),
@@ -2910,7 +2910,7 @@ void GameHandler::registerRemainingOpcodes() {
     // The whole calendar, in answer to a request for it.
     //
     // Six lists back to back with no length prefix on any of them, so this is
-    // parsed in one place with a test rather than read inline — a row taken
+    // parsed in one place with a test rather than read inline - a row taken
     // one field wrong slides everything after it and the next count is read
     // out of the middle of a string, which fails silently and completely.
     // See parseCalendarSendCalendar.
@@ -2932,9 +2932,9 @@ void GameHandler::registerRemainingOpcodes() {
         if (addonEventCallback_) addonEventCallback_("CALENDAR_UPDATE_EVENT_LIST", {});
         packet.skipAll();
     };
-    // uint32 numPending — number of unacknowledged calendar invites
+    // uint32 numPending - number of unacknowledged calendar invites
     dispatchTable_[Opcode::SMSG_CALENDAR_SEND_NUM_PENDING] = [this](network::Packet& packet) {
-        // uint32 numPending — number of unacknowledged calendar invites
+        // uint32 numPending - number of unacknowledged calendar invites
         if (packet.hasRemaining(4)) {
             uint32_t numPending = packet.readUInt32();
             const bool countChanged = (calendarPendingInvites_ != numPending);
@@ -3007,9 +3007,9 @@ void GameHandler::registerRemainingOpcodes() {
         // rank(1) + creatorGuid(packed) + senderGuid(packed).
         //
         // Only the id and the title are read; the rest is skipped. The widths
-        // written here before were a different shape — an eight-byte time, a
+        // written here before were a different shape - an eight-byte time, a
         // one-byte type, an isGuildEvent that is not sent, and two full guids
-        // where the wire has packed ones — which would misread everything past
+        // where the wire has packed ones - which would misread everything past
         // the title for whoever went to use it.
         if (!packet.hasRemaining(9)) {
             packet.skipAll(); return;
@@ -3063,7 +3063,7 @@ void GameHandler::registerRemainingOpcodes() {
         // The chat line is the whole of it, deliberately. framexml_event_gap
         // pairs this message with CALENDAR_UPDATE_EVENT on the words they
         // share, but an RSVP changing is CALENDAR_UPDATE_INVITE_LIST in
-        // retail — and both are read by a calendar that would re-read nothing,
+        // retail - and both are read by a calendar that would re-read nothing,
         // since no event list is kept here for either to draw from.
         packet.skipAll();
     };
@@ -3109,9 +3109,9 @@ void GameHandler::registerRemainingOpcodes() {
         }
         packet.skipAll();
     };
-    // uint32 unixTime — server's current unix timestamp; use to sync gameTime_
+    // uint32 unixTime - server's current unix timestamp; use to sync gameTime_
     dispatchTable_[Opcode::SMSG_SERVERTIME] = [](network::Packet& packet) {
-        // uint32 unixTime — server's current unix timestamp; use to sync gameTime_
+        // uint32 unixTime - server's current unix timestamp; use to sync gameTime_
         // A unix timestamp, which is not a time of day. It used to be stored
         // in gameTime_ alongside values in three other units, so whichever
         // packet arrived last decided what the sky thought the hour was.
@@ -3149,9 +3149,9 @@ void GameHandler::registerRemainingOpcodes() {
         LOG_INFO("SMSG_KICK_REASON: reasonType=", reasonType,
                  " reason='", reason, "'");
     };
-    // uint32 throttleMs — rate-limited group action; notify the player
+    // uint32 throttleMs - rate-limited group action; notify the player
     dispatchTable_[Opcode::SMSG_GROUPACTION_THROTTLED] = [this](network::Packet& packet) {
-        // uint32 throttleMs — rate-limited group action; notify the player
+        // uint32 throttleMs - rate-limited group action; notify the player
         if (packet.hasRemaining(4)) {
             uint32_t throttleMs = packet.readUInt32();
             char buf[128];
@@ -3207,8 +3207,8 @@ void GameHandler::registerRemainingOpcodes() {
         // Both strings are parsed right here and were only ever said in chat,
         // so the reply arrived and the frame that deals with it never opened.
         //
-        // The description first, then the response — the order it unpacks them
-        // — and the body stands in for a description the server did not send,
+        // The description first, then the response - the order it unpacks them
+        // - and the body stands in for a description the server did not send,
         // since an empty first argument leaves the panel captionless.
         fireAddonEvent("GMRESPONSE_RECEIVED",
                        {subject.empty() ? body : subject, responseText});
@@ -3237,7 +3237,7 @@ void GameHandler::registerRemainingOpcodes() {
     };
     // GM ticket status (new/updated); no ticket UI yet
     registerSkipHandler(Opcode::SMSG_GM_TICKET_STATUS_UPDATE);
-    // Broadcast of another player's collision height change — cosmetic only.
+    // Broadcast of another player's collision height change - cosmetic only.
     registerSkipHandler(Opcode::MSG_MOVE_SET_COLLISION_HGT);
     // Client uses this outbound; treat inbound variant as no-op for robustness.
     registerSkipHandler(Opcode::MSG_MOVE_WORLDPORT_ACK);
@@ -3246,7 +3246,7 @@ void GameHandler::registerRemainingOpcodes() {
     // loggingOut_ already cleared by cancelLogout(); this is server's confirmation
     // Not skipped: this is the server confirming a logout was called off, and
     // the interface hides its countdown on it. The client already cancels
-    // optimistically in cancelLogout(), so the ack changes no state here — it
+    // optimistically in cancelLogout(), so the ack changes no state here - it
     // is the only thing that tells the interface the countdown is over.
     dispatchTable_[Opcode::SMSG_LOGOUT_CANCEL_ACK] = [this](network::Packet& packet) {
         if (addonEventCallback_) addonEventCallback_("LOGOUT_CANCEL", {});
@@ -3255,7 +3255,7 @@ void GameHandler::registerRemainingOpcodes() {
     // Someone has taken the player's insignia, so the corpse is gone and any
     // resurrect offer against it is void. The body carries a free-repop flag
     // the interface reads only in code Blizzard commented out, so it is not
-    // parsed here — the message and the cancelled offers are the whole effect.
+    // parsed here - the message and the cancelled offers are the whole effect.
     dispatchTable_[Opcode::SMSG_PLAYER_SKINNED] = [this](network::Packet& packet) {
         addUIError("Insignia Taken - You can only resurrect at the graveyard");
         if (addonEventCallback_) addonEventCallback_("PLAYER_SKINNED", {});
@@ -3267,12 +3267,12 @@ void GameHandler::registerRemainingOpcodes() {
     // These packets are not damage-shield events. Consume them without
     // synthesizing reflected damage entries or misattributing GUIDs.
     registerSkipHandler(Opcode::SMSG_SPELLBREAKLOG);
-    // Consume silently — informational, no UI action needed
+    // Consume silently - informational, no UI action needed
     // What an item cost and how long is left to hand it back.
     //
     // Skipped until now, which is why GetContainerItemPurchaseInfo answered
     // nil and the refund lock never appeared. The client was never sent this
-    // unasked — it is a reply to CMSG_ITEM_REFUND_INFO, and nothing asked.
+    // unasked - it is a reply to CMSG_ITEM_REFUND_INFO, and nothing asked.
     dispatchTable_[Opcode::SMSG_ITEM_REFUND_INFO_RESPONSE] = [this](network::Packet& packet) {
         if (!packet.hasRemaining(8 + 4 * 3)) return;
         const uint64_t itemGuid = packet.readUInt64();
@@ -3280,7 +3280,7 @@ void GameHandler::registerRemainingOpcodes() {
         info.money = packet.readUInt32();
         info.honor = packet.readUInt32();
         info.arena = packet.readUInt32();
-        // Five cost slots, id and count together — the same interleaving the
+        // Five cost slots, id and count together - the same interleaving the
         // item query's sockets use, and the same trap if read as two runs.
         for (auto& slot : info.items) {
             if (!packet.hasRemaining(8)) break;
@@ -3295,18 +3295,18 @@ void GameHandler::registerRemainingOpcodes() {
         itemRefundInfo_[itemGuid] = info;
         fireAddonEvent("UPDATE_INVENTORY_ALERTS", {});
     };
-    // Consume silently — informational, no UI action needed
+    // Consume silently - informational, no UI action needed
     registerSkipHandler(Opcode::SMSG_LOOT_LIST);
     // Same format as LOCKOUT_ADDED; consume
     registerSkipHandler(Opcode::SMSG_CALENDAR_RAID_LOCKOUT_UPDATED);
     // Sent one line before SMSG_DESTROY_OBJECT and carrying the same guid, and
-    // only inside an arena — Object::DestroyForPlayer writes both. The unit is
+    // only inside an arena - Object::DestroyForPlayer writes both. The unit is
     // removed by the second one whatever happens here, so this is a decision
     // rather than a gap: the real client uses it to tell an arena opponent who
     // died from one who merely went out of range, and nothing here draws that
     // distinction.
     registerSkipHandler(Opcode::SMSG_ARENA_UNIT_DESTROYED);
-    // Consume — remaining server notifications not yet parsed
+    // Consume - remaining server notifications not yet parsed
     for (auto op : {
         Opcode::SMSG_AFK_MONITOR_INFO_RESPONSE,
         Opcode::SMSG_AUCTION_LIST_PENDING_SALES,
@@ -3393,8 +3393,8 @@ void GameHandler::registerRemainingOpcodes() {
 // The domain handlers registering their own.
 //
 // This used to be described as overriding duplicate entries above, which has
-// not been true since those were moved out. The two sets are disjoint — checked
-// opcode by opcode, 182 here against 320 there, no overlap — so the order
+// not been true since those were moved out. The two sets are disjoint - checked
+// opcode by opcode, 182 here against 320 there, no overlap - so the order
 // between them carries no meaning and a reader need not look for one.
 void GameHandler::registerDomainOpcodes() {
     chatHandler_->registerOpcodes(dispatchTable_);
@@ -3417,7 +3417,7 @@ void GameHandler::handlePacket(network::Packet& packet) {
     // Do NOT drop packets with an empty body. getSize() is the payload length and the
     // opcode is carried separately, so for the many opcodes that have no payload the
     // opcode *is* the message. Dropping them here silently swallowed
-    // SMSG_LOGOUT_COMPLETE — the server logged the character out and moved on while
+    // SMSG_LOGOUT_COMPLETE - the server logged the character out and moved on while
     // the client waited forever, so the countdown ended and nothing happened.
     uint16_t opcode = packet.getOpcode();
 

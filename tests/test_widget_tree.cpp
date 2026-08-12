@@ -457,7 +457,7 @@ TEST_CASE("Status bar fill is clamped and survives a degenerate range",
     REQUIRE(w->barFraction() == Catch::Approx(0.0f));
 
     // A bar whose range was never set, or set backwards, reads empty instead of
-    // dividing by nothing — health frames are created before their values are
+    // dividing by nothing - health frames are created before their values are
     // known and would otherwise flash full or NaN on the first frame.
     w->barMin = 0.0f; w->barMax = 0.0f; w->barValue = 5.0f;
     REQUIRE(w->barFraction() == Catch::Approx(0.0f));
@@ -491,7 +491,7 @@ TEST_CASE("The interface is laid out in units, whatever the display is",
     //
     // Only the height sets the scale. The width follows from it, which is why
     // a wide display shows more of the world beside the same-sized frames
-    // rather than larger ones — and why a portrait display, where the height
+    // rather than larger ones - and why a portrait display, where the height
     // is the long side, draws the interface bigger. That is what the original
     // client does too.
     WidgetTree tree;
@@ -513,7 +513,7 @@ TEST_CASE("The interface is laid out in units, whatever the display is",
     SECTION("a portrait display is narrow in units and scaled up") {
         // 1080x1920 rotated. The virtual screen is 432 units across, so the
         // interface is drawn at two and a half times size against very little
-        // width — which is the original client's behaviour on the same
+        // width - which is the original client's behaviour on the same
         // monitor, not a fault to correct here.
         tree.layout(1080.0f, 1920.0f);
         REQUIRE(tree.uiScale() == Catch::Approx(2.5f));
@@ -538,7 +538,7 @@ TEST_CASE("The interface is laid out in units, whatever the display is",
 
 TEST_CASE("A frame's anchors can be read back as they were set",
           "[widget][anchor]") {
-    // FrameXML reads a point and puts it straight back to move something — a
+    // FrameXML reads a point and puts it straight back to move something - a
     // dragged chat window, a frame the panel manager shifts aside. Anything
     // less than the anchor it was given means that round trip moves the frame,
     // and a constant means it moves to the same place every time.
@@ -601,7 +601,7 @@ TEST_CASE("A widget knows what type it is", "[widget]") {
 
 TEST_CASE("A scroll frame is a window onto a taller child", "[widget][scroll]") {
     // Scrolling down means seeing content further down the child, which is the
-    // child moving up — and up is a larger bottom in these coordinates. The
+    // child moving up - and up is a larger bottom in these coordinates. The
     // whole feature was absent: SetVerticalScroll did nothing and every getter
     // answered zero, so a scroll bar had nothing to report and nothing to move.
     WidgetTree tree;
@@ -625,7 +625,7 @@ TEST_CASE("A scroll frame is a window onto a taller child", "[widget][scroll]") 
     tree.layout(1024.0f, 768.0f);
     REQUIRE(tree.get(child)->bottom == Catch::Approx(unscrolled + 50.0f));
 
-    // Everything under the frame is clipped to it, however deep — a scroll
+    // Everything under the frame is clipped to it, however deep - a scroll
     // child holds frames of its own.
     const uint32_t grandchild = tree.create(WidgetKind::Frame, child, "SGrand");
     tree.get(grandchild)->width = 10.0f;
@@ -673,7 +673,7 @@ TEST_CASE("Only a frame that asked for the wheel takes it", "[widget][scroll]") 
 TEST_CASE("Scrolled out of sight is out of reach", "[widget][scroll][hittest]") {
     // Clipping without this is only half the feature: the part of a scroll
     // child above or below the window is not drawn, so it must not answer
-    // clicks either — a quest log that reacts to entries nobody can see is
+    // clicks either - a quest log that reacts to entries nobody can see is
     // worse than one that does not scroll at all.
     WidgetTree tree;
     const uint32_t scroll = tree.create(WidgetKind::Frame, tree.root(), "S");
@@ -712,7 +712,7 @@ TEST_CASE("Scrolled out of sight is out of reach", "[widget][scroll][hittest]") 
 TEST_CASE("Scroll frames are tracked as they are marked", "[widget][scroll]") {
     // The range has to be re-checked every frame, and walking every widget to
     // find a handful of scroll frames is the kind of cost that does not show
-    // up until the interface is large — which, with FrameXML loaded, it is.
+    // up until the interface is large - which, with FrameXML loaded, it is.
     WidgetTree tree;
     const uint32_t a = tree.create(WidgetKind::Frame, tree.root(), "A");
     const uint32_t b = tree.create(WidgetKind::Frame, tree.root(), "B");
@@ -732,7 +732,7 @@ TEST_CASE("Scroll frames are tracked as they are marked", "[widget][scroll]") {
 TEST_CASE("Visibility is a state to be noticed, not an event to be sent",
           "[widget][layout]") {
     // Hiding a frame hides everything under it, and none of those had Hide
-    // called on them — so anything watching for a frame to go away has to
+    // called on them - so anything watching for a frame to go away has to
     // compare what layout resolved rather than listen at the point something
     // was hidden three levels up. This is the property that makes it possible.
     WidgetTree tree;
@@ -766,7 +766,7 @@ TEST_CASE("A button shows one state texture, not all of them",
           "[widget][draworder]") {
     // A button carries art for each state and shows one. Drawing all of them
     // puts the disabled art over the normal art with the highlight permanently
-    // on top, which is not a subtle fault — every button in the interface
+    // on top, which is not a subtle fault - every button in the interface
     // looks hovered and wrong at once.
     WidgetTree tree;
     const uint32_t button = tree.create(WidgetKind::Frame, tree.root(), "B");
@@ -878,7 +878,7 @@ TEST_CASE("A region with neither size nor anchors fills its parent",
     // of the player frame's art and MinimapBorder is the ring around the
     // minimap, and both are declared with nothing but a file. Laid out to
     // nothing they never reach the draw order, so they are never uploaded
-    // either — which reads as missing art rather than as a layout fault.
+    // either - which reads as missing art rather than as a layout fault.
     WidgetTree tree;
     const uint32_t frame = tree.create(WidgetKind::Frame, tree.root(), "F");
     tree.get(frame)->width = 232.0f;
@@ -911,7 +911,7 @@ TEST_CASE("A frame knows its level before it is ever laid out",
     // GetFrameLevel answers with this, and FrameXML asks during OnLoad:
     // RaiseFrameLevel is frame:SetFrameLevel(frame:GetFrameLevel() + 1). A
     // frame that had never been laid out answered zero, so the adjustment was
-    // computed against nothing and the frame ended up below its own parent —
+    // computed against nothing and the frame ended up below its own parent -
     // which for the action bar meant the bar took every click aimed at a
     // button sitting on it.
     WidgetTree tree;
@@ -972,7 +972,7 @@ TEST_CASE("A message frame keeps its lines and drops the oldest",
 TEST_CASE("A tooltip with lines paints; an empty one does not",
           "[widget][tooltip]") {
     // AddLine was a name in the method list and nothing else, so every tooltip
-    // in the interface was shown, positioned, sized — and empty. A tooltip is
+    // in the interface was shown, positioned, sized - and empty. A tooltip is
     // also a frame, and a frame paints nothing on its own, so having lines has
     // to be what makes it draw.
     WidgetTree tree;
@@ -996,7 +996,7 @@ TEST_CASE("A tooltip with lines paints; an empty one does not",
 
 TEST_CASE("A tooltip anchored to its owner sits beside it", "[widget][tooltip]") {
     // SetOwner is what every tooltip in the interface calls before filling
-    // itself, and it decided nothing — so a tooltip with lines would still
+    // itself, and it decided nothing - so a tooltip with lines would still
     // have appeared wherever its XML left it rather than beside the button it
     // describes. ANCHOR_RIGHT means the tooltip's left edge meets the owner's
     // right, which is the whole of the mapping.
@@ -1021,8 +1021,8 @@ TEST_CASE("A tooltip anchored to its owner sits beside it", "[widget][tooltip]")
 
 TEST_CASE("A frame with no anchor points is not displayed", "[widget][layout]") {
     // WoW's rule, and the reason for it is visible the moment it is missing:
-    // FrameXML declares plenty of frames with no anchors — a money frame, a
-    // dropdown, a quest reward panel — and every one of them fell to the
+    // FrameXML declares plenty of frames with no anchors - a money frame, a
+    // dropdown, a quest reward panel - and every one of them fell to the
     // centre-on-parent default and sat in the middle of the screen looking
     // like a fault in something else.
     WidgetTree tree;
@@ -1033,7 +1033,7 @@ TEST_CASE("A frame with no anchor points is not displayed", "[widget][layout]") 
     tree.layout(1024.0f, 768.0f);
     REQUIRE_FALSE(tree.get(stray)->visible);
 
-    // Anchored, it appears — and so does everything under it.
+    // Anchored, it appears - and so does everything under it.
     const uint32_t child = tree.create(WidgetKind::Frame, stray, "StrayChild");
     tree.get(child)->width = 10.0f;
     tree.get(child)->height = 10.0f;
@@ -1098,7 +1098,7 @@ TEST_CASE("A size just set reads back before the next layout", "[widget][layout]
     //
     // Answering GetHeight from the last laid-out rect makes that sum the
     // previous frame's numbers, and the art and the buttons anchored inside it
-    // then describe two different frames — which is what put the item slots of
+    // then describe two different frames - which is what put the item slots of
     // an opened bag below the art drawn for it.
     WidgetTree tree;
     const uint32_t art = tree.create(WidgetKind::Texture, tree.root(), "Art");
@@ -1108,7 +1108,7 @@ TEST_CASE("A size just set reads back before the next layout", "[widget][layout]
     tree.layout(1024.0f, 768.0f);
     REQUIRE(tree.get(art)->rectH == Catch::Approx(40.0f));
 
-    // Resized, and read back at once — no layout in between, exactly as
+    // Resized, and read back at once - no layout in between, exactly as
     // ContainerFrame_GenerateFrame does it.
     tree.setHeight(art, 94.0f);
     REQUIRE(tree.get(art)->rectH == Catch::Approx(94.0f));
@@ -1169,7 +1169,7 @@ TEST_CASE("A moved frame gives way when the interface positions it again",
           "[widget][layout]") {
     // The anchor a move leaves behind is on whichever point the frame was
     // picked up by, and the interface re-anchors on its own points without
-    // clearing first — updateContainerFrameAnchors sets BOTTOMRIGHT on every
+    // clearing first - updateContainerFrameAnchors sets BOTTOMRIGHT on every
     // bag each time one opens. Keeping both left two constraints on one axis,
     // and the bag opened with no width.
     WidgetTree tree;
@@ -1275,7 +1275,7 @@ TEST_CASE("A clamped tooltip anchored past the right edge is pulled back in",
           "[widget][layout]") {
     // The calendar button sits at the right of the minimap and anchors its
     // tooltip ANCHOR_RIGHT, so the tooltip's left edge starts at the button's
-    // right edge — a few pixels from the screen edge, with the whole width of
+    // right edge - a few pixels from the screen edge, with the whole width of
     // the tooltip still to come.
     WidgetTree tree;
     const uint32_t owner = tree.create(WidgetKind::Frame, tree.root(), "Button");
@@ -1493,7 +1493,7 @@ TEST_CASE("Raising a window carries its regions with it", "[widget][layout]") {
 TEST_CASE("A child with its own level still follows when the parent is raised",
           "[widget][layout]") {
     // SetFrameLevel makes a child's level explicit, and FrameXML calls it
-    // freely — RaiseFrameLevelByTwo alone is used all over. In WoW a child's
+    // freely - RaiseFrameLevelByTwo alone is used all over. In WoW a child's
     // level is relative to its parent, so raising the parent must carry it.
     WidgetTree tree;
     const uint32_t win = tree.create(WidgetKind::Frame, tree.root(), "Window");
@@ -1520,7 +1520,7 @@ TEST_CASE("An edge and a centre do not resize a frame", "[widget][layout]") {
     // at once. The XML hangs each row's TOPRIGHT under the row above; then
     // ReputationFrame_SetRowType adds a LEFT anchor to indent it.
     //
-    // On x that is a 0 and a 1 — opposite edges — so the row is meant to
+    // On x that is a 0 and a 1 - opposite edges - so the row is meant to
     // stretch from its indent to the frame's right edge. On y it is a top edge
     // and a *centre*, which is not a pair WoW sizes from: the row keeps the
     // height its template gave it.
@@ -1584,7 +1584,7 @@ TEST_CASE("a reparented frame inherits the new parent's visibility",
           "[widget_tree]") {
     // The half that made this worth more than tidiness. Visibility is resolved
     // down the parent chain at layout, so a frame moved into a hidden window
-    // must go with it — and one moved out of a hidden window must come back.
+    // must go with it - and one moved out of a hidden window must come back.
     WidgetTree tree;
     const uint32_t shown  = tree.create(WidgetKind::Frame, tree.root(), "Shown");
     const uint32_t hidden = tree.create(WidgetKind::Frame, tree.root(), "Hidden");
@@ -1632,7 +1632,7 @@ TEST_CASE("a frame that asks for a size and resolves to none is distinguishable"
           "[widget_tree]") {
     // The signature the takeover check looks for, pinned here because the
     // check itself only runs in a live client. A zero anywhere up the scale
-    // chain leaves a frame laid out, shown, and occupying nothing — which is
+    // chain leaves a frame laid out, shown, and occupying nothing - which is
     // what a CVar read answering "0" for uiScale did to every dropdown in the
     // interface: built, drawn, invisible.
     //
@@ -1672,14 +1672,14 @@ TEST_CASE("a frame that asks for a size and resolves to none is distinguishable"
 TEST_CASE("an unanchored frame is not drawn and is still running",
           "[widget_tree]") {
     // Two questions that look like one. WoW does not draw a frame with no
-    // anchors — that is why a stray panel does not land in the middle of the
-    // screen — but such a frame is still shown, and its OnUpdate still runs.
+    // anchors - that is why a stray panel does not land in the middle of the
+    // screen - but such a frame is still shown, and its OnUpdate still runs.
     // Eight of FrameXML's drivers are exactly that shape: a CreateFrame that
     // is never positioned and carries nothing but an OnUpdate.
     // frameFadeManager drives every fade in the interface, frameFlashManager
     // every flash, AnimUpdateFrame the animation system.
     //
-    // Asking `visible` — which means "would be drawn" — stops all of them.
+    // Asking `visible` - which means "would be drawn" - stops all of them.
     WidgetTree tree;
     const uint32_t driver = tree.create(WidgetKind::Frame, tree.root(), "Driver");
     tree.layout(kScreenW, kScreenH);
@@ -1752,7 +1752,7 @@ TEST_CASE("grey reports no saturation and black no value", "[widget_tree]") {
 }
 
 TEST_CASE("hue wraps rather than running off either end", "[widget_tree]") {
-    // The drag computes hue from atan2, which answers in (-pi, pi] — half of
+    // The drag computes hue from atan2, which answers in (-pi, pi] - half of
     // the wheel is a negative turn. A hue outside [0,1) has to mean the same
     // colour as the one inside it, or dragging through the six-o'clock
     // position would jump the colour.
@@ -1771,7 +1771,7 @@ TEST_CASE("a texture the client renders into is drawn without a file",
     // The player's portrait is a Texture declared with no file, because the
     // picture is a character rendered offscreen and handed over as a live
     // handle. Both halves of the draw path have to agree that "no file" is not
-    // "nothing to draw" — the renderer's own copy of this test was the missing
+    // "nothing to draw" - the renderer's own copy of this test was the missing
     // half, and the portrait was discarded every frame for four days.
     WidgetTree tree;
     const uint32_t live = tree.create(WidgetKind::Texture, tree.root(), "PlayerPortrait");
@@ -1886,7 +1886,7 @@ TEST_CASE("A rect that is not a number is never hit", "[widget][hittest]") {
     // through at any coordinate: `x < left` and `x > right` are both false and
     // the frame reads as hit wherever the cursor is. One mouse-enabled frame
     // answering every hit test tells the rest of the client the interface owns
-    // the mouse, and the camera stops turning anywhere on screen — which is
+    // the mouse, and the camera stops turning anywhere on screen - which is
     // what a chat window whose saved position had gone to nan did.
     WidgetTree tree;
     const uint32_t good = tree.create(WidgetKind::Frame, tree.uiParentId(), "Good");
@@ -1917,13 +1917,13 @@ TEST_CASE("An edge anchor positions the frame, not the centre beside it",
     //
     // An anchor constrains both axes whether it meant to or not. LEFT is the
     // left edge and the vertical centre; RIGHT is the right edge and the same
-    // centre. So on y this frame has three constraints — two centres that came
+    // centre. So on y this frame has three constraints - two centres that came
     // along with the horizontal pair, and the one that is actually about y.
     //
     // Positioning from the first anchor put the bar at its parent's vertical
     // centre and ignored the bottom edge it was given. The scroll frame above
     // it is anchored to its top, so the talent tree got half the height it
-    // should have, was cut off, and would not scroll — it had been made
+    // should have, was cut off, and would not scroll - it had been made
     // shorter than the content it was showing rather than taller.
     WidgetTree tree;
     const uint32_t frame = tree.create(WidgetKind::Frame, tree.root(), "Panel");
@@ -1957,7 +1957,7 @@ TEST_CASE("The wheel finds a frame that took the wheel and not the mouse",
     // UIPanelScrollFrameTemplate asks for only the first: it declares
     // OnMouseWheel and never enables the mouse. Hit-testing the wheel with the
     // test written for the mouse therefore found no scroll frame in the whole
-    // interface, and the wheel fell through to the camera — nothing with a
+    // interface, and the wheel fell through to the camera - nothing with a
     // scroll bar scrolled, the talent tree included.
     WidgetTree tree;
     const uint32_t scroll = tree.create(WidgetKind::Frame, tree.root(), "S");
@@ -1979,8 +1979,8 @@ TEST_CASE("The wheel finds a frame that took the wheel and not the mouse",
 // A measurement taken between two moves.
 //
 // Rects used to be answered only from the once-a-frame pass, so a frame
-// anchored inside a handler measured as though it had never been placed — its
-// own size sitting at the origin — until the next frame came round. The
+// anchored inside a handler measured as though it had never been placed - its
+// own size sitting at the origin - until the next frame came round. The
 // interface is written against a client that answers whenever it is asked: the
 // quest tracker anchors each objective line and immediately reads the edge it
 // landed on to know how tall the block grew. Every read came back zero, the
@@ -2031,7 +2031,7 @@ TEST_CASE("A rect is resolved when it is asked for, not when the frame ends",
 
     // The screen and UIParent are placed by the full pass and have no anchors
     // of their own, so a chain that walks onto them must stop rather than run
-    // the anchor solver over them — that gave the screen a rect derived from
+    // the anchor solver over them - that gave the screen a rect derived from
     // nothing and put everything measured against it in the wrong place.
     const Widget* ui = tree.get(tree.uiParentId());
     REQUIRE(ui != nullptr);
@@ -2059,9 +2059,9 @@ TEST_CASE("Two frames anchored to each other do not resolve for ever",
 // The other kind of size, measured the moment it is created.
 //
 // Width can be stated or it can fall out of two opposing anchors, and only the
-// second goes through the solver. The achievement rows use it — each gates its
+// second goes through the solver. The achievement rows use it - each gates its
 // own layout on `objectives:GetHeight() > 0` and then anchors LEFT and RIGHT to
-// its neighbours — so a size that resolves for stated widths and not for solved
+// its neighbours - so a size that resolves for stated widths and not for solved
 // ones would leave that whole panel collapsed while the simpler cases worked.
 TEST_CASE("A size that comes out of the solver resolves when asked for too",
           "[widget][anchor][layout]") {
@@ -2096,7 +2096,7 @@ TEST_CASE("A size that comes out of the solver resolves when asked for too",
 // In the real client the fill is a region of the bar like any other, and
 // <StatusBar drawLayer="..."> is that region's layer. Here the bar draws its
 // own fill, so the bar has to sort where the fill belongs rather than where a
-// frame would — otherwise the fill goes under everything the bar owns whatever
+// frame would - otherwise the fill goes under everything the bar owns whatever
 // it asked for, and a bar with a dark backing of its own wears it over the
 // fill.
 //
@@ -2242,7 +2242,7 @@ TEST_CASE("Raise and Lower are idempotent", "[widget][level]") {
     CHECK(tree.get(b)->effLevel == bLevel);
 
     // Lower is the same shape in the other direction, and never goes below
-    // zero — a negative level sorts under the root and stops being drawn.
+    // zero - a negative level sorts under the root and stops being drawn.
     for (int i = 0; i < 12; ++i) {
         tree.lower(a);
         tree.layout(1920.0f, 1080.0f);
@@ -2258,7 +2258,7 @@ TEST_CASE("A scroll frame clips its scroll child, not its scroll bar",
     // rather than inside it.
     //
     // Clipping every child put each bar entirely outside its own clip rect,
-    // which does not trim it — it deletes it. Bar, track, thumb and both
+    // which does not trim it - it deletes it. Bar, track, thumb and both
     // buttons were laid out, drawn and cut away to nothing, and the same rect
     // is what the hit test consults, so they could not be clicked either.
     WidgetTree tree;
@@ -2285,7 +2285,7 @@ TEST_CASE("A scroll frame clips its scroll child, not its scroll bar",
     tree.addPoint(bar, Anchor{});
 
     // Something inside the scroll child, however deep, is still bounded by the
-    // window — that is the whole point of a scroll frame.
+    // window - that is the whole point of a scroll frame.
     const uint32_t deep = tree.create(WidgetKind::Frame, child, "Deep");
     tree.get(deep)->width = 50.0f;
     tree.get(deep)->height = 50.0f;
@@ -2295,7 +2295,7 @@ TEST_CASE("A scroll frame clips its scroll child, not its scroll bar",
 
     CHECK(tree.get(child)->clipTo == scroll);
     CHECK(tree.get(deep)->clipTo == scroll);
-    // The bar inherits whatever clips the scroll frame itself — here, nothing.
+    // The bar inherits whatever clips the scroll frame itself - here, nothing.
     CHECK(tree.get(bar)->clipTo != scroll);
     CHECK(tree.get(bar)->clipTo == tree.get(scroll)->clipTo);
 }
@@ -2330,7 +2330,7 @@ TEST_CASE("Button art fills the button on an axis its anchors leave open",
     edge(art, "LEFT", 10.0f);
     edge(art, "RIGHT", -10.0f);
 
-    // And one that states its own size, which must be left exactly as it is —
+    // And one that states its own size, which must be left exactly as it is -
     // TabButtonTemplate's highlight says 5 by 32 and means it.
     const uint32_t sized = tree.create(WidgetKind::Texture, button, "SizedArt");
     tree.get(sized)->texturePath = "Interface\\Buttons\\Highlight.blp";
@@ -2356,7 +2356,7 @@ TEST_CASE("Edges that cross give no size rather than a negative one",
     // the bottom piece's top edge. On a bar shorter than the two end pieces
     // together those are the wrong way round: the macro frame's bar is 146 tall
     // and its ends are 102 and 106, so the middle solved to minus 55. Retail's
-    // art overlaps the same way on a short bar — the overlap is not the fault,
+    // art overlaps the same way on a short bar - the overlap is not the fault,
     // carrying the negative onward is.
     //
     // A rect with a negative extent is inverted rather than empty, so every
@@ -2398,7 +2398,7 @@ TEST_CASE("Edges that cross give no size rather than a negative one",
 
     tree.layout(kScreenW, kScreenH);
 
-    // The two ends really do overlap here — that is the situation, not a bug.
+    // The two ends really do overlap here - that is the situation, not a bug.
     REQUIRE(tree.get(top)->bottom < tree.get(bottom)->bottom + tree.get(bottom)->rectH);
     CHECK(tree.get(middle)->rectH == Catch::Approx(0.0f));
     CHECK(tree.get(middle)->rectH >= 0.0f);
@@ -2427,7 +2427,7 @@ TEST_CASE("Anchors decide a size only when they pin opposite edges",
     CHECK(anchorsSpanAxis({at("TOPLEFT"), at("BOTTOMRIGHT")}, true));
     CHECK(anchorsSpanAxis({at("TOPLEFT"), at("BOTTOMRIGHT")}, false));
 
-    // An edge and a centre are two different fractions and size nothing —
+    // An edge and a centre are two different fractions and size nothing -
     // the distinction that kept every reputation row from being stretched.
     CHECK_FALSE(anchorsSpanAxis({at("TOP"), at("CENTER")}, false));
     CHECK_FALSE(anchorsSpanAxis({at("LEFT"), at("CENTER")}, true));
@@ -2442,7 +2442,7 @@ TEST_CASE("A scroll frame's child is visible without anchors of its own",
     // A scroll child carries no anchors: SetScrollChild positions it, the
     // anchor solver does not. The unanchored-frame rule that hides a frame
     // with nothing to anchor to must not catch it, or it takes every element
-    // inside it down with it — which blanked the whole quest dialog while
+    // inside it down with it - which blanked the whole quest dialog while
     // every frame in it measured correct.
     WidgetTree tree;
     const uint32_t panel = tree.create(WidgetKind::Frame, 0, "Panel");
@@ -2456,7 +2456,7 @@ TEST_CASE("A scroll frame's child is visible without anchors of its own",
     tree.get(scroll)->height = 300.0f;
     tree.addPoint(scroll, Anchor{});
 
-    // No anchors on the child — exactly as SetScrollChild leaves it.
+    // No anchors on the child - exactly as SetScrollChild leaves it.
     const uint32_t child = tree.create(WidgetKind::Frame, scroll, "Child");
     tree.get(scroll)->scrollChild = child;
     tree.get(child)->width = 300.0f;
@@ -2472,7 +2472,7 @@ TEST_CASE("A scroll frame's child is visible without anchors of its own",
     CHECK(tree.get(text)->visible);
 
     // And an ordinary frame with no anchors and no scroll parent is still
-    // hidden — the rule this exempts one case from must otherwise hold.
+    // hidden - the rule this exempts one case from must otherwise hold.
     const uint32_t stray = tree.create(WidgetKind::Frame, panel, "Stray");
     tree.get(stray)->width = 50.0f;
     tree.get(stray)->height = 50.0f;
@@ -2482,7 +2482,7 @@ TEST_CASE("A scroll frame's child is visible without anchors of its own",
 
 // A font string is only re-measured when the text it holds differs from the
 // text it was last measured with. So zeroing its height has to clear that mark,
-// exactly as zeroing its width already does — otherwise setting the SAME words
+// exactly as zeroing its width already does - otherwise setting the SAME words
 // back skips the measure as a no-op and the zero stands, and a region with no
 // height is dropped from the draw order entirely.
 //
@@ -2526,14 +2526,14 @@ TEST_CASE("Zeroing a font string's height lets it be measured again",
     }
 }
 
-// A <ThumbTexture> declares a size and no anchors at all — in WoW the slider is
+// A <ThumbTexture> declares a size and no anchors at all - in WoW the slider is
 // what places it, at the point along the track its value names. The ordinary
 // solve has no anchors to work from and falls through to "centre it on the
 // parent", which left every scroll bar in the interface drawing its grip at the
 // middle of the track whatever the bar was worth: a scroll bar you cannot drag,
 // because the one part that should answer never moves.
 //
-// Value 0 belongs at the TOP of a vertical bar — it is the top of the content —
+// Value 0 belongs at the TOP of a vertical bar - it is the top of the content -
 // and that has to agree with how a drag reads the cursor back into a value, or
 // the grip walks the opposite way from the hand holding it.
 TEST_CASE("A slider's thumb sits where its value says", "[widget][slider]") {
@@ -2593,7 +2593,7 @@ TEST_CASE("A slider's thumb sits where its value says", "[widget][slider]") {
 }
 
 // A scroll child is very often smaller than what is inside it, because nothing
-// in the interface resizes it — the client does. The talent tree is the plainest
+// in the interface resizes it - the client does. The talent tree is the plainest
 // case: PlayerTalentFrameScrollChildFrame declares 320x50 and holds eleven rows
 // of talents 63 apart, and no line of FrameXML ever gives it a height. Taking
 // the declared 50 meant a scroll range of zero and a tree that would not scroll.
@@ -2648,7 +2648,7 @@ TEST_CASE("A scroll child's reach is its contents, not its declared size",
 // An edit box paints its own text and caret, the way a status bar paints its
 // fill and a message frame its lines. Dropped from the draw order as "a frame
 // with nothing of its own to paint", the chat box still opened, took the focus
-// and filled with what was typed — every character going into a widget that was
+// and filled with what was typed - every character going into a widget that was
 // never drawn. The bar looked empty rather than missing, because its art is
 // child textures and those draw on their own.
 TEST_CASE("An edit box is drawn for its own text, not skipped as a container",

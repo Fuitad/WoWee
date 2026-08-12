@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Player Condition catalog (.wpcd) — novel
+// Wowee Open Player Condition catalog (.wpcd) - novel
 // replacement for Blizzard's PlayerCondition.dbc + the
 // AzerothCore-style condition_template SQL tables. The
 // 37th open format added to the editor.
@@ -109,15 +109,15 @@ public:
 
     // Preset emitters used by --gen-conditions* variants.
     //
-    //   makeStarter — 4 standalone conditions covering common
+    //   makeStarter - 4 standalone conditions covering common
     //                  kinds (quest completed / has item /
     //                  min level / class match).
-    //   makeGated   — 5 conditions in 2 groups demonstrating
+    //   makeGated   - 5 conditions in 2 groups demonstrating
     //                  AND aggregation (group 100: alliance
     //                  AND mage AND lvl 60+) and OR
     //                  aggregation (group 200: completed
     //                  quest 1 OR completed quest 2).
-    //   makeEvent   — 3 event-gated conditions (Brewfest /
+    //   makeEvent   - 3 event-gated conditions (Brewfest /
     //                  Hallow's End / Winter's Veil)
     //                  cross-referencing WSEA event IDs.
     static WoweeCondition makeStarter(const std::string& catalogName);

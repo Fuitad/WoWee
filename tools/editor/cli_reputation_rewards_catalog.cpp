@@ -292,7 +292,7 @@ int handleValidate(int& i, int argc, char** argv) {
         warnings.push_back("catalog has zero entries");
     }
     std::set<uint32_t> idsSeen;
-    // (factionId, minStanding) tuple uniqueness — two
+    // (factionId, minStanding) tuple uniqueness - two
     // tiers binding the same (faction, standing) would
     // make the active-tier lookup ambiguous.
     std::set<uint64_t> tierTupleSeen;
@@ -313,7 +313,7 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": name is empty");
         if (e.factionId == 0) {
             errors.push_back(ctx +
-                ": factionId is 0 — tier is not bound "
+                ": factionId is 0 - tier is not bound "
                 "to any WFAC faction");
         }
         if (e.minStanding < -42000 || e.minStanding > 42000) {
@@ -325,7 +325,7 @@ int handleValidate(int& i, int argc, char** argv) {
         if (e.discountPct > 20) {
             warnings.push_back(ctx + ": discountPct " +
                 std::to_string(e.discountPct) +
-                " > 20%% — exceeds typical max vendor "
+                " > 20%% - exceeds typical max vendor "
                 "discount (Exalted is canonically 20%%)");
         }
         // No item/recipe IDs may be 0.
@@ -354,7 +354,7 @@ int handleValidate(int& i, int argc, char** argv) {
                     ", minStanding=" +
                     std::to_string(e.minStanding) +
                     ") combo already bound by another "
-                    "tier — active-tier lookup would be "
+                    "tier - active-tier lookup would be "
                     "ambiguous");
             }
         }
@@ -386,7 +386,7 @@ int handleValidate(int& i, int argc, char** argv) {
                     std::to_string(tiers[k]->minStanding) +
                     ", discount " +
                     std::to_string(tiers[k]->discountPct) +
-                    "%) — higher standing should not "
+                    "%) - higher standing should not "
                     "have worse discount");
             }
         }

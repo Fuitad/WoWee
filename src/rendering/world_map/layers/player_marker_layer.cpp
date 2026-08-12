@@ -1,4 +1,4 @@
-// player_marker_layer.cpp — Directional player arrow on the world map.
+// player_marker_layer.cpp - Directional player arrow on the world map.
 // Uses the WoW worldmapplayericon.blp texture, rendered as a rotated quad.
 #include "rendering/world_map/layers/player_marker_layer.hpp"
 #include "rendering/world_map/coordinate_projection.hpp"

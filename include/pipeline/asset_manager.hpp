@@ -178,7 +178,7 @@ private:
     std::string    baseFallbackDataPath_;
     AssetManifest  baseFallbackManifest_;
 
-    // (resolveFile moved to public — declaration above.)
+    // (resolveFile moved to public - declaration above.)
 
     // Guards fileCache, dbcCache, fileCacheTotalBytes, fileCacheAccessCounter, and
     // fileCacheBudget.  Shared lock for read-only cache lookups (readFile cache hit,
@@ -192,12 +192,12 @@ private:
         std::vector<uint8_t> data;
         uint64_t lastAccessTime;
     };
-    // THREAD-SAFE: protected by cacheMutex (shared_mutex — shared_lock for reads,
+    // THREAD-SAFE: protected by cacheMutex (shared_mutex - shared_lock for reads,
     // exclusive lock_guard for writes/eviction).
     mutable std::unordered_map<std::string, CachedFile> fileCache;
     mutable size_t fileCacheTotalBytes = 0;
     mutable uint64_t fileCacheAccessCounter = 0;
-    // THREAD-SAFE: atomic — incremented from any thread after releasing cacheMutex.
+    // THREAD-SAFE: atomic - incremented from any thread after releasing cacheMutex.
     mutable std::atomic<size_t> fileCacheHits{0};
     mutable std::atomic<size_t> fileCacheMisses{0};
     mutable size_t fileCacheBudget = 1024 * 1024 * 1024;  // Dynamic, starts at 1GB

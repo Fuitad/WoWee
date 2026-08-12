@@ -119,7 +119,7 @@ WoweeBattlegroundRewards WoweeBattlegroundRewardsLoader::makeAlteracValley(
     WoweeBattlegroundRewards c;
     c.name = catalogName;
     // AV bgId=1, requires 20/side. Brackets 5
-    // (51-60) and 6 (61-69 — endgame). Mark of AV =
+    // (51-60) and 6 (61-69 - endgame). Mark of AV =
     // itemId 17502. Win 3 marks / loss 1 mark
     // baseline.
     c.entries.push_back(makeStage(

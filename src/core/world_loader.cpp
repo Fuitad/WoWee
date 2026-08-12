@@ -1,4 +1,4 @@
-// WorldLoader — terrain streaming, map transitions, world preloading
+// WorldLoader - terrain streaming, map transitions, world preloading
 // Extracted from Application as part of god-class decomposition (Section 3.3)
 
 #include "core/world_loader.hpp"
@@ -173,7 +173,7 @@ const char* WorldLoader::mapDisplayName(uint32_t mapId) {
 
 const char* WorldLoader::mapIdToName(uint32_t mapId) {
     // Fallback when Map.dbc is unavailable. Names must match WDT directory names
-    // (case-insensitive — AssetManager lowercases all paths).
+    // (case-insensitive - AssetManager lowercases all paths).
     switch (mapId) {
         // Continents
         case 0: return "Azeroth";
@@ -333,7 +333,7 @@ void WorldLoader::loadMapGeometry(uint32_t mapId, const std::string& mapName,
 
     if (isWMOOnlyMap) {
         // ---- WMO-only map (dungeon/raid/BG): load root WMO directly ----
-        LOG_DEBUG("WMO-only map detected — loading root WMO: ", wdtInfo.rootWMOPath);
+        LOG_DEBUG("WMO-only map detected - loading root WMO: ", wdtInfo.rootWMOPath);
         showProgress("Loading instance geometry...", 0.25f);
 
         // Initialize renderers if they don't exist yet (first login to a WMO-only map).
@@ -612,7 +612,7 @@ void WorldLoader::loadMapGeometry(uint32_t mapId, const std::string& mapName,
             // then restore the full radius after entering the game.
             // This matches WoW's behavior: load quickly, stream the rest in-game.
             const int savedLoadRadius = 6;
-            terrainMgr->setLoadRadius(4);   // 9x9=81 tiles — prevents hitches on spawn
+            terrainMgr->setLoadRadius(4);   // 9x9=81 tiles - prevents hitches on spawn
             terrainMgr->setUnloadRadius(9);
 
             // Trigger tile streaming for surrounding area
@@ -651,7 +651,7 @@ void WorldLoader::loadMapGeometry(uint32_t mapId, const std::string& mapName,
                     }
                 }
 
-                // Trigger new streaming — enqueue tiles for background workers
+                // Trigger new streaming - enqueue tiles for background workers
                 terrainMgr->update(*camera, 0.016f);
 
                 // Process ONE tile per iteration so the progress bar updates
@@ -703,7 +703,7 @@ void WorldLoader::loadMapGeometry(uint32_t mapId, const std::string& mapName,
                     break;
                 }
 
-                // Don't sleep if there are more tiles to finalize — keep processing
+                // Don't sleep if there are more tiles to finalize - keep processing
                 if (remaining > 0 && terrainMgr->getReadyQueueCount() == 0) {
                     SDL_Delay(16);
                 }
@@ -711,7 +711,7 @@ void WorldLoader::loadMapGeometry(uint32_t mapId, const std::string& mapName,
 
             LOG_INFO("Online terrain streaming complete: ", terrainMgr->getLoadedTileCount(), " tiles loaded");
 
-            // Restore full load radius — remaining tiles stream in-game
+            // Restore full load radius - remaining tiles stream in-game
             terrainMgr->setLoadRadius(savedLoadRadius);
 
             // Load/precompute collision cache
@@ -783,7 +783,7 @@ void WorldLoader::loadOnlineWorldTerrain(uint32_t mapId, float x, float y, float
     loadingUi.ok = loadingScreenOk;
     loadingUi.showProgress = showProgress;
 
-    // Set zone name on loading screen — prefer friendly display name, then DBC
+    // Set zone name on loading screen - prefer friendly display name, then DBC
     {
         const char* friendly = mapDisplayName(mapId);
         if (friendly) {
@@ -899,7 +899,7 @@ void WorldLoader::loadOnlineWorldTerrain(uint32_t mapId, float x, float y, float
     LOG_INFO("Loading online world terrain for map '", mapName, "' (ID ", mapId, ")");
 
     // Cancel any stale preload (if it was for a different map, the file cache
-    // still retains whatever was loaded — it doesn't hurt).
+    // still retains whatever was loaded - it doesn't hurt).
     if (worldPreload_) {
         if (worldPreload_->mapId == mapId) {
             LOG_INFO("World preload: cache-warm hit for map '", mapName, "'");
@@ -1019,7 +1019,7 @@ void WorldLoader::loadOnlineWorldTerrain(uint32_t mapId, float x, float y, float
     renderer_->setCharacterYaw(spawnYawDeg);
     spawnInstancePortalVisuals(mapId, renderer_, assetManager_);
 
-    // Test transport disabled — real transports come from server via UPDATEFLAG_TRANSPORT
+    // Test transport disabled - real transports come from server via UPDATEFLAG_TRANSPORT
     showProgress("Finalizing world...", 0.94f);
     // setupTestTransport();
 
@@ -1119,10 +1119,10 @@ void WorldLoader::loadOnlineWorldTerrain(uint32_t mapId, float x, float y, float
             if (gameHandler_) gameHandler_->update(1.0f / 60.0f);
 
             // If a new world entry was deferred during packet processing,
-            // stop warming up this map — we'll load the new one after cleanup.
+            // stop warming up this map - we'll load the new one after cleanup.
             if (pendingWorldEntry_) {
                 LOG_DEBUG("loadOnlineWorldTerrain(map ", mapId,
-                            ") — deferred world entry pending, stopping warmup");
+                            ") - deferred world entry pending, stopping warmup");
                 break;
             }
 
@@ -1154,7 +1154,7 @@ void WorldLoader::loadOnlineWorldTerrain(uint32_t mapId, float x, float y, float
 
             // Don't exit warmup until the ground under the player exists.
             // In cities like Stormwind, players stand on WMO floors, not terrain.
-            // Check BOTH terrain AND WMO floor — require at least one to be valid.
+            // Check BOTH terrain AND WMO floor - require at least one to be valid.
             bool groundReady = false;
             if (renderer_) {
                 // spawnRender already went server -> canonical -> render above.
@@ -1171,7 +1171,7 @@ void WorldLoader::loadOnlineWorldTerrain(uint32_t mapId, float x, float y, float
                         groundReady = true;
                     }
                 }
-                // Check terrain — but only if it's close to spawn Z (within 15 units).
+                // Check terrain - but only if it's close to spawn Z (within 15 units).
                 // Terrain far below a WMO city doesn't count as ground.
                 if (!groundReady) {
                     if (auto* tm = renderer_->getTerrainManager()) {
@@ -1213,7 +1213,7 @@ void WorldLoader::loadOnlineWorldTerrain(uint32_t mapId, float x, float y, float
             bool readyToExit = (elapsed >= kMinWarmupSeconds && idleIterations >= kIdleThreshold && groundReady);
             if (readyToExit || elapsed >= kMaxWarmupSeconds) {
                 if (elapsed >= kMaxWarmupSeconds && !groundReady) {
-                    LOG_WARNING("Warmup hit hard cap (", kMaxWarmupSeconds, "s), ground NOT ready — may fall through world");
+                    LOG_WARNING("Warmup hit hard cap (", kMaxWarmupSeconds, "s), ground NOT ready - may fall through world");
                 } else if (elapsed >= kMaxWarmupSeconds) {
                     LOG_WARNING("Warmup hit hard cap (", kMaxWarmupSeconds, "s), entering world with pending work");
                 }
@@ -1261,7 +1261,7 @@ void WorldLoader::loadOnlineWorldTerrain(uint32_t mapId, float x, float y, float
             app_.worldEntryCallbacks_->setTaxiLandingClampTimer(0.0f);
             app_.worldEntryCallbacks_->setLastTaxiFlight(false);
         }
-        // Recursive call — sets loadedMapId_ and IN_GAME state for the final map.
+        // Recursive call - sets loadedMapId_ and IN_GAME state for the final map.
         loadOnlineWorldTerrain(entry.mapId, entry.x, entry.y, entry.z);
         return;  // The recursive call handles setState(IN_GAME).
     }

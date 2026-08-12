@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Vehicle catalog (.wvhc) — novel replacement for
+// Wowee Open Vehicle catalog (.wvhc) - novel replacement for
 // Blizzard's Vehicle.dbc + VehicleSeat.dbc + the
 // AzerothCore-style vehicle_template SQL tables. The 43rd
 // open format added to the editor.
@@ -16,14 +16,14 @@ namespace pipeline {
 // motorcycles, gryphon mounts with passengers, choppers,
 // siege weapons, multi-passenger transports. Each vehicle
 // pairs a creature template (the rendered model) with a
-// fixed seat layout — driver / passenger seats with their
+// fixed seat layout - driver / passenger seats with their
 // own attachment points, control flags, and per-seat
 // abilities mounted to the action bar.
 //
 // Cross-references with previously-added formats:
 //   WVHC.entry.creatureId      → WCRT.creatureId
 //                                  (the rendered vehicle model)
-//   WVHC.entry.flightCapabilityId → WMNT.mountId  (optional —
+//   WVHC.entry.flightCapabilityId → WMNT.mountId  (optional -
 //                                  shared fly-speed table for
 //                                  flying vehicles)
 //   WVHC.seat.controlSpellId   → WSPL.spellId
@@ -45,7 +45,7 @@ namespace pipeline {
 //       seatCount (uint8) / pad[1]
 //     turnSpeed (float)
 //     pitchSpeed (float)
-//     flightCapabilityId (uint32)   — 0 = ground vehicle
+//     flightCapabilityId (uint32)   - 0 = ground vehicle
 //     powerType (uint8) / pad[3]
 //     maxPower (uint32)
 //     seats (seatCount × VehicleSeat):
@@ -83,7 +83,7 @@ struct WoweeVehicle {
         None   = 4,    // simple mounts have no power bar
     };
 
-    // Per-seat flags — seatFlags is a bitmask.
+    // Per-seat flags - seatFlags is a bitmask.
     static constexpr uint8_t kSeatDriver       = 0x01;
     static constexpr uint8_t kSeatGunner       = 0x02;
     static constexpr uint8_t kSeatPassenger    = 0x04;
@@ -135,13 +135,13 @@ public:
 
     // Preset emitters used by --gen-vehicles* variants.
     //
-    //   makeStarter — 3 vehicles: 1-seat chopper, 2-seat
+    //   makeStarter - 3 vehicles: 1-seat chopper, 2-seat
     //                  flying mount, 1-seat ground tank with
     //                  driver-only seat config.
-    //   makeSiege   — 3 siege weapons (Demolisher / Catapult /
+    //   makeSiege   - 3 siege weapons (Demolisher / Catapult /
     //                  Cannon) with multi-seat layouts and
     //                  per-seat control spells.
-    //   makeFlying  — 3 flying mounts (Wyrm / Drake / Gryphon)
+    //   makeFlying  - 3 flying mounts (Wyrm / Drake / Gryphon)
     //                  with FlightCapability cross-refs to
     //                  WMNT entries.
     static WoweeVehicle makeStarter(const std::string& catalogName);

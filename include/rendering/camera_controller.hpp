@@ -83,7 +83,7 @@ public:
     bool isGrounded() const { return grounded; }
     bool isJumping() const { return !grounded && verticalVelocity > 0.0f; }
     // A swimming character is not grounded and is not rising, but it is not
-    // falling either — treating it as falling made leaving the water register as
+    // falling either - treating it as falling made leaving the water register as
     // a hard landing.
     bool isFalling() const { return !grounded && !swimming && verticalVelocity <= 0.0f; }
 
@@ -198,7 +198,7 @@ private:
     /// running.
     ///
     /// update() reads the keyboard, works out the speed and the axes, and then
-    /// splits into two branches — the third-person camera that moves a character
+    /// splits into two branches - the third-person camera that moves a character
     /// and the free-fly camera that moves itself. The branches were fifteen
     /// hundred lines and two hundred lines of one function, and this is what
     /// they both need from the part before the split.
@@ -244,11 +244,11 @@ private:
         std::optional<float> m2;
     };
 
-    /// Ask terrain, WMO and doodads where the floor is — two of them on other
-    /// threads — or answer from the cache when the character has barely moved.
+    /// Ask terrain, WMO and doodads where the floor is - two of them on other
+    /// threads - or answer from the cache when the character has barely moved.
     FloorSample sampleFloorUnderFeet(const glm::vec3& targetPos, float stepUpBudget);
 
-    /// Put the character on the floor and publish where it ended up — the
+    /// Put the character on the floor and publish where it ended up - the
     /// expensive half, with the floor queries and the cache that skips them.
     void groundFollowedCharacter(float deltaTime, FrameInput& f, glm::vec3& targetPos,
                                  const glm::vec3& prevTargetPos);
@@ -261,7 +261,7 @@ private:
     ///
     /// A single long move tunnels through thin geometry, so it is broken into
     /// steps of 20cm inside a building and 35cm outside, capped at eight. An
-    /// upward Z correction is kept — that is a ramp — and a downward one is
+    /// upward Z correction is kept - that is a ramp - and a downward one is
     /// dropped, because a wall must never pull the character into the floor.
     ///
     /// Written out three times, for walking, for swimming, and for the free-fly
@@ -294,7 +294,7 @@ private:
     bool rightMouseDown = false;
     // Camera rotation only begins once the mouse moves past a small dead-zone while a
     // button is held. This keeps a click (to select an NPC) from nudging the view on
-    // tiny hand jitter — which made NPCs appear to shift out from under the cursor.
+    // tiny hand jitter - which made NPCs appear to shift out from under the cursor.
     bool rotateArmed_ = false;
     float dragPixelsSincePress_ = 0.0f;
     static constexpr float kRotateDeadzonePixels = 5.0f;
@@ -314,7 +314,7 @@ private:
     static constexpr float CAM_SMOOTH_SPEED_DEFAULT = 30.0f;
     float camSmoothSpeed_ = CAM_SMOOTH_SPEED_DEFAULT;  // User-configurable camera smoothing (higher = tighter)
     // When true the camera keeps its exponential lerp even while actively
-    // dragging or keyboard-turning — the pre-snap "floaty follow" feel.
+    // dragging or keyboard-turning - the pre-snap "floaty follow" feel.
     // When false (default), rotation input moves the camera 1:1.
     bool smoothCameraFollow_ = false;
 public:
@@ -403,8 +403,8 @@ private:
     // momentum carried in from a jump or a dive.
     static constexpr float SWIM_VERTICAL_DAMPING = 6.0f;
     // Within this distance of the surface a body floats up to it; deeper than
-    // this it holds depth. Retail lets a character idle underwater — and drown
-    // doing it — so buoyancy cannot reach all the way down.
+    // this it holds depth. Retail lets a character idle underwater - and drown
+    // doing it - so buoyancy cannot reach all the way down.
     static constexpr float SWIM_FLOAT_BAND = 1.3f;
     static constexpr float WATER_SURFACE_OFFSET = 0.9f;
 
@@ -529,7 +529,7 @@ private:
     // No-ground timer: after grace period, let the player fall instead of hovering
     float noGroundTimer_ = 0.0f;
     // Edge trigger for the terrain-penetration rescue's log line. It fires every
-    // frame of a steep climb, and the interesting event is that it started —
+    // frame of a steep climb, and the interesting event is that it started -
     // above all if it ever starts somewhere it should not, like a crypt.
     bool terrainRescueActive_ = false;
     /// Throttle for the WOWEE_FLOOR_DEBUG trace.

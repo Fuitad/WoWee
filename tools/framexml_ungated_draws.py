@@ -29,7 +29,7 @@ THE TWENTY-EIGHT IT REPORTS TODAY, ALL CHECKED
 
 Two faults were found in this list on 2026-08-05, both live since the branch
 started, and both had been skimmed past twice because they sat among rows that
-are fine. A report nobody can triage at a glance gets skimmed — so the triage
+are fine. A report nobody can triage at a glance gets skimmed - so the triage
 lives in ACCOUNTED below, one line of reasoning each, and the question this
 tool now answers is whether a row is NEW.
 
@@ -40,10 +40,10 @@ response to the same event. A window with its own toggle has a FrameXML
 counterpart and cannot collide with it: two ways to open a thing is not two
 things on screen.
 
-  * Fixed: renderBgInvitePopup — CONFIRM_BATTLEFIELD_ENTRY, raised by
+  * Fixed: renderBgInvitePopup - CONFIRM_BATTLEFIELD_ENTRY, raised by
     battlefieldframe.lua from UPDATE_BATTLEFIELD_STATUS, which this client
     fires. Two accept buttons on every battleground invitation.
-  * Fixed: renderLogoutCountdown — the CAMP and QUIT popups, raised by
+  * Fixed: renderLogoutCountdown - the CAMP and QUIT popups, raised by
     uiparent.lua from PLAYER_CAMPING and PLAYER_QUITING, both fired here.
 
 WHAT THE FIRST VERSION OF THAT LIST GOT WRONG
@@ -52,7 +52,7 @@ It was a map from surface to the element it would collide with, and four of its
 seven entries were claims nobody had checked. WatchFrame raises no toast when a
 quest completes; AlertFrame_OnEvent in 3.3.5 handles achievements and dungeon
 rewards and no loot at all; RaidInfoFrame is opened from a button. A fifth,
-written while correcting the other four, said 3.3.5 had no titles UI —
+written while correcting the other four, said 3.3.5 had no titles UI -
 PlayerTitleFrame is on the paperdoll.
 
 Writing an unverified judgement into a tool is the thing a tool is for
@@ -117,7 +117,7 @@ for p in sorted(UI.rglob("*.cpp")):
 
 # A gate is not always an element. A load-on-demand addon arrives mid-run
 # because the player asked for the feature, so what it draws cannot be chosen
-# before the run starts and no UiElement can describe it — frameXmlDrawsCombatText
+# before the run starts and no UiElement can describe it - frameXmlDrawsCombatText
 # is that shape, and reading only frameXmlOwns calls the surface behind it
 # ungated when it stands down correctly.
 GATES = ("frameXmlOwns", "frameXmlDraws")
@@ -207,13 +207,13 @@ def resolve(caller, receiver, callee):
 
     Ordered most specific first: a typed receiver names exactly one class; an
     unqualified call is the caller's own class; a receiver of unknown type
-    falls back to the class defining that name — but only if exactly one does.
+    falls back to the class defining that name - but only if exactly one does.
 
     Only one, because linking a call to every class that happens to define the
     name manufactures paths rather than finding them. `wm->render(...)` on a
     world map facade, which is not a UI class and so has no declared type here,
     was resolved to ChatPanel::render and CharacterScreen::render among others
-    — and both are gated at their real call site, so both were reported as
+    - and both are gated at their real call site, so both were reported as
     draw surfaces no handover could switch off. An edge that could go five
     ways was never evidence of anything.
     """
@@ -352,7 +352,7 @@ ACCOUNTED = {
 unreviewed = sorted(r[0] for r in rows if r[0] not in ACCOUNTED)
 print(f"\n{len(ACCOUNTED)} of them have been read against what FrameXML raises")
 if unreviewed:
-    print(f"\n{len(unreviewed)} that have not — ask of each whether FrameXML puts "
+    print(f"\n{len(unreviewed)} that have not - ask of each whether FrameXML puts "
           f"the same thing on screen in response to the same event:")
     for fn in unreviewed:
         print(f"  {fn}")

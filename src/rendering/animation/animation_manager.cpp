@@ -1,5 +1,5 @@
 // Renamed from PlayerAnimator/NpcAnimator dual-map → unified CharacterAnimator registry.
-// NpcAnimator methods removed — all characters use CharacterAnimator.
+// NpcAnimator methods removed - all characters use CharacterAnimator.
 #include "rendering/animation/animation_manager.hpp"
 
 namespace wowee {

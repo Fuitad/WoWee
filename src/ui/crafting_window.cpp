@@ -1,5 +1,5 @@
 // ============================================================
-// Crafting window — standalone tradeskill UI (part of WindowManager)
+// Crafting window - standalone tradeskill UI (part of WindowManager)
 // Opened by casting a profession spell (Cooking, First Aid, ...).
 // Recipe list with item icons, skill-based difficulty colors
 // (orange/yellow/green/gray), reagent have/need counts, and

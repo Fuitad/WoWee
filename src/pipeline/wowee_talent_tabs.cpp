@@ -113,15 +113,15 @@ WoweeTalentTab WoweeTalentTabLoader::makeWarrior(
     add(161, "Arms",       0, T::DPS,
         "Interface\\Icons\\Ability_Rogue_Eviscerate",
         "WarriorArms",
-        "Arms — two-handed weapon mastery, Mortal Strike DPS spec.");
+        "Arms - two-handed weapon mastery, Mortal Strike DPS spec.");
     add(164, "Fury",       1, T::DPS,
         "Interface\\Icons\\Ability_Warrior_InnerRage",
         "WarriorFury",
-        "Fury — dual-wield berserker DPS spec.");
+        "Fury - dual-wield berserker DPS spec.");
     add(163, "Protection", 2, T::Tank,
         "Interface\\Icons\\INV_Shield_06",
         "WarriorProtection",
-        "Protection — shield-wielding tank spec.");
+        "Protection - shield-wielding tank spec.");
     return c;
 }
 
@@ -146,15 +146,15 @@ WoweeTalentTab WoweeTalentTabLoader::makeMage(
     add(81, "Arcane", 0,
         "Interface\\Icons\\Spell_Holy_MagicalSentry",
         "MageArcane",
-        "Arcane — burst-mana spec around Arcane Blast scaling.");
+        "Arcane - burst-mana spec around Arcane Blast scaling.");
     add(41, "Fire",   1,
         "Interface\\Icons\\Spell_Fire_FireBolt02",
         "MageFire",
-        "Fire — crit-focused spec around Pyroblast / Combustion.");
+        "Fire - crit-focused spec around Pyroblast / Combustion.");
     add(61, "Frost",  2,
         "Interface\\Icons\\Spell_Frost_FrostBolt02",
         "MageFrost",
-        "Frost — control + sustained-damage spec.");
+        "Frost - control + sustained-damage spec.");
     return c;
 }
 
@@ -180,15 +180,15 @@ WoweeTalentTab WoweeTalentTabLoader::makePaladin(
     add(382, "Holy",        0, T::Healer,
         "Interface\\Icons\\Spell_Holy_HolyBolt",
         "PaladinHoly",
-        240, 240, 200, "Holy — single-target healing spec.");
+        240, 240, 200, "Holy - single-target healing spec.");
     add(383, "Protection",  1, T::Tank,
         "Interface\\Icons\\Spell_Holy_DevotionAura",
         "PaladinProtection",
-        220, 220, 180, "Protection — shield + holy power tank spec.");
+        220, 220, 180, "Protection - shield + holy power tank spec.");
     add(381, "Retribution", 2, T::DPS,
         "Interface\\Icons\\Spell_Holy_AuraOfLight",
         "PaladinRetribution",
-        240, 200, 100, "Retribution — two-handed melee DPS spec.");
+        240, 200, 100, "Retribution - two-handed melee DPS spec.");
     return c;
 }
 

@@ -27,7 +27,7 @@ struct MinimapView {
 /// Exact inverse of the minimap display shader:
 ///   mapUV = playerUV + vec2(rotated.y, -rotated.x) * zoom * 2
 /// where rotated = R(bearing) * vec2(-center.x, center.y). Render +X is west
-/// and +Y is north, while composite UV grows east/south — hence the negations.
+/// and +Y is north, while composite UV grows east/south - hence the negations.
 inline glm::vec2 renderDeltaToMinimapOffset(float dx, float dy, const MinimapView& v) {
     const float rx = -(dy * v.cosBearing - dx * v.sinBearing);
     const float ry = -(dy * v.sinBearing + dx * v.cosBearing);

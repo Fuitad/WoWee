@@ -81,7 +81,7 @@ WoweeChatCommands WoweeChatCommandsLoader::load(
             !readStr(is, e.helpText)) { return false; }
         uint32_t aliasCount = 0;
         if (!readPOD(is, aliasCount)) { return false; }
-        // Sanity cap — no command should have more
+        // Sanity cap - no command should have more
         // than 32 aliases.
         if (aliasCount > 32) { return false; }
         e.aliases.resize(aliasCount);
@@ -209,7 +209,7 @@ WoweeChatCommands WoweeChatCommandsLoader::makeAdminCommands(
         {}));
     c.entries.push_back(makeCmd(
         22, "ban", W::GameMaster, W::AdminCmd, 0,
-        10000 /* 10s throttle — bans are heavy */,
+        10000 /* 10s throttle - bans are heavy */,
         "<charname> <durationHours> <reason>",
         "Ban an account for the specified duration. "
         "Use durationHours=0 for permanent ban. "

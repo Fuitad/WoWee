@@ -234,22 +234,22 @@ int handleValidate(int& i, int argc, char** argv) {
                 errors.push_back(ctx + ": name is empty");
             if (e.bossCreatureId == 0)
                 errors.push_back(ctx +
-                    ": bossCreatureId is 0 — encounter has no boss");
+                    ": bossCreatureId is 0 - encounter has no boss");
             if (e.mapId == 0)
                 errors.push_back(ctx +
-                    ": mapId is 0 — encounter is unbound to a map");
+                    ": mapId is 0 - encounter is unbound to a map");
             if (e.phaseCount == 0)
                 errors.push_back(ctx +
-                    ": phaseCount is 0 — encounter has no phases");
+                    ": phaseCount is 0 - encounter has no phases");
             if (e.requiredPartySize == 0)
                 errors.push_back(ctx +
-                    ": requiredPartySize is 0 — invalid group size");
+                    ": requiredPartySize is 0 - invalid group size");
             if (e.requiredPartySize > 40)
                 warnings.push_back(ctx +
                     ": requiredPartySize " +
                     std::to_string(e.requiredPartySize) +
                     " > 40 (max raid size)");
-            // Standard sizes are 5/10/25/40 — anything else is a
+            // Standard sizes are 5/10/25/40 - anything else is a
             // server-custom raid size, worth flagging.
             if (e.requiredPartySize != 5 && e.requiredPartySize != 10 &&
                 e.requiredPartySize != 25 && e.requiredPartySize != 40) {
@@ -264,16 +264,16 @@ int handleValidate(int& i, int argc, char** argv) {
                 warnings.push_back(ctx +
                     ": berserkSpellId=" +
                     std::to_string(e.berserkSpellId) +
-                    " set but enrageTimerMs=0 — spell will never "
+                    " set but enrageTimerMs=0 - spell will never "
                     "fire (no enrage countdown)");
             }
-            // Enrage > 30 minutes is suspicious — typical raid
+            // Enrage > 30 minutes is suspicious - typical raid
             // encounters cap at ~15-20 minutes.
             if (e.enrageTimerMs > 1800000) {
                 warnings.push_back(ctx +
                     ": enrageTimerMs " +
                     std::to_string(e.enrageTimerMs) +
-                    " > 30 min (1800000ms) — exceptionally long "
+                    " > 30 min (1800000ms) - exceptionally long "
                     "soft enrage, double-check");
             }
             if (!idsSeen.add(e.encounterId)) errors.push_back(ctx + ": duplicate encounterId");

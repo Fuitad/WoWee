@@ -2,7 +2,7 @@
 
 The addon API used to answer without doing anything. `CreateFrame` returned a
 table, events dispatched to it, and `CreateTexture` handed back an object whose
-every method was a no-op — so an addon could be written, loaded and run without
+every method was a no-op - so an addon could be written, loaded and run without
 putting a pixel on the screen.
 
 There is now a real retained widget tree behind it. The same tree is what
@@ -20,7 +20,7 @@ original interface rather than imitating it.
 | XML to Lua | `src/ui/framexml_emitter.cpp` | Emits the calls a script would make |
 | Lua bindings | `src/addons/lua_engine.cpp` | Frames and regions are Lua tables carrying a `__wid` handle |
 
-Coordinates follow WoW throughout — origin bottom-left, y upward — and flip once
+Coordinates follow WoW throughout - origin bottom-left, y upward - and flip once
 at the point of drawing, so every anchor rule reads the way Blizzard documents
 it rather than mirrored.
 
@@ -32,8 +32,8 @@ most of FrameXML sizes its backgrounds without ever stating a size.
 ## Why XML becomes Lua
 
 The alternative was to build widgets from C++ while walking the XML, which would
-have meant a second implementation of everything `CreateFrame` already does —
-parenting, naming, templates, script binding — kept in step with the first by
+have meant a second implementation of everything `CreateFrame` already does -
+parenting, naming, templates, script binding - kept in step with the first by
 hand. Emitting Lua means XML frames and hand-written frames travel one path, a
 template declared in XML is usable from a script without translation, and the
 emitter's output is a string a test can read without a Lua state.
@@ -50,8 +50,8 @@ for is logged once and listed at shutdown.
 This is how a large body of Lua gets brought up: rather than guessing which of
 the missing functions matter, run it and collect the ones it actually reaches.
 
-It has a real cost. Code that checks whether a function exists before using it —
-which addons do constantly — sees everything as present and takes branches meant
+It has a real cost. Code that checks whether a function exists before using it -
+which addons do constantly - sees everything as present and takes branches meant
 for a different client. Names in `SCREAMING_SNAKE_CASE` are treated as constants
 and still come back nil, because handing a function to something expecting a
 number turns a missing value into a confusing type error further away.
@@ -82,8 +82,8 @@ what the absence of a feature looks like.
 
 FrameXML's frames update on events, so replacing one of the client's own
 elements means knowing which of them arrive. Four different call styles
-dispatch them — fireEvent, fireAddonEvent, an emit on a pending queue, and the
-callback invoked directly — and grepping for one under-reports the rest badly:
+dispatch them - fireEvent, fireAddonEvent, an emit on a pending queue, and the
+callback invoked directly - and grepping for one under-reports the rest badly:
 the same question answered 6, 52, 73 and 147 depending on which was searched.
 Ask the script.
 
@@ -100,13 +100,13 @@ The measurement that matters is a run with the fallback off:
     WOWEE_LUA_API_FALLBACK=0 WOWEE_LOAD_FRAMEXML=1 ./wowee
 
 With the fallback on, a missing name answers and the gap is invisible. With it
-off, the log names every one FrameXML actually reached — which is how the list
+off, the log names every one FrameXML actually reached - which is how the list
 that mattered was found, rather than by guessing from the ranking.
 
 Two tools check the front half of the pipeline, and neither has been the
 constraint for some time: `tools/framexml_compile_check.cpp` asks Lua whether
 every generated file compiles (140/140), and the emitter has unit tests in
-`tests/test_framexml.cpp` covering the XML features that were silently absent —
+`tests/test_framexml.cpp` covering the XML features that were silently absent -
 template inheritance, `parentKey`, `id`, `<ScrollChild>`, button art, handler
 argument names, and `$parent` through unnamed frames.
 
@@ -116,7 +116,7 @@ argument names, and `$parent` through unnamed frames.
 this client. Nineteen elements: `playerframe`, `targetframe`, `petframe`,
 `focusframe`, `actionbar`, `stancebar`, `bagbar`, `micromenu`, `xpbar`,
 `repbar`, `castbar`, `minimap`, `chat`, `questtracker`, `worldmap`,
-`characterframe`, `bags`, `spellbook`, `questlog` — plus `mainmenubar`, which
+`characterframe`, `bags`, `spellbook`, `questlog` - plus `mainmenubar`, which
 is the whole bottom of the screen at once because FrameXML draws it as one
 frame, and `all`.
 
@@ -137,19 +137,19 @@ client's, and it has to be told where to go.
 | what | how it is handed over |
 |---|---|
 | unit portrait | an offscreen character pass, given to the widget as a texture |
-| minimap | a Vulkan pass of its own — told the frame's rect, since it cannot be sampled |
-| world map | an ImGui window — told the rect, and to drop its own title bar |
+| minimap | a Vulkan pass of its own - told the frame's rect, since it cannot be sampled |
+| world map | an ImGui window - told the rect, and to drop its own title bar |
 | paperdoll model | a second offscreen pass, framed to the whole figure |
 
 A frame carrying one of these draws it beneath its own regions, so the art
 around it lands on top. The rect is a frame behind, because those passes have
-already run by the time the tree lays out — which for a frame that does not
+already run by the time the tree lays out - which for a frame that does not
 move is not visible.
 
 ## Known gaps
 
-- Type is drawn from the game's own faces — FRIZQT, MORPHEUS, SKURRI, ARIALN
-  and FRIENDS — at the size and colour FrameXML's 42 font objects specify. Each
+- Type is drawn from the game's own faces - FRIZQT, MORPHEUS, SKURRI, ARIALN
+  and FRIENDS - at the size and colour FrameXML's 42 font objects specify. Each
   face is built into the atlas at one size and scaled, so a heading is the right
   face rather than the right rasterisation. Outlines are drawn by offsetting
   copies of the glyphs, which is what the effect amounts to at these sizes.
@@ -167,8 +167,8 @@ move is not visible.
   `widget:Name`, so the gap shows up in the shutdown report rather than as a
   mystery; adding it to the set is a one-line fix.
 - Blend modes are honoured only far enough to tell "added" apart from "drawn
-  over". `alphaMode="ADD"` art carries no alpha channel of its own — it is a
-  glow on black — so it is uploaded as a second copy of the image with its
+  over". `alphaMode="ADD"` art carries no alpha channel of its own - it is a
+  glow on black - so it is uploaded as a second copy of the image with its
   alpha taken from brightness, which over a dark scene lands close to where
   adding would. `MOD` and `ALPHAKEY` are still drawn as ordinary blending. One
   ImGui draw list has one blend state, so anything better means a second
@@ -191,19 +191,19 @@ unset.
 - `WOWEE_WIDGET_DUMP=1..5` reports what the renderer believes: 1 lists what was
   drawn, 2 every named widget whether drawn or not, 3 outlines them on screen,
   4 fills them solid, 5 also draws ImGui's own font atlas through the same call
-  — which separates "AddImage does not work here" from "these textures are bad".
+  - which separates "AddImage does not work here" from "these textures are bad".
 - `WOWEE_LUA_API_FALLBACK=0` turns off the stub that answers unknown globals,
   so the log names every API FrameXML actually reached.
 - `WOWEE_EVENT_TRACE=UNIT_HEALTH,UNIT_MANA` reports each of those events and how
   many frames received it. An event that never arrives and an event nobody
-  listens for look identical from outside — the frame simply does not change —
+  listens for look identical from outside - the frame simply does not change -
   and they need opposite fixes.
 
 With any element handed over, a check runs once the tree has settled and
 reports the frames that element stands or falls on: built or not, shown or
 hidden, its rect, whether it landed off screen, whether its art reached the
 GPU, and for a status bar the value and range it was given. It also names any
-visible widget that landed outside the display, whoever owns it — a frame in
+visible widget that landed outside the display, whoever owns it - a frame in
 the wrong place is only findable by name if you can guess the name, and the
 thing that looks wrong is rarely the thing you would have thought to check.
 

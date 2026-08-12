@@ -108,7 +108,7 @@ int handleInfoTilemap(int& i, int argc, char** argv) {
     for (int x = 0; x < 64; ++x) std::printf("%d", x % 10);
     std::printf("\n");
     for (int y = 0; y < 64; ++y) {
-        // Skip rows that have no tiles claimed — keeps the
+        // Skip rows that have no tiles claimed - keeps the
         // output bounded for projects in one corner of the map.
         bool rowHasContent = false;
         for (int x = 0; x < 64 && !rowHasContent; ++x) {

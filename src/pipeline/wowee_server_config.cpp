@@ -87,20 +87,20 @@ WoweeServerConfig WoweeServerConfigLoader::makeRates(
         c.entries.push_back(e);
     };
     add(1, "XPRateGlobal", C::XPRate, 1.0f,
-        "Global experience-rate multiplier — 1.0 = "
+        "Global experience-rate multiplier - 1.0 = "
         "Blizzard-default rate. Custom-server values "
         "commonly 2.0 (double-XP), 5.0 (low-population "
         "boost), 10.0 (instant-leveling testing).");
     add(2, "DropRateGlobal", C::DropRate, 1.0f,
-        "Global loot-drop multiplier — 1.0 = Blizzard "
+        "Global loot-drop multiplier - 1.0 = Blizzard "
         "default. Increase to compensate for low-pop "
         "raid-team availability.");
     add(3, "HonorRateGlobal", C::HonorRate, 1.0f,
-        "PvP honor-gain multiplier — 1.0 = default. "
+        "PvP honor-gain multiplier - 1.0 = default. "
         "Custom-server boost to accelerate PvP rank "
         "progression.");
     add(4, "RestedRate200Pct", C::RestedXP, 2.0f,
-        "Rested-XP multiplier — 2.0 = double-XP while "
+        "Rested-XP multiplier - 2.0 = double-XP while "
         "in rested state (Blizzard default). Custom "
         "values up to 5.0 for casual-friendly servers.");
     return c;
@@ -132,13 +132,13 @@ WoweeServerConfig WoweeServerConfigLoader::makePerformance(
         "Wrath-era default. Restart REQUIRED.");
     add(101, "DefaultViewDistance", C::Float, 533.0f, 0, 0,
         "Default client view distance in yards. 533 = "
-        "1 cell width — clients can see one cell beyond "
+        "1 cell width - clients can see one cell beyond "
         "their own. Higher values stress server; lower "
         "values reduce load but reduce immersion.");
     add(102, "SpawnRateMultiplier", C::Float, 1.0f, 0, 0,
         "Creature spawn-rate multiplier. 1.0 = "
         "Blizzard default. 2.0 doubles all respawn "
-        "rates — useful for low-pop farming zones.");
+        "rates - useful for low-pop farming zones.");
     add(103, "GCIntervalSec", C::Int, 0.0f, 300, 1,
         "Server-side garbage collection interval in "
         "seconds. 300 (5min) is standard. Lower = more "
@@ -185,7 +185,7 @@ WoweeServerConfig WoweeServerConfigLoader::makeSecurity(
         "REQUIRED.");
     add(203, "CheatDetectionSensitivity", C::String, 0.0f, 0,
         "high", 0,
-        "Cheat-detection sensitivity preset name — "
+        "Cheat-detection sensitivity preset name - "
         "valid: \"low\" / \"medium\" / \"high\" / "
         "\"paranoid\". This is a STRING value (the "
         "first format using valueKind=String) since "

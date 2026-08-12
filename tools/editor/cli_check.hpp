@@ -6,7 +6,7 @@ namespace cli {
 
 // Dispatch the cross-reference / content sanity-check handlers.
 // Each goes deeper than --validate (which only checks open-
-// format file presence) — they verify that quest NPC IDs
+// format file presence) - they verify that quest NPC IDs
 // resolve to creatures.json entries, model paths resolve to
 // on-disk files, spawn positions sit inside the zone's tile
 // bounds, etc. All four support --json for CI pipelines.

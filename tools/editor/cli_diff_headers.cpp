@@ -160,16 +160,16 @@ int handleDiff(int& i, int argc, char** argv) {
                  static_cast<unsigned long long>(b.fileBytes));
     std::printf("\n  ");
     if (allSame) {
-        std::printf("identical at the header level (and same byte size — "
+        std::printf("identical at the header level (and same byte size - "
                      "possibly byte-equal, run cmp(1) to confirm)\n");
     } else if (magicSame && versionSame && nameSame && countSame &&
                 !bytesSame) {
         std::printf("same format / version / name / entry count, "
-                     "but different byte sizes — entry payloads differ\n");
+                     "but different byte sizes - entry payloads differ\n");
     } else if (!magicSame) {
-        std::printf("DIFFERENT FORMATS — files are unrelated\n");
+        std::printf("DIFFERENT FORMATS - files are unrelated\n");
     } else {
-        std::printf("header fields differ — see ≠ markers above\n");
+        std::printf("header fields differ - see ≠ markers above\n");
     }
     return allSame ? 0 : 1;
 }

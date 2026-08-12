@@ -120,7 +120,7 @@ TEST_CASE("Counts are never negative", "[ui][buffbar]") {
 
 TEST_CASE("The row clears whichever minimap is drawn", "[buffbar]") {
     // FrameXML's MinimapCluster is 192 interface units wide, and interface units
-    // scale with the window height — at 1528px tall that is 382px, against the
+    // scale with the window height - at 1528px tall that is 382px, against the
     // 210px this client's own minimap claims. Laid out against the smaller
     // number the row ran underneath the minimap by the difference.
     const float w = 3840.0f, h = 1528.0f;

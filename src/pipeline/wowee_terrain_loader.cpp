@@ -47,7 +47,7 @@ bool WoweeTerrainLoader::loadHeightmap(const std::string& whmPath, ADTTerrain& t
 
         float base;
         f.read(reinterpret_cast<char*>(&base), 4);
-        // Reject NaN/inf chunk base height — would break collision/pathing
+        // Reject NaN/inf chunk base height - would break collision/pathing
         // and produce non-finite vertex positions in the terrain mesh.
         if (!std::isfinite(base)) base = 0.0f;
         chunk.position[2] = base;
@@ -59,7 +59,7 @@ bool WoweeTerrainLoader::loadHeightmap(const std::string& whmPath, ADTTerrain& t
         }
 
         // Read alpha map data (may not be present in older WHM files).
-        // Reject overlong alphaSize to keep the per-chunk block alignment —
+        // Reject overlong alphaSize to keep the per-chunk block alignment -
         // skipping a 100MB alpha block would leave the next chunk's
         // baseHeight read parsing alpha bytes as floats.
         uint32_t alphaSize = 0;
@@ -111,7 +111,7 @@ bool WoweeTerrainLoader::loadMetadata(const std::string& wotPath, ADTTerrain& te
             }
         }
 
-        // Parse textures (cap at 1024 — far above any realistic ADT)
+        // Parse textures (cap at 1024 - far above any realistic ADT)
         if (j.contains("textures") && j["textures"].is_array()) {
             constexpr size_t kMaxTextures = 1024;
             for (const auto& tex : j["textures"]) {
@@ -121,7 +121,7 @@ bool WoweeTerrainLoader::loadMetadata(const std::string& wotPath, ADTTerrain& te
             }
         }
 
-        // Parse chunk layers — WoW ADT supports max 4 layers per chunk;
+        // Parse chunk layers - WoW ADT supports max 4 layers per chunk;
         // cap to 8 to allow some headroom without unbounded growth.
         if (j.contains("chunkLayers") && j["chunkLayers"].is_array()) {
             const auto& layers = j["chunkLayers"];
@@ -174,7 +174,7 @@ bool WoweeTerrainLoader::loadMetadata(const std::string& wotPath, ADTTerrain& te
         }
 
         // Parse doodad placements. n.get<std::string> throws on non-string
-        // entries — guard with is_string and cap the list at 65536 (uint32
+        // entries - guard with is_string and cap the list at 65536 (uint32
         // nameId range is far larger but real zones top out around ~5k).
         if (j.contains("doodadNames") && j["doodadNames"].is_array()) {
             constexpr size_t kMaxNames = 65536;

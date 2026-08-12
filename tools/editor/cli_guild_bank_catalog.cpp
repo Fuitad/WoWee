@@ -162,7 +162,7 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": tabName is empty");
         if (e.slotCount == 0) {
             errors.push_back(ctx +
-                ": slotCount is 0 — empty tab is unusable");
+                ": slotCount is 0 - empty tab is unusable");
         }
         if (e.slotCount > G::kMaxSlots) {
             errors.push_back(ctx + ": slotCount " +
@@ -171,12 +171,12 @@ int handleValidate(int& i, int argc, char** argv) {
                 std::to_string(G::kMaxSlots));
         }
         // GuildMaster (rank 0) must have at least
-        // some withdrawal access — usually unlimited.
+        // some withdrawal access - usually unlimited.
         // A 0 here means even the GM can't withdraw,
         // which is almost certainly a bug.
         if (e.perRankWithdrawalLimit[0] == 0) {
             errors.push_back(ctx +
-                ": perRankWithdrawalLimit[0]=0 — GuildMaster"
+                ": perRankWithdrawalLimit[0]=0 - GuildMaster"
                 " cannot withdraw, almost certainly a typo");
         }
         // Per-rank monotonicity: a lower rank should
@@ -199,7 +199,7 @@ int handleValidate(int& i, int argc, char** argv) {
                     formatLimit(e.perRankWithdrawalLimit[r + 1]) +
                     " > rank[" + std::to_string(r) + "]=" +
                     formatLimit(e.perRankWithdrawalLimit[r]) +
-                    " — lower rank cannot exceed higher rank's"
+                    " - lower rank cannot exceed higher rank's"
                     " withdrawal cap");
             }
         }
@@ -213,10 +213,10 @@ int handleValidate(int& i, int argc, char** argv) {
                 ": depositOnly flag set but rank 0 has "
                 "withdrawal limit " +
                 formatLimit(e.perRankWithdrawalLimit[0]) +
-                " — flag will override the table at "
+                " - flag will override the table at "
                 "runtime, but the data is contradictory");
         }
-        // Duplicate (guildId, tabName) — UI dispatch
+        // Duplicate (guildId, tabName) - UI dispatch
         // would tie.
         if (e.guildId != 0 && !e.tabName.empty()) {
             Pair p{e.guildId, e.tabName};
@@ -225,7 +225,7 @@ int handleValidate(int& i, int argc, char** argv) {
                     ": duplicate (guildId=" +
                     std::to_string(e.guildId) +
                     ", tabName=" + e.tabName +
-                    ") — UI tab dispatch ambiguous");
+                    ") - UI tab dispatch ambiguous");
             }
         }
         if (!idsSeen.insert(e.tabId).second) {

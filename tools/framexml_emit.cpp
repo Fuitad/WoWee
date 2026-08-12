@@ -9,7 +9,7 @@
 // child ended up with.
 //
 // Written after three separate guesses about why the chat edit box had no
-// focus — that parentKey was dropped, that it was dropped for frames as
+// focus - that parentKey was dropped, that it was dropped for frames as
 // opposed to regions, that the edit box was not created as an EditBox. All
 // three were wrong, and one command each would have said so:
 //

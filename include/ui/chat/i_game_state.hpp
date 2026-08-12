@@ -1,4 +1,4 @@
-// IGameState — abstract interface for game state queries used by macro evaluation.
+// IGameState - abstract interface for game state queries used by macro evaluation.
 // Allows unit testing with mock state. Phase 4.1 of chat_panel_ref.md.
 #pragma once
 

@@ -4,7 +4,7 @@ namespace wowee {
 namespace editor {
 namespace cli {
 
-// Dispatch the project-level action handlers — top-level
+// Dispatch the project-level action handlers - top-level
 // project utilities that don't fit any of the more specific
 // modules. Each operates on a project directory rather than
 // a single zone.

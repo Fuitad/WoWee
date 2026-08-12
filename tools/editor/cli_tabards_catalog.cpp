@@ -358,7 +358,7 @@ int handleValidate(int& i, int argc, char** argv) {
         if (e.emblemId > 1023) {
             warnings.push_back(ctx + ": emblemId " +
                 std::to_string(e.emblemId) +
-                " > 1023 — beyond the canonical glyph "
+                " > 1023 - beyond the canonical glyph "
                 "range; verify the renderer supports it");
         }
         // All three colors should have non-zero alpha
@@ -368,7 +368,7 @@ int handleValidate(int& i, int argc, char** argv) {
             uint8_t a = (color >> 24) & 0xFF;
             if (a == 0) {
                 warnings.push_back(ctx + ": " + what +
-                    " has alpha=0 — this layer would "
+                    " has alpha=0 - this layer would "
                     "render fully transparent");
             }
         };
@@ -389,7 +389,7 @@ int handleValidate(int& i, int argc, char** argv) {
             warnings.push_back(ctx +
                 ": emblemColor is visually similar to "
                 "backgroundColor (squared RGB distance < "
-                "1500) — emblem may not be readable; "
+                "1500) - emblem may not be readable; "
                 "consider a contrasting color");
         }
         if (!idsSeen.insert(e.tabardId).second) {

@@ -9,14 +9,14 @@ naked player with segmented limbs and white statues in Stormwind.
 
 The rule this applies is: a pack may ADD freely, and may REPLACE only where the
 replacement is complete. Everything it fails on is disabled by removing it from
-the overlay manifest, which is the whole of what makes a file reachable — the
+the overlay manifest, which is the whole of what makes a file reachable - the
 files stay on disk so a decision can be reversed by re-running with a different
 rule rather than by extracting again.
 
 Three things get disabled, each for a reason measured rather than assumed:
 
   1. Character models, and everything tied to them. The HD player models carry
-     a different geoset set (they have no 1, 701 or 1501 — no default hair, no
+     a different geoset set (they have no 1, 701 or 1501 - no default hair, no
      ears variant 1, no "wearing nothing" cloak) and their skins carry three
      times the vertices. The client picks equipment geosets by number and
      composites a 512x512 body texture; neither survives the swap. The .anim
@@ -29,10 +29,10 @@ Three things get disabled, each for a reason measured rather than assumed:
 
   3. CharSections.dbc, which is what points the compositor at _HD art. The
      client says so itself: "is 512x256 but its region on this 512x512 body is
-     256x128 — mismatched art sets".
+     256x128 - mismatched art sets".
 
 CreatureDisplayInfo is not dropped but rewritten: the pack re-points 13953
-display ids, and 13648 of them land on HD humanoid models — the same ones from
+display ids, and 13648 of them land on HD humanoid models - the same ones from
 (1). Those are reverted to what the base game had, one integer field per row, so
 the string block stays exactly as it was. The 305 that land on creature models
 are kept, and they are the part of this pack that works.
@@ -50,8 +50,8 @@ import sys
 
 # Textures a model lays over itself rather than draws itself with. Missing one
 # costs an effect, not the surface. "glow" earns its place the hard way: an HD
-# character model carries deathKnightEyeGlow.blp in slot 0 — the first slot is
-# the body's on most models and an eye effect on these — so treating slot 0 as
+# character model carries deathKnightEyeGlow.blp in slot 0 - the first slot is
+# the body's on most models and an eye effect on these - so treating slot 0 as
 # decisive without this disabled both gnome female models and left a display row
 # pointing at nothing.
 REFLECTION_WORDS = ("reflect", "envmap", "fresnel", "glass", "caustic",
@@ -80,7 +80,7 @@ def load_dbc(path):
 def m2_textures(path):
     """(type, filename) per texture, whatever the type.
 
-    Only type 0 is *supposed* to carry a name — every other type is art the
+    Only type 0 is *supposed* to carry a name - every other type is art the
     client supplies at runtime. Reading the name for type 0 alone was therefore
     reasonable and wrong: a model can carry a name in a runtime slot anyway, and
     one that does is telling you it was built for that art rather than for
@@ -135,7 +135,7 @@ def main():
     if not args:
         overlays = find_overlays()
         if not overlays:
-            print("no asset overlay in Data/expansions — nothing to audit")
+            print("no asset overlay in Data/expansions - nothing to audit")
             return 0
         rc = 0
         for path in overlays:
@@ -169,7 +169,7 @@ def curate(overlay_root, apply_changes, keep_hd=False):
             reasons.setdefault(why, []).append(key)
 
     # (1) every character file that replaces one the base game already had.
-    # Additions under character/ — the pack's separate NPC models — are not
+    # Additions under character/ - the pack's separate NPC models - are not
     # touched here; they are judged on their textures like anything else.
     if not keep_hd:
         for key in list(entries):
@@ -195,10 +195,10 @@ def curate(overlay_root, apply_changes, keep_hd=False):
             continue
         textures = m2_textures(os.path.join(files_root, val["p"]))
         # Only the FIRST texture slot decides. That is the one that covers the
-        # mesh; the slots after it are what a model adds on top — a reflection,
+        # mesh; the slots after it are what a model adds on top - a reflection,
         # a glow, waterfall spray. The Stormwind lion statue lost slot 0 and
         # rendered white, which is the case this rule is for. The gryphon roost
-        # lost slots 1 and 2 — spray and a reflection — and was disabled beside
+        # lost slots 1 and 2 - spray and a reflection - and was disabled beside
         # it for no reason, which is why the roosting gryphons outside a flight
         # master were still the stock ones.
         first = [name for typ, name in textures[:1] if typ == 0 and name]
@@ -206,7 +206,7 @@ def curate(overlay_root, apply_changes, keep_hd=False):
                 if not resolves(name) and not is_reflection(name)]
         # A name in a runtime skin slot is NOT a reason to disable the model.
         # Types 11, 12 and 13 are filled from CreatureDisplayInfo at spawn, over
-        # whatever the file says — so a leftover name that resolves to nothing
+        # whatever the file says - so a leftover name that resolves to nothing
         # costs nothing, and the display's own skin is what gets drawn. Disabling
         # on that signature threw away 47 working HD meshes, the gryphon among
         # them, and put the stock bird back.
@@ -219,7 +219,7 @@ def curate(overlay_root, apply_changes, keep_hd=False):
 
     # (3a) face art authored for a different atlas than the models use.
     #
-    # Four races ship a face at twice the size of the region it goes in — and it
+    # Four races ship a face at twice the size of the region it goes in - and it
     # is not a larger version of the same picture. A human female's faceLower is
     # a strip of nose, lips and chin; a draenei female's is a whole head, ear,
     # horn, mouth and eyeball on one sheet. Meanwhile both models' head UVs run
@@ -256,7 +256,7 @@ def curate(overlay_root, apply_changes, keep_hd=False):
     #
     # A replacement texture is painted for the UVs of the mesh it came with. Put
     # the stock mesh back and leave that texture over the stock one, and it is
-    # the wrong picture stretched over different geometry — the pack's gryphon
+    # the wrong picture stretched over different geometry - the pack's gryphon
     # skin is 2184 vertices' worth of art on an 846-vertex bird. Only
     # replacements go: a texture the pack ADDS is a new variant nothing was
     # using, and the models still present may well want it.
@@ -272,7 +272,7 @@ def curate(overlay_root, apply_changes, keep_hd=False):
 
     # (4) an .anim or .skin is keyframes and submeshes FOR a particular model.
     # Left overriding a model that is not itself overridden, it is the base
-    # game's skeleton being driven by another model's animation data — which is
+    # game's skeleton being driven by another model's animation data - which is
     # the segmented-limbs half of the character fault, and disabling a model in
     # (2) creates a fresh one of these every time. Run to a fixed point, since
     # dropping a skin can never drop a model but the order is not worth
@@ -343,7 +343,7 @@ def curate(overlay_root, apply_changes, keep_hd=False):
             # A re-point is only worth keeping if the model it names is one this
             # client can draw AND is still reachable. Disabling a model above
             # leaves any re-point onto it aiming at nothing, and a display id
-            # whose model file is missing does not fall back — the creature
+            # whose model file is missing does not fall back - the creature
             # simply does not appear, which is worse than the old model.
             usable = ((keep_hd or not target.upper().startswith("CHARACTER\\"))
                       and model_file_resolves(target))
@@ -358,7 +358,7 @@ def curate(overlay_root, apply_changes, keep_hd=False):
         # The pack ships humanoids at two levels of detail: the full model, and a
         # reduced one under an NPC\ folder for crowds. Its display table points
         # every humanoid NPC at the reduced one, and for some races that is no
-        # better than what the game already had — a human female NPC is 6558
+        # better than what the game already had - a human female NPC is 6558
         # vertices against the stock 6305, which is why they still looked old
         # standing next to a player at 17878.
         #
@@ -389,7 +389,7 @@ def curate(overlay_root, apply_changes, keep_hd=False):
         # A display row's skin names belong to the model it draws. The pack
         # changes both together; reverting the model alone leaves art authored
         # for a mesh that is no longer there, wrapped onto one it does not fit.
-        # So the skins go back wherever the model did — and wherever the model
+        # So the skins go back wherever the model did - and wherever the model
         # this row ends up using is not one the pack supplies, since a
         # replacement the rules above disabled leaves exactly the same
         # disagreement.
@@ -428,7 +428,7 @@ def curate(overlay_root, apply_changes, keep_hd=False):
                 off = 20 + mi * mrsize + 2 * 4     # field 2 is the model path
                 mdata[off:off + 4] = struct.pack("<I", madded[full])
             # The header's fifth word is how long the string block is, and a
-            # reader that trusts it — this client's does — treats an offset past
+            # reader that trusts it - this client's does - treats an offset past
             # the end as no string at all. Growing the block without saying so
             # left every patched row with an empty path, and a display whose
             # model has no path does not render: the NPCs went invisible and the
@@ -472,8 +472,8 @@ def curate(overlay_root, apply_changes, keep_hd=False):
     # Four races ship a faceLower at twice the region's size, and it is a whole
     # head on one sheet rather than a strip of one. The models' head UVs are the
     # stock layout, so that art cannot be placed correctly at any canvas size.
-    # The game's own face art does fit, and is still on disk beside it — the HD
-    # art was ADDED under _HD names rather than replacing anything — so those
+    # The game's own face art does fit, and is still on disk beside it - the HD
+    # art was ADDED under _HD names rather than replacing anything - so those
     # rows are pointed back at it.
     cs_key = "dbfilesclient\\charsections.dbc"
     face_patch = []
@@ -531,8 +531,8 @@ def curate(overlay_root, apply_changes, keep_hd=False):
         # Their HD faceLower is a different picture from the stock one, not a
         # larger one: a front-facing head where the stock is a side profile, a
         # muzzle seen head on where the stock is the side of a head. The obvious
-        # answer was that it wanted a bigger canvas — 512x256 is exactly the
-        # faceLower region of a 1024 atlas — so the compositor was taught to
+        # answer was that it wanted a bigger canvas - 512x256 is exactly the
+        # faceLower region of a 1024 atlas - so the compositor was taught to
         # grow, and it was placed at its own size with nothing resampled.
         #
         # It is still wrong. So the sheet does not belong in that region at any
@@ -541,7 +541,7 @@ def curate(overlay_root, apply_changes, keep_hd=False):
         # which fits the models exactly.
         #
         # Dwarf and troll are NOT here. Their HD art is a faithful 2x of the
-        # stock art — same parts in the same places — so the grown canvas gives
+        # stock art - same parts in the same places - so the grown canvas gives
         # them theirs at full resolution, which is the whole point of it.
         LAYOUT_MISMATCH_RACES = {6, 11}   # Tauren, Draenei
 
@@ -577,7 +577,7 @@ def curate(overlay_root, apply_changes, keep_hd=False):
         print("  rewrote %s" % cs_path)
 
     if not apply_changes:
-        print("\n(dry run — pass --apply to write)")
+        print("\n(dry run - pass --apply to write)")
         return 0
 
     manifest["entries"] = kept

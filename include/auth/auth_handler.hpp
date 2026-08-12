@@ -107,7 +107,7 @@ private:
 
     // True when the last failure looks like an auth-protocol mismatch rather
     // than a credential/account problem. Never set for wrong-password, banned,
-    // suspended, or account-in-use results — retrying those risks lockouts.
+    // suspended, or account-in-use results - retrying those risks lockouts.
     bool protocolFailureSuspected_ = false;
 
     std::vector<uint8_t> sessionKey;

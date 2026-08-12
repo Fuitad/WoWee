@@ -251,7 +251,7 @@ int handleValidate(int& i, int argc, char** argv) {
         [](const auto& c, std::vector<std::string>& errors,
            std::vector<std::string>& warnings) {
         cli::DuplicateIdCheck idsSeen;
-        // (race, sex, kind, variation) tuples must be unique —
+        // (race, sex, kind, variation) tuples must be unique -
         // duplicates would shadow each other in the carousel.
         std::set<std::string> tupleSeen;
         for (size_t k = 0; k < c.entries.size(); ++k) {
@@ -295,7 +295,7 @@ int handleValidate(int& i, int argc, char** argv) {
                     ", sex=" + std::to_string(e.sexId) +
                     ", kind=" + std::to_string(e.featureKind) +
                     ", variation=" + std::to_string(e.variationIndex) +
-                    ") — would shadow earlier entry in carousel");
+                    ") - would shadow earlier entry in carousel");
             }
             tupleSeen.insert(tuple);
             if (!idsSeen.add(e.featureId)) errors.push_back(ctx + ": duplicate featureId");

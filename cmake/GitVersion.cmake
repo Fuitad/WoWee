@@ -2,7 +2,7 @@
 # is always the last tag reachable from HEAD.
 #
 # Run as a script (cmake -P) from a build-time custom target, not just at configure
-# time — otherwise tagging a release would not change the binary until someone
+# time - otherwise tagging a release would not change the binary until someone
 # happened to re-run cmake.
 #
 # Expects: SRC_DIR, IN_FILE, OUT_FILE
@@ -11,7 +11,7 @@ find_package(Git QUIET)
 
 set(WOWEE_GIT_VERSION "unknown")
 if(GIT_FOUND)
-    # The last tag reachable from HEAD — the released version this build descends from.
+    # The last tag reachable from HEAD - the released version this build descends from.
     execute_process(
         COMMAND ${GIT_EXECUTABLE} describe --tags --abbrev=0
         WORKING_DIRECTORY ${SRC_DIR}

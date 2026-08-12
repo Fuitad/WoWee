@@ -259,7 +259,7 @@ int handleValidate(int& i, int argc, char** argv) {
         warnings.push_back("catalog has zero entries");
     }
     std::set<uint32_t> idsSeen;
-    // Per-(markerKind, priority) tuple uniqueness — two
+    // Per-(markerKind, priority) tuple uniqueness - two
     // markers at same kind+priority would render in
     // unstable order in the picker UI.
     std::set<uint32_t> kindPrioSeen;
@@ -283,7 +283,7 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         if (e.iconPath.empty()) {
             warnings.push_back(ctx +
-                ": iconPath is empty — marker would "
+                ": iconPath is empty - marker would "
                 "render as untextured fallback glyph");
         }
         // displayChar should be 1-3 visible characters
@@ -292,7 +292,7 @@ int handleValidate(int& i, int argc, char** argv) {
         // would break chat-overlay text.
         if (e.displayChar.empty()) {
             warnings.push_back(ctx +
-                ": displayChar is empty — chat overlay "
+                ": displayChar is empty - chat overlay "
                 "(e.g. \"{star}\" link) would render "
                 "blank");
         }
@@ -300,7 +300,7 @@ int handleValidate(int& i, int argc, char** argv) {
             warnings.push_back(ctx +
                 ": displayChar is " +
                 std::to_string(e.displayChar.size()) +
-                " bytes (>4) — chat overlay glyphs "
+                " bytes (>4) - chat overlay glyphs "
                 "should be terse (1-3 chars typical)");
         }
         // RaidTarget kind has a canonical 8-marker max
@@ -311,7 +311,7 @@ int handleValidate(int& i, int argc, char** argv) {
             warnings.push_back(ctx +
                 ": RaidTarget priority " +
                 std::to_string(e.priority) +
-                " > 7 — exceeds the canonical 8-slot "
+                " > 7 - exceeds the canonical 8-slot "
                 "/raidicon dispatch range; client "
                 "keybind macros may not reach this slot");
         }
@@ -324,7 +324,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 std::string(markerKindName(e.markerKind)) +
                 ", priority=" + std::to_string(e.priority) +
                 ") slot already occupied by another "
-                "marker — picker UI sort would be non-"
+                "marker - picker UI sort would be non-"
                 "deterministic");
         }
         if (!idsSeen.insert(e.markerId).second) {

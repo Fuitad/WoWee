@@ -22,7 +22,7 @@ int handleGenMakefile(int& i, int argc, char** argv) {
     // Generate a Makefile that rebuilds every derived output for
     // a zone. With this in place, designers can `make` to refresh
     // glb/obj/stl/html/csv/md from sources after editing
-    // creatures.json or terrain — without remembering which
+    // creatures.json or terrain - without remembering which
     // wowee_editor flag does what. The Makefile uses dependency
     // tracking so only stale outputs get rebuilt.
     std::string zoneDir = argv[++i];

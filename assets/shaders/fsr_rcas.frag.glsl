@@ -1,5 +1,5 @@
 #version 450
-// FSR 1.0 RCAS (Robust Contrast Adaptive Sharpening) — Fragment Shader
+// FSR 1.0 RCAS (Robust Contrast Adaptive Sharpening) - Fragment Shader
 // Based on AMD FidelityFX Super Resolution 1.0
 // Applies contrast-adaptive sharpening after EASU upscaling
 

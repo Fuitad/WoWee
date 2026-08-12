@@ -11,7 +11,7 @@ To keep this community productive, welcoming, and legally sound, we ask all memb
 
 - Treat everyone with respect.
 - No harassment, discrimination, or personal attacks.
-- Debate ideas — not people.
+- Debate ideas - not people.
 - Technical disagreement is expected. Toxic behavior is not.
 
 ---
@@ -91,7 +91,7 @@ Moderators may:
 - Mute users
 - Ban repeat offenders
 
-We prefer conversation over punishment — but we will protect the integrity of the project.
+We prefer conversation over punishment - but we will protect the integrity of the project.
 
 ---
 
@@ -104,9 +104,9 @@ WOWEE exists to:
 • Build a stable, high-performance client  
 • Create a long-term alternative engine ecosystem  
 
-If that excites you — welcome.
+If that excites you - welcome.
 
-If you're here for shortcuts, exploits, or drama — this is not the place.
+If you're here for shortcuts, exploits, or drama - this is not the place.
 
 ---
 

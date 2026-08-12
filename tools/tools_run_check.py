@@ -6,7 +6,7 @@
 WHY
 
 sweep_guard runs about thirty of these and fails when one of them gets worse.
-Nothing runs the rest, and a sweep nobody runs does not merely go stale — it
+Nothing runs the rest, and a sweep nobody runs does not merely go stale - it
 breaks, and the breakage is indistinguishable from the sweep being fine.
 
 Two broke on 2026-08-05 from one edit. The candidates tier in
@@ -14,7 +14,7 @@ framexml_takeover.cpp became empty, its `for (const char* name : {...})` loop
 was removed with it, and two tools parsed that loop with a regex and called
 .group(1) on the None they got back. handover_halves_check is wired into
 sweep_guard, so ctest caught it inside a minute. framexml_live_stubs is not,
-and it sat crashing until someone happened to run it — which is the failure
+and it sat crashing until someone happened to run it - which is the failure
 this exists to make impossible.
 
 WHAT IT DOES
@@ -25,16 +25,16 @@ sweep_guard's business, and a sweep that cannot report at all is this one's.
 
 WHAT IS SKIPPED, AND WHY EACH
 
-  * framexml_source, ownership_walk, opcode_map_utils — libraries, not sweeps.
+  * framexml_source, ownership_walk, opcode_map_utils - libraries, not sweeps.
     Running them does nothing and proves nothing.
-  * asset_pipeline_gui, m2_viewer, upscale_textures — tools that open a window
+  * asset_pipeline_gui, m2_viewer, upscale_textures - tools that open a window
     or process assets. Not checks, and expensive.
-  * gen_opcode_registry — a generator; running it writes files.
+  * gen_opcode_registry - a generator; running it writes files.
   * anything already in sweep_guard, which runs it and reads its number.
 
 WHAT IT CANNOT SEE
 
-A sweep that runs, exits zero, and reports a number that means nothing —
+A sweep that runs, exits zero, and reports a number that means nothing -
 framexml_bool_vs_number's nil arm was exactly that on the day it was written.
 Only reintroducing the fault finds those.
 """
@@ -54,8 +54,8 @@ SKIP = {
 
 
 #: Sweeps that look at named implementations for a reason, not by oversight.
-#: Widget methods are all named functions — there is no inline form of one to
-#: miss — so widget_field_check is complete as it stands.
+#: Widget methods are all named functions - there is no inline form of one to
+#: miss - so widget_field_check is complete as it stands.
 PARSES_NAMED_ONLY_ON_PURPOSE = {"widget_field_check.py"}
 
 
@@ -98,7 +98,7 @@ def main():
             # From the repository root, because several sweeps resolve their
             # inputs against the working directory rather than against
             # __file__. Under ctest the working directory is the build tree,
-            # and eight of them could not find Data/ from there — which is a
+            # and eight of them could not find Data/ from there - which is a
             # fact about how they are invoked, not about whether they work.
             done = subprocess.run([sys.executable, str(path)],
                                   cwd=str(TOOLS.parent),
@@ -125,8 +125,8 @@ def main():
         print("  (none)")
 
     # And the half-blind ones. A binding is registered in this codebase two
-    # ways — as a named function, {"Name", lua_Name}, or as a lambda written
-    # out in the table — and they are the same binding to Lua. Four sweeps
+    # ways - as a named function, {"Name", lua_Name}, or as a lambda written
+    # out in the table - and they are the same binding to Lua. Four sweeps
     # matched only the named form and so asked their question of less than half
     # the bindings while reporting a number that read as all of them. Fixing
     # them on 2026-08-06 turned up a raising auction sell tab, a Create All

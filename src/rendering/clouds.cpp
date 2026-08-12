@@ -161,7 +161,7 @@ void Clouds::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const SkyP
     cloudBaseColor = glm::clamp(cloudBaseColor, glm::vec3(0.0f), glm::vec3(1.0f));
 
     // Sun direction (opposite of light direction). Guard the hemisphere like
-    // Celestial/SkySystem do — directionalDir's sign convention is not stable,
+    // Celestial/SkySystem do - directionalDir's sign convention is not stable,
     // and a flipped vector puts the cloud scatter glow opposite the real sun.
     glm::vec3 sunDir = -glm::normalize(params.directionalDir);
     if (sunDir.z < 0.0f) sunDir = -sunDir;
@@ -170,7 +170,7 @@ void Clouds::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const SkyP
     // Sun intensity based on elevation
     float sunIntensity = sunAboveHorizon;
 
-    // Ambient light — brighter during day, dimmer at night
+    // Ambient light - brighter during day, dimmer at night
     float ambient = glm::mix(0.3f, 0.7f, sunAboveHorizon);
 
     CloudPush push{};
@@ -214,14 +214,14 @@ void Clouds::setDensity(float density) {
 }
 
 // ---------------------------------------------------------------------------
-// Mesh generation — identical algorithm to GL version
+// Mesh generation - identical algorithm to GL version
 // ---------------------------------------------------------------------------
 
 void Clouds::generateMesh() {
     vertices_.clear();
     indices_.clear();
 
-    // Upper hemisphere — Z-up world: altitude goes into Z, horizontal spread in X/Y
+    // Upper hemisphere - Z-up world: altitude goes into Z, horizontal spread in X/Y
     for (int ring = 0; ring <= RINGS; ++ring) {
         float phi        = (ring / static_cast<float>(RINGS)) * (static_cast<float>(M_PI) * 0.5f);
         float altZ       = RADIUS * std::cos(phi);

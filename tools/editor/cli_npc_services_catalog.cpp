@@ -257,7 +257,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 errors.push_back(ctx + ": serviceKind " +
                     std::to_string(e.serviceKind) + " not in 0..11");
             }
-            // Mailbox is a gameobject service, not an NPC —
+            // Mailbox is a gameobject service, not an NPC -
             // shouldn't have a gossipTextId. Warn so authors
             // double-check.
             if (e.serviceKind == wowee::pipeline::WoweeNPCService::Mailbox &&
@@ -265,25 +265,25 @@ int handleValidate(int& i, int argc, char** argv) {
                 warnings.push_back(ctx +
                     ": Mailbox kind with gossipTextId=" +
                     std::to_string(e.gossipTextId) +
-                    " — mailboxes are gameobject services with "
+                    " - mailboxes are gameobject services with "
                     "no NPC dialogue; gossip will not display");
             }
             // Innkeeper without a gossip text reads as a silent
-            // bind interaction — usually a missing link.
+            // bind interaction - usually a missing link.
             if (e.serviceKind == wowee::pipeline::WoweeNPCService::Innkeeper &&
                 e.gossipTextId == 0) {
                 warnings.push_back(ctx +
-                    ": Innkeeper kind with gossipTextId=0 — "
+                    ": Innkeeper kind with gossipTextId=0 - "
                     "no welcome/bind dialogue, will silently bind");
             }
-            // Battlemaster gold cost > 0 is unusual — battle
+            // Battlemaster gold cost > 0 is unusual - battle
             // queues are typically free.
             if (e.serviceKind == wowee::pipeline::WoweeNPCService::Battlemaster &&
                 e.requiresGold > 0) {
                 warnings.push_back(ctx +
                     ": Battlemaster kind with requiresGold=" +
                     std::to_string(e.requiresGold) +
-                    " — battle queue services are typically free");
+                    " - battle queue services are typically free");
             }
             if (!idsSeen.add(e.serviceId)) errors.push_back(ctx + ": duplicate serviceId");
         }

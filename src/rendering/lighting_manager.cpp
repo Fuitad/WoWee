@@ -271,7 +271,7 @@ void LightingManager::update(const glm::vec3& playerPos, uint32_t mapId, uint32_
         if (gameTime >= 0.0f) {
             // Server-sent game time, in hours since midnight. It was being
             // divided by 86400 as though it were seconds, against a field that
-            // held a raw packed bitfield — so the sky's clock was a number with
+            // held a raw packed bitfield - so the sky's clock was a number with
             // no relation to the hour, and it looked plausible because any
             // value lands somewhere in the day.
             timeOfDay_ = std::fmod(gameTime / 24.0f, 1.0f);  // 0.0-1.0
@@ -448,7 +448,7 @@ std::vector<LightingManager::WeightedVolume> LightingManager::findLightVolumes(c
         if (weight > 0.0f) {
             weighted.push_back({&volume, weight});
 
-            // One-time diagnostic on the first map/frame this function fires —
+            // One-time diagnostic on the first map/frame this function fires -
             // was logging the first three volumes EVERY FRAME, generating a
             // continuous LOG_INFO stream during normal gameplay.
             static int diagFramesRemaining = 1;

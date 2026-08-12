@@ -89,7 +89,7 @@ void main() {
     bool isFoliage = (alphaTest == 2);
 
     // Fix DXT fringe: transparent edge texels have garbage (black) RGB.
-    // At low alpha the original RGB is untrustworthy — replace with the
+    // At low alpha the original RGB is untrustworthy - replace with the
     // averaged color from nearby opaque texels (high mip).  The lower
     // the alpha the more we distrust the original color.
     if (alphaTest != 0 && texColor.a > 0.01 && texColor.a < 1.0) {
@@ -149,7 +149,7 @@ void main() {
     bool foliageTwoSided = (alphaTest == 2);
     if (!foliageTwoSided && !gl_FrontFacing) norm = -norm;
 
-    // Detail normal perturbation (foliage only) — UV-based only so wind doesn't cause flicker
+    // Detail normal perturbation (foliage only) - UV-based only so wind doesn't cause flicker
     if (isFoliage) {
         float nx = sin(TexCoord.x * 12.0 + TexCoord.y * 5.3) * 0.10;
         float ny = sin(TexCoord.y * 14.0 + TexCoord.x * 4.7) * 0.10;
@@ -191,7 +191,7 @@ void main() {
             shadow = mix(1.0, shadow, shadowParams.y);
         }
 
-        // Leaf subsurface scattering (foliage only) — uses stable normal, no FragPos dependency
+        // Leaf subsurface scattering (foliage only) - uses stable normal, no FragPos dependency
         vec3 sss = vec3(0.0);
         if (isFoliage) {
             float backLit = max(-nDotL, 0.0);
@@ -230,7 +230,7 @@ void main() {
     result = mix(fogColor.rgb, result, fogFactor);
 
     float outAlpha = texColor.a * vFadeAlpha;
-    // Cutout materials output the sharpened coverage alpha computed above —
+    // Cutout materials output the sharpened coverage alpha computed above -
     // alpha-to-coverage turns it into per-sample coverage for smooth edges.
     // Color-key-only materials have no meaningful texture alpha; keep them
     // opaque after the discard.

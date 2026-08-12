@@ -8,7 +8,7 @@ WHAT THIS IS FOR
 ChatEdit_ParseText resolves an emote by walking EMOTEn_CMDm for a match and
 then calling DoEmote with that emote's **EMOTEn_TOKEN**. So the token list is
 exactly the set of names the binding has to answer, and anything it does not
-answer is an emote that does nothing at all — no packet, no animation, no text,
+answer is an emote that does nothing at all - no packet, no animation, no text,
 and no error either.
 
 DoEmote used to answer thirty-one names from a map written by hand, twenty-seven
@@ -21,7 +21,7 @@ only route.
 WHAT IT CHECKS
 
 Every EMOTEn_TOKEN against the command names in EmotesText.dbc, which is what
-EmoteRegistry keys its table on — lower-cased, split on non-alphanumerics, the
+EmoteRegistry keys its table on - lower-cased, split on non-alphanumerics, the
 same reading parseEmoteCommands makes.
 
 It also checks that DoEmote actually goes through that registry. A binding that
@@ -35,7 +35,7 @@ ONE IS LEFT AND IT IS CORRECT
 WHAT IT CANNOT SEE
 
 Whether the emote *plays*. The client sends the id and the server echoes
-SMSG_EMOTE, which is where the animation comes from — an emote whose Emotes.dbc
+SMSG_EMOTE, which is where the animation comes from - an emote whose Emotes.dbc
 row has AnimID 0 is text-only and correct to look silent.
 """
 import re
@@ -96,14 +96,14 @@ def main():
     uses_registry = "getEmoteDbcId" in BINDING.read_text(errors="ignore")
 
     if commands is None:
-        print("emotestext.dbc not readable here — nothing to compare")
+        print("emotestext.dbc not readable here - nothing to compare")
         return 0
 
     print(f"{len(tokens)} EMOTEn_TOKEN values, {len(commands)} command names in "
           f"emotestext.dbc, DoEmote "
           f"{'reads the registry' if uses_registry else 'DOES NOT read the registry'}")
     if not tokens:
-        print("  CANARY: no tokens parsed out of the interface — "
+        print("  CANARY: no tokens parsed out of the interface - "
               "the count below is meaningless.")
     print()
 

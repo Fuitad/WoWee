@@ -1,7 +1,7 @@
 // The $-tokens WoW's server text is written with, and what fills them in.
 //
 // The server sends a quest, a gossip line or a monster's say with the player
-// left as a blank — "$N, you have done well" — and the client writes the name
+// left as a blank - "$N, you have done well" - and the client writes the name
 // in. Until this was wired into the chat handler, every scripted NPC in the
 // game addressed the player as "$N".
 #include <catch_amalgamated.hpp>

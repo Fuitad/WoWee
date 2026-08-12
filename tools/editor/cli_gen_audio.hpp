@@ -8,7 +8,7 @@ namespace cli {
 //
 // Returns true if argv[i] matched one of these flags; in that case
 // outRc holds the exit code (0 success, non-zero failure) and main()
-// should `return outRc` immediately. Returns false if no match —
+// should `return outRc` immediately. Returns false if no match -
 // caller should continue its dispatch chain.
 //
 // On match, advances `i` past the consumed arguments (same semantics

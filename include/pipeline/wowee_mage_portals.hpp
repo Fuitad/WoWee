@@ -8,7 +8,7 @@ namespace wowee {
 namespace pipeline {
 
 // Wowee Open Mage Portal Destinations catalog
-// (.wprt) — novel replacement for the implicit
+// (.wprt) - novel replacement for the implicit
 // portal-spell -> destination-coordinate binding
 // vanilla WoW carried in scattered pieces:
 // SpellEffects.dbc effect-71 (TELEPORT_UNITS) +
@@ -21,7 +21,7 @@ namespace pipeline {
 //
 // Cross-references with previously-added formats:
 //   WSPL: spellId references the WSPL spell catalog
-//         (the actual spell-to-cast — Portal: Stormwind
+//         (the actual spell-to-cast - Portal: Stormwind
 //         is spellId 10059, Teleport: Stormwind is
 //         3561, etc.).
 //   WMS:  destinationMapId references the WMS map
@@ -37,26 +37,26 @@ namespace pipeline {
 //   entryCount (uint32)
 //   entries (each):
 //     portalId (uint32)
-//     spellId (uint32)             — WSPL spell to
+//     spellId (uint32)             - WSPL spell to
 //                                     cast
-//     nameLen + destinationName    — display label
+//     nameLen + destinationName    - display label
 //     destX (float)
 //     destY (float)
 //     destZ (float)
-//     destOrientation (float)      — facing direction
+//     destOrientation (float)      - facing direction
 //                                     in radians
 //     destMapId (uint32)
-//     factionAccess (uint8)        — 0=Both /
+//     factionAccess (uint8)        - 0=Both /
 //                                     1=Alliance /
 //                                     2=Horde /
 //                                     3=Neutral
-//     portalKind (uint8)           — 0=Teleport (self
+//     portalKind (uint8)           - 0=Teleport (self
 //                                     only) /
 //                                     1=Portal (group)
-//     levelRequirement (uint8)     — minimum mage
+//     levelRequirement (uint8)     - minimum mage
 //                                     level to learn
 //     reagentCount (uint8)
-//     reagentItemId (uint32)       — 0 if no reagent
+//     reagentItemId (uint32)       - 0 if no reagent
 struct WoweeMagePortals {
     enum FactionAccess : uint8_t {
         Both     = 0,
@@ -95,7 +95,7 @@ struct WoweeMagePortals {
 
     const Entry* findById(uint32_t portalId) const;
 
-    // Returns the binding for a given cast spellId —
+    // Returns the binding for a given cast spellId -
     // the lookup the portal-cast handler uses to
     // decide where to teleport the target.
     const Entry* findBySpellId(uint32_t spellId) const;
@@ -116,19 +116,19 @@ public:
 
     // Preset emitters used by --gen-prt* variants.
     //
-    //   makeAllianceCities — 4 Alliance city portals
+    //   makeAllianceCities - 4 Alliance city portals
     //                          (Stormwind / Ironforge /
     //                          Darnassus / Theramore).
     //                          All Alliance-only,
     //                          require Rune of Portals.
-    //   makeHordeCities    — 3 Horde city portals
+    //   makeHordeCities    - 3 Horde city portals
     //                          (Orgrimmar / Undercity /
     //                          Thunder Bluff). Horde-
     //                          only.
-    //   makeTeleports      — 3 self-teleport spells
+    //   makeTeleports      - 3 self-teleport spells
     //                          (Teleport: Stormwind /
     //                          Teleport: Ironforge /
-    //                          Teleport: Orgrimmar) —
+    //                          Teleport: Orgrimmar) -
     //                          paired Alliance/Horde
     //                          set illustrating the
     //                          self-vs-group portal

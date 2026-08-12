@@ -11,7 +11,7 @@ namespace cli {
 //   --info-project-deps
 //
 // Returns true if matched; outRc holds the exit code. Returns
-// false if no match — caller should continue its dispatch chain.
+// false if no match - caller should continue its dispatch chain.
 bool handleAudits(int& i, int argc, char** argv, int& outRc);
 
 } // namespace cli

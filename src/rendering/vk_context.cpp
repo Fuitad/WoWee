@@ -85,7 +85,7 @@ bool VkContext::initialize(SDL_Window* window) {
     if (!createAllocator()) return false;
 
     // Pipeline cache: try to load from disk, fall back to empty cache.
-    // Not fatal — if it fails we just skip caching.
+    // Not fatal - if it fails we just skip caching.
     createPipelineCache();
 
     int w, h;
@@ -142,7 +142,7 @@ void VkContext::shutdown() {
 
     // Clean up any in-flight async upload batches (device already idle)
     for (auto& batch : inFlightBatches_) {
-        // Staging buffers: skip destroy — allocator is about to be torn down
+        // Staging buffers: skip destroy - allocator is about to be torn down
         vkDestroyFence(device, batch.fence, nullptr);
         // Command buffer freed when pool is destroyed below
     }
@@ -179,14 +179,14 @@ void VkContext::shutdown() {
     // reclaims the rest at process exit, so skipping it makes shutdown instant.
     //
     // Under validation, tear it down properly. Whatever the caches still hold is
-    // otherwise reported object by object at vkDestroyDevice — ninety thousand
-    // errors in one run — and that flood buries any real problem the layers find.
+    // otherwise reported object by object at vkDestroyDevice - ninety thousand
+    // errors in one run - and that flood buries any real problem the layers find.
     // Paying a few seconds on the way out is worth a usable validation signal,
     // and it also means a genuine leak still shows up rather than hiding in the
     // noise. Players never take this path.
     if (allocator) {
         if (validationActive_) {
-            LOG_INFO("Validation active — destroying VMA allocator (slow, but keeps the exit clean)");
+            LOG_INFO("Validation active - destroying VMA allocator (slow, but keeps the exit clean)");
             vmaDestroyAllocator(allocator);
         }
         allocator = VK_NULL_HANDLE;
@@ -215,7 +215,7 @@ void VkContext::deferAfterFrameFence(std::function<void()>&& fn) {
 void VkContext::deferAfterAllFrameFences(std::function<void()>&& fn) {
     // Shared resources (material descriptor sets, vertex/index buffers) are
     // bound by every in-flight frame's command buffer.  deferAfterFrameFence
-    // only waits for ONE slot's fence — the other slot may still be executing.
+    // only waits for ONE slot's fence - the other slot may still be executing.
     // Add to every slot; a shared counter ensures the lambda runs exactly once,
     // after the LAST slot has been fenced.
     auto counter  = std::make_shared<uint32_t>(MAX_FRAMES_IN_FLIGHT);
@@ -234,7 +234,7 @@ void VkContext::flushDeferredCleanup() {
     // to come around again. Subsystems defer destruction because in-flight
     // command buffers may still reference the resources, but during shutdown no
     // further frames are rendered, so anything queued would otherwise sit there
-    // until VkContext::shutdown drops the queues unexecuted — which is how every
+    // until VkContext::shutdown drops the queues unexecuted - which is how every
     // resident terrain chunk and WMO group ended up outliving the device.
     //
     // Call this while the subsystem's descriptor pools are still alive: the
@@ -284,7 +284,7 @@ VkSampler VkContext::getOrCreateSampler(const VkSamplerCreateInfo& info) {
         // Double-check: another thread may have inserted while we were creating.
         auto [it, inserted] = samplerCache_.emplace(key, sampler);
         if (!inserted) {
-            // Another thread won the race — destroy our duplicate and use theirs.
+            // Another thread won the race - destroy our duplicate and use theirs.
             vkDestroySampler(device, sampler, nullptr);
             return it->second;
         }
@@ -392,7 +392,7 @@ bool VkContext::selectPhysicalDevice() {
     props2.pNext = &dsResolveProps;
     vkGetPhysicalDeviceProperties2(physicalDevice, &props2);
 
-    // Gate on instance API version — vkCreateRenderPass2 is core 1.2 and only
+    // Gate on instance API version - vkCreateRenderPass2 is core 1.2 and only
     // available when the instance was created with apiVersion >= 1.2.
     // The device may report 1.2+ but a 1.1 instance won't have the function pointer.
     if (instanceApiVersion_ >= VK_API_VERSION_1_2) {
@@ -442,7 +442,7 @@ bool VkContext::createLogicalDevice() {
     // fp16 into storage buffers, which needs the 16-bit *storage* features
     // (storageBuffer16BitAccess / uniformAndStorageBuffer16BitAccess). Without
     // them the FFX Vulkan backend fails to build its compute pipelines and
-    // ffxCreateContext returns rc=3 (RUNTIME_ERROR) — "Path C upscale failed".
+    // ffxCreateContext returns rc=3 (RUNTIME_ERROR) - "Path C upscale failed".
     VkPhysicalDeviceVulkan11Features enabled11{};
     enabled11.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES;
     VkPhysicalDeviceVulkan12Features enabled12{};
@@ -466,7 +466,7 @@ bool VkContext::createLogicalDevice() {
         }
         // The AMD FSR3 SDK backend hardcodes fp16Supported=true and always
         // selects the fp16 shader permutations, whose wave/subgroup reductions
-        // operate on 16-bit types — that needs shaderSubgroupExtendedTypes.
+        // operate on 16-bit types - that needs shaderSubgroupExtendedTypes.
         // Without it, ffxCreateContext fails building those pipelines (rc=3).
         if (supported12.shaderSubgroupExtendedTypes) {
             enabled12.shaderSubgroupExtendedTypes = VK_TRUE;
@@ -479,7 +479,7 @@ bool VkContext::createLogicalDevice() {
         if (supported11.uniformAndStorageBuffer16BitAccess) {
             enabled11.uniformAndStorageBuffer16BitAccess = VK_TRUE;
         }
-        // Add each struct separately — vk-bootstrap owns the pNext chaining;
+        // Add each struct separately - vk-bootstrap owns the pNext chaining;
         // manually linking them would be overwritten when it appends the next.
         deviceBuilder.add_pNext(&enabled11);
         deviceBuilder.add_pNext(&enabled12);
@@ -555,7 +555,7 @@ bool VkContext::createLogicalDevice() {
 
         LOG_INFO("Dedicated transfer queue enabled (family ", gfxFamily, ", queue index 1)");
     } else {
-        // Standard path — let vkb resolve queues.
+        // Standard path - let vkb resolve queues.
         auto gqRet = vkbDevice.get_queue(vkb::QueueType::graphics);
         if (!gqRet) {
             LOG_ERROR("Failed to get graphics queue");
@@ -617,7 +617,7 @@ static std::string getPipelineCachePath() {
 bool VkContext::createPipelineCache() {
     // NVIDIA drivers have their own built-in pipeline/shader disk cache.
     // Using VkPipelineCache on NVIDIA 590.x causes vkCmdBeginRenderPass to
-    // SIGSEGV inside libnvidia-glcore — skip entirely on NVIDIA GPUs.
+    // SIGSEGV inside libnvidia-glcore - skip entirely on NVIDIA GPUs.
     if (gpuVendorId_ == 0x10DE) {
         LOG_INFO("Pipeline cache: skipped (NVIDIA driver provides built-in caching)");
         return true;
@@ -658,7 +658,7 @@ bool VkContext::createPipelineCache() {
             result = vkCreatePipelineCache(device, &cacheCI, nullptr, &pipelineCache_);
         }
         if (result != VK_SUCCESS) {
-            LOG_WARNING("Pipeline cache creation failed — pipelines will not be cached");
+            LOG_WARNING("Pipeline cache creation failed - pipelines will not be cached");
             pipelineCache_ = VK_NULL_HANDLE;
             return false;
         }
@@ -851,7 +851,7 @@ bool VkContext::createSyncObjects() {
             return false;
         }
     }
-    // One extra acquire semaphore — we need it for the next vkAcquireNextImageKHR
+    // One extra acquire semaphore - we need it for the next vkAcquireNextImageKHR
     // before we know which image we'll get.
     if (vkCreateSemaphore(device, &semInfo, nullptr, &nextAcquireSemaphore_) != VK_SUCCESS) {
         LOG_ERROR("Failed to create next-acquire semaphore");
@@ -863,7 +863,7 @@ bool VkContext::createSyncObjects() {
     immFenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
     // Logged for the same reason as the frame fences: validation reports a
     // fence by handle, and immFence is shared by endSingleTimeCommands and the
-    // upload batches — which submit on different queues.
+    // upload batches - which submit on different queues.
     if (vkCreateFence(device, &immFenceInfo, nullptr, &immFence) == VK_SUCCESS) {
         LOG_WARNING("immediate fence = 0x", std::hex,
                     reinterpret_cast<uint64_t>(immFence), std::dec);
@@ -922,7 +922,7 @@ void VkContext::destroyDepthBuffer() {
 bool VkContext::createMsaaColorImage() {
     if (msaaSamples_ == VK_SAMPLE_COUNT_1_BIT) return true; // No MSAA image needed
 
-    // Check if lazily allocated memory is available — only use TRANSIENT when it is.
+    // Check if lazily allocated memory is available - only use TRANSIENT when it is.
     // AMD GPUs (especially RDNA4) don't expose lazily allocated memory; using TRANSIENT
     // without it can cause the driver to optimize for tile-only storage, leading to
     // crashes during MSAA resolve when the backing memory was never populated.
@@ -1245,7 +1245,7 @@ bool VkContext::createImGuiResources() {
             }
         }
     } else {
-        // Non-MSAA render pass: 2 attachments (color + depth) — original path
+        // Non-MSAA render pass: 2 attachments (color + depth) - original path
         VkAttachmentDescription attachments[2] = {};
 
         // Color attachment (swapchain image)
@@ -1359,7 +1359,7 @@ bool VkContext::createImGuiResources() {
 // part of the refraction capture, and deliberately single-sampled: ImGui draws
 // axis-aligned rectangles and pre-antialiased glyphs, which MSAA does almost
 // nothing for, so multisampling it only costs fill rate. Colour only, loading
-// what is already on the swapchain — no depth, no resolve.
+// what is already on the swapchain - no depth, no resolve.
 bool VkContext::createOverlayRenderPass() {
     destroyOverlayRenderPass();
 
@@ -1408,7 +1408,7 @@ bool VkContext::createOverlayRenderPass() {
 
     // Same attachments, so ImGui's pipelines work in either, but clearing rather
     // than loading. The loading screen draws ImGui with nothing underneath it,
-    // and it used to do that inside the scene pass — which stopped being valid
+    // and it used to do that inside the scene pass - which stopped being valid
     // once ImGui's pipelines were built single-sampled for the overlay pass.
     color.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     color.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
@@ -1440,7 +1440,7 @@ bool VkContext::createOverlayRenderPass() {
 // pipelines built for it work unchanged) but loading what is already drawn
 // instead of clearing. Water renders here, after the scene has been copied for
 // refraction, which is what keeps the water out of its own refraction source.
-// Only built without MSAA — a multisampled continuation would have to resolve a
+// Only built without MSAA - a multisampled continuation would have to resolve a
 // second time and could not preserve the first resolve.
 bool VkContext::createSceneContinueRenderPass() {
     if (msaaSamples_ > VK_SAMPLE_COUNT_1_BIT) {
@@ -1482,7 +1482,7 @@ bool VkContext::createSceneContinueRenderPass() {
 
     // Must match the scene pass's dependency exactly. This pass is begun against
     // the scene's own framebuffer, and render pass compatibility is checked
-    // against how that framebuffer was created — a dependency that differs makes
+    // against how that framebuffer was created - a dependency that differs makes
     // the begin invalid, which is undefined behaviour and rendered the frame into
     // a corner of the screen on the FXAA path.
     VkSubpassDependency dependency{};
@@ -1503,7 +1503,7 @@ bool VkContext::createSceneContinueRenderPass() {
     rpInfo.pDependencies = &dependency;
 
     if (vkCreateRenderPass(device, &rpInfo, nullptr, &sceneContinueRenderPass) != VK_SUCCESS) {
-        LOG_WARNING("Failed to create scene continuation pass — water stays in the scene pass");
+        LOG_WARNING("Failed to create scene continuation pass - water stays in the scene pass");
         sceneContinueRenderPass = VK_NULL_HANDLE;
     }
     return true;
@@ -1744,7 +1744,7 @@ VkDescriptorSet VkContext::uploadImGuiTexture(const uint8_t* rgba, int width, in
 
     // Freed now only if the copy has already run. Inside a batch immediateSubmit
     // records and returns without submitting, so destroying the staging here
-    // pulls the source out from under a copy that has not happened — the image
+    // pulls the source out from under a copy that has not happened - the image
     // then contains whatever was left behind, which draws as nothing at all.
     if (inUploadBatch_) {
         deferRawStagingCleanup(stagingBuffer, stagingMemory);
@@ -1798,7 +1798,7 @@ VkDescriptorSet VkContext::uploadImGuiTexture(const uint8_t* rgba, int width, in
     }
 
     if (!ds) {
-        LOG_ERROR("UI descriptor pool exhausted — cannot upload UI texture");
+        LOG_ERROR("UI descriptor pool exhausted - cannot upload UI texture");
         vkDestroyImageView(device, imageView, nullptr);
         vkDestroyImage(device, image, nullptr);
         vkFreeMemory(device, imageMemory, nullptr);
@@ -1858,7 +1858,7 @@ bool VkContext::recreateSwapchain(int width, int height) {
         return false;
     }
 
-    // Success — safe to retire the old swapchain
+    // Success - safe to retire the old swapchain
     if (oldSwapchain) {
         vkDestroySwapchainKHR(device, oldSwapchain, nullptr);
     }
@@ -2151,7 +2151,7 @@ void VkContext::resetFrameSyncState() {
     // How many asynchronous upload batches are still outstanding when a
     // rebuild happens. These are submitted without being waited on, one fence
     // each, and FrameXML makes hundreds where this client alone makes almost
-    // none — which is the one difference that scales the way the fault does.
+    // none - which is the one difference that scales the way the fault does.
     if (!inFlightBatches_.empty()) {
         LOG_WARNING("rebuild with ", inFlightBatches_.size(),
                     " upload batches still in flight (", batchesSubmitted_,
@@ -2161,12 +2161,12 @@ void VkContext::resetFrameSyncState() {
     // the fence wait in the next frame takes the blame for it.
     if (const VkResult idle = vkDeviceWaitIdle(device); idle != VK_SUCCESS) {
         LOG_ERROR("wait-idle before a rebuild failed: ", static_cast<int>(idle),
-                  " — the device was already lost before this rebuild, not by it");
+                  " - the device was already lost before this rebuild, not by it");
     }
 
     // Retire the upload batches now. The wait above means every one of them has
     // finished, so this frees each fence, command buffer and staging buffer
-    // while the pools they came from are still alive — the same condition
+    // while the pools they came from are still alive - the same condition
     // flushDeferredCleanup needs, and for the same reason. Left alone they
     // survived the rebuild holding all three, and the only thing that would
     // ever collect them is a later frame happening to poll.
@@ -2174,7 +2174,7 @@ void VkContext::resetFrameSyncState() {
 
     // Everything queued to be freed later can be freed now, because the wait
     // above says the GPU holds nothing. Left queued, these frees sit against
-    // frame slots whose fences are about to be remade signalled — so the next
+    // frame slots whose fences are about to be remade signalled - so the next
     // visit to each slot releases them on a fence that reports completion by
     // construction rather than because work finished. The pools they free from
     // are still alive at this point, which is the condition flushDeferredCleanup
@@ -2205,8 +2205,8 @@ void VkContext::resetFrameSyncState() {
     // one; if the swapchain is rebuilt before the submit that would have
     // waited on it, it stays signalled with nothing left to consume it. The
     // rebuild only ever created or destroyed these when the image *count*
-    // changed, so on a rebuild that keeps the same count — which an MSAA or
-    // FSR change does — every one of them carried its state across.
+    // changed, so on a rebuild that keeps the same count - which an MSAA or
+    // FSR change does - every one of them carried its state across.
     //
     // Handing an already-signalled semaphore to vkAcquireNextImageKHR is
     // undefined, and the driver answers by losing the device. That is the
@@ -2249,7 +2249,7 @@ VkCommandBuffer VkContext::beginFrame(uint32_t& imageIndex) {
     beginFrameCounter++;
     VkResult fenceResult = vkWaitForFences(device, 1, &frame.inFlightFence, VK_TRUE, 5000000000ULL); // 5 second timeout
     if (fenceResult == VK_TIMEOUT) {
-        LOG_ERROR("beginFrame[", beginFrameCounter, "] FENCE TIMEOUT (5s) on frame slot ", currentFrame, " — GPU hang detected!");
+        LOG_ERROR("beginFrame[", beginFrameCounter, "] FENCE TIMEOUT (5s) on frame slot ", currentFrame, " - GPU hang detected!");
         return VK_NULL_HANDLE;
     }
     if (fenceResult != VK_SUCCESS) {
@@ -2395,7 +2395,7 @@ void VkContext::noteImmediateSubmitThread(const char* who) {
     std::lock_guard<std::mutex> lock(seenMutex);
     if (seen.insert(self).second && seen.size() > 1) {
         LOG_WARNING("immFence is now being used from ", seen.size(),
-                    " threads (latest via ", who, ") — it is shared and "
+                    " threads (latest via ", who, ") - it is shared and "
                     "unguarded, so two of them can reset a fence the other "
                     "is waiting on");
     }
@@ -2410,7 +2410,7 @@ void VkContext::endSingleTimeCommands(VkCommandBuffer cmd) {
     submitInfo.pCommandBuffers = &cmd;
 
     // immFence and the immediate command pool are shared and unguarded. If two
-    // threads reach here at once, one resets a fence the other is waiting on —
+    // threads reach here at once, one resets a fence the other is waiting on -
     // which is what validation reports as VUID-vkResetFences-pFences-01123,
     // and the driver answers by losing the device. Said once per thread so a
     // log shows whether that is happening.
@@ -2419,7 +2419,7 @@ void VkContext::endSingleTimeCommands(VkCommandBuffer cmd) {
     // Checked, because this is where the first sign of trouble goes missing.
     //
     // A log of a lost device begins with validation complaining that immFence
-    // is being reset while still in use — which is what happens *after* a wait
+    // is being reset while still in use - which is what happens *after* a wait
     // that returned an error rather than waiting. The submit and the wait were
     // both unchecked, so whatever actually went wrong left no line at all and
     // the reset took the blame for it.
@@ -2431,13 +2431,13 @@ void VkContext::endSingleTimeCommands(VkCommandBuffer cmd) {
     if (submitted != VK_SUCCESS && !reported) {
         reported = true;
         LOG_ERROR("immediate submit failed: ", static_cast<int>(submitted),
-                  " — this is the first failure, whatever follows is its wake");
+                  " - this is the first failure, whatever follows is its wake");
     }
     const VkResult waited = vkWaitForFences(device, 1, &immFence, VK_TRUE, UINT64_MAX);
     if (waited != VK_SUCCESS && !reported) {
         reported = true;
         LOG_ERROR("immediate wait failed: ", static_cast<int>(waited),
-                  " (VK_ERROR_DEVICE_LOST is -4) — the fence is not signalled,"
+                  " (VK_ERROR_DEVICE_LOST is -4) - the fence is not signalled,"
                   " so the reset below is the symptom rather than the cause");
     }
     vkResetFences(device, 1, &immFence);
@@ -2446,7 +2446,7 @@ void VkContext::endSingleTimeCommands(VkCommandBuffer cmd) {
 
 void VkContext::immediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function) {
     if (inUploadBatch_) {
-        // Record into the batch command buffer — no submit, no fence wait.
+        // Record into the batch command buffer - no submit, no fence wait.
         // Opened on demand, so a batch nothing writes to costs nothing.
         ensureBatchCmd();
         if (batchCmd_ != VK_NULL_HANDLE) function(batchCmd_);
@@ -2463,9 +2463,9 @@ void VkContext::beginUploadBatch() {
     // batch path existed.
     //
     // A diagnostic rather than a setting, and here because three device losses
-    // in a row have landed within a second of the first batch of the session —
+    // in a row have landed within a second of the first batch of the session -
     // at frames 803, 1194 and 8916, so it is the batch and not the frame count
-    // — and moving the submit to the graphics queue did not change it. This
+    // - and moving the submit to the graphics queue did not change it. This
     // separates "the batch path is implicated" from "something else at world
     // entry is", which is a question no amount of reading has settled.
     //
@@ -2532,14 +2532,14 @@ void VkContext::endUploadBatch() {
     // buffer holding every one of those copies was thrown away unsubmitted and
     // the images stayed blank.
     if (batchStagingBuffers_.empty() && batchRawStaging_.empty()) {
-        // No GPU copies were recorded — skip the submit entirely.
+        // No GPU copies were recorded - skip the submit entirely.
         vkEndCommandBuffer(batchCmd_);
         vkFreeCommandBuffers(device, pool, 1, &batchCmd_);
         batchCmd_ = VK_NULL_HANDLE;
         return;
     }
 
-    // Submit commands with a NEW fence — don't wait, let GPU work in parallel.
+    // Submit commands with a NEW fence - don't wait, let GPU work in parallel.
     vkEndCommandBuffer(batchCmd_);
 
     VkFenceCreateInfo fenceInfo{};
@@ -2554,7 +2554,7 @@ void VkContext::endUploadBatch() {
 
     // On the graphics queue, not the transfer one, unless asked otherwise.
     //
-    // Both queues are in the same family, so no ownership transfer is needed —
+    // Both queues are in the same family, so no ownership transfer is needed -
     // that much of the setup comment is right. But same family is not same
     // queue: two queues run independently, and nothing here ordered them. The
     // upload was submitted with a fence and no semaphore, the fence only ever
@@ -2580,7 +2580,7 @@ void VkContext::endUploadBatch() {
     vkQueueSubmit(targetQueue, 1, &submitInfo, fence);
 
     // Said once, with the handle, because these are the only fences created
-    // after startup — so a validation message naming a high handle is one of
+    // after startup - so a validation message naming a high handle is one of
     // these rather than a frame fence or the immediate one. FrameXML makes
     // hundreds of them; without it there are almost none, which is the shape
     // of the difference between the two branches.
@@ -2626,7 +2626,7 @@ void VkContext::endUploadBatchSync() {
         return;
     }
 
-    // Synchronous path for load screens — submit and wait on the target queue.
+    // Synchronous path for load screens - submit and wait on the target queue.
     VkQueue targetQueue = hasDedicatedTransfer_ ? transferQueue_ : graphicsQueue;
 
     vkEndCommandBuffer(batchCmd_);
@@ -2640,8 +2640,8 @@ void VkContext::endUploadBatchSync() {
     //
     // immFence is also used by endSingleTimeCommands, which submits on the
     // graphics queue while this submits on the transfer queue when there is
-    // one. Validation reports that fence — 0x170000000017, named at creation
-    // — being reset while still in use, repeatedly, just before the device is
+    // one. Validation reports that fence - 0x170000000017, named at creation
+    // - being reset while still in use, repeatedly, just before the device is
     // lost. Two queues signalling one fence is the fragility whatever the
     // exact interleaving; a fence per submit has no such question about it.
     //
@@ -2682,7 +2682,7 @@ void VkContext::pollUploadBatches() {
     for (auto it = inFlightBatches_.begin(); it != inFlightBatches_.end(); ) {
         VkResult result = vkGetFenceStatus(device, it->fence);
         if (result == VK_SUCCESS) {
-            // GPU finished — free resources
+            // GPU finished - free resources
             for (auto& raw : it->rawStaging) {
                 vkDestroyBuffer(device, raw.buffer, nullptr);
                 vkFreeMemory(device, raw.memory, nullptr);

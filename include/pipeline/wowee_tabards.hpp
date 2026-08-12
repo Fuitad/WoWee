@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Tabard Design catalog (.wtbd) — novel
+// Wowee Open Tabard Design catalog (.wtbd) - novel
 // replacement for the GuildBankTabard / TabardConfig
 // blob that vanilla WoW stores per-guild in the
 // guild_member SQL table. Each entry is one tabard
@@ -31,18 +31,18 @@ namespace pipeline {
 //     tabardId (uint32)
 //     nameLen + name
 //     descLen + description
-//     backgroundPattern (uint8)  — Solid / Gradient /
+//     backgroundPattern (uint8)  - Solid / Gradient /
 //                                   Chevron / Quartered /
 //                                   Starburst
-//     borderPattern (uint8)      — None / Thin / Thick /
+//     borderPattern (uint8)      - None / Thin / Thick /
 //                                   Decorative
-//     emblemId (uint16)          — 0..1023 glyph index
-//     backgroundColor (uint32)   — RGBA
-//     borderColor (uint32)       — RGBA
-//     emblemColor (uint32)       — RGBA
-//     guildId (uint32)            — 0 if standalone
-//     creatorPlayerId (uint32)    — 0 if system tabard
-//     isApproved (uint8)          — 0/1 bool
+//     emblemId (uint16)          - 0..1023 glyph index
+//     backgroundColor (uint32)   - RGBA
+//     borderColor (uint32)       - RGBA
+//     emblemColor (uint32)       - RGBA
+//     guildId (uint32)            - 0 if standalone
+//     creatorPlayerId (uint32)    - 0 if system tabard
+//     isApproved (uint8)          - 0/1 bool
 //     pad0 (uint8) / pad1 (uint8) / pad2 (uint8)
 //     iconColorRGBA (uint32)
 struct WoweeTabards {
@@ -90,7 +90,7 @@ struct WoweeTabards {
 
     const Entry* findById(uint32_t tabardId) const;
 
-    // Returns all tabards belonging to one guild — used
+    // Returns all tabards belonging to one guild - used
     // by the guild-bank tabard preview UI to populate
     // the design-history list (guilds can keep multiple
     // approved designs and switch between them).
@@ -111,18 +111,18 @@ public:
 
     // Preset emitters used by --gen-tbd* variants.
     //
-    //   makeAllianceClassic — 4 Alliance-themed system
+    //   makeAllianceClassic - 4 Alliance-themed system
     //                          tabards (LionEmblem on blue
     //                          / HammerEmblem on silver /
     //                          AnchorEmblem on navy /
     //                          SwordEmblem on gold).
-    //   makeHordeClassic    — 4 Horde-themed system
+    //   makeHordeClassic    - 4 Horde-themed system
     //                          tabards (WolfheadEmblem on
     //                          crimson / CrossedAxes on
     //                          dark / SkullEmblem on
     //                          black / PyramidEmblem on
     //                          tan).
-    //   makeFactionVendor   — 6 faction-rep tabards
+    //   makeFactionVendor   - 6 faction-rep tabards
     //                          (Argent Crusade /
     //                          Ebon Blade / Sons of
     //                          Hodir / Wyrmrest Accord /

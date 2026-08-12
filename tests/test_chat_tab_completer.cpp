@@ -4,7 +4,7 @@
 
 using wowee::ui::ChatTabCompleter;
 
-TEST_CASE("ChatTabCompleter — initial state", "[chat][tab]") {
+TEST_CASE("ChatTabCompleter - initial state", "[chat][tab]") {
     ChatTabCompleter tc;
     CHECK_FALSE(tc.isActive());
     CHECK(tc.matchCount() == 0);
@@ -12,7 +12,7 @@ TEST_CASE("ChatTabCompleter — initial state", "[chat][tab]") {
     CHECK(tc.getPrefix().empty());
 }
 
-TEST_CASE("ChatTabCompleter — start with empty candidates", "[chat][tab]") {
+TEST_CASE("ChatTabCompleter - start with empty candidates", "[chat][tab]") {
     ChatTabCompleter tc;
     tc.startCompletion("foo", {});
     CHECK_FALSE(tc.isActive());
@@ -21,7 +21,7 @@ TEST_CASE("ChatTabCompleter — start with empty candidates", "[chat][tab]") {
     CHECK(tc.getPrefix() == "foo");
 }
 
-TEST_CASE("ChatTabCompleter — single candidate", "[chat][tab]") {
+TEST_CASE("ChatTabCompleter - single candidate", "[chat][tab]") {
     ChatTabCompleter tc;
     tc.startCompletion("h", {"/help"});
     REQUIRE(tc.isActive());
@@ -32,7 +32,7 @@ TEST_CASE("ChatTabCompleter — single candidate", "[chat][tab]") {
     CHECK(tc.getCurrentMatch() == "/help");
 }
 
-TEST_CASE("ChatTabCompleter — multiple candidates cycle", "[chat][tab]") {
+TEST_CASE("ChatTabCompleter - multiple candidates cycle", "[chat][tab]") {
     ChatTabCompleter tc;
     tc.startCompletion("s", {"/say", "/sit", "/stand"});
     REQUIRE(tc.isActive());
@@ -47,7 +47,7 @@ TEST_CASE("ChatTabCompleter — multiple candidates cycle", "[chat][tab]") {
     CHECK(tc.getCurrentMatch() == "/say");
 }
 
-TEST_CASE("ChatTabCompleter — reset clears state", "[chat][tab]") {
+TEST_CASE("ChatTabCompleter - reset clears state", "[chat][tab]") {
     ChatTabCompleter tc;
     tc.startCompletion("s", {"/say", "/sit"});
     REQUIRE(tc.isActive());
@@ -58,7 +58,7 @@ TEST_CASE("ChatTabCompleter — reset clears state", "[chat][tab]") {
     CHECK(tc.getPrefix().empty());
 }
 
-TEST_CASE("ChatTabCompleter — new prefix restarts", "[chat][tab]") {
+TEST_CASE("ChatTabCompleter - new prefix restarts", "[chat][tab]") {
     ChatTabCompleter tc;
     tc.startCompletion("s", {"/say", "/sit"});
     tc.next(); // now at /sit
@@ -70,21 +70,21 @@ TEST_CASE("ChatTabCompleter — new prefix restarts", "[chat][tab]") {
     CHECK(tc.matchCount() == 2);
 }
 
-TEST_CASE("ChatTabCompleter — next on empty returns false", "[chat][tab]") {
+TEST_CASE("ChatTabCompleter - next on empty returns false", "[chat][tab]") {
     ChatTabCompleter tc;
     CHECK_FALSE(tc.next());
     tc.startCompletion("x", {});
     CHECK_FALSE(tc.next());
 }
 
-TEST_CASE("ChatTabCompleter — next returns true when cycling", "[chat][tab]") {
+TEST_CASE("ChatTabCompleter - next returns true when cycling", "[chat][tab]") {
     ChatTabCompleter tc;
     tc.startCompletion("a", {"/afk", "/assist"});
     CHECK(tc.next());
     CHECK(tc.getCurrentMatch() == "/assist");
 }
 
-TEST_CASE("ChatTabCompleter — prefix is preserved after cycling", "[chat][tab]") {
+TEST_CASE("ChatTabCompleter - prefix is preserved after cycling", "[chat][tab]") {
     ChatTabCompleter tc;
     tc.startCompletion("inv", {"/invite"});
     tc.next();
@@ -92,7 +92,7 @@ TEST_CASE("ChatTabCompleter — prefix is preserved after cycling", "[chat][tab]
     CHECK(tc.getPrefix() == "inv");
 }
 
-TEST_CASE("ChatTabCompleter — start same prefix resets index", "[chat][tab]") {
+TEST_CASE("ChatTabCompleter - start same prefix resets index", "[chat][tab]") {
     ChatTabCompleter tc;
     tc.startCompletion("s", {"/say", "/sit", "/stand"});
     tc.next(); // /sit

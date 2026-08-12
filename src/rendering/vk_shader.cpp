@@ -32,7 +32,7 @@ bool VkShaderModule::loadFromFile(VkDevice device, const std::string& path) {
     }
 
     size_t fileSize = static_cast<size_t>(file.tellg());
-    // SPIR-V is a stream of 32-bit words — file size must be a multiple of 4
+    // SPIR-V is a stream of 32-bit words - file size must be a multiple of 4
     if (fileSize == 0 || fileSize % 4 != 0) {
         LOG_ERROR("Invalid SPIR-V file size (", fileSize, "): ", path);
         return false;
@@ -84,7 +84,7 @@ VkPipelineShaderStageCreateInfo VkShaderModule::stageInfo(
 VkPipelineShaderStageCreateInfo loadShaderStage(VkDevice device,
     const std::string& path, VkShaderStageFlagBits stage)
 {
-    // This creates a temporary module — caller must keep it alive while pipeline is created.
+    // This creates a temporary module - caller must keep it alive while pipeline is created.
     // Prefer using VkShaderModule directly for proper lifetime management.
     VkShaderModuleCreateInfo moduleInfo{};
     moduleInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;

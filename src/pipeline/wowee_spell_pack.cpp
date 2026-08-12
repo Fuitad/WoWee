@@ -143,7 +143,7 @@ WoweeSpellPack WoweeSpellPackLoader::makeWarriorPack(
 WoweeSpellPack WoweeSpellPackLoader::makeMagePack(
     const std::string& catalogName) {
     // classId=8 (Mage). Frost tab includes Frostbolt
-    // rank 1 (spellId 116) — the canonical "every
+    // rank 1 (spellId 116) - the canonical "every
     // mage starts with this" spell.
     return makeFromTabs(catalogName, {
         {2001, 8, 0, 5, "General",
@@ -162,7 +162,7 @@ WoweeSpellPack WoweeSpellPackLoader::makeMagePack(
              2948,  // Scorch rank 1
             }},
         {2004, 8, 3, 52, "Frost",
-            {116,   // Frostbolt rank 1 — every mage
+            {116,   // Frostbolt rank 1 - every mage
                     //  begins here
              122,   // Frost Nova rank 1
              10,    // Blizzard rank 1

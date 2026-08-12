@@ -36,8 +36,8 @@ public:
     ///
     /// Three chat parsers read this by hand and only one of them checked the
     /// length against what the packet actually had left. Without that check a
-    /// truncated packet yields a name padded out of thin air — readUInt8
-    /// answers zero past the end rather than failing — and every field after
+    /// truncated packet yields a name padded out of thin air - readUInt8
+    /// answers zero past the end rather than failing - and every field after
     /// it is read from beyond the data too. The name comes back plausible and
     /// the target guid comes back nothing.
     ///

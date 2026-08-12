@@ -177,7 +177,7 @@ bool WMORenderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayou
     vertexAttribs[4] = { 4, 0, VK_FORMAT_R32G32B32A32_SFLOAT,
         static_cast<uint32_t>(offsetof(WMOVertexData, tangent)) };
 
-    // --- Build opaque pipeline (base for derivatives — shared state optimization) ---
+    // --- Build opaque pipeline (base for derivatives - shared state optimization) ---
     VkRenderPass mainPass = vkCtx_->getImGuiRenderPass();
 
     opaquePipeline_ = PipelineBuilder()
@@ -223,7 +223,7 @@ bool WMORenderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayou
         core::Logger::getInstance().warning("WMORenderer: transparent pipeline not available");
     }
 
-    // --- Build glass pipeline (derivative — alpha blend WITH depth write for windows) ---
+    // --- Build glass pipeline (derivative - alpha blend WITH depth write for windows) ---
     glassPipeline_ = PipelineBuilder()
         .setShaders(vertShader.stageInfo(VK_SHADER_STAGE_VERTEX_BIT),
                     fragShader.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT))
@@ -294,7 +294,7 @@ void WMORenderer::shutdown() {
     core::Logger::getInstance().info("Shutting down WMO renderer...");
 
     // Without a context there is nothing to free on the GPU and nothing to drain
-    // — and nothing to call it on either, which is what this used to try.
+    // - and nothing to call it on either, which is what this used to try.
     if (!vkCtx_) {
         loadedModels.clear();
         instances.clear();
@@ -577,7 +577,7 @@ WMORenderer::ModelLoadResult WMORenderer::loadModelIncremental(
                 // Resume AT this group, not after it. Marking it done before
                 // deciding whether to stop dropped one group on the floor at
                 // every budget break, and a dropped group is a missing piece of
-                // the building — the interior floors past a doorway in
+                // the building - the interior floors past a doorway in
                 // Stormwind, on a model big enough to break several times.
                 modelData.nextGroupIndex = gi;
                 vkCtx_->endUploadBatch();
@@ -594,9 +594,9 @@ WMORenderer::ModelLoadResult WMORenderer::loadModelIncremental(
         GroupResources resources;
         if (createGroupResources(wmoGroup, resources, wmoGroup.flags)) {
             // Detect distance-only LOD/exterior shell groups:
-            // 1. Very low vertex count (<100) — portal connectors, tiny shells
-            // 2. ALWAYS_DRAW (0x10000) with low verts — distant LOD stand-ins
-            // 3. Pure OUTDOOR groups (0x8 set, 0x2000 not set) in large WMOs —
+            // 1. Very low vertex count (<100) - portal connectors, tiny shells
+            // 2. ALWAYS_DRAW (0x10000) with low verts - distant LOD stand-ins
+            // 3. Pure OUTDOOR groups (0x8 set, 0x2000 not set) in large WMOs -
             //    exterior cityscape shells (e.g. "city01" in Stormwind)
             bool alwaysDraw = (wmoGroup.flags & 0x10000) != 0;
             size_t nVerts = wmoGroup.vertices.size();
@@ -674,12 +674,12 @@ WMORenderer::ModelLoadResult WMORenderer::loadModelIncremental(
                 } else {
                     LOG_WARNING("WMO ", id, " batch materialId=", batch.materialId,
                                 " texIndex=", texIndex, " >= textures size ",
-                                modelData.textures.size(), " — white fallback");
+                                modelData.textures.size(), " - white fallback");
                 }
             } else {
                 LOG_WARNING("WMO ", id, " batch materialId=", batch.materialId,
                             " >= materialTextureIndices size ",
-                            modelData.materialTextureIndices.size(), " — white fallback");
+                            modelData.materialTextureIndices.size(), " - white fallback");
             }
 
             bool alphaTest = false;
@@ -961,7 +961,7 @@ WMORenderer::ModelLoadResult WMORenderer::loadModelIncremental(
     if (modelData.groups.size() != expectedGroups) {
         core::Logger::getInstance().error(
             "WMO ", id, " uploaded ", modelData.groups.size(), " of ", expectedGroups,
-            " groups — geometry is missing from this model");
+            " groups - geometry is missing from this model");
     }
 
     loadedModels[id] = std::move(modelData);
@@ -989,7 +989,7 @@ void WMORenderer::unloadModel(uint32_t id) {
         return;
     }
 
-    // Free GPU resources — defer because in-flight command buffers may
+    // Free GPU resources - defer because in-flight command buffers may
     // still reference this model's vertex/index buffers and descriptors.
     for (auto& group : it->second.groups) {
         destroyGroupGPU(group, /*defer=*/true);
@@ -1160,10 +1160,10 @@ void WMORenderer::addDoodadToInstance(uint32_t instanceId, uint32_t m2InstanceId
     if (it == instances.end()) {
         // Nothing to parent to. The M2 was already created, so silently dropping
         // it here leaves it stranded at the origin, drawn nowhere and owned by
-        // no one — invisible in a way that looks exactly like a load failure.
+        // no one - invisible in a way that looks exactly like a load failure.
         core::Logger::getInstance().warning(
             "WMO doodad has no parent instance ", instanceId,
-            " — M2 instance ", m2InstanceId, " left at the origin");
+            " - M2 instance ", m2InstanceId, " left at the origin");
         return;
     }
     WMOInstance::DoodadInfo doodad;
@@ -1538,7 +1538,7 @@ void WMORenderer::gatherCandidates(const glm::vec3& queryMin, const glm::vec3& q
 void WMORenderer::prepareRender() {
     ++currentFrameId;
 
-    // Update material UBOs if settings changed (mapped memory writes — main thread only)
+    // Update material UBOs if settings changed (mapped memory writes - main thread only)
     if (materialSettingsDirty_) {
         materialSettingsDirty_ = false;
         int maxSamples = kPomSampleTable[std::clamp(pomQuality_, 0, 2)];
@@ -1581,7 +1581,7 @@ void WMORenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const
     lastDistanceCulledGroups = 0;
 
     // ── Phase 1: Visibility culling ──────────────────────────
-    // Was loadedModels.count(modelId) per instance — but cullInstance below
+    // Was loadedModels.count(modelId) per instance - but cullInstance below
     // already does loadedModels.find() and bails on miss, so this pre-filter
     // was a redundant hashmap lookup per instance every frame. Just include
     // every instance; the cull step prunes unloaded ones.
@@ -1593,9 +1593,9 @@ void WMORenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const
 
     glm::vec3 camPos = camera.getPosition();
     // Portal culling seeds from both the camera and the character. Either one
-    // alone has a way to be wrong — a third-person camera can end up inside a
+    // alone has a way to be wrong - a third-person camera can end up inside a
     // wall or a broom cupboard, and a character can sit in a loose interior AABB
-    // while visually outside — and being wrong here does not mean drawing a
+    // while visually outside - and being wrong here does not mean drawing a
     // little too much, it means the building vanishes. Seeding from both is a
     // superset of either, so it can only ever add groups.
     const glm::vec3 portalViewerPos = viewerPos ? *viewerPos : camPos;
@@ -1615,7 +1615,7 @@ void WMORenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const
         result.portalCulled = 0;
         result.distanceCulled = 0;
 
-        // Portal-based visibility — reuse member scratch buffer (avoid per-frame alloc)
+        // Portal-based visibility - reuse member scratch buffer (avoid per-frame alloc)
         bool usePortalCulling = doPortalCull && !model.portals.empty() && !model.portalRefs.empty();
         const glm::vec3 localRealCam =
             glm::vec3(instance.invModelMatrix * glm::vec4(camPos, 1.0f));
@@ -1631,7 +1631,7 @@ void WMORenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const
                 // Entranceways and awnings: the best-fit AABB often claims an
                 // interior group while the camera is visually outside (interior
                 // boxes spill past the doorway). Only trust portal traversal
-                // when the camera group is interior-only — the same rule
+                // when the camera group is interior-only - the same rule
                 // getVisibleGroupsViaPortals applies to the viewer position.
                 constexpr uint32_t WMO_GROUP_FLAG_OUTDOOR = 0x8;
                 constexpr uint32_t WMO_GROUP_FLAG_INDOOR = 0x2000;
@@ -1642,7 +1642,7 @@ void WMORenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const
                     usePortalCulling = false;
                 } else {
                     // Doorway thresholds sit inside both the interior box and
-                    // an outdoor street group's box — treat those as outdoors
+                    // an outdoor street group's box - treat those as outdoors
                     // too (second half of the viewer-side rule).
                     for (size_t gi = 0; gi < model.groups.size(); ++gi) {
                         if (static_cast<int>(gi) == camGroup) continue;
@@ -1661,7 +1661,7 @@ void WMORenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const
         if (usePortalCulling) {
             portalVisibleGroupSet_.clear();
             // Both viewpoints seed the walk. The frustum belongs to the camera,
-            // so its group is the principled start — but at a doorway or in a
+            // so its group is the principled start - but at a doorway or in a
             // hallway the camera and the character stand in different groups,
             // and seeding from one while testing doors against the other's view
             // is how the interior emptied out. Neither is reliably right on its
@@ -1676,7 +1676,7 @@ void WMORenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const
                 glm::vec3(instance.invModelMatrix * glm::vec4(portalViewerPos, 1.0f));
             getVisibleGroupsViaPortals(model, localRealCam, localViewer, frustum,
                                        instance.modelMatrix, portalVisibleGroupSet_);
-            // Use the unordered_set directly — was copying into portalVisibleGroups_,
+            // Use the unordered_set directly - was copying into portalVisibleGroups_,
             // sorting it, and binary-searching per group. The set lookup is O(1)
             // per group and skips the per-instance copy + sort.
         }
@@ -1689,7 +1689,7 @@ void WMORenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const
             }
 
             // The distance test used to run whether distanceCulling was set or
-            // not — the flag only chose between two distances — so turning that
+            // not - the flag only chose between two distances - so turning that
             // flag off never stopped anything past viewDistance_ disappearing.
             // Now nothing is dropped at all unless culling is asked for.
             if (cullingEnabled_ && gi < instance.worldGroupBounds.size()) {
@@ -1898,7 +1898,7 @@ void WMORenderer::renderShadow(VkCommandBuffer cmd, const glm::mat4& lightSpaceM
     const float wmoCullRadiusSq = wmoCullRadius * wmoCullRadius;
 
     for (const auto& instance : instances) {
-        // Distance cull using world bounding box — WMO origins can be far from
+        // Distance cull using world bounding box - WMO origins can be far from
         // their geometry, so point-based culling misses large buildings.
         glm::vec3 closest = glm::clamp(shadowCenter, instance.worldBoundsMin, instance.worldBoundsMax);
         glm::vec3 diff = closest - shadowCenter;
@@ -2062,7 +2062,7 @@ bool WMORenderer::createGroupResources(const pipeline::WMOGroup& group, GroupRes
 
     // Store collision geometry for floor raycasting.
     // Use MOPY per-triangle flags to exclude detail/decorative geometry (flag 0x04)
-    // from collision — these are things like gears, railings, etc.
+    // from collision - these are things like gears, railings, etc.
     resources.collisionVertices.reserve(group.vertices.size());
     for (const auto& v : group.vertices) {
         resources.collisionVertices.push_back(v.position);
@@ -2095,7 +2095,7 @@ bool WMORenderer::createGroupResources(const pipeline::WMOGroup& group, GroupRes
     // What this group offers to stand on, said once per group.
     //
     // Darkshore's bridges are walked through, and they are WMOs rather than
-    // doodads — world/wmo/kalimdor/collidabledoodads/darkshore/bridge — so the
+    // doodads - world/wmo/kalimdor/collidabledoodads/darkshore/bridge - so the
     // floor under them is this list. A group that draws and has no triangles
     // here, or whose triangles are all detail, is a floor that cannot be found,
     // and neither shows up as anything but falling.
@@ -2106,7 +2106,7 @@ bool WMORenderer::createGroupResources(const pipeline::WMOGroup& group, GroupRes
             if ((mopy & 0x20) && !(mopy & 0x04)) ++renderedSolid;
             if (mopy & 0x04) ++detail;
         }
-        // At warning, because the log carries nothing below it — which is why
+        // At warning, because the log carries nothing below it - which is why
         // the first attempt at this said nothing at all.
         //
         // Only a group that offers no floor. Every group saying its counts is
@@ -2122,7 +2122,7 @@ bool WMORenderer::createGroupResources(const pipeline::WMOGroup& group, GroupRes
                         " hull(0x08)=", hull,
                         " renderedSolid(0x20 not 0x04)=", renderedSolid,
                         " detail(0x04)=", detail,
-                        " — nothing here blocks, so anything standing on this "
+                        " - nothing here blocks, so anything standing on this "
                         "group falls through it");
         }
     }
@@ -2148,7 +2148,7 @@ bool WMORenderer::createGroupResources(const pipeline::WMOGroup& group, GroupRes
     return true;
 }
 
-// renderGroup removed — draw calls are inlined in render()
+// renderGroup removed - draw calls are inlined in render()
 
 void WMORenderer::destroyGroupGPU(GroupResources& group, bool defer) {
     if (!vkCtx_) return;
@@ -2176,7 +2176,7 @@ void WMORenderer::destroyGroupGPU(GroupResources& group, bool defer) {
             }
         }
     } else {
-        // Deferred destruction — previous frame's command buffer may still
+        // Deferred destruction - previous frame's command buffer may still
         // reference these buffers and descriptor sets.
         ::VkBuffer vb = group.vertexBuffer;
         VmaAllocation vbAlloc = group.vertexAlloc;
@@ -2298,7 +2298,7 @@ bool WMORenderer::isPortalVisible(const ModelData& model, uint16_t portalIndex,
     center /= static_cast<float>(portal.vertexCount);
 
     // Transform all 8 corners to world space to build the correct world AABB.
-    // Direct transform of pMin/pMax is wrong for rotated WMOs — the matrix can
+    // Direct transform of pMin/pMax is wrong for rotated WMOs - the matrix can
     // swap or negate components, inverting min/max and causing frustum test failures.
     const glm::vec3 corners[8] = {
         {pMin.x, pMin.y, pMin.z}, {pMax.x, pMin.y, pMin.z},
@@ -2461,19 +2461,19 @@ void WMORenderer::WMOInstance::updateModelMatrix() {
     modelMatrix = glm::translate(modelMatrix, position);
 
     // MODF placement rotation, stored as (-C, -A, B) in radians by the caller
-    // and composed X, Y, Z — the same order the doodads use.
+    // and composed X, Y, Z - the same order the doodads use.
     //
     // This composed Z, Y, X for a long time, and the note above the doodad
     // version records four attempts to change that one, all reported worse.
     // Every one of them was judged on the wrong evidence: with no pitch and no
-    // roll all six orders are the same rotation, so a building placed flat — or
-    // a tree — looks right whatever the order is, and says nothing.
+    // roll all six orders are the same rotation, so a building placed flat - or
+    // a tree - looks right whatever the order is, and says nothing.
     //
     // Darkshore's bridges are the case that can say something. They are WMOs,
     // they cross ravines with real pitch, and they were visibly askew. A yaw
     // offset of -10 degrees put them right and the buildings out, which is how
     // an offset behaves when it is standing in for something that varies with
-    // the placement's own rotation — and that is the composition.
+    // the placement's own rotation - and that is the composition.
     //
     // MDDF and MODF store the rotation identically, so both paths should
     // compose it identically; the doodads always did. Settled by looking:
@@ -2844,7 +2844,7 @@ static bool rayAABBRange(const glm::vec3& origin, const glm::vec3& dir,
 /// Between where the ray enters the group's box and where it leaves it, not
 /// around the ray's origin. Those are the same place only while the ray is
 /// vertical in the group's own space, and a placement with pitch makes it lean
-/// — see the note in getFloorHeight. False when the ray misses the box.
+/// - see the note in getFloorHeight. False when the ray misses the box.
 ///
 /// Written out three times before this, once per query, which is two more
 /// chances to look in the wrong place.
@@ -2870,7 +2870,7 @@ static bool rayIntersectsAABB(const glm::vec3& origin, const glm::vec3& dir,
     float tmin = -1e30f, tmax = 1e30f;
     for (int i = 0; i < 3; i++) {
         if (std::abs(dir[i]) < 1e-8f) {
-            // Ray is parallel to this slab — check if origin is inside
+            // Ray is parallel to this slab - check if origin is inside
             if (origin[i] < bmin[i] || origin[i] > bmax[i]) return false;
         } else {
             float invD = 1.0f / dir[i];
@@ -3046,7 +3046,7 @@ void WMORenderer::GroupResources::buildCollisionGrid() {
         triNormals[i / 3] = normal;
 
         // Classify floor vs wall by normal.
-        // Wall threshold is absNz < 0.65 (≈ cos 49.46° — the wall/walkable cutoff).
+        // Wall threshold is absNz < 0.65 (≈ cos 49.46° - the wall/walkable cutoff).
         // A separate slope-slide threshold of 0.6428 (cos 50°) lives elsewhere; this
         // 0.65 value must match the checkWallCollision runtime skip below.
         float absNz = std::abs(normal.z);
@@ -3245,10 +3245,10 @@ std::optional<float> WMORenderer::getFloorHeight(float glX, float glY, float glZ
     bool rejectedByZ = false;
     float rejectedZMin = 0.0f, rejectedZMax = 0.0f;
 
-    // A moving transport (elevator, ship hull) IS ordinary collision — you walk
+    // A moving transport (elevator, ship hull) IS ordinary collision - you walk
     // up a docked ship's hull and you stand on a lift with no attachment at all
     // (an elevator is neither an M2 nor a client-animated ship, so client-side
-    // boarding never fires for it — see GameHandler::updateM2TransportBoarding).
+    // boarding never fires for it - see GameHandler::updateM2TransportBoarding).
     // Excluding transports outright therefore deletes the only floor those cases
     // have. But an unrestricted transport hit is the Undercity elevator yo-yo: as
     // the lift cycles through a bystander's (x,y) its deck enters the candidate
@@ -3256,8 +3256,8 @@ std::optional<float> WMORenderer::getFloorHeight(float glX, float glY, float glZ
     // So a transport deck counts only when it is genuinely underfoot, not
     // anywhere along the shaft. referenceZ is the true feet when the caller
     // supplies one (the player's physics query does); otherwise glZ stands in,
-    // and that is the probe rather than the feet — the caller raised it by its
-    // step-up budget — so back that lift out first.
+    // and that is the probe rather than the feet - the caller raised it by its
+    // step-up budget - so back that lift out first.
     constexpr float kTransportProbeLift = 2.0f;
     constexpr float kTransportFloorReach = 3.0f;
     const float transportFloorMinZ =
@@ -3283,7 +3283,7 @@ std::optional<float> WMORenderer::getFloorHeight(float glX, float glY, float glZ
         //
         // The ray is straight down in world space and begins five hundred units
         // above the query. Transformed into the model's own space it stays
-        // straight only while the model has no pitch and no roll — a yaw keeps
+        // straight only while the model has no pitch and no roll - a yaw keeps
         // a vertical ray vertical, which is why every building placed flat has
         // always worked. Give it pitch and the local ray leans, and five
         // hundred units of lean puts the origin's XY nowhere near the deck it
@@ -3403,7 +3403,7 @@ std::optional<float> WMORenderer::getFloorHeight(float glX, float glY, float glZ
             glZ < instance.worldBoundsMin.z - zMarginDown || glZ > instance.worldBoundsMax.z + zMarginUp) {
             // Over a building and rejected anyway: the only thing that can do
             // that here is the Z window, and it is worth naming when the answer
-            // comes back "no floor" — falling through something you are
+            // comes back "no floor" - falling through something you are
             // standing on looks the same whether it was never considered or
             // considered and missed.
             if (insideXY) {
@@ -3436,7 +3436,7 @@ std::optional<float> WMORenderer::getFloorHeight(float glX, float glY, float glZ
         glm::vec3 localDir = glm::normalize(glm::vec3(instance.invModelMatrix * glm::vec4(worldDir, 0.0f)));
 
         for (size_t gi = 0; gi < model.groups.size(); ++gi) {
-            // World-space group cull — vertical ray at (glX, glY)
+            // World-space group cull - vertical ray at (glX, glY)
             if (gi < instance.worldGroupBounds.size()) {
                 const auto& [gMin, gMax] = instance.worldGroupBounds[gi];
                 if (glX < gMin.x || glX > gMax.x ||
@@ -3461,7 +3461,7 @@ std::optional<float> WMORenderer::getFloorHeight(float glX, float glY, float glZ
     //
     // Falling through something looks the same whether the building was never
     // considered, considered and rejected by the height window, or considered
-    // and simply missed by the ray — and those need different fixes. Said at
+    // and simply missed by the ray - and those need different fixes. Said at
     // most once a second, and only when the query was over one at all.
     if (!bestFloor && overlappedInXY) {
         using Clock = std::chrono::steady_clock;
@@ -3471,12 +3471,12 @@ std::optional<float> WMORenderer::getFloorHeight(float glX, float glY, float glZ
             lastAt = now;
             if (rejectedByZ) {
                 LOG_WARNING("No WMO floor at (", glX, ",", glY, ",", glZ,
-                            ") — a building covers that spot but its height window "
+                            ") - a building covers that spot but its height window "
                             "rejected the query: bounds z=[", rejectedZMin, "..",
                             rejectedZMax, "]");
             } else {
                 LOG_WARNING("No WMO floor at (", glX, ",", glY, ",", glZ,
-                            ") — a building covers that spot, was considered, and "
+                            ") - a building covers that spot, was considered, and "
                             "no triangle was hit");
             }
         }
@@ -3595,7 +3595,7 @@ void WMORenderer::debugDumpGroupsAtPosition(float glX, float glY, float glZ) con
         glm::vec3 localOrigin = glm::vec3(instance.invModelMatrix * glm::vec4(worldOrigin, 1.0f));
         glm::vec3 localDir = glm::normalize(glm::vec3(instance.invModelMatrix * glm::vec4(worldDir, 0.0f)));
         // If the model is rotated, localDir is not straight down, so the vertical
-        // world ray drifts in local XY as it descends — the reason the grid query
+        // world ray drifts in local XY as it descends - the reason the grid query
         // (a box at the ray ORIGIN's local xy) can miss a floor the full scan hits.
         LOG_WARNING("    localDir=(", localDir.x, ",", localDir.y, ",", localDir.z, ")");
 
@@ -3611,8 +3611,8 @@ void WMORenderer::debugDumpGroupsAtPosition(float glX, float glY, float glZ) con
             totalGroupsOverlapping++;
             const auto& group = model.groups[gi];
 
-            // Count floor triangles in this group under the player, and — this
-            // is what the fall-through needs — the hit CLOSEST to the query Z,
+            // Count floor triangles in this group under the player, and - this
+            // is what the fall-through needs - the hit CLOSEST to the query Z,
             // which is the floor the by-reference player pick would want. If a
             // group has a floorHit near the feet but the pick still dropped, the
             // grid query (getTrianglesInRange) missed it; if the closest hit is
@@ -3646,8 +3646,8 @@ void WMORenderer::debugDumpGroupsAtPosition(float glX, float glY, float glZ) con
             // The grid path getFloorHeight uses. This was written to catch
             // exactly the fault it names, and it named it correctly: a box at
             // the ray origin's local xy misses everything a slanted local ray
-            // crosses. That is fixed — both queries now search between where
-            // the ray enters the group and where it leaves — and this stays as
+            // crosses. That is fixed - both queries now search between where
+            // the ray enters the group and where it leaves - and this stays as
             // the check that they agree.
             std::vector<uint32_t> gridTris;
             trianglesAlongRay(group, localOrigin, localDir, gridTris);
@@ -3704,7 +3704,7 @@ bool WMORenderer::checkWallCollision(const glm::vec3& from, const glm::vec3& to,
     float moveDistSq = glm::dot(moveDir, moveDir);
     if (moveDistSq < 1e-6f) return false;
 
-    // Player collision parameters — WoW-style horizontal cylinder
+    // Player collision parameters - WoW-style horizontal cylinder
     // Tighter radius when inside for more responsive indoor collision
     const float PLAYER_RADIUS = insideWMO ? 0.45f : 0.50f;
     const float PLAYER_HEIGHT = 2.0f;       // Cylinder height for Z bounds
@@ -3799,14 +3799,14 @@ bool WMORenderer::checkWallCollision(const glm::vec3& from, const glm::vec3& to,
 
                 // Use MOPY flags to filter wall collision. Blocking set is the
                 // union of both flag conventions seen in the assets:
-                //  - explicit collision hulls (0x08), rendered or not — tunnel
+                //  - explicit collision hulls (0x08), rendered or not - tunnel
                 //    walls rely on invisible hulls;
-                //  - rendered geometry (0x20) that is not detail (0x04) — the
+                //  - rendered geometry (0x20) that is not detail (0x04) - the
                 //    Deeprun Tram gates carry render flags without 0x08 and
                 //    were walk-through when only 0x08 blocked.
                 // Detail/decorative (0x04: gears, railings, webs) never blocks.
                 uint32_t triIdx = triStart / 3;
-                // Detail never blocks — unless it is all the group has.
+                // Detail never blocks - unless it is all the group has.
                 //
                 // A group whose every triangle is detail has nothing left to
                 // stand on or walk into once detail is excluded, and a group
@@ -3877,7 +3877,7 @@ bool WMORenderer::checkWallCollision(const glm::vec3& from, const glm::vec3& to,
                 float horizDistSq = delta.x * delta.x + delta.y * delta.y;
 
                 if (horizDistSq <= PLAYER_RADIUS * PLAYER_RADIUS) {
-                    // Skip floor-like surfaces — grounding handles them, not wall collision.
+                    // Skip floor-like surfaces - grounding handles them, not wall collision.
                     // Threshold is absNz < 0.65 (≈ cos 49.46°). Slope-sliding uses a
                     // distinct cos 50° (≈ 0.6428) threshold; do not conflate.
                     // Must match the wall-classification cutoff in the static collision pass above.
@@ -3942,7 +3942,7 @@ void WMORenderer::updateActiveGroup(float glX, float glY, float glZ) {
                         if (localPos.x >= group.boundingBoxMin.x && localPos.x <= group.boundingBoxMax.x &&
                             localPos.y >= group.boundingBoxMin.y && localPos.y <= group.boundingBoxMax.y &&
                             localPos.z >= group.boundingBoxMin.z && localPos.z <= group.boundingBoxMax.z) {
-                            // Moved to a neighbor group — update
+                            // Moved to a neighbor group - update
                             activeGroup_.groupIdx = static_cast<int32_t>(ngi);
                             // Rebuild neighbors for new group
                             activeGroup_.neighborGroups.clear();
@@ -4197,7 +4197,7 @@ float WMORenderer::raycastBoundingBoxes(const glm::vec3& origin, const glm::vec3
         glm::vec3 localDir = glm::normalize(glm::vec3(instance.invModelMatrix * glm::vec4(direction, 0.0f)));
 
         for (size_t gi = 0; gi < model.groups.size(); ++gi) {
-            // World-space group cull — skip groups whose world AABB doesn't intersect the ray
+            // World-space group cull - skip groups whose world AABB doesn't intersect the ray
             if (gi < instance.worldGroupBounds.size()) {
                 const auto& [gMin, gMax] = instance.worldGroupBounds[gi];
                 if (!rayIntersectsAABB(origin, direction, gMin, gMax)) {
@@ -4318,7 +4318,7 @@ void WMORenderer::recreatePipelines() {
 
     VkRenderPass mainPass = vkCtx_->getImGuiRenderPass();
 
-    // Pipeline derivatives — opaque is the base, others derive for shared state optimization
+    // Pipeline derivatives - opaque is the base, others derive for shared state optimization
     opaquePipeline_ = PipelineBuilder()
         .setShaders(vertShader.stageInfo(VK_SHADER_STAGE_VERTEX_BIT),
                     fragShader.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT))

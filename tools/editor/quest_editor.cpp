@@ -77,7 +77,7 @@ bool QuestEditor::loadFromFile(const std::string& path) {
         quests_.clear();
         uint32_t maxId = 0;
 
-        // Cap total quest count — a stale autosave or hand-edited file
+        // Cap total quest count - a stale autosave or hand-edited file
         // could carry thousands of empty quests, each emitting a
         // quest_template INSERT (and queststarter/questender + chain
         // walks) on export. 4096 covers any realistic zone.
@@ -86,7 +86,7 @@ bool QuestEditor::loadFromFile(const std::string& path) {
         for (const auto& jq : arr) {
             if (quests_.size() >= kMaxQuests) {
                 LOG_WARNING("Quest cap reached (", kMaxQuests,
-                            ") — remaining entries dropped");
+                            ") - remaining entries dropped");
                 break;
             }
             Quest q;
@@ -146,7 +146,7 @@ bool QuestEditor::loadFromFile(const std::string& path) {
                     if (obj.targetCount == 0) obj.targetCount = 1;
                     if (obj.targetCount > 1000) obj.targetCount = 1000;
                     // Cap stored objectives to 10 (matches SQL slot capacity)
-                    // — also bounds the per-quest memory.
+                    // - also bounds the per-quest memory.
                     if (q.objectives.size() >= 10) break;
                     q.objectives.push_back(obj);
                 }
@@ -181,7 +181,7 @@ bool QuestEditor::validateChains(std::vector<std::string>& errors) const {
         }
 
         // Quest with no questgiver and no turn-in is unreachable in-game.
-        // Common authoring mistake — flag it so the player isn't stuck
+        // Common authoring mistake - flag it so the player isn't stuck
         // wondering why a quest never appears.
         if (q.questGiverNpcId == 0 && q.turnInNpcId == 0) {
             errors.push_back("Quest [" + std::to_string(q.id) + "] \"" + q.title +
@@ -189,7 +189,7 @@ bool QuestEditor::validateChains(std::vector<std::string>& errors) const {
         }
 
         // Circular chain detection. Use the precomputed map so the inner
-        // lookup is O(1) instead of O(n) — was O(n²) per starting quest.
+        // lookup is O(1) instead of O(n) - was O(n²) per starting quest.
         if (q.nextQuestId != 0) {
             std::unordered_set<uint32_t> visited;
             uint32_t current = q.id;

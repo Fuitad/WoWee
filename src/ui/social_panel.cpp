@@ -1,5 +1,5 @@
 // ============================================================
-// SocialPanel — extracted from GameScreen
+// SocialPanel - extracted from GameScreen
 // Owns all social/group-related UI rendering: party frames,
 // boss frames, guild roster, social/friends frame, dungeon finder,
 // who window, inspect window.
@@ -156,7 +156,7 @@ void SocialPanel::renderPartyFrames(game::GameHandler& gameHandler,
                     if (isOOR)
                         draw->AddRectFilled(cellMin, cellMax, IM_COL32(0, 0, 0, 80), 3.0f);
 
-                    // Name text (truncated) — class color when alive+online, gray when dead/offline
+                    // Name text (truncated) - class color when alive+online, gray when dead/offline
                     char truncName[16];
                     snprintf(truncName, sizeof(truncName), "%.12s", m.name.c_str());
                     bool isMemberLeader = (m.guid == partyData.leaderGuid);
@@ -177,7 +177,7 @@ void SocialPanel::renderPartyFrames(game::GameHandler& gameHandler,
                     if (isMemberLeader)
                         draw->AddText(ImVec2(cellMax.x - 10.0f, cellMin.y + 2.0f), IM_COL32(255, 215, 0, 255), "*");
 
-                    // Raid mark symbol — small, just to the left of the leader crown
+                    // Raid mark symbol - small, just to the left of the leader crown
                     {
                         uint8_t rmk = gameHandler.getEntityRaidMark(m.guid);
                         if (rmk < game::GameHandler::kRaidMarkCount) {
@@ -391,7 +391,7 @@ void SocialPanel::renderPartyFrames(game::GameHandler& gameHandler,
 
             bool isLeader = (member.guid == leaderGuid);
 
-            // Name with level and status info — leader gets a gold star prefix
+            // Name with level and status info - leader gets a gold star prefix
             std::string label = (isLeader ? "* " : "  ") + member.name;
             if (member.hasPartyStats && member.level > 0) {
                 label += " [" + std::to_string(member.level) + "]";
@@ -404,7 +404,7 @@ void SocialPanel::renderPartyFrames(game::GameHandler& gameHandler,
                 else if (isDead || isGhost) label += " (dead)";
             }
 
-            // Clickable name to target — use WoW class colors when entity is loaded,
+            // Clickable name to target - use WoW class colors when entity is loaded,
             // fall back to gold for leader / light gray for others
             ImVec4 nameColor = isLeader
                 ? colors::kBrightGold
@@ -430,7 +430,7 @@ void SocialPanel::renderPartyFrames(game::GameHandler& gameHandler,
             }
             ImGui::PopStyleColor();
 
-            // LFG role badge (Tank/Healer/DPS) — shown on same line as name when set
+            // LFG role badge (Tank/Healer/DPS) - shown on same line as name when set
             if (member.roles != 0) {
                 ImGui::SameLine();
                 if (member.roles & 0x02) ImGui::TextColored(ImVec4(0.3f, 0.5f, 1.0f, 1.0f), "[T]");
@@ -450,7 +450,7 @@ void SocialPanel::renderPartyFrames(game::GameHandler& gameHandler,
                 ImGui::TextColored(ImVec4(0.7f, 0.85f, 1.0f, 0.7f), "[A]");
             }
 
-            // Raid mark symbol — shown on same line as name when this party member has a mark
+            // Raid mark symbol - shown on same line as name when this party member has a mark
             {
                 uint8_t pmk = gameHandler.getEntityRaidMark(member.guid);
                 if (pmk < game::GameHandler::kRaidMarkCount) {
@@ -532,7 +532,7 @@ void SocialPanel::renderPartyFrames(game::GameHandler& gameHandler,
                 ImGui::PopStyleColor();
             }
 
-            // Power bar (mana/rage/energy) from party stats — hidden for dead/offline/OOR
+            // Power bar (mana/rage/energy) from party stats - hidden for dead/offline/OOR
             if (!memberDead && !memberOffline && member.hasPartyStats && member.maxPower > 0) {
                 float powerPct = static_cast<float>(member.curPower) / static_cast<float>(member.maxPower);
                 // Grey for a power this client does not know, rather than
@@ -544,7 +544,7 @@ void SocialPanel::renderPartyFrames(game::GameHandler& gameHandler,
                 ImGui::PopStyleColor();
             }
 
-            // Dispellable debuff indicators — small colored dots for party member debuffs
+            // Dispellable debuff indicators - small colored dots for party member debuffs
             // Only show magic/curse/disease/poison (types 1-4); skip non-dispellable
             if (!memberDead && !memberOffline) {
                 const std::vector<game::AuraSlot>* unitAuras = nullptr;
@@ -575,8 +575,8 @@ void SocialPanel::renderPartyFrames(game::GameHandler& gameHandler,
                             uint8_t dt = gameHandler.getSpellDispelType(aura.spellId);
                             if (dt == 0 || dt > 4 || shown[dt]) continue;
                             shown[dt] = true;
-                            // Fully opaque here — it is a button rather than a
-                            // border — but the same four hues.
+                            // Fully opaque here - it is a button rather than a
+                            // border - but the same four hues.
                             ImVec4 dotCol = dispelTypeColor(dt);
                             dotCol.w = 1.0f;
                             ImGui::PushStyleColor(ImGuiCol_Button, dotCol);
@@ -604,7 +604,7 @@ void SocialPanel::renderPartyFrames(game::GameHandler& gameHandler,
                 }
             }
 
-            // Party member cast bar — shows when the party member is casting
+            // Party member cast bar - shows when the party member is casting
             if (auto* cs = gameHandler.getUnitCastState(member.guid)) {
                 float castPct = (cs->timeTotal > 0.0f)
                     ? (cs->timeTotal - cs->timeRemaining) / cs->timeTotal : 0.0f;
@@ -766,7 +766,7 @@ void SocialPanel::renderBossFrames(game::GameHandler& gameHandler,
                 ImGui::PopStyleColor();
             }
 
-            // Boss power bar — shown when boss has a non-zero power pool
+            // Boss power bar - shown when boss has a non-zero power pool
             // Energy bosses (type 3) are particularly important: full energy signals ability use
             if (bossMaxPower > 0 && bossPower > 0) {
                 float bpPct = static_cast<float>(bossPower) / static_cast<float>(bossMaxPower);
@@ -785,7 +785,7 @@ void SocialPanel::renderBossFrames(game::GameHandler& gameHandler,
                 ImGui::PopStyleColor();
             }
 
-            // Boss cast bar — shown when the boss is casting (critical for interrupt)
+            // Boss cast bar - shown when the boss is casting (critical for interrupt)
             if (auto* cs = gameHandler.getUnitCastState(bs.guid)) {
                 float castPct  = (cs->timeTotal > 0.0f)
                     ? (cs->timeTotal - cs->timeRemaining) / cs->timeTotal : 0.0f;
@@ -926,7 +926,7 @@ void SocialPanel::renderBossFrames(game::GameHandler& gameHandler,
                                 ImGui::GetWindowDrawList()->AddText(ImVec2(cx, cy), IM_COL32(255, 255, 255, 220), ts);
                             }
 
-                            // Stack / charge count — upper-left corner (parity with target/focus frames)
+                            // Stack / charge count - upper-left corner (parity with target/focus frames)
                             if (aura.charges > 1) {
                                 ImVec2 baMin = ImGui::GetItemRectMin();
                                 char chargeStr[8];
@@ -1085,7 +1085,7 @@ void SocialPanel::renderGuildRoster(game::GameHandler& gameHandler,
             }
             ImGui::SameLine();
         } else if (pInfo.signatureCount >= pInfo.signaturesRequired) {
-            // Owner with enough sigs — turn in
+            // Owner with enough sigs - turn in
             if (ImGui::Button("Turn In", ImVec2(120, 0))) {
                 gameHandler.turnInPetition(pInfo.petitionGuid);
                 ImGui::CloseCurrentPopup();
@@ -1217,7 +1217,7 @@ void SocialPanel::renderGuildRoster(game::GameHandler& gameHandler,
                     if (ImGui::BeginPopup("GuildMemberContext")) {
                         ImGui::TextDisabled("%s", selectedGuildMember_.c_str());
                         ImGui::Separator();
-                        // Social actions — only for online members
+                        // Social actions - only for online members
                         bool memberOnline = false;
                         for (const auto& mem : roster.members) {
                             if (mem.name == selectedGuildMember_) { memberOnline = mem.online; break; }
@@ -1326,7 +1326,7 @@ void SocialPanel::renderGuildRoster(game::GameHandler& gameHandler,
                 ImGui::Spacing();
 
                 // Both of these are free text the guild types, so they carry
-                // the same markup chat does — item, spell, quest and
+                // the same markup chat does - item, spell, quest and
                 // achievement links, colour codes and URLs. Drawn as plain
                 // text the markup showed as raw |H escapes and nothing was
                 // clickable, so they go through the chat renderer instead.
@@ -2235,7 +2235,7 @@ void SocialPanel::renderDungeonFinderWindow(game::GameHandler& gameHandler,
 
         // Category 0=Random, 1=Classic, 2=TBC, 3=WotLK. minLvl is the lowest
         // character level allowed to queue; kept conservative (erring low) so a
-        // valid queue is never blocked — the server remains the authority.
+        // valid queue is never blocked - the server remains the authority.
         struct DungeonEntryEx { uint32_t id; const char* name; uint8_t cat; uint8_t minLvl; };
         static const DungeonEntryEx kDungeons[] = {
             { 861, "Random Dungeon",               0, 15 },
@@ -2536,7 +2536,7 @@ void SocialPanel::renderInspectWindow(game::GameHandler& gameHandler,
         return;
     }
 
-    // Player name — class-colored if entity is loaded, else gold
+    // Player name - class-colored if entity is loaded, else gold
     {
         auto ent = gameHandler.getEntityManager().getEntity(result->guid);
         uint8_t cid = entityClassId(ent.get());
@@ -2753,7 +2753,7 @@ void SocialPanel::renderInspectWindow(game::GameHandler& gameHandler,
         ImGui::TextDisabled("(Gear loads after the player is inspected in-range)");
     } else {
         // Average item level (only slots that have loaded info and are not shirt/tabard)
-        // Shirt=slot3, Tabard=slot18 — excluded from gear score by WoW convention
+        // Shirt=slot3, Tabard=slot18 - excluded from gear score by WoW convention
         uint32_t iLevelSum = 0;
         int iLevelCount = 0;
         for (int s = 0; s < 19; ++s) {
@@ -2776,7 +2776,7 @@ void SocialPanel::renderInspectWindow(game::GameHandler& gameHandler,
         renderInspectPaperDoll();
     }
 
-    // Arena teams (WotLK — from MSG_INSPECT_ARENA_TEAMS)
+    // Arena teams (WotLK - from MSG_INSPECT_ARENA_TEAMS)
     if (!result->arenaTeams.empty()) {
         ImGui::Separator();
         ImGui::TextColored(ImVec4(1.0f, 0.75f, 0.2f, 1.0f), "Arena Teams");

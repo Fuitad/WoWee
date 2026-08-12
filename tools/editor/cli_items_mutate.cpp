@@ -21,7 +21,7 @@ int handleSetItem(int& i, int argc, char** argv) {
     // Edit fields on an existing item in place. Lookup is by
     // id by default; '#N' for index lookup. Only specified
     // flags are changed; everything else is preserved
-    // verbatim — including any extra fields added by hand.
+    // verbatim - including any extra fields added by hand.
     //
     // Supported flags: --name, --quality, --displayId,
     // --itemLevel, --stackable. Each takes one positional
@@ -150,7 +150,7 @@ int handleSetItem(int& i, int argc, char** argv) {
     }
     if (changes.empty()) {
         std::fprintf(stderr,
-            "set-item: no field flags supplied — nothing to change\n");
+            "set-item: no field flags supplied - nothing to change\n");
         return 1;
     }
     std::ofstream out(path);

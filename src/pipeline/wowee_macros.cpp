@@ -118,7 +118,7 @@ WoweeMacro WoweeMacroLoader::makeCombat(
         "#showtooltip Heroic Strike\n"
         "/cast Heroic Strike",
         "1",
-        "Single-rank Heroic Strike with #showtooltip — bind to 1.");
+        "Single-rank Heroic Strike with #showtooltip - bind to 1.");
     add(101, "Charge",
         "#showtooltip Charge\n"
         "/cast [combat] Intercept; Charge",

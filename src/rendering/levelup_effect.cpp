@@ -34,7 +34,7 @@ bool LevelUpEffect::loadModel(M2Renderer* m2Renderer,
     }
 
     modelLoaded_ = true;
-    LOG_INFO("LevelUpEffect: loaded LevelUp.m2 — vertices=", model.vertices.size(),
+    LOG_INFO("LevelUpEffect: loaded LevelUp.m2 - vertices=", model.vertices.size(),
              " indices=", model.indices.size(),
              " emitters=", model.particleEmitters.size(),
              " batches=", model.batches.size());

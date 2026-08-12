@@ -255,7 +255,7 @@ int handleValidate(int& i, int argc, char** argv) {
     }
     std::set<uint32_t> idsSeen;
     // Per-(mapId, areaId, timeOfDayHour) triple
-    // uniqueness — two keyframes at same hour for the
+    // uniqueness - two keyframes at same hour for the
     // same area would render in unstable order during
     // diurnal interpolation.
     std::set<uint64_t> tripleSeen;
@@ -278,12 +278,12 @@ int handleValidate(int& i, int argc, char** argv) {
         if (e.timeOfDayHour > 23) {
             errors.push_back(ctx + ": timeOfDayHour " +
                 std::to_string(e.timeOfDayHour) +
-                " > 23 — must be 0..23");
+                " > 23 - must be 0..23");
         }
         if (e.sunAngleDeg < 0.0f || e.sunAngleDeg > 360.0f) {
             warnings.push_back(ctx + ": sunAngleDeg " +
                 std::to_string(e.sunAngleDeg) +
-                " outside [0, 360] — renderer wraps "
+                " outside [0, 360] - renderer wraps "
                 "modulo but values outside the canonical "
                 "range suggest authoring confusion");
         }
@@ -292,12 +292,12 @@ int handleValidate(int& i, int argc, char** argv) {
                 std::to_string(e.fogStartYards) +
                 " >= fogEndYards " +
                 std::to_string(e.fogEndYards) +
-                " — fog falloff would be inverted or "
+                " - fog falloff would be inverted or "
                 "zero-thickness");
         }
         if (e.fogStartYards < 0.0f || e.fogEndYards < 0.0f) {
             errors.push_back(ctx +
-                ": negative fog distance — fog distances "
+                ": negative fog distance - fog distances "
                 "must be non-negative");
         }
         // Triple uniqueness: same area + same hour
@@ -311,7 +311,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 ", hour=" +
                 std::to_string(e.timeOfDayHour) +
                 ") triple already bound by another sky "
-                "entry — diurnal interpolation would tie "
+                "entry - diurnal interpolation would tie "
                 "non-deterministically");
         }
         if (!idsSeen.insert(e.skyId).second) {

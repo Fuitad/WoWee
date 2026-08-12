@@ -65,7 +65,7 @@ namespace {
     /// How close the cursor has to be to a minimap blip to be pointing at it.
     ///
     /// The blips are two to four pixels across, so the target is deliberately
-    /// larger than what is drawn — otherwise a marker is nearly impossible to
+    /// larger than what is drawn - otherwise a marker is nearly impossible to
     /// hover on a map this small.
     constexpr float kBlipHoverRadius = 8.0f;
     constexpr float kSmallBlipHoverRadius = 7.0f;
@@ -74,8 +74,8 @@ namespace {
 
     /// Whether the cursor is inside the minimap disc itself.
     ///
-    /// Asked three times — for the wheel, for a ctrl+click ping, and for the
-    /// hover readout — and each spelled the circle test out again.
+    /// Asked three times - for the wheel, for a ctrl+click ping, and for the
+    /// hover readout - and each spelled the circle test out again.
     inline bool cursorOverMinimap(float centerX, float centerY, float mapRadius) {
         const ImVec2 cursor = ImGui::GetMousePos();
         const float dx = cursor.x - centerX;
@@ -145,13 +145,13 @@ void GameScreen::refreshQuestObjectiveCache(game::GameHandler& gameHandler) {
 // The furniture around the minimap, as opposed to the marks on it.
 //
 // The mute button, the friends button, the zoom buttons, the clock, and the
-// stack of indicators below — new mail, unspent talent points, a battleground
+// stack of indicators below - new mail, unspent talent points, a battleground
 // queue, the Dungeon Finder, calendar invites, a taxi flight, latency and low
 // durability.
 //
 // Split from the marker pass because the two answer the ownership question
 // differently. When FrameXML draws the minimap the cluster brings its own zoom
-// buttons, clock and mail icons, and this client's would sit on top of them —
+// buttons, clock and mail icons, and this client's would sit on top of them -
 // so none of this runs. The blips are the opposite case and the reason the
 // marker pass runs at all when the element is owned: minimap.xml declares no
 // frame for a party member, a flight master or a corpse, because in WoW those
@@ -257,7 +257,7 @@ void GameScreen::renderMinimapButtons(game::GameHandler& gameHandler, float cent
                 // One branch, not two nested. The same routing was applied to
                 // this button twice at some point and the second copy landed
                 // inside the first's else, where the condition it tests is
-                // already known false — dead, and it read as though the two
+                // already known false - dead, and it read as though the two
                 // halves disagreed.
                 if (frameXmlOwns(UiElement::Social)) {
                     gameHandler.runInterfaceCommand("ToggleFriendsFrame(1)");
@@ -357,7 +357,7 @@ void GameScreen::renderMinimapClock(float centerX, float centerY, float mapRadiu
 // queue, the Dungeon Finder, calendar invites, a flight, latency and low
 // durability.
 //
-// They share one running Y so that whichever of them apply stack without gaps —
+// They share one running Y so that whichever of them apply stack without gaps -
 // that shared cursor is why they are one function rather than eight.
 void GameScreen::renderMinimapIndicators(game::GameHandler& gameHandler, float centerX, float centerY, float mapRadius) {
     auto* renderer = services_.renderer;
@@ -441,7 +441,7 @@ void GameScreen::renderMinimapIndicators(game::GameHandler& gameHandler, float c
         break;  // Show at most one queue slot indicator
     }
 
-    // LFG queue indicator — shown when Dungeon Finder queue is active (Queued or RoleCheck)
+    // LFG queue indicator - shown when Dungeon Finder queue is active (Queued or RoleCheck)
     {
         using LfgState = game::GameHandler::LfgState;
         LfgState lfgSt = gameHandler.getLfgState();
@@ -488,7 +488,7 @@ void GameScreen::renderMinimapIndicators(game::GameHandler& gameHandler, float c
         }
     }
 
-    // Taxi flight indicator — shown while on a flight path
+    // Taxi flight indicator - shown while on a flight path
     if (gameHandler.isOnTaxiFlight()) {
         ImGui::SetNextWindowPos(ImVec2(indicatorX, nextIndicatorY), ImGuiCond_Always);
         ImGui::SetNextWindowSize(ImVec2(indicatorW, kIndicatorH), ImGuiCond_Always);
@@ -507,7 +507,7 @@ void GameScreen::renderMinimapIndicators(game::GameHandler& gameHandler, float c
         nextIndicatorY += kIndicatorH;
     }
 
-    // Latency + FPS indicator — centered at top of screen
+    // Latency + FPS indicator - centered at top of screen
     uint32_t latMs = gameHandler.getLatencyMs();
     if (settingsPanel_.showLatencyMeter_ && gameHandler.getState() == game::WorldState::IN_WORLD) {
         float currentFps = ImGui::GetIO().Framerate;
@@ -549,7 +549,7 @@ void GameScreen::renderMinimapIndicators(game::GameHandler& gameHandler, float c
         ImGui::End();
     }
 
-    // Low durability warning — shown when any equipped item has < 20% durability
+    // Low durability warning - shown when any equipped item has < 20% durability
     if (gameHandler.getState() == game::WorldState::IN_WORLD) {
         const auto& inv = gameHandler.getInventory();
         float lowestDurPct = 1.0f;
@@ -629,7 +629,7 @@ void GameScreen::renderMinimapNpcDots(const MinimapFrame& frame, const EntityLis
 
 }
 
-// A standard service marker, independent of the optional NPC dots — and read
+// A standard service marker, independent of the optional NPC dots - and read
 // from the live NPC flags, so an undiscovered flight master shows before the
 // taxi window has ever been opened.
 void GameScreen::renderMinimapFlightMasters(const MinimapFrame& frame, const EntityList& minimapUnits) {
@@ -715,7 +715,7 @@ void GameScreen::renderMinimapRares(const MinimapFrame& frame, const EntityList&
 // the small circles for everyone else.
 void GameScreen::renderMinimapPlayerDots(const MinimapFrame& frame, const EntityList& minimapPlayers,
                                           game::GameHandler& gameHandler) {
-    // Nearby other-player dots — shown when NPC dots are enabled.
+    // Nearby other-player dots - shown when NPC dots are enabled.
     // Party members are already drawn as squares above; other players get a small circle.
     if (settingsPanel_.minimapNpcDots_) {
         const uint64_t selfGuid = gameHandler.getPlayerGuid();
@@ -778,7 +778,7 @@ void GameScreen::renderMinimapLootCorpses(const MinimapFrame& frame, const Entit
 
 }
 
-// Chests and resource nodes, as orange triangles — a different shape from the
+// Chests and resource nodes, as orange triangles - a different shape from the
 // unit dots on purpose, because they are a different thing to walk to.
 void GameScreen::renderMinimapObjectDots(const MinimapFrame& frame, const EntityList& minimapGameObjects,
                                           const EntrySet& minimapQuestGoEntries,
@@ -935,7 +935,7 @@ void GameScreen::renderMinimapQuestGivers(const MinimapFrame& frame, const Quest
 void GameScreen::renderMinimapQuestKills(const MinimapFrame& frame, const EntityList& minimapUnits,
                                         const QuestStatusMap& statuses,
                                         game::GameHandler& gameHandler) {
-    // Quest kill objective markers — highlight live NPCs matching active quest kill objectives
+    // Quest kill objective markers - highlight live NPCs matching active quest kill objectives
     {
         // Build map of NPC entry → (quest title, current, required) for tooltips
         struct KillInfo { std::string questTitle; uint32_t current = 0; uint32_t required = 0; };
@@ -968,7 +968,7 @@ void GameScreen::renderMinimapQuestKills(const MinimapFrame& frame, const Entity
                 float sx = 0.0f, sy = 0.0f;
                 if (!frame.projectEntity(*entity, sx, sy)) continue;
 
-                // Gold circle with a dark "x" mark — indicates a quest kill target
+                // Gold circle with a dark "x" mark - indicates a quest kill target
                 frame.drawList->AddCircleFilled(ImVec2(sx, sy), 5.0f, IM_COL32(255, 185, 0, 240));
                 frame.drawList->AddCircle(ImVec2(sx, sy), 5.5f, IM_COL32(0, 0, 0, 180), 12, 1.0f);
                 frame.drawList->AddLine(ImVec2(sx - 2.5f, sy - 2.5f), ImVec2(sx + 2.5f, sy + 2.5f),
@@ -997,7 +997,7 @@ void GameScreen::renderMinimapQuestKills(const MinimapFrame& frame, const Entity
 
 }
 
-// The points a gossip window has pointed at — quest and service targets.
+// The points a gossip window has pointed at - quest and service targets.
 void GameScreen::renderMinimapGossipPois(const MinimapFrame& frame, game::GameHandler& gameHandler) {
     // Gossip POI markers (quest / NPC navigation targets)
     for (const auto& poi : gameHandler.getGossipPois()) {
@@ -1054,7 +1054,7 @@ void GameScreen::renderMinimapPings(const MinimapFrame& frame, game::GameHandler
 
 // One dot per party member, with the raid mark above it.
 //
-// There were two of these drawing at the same point until recently — a square
+// There were two of these drawing at the same point until recently - a square
 // from one pass and this circle over it.
 void GameScreen::renderMinimapPartyDots(const MinimapFrame& frame, game::GameHandler& gameHandler) {
     // Party member dots on minimap
@@ -1175,15 +1175,15 @@ void GameScreen::renderMinimapBattlegroundPositions(const MinimapFrame& frame, g
 // Where the corpse is, while the player is a ghost.
 //
 // Unlike every marker above it, a corpse off the edge of the map is not
-// skipped — it becomes an arrow at the rim pointing at it, which is why this
+// skipped - it becomes an arrow at the rim pointing at it, which is why this
 // one keeps the render position rather than only the projected point.
 void GameScreen::renderMinimapCorpseMarker(const MinimapFrame& frame, game::GameHandler& gameHandler) {
-    // Corpse direction indicator — shown when player is a ghost
+    // Corpse direction indicator - shown when player is a ghost
     if (gameHandler.isPlayerGhost()) {
         float corpseCanX = 0.0f, corpseCanY = 0.0f;
         if (gameHandler.getCorpseCanonicalPos(corpseCanX, corpseCanY)) {
             // The render position is kept: unlike the loops above, a corpse off
-            // the edge is not skipped — it gets a direction arrow at the rim,
+            // the edge is not skipped - it gets a direction arrow at the rim,
             // and that needs the direction.
             const glm::vec3 corpseRender =
                 core::coords::canonicalToRender(glm::vec3(corpseCanX, corpseCanY, 0.0f));
@@ -1209,7 +1209,7 @@ void GameScreen::renderMinimapCorpseMarker(const MinimapFrame& frame, game::Game
                         ImGui::SetTooltip("Your corpse");
                 }
             } else {
-                // Corpse is outside minimap — draw an edge arrow pointing toward it
+                // Corpse is outside minimap - draw an edge arrow pointing toward it
                 float dx = corpseRender.x - frame.playerRender.x;
                 float dy = corpseRender.y - frame.playerRender.y;
                 // Only the direction is wanted here, and the projection's
@@ -1378,7 +1378,7 @@ void GameScreen::renderMinimapReadouts(const MinimapFrame& frame, game::GameHand
         drawList->AddText(font, fontSize, ImVec2(tx, ty), IM_COL32(230, 220, 140, 255), coordBuf);
     }
 
-    // Zone name display — drawn inside the top edge of the minimap circle
+    // Zone name display - drawn inside the top edge of the minimap circle
     {
         std::string zoneName;
         // The live terrain-derived zone first; the server's only if that has
@@ -1389,8 +1389,8 @@ void GameScreen::renderMinimapReadouts(const MinimapFrame& frame, game::GameHand
         const uint32_t serverZoneId = gameHandler.getWorldStateZoneId();
         if (zoneId == 0) zoneId = serverZoneId;
         // Said once each time the pair changes. The two disagreeing is not by
-        // itself a fault — the server only revises its answer when it notices
-        // a zone change — but a disagreement that persists while standing
+        // itself a fault - the server only revises its answer when it notices
+        // a zone change - but a disagreement that persists while standing
         // still means the server has the player somewhere else, which is also
         // why no creatures would arrive. This prints both names and the
         // position, which is what tells those two cases apart.
@@ -1461,7 +1461,7 @@ void GameScreen::renderMinimapReadouts(const MinimapFrame& frame, game::GameHand
         }
     }
 
-    // Instance difficulty indicator — just below zone name, inside minimap top edge
+    // Instance difficulty indicator - just below zone name, inside minimap top edge
     if (gameHandler.isInInstance()) {
         static constexpr const char* kDiffLabels[] = {"Normal", "Heroic", "25 Normal", "25 Heroic"};
         uint32_t diff = gameHandler.getInstanceDifficulty();
@@ -1563,7 +1563,7 @@ void GameScreen::renderMinimapMarkers(game::GameHandler& gameHandler) {
     // These used to be the corner this client's own minimap occupies, and that
     // held for as long as the marker pass only ran when this client drew the
     // ring. It draws blips on FrameXML's minimap too now, and that one sits
-    // wherever the Minimap widget was laid out — so the rect is asked for
+    // wherever the Minimap widget was laid out - so the rect is asked for
     // rather than assumed, and the corner is the fallback for when nothing has
     // placed it.
     float mapSize = 200.0f;
@@ -1608,7 +1608,7 @@ void GameScreen::renderMinimapMarkers(game::GameHandler& gameHandler) {
     // Behind windows, in front of the map.
     //
     // The foreground list is drawn after every ImGui window, so a blip sat on
-    // top of anything opened over the minimap — a bag, the character sheet,
+    // top of anything opened over the minimap - a bag, the character sheet,
     // the map itself. The background list is drawn before them and after the
     // widget renderer, which puts these above FrameXML's ring and border (that
     // pass runs earlier in the frame and into this same list) and underneath
@@ -1644,7 +1644,7 @@ void GameScreen::renderMinimapMarkers(game::GameHandler& gameHandler) {
         }
     }
 
-    // Everything a marker needs to place itself, in one place — the categories
+    // Everything a marker needs to place itself, in one place - the categories
     // below take this rather than eight locals each.
     const MinimapFrame frame{drawList, centerX, centerY, mapRadius, bearing,
                              playerRender, minimapView};
@@ -1673,7 +1673,7 @@ void GameScreen::renderMinimapMarkers(game::GameHandler& gameHandler) {
     renderMinimapCorpseMarker(frame, gameHandler);
     renderMinimapPlayerArrow(frame);
     // Blocked by any window in front, and entirely when FrameXML draws the
-    // minimap — then the ring is a widget with its own handlers, and running
+    // minimap - then the ring is a widget with its own handlers, and running
     // both would ping twice and zoom two steps a notch. Both halves below need
     // the answer, so it is worked out once here.
     ImGuiContext& g = *ImGui::GetCurrentContext();
@@ -1681,7 +1681,7 @@ void GameScreen::renderMinimapMarkers(game::GameHandler& gameHandler) {
         (g.HoveredWindow != nullptr) || frameXmlOwns(UiElement::Minimap);
     handleMinimapInput(frame, gameHandler, minimapInputBlocked);
     renderMinimapReadouts(frame, gameHandler, minimapInputBlocked);
-    // The furniture around the map — zoom buttons, clock, indicators — is
+    // The furniture around the map - zoom buttons, clock, indicators - is
     // FrameXML's when FrameXML draws the ring, so it answers the ownership
     // question separately from the blips above.
     if (!frameXmlOwns(UiElement::Minimap)) {
@@ -2121,7 +2121,7 @@ void GameScreen::renderWeatherOverlay(game::GameHandler& gameHandler) {
     float sh = io.DisplaySize.y;
     if (sw <= 0.0f || sh <= 0.0f) return;
 
-    // Seeded RNG for weather particle positions — replaces std::rand() which
+    // Seeded RNG for weather particle positions - replaces std::rand() which
     // shares global state and has modulo bias.
     static std::mt19937 wxRng(std::random_device{}());
     auto wxRandInt = [](int maxExcl) {

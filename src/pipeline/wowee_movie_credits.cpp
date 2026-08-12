@@ -117,7 +117,7 @@ WoweeMovieCredits WoweeMovieCreditsLoader::makeWotLKIntro(
             "Production Coordinator (placeholder)",
         },
         packRgba(220, 220, 100),
-        "WotLK intro — Production block. 6 lines: 3 "
+        "WotLK intro - Production block. 6 lines: 3 "
         "title + 3 name pairs.");
     add(2, "WotLK_Direction", M::Production, 20,
         {
@@ -127,7 +127,7 @@ WoweeMovieCredits WoweeMovieCreditsLoader::makeWotLKIntro(
             "Tech Director (placeholder)",
         },
         packRgba(220, 200, 80),
-        "WotLK intro — Direction block. 4 lines.");
+        "WotLK intro - Direction block. 4 lines.");
     add(3, "WotLK_Music", M::Music, 30,
         {
             "ORIGINAL SCORE COMPOSED BY",
@@ -138,7 +138,7 @@ WoweeMovieCredits WoweeMovieCreditsLoader::makeWotLKIntro(
             "Jason Hayes",
         },
         packRgba(180, 100, 240),
-        "WotLK intro — Music block. The actual WoTLK "
+        "WotLK intro - Music block. The actual WoTLK "
         "score credits, 6 lines.");
     add(4, "WotLK_Voice", M::Voice, 40,
         {
@@ -148,7 +148,7 @@ WoweeMovieCredits WoweeMovieCreditsLoader::makeWotLKIntro(
             "Narrator ............  Patrick Seitz",
         },
         packRgba(255, 220, 220),
-        "WotLK intro — Voice cast block. The iconic "
+        "WotLK intro - Voice cast block. The iconic "
         "Arthas/Terenas exchange in the cinematic.");
     add(5, "WotLK_SpecialThanks", M::Special, 90,
         {
@@ -159,7 +159,7 @@ WoweeMovieCredits WoweeMovieCreditsLoader::makeWotLKIntro(
             "FOR THE LICH KING",
         },
         packRgba(180, 220, 255),
-        "WotLK intro — Special Thanks block. End of "
+        "WotLK intro - Special Thanks block. End of "
         "the credit roll, traditionally last.");
     return c;
 }
@@ -188,7 +188,7 @@ WoweeMovieCredits WoweeMovieCreditsLoader::makeQuestCinema(
             "Quest Designer (placeholder)",
         },
         packRgba(140, 200, 255),
-        "Per-quest cinematic — Designer credit. Two "
+        "Per-quest cinematic - Designer credit. Two "
         "lines: title + name.");
     add(101, "QuestCine_Voice", M::Voice, 20,
         {
@@ -196,14 +196,14 @@ WoweeMovieCredits WoweeMovieCreditsLoader::makeQuestCinema(
             "NPC Voice Actor (placeholder)",
         },
         packRgba(255, 220, 220),
-        "Per-quest cinematic — single voice credit.");
+        "Per-quest cinematic - single voice credit.");
     add(102, "QuestCine_Director", M::Production, 30,
         {
             "CINEMATIC DIRECTOR",
             "Director (placeholder)",
         },
         packRgba(220, 220, 100),
-        "Per-quest cinematic — Cinematic Director "
+        "Per-quest cinematic - Cinematic Director "
         "credit. Always last per Blizzard convention.");
     return c;
 }
@@ -229,22 +229,22 @@ WoweeMovieCredits WoweeMovieCreditsLoader::makeStarterRoll(
     add(200, "Starter_Production", M::Production, 10,
         { "PRODUCTION", "Producer Name", "Co-Producer" },
         packRgba(220, 220, 100),
-        "Generic starter cinematic — 3-line Production "
+        "Generic starter cinematic - 3-line Production "
         "block.");
     add(201, "Starter_Engineering", M::Engineering, 20,
         { "ENGINEERING", "Lead Engineer", "Pipeline Tools" },
         packRgba(140, 200, 255),
-        "Generic starter cinematic — 3-line Engineering "
+        "Generic starter cinematic - 3-line Engineering "
         "block.");
     add(202, "Starter_Art", M::Art, 30,
         { "ART", "Concept Artist", "3D Modeler", "Animator" },
         packRgba(255, 180, 100),
-        "Generic starter cinematic — 4-line Art block.");
+        "Generic starter cinematic - 4-line Art block.");
     add(203, "Starter_Special", M::Special, 90,
         { "WITH SPECIAL THANKS TO", "Our players",
           "Our families" },
         packRgba(180, 220, 255),
-        "Generic starter cinematic — 3-line Special "
+        "Generic starter cinematic - 3-line Special "
         "Thanks block.");
     return c;
 }

@@ -92,13 +92,13 @@ WoweeSpellRange WoweeSpellRangeLoader::makeStarter(
     };
     add(1, "SelfRange",     WoweeSpellRange::Self,
         0.0f, 0.0f,  240, 240, 240,
-        "Self-only — caster is the only valid target.");
+        "Self-only - caster is the only valid target.");
     add(2, "MeleeRange",    WoweeSpellRange::Melee,
         0.0f, 5.0f,  220, 80, 80,
-        "Melee — within white-attack range (5y).");
+        "Melee - within white-attack range (5y).");
     add(3, "SpellRange",    WoweeSpellRange::Ranged,
         0.0f, 30.0f, 100, 180, 240,
-        "Standard spell — 30 yards, common caster range.");
+        "Standard spell - 30 yards, common caster range.");
     return c;
 }
 
@@ -118,15 +118,15 @@ WoweeSpellRange WoweeSpellRangeLoader::makeRanged(
         c.entries.push_back(e);
     };
     add(100, "ShortCast",  WoweeSpellRange::ShortRanged,  20.0f,
-        100, 200, 240, "Short-range spell — 20y. Close-up casts.");
+        100, 200, 240, "Short-range spell - 20y. Close-up casts.");
     add(101, "MediumCast", WoweeSpellRange::Ranged,       30.0f,
-        100, 180, 240, "Medium-range spell — 30y. Default caster range.");
+        100, 180, 240, "Medium-range spell - 30y. Default caster range.");
     add(102, "LongCast",   WoweeSpellRange::LongRanged,   40.0f,
-        100, 160, 240, "Long-range spell — 40y. Hunter / sniper range.");
+        100, 160, 240, "Long-range spell - 40y. Hunter / sniper range.");
     add(103, "VeryLong",   WoweeSpellRange::VeryLong,     100.0f,
-        100, 140, 240, "Very-long range — 100y. Vision / aura range.");
+        100, 140, 240, "Very-long range - 100y. Vision / aura range.");
     add(104, "Unlimited",  WoweeSpellRange::Unlimited,    99999.0f,
-        140, 100, 240, "Unlimited range — global server-tracked spell.");
+        140, 100, 240, "Unlimited range - global server-tracked spell.");
     return c;
 }
 
@@ -146,12 +146,12 @@ WoweeSpellRange WoweeSpellRangeLoader::makeFriendly(
         c.entries.push_back(e);
     };
     add(200, "HealRange",     40.0f,  0.0f,
-        "Heal target — 40y friendly, 0y hostile (heals don't "
+        "Heal target - 40y friendly, 0y hostile (heals don't "
         "reach enemies).");
     add(201, "CleanseRange",  30.0f,  0.0f,
-        "Cleanse / dispel — 30y friendly only.");
+        "Cleanse / dispel - 30y friendly only.");
     add(202, "BuffRange",     30.0f,  0.0f,
-        "Beneficial buff — 30y friendly only (Power Word: "
+        "Beneficial buff - 30y friendly only (Power Word: "
         "Fortitude, Mark of the Wild).");
     return c;
 }

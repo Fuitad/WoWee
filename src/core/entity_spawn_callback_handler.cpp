@@ -56,7 +56,7 @@ void EntitySpawnCallbackHandler::setupCallbacks() {
         LOG_DEBUG("playerSpawnCallback: guid=0x", std::hex, guid, std::dec,
                     " race=", static_cast<int>(raceId), " gender=", static_cast<int>(genderId),
                     " pos=(", x, ",", y, ",", z, ")");
-        // Skip local player — already spawned as the main character
+        // Skip local player - already spawned as the main character
         if (isLocalPlayerGuid_(guid)) return;
         if (entitySpawner_.isPlayerSpawned(guid)) return;
         if (entitySpawner_.isPlayerPending(guid)) return;
@@ -67,7 +67,7 @@ void EntitySpawnCallbackHandler::setupCallbacks() {
     gameHandler_.setPlayerEquipmentCallback([this](uint64_t guid,
                                                   const std::array<uint32_t, 19>& displayInfoIds,
                                                   const std::array<uint8_t, 19>& inventoryTypes) {
-        // Queue equipment compositing instead of doing it immediately —
+        // Queue equipment compositing instead of doing it immediately -
         // compositeWithRegions is expensive (file I/O + CPU blit + GPU upload)
         // and causes frame stutters if multiple players update at once.
         entitySpawner_.queuePlayerEquipment(guid, displayInfoIds, inventoryTypes);
@@ -97,7 +97,7 @@ void EntitySpawnCallbackHandler::setupCallbacks() {
         entitySpawner_.despawnGameObject(guid);
     });
 
-    // GameObject metadata arrival — settles the animation policy for models that
+    // GameObject metadata arrival - settles the animation policy for models that
     // spawned before their type was known.
     gameHandler_.setGameObjectInfoCallback([this](uint32_t entry) {
         entitySpawner_.onGameObjectInfoReceived(entry);
@@ -120,7 +120,7 @@ void EntitySpawnCallbackHandler::setupCallbacks() {
         }
     });
 
-    // GameObject state change callback — animate doors/chests opening/closing/destroying
+    // GameObject state change callback - animate doors/chests opening/closing/destroying
     gameHandler_.setGameObjectStateCallback([this](uint64_t guid, uint8_t goState) {
         auto& goInstances = entitySpawner_.getGameObjectInstances();
         auto it = goInstances.find(guid);
@@ -177,7 +177,7 @@ void EntitySpawnCallbackHandler::setupCallbacks() {
             // Don't override Death animation (1). The per-frame sync loop will return to
             // Stand when movement stops.
             if (durationMs > 0) {
-                // Player animation is managed by the local renderer state machine —
+                // Player animation is managed by the local renderer state machine -
                 // don't reset it here or every server movement packet restarts the
                 // run cycle from frame 0, causing visible stutter.
                 if (!isPlayer) {

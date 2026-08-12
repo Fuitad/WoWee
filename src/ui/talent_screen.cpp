@@ -174,7 +174,7 @@ void TalentScreen::renderTalentTrees(game::GameHandler& gameHandler) {
             }
         }
 
-        // Glyphs tab (WotLK only — visible when any glyph slot is populated or DBC data loaded)
+        // Glyphs tab (WotLK only - visible when any glyph slot is populated or DBC data loaded)
         if (!glyphProperties_.empty() || [&]() {
                 const auto& g = gameHandler.getGlyphs();
                 for (auto id : g) if (id != 0) return true;
@@ -203,7 +203,7 @@ void TalentScreen::renderTalentTrees(game::GameHandler& gameHandler) {
         if (ImGui::Button("Learn", ImVec2(80, 0))) {
             // pendingTalentRank_ holds how many ranks are already learned, which
             // is the wire's index for the next one. learnTalent counts a talent's
-            // first rank as 1 — the same as everywhere above the wire — so this
+            // first rank as 1 - the same as everywhere above the wire - so this
             // is the rank being asked for, and the builder converts.
             gameHandler.learnTalent(pendingTalentId_, pendingTalentRank_ + 1);
             ImGui::CloseCurrentPopup();
@@ -239,7 +239,7 @@ void TalentScreen::renderTalentTree(game::GameHandler& gameHandler, uint32_t tab
         return a->column < b->column;
     });
 
-    // Find grid dimensions — use int to avoid uint8_t wrap-around infinite loops
+    // Find grid dimensions - use int to avoid uint8_t wrap-around infinite loops
     int maxRow = 0, maxCol = 0;
     for (const auto* talent : talents) {
         maxRow = std::max(maxRow, static_cast<int>(talent->row));
@@ -381,7 +381,7 @@ void TalentScreen::renderTalentTree(game::GameHandler& gameHandler, uint32_t tab
             if (talent) {
                 renderTalent(gameHandler, *talent, pointsInTree);
             } else {
-                // Empty cell — invisible placeholder
+                // Empty cell - invisible placeholder
                 char emptyId[32];
                 snprintf(emptyId, sizeof(emptyId), "e_%u_%u_%u", tabId, row, col);
                 ImGui::InvisibleButton(emptyId, ImVec2(iconSize, iconSize));
@@ -609,7 +609,7 @@ void TalentScreen::renderTalent(game::GameHandler& gameHandler,
         ImGui::EndTooltip();
     }
 
-    // Handle click — open confirmation dialog instead of learning directly
+    // Handle click - open confirmation dialog instead of learning directly
     if (clicked && canLearn && prereqsMet) {
         talentConfirmOpen_ = true;
         pendingTalentId_ = talent.talentId;

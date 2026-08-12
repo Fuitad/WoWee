@@ -1,4 +1,4 @@
-// ChatTabCompleter — cycling tab-completion state machine.
+// ChatTabCompleter - cycling tab-completion state machine.
 // Extracted from scattered vars in ChatPanel (Phase 5.1).
 #pragma once
 

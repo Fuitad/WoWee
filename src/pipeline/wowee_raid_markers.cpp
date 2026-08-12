@@ -104,7 +104,7 @@ WoweeRaidMarkers WoweeRaidMarkersLoader::makeRaidTargets(
     add(3, "Diamond", 2,
         "Interface\\TargetingFrame\\UI-RaidTargetingIcon_3.blp",
         "<>", packRgba(180, 100, 240),
-        "Diamond (purple). Mark slot 3 — common "
+        "Diamond (purple). Mark slot 3 - common "
         "polymorph CC-target marker.");
     add(4, "Triangle", 3,
         "Interface\\TargetingFrame\\UI-RaidTargetingIcon_4.blp",
@@ -113,7 +113,7 @@ WoweeRaidMarkers WoweeRaidMarkersLoader::makeRaidTargets(
     add(5, "Moon", 4,
         "Interface\\TargetingFrame\\UI-RaidTargetingIcon_5.blp",
         "(", packRgba(220, 220, 240),
-        "Moon (silver). Mark slot 5 — common Sap CC-"
+        "Moon (silver). Mark slot 5 - common Sap CC-"
         "target marker.");
     add(6, "Square", 5,
         "Interface\\TargetingFrame\\UI-RaidTargetingIcon_6.blp",
@@ -122,12 +122,12 @@ WoweeRaidMarkers WoweeRaidMarkersLoader::makeRaidTargets(
     add(7, "Cross", 6,
         "Interface\\TargetingFrame\\UI-RaidTargetingIcon_7.blp",
         "X", packRgba(220, 60, 60),
-        "Cross (red). Mark slot 7 — universal kill-this-"
+        "Cross (red). Mark slot 7 - universal kill-this-"
         "first marker.");
     add(8, "Skull", 7,
         "Interface\\TargetingFrame\\UI-RaidTargetingIcon_8.blp",
         "$", packRgba(220, 220, 220),
-        "Skull (white). Mark slot 8 — universal HIGHEST-"
+        "Skull (white). Mark slot 8 - universal HIGHEST-"
         "priority kill-target marker.");
     return c;
 }

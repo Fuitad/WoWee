@@ -20,7 +20,7 @@ bool isFrameElement(const std::string& n) {
         "ScrollFrame", "ScrollingMessageFrame", "MessageFrame", "SimpleHTML",
         "ColorSelect", "Model", "PlayerModel", "DressUpModel", "TabardModel",
         "Cooldown", "GameTooltip", "MovieFrame", "ArchaeologyDigSiteFrame",
-        // Both are ordinary frames as far as this goes — the client draws what
+        // Both are ordinary frames as far as this goes - the client draws what
         // is inside them. Leaving Minimap out skipped the whole minimap
         // subtree, which is why every MinimapNorthTag and MiniMapLFGFrame in
         // the interface read as a missing global.
@@ -111,12 +111,12 @@ std::string scriptParameters(const std::string& script) {
 
 /// Named parameters, and then varargs regardless. A body is free to use `...`
 /// whatever handler it belongs to, and a parameter list without it does not
-/// merely leave the values behind — it fails to compile, taking the whole
+/// merely leave the values behind - it fails to compile, taking the whole
 /// template with it.
 std::string scriptSignature(const std::string& script) {
     // OnEvent alone takes its arguments through the varargs rather than by
-    // name. Both spellings are in the interface — plenty of bodies say `arg1`,
-    // and fifty-three hand `...` straight on to a Lua function — and a named
+    // name. Both spellings are in the interface - plenty of bodies say `arg1`,
+    // and fifty-three hand `...` straight on to a Lua function - and a named
     // parameter list serves only the first: `function(self, event, arg1, ...,
     // arg9, ...)` binds every value that arrives to a name, leaving `...`
     // empty for the body that forwards it.
@@ -125,7 +125,7 @@ std::string scriptSignature(const std::string& script) {
     // ContainerFrame_OnEvent(self, event, ...), which opens with
     // `local arg1, arg2 = ...` and compares arg1 against the bag's own id. With
     // nothing in the varargs that comparison was false for every bag on every
-    // BAG_UPDATE, so a bag never redrew while it was open — an item moved
+    // BAG_UPDATE, so a bag never redrew while it was open - an item moved
     // within one, or out of it, stayed on screen where it had been.
     //
     // The names are bound inside instead, off the varargs, which serves both.
@@ -153,14 +153,14 @@ struct Emitter {
     bool runtimeParentName = false;
 
     /// Temporaries live in a table rather than in locals. Lua allows 200 locals
-    /// per function and a large file declares far more widgets than that —
+    /// per function and a large file declares far more widgets than that -
     /// FriendsFrame and InterfaceOptionsPanels both went over, and the failure
     /// is the whole chunk refusing to compile rather than anything degrading.
     std::string nextVar() { return "__w[" + std::to_string(++temp) + "]"; }
 
     /// The Lua expression for a region or frame's name. A literal where the
     /// owning frame is known, and a concatenation against the real frame's name
-    /// where it is not — which is what makes $parentBackdrop inside a template
+    /// where it is not - which is what makes $parentBackdrop inside a template
     /// become FooFrameBackdrop on the frame that inherits it, rather than
     /// naming itself after the template.
     std::string nameArg(const std::string& rawName, const std::string& parentName,
@@ -174,7 +174,7 @@ struct Emitter {
             // No name on the owner means no name on the region, which is what
             // $parent means in WoW: a name is built from one, and there is
             // nothing to build from. Falling back to an empty string instead
-            // published the bare suffix as a global — ContainerFrameTemplate
+            // published the bare suffix as a global - ContainerFrameTemplate
             // replayed onto an unnamed frame created a texture called
             // "Portrait", and every later frame doing the same overwrote it.
             return "(" + selfVar + ":GetName() and (" + selfVar +
@@ -190,7 +190,7 @@ struct Emitter {
             // <OnClick function="Foo"/> names an existing global; an inline body
             // is a function literal. Both end up as the same SetScript call.
             // Present but empty is not a name. Emitted as one it produces
-            // SetScript("X", ) — a syntax error that loses the whole file, not
+            // SetScript("X", ) - a syntax error that loses the whole file, not
             // just the handler.
             if (const std::string* fn = s.attr("function"); fn && !fn->empty()) {
                 line(var + ":SetScript(" + quote(s.name) + ", " + *fn + ")");
@@ -202,7 +202,7 @@ struct Emitter {
             // directly without declaring them: an OnUpdate says `elapsed`, an
             // OnClick says `button`. Passing them positionally as arg1..argN
             // left those names nil, so every one of these bodies failed the
-            // moment it touched its own argument — arithmetic on a nil elapsed
+            // moment it touched its own argument - arithmetic on a nil elapsed
             // being the loudest of them.
             line(var + ":SetScript(" + quote(s.name) +
                  ", function(" + scriptSignature(s.name) + ") " +
@@ -211,7 +211,7 @@ struct Emitter {
     }
 
     /// Returns the variable holding the region, so a caller that has to hand it
-    /// to a setter afterwards — button art does — can name it. isTexture is
+    /// to a setter afterwards - button art does - can name it. isTexture is
     /// explicit because button art does not carry it in the element name:
     /// <NormalTexture> is a texture and <ButtonText> a font string.
     std::string emitRegion(const XmlNode& node, const std::string& parentVar,
@@ -235,13 +235,13 @@ struct Emitter {
     ///
     /// WoW looks the name up and falls back to the literal when there is no
     /// such global, which is how every tab and button in FrameXML gets a
-    /// localised label out of one word of markup — 703 of them.
+    /// localised label out of one word of markup - 703 of them.
     ///
     /// It has to be applied to frames as well as regions. A <Button text="X">
     /// is a frame, and this only ran for textures and font strings, so no
     /// button in the interface was ever given its label. The character sheet's
-    /// tabs show what that costs twice over: unlabelled, and — because a tab is
-    /// sized from the width of its own text — collapsed to slivers as well.
+    /// tabs show what that costs twice over: unlabelled, and - because a tab is
+    /// sized from the width of its own text - collapsed to slivers as well.
     void emitTextAttr(const XmlNode& node, const std::string& var) {
         const std::string* text = node.attr("text");
         if (!text) return;
@@ -267,7 +267,7 @@ struct Emitter {
                               const std::string& parentVar,
                               const std::string& parentName, bool isTexture) {
         // The template first, so anything the region states itself wins over
-        // what it inherited — the order a frame's template follows.
+        // what it inherited - the order a frame's template follows.
         //
         // A FontString's inherits is ambiguous by design: nearly always a font
         // object, which is where its size and colour come from, but FrameXML
@@ -333,7 +333,7 @@ struct Emitter {
 
     /// A virtual Texture or FontString: recorded, not built, and replayed onto
     /// whatever inherits it. Twenty-two of these are declared at the top level
-    /// of FrameXML — DialogButtonNormalTexture and its kind — and none of them
+    /// of FrameXML - DialogButtonNormalTexture and its kind - and none of them
     /// was emitted at all, so every button that inherits its art had none.
     void emitRegionTemplate(const XmlNode& node, bool isTexture) {
         const std::string name = node.attrOr("name", "");
@@ -402,14 +402,14 @@ struct Emitter {
             const std::string point = a.attrOr("point", "CENTER");
             // relativeTo names a frame. Emitted as a string rather than a bare
             // identifier, because SetPoint resolves a name for us and because
-            // the name is often $parentSomething — which is not an identifier
+            // the name is often $parentSomething - which is not an identifier
             // at all, and pasting it into Lua is a syntax error that loses the
             // whole file. Without one, the anchor is to the parent, which is
             // what leaving it out means.
             std::string relative = parentVar;
             if (const std::string* rt = a.attr("relativeTo")) {
                 // Resolved against whatever owns this anchor, which is parentVar
-                // — the containing frame for a region, and the parent frame for
+                // - the containing frame for a region, and the parent frame for
                 // a frame's own anchors. It used to say "self" regardless, which
                 // inside a template asked the wrong frame for its name.
                 relative = nameArg(*rt, parentNameForAnchors, parentVar);
@@ -433,7 +433,7 @@ struct Emitter {
     /// parentKey="icon" means the owner can say self.icon rather than looking
     /// the name up, and FrameXML's own handlers do exactly that:
     /// QuestHonorFrameTemplate's OnLoad opens with self.icon:SetTexture(...).
-    /// Ignoring the attribute left every one of those fields nil — 242 of them
+    /// Ignoring the attribute left every one of those fields nil - 242 of them
     /// across 31 files.
     ///
     /// Written in brackets because the key is arbitrary text, and a key that
@@ -445,7 +445,7 @@ struct Emitter {
         line(parentVar + "[" + quote(*key) + "] = " + var);
     }
 
-    /// A <Font> is not a widget — it is a named set of type settings that font
+    /// A <Font> is not a widget - it is a named set of type settings that font
     /// strings inherit by name, and SetFontObject reads height and colour off
     /// it. Ignoring the element left all 42 of FrameXML's font objects
     /// undefined, so every label that inherits one fell back to a default size
@@ -462,7 +462,7 @@ struct Emitter {
                 height = fh->attrFloat("val", 0.0f);
         }
 
-        // Inheriting copies the settings first, so anything stated here wins —
+        // Inheriting copies the settings first, so anything stated here wins -
         // the same order a frame's template follows.
         if (const std::string* inh = node.attr("inherits"); inh && !inh->empty()) {
             line(name + " = {}");
@@ -472,7 +472,7 @@ struct Emitter {
             line("  end");
             line("end");
             // pairs() copies fields and not the metatable, and a font object's
-            // methods live in one. Without this the copy answered nothing —
+            // methods live in one. Without this the copy answered nothing -
             // fontObject:GetTextColor(), which every options control calls to
             // put its label back when it is enabled, indexed a bare table.
             line("if __WoweeFontMT then setmetatable(" + name + ", __WoweeFontMT) end");
@@ -480,7 +480,7 @@ struct Emitter {
             // rawget, because reading the name to see whether it is already
             // there is exactly what the missing-API fallback is watching for.
             // Through a plain read every font object in Fonts.xml reported
-            // itself missing at the moment it was defined — thirty entries in
+            // itself missing at the moment it was defined - thirty entries in
             // a list whose whole value is that everything in it is real.
             line(name + " = rawget(_G, " + quote(name) + ") or {}");
             // ...and one made fresh here has no metatable either.
@@ -497,7 +497,7 @@ struct Emitter {
             line(name + ".b = " + std::to_string(col->attrFloat("b", 1.0f)));
             line(name + ".a = " + std::to_string(col->attrFloat("a", 1.0f)));
         }
-        // <Shadow> — a dark copy of the glyphs one pixel down and across,
+        // <Shadow> - a dark copy of the glyphs one pixel down and across,
         // which is what keeps a label readable over the world and over the
         // action bar art. Nineteen font objects declare one, and it is written
         // on the font rather than the label, so it arrives this way.
@@ -522,7 +522,7 @@ struct Emitter {
 
     /// Applies whatever this node inherits onto `var`. Templates apply before
     /// the frame's own settings, so anything stated on the frame overrides what
-    /// it inherited — the order FrameXML relies on.
+    /// it inherited - the order FrameXML relies on.
     void emitInherits(const XmlNode& node, const std::string& var) {
         const std::string* inherits = node.attr("inherits");
         if (!inherits) return;
@@ -539,7 +539,7 @@ struct Emitter {
     }
 
     /// Returns the variable holding the new frame, or empty for a virtual
-    /// one, so a caller that must hand it on — a scroll frame to its child —
+    /// one, so a caller that must hand it on - a scroll frame to its child -
     /// can name it.
     std::string emitFrame(const XmlNode& node, const std::string& parentVar,
                           const std::string& parentName,
@@ -567,11 +567,11 @@ struct Emitter {
             line("__WoweeTemplates[" + quote(name) + "] = function(self)");
             line("local __w = {}");
             // Whether this frame arrived with a parent, read before any
-            // inherited template runs — a base template setting one must not
+            // inherited template runs - a base template setting one must not
             // make a derived template's own parent look redundant.
             line("local __noParent = not self:GetParent()");
             // A template can itself inherit one, and this branch used to return
-            // before that was ever emitted — so InterfaceOptionsListButtonTemplate
+            // before that was ever emitted - so InterfaceOptionsListButtonTemplate
             // silently dropped the OptionsListButtonTemplate it is built on,
             // arriving with no highlight texture and no size. First, so the
             // template's own body overrides what it inherited.
@@ -586,7 +586,7 @@ struct Emitter {
             //
             // Only onto a frame that has none. A template's parent= is read at
             // creation in WoW, so it settles a top-level frame declared without
-            // one and says nothing about a nested frame — whose parent is the
+            // one and says nothing about a nested frame - whose parent is the
             // element containing it. Applying it unconditionally tore children
             // out of their containers and re-hung them on UIParent, which moves
             // their strata and their level and puts whatever was full screen
@@ -606,15 +606,15 @@ struct Emitter {
         //
         // uiparent.lua's fullscreen path is UIParent:Hide() followed by
         // frame:Show(), so a frame it can do that to must not be a child of
-        // UIParent — the map went down with everything the call was meant to
+        // UIParent - the map went down with everything the call was meant to
         // clear out of its way. In WoW these are parentless because they are
         // declared at XML top level with no parent of their own.
         //
         // Named rather than derived from that rule, which would take in a
         // hundred more: this list is UIPanelWindows' `area = "full"` entries,
         // and it is the whole set the mechanism applies to. Detaching the rest
-        // changes what GetParent() answers for them — nil where it used to be
-        // UIParent — and FrameXML asks that of frames it is about to position,
+        // changes what GetParent() answers for them - nil where it used to be
+        // UIParent - and FrameXML asks that of frames it is about to position,
         // so a wider net blanks panels rather than freeing them.
         static const char* kFullscreenPanels[] = {
             "WorldMapFrame", "CinematicFrame",
@@ -633,13 +633,13 @@ struct Emitter {
         // replayed, because the frame it belongs to is not known until then.
         // Baking the literal instead named every scroll bar after the template,
         // so the _G[self:GetName().."ScrollBar"] its own handlers look up never
-        // existed — which is what took down most of FrameXML.
+        // existed - which is what took down most of FrameXML.
         line(var + " = CreateFrame(" + quote(node.name) + ", " +
              nameArg(rawName, parentName, parentArg) + ", " + parentArg + ")");
 
         // Identity before anything is built on top of it. FrameXML makes names
-        // out of the id — a party member's pet frame opens its OnLoad with
-        // self:GetParent():GetID() — and a template's children load while the
+        // out of the id - a party member's pet frame opens its OnLoad with
+        // self:GetParent():GetID() - and a template's children load while the
         // template is being applied, which is before the frame's own body runs.
         // Set there, the parent was still answering zero.
         if (const std::string* id = node.attr("id"); id && !id->empty()) {
@@ -664,7 +664,7 @@ struct Emitter {
                        bool fireOnLoad = true,
                        const std::string& nameVar = std::string()) {
         // What $parent resolves to for anything declared inside this frame. An
-        // unnamed frame is not the answer — WoW walks up to the nearest named
+        // unnamed frame is not the answer - WoW walks up to the nearest named
         // ancestor, and PartyMemberPetFrameTemplate buries its $parentName two
         // unnamed frames deep, expecting PartyMemberFrame1PetFrameName. Asking
         // the unnamed frame for its name gave nil, so the region was called
@@ -731,7 +731,7 @@ struct Emitter {
                 // The hyperlink scripts are deliberately not here. A chat frame
                 // declares OnHyperlinkClick and Blizzard's own
                 // FloatingChatFrameTemplate then sets enableMouse="false" over
-                // it, because a chat window is click-through by design — and
+                // it, because a chat window is click-through by design - and
                 // links in it are still clickable in a real client. So a link
                 // is not the frame's click to take, and the hit test for one
                 // runs whether or not the frame beneath it wants the mouse.
@@ -824,7 +824,7 @@ struct Emitter {
             }
             break;
         }
-        // <TitleRegion> — the part of a frame you can drag it by. All three in
+        // <TitleRegion> - the part of a frame you can drag it by. All three in
         // FrameXML cover the whole frame, and the loot window is one of them:
         // without this it cannot be moved at all.
         //
@@ -834,8 +834,8 @@ struct Emitter {
         // is deliberately more specific.
         // A window that says it is toplevel and movable counts too, title region
         // or not. Only three frames in FrameXML declare one, so keying on it
-        // alone left the character sheet and the spellbook — both 384x512
-        // panels declaring toplevel and movable, neither with a title region —
+        // alone left the character sheet and the spellbook - both 384x512
+        // panels declaring toplevel and movable, neither with a title region -
         // unable to be moved, along with thirty more windows.
         //
         // Both attributes, not just movable: forty-nine frames declare movable
@@ -865,7 +865,7 @@ struct Emitter {
                 }
             }
         }
-        // <Animations> — one or more <AnimationGroup>, each holding <Alpha>,
+        // <Animations> - one or more <AnimationGroup>, each holding <Alpha>,
         // <Translation> and friends. The group is a Lua object rather than a
         // widget, so this emits the calls a script would make.
         for (const XmlNode& anims : node.children) {
@@ -923,7 +923,7 @@ struct Emitter {
                 }
             }
         }
-        // <NormalFont style="GameFontNormal"/> — the font a button's label is
+        // <NormalFont style="GameFontNormal"/> - the font a button's label is
         // drawn in. Only the normal one: this renderer does not draw a button's
         // text differently when it is highlighted or disabled, so emitting the
         // other two would be calls that read as support and change nothing.
@@ -968,10 +968,10 @@ struct Emitter {
             line(var + ":SetClampedToScreen(" +
                  (node.attrBool("clampedToScreen") ? "true" : "false") + ")");
         }
-        // <Backdrop> — the bordered panel look. The pieces are already there:
+        // <Backdrop> - the bordered panel look. The pieces are already there:
         // SetBackdrop parses the table, the widget carries the fields and the
         // renderer draws the nine slices. Only this step was missing, so every
-        // backdrop declared in XML went undrawn — 77 of them, among which are
+        // backdrop declared in XML went undrawn - 77 of them, among which are
         // the tooltip background and the dialog panels, which is why tooltip
         // text sat straight on top of whatever was behind it.
         //
@@ -1013,7 +1013,7 @@ struct Emitter {
             break;  // one backdrop to a frame
         }
         // The wheel, on the same principle and its own switch. No FrameXML file
-        // sets the attribute — Blizzard leaves the handler to imply it — so the
+        // sets the attribute - Blizzard leaves the handler to imply it - so the
         // quest log, the reputation list and the friends list all declared
         // OnMouseWheel and none of them could be scrolled with it. The
         // attribute is read too, for anything that does set it.
@@ -1032,8 +1032,8 @@ struct Emitter {
             if (wantsWheel) line(var + ":EnableMouseWheel(true)");
         }
         // Whether the frame can be dragged around the screen. Declared in the
-        // XML rather than set from Lua for most of what moves — the bag
-        // windows, the character sheet — so leaving it unread meant StartMoving
+        // XML rather than set from Lua for most of what moves - the bag
+        // windows, the character sheet - so leaving it unread meant StartMoving
         // was asked of a frame that had never been told it was movable, and
         // every one of those windows was nailed down.
         emitTextAttr(node, var);
@@ -1053,20 +1053,20 @@ struct Emitter {
         // the XML, so a box came out with whatever the defaults were.
         //
         // SendMailBodyEditBox says letters="500" multiLine="true", and without
-        // these it was a single-line box with no limit — a letter nobody could
+        // these it was a single-line box with no limit - a letter nobody could
         // write a second line in.
         if (const std::string* letters = node.attr("letters"); letters && !letters->empty()) {
             line(var + ":SetMaxLetters(" + std::to_string(static_cast<int>(node.attrFloat("letters", 0.0f))) + ")");
         }
         // Whether the markup that draws nothing counts against that limit.
         // WoW's default is no and four boxes here ask for yes, the macro
-        // editor among them — where the escapes are the point of the box.
+        // editor among them - where the escapes are the point of the box.
         if (node.attrBool("countInvisibleLetters")) {
             line(var + ":SetCountInvisibleLetters(true)");
         }
         // Which layer a region draws in, which the tree sorts the draw order
         // by. StatusBar is the only element that declares it here, and
-        // CastingBarFrameTemplate is one of them — so the cast bar's fill was
+        // CastingBarFrameTemplate is one of them - so the cast bar's fill was
         // coming out in the default layer rather than the BORDER it asked for.
         // SetDrawLayer is a region method, so this is emitted for whatever
         // declares the attribute rather than for status bars alone.
@@ -1089,7 +1089,7 @@ struct Emitter {
                  std::to_string(static_cast<int>(node.attrFloat("historyLines", 0.0f))) + ")");
         }
         // A box that declares this does not take the left and right arrows for
-        // its cursor — they reach the game, which is how a player turns while
+        // its cursor - they reach the game, which is how a player turns while
         // the chat box is open. Up and down still walk the history; that is
         // what the real client does with the same flag.
         if (node.attr("ignoreArrows")) {
@@ -1100,7 +1100,7 @@ struct Emitter {
         // point of it: a box that takes focus when it appears swallows the
         // keyboard from whatever the player was doing.
         // A font string's line spacing. The only one of the remaining unread
-        // attributes with a method behind it — nonspacewrap, horizTile,
+        // attributes with a method behind it - nonspacewrap, horizTile,
         // vertTile and reverse have none, and emitting a call to a method that
         // does not exist is "attempt to call method", which is worse than
         // ignoring the attribute.
@@ -1112,7 +1112,7 @@ struct Emitter {
             line(var + ":SetAutoFocus(" + (node.attrBool("autoFocus") ? "true" : "false") + ")");
         }
         // Attributes declared in the XML, which is where FrameXML puts a
-        // frame's initial state — UIParent's panel offsets among them. Set
+        // frame's initial state - UIParent's panel offsets among them. Set
         // before anything else runs, because SetAttribute fires
         // OnAttributeChanged and a handler reading a sibling attribute must
         // find it already there.
@@ -1132,7 +1132,7 @@ struct Emitter {
         }
 
         // A frame can fill its parent instead of stating anchors, and this was
-        // honoured for regions and ignored for frames — all 139 of them across
+        // honoured for regions and ignored for frames - all 139 of them across
         // 53 files. An unanchored frame falls to the centre-on-parent default
         // with no size, so its centre is the screen's: PlayerFrame's name sat
         // in the middle of the world because two frames above it said
@@ -1143,18 +1143,18 @@ struct Emitter {
         if (const XmlNode* anchors = node.child("Anchors")) {
             // Anchored to the frame that contains it when no relativeTo is
             // given. This used to say UIParent for everything, so a nested
-            // frame was positioned against the screen rather than its parent —
+            // frame was positioned against the screen rather than its parent -
             // which for anything inside a panel puts it somewhere else
             // entirely, and FrameXML nests constantly.
             // ownerName, not name: a $parentApply here means the Apply button
             // beside this one on the frame that holds both, not a child of this
             // frame. Using its own name built VideoOptionsFrameCancelApply for
-            // what should have been VideoOptionsFrameApply — a name nothing has,
+            // what should have been VideoOptionsFrameApply - a name nothing has,
             // so the anchor silently fell back to the parent.
             // A parent= attribute overrides where the frame sits in the file.
             // WorldMapTitleButton is written at the top level with
             // parent="WorldMapFrame", so its $parentMiniBorderLeft is the world
-            // map's border and not a child of nothing — and with no containing
+            // map's border and not a child of nothing - and with no containing
             // frame to take a name from, $parent collapsed to the bare suffix.
             // SetPoint then looked up a global called MiniBorderLeft, found
             // nothing, and put the title bar wherever the fallback landed.
@@ -1165,7 +1165,7 @@ struct Emitter {
         }
         // A status bar's own art and colour. Thirty-three bars across FrameXML
         // declare a BarTexture and none of it was emitted, so every one of them
-        // fell back to a flat fill in the default white — which for a health
+        // fell back to a flat fill in the default white - which for a health
         // bar is not a bar with the wrong texture, it is a white block where
         // the health should be.
         if (const XmlNode* bar = node.child("BarTexture")) {
@@ -1188,7 +1188,7 @@ struct Emitter {
                 for (const XmlNode& region : layer.children) {
                     // Exactly, because canonicaliseNames has already rewritten
                     // every element name to the schema's spelling before any of
-                    // these comparisons run — including FrameXML's own
+                    // these comparisons run - including FrameXML's own
                     // <Fontstring>, which is how FriendsMicroButtonCount gets
                     // built despite the typo.
                     if (region.name == "Texture" || region.name == "FontString")
@@ -1203,7 +1203,7 @@ struct Emitter {
         // A scroll frame's content, which is a frame like any other but reached
         // through SetScrollChild rather than sitting in Frames.
         // HybridScrollFrameScrollChild_OnLoad does self:GetParent().scrollChild
-        // = self, so it has to be built and its OnLoad run — ignoring the
+        // = self, so it has to be built and its OnLoad run - ignoring the
         // element left self.scrollChild nil on every one of the 18 files that
         // declare one.
         if (const XmlNode* scrollChild = node.child("ScrollChild")) {
@@ -1223,7 +1223,7 @@ struct Emitter {
         // is what every handler in FrameXML assumes.
         //
         // Not from inside a template body, though. A frame is loaded once, when
-        // it is finished — not once per template it is built from. Firing at
+        // it is finished - not once per template it is built from. Firing at
         // each template ran ChatFrameEditBoxTemplate's OnLoad before the edit
         // box's own OnLoad had set self.chatFrame, which is the very thing that
         // handler opens by indexing. The template only installs the script; the
@@ -1263,7 +1263,7 @@ namespace {
 /// WoW's parser does not care about case and this one did, which is a
 /// difference nobody notices until it costs them an element. FrameXML itself
 /// contains one: floatingchatframe.xml declares <Fontstring>, and that region
-/// was never built — no error, no warning that meant anything, just a font
+/// was never built - no error, no warning that meant anything, just a font
 /// string missing from a frame. Addons are written far less carefully than
 /// Blizzard's own files, so this is the more useful half of the fix.
 const char* const kElementNames[] = {
@@ -1313,12 +1313,12 @@ void canonicaliseNames(XmlNode& node) {
 
 /// <Bindings> declares the commands the key bindings list shows, in the order
 /// it shows them, and the Lua each one runs. Nothing is drawn for it, so it
-/// emits data rather than frames — plus a closure per command, because
+/// emits data rather than frames - plus a closure per command, because
 /// RunBinding has to be able to call one.
 void emitBindings(Emitter& e, const XmlNode& root) {
     e.line("__WoweeBindings = __WoweeBindings or {}");
     // <ModifiedClick action="CHATLINK" default="SHIFT-BUTTON1"/> and fifteen
-    // more. Nothing is drawn for these either, and they were dropped — while
+    // more. Nothing is drawn for these either, and they were dropped - while
     // IsModifiedClick answered from a table written out by hand beside them.
     // Two readings of one list, and they disagreed: FOCUSCAST is declared NONE
     // here and answered ALT there, and the two flyout actions are declared ALT
@@ -1341,7 +1341,7 @@ void emitBindings(Emitter& e, const XmlNode& root) {
                                         "command anything can refer to");
             continue;
         }
-        // A header attribute does not name the binding's section — it opens
+        // A header attribute does not name the binding's section - it opens
         // one, as a row of its own above the command that carries it. The list
         // shows it through BINDING_HEADER_*, and everything after it belongs to
         // it until the next.
@@ -1403,7 +1403,7 @@ EmitResult emitFrameXml(const XmlNode& rootIn) {
             // is meant to be, so they are not a gap to report.
         } else {
             // Said out loud, because the failure is silence. An element type
-            // this does not know is not a frame that comes out wrong — it is a
+            // this does not know is not a frame that comes out wrong - it is a
             // frame, and everything inside it, that is never created at all,
             // and the file still loads and still compiles. Minimap.xml produced
             // nothing whatever for exactly this reason, and the only trace was

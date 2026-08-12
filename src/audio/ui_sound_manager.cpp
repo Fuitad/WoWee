@@ -257,7 +257,7 @@ bool UiSoundManager::playByName(const std::string& soundName) {
 
     // What happened, not what was attempted. playSound2D decodes WAV and
     // answers false for anything else, and SoundEntries lists a couple of
-    // thousand mp3s among its wavs — claiming success for one of those would
+    // thousand mp3s among its wavs - claiming success for one of those would
     // skip the fallback below this and play nothing at all.
     return AudioEngine::instance().playSound2D(cached->second.data,
                                                0.7f * volumeScale_, 1.0f);

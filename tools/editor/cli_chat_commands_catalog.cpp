@@ -229,7 +229,7 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx +
                 ": " + source + " '" + nm +
                 "' collides with another command name "
-                "or alias — chat parser would dispatch "
+                "or alias - chat parser would dispatch "
                 "ambiguously");
         }
         // Lowercase check: chat parser is case-
@@ -239,7 +239,7 @@ int handleValidate(int& i, int argc, char** argv) {
             if (ch >= 'A' && ch <= 'Z') {
                 warnings.push_back(ctx +
                     ": " + source + " '" + nm +
-                    "' contains uppercase — convention "
+                    "' contains uppercase - convention "
                     "is canonical lowercase (chat parser "
                     "is case-insensitive)");
                 break;
@@ -271,22 +271,22 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         if (e.helpText.empty()) {
             warnings.push_back(ctx +
-                ": helpText is empty — /help would "
+                ": helpText is empty - /help would "
                 "show this command without "
                 "description");
         }
         // Throttle > 60s is almost certainly a typo
-        // (units mismatch — milliseconds vs seconds).
+        // (units mismatch - milliseconds vs seconds).
         if (e.throttleMs > 60000) {
             warnings.push_back(ctx +
                 ": throttleMs=" +
                 std::to_string(e.throttleMs) +
-                " exceeds 60000ms (60s) — verify "
+                " exceeds 60000ms (60s) - verify "
                 "intentional or check units (ms vs s "
                 "typo)");
         }
         // Admin-category command at Player security
-        // level is a security hole — warn.
+        // level is a security hole - warn.
         using W = wowee::pipeline::WoweeChatCommands;
         if (e.category == W::AdminCmd &&
             e.minSecurityLevel <= W::Helper) {
@@ -294,7 +294,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 ": Admin category command at security "
                 "level " +
                 std::to_string(e.minSecurityLevel) +
-                " (Player/Helper) — likely security "
+                " (Player/Helper) - likely security "
                 "misconfiguration; admin commands "
                 "usually require GameMaster+");
         }
@@ -308,7 +308,7 @@ int handleValidate(int& i, int argc, char** argv) {
             if (a == e.command) {
                 warnings.push_back(ctx +
                     ": alias '" + a + "' equals "
-                    "canonical command name — "
+                    "canonical command name - "
                     "redundant entry");
             }
         }

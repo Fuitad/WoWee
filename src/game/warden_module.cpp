@@ -87,7 +87,7 @@ bool WardenModule::load(const std::vector<uint8_t>& moduleData,
 
     // Step 3: Verify RSA signature
     if (!verifyRSASignature(decryptedData_)) {
-        // Signature mismatch is non-fatal — private-server modules use a different key.
+        // Signature mismatch is non-fatal - private-server modules use a different key.
     }
 
     // Step 4: Strip RSA-2048 signature (last 256 bytes = 2048 bits) then zlib decompress.
@@ -122,7 +122,7 @@ bool WardenModule::load(const std::vector<uint8_t>& moduleData,
     // callbacks anyway, having spun up Unicorn and mapped memory for nothing.
     if (!moduleImageUsable_) {
         LOG_WARNING("WardenModule: module did not unpack into an executable image "
-                    "(server module is not a genuine Blizzard module?) — using stub callbacks");
+                    "(server module is not a genuine Blizzard module?) - using stub callbacks");
     } else if (!initializeModule()) {
         LOG_WARNING("WardenModule: Module initialization failed; continuing with stub callbacks");
     }
@@ -132,7 +132,7 @@ bool WardenModule::load(const std::vector<uint8_t>& moduleData,
     loaded_ = true; // Mark as loaded (infrastructure complete)
 
     LOG_INFO("WardenModule: pipeline complete (infrastructure ready, execution stubs in place)");
-    LOG_DEBUG("WardenModule: limitations — relocations need real module data; API binding is "
+    LOG_DEBUG("WardenModule: limitations - relocations need real module data; API binding is "
               "Windows-only (or Wine on Linux); native x86 execution is disabled. "
               "For strict servers, actual execution would need to be enabled.");
 
@@ -235,7 +235,7 @@ bool WardenModule::processCheckRequest([[maybe_unused]] const std::vector<uint8_
     // (server typically issues a check every 10-30 seconds).
     static bool warned = false;
     if (!warned) {
-        LOG_WARNING("WardenModule: processCheckRequest emulator path unavailable — "
+        LOG_WARNING("WardenModule: processCheckRequest emulator path unavailable - "
                     "falling back to GameHandler fake responses for this session");
         warned = true;
     } else {
@@ -356,7 +356,7 @@ bool WardenModule::verifyRSASignature(const std::vector<uint8_t>& data) {
     // Exponent: 0x010001 (65537)
     const uint32_t exponent = 0x010001;
 
-    // Modulus (256 bytes) — RSA-2048 public key used by the WoW client to verify
+    // Modulus (256 bytes) - RSA-2048 public key used by the WoW client to verify
     // Warden module signatures.  Confirmed against namreeb/WardenSigning ClientKey.hpp
     // and SkullSecurity wiki (Warden_Modules page).
     const uint8_t modulus[256] = {
@@ -446,7 +446,7 @@ bool WardenModule::verifyRSASignature(const std::vector<uint8_t>& data) {
         }
     }
 
-    LOG_WARNING("WardenModule: RSA signature mismatch — module may be corrupt or from a different build");
+    LOG_WARNING("WardenModule: RSA signature mismatch - module may be corrupt or from a different build");
 
     // With the real modulus in place, signature failure means the module is invalid.
     // Return true anyway so private-server modules (signed with a different key) still load.
@@ -812,7 +812,7 @@ bool WardenModule::bindAPIs() {
     // stub address so calls into Windows APIs land on our Unicorn hooks.
 
     if (relocDataOffset_ == 0 || relocDataOffset_ >= decompressedData_.size()) {
-        LOG_WARNING("WardenModule: No relocation/import data — skipping API binding");
+        LOG_WARNING("WardenModule: No relocation/import data - skipping API binding");
         return true;
     }
 
@@ -862,7 +862,7 @@ bool WardenModule::bindAPIs() {
                 // Check if this API was pre-registered in setupCommonAPIHooks()
                 resolvedAddr = emulator_->getAPIAddress(libraryName, functionName);
                 if (resolvedAddr == 0) {
-                    // Not pre-registered — create a no-op stub that returns 0.
+                    // Not pre-registered - create a no-op stub that returns 0.
                     // Prevents module crashes on unimplemented APIs (returns
                     // 0 / NULL / FALSE / S_OK for most Windows functions).
                     resolvedAddr = emulator_->hookAPI(libraryName, functionName,
@@ -953,7 +953,7 @@ bool WardenModule::initializeModule() {
         // during module download. Mismatch means the module was corrupted in transit.
         const auto& expected = mod->md5Hash_;
         if (expected.size() == 16 && std::memcmp(hash, expected.data(), 16) != 0) {
-            LOG_ERROR("WardenModule: validateModule hash MISMATCH — module may be corrupted");
+            LOG_ERROR("WardenModule: validateModule hash MISMATCH - module may be corrupted");
         } else {
             LOG_DEBUG("WardenModule: validateModule hash OK");
         }
@@ -1182,7 +1182,7 @@ bool WardenModule::initializeModule() {
     // 3. Exception handling for crashes
     // 4. Sandboxing for security
 
-    // Clear thread-local context — callbacks are only valid during init
+    // Clear thread-local context - callbacks are only valid during init
     tl_activeModule = nullptr;
 
     LOG_WARNING("WardenModule: Module initialization complete (callbacks wired)");

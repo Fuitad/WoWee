@@ -257,7 +257,7 @@ bool readEnumField(const nlohmann::json& je,
             return true;
         }
     }
-    return true;   // field absent — leave outValue at default
+    return true;   // field absent - leave outValue at default
 }
 
 int handleExportJson(int& i, int argc, char** argv) {
@@ -425,14 +425,14 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": name is empty");
         if (e.address.empty()) {
             errors.push_back(ctx +
-                ": address is empty — login server cannot "
+                ": address is empty - login server cannot "
                 "route session to this realm");
         }
         // Address must contain a colon-separated port.
         if (!e.address.empty() &&
             e.address.find(':') == std::string::npos) {
             warnings.push_back(ctx + ": address '" + e.address +
-                "' has no port — login client typically "
+                "' has no port - login client typically "
                 "expects 'host:port' form (defaults to "
                 "8085 if absent)");
         }
@@ -462,22 +462,22 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         if (e.characterCap == 0) {
             errors.push_back(ctx +
-                ": characterCap=0 — players can't create "
+                ": characterCap=0 - players can't create "
                 "any character on this realm");
         }
-        // Build number sanity check — known WoW build
+        // Build number sanity check - known WoW build
         // numbers are at least 5000.
         if (e.buildNumber > 0 && e.buildNumber < 5000) {
             warnings.push_back(ctx + ": buildNumber " +
                 std::to_string(e.buildNumber) +
-                " < 5000 — known WoW client builds start "
+                " < 5000 - known WoW client builds start "
                 "at 5875 (Vanilla 1.12.1)");
         }
         // Realm names must be unique on the picker.
         if (!namesSeen.insert(e.name).second) {
             errors.push_back(ctx +
                 ": duplicate realm name '" + e.name +
-                "' — picker requires unique display names");
+                "' - picker requires unique display names");
         }
         if (!idsSeen.add(e.realmId)) errors.push_back(ctx + ": duplicate realmId");
     }

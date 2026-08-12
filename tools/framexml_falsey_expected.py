@@ -8,7 +8,7 @@ WHY THIS FINDS WHAT THE OTHER SWEEPS CANNOT
 framexml_nil_use_check asks about names that do not exist, used where nil
 raises. This asks the opposite: a name that *does* exist, answering a value
 that is not nil, in a place where nil was the answer meaning "none". In Lua
-only nil and false are false — an empty string is true and so is zero — so the
+only nil and false are false - an empty string is true and so is zero - so the
 branch meant for "there is nothing here" never runs, and the one meant for
 "here it is" runs with nothing in its hands.
 
@@ -19,12 +19,12 @@ Two on 2026-08-06, both showing a panel that should not have been there:
     offered "you will lose:" with nothing after the colon.
   * GetGuildBankTabCost answered 0. The panel does `if ( not tabCost )` to
     decide the guild has bought all six tabs, so a guild that owned them all
-    still saw the buy screen — priced at nothing, over a button that sends.
+    still saw the buy screen - priced at nothing, over a button that sends.
 
 WHAT IT COMPARES
 
-Names the interface tests directly — `if ( X() )`, `if ( not X() )`, `and X()`,
-`or X()` — against C bindings whose body pushes a constant "" or 0 and never
+Names the interface tests directly - `if ( X() )`, `if ( not X() )`, `and X()`,
+`or X()` - against C bindings whose body pushes a constant "" or 0 and never
 pushes nil at all. Both halves have to hold: a binding that can answer nil is
 already able to say "none", and a name that is only ever assigned and read
 later is not evidence of anything on its own.
@@ -58,7 +58,7 @@ EXPECTED = {
     "GetStatistic", "GetComparisonStatistic",
     # The test this one fails gates the *button*, not a popup:
     # questlogframe.lua enables Abandon while GetAbandonQuestName() is true, and
-    # the name is only set once SetAbandonQuest has been called — which happens
+    # the name is only set once SetAbandonQuest has been called - which happens
     # when the button is clicked. Answering nil before that would disable the
     # button for good and there would be no way to reach the call that fills it.
     "GetAbandonQuestName",
@@ -80,7 +80,7 @@ ASSIGNED_WINDOW = 12
 def tested_directly():
     """Names the interface puts into a truth test, written either way.
 
-    The direct form — `if ( X() )` — and the assigned one, `local v = X()`
+    The direct form - `if ( X() )` - and the assigned one, `local v = X()`
     followed by `if ( v )` a few lines later. The assigned form was left out at
     first and that made the sweep useless for the two faults it was written
     for: both write `local items = GetAbandonQuestItems()` and test `items` on
@@ -154,7 +154,7 @@ def main():
     print(f"{len(tested)} names tested for truth by the interface, "
           f"{len(falsey)} bindings answer a constant \"\" or 0 and never nil")
     if "GetAbandonQuestName" not in falsey and "UnitName" not in tested:
-        print("  CANARY: neither half parsed — the report below means nothing.")
+        print("  CANARY: neither half parsed - the report below means nothing.")
     print()
     print(f"{len(rows)} answer something true where nothing was meant:\n")
     for name, what in rows:

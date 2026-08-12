@@ -108,8 +108,8 @@ void AddonManager::scanAddons(const std::string& addonsPath) {
         // filesystem.
         //
         // Every spelling is taken, not the first that exists. This install has
-        // *both* — an empty interface/AddOns beside the interface/addons that
-        // holds all twenty-four Blizzard addons — and looking only until one
+        // *both* - an empty interface/AddOns beside the interface/addons that
+        // holds all twenty-four Blizzard addons - and looking only until one
         // was found stopped at the empty one. Nothing load-on-demand had ever
         // loaded here: no talent frame, no macro frame, no achievements, no
         // key bindings, and Blizzard_GMChatUI reporting itself missing on
@@ -159,8 +159,8 @@ void AddonManager::scanAddons(const std::string& addonsPath) {
     std::sort(dirs.begin(), dirs.end());
 
     // One addon per name, however many roots supply it. Searching more than one
-    // place means the same addon can be found twice — a copy staged beside the
-    // executable and the original it was staged from, say — and loading both
+    // place means the same addon can be found twice - a copy staged beside the
+    // executable and the original it was staged from, say - and loading both
     // runs its Lua twice, which builds two of every frame. They sit exactly on
     // top of each other, so it reads as one frame that will not hide: the
     // toggle hides the copy it has a handle to and the other stays.
@@ -173,8 +173,8 @@ void AddonManager::scanAddons(const std::string& addonsPath) {
         std::string dirName = dir.filename().string();
         // The original interface is not an addon and must never be loaded as
         // one. It ships with a .toc of its own, so a scan that lands on
-        // Data/interface rather than Data/interface/AddOns — which is what a
-        // case-insensitive filesystem can produce — would find FrameXML and
+        // Data/interface rather than Data/interface/AddOns - which is what a
+        // case-insensitive filesystem can produce - would find FrameXML and
         // load the whole of it, with none of the opt-in that is supposed to
         // guard it. It has exactly one way in, and this is not it.
         {
@@ -184,7 +184,7 @@ void AddonManager::scanAddons(const std::string& addonsPath) {
             }
             if (lower == "framexml" || lower == "gluexml") {
                 LOG_WARNING("AddonManager: refusing to load ", dirName,
-                            " as an addon — the original interface loads only "
+                            " as an addon - the original interface loads only "
                             "through WOWEE_LOAD_FRAMEXML");
                 continue;
             }
@@ -231,11 +231,11 @@ void AddonManager::scanAddons(const std::string& addonsPath) {
 std::vector<std::string> AddonManager::deferredAddonGlobals() const {
     std::vector<std::string> names;
     for (const TocFile& addon : lodAddons_) {
-        // A disabled addon is never going to load, so its names stay absent —
+        // A disabled addon is never going to load, so its names stay absent -
         // which is the same answer, arrived at for a different reason.
         //
         // The manifest is not the whole addon. A .toc commonly lists only the
-        // XML and lets `<Script file="...">` inside it pull the Lua in — the
+        // XML and lets `<Script file="...">` inside it pull the Lua in - the
         // calendar's lists Blizzard_Calendar.xml and Localization.lua and not
         // Blizzard_Calendar.lua, where all 248 of its functions live. Reading
         // only what the manifest names left every one of those absent from
@@ -244,7 +244,7 @@ std::vector<std::string> AddonManager::deferredAddonGlobals() const {
         // That is the shape this list exists to prevent. FrameXML guards a
         // load-on-demand addon with `if ( Calendar_Toggle ) then
         // Calendar_Toggle() end`, and a truthy table walks past the guard and
-        // raises on the call — so opening the calendar from the minimap
+        // raises on the call - so opening the calendar from the minimap
         // errored rather than doing nothing. Twenty-four addons include their
         // Lua this way.
         std::vector<std::string> queue(addon.files.begin(), addon.files.end());
@@ -294,7 +294,7 @@ std::vector<std::string> AddonManager::deferredAddonGlobals() const {
     //
     // Answered by the stand-in, that name is a truthy table, so the guard
     // never runs and the variable is never made. What follows is worse than a
-    // missing setting: the addon then writes its fields into the stand-in —
+    // missing setting: the addon then writes its fields into the stand-in -
     // and the stand-in is *one shared table* that every unknown global
     // resolves to, so a position saved by the stopwatch would appear on every
     // other unbound name in the interface.
@@ -304,7 +304,7 @@ std::vector<std::string> AddonManager::deferredAddonGlobals() const {
     // is only consulted for a name nothing has set, so a restored variable is
     // a real global and never reaches it.
     // Both lists: an addon is in one or the other, never both, and the
-    // stopwatch — the case this was written for — is a load-on-demand one.
+    // stopwatch - the case this was written for - is a load-on-demand one.
     for (const auto* list : {&addons_, &lodAddons_}) {
         for (const TocFile& addon : *list) {
             for (const std::string& v : addon.getSavedVariables()) {
@@ -333,7 +333,7 @@ void AddonManager::loadAllAddons() {
     // Before any of it runs: what the addons that have *not* loaded will define
     // once they do. FrameXML asks for those names to decide whether to load the
     // panel behind them, and the missing-API fallback answering with a truthy
-    // no-op turns every one of those tests into "already loaded" — the panel is
+    // no-op turns every one of those tests into "already loaded" - the panel is
     // never asked for and the branch runs against a stand-in.
     luaEngine_.declareDeferredGlobals(deferredAddonGlobals());
 
@@ -343,7 +343,7 @@ void AddonManager::loadAllAddons() {
         loadFrameXml(frameXmlDir_);
         // The client's own options, as a category in FrameXML's Interface
         // Options. After FrameXML rather than in the bootstrap, because
-        // InterfaceOptions_AddCategory is FrameXML's — the bootstrap's stub for
+        // InterfaceOptions_AddCategory is FrameXML's - the bootstrap's stub for
         // it is overwritten when the real one loads, and registering against the
         // stub would put the panel nowhere.
         registerWoweeOptionsPanel();
@@ -439,14 +439,14 @@ std::string AddonManager::getSavedVariablesPerCharacterPath(const TocFile& addon
 //
 // Built from WoweeSettingList() rather than written out here, so a setting
 // added to the schema appears without anyone editing Lua. Only the settings
-// with no Blizzard control of their own are in that list — the six that are
+// with no Blizzard control of their own are in that list - the six that are
 // bound to the CVar their own Blizzard control already drives are named on the
 // root panel instead, so a player looking for one is told where it is.
 //
 // The layout is the game's own: a root category with a child per subject, each
 // laid out in sections, in two columns, with the game's fonts and its check
 // buttons, sliders and dropdowns. It is not Blizzard's Interface Options panel
-// reproduced — this client has settings that one never had — but it reads the
+// reproduced - this client has settings that one never had - but it reads the
 // same way round.
 void AddonManager::registerWoweeOptionsPanel() {
     static const char* kPanelScript = kWoweeOptionsPanelLua;
@@ -459,7 +459,7 @@ void AddonManager::giveCoinAmountsClearance() {
     // Move the coin amounts off the coins.
     //
     // MoneyFrame_Update anchors each amount so its right edge is exactly the
-    // left edge of that denomination's coin — SetPoint("RIGHT", -iconWidth) —
+    // left edge of that denomination's coin - SetPoint("RIGHT", -iconWidth) -
     // which leaves no room at all. On screen the numbers are drawn over the
     // coins; in every measurement that can be taken here they are not, and the
     // rects are right down to the tenth of a unit: the gold amount ends at
@@ -504,15 +504,15 @@ bool AddonManager::loadFrameXml(const std::string& frameXmlDir) {
     // Kept, because an include that names a shared template by bare name is
     // resolved against this and nothing else. Blizzard_InspectUI asks for
     // PVPFrameTemplates.xml, which lives in FrameXML rather than beside it, and
-    // with an unopenable base the fallback below silently found nothing — the
+    // with an unopenable base the fallback below silently found nothing - the
     // include failed, the file failed, and the whole addon failed to load, so
     // inspecting another player did nothing at all.
     frameXmlResolvedDir_ = resolvedDir;
 
-    LOG_WARNING("FrameXML: attempting to load the original interface — ",
+    LOG_WARNING("FrameXML: attempting to load the original interface - ",
                 toc->files.size(), " files from ", resolvedDir);
 
-    // Bindings are not in the manifest — the real client loads them itself, and
+    // Bindings are not in the manifest - the real client loads them itself, and
     // before the interface, so that a script asking what a command is bound to
     // during load gets an answer. Without this the file was never read at all
     // and the key bindings list had nothing to list.
@@ -529,7 +529,7 @@ bool AddonManager::loadFrameXml(const std::string& frameXmlDir) {
     // is seeing them side by side and spotting the cause they share.
     std::vector<std::pair<std::string, std::string>> failures;
     // Timed per file. This load runs on the main thread during world entry, so
-    // whatever it costs the client is frozen for — long enough and the server
+    // whatever it costs the client is frozen for - long enough and the server
     // drops the connection for want of a heartbeat. Knowing it is slow is not
     // useful; knowing which file is.
     const auto loadStart = std::chrono::steady_clock::now();
@@ -548,7 +548,7 @@ bool AddonManager::loadFrameXml(const std::string& frameXmlDir) {
     for (const auto& filename : toc->files) {
         const auto fileStart = std::chrono::steady_clock::now();
         // Named before it is loaded, not after. Timing it afterwards says
-        // nothing about the one case that matters — a file that never returns
+        // nothing about the one case that matters - a file that never returns
         // prints nothing at all, and the load simply stops with the last
         // successful file as the only clue.
         // At warning level because release builds drop INFO, and this is the
@@ -614,12 +614,12 @@ bool AddonManager::loadFrameXml(const std::string& frameXmlDir) {
     // at all: r, g and b arrive from the client, one UPDATE_CHAT_COLOR per
     // type, and the real client sends them as the interface comes up. This one
     // never did, so every entry answered nil and every line of chat in the game
-    // drew white — guild, whisper, emote, loot and system alike, all of it
+    // drew white - guild, whisper, emote, loot and system alike, all of it
     // indistinguishable.
     //
     // Fired straight into the interface rather than through ChangeChatColor.
     // That binding asks the game handler to fire the event, and the application
-    // drops every event it is handed until addonsLoaded_ is true — which
+    // drops every event it is handed until addonsLoaded_ is true - which
     // happens at world entry, long after this runs. So all twenty-six went
     // nowhere and the table kept the white that chatframe.lua writes over it at
     // file scope, and every line of chat in the game drew the same colour.
@@ -668,7 +668,7 @@ bool AddonManager::loadFrameXml(const std::string& frameXmlDir) {
 
     // Whether that landed. chatframe.lua sets every ChatTypeInfo entry to white
     // at file scope and the colours only arrive from here, so if this says
-    // GUILD is still 1,1,1 the seeding did not reach the table — and every line
+    // GUILD is still 1,1,1 the seeding did not reach the table - and every line
     // of chat draws the same colour with nothing else to show for it.
     {
         lua_State* L = luaEngine_.getState();
@@ -683,11 +683,11 @@ bool AddonManager::loadFrameXml(const std::string& frameXmlDir) {
                     // Only when it did not take. chatframe.lua writes white
                     // over every entry at file scope and the colours arrive
                     // only from here, so a GUILD still at white means the
-                    // seeding never reached the table — and every line of chat
+                    // seeding never reached the table - and every line of chat
                     // draws the same colour with nothing else to show for it.
                     if (r > 0.9 && g > 0.9 && b > 0.9) {
                         LOG_WARNING("Chat colours did not take: GUILD is still ",
-                                    r, ",", g, ",", b, " — every kind of chat "
+                                    r, ",", g, ",", b, " - every kind of chat "
                                     "message will draw the same colour");
                     }
                 } else {
@@ -734,9 +734,9 @@ bool AddonManager::loadFrameXml(const std::string& frameXmlDir) {
 
     // The calendar's three option lists, which are spreads rather than tables.
     //
-    // Each is handed straight into a vararg call —
+    // Each is handed straight into a vararg call -
     // CalendarCreateEventTypeDropDown_InitEventTypes(self,
-    // CalendarEventGetTypes()) — so the *number* of values is the payload and
+    // CalendarEventGetTypes()) - so the *number* of values is the payload and
     // answering nothing leaves the dropdown with no entries at all rather than
     // raising. There is no way to pick an event type from an empty list.
     //
@@ -770,7 +770,7 @@ bool AddonManager::loadFrameXml(const std::string& frameXmlDir) {
 
     // Report the quest dialog's own geometry, at the moment it is built.
     //
-    // Reported: the dialog is placed correctly and its contents are not — the
+    // Reported: the dialog is placed correctly and its contents are not - the
     // panel at x 0..384 with its reward items eight hundred units to the
     // right. The readiness dump covers these frames now, but it runs early and
     // once, so it only ever catches them hidden and unanchored, which is their
@@ -780,7 +780,7 @@ bool AddonManager::loadFrameXml(const std::string& frameXmlDir) {
     // QuestInfo_Display twice, once into QuestDetailScrollChildFrame and once
     // into QuestInfoFadingFrame, and the second parents the rewards to a frame
     // the first is supposed to have anchored. If that anchoring did not
-    // happen, everything under it lands wherever the unanchored frame sits —
+    // happen, everything under it lands wherever the unanchored frame sits -
     // which is the middle of the screen, and is what the numbers look like.
     //
     // Wrapped rather than hooked so this runs *after* the real work, and only
@@ -788,7 +788,7 @@ bool AddonManager::loadFrameXml(const std::string& frameXmlDir) {
     luaEngine_.executeString(
         // type() rather than truthiness: the missing-API stand-in is a
         // callable table, so `if QuestFrameDetailPanel_OnShow then` passes for
-        // a name that does not exist and wraps the stand-in — which is exactly
+        // a name that does not exist and wraps the stand-in - which is exactly
         // what happened on the first attempt at this, against a
         // QuestFrame_ShowQuestDetail that FrameXML does not have. The wrapper
         // then reported the geometry of a dialog nothing had built and it
@@ -832,7 +832,7 @@ bool AddonManager::loadFrameXml(const std::string& frameXmlDir) {
     // FrameXML collapses that frame from two places and they mean opposite
     // things: the button's OnClick, which is the player asking, and
     // WatchFrame_Update, which does it when the objective handlers report that
-    // nothing was laid out — pixelsUsed of zero leaves totalOffset at its
+    // nothing was laid out - pixelsUsed of zero leaves totalOffset at its
     // starting value, and that branch also *disables* the expand button. Since
     // WatchFrame_Expand ends by calling WatchFrame_Update, an expand whose
     // update measures nothing is undone in the same breath, which is exactly
@@ -843,7 +843,7 @@ bool AddonManager::loadFrameXml(const std::string& frameXmlDir) {
     // the tracker actually collapses, so it costs nothing until it happens.
     //
     // Wrapping the global rather than hooking a script, because
-    // WatchFrame_Collapse is called by name from FrameXML itself — this is the
+    // WatchFrame_Collapse is called by name from FrameXML itself - this is the
     // opposite case to the quest panels above, where what runs is the widget's
     // stored script and only HookScript reaches it.
     luaEngine_.executeString(
@@ -863,7 +863,7 @@ bool AddonManager::loadFrameXml(const std::string& frameXmlDir) {
         "end\n");
 
     // The same for the progress panel, which is the one a blank parchment was
-    // photographed on — Continue and Cancel, with nothing between them.
+    // photographed on - Continue and Cancel, with nothing between them.
     //
     // It reports the *length* of each string as well as its rect, because the
     // two failures look identical on screen and need opposite fixes: a string
@@ -873,7 +873,7 @@ bool AddonManager::loadFrameXml(const std::string& frameXmlDir) {
         // HookScript on the frame, not a wrapper around the global.
         //
         // Wrapping QuestFrameProgressPanel_OnShow fired in the runner, where
-        // the function is called by name, and never once in a real session —
+        // the function is called by name, and never once in a real session -
         // because what runs on screen is the *widget's* stored script, and
         // replacing the global afterwards does not touch it. The hook has to
         // go where the client actually dispatches.
@@ -897,7 +897,7 @@ bool AddonManager::loadFrameXml(const std::string& frameXmlDir) {
     // The game-menu button opens this client's settings.
     //
     // ToggleGameMenu is FrameXML's own function and it shows GameMenuFrame,
-    // which is suppressed — so the button did nothing at all. Replaced rather
+    // which is suppressed - so the button did nothing at all. Replaced rather
     // than hooked, and only while this client owns that panel: with
     // WOWEE_FRAMEXML_UI=gamemenu the original menu is drawn and should be the
     // one that answers.
@@ -911,7 +911,7 @@ bool AddonManager::loadFrameXml(const std::string& frameXmlDir) {
 
     // Where FrameXML's own chat output goes when this client owns the chat.
     //
-    // Twenty-nine places write through DEFAULT_CHAT_FRAME:AddMessage — the
+    // Twenty-nine places write through DEFAULT_CHAT_FRAME:AddMessage - the
     // ready check's "you were away", the battleground countdowns, the world
     // state warnings, uiparent's four. That name is ChatFrame1: chatframe.lua
     // assigns it at file scope and ChatFrame1's own OnLoad assigns it again,
@@ -920,7 +920,7 @@ bool AddonManager::loadFrameXml(const std::string& frameXmlDir) {
     //
     // Redirected rather than replaced. A bare table would raise the moment
     // something asked for GetID, GetWidth, GetFont, SetPoint or
-    // IsUserPlaced — all of which FrameXML calls on this — so the frames stay
+    // IsUserPlaced - all of which FrameXML calls on this - so the frames stay
     // frames and only AddMessage is pointed elsewhere. A field on the table
     // wins over the metatable's method, which is what makes that work.
     //
@@ -942,14 +942,14 @@ bool AddonManager::loadFrameXml(const std::string& frameXmlDir) {
     // This client's own slash commands, into SlashCmdList.
     //
     // The registry in ChatPanel answers about seventy names FrameXML has no
-    // equivalent for — /unstuck, /coords, /whereami, /transport, /threat, the
+    // equivalent for - /unstuck, /coords, /whereami, /transport, /threat, the
     // GM helpers, the helm and cloak toggles. It was reached from this
     // client's own chat input and from nowhere else, so handing chat over took
     // every one of them away: FrameXML's ChatEdit_ParseText walks SlashCmdList
     // and consults nothing beyond it.
     //
     // After FrameXML has loaded, so the taken set below is complete and this
-    // can never shadow a command the interface already answers — /follow going
+    // can never shadow a command the interface already answers - /follow going
     // to a no-op because both sides claimed it is a fault this file has seen.
     //
     // Registered whichever interface owns the chat. When this client owns it,
@@ -1006,7 +1006,7 @@ bool AddonManager::loadFrameXml(const std::string& frameXmlDir) {
     //
     // A deliberate departure from 3.3.5, where neither can be moved: the bags
     // arrange themselves up the right-hand side and the character sheet is a
-    // fixed panel. Asked for, and harmless — the item buttons inside them are
+    // fixed panel. Asked for, and harmless - the item buttons inside them are
     // what a drag starting on a slot picks up, because a drag belongs to the
     // frame the press landed on.
     luaEngine_.executeString(
@@ -1024,7 +1024,7 @@ bool AddonManager::loadFrameXml(const std::string& frameXmlDir) {
     LOG_WARNING("FrameXML: ", lua, " Lua files and ", xml, " XML files loaded, ",
                 failed, " failed in ", sinceMs(loadStart), "ms");
     for (const auto& [file, why] : failures) {
-        LOG_WARNING("FrameXML:   ", file, " — ", why);
+        LOG_WARNING("FrameXML:   ", file, " - ", why);
     }
     return failed == 0;
 }
@@ -1063,8 +1063,8 @@ bool AddonManager::loadXmlFile(const std::string& path, int depth) {
 
     // The Lua the XML became, on disk, when asked for.
     //
-    // Everything downstream of here reads as a Lua problem — a global that is
-    // nil, a frame with no size — and the answer is nearly always in what the
+    // Everything downstream of here reads as a Lua problem - a global that is
+    // nil, a frame with no size - and the answer is nearly always in what the
     // emitter wrote rather than in what the script did with it. Reading it is
     // the difference between finding a mis-substituted $parent in one grep and
     // inferring it from a frame that ended up in the wrong place.
@@ -1084,13 +1084,13 @@ bool AddonManager::loadXmlFile(const std::string& path, int depth) {
 
     // Resolved without regard to case, the same as the manifest's own files. A
     // Script element says MovieFrame.lua and the file on disk is
-    // movieframe.lua, so joining the two naively fails — which took out most of
+    // movieframe.lua, so joining the two naively fails - which took out most of
     // FrameXML on the first attempt, one referenced script at a time.
     auto sibling = [&](const std::string& rawName) {
         // Windows separators, because the interface is written with them. On
         // anything else a backslash is an ordinary character in a filename, so
         // "..\\..\\FrameXML\\UIPanelTemplates.xml" resolved to nothing and the
-        // include silently failed — which failed the file that asked for it,
+        // include silently failed - which failed the file that asked for it,
         // and the guild bank's own XML is one of the two that do.
         std::string name = rawName;
         std::replace(name.begin(), name.end(), '\\', '/');
@@ -1099,7 +1099,7 @@ bool AddonManager::loadXmlFile(const std::string& path, int depth) {
         if (fs::path p = resolvePath(dir, name); !p.empty()) return p;
 
         // Then FrameXML itself. An addon includes a shared template by bare
-        // name — inspectpvpframe.xml asks for PVPFrameTemplates.xml — and by a
+        // name - inspectpvpframe.xml asks for PVPFrameTemplates.xml - and by a
         // path back out of its own folder, and both mean the same place.
         const fs::path base = fs::path(frameXmlResolvedDir_.empty()
                                            ? frameXmlDir_ : frameXmlResolvedDir_);
@@ -1116,7 +1116,7 @@ bool AddonManager::loadXmlFile(const std::string& path, int depth) {
     // carry the templates a file inherits from, and scripts define the functions
     // its handlers name, so both have to be in place before any frame is built.
     // A file is only as loadable as what it pulls in, so the reason kept here is
-    // the first real one — the include or script that actually broke — rather
+    // the first real one - the include or script that actually broke - rather
     // than the name of whichever file happened to reference it.
     for (const auto& inc : emitted.includeFiles) {
         if (!loadXmlFile(sibling(inc).string(), depth + 1)) {
@@ -1167,7 +1167,7 @@ bool AddonManager::loadAddon(const TocFile& addon) {
         for (char& c : lower) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
 
         // Through resolvePath, because a .toc names its files the way Blizzard
-        // wrote them — Blizzard_TalentUI.xml — and this install has them in
+        // wrote them - Blizzard_TalentUI.xml - and this install has them in
         // lower case. Concatenating the two finds nothing on a case-sensitive
         // filesystem, which is every one of the Blizzard load-on-demand addons.
         const fs::path resolved = resolvePath(fs::path(addon.basePath), filename);
@@ -1220,7 +1220,7 @@ bool AddonManager::loadAddOnByName(const std::string& name, std::string& reason)
         // whose .toc omits LoadOnDemand is loaded at startup instead, and
         // FrameXML still asks for it by name: uiparent.lua calls
         // UIParentLoadAddOn("Blizzard_TokenUI"), whose .toc has no such line,
-        // and that reported MISSING for an addon already running — raising the
+        // and that reported MISSING for an addon already running - raising the
         // "Couldn't load" popup over a UI that was working.
         for (const TocFile& a : addons_) {
             if (lowered(a.addonName) != key) continue;
@@ -1243,7 +1243,7 @@ bool AddonManager::loadAddOnByName(const std::string& name, std::string& reason)
     LOG_INFO("AddonManager: loading on demand: ", found->addonName);
     if (!loadAddon(*found)) {
         // CORRUPT, not a token of our own. UIParentLoadAddOn builds a
-        // global name out of whatever comes back — _G["ADDON_"..reason] —
+        // global name out of whatever comes back - _G["ADDON_"..reason] -
         // and hands it to format, so a reason globalstrings does not have
         // makes the report raise instead of reporting. See lua_LoadAddOn,
         // which will not let an unknown one through either.
@@ -1251,7 +1251,7 @@ bool AddonManager::loadAddOnByName(const std::string& name, std::string& reason)
         LOG_WARNING("AddonManager: '", found->addonName, "' failed to load on demand");
         // Left in the loaded set deliberately. A half-run addon has already
         // built frames and set globals, and running its files a second time
-        // would build them again — the duplicate-frame problem the scan goes
+        // would build them again - the duplicate-frame problem the scan goes
         // out of its way to avoid.
         return false;
     }

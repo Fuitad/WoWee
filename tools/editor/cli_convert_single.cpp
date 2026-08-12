@@ -170,7 +170,7 @@ int handleConvertDbcJson(int& i, int argc, char** argv) {
 }
 
 int handleConvertJsonDbc(int& i, int argc, char** argv) {
-    // Reverse direction — JSON sidecar back to binary DBC. Useful
+    // Reverse direction - JSON sidecar back to binary DBC. Useful
     // for shipping edited content to private servers (AzerothCore /
     // TrinityCore) which only consume binary DBC. The output is
     // byte-compatible with the original Blizzard format.
@@ -208,7 +208,7 @@ int handleConvertJsonDbc(int& i, int argc, char** argv) {
     const auto& records = doc["records"];
     uint32_t recordCount = static_cast<uint32_t>(records.size());
     if (fieldCount == 0 && recordCount > 0 && records[0].is_array()) {
-        // Tolerate JSON files that drop fieldCount — derive from row.
+        // Tolerate JSON files that drop fieldCount - derive from row.
         fieldCount = static_cast<uint32_t>(records[0].size());
     }
     if (fieldCount == 0) {
@@ -225,7 +225,7 @@ int handleConvertJsonDbc(int& i, int argc, char** argv) {
     std::vector<uint8_t> recordBytes(
         static_cast<size_t>(recordCount) * static_cast<size_t>(recordSize), 0);
     std::vector<uint8_t> stringBlock;
-    stringBlock.push_back(0);  // leading NUL — empty-string offset
+    stringBlock.push_back(0);  // leading NUL - empty-string offset
     std::unordered_map<std::string, uint32_t> stringOffsets;
     stringOffsets[""] = 0;
     auto internString = [&](const std::string& s) -> uint32_t {
@@ -268,7 +268,7 @@ int handleConvertJsonDbc(int& i, int argc, char** argv) {
             } else {
                 convertErrors++;
             }
-            // Little-endian write — DBC is always LE per Blizzard
+            // Little-endian write - DBC is always LE per Blizzard
             // format spec, regardless of host architecture.
             dst[f * 4 + 0] =  val        & 0xFF;
             dst[f * 4 + 1] = (val >>  8) & 0xFF;
@@ -348,7 +348,7 @@ int handleConvertBlpPng(int& i, int argc, char** argv) {
     // The comment that used to be here said create_directories with an empty
     // path is a no-op, so a png written into the working directory needed no
     // special case. It is not a no-op: it throws filesystem_error, "Invalid
-    // argument", and nothing here catches it — so a bare output filename
+    // argument", and nothing here catches it - so a bare output filename
     // terminated the process. That belief is why twenty-five mesh generators
     // did the same thing.
     ensureParentDirectory(outPath);

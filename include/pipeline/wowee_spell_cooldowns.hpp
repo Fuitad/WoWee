@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Spell Cooldown Category catalog (.wscd) —
+// Wowee Open Spell Cooldown Category catalog (.wscd) -
 // novel replacement for Blizzard's SpellCooldown.dbc plus
 // the per-spell category-cooldown fields in Spell.dbc.
 // Defines the shared-cooldown buckets that related spells
@@ -22,11 +22,11 @@ namespace pipeline {
 // Distinct from WSDR (Spell Duration), which times how
 // long an aura stays on a target. WSCD times how long
 // before a spell can be cast again, applied to everyone in
-// the bucket — the global cooldown (GCD) is the most
+// the bucket - the global cooldown (GCD) is the most
 // common bucket of all.
 //
 // Cross-references with previously-added formats:
-//   None — this catalog is consumed directly by the spell
+//   None - this catalog is consumed directly by the spell
 //   engine. WSPL spell entries reference cooldownBucketId.
 //
 // Binary layout (little-endian):
@@ -47,7 +47,7 @@ struct WoweeSpellCooldown {
         Spell    = 0,    // spell-only cooldown bucket
         Item     = 1,    // item-only cooldown bucket
         Class    = 2,    // class-shared bucket (e.g. all mage AOE)
-        Global   = 3,    // global cooldown — all combat spells
+        Global   = 3,    // global cooldown - all combat spells
         Misc     = 4,    // catch-all (engineering trinkets, etc.)
     };
 
@@ -87,18 +87,18 @@ public:
 
     // Preset emitters used by --gen-cdb* variants.
     //
-    //   makeStarter — 4 baseline buckets (GlobalCooldown
+    //   makeStarter - 4 baseline buckets (GlobalCooldown
     //                  1.5s, ShortItem 5s, MediumItem 30s,
     //                  LongItem 60s) covering the most
     //                  common cooldown tiers including the
     //                  GCD itself.
-    //   makeClass   — 5 mage-specific buckets for spells
+    //   makeClass   - 5 mage-specific buckets for spells
     //                  that share cooldowns within a class
-    //                  (PolymorphFamily 0s — instant on hit
+    //                  (PolymorphFamily 0s - instant on hit
     //                  but exclusive, AlterTime 90s,
     //                  Counterspell 24s, Blink 15s,
     //                  IceBlock 5min).
-    //   makeItems   — 5 item-cooldown buckets (HealingPot
+    //   makeItems   - 5 item-cooldown buckets (HealingPot
     //                  60s, ManaPot 60s, ManaJade 1.5s
     //                  GCD-only, EngineerTrinket 60s,
     //                  HearthstoneFamily 60min).

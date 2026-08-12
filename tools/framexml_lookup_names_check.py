@@ -7,7 +7,7 @@ A dozen things are now driven by finding a FrameXML frame by name and handing
 it something: the minimap is told where to be, the world map likewise, and
 every portrait and model frame is handed an image rendered for it. All of that
 goes through WidgetTree::findByName, and a name that matches nothing simply
-answers null — no error, no warning, no picture. A typo and a frame that was
+answers null - no error, no warning, no picture. A typo and a frame that was
 never built look exactly the same from here, and both look like "the feature
 does not work".
 
@@ -15,7 +15,7 @@ WHAT IT LOOKS FOR
 
 Every name this client hands to findByName, whether written at the call or
 carried in one of the tables that drive several frames from one loop, against
-the names FrameXML declares — `name="X"` in the XML, and the names built at
+the names FrameXML declares - `name="X"` in the XML, and the names built at
 runtime with CreateFrame("Type", "X", ...).
 
 WHAT IT CANNOT SEE
@@ -48,7 +48,7 @@ def looked_up():
         text = path.read_text(errors="ignore")
         for m in re.finditer(r'findByName\(\s*"([A-Za-z0-9_]+)"', text):
             names.setdefault(m.group(1), set()).add(path.name)
-        # The tables: {"FrameName", &someModel_, &someWidgetId_} — a literal
+        # The tables: {"FrameName", &someModel_, &someWidgetId_} - a literal
         # beside the view that draws it and the id it is remembered by. Written
         # this way so several frames share one loop, which also takes the name
         # out of the findByName call.

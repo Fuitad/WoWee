@@ -217,7 +217,7 @@ int handleValidate(int& i, int argc, char** argv) {
         warnings.push_back("catalog has zero entries");
     }
     cli::DuplicateIdCheck idsSeen;
-    // First pass — collect all animationIds for fallback
+    // First pass - collect all animationIds for fallback
     // resolution.
     std::vector<uint32_t> allIds;
     for (const auto& e : c.entries) allIds.push_back(e.animationId);
@@ -254,7 +254,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 std::to_string(e.fallbackId) +
                 " not found in this catalog (resolved at runtime)");
         }
-        // Looped animations must have a non-zero duration —
+        // Looped animations must have a non-zero duration -
         // otherwise the renderer divides by zero stepping the
         // animation cursor.
         if ((e.flags & wowee::pipeline::WoweeAnimation::kFlagLooped) &&
@@ -263,7 +263,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 ": kFlagLooped set but loopDurationMs=0 "
                 "(animation cursor would divide by zero)");
         }
-        // Mutually exclusive — Looped + OneShot is contradictory.
+        // Mutually exclusive - Looped + OneShot is contradictory.
         if ((e.flags & wowee::pipeline::WoweeAnimation::kFlagLooped) &&
             (e.flags & wowee::pipeline::WoweeAnimation::kFlagOneShot)) {
             errors.push_back(ctx +

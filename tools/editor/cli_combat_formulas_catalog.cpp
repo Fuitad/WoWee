@@ -255,11 +255,11 @@ int handleValidate(int& i, int argc, char** argv) {
                 " out of range (0..4)");
         }
         // Conversion ratio = 0 means input stat
-        // never produces any output — a no-op
+        // never produces any output - a no-op
         // formula. Almost certainly a typo.
         if (e.conversionRatioFp_x100 == 0) {
             errors.push_back(ctx +
-                ": conversionRatioFp_x100 is 0 — "
+                ": conversionRatioFp_x100 is 0 - "
                 "input stat never produces output "
                 "(no-op formula)");
         }
@@ -280,7 +280,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 " (= " +
                 std::to_string(e.conversionRatioFp_x100 /
                                 100.0) +
-                "x) — exceeds 100x ratio; likely a "
+                "x) - exceeds 100x ratio; likely a "
                 "units-mismatch typo (forgot to divide "
                 "by 100?)");
         }
@@ -305,7 +305,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 std::to_string(e.classRestriction) +
                 ", levelMin=" +
                 std::to_string(e.levelMin) +
-                ") — runtime stat-compute would apply "
+                ") - runtime stat-compute would apply "
                 "both formulas, doubling the contribution");
         }
         if (!idsSeen.insert(e.formulaId).second) {

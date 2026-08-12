@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Spell Duration Index catalog (.wsdr) — novel
+// Wowee Open Spell Duration Index catalog (.wsdr) - novel
 // replacement for Blizzard's SpellDuration.dbc plus the
 // per-spell duration fields in Spell.dbc. Defines the
 // categorical duration buckets that auras / DoTs / HoTs /
@@ -15,7 +15,7 @@ namespace pipeline {
 // UntilDeath).
 //
 // Completes the WSRG (range) + WSCT (cast time) + WSDR
-// (duration) triplet — together these three small catalogs
+// (duration) triplet - together these three small catalogs
 // let the spell engine resolve every Frostbolt's range,
 // cast time, and chill-debuff duration with three table
 // lookups instead of duplicating per-rank fields across
@@ -29,7 +29,7 @@ namespace pipeline {
 // engine HUD).
 //
 // Cross-references with previously-added formats:
-//   None — this catalog is consumed directly by the spell
+//   None - this catalog is consumed directly by the spell
 //   engine. WSPL spell entries reference durationId.
 //
 // Binary layout (little-endian):
@@ -48,7 +48,7 @@ namespace pipeline {
 //     iconColorRGBA (uint32)
 struct WoweeSpellDuration {
     enum DurationKind : uint8_t {
-        Instant         = 0,    // 0ms — fires once, no aura
+        Instant         = 0,    // 0ms - fires once, no aura
         Timed           = 1,    // standard timed buff/debuff
         TickBased       = 2,    // DoT / HoT (tick interval set elsewhere)
         UntilCancelled  = 3,    // permanent until cancelled
@@ -92,17 +92,17 @@ public:
 
     // Preset emitters used by --gen-sdr* variants.
     //
-    //   makeStarter — 5 baseline buckets (Instant 0,
+    //   makeStarter - 5 baseline buckets (Instant 0,
     //                  Short 5s, Medium 30s, Long 5min,
     //                  Hour 1hr) spanning the most common
     //                  duration tiers from instant fires to
     //                  hour-long world buffs.
-    //   makeBuffs   — 4 long-duration buffs (PartyBuff 30m,
+    //   makeBuffs   - 4 long-duration buffs (PartyBuff 30m,
     //                  RaidBuff 60m, WorldBuff 4hr,
     //                  UntilDeath -1). UntilDeath uses the
     //                  UntilDeath kind with a sentinel
     //                  baseDurationMs of -1.
-    //   makeDot     — 4 DoT/HoT buckets (4-tick 12s,
+    //   makeDot     - 4 DoT/HoT buckets (4-tick 12s,
     //                  5-tick 15s, 6-tick 18s, 8-tick 24s)
     //                  using TickBased kind. Tick interval
     //                  is implied at 3s/tick.

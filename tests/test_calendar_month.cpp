@@ -1,7 +1,7 @@
 // The month arithmetic the calendar grid is laid out from.
 //
 // FrameXML draws the whole month from four numbers, and every one of them goes
-// straight into arithmetic — `mod((firstWeekday - CALENDAR_FIRST_WEEKDAY - 1)
+// straight into arithmetic - `mod((firstWeekday - CALENDAR_FIRST_WEEKDAY - 1)
 // + 7, 7)` decides which column the first lands in. So a wrong answer here is
 // never an error: it is a grid drawn neatly on the wrong days, which looks
 // like a working calendar until someone reads it.
@@ -49,7 +49,7 @@ TEST_CASE("Weekdays are counted from Sunday, like CalendarGetDate", "[calendar]"
     CHECK(weekdayOf(1, 1, 2000) == 7);   // Saturday
     CHECK(weekdayOf(7, 4, 1776) == 5);   // Thursday
     CHECK(weekdayOf(8, 7, 2026) == 6);   // Friday
-    CHECK(weekdayOf(2, 29, 2024) == 5);  // Thursday — a leap day
+    CHECK(weekdayOf(2, 29, 2024) == 5);  // Thursday - a leap day
     CHECK(weekdayOf(3, 1, 2024) == 6);   // Friday, the day after it
     // 1 March in a non-leap year is one weekday earlier than in a leap year,
     // which is the whole of what the leap correction has to get right.

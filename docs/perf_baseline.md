@@ -1,4 +1,4 @@
-# Performance Baseline — WoWee
+# Performance Baseline - WoWee
 
 > Phase 0.3 deliverable. Measurements taken before any optimization work.
 > Re-run after each phase to quantify improvement.
@@ -48,7 +48,7 @@ mkdir -p build_tracy && cd build_tracy
 cmake .. -DCMAKE_BUILD_TYPE=RelWithDebInfo -DWOWEE_ENABLE_TRACY=ON
 cmake --build . --parallel $(nproc)
 
-# Run the client — Tracy will broadcast on default port (8086)
+# Run the client - Tracy will broadcast on default port (8086)
 cd bin && ./wowee
 
 # Connect with Tracy profiler GUI (separate download from https://github.com/wolfpld/tracy/releases)
@@ -83,6 +83,6 @@ cd bin && ./wowee
 
 ## Notes
 
-- When `WOWEE_ENABLE_TRACY` is OFF (default), all `ZoneScopedN` / `FrameMark` macros expand to nothing — zero runtime overhead.
+- When `WOWEE_ENABLE_TRACY` is OFF (default), all `ZoneScopedN` / `FrameMark` macros expand to nothing - zero runtime overhead.
 - Tracy requires a network connection to capture traces. Run the Tracy profiler GUI or `tracy-capture` CLI alongside the client.
 - Debug builds are significantly slower due to -Og and no LTO; use RelWithDebInfo for representative measurements.

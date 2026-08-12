@@ -245,7 +245,7 @@ network::Packet LogonProofPacket::buildLegacy(const std::vector<uint8_t>& A,
         for (int i = 0; i < 20; ++i) packet.writeUInt8(0); // CRC hash
     }
     packet.writeUInt8(0); // number of keys
-    // securityFlags terminates the 1.11+ vanilla proof too — mangos-family
+    // securityFlags terminates the 1.11+ vanilla proof too - mangos-family
     // realmd reads LOGON_PROOF as a fixed-size struct that includes it, and
     // omitting the byte stalls the server's read against stock protocol-3
     // realms. Legacy here means "no v8 PIN/token payload", not "no flags byte".
@@ -427,7 +427,7 @@ bool RealmListResponseParser::parse(network::Packet& packet, RealmListResponse& 
         // uint32 icon's trailing zero bytes get read as the name, so the name
         // always comes out empty (the address then lands on either the real
         // name or, when the vanilla flags byte is 0, another empty string).
-        // Key the recovery on the empty name alone — a nameless realm is never
+        // Key the recovery on the empty name alone - a nameless realm is never
         // valid, and requiring a non-empty address here would miss every realm
         // that sends flags=0, silently yielding garbage fields instead.
         if (!isLegacyVanilla && realm.name.empty()) {

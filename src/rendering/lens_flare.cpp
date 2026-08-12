@@ -57,7 +57,7 @@ bool LensFlare::initialize(VkContext* ctx, VkDescriptorSetLayout /*perFrameLayou
     pushRange.offset = 0;
     pushRange.size = sizeof(FlarePushConstants);  // 32 bytes
 
-    // No descriptor set layouts — lens flare only uses push constants
+    // No descriptor set layouts - lens flare only uses push constants
     pipelineLayout = createPipelineLayout(device, {}, {pushRange});
     if (pipelineLayout == VK_NULL_HANDLE) {
         LOG_ERROR("Failed to create lens flare pipeline layout");
@@ -291,11 +291,11 @@ void LensFlare::render(VkCommandBuffer cmd, const Camera& camera, const glm::vec
         return;
     }
 
-    // Sun height attenuation — flare weakens when sun is near horizon (sunrise/sunset)
+    // Sun height attenuation - flare weakens when sun is near horizon (sunrise/sunset)
     float sunHeight = sunDir.z;  // z = up in render space; 0 = horizon, 1 = zenith
     float heightFactor = glm::smoothstep(-0.05f, 0.25f, sunHeight);
 
-    // Atmospheric attenuation — fog, clouds, and weather reduce lens flare
+    // Atmospheric attenuation - fog, clouds, and weather reduce lens flare
     float atmosphericFactor = heightFactor;
     atmosphericFactor *= (1.0f - glm::clamp(fogDensity * 0.8f, 0.0f, 0.9f));       // Heavy fog nearly kills flare
     atmosphericFactor *= (1.0f - glm::clamp(cloudDensity * 0.6f, 0.0f, 0.7f));     // Clouds attenuate
@@ -321,7 +321,7 @@ void LensFlare::render(VkCommandBuffer cmd, const Camera& camera, const glm::vec
     VkDeviceSize offset = 0;
     vkCmdBindVertexBuffers(cmd, 0, 1, &vertexBuffer, &offset);
 
-    // Warm tint at sunrise/sunset — shift flare color toward orange/amber when sun is low
+    // Warm tint at sunrise/sunset - shift flare color toward orange/amber when sun is low
     float warmTint = 1.0f - glm::smoothstep(0.05f, 0.35f, sunHeight);
 
     // Render each flare element

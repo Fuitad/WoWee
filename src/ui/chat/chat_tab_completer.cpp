@@ -1,4 +1,4 @@
-// ChatTabCompleter — cycling tab-completion state machine.
+// ChatTabCompleter - cycling tab-completion state machine.
 // Extracted from ChatPanel tab-completion logic (Phase 5.1).
 #include "ui/chat/chat_tab_completer.hpp"
 

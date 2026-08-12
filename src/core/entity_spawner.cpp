@@ -40,8 +40,8 @@ namespace core {
 // They were identical when written and stopped being so the moment one of them
 // was corrected: group 20 is the feet, an HD human female carries 2001 where an
 // HD human male carries 2002, and the fix that names both went into the header's
-// copy. This file kept asking for 2002 alone, so every character it draws — an
-// NPC, and another player — lost their feet on exactly the models the header's
+// copy. This file kept asking for 2002 alone, so every character it draws - an
+// NPC, and another player - lost their feet on exactly the models the header's
 // copy had been taught about.
 //
 // One definition, so the next correction cannot land in only half the client.
@@ -107,7 +107,7 @@ void EntitySpawner::syncCreatureStealthVisuals() {
     // Stealth flags flip rarely, but this scan visits every spawned creature.
     // Doing that each frame with the mutex-locked getEntity() plus a
     // dynamic_pointer_cast per creature was a measurable main-thread cost in
-    // crowded areas — a few sweeps per second is visually indistinguishable.
+    // crowded areas - a few sweeps per second is visually indistinguishable.
     if (++stealthSyncFrameCounter_ % 15 != 0) return;
 
     // EntitySpawner::update() runs on the main thread, so the unlocked
@@ -739,7 +739,7 @@ void EntitySpawner::buildCreatureDisplayLookups() {
             FacialHairGeosets fhg;
             // Which columns those are depends on the copy of the DBC. The
             // nine-column file keeps them at 6-8 with three unused columns
-            // before them; the eight-column file — which is what ships here —
+            // before them; the eight-column file - which is what ships here -
             // keeps them at 3-5 and fills 6 and 7 with zero or 0xCCCCCCCC.
             // detectFacialHairFields decides on the field count, since column 8
             // exists only in the longer one.
@@ -882,11 +882,11 @@ void EntitySpawner::buildGameObjectDisplayLookups() {
         }
         LOG_INFO("Loaded ", gameObjectDisplayIdToPath_.size(), " gameobject display mappings");
     } else {
-        LOG_WARNING("GameObjectDisplayInfo.dbc failed to load — no GO display mappings available");
+        LOG_WARNING("GameObjectDisplayInfo.dbc failed to load - no GO display mappings available");
     }
 
     if (gameObjectDisplayIdToPath_.empty()) {
-        LOG_WARNING("GO display mapping table is EMPTY — game objects will not render");
+        LOG_WARNING("GO display mapping table is EMPTY - game objects will not render");
     }
 
     gameObjectLookupsBuilt_ = true;
@@ -987,7 +987,7 @@ EntitySpawner::getOrLoadAttachmentModel(const std::vector<std::string>& candidat
     for (const auto& path : candidatePaths) {
         auto it = attachmentModelData_.find(path);
         if (it != attachmentModelData_.end()) {
-            if (!it->second) continue;  // known missing — try the next candidate
+            if (!it->second) continue;  // known missing - try the next candidate
             model = it->second;
             resolvedPath = path;
             break;
@@ -1017,7 +1017,7 @@ EntitySpawner::getOrLoadAttachmentModel(const std::vector<std::string>& candidat
     }
     if (!model) return {};
 
-    // 2) Model id is per (geometry, texture) — see attachmentModelIds_.
+    // 2) Model id is per (geometry, texture) - see attachmentModelIds_.
     const std::string key = resolvedPath + '|' + texturePath;
     auto idIt = attachmentModelIds_.find(key);
     if (idIt == attachmentModelIds_.end()) {
@@ -1055,7 +1055,7 @@ bool EntitySpawner::getHumanoidAppearance(uint32_t displayId, uint8_t& race,
                     | (static_cast<uint32_t>(extra->second.hairColorId) << 24);
     // Only where there is a character model to load. This table gives naga,
     // broken, skeletons and a dozen other NPC-only races the same skin-and-face
-    // columns a character has — about one row in fourteen — and the character
+    // columns a character has - about one row in fourteen - and the character
     // path answers HumanMale for every one of them. A human standing in the
     // target frame where a naga is standing is worse than the naga's own model
     // with no texture on it, which is what the creature path will give.
@@ -1072,7 +1072,7 @@ EntitySpawner::getHumanoidEquipment(uint32_t displayId) const {
 
     // CreatureDisplayInfoExtra's slot order, against the inventory types
     // applyEquipment matches on. The order is the dbc's and the numbers are
-    // WoW's INVTYPE_*, and the two have nothing to do with each other — which
+    // WoW's INVTYPE_*, and the two have nothing to do with each other - which
     // is why this is written out rather than computed.
     static constexpr uint8_t kInvType[11] = {
         1,   // 0  helm      INVTYPE_HEAD
@@ -1163,7 +1163,7 @@ EntitySpawner::getCreatureSkinPaths(uint32_t displayId,
 //
 // A creature is not always new when the client first draws it. The server may
 // have told us it was dead, or working, or eating, before the spawn came off the
-// queue — so the pose is chosen from what is already known about it, and only a
+// queue - so the pose is chosen from what is already known about it, and only a
 // creature with nothing known plays a birth animation. Fades it in either way.
 void EntitySpawner::playCreatureSpawnPose(uint64_t guid, uint32_t instanceId) {
     auto* charRenderer = renderer_->getCharacterRenderer();
@@ -1201,7 +1201,7 @@ if (deadCreatureGuids_.count(guid)) {
         creatureActiveEmotes_[guid] = npcEmoteAnim;
         charRenderer->playAnimation(instanceId, npcEmoteAnim, true);
     } else if (charRenderer->hasAnimation(instanceId, rendering::anim::BIRTH)) {
-        // Play birth animation (one-shot) — will return to STAND after
+        // Play birth animation (one-shot) - will return to STAND after
         charRenderer->playAnimation(instanceId, rendering::anim::BIRTH, false);
     } else if (charRenderer->hasAnimation(instanceId, rendering::anim::SPAWN)) {
         charRenderer->playAnimation(instanceId, rendering::anim::SPAWN, false);
@@ -1214,8 +1214,8 @@ charRenderer->startFadeIn(instanceId, 0.5f);
 
 // Choose one mesh per clothing group for a character-style NPC.
 //
-// These models carry every alternative the artists authored — six cloaks, a
-// robe skirt and the trousers under it, several scalps — and a model drawn with
+// These models carry every alternative the artists authored - six cloaks, a
+// robe skirt and the trousers under it, several scalps - and a model drawn with
 // all of them on shows a character wearing all of them at once. The player path
 // avoids this by building a geoset set from the character's inventory; an NPC
 // has no inventory to build one from, so its equipment comes from
@@ -1278,7 +1278,7 @@ if (const auto* md = charRenderer->getModelData(modelId)) {
         // 1 is the bald cap, and it is also what a missed lookup leaves here.
         //
         // That ambiguity was the standing suspect for "taking a helmet off does
-        // not bring the hair back" — if the CharHairGeosets lookup always
+        // not bring the hair back" - if the CharHairGeosets lookup always
         // missed, the selected scalp would always be bald, hair would be drawn
         // by texture alone, and the helm path's erase-group-0-and-insert-1
         // would be a visual no-op.
@@ -1313,7 +1313,7 @@ if (const auto* md = charRenderer->getModelData(modelId)) {
                 auto itFacial = facialHairGeosetMap_.find(facialKey);
                 if (itFacial != facialHairGeosetMap_.end()) {
                     // A zero variant means the character has none of that
-                    // feature, and x00 is an id no model carries — which is
+                    // feature, and x00 is an id no model carries - which is
                     // what resolveGeoset reads as "none" further down.
                     selectedFacial100 = static_cast<uint16_t>(100 + itFacial->second.geoset100);
                     selectedFacial200 = static_cast<uint16_t>(200 + itFacial->second.geoset200);
@@ -1422,8 +1422,8 @@ if (const auto* md = charRenderer->getModelData(modelId)) {
         // Even "bare" variants can produce unwanted looped arm geometry on NPCs.
 
         // Group 4 is the forearms, so it is driven by the gloves. It used to be
-        // driven by the boots — the feet value applied to the arm group, one
-        // variant low — which the player and portrait paths never did.
+        // driven by the boots - the feet value applied to the arm group, one
+        // variant low - which the player and portrait paths never did.
         if (hasGroup4) {
             uint16_t wantForearms = (equipGlovesGG > 0)
                 ? equippedGeoset(equipment::kGlovesBare, equipGlovesGG)
@@ -1523,7 +1523,7 @@ if (const auto* md = charRenderer->getModelData(modelId)) {
             } else if (allGeosets.count(kGeosetNoCape) > 0) {
                 // Only the real "no cape" panel, never a substitute. The
                 // group's other members are cloaks, so falling back to the
-                // first one hands a cape to a character wearing none — and
+                // first one hands a cape to a character wearing none - and
                 // with no cloak texture bound, a white sheet. The HD models
                 // have no 1501 at all, which is how every one of them came
                 // to be wearing one.
@@ -1559,7 +1559,7 @@ if (const auto* md = charRenderer->getModelData(modelId)) {
 // head-detail sheet an HD model draws its ears and eyes from.
 //
 // Per instance rather than per model, because two NPCs sharing one model still
-// have their own hair colour — which is why these are texture slot overrides on
+// have their own hair colour - which is why these are texture slot overrides on
 // the instance and not textures on the model.
 void EntitySpawner::applyHumanoidInstanceOverrides(uint32_t instanceId, uint32_t modelId,
                                                    uint32_t displayId) {
@@ -1588,13 +1588,13 @@ void EntitySpawner::applyHumanoidInstanceOverrides(uint32_t instanceId, uint32_t
                         }
                     }
 
-                    // The head detail sheet — eyes, mouth, ears, eyelashes —
+                    // The head detail sheet - eyes, mouth, ears, eyelashes -
                     // which an HD humanoid model asks for as texture type 8
                     // and the stock ones have no slot for. CharSections'
                     // second texture on the skin row is where it comes from,
                     // the same as for the player. Without it these slots
                     // keep whatever the model was authored with, and one of
-                    // these models was authored with the word 'Ohren' — so
+                    // these models was authored with the word 'Ohren' - so
                     // the face detail fell back to the body art and every
                     // NPC wore its skin colour where its eyes should be.
                     {
@@ -1602,7 +1602,7 @@ void EntitySpawner::applyHumanoidInstanceOverrides(uint32_t instanceId, uint32_t
                             extra.raceId, extra.sexId, 0, 0, extra.skinId, 1);
                         int extraSlots = 0;
                         // Seven race and sex pairs name no extra art, and
-                        // their models still carry 'Ohren' in the slot — a
+                        // their models still carry 'Ohren' in the slot - a
                         // name that is not a file. The body skin is a poor
                         // substitute for an ear texture and a far better one
                         // than nothing, which is what those ears had.
@@ -1630,7 +1630,7 @@ void EntitySpawner::applyHumanoidInstanceOverrides(uint32_t instanceId, uint32_t
                             // The face art this NPC was given, beside the
                             // face it was asked for. CharSections is keyed
                             // on (variation, colour) and a lookup that misses
-                            // does not fail — it returns another row, and
+                            // does not fail - it returns another row, and
                             // another row is another face.
                             const std::string faceLower = lookupCharSection(
                                 extra.raceId, extra.sexId, 1, extra.faceId, extra.skinId, 0);
@@ -1651,7 +1651,7 @@ void EntitySpawner::applyHumanoidInstanceOverrides(uint32_t instanceId, uint32_t
                     }
 
                     // Look up skin texture (section 0) for per-instance skin color.
-                    // Skip when the NPC has a baked texture or composited equipment —
+                    // Skip when the NPC has a baked texture or composited equipment -
                     // those already encode armor over skin and must not be replaced.
                     bool hasEquipOrBake = !extra.bakeName.empty();
                     if (!hasEquipOrBake) {
@@ -1693,7 +1693,7 @@ void EntitySpawner::applyCreatureDisplayTextures(uint32_t displayId, uint32_t mo
     }
 
     // Creature skin names are relative to the model's own directory, so the
-    // path is asked for here rather than passed in — the caller had it only
+    // path is asked for here rather than passed in - the caller had it only
     // because it needed it for something else.
     const std::string m2Path = getModelPathForDisplayId(displayId);
     std::string modelDir;
@@ -1741,8 +1741,8 @@ void EntitySpawner::applyCreatureDisplayTextures(uint32_t displayId, uint32_t mo
             //
             // A Skin Extra slot was tried as the marker first and is not
             // one: only twelve of the twenty replacements carry it, and the
-            // eight without — human male, dwarf, undead male, gnome, troll
-            // male, draenei female — were exactly the ones left wrong.
+            // eight without - human male, dwarf, undead male, gnome, troll
+            // male, draenei female - were exactly the ones left wrong.
             constexpr size_t kShippedCharacterVertexCeiling = 12000;
             const bool isHdCharacterModel =
                 modelData && modelData->vertices.size() > kShippedCharacterVertexCeiling;
@@ -1781,14 +1781,14 @@ void EntitySpawner::applyCreatureDisplayTextures(uint32_t displayId, uint32_t mo
                     // A bake is one image with the skin, the face and the
                     // armour already composited into it, made for a
                     // particular model. Taking it means CharSections is
-                    // never read at all — which is the whole difference
+                    // never read at all - which is the whole difference
                     // between this path and the portrait's, and why a
                     // portrait's face is right where the same NPC's is not.
                     //
                     // It is only right for the model it was baked for. These
                     // displays now point at the HD character models, whose
                     // faces the bakes know nothing about, so those composite
-                    // from the table instead — the same way the portrait
+                    // from the table instead - the same way the portrait
                     // always has.
                     if (!extraCopy.bakeName.empty() && !isHdCharacterModel) {
                         def.bakedSkinPath = "Textures\\BakedNpcTextures\\" + extraCopy.bakeName;
@@ -2081,7 +2081,7 @@ void EntitySpawner::spawnOnlineCreature(uint64_t guid, uint32_t displayId, float
     auto cacheIt = displayIdModelCache_.find(displayId);
     if (cacheIt == displayIdModelCache_.end()) {
         LOG_WARNING("spawnOnlineCreature: model not loaded yet for displayId=", displayId,
-                    " — deferring to async load");
+                    " - deferring to async load");
         return;
     }
     const uint32_t modelId = cacheIt->second;
@@ -2143,15 +2143,15 @@ void EntitySpawner::spawnOnlineCreature(uint64_t guid, uint32_t displayId, float
     // comment above them said why: too aggressive, made NPCs invisible.
     //
     // Code that cannot run is not a record of an idea, it is a place for
-    // mistakes to hide. This block was edited twice tonight — once to stop a
+    // mistakes to hide. This block was edited twice tonight - once to stop a
     // geoset filter hiding a body, once to stop a zero facial-hair variant
-    // becoming a beard — and neither edit could have done anything. Both were
+    // becoming a beard - and neither edit could have done anything. Both were
     // real faults, and both had to be found again in the code that does run.
     //
     // git has it if the idea is wanted back.
 
     // Character-style NPC models can carry several conflicting clothing meshes
-    // at once — a cape and no cape, a robe skirt over trousers. Pick one per
+    // at once - a cape and no cape, a robe skirt over trousers. Pick one per
     // clothing group and leave every other batch of the model alone.
     normalizeHumanoidClothingGeosets(instanceId, modelId, displayId);
 

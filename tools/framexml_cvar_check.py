@@ -7,7 +7,7 @@ every CVar in the interface is a boolean, and "0" is off.
 The exception is the ones that hold a *name*. UpdatePaperdollStats takes
 GetCVar("playerStatLeftDropdown") and compares it against five category names,
 filling the column from whichever matches. "0" matches none of them, so it
-wrote nothing — and wrote nothing *successfully*, running to completion with no
+wrote nothing - and wrote nothing *successfully*, running to completion with no
 error and no warning. The character sheet showed two empty panels under the
 model and there was nothing anywhere to say why.
 
@@ -27,7 +27,7 @@ now.
 
 Note what it does **not** report, because the first version did and every one
 was a false positive: a CVar compared against "1" at all. That is a number,
-and "0" is its sibling — off for a boolean, and the first of a set for
+and "0" is its sibling - off for a boolean, and the first of a set for
 showBattlefieldMinimap, which is compared against "1" and "2" and means off at
 zero. Requiring "0" itself to appear was too strict, since nothing ever
 compares against the off value; it tests for the on ones and falls through.

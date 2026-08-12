@@ -7,7 +7,7 @@ WHY
 
 glm is not vendored. It arrives through find_package(glm), and its include
 directory comes with the imported target rather than through any directory
-tests/CMakeLists.txt lists — so a target that compiles a translation unit
+tests/CMakeLists.txt lists - so a target that compiles a translation unit
 reaching glm must call wowee_test_link_glm() or it has no way to find the
 headers.
 
@@ -32,7 +32,7 @@ Run on any platform, and it answers the macOS question.
 WHAT IT CANNOT SEE
 
 Includes reached through a macro or a generated header, and whether the link
-helper itself is correct — only that a target which needs it says so.
+helper itself is correct - only that a target which needs it says so.
 """
 import pathlib
 import re
@@ -87,7 +87,7 @@ def source_path(token):
 
 def main():
     if not CMAKE.exists():
-        print("No tests/CMakeLists.txt. Nothing was checked — do not believe a zero.")
+        print("No tests/CMakeLists.txt. Nothing was checked - do not believe a zero.")
         return 1
     text = CMAKE.read_text()
 
@@ -108,7 +108,7 @@ def main():
             short.append((name, reaching))
 
     print(f"{len(targets)} test targets, {len(linked)} call wowee_test_link_glm\n")
-    print(f"{len(short)} reach glm without it — these build on Linux and fail on macOS:")
+    print(f"{len(short)} reach glm without it - these build on Linux and fail on macOS:")
     for name, reaching in short:
         print(f"  {name:34} via {', '.join(reaching[:3])}")
     if not short:

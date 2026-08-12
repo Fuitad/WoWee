@@ -81,7 +81,7 @@ WoweeItemSet WoweeItemSetLoader::makeStarter(
     WoweeItemSet c;
     c.name = catalogName;
     {
-        // Battlegear of Wrath — Warrior tier-2 (8 pieces).
+        // Battlegear of Wrath - Warrior tier-2 (8 pieces).
         // Real WoW item / spell IDs from the canonical set.
         WoweeItemSet::Entry e;
         e.setId = 1; e.name = "Battlegear of Wrath";
@@ -102,10 +102,10 @@ WoweeItemSet WoweeItemSetLoader::makeStarter(
         c.entries.push_back(e);
     }
     {
-        // Stormrage Raiment — Druid tier-2 (8 pieces).
+        // Stormrage Raiment - Druid tier-2 (8 pieces).
         WoweeItemSet::Entry e;
         e.setId = 2; e.name = "Stormrage Raiment";
-        e.description = "Druid tier-2 leather set — Onyxia / BWL.";
+        e.description = "Druid tier-2 leather set - Onyxia / BWL.";
         e.pieceCount = 8;
         e.requiredClassMask = WoweeItemSet::kClassDruid;
         e.itemIds[0] = 16897; e.itemIds[1] = 16898;
@@ -172,7 +172,7 @@ WoweeItemSet WoweeItemSetLoader::makePvP(
         e.requiredSkillId = skillId;
         e.requiredSkillRank = skillRank;
         // PvP sets typically have 5 pieces (head/shoulder/chest
-        // /legs/gloves) — leave slots 5-7 empty.
+        // /legs/gloves) - leave slots 5-7 empty.
         e.pieceCount = 5;
         for (size_t k = 0; k < 5; ++k) {
             e.itemIds[k] = baseItemId + static_cast<uint32_t>(k);
@@ -188,13 +188,13 @@ WoweeItemSet WoweeItemSetLoader::makePvP(
     // requiredSkillRank values represent honor thresholds.
     add(200, "GladiatorVindication",
         WoweeItemSet::kClassPlate, 599, 1850, 41868, 35114, 35116,
-        "Gladiator's plate set — requires 1850 honor rank.");
+        "Gladiator's plate set - requires 1850 honor rank.");
     add(201, "Doomcaller",
         WoweeItemSet::kClassMage,  599, 1850, 41888, 35124, 35126,
-        "Mage doomcaller PvP set — requires 1850 honor rank.");
+        "Mage doomcaller PvP set - requires 1850 honor rank.");
     add(202, "Predatory",
         WoweeItemSet::kClassRogue, 599, 1500, 41878, 35134, 35136,
-        "Rogue predatory PvP set — requires 1500 honor rank.");
+        "Rogue predatory PvP set - requires 1500 honor rank.");
     return c;
 }
 

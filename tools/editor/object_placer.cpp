@@ -50,7 +50,7 @@ void ObjectPlacer::placeObject(const glm::vec3& position) {
 
 int ObjectPlacer::selectAt(const rendering::Ray& ray, float maxDist) {
     clearSelection();
-    // Reject NaN ray — without this every disc < 0 short-circuit returns
+    // Reject NaN ray - without this every disc < 0 short-circuit returns
     // false and we'd 'hit' every object with garbage t values.
     if (!std::isfinite(ray.origin.x) || !std::isfinite(ray.origin.y) ||
         !std::isfinite(ray.origin.z) || !std::isfinite(ray.direction.x) ||
@@ -63,7 +63,7 @@ int ObjectPlacer::selectAt(const rendering::Ray& ray, float maxDist) {
     int bestIdx = -1;
 
     for (int i = 0; i < static_cast<int>(objects_.size()); i++) {
-        // Skip objects with NaN position/scale — would feed NaN into the
+        // Skip objects with NaN position/scale - would feed NaN into the
         // sphere test (NaN comparisons short-circuit to false → "hit").
         if (!std::isfinite(objects_[i].position.x) ||
             !std::isfinite(objects_[i].position.y) ||
@@ -149,7 +149,7 @@ void ObjectPlacer::selectByType(PlaceableType type) {
 }
 
 void ObjectPlacer::moveSelected(const glm::vec3& delta) {
-    // NaN delta would poison every selected position permanently —
+    // NaN delta would poison every selected position permanently -
     // the renderer would then produce NaN model matrices.
     if (!std::isfinite(delta.x) || !std::isfinite(delta.y) ||
         !std::isfinite(delta.z)) return;
@@ -198,7 +198,7 @@ void ObjectPlacer::deleteSelected() {
 void ObjectPlacer::scatter(const glm::vec3& center, float radius, int count,
                             float minScale, float maxScale) {
     if (activePath_.empty()) return;
-    // Defensive bounds — UI sliders cap these, but the function is also
+    // Defensive bounds - UI sliders cap these, but the function is also
     // callable programmatically. count > 100k would freeze the editor;
     // minScale >= maxScale violates uniform_real_distribution preconditions.
     if (count <= 0 || count > 100'000) return;
@@ -247,7 +247,7 @@ int ObjectPlacer::populateBiome(const BiomeVegetation& vegetation,
         // Calculate object count from density (per 100x100 area)
         float areaFactor = (tileSize * tileSize) / 10000.0f;
         int count = static_cast<int>(asset.density * areaFactor);
-        // Cap per-asset count — a runaway density value would freeze the
+        // Cap per-asset count - a runaway density value would freeze the
         // editor and exceed sensible vertex/draw limits for the tile.
         if (count > 50'000) count = 50'000;
         if (count <= 0) continue;
@@ -281,7 +281,7 @@ int ObjectPlacer::populateBiome(const BiomeVegetation& vegetation,
         }
     }
 
-    LOG_INFO("Biome populated: ", vegetation.name, " — ", placed, " objects placed");
+    LOG_INFO("Biome populated: ", vegetation.name, " - ", placed, " objects placed");
     return placed;
 }
 
@@ -338,7 +338,7 @@ bool ObjectPlacer::loadFromFile(const std::string& path) {
         selectedIndices_.clear();
         uniqueIdCounter_ = 1;
 
-        // Cap object count — a stale autosave or biome-populate runaway
+        // Cap object count - a stale autosave or biome-populate runaway
         // could produce 100k+ entries that bloat the renderer instance
         // SSBO and drag the editor framerate to single digits.
         constexpr size_t kMaxObjects = 100'000;
@@ -346,7 +346,7 @@ bool ObjectPlacer::loadFromFile(const std::string& path) {
         for (const auto& jo : arr) {
             if (objects_.size() >= kMaxObjects) {
                 LOG_WARNING("Object cap reached (", kMaxObjects,
-                            ") — remaining entries dropped");
+                            ") - remaining entries dropped");
                 break;
             }
             PlacedObject obj;

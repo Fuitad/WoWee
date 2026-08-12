@@ -21,7 +21,7 @@ WoweeModel WoweeModelLoader::fromM2(const std::string& m2Path, AssetManager* am)
 
     auto m2 = M2Loader::load(data);
 
-    // WotLK+ M2s store header in .m2 but geometry in .skin — always merge
+    // WotLK+ M2s store header in .m2 but geometry in .skin - always merge
     // the skin file when present so we get vertices/indices/batches even
     // for M2s that already report isValid() (older expansions).
     {

@@ -1,11 +1,11 @@
-# run-linux.ps1 — Build WoWee for Linux (amd64) inside a Docker container.
+# run-linux.ps1 - Build WoWee for Linux (amd64) inside a Docker container.
 #
 # Usage (run from project root):
 #   .\container\run-linux.ps1 [-RebuildImage]
 #
 # Environment variables:
-#   WOWEE_FFX_SDK_REPO  — FidelityFX SDK git repo URL (passed through to container)
-#   WOWEE_FFX_SDK_REF   — FidelityFX SDK git ref / tag      (passed through to container)
+#   WOWEE_FFX_SDK_REPO  - FidelityFX SDK git repo URL (passed through to container)
+#   WOWEE_FFX_SDK_REF   - FidelityFX SDK git ref / tag      (passed through to container)
 
 param(
     [switch]$RebuildImage

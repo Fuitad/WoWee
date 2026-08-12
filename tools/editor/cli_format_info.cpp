@@ -24,7 +24,7 @@ namespace cli {
 namespace {
 
 int handleInfoPng(int& i, int argc, char** argv) {
-    // Inspect a PNG sidecar — width, height, channels, bit depth.
+    // Inspect a PNG sidecar - width, height, channels, bit depth.
     // Reads only the IHDR chunk (16 bytes after the 8-byte
     // signature) so it works on huge files instantly without
     // decoding pixels. Useful for verifying that the BLP→PNG
@@ -61,7 +61,7 @@ int handleInfoPng(int& i, int argc, char** argv) {
     };
     uint32_t width  = be32(buf + 16);
     uint32_t height = be32(buf + 20);
-    // Need bit depth + color type — read the next 5 bytes.
+    // Need bit depth + color type - read the next 5 bytes.
     uint8_t extra[5];
     in.read(reinterpret_cast<char*>(extra), 5);
     uint8_t bitDepth  = extra[0];
@@ -76,7 +76,7 @@ int handleInfoPng(int& i, int argc, char** argv) {
         case 4: channels = 2; colorName = "grayscale+alpha"; break;
         case 6: channels = 4; colorName = "rgba"; break;
     }
-    // File size for a quick sanity check — a 1024x1024 RGBA PNG
+    // File size for a quick sanity check - a 1024x1024 RGBA PNG
     // shouldn't be 12 bytes, that would mean truncation.
     std::error_code ec;
     uint64_t fsz = std::filesystem::file_size(path, ec);
@@ -105,7 +105,7 @@ int handleInfoPng(int& i, int argc, char** argv) {
 int handleInfoBlp(int& i, int argc, char** argv) {
     // Inspect a BLP texture: format/compression/mips/dimensions.
     // Loads the full image (which decompresses pixels) since we
-    // also report channel count and decoded byte size — useful
+    // also report channel count and decoded byte size - useful
     // for verifying the source before --convert-blp-png.
     std::string path = argv[++i];
     bool jsonOut = (i + 1 < argc &&
@@ -118,7 +118,7 @@ int handleInfoBlp(int& i, int argc, char** argv) {
     }
     std::vector<uint8_t> bytes((std::istreambuf_iterator<char>(in)),
                                 std::istreambuf_iterator<char>());
-    // Quick magic check before full decode — saves a confusing
+    // Quick magic check before full decode - saves a confusing
     // 'invalid' from the loader when the user feeds a non-BLP.
     if (bytes.size() < 4 ||
         !(bytes[0] == 'B' && bytes[1] == 'L' && bytes[2] == 'P' &&
@@ -270,7 +270,7 @@ int handleInfoWmo(int& i, int argc, char** argv) {
     std::string base = path;
     if (base.size() >= 4 && base.substr(base.size() - 4) == ".wmo")
         base = base.substr(0, base.size() - 4);
-    // Pre-allocate the groups array — loadGroup writes into
+    // Pre-allocate the groups array - loadGroup writes into
     // model.groups[gi] and bails if the slot doesn't exist.
     if (wmo.groups.size() < wmo.nGroups) wmo.groups.resize(wmo.nGroups);
     int groupsLoaded = 0;
@@ -291,7 +291,7 @@ int handleInfoWmo(int& i, int argc, char** argv) {
         std::fprintf(stderr, "info-wmo: failed to parse %s\n", path.c_str());
         return 1;
     }
-    // Total vertex/index counts across loaded groups — this is the
+    // Total vertex/index counts across loaded groups - this is the
     // useful number for sizing comparisons against WOB.
     size_t totalV = 0, totalI = 0;
     for (const auto& g : wmo.groups) {
@@ -414,7 +414,7 @@ int handleInfoAdt(int& i, int argc, char** argv) {
 int handleInfoJsondbc(int& i, int argc, char** argv) {
     // Inspect a JSON DBC sidecar (the JSON output of asset_extract
     // --emit-json-dbc). Reports recordCount, fieldCount, source
-    // filename, and format version — useful for verifying the
+    // filename, and format version - useful for verifying the
     // sidecar tracks the proprietary file's row count.
     std::string path = argv[++i];
     bool jsonOut = (i + 1 < argc &&
@@ -435,7 +435,7 @@ int handleInfoJsondbc(int& i, int argc, char** argv) {
     }
     // The wowee JSON DBC schema (from open_format_emitter.cpp):
     // {format, source, recordCount, fieldCount, records:[[...], ...]}.
-    // Tolerate missing fields rather than crashing — old sidecars
+    // Tolerate missing fields rather than crashing - old sidecars
     // may predate a field addition.
     std::string format = doc.value("format", std::string{});
     std::string source = doc.value("source", std::string{});

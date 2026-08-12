@@ -10,7 +10,7 @@ Both halves still run: a packet arrives, the handler adds a line of its own and
 fires the addon event, and chatframe.lua's own OnEvent branch formats the same
 fact from the event's arguments and adds it too. The player reads it twice.
 
-Nothing raises, no test fails and the line is correct both times — it is only
+Nothing raises, no test fails and the line is correct both times - it is only
 there twice. It was found by a player watching Booty Bay come under sustained
 attack and counting fifteen messages in the window, three per packet: one from
 this client, one from the interface, and one on the error line the real client
@@ -23,7 +23,7 @@ WHAT IT DOES
 
 Reads chatframe.lua's ChatFrame_OnEvent chain for the branches that call
 AddMessage, then finds where this client fires each of those events and asks
-whether the same function also writes a chat line — without first asking
+whether the same function also writes a chat line - without first asking
 whether FrameXML owns the chat window.
 
 WHAT IT CANNOT SEE
@@ -32,7 +32,7 @@ Whether the two lines say the same thing. A handler that fires an event and
 writes an unrelated line about something else is reported here and is fine; the
 guard is what the report is really about, and adding one is cheap. It also only
 knows the events chatframe.lua handles by name, so a line duplicated through a
-CHAT_MSG_* path is invisible to it — that one is [[framexml_duplicate_windows]]
+CHAT_MSG_* path is invisible to it - that one is [[framexml_duplicate_windows]]
 territory, not this.
 """
 import pathlib
@@ -94,7 +94,7 @@ def enclosing_block(text, at):
 
 def main():
     if not CHATFRAME.exists():
-        print("No chatframe.lua. Nothing can be compared — do not believe a zero.")
+        print("No chatframe.lua. Nothing can be compared - do not believe a zero.")
         return 1
 
     events = events_the_interface_writes(CHATFRAME.read_text())

@@ -1,4 +1,4 @@
-// zone_highlight_layer.cpp — Continent view zone rectangles + hover effects.
+// zone_highlight_layer.cpp - Continent view zone rectangles + hover effects.
 // Extracted from WorldMap::renderZoneHighlights (Phase 8 of refactoring plan).
 #include "rendering/world_map/layers/zone_highlight_layer.hpp"
 #include "rendering/world_map/coordinate_projection.hpp"
@@ -152,8 +152,8 @@ void ZoneHighlightLayer::render(const LayerContext& ctx) {
     if (!ctx.zones) return;
 
     // The same bounds every marker layer projects against. This spelled the
-    // fallback out instead — seeding the four from the continent's own bounds
-    // and letting the call leave them alone on failure — which is correct, and
+    // fallback out instead - seeding the four from the continent's own bounds
+    // and letting the call leave them alone on failure - which is correct, and
     // is the eleventh place to say so.
     bool isContinent = false;
     const ZoneBounds cb = projectionBoundsFor(*ctx.zones, ctx.continentIdx, isContinent);

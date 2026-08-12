@@ -82,7 +82,7 @@ bool Window::initialize() {
     setEnvVar("VK_LOADER_ENABLE_PORTABILITY_DRIVERS", "1", /*overwrite=*/false);
     // Probe for MoltenVK's ICD JSON if VK_ICD_FILENAMES isn't already set.
     // Without it the Vulkan loader can't find MoltenVK and SDL's pre-instance
-    // VK_KHR_surface check fails — the typical symptom when building with the
+    // VK_KHR_surface check fails - the typical symptom when building with the
     // LunarG SDK without sourcing setup-env.sh first.  Check $VULKAN_SDK
     // (LunarG SDK) before falling back to the two common Homebrew prefixes.
     if (!std::getenv("VK_ICD_FILENAMES")) {

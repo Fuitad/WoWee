@@ -179,17 +179,17 @@ int handleValidate(int& i, int argc, char** argv) {
                 ": baseHealth is 0 (player would die "
                 "instantly)");
         // Warrior(1) and Rogue(4) use Rage/Energy
-        // respectively — baseMana > 0 for these
+        // respectively - baseMana > 0 for these
         // classes is wrong.
         if ((e.classId == 1 || e.classId == 4) &&
             e.baseMana > 0) {
             warnings.push_back(ctx +
                 ": baseMana=" +
                 std::to_string(e.baseMana) +
-                " on Warrior/Rogue — these classes use "
+                " on Warrior/Rogue - these classes use "
                 "Rage/Energy, not mana. Likely typo");
         }
-        // (classId, level) MUST be unique — runtime
+        // (classId, level) MUST be unique - runtime
         // dispatch by this pair would tie.
         Pair p{e.classId, e.level};
         if (!classLevelPairs.insert(p).second) {
@@ -197,7 +197,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 ": duplicate (classId=" +
                 std::to_string(e.classId) +
                 ", level=" + std::to_string(e.level) +
-                ") — runtime stat-lookup tie");
+                ") - runtime stat-lookup tie");
         }
         if (!idsSeen.insert(e.statId).second) {
             errors.push_back(ctx + ": duplicate statId");
@@ -234,7 +234,7 @@ int handleValidate(int& i, int argc, char** argv) {
                         ") to " +
                         std::to_string(curV) +
                         " (L" + std::to_string(cur->level) +
-                        ") — likely typo");
+                        ") - likely typo");
                 }
             };
             chk("baseHealth",   prev->baseHealth,   cur->baseHealth);

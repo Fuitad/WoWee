@@ -19,7 +19,7 @@ TEST_CASE("the base name a JSON sidecar belongs to", "[cli]") {
 
     SECTION("a plain .json keeps a name that never had the extension") {
         // Stripping ".json" and then the extension separately arrives at the
-        // same answer only when both are present in that order — this is the
+        // same answer only when both are present in that order - this is the
         // case that made the combined suffix worth trying first.
         CHECK(baseFromJsonPath("zones.json", ".wgfs") == "zones");
     }

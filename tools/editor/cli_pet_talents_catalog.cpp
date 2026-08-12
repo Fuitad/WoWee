@@ -282,7 +282,7 @@ int handleValidate(int& i, int argc, char** argv) {
         warnings.push_back("catalog has zero entries");
     }
     std::set<uint32_t> idsSeen;
-    // Track (tree, tier, column) cell occupancy — two
+    // Track (tree, tier, column) cell occupancy - two
     // talents in the same cell would render on top of
     // each other.
     std::set<uint32_t> cellsSeen;
@@ -309,12 +309,12 @@ int handleValidate(int& i, int argc, char** argv) {
         if (e.tier > 6) {
             errors.push_back(ctx + ": tier " +
                 std::to_string(e.tier) +
-                " > 6 — pet trees have 7 tiers (0-6)");
+                " > 6 - pet trees have 7 tiers (0-6)");
         }
         if (e.column > 2) {
             errors.push_back(ctx + ": column " +
                 std::to_string(e.column) +
-                " > 2 — pet trees have 3 columns (0-2)");
+                " > 2 - pet trees have 3 columns (0-2)");
         }
         if (e.maxRank == 0 || e.maxRank > 5) {
             errors.push_back(ctx + ": maxRank " +
@@ -342,7 +342,7 @@ int handleValidate(int& i, int argc, char** argv) {
         // Self-reference check for prereq.
         if (e.prerequisiteTalentId == e.talentId) {
             errors.push_back(ctx +
-                ": prerequisiteTalentId equals talentId — "
+                ": prerequisiteTalentId equals talentId - "
                 "would create a 1-element prereq cycle");
         }
         // Cell occupancy uniqueness.
@@ -391,7 +391,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 std::string(treeKindName(pre->treeKind)) +
                 "' but this talent is in tree '" +
                 std::string(treeKindName(e.treeKind)) +
-                "' — prereq must be in same tree");
+                "' - prereq must be in same tree");
         }
         if (pre->tier >= e.tier) {
             errors.push_back("entry id=" +
@@ -400,7 +400,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 std::to_string(pre->tier) +
                 " >= this talent's tier " +
                 std::to_string(e.tier) +
-                " — prereqs must be in earlier tiers");
+                " - prereqs must be in earlier tiers");
         }
     }
     size_t totalSpells = 0;

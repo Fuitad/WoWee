@@ -281,7 +281,7 @@ bool HiZSystem::createDescriptors() {
         return false;
     }
 
-    // We use the same pool for both build and HiZ sets — simpler cleanup
+    // We use the same pool for both build and HiZ sets - simpler cleanup
     hizDescPool_ = VK_NULL_HANDLE; // sharing buildDescPool_
 
     for (uint32_t f = 0; f < MAX_FRAMES; f++) {

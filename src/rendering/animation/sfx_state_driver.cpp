@@ -1,5 +1,5 @@
 // ============================================================================
-// SfxStateDriver — extracted from AnimationController
+// SfxStateDriver - extracted from AnimationController
 //
 // Tracks state transitions for activity SFX (jump, landing, swim) and
 // mount ambient sounds.  Moved from AnimationController::updateSfxState().

@@ -53,7 +53,7 @@ WoweeWeather WoweeWeatherLoader::load(const std::string& basePath) {
     std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
     if (!is) return out;
     // The name length used to be read with no cap, and the entry count with no
-    // cap either — this format wrote its own header rather than using the one
+    // cap either - this format wrote its own header rather than using the one
     // every other format uses, and so missed both.
     uint32_t entryCount = 0;
     if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;

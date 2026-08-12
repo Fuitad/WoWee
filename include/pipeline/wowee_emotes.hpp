@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Emote Definition catalog (.wemo) — novel
+// Wowee Open Emote Definition catalog (.wemo) - novel
 // replacement for the hardcoded EmotesText.dbc /
 // EmotesTextSound.dbc / EmotesTextData.dbc trio that maps
 // /slash-emote commands (e.g. /dance, /wave, /laugh) to
@@ -36,17 +36,17 @@ namespace pipeline {
 //     emoteId (uint32)
 //     nameLen + name
 //     descLen + description
-//     cmdLen + slashCommand     — e.g. "dance" (no slash)
+//     cmdLen + slashCommand     - e.g. "dance" (no slash)
 //     animationId (uint32)
 //     soundId (uint32)
-//     targetMsgLen + targetMessage      — "%s waves at %s"
-//     noTargetMsgLen + noTargetMessage  — "%s waves"
-//     emoteKind (uint8)         — Social / Combat /
+//     targetMsgLen + targetMessage      - "%s waves at %s"
+//     noTargetMsgLen + noTargetMessage  - "%s waves"
+//     emoteKind (uint8)         - Social / Combat /
 //                                  RolePlay / System
-//     sex (uint8)               — 0=both, 1=male, 2=female
-//     requiredRace (uint8)      — 0=any, else WCHC race
+//     sex (uint8)               - 0=both, 1=male, 2=female
+//     requiredRace (uint8)      - 0=any, else WCHC race
 //                                  bit
-//     ttsHint (uint8)           — Whisper / Yell / Talk /
+//     ttsHint (uint8)           - Whisper / Yell / Talk /
 //                                  Silent for accessibility
 //                                  TTS engines
 //     iconColorRGBA (uint32)
@@ -96,12 +96,12 @@ struct WoweeEmotes {
     const Entry* findById(uint32_t emoteId) const;
 
     // Looks up an emote by its slash-command string (the
-    // bit after the slash — "dance", "wave"). Used by the
+    // bit after the slash - "dance", "wave"). Used by the
     // chat input parser to dispatch /<cmd> to the right
     // emote without scanning the full table.
     const Entry* findByCommand(const std::string& cmd) const;
 
-    // Returns all emotes of one kind — used by the social
+    // Returns all emotes of one kind - used by the social
     // wheel UI to populate per-tab listings (Social /
     // Combat / RolePlay / System).
     std::vector<const Entry*> findByKind(uint8_t emoteKind) const;
@@ -116,13 +116,13 @@ public:
 
     // Preset emitters used by --gen-emo* variants.
     //
-    //   makeBasic    — 8 universal social emotes (wave,
+    //   makeBasic    - 8 universal social emotes (wave,
     //                   bow, laugh, cheer, cry, sleep,
     //                   kneel, applaud).
-    //   makeCombat   — 5 combat-themed emotes (roar,
+    //   makeCombat   - 5 combat-themed emotes (roar,
     //                   threaten, charge, victory,
     //                   surrender).
-    //   makeRolePlay — 6 RP-focused emotes (bonk, ponder,
+    //   makeRolePlay - 6 RP-focused emotes (bonk, ponder,
     //                   soothe, plead, shoo, scoff).
     static WoweeEmotes makeBasic(const std::string& catalogName);
     static WoweeEmotes makeCombat(const std::string& catalogName);

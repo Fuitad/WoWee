@@ -107,7 +107,7 @@ WoweeCharFeature WoweeCharFeatureLoader::makeStarter(
         e.variationIndex = variation;
         e.name = name;
         e.texturePath = tex;
-        e.description = std::string("Human Male — ") +
+        e.description = std::string("Human Male - ") +
                          WoweeCharFeature::featureKindName(kind) +
                          " variation " + std::to_string(variation);
         c.entries.push_back(e);
@@ -151,7 +151,7 @@ WoweeCharFeature WoweeCharFeatureLoader::makeBloodElfFemale(
         c.entries.push_back(e);
     };
     // 8 iconic Blood Elf Female hairstyles. geosetGroupBits
-    // values are placeholder — real M2 geoset masks come from
+    // values are placeholder - real M2 geoset masks come from
     // CharHairGeosets.dbc when ported.
     add(100, 0, "LongStraight",   0x0001);
     add(101, 1, "ShortBob",       0x0002);
@@ -180,7 +180,7 @@ WoweeCharFeature WoweeCharFeatureLoader::makeTauren(
         e.texturePath = std::string("textures/character/Tauren/Male/Tauren") +
                          WoweeCharFeature::featureKindName(kind) +
                          "_" + std::to_string(variation) + ".blp";
-        e.description = std::string("Tauren Male — ") +
+        e.description = std::string("Tauren Male - ") +
                          WoweeCharFeature::featureKindName(kind) +
                          " variant " + std::to_string(variation);
         c.entries.push_back(e);

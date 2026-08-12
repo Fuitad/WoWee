@@ -30,7 +30,7 @@ bool MovementSoundManager::initialize(pipeline::AssetManager* assets) {
     enterWaterGiantSounds_.resize(1);
     loadSound("Sound\\Spells\\EnterWaterGiant.wav", enterWaterGiantSounds_[0], assets);
 
-    // Water footsteps — walking through the shallows. These used to point at
+    // Water footsteps - walking through the shallows. These used to point at
     // Sound\\Spells\\WaterFootstep*, which does not exist in the data, so every
     // one of these loaded nothing and wading was silent. The real sets are the
     // WaterSplash footsteps (character-sized) and the Huge variants.

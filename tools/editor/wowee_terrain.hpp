@@ -7,7 +7,7 @@ namespace wowee {
 namespace editor {
 
 // Wowee Open Terrain Format (.wot)
-// JSON + binary heightmap — no Blizzard formats, fully open
+// JSON + binary heightmap - no Blizzard formats, fully open
 class WoweeTerrain {
 public:
     // Export terrain to open format: .wot (JSON metadata) + .whm (binary heightmap)

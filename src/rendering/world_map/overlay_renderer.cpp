@@ -1,4 +1,4 @@
-// overlay_renderer.cpp — ImGui overlay orchestrator for the world map.
+// overlay_renderer.cpp - ImGui overlay orchestrator for the world map.
 // Extracted from WorldMap::renderImGuiOverlay (Phase 8 of refactoring plan).
 #include "rendering/world_map/overlay_renderer.hpp"
 

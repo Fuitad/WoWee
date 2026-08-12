@@ -67,7 +67,7 @@ int handleGenRogue(int& i, int argc, char** argv) {
 }
 
 const char* classIdName(uint8_t c) {
-    // Vanilla 1.12 PlayerClass DBC ids — used for the
+    // Vanilla 1.12 PlayerClass DBC ids - used for the
     // info-table display only.
     switch (c) {
         case 1:  return "Warrior";
@@ -169,9 +169,9 @@ int handleValidate(int& i, int argc, char** argv) {
         if (e.tabIndex > 3) {
             errors.push_back(ctx + ": tabIndex " +
                 std::to_string(e.tabIndex) +
-                " out of range (0..3 — General + 3 specs)");
+                " out of range (0..3 - General + 3 specs)");
         }
-        // (classId, tabIndex) MUST be unique — the
+        // (classId, tabIndex) MUST be unique - the
         // spellbook UI dispatches by this pair, two
         // entries with the same pair would tie.
         auto pair = std::make_pair(e.classId, e.tabIndex);
@@ -181,12 +181,12 @@ int handleValidate(int& i, int argc, char** argv) {
                 std::to_string(e.classId) +
                 ", tabIndex=" +
                 std::to_string(e.tabIndex) +
-                ") — spellbook UI tab dispatch tie");
+                ") - spellbook UI tab dispatch tie");
         }
         if (!packIdsSeen.insert(e.packId).second) {
             errors.push_back(ctx + ": duplicate packId");
         }
-        // Per-tab spell uniqueness — the same spellId
+        // Per-tab spell uniqueness - the same spellId
         // appearing twice in one tab is a copy-paste bug
         // (the UI would render it twice).
         std::set<uint32_t> spellsInTab;
@@ -200,16 +200,16 @@ int handleValidate(int& i, int argc, char** argv) {
                 errors.push_back(ctx +
                     ": duplicate spellId " +
                     std::to_string(sid) +
-                    " within tab — would render twice in "
+                    " within tab - would render twice in "
                     "spellbook");
             }
         }
-        // Empty tab: warn — General tab with zero spells
+        // Empty tab: warn - General tab with zero spells
         // means the player starts with no abilities at
         // all on that tree.
         if (e.spellIds.empty()) {
             warnings.push_back(ctx +
-                ": tab has zero spells — player would see "
+                ": tab has zero spells - player would see "
                 "an empty spellbook tab");
         }
     }

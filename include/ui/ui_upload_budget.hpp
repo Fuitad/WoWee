@@ -9,14 +9,14 @@
 // already busy with, so while the terrain streams it can be tens of
 // milliseconds apiece.
 //
-// Each screen used to hold its own allowance — four here, six there, five
-// screens deep — and nothing knew what the others had spent. A frame where
+// Each screen used to hold its own allowance - four here, six there, five
+// screens deep - and nothing knew what the others had spent. A frame where
 // several were open could pay twenty-two of those waits back to back. A live
 // log shows the result: the interface stage reaching 697ms, then the immediate
 // fence and command buffer reported as still in use on every iteration, then
 // the device lost. It reproduces with this client's own interface drawing and
 // FrameXML switched off entirely, so it is not about which interface is on
-// screen — it is about how many of these waits fit in one frame.
+// screen - it is about how many of these waits fit in one frame.
 //
 // One budget for all of them, so the worst case is a number rather than a sum.
 // Going over is not a failure: the caller returns null *without caching it* and

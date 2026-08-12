@@ -116,7 +116,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     // open format. Each slot emits all 8 scalar fields plus
     // a dual int + name form for bagKind so hand-edits can
     // use either representation. acceptsBagSubclassMask is
-    // dumped as a raw uint32 — users hand-edit using the
+    // dumped as a raw uint32 - users hand-edit using the
     // kAccepts* bit constants documented in the header.
     return cli::exportCatalogJson<wowee::pipeline::WoweeBagSlotLoader>(
         i, argc, argv, "wbnk", "WBNK", "slots  ",
@@ -196,7 +196,7 @@ int handleImportJson(int& i, int argc, char** argv) {
                 je.value("containerSize", 0));
             e.displayOrder = static_cast<uint8_t>(
                 je.value("displayOrder", 0));
-            // isUnlocked defaults to 1 when omitted — most
+            // isUnlocked defaults to 1 when omitted - most
             // slots ship unlocked at character creation; only
             // bank-bag slots typically need explicit gold.
             e.isUnlocked = static_cast<uint8_t>(
@@ -230,7 +230,7 @@ int handleValidate(int& i, int argc, char** argv) {
            std::vector<std::string>& warnings) {
         cli::DuplicateIdCheck idsSeen;
         // displayOrder values within the same bagKind should be
-        // unique — duplicates would cause UI shuffle ambiguity.
+        // unique - duplicates would cause UI shuffle ambiguity.
         std::set<std::string> orderSeen;
         for (size_t k = 0; k < c.entries.size(); ++k) {
             const auto& e = c.entries[k];
@@ -247,7 +247,7 @@ int handleValidate(int& i, int argc, char** argv) {
                     std::to_string(e.bagKind) + " not in 0..7");
             }
             // A slot that's not unlocked but has unlockCostCopper=0
-            // can never be unlocked through normal gameplay — flag.
+            // can never be unlocked through normal gameplay - flag.
             if (e.isUnlocked == 0 && e.unlockCostCopper == 0) {
                 warnings.push_back(ctx +
                     ": isUnlocked=0 with unlockCostCopper=0 "
@@ -255,7 +255,7 @@ int handleValidate(int& i, int argc, char** argv) {
             }
             // A fixed-bag slot (containerSize > 0, fixedBagItemId
             // = 0) with a non-zero acceptsBagSubclassMask is
-            // contradictory — fixed slots don't accept equippable
+            // contradictory - fixed slots don't accept equippable
             // bags. The starter MainBackpack illustrates this:
             // size=16, mask=0.
             if (e.containerSize > 0 && e.fixedBagItemId == 0 &&
@@ -272,9 +272,9 @@ int handleValidate(int& i, int argc, char** argv) {
                 e.bagKind != wowee::pipeline::WoweeBagSlot::Stable) {
                 errors.push_back(ctx +
                     ": variable slot (containerSize=0) with "
-                    "acceptsBagSubclassMask=0 — no bag can fit here");
+                    "acceptsBagSubclassMask=0 - no bag can fit here");
             }
-            // (bagKind, displayOrder) tuple uniqueness — within
+            // (bagKind, displayOrder) tuple uniqueness - within
             // the same kind the UI sorts by displayOrder, so
             // duplicates would cause ambiguous ordering.
             std::string tuple =
@@ -286,7 +286,7 @@ int handleValidate(int& i, int argc, char** argv) {
                     wowee::pipeline::WoweeBagSlot::bagKindName(e.bagKind) +
                     ", displayOrder=" +
                     std::to_string(e.displayOrder) +
-                    ") — UI sort order is ambiguous");
+                    ") - UI sort order is ambiguous");
             }
             orderSeen.insert(tuple);
             if (!idsSeen.add(e.bagSlotId)) errors.push_back(ctx + ": duplicate bagSlotId");

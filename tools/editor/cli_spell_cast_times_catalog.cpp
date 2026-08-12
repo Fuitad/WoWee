@@ -255,24 +255,24 @@ int handleValidate(int& i, int argc, char** argv) {
                 errors.push_back(ctx + ": baseCastMs < 0");
             if (e.perLevelMs < 0)
                 warnings.push_back(ctx +
-                    ": perLevelMs < 0 — cast time shrinks with "
+                    ": perLevelMs < 0 - cast time shrinks with "
                     "level, double-check this is intentional");
             if (e.maxCastMs > 0 && e.minCastMs > e.maxCastMs) {
                 errors.push_back(ctx + ": minCastMs " +
                     std::to_string(e.minCastMs) +
                     " > maxCastMs " + std::to_string(e.maxCastMs));
             }
-            // Instant kind should have base == 0 — otherwise the
+            // Instant kind should have base == 0 - otherwise the
             // engine would still display a cast bar.
             if (e.castKind == wowee::pipeline::WoweeSpellCastTime::Instant &&
                 e.baseCastMs != 0) {
                 warnings.push_back(ctx +
                     ": Instant kind with baseCastMs=" +
                     std::to_string(e.baseCastMs) +
-                    " — engine will draw a cast bar (use Cast "
+                    " - engine will draw a cast bar (use Cast "
                     "kind if that's intended)");
             }
-            // Channel kind should have base > 0 — otherwise it
+            // Channel kind should have base > 0 - otherwise it
             // would tick once and immediately end.
             if (e.castKind == wowee::pipeline::WoweeSpellCastTime::Channel &&
                 e.baseCastMs <= 0) {

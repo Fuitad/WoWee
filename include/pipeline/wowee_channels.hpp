@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Chat Channel catalog (.wchn) — novel
+// Wowee Open Chat Channel catalog (.wchn) - novel
 // replacement for Blizzard's ChatChannels.dbc + the
 // AzerothCore-style chat_channel SQL tables. The 40th
 // open format added to the editor.
@@ -93,13 +93,13 @@ public:
 
     // Preset emitters used by --gen-channels* variants.
     //
-    //   makeStarter — 4 stock channels (General / Trade /
+    //   makeStarter - 4 stock channels (General / Trade /
     //                  LFG / GuildRecruit) with default
     //                  autoJoin and announce rules.
-    //   makeCity    — 5 city-specific channels (Stormwind
+    //   makeCity    - 5 city-specific channels (Stormwind
     //                  General / Trade / LFG + Orgrimmar
     //                  General / Trade) with mapId gates.
-    //   makeModerated — 3 moderated / restricted channels
+    //   makeModerated - 3 moderated / restricted channels
     //                    (LocalDefense level 10+, World event
     //                    chat, custom raid coordination).
     static WoweeChannel makeStarter(const std::string& catalogName);

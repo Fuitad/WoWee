@@ -74,7 +74,7 @@ int DBCExporter::exportZoneDBCs(pipeline::AssetManager* am,
         "CreatureFamily.dbc",
         "FactionTemplate.dbc",
         "Faction.dbc",
-        // Item display data — buildings/decorations may reference these
+        // Item display data - buildings/decorations may reference these
         "ItemDisplayInfo.dbc"
     };
 

@@ -109,17 +109,17 @@ WoweeNPCService WoweeNPCServiceLoader::makeCity(
         c.entries.push_back(e);
     };
     add(1, "CityBanker",      N::Banker,       0, 0, 1000,
-        220, 220, 100, "City banker — opens 28-slot inventory bank.");
+        220, 220, 100, "City banker - opens 28-slot inventory bank.");
     add(2, "CityMailbox",     N::Mailbox,      0, 0, 0,
-        180, 180, 240, "City mailbox — send/receive mail (no NPC).");
+        180, 180, 240, "City mailbox - send/receive mail (no NPC).");
     add(3, "CityInnkeeper",   N::Innkeeper,    0, 0, 1500,
-        240, 200, 100, "City innkeeper — set hearthstone bind, "
+        240, 200, 100, "City innkeeper - set hearthstone bind, "
         "rest XP buff.");
     add(4, "CityAuctioneer",  N::Auctioneer,   0, 0, 1200,
-        180, 220, 180, "City auctioneer — opens AH (5%% deposit, "
+        180, 220, 180, "City auctioneer - opens AH (5%% deposit, "
         "5%% sale cut).");
     add(5, "CityFlightMaster",N::FlightMaster, 0, 0, 1100,
-        140, 200, 240, "City flight master — taxi node selection.");
+        140, 200, 240, "City flight master - taxi node selection.");
     return c;
 }
 
@@ -138,11 +138,11 @@ WoweeNPCService WoweeNPCServiceLoader::makeBattle(
         c.entries.push_back(e);
     };
     add(100, "BattlemasterAV",
-        "Alterac Valley battlemaster — 40v40 BG queue.");
+        "Alterac Valley battlemaster - 40v40 BG queue.");
     add(101, "BattlemasterWSG",
-        "Warsong Gulch battlemaster — 10v10 capture-flag BG queue.");
+        "Warsong Gulch battlemaster - 10v10 capture-flag BG queue.");
     add(102, "BattlemasterAB",
-        "Arathi Basin battlemaster — 15v15 control-point BG queue.");
+        "Arathi Basin battlemaster - 15v15 control-point BG queue.");
     return c;
 }
 
@@ -161,13 +161,13 @@ WoweeNPCService WoweeNPCServiceLoader::makeProfession(
         c.entries.push_back(e);
     };
     add(200, "BlacksmithTrainer", N::Trainer,        0,
-        "Blacksmithing trainer — teaches recipes and rank-ups.");
+        "Blacksmithing trainer - teaches recipes and rank-ups.");
     add(201, "TailoringTrainer",  N::Trainer,        0,
-        "Tailoring trainer — teaches cloth crafting recipes.");
+        "Tailoring trainer - teaches cloth crafting recipes.");
     add(202, "ReagentVendor",     N::ReagentVendor,  0,
-        "Reagent vendor — sells profession reagents in stacks.");
+        "Reagent vendor - sells profession reagents in stacks.");
     add(203, "StableMaster",      N::StableMaster,  100,
-        "Stable master — costs 1 silver to swap pets in/out "
+        "Stable master - costs 1 silver to swap pets in/out "
         "of stable.");
     return c;
 }

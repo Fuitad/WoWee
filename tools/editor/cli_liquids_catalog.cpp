@@ -270,7 +270,7 @@ int handleValidate(int& i, int argc, char** argv) {
                     std::to_string(e.viscosity) + " not in 0..1");
             }
             // Magma / Slime / FelFire / AcidBog liquids without
-            // any damage source are mechanically harmless — flag
+            // any damage source are mechanically harmless - flag
             // as a warning so the caller can confirm intent.
             bool hazardous =
                 e.liquidKind == wowee::pipeline::WoweeLiquid::Magma ||
@@ -284,13 +284,13 @@ int handleValidate(int& i, int argc, char** argv) {
                     "damagePerSecond (won't hurt anything)");
             }
             // Water and OceanSalt with non-zero damage is unusual
-            // — could be intentional acid water but worth checking.
+            // - could be intentional acid water but worth checking.
             if ((e.liquidKind == wowee::pipeline::WoweeLiquid::Water ||
                  e.liquidKind == wowee::pipeline::WoweeLiquid::OceanSalt) &&
                 e.damagePerSecond > 0) {
                 warnings.push_back(ctx +
                     ": Water/OceanSalt with damagePerSecond>0 "
-                    "(unusual — verify intent)");
+                    "(unusual - verify intent)");
             }
             if (!idsSeen.add(e.liquidId)) errors.push_back(ctx + ": duplicate liquidId");
         }

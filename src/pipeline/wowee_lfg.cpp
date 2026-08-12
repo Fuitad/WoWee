@@ -137,15 +137,15 @@ WoweeLFGDungeon WoweeLFGDungeonLoader::makeHeroic(
         c.entries.push_back(e);
     };
     add(100, "Halls of Lightning Heroic",  602, 180, 2, 1862,
-        "Storm titan-keeper 5-man — Loken finale.");
+        "Storm titan-keeper 5-man - Loken finale.");
     add(101, "Halls of Stone Heroic",      599, 180, 2, 1865,
-        "Iron dwarf 5-man — Tribunal of Ages event.");
+        "Iron dwarf 5-man - Tribunal of Ages event.");
     add(102, "Utgarde Pinnacle Heroic",    575, 180, 2, 1487,
-        "Vrykul 5-man — King Ymiron finale.");
+        "Vrykul 5-man - King Ymiron finale.");
     add(103, "The Violet Hold Heroic",     608, 180, 2, 1816,
         "Dalaran prison breakout 5-man.");
     add(104, "Old Kingdom Heroic",         595, 180, 2, 1860,
-        "Faceless ones 5-man — Herald Volazj.");
+        "Faceless ones 5-man - Herald Volazj.");
     return c;
 }
 

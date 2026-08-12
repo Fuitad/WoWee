@@ -154,16 +154,16 @@ WoweeCreatureDifficulty WoweeCreatureDifficultyLoader::makeWotlkRaid(
         e.iconColorRGBA = packRgba(220, 80, 100);  // raid red
         c.entries.push_back(e);
     };
-    // Icecrown Citadel boss IDs (illustrative — real
+    // Icecrown Citadel boss IDs (illustrative - real
     // numbers from AzerothCore's creature_template).
     add(100, "LordMarrowgar",    36612, 36612, 39120, 39121, 39122,
-        "First ICC boss — 5 bone spike phases at 4 difficulties.");
+        "First ICC boss - 5 bone spike phases at 4 difficulties.");
     add(101, "LadyDeathwhisper", 36855, 36855, 38421, 38422, 38423,
-        "Second ICC boss — 2-phase mind control encounter.");
+        "Second ICC boss - 2-phase mind control encounter.");
     add(102, "DeathbringerSaurfang", 37813, 37813, 38762, 38763, 38764,
-        "Plagueworks gatekeeper — Mark of the Fallen Champion.");
+        "Plagueworks gatekeeper - Mark of the Fallen Champion.");
     add(103, "TheLichKing",      36597, 36597, 39166, 39167, 39168,
-        "ICC final boss — Frostmourne defile encounter.");
+        "ICC final boss - Frostmourne defile encounter.");
     return c;
 }
 
@@ -178,7 +178,7 @@ WoweeCreatureDifficulty WoweeCreatureDifficultyLoader::makeFiveMan(
         e.difficultyId = id; e.name = name; e.description = desc;
         e.baseCreatureId = base;
         e.normal10Id = n10;
-        // 25-man fields stay 0 — 5-man dungeons don't have
+        // 25-man fields stay 0 - 5-man dungeons don't have
         // 25-man variants. The engine falls back to n10
         // when a 25-man variant is queried (resolveVariant
         // returns 0, caller substitutes baseCreatureId).
@@ -187,15 +187,15 @@ WoweeCreatureDifficulty WoweeCreatureDifficultyLoader::makeFiveMan(
         e.iconColorRGBA = packRgba(180, 200, 100);  // dungeon green
         c.entries.push_back(e);
     };
-    // 5-man dungeon bosses — only Normal + Heroic variants.
+    // 5-man dungeon bosses - only Normal + Heroic variants.
     add(200, "DungeonBoss1",  31000, 31000, 31100,
-        "5-man dungeon boss — Normal + Heroic only, no 25-man.");
+        "5-man dungeon boss - Normal + Heroic only, no 25-man.");
     add(201, "DungeonBoss2",  31010, 31010, 31110,
-        "5-man dungeon boss — Normal + Heroic only, no 25-man.");
+        "5-man dungeon boss - Normal + Heroic only, no 25-man.");
     add(202, "DungeonBoss3",  31020, 31020, 31120,
-        "5-man dungeon boss — Normal + Heroic only, no 25-man.");
+        "5-man dungeon boss - Normal + Heroic only, no 25-man.");
     add(203, "DungeonFinal",  31030, 31030, 31130,
-        "5-man dungeon final boss — Normal + Heroic only.");
+        "5-man dungeon final boss - Normal + Heroic only.");
     return c;
 }
 

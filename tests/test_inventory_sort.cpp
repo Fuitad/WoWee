@@ -109,7 +109,7 @@ TEST_CASE("sortBank pools bank bag contents into the main bank", "[inventory]") 
 
 TEST_CASE("sortBank respects the main slot count for Classic", "[inventory]") {
     Inventory inv;
-    // Only 24 main slots exist on Classic — item in slot 25 must not seed the sort,
+    // Only 24 main slots exist on Classic - item in slot 25 must not seed the sort,
     // and the sort must never write past slot 23.
     inv.setBankSlot(0, makeItem(500, ItemQuality::COMMON));
     inv.setBankSlot(1, makeItem(100, ItemQuality::RARE));
@@ -161,7 +161,7 @@ TEST_CASE("sortBankBag orders one bag without touching the rest of the bank",
     CHECK(inv.getBankBagSlot(0, 1).item.itemId == 500);
     CHECK(inv.getBankBagSlot(0, 4).empty());
 
-    // Nothing pooled into the main bank, and the other bag is untouched — which
+    // Nothing pooled into the main bank, and the other bag is untouched - which
     // is the whole point of sorting one bag rather than the whole bank.
     CHECK(inv.getBankSlot(0).item.itemId == 900);
     CHECK(inv.getBankSlot(1).empty());

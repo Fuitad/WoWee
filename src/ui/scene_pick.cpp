@@ -18,7 +18,7 @@ namespace {
 constexpr float kMaxGameObjectPickRadius = 3.0f;
 /// GAMEOBJECT_TYPE_CHAIR.
 constexpr uint32_t kGoTypeChair = 7;
-/// GENERIC — decorative, no interaction — and FISHINGHOLE, which is fished
+/// GENERIC - decorative, no interaction - and FISHINGHOLE, which is fished
 /// rather than clicked. Neither may take a click from a unit.
 constexpr uint32_t kGoTypeGeneric = 5;
 constexpr uint32_t kGoTypeFishingHole = 25;
@@ -70,7 +70,7 @@ ScenePick pickScene(game::GameHandler& gameHandler,
             core::Application::getInstance().getRenderBoundsForGuid(guid, hitCenter, hitRadius);
         if (!hasBounds) {
             // Match the hover-cursor sizes, so the reticle agrees with the
-            // cursor affordance — otherwise NPCs feel hard to click.
+            // cursor affordance - otherwise NPCs feel hard to click.
             float heightOffset = params.unitHeightOffset;
             hitRadius = params.unitHitRadius;
             if (type == game::ObjectType::UNIT) {
@@ -114,7 +114,7 @@ ScenePick pickScene(game::GameHandler& gameHandler,
                 if (type == game::ObjectType::UNIT) {
                     auto unit = std::static_pointer_cast<game::Unit>(entity);
                     // A corpse still answers isHostile(), and a hostile is picked
-                    // ahead of everything — hence the liveness check above it.
+                    // ahead of everything - hence the liveness check above it.
                     const bool hostile = unit->isHostile() ||
                                          gameHandler.isAggressiveTowardPlayer(guid);
                     if (hostile && hitT < pick.hostileUnitT) {

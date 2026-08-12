@@ -8,7 +8,7 @@ namespace wowee {
 namespace pipeline {
 
 // Wowee Open Player Movement-to-Animation Map (.wphm)
-// — novel replacement for the implicit
+// - novel replacement for the implicit
 // movementState->animation mapping vanilla WoW baked
 // into per-race M2 model files. Each WPHM entry binds
 // one (raceId, genderId, movementState) tuple to a
@@ -21,7 +21,7 @@ namespace pipeline {
 //         catalog (currently 1..10 in vanilla:
 //         Human=1, Orc=2 ... Troll=8, Goblin=9,
 //         BloodElf=10).
-//   None to M2 binary directly — animation index
+//   None to M2 binary directly - animation index
 //   numbers come from the standard WoW M2 animation
 //   table (Stand=0, Walk=4, Run=5, Death=1...).
 //
@@ -31,20 +31,20 @@ namespace pipeline {
 //   nameLen + name (catalog label)
 //   entryCount (uint32)
 //   entries (each):
-//     mapId (uint32)         — surrogate primary key
+//     mapId (uint32)         - surrogate primary key
 //                               for cross-format
 //                               --catalog-find lookups
-//     raceId (uint8)         — 1..10 vanilla race
-//     genderId (uint8)       — 0=male, 1=female
-//     movementState (uint8)  — 0=Idle / 1=Walk / 2=Run
+//     raceId (uint8)         - 1..10 vanilla race
+//     genderId (uint8)       - 0=male, 1=female
+//     movementState (uint8)  - 0=Idle / 1=Walk / 2=Run
 //                               / 3=Swim / 4=Fly /
 //                               5=Sit / 6=Mount /
 //                               7=Death
 //     pad0 (uint8)
-//     baseAnimId (uint32)    — M2 anim sequence id
-//     variantAnimId (uint32) — alternate sequence
+//     baseAnimId (uint32)    - M2 anim sequence id
+//     variantAnimId (uint32) - alternate sequence
 //                               (0 = no variant)
-//     transitionMs (uint16)  — blend duration to enter
+//     transitionMs (uint16)  - blend duration to enter
 //     pad1 (uint16)
 struct WoweePlayerMovementAnim {
     enum MovementState : uint8_t {
@@ -78,7 +78,7 @@ struct WoweePlayerMovementAnim {
     const Entry* findById(uint32_t mapId) const;
 
     // Returns the binding for a specific (race, gender,
-    // state) — the canonical lookup the renderer uses
+    // state) - the canonical lookup the renderer uses
     // each frame to decide which animation sequence to
     // play.
     const Entry* find(uint8_t raceId, uint8_t genderId,
@@ -100,17 +100,17 @@ public:
 
     // Preset emitters used by --gen-phm* variants.
     //
-    //   makeHumanMovement  — full 8-state machine for
+    //   makeHumanMovement  - full 8-state machine for
     //                          Human male + female =
     //                          16 entries. Walk-while-
     //                          drunk variant for State
     //                          Walk only.
-    //   makeOrcMovement    — same shape for Orc male
+    //   makeOrcMovement    - same shape for Orc male
     //                          + female. Orc Run uses
     //                          a more aggressive
     //                          variant for war-stance
     //                          flavor.
-    //   makeUndeadMovement — Undead male + female,
+    //   makeUndeadMovement - Undead male + female,
     //                          with canonical
     //                          "shambling-when-wounded"
     //                          variantAnimId on Run

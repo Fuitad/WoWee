@@ -8,7 +8,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Spawn Catalog (.wspn) — novel replacement for
+// Wowee Open Spawn Catalog (.wspn) - novel replacement for
 // the scattered creature_template / gameobject SQL tables
 // AzerothCore-style servers use, plus the static doodad
 // placements that ADT MDDF / MODF chunks encode. One file
@@ -71,7 +71,7 @@ struct WoweeSpawns {
 
     bool isValid() const { return !entries.empty(); }
 
-    // Per-kind counts — useful for the editor info display.
+    // Per-kind counts - useful for the editor info display.
     uint32_t countByKind(uint8_t k) const;
 
     static const char* kindName(uint8_t k);
@@ -86,13 +86,13 @@ public:
 
     // Preset emitters used by --gen-spawns* variants.
     //
-    //   makeStarter — one entry per kind: 1 creature + 1 game
+    //   makeStarter - one entry per kind: 1 creature + 1 game
     //                  object + 1 doodad, all near (0,0,0).
     //                  Useful as a template for hand-edit.
-    //   makeCamp    — bandit-camp spawn cluster: 4 creatures
+    //   makeCamp    - bandit-camp spawn cluster: 4 creatures
     //                  in a wander ring + 1 chest (game object)
     //                  + 2 tent doodads.
-    //   makeVillage — small village: 6 NPC creatures spread
+    //   makeVillage - small village: 6 NPC creatures spread
     //                  out + 2 game-object signs + 4 tree
     //                  doodads.
     static WoweeSpawns makeStarter(const std::string& catalogName);

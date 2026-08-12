@@ -2,7 +2,7 @@
 //
 // The settings screens are generated: the schema says what the controls are and
 // the Lua says where they go. Nothing else checks the arithmetic between those
-// two, and nothing can — a control laid out past the bottom of the panel
+// two, and nothing can - a control laid out past the bottom of the panel
 // registers, refreshes, answers its value and reads back correctly. It is
 // simply not on screen, and no behavioural test has an opinion about that.
 //
@@ -53,7 +53,7 @@ TEST_CASE("every settings panel fits in its two columns", "[settings]") {
 
     // Walk the schema exactly as buildPanel does: a category is a panel, a
     // section adds a heading, and a control that will not fit moves to the
-    // second column — after which there is nowhere else to go.
+    // second column - after which there is nowhere else to go.
     std::string category, section;
     int column = 1;
     int y = columnTop;
@@ -118,7 +118,7 @@ TEST_CASE("a dropdown does not hang off the right of the panel", "[settings]") {
 
 TEST_CASE("the root panel's blocks do not sit inside each other", "[settings]") {
     // This panel is laid out by hand, not generated, so the check is against
-    // what the Lua says each block needs — a "needs N" note beside every
+    // what the Lua says each block needs - a "needs N" note beside every
     // anchor. It is the panel a search box was inserted into the middle of
     // last pass, on top of the two blocks that were already there.
     const std::string lua = addons::kWoweeOptionsPanelLua;

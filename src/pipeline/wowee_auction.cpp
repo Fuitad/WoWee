@@ -122,7 +122,7 @@ WoweeAuction WoweeAuctionLoader::makeRestricted(const std::string& catalogName) 
         e.houseId = 100; e.name = "Restricted House";
         e.factionAccess = WoweeAuction::Both;
         // Disallow Quest items (class 12) and Containers (class 1)
-        // and Keys (class 13) — bitmask combination.
+        // and Keys (class 13) - bitmask combination.
         e.disallowedClassMask = (1u << 1) | (1u << 12) | (1u << 13);
         // Tighter durations + lower max bid for testing.
         e.shortHours = 2;

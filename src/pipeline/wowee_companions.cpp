@@ -118,14 +118,14 @@ WoweeCompanion WoweeCompanionLoader::makeStarter(
     };
     add(1, 7560, "MechanicalSquirrel", 4055, 4401,
         WoweeCompanion::Mechanical,
-        "Engineering-built mechanical squirrel — clicks "
+        "Engineering-built mechanical squirrel - clicks "
         "and chitters as it follows.");
     add(2, 7349, "Cat",                10684, 8491,
         WoweeCompanion::Critter,
-        "Generic alley cat — purrs when stationary.");
+        "Generic alley cat - purrs when stationary.");
     add(3, 7547, "PrairieDog",         9484, 7560,
         WoweeCompanion::Critter,
-        "Tan prairie dog — pops up to look around "
+        "Tan prairie dog - pops up to look around "
         "every few seconds.");
     return c;
 }
@@ -184,13 +184,13 @@ WoweeCompanion WoweeCompanionLoader::makeFaction(
     };
     add(200, 17254, "AllianceLionCub",   29726, 23713,
         WoweeCompanion::Critter, WoweeCompanion::AllianceOnly,
-        "Stormwind orphan-week reward — Alliance only.");
+        "Stormwind orphan-week reward - Alliance only.");
     add(201, 17255, "HordeMottledBoar",  29727, 23714,
         WoweeCompanion::Critter, WoweeCompanion::HordeOnly,
-        "Orgrimmar orphan-week reward — Horde only.");
+        "Orgrimmar orphan-week reward - Horde only.");
     add(202, 33272, "ArgentSquire",      54187, 39286,
         WoweeCompanion::Critter, WoweeCompanion::AnyFaction,
-        "Argent Tournament squire — any faction may purchase.");
+        "Argent Tournament squire - any faction may purchase.");
     return c;
 }
 

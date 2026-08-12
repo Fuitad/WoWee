@@ -38,7 +38,7 @@ bool parseSeedFlag(int& i, int argc, char** argv,
 }
 
 // Spawn `argv0` with argument list; suppress child stdout/stderr; return
-// rc==0. Uses cli_subprocess::runChild so no shell parsing happens — the
+// rc==0. Uses cli_subprocess::runChild so no shell parsing happens - the
 // previous std::system path was an `argv[0]` + path concat fed to the
 // shell (CodeQL cpp/command-line-injection).
 bool runSilently(const std::string& argv0, const std::vector<std::string>& args) {
@@ -49,7 +49,7 @@ int handleTexturePack(int& i, int argc, char** argv) {
     // Drop a starter PNG texture pack into <zoneDir>/textures/
     // by fanning out to the procedural --gen-texture-* commands.
     // Saves the user from sourcing proprietary art when bringing
-    // up a new zone — six themed textures cover most needs.
+    // up a new zone - six themed textures cover most needs.
     std::string zoneDir = argv[++i];
     uint32_t seed = 1;
     if (!parseSeedFlag(i, argc, argv, "gen-zone-texture-pack", seed)) return 1;

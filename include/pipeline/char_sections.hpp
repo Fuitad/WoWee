@@ -1,21 +1,21 @@
 #pragma once
 
 /**
- * char_sections.hpp — reading a character's textures out of CharSections.dbc.
+ * char_sections.hpp - reading a character's textures out of CharSections.dbc.
  *
  * One scan of that table, used by everything that draws a character: the player,
  * an NPC, another player, and the portrait.
  *
- * It was written three times before this — once in appearance_composer for the
+ * It was written three times before this - once in appearance_composer for the
  * player, once in entity_spawner for NPCs, once in character_preview for the
- * portrait — and the three did not agree. Only one of them read the skin row's
+ * portrait - and the three did not agree. Only one of them read the skin row's
  * second texture, so ears and eyelashes were unbound everywhere else. Only one
  * had a fallback for a face the table does not carry. Every fault found in this
  * area had to be fixed two or three times, and each time one was missed the
  * report came back as "correct in the portrait, wrong in the world".
  *
- * The scan is here. What a caller does with the paths — composite them, hand
- * them to a model, put them in a portrait — stays with the caller.
+ * The scan is here. What a caller does with the paths - composite them, hand
+ * them to a model, put them in a portrait - stays with the caller.
  */
 
 #include <cstdint>
@@ -45,7 +45,7 @@ struct CharacterSectionTextures {
     std::string bodySkin;
     /// The skin row's SECOND texture. Blank in the tables the game shipped and
     /// filled in by an HD one, where it is the art a model asks for as texture
-    /// type 8 — the ears, the eyes, the mouth, the eyelashes.
+    /// type 8 - the ears, the eyes, the mouth, the eyelashes.
     std::string skinExtra;
     std::string faceLower;
     std::string faceUpper;
@@ -61,7 +61,7 @@ struct CharacterSectionTextures {
 
 /// Scan CharSections.dbc for one character's textures.
 ///
-/// `keepUnderwear` is asked for each underwear path before it is kept — the
+/// `keepUnderwear` is asked for each underwear path before it is kept - the
 /// tables name art that is not always present, and a caller that can check the
 /// filesystem should. Pass nothing to keep them all.
 CharacterSectionTextures resolveCharacterSections(
@@ -73,7 +73,7 @@ CharacterSectionTextures resolveCharacterSections(
 
 /// Put the resolved textures into a character model's runtime texture slots.
 ///
-/// A non-zero texture type means the client supplies the art — that is what the
+/// A non-zero texture type means the client supplies the art - that is what the
 /// type is for, and only type 0 carries a filename that means anything. So a
 /// name found in one of these slots is not authoritative and must not be
 /// treated as one: a model in the wild has 'Ohren' baked into its Skin Extra

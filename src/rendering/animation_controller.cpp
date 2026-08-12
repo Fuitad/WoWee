@@ -340,7 +340,7 @@ void AnimationController::triggerSpecialAttack(uint32_t /*spellId*/) {
     }
 
     if (specAnim == 0) {
-        // No special animation available — fall back to regular melee swing
+        // No special animation available - fall back to regular melee swing
         triggerMeleeSwing();
         return;
     }
@@ -771,7 +771,7 @@ void AnimationController::setMounted(uint32_t mountInstId, uint32_t mountDisplay
     mountAnims.runLeft   = findFirst({anim::MOUNT_RUN_LEFT, anim::RUN_LEFT});
     mountAnims.runRight  = findFirst({anim::MOUNT_RUN_RIGHT, anim::RUN_RIGHT});
     mountAnims.stand     = findFirst({anim::STAND});
-    // Discover flight animations (flying mounts only — may all be 0 for ground mounts)
+    // Discover flight animations (flying mounts only - may all be 0 for ground mounts)
     mountAnims.flyIdle      = findFirst({anim::FLY_IDLE});
     mountAnims.flyForward   = findFirst({anim::FLY_FORWARD, anim::FLY_RUN_2});
     mountAnims.flyBackwards = findFirst({anim::FLY_BACKWARDS, anim::FLY_WALK_BACKWARDS});
@@ -844,7 +844,7 @@ void AnimationController::setMounted(uint32_t mountInstId, uint32_t mountDisplay
     // Configure MountFSM via CharacterAnimator.
     //
     // What is passed here is only what was true at this moment. The FSM takes
-    // the per-frame answer as well now, and either counts — a taxi sets the
+    // the per-frame answer as well now, and either counts - a taxi sets the
     // mount up before it says the flight has begun, so this one is false on
     // every flight.
     LOG_INFO("Mount configured: displayId=", mountDisplayId, " taxiFlight=", taxiFlight_);
@@ -941,7 +941,7 @@ void AnimationController::applyMountPositioning(float mountBob, float mountRoll,
         }
         // A failed lookup is "not yet", not "never". The seat is read off the
         // mount's model, and a mount summoned before its M2 has finished
-        // loading answers no on the first frame or two — latching that closed
+        // loading answers no on the first frame or two - latching that closed
         // left the rider on the guessed height for the whole ride.
         if (haveSeat) {
             glm::vec3 targetRiderPos = glm::vec3(mountSeatTransform[3]) + glm::vec3(0.0f, 0.0f, 0.02f);
@@ -979,7 +979,7 @@ void AnimationController::applyMountPositioning(float mountBob, float mountRoll,
                 break;
             }
         }
-        // Left at -1 on failure, so the next frame probes again — see the note
+        // Left at -1 on failure, so the next frame probes again - see the note
         // in the taxi branch above.
     }
 
@@ -992,13 +992,13 @@ void AnimationController::applyMountPositioning(float mountBob, float mountRoll,
         // jitter of a bone-driven seat. `moving` only reports movement *input*,
         // though, and a player standing on a boat presses nothing while the world
         // carries them at the ship's speed. The filter then trailed the rider
-        // behind the seat by its own time constant — about two yards at ferry
+        // behind the seat by its own time constant - about two yards at ferry
         // speed, swinging out to one side as the hull turned. Reported as the
         // character riding behind the direction of travel, alongside its mount.
         //
         // So ask whether the seat is actually moving in the world rather than
         // whether the player asked for it to. This covers anything that carries a
-        // rider — ships, elevators, a moving platform — without naming any of them.
+        // rider - ships, elevators, a moving platform - without naming any of them.
         const glm::vec3 seatStep = targetRiderPos - lastMountSeatTarget_;
         const bool seatCarried = mountSeatSmoothingInit_ &&
                                  glm::dot(seatStep, seatStep) > kSeatCarriedStepSq;
@@ -1075,7 +1075,7 @@ void AnimationController::updateMountedAnimation(float deltaTime) {
         characterRenderer->playAnimation(mountInstanceId_, mountOut.mountAnimId, mountOut.mountAnimLoop);
     }
 
-    // Rider animation — defaults to MOUNT, but uses MOUNT_FLIGHT_* variants when flying
+    // Rider animation - defaults to MOUNT, but uses MOUNT_FLIGHT_* variants when flying
     uint32_t riderAnim = anim::MOUNT;
     if (cameraController->isFlyingActive()) {
         auto hasRider = [&](uint32_t id) { return characterRenderer->hasAnimation(characterInstanceId, id); };
@@ -1203,7 +1203,7 @@ void AnimationController::updateCharacterAnimation() {
     const bool requestChanged = (lastPlayerAnimRequest_ != animId) || (lastPlayerAnimLoopRequest_ != loop);
     // Only re-assert looping animations if the renderer drifted (e.g., external
     // playAnimation call).  One-shot animations must NOT be re-asserted after the
-    // renderer auto-resets them to STAND on completion — the FSM detects the ID
+    // renderer auto-resets them to STAND on completion - the FSM detects the ID
     // change via oneShotComplete and transitions to the next state in the same frame.
     const bool drifted = haveState && currentAnimId != animId && loop;
     const bool shouldPlay = requestChanged || drifted;

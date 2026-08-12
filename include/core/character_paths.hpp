@@ -1,12 +1,12 @@
 #pragma once
 
 /**
- * character_paths.hpp — the folder a race's art lives in, and the texture paths
+ * character_paths.hpp - the folder a race's art lives in, and the texture paths
  * built from it.
  *
  * "Character\NightElf\Female\NightElfFemaleSkin00_00.blp" is assembled from a
- * race, a sex, and a naming convention. The convention is not quite mechanical —
- * the Undead are filed under Scourge, and the two-word races have no space — so
+ * race, a sex, and a naming convention. The convention is not quite mechanical -
+ * the Undead are filed under Scourge, and the two-word races have no space - so
  * it is a table, and the table was written out four times: once for the local
  * player, once for every other player, once for the voice profile, and once
  * again in reverse in the portrait, which recovers the folder by slicing it back
@@ -70,7 +70,7 @@ inline std::string defaultPelvisPath(uint32_t raceId, uint32_t sexId) {
 /// The four appearance choices packed into PLAYER_BYTES.
 ///
 /// Which byte is which is not guessable and was unpacked by hand wherever it was
-/// needed. Reading face where skin was meant does not fail — it draws a face.
+/// needed. Reading face where skin was meant does not fail - it draws a face.
 struct AppearanceBytes {
     uint8_t skinId = 0;
     uint8_t faceId = 0;

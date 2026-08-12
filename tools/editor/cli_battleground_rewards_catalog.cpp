@@ -167,7 +167,7 @@ int handleValidate(int& i, int argc, char** argv) {
         // else BG queue would never start a match.
         if (e.minPlayersToStart == 0) {
             errors.push_back(ctx +
-                ": minPlayersToStart is 0 — BG queue "
+                ": minPlayersToStart is 0 - BG queue "
                 "would never start a match");
         }
         // Loss honor should be < win honor (winning
@@ -179,15 +179,15 @@ int handleValidate(int& i, int argc, char** argv) {
                 std::to_string(e.lossHonor) +
                 " > winHonor=" +
                 std::to_string(e.winHonor) +
-                " — losing rewards more than winning "
+                " - losing rewards more than winning "
                 "(no win incentive)");
         }
-        // Mark = 0 on win is unusual — every BG win
+        // Mark = 0 on win is unusual - every BG win
         // grants at least 1 mark in vanilla. Warn.
         if (e.winMarks == 0 && e.markItemId != 0) {
             warnings.push_back(ctx +
                 ": winMarks=0 but markItemId is set "
-                "— win grants no marks; verify "
+                "- win grants no marks; verify "
                 "intentional (vanilla wins always "
                 "gave at least 1 mark)");
         }
@@ -197,11 +197,11 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx +
                 ": bonusItemCount=" +
                 std::to_string(e.bonusItemCount) +
-                " but bonusItemId is 0 — count of "
+                " but bonusItemId is 0 - count of "
                 "nothing");
         }
         // (battlegroundId, bracketIndex) MUST be
-        // unique — runtime dispatch by this pair
+        // unique - runtime dispatch by this pair
         // would tie.
         Pair p{e.battlegroundId, e.bracketIndex};
         if (!bgBracketPairs.insert(p).second) {
@@ -210,7 +210,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 std::to_string(e.battlegroundId) +
                 ", bracket=" +
                 std::to_string(e.bracketIndex) +
-                ") — runtime reward-lookup tie");
+                ") - runtime reward-lookup tie");
         }
         if (!idsSeen.insert(e.rewardId).second) {
             errors.push_back(ctx + ": duplicate rewardId");

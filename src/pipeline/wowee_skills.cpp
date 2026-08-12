@@ -88,7 +88,7 @@ WoweeSkill WoweeSkillLoader::makeStarter(const std::string& catalogName) {
     add(43,  "Swords",         WoweeSkill::Weapon,             300, 5, 1);
     add(98,  "Common",         WoweeSkill::Language,             1, 0, 0);
     add(129, "First Aid",      WoweeSkill::SecondaryProfession, 300, 0, 1);
-    // SkillId 186 = Mining, 633 = Lockpicking — the canonical
+    // SkillId 186 = Mining, 633 = Lockpicking - the canonical
     // values that WGOT.makeGather and WLCK.makeDungeon already
     // reference.
     add(186, "Mining",         WoweeSkill::Profession,         300, 0, 1);

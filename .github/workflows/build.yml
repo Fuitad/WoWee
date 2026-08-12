@@ -88,8 +88,8 @@ jobs:
     - name: Build
       run: cmake --build build --parallel ${{ matrix.build_jobs }}
 
-    # The editor is off the default build — it is large and ordinary client
-    # work does not need it — so nothing was compiling it, here or locally, and
+    # The editor is off the default build - it is large and ordinary client
+    # work does not need it - so nothing was compiling it, here or locally, and
     # it rotted: twenty files lost an include and a helper lost a method that
     # twelve callers still used, and it sat broken with no signal at all.
     # Built on this job only; one platform is enough to catch a missing include
@@ -408,7 +408,7 @@ jobs:
         cache: false
 
     # Install packages in a separate retried step rather than the action's `install:`
-    # list — the ARM MSYS2 mirrors intermittently drop the initial download/keyring
+    # list - the ARM MSYS2 mirrors intermittently drop the initial download/keyring
     # sync, which fails the whole setup with no retry. Mirrors the release workflow.
     - name: Install dependencies with mirror retry
       shell: msys2 {0}
@@ -444,7 +444,7 @@ jobs:
       shell: msys2 {0}
       run: |
         git clone --depth 1 https://github.com/ladislav-zezula/StormLib.git /tmp/StormLib
-        # Disable x86 inline asm in bundled libtomcrypt (bswapl/movl) —
+        # Disable x86 inline asm in bundled libtomcrypt (bswapl/movl) -
         # __MINGW32__ is defined on CLANGARM64 which incorrectly enables x86 asm
         cmake -S /tmp/StormLib -B /tmp/StormLib/build -G Ninja \
           -DCMAKE_BUILD_TYPE=Release \

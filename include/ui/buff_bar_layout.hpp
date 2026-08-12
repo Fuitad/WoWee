@@ -47,7 +47,7 @@ struct BuffBarMetrics {
 ///
 /// This client's own minimap is 200px at a 10px margin whatever the resolution, so
 /// a constant was enough. FrameXML's MinimapCluster is 192 interface units wide,
-/// and an interface unit is a fixed fraction of the window height — at 1528px tall
+/// and an interface unit is a fixed fraction of the window height - at 1528px tall
 /// the cluster is 382px, nearly twice the constant. A row right-aligned against the
 /// smaller number therefore ends up underneath the minimap rather than beside it,
 /// which is what the buff bar did as soon as FrameXML took the minimap over.

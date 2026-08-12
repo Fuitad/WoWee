@@ -51,7 +51,7 @@ def build_macros(text):
 
 def main():
     if not CMAKE.exists():
-        print("No CMakeLists.txt. Nothing was checked — do not believe a zero.")
+        print("No CMakeLists.txt. Nothing was checked - do not believe a zero.")
         return 1
     macros = build_macros(CMAKE.read_text())
     if not macros:

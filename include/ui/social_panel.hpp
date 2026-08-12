@@ -45,7 +45,7 @@ public:
     /// Seven places set the flag above directly and the window's render is
     /// gated on FrameXML not owning it, so with that element handed over
     /// inspecting sent the request and showed nothing. The request still goes
-    /// out from the caller either way — this is only the window.
+    /// out from the caller either way - this is only the window.
     void openInspectWindow(game::GameHandler& gameHandler);
 
     // ---- Guild roster state ----

@@ -1,5 +1,5 @@
 // ============================================================
-// WindowManager — extracted from GameScreen
+// WindowManager - extracted from GameScreen
 // Owns all NPC interaction windows, popup dialogs, etc.
 // ============================================================
 #include "ui/window_manager.hpp"
@@ -149,7 +149,7 @@ void WindowManager::renderLootWindow(game::GameHandler& gameHandler,
             if (hovered && info && info->valid) {
                 inventoryScreen.renderItemTooltip(*info);
             } else if (hovered && info && !info->name.empty()) {
-                // Item info received but not yet fully valid — show name at minimum
+                // Item info received but not yet fully valid - show name at minimum
                 ImGui::SetTooltip("%s", info->name.c_str());
             }
 
@@ -216,7 +216,7 @@ void WindowManager::renderLootWindow(game::GameHandler& gameHandler,
                 // Taken as already confirmed: this window has no bind warning
                 // to show. The handler raises LOOT_BIND_CONFIRM for a
                 // bind-on-pickup item and holds the request until it is
-                // answered, and there is nothing here to answer it — the click
+                // answered, and there is nothing here to answer it - the click
                 // would do nothing at all.
                 //
                 // So the warning is on the interface's path only, which is the
@@ -419,16 +419,16 @@ void WindowManager::renderGossipWindow(game::GameHandler& gameHandler,
                 const char* statusIcon = "!";
                 ImVec4 statusColor = kColorYellow; // yellow
                 switch (quest.questIcon) {
-                    case 5:  // INCOMPLETE — in progress but not done
+                    case 5:  // INCOMPLETE - in progress but not done
                         statusIcon = "?";
                         statusColor = colors::kMediumGray; // gray
                         break;
-                    case 6:  // REWARD_REP — repeatable, ready to turn in
-                    case 10: // REWARD — ready to turn in
+                    case 6:  // REWARD_REP - repeatable, ready to turn in
+                    case 10: // REWARD - ready to turn in
                         statusIcon = "?";
                         statusColor = kColorYellow; // yellow
                         break;
-                    case 7:  // AVAILABLE_LOW — available but gray (low-level)
+                    case 7:  // AVAILABLE_LOW - available but gray (low-level)
                         statusIcon = "!";
                         statusColor = colors::kMediumGray; // gray
                         break;
@@ -472,7 +472,7 @@ void WindowManager::renderQuestDetailsWindow(game::GameHandler& gameHandler,
     // window draws the icons itself, so opening the instant the packet lands
     // shows a row of blanks that fill in a frame later. The wait used to be
     // part of "is it open", which meant the interface's own bindings answered
-    // "no rewards" for the same hundred milliseconds — see isQuestDetailsOpen.
+    // "no rewards" for the same hundred milliseconds - see isQuestDetailsOpen.
     if (!gameHandler.questDetailsItemInfoReady()) return;
 
     auto* window = services_.window;
@@ -1138,7 +1138,7 @@ void WindowManager::renderVendorWindow(game::GameHandler& gameHandler,
 
                     ImGui::TableSetColumnIndex(2);
                     if (item.buyPrice == 0 && item.extendedCost != 0) {
-                        // Token-only item — show detailed cost from ItemExtendedCost.dbc
+                        // Token-only item - show detailed cost from ItemExtendedCost.dbc
                         std::string costStr = formatExtendedCost(item.extendedCost, gameHandler);
                         ImGui::TextColored(ImVec4(0.4f, 0.8f, 1.0f, 1.0f), "%s", costStr.c_str());
                     } else {
@@ -1380,7 +1380,7 @@ void WindowManager::renderTrainerWindow(game::GameHandler& gameHandler,
                         statusLabel = "Unavailable";
                     }
 
-                    // Icon column — use item icon for crafting recipes, spell icon otherwise
+                    // Icon column - use item icon for crafting recipes, spell icon otherwise
                     ImGui::TableSetColumnIndex(0);
                     {
                         VkDescriptorSet icon = VK_NULL_HANDLE;
@@ -1699,7 +1699,7 @@ void WindowManager::renderTrainerWindow(game::GameHandler& gameHandler,
 
                 gameHandler.loadSpellNameCache();
 
-                // Difficulty color/label from skill thresholds — shared with
+                // Difficulty color/label from skill thresholds - shared with
                 // the standalone crafting window (crafting_window.cpp)
                 auto getDifficultyColor = [&](uint32_t spellId) -> ImVec4 {
                     return recipeDifficultyColor(gameHandler, spellId);
@@ -2027,7 +2027,7 @@ void WindowManager::ensureBarberState(game::GameHandler& gameHandler) {
     // Leaving the chair clears the state so the next visit rebuilds it against
     // whatever the character wears by then. The render function used to do this
     // on its early return, which stops happening the moment the panel is handed
-    // over — and stale originals would price a change against the wrong hair.
+    // over - and stale originals would price a change against the wrong hair.
     if (!gameHandler.isBarberShopOpen()) {
         barberInitialized_ = false;
         return;
@@ -2171,7 +2171,7 @@ void WindowManager::barberApplySelection(game::GameHandler& gameHandler) {
     ensureBarberState(gameHandler);
     const BarberSelection sel = barberSelection(gameHandler);
     // The server is sent BarberShopStyle.dbc entry ids, not the appearance
-    // numbers the preview uses — the two are different numbering spaces and
+    // numbers the preview uses - the two are different numbering spaces and
     // only the entry id means anything on the wire.
     auto entryOf = [](const std::vector<BarberStyleOption>& options, int index) {
         return index >= 0 && index < static_cast<int>(options.size())
@@ -2411,7 +2411,7 @@ void WindowManager::renderBarberShopWindow(game::GameHandler& gameHandler) {
                 hairColor,
                 selectedEntry(barberFacialStyles_, barberFacialHair_),
                 selectedEntry(barberSkinStyles_, barberSkinColor_));
-            // Keep window open — server will respond with SMSG_BARBER_SHOP_RESULT
+            // Keep window open - server will respond with SMSG_BARBER_SHOP_RESULT
         }
         if (!changed || !canAfford) ImGui::EndDisabled();
 
@@ -2651,7 +2651,7 @@ void WindowManager::renderLogoutCountdown(game::GameHandler& gameHandler) {
     // FrameXML counts the same seconds down. uiparent.lua raises the CAMP and
     // QUIT popups from PLAYER_CAMPING and PLAYER_QUITING, both of which this
     // client fires from social_handler, and "dialogs" has been handed over
-    // since the branch started — so every /logout put two countdowns on
+    // since the branch started - so every /logout put two countdowns on
     // screen, one above the other.
     if (frameXmlOwns(UiElement::Dialogs)) return;
 
@@ -2693,7 +2693,7 @@ void WindowManager::renderLogoutCountdown(game::GameHandler& gameHandler) {
             ImGui::Spacing();
         }
 
-        // Cancel button — only while countdown is still running
+        // Cancel button - only while countdown is still running
         if (cd > 0.0f) {
             float btnW = 100.0f;
             ImGui::SetCursorPosX((W - btnW) * 0.5f);
@@ -2739,7 +2739,7 @@ void WindowManager::renderDeathScreen(game::GameHandler& gameHandler) {
     ImGui::PopStyleColor();
 
     // The prompt below is FrameXML's StaticPopup "DEATH", raised from
-    // PLAYER_DEAD which this client fires. The red wash above it is not — WoW
+    // PLAYER_DEAD which this client fires. The red wash above it is not - WoW
     // desaturates the screen from C, so nothing on FrameXML's side draws it and
     // it stays whoever owns the dialogs.
     if (frameXmlOwns(UiElement::Dialogs)) return;
@@ -3364,7 +3364,7 @@ bool WindowManager::renderBankWindow(game::GameHandler& gameHandler,
             } else if (!isHolding && ImGui::IsItemHovered() &&
                        ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
                 // Dropped out of a handed-over bag. FrameXML picked it up, so
-                // InventoryScreen knows nothing about it — its own held item is
+                // InventoryScreen knows nothing about it - its own held item is
                 // empty and the branch above never runs. The source arrives in
                 // the same flat slot space dropIntoBankSlot converts to, so the
                 // swap is the same one.
@@ -3606,7 +3606,7 @@ bool WindowManager::renderBankWindow(game::GameHandler& gameHandler,
         }
     }
 
-    // Bank bag equip slots — show bag icon with pickup/drop, or a "Buy" button with its price.
+    // Bank bag equip slots - show bag icon with pickup/drop, or a "Buy" button with its price.
     ImGui::Spacing();
     ImGui::Separator();
     ImGui::Text("Bank Bags");
@@ -3729,7 +3729,7 @@ void WindowManager::renderGuildBankWindow(game::GameHandler& gameHandler,
 
     // Fixed 98-slot tab grid (14 columns × 7 rows). The server sends only the
     // slots it has data for (often just the occupied ones, and nothing for an
-    // empty tab), so render every slot and look items up by slotId — otherwise
+    // empty tab), so render every slot and look items up by slotId - otherwise
     // an empty or sparsely-populated tab showed no slots at all.
     constexpr float GB_SLOT = 34.0f;
     constexpr int kGuildTabSlots = 98;
@@ -3983,7 +3983,7 @@ void WindowManager::renderAuctionHouseWindow(game::GameHandler& gameHandler,
         auto getSearchSubClassId = [&]() -> uint32_t {
             if (auctionItemSubClass_ < 0) return 0xFFFFFFFF;
             // Stored value is the list row minus 1 (row 0 is "All" → -1), so
-            // shift back when indexing — indexing with the stored value
+            // shift back when indexing - indexing with the stored value
             // directly returned the previous row (2H swords queried as 1H).
             int row = auctionItemSubClass_ + 1;
             uint32_t cid = getSearchClassId();
@@ -4110,7 +4110,7 @@ void WindowManager::renderAuctionHouseWindow(game::GameHandler& gameHandler,
         constexpr uint32_t AH_PAGE_SIZE = 50;
 
         // Client-side page filters (buyout-only / max price). These refine only
-        // the current server page — the server pages by 50, so this cannot see
+        // the current server page - the server pages by 50, so this cannot see
         // beyond it. The header reflects that distinction when a filter is on.
         auto passesClientFilter = [&](const game::AuctionEntry& a) -> bool {
             if (auctionBuyoutOnly_ && a.buyoutPrice == 0) return false;
@@ -4650,7 +4650,7 @@ void WindowManager::renderInstanceLockouts(game::GameHandler& gameHandler) {
             for (const auto& lo : lockouts) {
                 ImGui::TableNextRow();
 
-                // Instance name — use GameHandler's Map.dbc cache (avoids duplicate DBC load)
+                // Instance name - use GameHandler's Map.dbc cache (avoids duplicate DBC load)
                 ImGui::TableSetColumnIndex(0);
                 std::string mapName = gameHandler.getMapName(lo.mapId);
                 if (!mapName.empty()) {
@@ -4748,7 +4748,7 @@ VkDescriptorSet WindowManager::getAchievementIcon(uint32_t spellIconId) {
 
     auto pit = achievementIconPaths_.find(spellIconId);
     if (pit == achievementIconPaths_.end()) {
-        achievementIconCache_[spellIconId] = VK_NULL_HANDLE;  // no such icon — cache the miss
+        achievementIconCache_[spellIconId] = VK_NULL_HANDLE;  // no such icon - cache the miss
         return VK_NULL_HANDLE;
     }
 
@@ -4759,7 +4759,7 @@ VkDescriptorSet WindowManager::getAchievementIcon(uint32_t spellIconId) {
 
     auto* window = services_.window;
     auto* vkCtx = window ? window->getVkContext() : nullptr;
-    if (!vkCtx) return VK_NULL_HANDLE;  // no context yet — retry next frame
+    if (!vkCtx) return VK_NULL_HANDLE;  // no context yet - retry next frame
 
     VkDescriptorSet ds = vkCtx->uploadImGuiTexture(image.data.data(), image.width, image.height);
     achievementIconCache_[spellIconId] = ds;
@@ -5205,7 +5205,7 @@ void WindowManager::renderTitlesWindow(game::GameHandler& gameHandler) {
 }
 
 // ─── Equipment Set Manager Window ─────────────────────────────────────────────
-// Nothing sets showEquipSetWindow_ true, anywhere — this window has no way to
+// Nothing sets showEquipSetWindow_ true, anywhere - this window has no way to
 // be opened and never draws. Left rather than removed because the equipment-set
 // packets it reads were repaired this week and FrameXML's GearManagerDialog is
 // the path that reaches them now: the manager is behind the equipmentManager

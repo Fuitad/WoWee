@@ -256,7 +256,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 errors.push_back(ctx + ": name is empty");
             if (e.mapId == 0)
                 errors.push_back(ctx +
-                    ": mapId is 0 — composition is unbound to a map");
+                    ": mapId is 0 - composition is unbound to a map");
             if (e.minPartySize > e.maxPartySize) {
                 errors.push_back(ctx + ": minPartySize " +
                     std::to_string(e.minPartySize) +
@@ -272,14 +272,14 @@ int handleValidate(int& i, int argc, char** argv) {
                     ": required roles sum " + std::to_string(requiredSum) +
                     " > maxPartySize " +
                     std::to_string(e.maxPartySize) +
-                    " — composition can never be filled");
+                    " - composition can never be filled");
             }
             if (requiredSum < e.minPartySize) {
                 warnings.push_back(ctx +
                     ": required roles sum " + std::to_string(requiredSum) +
                     " < minPartySize " +
                     std::to_string(e.minPartySize) +
-                    " — extra slots have no role requirement");
+                    " - extra slots have no role requirement");
             }
             // Standard sizes: 5 / 10 / 25 / 40.
             if (e.maxPartySize != 5 && e.maxPartySize != 10 &&
@@ -293,7 +293,7 @@ int handleValidate(int& i, int argc, char** argv) {
             // tank-immune content; warn so the author confirms.
             if (e.requiredTanks == 0) {
                 warnings.push_back(ctx +
-                    ": requiredTanks=0 — zero-tank composition. "
+                    ": requiredTanks=0 - zero-tank composition. "
                     "Legal for tank-immune fights but unusual; "
                     "double-check this is intentional");
             }

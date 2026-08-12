@@ -186,7 +186,7 @@ bool Inventory::addItem(const ItemDef& item) {
                 uint32_t toAdd = std::min(space, item.stackCount);
                 backpack[i].item.stackCount += toAdd;
                 if (toAdd >= item.stackCount) return true;
-                // Remaining needs a new slot — fall through
+                // Remaining needs a new slot - fall through
             }
         }
     }
@@ -294,7 +294,7 @@ namespace {
 /// agrees with; then the larger stack first, so a part-stack sits below the
 /// full one it will be merged into.
 ///
-/// Written out three times before this — sortBags, sortBank and sortBankBag —
+/// Written out three times before this - sortBags, sortBank and sortBankBag -
 /// and two of the three carried a comment saying "same ordering as sortBags",
 /// which is the rule admitting it has one owner and three copies. A bank that
 /// sorted differently from a bag would not fail anything; it would just be
@@ -544,7 +544,7 @@ std::vector<Inventory::SwapOp> Inventory::computeBankSortSwaps(int mainSlotCount
 }
 
 // Sort one bank bag in place. sortBank() pools every item into the main slots,
-// which destroys a bag being used as a deliberate category — a bag of herbs
+// which destroys a bag being used as a deliberate category - a bag of herbs
 // stays a bag of herbs, just in order.
 void Inventory::sortBankBag(int bagIndex) {
     if (bagIndex < 0 || bagIndex >= BANK_BAG_SLOTS) return;

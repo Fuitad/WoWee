@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Auction House catalog (.wauc) — novel
+// Wowee Open Auction House catalog (.wauc) - novel
 // replacement for Blizzard's AuctionHouse.dbc + the
 // AzerothCore-style auctionhouse / auctionhousebot SQL
 // tables. The 39th open format added to the editor.
@@ -50,7 +50,7 @@ struct WoweeAuction {
     enum FactionAccess : uint8_t {
         Alliance = 0,
         Horde    = 1,
-        Neutral  = 2,    // goblin AHs in classic — both factions can use
+        Neutral  = 2,    // goblin AHs in classic - both factions can use
         Both     = 3,    // private / shared instance house
     };
 
@@ -92,13 +92,13 @@ public:
 
     // Preset emitters used by --gen-auction* variants.
     //
-    //   makeStarter — 1 neutral house with stock 12h/24h/48h
+    //   makeStarter - 1 neutral house with stock 12h/24h/48h
     //                  duration tiers and 5% cut.
-    //   makeFactionPair — Alliance + Horde + Neutral (3
+    //   makeFactionPair - Alliance + Horde + Neutral (3
     //                      houses) with the canonical
     //                      neutral 15% cut vs faction 5% cut
     //                      asymmetry.
-    //   makeRestricted — 1 house that disallows Quest +
+    //   makeRestricted - 1 house that disallows Quest +
     //                     Container item classes (auction
     //                     house templates with tighter rules).
     static WoweeAuction makeStarter(const std::string& catalogName);

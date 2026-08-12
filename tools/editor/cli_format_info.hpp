@@ -4,7 +4,7 @@ namespace wowee {
 namespace editor {
 namespace cli {
 
-// Dispatch the proprietary-format inspection handlers — each
+// Dispatch the proprietary-format inspection handlers - each
 // reads a Blizzard-format file and prints its structure:
 //   --info-png    --info-blp
 //   --info-m2     --info-wmo

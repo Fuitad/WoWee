@@ -253,7 +253,7 @@ int handleValidate(int& i, int argc, char** argv) {
                     " not in 0..7 (poor / common / uncommon / rare / "
                     "epic / legendary / artifact / heirloom)");
             }
-            // A suffix with no stats is mechanically meaningless —
+            // A suffix with no stats is mechanically meaningless -
             // it would just rename the item without changing it.
             bool anyStat = false;
             for (size_t s = 0;
@@ -279,7 +279,7 @@ int handleValidate(int& i, int argc, char** argv) {
             }
             if (!anyStat) {
                 warnings.push_back(ctx +
-                    ": no stats — suffix renames item but adds nothing");
+                    ": no stats - suffix renames item but adds nothing");
             }
             if (!idsSeen.add(e.suffixId)) errors.push_back(ctx + ": duplicate suffixId");
         }

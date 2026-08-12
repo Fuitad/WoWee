@@ -97,12 +97,12 @@ public:
 };
 
 // --- /leave, /leaveparty ---
-// /leave — leave party (no args) or leave channel (with args, WoW-style overload)
+// /leave - leave party (no args) or leave channel (with args, WoW-style overload)
 class LeavePartyCommand : public IChatCommand {
 public:
     ChatCommandResult execute(ChatCommandContext& ctx) override {
         if (!ctx.args.empty()) {
-            // /leave ChannelName — leave a chat channel
+            // /leave ChannelName - leave a chat channel
             ctx.gameHandler.leaveChannel(ctx.args);
         } else {
             ctx.gameHandler.leaveParty();

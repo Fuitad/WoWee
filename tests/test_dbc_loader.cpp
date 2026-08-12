@@ -284,7 +284,7 @@ TEST_CASE("JSON DBC findRecordById", "[dbc][json]") {
 
 TEST_CASE("DBCFile::load rejects absurd recordCount header", "[dbc][hardening]") {
     // Hand-build a DBC header that would overflow the recordCount * recordSize
-    // multiplication if we used uint32 — recordCount=1B, recordSize=1024.
+    // multiplication if we used uint32 - recordCount=1B, recordSize=1024.
     // Without the bounds check the resize would be tiny but the memcpy would
     // read TB of memory.
     using namespace wowee::pipeline;
@@ -356,7 +356,7 @@ TEST_CASE("detectEnchantmentNameField picks the name column per record width", "
     REQUIRE(dbc.getString(0, 8) == "ockbiter 3");  // what the bug produced
 }
 
-// An out-of-range layout override must not win — a stale index garbles every name.
+// An out-of-range layout override must not win - a stale index garbles every name.
 TEST_CASE("detectEnchantmentNameField ignores an out-of-range layout override", "[dbc][enchant]") {
     using namespace wowee::pipeline;
 
@@ -417,7 +417,7 @@ TEST_CASE("resolveEnchantItemVisuals walks enchant to effect model paths", "[dbc
 
     // An enchant with no visual (ItemVisual 0) yields nothing rather than slot 0's model.
     std::vector<uint32_t> plainRec(38, 0);
-    plainRec[0] = 2629;   // Brilliant Mana Oil — no item visual
+    plainRec[0] = 2629;   // Brilliant Mana Oil - no item visual
     auto plainData = buildSyntheticDBC(1, 38, {plainRec}, std::string(1, '\0'));
     DBCFile plain;
     REQUIRE(plain.load(plainData));
@@ -428,7 +428,7 @@ TEST_CASE("resolveEnchantItemVisuals walks enchant to effect model paths", "[dbc
 TEST_CASE("Spell.dbc's timing columns come from the file's shape", "[dbc][spell]") {
     // The three columns move together as the record grows, and which shape an
     // install has is a property of the file rather than of the expansion being
-    // played — a Classic profile with no Spell.dbc of its own reads the shared
+    // played - a Classic profile with no Spell.dbc of its own reads the shared
     // WotLK one. These three widths are the real files: Vanilla 173 fields, TBC
     // 216, WotLK 234.
     //

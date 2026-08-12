@@ -1,4 +1,4 @@
-// world_map_types.hpp — Vulkan-free domain types for the world map system.
+// world_map_types.hpp - Vulkan-free domain types for the world map system.
 // Extracted from rendering/world_map.hpp (Phase 1 of refactoring plan).
 // Consumers of these types do NOT need Vulkan/VMA headers.
 #pragma once
@@ -68,7 +68,7 @@ struct OverlayEntry {
     uint16_t texWidth = 0, texHeight = 0;  // Overlay size in pixels
     uint16_t offsetX = 0, offsetY = 0;     // Pixel offset within zone map
     int tileCols = 0, tileRows = 0;
-    // HitRect from WorldMapOverlay.dbc fields 13-16 — fast AABB pre-filter for
+    // HitRect from WorldMapOverlay.dbc fields 13-16 - fast AABB pre-filter for
     // subzone hover detection in zone view (avoids sampling every overlay).
     uint16_t hitRectLeft = 0, hitRectRight = 0;
     uint16_t hitRectTop = 0, hitRectBottom = 0;
@@ -123,7 +123,7 @@ struct TaxiNode {
     float     wowX = 0, wowY = 0, wowZ = 0;  ///< Canonical WoW coordinates
     std::string name;      ///< Node name (shown as tooltip)
     bool      known = false; ///< Player has discovered this node
-    // Flight-map (taxi selection mode) data — only meaningful while a flight
+    // Flight-map (taxi selection mode) data - only meaningful while a flight
     // master window is open and the cost map is built from the current node.
     uint32_t  costCopper = 0;   ///< Total flight cost from the current node
     bool      current = false;  ///< This is the node the player is standing at

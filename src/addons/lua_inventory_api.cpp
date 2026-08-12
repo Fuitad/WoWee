@@ -1,4 +1,4 @@
-// lua_inventory_api.cpp — Items, containers, merchant, loot, equipment, trading, auction, and mail Lua API bindings.
+// lua_inventory_api.cpp - Items, containers, merchant, loot, equipment, trading, auction, and mail Lua API bindings.
 // Extracted from lua_engine.cpp as part of §5.1 (Tame LuaEngine).
 #include "addons/lua_api_helpers.hpp"
 #include "game/inventory_slots.hpp"
@@ -20,7 +20,7 @@ namespace wowee::addons {
 ///
 /// These answered zero alongside the cursor, on the reasoning that there is no
 /// trade open when the money frame first reads them. That much is true, and it
-/// is why they must answer a number — but it is only true at load. The client
+/// is why they must answer a number - but it is only true at load. The client
 /// tracks both amounts for the whole trade, and answering zero throughout meant
 /// the trade window showed each side offering nothing however much gold was
 /// actually on the table. Someone would accept a trade believing no gold was
@@ -52,13 +52,13 @@ static int lua_GetSendMailPrice(lua_State* L) {
 }
 
 /// Uncommon, which is the default a fresh group starts on. Concatenated
-/// straight into a global name — "ITEM_QUALITY" .. threshold .. "_DESC" — so
+/// straight into a global name - "ITEM_QUALITY" .. threshold .. "_DESC" - so
 /// it has to be a number rather than nothing.
 /// GetLootThreshold() → the quality at which group loot rules kick in.
 ///
 /// It answered a constant uncommon, which is only the default. The party data
 /// carries the real threshold and GetLootMethod beside it has been reading its
-/// half of the same packet all along — so the loot dropdown showed uncommon
+/// half of the same packet all along - so the loot dropdown showed uncommon
 /// for a group that had set anything else, and setting it appeared not to
 /// take.
 ///
@@ -86,7 +86,7 @@ static int lua_GetMoney(lua_State* L) {
 ///
 /// The comment that used to sit here said durability was not tracked. It is,
 /// per equipped item, and GetInventoryItemDurability has been answering from
-/// the same two fields all along — so the armoured-figure warning never lit
+/// the same two fields all along - so the armoured-figure warning never lit
 /// up whatever state the gear was in.
 ///
 /// The index is durabilityframe.lua's own INVENTORY_ALERT_STATUS_SLOTS
@@ -117,12 +117,12 @@ static int lua_GetInventoryAlertStatus(lua_State* L) {
 
 // GetBankSlotCost(slotsOwned) → what the next bank bag slot costs, in copper.
 //
-// The bank compares it against the player's money the line after it asks —
+// The bank compares it against the player's money the line after it asks -
 //
 //     local cost = GetBankSlotCost(numSlots);
 //     if( GetMoney() >= cost ) then
 //
-// — so nil is a comparison against nothing and takes the frame down as it
+// - so nil is a comparison against nothing and takes the frame down as it
 // opens. Only reached while the bank window is handed over, since the events
 // that lead here are registered in its OnShow and a suppressed frame never
 // runs one, but that is the case this branch exists to make work.
@@ -147,13 +147,13 @@ static int lua_GetBankSlotCost(lua_State* L) {
 // all of them.
 //
 // The count comes off the player's own update field and this client has had it
-// all along — the bank window draws its bag row from exactly this number. Only
+// all along - the bank window draws its bag row from exactly this number. Only
 // the binding was missing, so the interface fell through to the stub that
 // answers zero for anything named GetNum*, and zero is not a harmless wrong
 // answer here: bankframe.lua tints every bag button past numSlots red for
 // "purchase", so a player with all seven bought was shown seven for sale.
 //
-// The second return is WoW's own convention — 1 when there is nothing left to
+// The second return is WoW's own convention - 1 when there is nothing left to
 // buy, nil rather than false otherwise, which is the same thing to the `if`
 // that reads it.
 static int lua_GetNumBankSlots(lua_State* L) {
@@ -208,13 +208,13 @@ static int lua_KeyRingButtonIDToInvSlotID(lua_State* L) {
     return 1;
 }
 
-/// SetPortraitToTexture(texture, path) — the rounded icon a bag or panel puts
+/// SetPortraitToTexture(texture, path) - the rounded icon a bag or panel puts
 /// in its corner. Drawn square here, since the mask that rounds it is not
 /// modelled, but drawn: leaving it to the fallback left the region showing
 /// whatever it last held.
 ///
 /// The first argument is a texture or the name of one, and FrameXML uses both
-/// within four lines of each other — ContainerFrame_Update passes the object
+/// within four lines of each other - ContainerFrame_Update passes the object
 /// for an ordinary bag and the name for the keyring. Taking only the object
 /// meant the keyring silently kept whatever icon it had.
 static int lua_SetPortraitToTexture(lua_State* L) {
@@ -236,7 +236,7 @@ static int lua_SetPortraitToTexture(lua_State* L) {
 /// that answers with an object, and an object called as a function raises.
 static int lua_ContainerNoOp(lua_State* L) { (void)L; return 0; }
 
-/// SpellCanTargetItem() — whether something is waiting to be applied to an item.
+/// SpellCanTargetItem() - whether something is waiting to be applied to an item.
 ///
 /// This client does have the notion after all: a sharpening stone, an oil, an
 /// enchanting scroll and a disenchant all park the use and wait for the player
@@ -252,7 +252,7 @@ static int lua_SpellCanTargetItem(lua_State* L) {
 // ── Merchant: buyback and repair ───────────────────────────────────────────
 //
 // MerchantFrame reads all of these and this client already tracks what they
-// want — items sold back, the cost to repair everything — so answering them
+// want - items sold back, the cost to repair everything - so answering them
 // with real numbers costs nothing beyond saying so.
 
 /// GetBuybackItemInfo(index) → name, texture, price, quantity, numAvailable,
@@ -332,8 +332,8 @@ static int lua_GetMerchantItemMaxStack(lua_State* L) {
 /// The extended cost behind a vendor slot, or null when it is bought with coin.
 ///
 /// The badges, marks and honour some vendors charge instead of money. Parsed
-/// from the vendor inventory — which not every server sends, so the field is
-/// read conditionally — and looked up through getExtendedCost.
+/// from the vendor inventory - which not every server sends, so the field is
+/// read conditionally - and looked up through getExtendedCost.
 ///
 /// The two lines that used to open this comment said it was not tracked and
 /// that zero meant "this one costs money". Both were true once and neither
@@ -350,7 +350,7 @@ static const game::GameHandler::ExtendedCostEntry* merchantCost(lua_State* L, in
 // GetMerchantItemCostInfo(index) → honorPoints, arenaPoints, itemCount
 //
 // Three values, not one. The merchant frame reads all three and then tests
-// `itemCount > 0` — against nil that is an error rather than a false, and it
+// `itemCount > 0` - against nil that is an error rather than a false, and it
 // runs for every slot the vendor shows.
 static int lua_GetMerchantItemCostInfo(lua_State* L) {
     const int index = static_cast<int>(luaL_optnumber(L, 1, 0));
@@ -438,7 +438,7 @@ static int lua_GetMerchantItemInfo(lua_State* L) {
     lua_pushnumber(L, vi.stackCount > 0 ? vi.stackCount : 1); // stackCount
     lua_pushnumber(L, vi.maxCount == -1 ? -1 : vi.maxCount);  // numAvailable (-1=unlimited)
     lua_pushboolean(L, 1);                              // isUsable
-    // The extended cost — tokens, honour, arena points — which merchantframe
+    // The extended cost - tokens, honour, arena points - which merchantframe
     // reads as `if ( extendedCost and (price <= 0) )` to decide whether to
     // show a token price instead of a coin one. It was not returned at all, so
     // an item bought with marks or emblems showed as free.
@@ -497,7 +497,7 @@ static uint32_t itemIdFromArg(lua_State* L, int index) {
 //
 // Armour and weapons only: everything else has no display slot, and the frame
 // opens an empty preview for anything that answers yes.
-/// __WoweeTryOn(frame, itemLinkOrId) — put an item on a model frame.
+/// __WoweeTryOn(frame, itemLinkOrId) - put an item on a model frame.
 ///
 /// DressUpModel:TryOn(link) is the "try on" every item link and auction row
 /// offers. The list belongs to the frame rather than to the application: a
@@ -530,7 +530,7 @@ static int lua_WoweeTryOn(lua_State* L) {
     return 0;
 }
 
-/// __WoweeSetModelCreature(frame, displayId) — what a model frame is showing.
+/// __WoweeSetModelCreature(frame, displayId) - what a model frame is showing.
 ///
 /// The companion preview and the stable's paperdoll both name a creature this
 /// way. The id is written onto the frame rather than acted on here, because
@@ -548,7 +548,7 @@ static int lua_WoweeSetModelCreature(lua_State* L) {
     return 0;
 }
 
-/// __WoweeUndress(frame) — take everything tried on back off.
+/// __WoweeUndress(frame) - take everything tried on back off.
 static int lua_WoweeUndress(lua_State* L) {
     auto* tree = getWidgetTree(L);
     if (!tree || !lua_istable(L, 1)) return 0;
@@ -581,7 +581,7 @@ static int lua_GetItemInfo(lua_State* L) {
     // Ask the server for it rather than only reporting its absence.
     //
     // An item template arrives from the server, and until it does this
-    // answered nil and left it at that — so hovering anything the client had
+    // answered nil and left it at that - so hovering anything the client had
     // not already seen gave a name and nothing else, permanently. The real
     // client sends CMSG_ITEM_QUERY_SINGLE on exactly this miss.
     //
@@ -603,7 +603,7 @@ static int lua_GetItemInfo(lua_State* L) {
     lua_pushnumber(L, info->quality);                // 3: quality
     lua_pushnumber(L, info->itemLevel);              // 4: iLevel
     lua_pushnumber(L, info->requiredLevel);          // 5: requiredLevel
-    // 6: class (type string) — map itemClass to display name
+    // 6: class (type string) - map itemClass to display name
     {
         static constexpr const char* kItemClasses[] = {
             "Consumable", "Bag", "Weapon", "Gem", "Armor", "Reagent", "Projectile",
@@ -615,10 +615,10 @@ static int lua_GetItemInfo(lua_State* L) {
         else
             lua_pushstring(L, "Miscellaneous");
     }
-    // 7: subclass — use subclassName from ItemDef if available, else generic
+    // 7: subclass - use subclassName from ItemDef if available, else generic
     lua_pushstring(L, info->subclassName.empty() ? "" : info->subclassName.c_str());
     lua_pushnumber(L, info->maxStack > 0 ? info->maxStack : 1); // 8: maxStack
-    // 9: equipSlot — WoW inventoryType to INVTYPE string
+    // 9: equipSlot - WoW inventoryType to INVTYPE string
     {
         static constexpr const char* kInvTypes[] = {
             "", "INVTYPE_HEAD", "INVTYPE_NECK", "INVTYPE_SHOULDER",
@@ -680,14 +680,14 @@ static int lua_GetItemQualityColor(lua_State* L) {
 
 // GetCoinText(amount, separator) → "12g 30s 45c"
 //
-// Denominations with a zero count are left out, as WoW does — except when the
+// Denominations with a zero count are left out, as WoW does - except when the
 // whole amount is zero, which prints as copper rather than as nothing.
 
 // Moving money with the cursor: picking an amount up, dropping it into a trade,
 // a mail, a mail's cash-on-delivery box, or the guild bank.
 //
-// Kept for the two money types this client cannot move — the guild bank's and
-// the auction's — where the gesture exists in the interface and there is
+// Kept for the two money types this client cannot move - the guild bank's and
+// the auction's - where the gesture exists in the interface and there is
 // nowhere for it to land. Trade and mail have their own now: the cursor does
 // carry money, and the comment that used to sit here saying otherwise was
 // written before PickupPlayerMoney and setCursorMoney were.
@@ -697,7 +697,7 @@ static int lua_MoneyCursorNoop(lua_State* L) { (void)L; return 0; }
 ///
 /// MoneyTypeInfo["PLAYER_TRADE"].DropFunc calls this with **no argument**: the
 /// amount is whatever is on the cursor, which is the whole design the cursor
-/// helper describes — the frame it is dropped on reads the amount, puts it
+/// helper describes - the frame it is dropped on reads the amount, puts it
 /// where it belongs and clears the cursor. A no-op meant dragging gold onto a
 /// trade did nothing, and there is no other way to offer money in this panel.
 static int lua_AddTradeMoney(lua_State* L) {
@@ -710,7 +710,7 @@ static int lua_AddTradeMoney(lua_State* L) {
 }
 
 /// The pick-up half: take money back off the trade onto the cursor. Without an
-/// amount, all of it — which is what the money frame passes when the whole
+/// amount, all of it - which is what the money frame passes when the whole
 /// figure is dragged.
 static int lua_PickupTradeMoney(lua_State* L) {
     auto* gh = getGameHandler(L);
@@ -732,7 +732,7 @@ static int lua_GetContainerItemPurchaseInfo(lua_State* L) {
     // money, honorPoints, arenaPoints, itemCount, refundSeconds.
     //
     // This answered five nils on the reading that the refund window is server
-    // state this client is never sent. It is sent — as a reply to
+    // state this client is never sent. It is sent - as a reply to
     // CMSG_ITEM_REFUND_INFO, which nothing here had ever asked. So the first
     // call for an item asks and answers nothing, and the reply fires
     // UPDATE_INVENTORY_ALERTS, which is what brings the interface back.
@@ -773,7 +773,7 @@ static int lua_GetContainerItemPurchaseInfo(lua_State* L) {
 // GetContainerItemPurchaseItem(bag, slot, index, isEquipped) →
 //   texture, quantity, link, name
 //
-// The items that would come back with a refund — a badge or a mark, whatever
+// The items that would come back with a refund - a badge or a mark, whatever
 // the vendor charged besides money. Reached only once the call above reports a
 // live window, which it does now.
 static int lua_GetContainerItemPurchaseItem(lua_State* L) {
@@ -810,7 +810,7 @@ static int lua_GetContainerItemPurchaseItem(lua_State* L) {
 //
 // Only currencies the player actually holds are listed. The real client lists
 // every one ever earned, from PLAYER_FIELD_KNOWN_CURRENCIES, which is not
-// parsed here — showing what is held is the subset that can be stated
+// parsed here - showing what is held is the subset that can be stated
 // truthfully, and the tab was completely empty before.
 namespace {
 
@@ -884,7 +884,7 @@ const char* bankLogTypeName(uint8_t type) {
     }
 }
 
-/// An item link for the log line, or nil when the entry carries no item —
+/// An item link for the log line, or nil when the entry carries no item -
 /// which is every money line, and nil is what the format string skips.
 void pushItemLinkOrNil(lua_State* L, game::GameHandler* gh, uint32_t itemId) {
     const auto* info = itemId ? gh->getItemInfo(itemId) : nullptr;
@@ -896,7 +896,7 @@ void pushItemLinkOrNil(lua_State* L, game::GameHandler* gh, uint32_t itemId) {
     lua_pushstring(L, link);
 }
 
-/// years, months, days, hours — each counted *ago*, which is how
+/// years, months, days, hours - each counted *ago*, which is how
 /// RecentTimeDate reads them: it takes the largest that is not zero and says
 /// "N days ago". The server sends one number of seconds, so they are derived
 /// from it rather than from a calendar.
@@ -945,7 +945,7 @@ static int lua_GetItemCount(lua_State* L) {
     return 1;
 }
 
-// SplitContainerItem(bag, slot, count) — take part of a stack onto the cursor
+// SplitContainerItem(bag, slot, count) - take part of a stack onto the cursor
 //
 // The interface counts containers from zero for the backpack and one to four
 // for the bags, with slots starting at one. The wire counts neither way: the
@@ -967,7 +967,7 @@ static int lua_SplitContainerItem(lua_State* L) {
     // it: the stack-split dialog calls this, and the player then drops what
     // they are carrying wherever they meant it to go. This sent the split to
     // the first free bag slot instead, so a stack could only ever be broken in
-    // half where it already was — the drop had nothing to carry and moving part
+    // half where it already was - the drop had nothing to carry and moving part
     // of a stack anywhere else was impossible through the interface.
     //
     // The guild bank already worked this way: the amount rides on the cursor
@@ -1050,7 +1050,7 @@ static int lua_GetInboxItemLink(lua_State* L) {
     return 1;
 }
 
-// TakeInboxItem(index, slot) — an attachment is asked for by its own id, not by
+// TakeInboxItem(index, slot) - an attachment is asked for by its own id, not by
 // where it sits in the list
 static int lua_TakeInboxItem(lua_State* L) {
     auto* gh = getGameHandler(L);
@@ -1074,13 +1074,13 @@ static int lua_DeleteInboxItem(lua_State* L) {
     return 0;
 }
 
-// InboxItemCanDelete(index) — nothing here refuses a deletion
+// InboxItemCanDelete(index) - nothing here refuses a deletion
 static int lua_InboxItemCanDelete(lua_State* L) {
     lua_pushboolean(L, 1);
     return 1;
 }
 
-// AutoLootMailItem(index) — the coin first, then every attachment
+// AutoLootMailItem(index) - the coin first, then every attachment
 static int lua_AutoLootMailItem(lua_State* L) {
     auto* gh = getGameHandler(L);
     const auto* mail = mailAt(gh, static_cast<int>(luaL_optnumber(L, 1, 0)));
@@ -1097,7 +1097,7 @@ static int lua_AutoLootMailItem(lua_State* L) {
 // What is attached to the letter being written, and an empty slot is most of
 // them: the compose frame walks all twelve every time it updates.
 //
-// An empty one answers nil, nil, 0, nil — a count of zero rather than no
+// An empty one answers nil, nil, 0, nil - a count of zero rather than no
 // count. SendMailFrame_Update writes `if ( stackCount <= 1 )` with nothing in
 // front of it, so a nil there is not an empty slot but a comparison against
 // nothing, which raises on the first slot and takes the rest of the frame with
@@ -1135,17 +1135,17 @@ static int lua_GetSendMailItem(lua_State* L) {
     return 4;
 }
 
-// ReturnInboxItem(index) — send a letter back where it came from, with
+// ReturnInboxItem(index) - send a letter back where it came from, with
 // whatever is still attached to it.
 //
 // The one inbox action that was missing: taking the money, taking an
 // attachment and deleting were all here, and returning was not, so a letter
-// that should have gone back could only be deleted — which destroys whatever
+// that should have gone back could only be deleted - which destroys whatever
 // came with it.
 // GetCoinIcon(copper) → the coin to draw for an amount.
 //
 // The letter's money attachment is drawn with SetItemButtonTexture, and a nil
-// texture reads as an empty slot to FrameXML — so a letter carrying gold showed
+// texture reads as an empty slot to FrameXML - so a letter carrying gold showed
 // nothing attached at all. Gold above a gold, silver above a silver, copper
 // below: the three icon paths are the ones globalstrings names in
 // GOLD_AMOUNT_TEXTURE and its pair, so this is the interface's own artwork
@@ -1190,7 +1190,7 @@ static int lua_CheckInbox(lua_State* L) {
 // not work until whoever received it says so.
 //
 // The amount belongs here rather than on the game handler because it is not
-// game state — the server is told it once, as an argument to the send. It is
+// game state - the server is told it once, as an argument to the send. It is
 // cleared after a send and when the mailbox closes so that a figure typed and
 // then abandoned cannot attach itself to the next letter.
 namespace {
@@ -1226,7 +1226,7 @@ static int lua_SetSendMailCOD(lua_State* L) {
 // The coin pickup frame adds to what is already attached rather than replacing
 // it, so these are not the setters under another name.
 // Called bare by the money frame's DropFunc, so an absent argument means the
-// cursor's whole amount rather than nothing — which is what `+= copperArg` came
+// cursor's whole amount rather than nothing - which is what `+= copperArg` came
 // to, leaving dragged gold out of the letter without a word.
 static int lua_AddSendMailMoney(lua_State* L) {
     const uint32_t named = copperArg(L, 1);
@@ -1263,7 +1263,7 @@ static int lua_GetSendMailCOD(lua_State* L) {
     return 1;
 }
 
-// SendMail(recipient, subject, body) — the money and the cash-on-delivery were
+// SendMail(recipient, subject, body) - the money and the cash-on-delivery were
 // set separately by the interface before this was called.
 static int lua_SendMail(lua_State* L) {
     auto* gh = getGameHandler(L);
@@ -1281,8 +1281,8 @@ static int lua_SendMail(lua_State* L) {
 // --- Equipment sets ---
 //
 // These live on the server: it sends the list, and saving, using and deleting
-// are requests. This client already receives and keeps all of it — the names,
-// the icons, the item in each slot and the slots a set was told to ignore — so
+// are requests. This client already receives and keeps all of it - the names,
+// the icons, the item in each slot and the slots a set was told to ignore - so
 // these read that rather than keeping a second set of sets on this side. A
 // local copy would not be the character's sets, and anything saved through it
 // would not exist for anyone else.
@@ -1411,7 +1411,7 @@ static int lua_GetEquipmentSetItemIDs(lua_State* L) {
     return 1;
 }
 
-// SaveEquipmentSet(name, iconIndex) — asks the server to keep it
+// SaveEquipmentSet(name, iconIndex) - asks the server to keep it
 static int lua_SaveEquipmentSet(lua_State* L) {
     auto* gh = getGameHandler(L);
     const std::string name = luaL_optstring(L, 1, "");
@@ -1457,7 +1457,7 @@ static int lua_UseEquipmentSet(lua_State* L) {
     return 1;
 }
 
-// EquipmentSetContainsLockedItems(name) — nothing here locks an item
+// EquipmentSetContainsLockedItems(name) - nothing here locks an item
 static int lua_EquipmentSetContainsLockedItems(lua_State* L) {
     lua_pushboolean(L, 0);
     return 1;
@@ -1477,7 +1477,7 @@ static int lua_EquipmentManagerClearIgnoredSlotsForSave(lua_State* L) {
     return 0;
 }
 
-// GetInventoryItemsForSlot(slotId, table) — everything that could go in a slot
+// GetInventoryItemsForSlot(slotId, table) - everything that could go in a slot
 //
 // Fills the caller's table with location -> itemID, where the location is packed
 // the way the equipment manager unpacks it: a flag for where it is, and for a
@@ -1612,12 +1612,12 @@ static int lua_GetInventoryItemDurability(lua_State* L) {
     return 2;
 }
 
-// UseItemByName(item) — what /use does
+// UseItemByName(item) - what /use does
 /// The unit a /use was aimed at, or zero for "as the item would go anyway".
 ///
-/// chatframe passes one to all three of the use bindings —
+/// chatframe passes one to all three of the use bindings -
 /// UseContainerItem(bag, slot, target), UseInventoryItem(slot, target) and
-/// UseItemByName(name, target) — and none of them read it, so
+/// UseItemByName(name, target) - and none of them read it, so
 /// `/use [target=Bob] <bandage>` bandaged whoever asked. An unresolvable name
 /// answers zero rather than refusing: the item then goes where it always did,
 /// which is better than a click that does nothing.
@@ -1637,8 +1637,8 @@ static int lua_UseItemByName(lua_State* L) {
     return 0;
 }
 
-// EquipItemByName(item) — what /equip does
-/// EquipItemByName(item [, slot]) — wear it, optionally in a named slot.
+// EquipItemByName(item) - what /equip does
+/// EquipItemByName(item [, slot]) - wear it, optionally in a named slot.
 ///
 /// The second argument was read by nothing, so `/equipslot 12 Some Trinket`
 /// picked whichever trinket slot the server preferred and the number the player
@@ -1651,7 +1651,7 @@ static int lua_EquipItemByName(lua_State* L) {
     const uint32_t itemId = carriedItemMatching(gh, L, 1);
     if (itemId == 0) return 0;
     const int wantSlot = static_cast<int>(luaL_optnumber(L, 2, 0));
-    // Zero is "no slot named", not slot zero — the interface's own numbering
+    // Zero is "no slot named", not slot zero - the interface's own numbering
     // starts at one, so there is no ambiguity to resolve.
     if (wantSlot >= 1 && wantSlot <= game::Inventory::NUM_EQUIP_SLOTS) {
         const uint64_t guid = gh->resolveOnlineItemGuid(itemId);
@@ -1659,7 +1659,7 @@ static int lua_EquipItemByName(lua_State* L) {
             gh->equipItemToSlot(guid, static_cast<uint8_t>(wantSlot - 1));
             return 0;
         }
-        // No guid for it — fall through and let the server choose, which is
+        // No guid for it - fall through and let the server choose, which is
         // better than doing nothing at all.
     }
     const auto& inv = gh->getInventory();
@@ -1679,17 +1679,17 @@ static int lua_EquipItemByName(lua_State* L) {
     return 0;
 }
 
-// IsEquippableItem(item) — whether it has a slot to go in at all
+// IsEquippableItem(item) - whether it has a slot to go in at all
 static int lua_IsEquippableItem(lua_State* L) {
     auto* gh = getGameHandler(L);
     const uint32_t itemId = itemIdFromArg(L, 1);
     const auto* info = (gh && itemId) ? gh->getItemInfo(itemId) : nullptr;
-    // Zero is "nowhere to wear it" — reagents, food, quest items.
+    // Zero is "nowhere to wear it" - reagents, food, quest items.
     lua_pushboolean(L, (info && info->inventoryType != 0) ? 1 : 0);
     return 1;
 }
 
-// IsEquippedItem(item) — whether it is being worn right now
+// IsEquippedItem(item) - whether it is being worn right now
 static int lua_IsEquippedItem(lua_State* L) {
     auto* gh = getGameHandler(L);
     const uint32_t itemId = itemIdFromArg(L, 1);
@@ -1705,7 +1705,7 @@ static int lua_IsEquippedItem(lua_State* L) {
     return 1;
 }
 
-// UseInventoryItem(slot) — use what is equipped in a slot
+// UseInventoryItem(slot) - use what is equipped in a slot
 //
 // How a trinket is clicked on the character sheet. The slot numbers are the
 // interface's, one-based, and the item is used by id the same way the client's
@@ -1722,14 +1722,14 @@ static int lua_UseInventoryItem(lua_State* L) {
     return 0;
 }
 
-// CloseBankFrame() — tell the server the bank is done with
+// CloseBankFrame() - tell the server the bank is done with
 static int lua_CloseBankFrame(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (gh) gh->closeBank();
     return 0;
 }
 
-// UseContainerItem(bag, slot) — use/equip an item from a bag
+// UseContainerItem(bag, slot) - use/equip an item from a bag
 static int lua_UseContainerItem(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (!gh) return 0;
@@ -1750,8 +1750,8 @@ static int lua_UseContainerItem(lua_State* L) {
     // from this client's own bag window, which is where the distinction was
     // already drawn and which is handed over.
     //
-    // Openable is an item flag rather than an item-class guarantee — some
-    // fishing containers are miscellaneous items — so both the flag and the
+    // Openable is an item flag rather than an item-class guarantee - some
+    // fishing containers are miscellaneous items - so both the flag and the
     // container class count, or those fall through to a CMSG_USE_ITEM the
     // server silently ignores.
     constexpr uint32_t kItemFlagOpenable = 0x00000004u;
@@ -1762,7 +1762,7 @@ static int lua_UseContainerItem(lua_State* L) {
                            info->itemClass == 1);
 
     // What an open window makes a right-click mean, in the order this client's
-    // own bag window decided it — mail, bank, guild bank, merchant — because
+    // own bag window decided it - mail, bank, guild bank, merchant - because
     // that window is the specification and it is the one being suppressed. The
     // real client reads UseContainerItem the same way and containerframe.lua
     // has no branch for any of them: line 733 routes every right-click here and
@@ -1770,7 +1770,7 @@ static int lua_UseContainerItem(lua_State* L) {
     //
     // Each of these verbs had exactly one caller, in the window handed over, so
     // handing the bags to FrameXML left no way to attach mail, bank an item or
-    // stock a guild bank at all — and a right-click ran on to the branches
+    // stock a guild bank at all - and a right-click ran on to the branches
     // below and *used* the item instead.
     //
     // Trade is deliberately not here. setTradeItem needs a slot to put the item
@@ -1778,7 +1778,7 @@ static int lua_UseContainerItem(lua_State* L) {
     // so a branch would be inventing behaviour rather than restoring it; a
     // trade is made by dragging, which the cursor bridge carries.
     // A key, before any of the window branches below. Those read the container
-    // as a worn bag — attachItemFromBag(bag - 1, ...) and sellItemInBag do —
+    // as a worn bag - attachItemFromBag(bag - 1, ...) and sellItemInBag do -
     // and a key cannot be mailed, sold or banked in any case: the keyring is
     // the only place one can live, so using it is the only thing a right-click
     // can mean.
@@ -1808,8 +1808,8 @@ static int lua_UseContainerItem(lua_State* L) {
         return 0;
     }
 
-    // A bank bag with the bank shut cannot be reached — CloseBankBagFrames
-    // shuts all seven on BANKFRAME_CLOSED — and every branch past here reads
+    // A bank bag with the bank shut cannot be reached - CloseBankBagFrames
+    // shuts all seven on BANKFRAME_CLOSED - and every branch past here reads
     // the container as a worn bag. Refusing is the honest answer to a state
     // that should not arise, and it is what kept the keyring out of them.
     if (isBankBagContainer(bag) || bag == kBankContainer) return 0;
@@ -1830,8 +1830,8 @@ static int lua_UseContainerItem(lua_State* L) {
     }
 
     // Something with an equip slot is equipped by a right-click, not used.
-    // That is a different message — CMSG_AUTOEQUIP_ITEM rather than
-    // CMSG_USE_ITEM — and this only ever sent the second, so right-clicking
+    // That is a different message - CMSG_AUTOEQUIP_ITEM rather than
+    // CMSG_USE_ITEM - and this only ever sent the second, so right-clicking
     // gear in a bag did nothing at all. It holds for a trinket too: one in a
     // bag is equipped, and only one already worn is used.
     //
@@ -1841,8 +1841,8 @@ static int lua_UseContainerItem(lua_State* L) {
 
     // An item that begins a quest offers it, and that is not a use at all.
     // AzerothCore starts an item quest from CMSG_QUESTGIVER_QUERY_QUEST naming
-    // the *item's* guid — HandleQuestgiverQueryQuestOpcode accepts TYPEMASK_ITEM
-    // — and does nothing with CMSG_USE_ITEM for one. This client's own bag
+    // the *item's* guid - HandleQuestgiverQueryQuestOpcode accepts TYPEMASK_ITEM
+    // - and does nothing with CMSG_USE_ITEM for one. This client's own bag
     // window checked it first for that reason and was the only caller, so with
     // the bags handed over a quest item answered a right-click with nothing at
     // all.
@@ -1893,7 +1893,7 @@ namespace {
 
 struct AuctionSortKey { std::string column; bool reverse = false; };
 
-/// Per list — "list", "owner", "bidder" — because each tab sorts on its own.
+/// Per list - "list", "owner", "bidder" - because each tab sorts on its own.
 std::unordered_map<std::string, std::vector<AuctionSortKey>>& auctionSortState() {
     static std::unordered_map<std::string, std::vector<AuctionSortKey>> s;
     return s;
@@ -1908,7 +1908,7 @@ std::unordered_map<std::string, std::vector<AuctionSortKey>>& auctionSortState()
 /// the entire result rather than one column of ordering.
 ///
 /// Order is reversed on the way out. FrameXML pushes keys least significant
-/// first — GetAuctionSort(table, 1) is the one set *last* — and the server
+/// first - GetAuctionSort(table, 1) is the one set *last* - and the server
 /// walks its vector from the front, taking the first as primary.
 std::vector<game::AuctionSortKey> wireAuctionSort(std::string_view which) {
     static const std::unordered_map<std::string, uint8_t> kColumns = {
@@ -1944,14 +1944,14 @@ game::AuctionListResult* auctionListForSort(game::GameHandler* gh,
 /// Orders two rows on one column.
 ///
 /// Every row gets a defined key, including one whose item template has not
-/// arrived — it falls back to exactly what GetAuctionItemInfo displays for it
+/// arrived - it falls back to exactly what GetAuctionItemInfo displays for it
 /// ("Item #1234", level 0, quality 1), so the order matches what is on screen.
 ///
 /// That is not tidiness. The first version answered "cannot compare" for a row
 /// with no template and let the caller treat the pair as equal, which makes
 /// the comparator not a strict weak ordering: an unknown row is equivalent to
 /// every known one, while the known ones order among themselves. std::sort and
-/// std::stable_sort are undefined on such a comparator — not merely wrong.
+/// std::stable_sort are undefined on such a comparator - not merely wrong.
 bool auctionLess(game::GameHandler* gh, const std::string& column,
                  const game::AuctionEntry& a, const game::AuctionEntry& b) {
     if (column == "quantity") return a.stackCount < b.stackCount;
@@ -1995,7 +1995,7 @@ static int lua_GetItemTooltipData(lua_State* L) {
     if (!gh || itemId == 0) { return luaReturnNil(L); }
     const auto* info = gh->getItemInfo(itemId);
     if (!info) {
-        // Same miss, same request — this is the path a tooltip takes for its
+        // Same miss, same request - this is the path a tooltip takes for its
         // stats, and it was the one leaving rings reading "Miscellaneous".
         gh->queryItemInfo(itemId, 0);
         return luaReturnNil(L);
@@ -2119,7 +2119,7 @@ static int lua_GetContainerNumSlots(lua_State* L) {
     if (!gh) { return luaReturnZero(L); }
     // Through containerSlotCount, which knows the keyring. Answering zero for
     // KEYRING_CONTAINER made GetKeyRingSize loop zero times, so the keyring
-    // frame was generated with no slots and opened empty — while the keys were
+    // frame was generated with no slots and opened empty - while the keys were
     // being tracked out of PLAYER_FIELD_KEYRING_SLOT_1 the whole time.
     lua_pushnumber(L, containerSlotCount(gh->getInventory(), container));
     return 1;
@@ -2128,7 +2128,7 @@ static int lua_GetContainerNumSlots(lua_State* L) {
 // GetKeyRingSize() → how many keys fit.
 //
 // Answered zero, from the list of counts that are zero because the thing
-// counted cannot exist here — which the keyring can. PutKeyInKeyRing walks
+// counted cannot exist here - which the keyring can. PutKeyInKeyRing walks
 // `for i=1, GetKeyRingSize()` looking for a free slot and, finding none,
 // tells the player there are no empty keyring slots: dropping a key on the
 // keyring button failed every time, with an error saying the ring was full.
@@ -2144,7 +2144,7 @@ static int lua_GetKeyRingSize(lua_State* L) {
 }
 
 // GetContainerItemInfo(container, slot) → texture, count, locked, quality, readable, lootable, link
-// GetLatestThreeSenders() — who the unread mail is from.
+// GetLatestThreeSenders() - who the unread mail is from.
 //
 // The minimap's mail icon builds its tooltip from these: with a name it says
 // "You have mail from", with none just "You have mail". This client has had
@@ -2152,7 +2152,7 @@ static int lua_GetKeyRingSize(lua_State* L) {
 // the second, shorter sentence.
 //
 // Newest first, which is the order the tooltip reads them in, and only unread
-// mail — a sender whose letter has been opened is not news. Fewer than three
+// mail - a sender whose letter has been opened is not news. Fewer than three
 // is normal and the caller tests each one, so the tail is simply absent.
 static int lua_GetLatestThreeSenders(lua_State* L) {
     auto* gh = getGameHandler(L);
@@ -2169,7 +2169,7 @@ static int lua_GetLatestThreeSenders(lua_State* L) {
     return 3;
 }
 
-/// PickupEquipmentSetByName(name) — drag a gear set onto the cursor.
+/// PickupEquipmentSetByName(name) - drag a gear set onto the cursor.
 ///
 /// Defined and does nothing, deliberately. The cursor here holds items and
 /// spells; there is no state for it to hold a set, and inventing one to be
@@ -2177,16 +2177,16 @@ static int lua_GetLatestThreeSenders(lua_State* L) {
 ///
 /// Defined all the same because it is reachable: it hangs off OnDragStart of a
 /// set button, guarded only by the set having a name, and equipment sets do
-/// exist here — GetNumEquipmentSets answers from a real list. Undefined, the
+/// exist here - GetNumEquipmentSets answers from a real list. Undefined, the
 /// first drag of a saved set would raise. The set still equips from its
 /// button, which is the operation; only the drag is lost.
 static int lua_PickupEquipmentSetByName(lua_State* L) { (void)L; return 0; }
 
 // What this client does not keep per bag slot: durability and gem sockets.
 //
-// Both are read straight into locals and guarded before use — paperdollframe
+// Both are read straight into locals and guarded before use - paperdollframe
 // writes `local broken = ( maxDurability and durability == 0 )`, and the gems
-// are not even unpacked there — so absent is both safe and true. Answering a
+// are not even unpacked there - so absent is both safe and true. Answering a
 // full bar or three empty sockets would be a claim about an item nobody
 // inspected.
 //
@@ -2209,7 +2209,7 @@ static int lua_ItemGemsNone(lua_State* L) {
 // Fills a table the caller supplies rather than building one, which is how the
 // equipment manager uses it: it wipes a work table, calls this, then walks the
 // result. The table is returned as well, so `if (GetContainerFreeSlots(i, t))`
-// passes — an empty bag gives an empty table, and walking that does nothing,
+// passes - an empty bag gives an empty table, and walking that does nothing,
 // which is the right outcome rather than a branch skipped.
 //
 // Only the backpack and the four bags. The bank containers in the caller's
@@ -2242,8 +2242,8 @@ static int lua_GetContainerFreeSlots(lua_State* L) {
 //
 // The same walk GetContainerItemInfo does, answering the one number rather
 // than the row. Callers use it to identify an item without caring what it
-// looks like — the character sheet asks it of every bag slot when looking for
-// something to equip — so it is the cheapest of the container queries and was
+// looks like - the character sheet asks it of every bag slot when looking for
+// something to equip - so it is the cheapest of the container queries and was
 // the only one of them missing.
 static int lua_GetContainerItemID(lua_State* L) {
     auto* gh = getGameHandler(L);
@@ -2256,7 +2256,7 @@ static int lua_GetContainerItemID(lua_State* L) {
     // included: this branched on 0 and 1-4 and let KEYRING_CONTAINER fall
     // through, so the keyring frame opened with nothing in it.
     const game::ItemSlot* itemSlot = containerItemSlot(inv, container, slot);
-    // An empty slot has no id, and nil is how that is said — zero would be an
+    // An empty slot has no id, and nil is how that is said - zero would be an
     // item, and the callers test the result rather than compare it.
     if (!itemSlot || itemSlot->empty()) { return luaReturnNil(L); }
     lua_pushnumber(L, itemSlot->item.itemId);
@@ -2283,7 +2283,7 @@ static int lua_GetContainerItemInfo(lua_State* L) {
     // Texture. Returning nil here is what made FrameXML's bag look empty while
     // it held items: ContainerFrame_Update passes this straight to
     // SetItemButtonTexture, so every occupied slot drew no icon and read as a
-    // free one. The resolver has been on GameHandler all along — it is what
+    // free one. The resolver has been on GameHandler all along - it is what
     // this client's own bag draws from.
     // The slot carries a display id from the update fields; where it does not,
     // the item's own record has one, which is the source the vendor and loot
@@ -2399,7 +2399,7 @@ static int lua_GetInventorySlotInfo(lua_State* L) {
         {"RANGED",       18,  "Interface\\PaperDoll\\UI-PaperDoll-Slot-Ranged"},
         {"TABARD",       19,  "Interface\\PaperDoll\\UI-PaperDoll-Slot-Tabard"},
         // The bag buttons along the main bar ask for these by name at load, and
-        // paperdollframe.lua does it in an OnLoad — so a gap here does not just
+        // paperdollframe.lua does it in an OnLoad - so a gap here does not just
         // lose the bags, it loses the file.
         {"BAG0",         20,  "Interface\\PaperDoll\\UI-PaperDoll-Slot-Bag"},
         {"BAG1",         21,  "Interface\\PaperDoll\\UI-PaperDoll-Slot-Bag"},
@@ -2427,8 +2427,8 @@ static int lua_GetInventorySlotInfo(lua_State* L) {
 /// or "bidder" and every call that acts on a row is relative to one of them.
 /// Takes a view, not a string: every caller passes the `const char*` straight
 /// off the Lua stack, and a `const std::string&` parameter built a temporary
-/// from it on each call. The temporary was harmless — the reference returned
-/// points into the handler, never into `which` — but it made the compiler warn
+/// from it on each call. The temporary was harmless - the reference returned
+/// points into the handler, never into `which` - but it made the compiler warn
 /// that it might dangle, and a warning nobody can act on is worse than the
 /// allocation it was reporting.
 static const game::AuctionListResult& auctionListFor(game::GameHandler* gh,
@@ -2444,7 +2444,7 @@ static int& auctionSelection() { static int sel = 0; return sel; }
 
 /// The item sitting in the sell box, as the flat (container, slot) pair the
 /// cursor speaks in. Kept in that form rather than as a backpack index so a
-/// worn bag can hold the item too — the send takes a guid, and every container
+/// worn bag can hold the item too - the send takes a guid, and every container
 /// can produce one.
 struct AuctionSellSlot {
     bool    held = false;
@@ -2482,7 +2482,7 @@ static const game::ItemSlot* auctionSellItemSlot(game::GameHandler* gh,
 
 /// GetInventoryItemCount(unit, slot) → how many are in that equipped slot.
 ///
-/// Stackable equipped things — ammo, thrown weapons — and the bank window's
+/// Stackable equipped things - ammo, thrown weapons - and the bank window's
 /// own bag buttons, which print the count on the button face. Answering
 /// nothing left every one of those blank.
 static int lua_GetInventoryItemCount(lua_State* L) {
@@ -2491,7 +2491,7 @@ static int lua_GetInventoryItemCount(lua_State* L) {
     const int slotId = static_cast<int>(luaL_optnumber(L, 2, 0));
     std::string uidStr(uid);
     toLowerInPlace(uidStr);
-    // Not 1..19: the bank is addressed through this too — bankframe.lua asks
+    // Not 1..19: the bank is addressed through this too - bankframe.lua asks
     // GetInventoryItemCount("player", BankButtonIDToInvSlotID(id)) for every
     // one of its twenty-eight slots, and those ids start at forty.
     if (!gh || uidStr != "player" || !inventorySlotItem(gh->getInventory(), slotId)) {
@@ -2512,7 +2512,7 @@ static int lua_GetInventoryItemCount(lua_State* L) {
 /// Everything about another player's gear arrives through inspect, and it
 /// arrives as bare item entries with no inventory behind them. The three
 /// GetInventoryItem* bindings answered nil for any unit but "player", which the
-/// interface reads as an empty slot — so the inspect paperdoll drew every
+/// interface reads as an empty slot - so the inspect paperdoll drew every
 /// square blank however well equipped the target was.
 ///
 /// Zero when there is nothing cached for that unit, which is the honest answer
@@ -2600,7 +2600,7 @@ static int lua_GetInventoryItemTexture(lua_State* L) {
     // every one of them.
     // Equipment and the bank both. bankframe.lua draws its twenty-eight slots
     // with GetInventoryItemTexture("player", BankButtonIDToInvSlotID(id)), and
-    // those ids land at forty and up — so a bound of NUM_SLOTS answered nil for
+    // those ids land at forty and up - so a bound of NUM_SLOTS answered nil for
     // every one and the bank read as empty while bankSlots_ held the items.
     if (!gh || !inventorySlotItem(gh->getInventory(), slotId)) { return luaReturnNil(L); }
     std::string uidStr(uid);
@@ -2621,8 +2621,8 @@ static int lua_GetInventoryItemTexture(lua_State* L) {
 
     // Nil here means "empty slot" to the interface: PaperDollItemSlotButton_Update
     // draws the slot's background art instead of an item. Returning it for a
-    // slot that holds something is why every equipped item — the bags on the
-    // bag bar, and every square of the character sheet — looked unequipped.
+    // slot that holds something is why every equipped item - the bags on the
+    // bag bar, and every square of the character sheet - looked unequipped.
     uint32_t displayId = slot.item.displayInfoId;
     if (displayId == 0) {
         if (const auto* info = gh->getItemInfo(slot.item.itemId)) displayId = info->displayInfoId;
@@ -2659,11 +2659,11 @@ static int lua_GetBagName(lua_State* L) {
     return 1;
 }
 
-/// SetBagPortraitTexture(texture, bagID) — the bag's own icon on the frame
+/// SetBagPortraitTexture(texture, bagID) - the bag's own icon on the frame
 /// that opens it.
 ///
 /// The backpack has no item behind it and keeps the pack icon. Bags 1 to 4 are
-/// worn in equipment slots 20 to 23, so the icon is the equipped bag's own —
+/// worn in equipment slots 20 to 23, so the icon is the equipped bag's own -
 /// which is why every open bag used to wear the same generic pack.
 static int lua_SetBagPortraitTexture(lua_State* L) {
     if (!lua_istable(L, 1)) return 0;
@@ -2715,7 +2715,7 @@ static bool heldWireSlot(uint8_t& bag, uint8_t& slot) {
     return true;
 }
 
-/// PutItemInBag(inventoryID) — put what the cursor is holding into that bag.
+/// PutItemInBag(inventoryID) - put what the cursor is holding into that bag.
 ///
 /// The bag buttons along the bottom bar call this before deciding what a click
 /// meant: an empty cursor answers false and the button opens the bag instead,
@@ -2735,7 +2735,7 @@ static int lua_PutItemInBag(lua_State* L) {
     // An empty bag slot equips the held bag rather than swallowing it.
     //
     // getBagSize is zero when nothing is worn in this slot, so the loop below
-    // — which finds a free content slot inside the equipped bag — had nothing
+    // - which finds a free content slot inside the equipped bag - had nothing
     // to iterate and fell straight through, doing nothing. Dropping a bag onto
     // an empty bag slot therefore looked dead. This is the equip: swap the held
     // item into the worn-bag equipment slot, the same move PickupBagFromSlot's
@@ -2758,13 +2758,13 @@ static int lua_PutItemInBag(lua_State* L) {
         lua_pushboolean(L, 1);
         return 1;
     }
-    // Held, but nowhere to put it — still "had an item", so the button does not
+    // Held, but nowhere to put it - still "had an item", so the button does not
     // fall through to opening the bag.
     lua_pushboolean(L, 1);
     return 1;
 }
 
-/// PutItemInBackpack() — the same, for the backpack.
+/// PutItemInBackpack() - the same, for the backpack.
 static int lua_PutItemInBackpack(lua_State* L) {
     auto* gh = getGameHandler(L);
     uint8_t srcBag = 0, srcSlot = 0;
@@ -2783,7 +2783,7 @@ static int lua_PutItemInBackpack(lua_State* L) {
     return 1;
 }
 
-/// ResetCursor() — put the pointer back to the ordinary arrow. This client
+/// ResetCursor() - put the pointer back to the ordinary arrow. This client
 /// does not change the cursor for interface state, so there is nothing to
 /// undo; it exists because the interface calls it on every mouse-leave.
 static int lua_ResetCursor(lua_State* L) { (void)L; return 0; }
@@ -2811,7 +2811,7 @@ static std::string lootCoinText(uint32_t copper) {
 /// The real client shows coin as the first slot when there is any, with the
 /// items after it, and the loot frame asks LootSlotIsCoin which one it is
 /// looking at. The server numbers only the items, so every slot here is
-/// translated before it is sent — which LootSlot already did by carrying
+/// translated before it is sent - which LootSlot already did by carrying
 /// LootItem::slotIndex rather than the display position.
 static bool lootHasCoin(game::GameHandler* gh) {
     return gh && gh->isLootWindowOpen() && gh->getCurrentLoot().gold > 0;
@@ -2897,12 +2897,12 @@ static int lua_GetLootSlotInfo(lua_State* L) {
 
     lua_pushnumber(L, item.count);                           // quantity
     lua_pushnumber(L, info ? info->quality : 1);             // quality
-    // locked — the row the loot window draws in red and refuses to take.
+    // locked - the row the loot window draws in red and refuses to take.
     //
     // Answered false because the slot type was "not tracked". It is tracked:
     // SMSG_LOOT_RESPONSE carries one per item and the parser has always stored
     // it. AzerothCore's LootSlotType is ALLOW_LOOT 0, ROLL_ONGOING 1, MASTER 2,
-    // LOCKED 3, OWNER 4 — so everything except the two that mean "take it" is
+    // LOCKED 3, OWNER 4 - so everything except the two that mean "take it" is
     // locked, which covers a roll still running and an item only the master
     // looter can hand out. Both used to draw as ordinary loot that silently did
     // nothing when clicked.
@@ -2932,7 +2932,7 @@ static int lua_GetLootSlotLink(lua_State* L) {
     return 1;
 }
 
-// LootSlot(slot) — take item from loot
+// LootSlot(slot) - take item from loot
 static int lua_LootSlot(lua_State* L) {
     auto* gh = getGameHandler(L);
     int slot = static_cast<int>(luaL_checknumber(L, 1));
@@ -2945,7 +2945,7 @@ static int lua_LootSlot(lua_State* L) {
     return 0;
 }
 
-// CloseLoot() — close loot window
+// CloseLoot() - close loot window
 static int lua_CloseLoot(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (gh) gh->closeLoot();
@@ -2956,7 +2956,7 @@ static int lua_CloseLoot(lua_State* L) {
 //
 // The roll window opens on START_LOOT_ROLL, which this client fires, and then
 // asked three questions it had no answer to: what is being rolled for, how long
-// is left, and — when a button was pressed — nothing happened, because
+// is left, and - when a button was pressed - nothing happened, because
 // RollOnLoot did not exist. So the window appeared over a roll the player could
 // watch and not take part in, and passed by default when the timer ran out on
 // the server.
@@ -2967,7 +2967,7 @@ static int lua_CloseLoot(lua_State* L) {
 // object and slot the roll came from.
 //
 // One roll at a time is all this client keeps, which is the same limit its own
-// window has. The roll id is the loot slot plus one — stable for the length of
+// window has. The roll id is the loot slot plus one - stable for the length of
 // the roll, never zero, and checked rather than trusted, so a frame left over
 // from a previous roll is told there is nothing there and hides itself instead
 // of answering about the wrong item.
@@ -2996,7 +2996,7 @@ constexpr uint8_t kRollDisenchant = 0x04;
 // All twelve, because the roll window unpacks all twelve and uses the tail of
 // them: a reason is concatenated into a global's name when its button is
 // disabled, and the count is compared against one. Nil in either place raises.
-// The reasons are the generic "your class may not" line — this client is not
+// The reasons are the generic "your class may not" line - this client is not
 // told why the server refused a button, only that it did.
 static int lua_GetLootRollItemInfo(lua_State* L) {
     auto* gh = getGameHandler(L);
@@ -3047,7 +3047,7 @@ static int lua_GetLootRollTimeLeft(lua_State* L) {
     return 1;
 }
 
-// RollOnLoot(rollId, rollType) — 0 pass, 1 need, 2 greed, 3 disenchant, which
+// RollOnLoot(rollId, rollType) - 0 pass, 1 need, 2 greed, 3 disenchant, which
 // is both the order the buttons carry as their id and the order the server
 // expects.
 static int lua_RollOnLoot(lua_State* L) {
@@ -3059,8 +3059,8 @@ static int lua_RollOnLoot(lua_State* L) {
     if (type < 0 || type > 3) return 0;
 
     // Rolling for something that will bind asks first. CONFIRM_LOOT_ROLL is
-    // raised by the client rather than the server — uiparent.lua answers it
-    // with the popup whose OK calls ConfirmLootRoll(id, rollType) — so nothing
+    // raised by the client rather than the server - uiparent.lua answers it
+    // with the popup whose OK calls ConfirmLootRoll(id, rollType) - so nothing
     // raised it here and Need on a bind-on-pickup item bound it with no
     // warning at all, which is the one place this differs from the real client
     // in a way a player pays for.
@@ -3080,7 +3080,7 @@ static int lua_RollOnLoot(lua_State* L) {
     return 0;
 }
 
-// ConfirmLootRoll(rollId, rollType) — the answer to the popup above, which is
+// ConfirmLootRoll(rollId, rollType) - the answer to the popup above, which is
 // the only caller. Sends without asking again, because this *is* the asking.
 static int lua_ConfirmLootRoll(lua_State* L) {
     auto* gh = getGameHandler(L);
@@ -3092,7 +3092,7 @@ static int lua_ConfirmLootRoll(lua_State* L) {
     return 0;
 }
 
-// GiveMasterLoot(slot, candidate) — hand an item to someone, as master looter.
+// GiveMasterLoot(slot, candidate) - hand an item to someone, as master looter.
 //
 // The candidate is a position in the list the server sent with the loot, not a
 // guid: the menu is built by walking that list, and the entry clicked is the
@@ -3115,7 +3115,7 @@ static int lua_GiveMasterLoot(lua_State* L) {
 // GetMasterLootCandidate(index) → the name of whoever can be given this loot.
 //
 // The list the server sends with the loot, which GiveMasterLoot has been
-// reading all along — only the call that *builds* the menu from it was a stub.
+// reading all along - only the call that *builds* the menu from it was a stub.
 // So a master looter got an empty "Give loot" submenu over a list the client
 // had, and the function that would have acted on a choice was finished and
 // unreachable.
@@ -3132,7 +3132,7 @@ static int lua_GetMasterLootCandidate(lua_State* L) {
     const uint64_t guid = candidates[static_cast<size_t>(index) - 1];
     std::string name = gh->lookupName(guid);
     // A name this client has not learned yet would come back empty, and an
-    // empty string is true in Lua — the menu would show a blank row that gives
+    // empty string is true in Lua - the menu would show a blank row that gives
     // the item to someone unnamed. Nil skips the row instead.
     if (name.empty()) return luaReturnNil(L);
     lua_pushstring(L, name.c_str());
@@ -3151,7 +3151,7 @@ static int lua_GetLootMethod(lua_State* L) {
                           : kLootMethodTokens[0]);
     // Who the master looter is, or nobody.
     //
-    // Zero is not "nobody" here — it is *the player*. playerframe.lua reads
+    // Zero is not "nobody" here - it is *the player*. playerframe.lua reads
     //     if ( lootMaster == 0 and (in a party or raid) ) then
     //         PlayerMasterIcon:Show()
     // so answering zero unconditionally hung the master-looter crown on the
@@ -3211,8 +3211,8 @@ void registerInventoryLuaAPI(lua_State* L) {
     static const struct { const char* name; lua_CFunction func; } api[] = {
                 {"GetMoney",      lua_GetMoney},
                 // The money cursor. A drag of money is routed entirely by the
-                // interface — the frame it lands on reads the amount, puts it
-                // where it belongs, and clears the cursor — so the client's
+                // interface - the frame it lands on reads the amount, puts it
+                // where it belongs, and clears the cursor - so the client's
                 // whole part is holding the number. It held nothing, so money
                 // could not be dragged into a mail, a trade, a guild bank
                 // deposit or an auction bid.
@@ -3250,7 +3250,7 @@ void registerInventoryLuaAPI(lua_State* L) {
                 {"ShowContainerSellCursor", lua_ContainerNoOp},
                 {"ShowBuybackSellCursor", lua_ContainerNoOp},
                 // A left-click on a vendor's item goes here, and it was a
-                // no-op — so at a merchant only right-click bought anything.
+                // no-op - so at a merchant only right-click bought anything.
                 // The cursor state lives in lua_action_api.cpp with everything
                 // else that picks up and puts down, so this hands off to it.
                 {"PickupMerchantItem", [](lua_State* L) -> int {
@@ -3260,19 +3260,19 @@ void registerInventoryLuaAPI(lua_State* L) {
                 // SocketInventoryItem and SocketContainerItem used to answer
                 // false here, on the reading that per-item socket contents were
                 // not tracked so the panel was better left shut than opened
-                // empty. They are tracked — the item's enchantment fields carry
-                // them — and both live in lua_socket_api.cpp now with the rest
+                // empty. They are tracked - the item's enchantment fields carry
+                // them - and both live in lua_socket_api.cpp now with the rest
                 // of the socketing surface. Two registrations of one name would
                 // be settled by load order.
                 {"SpellCanTargetItem",    lua_SpellCanTargetItem},
-                // CanGuildBankRepair() — whether the guild-repair button
+                // CanGuildBankRepair() - whether the guild-repair button
                 // appears beside the merchant's own.
                 //
                 // Answered false while the rank rights were being read wrongly;
                 // everything it needs has been here since. The right is
                 // GR_RIGHT_WITHDRAW_REPAIR from AzerothCore's GuildRankRights,
                 // held by the player's own rank, and the bank has to have
-                // something in it — the button offers to spend guild money, and
+                // something in it - the button offers to spend guild money, and
                 // offering to spend none is offering nothing.
                 //
                 // RepairAllItems already sends the guild flag, so this gate was
@@ -3342,7 +3342,7 @@ void registerInventoryLuaAPI(lua_State* L) {
                 if (name.empty()) continue;
                 lua_pushstring(L, name.c_str());
                 // The spell's rank subtext, the same string the spellbook shows
-                // — empty for the many item spells that carry no rank, the real
+                // - empty for the many item spells that carry no rank, the real
                 // "Rank N" for those that do. It is tracked; it was hardcoded "".
                 lua_pushstring(L, gh->getSpellRank(sp.spellId).c_str());
                 return 2;
@@ -3352,7 +3352,7 @@ void registerInventoryLuaAPI(lua_State* L) {
                 // ---- Currency tab ----
                 {"GetContainerItemPurchaseInfo", lua_GetContainerItemPurchaseInfo},
                 {"GetContainerItemPurchaseItem", lua_GetContainerItemPurchaseItem},
-                // ContainerRefundItemPurchase(bag, slot) — the Accept on
+                // ContainerRefundItemPurchase(bag, slot) - the Accept on
                 // "hand this back for what you paid". It sat on a popup that
                 // could not be raised, because the call above answered nil.
                 {"ContainerRefundItemPurchase", [](lua_State* L) -> int {
@@ -3362,7 +3362,7 @@ void registerInventoryLuaAPI(lua_State* L) {
             if (gh) gh->refundItem(containerSlotGuid(gh, bag, slot));
             return 0;
         }},
-                // PickupPlayerMoney(amount) — the coin pickup dialog's Okay.
+                // PickupPlayerMoney(amount) - the coin pickup dialog's Okay.
                 // Clamped to what the player has: the dialog does not check,
                 // and a cursor carrying more than the purse would be spent by
                 // whatever it was dropped on.
@@ -3393,14 +3393,14 @@ void registerInventoryLuaAPI(lua_State* L) {
             if (idx < 1 || idx > static_cast<int>(rows.size())) return luaReturnNil(L);
             const auto& r = rows[static_cast<size_t>(idx) - 1];
             lua_pushstring(L, r.name.c_str());   // 1: name
-            lua_pushboolean(L, 0);               // 2: isHeader — the list is flat
+            lua_pushboolean(L, 0);               // 2: isHeader - the list is flat
             lua_pushboolean(L, 0);               // 3: isExpanded
             lua_pushboolean(L, 0);               // 4: isUnused
             lua_pushboolean(L, 0);               // 5: isWatched
             lua_pushnumber(L, r.count);          // 6: count
             lua_pushnumber(L, 0);                // 7: extraCurrencyType
             // A nil texture is an empty slot to the interface, and
-            // TokenFrame_Update draws the row's icon from this — so every
+            // TokenFrame_Update draws the row's icon from this - so every
             // currency was listed with a blank square beside its name. The
             // icon is the item's, which is where a currency's art lives.
             const auto* info = gh ? gh->getItemInfo(r.itemId) : nullptr;
@@ -3425,7 +3425,7 @@ void registerInventoryLuaAPI(lua_State* L) {
                 {"SetCurrencyUnused",   [](lua_State* L) -> int { (void)L; return 0; }},
                 {"GetItemCount",      lua_GetItemCount},
                 {"UseContainerItem",  lua_UseContainerItem},
-                // SortBags() — merge partial stacks, then order every bag slot.
+                // SortBags() - merge partial stacks, then order every bag slot.
                 //
                 // Not a 3.3.5 function: sorting arrived years later, so nothing
                 // in FrameXML calls this. It is here for the bundled all-bags
@@ -3445,7 +3445,7 @@ void registerInventoryLuaAPI(lua_State* L) {
         }},
                 {"GetContainerNumSlots",    lua_GetContainerNumSlots},
                 {"GetKeyRingSize",          lua_GetKeyRingSize},
-                // PurchaseSlot() — buying the next bank bag slot, which the
+                // PurchaseSlot() - buying the next bank bag slot, which the
                 // confirmation dialog's Okay calls. Unbound, so the dialog
                 // asked, took the answer and bought nothing. GetBankSlotCost
                 // and GetNumBankSlots beside it were both already bound, which
@@ -3488,41 +3488,41 @@ void registerInventoryLuaAPI(lua_State* L) {
                 {"GetLootSlotInfo",     lua_GetLootSlotInfo},
                 {"GetLootSlotLink",     lua_GetLootSlotLink},
                 {"LootSlot",            lua_LootSlot},
-                // ConfirmLootSlot(slot) — the Accept on "this will bind to
+                // ConfirmLootSlot(slot) - the Accept on "this will bind to
                 // you", raised from LOOT_BIND_CONFIRM.
                 //
                 // Not LootSlot again: LootSlot is what raises the prompt, so
                 // answering it that way asks the same question forever. The
                 // held request is sent instead, and the slot the dialog passes
-                // is not read — only one can be waiting.
+                // is not read - only one can be waiting.
                 {"ConfirmLootSlot", [](lua_State* L) -> int {
             if (auto* gh = getGameHandler(L)) gh->confirmPendingLoot();
             return 0;
         }},
                 // The answer to "this item will bind to you".
                 //
-                // Both dialogs — EQUIP_BIND for a drop onto a slot,
-                // AUTOEQUIP_BIND for a right-click — call these two, and both
+                // Both dialogs - EQUIP_BIND for a drop onto a slot,
+                // AUTOEQUIP_BIND for a right-click - call these two, and both
                 // pass the slot the event carried. Only one equip can be
                 // waiting at a time (FrameXML's dialog is exclusive and this
                 // client's is modal), so the held request is enough on its own
                 // and the slot is not read back.
                 //
                 // OnHide calls CancelPendingEquip as well as OnCancel, so
-                // cancelling twice has to be harmless — it is: the second
+                // cancelling twice has to be harmless - it is: the second
                 // clears an already-empty request.
-                // ConfirmBindOnUse() — the Accept on "using this will bind
+                // ConfirmBindOnUse() - the Accept on "using this will bind
                 // it". USE_BIND carries no slot, so the held request is the
                 // only record of which item was being used.
-                // ReplaceEnchant() — the Yes on "do you want to replace X
+                // ReplaceEnchant() - the Yes on "do you want to replace X
                 // with Y?". The enchant stays parked until this arrives, so
                 // the answer still has the item it was aimed at.
                 //
                 // TRADE_REPLACE_ENCHANT shares this button. That prompt is the
                 // one raised while an enchant is on the trade window, which
-                // this client does not put there — so it is never fired, and
+                // this client does not put there - so it is never fired, and
                 // the shared verb costs nothing.
-                // BindEnchant() — the Okay on "enchanting this will bind it".
+                // BindEnchant() - the Okay on "enchanting this will bind it".
                 // The same held request ReplaceEnchant answers: only one
                 // enchant can be waiting, and the two prompts are raised from
                 // the same place for the same pending cast.
@@ -3534,7 +3534,7 @@ void registerInventoryLuaAPI(lua_State* L) {
             if (auto* gh = getGameHandler(L)) gh->replaceEnchant();
             return 0;
         }},
-                // RespondMailLockSendItem(slot, keep) — the answer to "this
+                // RespondMailLockSendItem(slot, keep) - the answer to "this
                 // item can still be handed back; posting it ends that". Keep
                 // it attached, or take it off again.
                 //
@@ -3684,7 +3684,7 @@ void registerInventoryLuaAPI(lua_State* L) {
                 {"GetGuildBankWithdrawMoney", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             // -1 is the server saying "no limit", and the panel reads that as
-            // a number to compare against — a large one keeps the comparison
+            // a number to compare against - a large one keeps the comparison
             // true without pretending to a figure.
             const int32_t w = gh ? gh->getGuildBankData().withdrawAmount : 0;
             lua_pushnumber(L, w < 0 ? 100000000.0 : static_cast<double>(w));
@@ -3718,7 +3718,7 @@ void registerInventoryLuaAPI(lua_State* L) {
                 // How many tabs the guild has bought. blizzard_guildbankui does
                 // `elseif ( tab > GetNumGuildBankTabs() )` to decide whether to
                 // offer the buy screen, and comparing a number against nil
-                // raises — so the window died on any tab past the last one.
+                // raises - so the window died on any tab past the last one.
                 //
                 // The list it counts is the same one GetGuildBankTabInfo
                 // indexes, so the two cannot disagree.
@@ -3740,7 +3740,7 @@ void registerInventoryLuaAPI(lua_State* L) {
             // MAX_GUILDBANK_TABS whatever the guild owns, so the tail of that
             // loop always lands here. With a single nil the sixth value is nil
             // and GuildBankFrame_Update does `if remainingWithdrawals > 0`,
-            // which is a comparison against nil — it takes the whole update
+            // which is a comparison against nil - it takes the whole update
             // down part way, and a guild with no tabs at all never gets past
             // it.
             //
@@ -3830,7 +3830,7 @@ void registerInventoryLuaAPI(lua_State* L) {
             return luaReturnNil(L);
         }},
                 // Moving an item within the bank needs a cursor that can hold
-                // a guild bank slot, which this client does not model — the
+                // a guild bank slot, which this client does not model - the
                 // withdraw and deposit packets move an item straight to or
                 // from a bag. AutoStoreGuildBankItem does that and works;
                 // these two say nothing rather than half-moving something.
@@ -3860,7 +3860,7 @@ void registerInventoryLuaAPI(lua_State* L) {
                                               static_cast<uint8_t>(slot - 1), 0, 0);
             return 0;
         }},
-                // Rank *is* in what this client parses — the roster carries a
+                // Rank *is* in what this client parses - the roster carries a
                 // rankIndex per member and the chat handler has been reading
                 // the player's own to decide whether to show officer chat. The
                 // comment that used to sit here said otherwise, and answering
@@ -3876,7 +3876,7 @@ void registerInventoryLuaAPI(lua_State* L) {
                 // inventing a history nobody made.
                 // The log tab asks for a tab's history and then walks it.
                 // This accepted the ask and sent nothing, so the walk below
-                // always found none — an empty page over a log the server
+                // always found none - an empty page over a log the server
                 // keeps. Tab seven in FrameXML's numbering is the money log.
                 {"QueryGuildBankLog", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
@@ -3906,7 +3906,7 @@ void registerInventoryLuaAPI(lua_State* L) {
             lua_pushnil(L);
             return 1;
         }},
-                // SetGuildBankText(tab, text) — the info panel on a guild
+                // SetGuildBankText(tab, text) - the info panel on a guild
                 // bank tab. The opcode existed and nothing built it, so the
                 // edit box saved nothing. FrameXML counts tabs from one and
                 // the wire counts from zero, the same offset
@@ -3973,26 +3973,26 @@ void registerInventoryLuaAPI(lua_State* L) {
                 // emblem upper and lower, border upper and lower.
                 //
                 // This answered nothing, and the data was in hand the whole
-                // time — SMSG_GUILD_QUERY_RESPONSE carries the emblem style
+                // time - SMSG_GUILD_QUERY_RESPONSE carries the emblem style
                 // and colour, the border style and colour and the background
                 // colour, and handleGuildQueryResponse keeps the whole struct.
                 // A grep for the field names does not see that, because it is
                 // assigned wholesale as `guildQueryData_ = data`.
                 //
                 // The names are built rather than looked up: the install has
-                // 6118 of these and they are named by index —
+                // 6118 of these and they are named by index -
                 // background_<colour>, emblem_<style>_<colour>,
                 // border_<style>_<colour>, each in an upper and a lower half.
                 // Ranges measured from the files present rather than guessed,
                 // and the guess was wrong both ways: 51 backgrounds, 170 emblem
-                // styles — not 100 — of 17 colours each, and 10 border styles
+                // styles - not 100 - of 17 colours each, and 10 border styles
                 // of which the first six have 17 colours and the last four have
                 // only 4.
                 //
                 // Out of range answers nothing rather than naming a file that
                 // is not there, which is what the server sends for a guild with
                 // no emblem chosen. The guild bank guards for that and falls
-                // back to its own default background — so a wrong name would be
+                // back to its own default background - so a wrong name would be
                 // worse than no name, since a non-nil one stops that fallback.
                 {"GetGuildTabardFileNames", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
@@ -4026,7 +4026,7 @@ void registerInventoryLuaAPI(lua_State* L) {
             return 6;
         }},
                 // The guild master, which is what the real client answers and
-                // is now a question this can put — rank zero in the roster. It
+                // is now a question this can put - rank zero in the roster. It
                 // used to say no on the grounds that nothing could send the
                 // change; that was true of the builder and not of the opcode,
                 // which has been in all three expansion maps.
@@ -4038,7 +4038,7 @@ void registerInventoryLuaAPI(lua_State* L) {
             lua_pushboolean(L, gh && gh->getPlayerGuildRankIndex() == 0 ? 1 : 0);
             return 1;
         }},
-                // SetGuildBankTabInfo(tab, name, icon) — the rename popup's
+                // SetGuildBankTabInfo(tab, name, icon) - the rename popup's
                 // Okay. The tab is FrameXML's, counted from one.
                 {"SetGuildBankTabInfo", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
@@ -4050,7 +4050,7 @@ void registerInventoryLuaAPI(lua_State* L) {
             return 0;
         }},
                 // What the next tab costs, in copper, or nil once all six are
-                // bought — and nil is the load-bearing part: the panel does
+                // bought - and nil is the load-bearing part: the panel does
                 // `if ( not tabCost )` to decide the guild has them all, and
                 // zero is true in Lua, so answering zero kept the buy screen up
                 // for a guild with nothing left to buy and priced it at nothing.
@@ -4059,7 +4059,7 @@ void registerInventoryLuaAPI(lua_State* L) {
                 // dead screen: it offered a real purchase at a made-up price.
                 // The six are the client's own constants in WoW rather than
                 // anything the server sends, and AzerothCore's defaults are the
-                // same figures — 100g, 250g, 500g, 1000g, 2500g, 5000g — though
+                // same figures - 100g, 250g, 500g, 1000g, 2500g, 5000g - though
                 // Guild.BankTabCost0-5 can be configured away from them.
                 {"GetGuildBankTabCost", [](lua_State* L) -> int {
             static constexpr uint32_t kTabCost[6] = {
@@ -4079,7 +4079,7 @@ void registerInventoryLuaAPI(lua_State* L) {
                 {"CanSendAuctionQuery", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             // Two returns: whether a search may be sent, and whether a
-            // getAll sweep may be. The second is always no — it asks the
+            // getAll sweep may be. The second is always no - it asks the
             // server for every auction at once and is rate-limited to once
             // every fifteen minutes even where it is allowed.
             const bool open = gh && gh->isAuctionHouseOpen();
@@ -4094,16 +4094,16 @@ void registerInventoryLuaAPI(lua_State* L) {
             if (!gh) return 0;
             const char* name = luaL_optstring(L, 1, "");
             // Every argument here is a widget's own output, handed over
-            // untouched by AuctionFrameBrowse_SearchHelper — so the level
+            // untouched by AuctionFrameBrowse_SearchHelper - so the level
             // bounds arrive as the text of an edit box. An empty box gives ""
             // rather than nil, which luaL_optnumber does not treat as absent
             // but as a string that will not convert, and raises on. The level
-            // boxes start empty, so the commonest search of all — type a name,
-            // press Search — died here before a single byte went out.
+            // boxes start empty, so the commonest search of all - type a name,
+            // press Search - died here before a single byte went out.
             const uint8_t lo  = static_cast<uint8_t>(luaOptNumberText(L, 2, 0));
             const uint8_t hi  = static_cast<uint8_t>(luaOptNumberText(L, 3, 0));
             // The three filters arrive as positions in the lists above, not as
-            // the ids the wire wants — and nil, for "not filtered", arrives as
+            // the ids the wire wants - and nil, for "not filtered", arrives as
             // zero. Zero is a real item class, so this used to ask the server
             // for Consumables whenever nobody had picked a category: a plain
             // search by name found nothing but food. Row zero of each shared
@@ -4125,7 +4125,7 @@ void registerInventoryLuaAPI(lua_State* L) {
             const uint32_t page = static_cast<uint32_t>(luaOptNumberText(L, 7, 0));
             const uint8_t usable = lua_toboolean(L, 8) ? 1 : 0;
             // The rarity dropdown's "All" is -1, not nil, and casting a
-            // negative double straight to uint32_t is undefined — it happens to
+            // negative double straight to uint32_t is undefined - it happens to
             // land on the 0xFFFFFFFF the server reads as "any quality" on the
             // machines this has run on, which is not the same as meaning to.
             const int qualityIdx = static_cast<int>(luaOptNumberText(L, 9, -1));
@@ -4151,7 +4151,7 @@ void registerInventoryLuaAPI(lua_State* L) {
             if (auto* gh = getGameHandler(L)) gh->auctionListBidderItems(0);
             return 0;
         }},
-                // PlaceAuctionBid(list, index, bid) — a bid equal to the
+                // PlaceAuctionBid(list, index, bid) - a bid equal to the
                 // buyout is a buyout, which is how the panel asks for one.
                 {"PlaceAuctionBid", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
@@ -4198,7 +4198,7 @@ void registerInventoryLuaAPI(lua_State* L) {
             // The dropdown's 1, 2 and 3 mean twelve, twenty-four and forty-eight
             // hours; the wire field is minutes. Sent as they came, they asked
             // for one, two or three minutes, and AzerothCore accepts only 1, 2
-            // or 4 times MIN_AUCTION_TIME and returns without answering — so
+            // or 4 times MIN_AUCTION_TIME and returns without answering - so
             // posting an auction from FrameXML did nothing at all, silently.
             const uint32_t dur = game::auctionDurationMinutes(
                 static_cast<uint32_t>(luaL_optnumber(L, 3, 1)));
@@ -4206,7 +4206,7 @@ void registerInventoryLuaAPI(lua_State* L) {
             const auto* item = auctionSellItemSlot(gh, &guid);
             if (!item || guid == 0) return 0;
             // The fourth argument is the size of one stack; the fifth is how
-            // many such stacks to post, which this sends one of — the request
+            // many such stacks to post, which this sends one of - the request
             // builder writes a single item and posting several would be a
             // several-item list.
             const uint32_t stack = static_cast<uint32_t>(
@@ -4222,7 +4222,7 @@ void registerInventoryLuaAPI(lua_State* L) {
             // The slot had state and StartAuction read it, but nothing ever
             // set it: this was a no-op, so no item could be put up for auction
             // at all. What it needed was a drop target, and the cursor bridge
-            // is one — the item the player is carrying is exactly what a click
+            // is one - the item the player is carrying is exactly what a click
             // on this button is offering.
             //
             uint8_t bag = 0, slot = 0;
@@ -4251,7 +4251,7 @@ void registerInventoryLuaAPI(lua_State* L) {
         }},
                 {"GetAuctionSellItemInfo", [](lua_State* L) -> int {
             // name, texture, count, quality, canUse, price, pricePerUnit,
-            // stackCount, totalCount — what the sell tab draws in its slot and
+            // stackCount, totalCount - what the sell tab draws in its slot and
             // what its deposit and stack controls are figured from.
             //
             // The last three were missing, and the tab does `if totalCount > 1`
@@ -4267,7 +4267,7 @@ void registerInventoryLuaAPI(lua_State* L) {
             const auto* info = gh->getItemInfo(s.item.itemId);
             const uint32_t inStack = s.item.stackCount ? s.item.stackCount : 1;
             // price is the vendor value of the whole stack and pricePerUnit of
-            // one of them — the tab offers a starting bid of one or the other
+            // one of them - the tab offers a starting bid of one or the other
             // depending on which way the price dropdown is set, so sending the
             // per-unit figure as both had it suggest a stack for the price of
             // a single item.
@@ -4290,7 +4290,7 @@ void registerInventoryLuaAPI(lua_State* L) {
             if (auto* gh = getGameHandler(L)) gh->closeAuctionHouse();
             return 0;
         }},
-                // SetAuctionsTabShowing(showing) — a *boolean*, not a tab index.
+                // SetAuctionsTabShowing(showing) - a *boolean*, not a tab index.
                 //
                 // It is the last statement in each branch of
                 // AuctionFrameTab_OnClick, and it was reading its argument with
@@ -4299,7 +4299,7 @@ void registerInventoryLuaAPI(lua_State* L) {
                 // tabs, and the interface's own handler ended there.
                 //
                 // The name says what it means. It is not "which tab" but
-                // "is the Auctions tab the one on screen" — the interface calls
+                // "is the Auctions tab the one on screen" - the interface calls
                 // it with false from Browse and from Bids, and true only from
                 // Auctions. So false cannot say which of the other two it is,
                 // and nothing here may pretend otherwise: the one reader is
@@ -4338,8 +4338,8 @@ void registerInventoryLuaAPI(lua_State* L) {
                 //             * (minutes / 720)
                 //
                 // floored at a hundred copper. depositPercent comes from
-                // AuctionHouse.dbc — five for a faction house, twenty-five for
-                // the neutral one — and the twelve-hour block is the unit, so
+                // AuctionHouse.dbc - five for a faction house, twenty-five for
+                // the neutral one - and the twelve-hour block is the unit, so
                 // the three durations multiply by one, two and four.
                 //
                 // It reported zero before, which was honest while the sell slot
@@ -4367,7 +4367,7 @@ void registerInventoryLuaAPI(lua_State* L) {
             }
             const double count = luaL_optnumber(L, 2, s.item.stackCount ? s.item.stackCount : 1);
             // Faction houses take five percent, the neutral one twenty-five.
-            // Which one this is is not tracked, so the cheaper is assumed —
+            // Which one this is is not tracked, so the cheaper is assumed -
             // understating a deposit is the kinder way to be wrong, and it is
             // right at every auctioneer but Booty Bay's.
             constexpr double kDepositPercent = 5.0;
@@ -4392,7 +4392,7 @@ void registerInventoryLuaAPI(lua_State* L) {
                 // GetAuctionSort(table, index) → column, reverse.
                 //
                 // Index one is the primary, and the primary is the key set
-                // *last* — FrameXML pushes them least significant first.
+                // *last* - FrameXML pushes them least significant first.
                 {"GetAuctionSort", [](lua_State* L) -> int {
             const auto& keys = auctionSortState()[luaL_optstring(L, 1, "list")];
             const int index = static_cast<int>(luaL_optnumber(L, 2, 1));
@@ -4420,16 +4420,16 @@ void registerInventoryLuaAPI(lua_State* L) {
             return 0;
         }},
                 // The browse tab's filter column, which was empty: it is built
-                // from whatever GetAuctionItemClasses returns —
+                // from whatever GetAuctionItemClasses returns -
                 // AuctionFrameBrowse_InitClasses copies the varargs straight
-                // into CLASS_FILTERS — so answering nothing left the whole left
+                // into CLASS_FILTERS - so answering nothing left the whole left
                 // pane blank and the auction house searchable by name only.
                 //
                 // The lists are the ones this client's own auction window has
                 // always shown, now shared, because the *position* in them is
                 // the protocol: FrameXML hands the index back to
                 // QueryAuctionItems and it has to mean the same thing on the
-                // way in. Row zero is "All" and is not returned here — which
+                // way in. Row zero is "All" and is not returned here - which
                 // makes FrameXML's 1-based index land on the right row of the
                 // shared table, and an unselected filter arrive as zero and
                 // read as "any" without a special case.
@@ -4452,7 +4452,7 @@ void registerInventoryLuaAPI(lua_State* L) {
                 // all twenty under every subclass of every category would be a
                 // third tier the real one does not have. Answering none leaves
                 // selectedInvtypeIndex nil, which arrives as zero and reads as
-                // "any" — the slot filter simply stays unused rather than wrong.
+                // "any" - the slot filter simply stays unused rather than wrong.
                 {"GetAuctionInvTypes",       [](lua_State* L) -> int { (void)L; return 0; }},
                 {"GetNumAuctionItems", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
@@ -4473,8 +4473,8 @@ void registerInventoryLuaAPI(lua_State* L) {
             // highBidder, owner, saleStatus
             //
             // 3.3.5's thirteen, in 3.3.5's order. This answered Cataclysm's
-            // seventeen — levelColHeader after level, and bidderFullName and
-            // ownerFullName around owner — and the interface reading it is
+            // seventeen - levelColHeader after level, and bidderFullName and
+            // ownerFullName around owner - and the interface reading it is
             // 3.3.5's:
             //
             //   name, texture, count, quality, canUse, level, minBid,
@@ -4482,8 +4482,8 @@ void registerInventoryLuaAPI(lua_State* L) {
             //
             // so every value from the seventh on landed one place early. minBid
             // received the empty levelColHeader, minIncrement received minBid,
-            // buyoutPrice received minIncrement — which is why no row showed a
-            // buyout — bidAmount received the buyout, and owner received a
+            // buyoutPrice received minIncrement - which is why no row showed a
+            // buyout - bidAmount received the buyout, and owner received a
             // boolean. Bidding and buying read the prices they were given, so
             // both were computed from the wrong number and refused.
             auto* gh = getGameHandler(L);
@@ -4513,7 +4513,7 @@ void registerInventoryLuaAPI(lua_State* L) {
             lua_pushnumber(L, a.currentBid);        // bidAmount
             // Whether *this player* holds the high bid, which is not the same
             // question as whether anybody does. It answered the second, so
-            // every row with a bid on it — most of them — was labelled "Your
+            // every row with a bid on it - most of them - was labelled "Your
             // Bid", printed over the price it sits in front of.
             const bool isHighBidder =
                 a.bidderGuid != 0 && a.bidderGuid == gh->getPlayerGuid();
@@ -4568,9 +4568,9 @@ void registerInventoryLuaAPI(lua_State* L) {
             return 1;
         }},
                 // Two values: how many are in the inbox, and how many the
-                // server has in total. InboxFrame_Update compares them bare —
+                // server has in total. InboxFrame_Update compares them bare -
                 // `if ( totalItems > numItems )`, to say more mail is waiting
-                // than fits — so one value was an error every time mail
+                // than fits - so one value was an error every time mail
                 // arrived. They are equal here: this client holds every mail it
                 // has been sent, so none is waiting out of view.
                 {"GetInboxNumItems", [](lua_State* L) -> int {
@@ -4599,7 +4599,7 @@ void registerInventoryLuaAPI(lua_State* L) {
             // A *count*, not a flag. InboxFrame_Update assigns it to both
             // button.hasItem and button.itemCount, and the tooltip then does
             //     MAIL_MULTIPLE_ITEMS.." ("..self.itemCount..")"
-            // — concatenating a boolean raises, and `itemCount == 1` is never
+            // - concatenating a boolean raises, and `itemCount == 1` is never
             // true for one, so a single attachment took the multiple branch
             // and hovering any mail with something in it took the tooltip
             // down. Nil when empty, because zero is true in Lua and every
@@ -4627,8 +4627,8 @@ void registerInventoryLuaAPI(lua_State* L) {
                 // background rather than a wrong one.
                 // Reading a letter is what marks it read, and nothing did it.
                 //
-                // mailMarkAsRead had one caller — this client's own mail
-                // window — and that window is not drawn once mail is handed
+                // mailMarkAsRead had one caller - this client's own mail
+                // window - and that window is not drawn once mail is handed
                 // over. So a letter opened through the interface was never
                 // marked, the envelope stayed bold, and HasNewMail answered
                 // true for the rest of the session however much was read.

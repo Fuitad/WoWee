@@ -246,7 +246,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 warnings.push_back(ctx +
                     ": displayWeight=0 (screen is in pool but never picked)");
             }
-            // mapId=0 means catch-all — flag if there are
+            // mapId=0 means catch-all - flag if there are
             // multiple catch-all screens in the same level
             // bracket, since the random pick becomes ambiguous.
             if (e.mapId == 0 && c.entries.size() > 1) {
@@ -266,7 +266,7 @@ int handleValidate(int& i, int argc, char** argv) {
                         ": catch-all screen (mapId=0) overlaps " +
                         std::to_string(conflicts) +
                         " other catch-all in same level bracket "
-                        "— random pick is non-deterministic");
+                        "- random pick is non-deterministic");
                 }
             }
             if (!idsSeen.add(e.screenId)) errors.push_back(ctx + ": duplicate screenId");

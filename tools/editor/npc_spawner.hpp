@@ -39,12 +39,12 @@ struct CreatureSpawn {
     uint32_t armor = 0;
     uint32_t faction = 0; // 0 = neutral
 
-    // Display — 1.0 matches AzerothCore's default creature scale.
+    // Display - 1.0 matches AzerothCore's default creature scale.
     // Templates can be scaled higher per-NPC if needed.
     float scale = 1.0f;
 
     // Behavior. Default is Wander with a small radius so newly-placed
-    // creatures actually move at runtime — Stationary was the old
+    // creatures actually move at runtime - Stationary was the old
     // default and was a frequent "my NPCs don't patrol" complaint.
     // Editor preview doesn't run AI; this kicks in once the zone ships.
     CreatureBehavior behavior = CreatureBehavior::Wander;

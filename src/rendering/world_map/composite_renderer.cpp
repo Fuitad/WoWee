@@ -1,4 +1,4 @@
-// composite_renderer.cpp — Vulkan off-screen composite rendering for the world map.
+// composite_renderer.cpp - Vulkan off-screen composite rendering for the world map.
 // Extracted from WorldMap::initialize, shutdown, compositePass, loadZoneTextures,
 // loadOverlayTextures, destroyZoneTextures (Phase 7 of refactoring plan).
 #include "rendering/world_map/composite_renderer.hpp"

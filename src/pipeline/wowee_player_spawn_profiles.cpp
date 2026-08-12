@@ -164,23 +164,23 @@ WoweePlayerSpawnProfile WoweePlayerSpawnProfileLoader::makeAlliance(
         c.entries.push_back(e);
     };
     // Map 0 = Eastern Kingdoms, Map 1 = Kalimdor, Map 530 = Outland.
-    // Coordinates are illustrative — match standard 3.3.5a starting
+    // Coordinates are illustrative - match standard 3.3.5a starting
     // positions for each race's home zone.
     add(1, "HumanWarrior",  RACE_HUMAN,    CLS_WARRIOR,  0,    9,
         -8949.95f,  -132.49f,  83.53f, 0.0f,
-        25, 38, 6948, 78, 81, "Human Warrior — Northshire Abbey, Elwynn Forest.");
+        25, 38, 6948, 78, 81, "Human Warrior - Northshire Abbey, Elwynn Forest.");
     add(2, "DwarfHunter",   RACE_DWARF,    CLS_HUNTER,   0,  132,
         -6240.32f,   331.03f, 382.76f, 6.18f,
-        117, 38, 6948, 75, 2480, "Dwarf Hunter — Coldridge Valley, Dun Morogh.");
+        117, 38, 6948, 75, 2480, "Dwarf Hunter - Coldridge Valley, Dun Morogh.");
     add(3, "NightElfDruid", RACE_NIGHTELF, CLS_DRUID,    1,  141,
         10311.30f,   832.97f, 1326.41f, 5.69f,
-        2070, 38, 6948, 5176, 8946, "Night Elf Druid — Shadowglen, Teldrassil.");
+        2070, 38, 6948, 5176, 8946, "Night Elf Druid - Shadowglen, Teldrassil.");
     add(4, "GnomeMage",     RACE_GNOME,    CLS_MAGE,     0,  132,
         -6240.32f,   331.03f, 382.76f, 6.18f,
-        2362, 38, 6948, 168, 5009, "Gnome Mage — Coldridge Valley, Dun Morogh.");
+        2362, 38, 6948, 168, 5009, "Gnome Mage - Coldridge Valley, Dun Morogh.");
     add(5, "DraeneiShaman", RACE_DRAENEI,  CLS_SHAMAN,  530, 3524,
         -3961.64f, -13931.20f, 100.61f, 2.08f,
-        24146, 38, 6948, 403, 332, "Draenei Shaman — Ammen Vale, Azuremyst Isle.");
+        24146, 38, 6948, 403, 332, "Draenei Shaman - Ammen Vale, Azuremyst Isle.");
     return c;
 }
 
@@ -212,19 +212,19 @@ WoweePlayerSpawnProfile WoweePlayerSpawnProfileLoader::makeHorde(
     };
     add(100, "OrcWarrior",     RACE_ORC,       CLS_WARRIOR, 1,  14,
         -618.51f,  -4251.67f, 38.71f, 4.74f,
-        25, 38, 6948, 78, 81, "Orc Warrior — Valley of Trials, Durotar.");
+        25, 38, 6948, 78, 81, "Orc Warrior - Valley of Trials, Durotar.");
     add(101, "TaurenDruid",    RACE_TAUREN,    CLS_DRUID,   1, 215,
         -2917.58f,  -257.98f, 52.99f, 5.27f,
-        2070, 38, 6948, 5176, 8946, "Tauren Druid — Camp Narache, Mulgore.");
+        2070, 38, 6948, 5176, 8946, "Tauren Druid - Camp Narache, Mulgore.");
     add(102, "UndeadMage",     RACE_UNDEAD,    CLS_MAGE,    0,  85,
         1676.71f,  1677.45f, 121.67f, 2.70f,
-        2362, 38, 6948, 168, 5009, "Undead Mage — Deathknell, Tirisfal Glades.");
+        2362, 38, 6948, 168, 5009, "Undead Mage - Deathknell, Tirisfal Glades.");
     add(103, "TrollHunter",    RACE_TROLL,     CLS_HUNTER,  1,  14,
         -618.51f,  -4251.67f, 38.71f, 4.74f,
-        117, 38, 6948, 75, 2480, "Troll Hunter — Valley of Trials, Durotar.");
+        117, 38, 6948, 75, 2480, "Troll Hunter - Valley of Trials, Durotar.");
     add(104, "BloodElfPriest", RACE_BLOODELF,  CLS_PRIEST, 530, 3431,
         10349.60f, -6357.29f, 33.43f, 5.31f,
-        24145, 38, 6948, 585, 2050, "Blood Elf Priest — Sunstrider Isle, Eversong.");
+        24145, 38, 6948, 585, 2050, "Blood Elf Priest - Sunstrider Isle, Eversong.");
     return c;
 }
 
@@ -239,7 +239,7 @@ WoweePlayerSpawnProfile WoweePlayerSpawnProfileLoader::makeDeathKnight(
         e.profileId = id; e.name = name; e.description = desc;
         e.raceMask = race;
         e.classMask = CLS_DK;
-        // Acherus, the Ebon Hold — instance map 609.
+        // Acherus, the Ebon Hold - instance map 609.
         e.mapId = 609; e.zoneId = 4298;
         e.spawnX = 2406.18f;
         e.spawnY = -5342.66f;
@@ -262,10 +262,10 @@ WoweePlayerSpawnProfile WoweePlayerSpawnProfileLoader::makeDeathKnight(
         c.entries.push_back(e);
     };
     add(200, "AllianceHumanDK", RACE_HUMAN,
-        "Alliance Human Death Knight — starts at lvl 55 in "
+        "Alliance Human Death Knight - starts at lvl 55 in "
         "Acherus, the Ebon Hold.");
     add(201, "HordeOrcDK",      RACE_ORC,
-        "Horde Orc Death Knight — starts at lvl 55 in "
+        "Horde Orc Death Knight - starts at lvl 55 in "
         "Acherus, the Ebon Hold.");
     return c;
 }

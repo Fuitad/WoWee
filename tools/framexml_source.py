@@ -8,11 +8,11 @@ own tools: one rule in twelve places, eleven of them a version behind.
 
 TWO RULES, AND WHICH TO ASK FOR
 
-`without_comments` is for a sweep that reads *names out of strings* — the
+`without_comments` is for a sweep that reads *names out of strings* - the
 event-arity family matches `event == "SOMETHING"`, the CVar label check reads
 the literal a branch compares against. Those need the strings intact.
 
-`without_comments_or_strings` is for a sweep that reads *syntax* — anything
+`without_comments_or_strings` is for a sweep that reads *syntax* - anything
 looking for `Foo(` and calling it a call. A Lua pattern is a string full of
 parentheses, and `strmatch(name, "DropDownList(%d+)")` reads as a call to a
 global named DropDownList. That put "every dropdown in the interface raises as
@@ -87,7 +87,7 @@ def loaded_files(interface):
     came out of those files, which cannot raise because they never run.
 
     Derived from the manifests and the <Script>/<Include> graph rather than
-    from a list written here — a hand-written file list is what crippled every
+    from a list written here - a hand-written file list is what crippled every
     per-element sweep before this, and the loader's own answer does not go
     stale when a file is added.
 
@@ -102,7 +102,7 @@ def loaded_files(interface):
 
     refused = _refused_addons(interface.parent.parent)
 
-    # Every folder with a manifest, at any depth — the bundled addons sit one
+    # Every folder with a manifest, at any depth - the bundled addons sit one
     # level further down, under addons/.
     #
     # Except gluexml, which AddonManager refuses by name: the login and

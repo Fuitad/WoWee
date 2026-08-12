@@ -1,13 +1,13 @@
 #pragma once
 
 /**
- * cli_validate_report.hpp — how a --validate-* handler reports what it found.
+ * cli_validate_report.hpp - how a --validate-* handler reports what it found.
  *
  * Every catalog format validates the same way: collect errors, collect
  * warnings, then say so either as JSON for a script or as text for a person,
  * and exit non-zero if there were errors.
  *
- * Only two things differ between the 138 formats — the file's extension, and
+ * Only two things differ between the 138 formats - the file's extension, and
  * the one line describing what "OK" means for that format ("3 slots, all
  * slotIds unique, no UI overlaps"). Everything around those was copied into
  * every handler, which is why a format's JSON report and its text report could
@@ -33,7 +33,7 @@ namespace cli {
 /// The machine-readable report. Answers the process exit code.
 ///
 /// `tag` is the extension without its dot, and is used as the JSON key holding
-/// the file path — which is how a caller tells which format answered.
+/// the file path - which is how a caller tells which format answered.
 inline int printValidationJson(const std::string& tag, const std::string& base,
                                const std::vector<std::string>& errors,
                                const std::vector<std::string>& warnings) {
@@ -82,7 +82,7 @@ inline std::string formatted(const char* fmt, Args... args) {
 /// if --json was given, print the file's name, print one line saying what OK
 /// means for this format when there is nothing to report, and otherwise list
 /// what there is. Only the tag and that one line differ, and the line is the
-/// one thing each format knows that this does not — so it is passed in already
+/// one thing each format knows that this does not - so it is passed in already
 /// formatted.
 inline int reportValidation(const std::string& tag, const std::string& base, bool jsonOut,
                             const std::vector<std::string>& errors,
@@ -91,7 +91,7 @@ inline int reportValidation(const std::string& tag, const std::string& base, boo
     if (jsonOut) return printValidationJson(tag, base, errors, warnings);
     std::printf("validate-%s: %s.%s\n", tag.c_str(), base.c_str(), tag.c_str());
     if (errors.empty() && warnings.empty()) {
-        std::printf("  OK — %s\n", okLine.c_str());
+        std::printf("  OK - %s\n", okLine.c_str());
         return 0;
     }
     return printValidationIssues(errors, warnings);
@@ -101,7 +101,7 @@ inline int reportValidation(const std::string& tag, const std::string& base, boo
 /// not there, load it, note an empty catalog, run the format's own checks, and
 /// report.
 ///
-/// Everything but those checks was written out in each of the 138 handlers —
+/// Everything but those checks was written out in each of the 138 handlers -
 /// twelve lines of preamble and eight of report around the part that actually
 /// knows something about the format. `check` fills the two lists and answers
 /// the one line that describes what OK means for it.
@@ -134,8 +134,8 @@ int validateCatalog(int& i, int argc, char** argv, const char* tag, const char* 
 /// written.
 ///
 /// `build` is the only part that knows the format. `countLabel` is the word
-/// each handler prints beside the entry count, with whatever padding it used —
-/// "mechanics ", "slots   " — so the output is unchanged down to the column the
+/// each handler prints beside the entry count, with whatever padding it used -
+/// "mechanics ", "slots   " - so the output is unchanged down to the column the
 /// colon lands in.
 template <typename Loader, typename Build>
 int exportCatalogJson(int& i, int argc, char** argv, const char* tag, const char* label,
@@ -166,12 +166,12 @@ int exportCatalogJson(int& i, int argc, char** argv, const char* tag, const char
 }
 
 /// Read a flag mask that a sidecar may have written either as a number or as
-/// the names joined by bars — "meat|fish|raw".
+/// the names joined by bars - "meat|fish|raw".
 ///
 /// The splitting is the same in every format that does this: take up to the
 /// next bar, fold it to lower case, look it up, or it in. Six importers wrote
-/// that loop out, and getting the last token wrong — the one with no bar after
-/// it — silently drops a flag.
+/// that loop out, and getting the last token wrong - the one with no bar after
+/// it - silently drops a flag.
 ///
 /// `tokenToFlag` is the only part that is each format's own, and it stays
 /// there: the words are that format's vocabulary and the bits are its own
@@ -199,8 +199,8 @@ uint32_t flagMaskFromJson(const nlohmann::json& jv, TokenToFlag tokenToFlag) {
 ///
 /// 84 handlers kept a std::vector and walked the whole of it for every entry,
 /// which is a quadratic scan of a list that only ever answers one question. The
-/// message each of them writes is its own — the field has a different name in
-/// every format — so only the bookkeeping is here.
+/// message each of them writes is its own - the field has a different name in
+/// every format - so only the bookkeeping is here.
 class DuplicateIdCheck {
 public:
     /// True the first time an id is offered, false once it has been seen.
@@ -209,7 +209,7 @@ public:
     /// Room for this many ids up front.
     ///
     /// The callers were reserving against the std::vector this replaced and
-    /// kept the call, which is still the right thing to ask — an unordered_set
+    /// kept the call, which is still the right thing to ask - an unordered_set
     /// that knows its size ahead of time does not rehash. Its absence is what
     /// stopped the editor building, in twelve handlers at once.
     void reserve(std::size_t count) { seen_.reserve(count); }
@@ -221,7 +221,7 @@ private:
 /// Run a format's --import-*-json handler: read the JSON, build the catalog
 /// from it, write it, and say what was written.
 ///
-/// `build` is the only part that knows the format — it turns the parsed JSON
+/// `build` is the only part that knows the format - it turns the parsed JSON
 /// into a catalog. Everything around it is the same in all 139 handlers: the
 /// path arithmetic, opening the file, parsing it, the two failure messages, the
 /// save and its failure message, and the three lines of summary.

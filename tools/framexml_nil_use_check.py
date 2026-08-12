@@ -37,7 +37,7 @@ patterns = [
     ("in arithmetic",        re.compile(CALL + r'\s*[-+*/]\s*[\w("\']')),
     # The call after a `..` needs its own pattern. CALL starts with a
     # (?<![:.\w]) meant to skip obj.Method(), and after a concatenation the
-    # character before the name IS a dot — so the operand of every `.."x"..`
+    # character before the name IS a dot - so the operand of every `.."x"..`
     # was rejected by the very pattern written to find it. That is how
     # _G["FACIAL_HAIR_"..GetFacialHairCustomization()] went unreported while
     # raising in BarberShop_OnLoad.
@@ -47,7 +47,7 @@ patterns = [
 
 # The same fault with a variable in between: `local x = Missing()` and then x
 # used somewhere nil raises, a few lines down. Concatenation belongs here as
-# much as arithmetic — the barber shop reads
+# much as arithmetic - the barber shop reads
 #     local hairCustomization = GetHairCustomization();
 #     ... _G["HAIR_"..hairCustomization.."_STYLE"]
 # and it was the concatenation, not any arithmetic, that took the addon down.
@@ -72,8 +72,8 @@ for f, t in texts.items():
             continue
         var, fn = m.group(1), m.group(2)
         # Both sides of every operator. Only the left was checked, so
-        # `if ( GetMoney() >= cost )` — the variable on the right of a
-        # comparison — went unseen, which is how the bank frame's nil slot
+        # `if ( GetMoney() >= cost )` - the variable on the right of a
+        # comparison - went unseen, which is how the bank frame's nil slot
         # cost stayed hidden while the sweep reported clean.
         use = re.compile(r'\b' + re.escape(var) + r'\s*(?:[<>]=?|[-+*/]|\.\.)'
                          r'|(?:[<>]=?|[-+*/]|\.\.)\s*\b' + re.escape(var) + r'\b')

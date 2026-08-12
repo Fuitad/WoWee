@@ -39,7 +39,7 @@ namespace rendering {
 uint32_t M2Renderer::createInstance(uint32_t modelId, const glm::vec3& position,
                                      const glm::vec3& rotation, float scale,
                                      bool allowPositionDedup) {
-    // Reject NaN inputs at the boundary — std::round of NaN is implementation-
+    // Reject NaN inputs at the boundary - std::round of NaN is implementation-
     // defined and a NaN instance position propagates into the GPU model matrix,
     // either tripping Vulkan validation or rendering at the world origin.
     if (!std::isfinite(position.x) || !std::isfinite(position.y) ||
@@ -59,7 +59,7 @@ uint32_t M2Renderer::createInstance(uint32_t modelId, const glm::vec3& position,
 
     // Deduplicate: skip if same model already at nearly the same position.
     // Uses hash map for O(1) lookup instead of O(N) scan.
-    // Spell effects are exempt — transient visuals must always create fresh instances.
+    // Spell effects are exempt - transient visuals must always create fresh instances.
     if (allowPositionDedup && !mdlRef.isGroundDetail && !mdlRef.isSpellEffect) {
         DedupKey dk{modelId,
                     static_cast<int32_t>(std::round(position.x * 10.0f)),
@@ -403,7 +403,7 @@ void M2Renderer::update(float deltaTime, const glm::vec3& cameraPos, const glm::
 
     // --- Normal M2 animation update ---
     // Advance animTime for ALL instances (needed for texture UV animation on static doodads).
-    // This is a tight loop touching only one float per instance — no hash lookups.
+    // This is a tight loop touching only one float per instance - no hash lookups.
     for (auto& instance : instances) {
         instance.animTime += dtMs;
         instance.globalSequenceTime += dtMs;
@@ -504,7 +504,7 @@ void M2Renderer::update(float deltaTime, const glm::vec3& cameraPos, const glm::
 
         // LOD 3 skip: models beyond 150 units use the lowest LOD mesh which has
         // no visible skeletal animation.  Keep their last-computed bone matrices
-        // (always valid — seeded on spawn) and avoid the expensive per-bone work.
+        // (always valid - seeded on spawn) and avoid the expensive per-bone work.
         // Sky birds, light beams, and ship machinery are exempt: their visible
         // motion is baked entirely into bone animation.
         constexpr float kLOD3DistSq = rendering::M2_LOD3_DISTANCE * rendering::M2_LOD3_DISTANCE;
@@ -530,7 +530,7 @@ void M2Renderer::update(float deltaTime, const glm::vec3& cameraPos, const glm::
         static const size_t minParallelAnimInstances = std::max<size_t>(
             8, envSizeOrDefault("WOWEE_M2_ANIM_MT_MIN", 96));
         if (animCount < minParallelAnimInstances || numAnimThreads_ <= 1) {
-            // Sequential — not enough work to justify thread overhead
+            // Sequential - not enough work to justify thread overhead
             for (size_t i : boneWorkIndices_) {
                 if (i >= instances.size()) continue;
                 auto& inst = instances[i];
@@ -538,7 +538,7 @@ void M2Renderer::update(float deltaTime, const glm::vec3& cameraPos, const glm::
                 computeBoneMatrices(*inst.cachedModel, inst);
             }
         } else {
-            // Parallel — dispatch across worker threads
+            // Parallel - dispatch across worker threads
             static const size_t minAnimWorkPerThread = std::max<size_t>(
                 16, envSizeOrDefault("WOWEE_M2_ANIM_WORK_PER_THREAD", 64));
             const size_t maxUsefulThreads = std::max<size_t>(
@@ -590,7 +590,7 @@ void M2Renderer::update(float deltaTime, const glm::vec3& cameraPos, const glm::
         }
     }
 
-    // Particle update (sequential — uses RNG, not thread-safe)
+    // Particle update (sequential - uses RNG, not thread-safe)
     // Only iterate instances that have particle emitters (pre-built list).
     for (size_t idx : particleInstanceIndices_) {
         if (idx >= instances.size()) continue;
@@ -635,13 +635,13 @@ void M2Renderer::prepareRender(uint32_t frameIndex, const Camera& camera) {
 
         const uint32_t boneCount = static_cast<uint32_t>(instance.boneMatrices.size());
         if (boneCount > MEGA_BONE_MATRIX_CAPACITY - nextOffset) {
-            instance.megaBoneOffset = 0;  // Overflow — use identity
+            instance.megaBoneOffset = 0;  // Overflow - use identity
             continue;
         }
 
         instance.megaBoneOffset = nextOffset;
 
-        // Upload bone matrices to mega buffer — only when they were recomputed
+        // Upload bone matrices to mega buffer - only when they were recomputed
         // since the last upload into this frame's buffer, or the instance's
         // slot moved (animated set changed). Most animated instances are
         // distance/frustum/frame-skip culled and keep their previous bones, so
@@ -679,7 +679,7 @@ void M2Renderer::dispatchCullCompute(VkCommandBuffer cmd, uint32_t frameIndex, c
     const float maxRenderDistance = smoothedRenderDist_;
     const float maxRenderDistanceSq = maxRenderDistance * maxRenderDistance;
     // The shader rejects on this bound before it ever reads the per-instance
-    // distance, so it has to clear the game-object floor as well — otherwise
+    // distance, so it has to clear the game-object floor as well - otherwise
     // that floor is silently capped at 2x the ambient doodad distance.
     const float maxPossibleDistSq = std::max(
         maxRenderDistanceSq * 4.0f,  // 2x safety margin
@@ -709,7 +709,7 @@ void M2Renderer::dispatchCullCompute(VkCommandBuffer cmd, uint32_t frameIndex, c
         // reprojected screen positions diverge from the actual pyramid data.
         bool hizSafe = hizReady;
         if (hizReady) {
-            // Compare current VP against previous VP — Frobenius-style max diff.
+            // Compare current VP against previous VP - Frobenius-style max diff.
             float maxDiff = 0.0f;
             const float* curM  = &vp[0][0];
             const float* prevM = &prevVP_[0][0];
@@ -734,7 +734,7 @@ void M2Renderer::dispatchCullCompute(VkCommandBuffer cmd, uint32_t frameIndex, c
                 0.0f
             );
             ubo->viewProj = vp;
-            // Use previous frame's VP for HiZ reprojection — the HiZ pyramid
+            // Use previous frame's VP for HiZ reprojection - the HiZ pyramid
             // was built from the previous frame's depth, so we must project
             // into the same screen space to sample the correct depths.
             ubo->prevViewProj = prevVP_;
@@ -786,7 +786,7 @@ void M2Renderer::dispatchCullCompute(VkCommandBuffer cmd, uint32_t frameIndex, c
             if (inst.cachedIsValid)          flags |= 1u;
             if (inst.cachedIsSmoke)           flags |= 2u;
             if (inst.cachedIsInvisibleTrap)   flags |= 4u;
-            // Bit 3: previouslyVisible — the shader runs the HiZ occlusion test
+            // Bit 3: previouslyVisible - the shader runs the HiZ occlusion test
             // ONLY when this bit is set (an object with no depth in last frame's
             // pyramid can't be tested reliably). Hysteresis: keep it set unless
             // culled for 2+ consecutive frames, preventing single-frame false-cull
@@ -798,7 +798,7 @@ void M2Renderer::dispatchCullCompute(VkCommandBuffer cmd, uint32_t frameIndex, c
             // flush against walls and doorframes, exactly where the coarse depth
             // pyramid reports false occlusions. Such a false-cull would persist
             // (the prop is then not rendered, so it never regains depth to clear
-            // itself) — the "mailbox went invisible in place" report. Frustum +
+            // itself) - the "mailbox went invisible in place" report. Frustum +
             // distance culling still bound them; only the unreliable occlusion
             // test is waived.
             if (inst.hizPrevCulledFrames < 2 && !inst.isGameObject)
@@ -883,7 +883,7 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
     const float lavaAnimSeconds = std::chrono::duration<float>(
         std::chrono::steady_clock::now() - kLavaAnimStart).count();
 
-    // GPU cull results — dispatchCullCompute() already updated smoothedRenderDist_.
+    // GPU cull results - dispatchCullCompute() already updated smoothedRenderDist_.
     // Use the cached value (set by dispatchCullCompute or fallback below).
     const uint32_t frameIndex = vkCtx_->getCurrentFrame();
     const uint32_t numInstances = std::min(static_cast<uint32_t>(instances.size()), MAX_CULL_INSTANCES);
@@ -897,7 +897,7 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
     // swap-removes, so a respawned game object lands at the volatile tail of the
     // array and would otherwise inherit the verdict of whatever transient object
     // (spell visual, streamed doodad, creature) held that index two frames back
-    // — leaving it culled for as long as the churn continued.
+    // - leaving it culled for as long as the churn continued.
     //
     // Instances with no entry in the readable set were created after that
     // dispatch and keep their defaults: visible, and exempt from the HiZ test.
@@ -930,7 +930,7 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
             }
         }
     } else {
-        // No GPU cull data — conservatively treat everything as visible.
+        // No GPU cull data - conservatively treat everything as visible.
         for (auto& inst : instances) {
             inst.lastCullVisible = 1;
             inst.hizPrevCulledFrames = 0;
@@ -966,7 +966,7 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
     if (transparentVisible_.capacity() < expectedVisible / 4)
         transparentVisible_.reserve(expectedVisible / 4);
 
-    // GPU frustum culling — build frustum for CPU fallback path and overflow instances
+    // GPU frustum culling - build frustum for CPU fallback path and overflow instances
     Frustum frustum;
     {
         const glm::mat4 vp = camera.getProjectionMatrix() * camera.getViewMatrix();
@@ -1020,7 +1020,7 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
                 distSq = glm::dot(toCam, toCam);
                 effectiveMaxDistSq = instanceMaxDistSq;
             } else if (gpuCullAvailable && i < numInstances) {
-                // Per-instance verdict scattered above — indexing visibility[]
+                // Per-instance verdict scattered above - indexing visibility[]
                 // directly here would read the slot of whichever instance held
                 // this array position when the dispatch was recorded.
                 if (!instance.lastCullVisible) continue;
@@ -1118,11 +1118,11 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
 
     // Validate per-frame descriptor set before any Vulkan commands
     if (!perFrameSet) {
-        LOG_ERROR("M2Renderer::render: perFrameSet is VK_NULL_HANDLE — skipping M2 render");
+        LOG_ERROR("M2Renderer::render: perFrameSet is VK_NULL_HANDLE - skipping M2 render");
         return;
     }
 
-    // Bind per-frame descriptor set (set 0) — shared across all draws
+    // Bind per-frame descriptor set (set 0) - shared across all draws
     vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
                             pipelineLayout_, 0, 1, &perFrameSet, 0, nullptr);
 
@@ -1131,7 +1131,7 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
     currentPipeline = opaquePipeline_;
 
     // Bind dummy bone set (set 2) so non-animated draws have a valid binding.
-    // Bind mega bone SSBO instead — all instances index into one buffer via boneBase.
+    // Bind mega bone SSBO instead - all instances index into one buffer via boneBase.
     if (megaBoneSet_[frameIndex]) {
         vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
                                 pipelineLayout_, 2, 1, &megaBoneSet_[frameIndex], 0, nullptr);
@@ -1140,7 +1140,7 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
                                 pipelineLayout_, 2, 1, &dummyBoneSet_, 0, nullptr);
     }
 
-    // Bind instance data SSBO (set 3) — per-instance transforms, fade, bones
+    // Bind instance data SSBO (set 3) - per-instance transforms, fade, bones
     if (instanceSet_[frameIndex]) {
         vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
                                 pipelineLayout_, 3, 1, &instanceSet_[frameIndex], 0, nullptr);
@@ -1151,7 +1151,7 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
     auto* instSSBO = static_cast<M2InstanceGPU*>(instanceMapped_[frameIndex]);
 
     // =====================================================================
-    // Opaque pass — instanced draws grouped by (modelId, LOD)
+    // Opaque pass - instanced draws grouped by (modelId, LOD)
     // =====================================================================
     // sortedVisible_ is already sorted by modelId so consecutive entries share
     // the same vertex/index buffer.  Within each model group we sub-group by
@@ -1248,7 +1248,7 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
             vkCmdBindVertexBuffers(cmd, 0, 1, &model.vertexBuffer, &vbOffset);
             vkCmdBindIndexBuffer(cmd, model.indexBuffer, 0, VK_INDEX_TYPE_UINT16);
 
-            // Write base instance data to SSBO (uvOffset=0 — overridden for tex-anim batches)
+            // Write base instance data to SSBO (uvOffset=0 - overridden for tex-anim batches)
             uint32_t baseSSBOOffset = instanceDataCount_;
             size_t writtenInstances = 0;
             for (const auto& p : pending) {
@@ -1268,7 +1268,7 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
 
             // Drop what did not fit. The loop above stops writing at the cap,
             // but the LOD sub-groups below are ranges over `pending` and were
-            // still being drawn in full — groupSSBOOffset then runs past the
+            // still being drawn in full - groupSSBOOffset then runs past the
             // end of the buffer and the vertex shader reads instance data that
             // is not there. That is a real out-of-bounds read on the GPU, not a
             // missing model: it fires once per instance past the cap, hundreds
@@ -1371,7 +1371,7 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
                             // A fixture with real particle flames should read as
                             // flames with a halo behind them. The sprite is sized
                             // from its glow card's geometric radius, which on a
-                            // chandelier spans the whole fixture — an additive
+                            // chandelier spans the whole fixture - an additive
                             // blob about a unit across, against candle flames of
                             // 0.15, so the glow swallowed them entirely. Cap it
                             // just above what a small glow card already produces
@@ -1386,7 +1386,7 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
                             // Fire burning inside a hearth. The sprite is a point
                             // billboard carrying one depth value for the whole
                             // quad, so as soon as its centre shows through the
-                            // fireplace opening the entire square draws — brick
+                            // fireplace opening the entire square draws - brick
                             // surround included, which reads as the fire glowing
                             // through the masonry. Sized from the glow card's
                             // geometric radius these spheres are wider than the
@@ -1401,7 +1401,7 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
 
                             // Flame guttering. The phase comes from the lamp's own
                             // world position, so two lanterns on the same street
-                            // never pulse together — a synchronised row of lamps
+                            // never pulse together - a synchronised row of lamps
                             // reads as a rendering artifact, not firelight. Two
                             // detuned sines keep any single lamp from looping
                             // visibly. Alpha and size move together, since a
@@ -1443,12 +1443,12 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
                             continue;
                     }
 
-                    // Opaque gate — transparent glow cards were handled above so their
+                    // Opaque gate - transparent glow cards were handled above so their
                     // sprites are generated before the mesh moves to pass 2.
                     const bool rawTransparent = (batch.blendMode >= 2) || model.isSpellEffect;
                     if (rawTransparent) continue;
 
-                    // Particle-dominant effects: emission geometry — skip opaque
+                    // Particle-dominant effects: emission geometry - skip opaque
                     if (particleDominantEffect && batch.blendMode <= 1) continue;
 
                     // Handle texture animation: if this batch has per-instance uvOffset,
@@ -1507,7 +1507,7 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
                     // The fire burning in the hearth is an effect overlay on a
                     // black background, the same shape as a spell visual; drawn
                     // opaque it fills the forge opening with a black rectangle
-                    // instead of flame. That is true of the flame cards only —
+                    // instead of flame. That is true of the flame cards only -
                     // treating the whole model this way turned the masonry and
                     // ironwork additive, which is to say translucent.
                     const bool fireEffectModel = batch.forgeFireCard;
@@ -1544,7 +1544,7 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
                     // Update material UBO
                     if (batch.materialUBOMapped) {
                         auto* mat = static_cast<M2MaterialUBO*>(batch.materialUBOMapped);
-                        // interiorDarken is a camera-based flag — it darkens ALL M2s (incl.
+                        // interiorDarken is a camera-based flag - it darkens ALL M2s (incl.
                         // outdoor trees) when the camera is inside a WMO.  Disable it; indoor
                         // M2s already look correct from the darker ambient/lighting.
                         mat->interiorDarken = 0.0f;
@@ -1582,7 +1582,7 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
     }
 
     // =====================================================================
-    // Pass 2: Transparent/additive batches — back-to-front per instance
+    // Pass 2: Transparent/additive batches - back-to-front per instance
     // =====================================================================
     // Transparent geometry must be drawn individually per instance in back-to-
     // front order for correct alpha compositing.  Each draw writes one
@@ -1600,7 +1600,7 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
         if (entry.index >= instances.size()) continue;
         auto& instance = instances[entry.index];
 
-        // Model boundary: read cachedModel off the instance — was doing a
+        // Model boundary: read cachedModel off the instance - was doing a
         // per-boundary models.find() even though every instance already has
         // the pointer cached at addInstance time.
         if (entry.modelId != currentModelId) {
@@ -1910,7 +1910,7 @@ void M2Renderer::renderShadow(VkCommandBuffer cmd, const glm::mat4& lightSpaceMa
         vkResetDescriptorPool(vkCtx_->getDevice(), curShadowTexPool, 0);
     }
     // Cache: texture imageView -> allocated descriptor set (avoids duplicates within frame)
-    // Reuse persistent map — pool reset already invalidated the sets.
+    // Reuse persistent map - pool reset already invalidated the sets.
     shadowTexSetCache_.clear();
     auto& texSetCache = shadowTexSetCache_;
 
@@ -1988,7 +1988,7 @@ void M2Renderer::renderShadow(VkCommandBuffer cmd, const glm::mat4& lightSpaceMa
             // world-space sphere around the player. The shadow frustum extends
             // ~2000 units toward the sun, so a distant tree can legitimately
             // cast across the whole view while sitting far outside any player
-            // sphere — sphere culling made such shadows pop on/off at the cull
+            // sphere - sphere culling made such shadows pop on/off at the cull
             // boundary as the player moved (large-area flicker at low sun).
             {
                 const glm::vec4 clip = lightSpaceMatrix * glm::vec4(instance.position, 1.0f);

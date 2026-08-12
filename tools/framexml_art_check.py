@@ -4,7 +4,7 @@
     tools/framexml_art_check.py
 
 A missing texture is not an error anywhere. The frame is built, laid out and
-drawn, and the part of it that should have art is simply not there — a button
+drawn, and the part of it that should have art is simply not there - a button
 with no face, a panel with no border, an icon slot that reads as empty rather
 than as broken. The log carries one "Widget texture not found" line among
 thousands, once, at whatever moment the frame first appeared.
@@ -13,8 +13,8 @@ WHAT IT READS
 
 Both halves. `file="..."` on every texture element in the XML, and the string
 argument of SetTexture/SetNormalTexture/SetBackdrop and friends in the Lua. The
-Lua half is the larger one — the quest icons that change per row, the class and
-race art, anything picked at runtime — and it is invisible to a check that reads
+Lua half is the larger one - the quest icons that change per row, the class and
+race art, anything picked at runtime - and it is invisible to a check that reads
 only the XML.
 
 THE ALIAS TABLE
@@ -24,12 +24,12 @@ carries, and the two do not always agree on a folder. FrameXML asks for
 Interface\\GossipFrame\\, this install has Interface\\Gossip\\, and
 WidgetRenderer::texture retries through a small table of folder swaps. That
 table is read out of the source here rather than copied, so the two cannot
-disagree — a copy would report art as missing the moment somebody added a swap,
+disagree - a copy would report art as missing the moment somebody added a swap,
 or worse, stay quiet after one was removed.
 
 WHAT IT CANNOT SEE
 
-A path built by concatenation — "Interface\\Icons\\"..icon — which is most icon
+A path built by concatenation - "Interface\\Icons\\"..icon - which is most icon
 art and all of it correct by construction. Nor whether a file that exists is the
 right one.
 
@@ -40,7 +40,7 @@ THE ONE IT REPORTS TODAY, AND WHY IT IS NOT A GAP
 
 interface/talentframe/ui-talentframe-spectab, from blizzard_talentui.lua:852.
 That line sits behind `SELECTEDSPEC_DISPLAYTYPE == "PUSHED_OUT"`, and the
-constant is set to "GOLD_INSIDE" eight hundred lines above it — so the texture
+constant is set to "GOLD_INSIDE" eight hundred lines above it - so the texture
 is never asked for and its absence is not a blank tab.
 
 Eighteen others went when this started reading only the files the loader opens.
@@ -77,7 +77,7 @@ def folder_swaps():
 
 
 def on_disk():
-    """Every art file, keyed without its extension — the client accepts both."""
+    """Every art file, keyed without its extension - the client accepts both."""
     out = set()
     for path in INTERFACE.rglob("*"):
         if not path.is_file():
@@ -104,7 +104,7 @@ def references():
         r"<(?:" + "|".join(ART_ELEMENTS) + r")\b[^>]*?file=\"([^\"]+)\"",
         re.I | re.S)
     # The closing quote is captured too, so a literal that is only the head of
-    # a concatenation — "Interface\\PVPFrame\\PVP-Banner-"..index — can be told
+    # a concatenation - "Interface\\PVPFrame\\PVP-Banner-"..index - can be told
     # apart from a whole path. Those are correct by construction and there is no
     # way to know from here what they end up as.
     lua_pat = re.compile(

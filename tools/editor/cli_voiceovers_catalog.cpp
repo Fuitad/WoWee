@@ -325,7 +325,7 @@ int handleValidate(int& i, int argc, char** argv) {
     }
     std::set<uint32_t> idsSeen;
     // Per-(npcId, eventKind, variantIndex) triple
-    // uniqueness — two voice clips with all three
+    // uniqueness - two voice clips with all three
     // matching would be ambiguous (which one plays?).
     std::set<uint64_t> tripleSeen;
     auto tripleKey = [](uint32_t npc, uint8_t event,
@@ -346,7 +346,7 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": name is empty");
         if (e.npcId == 0) {
             errors.push_back(ctx +
-                ": npcId is 0 — voice clip is unbound to "
+                ": npcId is 0 - voice clip is unbound to "
                 "any creature");
         }
         if (e.eventKind > 8) {
@@ -361,12 +361,12 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         if (e.audioPath.empty()) {
             errors.push_back(ctx +
-                ": audioPath is empty — voice clip would "
+                ": audioPath is empty - voice clip would "
                 "play no audio");
         }
         if (e.durationMs == 0 && !e.audioPath.empty()) {
             warnings.push_back(ctx +
-                ": durationMs=0 but audioPath set — "
+                ": durationMs=0 but audioPath set - "
                 "trigger handler can't subtitle-sync "
                 "without duration; consider populating "
                 "from the audio file's actual length");
@@ -374,12 +374,12 @@ int handleValidate(int& i, int argc, char** argv) {
         if (e.volumeDb < -20 || e.volumeDb > 6) {
             warnings.push_back(ctx + ": volumeDb " +
                 std::to_string(e.volumeDb) +
-                " outside [-20, +6] typical range — "
+                " outside [-20, +6] typical range - "
                 "extreme values may clip or be inaudible");
         }
         if (e.transcript.empty()) {
             warnings.push_back(ctx +
-                ": transcript is empty — accessibility "
+                ": transcript is empty - accessibility "
                 "TTS engines + chat-bubble subtitles "
                 "have no text to display");
         }
@@ -396,7 +396,7 @@ int handleValidate(int& i, int argc, char** argv) {
                     ", variantIndex=" +
                     std::to_string(e.variantIndex) +
                     ") triple already bound by another "
-                    "voice clip — random pick at trigger "
+                    "voice clip - random pick at trigger "
                     "time would be ambiguous");
             }
         }

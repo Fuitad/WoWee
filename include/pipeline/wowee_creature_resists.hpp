@@ -8,7 +8,7 @@ namespace wowee {
 namespace pipeline {
 
 // Wowee Open Creature Resistance & Immunity catalog
-// (.wcre) — novel replacement for the per-creature
+// (.wcre) - novel replacement for the per-creature
 // resistance columns that vanilla WoW buried inside
 // creature_template (resistance1..6 fields) plus the
 // SpellSchoolMask immunity / mechanic_immune_mask
@@ -39,12 +39,12 @@ namespace pipeline {
 //     holyResist (int16) / fireResist (int16)
 //     natureResist (int16) / frostResist (int16)
 //     shadowResist (int16) / arcaneResist (int16)
-//     physicalResistPct (uint8)   — 0..75 (cap is 75%)
+//     physicalResistPct (uint8)   - 0..75 (cap is 75%)
 //     pad0 (uint8)
-//     ccImmunityMask (uint16)     — Stun/Root/Fear/etc.
-//     mechanicImmunityMask (uint32)  — full mechanic
+//     ccImmunityMask (uint16)     - Stun/Root/Fear/etc.
+//     mechanicImmunityMask (uint32)  - full mechanic
 //                                     bitmask
-//     schoolImmunityMask (uint8)  — WSCH-bit immunity
+//     schoolImmunityMask (uint8)  - WSCH-bit immunity
 //     pad1 (uint8) / pad2 (uint8) / pad3 (uint8)
 //     iconColorRGBA (uint32)
 struct WoweeCreatureResists {
@@ -110,18 +110,18 @@ public:
 
     // Preset emitters used by --gen-cre* variants.
     //
-    //   makeRaidBosses — 5 canonical raid-boss profiles
+    //   makeRaidBosses - 5 canonical raid-boss profiles
     //                     with high single-school
     //                     resistances or full immunities
     //                     (Ragnaros 100% fire / Vaelastrasz
     //                     50% all / Hakkar arcane immune /
     //                     Kel'Thuzad shadow immune /
     //                     Onyxia fire+frost partial).
-    //   makeElites     — 5 mid-tier elite profiles with
+    //   makeElites     - 5 mid-tier elite profiles with
     //                     moderate resists (water elementals
     //                     fire-resistant / stone golems
     //                     nature-resistant / etc.).
-    //   makeImmunities — 4 CC-immunity test cases (root /
+    //   makeImmunities - 4 CC-immunity test cases (root /
     //                     stun / silence / fear immune
     //                     creatures for boss-mechanic
     //                     verification).

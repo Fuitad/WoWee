@@ -1,4 +1,4 @@
-// lua_social_api.cpp — Chat, guild, friends, ignore, gossip, party management, and emotes Lua API bindings.
+// lua_social_api.cpp - Chat, guild, friends, ignore, gossip, party management, and emotes Lua API bindings.
 // Extracted from lua_engine.cpp as part of §5.1 (Tame LuaEngine).
 #include <iterator>
 #include <vector>
@@ -22,12 +22,12 @@ struct LanguageEntry { const char* name; int id; };
 //
 // The two orders are not the same and must not be confused: the panel lists
 // Promote and Demote fifth and sixth while their bits are 0x80 and 0x100, above
-// Invite's 0x10 and Remove's 0x20 — so walking the mask in order would tick the
+// Invite's 0x10 and Remove's 0x20 - so walking the mask in order would tick the
 // wrong four boxes. The names come from GUILDCONTROL_OPTION1..17, which is what
 // GuildControlPopupFrame_OnLoad labels each checkbox with; the bits from
 // AzerothCore's GuildRankRights.
 //
-// Seventeen entries, of which the fourteenth has no checkbox — its option
+// Seventeen entries, of which the fourteenth has no checkbox - its option
 // string exists but the frame was never given the button, and FrameXML's update
 // loop skips the gap with a comment saying the flag is deprecated. The slot is
 // filled anyway because everything after it is found by counting: drop it and
@@ -50,8 +50,8 @@ static constexpr uint32_t kGuildRankFlagBits[] = {
     0x00008000u,  // 12 Edit Officer Note
     0x00010000u,  // 13 Modify Guild Info
     0u,           // 14 deprecated, no checkbox
-    0x00040000u,  // 15 Repair — GR_RIGHT_WITHDRAW_REPAIR
-    0x00080000u,  // 16 Gold — GR_RIGHT_WITHDRAW_GOLD
+    0x00040000u,  // 15 Repair - GR_RIGHT_WITHDRAW_REPAIR
+    0x00080000u,  // 16 Gold - GR_RIGHT_WITHDRAW_GOLD
     0x00100000u,  // 17 Create Guild Event
 };
 static constexpr size_t kGuildRankFlagCount = std::size(kGuildRankFlagBits);
@@ -59,7 +59,7 @@ static constexpr size_t kGuildRankFlagCount = std::size(kGuildRankFlagBits);
 static void collectKnownLanguages(uint8_t raceId, std::vector<LanguageEntry>& out) {
     const bool horde = (raceId == 2 || raceId == 5 || raceId == 6 ||
                         raceId == 8 || raceId == 10);
-    // Racial language first — that is the order the dropdown shows them in.
+    // Racial language first - that is the order the dropdown shows them in.
     switch (raceId) {
         case 1:  out.push_back({"Common", 7});      break;
         case 2:  out.push_back({"Orcish", 1});      break;
@@ -114,7 +114,7 @@ static int lua_SendChatMessage(lua_State* L) {
     if (!gh) return 0;
     const char* msg = luaL_checkstring(L, 1);
     const char* chatType = luaL_optstring(L, 2, "SAY");
-    // language arg (3) ignored — server determines language
+    // language arg (3) ignored - server determines language
     const char* target = luaL_optstring(L, 4, "");
 
     std::string typeStr(chatType);
@@ -125,8 +125,8 @@ static int lua_SendChatMessage(lua_State* L) {
     // for a channel or a raid warning went to everyone standing nearby, and
     // nothing about it looked like a failure.
     //
-    // CHANNEL is the one that mattered most. Every numbered channel — General,
-    // Trade, LookingForGroup — sends through here, so with FrameXML drawing
+    // CHANNEL is the one that mattered most. Every numbered channel - General,
+    // Trade, LookingForGroup - sends through here, so with FrameXML drawing
     // the chat every channel line was said out loud instead.
     game::ChatType ct = game::ChatType::SAY;
     bool known = true;
@@ -150,14 +150,14 @@ static int lua_SendChatMessage(lua_State* L) {
     else known = false;
     if (!known) {
         LOG_WARNING("SendChatMessage: unknown chat type '", typeStr,
-                    "', not sending — SAY would say it out loud");
+                    "', not sending - SAY would say it out loud");
         return 0;
     }
 
     std::string targetStr(target && *target ? target : "");
     // A channel is named on the wire and numbered in the interface.
-    // ChatEdit_ParseText stores what GetChannelName answered — an index into
-    // the joined list — as the edit box's channelTarget and hands that back
+    // ChatEdit_ParseText stores what GetChannelName answered - an index into
+    // the joined list - as the edit box's channelTarget and hands that back
     // here, so a bare number has to be turned into the name before it is sent.
     if (ct == game::ChatType::CHANNEL && lua_isnumber(L, 4)) {
         const int index = static_cast<int>(lua_tonumber(L, 4));
@@ -174,7 +174,7 @@ static int lua_SendChatMessage(lua_State* L) {
     return 0;
 }
 
-// SendAddonMessage(prefix, text, chatType, target) — send addon message
+// SendAddonMessage(prefix, text, chatType, target) - send addon message
 static int lua_SendAddonMessage(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (!gh) return 0;
@@ -202,7 +202,7 @@ static int lua_SendAddonMessage(lua_State* L) {
     return 0;
 }
 
-// RegisterAddonMessagePrefix(prefix) — register prefix for receiving addon messages
+// RegisterAddonMessagePrefix(prefix) - register prefix for receiving addon messages
 static int lua_RegisterAddonMessagePrefix(lua_State* L) {
     const char* prefix = luaL_checkstring(L, 1);
     // Store in a global Lua table for filtering
@@ -237,7 +237,7 @@ static int lua_GetNumFriends(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (!gh) { lua_pushnumber(L, 0); lua_pushnumber(L, 0); return 2; }
     // Two values. FrameXML reads the second and adds it to another count on
-    // the same line — local _, numWoWOnline = GetNumFriends() — so returning
+    // the same line - local _, numWoWOnline = GetNumFriends() - so returning
     // only the total leaves that arithmetic against nil.
     int count = 0, online = 0;
     for (const auto& c : gh->getContacts()) {
@@ -254,7 +254,7 @@ static int lua_GetNumFriends(lua_State* L) {
 //
 // A name as well as a row, because both are passed. The friends list asks by
 // row; the right-click menu's Set Note stores the name in FriendsFrame.NotesID
-// and the note dialog reads it back through here — and an index-only reading
+// and the note dialog reads it back through here - and an index-only reading
 // through luaL_checknumber raises on a name rather than answering it, which
 // took the dialog down as it opened.
 static int lua_GetFriendInfo(lua_State* L) {
@@ -300,8 +300,8 @@ static int lua_GetFriendInfo(lua_State* L) {
 ///
 /// The roster arrives in the server's order and used to be handed over in it,
 /// with SortGuildRoster and SetGuildRosterShowOffline both doing nothing. That
-/// is the whole of the guild panel's sorting and filtering — FrameXML keeps no
-/// order of its own, it re-reads the API and redraws — so every column header
+/// is the whole of the guild panel's sorting and filtering - FrameXML keeps no
+/// order of its own, it re-reads the API and redraws - so every column header
 /// was a button that played a click and changed nothing, and the "show offline"
 /// tick could be cleared with the offline members still listed beneath it.
 ///
@@ -347,13 +347,13 @@ int setAllAddOnsEnabled(lua_State* L, bool enabled) {
 /// Whether an npc a dialog is waiting on is still close enough to talk to.
 ///
 /// Five yards is AzerothCore's INTERACTION_DISTANCE, which is the figure the
-/// server itself refuses a request beyond — so a dialog that stays open past
+/// server itself refuses a request beyond - so a dialog that stays open past
 /// it is offering a button that cannot work.
 ///
 /// An npc with no entity here answers *yes*, and the distinction matters: not
 /// knowing where someone is is not the same as knowing they are far away. Both
 /// callers close a dialog on a no, and the note this replaces warned about
-/// exactly that — a client that cannot measure the distance and answers no
+/// exactly that - a client that cannot measure the distance and answers no
 /// shuts the dialog the instant it opens. Closing on ignorance would bring
 /// that back for any npc briefly missing from the entity list.
 bool npcWithinInteractRange(game::GameHandler* gh, uint64_t npcGuid) {
@@ -395,7 +395,7 @@ std::vector<const game::GuildRosterMember*> guildRosterView(game::GameHandler* g
     }
     const std::string& by = guildSortField();
     // Ties break on name so a redraw cannot reorder equal rows under the
-    // player's cursor — a level sort over a guild of forty otherwise shuffles
+    // player's cursor - a level sort over a guild of forty otherwise shuffles
     // every row of the same level each time the roster arrives.
     auto less = [&](const game::GuildRosterMember* a, const game::GuildRosterMember* b) {
         if (by == "level")  { if (a->level != b->level) return a->level < b->level; }
@@ -422,7 +422,7 @@ std::vector<const game::GuildRosterMember*> guildRosterView(game::GameHandler* g
 /// The who results in the order the panel last asked for. Same story as the
 /// guild roster: the list arrives in the server's order, every column header
 /// calls SortWho with its field and nothing else, and FrameXML keeps no order
-/// of its own — so the headers and the sort dropdown were both inert.
+/// of its own - so the headers and the sort dropdown were both inert.
 ///
 /// "group" is one of the fields the headers send and there is nothing here to
 /// answer it with: SMSG_WHO carries no party for the players it lists. It
@@ -535,7 +535,7 @@ static int lua_GetGuildRosterInfo(lua_State* L) {
     //     ... buttonText:SetTextColor(classTextColor.r, ...)
     //
     // An id is truthy, so it took the first branch, found no such key, and
-    // read .r off a nil one line later — inside GuildStatus_Update, which
+    // read .r off a nil one line later - inside GuildStatus_Update, which
     // takes the whole roster down with it. Only on the online branch, so a
     // guild whose members were all offline drew fine and one with anybody on
     // showed nothing, which is what "mostly unpopulated" looks like.
@@ -590,7 +590,7 @@ static int lua_GetIgnoreName(lua_State* L) {
 // GetNumTalentTabs() → count (usually 3)
 
 /// Battle.net friends: none, and none online. Two values, because FriendsFrame
-/// reads them together and does arithmetic on the second the line it is read —
+/// reads them together and does arithmetic on the second the line it is read -
 /// numBNetTotal - numBNetOnline.
 // ── Battle.net, which this client has none of ──────────────────────────────
 //
@@ -683,7 +683,7 @@ static int lua_GetAutoCompleteResults(lua_State* L) {
     }
 
     // `wanted` comes from the caller and nothing bounds it; the names come
-    // from a guild roster, which can be a thousand. Room first — pushing past
+    // from a guild roster, which can be a thousand. Room first - pushing past
     // the stack top corrupts the heap rather than raising.
     if (!lua_checkstack(L, wanted + 1)) return 0;
     int pushed = 0;
@@ -704,7 +704,7 @@ static int lua_GetAutoCompleteResults(lua_State* L) {
 static int& selectedFriend() { static int v = 0; return v; }
 static int& selectedIgnore() { static int v = 0; return v; }
 
-// SendSystemMessage(text) — put a line in the chat as the client itself would
+// SendSystemMessage(text) - put a line in the chat as the client itself would
 static int lua_SendSystemMessage(lua_State* L) {
     auto* gh = getGameHandler(L);
     const char* msg = luaL_optstring(L, 1, "");
@@ -712,7 +712,7 @@ static int lua_SendSystemMessage(lua_State* L) {
     return 0;
 }
 
-// AddOrRemoveFriend(name, note) / AddOrDelIgnore(name) — the slash commands
+// AddOrRemoveFriend(name, note) / AddOrDelIgnore(name) - the slash commands
 //
 // /friend and /ignore both toggle: naming someone already on the list takes
 // them off it. That is what the "OrRemove" and "OrDel" in the names mean, and
@@ -745,7 +745,7 @@ static int lua_AddOrDelIgnore(lua_State* L) {
 // Every one of these popups already appears: the client fires
 // PARTY_INVITE_REQUEST, GUILD_INVITE_REQUEST, RESURRECT_REQUEST and
 // DUEL_REQUESTED, and StaticPopup draws them. None of the buttons did anything,
-// because the functions behind them were never bound — so an invitation could
+// because the functions behind them were never bound - so an invitation could
 // be seen and not taken.
 static int lua_AcceptGroup(lua_State* L) {
     if (auto* gh = getGameHandler(L)) gh->acceptGroupInvite();
@@ -797,7 +797,7 @@ namespace {
 /// Give or take raid assistant for the group member with this name.
 ///
 /// Names are how the unit popup identifies people here, and the group roster is
-/// the only name-to-guid map this client keeps — which is enough, because only
+/// the only name-to-guid map this client keeps - which is enough, because only
 /// a group member can be an assistant.
 static void setGroupAssistantByName(lua_State* L, bool apply) {
     auto* gh = getGameHandler(L);
@@ -812,7 +812,7 @@ static void setGroupAssistantByName(lua_State* L, bool apply) {
 
 
 /// Which guild roster row is selected. Panel state with no counterpart in the
-/// game, so it lives here — the same shape as selectedFriend and selectedSkill.
+/// game, so it lives here - the same shape as selectedFriend and selectedSkill.
 ///
 /// The getter answered a flat zero and the setter forgot, which is what killed
 /// note editing: every dialog that edits a note reads the selection to know
@@ -833,8 +833,8 @@ std::string guildRosterNameAt(game::GameHandler* gh, int index) {
 /// the menu that shows a tick beside it.
 bool& optOutOfLoot() { static bool out = false; return out; }
 
-/// Which row the panel has selected. The client has no opinion — it is what
-/// the player last clicked — so it lives here rather than being invented.
+/// Which row the panel has selected. The client has no opinion - it is what
+/// the player last clicked - so it lives here rather than being invented.
 int& selectedFaction() {
     static int selected = 1;
     return selected;
@@ -847,7 +847,7 @@ int& selectedFaction() {
 // Which of an NPC's quests are on offer and which are already taken is decided
 // by the icon the server sent, not by anything the client tracks. The values
 // are the server's QUEST_STATUS enum and are the same ones quest_handler.cpp
-// classifies by — kept in step with it deliberately, since a quest sorted into
+// classifies by - kept in step with it deliberately, since a quest sorted into
 // the wrong list is offered twice or not at all.
 namespace {
 
@@ -857,7 +857,7 @@ constexpr uint32_t kQuestFlagsDaily = 0x1000;
 bool gossipQuestIsAvailable(uint32_t icon)   { return icon == 2 || icon == 7 || icon == 8; }
 bool gossipQuestIsCompletable(uint32_t icon) { return icon == 5 || icon == 6 || icon == 10; }
 bool gossipQuestIsIncomplete(uint32_t icon)  { return icon == 3 || icon == 4; }
-/// Taken already, finished or not — which is one list in the gossip window.
+/// Taken already, finished or not - which is one list in the gossip window.
 bool gossipQuestIsActive(uint32_t icon) {
     return gossipQuestIsIncomplete(icon) || gossipQuestIsCompletable(icon);
 }
@@ -896,7 +896,7 @@ int pushGossipQuestTitle(lua_State* L, bool available) {
 }
 
 /// Index into whichever of the two lists the caller means, then ask for that
-/// quest by id — the position in the filtered list is not the position in the
+/// quest by id - the position in the filtered list is not the position in the
 /// packet, so the id is the only thing safe to send.
 int selectGossipQuestAt(lua_State* L, bool available) {
     auto* gh = getGameHandler(L);
@@ -920,7 +920,7 @@ int selectGossipQuestAt(lua_State* L, bool available) {
 //
 // GetGMTicket asks; it does not answer. The reply arrives as UPDATE_TICKET,
 // fired from the SMSG_GMTICKET_GETTICKET handler, with no arguments at all when
-// there is no ticket — which is how the help frame tells the two apart.
+// there is no ticket - which is how the help frame tells the two apart.
 
 // GetGMTicket() → asks the server what ticket this player has open
 static int lua_GetGMTicket(lua_State* L) {
@@ -983,8 +983,8 @@ static int lua_GetMacroIconInfo(lua_State* L) {
 // so the interface's frame opened on cue and then raised on the first call it
 // made, which is worse than never opening.
 //
-// This client only ever holds a guild charter — arena charters are bought
-// through a registrar it does not implement — so the type is reported as
+// This client only ever holds a guild charter - arena charters are bought
+// through a registrar it does not implement - so the type is reported as
 // "guild" rather than guessed from the signature count. Saying "arena" wrongly
 // would relabel the whole frame and ask for a team size that is not there.
 
@@ -1090,7 +1090,7 @@ static int lua_ClosePetition(lua_State* L) {
 // GetNumGuildEvents() / GetGuildEventInfo(i) → the guild's event log.
 //
 // The log arrives as MSG_GUILD_EVENT_LOG_QUERY and is parsed against
-// AzerothCore's own writer rather than guessed — see handleGuildEventLog.
+// AzerothCore's own writer rather than guessed - see handleGuildEventLog.
 //
 // GetGuildEventInfo answers type, player1, player2, rank, year, month, day,
 // hour. The wire sends an age in seconds, not a date, so the four time fields
@@ -1102,9 +1102,9 @@ static int lua_GetNumGuildEvents(lua_State* L) {
     auto* gh = getGameHandler(L);
     // Asked for the first time it is wanted, because nothing else asks.
     //
-    // The whole chain is here — MSG_GUILD_EVENT_LOG_QUERY goes out,
+    // The whole chain is here - MSG_GUILD_EVENT_LOG_QUERY goes out,
     // handleGuildEventLog reads the reply and fires GUILD_EVENT_LOG_UPDATE,
-    // and friendsframe registers for it — with one link missing at each end.
+    // and friendsframe registers for it - with one link missing at each end.
     // FrameXML would have made the request from ToggleGuildEventLog, and
     // Blizzard commented that line out, so opening the tab asked nobody for
     // anything and drew an empty log.
@@ -1196,7 +1196,7 @@ void registerSocialLuaAPI(lua_State* L) {
                 {"BNGetCustomMessageTable",  lua_BNCustomMessageTable},
                 // The verbs. Nothing to send them to, and a name that is not
                 // there raises where a verb that does nothing simply does
-                // nothing — which is the truth for a client with no
+                // nothing - which is the truth for a client with no
                 // Battle.net.
                 {"BNSetSelectedFriend",      lua_BNNothing},
                 {"BNSetSelectedBlock",       lua_BNNothing},
@@ -1213,7 +1213,7 @@ void registerSocialLuaAPI(lua_State* L) {
                 {"BNReportPlayer",           lua_BNNothing},
                 {"BNCreateConversation",     lua_BNNothing},
                 {"GetGMTicket",         lua_GetGMTicket},
-                // UpdateGMTicket(text) — rewrite the ticket already open.
+                // UpdateGMTicket(text) - rewrite the ticket already open.
                 // Creating one carries the player's position because a new
                 // ticket records where it was raised; editing does not move it,
                 // and the request is the text alone.
@@ -1234,7 +1234,7 @@ void registerSocialLuaAPI(lua_State* L) {
                 {"SignPetition",        lua_SignPetition},
                 {"OfferPetition",       lua_OfferPetition},
                 {"ClosePetition",       lua_ClosePetition},
-                // GMResponseResolve() — the "close this reply" button on a GM
+                // GMResponseResolve() - the "close this reply" button on a GM
                 // ticket's answer. An empty packet; the server replies by
                 // deciding whether to ask for a survey. Unbound, the button
                 // raised and the reply could not be dismissed.
@@ -1245,7 +1245,7 @@ void registerSocialLuaAPI(lua_State* L) {
                 // GetPetitionItemInfo(index) → name, texture, price.
                 //
                 // The arena registrar prices whichever tab is open, and its
-                // three tabs are the three charters the vendor listed — the
+                // three tabs are the three charters the vendor listed - the
                 // two, three and five person teams. It calls this on opening a
                 // tab and waits for a callback when the answer is nothing,
                 // which is what happens before the item query comes back.
@@ -1262,7 +1262,7 @@ void registerSocialLuaAPI(lua_State* L) {
             lua_pushnumber(L, cost);
             return 3;
         }},
-                // TurnInArenaPetition(teamSize, r,g,b, icon, ...) — the banner
+                // TurnInArenaPetition(teamSize, r,g,b, icon, ...) - the banner
                 // designer's Accept.
                 //
                 // Every argument after the first is the tabard being drawn on
@@ -1290,7 +1290,7 @@ void registerSocialLuaAPI(lua_State* L) {
             if (gh && name && *name) gh->buyPetition(gh->getPetitionNpcGuid(), name);
             return 0;
         }},
-                // BuyPetition(index, name) — the arena registrar's Purchase.
+                // BuyPetition(index, name) - the arena registrar's Purchase.
                 // The index is the tab that was open, which is the arena slot
                 // plus one, and it is the only thing telling the server a
                 // five-person charter from a two-person one.
@@ -1316,7 +1316,7 @@ void registerSocialLuaAPI(lua_State* L) {
             lua_pushnumber(L, gh ? gh->getPetitionCost() : 0);
             return 1;
         }},
-                // RenamePetition(name) — the Accept on the rename dialog,
+                // RenamePetition(name) - the Accept on the rename dialog,
                 // which is how a charter gets the guild or team name it will
                 // be turned in under. The petition being renamed is the one
                 // whose window is open.
@@ -1348,12 +1348,12 @@ void registerSocialLuaAPI(lua_State* L) {
                 gh->disbandArenaTeam(static_cast<uint32_t>(luaL_optnumber(L, 1, 0)));
             return 0;
         }},
-                // DeclineInvite(name) — the group invite popup's Decline.
+                // DeclineInvite(name) - the group invite popup's Decline.
                 // The same refusal DeclineGroup sends; the name is which
                 // invite the dialog was showing, and this client only ever
                 // holds one.
                 {"DeclineInvite",       lua_DeclineGroup},
-                // ComplainInboxItem(index) — reporting a mail as spam.
+                // ComplainInboxItem(index) - reporting a mail as spam.
                 //
                 // Type 0 is mail, and the three values after the sender are
                 // the ones the server logs and ignores: a zero, the mail's own
@@ -1367,22 +1367,22 @@ void registerSocialLuaAPI(lua_State* L) {
             gh->reportMailSpam(inbox[index].senderGuid, inbox[index].messageId);
             return 0;
         }},
-                // ComplainChat(lineID) — reporting a chat line as spam.
+                // ComplainChat(lineID) - reporting a chat line as spam.
                 //
                 // The line id is a chat frame's own numbering for a message it
                 // is still holding, and this client keeps no such number: the
                 // report would have to name the sender, the language, the
                 // channel and the text, and none of that can be recovered from
                 // an id nothing recorded. Sending it with a zero guid would
-                // report nobody, which is worse than not sending — so this
+                // report nobody, which is worse than not sending - so this
                 // takes the click and does nothing, and the popup closes.
                 // Report a chat line as spam. The unit menu offers it on a
                 // right-click of a name in chat and hands back the line id from
                 // the player link; the popup that confirms it calls this with
                 // the same id.
                 //
-                // The report itself was already built — CMSG_COMPLAIN, which
-                // this server has a real handler for — and reachable only from
+                // The report itself was already built - CMSG_COMPLAIN, which
+                // this server has a real handler for - and reachable only from
                 // this client's own window, because every chat line carried the
                 // id zero and CanComplainChat is asked about that id before the
                 // entry is shown at all.
@@ -1394,8 +1394,8 @@ void registerSocialLuaAPI(lua_State* L) {
             if (guid != 0) gh->reportPlayer(guid, "");
             return 0;
         }},
-                // The petition *vendor* — the guild master or arena
-                // registrar offering a charter — as opposed to the charter
+                // The petition *vendor* - the guild master or arena
+                // registrar offering a charter - as opposed to the charter
                 // itself, which ClosePetition above shuts. Both windows read
                 // different state, so closing one has to close the other.
                 {"ClosePetitionVendor", [](lua_State* L) -> int {
@@ -1404,7 +1404,7 @@ void registerSocialLuaAPI(lua_State* L) {
         }},
                 // HasFilledPetition() gates the arena registrar's turn-in
                 // buttons. Whether a charter has *enough* signatures is not
-                // something this client is told — SMSG_PETITION_SHOW_SIGNATURES
+                // something this client is told - SMSG_PETITION_SHOW_SIGNATURES
                 // carries a count, but only for the charter whose window is
                 // open, and the required number lives in the server's own
                 // config. What can be answered is whether the player is
@@ -1432,13 +1432,13 @@ void registerSocialLuaAPI(lua_State* L) {
             lua_pushboolean(L, carrying ? 1 : 0);
             return 1;
         }},
-                // CloseTabardCreation() — the tabard designer shutting itself
+                // CloseTabardCreation() - the tabard designer shutting itself
                 // when ShowUIPanel could not put it on screen.
                 //
                 // Nothing to close. This client has no tabard window and no
                 // tabard session: MSG_TABARDVENDOR_ACTIVATE is not handled and
                 // OPEN_TABARD_FRAME is never fired, so TabardFrame is only
-                // reachable through its own close path — which is this, and
+                // reachable through its own close path - which is this, and
                 // which raised. A no-op is the honest shape of that until the
                 // vendor side exists; answering it wrongly would be inventing
                 // a session to end.
@@ -1469,7 +1469,7 @@ void registerSocialLuaAPI(lua_State* L) {
         }},
                 // Whether the roster lists members who are offline. A display
                 // choice the client does not keep, and the roster it is given
-                // holds everyone either way — so the list shows them, which is
+                // holds everyone either way - so the list shows them, which is
                 // what answering true says.
                 {"GetGuildRosterShowOffline", [](lua_State* L) -> int {
             lua_pushboolean(L, guildShowOffline() ? 1 : 0);
@@ -1479,7 +1479,7 @@ void registerSocialLuaAPI(lua_State* L) {
             guildShowOffline() = lua_toboolean(L, 1) != 0;
             return 0;
         }},
-                // SortWho(field) — name, zone, guild, race, level, class or
+                // SortWho(field) - name, zone, guild, race, level, class or
                 // group, from a column header or the sort dropdown. Same
                 // contract as SortGuildRoster: the same field twice reverses.
                 {"SortWho", [](lua_State* L) -> int {
@@ -1538,7 +1538,7 @@ void registerSocialLuaAPI(lua_State* L) {
         }},
                 // GetGuildEventInfo is registered once, further up, with the
                 // implementation that reads the log. A second entry here
-                // answered nil and, being later, won — so the reader above it
+                // answered nil and, being later, won - so the reader above it
                 // could never run and the tab was empty whatever arrived. The
                 // note that stood here said the request is never made, which
                 // was true of the request and not of the reader.
@@ -1585,7 +1585,7 @@ void registerSocialLuaAPI(lua_State* L) {
             return 1;
         }},
                 // The three that stage the bank half of a rank edit. Bits are
-                // view 0x01, deposit 0x02, update text 0x04 — the same the
+                // view 0x01, deposit 0x02, update text 0x04 - the same the
                 // roster reports.
                 {"SetGuildBankTabPermissions", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
@@ -1656,7 +1656,7 @@ void registerSocialLuaAPI(lua_State* L) {
             // Which side of the sale this letter is. The auction house sends
             // the buyer a "won" mail and the seller a "sold" one, and the two
             // halves of OpenMail_Update draw entirely different panels from it
-            // — the buyer's shows what was paid, the seller's the deposit and
+            // - the buyer's shows what was paid, the seller's the deposit and
             // the house's cut.
             //
             // The subject carries the response code that says which.
@@ -1703,19 +1703,19 @@ void registerSocialLuaAPI(lua_State* L) {
             return 10;
         }},
                 // Stationery is the letterhead a mail is written on. The list
-                // is empty — GetNumStationeries answers zero from the counting
-                // table in lua_engine.cpp — so the picker has no rows and these
+                // is empty - GetNumStationeries answers zero from the counting
+                // table in lua_engine.cpp - so the picker has no rows and these
                 // are the calls around it.
                 //
                 // Deliberately NOT bound here. That table records every name it
                 // answers for under a "count:" prefix so it stays in the
                 // missing-API report, and binding it explicitly would take it
-                // out — which is the one thing that report exists to prevent.
+                // out - which is the one thing that report exists to prevent.
                 // The stationery list is a real feature this client does not
                 // have, and it should keep saying so.
                 // Stationery is the paper a letter is written on. There is one
-                // — the plain parchment every letter uses unless the player
-                // bought something else — and answering that there are none
+                // - the plain parchment every letter uses unless the player
+                // bought something else - and answering that there are none
                 // left the popup empty with nothing to pick.
                 //
                 // That is not cosmetic. SendMailFrame_CanSend counts three
@@ -1737,7 +1737,7 @@ void registerSocialLuaAPI(lua_State* L) {
                     lua_pushstring(L, "Default");
                     return 1;
                 }},
-                // Which one is chosen is the frame's business — it keeps the
+                // Which one is chosen is the frame's business - it keeps the
                 // index itself and hands it here. Nothing on this side varies
                 // with it while there is only one.
                 {"SelectStationery", [](lua_State* L) -> int { (void)L; return 0; }},
@@ -1756,7 +1756,7 @@ void registerSocialLuaAPI(lua_State* L) {
             if (gh && id) gh->takeInboxTextItem(id);
             return 0;
         }},
-                // SetSendMailShowing(showing) — the send-mail tab is open, or
+                // SetSendMailShowing(showing) - the send-mail tab is open, or
                 // is not.
                 //
                 // This client does hold a draft: the letter's attachments live
@@ -1764,7 +1764,7 @@ void registerSocialLuaAPI(lua_State* L) {
                 // while the compose frame is up. Discarding this left that flag
                 // false for as long as FrameXML owned the mail window, so a
                 // click on a bag item went to the branch below it and used the
-                // item instead — the food got eaten rather than posted.
+                // item instead - the food got eaten rather than posted.
                 {"SetSendMailShowing", [](lua_State* L) -> int {
                     auto* gh = getGameHandler(L);
                     if (gh) gh->setMailComposeShowing(lua_toboolean(L, 1) != 0);
@@ -1774,11 +1774,11 @@ void registerSocialLuaAPI(lua_State* L) {
                 // ---- The help frame's GM requests ----
                 //
                 // There is no GM to reach: tickets are submitted through
-                // NewGMTicket, and these three are the paths beside it — asking
+                // NewGMTicket, and these three are the paths beside it - asking
                 // for a lag report, saying an answer did not help, and polling
                 // whether a GM is available. Answered rather than left missing
                 // because the help frame calls the last one from its OnLoad.
-                // Stuck() — the help frame's "I'm stuck" button.
+                // Stuck() - the help frame's "I'm stuck" button.
                 //
                 // In WoW this casts the Stuck spell, which the server answers
                 // by moving the character to a graveyard. Cast rather than
@@ -1791,7 +1791,7 @@ void registerSocialLuaAPI(lua_State* L) {
         }},
                 {"GMReportLag", [](lua_State* L) -> int { (void)L; return 0; }},
                 {"GMResponseNeedMoreHelp", [](lua_State* L) -> int { (void)L; return 0; }},
-                // GetGMStatus() — ask whether the ticket queue is open.
+                // GetGMStatus() - ask whether the ticket queue is open.
                 //
                 // A request, not a getter: the answer comes back as
                 // UPDATE_GM_STATUS. The help frame calls this from OnShow and
@@ -1803,7 +1803,7 @@ void registerSocialLuaAPI(lua_State* L) {
         }},
 
                 // ---- Guild rank editing ----
-                // GuildControlGetNumRanks() — how many ranks the guild has.
+                // GuildControlGetNumRanks() - how many ranks the guild has.
                 //
                 // This answered zero, and every other verb in this block
                 // worked. The panel builds its rank dropdown with
@@ -1815,7 +1815,7 @@ void registerSocialLuaAPI(lua_State* L) {
                 //
                 // Counted from the roster's ranks rather than the ten name
                 // slots in the guild query, because that is where
-                // GuildControlGetRankFlags reads rights from — a rank listed
+                // GuildControlGetRankFlags reads rights from - a rank listed
                 // here whose flags come back empty is worse than one not
                 // listed. The query's names fill in before any roster has
                 // arrived, and it pads to ten with empty strings, so those are
@@ -1844,7 +1844,7 @@ void registerSocialLuaAPI(lua_State* L) {
             lua_pushstring(L, ranks[static_cast<size_t>(idx) - 1].c_str());
             return 1;
         }},
-                // GuildControlSetRank(index) — which rank the panel is editing.
+                // GuildControlSetRank(index) - which rank the panel is editing.
                 // Remembered rather than sent: GuildControlGetRankFlags below
                 // takes no argument, so this is the only thing that says which
                 // rank it is being asked about.
@@ -1898,7 +1898,7 @@ void registerSocialLuaAPI(lua_State* L) {
             if (gh) gh->delGuildRank();
             return 0;
         }},
-                // GuildControlSetRankFlag(checkboxIndex, checked) — stage one
+                // GuildControlSetRankFlag(checkboxIndex, checked) - stage one
                 // permission. Called from the checkbox's own OnClick in the
                 // XML, which is why it never appeared in a scan of the Lua.
                 //
@@ -1911,8 +1911,8 @@ void registerSocialLuaAPI(lua_State* L) {
             const bool on = lua_toboolean(L, 2) != 0;
             if (!gh || idx < 1 || idx > static_cast<int>(kGuildRankFlagCount)) return 0;
             const uint32_t bit = kGuildRankFlagBits[static_cast<size_t>(idx) - 1];
-            // Slot 14 has no bit to set. Nothing calls it — the checkbox that
-            // would is not in the frame — but a zero bit here would clear
+            // Slot 14 has no bit to set. Nothing calls it - the checkbox that
+            // would is not in the frame - but a zero bit here would clear
             // nothing on the way in and revoke nothing on the way out, so the
             // early return keeps that accident from ever being silent.
             if (bit == 0) return 0;
@@ -1920,11 +1920,11 @@ void registerSocialLuaAPI(lua_State* L) {
             if (on) p.rights |= bit; else p.rights &= ~bit;
             return 0;
         }},
-                // GuildControlSaveRank(name) — commit the staged rank.
+                // GuildControlSaveRank(name) - commit the staged rank.
                 //
                 // One packet rewrites the rank whole: rights, name, gold per
                 // day and all six bank tabs. A field left at zero is not
-                // "unchanged", it is revoked — which is why the staging copy is
+                // "unchanged", it is revoked - which is why the staging copy is
                 // seeded from the rank as it stands when the panel selects it,
                 // and only what the panel edits moves.
                 {"GuildControlSaveRank", [](lua_State* L) -> int {
@@ -1959,7 +1959,7 @@ void registerSocialLuaAPI(lua_State* L) {
             if (!gh) return 0;
             const auto& joined = gh->getJoinedChannels();
             // Three values per channel against Lua's guaranteed twenty free
-            // slots, so seven channels already runs past the end — and the
+            // slots, so seven channels already runs past the end - and the
             // default set plus a couple of custom ones is more than that.
             if (!joined.empty() &&
                 !lua_checkstack(L, static_cast<int>(joined.size() * 3))) {
@@ -1976,7 +1976,7 @@ void registerSocialLuaAPI(lua_State* L) {
                 // IsDisplayChannelOwner lives in lua_system_api.cpp, beside
                 // the selected-channel state it has to read. Two registrations
                 // of one name would be settled by load order.
-                // ChangeChatColor(type, r, g, b) — recolour one kind of chat
+                // ChangeChatColor(type, r, g, b) - recolour one kind of chat
                 // message.
                 //
                 // The colour lives in FrameXML's ChatTypeInfo table, which its
@@ -1984,7 +1984,7 @@ void registerSocialLuaAPI(lua_State* L) {
                 // arguments, so firing the event is the whole of the change.
                 //
                 // Three decimal places, because an event argument is only read
-                // back as a number when it is under twelve characters — a full
+                // back as a number when it is under twelve characters - a full
                 // float would arrive as a string and be assigned straight into
                 // a colour field.
                 {"ChangeChatColor", [](lua_State* L) -> int {
@@ -2018,7 +2018,7 @@ void registerSocialLuaAPI(lua_State* L) {
                 //
                 // SetLootMethod(method, masterPlayer) and SetLootThreshold(q)
                 // both write CMSG_LOOT_METHOD, which carries all three settings
-                // at once — so each resends the other two as they stand rather
+                // at once - so each resends the other two as they stand rather
                 // than clearing them.
                 {"SetLootMethod", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
@@ -2031,7 +2031,7 @@ void registerSocialLuaAPI(lua_State* L) {
             uint64_t masterGuid = 0;
             if (m == 2) {
                 // The second argument is a unit id or a name, depending on who
-                // is calling — the loot dropdown passes a name.
+                // is calling - the loot dropdown passes a name.
                 const char* who = luaL_optstring(L, 2, nullptr);
                 if (who && *who) {
                     for (const auto& mem : pd.members) {
@@ -2100,12 +2100,12 @@ void registerSocialLuaAPI(lua_State* L) {
             return 0;
         }},
                 // ---- Raid group management ----
-                // SetRaidSubgroup(raidIndex, group) — move a member into a
+                // SetRaidSubgroup(raidIndex, group) - move a member into a
                 // different group of eight. SwapRaidSubgroup exchanges two,
                 // which is what the raid UI uses when the destination is full.
                 // The group number stays as the interface counts it, from one.
                 // SocialHandler::setRaidSubgroup takes 1..8 and writes group - 1
-                // itself — subtracting here as well makes Group 1 a zero, which
+                // itself - subtracting here as well makes Group 1 a zero, which
                 // that function then rejects, and every other group land one
                 // short. The wire is zero-based; the conversion is just already
                 // done a layer down.
@@ -2132,7 +2132,7 @@ void registerSocialLuaAPI(lua_State* L) {
                                  members[static_cast<size_t>(b) - 1].name);
             return 0;
         }},
-                // Which row the raid roster has highlighted. Purely local —
+                // Which row the raid roster has highlighted. Purely local -
                 // the raid UI reads it back through its own frames, and
                 // nothing is sent for it.
                 {"SetRaidRosterSelection", [](lua_State* L) -> int { (void)L; return 0; }},
@@ -2159,7 +2159,7 @@ void registerSocialLuaAPI(lua_State* L) {
             if (gh) gh->requestGuildRoster();
             return 0;
         }},
-                // SortGuildRoster(field) — one of name, zone, level, class,
+                // SortGuildRoster(field) - one of name, zone, level, class,
                 // rank, note, online, from whichever column header was
                 // clicked. Clicking the same one again reverses it, which is
                 // the header's only way of saying so: it sends the field and
@@ -2171,7 +2171,7 @@ void registerSocialLuaAPI(lua_State* L) {
             return 0;
         }},
                 // The three answers to a battlefield manager prompt. All were
-                // unbound, so FrameXML's BFMGR dialogs raised on accept — and
+                // unbound, so FrameXML's BFMGR dialogs raised on accept - and
                 // the client fires the events that put them on screen.
                 {"BattlefieldMgrEntryInviteResponse", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
@@ -2203,9 +2203,9 @@ void registerSocialLuaAPI(lua_State* L) {
             if (auto* gh = getGameHandler(L)) gh->queueAreaSpiritHeal();
             return 0;
         }},
-                // There is no opcode for leaving the queue — AzerothCore drops
+                // There is no opcode for leaving the queue - AzerothCore drops
                 // a player from it when they leave the battleground and at no
-                // other time — so this accepts the click and does nothing,
+                // other time - so this accepts the click and does nothing,
                 // which is the honest answer rather than a raise.
                 {"CancelAreaSpiritHeal", [](lua_State* L) -> int { (void)L; return 0; }},
                 {"GetAreaSpiritHealerTime", [](lua_State* L) -> int {
@@ -2242,7 +2242,7 @@ void registerSocialLuaAPI(lua_State* L) {
                 {"GetGuildRosterMOTD",      lua_GetGuildRosterMOTD},
                 {"GetNumFriends",           lua_GetNumFriends},
                 {"GetFriendInfo",           lua_GetFriendInfo},
-                // SetFriendNotes(index or name, note) — the note dialog's
+                // SetFriendNotes(index or name, note) - the note dialog's
                 // accept. Unbound, so typing a note and pressing Okay did
                 // nothing and the old note came back on the next roster
                 // update.
@@ -2296,7 +2296,7 @@ void registerSocialLuaAPI(lua_State* L) {
             if (gh) gh->setGuildPublicNote(luaL_checkstring(L, 1), luaL_checkstring(L, 2));
             return 0;
         }},
-                // DoEmote(token) — every emote FrameXML offers, and there
+                // DoEmote(token) - every emote FrameXML offers, and there
                 // are three hundred and twenty-three of them.
                 //
                 // This was a hand-written map of thirty-one names, and a token
@@ -2306,7 +2306,7 @@ void registerSocialLuaAPI(lua_State* L) {
                 // others simply did not happen, and nothing said so.
                 //
                 // It went unnoticed because this client's own chat never
-                // called DoEmote — it has an emote fallthrough of its own that
+                // called DoEmote - it has an emote fallthrough of its own that
                 // reads the same registry directly. Handing chat over made
                 // DoEmote the only route, and shrank the emote set to
                 // thirty-one on the way through.
@@ -2327,7 +2327,7 @@ void registerSocialLuaAPI(lua_State* L) {
             const uint32_t emoteId = rendering::AnimationController::getEmoteDbcId(name);
             if (emoteId == 0) return 0;
             // The second argument is whoever the emote is aimed at, and it was
-            // read by nothing — so "/wave Bob" waved at the current target, or
+            // read by nothing - so "/wave Bob" waved at the current target, or
             // at nobody, whatever Bob was standing there. chatframe hands over
             // the text after the command, which may be a unit token or a name.
             //
@@ -2373,11 +2373,11 @@ void registerSocialLuaAPI(lua_State* L) {
             if (gh) gh->removeIgnore(name);
             return 0;
         }},
-                // ShowFriends() — not a panel verb despite the name: it asks
+                // ShowFriends() - not a panel verb despite the name: it asks
                 // the server to resend the friend, ignore and mute lists, and
                 // FriendsFrame_Update calls it every time the list redraws.
                 // It did nothing, on the reading that the panel is drawn by
-                // this client rather than by Lua — but what it is for is the
+                // this client rather than by Lua - but what it is for is the
                 // request, and without it the list was whatever had last been
                 // pushed, with an online column that went stale and stayed
                 // stale until a friend happened to log in or out.
@@ -2426,12 +2426,12 @@ void registerSocialLuaAPI(lua_State* L) {
             if (gh) gh->queryWho(query);
             return 0;
         }},
-                // SetWhoToUI(toUI) — whether a /who answer should fill the
+                // SetWhoToUI(toUI) - whether a /who answer should fill the
                 // panel or be printed as chat lines. Nothing to switch: this
                 // client's who handler only ever stores the rows and fires
                 // WHO_LIST_UPDATE, so the panel is already the one place they
                 // go and there is no chat print to turn off.
-                // SetWhoToUI(toUI) — where a /who answer should go.
+                // SetWhoToUI(toUI) - where a /who answer should go.
                 //
                 // FriendsFrame turns this on while its Who tab is up and off
                 // again on the way out. A no-op meant the client never printed
@@ -2453,7 +2453,7 @@ void registerSocialLuaAPI(lua_State* L) {
             return 1;
         }},
                 // The gossip window's two quest lists. Both are flat runs of
-                // values rather than tables — five per available quest and four
+                // values rather than tables - five per available quest and four
                 // per active one, which is the stride GossipFrame reads them at.
                 {"GetGossipAvailableQuests", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
@@ -2508,7 +2508,7 @@ void registerSocialLuaAPI(lua_State* L) {
         }},
                 // The greeting panel, shown when a quest giver has several
                 // quests and nothing else to say. It reads the same list as the
-                // gossip window — this client routes both through one — but
+                // gossip window - this client routes both through one - but
                 // asks for it a quest at a time rather than all at once.
                 {"GetGreetingText", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
@@ -2547,7 +2547,7 @@ void registerSocialLuaAPI(lua_State* L) {
                 questIsTrivial(static_cast<int>(gh->getPlayerLevel()), q->questLevel)) ? 1 : 0);
             return 1;
         }},
-                // isTrivial, isDaily, isRepeatable — which icon the greeting
+                // isTrivial, isDaily, isRepeatable - which icon the greeting
                 // panel puts beside an offered quest.
                 {"GetAvailableQuestInfo", [](lua_State* L) -> int {
             const int index = static_cast<int>(luaL_checknumber(L, 1));
@@ -2562,9 +2562,9 @@ void registerSocialLuaAPI(lua_State* L) {
                 // Whether the gossip window must be shown even when there is
                 // one thing to click. The server sends no such flag here, and
                 // the frame reads it as "not ForceGossip()" to decide whether
-                // to go straight to a lone vendor or flight master — which is
+                // to go straight to a lone vendor or flight master - which is
                 // what the real client does, so a definite no keeps that.
-                // GuildSetMOTD(text) — what /gmotd does
+                // GuildSetMOTD(text) - what /gmotd does
                 //
                 // The rest of the guild commands were already bound; this one
                 // was not, and the server refuses it from a rank without the
@@ -2587,12 +2587,12 @@ void registerSocialLuaAPI(lua_State* L) {
             selectedIgnore() = static_cast<int>(luaL_optnumber(L, 1, 0)); return 0; }},
                 {"AddOrRemoveFriend",   lua_AddOrRemoveFriend},
                 {"AddOrDelIgnore",      lua_AddOrDelIgnore},
-                // DoReadyCheck() — what /readycheck does
+                // DoReadyCheck() - what /readycheck does
                 {"DoReadyCheck", [](lua_State* L) -> int {
             if (auto* gh = getGameHandler(L)) gh->initiateReadyCheck();
             return 0;
         }},
-                // ConfirmReadyCheck(ready) — the Yes and No buttons on
+                // ConfirmReadyCheck(ready) - the Yes and No buttons on
                 // FrameXML's ReadyCheckFrame. readycheck.xml passes 1 for yes
                 // and passes NOTHING for no, so the absent argument has to read
                 // as false rather than as a missing parameter.
@@ -2604,8 +2604,8 @@ void registerSocialLuaAPI(lua_State* L) {
             return 0;
         }},
                 // The buttons on FrameXML's summon and talent-wipe popups.
-                // Both prompts are raised — uiparent.lua answers CONFIRM_SUMMON
-                // and CONFIRM_TALENT_WIPE, and this client fires both — so
+                // Both prompts are raised - uiparent.lua answers CONFIRM_SUMMON
+                // and CONFIRM_TALENT_WIPE, and this client fires both - so
                 // without these the popup appeared and neither button did
                 // anything. The client's own dialogs were the only way to
                 // answer either, which is the shape this branch keeps finding:
@@ -2620,7 +2620,7 @@ void registerSocialLuaAPI(lua_State* L) {
             return 0;
         }},
                 // The popup's own OnCancel only hides the talent frame, so
-                // there is no DeclineTalentWipe to bind — cancelTalentWipe is
+                // there is no DeclineTalentWipe to bind - cancelTalentWipe is
                 // this client's bookkeeping and runs when the popup goes.
                 {"ConfirmTalentWipe", [](lua_State* L) -> int {
             if (auto* gh = getGameHandler(L)) gh->confirmTalentWipe();
@@ -2701,7 +2701,7 @@ void registerSocialLuaAPI(lua_State* L) {
         }},
                 // The reputation tab's controls. Every one of these has a verb
                 // on GameHandler and none had a binding, so the tab could show
-                // a standing and change nothing about it — this client's own
+                // a standing and change nothing about it - this client's own
                 // reputation panel was the only way to declare war on a faction
                 // or pick which bar to watch.
                 //
@@ -2758,7 +2758,7 @@ void registerSocialLuaAPI(lua_State* L) {
             return 0;
         }},
                 // GetFactionInfo reports every row as isHeader false, because
-                // the list it walks is flat — the client does not read each
+                // the list it walks is flat - the client does not read each
                 // faction's parent to build categories. With no headers there
                 // is nothing to open or close, and the tab calls these from a
                 // row's click handler regardless of what the row is.
@@ -2816,8 +2816,8 @@ void registerSocialLuaAPI(lua_State* L) {
                 // An option can come with a confirmation box: SMSG_GOSSIP_MESSAGE
                 // carries boxText and boxMoney per option, and this client has
                 // parsed both for as long as it has read the packet. Nothing
-                // raised the prompt, so an option costing a thousand gold — the
-                // dual talent specialisation, a guild tabard — was bought by
+                // raised the prompt, so an option costing a thousand gold - the
+                // dual talent specialisation, a guild tabard - was bought by
                 // the click that selected it, with no confirmation at all.
                 //
                 // The third argument is FrameXML saying the player has now
@@ -2886,12 +2886,12 @@ void registerSocialLuaAPI(lua_State* L) {
             if (gh) gh->leaveGroup();
             return 0;
         }},
-                // FollowUnit(unit) — and this one matters more than it looks.
+                // FollowUnit(unit) - and this one matters more than it looks.
                 //
                 // FrameXML owns every follow command: SLASH_FOLLOW1 through 7
                 // are /f, /follow and /fol, and the client's chat tries
                 // SlashCmdList before its own registry and returns as soon as a
-                // handler is found — so all three landed on this no-op and the
+                // handler is found - so all three landed on this no-op and the
                 // client's working /follow never ran. Following was simply
                 // broken from chat.
                 //
@@ -2917,7 +2917,7 @@ void registerSocialLuaAPI(lua_State* L) {
             return 0;
         }},
                 // Inspect and duel, both of which unitpopup.lua calls straight
-                // out of the unit right-click menu — and neither was bound at
+                // out of the unit right-click menu - and neither was bound at
                 // all, so choosing either raised. A missing global is worse
                 // than a stub: an unanswered call throws where an unfired event
                 // only goes unheard.
@@ -2932,14 +2932,14 @@ void registerSocialLuaAPI(lua_State* L) {
         }},
                 // The achievement comparison the same menu offers. The query
                 // goes out with the inspect above, and there is no comparison
-                // window to show it in — but it is bound rather than absent so
+                // window to show it in - but it is bound rather than absent so
                 // that picking it does nothing instead of throwing.
                 {"InspectAchievements", [](lua_State* L) -> int { (void)L; return 0; }},
 
                 // ---- The rest of what the unit right-click menu calls ----
                 //
                 // UnitPopup_ShowMenu asks several of these while deciding which
-                // entries to show, so a missing one does not skip an entry — it
+                // entries to show, so a missing one does not skip an entry - it
                 // throws part way through building the menu and there is no
                 // menu at all. Right-clicking the player's own frame reached
                 // GetPVPDesired that way.
@@ -2970,7 +2970,7 @@ void registerSocialLuaAPI(lua_State* L) {
                 on = (e->getField(59) & 0x00001000u) != 0;
             }
             // The client can only toggle, so only toggle when it would land on
-            // what was asked for — otherwise SetPVP(1) while already flagged
+            // what was asked for - otherwise SetPVP(1) while already flagged
             // would turn it off.
             if (want != on) gh->togglePvp();
             return 0;
@@ -2988,11 +2988,11 @@ void registerSocialLuaAPI(lua_State* L) {
         }},
                 // Answered no rather than left missing. Each hides one menu
                 // entry, which is what should happen for something this client
-                // cannot do — party promotion and demotion, channel moderation,
+                // cannot do - party promotion and demotion, channel moderation,
                 // granting levels, reporting chat, and the recruit-a-friend and
                 // Battle.net pieces have no client support behind them.
                 // A pet can be named once, after the first tame, and the
-                // client has tracked that all along — PET_RENAMEABLE is fired
+                // client has tracked that all along - PET_RENAMEABLE is fired
                 // and this answered no regardless, so the unit menu never
                 // offered it.
                 {"PetCanBeRenamed", [](lua_State* L) -> int {
@@ -3024,7 +3024,7 @@ void registerSocialLuaAPI(lua_State* L) {
                 {"CanChangePlayerDifficulty", [](lua_State* L) -> int { lua_pushboolean(L, 0); return 1; }},
                 {"IsSilenced",                [](lua_State* L) -> int { lua_pushboolean(L, 0); return 1; }},
                 {"IsDisplayChannelModerator", [](lua_State* L) -> int { lua_pushboolean(L, 0); return 1; }},
-                // PromoteToLeader(name) — /promote, /pr, and the unit menu's
+                // PromoteToLeader(name) - /promote, /pr, and the unit menu's
                 // "Promote to Leader". The client had no outgoing side for this
                 // at all: SMSG_GROUP_SET_LEADER was handled and CMSG was never
                 // sent, so leadership could be received and never given.
@@ -3041,8 +3041,8 @@ void registerSocialLuaAPI(lua_State* L) {
             return 0;
         }},
                 // Raid assistant, given and taken. The unit menu passes a
-                // *name* rather than a unit token — PromoteToAssistant(fullname,
-                // 1) — and the group roster is the one place a name can be
+                // *name* rather than a unit token - PromoteToAssistant(fullname,
+                // 1) - and the group roster is the one place a name can be
                 // turned into a guid here, which is also the only place it needs
                 // to be: assistant is a thing only a group member can hold.
                 //
@@ -3059,7 +3059,7 @@ void registerSocialLuaAPI(lua_State* L) {
                 {"GrantLevel",                [](lua_State* L) -> int { (void)L; return 0; }},
                 // Whether the player passes on every loot roll. The setter
                 // accepted and forgot, and the getter beside it answered a
-                // flat false — so the unit menu's "Opt out of loot" entry
+                // flat false - so the unit menu's "Opt out of loot" entry
                 // never showed a tick and never turned itself off again.
                 {"SetOptOutOfLoot", [](lua_State* L) -> int {
             const bool out = lua_toboolean(L, 1) != 0;
@@ -3076,7 +3076,7 @@ void registerSocialLuaAPI(lua_State* L) {
                 // wire and throws away.
                 // The menu row, which counts from one, less one for the wire,
                 // which counts from zero. Sent as it came, picking Normal set
-                // Heroic, and picking Heroic sent 2 — which the server tests
+                // Heroic, and picking Heroic sent 2 - which the server tests
                 // against MAX_DUNGEON_DIFFICULTY and drops, so it did nothing.
                 {"SetDungeonDifficulty", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
@@ -3122,7 +3122,7 @@ void registerSocialLuaAPI(lua_State* L) {
                 gh->channelModeration(game::Opcode::CMSG_CHANNEL_UNMODERATOR, ch, who);
             return 0;
         }},
-                // SetChannelOwner(channel, name) — the same two strings the
+                // SetChannelOwner(channel, name) - the same two strings the
                 // eight moderation commands send, on an opcode that was mapped
                 // and never built.
                 {"SetChannelOwner", [](lua_State* L) -> int {
@@ -3141,7 +3141,7 @@ void registerSocialLuaAPI(lua_State* L) {
                 // being asked twice, and that put their text and timer
                 // functions on a live path for the first time. Both were
                 // missing, so the summon popup threw in its OnShow and
-                // ShowResurrectRequest threw before it could show anything —
+                // ShowResurrectRequest threw before it could show anything -
                 // the handover fixed a duplicate and replaced it with a raise.
                 {"GetSummonConfirmSummoner", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
@@ -3154,7 +3154,7 @@ void registerSocialLuaAPI(lua_State* L) {
             return 1;
         }},
                 // The destination is not carried in what this client parses,
-                // and the popup prints it into a sentence — so an empty string
+                // and the popup prints it into a sentence - so an empty string
                 // rather than nil, which would concatenate into a raise.
                 {"GetSummonConfirmAreaName", [](lua_State* L) -> int {
             lua_pushstring(L, ""); return 1;
@@ -3167,12 +3167,12 @@ void registerSocialLuaAPI(lua_State* L) {
         }},
                 // Which of three resurrect popups to raise. Both false picks
                 // RESURRECT_NO_TIMER, the plain "accept?" prompt, which is the
-                // right one for a player casting a resurrect — sickness and the
+                // right one for a player casting a resurrect - sickness and the
                 // release timer belong to the spirit healer path, which this
                 // client answers itself.
                 // Which of the three resurrect dialogs is raised. Both
                 // answered false, so ShowResurrectRequest always took the last
-                // branch and offered the no-timer one — the variant that does
+                // branch and offered the no-timer one - the variant that does
                 // not warn about sickness and does not run out. The flag that
                 // decides has been on the wire the whole time, four bytes past
                 // where this client was reading.
@@ -3189,7 +3189,7 @@ void registerSocialLuaAPI(lua_State* L) {
                 // StaticPopup_Show calls this on *every* popup, before it does
                 // anything else: `if ( InCinematic() and not
                 // info.interruptCinematic )`. It was unbound, so every popup
-                // raised there and none of them appeared — and handing the
+                // raised there and none of them appeared - and handing the
                 // confirmation prompts to FrameXML is what put that call on a
                 // live path. The resurrect dialog was the visible half; the
                 // group invite, the summon, the talent wipe and the delete-item
@@ -3203,7 +3203,7 @@ void registerSocialLuaAPI(lua_State* L) {
                 // dies, and its OnShow calls HasSoulstone while its OnAccept
                 // calls RepopMe and CannotBeResurrected. All three were
                 // unbound, so the release popup raised in OnShow and never
-                // appeared — and releasing spirit from it was impossible even
+                // appeared - and releasing spirit from it was impossible even
                 // if it had.
                 {"RepopMe", [](lua_State* L) -> int {
             if (auto* gh = getGameHandler(L)) gh->releaseSpirit();
@@ -3229,14 +3229,14 @@ void registerSocialLuaAPI(lua_State* L) {
             lua_pushboolean(L, 0); return 1;
         }},
                 // IsActiveBattlefieldArena is not here. lua_system_api has the
-                // one that answers it — whether the current map is an arena,
-                // in the two values the caller unpacks — and registers after
+                // one that answers it - whether the current map is an arena,
+                // in the two values the caller unpacks - and registers after
                 // this file, so it was already the one in use. This copy was a
                 // flat false in a single value, dead and one value short of
                 // the contract if it had ever won.
                 // Seconds before the corpse is released automatically. -1 is
                 // WoW's "no timer", which is the branch that prints the release
-                // prompt without a countdown — right for a client that does not
+                // prompt without a countdown - right for a client that does not
                 // run one.
                 {"GetReleaseTimeRemaining", [](lua_State* L) -> int {
             lua_pushnumber(L, -1); return 1;
@@ -3284,7 +3284,7 @@ void registerSocialLuaAPI(lua_State* L) {
                 // The innkeeper's prompt: CONFIRM_BINDER's accept sends the
                 // reply, and its OnUpdate hides the popup when the player walks
                 // away. Distance to the innkeeper is not tracked, and staying
-                // up is the lesser wrong — the server refuses a bind from too
+                // up is the lesser wrong - the server refuses a bind from too
                 // far off anyway.
                 {"ConfirmBinder", [](lua_State* L) -> int {
             if (auto* gh = getGameHandler(L)) gh->confirmBinder();
@@ -3296,8 +3296,8 @@ void registerSocialLuaAPI(lua_State* L) {
                 // confirmation on screen, and the server refuses the request
                 // that button then sends.
                 //
-                // Five yards is what the server means by interacting —
-                // AzerothCore's INTERACTION_DISTANCE — measured against the
+                // Five yards is what the server means by interacting -
+                // AzerothCore's INTERACTION_DISTANCE - measured against the
                 // npc each dialog names. A dialog whose npc has gone out of
                 // sight has no entity to measure, and that answers no for the
                 // same reason: it is no longer there to talk to.
@@ -3351,7 +3351,7 @@ void registerSocialLuaAPI(lua_State* L) {
             if (gh && name && *name) gh->setGuildLeader(name);
             return 0;
         }},
-                // Not logging, and there is nothing to turn on — false is the
+                // Not logging, and there is nothing to turn on - false is the
                 // true answer rather than a placeholder.
                 {"LoggingChat",   [](lua_State* L) -> int { lua_pushboolean(L, 0); return 1; }},
                 {"LoggingCombat", [](lua_State* L) -> int { lua_pushboolean(L, 0); return 1; }},
@@ -3362,11 +3362,11 @@ void registerSocialLuaAPI(lua_State* L) {
                 // Pet autocast is left alone deliberately rather than wired to
                 // togglePetSpellAutocast: these two say enable and disable, the
                 // client can only toggle, and nothing reads back which state a
-                // pet spell is in — so "enable" on an already-autocasting spell
+                // pet spell is in - so "enable" on an already-autocasting spell
                 // would turn it off. Doing nothing beats doing the opposite.
                 // The three pet-autocast slash commands. They pass the spell by
                 // *name*, since that is what the player typed and what
-                // SecureCmdOptionParse hands back — the pet bar's own toggle
+                // SecureCmdOptionParse hands back - the pet bar's own toggle
                 // takes a slot and is bound separately.
                 //
                 // Only sent when the state would actually change: the wire has
@@ -3379,7 +3379,7 @@ void registerSocialLuaAPI(lua_State* L) {
                 {"DisableSpellAutocast", [](lua_State* L) -> int {
             return setPetAutocastByName(L, false);
         }},
-                // ToggleSpellAutocast(spell, bookType) — asked in two shapes.
+                // ToggleSpellAutocast(spell, bookType) - asked in two shapes.
                 //
                 // The spellbook passes a book *slot* and the book it belongs
                 // to; /petautocasttoggle passes a name. Only the name was
@@ -3398,7 +3398,7 @@ void registerSocialLuaAPI(lua_State* L) {
                 // to. Two registrations of one name would be settled by load
                 // order, so they are not also here.
                                 // The eight channel moderation commands. Every one is the
-                // same packet — channel name then player name — and none of
+                // same packet - channel name then player name - and none of
                 // them was ever sent: the opcodes existed and nothing built
                 // them, so /cinvite and the channel entries on the unit menu
                 // reached bindings with nothing behind them.
@@ -3437,8 +3437,8 @@ void registerSocialLuaAPI(lua_State* L) {
                 {"ChannelToggleAnnouncements", [](lua_State* L) -> int { (void)L; return 0; }},
                 {"DisplayChannelOwner",      [](lua_State* L) -> int { (void)L; return 0; }},
                 {"ListChannels", [](lua_State* L) -> int {
-                    // /chatlist. The client knows exactly this — which channels
-                    // it is in and what number each one has — and answered
+                    // /chatlist. The client knows exactly this - which channels
+                    // it is in and what number each one has - and answered
                     // nothing, so the command printed nothing and read as a
                     // command that does not exist.
                     //
@@ -3459,7 +3459,7 @@ void registerSocialLuaAPI(lua_State* L) {
                     return 0;
                 }},
                 {"ListChannelByName",        [](lua_State* L) -> int { (void)L; return 0; }},
-                // SetChannelPassword(channel, password) — the same shape again,
+                // SetChannelPassword(channel, password) - the same shape again,
                 // and the one place an empty second string is meant: sending
                 // no password is how a channel's password is taken off.
                 {"SetChannelPassword", [](lua_State* L) -> int {
@@ -3472,8 +3472,8 @@ void registerSocialLuaAPI(lua_State* L) {
             return 0;
         }},
                 // The four arena team commands. Each is named by a static
-                // popup's button and by a slash command — /teaminvite,
-                // /teamquit, /teamkick, /teamcaptain — and all four did
+                // popup's button and by a slash command - /teaminvite,
+                // /teamquit, /teamkick, /teamcaptain - and all four did
                 // nothing: the popup closed, the command was accepted, and no
                 // packet was sent. The opcodes have been in the maps the whole
                 // time with nothing building them.
@@ -3514,12 +3514,12 @@ void registerSocialLuaAPI(lua_State* L) {
                 {"BNListConversation",       [](lua_State* L) -> int { (void)L; return 0; }},
                 {"BNSendConversationMessage",[](lua_State* L) -> int { (void)L; return 0; }},
                 {"BNSendWhisper",            [](lua_State* L) -> int { (void)L; return 0; }},
-                // ConsoleExec(command) — the console, of which one command is
+                // ConsoleExec(command) - the console, of which one command is
                 // reachable and worth honouring.
                 //
                 // SlashCmdList["RELOAD"] is ConsoleExec("reloadui") and nothing
                 // else, and this client's chat tries SlashCmdList before its
-                // own registry — so /reload, /reloadui and /rl all landed here
+                // own registry - so /reload, /reloadui and /rl all landed here
                 // and did nothing while the client's own reload sat behind
                 // them. Routed to the same request ReloadUI makes.
                 {"ConsoleExec", [](lua_State* L) -> int {
@@ -3551,7 +3551,7 @@ void registerSocialLuaAPI(lua_State* L) {
                 {"StopMacro",                [](lua_State* L) -> int { (void)L; return 0; }},
                 // The targeting variants this client has no equivalent for.
                 // targetEnemy and targetFriend do not filter to players, and
-                // one last-target is tracked rather than one per side — so
+                // one last-target is tracked rather than one per side - so
                 // wiring these to the nearest thing would target the wrong
                 // unit, which is worse than not answering the command.
                 {"TargetLastEnemy", [](lua_State* L) -> int {
@@ -3612,8 +3612,8 @@ void registerSocialLuaAPI(lua_State* L) {
                 // Three values, and the first is a NUMBER. This was returning
                 // the seven-value shape GetChannelDisplayInfo uses, so the
                 // channel number came back as the channel's name and
-                // chatframe.lua compared a string to a number —
-                // `if ( channelNum <= 0 )` — which raises rather than failing
+                // chatframe.lua compared a string to a number -
+                // `if ( channelNum <= 0 )` - which raises rather than failing
                 // quietly. Addressing a channel by number, "/1 hello", went
                 // through exactly that line.
                 //
@@ -3642,7 +3642,7 @@ void registerSocialLuaAPI(lua_State* L) {
             }
             lua_pushnumber(L, index);
             lua_pushstring(L, joined[static_cast<size_t>(index) - 1].c_str());
-            lua_pushnumber(L, 0);   // instanceID — one instance of each here
+            lua_pushnumber(L, 0);   // instanceID - one instance of each here
             return 3;
         }},
     };

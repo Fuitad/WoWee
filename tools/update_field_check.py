@@ -7,13 +7,13 @@ An update field is read by index out of Data/expansions/<x>/update_fields.json.
 A wrong index does not fail: it reads whatever the server happened to put at
 that slot, or nothing at all, and the value comes out zero or stale forever.
 What that looks like is a corpse that never registers as lootable, a stealthed
-NPC that never reveals, a title that never displays, a currency stuck at zero —
+NPC that never reveals, a title that never displays, a currency stuck at zero -
 each of which reads as a feature that does not work rather than as a number in
 the wrong place.
 
 Five were wrong on the first run, all WotLK: UNIT_FIELD_BYTES_1 and
 UNIT_DYNAMIC_FLAGS were being read from 137 and 147, which are inside the unit
-block and so look plausible, while the server writes them at 74 and 79 — 147 is
+block and so look plausible, while the server writes them at 74 and 79 - 147 is
 UNIT_FIELD_PADDING. PLAYER_CHOSEN_TITLE and the two PvP currencies were past
 PLAYER_END entirely and could never have arrived.
 
@@ -27,13 +27,13 @@ WOTLK ONLY, AND WHY
 
 There is one server here and it is 3.3.5a, so only the WotLK layout can be
 checked. The Classic, TBC and Turtle files carry different values for the same
-names — plausible ones, and unverifiable from here. Checking them against this
+names - plausible ones, and unverifiable from here. Checking them against this
 header would report three expansions of noise, which is the mistake the DBC
 check made before it learned to pick one.
 
 WHAT IT CANNOT SEE
 
-Names the header does not define — PLAYER_QUEST_LOG_START and the other
+Names the header does not define - PLAYER_QUEST_LOG_START and the other
 block-start aliases this client invents for its own convenience. They are
 counted and listed, not judged.
 """

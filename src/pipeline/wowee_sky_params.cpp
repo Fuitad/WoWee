@@ -129,7 +129,7 @@ WoweeSkyParams WoweeSkyParamsLoader::makeStormwindDay(
         packRgba(220, 160, 100),     // peach horizon
         packRgba(255, 220, 180),     // warm sun
         90.0f, 80.0f, 600.0f, 100, 25,
-        "Stormwind 6AM — sun at horizon (90deg "
+        "Stormwind 6AM - sun at horizon (90deg "
         "azimuth). Lavender zenith fading to peach. "
         "Light morning fog at 80yd.");
     add(2, "StormwindNoon",  12,
@@ -137,14 +137,14 @@ WoweeSkyParams WoweeSkyParamsLoader::makeStormwindDay(
         packRgba(180, 210, 240),     // pale horizon
         packRgba(255, 250, 230),     // bright sun
         180.0f, 200.0f, 800.0f, 80, 30,
-        "Stormwind noon — sun overhead (180deg). "
+        "Stormwind noon - sun overhead (180deg). "
         "Bright cyan-blue zenith, faint cloud layer.");
     add(3, "StormwindDusk",  18,
         packRgba(140, 100, 180),     // dusk purple
         packRgba(240, 140,  60),     // orange horizon
         packRgba(255, 180, 100),     // sunset sun
         270.0f, 70.0f, 500.0f, 120, 35,
-        "Stormwind 6PM — sun setting at western "
+        "Stormwind 6PM - sun setting at western "
         "horizon. Purple zenith fading to orange. "
         "Slightly heavier cloud layer.");
     add(4, "StormwindMidnight", 0,
@@ -152,7 +152,7 @@ WoweeSkyParams WoweeSkyParamsLoader::makeStormwindDay(
         packRgba( 30,  40,  80),     // navy horizon
         packRgba(180, 180, 220),     // moon
         180.0f, 60.0f, 400.0f, 60, 20,
-        "Stormwind midnight — moon at zenith. "
+        "Stormwind midnight - moon at zenith. "
         "Deep blue-black sky, short fog distance for "
         "intimate night feel.");
     return c;
@@ -191,7 +191,7 @@ WoweeSkyParams WoweeSkyParamsLoader::makeNorthrendArctic(
         packRgba(220, 200, 220),
         packRgba(220, 230, 240),
         90.0f, 50.0f, 350.0f, 200, 70,
-        "Arctic 6AM — pale steel-blue with weak peachy "
+        "Arctic 6AM - pale steel-blue with weak peachy "
         "horizon. Dense ice-fog at 50yd. Strong wind "
         "(7mph cloud drift).");
     add(101, "ArcticNoon", 12,
@@ -199,22 +199,22 @@ WoweeSkyParams WoweeSkyParamsLoader::makeNorthrendArctic(
         packRgba(200, 220, 240),
         packRgba(255, 255, 240),
         180.0f, 100.0f, 500.0f, 180, 60,
-        "Arctic noon — bright but flat steel-blue sky. "
+        "Arctic noon - bright but flat steel-blue sky. "
         "Snow glare from sun.");
     add(102, "ArcticDusk", 18,
         packRgba(100, 130, 180),
         packRgba(180, 140, 160),
         packRgba(220, 200, 200),
         270.0f, 40.0f, 300.0f, 220, 80,
-        "Arctic 6PM — pale violet zenith with washed-"
+        "Arctic 6PM - pale violet zenith with washed-"
         "rose horizon. Maximum fog density (300yd).");
     add(103, "ArcticMidnight", 0,
         packRgba( 20,  30,  60),
         packRgba( 40,  60,  80),
         packRgba(200, 220, 240),
         180.0f, 30.0f, 250.0f, 240, 50,
-        "Arctic midnight — near-pitch dark with cold "
-        "moon. Minimum fog visibility (30yd start) — "
+        "Arctic midnight - near-pitch dark with cold "
+        "moon. Minimum fog visibility (30yd start) - "
         "blizzard-style whiteout.");
     return c;
 }
@@ -251,23 +251,23 @@ WoweeSkyParams WoweeSkyParamsLoader::makeOutlandHellfire(
         packRgba(240, 120,  60),     // orange horizon
         packRgba(255, 200, 100),
         90.0f, 250.0f, 1200.0f, 120, 40,
-        "Hellfire 6AM — sky is permanently smoke-tinged. "
+        "Hellfire 6AM - sky is permanently smoke-tinged. "
         "Crimson zenith with orange horizon. Long sight "
-        "distance (1200yd) — Outland is sparse.");
+        "distance (1200yd) - Outland is sparse.");
     add(201, "OutlandNoon",  12,
         packRgba(200, 100,  80),
         packRgba(220, 160, 100),
         packRgba(255, 230, 180),
         180.0f, 300.0f, 1500.0f, 100, 35,
-        "Hellfire noon — peak orange sky, bright sun "
+        "Hellfire noon - peak orange sky, bright sun "
         "with maximum visibility.");
     add(202, "OutlandSunset", 18,
         packRgba(220,  80,  60),     // scarlet
         packRgba(240, 100,  40),     // deep orange
         packRgba(255, 160, 100),
         270.0f, 200.0f, 1000.0f, 140, 45,
-        "Hellfire sunset — most dramatic time, sky "
-        "fully scarlet. No midnight keyframe — Outland "
+        "Hellfire sunset - most dramatic time, sky "
+        "fully scarlet. No midnight keyframe - Outland "
         "is permanently lit by the gravitational anomaly "
         "of the Twisting Nether visible at zenith.");
     return c;

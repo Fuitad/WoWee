@@ -5,8 +5,8 @@
 
 "Owned or suppressed" is the rule for elements, and it applies to dialogs one at
 a time rather than to the dialog manager as a whole. FrameXML answers most of
-the same events with a static popup of its own — DUEL_REQUESTED, GUILD_INVITE,
-ShowResurrectRequest — so a client popup with no ownership check draws beside
+the same events with a static popup of its own - DUEL_REQUESTED, GUILD_INVITE,
+ShowResurrectRequest - so a client popup with no ownership check draws beside
 it: two dialogs for one question, each with its own accept button and its own
 idea of what was answered.
 
@@ -25,11 +25,11 @@ Whether FrameXML has a counterpart at all. The two left are left on purpose and
 both were re-read on 2026-08-05, this time against FrameXML's source rather
 than against its event names:
 
-  * the duel countdown — the big "3, 2, 1, Fight!" over the middle of the
+  * the duel countdown - the big "3, 2, 1, Fight!" over the middle of the
     screen. FrameXML has no such thing. Its two duel dialogs are DUEL_REQUESTED,
     the accept-or-decline popup, and DUEL_OUTOFBOUNDS, the timer for leaving
     the ring. Neither counts anything down.
-  * the pet-unlearn confirmation — FrameXML cannot draw one. CONFIRM_PET_UNLEARN
+  * the pet-unlearn confirmation - FrameXML cannot draw one. CONFIRM_PET_UNLEARN
     is a globalstring and nothing more: there is no StaticPopupDialogs entry of
     that name anywhere in this interface, so no event would raise it and
     SMSG_PET_UNLEARN_CONFIRM is correctly silent where the talent wipe one line
@@ -37,8 +37,8 @@ than against its event names:
 
 The earlier note here listed the shared quest and the two battlefield invites
 as well, on the reasoning that the events behind them are never fired. That
-reason was always the thin one — it stops holding the day someone wires the
-event — and all three are gated now, which is why the count fell from five to
+reason was always the thin one - it stops holding the day someone wires the
+event - and all three are gated now, which is why the count fell from five to
 two. The ceiling stays a number to look at rather than a zero to trust.
 """
 import pathlib

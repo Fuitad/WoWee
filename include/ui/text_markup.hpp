@@ -2,8 +2,8 @@
 
 // Parsing WoW's inline text markup out of a label.
 //
-// The interface writes colour into the string itself — "|cffffd200(M)|r" is
-// the world map's keybinding hint in gold — and draws it with the same call as
+// The interface writes colour into the string itself - "|cffffd200(M)|r" is
+// the world map's keybinding hint in gold - and draws it with the same call as
 // any other label. Drawn without parsing, the escape is what appears on
 // screen, which is what the map button's tooltip was showing.
 //
@@ -11,7 +11,7 @@
 // item or spell link, and |T...|t inline textures, which name a file this has
 // no way to place mid-line. "||" is a literal bar.
 // The wrap works on these too, so there is one definition rather than two
-// that have to agree — see ui/text_wrap.hpp.
+// that have to agree - see ui/text_wrap.hpp.
 //
 // Header-only and free of ImGui so it can be tested: the drawing side only
 // consumes the runs this hands back. It lived inside widget_renderer.cpp and
@@ -50,7 +50,7 @@ inline std::vector<WrapRun> parseMarkup(const std::string& in) {
         const char tag = in[i + 1];
         if (tag == '|') { cur.text += '|'; i += 2; continue; }
         if ((tag == 'c' || tag == 'C') && i + 9 < in.size()) {
-            // |cAARRGGBB — alpha first, and the interface almost always sends
+            // |cAARRGGBB - alpha first, and the interface almost always sends
             // ff for it. Ignored rather than applied: a label's own alpha
             // already governs it, and multiplying the two fades text that the
             // real client draws solid.
@@ -66,17 +66,17 @@ inline std::vector<WrapRun> parseMarkup(const std::string& in) {
             }
         }
         if (tag == 'r' || tag == 'R') { flush(); cur.hasColor = false; i += 2; continue; }
-        // |n is WoW's line break, and it was not handled at all — so every one
+        // |n is WoW's line break, and it was not handled at all - so every one
         // of them drew as a literal bar and an n. globalstrings.lua alone has a
         // hundred and thirty-eight.
         if (tag == 'n' || tag == 'N') { cur.text += '\n'; i += 2; continue; }
         if (tag == 'H') {
-            // |Hitem:3299|h[Fractured Canine]|h — the payload runs to the
+            // |Hitem:3299|h[Fractured Canine]|h - the payload runs to the
             // first |h, the display text follows it, and a second |h closes.
             //
             // This skipped to the next bar, which is the |h *before* the
             // display text, and then the 'h' branch skipped again to the |h
-            // after it — so the name between them was thrown away with the
+            // after it - so the name between them was thrown away with the
             // payload. "You receive loot: [Fractured Canine]." drew as "You
             // receive loot: ." on every FrameXML surface that renders a link.
             const size_t close = in.find("|h", i + 2);
@@ -108,12 +108,12 @@ inline std::vector<WrapRun> parseMarkup(const std::string& in) {
 /// A caret walks what is drawn, not what is held. "|Hitem:3299|h[Fractured
 /// Canine]|h" is fifty-odd bytes and eighteen characters on screen, so
 /// stepping one byte at a time leaves the caret apparently frozen for forty
-/// keypresses while it crawls through the payload — and then jumping a whole
+/// keypresses while it crawls through the payload - and then jumping a whole
 /// word when it reaches the display text. Only reachable since links became
 /// clickable and shift-click began putting them in the box.
 ///
 /// A colour escape and an inline texture draw nothing at all, so the caret
-/// passes over them without stopping. A link is one step whole — the caret
+/// passes over them without stopping. A link is one step whole - the caret
 /// cannot rest inside it, the same way it cannot in the real client, and a
 /// backspace therefore removes the link rather than a byte of its payload.
 inline size_t caretStepRight(const std::string& s, size_t at) {
@@ -127,7 +127,7 @@ inline size_t caretStepRight(const std::string& s, size_t at) {
             // A whole link is one step: payload, display text and closing
             // marker together. The caret cannot rest inside one and a
             // backspace takes all of it, which is the only arrangement where
-            // half an escape can never exist — erasing "]" out of
+            // half an escape can never exist - erasing "]" out of
             // "|Hitem:1|h[AB]|h" leaves "[AB|h", and the parser then reads the
             // wreckage as whatever it resembles.
             const size_t payload = s.find("|h", at + 2);
@@ -165,7 +165,7 @@ inline size_t caretStepLeft(const std::string& s, size_t at) {
 ///
 /// Everything that moves the caret by stepping keeps it on a boundary already.
 /// This is for the one that does not: SetCursorPosition takes a number from
-/// Lua and, unguarded, will put the caret inside a link — after which a
+/// Lua and, unguarded, will put the caret inside a link - after which a
 /// backspace splits the escape, which is the whole thing the stepping was
 /// arranged to prevent. FrameXML only ever asks for 0 or the end, so today
 /// this changes nothing; an invariant that holds because no caller happens to
@@ -204,7 +204,7 @@ inline size_t visibleLength(const std::string& s) {
 /// leaves a character behind or eats one that was not selected.
 ///
 /// Returns the new caret. The text is edited in place. A range that is empty,
-/// inverted, or reaching past the end is treated as no selection at all —
+/// inverted, or reaching past the end is treated as no selection at all -
 /// FrameXML clears a highlight by passing equal offsets, and a zero-width run
 /// that still counted would swallow the next character typed.
 struct EditSelection {

@@ -1,4 +1,4 @@
-// rare_tracker_layer.cpp — Nearby rare / rare-elite creature markers on the world map.
+// rare_tracker_layer.cpp - Nearby rare / rare-elite creature markers on the world map.
 // Only creatures the client currently has loaded (i.e. spawned and near the player) are
 // fed in, so a marker appearing means that rare is out right now.
 #include "rendering/world_map/layers/rare_tracker_layer.hpp"

@@ -33,7 +33,7 @@ void DialogManager::renderDialogs(game::GameHandler& gameHandler,
     // The prompts FrameXML asks with a StaticPopup of its own, on events this
     // client fires: the group invite here, the trade request and summon below,
     // and the resurrect and talent wipe in renderLateDialogs. Whichever side
-    // asks the question answers it — AcceptGroup, DeclineGroup,
+    // asks the question answers it - AcceptGroup, DeclineGroup,
     // AcceptResurrect, ConfirmSummon, ConfirmTalentWipe, BeginTrade and
     // CancelTrade are all bound, so FrameXML's buttons do the same thing these
     // do.
@@ -41,11 +41,11 @@ void DialogManager::renderDialogs(game::GameHandler& gameHandler,
     // The rest below have no FrameXML counterpart that can appear: the duel,
     // the guild invite, the battleground invites and the LFG pair are all
     // raised from events that are not fired. That claim is only true for the
-    // ones named — it read "the rest" when trade and the ready check were also
+    // ones named - it read "the rest" when trade and the ready check were also
     // in the list, and both were being drawn twice.
     if (!frameXmlOwns(UiElement::Dialogs)) renderGroupInvitePopup(gameHandler);
     // FrameXML answers DUEL_REQUESTED with StaticPopup_Show("DUEL_REQUESTED"),
-    // and this client fires that event — so with dialogs handed over both
+    // and this client fires that event - so with dialogs handed over both
     // appeared. Three of the popups in this function were already gated on
     // exactly this and the rest were not.
     if (!frameXmlOwns(UiElement::Dialogs)) renderDuelRequestPopup(gameHandler);
@@ -55,7 +55,7 @@ void DialogManager::renderDialogs(game::GameHandler& gameHandler,
     // draws the roll that comes out of it.
     if (!frameXmlOwns(UiElement::Loot)) {
         // GroupLootFrame1..4, which belong to the loot element rather than to
-    // dialogs — they are frames of their own, not static popups.
+    // dialogs - they are frames of their own, not static popups.
     if (!frameXmlOwns(UiElement::Loot))
         renderLootRollPopup(gameHandler, inventoryScreen, chatPanel);
     }
@@ -66,15 +66,15 @@ void DialogManager::renderDialogs(game::GameHandler& gameHandler,
     if (!frameXmlOwns(UiElement::Dialogs)) renderTradeRequestPopup(gameHandler);
     if (!frameXmlOwns(UiElement::Trade)) {
         // TradeFrame is its own element, and its suppression entry names exactly
-    // that frame — so with trade handed over this drew a second trade window
+    // that frame - so with trade handed over this drew a second trade window
     // beside FrameXML's, both live, both showing the same slots.
     if (!frameXmlOwns(UiElement::Trade))
         renderTradeWindow(gameHandler, inventoryScreen, chatPanel);
     }
     if (!frameXmlOwns(UiElement::Dialogs)) renderSummonRequestPopup(gameHandler);
     // Beside the summon popup now that QUEST_ACCEPT_CONFIRM is fired.
-    // uiparent.lua raises "QUEST_ACCEPT" — or "QUEST_ACCEPT_LOG_FULL", which
-    // this client's version has no equivalent of — so leaving this ungated
+    // uiparent.lua raises "QUEST_ACCEPT" - or "QUEST_ACCEPT_LOG_FULL", which
+    // this client's version has no equivalent of - so leaving this ungated
     // asks the same question twice.
     if (!frameXmlOwns(UiElement::Dialogs)) renderSharedQuestPopup(gameHandler);
     // ItemTextFrame answers ITEM_TEXT_BEGIN, which this client fires. The
@@ -88,15 +88,15 @@ void DialogManager::renderDialogs(game::GameHandler& gameHandler,
     // The battleground invitation, which was the fourth and was missed.
     //
     // FrameXML answers the same three invitations below from staticpopup.lua,
-    // and this client fires every event that raises them — so both were on
+    // and this client fires every event that raises them - so both were on
     // screen. This one is no different: UPDATE_BATTLEFIELD_STATUS is fired
     // from social_handler, battlefieldframe.lua raises
     // CONFIRM_BATTLEFIELD_ENTRY on it, and "dialogs" has been handed over from
     // the start. Every battleground invitation put up two accept buttons.
     //
     // tools/framexml_ungated_draws.py had it the whole time, in among the
-    // surfaces this client draws on purpose — the nameplates, the toasts, the
-    // damage meter — which is what a report of thirty entries costs when only
+    // surfaces this client draws on purpose - the nameplates, the toasts, the
+    // damage meter - which is what a report of thirty entries costs when only
     // some of them are faults.
     if (!frameXmlOwns(UiElement::Dialogs)) renderBgInvitePopup(gameHandler);
     if (!frameXmlOwns(UiElement::Dialogs)) {
@@ -118,7 +118,7 @@ void DialogManager::renderLateDialogs(game::GameHandler& gameHandler) {
         // ShowResurrectRequest, from UIParent's RESURRECT_REQUEST handler.
     if (!frameXmlOwns(UiElement::Dialogs)) renderResurrectDialog(gameHandler);
         // uiparent.lua answers CONFIRM_TALENT_WIPE with StaticPopup_Show for the
-    // same name, and this client fires that event — the binding for the
+    // same name, and this client fires that event - the binding for the
     // popup's own accept button says so in as many words.
     if (!frameXmlOwns(UiElement::Dialogs)) renderTalentWipeConfirmDialog(gameHandler);
     }
@@ -200,7 +200,7 @@ void DialogManager::renderDuelCountdown(game::GameHandler& gameHandler) {
         snprintf(buf, sizeof(buf), "Fight!");
     }
 
-    // Large font by scaling — use 4x font size for dramatic effect
+    // Large font by scaling - use 4x font size for dramatic effect
     float scale = 4.0f;
     float scaledSize = fontSize * scale;
     ImVec2 textSz = font->CalcTextSizeA(scaledSize, FLT_MAX, 0.0f, buf);
@@ -426,7 +426,7 @@ void DialogManager::renderTradeWindow(game::GameHandler& gameHandler,
                         chatPanel.insertChatLink(link);
                     }
                 } else {
-                    if (isNonTraded) ImGui::TextDisabled("  (empty — place item to enchant/craft)");
+                    if (isNonTraded) ImGui::TextDisabled("  (empty - place item to enchant/craft)");
                     else             ImGui::TextDisabled("  %d. (empty)", i + 1);
 
                     // Allow dragging inventory items into trade slots via right-click context menu
@@ -438,7 +438,7 @@ void DialogManager::renderTradeWindow(game::GameHandler& gameHandler,
                     // Dropped out of a handed-over bag. The popup below lists
                     // the backpack only, so with the bags drawn by FrameXML a
                     // drag was the natural way to offer something and there was
-                    // nothing here to catch it — and anything in one of the four
+                    // nothing here to catch it - and anything in one of the four
                     // worn bags could not be traded at all.
                     if (isMine && ImGui::IsItemHovered() &&
                         ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
@@ -468,7 +468,7 @@ void DialogManager::renderTradeWindow(game::GameHandler& gameHandler,
                             if (ImGui::Selectable(iname.c_str())) {
                                 // Container 255 is the flat space the server
                                 // reads with GetItemByPos, where the backpack
-                                // starts after the equipment — not at zero.
+                                // starts after the equipment - not at zero.
                                 // Sending the backpack index raw named an
                                 // equipment slot, and an offer the server finds
                                 // no item for cancels the trade outright.
@@ -646,10 +646,10 @@ void DialogManager::renderLootRollPopup(game::GameHandler& gameHandler,
             // (0=Pass, 1=Need, 2=Greed, 3=Disenchant).
             static constexpr const char* kRollLabels[] = {"Pass", "Need", "Greed", "Disenchant"};
             static constexpr ImVec4 kRollColors[] = {
-                kColorDarkGray,                    // Pass — gray
-                ImVec4(0.2f, 0.9f, 0.2f, 1.0f),  // Need  — green
-                ImVec4(0.3f, 0.6f, 1.0f, 1.0f),  // Greed — blue
-                ImVec4(0.7f, 0.3f, 0.9f, 1.0f),  // Disenchant — purple
+                kColorDarkGray,                    // Pass - gray
+                ImVec4(0.2f, 0.9f, 0.2f, 1.0f),  // Need  - green
+                ImVec4(0.3f, 0.6f, 1.0f, 1.0f),  // Greed - blue
+                ImVec4(0.7f, 0.3f, 0.9f, 1.0f),  // Disenchant - purple
             };
             auto rollTypeIndex = [](uint8_t t) -> int {
                 return (t < 4) ? static_cast<int>(t) : 0;
@@ -671,7 +671,7 @@ void DialogManager::renderLootRollPopup(game::GameHandler& gameHandler,
                     if (r.rollType != 0) {
                         ImGui::TextColored(kRollColors[ri], "%d", static_cast<int>(r.rollNum));
                     } else {
-                        ImGui::TextDisabled("—");
+                        ImGui::TextDisabled("-");
                     }
                 }
                 ImGui::EndTable();

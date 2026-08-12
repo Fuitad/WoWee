@@ -5,7 +5,7 @@
 using namespace wowee::game::slots;
 
 // A slot number is what a swap request names. Getting one wrong does not draw
-// something odd or answer nil — it moves an item to a real place nobody asked
+// something odd or answer nil - it moves an item to a real place nobody asked
 // for, which looks like the player did it. These pin the figures the client's
 // own bank window has been sending, so the interface bindings and that window
 // cannot drift apart.

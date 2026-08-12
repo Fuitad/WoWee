@@ -2,8 +2,8 @@
 
 // Where a helmet's model and texture live, given its ItemDisplayInfo id.
 //
-// Head gear is race and gender specific — Helm_Plate_B_01_HuM.m2 is the human
-// male cut of the same helm — with a base model as the fallback for the pieces
+// Head gear is race and gender specific - Helm_Plate_B_01_HuM.m2 is the human
+// male cut of the same helm - with a base model as the fallback for the pieces
 // that do not vary. Both the local player and every other player need the same
 // answer, and they resolve appearance through different classes, so the rule
 // lives here rather than in either of them. The cape texture is the standing
@@ -50,7 +50,7 @@ HelmVisual resolveHelmVisual(pipeline::AssetManager& assets,
 /// Not every head slot item does: a circlet, tiara or crown sits over the hair
 /// and leaves it showing, and the data says which is which. ItemDisplayInfo
 /// points at a HelmetGeosetVisData row per gender, and that row carries the
-/// masks of what to hide — the row circlets and crowns use is all zeroes, while
+/// masks of what to hide - the row circlets and crowns use is all zeroes, while
 /// a plate helm's is not. An id of 0 likewise hides nothing.
 bool helmHidesHair(pipeline::AssetManager& assets,
                    uint32_t itemDisplayInfoId,

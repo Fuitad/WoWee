@@ -5,15 +5,15 @@
 
 WHY
 
-The settings screens are generated from one list — kSchema in
-settings_schema.cpp — and every entry there becomes a control in both the
+The settings screens are generated from one list - kSchema in
+settings_schema.cpp - and every entry there becomes a control in both the
 client's own window and the interface's options panels. Saving is not
 generated: GameScreen::saveSettings writes each field out by hand, and
 loadSettings reads them back the same way.
 
 So a setting can be added to the schema, appear in both windows, answer its
 value, apply correctly, and be gone at the next login. Nothing raises. The
-control is there, the value works, and it resets every time the client starts —
+control is there, the value works, and it resets every time the client starts -
 which reads to a player as "that option doesn't stick" and to a developer as
 nothing at all, because every test still passes.
 

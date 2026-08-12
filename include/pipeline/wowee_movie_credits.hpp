@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Movie Credits Roll catalog (.wmvc) —
+// Wowee Open Movie Credits Roll catalog (.wmvc) -
 // novel replacement for the embedded credit-roll text
 // vanilla WoW carried inside the cinematic-renderer
 // blob (the post-cinematic credits that scroll up the
@@ -17,7 +17,7 @@ namespace pipeline {
 // of credit lines.
 //
 // First catalog with a variable-length STRING array
-// payload — previous variable-length formats used int
+// payload - previous variable-length formats used int
 // arrays (WCMR waypoints, WCMG members, WPTT spell
 // rank-arrays, WBAB rank chains, WRPR unlocked items
 // + recipes). The lines[] field is serialized as
@@ -38,12 +38,12 @@ namespace pipeline {
 //     nameLen + name
 //     descLen + description
 //     cinematicId (uint32)
-//     category (uint8)            — Production / Music /
+//     category (uint8)            - Production / Music /
 //                                    Audio / Engineering
 //                                    / Art / Voice /
 //                                    Special
 //     pad0 / pad1 / pad2 (uint8)
-//     orderHint (uint16)          — sort key for the
+//     orderHint (uint16)          - sort key for the
 //                                    cinematic's credit
 //                                    order (lower =
 //                                    earlier in roll)
@@ -100,16 +100,16 @@ public:
 
     // Preset emitters used by --gen-mvc* variants.
     //
-    //   makeWotLKIntro    — 5 categories for the WotLK
+    //   makeWotLKIntro    - 5 categories for the WotLK
     //                        cinematic (Production /
     //                        Direction / Music / Voice
     //                        Acting / Special Thanks)
     //                        with 3-4 lines each.
-    //   makeQuestCinema   — 3 categories for a typical
+    //   makeQuestCinema   - 3 categories for a typical
     //                        per-quest cinematic (Quest
     //                        Designer / Voice Cast /
     //                        Cinematic Director).
-    //   makeStarterRoll   — 4 categories demonstrating
+    //   makeStarterRoll   - 4 categories demonstrating
     //                        roll structure (Production
     //                        / Engineering / Art /
     //                        Special Thanks).

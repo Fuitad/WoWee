@@ -381,14 +381,14 @@ void Weather::initializeZoneWeatherDefaults() {
     // Duskwood's persistent atmosphere is supplied by its lighting fog profile.
     // Do not synthesize rain here: the streak particles read as wind-blown fog.
     // Renderer also suppresses server rain in Duskwood so its fog stays legible.
-    setZoneWeather(11,   Type::RAIN, 0.1f, 0.4f, 0.15f);  // Wetlands — moderate rain
+    setZoneWeather(11,   Type::RAIN, 0.1f, 0.4f, 0.15f);  // Wetlands - moderate rain
     setZoneWeather(8,    Type::RAIN, 0.1f, 0.5f, 0.2f);   // Swamp of Sorrows
     setZoneWeather(33,   Type::RAIN, 0.2f, 0.7f, 0.25f);  // Stranglethorn Vale
-    setZoneWeather(44,   Type::RAIN, 0.1f, 0.3f, 0.1f);   // Redridge Mountains — light rain
+    setZoneWeather(44,   Type::RAIN, 0.1f, 0.3f, 0.1f);   // Redridge Mountains - light rain
     setZoneWeather(36,   Type::RAIN, 0.1f, 0.4f, 0.15f);  // Alterac Mountains
     setZoneWeather(45,   Type::RAIN, 0.1f, 0.3f, 0.1f);   // Arathi Highlands
     setZoneWeather(267,  Type::RAIN, 0.2f, 0.5f, 0.2f);   // Hillsbrad Foothills
-    setZoneWeather(28,   Type::RAIN, 0.1f, 0.3f, 0.1f);   // Western Plaguelands — occasional rain
+    setZoneWeather(28,   Type::RAIN, 0.1f, 0.3f, 0.1f);   // Western Plaguelands - occasional rain
     setZoneWeather(139,  Type::RAIN, 0.1f, 0.3f, 0.1f);   // Eastern Plaguelands
 
     // Snowy zones
@@ -427,14 +427,14 @@ void Weather::updateZoneWeather(uint32_t zoneId, float deltaTime) {
         initializeZoneWeatherDefaults();
     }
 
-    // Zone changed — reset weather cycle
+    // Zone changed - reset weather cycle
     if (zoneId != currentWeatherZone_) {
         currentWeatherZone_ = zoneId;
         zoneWeatherTimer_ = 0.0f;
 
         auto it = zoneWeatherTable_.find(zoneId);
         if (it == zoneWeatherTable_.end()) {
-            // Zone has no configured weather — clear gradually
+            // Zone has no configured weather - clear gradually
             targetIntensity_ = 0.0f;
         } else {
             // Roll whether weather is active based on probability
@@ -471,7 +471,7 @@ void Weather::updateZoneWeather(uint32_t zoneId, float deltaTime) {
         }
     }
 
-    // Weather cycling — periodically re-roll weather
+    // Weather cycling - periodically re-roll weather
     zoneWeatherTimer_ += deltaTime;
     if (zoneWeatherTimer_ >= zoneWeatherCycleDuration_ && zoneWeatherCycleDuration_ > 0.0f) {
         zoneWeatherTimer_ = 0.0f;

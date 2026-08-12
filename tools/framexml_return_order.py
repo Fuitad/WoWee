@@ -8,8 +8,8 @@ instead of events. framexml_short_returns.py counts what a binding pushes
 against what the interface unpacks; this asks whether the values that are there
 are the right KIND for the places they land in.
 
-FrameXML names what it destructures — `local name, rank, icon = GetSpellInfo(id)`
-— and the binding pushes an expression per value. Paired positionally, the names
+FrameXML names what it destructures - `local name, rank, icon = GetSpellInfo(id)`
+- and the binding pushes an expression per value. Paired positionally, the names
 say what the expressions are supposed to be. A slot the interface calls name,
 text, title or link that is handed something id-shaped is the fault this looks
 for; the reverse is an id slot handed a name.
@@ -25,7 +25,7 @@ longest run of pushes with no `return` between them now.
 **`rank` counted as a name.** It is a string in the spellcast events and a
 number in GetGuildInfo and GetRaidRosterInfo, where WoW's own contract makes the
 third value a rank *index*. A discriminator that means opposite things on the
-two sides is not one, so it is gone — and the spellcast fault this class was
+two sides is not one, so it is gone - and the spellcast fault this class was
 found through is still caught, on `name`, not on `rank`.
 
 Seven hits became zero, and all seven were the tool.
@@ -77,7 +77,7 @@ PUSH = re.compile(r"lua_push(?:string|number|integer|boolean|nil|lstring)\s*\(\s
 def pushes(body):
     # The longest run of pushes with no `return` between them: the main path.
     # Collecting every push in the function counts the early-return block too
-    # — GetLFGProposal pushes eleven nils and returns before the real eleven —
+    # - GetLFGProposal pushes eleven nils and returns before the real eleven -
     # which shifts every position and invents a mismatch at each one.
     runs, cur, last = [], [], 0
     for m in PUSH.finditer(body):

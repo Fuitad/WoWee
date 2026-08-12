@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# run-macos.sh — Cross-compile WoWee for macOS (arm64 or x86_64) inside a Docker container.
+# run-macos.sh - Cross-compile WoWee for macOS (arm64 or x86_64) inside a Docker container.
 #
 # Usage (run from project root):
 #   ./container/run-macos.sh [--rebuild-image]
@@ -8,10 +8,10 @@
 # public software update catalog.  No manual SDK download required.
 #
 # Environment variables:
-#   MACOS_ARCH          — Target arch: arm64 (default) or x86_64
-#   WOWEE_FFX_SDK_REPO  — FidelityFX SDK git repo URL (passed through to container)
-#   WOWEE_FFX_SDK_REF   — FidelityFX SDK git ref / tag      (passed through to container)
-#   REBUILD_IMAGE       — Set to 1 to force a fresh docker build (same as --rebuild-image)
+#   MACOS_ARCH          - Target arch: arm64 (default) or x86_64
+#   WOWEE_FFX_SDK_REPO  - FidelityFX SDK git repo URL (passed through to container)
+#   WOWEE_FFX_SDK_REF   - FidelityFX SDK git ref / tag      (passed through to container)
+#   REBUILD_IMAGE       - Set to 1 to force a fresh docker build (same as --rebuild-image)
 #
 # Toolchain: osxcross (Clang + Apple ld)
 # vcpkg triplets: arm64-osx-cross (arm64) / x64-osx-cross (x86_64)

@@ -1,5 +1,5 @@
 // ============================================================
-// CombatUI — extracted from GameScreen
+// CombatUI - extracted from GameScreen
 // Owns all combat-related UI rendering: cast bar, cooldown tracker,
 // raid warning overlay, combat text, DPS meter, buff bar,
 // battleground score HUD, combat log, threat window, BG scoreboard.
@@ -152,7 +152,7 @@ void CombatUI::renderCastBar(game::GameHandler& gameHandler, SpellIconFn getSpel
 
 
 // ============================================================
-// Cooldown Tracker — floating panel showing all active spell CDs
+// Cooldown Tracker - floating panel showing all active spell CDs
 // ============================================================
 
 void CombatUI::renderCooldownTracker(game::GameHandler& gameHandler,
@@ -253,7 +253,7 @@ void CombatUI::renderCooldownTracker(game::GameHandler& gameHandler,
 void CombatUI::renderRaidWarningOverlay(game::GameHandler& gameHandler) {
     // FrameXML's RaidWarningFrame and RaidBossEmoteFrame answer
     // CHAT_MSG_RAID_WARNING and CHAT_MSG_RAID_BOSS_EMOTE, both of which this
-    // client fires — so when it owns them, collect no entries and the empty
+    // client fires - so when it owns them, collect no entries and the empty
     // check below returns before anything is drawn. The gate is here rather
     // than at the top of the function because the same scan plays the whisper
     // sound, which belongs to no element and has to keep happening.
@@ -263,7 +263,7 @@ void CombatUI::renderRaidWarningOverlay(game::GameHandler& gameHandler) {
     const auto& chatHistory = gameHandler.getChatHistory();
     size_t newCount = chatHistory.size();
     if (newCount > raidWarnChatSeenCount_) {
-        // Walk only the new messages (deque — iterate from back by skipping old ones)
+        // Walk only the new messages (deque - iterate from back by skipping old ones)
         size_t toScan = newCount - raidWarnChatSeenCount_;
         size_t startIdx = newCount > toScan ? newCount - toScan : 0;
         for (size_t i = startIdx; i < newCount; ++i) {
@@ -367,7 +367,7 @@ void CombatUI::renderRaidWarningOverlay(game::GameHandler& gameHandler) {
 //
 // Left alone deliberately. Covering it means a new UiElement and a suppression
 // entry, which is a decision about what this interface owns rather than a fix
-// to something broken — and the client's combat text is the one on screen today.
+// to something broken - and the client's combat text is the one on screen today.
 void CombatUI::renderCombatText(game::GameHandler& gameHandler) {
     const auto& entries = gameHandler.getCombatText();
     if (entries.empty()) return;
@@ -716,7 +716,7 @@ void CombatUI::renderDPSMeter(game::GameHandler& gameHandler,
     // Track combat duration for accurate DPS denominator in short fights
     bool inCombat = gameHandler.isInCombat();
     if (inCombat && !dpsWasInCombat_) {
-        // Just entered combat — reset encounter accumulators
+        // Just entered combat - reset encounter accumulators
         dpsEncounterDamage_ = 0.0f;
         dpsEncounterHeal_   = 0.0f;
         dpsLogSeenCount_    = gameHandler.getCombatLog().size();
@@ -747,7 +747,7 @@ void CombatUI::renderDPSMeter(game::GameHandler& gameHandler,
             }
         }
     } else if (dpsWasInCombat_) {
-        // Just left combat — keep encounter totals but stop accumulating
+        // Just left combat - keep encounter totals but stop accumulating
     }
     dpsWasInCombat_ = inCombat;
 
@@ -890,7 +890,7 @@ void CombatUI::renderDPSMeter(game::GameHandler& gameHandler,
             dpsMeterPos_ = ImVec2(-1.0f, -1.0f);
         }
         if (ImGui::IsWindowHovered()) {
-            ImGui::SetTooltip("Drag to move — right-click to reset position");
+            ImGui::SetTooltip("Drag to move - right-click to reset position");
         }
     }
     ImGui::End();
@@ -983,7 +983,7 @@ void CombatUI::renderBuffBar(game::GameHandler& gameHandler,
             return ra < rb;
         });
 
-        // Render one pass for buffs, one for debuffs — both on a single continuous row.
+        // Render one pass for buffs, one for debuffs - both on a single continuous row.
         int shown = 0;
         for (int pass = 0; pass < 2; ++pass) {
             bool wantBuff = (pass == 0);
@@ -1066,7 +1066,7 @@ void CombatUI::renderBuffBar(game::GameHandler& gameHandler,
                 }
             }
 
-            // Duration countdown overlay — always visible on the icon bottom
+            // Duration countdown overlay - always visible on the icon bottom
             if (remainMs > 0) {
                 ImVec2 iconMin = ImGui::GetItemRectMin();
                 ImVec2 iconMax = ImGui::GetItemRectMax();
@@ -1103,7 +1103,7 @@ void CombatUI::renderBuffBar(game::GameHandler& gameHandler,
                     timerColor, timeStr);
             }
 
-            // Stack / charge count overlay — upper-left corner of the icon
+            // Stack / charge count overlay - upper-left corner of the icon
             if (aura.charges > 1) {
                 ImVec2 iconMin = ImGui::GetItemRectMin();
                 char chargeStr[8];
@@ -1141,16 +1141,16 @@ void CombatUI::renderBuffBar(game::GameHandler& gameHandler,
             shown++;
         }  // end aura loop
         }  // end pass loop
-        // The buff/debuff gap is horizontal now (see SameLine above) — a vertical
+        // The buff/debuff gap is horizontal now (see SameLine above) - a vertical
         // Spacing() here would push debuffs onto a second row.
 
         // Temporary weapon enchant timers (Shaman imbues, Rogue poisons, sharpening
         // stones, oils). Shown as the enchanted weapon's icon with its remaining time
-        // beneath, the way the retail client does — not as a labelled bar.
+        // beneath, the way the retail client does - not as a labelled bar.
         {
             const auto& timers = gameHandler.getTempEnchantTimers();
             if (!timers.empty()) {
-                // Continue the aura row rather than starting a second one — a Spacing()
+                // Continue the aura row rather than starting a second one - a Spacing()
                 // or Separator() here is what used to push these onto their own line.
                 static constexpr game::EquipSlot kWeaponEquipSlots[] = {
                     game::EquipSlot::MAIN_HAND, game::EquipSlot::OFF_HAND, game::EquipSlot::RANGED
@@ -1250,7 +1250,7 @@ void CombatUI::renderBuffBar(game::GameHandler& gameHandler,
                     }
                     ImGui::PopID();
                     ++enchantsShown;
-                    ++shown;  // shared row counter — drives the SameLine above
+                    ++shown;  // shared row counter - drives the SameLine above
                 }
             }
         }
@@ -1746,10 +1746,10 @@ void CombatUI::renderThreatWindow(game::GameHandler& gameHandler) {
 
     // Status bar: aggro alert or rank summary
     if (playerRank == 1) {
-        // Player has aggro — persistent red warning
+        // Player has aggro - persistent red warning
         ImGui::TextColored(ImVec4(1.0f, 0.25f, 0.25f, 1.0f), "!! YOU HAVE AGGRO !!");
     } else if (playerRank > 1 && playerPct >= 0.8f) {
-        // Close to pulling — pulsing warning
+        // Close to pulling - pulsing warning
         float pulse = 0.55f + 0.45f * sinf(static_cast<float>(ImGui::GetTime()) * 5.0f);
         ImGui::TextColored(ImVec4(1.0f, 0.55f, 0.1f, pulse), "! PULLING AGGRO (%.0f%%) !", playerPct * 100.0f);
     } else if (playerRank > 0) {
@@ -1784,7 +1784,7 @@ void CombatUI::renderThreatWindow(game::GameHandler& gameHandler) {
         // Colour: gold for #1 (tank), red if player is highest, white otherwise
         ImVec4 col = ui::colors::kWhite;
         if (rank == 1) col = ui::colors::kTooltipGold;      // gold
-        if (isPlayer && rank == 1) col = kColorRed; // red — you have aggro
+        if (isPlayer && rank == 1) col = kColorRed; // red - you have aggro
 
         // Threat bar
         float pct = (maxThreat > 0) ? static_cast<float>(entry.threat) / static_cast<float>(maxThreat) : 0.0f;

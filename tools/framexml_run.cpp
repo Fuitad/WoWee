@@ -1,8 +1,8 @@
-// framexml_run — load FrameXML for real and run an expression against it.
+// framexml_run - load FrameXML for real and run an expression against it.
 //
 // Every static sweep in tools/ works on the text: which names exist, which
 // arguments line up, which frames are emitted. They are at their floor, and
-// the bugs that are left are not visible in text — they are what happens when
+// the bugs that are left are not visible in text - they are what happens when
 // the interface actually runs. Escape opening nothing, the chat box refusing
 // focus, a panel that stays empty: each is a Lua error raised inside a handler
 // and swallowed, because a handler that raises looks exactly like a handler
@@ -13,10 +13,10 @@
 //     WOWEE_LUA_API_FALLBACK=0 framexml_run Data
 //
 // By default an unknown global answers with a stand-in rather than nil, which
-// keeps a file alive past a name nothing implements — and hides that it was
+// keeps a file alive past a name nothing implements - and hides that it was
 // needed. With the fallback off, anything the interface actually depends on
 // raises and names itself. As of 2026-08-07 that run is clean: no load errors,
-// no addon failures, no login errors. It found the one thing that was not —
+// no addon failures, no login errors. It found the one thing that was not -
 // Blizzard_BattlefieldMinimap, held up entirely by a stand-in for a frame the
 // real client creates in C++.
 //
@@ -27,14 +27,14 @@
 // Clicking is the other thing to do with it, and it found the Send Mail tab
 // raising before its frame was built. Walk the globals for tables carrying a
 // widget id and a script table, keep the Buttons and CheckButtons, and Click()
-// each one — but only where IsVisible() is true. Clicking a button in a panel
+// each one - but only where IsVisible() is true. Clicking a button in a panel
 // nobody opened raises for reasons that are not faults: 516 of them against
 // zero for the visible ones. Open a panel, click what became visible, hide it,
 // move on.
 //
 // This is that run, without the client. The addon manager loads the real
 // FrameXML through the real emitter into a real Lua state with the real
-// bindings, and the only thing missing is a game behind them — every binding
+// bindings, and the only thing missing is a game behind them - every binding
 // already guards its GameHandler pointer, so a null one gives the answers of a
 // player who is not logged in. That is enough for anything whose fault is in
 // the interface rather than in the data, which is what the swallowed errors
@@ -78,7 +78,7 @@ int main(int argc, char** argv) {
     // Its own log file, before anything can open one.
     //
     // The logger truncates whatever it opens, and every process using it took
-    // the same path — so running this from the repository root destroyed the
+    // the same path - so running this from the repository root destroyed the
     // session log of the client that had just been played, which is the one
     // file a bug report needs. A tool that quietly deletes the evidence is
     // worse than a tool that does not exist.
@@ -98,7 +98,7 @@ int main(int argc, char** argv) {
     const std::string assetPath = argv[1];
 
     // FrameXML owns nothing unless it is asked to, and a harness that owns
-    // nothing takes the client's side of every handover — which is not the
+    // nothing takes the client's side of every handover - which is not the
     // side being tested. Set before anything reads it.
     wowee::core::setEnvVar("WOWEE_FRAMEXML_UI", "all", false);
 
@@ -125,7 +125,7 @@ int main(int argc, char** argv) {
     // where three faults were hiding and none of them was visible any other
     // way. A load-on-demand addon is loaded whole or not at all: a raise
     // during load loses the file, so the fault presents as a panel that does
-    // not exist rather than one that misbehaves — no error on screen, nothing
+    // not exist rather than one that misbehaves - no error on screen, nothing
     // in the log, just a window that never opens. Reported separately from the
     // FrameXML load above, since a broken addon is a smaller thing than a
     // broken interface.
@@ -135,7 +135,7 @@ int main(int argc, char** argv) {
         // The one the client refuses on purpose, refused here too.
         //
         // That decision lives in the LoadAddOn *binding*, so asking the
-        // manager directly walks straight past it — and this was loading an
+        // manager directly walks straight past it - and this was loading an
         // addon the client never loads, reporting the seventy-nine globals it
         // has no server behind as though they were gaps. A harness that
         // reaches a state the client cannot is worse than one that reaches
@@ -157,7 +157,7 @@ int main(int argc, char** argv) {
     // setting up on. Without them the frames exist and are half-configured,
     // and that reads as breakage: a chat frame whose windows were never
     // updated has no stored alpha, so FCF_FadeInChatFrame does max(nil, ...)
-    // and every click on a chat tab raises — which looks exactly like a real
+    // and every click on a chat tab raises - which looks exactly like a real
     // fault in the chat, and is not one.
     //
     // Fired after the addons, so a load-on-demand panel that registered for
@@ -175,7 +175,7 @@ int main(int argc, char** argv) {
     // strupper(UnitClass("player")) and pvpbattlegroundframe concatenates
     // UnitFactionGroup("player"), and with nobody logged in those are nil and
     // raise. That is an answer about the absence of a player rather than a
-    // fault, and permanent errors in this report would drown the real ones —
+    // fault, and permanent errors in this report would drown the real ones -
     // its whole worth is that a nonzero count means something.
     mgr.fireEvent("UPDATE_CHAT_WINDOWS");
 
@@ -186,7 +186,7 @@ int main(int argc, char** argv) {
 
     // Resolve the anchors, so a question about where something ended up has an
     // answer. Nothing drives a render loop here, and without this every frame
-    // reports a bottom of zero and a top equal to its own height — which is
+    // reports a bottom of zero and a top equal to its own height - which is
     // not a layout, it is the absence of one, and reads as a fault in whatever
     // is being examined.
     //
@@ -197,14 +197,14 @@ int main(int argc, char** argv) {
     // comes from text it holds will read as zero.
     // A font, so that a label has a width.
     //
-    // ImGui's default atlas is built entirely on the CPU — no device, no
-    // window, no backend — and having one turns the renderer's own layout pass
+    // ImGui's default atlas is built entirely on the CPU - no device, no
+    // window, no backend - and having one turns the renderer's own layout pass
     // from unusable into usable here. That matters more than it sounds: a
     // great deal of FrameXML is positioned against a label's extent rather
     // than a number, and without metrics every one of those labels is zero
     // wide. The auction browse anchors its rarity dropdown to the BOTTOMRIGHT
     // of the "Level Range" caption, so with no font the dropdown lands sixty
-    // pixels left of where it belongs, on top of the level boxes — a fault
+    // pixels left of where it belongs, on top of the level boxes - a fault
     // that looks exactly like the real one being investigated and is not it.
     //
     // The typeface is not the game's, so widths are close rather than exact.
@@ -221,7 +221,7 @@ int main(int argc, char** argv) {
         // possible here.
         //
         // Without them the substitute is ImGui's built-in face and widths are
-        // close rather than exact — close enough to answer "is this frame
+        // close rather than exact - close enough to answer "is this frame
         // laid out at all", not close enough to answer "do these two overlap",
         // which is the question that comes up about anything positioned
         // against a caption's right edge.
@@ -255,11 +255,11 @@ int main(int argc, char** argv) {
     // Uploading needs a GPU; asking a file how big it is does not, and that
     // split is now in the renderer.
     //
-    // A failure to open the assets is not fatal — every other check here works
+    // A failure to open the assets is not fatal - every other check here works
     // without them, and this runs on machines with no game data.
     // The client does not open the data path it is given. An expansion that
     // carries its own manifest.json becomes the primary asset source, with the
-    // path given here as the fallback behind it — which is how an overlay that
+    // path given here as the fallback behind it - which is how an overlay that
     // replaces models or a DBC for one expansion reaches the client at all.
     // Opening the base path directly, as this used to, reads straight past
     // every such overlay and reports the unmodified game.
@@ -279,7 +279,7 @@ int main(int argc, char** argv) {
     }
 
     wowee::pipeline::AssetManager assets;
-    // Before initialize, exactly as application.cpp does it — the fallback
+    // Before initialize, exactly as application.cpp does it - the fallback
     // manifest is loaded here and initialize does not clear it.
     if (!assetFallbackPath.empty()) assets.setBaseFallbackPath(assetFallbackPath);
     const bool haveAssets = assets.initialize(primaryAssetPath);
@@ -298,7 +298,7 @@ int main(int argc, char** argv) {
     //
     // Laying out alone was not the frame the client runs. OnShow is fired by
     // LuaEngine::updateVisibility, which application.cpp calls once a frame and
-    // which nothing here called — so no handler that fills a panel in ever ran,
+    // which nothing here called - so no handler that fills a panel in ever ran,
     // and every panel measured here was measured empty. That is not a small
     // gap: QuestFrame's whole QUEST_DETAIL path is `panel:Hide(); panel:Show()`
     // and every element it positions is positioned from OnShow.
@@ -306,7 +306,7 @@ int main(int argc, char** argv) {
     // Worse than the gap was what it did to a question asked of this harness.
     // "Does OnShow fire?" answered no for the frame under test *and* for a
     // frame known to be fine, because the pass that fires it was never reached
-    // — a clean-looking zero that meant only that nobody had looked.
+    // - a clean-looking zero that meant only that nobody had looked.
     //
     // Same order as the client: visibility first, because a panel's OnShow is
     // what fills it in, and the size of what it filled is what the range is
@@ -331,7 +331,7 @@ int main(int argc, char** argv) {
         // Everything else here calls a handler directly, which tests the
         // handler and nothing about whether the client would ever reach it.
         // OnUpdate is dispatched from a list, gated on the widget's visible
-        // chain, and unhooked after five consecutive failures — none of which
+        // chain, and unhooked after five consecutive failures - none of which
         // a direct call goes near. A frame whose OnUpdate raises looks
         // perfectly healthy when its function is invoked by hand, and is dead
         // for the rest of the session in the running client.
@@ -343,7 +343,7 @@ int main(int argc, char** argv) {
         // Every binding that matters starts with getGameHandler(L) and returns
         // at once when it is null, which is what the runner has always had. So
         // a check could reach a handler and never reach the thing the handler
-        // asks the client — UnitFactionGroup answers nothing, PickupSpell
+        // asks the client - UnitFactionGroup answers nothing, PickupSpell
         // picks up nothing, and the failures that follow are the harness's,
         // not the interface's.
         //
@@ -351,8 +351,8 @@ int main(int argc, char** argv) {
         // which GameHandler accepts, and the character is set directly.
         if (std::strcmp(argv[i], "--player") == 0) {
             static wowee::game::GameServices svc;
-            // The real asset manager, so bindings that read a DBC — quest reward
-            // XP from QuestXP.dbc, zone names from AreaTable — answer for real
+            // The real asset manager, so bindings that read a DBC - quest reward
+            // XP from QuestXP.dbc, zone names from AreaTable - answer for real
             // rather than the empty they give with no assets behind them.
             if (haveAssets) svc.assetManager = &assets;
             static wowee::game::GameHandler gh(svc);
@@ -388,7 +388,7 @@ int main(int argc, char** argv) {
             gh.playerManaRegenCastingRef() = 50.0f;  // per second, while casting
             // A few spells, so the spellbook is not empty. getSpellBookTabs
             // rebuilds itself from the known set whenever the count changes,
-            // so adding them is all that is needed — and without them
+            // so adding them is all that is needed - and without them
             // PickupSpell resolves slot 1 to nothing and every drag out of the
             // book is a no-op that looks like a broken drag.
             if (auto* sh = gh.getSpellHandler()) {
@@ -397,7 +397,7 @@ int main(int argc, char** argv) {
             // A spell icon path for every id, so GetSpellTexture answers
             // non-empty. Without it SpellButton_UpdateButton hides the icon and
             // SpellButton_OnDrag's `not IconTexture:IsShown()` guard returns
-            // before PickupSpell — a drag that looks broken but is only a
+            // before PickupSpell - a drag that looks broken but is only a
             // spellbook with no icons, which is what the client draws over a
             // realm and the harness cannot. The path need not resolve to pixels;
             // the guard only asks whether the texture is shown.
@@ -417,7 +417,7 @@ int main(int argc, char** argv) {
                     q.description =
                         "It's so cold, now. The Plague of Undeath crawls "
                         "through my veins, and yet I feel nothing but the "
-                        "endless winter of the grave. Seek out Johaan — he "
+                        "endless winter of the grave. Seek out Johaan - he "
                         "alone may know what has become of me.";
                     q.zoneOrSort = 130;  // Silverpine Forest
                     q.level = 1;
@@ -435,8 +435,8 @@ int main(int argc, char** argv) {
             // And an entity, because a character alone is not a unit.
             //
             // resolveUnit answers out of the EntityManager, so with nothing in
-            // it every Unit* binding that goes through it — UnitClass,
-            // UnitName, UnitLevel, UnitExists — returned no values at all, and
+            // it every Unit* binding that goes through it - UnitClass,
+            // UnitName, UnitLevel, UnitExists - returned no values at all, and
             // FrameXML did strupper(nil) on the second of them. A click sweep
             // over that reported four raises and every one was the harness's.
             //
@@ -479,7 +479,7 @@ int main(int argc, char** argv) {
             if (auto* engine = mgr.getLuaEngine()) {
                 // Through the client's own conversion, scale and all. A raw
                 // flip here answered a different question and made the two
-                // disagree — which read as the drop path being broken when it
+                // disagree - which read as the drop path being broken when it
                 // was this line.
                 float tx = hx, ty = hy;
                 wowee::ui::mouseToTreeSpace(tx, ty, 1080.0f, engine->widgets().uiScale());
@@ -495,13 +495,13 @@ int main(int argc, char** argv) {
         //
         // Coordinates are window pixels from the top-left, the way ImGui
         // reports them and the way the client passes them, so a position read
-        // off a frame's rect has to be flipped — the widget tree's y grows
+        // off a frame's rect has to be flipped - the widget tree's y grows
         // upward. BUTTONS is any of L, R, M; an empty field is all released.
         //
         // A drag is three of these: down on the source, moved far enough to
         // pass the threshold, then up over the target. Nothing else here can
         // exercise press-move-release, and that is where the drag machinery
-        // lives — which frame owns a drag, which frame is offered the drop,
+        // lives - which frame owns a drag, which frame is offered the drop,
         // and whether either walks up its parents.
         if (std::strncmp(argv[i], "--mouse:", 8) == 0) {
             float mx = 0.0f, my = 0.0f;
@@ -528,12 +528,12 @@ int main(int argc, char** argv) {
         // --fire:EVENT sends one event through the engine's own dispatch.
         //
         // Calling a frame's OnEvent by hand tests the handler and nothing
-        // about whether the client would reach it — which table it is
+        // about whether the client would reach it - which table it is
         // registered in, whether the name matches, whether anything else
         // listens. This goes the way the client goes.
         if (std::strncmp(argv[i], "--fire:", 7) == 0) {
             relayout();
-            // --fire:EVENT|arg1|arg2 — the arguments matter as much as the
+            // --fire:EVENT|arg1|arg2 - the arguments matter as much as the
             // event. A handler is written against what the event carries, and
             // an event fired empty makes most of them return at their first
             // line: CHAT_MSG_SAY with no message adds nothing to the chat
@@ -566,8 +566,8 @@ int main(int argc, char** argv) {
         }
         // --lua:CODE runs one chunk through the interface's own Lua state.
         //
-        // The direct handlers above each test one seam; a whole flow — show a
-        // panel, select a row, let the template lay itself out — is what a real
+        // The direct handlers above each test one seam; a whole flow - show a
+        // panel, select a row, let the template lay itself out - is what a real
         // report exercises, and only Lua can drive it the way the client does.
         // ShowUIPanel(QuestLogFrame); QuestLog_SetSelection(1) is the quest log
         // opening onto its first quest, which is exactly the path a "the
@@ -592,7 +592,7 @@ int main(int argc, char** argv) {
         //
         // Everything else here settles layout and state; drawing was the one
         // half that could not be reached, and it is where a whole class of
-        // fault lives — a frame correct in every property and still not on
+        // fault lives - a frame correct in every property and still not on
         // screen. The chat window holding lit messages and painting none of
         // them is exactly that shape, and no amount of asking from outside
         // could tell it from a healthy one.
@@ -634,14 +634,14 @@ int main(int argc, char** argv) {
             else if (w->alpha <= 0.001f)   why = "alpha is zero";
             // The same rule the tree applies in drawOrder(). It is written
             // twice, so an edit box drawing its own text has to be excused in
-            // both — this copy said "a container" about a chat box that had
+            // both - this copy said "a container" about a chat box that had
             // just started drawing again.
             else if (w->kind == wowee::ui::WidgetKind::Frame && !w->hasBackdrop &&
                      !w->isStatusBar && !w->isEditBox && w->externalTexture == 0 &&
                      !(w->isMessageFrame && !w->messages.empty()) &&
                      !(w->isTooltip && !w->tooltipLines.empty()))
                 why = "a frame with nothing of its own to paint (no backdrop, no "
-                      "bar, no messages, no tooltip lines) — a container";
+                      "bar, no messages, no tooltip lines) - a container";
             else if (w->rectW <= 0.0f || w->rectH <= 0.0f) why = "no width or no height";
             else if (w->kind == wowee::ui::WidgetKind::Texture &&
                      w->texturePath.empty() && !w->solidColor &&
@@ -651,7 +651,7 @@ int main(int argc, char** argv) {
                 why = "a font string with no text";
             else if (w->buttonArt != wowee::ui::ButtonArt::None)
                 why = "button art for a state the button is not in";
-            std::printf("   %s: %s — %s\n", want.c_str(),
+            std::printf("   %s: %s - %s\n", want.c_str(),
                         inOrder ? "DRAWN" : "not drawn", why);
             std::printf("      visible=%d alpha=%.2f rect=(%.0f,%.0f %.0fx%.0f) "
                         "messages=%zu backdrop=%d\n",
@@ -664,7 +664,7 @@ int main(int argc, char** argv) {
         // long a line lives, and what alpha each is at.
         //
         // A chat window with nothing in it and a chat window whose lines have
-        // all faded to nothing look identical from Lua — GetNumMessages counts
+        // all faded to nothing look identical from Lua - GetNumMessages counts
         // both, because a faded line is still in the history and comes back
         // when the frame is scrolled. The alpha is the only thing that
         // separates "nothing was said" from "everything said has gone".
@@ -701,7 +701,7 @@ int main(int argc, char** argv) {
         //
         // "Off page and unreadable" is how this gets reported. A frame shown,
         // sized and filled in, sitting entirely past an edge, is invisible in
-        // exactly the way a broken one is — and every property reads back
+        // exactly the way a broken one is - and every property reads back
         // correct, because being outside the screen is not a property.
         //
         // Wholly outside, not merely overhanging: the action bar's end caps and
@@ -747,7 +747,7 @@ int main(int argc, char** argv) {
         // askable now that the harness can read the assets.
         //
         // Distinct paths rather than regions, because one missing file is
-        // usually many regions — every action button shares a border.
+        // usually many regions - every action button shares a border.
         if (std::strcmp(argv[i], "--missingart") == 0) {
             relayout();
             auto* engine = mgr.getLuaEngine();
@@ -787,8 +787,8 @@ int main(int argc, char** argv) {
         // only thing missing is the one number that decides whether any of it
         // reaches the screen.
         //
-        // Empty text is not interesting — most of the interface is labels
-        // waiting for data — so only regions that have something to say and
+        // Empty text is not interesting - most of the interface is labels
+        // waiting for data - so only regions that have something to say and
         // nowhere to say it are counted.
         if (std::strcmp(argv[i], "--unsized") == 0) {
             relayout();
@@ -850,9 +850,9 @@ int main(int argc, char** argv) {
             }
             // Which command the key holds, said alongside the outcome.
             //
-            // "Nothing happened" has two quite different causes here — no
+            // "Nothing happened" has two quite different causes here - no
             // command on the key at all, or a command the client performs
-            // itself and the dispatch therefore declines — and reporting both
+            // itself and the dispatch therefore declines - and reporting both
             // the same way would make a decline read as a missing binding.
             std::string command;
             if (auto* engine = mgr.getLuaEngine()) {
@@ -881,7 +881,7 @@ int main(int argc, char** argv) {
         // enabled the keyboard, and that frame swallows it unless it asked for
         // propagation. Everything in FrameXML that declares a key handler is a
         // dialog hidden until it is wanted, so at rest this should name nothing
-        // — and if it names something that is always on screen, that frame is
+        // - and if it names something that is always on screen, that frame is
         // eating every key in the game and the fault is here rather than in
         // whatever the key was supposed to do.
         if (std::strcmp(argv[i], "--keyfocus") == 0) {
@@ -917,7 +917,7 @@ int main(int argc, char** argv) {
         // does not overlap what it clips removes it from the screen leaving no
         // other trace: the region is shown, sized, positioned, and simply not
         // there. That is what a blank parchment with working buttons looks
-        // like, and it is how the quest dialog hid — its text sat at x=540 on
+        // like, and it is how the quest dialog hid - its text sat at x=540 on
         // a scroll frame spanning 23 to 323.
         //
         // Only worth running once panels actually build themselves, which
@@ -936,8 +936,8 @@ int main(int argc, char** argv) {
                 ++clipped;
                 if (!w->visible) continue;
                 // Only things that draw. A container frame outside the window
-                // is ordinary — a scroll child is routinely taller than what
-                // shows it — but a label or an image is content nobody sees.
+                // is ordinary - a scroll child is routinely taller than what
+                // shows it - but a label or an image is content nobody sees.
                 const bool draws =
                     (w->kind == wowee::ui::WidgetKind::FontString && !w->text.empty()) ||
                     (w->kind == wowee::ui::WidgetKind::Texture && w->rectW > 0.0f);
@@ -976,7 +976,7 @@ int main(int argc, char** argv) {
             }
             // Both numbers, because they fail in opposite directions. Zero
             // clipped away is also what "nothing is clipped at all" looks
-            // like, and that would be the worse bug of the two — every scroll
+            // like, and that would be the worse bug of the two - every scroll
             // frame spilling its whole child across the window.
             std::printf("   %d clipped away, of %d clipped to something\n",
                         found, clipped);
@@ -1005,7 +1005,7 @@ int main(int argc, char** argv) {
         }
         // Before each one, not once after the load. An expression that opens a
         // panel changes where things are, and the expression that measures it
-        // is the next one along — laying out only at the start meant every
+        // is the next one along - laying out only at the start meant every
         // measurement described the interface as it was before anything had
         // been asked of it. The client lays out every frame; this is the same
         // thing at the only granularity there is here.

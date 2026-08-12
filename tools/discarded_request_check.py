@@ -4,14 +4,14 @@
     tools/discarded_request_check.py [--server PATH]
 
 An opcode can be perfectly real, present in both opcode tables, correctly sized
-and correctly built, and still do nothing — because the server registers it with
+and correctly built, and still do nothing - because the server registers it with
 Handle_NULL. Two hundred and thirty-eight of AzerothCore's client opcodes are
 registered that way: the number exists so the packet can be recognised and
 discarded, usually because the opcode was replaced in a later expansion and the
 name kept.
 
 That is the quietest failure a request can have. Nothing is malformed, nothing
-is logged, no size check fires and no layout check fires — the packet leaves and
+is logged, no size check fires and no layout check fires - the packet leaves and
 the world does not change. CMSG_CHANGEPLAYER_DIFFICULTY was the case that named
 this: every difficulty change this client sent, including the ones its own
 /difficulty command sends, went to Handle_NULL. The opcodes the server reads are
@@ -20,8 +20,8 @@ the table beside it.
 
 WHAT IT LOOKS FOR
 
-Every opcode this client *constructs a packet with* — `network::Packet p(
-wireOpcode(Opcode::X))` — checked against the handler the server registers for
+Every opcode this client *constructs a packet with* - `network::Packet p(
+wireOpcode(Opcode::X))` - checked against the handler the server registers for
 that name.
 
 Construction, not mention. The first cut matched any `wireOpcode(Opcode::X)`
@@ -32,7 +32,7 @@ sixteen it first reported were opcodes this client only ever *receives*.
 THE OTHER DIRECTION
 
 The same table read backwards: opcodes the server *sends* that this client
-names and never handles. A dropped reply is as quiet as a discarded request —
+names and never handles. A dropped reply is as quiet as a discarded request -
 the packet arrives, the dispatch table has no entry, and nothing anywhere says
 so.
 
@@ -45,13 +45,13 @@ message this client is actually being sent.
 Three of these were live on 2026-08-06. AzerothCore answers a force-move ack by
 broadcasting the mover's movement info to everyone else, and MSG_MOVE_HOVER,
 MSG_MOVE_FEATHER_FALL and MSG_MOVE_WATER_WALK were missing from the relay list
-that MSG_MOVE_GRAVITY_CHNG and MSG_MOVE_UPDATE_CAN_FLY were already in — same
+that MSG_MOVE_GRAVITY_CHNG and MSG_MOVE_UPDATE_CAN_FLY were already in - same
 body, same handler, nothing to tell them apart. Another player starting to
 hover stayed where they were last seen until their next heartbeat.
 
 WHAT IT CANNOT SEE
 
-An opcode the server handles but ignores in some *condition* — a guard inside
+An opcode the server handles but ignores in some *condition* - a guard inside
 the handler rather than at the table. This is about the table only.
 
 Nor does it know what the client should send instead. Handle_NULL says the
@@ -102,7 +102,7 @@ def client_sends():
     return out
 
 
-#: Server messages this client names, never handles, and does not need to —
+#: Server messages this client names, never handles, and does not need to -
 #: each checked against whether the server builds one anywhere.
 EXPECTED_UNHANDLED = {
     # Sent one line before SMSG_DESTROY_OBJECT with the same guid and only

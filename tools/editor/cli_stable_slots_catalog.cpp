@@ -233,27 +233,27 @@ int handleValidate(int& i, int argc, char** argv) {
                 warnings.push_back(ctx +
                     ": minLevelToUnlock " +
                     std::to_string(e.minLevelToUnlock) +
-                    " > 80 — slot unreachable at WotLK cap");
+                    " > 80 - slot unreachable at WotLK cap");
             }
-            // Premium slot with non-zero cost is contradictory —
+            // Premium slot with non-zero cost is contradictory -
             // donator slots should be free (status-gated, not
             // gold-gated).
             if (e.isPremium && e.copperCost > 0) {
                 warnings.push_back(ctx +
                     ": Premium slot with copperCost=" +
                     std::to_string(e.copperCost) +
-                    " — donator slots are typically free; the gate "
+                    " - donator slots are typically free; the gate "
                     "is donor status, not gold");
             }
             if (!idsSeen.add(e.slotId)) errors.push_back(ctx + ": duplicate slotId");
             // Two slots with the same displayOrder collide in
-            // the stable UI — only the first would render.
+            // the stable UI - only the first would render.
             for (uint8_t prevOrd : ordersSeen) {
                 if (prevOrd == e.displayOrder) {
                     warnings.push_back(ctx +
                         ": duplicate displayOrder " +
                         std::to_string(e.displayOrder) +
-                        " — stable UI position collision");
+                        " - stable UI position collision");
                     break;
                 }
             }

@@ -1,6 +1,6 @@
-// exploration_state.hpp — Fog of war / exploration tracking (pure domain logic).
+// exploration_state.hpp - Fog of war / exploration tracking (pure domain logic).
 // Extracted from WorldMap::updateExploration (Phase 3 of refactoring plan).
-// No rendering or GPU dependencies — fully testable standalone.
+// No rendering or GPU dependencies - fully testable standalone.
 #pragma once
 
 #include "rendering/world_map/world_map_types.hpp"

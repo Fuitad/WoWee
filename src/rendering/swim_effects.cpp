@@ -129,7 +129,7 @@ bool SwimEffects::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayou
             return false;
         }
 
-        // Depth test disabled — insects are screen-space sprites that must always
+        // Depth test disabled - insects are screen-space sprites that must always
         // render above the water surface regardless of scene geometry.
         insectPipeline = PipelineBuilder()
             .setShaders(vertStage, fragStage)
@@ -488,7 +488,7 @@ void SwimEffects::update(const Camera& camera, const CameraController& cc,
         }
     } else {
         rippleSpawnAccum = 0.0f;
-        // Don't clear ripples — foot splash particles are added while wading
+        // Don't clear ripples - foot splash particles are added while wading
         // (not swimming) and need to live out their lifetime.
     }
 
@@ -510,7 +510,7 @@ void SwimEffects::update(const Camera& camera, const CameraController& cc,
             // only ever reach 0.5 in a frame and never crossed the threshold.
             wadeSpawnAccum += 30.0f * depthScale * deltaTime;
 
-            // Forward from yaw is (cos, sin) — the same derivation the camera
+            // Forward from yaw is (cos, sin) - the same derivation the camera
             // controller uses to move the character.
             const float yawRad = glm::radians(cc.getYaw());
             const glm::vec2 travel(std::cos(yawRad), std::sin(yawRad));

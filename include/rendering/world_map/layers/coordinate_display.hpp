@@ -1,4 +1,4 @@
-// coordinate_display.hpp — WoW coordinates under cursor on the world map.
+// coordinate_display.hpp - WoW coordinates under cursor on the world map.
 #pragma once
 #include "rendering/world_map/overlay_renderer.hpp"
 

@@ -248,7 +248,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 errors.push_back(ctx + ": name is empty");
             if (e.classMask == 0)
                 errors.push_back(ctx +
-                    ": classMask is 0 — no class can use this tab");
+                    ": classMask is 0 - no class can use this tab");
             if (e.roleHint > wowee::pipeline::WoweeTalentTab::PetClass) {
                 errors.push_back(ctx + ": roleHint " +
                     std::to_string(e.roleHint) + " not in 0..4");
@@ -257,20 +257,20 @@ int handleValidate(int& i, int argc, char** argv) {
                 warnings.push_back(ctx +
                     ": displayOrder " +
                     std::to_string(e.displayOrder) +
-                    " > 3 — talent UI shows at most 4 tabs");
+                    " > 3 - talent UI shows at most 4 tabs");
             }
             if (e.iconPath.empty())
                 warnings.push_back(ctx +
-                    ": iconPath is empty — tab will render with "
+                    ": iconPath is empty - tab will render with "
                     "the missing-texture placeholder");
             if (e.backgroundFile.empty())
                 warnings.push_back(ctx +
-                    ": backgroundFile is empty — talent tree "
+                    ": backgroundFile is empty - talent tree "
                     "panel will have no background art");
             if (!idsSeen.add(e.tabId)) errors.push_back(ctx + ": duplicate tabId");
         }
         // Cross-entry: detect duplicate (classMask, displayOrder)
-        // for overlapping classMasks — two tabs can't share a UI
+        // for overlapping classMasks - two tabs can't share a UI
         // slot for the same class.
         for (size_t a = 0; a < c.entries.size(); ++a) {
             for (size_t b = a + 1; b < c.entries.size(); ++b) {
@@ -283,7 +283,7 @@ int handleValidate(int& i, int argc, char** argv) {
                     ea.name + ") and " + std::to_string(b) + " (" +
                     eb.name + ") share displayOrder " +
                     std::to_string(ea.displayOrder) +
-                    " for overlapping classMask — tab UI position collision");
+                    " for overlapping classMask - tab UI position collision");
             }
         }
             return formatted("%zu tabs, all tabIds unique, no UI overlaps", c.entries.size());

@@ -53,7 +53,7 @@ int handleListZones(int& i, int argc, char** argv) {
     } else {
         std::printf("Custom zones found:\n");
         for (const auto& z : zones) {
-            std::printf("  %s — %s%s%s\n", z.name.c_str(), z.directory.c_str(),
+            std::printf("  %s - %s%s%s\n", z.name.c_str(), z.directory.c_str(),
                      z.hasCreatures ? " [NPCs]" : "",
                      z.hasQuests ? " [Quests]" : "");
         }
@@ -93,7 +93,7 @@ int handleZoneStats(int& i, int argc, char** argv) {
         uint64_t otherBytes = 0;
     } T;
     T.zoneCount = static_cast<int>(zones.size());
-    // Per-zone breakdown for the table view (kept short — not
+    // Per-zone breakdown for the table view (kept short - not
     // every field, just the high-signal ones).
     struct ZoneRow {
         std::string name;
@@ -129,7 +129,7 @@ int handleZoneStats(int& i, int argc, char** argv) {
             if (q.nextQuestId != 0) T.chainedQuests++;
             T.totalXp += q.reward.xp;
         }
-        // Walk on-disk files in the zone (recursive — sub-dirs
+        // Walk on-disk files in the zone (recursive - sub-dirs
         // like data/ may hold sidecars). Bucket by extension.
         std::error_code ec;
         for (const auto& e : fs::recursive_directory_iterator(zoneDir, ec)) {

@@ -22,7 +22,7 @@ bool TocFile::isLoadOnDemand() const {
 /// The spelling FrameXML uses for a Blizzard addon, given the one on disk.
 ///
 /// An addon's name is its folder's name, and this install's folders are lower
-/// case — the extraction flattened them. Loading copes: every lookup here folds
+/// case - the extraction flattened them. Loading copes: every lookup here folds
 /// case before matching. Announcing does not, because the announcement goes to
 /// Lua and Lua's == is case-sensitive:
 ///
@@ -32,7 +32,7 @@ bool TocFile::isLoadOnDemand() const {
 /// is ever parented to the talent frame, sized to it, and its close button
 /// raised above it. Fired as "blizzard_glyphui" the test simply failed, so the
 /// panel stayed a child of UIParent in the top-left corner of the screen with
-/// no close button on it — which is exactly what it looked like.
+/// no close button on it - which is exactly what it looked like.
 ///
 /// Every addon that does its setup on ADDON_LOADED and names itself has the
 /// same problem, so this is fixed once, here, where the name is decided.
@@ -148,7 +148,7 @@ std::optional<TocFile> parseTocFile(const std::string& tocPath) {
         size_t firstNonSpace = line.find_first_not_of(" \t");
         if (firstNonSpace == std::string::npos) continue;
 
-        // File entry — normalize backslashes to forward slashes
+        // File entry - normalize backslashes to forward slashes
         std::string filename = line.substr(firstNonSpace);
         size_t lastNonSpace = filename.find_last_not_of(" \t");
         if (lastNonSpace != std::string::npos) filename.resize(lastNonSpace + 1);

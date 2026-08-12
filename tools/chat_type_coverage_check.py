@@ -11,8 +11,8 @@ standing nearby. That is the worst available default: the message went
 somewhere, no error was raised, and the only way to notice was to be told by
 whoever read it.
 
-CHANNEL was the one that mattered. Every numbered channel — General, Trade,
-LookingForGroup — sends through this binding, so with FrameXML drawing the chat
+CHANNEL was the one that mattered. Every numbered channel - General, Trade,
+LookingForGroup - sends through this binding, so with FrameXML drawing the chat
 every channel line was said instead. RAID_WARNING, EMOTE, AFK and DND went the
 same way.
 
@@ -27,19 +27,19 @@ Two places, and both are needed:
   * ChatEdit_HandleChatType resolves a slash command to a SlashCmdList key and
     hands that key to processChatType as the chat type, so a type is sendable
     when ChatTypeInfo["X"] and SLASH_X1 both exist.
-  * Some are sent without ever being a chat type on the edit box — chatframe
+  * Some are sent without ever being a chat type on the edit box - chatframe
     calls SendChatMessage(msg, "AFK") and (msg, "DND") directly.
 
 THE ONE IT REPORTS, AND IT IS CORRECT
 
-REPLY — /r. processChatType rewrites it before anything is sent: it looks the
+REPLY - /r. processChatType rewrites it before anything is sent: it looks the
 last tell target up and sets the edit box's chatType to WHISPER, so REPLY never
 reaches the binding at all. Mapping it would be mapping something that cannot
 arrive.
 
 BN_CONVERSATION and BN_WHISPER do not appear here, because neither is a
 ChatTypeInfo key with a matching SLASH_ prefix and neither is passed to
-SendChatMessage as a literal — they are set on the edit box and sent through
+SendChatMessage as a literal - they are set on the edit box and sent through
 BNSendWhisper. If the anchor is ever widened to catch them, they belong with
 REPLY rather than in the binding: Battle.net is not here, and sending its chat
 as something else is worse than refusing it.
@@ -85,15 +85,15 @@ def main():
     print(f"{len(sendable)} chat types FrameXML can send, "
           f"{len(mapped)} mapped by SendChatMessage")
     if "SAY" not in sendable:
-        print("  CANARY: SAY is not in the sendable set — the interface is not "
+        print("  CANARY: SAY is not in the sendable set - the interface is not "
               "parsing and the count below is meaningless.")
     if "SAY" not in mapped:
-        print("  CANARY: SAY is not mapped — the binding is not parsing.")
+        print("  CANARY: SAY is not mapped - the binding is not parsing.")
     print()
 
     # Named rather than counted, so a second one cannot arrive behind it.
     #
-    # REPLY is a ChatTypeInfo entry — it colours the edit box — and never a send
+    # REPLY is a ChatTypeInfo entry - it colours the edit box - and never a send
     # type. Both paths that use it turn it into a whisper first: SlashCmdList
     # REPLY calls SendChatMessage(msg, "WHISPER", ...) against
     # ChatEdit_GetLastTellTarget, and the edit box sets its chatType attribute

@@ -114,21 +114,21 @@ WoweeItemMaterial WoweeItemMaterialLoader::makeArmor(
     // anchors that engine projects override.
     add(1, "Cloth",   M::Cloth,   M::Light,  101, 201,
         M::IsFlammable,
-        220, 220, 200, "Cloth — light, flammable, no impact sound.");
+        220, 220, 200, "Cloth - light, flammable, no impact sound.");
     add(2, "Leather", M::Leather, M::Light,  102, 202, 0,
         160, 100,  60,
-        "Leather — light, supple, dull thud on impact.");
+        "Leather - light, supple, dull thud on impact.");
     add(3, "Mail",    M::Mail,    M::Medium, 103, 203,
         M::IsConductive,
-        180, 180, 200, "Mail — medium, metallic ring, conducts lightning.");
+        180, 180, 200, "Mail - medium, metallic ring, conducts lightning.");
     add(4, "Plate",   M::Plate,   M::Heavy,  104, 204,
         M::IsConductive,
         220, 220, 230,
-        "Plate — heavy, loud clang, conducts lightning.");
+        "Plate - heavy, loud clang, conducts lightning.");
     add(5, "Hide",    M::Hide,    M::Medium, 105, 205,
         M::IsFlammable,
         140,  90,  50,
-        "Hide — raw furred hide, medium weight, flammable.");
+        "Hide - raw furred hide, medium weight, flammable.");
     return c;
 }
 
@@ -152,19 +152,19 @@ WoweeItemMaterial WoweeItemMaterialLoader::makeWeapon(
     };
     add(100, "Wood",            M::Wood,  M::Light,  110, 210,
         M::IsBreakable | M::IsFlammable,
-        "Wood — staves and bows. Breakable + flammable.");
+        "Wood - staves and bows. Breakable + flammable.");
     add(101, "Steel",           M::Metal, M::Medium, 111, 211,
         M::IsConductive,
-        "Steel — vendor-buy weapons. Conducts lightning.");
+        "Steel - vendor-buy weapons. Conducts lightning.");
     add(102, "Mithril",         M::Metal, M::Medium, 112, 212,
         M::IsConductive,
-        "Mithril — mid-tier weapons (40-50). Lighter than steel.");
+        "Mithril - mid-tier weapons (40-50). Lighter than steel.");
     add(103, "Adamantite",      M::Metal, M::Medium, 113, 213,
         M::IsConductive,
-        "Adamantite — endgame raw material (TBC-era). Tough metal.");
+        "Adamantite - endgame raw material (TBC-era). Tough metal.");
     add(104, "EnchantedSteel",  M::Metal, M::Medium, 114, 214,
         M::IsConductive | M::IsMagical,
-        "Enchanted steel — magical raid weapons. Glows + conducts.");
+        "Enchanted steel - magical raid weapons. Glows + conducts.");
     return c;
 }
 
@@ -187,19 +187,19 @@ WoweeItemMaterial WoweeItemMaterialLoader::makeMagical(
     add(200, "Crystal",     M::Crystal,
         M::IsMagical | M::IsBreakable,
         180, 220, 240,
-        "Crystal — magical, breakable, refracts light.");
+        "Crystal - magical, breakable, refracts light.");
     add(201, "Ethereal",    M::Ethereal,
         M::IsMagical,
         200, 200, 240,
-        "Ethereal — ghostly weightless material.");
+        "Ethereal - ghostly weightless material.");
     add(202, "CursedBone",  M::Organic,
         M::IsCursed,
         100,  60,  60,
-        "Cursed bone — applies a debuff to wearer.");
+        "Cursed bone - applies a debuff to wearer.");
     add(203, "HolyForged",  M::Metal,
         M::IsMagical | M::IsHolyCharged,
         240, 240, 200,
-        "Holy-forged steel — damages undead on contact.");
+        "Holy-forged steel - damages undead on contact.");
     return c;
 }
 

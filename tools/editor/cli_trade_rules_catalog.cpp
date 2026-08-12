@@ -343,7 +343,7 @@ int handleValidate(int& i, int argc, char** argv) {
         if (e.levelRequirement > 80) {
             warnings.push_back(ctx + ": levelRequirement " +
                 std::to_string(e.levelRequirement) +
-                " > 80 — exceeds current cap, the rule "
+                " > 80 - exceeds current cap, the rule "
                 "would never apply on a WotLK realm");
         }
         // Per-kind validity: GoldEscrowMax must specify
@@ -355,7 +355,7 @@ int handleValidate(int& i, int argc, char** argv) {
             e.goldEscrowMaxCopper == 0) {
             errors.push_back(ctx +
                 ": GoldEscrowMax kind with goldEscrow"
-                "MaxCopper=0 — rule contradicts itself "
+                "MaxCopper=0 - rule contradicts itself "
                 "(0 means unlimited but the rule's "
                 "purpose is to cap)");
         }
@@ -366,7 +366,7 @@ int handleValidate(int& i, int argc, char** argv) {
             warnings.push_back(ctx +
                 ": GMOnly targeting with priority " +
                 std::to_string(e.priority) +
-                " < 50 — GM-mediated trades typically "
+                " < 50 - GM-mediated trades typically "
                 "need high priority to override player-"
                 "initiated rules");
         }

@@ -93,7 +93,7 @@ WoweeSoundSwap WoweeSoundSwapLoader::makeBossOverrides(
     using S = WoweeSoundSwap;
     WoweeSoundSwap c;
     c.name = catalogName;
-    // Onyxia (mapId 249 — Onyxia's Lair). Replace
+    // Onyxia (mapId 249 - Onyxia's Lair). Replace
     // her stock dragon roar (FDID 1234) with a
     // beefier custom roar (FDID 5001). Priority 100
     // ensures it wins over global rules.

@@ -87,15 +87,15 @@ WoweeStableSlot WoweeStableSlotLoader::makeStandard(
     // stabled slots open at 20/30/40/50 with escalating
     // gold costs.
     add(1, "ActivePet",       0, 10,       0,
-        "Active pet slot — auto-unlocked at hunter lvl 10.");
+        "Active pet slot - auto-unlocked at hunter lvl 10.");
     add(2, "StableSlot1",     1, 20,    1000,
-        "Stable slot 1 — unlocks at lvl 20 for 10 silver.");
+        "Stable slot 1 - unlocks at lvl 20 for 10 silver.");
     add(3, "StableSlot2",     2, 30,    5000,
-        "Stable slot 2 — unlocks at lvl 30 for 50 silver.");
+        "Stable slot 2 - unlocks at lvl 30 for 50 silver.");
     add(4, "StableSlot3",     3, 40,   20000,
-        "Stable slot 3 — unlocks at lvl 40 for 2 gold.");
+        "Stable slot 3 - unlocks at lvl 40 for 2 gold.");
     add(5, "StableSlot4",     4, 50,  100000,
-        "Stable slot 4 — unlocks at lvl 50 for 10 gold.");
+        "Stable slot 4 - unlocks at lvl 50 for 10 gold.");
     return c;
 }
 
@@ -116,17 +116,17 @@ WoweeStableSlot WoweeStableSlotLoader::makeCata(
     };
     // Cata-era 6-slot layout: active + 5 stabled.
     add(100, "ActivePet",        0, 10,       0,
-        "Active pet — auto-unlocked at lvl 10.");
+        "Active pet - auto-unlocked at lvl 10.");
     add(101, "CataStableSlot1",  1, 20,    1000,
-        "Stable slot 1 — lvl 20, 10s.");
+        "Stable slot 1 - lvl 20, 10s.");
     add(102, "CataStableSlot2",  2, 30,    5000,
-        "Stable slot 2 — lvl 30, 50s.");
+        "Stable slot 2 - lvl 30, 50s.");
     add(103, "CataStableSlot3",  3, 40,   20000,
-        "Stable slot 3 — lvl 40, 2g.");
+        "Stable slot 3 - lvl 40, 2g.");
     add(104, "CataStableSlot4",  4, 50,  100000,
-        "Stable slot 4 — lvl 50, 10g.");
+        "Stable slot 4 - lvl 50, 10g.");
     add(105, "CataStableSlot5",  5, 60,  250000,
-        "Stable slot 5 — lvl 60, 25g (Cataclysm extension).");
+        "Stable slot 5 - lvl 60, 25g (Cataclysm extension).");
     return c;
 }
 
@@ -146,13 +146,13 @@ WoweeStableSlot WoweeStableSlotLoader::makePremium(
         e.iconColorRGBA = packRgba(240, 180, 240);   // donor pink
         c.entries.push_back(e);
     };
-    // Server-custom donator-only slots — no level gate,
+    // Server-custom donator-only slots - no level gate,
     // no gold cost; access controlled by external donor
     // status check.
-    add(200, "DonatorSlot1", 6, "Donator slot 1 — premium, no level/gold gate.");
-    add(201, "DonatorSlot2", 7, "Donator slot 2 — premium, no level/gold gate.");
-    add(202, "DonatorSlot3", 8, "Donator slot 3 — premium, no level/gold gate.");
-    add(203, "AnniversarySlot", 9, "Anniversary slot — premium, server event reward.");
+    add(200, "DonatorSlot1", 6, "Donator slot 1 - premium, no level/gold gate.");
+    add(201, "DonatorSlot2", 7, "Donator slot 2 - premium, no level/gold gate.");
+    add(202, "DonatorSlot3", 8, "Donator slot 3 - premium, no level/gold gate.");
+    add(203, "AnniversarySlot", 9, "Anniversary slot - premium, server event reward.");
     return c;
 }
 

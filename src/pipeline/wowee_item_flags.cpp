@@ -107,7 +107,7 @@ WoweeItemFlags WoweeItemFlagsLoader::makeStandard(
                                     : packRgba(220, 100, 100);
         c.entries.push_back(e);
     };
-    // Canonical Item.dbc flag bits — values match the
+    // Canonical Item.dbc flag bits - values match the
     // standard 3.3.5a Item.dbc Flags constants.
     add(1, "NoLoot",         0x00000001u, F::Drop,    0,
         "Item never appears in random loot tables.");
@@ -143,16 +143,16 @@ WoweeItemFlags WoweeItemFlagsLoader::makeBinding(
         e.iconColorRGBA = packRgba(180, 180, 240);   // binding blue
         c.entries.push_back(e);
     };
-    // Binding flags — restrictive, isPositive=0 since they
+    // Binding flags - restrictive, isPositive=0 since they
     // limit trading.
     add(100, "BindOnPickup",  0x00000100u, 0,
-        "Soulbound on pickup — cannot be traded.");
+        "Soulbound on pickup - cannot be traded.");
     add(101, "BindOnEquip",   0x00000200u, 0,
-        "Soulbound on equip — tradeable in inventory only.");
+        "Soulbound on equip - tradeable in inventory only.");
     add(102, "BindOnUse",     0x00000400u, 0,
-        "Soulbound on use — tradeable until first use.");
+        "Soulbound on use - tradeable until first use.");
     add(103, "BindToAccount", 0x00000800u, 0,
-        "Account-bound — tradeable across own characters only.");
+        "Account-bound - tradeable across own characters only.");
     add(104, "Soulbound",     0x00001000u, 0,
         "Already soulbound (combined state, after pickup/equip/use).");
     return c;

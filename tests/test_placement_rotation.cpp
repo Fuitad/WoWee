@@ -4,7 +4,7 @@
 // ADT stores doodads in MDDF and buildings in MODF. The rotation field reads
 // the same in both, both readers in terrain_manager build the same triple, and
 // the building path composes it Z, Y, X and looks right. From that it follows
-// that the doodads should be composed Z, Y, X too — so they were, and on
+// that the doodads should be composed Z, Y, X too - so they were, and on
 // screen they came out **worse**. Reverted on 2026-08-07; the doodad path
 // composes X, Y, Z, which is what it has always shipped with.
 //
@@ -31,7 +31,7 @@
 
 namespace {
 
-/// Z, then Y, then X — what WMOInstance::updateModelMatrix does.
+/// Z, then Y, then X - what WMOInstance::updateModelMatrix does.
 glm::mat4 composeZYX(const glm::vec3& r) {
     glm::mat4 m(1.0f);
     m = glm::rotate(m, r.z, glm::vec3(0.0f, 0.0f, 1.0f));
@@ -40,7 +40,7 @@ glm::mat4 composeZYX(const glm::vec3& r) {
     return m;
 }
 
-/// X, then Y, then Z — what the doodad path does.
+/// X, then Y, then Z - what the doodad path does.
 glm::mat4 composeXYZ(const glm::vec3& r) {
     glm::mat4 m(1.0f);
     m = glm::rotate(m, r.x, glm::vec3(1.0f, 0.0f, 0.0f));

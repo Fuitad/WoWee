@@ -58,7 +58,7 @@ EntityController::EntityController(GameHandler& owner)
     : owner_(owner) { initTypeHandlers(); }
 
 void EntityController::registerOpcodes(DispatchTable& table) {
-    // World object updates — accept during ENTERING_WORLD too so that entity
+    // World object updates - accept during ENTERING_WORLD too so that entity
     // packets arriving before SMSG_LOGIN_VERIFY_WORLD are parsed and queued
     // rather than silently dropped (the budget system processes them later once
     // the state transitions to IN_WORLD).
@@ -206,7 +206,7 @@ void EntityController::processOutOfRangeObjects(const std::vector<uint64_t>& gui
         // An item leaving is how the server says it is gone. Selling one, or
         // handing it to a quest, takes it out of range rather than destroying
         // it, and handleDestroyObject is the only path that was clearing the
-        // online item tracking — so a sold item stayed in the picture the bags
+        // online item tracking - so a sold item stayed in the picture the bags
         // are drawn from and went on being drawn in the slot it left.
         //
         // Before the entity check, because an item need not be in the entity
@@ -281,7 +281,7 @@ bool EntityController::getPlayerAppearance(uint64_t guid, uint8_t& outRace,
     if (!entity) return false;
     // Players only, and this is not a formality. extractPlayerAppearance falls
     // back to scanning the fields for something that *looks* like packed
-    // appearance when the named ones are absent, and the test is loose — any
+    // appearance when the named ones are absent, and the test is loose - any
     // field whose four bytes are small enough. On a creature it matches almost
     // immediately, and the answer is race zero with somebody's health for hair.
     //
@@ -439,7 +439,7 @@ void EntityController::applyUpdateObjectBlock(const UpdateBlock& block, bool& ne
 // Concern-specific helpers
 // ============================================================
 
-// Non-player transport child attachment — identical in CREATE/VALUES/MOVEMENT
+// Non-player transport child attachment - identical in CREATE/VALUES/MOVEMENT
 void EntityController::updateNonPlayerTransportAttachment(const UpdateBlock& block,
                                                            const std::shared_ptr<Entity>& entity,
                                                            ObjectType entityType) {
@@ -519,9 +519,9 @@ void EntityController::syncPreWotlkAurasFromFields(const std::shared_ptr<Entity>
     }
     LOG_DEBUG("[pre-WotLK] Rebuilt playerAuras from UNIT_FIELD_AURAS");
     owner_.getSpellHandler()->refreshRestorationState();
-    // How many the player actually has, said once. "BuffButton1 — NOT BUILT"
+    // How many the player actually has, said once. "BuffButton1 - NOT BUILT"
     // means the interface asked UnitAura for the first buff and got nothing,
-    // and a character with no buffs is the correct reason for that — this
+    // and a character with no buffs is the correct reason for that - this
     // separates it from the interface never having asked.
     static bool saidAuraCount = false;
     if (!saidAuraCount) {
@@ -531,7 +531,7 @@ void EntityController::syncPreWotlkAurasFromFields(const std::shared_ptr<Entity>
     pendingEvents_.emit("UNIT_AURA", {"player"});
     owner_.announceCompanionChange();
     // Tracking is one of these auras, and the minimap's tracking icon is drawn
-    // from whichever tracking spell is active — GetTrackingTexture walks the
+    // from whichever tracking spell is active - GetTrackingTexture walks the
     // player's tracking spells and asks exactly this aura list. The icon
     // updates on MINIMAP_UPDATE_TRACKING and nothing else, so it never changed.
     //
@@ -583,7 +583,7 @@ void EntityController::detectPlayerMountChange(uint32_t newMountDisplayId,
     // A dismount the player just asked for has not reached this field yet: it
     // keeps its old value for a few frames. Taking that at face value put them
     // straight back on the mount, and the restored value then made the server's
-    // own SMSG_DISMOUNT read as transient and get discarded — so the mount
+    // own SMSG_DISMOUNT read as transient and get discarded - so the mount
     // blinked off, back on, and off again, with the character left holding the
     // seated rider pose in between.
     auto* mh = owner_.getMovementHandler();
@@ -604,7 +604,7 @@ void EntityController::detectPlayerMountChange(uint32_t newMountDisplayId,
     if (newMountDisplayId != old)
         pendingEvents_.emit("UNIT_MODEL_CHANGED", {"player"});
     if (old == 0 && newMountDisplayId != 0) {
-        // Just mounted — find the mount aura (indefinite duration, self-cast).
+        // Just mounted - find the mount aura (indefinite duration, self-cast).
         // Prefer the spell the player just cast: the blind scan below keeps the
         // last matching aura, which is as likely to be a racial or a tracking
         // buff as the mount, and the id has to be right or pressing the mount
@@ -805,7 +805,7 @@ void EntityController::applyPlayerTransportState(const UpdateBlock& block,
     }
 }
 
-//     Apply unit fields during CREATE — sets health/power/level/flags/displayId/etc.
+//     Apply unit fields during CREATE - sets health/power/level/flags/displayId/etc.
 //     Returns true if the entity is initially dead (health=0 or DYNFLAG_DEAD).
 bool EntityController::applyUnitFieldsOnCreate(const UpdateBlock& block,
                                                  std::shared_ptr<Unit>& unit,
@@ -865,7 +865,7 @@ bool EntityController::applyUnitFieldsOnCreate(const UpdateBlock& block,
         }
         else if (key == ufi.bytes0) {
             unit->setPowerType(static_cast<uint8_t>((val >> 24) & 0xFF));
-            // Which bar to show at all — a druid shifting form changes it.
+            // Which bar to show at all - a druid shifting form changes it.
             emitForUnit("UNIT_DISPLAYPOWER");
         } else if (key == ufi.displayId) {
             unit->setDisplayId(val);
@@ -874,7 +874,7 @@ bool EntityController::applyUnitFieldsOnCreate(const UpdateBlock& block,
                 if (!uid.empty()) {
                     pendingEvents_.emit("UNIT_MODEL_CHANGED", {uid});
                     // The portrait is drawn from the display id, so a unit that
-                    // changes model — a shapeshift, a polymorph, a mount —
+                    // changes model - a shapeshift, a polymorph, a mount -
                     // needs its portrait redrawn too. Six frames listen for
                     // this and none of them had ever heard it.
                     pendingEvents_.emit("UNIT_PORTRAIT_UPDATE", {uid});
@@ -941,7 +941,7 @@ void EntityController::markPlayerDead(const char* source) {
     owner_.playerDeadRef() = true;
     owner_.releasedSpiritRef() = false;
     // owner_.movementInfoRef() is canonical (x=north, y=west); corpseX_/Y_ are
-    // raw server coords (x=west, y=north) — swap axes.
+    // raw server coords (x=west, y=north) - swap axes.
     owner_.corpseXRef()     = owner_.movementInfoRef().y;
     owner_.corpseYRef()     = owner_.movementInfoRef().x;
     owner_.corpseZRef()     = owner_.movementInfoRef().z;
@@ -952,7 +952,7 @@ void EntityController::markPlayerDead(const char* source) {
              ") map=", owner_.corpseMapIdRef());
 }
 
-// 3c: Apply unit fields during VALUES update — tracks health/power/display changes
+// 3c: Apply unit fields during VALUES update - tracks health/power/display changes
 //     and fires events for transitions (death, resurrect, level up, etc.).
 EntityController::UnitFieldUpdateResult EntityController::applyUnitFieldsOnUpdate(
         const UpdateBlock& block, const std::shared_ptr<Entity>& entity,
@@ -1043,7 +1043,7 @@ EntityController::UnitFieldUpdateResult EntityController::applyUnitFieldsOnUpdat
                 bool wasStunned = (oldFlags & UNIT_FLAG_STUNNED) != 0;
                 bool nowStunned = (val & UNIT_FLAG_STUNNED) != 0;
                 // The server stuns the player for the logout countdown, to root them
-                // in place — it sits them down in the same breath. That is a movement
+                // in place - it sits them down in the same breath. That is a movement
                 // restriction, not a stun: playing the stun animation over it leaves
                 // the character slumped rather than seated. Clearing the flag is still
                 // honoured, so a cancelled logout recovers.
@@ -1096,9 +1096,9 @@ EntityController::UnitFieldUpdateResult EntityController::applyUnitFieldsOnUpdat
                 if (!wasDead && nowDead) {
                     markPlayerDead("dynFlags");
                     // And tell the interface, which the health=0 path did and
-                    // this one did not. The server marks a death either way —
+                    // this one did not. The server marks a death either way -
                     // sometimes by dropping health to zero, sometimes by
-                    // setting UNIT_DYNFLAG_DEAD, and not always both — and only
+                    // setting UNIT_DYNFLAG_DEAD, and not always both - and only
                     // the health path fired PLAYER_DEAD. When death came by the
                     // flag alone, the player was dead in every internal sense
                     // (could not attack, health read zero) but the interface
@@ -1188,7 +1188,7 @@ EntityController::UnitFieldUpdateResult EntityController::applyUnitFieldsOnUpdat
                    block.guid == owner_.petGuidRef()) {
             // The pet's own five, not the player's. The paperdoll's pet tab
             // reads them through UnitStat("pet"), which used to answer from the
-            // player — so a hunter's pet listed its owner's Strength.
+            // player - so a hunter's pet listed its owner's Strength.
             owner_.petStatsRef()[key - ufi.stat0] = static_cast<int32_t>(val);
             petStatsChanged = true;
         } else if (ufi.resistances != 0xFFFF && key >= ufi.resistances &&
@@ -1219,7 +1219,7 @@ EntityController::UnitFieldUpdateResult EntityController::applyUnitFieldsOnUpdat
             if (val != oldEmote && owner_.emoteAnimCallbackRef()) {
                 uint32_t animId = val != 0 ? rendering::AnimationController::getEmoteAnimByEmotesId(val) : 0;
                 if (val == 0 || animId != 0) {
-                    // UNIT_NPC_EMOTESTATE is persistent by definition — a zero
+                    // UNIT_NPC_EMOTESTATE is persistent by definition - a zero
                     // here genuinely clears the state loop.
                     owner_.emoteAnimCallbackRef()(block.guid, animId, /*isState=*/true);
                 } else {
@@ -1247,7 +1247,7 @@ EntityController::UnitFieldUpdateResult EntityController::applyUnitFieldsOnUpdat
             if (result.maxHealthChanged) pendingEvents_.emit("UNIT_MAXHEALTH", {unitId});
             if (result.powerChanged) {
                 // The event a WotLK interface is listening for is named after
-                // the power itself. UNIT_POWER is the later, generic one — it
+                // the power itself. UNIT_POWER is the later, generic one - it
                 // arrived in Cataclysm, and every unit frame this client
                 // targets registers UNIT_MANA, UNIT_RAGE, UNIT_ENERGY or
                 // UNIT_FOCUS instead. Sending only the generic name meant the
@@ -1298,7 +1298,7 @@ EntityController::UnitFieldUpdateResult EntityController::applyUnitFieldsOnUpdat
 }
 
 //     Apply player stat fields (XP, coinage, combat stats, etc.).
-//     Shared between CREATE and VALUES — isCreate controls event firing differences.
+//     Shared between CREATE and VALUES - isCreate controls event firing differences.
 bool EntityController::applyPlayerStatFields(const FlatFieldMap& fields,
                                                const PlayerFieldIndices& pfi,
                                                bool isCreate) {
@@ -1359,8 +1359,8 @@ bool EntityController::applyPlayerStatFields(const FlatFieldMap& fields,
         }
         else if (pfi.armor != 0xFFFF && key > pfi.armor && key <= pfi.armor + 6) {
             const int32_t resVal = static_cast<int32_t>(val);
-            // Armor is the first of the seven — pfi.armor is
-            // UNIT_FIELD_RESISTANCES and the six schools follow it — which is
+            // Armor is the first of the seven - pfi.armor is
+            // UNIT_FIELD_RESISTANCES and the six schools follow it - which is
             // why one event covers the block.
             if (owner_.playerResistancesArr()[key - pfi.armor - 1] != resVal) resistancesChanged = true;
             owner_.playerResistancesArr()[key - pfi.armor - 1] = resVal;
@@ -1428,7 +1428,7 @@ bool EntityController::applyPlayerStatFields(const FlatFieldMap& fields,
             // in already dead delivers the player as a CREATE block, so the
             // ghost flag it carries was never read. releasedSpirit_ stayed
             // false, canReclaimCorpse refused, and a player who logged in
-            // standing on their own corpse could not take it back — the one
+            // standing on their own corpse could not take it back - the one
             // case where the flag arrives without a transition to notice.
             constexpr uint32_t PLAYER_FLAGS_GHOST = 0x00000010;
             bool wasGhost = owner_.releasedSpiritRef();
@@ -1538,7 +1538,7 @@ bool EntityController::applyPlayerStatFields(const FlatFieldMap& fields,
     //
     // PaperDollFrame listens for these and calls PaperDollFrame_UpdateStats
     // from each. Without them the panels were filled once at login and then
-    // never again — a new weapon or a stat buff left the old numbers on screen
+    // never again - a new weapon or a stat buff left the old numbers on screen
     // with nothing to say they were stale.
     if (!isCreate) {
         if (statsChanged)   pendingEvents_.emit("UNIT_STATS", {"player"});
@@ -1546,7 +1546,7 @@ bool EntityController::applyPlayerStatFields(const FlatFieldMap& fields,
         if (powerChanged)   pendingEvents_.emit("UNIT_ATTACK_POWER", {"player"});
         // The ranged half separately, because the two are not
         // interchangeable to the sheet. PaperDollFrame registers
-        // UNIT_ATTACK_POWER and then handles it nowhere — it is absent from
+        // UNIT_ATTACK_POWER and then handles it nowhere - it is absent from
         // the branch that calls PaperDollFrame_UpdateStats and from every
         // other branch in the file, in this FrameXML and in the pet one. So
         // sending it for a ranged change refreshed nothing at all: a hunter
@@ -1561,8 +1561,8 @@ bool EntityController::applyPlayerStatFields(const FlatFieldMap& fields,
         }
         // Armor with the six resistances behind it, and the spell power and
         // healing bonus. The paperdoll refreshes its resistance panel from
-        // UNIT_RESISTANCES alone — UNIT_DEFENSE is the *pet* sheet's event, not
-        // this one — and its spell-power panel shares a branch with UNIT_STATS,
+        // UNIT_RESISTANCES alone - UNIT_DEFENSE is the *pet* sheet's event, not
+        // this one - and its spell-power panel shares a branch with UNIT_STATS,
         // which only fires when one of the five base stats moves. So a spell
         // power buff that touched no stat, or a resistance aura, left the old
         // number on the sheet until the next login.
@@ -1580,7 +1580,7 @@ void EntityController::dispatchEntitySpawn(uint64_t guid, ObjectType objectType,
                                             const std::shared_ptr<Unit>& unit,
                                             bool isDead) {
     if (objectType == ObjectType::PLAYER && guid == owner_.getPlayerGuid()) {
-        return;  // Skip local player — spawned separately via spawnPlayerCharacter()
+        return;  // Skip local player - spawned separately via spawnPlayerCharacter()
     }
     if (objectType == ObjectType::PLAYER) {
         if (owner_.playerSpawnCallbackRef()) {
@@ -1592,7 +1592,7 @@ void EntityController::dispatchEntitySpawn(uint64_t guid, ObjectType objectType,
                                     unit->getX(), unit->getY(), unit->getZ(), unit->getOrientation());
             } else {
                 LOG_WARNING("[Spawn] PLAYER guid=0x", std::hex, guid, std::dec,
-                          " displayId=", unit->getDisplayId(), " appearance extraction failed — model will not render");
+                          " displayId=", unit->getDisplayId(), " appearance extraction failed - model will not render");
             }
         }
     } else if (owner_.creatureSpawnCallbackRef()) {
@@ -1673,7 +1673,7 @@ void EntityController::trackItemOnCreate(const UpdateBlock& block, bool& newItem
         auto [itemIt, isNew] = owner_.onlineItemsRef().insert_or_assign(block.guid, info);
         // A CREATE_OBJECT that re-sends an already-tracked item with a changed stack
         // count (AzerothCore does this when crafting consumes a reagent) must still
-        // refresh the built inventory — otherwise bag and crafting-window counts stay
+        // refresh the built inventory - otherwise bag and crafting-window counts stay
         // stale until some later rebuild. Flag the batch rebuild on any tracked change,
         // not just brand-new items.
         const bool itemChanged = isNew ||
@@ -1938,7 +1938,7 @@ void EntityController::onCreateUnit(const UpdateBlock& block, std::shared_ptr<En
     // Spawn dispatch
     if (unit->getDisplayId() == 0) {
         LOG_WARNING("[Spawn] UNIT guid=0x", std::hex, block.guid, std::dec,
-                  " has displayId=0 — no spawn (entry=", unit->getEntry(),
+                  " has displayId=0 - no spawn (entry=", unit->getEntry(),
                   " at ", unit->getX(), ",", unit->getY(), ",", unit->getZ(), ")");
     }
     if (unit->getDisplayId() != 0) {
@@ -2092,7 +2092,7 @@ void EntityController::onCreateGameObject(const UpdateBlock& block, std::shared_
     // spawn position, not evidence that the server is authoritatively streaming this
     // transport's motion. Marking it here forces preferServerData=true at spawn
     // resolution, which puts client-animated ships/zeppelins into strict mode and
-    // skips the entry->DBC path remap — WotLK ship GO entries don't match
+    // skips the entry->DBC path remap - WotLK ship GO entries don't match
     // TransportAnimation.dbc 1:1, so they were left stationary. Only genuine
     // movement updates (onValuesUpdateGameObject / MOVEMENT blocks) set that flag.
     if (transportGuids_.count(block.guid) && owner_.transportMoveCallbackRef()) {
@@ -2111,9 +2111,9 @@ void EntityController::onCreateCorpse(const UpdateBlock& block) {
     //
     // Not gated on hasMovement, and that gate was a bug of its own: a corpse
     // is a stationary object and its create block need not carry a movement
-    // block at all. What reclaiming needs from here is the *guid* —
+    // block at all. What reclaiming needs from here is the *guid* -
     // CMSG_RECLAIM_CORPSE names it, and canReclaimCorpse refuses while it is
-    // zero — and the position can come from MSG_CORPSE_QUERY, which the
+    // zero - and the position can come from MSG_CORPSE_QUERY, which the
     // login-as-ghost path already sends. Gating the guid on the position
     // meant a ghost who walked back to a corpse that arrived without one
     // could never take it, however close they stood.
@@ -2235,7 +2235,7 @@ void EntityController::onValuesUpdatePlayer(const UpdateBlock& block, std::share
         syncPreWotlkAurasFromFields(entity);
     }
 
-    // Display ID changed — re-spawn/model-change
+    // Display ID changed - re-spawn/model-change
     handleDisplayIdChange(block, entity, unit, result);
 
     // Self-player stat/inventory/quest field updates
@@ -2338,7 +2338,7 @@ void EntityController::trackActiveCritter(const UpdateBlock& block) {
         return;
     }
     // Attribute it to the spell just cast from the ground, the same way the
-    // mount aura is identified — a blind guess at "some spell" would make the
+    // mount aura is identified - a blind guess at "some spell" would make the
     // toggle fire on the wrong button.
     uint32_t summonedBy = 0;
     if (owner_.getSpellHandler()) summonedBy = owner_.getSpellHandler()->getLastGroundCastSpellId();
@@ -2354,8 +2354,8 @@ void EntityController::applyTransportRouteClock(const UpdateBlock& block) {
     //
     // Without this the client animated on a clock it invented from distance over
     // speed, which is why a ferry could lap its shore several times while the
-    // server's schedule caught up, and why a rider's world position — which the
-    // client composes from its own idea of where the hull is — could disagree
+    // server's schedule caught up, and why a rider's world position - which the
+    // client composes from its own idea of where the hull is - could disagree
     // with the server's.
     //
     // Both fields are WotLK-only. Nothing earlier published a transport's phase,
@@ -2392,7 +2392,7 @@ void EntityController::resyncPlayerIfFarFromServer(const glm::vec3& serverCanoni
     //
     // Only the orientation was ever taken from these blocks. The position went
     // onto the player's entity and never into movementInfo, which is what the
-    // client moves by and sends — so once the two diverged there was no way
+    // client moves by and sends - so once the two diverged there was no way
     // back: the client kept walking from where it thought it was, the server
     // kept answering about where it thought the player was, and a relog put
     // the player wherever the server had them. Creatures arrive around the
@@ -2416,7 +2416,7 @@ void EntityController::resyncPlayerIfFarFromServer(const glm::vec3& serverCanoni
                 " yards away, at canonical ", serverCanonicalPos.x, ", ",
                 serverCanonicalPos.y, ", ", serverCanonicalPos.z,
                 " rather than ", clientPos.x, ", ", clientPos.y, ", ",
-                clientPos.z, " — taking the server's");
+                clientPos.z, " - taking the server's");
     mi.x = serverCanonicalPos.x;
     mi.y = serverCanonicalPos.y;
     mi.z = serverCanonicalPos.z;
@@ -2634,7 +2634,7 @@ void EntityController::handleDestroyObject(network::Packet& packet) {
             const bool movementSaysAboard = (owner_.movementInfoRef().transportGuid == data.guid);
             // CMaNGOS judges visibility using the transport's static DB spawn
             // coordinate, which can be far from where a client-animated transport
-            // currently is — keep all transports alive unconditionally on pre-WotLK.
+            // currently is - keep all transports alive unconditionally on pre-WotLK.
             // AzerothCore (WotLK) sends legitimate destroy/recreate cycles, so only
             // preserve if the player is actually aboard.
             if (isPreWotlk() || playerAboardNow || stickyAboard || movementSaysAboard) {
@@ -2719,7 +2719,7 @@ void EntityController::handleDestroyObject(network::Packet& packet) {
 
 void EntityController::queryPlayerName(uint64_t guid) {
     // If already cached, apply the name to the entity (handles entity recreation after
-    // moving out/in range — the entity object is new but the cached name is valid).
+    // moving out/in range - the entity object is new but the cached name is valid).
     auto cacheIt = playerNameCache.find(guid);
     if (cacheIt != playerNameCache.end()) {
         auto entity = entityManager.getEntity(guid);
@@ -2857,7 +2857,7 @@ void EntityController::handleCreatureQueryResponse(network::Packet& packet) {
                     unit->setName(data.name);
                     // The rank came with this response, and UnitClassification
                     // reads it from the cache just filled. A unit targeted
-                    // before its query came back answered "normal" until now —
+                    // before its query came back answered "normal" until now -
                     // so an elite or a rare drew a plain border and kept it,
                     // because the frame only rechecks when told to.
                     //
@@ -2874,7 +2874,7 @@ void EntityController::handleCreatureQueryResponse(network::Packet& packet) {
         }
         // A companion may have been waiting on exactly this. A companion's
         // creature id is a template entry and the model frame needs a display
-        // id, so GetCompanionInfo answers zero until the query comes back —
+        // id, so GetCompanionInfo answers zero until the query comes back -
         // and the tab only re-reads when told. Without this the model appeared
         // on the next login and not before.
         //
@@ -3011,8 +3011,8 @@ void EntityController::handlePageTextQueryResponse(network::Packet& packet) {
     // The mail path fires these two from InventoryHandler and FrameXML's
     // ItemTextFrame is wired to them; a book arrives on a different opcode and
     // fired nothing, so with the Book element handed over there was nothing to
-    // read. BEGIN on the first page — the frame clears itself and picks its
-    // material on that — and READY on every page, since each one that lands is
+    // read. BEGIN on the first page - the frame clears itself and picks its
+    // material on that - and READY on every page, since each one that lands is
     // another the reader can turn to.
     if (owner_.addonEventCallbackRef()) {
         if (owner_.bookPagesRef().size() == 1) {

@@ -4,7 +4,7 @@
 The point of this is to answer "will this addon work" before loading it, because
 the missing-API fallback makes the honest answer hard to see at runtime: an
 undefined global is callable and returns nil, so an addon calling one does not
-error — it quietly does nothing, which reads as a feature that is present but
+error - it quietly does nothing, which reads as a feature that is present but
 broken rather than one that was never wired up.
 
     tools/addon_api_audit.py                 # every addon, worst last
@@ -12,14 +12,14 @@ broken rather than one that was never wired up.
     tools/addon_api_audit.py --framexml          # the original interface, per file
 
 The --framexml mode counts only files the client actually loads. Twelve on disk
-are not in the manifest and are reached by no Include — focusframe,
+are not in the manifest and are reached by no Include - focusframe,
 minigameframe, petpopup, questtimerframe, tictactoeframe, opacitysliderframe,
-bindings.xml — and their gaps were being reported as real work for as long as
+bindings.xml - and their gaps were being reported as real work for as long as
 this scanned the directory.
 
 **focusframe is not an oversight, and adding it to the manifest would break
 the focus frame rather than fix it.** targetframe.xml declares FocusFrame too,
-inheriting TargetFrameTemplate, and targetframe.xml is in the manifest — so the
+inheriting TargetFrameTemplate, and targetframe.xml is in the manifest - so the
 focus frame is built, and loading the stray file as well would declare it
 twice. The trap is that "focusframe" is in the branch defaults, which makes it
 look as though the file must be missing for a reason nobody noticed.
@@ -49,8 +49,8 @@ SRC = ROOT / "src" / "addons"
 
 # A call on something, rather than a call to a global: the character before the
 # name is a colon or a dot. Lua's own `string.format` is caught by this too,
-# which is correct — it is not a global this client has to provide.
-# A call is a bare global, not obj.Method() and not a:Method() — but the
+# which is correct - it is not a global this client has to provide.
+# A call is a bare global, not obj.Method() and not a:Method() - but the
 # lookbehind that says so also rejects the operand of a concatenation,
 # because the character before the name in `.."x"..Call()` is a dot. That
 # hid every function called that way, and one of them was raising in
@@ -71,7 +71,7 @@ DEF_ALIAS = re.compile(r"^\s*local\s+([A-Za-z_]\w*)\s*=\s*[A-Za-z_]\w*\s*;?\s*$"
 #
 # Reported as two missing names in an addon that defines both of them. The
 # right-hand side is captured as well as the left, because counting this as a
-# definition is only safe when what it aliases is itself a function — matching
+# definition is only safe when what it aliases is itself a function - matching
 # any `x = y` is what the note above DEF_ASSIGN warns against.
 DEF_GLOBAL_ALIAS = re.compile(
     r"^\s*([A-Za-z_]\w*)\s*=\s*([A-Za-z_]\w*)\s*;?\s*$", re.M)
@@ -98,7 +98,7 @@ def without_comments(text):
 
 # Text inside a string is not code. globalstrings.lua describes the Horde as
 # "opposed to members of the Alliance (Night Elves, ...)", and reading that as a
-# call to Alliance() put a function nobody wrote on every missing list — along
+# call to Alliance() put a function nobody wrote on every missing list - along
 # with Horde, Epic, Strength and a dozen more that are only ever prose.
 STRINGS = re.compile(r'"(?:\\.|[^"\\\n])*"' r"|'(?:\\.|[^'\\\n])*'" r"|\[\[.*?\]\]", re.S)
 
@@ -143,7 +143,7 @@ def aliasDefs(text, defined, known=()):
     """Globals defined by aliasing a function that is already defined.
 
     Repeated to a fixed point so a chain of aliases resolves, and only ever
-    admitting a name whose right-hand side is known to be a function — a bare
+    admitting a name whose right-hand side is known to be a function - a bare
     `x = y` on its own says nothing about what x is.
     """
     pairs = DEF_GLOBAL_ALIAS.findall(text)
@@ -178,7 +178,7 @@ def reachableFrameXml():
 
     The manifest names the entry points; each of those pulls in more through
     Include and Script. Anything left over is on disk and unreachable, and
-    counting it reports work that does not exist — FocusFrame, for one, is
+    counting it reports work that does not exist - FocusFrame, for one, is
     declared in targetframe.xml, and focusframe.xml is never read.
     """
     toc = FRAMEXML / "framexml.toc"

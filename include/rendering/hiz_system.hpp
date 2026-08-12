@@ -19,9 +19,9 @@ class VkContext;
  * geometry, complementing the existing frustum culling.
  *
  * Lifecycle:
- *   initialize()   — create pyramid image, sampler, compute pipeline, descriptors
- *   buildPyramid() — dispatch compute to reduce depth → mip chain (once per frame)
- *   shutdown()      — destroy all Vulkan resources
+ *   initialize()   - create pyramid image, sampler, compute pipeline, descriptors
+ *   buildPyramid() - dispatch compute to reduce depth → mip chain (once per frame)
+ *   shutdown()      - destroy all Vulkan resources
  *
  * The pyramid is double-buffered (per frame-in-flight) so builds and reads
  * never race across concurrent GPU submissions.
@@ -50,7 +50,7 @@ public:
 
     /**
      * Rebuild the pyramid after a swapchain resize.
-     * Safe to call repeatedly — destroys old resources first.
+     * Safe to call repeatedly - destroys old resources first.
      */
     [[nodiscard]] bool resize(uint32_t width, uint32_t height);
 
@@ -117,7 +117,7 @@ private:
     VkImageView pyramidViewAll_[MAX_FRAMES] = {};          // View of all mip levels (for sampling)
     std::vector<VkImageView> pyramidMipViews_[MAX_FRAMES]; // Per-mip views (for storage image writes)
 
-    // Depth input — image view for sampling the depth buffer as a texture
+    // Depth input - image view for sampling the depth buffer as a texture
     VkImageView depthSamplerView_[MAX_FRAMES] = {};
 
     // Sampler for depth reads (nearest, clamp-to-edge)

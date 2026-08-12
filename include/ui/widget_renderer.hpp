@@ -6,7 +6,7 @@
 // Vulkan device. This half is the part that needs one.
 //
 // Textures come from the game's own Interface\ art through the existing asset
-// path — read the BLP, upload it, hand ImGui the descriptor set — which is the
+// path - read the BLP, upload it, hand ImGui the descriptor set - which is the
 // same route the action bar already takes for its backpack button. Nothing new
 // is shipped; it is the player's own install being drawn.
 
@@ -36,25 +36,25 @@ public:
     void initialize(pipeline::AssetManager* assets, rendering::VkContext* vkCtx);
 
     /// Lay the tree out for this screen and draw it. Safe to call with no
-    /// device or assets — it simply does nothing, which is what the headless
+    /// device or assets - it simply does nothing, which is what the headless
     /// tests want.
     void render(WidgetTree& tree, float screenW, float screenH);
 
     /// The two halves of render(), for callers that need something to happen
     /// between them.
     ///
-    /// Hit testing reads the rects layout() produces, so it has to run early —
+    /// Hit testing reads the rects layout() produces, so it has to run early -
     /// before the frame's clicks are resolved, or a frame that moved this frame
     /// is clicked where it used to be. Drawing has the opposite requirement:
-    /// the interface sits over the world, and the world's overlays — the
-    /// nameplates and the minimap's blips — go into the same ImGui background
+    /// the interface sits over the world, and the world's overlays - the
+    /// nameplates and the minimap's blips - go into the same ImGui background
     /// list this does, where whatever is added last is on top. Drawn from here
     /// the panels went down first and every nameplate in the world showed
     /// through the bags.
     void layout(WidgetTree& tree, float screenW, float screenH);
     void draw(WidgetTree& tree, float screenW, float screenH);
 
-    /// What is on screen, and what should be but is not — the instrumentation
+    /// What is on screen, and what should be but is not - the instrumentation
     /// the FrameXML transition is being carried out with. Draws nothing.
     void reportWidgetDiagnostics(WidgetTree& tree, const std::vector<const Widget*>& order,
                                  float s, float screenW, float screenH);
@@ -66,7 +66,7 @@ public:
     /// Whether the art at this path can be read and decoded at all, and how big
     /// it is. Public because it answers a question worth asking from outside:
     /// FrameXML naming art the assets do not carry is a blank where an icon
-    /// should be, and nothing else reports it — the draw silently substitutes
+    /// should be, and nothing else reports it - the draw silently substitutes
     /// nothing and carries on.
     bool artResolves(const std::string& path, float& w, float& h) {
         return textureSize(path, w, h);
@@ -90,11 +90,11 @@ private:
     ///
     /// A FontString with no <Size> takes the size of its string, as it does in
     /// WoW. Leaving it at zero lays it out to nothing and draws nothing, so the
-    /// text is set, correct, and invisible — the player frame's level number
+    /// text is set, correct, and invisible - the player frame's level number
     /// read text="14" in a rect of 0x0.
     void sizeFontStrings(WidgetTree& tree);
     /// Gives a texture the dimensions of its own image on any axis nothing else
-    /// decides. WoW's rule, and FrameXML depends on it — the friends list's
+    /// decides. WoW's rule, and FrameXML depends on it - the friends list's
     /// status icon declares one anchor and no size whatsoever.
     void sizeTextures(WidgetTree& tree);
     /// How big the picture is, without uploading it. No Vulkan context needed:
@@ -132,7 +132,7 @@ private:
     void drawSlider(ImDrawList* dl, const Widget& w,
                     float x0, float y0, float x1, float y1);
     /// One of a colour picker's four regions: the hue-saturation wheel, the
-    /// brightness bar, or either thumb. None of them has art on disk — the
+    /// brightness bar, or either thumb. None of them has art on disk - the
     /// wheel and the bar are generated from the colour `picker` holds, and the
     /// thumbs are placed by it rather than anchored, since where they belong is
     /// the answer rather than the question.
@@ -147,7 +147,7 @@ private:
     pipeline::AssetManager* assets_ = nullptr;
     rendering::VkContext* vkCtx_ = nullptr;
     std::unordered_map<std::string, VkDescriptorSet> textures_;
-    /// Image dimensions by path, including the ones that could not be read —
+    /// Image dimensions by path, including the ones that could not be read -
     /// stored as zero so a missing file is looked for once and not once a frame.
     std::unordered_map<std::string, std::pair<float, float>> textureSizes_;
     /// Which incarnation of ImGui's backend the cache above belongs to.

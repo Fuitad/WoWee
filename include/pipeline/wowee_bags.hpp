@@ -7,14 +7,14 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Bag / Bank Slot catalog (.wbnk) — novel
+// Wowee Open Bag / Bank Slot catalog (.wbnk) - novel
 // replacement for Blizzard's ItemBag.dbc plus the bank-
 // storage and special-purpose container tables. Defines
 // every slot the player has access to: equipped bags,
 // bank bags, the keyring, soul shard bag, quiver, reagent
 // bag, hunter pet stable, etc.
 //
-// Each entry describes ONE container slot — its kind, its
+// Each entry describes ONE container slot - its kind, its
 // fixed capacity (or whether it accepts a player-equipped
 // bag for variable capacity), its display order in the
 // inventory UI, and the unlock state (some bank bags
@@ -23,7 +23,7 @@ namespace pipeline {
 // Cross-references with previously-added formats:
 //   WBNK.entry.fixedBagItemId → WIT.itemId
 //                                (the bag item that this
-//                                 slot ALWAYS contains —
+//                                 slot ALWAYS contains -
 //                                 0 = player-equipped slot)
 //
 // Binary layout (little-endian):
@@ -45,14 +45,14 @@ struct WoweeBagSlot {
         Inventory   = 0,    // base inventory bag slots
         Bank        = 1,    // bank window bags
         Keyring     = 2,    // keyring (fixed, classic-only)
-        Quiver      = 3,    // arrow quiver — hunter only
-        SoulShard   = 4,    // soul shard bag — warlock only
+        Quiver      = 3,    // arrow quiver - hunter only
+        SoulShard   = 4,    // soul shard bag - warlock only
         Stable      = 5,    // hunter pet stable slot
         Reagent     = 6,    // reagent bag (post-Cata)
         Wallet      = 7,    // currency wallet (token-style)
     };
 
-    // acceptsBagSubclassMask bits — only bags whose item
+    // acceptsBagSubclassMask bits - only bags whose item
     // subclass matches at least one bit may be equipped here.
     // Bit 0 = generic container, bit 1 = soul shard bag,
     // bit 2 = herb bag, bit 3 = enchanting bag, bit 4 = engineer
@@ -104,14 +104,14 @@ public:
 
     // Preset emitters used by --gen-bnk* variants.
     //
-    //   makeStarter — 5 inventory slots: 16-slot main backpack
+    //   makeStarter - 5 inventory slots: 16-slot main backpack
     //                  (fixed) + 4 player-equipped bag slots
     //                  (variable, accept generic containers).
-    //   makeBank    — 8 bank bag slots — slots 0..1 free, slots
+    //   makeBank    - 8 bank bag slots - slots 0..1 free, slots
     //                  2..7 require ascending gold purchases
-    //                  (10g, 1g, 10g, 25g, 50g, 100g — matches
+    //                  (10g, 1g, 10g, 25g, 50g, 100g - matches
     //                  the WoW bank bag costs).
-    //   makeSpecial — 4 special-purpose slots (Keyring fixed
+    //   makeSpecial - 4 special-purpose slots (Keyring fixed
     //                  with no equippable bag, SoulShard
     //                  warlock-only, Quiver hunter-only,
     //                  HuntersStable for pet storage).

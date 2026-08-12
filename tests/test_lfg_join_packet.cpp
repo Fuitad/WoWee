@@ -10,7 +10,7 @@
 // while the client wrote the roles as a single byte and left the needs out
 // altogether. The four bytes taken for Roles therefore swallowed the roles,
 // both flags and the slot count; the slot list came out empty; and
-// HandleLfgJoinOpcode returns without a word when it is — so every attempt to
+// HandleLfgJoinOpcode returns without a word when it is - so every attempt to
 // queue for a dungeon was discarded in silence.
 #include <catch_amalgamated.hpp>
 #include "game/world_packets.hpp"

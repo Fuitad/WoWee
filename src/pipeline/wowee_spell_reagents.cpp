@@ -117,13 +117,13 @@ WoweeSpellReagent WoweeSpellReagentLoader::makeMage(
     // item id 17031 = Rune of Teleportation (single-use
     // teleport runes), 17032 = Rune of Portals (groups).
     add(1, "TeleportStormwind", 3565,  17031,
-        "Teleport: Stormwind — consumes 1 Rune of Teleportation.");
+        "Teleport: Stormwind - consumes 1 Rune of Teleportation.");
     add(2, "TeleportIronforge", 3562,  17031,
-        "Teleport: Ironforge — consumes 1 Rune of Teleportation.");
+        "Teleport: Ironforge - consumes 1 Rune of Teleportation.");
     add(3, "TeleportDarnassus", 3561,  17031,
-        "Teleport: Darnassus — consumes 1 Rune of Teleportation.");
+        "Teleport: Darnassus - consumes 1 Rune of Teleportation.");
     add(4, "PortalStormwind",  10059, 17032,
-        "Portal: Stormwind — consumes 1 Rune of Portals.");
+        "Portal: Stormwind - consumes 1 Rune of Portals.");
     return c;
 }
 
@@ -145,10 +145,10 @@ WoweeSpellReagent WoweeSpellReagentLoader::makeWarlock(
         c.entries.push_back(e);
     };
     // Warlock summon spell ids; each consumes 1 Soul Shard.
-    add(100, "SummonImp",        688, "Summon Imp — consumes 1 Soul Shard.");
-    add(101, "SummonVoidwalker",  697, "Summon Voidwalker — consumes 1 Soul Shard.");
-    add(102, "SummonSuccubus",   712, "Summon Succubus — consumes 1 Soul Shard.");
-    add(103, "SummonFelhunter",  691, "Summon Felhunter — consumes 1 Soul Shard.");
+    add(100, "SummonImp",        688, "Summon Imp - consumes 1 Soul Shard.");
+    add(101, "SummonVoidwalker",  697, "Summon Voidwalker - consumes 1 Soul Shard.");
+    add(102, "SummonSuccubus",   712, "Summon Succubus - consumes 1 Soul Shard.");
+    add(103, "SummonFelhunter",  691, "Summon Felhunter - consumes 1 Soul Shard.");
     return c;
 }
 
@@ -162,7 +162,7 @@ WoweeSpellReagent WoweeSpellReagentLoader::makeRez(
     R::Entry ankh;
     ankh.reagentSetId = 200;
     ankh.name = "ShamanReincarnation";
-    ankh.description = "Reincarnation — consumes 1 Ankh of Reincarnation.";
+    ankh.description = "Reincarnation - consumes 1 Ankh of Reincarnation.";
     ankh.spellId = 20608;
     ankh.reagentItemId[0] = 17030;   // Ankh
     ankh.reagentCount[0] = 1;
@@ -173,7 +173,7 @@ WoweeSpellReagent WoweeSpellReagentLoader::makeRez(
     R::Entry priestRez;
     priestRez.reagentSetId = 201;
     priestRez.name = "PriestResurrection";
-    priestRez.description = "Resurrection — requires Holy Candle "
+    priestRez.description = "Resurrection - requires Holy Candle "
         "(focused, NOT consumed on cast).";
     priestRez.spellId = 2006;
     priestRez.reagentItemId[0] = 17029;   // Holy Candle
@@ -185,10 +185,10 @@ WoweeSpellReagent WoweeSpellReagentLoader::makeRez(
     R::Entry druidRebirth;
     druidRebirth.reagentSetId = 202;
     druidRebirth.name = "DruidRebirth";
-    druidRebirth.description = "Rebirth — combat rez, no reagent in "
+    druidRebirth.description = "Rebirth - combat rez, no reagent in "
         "WotLK+ (legacy entry kept for migration).";
     druidRebirth.spellId = 20484;
-    // Empty reagent slots — Rebirth is reagent-free in
+    // Empty reagent slots - Rebirth is reagent-free in
     // 3.3.5a but the entry is kept so the engine has a
     // consistent lookup point.
     druidRebirth.reagentKind = R::Standard;

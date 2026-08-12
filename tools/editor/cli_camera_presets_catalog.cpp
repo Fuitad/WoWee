@@ -229,27 +229,27 @@ int handleValidate(int& i, int argc, char** argv) {
             warnings.push_back(ctx + ": fovDegrees=" +
                 std::to_string(e.fovDegrees) +
                 " outside 30..120 player-comfort range "
-                "— may cause motion sickness or "
+                "- may cause motion sickness or "
                 "extreme telephoto compression");
         }
         // Negative distance places camera in front of
-        // target — almost certainly a typo.
+        // target - almost certainly a typo.
         if (e.distanceFromTarget < 0.f) {
             errors.push_back(ctx +
                 ": distanceFromTarget=" +
                 std::to_string(e.distanceFromTarget) +
-                " is negative — camera would render in "
+                " is negative - camera would render in "
                 "front of target");
         }
         // Very small distance (< 0.5m) clips into the
-        // model — warn, since some shots want this
+        // model - warn, since some shots want this
         // (extreme close-up portraits).
         if (e.distanceFromTarget > 0.f &&
             e.distanceFromTarget < 0.5f) {
             warnings.push_back(ctx +
                 ": distanceFromTarget=" +
                 std::to_string(e.distanceFromTarget) +
-                " under 0.5m — likely clips into the "
+                " under 0.5m - likely clips into the "
                 "model; verify intentional");
         }
         // Pitch outside ±89° gimbal-locks the camera.
@@ -265,7 +265,7 @@ int handleValidate(int& i, int argc, char** argv) {
             warnings.push_back(ctx +
                 ": yawOffsetDegrees=" +
                 std::to_string(e.yawOffsetDegrees) +
-                " beyond ±180° — wraps to a smaller "
+                " beyond ±180° - wraps to a smaller "
                 "equivalent angle, simplify");
         }
         if (!idsSeen.insert(e.presetId).second) {

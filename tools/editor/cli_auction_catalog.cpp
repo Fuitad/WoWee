@@ -249,11 +249,11 @@ int handleValidate(int& i, int argc, char** argv) {
             // seller pays the house more than the buyer paid.
             if (e.houseCutRateBp > 5000) {
                 warnings.push_back(ctx +
-                    ": houseCutRateBp > 5000 (>50% cut — verify intentional)");
+                    ": houseCutRateBp > 5000 (>50% cut - verify intentional)");
             }
             if (e.houseCutRateBp >= wowee::pipeline::WoweeAuction::kBpDenominator) {
                 errors.push_back(ctx +
-                    ": houseCutRateBp >= 10000 (>=100% cut — seller loses money)");
+                    ": houseCutRateBp >= 10000 (>=100% cut - seller loses money)");
             }
             if (!idsSeen.add(e.houseId)) errors.push_back(ctx + ": duplicate houseId");
         }

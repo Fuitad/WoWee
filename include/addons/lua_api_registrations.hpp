@@ -1,4 +1,4 @@
-// lua_api_registrations.hpp — Forward declarations for per-domain Lua API
+// lua_api_registrations.hpp - Forward declarations for per-domain Lua API
 // registration functions.  Called from LuaEngine::registerCoreAPI().
 // Extracted from lua_engine.cpp as part of §5.1 (Tame LuaEngine).
 #pragma once
@@ -21,7 +21,7 @@ void registerActionLuaAPI(lua_State* L);
 /// interface.
 ///
 /// A key answered by both is answered twice, and most bindings toggle
-/// something — so twice means the panel opens and shuts again on one press and
+/// something - so twice means the panel opens and shuts again on one press and
 /// the key reads as dead. Consulted before running a binding.
 bool clientActsOnBinding(const std::string& command);
 

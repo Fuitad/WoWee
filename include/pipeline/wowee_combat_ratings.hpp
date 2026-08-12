@@ -7,23 +7,23 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Combat Rating Conversion catalog (.wcrr) —
+// Wowee Open Combat Rating Conversion catalog (.wcrr) -
 // novel replacement for Blizzard's gtCombatRatings.dbc plus
 // the per-level rating-to-percentage tables in
 // gtRegenHPPerSpt.dbc and related stat-curve DBCs. Defines
 // per-rating-type conversion factors at canonical level
-// breakpoints (1 / 60 / 70 / 80) — the runtime linearly
+// breakpoints (1 / 60 / 70 / 80) - the runtime linearly
 // interpolates between breakpoints for intermediate levels.
 //
 // pointsAtLevelN is "how many rating points equal 1% of
 // the benefit at that level." Higher level = more rating
 // needed for the same %. So at level 60 you might need 14
-// crit rating per 1%, but at level 80 you need 45 — the
+// crit rating per 1%, but at level 80 you need 45 - the
 // curve gradually requires more rating to reach the same
 // percentage benefit.
 //
 // Cross-references with previously-added formats:
-//   None — this catalog is consumed directly by the combat
+//   None - this catalog is consumed directly by the combat
 //   engine's stat resolver. WSPL spell scaling and WIT item
 //   stat conversion read this catalog at runtime.
 //
@@ -84,13 +84,13 @@ public:
 
     // Preset emitters used by --gen-crr* variants.
     //
-    //   makeStarter   — 3 essential combat ratings (Hit /
+    //   makeStarter   - 3 essential combat ratings (Hit /
     //                    Crit / Haste) at canonical WoW
     //                    L80 conversion values.
-    //   makeDefensive — 4 defensive ratings (Defense / Dodge
+    //   makeDefensive - 4 defensive ratings (Defense / Dodge
     //                    / Parry / Block) for tank stat
     //                    scaling.
-    //   makeSpell     — 3 spell-related ratings (SpellPower
+    //   makeSpell     - 3 spell-related ratings (SpellPower
     //                    direct conversion, SpellPenetration,
     //                    MP5 mana regeneration) for caster
     //                    stat scaling.

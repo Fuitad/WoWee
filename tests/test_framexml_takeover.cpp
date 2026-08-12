@@ -2,8 +2,8 @@
 //
 // The transition's state is "FrameXML draws all of it", and nothing held that
 // still. It is not obvious from reading either: the default list names
-// forty-nine elements and there are fifty-two, and the other three —
-// actionbar, stancebar, xpbar, repbar — are covered by naming "mainmenubar",
+// forty-nine elements and there are fifty-two, and the other three -
+// actionbar, stancebar, xpbar, repbar - are covered by naming "mainmenubar",
 // because this client draws its bar as separate pieces where FrameXML draws
 // one strip with the griffins on the ends. So the claim rests on a list and a
 // grouping rule agreeing, in a file where either can be edited alone.
@@ -24,7 +24,7 @@ using namespace wowee::ui;
 
 namespace {
 
-/// The environment decides this, and it is read once and cached — so it has to
+/// The environment decides this, and it is read once and cached - so it has to
 /// be cleared before the first question, not inside the first test case.
 /// Otherwise a developer who happens to be running with WOWEE_FRAMEXML_UI set
 /// gets a failure that says nothing about the code.
@@ -68,7 +68,7 @@ TEST_CASE("The bar's pieces are owned through the whole bar", "[takeover]") {
     REQUIRE(kCleanEnvironment);
     // These four are not in the default list by name. They are owned because
     // "mainmenubar" covers them, and that is the part worth stating on its own
-    // — if the grouping rule were dropped, the test above would fail and this
+    // - if the grouping rule were dropped, the test above would fail and this
     // one says why.
     CHECK(frameXmlOwns(UiElement::ActionBar));
     CHECK(frameXmlOwns(UiElement::StanceBar));
@@ -87,7 +87,7 @@ TEST_CASE("Owning everything means suppressing nothing", "[takeover]") {
     // The failure this guards is not subtle in effect and is entirely silent in
     // cause: the renderer sets shown = false on every name in that list, every
     // frame, so a suppression entry surviving for an element we own means the
-    // panel simply never appears — with nothing logged, because suppressing a
+    // panel simply never appears - with nothing logged, because suppressing a
     // frame is not an error.
     std::string suppressed;
     for (const std::string& name : frameXmlSuppressedFrames()) {

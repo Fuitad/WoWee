@@ -4,7 +4,7 @@ namespace wowee {
 namespace editor {
 namespace cli {
 
-// Dispatch the zone-data maintenance handlers — re-derive
+// Dispatch the zone-data maintenance handlers - re-derive
 // stored data files (collision, JSON sidecars) from sources
 // after authoring changes. Distinct from cli_repair (which
 // fixes manifest-vs-disk drift): these rebuild derived

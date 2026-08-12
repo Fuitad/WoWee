@@ -4,19 +4,19 @@
 The transition works element by element: framexml_takeover.cpp names a set that
 FrameXML draws and suppresses this client's own version of them, and an element
 joins that set once it has been seen drawing correctly. This answers the half of
-"correctly" that can be checked without looking at the screen — whether every
+"correctly" that can be checked without looking at the screen - whether every
 global the element's code calls is answered by something.
 
     tools/framexml_element_readiness.py
 
 Two measures, because resolving every call was only ever half of it.
 
-  * **calls** — globals the element's code invokes that nothing answers. These
+  * **calls** - globals the element's code invokes that nothing answers. These
     raise.
-  * **events** — events its frames RegisterEvent for that nothing in src/ ever
+  * **events** - events its frames RegisterEvent for that nothing in src/ ever
     fires. These do not raise: the element simply sits there, or shows stale
     data, or never opens. Six real bugs came out of this column after the call
-    column had gone quiet — a mail frame that hung after sending, bag cooldown
+    column had gone quiet - a mail frame that hung after sending, bag cooldown
     swirls that never drew, an achievements panel that showed the empty state it
     was built with, a master looter menu that could not open.
 
@@ -35,7 +35,7 @@ This is the whole difficulty, and three scopes were tried before one was right.
 
   * The element's own files alone **under-reports**. QuestFrame and
     QuestLogFrame both draw their reward block through QuestInfo.lua, which is
-    neither of their files and which had nine unanswered calls — so both were
+    neither of their files and which had nine unanswered calls - so both were
     reported ready while any quest offering a spell, title or reputation reward
     would have raised.
 
@@ -46,7 +46,7 @@ This is the whole difficulty, and three scopes were tried before one was right.
     data-driven dispatch rather than a call.
 
   * One hop, minus shared infrastructure, is the useful middle. It catches
-    QuestInfo — QuestFrame calls QuestInfo_Display directly — without dragging
+    QuestInfo - QuestFrame calls QuestInfo_Display directly - without dragging
     in every popup in the game. That is what found the money frame, whose six
     unanswered calls were blocking five elements at once and appeared in none of
     their own files.
@@ -69,7 +69,7 @@ KNOWN FALSE POSITIVES, which this cannot tell from a real gap:
     Lua. BAG_OPEN and BAG_CLOSED are the clear case: ToggleBag, OpenBag and
     CloseBag are Lua functions in containerframe.lua that show and hide the
     frames themselves, so the events are left for a bank or a merchant opening
-    bags from outside — which this client does not do. Firing them would
+    bags from outside - which this client does not do. Firing them would
     duplicate what the Lua already did.
 
     Read the caller before treating an event as missing. If the interface can
@@ -77,7 +77,7 @@ KNOWN FALSE POSITIVES, which this cannot tell from a real gap:
     speak.
 
   * Events that share a branch with one already fired. GUILDBANK_UPDATE_MONEY
-    is merchant's last, and it sits in the same elseif as PLAYER_MONEY — both
+    is merchant's last, and it sits in the same elseif as PLAYER_MONEY - both
     just recheck the repair buttons. PLAYER_MONEY is fired, so the branch runs;
     the guild-bank variant only adds anything to a client that funds repairs
     from a guild bank, which this one does not. Applying the rule above: grep
@@ -86,7 +86,7 @@ KNOWN FALSE POSITIVES, which this cannot tell from a real gap:
   * Whole features this client does not have, which read as a pile of events
     rather than as one absence. playerframe's eight are voice chat twice,
     vehicles four times, the Chinese anti-addiction playtime display and LFG
-    role assignment — none of which exists here, and UNIT_ENTERED_VEHICLE does
+    role assignment - none of which exists here, and UNIT_ENTERED_VEHICLE does
     nothing but set inSeat and swap the frame art for a vehicle that cannot
     happen.
 
@@ -96,16 +96,16 @@ KNOWN FALSE POSITIVES, which this cannot tell from a real gap:
 
     mainmenubar is the same once its names are grouped: nine of ten calls and
     four of eight events are vehicles, CURRENCY_DISPLAY_UPDATE shares a branch
-    with an event now fired, and UPDATE_BONUS_ACTIONBAR clears on both routes —
+    with an event now fired, and UPDATE_BONUS_ACTIONBAR clears on both routes -
     its actionbutton branch shares with ACTIONBAR_PAGE_CHANGED, which is fired,
     and its own frame is the possess bar, which is the vehicle feature again.
     What is left is PickupPetAction. One absent feature and one cursor
     operation, reported as eighteen names.
 
     questlog and questtracker are the largest case of this and the easiest to
-    misread: twelve and fifteen calls, and every one is the world map API —
+    misread: twelve and fifteen calls, and every one is the world map API -
     ClickLandmark, GetMapLandmarkInfo, GetMapOverlayInfo, ProcessMapClick,
-    SetMapByID, ZoomOut, UpdateMapHighlight, the debug pair — which is absent
+    SetMapByID, ZoomOut, UpdateMapHighlight, the debug pair - which is absent
     on purpose because this client draws its own map, as the note above says.
     They reach it through one hop: both frames call into worldmapframe.lua.
     The one name that looks different, GetQuestLogItemDrop, is in that file too
@@ -115,7 +115,7 @@ KNOWN FALSE POSITIVES, which this cannot tell from a real gap:
     Calls need the stronger test, because an unanswered call raises where an
     unfired event only goes unheard. Ask whether it is *reachable*, not whether
     the feature exists. mainmenubar's four vehicle calls live in
-    vehiclemenubar.lua — one hop away, which is why they are counted here — and
+    vehiclemenubar.lua - one hop away, which is why they are counted here - and
     every one sits behind a guard that a client with no vehicles never passes:
     UnitInVehicle gates the path and UnitVehicleSkin answers nil, so the
     indicator is zero and the function returns before the call. Unreachable, as
@@ -124,12 +124,12 @@ KNOWN FALSE POSITIVES, which this cannot tell from a real gap:
     minimap's Wintergrasp pair is the same, and took two hops to see. Both
     BattlefieldMgr calls sit inside `for i=1, MAX_WORLD_PVP_QUEUES`, and the
     status that gates them comes from GetWorldPVPQueueStatus, which answers nil
-    three times — so it is never "queued" or "confirm". The other route in is a
+    three times - so it is never "queued" or "confirm". The other route in is a
     static popup shown by BATTLEFIELD_MGR_ENTRY_INVITE, which is never fired.
     Both doors are shut, and one shut door would not have been enough.
 
     Where the checks stop: characterframe's last four are in
-    equipmentmanager.lua, and that feature is not absent here —
+    equipmentmanager.lua, and that feature is not absent here -
     GetNumEquipmentSets answers from a real set list. A player with a saved set
     runs that code and every one of those calls raises. So the same four tests
     that cleared five elements find this one real, which is the point of
@@ -140,7 +140,7 @@ KNOWN FALSE POSITIVES, which this cannot tell from a real gap:
     its with UNIT_STATS; both siblings are fired, so both branches already run.
     CURSOR_UPDATE was the one that was real, and is done: all thirteen sites
     now go through setCursorType, which fires on an actual change. It was
-    deferred three times as unverifiable and was not — the awkward part was
+    deferred three times as unverifiable and was not - the awkward part was
     never the count but clearCursorItem, a helper with no lua_State to fire
     from, which the compiler named in one line.
 
@@ -167,7 +167,7 @@ FX = os.path.join(ROOT, "Data", "interface", "framexml")
 ADDONS = os.path.join(ROOT, "src", "addons")
 
 # Their unanswered names belong to a particular popup, menu or chat command and
-# are reached only when that one is used — so they are not the element's.
+# are reached only when that one is used - so they are not the element's.
 SHARED = {
     "staticpopup.lua", "uiparent.lua", "unitpopup.lua",
     "chatframe.lua", "globalstrings.lua",
@@ -197,7 +197,7 @@ ELEMENTS = {
     "bagbar":       ["mainmenubarbagbuttons.lua", "mainmenubarbagbuttons.xml"],
     "gamemenu":     ["gamemenuframe.xml"],
     "worldmap":     ["worldmapframe.lua", "worldmapframe.xml"],
-    # chatframe.lua is deliberately not here — it is in SHARED, because it
+    # chatframe.lua is deliberately not here - it is in SHARED, because it
     # defines the slash commands the whole interface uses and its unanswered
     # names belong to whichever command was typed rather than to the chat
     # window. Its .xml is a different matter: that is the frame itself.
@@ -217,7 +217,7 @@ ELEMENTS = {
     "book":         ["itemtextframe.lua", "itemtextframe.xml"],
     "totems":       ["totemframe.lua", "totemframe.xml"],
     # The twelve this client already hands over by default, and which nothing
-    # had ever measured. Being enabled is not evidence of being complete — it
+    # had ever measured. Being enabled is not evidence of being complete - it
     # means someone once saw them draw, which is the visual half. An unanswered
     # call in one of these is a live fault in the shipping default, not a
     # candidate for a future round.
@@ -232,7 +232,7 @@ ELEMENTS = {
     # (characterframe.lua:1) names PaperDollFrame, PetPaperDollFrame,
     # SkillFrame, ReputationFrame and TokenFrame, and ToggleCharacter reaches
     # any of them. Listing only the paperdoll left four tabs of a *default*
-    # element unscanned — the expansion that follows calls out of a root does
+    # element unscanned - the expansion that follows calls out of a root does
     # not find them, because sibling tabs do not call each other.
     "characterframe": ["characterframe.lua", "characterframe.xml",
                        "paperdollframe.lua", "paperdollframe.xml",
@@ -269,7 +269,7 @@ ADDON_ELEMENTS = {
 # there is nothing but this check to keep them so. They drifted once: this file
 # called the vendor "merchant" after the frame, framexml_takeover.cpp calls it
 # "vendor" after the element, and the candidates list was written from a
-# reading of this report — so "merchant" went into that list, resolved to no
+# reading of this report - so "merchant" went into that list, resolved to no
 # element, and the vendor window was never handed over by it. The run said so
 # every time, in one warning line among many.
 #
@@ -299,7 +299,7 @@ SCRIPT_ATTR = re.compile(r'<On[A-Za-z]+\s+function="([A-Za-z_][\w]*)"')
 CALL = re.compile(r"(?<![\w.:])([A-Z][A-Za-z0-9_]*)\s*\(")
 
 # A Lua pattern in a string looks exactly like a call. gsub(point, "TOP(.*)",
-# "BOTTOM%1") reads as a call to TOP, and did — it was three of the loot
+# "BOTTOM%1") reads as a call to TOP, and did - it was three of the loot
 # frame's five remaining names. Comments do the same for anything written as
 # Name() in prose.
 _STRINGS = re.compile(r'"(?:[^"\\\n]|\\.)*"' r"|'(?:[^'\\\n]|\\.)*'")
@@ -317,8 +317,8 @@ def events_fired():
     """Every event name the client can send, taken from the C++ that sends them."""
     names = set()
     # include/ as well as src/. Plenty of this client's small state changes are
-    # inline in a header — closeStableWindow fires PET_STABLE_CLOSED from
-    # game_handler.hpp — and scanning only src/ reported those events as never
+    # inline in a header - closeStableWindow fires PET_STABLE_CLOSED from
+    # game_handler.hpp - and scanning only src/ reported those events as never
     # sent, which is the one thing this column is supposed to be trusted on.
     roots = [os.path.join(ROOT, "src"), os.path.join(ROOT, "include")]
     for root in roots:
@@ -346,7 +346,7 @@ def registered():
     """Every global name the client answers.
 
     This implementation moved to framexml_provides, which is now the one place
-    that decides — six other sweeps had worked it out for themselves and only
+    that decides - six other sweeps had worked it out for themselves and only
     this one was right, because only this one read the bootstrap Lua.
     """
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -359,7 +359,7 @@ def scan_interface():
 
     Skips Data/interface/gluexml. That is the login screen, a separate
     interface in its own Lua state, and it defines functions under names the
-    in-game one also uses — so a one hop out of an in-game file was landing in
+    in-game one also uses - so a one hop out of an in-game file was landing in
     glue code and reporting its account-message and credits calls as gaps in
     the quest log, the quest tracker, the social frame and the help frame.
     """
@@ -380,7 +380,7 @@ def scan_interface():
             elif name.endswith(".xml"):
                 # XML comments first. A whole widget can be commented out and
                 # its <OnClick> still matches, which reported skillframe.xml's
-                # sort button — a control that has not existed since whoever
+                # sort button - a control that has not existed since whoever
                 # commented it out. Blanking Lua comments inside the body does
                 # not help; the body should not have been read at all.
                 src = _XML_COMMENT.sub(" ",
@@ -467,18 +467,18 @@ def main():
 
     # Elements whose remaining names have each been read and found not to be
     # work. They still show a count above, because this cannot tell an absent
-    # feature from a gap — that is the judgement, and it is written down here
+    # feature from a gap - that is the judgement, and it is written down here
     # so the headline number stops understating what is finished.
     #
     # Every entry names why. Re-check one if its reason stops being true.
     #
     # [checked] marks one re-verified since it was written. All eleven now are.
     # Five were wrong or incomplete, and three of those five were concealing a
-    # real gap — GMRESPONSE_RECEIVED and PLAYER_ROLES_ASSIGNED are fired now,
+    # real gap - GMRESPONSE_RECEIVED and PLAYER_ROLES_ASSIGNED are fired now,
     # MINIMAP_UPDATE_TRACKING is recorded with its trigger.
     #
     # The server source is at /home/k/azerothcore-wotlk. Anything blocked here
-    # on "the wire format is not known" can be read off it directly — that was
+    # on "the wire format is not known" can be read off it directly - that was
     # not noticed until the end of a session spent declining to guess, and the
     # scoreboard parser turned out to have three misalignments the moment it
     # was checked against Battleground.cpp.
@@ -491,7 +491,7 @@ def main():
     # And re-check them anyway. Three have been spot-checked since this list
     # was written and two were wrong: worldmap named one event of two, and help
     # called GMRESPONSE_RECEIVED unparsed when it is parsed in full and only
-    # ever said in chat — that one was a real gap sitting inside a line
+    # ever said in chat - that one was a real gap sitting inside a line
     # claiming there was none. The reasons are worth more than the count
     # precisely because they can be checked; treat an unchecked entry as a
     # claim rather than a finding.
@@ -501,51 +501,51 @@ def main():
     # both derived from a grep run while writing the entry. bgscore and mail
     # stood up; worldmap and help did not. So the question to ask of an entry
     # is not how confident it sounds but whether anyone looked while writing
-    # it — which is also why each one names a file or a function rather than a
+    # it - which is also why each one names a file or a function rather than a
     # conclusion.
     #
     # bgscore later failed for a different reason, worth its own warning: the
     # entry was accurate and the reasoning was still wrong. "Unreachable
     # because the binding it loops over answers zero" clears the calls by
     # pointing at a stub, and a stub answering empty is not evidence a feature
-    # is absent — it is how a feature gets switched off without anyone
+    # is absent - it is how a feature gets switched off without anyone
     # noticing. When a claim rests on what another binding returns, check that
     # the return is a real answer and not a placeholder.
     settled = {
-        "characterframe": "[checked] the paperdoll's own are the stat branch shared with UNIT_STATS, which is fired, plus SHOW_COMPARE_TOOLTIP — absent by design, the C client fires it on a shift-hover to open a comparison tooltip and this client has no item comparison at all. The rest arrived with the other four tabs, which this entry did not cover until their files were added: the three COMPANION_* and the two PET_* belong to the companions and mounts list on the pet tab, and all three COMPANION_ ones are fired — this note used to call the list the one real gap here, on the grounds that it needed mount and critter classification out of Spell.dbc, and rebuildCompanions had been doing that since before the note was written. The preview draws now too; DISABLE/ENABLE_XP_GAIN is the WotLK experience-lock NPC, which this client has no path to; PLAYER_PVP_RANK_CHANGED is the vanilla honor rank, gone by 3.3.5. The four remaining calls are AddSkillUp, RemoveSkillUp and BuySkillTier — the skill-point purchase panel, unreachable because GetSkillLineInfo answers nil for stepCost and rankCost — and GetText, which is a widget method rather than a global",
-        "book":         "[checked] ITEM_TEXT_TRANSLATION carries a translation timer nothing derives; the text itself does arrive — ItemHandler.cpp builds SMSG_ITEM_TEXT_QUERY_RESPONSE",
+        "characterframe": "[checked] the paperdoll's own are the stat branch shared with UNIT_STATS, which is fired, plus SHOW_COMPARE_TOOLTIP - absent by design, the C client fires it on a shift-hover to open a comparison tooltip and this client has no item comparison at all. The rest arrived with the other four tabs, which this entry did not cover until their files were added: the three COMPANION_* and the two PET_* belong to the companions and mounts list on the pet tab, and all three COMPANION_ ones are fired - this note used to call the list the one real gap here, on the grounds that it needed mount and critter classification out of Spell.dbc, and rebuildCompanions had been doing that since before the note was written. The preview draws now too; DISABLE/ENABLE_XP_GAIN is the WotLK experience-lock NPC, which this client has no path to; PLAYER_PVP_RANK_CHANGED is the vanilla honor rank, gone by 3.3.5. The four remaining calls are AddSkillUp, RemoveSkillUp and BuySkillTier - the skill-point purchase panel, unreachable because GetSkillLineInfo answers nil for stepCost and rankCost - and GetText, which is a widget method rather than a global",
+        "book":         "[checked] ITEM_TEXT_TRANSLATION carries a translation timer nothing derives; the text itself does arrive - ItemHandler.cpp builds SMSG_ITEM_TEXT_QUERY_RESPONSE",
         "bags":         "[checked] BAG_OPEN/CLOSED are for a C client opening bags; ToggleBag, OpenBag and CloseBag are all Lua functions in containerframe.lua",
         "vendor":       "[checked] GUILDBANK_UPDATE_MONEY shares its branch with PLAYER_MONEY, fired from inventory_handler and entity_controller",
-        "playerframe":  "[checked] voice chat, vehicles and the playtime nag (PLAYER_ROLES_ASSIGNED was wrong here — roles are parsed and read, and it is fired now)",
+        "playerframe":  "[checked] voice chat, vehicles and the playtime nag (PLAYER_ROLES_ASSIGNED was wrong here - roles are parsed and read, and it is fired now)",
         "mainmenubar":  "[checked] nine calls and five events are vehicles; CURRENCY_DISPLAY_UPDATE and UPDATE_BONUS_ACTIONBAR share fired branches, UPDATE_MULTI_CAST_ACTIONBAR shares one and has nil data besides",
-        "minimap":      "[checked] four calls unreachable; zoom is widget state, movie recording absent, indoors redundant — MINIMAP_UPDATE_TRACKING was real and is fired now, from the player aura change — tracking is an aura, so that one site covers both routes",
-        "bgscore":      "[fixed] GetWorldStateUIInfo and IsSubZonePVPPOI are bound, and GetNumWorldStateUI answers from the battleground table in game/bg_score_defs.hpp — the earlier note here cleared them as unreachable *because* that stub answered zero, which was the bug rather than the clearance: an empty answer had switched WorldStateAlwaysUpFrame off entirely. IsSubZonePVPPOI still answers false and the check below still names it: it sits behind `uiType ~= 1`, which short-circuits true for every entry that table holds, so it is unreached rather than answered — and it would matter the day a uiType 1 entry appears",
-        "mail":         "[checked] both are the refund lock, which the C client raises when a still-refundable item is attached. The refund window is a per-item timer the server sends and this client does not keep — GetContainerItemPurchaseInfo answers nil for exactly that reason, and mailframe.lua only reaches the lock through it. Correctly absent rather than unfired: firing it would mean claiming a refund window that is not tracked",
+        "minimap":      "[checked] four calls unreachable; zoom is widget state, movie recording absent, indoors redundant - MINIMAP_UPDATE_TRACKING was real and is fired now, from the player aura change - tracking is an aura, so that one site covers both routes",
+        "bgscore":      "[fixed] GetWorldStateUIInfo and IsSubZonePVPPOI are bound, and GetNumWorldStateUI answers from the battleground table in game/bg_score_defs.hpp - the earlier note here cleared them as unreachable *because* that stub answered zero, which was the bug rather than the clearance: an empty answer had switched WorldStateAlwaysUpFrame off entirely. IsSubZonePVPPOI still answers false and the check below still names it: it sits behind `uiType ~= 1`, which short-circuits true for every entry that table holds, so it is unreached rather than answered - and it would matter the day a uiType 1 entry appears",
+        "mail":         "[checked] both are the refund lock, which the C client raises when a still-refundable item is attached. The refund window is a per-item timer the server sends and this client does not keep - GetContainerItemPurchaseInfo answers nil for exactly that reason, and mailframe.lua only reaches the lock through it. Correctly absent rather than unfired: firing it would mean claiming a refund window that is not tracked",
         "questlog":     "[checked] every call is the world map API, absent because this client draws its own",
-        "dungeonfinder": "[checked] four of the five are correctly absent. LFG_OPEN_FROM_GOSSIP's source, SMSG_OPEN_LFG_DUNGEON_FINDER, is STATUS_NEVER in AzerothCore and never sent. UPDATE_LFG_LIST is the raid browser, whose three search packets are read and dropped here by decision — this client's own browser is as empty as FrameXML's would be. LFG_ROLE_UPDATE refreshes role checkboxes, which are client state. VOTE_KICK_REASON_NEEDED needs a message this client is not sent. The fifth, LFG_QUEUE_STATUS_UPDATE, was a real gap and is fired now",
-        "uierrors":     "[checked] SYSMSG is the one unfired event and nothing backs it — no opcode this client handles produces one, and the event-gap report finds no source message for it. UI_ERROR_MESSAGE, which is what the frame is actually for, is raised by addUIError from eighty sites",
-        "trade":        "[checked] TRADE_PLAYER_ITEM_CHANGED and TRADE_TARGET_ITEM_CHANGED are the two unfired, and correctly so: they carry one slot each, and this client never learns of a single slot changing. SMSG_TRADE_STATUS_EXTENDED carries a whole side at once, which is what TRADE_UPDATE is fired from, and its branch calls TradeFrame_Update — a full redraw of every slot. TRADE_POTENTIAL_BIND_ENCHANT is handled by a commented-out body in FrameXML itself",
+        "dungeonfinder": "[checked] four of the five are correctly absent. LFG_OPEN_FROM_GOSSIP's source, SMSG_OPEN_LFG_DUNGEON_FINDER, is STATUS_NEVER in AzerothCore and never sent. UPDATE_LFG_LIST is the raid browser, whose three search packets are read and dropped here by decision - this client's own browser is as empty as FrameXML's would be. LFG_ROLE_UPDATE refreshes role checkboxes, which are client state. VOTE_KICK_REASON_NEEDED needs a message this client is not sent. The fifth, LFG_QUEUE_STATUS_UPDATE, was a real gap and is fired now",
+        "uierrors":     "[checked] SYSMSG is the one unfired event and nothing backs it - no opcode this client handles produces one, and the event-gap report finds no source message for it. UI_ERROR_MESSAGE, which is what the frame is actually for, is raised by addUIError from eighty sites",
+        "trade":        "[checked] TRADE_PLAYER_ITEM_CHANGED and TRADE_TARGET_ITEM_CHANGED are the two unfired, and correctly so: they carry one slot each, and this client never learns of a single slot changing. SMSG_TRADE_STATUS_EXTENDED carries a whole side at once, which is what TRADE_UPDATE is fired from, and its branch calls TradeFrame_Update - a full redraw of every slot. TRADE_POTENTIAL_BIND_ENCHANT is handled by a commented-out body in FrameXML itself",
         "questtracker": "[checked] twelve are the same world map API through worldmapframe.lua; the other three are AchievementFrame internals, defined in blizzard_achievementui and absent only until it loads",
         "worldmap":     "[checked] map API is this client's; WORLD_MAP_NAME_UPDATE has no handler branch, CLOSE_WORLD_MAP needs the key to drive Lua",
         "help":         "[checked] GMRESPONSE_RECEIVED is parsed and fired, and TicketMgr.cpp does "
                         "send it. GMSURVEY_DISPLAY is unfired but NOT unbackable, which this "
                         "note used to claim: the survey's questions come from four DBCs this "
-                        "install carries — GMSurveyCurrentSurvey maps language to survey, "
+                        "install carries - GMSurveyCurrentSurvey maps language to survey, "
                         "GMSurveySurveys lists up to ten question ids, GMSurveyQuestions and "
-                        "GMSurveyAnswers hold the text — and the trigger is the getSurvey byte "
+                        "GMSurveyAnswers hold the text - and the trigger is the getSurvey byte "
                         "in SMSG_GMRESPONSE_STATUS_UPDATE. Not built: submitting means "
                         "accumulating ten answers with per-question comments for "
                         "CMSG_GMSURVEY_SUBMIT, and the panel appears only after a GM closes a "
                         "ticket. Absent by choice, which is a different thing from absent by "
                         "necessity",
         "social":       "[checked] MUTELIST_UPDATE shares both its branches with IGNORELIST_UPDATE (friendsframe.lua:1224, partymemberframe.lua:341), which is fired from social_handler.cpp:2567; VOICE_CHAT_ENABLED_UPDATE is voice chat, which this client has none of",
-        "achievements": "[checked] all three are the achievement addon's own and exist once it loads — AchievementFrameTab_OnClick is assigned rather than declared (blizzard_achievementui.lua:63), which is why grepping for 'function' finds nothing. The one use in core FrameXML, alertframes.lua:260, compares ACHIEVEMENTUI_SELECTEDFILTER rather than calling it, and sits after ShowUIPanel(AchievementFrame) so the addon is loaded by then",
-        "auctionhouse": "[checked] DressUpItemLink_orig is a local capturing DressUpItemLink for a hook, and DressUpItemLink is a FrameXML Lua function (dressupframe.lua:2) rather than a C binding — so the capture gets the real one and nothing is missing",
+        "achievements": "[checked] all three are the achievement addon's own and exist once it loads - AchievementFrameTab_OnClick is assigned rather than declared (blizzard_achievementui.lua:63), which is why grepping for 'function' finds nothing. The one use in core FrameXML, alertframes.lua:260, compares ACHIEVEMENTUI_SELECTEDFILTER rather than calling it, and sits after ShowUIPanel(AchievementFrame) so the addon is loaded by then",
+        "auctionhouse": "[checked] DressUpItemLink_orig is a local capturing DressUpItemLink for a hook, and DressUpItemLink is a FrameXML Lua function (dressupframe.lua:2) rather than a C binding - so the capture gets the real one and nothing is missing",
     }
     also = [e for e in settled if e not in ready]
     if also:
         print()
-        print(f"{len(also)} more read and settled — the count above cannot see this:")
+        print(f"{len(also)} more read and settled - the count above cannot see this:")
         for e in sorted(also):
             print(f"  {e:<13} {settled[e]}")
         print()
@@ -554,7 +554,7 @@ def main():
     # A settled entry that rests on a stub.
     #
     # There are two questions to ask of one of these, not one: did anyone look,
-    # and does the reason rest on a placeholder. The second cost a real gap —
+    # and does the reason rest on a placeholder. The second cost a real gap -
     # bgscore was cleared because "both calls sit in a loop over
     # GetNumWorldStateUI, which answers zero", which was true and was not
     # evidence. The zero was lua_ReturnZero. It was not that the feature was
@@ -562,8 +562,8 @@ def main():
     # WorldStateAlwaysUpFrame had been live and empty the whole time.
     #
     # So every binding an entry names by way of explanation is checked against
-    # the stub list. A hit is not a fault by itself — the reason may hold for
-    # other reasons too — but it is the shape that reads as settled and is not.
+    # the stub list. A hit is not a fault by itself - the reason may hold for
+    # other reasons too - but it is the shape that reads as settled and is not.
     stubs = ("lua_ReturnZero", "lua_ReturnNil", "lua_ReturnFalse",
              "lua_ReturnNothing", "lua_ReturnTrue", "lua_ContainerFalse",
              "lua_ContainerNoOp", "lua_GetZeroMoney")
@@ -594,12 +594,12 @@ def main():
     # looks here. Printed rather than explained: paste it over the array and
     # the drift is gone.
     #
-    # The defaults are left out — the tier adds to them rather than replacing
+    # The defaults are left out - the tier adds to them rather than replacing
     # them, and listing one twice reads as a mistake.
     #
     # Read out of framexml_takeover.cpp rather than copied. This was a copy,
     # under a comment warning that zonetext and dialogs had joined the real set
-    # without it following — and it drifted again the moment eight elements
+    # without it following - and it drifted again the moment eight elements
     # were promoted, so the printed tier still offered four of them as
     # candidates. A list whose whole job is to stop drift cannot be a second
     # copy of the thing it is checking.
@@ -609,7 +609,7 @@ def main():
     DEFAULTS = set(re.findall(r'"([a-z0-9]+)"', _block[:_block.index("}();")]))
     # Settled elements belong here too. They show a count above because this
     # cannot prove an absent feature is absent, but every name in them has been
-    # read and found unreachable, redundant, or a feature that does not exist —
+    # read and found unreachable, redundant, or a feature that does not exist -
     # so nothing in them raises, which is what the tier is about.
     #
     # Except worldmap, which is this client's own map.
@@ -622,14 +622,14 @@ def main():
     #
     # questlog was here on the same reasoning and does not belong to it. It
     # draws no map. What it did was call the world map API, which was not bound
-    # at the time — it is now, and the report finds nothing missing in
+    # at the time - it is now, and the report finds nothing missing in
     # questlogframe at all. Its window is gated, its suppression entry lifts
     # itself the moment the element is owned, and the L key is routed.
     #
     # worldmap's other half is built now and it is still held here, because
     # held-out means "not seen drawing" and it has not been. renderWorldMap is
     # the only thing that feeds the map and the only thing that draws it, and
-    # it used to be skipped entirely when FrameXML owned the map — so handing
+    # it used to be skipped entirely when FrameXML owned the map - so handing
     # it over gave no map at all rather than two, which is not what the reason
     # above says. It now runs either way and takes FrameXML's frame being on
     # screen as the statement that the map is wanted.
@@ -643,7 +643,7 @@ def main():
     # list so that regenerating and pasting does not put them back. The comment
     # in framexml_takeover.cpp explains each; briefly:
     #
-    #   keybindings, macro, timemanager — scored because their FrameXML files
+    #   keybindings, macro, timemanager - scored because their FrameXML files
     #                                     have no missing calls, but there is no
     #                                     UiElement of any of those names, so
     #                                     naming them only warns about itself
@@ -669,11 +669,11 @@ def main():
         if line.strip():
             print(line.rstrip().rstrip(","))
     print()
-    print("To try one, name it alongside the current defaults — the environment")
+    print("To try one, name it alongside the current defaults - the environment")
     print("replaces the list rather than adding to it:")
     # From the same parsed set as DEFAULTS above. This line was a third copy
     # of it, and by the time anyone read it the set had gained zonetext,
-    # dialogs and eight more — so the command it offered would have *removed*
+    # dialogs and eight more - so the command it offered would have *removed*
     # ten elements while adding one, which is the opposite of trying one out.
     print("  WOWEE_FRAMEXML_UI=" + ",".join(sorted(DEFAULTS)) + ",<element>")
 

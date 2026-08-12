@@ -224,7 +224,7 @@ int handleAuditZoneSpawns(int& i, int argc, char** argv) {
     std::printf("  objects      : %zu\n", placer.getObjects().size());
     std::printf("  issues       : %zu\n", issues.size());
     if (issues.empty()) {
-        std::printf("\n  PASSED — every spawn is within %.1f y of the terrain\n",
+        std::printf("\n  PASSED - every spawn is within %.1f y of the terrain\n",
                     threshold);
         return 0;
     }
@@ -321,7 +321,7 @@ int handleListZoneSpawns(int& i, int argc, char** argv) {
 
 int handleDiffZoneSpawns(int& i, int argc, char** argv) {
     // Compare two zones' creatures + objects. Matches by
-    // (kind, name) — paired entries with mismatched positions
+    // (kind, name) - paired entries with mismatched positions
     // are reported as "moved" with the delta. Entries that
     // exist in only one zone are added/removed.
     //

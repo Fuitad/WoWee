@@ -150,7 +150,7 @@ enum class FinalizationPhase {
 };
 
 /**
- * In-progress tile finalization state — tracks progress across frames
+ * In-progress tile finalization state - tracks progress across frames
  */
 struct FinalizingTile {
     std::shared_ptr<PendingTile> pending;
@@ -269,7 +269,7 @@ public:
      * True when the MCNK chunk containing this position is cut by terrain holes.
      * getHeightAt interpolates straight across a hole and reports a surface that
      * is not there, so anything reasoning about "below the terrain" has to know
-     * the heightfield is fiction here — hole-cut chunks are how cave mouths and
+     * the heightfield is fiction here - hole-cut chunks are how cave mouths and
      * below-ground entrances are opened up. Answered per chunk rather than per
      * quad: this only ever gates a safety net, and being coarse in the safe
      * direction beats depending on the hole bit's axis order.
@@ -470,7 +470,7 @@ private:
     // MAIN-THREAD-ONLY: tiles beyond unloadRadius, queued by streamTiles() and drained a
     // time-budgeted batch at a time by processPendingUnloads() each frame. Unloading them
     // all synchronously in one call (e.g. ~100 tiles right after a taxi landing snaps the
-    // radius down) caused multi-second main-thread stalls — live-confirmed via "SLOW
+    // radius down) caused multi-second main-thread stalls - live-confirmed via "SLOW
     // terrainManager->update: 1943.71ms" immediately after "Unloaded 103 distant tiles" in
     // a real flight-landing log.
     //
@@ -478,7 +478,7 @@ private:
     // budget. That prevented the single-frame catastrophic stall but doesn't scale with
     // actual frame cost: streamTiles() discovers newly-out-of-range tiles at a roughly
     // constant real-world rate during a long, fast (taxi) flight, but a count-based drain
-    // processes fewer tiles per *second* whenever frame rate drops for any reason — and once
+    // processes fewer tiles per *second* whenever frame rate drops for any reason - and once
     // the backlog (and therefore loadedTiles_/streamTiles()'s own per-call scan cost) starts
     // growing, frame rate drops further, which throttles the count-based drain further still.
     // Live-reproduced: a long cross-continent taxi flight (the first sustained-large-radius

@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Title catalog (.wtit) — novel replacement for
+// Wowee Open Title catalog (.wtit) - novel replacement for
 // Blizzard's CharTitles.dbc + the AzerothCore-style
 // character_title SQL table. The 30th open format added to
 // the editor.
@@ -21,7 +21,7 @@ namespace pipeline {
 //
 // Cross-references with previously-added formats:
 //   WACH.entry.titleReward (string)  ≈ WTIT.entry.name
-//                                      (string match — the
+//                                      (string match - the
 //                                       runtime resolves
 //                                       achievement-granted
 //                                       titles by looking up
@@ -71,7 +71,7 @@ struct WoweeTitle {
     bool isValid() const { return !entries.empty(); }
 
     const Entry* findById(uint32_t titleId) const;
-    // String match against the canonical name — used to
+    // String match against the canonical name - used to
     // resolve WACH.titleReward references.
     const Entry* findByName(const std::string& name) const;
 
@@ -87,13 +87,13 @@ public:
 
     // Preset emitters used by --gen-titles* variants.
     //
-    //   makeStarter — 4 titles covering Achievement / Pvp /
+    //   makeStarter - 4 titles covering Achievement / Pvp /
     //                  Raid / Event categories.
-    //   makePvp     — 14-rank Honor System ladder
+    //   makePvp     - 14-rank Honor System ladder
     //                  (Private/Corporal/...Knight-Lieutenant/
     //                  ...Field Marshal) with both Alliance
     //                  and Horde titles where they differ.
-    //   makeAchievement — titles granted by the WACH meta
+    //   makeAchievement - titles granted by the WACH meta
     //                      preset including "the Versatile"
     //                      from achievement 250.
     static WoweeTitle makeStarter(const std::string& catalogName);

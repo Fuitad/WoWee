@@ -29,7 +29,7 @@
 namespace wowee {
 namespace game {
 
-// Merge incoming cooldown with local remaining time — keeps local timer when
+// Merge incoming cooldown with local remaining time - keeps local timer when
 // a stale/duplicate packet arrives after local countdown has progressed.
 static float mergeCooldownSeconds(float current, float incoming) {
     constexpr float kEpsilon = 0.05f;
@@ -89,7 +89,7 @@ std::string castFailureMessage(const GameHandler& owner, uint32_t spellId,
     }
 
     // "Requires spell focus" means a crafting station object must be nearby.
-    // The packet names which one via its SpellFocusObject id — surface it.
+    // The packet names which one via its SpellFocusObject id - surface it.
     if (result == kCastResultRequiresSpellFocus) {
         if (miscArg != 0) {
             const std::string& focusName = owner.getSpellFocusName(miscArg);
@@ -121,7 +121,7 @@ std::string castFailureMessage(const GameHandler& owner, uint32_t spellId,
     }
 
     // "Target aurastate" (111) means the target isn't in the state the ability needs.
-    // Translate the spell's required Spell.dbc TargetAuraState into actionable text —
+    // Translate the spell's required Spell.dbc TargetAuraState into actionable text -
     // Execute and Hammer of Wrath want a low-health target, etc.
     if (result == 111) {
         switch (owner.getSpellTargetAuraState(spellId)) {
@@ -347,13 +347,13 @@ bool SpellHandler::resolveUnitPosition(uint64_t guid, glm::vec3& outPos) {
 void SpellHandler::triggerCastVisual(uint32_t spellId, uint64_t casterGuid, uint32_t castTimeMs) {
     LOG_INFO("SpellVisual: triggerCastVisual spellId=", spellId, " casterGuid=0x", std::hex, casterGuid, std::dec);
     auto* renderer = owner_.services().renderer;
-    if (!renderer) { LOG_WARNING("SpellVisual: triggerCastVisual — no renderer"); return; }
+    if (!renderer) { LOG_WARNING("SpellVisual: triggerCastVisual - no renderer"); return; }
     auto* svs = renderer->getSpellVisualSystem();
-    if (!svs) { LOG_WARNING("SpellVisual: triggerCastVisual — no SpellVisualSystem"); return; }
+    if (!svs) { LOG_WARNING("SpellVisual: triggerCastVisual - no SpellVisualSystem"); return; }
     uint32_t visualId = resolveSpellVisualId(spellId);
-    if (visualId == 0) { LOG_WARNING("SpellVisual: triggerCastVisual — visualId=0 for spellId=", spellId); return; }
+    if (visualId == 0) { LOG_WARNING("SpellVisual: triggerCastVisual - visualId=0 for spellId=", spellId); return; }
     glm::vec3 casterPos;
-    if (!resolveUnitPosition(casterGuid, casterPos)) { LOG_DEBUG("SpellVisual: triggerCastVisual — cannot resolve caster position for guid=0x", std::hex, casterGuid, std::dec); return; }
+    if (!resolveUnitPosition(casterGuid, casterPos)) { LOG_DEBUG("SpellVisual: triggerCastVisual - cannot resolve caster position for guid=0x", std::hex, casterGuid, std::dec); return; }
     LOG_INFO("SpellVisual: triggerCastVisual visualId=", visualId, " pos=(", casterPos.x, ",", casterPos.y, ",", casterPos.z, ") castTimeMs=", castTimeMs);
     svs->playSpellVisualPrecast(visualId, casterPos, castTimeMs,
                                 owner_.resolveUnitRenderInstance(casterGuid));
@@ -366,7 +366,7 @@ void SpellHandler::triggerImpactVisual(uint32_t spellId, uint64_t targetGuid) {
     auto* svs = renderer->getSpellVisualSystem();
     if (!svs) return;
     uint32_t visualId = resolveSpellVisualId(spellId);
-    if (visualId == 0) { LOG_WARNING("SpellVisual: triggerImpactVisual — visualId=0 for spellId=", spellId); return; }
+    if (visualId == 0) { LOG_WARNING("SpellVisual: triggerImpactVisual - visualId=0 for spellId=", spellId); return; }
     glm::vec3 targetPos;
     if (!resolveUnitPosition(targetGuid, targetPos)) return;
     LOG_INFO("SpellVisual: triggerImpactVisual visualId=", visualId, " pos=(", targetPos.x, ",", targetPos.y, ",", targetPos.z, ")");
@@ -479,8 +479,8 @@ SpellHandler::SpellHandler(GameHandler& owner)
 // the id where the name belongs and left the cast id absent. Two things went
 // wrong with that.
 //
-// The cast bar takes its own cast id from UnitCastingInfo — which answers the
-// spell id for it — and then, on STOP, compares `select(4, ...)` against it
+// The cast bar takes its own cast id from UnitCastingInfo - which answers the
+// spell id for it - and then, on STOP, compares `select(4, ...)` against it
 // before finishing the bar. That argument was nil, so the comparison was false
 // every time and the branch that flashes the bar, fills it and clears
 // self.casting never ran. UNIT_SPELLCAST_FAILED and _INTERRUPTED check the
@@ -491,14 +491,14 @@ SpellHandler::SpellHandler(GameHandler& owner)
 // rank the first time any spell of the player's succeeded.
 //
 // The cast id is the spell id here, which is what UnitCastingInfo reports, so
-// the two agree. It is not what the server calls a cast id — this client does
-// not keep the counter — but nothing compares it to anything else.
+// the two agree. It is not what the server calls a cast id - this client does
+// not keep the counter - but nothing compares it to anything else.
 std::vector<std::string> SpellHandler::spellcastArgs(const std::string& unitId,
                                                      uint32_t spellId) const {
     const std::string& name = owner_.getSpellName(spellId);
     const std::string& rank = owner_.getSpellRank(spellId);
     // A name that is not cached yet would be empty, and an empty string is a
-    // string — which is what the readers want. Nil would raise in strlower.
+    // string - which is what the readers want. Nil would raise in strlower.
     return {unitId, name, rank, std::to_string(spellId), std::to_string(spellId)};
 }
 
@@ -514,7 +514,7 @@ void SpellHandler::requestPetName(uint64_t petGuid) {
 }
 
 void SpellHandler::registerOpcodes(DispatchTable& table) {
-    // The reply, which was read to the end and thrown away — a skip handler
+    // The reply, which was read to the end and thrown away - a skip handler
     // for a message nothing had asked for, since nothing sent the request.
     //
     // Shape from AzerothCore's SendPetNameQuery: the key back, the name, and
@@ -578,7 +578,7 @@ void SpellHandler::registerOpcodes(DispatchTable& table) {
         owner_.fireAddonEvent("CONFIRM_TALENT_WIPE", {std::to_string(talentWipeCost_)});
     };
     // SMSG_PET_UNLEARN_CONFIRM: uint64 petGuid + uint32 cost (copper). Handled
-    // here for the same reason — this handler owns the pending-unlearn state.
+    // here for the same reason - this handler owns the pending-unlearn state.
     // The other pet opcodes have different formats and must NOT set unlearn state.
     table[Opcode::SMSG_PET_UNLEARN_CONFIRM] = [this](network::Packet& packet) {
         if (packet.hasRemaining(12)) {
@@ -591,7 +591,7 @@ void SpellHandler::registerOpcodes(DispatchTable& table) {
     table[Opcode::SMSG_ACHIEVEMENT_EARNED] = [this](network::Packet& packet) {
         handleAchievementEarned(packet);
     };
-    // SMSG_EQUIPMENT_SET_LIST — owned by InventoryHandler::registerOpcodes
+    // SMSG_EQUIPMENT_SET_LIST - owned by InventoryHandler::registerOpcodes
 
     // ---- Cast result / spell visuals / cooldowns / modifiers ----
     table[Opcode::SMSG_CAST_RESULT] = [this](network::Packet& p) { handleCastResult(p); };
@@ -698,7 +698,7 @@ void SpellHandler::castSpell(uint32_t spellId, uint64_t targetGuid) {
     // Fishing places a bobber in front of the caster using the facing the server has
     // on record. The client only sends MSG_MOVE_SET_FACING when the aim changes by >3°
     // (throttled to 10 Hz), so a small final aim adjustment before pressing cast may not
-    // have reached the server — leaving it with a slightly stale facing that drops the
+    // have reached the server - leaving it with a slightly stale facing that drops the
     // bobber off to the side or on land ("Face open water"). Push the exact current
     // facing right before the cast so the bobber lands where the player is aiming.
     if (spellclass::isFishingCast(spellId) && owner_.getSocket()) {
@@ -712,7 +712,7 @@ void SpellHandler::castSpell(uint32_t spellId, uint64_t targetGuid) {
     }
 
     // Profession spells (Cooking, First Aid, Alchemy, ...) open the crafting
-    // window client-side instead of being sent as casts — matching the real
+    // window client-side instead of being sent as casts - matching the real
     // client, where these spells just open the tradeskill UI.
     if (uint32_t craftSkillLine = tradeskillOpenerSkillLine(spellId)) {
         LOG_INFO("castSpell: spell ", spellId, " opens crafting window for skill line ", craftSkillLine);
@@ -722,7 +722,7 @@ void SpellHandler::castSpell(uint32_t spellId, uint64_t targetGuid) {
 
     // Pressing the companion you already have out puts it away. A companion has
     // no aura, so there is nothing in the buff bar to right-click and this is
-    // the only way to send one back — without it the button could only ever
+    // the only way to send one back - without it the button could only ever
     // summon, which is why pressing it again just produced the same critter.
     if (spellId != 0 && spellId == owner_.getActiveCritterSpellId() &&
         owner_.getActiveCritterGuid() != 0) {
@@ -766,7 +766,7 @@ void SpellHandler::castSpell(uint32_t spellId, uint64_t targetGuid) {
     }
 
     // A spell with a cast time cannot be started while moving, and the answer
-    // is to refuse it — not to stop the player.
+    // is to refuse it - not to stop the player.
     //
     // This used to clear the movement flags and send MSG_MOVE_STOP so the
     // server would accept the cast, on the reading that a server rejecting a
@@ -774,7 +774,7 @@ void SpellHandler::castSpell(uint32_t spellId, uint64_t targetGuid) {
     // CheckCast answers SPELL_FAILED_MOVING for a cast-time spell from a moving
     // player, and a mount aura carries AURA_INTERRUPT_FLAG_NOT_SEATED so it is
     // refused as well. Stopping the player first meant a mount key pressed at a
-    // run halted them and mounted them, which no real client does — reported
+    // run halted them and mounted them, which no real client does - reported
     // from play as being able to mount while running.
     //
     // Instant spells are unaffected, which is what keeps casting on the move
@@ -797,8 +797,8 @@ void SpellHandler::castSpell(uint32_t spellId, uint64_t targetGuid) {
     const bool selfCast = (spellId == 8690) || isSelfCastSpell(spellId);
     if (selfCast || fishingCast) target = 0;
 
-    // Spells cast at an item — Disenchant, Prospecting, Milling, the enchant
-    // formulas — carry TARGET_FLAG_ITEM in Spell.dbc's Targets. Sending one with
+    // Spells cast at an item - Disenchant, Prospecting, Milling, the enchant
+    // formulas - carry TARGET_FLAG_ITEM in Spell.dbc's Targets. Sending one with
     // no item in SpellCastTargets is what made the server answer "can't be
     // disenchanted": it evaluated the question against nothing. Arm the same
     // item-picking cursor an enchanting scroll uses and send the cast once the
@@ -814,7 +814,7 @@ void SpellHandler::castSpell(uint32_t spellId, uint64_t targetGuid) {
     }
 
     // Auto self-cast: a spell that has to be aimed at a friendly unit falls back
-    // to the caster when nothing friendly is selected — no target at all, or an
+    // to the caster when nothing friendly is selected - no target at all, or an
     // enemy, which is the usual state mid-fight. Without it, healing yourself
     // while fighting means dropping the target, casting, and picking it back up.
     // Gated on the setting, which the interface offers and this ignored. With
@@ -846,7 +846,7 @@ void SpellHandler::castSpell(uint32_t spellId, uint64_t targetGuid) {
     // A spell that lands on you never turns you. Facing is worked out from the
     // vector between you and your target, and when the target is you that
     // vector is the gap between the position this client has moved you to and
-    // the one the server last confirmed — which, while running, points
+    // the one the server last confirmed - which, while running, points
     // backwards along your own path. An instant self-cast on auto-run
     // therefore spun the character a half-turn and sent them back the way they
     // came. The gap clears the length check whenever you are moving at all,
@@ -875,7 +875,7 @@ void SpellHandler::castSpell(uint32_t spellId, uint64_t targetGuid) {
         }
         // Charge needs an attackable unit. Game objects (mining nodes, herb nodes,
         // chests, doors) and corpse objects can all be the current target in this
-        // client, and none of them derive from Unit — so they used to slip past the
+        // client, and none of them derive from Unit - so they used to slip past the
         // hostility checks below untouched and let the player charge at scenery.
         auto unit = std::dynamic_pointer_cast<Unit>(entity);
         const ObjectType targetType = entity->getType();
@@ -934,7 +934,7 @@ void SpellHandler::castSpell(uint32_t spellId, uint64_t targetGuid) {
     // Instant melee abilities: client-side range + facing check.
     // Melee is decided by the spell's own range, not by its school. SpellRange calls
     // melee "Combat Range" (5 yards), while physical-school abilities that are cast at
-    // range — Steady Shot, Multi-Shot, Taunt, Deadly Throw — carry a 30-35 yard range.
+    // range - Steady Shot, Multi-Shot, Taunt, Deadly Throw - carry a 30-35 yard range.
     // Testing the school instead would range-check those at 8 yards and swallow the cast.
     // An unknown range (SpellRange.dbc unavailable) is not treated as melee, so the
     // server arbitrates rather than the client blocking a legitimate cast.
@@ -1039,7 +1039,7 @@ void SpellHandler::cancelCast() {
 void SpellHandler::startCraftQueue(uint32_t spellId, int count) {
     // castSpell() dismounts a ground mount and then casts, so crafting while
     // mounted just works. But while airborne on a flying mount it blocks the
-    // cast — guard that here too so we don't populate the queue with a cast
+    // cast - guard that here too so we don't populate the queue with a cast
     // that will never fire (which would freeze the crafting UI on
     // "Crafting... N remaining").
     if (owner_.isMounted() && owner_.isPlayerFlying()) {
@@ -1142,14 +1142,14 @@ void SpellHandler::switchTalentSpec(uint8_t newSpec) {
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
 
     // Switching spec is a spell cast, not a message. AzerothCore lists
-    // CMSG_SET_ACTIVE_TALENT_GROUP_OBSOLETE as Handle_NULL — it reads the
-    // packet and does nothing — and the effect that actually moves a player
+    // CMSG_SET_ACTIVE_TALENT_GROUP_OBSOLETE as Handle_NULL - it reads the
+    // packet and does nothing - and the effect that actually moves a player
     // between specs is SPELL_EFFECT_TALENT_SPEC_SELECT, cast at themselves.
     //
     // This sent that dead opcode and then set the active spec locally anyway.
     // So the client believed it was on the second spec while the server had
     // never left the first, and everything the talent frame reads came from
-    // the second spec's slots — which the server never fills, because it keeps
+    // the second spec's slots - which the server never fills, because it keeps
     // reporting the first. That is both halves of what was seen: a spec that
     // switched itself, and a first spec that never received the points earned
     // by levelling.
@@ -1173,7 +1173,7 @@ void SpellHandler::switchTalentSpec(uint8_t newSpec) {
     LOG_INFO("Activating talent spec ", (int)newSpec, " by casting ", spellId);
     // Deliberately not set here. The server answers a successful switch with
     // SMSG_TALENTS_INFO naming the group it moved to, and that is the only
-    // thing that should move this — a local guess is what caused the drift.
+    // thing that should move this - a local guess is what caused the drift.
 }
 
 void SpellHandler::confirmTalentWipe() {
@@ -1201,7 +1201,7 @@ void SpellHandler::confirmPetUnlearn() {
     // Handle_NULL in AzerothCore's opcode table, and pet talents are only ever
     // reset there through the AT_LOGIN_RESET_PET_TALENTS flag at the next
     // login. Kept rather than dropped, because the request is correct and a
-    // server that implements it would act on it — but the line that followed
+    // server that implements it would act on it - but the line that followed
     // said "Pet talent reset confirmed", which is a claim about what happened
     // rather than about what was asked, and nothing was going to happen.
     //
@@ -1222,7 +1222,7 @@ void SpellHandler::confirmPetUnlearn() {
 uint32_t SpellHandler::findOnUseSpellId(uint32_t itemId) const {
     if (auto* info = owner_.getItemInfo(itemId)) {
         for (const auto& sp : info->spells) {
-            // spellTrigger 0 = "Use", 5 = "No Delay" — both are player-activated on-use effects
+            // spellTrigger 0 = "Use", 5 = "No Delay" - both are player-activated on-use effects
             if (sp.spellId != 0 && (sp.spellTrigger == 0 || sp.spellTrigger == 5)) {
                 return sp.spellId;
             }
@@ -1318,7 +1318,7 @@ void SpellHandler::useItemById(uint32_t itemId) {
 }
 
 const std::vector<SpellHandler::SpellBookTab>& SpellHandler::getSpellBookTabs() {
-    // Must be an instance member, not static — a static is shared across all
+    // Must be an instance member, not static - a static is shared across all
     // SpellHandler instances, so switching characters with the same spell count
     // would skip the rebuild and return the previous character's tabs.
     if (lastSpellCount_ == knownSpells_.size() && !spellBookTabsDirty_)
@@ -1357,7 +1357,7 @@ const std::vector<SpellHandler::SpellBookTab>& SpellHandler::getSpellBookTabs() 
     // Each tab's own picture, from SkillLine.dbc's icon column. Every tab used
     // to carry the same book, so the row of tabs down the side of the
     // spellbook was a column of identical squares that said nothing about
-    // which was which — the tooltip was the only way to tell them apart.
+    // which was which - the tooltip was the only way to tell them apart.
     //
     // The book stays as the fallback: a skill line with no icon, or an icon
     // this install cannot resolve, keeps what it had rather than going blank.
@@ -1569,7 +1569,7 @@ void SpellHandler::updateTimers(float dt) {
     }
     // A cooldown running out is the one thing that makes a spell usable again
     // without the server saying anything, so nothing announced it and the
-    // button stayed dimmed until the next time mana happened to change — the
+    // button stayed dimmed until the next time mana happened to change - the
     // only other place these two are fired from. Said once for the frame
     // however many ended in it.
     if (anyCooldownEnded && owner_.addonEventCallbackRef()) {
@@ -1853,9 +1853,9 @@ void SpellHandler::handleSpellStart(network::Packet& packet) {
               " target=0x", std::hex, data.targetGuid, std::dec);
 
     // Classify spell targeting for animation selection:
-    //   DIRECTED — targets a specific other unit (Frostbolt, Heal)
-    //   OMNI     — self-cast or no explicit target (Arcane Explosion, buffs)
-    //   AREA     — ground-targeted AoE with no unit target (Blizzard, Rain of Fire)
+    //   DIRECTED - targets a specific other unit (Frostbolt, Heal)
+    //   OMNI     - self-cast or no explicit target (Arcane Explosion, buffs)
+    //   AREA     - ground-targeted AoE with no unit target (Blizzard, Rain of Fire)
     auto classifyCast = [](uint64_t targetGuid, uint64_t casterGuid) -> SpellCastType {
         if (targetGuid == 0)            return SpellCastType::AREA;
         if (targetGuid == casterGuid)   return SpellCastType::OMNI;
@@ -1894,7 +1894,7 @@ void SpellHandler::handleSpellStart(network::Packet& packet) {
         castTimeRemaining_ = castTimeTotal_;
         if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("CURRENT_SPELL_CAST_CHANGED", {});
 
-        // Play precast sound — skip profession/tradeskill spells
+        // Play precast sound - skip profession/tradeskill spells
         if (!owner_.isProfessionSpell(data.spellId)) {
             if (auto* ac = owner_.services().audioCoordinator) {
                 if (auto* ssm = ac->getSpellSoundManager()) {
@@ -1926,7 +1926,7 @@ void SpellHandler::handleSpellStart(network::Packet& packet) {
             owner_.addonEventCallbackRef()("UNIT_SPELLCAST_START", spellcastArgs(unitId, data.spellId));
             // Whether the cast can be kicked, which the cast bar draws as a
             // shield around itself. This client already worked it out for the
-            // cast it is tracking and kept it — so a boss casting something
+            // cast it is tracking and kept it - so a boss casting something
             // uninterruptible looked exactly like one that could be stopped.
             //
             // After START, not before: the bar sets its shield up when the cast
@@ -1966,7 +1966,7 @@ void SpellHandler::handleSpellGo(network::Packet& packet) {
                                      restKind == spellclass::RestChannelKind::DRINK;
         // The real client sits itself when consuming food/water. Servers apply
         // the regen aura with AURA_INTERRUPT_FLAG_NOT_SEATED and remove it
-        // immediately unless the client sends CMSG_STANDSTATECHANGE(SIT) —
+        // immediately unless the client sends CMSG_STANDSTATECHANGE(SIT) -
         // without this the whole eat/drink presentation never starts.
         if (restorationLoop) {
             owner_.setStandState(1); // UNIT_STAND_STATE_SIT
@@ -1974,7 +1974,7 @@ void SpellHandler::handleSpellGo(network::Packet& packet) {
         // Start the cooldown the moment the cast lands, the way the real client
         // does. The server sends SMSG_SPELL_COOLDOWN only when it is correcting
         // a cooldown the client is expected to have worked out for itself, so
-        // waiting for one meant most abilities showed no swirl at all — and the
+        // waiting for one meant most abilities showed no swirl at all - and the
         // hearthstone, whose thirty minutes live in its spell's category
         // recovery, showed none until you clicked it a second time and the
         // refusal seeded it.
@@ -2024,7 +2024,7 @@ void SpellHandler::handleSpellGo(network::Packet& packet) {
 
         const bool wasInTimedCast = casting_ && (data.spellId == currentCastSpellId_);
 
-        // Instant spell cast animation — if this wasn't a timed cast and isn't a
+        // Instant spell cast animation - if this wasn't a timed cast and isn't a
         // melee ability, play a brief spell cast animation (one-shot)
         if (!wasInTimedCast && !isMeleeAbility && !rangedWeaponAttack && !restorationLoop &&
             !owner_.isProfessionSpell(data.spellId)) {
@@ -2100,7 +2100,7 @@ void SpellHandler::handleSpellGo(network::Packet& packet) {
         }
     } else {
         // For non-player casters: if no tracked cast state exists, this was an
-        // instant cast — play a brief one-shot spell animation before stopping
+        // instant cast - play a brief one-shot spell animation before stopping
         auto castIt = unitCastStates_.find(data.casterUnit);
         bool wasTrackedCast = (castIt != unitCastStates_.end());
         // Classify NPC instant spell from SPELL_GO target info
@@ -2310,7 +2310,7 @@ void SpellHandler::handleAuraUpdate(network::Packet& packet, bool isAll) {
                 owner_.addonEventCallbackRef()("UNIT_AURA", {unitId});
             }
             // Outside that, and indented to say so. It reads the same name and
-            // tests it again, so the behaviour is unchanged — but it was
+            // tests it again, so the behaviour is unchanged - but it was
             // written as though the check above guarded it, which is the shape
             // that hid a call to a null callback elsewhere in this file.
             if (unitId == "player") owner_.announceCompanionChange();
@@ -2326,7 +2326,7 @@ void SpellHandler::handleAuraUpdate(network::Packet& packet, bool isAll) {
             }
         }
 
-        // Sprint aura detection — check if any sprint/dash speed buff is active
+        // Sprint aura detection - check if any sprint/dash speed buff is active
         if (data.guid == owner_.getPlayerGuid() && owner_.sprintAuraCallbackRef()) {
             static constexpr uint32_t sprintSpells[] = {
                 2983, 8696, 11305,   // Rogue Sprint (ranks 1-3)
@@ -2419,7 +2419,7 @@ void SpellHandler::handleRemovedSpell(network::Packet& packet) {
     syncPreWotlkTalentsFromKnownSpells();
     LOG_INFO("Removed spell: ", spellId);
     // Braced. The two lines below were indented as though they sat inside the
-    // check above and did not — the first if has no body braces — so the
+    // check above and did not - the first if has no body braces - so the
     // crafting refresh called the callback without testing it, and a null one
     // throws rather than doing nothing.
     if (owner_.addonEventCallbackRef()) {
@@ -2499,7 +2499,7 @@ void SpellHandler::handleSupercededSpell(network::Packet& packet) {
     if (barChanged) {
         owner_.saveCharacterConfig();
         // Zero, not nothing. The slot is the argument, and zero is how the
-        // event says "all of them" — ActionButton_OnEvent reads
+        // event says "all of them" - ActionButton_OnEvent reads
         // `arg1 == 0 or arg1 == tonumber(self.action)`, so an absent one
         // matches neither and not a single button redraws. Which slots a
         // rank upgrade touched is not tracked here, and every slot is the
@@ -2607,7 +2607,7 @@ void SpellHandler::handleTalentsInfo(network::Packet& packet) {
 
 void SpellHandler::handleAchievementEarned(network::Packet& packet) {
     // WotLK SMSG_ACHIEVEMENT_EARNED: packGUID player + uint32 achievementId + packedTime.
-    // The player GUID is a PACKED guid, not a full uint64 — reading it as uint64 swallowed
+    // The player GUID is a PACKED guid, not a full uint64 - reading it as uint64 swallowed
     // 4 bytes of the achievement id (showing the raw guid + a garbage id), so decode the
     // packed guid and the fixed fields follow at the correct offset.
     if (!packet.hasFullPackedGuid()) return;
@@ -2641,7 +2641,7 @@ void SpellHandler::handleAchievementEarned(network::Packet& packet) {
             owner_.achievementEarnedCallbackRef()(achievementId, achName);
         }
         // Inside the branch, not after it. ACHIEVEMENT_EARNED is what raises
-        // FrameXML's badge, and it is about the player who is reading it —
+        // FrameXML's badge, and it is about the player who is reading it -
         // somebody else's is CHAT_MSG_ACHIEVEMENT, which the server sends
         // separately and this client already handles. Fired for everyone, a
         // stranger turning in a quest nearby put their achievement badge on
@@ -2653,7 +2653,7 @@ void SpellHandler::handleAchievementEarned(network::Packet& packet) {
     // No line for somebody else's, because the server has already sent one.
     // AchievementMgr::SendAchievementEarned puts a CHAT_MSG_ACHIEVEMENT through
     // the say range and then sends this packet through the same range, so both
-    // arrive together — and this client parses that chat type, substitutes the
+    // arrive together - and this client parses that chat type, substitutes the
     // achievement link into it, gives it a tab and fires CHAT_MSG_ACHIEVEMENT.
     // Writing one here as well was the third copy of the same news.
 
@@ -2662,7 +2662,7 @@ void SpellHandler::handleAchievementEarned(network::Packet& packet) {
              achName.empty() ? "" : " name=", achName);
 }
 
-// SMSG_EQUIPMENT_SET_LIST — moved to InventoryHandler
+// SMSG_EQUIPMENT_SET_LIST - moved to InventoryHandler
 
 // ============================================================
 // Pet spell methods (moved from GameHandler)
@@ -2709,7 +2709,7 @@ void SpellHandler::handlePetSpells(network::Packet& packet) {
     // This read the duration as a uint16 and never read the flags, so the
     // action bar started four bytes early: every slot held the one before it,
     // the first held the react and command bytes, and the last was lost. The
-    // react and command themselves came out of the duration's upper half —
+    // react and command themselves came out of the duration's upper half -
     // zero for a permanent pet, which is why they looked plausible.
     //
     // The family field is what a WotLK server sends for pet talents. Before
@@ -2742,14 +2742,14 @@ void SpellHandler::handlePetSpells(network::Packet& packet) {
             // same packing the action-bar slots above use and that
             // GetPetActionInfo already masks for. Read as four plus two, the
             // spell id carried the state and the autocast flag was two bytes of
-            // the next spell — and every spell after the first was misaligned.
+            // the next spell - and every spell after the first was misaligned.
             if (!packet.hasRemaining(4)) break;
             const uint32_t packed  = packet.readUInt32();
             const uint32_t spellId = packed & 0x00FFFFFFu;
             const uint8_t  state   = static_cast<uint8_t>(packed >> 24);
             if (spellId == 0) continue;
             owner_.petSpellListRef().push_back(spellId);
-            // ACT_ENABLED is 0xC1 and ACT_DISABLED 0x81 — 0x40 is the autocast
+            // ACT_ENABLED is 0xC1 and ACT_DISABLED 0x81 - 0x40 is the autocast
             // bit. The old test was & 0x0001, which is ACT_PASSIVE's bit.
             if (state & 0x40) {
                 owner_.petAutocastSpellsRef().insert(spellId);
@@ -2838,7 +2838,7 @@ void SpellHandler::handleListStabledPets(network::Packet& packet) {
         // This read four bytes for one and then a fifth for the flag, so the
         // display id swallowed the flag plus three bytes of the next pet's
         // number, the flag came from that number's fourth byte, and every pet
-        // after the first was read at the wrong offset — with the last dropped
+        // after the first was read at the wrong offset - with the last dropped
         // for want of five bytes that were never there.
         if (!packet.hasRemaining(1)) break;
         pet.isActive  = (packet.readUInt8() == 1);
@@ -2910,7 +2910,7 @@ void SpellHandler::resetCastState() {
     queuedSpellId_ = 0;
     queuedSpellTarget_ = 0;
     owner_.pendingGameObjectInteractGuidRef() = 0;
-    // lastInteractedGoGuid_ is intentionally NOT cleared here — it must survive
+    // lastInteractedGoGuid_ is intentionally NOT cleared here - it must survive
     // until the server delivers SMSG_LOOT_RESPONSE after the cast completes.
     // InventoryHandler::handleLootResponse() clears it once loot has opened
     // (src/game/inventory_handler.cpp). Previously it was cleared here, which
@@ -3066,7 +3066,7 @@ void SpellHandler::loadSpellNameCache() const {
     const uint32_t spellVisualIdField = spellL ? spellL->field("SpellVisualID") : 0xFFFFFFFF;
     // Read off the file's own shape. Only TBC's layout named these two, so on
     // WotLK, Classic and Turtle every cooldown this client worked out for itself
-    // came back zero — which is most of them, since the server sends a cooldown
+    // came back zero - which is most of them, since the server sends a cooldown
     // only when it is correcting one the client should already have.
     const auto timing = pipeline::detectSpellTimingFields(dbc.get(), spellL);
     const uint32_t recoveryField = timing.recoveryTime;
@@ -3268,7 +3268,7 @@ const std::string& SpellHandler::getTotemCategoryName(uint32_t categoryId) {
         totemCategoryDbcLoaded_ = true;
         auto* am = owner_.services().assetManager;
         if (am && am->isInitialized()) {
-            // TBC/WotLK only — absent in Vanilla, where totem failures carry
+            // TBC/WotLK only - absent in Vanilla, where totem failures carry
             // item ids instead of category ids.
             auto dbc = am->loadDBC("TotemCategory.dbc");
             // ID(0) + Name locstring whose English text sits at field 1.
@@ -3341,7 +3341,7 @@ uint32_t SpellHandler::tradeskillOpenerSkillLine(uint32_t spellId) {
 // Trainer spell categorisation lives in InventoryHandler::categorizeTrainerSpells,
 // which handleTrainerList calls and which reads InventoryHandler's own populated
 // currentTrainerList_. A stale duplicate here read GameHandler's copy of that
-// list — a copy nothing ever writes — so it always categorised an empty list;
+// list - a copy nothing ever writes - so it always categorised an empty list;
 // it had no caller and its output (GameHandler's trainerTabs_) no reader, the
 // UI going through getTrainerTabs, which delegates to InventoryHandler. Removed
 // with the dead GameHandler members it was the only user of, so no one later
@@ -3497,7 +3497,7 @@ bool SpellHandler::isSelfCastSpell(uint32_t spellId) const {
     loadSpellNameCache();
     auto it = owner_.spellNameCacheRef().find(spellId);
     if (it == owner_.spellNameCacheRef().end()) return false;
-    // SpellRange "Self Only" has a max range of 0 — the spell cannot reach any
+    // SpellRange "Self Only" has a max range of 0 - the spell cannot reach any
     // other unit, so it is cast on the caster no matter what is targeted.
     // A negative range means SpellRange.dbc was unavailable; assume not self-cast.
     return spellclass::isSelfCastRange(it->second.maxRange);
@@ -3568,7 +3568,7 @@ void SpellHandler::loadSkillLineDbc() {
     LOG_INFO("GameHandler: Loaded ", owner_.skillLineNamesRef().size(), " skill line names");
 
     // The eight headings the skills tab groups under, read from the file that
-    // names them rather than written out here — and with the order the file
+    // names them rather than written out here - and with the order the file
     // itself gives, which is the order the original tab draws them in:
     // Attributes, Class Skills, Professions, Secondary Skills, Weapon Skills,
     // Armor Proficiencies, Languages, Not Displayed.
@@ -3798,7 +3798,7 @@ void SpellHandler::handleClearCooldown(network::Packet& packet) {
 }
 
 void SpellHandler::handleModifyCooldown(network::Packet& packet) {
-    // uint32 spellId, uint64 playerGuid, int32 cooldownMod — the guid was not
+    // uint32 spellId, uint64 playerGuid, int32 cooldownMod - the guid was not
     // read, so the change in milliseconds came from its low half and the
     // cooldown moved by whatever that happened to be.
     if (packet.hasRemaining(16)) {
@@ -4022,7 +4022,7 @@ void SpellHandler::handleSpellFailure(network::Packet& packet) {
         }
     }
     if (failGuid == owner_.getPlayerGuid() || failGuid == 0) {
-        // Player's own cast failed — clear gather-node loot target so the
+        // Player's own cast failed - clear gather-node loot target so the
         // next timed cast doesn't try to loot a stale interrupted gather node.
         casting_ = false; castIsChannel_ = false; currentCastSpellId_ = 0;
         owner_.lastInteractedGoGuidRef() = 0;
@@ -4044,7 +4044,7 @@ void SpellHandler::handleSpellFailure(network::Packet& packet) {
             owner_.spellCastAnimCallbackRef()(owner_.getPlayerGuid(), false, false, SpellCastType::OMNI);
         }
     } else {
-        // Another unit's cast failed — clear their tracked cast bar
+        // Another unit's cast failed - clear their tracked cast bar
         unitCastStates_.erase(failGuid);
         if (owner_.spellCastAnimCallbackRef()) {
             owner_.spellCastAnimCallbackRef()(failGuid, false, false, SpellCastType::OMNI);
@@ -4161,7 +4161,7 @@ void SpellHandler::handleTotemCreated(network::Packet& packet) {
         owner_.activeTotemSlotsRef()[slot].durationMs = duration;
         owner_.activeTotemSlotsRef()[slot].placedAt   = std::chrono::steady_clock::now();
         // The totem bar draws each slot from its start and duration, and
-        // refreshes on this alone — without it a totem is placed and the bar
+        // refreshes on this alone - without it a totem is placed and the bar
         // goes on showing whatever was there before.
         if (owner_.addonEventCallbackRef()) {
             owner_.addonEventCallbackRef()("PLAYER_TOTEM_UPDATE",
@@ -4264,7 +4264,7 @@ void SpellHandler::handlePeriodicAuraLog(network::Packet& packet) {
                 }
             }
         } else {
-            // Unknown/untracked aura type — stop parsing this event safely
+            // Unknown/untracked aura type - stop parsing this event safely
             packet.skipAll();
             break;
         }
@@ -4335,7 +4335,7 @@ void SpellHandler::handleExtraAuraInfo(network::Packet& packet, bool isInit) {
         (void)               packet.readUInt8();     // effectIndex: 1 byte (unused for slot display)
         uint8_t  flags       = packet.readUInt8();   // 1 byte
         uint32_t durationMs  = packet.readUInt32();  // 4 bytes
-        uint32_t maxDurMs    = packet.readUInt32();  // 4 bytes — total 15 bytes per entry
+        uint32_t maxDurMs    = packet.readUInt32();  // 4 bytes - total 15 bytes per entry
 
         if (auraList) {
             while (auraList->size() <= slot) auraList->push_back(AuraSlot{});
@@ -4598,13 +4598,13 @@ namespace {
 /// server writes it.
 ///
 /// SMSG_SPELLLOGEXECUTE names its target with a packed guid, and some cores
-/// write a full eight-byte one instead — which is what exeUsesFullGuid decides,
+/// write a full eight-byte one instead - which is what exeUsesFullGuid decides,
 /// once, for the whole packet. Each per-effect parser then had to read it that
 /// way, with the right guard for each form: eight bytes for a full guid, and
 /// for a packed one a byte plus the check that the mask's bytes are all there.
 ///
 /// Written out in three of them. False means the packet cannot honour it, and
-/// every caller answers that the same way — abandon the rest of the packet,
+/// every caller answers that the same way - abandon the rest of the packet,
 /// because a target read short leaves every field after it misaligned.
 bool readEffectLogTarget(network::Packet& packet, bool usesFullGuid, uint64_t& out) {
     if (!packet.hasRemaining(usesFullGuid ? 8u : 1u)) return false;
@@ -4801,7 +4801,7 @@ void SpellHandler::handleSpellLogExecute(network::Packet& packet) {
             parseEffectFeedPet(packet, effectLogCount, exeCaster, exeSpellId,
                                isPlayerCaster);
         } else {
-            // Unknown effect type — stop parsing to avoid misalignment
+            // Unknown effect type - stop parsing to avoid misalignment
             packet.skipAll();
             break;
         }
@@ -4841,7 +4841,7 @@ void SpellHandler::handleItemEnchantTimeUpdate(network::Packet& packet) {
     // Format: uint64 itemGuid + uint32 enchantmentSlot + uint32 durationSec + uint64 playerGuid
     //
     // The slot here is the item's *enchantment* slot (TEMP_ENCHANTMENT_SLOT = 1),
-    // not the equipment slot — reading it as one labels every temporary enchant
+    // not the equipment slot - reading it as one labels every temporary enchant
     // "Off Hand", even on a two-hander. The item GUID is what says where it sits.
     if (!packet.hasRemaining(24)) {
         packet.skipAll(); return;
@@ -4871,7 +4871,7 @@ void SpellHandler::handleItemEnchantTimeUpdate(network::Packet& packet) {
             std::chrono::steady_clock::now().time_since_epoch()).count());
 
     if (durationSec == 0) {
-        // Enchant expired / removed — erase the slot entry
+        // Enchant expired / removed - erase the slot entry
         owner_.tempEnchantTimersRef().erase(
             std::remove_if(owner_.tempEnchantTimersRef().begin(), owner_.tempEnchantTimersRef().end(),
                            [enchSlot](const GameHandler::TempEnchantTimer& t) { return t.slot == enchSlot; }),
@@ -4963,7 +4963,7 @@ void SpellHandler::handleChannelStart(network::Packet& packet) {
                   " spell=", chanSpellId, " total=", chanTotalMs, "ms");
 
         // Play channeling animation (looping)
-        // Channel packets don't carry targetGuid — use player's current target as hint
+        // Channel packets don't carry targetGuid - use player's current target as hint
         SpellCastType chanType = SpellCastType::OMNI;
         if (chanCaster == owner_.getPlayerGuid() && owner_.getTargetGuid() != 0)
             chanType = SpellCastType::DIRECTED;
@@ -5011,7 +5011,7 @@ void SpellHandler::handleChannelUpdate(network::Packet& packet) {
     }
     // Fire UNIT_SPELLCAST_CHANNEL_STOP when channel ends
     if (chanRemainMs == 0) {
-        // Stop channeling animation — return to idle
+        // Stop channeling animation - return to idle
         if (owner_.spellCastAnimCallbackRef()) {
             owner_.spellCastAnimCallbackRef()(chanCaster2, false, true, SpellCastType::OMNI);
         }
@@ -5045,7 +5045,7 @@ void SpellHandler::stablePet(uint8_t slot) {
 
 // The stable master sells a fourth, fifth and sixth slot; the panel's buy
 // button asks for one at a time and the server bills for whichever is next.
-// CMSG_BUY_STABLE_SLOT carries nothing but who is being asked — HandleBuyStableSlot
+// CMSG_BUY_STABLE_SLOT carries nothing but who is being asked - HandleBuyStableSlot
 // reads a guid and checks it is a stable master, and works the price out itself.
 void SpellHandler::buyStableSlot() {
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket() ||

@@ -5,7 +5,7 @@ The nil-use sweep asks whether a *missing* function is called somewhere fatal.
 This asks the harder question: a binding that exists, answers nil, and whose
 answer is then added to something or concatenated into a string.
 
-Nil is survivable almost everywhere in FrameXML — a guard fails, a branch is
+Nil is survivable almost everywhere in FrameXML - a guard fails, a branch is
 skipped, a label goes blank. It is not survivable in two places:
 
     "prefix"..value        attempt to concatenate a nil value
@@ -18,7 +18,7 @@ binding that answered nil because nothing had filled it in yet.
 
 WHAT IT MATCHES
 
-A destructure from a call — `local a, b, c = Foo(...)` — followed inside the
+A destructure from a call - `local a, b, c = Foo(...)` - followed inside the
 same function by one of those two operations on one of those names, with no
 `if a`, `if not a`, `a or`, or `a and` between. The guard test is deliberately
 generous: FrameXML guards constantly and a sweep that ignores guards reports
@@ -30,7 +30,7 @@ The first run reported 87. Three things were wrong, each of which turned
 correct code into a finding:
 
   * The nil test scanned a fixed window after each table entry and ran into the
-    next one, so GetMerchantNumItems — which returns zero — was flagged because
+    next one, so GetMerchantNumItems - which returns zero - was flagged because
     a later binding pushes nil. Bodies are read by brace matching now.
   * Nearly every binding pushes nil on an early-out (`if (!gh) return
     luaReturnNil(L)`), and a caller that got as far as calling it has already
@@ -40,7 +40,7 @@ correct code into a finding:
     both point counts; flagging every name unpacked from it reported the two
     that were fine.
 
-With all three: 2. Both false positives, and both checkable in a minute —
+With all three: 2. Both false positives, and both checkable in a minute -
 LOOT_BIND_CONFIRM is never fired, and LoadAddOn's reason sits inside
 `if ( not loaded )`.
 
@@ -48,7 +48,7 @@ WHAT IT STILL CANNOT SEE
 
 A guard in the caller rather than in the function doing the arithmetic.
 GroupLootFrame_OnShow tests `name == nil` and returns, and the concatenation is
-two functions away — correct, and invisible from here.
+two functions away - correct, and invisible from here.
 
 It found nothing new. The two bugs it was written for, both in the
 dungeon-ready dialog, were already fixed by reading the file. It is here so
@@ -119,8 +119,8 @@ def _nil_positions(body):
 def _answers_nil(body):
     """Whether the binding answers nil on its SUCCESS path.
 
-    This is the whole difficulty. Nearly every binding pushes nil somewhere —
-    `if (!gh) return luaReturnNil(L)` is the house style — and a caller that
+    This is the whole difficulty. Nearly every binding pushes nil somewhere -
+    `if (!gh) return luaReturnNil(L)` is the house style - and a caller that
     reached the binding at all has already made that path unreachable.
     Counting those flagged seven bindings in a row that were all fine.
 

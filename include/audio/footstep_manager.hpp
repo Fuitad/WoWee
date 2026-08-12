@@ -27,7 +27,7 @@ enum class FootstepSurface : uint8_t {
 enum class FootstepBank : uint8_t {
     CHARACTER = 0,  // medium/large biped footsteps (also padded mounts: wolf/tiger/raptor)
     HORSE,          // hoofed mounts (horse/skeletal horse/ram)
-    HEAVY           // heavy mounts (kodo) — mFootHuge* sample set
+    HEAVY           // heavy mounts (kodo) - mFootHuge* sample set
 };
 
 class FootstepManager {

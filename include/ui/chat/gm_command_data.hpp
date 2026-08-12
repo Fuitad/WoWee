@@ -1,4 +1,4 @@
-// GM command metadata — names, security levels, syntax, help text.
+// GM command metadata - names, security levels, syntax, help text.
 // Sourced from AzerothCore GM commands wiki.
 // Used for tab-completion and .gmhelp display; the server handles execution.
 #pragma once
@@ -18,7 +18,7 @@ struct GmCommandEntry {
 };
 
 // Curated list of the most useful GM commands for a client emulator.
-// The full AzerothCore list has 500+ commands — this table covers the
+// The full AzerothCore list has 500+ commands - this table covers the
 // ones players/GMs actually type regularly, organized by category.
 inline constexpr std::array kGmCommands = {
 

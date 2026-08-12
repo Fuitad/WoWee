@@ -18,19 +18,19 @@ follow.
 
 ### Thread Responsibilities
 
-* **Main thread** — SDL event pumping, game logic (entity update, camera, UI),
+* **Main thread** - SDL event pumping, game logic (entity update, camera, UI),
   GPU resource upload/finalization, render command recording, Vulkan present.
-* **Network pump** — `recv()` loop, header decryption, packet parsing.  Pushes
+* **Network pump** - `recv()` loop, header decryption, packet parsing.  Pushes
   parsed packets into `pendingPacketCallbacks_` (locked by `callbackMutex_`).
   The main thread drains this queue via `dispatchQueuedPackets()`.
-* **Terrain workers** — background ADT/WMO/M2 file I/O, mesh decoding, texture
+* **Terrain workers** - background ADT/WMO/M2 file I/O, mesh decoding, texture
   decompression.  Workers push completed `PendingTile` objects into `readyQueue`
   (locked by `queueMutex`).  The main thread finalizes (GPU upload) via
   `processReadyTiles()`.
-* **Watchdog** — periodic frame-stall detection.  Reads `watchdogHeartbeatMs`
+* **Watchdog** - periodic frame-stall detection.  Reads `watchdogHeartbeatMs`
   (atomic) and optionally requests a Vulkan device reset via
   `watchdogRequestRelease` (atomic).
-* **Fire-and-forget** — short-lived tasks.  Each captures only the data it
+* **Fire-and-forget** - short-lived tasks.  Each captures only the data it
   needs or uses a dedicated result channel (e.g. `std::future`,
   `completedNormalMaps_` with `normalMapResultsMutex_`).
 
@@ -80,7 +80,7 @@ follow.
 | `uploadedM2Ids_`      | `uploadedM2IdsMutex_`    | Workers check, main inserts on finalize |
 | `preparedWmoUniqueIds_`| `preparedWmoUniqueIdsMutex_` | Workers only |
 | `missingAdtWarnings_` | `missingAdtWarningsMutex_` | Workers only |
-| `workerRunning`       | `std::atomic<bool>`      | — |
+| `workerRunning`       | `std::atomic<bool>`      | - |
 | `placedDoodadIds`, `placedWmoIds`, `loadedTiles`, `failedTiles` | MAIN-THREAD-ONLY | Only touched in processReadyTiles / unloadDistantTiles |
 
 ### Entity Manager (`include/game/entity.hpp`)
@@ -109,7 +109,7 @@ follow.
 |-------------------------|--------------------|-------|
 | `watchdogHeartbeatMs`   | `std::atomic<int64_t>` | Main stores, watchdog loads |
 | `watchdogRequestRelease`| `std::atomic<bool>` | Watchdog stores, main exchanges |
-| `watchdogRunning`       | `std::atomic<bool>` | — |
+| `watchdogRunning`       | `std::atomic<bool>` | - |
 
 ---
 
@@ -132,7 +132,7 @@ follow.
 6. **No lock-order inversions.**  Current order (most-outer first):
    `ioMutex_` → `callbackMutex_` → `queueMutex` → `cacheMutex`.
 
-7. **ThreadSanitizer** — run periodically with `-fsanitize=thread` to catch
+7. **ThreadSanitizer** - run periodically with `-fsanitize=thread` to catch
    regressions:
    ```bash
    cmake -DCMAKE_CXX_FLAGS="-fsanitize=thread" .. && make -j$(nproc)
@@ -149,7 +149,7 @@ follow.
 
 * `packetCallback` in `WorldSocket` is set once before `connect()` and
   never modified afterwards.  This is safe in practice but not formally
-  synchronized — do not change the callback after `connect()`.
+  synchronized - do not change the callback after `connect()`.
 
 * `fileCacheMisses` is declared as `std::atomic<size_t>` for consistency but is
   currently never incremented; the actual miss count must be inferred from

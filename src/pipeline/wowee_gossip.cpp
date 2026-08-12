@@ -120,12 +120,12 @@ WoweeGossip WoweeGossipLoader::makeInnkeeper(const std::string& catalogName) {
     {
         // menuId 4001 deliberately matches what WCRT.makeStarter
         // and WCRT.makeMerchants set as Bartleby's gossipId
-        // (currently 0 — set this when the demo content stack
+        // (currently 0 - set this when the demo content stack
         // is updated to wire WCRT.gossipId = 4001).
         WoweeGossip::Entry e;
         e.menuId = 4001;
         e.titleText =
-            "Welcome to the inn! What'll it be — a room, "
+            "Welcome to the inn! What'll it be - a room, "
             "a meal, or directions?";
         e.options.push_back({1, "Make this inn my home.",
                               WoweeGossip::Innkeeper, 0,

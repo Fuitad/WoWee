@@ -4,7 +4,7 @@ namespace wowee {
 namespace editor {
 namespace cli {
 
-// Dispatch the batch-runner handlers — iterate over zones (or
+// Dispatch the batch-runner handlers - iterate over zones (or
 // tiles within a zone) and execute a shell command for each
 // one, with `{}` substitution like find -exec.
 //   --for-each-zone <projectDir> -- <cmd>

@@ -1,4 +1,4 @@
-// text_wrap.hpp — Breaking a run of text into lines that fit a width.
+// text_wrap.hpp - Breaking a run of text into lines that fit a width.
 //
 // Pulled out of the renderer so it can be tested without a font. The widths
 // come from a callable rather than from ImFont, which is the only thing the
@@ -23,8 +23,8 @@ struct WrapRun {
     std::string text;
     bool  hasColor = false;
     float rgba[4] = {1.0f, 1.0f, 1.0f, 1.0f};
-    /// The payload of the |H...|h this run sits inside — "item:3299" and the
-    /// like — or empty when the run is not part of a link. Carried so a click
+    /// The payload of the |H...|h this run sits inside - "item:3299" and the
+    /// like - or empty when the run is not part of a link. Carried so a click
     /// has something to name; the display text alone cannot say what was
     /// clicked.
     std::string link;
@@ -44,7 +44,7 @@ inline bool sameStyle(const WrapRun& a, const WrapRun& b) {
 /// Break runs into lines no wider than wrapWidth.
 ///
 /// `measure` answers the width of a string. A wrapWidth of zero means no soft
-/// wrapping, which is what an auto-sized label wants — it is as wide as its own
+/// wrapping, which is what an auto-sized label wants - it is as wide as its own
 /// text. A newline still breaks the line at any width: |n is WoW's spelling of
 /// one, and a label with an explicit break gets one whether or not anything is
 /// wrapping.

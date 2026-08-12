@@ -299,7 +299,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 e.updateFrequencyMs == 0) {
                 errors.push_back(ctx +
                     ": Periodic kind requires updateFrequencyMs > 0 "
-                    "— aura would never tick");
+                    "- aura would never tick");
             }
             // Non-periodic with updateFrequencyMs > 0 is suspicious.
             if (e.auraKind != wowee::pipeline::WoweeSpellAuraType::Periodic &&
@@ -310,13 +310,13 @@ int handleValidate(int& i, int argc, char** argv) {
                     wowee::pipeline::WoweeSpellAuraType::auraKindName(e.auraKind) +
                     " kind with updateFrequencyMs=" +
                     std::to_string(e.updateFrequencyMs) +
-                    " — non-periodic auras don't tick, engine ignores");
+                    " - non-periodic auras don't tick, engine ignores");
             }
             // maxStackCount > 0 with isStackable=0 is contradictory.
             if (e.isStackable == 0 && e.maxStackCount > 0) {
                 warnings.push_back(ctx +
                     ": maxStackCount=" + std::to_string(e.maxStackCount) +
-                    " set but isStackable=false — stack cap is "
+                    " set but isStackable=false - stack cap is "
                     "unreachable");
             }
             if (!idsSeen.add(e.auraTypeId)) errors.push_back(ctx + ": duplicate auraTypeId");

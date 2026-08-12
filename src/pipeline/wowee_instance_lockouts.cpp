@@ -123,10 +123,10 @@ WoweeInstanceLockout WoweeInstanceLockoutLoader::makeRaidWeekly(
         e.iconColorRGBA = packRgba(220, 80, 100);    // raid red
         c.entries.push_back(e);
     };
-    add(1, "ICC10Normal",  100, 10, "ICC 10-Normal weekly lockout — 12 bosses, 10 players.");
-    add(2, "ICC25Normal",  101, 25, "ICC 25-Normal weekly lockout — 12 bosses, 25 players.");
-    add(3, "ICC10Heroic",  102, 10, "ICC 10-Heroic weekly lockout — 12 bosses, 10 players, heroic loot tier.");
-    add(4, "ICC25Heroic",  103, 25, "ICC 25-Heroic weekly lockout — 12 bosses, 25 players, heroic loot tier.");
+    add(1, "ICC10Normal",  100, 10, "ICC 10-Normal weekly lockout - 12 bosses, 10 players.");
+    add(2, "ICC25Normal",  101, 25, "ICC 25-Normal weekly lockout - 12 bosses, 25 players.");
+    add(3, "ICC10Heroic",  102, 10, "ICC 10-Heroic weekly lockout - 12 bosses, 10 players, heroic loot tier.");
+    add(4, "ICC25Heroic",  103, 25, "ICC 25-Heroic weekly lockout - 12 bosses, 25 players, heroic loot tier.");
     return c;
 }
 
@@ -150,13 +150,13 @@ WoweeInstanceLockout WoweeInstanceLockoutLoader::makeDungeonDaily(
     };
     // WotLK 5-man heroic dungeon mapIds.
     add(100, "HallsOfReflectionH",  668, 3,
-        "Halls of Reflection heroic — daily lockout, 3 bosses, 5 players.");
+        "Halls of Reflection heroic - daily lockout, 3 bosses, 5 players.");
     add(101, "ForgeOfSoulsH",       632, 2,
-        "Forge of Souls heroic — daily lockout, 2 bosses, 5 players.");
+        "Forge of Souls heroic - daily lockout, 2 bosses, 5 players.");
     add(102, "PitOfSaronH",         658, 3,
-        "Pit of Saron heroic — daily lockout, 3 bosses, 5 players.");
+        "Pit of Saron heroic - daily lockout, 3 bosses, 5 players.");
     add(103, "TrialOfTheChampionH", 650, 4,
-        "Trial of the Champion heroic — daily lockout, 4 bosses, 5 players.");
+        "Trial of the Champion heroic - daily lockout, 4 bosses, 5 players.");
     return c;
 }
 
@@ -181,11 +181,11 @@ WoweeInstanceLockout WoweeInstanceLockoutLoader::makeWorldEvent(
     // World-event lockouts with non-standard intervals.
     // Wintergrasp's 2.5h cycle is the canonical Custom kind.
     add(200, "BrewfestRamDaily",     0, L::kDailyMs, L::Daily, 1,
-        "Brewfest Ram Racing — daily reset, 1 reward per day.");
+        "Brewfest Ram Racing - daily reset, 1 reward per day.");
     add(201, "HallowsEndPumpkin",    0, L::kDailyMs, L::Daily, 1,
-        "Hallow's End pumpkin spawn — daily reset, 1 candy bag per day.");
+        "Hallow's End pumpkin spawn - daily reset, 1 candy bag per day.");
     add(202, "WintergraspBattle",  571, 9000000u, L::Custom, 1,
-        "Wintergrasp battle — 2.5h reset (9000000ms) outdoor PvP zone.");
+        "Wintergrasp battle - 2.5h reset (9000000ms) outdoor PvP zone.");
     return c;
 }
 

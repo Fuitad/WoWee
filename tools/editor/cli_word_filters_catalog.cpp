@@ -327,7 +327,7 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": name is empty");
         if (e.pattern.empty()) {
             errors.push_back(ctx +
-                ": pattern is empty — filter would match "
+                ": pattern is empty - filter would match "
                 "nothing (or every message, depending on "
                 "the matcher's empty-string semantics)");
         }
@@ -349,18 +349,18 @@ int handleValidate(int& i, int argc, char** argv) {
         if (e.severity == F::Replace && e.replacement.empty()) {
             warnings.push_back(ctx +
                 ": Replace severity with empty "
-                "replacement — message would silently lose "
+                "replacement - message would silently lose "
                 "the matched substring (effectively Drop "
                 "semantics for that span). Use severity="
                 "Drop explicitly if that's the intent.");
         }
-        // Pattern uniqueness — two filters with the same
+        // Pattern uniqueness - two filters with the same
         // pattern would fire ambiguously.
         if (!e.pattern.empty() &&
             !patternsSeen.insert(e.pattern).second) {
             errors.push_back(ctx +
                 ": pattern '" + e.pattern +
-                "' already used by another filter — "
+                "' already used by another filter - "
                 "preprocessor dispatch would be "
                 "non-deterministic");
         }

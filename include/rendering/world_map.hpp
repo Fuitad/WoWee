@@ -1,4 +1,4 @@
-// world_map.hpp — Shim header for backward compatibility.
+// world_map.hpp - Shim header for backward compatibility.
 // Redirects to the modular world_map/world_map_facade.hpp.
 // Consumers should migrate to #include "rendering/world_map/world_map_facade.hpp" directly.
 #pragma once

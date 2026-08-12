@@ -237,7 +237,7 @@ std::vector<std::string> validateWocErrors(
     if (woc.tileX >= 64 || woc.tileY >= 64) {
         errors.push_back("tile coords out of WoW grid: (" +
                          std::to_string(woc.tileX) + ", " +
-                         std::to_string(woc.tileY) + ") — must be < 64");
+                         std::to_string(woc.tileY) + ") - must be < 64");
     }
     int nanTris = 0, degenerate = 0, badFlags = 0;
     auto isFiniteVec = [](const glm::vec3& v) {
@@ -336,7 +336,7 @@ std::vector<std::string> validateWhmErrors(
         errors.push_back("no chunks loaded (heightmap empty)");
     }
     // Heights outside the WoW world envelope often signal a units-confusion
-    // bug — most maps stay in [-3000, 3000]. Warn-class, not fail.
+    // bug - most maps stay in [-3000, 3000]. Warn-class, not fail.
     if (loadedChunks > 0 && (minH < -10000.0f || maxH > 10000.0f)) {
         errors.push_back("height range [" + std::to_string(minH) +
                          ", " + std::to_string(maxH) +
@@ -489,13 +489,13 @@ int handleValidateWom(int& i, int argc, char** argv) {
     }
     std::printf("WOM: %s.wom (v%u)\n", base.c_str(), wom.version);
     if (errors.empty()) {
-        std::printf("  PASSED — %zu verts, %zu indices, %zu bones, %zu anims, %zu batches\n",
+        std::printf("  PASSED - %zu verts, %zu indices, %zu bones, %zu anims, %zu batches\n",
                     wom.vertices.size(), wom.indices.size(),
                     wom.bones.size(), wom.animations.size(),
                     wom.batches.size());
         return 0;
     }
-    std::printf("  FAILED — %zu error(s):\n", errors.size());
+    std::printf("  FAILED - %zu error(s):\n", errors.size());
     for (const auto& e : errors) std::printf("    - %s\n", e.c_str());
     return 1;
 }
@@ -531,17 +531,17 @@ int handleValidateWob(int& i, int argc, char** argv) {
     std::printf("WOB: %s.wob\n", base.c_str());
     std::printf("  name      : %s\n", bld.name.c_str());
     if (errors.empty()) {
-        std::printf("  PASSED — %zu groups, %zu portals, %zu doodads\n",
+        std::printf("  PASSED - %zu groups, %zu portals, %zu doodads\n",
                     bld.groups.size(), bld.portals.size(), bld.doodads.size());
         return 0;
     }
-    std::printf("  FAILED — %zu error(s):\n", errors.size());
+    std::printf("  FAILED - %zu error(s):\n", errors.size());
     for (const auto& e : errors) std::printf("    - %s\n", e.c_str());
     return 1;
 }
 
 int handleValidateWoc(int& i, int argc, char** argv) {
-    // Deep check on a WOC collision mesh — finite vertex coords,
+    // Deep check on a WOC collision mesh - finite vertex coords,
     // non-degenerate triangles, valid flag bits, sane bounds.
     // Catches corruption that breaks movement queries silently.
     std::string path = argv[++i];
@@ -570,18 +570,18 @@ int handleValidateWoc(int& i, int argc, char** argv) {
     std::printf("WOC: %s\n", path.c_str());
     std::printf("  tile      : (%u, %u)\n", woc.tileX, woc.tileY);
     if (errors.empty()) {
-        std::printf("  PASSED — %zu triangles (%zu walkable, %zu steep)\n",
+        std::printf("  PASSED - %zu triangles (%zu walkable, %zu steep)\n",
                     woc.triangles.size(),
                     woc.walkableCount(), woc.steepCount());
         return 0;
     }
-    std::printf("  FAILED — %zu error(s):\n", errors.size());
+    std::printf("  FAILED - %zu error(s):\n", errors.size());
     for (const auto& e : errors) std::printf("    - %s\n", e.c_str());
     return 1;
 }
 
 int handleValidateWhm(int& i, int argc, char** argv) {
-    // Deep check on a WHM/WOT terrain pair — finite heights,
+    // Deep check on a WHM/WOT terrain pair - finite heights,
     // chunks present, placements within name-table bounds.
     std::string base = argv[++i];
     bool jsonOut = (i + 1 < argc &&
@@ -621,12 +621,12 @@ int handleValidateWhm(int& i, int argc, char** argv) {
     if (errors.empty()) {
         int loaded = 0;
         for (const auto& c : terrain.chunks) if (c.heightMap.isLoaded()) loaded++;
-        std::printf("  PASSED — %d/256 chunks, %zu doodad + %zu wmo placements\n",
+        std::printf("  PASSED - %d/256 chunks, %zu doodad + %zu wmo placements\n",
                     loaded, terrain.doodadPlacements.size(),
                     terrain.wmoPlacements.size());
         return 0;
     }
-    std::printf("  FAILED — %zu error(s):\n", errors.size());
+    std::printf("  FAILED - %zu error(s):\n", errors.size());
     for (const auto& e : errors) std::printf("    - %s\n", e.c_str());
     return 1;
 }
@@ -675,7 +675,7 @@ int handleValidateAll(int& i, int argc, char** argv) {
             auto errs = validateWocErrors(woc);
             if (!errs.empty()) { wocFail++; recordFailure(entry.path().string(), errs); }
         } else if (ext == ".whm") {
-            // Only validate via the .whm half — .wot is its sidecar
+            // Only validate via the .whm half - .wot is its sidecar
             // and gets pulled in by load(base).
             whmTotal++;
             wowee::pipeline::ADTTerrain terrain;
@@ -710,10 +710,10 @@ int handleValidateAll(int& i, int argc, char** argv) {
     std::printf("  WOC: %d total, %d failed\n", wocTotal, wocFail);
     std::printf("  WHM: %d total, %d failed\n", whmTotal, whmFail);
     if (allPassed) {
-        std::printf("  PASSED — all %d file(s) clean\n", totalFiles);
+        std::printf("  PASSED - all %d file(s) clean\n", totalFiles);
         return 0;
     }
-    std::printf("  FAILED — %d total error(s) across %zu file(s):\n",
+    std::printf("  FAILED - %d total error(s) across %zu file(s):\n",
                 totalErrors, failures.size());
     for (const auto& [path, errs] : failures) {
         std::printf("  %s:\n", path.c_str());
@@ -855,10 +855,10 @@ int handleValidateProjectOpenOnly(int& i, int argc, char** argv) {
     std::sort(hits.begin(), hits.end());
     std::printf("validate-project-open-only: %s\n", projectDir.c_str());
     if (hits.empty()) {
-        std::printf("  PASSED — no proprietary Blizzard assets present\n");
+        std::printf("  PASSED - no proprietary Blizzard assets present\n");
         return 0;
     }
-    std::printf("  FAILED — %zu proprietary file(s) remain\n", hits.size());
+    std::printf("  FAILED - %zu proprietary file(s) remain\n", hits.size());
     std::printf("\n  Per-extension:\n");
     for (const auto& [ext, count] : byExt) {
         std::printf("    %-6s : %d\n", ext.c_str(), count);
@@ -935,10 +935,10 @@ int handleAuditProject(int& i, int argc, char** argv) {
     }
     std::printf("\n");
     if (totalFailed == 0) {
-        std::printf("OVERALL: PASS — project is release-ready\n");
+        std::printf("OVERALL: PASS - project is release-ready\n");
         return 0;
     }
-    std::printf("OVERALL: FAIL — %d sub-check(s) failed\n", totalFailed);
+    std::printf("OVERALL: FAIL - %d sub-check(s) failed\n", totalFailed);
     std::printf("  rerun a failing sub-check directly for detailed output\n");
     return 1;
 }
@@ -1005,7 +1005,7 @@ int handleBenchValidateProject(int& i, int argc, char** argv) {
     // What counts as a zone, and the order they are reported in,
     // from one place.
     std::vector<std::string> zones = wowee::editor::projectZoneDirs(projectDir);
-    // Per-zone timing pass — same validator walk as
+    // Per-zone timing pass - same validator walk as
     // --validate-project but timing each zone separately.
     struct Timing { std::string name; double ms; int files; };
     std::vector<Timing> timings;

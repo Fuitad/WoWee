@@ -307,13 +307,13 @@ int handleValidate(int& i, int argc, char** argv) {
             if (e.percentOfBase < 0.0f || e.percentOfBase > 1.0f) {
                 warnings.push_back(ctx +
                     ": percentOfBase " + std::to_string(e.percentOfBase) +
-                    " is outside [0..1] — may overflow caster's max power");
+                    " is outside [0..1] - may overflow caster's max power");
             }
             if (e.costFlags & ~kKnownFlagMask) {
                 warnings.push_back(ctx +
                     ": costFlags has bits outside known mask " +
                     "(0x" + std::to_string(e.costFlags & ~kKnownFlagMask) +
-                    ") — engine will ignore unknown flags");
+                    ") - engine will ignore unknown flags");
             }
             // NoCost type with non-zero cost values is
             // contradictory.
@@ -321,10 +321,10 @@ int handleValidate(int& i, int argc, char** argv) {
                 (e.baseCost != 0 || e.perLevelCost != 0 ||
                  e.percentOfBase != 0.0f)) {
                 warnings.push_back(ctx +
-                    ": NoCost type with non-zero cost fields — "
+                    ": NoCost type with non-zero cost fields - "
                     "engine treats this as free regardless");
             }
-            // Spell with no cost fields set when not NoCost — is
+            // Spell with no cost fields set when not NoCost - is
             // probably misconfigured (would be free).
             if (e.powerType != wowee::pipeline::WoweeSpellPowerCost::NoCost &&
                 e.baseCost == 0 && e.perLevelCost == 0 &&
@@ -332,7 +332,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 warnings.push_back(ctx +
                     ": no cost fields set but powerType is " +
                     wowee::pipeline::WoweeSpellPowerCost::powerTypeName(e.powerType) +
-                    " — spell will cast for free, switch to NoCost type if intended");
+                    " - spell will cast for free, switch to NoCost type if intended");
             }
             if (!idsSeen.add(e.powerCostId)) errors.push_back(ctx + ": duplicate powerCostId");
         }

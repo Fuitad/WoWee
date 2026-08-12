@@ -246,7 +246,7 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         // Critical scheduling invariant: a new
         // departure cannot leave before the previous
-        // one has arrived if capacity is finite — an
+        // one has arrived if capacity is finite - an
         // interval shorter than travel would
         // overflow the route's vehicle pool. (This
         // doesn't apply to capacity==0 = solo
@@ -260,7 +260,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 std::to_string(e.departureIntervalSec) +
                 " < travelDurationSec=" +
                 std::to_string(e.travelDurationSec) +
-                " with finite capacity — vehicle pool "
+                " with finite capacity - vehicle pool "
                 "overflow (next zeppelin departs "
                 "before prior arrives)");
         }
@@ -276,22 +276,22 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         // Same-map vehicle: not an error (some
         // vanilla flightpaths cross only intra-zone)
-        // but is worth flagging — the reader may want
+        // but is worth flagging - the reader may want
         // to verify this is intentional.
         if (e.originMapId == e.destinationMapId &&
             e.originMapId != 0) {
             warnings.push_back(ctx +
                 ": originMapId == destinationMapId=" +
                 std::to_string(e.originMapId) +
-                " — same-map route, verify intentional");
+                " - same-map route, verify intentional");
         }
         // No identical (origin, destination) pair within
-        // a single catalog — would be a duplicate route.
+        // a single catalog - would be a duplicate route.
         if (!e.name.empty() &&
             !namesSeen.insert(e.name).second) {
             errors.push_back(ctx +
                 ": duplicate route name '" + e.name +
-                "' — UI dispatch would route ambiguously");
+                "' - UI dispatch would route ambiguously");
         }
         if (!idsSeen.insert(e.routeId).second) {
             errors.push_back(ctx + ": duplicate routeId");

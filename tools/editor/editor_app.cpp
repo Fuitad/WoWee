@@ -139,7 +139,7 @@ void EditorApp::run() {
         bool npcChanged = (npcCount != lastNpcCount_) || objectsDirty_ || npcSelChanged;
 
         if (npcChanged) {
-            // NPC markers are cheap — always update
+            // NPC markers are cheap - always update
             viewport_.updateNpcMarkers(npcSpawner_.getSpawns());
             lastNpcCount_ = npcCount;
             lastNpcSelIdx_ = npcSelIdx;
@@ -288,7 +288,7 @@ void EditorApp::processEvents() {
         ImGui_ImplSDL2_ProcessEvent(&event);
 
         if (event.type == SDL_QUIT) {
-            // Confirm-on-quit fires for any unsaved change — terrain edits OR
+            // Confirm-on-quit fires for any unsaved change - terrain edits OR
             // object/NPC/quest changes (autoSavePendingChanges_).
             bool dirty = terrainEditor_.hasUnsavedChanges() || autoSavePendingChanges_;
             if (terrain_.isLoaded() && dirty) {
@@ -488,7 +488,7 @@ void EditorApp::processEvents() {
                         npc->position += giz.getMoveDelta();
                         giz.beginDrag(glm::vec2(event.motion.x, event.motion.y));
                     } else if (giz.getMode() == TransformMode::Rotate) {
-                        // Apply yaw component only — NPCs only have orientation.
+                        // Apply yaw component only - NPCs only have orientation.
                         npc->orientation += glm::degrees(giz.getRotateDelta().z);
                         while (npc->orientation >= 360.0f) npc->orientation -= 360.0f;
                         while (npc->orientation < 0.0f) npc->orientation += 360.0f;
@@ -583,9 +583,9 @@ void EditorApp::processEvents() {
                         if (terrainEditor_.raycastTerrain(ray, hitPos)) {
                             ui_.setPathPoint(hitPos);
                             if (ui_.getPathCapture() == EditorUI::PathCapture::None && ui_.isPathReady())
-                                showToast("Both points set — click Apply Path");
+                                showToast("Both points set - click Apply Path");
                             else if (ui_.getPathCapture() == EditorUI::PathCapture::WaitingEnd)
-                                showToast("Start point set — click terrain for end");
+                                showToast("Start point set - click terrain for end");
                         }
                     }
                     // Ctrl+click = select (Ctrl+Shift+click = add to selection)
@@ -888,7 +888,7 @@ bool EditorApp::loadWMOInstance(const std::string& mapName) {
 }
 
 void EditorApp::loadADT(const std::string& mapName, int tileX, int tileY) {
-    // WoW tile grid is 64x64 — out-of-range coords would compute paths
+    // WoW tile grid is 64x64 - out-of-range coords would compute paths
     // like "World\Maps\Foo\Foo_-1_-1.adt" that the asset manager refuses,
     // and would also poison the manifest.tiles entries on save.
     if (tileX < 0 || tileX > 63 || tileY < 0 || tileY > 63) {
@@ -1005,8 +1005,8 @@ void EditorApp::loadADT(const std::string& mapName, int tileX, int tileY) {
     camera_.setYawPitch(0.0f, -45.0f);
 
     // Import doodad/WMO placements from the ADT itself
-    // ADT positions are in ADT coordinate space — convert to render coords
-    // Import doodad placements — convert ADT rotation to render rotation
+    // ADT positions are in ADT coordinate space - convert to render coords
+    // Import doodad placements - convert ADT rotation to render rotation
     // ADT stores rotation as degrees [rotX, rotY, rotZ] in WoW space
     // Render space: rX = -adtRotZ, rY = -adtRotX, rZ = adtRotY + 180
     for (const auto& dp : terrain_.doodadPlacements) {
@@ -1155,10 +1155,10 @@ void EditorApp::exportZone(const std::string& outputDir) {
         if (!questEditor_.validateChains(chainErrors)) {
             for (const auto& err : chainErrors)
                 LOG_WARNING("Quest chain issue: ", err);
-            // Surface chain issues to the user — silently logging means most
+            // Surface chain issues to the user - silently logging means most
             // users won't notice a broken chain until they test in-game.
             showToast("Quest chains have " + std::to_string(chainErrors.size()) +
-                      " issue(s) — see log", 5.0f);
+                      " issue(s) - see log", 5.0f);
         }
     }
 
@@ -1282,7 +1282,7 @@ void EditorApp::exportZone(const std::string& outputDir) {
     WoweeTerrain::exportOpen(terrain_, openBase, loadedTileX_, loadedTileY_);
     WoweeTerrain::exportNormalMap(terrain_, openBase + "_normals.png");
 
-    // Export collision mesh (.woc) — terrain plus placed WMO/M2 meshes so that
+    // Export collision mesh (.woc) - terrain plus placed WMO/M2 meshes so that
     // movement queries on the exported zone respect buildings and large props.
     auto collision = pipeline::WoweeCollisionBuilder::fromTerrain(terrain_);
     {
@@ -1341,12 +1341,12 @@ void EditorApp::exportZone(const std::string& outputDir) {
             readme << "Quests: " << questEditor_.questCount() << "\n";
             readme << "Created with Wowee World Editor v1.0.0\n\n";
             readme << "\nOpen Formats (no Blizzard IP):\n";
-            readme << "  .wot/.whm  — Wowee Open Terrain (heightmap + metadata)\n";
-            readme << "  .wom       — Wowee Open Model (static 3D models)\n";
-            readme << "  .wob       — Wowee Open Building (multi-group buildings)\n";
-            readme << "  .png       — Standard textures (converted from BLP)\n";
-            readme << "  .json      — Data tables, quests, creatures, objects\n";
-            readme << "  .wcp       — Wowee Content Pack (distribution archive)\n\n";
+            readme << "  .wot/.whm  - Wowee Open Terrain (heightmap + metadata)\n";
+            readme << "  .wom       - Wowee Open Model (static 3D models)\n";
+            readme << "  .wob       - Wowee Open Building (multi-group buildings)\n";
+            readme << "  .png       - Standard textures (converted from BLP)\n";
+            readme << "  .json      - Data tables, quests, creatures, objects\n";
+            readme << "  .wcp       - Wowee Content Pack (distribution archive)\n\n";
             readme << "Files:\n";
             readme << "  zone.json       - Zone manifest (for client)\n";
             readme << "  " << loadedMap_ << ".wdt   - Map definition\n";
@@ -1442,7 +1442,7 @@ void EditorApp::exportZone(const std::string& outputDir) {
     LOG_INFO("  Quests: ", questEditor_.questCount());
     LOG_INFO("========================");
 
-    // Any path through exportZone counts as a save — clear the pending flag
+    // Any path through exportZone counts as a save - clear the pending flag
     // so the dirty asterisk and quit-confirm dialog go away.
     autoSavePendingChanges_ = false;
 }
@@ -1550,7 +1550,7 @@ void EditorApp::addAdjacentTile(int offsetX, int offsetY) {
     int newY = loadedTileY_ + offsetY;
     if (newX < 0 || newX > 63 || newY < 0 || newY > 63) return;
 
-    // Source base height could be NaN if mid-edit terrain hadn't stitched —
+    // Source base height could be NaN if mid-edit terrain hadn't stitched -
     // fall back to a safe default so the new tile starts clean.
     float baseHeight = terrain_.chunks[0].position[2];
     if (!std::isfinite(baseHeight)) baseHeight = 100.0f;
@@ -1612,7 +1612,7 @@ void EditorApp::flyToSelected() {
         have = true;
     }
     if (!have) return;
-    // Reject NaN target — would feed NaN into camera.setPosition (which
+    // Reject NaN target - would feed NaN into camera.setPosition (which
     // now refuses it but the user would get no camera movement and no
     // error message). Show the toast instead so the user knows the
     // selection is corrupt.
@@ -1627,7 +1627,7 @@ void EditorApp::flyToSelected() {
     // both for tight spawn lists and for far-flung WMOs.
     glm::vec3 fwd = camera_.getCamera().getForward();
     if (glm::length(fwd) < 0.001f) fwd = glm::vec3(1, 0, 0);
-    // Project onto XY before normalizing — but if the camera is looking
+    // Project onto XY before normalizing - but if the camera is looking
     // straight up/down, the projection is zero and glm::normalize returns
     // NaN. NaN length < 0.001f is false (NaN comparisons return false), so
     // the original fallback didn't catch the case. Length-check the source
@@ -1668,7 +1668,7 @@ void EditorApp::generateCompleteZone() {
     for (int i = 0; i < 256; i++) allChunks.push_back(i);
     terrainEditor_.recalcNormals(allChunks);
 
-    // Step 4: Auto-paint by height — use the active biome's textures so
+    // Step 4: Auto-paint by height - use the active biome's textures so
     // subsequent generations honor the user's biome choice. Was previously
     // hardcoded to Tanaris/Elwynn/Barrens regardless of biome, which made
     // every "Create + Generate" run look the same.
@@ -1681,7 +1681,7 @@ void EditorApp::generateCompleteZone() {
     };
     texturePainter_.autoPaintByHeight(bands);
 
-    // Step 5: Slope paint (rock on cliffs) — use the biome's accent so it
+    // Step 5: Slope paint (rock on cliffs) - use the biome's accent so it
     // blends with the rest of the palette.
     texturePainter_.autoPaintBySlope(0.4f, bt.accent);
 

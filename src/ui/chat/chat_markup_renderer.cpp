@@ -1,4 +1,4 @@
-// ChatMarkupRenderer — render parsed ChatSegments via ImGui.
+// ChatMarkupRenderer - render parsed ChatSegments via ImGui.
 // Moved from ChatPanel::render() inline lambdas (Phase 2.2).
 // Item tooltip rendering extracted to ItemTooltipRenderer (Phase 6.7).
 #include "ui/chat/chat_markup_renderer.hpp"
@@ -36,12 +36,12 @@ namespace wowee { namespace ui {
 
 namespace {
 
-// Open a URL in the user's default browser without invoking a shell —
+// Open a URL in the user's default browser without invoking a shell -
 // chat messages are remote-attacker-controlled, so the previous
 // `system("xdg-open '" + url + "' &")` was a command-injection sink
 // (a URL containing `'; rm -rf ~; '` would execute arbitrary commands).
 //
-// Refuses anything that isn't a plain http(s):// URL with safe ASCII —
+// Refuses anything that isn't a plain http(s):// URL with safe ASCII -
 // no shell metacharacters, no control bytes, no embedded NULs.
 bool openExternalUrl(const std::string& url) {
     if (url.empty() || url.size() > 2048) return false;
@@ -154,7 +154,7 @@ void ChatMarkupRenderer::render(
                     }
                 }
             }
-            // Let ImGui format the brackets inline — was heap-allocating a
+            // Let ImGui format the brackets inline - was heap-allocating a
             // bracketed copy on every chat-line draw, per visible link.
             ImGui::PushStyleColor(ImGuiCol_Text, seg.color);
             ImGui::TextWrapped("[%s]", seg.text.c_str());
@@ -184,7 +184,7 @@ void ChatMarkupRenderer::render(
                 }
                 ImGui::SameLine(0, 2);
             }
-            // Let ImGui format the brackets inline — was heap-allocating a
+            // Let ImGui format the brackets inline - was heap-allocating a
             // bracketed copy on every chat-line draw, per visible link.
             ImGui::PushStyleColor(ImGuiCol_Text, seg.color);
             ImGui::TextWrapped("[%s]", seg.text.c_str());

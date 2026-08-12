@@ -335,7 +335,7 @@ int handleValidate(int& i, int argc, char** argv) {
             // SetPosition call in a content authoring tool.
             if (e.x == 0.0f && e.y == 0.0f && e.z == 0.0f) {
                 warnings.push_back(ctx +
-                    ": position is (0,0,0) — likely forgotten "
+                    ": position is (0,0,0) - likely forgotten "
                     "SetPosition; bind would teleport player to "
                     "world origin");
             }
@@ -350,11 +350,11 @@ int handleValidate(int& i, int argc, char** argv) {
                     "innkeeper entry.");
             }
             // Quest-given bindings without level gate are
-            // suspicious — quest binds usually require level
+            // suspicious - quest binds usually require level
             // (Theramore at 30+, Wyrmrest at 70+).
             if (e.bindKind == H::Quest && e.levelMin == 0) {
                 warnings.push_back(ctx +
-                    ": Quest bind has levelMin=0 — quest "
+                    ": Quest bind has levelMin=0 - quest "
                     "bindings usually have a minimum level "
                     "gate; verify if intentional");
             }

@@ -101,7 +101,7 @@ WoweeWorldMap WoweeWorldMapLoader::load(const std::string& basePath) {
     std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
     if (!is) return out;
     // Magic and version only. This format's header does not continue into a
-    // name and an entry count — a world type and a grid size follow instead —
+    // name and an entry count - a world type and a grid size follow instead -
     // so readCatalogHeader would eat four bytes of the world type.
     if (!readMagicAndVersion(is, kMagic, kVersion)) return out;
     // readStr rather than a hand-rolled length-and-bytes: this is the one place
@@ -119,7 +119,7 @@ WoweeWorldMap WoweeWorldMapLoader::load(const std::string& basePath) {
     if (!readPOD(is, reserved)) return out;
     uint32_t bitmapBytes = 0;
     if (!readPOD(is, bitmapBytes)) return out;
-    // Cap to a sane upper bound in case the file is corrupted —
+    // Cap to a sane upper bound in case the file is corrupted -
     // a 128×128 grid is 2048 bytes, so anything > 4 KiB is a sign
     // of trouble.
     if (bitmapBytes > 4096) {
@@ -148,7 +148,7 @@ WoweeWorldMap WoweeWorldMapLoader::makeContinent(const std::string& mapName) {
     m.worldType = WoweeWorldMap::Continent;
     m.gridSize = 64;
     m.tileBitmap.assign(bitmapBytesFor(64), 0xFF);
-    // Last byte may have spare bits past 64*64 — but 64*64 is
+    // Last byte may have spare bits past 64*64 - but 64*64 is
     // a multiple of 8 (4096), so this is exact and no masking
     // is needed.
     return m;

@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Loading Screen catalog (.wlds) — novel
+// Wowee Open Loading Screen catalog (.wlds) - novel
 // replacement for Blizzard's LoadingScreens.dbc plus the
 // per-zone background-image tables. Defines the loading
 // screen images shown when the client crosses into a new
@@ -18,7 +18,7 @@ namespace pipeline {
 //
 // When multiple screens match the player's current map +
 // level + expansion, displayWeight selects randomly between
-// them — a zone with 3 weighted variants gets a different
+// them - a zone with 3 weighted variants gets a different
 // image roughly proportional to weight.
 //
 // Cross-references with previously-added formats:
@@ -85,17 +85,17 @@ public:
 
     // Preset emitters used by --gen-lds* variants.
     //
-    //   makeStarter   — 3 base screens (ElwynnForest,
+    //   makeStarter   - 3 base screens (ElwynnForest,
     //                    OrgrimmarLoading, GenericFallback
     //                    with mapId=0 catch-all).
-    //   makeInstances — 5 WotLK dungeon loading screens
+    //   makeInstances - 5 WotLK dungeon loading screens
     //                    (Halls of Lightning, Halls of
     //                    Stone, Utgarde Pinnacle, Violet
     //                    Hold, Old Kingdom) with proper
     //                    mapId+expansion cross-refs.
-    //   makeRaidIntros — 3 raid loading screens (Naxxramas
+    //   makeRaidIntros - 3 raid loading screens (Naxxramas
     //                     dragon-eye reveal, Ulduar Titan
-    //                     facility, ToC Argent Crusade) —
+    //                     facility, ToC Argent Crusade) -
     //                     marked isWideAspect for the wider
     //                     16:9 raid intro art.
     static WoweeLoadingScreen makeStarter(const std::string& catalogName);

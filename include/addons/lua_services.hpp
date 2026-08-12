@@ -1,4 +1,4 @@
-// lua_services.hpp — Dependency-injected services for Lua bindings.
+// lua_services.hpp - Dependency-injected services for Lua bindings.
 // Replaces Application::getInstance() calls in domain API files (§5.2).
 #pragma once
 
@@ -18,14 +18,14 @@ struct LuaServices {
     audio::AudioCoordinator* audioCoordinator  = nullptr;
     game::ExpansionRegistry* expansionRegistry = nullptr;
 
-    /// Run a macro body, as RunMacroText() does — one command per line,
+    /// Run a macro body, as RunMacroText() does - one command per line,
     /// through the same path the action bar uses for a macro button.
     std::function<void(const std::string&)> runMacroText;
 
     /// This client's own slash commands, and a way to run one.
     ///
     /// The registry in ChatPanel answers about seventy names FrameXML has no
-    /// equivalent for — /unstuck, /coords, /transport, /threat, the GM
+    /// equivalent for - /unstuck, /coords, /transport, /threat, the GM
     /// helpers. It used to be reached from this client's own chat input, and
     /// handing chat over took that away: FrameXML's ChatEdit_ParseText
     /// consults SlashCmdList and nothing else, so every one of them stopped
@@ -36,7 +36,7 @@ struct LuaServices {
     /// Ask for the interface to be reloaded, as ReloadUI() does.
     ///
     /// A request rather than the act: reloading shuts the Lua state down and
-    /// builds a new one, and ReloadUI is called from inside that state — by a
+    /// builds a new one, and ReloadUI is called from inside that state - by a
     /// static popup's OnAccept, or by /reload going through the interface. Doing
     /// it there frees the machinery running the call. The application performs
     /// it between frames instead.
@@ -48,7 +48,7 @@ struct LuaServices {
     ///
     /// Volumes are 0..1, which is what Blizzard's sliders use; the client keeps
     /// them as percentages and converts at this boundary. Known keys: master,
-    /// music, ambient. "enableall" is the mute, inverted — the panel's checkbox
+    /// music, ambient. "enableall" is the mute, inverted - the panel's checkbox
     /// asks whether sound is on.
     /// Read and write a client setting by name, as a string.
     ///
@@ -69,7 +69,7 @@ struct LuaServices {
     ///
     /// FrameXML's GameMenuFrame has Video, Sound and Interface buttons that
     /// call ShowUIPanel on option frames the shim only creates as shells. This
-    /// is where those go instead — the settings themselves live in this
+    /// is where those go instead - the settings themselves live in this
     /// client's panel, and handing over the menu must not hide them.
     std::function<void(const std::string&)> openSettings;
 
@@ -77,7 +77,7 @@ struct LuaServices {
     ///
     /// DoEmote sent the emote to the server and stopped there, so the player
     /// stood still while everyone was told they had danced. This client's own
-    /// chat panel had always done both halves — the animation was one of the
+    /// chat panel had always done both halves - the animation was one of the
     /// cases handing chat over to FrameXML quietly dropped.
     std::function<void(const std::string&)> playEmoteAnimation;
 
@@ -135,7 +135,7 @@ struct LuaServices {
     /// interface takes to ask about continents instead.
     /// Where a canonical world position falls on the map now showing, 0..1
     /// across the image. False when it is off this map. GetPlayerMapPosition
-    /// answers in this space — FrameXML multiplies it by the map frame's width.
+    /// answers in this space - FrameXML multiplies it by the map frame's width.
     std::function<bool(float, float, float, float&, float&)> mapUVForWorldPos;
     std::function<uint32_t()> getMapWorldAreaId;
     std::function<void(uint32_t)> setMapWorldAreaId;
@@ -144,7 +144,7 @@ struct LuaServices {
     /// them and refreshed every frame.
     ///
     /// The server's zone is only told to us on SMSG_INIT_WORLD_STATES, which
-    /// arrives when the server notices a zone change and not otherwise — so
+    /// arrives when the server notices a zone change and not otherwise - so
     /// reading that alone leaves the name stale, naming the last zone the
     /// server announced rather than the one being walked through. The real
     /// client works this out locally for exactly that reason.
@@ -153,8 +153,8 @@ struct LuaServices {
     /// Whether the player is standing on a world PvP objective.
     ///
     /// The *area* rather than the zone, which is why it is not derived from
-    /// getLiveZoneId: the flag sits on the subzone — Halaa, The Overlook, the
-    /// Plaguelands towers — and resolving to the zone loses it. Wintergrasp is
+    /// getLiveZoneId: the flag sits on the subzone - Halaa, The Overlook, the
+    /// Plaguelands towers - and resolving to the zone loses it. Wintergrasp is
     /// the one that survives either way, being its own zone.
     std::function<bool()> isOnOutdoorPvpObjective;
 
@@ -178,16 +178,16 @@ struct LuaServices {
     /// Whether looking up drags the view down, for mouseInvertPitch.
     ///
     /// There is deliberately no counterpart for mouseSpeed, which sits beside
-    /// it on the same panel: FrameXML never declares that slider's range —
+    /// it on the same panel: FrameXML never declares that slider's range -
     /// neither the control nor OptionsSliderTemplate sets minValue or maxValue
-    /// — so the number it writes has no scale to convert from, and the camera's
+    /// - so the number it writes has no scale to convert from, and the camera's
     /// own sensitivity runs 0.05 to 1. Mapping one onto the other would be a
     /// guess about both ends.
     /// mouseInvertPitch and gxVSync had a pair each here. Both are rows in
-    /// kClientCVars now — the client has settings keys for them, which it did
+    /// kClientCVars now - the client has settings keys for them, which it did
     /// not when they were written, and a row costs nothing where a pair costs
     /// four places to keep in step.
-    /// Windowed or full screen, for gxWindow — applied by RestartGx rather
+    /// Windowed or full screen, for gxWindow - applied by RestartGx rather
     /// than by the SetCVar that precedes it, which is the order the video
     /// panel works in: it writes every changed CVar, then restarts the device
     /// once so the ones marked `restart` take effect together.
@@ -212,7 +212,7 @@ struct LuaServices {
     /// Selector numbers are FrameXML's BarberShopFrameSelector IDs: 1 hair
     /// style, 2 hair colour, 3 facial hair, 4 skin. The state behind them used
     /// to be built inside this client's own barber window, so with the panel
-    /// handed over nothing had built it — these reach a version that does not
+    /// handed over nothing had built it - these reach a version that does not
     /// depend on who is drawing.
     std::function<bool(int selector, std::string& name, bool& isCurrent)> getBarberStyleInfo;
     std::function<void(int selector, int direction)> setNextBarberStyle;
@@ -220,7 +220,7 @@ struct LuaServices {
     std::function<void()> barberReset;
     /// The Okay button. blizzard_barbershopui.xml names ApplyBarberShopStyle
     /// as an OnClick handler attribute, which is why nothing noticed it was
-    /// unbound — the readiness report reads script bodies, not attributes.
+    /// unbound - the readiness report reads script bodies, not attributes.
     std::function<void()> barberApply;
 
     /// Whether the camera is inside a WMO, for IsIndoors and IsOutdoors.
@@ -239,13 +239,13 @@ struct LuaServices {
     /// panels. A stub answering "MISSING" left every one of them dead.
     ///
     /// Returns WoW's pair: loaded, and a reason when it did not. Reasons are
-    /// WoW's own tokens — MISSING, DISABLED, LOAD_ON_DEMAND_ERROR.
+    /// WoW's own tokens - MISSING, DISABLED, LOAD_ON_DEMAND_ERROR.
     std::function<bool(const std::string& name, std::string& reason)> loadAddOn;
     /// Whether a named addon has been loaded, for IsAddOnLoaded.
     std::function<bool(const std::string& name)> isAddOnLoaded;
 
     /// Turn an addon on or off for the next run, as EnableAddOn and
-    /// DisableAddOn do. It takes effect on reload rather than at once — an
+    /// DisableAddOn do. It takes effect on reload rather than at once - an
     /// addon already loaded has its functions in the Lua state and its frames
     /// on screen, and neither can be taken back out.
     std::function<void(const std::string& name, bool enabled)> setAddOnEnabled;

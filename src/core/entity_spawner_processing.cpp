@@ -70,12 +70,12 @@ void EntitySpawner::processAsyncCreatureResults(bool unlimited) {
             // The replacement request is already queued; never instantiate stale
             // geometry (notably the lumberjack's log-carrying model while chopping).
             // Release the pending marker unless a replacement queue entry still
-            // holds it — a stranded marker blocks the resync sweep forever.
+            // holds it - a stranded marker blocks the resync sweep forever.
             erasePendingGuidIfUnqueued(result.guid);
             continue;
         }
 
-        // Failures and cache hits need no GPU work — process them even when the
+        // Failures and cache hits need no GPU work - process them even when the
         // upload budget is exhausted. Previously the budget check was above this
         // point, blocking ALL ready futures (including zero-cost ones) after a
         // single upload, which throttled creature spawn throughput during world load.
@@ -115,7 +115,7 @@ void EntitySpawner::processAsyncCreatureResults(bool unlimited) {
 
         // Only actual GPU uploads count toward the per-tick budget.
         if (modelUploads >= maxUploadsThisTick) {
-            // Re-queue this result — it needs a GPU upload but we're at budget.
+            // Re-queue this result - it needs a GPU upload but we're at budget.
             // Push a new pending spawn so it's retried next frame.
             pendingCreatureSpawnGuids_.erase(result.guid);
             creatureSpawnRetryDeadlines_.erase(result.guid);
@@ -130,7 +130,7 @@ void EntitySpawner::processAsyncCreatureResults(bool unlimited) {
             continue;
         }
 
-        // Model parsed on background thread — upload to GPU on main thread.
+        // Model parsed on background thread - upload to GPU on main thread.
         auto* charRenderer = renderer_ ? renderer_->getCharacterRenderer() : nullptr;
         if (!charRenderer) {
             pendingCreatureSpawnGuids_.erase(result.guid);
@@ -170,7 +170,7 @@ void EntitySpawner::processAsyncCreatureResults(bool unlimited) {
         pendingCreatureSpawnGuids_.erase(result.guid);
         creatureSpawnRetryDeadlines_.erase(result.guid);
 
-        // Re-queue as a normal pending spawn — model is now cached, so sync spawn is fast
+        // Re-queue as a normal pending spawn - model is now cached, so sync spawn is fast
         // (only creates instance + applies textures, no file I/O).
         if (!creatureInstances_.count(result.guid) &&
             !creaturePermanentFailureGuids_.count(result.guid)) {
@@ -190,7 +190,7 @@ void EntitySpawner::processAsyncCreatureResults(bool unlimited) {
 
 void EntitySpawner::processAsyncNpcCompositeResults(bool unlimited) {
     // Every texture this loop loads or composites goes through immediateSubmit,
-    // which submits and then blocks on a fence — unless a batch is open, in
+    // which submits and then blocks on a fence - unless a batch is open, in
     // which case it records and returns. loadModel and processPendingNormalMaps
     // already open one; this path did not, so each texture was a full GPU
     // round-trip and one NPC's skin was dozens of them back to back.
@@ -314,7 +314,7 @@ void EntitySpawner::processCreatureSpawnQueue(bool unlimited) {
     while (!pendingCreatureSpawns_.empty() &&
            (unlimited || processed < MAX_SPAWNS_PER_FRAME) &&
            rotationsLeft > 0) {
-        // Check time budget every iteration (including first — async results may
+        // Check time budget every iteration (including first - async results may
         // have already consumed the budget via GPU model uploads).
         if (!unlimited) {
             auto now = std::chrono::steady_clock::now();
@@ -355,7 +355,7 @@ void EntitySpawner::processCreatureSpawnQueue(bool unlimited) {
 
             const int maxAsync = unlimited ? (MAX_ASYNC_CREATURE_LOADS * 4) : MAX_ASYNC_CREATURE_LOADS;
             if (static_cast<int>(asyncCreatureLoads_.size()) + asyncLaunched >= maxAsync) {
-                // Too many in-flight — defer to next frame
+                // Too many in-flight - defer to next frame
                 pendingCreatureSpawns_.push_back(s);
                 rotationsLeft--;
                 continue;
@@ -388,7 +388,7 @@ void EntitySpawner::processCreatureSpawnQueue(bool unlimited) {
                 }
             }
 
-            // Launch async M2 load — file I/O and parsing happen off the main thread.
+            // Launch async M2 load - file I/O and parsing happen off the main thread.
             uint32_t modelId = nextCreatureModelId_++;
             auto* am = assetManager_;
 
@@ -441,7 +441,7 @@ void EntitySpawner::processCreatureSpawnQueue(bool unlimited) {
                             // pipeline/char_sections.hpp. This was a fifth
                             // hand-written copy of that scan, and a prefetch
                             // that names different paths than the spawn will
-                            // ask for is a prefetch that does nothing — it
+                            // ask for is a prefetch that does nothing - it
                             // never collected the skin row's second texture,
                             // so the head detail sheet was always decoded on
                             // the main thread at spawn time.
@@ -596,7 +596,7 @@ void EntitySpawner::processCreatureSpawnQueue(bool unlimited) {
             asyncCreatureLoads_.push_back(std::move(load));
             asyncCreatureDisplayLoads_.insert(s.displayId);
             asyncLaunched++;
-            // Don't erase from pendingCreatureSpawnGuids_ — the async result handler will do it
+            // Don't erase from pendingCreatureSpawnGuids_ - the async result handler will do it
             rotationsLeft = pendingCreatureSpawns_.size();
             processed++;
             continue;
@@ -611,7 +611,7 @@ void EntitySpawner::processCreatureSpawnQueue(bool unlimited) {
             continue;
         }
 
-        // Cached model — spawn is fast (no file I/O, just instance creation + texture setup)
+        // Cached model - spawn is fast (no file I/O, just instance creation + texture setup)
         {
             auto spawnStart = std::chrono::steady_clock::now();
             spawnOnlineCreature(s.guid, s.displayId, s.x, s.y, s.z, s.orientation, s.scale);
@@ -648,7 +648,7 @@ void EntitySpawner::processCreatureSpawnQueue(bool unlimited) {
                     LOG_WARNING("Creature spawn still failing after retry window ",
                                 used, " of ", MAX_CREATURE_SPAWN_RETRY_WINDOWS,
                                 ": guid=0x", std::hex, s.guid, std::dec,
-                                " displayId=", s.displayId, " — retrying");
+                                " displayId=", s.displayId, " - retrying");
                     pendingCreatureSpawns_.push_back(s);
                     pendingCreatureSpawnGuids_.insert(s.guid);
                 } else {
@@ -773,7 +773,7 @@ void EntitySpawner::processDeferredEquipmentQueue() {
     auto texturePaths = resolveEquipmentTexturePaths(guid, equipData.first, equipData.second);
 
     if (texturePaths.empty()) {
-        // No textures to pre-decode — just apply directly (fast path)
+        // No textures to pre-decode - just apply directly (fast path)
         LOG_WARNING("Equipment fast path for guid=0x", std::hex, guid, std::dec,
                     " (no textures to pre-decode)");
         setOnlinePlayerEquipment(guid, equipData.first, equipData.second);
@@ -827,7 +827,7 @@ void EntitySpawner::processAsyncGameObjectResults() {
             continue;
         }
 
-        // WMO parsed on background thread — do GPU upload + instance creation on main thread
+        // WMO parsed on background thread - do GPU upload + instance creation on main thread
         auto* wmoRenderer = renderer_ ? renderer_->getWMORenderer() : nullptr;
         if (!wmoRenderer) continue;
 
@@ -968,7 +968,7 @@ void EntitySpawner::processGameObjectSpawnQueue() {
 
         if (isWmo && !isCached && !modelPath.empty() &&
             static_cast<int>(asyncGameObjectLoads_.size()) < kMaxAsyncLoads) {
-            // Launch async WMO load — file I/O + parse on background thread
+            // Launch async WMO load - file I/O + parse on background thread
             auto* am = assetManager_;
             PendingGameObjectSpawn capture = s;
             std::string capturePath = modelPath;
@@ -1054,12 +1054,12 @@ void EntitySpawner::processGameObjectSpawnQueue() {
         // against this loop's 2ms budget. The async path pre-decodes them on a
         // worker, so waiting a frame for a free slot is far cheaper than doing
         // the work here. Only reachable when several uncached WMOs arrive at
-        // once — a zone with a few ships in view does exactly that.
+        // once - a zone with a few ships in view does exactly that.
         if (isWmo && !isCached && !modelPath.empty()) {
             break;  // retry next frame, keeping queue order
         }
 
-        // Cached WMO or M2 — spawn synchronously (cheap)
+        // Cached WMO or M2 - spawn synchronously (cheap)
         spawnOnlineGameObject(s.guid, s.entry, s.displayId, s.x, s.y, s.z, s.orientation, s.scale);
         pendingGameObjectSpawns_.erase(pendingGameObjectSpawns_.begin());
     }
@@ -1127,9 +1127,9 @@ void EntitySpawner::processPendingTransportRegistrations() {
                  " preferServer=", preferServerData);
 
         glm::vec3 canonicalSpawnPos(pending.x, pending.y, pending.z);
-        // Elevators were in this list too — 807 and 808 are Gnomeregan's
+        // Elevators were in this list too - 807 and 808 are Gnomeregan's
         // lifts, 2454 the Searing Gorge scaffold cars, 1587 a GO named
-        // "Elevator" — and being taken for a ship means the stricter
+        // "Elevator" - and being taken for a ship means the stricter
         // "must travel 25 units" check rejects their short vertical path.
         const bool shipOrZeppelinDisplay =
             game::isVehicleTransportDisplay(pending.displayId);
@@ -1168,7 +1168,7 @@ void EntitySpawner::processPendingTransportRegistrations() {
                     // DEBUG, not WARNING: TaxiPath-driven ships (Auberdine/Stormwind boats,
                     // etc.) legitimately have no TransportAnimation.dbc entry and hit this
                     // spawn-time fallback, then receive their real route via
-                    // assignTaxiPathToTransport and sail normally — so this fired for boats
+                    // assignTaxiPathToTransport and sail normally - so this fired for boats
                     // that move fine and was misleading noise when scanning the log.
                     LOG_DEBUG("No TransportAnimation.dbc path for entry ", pending.entry,
                               " - transport will be stationary until a route is assigned");
@@ -1208,7 +1208,7 @@ void EntitySpawner::processPendingTransportRegistrations() {
         // MO_TRANSPORT (type 15) boats route via their taxi path (data[0] ->
         // TaxiPathNode.dbc), which is a world-coordinate path and thus independent of
         // where the boat spawned. Assign it whenever the GO template is already cached
-        // — not only for origin-spawned transports. Boats spawn at their dock (a
+        // - not only for origin-spawned transports. Boats spawn at their dock (a
         // non-origin position), so the old origin gate here meant the cached path was
         // never applied and the boat fell back to an unrelated route. If the template
         // isn't cached yet, the GO-query response hook assigns it when it arrives.
@@ -1318,7 +1318,7 @@ void EntitySpawner::processPendingTransportDoodads() {
             budgetLeft--;
 
             // Every failure below used to be a silent continue, so a transport
-            // that lost a doodad lost it without a trace — the ship rendered,
+            // that lost a doodad lost it without a trace - the ship rendered,
             // minus its sails or its paddlewheel, and nothing said why. A v264
             // model carries no indices of its own, so a .skin that does not
             // resolve leaves isValid() false and drops the piece; that is the
@@ -1339,7 +1339,7 @@ void EntitySpawner::processPendingTransportDoodads() {
             } else if (skinData.empty() && m2Model.version >= 264) {
                 LOG_WARNING("Transport doodad ", doodadTemplate.m2Path, " is version ",
                             m2Model.version, " and its skin '", skinPath,
-                            "' did not resolve — it has no indices and will be skipped");
+                            "' did not resolve - it has no indices and will be skipped");
             }
             if (!m2Model.isValid()) {
                 LOG_WARNING("Transport doodad unusable: ", doodadTemplate.m2Path,
@@ -1355,7 +1355,7 @@ void EntitySpawner::processPendingTransportDoodads() {
             }
             // Created at the origin and moved into place by the parent WMO's
             // transform, so its position here is a placeholder and must not be
-            // deduplicated against — otherwise the second ship of a class is
+            // deduplicated against - otherwise the second ship of a class is
             // handed the first ship's sails rather than getting its own, and
             // the thirteen barrels in a hold collapse into one barrel.
             uint32_t m2InstanceId = m2Renderer->createInstance(
@@ -1415,7 +1415,7 @@ void EntitySpawner::processPendingTransportDoodads() {
         }
     }
 
-    // Finalize the upload batch — submit all GPU copies in one shot (async, no wait).
+    // Finalize the upload batch - submit all GPU copies in one shot (async, no wait).
     if (vkCtx) vkCtx->endUploadBatch();
 }
 
@@ -1599,7 +1599,7 @@ void EntitySpawner::processPendingMount() {
                 for (size_t ti = 0; ti < md->textures.size(); ti++) {
                     const auto& tex = md->textures[ti];
                     if (tex.type == 0 && tex.filename.empty()) {
-                        // Empty hardcoded slot — try skin1 then skin2
+                        // Empty hardcoded slot - try skin1 then skin2
                         std::string texPath;
                         if (!dispData.skin1.empty() && replaced == 0) {
                             texPath = modelDir + dispData.skin1 + ".blp";
@@ -1689,7 +1689,7 @@ void EntitySpawner::processPendingMount() {
 
     mountInstanceId_ = instanceId;
 
-    // Compute height offset — place player above mount's back.
+    // Compute height offset - place player above mount's back.
     //
     // The seat is not something to derive: the artist placed it, as attachment
     // 0 ("MountMain"), and every rideable model carries one. Take it when it is
@@ -1717,7 +1717,7 @@ void EntitySpawner::processPendingMount() {
     // vertices (M2 header bounds can be inaccurate).
     //
     // The guess is a fraction of the tallest vertex, which assumes the tallest
-    // part of the model is roughly over the seat — true of a horse, false of
+    // part of the model is roughly over the seat - true of a horse, false of
     // anything with a mast, a stack or handlebars. The motorcycle's tallest
     // vertex is 5.11 against a seat at 0.76, so the rider sat four yards over
     // the bike. It is only ever reached now when the model names no seat.
@@ -1970,7 +1970,7 @@ namespace {
 // hold one frame until the server says otherwise (a door stands open or shut, a
 // chest sits closed until it is opened), so playing their sequence on a loop
 // would animate them open over and over. Every other type plays its idle
-// continuously, which is what retail does — fishing pools circle their fish,
+// continuously, which is what retail does - fishing pools circle their fish,
 // braziers gutter, banners wave.
 bool gameObjectPoseIsStateDriven(uint32_t goType) {
     switch (goType) {
@@ -1997,8 +1997,8 @@ void EntitySpawner::applyGameObjectAnimationPolicy(uint64_t guid, uint32_t entry
     const game::GameObjectQueryResponseData* info =
         (gameHandler_ && entry != 0) ? gameHandler_->getCachedGameObjectInfo(entry) : nullptr;
     if (!info) {
-        // The type has not arrived yet. Freeze for now — a door caught mid-swing
-        // is worse than a pool of still fish — and revisit in
+        // The type has not arrived yet. Freeze for now - a door caught mid-swing
+        // is worse than a pool of still fish - and revisit in
         // onGameObjectInfoReceived once the query response lands.
         m2Renderer->setInstanceAnimationFrozen(instanceId, true);
         if (entry != 0) gameObjectPendingAnimPolicy_[entry].push_back(instanceId);

@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Spell Proc Trigger catalog (.wsps) — novel
+// Wowee Open Spell Proc Trigger catalog (.wsps) - novel
 // replacement for AzerothCore's spell_proc_event SQL
 // table plus the per-spell proc fields embedded in
 // Spell.dbc. Defines when a "trigger" spell fires in
@@ -98,15 +98,15 @@ public:
 
     // Preset emitters used by --gen-sps* variants.
     //
-    //   makeWeapon  — 4 weapon-imbue procs (Windfury /
+    //   makeWeapon  - 4 weapon-imbue procs (Windfury /
     //                  Frostbrand / Flametongue / Mana Oil)
     //                  triggered on DealtMeleeAutoAttack
     //                  with PPM-style chance.
-    //   makeAura    — 4 aura-tied procs (Blessing of
+    //   makeAura    - 4 aura-tied procs (Blessing of
     //                  Wisdom mana return, Molten Armor
     //                  crit-reflect, Earth Shield heal,
     //                  Judgement of Wisdom).
-    //   makeTalent  — 4 talent procs (Clearcasting,
+    //   makeTalent  - 4 talent procs (Clearcasting,
     //                  Omen of Clarity, Seal of
     //                  Righteousness, Nightfall) with
     //                  internal cooldowns to match canonical

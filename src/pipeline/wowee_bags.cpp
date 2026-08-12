@@ -80,11 +80,11 @@ WoweeBagSlot WoweeBagSlotLoader::makeStarter(
     WoweeBagSlot c;
     c.name = catalogName;
     {
-        // Main backpack — 16-slot fixed, item id 0 = built-in.
+        // Main backpack - 16-slot fixed, item id 0 = built-in.
         WoweeBagSlot::Entry e;
         e.bagSlotId = 1;
         e.name = "MainBackpack";
-        e.description = "Built-in 16-slot starter backpack — "
+        e.description = "Built-in 16-slot starter backpack - "
                          "always present, never empty.";
         e.bagKind = WoweeBagSlot::Inventory;
         e.containerSize = 16;
@@ -99,7 +99,7 @@ WoweeBagSlot WoweeBagSlotLoader::makeStarter(
         e.name = std::string("BagSlot") + std::to_string(order);
         e.description = std::string("Player-equippable bag slot ") +
                          std::to_string(order) +
-                         " — accepts any generic container.";
+                         " - accepts any generic container.";
         e.bagKind = WoweeBagSlot::Inventory;
         e.containerSize = 0;             // size determined by equipped bag
         e.displayOrder = order;
@@ -129,8 +129,8 @@ WoweeBagSlot WoweeBagSlotLoader::makeBank(
         e.description = std::string("Bank bag slot ") +
                          std::to_string(order) +
                          (unlocked
-                            ? " — free, unlocked at character creation."
-                            : " — requires gold purchase to unlock.");
+                            ? " - free, unlocked at character creation."
+                            : " - requires gold purchase to unlock.");
         e.bagKind = WoweeBagSlot::Bank;
         e.containerSize = 0;
         e.displayOrder = order;
@@ -175,18 +175,18 @@ WoweeBagSlot WoweeBagSlotLoader::makeSpecial(
         c.entries.push_back(e);
     };
     add(200, "Keyring",        WoweeBagSlot::Keyring,   32, 0,
-        "Fixed 32-slot keyring — accepts only key-class items "
+        "Fixed 32-slot keyring - accepts only key-class items "
         "(no equippable bag).");
     add(201, "SoulShardBag",   WoweeBagSlot::SoulShard, 0,
         WoweeBagSlot::kAcceptsSoulShard,
-        "Warlock-only soul shard bag slot — accepts only "
+        "Warlock-only soul shard bag slot - accepts only "
         "Soul Shard Bag containers.");
     add(202, "ArrowQuiver",    WoweeBagSlot::Quiver,    0,
         WoweeBagSlot::kAcceptsQuiver | WoweeBagSlot::kAcceptsAmmoPouch,
-        "Hunter-only ranged ammo slot — accepts quivers and "
+        "Hunter-only ranged ammo slot - accepts quivers and "
         "ammo pouches (boost ranged attack speed).");
     add(203, "HuntersStable",  WoweeBagSlot::Stable,    5, 0,
-        "5 hunter pet stable slots — only hunters can use this.");
+        "5 hunter pet stable slots - only hunters can use this.");
     return c;
 }
 

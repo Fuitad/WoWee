@@ -1,4 +1,4 @@
-// GM commands: /gmhelp, /gmcommands — local help for server-side dot-prefix commands.
+// GM commands: /gmhelp, /gmcommands - local help for server-side dot-prefix commands.
 // Also provides the gm_commands::getCompletions() function used by tab-completion.
 // The actual GM commands (.gm, .tele, etc.) are sent to the server as SAY messages;
 // the server (AzerothCore) does the real work.  This file just adds discoverability.
@@ -15,7 +15,7 @@
 namespace wowee { namespace ui {
 
 // ---------------------------------------------------------------------------
-// gm_commands namespace — GM command lookup helpers used by tab-completion
+// gm_commands namespace - GM command lookup helpers used by tab-completion
 // and the /gmhelp command.
 // ---------------------------------------------------------------------------
 namespace gm_commands {
@@ -43,7 +43,7 @@ const GmCommandEntry* find(const std::string& name) {
 } // namespace gm_commands
 
 // ---------------------------------------------------------------------------
-// /gmhelp [filter] — display GM command reference locally.
+// /gmhelp [filter] - display GM command reference locally.
 // ---------------------------------------------------------------------------
 class GmHelpCommand : public IChatCommand {
 public:
@@ -64,7 +64,7 @@ public:
             for (const auto& cmd : kGmCommands) {
                 std::string name(cmd.name);
                 if (name == filter || name.compare(0, filter.size(), filter) == 0) {
-                    std::string line = std::string(cmd.syntax) + "  — " + std::string(cmd.help)
+                    std::string line = std::string(cmd.syntax) + "  - " + std::string(cmd.help)
                         + "  [sec:" + std::to_string(cmd.security) + "]";
                     ctx.gameHandler.addLocalChatMessage(chat_utils::makeSystemMessage(line));
                     found = true;
@@ -77,7 +77,7 @@ public:
             return {};
         }
 
-        // No filter — print category overview
+        // No filter - print category overview
         ctx.gameHandler.addLocalChatMessage(
             chat_utils::makeSystemMessage("--- GM Commands (dot-prefix, sent to server) ---"));
         ctx.gameHandler.addLocalChatMessage(

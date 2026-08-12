@@ -4,7 +4,7 @@ namespace wowee {
 namespace editor {
 namespace cli {
 
-// Dispatch the mesh-aggregate info handlers — surface
+// Dispatch the mesh-aggregate info handlers - surface
 // vertex/triangle/bone/animation totals across WOM/WOB
 // files, plus per-mesh detail views.
 //   --info-zone-models-total      aggregate WOM/WOB across a zone

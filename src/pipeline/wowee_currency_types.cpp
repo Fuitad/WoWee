@@ -122,16 +122,16 @@ WoweeCurrencyType WoweeCurrencyTypeLoader::makePvP(
     // weekly cap.
     add(43308, "HonorPoints",   0,      75000, 0,
         C::PvPHonor, 0, "Interface\\Icons\\PVPCurrency-Honor-Alliance",
-        "Honor Points — earned in PvP, 75k absolute cap.");
+        "Honor Points - earned in PvP, 75k absolute cap.");
     add(390,   "ArenaPoints",  29024,   0,    5000,
         C::PvPHonor, 0, "Interface\\Icons\\PVPCurrency-Conquest-Alliance",
-        "Arena Points — weekly 5k earn cap, no absolute cap.");
+        "Arena Points - weekly 5k earn cap, no absolute cap.");
     add(390000,"ConquestPoints",0,      0,    1650,
         C::PvPHonor, 0, "Interface\\Icons\\PVPCurrency-Conquest-Alliance",
-        "Conquest Points (Cata-style) — 1650 weekly cap.");
+        "Conquest Points (Cata-style) - 1650 weekly cap.");
     add(241,   "ChampionsSeal",  44990, 0,    0,
         C::PvPHonor, 0, "Interface\\Icons\\Achievement_PVP_A_18",
-        "Champion's Seal — Argent Tournament token, no cap.");
+        "Champion's Seal - Argent Tournament token, no cap.");
     return c;
 }
 
@@ -156,16 +156,16 @@ WoweeCurrencyType WoweeCurrencyTypeLoader::makePvE(
     };
     add(395,   "JusticePoints", 0, 4000, 0,
         "Interface\\Icons\\Achievement_GuildPerk_Honorable",
-        "Justice Points (Cata-style) — 4k absolute cap.");
+        "Justice Points (Cata-style) - 4k absolute cap.");
     add(396,   "ValorPoints",   0, 0, 1000,
         "Interface\\Icons\\Achievement_Reputation_07",
-        "Valor Points — 1k weekly cap, no absolute cap.");
+        "Valor Points - 1k weekly cap, no absolute cap.");
     add(341,   "EmblemOfFrost", 49426, 0, 0,
         "Interface\\Icons\\INV_Misc_Token_HonorBound",
-        "Emblem of Frost — no caps, ICC-tier raid currency.");
+        "Emblem of Frost - no caps, ICC-tier raid currency.");
     add(442,   "TrophyOfCrusade", 47241, 0, 0,
         "Interface\\Icons\\INV_Misc_Token_Argentdawn",
-        "Trophy of the Crusade — no cap, T9 token.");
+        "Trophy of the Crusade - no cap, T9 token.");
     return c;
 }
 
@@ -186,20 +186,20 @@ WoweeCurrencyType WoweeCurrencyTypeLoader::makeFactionTokens(
         e.iconColorRGBA = packRgba(100, 200, 100);   // faction green
         c.entries.push_back(e);
     };
-    // Faction tokens — gated by reputation, not by a cap.
+    // Faction tokens - gated by reputation, not by a cap.
     // categoryId references the WFAC.factionId.
     add(1000, "SpearFragmentOfHodir", 41511, 1119,
         "Interface\\Icons\\INV_Spear_05",
-        "Spear-fragment of Hodir — Sons of Hodir rep token.");
+        "Spear-fragment of Hodir - Sons of Hodir rep token.");
     add(1001, "MarkOfTheCenarion",    20809, 609,
         "Interface\\Icons\\INV_Misc_Cape_18",
-        "Mark of the Cenarion — Cenarion Circle rep token.");
+        "Mark of the Cenarion - Cenarion Circle rep token.");
     add(1002, "ArgentDawnValorToken", 12846, 529,
         "Interface\\Icons\\INV_Jewelry_Talisman_05",
-        "Argent Dawn Valor Token — Argent Dawn rep token.");
+        "Argent Dawn Valor Token - Argent Dawn rep token.");
     add(1003, "WintergraspMark",      43589, 1156,
         "Interface\\Icons\\Achievement_Zone_Wintergrasp_01",
-        "Wintergrasp Mark of Honor — Wintergrasp rep token.");
+        "Wintergrasp Mark of Honor - Wintergrasp rep token.");
     return c;
 }
 

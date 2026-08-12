@@ -122,7 +122,7 @@ static std::set<uint32_t> detectStringColumns(const DBCFile& dbc,
 
     auto boundaries = computeStringBoundaries(stringBlock);
 
-    // Field 0 is always the numeric record ID — skip it.
+    // Field 0 is always the numeric record ID - skip it.
     for (uint32_t col = 1; col < fieldCount; ++col) {
         bool allZeroOrValid = true;
         bool hasNonZero = false;
@@ -719,7 +719,7 @@ bool Extractor::run(const Options& opts) {
     std::atomic<size_t> fileIndex{0};
     size_t totalFiles = files.size();
 
-    // Open archives ONCE in main thread — StormLib has global state that is not
+    // Open archives ONCE in main thread - StormLib has global state that is not
     // thread-safe even with separate handles, so we serialize all MPQ reads.
     struct SharedArchive {
         HANDLE handle;
@@ -808,7 +808,7 @@ bool Extractor::run(const Options& opts) {
                 SFileCloseFile(hFile);
                 data.resize(bytesRead);
             }
-            // Lock released — CRC computation and disk write happen in parallel
+            // Lock released - CRC computation and disk write happen in parallel
 
             // Compute CRC32
             uint32_t crc = ManifestWriter::computeCRC32(data.data(), data.size());

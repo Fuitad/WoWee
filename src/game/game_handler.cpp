@@ -351,11 +351,11 @@ void GameHandler::updateNetworking(float deltaTime) {
             std::chrono::steady_clock::now() - lastRxTime_).count();
         if (silenceMs > game::RX_SILENCE_WARNING_MS && !rxSilenceLogged_) {
             rxSilenceLogged_ = true;
-            LOG_WARNING("RX SILENCE: No packets from server for ", silenceMs, "ms — possible soft disconnect");
+            LOG_WARNING("RX SILENCE: No packets from server for ", silenceMs, "ms - possible soft disconnect");
         }
         if (silenceMs > game::RX_SILENCE_CRITICAL_MS && !rxSilence15sLogged_) {
             rxSilence15sLogged_ = true;
-            LOG_WARNING("RX SILENCE: 15s — server appears to have stopped sending");
+            LOG_WARNING("RX SILENCE: 15s - server appears to have stopped sending");
         }
     }
 
@@ -537,10 +537,10 @@ void GameHandler::updateTimers(float deltaTime) {
     }
 
     // Tick InventoryHandler's auction search cooldown (the authoritative
-    // timer — GameHandler previously ticked its own never-set duplicate).
+    // timer - GameHandler previously ticked its own never-set duplicate).
     if (inventoryHandler_) inventoryHandler_->tickAuctionSearchDelay(deltaTime);
 
-    // Tick QuestHandler's pending-accept timeouts (the authoritative maps —
+    // Tick QuestHandler's pending-accept timeouts (the authoritative maps -
     // GameHandler previously ticked its own never-populated copies, so lost
     // or rejected quest accepts were never resynced or unblocked).
     if (questHandler_) {
@@ -662,7 +662,7 @@ void GameHandler::updateTimers(float deltaTime) {
                 if (guid == playerGuid) continue;
                 auto player = std::static_pointer_cast<Player>(entity);
                 if (!player->getName().empty()) continue;
-                // Player entity exists with empty name and no pending query — resend.
+                // Player entity exists with empty name and no pending query - resend.
                 entityController_->queryPlayerName(guid);
             }
         }
@@ -746,7 +746,7 @@ void GameHandler::update(float deltaTime) {
     if (pendingCharDeleteResponse_) {
         pendingDeleteTimer_ += deltaTime;
         if (pendingDeleteTimer_ >= 3.0f) {
-            LOG_WARNING("No SMSG_CHAR_DELETE response after 3s — requesting character list to verify");
+            LOG_WARNING("No SMSG_CHAR_DELETE response after 3s - requesting character list to verify");
             pendingCharDeleteResponse_ = false;
             pendingDeleteFallbackEnum_ = true;
             requestCharacterList();
@@ -771,7 +771,7 @@ void GameHandler::update(float deltaTime) {
             msg = "Character deleted.";
         } else {
             msg = "Delete failed: the server did not respond. "
-                  "This usually happens if you recently logged out — "
+                  "This usually happens if you recently logged out - "
                   "wait 20-30 seconds and try again.";
         }
         if (charDeleteCallback_) charDeleteCallback_(deleted, msg);
@@ -795,14 +795,14 @@ void GameHandler::update(float deltaTime) {
     }
 
     // Entering and leaving combat is fired from the update block that carries
-    // UNIT_FLAG_IN_COMBAT, in EntityController — not from here.
+    // UNIT_FLAG_IN_COMBAT, in EntityController - not from here.
     //
     // Both places used to fire it, so every fight announced itself twice: the
     // combat text showed "Entering Combat" and then "Entering Combat" again,
     // and the same on the way out. The two do not even agree on the question.
     // This one asked isInCombat(), which is `autoAttacking_ ||
-    // !hostileAttackers_.empty()` — the client's own inference from what it has
-    // seen swing — while the other reads the flag the *server* sets, which is
+    // !hostileAttackers_.empty()` - the client's own inference from what it has
+    // seen swing - while the other reads the flag the *server* sets, which is
     // what PLAYER_REGEN_DISABLED means in WoW and what decides whether a panel
     // may be changed. Two sources, two edges, at slightly different moments.
 
@@ -879,7 +879,7 @@ void GameHandler::update(float deltaTime) {
                 // sends SMSG_SPELL_GO when the cast completes server-side (~50-200ms
                 // after the client timer expires due to float precision/frame timing).
                 // handleSpellGo checks `wasInTimedCast = casting_ && spellId == currentCastSpellId_`
-                // — if we clear those fields now, wasInTimedCast is false and the loot
+                // - if we clear those fields now, wasInTimedCast is false and the loot
                 // path (CMSG_LOOT via lastInteractedGoGuid_) never fires.
                 // Let the cast bar sit at 100% until SMSG_SPELL_GO arrives to clean up.
                 pendingGameObjectInteractGuid_ = 0;
@@ -998,7 +998,7 @@ void GameHandler::raiseUiError(const std::string& message) {
     addSystemChatMessage(message);
     // Through addUIError rather than firing the event again here. That already
     // existed and already raises UI_ERROR_MESSAGE, and it also reaches this
-    // client's own on-screen error line through uiErrorCallback_ — which a
+    // client's own on-screen error line through uiErrorCallback_ - which a
     // second copy of the event would have missed. Adding one was how this file
     // grew a second answer to a question already answered two headers away.
     addUIError(message);
@@ -1088,8 +1088,8 @@ static const std::string kEmptySkillName;
 
 const std::string& GameHandler::getSkillName(uint32_t skillId) const {
     // Asked for a name is a reason to read the file. The load used to be
-    // driven only from the *write* paths — a player update block carrying
-    // skill fields, the spellbook building its tabs — so if every one of those
+    // driven only from the *write* paths - a player update block carrying
+    // skill fields, the spellbook building its tabs - so if every one of those
     // ran before the assets were up, nothing ever went back for it and every
     // skill stayed nameless. getSpellName has always done this; this did not.
     loadSkillLineDbc();
@@ -1255,7 +1255,7 @@ std::vector<uint32_t> GameHandler::getMacroIds() const {
     ids.reserve(macros_.size());
     for (const auto& [id, text] : macros_) { (void)text; ids.push_back(id); }
     // Ascending, because the interface indexes macros by position in this list
-    // and an unordered_map hands them back in whatever order it likes — the
+    // and an unordered_map hands them back in whatever order it likes - the
     // same macro would answer to a different index each session.
     std::sort(ids.begin(), ids.end());
     return ids;
@@ -1588,7 +1588,7 @@ glm::vec3 GameHandler::getComposedWorldPosition() {
         if (tr) {
             return transportManager_->getPlayerWorldPosition(playerTransportGuid_, playerTransportOffset_);
         }
-        // Transport not tracked — fall through to normal position
+        // Transport not tracked - fall through to normal position
     }
     // Not on transport, return normal movement position
     return glm::vec3(movementInfo.x, movementInfo.y, movementInfo.z);
@@ -1876,7 +1876,7 @@ void GameHandler::updateM2TransportBoarding(const glm::vec3& playerCanonical) {
         const bool hasDeckSupport =
             tm->isPointOnTransportDeck(getPlayerTransportGuid(), playerCanonical, 3.0f);
 
-        // The footprint above is deliberately generous — larger than any hull —
+        // The footprint above is deliberately generous - larger than any hull -
         // so it only catches someone clearly away from the ship. Stepping off
         // onto the pier alongside leaves the rider well inside it, which is why
         // they stayed attached while standing on the dock. Losing the deck is
@@ -2179,10 +2179,10 @@ void GameHandler::sendLootRoll(uint64_t objectGuid, uint32_t slot, uint8_t rollT
 
 // ---------------------------------------------------------------------------
 // SMSG_ACHIEVEMENT_EARNED (WotLK 3.3.5a wire 0x468)
-//   uint64 guid          — player who earned it (may be another player)
-//   uint32 achievementId — Achievement.dbc ID
-//   PackedTime date      — uint32 bitfield (seconds since epoch)
-//   uint32 realmFirst    — how many on realm also got it (0 = realm first)
+//   uint64 guid          - player who earned it (may be another player)
+//   uint32 achievementId - Achievement.dbc ID
+//   PackedTime date      - uint32 bitfield (seconds since epoch)
+//   uint32 realmFirst    - how many on realm also got it (0 = realm first)
 // ---------------------------------------------------------------------------
 void GameHandler::loadTitleNameCache() const {
     if (titleNameCacheLoaded_) return;
@@ -2407,7 +2407,7 @@ void GameHandler::loadAchievementNameCache() {
             if (iconId > 0) achievementIconCache_[id] = iconId;
         }
         // Field 41 is Flags. Read here rather than in the category loader,
-        // which used to read it separately for the statistic bit alone — one
+        // which used to read it separately for the statistic bit alone - one
         // pass over the file, one idea of what the column is. Confirmed twice
         // over: bit 0x1 agrees with "does this row's category descend from
         // Statistics" on all 1817 rows, and FrameXML's own constants.lua names
@@ -2438,7 +2438,7 @@ const GameHandler::BattlemasterEntry* GameHandler::getBattlemasterInfo(uint32_t 
                 e.minLevel     = dbc->getUInt32(i, 30);
                 e.maxLevel     = dbc->getUInt32(i, 31);
                 // Fields 1-8 are map ids, 0xFFFFFFFF where unused, and field 9
-                // is the instance type — verified against the file rather than
+                // is the instance type - verified against the file rather than
                 // taken from a layout table, which does not carry this row.
                 e.instanceType = dbc->getUInt32(i, 9);
                 for (uint32_t f = 1; f <= 8; ++f) {
@@ -2496,7 +2496,7 @@ const std::vector<GameHandler::BattlemasterEntry>& GameHandler::getBattlegroundT
 }
 
 // CurrencyTypes.dbc: id, then the item that carries the amount. Everything the
-// currency tab shows about a currency — name, icon, how many — comes from that
+// currency tab shows about a currency - name, icon, how many - comes from that
 // item, so the row itself needs nothing else.
 const std::vector<GameHandler::CurrencyType>& GameHandler::getCurrencyTypes() {
     if (currencyTypesLoaded_) return currencyTypes_;
@@ -2520,8 +2520,8 @@ const std::vector<GameHandler::CurrencyType>& GameHandler::getCurrencyTypes() {
 }
 
 // Achievement.dbc field 38 is the category. It is not in the layout file, but
-// the fields either side of it are — Points at 39, Description at 21, IconID at
-// 42 — which is the stock 3.3.5a order, so 38 is where the category sits.
+// the fields either side of it are - Points at 39, Description at 21, IconID at
+// 42 - which is the stock 3.3.5a order, so 38 is where the category sits.
 void GameHandler::ensureGlyphPropertiesLoaded() {
     if (glyphPropertiesLoaded_) return;
     auto* am = services_.assetManager;
@@ -2554,7 +2554,7 @@ void GameHandler::ensureAchievementCategoriesLoaded() {
     const uint32_t fieldCount = dbc->getFieldCount();
     if (fieldCount <= 38) return;
     // Field 41 is Flags, and bit 0x1 marks a statistic rather than an
-    // achievement — verified against all 1817 rows of the 3.3.5a file by the
+    // achievement - verified against all 1817 rows of the 3.3.5a file by the
     // other thing that says the same: whether the row's category descends from
     // the top-level Statistics category. The two agree on every record, and no
     // category holds a mixture, so either signal alone would do; the flag is
@@ -2570,7 +2570,7 @@ void GameHandler::ensureAchievementCategoriesLoaded() {
         if (haveFlags && (getAchievementFlags(id) & 0x1u) != 0)
             statisticCategories.insert(category);
         // Field 3 is Supercedes: the achievement this one follows on from.
-        // Checked by reading it — "Level 20" points at "Level 10" and "Expert
+        // Checked by reading it - "Level 20" points at "Level 10" and "Expert
         // Cook" at "Journeyman Cook", and all 176 non-zero values are ids that
         // exist. Kept both ways round because the panel walks it backwards to
         // list a finished chain and forwards to find the step still open.
@@ -2594,7 +2594,7 @@ void GameHandler::ensureAchievementCategoriesLoaded() {
             // Field 19 is where a category sits among its siblings. Sorted by
             // it, the top level comes out General, Quests, Exploration, Player
             // vs. Player, Dungeons & Raids, Professions, Reputation, World
-            // Events, Feats of Strength, Statistics — which is the order the
+            // Events, Feats of Strength, Statistics - which is the order the
             // real client shows. Record order is not that, so the tree would
             // otherwise read scrambled.
             if (catDbc->getFieldCount() > 19) info.uiOrder = catDbc->getUInt32(i, 19);
@@ -2616,7 +2616,7 @@ void GameHandler::ensureAchievementCategoriesLoaded() {
                 c = it->second.parentId;
             }
         }
-        // Id breaks ties, so the order is total and the same on every load —
+        // Id breaks ties, so the order is total and the same on every load -
         // siblings share a ui_order across different parents.
         std::sort(achievementCategoryOrder_.begin(), achievementCategoryOrder_.end(),
                   [this](uint32_t a, uint32_t b) {
@@ -2660,15 +2660,15 @@ void GameHandler::ensureAchievementCriteriaLoaded() {
     const uint32_t descField = fieldOr("Description", 9);
     // Field 29 holds the timer, where there is one. Fifty-nine criteria have a
     // non-zero value and every one is a round number of seconds that the
-    // criteria's own description states in words — 420 against "Win Warsong
+    // criteria's own description states in words - 420 against "Win Warsong
     // Gulch in under 7 minutes", 1200 against "Kill Maexxna within 20 minutes",
     // 60 against "Kill 100 Risen Zombies in 1 minute". No other field in the
     // record agrees with the text that way.
     const uint32_t limitField = fieldOr("TimeLimit", 29);
     // Field 26, identified the same way field 29 was: the hundred and sixty
     // rows with bit one set are the "Complete N quests" family that WoW draws
-    // as bars, and the large-quantity rows without it — weapon skills at four
-    // hundred, reputations at forty-two thousand — are the ones it draws as
+    // as bars, and the large-quantity rows without it - weapon skills at four
+    // hundred, reputations at forty-two thousand - are the ones it draws as
     // text. Fields 9 to 25 are the sixteen locale strings and their mask, so
     // this is the first word past them.
     const uint32_t flagsField = fieldOr("Flags", 26);
@@ -2713,7 +2713,7 @@ void GameHandler::handleAllAchievementData(network::Packet& packet) {
 
     // Parse the criteria block: records until an id of -1. The record's shape
     // is in readCriteriaProgressTail, which SMSG_CRITERIA_UPDATE reads with too
-    // — the server builds both from the same lines.
+    // - the server builds both from the same lines.
     criteriaProgress_.clear();
     while (packet.hasRemaining(4)) {
         uint32_t id = packet.readUInt32();
@@ -2725,8 +2725,8 @@ void GameHandler::handleAllAchievementData(network::Packet& packet) {
 
     LOG_INFO("SMSG_ALL_ACHIEVEMENT_DATA: loaded ", earnedAchievements_.size(),
              " achievements, ", criteriaProgress_.size(), " criteria");
-    // The panel builds its whole tree on this, and it arrives once at login —
-    // well before anything opens the panel — so without the event a panel
+    // The panel builds its whole tree on this, and it arrives once at login -
+    // well before anything opens the panel - so without the event a panel
     // opened later showed the empty state it was built with.
     if (addonEventCallback_) addonEventCallback_("RECEIVED_ACHIEVEMENT_LIST", {});
 }
@@ -2781,7 +2781,7 @@ void GameHandler::loadFactionNameCache() const {
     const bool hasParentField = dbc->getFieldCount() > PARENT_FIELD;
     if (dbc->getFieldCount() <= NAME_FIELD) {
         LOG_WARNING("Faction.dbc: unexpected field count ", dbc->getFieldCount());
-        // Don't abort — still try to load names from a shorter layout
+        // Don't abort - still try to load names from a shorter layout
     }
     const uint32_t nameField = (dbc->getFieldCount() > NAME_FIELD) ? NAME_FIELD : 22u;
 
@@ -2933,7 +2933,7 @@ void GameHandler::loadAreaNameCache() const {
                 uint32_t areaId = dbc->getUInt32(i, areaIdField);
                 if (areaId == 0) continue;
                 std::string name = dbc->getString(i, areaNameField);
-                // Don't overwrite AreaTable names — those are authoritative
+                // Don't overwrite AreaTable names - those are authoritative
                 if (!name.empty() && !areaNameCache_.count(areaId)) {
                     areaNameCache_[areaId] = std::move(name);
                 }
@@ -3105,7 +3105,7 @@ void GameHandler::loadLfgDungeonDbc() const {
     // Everything past the name, which the layout table does not describe. The
     // WotLK file is 49 fields wide: sixteen name locales and their flags fill
     // 1-17, and the rest follow in this order. Read off the file and checked
-    // against rows that can be recognised rather than taken on trust — Wailing
+    // against rows that can be recognised rather than taken on trust - Wailing
     // Caverns on map 43, Ragefire Chasm the one entry with faction 0, Karazhan
     // grouped with the Burning Crusade raids.
     constexpr uint32_t kMinLevel = 18, kMaxLevel = 19, kTargetLevel = 20;
@@ -3115,14 +3115,14 @@ void GameHandler::loadLfgDungeonDbc() const {
     // 32 through 48 are the description in each locale. Only the holiday rows
     // and a handful of others carry one.
     constexpr uint32_t kDescription = 32;
-    // Group 11 is the four seasonal bosses — the Headless Horseman, Ahune,
-    // Coren Direbrew and the Crown Chemical Co. — and nothing else. The file
+    // Group 11 is the four seasonal bosses - the Headless Horseman, Ahune,
+    // Coren Direbrew and the Crown Chemical Co. - and nothing else. The file
     // has no holiday flag of its own; the group is the flag.
     constexpr uint32_t kHolidayGroup = 11;
     const bool wideEnough = dbc->getFieldCount() > kGroupId;
     if (!wideEnough) {
         LOG_WARNING("LFGDungeons.dbc has only ", dbc->getFieldCount(),
-                    " fields — the dungeon finder will list names only");
+                    " fields - the dungeon finder will list names only");
     }
 
     for (uint32_t i = 0; i < dbc->getRecordCount(); ++i) {
@@ -3232,7 +3232,7 @@ void GameHandler::rebuildCompanions() const {
                 // same number space a summon's is. AuraEffect::HandleAuraMounted
                 // opens with `uint32 creatureEntry = GetMiscValue();` and then
                 // picks the model with ChooseDisplayId on that entry's
-                // template — it is not handed to Player::Mount as a display id,
+                // template - it is not handed to Player::Mount as a display id,
                 // which is what the comment here used to say. Stored as the
                 // entry and resolved by the reader, exactly like a critter's.
                 c.creatureId = dbc->getUInt32(row, (*layout)["EffectMiscValue" + idx]);
@@ -3248,7 +3248,7 @@ void GameHandler::rebuildCompanions() const {
                 //
                 // It used to resolve here when the cache happened to be warm
                 // and leave the entry when it did not, on the reading that a
-                // later rebuild would catch it — but nothing rebuilds on a
+                // later rebuild would catch it - but nothing rebuilds on a
                 // query answer and nothing sent the query, so the field meant a
                 // display id or an entry depending on what had been near the
                 // player. One number space, decided in one place.
@@ -3435,7 +3435,7 @@ void GameHandler::respondToCalendarInvite(uint64_t eventId, uint64_t inviteId,
 }
 
 // ============================================================
-// Delegating getters — SocialHandler owns the canonical state
+// Delegating getters - SocialHandler owns the canonical state
 // ============================================================
 
 uint32_t GameHandler::getTotalTimePlayed() const {
@@ -3941,7 +3941,7 @@ int32_t GameHandler::getFactionStanding(uint32_t factionId) const {
     // SMSG_SET_FACTION_STANDING is what writes it, and it only arrives when
     // reputation moves. The standings the character logged in with come in
     // SMSG_INITIALIZE_FACTIONS, indexed by ReputationListID rather than by
-    // faction, and the two were never joined — so every faction read zero and
+    // faction, and the two were never joined - so every faction read zero and
     // the reputation tab drew every bar empty at Neutral, whatever the
     // character had earned, until the next point of reputation with it.
     const uint32_t repListId = getRepListIdByFactionId(factionId);
@@ -4058,7 +4058,7 @@ const std::vector<GameHandler::ReputationRow>& GameHandler::getReputationRows() 
     if (!reputationRowsDirty_) return reputationRows_;
     reputationRows_.clear();
     // An empty list means the standings have not arrived, not that there are
-    // none — latching that would leave the panel empty for the session.
+    // none - latching that would leave the panel empty for the session.
     if (flat.empty()) return reputationRows_;
     reputationRowsDirty_ = false;
 
@@ -4137,7 +4137,7 @@ const std::vector<GameHandler::ReputationRow>& GameHandler::getReputationRows() 
             row.flags = entry->second->flags;
             row.hasRep = true;
         } else {
-            // A heading the player has no standing with — Classic and the two
+            // A heading the player has no standing with - Classic and the two
             // expansion groups are the usual ones. Drawn as a bare heading.
             row.name = getFactionNamePublic(factionId);
             row.hasRep = false;
@@ -4187,7 +4187,7 @@ GameHandler::getContinentBounds(uint32_t mapId) const {
     }
     if (!bounds.valid) {
         LOG_WARNING("No continent-wide WorldMapArea row for map ", mapId,
-                    " — anything projecting onto its map will have nothing to "
+                    " - anything projecting onto its map will have nothing to "
                     "project against");
     }
     return continentBoundsCache_.emplace(mapId, bounds).first->second;

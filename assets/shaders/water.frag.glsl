@@ -73,7 +73,7 @@ vec3 dualScrollWaveNormal(vec2 p, float time) {
     vec2 p3 = p + d3 * (time * s3 * 4.0);
 
     // Bend the wave fronts. Each octave on its own is a pure cosine, which is a
-    // set of infinitely long straight ridges — in perspective those read as
+    // set of infinitely long straight ridges - in perspective those read as
     // bright parallel lines running to the horizon, and the specular highlight
     // rides along each crest. Perturbing the phase with low-frequency noise
     // makes the crests wander, at the same wavelength, amplitude and speed. The
@@ -152,11 +152,11 @@ float fbmNoise(vec2 p, float time) {
 }
 
 // ============================================================
-// Gradient (Perlin) noise + rotated fractal — for the magma/slime flow
+// Gradient (Perlin) noise + rotated fractal - for the magma/slime flow
 // ============================================================
 // Value noise (noiseValue above) samples a scalar per lattice point and
 // interpolates it, so its features sit square on the integer grid and read as
-// axis-aligned blocks up close — which is what made the slime motion look like
+// axis-aligned blocks up close - which is what made the slime motion look like
 // tiles. Gradient noise instead interpolates a random gradient that is zero at
 // each lattice point, so neighbouring cells blend through zero without the flat
 // plateaus, and rotating every octave keeps the separate lattices from ever
@@ -199,7 +199,7 @@ float cellularFoam(vec2 p, float jitter) {
         for (int x = -1; x <= 1; x++) {
             vec2 neighbor = vec2(float(x), float(y));
             vec2 cellId = i + neighbor;
-            // Jittered cell point — higher jitter = more irregular placement
+            // Jittered cell point - higher jitter = more irregular placement
             vec2 point = vec2(hash21(cellId), hash22x(cellId)) * jitter
                        + vec2(0.5) * (1.0 - jitter);
             float d = length(neighbor + point - f);
@@ -215,7 +215,7 @@ void main() {
     float basicType = push.liquidBasicType;
 
     // ============================================================
-    // Magma / Slime — self-luminous flowing surfaces, skip water path
+    // Magma / Slime - self-luminous flowing surfaces, skip water path
     // ============================================================
     if (basicType > 1.5) {
         float dist = length(viewPos.xyz - FragPos);
@@ -331,7 +331,7 @@ void main() {
     // Shoreline masks use depth sampled straight down the pixel rather than
     // through the refraction offset. The refracted sample wanders with the wave
     // normal, and near the beach it lands on dry ground, so the depth it reports
-    // collapses to nothing along wandering lines — which is where the foam and
+    // collapses to nothing along wandering lines - which is where the foam and
     // wet sand were picking up hard tile-like edges. The refraction colour still
     // uses the offset sample; only the masks need a depth that stays put.
     float shoreLinDepth = linearizeDepth(texture(SceneDepth, screenUV).r, near, far);
@@ -346,7 +346,7 @@ void main() {
     }
     vec3 absorbed = exp(-absorptionCoeff * verticalDepth);
 
-    // Underwater blue fog — geometry below the waterline fades to a blue haze
+    // Underwater blue fog - geometry below the waterline fades to a blue haze
     // with depth, masking occlusion edge artifacts and giving a natural look.
     vec3 underwaterFogColor = waterColor.rgb * 0.5 + vec3(0.04, 0.10, 0.20);
     float underwaterFogFade = 1.0 - exp(-verticalDepth * 0.35);
@@ -361,7 +361,7 @@ void main() {
     float sceneBrightness = dot(sceneRefract, vec3(0.299, 0.587, 0.114));
     bool hasSceneData = (sceneBrightness > 0.003);
 
-    // Animated caustic shimmer — only without refraction (refraction already provides movement)
+    // Animated caustic shimmer - only without refraction (refraction already provides movement)
     if (!hasSceneData) {
         float caustic1 = noiseValue(FragPos.xy * 1.8 + time * vec2(0.3, 0.15));
         float caustic2 = noiseValue(FragPos.xy * 3.2 - time * vec2(0.2, 0.35));
@@ -378,7 +378,7 @@ void main() {
             refractedColor = mix(foggedScene, waterBody, opticalDepth * 0.6);
         }
     } else {
-        // No refraction data — use lit water body with animated variation
+        // No refraction data - use lit water body with animated variation
         vec3 litWater = waterBody * (ambientColor.rgb * 0.8 + NdotL * lightColor.rgb * 0.6);
         float normalShift = dot(detailNorm.xy, vec2(0.5, 0.5));
         litWater += vec3(0.02, 0.06, 0.10) * normalShift;
@@ -389,7 +389,7 @@ void main() {
     refractedColor = mix(refractedColor, litBase, clamp(depthFade * 0.3, 0.0, 0.5));
 
     // ============================================================
-    // Shoreline — wet sand and moving sediment
+    // Shoreline - wet sand and moving sediment
     // ============================================================
     // The last half metre of depth is where a beach reads as wet rather than
     // submerged: sand darkens and loses a little saturation, and light moving
@@ -422,7 +422,7 @@ void main() {
     }
 
     // ============================================================
-    // Planar reflection — subtle, not mirror-like
+    // Planar reflection - subtle, not mirror-like
     // ============================================================
     // reflWeight starts at 0; only contributes where we have valid reflection data
     float reflAmount = 0.0;
@@ -434,7 +434,7 @@ void main() {
         reflUV.y = 1.0 - reflUV.y;
         reflUV += norm.xy * 0.015;
 
-        // Wide fade so there's no visible boundary — fully gone well inside the edge
+        // Wide fade so there's no visible boundary - fully gone well inside the edge
         float edgeFade = smoothstep(0.0, 0.15, reflUV.x) * smoothstep(1.0, 0.85, reflUV.x)
                        * smoothstep(0.0, 0.15, reflUV.y) * smoothstep(1.0, 0.85, reflUV.y);
 
@@ -460,7 +460,7 @@ void main() {
     specular = min(specular, vec3(2.0));
 
     // Noise-based sparkle. Its features are far smaller than the wave detail, so
-    // it aliases sooner — fade it out over the near half of the detail range,
+    // it aliases sooner - fade it out over the near half of the detail range,
     // otherwise flattening the normals just leaves the sparkle field behind as
     // the visible pattern.
     float sparkleNoise = fbmNoise(FragPos.xy * 4.0 + time * 0.5, time * 1.5);
@@ -475,9 +475,9 @@ void main() {
     vec3 sssColor = vec3(0.05, 0.55, 0.35) * sss * lightColor.rgb;
 
     // ============================================================
-    // Combine — reflection only where valid, no dark fallback
+    // Combine - reflection only where valid, no dark fallback
     // ============================================================
-    // reflAmount is 0 where no valid reflection data exists — no dark arc
+    // reflAmount is 0 where no valid reflection data exists - no dark arc
     float reflectWeight = clamp(fresnel * reflAmount, 0.0, 0.30);
     vec3 color = mix(refractedColor, envReflect, reflectWeight);
     color += specular + sssColor;
@@ -491,7 +491,7 @@ void main() {
     float shorelineFoam = 0.0;
 
     // ============================================================
-    // Shoreline foam — scattered particles, not smooth bands
+    // Shoreline foam - scattered particles, not smooth bands
     // Only on terrain water (waveAmp > 0); WMO water (canals, indoor)
     // has waveAmp == 0 and should not show shoreline interaction.
     // ============================================================
@@ -521,7 +521,7 @@ void main() {
         vec2 foamUV = FragPos.xy + warpOffset + swashAdvect;
 
         // Worley cells thresholded near their centres put a dot in every cell,
-        // so the cell lattice itself becomes the pattern — which is the grid.
+        // so the cell lattice itself becomes the pattern - which is the grid.
         // Rotate each octave and use scales that are not simple multiples, so no
         // two lattices line up, and vary the threshold with noise so only some
         // cells produce a speck.
@@ -569,14 +569,14 @@ void main() {
     }
 
     // ============================================================
-    // Wake froth — water churned up by something moving through it
+    // Wake froth - water churned up by something moving through it
     // Not gated on shoreDepth: wading happens wherever the water is shallow
     // enough to stand in, which is not only at the beach.
     // ============================================================
     float wakeFoam = 0.0;
     if (wakeBounds.w > 0.5) {
         // One cheap reject for the whole trail keeps this off every other water
-        // pixel on screen — the trail covers a few yards, the sheet covers miles.
+        // pixel on screen - the trail covers a few yards, the sheet covers miles.
         vec2 toWake = FragPos.xy - wakeBounds.xy;
         if (dot(toWake, toWake) < wakeBounds.z * wakeBounds.z) {
             // Clamped, not trusted: an unmapped UBO would leave a garbage count
@@ -602,7 +602,7 @@ void main() {
                 vec2 churnUV = FragPos.xy + churnWarp;
 
                 // cellularFoam returns distance to the nearest cell point, so a
-                // low threshold marks only the few pixels sitting on a point —
+                // low threshold marks only the few pixels sitting on a point -
                 // specks, which left the patch between them to be filled solid.
                 // Thresholding across the middle of the range inverts that: most
                 // of the patch is foam and the gaps between cells are the
@@ -626,7 +626,7 @@ void main() {
     }
 
     // ============================================================
-    // Wave crest foam (ocean only) — particle-based
+    // Wave crest foam (ocean only) - particle-based
     // ============================================================
     if (basicType > 0.5 && basicType < 1.5 && push.waveAmp > 0.0) {
         float crestMask = smoothstep(0.5, 1.0, WaveOffset);
@@ -655,7 +655,7 @@ void main() {
     alpha = max(alpha, wakeFoam * 0.55);
     // Dissolve the sheet before the water geometry runs out, so the ocean fades
     // into the horizon haze instead of ending on a hard line. This has to come
-    // after the clamp — clamping afterwards restored the 0.15 floor and put the
+    // after the clamp - clamping afterwards restored the 0.15 floor and put the
     // edge straight back.
     alpha *= smoothstep(2400.0, 600.0, dist);
 

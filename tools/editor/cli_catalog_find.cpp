@@ -41,7 +41,7 @@ bool peekMagic(const fs::path& path, char magic[4]) {
 }
 
 // Same external-ref filter as cli_catalog_pluck. Kept in
-// sync — when a new format adds a foreign-key suffix that
+// sync - when a new format adds a foreign-key suffix that
 // the old filter misses, both files must be updated.
 // Future cleanup: share via cli_catalog_pluck.hpp once
 // either utility needs a third common helper.
@@ -166,7 +166,7 @@ int handleFind(int& i, int argc, char** argv) {
     // one format. Useful when an id is a primary key in
     // multiple format families and you only want hits from
     // one (e.g. id 100 matches both WGRP comp 100 and
-    // WSCB broadcast 100 — --magic WGRP narrows it).
+    // WSCB broadcast 100 - --magic WGRP narrows it).
     std::string magicFilter;
     while (i + 1 < argc && std::strcmp(argv[i + 1], "--magic") == 0 &&
            i + 2 < argc) {
@@ -198,7 +198,7 @@ int handleFind(int& i, int argc, char** argv) {
     // skip_permission_denied prevents the iterator from
     // throwing on unreadable subdirectories (common when
     // walking /tmp or system trees that contain other-user
-    // files). Errors are swallowed silently — catalog-find
+    // files). Errors are swallowed silently - catalog-find
     // is a best-effort search, not an audit.
     std::error_code walkEc;
     fs::recursive_directory_iterator it(
@@ -234,7 +234,7 @@ int handleFind(int& i, int argc, char** argv) {
         }
         if (!magicFilter.empty()) {
             std::string m(magic, 4);
-            // Pad / strip trailing space — table magics
+            // Pad / strip trailing space - table magics
             // include space chars (e.g. "WOM ").
             if (m != magicFilter) continue;
         }
@@ -321,7 +321,7 @@ int handleFind(int& i, int argc, char** argv) {
                     skippedUnknownMagic);
     }
     if (hits.empty()) {
-        std::printf("  no hits — id %llu is not a primary "
+        std::printf("  no hits - id %llu is not a primary "
                     "key in any catalog under this tree\n",
                     static_cast<unsigned long long>(searchId));
         return 1;

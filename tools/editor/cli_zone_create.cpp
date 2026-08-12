@@ -22,7 +22,7 @@ namespace cli {
 namespace {
 
 int handleScaffoldZone(int& i, int argc, char** argv) {
-    // Generate a minimal valid empty zone — useful for kickstarting
+    // Generate a minimal valid empty zone - useful for kickstarting
     // a new authoring session without needing to launch the GUI.
     std::string rawName = argv[++i];
     int sx = 32, sy = 32;
@@ -153,7 +153,7 @@ int handleMvpZone(int& i, int argc, char** argv) {
     c.displayId = 11430;  // any valid id; renderer falls back if absent
     sp.getSpawns().push_back(c);
     sp.saveToFile(dir + "/creatures.json");
-    // Demo object — a tree placement near the creature.
+    // Demo object - a tree placement near the creature.
     wowee::editor::ObjectPlacer op;
     wowee::editor::PlacedObject po;
     po.type = wowee::editor::PlaceableType::M2;

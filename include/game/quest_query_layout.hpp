@@ -1,12 +1,12 @@
 #pragma once
 
 /**
- * quest_query_layout.hpp — where the strings begin in SMSG_QUEST_QUERY_RESPONSE.
+ * quest_query_layout.hpp - where the strings begin in SMSG_QUEST_QUERY_RESPONSE.
  *
  * The response is a fixed block of four-byte fields followed by five strings:
  * Title, Objectives, Details, AreaDescription, CompletedText, in that order on
  * every expansion. Only the block's length changes, so its length is the whole
- * of knowing where the text starts — and reading from the wrong place does not
+ * of knowing where the text starts - and reading from the wrong place does not
  * fail, it returns the wrong string.
  */
 
@@ -23,7 +23,7 @@ namespace game {
 ///     2  type, suggestedPlayers
 ///     4  two reputation objectives, faction and value each
 ///     2  nextQuestInChain, xpId
-///     1  money — one field whichever branch of the hidden-rewards test runs
+///     1  money - one field whichever branch of the hidden-rewards test runs
 ///     3  moneyMaxLevel, rewSpell, rewSpellCast
 ///     2  honorAddition, honorMultiplier
 ///     7  srcItem, flags, charTitle, playersSlain, bonusTalents, arenaPoints,

@@ -45,7 +45,7 @@ public:
     /// Open the settings window, optionally on a named tab.
     ///
     /// FrameXML's game menu routes its Video, Sound and Interface buttons here.
-    /// Its own options frames are shells — this client's panel is where the
+    /// Its own options frames are shells - this client's panel is where the
     /// sixty-odd settings actually live, so handing the menu over must not hand
     /// the settings over with it.
     void openSettings(const char* tab = nullptr) {
@@ -61,7 +61,7 @@ public:
     /// window would leave that copy stale, so opening this client's own options
     /// afterwards would show the old value and save it back.
     /// The pacing pair used to be here too. It is the "vsync" setting now,
-    /// which keeps both records in one place and saves it as well — this held
+    /// which keeps both records in one place and saves it as well - this held
     /// only the window and the pending field.
     ///
     /// Windowed or full screen, for gxWindow. Both records again, for the same
@@ -95,7 +95,7 @@ public:
     /// Hand the saved anti-aliasing setting to the renderer.
     ///
     /// Called once at startup, before the first frame. It used to be applied
-    /// from update(), which does not run until the game screen is up — so a
+    /// from update(), which does not run until the game screen is up - so a
     /// saved setting rebuilt the swapchain around fifteen hundred frames into
     /// the session, with a world loaded and uploads in flight, rather than
     /// against a renderer that has drawn nothing yet.
@@ -130,7 +130,7 @@ public:
 
     /// Save a screenshot where the client's own binding and /screenshot put it.
     ///
-    /// Public because the interface's Screenshot() reaches the same call — a
+    /// Public because the interface's Screenshot() reaches the same call - a
     /// second path would name and place the file differently. Took a
     /// GameHandler it never read.
     void takeScreenshot();
@@ -142,28 +142,28 @@ private:
     UIServices services_;
     // Legacy pointer for Phase A compatibility (will be removed when all callsites migrate)
     core::AppearanceComposer* appearanceComposer_ = nullptr;
-    // Chat panel (extracted from GameScreen — owns all chat state and rendering)
+    // Chat panel (extracted from GameScreen - owns all chat state and rendering)
     ChatPanel chatPanel_;
 
-    // Toast manager (extracted from GameScreen — owns all toast/notification state and rendering)
+    // Toast manager (extracted from GameScreen - owns all toast/notification state and rendering)
     ToastManager toastManager_;
 
-    // Dialog manager (extracted from GameScreen — owns all popup/dialog rendering)
+    // Dialog manager (extracted from GameScreen - owns all popup/dialog rendering)
     DialogManager dialogManager_;
 
-    // Settings panel (extracted from GameScreen — owns all settings UI and config state)
+    // Settings panel (extracted from GameScreen - owns all settings UI and config state)
     SettingsPanel settingsPanel_;
 
-    // Combat UI (extracted from GameScreen — owns all combat overlay rendering)
+    // Combat UI (extracted from GameScreen - owns all combat overlay rendering)
     CombatUI combatUI_;
 
-    // Social panel (extracted from GameScreen — owns all social/group UI rendering)
+    // Social panel (extracted from GameScreen - owns all social/group UI rendering)
     SocialPanel socialPanel_;
 
-    // Action bar panel (extracted from GameScreen — owns action/stance/bag/xp/rep bars)
+    // Action bar panel (extracted from GameScreen - owns action/stance/bag/xp/rep bars)
     ActionBarPanel actionBarPanel_;
 
-    // Window manager (extracted from GameScreen — owns NPC windows, popups, overlays)
+    // Window manager (extracted from GameScreen - owns NPC windows, popups, overlays)
     WindowManager windowManager_;
 
     // UI state
@@ -261,7 +261,7 @@ private:
     void renderQuestMarkers(game::GameHandler& gameHandler);
     void renderMinimapMarkers(game::GameHandler& gameHandler);
 
-    /// The furniture around the minimap — mute, friends and zoom buttons, the
+    /// The furniture around the minimap - mute, friends and zoom buttons, the
     /// clock, and the stack of indicators below it. Separate from the marker
     /// pass because it answers the ownership question the other way: FrameXML's
     /// cluster brings its own, and the blips it does not bring at all.
@@ -284,13 +284,13 @@ private:
         bool project(const glm::vec3& worldRenderPos, float& sx, float& sy) const;
 
         /// An entity's own position, converted on the way. The conversion is one
-        /// fact — these two coordinate systems are not the same one — and it was
+        /// fact - these two coordinate systems are not the same one - and it was
         /// written at fourteen call sites before it was here.
         bool projectEntity(const game::Entity& entity, float& sx, float& sy) const;
 
         /// For the things that arrive as a bare pair of canonical coordinates:
         /// party members, pings, gossip points, battleground positions. They
-        /// have no height and need none — the minimap is flat.
+        /// have no height and need none - the minimap is flat.
         bool projectCanonical(float wowX, float wowY, float& sx, float& sy) const;
     };
 
@@ -299,8 +299,8 @@ private:
     using EntrySet = std::unordered_set<uint32_t>;
 
     /// One marker category each. They were fourteen blocks of one function and
-    /// are independent of each other — each walks its own list and draws its own
-    /// shape — so the only thing that kept them together was the locals they
+    /// are independent of each other - each walks its own list and draws its own
+    /// shape - so the only thing that kept them together was the locals they
     /// shared, which MinimapFrame now carries.
     /// Quest-giver status per NPC guid, as the server reports it.
     using QuestStatusMap = std::unordered_map<uint64_t, game::QuestGiverStatus>;
@@ -347,7 +347,7 @@ private:
     /// The optional clock at the bottom right of the ring.
     void renderMinimapClock(float centerX, float centerY, float mapRadius);
 
-    /// The stack under the minimap — mail, talent points, queues, latency,
+    /// The stack under the minimap - mail, talent points, queues, latency,
     /// durability. One function because they share a running Y and stack
     /// without gaps whichever of them apply.
     void renderMinimapIndicators(game::GameHandler& gameHandler, float centerX,
@@ -398,7 +398,7 @@ private:
     glm::vec2 leftClickPressPos_ = glm::vec2(0.0f);
     bool leftClickWasPress_ = false;
     // Right-click interact/attack fires on release only if the press was a tap, not a
-    // camera-rotation drag — so turning the view near a mob doesn't auto-attack it.
+    // camera-rotation drag - so turning the view near a mob doesn't auto-attack it.
     glm::vec2 rightClickPressPos_ = glm::vec2(0.0f);
     bool rightClickWasPress_ = false;
 

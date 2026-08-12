@@ -26,7 +26,7 @@ TEST_CASE("one takes the singular, anything else the plural", "[plural]") {
 }
 
 TEST_CASE("the number is the one before the escape, not the first", "[plural]") {
-    // "You have 1 of 5 |4quest:quests;" — the count that governs is the 5.
+    // "You have 1 of 5 |4quest:quests;" - the count that governs is the 5.
     // Words may sit between the number and the escape, which the interface's
     // own strings do constantly: "%d more daily |4quest:quests;".
     CHECK(resolvePluralEscapes("1 of 5 |4quest:quests;") == "1 of 5 quests");

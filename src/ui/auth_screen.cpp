@@ -573,7 +573,7 @@ void AuthScreen::render(auth::AuthHandler& authHandler) {
         } else if (state == auth::AuthState::FAILED) {
             // Protocol fallback: a 1.12 realm that speaks the other vanilla auth
             // protocol byte rejects or drops our handshake rather than replying
-            // usefully. Retry once on the next candidate before giving up — but
+            // usefully. Retry once on the next candidate before giving up - but
             // only for protocol-shaped failures, never for a rejected password
             // (retrying those can trip server-side lockouts).
             const bool haveFallback = (authProtocolAttempt_ + 1 < authProtocols_.size());
@@ -1131,7 +1131,7 @@ void AuthScreen::applyPresetToState(LoginGraphicsState& s, int preset) {
         s.upscalingMode = 0; s.waterRefraction = true; s.groundClutter = 150;
         s.brightness = 50; s.vsync = true; s.fullscreen = false;
         break;
-    default: // Custom — no change
+    default: // Custom - no change
         break;
     }
 }
@@ -1139,7 +1139,7 @@ void AuthScreen::applyPresetToState(LoginGraphicsState& s, int preset) {
 void AuthScreen::loadLoginGraphicsState() {
     std::ifstream file(SettingsPanel::getSettingsPath());
     if (!file.is_open()) {
-        // File doesn't exist yet — keep struct defaults (Medium equivalent)
+        // File doesn't exist yet - keep struct defaults (Medium equivalent)
         return;
     }
 
@@ -1154,7 +1154,7 @@ void AuthScreen::loadLoginGraphicsState() {
         //
         // Without this a value the file holds outside the range is kept, shown
         // against a slider that cannot represent it, and written straight back
-        // on Apply — while the game clamps the same value on the way in. A
+        // on Apply - while the game clamps the same value on the way in. A
         // config carrying view_distance=0 showed the slider pinned at the far
         // left reading 0 and stayed there for good, with the world drawing at
         // 400 regardless. Reported as settings "always saved as low".
@@ -1248,7 +1248,7 @@ void AuthScreen::renderLoginSettingsWindow() {
         ImGui::SameLine();
         ImGui::SetNextItemWidth(160.0f);
         if (ImGui::Combo("##preset", &loginGfx_.preset, presetNames, 5)) {
-            if (loginGfx_.preset != 0) // 0 = Custom — don't override manually set values
+            if (loginGfx_.preset != 0) // 0 = Custom - don't override manually set values
                 applyPresetToState(loginGfx_, loginGfx_.preset);
         }
 
@@ -1272,7 +1272,7 @@ void AuthScreen::renderLoginSettingsWindow() {
 
         // Anti-aliasing
         // The same four the settings schema offers. This list had three, so
-        // 8x could be set in the game and never shown or chosen here — and
+        // 8x could be set in the game and never shown or chosen here - and
         // picking any mode here wrote a value this list could not name back.
         const char* aaNames[] = {"Off", "2x MSAA", "4x MSAA", "8x MSAA"};
         ImGui::Text("Anti-Aliasing:");

@@ -135,7 +135,7 @@ public:
 
     /// Mark an instance as a moving transport. Its collision still answers the
     /// static-world floor query (you walk onto a hull, you stand on a lift), but
-    /// only when the deck is genuinely underfoot — see getFloorHeight. Idempotent;
+    /// only when the deck is genuinely underfoot - see getFloorHeight. Idempotent;
     /// safe on every register.
     void setInstanceIsTransport(uint32_t instanceId, bool isTransport);
 
@@ -316,7 +316,7 @@ public:
     /// The floor under (glX, glY), searching at or below glZ. By default it
     /// returns the highest such floor, which is the step-up behaviour. Pass
     /// `referenceZ` (the querier's actual feet height) to instead get the floor
-    /// closest to the feet — which is what keeps a player standing on the lower
+    /// closest to the feet - which is what keeps a player standing on the lower
     /// of two stacked floors under an overhang, rather than being snapped up to
     /// the level above them.
     std::optional<float> getFloorHeight(float glX, float glY, float glZ,
@@ -415,7 +415,7 @@ public:
     void setDeferNormalMaps(bool defer) { deferNormalMaps_ = defer; }
 
 private:
-    // WMO material UBO — matches WMOMaterial in wmo.frag.glsl
+    // WMO material UBO - matches WMOMaterial in wmo.frag.glsl
     struct WMOMaterialUBO {
         int32_t hasTexture;        // 0
         int32_t alphaTest;         // 4
@@ -518,7 +518,7 @@ private:
         std::vector<uint8_t> triMopyFlags;
         /// True when no triangle in this group blocks: no collision hull, and
         /// nothing rendered that is not detail. Detail never blocks, so such a
-        /// group is walk-through in its entirety — which is a thing to be
+        /// group is walk-through in its entirety - which is a thing to be
         /// walked through only if it was meant to be, and Darkshore's bridges
         /// are 428 triangles of it.
         bool noBlockingTriangles = false;
@@ -600,7 +600,7 @@ private:
         // Next group to upload. A large model's groups are spread across several
         // calls under a time budget rather than uploaded in one stall.
         // Next texture to upload. Uploading them all at once cost 40ms on a
-        // transport — the images are large, and the expense is the GPU upload
+        // transport - the images are large, and the expense is the GPU upload
         // rather than the decode, which the worker already did.
         size_t nextTextureIndex = 0;
         size_t nextGroupIndex = 0;
@@ -637,7 +637,7 @@ private:
         };
         std::vector<DoodadInfo> doodads;
 
-        // A moving transport (ship hull, elevator). It keeps ordinary collision —
+        // A moving transport (ship hull, elevator). It keeps ordinary collision -
         // a rider gets exact deck height from getInstanceFloorHeight, but everyone
         // else needs the hull solid to walk aboard in the first place. The flag
         // only restricts how far from the feet the static floor query will accept
@@ -828,7 +828,7 @@ private:
     /// Buildings kept disappearing from angles that had no business hiding
     /// them. Distance culling was turned off years ago for the same complaint
     /// ("causes ground to disappear") and it did not settle the matter, because
-    /// the distance test below runs whether that flag is set or not — the flag
+    /// the distance test below runs whether that flag is set or not - the flag
     /// only chooses which of two distances to use, so everything past
     /// viewDistance_ vanished regardless.
     ///
@@ -872,7 +872,7 @@ private:
     std::vector<InstanceDrawList> drawLists_;    // reused per frame
     std::unordered_set<uint32_t> portalVisibleGroupSet_; // reused per frame (portal culling scratch)
 
-    // Collision query profiling — atomic because getFloorHeight is dispatched
+    // Collision query profiling - atomic because getFloorHeight is dispatched
     // on async threads from camera_controller while the main thread reads these.
     mutable std::atomic<double> queryTimeMs{0.0};
     mutable std::atomic<uint32_t> queryCallCount{0};
@@ -893,7 +893,7 @@ private:
     // Compute floor height for a single cell (expensive, done at load time)
     std::optional<float> computeFloorHeightSlow(float x, float y, float refZ) const;
 
-    // Active WMO group tracking — reduces per-query group iteration
+    // Active WMO group tracking - reduces per-query group iteration
     struct ActiveGroupInfo {
         uint32_t instanceIdx = UINT32_MAX;
         uint32_t modelId = 0;

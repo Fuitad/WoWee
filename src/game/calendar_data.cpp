@@ -34,7 +34,7 @@ bool countFits(const network::Packet& packet, uint32_t count, size_t minRow) {
 /// Packet::readString stops at the end of the data as well as at a NUL, so a
 /// name whose last bytes were cut off comes back looking like a complete one
 /// and the parse reports success on a packet that is missing its tail. Every
-/// truncation inside the final holiday's texture name read that way — 19 of
+/// truncation inside the final holiday's texture name read that way - 19 of
 /// them, all reported clean.
 bool readTerminatedString(network::Packet& packet, std::string& out) {
     const std::vector<uint8_t>& bytes = packet.getData();
@@ -63,7 +63,7 @@ bool parseCalendarSendCalendar(network::Packet& packet, CalendarData& out) {
         inv.rank = packet.readUInt8();
         inv.isGuildEvent = packet.readUInt8() != 0;
         // The creator when the event still exists, the sender when it does
-        // not — the server writes one field for both cases and there is
+        // not - the server writes one field for both cases and there is
         // nothing in the packet that says which it chose.
         if (!packet.hasFullPackedGuid()) return false;
         inv.creatorGuid = packet.readPackedGuid();
@@ -152,7 +152,7 @@ namespace {
 
 /// A day number that can be compared and subtracted across month ends, so
 /// "does this holiday still run on the 3rd" does not need a calendar walk.
-/// Any consistent epoch will do — only differences are used.
+/// Any consistent epoch will do - only differences are used.
 int64_t dayNumber(int year, int month, int day) {
     // Howard Hinnant's days_from_civil, which is exact for the proleptic
     // Gregorian calendar the server's clock uses.
@@ -197,7 +197,7 @@ std::vector<CalendarDayEntry> calendarEntriesForDay(const CalendarData& data,
     // Raid lockouts, which the packet dates only by how long they have left.
     //
     // serverTimeUnix is the server's own clock at the moment it sent the
-    // calendar, and every lockout counts down from there — so the expiry is
+    // calendar, and every lockout counts down from there - so the expiry is
     // that instant plus the remainder, and it is converted here rather than at
     // each reader so the day it lands on and the time it shows cannot
     // disagree.

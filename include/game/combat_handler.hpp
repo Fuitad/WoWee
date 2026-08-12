@@ -88,7 +88,7 @@ public:
     void updateAutoAttack(float deltaTime);
 
     // --- Targeting ---
-    /// False for creature corpses that are neither lootable nor skinnable —
+    /// False for creature corpses that are neither lootable nor skinnable -
     /// those cannot be selected. Living units, players and non-units are always selectable.
     bool isSelectableUnit(uint64_t guid) const;
     void setTarget(uint64_t guid);
@@ -115,7 +115,7 @@ public:
     /// Back to the last hostile, or the last friendly, target.
     ///
     /// TargetLastTarget remembers one target whatever it was; these remember one
-    /// of each, which is what makes them useful — a healer's last friendly
+    /// of each, which is what makes them useful - a healer's last friendly
     /// target survives half a fight's worth of tab-targeting.
     void targetLastEnemy();
     void targetLastFriend();
@@ -159,7 +159,7 @@ private:
     /// The walk both cycles do: everything alive within range that `wanted`
     /// accepts, nearest first, then step to the next one past the current
     /// target. Written out twice with two predicates before this, and the two
-    /// had already drifted — one skipped the dead and the other did not, which
+    /// had already drifted - one skipped the dead and the other did not, which
     /// is right both times and was not written down anywhere.
     void cycleTarget(bool reverse, const char* noneMessage,
                      const std::function<bool(uint64_t, Entity&)>& wanted);

@@ -273,22 +273,22 @@ int handleValidate(int& i, int argc, char** argv) {
                 errors.push_back(ctx + ": name is empty");
             if (e.raceMask == 0)
                 errors.push_back(ctx +
-                    ": raceMask is 0 — no race can spawn here");
+                    ": raceMask is 0 - no race can spawn here");
             if (e.classMask == 0)
                 errors.push_back(ctx +
-                    ": classMask is 0 — no class can spawn here");
+                    ": classMask is 0 - no class can spawn here");
             if (e.startingLevel == 0)
                 errors.push_back(ctx + ": startingLevel is 0");
             if (e.startingLevel > 80)
                 warnings.push_back(ctx +
                     ": startingLevel " +
                     std::to_string(e.startingLevel) +
-                    " > 80 — character will spawn above WotLK level cap");
-            // (0,0,0) spawn position is suspicious — usually a
+                    " > 80 - character will spawn above WotLK level cap");
+            // (0,0,0) spawn position is suspicious - usually a
             // forgotten coord on a hand-edited entry.
             if (e.spawnX == 0.0f && e.spawnY == 0.0f && e.spawnZ == 0.0f) {
                 warnings.push_back(ctx +
-                    ": spawn position is (0,0,0) — likely an "
+                    ": spawn position is (0,0,0) - likely an "
                     "uninitialized entry");
             }
             // Item count without item id (or vice versa) is a
@@ -298,12 +298,12 @@ int handleValidate(int& i, int argc, char** argv) {
                     warnings.push_back(ctx +
                         ": startingItem" + std::to_string(slot) +
                         " has count=" + std::to_string(count) +
-                        " but id=0 — item will not be granted");
+                        " but id=0 - item will not be granted");
                 } else if (id != 0 && count == 0) {
                     warnings.push_back(ctx +
                         ": startingItem" + std::to_string(slot) +
                         " has id=" + std::to_string(id) +
-                        " but count=0 — item will not be granted");
+                        " but count=0 - item will not be granted");
                 }
             };
             checkItem(e.startingItem1Id, e.startingItem1Count, 1);
@@ -317,7 +317,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 warnings.push_back(ctx +
                     ": Death Knight class with startingLevel=" +
                     std::to_string(e.startingLevel) +
-                    " — DKs canonically start at level 55");
+                    " - DKs canonically start at level 55");
             }
             if (!idsSeen.add(e.profileId)) errors.push_back(ctx + ": duplicate profileId");
         }

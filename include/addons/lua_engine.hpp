@@ -76,7 +76,7 @@ public:
         bool middle = false;
     };
     /// Window pixels from the top-left, as ImGui reports them, plus the
-    /// window height — converted here rather than by the caller, so the
+    /// window height - converted here rather than by the caller, so the
     /// tree's coordinate space has one entrance.
     void dispatchMouse(float x, float y, float screenH, MouseButtons buttons);
 
@@ -86,7 +86,7 @@ public:
     /// This is the capture test, and the caller is expected to keep feeding the
     /// mouse while it answers true even when the cursor has wandered somewhere
     /// this client's own interface would otherwise claim. dispatchMouse is the
-    /// only thing that advances any of the state above — the release path, and
+    /// only thing that advances any of the state above - the release path, and
     /// with it OnDragStop and OnReceiveDrag, runs nowhere else. Stopping the
     /// dispatch part way through a drag therefore does not pause it, it strands
     /// it: the button is still down as far as the tree is concerned, the drag
@@ -100,14 +100,14 @@ public:
     /// For when the mouse has gone somewhere this client's own interface claims
     /// and dispatchMouse is not going to run. Hover is only ever changed in
     /// there, so without this a frame the cursor merely slid off keeps its
-    /// highlight and its tooltip for as long as the cursor stays away — the
+    /// highlight and its tooltip for as long as the cursor stays away - the
     /// tree's last word on the subject is that the cursor is still on it.
     void releaseMouseHover();
 
     /// The wheel, to the frame under the cursor that asked for it.
     ///
     /// Returns true when a frame took it, so the caller knows not to also zoom
-    /// the camera — scrolling a quest log and pulling the camera in at the same
+    /// the camera - scrolling a quest log and pulling the camera in at the same
     /// time is what happens otherwise. delta is WoW's: positive is up.
     bool dispatchMouseWheel(float x, float y, float delta);
 
@@ -158,7 +158,7 @@ public:
     void dispatchKey(int sdlKeycode, bool ctrlHeld);
     /// A key for a frame rather than an edit box. Returns true when a frame
     /// took it, so the caller knows not to also treat it as a movement key or
-    /// a binding — which is the whole reason a dialog can be typed into.
+    /// a binding - which is the whole reason a dialog can be typed into.
     bool dispatchFrameKey(int sdlKeycode, bool down);
 
     /// Run whatever FrameXML has bound to this key, if anything. True if a
@@ -167,14 +167,14 @@ public:
     /// The interface ships 273 binding scripts and, until this existed, no key
     /// press could reach any of them: keys went to a focused edit box or to a
     /// frame listening for them, and nowhere else. The caller must not offer a
-    /// key this client answers itself — see KeybindingManager::answersKey —
+    /// key this client answers itself - see KeybindingManager::answersKey -
     /// because most bindings toggle something and two answers to one press
     /// cancel out.
     bool dispatchBindingKey(int sdlKeycode, bool shift, bool ctrl, bool alt,
                             bool down);
 
     /// The command this key holds, or empty. Whether the client would run it is
-    /// a separate question — see clientActsOnBinding — and keeping the two
+    /// a separate question - see clientActsOnBinding - and keeping the two
     /// apart is what lets a declined key be told from an unbound one.
     std::string bindingCommandFor(int sdlKeycode, bool shift, bool ctrl,
                                   bool alt);
@@ -184,7 +184,7 @@ public:
     /// A true answer sends the keystroke to the interface and nowhere else, so
     /// a stale one costs the player every key they press. The box that holds
     /// focus has to still be on screen: hiding one now releases it, and this
-    /// asks as well, because a box can leave without ever being hidden — a
+    /// asks as well, because a box can leave without ever being hidden - a
     /// panel destroyed with focus inside it, or one that went invisible
     /// through a parent before the frame that would have noticed ran.
     bool editBoxHasFocus() const;
@@ -207,7 +207,7 @@ public:
     /// Abort a chunk that runs longer than this many milliseconds, naming the
     /// Lua source and line it was on. Zero disables it.
     ///
-    /// A runaway script otherwise freezes the client outright — the load runs
+    /// A runaway script otherwise freezes the client outright - the load runs
     /// on the main thread, so the window stops responding and the server drops
     /// the connection for want of a heartbeat. A C++ backtrace only says which
     /// binding it was inside; this says which line of Lua kept calling it.
@@ -217,7 +217,7 @@ public:
     /// Open this client's own settings window.
     ///
     /// The micro menu's game-menu button calls ToggleGameMenu, and the frame
-    /// that answers it is suppressed — so the button did nothing at all. This
+    /// that answers it is suppressed - so the button did nothing at all. This
     /// client has settings of its own and that is what the button should
     /// reach, which is a decision about which interface owns the panel rather
     /// than a gap in the other one.
@@ -235,7 +235,7 @@ public:
     /// Record a Lua error and keep it where a player can find it afterwards.
     ///
     /// Errors have always gone to the log with a traceback, and the log has to
-    /// be captured to be read — which means asking someone to re-run the game
+    /// be captured to be read - which means asking someone to re-run the game
     /// down a pipe to answer "why does this panel do nothing". They go to
     /// ~/.wowee/lua_errors.txt as well now, deduplicated with a count, beside
     /// the missing-API report that is written the same way and for the same
@@ -262,7 +262,7 @@ private:
     /// Runs a bootstrap Lua chunk and says so when it fails.
     ///
     /// Seventeen of these ran with their result thrown away, so a syntax error
-    /// in any one silently removed every method that chunk defined — and the
+    /// in any one silently removed every method that chunk defined - and the
     /// only symptom was a method quietly answering as though unimplemented.
     void bootstrap(const char* code);
 
@@ -288,15 +288,15 @@ private:
     /// Push a frame's script and its self argument, ready for the arguments.
     ///
     /// Answers the traceback handler's stack index, or 0 when there is nothing
-    /// to call — in which case the stack is already back where it started. On
+    /// to call - in which case the stack is already back where it started. On
     /// success the stack holds five values and the caller must finish with
     /// finishFrameScript, whatever it pushes in between.
     int beginFrameScript(uint32_t wid, const char* script);
 
     /// Call what beginFrameScript set up, report a failure, and unwind.
     ///
-    /// `nargs` counts self. The unwind is four, not three — the traceback
-    /// handler is still below the call — and getting that number wrong is a
+    /// `nargs` counts self. The unwind is four, not three - the traceback
+    /// handler is still below the call - and getting that number wrong is a
     /// stack leak that shows up somewhere else entirely, which is why the five
     /// callers no longer each hold their own copy of it.
     void finishFrameScript(uint32_t wid, const char* script, int handlerIdx, int nargs);
@@ -316,7 +316,7 @@ private:
     /// Whether the last dispatched mouse position landed on any FrameXML
     /// widget. Dropping a carried item on the world rather than on a frame is
     /// how an item is destroyed, so the caller has to be able to tell the two
-    /// apart — and only the widget tree knows.
+    /// apart - and only the widget tree knows.
 public:
     bool mouseOverFrameXml() const { return lastMouseHit_ != 0; }
 private:
@@ -331,7 +331,7 @@ public:
 
     /// Names an unloaded load-on-demand addon will define, which must read as
     /// absent until it does. FrameXML decides whether to load a panel by asking
-    /// for it — `if ( not AchievementFrame ) then AchievementFrame_LoadUI()` —
+    /// for it - `if ( not AchievementFrame ) then AchievementFrame_LoadUI()` -
     /// and the missing-API fallback answering those with a truthy no-op makes
     /// every one of those guards read as "already loaded".
     void declareDeferredGlobals(const std::vector<std::string>& names);
@@ -360,7 +360,7 @@ private:
     float pressY_[kMouseButtons] = {0.0f, 0.0f, 0.0f};
     /// The frame whose OnDragStart has run and not yet been stopped, and the
     /// button that started it. The frame is not always the one the press landed
-    /// on — a drag belongs to the nearest ancestor registered for it — so the
+    /// on - a drag belongs to the nearest ancestor registered for it - so the
     /// release is matched by button rather than by frame.
     /// Rate limit for the no-drag-owner line, which would otherwise be said
     /// on every frame the button is held.

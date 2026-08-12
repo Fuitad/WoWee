@@ -119,7 +119,7 @@ WoweeLock WoweeLockLoader::makeDungeon(const std::string& catalogName) {
         WoweeLock::Entry e;
         e.lockId = 300; e.name = "Boss Vault Seal";
         e.flags = WoweeLock::DestructOnOpen;
-        // Quest key only — no lockpick option (story-gated).
+        // Quest key only - no lockpick option (story-gated).
         e.channels[0] = {WoweeLock::ChannelItem, 0, 5200};
         c.entries.push_back(e);
     }

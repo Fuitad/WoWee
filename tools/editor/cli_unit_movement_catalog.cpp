@@ -250,10 +250,10 @@ int handleValidate(int& i, int argc, char** argv) {
                     std::to_string(e.maxMultiplier) +
                     " < baseMultiplier " +
                     std::to_string(e.baseMultiplier) +
-                    " (cap below floor — base would be clamped down)");
+                    " (cap below floor - base would be clamped down)");
             }
             // Baseline movement (Walk/Run/Swim/Turn) should have
-            // a positive baseSpeed — TempBuff entries are
+            // a positive baseSpeed - TempBuff entries are
             // multiplier-only and may have baseSpeed=0.
             bool isBaseline =
                 e.movementCategory >= wowee::pipeline::WoweeUnitMovement::Walk &&
@@ -261,17 +261,17 @@ int handleValidate(int& i, int argc, char** argv) {
             if (isBaseline && e.baseSpeed <= 0.0f) {
                 errors.push_back(ctx +
                     ": baseline movement category with baseSpeed " +
-                    std::to_string(e.baseSpeed) + " <= 0 — unit "
+                    std::to_string(e.baseSpeed) + " <= 0 - unit "
                     "won't move on this category");
             }
-            // Run speed below walk speed is suspicious — flag.
+            // Run speed below walk speed is suspicious - flag.
             // Run is ~7.0y/s, walk is ~2.5y/s in canonical WoW.
             if (e.movementCategory == wowee::pipeline::WoweeUnitMovement::Run &&
                 e.baseSpeed < 3.0f) {
                 warnings.push_back(ctx +
                     ": Run baseSpeed " +
                     std::to_string(e.baseSpeed) +
-                    " unusually slow (canonical 7.0y/s) — verify intent");
+                    " unusually slow (canonical 7.0y/s) - verify intent");
             }
             if (!idsSeen.add(e.moveTypeId)) errors.push_back(ctx + ": duplicate moveTypeId");
         }

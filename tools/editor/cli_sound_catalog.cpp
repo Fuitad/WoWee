@@ -246,7 +246,7 @@ int handleValidate(int& i, int argc, char** argv) {
            std::vector<std::string>& warnings) {
         // Per-entry checks plus a duplicate-soundId scan.
         //
-        // The scan used to be a walk of every id seen so far, for every entry —
+        // The scan used to be a walk of every id seen so far, for every entry -
         // quadratic in the catalog, which is what DuplicateIdCheck was written
         // to stop. The message is unchanged; only the bookkeeping moved.
         cli::DuplicateIdCheck idsSeen;
@@ -259,7 +259,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 errors.push_back(ctx + ": kind " + std::to_string(e.kind) +
                                  " not in known range 0..6");
             }
-            // Reject NaN/inf early — these crash audio engines.
+            // Reject NaN/inf early - these crash audio engines.
             if (!std::isfinite(e.volume) ||
                 !std::isfinite(e.minDistance) ||
                 !std::isfinite(e.maxDistance)) {

@@ -178,7 +178,7 @@ private:
 
     // Descriptor pool for material sets. One set per terrain chunk, 256 chunks
     // to a tile, so this is a tile budget: 65536 covered 256 tiles, and tiles
-    // are held to the *unload* radius, not the load radius — 8 loading and 11
+    // are held to the *unload* radius, not the load radius - 8 loading and 11
     // unloading is 23×23 = 529 resident. Every tile past the 256th arrived
     // with no descriptor set and, before the retry in loadTerrainIncremental,
     // was dropped for good: terrain that simply was not there, in whichever

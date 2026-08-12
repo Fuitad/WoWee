@@ -1,12 +1,12 @@
 #pragma once
 
 /**
- * wowee_binary_io.hpp — the read and write primitives every .w* format uses.
+ * wowee_binary_io.hpp - the read and write primitives every .w* format uses.
  *
  * All fifty-odd formats share one layout: a four-byte magic, a version, a
  * length-prefixed name, an entry count, then records. Reading and writing that
- * comes down to four operations — a fixed-size value, a length-prefixed string,
- * and the same two backwards — plus the rule that a file's extension is added
+ * comes down to four operations - a fixed-size value, a length-prefixed string,
+ * and the same two backwards - plus the rule that a file's extension is added
  * if the caller left it off.
  *
  * Those four were copied into every format's .cpp, a hundred and forty-one
@@ -30,7 +30,7 @@ namespace pipeline {
 /// Write a fixed-size value exactly as it sits in memory.
 ///
 /// These files are not portable across endianness or padding, and never claimed
-/// to be — they are written and read by this program on one machine.
+/// to be - they are written and read by this program on one machine.
 template <typename T>
 void writePOD(std::ofstream& os, const T& v) {
     os.write(reinterpret_cast<const char*>(&v), sizeof(T));
@@ -134,8 +134,8 @@ inline bool skipPadding(std::ifstream& is, size_t bytes) {
 
 /// Read the magic and version a .w* file opens with, and nothing after them.
 ///
-/// For the formats whose header does not continue into a name and a count —
-/// world map carries a world type and a grid size there instead — so they get
+/// For the formats whose header does not continue into a name and a count -
+/// world map carries a world type and a grid size there instead - so they get
 /// the length-checked magic without the fields they do not have. Reading those
 /// with readCatalogHeader would consume four bytes of the next field.
 inline bool readMagicAndVersion(std::ifstream& is, const char magic[4], uint32_t version) {
@@ -159,8 +159,8 @@ inline void writeCatalogHeader(std::ofstream& os, const char magic[4], uint32_t 
 
 /// Read that header back, and say whether this is the file it claims to be.
 ///
-/// False means the magic is wrong — this is some other format, or not one of
-/// ours at all — or the version is not the one this build reads, or the file
+/// False means the magic is wrong - this is some other format, or not one of
+/// ours at all - or the version is not the one this build reads, or the file
 /// ended inside the header.
 ///
 /// The entry count is capped for the same reason a string length is: it is the
@@ -187,7 +187,7 @@ inline bool readCatalogHeader(std::ifstream& is, const char magic[4], uint32_t v
 /// Add the format's extension unless the path already carries it.
 ///
 /// Every format spelled this out with its own extension baked in, and with the
-/// length of that extension written as a literal 5 — which is right for every
+/// length of that extension written as a literal 5 - which is right for every
 /// one of them and would be wrong the first time one is not four letters.
 inline std::string normalizePath(std::string base, const std::string& extension) {
     if (base.size() < extension.size() ||
@@ -202,7 +202,7 @@ inline std::string normalizePath(std::string base, const std::string& extension)
 /// Red is the low byte and alpha the high one, which is the order the renderer
 /// and ImGui both want and the reverse of how the channels are usually said
 /// aloud. That is the whole reason this is a function: written out by hand,
-/// the shift that is easy to get wrong is the one you cannot see is wrong —
+/// the shift that is easy to get wrong is the one you cannot see is wrong -
 /// a file whose blue and red are swapped loads, validates, round-trips, and
 /// simply looks incorrect.
 ///
@@ -218,7 +218,7 @@ inline uint32_t packRgba(uint8_t r, uint8_t g, uint8_t b, uint8_t a = 0xFF) {
 /// Make the directory an output file is about to be written into, if it needs
 /// making and can be made.
 ///
-/// std::filesystem::create_directories("") throws — "Invalid argument" — and a
+/// std::filesystem::create_directories("") throws - "Invalid argument" - and a
 /// bare filename has an empty parent path. The savers called it without that
 /// guard and without a try, so
 ///
@@ -249,15 +249,15 @@ inline bool catalogExists(const std::string& basePath, const std::string& extens
 
 /// Write a catalog: its header, then `writeEntry` once per entry.
 ///
-/// The scaffolding around a format's field list — open the file, count the
-/// entries, put the header down, loop, report whether the stream survived — is
+/// The scaffolding around a format's field list - open the file, count the
+/// entries, put the header down, loop, report whether the stream survived - is
 /// the same in every one of them, and is the part that has to be right for the
 /// file to be readable at all. `writeEntry` writes one entry's fields in order
 /// and is the only thing a format actually supplies.
 /// The same, for a catalog whose collection is not called `entries`.
 ///
-/// Eight of these formats name theirs for what it holds — classes, gems,
-/// keyframes, maps — which reads better in their own code and put them outside
+/// Eight of these formats name theirs for what it holds - classes, gems,
+/// keyframes, maps - which reads better in their own code and put them outside
 /// the reach of the version above, so they kept writing the scaffolding out.
 /// The name and the container are arguments here instead.
 template <typename Entries, typename WriteEntry>

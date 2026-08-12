@@ -1,4 +1,4 @@
-// GameStateAdapter — wraps GameHandler + Renderer to implement IGameState.
+// GameStateAdapter - wraps GameHandler + Renderer to implement IGameState.
 // Phase 4.2 of chat_panel_ref.md.
 #pragma once
 

@@ -1,13 +1,13 @@
 #pragma once
 
 /**
- * item_textures.hpp — where the art for a worn item lives.
+ * item_textures.hpp - where the art for a worn item lives.
  *
  * Two conventions, both of them written out at every call site until now:
  *
  * The eight body regions an item paints onto a character each have their own
  * folder under Item\TextureComponents, and the file in it carries a suffix for
- * who is wearing it — _M, _F, or _U for art that serves both. Which of the three
+ * who is wearing it - _M, _F, or _U for art that serves both. Which of the three
  * exists is not recorded anywhere; it has to be asked of the filesystem, in that
  * order, and a caller that asks in a different order gets a man's arm on a
  * woman.
@@ -19,7 +19,7 @@
  * The region walk appeared six times and the cape list three, in the local
  * player's composition, in every other player's, in the NPC path twice, in the
  * portrait, and in the HUD. They agreed, which is the only reason nothing was
- * visibly wrong — but the ordering is a rule, and a rule kept in six places is
+ * visibly wrong - but the ordering is a rule, and a rule kept in six places is
  * kept by luck.
  */
 
@@ -42,7 +42,7 @@ constexpr int kItemTextureRegionCount = 8;
 /// an empty string rather than reading past the table.
 ///
 /// Inline, with the cape list below it, so the rules can be tested without an
-/// asset tree to point at — the same reason m2_loader is kept apart from the
+/// asset tree to point at - the same reason m2_loader is kept apart from the
 /// thing that reads files.
 inline const char* itemComponentDir(int region) {
     // In ItemDisplayInfo's own column order. Region 0 is the upper arm and
@@ -69,7 +69,7 @@ std::string resolveItemRegionTexture(AssetManager& assets, int region,
 ///
 /// ItemDisplayInfo carries two pairs, left and right. The left one is the whole
 /// item and the right one is often just a hilt, so the left is asked for first
-/// and the right taken only when there is no left — a rule three of the five
+/// and the right taken only when there is no left - a rule three of the five
 /// readers had and two did not, which is a weapon that renders for an NPC and
 /// not for the player holding the same one.
 ///
@@ -86,8 +86,8 @@ ItemDisplayArt readItemDisplayArt(const DBCFile& itemDisplayInfo, uint32_t recor
 /// Every path a cape's texture might be at, in the order to try them.
 ///
 /// A name that already carries a folder is taken as given. Otherwise both
-/// component folders are tried, unsuffixed first — which is what the shipped art
-/// mostly uses — and then with the wearer's suffix and the unisex one.
+/// component folders are tried, unsuffixed first - which is what the shipped art
+/// mostly uses - and then with the wearer's suffix and the unisex one.
 inline std::vector<std::string> capeTextureCandidates(const std::string& rawName, bool isFemale) {
     std::vector<std::string> candidates;
     if (rawName.empty()) return candidates;

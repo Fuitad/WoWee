@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Globals FrameXML calls that nothing defines.
 
-An unanswered call *raises*, where an unfired event only goes unheard — so
+An unanswered call *raises*, where an unfired event only goes unheard - so
 this is the sharpest of the sweeps. InspectUnit and StartDuel sat here for
 months behind the unit right-click menu.
 
@@ -12,7 +12,7 @@ screen.
 
 THE THIRTY-SIX IT REPORTS TODAY, EVERY ONE OPENED
 
-Not grouped and dismissed — opened. Grouping is how five wrong claims survived
+Not grouped and dismissed - opened. Grouping is how five wrong claims survived
 in this file's neighbours: "the refund window is server state this client is
 never sent" was written once and cited four times, and it was one request away
 the whole time.
@@ -22,7 +22,7 @@ the whole time.
   * Movie recording (5). The renderer captures one frame to a PNG and has no
     encoder. MovieRecording_* is video.
   * The GM survey's submit trio (3). Its questions DO come from four DBCs this
-    install carries — absent by choice, not by necessity, and the reason is in
+    install carries - absent by choice, not by necessity, and the reason is in
     framexml_live_stubs.
   * Vehicle seats (6). Vehicle state is tracked and fired; seats are not, and
     the seat indicator additionally needs UNIT_ENTERED_VEHICLE's sixth
@@ -48,13 +48,13 @@ this report finds it.
 
 GetText was exactly that. FrameXML's GetText(token, gender) looks a global
 string up with a gendered variant, and ReputationFrame_Update builds every
-standing label with it — but set("GetText", lua_FontString_GetText) registers
+standing label with it - but set("GetText", lua_FontString_GetText) registers
 a FontString method of that name, so this sweep counted it bound and the
 reputation list raised on open regardless. The runtime missing-API report
 caught it; this could not. Bound 2026-08-05.
 
-The shape generalises: any name that is both a global and a method — GetText,
-and whatever else grows into the collision later — is invisible here. The
+The shape generalises: any name that is both a global and a method - GetText,
+and whatever else grows into the collision later - is invisible here. The
 runtime report is the only sweep that distinguishes them, because it records
 what was actually asked for and of what.
 
@@ -80,7 +80,7 @@ XML = ROOT / "Data/interface"
 
 # Only the files the loader actually reaches.
 #
-# Still file-agnostic in the sense that matters — nothing here names a panel or
+# Still file-agnostic in the sense that matters - nothing here names a panel or
 # maps a name to an element. What it does refuse to read is a file that never
 # runs, and the loader's own manifests say which those are. Fifty-six of them
 # are GlueXML: Blizzard's login, character select and character create, which
@@ -90,7 +90,7 @@ XML = ROOT / "Data/interface"
 SOURCES = sorted(loaded_files(XML))
 
 # Bound on the C++ side.
-# One source of truth — see framexml_provides. Working this out per tool is
+# One source of truth - see framexml_provides. Working this out per tool is
 # how six sweeps came to disagree about what the client answers.
 from framexml_provides import globals_provided, widget_methods_provided
 
@@ -103,8 +103,8 @@ for path in SOURCES:
     defined |= set(re.findall(r"\bfunction\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(", t))
     defined |= set(re.findall(r"^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*", t, re.M))
     # Every name in a local declaration, not just the first. Lua declares
-    # several at once — `local A, B = CreateRestrictedEnvironment(...)` in
-    # restrictedexecution.lua — and reading only the first reported the second
+    # several at once - `local A, B = CreateRestrictedEnvironment(...)` in
+    # restrictedexecution.lua - and reading only the first reported the second
     # as a global nothing defines.
     for names in re.findall(r"\blocal\s+([A-Za-z_][A-Za-z0-9_,\s]*)", t):
         for name in names.split(","):
@@ -128,8 +128,8 @@ def strip_comments(text: str) -> str:
     has both rules.
 
     Not cosmetic: two of the six names this flagged on the candidate elements
-    were commented-out calls — --FCFDock_ForceTabSort and
-    --GuildBankItemButton_OnUpdate — which read exactly like missing bindings
+    were commented-out calls - --FCFDock_ForceTabSort and
+    --GuildBankItemButton_OnUpdate - which read exactly like missing bindings
     and are not called at all. Strings for a worse reason: a Lua pattern is a
     string full of parentheses, so `strmatch(name, "DropDownList(%d+)")` read
     as a call to a global named DropDownList, and put "every dropdown in the
@@ -140,8 +140,8 @@ def strip_comments(text: str) -> str:
 
 # Every function this interface hangs off a script handler, by name. A call
 # inside one of these runs on its own the moment its panel loads, shows or
-# hears an event; a call inside a dialog's OnAccept — or an OnClick, which is
-# why those four events and no others are counted here — waits for someone to
+# hears an event; a call inside a dialog's OnAccept - or an OnClick, which is
+# why those four events and no others are counted here - waits for someone to
 # press a button that may never appear.
 #
 # This is the whole difference between the rows worth reading and the rest. The
@@ -191,7 +191,7 @@ print(f"{len(missing)} called and nowhere defined.\n")
 
 # Split rather than sorted, because the two halves want different reactions.
 live = {n: autorun_hits[n] for n in missing if n in autorun_hits}
-print(f"{len(live)} of them from a function that runs on its own — these raise "
+print(f"{len(live)} of them from a function that runs on its own - these raise "
       f"as their panel opens:\n")
 for n in sorted(live):
     print(f"  {n:<36} {', '.join(sorted(live[n])[:2])}")

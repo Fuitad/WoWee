@@ -1,4 +1,4 @@
-// ChatCommandRegistry — command registration + dispatch.
+// ChatCommandRegistry - command registration + dispatch.
 // Replaces the 500-line if/else chain in sendChatMessage() (Phase 3.1).
 #pragma once
 

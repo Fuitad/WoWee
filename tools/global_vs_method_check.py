@@ -7,7 +7,7 @@ WHY THIS IS NOT COVERED BY THE UNBOUND-GLOBAL SWEEP
 
 framexml_unbound_globals decides a name is bound by finding it registered
 somewhere under src/addons. Widget methods register by name exactly as globals
-do, so a method is enough to make a global read as answered — and the global
+do, so a method is enough to make a global read as answered - and the global
 stays nil, and every FrameXML call of it raises.
 
 GetText was that, and it sat there for months. FrameXML's GetText(token, gender)
@@ -25,7 +25,7 @@ is meant as a global, (b) registered as a widget method here, and (c) not
 registered as a global anywhere and not defined by FrameXML's own Lua.
 
 All four conditions matter. Dropping (c) reports every method whose name is also
-a real global — HasFocus, GetName, SetText — which is most of them. Dropping the
+a real global - HasFocus, GetName, SetText - which is most of them. Dropping the
 Lua-definition check reports names FrameXML answers itself.
 
 THE RELATED SHAPE THIS DOES *NOT* REPORT
@@ -46,8 +46,8 @@ would still be counted, which is why loaded_files does the filtering.
 
 Both sides come from framexml_provides, which is the one implementation of
 "does the client answer this name". This tool rolled its own for a day and
-missed 407 globals — everything registered through the bootstrap or the
-counting table rather than a {"Name", lua_Name} row — and every one of those
+missed 407 globals - everything registered through the bootstrap or the
+counting table rather than a {"Name", lua_Name} row - and every one of those
 would have been reported here as a global existing only as a method, which is
 the exact false gap that file was written to stop.
 
@@ -83,8 +83,8 @@ def interface():
 def main():
     # Both sides through framexml_provides, which is the one implementation of
     # "does the client answer this name". Rolling them here missed 407 globals
-    # — everything registered through the bootstrap or the counting table
-    # rather than a {"Name", lua_Name} row — and every one of those would have
+    # - everything registered through the bootstrap or the counting table
+    # rather than a {"Name", lua_Name} row - and every one of those would have
     # been reported as a global that exists only as a method, which is the
     # exact false gap that file was written to stop.
     methods = widget_methods_provided()
@@ -97,11 +97,11 @@ def main():
           f"{len(called)} names called bare in FrameXML")
     problems = []
     if "SetText" not in methods:
-        problems.append("no SetText among the widget methods — the method side is not parsing")
+        problems.append("no SetText among the widget methods - the method side is not parsing")
     if "UnitName" not in globs:
-        problems.append("no UnitName among the globals — the global side is not parsing")
+        problems.append("no UnitName among the globals - the global side is not parsing")
     if "UnitName" not in called:
-        problems.append("FrameXML never seen calling UnitName — the interface is not parsing")
+        problems.append("FrameXML never seen calling UnitName - the interface is not parsing")
     for p in problems:
         print(f"  CANARY: {p}")
     if problems:

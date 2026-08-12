@@ -1,4 +1,4 @@
-// coordinate_display.cpp — WoW coordinates under cursor on the world map.
+// coordinate_display.cpp - WoW coordinates under cursor on the world map.
 // Extracted from WorldMap::renderImGuiOverlay (Phase 8 of refactoring plan).
 #include "rendering/world_map/layers/coordinate_display.hpp"
 #include "rendering/world_map/coordinate_projection.hpp"
@@ -25,7 +25,7 @@ void CoordinateDisplay::render(const LayerContext& ctx) {
 
     // Through the shared helper, which keeps the zone's own projection->bounds when the
     // continent lookup fails. This read the four floats out of the call without
-    // checking it succeeded — and on failure it leaves them untouched, so the
+    // checking it succeeded - and on failure it leaves them untouched, so the
     // coordinates under the cursor were computed from uninitialised stack.
     const float left = projection->bounds.locLeft, right = projection->bounds.locRight;
     const float top = projection->bounds.locTop, bottom = projection->bounds.locBottom;

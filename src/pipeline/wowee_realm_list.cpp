@@ -103,7 +103,7 @@ WoweeRealmList WoweeRealmListLoader::makeSingleRealm(
     e.realmId = 1;
     e.name = "WoweeMain";
     e.description =
-        "Default Wowee server realm — WotLK 3.3.5a, Normal "
+        "Default Wowee server realm - WotLK 3.3.5a, Normal "
         "PvE rule-set, public category, US East timezone, "
         "10-character cap per account.";
     e.address = "logon.wowee.example.com:8085";
@@ -145,15 +145,15 @@ WoweeRealmList WoweeRealmListLoader::makePvPCluster(
     };
     add(1, "WoweePvE", R::Normal, R::Medium,
         packRgba(140, 200, 255),
-        "Cluster realm — Normal PvE rule-set. World PvP "
+        "Cluster realm - Normal PvE rule-set. World PvP "
         "is opt-in; ganking flagged as harassment.");
     add(2, "WoweePvP", R::PvP, R::High,
         packRgba(220, 80, 100),
-        "Cluster realm — PvP rule-set. Cross-faction "
+        "Cluster realm - PvP rule-set. Cross-faction "
         "world combat is always-on outside of cities.");
     add(3, "WoweeRP", R::RP, R::Low,
         packRgba(180, 100, 240),
-        "Cluster realm — Roleplay. Naming policy "
+        "Cluster realm - Roleplay. Naming policy "
         "enforced; in-character chat encouraged.");
     return c;
 }
@@ -187,19 +187,19 @@ WoweeRealmList WoweeRealmListLoader::makeMultiExpansion(
     };
     add(1, "Wowee-Vanilla", R::Vanilla, 1, 12, 1, 5875,
         packRgba(220, 220, 100),
-        "Vanilla 1.12.1 progression realm — original "
+        "Vanilla 1.12.1 progression realm - original "
         "60-cap content, no Outland zones.");
     add(2, "Wowee-TBC", R::TBC, 2, 4, 3, 8606,
         packRgba(100, 220, 100),
-        "TBC 2.4.3 progression realm — Outland + 70-cap "
+        "TBC 2.4.3 progression realm - Outland + 70-cap "
         "content, Sunwell endgame.");
     add(3, "Wowee-WotLK", R::WotLK, 3, 3, 5, 12340,
         packRgba(140, 200, 255),
-        "WotLK 3.3.5a progression realm — Northrend + "
+        "WotLK 3.3.5a progression realm - Northrend + "
         "80-cap content, ICC endgame.");
     add(4, "Wowee-Cata", R::Cata, 4, 3, 4, 15595,
         packRgba(220, 130, 80),
-        "Cata 4.3.4 progression realm — post-Shattering "
+        "Cata 4.3.4 progression realm - post-Shattering "
         "world + 85-cap content, DS endgame. Currently "
         "Beta access only.");
     // Mark Cata as beta category (override the default

@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Global Chat Channel catalog (.wgch) —
+// Wowee Open Global Chat Channel catalog (.wgch) -
 // novel replacement for the implicit chat-channel
 // configuration vanilla WoW carried in
 // ChatChannels.dbc + the per-server zone-default chat
@@ -34,19 +34,19 @@ namespace pipeline {
 //     channelId (uint32)
 //     nameLen + name (channel display name)
 //     descLen + description
-//     channelKind (uint8)        — Global / RealmZone /
+//     channelKind (uint8)        - Global / RealmZone /
 //                                   Faction / Custom
-//     accessKind (uint8)         — PublicJoin /
+//     accessKind (uint8)         - PublicJoin /
 //                                   InviteOnly /
 //                                   AutoJoinOnZone /
 //                                   Moderated
-//     passwordRequired (uint8)   — 0/1 bool
+//     passwordRequired (uint8)   - 0/1 bool
 //     levelMin (uint8)
-//     maxMembers (uint16)        — 0 = unlimited
-//     topicSetByMods (uint8)     — 0/1 bool — false
+//     maxMembers (uint16)        - 0 = unlimited
+//     topicSetByMods (uint8)     - 0/1 bool - false
 //                                   means anyone can /topic
 //     pad0 (uint8)
-//     zoneDefaultMapId (uint32)  — for AutoJoinOnZone
+//     zoneDefaultMapId (uint32)  - for AutoJoinOnZone
 //                                   kind; 0 if not auto-
 //                                   joined per-zone
 //     iconColorRGBA (uint32)
@@ -109,19 +109,19 @@ public:
 
     // Preset emitters used by --gen-gch* variants.
     //
-    //   makeStandardChannels — 4 vanilla server-wide
+    //   makeStandardChannels - 4 vanilla server-wide
     //                           channels (LookingFor-
     //                           Group / World / Trade
     //                           on auto-join Stormwind /
     //                           General).
-    //   makeRoleplay         — 4 RP server channels
+    //   makeRoleplay         - 4 RP server channels
     //                           (RP-OOC / RP-IC moderated
     //                           / RP-Forum invite-only /
     //                           RP-Events).
-    //   makeAdminChannels    — 3 moderator-only channels
+    //   makeAdminChannels    - 3 moderator-only channels
     //                           (GMTraffic invite /
     //                           AuditLog moderated /
-    //                           Backstage invite — all
+    //                           Backstage invite - all
     //                           level 0 require GM flag
     //                           via accessKind).
     static WoweeGlobalChannels makeStandardChannels(const std::string& catalogName);

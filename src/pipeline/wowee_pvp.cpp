@@ -103,12 +103,12 @@ WoweePVPRank WoweePVPRankLoader::makeStarter(
         c.entries.push_back(e);
     };
     add(1, "Rank2", "Private",         "Scout",
-        2000, "Vanilla rank 2 — first PvP title.");
+        2000, "Vanilla rank 2 - first PvP title.");
     add(2, "Rank3", "Corporal",        "Grunt",
         5000, "Vanilla rank 3.");
     add(3, "Rank4", "Sergeant",        "Sergeant",
         10000,
-        "Vanilla rank 4 — same name on both factions.");
+        "Vanilla rank 4 - same name on both factions.");
     return c;
 }
 
@@ -138,7 +138,7 @@ WoweePVPRank WoweePVPRankLoader::makeAllianceFull(
     // values ramp exponentially toward the Grand Marshal cap.
     add(6,  "Knight",            "Stone Guard",
          50000,  3, 16462, 16472, 16482,
-         "Rank 6 — first epic gear unlock.");
+         "Rank 6 - first epic gear unlock.");
     add(7,  "Knight-Lieutenant", "Blood Guard",
          70000,  4, 16463, 16473, 16483,
          "Rank 7.");
@@ -162,7 +162,7 @@ WoweePVPRank WoweePVPRankLoader::makeAllianceFull(
         "Rank 13.");
     add(14, "Grand Marshal",     "High Warlord",
         260000, 11, 16470, 16480, 16490,
-        "Rank 14 — pinnacle. 'Grand Marshal' / 'High Warlord' "
+        "Rank 14 - pinnacle. 'Grand Marshal' / 'High Warlord' "
         "title + full epic PvP set.");
     return c;
 }
@@ -187,15 +187,15 @@ WoweePVPRank WoweePVPRankLoader::makeArenaTiers(
         c.entries.push_back(e);
     };
     add(100, "Combatant",  1500,  10,  0,
-        "Arena bracket — minimum entry rating.");
+        "Arena bracket - minimum entry rating.");
     add(101, "Challenger", 1750,  20,  44,
-        "Arena bracket — 'Challenger' title earned.");
+        "Arena bracket - 'Challenger' title earned.");
     add(102, "Rival",      2000,  40,  45,
-        "Arena bracket — 'Rival' title earned.");
+        "Arena bracket - 'Rival' title earned.");
     add(103, "Duelist",    2200,  80,  46,
-        "Arena bracket — 'Duelist' title earned.");
+        "Arena bracket - 'Duelist' title earned.");
     add(104, "Gladiator",  2400, 160,  47,
-        "Arena bracket — 'Gladiator' title + season mount.");
+        "Arena bracket - 'Gladiator' title + season mount.");
     return c;
 }
 

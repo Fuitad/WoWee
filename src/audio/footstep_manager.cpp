@@ -47,7 +47,7 @@ std::vector<std::string> buildHugeFootstepSet(const std::string& material) {
 }
 
 // Water footsteps do not follow the mFootMediumLarge<material> naming the solid
-// surfaces use — there is no mFootMediumLargeWater in the data at all, so the
+// surfaces use - there is no mFootMediumLargeWater in the data at all, so the
 // water surface was loading an empty clip set and walking through the shallows
 // was silent. The real files live under Footsteps\\WaterSplash.
 std::vector<std::string> buildWaterFootstepSet() {
@@ -154,7 +154,7 @@ void FootstepManager::playMountFootstep(FootstepSurface surface, FootstepBank ba
     if (!assetManager || sampleCount == 0 || !AudioEngine::instance().isInitialized()) {
         return;
     }
-    // Gallop hoofbeats land close together — allow a tighter interval than
+    // Gallop hoofbeats land close together - allow a tighter interval than
     // on-foot steps, and soften padded paws (wolf/tiger/raptor) slightly.
     const float volumeMul = (bank == FootstepBank::CHARACTER) ? 0.85f : 1.0f;
     playRandomStep(surface, bank, 0.06f, volumeMul);

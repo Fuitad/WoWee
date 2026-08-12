@@ -114,7 +114,7 @@ PipelineBuilder& PipelineBuilder::setDynamicStates(const std::vector<VkDynamicSt
     return *this;
 }
 
-// Pipeline derivatives — hint driver to share compiled state between similar pipelines
+// Pipeline derivatives - hint driver to share compiled state between similar pipelines
 PipelineBuilder& PipelineBuilder::setFlags(VkPipelineCreateFlags flags) {
     flags_ = flags;
     return *this;
@@ -219,7 +219,7 @@ VkPipeline PipelineBuilder::build(VkDevice device, VkPipelineCache cache) const 
     return pipeline;
 }
 
-// All RGBA channels enabled — used by every blend mode since we never need to
+// All RGBA channels enabled - used by every blend mode since we never need to
 // mask individual channels (WoW's fixed-function pipeline always writes all four).
 static constexpr VkColorComponentFlags kColorWriteAll =
     VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |

@@ -307,7 +307,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 std::to_string(e.chainOp) + " not in 0..3");
         }
         // chainOp != ChainNone requires a non-zero chainNextId
-        // — and that ID must point at another condition in
+        // - and that ID must point at another condition in
         // this catalog.
         if (e.chainOp != wowee::pipeline::WoweePlayerCondition::ChainNone) {
             if (e.chainNextId == 0) {
@@ -325,7 +325,7 @@ int handleValidate(int& i, int argc, char** argv) {
             }
         }
         // chainOp == ChainNone and chainNextId != 0 is dead
-        // pointer — chainNextId is silently unused.
+        // pointer - chainNextId is silently unused.
         if (e.chainOp == wowee::pipeline::WoweePlayerCondition::ChainNone &&
             e.chainNextId != 0) {
             warnings.push_back(ctx +

@@ -45,7 +45,7 @@ TEST_CASE("resolving against what a model actually carries", "[geoset]") {
         CHECK(resolveGeoset(504, model) == 502);
     }
 
-    SECTION("none never falls back — this is the whole point") {
+    SECTION("none never falls back - this is the whole point") {
         // The HD models carry no 1501, the "no cloak" panel. Falling back
         // inside group 15 hands a cloak to a character wearing none, and with
         // no cloak texture bound, a white sheet.
@@ -86,7 +86,7 @@ TEST_CASE("resolving against what a model actually carries", "[geoset]") {
         // 2001 is variant 1 and so reads as none, which is why the caller names
         // both rather than relying on one to find the other.
         CHECK(resolveGeoset(2001, male) == 0);
-        // A stock model has no group 20 at all — the feet are part of the body.
+        // A stock model has no group 20 at all - the feet are part of the body.
         std::unordered_set<uint16_t> stock{0, 1, 501, 1501};
         CHECK(resolveGeoset(2001, stock) == 0);
         CHECK(resolveGeoset(2002, stock) == 0);
@@ -108,7 +108,7 @@ TEST_CASE("facial hair: zero is none, and none is not an id", "[geoset]") {
 
     SECTION("a character with a beard and no sideburns gets only the beard") {
         // The fault this exists for: 200 + 0 was being asked for, no model
-        // carries 200, and the caller substituted the first geoset in group 2 —
+        // carries 200, and the caller substituted the first geoset in group 2 -
         // which is a beard on a character that has none.
         std::unordered_set<uint16_t> set;
         addFacialHairGeosets(set, 0, 5, 0);
@@ -121,7 +121,7 @@ TEST_CASE("facial hair: zero is none, and none is not an id", "[geoset]") {
 
 TEST_CASE("the appearance key packs three bytes and nothing else", "[geoset]") {
     // Ten hand-written copies of this expression had to agree bit for bit. A
-    // lookup that misses because one of them did not does not report a fault —
+    // lookup that misses because one of them did not does not report a fault -
     // it quietly draws the default hair, or the default beard.
     CHECK(appearanceKey(1, 1, 5) == ((1u << 16) | (1u << 8) | 5u));
     CHECK(appearanceKey(0, 0, 0) == 0u);

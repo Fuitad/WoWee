@@ -23,14 +23,14 @@ class ToastManager {
 public:
     ToastManager() = default;
 
-    /// Register toast-related callbacks on GameHandler (idempotent — safe every frame)
+    /// Register toast-related callbacks on GameHandler (idempotent - safe every frame)
     void setupCallbacks(game::GameHandler& gameHandler);
 
-    /// Render "early" toasts (rep, quest-complete, zone, area-trigger) — called before action bars
+    /// Render "early" toasts (rep, quest-complete, zone, area-trigger) - called before action bars
     void renderEarlyToasts(float deltaTime, game::GameHandler& gameHandler);
 
     /// Render "late" toasts (ding, achievement, discovery, whisper, quest progress,
-    /// player level-up, PvP honor, item loot, resurrect flash, zone text) — called after escape menu
+    /// player level-up, PvP honor, item loot, resurrect flash, zone text) - called after escape menu
     void renderLateToasts(game::GameHandler& gameHandler);
 
     /// Fire level-up ding animation + sound

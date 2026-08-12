@@ -155,7 +155,7 @@ WoweeSpellEffectType WoweeSpellEffectTypeLoader::makeAura(
         c.entries.push_back(e);
     };
     add(6,   "ApplyAura",          S::RequiresTarget | S::TriggersGCD,
-        "Apply a buff/debuff to target — auraType field "
+        "Apply a buff/debuff to target - auraType field "
         "selects the aura behavior (see WAUR catalog).");
     add(35,  "ApplyAuraOnPet",     S::RequiresTarget,
         "Apply aura to caster's pet (Hunter Mend Pet, "

@@ -1,4 +1,4 @@
-// Tests for ChatMarkupParser — WoW markup parsing into typed segments.
+// Tests for ChatMarkupParser - WoW markup parsing into typed segments.
 // Phase 2.3 of chat_panel_ref.md.
 
 #include <catch_amalgamated.hpp>

@@ -1,4 +1,4 @@
-// chest_tracker_layer.hpp — Nearby spawned chest markers on the world map.
+// chest_tracker_layer.hpp - Nearby spawned chest markers on the world map.
 #pragma once
 #include "rendering/world_map/overlay_renderer.hpp"
 #include "rendering/world_map/world_map_types.hpp"

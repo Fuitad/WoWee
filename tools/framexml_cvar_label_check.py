@@ -10,7 +10,7 @@ both within two lines of each other, which is what settles it:
         if ( GetCVar("showTargetCastbar") == "0") then
 
 Firing the name meant every consumer compared a camelCase name against an
-upper-case label and took the other branch — silently, because a string that is
+upper-case label and took the other branch - silently, because a string that is
 not equal to another string is not an error. The health and mana numbers on
 unit frames never appeared or disappeared, the free-bag-slots count never
 switched on, and the target and focus cast bars never followed their setting.
@@ -25,14 +25,14 @@ WHAT IT LOOKS FOR
 
 Every literal a CVAR_UPDATE branch compares its first argument against, and
 whether any CVar name FrameXML mentions would produce it under this client's
-rule — the named table first, then the mechanical transform. A label nothing
+rule - the named table first, then the mechanical transform. A label nothing
 can produce is a branch that can never be taken.
 
 WHAT IS LEFT, AND WHY
 
 One: CHAT_WHOLE_WINDOW_CLICKABLE, in floatingchatframe. No CVar name anywhere
 in the interface produces it, and the branch that reads it accepts "chatStyle"
-as well — which is the name, not a label, and is what this client sends when
+as well - which is the name, not a label, and is what this client sends when
 that setting changes. So the branch is reachable, by the other half of its own
 condition, and the label has no name here to come from. The ceiling is for the
 second, which will be a real gap.
@@ -86,7 +86,7 @@ def main():
         names |= set(re.findall(r'(?:Get|Set)CVar\w*\(\s*"(\w+)"', text))
         names |= set(re.findall(r'\.cvar\s*=\s*"(\w+)"', text))
         # A label is compared against arg1 or against a local unpacked from
-        # it, and is always upper case with underscores — but so are plenty of
+        # it, and is always upper case with underscores - but so are plenty of
         # things that have nothing to do with CVars. `arg1 == "FRIEND_REQUEST"`
         # is a Battle.net message type, and six of the first run's seven
         # findings were that shape. The comparison only counts inside the
@@ -95,7 +95,7 @@ def main():
         for hit in re.finditer(r'CVAR_UPDATE', text):
             tail = text[hit.end():]
             # The branch ends at the next one that tests a different event, or
-            # at the end of the enclosing if — whichever comes first.
+            # at the end of the enclosing if - whichever comes first.
             stop = re.search(r'\n\s*(?:elseif\s*\(\s*event\b|else\b|end\b)', tail)
             body = tail[:stop.start()] if stop else tail[:400]
             for m in re.finditer(r'(?:arg1|cvar)\s*==\s*"([A-Z][A-Z0-9_]*_[A-Z0-9_]+)"', body):

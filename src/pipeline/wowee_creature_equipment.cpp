@@ -74,7 +74,7 @@ WoweeCreatureEquipment WoweeCreatureEquipmentLoader::makeStarter(
         WoweeCreatureEquipment::Entry e;
         e.equipmentId = 1; e.creatureId = 295;   // Stormwind Guard
         e.name = "GuardSwordAndShield";
-        e.description = "Stormwind guard — 1H sword + heater shield.";
+        e.description = "Stormwind guard - 1H sword + heater shield.";
         e.mainHandItemId = 1909;     // Long Sword
         e.offHandItemId = 2129;      // Heater Shield
         e.equipFlags = WoweeCreatureEquipment::kFlagShieldOffhand;
@@ -84,7 +84,7 @@ WoweeCreatureEquipment WoweeCreatureEquipmentLoader::makeStarter(
         WoweeCreatureEquipment::Entry e;
         e.equipmentId = 2; e.creatureId = 1419;  // Hunter trainer
         e.name = "HunterBowAndOffhand";
-        e.description = "Bow with quiver — no weapon in offhand.";
+        e.description = "Bow with quiver - no weapon in offhand.";
         e.mainHandItemId = 2511;     // Worn Shortsword
         e.rangedItemId = 2504;       // Worn Shortbow
         c.entries.push_back(e);
@@ -121,20 +121,20 @@ WoweeCreatureEquipment WoweeCreatureEquipmentLoader::makeBosses(
         c.entries.push_back(e);
     };
     // Iconic boss loadouts. visualKitId values reference WSVK
-    // entries — non-zero so the brandished weapon plays its
+    // entries - non-zero so the brandished weapon plays its
     // signature glow / aura.
     add(100, 11583, "Onyxian2HSword", 17075, 0, 0,
         WoweeCreatureEquipment::kFlagPolearmTwoHand, 100,
-        "Onyxia's caster form — 2H greatsword with smoke trail.");
+        "Onyxia's caster form - 2H greatsword with smoke trail.");
     add(101, 36597, "FrostmournePrime", 49623, 0, 0,
         WoweeCreatureEquipment::kFlagPolearmTwoHand, 101,
-        "The Lich King — Frostmourne with frost runes.");
+        "The Lich King - Frostmourne with frost runes.");
     add(102, 37955, "SylvanasBow", 0, 0, 50613,
         0, 102,
-        "Sylvanas Windrunner — bow only, banshee aura.");
+        "Sylvanas Windrunner - bow only, banshee aura.");
     add(103, 22917, "IllidanDualWarglaives", 32837, 32837, 0,
         WoweeCreatureEquipment::kFlagDualWield, 103,
-        "Illidan Stormrage — dual warglaives, fel green glow.");
+        "Illidan Stormrage - dual warglaives, fel green glow.");
     return c;
 }
 
@@ -153,11 +153,11 @@ WoweeCreatureEquipment WoweeCreatureEquipmentLoader::makeRanged(
         c.entries.push_back(e);
     };
     add(200, 829,  "DwarfRifleman",   2511, 0,
-        "Dwarf rifleman — long rifle in ranged slot only.");
+        "Dwarf rifleman - long rifle in ranged slot only.");
     add(201, 1419, "ElvenLongbow",    2504, 0,
-        "Night-elf hunter — long bow in ranged slot.");
+        "Night-elf hunter - long bow in ranged slot.");
     add(202, 6791, "TrollCrossbow",   2508, 0,
-        "Troll Sentinel — crossbow in ranged slot.");
+        "Troll Sentinel - crossbow in ranged slot.");
     return c;
 }
 

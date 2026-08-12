@@ -56,10 +56,10 @@ public:
 
     /// The last spell the player cast while on foot. When mounting is detected,
     /// this identifies which of the player's indefinite self-cast auras is the
-    /// mount — scanning for one blindly can land on a racial or a tracking buff.
+    /// mount - scanning for one blindly can land on a racial or a tracking buff.
     uint32_t getLastGroundCastSpellId() const { return lastGroundCastSpellId_; }
 
-    /// Record a spell cast by using an item — pre-WotLK mounts are items, and
+    /// Record a spell cast by using an item - pre-WotLK mounts are items, and
     /// their on-use spell never passes through castSpell().
     void noteGroundCastSpell(uint32_t spellId) { lastGroundCastSpellId_ = spellId; }
     void cancelCast();
@@ -98,11 +98,11 @@ public:
     uint32_t getCraftQueueSpellId() const { return craftQueueSpellId_; }
 
     // Crafting window (client-side; opened by casting a profession spell
-    // like Cooking or First Aid — see tradeskillOpenerSkillLine)
+    // like Cooking or First Aid - see tradeskillOpenerSkillLine)
     bool isCraftingWindowOpen() const { return craftingWindowOpen_; }
     uint32_t getCraftingSkillLine() const { return craftingSkillLine_; }
     /// Opening and closing a profession announce themselves, because the
-    /// interface's trade skill panel is driven entirely by these two events —
+    /// interface's trade skill panel is driven entirely by these two events -
     /// it hides on TRADE_SKILL_CLOSE and fills itself on TRADE_SKILL_SHOW.
     /// Without them the panel could be complete and still never appear.
     void openCraftingWindow(uint32_t skillLine);
@@ -233,7 +233,7 @@ public:
     void useItemInBag(int bagIndex, int slotIndex);
     void useItemById(uint32_t itemId);
 
-    // Equipment sets — canonical data owned by InventoryHandler;
+    // Equipment sets - canonical data owned by InventoryHandler;
     // GameHandler::getEquipmentSets() delegates to inventoryHandler_.
 
     // Pet spells
@@ -252,7 +252,7 @@ public:
     /// The gem item an enchantment came out of (SpellItemEnchantment.Src_ItemID).
     /// Zero when the enchantment is not a gem, or on a file with no such column.
     /// This is the only route from an enchantment sitting in an item's socket
-    /// back to the gem that is in the socket — the item fields carry the
+    /// back to the gem that is in the socket - the item fields carry the
     /// enchantment id and nothing else.
     uint32_t getEnchantGemItem(uint32_t enchantId) const;
     uint8_t getSpellDispelType(uint32_t spellId) const;
@@ -311,7 +311,7 @@ public:
     ///
     /// The name a player gave a pet arrives only in answer to
     /// CMSG_PET_NAME_QUERY. Without it a pet wears its creature template's
-    /// name — "Voidwalker" where the player wrote something else — which is
+    /// name - "Voidwalker" where the player wrote something else - which is
     /// what the pet frame, its nameplate and the pet bar's tooltip all show.
     ///
     /// The pet number in that request is a key the server echoes back and does
@@ -320,12 +320,12 @@ public:
     /// the pet it asked about, which is what the field would have been for.
     void requestPetName(uint64_t petGuid);
 
-    /// Give a hunter's pet up for good. The interface asks first — this is the
+    /// Give a hunter's pet up for good. The interface asks first - this is the
     /// other side of the ABANDON_PET dialog, whose accept called an unbound
     /// name and raised.
     /// The five values every UNIT_SPELLCAST_* event carries.
     ///
-    /// unit, spell name, rank, cast id, spell id — in that order, which is what
+    /// unit, spell name, rank, cast id, spell id - in that order, which is what
     /// FrameXML unpacks. These were being fired as just the unit and the spell
     /// id, so the id sat where the name belongs and the cast id was absent.
     std::vector<std::string> spellcastArgs(const std::string& unitId,
@@ -431,7 +431,7 @@ private:
     // spellId -> the length the cooldown had when it began. Kept beside the
     // remaining time rather than derived from it because GetSpellCooldown is
     // asked for (start, duration), and answering (now, remaining) redraws the
-    // swirl as a fresh full sweep every time the interface asks — which it does
+    // swirl as a fresh full sweep every time the interface asks - which it does
     // on every ACTIONBAR_UPDATE_COOLDOWN, so a long cooldown appears to restart
     // whenever anything else is cast.
     std::unordered_map<uint32_t, float> spellCooldownTotals_;

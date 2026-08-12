@@ -236,14 +236,14 @@ int handleValidate(int& i, int argc, char** argv) {
                     std::to_string(e.sortKind) + " not in 0..11");
             }
             // ClassQuest sortKind requires a non-zero classMask
-            // — otherwise it's not actually class-restricted.
+            // - otherwise it's not actually class-restricted.
             if (e.sortKind == wowee::pipeline::WoweeQuestSort::ClassQuest &&
                 e.targetClassMask == 0) {
                 errors.push_back(ctx +
                     ": ClassQuest kind with targetClassMask=0 "
                     "(should pick at least one class bit)");
             }
-            // Profession sortKind requires a profession ID hint —
+            // Profession sortKind requires a profession ID hint -
             // 0 means Blacksmithing in the WTSK enum but having
             // it left as zero with non-Blacksmithing kind might
             // be a typo. Warn rather than error since 0 IS a

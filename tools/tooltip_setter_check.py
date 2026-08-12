@@ -16,38 +16,38 @@ WHAT IT SEPARATES
 
 Three answers, and the third is the fault:
 
-  * implemented — a C binding, or a method on __WoweeFrameMT written in the
+  * implemented - a C binding, or a method on __WoweeFrameMT written in the
     bootstrap Lua. Both count; the bootstrap ones are how most of these are
     written, since they are made of other bindings.
-  * in the no-op allowlist — answered, silently, with nothing.
-  * neither — these RAISE, and take the OnEnter down with them. Zero today,
+  * in the no-op allowlist - answered, silently, with nothing.
+  * neither - these RAISE, and take the OnEnter down with them. Zero today,
     and that is the number to watch: it is the only one here that is loud.
 
 WHAT IT FOUND
 
 Eight blank on 2026-08-05, four of them fixed:
 
-  * SetTradeTargetItem — SetTradePlayerItem was written and its twin was not,
+  * SetTradeTargetItem - SetTradePlayerItem was written and its twin was not,
     so hovering your own offer named the item and hovering theirs said
     nothing. An asymmetry rather than a decision.
-  * SetShapeshift — the stance bar, which every druid, warrior, rogue, priest
+  * SetShapeshift - the stance bar, which every druid, warrior, rogue, priest
     and death knight has on screen the whole time.
-  * SetMerchantCostItem — what a vendor wants besides coin. The money frame
+  * SetMerchantCostItem - what a vendor wants besides coin. The money frame
     draws one of these per cost item and the tooltip is the only place the
     badge or token is named.
-  * SetLFGDungeonReward — the reward icons on the dungeon-ready popup.
+  * SetLFGDungeonReward - the reward icons on the dungeon-ready popup.
 
 THE FOUR LEFT, AND WHY EACH STAYS
 
-  * SetQuestLogRewardSpell — GetQuestLogRewardSpell answers nil always, so
+  * SetQuestLogRewardSpell - GetQuestLogRewardSpell answers nil always, so
     there is nothing for the tooltip to say. Implementing it would move the
     blank one layer down.
-  * SetLFGCompletionReward — GetLFGCompletionRewardItem's contract is a
+  * SetLFGCompletionReward - GetLFGCompletionRewardItem's contract is a
     texture and a quantity. No name is available to print, which is why its
     dungeon-reward twin above could be written and this one could not.
-  * SetEquipmentSet — the equipment manager, which a stock account has off:
+  * SetEquipmentSet - the equipment manager, which a stock account has off:
     the equipmentManager CVar reads "0" and that is correct.
-  * SetGlyph — Blizzard_GlyphUI, which arrives with the talent addon.
+  * SetGlyph - Blizzard_GlyphUI, which arrives with the talent addon.
 
 WHAT IT CANNOT SEE
 
@@ -86,7 +86,7 @@ def main():
     # Through framexml_provides rather than by matching names here.
     #
     # That file is the one implementation of "does the client answer this", and
-    # it exists because the ad-hoc versions produce false gaps — a name written
+    # it exists because the ad-hoc versions produce false gaps - a name written
     # as a bootstrap Lua method, or listed in the counting table, is answered
     # and looks unbound to a search for {"Name",. This sweep had its own copy
     # for exactly one day.
@@ -96,12 +96,12 @@ def main():
     print(f"{len(calls)} tooltip Set* methods called by the interface, "
           f"{len(names & provided) - len(names & allowlist)} of them implemented")
     if "SetHyperlink" not in calls:
-        print("  CANARY: SetHyperlink not seen called — the interface is not parsing.")
+        print("  CANARY: SetHyperlink not seen called - the interface is not parsing.")
     print()
 
     # Answered, but with nothing. widget_methods_provided counts an allowlist
     # entry as provided, which is the right answer to "does this raise" and the
-    # wrong one to "does this fill the tooltip" — so the two sets are asked
+    # wrong one to "does this fill the tooltip" - so the two sets are asked
     # separately rather than one being derived from the other.
     blank = sorted(names & allowlist)
     raises = sorted(names - provided)

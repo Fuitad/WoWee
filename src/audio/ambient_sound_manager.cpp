@@ -80,7 +80,7 @@ bool AmbientSoundManager::initialize(pipeline::AssetManager* assets) {
     blacksmithSounds_.resize(1);
     bool blacksmithLoaded = loadSound("Sound\\Ambience\\WMOAmbience\\BlackSmith.wav", blacksmithSounds_[0], assets);
 
-    // Load bird chirp sounds (daytime periodic) — up to 6 variants
+    // Load bird chirp sounds (daytime periodic) - up to 6 variants
     {
         static constexpr const char* birdPaths[] = {
             "Sound\\Ambience\\BirdAmbience\\BirdChirp01.wav",
@@ -904,7 +904,7 @@ void AmbientSoundManager::updateBellTolls(float deltaTime) {
     if (bellLibrary && !bellLibrary->empty() && (*bellLibrary)[0].loaded) {
         if (bellTollTime_ >= bellInterval) {
             // Bells have their own "Capital City Bells" slider (bellVolumeScale_)
-            // and must be independent of the ambient slider (volumeScale_) — the
+            // and must be independent of the ambient slider (volumeScale_) - the
             // engine still applies master volume. Coupling to volumeScale_ made the
             // bell control appear dead whenever ambient was turned down.
             float volume = 0.5f * bellVolumeScale_;

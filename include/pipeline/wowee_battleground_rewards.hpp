@@ -8,7 +8,7 @@ namespace wowee {
 namespace pipeline {
 
 // Wowee Open Battleground Reward Stages catalog
-// (.wbrd) — novel replacement for the per-BG per-
+// (.wbrd) - novel replacement for the per-BG per-
 // bracket reward configuration vanilla WoW carried
 // in BattlemasterList.dbc + the hard-coded honor
 // table in the server's BattlegroundMgr (the
@@ -35,20 +35,20 @@ namespace pipeline {
 //   entryCount (uint32)
 //   entries (each):
 //     rewardId (uint32)
-//     battlegroundId (uint16)      — WBGD ref
+//     battlegroundId (uint16)      - WBGD ref
 //                                     (1=AV/2=WSG/
 //                                     3=AB)
-//     bracketIndex (uint8)         — 1=10-19 /
+//     bracketIndex (uint8)         - 1=10-19 /
 //                                     2=20-29 / ...
 //                                     / 6=60-69
-//     minPlayersToStart (uint8)    — AV=20 / WSG=10
+//     minPlayersToStart (uint8)    - AV=20 / WSG=10
 //                                     / AB=15 etc.
 //     winHonor (uint32)
 //     lossHonor (uint32)
-//     markItemId (uint32)          — WIT ref
+//     markItemId (uint32)          - WIT ref
 //     winMarks (uint16)
 //     lossMarks (uint16)
-//     bonusItemId (uint32)         — weekly bonus
+//     bonusItemId (uint32)         - weekly bonus
 //                                     quest token
 //                                     (0 = no bonus)
 //     bonusItemCount (uint16)
@@ -79,14 +79,14 @@ struct WoweeBattlegroundRewards {
     const Entry* findById(uint32_t rewardId) const;
 
     // Resolve the reward stage for a (BG, level
-    // bracket) pair — the canonical lookup the
+    // bracket) pair - the canonical lookup the
     // post-match handler uses to credit honor +
     // marks to each participant.
     const Entry* find(uint16_t bgId,
                        uint8_t bracketIndex) const;
 
     // Returns all reward entries for a single
-    // battleground — used by the BG queue UI to
+    // battleground - used by the BG queue UI to
     // show per-bracket reward previews.
     std::vector<const Entry*> findByBg(uint16_t bgId) const;
 };
@@ -100,20 +100,20 @@ public:
 
     // Preset emitters used by --gen-brd* variants.
     //
-    //   makeAlteracValley — AV (bgId=1) reward
+    //   makeAlteracValley - AV (bgId=1) reward
     //                        ladder for brackets 5
     //                        and 6 (51-60 / 61-69).
     //                        AV requires 20 players
     //                        per side. High honor +
     //                        Mark of AV (itemId
     //                        17502).
-    //   makeWarsong       — WSG (bgId=2) reward
+    //   makeWarsong       - WSG (bgId=2) reward
     //                        ladder for brackets
     //                        1..6 (10-19 through
     //                        61-69). WSG min 10
     //                        players. Mark of WSG
     //                        (20558).
-    //   makeArathiBasin   — AB (bgId=3) reward
+    //   makeArathiBasin   - AB (bgId=3) reward
     //                        ladder for brackets 2..6
     //                        (20-29 through 61-69).
     //                        Min 15 players. Mark of

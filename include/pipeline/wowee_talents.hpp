@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Talent catalog (.wtal) — novel replacement for
+// Wowee Open Talent catalog (.wtal) - novel replacement for
 // Blizzard's TalentTab.dbc + Talent.dbc + the AzerothCore-
 // style talent_progression SQL tables. The 25th open format
 // added to the editor.
@@ -99,12 +99,12 @@ public:
 
     // Preset emitters used by --gen-talents* variants.
     //
-    //   makeStarter — 1 small tree (3 talents, no prereqs).
-    //   makeWarrior — 3 trees (Arms / Fury / Protection) each
+    //   makeStarter - 1 small tree (3 talents, no prereqs).
+    //   makeWarrior - 3 trees (Arms / Fury / Protection) each
     //                  with a handful of talents, prerequisite
     //                  chains, and rankSpellIds wired to WSPL
     //                  warrior preset spells where applicable.
-    //   makeMage    — 3 trees (Arcane / Fire / Frost) with
+    //   makeMage    - 3 trees (Arcane / Fire / Frost) with
     //                  links to WSPL mage preset spell IDs.
     static WoweeTalent makeStarter(const std::string& catalogName);
     static WoweeTalent makeWarrior(const std::string& catalogName);

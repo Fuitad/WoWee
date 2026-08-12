@@ -26,7 +26,7 @@ bool createShadowParamsSet(VkDevice device, VmaAllocator allocator,
         LOG_ERROR(owner, ": failed to create shadow params UBO");
         return false;
     }
-    // Zeroed rather than left as whatever the allocator handed back — a draw
+    // Zeroed rather than left as whatever the allocator handed back - a draw
     // that reaches the shader before the first per-draw write would otherwise
     // read a random alpha cutoff and a random useTexture.
     std::memset(allocInfo.pMappedData, 0, static_cast<size_t>(paramsSize));
@@ -35,7 +35,7 @@ bool createShadowParamsSet(VkDevice device, VmaAllocator allocator,
     //
     // The params are visible to the vertex stage as well as the fragment one.
     // Three of the four callers wrote it that way and the character pass did
-    // not, whose shader reads them only in the fragment stage — visibility a
+    // not, whose shader reads them only in the fragment stage - visibility a
     // shader does not use costs nothing and is legal, where the reverse is
     // neither, so the wider of the two is the one to share.
     VkDescriptorSetLayoutBinding layoutBindings[2]{};
@@ -82,8 +82,8 @@ bool createShadowParamsSet(VkDevice device, VmaAllocator allocator,
         return false;
     }
 
-    // The white fallback for binding 0. Terrain and WMOs never sample it —
-    // useTexture is 0 in their params — but a set with an unwritten binding is
+    // The white fallback for binding 0. Terrain and WMOs never sample it -
+    // useTexture is 0 in their params - but a set with an unwritten binding is
     // not a set Vulkan will let anything bind.
     VkDescriptorBufferInfo bufInfo{};
     bufInfo.buffer = out.ubo;

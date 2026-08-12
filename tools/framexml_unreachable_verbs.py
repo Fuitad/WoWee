@@ -6,13 +6,13 @@ capability that disappears the moment its element is handed over. That is how
 "cannot apply a sharpening stone" happened: completeItemUseOnItem had exactly
 one caller, inventory_screen.cpp, and bags are in the defaults.
 
-Reports verbs called from src/ui/ but never from src/addons/ — the Lua
+Reports verbs called from src/ui/ but never from src/addons/ - the Lua
 bindings being the only way FrameXML can reach anything.
 
 WHAT IT FOUND, AND THE SIXTY-SIX LEFT (2026-08-05)
 
 The find was the slash-command registry. Twenty-one rows pointed at
-src/ui/chat/commands, which is not a window at all — it is this client's
+src/ui/chat/commands, which is not a window at all - it is this client's
 command set, dispatched from its own chat input and from nowhere else. Handing
 chat over made seventy-one commands untypeable and nothing said so, because
 FrameXML answers an unknown command with "Type /help for a listing of
@@ -21,28 +21,28 @@ separately above rather than reported.
 
 The sixty-six left divide cleanly, and none is a gap:
 
-  * **Not verbs at all (17)** — set*Callback, consume*, clear*Pending. Wiring
+  * **Not verbs at all (17)** - set*Callback, consume*, clear*Pending. Wiring
     between this client's own halves. The is_verb filter cannot tell a callback
     setter from an action because both are camelCase with an object.
-  * **The other direction (1)** — runInterfaceCommand, and it is the top row
+  * **The other direction (1)** - runInterfaceCommand, and it is the top row
     with twenty-seven callers. This is the client calling *into* FrameXML, so
     finding it absent from src/addons is exactly right.
-  * **The glue screen** — requestCharacterList, selectCharacter. Character
+  * **The glue screen** - requestCharacterList, selectCharacter. Character
     select runs before FrameXML exists.
-  * **The 3D world** — interactWithGameObject, interactWithNpc, lootTarget,
+  * **The 3D world** - interactWithGameObject, interactWithNpc, lootTarget,
     tabTarget, setMouseoverGuid. Driven by clicks in the world and by
     keybindings, not by anything the interface calls.
-  * **Has a bound equivalent** — inspectTarget is InspectUnit, dismissPet is
+  * **Has a bound equivalent** - inspectTarget is InspectUnit, dismissPet is
     PetDismiss, startCraftQueue is DoTradeSkill, sendAlterAppearance is
     ApplyBarberShopStyle, stablePet is ClickStablePet. All five are bound; the
     client method simply is not the route FrameXML takes.
-  * **Window plumbing** — openMailCompose, setSelectedMailIndex,
+  * **Window plumbing** - openMailCompose, setSelectedMailIndex,
     setVendorCanRepair, showDeathDialog and friends. State belonging to this
     client's own window, which FrameXML replaces whole rather than driving.
 
 THE QUESTION WORTH RE-ASKING
 
-Not "what did this client's window draw" — the handover tables answer that —
+Not "what did this client's window draw" - the handover tables answer that -
 but **what was it the only route to**. A verb reachable from one panel and
 nowhere else disappears with that panel, and nothing in the takeover machinery
 is watching for it.
@@ -58,7 +58,7 @@ ROOT = Path(__file__).resolve().parent.parent
 # Exclude what is definitely not a verb, rather than listing what is.
 #
 # This started as a prefix whitelist of forty-odd words and saw 173 of 1495
-# names — about a fifth of the surface. InspectUnit and StartDuel were both
+# names - about a fifth of the surface. InspectUnit and StartDuel were both
 # missing bindings that FrameXML calls straight out of the unit menu, and both
 # were invisible to it because "inspect" and "duel" were not on the list.
 # Any hand-written list of what to look at is a summary, and summaries here
@@ -103,7 +103,7 @@ def count(name: str, where: str) -> int:
 # Those files are the slash-command registry, and since 2026-08-05 a bootstrap
 # chunk in addon_manager registers every one of its aliases into SlashCmdList
 # after FrameXML loads. So a verb whose only callers are command classes can be
-# typed from FrameXML's edit box, and reporting it as unreachable is wrong —
+# typed from FrameXML's edit box, and reporting it as unreachable is wrong -
 # it was right for exactly as long as the registry had no bridge, which is how
 # the bridge came to be written: twenty-one of these rows were the clue.
 #

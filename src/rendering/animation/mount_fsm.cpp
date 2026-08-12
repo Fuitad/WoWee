@@ -97,7 +97,7 @@ uint32_t MountFSM::resolveGroundOrFlyAnim(const Input& in) const {
                 return anims_.flyForward ? anims_.flyForward : (anims_.flyIdle ? anims_.flyIdle : anim::RUN);
             }
         } else if (in.swimming) {
-            // Mounted swimming — simplified, no per-direction mount swim anims needed here
+            // Mounted swimming - simplified, no per-direction mount swim anims needed here
             // (the original code used pickMountAnim with mount-specific swim IDs)
             return anims_.run ? anims_.run : anim::RUN;
         } else if (anyStrafeLeft) {
@@ -138,7 +138,7 @@ MountFSM::Output MountFSM::evaluate(const Input& in) {
     // On a taxi, as of this frame.
     //
     // The configured flag is only what was true when the mount was set up, and
-    // a taxi sets the mount up before it says the flight has begun — so on
+    // a taxi sets the mount up before it says the flight has begun - so on
     // every flight it was false, the branch below was skipped, and the gryphon
     // resolved through the ordinary ground path and ran through the air. The
     // per-frame answer was already being passed in and read by nothing; the

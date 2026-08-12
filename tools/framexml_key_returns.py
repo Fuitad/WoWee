@@ -14,7 +14,7 @@ Three faults in one day were this shape, and each cost a whole panel:
         ... buttonText:SetTextColor(classTextColor.r, ...)
 
     A number is truthy, so it took the first branch, found no such key, and
-    read .r off a nil one line later — inside GuildStatus_Update, which took
+    read .r off a nil one line later - inside GuildStatus_Update, which took
     the guild roster down with it.
 
   * GetWhoInfo had the same fault at its seventh value, from a private copy
@@ -26,7 +26,7 @@ Three faults in one day were this shape, and each cost a whole panel:
 
 THE SHAPE, AND WHY THE GUARD MAKES IT WORSE
 
-Every one of these sites is guarded — `if ( x ) then TABLE[x]`. The guard is
+Every one of these sites is guarded - `if ( x ) then TABLE[x]`. The guard is
 the caller saying it already knows the value can be missing and has a branch
 for that. An answer of the wrong kind is therefore worse than no answer: it
 passes the guard, skips the branch written for it, and raises one line later
@@ -36,7 +36,7 @@ So this reads FrameXML for a variable that comes out of a binding at a known
 position and is later used as a table index, and asks whether what the binding
 pushes there is the kind of key that table is built with.
 
-Both directions, because both fail identically — a lookup that finds nothing
+Both directions, because both fail identically - a lookup that finds nothing
 and a field read off the nil a line later. A number into RAID_CLASS_COLORS is
 the shape that cost three panels; a name into ITEM_QUALITY_COLORS, which is
 indexed 0..6, is its mirror and no more survivable.
@@ -142,15 +142,15 @@ FILES = [(p.name, p.read_text(errors="ignore")) for p in sorted(loaded_files(XML
 # number is exactly right for ITEM_QUALITY_COLORS, which is indexed 0..6, and
 # exactly wrong for RAID_CLASS_COLORS, which is indexed by "WARRIOR". Without
 # asking, every quality, tier, column and power type in the interface reads as
-# a fault — sixteen rows of them, all correct code.
+# a fault - sixteen rows of them, all correct code.
 def _table_key_kinds():
     kinds = {}
     for _name, text in FILES:
         for m in re.finditer(r"^([A-Z][A-Z0-9_]{3,})\s*=\s*\{", text, re.M):
             name = m.group(1)
             # Only what is between the braces. Reading a fixed span after the
-            # opening one instead meant an empty table — `LOCAL_MAP_QUESTS = {}`
-            # — was classified from whatever unrelated code followed it in the
+            # opening one instead meant an empty table - `LOCAL_MAP_QUESTS = {}`
+            # - was classified from whatever unrelated code followed it in the
             # file, and both of the rows this reported were that: tables
             # FrameXML fills itself, keyed by the very ids it was calling a
             # fault.
@@ -176,7 +176,7 @@ TABLE_KEYS = _table_key_kinds()
 # Every `SOME_TABLE[var]` in a file, found in one pass and looked up after.
 #
 # Searching for each variable at each call site instead meant a fresh scan of a
-# kilobyte of Lua per name per site — thousands of them — and that was nearly
+# kilobyte of Lua per name per site - thousands of them - and that was nearly
 # all of the time this took.
 _INDEX_USES = re.compile(r"([A-Z][A-Z0-9_]{3,})\s*\[\s*([A-Za-z_]\w*)\s*\]")
 
@@ -219,7 +219,7 @@ def scan(files_text):
                     continue
                 keyed = TABLE_KEYS.get(table)
                 kind = kinds[pos - 1]
-                # Both directions fail the same way — a lookup that finds
+                # Both directions fail the same way - a lookup that finds
                 # nothing, and a field read off the nil a line later. A number
                 # into a table keyed by name is the shape that cost three
                 # panels; a name into one keyed by number is its mirror and is
@@ -238,8 +238,8 @@ print(f"{len(bound)} C bindings parsed, "
       f"{sum(1 for v in TABLE_KEYS.values() if v == 'string')} name-keyed tables")
 
 # Built rather than found, for the reason the docstring gives. Both halves are
-# real — a binding that does push a number at a known position, and the Lua
-# shape that indexes with it — so only FrameXML putting them together is
+# real - a binding that does push a number at a known position, and the Lua
+# shape that indexes with it - so only FrameXML putting them together is
 # synthetic, and every lookup the scan depends on is exercised.
 # Every stage at once: a real binding that really does push a number at value
 # four, a real table that FrameXML really does key by name, and only the line
@@ -249,7 +249,7 @@ _probe = scan([("<canary>",
                 "local a, b, c, quality = GetLootSlotInfo(1)\n"
                 "local col = RAID_CLASS_COLORS[quality]\n")])
 if any(h[0] == "GetLootSlotInfo" and h[1] == 4 for h in _probe):
-    print("canary: a number indexing a name-keyed table is seen — "
+    print("canary: a number indexing a name-keyed table is seen - "
           "pushes, tables and call sites all read")
 else:
     print("CANARY MISSING: the synthetic fault was not reported. The sweep is "

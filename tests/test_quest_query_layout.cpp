@@ -1,6 +1,6 @@
 // Where the strings begin in SMSG_QUEST_QUERY_RESPONSE.
 //
-// The body is a fixed block of four-byte fields and then five strings — Title,
+// The body is a fixed block of four-byte fields and then five strings - Title,
 // Objectives, Details, AreaDescription, CompletedText. Reading from the wrong
 // offset does not fail: it returns a different string, and every string after
 // it shifts by one. A quest then shows its objectives where its name belongs.
@@ -57,7 +57,7 @@ Body buildWotlkQuestQueryBody() {
     b.u32(0);         // nextQuestInChain
     b.u32(0);         // xpId
 
-    b.u32(1000);      // money — one field either way
+    b.u32(1000);      // money - one field either way
 
     b.u32(0);         // moneyMaxLevel
     b.u32(0);         // rewSpell
@@ -132,7 +132,7 @@ TEST_CASE("the title is the first string after it", "[quest][layout]") {
 
     SECTION("the offset this used to seed lands inside the reward block") {
         // Fifty-seven fields, which is thirty-two bytes short. It is not a
-        // string there — it is zeroes — so the read came back empty and the
+        // string there - it is zeroes - so the read came back empty and the
         // quest fell through to the scan that guesses a title by its shape.
         const size_t wrong = 8 + 55 * 4;
         CHECK(wrong == 228);

@@ -162,7 +162,7 @@ void StarField::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet,
 
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 
-    // Bind per-frame descriptor set (set 0 — camera UBO with view/projection)
+    // Bind per-frame descriptor set (set 0 - camera UBO with view/projection)
     vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout,
         0, 1, &perFrameSet, 0, nullptr);
 

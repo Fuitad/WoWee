@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Achievement Catalog (.wach) — novel replacement
+// Wowee Open Achievement Catalog (.wach) - novel replacement
 // for Blizzard's Achievement.dbc + AchievementCriteria.dbc +
 // AchievementCategory.dbc + the AzerothCore-style
 // character_achievement / character_achievement_progress
@@ -107,7 +107,7 @@ struct WoweeAchievement {
 
     bool isValid() const { return !entries.empty(); }
 
-    // Lookup by achievementId — nullptr if not present.
+    // Lookup by achievementId - nullptr if not present.
     const Entry* findById(uint32_t achievementId) const;
 
     static const char* criteriaKindName(uint8_t k);
@@ -123,13 +123,13 @@ public:
 
     // Preset emitters used by --gen-achievements* variants.
     //
-    //   makeStarter — 3 demo achievements covering kill / quest
+    //   makeStarter - 3 demo achievements covering kill / quest
     //                  completion / level reached criteria.
-    //   makeBandit  — bandit-themed: "Slay 50 Defias Bandits"
+    //   makeBandit  - bandit-themed: "Slay 50 Defias Bandits"
     //                  + "Loot the Bandit Strongbox" + "Complete
-    //                  Bandit Trouble" — all referencing the
+    //                  Bandit Trouble" - all referencing the
     //                  WCRT/WGOT/WQT/WIT cross-referenced demo IDs.
-    //   makeMeta    — 3 base achievements + 1 meta-achievement
+    //   makeMeta    - 3 base achievements + 1 meta-achievement
     //                  that requires completing the others.
     static WoweeAchievement makeStarter(const std::string& catalogName);
     static WoweeAchievement makeBandit(const std::string& catalogName);

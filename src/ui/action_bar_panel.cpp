@@ -1,5 +1,5 @@
 // ============================================================
-// ActionBarPanel — extracted from GameScreen
+// ActionBarPanel - extracted from GameScreen
 // Owns all action bar rendering: main bar, stance bar, bag bar,
 // XP bar, reputation bar, macro resolution.
 // ============================================================
@@ -239,7 +239,7 @@ void ActionBarPanel::renderActionBar(game::GameHandler& gameHandler,
                              SpellbookScreen& spellbookScreen,
                              QuestLogScreen& /*questLogScreen*/,
                              SpellIconFn getSpellIcon) {
-    // Use ImGui's display size — always in sync with the current swap-chain/frame,
+    // Use ImGui's display size - always in sync with the current swap-chain/frame,
     // whereas window->getWidth/Height() can lag by one frame on resize events.
     ImVec2 displaySize = ImGui::GetIO().DisplaySize;
     float screenW = displaySize.x > 0.0f ? displaySize.x : 1280.0f;
@@ -284,7 +284,7 @@ void ActionBarPanel::renderActionBar(game::GameHandler& gameHandler,
     ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
     ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.05f, 0.05f, 0.05f, 0.9f));
 
-    // Per-slot rendering lambda — shared by both action bars
+    // Per-slot rendering lambda - shared by both action bars
     const auto& bar = gameHandler.getActionBar();
     static constexpr const char* keyLabels1[] = {"1","2","3","4","5","6","7","8","9","0","-","="};
 
@@ -598,7 +598,7 @@ void ActionBarPanel::renderActionBar(game::GameHandler& gameHandler,
                     }
                 }
             } else if (actionBarHoldSlot_ == absSlot) {
-                // Released or dragged off before the delay — cancel this hold.
+                // Released or dragged off before the delay - cancel this hold.
                 actionBarHoldSlot_ = -1;
             }
         }
@@ -641,7 +641,7 @@ void ActionBarPanel::renderActionBar(game::GameHandler& gameHandler,
             inventoryScreen.returnHeldItem(gameHandler.getInventory());
         } else if (clicked && actionBarDragSlot_ >= 0) {
             if (actionBarCarryPressActive_) {
-                // Release of the press that completed the pickup — keep carrying.
+                // Release of the press that completed the pickup - keep carrying.
             } else {
                 // Capture whatever is here before overwriting it (the slot is a live
                 // reference, so read the displaced action first).
@@ -819,7 +819,7 @@ void ActionBarPanel::renderActionBar(game::GameHandler& gameHandler,
                             ImGui::Separator();
                             ImGui::TextUnformatted(macroText.c_str());
                         } else {
-                            ImGui::TextDisabled("(no text — right-click to Edit)");
+                            ImGui::TextDisabled("(no text - right-click to Edit)");
                         }
                     }
                 }
@@ -895,7 +895,7 @@ void ActionBarPanel::renderActionBar(game::GameHandler& gameHandler,
             dl->AddText(ImVec2(tx, ty), IM_COL32(255, 255, 255, 255), cdText);
         }
 
-        // GCD overlay — subtle dark fan sweep (thinner/lighter than regular cooldown)
+        // GCD overlay - subtle dark fan sweep (thinner/lighter than regular cooldown)
         if (onGCD) {
             ImVec2 btnMin = ImGui::GetItemRectMin();
             ImVec2 btnMax = ImGui::GetItemRectMax();
@@ -924,7 +924,7 @@ void ActionBarPanel::renderActionBar(game::GameHandler& gameHandler,
             }
         }
 
-        // Auto-attack active glow — pulsing golden border when slot 6603 (Attack) is toggled on
+        // Auto-attack active glow - pulsing golden border when slot 6603 (Attack) is toggled on
         if (slot.type == game::ActionBarSlot::SPELL && slot.id == 6603
             && gameHandler.isAutoAttacking()) {
             ImVec2 bMin = ImGui::GetItemRectMin();
@@ -938,7 +938,7 @@ void ActionBarPanel::renderActionBar(game::GameHandler& gameHandler,
             ImGui::GetWindowDrawList()->AddRect(bMin, bMax, glowCol, 2.0f, 0, 2.5f);
         }
 
-        // Item stack count overlay — bottom-right corner of icon
+        // Item stack count overlay - bottom-right corner of icon
         if (slot.type == game::ActionBarSlot::ITEM && slot.id != 0) {
             const auto countIt = actionItemCounts.find(slot.id);
             const int totalCount = countIt != actionItemCounts.end()
@@ -1033,7 +1033,7 @@ void ActionBarPanel::renderActionBar(game::GameHandler& gameHandler,
             renderBarSlot(actionSlotForPage(mainActionBarPage_, i), keyLabels1[i]);
         }
 
-        // Macro editor modal — opened by "Edit" in action bar context menus
+        // Macro editor modal - opened by "Edit" in action bar context menus
         if (macroEditorOpen_) {
             ImGui::OpenPopup("Edit Macro###MacroEdit");
             macroEditorOpen_ = false;
@@ -1195,7 +1195,7 @@ void ActionBarPanel::renderActionBar(game::GameHandler& gameHandler,
         }
 
         if (actionBarCarryPressActive_) {
-            // Still waiting for the initiating hold-press to be released — swallow it
+            // Still waiting for the initiating hold-press to be released - swallow it
             // so it doesn't count as a drop, then the carry is "armed" for real clicks.
             if (ImGui::IsMouseReleased(ImGuiMouseButton_Left))
                 actionBarCarryPressActive_ = false;
@@ -1332,7 +1332,7 @@ void ActionBarPanel::renderStanceBar(game::GameHandler& gameHandler,
             ImVec2 pos = ImGui::GetCursorScreenPos();
             ImVec2 posEnd = ImVec2(pos.x + slotSize, pos.y + slotSize);
 
-            // Background — green tint when active
+            // Background - green tint when active
             ImU32 bgCol     = isActive ? IM_COL32(30, 70, 30, 230) : IM_COL32(20, 20, 20, 220);
             ImU32 borderCol = isActive ? IM_COL32(80, 220, 80, 255) : IM_COL32(80, 80, 80, 200);
             dl->AddRectFilled(pos, posEnd, bgCol, 4.0f);
@@ -1370,7 +1370,7 @@ namespace {
 /// Where a bag-bar click goes when FrameXML owns the bags.
 ///
 /// renderBagBar is gated on the BagBar element and these buttons open the
-/// *bags*, which is a different element — so wherever the two are owned
+/// *bags*, which is a different element - so wherever the two are owned
 /// differently, this client drew its own bag bar and every button on it
 /// toggled a window FrameXML draws and this client does not.
 ///
@@ -1569,13 +1569,13 @@ bool ActionBarPanel::renderBagBar(game::GameHandler& gameHandler,
                         bagBarPickedSlot_ = bagBarDragSource_;
                     }
                 } else {
-                    // Mouse moved enough — start visual drag
+                    // Mouse moved enough - start visual drag
                     bagBarPickedSlot_ = bagBarDragSource_;
                 }
             }
             if (ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
                 if (bagBarPickedSlot_ >= 0) {
-                    // Was dragging — check for drop target
+                    // Was dragging - check for drop target
                     ImVec2 mousePos = ImGui::GetIO().MousePos;
                     int dropTarget = -1;
                     for (int j = 0; j < 4; ++j) {
@@ -1591,7 +1591,7 @@ bool ActionBarPanel::renderBagBar(game::GameHandler& gameHandler,
                     }
                     bagBarPickedSlot_ = -1;
                 } else {
-                    // Was just a click (no drag) — toggle bag
+                    // Was just a click (no drag) - toggle bag
                     int slot = bagBarDragSource_;
                     auto equip = static_cast<game::EquipSlot>(static_cast<int>(game::EquipSlot::BAG1) + slot);
                     if (!inv.getEquipSlot(equip).empty()) {
@@ -1772,7 +1772,7 @@ void ActionBarPanel::renderXpBar(game::GameHandler& gameHandler,
                 IM_COL32(255, 230, 120, 255), mlLabel);
             ImGui::Dummy(barSize);
             if (ImGui::IsItemHovered())
-                ImGui::SetTooltip("Level %u — Maximum level reached", playerLevel);
+                ImGui::SetTooltip("Level %u - Maximum level reached", playerLevel);
         } else {
         float pct = static_cast<float>(currentXp) / static_cast<float>(nextLevelXp);
         if (pct > 1.0f) pct = 1.0f;
@@ -1848,7 +1848,7 @@ void ActionBarPanel::renderXpBar(game::GameHandler& gameHandler,
                     "Rested: +%u XP (%.1f%% of a level)", restedXp, restedLevels * 100.0f);
                 if (isResting)
                     ImGui::TextColored(ImVec4(0.6f, 0.9f, 0.6f, 1.0f),
-                        "Resting — accumulating bonus XP");
+                        "Resting - accumulating bonus XP");
             }
             ImGui::EndTooltip();
         }

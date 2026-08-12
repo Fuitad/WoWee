@@ -81,7 +81,7 @@ public:
         char buf[256];
         snprintf(buf, sizeof(buf), "%.1f, %.1f, %.1f%s%s",
                  pmi.x, pmi.y, pmi.z,
-                 zoneName.empty() ? "" : " — ",
+                 zoneName.empty() ? "" : " - ",
                  zoneName.c_str());
         game::MessageChatData sysMsg;
         sysMsg.type = game::ChatType::SYSTEM;

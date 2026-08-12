@@ -319,7 +319,7 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": name is empty");
         if (e.classFilter == 0) {
             errors.push_back(ctx +
-                ": classFilter is 0 — no class can use "
+                ": classFilter is 0 - no class can use "
                 "this action");
         }
         if (e.actionKind > 10) {
@@ -331,7 +331,7 @@ int handleValidate(int& i, int argc, char** argv) {
             warnings.push_back(ctx +
                 ": happinessRestore " +
                 std::to_string(e.happinessRestore) +
-                " outside +/-25 — pet happiness range "
+                " outside +/-25 - pet happiness range "
                 "is normally [-100, +100], single-action "
                 "swing >25 is unusual");
         }
@@ -340,18 +340,18 @@ int handleValidate(int& i, int argc, char** argv) {
         if (e.actionKind == P::Tame && e.requiresPet != 0) {
             errors.push_back(ctx +
                 ": Tame action requires NO pet active "
-                "(requiresPet must be 0) — you can't tame "
+                "(requiresPet must be 0) - you can't tame "
                 "while another pet is out");
         }
         if (e.actionKind == P::Summon && e.requiresPet != 0) {
             errors.push_back(ctx +
                 ": Summon action requires NO pet active "
-                "(requiresPet must be 0) — Warlock can't "
+                "(requiresPet must be 0) - Warlock can't "
                 "summon while another minion is out");
         }
         if (e.actionKind == P::Revive && e.requiresPet != 0) {
             warnings.push_back(ctx +
-                ": Revive action with requiresPet=1 — "
+                ": Revive action with requiresPet=1 - "
                 "revive should target a DEAD pet, not "
                 "require an active one. Verify intent.");
         }
@@ -359,15 +359,15 @@ int handleValidate(int& i, int argc, char** argv) {
             e.requiresStableNPC == 0) {
             warnings.push_back(ctx +
                 ": Stable action with requiresStableNPC=0 "
-                "— stable slot purchases are normally "
+                "- stable slot purchases are normally "
                 "gated to stable-master conversation");
         }
-        // Tame with cooldown — Tame Beast has a fixed
+        // Tame with cooldown - Tame Beast has a fixed
         // 15-second internal cooldown in 3.3.5; warn if
         // unset.
         if (e.actionKind == P::Tame && e.cooldownSec == 0) {
             warnings.push_back(ctx +
-                ": Tame action with cooldownSec=0 — Tame "
+                ": Tame action with cooldownSec=0 - Tame "
                 "Beast canonically has a 15-sec internal "
                 "cooldown to prevent macro-spam");
         }

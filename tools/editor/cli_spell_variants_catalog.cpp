@@ -270,7 +270,7 @@ int handleValidate(int& i, int argc, char** argv) {
     }
     std::set<uint32_t> idsSeen;
     // Per-(baseSpell, conditionKind, conditionValue,
-    // priority) tuple uniqueness — two variants with all
+    // priority) tuple uniqueness - two variants with all
     // four matching would tie at runtime and resolve
     // non-deterministically.
     std::set<uint64_t> tupleSeen;
@@ -297,12 +297,12 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": name is empty");
         if (e.baseSpellId == 0) {
             errors.push_back(ctx +
-                ": baseSpellId is 0 — variant has no "
+                ": baseSpellId is 0 - variant has no "
                 "base spell to substitute for");
         }
         if (e.variantSpellId == 0) {
             errors.push_back(ctx +
-                ": variantSpellId is 0 — variant has no "
+                ": variantSpellId is 0 - variant has no "
                 "spell to substitute INTO");
         }
         if (e.conditionKind > 5) {
@@ -312,7 +312,7 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         if (e.conditionValue == 0) {
             warnings.push_back(ctx +
-                ": conditionValue is 0 — condition would "
+                ": conditionValue is 0 - condition would "
                 "match the always-zero default; verify "
                 "if intentional (the gate becomes a "
                 "no-op)");
@@ -333,7 +333,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 ", priority=" +
                 std::to_string(e.priority) +
                 ") tuple already bound by another variant "
-                "— spell-cast pipeline lookup would be "
+                "- spell-cast pipeline lookup would be "
                 "non-deterministic");
         }
         if (!idsSeen.insert(e.variantId).second) {

@@ -142,17 +142,17 @@ WoweeServerBroadcasts WoweeServerBroadcastsLoader::makeMaintenance(
     add(100, "Restart15Min",
         "[SERVER] Restart in 15 minutes. Please complete "
         "your current activity and find a safe location.",
-        "First maintenance warning — fired by the cron "
+        "First maintenance warning - fired by the cron "
         "scheduler 15min before a planned restart.");
     add(101, "Restart5Min",
         "[SERVER] Restart in 5 minutes. World will save "
         "and shut down shortly.",
-        "Second maintenance warning — fired 5min before "
+        "Second maintenance warning - fired 5min before "
         "restart.");
     add(102, "Restart1Min",
         "[SERVER] Restart in 60 SECONDS. Disconnect now "
         "to avoid character rollback.",
-        "Final maintenance warning — fired 60s before "
+        "Final maintenance warning - fired 60s before "
         "restart. RaidWarning channel ensures the red "
         "banner appears center-screen.");
     return c;

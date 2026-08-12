@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Bindings that push a value per row without asking for the room first.
 
-Lua guarantees a binding only a small slack above its arguments — LUA_MINSTACK,
+Lua guarantees a binding only a small slack above its arguments - LUA_MINSTACK,
 twenty slots. A binding that pushes one value per party member, per gossip
 option or per child frame can go past that, and going past it does not raise:
 it writes outside the stack and corrupts the heap. `GetChildren` on UIParent
@@ -9,20 +9,20 @@ did exactly that on its first run, with 267 children, and the process died in
 realloc rather than in Lua.
 
 So: any loop whose *body* pushes, inside a binding with no `lua_checkstack`, is
-reported. The bound does not have to be huge to matter — it has to be something
+reported. The bound does not have to be huge to matter - it has to be something
 this client does not choose. A guild roster, a gossip list and a comma in a
 chat line are all that is needed.
 
     tools/lua_stack_room_check.py
 
 The loop's own body is matched by brace, not by a window of lines. A window
-reports every loop that merely sits above a push — five of five hits on the
+reports every loop that merely sits above a push - five of five hits on the
 first attempt were that, and a check whose every finding is false is one nobody
 reads.
 
 Fixed-count loops (`for (int i = 0; i < 3; ++i)`) are not reported: three is a
 number this client chose, and twenty slots covers it. Nor is a binding that
-returns a literal count — a loop that pushes and then returns 1 is a search
+returns a literal count - a loop that pushes and then returns 1 is a search
 that pushes once, bounded at one however long the list is. That is 64 of the
 69 hits the first version reported.
 """
@@ -35,8 +35,8 @@ ROOT = Path(__file__).resolve().parent.parent
 BINDINGS = ROOT / "src" / "addons"
 
 LOOP = re.compile(r"\b(for|while)\s*\(")
-# A loop whose trip count is fixed by a literal in the header. Anything else —
-# a range-based for, or a while — is bounded by data.
+# A loop whose trip count is fixed by a literal in the header. Anything else -
+# a range-based for, or a while - is bounded by data.
 FIXED_FOR = re.compile(r"for\s*\(\s*[\w:]+\s+\w+\s*=\s*\d+\s*;[^;]*<=?\s*\d+\s*;")
 
 
@@ -81,7 +81,7 @@ def main():
             if "lua_checkstack" in body:
                 continue
             # Only bindings whose return *count* is a variable. A loop that
-            # pushes and returns a literal is a search that pushes once —
+            # pushes and returns a literal is a search that pushes once -
             # bounded at one however long the list is, and 64 of the first 69
             # findings were exactly that.
             if not re.search(r"return\s+(?!\d)\w+\s*;", body):

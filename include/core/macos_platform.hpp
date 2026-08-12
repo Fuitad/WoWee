@@ -11,7 +11,7 @@ namespace core {
  * SDL2 leaves text input enabled for the whole session (SDL_VideoInit calls
  * SDL_StartTextInput when there's no screen keyboard), so AppKit routes key
  * events through NSTextInputContext even during normal gameplay.  Holding a
- * key that takes diacritics — A, S, E, and friends — then opens the accent
+ * key that takes diacritics - A, S, E, and friends - then opens the accent
  * chooser instead of repeating the key.
  *
  * Registering ApplePressAndHoldEnabled=NO restores plain key repeat.  The

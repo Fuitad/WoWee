@@ -3,7 +3,7 @@
 -- 3.3.5's interface has no such thing: it opens one ContainerFrame per bag and
 -- has no sorting at all, both of which arrived years later. This client's own
 -- bag window has had a combined view and a Sort Bags button for a long time,
--- but that is drawn by the client — hand the bags to FrameXML and it goes away
+-- but that is drawn by the client - hand the bags to FrameXML and it goes away
 -- with them. This is the same idea built out of the ordinary addon API, so it
 -- is there whichever side is drawing.
 --

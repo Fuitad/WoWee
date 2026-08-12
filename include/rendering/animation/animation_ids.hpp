@@ -1,6 +1,6 @@
 #pragma once
 // ============================================================================
-// M2 Animation IDs — AnimationData.dbc
+// M2 Animation IDs - AnimationData.dbc
 //
 // Complete list from https://wowdev.wiki/M2/AnimationList
 // Community names in comments describe what each animation looks like in-game.
@@ -16,7 +16,7 @@ namespace rendering {
 namespace anim {
 
 // ============================================================================
-// Classic (Vanilla WoW 1.x) — Core character & creature animations
+// Classic (Vanilla WoW 1.x) - Core character & creature animations
 // IDs 0–145
 // ============================================================================
 
@@ -98,11 +98,11 @@ constexpr uint32_t EMOTE_ROAR                = 74;  // /roar
 constexpr uint32_t EMOTE_KNEEL               = 75;  // /kneel
 constexpr uint32_t EMOTE_KISS                = 76;  // /kiss
 constexpr uint32_t EMOTE_CRY                 = 77;  // /cry
-constexpr uint32_t EMOTE_CHICKEN             = 78;  // /chicken — flap arms and strut
+constexpr uint32_t EMOTE_CHICKEN             = 78;  // /chicken - flap arms and strut
 constexpr uint32_t EMOTE_BEG                 = 79;  // /beg
 constexpr uint32_t EMOTE_APPLAUD             = 80;  // /applaud
 constexpr uint32_t EMOTE_SHOUT               = 81;  // /shout
-constexpr uint32_t EMOTE_FLEX                = 82;  // /flex — show off muscles
+constexpr uint32_t EMOTE_FLEX                = 82;  // /flex - show off muscles
 constexpr uint32_t EMOTE_SHY                 = 83;  // /shy
 constexpr uint32_t EMOTE_POINT               = 84;  // /point
 constexpr uint32_t ATTACK_1H_PIERCE          = 85;  // One-handed pierce (dagger stab)
@@ -168,7 +168,7 @@ constexpr uint32_t IN_FLIGHT                 = 144; // In-flight (flight path tr
 constexpr uint32_t SPAWN                     = 145; // Object/creature spawn animation
 
 // ============================================================================
-// The Burning Crusade (TBC 2.x) — Flying mounts, game objects, stealth run
+// The Burning Crusade (TBC 2.x) - Flying mounts, game objects, stealth run
 // IDs 146–199
 // ============================================================================
 
@@ -213,7 +213,7 @@ constexpr uint32_t CUSTOM_SPELL_10           = 183; // Custom spell animation 10
 constexpr uint32_t EMOTE_STATE_DANCE         = 184; // /dance state (looping dance)
 
 // ============================================================================
-// Wrath of the Lich King (WotLK 3.x) — Vehicles, reclined, crafting, etc.
+// Wrath of the Lich King (WotLK 3.x) - Vehicles, reclined, crafting, etc.
 // IDs 185+
 // ============================================================================
 
@@ -248,8 +248,8 @@ constexpr uint32_t EMOTE_STATE_SPELL_KNEEL   = 211; // Spell kneel state loop
 constexpr uint32_t EMOTE_STATE_USE_STANDING  = 212; // Use standing state
 constexpr uint32_t EMOTE_STATE_STUN          = 213; // Stun state loop
 constexpr uint32_t EMOTE_STATE_STUN_NO_SHEATHE = 214; // Stun no sheathe state
-constexpr uint32_t EMOTE_TRAIN               = 215; // /train — choo choo!
-constexpr uint32_t EMOTE_DEAD                = 216; // /dead — play dead
+constexpr uint32_t EMOTE_TRAIN               = 215; // /train - choo choo!
+constexpr uint32_t EMOTE_DEAD                = 216; // /dead - play dead
 constexpr uint32_t EMOTE_STATE_DANCE_ONCE    = 217; // Single dance animation
 constexpr uint32_t FLY_DEATH                 = 218; // Flying death
 constexpr uint32_t FLY_STAND_WOUND          = 219; // Flying wounded stand
@@ -262,11 +262,11 @@ constexpr uint32_t FLY_ATTACK_UNARMED        = 225; // Flying unarmed attack
 constexpr uint32_t FLY_ATTACK_1H             = 226; // Flying one-hand attack
 constexpr uint32_t FLY_ATTACK_2H             = 227; // Flying two-hand attack
 constexpr uint32_t FLY_ATTACK_2H_LOOSE       = 228; // Flying polearm attack
-constexpr uint32_t FLY_SPELL                 = 229; // Flying spell — generic spell while flying
+constexpr uint32_t FLY_SPELL                 = 229; // Flying spell - generic spell while flying
 constexpr uint32_t FLY_STOP                  = 230; // Flying stop
 constexpr uint32_t FLY_WALK                  = 231; // Flying walk
 constexpr uint32_t FLY_DEAD                  = 232; // Flying dead (corpse mid-air)
-constexpr uint32_t FLY_RISE                  = 233; // Flying rise — resurrection mid-air
+constexpr uint32_t FLY_RISE                  = 233; // Flying rise - resurrection mid-air
 constexpr uint32_t FLY_RUN_2                 = 234; // Flying run variant
 constexpr uint32_t FLY_FALL                  = 235; // Flying fall
 constexpr uint32_t FLY_SWIM_IDLE             = 236; // Flying swim idle
@@ -439,7 +439,7 @@ constexpr uint32_t FLY_EMOTE_STATE_HOLD_RIFLE = 396; // Flying hold rifle state
 constexpr uint32_t FLY_EMOTE_STATE_HOLD_THROWN = 397; // Flying hold thrown state
 constexpr uint32_t FLY_EMOTE_STATE_ROAR      = 398; // Flying roar state
 constexpr uint32_t FLY_RECLINED              = 399; // Flying reclined
-constexpr uint32_t EMOTE_TRAIN_2             = 400; // /train variant — choo choo!
+constexpr uint32_t EMOTE_TRAIN_2             = 400; // /train variant - choo choo!
 constexpr uint32_t EMOTE_DEAD_2              = 401; // /dead variant (play dead)
 constexpr uint32_t FLY_EMOTE_USE_STANDING_LOOP_2 = 402; // Flying use standing loop
 constexpr uint32_t FLY_EMOTE_STATE_APPLAUD   = 403; // Flying applaud state

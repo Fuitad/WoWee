@@ -17,7 +17,7 @@ VkTexture::VkTexture(VkTexture&& other) noexcept
       ownsSampler_(other.ownsSampler_) {
     other.image_ = {};
     other.sampler_ = VK_NULL_HANDLE;
-    // Source no longer owns the sampler — ownership transferred to this instance
+    // Source no longer owns the sampler - ownership transferred to this instance
     other.ownsSampler_ = false;
 }
 

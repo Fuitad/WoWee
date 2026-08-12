@@ -265,7 +265,7 @@ int handleValidate(int& i, int argc, char** argv) {
         warnings.push_back("catalog has zero entries");
     }
     std::set<uint32_t> idsSeen;
-    // Per-(faction, tier) tuple uniqueness — two ranks
+    // Per-(faction, tier) tuple uniqueness - two ranks
     // at the same tier for the same faction would tie
     // at runtime when the rank-progression UI looks up
     // "what's tier 5 for Alliance?"
@@ -298,12 +298,12 @@ int handleValidate(int& i, int argc, char** argv) {
         if (e.tier < 1 || e.tier > 14) {
             errors.push_back(ctx + ": tier " +
                 std::to_string(e.tier) +
-                " out of range (must be 1..14 — vanilla "
+                " out of range (must be 1..14 - vanilla "
                 "ladder)");
         }
         if (e.titlePrefix.empty()) {
             warnings.push_back(ctx +
-                ": titlePrefix is empty — UI rank-name "
+                ": titlePrefix is empty - UI rank-name "
                 "display would render blank");
         }
         if (e.tier <= 14 && (e.factionFilter == 1 ||
@@ -316,7 +316,7 @@ int handleValidate(int& i, int argc, char** argv) {
                     std::string(factionFilterName(e.factionFilter)) +
                     ", tier=" + std::to_string(e.tier) +
                     ") slot already occupied by another "
-                    "rank — runtime lookup would tie");
+                    "rank - runtime lookup would tie");
             }
         }
         if (!idsSeen.insert(e.rankId).second) {
@@ -343,7 +343,7 @@ int handleValidate(int& i, int argc, char** argv) {
                     " > tier " + std::to_string(ranks[k]->tier) +
                     " (" + ranks[k]->name + ") requiring " +
                     std::to_string(ranks[k]->honorRequiredAchieve) +
-                    " — higher tier should require more "
+                    " - higher tier should require more "
                     "honor, not less");
             }
         }

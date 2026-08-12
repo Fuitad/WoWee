@@ -74,7 +74,7 @@ int runPerZoneAudit(const std::string& projectDir,
         std::printf("  PROJECT PASS\n");
     } else {
         std::printf("  PROJECT FAIL%s%s\n",
-                    failHint.empty() ? "" : " — ",
+                    failHint.empty() ? "" : " - ",
                     failHint.c_str());
     }
     return failed == 0 ? 0 : 1;
@@ -168,8 +168,8 @@ int handleZoneDeps(int& i, int argc, char** argv) {
                     r.texPath.c_str());
     }
     std::printf("\n  %s\n", missing == 0
-        ? "PASS — all texture references resolve"
-        : "FAIL — missing references above");
+        ? "PASS - all texture references resolve"
+        : "FAIL - missing references above");
     return missing == 0 ? 0 : 1;
 }
 
@@ -177,7 +177,7 @@ int handleValidateZonePack(int& i, int argc, char** argv) {
     // Audit a zone's open-format asset pack. Reports counts and
     // total bytes per category (textures/, meshes/, audio/) plus
     // any malformed WOMs or invalid WAVs. Exit code 1 if any
-    // check fails — useful in CI to gate that gen-zone-starter-pack
+    // check fails - useful in CI to gate that gen-zone-starter-pack
     // output is healthy.
     std::string zoneDir = argv[++i];
     bool jsonOut = (i + 1 < argc &&
@@ -311,8 +311,8 @@ int handleValidateZonePack(int& i, int argc, char** argv) {
             std::printf("  INVALID    %s\n", p.c_str());
         }
     }
-    std::printf("\n  %s\n", pass ? "PASS — pack is healthy"
-                                  : "FAIL — see invalid paths above");
+    std::printf("\n  %s\n", pass ? "PASS - pack is healthy"
+                                  : "FAIL - see invalid paths above");
     return pass ? 0 : 1;
 }
 
@@ -344,7 +344,7 @@ bool isWomWatertightAfterWeld(
 int handleAuditWatertight(int& i, int argc, char** argv) {
     // Walk every .wom under <zoneDir|projectDir> and run the
     // welded-watertight check. Reports per-mesh PASS/FAIL plus a
-    // rollup. Exit code is the number of failures, capped at 255 —
+    // rollup. Exit code is the number of failures, capped at 255 -
     // CI-friendly: zero on full success.
     std::string root = argv[++i];
     bool jsonOut = false;
@@ -443,7 +443,7 @@ int handleAuditWatertight(int& i, int argc, char** argv) {
 
 // Welded watertight check on a single WOB. Each group is welded
 // independently (rooms separated by portals must stay distinct
-// collision surfaces). A WOB passes if EVERY group is closed —
+// collision surfaces). A WOB passes if EVERY group is closed -
 // per-group failure breakdowns are returned via the out vectors.
 bool isWobWatertightAfterWeld(
         const std::string& wobBase, float eps,
@@ -484,7 +484,7 @@ bool isWobWatertightAfterWeld(
 int handleAuditWatertightWob(int& i, int argc, char** argv) {
     // Walk every .wob under <root> and run the welded-watertight
     // check on every group. PASS only if all groups in all WOBs
-    // are closed — a real building's interior groups should each
+    // are closed - a real building's interior groups should each
     // be a closed surface even though the building as a whole has
     // intentional portal openings between them.
     std::string root = argv[++i];

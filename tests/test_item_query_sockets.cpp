@@ -1,7 +1,7 @@
 // The socket block of SMSG_ITEM_QUERY_SINGLE_RESPONSE.
 //
 // The server writes the three sockets one at a time, colour and content
-// together — `for (s) { << Socket[s].Color; << Socket[s].Content; }` — and this
+// together - `for (s) { << Socket[s].Color; << Socket[s].Content; }` - and this
 // client read three colours followed by three contents. Six reads either way,
 // so the socket bonus landed correctly and nothing downstream looked wrong: the
 // second socket took the first socket's *content*, which a template leaves
@@ -13,7 +13,7 @@
 //
 // The packet here is built field for field the way AzerothCore's
 // WorldSession::HandleItemQuerySingleOpcode writes it, so the test also pins
-// the fifty-odd fields the parser walks to reach the sockets — including the
+// the fifty-odd fields the parser walks to reach the sockets - including the
 // BuyCount that AzerothCore does not send, which the parser scores for.
 #include <catch_amalgamated.hpp>
 
@@ -56,7 +56,7 @@ Packet buildResponse(const std::array<std::pair<uint32_t, uint32_t>, 3>& sockets
 
     p.writeUInt32(0);            // Flags
     p.writeUInt32(0);            // Flags2
-    // No BuyCount — AzerothCore does not send one.
+    // No BuyCount - AzerothCore does not send one.
     p.writeUInt32(120000);       // BuyPrice
     p.writeUInt32(24000);        // SellPrice
     p.writeUInt32(1);            // InventoryType: head
@@ -137,7 +137,7 @@ Packet buildResponse(const std::array<std::pair<uint32_t, uint32_t>, 3>& sockets
 
 TEST_CASE("item query reads socket colour and content per socket", "[item_query]") {
     SECTION("three sockets: every colour arrives, in order") {
-        // Red, Yellow, Blue — the colour masks an item template carries.
+        // Red, Yellow, Blue - the colour masks an item template carries.
         auto packet = buildResponse({{{2, 0}, {4, 0}, {8, 0}}});
         ItemQueryResponseData data;
         REQUIRE(ItemQueryResponseParser::parse(packet, data));
@@ -145,7 +145,7 @@ TEST_CASE("item query reads socket colour and content per socket", "[item_query]
         REQUIRE(data.entry == kEntry);
         REQUIRE(data.name == "Test Helm");
         // Read as three colours then three contents, socketColor[1] takes the
-        // first socket's content — zero — and socketColor[2] takes the second
+        // first socket's content - zero - and socketColor[2] takes the second
         // socket's colour. This is the assertion that fails on that reading.
         REQUIRE(data.socketColor[0] == 2);
         REQUIRE(data.socketColor[1] == 4);

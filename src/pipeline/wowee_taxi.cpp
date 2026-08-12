@@ -214,7 +214,7 @@ WoweeTaxi WoweeTaxiLoader::makeRegion(const std::string& catalogName) {
 WoweeTaxi WoweeTaxiLoader::makeContinent(const std::string& catalogName) {
     WoweeTaxi c;
     c.name = catalogName;
-    // 6 nodes spread across a continent — a hub-and-spoke
+    // 6 nodes spread across a continent - a hub-and-spoke
     // network with 1 central node connected to 5 outliers.
     struct Pos { float x; float z; const char* name; };
     Pos posns[6] = {

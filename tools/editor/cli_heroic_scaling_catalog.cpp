@@ -244,7 +244,7 @@ int handleValidate(int& i, int argc, char** argv) {
         warnings.push_back("catalog has zero entries");
     }
     std::set<uint32_t> idsSeen;
-    // (mapId, difficultyId) tuple uniqueness — two
+    // (mapId, difficultyId) tuple uniqueness - two
     // scalings binding the same instance+difficulty
     // would make the loot-roll lookup ambiguous.
     std::set<uint64_t> instanceComboSeen;
@@ -260,7 +260,7 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": name is empty");
         if (e.difficultyId == 0) {
             errors.push_back(ctx +
-                ": difficultyId is 0 — Heroic scaling "
+                ": difficultyId is 0 - Heroic scaling "
                 "must specify a non-default difficulty "
                 "(Normal mode is difficultyId=0 by "
                 "convention)");
@@ -272,14 +272,14 @@ int handleValidate(int& i, int argc, char** argv) {
             warnings.push_back(ctx +
                 ": itemLevelDelta " +
                 std::to_string(e.itemLevelDelta) +
-                " < 0 — Heroic loot is worse than Normal? "
+                " < 0 - Heroic loot is worse than Normal? "
                 "Verify if intentional");
         }
         if (e.itemLevelDelta > 50) {
             warnings.push_back(ctx +
                 ": itemLevelDelta " +
                 std::to_string(e.itemLevelDelta) +
-                " > 50 — exceeds typical Heroic-scaling "
+                " > 50 - exceeds typical Heroic-scaling "
                 "delta range (max canonical is +26 for "
                 "raid Heroic)");
         }
@@ -287,22 +287,22 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx +
                 ": bonusQualityChance " +
                 std::to_string(e.bonusQualityChance) +
-                " > 10000 (basis points cap) — would "
+                " > 10000 (basis points cap) - would "
                 "guarantee multiple bonus drops");
         }
         if (e.dropChanceMultiplier <= 0.0f) {
             errors.push_back(ctx +
-                ": dropChanceMultiplier <= 0 — would "
+                ": dropChanceMultiplier <= 0 - would "
                 "block all loot drops on Heroic");
         }
         if (e.dropChanceMultiplier > 10.0f) {
             warnings.push_back(ctx +
                 ": dropChanceMultiplier " +
                 std::to_string(e.dropChanceMultiplier) +
-                " > 10x — extreme drop boost; verify if "
+                " > 10x - extreme drop boost; verify if "
                 "intentional");
         }
-        // (mapId, difficultyId) uniqueness — but mapId=0
+        // (mapId, difficultyId) uniqueness - but mapId=0
         // is the wildcard (any map at the given
         // difficulty), which is allowed multiple times.
         if (e.mapId != 0) {
@@ -314,7 +314,7 @@ int handleValidate(int& i, int argc, char** argv) {
                     ", difficultyId=" +
                     std::to_string(e.difficultyId) +
                     ") combo already bound by another "
-                    "scaling — loot-roll lookup would be "
+                    "scaling - loot-roll lookup would be "
                     "ambiguous");
             }
         }

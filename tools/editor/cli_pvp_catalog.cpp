@@ -204,7 +204,7 @@ int handleImportJson(int& i, int argc, char** argv) {
                     je["rankKindName"].get<std::string>());
             }
             // Bracket-level defaults to 1..80 (no level gate)
-            // when omitted — vanilla ranks weren't level-gated
+            // when omitted - vanilla ranks weren't level-gated
             // beyond the cap.
             e.minBracketLevel = static_cast<uint8_t>(
                 je.value("minBracketLevel", 1));
@@ -238,7 +238,7 @@ int handleValidate(int& i, int argc, char** argv) {
         [](const auto& c, std::vector<std::string>& errors,
            std::vector<std::string>& warnings) {
         cli::DuplicateIdCheck idsSeen;
-        // Track threshold monotonicity within a single rankKind —
+        // Track threshold monotonicity within a single rankKind -
         // arena ratings should ascend (1500 < 1750 < ...), so a
         // catalog with two arena entries at the same rating or
         // a higher-id entry below a lower-id entry is suspicious.
@@ -270,9 +270,9 @@ int handleValidate(int& i, int argc, char** argv) {
                 e.minHonorOrRating == 0) {
                 warnings.push_back(ctx +
                     ": VanillaHonor kind with minHonor=0 "
-                    "(rank 1 baseline — verify intentional)");
+                    "(rank 1 baseline - verify intentional)");
             }
-            // Arena ratings below 1500 don't unlock any reward —
+            // Arena ratings below 1500 don't unlock any reward -
             // 1500 is the WoW arena floor.
             if (e.rankKind == wowee::pipeline::WoweePVPRank::ArenaRating &&
                 e.minHonorOrRating < 1500) {
@@ -281,7 +281,7 @@ int handleValidate(int& i, int argc, char** argv) {
                     std::to_string(e.minHonorOrRating) +
                     " below 1500 floor");
             }
-            // Faction alternate names — vanilla ranks have
+            // Faction alternate names - vanilla ranks have
             // distinct alliance / horde names; arena tiers share
             // the same name on both factions. Either is valid; an
             // empty alliance name + non-empty horde (or vice

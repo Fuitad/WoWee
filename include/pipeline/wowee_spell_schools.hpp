@@ -7,13 +7,13 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Spell School catalog (.wsch) — novel
+// Wowee Open Spell School catalog (.wsch) - novel
 // replacement for Blizzard's SpellSchools.dbc plus the
 // Resistances.dbc resistance-cap tables. Defines the damage
 // schools spells use: Physical, Holy, Fire, Nature, Frost,
 // Shadow, Arcane, plus combined / hybrid schools that count
 // as multiple types simultaneously (Spellfire, Spellfrost,
-// Spellshadow — relevant for resistance bypass mechanics).
+// Spellshadow - relevant for resistance bypass mechanics).
 //
 // Each school carries the visual identity (color tint,
 // icon), the gameplay rules (can be absorbed by shields,
@@ -24,7 +24,7 @@ namespace pipeline {
 //   WSCH.entry.castSoundId   → WSND.soundId
 //   WSCH.entry.impactSoundId → WSND.soundId
 //   WSCH.entry.combinedSchoolMask is a bitmask of OTHER
-//                                  WSCH.schoolId values —
+//                                  WSCH.schoolId values -
 //                                  hybrid schools set this
 //                                  to expose multi-type
 //                                  damage profiles.
@@ -90,14 +90,14 @@ public:
 
     // Preset emitters used by --gen-sch* variants.
     //
-    //   makeStarter  — 3 base schools (Physical / Fire /
-    //                   Holy) — Physical bypasses absorbs,
+    //   makeStarter  - 3 base schools (Physical / Fire /
+    //                   Holy) - Physical bypasses absorbs,
     //                   Holy can't be reflected.
-    //   makeMagical  — 6 magical schools (Holy / Fire /
+    //   makeMagical  - 6 magical schools (Holy / Fire /
     //                   Nature / Frost / Shadow / Arcane)
     //                   covering the full canonical set
     //                   with proper colors + resistance caps.
-    //   makeCombined — 3 hybrid schools (Spellfire /
+    //   makeCombined - 3 hybrid schools (Spellfire /
     //                   Spellshadow / Spellfrost) showing
     //                   combinedSchoolMask wiring.
     static WoweeSpellSchool makeStarter(const std::string& catalogName);

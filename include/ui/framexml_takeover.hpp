@@ -2,8 +2,8 @@
 
 // Which parts of the interface FrameXML has taken over from this client.
 //
-// The two interfaces draw the same things — a player frame, an action bar, a
-// minimap — and while the original is being replaced they would otherwise both
+// The two interfaces draw the same things - a player frame, an action bar, a
+// minimap - and while the original is being replaced they would otherwise both
 // be on screen at once. This says which of the client's own elements to leave
 // out, one name at a time, so a replacement can be tried and backed out without
 // touching the code that draws either.
@@ -16,15 +16,15 @@
 //     WOWEE_FRAMEXML_UI=all
 //
 // "candidates" is the defaults plus every element the readiness report finds
-// clean — every global its code calls answered, every event its frames want
+// clean - every global its code calls answered, every event its frames want
 // either sent or verified absent. Clean is not the same as seen working, and
 // these are windows that open on an interaction, so a fault waits for the
 // right NPC and then blocks it. That is why they are behind a word rather
 // than in the defaults, and it is the batch to run when testing them.
 //
-// "mainmenubar" is one name for the whole bottom of the screen — the action
+// "mainmenubar" is one name for the whole bottom of the screen - the action
 // bar, the stance bar, the bags, the micro menu and the two thin bars above
-// them — because FrameXML draws all of them as a single frame and handing over
+// them - because FrameXML draws all of them as a single frame and handing over
 // any one of them on its own leaves the rest sitting on top of it.
 //
 // Names are matched exactly and unknown ones are reported at startup rather
@@ -79,8 +79,8 @@ enum class UiElement {
     AuctionHouse,
     GuildBank,
     Inspect,
-    /// The buff and debuff bar. FrameXML's is already treated as in use — it
-    /// is checked alongside the minimap cluster — but this client kept drawing
+    /// The buff and debuff bar. FrameXML's is already treated as in use - it
+    /// is checked alongside the minimap cluster - but this client kept drawing
     /// its own beside it, so there were two.
     Buffs,
     /// The low-durability warning. Same story as the buffs: FrameXML's
@@ -100,7 +100,7 @@ enum class UiElement {
     /// window beside the client's own every time.
     ///
     /// RaidWarning is the exception and is named anyway. Its frames cannot
-    /// appear today because CHAT_MSG_RAID_WARNING is never fired — but this
+    /// appear today because CHAT_MSG_RAID_WARNING is never fired - but this
     /// client draws raid warnings from the chat history rather than from the
     /// event, so firing it later would put a second banner on screen with
     /// nothing to say why.
@@ -112,7 +112,7 @@ enum class UiElement {
     ///
     /// uiparent.lua answers PARTY_INVITE_REQUEST, RESURRECT_REQUEST,
     /// CONFIRM_SUMMON and CONFIRM_TALENT_WIPE with one, and this client fires
-    /// all four while drawing its own dialog for each — so every one of those
+    /// all four while drawing its own dialog for each - so every one of those
     /// was asked twice.
     ///
     /// This is the one that goes to FrameXML rather than staying here, because
@@ -122,7 +122,7 @@ enum class UiElement {
     /// have traded four duplicates for no way to destroy an item.
     Dialogs,
     /// Windows this client draws that FrameXML also has. The last three cannot
-    /// appear today because the events that would show them are not fired —
+    /// appear today because the events that would show them are not fired -
     /// but that is a fact about the client's current reach, not a decision,
     /// and it would stop being true the moment someone fired one.
     Achievements,
@@ -133,7 +133,7 @@ enum class UiElement {
     /// The game menu and the options panels behind it, the help window, and
     /// the battleground scoreboard. Each has a working equivalent here, and
     /// each is reachable from the micro buttons on the bar this branch has
-    /// taken over — so they open without anyone choosing them.
+    /// taken over - so they open without anyone choosing them.
     GameMenu,
     Help,
     BattlegroundScore,
@@ -155,13 +155,13 @@ enum class UiElement {
     /// never been read against.
     ///
     /// Three of FrameXML's frames and two of this client's, on three events
-    /// this client fires from one handler pair — GUILD_REGISTRAR_SHOW and
+    /// this client fires from one handler pair - GUILD_REGISTRAR_SHOW and
     /// PETITION_VENDOR_SHOW raise GuildRegistrarFrame and ArenaRegistrarFrame,
     /// PETITION_SHOW raises PetitionFrame, and this client opens its own
     /// "CreateGuildPetition" and "PetitionSignatures" popups on the same two
     /// packets. So every charter bought or signed asked twice.
     ///
-    /// The events were added deliberately — the note beside PETITION_SHOW says
+    /// The events were added deliberately - the note beside PETITION_SHOW says
     /// the interface's version was never told, so a charter could not be
     /// signed through it. Firing them is what made the duplicate.
     Petition,
@@ -172,13 +172,13 @@ enum class UiElement {
 /// **Before gating a render pass on this, ask whether FrameXML draws that
 /// layer at all.** For a window the answer is yes and the gate is right. For a
 /// layer the *real* client draws natively, there is nothing on the other side
-/// to take the work over, and gating it simply deletes it — with no error, no
+/// to take the work over, and gating it simply deletes it - with no error, no
 /// warning, and a handover check that still passes because the gate is there.
 ///
 /// Two of those, found 2026-08-05 and both invisible rather than loud:
 ///
 ///   * **Minimap blips.** minimap.xml declares the border, the buttons, the
-///     mail and battlefield icons and the north tag — and not one frame for a
+///     mail and battlefield icons and the north tag - and not one frame for a
 ///     party member, a flight master or a corpse. Gating renderMinimapMarkers
 ///     left the ring drawn and nothing on it. The pass runs either way now and
 ///     the gate moved inward, to the mouse handling and the two indicators
@@ -217,7 +217,7 @@ std::vector<std::string> frameXmlAccountedFrames();
 /// The frames worth looking at for elements not yet handed over.
 ///
 /// Deciding whether the next element is ready means seeing whether FrameXML's
-/// version of it is built, positioned and carrying data — and the check only
+/// version of it is built, positioned and carrying data - and the check only
 /// reports what is already owned, so readiness is exactly what cannot be seen.
 /// These are reported alongside, marked as candidates.
 std::vector<std::string> frameXmlCandidateFrames();
@@ -227,7 +227,7 @@ std::vector<std::string> frameXmlCandidateFrames();
 ///
 /// Every FrameXML file is loaded, so every frame it declares exists and draws.
 /// The takeover list only decides whether this client's own version is
-/// suppressed alongside it — which for anything not yet handed over means two
+/// suppressed alongside it - which for anything not yet handed over means two
 /// of them on screen at once. Hiding them once after loading is not enough:
 /// the interface shows them again on its own schedule.
 std::vector<std::string> frameXmlSuppressedFrames();
@@ -235,7 +235,7 @@ std::vector<std::string> frameXmlSuppressedFrames();
 /// The subset of those whose frames arrive with a load-on-demand addon.
 ///
 /// They do not exist until something asks for that addon, so a report of names
-/// that resolved to nothing has to leave them out — otherwise it names all of
+/// that resolved to nothing has to leave them out - otherwise it names all of
 /// them on every run and the one real typo is lost among them.
 std::vector<std::string> frameXmlLazySuppressedFrames();
 
@@ -254,11 +254,11 @@ bool frameXmlBuiltOnDemand(std::string_view frameName);
 /// FrameXML does most of its arranging from PLAYER_ENTERING_WORLD: frames are
 /// hidden, repositioned and filled with data that does not exist before then.
 /// A diagnostic taken at load therefore describes a layout nobody ever sees,
-/// which is worse than none — it looks like an answer. This is how the
+/// which is worse than none - it looks like an answer. This is how the
 /// diagnostics know to wait for the state being asked about.
 /// Warn about any element that is neither handed over nor suppressed.
 ///
-/// Such an element is drawn twice — once by this client and once by FrameXML —
+/// Such an element is drawn twice - once by this client and once by FrameXML -
 /// and that is invisible from either list alone, because it is the gap between
 /// them. Fifteen windows sat in that gap before anyone went looking.
 void frameXmlReportUnaccountedElements();
@@ -270,7 +270,7 @@ bool frameXmlWorldEntered();
 /// it, or one is holding a press.
 ///
 /// The camera asks ImGui whether the interface wants the mouse, and FrameXML
-/// draws into ImGui's background draw list — so ImGui has never heard of these
+/// draws into ImGui's background draw list - so ImGui has never heard of these
 /// frames and answers no. Pressing a bag item therefore turned the camera as
 /// well as pressing the item, and dragging one swung the view around.
 void frameXmlNoteMouseOwned(bool owned);
@@ -286,7 +286,7 @@ bool frameXmlOwnsMouse();
 /// over: a panel that does not build is not a worse panel, it is no panel, and
 /// there is no way back to the one that worked.
 ///
-/// Checked against the top-level frame of each owned element — the first name
+/// Checked against the top-level frame of each owned element - the first name
 /// in its check row. Not the whole row: a frame that built and is missing a
 /// label is a different fault, and releasing on that would hand back panels
 /// that work.
@@ -296,7 +296,7 @@ bool frameXmlOwnsMouse();
 int frameXmlReleaseUnbuiltElements(
     const std::function<bool(const std::string&)>& frameExists);
 
-/// Whether an element was handed back this way. For the report — the answer
+/// Whether an element was handed back this way. For the report - the answer
 /// that matters at a call site is frameXmlOwns, which already accounts for it.
 bool frameXmlWasReleased(UiElement element);
 
@@ -305,7 +305,7 @@ bool frameXmlWasReleased(UiElement element);
 /// Element ownership cannot answer this. An element is chosen before the run
 /// starts and stays chosen; a load-on-demand addon arrives in the middle of one
 /// because the player asked for the feature, and until it does FrameXML draws
-/// nothing for it — so this client's own version has to keep drawing and then
+/// nothing for it - so this client's own version has to keep drawing and then
 /// stand down. Blizzard_CombatText is the case: it loads from the float-mode
 /// dropdown in the interface options and then draws floating combat text over
 /// the one CombatUI is already drawing.
@@ -319,7 +319,7 @@ bool frameXmlDrawsCombatText();
 /// The icon of the item the cursor is carrying, or empty for nothing.
 ///
 /// Picking an item up in WoW takes it out of its slot and puts it on the
-/// pointer, and that half is the client's job — FrameXML never draws it. Without
+/// pointer, and that half is the client's job - FrameXML never draws it. Without
 /// it a drag looked like nothing was happening at all, whether or not the move
 /// went out. Set from the Lua bindings and read by the widget renderer, both on
 /// the main thread.
@@ -333,7 +333,7 @@ const std::string& frameXmlCursorItem();
 /// bindings track theirs in lua_action_api, and InventoryScreen tracks its own
 /// held item. With the bags handed over and the bank, mail or trade window
 /// still this client's, a drag between them was picking an item up in one
-/// system and offering it to the other, which had never heard of it — which is
+/// system and offering it to the other, which had never heard of it - which is
 /// what "cannot transfer from bags to bank" was.
 ///
 /// Asked rather than mirrored. The cursor belongs to the bindings and this

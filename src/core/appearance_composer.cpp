@@ -24,7 +24,7 @@ namespace {
 
 constexpr uint32_t kAttachShield = 0;
 // M2 attachment 11 is the helm; 0 is the shield mount, which is where head
-// gear was going — attached successfully, on the forearm, invisible on the head.
+// gear was going - attached successfully, on the forearm, invisible on the head.
 constexpr uint32_t kAttachRightHand = 1;
 constexpr uint32_t kAttachLeftHand = 2;
 constexpr uint32_t kAttachRightHip = 9;
@@ -116,7 +116,7 @@ PlayerTextureInfo AppearanceComposer::resolvePlayerTextures(pipeline::M2Model& m
     // CharSections, through the one reader in pipeline/char_sections.hpp.
     //
     // This scan used to be written out here, and again in entity_spawner for
-    // NPCs, and again in character_preview for the portrait — three readings of
+    // NPCs, and again in character_preview for the portrait - three readings of
     // one table that did not agree on what they read. Only this one looked at
     // the skin row's second texture, so ears and eyelashes were unbound on the
     // other two; only this one had a fallback for a face the table does not
@@ -155,8 +155,8 @@ PlayerTextureInfo AppearanceComposer::resolvePlayerTextures(pipeline::M2Model& m
             LOG_WARNING("No DBC face match for face=", static_cast<int>(charFaceId),
                         " skin=", static_cast<int>(charSkinId),
                         " race=", targetRaceId, " sex=", targetSexId,
-                        sections.haveFace ? " — using the nearest face instead"
-                                          : " — this character will render with no face");
+                        sections.haveFace ? " - using the nearest face instead"
+                                          : " - this character will render with no face");
         }
         if (!sections.haveHair) {
             LOG_WARNING("No DBC hair match for style=", static_cast<int>(charHairStyleId),
@@ -167,7 +167,7 @@ PlayerTextureInfo AppearanceComposer::resolvePlayerTextures(pipeline::M2Model& m
         LOG_WARNING("Failed to load CharSections.dbc, using hardcoded textures");
     }
 
-    // pipeline/char_sections.hpp fills the runtime slots — the same rules the
+    // pipeline/char_sections.hpp fills the runtime slots - the same rules the
     // portrait and the NPC path use, in one place.
     {
         pipeline::CharacterSectionTextures resolved;
@@ -180,9 +180,9 @@ PlayerTextureInfo AppearanceComposer::resolvePlayerTextures(pipeline::M2Model& m
 
     // Everything the head detail depends on, in one line, whichever way it went.
     // Skin-coloured eyelashes are what you see when type 8 falls back to the
-    // body or pelvis art, and the three things that decide it — whether the
+    // body or pelvis art, and the three things that decide it - whether the
     // model asks for type 8, whether CharSections offered an extra texture, and
-    // what was bound in the end — cannot be told apart from a screenshot.
+    // what was bound in the end - cannot be told apart from a screenshot.
     {
         bool modelWantsExtra = false;
         std::string bound;
@@ -225,7 +225,7 @@ void AppearanceComposer::compositePlayerSkin(uint32_t modelSlotId, const PlayerT
             rendering::VkTexture* compositeTex = charRenderer->compositeTextures(layers);
             if (compositeTex != 0) {
                 // Find type-1 (skin) texture slot and replace with composite
-                // We need model texture info — walk slots via charRenderer
+                // We need model texture info - walk slots via charRenderer
                 // Use the model slot ID to find the right texture index
                 auto* modelData = charRenderer->getModelData(modelSlotId);
                 if (modelData) {
@@ -279,7 +279,7 @@ std::unordered_set<uint16_t> AppearanceComposer::buildDefaultPlayerGeosets(uint8
     // Look up the hair scalp and the facial features this character wears, then
     // ask for the bare set around them. Which geosets a character shows with
     // nothing equipped is one answer, in core/geoset_rules.hpp, shared with the
-    // portrait — the two used to keep their own and had drifted.
+    // portrait - the two used to keep their own and had drifted.
     uint16_t selectedHairScalp = 1;
     uint16_t facial100 = 0, facial200 = 0, facial300 = 0;
     bool haveFacial = false;
@@ -493,7 +493,7 @@ void AppearanceComposer::loadEquippedWeapons() {
             continue;
         }
 
-        // The left pair first, the right one when there is none — the rule this
+        // The left pair first, the right one when there is none - the rule this
         // copy did not have, which is why a weapon whose display names only the
         // right model rendered on an NPC and not on the player holding it.
         const auto art = pipeline::readItemDisplayArt(*displayInfoDbc,

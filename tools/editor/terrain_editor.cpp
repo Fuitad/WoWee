@@ -23,7 +23,7 @@ pipeline::ADTTerrain TerrainEditor::createBlankTerrain(int tileX, int tileY, flo
 
     const auto& biomeTextures = getBiomeTextures(biome);
 
-    // Integer grid noise — guarantees shared edge vertices get identical heights
+    // Integer grid noise - guarantees shared edge vertices get identical heights
     auto gridNoise = [](int gx, int gy) -> float {
         uint32_t h = static_cast<uint32_t>(gx * 374761393 + gy * 668265263);
         h = (h ^ (h >> 13)) * 1274126177;
@@ -50,12 +50,12 @@ pipeline::ADTTerrain TerrainEditor::createBlankTerrain(int tileX, int tileY, flo
                 int col = i % 17;
 
                 if (col <= 8) {
-                    // Outer vertex — shared at chunk edges
+                    // Outer vertex - shared at chunk edges
                     int globalRow = cy * 8 + row;
                     int globalCol = cx * 8 + col;
                     chunk.heightMap.heights[i] = gridNoise(globalRow, globalCol);
                 } else {
-                    // Inner vertex (quad center) — not shared, offset grid
+                    // Inner vertex (quad center) - not shared, offset grid
                     int innerCol = col - 9;
                     int globalRow = cy * 16 + row * 2 + 1;
                     int globalCol = cx * 16 + innerCol * 2 + 1;
@@ -401,14 +401,14 @@ void TerrainEditor::applySmooth(float dt) {
             int count = 0;
 
             if (col <= 8) {
-                // Outer vertex — sample 4 neighbors, crossing chunk borders
+                // Outer vertex - sample 4 neighbors, crossing chunk borders
                 int dirs[][2] = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}};
                 for (auto& d : dirs) {
                     sum += getGlobalOuterHeight(chunkIdx, row + d[0], col + d[1]);
                     count++;
                 }
             } else {
-                // Inner vertex — use same-chunk neighbors only
+                // Inner vertex - use same-chunk neighbors only
                 int neighbors[] = {v - 17, v + 17, v - 1, v + 1};
                 for (int n : neighbors) {
                     if (n >= 0 && n < 145) {
@@ -566,7 +566,7 @@ void TerrainEditor::recalcNormals(const std::vector<int>& chunkIndices) {
                 hU = chunk.heightMap.heights[ui];
                 hD = chunk.heightMap.heights[di];
             } else {
-                // Inner vertex — use adjacent outer verts
+                // Inner vertex - use adjacent outer verts
                 int innerCol = col - 9;
                 int tl = row * 17 + innerCol;
                 int tr = row * 17 + innerCol + 1;
@@ -1167,7 +1167,7 @@ void TerrainEditor::fillWaterAlongPath(const glm::vec3& start, const glm::vec3& 
         float dist = glm::length(chunkCenter - closest);
         if (dist > width + chunkHalfDiag) continue;
 
-        // Find min terrain height in this chunk after carving — water
+        // Find min terrain height in this chunk after carving - water
         // goes to that level + a small offset so it visibly fills the
         // channel without overflowing onto banks.
         float minH = 1e30f;
@@ -1500,7 +1500,7 @@ void TerrainEditor::flattenRoad(const glm::vec3& start, const glm::vec3& end, fl
     glm::vec2 lineEnd(end.x, end.y);
     float lineLen = glm::length(lineEnd - lineStart);
     // Zero-length road would normalize to NaN and propagate NaN through
-    // every dist comparison — paint the height delta on every vertex.
+    // every dist comparison - paint the height delta on every vertex.
     if (lineLen < 1e-4f) return;
     glm::vec2 lineDir = (lineEnd - lineStart) / lineLen;
 
@@ -1604,7 +1604,7 @@ bool TerrainEditor::saveStamp(const std::string& path) const {
     nlohmann::json j;
     j["format"] = "wowee-stamp-1.0";
     j["vertexCount"] = stampData_.size();
-    // Scrub NaN samples on save — nlohmann::json throws on non-finite
+    // Scrub NaN samples on save - nlohmann::json throws on non-finite
     // serialization, which would abort the entire save.
     auto san = [](float x) { return std::isfinite(x) ? x : 0.0f; };
     nlohmann::json verts = nlohmann::json::array();
@@ -1629,7 +1629,7 @@ bool TerrainEditor::loadStamp(const std::string& path) {
         if (!j.contains("vertices") || !j["vertices"].is_array()) return false;
 
         stampData_.clear();
-        // Cap stamp size — stamps blast directly into chunk heights, so a
+        // Cap stamp size - stamps blast directly into chunk heights, so a
         // huge or NaN-laden stamp would corrupt the terrain irreversibly.
         constexpr size_t kMaxStampVerts = 1'000'000;
         if (j["vertices"].size() > kMaxStampVerts) {
@@ -1642,7 +1642,7 @@ bool TerrainEditor::loadStamp(const std::string& path) {
             sv.dx = v[0].get<float>();
             sv.dy = v[1].get<float>();
             sv.height = v[2].get<float>();
-            // Skip non-finite samples — they'd propagate through brush blends
+            // Skip non-finite samples - they'd propagate through brush blends
             // and produce permanent NaN holes in the heightmap.
             if (!std::isfinite(sv.dx) || !std::isfinite(sv.dy) ||
                 !std::isfinite(sv.height)) continue;

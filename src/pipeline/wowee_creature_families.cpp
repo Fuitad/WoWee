@@ -105,19 +105,19 @@ WoweeCreatureFamily WoweeCreatureFamilyLoader::makeStarter(
     };
     add(1, "Bear",   F::Beast, F::Tenacity, 10,  208,
         F::Meat | F::Fish | F::Fruit | F::Fungus | F::Raw,
-        140, 100,  60, "Bear — tenacity tank pet, omnivore.");
+        140, 100,  60, "Bear - tenacity tank pet, omnivore.");
     add(2, "Cat",    F::Beast, F::Ferocity, 10,  209,
         F::Meat | F::Fish | F::Raw,
-        220, 180,  60, "Cat — ferocity DPS pet, carnivore.");
+        220, 180,  60, "Cat - ferocity DPS pet, carnivore.");
     add(3, "Wolf",   F::Beast, F::Ferocity, 10,  210,
         F::Meat | F::Raw,
-        180, 180, 180, "Wolf — ferocity DPS pet, meat-only.");
+        180, 180, 180, "Wolf - ferocity DPS pet, meat-only.");
     add(4, "Boar",   F::Beast, F::Tenacity, 10,  211,
         F::Meat | F::Fruit | F::Fungus | F::Bread,
-        160, 120, 100, "Boar — tenacity tank pet, ravenous omnivore.");
+        160, 120, 100, "Boar - tenacity tank pet, ravenous omnivore.");
     add(5, "Crab",   F::Beast, F::Tenacity, 10,  212,
         F::Fish | F::Meat | F::Raw,
-        120, 180, 200, "Crab — tenacity tank pet, prefers fish.");
+        120, 180, 200, "Crab - tenacity tank pet, prefers fish.");
     return c;
 }
 
@@ -136,17 +136,17 @@ WoweeCreatureFamily WoweeCreatureFamilyLoader::makeFerocity(
         e.minLevelForTame = minLvl;
         e.skillLine = skill;
         e.petFoodTypes = foods;
-        e.iconColorRGBA = packRgba(220, 60, 60);   // red — DPS
+        e.iconColorRGBA = packRgba(220, 60, 60);   // red - DPS
         c.entries.push_back(e);
     };
     add(100, "Cat",       10, 209, F::Meat | F::Fish | F::Raw,
-        "Cat — fast attack speed, claws hit hard.");
+        "Cat - fast attack speed, claws hit hard.");
     add(101, "Wolf",      10, 210, F::Meat | F::Raw,
-        "Wolf — Furious Howl pack buff (10% AP raid-wide).");
+        "Wolf - Furious Howl pack buff (10% AP raid-wide).");
     add(102, "Raptor",    10, 213, F::Meat | F::Raw,
-        "Raptor — bleed effect on melee strikes.");
+        "Raptor - bleed effect on melee strikes.");
     add(103, "Devilsaur", 30, 214, F::Meat | F::Raw,
-        "Devilsaur — Monstrous Bite armor reduction.");
+        "Devilsaur - Monstrous Bite armor reduction.");
     return c;
 }
 
@@ -165,21 +165,21 @@ WoweeCreatureFamily WoweeCreatureFamilyLoader::makeExotic(
         e.minLevelForTame = minLvl;
         e.skillLine = skill;
         e.petFoodTypes = foods;
-        e.iconColorRGBA = packRgba(200, 100, 240);   // purple — exotic
+        e.iconColorRGBA = packRgba(200, 100, 240);   // purple - exotic
         c.entries.push_back(e);
     };
     add(200, "Worm",       F::Tenacity, 50, 220,
         F::Meat | F::Fungus | F::Raw,
-        "Worm — exotic tenacity, Acid Spit reduces target armor.");
+        "Worm - exotic tenacity, Acid Spit reduces target armor.");
     add(201, "Devilsaur",  F::Ferocity, 60, 214,
         F::Meat | F::Raw,
-        "Devilsaur — exotic, Monstrous Bite + huge HP pool.");
+        "Devilsaur - exotic, Monstrous Bite + huge HP pool.");
     add(202, "Chimaera",   F::Cunning,  60, 221,
         F::Meat | F::Raw,
-        "Chimaera — exotic cunning, Froststorm Breath chain frost.");
+        "Chimaera - exotic cunning, Froststorm Breath chain frost.");
     add(203, "CoreHound",  F::Ferocity, 60, 222,
         F::Meat | F::Raw,
-        "Core Hound — exotic, Lava Breath + Ancient Hysteria "
+        "Core Hound - exotic, Lava Breath + Ancient Hysteria "
         "raid bloodlust.");
     return c;
 }

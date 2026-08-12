@@ -104,34 +104,34 @@ WoweeLearningNotificationsLoader::makeLevelMilestones(
         "Apprentice Riding from any riding trainer in "
         "your capital city.",
         12867,
-        "Level 20 milestone — first riding tier "
+        "Level 20 milestone - first riding tier "
         "unlock. Tutorial popup with mount icon.");
     add(2, "TalentResetReminder", 30, L::SystemMsg,
         "You have reached level 30. Visit a class "
         "trainer to reset talents if you wish to try a "
         "different specialization.",
         0,
-        "Level 30 reminder — silent system message, no "
+        "Level 30 reminder - silent system message, no "
         "fanfare. Soft suggestion to try respec.");
     add(3, "EpicGroundMountUnlock", 40, L::Tutorial,
         "You have reached level 40! You may now train "
         "Journeyman Riding (epic ground mount, +100% "
         "speed) and Dual Specialization.",
         12867,
-        "Level 40 milestone — epic ground mount + dual "
+        "Level 40 milestone - epic ground mount + dual "
         "spec dual unlock.");
     add(4, "FlightTrainingUnlock", 60, L::Tutorial,
         "You have reached level 60! Visit a flight "
         "trainer in Outland or Northrend to learn Expert "
         "Riding (flying mount).",
         12867,
-        "Level 60 milestone — flying mount unlock.");
+        "Level 60 milestone - flying mount unlock.");
     add(5, "EndgameRaidContent", 80, L::RaidWarning,
         "Congratulations on reaching level 80! Endgame "
-        "raid content is now available — speak to your "
+        "raid content is now available - speak to your "
         "Stormwind / Orgrimmar liaison for details.",
         12865,
-        "Level 80 milestone — endgame banner. "
+        "Level 80 milestone - endgame banner. "
         "RaidWarning channel for max emphasis.");
     return c;
 }
@@ -159,7 +159,7 @@ WoweeLearningNotificationsLoader::makeAccountUnlocks(
         e.iconColorRGBA = packRgba(140, 200, 255);   // unlock blue
         c.entries.push_back(e);
     };
-    // First-mailbox-use tutorial — fires once when player
+    // First-mailbox-use tutorial - fires once when player
     // acquires their first mail item, but only for newbies
     // (timePlayed < 7200 = 2 hours).
     add(100, "FirstMailReceived", L::ItemAcquired,
@@ -168,7 +168,7 @@ WoweeLearningNotificationsLoader::makeAccountUnlocks(
         "to retrieve attached items. Mailboxes are at "
         "every inn and capital.",
         7200,
-        "First-mail tutorial — gated to total time "
+        "First-mail tutorial - gated to total time "
         "played < 2hr to suppress for veterans.");
     add(101, "AuctionHouseAvailable", L::ZoneEntered,
         1519, L::Subtitle,
@@ -176,7 +176,7 @@ WoweeLearningNotificationsLoader::makeAccountUnlocks(
         "located in the Trade District near the front "
         "gate.",
         0,
-        "Stormwind first-entry subtitle — explains "
+        "Stormwind first-entry subtitle - explains "
         "auction house location for newbies.");
     add(102, "DualSpecActivated", L::SpellLearned,
         63645, L::SystemMsg,
@@ -218,7 +218,7 @@ WoweeLearningNotificationsLoader::makeReputation(
         e.iconColorRGBA = packRgba(160, 220, 80);   // rep green
         c.entries.push_back(e);
     };
-    // Reputation-based notifications — generic, would
+    // Reputation-based notifications - generic, would
     // need per-faction variants in a real deployment.
     // standing values: Honored=9000, Revered=21000,
     // Exalted=42000.
@@ -226,20 +226,20 @@ WoweeLearningNotificationsLoader::makeReputation(
         "You have reached Honored standing with the "
         "Argent Crusade. New quests and discounted "
         "vendor prices are now available.",
-        "Generic Honored milestone — placeholder for "
+        "Generic Honored milestone - placeholder for "
         "per-faction variants. 10% vendor discount kicks "
         "in at this tier.");
     add(201, "ReveredRepReached", 21000,
         "You have reached Revered standing with the "
         "Argent Crusade. Tabard and select rare items "
         "are now purchasable.",
-        "Generic Revered milestone — tabard unlock "
+        "Generic Revered milestone - tabard unlock "
         "tier (15% vendor discount).");
     add(202, "ExaltedRepReached", 42000,
         "You have reached Exalted standing with the "
         "Argent Crusade. Maximum reputation reward "
         "items unlocked. Achievement granted.",
-        "Generic Exalted milestone — maximum rep tier. "
+        "Generic Exalted milestone - maximum rep tier. "
         "Triggers achievement system.");
     return c;
 }

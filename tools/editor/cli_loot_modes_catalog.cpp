@@ -338,7 +338,7 @@ int handleValidate(int& i, int argc, char** argv) {
         if (e.thresholdQuality > 7) {
             errors.push_back(ctx + ": thresholdQuality " +
                 std::to_string(e.thresholdQuality) +
-                " out of range (must be 0..7 — Poor "
+                " out of range (must be 0..7 - Poor "
                 "through Heirloom)");
         }
         if (e.timeoutFallbackKind > 5) {
@@ -348,24 +348,24 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         // Per-kind validity: MasterLoot kind REQUIRES
         // masterLooterRequired=1 (else the policy is
-        // self-contradicting — saying use Master Loot
+        // self-contradicting - saying use Master Loot
         // without requiring a master looter).
         using L = wowee::pipeline::WoweeLootModes;
         if (e.modeKind == L::MasterLoot &&
             e.masterLooterRequired == 0) {
             errors.push_back(ctx +
                 ": MasterLoot kind with master"
-                "LooterRequired=0 — policy contradicts "
+                "LooterRequired=0 - policy contradicts "
                 "itself (Master Loot mode without "
                 "requiring a master looter)");
         }
         // Personal kind doesn't use master-looter
-        // semantics — flag as warning if set.
+        // semantics - flag as warning if set.
         if (e.modeKind == L::Personal &&
             e.masterLooterRequired != 0) {
             warnings.push_back(ctx +
                 ": Personal kind with master"
-                "LooterRequired=1 — Personal Loot "
+                "LooterRequired=1 - Personal Loot "
                 "doesn't use master-looter semantics; "
                 "the flag is meaningless");
         }
@@ -373,14 +373,14 @@ int handleValidate(int& i, int argc, char** argv) {
         // with a "leader" concept that can disconnect
         // (MasterLoot). Other kinds (FFA, Personal,
         // RoundRobin, NBG) have no leader-timeout
-        // scenario so the fallback field is unused —
+        // scenario so the fallback field is unused -
         // setting it to self is the conventional default
         // and not a bug.
         if (e.modeKind == L::MasterLoot &&
             e.timeoutFallbackKind == e.modeKind) {
             warnings.push_back(ctx +
                 ": MasterLoot timeoutFallbackKind equals "
-                "modeKind — if the master looter "
+                "modeKind - if the master looter "
                 "disconnects, the fallback would just "
                 "wait for them to reconnect (no policy "
                 "change). Common alternatives: Need"

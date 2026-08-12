@@ -371,7 +371,7 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": name is empty");
         if (e.messageText.empty())
             errors.push_back(ctx +
-                ": messageText is empty — notification "
+                ": messageText is empty - notification "
                 "would deliver no payload");
         if (e.triggerKind > 5) {
             errors.push_back(ctx + ": triggerKind " +
@@ -395,7 +395,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 warnings.push_back(ctx +
                     ": LevelReach triggerValue " +
                     std::to_string(e.triggerValue) +
-                    " outside 1-80 range — current cap is "
+                    " outside 1-80 range - current cap is "
                     "level 80 (WotLK)");
             }
         } else if (e.triggerKind == L::FactionStanding) {
@@ -417,13 +417,13 @@ int handleValidate(int& i, int argc, char** argv) {
                         e.triggerKind)) +
                     " triggerValue " +
                     std::to_string(e.triggerValue) +
-                    " <= 0 — must be a positive id");
+                    " <= 0 - must be a positive id");
             }
         }
         if (e.messageText.size() > 255) {
             warnings.push_back(ctx + ": messageText is " +
                 std::to_string(e.messageText.size()) +
-                " chars (>255) — server may truncate on "
+                " chars (>255) - server may truncate on "
                 "delivery");
         }
         if (!idsSeen.insert(e.notificationId).second) {

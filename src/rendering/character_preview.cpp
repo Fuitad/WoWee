@@ -116,7 +116,7 @@ void CharacterPreview::ensureAppearanceGeosetsLoaded() {
                                                     static_cast<uint8_t>(variation));
 
             FacialHairGeosets geosets;
-            // Whichever columns this copy of the DBC keeps them in — see
+            // Whichever columns this copy of the DBC keeps them in - see
             // detectFacialHairFields, and the same read in EntitySpawner.
             geosets.geoset100 = static_cast<uint16_t>(cfh->getUInt32(i, fhF.geoset100));
             geosets.geoset300 = static_cast<uint16_t>(cfh->getUInt32(i, fhF.geoset300));
@@ -176,7 +176,7 @@ bool CharacterPreview::initialize(pipeline::AssetManager* am, int width, int hei
     // This avoids destroying GPU resources that may still be referenced by
     // an in-flight command buffer (compositePass recorded earlier this frame).
     if (renderTarget_ && renderTarget_->isValid() && charRenderer_ && camera_) {
-        // Mark model as not loaded — loadCharacter() will handle instance cleanup
+        // Mark model as not loaded - loadCharacter() will handle instance cleanup
         modelLoaded_ = false;
         return true;
     }
@@ -460,7 +460,7 @@ void CharacterPreview::destroyFBO() {
         previewDescPool_ = VK_NULL_HANDLE;
     }
 
-    // dummyShadowSampler_ is owned by VkContext sampler cache — do NOT destroy
+    // dummyShadowSampler_ is owned by VkContext sampler cache - do NOT destroy
     if (dummyShadowView_) { vkDestroyImageView(device, dummyShadowView_, nullptr); dummyShadowView_ = VK_NULL_HANDLE; }
     if (dummyShadowImage_) { vmaDestroyImage(allocator, dummyShadowImage_, dummyShadowAlloc_); dummyShadowImage_ = VK_NULL_HANDLE; dummyShadowAlloc_ = VK_NULL_HANDLE; }
 
@@ -479,7 +479,7 @@ bool CharacterPreview::loadCharacter(game::Race race, game::Gender gender,
     }
 
     // Remove existing instance.
-    // Must wait for GPU to finish — compositePass() may have recorded draw commands
+    // Must wait for GPU to finish - compositePass() may have recorded draw commands
     // referencing this instance's bone buffers earlier in the current frame.
     if (instanceId_ > 0) {
         if (vkCtx_) vkDeviceWaitIdle(vkCtx_->getDevice());
@@ -553,8 +553,8 @@ bool CharacterPreview::loadCharacter(game::Race race, game::Gender gender,
         const auto csF = pipeline::detectCharSectionsFields(charSectionsDbc.get(), csL);
 
         // The one reader, in pipeline/char_sections.hpp. This copy had no
-        // fallback for a face the table does not carry — a character created
-        // with a face number that has no row simply had no face — and it
+        // fallback for a face the table does not carry - a character created
+        // with a face number that has no row simply had no face - and it
         // matched the skin and underwear rows on variation 0, which the other
         // readers do not, so a table that numbers those rows any other way
         // found nothing here and everything there.
@@ -588,7 +588,7 @@ bool CharacterPreview::loadCharacter(game::Race race, game::Gender gender,
                  " hair=", sections.haveHair ? hairScalpPath : "(not found)",
                  " underwear=", underwearPaths.size(), " textures");
     } else {
-        LOG_WARNING("CharSections.dbc not loaded — no character textures");
+        LOG_WARNING("CharSections.dbc not loaded - no character textures");
     }
 
     // Assign texture filenames on model before GPU upload
@@ -657,7 +657,7 @@ bool CharacterPreview::loadCharacter(game::Race race, game::Gender gender,
                 }
             }
         } else {
-            // Single layer (body skin only, no face/underwear overlays) — load directly
+            // Single layer (body skin only, no face/underwear overlays) - load directly
             VkTexture* skinTex = charRenderer_->loadTexture(bodySkinPath_);
             if (skinTex != nullptr) {
                 for (size_t ti = 0; ti < model.textures.size(); ti++) {
@@ -733,7 +733,7 @@ bool CharacterPreview::applyEquipment(const std::vector<game::EquipmentItem>& eq
     // Weapons first, and unconditionally: they depend on nothing below, while the
     // geoset/skin work that follows bails out early on characters whose body skin
     // could not be composited. Attaching last meant those characters showed no
-    // weapon at all — and kept the previously selected character's weapon and
+    // weapon at all - and kept the previously selected character's weapon and
     // enchant, since detaching happens here too.
     attachWeapons(equipment);
 
@@ -805,8 +805,8 @@ bool CharacterPreview::applyEquipment(const std::vector<game::EquipmentItem>& eq
     // core/geoset_rules.hpp, the same rule the world paths use.
     //
     // This copy took a second id as its fallback rather than looking inside the
-    // group, so where the two ids given were the same — which every call below
-    // does — it could only answer "the model has it" or "nothing", and a model
+    // group, so where the two ids given were the same - which every call below
+    // does - it could only answer "the model has it" or "nothing", and a model
     // spelling that part with a different variant lost it entirely.
     auto pickGeoset = [&](uint16_t preferred, uint16_t fallback) -> uint16_t {
         const uint16_t chosen = core::resolveGeoset(preferred, modelGeosets);
@@ -896,7 +896,7 @@ bool CharacterPreview::applyEquipment(const std::vector<game::EquipmentItem>& eq
     if (bodySkinPath_.empty()) return true; // geosets applied, but can't composite
 
 
-    // Texture component region fields — use DBC layout when available, fall back to binary offsets.
+    // Texture component region fields - use DBC layout when available, fall back to binary offsets.
     uint32_t texRegionFields[8];
     pipeline::getItemDisplayInfoTextureFields(*displayInfoDbc, idiL, texRegionFields);
 
@@ -992,8 +992,8 @@ bool CharacterPreview::applyEquipment(const std::vector<game::EquipmentItem>& eq
 /// Any model, by path, with none of the appearance work.
 ///
 /// loadCharacter builds a player: a race model, a composited skin, geosets
-/// chosen from hair and facial hair, underwear. A creature is none of that —
-/// its M2 names its own textures and has no geoset choices to make — so this
+/// chosen from hair and facial hair, underwear. A creature is none of that -
+/// its M2 names its own textures and has no geoset choices to make - so this
 /// is the same three steps with the middle two thirds left out: read the M2,
 /// frame the camera on its bounds, hand it to the renderer and stand it up.
 ///
@@ -1029,7 +1029,7 @@ bool CharacterPreview::loadCreature(
 
     if (camera_) {
         // The declared bounds where there are any, and the vertices where
-        // there are not — the same choice loadCharacter makes, and for the
+        // there are not - the same choice loadCharacter makes, and for the
         // same reason: a model whose header bounds are wrong frames wrong.
         glm::vec3 frameMin = model.boundMin;
         glm::vec3 frameMax = model.boundMax;
@@ -1229,7 +1229,7 @@ void CharacterPreview::loadRacialBackdrop(game::Race race) {
     modelYaw_ = 90.0f;
     applyPreviewView();
 
-    // The glue screens each stand the character in their racial home — humans in
+    // The glue screens each stand the character in their racial home - humans in
     // Stormwind, orcs in Durotar, and so on. Undead reuse the Scourge scene.
     const char* sceneName = nullptr;
     switch (race) {
@@ -1258,8 +1258,8 @@ void CharacterPreview::loadRacialBackdrop(game::Race race) {
         return;
     }
 
-    // These scenes are authored in their own space — the human one sits ~230 units
-    // from its origin — and carry the camera and the spot the character stands on.
+    // These scenes are authored in their own space - the human one sits ~230 units
+    // from its origin - and carry the camera and the spot the character stands on.
     // Without both there is no way to place the scene, so leave it out entirely
     // rather than drop geometry somewhere off-screen.
     if (sceneModel.cameras.empty()) {
@@ -1311,7 +1311,7 @@ void CharacterPreview::update(float deltaTime) {
 }
 
 void CharacterPreview::render() {
-    // No-op — actual rendering happens in compositePass() called from Renderer::beginFrame()
+    // No-op - actual rendering happens in compositePass() called from Renderer::beginFrame()
 }
 
 void CharacterPreview::compositePass(VkCommandBuffer cmd, uint32_t frameIndex) {

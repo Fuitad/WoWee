@@ -192,7 +192,7 @@ int handleImportJson(int& i, int argc, char** argv) {
             }
             // audienceFilter defaults to kAudienceAll so an
             // omitted field doesn't accidentally silence the
-            // tip — explicit 0 is still respected.
+            // tip - explicit 0 is still respected.
             e.audienceFilter = je.value("audienceFilter",
                 wowee::pipeline::WoweeGameTip::kAudienceAll);
             e.minLevel = static_cast<uint16_t>(je.value("minLevel", 1));
@@ -250,7 +250,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 warnings.push_back(ctx +
                     ": displayWeight=0 (tip is in pool but never picked)");
             }
-            // Tutorial / Hint kinds typically need to be brief —
+            // Tutorial / Hint kinds typically need to be brief -
             // > 280 characters won't fit cleanly on screen.
             bool brief = e.displayKind == wowee::pipeline::WoweeGameTip::Tutorial ||
                           e.displayKind == wowee::pipeline::WoweeGameTip::Hint;

@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Liquid Type catalog (.wliq) — novel replacement
+// Wowee Open Liquid Type catalog (.wliq) - novel replacement
 // for Blizzard's LiquidType.dbc plus the AzerothCore-style
 // terrain liquid descriptor data. The 45th open format added
 // to the editor.
@@ -46,20 +46,20 @@ namespace pipeline {
 //     splashSoundId (uint32)
 //     damageSpellId (uint32)
 //     damagePerSecond (uint32)
-//     minimapColor (uint32)        — RGBA packed
-//     flowDirection (float)        — radians
+//     minimapColor (uint32)        - RGBA packed
+//     flowDirection (float)        - radians
 //     flowSpeed (float)
-//     viscosity (float)            — 0=water, 1=thick slime
+//     viscosity (float)            - 0=water, 1=thick slime
 struct WoweeLiquid {
     enum LiquidKind : uint8_t {
         Water         = 0,    // standard fresh / sea water
-        Magma         = 1,    // lava — DoT applied
+        Magma         = 1,    // lava - DoT applied
         Slime         = 2,    // green slime (Naxx, Sludge Fields)
-        OceanSalt     = 3,    // salt water — separate audio
-        FelFire       = 4,    // green fel-burn — magical DoT
-        HolyLight     = 5,    // shimmering light — heal-over-time
-        TarOil        = 6,    // dark tar — slow movement
-        AcidBog       = 7,    // greenish acid — armor damage
+        OceanSalt     = 3,    // salt water - separate audio
+        FelFire       = 4,    // green fel-burn - magical DoT
+        HolyLight     = 5,    // shimmering light - heal-over-time
+        TarOil        = 6,    // dark tar - slow movement
+        AcidBog       = 7,    // greenish acid - armor damage
         FrozenWater   = 8,    // walkable surface (Wintergrasp ice)
         UnderworldGoo = 9,    // shadowfang / void liquid
     };
@@ -102,13 +102,13 @@ public:
 
     // Preset emitters used by --gen-liquids* variants.
     //
-    //   makeStarter   — 3 stock liquids (Water / Magma /
+    //   makeStarter   - 3 stock liquids (Water / Magma /
     //                    Slime) covering the canonical fluid
     //                    triad in classic terrain.
-    //   makeMagical   — 4 magical liquids (Fel Fire / Holy
+    //   makeMagical   - 4 magical liquids (Fel Fire / Holy
     //                    Light / Underworld Goo / Cosmic
     //                    Plasma) for set-piece zones.
-    //   makeHazardous — 3 high-damage liquids (Naxx Slime /
+    //   makeHazardous - 3 high-damage liquids (Naxx Slime /
     //                    Acid Bog / Fel Lava) with damage
     //                    spells cross-ref WSPL.
     static WoweeLiquid makeStarter(const std::string& catalogName);

@@ -66,7 +66,7 @@ WoweeRandomProperty WoweeRandomPropertyLoader::load(
             !readPOD(is, e.totalWeight)) { return false; }
         uint32_t enchantCount = 0;
         if (!readPOD(is, enchantCount)) { return false; }
-        // Sanity cap — vanilla pools never exceed 12
+        // Sanity cap - vanilla pools never exceed 12
         // enchants; format cap 64.
         if (enchantCount > 64) { return false; }
         e.enchants.resize(enchantCount);
@@ -129,9 +129,9 @@ WoweeRandomProperty WoweeRandomPropertyLoader::makeOfTheBear(
         R::Helm | R::Chest | R::Leg | R::Boot,
         0x46,
         {mkEn(1189, 30),  // +3 Sta
-         mkEn(1190, 50),  // +5 Sta — most likely
+         mkEn(1190, 50),  // +5 Sta - most likely
          mkEn(1191, 15),  // +7 Sta
-         mkEn(1192, 5)})); // +10 Sta — rare
+         mkEn(1192, 5)})); // +10 Sta - rare
     return c;
 }
 
@@ -150,12 +150,12 @@ WoweeRandomProperty WoweeRandomPropertyLoader::makeOfTheEagle(
         R::Helm | R::Chest | R::Leg | R::Glove,
         0x320,
         {mkEn(1503, 25),  // +3 Int +3 Sta
-         mkEn(1504, 35),  // +5 Int +5 Sta — most
+         mkEn(1504, 35),  // +5 Int +5 Sta - most
                           //  common
          mkEn(1505, 25),  // +7 Int +7 Sta
          mkEn(1506, 10),  // +10 Int +10 Sta
          mkEn(1507, 5)})); // +12 Int +12 Sta
-                            //  — rarest
+                            //  - rarest
     return c;
 }
 
@@ -173,11 +173,11 @@ WoweeRandomProperty WoweeRandomPropertyLoader::makeOfTheTiger(
         R::Helm | R::Chest | R::Leg | R::Glove | R::Boot,
         0x818,
         {mkEn(1605, 25),  // +3 Str +3 Agi
-         mkEn(1606, 30),  // +5 Str +5 Agi — most
+         mkEn(1606, 30),  // +5 Str +5 Agi - most
                           //  common
          mkEn(1607, 25),  // +7 Str +7 Agi
          mkEn(1608, 15),  // +10 Str +10 Agi
-         mkEn(1609, 5)})); // +12 Str +12 Agi —
+         mkEn(1609, 5)})); // +12 Str +12 Agi -
                             //  rarest
     return c;
 }

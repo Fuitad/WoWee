@@ -73,7 +73,7 @@ TEST_CASE("LocomotionFSM: WALK → IDLE on move stop (after grace)", "[locomotio
     fsm.resolve(in, caps);
     CHECK(fsm.getState() == LocomotionFSM::State::WALK);
 
-    // Stop moving — grace timer keeps walk for a bit
+    // Stop moving - grace timer keeps walk for a bit
     in.moving = false;
     in.deltaTime = 0.2f; // > grace period (0.12s)
     auto out = fsm.resolve(in, caps);
@@ -147,7 +147,7 @@ TEST_CASE("LocomotionFSM: STAY when WALK_BACKWARDS missing from caps", "[locomot
     in.movingBackward = true;
     auto out = fsm.resolve(in, caps);
 
-    // Should still resolve something — falls back to walk
+    // Should still resolve something - falls back to walk
     REQUIRE(out.valid);
 }
 

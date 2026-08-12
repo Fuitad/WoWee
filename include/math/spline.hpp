@@ -1,6 +1,6 @@
 // include/math/spline.hpp
 // Standalone Catmull-Rom spline module with zero external dependencies beyond GLM.
-// Immutable after construction — thread-safe for concurrent reads.
+// Immutable after construction - thread-safe for concurrent reads.
 #pragma once
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
@@ -15,7 +15,7 @@ struct SplineKey {
     glm::vec3 position;
 };
 
-/// Result of evaluating a spline at a given time — position + tangent.
+/// Result of evaluating a spline at a given time - position + tangent.
 struct SplineEvalResult {
     glm::vec3 position;
     glm::vec3 tangent;       // Unnormalized derivative

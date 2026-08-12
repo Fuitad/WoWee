@@ -21,10 +21,10 @@ namespace {
 namespace fs = std::filesystem;
 
 // Issue categories surfaced by the audit. Order matters
-// only for deterministic output — a single file may
+// only for deterministic output - a single file may
 // belong to at most one category (the worst-fit wins).
 enum class IssueKind {
-    TooSmall,            // file < 16 bytes — can't hold a header
+    TooSmall,            // file < 16 bytes - can't hold a header
     UnknownMagic,        // magic not in kFormats
     ExtensionMismatch,   // extension says X but magic says Y
     MagicWithoutExt,     // magic recognized but file has no .w* extension
@@ -101,7 +101,7 @@ PeekResult peekFile(const fs::path& path) {
     r.readMagic = true;
     if (!is.read(reinterpret_cast<char*>(&r.version), 4)) return r;
     if (!is.read(reinterpret_cast<char*>(&r.nameLen), 4)) return r;
-    // Reject implausible name lengths up front — these usually
+    // Reject implausible name lengths up front - these usually
     // indicate the file is not actually a Wowee catalog.
     if (r.nameLen > (1u << 20)) return r;
     is.seekg(r.nameLen, std::ios::cur);
@@ -129,7 +129,7 @@ int handleAudit(int& i, int argc, char** argv) {
         const FormatMagicEntry* extFmt = findFormatByExtension(ext);
         bool extLooksWowee = extensionLooksLikeWowee(path);
         // For files that don't look Wowee-related at all,
-        // skip them silently — only audit candidates that
+        // skip them silently - only audit candidates that
         // either have a wowee-shaped extension or actually
         // start with a known magic.
         PeekResult pr = peekFile(path);
@@ -137,14 +137,14 @@ int handleAudit(int& i, int argc, char** argv) {
             // Anything under 16 bytes can't even hold the
             // 4-byte magic + 4-byte version + 4-byte
             // nameLen + 4-byte entryCount minimum. Only
-            // flag if the file has a wowee extension —
+            // flag if the file has a wowee extension -
             // sub-16-byte unrelated files are noise.
             if (extLooksWowee) {
                 Issue iss;
                 iss.path = path;
                 iss.kind = IssueKind::TooSmall;
                 iss.detail = std::to_string(pr.fileSize) +
-                             " bytes — header needs at least 16";
+                             " bytes - header needs at least 16";
                 iss.expectedFmt = extFmt;
                 issues.push_back(std::move(iss));
             }
@@ -237,7 +237,7 @@ int handleAudit(int& i, int argc, char** argv) {
                 static_cast<unsigned long long>(cleanFiles));
     std::printf("  issues found    : %zu\n", issues.size());
     if (ok) {
-        std::printf("  OK — no extension/magic mismatches, no truncated headers\n");
+        std::printf("  OK - no extension/magic mismatches, no truncated headers\n");
         return 0;
     }
     // Group by issue kind for readable output.

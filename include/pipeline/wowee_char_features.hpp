@@ -8,7 +8,7 @@ namespace wowee {
 namespace pipeline {
 
 // Wowee Open Character Customization Feature catalog (.wchf)
-// — novel replacement for Blizzard's CharHairGeosets.dbc +
+// - novel replacement for Blizzard's CharHairGeosets.dbc +
 // CharFacialHairStyles.dbc plus the variation portions of
 // CharSections.dbc. Defines the per-(race, sex) customization
 // options that the character creation screen exposes:
@@ -17,7 +17,7 @@ namespace pipeline {
 // markings (Tauren horns, Draenei tendrils, Blood Elf ears).
 //
 // Each entry describes ONE selectable customization choice
-// for ONE (race, sex, featureKind) tuple — variationIndex
+// for ONE (race, sex, featureKind) tuple - variationIndex
 // disambiguates between options of the same kind. The
 // character renderer reads this catalog at the create-
 // character screen to populate the variant carousels and at
@@ -105,15 +105,15 @@ public:
 
     // Preset emitters used by --gen-chf* variants.
     //
-    //   makeStarter        — 5 Human Male options covering
+    //   makeStarter        - 5 Human Male options covering
     //                         the canonical kind triad (1 skin
     //                         color, 1 face, 2 hair styles,
     //                         1 facial hair).
-    //   makeBloodElfFemale — 8 Blood Elf Female hair styles
+    //   makeBloodElfFemale - 8 Blood Elf Female hair styles
     //                         (TBC iconic feature, requires
     //                         expansion=TBC).
-    //   makeTauren         — 6 Tauren Male features (3 horn
-    //                         variations + 3 facial hair —
+    //   makeTauren         - 6 Tauren Male features (3 horn
+    //                         variations + 3 facial hair -
     //                         Tauren get hair on their face
     //                         and chin and have horn variants
     //                         instead of EarStyle).

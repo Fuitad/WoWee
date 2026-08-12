@@ -212,7 +212,7 @@ TEST_CASE("WOB toWMOModel restores materials/portals/doodads/doodadSet", "[wob]"
     g0.materials = {mA, mB};
     bld.groups.push_back(g0);
 
-    // A second group with one of A's materials and a unique one — verifies
+    // A second group with one of A's materials and a unique one - verifies
     // dedupe works across groups.
     WoweeBuilding::Group g1;
     g1.name = "RoomB";
@@ -608,7 +608,7 @@ TEST_CASE("WOC rejects absurdly large triangle counts", "[woc][hardening]") {
     }
 
     auto col = WoweeCollisionBuilder::load(path);
-    // 10M triangle WOC rejected — returns empty (isValid false).
+    // 10M triangle WOC rejected - returns empty (isValid false).
     REQUIRE_FALSE(col.isValid());
     std::filesystem::remove(path);
 }
@@ -643,7 +643,7 @@ TEST_CASE("WOB scrubs NaN doodad transform on load", "[wob][hardening]") {
     }
 
     auto bld = WoweeBuildingLoader::load(base);
-    // isValid requires a group — we deliberately wrote 0 groups to keep
+    // isValid requires a group - we deliberately wrote 0 groups to keep
     // the test fixture small. Just check the doodad got loaded + scrubbed.
     REQUIRE(bld.doodads.size() == 1);
     REQUIRE(std::isfinite(bld.doodads[0].position.x));
@@ -744,7 +744,7 @@ TEST_CASE("WOB save scrubs NaN group bounds and vertex positions", "[wob][harden
     REQUIRE(reloaded.isValid());
     // boundRadius defaulted to 1.0
     REQUIRE(reloaded.boundRadius == 1.0f);
-    // Vertex 0 was all-NaN — scrubbed to zero/up-axis defaults
+    // Vertex 0 was all-NaN - scrubbed to zero/up-axis defaults
     const auto& v = reloaded.groups[0].vertices[0];
     REQUIRE(std::isfinite(v.position.x));
     REQUIRE(v.position == glm::vec3(0, 0, 0));
@@ -766,7 +766,7 @@ TEST_CASE("WOB save caps texture-path count to 1024 on round-trip", "[wob][harde
     g.vertices.push_back({{1, 0, 0}, {0, 0, 1}, {1, 0}, {1, 1, 1, 1}});
     g.vertices.push_back({{0, 1, 0}, {0, 0, 1}, {0, 1}, {1, 1, 1, 1}});
     g.indices = {0, 1, 2};
-    // Push more textures than the load limit (1024) — save should cap.
+    // Push more textures than the load limit (1024) - save should cap.
     for (int i = 0; i < 1500; i++) {
         g.texturePaths.push_back("tex" + std::to_string(i) + ".png");
     }
@@ -788,7 +788,7 @@ TEST_CASE("WoweeCollision save caps tri count and clamps tile coords", "[woc][ha
     ensureTestDir();
     std::string path = TEST_DIR + "/cap_woc.woc";
     WoweeCollision col;
-    col.tileX = 200;  // out of range — should clamp to 32 on save
+    col.tileX = 200;  // out of range - should clamp to 32 on save
     col.tileY = 200;
     // Add a few real triangles so the file isn't empty.
     for (int i = 0; i < 5; i++) {

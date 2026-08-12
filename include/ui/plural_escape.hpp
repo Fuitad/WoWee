@@ -15,7 +15,7 @@ namespace ui {
 ///
 /// The number is the last one in the text *before* the escape, which is how
 /// WoW decides: "1 second", "2 seconds". With no number before it the plural
-/// is the safer reading — a bare SECONDS is a column heading, not a count.
+/// is the safer reading - a bare SECONDS is a column heading, not a count.
 ///
 /// Only `|4` is handled. `|1`, `|2` and `|3` are the declension and gender
 /// forms the localised builds need and the English data never emits; a rule

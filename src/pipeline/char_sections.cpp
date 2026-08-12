@@ -28,7 +28,7 @@ CharacterSectionTextures resolveCharacterSections(
     //
     // Character creation falls back to a synthetic 0..9 range whenever its own
     // scan of this table comes up empty, so a character can be created carrying
-    // a face number that has no row at all — and would then have no face for
+    // a face number that has no row at all - and would then have no face for
     // good, because the lookup simply did not match and said nothing.
     std::string altFaceLower, altFaceUpper;
     bool haveAltFace = false;
@@ -108,10 +108,10 @@ void applyCharacterTextures(M2Model& model,
                 }
                 break;
             case 8:
-                // Skin Extra. What this art is depends entirely on the race — a
+                // Skin Extra. What this art is depends entirely on the race - a
                 // head-detail sheet for a human or an orc, the ears for a night
                 // elf, the horns for a draenei male, the tail for a draenei
-                // female — and seven of the twenty race and sex pairs name none
+                // female - and seven of the twenty race and sex pairs name none
                 // at all. Those fall back to art that exists rather than keeping
                 // a name that does not.
                 if (!textures.skinExtra.empty()) {

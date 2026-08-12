@@ -103,13 +103,13 @@ WoweeUnitMovement WoweeUnitMovementLoader::makeStarter(
         c.entries.push_back(e);
     };
     add(1, "WalkSpeed", WoweeUnitMovement::Walk, 2.5f,
-        "Canonical walk speed — 2.5 yards / second.");
+        "Canonical walk speed - 2.5 yards / second.");
     add(2, "RunSpeed",  WoweeUnitMovement::Run,  7.0f,
-        "Canonical run speed — 7.0 yards / second.");
+        "Canonical run speed - 7.0 yards / second.");
     add(3, "SwimSpeed", WoweeUnitMovement::Swim, 4.7f,
-        "Canonical swim speed — 4.7 yards / second underwater.");
+        "Canonical swim speed - 4.7 yards / second underwater.");
     add(4, "TurnRate",  WoweeUnitMovement::Turn, 3.14f,
-        "Canonical turn rate — π radians / second (180°/s).");
+        "Canonical turn rate - π radians / second (180°/s).");
     return c;
 }
 
@@ -132,21 +132,21 @@ WoweeUnitMovement WoweeUnitMovementLoader::makeFlight(
     };
     add(100, "Flight",         WoweeUnitMovement::Flight,
         7.0f,  1,
-        "Ground-rail flight speed — 7.0y/s, used by gryphon "
+        "Ground-rail flight speed - 7.0y/s, used by gryphon "
         "taxi rides.");
     add(101, "Fly",            WoweeUnitMovement::Fly,
         14.0f, 1,
-        "Free-flight cruise speed — 14.0y/s base on a flying "
+        "Free-flight cruise speed - 14.0y/s base on a flying "
         "mount.");
     add(102, "FlyBack",        WoweeUnitMovement::FlyBack,
         4.5f,  1,
-        "Backward flight — slower (no mount can reverse fast).");
+        "Backward flight - slower (no mount can reverse fast).");
     add(103, "FlightBack",     WoweeUnitMovement::FlightBack,
         4.5f,  1,
         "Backward ground-rail flight (taxi node reverse).");
     add(104, "Pitch",          WoweeUnitMovement::Pitch,
         1.5f,  1,
-        "Pitch rate while flying — 1.5 radians/second (≈86°/s).");
+        "Pitch rate while flying - 1.5 radians/second (≈86°/s).");
     return c;
 }
 
@@ -171,17 +171,17 @@ WoweeUnitMovement WoweeUnitMovementLoader::makeBuffs(
         c.entries.push_back(e);
     };
     add(200, "Sprint",            1.40f, 1.40f, 15000, 100,
-        "Rogue sprint — 40% movement speed for 15 seconds.");
+        "Rogue sprint - 40% movement speed for 15 seconds.");
     add(201, "AspectCheetah",     1.30f, 1.30f, 0,    50,
-        "Hunter aspect — 30% movement speed permanently. "
+        "Hunter aspect - 30% movement speed permanently. "
         "Breaks on damage.");
     add(202, "TravelForm",        1.40f, 1.40f, 0,    50,
-        "Druid travel form — 40% speed, persists until "
+        "Druid travel form - 40% speed, persists until "
         "shifted out.");
     add(203, "CrusaderAura",      1.20f, 1.20f, 0,    30,
-        "Paladin aura — 20% mounted speed for the party.");
+        "Paladin aura - 20% mounted speed for the party.");
     add(204, "WindWalk",          1.50f, 1.50f, 12000, 80,
-        "Shaman ghost-wolf style buff — 50% speed for "
+        "Shaman ghost-wolf style buff - 50% speed for "
         "12 seconds.");
     return c;
 }

@@ -25,7 +25,7 @@ void main() {
     // Below the line is underwater. The softness spans the meniscus, where the
     // surface is edge-on and neither side reads cleanly.
     // TexCoord.y = 0 is the top of the framebuffer, so larger ndcY is lower on
-    // screen — which is the submerged side.
+    // screen - which is the submerged side.
     const float submerged = smoothstep(line - push.params.y, line + push.params.y, ndcY);
 
     outColor = vec4(push.color.rgb, push.color.a * submerged);

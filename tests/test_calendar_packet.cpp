@@ -1,7 +1,7 @@
 // SMSG_CALENDAR_SEND_CALENDAR, read against the server that writes it.
 //
 // Six lists back to back, no length prefix on any of them, and four of the six
-// rows carry a packed guid or a string — so a row read one field wrong does
+// rows carry a packed guid or a string - so a row read one field wrong does
 // not fail. It slides everything after it, and the next count is read out of
 // the middle of a string. Nothing in the packet says so, and nothing in the
 // client would either: the calendar would simply be full of plausible nonsense.
@@ -129,7 +129,7 @@ TEST_CASE("A whole calendar reads back field for field", "[calendar]") {
     // value and re-sending it is how an edit keeps the same time.
     CHECK(cal.events[0].eventTimePacked == 0x09E1C000u);
     // A dungeon id of -1 is "no dungeon", which only reads correctly as
-    // signed — as a uint32 it is four billion and every guard on it inverts.
+    // signed - as a uint32 it is four billion and every guard on it inverts.
     CHECK(cal.events[1].dungeonId == -1);
     CHECK(cal.events[1].title.empty());
 
@@ -139,7 +139,7 @@ TEST_CASE("A whole calendar reads back field for field", "[calendar]") {
     CHECK(cal.lockouts[0].mapId == 533);
     CHECK(cal.lockouts[0].difficulty == 1);
     CHECK(cal.lockouts[0].secondsRemaining == 86400);
-    // A full guid, not a packed one — the server writes the instance guid
+    // A full guid, not a packed one - the server writes the instance guid
     // straight into the buffer while the two creator fields above are packed.
     CHECK(cal.lockouts[0].instanceGuid == 0x0010000000000007ull);
 
@@ -179,7 +179,7 @@ TEST_CASE("The event time unpacks as a date", "[calendar]") {
 
 TEST_CASE("An empty calendar is not an error", "[calendar]") {
     // What a new character gets. Every count zero, and the two times still
-    // present between the lists — a parser that skipped the times when the
+    // present between the lists - a parser that skipped the times when the
     // lists were empty would read the trailing counts as clock values.
     Packet p(0x436);
     p.writeUInt32(0);
@@ -268,7 +268,7 @@ TEST_CASE("A day's rows are holidays first, then events by time", "[calendar]") 
     REQUIRE(rows.size() == 3);
     CHECK(rows[0].kind == CalendarEntryKind::Holiday);
     // The 12th is the holiday's second day, so its name is drawn once on the
-    // 11th and this row is skipped — FrameXML tests sequenceType ~= "ONGOING".
+    // 11th and this row is skipped - FrameXML tests sequenceType ~= "ONGOING".
     CHECK(rows[0].ongoing);
     CHECK(rows[1].kind == CalendarEntryKind::Event);
     CHECK(cal.events[rows[1].index].title == "Early");
@@ -390,7 +390,7 @@ TEST_CASE("An event packet cut short is refused", "[calendar]") {
 TEST_CASE("A raid lockout lands on the day it expires", "[calendar]") {
     // The packet dates a lockout only by how long it has left, so the day it
     // belongs to is the server's clock plus that remainder. Getting it wrong
-    // puts the lockout on the wrong day with no sign of it — the entry is
+    // puts the lockout on the wrong day with no sign of it - the entry is
     // there, it is simply on a day the player is not looking at.
     CalendarData cal;
     // A fixed instant, then a lockout expiring two days later. Both are

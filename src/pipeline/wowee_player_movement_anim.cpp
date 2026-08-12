@@ -150,7 +150,7 @@ WoweePlayerMovementAnimLoader::makeHumanMovement(
     });
     // Human Female: identical state shape but anim
     // base ids differ (M2 sex models have separate
-    // anim tables) — using same numeric ids here as
+    // anim tables) - using same numeric ids here as
     // placeholder; in production these would be the
     // female-model-specific anim indices.
     appendRaceGender(c, 1100, 1, 1, {
@@ -211,7 +211,7 @@ WoweePlayerMovementAnimLoader::makeUndeadMovement(
         {P::StateWalk,  4, 40, 250},
         {P::StateRun,   5, 38, 200},
         {P::StateSwim, 12,  0, 400},  // slower blend
-                                        //  — undead aren't
+                                        //  - undead aren't
                                         //  graceful in
                                         //  water
         {P::StateFly,  68,  0, 400},

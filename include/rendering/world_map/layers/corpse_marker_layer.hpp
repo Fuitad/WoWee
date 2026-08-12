@@ -1,4 +1,4 @@
-// corpse_marker_layer.hpp — Death corpse marker on the world map.
+// corpse_marker_layer.hpp - Death corpse marker on the world map.
 #pragma once
 #include "rendering/world_map/overlay_renderer.hpp"
 #include "rendering/vk_texture.hpp"
@@ -23,7 +23,7 @@ public:
         hasCorpse_ = hasCorpse;
         corpseRenderPos_ = renderPos;
     }
-    /// Where a release would put the player — the nearest spirit healer, as
+    /// Where a release would put the player - the nearest spirit healer, as
     /// the server names it in SMSG_DEATH_RELEASE_LOC. Drawn beside the corpse
     /// because the two together are the whole of a corpse run: where the body
     /// is, and where the alternative is.

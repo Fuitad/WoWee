@@ -96,7 +96,7 @@ WoweeLoadingScreen WoweeLoadingScreenLoader::makeStarter(
         c.entries.push_back(e);
     };
     // ElwynnForest is gated to Eastern Kingdoms map (mapId=0)
-    // — but mapId=0 is also the catch-all sentinel. To keep
+    // - but mapId=0 is also the catch-all sentinel. To keep
     // the validator happy and reflect WoW's actual gating
     // (Elwynn lives on EK), bind it to the dwarf-starter
     // mapId 0 with explicit level cap. The GenericFallback
@@ -104,19 +104,19 @@ WoweeLoadingScreen WoweeLoadingScreenLoader::makeStarter(
     // distinct from Elwynn's.
     add(1,   0, "ElwynnForest",
         "Interface/Glues/LoadingScreens/Elwynn.blp",
-        "Stormwind / Elwynn Forest — green forested foothills "
+        "Stormwind / Elwynn Forest - green forested foothills "
         "with the abbey in the background.");
     c.entries.back().minLevel = 1;
     c.entries.back().maxLevel = 30;
     add(2,   1, "OrgrimmarLoading",
         "Interface/Glues/LoadingScreens/Orgrimmar.blp",
-        "Orgrimmar — red rocky canyon walls + dragon banners.");
-    // GenericFallback is the catch-all — full level range
+        "Orgrimmar - red rocky canyon walls + dragon banners.");
+    // GenericFallback is the catch-all - full level range
     // but minimal weight, so it only appears when no
     // zone-specific screen matches.
     add(3,   0, "GenericFallback",
         "Interface/Glues/LoadingScreens/GenericMap.blp",
-        "Generic catch-all — dragon icon over starfield, "
+        "Generic catch-all - dragon icon over starfield, "
         "shown when no zone-specific screen matches.");
     c.entries.back().minLevel = 31;
     c.entries.back().maxLevel = 80;
@@ -144,23 +144,23 @@ WoweeLoadingScreen WoweeLoadingScreenLoader::makeInstances(
     };
     add(100, 602, "HallsOfLightning",
         "Interface/Glues/LoadingScreens/HoL.blp",
-        "Storm titan-keeper facility — purple lightning arcs over "
+        "Storm titan-keeper facility - purple lightning arcs over "
         "obsidian floors.");
     add(101, 599, "HallsOfStone",
         "Interface/Glues/LoadingScreens/HoS.blp",
-        "Tribunal of Ages — colossal iron-dwarf statues lining "
+        "Tribunal of Ages - colossal iron-dwarf statues lining "
         "a grand chamber.");
     add(102, 575, "UtgardePinnacle",
         "Interface/Glues/LoadingScreens/UP.blp",
-        "Vrykul fortress — windswept icy parapet with King "
+        "Vrykul fortress - windswept icy parapet with King "
         "Ymiron's throne distant.");
     add(103, 608, "VioletHold",
         "Interface/Glues/LoadingScreens/VH.blp",
-        "Dalaran prison breakout — violet magic shields holding "
+        "Dalaran prison breakout - violet magic shields holding "
         "back interdimensional rifts.");
     add(104, 595, "OldKingdom",
         "Interface/Glues/LoadingScreens/OK.blp",
-        "Faceless one ruins — green bioluminescent fungi + "
+        "Faceless one ruins - green bioluminescent fungi + "
         "Old God tentacles in the gloom.");
     return c;
 }
@@ -179,7 +179,7 @@ WoweeLoadingScreen WoweeLoadingScreenLoader::makeRaidIntros(
         e.texturePath = tex;
         e.iconPath = std::string("Interface/Glues/Raids/") +
                       name + "_icon.blp";
-        e.attribution = "Wowee art team — raid intro variants";
+        e.attribution = "Wowee art team - raid intro variants";
         e.expansionRequired = WoweeLoadingScreen::WotLK;
         e.minLevel = 80;
         e.maxLevel = 80;
@@ -190,14 +190,14 @@ WoweeLoadingScreen WoweeLoadingScreenLoader::makeRaidIntros(
     add(200, 533, "Naxxramas",
         "Interface/Glues/Raids/NaxxIntro.blp",
         "Floating Necropolis silhouetted against Northrend "
-        "aurora — Kel'Thuzad's eye glow at center.");
+        "aurora - Kel'Thuzad's eye glow at center.");
     add(201, 603, "Ulduar",
         "Interface/Glues/Raids/UlduarIntro.blp",
-        "Titan facility entrance — Yogg-Saron's mind-warping "
+        "Titan facility entrance - Yogg-Saron's mind-warping "
         "tendrils creeping from the corners.");
     add(202, 649, "TrialOfTheCrusader",
         "Interface/Glues/Raids/TocIntro.blp",
-        "Argent Crusade colosseum — sun beams piercing arena "
+        "Argent Crusade colosseum - sun beams piercing arena "
         "spires + crowds in stands.");
     return c;
 }

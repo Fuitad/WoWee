@@ -2,7 +2,7 @@
 # Every addon event this client fires, however it is dispatched.
 #
 # There are four call styles, and grepping for one of them under-reports the
-# rest badly — the answer has been 6, 52, 73 and 147 depending on which was
+# rest badly - the answer has been 6, 52, 73 and 147 depending on which was
 # searched. Integration work needs to know whether an event FrameXML listens
 # for actually arrives, so it should ask this rather than guess.
 #

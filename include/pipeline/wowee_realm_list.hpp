@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Master Server Profile catalog (.wmsp) —
+// Wowee Open Master Server Profile catalog (.wmsp) -
 // novel replacement for the hardcoded realmlist that the
 // WoW client receives via SMSG_REALM_LIST during login.
 // Each entry is one selectable realm: name, network
@@ -15,7 +15,7 @@ namespace pipeline {
 // expansion gating, population indicator, character cap,
 // and access flags.
 //
-// 100th open format — milestone marker. Server admins use
+// 100th open format - milestone marker. Server admins use
 // this catalog as the single source of truth for which
 // realms appear on the realm picker; loading it replaces
 // the hardcoded `realmlist.wtf` lookup that vanilla
@@ -38,16 +38,16 @@ namespace pipeline {
 //     nameLen + name
 //     descLen + description
 //     addrLen + address (host:port)
-//     realmType (uint8)         — Normal / PvP / RP /
+//     realmType (uint8)         - Normal / PvP / RP /
 //                                  RPPvP / Test
-//     realmCategory (uint8)     — Public / Private /
+//     realmCategory (uint8)     - Public / Private /
 //                                  Beta / Dev
-//     expansion (uint8)         — Vanilla / TBC / WotLK /
+//     expansion (uint8)         - Vanilla / TBC / WotLK /
 //                                  Cata
-//     population (uint8)        — Low / Medium / High /
+//     population (uint8)        - Low / Medium / High /
 //                                  Full / Locked
 //     characterCap (uint8)
-//     gmOnly (uint8)             — 0/1 bool
+//     gmOnly (uint8)             - 0/1 bool
 //     timezone (uint8)
 //     pad0 (uint8)
 //     versionMajor (uint8) / versionMinor (uint8)
@@ -119,7 +119,7 @@ struct WoweeRealmList {
     // due to the realm picker being expansion-tolerant).
     std::vector<const Entry*> findByExpansion(uint8_t maxExpansion) const;
 
-    // Returns realms of one type — used by the picker UI's
+    // Returns realms of one type - used by the picker UI's
     // "PvP only" / "RP only" filters.
     std::vector<const Entry*> findByType(uint8_t realmType) const;
 };
@@ -133,15 +133,15 @@ public:
 
     // Preset emitters used by --gen-msp* variants.
     //
-    //   makeSingleRealm    — 1 entry: WoweeMain (WotLK
+    //   makeSingleRealm    - 1 entry: WoweeMain (WotLK
     //                         Normal, Public, Medium pop,
     //                         10-char cap, US East TZ).
-    //   makePvPCluster     — 3 entries: WoweePvE / WoweePvP
+    //   makePvPCluster     - 3 entries: WoweePvE / WoweePvP
     //                         / WoweeRP (same login address,
-    //                         3 realm types — players can
+    //                         3 realm types - players can
     //                         pick rule-set without
     //                         changing servers).
-    //   makeMultiExpansion — 4 entries spanning all
+    //   makeMultiExpansion - 4 entries spanning all
     //                         supported expansion gates
     //                         (Vanilla 1.12 / TBC 2.4.3 /
     //                         WotLK 3.3.5a / Cata 4.3.4)

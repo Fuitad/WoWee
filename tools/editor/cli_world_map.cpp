@@ -112,7 +112,7 @@ int handleInfo(int& i, int argc, char** argv) {
 int handleExportJson(int& i, int argc, char** argv) {
     // Export a .womx to a human-editable JSON sidecar. Tiles
     // are represented as one '1'/'0' string per row (dense)
-    // because a full 64x64 continent has 4096 tiles — sparse
+    // because a full 64x64 continent has 4096 tiles - sparse
     // [[x,y]] arrays would be 4× larger and harder to spot
     // missing-row patterns visually. The dense string form is
     // easy to hand-edit ('1' = tile present, '0' = no tile).
@@ -283,7 +283,7 @@ int handleValidate(int& i, int argc, char** argv) {
     }
     std::printf("validate-womx: %s.womx\n", base.c_str());
     if (ok && warnings.empty()) {
-        std::printf("  OK — %ux%u grid, %u/%u tiles present\n",
+        std::printf("  OK - %ux%u grid, %u/%u tiles present\n",
                     m.gridSize, m.gridSize,
                     m.countTiles(),
                     static_cast<uint32_t>(m.gridSize) * m.gridSize);

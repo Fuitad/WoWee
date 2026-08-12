@@ -110,7 +110,7 @@ TEST_CASE("CombatFSM: stun does not override swimming", "[combat]") {
     in.swimming = true;
     auto out = fsm.resolve(in, caps, wl);
 
-    // Swimming overrides combat entirely — FSM should go inactive
+    // Swimming overrides combat entirely - FSM should go inactive
     // The exact behavior depends on implementation, but stun should not
     // force an animation while swimming
     CHECK(fsm.getState() != CombatFSM::State::STUNNED);

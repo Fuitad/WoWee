@@ -1,7 +1,7 @@
 // The minimap's world<->pixel transform, which the client needs in both
 // directions: markers project outward, clicks invert back.
 //
-// It was written out longhand three times in game_screen_minimap.cpp — once
+// It was written out longhand three times in game_screen_minimap.cpp - once
 // forward for markers, once inverted for the ctrl+click ping, once inverted
 // again for the coordinate tooltip. Two copies of an inverse is two chances to
 // get a sign wrong, and a wrong sign there pings the mirror image of where you
@@ -9,7 +9,7 @@
 //
 // The contract is not "north is up". It is that this projection is the exact
 // inverse of what minimap_display.frag.glsl does, because that shader is what
-// decides where a piece of the world is on screen — a marker is right when it
+// decides where a piece of the world is on screen - a marker is right when it
 // lands on the ground it names, whatever direction that ground is drawn in.
 // So the shader is reproduced here and the two are composed.
 #include <cmath>
@@ -25,7 +25,7 @@ namespace {
 
 /// minimap_display.frag.glsl, in C++. Takes an offset from the minimap centre
 /// in pixels (+y down, as TexCoord grows) and answers the composite UV delta
-/// it samples. Composite u grows east and v grows south — that is how
+/// it samples. Composite u grows east and v grows south - that is how
 /// Minimap::compositePass lays the 3x3 tile grid out, dc along the east-west
 /// tile axis into gridOffset.x and dr along north-south into gridOffset.y.
 glm::vec2 shaderSampleUV(float px, float py, float mapRadius, float zoomK, float rotation) {
@@ -127,7 +127,7 @@ TEST_CASE("zooming in pushes a fixed world point further from the centre") {
 
 TEST_CASE("a map with no rect yet answers zero rather than dividing by it") {
     // The map has no screen rect before the first frame it is placed on, and
-    // the interface can still ask — Minimap_OnClick runs off a real click.
+    // the interface can still ask - Minimap_OnClick runs off a real click.
     MinimapView zero;
     zero.viewRadius = 0.0f;
     zero.mapRadius = 0.0f;

@@ -108,13 +108,13 @@ WoweeSpellProc WoweeSpellProcLoader::makeWeapon(
     };
     // Spell ids match canonical 3.3.5a weapon-imbue triggers.
     add(1, "WindfuryWeapon",   25504, 20.0f, 3000,
-        "Windfury Weapon — 20 PPM extra attack with 3s ICD.");
+        "Windfury Weapon - 20 PPM extra attack with 3s ICD.");
     add(2, "FrostbrandWeapon", 8034,  9.0f,     0,
-        "Frostbrand Weapon — 9 PPM frost damage + slow.");
+        "Frostbrand Weapon - 9 PPM frost damage + slow.");
     add(3, "FlametongueWeapon",10444, 15.0f,    0,
-        "Flametongue Weapon — 15 PPM fire damage on hit.");
+        "Flametongue Weapon - 15 PPM fire damage on hit.");
     add(4, "ManaOilTorch",     28568, 4.0f,  5000,
-        "Brilliant Mana Oil — 4 PPM mana restore on hit, "
+        "Brilliant Mana Oil - 4 PPM mana restore on hit, "
         "5s ICD.");
     return c;
 }
@@ -136,24 +136,24 @@ WoweeSpellProc WoweeSpellProcLoader::makeAura(
         e.iconColorRGBA = packRgba(220, 200, 100);   // holy gold
         c.entries.push_back(e);
     };
-    // Aura-tied procs — buff is on the player, fires when
+    // Aura-tied procs - buff is on the player, fires when
     // they take/deal qualifying actions.
     add(100, "BlessingOfWisdomMana", 27144,
         P::DealtMeleeAutoAttack | P::DealtMeleeSpell,
         1.0f, 0,
-        "Blessing of Wisdom — 100%% mana return on melee/spell.");
+        "Blessing of Wisdom - 100%% mana return on melee/spell.");
     add(101, "MoltenArmorCrit",       30482,
         P::TakenMeleeAutoAttack | P::TakenMeleeSpell,
         0.05f, 0,
-        "Molten Armor — 5%% damage reflect on incoming melee.");
+        "Molten Armor - 5%% damage reflect on incoming melee.");
     add(102, "EarthShieldHeal",       974,
         P::TakenSpell | P::TakenMeleeSpell,
         1.0f, 1500,
-        "Earth Shield — 100%% heal on damage taken, 1.5s ICD.");
+        "Earth Shield - 100%% heal on damage taken, 1.5s ICD.");
     add(103, "JudgementOfWisdom",     20186,
         P::DealtMeleeAutoAttack | P::DealtMeleeSpell,
         0.5f, 0,
-        "Judgement of Wisdom — 50%% mana return per hit on "
+        "Judgement of Wisdom - 50%% mana return per hit on "
         "judged target.");
     return c;
 }
@@ -179,19 +179,19 @@ WoweeSpellProc WoweeSpellProcLoader::makeTalent(
     };
     add(200, "Clearcasting",       12536, 0,
         P::DealtSpell, 0.10f, 0, 1,
-        "Mage Arcane Concentration — 10%% chance per cast for "
+        "Mage Arcane Concentration - 10%% chance per cast for "
         "next-spell free, 1 charge.");
     add(201, "OmenOfClarity",      16870, 0,
         P::DealtMeleeAutoAttack | P::DealtSpell, 0.06f, 0, 1,
-        "Druid Omen of Clarity — 6%% per swing/cast for "
+        "Druid Omen of Clarity - 6%% per swing/cast for "
         "next-ability free, 1 charge.");
     add(202, "SealOfRighteousness",25742, 21084,
         P::DealtMeleeAutoAttack, 1.0f, 0, 0,
-        "Paladin Seal of Righteousness — 100%% on melee swing "
+        "Paladin Seal of Righteousness - 100%% on melee swing "
         "while seal active.");
     add(203, "Nightfall",          17941, 0,
         P::DealtSpell, 0.04f, 0, 1,
-        "Warlock Nightfall — 4%% per Drain Soul/Corruption tick "
+        "Warlock Nightfall - 4%% per Drain Soul/Corruption tick "
         "for instant Shadow Bolt, 1 charge.");
     return c;
 }

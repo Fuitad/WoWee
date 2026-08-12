@@ -1,5 +1,5 @@
 #version 450
-// FSR 1.0 EASU (Edge Adaptive Spatial Upsampling) — Fragment Shader
+// FSR 1.0 EASU (Edge Adaptive Spatial Upsampling) - Fragment Shader
 // Based on AMD FidelityFX Super Resolution 1.0
 // Implements edge-adaptive bilinear upsampling with directional filtering
 

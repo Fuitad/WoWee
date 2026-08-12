@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Sky Parameters catalog (.wskp) — novel
+// Wowee Open Sky Parameters catalog (.wskp) - novel
 // replacement for the LightParams.dbc + Light.dbc pair
 // that vanilla WoW used to drive the per-zone diurnal
 // sky cycle: sky-dome zenith and horizon colors, sun
@@ -36,17 +36,17 @@ namespace pipeline {
 //     nameLen + name
 //     descLen + description
 //     mapId (uint32) / areaId (uint32)
-//     timeOfDayHour (uint8)      — 0..23 keyframe hour
+//     timeOfDayHour (uint8)      - 0..23 keyframe hour
 //     pad0 (uint8) / pad1 (uint8) / pad2 (uint8)
-//     zenithColor (uint32)       — RGBA top-of-sky
-//     horizonColor (uint32)      — RGBA at horizon
-//     sunColor (uint32)          — RGBA sun disc tint
-//     sunAngleDeg (float)        — 0..360 azimuth
-//     fogStartYards (float)      — distance fog begins
-//     fogEndYards (float)        — distance fog opaque
-//     cloudOpacity (uint8)       — 0..255 cloud layer
+//     zenithColor (uint32)       - RGBA top-of-sky
+//     horizonColor (uint32)      - RGBA at horizon
+//     sunColor (uint32)          - RGBA sun disc tint
+//     sunAngleDeg (float)        - 0..360 azimuth
+//     fogStartYards (float)      - distance fog begins
+//     fogEndYards (float)        - distance fog opaque
+//     cloudOpacity (uint8)       - 0..255 cloud layer
 //                                   alpha
-//     cloudSpeedX10 (uint8)      — wind speed in
+//     cloudSpeedX10 (uint8)      - wind speed in
 //                                   tenths-mph (0..255
 //                                   = 0..25.5 mph drift
 //                                   rate for the cloud
@@ -100,17 +100,17 @@ public:
 
     // Preset emitters used by --gen-skp* variants.
     //
-    //   makeStormwindDay  — 4 keyframes for Stormwind's
+    //   makeStormwindDay  - 4 keyframes for Stormwind's
     //                        diurnal cycle (Dawn 6AM /
     //                        Noon 12 / Dusk 18 /
     //                        Midnight 0).
-    //   makeNorthrendArctic — 4 cold steel-blue keyframes
+    //   makeNorthrendArctic - 4 cold steel-blue keyframes
     //                          for Northrend zones (Dawn /
     //                          Noon / Dusk / Midnight).
-    //   makeOutlandHellfire — 3 keyframes for Outland's
+    //   makeOutlandHellfire - 3 keyframes for Outland's
     //                          iconic red/orange skies
     //                          (Dawn / Noon / Sunset; no
-    //                          midnight keyframe — Outland
+    //                          midnight keyframe - Outland
     //                          is permanently bright).
     static WoweeSkyParams makeStormwindDay(const std::string& catalogName);
     static WoweeSkyParams makeNorthrendArctic(const std::string& catalogName);

@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Spell Visual Kit catalog (.wsvk) — novel
+// Wowee Open Spell Visual Kit catalog (.wsvk) - novel
 // replacement for Blizzard's SpellVisualKit.dbc +
 // SpellVisualEffectName.dbc + the AzerothCore-style spell
 // visual SQL data. The 47th open format added to the editor.
@@ -46,10 +46,10 @@ namespace pipeline {
 //     impactAnimId (uint32)
 //     castSoundId (uint32)
 //     impactSoundId (uint32)
-//     projectileSpeed (float)         — units/sec, 0=instant
-//     projectileGravity (float)       — 0=straight line
+//     projectileSpeed (float)         - units/sec, 0=instant
+//     projectileGravity (float)       - 0=straight line
 //     castDurationMs (uint32)
-//     impactRadius (float)            — splash AoE in units
+//     impactRadius (float)            - splash AoE in units
 struct WoweeSpellVisualKit {
     struct Entry {
         uint32_t visualKitId = 0;
@@ -87,13 +87,13 @@ public:
 
     // Preset emitters used by --gen-svk* variants.
     //
-    //   makeStarter — 3 visual kits (Frostbolt / Fireball /
+    //   makeStarter - 3 visual kits (Frostbolt / Fireball /
     //                  Healing) covering the canonical
     //                  projectile + heal triad.
-    //   makeCombat  — 5 combat visuals (sword swing impact,
+    //   makeCombat  - 5 combat visuals (sword swing impact,
     //                  arrow shot, ground pound, parry,
     //                  deflect) with WANI animation refs.
-    //   makeUtility — 4 utility visuals (portal/teleport,
+    //   makeUtility - 4 utility visuals (portal/teleport,
     //                  hearthstone return, mount summon,
     //                  resurrection) with no projectile.
     static WoweeSpellVisualKit makeStarter(const std::string& catalogName);

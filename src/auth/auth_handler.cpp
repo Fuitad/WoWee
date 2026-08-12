@@ -235,7 +235,7 @@ void AuthHandler::handleLogonChallengeResponse(network::Packet& packet) {
             fail(ss.str(), /*protocolRelated=*/true);
         } else {
             // Account-level rejections (unknown account, wrong password, banned,
-            // suspended, in use) are NOT protocol problems — never retry those.
+            // suspended, in use) are NOT protocol problems - never retry those.
             fail(std::string("LOGON_CHALLENGE failed: ") + getAuthResultString(response.result));
         }
         return;
@@ -400,7 +400,7 @@ void AuthHandler::handleLogonProofResponse(network::Packet& packet) {
     }
 
     if (!response.isSuccess()) {
-        // Credential/account rejection — a different protocol won't help, and
+        // Credential/account rejection - a different protocol won't help, and
         // retrying can trip the server's failed-login lockout.
         std::string reason = "Login failed: ";
         if (response.status == static_cast<uint8_t>(AuthResult::ACCOUNT_INVALID) &&
@@ -414,7 +414,7 @@ void AuthHandler::handleLogonProofResponse(network::Packet& packet) {
     }
 
     // Verify server proof. A mismatch here means our SRP inputs differ from the
-    // server's — a wrong password is rejected above, so this points at the
+    // server's - a wrong password is rejected above, so this points at the
     // handshake shape (i.e. protocol) instead.
     if (!srp->verifyServerProof(response.M2)) {
         fail("Server identity verification failed - the server may be running an incompatible version",
@@ -426,7 +426,7 @@ void AuthHandler::handleLogonProofResponse(network::Packet& packet) {
     sessionKey = srp->getSessionKey();
     setState(AuthState::AUTHENTICATED);
 
-    // Plaintext password is no longer needed — zero-fill and release it so it
+    // Plaintext password is no longer needed - zero-fill and release it so it
     // doesn't sit in process memory for the rest of the session.
     if (!password.empty()) {
         volatile char* p = const_cast<volatile char*>(password.data());

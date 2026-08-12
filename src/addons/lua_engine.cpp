@@ -48,7 +48,7 @@ std::set<std::string>& missingApiNames() {
 /// Log at warning from Lua.
 ///
 /// print() goes to chat and to the log at info, and the log carries nothing
-/// below warning — so anything printed for diagnosis is invisible in the one
+/// below warning - so anything printed for diagnosis is invisible in the one
 /// place it would be read. This is for the interface probe, which had been
 /// producing no output at all for that reason.
 static int lua_wowee_warn(lua_State* L) {
@@ -87,7 +87,7 @@ static int lua_wow_print(lua_State* L) {
     return 0;
 }
 
-// WoW-compatible message() — same as print for now
+// WoW-compatible message() - same as print for now
 static int lua_wow_message(lua_State* L) {
     return lua_wow_print(L);
 }
@@ -100,12 +100,12 @@ static int lua_wow_message(lua_State* L) {
 /// IsEventRegistered(event) → whether this frame asked for it.
 ///
 /// Answered from the frame's own __events table, which RegisterEvent writes
-/// and UnregisterEvent clears — the same table the dispatch reads, so the
+/// and UnregisterEvent clears - the same table the dispatch reads, so the
 /// answer cannot drift from the behaviour.
 ///
 /// One caller in the interface: bnet.lua asks before it adds a conversation
 /// to a chat window. Addons use it more, and a no-op answering nothing is the
-/// wrong shape for a question — it reads as "no" for a frame that is
+/// wrong shape for a question - it reads as "no" for a frame that is
 /// registered, and re-registering is not always harmless.
 static int lua_Frame_IsEventRegistered(lua_State* L) {
     luaL_checktype(L, 1, LUA_TTABLE);
@@ -156,7 +156,7 @@ static int lua_Frame_RegisterEvent(lua_State* L) {
     // The frame's own __events table is keyed by name and so is already
     // idempotent; this list is not. Registering the same event twice put the
     // frame in it twice and its OnEvent then ran twice for every one of those
-    // events — and UnregisterEvent removes the first match and stops, so one
+    // events - and UnregisterEvent removes the first match and stops, so one
     // unregister could not undo a double register. Nothing about the pair is
     // symmetric unless the insert refuses duplicates.
     const int len = static_cast<int>(lua_objlen(L, -1));
@@ -175,7 +175,7 @@ static int lua_Frame_RegisterEvent(lua_State* L) {
 }
 
 // Frame method: frame:UnregisterEvent("EVENT")
-/// UnregisterAllEvents() — stop listening to everything at once.
+/// UnregisterAllEvents() - stop listening to everything at once.
 ///
 /// A no-op before this, which is the dangerous half of the pair: the frame
 /// believes it has stopped and goes on being handed every event it ever asked
@@ -226,7 +226,7 @@ static int lua_Frame_UnregisterEvent(lua_State* L) {
 
     // And from the global list dispatch actually reads. Clearing only the
     // frame's own table left the registration in __WoweeFrameEvents, so a
-    // frame went on being handed events it had asked to stop receiving —
+    // frame went on being handed events it had asked to stop receiving -
     // which is not a missed refresh but an error, because the handler runs in
     // a state its own OnHide has already torn down. The paperdoll's equipment
     // flyout unregisters and nils self.button together, then indexed that nil
@@ -276,8 +276,8 @@ static int lua_Frame_SetScript(lua_State* L) {
 
     // Track frames with OnUpdate in __WoweeOnUpdateFrames
     //
-    // Once each. Clearing an OnUpdate leaves the frame on this list — the
-    // dispatcher skips it because the script is gone — so setting one again
+    // Once each. Clearing an OnUpdate leaves the frame on this list - the
+    // dispatcher skips it because the script is gone - so setting one again
     // appended a second entry, and the frame was then ticked twice a frame
     // with the same elapsed. Start-and-stop is the ordinary shape for this
     // handler (UIFrameFade installs one for the fade and clears it at the
@@ -355,7 +355,7 @@ wowee::ui::Widget* widgetOf(lua_State* L, int index) {
 /// once-a-frame pass had last written, so a frame anchored inside a handler
 /// measured as if it had never been placed and every measurement taken during
 /// that handler was of the frame's own size sitting at the origin. The real
-/// client resolves when asked, and the interface is written expecting that —
+/// client resolves when asked, and the interface is written expecting that -
 /// it anchors a row and immediately reads the edge it landed on.
 ///
 /// Costs nothing when nothing has moved, which is nearly every call: the pass
@@ -370,14 +370,14 @@ wowee::ui::Widget* measuredWidgetOf(lua_State* L, int index) {
 
 /// A name a script handed to an anchoring call, resolved to a widget.
 ///
-/// $parent is not only markup. FrameXML writes it in runtime strings too —
+/// $parent is not only markup. FrameXML writes it in runtime strings too -
 /// OptionsListButton_OnLoad anchors its own label with
 ///
 ///     self.text:SetPoint("RIGHT", "$parentToggle", "LEFT", -2, 0)
 ///
 /// and the token means there what it means in the XML: the parent of the
 /// region the call is on. Looked up literally it is nothing, and SetPoint's
-/// fallback then anchors to the parent itself — so that label's RIGHT edge
+/// fallback then anchors to the parent itself - so that label's RIGHT edge
 /// landed on the button's LEFT edge, two units inside its own LEFT, and the
 /// region came out at negative width. That is every row of the Video, Sound
 /// and Interface category lists: registered, selectable, and drawn as an empty
@@ -410,7 +410,7 @@ LuaEngine* engineFrom(lua_State* L);
 
 /// Report a script that raised, from the free functions that call one.
 ///
-/// Four of these swallowed the error outright — OnEnable, OnDisable,
+/// Four of these swallowed the error outright - OnEnable, OnDisable,
 /// OnValueChanged and OnColorSelect each ended `!= 0) lua_pop(L, 1)`, so a
 /// raise in a slider's handler or a button's enable left no log line, no entry
 /// in the error report and no sign on screen. An error nothing records is the
@@ -428,11 +428,11 @@ void recordScriptError(lua_State* L, const char* script) {
 ///
 /// Show and Hide write both, but they are not the only way a frame's
 /// visibility changes, so the two drift. The bag buttons ask this to decide
-/// whether to draw themselves pressed — which is why one stayed lit over a bag
+/// whether to draw themselves pressed - which is why one stayed lit over a bag
 /// that had been closed. Defined here rather than with the other frame methods
 /// because it needs widgetOf, which is declared just above.
 
-// SetPoint(point [, relativeTo] [, relativePoint] [, x, y]) — every argument
+// SetPoint(point [, relativeTo] [, relativePoint] [, x, y]) - every argument
 // after the first is optional and the shapes overlap, so decide by type rather
 // than by count.
 int lua_Region_SetPoint(lua_State* L) {
@@ -452,7 +452,7 @@ int lua_Region_SetPoint(lua_State* L) {
         a.relativeTo = widgetIdByAnchorName(L, 1, lua_tostring(L, argi));
         ++argi;
     } else if (lua_isnil(L, argi)) {
-        // Explicitly nil, which means the parent — and which still occupies its
+        // Explicitly nil, which means the parent - and which still occupies its
         // place in the argument list. Skipping over it read the relative point
         // as the relative frame and everything after it moved up one, so
         // SetPoint(point, nil, "BOTTOM") silently became point-to-point on the
@@ -494,7 +494,7 @@ int lua_Region_SetAllPoints(lua_State* L) {
         target = widgetIdByAnchorName(L, 1, lua_tostring(L, 2));
     }
     // A frame cannot fill itself. FrameXML's own UIParent is declared
-    // setAllPoints and its parent is named UIParent — but CreateFrame publishes
+    // setAllPoints and its parent is named UIParent - but CreateFrame publishes
     // the new frame under that name first, so by the time this runs the name
     // means the frame itself. Two identical constraints collapse to no size at
     // the origin, and everything anchored to it lands there too.
@@ -544,7 +544,7 @@ int lua_Frame_IsMovable(lua_State* L) {
     lua_pushboolean(L, w && w->movable);
     return 1;
 }
-/// RegisterForDrag("LeftButton", ...) — naming none of them turns dragging off,
+/// RegisterForDrag("LeftButton", ...) - naming none of them turns dragging off,
 /// which is how a frame stops being draggable again.
 int lua_Frame_RegisterForDrag(lua_State* L) {
     auto* w = widgetOf(L, 1);
@@ -581,7 +581,7 @@ int lua_Frame_StopMovingOrSizing(lua_State* L) {
     return 0;
 }
 
-/// StartSizing(point) — take hold of a frame by one of its corners.
+/// StartSizing(point) - take hold of a frame by one of its corners.
 ///
 /// The size grabber on the chat window does this on mouse down, and it was a
 /// no-op: the grabber lit up, the cursor changed to the resize arrows, and
@@ -643,14 +643,14 @@ int lua_Frame_SetMaxResize(lua_State* L) {
 /// same name everything else knows it by.
 ///
 /// Regions never had this: GetName fell to the no-op fallback and answered nil,
-/// and FrameXML passes the answer straight into SetPoint —
+/// and FrameXML passes the answer straight into SetPoint -
 /// bgTextureBottom:SetPoint("TOP", bgTextureMiddle:GetName(), "BOTTOM") anchored
 /// a bag's bottom edge to nothing, which put it across the top of the bag.
 int lua_FontString_SetText(lua_State* L);
 
 /// SetFormattedText(fmt, ...) on a region.
 ///
-/// It was defined on the frame metatable only, and a label is not a frame — so
+/// It was defined on the frame metatable only, and a label is not a frame - so
 /// every FontString in FrameXML still answered with the no-op and kept whatever
 /// placeholder its XML carried. The character sheet went on reading "Level level
 /// race class" for exactly that reason.
@@ -701,13 +701,13 @@ int lua_Region_SetHeight(lua_State* L) {
 /// gets the size the label actually takes. During the FrameXML load there may
 /// not be a frame in flight to ask, and an estimate is far better than nothing:
 /// the alternative was answering nil, and MoneyFrame does
-/// SetWidth(GetTextWidth() + iconWidth) — arithmetic that loses the file.
+/// SetWidth(GetTextWidth() + iconWidth) - arithmetic that loses the file.
 float measureTextWidth(const std::string& text, const std::string& fontFace,
                        float fontHeight) {
     // Through the same function the renderer draws with, so a widget sized to
     // its own text gets the width its own text will occupy. Measuring in this
     // client's face at a flat twelve while drawing in the interface's at its
-    // real height made every self-sized label narrower than what went in it —
+    // real height made every self-sized label narrower than what went in it -
     // MoneyFrame sizes all three coin buttons that way, and the gold, silver
     // and copper ran into one another.
     return wowee::ui::interfaceTextWidth(text, fontFace, fontHeight);
@@ -733,7 +733,7 @@ int lua_Region_GetTextWidth(lua_State* L) {
     return 1;
 }
 
-// GameTooltip:SetMinimumWidth(width) / :GetMinimumWidth() — a floor on how
+// GameTooltip:SetMinimumWidth(width) / :GetMinimumWidth() - a floor on how
 // narrow the tooltip may size itself.
 //
 // The pair has to be real together. SetTooltipMoney reads the getter first:
@@ -741,7 +741,7 @@ int lua_Region_GetTextWidth(lua_State* L) {
 //     if ( frame:GetMinimumWidth() < moneyFrameWidth ) then
 //
 // and the no-op answered nil, so every caller of SetTooltipMoney raised on
-// that line — the taxi node's flight cost, the mail money and COD lines, the
+// that line - the taxi node's flight cost, the mail money and COD lines, the
 // repair-all cost, a dungeon's reward money. The tooltip drew whatever it had
 // managed before the raise and the money was never added.
 //
@@ -765,8 +765,8 @@ int lua_Frame_GetMinimumWidth(lua_State* L) {
 //
 // One caller in all of FrameXML, and it is not asking out of curiosity:
 // GuildEventLog_Update reads it into `max` and then compares a running byte
-// count against it. Answering nil — which is what the no-op did, because
-// nothing here defined the name — raises "attempt to compare number with nil"
+// count against it. Answering nil - which is what the no-op did, because
+// nothing here defined the name - raises "attempt to compare number with nil"
 // on the first event with a message, and the SetText at the end of the
 // function never runs. The guild event log was blank whenever there was
 // anything to put in it, and empty when there was not, so it looked consistent.
@@ -784,12 +784,12 @@ int lua_Region_GetTextHeight(lua_State* L) {
     const auto* w = textWidgetOf(L, 1);
     if (!w) { lua_pushnumber(L, 0.0); return 1; }
     // Every line of it. This answered one line's height however many the label
-    // drew, and FrameXML sizes panels from it — a quest description or an
+    // drew, and FrameXML sizes panels from it - a quest description or an
     // options paragraph asked how tall it was, was told twelve, and the frame
     // around it was built to fit one line of the several on screen.
     // The size it is actually drawn at, which is what interfaceFontSize
     // answers. Three places asked this question with three different
-    // fallbacks — twelve here, twelve below, fourteen in the edit box — and a
+    // fallbacks - twelve here, twelve below, fourteen in the edit box - and a
     // label with no declared height is drawn at none of them.
     const float line = wowee::ui::interfaceFontSize(w->fontHeight);
     const int lines = (w->wrappedLines > 0) ? w->wrappedLines : 1;
@@ -826,7 +826,7 @@ int lua_Region_GetHeight(lua_State* L) {
 // The four edges, in the same coordinates the tree lays out in: origin at the
 // bottom-left, y growing upward, interface units rather than pixels.
 //
-// These are read constantly and almost always into arithmetic — the chat frame
+// These are read constantly and almost always into arithmetic - the chat frame
 // works out where its dock sits, the container frames decide which side to
 // open a tooltip on. A no-op behind them is not a getter that answers badly,
 // it is nil in a subtraction, which takes the whole file down.
@@ -835,13 +835,13 @@ int lua_Region_GetLeft(lua_State* L) {
     lua_pushnumber(L, w ? w->left : 0.0);
     return 1;
 }
-/// GetCenter() — the middle of the frame, in the same screen units GetLeft and
+/// GetCenter() - the middle of the frame, in the same screen units GetLeft and
 /// GetBottom report.
 ///
 /// There was a version of this that read __xOfs and __yOfs, fields written only
 /// by a SetPoint that was defined beside it and registered nowhere. So it
 /// answered the frame's anchor offsets when it answered anything, and zero for
-/// every frame in the interface — which is what the minimap uses to turn a
+/// every frame in the interface - which is what the minimap uses to turn a
 /// click into a ping position, and what the world map uses to place its
 /// markers.
 int lua_Region_GetCenter(lua_State* L) {
@@ -869,7 +869,7 @@ int lua_Region_GetTop(lua_State* L) {
 }
 /// GetRect() → left, bottom, width, height. All four at once, which is what
 /// the newer code in FrameXML reaches for.
-/// IsMouseOver() — whether the cursor is inside this frame's rect.
+/// IsMouseOver() - whether the cursor is inside this frame's rect.
 ///
 /// Answered from the rect rather than from hover, because hover names the
 /// mouse-enabled frame under the cursor and the callers ask about frames that
@@ -896,7 +896,7 @@ int lua_Region_GetRect(lua_State* L) {
     lua_pushnumber(L, w->rectH);
     return 4;
 }
-/// Per-frame scale is not modelled — the tree scales the whole interface at
+/// Per-frame scale is not modelled - the tree scales the whole interface at
 /// once, which is what UIParent's scale means and where the number FrameXML
 /// wants comes from. One is therefore the true answer for every frame, and it
 /// is a number, which is the part that matters where it is divided by.
@@ -927,7 +927,7 @@ int lua_Frame_GetFrameLevel(lua_State* L) {
 /// GetPoint(n) → point, relativeTo, relativePoint, x, y.
 ///
 /// The stub this replaces answered "CENTER", nil, "CENTER", 0, 0 for every
-/// frame, which is not a getter answering roughly — FrameXML reads a point and
+/// frame, which is not a getter answering roughly - FrameXML reads a point and
 /// puts it back to move something (a dragged chat window, a frame the panel
 /// manager shifts aside), and a constant means every one of those teleports to
 /// the middle of its parent.
@@ -937,7 +937,7 @@ int lua_Frame_GetFrameLevel(lua_State* L) {
 int lua_Region_GetPoint(lua_State* L) {
     const auto* w = widgetOf(L, 1);
     if (!w || w->anchors.empty()) return 0;
-    // One-based, and no argument means the first — which is what FrameXML
+    // One-based, and no argument means the first - which is what FrameXML
     // relies on where a frame has only one.
     size_t index = static_cast<size_t>(luaL_optnumber(L, 2, 1));
     if (index < 1) index = 1;
@@ -970,7 +970,7 @@ int lua_Region_GetPoint(lua_State* L) {
 /// The types a widget answers to, most specific first.
 ///
 /// WoW's IsObjectType is true for the type itself and everything it derives
-/// from — a Button is a Frame is a Region — and FrameXML relies on that: it
+/// from - a Button is a Frame is a Region - and FrameXML relies on that: it
 /// asks whether something is a Region to decide it can be positioned at all.
 static bool objectTypeMatches(const std::string& actual, const std::string& asked) {
     if (actual == asked) return true;
@@ -1022,8 +1022,8 @@ static void callScriptOnTable(lua_State* L, int tableIdx, const char* script,
 /// Tells a tooltip that what it now holds is an item.
 ///
 /// GameTooltip's own OnTooltipSetItem is where the comparison tooltips come
-/// from — it tests IsModifiedClick("COMPAREITEMS") and calls
-/// GameTooltip_ShowCompareItem — and nothing here fired it, so holding shift
+/// from - it tests IsModifiedClick("COMPAREITEMS") and calls
+/// GameTooltip_ShowCompareItem - and nothing here fired it, so holding shift
 /// over a bag, a bank slot, a merchant row or a link did nothing at all. Every
 /// item setter goes through the builder this is called from, so it is fired
 /// once there rather than in each of the twenty-odd setters.
@@ -1062,7 +1062,7 @@ static float scrollRange(wowee::ui::WidgetTree& tree, uint32_t id, bool vertical
     if (!w || w->scrollChild == 0) return 0.0f;
     // Both rects resolved first, the same way the measuring getters do it.
     //
-    // Only matters for a scroll child whose height comes out of the solver —
+    // Only matters for a scroll child whose height comes out of the solver -
     // one anchored TOP and BOTTOM to something rather than given a height.
     // SetHeight writes the rect directly, so a stated size was always readable
     // here; a solved one was not, and answered zero.
@@ -1078,7 +1078,7 @@ static float scrollRange(wowee::ui::WidgetTree& tree, uint32_t id, bool vertical
     const auto* child = tree.get(childId);
     if (!w || !child) return 0.0f;
     // What the child actually holds, not what it declares. Nothing in FrameXML
-    // sizes the talent tree's scroll child — the client does — so the declared
+    // sizes the talent tree's scroll child - the client does - so the declared
     // 50 gave a range of zero on a tree eleven rows deep.
     float contentW = child->rectW, contentH = child->rectH;
     tree.scrollContentExtent(childId, contentW, contentH);
@@ -1150,8 +1150,8 @@ int lua_CheckButton_SetChecked(lua_State* L) {
         //
         // A number is read as a number, because WoW's widget API takes 0 and 1
         // here and seventy-seven places in this FrameXML write SetChecked(0).
-        // lua_toboolean answers true for 0 — only nil and false are false in
-        // Lua — so every one of those was setting the box rather than
+        // lua_toboolean answers true for 0 - only nil and false are false in
+        // Lua - so every one of those was setting the box rather than
         // clearing it, and nothing that reported its state by unchecking ever
         // turned off. BagSlotButton_UpdateChecked is one: it counts the open
         // container frames and passes 0 or 1 straight in, so every bag button
@@ -1163,7 +1163,7 @@ int lua_CheckButton_SetChecked(lua_State* L) {
     return 0;
 }
 /// GetChecked. 1 when ticked and nil when not, which is what 3.3.5 answers and
-/// what this FrameXML is written against — the same 0/1 convention SetChecked
+/// what this FrameXML is written against - the same 0/1 convention SetChecked
 /// takes, and forty SetChecked(0) calls in these files say which convention
 /// that is.
 ///
@@ -1171,7 +1171,7 @@ int lua_CheckButton_SetChecked(lua_State* L) {
 /// the hundred and seventy call sites and why this looked right. It differs at
 /// the ones that hand the answer to something else: SetCVar("questPOI",
 /// self:GetChecked()) stored "true" instead of "1", and QueryAuctionItems took
-/// it as its isUsable and raised — false is not nil, so the unticked box
+/// it as its isUsable and raised - false is not nil, so the unticked box
 /// raised too, and the auction browse never sent a search either way.
 int lua_CheckButton_GetChecked(lua_State* L) {
     const auto* w = widgetOf(L, 1);
@@ -1243,7 +1243,7 @@ int lua_MessageFrame_AddMessage(lua_State* L) {
     if (!w) return 0;
     wowee::ui::Widget::Message m;
     // The same escape a label gets. Chat and the error frame carry counted
-    // strings too — "you may not do that for another %d |4second:seconds;" —
+    // strings too - "you may not do that for another %d |4second:seconds;" -
     // and a message frame never passes through SetText, so resolving it there
     // alone would have left every one of these lines showing the escape.
     m.text = wowee::ui::resolvePluralEscapes(luaL_optstring(L, 2, ""));
@@ -1285,7 +1285,7 @@ int lua_MessageFrame_AddMessage(lua_State* L) {
 ///
 /// What FCF_OpenTemporaryWindow reads when it moves a conversation into its
 /// own window. It walks GetNumMessages and copies each line across, and this
-/// answered nothing — so `ChatTypeInfo[cType]` was indexed with a nil key,
+/// answered nothing - so `ChatTypeInfo[cType]` was indexed with a nil key,
 /// came back nil, and the next line read a field off it. Opening a whisper in
 /// its own window raised on the first message it tried to carry.
 int lua_MessageFrame_GetMessageInfo(lua_State* L) {
@@ -1293,7 +1293,7 @@ int lua_MessageFrame_GetMessageInfo(lua_State* L) {
     const int index = static_cast<int>(luaL_optnumber(L, 2, 0));
     if (!w || index < 1) return 0;
     // Indexed within the conversation when one is named, to match the count
-    // GetNumMessages gave for it — the caller walks one and reads the other,
+    // GetNumMessages gave for it - the caller walks one and reads the other,
     // so they have to be counting the same lines.
     const wowee::ui::Widget::Message* found = nullptr;
     if (lua_isnumber(L, 3)) {
@@ -1317,7 +1317,7 @@ int lua_MessageFrame_GetMessageInfo(lua_State* L) {
     return 4;
 }
 
-/// RemoveMessagesByAccessID(accessID) — the other half of that move.
+/// RemoveMessagesByAccessID(accessID) - the other half of that move.
 ///
 /// The lines are copied to the new window and then taken out of the old one.
 /// Without this they stayed in both, so a conversation pulled out of the main
@@ -1333,7 +1333,7 @@ int lua_MessageFrame_RemoveMessagesByAccessID(lua_State* L) {
     return 0;
 }
 
-/// SetTimeVisible(seconds) — how long a line stays before it fades.
+/// SetTimeVisible(seconds) - how long a line stays before it fades.
 ///
 /// Zero, the default, means for good, which is what a chat frame wants.
 /// UIErrorsFrame declares five and it was dropped, so every refusal the server
@@ -1354,7 +1354,7 @@ int lua_FontString_SetNonSpaceWrap(lua_State* L) {
     return 0;
 }
 
-/// __WoweeReportFrame(name) — say what a frame is doing, into the client log.
+/// __WoweeReportFrame(name) - say what a frame is doing, into the client log.
 ///
 /// Not a WoW call. It exists because "the window did not open" is one symptom
 /// with three causes that look identical from outside: the frame was never
@@ -1420,14 +1420,14 @@ int lua_Tooltip_AddLine(lua_State* L) {
     line.left = luaL_optstring(L, 2, "");
     // A colour that is not a number means "the default one", not an error.
     //
-    // mailframe.lua does `AddLine(ENCLOSED_MONEY, "", 1, 1, 1)` — an empty
+    // mailframe.lua does `AddLine(ENCLOSED_MONEY, "", 1, 1, 1)` - an empty
     // string where the red goes. optnumber accepts a string it can convert and
     // "" is not one, so it raised: the mail item's tooltip died on every hover,
     // and after five the OnUpdate driving it was unhooked for the rest of the
     // session. Nothing said so on screen; a raise inside a handler is
     // swallowed.
     //
-    // White rather than black, because that is what the line is meant to be —
+    // White rather than black, because that is what the line is meant to be -
     // SetMoneyFrameColor is called with "white" two lines further down.
     auto colour = [L](int arg) {
         return lua_isnumber(L, arg) ? static_cast<float>(lua_tonumber(L, arg))
@@ -1445,7 +1445,7 @@ int lua_Tooltip_AddLine(lua_State* L) {
     w->tooltipLines.push_back(std::move(line));
     return 0;
 }
-/// GameTooltip:SetFrameStack(showHidden) — what is under the cursor.
+/// GameTooltip:SetFrameStack(showHidden) - what is under the cursor.
 ///
 /// This is /framestack, and it is the answer to every "what is drawing that?"
 /// that otherwise costs a screenshot, a guess, and a round trip. It was the
@@ -1462,11 +1462,11 @@ int lua_Tooltip_AddLine(lua_State* L) {
 ///     wrong size says so without anything else being opened.
 ///
 /// Ordered outermost first, so the last line is what the cursor is really on.
-/// GameTooltip:AppendText(text) — add to the end of the tooltip's first line.
+/// GameTooltip:AppendText(text) - add to the end of the tooltip's first line.
 ///
 /// The title line, not the last one added: the real client appends to the line
 /// the tooltip was named with, which is what its one caller in the interface
-/// wants — the bag buttons put the key that opens each bag in brackets after
+/// wants - the bag buttons put the key that opens each bag in brackets after
 /// the bag's own name.
 ///
 /// A no-op answered it, so the tooltip was correct and the key was missing,
@@ -1575,7 +1575,7 @@ int lua_Tooltip_AddDoubleLine(lua_State* L) {
     w->tooltipLines.push_back(std::move(line));
     return 0;
 }
-/// SetOwner(frame, anchor) — where the tooltip goes, relative to what it is
+/// SetOwner(frame, anchor) - where the tooltip goes, relative to what it is
 /// describing. Every tooltip in the interface calls this before filling
 /// itself, and it did nothing, so a tooltip with lines in it would still have
 /// appeared wherever its XML left it rather than beside the button.
@@ -1592,7 +1592,7 @@ int lua_Tooltip_SetOwner(lua_State* L) {
     // Cleared here, because SetOwner is what precedes a fresh set of lines.
     w->tooltipLines.clear();
 
-    // Remembered, because IsOwned reads it and nothing wrote it — so every
+    // Remembered, because IsOwned reads it and nothing wrote it - so every
     // check answered false and a tooltip outlived the frame it belonged to.
     // FrameXML hides a tooltip on OnLeave only when it owns it, which is what
     // stops one panel's tooltip being cleared by another's cursor.
@@ -1605,7 +1605,7 @@ int lua_Tooltip_SetOwner(lua_State* L) {
     if (anchor == "ANCHOR_PRESERVE") return 0;
     if (owner == 0 || anchor == "ANCHOR_NONE") {
         // ANCHOR_NONE means the caller places the tooltip itself, and the call
-        // that follows is a SetPoint — which is how GameTooltip_SetDefaultAnchor
+        // that follows is a SetPoint - which is how GameTooltip_SetDefaultAnchor
         // pins an action button's tooltip to the bottom-right of the screen.
         // Returning without clearing left the anchor from the previous owner in
         // place, and SetPoint only replaces an anchor on the same point: a LEFT
@@ -1625,7 +1625,7 @@ int lua_Tooltip_SetOwner(lua_State* L) {
         {"ANCHOR_RIGHT",       "LEFT",        "RIGHT"},
         {"ANCHOR_TOP",         "BOTTOM",      "TOP"},
         {"ANCHOR_BOTTOM",      "TOP",         "BOTTOM"},
-        // The cursor is not a frame, so this lands beside the owner instead —
+        // The cursor is not a frame, so this lands beside the owner instead -
         // which is where the cursor is, near enough, and better than nowhere.
         {"ANCHOR_CURSOR",      "TOPLEFT",     "BOTTOMRIGHT"},
     };
@@ -1645,7 +1645,7 @@ int lua_Tooltip_SetOwner(lua_State* L) {
 }
 
 /// The one-line form. GameTooltip:SetText replaces what the tooltip says
-/// rather than setting a font string, and returns whether it did — so the
+/// rather than setting a font string, and returns whether it did - so the
 /// shared SetText can hand off and stop.
 int lua_Tooltip_SetText(lua_State* L) {
     auto* w = widgetOf(L, 1);
@@ -1658,7 +1658,7 @@ int lua_Tooltip_SetText(lua_State* L) {
     line.lc[2] = static_cast<float>(luaL_optnumber(L, 5, 1.0));
     line.lc[3] = 1.0f;
     line.rc[0] = line.rc[1] = line.rc[2] = line.rc[3] = 1.0f;
-    // SetText(text, r, g, b, a, textWrap) — the seventh here, since alpha sits
+    // SetText(text, r, g, b, a, textWrap) - the seventh here, since alpha sits
     // between the colour and the flag.
     line.wrap = lua_toboolean(L, 7) != 0;
     w->tooltipLines.push_back(std::move(line));
@@ -1668,8 +1668,8 @@ int lua_Tooltip_SetText(lua_State* L) {
 }
 
 /// Fills a tooltip from an action bar slot: the spell's or item's name and
-/// what it does. ActionButton_SetTooltip asks for this and checks the answer —
-/// `if (GameTooltip:SetAction(self.action))` — so returning nothing meant
+/// what it does. ActionButton_SetTooltip asks for this and checks the answer -
+/// `if (GameTooltip:SetAction(self.action))` - so returning nothing meant
 /// every action button fell to its "no tooltip" branch.
 static bool fillItemTooltipById(wowee::ui::Widget* w, game::GameHandler* gh,
                                 uint32_t itemId);
@@ -1679,7 +1679,7 @@ static bool fillItemTooltipById(lua_State* L, game::GameHandler* gh,
 /// One spell tooltip, for every path that shows one.
 ///
 /// The action bar and the spellbook each built their own and both stopped at
-/// the name and the description — so a spell never said what it costs, how far
+/// the name and the description - so a spell never said what it costs, how far
 /// it reaches or how long it takes to cast, all of which the client already
 /// resolves for its own use. Two copies also meant either could be improved
 /// alone and quietly drift from the other, which is exactly what happened to
@@ -1695,7 +1695,7 @@ static bool fillItemTooltipById(lua_State* L, game::GameHandler* gh,
 /// entry now carries the quest giver's own text and the objective list, both
 /// read from the query response.
 ///
-/// Only for a quest in the player's own log, which is the honest limit — a
+/// Only for a quest in the player's own log, which is the honest limit - a
 /// link to a quest they have never taken names an id nothing here has text
 /// for, and answering false there is still the right answer. The caller reads
 /// it: `if ( GameTooltip:SetHyperlink(link) )` decides whether to show the
@@ -1730,7 +1730,7 @@ static bool fillQuestTooltip(wowee::ui::Widget* w, game::GameHandler* gh,
         line("Level " + std::to_string(q->level), 1.0f, 1.0f, 1.0f);
     }
     if (!q->description.empty()) line(q->description, 1.0f, 1.0f, 1.0f);
-    // What is left to do, or what to do now it is done — the same two the log
+    // What is left to do, or what to do now it is done - the same two the log
     // shows, and the same order.
     if (q->complete && !q->completionText.empty()) {
         line(q->completionText, 1.0f, 1.0f, 1.0f);
@@ -1809,14 +1809,14 @@ int lua_Tooltip_SetAction(lua_State* L) {
         return 1;
     }
     // A macro is the third kind a slot can hold and it has no tooltip of its
-    // own — WoW shows the macro's name from the button rather than from here.
+    // own - WoW shows the macro's name from the button rather than from here.
     lua_pushboolean(L, 0);
     return 1;
 }
 
 /// The same for a spell asked for by id, which is how the spellbook and the
 /// stance bar fill theirs.
-/// SetHyperlink(link) — fill the tooltip from a link, as a chat link or an
+/// SetHyperlink(link) - fill the tooltip from a link, as a chat link or an
 /// item reference carries it.
 ///
 /// There was a Lua version of this on the frame metatable and it worked; what
@@ -1827,8 +1827,8 @@ int lua_Tooltip_SetAction(lua_State* L) {
 /// or `return self:SetHyperlink(link)`, and it returned nothing, so every one
 /// of them read nil. CompanionButton_OnEnter takes that as failure and clears
 /// its own UpdateTooltip, so a mount's tooltip was drawn once and then never
-/// refreshed; the eight bootstrap tooltip methods that route through a link —
-/// loot, loot roll, merchant, buyback, mail, quest reward, quest log, trade —
+/// refreshed; the eight bootstrap tooltip methods that route through a link -
+/// loot, loot roll, merchant, buyback, mail, quest reward, quest log, trade -
 /// each hand the same nil back to whatever asked them.
 ///
 /// Here rather than in Lua so that an item link fills from the same code every
@@ -1880,7 +1880,7 @@ int lua_Tooltip_SetSpellByID(lua_State* L) {
 
 /// A glyph in its socket, hovered on the glyph panel.
 ///
-/// SetGlyph(socketID, talentGroup) — the same one-based socket and spec
+/// SetGlyph(socketID, talentGroup) - the same one-based socket and spec
 /// GetGlyphSocketInfo takes. A glyph *is* a spell once its properties id is
 /// resolved, so this is the spell tooltip; the resolution is the one that
 /// binding now does, off GlyphProperties.dbc.
@@ -1907,7 +1907,7 @@ int lua_Tooltip_SetGlyph(lua_State* L) {
 ///
 /// The alert frame passes the same one-based index it gave
 /// GetLFGCompletionRewardItem to draw the icon, so the lookup is the one that
-/// binding already does — SMSG_LFG_PLAYER_REWARD carries the item ids and this
+/// binding already does - SMSG_LFG_PLAYER_REWARD carries the item ids and this
 /// client has been parsing them. Without it the icon had an empty box over it.
 int lua_Tooltip_SetLFGCompletionReward(lua_State* L) {
     auto* w = widgetOf(L, 1);
@@ -1928,7 +1928,7 @@ int lua_Tooltip_SetLFGCompletionReward(lua_State* L) {
 /// An equipment set, hovered on the character sheet's gear manager.
 ///
 /// The set name and what it holds. The item guids were parsed and exposed all
-/// along — GetEquipmentSetItemIDs reads the same two accessors — so the only
+/// along - GetEquipmentSetItemIDs reads the same two accessors - so the only
 /// thing missing was the tooltip that describes them, which the no-op fallback
 /// left as an empty box over every set button.
 ///
@@ -1981,7 +1981,7 @@ int lua_Tooltip_SetEquipmentSet(lua_State* L) {
 /// The spell a quest hands over, hovered in the quest log.
 ///
 /// It was on the no-op list, which was the right answer while
-/// GetQuestLogRewardSpell returned nil — questinfo.lua gates the whole reward
+/// GetQuestLogRewardSpell returned nil - questinfo.lua gates the whole reward
 /// row on that, so there was no icon to hover. With the row drawn the tooltip
 /// is the next thing anyone reaches for, and an empty box over a reward is the
 /// shape a no-op leaves behind.
@@ -2008,7 +2008,7 @@ int lua_Tooltip_SetQuestLogRewardSpell(lua_State* L) {
 ///
 /// The description shown is the rank the player actually has. An unlearned
 /// talent describes its first rank, which is what taking a point in it would
-/// buy — the useful thing to read when deciding.
+/// buy - the useful thing to read when deciding.
 int lua_Tooltip_SetTalent(lua_State* L) {
     auto* w = widgetOf(L, 1);
     auto* gh = wowee::addons::getGameHandler(L);
@@ -2065,12 +2065,12 @@ int lua_Tooltip_SetTalent(lua_State* L) {
     return 1;
 }
 
-/// SetTradeSkillItem(index) — what a recipe in the open profession makes.
+/// SetTradeSkillItem(index) - what a recipe in the open profession makes.
 ///
 /// This client knows a recipe by its crafting spell rather than by the item it
 /// produces, so what is shown is that spell: its name and its description,
 /// which is the line that says what gets made. Not the crafted item's own
-/// tooltip, which is what the real client shows — but the useful half of it,
+/// tooltip, which is what the real client shows - but the useful half of it,
 /// and it is what this client actually knows.
 int lua_Tooltip_SetTradeSkillItem(lua_State* L) {
     auto* w = widgetOf(L, 1);
@@ -2106,12 +2106,12 @@ int lua_Tooltip_SetTradeSkillItem(lua_State* L) {
 }
 
 /// A unit's name and level, which is what hovering a unit frame shows.
-/// IsUnit(token) — whether this tooltip is describing that unit.
+/// IsUnit(token) - whether this tooltip is describing that unit.
 ///
 /// One caller, and it is the reason OnTooltipSetUnit exists: gametooltip.xml
 /// opens that handler with `if ( self:IsUnit("mouseover") )` before colouring
 /// the name by reaction. Answered with a no-op, that test is false for every
-/// tooltip, so firing the handler — which nothing did until yesterday —
+/// tooltip, so firing the handler - which nothing did until yesterday -
 /// changed nothing on its own.
 ///
 /// Compared by guid rather than by token, which is the whole point of the
@@ -2136,8 +2136,8 @@ static int lua_Tooltip_IsUnit(lua_State* L) {
 
 int lua_Tooltip_SetUnit(lua_State* L) {
     auto* w = widgetOf(L, 1);
-    // A model frame has a SetUnit of its own — it is how the paperdoll loads
-    // the player — and that name collides with the tooltip's. Answering as the
+    // A model frame has a SetUnit of its own - it is how the paperdoll loads
+    // the player - and that name collides with the tooltip's. Answering as the
     // tooltip made CharacterModelFrame a tooltip carrying the player's name,
     // which then drew across the rotate arrows and sized the frame to fit one
     // line of text instead of the figure.
@@ -2176,8 +2176,8 @@ int lua_Tooltip_SetUnit(lua_State* L) {
     // the level line under both.
     //
     // This built the title and stopped, so every mouseover in the game showed
-    // a bare name. The client has all of it — its own nameplates draw the
-    // guild and the subtitle from these very accessors — so this is another
+    // a bare name. The client has all of it - its own nameplates draw the
+    // guild and the subtitle from these very accessors - so this is another
     // case of handing an element over leaving behind what the window it
     // replaced was already doing.
     const auto entity = gh->getEntityManager().getEntity(guid);
@@ -2230,7 +2230,7 @@ int lua_Tooltip_SetUnit(lua_State* L) {
     //                 GameTooltip_UnitColor("mouseover"));
     //
     // so the name at the top of a unit tooltip takes its colour from that
-    // unit's reaction — red for hostile, green for friendly — and without this
+    // unit's reaction - red for hostile, green for friendly - and without this
     // every one of them was drawn in the default colour instead.
     if (lua_istable(L, 1)) callScriptOnTable(L, 1, "OnTooltipSetUnit", 0.0);
     lua_pushboolean(L, 1);
@@ -2250,7 +2250,7 @@ static void fillItemTooltip(wowee::ui::Widget* w, const game::ItemDef& item,
     w->isTooltip = true;
     // A setter that finds something to say also shows the tooltip. That is
     // WoW's behaviour and FrameXML leans on it: ContainerFrameItemButton_OnEnter
-    // sets an owner, calls SetBagItem and stops — there is no Show anywhere in
+    // sets an owner, calls SetBagItem and stops - there is no Show anywhere in
     // it, so a tooltip that only filled itself in stayed hidden and hovering a
     // bag said nothing.
     w->shown = true;
@@ -2267,7 +2267,7 @@ static void fillItemTooltip(wowee::ui::Widget* w, const game::ItemDef& item,
         if (!suffix.empty()) title.left += " " + suffix;
     }
     // WoW's quality colours, which are most of what an item tooltip says at a
-    // glance — an epic reads as purple before anyone reads the words.
+    // glance - an epic reads as purple before anyone reads the words.
     // The client's own table rather than a fourth copy. This used to carry its
     // own, and the copies had already drifted: it painted an heirloom cyan
     // where ui_colors paints it the same gold as an artifact. Cyan is a later
@@ -2299,8 +2299,8 @@ static void fillItemTooltip(wowee::ui::Widget* w, const game::ItemDef& item,
 /// sword is better than the one they are holding.
 ///
 /// **This is the fallback, not the tooltip.** The bootstrap Lua's
-/// _WoweePopulateItemTooltip is the builder every item path now goes through —
-/// see fillItemTooltipById(lua_State*, ...) for why that direction — and this
+/// _WoweePopulateItemTooltip is the builder every item path now goes through -
+/// see fillItemTooltipById(lua_State*, ...) for why that direction - and this
 /// runs only when it answers false, which means the interface has no
 /// GetItemInfo for the entry yet. Anything added here is therefore seen rarely
 /// and briefly; the line to add is almost always the Lua one.
@@ -2380,7 +2380,7 @@ static void appendItemStats(wowee::ui::Widget* w, const game::ItemQueryResponseD
 ///
 /// Bags and the paperdoll hold a whole ItemDef; an auction row holds an entry
 /// number and nothing else. Rather than a second tooltip builder for that case,
-/// this fills in what the item cache knows and hands it to the one above — so
+/// this fills in what the item cache knows and hands it to the one above - so
 /// there is one quality colour table and one idea of what an item tooltip looks
 /// like. False when the cache has not heard of the item yet, which is the same
 /// answer an empty bag slot gives.
@@ -2398,13 +2398,13 @@ static bool fillItemTooltipById(wowee::ui::Widget* w, game::GameHandler* gh,
     return true;
 }
 
-/// The same, through the bootstrap's builder — which is the fuller of the two.
+/// The same, through the bootstrap's builder - which is the fuller of the two.
 ///
 /// There were two item tooltips. The bootstrap Lua defines
 /// _WoweePopulateItemTooltip and puts SetBagItem and SetAction on the frame
 /// metatable after the C bindings are registered onto it, so a bag item went
 /// through the Lua one while the guild bank, the currency tokens, the auction
-/// rows and the quest log's special item went through the C one — and the two
+/// rows and the quest log's special item went through the C one - and the two
 /// do not say the same things. The Lua builder adds the item level, the
 /// equip-slot and subclass line, the sell price, the heroic tag and the whole
 /// table of rating names; the C builder has none of those. So the same sword
@@ -2413,7 +2413,7 @@ static bool fillItemTooltipById(wowee::ui::Widget* w, game::GameHandler* gh,
 ///
 /// Consolidated towards the fuller one rather than away from it. Every C setter
 /// tries this first and keeps the C builder as its fallback, for an item the
-/// interface has no GetItemInfo for yet — the Lua builder answers false there,
+/// interface has no GetItemInfo for yet - the Lua builder answers false there,
 /// and false must not mean "no tooltip" when the client knows the name.
 ///
 /// isTooltip is set before the call because SetText refuses a frame that is not
@@ -2444,7 +2444,7 @@ static bool fillItemTooltipById(lua_State* L, game::GameHandler* gh,
     return fillItemTooltipById(w, gh, itemId);
 }
 
-/// SetAuctionItem(list, index) — the item on an auction row.
+/// SetAuctionItem(list, index) - the item on an auction row.
 ///
 /// The three lists are the browse results, the player's own auctions and the
 /// ones they have bid on, named as GetAuctionItemInfo names them.
@@ -2475,7 +2475,7 @@ int lua_Tooltip_SetAuctionItem(lua_State* L) {
 /// *temporary* enchantment slot rather than in any aura, so nothing that reads
 /// the player's buffs can see one. FrameXML's TemporaryEnchantFrame shows the
 /// weapon's own icon for it and asks GameTooltip:SetInventoryItem for the text
-/// — so without this the button came up describing the weapon's built-in
+/// - so without this the button came up describing the weapon's built-in
 /// chance-on-hit and said nothing about the stone that put it there, which is
 /// exactly how it was reported.
 ///
@@ -2496,7 +2496,7 @@ static void appendTemporaryEnchantLine(wowee::ui::Widget* w, game::GameHandler* 
     w->tooltipLines.push_back(std::move(line));
 }
 
-/// SetInventoryItem(unit, slot) — the gear on the paperdoll.
+/// SetInventoryItem(unit, slot) - the gear on the paperdoll.
 int lua_Tooltip_SetInventoryItem(lua_State* L) {
     auto* w = widgetOf(L, 1);
     auto* gh = wowee::addons::getGameHandler(L);
@@ -2504,7 +2504,7 @@ int lua_Tooltip_SetInventoryItem(lua_State* L) {
     if (!w || !gh || slot < 1 || slot > 19) { lua_pushboolean(L, 0); return 1; }
 
     // The unit argument was ignored, so every slot of the inspect paperdoll
-    // showed whatever the player themselves had in that slot — the wrong item
+    // showed whatever the player themselves had in that slot - the wrong item
     // rather than none, which is the harder kind to notice.
     std::string uid(luaL_optstring(L, 2, "player"));
     wowee::addons::toLowerInPlace(uid);
@@ -2537,8 +2537,8 @@ int lua_Tooltip_SetInventoryItem(lua_State* L) {
 /// Hovering a socket asks for one of these, and unbound they fell to the no-op
 /// path: the sockets drew, the gems drew, and hovering any of them produced
 /// nothing at all with nothing raised to say why. The panel's own hover handler
-/// picks between the first two — the gem waiting to go in, or the one already
-/// there — and shows both side by side when a click would replace one with the
+/// picks between the first two - the gem waiting to go in, or the one already
+/// there - and shows both side by side when a click would replace one with the
 /// other.
 int lua_Tooltip_SetSocketGem(lua_State* L) {
     auto* gh = wowee::addons::getGameHandler(L);
@@ -2549,7 +2549,7 @@ int lua_Tooltip_SetSocketGem(lua_State* L) {
     return 1;
 }
 
-/// SetExistingSocketGem(index, [comparison]) — the gem already in the socket.
+/// SetExistingSocketGem(index, [comparison]) - the gem already in the socket.
 ///
 /// The second argument means "this is the comparison window", which is how the
 /// panel shows what a click would throw away. It changes nothing about which
@@ -2565,7 +2565,7 @@ int lua_Tooltip_SetExistingSocketGem(lua_State* L) {
     return 1;
 }
 
-/// SetSocketedItem() — the item whose sockets are on screen, which the panel
+/// SetSocketedItem() - the item whose sockets are on screen, which the panel
 /// keeps below the sockets as its description pane.
 int lua_Tooltip_SetSocketedItem(lua_State* L) {
     auto* gh = wowee::addons::getGameHandler(L);
@@ -2574,7 +2574,7 @@ int lua_Tooltip_SetSocketedItem(lua_State* L) {
     return 1;
 }
 
-/// SetQuestLogSpecialItem(questLogIndex) — the usable item on the watch frame.
+/// SetQuestLogSpecialItem(questLogIndex) - the usable item on the watch frame.
 ///
 /// This sat in the method allowlist, which means it was answered with a no-op:
 /// the button existed, hovering it did nothing, and nothing raised to say so.
@@ -2588,8 +2588,8 @@ int lua_Tooltip_SetQuestLogSpecialItem(lua_State* L) {
     return 1;
 }
 
-/// SetCurrencyToken(index) — a row of the currency list.
-/// SetBackpackToken(index) — the same for one pinned under the bags.
+/// SetCurrencyToken(index) - a row of the currency list.
+/// SetBackpackToken(index) - the same for one pinned under the bags.
 ///
 /// Both were unbound, so hovering a currency called nil and took the token
 /// frame's OnEnter with it. A currency is an item held in the bags, so its
@@ -2606,7 +2606,7 @@ int lua_Tooltip_SetCurrencyToken(lua_State* L) {
     return 1;
 }
 
-/// SetBagItem(bag, slot) — the same for something in the bags.
+/// SetBagItem(bag, slot) - the same for something in the bags.
 int lua_Tooltip_SetBagItem(lua_State* L) {
     auto* w = widgetOf(L, 1);
     auto* gh = wowee::addons::getGameHandler(L);
@@ -2629,12 +2629,12 @@ int lua_Tooltip_SetBagItem(lua_State* L) {
     return 1;
 }
 
-/// SetGuildBankItem(tab, slot) — hovering a slot in the guild bank.
+/// SetGuildBankItem(tab, slot) - hovering a slot in the guild bank.
 ///
 /// It was in the no-op allowlist, so the call succeeded and wrote nothing: a
 /// guild bank where no item has a tooltip, which reads as the tooltip system
 /// being broken rather than as one method missing. The data was already there
-/// — GetGuildBankItemInfo answers from the same slots.
+/// - GetGuildBankItemInfo answers from the same slots.
 int lua_Tooltip_SetGuildBankItem(lua_State* L) {
     auto* w = widgetOf(L, 1);
     auto* gh = wowee::addons::getGameHandler(L);
@@ -2666,7 +2666,7 @@ int lua_Tooltip_ClearLines(lua_State* L) {
     if (auto* w = widgetOf(L, 1)) w->tooltipLines.clear();
     // GameTooltip declares OnTooltipCleared and nothing fired it. What it runs
     // is GameTooltip_ClearMoney, so a tooltip that had shown a price kept its
-    // money line when it was next filled with something that has none — the
+    // money line when it was next filled with something that has none - the
     // lines are cleared here and the money frames are not, because they are
     // frames rather than lines.
     callScriptOnTable(L, 1, "OnTooltipCleared", 0);
@@ -2682,12 +2682,12 @@ int lua_MessageFrame_Clear(lua_State* L) {
     if (auto* w = widgetOf(L, 1)) { w->messages.clear(); w->messageScroll = 0; }
     return 0;
 }
-/// GetNumMessages([accessID]) — how many lines, or how many belonging to one
+/// GetNumMessages([accessID]) - how many lines, or how many belonging to one
 /// conversation.
 ///
 /// The argument is not decoration. FCF_OpenTemporaryWindow walks this count
 /// and reads each line with GetMessageInfo, then looks the line's kind up in
-/// ChatTypeInfo — so counting *every* line here would walk it onto the ones
+/// ChatTypeInfo - so counting *every* line here would walk it onto the ones
 /// that have no conversation behind them, hand back no kind for them, and
 /// leave it indexing that table with nil. Every plain AddMessage in the
 /// interface writes such a line.
@@ -2736,7 +2736,7 @@ int lua_Region_GetNumPoints(lua_State* L) {
 }
 
 // Minimap zoom. Five levels, as in WoW, and the level is kept on the widget so
-// the buttons that step it can read back what they set — Minimap_Update
+// the buttons that step it can read back what they set - Minimap_Update
 // compares GetZoom() against GetZoomLevels() - 1 to decide whether to grey the
 // zoom-in button out, and nil there is arithmetic on nothing.
 int lua_Minimap_SetZoom(lua_State* L) {
@@ -2759,7 +2759,7 @@ int lua_Minimap_GetZoomLevels(lua_State* L) {
 /// Minimap_OnClick's whole body: a click inside the circle pings that spot for
 /// the party. The offsets arrive minimap-local, in interface units from the
 /// centre, and turning them into a world position needs the map's view radius
-/// and the camera bearing — neither of which Lua can reach. So the request is
+/// and the camera bearing - neither of which Lua can reach. So the request is
 /// parked on the widget and the frame loop, which has both, converts it.
 int lua_Minimap_PingLocation(lua_State* L) {
     if (auto* w = widgetOf(L, 1)) {
@@ -2773,7 +2773,7 @@ int lua_Minimap_PingLocation(lua_State* L) {
 /// Enable and Disable, with the handlers that go with them.
 ///
 /// A disabled button is greyed and takes no clicks, and FrameXML both sets
-/// this and listens for it — a scroll bar's arrows disable themselves at the
+/// this and listens for it - a scroll bar's arrows disable themselves at the
 /// end of their range. Fired only on a real change, since the interface
 /// disables what is already disabled on every update.
 int lua_Button_Enable(lua_State* L) {
@@ -2814,8 +2814,8 @@ int lua_Button_IsEnabled(lua_State* L) {
     const auto* w = widgetOf(L, 1);
     // A number, not a boolean, because that is what WoW answers and FrameXML
     // is written against it: twenty-two places test `IsEnabled() ~= 0` and six
-    // test it for truth. A boolean fails the twenty-two silently — `false ~= 0`
-    // compares two different types and is therefore *true* — so a disabled
+    // test it for truth. A boolean fails the twenty-two silently - `false ~= 0`
+    // compares two different types and is therefore *true* - so a disabled
     // button read as enabled everywhere it was asked properly. Pressing return
     // in the macro name box confirmed through a greyed-out OK button that way.
     //
@@ -2852,7 +2852,7 @@ int lua_Region_Show(lua_State* L) {
     if (auto* w = widgetOf(L, 1)) {
         // Counted, not just set. A hide and a show in the same breath leave the
         // flag where it started, and the pass that fires OnShow works by
-        // comparing against the last state it reported — so the rebuild the
+        // comparing against the last state it reported - so the rebuild the
         // interface asked for is invisible to it. See Widget::shownToggles.
         if (!w->shown && w->shownToggles < 200) ++w->shownToggles;
         w->shown = true;
@@ -2861,7 +2861,7 @@ int lua_Region_Show(lua_State* L) {
     // A frame shown to play a model animation has already finished it.
     //
     // The bag buttons each carry a <Model> that shows itself on ITEM_PUSH and
-    // hides itself again from OnAnimFinished — the item flying into the bag.
+    // hides itself again from OnAnimFinished - the item flying into the bag.
     // This client plays no model sequences: SetSequence is one of the handful
     // of widget methods that answer with a no-op, so there is no animation to
     // finish and nothing ever fired that script. The frame went up on the first
@@ -2887,7 +2887,7 @@ int lua_Region_IsShown(lua_State* L) {
     return 1;
 }
 
-/// IsVisible() — shown, and every ancestor shown too.
+/// IsVisible() - shown, and every ancestor shown too.
 ///
 /// It was an alias for IsShown, which answers only this frame's own flag, so a
 /// frame inside a closed panel reported itself visible. Fifty-six places in
@@ -2896,7 +2896,7 @@ int lua_Region_IsShown(lua_State* L) {
 /// SPELLS_CHANGED only when visible, and a dozen others skip work the same way.
 ///
 /// Walks the parents rather than reading the tree's own computed flag, which
-/// is only right after a layout pass — a frame shown and asked in the same
+/// is only right after a layout pass - a frame shown and asked in the same
 /// handler would otherwise answer no.
 int lua_Region_IsVisible(lua_State* L) {
     const auto* w = widgetOf(L, 1);
@@ -2971,7 +2971,7 @@ int lua_Texture_SetBlendMode(lua_State* L) {
     if (auto* w = widgetOf(L, 1)) {
         const char* mode = luaL_optstring(L, 2, "BLEND");
         // "ADD" and "ALPHAKEY" are the two that add rather than cover; the rest
-        // — BLEND, MOD, DISABLE — are close enough to ordinary blending that
+        // - BLEND, MOD, DISABLE - are close enough to ordinary blending that
         // telling them apart would not change a pixel here yet.
         w->blendAdd = (std::strcmp(mode, "ADD") == 0);
     }
@@ -2990,7 +2990,7 @@ int lua_Region_SetVertexColor(lua_State* L) {
         //     return info.r, info.g, info.b, group;
         //
         // where group is a *table*, and the chat settings panel spreads that
-        // straight into SetVertexColor — so the alpha is a table on every
+        // straight into SetVertexColor - so the alpha is a table on every
         // colour swatch it draws. luaL_optnumber falls back to its default for
         // nil and none only; anything else that will not convert raises, which
         // took the panel down as it opened.
@@ -3020,7 +3020,7 @@ int lua_Region_SetDrawLayer(lua_State* L) {
 /// for a chat window made click-through and back on when it is not.
 /// Whether OnEnter and OnLeave still run once this button is disabled. WoW
 /// suppresses them by default, which is why the XML has an attribute to ask
-/// for them back — MainMenuBarMicroButton and LootRollButtonTemplate among the
+/// for them back - MainMenuBarMicroButton and LootRollButtonTemplate among the
 /// five that do, both of them explaining in a tooltip why they are greyed.
 int lua_Frame_SetMotionScriptsWhileDisabled(lua_State* L) {
     if (auto* w = widgetOf(L, 1)) {
@@ -3076,7 +3076,7 @@ int lua_Frame_SetFrameLevel(lua_State* L) {
 int lua_FontString_SetText(lua_State* L) {
     // Anything but a string is taken as no text rather than as an error.
     //
-    // WoW raises here, and so would this — except that the missing-API
+    // WoW raises here, and so would this - except that the missing-API
     // fallback hands back a callable for a name nothing defines, so a label
     // fed a global that does not exist is given a function where WoW would
     // have given it a string. Raising kills the handler that was mid-update,
@@ -3118,13 +3118,13 @@ int lua_FontString_GetJustifyV(lua_State* L) {
 /// implemented all along, which is the asymmetry worth watching for.
 ///
 /// It is asked of two different things and has to answer both. A font string
-/// is a widget and keeps its colour there. A **font object** — GameFontNormal
-/// and its ninety siblings — is a plain Lua table with r, g, b and a fields,
+/// is a widget and keeps its colour there. A **font object** - GameFontNormal
+/// and its ninety siblings - is a plain Lua table with r, g, b and a fields,
 /// which is what applyFontObject reads when a font string inherits one.
 ///
 /// optionspaneltemplates is the caller: re-enabling a control does
 /// `SetTextColor(fontObject:GetTextColor())`, and nil for all four made that
-/// SetTextColor() with no arguments — which defaults to white rather than to
+/// SetTextColor() with no arguments - which defaults to white rather than to
 /// the colour the font object actually carries.
 int lua_FontString_GetTextColor(lua_State* L) {
     auto* tree = wowee::addons::getWidgetTree(L);
@@ -3156,8 +3156,8 @@ int lua_FontString_GetTextColor(lua_State* L) {
 int lua_FontString_SetTextColor(lua_State* L) {
     // On a button this colours the label it holds, which is where a button's
     // text actually lives; on a font string it colours itself. FrameXML calls
-    // it both ways at two hundred sites — greying an unavailable option,
-    // reddening a cost that cannot be paid — and on the frame metatable it was
+    // it both ways at two hundred sites - greying an unavailable option,
+    // reddening a cost that cannot be paid - and on the frame metatable it was
     // a no-op, so none of that showed.
     auto* tree = wowee::addons::getWidgetTree(L);
     wowee::ui::Widget* w = widgetOf(L, 1);
@@ -3226,7 +3226,7 @@ int lua_FontString_SetSpacing(lua_State* L) {
 /// a height and a colour. FrameXML reaches for these more than three thousand
 /// times, so a FontString that ignores them is the wrong size and colour nearly
 /// everywhere.
-/// Read a font object — a table, or the name of one — onto a widget.
+/// Read a font object - a table, or the name of one - onto a widget.
 ///
 /// Shared because a button says the same thing a different way: a font string
 /// has SetFontObject, a button has SetNormalFontObject and the font belongs to
@@ -3302,7 +3302,7 @@ int lua_FontString_SetShadowColor(lua_State* L) {
     return 0;
 }
 
-/// SetTextHeight(height) — the font's size, keeping its face and flags.
+/// SetTextHeight(height) - the font's size, keeping its face and flags.
 ///
 /// A different thing from GetTextHeight, which answers how tall the rendered
 /// string turned out; this one is a setter and the two are not a pair.
@@ -3332,7 +3332,7 @@ int lua_FontString_SetFontObject(lua_State* L) {
 ///     text:SetTextColor(fontObject:GetTextColor())
 ///
 /// which is how every options-panel control puts its label back to full colour
-/// when it is re-enabled — so enabling a checkbox raised instead.
+/// when it is re-enabled - so enabling a checkbox raised instead.
 ///
 /// Answers the shared global by name. A region whose font was set field by
 /// field rather than from an object has no object to name, and nil is the right
@@ -3349,11 +3349,11 @@ int lua_FontString_GetFontObject(lua_State* L) {
 ///
 /// Always ROMAN here: this client has no IME, so there is nothing else it could
 /// truthfully be. The answer still has to be a string, because its one caller
-/// concatenates it —
+/// concatenates it -
 ///
 ///     local variable = _G["INPUT_"..self:GetInputLanguage()]
 ///
-/// — and nil in a concatenation raises. Only reachable once
+/// - and nil in a concatenation raises. Only reachable once
 /// OnInputLanguageChanged is fired, which nothing does yet, so this is the
 /// shape being closed rather than a fault being seen.
 int lua_EditBox_GetInputLanguage(lua_State* L) {
@@ -3373,7 +3373,7 @@ int lua_Region_GetVertexColor(lua_State* L) {
     return 4;
 }
 
-/// Button:SetNormalFontObject(font) — the font its label is drawn in.
+/// Button:SetNormalFontObject(font) - the font its label is drawn in.
 ///
 /// FrameXML declares this as <NormalFont style="GameFontNormal"/> on 71 button
 /// templates and never sets the font on the label itself, so without this every
@@ -3399,7 +3399,7 @@ void installRegionMethods(lua_State* L, bool isTexture, bool isFontString) {
     };
     set("GetName", lua_Region_GetName);
     // The frame the region was created on. Without this the name falls through
-    // to the shared widget no-op — GetParent is in __WoweeWidgetMethods — so
+    // to the shared widget no-op - GetParent is in __WoweeWidgetMethods - so
     // every texture and font string in the interface answered nil for it, and
     // the region's own __parent, which CreateTexture writes, was never read.
     // A region's parent can be changed as well as read. Both halves of the
@@ -3525,7 +3525,7 @@ void installRegionMethods(lua_State* L, bool isTexture, bool isFontString) {
 
 // ── Backdrop and StatusBar ──────────────────────────────────────────────────
 
-/// __WoweeSetAnimOffset(frame, x, y) — where a Translation has moved it to.
+/// __WoweeSetAnimOffset(frame, x, y) - where a Translation has moved it to.
 ///
 /// Not a WoW function: it is how the animation system, which is written in Lua,
 /// reaches the one thing it cannot do from there. Displacing the anchors would
@@ -3608,8 +3608,8 @@ int lua_Frame_GetHitRectInsets(lua_State* L) {
 
 /// SetUserPlaced marks a frame as positioned by the player.
 ///
-/// The tree already tracks this — it is what stops the interface's own layout
-/// pass moving a window the player has dragged — but the two calls that read
+/// The tree already tracks this - it is what stops the interface's own layout
+/// pass moving a window the player has dragged - but the two calls that read
 /// and set it answered as no-ops, so a frame restored from saved variables was
 /// not treated as placed and could be shifted out from under its own position.
 int lua_Frame_SetUserPlaced(lua_State* L) {
@@ -3626,7 +3626,7 @@ int lua_Frame_IsUserPlaced(lua_State* L) {
 ///
 /// WoW animates between them; this draws the value directly, so the two are
 /// the same number. Answering honestly matters because the smoothing code
-/// compares them and loops while they differ — against a no-op returning
+/// compares them and loops while they differ - against a no-op returning
 /// nothing, that comparison never settles.
 int lua_StatusBar_GetCurrentValue(lua_State* L) {
     const auto* w = widgetOf(L, 1);
@@ -3640,7 +3640,7 @@ int lua_StatusBar_SetDisplayValue(lua_State* L) {
     return 0;
 }
 
-/// GetMouseFocus() — the frame the cursor is over, or nil.
+/// GetMouseFocus() - the frame the cursor is over, or nil.
 ///
 /// The tree already knows: it is what decides which frame receives OnEnter and
 /// which takes a click. FrameXML compares against it to decide whether a
@@ -3659,12 +3659,12 @@ int lua_GetMouseFocus(lua_State* L) {
     return 1;
 }
 
-/// frame:GetChildren() — every child frame, as a list of return values.
+/// frame:GetChildren() - every child frame, as a list of return values.
 ///
 /// The count is the payload here, not any one value: FrameXML spreads it
 /// straight into a vararg call, so answering nothing is not a wrong answer but
 /// an empty one. The call happens, the callee's `...` is empty, and its work
-/// silently does not occur — the same shape that once left every chat window
+/// silently does not occur - the same shape that once left every chat window
 /// registered for no message at all.
 ///
 /// `ApplyUnitButtonConfiguration(frame:GetChildren())` is the live case: it is
@@ -3686,7 +3686,7 @@ int lua_Frame_GetChildren(lua_State* L) {
     const int registry = lua_gettop(L);
 
     // Room for all of them before any are pushed. Lua guarantees only a small
-    // slack above the arguments, and UIParent has hundreds of children — the
+    // slack above the arguments, and UIParent has hundreds of children - the
     // first run of this corrupted the heap rather than raising, because
     // lua_pushinteger past the top writes outside the stack.
     if (!lua_checkstack(L, static_cast<int>(w->children.size()) + 2)) {
@@ -3761,12 +3761,12 @@ int lua_Frame_IsClampedToScreen(lua_State* L) {
     return 1;
 }
 
-/// SetClampRectInsets(left, right, top, bottom) — how far past each screen
+/// SetClampRectInsets(left, right, top, bottom) - how far past each screen
 /// edge a clamped frame is allowed to sit.
 ///
 /// It answered with a no-op, so every clamped frame was held fully on screen.
-/// The world map says what that costs in a comment beside its own call —
-/// SetClampRectInsets(0, 0, 0, -60), "don't overlap the xp/rep bars" — and the
+/// The world map says what that costs in a comment beside its own call -
+/// SetClampRectInsets(0, 0, 0, -60), "don't overlap the xp/rep bars" - and the
 /// chat frame, which is clamped and movable and asks to overhang on three
 /// sides, could be dragged to places the real client does not allow.
 int lua_Frame_SetClampRectInsets(lua_State* L) {
@@ -3864,21 +3864,21 @@ int lua_StatusBar_SetValue(lua_State* L) {
     const bool changed = (value != w->barValue);
     w->barValue = value;
 
-    // A value set from code fires OnValueChanged, as in WoW — for a status bar
+    // A value set from code fires OnValueChanged, as in WoW - for a status bar
     // as well as a slider. The note here used to say a status bar does not,
     // and that was wrong: StatusBar carries the script too, and FrameXML
     // leans on it.
     //
     // The experience bar is the case that showed it. mainmenubar.xml:160 puts
     // TextStatusBar_OnValueChanged in exactly this script, and that is what
-    // rewrites the percentage — so the number sat at whatever it was when the
+    // rewrites the percentage - so the number sat at whatever it was when the
     // bar was last touched, and only corrected itself when the cursor crossed
     // the bar and OnEnter refreshed the text by another route. Killing a mob
     // moved the fill and left the percentage stale.
     //
     // Called through the table so the handler runs with self, and only on a
     // real change, because several of these set the value they already have on
-    // every update — which also stops a handler that sets its own bar from
+    // every update - which also stops a handler that sets its own bar from
     // recurring.
     if (changed) {
         lua_getfield(L, 1, "__scripts");
@@ -3896,14 +3896,14 @@ int lua_StatusBar_SetValue(lua_State* L) {
     }
     return 0;
 }
-/// ColorSelect:SetColorRGB(r, g, b) — the colour the picker is showing.
+/// ColorSelect:SetColorRGB(r, g, b) - the colour the picker is showing.
 ///
 /// Fires OnColorSelect the way a slider fires OnValueChanged, because that
 /// script is the whole contract: colorpickerframe.xml puts the swatch update
 /// and the caller's own `func` inside it, so a colour set without firing is a
 /// colour nothing hears about.
 ///
-/// The pair was unanswered, and ten call sites read the getter — every
+/// The pair was unanswered, and ten call sites read the getter - every
 /// ChangeChatColor from the chat colour menu, the arena tabard's three
 /// swatches, the chat config panel. They were handing nil to functions that
 /// take r, g, b, so accepting a colour set the colour to nothing.
@@ -3919,7 +3919,7 @@ int lua_ColorSelect_SetColorRGB(lua_State* L) {
     w->pickerColor[1] = g;
     w->pickerColor[2] = b;
     // The wheel and the bar move in HSV, so a colour set from outside has to
-    // land there too — otherwise opening the picker on a colour puts both
+    // land there too - otherwise opening the picker on a colour puts both
     // thumbs wherever the last colour left them.
     const float hueBefore = w->pickerHSV[0];
     wowee::ui::rgbToHsv(w->pickerColor, w->pickerHSV);
@@ -3952,11 +3952,11 @@ int lua_ColorSelect_GetColorRGB(lua_State* L) {
     return 3;
 }
 
-/// SetCooldown(start, duration) — both on GetTime's clock. A zero duration is
+/// SetCooldown(start, duration) - both on GetTime's clock. A zero duration is
 /// how FrameXML clears one, and it must read as nothing running rather than as
 /// a sweep that never finishes.
 /// Remember an edit box whose text was set from code, so its OnTextChanged can
-/// be run after the script that set it — which is when WoW runs one.
+/// be run after the script that set it - which is when WoW runs one.
 ///
 /// Deferred rather than immediate, and the difference is not academic.
 /// MoneyInputFrame_SetCopper calls SetNumber and increments its expectChanges
@@ -3992,7 +3992,7 @@ int lua_EditBox_SetText(lua_State* L) {
     // OnTextSet is the counterpart to OnTextChanged for a text set from code,
     // and nothing fired it. The chat box declares it and runs
     // ChatEdit_ParseText, which is what reads a leading /w or /g and switches
-    // the box's channel — so a message put into the box by anything but typing
+    // the box's channel - so a message put into the box by anything but typing
     // went out on whatever channel was already selected.
     //
     // Guarded, because a handler is free to set the text again and this is
@@ -4006,9 +4006,9 @@ int lua_EditBox_SetText(lua_State* L) {
         inSetText = false;
     }
     queueTextChanged(L, 1);
-    // Not fired here, deferred — the reasoning, and what it cost while nothing
+    // Not fired here, deferred - the reasoning, and what it cost while nothing
     // fired at all:, and this is not because it
-    // should not be — WoW fires it for a text set from code as well as for
+    // should not be - WoW fires it for a text set from code as well as for
     // typing, and FrameXML is written expecting that. It is because firing it
     // *synchronously* is wrong, which was measured rather than reasoned:
     //
@@ -4016,7 +4016,7 @@ int lua_EditBox_SetText(lua_State* L) {
     // own edits are not mistaken for the player's. It calls SetNumber and then
     // increments expectChanges on the next line. A synchronous OnTextChanged
     // runs between those two, sees expectChanges at 0, sets it to nil, and the
-    // increment then does nil + 1 — moneyinputframe.lua:48, every time money
+    // increment then does nil + 1 - moneyinputframe.lua:48, every time money
     // is put into a trade or a mail.
     //
     // So WoW's is deferred: queued during the call and run after the script
@@ -4026,7 +4026,7 @@ int lua_EditBox_SetText(lua_State* L) {
     // What it costs today, measured: SetCopper(frame, 12345) changes all three
     // boxes and leaves expectChanges at 3, and nothing ever decrements it. The
     // next two edits the player makes to that money frame take the swallow
-    // branch — onValueChangedFunc does not run, so the amount is set and the
+    // branch - onValueChangedFunc does not run, so the amount is set and the
     // total beside it does not move until the third keystroke. Reachable from
     // the send-mail money box, the trade money box, and the money popups.
     return 0;
@@ -4036,7 +4036,7 @@ int lua_EditBox_GetText(lua_State* L) {
     lua_pushstring(L, w ? w->editText.c_str() : "");
     return 1;
 }
-/// SetNumber(n) — the counterpart to GetNumber, which reads the same field.
+/// SetNumber(n) - the counterpart to GetNumber, which reads the same field.
 ///
 /// Absent, so it fell to the no-op catch-all and the box kept whatever it had.
 /// MoneyInputFrame_SetCopper is built on this: it compares GetNumber against
@@ -4065,15 +4065,15 @@ int lua_EditBox_SetNumber(lua_State* L) {
     // needs it most.
     return 0;
 }
-/// AddHistoryLine(text) — remember a line that was sent from this box.
+/// AddHistoryLine(text) - remember a line that was sent from this box.
 ///
 /// FrameXML calls this from every place a chat line is submitted and then
 /// leaves the walking of it to the client, which is why nothing happened:
 /// the method fell to the no-op catch-all, so the history was always empty
 /// and the up arrow had nothing to recall.
 ///
-/// A repeat of the line already at the top is not stored again — sending the
-/// same thing twice should not need two presses to step past — and the list is
+/// A repeat of the line already at the top is not stored again - sending the
+/// same thing twice should not need two presses to step past - and the list is
 /// capped the way WoW's is, oldest dropped first.
 int lua_EditBox_SetHistoryLines(lua_State* L) {
     auto* w = widgetOf(L, 1);
@@ -4084,10 +4084,10 @@ int lua_EditBox_SetHistoryLines(lua_State* L) {
     }
     return 0;
 }
-/// ClearHistory() — forget what has been typed into this box.
+/// ClearHistory() - forget what has been typed into this box.
 ///
 /// The chat window does it twice: when a window is closed and reused, and when
-/// a temporary one is opened for a whisper. Both are the same intent — the box
+/// a temporary one is opened for a whisper. Both are the same intent - the box
 /// is being handed to a different conversation, and stepping up through the
 /// arrow keys should not walk into the previous one's lines.
 ///
@@ -4101,7 +4101,7 @@ int lua_EditBox_ClearHistory(lua_State* L) {
     return 0;
 }
 
-/// SetCountInvisibleLetters(flag) — charge the markup against the limit.
+/// SetCountInvisibleLetters(flag) - charge the markup against the limit.
 int lua_EditBox_SetCountInvisibleLetters(lua_State* L) {
     if (auto* w = widgetOf(L, 1)) {
         w->countInvisibleLetters = lua_isnone(L, 2) ? true : (lua_toboolean(L, 2) != 0);
@@ -4129,8 +4129,8 @@ int lua_EditBox_AddHistoryLine(lua_State* L) {
     auto* w = widgetOf(L, 1);
     const char* text = luaL_optstring(L, 2, "");
     if (!w || !text || !*text) return 0;
-    // What the box was declared to keep. Several ask for none outright — the
-    // money fields, the mail recipient — and a hardcoded number here kept
+    // What the box was declared to keep. Several ask for none outright - the
+    // money fields, the mail recipient - and a hardcoded number here kept
     // history in boxes that said not to.
     if (w->editHistoryLines <= 0) return 0;
     if (w->editHistory.empty() || w->editHistory.back() != text) {
@@ -4209,7 +4209,7 @@ int lua_EditBox_SetMultiLine(lua_State* L) {
     if (auto* w = widgetOf(L, 1)) w->editMultiLine = lua_toboolean(L, 2) != 0;
     return 0;
 }
-/// HighlightText([start, stop]) — select a run, or all of it.
+/// HighlightText([start, stop]) - select a run, or all of it.
 ///
 /// The one caller that matters is autocomplete: it writes the completed name
 /// with SetText and highlights the part it added, so the next character typed
@@ -4259,7 +4259,7 @@ int lua_EditBox_GetCursorPosition(lua_State* L) {
     return 1;
 }
 
-/// GetNumLetters() — how many characters the box holds, not how many bytes.
+/// GetNumLetters() - how many characters the box holds, not how many bytes.
 ///
 /// The macro editor writes its "%d/255 Characters Used" counter from this on
 /// every keystroke. Unanswered it was nil, and a nil through string.format is
@@ -4281,7 +4281,7 @@ int lua_EditBox_GetNumLetters(lua_State* L) {
 /// accented is typed, which is why the interface asks for this one by name
 /// wherever it is doing arithmetic on a position.
 ///
-/// It was in the no-op method list, so it answered nil — and autocomplete.lua
+/// It was in the no-op method list, so it answered nil - and autocomplete.lua
 /// writes `self:GetUTF8CursorPosition() - strlenutf8(command) - 1`, which
 /// raises on nil rather than misbehaving. Typing a slash command or a player
 /// name took the chat frame's autocomplete down with it.
@@ -4333,7 +4333,7 @@ int lua_Slider_GetValueStep(lua_State* L) {
 /// is for. The regions themselves are ordinary textures with ordinary anchors;
 /// what makes one a colour wheel is that the renderer draws every hue into it,
 /// and what makes one a thumb is that it is moved to wherever the current
-/// colour sits. Neither can be told from the XML alone — <ColorWheelTexture>
+/// colour sits. Neither can be told from the XML alone - <ColorWheelTexture>
 /// carries no file, because the art is generated.
 static int setColorRole(lua_State* L, wowee::ui::Widget::ColorRole role) {
     auto* tree = wowee::addons::getWidgetTree(L);
@@ -4366,8 +4366,8 @@ int lua_Slider_SetThumbTexture(lua_State* L) {
         if (t) {
             w->thumbTexture = t->texturePath;
             // Kept as a region too, not just a file path. It is the thing
-            // FrameXML shows and hides by name — ScrollFrame_OnScrollRangeChanged
-            // hides `<bar>ThumbTexture` when a list fits — and the thing the
+            // FrameXML shows and hides by name - ScrollFrame_OnScrollRangeChanged
+            // hides `<bar>ThumbTexture` when a list fits - and the thing the
             // layout has to move along the track, since a <ThumbTexture>
             // carries a size and no anchors and would otherwise sit centred on
             // the bar forever.
@@ -4429,7 +4429,7 @@ static int lua_Frame_CreateTexture(lua_State* L) {
     // A region's parent, which is the frame it was created on.
     //
     // This was never recorded, so GetParent() answered nil for every texture
-    // and every font string in the interface — CreateFrame writes __parent and
+    // and every font string in the interface - CreateFrame writes __parent and
     // these two did not. It is not a rare call: the calendar reaches a day's
     // shading through `darkTop:GetParent()`, which is how the gap surfaced,
     // and a region asking its owner for a size or a frame level is an ordinary
@@ -4464,7 +4464,7 @@ static int lua_Frame_CreateFontString(lua_State* L) {
     // A region's parent, which is the frame it was created on.
     //
     // This was never recorded, so GetParent() answered nil for every texture
-    // and every font string in the interface — CreateFrame writes __parent and
+    // and every font string in the interface - CreateFrame writes __parent and
     // these two did not. It is not a rare call: the calendar reaches a day's
     // shading through `darkTop:GetParent()`, which is how the gap surfaced,
     // and a region asking its owner for a size or a frame level is an ordinary
@@ -4486,16 +4486,16 @@ static int lua_GetFramerate(lua_State* L) {
     return 1;
 }
 
-// GetCursorPosition() → x, y — pixels, measured from the BOTTOM left.
+// GetCursorPosition() → x, y - pixels, measured from the BOTTOM left.
 //
 // Pixels rather than interface units is right, and deliberate: every caller
 // divides by UIParent:GetScale() itself. channelframe.lua does exactly that on
-// the line after asking, and then anchors what it dragged to BOTTOMLEFT — which
+// the line after asking, and then anchors what it dragged to BOTTOMLEFT - which
 // is the half that was wrong. ImGui measures the cursor from the top, so y came
 // back mirrored and anything positioned from it landed as far from the bottom
 // as the cursor was from the top.
 static int lua_GetCursorPosition(lua_State* L) {
-    // Interface units with y growing upward — the same conversion the input
+    // Interface units with y growing upward - the same conversion the input
     // path and GetMouseFocus make, and the space every frame coordinate is in.
     //
     // This alone answered in raw pixels. Callers divide by GetEffectiveScale
@@ -4504,8 +4504,8 @@ static int lua_GetCursorPosition(lua_State* L) {
     // every such position was out by forty percent, and on a 4K one by nearly
     // three times. The loot window opened under the mouse landed well off it.
     // Through ui::mouseToTreeSpace, which is the one definition of it. This
-    // was a third hand-written copy — the flip in application.cpp, the scale
-    // in dispatchMouse, and both again here — and the copies are how the
+    // was a third hand-written copy - the flip in application.cpp, the scale
+    // in dispatchMouse, and both again here - and the copies are how the
     // hyperlink hit test came to be filed in one space and tested in another.
     const auto& io = ImGui::GetIO();
     auto* tree = wowee::addons::getWidgetTree(L);
@@ -4518,7 +4518,7 @@ static int lua_GetCursorPosition(lua_State* L) {
 }
 
 // GetScreenWidth() → width
-/// The screen in interface units, not pixels — which is what FrameXML means
+/// The screen in interface units, not pixels - which is what FrameXML means
 /// by it. On a 1528-tall window GetScreenHeight() is 768, the same as it would
 /// be on any other, and a frame sized against it comes out the same size.
 static int lua_GetScreenWidth(lua_State* L) {
@@ -4548,7 +4548,7 @@ static int lua_GetScreenHeight(lua_State* L) {
 // SetAlpha and GetAlpha are lua_Region_SetAlpha and lua_Region_GetAlpha, which
 // is what both registrations name. A second pair here kept the value in a
 // __alpha field on the frame table instead of on the widget, was bound to
-// nothing, and stood as an alternative implementation for anyone reading —
+// nothing, and stood as an alternative implementation for anyone reading -
 // the shape where a later fix lands on the copy nothing calls.
 
 static int lua_Frame_SetParent(lua_State* L) {
@@ -4602,8 +4602,8 @@ static int lua_CreateFrame(lua_State* L) {
     lua_newtable(L);
 
     // Record the parent table, not only the widget id. GetParent() is
-    // everywhere in FrameXML — a nested button's OnLoad opens with
-    // self:GetParent().toggle = self — and it answered nil for every frame
+    // everywhere in FrameXML - a nested button's OnLoad opens with
+    // self:GetParent().toggle = self - and it answered nil for every frame
     // ever created, because only an explicit SetParent recorded one. That
     // failed the template declaring the button, so the button's owner never
     // got its size, and the loop sizing a list by its first button's height
@@ -4616,7 +4616,7 @@ static int lua_CreateFrame(lua_State* L) {
         // WoW and the only way anything survives UIParent:Hide(). GetParent()
         // on one answers nil, so no __parent is written.
     } else {
-        // A name, or the argument left off entirely, which means UIParent —
+        // A name, or the argument left off entirely, which means UIParent -
         // what an addon means by omitting it.
         if (lua_isstring(L, 3)) lua_getglobal(L, lua_tostring(L, 3));
         else lua_getglobal(L, "UIParent");
@@ -4642,7 +4642,7 @@ static int lua_CreateFrame(lua_State* L) {
             //
             // Through the global rather than the tree's own id, because
             // uiparent.xml declares UIParent like any other frame and nothing
-            // deduplicates by name — so the widget FrameXML's UIParent points
+            // deduplicates by name - so the widget FrameXML's UIParent points
             // at is the one that file made, and the tree's is the placeholder
             // that stood in before any of it was read. Fall back to that one
             // for anything created before it loads.
@@ -4666,7 +4666,7 @@ static int lua_CreateFrame(lua_State* L) {
             w->isSlider = (ft == "Slider");
             // And it runs top to bottom unless it says otherwise. A Slider's
             // orientation defaults to VERTICAL in WoW, the opposite way round
-            // from a StatusBar — which is why UIPanelScrollBarTemplate declares
+            // from a StatusBar - which is why UIPanelScrollBarTemplate declares
             // no orientation at all while OptionsSliderTemplate, the horizontal
             // one, spells out HORIZONTAL. Every scroll bar in the interface is
             // built from that template, so defaulting them to horizontal read
@@ -4712,7 +4712,7 @@ static int lua_CreateFrame(lua_State* L) {
     }
 
     // The fifth argument is the frame's id, and it has to be in place before
-    // the templates and the OnLoad run — they are what read it. A frame built
+    // the templates and the OnLoad run - they are what read it. A frame built
     // this way is usually one of a numbered set, and its handler finds the rest
     // of the set through its own id: the temporary chat window opens with
     // _G["ChatFrame"..self:GetID()], so an id of zero has it looking up a
@@ -4734,7 +4734,7 @@ static int lua_CreateFrame(lua_State* L) {
     // CreateFrame("BUTTON", name, self, "OptionsListButtonTemplate"). Ignoring
     // it was not merely a missing feature. OptionsList_OnLoad makes one button,
     // divides the list's height by that button's height to decide how many fit,
-    // and loops to that number — so a template that never arrives means no
+    // and loops to that number - so a template that never arrives means no
     // size, a height of zero, a count of (h-8)/0, and Lua divides by zero
     // happily. The loop then creates frames under fresh names until memory runs
     // out, which is exactly what froze the client on VideoOptionsFrame.
@@ -4771,8 +4771,8 @@ static int lua_CreateFrame(lua_State* L) {
                                             terr ? terr : "?");
                                 // Recorded as well as logged. A template that
                                 // does not apply leaves every frame using it
-                                // built but unconfigured — no size, no
-                                // scripts, no children — which is the exact
+                                // built but unconfigured - no size, no
+                                // scripts, no children - which is the exact
                                 // shape of "the panel is there and does
                                 // nothing", and it belongs in the file a
                                 // player can send rather than only in a log
@@ -4794,7 +4794,7 @@ static int lua_CreateFrame(lua_State* L) {
             start = comma + 1;
         }
 
-        // Built from a template here, so it is loaded here — which is what
+        // Built from a template here, so it is loaded here - which is what
         // CreateFrame does in the real client. The XML path does not pass a
         // template to this function; it applies them separately and fires
         // OnLoad once, after the frame's own body. So this covers exactly the
@@ -4829,7 +4829,7 @@ static int lua_CreateFrame(lua_State* L) {
 
 // --- WoW Utility Functions ---
 
-// strsplit(delimiter, str) — WoW's string split
+// strsplit(delimiter, str) - WoW's string split
 
 LuaEngine::LuaEngine() = default;
 
@@ -4873,7 +4873,7 @@ bool LuaEngine::initialize() {
     lua_setfield(L_, LUA_REGISTRYINDEX, "wowee_widget_tree");
 
     // The engine itself, for the few bindings that need to do more than touch a
-    // widget — taking focus fires handlers on the frame losing it as well as
+    // widget - taking focus fires handlers on the frame losing it as well as
     // the one gaining it, and only the engine knows which that was.
     lua_pushlightuserdata(L_, this);
     lua_setfield(L_, LUA_REGISTRYINDEX, "wowee_lua_engine");
@@ -4891,8 +4891,8 @@ bool LuaEngine::initialize() {
 void LuaEngine::shutdown() {
     // Inside the guard, not above it. The report asks _G whether each recorded
     // name is still absent, so it needs the state it is asking about. Shutdown
-    // runs twice on the way out — AddonManager's destructor calls it, and then
-    // destroying the engine member calls it again — and the second pass found
+    // runs twice on the way out - AddonManager's destructor calls it, and then
+    // destroying the engine member calls it again - and the second pass found
     // a closed state and dereferenced it.
     if (L_) {
         reportMissingApi();
@@ -4946,7 +4946,7 @@ void LuaEngine::registerCoreAPI() {
     // Run the deferred OnTextChanged queue now rather than at the next frame.
     //
     // The frame loop drains this; the headless runner has no frame loop, and
-    // the behaviour it guards — MoneyInputFrame absorbing its own edits — is
+    // the behaviour it guards - MoneyInputFrame absorbing its own edits - is
     // exactly the kind that is only visible once the drain has happened. A
     // seam in the same __Wowee* idiom as the rest.
     lua_pushlightuserdata(L_, this);
@@ -5004,7 +5004,7 @@ void LuaEngine::registerCoreAPI() {
     // directly at file scope, and one nil there loses the whole file: mainmenubar
     // and spellbookframe each died on a single arithmetic name.
     //
-    // Skipped rather than assumed where the vendored Lua lacks one — getn is
+    // Skipped rather than assumed where the vendored Lua lacks one - getn is
     // compiled out here, and setting a global to nil would be no better than
     // leaving it absent.
     struct Alias { const char* lib; const char* field; const char* global; };
@@ -5039,14 +5039,14 @@ void LuaEngine::registerCoreAPI() {
     //
     // Not aliases of math.cos and friends: WoW's bare globals work in degrees
     // where the library works in radians, and the interface relies on it
-    // everywhere — `sin(elapsed*360)` for one cycle a second, `cos(degree)`,
+    // everywhere - `sin(elapsed*360)` for one cycle a second, `cos(degree)`,
     // `sin(fraction*90)`. Aliasing them straight across would have left every
     // one of those quietly wrong rather than absent, which is worse.
     //
     // They were missing outright, and the cost was not a wrong curve but a
     // dead subsystem: CombatText_FountainScroll calls cos(), so every floating
     // combat message raised, and after five consecutive failures the engine
-    // unhooks an OnUpdate — so the scroll stopped, and every message queued
+    // unhooks an OnUpdate - so the scroll stopped, and every message queued
     // sat on screen for the rest of the session. That is exactly what
     // "entering/leaving combat messages never clear" was.
     executeString(
@@ -5078,7 +5078,7 @@ void LuaEngine::registerCoreAPI() {
         "  return (s:gsub('^' .. p .. '*', ''):gsub(p .. '*$', ''))\n"
         "end\n");
 
-    // SlashCmdList table — addons register slash commands here
+    // SlashCmdList table - addons register slash commands here
     lua_newtable(L_);
     lua_setglobal(L_, "SlashCmdList");
 
@@ -5112,7 +5112,7 @@ void LuaEngine::registerCoreAPI() {
         // A frame method too, and not only a region one: <StatusBar
         // drawLayer="BORDER"> is emitted as a call on the bar, and a bar is a
         // frame. Absent here it fell to the no-op fallback, so all twenty of
-        // the bars that declare a layer were silently ignored — the trace
+        // the bars that declare a layer were silently ignored - the trace
         // under WOWEE_WIDGET_TRACE=1 is what named them.
         {"SetDrawLayer",    lua_Region_SetDrawLayer},
         {"ClearAllPoints",  lua_Region_ClearAllPoints},
@@ -5122,7 +5122,7 @@ void LuaEngine::registerCoreAPI() {
         {"SetHeight",       lua_Region_SetHeight},
         // Frames, not regions: only a frame is dragged or moved. These live in
         // this table rather than the shared region one because that one is
-        // installed on textures and font strings alone — putting them there
+        // installed on textures and font strings alone - putting them there
         // gave the methods to everything except the things that use them.
         {"SetMovable",      lua_Frame_SetMovable},
         {"SetRotation",     lua_Model_SetFacing},
@@ -5173,8 +5173,8 @@ void LuaEngine::registerCoreAPI() {
         {"SetExistingSocketGem",  lua_Tooltip_SetExistingSocketGem},
         {"SetSocketedItem",       lua_Tooltip_SetSocketedItem},
         {"SetCurrencyToken", lua_Tooltip_SetCurrencyToken},
-        // Nothing is pinned under the bags — that is a saved choice this
-        // client does not keep — so this answers false rather than
+        // Nothing is pinned under the bags - that is a saved choice this
+        // client does not keep - so this answers false rather than
         // describing an arbitrary row.
         {"SetBackpackToken", lua_Tooltip_ReturnFalse},
         {"SetGuildBankItem", lua_Tooltip_SetGuildBankItem},
@@ -5185,7 +5185,7 @@ void LuaEngine::registerCoreAPI() {
         {"SetGlyph",               lua_Tooltip_SetGlyph},
         {"SetHyperlink",    lua_Tooltip_SetHyperlink},
         // On frames as well as on font strings, where these were already
-        // registered. A chat frame is asked for its own font — not a label's —
+        // registered. A chat frame is asked for its own font - not a label's -
         // by FCF_SetChatWindowFontSize, which reads the face and flags off the
         // frame, puts the chosen size between them and sets it back. With the
         // pair answering only on font strings, that read fell through to the
@@ -5354,7 +5354,7 @@ void LuaEngine::registerCoreAPI() {
     //
     // Anything bound in C above must not appear here. These run afterwards and
     // simply overwrite it, turning a working method into a no-op that still
-    // answers — EnableMouse was defined here and so no frame ever took the
+    // answers - EnableMouse was defined here and so no frame ever took the
     // mouse, however plainly the call read in the addon.
     bootstrap(
         "local mt = __WoweeFrameMT\n"
@@ -5364,21 +5364,21 @@ void LuaEngine::registerCoreAPI() {
         "    __WoweeSetWheelEnabled(self, enable ~= false)\n"
         "end\n"
         // A scroll frame's range is recomputed after every layout, so asking
-        // for it again has nothing to do — but answering rather than falling
+        // for it again has nothing to do - but answering rather than falling
         // through to the no-op list keeps it out of a report whose whole
         // purpose is naming things that are genuinely absent.
         "function mt:UpdateScrollChildRect() end\n"
-        // ItemButton:GetInventorySlot() — which equipment slot this button
+        // ItemButton:GetInventorySlot() - which equipment slot this button
         // stands for. Every caller in FrameXML is a bank button, and the answer
         // is the arithmetic BankButtonIDToInvSlotID already does: the general
         // slots follow the equipment, the bank bags follow those, and `isBag`
-        // — set by the button's own OnLoad — says which.
+        // - set by the button's own OnLoad - says which.
         //
         // It answered nil, and BankFrameItemButton_Update reads it straight
         // into GetInventoryItemTexture, so every bank slot came back with no
         // texture and no item. The bank drew as an empty bank however full it
         // was. The tooltip, the pick-up and the bag click all read it too.
-        // GameTooltip:SetTracking() — what the minimap's tracking button is
+        // GameTooltip:SetTracking() - what the minimap's tracking button is
         // hunting for. Written here rather than in C because everything it
         // needs is already answered: GetNumTrackingTypes and GetTrackingInfo
         // read the player's known tracking spells and which one is running.
@@ -5401,10 +5401,10 @@ void LuaEngine::registerCoreAPI() {
         "function mt:TryOn(link) __WoweeTryOn(self, link) end\n"
         "function mt:Undress() __WoweeUndress(self) end\n"
         // SetUnit and RefreshUnit are what a model frame is told to show. The
-        // frame is driven by name from the render loop — the paperdoll, the
-        // inspect window and the dressing room each have their own — so what
+        // frame is driven by name from the render loop - the paperdoll, the
+        // inspect window and the dressing room each have their own - so what
         // these have to do is answer rather than raise.
-        // Model:SetCreature(displayId) — what a companion, a stabled pet or
+        // Model:SetCreature(displayId) - what a companion, a stabled pet or
         // any other creature preview is told to show. Written onto the frame
         // and built by the render loop, which is where the offscreen views
         // are; zero clears it.
@@ -5420,13 +5420,13 @@ void LuaEngine::registerCoreAPI() {
         "function mt:AtBottom() return true end\n"
         // Click() runs the frame's own OnClick, with the same PreClick and
         // PostClick around it that a real press produces. FrameXML activates
-        // buttons this way — a keybinding that presses an action button, a
-        // dropdown that picks its default — and it answered as a no-op, so
+        // buttons this way - a keybinding that presses an action button, a
+        // dropdown that picks its default - and it answered as a no-op, so
         // none of those did anything.
         // A scripted click flips a check button exactly as a real one does, so
         // the two paths cannot disagree about what the button now says. The
         // scripts are read first because a frame with none is not clicked at
-        // all — and then neither is it toggled.
+        // all - and then neither is it toggled.
         "function mt:Click(button, down)\n"
         "    local s = rawget(self, '__scripts')\n"
         "    if not s then return end\n"
@@ -5440,8 +5440,8 @@ void LuaEngine::registerCoreAPI() {
         "end\n"
     );
 
-    // Animations. Written in Lua because it is almost entirely bookkeeping —
-    // what is playing, how far through, in what order — and the only thing it
+    // Animations. Written in Lua because it is almost entirely bookkeeping -
+    // what is playing, how far through, in what order - and the only thing it
     // cannot do from here is move a frame without disturbing its anchors.
     //
     // Nothing existed before this: CreateAnimationGroup was not defined, so a
@@ -5482,9 +5482,9 @@ void LuaEngine::registerCoreAPI() {
         "function animMeta:GetProgress() return self.progress or 0 end\n"
         // The same progress with the animation's own easing applied, which is
         // what anything driving a value off an animation actually wants.
-        // The calendar reads it directly —
+        // The calendar reads it directly -
         // flashTexture:SetAlpha(CalendarViewEventFlashTimer:GetSmoothProgress())
-        // on an <Animation smoothing="OUT"> — and a missing *method* is not a
+        // on an <Animation smoothing="OUT"> - and a missing *method* is not a
         // nil to be checked but a hard error, so the whole event view went
         // down on the line that makes a highlight pulse.
         "function animMeta:GetSmoothProgress()\n"
@@ -5678,7 +5678,7 @@ void LuaEngine::registerCoreAPI() {
 
         // SetID and GetID are defined further down, in the later chunk that
         // binds the same metatable, and that copy wins. The pair here was
-        // byte-identical to it — same body, same __id key — so nothing
+        // byte-identical to it - same body, same __id key - so nothing
         // depended on which one ran. Removed so the duplicate-definition
         // check has nothing left to report but real faults.
         // The four edges are real bindings now, applied after this block.
@@ -5700,7 +5700,7 @@ void LuaEngine::registerCoreAPI() {
         "end\n"
 
         // SetAttribute and GetAttribute are defined further down, on the same
-        // metatable, in a later chunk that overwrites whatever is here — so an
+        // metatable, in a later chunk that overwrites whatever is here - so an
         // earlier pair is dead the moment it is written. The pair that used to
         // sit here kept its values under a different key and took one argument
         // where the real one takes three, and it is on the path every unit
@@ -5718,7 +5718,7 @@ void LuaEngine::registerCoreAPI() {
         "    end\n"
         "end\n"
         // IsMouseOver is not here. It was, answering a flat false, and it sat
-        // among these no-ops as though it were one — but there is a real
+        // among these no-ops as though it were one - but there is a real
         // implementation of it in C, registered earlier and therefore losing.
         // That one tests the cursor against the frame's own rect, and
         // dispatchMouse keeps sLastMouseX_ in interface units for no other
@@ -5734,8 +5734,8 @@ void LuaEngine::registerCoreAPI() {
     // <ButtonText> and so on. The catch-all below would answer these with a
     // no-op, which is worse than it sounds: the setter would appear to work and
     // the matching getter would hand back nil, so button:GetNormalTexture()
-    // :SetVertexColor(...) — which FrameXML does constantly to grey out an
-    // unusable action — fails somewhere far from the cause.
+    // :SetVertexColor(...) - which FrameXML does constantly to grey out an
+    // unusable action - fails somewhere far from the cause.
     bootstrap(
         "local mt = __WoweeFrameMT\n"
         // A path is as valid an argument as a texture, and FrameXML uses both:
@@ -5761,7 +5761,7 @@ void LuaEngine::registerCoreAPI() {
         "            return\n"
         "        end\n"
         "        if type(tex) == 'table' then __WoweeSetButtonArt(tex, slot) end\n"
-        // Nothing, which is how a button is emptied — SendMailFrame_Update
+        // Nothing, which is how a button is emptied - SendMailFrame_Update
         // hands SetNormalTexture the texture GetSendMailItem answered, and that
         // is nil for a slot with nothing on it. Dropping the reference alone
         // left the texture this slot had already made still parented, still
@@ -5784,7 +5784,7 @@ void LuaEngine::registerCoreAPI() {
         // UIDROPDOWNMENU_INIT_MENU. No-opping SetAttribute left that nil, so
         // every menu built afterwards indexed nothing.
         // Formats and sets in one call, which is how FrameXML writes most of
-        // its labels — 114 places, the character sheet's "Level 14 Human Mage"
+        // its labels - 114 places, the character sheet's "Level 14 Human Mage"
         // among them. Unimplemented, every one of those kept whatever
         // placeholder its XML carried: that line read "Level level race class"
         // because that is literally what paperdollframe.xml says.
@@ -5804,7 +5804,7 @@ void LuaEngine::registerCoreAPI() {
         "    if handler then handler(self, name, value) end\n"
         "end\n"
         // The three-argument form names one attribute in pieces, and falls
-        // back to the bare name when no piece-specific value was set — which
+        // back to the bare name when no piece-specific value was set - which
         // is how every action button works. ActionButton_OnLoad sets "type",
         // and the secure code asks for it as prefix "", name "type", suffix
         // "1", because the suffix for LeftButton is "1". Without the fallback
@@ -5812,7 +5812,7 @@ void LuaEngine::registerCoreAPI() {
         // handler at all: the button was hit, and no spell was cast.
         // A '*' stands in for either piece, and both have to be tried.
         //
-        // SecureUnitButton_OnLoad sets "*type1" and "*type2" — the asterisk
+        // SecureUnitButton_OnLoad sets "*type1" and "*type2" - the asterisk
         // meaning "whatever modifier is held". Asking for prefix "", name
         // "type", suffix "1" looked for "type1", then for "type", and found
         // neither, so clicking a unit frame ran no handler at all: the player
@@ -5849,7 +5849,7 @@ void LuaEngine::registerCoreAPI() {
         // minFrame:GetFontString():SetTextColor(...) without checking.
         // The fill of a status bar, as an object. This client keeps a bar's
         // fill as a texture *path* on the bar itself, so there is no region to
-        // hand back and one is made on demand — the same answer GetFontString
+        // hand back and one is made on demand - the same answer GetFontString
         // gives one line below, and for the same reason.
         //
         // It was nil, and blizzard_achievementui does
@@ -5858,7 +5858,7 @@ void LuaEngine::registerCoreAPI() {
         //
         // What comes back is a real region: the layering and tinting calls
         // FrameXML makes on it are recorded rather than refused. They do not
-        // drive the fill, which is drawn from the path — an honest stand-in
+        // drive the fill, which is drawn from the path - an honest stand-in
         // rather than a working one, and it is the raise that was the bug.
         "function mt:GetStatusBarTexture()\n"
         "    if not self.__barTexture then\n"
@@ -5912,8 +5912,8 @@ void LuaEngine::registerCoreAPI() {
     // The widget methods this stands in for, named rather than guessed at.
     //
     // Answering every PascalCase key with a no-op was wrong for data. A field
-    // is PascalCase as readily as a method — textStatusBar.TextString is the
-    // one that surfaced it — and a function is truthy, so FrameXML's own
+    // is PascalCase as readily as a method - textStatusBar.TextString is the
+    // one that surfaced it - and a function is truthy, so FrameXML's own
     // "if (x.Field) then use it" ran the branch against something that was
     // never there. Methods and data cannot be told apart by shape: of the 307
     // method names FrameXML calls, eighteen read as nouns (AppendText,
@@ -6002,8 +6002,8 @@ void LuaEngine::registerCoreAPI() {
         // and trade skill panels all load. A no-op leaves the tooltip empty and
         // is recorded, so it stays visible as a gap instead of a crash.
         // SetTalent has left this list because it is implemented now. Leaving
-        // it would not have broken anything — the lookup rawgets the real
-        // method table first and only falls through to here — but this set says
+        // it would not have broken anything - the lookup rawgets the real
+        // method table first and only falls through to here - but this set says
         // "cannot describe it yet", and a name in it that works reads as a gap
         // that is not there, in the one place someone would check.
         "SetSocketGem=1,SetSocketedItem=1,SetExistingSocketGem=1,\n"
@@ -6046,15 +6046,15 @@ void LuaEngine::registerCoreAPI() {
         // metatable on that table.
         //
         // FrameXML reaches through it to call the original of an overridden
-        // method — BlizzardOptionsPanel_Slider_Enable is
-        // getmetatable(slider).__index.Enable(slider) — which needs a table
+        // method - BlizzardOptionsPanel_Slider_Enable is
+        // getmetatable(slider).__index.Enable(slider) - which needs a table
         // there. A function answered every lookup correctly and broke every one
         // of those.
         "setmetatable(mt, { __index = function(tbl, key)\n"
         "    local v = rawget(methods, key)\n"
         "    if v ~= nil then return v end\n"
         "    if type(key) ~= 'string' then return nil end\n"
-        // A name in the set answers with a no-op — and is recorded, because a
+        // A name in the set answers with a no-op - and is recorded, because a
         // method that quietly does nothing is indistinguishable from one that
         // works. SetFormattedText sat in this set unimplemented while 114
         // labels across FrameXML kept their XML placeholder text, and nothing
@@ -6062,7 +6062,7 @@ void LuaEngine::registerCoreAPI() {
         //
         // What is NOT recorded, and cannot be from here, is which object
         // asked. This is the metatable's own __index, so the arguments are the
-        // method table and the key — the frame that started the lookup is not
+        // method table and the key - the frame that started the lookup is not
         // passed and there is no way to reach it. Recording it would mean
         // making every frame's __index a function instead of `mt.__index = mt`,
         // which puts a Lua call in front of every method lookup in the
@@ -6078,7 +6078,7 @@ void LuaEngine::registerCoreAPI() {
         // WOWEE_WIDGET_TRACE=1 gets the answer for the no-op family without
         // paying that: see the branch below, which records at call time rather
         // than at lookup time. It cannot help the family below that, which
-        // answers nil — a nil cannot record anything, and the caller raises on
+        // answers nil - a nil cannot record anything, and the caller raises on
         // the next line and names itself in the traceback.
         "    if known[key] then\n"
         "        if not seen[key] then\n"
@@ -6087,8 +6087,8 @@ void LuaEngine::registerCoreAPI() {
         "        end\n"
         // Which object asked, where a run has said it wants to know.
         //
-        // Not by making __index a function: FrameXML reaches through it —
-        // getmetatable(slider).__index.Enable(slider) — and indexing a function
+        // Not by making __index a function: FrameXML reaches through it -
+        // getmetatable(slider).__index.Enable(slider) - and indexing a function
         // raises, which is the fault the comment above this metatable exists to
         // record. The instance arrives anyway, one step later: `frame:Method()`
         // calls whatever the lookup returned with the frame as its first
@@ -6130,14 +6130,14 @@ void LuaEngine::registerCoreAPI() {
 
     // The fallback is installed at the very end of initialize(), not here.
     // Everything below is still bootstrap Lua, and much of it opens with the
-    // "LibStub = LibStub or {}" idiom — which reads nil only while _G answers
+    // "LibStub = LibStub or {}" idiom - which reads nil only while _G answers
     // honestly. With the fallback already in place those never see nil, and
     // hang their tables off the fallback object instead of a fresh one.
 
     // Put the C bindings back over anything the Lua above defined with the same
     // name. That block exists to give unimplemented methods a harmless no-op,
     // and it runs later, so any name it shares with a real binding silently
-    // replaces it — a method that answers and does nothing, which is far harder
+    // replaces it - a method that answers and does nothing, which is far harder
     // to spot than one that errors. EnableMouse was lost this way and no frame
     // took the mouse at all; SetBackdrop and its two colour setters were about
     // to go the same way. Ordering the two makes the class of mistake
@@ -6179,7 +6179,7 @@ void LuaEngine::registerCoreAPI() {
     lua_newtable(L_);
     lua_setglobal(L_, "__WoweePendingTextChanged");
 
-    // Frames shown that owe an OnAnimFinished — see queueAnimFinished.
+    // Frames shown that owe an OnAnimFinished - see queueAnimFinished.
     lua_newtable(L_);
     lua_setglobal(L_, "__WoweePendingAnimFinished");
 
@@ -6272,7 +6272,7 @@ void LuaEngine::registerCoreAPI() {
         "__WoweeClientChatAddMessage = DEFAULT_CHAT_FRAME.AddMessage\n"
     );
 
-    // hooksecurefunc — hook a function to run additional code after it
+    // hooksecurefunc - hook a function to run additional code after it
     bootstrap(
         "function hooksecurefunc(tblOrName, nameOrFunc, funcOrNil)\n"
         "    local tbl, name, hook\n"
@@ -6291,12 +6291,12 @@ void LuaEngine::registerCoreAPI() {
         "end\n"
     );
 
-    // LibStub — universal library version management used by Ace3 and virtually all addon libs.
+    // LibStub - universal library version management used by Ace3 and virtually all addon libs.
     // This is the standard WoW LibStub implementation that addons embed/expect globally.
     bootstrap(
         // rawget, so the missing-API fallback cannot answer this. Read through
-        // the metatable, "LibStub or {}" is never nil — it is the fallback
-        // object — and the shim then hangs its tables off that instead of a
+        // the metatable, "LibStub or {}" is never nil - it is the fallback
+        // object - and the shim then hangs its tables off that instead of a
         // fresh one, so every library registering against it dies indexing a
         // field that was never really there.
         "local LibStub = rawget(_G, 'LibStub') or {}\n"
@@ -6323,7 +6323,7 @@ void LuaEngine::registerCoreAPI() {
         "_G['LibStub'] = LibStub\n"
     );
 
-    // CallbackHandler-1.0 — minimal implementation for Ace3-based addons
+    // CallbackHandler-1.0 - minimal implementation for Ace3-based addons
     bootstrap(
         "if LibStub then\n"
         "  local CBH = LibStub:NewLibrary('CallbackHandler-1.0', 7)\n"
@@ -6358,7 +6358,7 @@ void LuaEngine::registerCoreAPI() {
 
     // Noop stubs for commonly called functions that don't need implementation
     bootstrap(
-        // Empty a table in place, keeping the table itself. WoW's, not Lua's —
+        // Empty a table in place, keeping the table itself. WoW's, not Lua's -
         // it exists as both a global and table.wipe, and FrameXML calls it 21
         // times. Missing, BuffFrame_Update errored on its first line and no
         // buff button was ever created.
@@ -6366,8 +6366,8 @@ void LuaEngine::registerCoreAPI() {
         // missing, and FrameXML calls both.
         // Positional format specifiers, which this Lua does not have.
         //
-        // The client's format accepts "%2$s" — argument two, whatever its
-        // place in the string — and the interface leans on it hard: 189 uses
+        // The client's format accepts "%2$s" - argument two, whatever its
+        // place in the string - and the interface leans on it hard: 189 uses
         // of %2$s, 184 of %4$s, 154 of %1$s, nearly all of them combat log
         // lines in GlobalStrings. Stock Lua 5.1 answers "invalid option '%$'
         // to 'format'" and raises, so every one of those took down whatever
@@ -6384,7 +6384,7 @@ void LuaEngine::registerCoreAPI() {
         "            return rawformat(fmt, ...)\n"
         "        end\n"
         // A literal %% is not the start of a specifier, so it is put aside
-        // before the scan and restored after — otherwise "%%2$s" would be read
+        // before the scan and restored after - otherwise "%%2$s" would be read
         // as an argument reference and eat the escape.
         "        local ESC = '\\1'\n"
         "        local work = fmt:gsub('%%%%', ESC)\n"
@@ -6422,8 +6422,8 @@ void LuaEngine::registerCoreAPI() {
         // frames in FrameXML that name the player wore a class circle while
         // the code that would have given them a face had nothing to iterate.
         //
-        // PlayerPortrait itself was never affected — that one is found by name
-        // and filled directly — which is why the circle looked deliberate
+        // PlayerPortrait itself was never affected - that one is found by name
+        // and filled directly - which is why the circle looked deliberate
         // everywhere it appeared.
         "local markPortrait = SetPortraitTexture\n"
         "function SetPortraitTexture(texture, unit)\n"
@@ -6439,7 +6439,7 @@ void LuaEngine::registerCoreAPI() {
         "        texture:SetTexCoord(coords[1], coords[2], coords[3], coords[4])\n"
         // Nothing at all when the class is not known yet, rather than the
         // placeholder. This runs at world entry now that events reach frames,
-        // which is before the player's entity resolves — so it answered
+        // which is before the player's entity resolves - so it answered
         // "Unknown", stamped the placeholder shield over the portrait, and
         // never ran again to correct it.
         "    end\n"
@@ -6448,7 +6448,7 @@ void LuaEngine::registerCoreAPI() {
         "function UIParent_OnEvent() end\n"
         // Filling the screen, not sitting at a point on it. The widget tree's
         // root is already the screen, and a frame created with no anchors falls
-        // to the centre-on-parent default with no size — so every frame
+        // to the centre-on-parent default with no size - so every frame
         // FrameXML hangs off UIParent inherited a zero-size box in the middle,
         // including its own UIParent, which fills this one. That is why the
         // player frame's name was drawn in the centre of the world.
@@ -6464,7 +6464,7 @@ void LuaEngine::registerCoreAPI() {
         // without checking. FrameXML says so itself, twice, in a comment
         // naming CWorldMap::CreatePlayerArrowFrame.
         //
-        // Missing, the first use raises — and the first use is the third
+        // Missing, the first use raises - and the first use is the third
         // statement of WorldMapFrame_OnLoad, so everything after it was lost:
         // the scale of WorldMapDetailFrame and WorldMapButton, the POI bounds,
         // the objective font metrics, and WorldMapFrame.numQuests, which later
@@ -6475,7 +6475,7 @@ void LuaEngine::registerCoreAPI() {
         // take their scale and frame level, and draw nothing.
         "PlayerArrowEffectFrame = CreateFrame('Frame', 'PlayerArrowEffectFrame')\n"
         // The battlefield minimap's own copy of that arrow, for the same
-        // reason. Its OnLoad addresses it with no guard either — and unlike
+        // reason. Its OnLoad addresses it with no guard either - and unlike
         // the world map's, it was never made, so the only thing holding that
         // addon up was the fallback that answers an unknown global with a
         // stand-in. Turn the fallback off and Blizzard_BattlefieldMinimap was
@@ -6501,12 +6501,12 @@ void LuaEngine::registerCoreAPI() {
         //
         // The lines used to be kept in a table here, with SetOwner, AddLine,
         // AddDoubleLine, SetText and ClearLines defined directly on this
-        // table — and a field on the table beats the metatable, so those five
+        // table - and a field on the table beats the metatable, so those five
         // shadowed the real implementations for the one tooltip that matters
         // most. They stored text nothing draws.
         "GameTooltip = CreateFrame('GameTooltip', 'GameTooltip')\n"
         "GameTooltip.__lines = {}\n"
-        // SetHyperlinkCompareItem(link, index, shift, anchor) — the tooltip
+        // SetHyperlinkCompareItem(link, index, shift, anchor) - the tooltip
         // that appears beside an item when Shift is held.
         //
         // GameTooltip_ShowCompareItem calls this on each of the three shopping
@@ -6544,7 +6544,7 @@ void LuaEngine::registerCoreAPI() {
         "    if not slots then return false end\n"
         "    local slot = slots[index or 1]\n"
         "    if not slot then return false end\n"
-        // Nothing worn there is not a comparison, it is an empty tooltip —
+        // Nothing worn there is not a comparison, it is an empty tooltip -
         // and answering true for one would show a blank box beside the item.
         "    local wornLink = GetInventoryItemLink('player', slot)\n"
         "    if not wornLink then return false end\n"
@@ -6589,7 +6589,7 @@ void LuaEngine::registerCoreAPI() {
         // The one the buff frame actually calls. SetUnitBuff and
         // SetUnitDebuff were written and this was left in the no-op
         // allowlist, so every buff and debuff on the default buff frame
-        // hovered to an empty tooltip — buffframe.lua reaches for SetUnitAura
+        // hovered to an empty tooltip - buffframe.lua reaches for SetUnitAura
         // in both its handlers and neither of the two that exist.
         // Three more that were left in the no-op allowlist while everything
         // they need was bound. Each is a hover that wrote nothing: a quest
@@ -6600,12 +6600,12 @@ void LuaEngine::registerCoreAPI() {
         // because SetHyperlink already knows how to render one and the links
         // are what the getters hand back.
         // Two more tooltip methods, and these RAISE rather than answering a
-        // no-op — they are in neither the method table nor the allowlist, so
+        // no-op - they are in neither the method table nor the allowlist, so
         // the fallback returns nil and the call takes its handler with it.
         // Hovering a trainer's spell, or the item in the auction sell slot.
         // Hovering an item in loot, at a merchant, or in the mail. All six
         // sat in the no-op allowlist while every getter they need was bound,
-        // so the windows worked and nothing in them had a tooltip — the same
+        // so the windows worked and nothing in them had a tooltip - the same
         // shape as SetUnitAura, and the reason the allowlist is worth
         // auditing rather than trusting.
         //
@@ -6705,7 +6705,7 @@ void LuaEngine::registerCoreAPI() {
         "end\n"
         // The other half of the trade window. SetTradePlayerItem was written
         // and its twin was not, so hovering your own offer named the item and
-        // hovering theirs said nothing — an asymmetry rather than a decision.
+        // hovering theirs said nothing - an asymmetry rather than a decision.
         "function __WoweeFrameMT:SetTradeTargetItem(index)\n"
         "    self:ClearLines()\n"
         "    local link = GetTradeTargetItemLink and GetTradeTargetItemLink(index)\n"
@@ -6716,8 +6716,8 @@ void LuaEngine::registerCoreAPI() {
         // The stance bar's cooldown swirl. Written here rather than in C
         // because both halves already exist as bindings and neither is where
         // the other lives: the form tables are in lua_unit_api and the cooldown
-        // arithmetic — start and duration wound back so the sweep does not
-        // restart every time the bar asks — is in lua_spell_api. A third copy
+        // arithmetic - start and duration wound back so the sweep does not
+        // restart every time the bar asks - is in lua_spell_api. A third copy
         // of either is how the two would start to disagree.
         //
         // GetSpellCooldown takes a name, which is what makes this work across
@@ -6725,7 +6725,7 @@ void LuaEngine::registerCoreAPI() {
         // form tables carry no spell id to look up instead.
         //
         // It answered a flat no-cooldown before, so a stance swapped on a
-        // cooldown showed none — and the shapeshift bar is on screen the whole
+        // cooldown showed none - and the shapeshift bar is on screen the whole
         // time for five classes.
         "function GetShapeshiftFormCooldown(index)\n"
         "    local _, name = GetShapeshiftFormInfo(index)\n"
@@ -6742,7 +6742,7 @@ void LuaEngine::registerCoreAPI() {
         "    self:SetText(name, 1, 1, 1)\n"
         "    if isActive then self:AddLine(ACTIVE_PETS or 'Active', 0.5, 0.5, 0.5) end\n"
         "end\n"
-        // What a vendor wants besides coin — badges, marks, a token. The
+        // What a vendor wants besides coin - badges, marks, a token. The
         // money frame draws one of these per cost item and the tooltip is the
         // only place the item is named.
         "function __WoweeFrameMT:SetMerchantCostItem(index, costIndex)\n"
@@ -6828,7 +6828,7 @@ void LuaEngine::registerCoreAPI() {
         // The fourth copy of this table, and the one that cannot share: it is
         // Lua source compiled into the tooltip shim. It stops at 3, like the C++
         // copy beside it used to, so a quest item says nothing here about being
-        // one. Left as it is rather than changed on inference — what FrameXML's
+        // one. Left as it is rather than changed on inference - what FrameXML's
         // tooltip shows is a question about FrameXML.
         "        if data.bindType == 1 then self:AddLine('Binds when picked up', 1, 1, 1)\n"
         "        elseif data.bindType == 2 then self:AddLine('Binds when equipped', 1, 1, 1)\n"
@@ -6908,7 +6908,7 @@ void LuaEngine::registerCoreAPI() {
         "    -- Sell price from GetItemInfo\n"
         // Through the one money formatter, which writes the coin's picture
         // rather than a letter. This split the copper up itself and appended
-        // 'g', 's' and 'c' — a third copy of the same arithmetic, and the only
+        // 'g', 's' and 'c' - a third copy of the same arithmetic, and the only
         // one left still writing letters.
         "    if sellPrice and sellPrice > 0 then\n"
         "        self:AddLine('Sell Price: '..GetCoinTextureString(sellPrice), 1, 1, 1)\n"
@@ -6918,7 +6918,7 @@ void LuaEngine::registerCoreAPI() {
         "end\n"
         // No SetInventoryItem here. It was written on this metatable and won,
         // because the bootstrap runs after the C bindings are registered onto
-        // the same table — and it answered false for any unit but the player,
+        // the same table - and it answered false for any unit but the player,
         // so every slot of the inspect paperdoll showed nothing. The C binding
         // it was hiding resolves the unit and reads that player's inspected
         // item entries, and carries a comment about an earlier bug where the
@@ -6936,7 +6936,7 @@ void LuaEngine::registerCoreAPI() {
         "    if count and count > 1 then self:AddLine('Count: '..count, 0.5, 0.5, 0.5) end\n"
         "end\n"
         // The spellbook's tooltip. SpellButton_OnEnter calls this and nothing
-        // answered it, so hovering any spell in the book showed nothing —
+        // answered it, so hovering any spell in the book showed nothing -
         // silently, because an unknown method gets a no-op rather than an
         // error. The spellbook is one of the default elements.
         //
@@ -6960,13 +6960,13 @@ void LuaEngine::registerCoreAPI() {
         "end\n"
         // The pet bar's tooltip. PetActionButton_OnEnter calls this for any
         // button without its own tooltip text, which is every real ability the
-        // pet has — so hovering one showed nothing at all. It did not raise:
+        // pet has - so hovering one showed nothing at all. It did not raise:
         // an unknown method answers with a no-op, which is why an empty
         // tooltip was the symptom rather than an error.
         //
         // GetPetActionInfo already answers everything needed. isToken says the
         // name and subtext are global string keys rather than text, which is
-        // how the commands and stances are named — Attack, Follow, Passive —
+        // how the commands and stances are named - Attack, Follow, Passive -
         // and printing the key instead of the string is what that flag exists
         // to prevent.
         "function __WoweeFrameMT:SetPetAction(slot)\n"
@@ -6984,7 +6984,7 @@ void LuaEngine::registerCoreAPI() {
         "end\n"
         // The possess bar's tooltip. PossessButton_OnEnter calls this for
         // every slot but the cancel one, so it is reachable the moment
-        // GetPossessInfo answers for a slot other than two — and a widget
+        // GetPossessInfo answers for a slot other than two - and a widget
         // method that does not exist raises on hover rather than showing
         // nothing. It is bound now so enabling that slot later is a change to
         // one binding rather than two, and it answers from the same place the
@@ -6998,7 +6998,7 @@ void LuaEngine::registerCoreAPI() {
         "    self:ClearLines()\n"
         "    if not spellId or spellId == 0 then return end\n"
         // Nine values, in the client's order. This used to read the fourth as
-        // a cast time, which is where the cost is — so every spell tooltip
+        // a cast time, which is where the cost is - so every spell tooltip
         // printed its mana cost as a cast time in seconds.
         "    local name, rank, icon, _cost, _isFunnel, _powerType, castTime, minRange, maxRange = GetSpellInfo(spellId)\n"
         "    if name then\n"
@@ -7007,8 +7007,8 @@ void LuaEngine::registerCoreAPI() {
         // The cost comes from GetSpellInfo, which is where 3.3.5 puts it.
         //
         // This called GetSpellPowerCost and read two scalars off it. That
-        // binding exists, but it answers the *retail* shape — a list of
-        // tables, {{type=, cost=, name=}} — so `cost` was a table and
+        // binding exists, but it answers the *retail* shape - a list of
+        // tables, {{type=, cost=, name=}} - so `cost` was a table and
         // `cost > 0` raised "attempt to compare number with table" on every
         // spell hovered in the book. Two places holding one fact and
         // disagreeing about it; the guard `cost and` does not help, because a
@@ -7071,18 +7071,18 @@ void LuaEngine::registerCoreAPI() {
         // it is meant to sit above.
         // Not a no-op here, for the reason given directly above: SetClampedToScreen
         // is a real binding, and the empty one that used to sit on this line
-        // shadowed it. Nothing then ever set the flag — so the clamp in
+        // shadowed it. Nothing then ever set the flag - so the clamp in
         // layoutWidget, which exists precisely to keep a tooltip anchored near
         // an edge from running off it, could not fire, because its condition
         // was never true. GameTooltipTemplate declares clampedToScreen="true"
         // and the emitter turns that into the very call that was being
         // swallowed.
         // On the frame metatable rather than on GameTooltip, because a tooltip
-        // is not always that one — item comparison uses ShoppingTooltip1 and 2
-        // — and a copy on the table itself would shadow this for no gain.
+        // is not always that one - item comparison uses ShoppingTooltip1 and 2
+        // - and a copy on the table itself would shadow this for no gain.
         // Named in full rather than through the local `mt`, which belongs to a
         // different bootstrap chunk: referring to it here left the chunk
-        // failing to load, so these two never existed — and with them removed
+        // failing to load, so these two never existed - and with them removed
         // from the no-op list at the same time, nothing answered IsOwned at
         // all. FrameXML calls it from CursorOnUpdate, so it raised every frame
         // until the device went down.
@@ -7119,17 +7119,17 @@ void LuaEngine::registerCoreAPI() {
         // The rest of the taint vocabulary, which is a no-op here for the same
         // reason issecure is: nothing in this client is tainted, so nothing
         // needs protecting from it. Both are called for their effect and their
-        // return value respectively, and both were missing — forceinsecure at
+        // return value respectively, and both were missing - forceinsecure at
         // nine call sites and scrub at ten.
         //
         // /dump found it. DevTools_DumpCommand calls forceinsecure() on its
-        // first line, so the command raised rather than dumping — which only
+        // first line, so the command raised rather than dumping - which only
         // became reachable at all once Blizzard_DebugTools started loading.
         "function forceinsecure() end\n"
         // scrub keeps what can cross the secure boundary and drops the rest:
         // strings, numbers and booleans pass, everything else becomes nil.
         // The count has to survive, because securehandlers.lua returns it
-        // straight out of a handler — dropping a value would shift every
+        // straight out of a handler - dropping a value would shift every
         // argument after it.
         "function scrub(...)\n"
         "    local n = select('#', ...)\n"
@@ -7153,7 +7153,7 @@ void LuaEngine::registerCoreAPI() {
         //
         // The cost was a reported bug with no error behind it.
         // ActionButton_ShowGrid increments its counter only `if (issecure())`
-        // and shows the button only once that counter reaches one — so the
+        // and shows the button only once that counter reaches one - so the
         // empty slots of the action bar never appeared while something was on
         // the cursor. Dragging a spell to the bar therefore had nothing to
         // land on: the press went to MainMenuBar, which is the strip behind
@@ -7168,7 +7168,7 @@ void LuaEngine::registerCoreAPI() {
         "function IsLoggedIn() return true end\n"
         "function StaticPopup_Show() end\n"
         "function StaticPopup_Hide() end\n"
-        // UI Panel management — Show/Hide standard WoW panels
+        // UI Panel management - Show/Hide standard WoW panels
         "UIPanelWindows = {}\n"
         "function ShowUIPanel(frame, force)\n"
         "    if frame and frame.Show then frame:Show() end\n"
@@ -7183,7 +7183,7 @@ void LuaEngine::registerCoreAPI() {
         "end\n"
         "function GetUIPanel(which) return nil end\n"
         "function CloseWindows(ignoreCenter) return false end\n"
-        // TEXT localization stub — returns input string unchanged
+        // TEXT localization stub - returns input string unchanged
         "function TEXT(text) return text end\n"
         // Faux scroll frame helpers (used by many list UIs)
         "function FauxScrollFrame_GetOffset(frame)\n"
@@ -7203,7 +7203,7 @@ void LuaEngine::registerCoreAPI() {
         "    frame.offset = math.floor(value / (itemHeight or 1) + 0.5)\n"
         "    if updateFunction then updateFunction() end\n"
         "end\n"
-        // SecureCmdOptionParse — parses conditional macros like [target=focus]
+        // SecureCmdOptionParse - parses conditional macros like [target=focus]
         "function SecureCmdOptionParse(options)\n"
         "    if not options then return nil end\n"
         "    -- Simple: return the unconditional fallback (text after last semicolon or the whole string)\n"
@@ -7227,11 +7227,11 @@ void LuaEngine::registerCoreAPI() {
         "  RAID_CLASS_COLORS = {}\n"
         "  __WoweeClassColor = cc\n"
         "end\n"
-        // GetClassColor(className) — returns r, g, b, colorString
+        // GetClassColor(className) - returns r, g, b, colorString
         //
         // The hex is computed rather than read off the entry. FrameXML's
         // constants.lua assigns RAID_CLASS_COLORS its own plain table, replacing
-        // the one built above and the colorStr on every entry with it — so
+        // the one built above and the colorStr on every entry with it - so
         // reading the field answered nil for every class the moment the
         // interface loaded. The fallback's string was eight hex digits where the
         // success path's was six, which an addon writing '|cff' .. str renders
@@ -7256,13 +7256,13 @@ void LuaEngine::registerCoreAPI() {
         // amount and a letter.
         //
         // This answered "19g 81s 56c", and that string is what put letters
-        // beside the values wherever it is used — the backpack's money among
+        // beside the values wherever it is used - the backpack's money among
         // them. A real client writes each amount followed by an inline texture
         // escape, which is what GOLD_AMOUNT_TEXTURE and its two siblings in
         // globalstrings.lua spell out, and there is no letter anywhere in it.
         //
         // The letters are still what the colourblind setting asks for, and
-        // GOLD_AMOUNT_SYMBOL is still where they live — this is not that.
+        // GOLD_AMOUNT_SYMBOL is still where they live - this is not that.
         "function GetCoinTextureString(copper)\n"
         "    copper = math.floor(copper or 0)\n"
         "    local g = math.floor(copper / 10000)\n"
@@ -7297,7 +7297,7 @@ void LuaEngine::registerCoreAPI() {
         bootstrap(classColors.c_str());
     }
 
-    // UIDropDownMenu framework — minimal compat for addons using dropdown menus
+    // UIDropDownMenu framework - minimal compat for addons using dropdown menus
     bootstrap(
         "UIDROPDOWNMENU_MENU_LEVEL = 1\n"
         "UIDROPDOWNMENU_MENU_VALUE = nil\n"
@@ -7332,7 +7332,7 @@ void LuaEngine::registerCoreAPI() {
         "UISpecialFrames = {}\n"
         // Shared font objects, carrying the height and colour a FontString takes
         // from them. They were empty tables, so inheriting one changed nothing
-        // and every label came out the same size in the same colour — and
+        // and every label came out the same size in the same colour - and
         // FrameXML inherits one more than three thousand times.
         //
         // The colours are Blizzard's: normal is the familiar gold, highlight is
@@ -7345,7 +7345,7 @@ void LuaEngine::registerCoreAPI() {
         //     text:SetTextColor(fontObject:GetTextColor())
         //
         // A bare table has no GetTextColor, so that indexes nil and the enable
-        // path raises — for every checkbox, slider and dropdown in the options
+        // path raises - for every checkbox, slider and dropdown in the options
         // panels, which is where a control most needs to come back to life.
         "local fontMT = { __index = {\n"
         "    GetTextColor = function(self) return self.r, self.g, self.b, self.a end,\n"
@@ -7371,7 +7371,7 @@ void LuaEngine::registerCoreAPI() {
         "} }\n"
         // Exposed, because the emitter has to put it back. A <Font> in the
         // interface with inherits= is built as a fresh table copying the base's
-        // fields, and pairs() carries no metatable — so fontstyles.xml
+        // fields, and pairs() carries no metatable - so fontstyles.xml
         // redefining GameFontNormal replaced the object below with one that
         // answers no methods at all, and every fontObject:GetTextColor() in the
         // options panels raised on a table with nothing behind it.
@@ -7417,7 +7417,7 @@ void LuaEngine::registerCoreAPI() {
         "HIGHLIGHT_FONT_COLOR = {r=1.0,g=1.0,b=1.0}\n"
         "GREEN_FONT_COLOR = {r=0.1,g=1.0,b=0.1}\n"
         "RED_FONT_COLOR = {r=1.0,g=0.1,b=0.1}\n"
-        // C_ChatInfo — addon message prefix API used by some addons
+        // C_ChatInfo - addon message prefix API used by some addons
         "C_ChatInfo = C_ChatInfo or {}\n"
         "C_ChatInfo.RegisterAddonMessagePrefix = RegisterAddonMessagePrefix\n"
         "C_ChatInfo.IsAddonMessagePrefixRegistered = IsAddonMessagePrefixRegistered\n"
@@ -7435,7 +7435,7 @@ void LuaEngine::registerCoreAPI() {
         // share their storage there. A second pair here against a local of its
         // own meant the two could disagree about what page the bar was on.
         // These names have real bindings, registered before this runs. A stub
-        // here does not sit beside one — it replaces it, because the bootstrap
+        // here does not sit beside one - it replaces it, because the bootstrap
         // is later. GetPetActionInfo, GetNumShapeshiftForms and the rest had
         // working implementations that never ran once.
         //
@@ -7450,7 +7450,7 @@ void LuaEngine::registerCoreAPI() {
         // Common WoW constants used by many addons
         "MAX_TALENT_TABS = 3\n"
         // Values taken from the shipped FrameXML, which is the authority for
-        // 3.3.5 — talentframebase.lua and spellbookframe.lua respectively.
+        // 3.3.5 - talentframebase.lua and spellbookframe.lua respectively.
         //
         // These are pre-set here so an addon has them before the interface
         // loads, and on master the interface does not load at all, so these
@@ -7497,7 +7497,7 @@ void LuaEngine::registerCoreAPI() {
         "function tDeleteItem(tbl, item)\n"
         "    for i = #tbl, 1, -1 do if tbl[i] == item then table.remove(tbl, i) end end\n"
         "end\n"
-        // Mixin pattern — used by modern addons for OOP-style object creation
+        // Mixin pattern - used by modern addons for OOP-style object creation
         "function Mixin(obj, ...)\n"
         "    for i = 1, select('#', ...) do\n"
         "        local mixin = select(i, ...)\n"
@@ -7640,7 +7640,7 @@ namespace {
 /// Every argument crosses this boundary as a string, and some of them are
 /// numbers on the other side: ChatFrame_MessageEventHandler does
 /// `if (arg8 > 0)`, and comparing a string with a number is not false in Lua,
-/// it is an error that takes the handler down — which for chat is every
+/// it is an error that takes the handler down - which for chat is every
 /// message. Only a plain integer converts, so a name, a unit id and a hex guid
 /// all stay strings.
 void pushEventArg(lua_State* L, const std::string& arg) {
@@ -7654,7 +7654,7 @@ void pushEventArg(lua_State* L, const std::string& arg) {
             bool digits = true;
             // One decimal point is still a number. UPDATE_TICKET carries ages
             // and wait times measured in days, all of them fractions of one,
-            // and the help frame compares them against zero — as a string that
+            // and the help frame compares them against zero - as a string that
             // is the same error this exists to avoid, not a wrong answer.
             int points = 0;
             for (size_t i = at; i < arg.size(); ++i) {
@@ -7686,7 +7686,7 @@ void LuaEngine::fireEvent(const std::string& eventName,
     // The trade skill list may change shape now, and only now. It is held still
     // between these events because the frame reads it many times to draw one
     // selection and its shape depends on item data that arrives while those
-    // reads run — see tradeSkillRows in lua_quest_api.cpp. Released here so a
+    // reads run - see tradeSkillRows in lua_quest_api.cpp. Released here so a
     // late reply lands at a redraw rather than between two lookups of the same
     // index.
     if (eventName == "TRADE_SKILL_UPDATE" || eventName == "TRADE_SKILL_SHOW") {
@@ -7694,7 +7694,7 @@ void LuaEngine::fireEvent(const std::string& eventName,
     }
 
     // An event handler may cause another event, which is ordinary and has to
-    // keep working — but a cycle between two of them recurses through both this
+    // keep working - but a cycle between two of them recurses through both this
     // stack and Lua's, inside one frame, until the process dies. Reporting a
     // script error used to be such a cycle: the report fired an event, the
     // handler for it errored, and the error was reported the same way.
@@ -7709,15 +7709,15 @@ void LuaEngine::fireEvent(const std::string& eventName,
     } depthGuard{eventDepth_};
     if (eventDepth_ > kMaxEventDepth) {
         LOG_WARNING("Event '", eventName, "' is ", eventDepth_,
-                    " deep and was dropped — handlers are triggering each other");
+                    " deep and was dropped - handlers are triggering each other");
         return;
     }
 
     // Addon-side handlers, where there are any.
     //
     // Their absence is not a reason to stop. FrameXML registers through
-    // frame:RegisterEvent, which fills __WoweeFrameEvents — a different table
-    // entirely — and returning here meant every event no addon happened to
+    // frame:RegisterEvent, which fills __WoweeFrameEvents - a different table
+    // entirely - and returning here meant every event no addon happened to
     // want was never delivered to the interface at all. PLAYER_TARGET_CHANGED
     // is one: fifty-four frames were registered for it, the client fired it,
     // and not one of them ever heard it, which is why the target frame stayed
@@ -7756,7 +7756,7 @@ void LuaEngine::fireEvent(const std::string& eventName,
     //
     // WOWEE_EVENT_TRACE names events to report, comma separated. An event that
     // does not arrive and an event nobody listens for look identical from
-    // outside — the frame simply does not change — and they need opposite
+    // outside - the frame simply does not change - and they need opposite
     // fixes, so the count of frames that received it is the thing worth
     // knowing. Reported every time, because these are rare enough to read and
     // the ones worth tracing are the ones that are not arriving.
@@ -7788,7 +7788,7 @@ void LuaEngine::fireEvent(const std::string& eventName,
                             frameCount, " frames");
             }
             // Iterate a copy, because a handler is allowed to unregister while
-            // it runs and several do — answering an event by deciding you no
+            // it runs and several do - answering an event by deciding you no
             // longer want it is ordinary. UnregisterEvent shifts the tail down,
             // so the frame that moved into the vacated index was stepped over
             // and never heard that event at all. The list is a handful of
@@ -7829,7 +7829,7 @@ void LuaEngine::fireEvent(const std::string& eventName,
         } else if (traced.count(eventName)) {
             LOG_WARNING("EventTrace: ", eventName, " (",
                         args.empty() ? "" : args[0],
-                        ") — no frame has registered for it");
+                        ") - no frame has registered for it");
         }
         lua_pop(L_, 1); // pop event frame list
     }
@@ -7842,7 +7842,7 @@ namespace {
 int luaTracebackHandler(lua_State* L);
 }  // namespace
 
-/// "OnClick on GameMenuFrame" — what a recorded error needs to be actionable.
+/// "OnClick on GameMenuFrame" - what a recorded error needs to be actionable.
 ///
 /// The traceback names the file and line inside FrameXML, which says what
 /// broke but not what was being poked when it broke. A raise in a shared
@@ -7933,7 +7933,7 @@ void LuaEngine::callFrameScript3(uint32_t wid, const char* script,
 ///
 /// WoW fires OnCursorChanged(self, x, y, width, height) whenever the caret
 /// moves, and ScrollingEdit_OnCursorChanged is the only thing that ever sets
-/// `self.cursorOffset`. Nothing here fired it, so that field stayed nil — and
+/// `self.cursorOffset`. Nothing here fired it, so that field stayed nil - and
 /// ScrollingEdit_OnTextChanged, which every multi-line box in the interface
 /// calls, ends by running ScrollingEdit_OnUpdate, which opens with
 ///
@@ -7992,8 +7992,8 @@ void LuaEngine::callFrameScriptColor(uint32_t wid, const char* script,
 
 void LuaEngine::installMissingApiFallback() {
     // Off unless asked for. With it on, every unknown global answers, so code
-    // that checks whether a function exists before using it — which addons do
-    // constantly — sees everything as present and takes branches meant for a
+    // that checks whether a function exists before using it - which addons do
+    // constantly - sees everything as present and takes branches meant for a
     // newer client. That is the right trade for bringing FrameXML up, where the
     // point is to get past a missing name and find out what actually matters,
     // and the wrong one for everyday addon loading.
@@ -8007,7 +8007,7 @@ void LuaEngine::installMissingApiFallback() {
     // setting the obvious one.
     //
     // Said explicitly, though, the setting wins either way. The fallback is not
-    // free — it makes every feature check read as present — and now that the
+    // free - it makes every feature check read as present - and now that the
     // real gaps are closing it is worth being able to ask what it is still
     // buying, which needs a way to turn it off with FrameXML on.
     const char* explicitSetting = std::getenv("WOWEE_LUA_API_FALLBACK");
@@ -8024,7 +8024,7 @@ void LuaEngine::installMissingApiFallback() {
 
     // Counting functions answer zero rather than nothing.
     //
-    // A missing name is usually survivable — the guard around it fails and the
+    // A missing name is usually survivable - the guard around it fails and the
     // branch behind it does not run. A missing count is not: FrameXML writes
     // `for id = 1, GetNumTrackingTypes() do`, and nil as a loop limit is not a
     // loop that runs no times, it is "'for' limit must be a number" and the
@@ -8033,7 +8033,7 @@ void LuaEngine::installMissingApiFallback() {
     //
     // Thirty-seven of these are called across FrameXML with nothing behind
     // them. Zero is the honest answer for a feature this client does not model
-    // — no titles, no companions, no arena teams — and where it does model one,
+    // - no titles, no companions, no arena teams - and where it does model one,
     // a real implementation replaces the stub by simply existing: the loop
     // below skips any name already defined.
     //
@@ -8060,7 +8060,7 @@ void LuaEngine::installMissingApiFallback() {
         // The ignore list asks for all three of these before it draws a row,
         // and compares each against zero without checking. There is no
         // Battle.net here, so none of them is an unknown quantity being guessed
-        // at — nobody can have a Battle.net block or a pending invite, and zero
+        // at - nobody can have a Battle.net block or a pending invite, and zero
         // is what is true. Without them, opening the Ignore tab raised.
         "  'BNGetNumBlocked','BNGetNumBlockedToons','BNGetNumFriendInvites',\n"
         // Both are counts of something that cannot exist here: nothing tracks
@@ -8090,7 +8090,7 @@ void LuaEngine::installMissingApiFallback() {
         // Callable, and every field of it is a method answering nil.
         //
         // A bare function was not enough. FrameXML looks frames up by name as
-        // often as it calls functions — local t = _G[name.."PrefixText"] — and
+        // often as it calls functions - local t = _G[name.."PrefixText"] - and
         // it guards them properly, with if (t) then t:GetText(). A function
         // passes that guard and then dies on the indexing, so the correct check
         // was worse than no check at all: eleven files went down on that one
@@ -8101,8 +8101,8 @@ void LuaEngine::installMissingApiFallback() {
         // Answering everything made feature checks on a missing frame's own
         // state read as present: FCFMin_UpdateColors tests
         // minFrame.selectedColorTable and takes the branch that dereferences
-        // it. The same convention the fallback already uses for names —
-        // PascalCase is a method, anything else is data — applies inside the
+        // it. The same convention the fallback already uses for names -
+        // PascalCase is a method, anything else is data - applies inside the
         // object too, so a field is nil and the guard around it works.
         "local missing = setmetatable({}, {\n"
         "  __call = function() end,\n"
@@ -8127,7 +8127,7 @@ void LuaEngine::installMissingApiFallback() {
         "  if string.find(k, '^[A-Z][A-Z0-9_]*$') then return nil end\n"
         // A digit in the name means an instance, not an API function, and an
         // instance that does not exist must read as absent. FrameXML looks
-        // frames up by building the name — _G["ChatFrame"..id.."Minimized"] —
+        // frames up by building the name - _G["ChatFrame"..id.."Minimized"] -
         // and then guards the result properly with if (frame). Answering makes
         // that guard pass and the branch behind it runs against nothing.
         //
@@ -8137,7 +8137,7 @@ void LuaEngine::installMissingApiFallback() {
         // which is where this started.
         "  if string.find(k, '%d') then return nil end\n"
         // An addon's namespace table, which is absent because the addon is not
-        // loaded — and FrameXML feature-detects exactly these:
+        // loaded - and FrameXML feature-detects exactly these:
         // `if ( not Blizzard_CombatLog_Filters )`. Answering makes the guard
         // pass and the branch behind it indexes a table that has no fields, so
         // the panel's whole update dies on a nil length.
@@ -8146,7 +8146,7 @@ void LuaEngine::installMissingApiFallback() {
         // before deciding to load them: `if ( not AchievementFrame ) then
         // AchievementFrame_LoadUI() end`. Answering with the no-op made every
         // one of those guards read as "already loaded", so the panel was never
-        // asked for and the branch behind the guard ran against a stand-in —
+        // asked for and the branch behind the guard ran against a stand-in -
         // watchframe goes straight on to `AchievementFrame:IsShown()`, which
         // answered a no-op too, so tracking an achievement did nothing at all.
         //
@@ -8154,7 +8154,7 @@ void LuaEngine::installMissingApiFallback() {
         // extracted at all. The list that does the work is built by
         // declareDeferredGlobals from what the addons on disk actually define,
         // which reproduces all ten and found five more the hand list had
-        // missed — the combat-text options among them, whose whole purpose is
+        // missed - the combat-text options among them, whose whole purpose is
         // the `else` branch that loads Blizzard_CombatText.
         //
         // A list rather than a rule about the shape of the name, because the
@@ -8166,15 +8166,15 @@ void LuaEngine::installMissingApiFallback() {
         "  if __WoweeLoadOnDemandFrames[k] then return nil end\n"
         // Punctuation means this is not an API name at all. A Lua identifier
         // cannot contain a hyphen, so _G["KEY_-"] is a table lookup built by
-        // concatenation — GetBindingText does exactly that for the key bound
-        // to action button eleven — and the answer is nil, not an object that
+        // concatenation - GetBindingText does exactly that for the key bound
+        // to action button eleven - and the answer is nil, not an object that
         // the caller then tries to concatenate. Two files died on that one.
         "  if string.find(k, '[^%w_]') then return nil end\n"
         "  if not seen[k] then seen[k] = true; __WoweeRecordMissingApi(k) end\n"
         "  return missing\n"
         "end })\n");
 
-    LOG_WARNING("LuaEngine: missing-API fallback is ON — unknown globals answer "
+    LOG_WARNING("LuaEngine: missing-API fallback is ON - unknown globals answer "
                 "with a no-op, so feature detection will read as present");
 }
 
@@ -8204,7 +8204,7 @@ void LuaEngine::reportMissingApi() const {
     writeLuaErrorReport();
     if (!luaErrors_.empty()) {
         LOG_WARNING("LuaEngine: ", luaErrors_.size(),
-                    " distinct Lua error(s) this session — see ",
+                    " distinct Lua error(s) this session - see ",
                     core::getConfigRoot(), "/lua_errors.txt");
     }
     // Every name is checked against _G before being reported, so without a
@@ -8218,8 +8218,8 @@ void LuaEngine::reportMissingApi() const {
     // and it was being written where nobody could read it.
     // A name recorded here was missing when it was read, which is not the same
     // as missing. FrameXML reads a global before the file that defines it has
-    // loaded all the time — a frame asks for another panel's frame in its
-    // OnLoad, a font object is defined as `X = X or {}` — and every one of
+    // loaded all the time - a frame asks for another panel's frame in its
+    // OnLoad, a font object is defined as `X = X or {}` - and every one of
     // those was landing in a list whose only value is that everything in it is
     // real. Ask again now, at the end, and keep what is still absent.
     // Widget methods that answered with a no-op. Not globals, so the test
@@ -8229,7 +8229,7 @@ void LuaEngine::reportMissingApi() const {
     std::vector<std::string> noops;
     std::vector<std::string> globals;
     // Three kinds, not two. A "widget:" entry is a *field* read off a widget
-    // that answered nothing — which FrameXML does on purpose and constantly:
+    // that answered nothing - which FrameXML does on purpose and constantly:
     // it reads a field before anything has set it, either to test whether it
     // has been set or because the thing that sets it runs later. TextString is
     // assigned by SetTextStatusBarText and read behind `if ( self.TextString )`;
@@ -8238,8 +8238,8 @@ void LuaEngine::reportMissingApi() const {
     // names nothing implements makes that number wrong in the direction that
     // wastes someone's afternoon.
     //
-    // The recorder cannot tell a field from a method at the point it fires —
-    // both arrive as an index on the widget — so the separation is here, where
+    // The recorder cannot tell a field from a method at the point it fires -
+    // both arrive as an index on the widget - so the separation is here, where
     // the prefix already says which is which.
     std::vector<std::string> widgetFields;
     for (const auto& n : names) {
@@ -8252,7 +8252,7 @@ void LuaEngine::reportMissingApi() const {
     // Read while nothing answered for them, and answered by the time the run
     // ended. Counted before this and never named, which made the number the
     // one thing in this report nobody could act on: a name here is either a
-    // file that loads after its first reader — harmless, and most of them —
+    // file that loads after its first reader - harmless, and most of them -
     // or a value captured at load and kept, which is a permanent nil that
     // nothing ever reports again.
     std::vector<std::string> definedLater;
@@ -8267,7 +8267,7 @@ void LuaEngine::reportMissingApi() const {
     }
     // Only the globals section has nothing to say. The no-op list is a
     // separate question and returning here took it down with it: once the
-    // global surface went clean — which is the whole point of the transition —
+    // global surface went clean - which is the whole point of the transition -
     // the report stopped being written at all, and every widget method
     // answering with a no-op went quiet with it.
     //
@@ -8279,9 +8279,9 @@ void LuaEngine::reportMissingApi() const {
     // A name built from an existing frame's is a part that frame may or may
     // not have, not an API that is missing.
     //
-    // FrameXML asks for these constantly — uipaneltemplates.lua does
+    // FrameXML asks for these constantly - uipaneltemplates.lua does
     // _G[self:GetName() .. "Top"] and guards the result with if(top and
-    // bottom) — because a scroll frame only has border art if its own XML
+    // bottom) - because a scroll frame only has border art if its own XML
     // declared it. On one session 125 of 222 names were exactly this, all of
     // them correctly absent, which is a report whose number means the opposite
     // of what it says. They are counted apart rather than dropped: a genuinely
@@ -8298,7 +8298,7 @@ void LuaEngine::reportMissingApi() const {
     //                                   stores nil. A nil handler is a handler
     //                                   nobody calls.
     //   OptionsFrame_ToggleSubCategories  assigned to self.toggleSubCategories
-    //                                   in framexml, called in gluexml — the
+    //                                   in framexml, called in gluexml - the
     //                                   glue side is the login screen, which
     //                                   this client does not run.
     //   ZonePVPType                     not a function at all. zonetext.lua
@@ -8323,7 +8323,7 @@ void LuaEngine::reportMissingApi() const {
         }
         if (never) { blizzardsOwn.push_back(n); continue; }
         bool isPart = false;
-        // The suffixes in play are short — Top, Middle, Bottom, Count, Text —
+        // The suffixes in play are short - Top, Middle, Bottom, Count, Text -
         // and the frame they hang off is never tiny.
         for (size_t suffix = 1; suffix <= 16 && n.size() > suffix + 5; ++suffix) {
             if (widgets_.findByName(std::string_view(n).substr(0, n.size() - suffix))) {
@@ -8364,7 +8364,7 @@ void LuaEngine::reportMissingApi() const {
     // This is the most useful measurement a session produces and the log is
     // the worst place to keep it: the next run truncates it, and a list of two
     // hundred names is what gets lost. A file beside the log survives, sorts,
-    // and diffs against the last run — which is the question worth asking of
+    // and diffs against the last run - which is the question worth asking of
     // it anyway, since what matters is what changed.
     const std::string path = core::getConfigRoot() + "/missing_api.txt";
     if (std::ofstream out(path); out) {
@@ -8439,7 +8439,7 @@ bool LuaEngine::frameAcceptsClick(uint32_t wid, const char* button) {
     if (lua_istable(L_, -1)) {
         // Registered explicitly: either edge counts, since this only models
         // the release. "Any" means any button, which is what every action
-        // button in the interface registers — ActionButton_OnLoad calls
+        // button in the interface registers - ActionButton_OnLoad calls
         // RegisterForClicks("AnyUp"), and matching only LeftButtonUp meant no
         // action button on the bar ever received a click.
         const std::string names[] = {
@@ -8523,8 +8523,8 @@ void LuaEngine::dispatchText(const char* utf8) {
     // Counted the way the box asked to be counted. A limit is in characters
     // shown, not bytes held, unless countInvisibleLetters says otherwise: the
     // chat box declares letters="255" and nothing else, so the escapes a
-    // shift-clicked item link brings — about sixty bytes for eighteen visible
-    // characters — must not be charged against it.
+    // shift-clicked item link brings - about sixty bytes for eighteen visible
+    // characters - must not be charged against it.
     const int held = w->countInvisibleLetters
                          ? static_cast<int>(w->editText.size())
                          : static_cast<int>(ui::visibleLength(w->editText));
@@ -8562,8 +8562,8 @@ void LuaEngine::dispatchText(const char* utf8) {
 
 /// SDL's keycode as WoW names it, or empty for one WoW has no name for.
 ///
-/// The handlers compare against these by name — CoinPickupFrame checks for
-/// "ESCAPE" and the digits — so a wrong spelling is a handler that never
+/// The handlers compare against these by name - CoinPickupFrame checks for
+/// "ESCAPE" and the digits - so a wrong spelling is a handler that never
 /// matches rather than an error anyone would see.
 static std::string wowKeyName(int sym) {
     if (sym >= 'a' && sym <= 'z') return std::string(1, static_cast<char>(sym - 32));
@@ -8605,7 +8605,7 @@ std::string LuaEngine::bindingCommandFor(int sdlKeycode, bool shift, bool ctrl,
     if (ctrl)  key = "CTRL-"  + key;
     if (alt)   key = "ALT-"   + key;
 
-    // Which command the key runs, and then the command's script — both asked
+    // Which command the key runs, and then the command's script - both asked
     // of the interface's own tables rather than restated here. GetBindingAction
     // already honours SetBinding, so a key the player rebound in game answers
     // to whatever they moved it to without this knowing anything about it.
@@ -8630,7 +8630,7 @@ bool LuaEngine::dispatchBindingKey(int sdlKeycode, bool shift, bool ctrl,
     const std::string command = bindingCommandFor(sdlKeycode, shift, ctrl, alt);
     if (command.empty()) return false;
     // Left alone if the client performs it. Not "already handled, so skip the
-    // work" — running it as well would undo it.
+    // work" - running it as well would undo it.
     if (clientActsOnBinding(command)) return false;
 
     lua_getglobal(L_, "__WoweeBindingScripts");
@@ -8701,7 +8701,7 @@ void LuaEngine::dispatchKey(int sdlKeycode, bool ctrlHeld) {
     switch (sdlKeycode) {
         // Erasing a character means erasing what draws as one. A link is
         // fifty-odd bytes, so taking a byte off either end leaves a mangled
-        // escape behind — half a payload, drawing as whatever the parser makes
+        // escape behind - half a payload, drawing as whatever the parser makes
         // of the wreckage. The same step the caret moves by is the span to
         // remove, which keeps the two from ever disagreeing.
         case kBackspace:
@@ -8805,7 +8805,7 @@ void LuaEngine::dispatchKey(int sdlKeycode, bool ctrlHeld) {
                 break;
             }
             // The handler decides what to do with it, including whether to let
-            // go of focus — a chat box does, a search field does not.
+            // go of focus - a chat box does, a search field does not.
             callFrameScript(focusedWid_, "OnEnterPressed");
             break;
         case kEscape:
@@ -8815,7 +8815,7 @@ void LuaEngine::dispatchKey(int sdlKeycode, bool ctrlHeld) {
         case kTab:
             // Focus stays where it is unless the handler moves it. Twelve
             // boxes in the interface declare this, and every one of them
-            // reaches for the next field by name — which is the frame's own
+            // reaches for the next field by name - which is the frame's own
             // business, not something to guess at from here.
             callFrameScript(focusedWid_, "OnTabPressed");
             break;
@@ -8828,7 +8828,7 @@ void LuaEngine::reportEventListenersOnce() {
     // Counted from when there is an interface to count, not from startup:
     // FrameXML loads on entering the world, and a report timed from the
     // client's first frame ran before any of it existed and said zero for
-    // everything — including events that demonstrably work.
+    // everything - including events that demonstrably work.
     if (widgets_.size() < 200) return;
     if (++eventReportFrames_ < 120) return;
     eventListenersReported_ = true;
@@ -8862,7 +8862,7 @@ void LuaEngine::reportEventListenersOnce() {
 /// Declared by FrameXML and reached for constantly by addons, which resize a
 /// panel and expect the pieces inside it to be told. Noticed here rather than
 /// fired from SetWidth, because a frame is far more often resized by its
-/// anchors than by anyone calling a setter — a scroll child stretched by its
+/// anchors than by anyone calling a setter - a scroll child stretched by its
 /// parent never goes near SetWidth.
 void LuaEngine::updateSizeChanges() {
     if (!L_) return;
@@ -8918,15 +8918,15 @@ void LuaEngine::updateVisibility() {
     // WoW fires OnShow on becoming shown-with-ancestors-shown, with no regard
     // for anchors, so visibleChain is the faithful answer. Using it would mean
     // frames that are never drawn start running their OnShow and OnHide, and
-    // those handlers do real work — LootFrame_OnHide calls CloseLoot, which
+    // those handlers do real work - LootFrame_OnHide calls CloseLoot, which
     // releases the loot on the server, and UIParent's OnShow calls
     // CloseAllWindows.
     //
     // What that faithfulness would buy was measured rather than guessed: six
     // frames in the whole interface declare an OnShow with no anchors and no
-    // setAllPoints — KnowledgeBaseFrameCancel, ChannelListDropDown,
+    // setAllPoints - KnowledgeBaseFrameCancel, ChannelListDropDown,
     // HelpFrameOpenTicketEditBox, the two calendar context menus and
-    // GMSurveyFrameComment — and not one of them is anchored from Lua either,
+    // GMSurveyFrameComment - and not one of them is anchored from Lua either,
     // anywhere. None can ever be drawn or used, so none of their OnShow
     // handlers is worth the risk of waking the rest.
     //
@@ -8937,12 +8937,12 @@ void LuaEngine::updateVisibility() {
         const uint8_t toggles = w->shownToggles;
         w->shownToggles = 0;
         if (w->visible == w->reportedVisible) {
-            // Nothing changed overall — but if Lua hid this and showed it again
+            // Nothing changed overall - but if Lua hid this and showed it again
             // before anything looked, something *did* happen and both handlers
             // are owed. `panel:Hide(); panel:Show()` is the interface asking a
             // panel to rebuild itself, and it is the entirety of QuestFrame's
             // handler for QUEST_DETAIL, QUEST_PROGRESS, QUEST_COMPLETE and
-            // QUEST_GREETING — the four NPC dialogs, and the reason the vendor
+            // QUEST_GREETING - the four NPC dialogs, and the reason the vendor
             // was the only one that still filled in. Everything those panels
             // show is positioned by QuestInfo_Display, which runs from OnShow
             // and from nowhere else, so with no OnShow the text kept the place
@@ -8970,8 +8970,8 @@ void LuaEngine::updateVisibility() {
         //
         // Taking it is the autoFocus box's privilege; giving it up on the way
         // out is every box's duty. Only the two that ask took it and only the
-        // two that ask released it, so a box focused by name — which is how
-        // the chat box and every dialog's box get it — kept the keyboard after
+        // two that ask released it, so a box focused by name - which is how
+        // the chat box and every dialog's box get it - kept the keyboard after
         // it was hidden. Nothing on screen had focus and focusedWid_ was not
         // zero, and that flag is what the client asks before it looks at a key
         // at all: escape stopped opening the menu and every character typed
@@ -8990,8 +8990,8 @@ bool LuaEngine::editBoxHasFocus() const {
     if (focusedWid_ == 0) return false;
     const auto* w = widgets_.get(focusedWid_);
     // An edit box, and not merely whatever holds the focus. This answer is
-    // what every keystroke in the client is gated on — bindings, the camera,
-    // the sheathe key and the Escape chain all defer to it — so a frame that
+    // what every keystroke in the client is gated on - bindings, the camera,
+    // the sheathe key and the Escape chain all defer to it - so a frame that
     // is not a text field holding the focus would claim the keyboard outright
     // and nothing would say why. The mouse path already refuses to focus
     // anything else; SetFocus from Lua does not, and this is the same rule on
@@ -9006,7 +9006,7 @@ void LuaEngine::updateScrollRanges() {
         if (!w) continue;
         float rangeX = 0.0f, rangeY = 0.0f;
         if (const auto* child = widgets_.get(w->scrollChild)) {
-            // The child's contents, not its declared size — see
+            // The child's contents, not its declared size - see
             // scrollContentExtent. The two agree for a frame that sizes its own
             // child and differ sharply for one the client is expected to size.
             float contentW = child->rectW, contentH = child->rectH;
@@ -9058,8 +9058,8 @@ bool LuaEngine::dispatchMouseWheel(float x, float y, float delta) {
     // the wheel. WoW works the same way: a scroll frame's child fills it and
     // takes the hit, and the scroll frame above is what handles the wheel.
     // The wheel's own hit test. A scroll frame enables the wheel and not the
-    // mouse — UIPanelScrollFrameTemplate declares OnMouseWheel and never calls
-    // EnableMouse — so the plain hit test could not see one, and this walk
+    // mouse - UIPanelScrollFrameTemplate declares OnMouseWheel and never calls
+    // EnableMouse - so the plain hit test could not see one, and this walk
     // started from whatever mouse-enabled child happened to be under the
     // cursor or, over the empty parts of a panel, from nothing at all. The
     // talent tree is all empty parts between its buttons.
@@ -9106,7 +9106,7 @@ void LuaEngine::dispatchMouse(float x, float y, float screenH, MouseButtons butt
     if (!L_) return;
     // The cursor arrives in window pixels measured from the top, and the tree
     // is in interface units measured from the bottom. ui::mouseToTreeSpace is
-    // the one definition of that conversion — the link rects a draw pass files
+    // the one definition of that conversion - the link rects a draw pass files
     // go through its other half, and when the two were written separately the
     // hyperlink hit test missed by the scale factor and the screen height.
     ui::mouseToTreeSpace(x, y, screenH, widgets_.uiScale());
@@ -9166,7 +9166,7 @@ void LuaEngine::dispatchMouse(float x, float y, float screenH, MouseButtons butt
 
     // Told before anything else reads it: which of a button's textures to draw
     // depends on both, and the draw order is collected during layout, which has
-    // already happened by the time this runs — so this frame's press shows on
+    // already happened by the time this runs - so this frame's press shows on
     // the next, which at sixty frames a second is not a wait anyone sees.
     widgets_.setInteraction(hit, buttonDown_[0] ? pressedWid_[0] : 0);
 
@@ -9183,7 +9183,7 @@ void LuaEngine::dispatchMouse(float x, float y, float screenH, MouseButtons butt
     //
     // A disabled button hears nothing unless its XML asked to, which is WoW's
     // rule and the reason the attribute exists at all. Without this every
-    // greyed control answered the mouse — a tooltip on a spellbook slot for a
+    // greyed control answered the mouse - a tooltip on a spellbook slot for a
     // spell that is not known, and on every micro button whose panel is shut.
     // The five templates that declare it keep theirs, which is the point: that
     // is how a greyed control says why it is greyed.
@@ -9244,14 +9244,14 @@ void LuaEngine::dispatchMouse(float x, float y, float screenH, MouseButtons butt
             // there and it could not be moved.
             // A slider stops that walk. It is the one widget whose whole
             // purpose is to be dragged, and it is already following the cursor
-            // for as long as the button is held — so the press belongs to it
+            // for as long as the button is held - so the press belongs to it
             // and must not be offered to anything above it. Without this, a
             // scroll bar sits inside a movable window and dragging its grip
             // found the window instead: the list scrolled and the whole panel
             // came away with the cursor.
             //
             // Checked along the walk rather than only at the press, because a
-            // scroll bar's up and down buttons are its children — a drag off one
+            // scroll bar's up and down buttons are its children - a drag off one
             // of those would otherwise pass straight through the bar to the
             // window behind it.
             uint32_t owner = 0;
@@ -9273,7 +9273,7 @@ void LuaEngine::dispatchMouse(float x, float y, float screenH, MouseButtons butt
                 // The silent case, and the one with nothing to show for it.
                 // A press that travels far enough to be a drag and finds
                 // nothing registered for one looks exactly like a press the
-                // interface never saw — and the two have opposite causes.
+                // interface never saw - and the two have opposite causes.
                 // Said once a second so holding the button does not flood it.
                 // Not for a slider: it took the press deliberately, and the
                 // drag it is doing is its own.
@@ -9331,7 +9331,7 @@ void LuaEngine::dispatchMouse(float x, float y, float screenH, MouseButtons butt
                     // With the value, because that is the argument the handler
                     // names and uses: UIPanelScrollBarTemplate's body is
                     // self:GetParent():SetVerticalScroll(value), and a nil
-                    // there scrolls to zero — so dragging a scroll bar snapped
+                    // there scrolls to zero - so dragging a scroll bar snapped
                     // the view back to the top instead of moving it.
                     callFrameScriptNumber(pressedWid_[0], "OnValueChanged", value);
                 }
@@ -9398,7 +9398,7 @@ void LuaEngine::dispatchMouse(float x, float y, float screenH, MouseButtons butt
             pressedWid_[i] = clickOwnerOf(hit, b.name);
             // Bring the window to the front, the way clicking one does in WoW.
             // The nearest frame at or above what was hit that asked to be
-            // toplevel — a click lands on a button inside the window, not on
+            // toplevel - a click lands on a button inside the window, not on
             // the window itself, so raising only what was hit would raise
             // nothing. Done on the press so the frame is already in front
             // while the click is still being held.
@@ -9412,8 +9412,8 @@ void LuaEngine::dispatchMouse(float x, float y, float screenH, MouseButtons butt
             pressY_[i] = y;
             // Which half of a colour picker this press landed on, decided once
             // here. The wheel and the bar are textures, and a texture does not
-            // take the mouse — the press lands on the ColorSelect frame itself
-            // — so the only way to know is to ask which of its regions the
+            // take the mouse - the press lands on the ColorSelect frame itself
+            // - so the only way to know is to ask which of its regions the
             // cursor is inside.
             if (i == 0) {
                 pickerPart_ = 0;
@@ -9456,7 +9456,7 @@ void LuaEngine::dispatchMouse(float x, float y, float screenH, MouseButtons butt
                 // range would still scroll.
                 // A drag that ends is not also a click. The frame that was
                 // dragged is told to stop, and whatever the cursor was let go
-                // over is offered what is being carried — which is how an item
+                // over is offered what is being carried - which is how an item
                 // moves from one bag slot to another.
                 const bool wasDragged = (draggingWid_ != 0 && draggingButton_ == i);
                 if (wasDragged) {
@@ -9480,7 +9480,7 @@ void LuaEngine::dispatchMouse(float x, float y, float screenH, MouseButtons butt
                     }
                     const auto* target = dropOn ? widgets_.get(dropOn)
                                                 : (hit ? widgets_.get(hit) : nullptr);
-                    // Which frame took it, and — when none did — which one was
+                    // Which frame took it, and - when none did - which one was
                     // under the cursor, since those are different questions and
                     // the second is what says why nothing happened.
                     const auto* under = hit ? widgets_.get(hit) : nullptr;
@@ -9488,7 +9488,7 @@ void LuaEngine::dispatchMouse(float x, float y, float screenH, MouseButtons butt
                                 target && !target->name.empty() ? target->name.c_str()
                                                                 : "nothing",
                                 dropOn == 0 && hit != 0
-                                    ? " — nothing there or above it takes a drop" : "",
+                                    ? " - nothing there or above it takes a drop" : "",
                                 // The frame actually under the cursor, always,
                                 // because "nothing" has two causes and they
                                 // need different fixes: no frame there at all,
@@ -9525,7 +9525,7 @@ void LuaEngine::dispatchMouse(float x, float y, float screenH, MouseButtons butt
                 // and FloatingChatFrameTemplate sets enableMouse="false" over
                 // it, because a chat window is click-through by design. So the
                 // press landed on no widget, the gate never opened, and no item
-                // link in chat could be clicked — while the same link in a
+                // link in chat could be clicked - while the same link in a
                 // tooltip or a quest frame, which do take clicks, worked.
                 //
                 // FrameXML puts the handler on the chat frame rather than on
@@ -9557,7 +9557,7 @@ void LuaEngine::dispatchMouse(float x, float y, float screenH, MouseButtons butt
                         // through it, because the rect was still there.
                         //
                         // Nothing under the cursor at all is the chat's own
-                        // case — the window is click-through, so the hit test
+                        // case - the window is click-through, so the hit test
                         // finds no widget and the link is the only thing there.
                         const bool linkIsWhatIsUnderTheCursor =
                             hit == 0 || ui::isSelfOrDescendantOf(widgets_, hit, owner);
@@ -9578,7 +9578,7 @@ void LuaEngine::dispatchMouse(float x, float y, float screenH, MouseButtons butt
                     // an addon that only has PostClick would otherwise never
                     // hear that its button was used.
                     // A check button flips itself before its handler runs,
-                    // and nothing here did it — checked moved only when
+                    // and nothing here did it - checked moved only when
                     // Lua called SetChecked. Handlers that read their own
                     // state to decide what a click meant therefore saw the
                     // same answer every time.
@@ -9602,7 +9602,7 @@ void LuaEngine::dispatchMouse(float x, float y, float screenH, MouseButtons butt
                     callFrameScript(pressedWid_[i], "PostClick", b.name);
 
                     // A second click on the same frame, soon enough after the
-                    // first, is also a double click — WoW sends both, and the
+                    // first, is also a double click - WoW sends both, and the
                     // frames that care about one usually care about the other.
                     const double now = core::appTimeSeconds();
                     if (pressedWid_[i] == lastClickWid_ &&
@@ -9622,10 +9622,10 @@ void LuaEngine::dispatchMouse(float x, float y, float screenH, MouseButtons butt
                 // nothing. Says which of the three conditions refused it.
                 if (pressedWid_[i] != 0 && pressed && !pressed->name.empty()) {
                     LOG_WARNING("WidgetInput: release on ", pressed->name,
-                                pressedWid_[i] != releasedOn ? " — cursor had moved off it"
-                                : !pressed->enabled  ? " — the frame is disabled"
-                                : !takesIt           ? " — it did not register for this button"
-                                                     : " — OnClick ran");
+                                pressedWid_[i] != releasedOn ? " - cursor had moved off it"
+                                : !pressed->enabled  ? " - the frame is disabled"
+                                : !takesIt           ? " - it did not register for this button"
+                                                     : " - OnClick ran");
                 }
             }
             pressedWid_[i] = 0;
@@ -9639,7 +9639,7 @@ void LuaEngine::dispatchMouse(float x, float y, float screenH, MouseButtons butt
 /// A click lands on the topmost frame taking the mouse, which is not always the
 /// one meant to answer it. A unit frame's health bar takes the mouse so it can
 /// show its numbers on hover, and it sits over the button that does the
-/// targeting — so without this, clicking a target frame anywhere but its border
+/// targeting - so without this, clicking a target frame anywhere but its border
 /// did nothing at all. Drags already resolve their owner this way.
 ///
 /// Falls back to the frame that was hit when nothing above it wants the button,
@@ -9648,7 +9648,7 @@ void LuaEngine::dispatchMouse(float x, float y, float screenH, MouseButtons butt
 /// The frame a drop belongs to: the first at or above `wid` with an
 /// OnReceiveDrag.
 ///
-/// Zero when nothing up the chain takes one, which is a real answer — dropping
+/// Zero when nothing up the chain takes one, which is a real answer - dropping
 /// on empty screen is how an item is destroyed, and that path needs to know the
 /// difference between "nobody wanted it" and "it went to the frame under the
 /// cursor".
@@ -9718,7 +9718,7 @@ void LuaEngine::runInterfaceProbe() {
 ///
 /// Faded rather than removed. A chat line that has gone quiet is still in the
 /// history and comes back when the frame is scrolled, which is why nothing is
-/// erased here and why scrolling lights everything again — the player reading
+/// erased here and why scrolling lights everything again - the player reading
 /// back wants what was said, not what is still fresh.
 void LuaEngine::expireMessages(float elapsed) {
     for (size_t id = 1; id < widgets_.size(); ++id) {
@@ -9742,7 +9742,7 @@ void LuaEngine::expireMessages(float elapsed) {
 /// frame.
 ///
 /// The queue is taken and cleared before anything runs, so a handler that sets
-/// text again is queued for the next frame rather than extending this drain —
+/// text again is queued for the next frame rather than extending this drain -
 /// which is what stops MoneyInputFrame's own edits from chasing their own tail.
 /// Run the OnAnimFinished handlers owed by frames shown to play an animation
 /// this client does not play.
@@ -9780,7 +9780,7 @@ void LuaEngine::drainPendingTextChanged() {
         if (lua_istable(L_, -1)) {
             // The caret first. Setting text moves it to the end, which in WoW
             // is a cursor change, and ScrollingEdit_OnCursorChanged is the only
-            // thing that ever sets self.cursorOffset — which
+            // thing that ever sets self.cursorOffset - which
             // ScrollingEdit_OnTextChanged then negates. Firing the text change
             // without the cursor change reaches `-nil` on the first code-set
             // text in every multi-line box: the mail body, the macro editor,
@@ -9827,7 +9827,7 @@ void LuaEngine::dispatchOnUpdate(float elapsed) {
         lua_rawgeti(L_, -1, i);
         if (!lua_istable(L_, -1)) { lua_pop(L_, 1); continue; }
 
-        // Visible, meaning shown with every ancestor shown too — which is what
+        // Visible, meaning shown with every ancestor shown too - which is what
         // decides whether WoW runs an OnUpdate at all.
         //
         // This read __visible, a field beside the frame that Show and Hide
@@ -9850,7 +9850,7 @@ void LuaEngine::dispatchOnUpdate(float elapsed) {
             // still running, which is exactly what FrameXML's driver frames
             // are. frameFadeManager, frameFlashManager and AnimUpdateFrame are
             // each a CreateFrame that is never positioned and carries nothing
-            // but an OnUpdate — asking whether they would be drawn stops every
+            // but an OnUpdate - asking whether they would be drawn stops every
             // fade, flash and animation in the interface.
             visible = uw->visibleChain;
         } else {
@@ -9882,7 +9882,7 @@ void LuaEngine::dispatchOnUpdate(float elapsed) {
                     // costs time and buries everything else in the log.
                     //
                     // After a few tries the handler is unhooked and said so
-                    // once. The frame keeps working — it simply stops being
+                    // once. The frame keeps working - it simply stops being
                     // asked to do the thing it cannot do.
                     // Indexed from the handler rather than the top: hIdx - 1
                     // is __scripts, and the traceback handler now sits above
@@ -9898,7 +9898,7 @@ void LuaEngine::dispatchOnUpdate(float elapsed) {
 
                     // Which frame, by name. Disabling an OnUpdate stops
                     // whatever that frame drives, for the rest of the session,
-                    // and the symptom is never an error message — it is a
+                    // and the symptom is never an error message - it is a
                     // thing on screen that has stopped moving. Blizzard_
                     // CombatText is the shape of it: its OnUpdate is the only
                     // thing that ages a floating message out, so a handler
@@ -9911,7 +9911,7 @@ void LuaEngine::dispatchOnUpdate(float elapsed) {
                         lua_pushnil(L_);
                         lua_setfield(L_, scriptsIdx, "OnUpdate");
                         LOG_ERROR("LuaEngine: OnUpdate disabled on '", fname,
-                                  "' after ", failures, " failures — whatever "
+                                  "' after ", failures, " failures - whatever "
                                   "it drives has stopped: ", uerrStr);
                         noteLuaError(uerrStr);
         if (luaErrorCallback_) luaErrorCallback_(uerrStr);
@@ -10088,7 +10088,7 @@ void LuaEngine::setAddonList(const std::vector<TocFile>& addons) {
 bool LuaEngine::loadSavedVariables(const std::string& path) {
     if (!L_) return false;
     std::ifstream f(path);
-    if (!f.is_open()) return false; // No saved data yet — not an error
+    if (!f.is_open()) return false; // No saved data yet - not an error
     std::string content((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
     if (content.empty()) return true;
     int err = luaL_dostring(L_, content.c_str());
@@ -10139,7 +10139,7 @@ namespace {
 /// An error says where it happened; the interesting part is nearly always how
 /// it got there. "dropdownMenu is nil at unitpopup.lua:484" cost several rounds
 /// of reading to trace back to the OnLoad that started it, and the stack was
-/// there the whole time — it just was not being asked for. Installed as the
+/// there the whole time - it just was not being asked for. Installed as the
 /// message handler so it runs before the stack unwinds.
 ///
 /// Written by hand rather than through debug.traceback because the debug
@@ -10178,12 +10178,12 @@ int runChunk(lua_State* L, const char* chunk, size_t len, const char* name) {
 
 /// When the running chunk must give up. Wall clock rather than a count of VM
 /// instructions: the runaway this was written for spends nearly all its time
-/// inside one C binding — a table rehash that grows with every call — so it
+/// inside one C binding - a table rehash that grows with every call - so it
 /// executes very few Lua instructions per second and a generous instruction
 /// budget never came due while the client sat frozen.
 std::chrono::steady_clock::time_point gChunkDeadline{};
 
-/// Reports where the VM actually is — the Lua source and line — which a C++
+/// Reports where the VM actually is - the Lua source and line - which a C++
 /// backtrace cannot tell you: that only names the binding being called, not
 /// the loop calling it.
 void runawayHook(lua_State* L, lua_Debug*) {
@@ -10211,7 +10211,7 @@ void runawayHook(lua_State* L, lua_Debug*) {
 }
 
 /// Installs the deadline for one chunk and takes it off again however that
-/// chunk leaves — including by error, which is the case that matters.
+/// chunk leaves - including by error, which is the case that matters.
 struct BudgetGuard {
     lua_State* L;
     explicit BudgetGuard(lua_State* state, unsigned long long ms) : L(state) {
@@ -10299,10 +10299,10 @@ bool LuaEngine::evaluateBoolean(const std::string& expression) {
     BudgetGuard guard(L_, chunkTimeoutMs_);
     if (runChunk(L_, chunk.c_str(), chunk.size(), chunk.c_str()) != 0) {
         const char* err = lua_tostring(L_, -1);
-        LOG_WARNING("LuaEngine: ", expression, " — ", err ? err : "(unknown)");
+        LOG_WARNING("LuaEngine: ", expression, " - ", err ? err : "(unknown)");
         // Recorded, not only logged. This answers questions the client asks
         // the interface, and a false is what it gets whether the answer was no
-        // or the question raised — the two are indistinguishable from the call
+        // or the question raised - the two are indistinguishable from the call
         // site. Escape runs through here: it asks whether FrameXML closed a
         // window before deciding to open the game menu, so a raise inside
         // CloseAllWindows reads as "nothing was open" and the chain moves on

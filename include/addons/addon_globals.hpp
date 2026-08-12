@@ -6,8 +6,8 @@
 /// one of those tests read as "already loaded".
 ///
 /// Here rather than inside the addon manager so the two parsers can be tested
-/// directly. Naming one global too many is the failure that matters — that
-/// name reads as absent for the whole session — so both are deliberately
+/// directly. Naming one global too many is the failure that matters - that
+/// name reads as absent for the whole session - so both are deliberately
 /// strict, and the tests pin the cases they must not claim.
 
 #include <algorithm>
@@ -29,7 +29,7 @@ inline bool isIdentifier(const std::string& s) {
 /// assignments written hard against the left margin.
 ///
 /// Column zero is the whole test for an assignment, and it is deliberately
-/// strict — an indented `SomeGlobal = 1` inside a function body is a global
+/// strict - an indented `SomeGlobal = 1` inside a function body is a global
 /// too, but so is every local this cannot tell it from. Naming too few leaves
 /// a global answering the no-op it answers today; naming one too many makes a
 /// name FrameXML needs read as absent, which is the louder failure.
@@ -42,7 +42,7 @@ inline void collectLuaGlobals(const std::string& text, std::vector<std::string>&
 
         size_t i = line.find_first_not_of(" \t");
         if (i == std::string::npos) continue;
-        // `function Name(`, `function Name:Method(`, `function Name.field(` —
+        // `function Name(`, `function Name:Method(`, `function Name.field(` -
         // the last two need Name to exist already, so it is the addon's too.
         // `local function` does not match, because the line starts with local.
         if (line.compare(i, 9, "function ") == 0) {

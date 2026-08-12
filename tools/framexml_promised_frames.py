@@ -7,14 +7,14 @@ The tables in src/ui/framexml_takeover.cpp are promises. A suppression row says
 "FrameXML draws this, hide it when this client owns the element"; a check row
 says "if FrameXML owns the element, these frames have to exist for it to have
 arrived". Both are written from reading the interface by hand, and both go
-stale silently — nothing checks that the frame named is one the interface can
+stale silently - nothing checks that the frame named is one the interface can
 actually produce, and a promise pointing at nothing fails invisibly: no error,
 no warning on screen, just a frame that is not there.
 
 THE CASE THAT NAMED THIS, WHICH WAS A FALSE ALARM
 
 FocusFrame. focusframe.xml is in no manifest and included by no XML, and
-"focusframe" is in the branch's default set — so it read as: this client's own
+"focusframe" is in the branch's default set - so it read as: this client's own
 focus frame gated off, FrameXML's never built, nothing on screen. Wrong.
 FocusFrame is declared in targetframe.xml, inheriting TargetFrameTemplate, and
 loads with it. The file that shares its name is the unused one.
@@ -27,7 +27,7 @@ declared the frame twice.
 WHAT IT LOOKS FOR
 
 Every name in the takeover tables, against every name declared by a file the
-loader actually reaches — manifests and the Script/Include graph, via
+loader actually reaches - manifests and the Script/Include graph, via
 framexml_source.loaded_files, so a file sitting in the folder unreferenced does
 not count as a definition. $parent chains are followed within a file, and
 nested, because they nest.
@@ -45,7 +45,7 @@ from one row to fourteen, FocusFrame among them.
 WHAT IT CANNOT SEE
 
 Whether a frame that exists is ever shown. That is the runtime takeover
-check's question, and the two are complementary — this one finds what cannot
+check's question, and the two are complementary - this one finds what cannot
 appear, the other finds what did not.
 """
 import re
@@ -60,7 +60,7 @@ INTERFACE = ROOT / "Data/interface"
 TAKEOVER = ROOT / "src/ui/framexml_takeover.cpp"
 
 #: Rows of the two tables that name frames. The element enum tells them apart
-#: from every other string literal in the file — a comment full of frame names
+#: from every other string literal in the file - a comment full of frame names
 #: is not a promise, and neither is a log message.
 ROW = re.compile(r"\{\s*UiElement::(\w+)\s*,\s*((?:\"[^\"]*\"\s*)+)")
 
@@ -75,7 +75,7 @@ RELATIVE = re.compile(r'\bname="\$parent([A-Za-z][A-Za-z0-9_]*)"')
 #: ...and names it builds at runtime, where the literal is written out.
 CREATED = re.compile(r'CreateFrame\s*\(\s*"[^"]*"\s*,\s*"([A-Za-z][A-Za-z0-9_]*)"')
 
-#: Elements whose rows carry an element name rather than frame names — the
+#: Elements whose rows carry an element name rather than frame names - the
 #: first table in the file maps UiElement to the lowercase name a run asks for.
 LOWERCASE = re.compile(r"^[a-z0-9]+$")
 
@@ -97,7 +97,7 @@ def promised():
 
 #: A frame declaring what it is built from. Template children are declared
 #: inside the template, in whatever file that lives in, and resolve against
-#: whoever instantiates it — PartyMemberFrame1 is declared in partyframe.xml
+#: whoever instantiates it - PartyMemberFrame1 is declared in partyframe.xml
 #: and its health bar in partyframetemplates.xml.
 INHERITS = re.compile(r'<\w+\b[^>]*\bname="([A-Za-z][A-Za-z0-9_]*)"[^>]*\binherits="([A-Za-z][A-Za-z0-9_]*)"'
                       r'|<\w+\b[^>]*\binherits="([A-Za-z][A-Za-z0-9_]*)"[^>]*\bname="([A-Za-z][A-Za-z0-9_]*)"')
@@ -149,7 +149,7 @@ def resolves(name, names, per_file):
     """Is this a name the interface can produce?
 
     Either declared outright, or reached by hanging relative suffixes off a
-    declared frame — within one file, because that is what $parent means, and
+    declared frame - within one file, because that is what $parent means, and
     repeatedly, because the chains nest. TargetFrameTextureFrameName is a
     $parentName inside a $parentTextureFrame inside TargetFrame, and stopping
     at one level reported it as a frame that cannot exist.

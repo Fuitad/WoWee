@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Item Material catalog (.wmat) — novel
+// Wowee Open Item Material catalog (.wmat) - novel
 // replacement for Blizzard's Material.dbc plus the
 // Material/SheatheType fields in ItemDisplayInfo.dbc.
 // Defines the material categorization that items
@@ -19,7 +19,7 @@ namespace pipeline {
 //
 // The engine plays a sword's metallic clang from
 // impactSoundId when it hits a stone wall, but a cloth
-// tabard makes no such sound — the difference is exactly
+// tabard makes no such sound - the difference is exactly
 // the material assigned by this catalog. Every armor and
 // weapon item in WIT references a materialId here.
 //
@@ -107,16 +107,16 @@ public:
 
     // Preset emitters used by --gen-mat* variants.
     //
-    //   makeArmor   — 5 armor-class materials (Cloth /
+    //   makeArmor   - 5 armor-class materials (Cloth /
     //                  Leather / Mail / Plate / Hide)
     //                  with weight categories matching
     //                  WoW's armor classes.
-    //   makeWeapon  — 5 weapon materials (Wood / Steel /
+    //   makeWeapon  - 5 weapon materials (Wood / Steel /
     //                  Mithril / Adamantite /
     //                  EnchantedSteel) covering the
     //                  vendor-buy through endgame
     //                  progression.
-    //   makeMagical — 4 magical materials (Crystal /
+    //   makeMagical - 4 magical materials (Crystal /
     //                  Ethereal / Cursed / HolyForged)
     //                  carrying special flags
     //                  (IsMagical, IsCursed,

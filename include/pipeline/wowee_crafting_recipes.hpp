@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Crafting Recipe catalog (.wcra) —
+// Wowee Open Crafting Recipe catalog (.wcra) -
 // novel replacement for the implicit recipe
 // expansion that vanilla WoW carried in
 // SpellReagents.dbc + Spell.dbc effect-24
@@ -21,7 +21,7 @@ namespace pipeline {
 //
 // Cross-references with previously-added formats:
 //   WSPL: spellId references the WSPL spell catalog
-//         (the actual spell-to-cast — Brilliant
+//         (the actual spell-to-cast - Brilliant
 //         Mana Oil is spellId 25127, etc.).
 //   WIT:  every reagent[i].itemId, producedItemId,
 //         and learnedFromItemId references the WIT
@@ -31,7 +31,7 @@ namespace pipeline {
 //         Engineering=202, etc.).
 //   WCAT: categoryId references the trade-skill
 //         category catalog (within a skill, the
-//         subcategory tab — "Potion / Elixir /
+//         subcategory tab - "Potion / Elixir /
 //         Transmute" for Alchemy).
 //
 // Binary layout (little-endian):
@@ -41,16 +41,16 @@ namespace pipeline {
 //   entryCount (uint32)
 //   entries (each):
 //     recipeId (uint32)
-//     spellId (uint32)             — WSPL cast
+//     spellId (uint32)             - WSPL cast
 //                                     spell
-//     nameLen + name               — display label
-//     tradeSkillId (uint16)        — WSKL ref
-//     requiredSkillLevel (uint16)  — 0..300 vanilla
+//     nameLen + name               - display label
+//     tradeSkillId (uint16)        - WSKL ref
+//     requiredSkillLevel (uint16)  - 0..300 vanilla
 //     producedItemId (uint32)
 //     producedCount (uint16)
-//     categoryId (uint16)          — within-skill
+//     categoryId (uint16)          - within-skill
 //                                     tab
-//     learnedFromItemId (uint32)   — recipe scroll
+//     learnedFromItemId (uint32)   - recipe scroll
 //                                     (0 = trainer-
 //                                     learned)
 //     reagentCount (uint32)
@@ -81,7 +81,7 @@ struct WoweeCraftingRecipes {
 
     const Entry* findById(uint32_t recipeId) const;
 
-    // Returns the recipe for a given cast spellId —
+    // Returns the recipe for a given cast spellId -
     // the lookup the trade-skill cast handler uses
     // to resolve which item to produce + which
     // reagents to consume.
@@ -93,7 +93,7 @@ struct WoweeCraftingRecipes {
     std::vector<const Entry*> findByTradeSkill(uint16_t tradeSkillId) const;
 
     // Returns all recipes that produce a given
-    // itemId — useful for "how do I make this?"
+    // itemId - useful for "how do I make this?"
     // tooltip-link queries.
     std::vector<const Entry*> findByProducedItem(uint32_t itemId) const;
 };
@@ -107,13 +107,13 @@ public:
 
     // Preset emitters used by --gen-cra* variants.
     //
-    //   makeAlchemyPotions  — 4 vanilla Alchemy
+    //   makeAlchemyPotions  - 4 vanilla Alchemy
     //                          potions (Healing /
     //                          Mana / Greater Healing
     //                          / Major Mana). Each
     //                          uses 2 herb reagents +
     //                          1 vial.
-    //   makeEngineering    — 3 vanilla Engineering
+    //   makeEngineering    - 3 vanilla Engineering
     //                          recipes (Rough Blasting
     //                          Powder / Mechanical
     //                          Squirrel Box / Target
@@ -121,7 +121,7 @@ public:
     //                          variable reagent count
     //                          (Target Dummy needs 5
     //                          reagents).
-    //   makeBlacksmithing  — 3 Blacksmithing recipes
+    //   makeBlacksmithing  - 3 Blacksmithing recipes
     //                          (Rough Sharpening Stone
     //                          / Coarse Grinding Stone
     //                          / Heavy Mithril Helm)

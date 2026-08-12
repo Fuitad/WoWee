@@ -4,7 +4,7 @@
 ///
 /// Here rather than inline in the renderer because this rule has been got wrong
 /// repeatedly and every failure looks like scenery: water outside a pond's
-/// banks, a gap in open sea, or — the one that named this file — an ocean drawn
+/// banks, a gap in open sea, or - the one that named this file - an ocean drawn
 /// across a dry chunk, roofing the Caverns of Time. None of them raises, fails a
 /// test or writes a line of log, so the rule needs somewhere it can be stated
 /// once and checked without a device.
@@ -12,7 +12,7 @@
 /// The mask is the canonical chunk-wide 8x8 form both MH2O and MCLQ are
 /// normalised into by the ADT loader: bit index = row * 8 + col, LSB first,
 /// where row is the MH2O y axis and col the x. See the water/terrain axis notes
-/// — every read of it is LSB-only, and the old mirror-OR and neighbour dilation
+/// - every read of it is LSB-only, and the old mirror-OR and neighbour dilation
 /// were compensation for bugs that are fixed.
 
 #include <cstdint>
@@ -30,7 +30,7 @@ namespace wowee::rendering {
 /// **A chunk that declares no liquid never reaches here.** It contributes no
 /// layer, so it gets no bits. The bug this replaced seeded every sub-tile of the
 /// whole ADT before the chunks were consulted, which gave water to chunks that
-/// had none — invisible against land above sea level, and a ceiling of ocean
+/// had none - invisible against land above sea level, and a ceiling of ocean
 /// over anything below it.
 inline uint64_t chunkWaterMask(const std::vector<uint8_t>& layerMask,
                                int x, int y, int width, int height,

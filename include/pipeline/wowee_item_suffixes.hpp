@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Item Random Suffix catalog (.wsuf) — novel
+// Wowee Open Item Random Suffix catalog (.wsuf) - novel
 // replacement for Blizzard's ItemRandomProperties.dbc +
 // ItemRandomSuffix.dbc plus the AzerothCore-style suffix-
 // roll tables. Defines the random "of the X" suffixes and
@@ -17,7 +17,7 @@ namespace pipeline {
 //
 // Each entry binds a suffix name to up to 5 stat bonuses
 // (matches WoW canonical max). statValuePoints isn't an
-// absolute number — it's a scaling base that the runtime
+// absolute number - it's a scaling base that the runtime
 // multiplies by an item-level coefficient to compute the
 // final per-item bonus. This way "of the Bear" gives
 // proportionally more strength on a level-60 item than on
@@ -50,7 +50,7 @@ struct WoweeItemSuffix {
 
     enum SuffixCategory : uint8_t {
         Generic    = 0,    // canonical "of the X" stat suffix
-        Elemental  = 1,    // "of Fire" / "of Frost" — magic damage
+        Elemental  = 1,    // "of Fire" / "of Frost" - magic damage
         Defensive  = 2,    // "of Defense" / "of Toughness"
         PvPSuffix  = 3,    // PvP-themed (resilience, honor)
         Crafted    = 4,    // tradeskill-applied (jewelcrafting socket)
@@ -106,16 +106,16 @@ public:
 
     // Preset emitters used by --gen-suf* variants.
     //
-    //   makeStarter  — 3 common Generic stat suffixes
+    //   makeStarter  - 3 common Generic stat suffixes
     //                   ("of the Bear" STR+STA, "of the
     //                   Eagle" INT+SPI, "of the Tiger"
     //                   STR+AGI) covering the canonical
     //                   greens-tier stat triads.
-    //   makeMagical  — 4 Elemental suffixes ("of Fire",
+    //   makeMagical  - 4 Elemental suffixes ("of Fire",
     //                   "of Frost", "of Shadow", "of
-    //                   Arcane") — flat spell power into a
+    //                   Arcane") - flat spell power into a
     //                   single school for caster gear.
-    //   makePvP      — 3 PvPSuffix-category suffixes ("of
+    //   makePvP      - 3 PvPSuffix-category suffixes ("of
     //                   the Champion", "of the Gladiator",
     //                   "of Resilience") combining
     //                   resilience with offensive stats.

@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Combat Formula catalog (.wcfr) —
+// Wowee Open Combat Formula catalog (.wcfr) -
 // novel replacement for the per-stat-conversion
 // ratios vanilla WoW carried in the gtChanceTo*.
 // dbc gameobject tables + the per-class hard-coded
@@ -34,7 +34,7 @@ namespace pipeline {
 //   entries (each):
 //     formulaId (uint32)
 //     nameLen + name
-//     outputStatKind (uint8)       — 0=AP /
+//     outputStatKind (uint8)       - 0=AP /
 //                                     1=SpellPower /
 //                                     2=CritPct /
 //                                     3=DodgePct /
@@ -42,20 +42,20 @@ namespace pipeline {
 //                                     5=HitPct /
 //                                     6=SpellCritPct
 //                                     /7=HastePct
-//     inputStatKind (uint8)        — 0=Strength /
+//     inputStatKind (uint8)        - 0=Strength /
 //                                     1=Agility /
 //                                     2=Stamina /
 //                                     3=Intellect /
 //                                     4=Spirit
-//     levelMin (uint8)             — 1..80
-//     levelMax (uint8)             — 0 = no upper
+//     levelMin (uint8)             - 1..80
+//     levelMax (uint8)             - 0 = no upper
 //                                     gate
-//     classRestriction (uint16)    — bitmask of
+//     classRestriction (uint16)    - bitmask of
 //                                     classes (1<<
 //                                     classId; 0 =
 //                                     all classes)
 //     pad0 (uint16)
-//     conversionRatioFp_x100 (uint32) — fixed-point
+//     conversionRatioFp_x100 (uint32) - fixed-point
 //                                       100 = 1.0
 //                                       conv. e.g.
 //                                       200 means
@@ -106,7 +106,7 @@ struct WoweeCombatFormulas {
     const Entry* findById(uint32_t formulaId) const;
 
     // Returns all formulas that produce a given
-    // output stat for a given class+level — used
+    // output stat for a given class+level - used
     // by the combat math hot path to compute
     // derived stats from base stats.
     std::vector<const Entry*> findApplicable(
@@ -124,17 +124,17 @@ public:
 
     // Preset emitters used by --gen-cfr* variants.
     //
-    //   makeWarriorFormulas  — 4 Warrior conversion
+    //   makeWarriorFormulas  - 4 Warrior conversion
     //                           formulas (Str→AP 2.0
     //                           / Agi→Crit 0.05 /
     //                           Agi→Dodge 0.05 /
     //                           Sta→ no derived).
-    //   makeMageFormulas     — 3 Mage conversion
+    //   makeMageFormulas     - 3 Mage conversion
     //                           formulas (Int→
     //                           SpellPower 1.0 / Int
     //                           →SpellCrit 0.0167 /
     //                           Spi→ regen).
-    //   makeRogueFormulas    — 4 Rogue formulas (Str
+    //   makeRogueFormulas    - 4 Rogue formulas (Str
     //                           →AP 1.0 / Agi→AP 1.0
     //                           / Agi→Crit 0.0714 /
     //                           Agi→Dodge 0.0714).

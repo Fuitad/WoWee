@@ -7,7 +7,7 @@ WHY THIS FINDS WHAT THE OTHER SWEEPS CANNOT
 
 binding_arg_coverage_check asks whether an answer used everything it was told.
 This is its mirror on the way back out: whether the answer is *spelled* the way
-the caller will look it up. A token is not a value, it is a key — FrameXML takes
+the caller will look it up. A token is not a value, it is a key - FrameXML takes
 what UnitClass and UnitPowerType return and indexes a fixed table with it, so a
 different spelling is not a wrong colour, it is a nil, and nil takes the other
 branch without a word. Nothing else here can see it: the name is bound, the
@@ -17,7 +17,7 @@ Three came out of it on 2026-08-06:
 
   * UnitPowerType answered "" for power type 5 where RUNES was meant, so a rune
     bar's label prefix came back nil from _G[""]. The colour survived only
-    because PowerBarColor carries numeric aliases as a fallback — which is the
+    because PowerBarColor carries numeric aliases as a fallback - which is the
     reason to check the spelling rather than trust the bar looking right.
   * UnitRace returned the display name twice over, where the second return is
     the *file name* and the two differ for four races. DressUpTexturePath
@@ -26,7 +26,7 @@ Three came out of it on 2026-08-06:
     background at all.
   * GetMirrorTimerInfo answered "FATIGUE" where MirrorTimerColors is keyed
     EXHAUSTION. MirrorTimer_Show reads color.r straight off the lookup, so that
-    one raised rather than losing a colour — on a per-frame polling path, while
+    one raised rather than losing a colour - on a per-frame polling path, while
     drowning. The same three names existed in four places across three files and
     only this copy was wrong, so they are one table now; the sweep can see it
     because that table has a findable home.
@@ -34,21 +34,21 @@ Three came out of it on 2026-08-06:
 WHAT IT COMPARES
 
 Each C token table against the keys of the FrameXML table that is indexed by it.
-Only in that direction. The reverse — a FrameXML key this client never answers —
+Only in that direction. The reverse - a FrameXML key this client never answers -
 is normal and is not reported: PowerBarColor carries AMMOSLOT and FUEL for
 vehicles, and every class table carries all eleven classes whether or not the
 connected realm has Death Knights.
 
 WHAT IT CANNOT SEE
 
-A token that is spelled correctly and *chosen* wrongly — UnitClassification
+A token that is spelled correctly and *chosen* wrongly - UnitClassification
 picking "elite" for a rare is four correct spellings and one wrong branch, and
 reads clean here. It also only knows about pairings written into PAIRS below, so
 a new token table is invisible until someone adds it; the count is printed for
 that reason.
 
-UnitRace's file names have no FrameXML table to check against — nothing keys on
-them, they are spliced into a path — so they are checked for the property that
+UnitRace's file names have no FrameXML table to check against - nothing keys on
+them, they are spliced into a path - so they are checked for the property that
 made them wrong instead: a file name never contains a space.
 """
 import re
@@ -113,7 +113,7 @@ def table_keyed_by_binding():
     `MAX_PLAYER_LEVEL_TABLE[GetAccountExpansionLevel()]` is the whole fault in
     one line: a lookup with no fallback, where a wrong answer is a nil rather
     than a wrong value, and the nil is then compared with `<`. Finding these by
-    shape rather than by listing them means a new one cannot slip past — the
+    shape rather than by listing them means a new one cannot slip past - the
     pairs above have to be written down, and something nobody wrote down is
     exactly what this is for.
 
@@ -138,12 +138,12 @@ def main():
     for c_name, tables in PAIRS:
         tokens = c_tokens(c_name)
         if tokens is None:
-            rows.append(f"  {c_name} — table not found in any SOURCES file (renamed? moved?)")
+            rows.append(f"  {c_name} - table not found in any SOURCES file (renamed? moved?)")
             continue
         for table in tables:
             keys = lua_keys(table)
             if not keys:
-                rows.append(f"  {table} — no keys parsed from the interface (renamed? not loaded?)")
+                rows.append(f"  {table} - no keys parsed from the interface (renamed? not loaded?)")
                 continue
             checked += 1
             for tok in tokens:
@@ -154,12 +154,12 @@ def main():
     # the fault they had was a space in one.
     files = c_tokens("kLuaRaceFileNames")
     if files is None:
-        rows.append("  kLuaRaceFileNames — table not found in any SOURCES file (renamed? moved?)")
+        rows.append("  kLuaRaceFileNames - table not found in any SOURCES file (renamed? moved?)")
     else:
         checked += 1
         for tok in files:
             if " " in tok:
-                rows.append(f'  kLuaRaceFileNames has "{tok}" — a file name cannot contain a space')
+                rows.append(f'  kLuaRaceFileNames has "{tok}" - a file name cannot contain a space')
 
     print(f"{len(PAIRS) + 1} token table(s) paired, {checked} comparison(s) made")
     print()

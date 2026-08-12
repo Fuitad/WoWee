@@ -4,9 +4,9 @@
 //
 // FrameXML is not general XML and does not need a general parser: no DTDs, no
 // processing instructions beyond the declaration, no namespaces in use beyond a
-// single xmlns attribute nobody reads. What it does need is the awkward parts —
+// single xmlns attribute nobody reads. What it does need is the awkward parts -
 // CDATA around inline Lua, comments anywhere, self-closing elements, and both
-// quote styles on attributes — because those appear on nearly every page of it.
+// quote styles on attributes - because those appear on nearly every page of it.
 //
 // Kept free of Lua and of the widget tree so it can be tested on its own.
 

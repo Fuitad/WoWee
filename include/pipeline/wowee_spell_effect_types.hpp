@@ -7,11 +7,11 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Spell Effect Type catalog (.wsef) — novel
+// Wowee Open Spell Effect Type catalog (.wsef) - novel
 // replacement for the SpellEffect.Effect field meanings
 // in Spell.dbc plus the engine's hard-coded effect
 // dispatch table. Defines what each spell-effect integer
-// value actually does — SCHOOL_DAMAGE=2 deals magical
+// value actually does - SCHOOL_DAMAGE=2 deals magical
 // damage, DUMMY=3 is a script hook, HEAL=10 restores
 // health, ENERGIZE=30 restores power, APPLY_AURA=6
 // attaches a buff/debuff, etc.
@@ -26,7 +26,7 @@ namespace pipeline {
 //
 // Distinct from WAUR (Spell Aura Type) which is the
 // secondary classification used when effectType is
-// APPLY_AURA — that's a separate enum entirely with its
+// APPLY_AURA - that's a separate enum entirely with its
 // own ~300 values.
 //
 // Cross-references with previously-added formats:
@@ -102,15 +102,15 @@ public:
 
     // Preset emitters used by --gen-sef* variants.
     //
-    //   makeDamage  — 5 damage effect entries (SchoolDamage,
+    //   makeDamage  - 5 damage effect entries (SchoolDamage,
     //                  EnvironmentalDamage, WeaponDamageNoSchool,
     //                  NormalizedWeaponDmg, PowerBurn) covering
     //                  the standard damage-effect IDs from
     //                  Spell.dbc.
-    //   makeHealing — 4 healing effects (Heal, HealMaxHealth,
-    //                  HealPct, ScriptedHeal) — all flagged
+    //   makeHealing - 4 healing effects (Heal, HealMaxHealth,
+    //                  HealPct, ScriptedHeal) - all flagged
     //                  IsBeneficialEffect.
-    //   makeAura    — 5 aura-application effects
+    //   makeAura    - 5 aura-application effects
     //                  (ApplyAura, ApplyAuraOnPet,
     //                  AreaAuraParty, AreaAuraOwner,
     //                  PersistentAreaAura).

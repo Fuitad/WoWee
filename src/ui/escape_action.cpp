@@ -5,7 +5,7 @@ namespace wowee::ui {
 EscapeAction resolveEscape(const EscapeState& s) {
     // Before any of it: the press may already have been spent. A focused edit
     // box takes Escape in the event pump and closing the box is what that
-    // does, so there is nothing left for the chain to act on — and acting
+    // does, so there is nothing left for the chain to act on - and acting
     // anyway puts the game menu up behind the box the player just dismissed.
     if (s.interfaceConsumedKey) return EscapeAction::None;
     // In order, and the order is the behaviour. Two rules hold it together:
@@ -34,8 +34,8 @@ EscapeAction resolveEscape(const EscapeState& s) {
     if (s.questOfferRewardOpen)    return EscapeAction::CloseQuestOfferReward;
     if (s.questRequestItemsOpen)   return EscapeAction::CloseQuestRequestItems;
     if (s.tradeOpen)               return EscapeAction::CancelTrade;
-    // Nothing this client owns is open. What is left is the interface's own —
-    // the character sheet, the spellbook, the quest log, the world map — and
+    // Nothing this client owns is open. What is left is the interface's own -
+    // the character sheet, the spellbook, the quest log, the world map - and
     // whether one of those is up is its answer to give, not ours.
     return EscapeAction::AskTheInterface;
 }

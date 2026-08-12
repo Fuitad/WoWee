@@ -1,4 +1,4 @@
-// exploration_state.cpp — Fog of war / exploration tracking implementation.
+// exploration_state.cpp - Fog of war / exploration tracking implementation.
 // Extracted from WorldMap::updateExploration, setServerExplorationMask
 // (Phase 3 of refactoring plan).
 #include "rendering/world_map/exploration_state.hpp"
@@ -12,7 +12,7 @@ namespace world_map {
 
 void ExplorationState::setServerMask(const std::vector<uint32_t>& masks, bool hasData) {
     if (!hasData || masks.empty()) {
-        // New session or no data yet — reset both server mask and local accumulation
+        // New session or no data yet - reset both server mask and local accumulation
         if (hasServerMask_) {
             locallyExploredZones_.clear();
         }
@@ -80,7 +80,7 @@ void ExplorationState::update(const std::vector<Zone>& zones,
         return;
     }
 
-    // Server mask unavailable — fall back to locally-accumulated position tracking.
+    // Server mask unavailable - fall back to locally-accumulated position tracking.
     float wowX = playerRenderPos.y;
     float wowY = playerRenderPos.x;
 

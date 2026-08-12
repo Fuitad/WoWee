@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Game Object Template (.wgot) — novel replacement
+// Wowee Open Game Object Template (.wgot) - novel replacement
 // for AzerothCore-style gameobject_template SQL tables PLUS
 // the Blizzard GameObjectDisplayInfo.dbc / GameObject types
 // metadata. The 16th open format added to the editor.
@@ -23,7 +23,7 @@ namespace pipeline {
 //   WSPN.entry.entryId (kind=GameObject) → WGOT.entry.objectId
 //   WGOT.entry.lootTableId               → WLOT.entry.creatureId
 //                                           (loot tables are
-//                                            universal — game
+//                                            universal - game
 //                                            objects + creatures
 //                                            both key by ID)
 //
@@ -96,7 +96,7 @@ struct WoweeGameObject {
 
     bool isValid() const { return !entries.empty(); }
 
-    // Lookup by objectId — nullptr if not present.
+    // Lookup by objectId - nullptr if not present.
     const Entry* findById(uint32_t objectId) const;
 
     static const char* typeName(uint8_t t);
@@ -111,11 +111,11 @@ public:
 
     // Preset emitters used by --gen-objects* variants.
     //
-    //   makeStarter — 1 chest + 1 mailbox + 1 sign.
-    //   makeDungeon — door + button + 2 chests (regular + boss
+    //   makeStarter - 1 chest + 1 mailbox + 1 sign.
+    //   makeDungeon - door + button + 2 chests (regular + boss
     //                  loot) + trap. The bandit chest in slot 2000
     //                  matches WLOT.makeBandit.
-    //   makeGather  — gathering nodes: 1 herb (Peacebloom),
+    //   makeGather  - gathering nodes: 1 herb (Peacebloom),
     //                  1 ore (Tin Vein), 1 fishing pool.
     static WoweeGameObject makeStarter(const std::string& catalogName);
     static WoweeGameObject makeDungeon(const std::string& catalogName);

@@ -179,7 +179,7 @@ WoweeFaction WoweeFactionLoader::makeWildlife(const std::string& catalogName) {
         e.factionId = id; e.name = name;
         e.reputationFlags = WoweeFaction::Hidden;
         // Beasts are hostile to player factions (1) but not
-        // to each other — the wildlife of a zone fights the
+        // to each other - the wildlife of a zone fights the
         // player but won't pull adjacent packs.
         e.enemies.push_back(1);
         c.entries.push_back(e);

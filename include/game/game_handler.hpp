@@ -86,7 +86,7 @@ struct ContactEntry {
     uint32_t    flags    = 0;   // 0x1=friend, 0x2=ignore, 0x4=mute
     /// AzerothCore's FriendStatus, and a bitmask rather than a number:
     /// 0x01 online, 0x02 away, 0x04 do-not-disturb, 0x08 recruit-a-friend.
-    /// An away friend is 0x03 — online *and* away — which is why this cannot
+    /// An away friend is 0x03 - online *and* away - which is why this cannot
     /// be compared for equality. It used to be documented as 0/1/2/3 and read
     /// that way, so an away friend was shown as busy.
     uint8_t     status   = 0;
@@ -119,8 +119,8 @@ enum class WorldState {
 
 /// The state's own name, for a log line.
 ///
-/// Four files kept an identical copy of this in their own anonymous namespace —
-/// the three GameHandler was split into and the entity controller — so adding a
+/// Four files kept an identical copy of this in their own anonymous namespace -
+/// the three GameHandler was split into and the entity controller - so adding a
 /// state meant remembering four switches, and a switch that was not updated
 /// answers "UNKNOWN" for the new one rather than failing to compile.
 ///
@@ -287,7 +287,7 @@ public:
     /**
      * Get entity manager (for accessing entities in view)
      */
-    /// Whoever this client is dealing with right now — the unit behind an open
+    /// Whoever this client is dealing with right now - the unit behind an open
     /// window. The interface calls it "npc" and "questnpc" and puts its face in
     /// the panel's portrait: the gossip frame, the quest frame, the merchant,
     /// the flight master, the trainer, the trade partner.
@@ -306,7 +306,7 @@ public:
 
     /// What another player is visibly wearing, by ItemDisplayInfo id and
     /// inventory type, indexed by equipment slot. False when nothing is known
-    /// yet — which is not the same as wearing nothing.
+    /// yet - which is not the same as wearing nothing.
     bool getOtherPlayerEquipment(uint64_t guid,
                                  std::array<uint32_t, 19>& displayIds,
                                  std::array<uint8_t, 19>& invTypes) const;
@@ -378,7 +378,7 @@ public:
     /// Run a line of the interface's own Lua.
     ///
     /// The keys this client binds are its own, and the windows they open are
-    /// its own too — so with an element handed over the key toggled a window
+    /// its own too - so with an element handed over the key toggled a window
     /// that is no longer drawn and FrameXML never heard about it. Pressing C
     /// with the character sheet handed over did nothing at all for that
     /// reason. This is how a key reaches the frame that replaced it.
@@ -392,7 +392,7 @@ public:
     ///
     /// Escape is the case: FrameXML knows whether it has a panel open and this
     /// client does not, so whether the key closed something is its answer to
-    /// give. False when there is no interface, which is the right default —
+    /// give. False when there is no interface, which is the right default -
     /// the client's own handling then runs as it always did.
     using InterfaceQuery = std::function<bool(const std::string&)>;
     void setInterfaceQueryCallback(InterfaceQuery cb) {
@@ -503,11 +503,11 @@ public:
     /// Agility times the per-class-per-level ratio, both from the combat game
     /// tables. Zero until the tables and the player's stats are available.
     float getMeleeCritFromAgility() const;
-    /// Spell critical-strike chance the player's Intellect grants, as a percent —
+    /// Spell critical-strike chance the player's Intellect grants, as a percent -
     /// the spell-side twin of getMeleeCritFromAgility, read the same way from the
     /// spell-crit game tables. Zero for a class with no spell crit (a warrior).
     float getSpellCritFromIntellect() const;
-    /// The percent a combat rating grants — dodge, parry, haste, defense and the
+    /// The percent a combat rating grants - dodge, parry, haste, defense and the
     /// rest of the rating-based stats the flyout shows. rating × (class scalar ÷
     /// the level's coefficient), from gtCombatRatings and the class scalar table,
     /// exactly as AzerothCore's GetRatingBonusValue reads it. Zero for an
@@ -515,7 +515,7 @@ public:
     float getCombatRatingBonus(int cr) const;
     /// Health and mana regenerated per second from Spirit, as the stat flyout
     /// shows them. Health splits Spirit at 50 across two tables (gtOCTRegenHP,
-    /// gtRegenHPPerSpt) then doubles; mana is Spirit × gtRegenMPPerSpt — the
+    /// gtRegenHPPerSpt) then doubles; mana is Spirit × gtRegenMPPerSpt - the
     /// same as AzerothCore's OCTRegen*PerSpirit. Zero for a class with no mana.
     float getHealthRegenFromSpirit() const;
     float getManaRegenFromSpirit() const;
@@ -544,10 +544,10 @@ public:
     float getBlockPct()  const { return playerBlockPct_; }
     /// Expertise in points, main hand and off hand. Zero until the server
     /// says otherwise, which is also the right answer for a class that has
-    /// none — unlike the percentages above, where -1 has to mean "not told".
+    /// none - unlike the percentages above, where -1 has to mean "not told".
     int32_t getExpertise() const { return playerExpertise_; }
     int32_t getOffhandExpertise() const { return playerOffhandExpertise_; }
-    /// Mana regen per second, not-casting and while-casting — the server sends
+    /// Mana regen per second, not-casting and while-casting - the server sends
     /// both already computed. GetManaRegen returns them for the mana-regen stat.
     float getManaRegen() const { return playerManaRegen_; }
     float getManaRegenCasting() const { return playerManaRegenCasting_; }
@@ -570,7 +570,7 @@ public:
     Inventory& getInventory() { return inventory; }
     const Inventory& getInventory() const { return inventory; }
     bool consumeOnlineEquipmentDirty() { bool d = onlineEquipDirty_; onlineEquipDirty_ = false; return d; }
-    /// Ask for the equipment visuals to be rebuilt — the helm toggle changes what
+    /// Ask for the equipment visuals to be rebuilt - the helm toggle changes what
     /// is drawn without any item moving.
     void markOnlineEquipmentDirty() { onlineEquipDirty_ = true; }
     void resetEquipmentDirtyTracking() { lastEquipDisplayIds_ = {}; onlineEquipDirty_ = true; }
@@ -591,7 +591,7 @@ public:
     std::shared_ptr<Entity> getFocus() const;
     bool hasFocus() const { return focusGuid != 0; }
 
-    // Mouseover targeting — set each frame by the nameplate renderer
+    // Mouseover targeting - set each frame by the nameplate renderer
     void setMouseoverGuid(uint64_t guid);
     uint64_t getMouseoverGuid() const { return mouseoverGuid_; }
 
@@ -817,7 +817,7 @@ public:
     /// Where the player sits in the guild, as an index into the roster's rank
     /// list. Rank zero is the guild master, which is what IsGuildLeader asks.
     /// Returns 0xFFFFFFFF when the roster has not arrived or the player is not
-    /// in it — distinct from rank zero, which is the opposite answer.
+    /// in it - distinct from rank zero, which is the opposite answer.
     ///
     /// Shared because the chat handler was already doing this walk to decide
     /// whether to show officer chat, and a second copy is how two answers to
@@ -826,7 +826,7 @@ public:
     bool hasGuildRoster() const;
     const std::vector<std::string>& getGuildRankNames() const;
     uint32_t getPlayerGuildRankRights() const;
-    /// Which rank the guild control panel is editing. Client-side only — the
+    /// Which rank the guild control panel is editing. Client-side only - the
     /// panel picks it from a dropdown and asks for its rights with a call that
     /// takes no argument, so the choice has to be remembered here.
     int  getSelectedGuildRank() const { return selectedGuildRank_; }
@@ -834,8 +834,8 @@ public:
 
     /// What the guild rank editor has staged but not yet sent.
     ///
-    /// The panel edits by parts — a checkbox stages one right, the gold box
-    /// stages the allowance, each bank tab stages three more — and only then
+    /// The panel edits by parts - a checkbox stages one right, the gold box
+    /// stages the allowance, each bank tab stages three more - and only then
     /// commits with one packet carrying all of it. Seeded from the rank's
     /// current values when a rank is selected, so anything the panel does not
     /// touch is sent back exactly as it arrived rather than as a zero.
@@ -916,7 +916,7 @@ public:
     void replyToLastWhisper(const std::string& message);
     std::string getLastWhisperSender() const {
         if (!lastWhisperSender_.empty()) return lastWhisperSender_;
-        // Name may not have been cached when whisper arrived — resolve from GUID
+        // Name may not have been cached when whisper arrived - resolve from GUID
         if (lastWhisperSenderGuid_ != 0) {
             const auto& cache = getPlayerNameCache();
             auto it = cache.find(lastWhisperSenderGuid_);
@@ -970,8 +970,8 @@ public:
     /// A creature template entry turned into something that can be drawn, by
     /// asking the server if it has not already.
     ///
-    /// Model:SetCreature is handed an *entry* — a summon spell's EffectMiscValue
-    /// for a companion, which is what GetCompanionInfo answers with — and every
+    /// Model:SetCreature is handed an *entry* - a summon spell's EffectMiscValue
+    /// for a companion, which is what GetCompanionInfo answers with - and every
     /// model path in this client is found by CreatureDisplayInfo id. The two are
     /// separate number spaces, and treating one as the other looks up a real row
     /// belonging to something else: a wrong model, wearing the skins of a third
@@ -1030,7 +1030,7 @@ public:
     const std::deque<CombatLogEntry>& getCombatLog() const;
     void clearCombatLog();
 
-    // Area trigger messages (SMSG_AREA_TRIGGER_MESSAGE) — drained by UI each frame
+    // Area trigger messages (SMSG_AREA_TRIGGER_MESSAGE) - drained by UI each frame
     bool hasAreaTriggerMsg() const { return !areaTriggerMsgs_.empty(); }
     std::string popAreaTriggerMsg() {
         if (areaTriggerMsgs_.empty()) return {};
@@ -1106,7 +1106,7 @@ public:
         return spellHandler_ ? spellHandler_->getKnownSpells() : empty;
     }
 
-    // Spell book tabs — groups known spells by class skill line for Lua API
+    // Spell book tabs - groups known spells by class skill line for Lua API
     using SpellBookTab = SpellHandler::SpellBookTab;
     const std::vector<SpellBookTab>& getSpellBookTabs();
 
@@ -1210,7 +1210,7 @@ public:
     float getTargetCastTimeRemaining() const { return spellHandler_ ? spellHandler_->getTargetCastTimeRemaining() : 0.0f; }
     bool isTargetCastInterruptible() const { return spellHandler_ ? spellHandler_->isTargetCastInterruptible() : true; }
 
-    // Talents — delegate to SpellHandler as canonical authority
+    // Talents - delegate to SpellHandler as canonical authority
     uint8_t getActiveTalentSpec() const { return spellHandler_ ? spellHandler_->getActiveTalentSpec() : 0; }
     uint8_t getUnspentTalentPoints() const { return spellHandler_ ? spellHandler_->getUnspentTalentPoints() : 0; }
     uint8_t getUnspentTalentPoints(uint8_t spec) const { return spellHandler_ ? spellHandler_->getUnspentTalentPoints(spec) : 0; }
@@ -1258,7 +1258,7 @@ public:
     const std::unordered_map<uint32_t, TalentTabEntry>& getAllTalentTabs() const;
     void loadTalentDbc();
 
-    // Action bar — 12 pages × 12 slots = 144 total.
+    // Action bar - 12 pages × 12 slots = 144 total.
     // The first 6 pages match FrameXML action pages:
     // Page 1: main bar, pages 2-6: scrollable main pages / fixed multi-bars.
     // TBC sends 132 slots; WotLK sends 144.  Keep the full WotLK-sized array so
@@ -1275,7 +1275,7 @@ public:
     void setMacroText(uint32_t macroId, const std::string& text);
     /// A macro's name and icon, which the text alone never carried. Stored
     /// beside it under their own keys, so a config written before this still
-    /// loads — the name simply comes back empty and is shown as "Macro".
+    /// loads - the name simply comes back empty and is shown as "Macro".
     const std::string& getMacroName(uint32_t macroId) const;
     const std::string& getMacroIcon(uint32_t macroId) const;
     void setMacroMeta(uint32_t macroId, const std::string& name,
@@ -1287,7 +1287,7 @@ public:
     void loadCharacterConfig();
     static std::string getCharacterConfigDir();
 
-    // Auras — delegate to SpellHandler as canonical authority
+    // Auras - delegate to SpellHandler as canonical authority
     const std::vector<AuraSlot>& getPlayerAuras() const {
         if (spellHandler_) return spellHandler_->getPlayerAuras();
         static const std::vector<AuraSlot> empty;
@@ -1328,29 +1328,29 @@ public:
     using NpcRespawnCallback = std::function<void(uint64_t guid)>;
     void setNpcRespawnCallback(NpcRespawnCallback cb) { npcRespawnCallback_ = std::move(cb); }
 
-    // Stand state animation callback — fired when SMSG_STANDSTATE_UPDATE confirms a new state
+    // Stand state animation callback - fired when SMSG_STANDSTATE_UPDATE confirms a new state
     // standState: 0=stand, 1-6=sit variants, 7=dead, 8=kneel
     using StandStateCallback = std::function<void(uint8_t standState)>;
     void setStandStateCallback(StandStateCallback cb) { standStateCallback_ = std::move(cb); }
 
-    // Logout complete callback — fired when SMSG_LOGOUT_COMPLETE says the character
+    // Logout complete callback - fired when SMSG_LOGOUT_COMPLETE says the character
     // is out of the world. exiting is true for /quit and /exit (leave the game),
     // false for /logout and /camp (back to character select).
     using LogoutCompleteCallback = std::function<void(bool exiting)>;
     void setLogoutCompleteCallback(LogoutCompleteCallback cb) { logoutCompleteCallback_ = std::move(cb); }
     auto& logoutCompleteCallbackRef() { return logoutCompleteCallback_; }
 
-    // Appearance changed callback — fired when PLAYER_BYTES or facial features update (barber shop, etc.)
+    // Appearance changed callback - fired when PLAYER_BYTES or facial features update (barber shop, etc.)
     using AppearanceChangedCallback = std::function<void()>;
     void setAppearanceChangedCallback(AppearanceChangedCallback cb) { appearanceChangedCallback_ = std::move(cb); }
 
-    // Player model rebuild callback — fired alongside the appearance change so the
+    // Player model rebuild callback - fired alongside the appearance change so the
     // in-world 3D character can be respawned with the new hair/facial hair without
     // requiring a game restart.
     using PlayerModelRebuildCallback = std::function<void()>;
     void setPlayerModelRebuildCallback(PlayerModelRebuildCallback cb) { playerModelRebuildCallback_ = std::move(cb); }
 
-    // Ghost state callback — fired when player enters or leaves ghost (spirit) form
+    // Ghost state callback - fired when player enters or leaves ghost (spirit) form
     using GhostStateCallback = std::function<void(bool isGhost)>;
     void setGhostStateCallback(GhostStateCallback cb) { ghostStateCallback_ = std::move(cb); }
 
@@ -1369,11 +1369,11 @@ public:
         return faceCameraProvider_ ? faceCameraProvider_() : getMovementInfo().orientation;
     }
 
-    // Ranged weapon swap callback — show=true: swap to ranged weapon, false: back to melee
+    // Ranged weapon swap callback - show=true: swap to ranged weapon, false: back to melee
     using RangedWeaponSwapCallback = std::function<void(bool show)>;
     void setRangedWeaponSwapCallback(RangedWeaponSwapCallback cb) { rangedWeaponSwapCallback_ = std::move(cb); }
 
-    // Spell cast animation callbacks — true=start cast/channel, false=finish/cancel
+    // Spell cast animation callbacks - true=start cast/channel, false=finish/cancel
     // guid: caster (may be player or another unit), isChannel: channel vs regular cast
     // castType: DIRECTED (unit target), OMNI (self/no target), AREA (ground AoE)
     using SpellCastAnimCallback = std::function<void(uint64_t guid, bool start, bool isChannel,
@@ -1397,20 +1397,20 @@ public:
     using NpcSwingCallback = std::function<void(uint64_t guid)>;
     void setNpcSwingCallback(NpcSwingCallback cb) { npcSwingCallback_ = std::move(cb); }
 
-    // Hit reaction callback — triggers victim animation (dodge, block, wound, crit wound)
+    // Hit reaction callback - triggers victim animation (dodge, block, wound, crit wound)
     enum class HitReaction : uint8_t { WOUND, CRIT_WOUND, DODGE, PARRY, BLOCK, SHIELD_BLOCK };
     using HitReactionCallback = std::function<void(uint64_t victimGuid, HitReaction reaction)>;
     void setHitReactionCallback(HitReactionCallback cb) { hitReactionCallback_ = std::move(cb); }
 
-    // Stun state callback — fires when UNIT_FLAG_STUNNED changes on the local player
+    // Stun state callback - fires when UNIT_FLAG_STUNNED changes on the local player
     using StunStateCallback = std::function<void(bool stunned)>;
     void setStunStateCallback(StunStateCallback cb) { stunStateCallback_ = std::move(cb); }
 
-    // Stealth state callback — fires when UNIT_FLAG_SNEAKING changes on the local player
+    // Stealth state callback - fires when UNIT_FLAG_SNEAKING changes on the local player
     using StealthStateCallback = std::function<void(bool stealthed)>;
     void setStealthStateCallback(StealthStateCallback cb) { stealthStateCallback_ = std::move(cb); }
 
-    // Player health changed callback — fires when local player HP changes
+    // Player health changed callback - fires when local player HP changes
     using PlayerHealthCallback = std::function<void(uint32_t health, uint32_t maxHealth)>;
     void setPlayerHealthCallback(PlayerHealthCallback cb) { playerHealthCallback_ = std::move(cb); }
 
@@ -1443,7 +1443,7 @@ public:
     float getGameTime() const { return gameTime_; }
     float getTimeSpeed() const { return timeSpeed_; }
 
-    // Global Cooldown (GCD) — set when the server sends a spellId=0 cooldown entry
+    // Global Cooldown (GCD) - set when the server sends a spellId=0 cooldown entry
     float getGCDRemaining() const {
         if (gcdTotal_ <= 0.0f) return 0.0f;
         auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -1483,11 +1483,11 @@ public:
     void setWorldEntryCallback(WorldEntryCallback cb) { worldEntryCallback_ = std::move(cb); }
 
     // Knockback callback: called when server sends SMSG_MOVE_KNOCK_BACK for the player.
-    // Parameters: vcos, vsin (2D direction vector in server/wire coord space — the
+    // Parameters: vcos, vsin (2D direction vector in server/wire coord space - the
     //   server→canonical→render swaps cancel, so the consumer can use them directly
     //   in render space, see CameraController::applyKnockBack),
     //   hspeed, vspeed (raw from packet; vspeed is negative when the server intends
-    //   an upward launch — negate before applying as initial Y velocity).
+    //   an upward launch - negate before applying as initial Y velocity).
     using KnockBackCallback = std::function<void(float vcos, float vsin, float hspeed, float vspeed)>;
     void setKnockBackCallback(KnockBackCallback cb) { knockBackCallback_ = std::move(cb); }
 
@@ -1560,8 +1560,8 @@ public:
 
     // GameObject metadata callback (triggered when a GAMEOBJECT_QUERY_RESPONSE is
     // cached). A game object's model is spawned from its display id, which arrives
-    // before its type does, so anything that depends on the type — such as whether
-    // the model should animate — has to be revisited when this fires.
+    // before its type does, so anything that depends on the type - such as whether
+    // the model should animate - has to be revisited when this fires.
     using GameObjectInfoCallback = std::function<void(uint32_t entry)>;
     void setGameObjectInfoCallback(GameObjectInfoCallback cb) { gameObjectInfoCallback_ = std::move(cb); }
 
@@ -1572,16 +1572,16 @@ public:
     using GameObjectCustomAnimCallback = std::function<void(uint64_t guid, uint32_t animId)>;
     void setGameObjectCustomAnimCallback(GameObjectCustomAnimCallback cb) { gameObjectCustomAnimCallback_ = std::move(cb); }
 
-    // GameObject state change callback (triggered when GAMEOBJECT_BYTES_1 updates — state byte changes)
+    // GameObject state change callback (triggered when GAMEOBJECT_BYTES_1 updates - state byte changes)
     // goState: 0=READY(closed), 1=OPEN, 2=DESTROYED
     using GameObjectStateCallback = std::function<void(uint64_t guid, uint8_t goState)>;
     void setGameObjectStateCallback(GameObjectStateCallback cb) { gameObjectStateCallback_ = std::move(cb); }
 
-    // Sprint aura callback — fired when sprint-type aura active state changes on player
+    // Sprint aura callback - fired when sprint-type aura active state changes on player
     using SprintAuraCallback = std::function<void(bool active)>;
     void setSprintAuraCallback(SprintAuraCallback cb) { sprintAuraCallback_ = std::move(cb); }
 
-    // Vehicle state callback — fired when player enters/exits a vehicle
+    // Vehicle state callback - fired when player enters/exits a vehicle
     using VehicleStateCallback = std::function<void(bool entered, uint32_t vehicleId)>;
     void setVehicleStateCallback(VehicleStateCallback cb) { vehicleStateCallback_ = std::move(cb); }
 
@@ -1716,7 +1716,7 @@ public:
         return true;
     }
     bool showResurrectDialog() const { return resurrectRequestPending_; }
-    /** True when SMSG_PRE_RESURRECT arrived — Reincarnation/Twisting Nether available. */
+    /** True when SMSG_PRE_RESURRECT arrived - Reincarnation/Twisting Nether available. */
     bool canSelfRes() const { return selfResAvailable_; }
     /** Send CMSG_SELF_RES to use Reincarnation / Twisting Nether. */
     void useSelfRes();
@@ -1757,7 +1757,7 @@ public:
     float getCorpseDistance() const {
         if (!corpsePositionValid_ || currentMapId_ != corpseMapId_) return -1.0f;
         // movementInfo is canonical (x=north=server_y, y=west=server_x);
-        // corpse coords are raw server (x=west, y=north) — swap to compare.
+        // corpse coords are raw server (x=west, y=north) - swap to compare.
         float dx = movementInfo.x - corpseY_;
         float dy = movementInfo.y - corpseX_;
         float dz = movementInfo.z - corpseZ_;
@@ -1884,7 +1884,7 @@ public:
     // Raid target markers (MSG_RAID_TARGET_UPDATE)
     // Icon indices 0-7: Star, Circle, Diamond, Triangle, Moon, Square, Cross, Skull
     static constexpr uint32_t kRaidMarkCount = 8;
-    // Both read SocialHandler's marks — the state MSG_RAID_TARGET_UPDATE writes.
+    // Both read SocialHandler's marks - the state MSG_RAID_TARGET_UPDATE writes.
     // Returns the GUID marked with the given icon (0 = no mark)
     uint64_t getRaidMarkGuid(uint32_t icon) const;
     // Returns the raid mark icon for a given guid (0xFF = no mark)
@@ -1918,7 +1918,7 @@ public:
 
     /// How many boss encounters a map has, for the "%d of %d bosses" line.
     /// Counted from DungeonEncounter.dbc, which is the only place the total
-    /// lives — the server sends which are done and never how many there are.
+    /// lives - the server sends which are done and never how many there are.
     uint32_t getDungeonEncounterCount(uint32_t mapId, uint32_t difficulty) const;
     uint32_t getLfgProposalId() const;
     uint8_t  getLfgOfferedRoles() const;
@@ -1960,7 +1960,7 @@ public:
     /// "seasonwon". Clicking the same column again reverses it.
     ///
     /// Every roster rather than one, because the interface asks for a sort
-    /// without saying which team — it sorts what it is showing, and it only
+    /// without saying which team - it sorts what it is showing, and it only
     /// ever shows one at a time.
     void sortArenaTeamRosters(const std::string& key);
 
@@ -1983,7 +1983,7 @@ public:
 
     /// True once the object is known to be a fishing school. A click on one
     /// before its query response arrives still schedules a loot open, and by the
-    /// time that fires the metadata has usually landed — so the deferred open
+    /// time that fires the metadata has usually landed - so the deferred open
     /// re-checks rather than harvesting a school the player never fished.
     bool isFishingHoleGameObject(uint64_t guid) const;
     void clearPendingGameObjectLootOpen(uint64_t guid);
@@ -2004,7 +2004,7 @@ public:
 
     /// Whether a friendly spell cast with nothing friendly selected falls back
     /// to the caster. On by default, as the real client is, and turned off
-    /// through the interface's autoSelfCast option — which offered the choice
+    /// through the interface's autoSelfCast option - which offered the choice
     /// while the behaviour was unconditional.
     void setAutoSelfCast(bool enabled) { autoSelfCast_ = enabled; }
     bool isAutoSelfCast() const { return autoSelfCast_; }
@@ -2058,7 +2058,7 @@ public:
     const std::string& getQuestGreeting() const;
     bool isQuestDetailsOpen();
     /// Whether the reward item names asked for when the details arrived have
-    /// had time to come back. Only this client's own quest window asks — see
+    /// had time to come back. Only this client's own quest window asks - see
     /// QuestHandler::questDetailsItemInfoReady.
     bool questDetailsItemInfoReady() const;
     const QuestDetailsData& getQuestDetails() const;
@@ -2092,8 +2092,8 @@ public:
     const std::string& getQuestSortName(uint32_t sortId) const;
     int getSelectedQuestLogIndex() const;
     // Writes through to the QuestHandler, which is where getSelectedQuestLogIndex
-    // reads it from. The two used to touch different variables — the setter this
-    // GameHandler's own copy, the getter the decomposed QuestHandler's — so
+    // reads it from. The two used to touch different variables - the setter this
+    // GameHandler's own copy, the getter the decomposed QuestHandler's - so
     // SelectQuestLogEntry set a selection the quest log never saw: the index
     // read back 0, GetQuestLogQuestText answered nil for both description and
     // objectives, and every quest's detail pane drew blank.
@@ -2148,7 +2148,7 @@ public:
     // MirrorTimer_Show reads color.r straight off the result, so a name that
     // misses raises rather than merely losing the colour. MirrorTimer_Hide then
     // matches the running dialog by the same name, which is why start and stop
-    // have to agree — they are one table here for that reason. Four copies of
+    // have to agree - they are one table here for that reason. Four copies of
     // this list had accumulated across three files and the fourth said
     // "FATIGUE", which is not one of the four keys mirrortimer.lua defines.
     static constexpr const char* kMirrorTimerNames[3] =
@@ -2172,7 +2172,7 @@ public:
      * Count the mirror timers (breath, fatigue, feign death) down locally.
      *
      * The server sends SMSG_START_MIRROR_TIMER once with the remaining time and a
-     * scale, then only speaks again when something changes — so without this the
+     * scale, then only speaks again when something changes - so without this the
      * breath bar just sits at whatever value it was handed and never moves.
      * scale is ms of timer per ms of real time: -1 while drowning, +1 while the
      * bar refills at the surface.
@@ -2197,13 +2197,13 @@ public:
             // sits there at a hundred percent in the meantime, which is what
             // "the breath meter will not go away" looks like.
             //
-            // Only when refilling. A drowning bar reaching zero is not over —
+            // Only when refilling. A drowning bar reaching zero is not over -
             // that is when the damage starts, and the server keeps it up.
             if (t.scale > 0 && t.value >= t.maxValue) {
                 t.active = false;
                 t.pendingMs = 0.0f;
                 // And say so. Clearing the flag only put away the bar this
-                // client draws, and the player frame is handed over — which
+                // client draws, and the player frame is handed over - which
                 // means MirrorTimer1..3 are not suppressed and the bar actually
                 // on screen is FrameXML's. It hides on MIRROR_TIMER_STOP and
                 // nothing else, so without this it sat there full for good.
@@ -2221,7 +2221,7 @@ public:
     uint8_t  getShapeshiftFormId() const { return shapeshiftFormId_; }
     /// Which extra action bar the current form or stance uses, or 0 for none.
     ///
-    /// SpellShapeshiftForm.dbc carries it per form — cat 1, bear 3, moonkin 4,
+    /// SpellShapeshiftForm.dbc carries it per form - cat 1, bear 3, moonkin 4,
     /// the three warrior stances 1 to 3, and 0 for the travel forms, which have
     /// no bar of their own. Read from the file rather than written out here,
     /// because a table of class-and-form guesses is not checkable.
@@ -2275,7 +2275,7 @@ public:
     };
     static constexpr int SPELL_MOD_OP_COUNT = 32;
 
-    // Key: (SpellModOp, groupIndex) — value: accumulated flat or pct modifier
+    // Key: (SpellModOp, groupIndex) - value: accumulated flat or pct modifier
     // pct values are stored in integer percent (e.g. -20 means -20% reduction).
     struct SpellModKey {
         SpellModOp op;
@@ -2330,8 +2330,8 @@ public:
     /// A faction the player has a standing with, as the reputation panel lists
     /// it.
     ///
-    /// The server sends standings by *reputation index* — a dense numbering
-    /// that is not the faction id — and only Faction.dbc knows which faction
+    /// The server sends standings by *reputation index* - a dense numbering
+    /// that is not the faction id - and only Faction.dbc knows which faction
     /// each index belongs to. Resolved here rather than in a window, because
     /// the original interface asks the same question through GetFactionInfo.
     struct ReputationEntry {
@@ -2350,7 +2350,7 @@ public:
     /// One line of the reputation panel as it is drawn: the flat list above
     /// grouped under the headers Faction.dbc's parent chain describes.
     ///
-    /// The server sends standings and nothing else — no categories, no order
+    /// The server sends standings and nothing else - no categories, no order
     /// beyond its own list. Both the headers and the nesting come from
     /// ParentFactionID, and a header is simply a faction that some visible
     /// faction descends from. A header may have a standing of its own (Alliance
@@ -2358,7 +2358,7 @@ public:
     struct ReputationRow {
         uint32_t factionId = 0;
         /// The server's repListId, and 0 for a header the player has no
-        /// standing with — such a row is drawn but cannot be acted on.
+        /// standing with - such a row is drawn but cannot be acted on.
         uint32_t reputationIndex = 0;
         std::string name;
         uint8_t flags = 0;
@@ -2447,12 +2447,12 @@ public:
     QuestGiverStatus getQuestGiverStatus(uint64_t guid) const;
     const std::unordered_map<uint64_t, QuestGiverStatus>& getNpcQuestStatuses() const;
 
-    // Charge callback — fires when player casts a charge spell toward target
+    // Charge callback - fires when player casts a charge spell toward target
     // Parameters: targetGuid, targetX, targetY, targetZ (canonical WoW coordinates)
     using ChargeCallback = std::function<void(uint64_t targetGuid, float x, float y, float z)>;
     void setChargeCallback(ChargeCallback cb) { chargeCallback_ = std::move(cb); }
 
-    // Level-up callback — fires when the player gains a level (newLevel > 1)
+    // Level-up callback - fires when the player gains a level (newLevel > 1)
     using LevelUpCallback = std::function<void(uint32_t newLevel)>;
     void setLevelUpCallback(LevelUpCallback cb) { levelUpCallback_ = std::move(cb); }
 
@@ -2483,8 +2483,8 @@ public:
     void clearBook() { bookPages_.clear(); bookTitle_.clear(); bookMaterial_ = 0; }
 
     /// What is being read, for the heading over the page. Known at every point
-    /// a book is opened — the game object's name from its query cache, or the
-    /// item's from the inventory — and set there, because none of it survives
+    /// a book is opened - the game object's name from its query cache, or the
+    /// item's from the inventory - and set there, because none of it survives
     /// into the page text response itself: that carries the words and the id of
     /// the page after it, and nothing about what the pages belong to.
     const std::string& getBookTitle() const { return bookTitle_; }
@@ -2495,10 +2495,10 @@ public:
     uint32_t getBookMaterial() const { return bookMaterial_; }
     void setBookMaterial(uint32_t material) { bookMaterial_ = material; }
     /// PageTextMaterial.dbc's name for a material id, empty for none. The
-    /// interface wants the word, not the number — it picks a texture and a
+    /// interface wants the word, not the number - it picks a texture and a
     /// text colour by it.
     const std::string& getPageTextMaterialName(uint32_t materialId) const;
-    /// Languages.dbc's name for a language id — "Common", "Orcish", and the
+    /// Languages.dbc's name for a language id - "Common", "Orcish", and the
     /// fourteen others. Zero is Universal, which the file does not carry
     /// because it is not a language anyone speaks.
     ///
@@ -2507,32 +2507,32 @@ public:
     /// "[<it>] " when they differ, so a number there is printed verbatim.
     const std::string& getLanguageName(uint32_t languageId) const;
 
-    // Other player level-up callback — fires when another player gains a level
+    // Other player level-up callback - fires when another player gains a level
     using OtherPlayerLevelUpCallback = std::function<void(uint64_t guid, uint32_t newLevel)>;
     void setOtherPlayerLevelUpCallback(OtherPlayerLevelUpCallback cb) { otherPlayerLevelUpCallback_ = std::move(cb); }
 
-    // Achievement earned callback — fires when SMSG_ACHIEVEMENT_EARNED is received
+    // Achievement earned callback - fires when SMSG_ACHIEVEMENT_EARNED is received
     using AchievementEarnedCallback = std::function<void(uint32_t achievementId, const std::string& name)>;
     void setAchievementEarnedCallback(AchievementEarnedCallback cb) { achievementEarnedCallback_ = std::move(cb); }
     const std::unordered_set<uint32_t>& getEarnedAchievements() const { return earnedAchievements_; }
 
-    // Title system — earned title bits and the currently displayed title
+    // Title system - earned title bits and the currently displayed title
     const std::unordered_set<uint32_t>& getKnownTitleBits() const { return knownTitleBits_; }
     int32_t getChosenTitleBit() const { return chosenTitleBit_; }
     /// Returns the formatted title string for a given bit (replaces %s with player name), or empty.
     std::string getFormattedTitle(uint32_t bit) const;
     /// A title by its CharTitles.dbc id (what a quest reward carries), formatted
-    /// with the player's name where the "%s" sits — "%s the Explorer". Empty
+    /// with the player's name where the "%s" sits - "%s the Explorer". Empty
     /// when the id is unknown.
     std::string getFormattedTitleById(uint32_t id) const;
     /// Send CMSG_SET_TITLE to activate a title (bit >= 0) or clear it (bit = -1).
     void sendSetTitle(int32_t bit);
 
-    // Area discovery callback — fires when SMSG_EXPLORATION_EXPERIENCE is received
+    // Area discovery callback - fires when SMSG_EXPLORATION_EXPERIENCE is received
     using AreaDiscoveryCallback = std::function<void(const std::string& areaName, uint32_t xpGained)>;
     void setAreaDiscoveryCallback(AreaDiscoveryCallback cb) { areaDiscoveryCallback_ = std::move(cb); }
 
-    // Quest objective progress callback — fires on SMSG_QUESTUPDATE_ADD_KILL / ADD_ITEM
+    // Quest objective progress callback - fires on SMSG_QUESTUPDATE_ADD_KILL / ADD_ITEM
     // questTitle: name of the quest; objectiveName: creature/item name; current/required counts
     using QuestProgressCallback = std::function<void(const std::string& questTitle,
                                                      const std::string& objectiveName,
@@ -2563,8 +2563,8 @@ public:
 
     /// The rectangle a whole continent's map covers, in server coordinates.
     ///
-    /// WorldMapArea.dbc's row for the continent itself — the one whose AreaID is
-    /// zero — which is what anything placing a marker on a continent-wide map
+    /// WorldMapArea.dbc's row for the continent itself - the one whose AreaID is
+    /// zero - which is what anything placing a marker on a continent-wide map
     /// projects against. The world map has read this for a long time, inside
     /// `rendering/world_map`; the flight map needs the same rectangle and
     /// cannot reach in there, so it is read here on first ask like every other
@@ -2596,7 +2596,7 @@ public:
         uint32_t    assetId = 0;
         uint32_t    quantity = 0;
         /// Seconds the player has, once the criteria's timer starts. Zero for
-        /// all but fifty-nine of the seven and a half thousand criteria — the
+        /// all but fifty-nine of the seven and a half thousand criteria - the
         /// ones whose own description names the limit, "Win Warsong Gulch in
         /// under 7 minutes" against 420 and "Kill Maexxna within 20 minutes"
         /// against 1200. That agreement is how field 29 was identified; it is
@@ -2604,14 +2604,14 @@ public:
         uint32_t    timeLimit = 0;
         /// Achievement_Criteria.dbc field 26. Bit one is
         /// ACHIEVEMENT_CRITERIA_PROGRESS_BAR, which is what makes the panel
-        /// draw a bar instead of a tick — "Complete 2000 quests" carries it,
+        /// draw a bar instead of a tick - "Complete 2000 quests" carries it,
         /// "Axes" at four hundred does not, which is how WoW draws those two.
         uint32_t    flags = 0;
     };
 
     /// Where a criteria lives, by its own id. SMSG_CRITERIA_UPDATE names a
-    /// criteria and nothing else, and everything about it — which achievement
-    /// it belongs to, whether it is timed — is in the DBC under that id.
+    /// criteria and nothing else, and everything about it - which achievement
+    /// it belongs to, whether it is timed - is in the DBC under that id.
     struct AchievementCriterionIndex {
         uint32_t achievementId = 0;
         uint32_t timeLimit = 0;
@@ -2619,7 +2619,7 @@ public:
 
     // ---- Battlegrounds (BattlemasterList.dbc) ----
     // Thirteen rows: ID=0, MapID=1, Name=11, MaxGroupSize=28, MinLevel=30,
-    // MaxLevel=31. Verified against the file rather than inferred — the name
+    // MaxLevel=31. Verified against the file rather than inferred - the name
     // sits past sixteen locale slots, so a field either side of it reads as a
     // fragment of the previous string.
     struct BattlemasterEntry {
@@ -2632,8 +2632,8 @@ public:
         /// battleground list must not offer arenas.
         uint32_t    instanceType = 0;
         /// How many maps the row names. Every real battleground names one; the
-        /// two rows that stand for a pool of them — Random Battleground, All
-        /// Arenas — name several, which is how a random entry is told apart
+        /// two rows that stand for a pool of them - Random Battleground, All
+        /// Arenas - name several, which is how a random entry is told apart
         /// without hardcoding its id.
         uint32_t    mapCount = 0;
         /// The maps themselves, which is what says whether the world the player
@@ -2656,13 +2656,13 @@ public:
     /// Give or take raid assistant, by guid.
     void setGroupAssistant(uint64_t guid, bool apply);
     /// Whether a map id belongs to an arena. Same table, the other instance
-    /// type — the rows are loaded either way and only the battleground ones
+    /// type - the rows are loaded either way and only the battleground ones
     /// are kept in the queue list.
     bool isArenaMap(uint32_t mapId);
 
     // ---- Currencies (CurrencyTypes.dbc) ----
     // In 3.3.5a a currency is a row pointing at an item, and the amount held is
-    // that item's stack count in the bags — there is no separate store to read.
+    // that item's stack count in the bags - there is no separate store to read.
     struct CurrencyType {
         uint32_t id = 0;
         uint32_t itemId = 0;
@@ -2678,7 +2678,7 @@ public:
     ///
     /// The server sends glyph *properties* ids in the update fields, and every
     /// caller wants the spell: its name, its icon and its tooltip are the
-    /// spell's. Verified rather than assumed — field 1 resolves to a real spell
+    /// spell's. Verified rather than assumed - field 1 resolves to a real spell
     /// for 361 of the 362 rows, and those spells are named "Glyph of Moonfire"
     /// and the like.
     void ensureGlyphPropertiesLoaded();
@@ -2708,7 +2708,7 @@ public:
         return it != achievementCategoryCache_.end() ? it->second : 0u;
     }
 
-    /// The achievement this one supersedes, or zero — Achievement.dbc's
+    /// The achievement this one supersedes, or zero - Achievement.dbc's
     /// Supercedes column, which chains "Level 20" behind "Level 10" and
     /// "Expert Cook" behind "Journeyman Cook". The achievement panel walks it
     /// backwards to build a completed chain and forwards to find the step in
@@ -2760,7 +2760,7 @@ public:
     }
     /// Returns the SpellIcon.dbc ID for an achievement's icon, or 0 if unknown.
     /// Achievement.dbc's Flags column. FrameXML reads bit 0x80 to decide
-    /// whether a row draws as a progress bar instead of a list of criteria —
+    /// whether a row draws as a progress bar instead of a list of criteria -
     /// the Loremaster and zone-quest achievements, twenty-two of them.
     uint32_t getAchievementFlags(uint32_t id) const {
         auto it = achievementFlagsCache_.find(id);
@@ -2774,7 +2774,7 @@ public:
     /// achievement id to the packed date it was earned. Null when nothing has
     /// come back for that guid.
     ///
-    /// The date is kept because the comparison tab prints it beside each row —
+    /// The date is kept because the comparison tab prints it beside each row -
     /// it was being read off the wire to stay in step and then dropped, which
     /// is the same thing as not reading it.
     const std::unordered_map<uint32_t, uint32_t>* getInspectedPlayerAchievements(uint64_t guid) const {
@@ -2786,18 +2786,18 @@ public:
     uint64_t getAchievementComparisonGuid() const { return achievementComparisonGuid_; }
     void setAchievementComparisonGuid(uint64_t guid) { achievementComparisonGuid_ = guid; }
 
-    // Server-triggered music callback — fires when SMSG_PLAY_MUSIC is received.
+    // Server-triggered music callback - fires when SMSG_PLAY_MUSIC is received.
     // The soundId corresponds to a SoundEntries.dbc record. The receiver is
     // responsible for looking up the file path and forwarding to MusicManager.
     using PlayMusicCallback = std::function<void(uint32_t soundId)>;
     void setPlayMusicCallback(PlayMusicCallback cb) { playMusicCallback_ = std::move(cb); }
 
-    // Server-triggered 2-D sound effect callback — fires when SMSG_PLAY_SOUND is received.
+    // Server-triggered 2-D sound effect callback - fires when SMSG_PLAY_SOUND is received.
     // The soundId corresponds to a SoundEntries.dbc record.
     using PlaySoundCallback = std::function<void(uint32_t soundId)>;
     void setPlaySoundCallback(PlaySoundCallback cb) { playSoundCallback_ = std::move(cb); }
 
-    // Server-triggered 3-D positional sound callback — fires for SMSG_PLAY_OBJECT_SOUND and
+    // Server-triggered 3-D positional sound callback - fires for SMSG_PLAY_OBJECT_SOUND and
     // SMSG_PLAY_SPELL_IMPACT. Includes sourceGuid so the receiver can look up world position.
     using PlayPositionalSoundCallback = std::function<void(uint32_t soundId, uint64_t sourceGuid)>;
     void setPlayPositionalSoundCallback(PlayPositionalSoundCallback cb) { playPositionalSoundCallback_ = std::move(cb); }
@@ -2812,14 +2812,14 @@ public:
     /// A script that failed, shown on screen without telling any script about it.
     ///
     /// Deliberately not addUIError. That fires UI_ERROR_MESSAGE, which is a Lua
-    /// event, and UIErrorsFrame is registered for it — so reporting a script
+    /// event, and UIErrorsFrame is registered for it - so reporting a script
     /// error ran script, and if that script errored it was reported the same
     /// way. One broken handler fed itself as fast as the frame loop allowed
     /// until the process died, which is not what a Lua error looks like from
     /// outside and cost a long hunt through the renderer.
     ///
     /// UI_ERROR_MESSAGE is also the wrong event for this: it carries the game's
-    /// own refusals — out of range, not enough mana — and the real client
+    /// own refusals - out of range, not enough mana - and the real client
     /// reports script errors somewhere else entirely.
     void addScriptError(const std::string& msg) {
         if (uiErrorCallback_) uiErrorCallback_(msg);
@@ -3030,7 +3030,7 @@ public:
     /// remainder is worked out from when it arrived.
     int getInstanceBootTimeRemaining() const;
 
-    // CMSG_OPEN_ITEM — for locked containers (lockboxes); server checks keyring automatically
+    // CMSG_OPEN_ITEM - for locked containers (lockboxes); server checks keyring automatically
     void openItemBySlot(int backpackIndex);
     void openItemInBag(int bagIndex, int slotIndex);
     void readItemBySlot(int backpackIndex);
@@ -3045,7 +3045,7 @@ public:
     ///
     /// Lives here rather than in the window that used to own it because two
     /// things ask for it now: this client's own bag screen and the interface's
-    /// SortBags(). One queue, drained a swap per tick — the server refuses a
+    /// SortBags(). One queue, drained a swap per tick - the server refuses a
     /// burst of them, and a sort is dozens.
     void sortBags();
     /// Whether a sort is still sending. The button reads it to disable itself.
@@ -3104,7 +3104,7 @@ public:
     void clearMailAttachments();
     const std::array<MailAttachSlot, 12>& getMailAttachments() const;
     int getMailAttachmentCount() const;
-    /// Attachments this realm's mail packet can actually carry — one on Vanilla,
+    /// Attachments this realm's mail packet can actually carry - one on Vanilla,
     /// twelve from TBC on. The compose window used to offer twelve regardless
     /// and quietly send the first.
     int getMaxMailAttachments() const;
@@ -3173,7 +3173,7 @@ public:
     const AuctionListResult& getAuctionBidderResults() const;
     /// Writable, for the one thing that reorders a result set in place: the
     /// panel's own column sort. The server sends a list and the client sorts
-    /// it, which is what the real client does too — there is no re-query.
+    /// it, which is what the real client does too - there is no re-query.
     AuctionListResult& auctionBrowseResultsRef() { return auctionBrowseResults_; }
     AuctionListResult& auctionOwnerResultsRef()  { return auctionOwnerResults_; }
     AuctionListResult& auctionBidderResultsRef() { return auctionBidderResults_; }
@@ -3232,7 +3232,7 @@ public:
     /// What was paid for an item, and how long is left to hand it back.
     ///
     /// The server answers CMSG_ITEM_REFUND_INFO with this and nothing keeps
-    /// it until asked — so the whole record is a reply to a question, and the
+    /// it until asked - so the whole record is a reply to a question, and the
     /// question is only worth asking about an item the player is looking at.
     struct ItemRefundInfo {
         uint32_t money = 0;
@@ -3273,7 +3273,7 @@ public:
     /// Returns true if the spell can be interrupted by abilities like Kick/Counterspell.
     /// False for spells with SPELL_ATTR_EX_NOT_INTERRUPTIBLE (attrEx bit 4 = 0x10).
     bool isSpellInterruptible(uint32_t spellId) const;
-    /// True for a spell that is never cast — a talent's passive effect, a
+    /// True for a spell that is never cast - a talent's passive effect, a
     /// permanent aura. The spell book draws these without a cast border and
     /// refuses to put them on the action bar.
     bool isSpellPassive(uint32_t spellId) const;
@@ -3349,7 +3349,7 @@ public:
     void resetDbcCaches();
 
     // ═══════════════════════════════════════════════════════════════════
-    //  Domain handler access — public accessors for friend-class elimination
+    //  Domain handler access - public accessors for friend-class elimination
     // ═══════════════════════════════════════════════════════════════════
 
     // ── Handler & Subsystem Accessors (unique_ptr → raw pointer) ─────
@@ -3661,7 +3661,7 @@ public:
                        uint64_t srcGuid = 0, uint64_t dstGuid = 0);
     bool shouldLogSpellstealAura(uint64_t casterGuid, uint64_t victimGuid, uint32_t spellId);
     void addSystemChatMessage(const std::string& message);
-    /// A chat line of a given kind — money looted, experience gained, a
+    /// A chat line of a given kind - money looted, experience gained, a
     /// reputation change. These are chat messages and must be added as such:
     /// see ChatHandler::addLocalChatLine.
     void addLocalChatLine(game::ChatType type, const std::string& message);
@@ -3670,7 +3670,7 @@ public:
     /// target", and their kind.
     ///
     /// Goes to the chat window as before *and* through addUIError, which is
-    /// where the real client puts these — UIErrorsFrame is the red text above
+    /// where the real client puts these - UIErrorsFrame is the red text above
     /// the middle of the screen, and addons watch UI_ERROR_MESSAGE to catch
     /// failures. The sites converted to this were chat-only before.
     ///
@@ -3717,7 +3717,7 @@ public:
     bool isCompanionCreature(uint32_t entry) const;
     /// "MOUNT", "CRITTER", or empty for a creature that is neither. Both kinds
     /// hold a creature template entry and both need a display id looked up, so
-    /// both wait on a query coming back — and the tab is told which list to
+    /// both wait on a query coming back - and the tab is told which list to
     /// re-read, because COMPANION_UPDATE carries the kind.
     std::string companionKindForCreature(uint32_t entry) const;
     /// Fire COMPANION_UPDATE if a mount or critter has come out or gone away.
@@ -3764,7 +3764,7 @@ public:
         uint32_t schoolMask = 0; uint8_t dispelType = 0; uint32_t attrEx = 0;
         /// Spell.dbc Attributes, the base word. Bit 6 (0x40) is passive.
         uint32_t attr = 0;
-        // Spell.dbc Targets bitmask (SpellCastTargetFlags) — 0x10 = TARGET_FLAG_ITEM
+        // Spell.dbc Targets bitmask (SpellCastTargetFlags) - 0x10 = TARGET_FLAG_ITEM
         uint32_t targetFlags = 0;
         // Spell.dbc RangeIndex resolved against SpellRange.dbc. A max range of 0
         // means "Self Only" (shouts, self-buffs); negative means SpellRange.dbc
@@ -3772,12 +3772,12 @@ public:
         float maxRange = -1.0f;
         int32_t effectBasePoints[3] = {0, 0, 0};
         uint32_t effectIds[3] = {0, 0, 0};
-        // Spell.dbc EffectApplyAuraName — which aura an APPLY_AURA effect
+        // Spell.dbc EffectApplyAuraName - which aura an APPLY_AURA effect
         // applies. The effect id above only says that one is applied; this
         // says which, and it is the only thing that distinguishes a tracking
         // spell (44 creatures, 45 resources) from any other buff.
         uint32_t effectAuraIds[3] = {0, 0, 0};
-        // Spell.dbc EffectImplicitTargetA — what the spell expects to be aimed
+        // Spell.dbc EffectImplicitTargetA - what the spell expects to be aimed
         // at. 21 means a friendly unit, which is how heals and buffs are told
         // apart from damage that shares the same effect and school.
         uint32_t implicitTargetA = 0;
@@ -3851,7 +3851,7 @@ private:
     /// The opcodes this handler answers itself, grouped by subject.
     void registerCoreOpcodes();
 
-    /// Everything else — inspects, auctions, calendars, voice, and a long tail
+    /// Everything else - inspects, auctions, calendars, voice, and a long tail
     /// that is consumed and ignored. Named for what it is.
     void registerRemainingOpcodes();
 
@@ -3933,7 +3933,7 @@ private:
 
     // ---- Equipment set handler ----
     void handleUpdateAuraDuration(uint8_t slot, uint32_t durationMs);
-    // handleSetForcedReactions — dispatched via CombatHandler
+    // handleSetForcedReactions - dispatched via CombatHandler
 
     // ---- Guild handlers ----
     void handlePetSpells(network::Packet& packet);
@@ -4020,7 +4020,7 @@ private:
     // Explicit service dependencies (owned by Application)
     GameServices& services_;
 
-    // Domain handlers — each manages a specific concern extracted from GameHandler
+    // Domain handlers - each manages a specific concern extracted from GameHandler
     std::unique_ptr<ChatHandler>      chatHandler_;
     std::unique_ptr<MovementHandler>  movementHandler_;
     std::unique_ptr<CombatHandler>    combatHandler_;
@@ -4030,7 +4030,7 @@ private:
     std::unique_ptr<QuestHandler>     questHandler_;
     std::unique_ptr<WardenHandler>    wardenHandler_;
 
-    // Opcode dispatch table — built once in registerOpcodeHandlers(), called by handlePacket()
+    // Opcode dispatch table - built once in registerOpcodeHandlers(), called by handlePacket()
     using PacketHandler = std::function<void(network::Packet&)>;
     std::unordered_map<LogicalOpcode, PacketHandler> dispatchTable_;
 
@@ -4286,7 +4286,7 @@ private:
     std::unordered_set<uint32_t> activeAreaTriggers_;  // triggers player is currently inside
     float areaTriggerCheckTimer_ = 0.0f;
     bool areaTriggerSuppressFirst_ = false;  // suppress first check after map transfer
-    float areaTriggerCooldown_ = 0.0f;       // seconds remaining — suppress ALL triggers
+    float areaTriggerCooldown_ = 0.0f;       // seconds remaining - suppress ALL triggers
 
     // Craft queue: seconds the expired cast bar has waited for SMSG_SPELL_GO
     // (which re-casts the next queued item) before giving up
@@ -4541,9 +4541,9 @@ private:
     QuestOfferRewardData currentQuestOfferReward_;
 
     // Quest log. The entries and the selection both live in QuestHandler now;
-    // the GameHandler selection copy this comment used to describe was dead —
+    // the GameHandler selection copy this comment used to describe was dead -
     // written by setSelectedQuestLogIndex, read by nobody, while the getter went
-    // to the QuestHandler — and has been removed.
+    // to the QuestHandler - and has been removed.
     std::unordered_set<uint32_t> pendingQuestQueryIds_;
     std::unordered_set<uint32_t> trackedQuestIds_;
     std::unordered_set<uint32_t> mapVisibleQuestIds_;
@@ -4698,7 +4698,7 @@ private:
     /// Filled by loadFactionNameCache alongside the names and the repList map.
     mutable std::unordered_map<uint32_t, uint32_t> factionParent_;
     /// The drawn rows, rebuilt whenever the collapse set changes rather than
-    /// on every ask — the reputation panel calls GetFactionInfo once per row
+    /// on every ask - the reputation panel calls GetFactionInfo once per row
     /// per redraw.
     mutable std::vector<ReputationRow> reputationRows_;
     mutable bool reputationRowsDirty_ = true;
@@ -4717,7 +4717,7 @@ private:
     std::vector<BattlemasterEntry> battlegroundTypes_;  // arenas filtered out, id-ordered
     bool battlemasterListLoaded_ = false;
     std::unordered_map<uint32_t, uint32_t>    achievementCategoryCache_;  // achievementId → Achievement_Category.dbc ID
-    // Achievement ids per category, in the DBC's own order — the panel lists a
+    // Achievement ids per category, in the DBC's own order - the panel lists a
     // category by index, so the order has to be stable across calls.
     std::unordered_map<uint32_t, std::vector<uint32_t>> categoryAchievements_;
     std::unordered_map<uint32_t, AchievementCategoryInfo> achievementCategoryInfo_;
@@ -4731,7 +4731,7 @@ private:
     std::unordered_map<uint32_t, std::vector<AchievementCriterion>> achievementCriteria_;
     std::unordered_map<uint32_t, AchievementCriterionIndex> achievementCriterionById_;
     bool achievementCriteriaLoaded_ = false;
-    // Client-side, like the quest tracker's set — nothing is sent for it.
+    // Client-side, like the quest tracker's set - nothing is sent for it.
     std::unordered_set<uint32_t> trackedAchievements_;
     bool achievementNameCacheLoaded_ = false;
     // Set of achievement IDs earned by the player (populated from SMSG_ALL_ACHIEVEMENT_DATA)
@@ -4960,7 +4960,7 @@ private:
     // event; CORPSE_IN_RANGE and CORPSE_OUT_OF_RANGE are edges, and FrameXML
     // raises its reclaim prompt from them.
     bool corpseInRangeAnnounced_ = false;
-    // Where the server says the spirit healer is — the graveyard a release
+    // Where the server says the spirit healer is - the graveyard a release
     // would send the player to. SMSG_DEATH_RELEASE_LOC carries it and it used
     // to be read and logged and nothing else, so this client knew exactly where
     // to point a ghost and never pointed anywhere.
@@ -4981,7 +4981,7 @@ private:
     uint64_t pendingSpiritHealerGuid_ = 0;
     bool resurrectPending_ = false;
     bool resurrectRequestPending_ = false;
-    bool selfResAvailable_ = false;  // SMSG_PRE_RESURRECT received — Reincarnation/Twisting Nether
+    bool selfResAvailable_ = false;  // SMSG_PRE_RESURRECT received - Reincarnation/Twisting Nether
     // ---- Talent wipe confirm dialog ----
     // (talent wipe confirm state lives in SpellHandler)
     // ---- Pet talent respec confirm dialog ----

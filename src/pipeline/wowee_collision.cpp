@@ -75,7 +75,7 @@ WoweeCollision WoweeCollisionBuilder::fromTerrain(const ADTTerrain& terrain,
                 glm::vec3 v01 = vtx(i01), v11 = vtx(i11);
 
                 auto classifyTri = [&](const glm::vec3& a, const glm::vec3& b, const glm::vec3& c) {
-                    // Skip degenerate triangles — would produce NaN normals
+                    // Skip degenerate triangles - would produce NaN normals
                     // and crash collision intersection tests downstream.
                     glm::vec3 cross = glm::cross(b - a, c - a);
                     float crossLen = glm::length(cross);
@@ -163,7 +163,7 @@ bool WoweeCollisionBuilder::save(const WoweeCollision& collision, const std::str
     if (!f) return false;
 
     f.write(reinterpret_cast<const char*>(&WOC_MAGIC), 4);
-    // Sanitize bounds before writing — produces a clean WOC even when an
+    // Sanitize bounds before writing - produces a clean WOC even when an
     // in-memory collision has been polluted by addMesh on bad input.
     auto sanVec = [](glm::vec3 v) {
         if (!std::isfinite(v.x)) v.x = 0.0f;
@@ -177,7 +177,7 @@ bool WoweeCollisionBuilder::save(const WoweeCollision& collision, const std::str
     uint32_t triCount = static_cast<uint32_t>(
         std::min<size_t>(collision.triangles.size(), 2'000'000));
     f.write(reinterpret_cast<const char*>(&triCount), 4);
-    // Sanitize tile coords too — out-of-range would be clamped on load
+    // Sanitize tile coords too - out-of-range would be clamped on load
     // anyway but writing a clean file means no warning on every reload.
     uint32_t tileX = collision.tileX > 63 ? 32 : collision.tileX;
     uint32_t tileY = collision.tileY > 63 ? 32 : collision.tileY;
@@ -226,7 +226,7 @@ WoweeCollision WoweeCollisionBuilder::load(const std::string& path) {
     // a corrupted file rather than letting them propagate.
     if (col.tileX > 63 || col.tileY > 63) {
         LOG_WARNING("WOC tile coord out of range (", col.tileX, ",", col.tileY,
-                    ") — clamping");
+                    ") - clamping");
         if (col.tileX > 63) col.tileX = 32;
         if (col.tileY > 63) col.tileY = 32;
     }
@@ -252,7 +252,7 @@ WoweeCollision WoweeCollisionBuilder::load(const std::string& path) {
         if (glm::length(glm::cross(e1, e2)) < 1e-8f) continue;
         col.triangles.push_back(tri);
     }
-    // Sanitize stored bounds too — they're used as a coarse cull box.
+    // Sanitize stored bounds too - they're used as a coarse cull box.
     fixVec(col.bounds.min);
     fixVec(col.bounds.max);
 

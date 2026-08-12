@@ -192,7 +192,7 @@ void AssetManager::setBaseFallbackPath(const std::string& basePath) {
     std::string manifestPath = basePath + "/manifest.json";
     if (!std::filesystem::exists(manifestPath)) {
         LOG_DEBUG("AssetManager: base fallback manifest not found at ", manifestPath,
-                  " — fallback disabled");
+                  " - fallback disabled");
         return;
     }
     if (baseFallbackManifest_.load(manifestPath)) {
@@ -521,7 +521,7 @@ std::shared_ptr<DBCFile> AssetManager::loadDBCOptional(const std::string& name) 
     }
 
     if (dbcData.empty()) {
-        // Expected on some expansions — log at debug level only.
+        // Expected on some expansions - log at debug level only.
         LOG_DEBUG("Optional DBC not found (expected on some expansions): ", name);
         return nullptr;
     }
@@ -555,8 +555,8 @@ bool AssetManager::fileExists(const std::string& path) const {
     // A read walks override, primary manifest, base fallback manifest, then the
     // loose file; this asked the primary manifest alone. With one asset source
     // the two agree, which is why it stood. The moment an expansion overlay
-    // becomes the primary — an overlay holding a few thousand models over a
-    // two-hundred-thousand file base — this answered NO for every file in the
+    // becomes the primary - an overlay holding a few thousand models over a
+    // two-hundred-thousand file base - this answered NO for every file in the
     // base game, while the read that follows would have found it.
     //
     // Fifty-eight callers ask this before deciding what to read, so every one

@@ -1,4 +1,4 @@
-// IChatCommand — interface for all slash commands.
+// IChatCommand - interface for all slash commands.
 // Phase 3.1 of chat_panel_ref.md.
 #pragma once
 

@@ -4,7 +4,7 @@ namespace wowee {
 namespace editor {
 namespace cli {
 
-// Dispatch the quest-reward mutation handlers — both operate
+// Dispatch the quest-reward mutation handlers - both operate
 // on a quest's reward struct in zone.json.
 //   --add-quest-reward-item   append item rewards (greedy multi-arg)
 //   --set-quest-reward        update XP / gold / silver / copper

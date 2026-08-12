@@ -253,7 +253,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 errors.push_back(ctx + ": maxDurationMs < 0");
             if (e.perLevelMs < 0)
                 warnings.push_back(ctx +
-                    ": perLevelMs < 0 — duration shrinks with "
+                    ": perLevelMs < 0 - duration shrinks with "
                     "level, double-check this is intentional");
             // Instant kind should have base == 0.
             if (e.durationKind == wowee::pipeline::WoweeSpellDuration::Instant &&
@@ -261,7 +261,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 warnings.push_back(ctx +
                     ": Instant kind with baseDurationMs=" +
                     std::to_string(e.baseDurationMs) +
-                    " — engine will track it as a timed aura");
+                    " - engine will track it as a timed aura");
             }
             // UntilCancelled / UntilDeath should signal "no
             // timer" via baseDurationMs<0; otherwise the engine
@@ -271,7 +271,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 e.baseDurationMs >= 0) {
                 warnings.push_back(ctx +
                     ": permanent kind with non-negative "
-                    "baseDurationMs — engine treats this as timed; "
+                    "baseDurationMs - engine treats this as timed; "
                     "set baseDurationMs=-1 to flag as no-timer");
             }
             // Timed/TickBased should have base > 0.

@@ -217,7 +217,7 @@ uint32_t detectEnchantmentNameField(const DBCFile* dbc, const DBCFieldMap* sieL)
     else if (fieldCount >= 34) nameField = 13;  // TBC 2.4.3
     else                       nameField = 10;  // Vanilla 1.12 / Turtle
 
-    // A layout override wins, but only when it is in range — a stale index here
+    // A layout override wins, but only when it is in range - a stale index here
     // reads an integer column as a string offset and garbles every enchant name.
     if (sieL) {
         uint32_t f = sieL->field("Name");
@@ -253,7 +253,7 @@ uint32_t detectEnchantmentGemItemField(const DBCFile* dbc, const DBCFieldMap* si
     // Src_ItemID: the gem this enchantment came out of, and the only route from
     // an enchantment sitting in a socket back to what is in the socket. It
     // trails the localized name block like ItemVisual and Flags do, so it moves
-    // with them between the two shapes — WotLK 38 fields, TBC 34.
+    // with them between the two shapes - WotLK 38 fields, TBC 34.
     //
     // Verified against the files rather than counted off a wiki page: field 33
     // of the WotLK file has 617 non-zero values and every one is in item-id

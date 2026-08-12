@@ -151,7 +151,7 @@ private:
 public:
     /// The same, for a player already in the world, read from the fields the
     /// entity is still holding. The spawn path takes this once and hands it to
-    /// a callback; anything wanting it later — a portrait, an inspect window —
+    /// a callback; anything wanting it later - a portrait, an inspect window -
     /// has nowhere to ask, and the fields are right there.
     bool getPlayerAppearance(uint64_t guid, uint8_t& outRace, uint8_t& outGender,
                              uint32_t& outAppearanceBytes, uint8_t& outFacial) const;
@@ -232,13 +232,13 @@ private:
         bool displayIdChanged = false;
         bool npcDeathNotified = false;
         bool npcRespawnNotified = false;
-        // Set when UNIT_DYNFLAG_LOOTABLE went away this update — the corpse has
+        // Set when UNIT_DYNFLAG_LOOTABLE went away this update - the corpse has
         // been looted empty. Acted on after the field loop, never inside it.
         bool lootableCleared = false;
         uint32_t oldDisplayId = 0;
     };
 
-    // Entity factory — creates the correct Entity subclass for the given block.
+    // Entity factory - creates the correct Entity subclass for the given block.
     std::shared_ptr<Entity> createEntityFromBlock(const UpdateBlock& block);
     // Track player-on-transport state from movement blocks.
     /// Take the server's position for the player when the two have diverged
@@ -250,11 +250,11 @@ private:
                                     const std::shared_ptr<Entity>& entity,
                                     const glm::vec3& canonicalPos, float oCanonical,
                                     bool updateMovementInfoPos);
-    // Apply unit fields during CREATE — returns true if entity is initially dead.
+    // Apply unit fields during CREATE - returns true if entity is initially dead.
     bool applyUnitFieldsOnCreate(const UpdateBlock& block,
                                   std::shared_ptr<Unit>& unit,
                                   const UnitFieldIndices& ufi);
-    // Apply unit fields during VALUES — returns change tracking result.
+    // Apply unit fields during VALUES - returns change tracking result.
     UnitFieldUpdateResult applyUnitFieldsOnUpdate(const UpdateBlock& block,
                                                     const std::shared_ptr<Entity>& entity,
                                                     std::shared_ptr<Unit>& unit,
@@ -262,7 +262,7 @@ private:
     // Apply player stat fields (XP, inventory, skills, etc.). isCreate=true for CREATE path.
     bool applyPlayerStatFields(const FlatFieldMap& fields,
                                 const PlayerFieldIndices& pfi, bool isCreate);
-    // Dispatch spawn callbacks (creature/player) — deduplicates CREATE and VALUES paths.
+    // Dispatch spawn callbacks (creature/player) - deduplicates CREATE and VALUES paths.
     void dispatchEntitySpawn(uint64_t guid, ObjectType objectType,
                               const std::shared_ptr<Entity>& entity,
                               const std::shared_ptr<Unit>& unit, bool isDead);

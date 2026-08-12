@@ -81,8 +81,8 @@ namespace colors {
 // the target frame and a slightly duller one on the frame below it. These are
 // the shades the target frame and the party list were already using.
 //
-// The player's own bar is not one of these — it ramps continuously between the
-// thresholds and pulses when critical — and neither is the boss frame, which is
+// The player's own bar is not one of these - it ramps continuously between the
+// thresholds and pulses when critical - and neither is the boss frame, which is
 // deliberately a red-to-yellow scale rather than a green one.
 inline ImVec4 healthBarColor(float pct) {
     if (pct > 0.5f) return kHealthGreen;
@@ -109,8 +109,8 @@ inline ImVec4 durabilityColor(float pct) {
 // ---- Power bar colour ----
 //
 // Five places mapped a power type to its bar colour and none of them covered
-// the same set. The pet frame stopped at Energy, so a hunter pet — the one unit
-// whose power is Happiness — drew a mana-blue bar for it. The focus frame had
+// the same set. The pet frame stopped at Energy, so a hunter pet - the one unit
+// whose power is Happiness - drew a mana-blue bar for it. The focus frame had
 // no Focus and no Happiness either.
 //
 // `fallback` is what an unrecognised type gets. Mana blue everywhere except the
@@ -122,7 +122,7 @@ inline ImVec4 powerTypeColor(uint8_t powerType, ImVec4 fallback = kManaBlue) {
         case 1: return kDarkRed;            // rage
         case 2: return kOrange;             // focus
         case 3: return kEnergyYellow;       // energy
-        case 4: return kHappinessGreen;     // happiness — a hunter pet's
+        case 4: return kHappinessGreen;     // happiness - a hunter pet's
         case 6: return kRunicRed;           // runic power
         case 7: return kSoulShardPurple;    // soul shards
         default: return fallback;
@@ -206,8 +206,8 @@ inline const char* getInventorySlotName(uint32_t inventoryType) {
 //
 // One colour per dispel type, and green for anything that is a buff. Five
 // places drew this border and four agreed; the raid panel's copy was a shade
-// off on all four types — brighter magic, deeper curse, lighter disease and
-// poison — so the same debuff was one colour on a unit frame and another in the
+// off on all four types - brighter magic, deeper curse, lighter disease and
+// poison - so the same debuff was one colour on a unit frame and another in the
 // raid list.
 //
 // The four that agreed are the ones kept, on the same grounds as any other
@@ -295,7 +295,7 @@ inline ImU32 getClassColorU32(uint8_t classId, int alpha = 255) {
     // ColorConvertFloat4ToU32 rounds to the nearest byte where a cast to int
     // truncates, and the panels that draw a name as an ImVec4 get the rounded
     // one. Truncating here made the same class one step darker on the minimap
-    // and the nameplates than in the party list beside them — the druid orange
+    // and the nameplates than in the party list beside them - the druid orange
     // came out 7c where the rest of the client draws 7d.
     const ImVec4 c = getClassColor(classId);
     return ImGui::ColorConvertFloat4ToU32(

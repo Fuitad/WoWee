@@ -112,7 +112,7 @@ int handleInfo(int& i, int argc, char** argv) {
 
 int handleExportJson(int& i, int argc, char** argv) {
     // Mirrors the JSON pairs added for every other novel
-    // open format. Each loadout emits all 11 scalar fields —
+    // open format. Each loadout emits all 11 scalar fields -
     // no enum widening needed (all fields are raw numerics
     // or item ID cross-refs to other catalogs).
     return cli::exportCatalogJson<wowee::pipeline::WoweeCreatureEquipmentLoader>(
@@ -205,7 +205,7 @@ int handleValidate(int& i, int argc, char** argv) {
                     ": all three slots empty (creature is unarmed)");
             }
             // dual-wield flag set but no offhand item, OR no
-            // mainhand — both are inconsistent.
+            // mainhand - both are inconsistent.
             if ((e.equipFlags &
                  wowee::pipeline::WoweeCreatureEquipment::kFlagDualWield) &&
                 (e.mainHandItemId == 0 || e.offHandItemId == 0)) {
@@ -220,7 +220,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 errors.push_back(ctx +
                     ": kFlagShieldOffhand set but offHandItemId=0");
             }
-            // dual-wield + shield are mutually exclusive — can't
+            // dual-wield + shield are mutually exclusive - can't
             // hold a shield AND a second weapon in the offhand.
             if ((e.equipFlags &
                  wowee::pipeline::WoweeCreatureEquipment::kFlagDualWield) &&
@@ -230,7 +230,7 @@ int handleValidate(int& i, int argc, char** argv) {
                     ": both kFlagDualWield and kFlagShieldOffhand set "
                     "(mutually exclusive)");
             }
-            // 2H polearm flag set with an offhand item — polearms
+            // 2H polearm flag set with an offhand item - polearms
             // occupy both hands.
             if ((e.equipFlags &
                  wowee::pipeline::WoweeCreatureEquipment::kFlagPolearmTwoHand) &&

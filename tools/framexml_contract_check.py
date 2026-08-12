@@ -6,13 +6,13 @@ nil reads as false in a condition. What actually breaks the interface is a
 function that *exists* and is the wrong shape, because Lua raises rather than
 shrugging:
 
-  * **too few arguments** — luaL_checknumber(L, 1) *raises* when the argument is
+  * **too few arguments** - luaL_checknumber(L, 1) *raises* when the argument is
     absent. AbandonQuest() is called with none, so abandoning a quest from the
     quest log failed outright every time.
-  * **too few return values** — the extra names are nil, which is fine until one
+  * **too few return values** - the extra names are nil, which is fine until one
     is used. GetTalentInfo returned eight of ten, and the frame compares the
     ninth against maxRank: an error the moment a talent point is staged.
-  * **too few event arguments** — same shape from the other direction.
+  * **too few event arguments** - same shape from the other direction.
     CHARACTER_POINTS_CHANGED is read as `arg2 > 0`, and was fired with nothing.
 
 All three found real crashes on frames that are owned by default, and none of
@@ -21,7 +21,7 @@ them showed up in any count of missing names. This keeps them from coming back.
     tools/framexml_contract_check.py
 
 Reports candidates, not faults. An extra nil only matters if it is used, and
-plenty are guarded by `if (not x)` on the next line — UnitPowerType and
+plenty are guarded by `if (not x)` on the next line - UnitPowerType and
 GetPetHappiness both are. Read the consumer before changing anything.
 """
 
@@ -71,8 +71,8 @@ def bodyFrom(text, start):
     while i < n:
         c = text[i]
         two = text[i:i + 2]
-        # Comments first, and this is not fussiness: an apostrophe in prose —
-        # "// Blizzard's own thresholds" — reads as an opening character
+        # Comments first, and this is not fussiness: an apostrophe in prose -
+        # "// Blizzard's own thresholds" - reads as an opening character
         # literal, and the scan then runs to the next apostrophe anywhere in
         # the file, swallowing every brace between. That put the end of one
         # binding eleven hundred lines further down and reported a function
@@ -134,8 +134,8 @@ def checkReturns():
     for p in luaSources():
         t = stripComments(p.read_text(errors="ignore"))
         # `local a, b = Foo()` and the plain `a, b = Foo()` beside it. The
-        # second form is 234 lines in FrameXML alone — the achievement summary
-        # unpacks its counts that way — and looking only for `local` walked
+        # second form is 234 lines in FrameXML alone - the achievement summary
+        # unpacks its counts that way - and looking only for `local` walked
         # straight past all of them.
         for m in re.finditer(
                 r"(?:local\s+)?\b([A-Za-z_][\w]*(?:\s*,\s*[A-Za-z_]\w*)+)\s*=\s*"

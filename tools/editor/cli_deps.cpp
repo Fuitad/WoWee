@@ -23,7 +23,7 @@ namespace cli {
 namespace {
 
 int handleListZoneDeps(int& i, int argc, char** argv) {
-    // Enumerate every external model path a zone references —
+    // Enumerate every external model path a zone references -
     // both directly placed (objects.json) and indirectly via
     // doodad placements inside any WOB sitting next to the
     // zone manifest. Useful when packaging a content pack to
@@ -70,7 +70,7 @@ int handleListZoneDeps(int& i, int argc, char** argv) {
     }
     // For each direct WMO placement, also recurse into the WOB
     // sitting at that path (relative to the zone) so transitive
-    // doodad deps surface — this matches the runtime's actual
+    // doodad deps surface - this matches the runtime's actual
     // load chain.
     for (const auto& [path, count] : directWMO) {
         // Strip extension since loader takes a base path.
@@ -132,7 +132,7 @@ int handleListProjectOrphans(int& i, int argc, char** argv) {
     // sitting on disk and the set of paths actually
     // referenced by objects.json placements + WOB doodad
     // lists. Files in the first set but not the second are
-    // orphans — candidates for removal before --pack-wcp so
+    // orphans - candidates for removal before --pack-wcp so
     // the archive doesn't carry dead weight.
     //
     // Comparison is by basename (extension stripped) since
@@ -246,7 +246,7 @@ int handleListProjectOrphans(int& i, int argc, char** argv) {
     std::printf("  orphan .wom/.wob : %zu file(s), %.1f KB\n",
                 orphans.size(), totalOrphanBytes / 1024.0);
     if (orphans.empty()) {
-        std::printf("\n  (no orphans — every model file is referenced)\n");
+        std::printf("\n  (no orphans - every model file is referenced)\n");
         return 0;
     }
     std::printf("\n  zone                  bytes      path\n");

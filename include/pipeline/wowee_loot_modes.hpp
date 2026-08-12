@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Loot Mode Policy catalog (.wlma) — novel
+// Wowee Open Loot Mode Policy catalog (.wlma) - novel
 // replacement for the implicit loot-distribution rules
 // vanilla WoW encoded across the GroupLoot system
 // (CMSG_LOOT_METHOD), the per-quality thresholds for
@@ -32,22 +32,22 @@ namespace pipeline {
 //     modeId (uint32)
 //     nameLen + name
 //     descLen + description
-//     modeKind (uint8)           — FFA / RoundRobin /
+//     modeKind (uint8)           - FFA / RoundRobin /
 //                                   MasterLoot /
 //                                   NeedBeforeGreed /
 //                                   Personal /
 //                                   Disenchant
-//     thresholdQuality (uint8)   — 0..7 quality tier;
+//     thresholdQuality (uint8)   - 0..7 quality tier;
 //                                   loot at or above
 //                                   triggers special-
 //                                   roll behavior
-//     masterLooterRequired (uint8) — 0/1 bool
-//     idleSkipSec (uint8)        — 0..255 sec; 0 = no
+//     masterLooterRequired (uint8) - 0/1 bool
+//     idleSkipSec (uint8)        - 0..255 sec; 0 = no
 //                                   idle skip; round-
 //                                   robin advances if
 //                                   current pick is
 //                                   AFK > N seconds
-//     timeoutFallbackKind (uint8) — fallback mode if
+//     timeoutFallbackKind (uint8) - fallback mode if
 //                                   master looter
 //                                   disconnects
 //                                   mid-distribution
@@ -110,16 +110,16 @@ public:
 
     // Preset emitters used by --gen-lma* variants.
     //
-    //   makeStandard      — 4 standard 5-man / casual
+    //   makeStandard      - 4 standard 5-man / casual
     //                        modes (FreeForAll farming /
     //                        RoundRobin trash / NeedBefore-
     //                        Greed Uncommon / MasterLoot
     //                        Rare).
-    //   makeRaidPolicies  — 3 raid loot policies
+    //   makeRaidPolicies  - 3 raid loot policies
     //                        (MasterLoot Epic threshold /
     //                        Personal Loot / NeedBefore-
     //                        Greed Rare default).
-    //   makeAFKPrevention — 3 AFK-mitigating modes
+    //   makeAFKPrevention - 3 AFK-mitigating modes
     //                        (RoundRobin idle-skip 30s /
     //                        MasterLoot 60s timeout fall-
     //                        back to NeedBeforeGreed /

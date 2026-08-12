@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Gossip Menu catalog (.wgsp) — novel replacement
+// Wowee Open Gossip Menu catalog (.wgsp) - novel replacement
 // for AzerothCore-style gossip_menu + gossip_menu_option +
 // npc_text SQL tables PLUS the Blizzard NpcText.dbc family.
 // The 23rd open format added to the editor.
@@ -18,7 +18,7 @@ namespace pipeline {
 // interaction, offer a quest, etc.
 //
 // This format closes the WCRT.gossipId cross-reference gap
-// from batch 116 — until now WCRT had a gossipId field that
+// from batch 116 - until now WCRT had a gossipId field that
 // pointed to a format that didn't exist yet.
 //
 // Cross-references with previously-added formats:
@@ -91,7 +91,7 @@ struct WoweeGossip {
 
     bool isValid() const { return !entries.empty(); }
 
-    // Lookup by menuId — nullptr if not present.
+    // Lookup by menuId - nullptr if not present.
     const Entry* findById(uint32_t menuId) const;
 
     static const char* optionKindName(uint8_t k);
@@ -106,12 +106,12 @@ public:
 
     // Preset emitters used by --gen-gossip* variants.
     //
-    //   makeStarter — single menu with greeting + 3 options
+    //   makeStarter - single menu with greeting + 3 options
     //                  (vendor / trainer / close).
-    //   makeInnkeeper — menu 4001 (matches WCRT.gossipId on
+    //   makeInnkeeper - menu 4001 (matches WCRT.gossipId on
     //                    Bartleby): set hearth + browse goods
     //                    + bind to flight + close.
-    //   makeQuestGiver — branching menu: greeting + 2 quests +
+    //   makeQuestGiver - branching menu: greeting + 2 quests +
     //                     submenu "tell me about the area"
     //                     leading to lore text + close.
     static WoweeGossip makeStarter(const std::string& catalogName);

@@ -273,8 +273,8 @@ int handleValidate(int& i, int argc, char** argv) {
             }
             if (e.resetIntervalMs == 0)
                 errors.push_back(ctx +
-                    ": resetIntervalMs is 0 — lockout would never reset");
-            // Standard sizes are 5/10/25/40 — anything else is a
+                    ": resetIntervalMs is 0 - lockout would never reset");
+            // Standard sizes are 5/10/25/40 - anything else is a
             // server-custom raid size.
             if (e.raidGroupSize != 5 && e.raidGroupSize != 10 &&
                 e.raidGroupSize != 25 && e.raidGroupSize != 40) {
@@ -289,7 +289,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 warnings.push_back(ctx +
                     ": Daily kind with resetIntervalMs " +
                     std::to_string(e.resetIntervalMs) +
-                    " — canonical Daily is 86400000ms (24h)");
+                    " - canonical Daily is 86400000ms (24h)");
             }
             // Weekly kind with non-weekly interval is suspicious.
             if (e.raidLockoutKind == wowee::pipeline::WoweeInstanceLockout::Weekly &&
@@ -297,11 +297,11 @@ int handleValidate(int& i, int argc, char** argv) {
                 warnings.push_back(ctx +
                     ": Weekly kind with resetIntervalMs " +
                     std::to_string(e.resetIntervalMs) +
-                    " — canonical Weekly is 604800000ms (7d)");
+                    " - canonical Weekly is 604800000ms (7d)");
             }
             if (e.maxBossKillsPerLockout == 0)
                 warnings.push_back(ctx +
-                    ": maxBossKillsPerLockout=0 — instance grants no "
+                    ": maxBossKillsPerLockout=0 - instance grants no "
                     "lockout-bound kills, every visit is fresh");
             if (!idsSeen.add(e.lockoutId)) errors.push_back(ctx + ": duplicate lockoutId");
         }

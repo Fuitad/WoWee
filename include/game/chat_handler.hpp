@@ -39,7 +39,7 @@ public:
     std::string getChannelByIndex(int index) const;
     int getChannelIndex(const std::string& channelName) const;
     const std::vector<std::string>& getJoinedChannels() const { return joinedChannels_; }
-    /// Whether the player owns this channel — the one who created it, or who
+    /// Whether the player owns this channel - the one who created it, or who
     /// it passed to. SMSG_CHANNEL_NOTIFY says so with OWNER_CHANGED, which
     /// carries the new owner's guid: AzerothCore's Channel::MakeOwnerChanged
     /// writes _ownerGUID into it.
@@ -68,7 +68,7 @@ public:
     ///
     /// The kind matters: CHAT_MSG_MONEY, CHAT_MSG_COMBAT_XP_GAIN and their like
     /// are chat messages, and the interface's handler reads twelve arguments
-    /// off every one of them — arg4 is a channel name and it calls strlen on it
+    /// off every one of them - arg4 is a channel name and it calls strlen on it
     /// without checking. Firing one of these with just the text raised there and
     /// took the rest of the handler with it, so the line never appeared at all.
     void addLocalChatLine(ChatType type, const std::string& message);
@@ -123,7 +123,7 @@ private:
     /// Who sent the message a chat line id names, newest last.
     ///
     /// Every chat event carries a line id as its eleventh argument, and
-    /// FrameXML builds it into the player link on the name — so a right-click
+    /// FrameXML builds it into the player link on the name - so a right-click
     /// on that name hands the id back and expects the client to know which
     /// message it was. This client sent zero for all of them, which is one id
     /// shared by every line ever printed and therefore no id at all.

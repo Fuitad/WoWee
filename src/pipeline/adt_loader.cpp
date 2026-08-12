@@ -213,7 +213,7 @@ void ADTLoader::parseMDDF(const uint8_t* data, size_t size, ADTTerrain& terrain)
         placement.rotation[2] = readFloat(data, offset + 28);
         placement.scale = readUInt16(data, offset + 32);
         placement.flags = readUInt16(data, offset + 34);
-        // Sanitize NaN/inf — corrupted MDDF entries would propagate bad
+        // Sanitize NaN/inf - corrupted MDDF entries would propagate bad
         // floats into the WMO/M2 instance transform and crash render.
         for (int k = 0; k < 3; k++) {
             if (!std::isfinite(placement.position[k])) placement.position[k] = 0.0f;
@@ -258,7 +258,7 @@ void ADTLoader::parseMODF(const uint8_t* data, size_t size, ADTTerrain& terrain)
             placement.scale = readUInt16(data, offset + 62);
             if (placement.scale == 0) placement.scale = 1024;
         }
-        // Same NaN scrub as MDDF entries — corrupted MODF would crash WMO
+        // Same NaN scrub as MDDF entries - corrupted MODF would crash WMO
         // instance transform.
         for (int k = 0; k < 3; k++) {
             if (!std::isfinite(placement.position[k])) placement.position[k] = 0.0f;
@@ -314,8 +314,8 @@ void ADTLoader::parseMCNK(const uint8_t* data, size_t size, int chunkIndex, ADTT
     }
 
     // MCNK position is in canonical WoW coordinates (NOT ADT placement space):
-    //   offset 104: wowY (west axis, horizontal — unused, XY computed from tile indices)
-    //   offset 108: wowX (north axis, horizontal — unused, XY computed from tile indices)
+    //   offset 104: wowY (west axis, horizontal - unused, XY computed from tile indices)
+    //   offset 108: wowX (north axis, horizontal - unused, XY computed from tile indices)
     //   offset 112: wowZ = HEIGHT BASE (MCVT heights are relative to this)
     chunk.position[0] = readFloat(data, 104);  // wowY (unused)
     chunk.position[1] = readFloat(data, 108);  // wowX (unused)
@@ -625,7 +625,7 @@ void ADTLoader::parseMH2O(const uint8_t* data, size_t size, ADTTerrain& terrain)
 
             // Read exists bitmap (which tiles have water).
             // The bitmap holds one bit per tile of the layer's width×height
-            // sub-rectangle — row-major, LSB-first, packed into
+            // sub-rectangle - row-major, LSB-first, packed into
             // (width*height+7)/8 bytes. It is NOT a chunk-wide 8-byte block.
             // Normalize into a canonical chunk-wide 8x8 mask
             // (bit = (y+row)*8 + (x+col), LSB-first) so MCLQ and MH2O
@@ -651,7 +651,7 @@ void ADTLoader::parseMH2O(const uint8_t* data, size_t size, ADTTerrain& terrain)
                 }
             }
             if (!anyTile) {
-                continue;  // Bitmap masks out every tile — nothing to render
+                continue;  // Bitmap masks out every tile - nothing to render
             }
 
             // Read vertex heights

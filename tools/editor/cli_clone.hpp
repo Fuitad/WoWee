@@ -4,7 +4,7 @@ namespace wowee {
 namespace editor {
 namespace cli {
 
-// Dispatch the clone-* duplicate handlers — deep-copy a quest /
+// Dispatch the clone-* duplicate handlers - deep-copy a quest /
 // creature spawn / object placement by index, optionally
 // renaming and offsetting the new copy. Useful for templating
 // patterns: design once, clone N times.

@@ -63,7 +63,7 @@ private:
 int handleListCommands(int& i, int argc, char** argv) {
     // Capture printUsage's stdout and grep for '--flag' tokens at
     // the start of each line. This auto-tracks the help text as
-    // commands are added — no parallel list to maintain. Result
+    // commands are added - no parallel list to maintain. Result
     // is a sorted, deduped, one-per-line list of recognized flags.
     // Temp file lets us read printUsage's output back. fmemopen
     // would be cleaner but isn't available on Windows; tmpfile is
@@ -129,7 +129,7 @@ int handleInfoCliStats(int& i, int argc, char** argv) {
     std::fclose(tmp);
     commands.insert("--help");
     commands.insert("--version");
-    // Bucket by category — verb is the second token after '--',
+    // Bucket by category - verb is the second token after '--',
     // up to the next dash. So '--info-zone-tree' -> 'info'.
     std::map<std::string, int> byCategory;
     int maxLen = 0;
@@ -172,7 +172,7 @@ int handleInfoCliStats(int& i, int argc, char** argv) {
 int handleInfoCliCategories(int& i, int argc, char** argv) {
     // Discovery view of every CLI flag grouped by verb prefix.
     // Where --info-cli-stats just counts per category, this
-    // lists every command in each category — handy for "I
+    // lists every command in each category - handy for "I
     // know I want to gen something but what shapes/textures
     // are available?"
     FILE* tmp = std::tmpfile();
@@ -232,7 +232,7 @@ int handleInfoCliCategories(int& i, int argc, char** argv) {
 
 int handleInfoCliHelp(int& i, int argc, char** argv) {
     // Substring search through the help text. With 130+ commands,
-    // 'is there a thing for X?' is a common ask — this answers it
+    // 'is there a thing for X?' is a common ask - this answers it
     // without making the user scroll the full --help output:
     //
     //   wowee_editor --info-cli-help quest
@@ -312,7 +312,7 @@ int handleGenCompletion(int& i, int argc, char** argv) {
         : self;
     if (shell == "bash") {
         std::printf(
-            "# wowee_editor bash completion — source from ~/.bashrc:\n"
+            "# wowee_editor bash completion - source from ~/.bashrc:\n"
             "#   source <(%s --gen-completion bash)\n"
             "_wowee_editor_complete() {\n"
             "  local cur prev cmds\n"
@@ -333,9 +333,9 @@ int handleGenCompletion(int& i, int argc, char** argv) {
             "complete -F _wowee_editor_complete %s\n",
             self.c_str(), self.c_str(), baseName.c_str());
     } else {
-        // zsh — simpler descriptor-based completion.
+        // zsh - simpler descriptor-based completion.
         std::printf(
-            "# wowee_editor zsh completion — source from ~/.zshrc:\n"
+            "# wowee_editor zsh completion - source from ~/.zshrc:\n"
             "#   source <(%s --gen-completion zsh)\n"
             "_wowee_editor_complete() {\n"
             "  local -a cmds\n"
@@ -390,10 +390,10 @@ int handleValidateCliHelp(int& i, int argc, char** argv) {
     std::printf("CLI help self-check\n");
     std::printf("  kArgRequired entries : %zu\n", kArgRequiredSize);
     if (missing.empty()) {
-        std::printf("  PASSED — every kArgRequired flag is documented\n");
+        std::printf("  PASSED - every kArgRequired flag is documented\n");
         return 0;
     }
-    std::printf("  FAILED — %zu flag(s) missing from help text:\n", missing.size());
+    std::printf("  FAILED - %zu flag(s) missing from help text:\n", missing.size());
     for (const auto& m : missing) std::printf("    - %s\n", m.c_str());
     (void)argc;
     return 1;
@@ -414,7 +414,7 @@ int handleVersion(int& /*i*/, int /*argc*/, char** /*argv*/) {
 int handleListPacks(int& /*i*/, int /*argc*/, char** /*argv*/) {
     // Sister to --list-primitives: lists every --gen-*-pack
     // composite flag from the shared kArgRequired registry.
-    // Auto-tracks new packs as they're added — no parallel list.
+    // Auto-tracks new packs as they're added - no parallel list.
     std::vector<std::string> packs;
     for (std::size_t k = 0; k < kArgRequiredSize; ++k) {
         const char* flag = kArgRequired[k];
@@ -441,7 +441,7 @@ int handleListPrimitives(int& i, int argc, char** argv) {
     // when authoring content packs to discover what's available
     // without scrolling through the full --help dump. Walks the
     // shared kArgRequired registry so it auto-tracks new
-    // primitives as they're added — no parallel list.
+    // primitives as they're added - no parallel list.
     bool jsonOut = false;
     bool meshOnly = false;
     bool textureOnly = false;

@@ -211,7 +211,7 @@ uint32_t parseCategoryFlagsField(const nlohmann::json& jv) {
             else if (tok == "sharedwithitems")     out |= F::SharedWithItems;
             else if (tok == "ongcdstart")          out |= F::OnGCDStart;
             else if (tok == "ignorescooldownreduction") out |= F::IgnoresCooldownReduction;
-            // unknown labels silently ignored — they're
+            // unknown labels silently ignored - they're
             // already filtered by the validator's warning
             pos = end + 1;
         }
@@ -256,7 +256,7 @@ int handleImportJson(int& i, int argc, char** argv) {
             e.bucketKind = kind;
             if (je.contains("cooldownMs")) e.cooldownMs = je["cooldownMs"].get<uint32_t>();
             // Prefer the int form of categoryFlags when both
-            // are present — it preserves unknown bits across
+            // are present - it preserves unknown bits across
             // round-trip; fall back to the label form when
             // only that's present (hand-edited sidecars).
             if (je.contains("categoryFlags"))
@@ -310,14 +310,14 @@ int handleValidate(int& i, int argc, char** argv) {
                 warnings.push_back(ctx +
                     ": categoryFlags has bits outside known mask " +
                     "(0x" + std::to_string(e.categoryFlags & ~kKnownFlagMask) +
-                    ") — engine will ignore unknown flags");
+                    ") - engine will ignore unknown flags");
             }
             // Global bucket should be GCD-marked. Otherwise the
             // engine wouldn't trigger it on cast start.
             if (e.bucketKind == wowee::pipeline::WoweeSpellCooldown::Global &&
                 !(e.categoryFlags & wowee::pipeline::WoweeSpellCooldown::OnGCDStart)) {
                 warnings.push_back(ctx +
-                    ": Global kind without OnGCDStart flag — "
+                    ": Global kind without OnGCDStart flag - "
                     "engine will not trigger this on cast start");
             }
             // SharedWithItems on a Spell-only bucket is
@@ -325,7 +325,7 @@ int handleValidate(int& i, int argc, char** argv) {
             if (e.bucketKind == wowee::pipeline::WoweeSpellCooldown::Spell &&
                 (e.categoryFlags & wowee::pipeline::WoweeSpellCooldown::SharedWithItems)) {
                 warnings.push_back(ctx +
-                    ": Spell kind with SharedWithItems flag — "
+                    ": Spell kind with SharedWithItems flag - "
                     "switch kind to Item or Misc, or drop the flag");
             }
             if (!idsSeen.add(e.bucketId)) errors.push_back(ctx + ": duplicate bucketId");

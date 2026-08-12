@@ -5,7 +5,7 @@
 // Escape is not one action. It is nineteen, ordered, and the first whose
 // condition holds is the one that runs: close the settings window, else the
 // client's own menu, else cancel the cast, else close whichever server-side
-// window is open — and only when none of that applies does the question reach
+// window is open - and only when none of that applies does the question reach
 // the interface and then the game menu.
 //
 // The order is the whole of the behaviour and none of it was checkable. It
@@ -13,7 +13,7 @@
 // state, so the only way to ask what Escape would do in a given situation was
 // to be in that situation. That chain has been read end to end seven times
 // against a report that the key does nothing, and every reading found it
-// sound — which is exactly what a reading is bad at: it confirms each link and
+// sound - which is exactly what a reading is bad at: it confirms each link and
 // says nothing about which link runs.
 //
 // So the decision is a function of a struct of facts, and the facts are
@@ -65,7 +65,7 @@ enum class EscapeOutcome {
 struct EscapeState {
     /// The interface's focused edit box already took this press, in the event
     /// pump, before the poll that asks this question ever ran. Taking it is
-    /// what closed the box — and it is also what cleared the focus, so the
+    /// what closed the box - and it is also what cleared the focus, so the
     /// typing guard the poll consults answers no by the time it is asked.
     /// Without this the same press closes the box and then opens the game
     /// menu behind it; WoW closes the box and stops.
@@ -76,7 +76,7 @@ struct EscapeState {
     bool clientMenuShown = false;
 
     // Things the server knows about. Each of these has to be closed through
-    // the client so the closing packet is sent — hiding the frame instead
+    // the client so the closing packet is sent - hiding the frame instead
     // would leave the server believing the window is still open.
     bool casting = false;
     bool lootOpen = false;
@@ -103,7 +103,7 @@ EscapeAction resolveEscape(const EscapeState& state);
 /// is whether the game menu has been handed over. The second decides which of
 /// two menus opens, and getting it wrong is silent: this branch used to set
 /// the flag behind *this* client's menu unconditionally, and that menu is only
-/// drawn while the element is not handed over — so with the menu handed over,
+/// drawn while the element is not handed over - so with the menu handed over,
 /// Escape set a flag nobody read and nothing appeared.
 EscapeOutcome resolveAfterInterface(bool interfaceClosedAPanel,
                                     bool frameXmlOwnsMenu);

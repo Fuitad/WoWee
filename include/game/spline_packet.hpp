@@ -1,5 +1,5 @@
 // include/game/spline_packet.hpp
-// Consolidated spline packet parsing — replaces 7 duplicated parsing locations.
+// Consolidated spline packet parsing - replaces 7 duplicated parsing locations.
 #pragma once
 #include "network/packet.hpp"
 
@@ -73,7 +73,7 @@ namespace SplineFlag {
 // WotLK moved every one of these down a bit.
 //
 // The values above are the pre-WotLK SplineFlags the vanilla and TBC clients
-// use, and they were being applied to 3.3.5 as well — where the enum is
+// use, and they were being applied to 3.3.5 as well - where the enum is
 // MoveSplineFlag and Final_Point is 0x8000, not 0x10000. Every value from
 // Final_Point up is therefore off by one position, which is not a cosmetic
 // naming problem: the facing that follows the flags is a float for an angle,
@@ -142,13 +142,13 @@ enum class SplineFlagSet { PreWotlk, Wotlk };
 ///
 /// The byte says how the creature is turning, and each answer is followed by a
 /// different amount of data: a point (three floats), a target (a guid), an
-/// angle (one float), or — for Stop — nothing at all, the packet ending there.
+/// angle (one float), or - for Stop - nothing at all, the packet ending there.
 ///
 /// `stopped` comes back true for Stop, and the caller must return without
 /// reading a spline: there is none, and the destination is where the creature
 /// already is.
 ///
-/// This is the same three expansions' worth of bytes — the block was written
+/// This is the same three expansions' worth of bytes - the block was written
 /// out identically in the WotLK parser, the vanilla one and the TBC one, which
 /// is three places to get a length wrong in a packet where a wrong length is
 /// every field after it.

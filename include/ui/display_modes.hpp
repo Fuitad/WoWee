@@ -1,9 +1,9 @@
-// display_modes.hpp — the resolutions this client offers, in one place.
+// display_modes.hpp - the resolutions this client offers, in one place.
 //
 // Both interfaces put a resolution picker on the same window. This client's
 // settings panel had the list inside the function that drew it, and FrameXML's
 // video panel asked GetScreenResolutions, which answered the current size and
-// nothing else — a dropdown with one entry, whose SetScreenResolution did
+// nothing else - a dropdown with one entry, whose SetScreenResolution did
 // nothing anyway. Sharing the list rather than writing a second one, because
 // the *position* in it is the protocol: the video panel's dropdown carries an
 // index, not a size, and hands that index back to SetScreenResolution.
@@ -33,7 +33,7 @@ inline std::string displayResolutionLabel(int index) {
            std::to_string(kDisplayResolutions[index][1]);
 }
 
-/// Which entry a window of this size is, or the closest one below it — never
+/// Which entry a window of this size is, or the closest one below it - never
 /// -1, because the dropdown selects by index and nothing is not a selection.
 /// A window dragged to some size of its own lands on the largest mode it still
 /// covers, which is what the picker should show as current.

@@ -11,7 +11,7 @@ void RenderGraph::reset() {
     passes_.clear();
     executionOrder_.clear();
     compiled_ = false;
-    // Keep resource registry — resources are stable across frames
+    // Keep resource registry - resources are stable across frames
 }
 
 RGResource RenderGraph::registerResource(const std::string& name) {
@@ -104,7 +104,7 @@ void RenderGraph::topologicalSort() {
         }
     }
 
-    // If not all passes are in the order, there's a cycle — fall back to insertion order
+    // If not all passes are in the order, there's a cycle - fall back to insertion order
     if (executionOrder_.size() != n) {
         LOG_WARNING("RenderGraph: dependency cycle detected, falling back to insertion order");
         executionOrder_.clear();

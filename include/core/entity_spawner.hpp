@@ -81,7 +81,7 @@ public:
     void despawnAllPlayers();
     void despawnAllGameObjects();
 
-    // Full reset — despawns entities, waits for async loads, clears all state.
+    // Full reset - despawns entities, waits for async loads, clears all state.
     // Used by logoutToLogin() and loadOnlineWorldTerrain() for clean slate.
     void resetAllState();
 
@@ -115,13 +115,13 @@ public:
     bool areCreatureLookupsBuilt() const { return creatureLookupsBuilt_; }
     bool areGameObjectLookupsBuilt() const { return gameObjectLookupsBuilt_; }
     std::string getModelPathForDisplayId(uint32_t displayId) const;
-    /// The skin textures a creature display wears, by M2 texture type — 11,
+    /// The skin textures a creature display wears, by M2 texture type - 11,
     /// 12 and 13 are skin1, skin2 and skin3 in CreatureDisplayInfo.dbc.
     ///
     /// A creature's M2 does not name these: the model declares the slots and
     /// the display row fills them, which is how one model serves a dozen
     /// recolours. Anything loading a creature model outside the spawner needs
-    /// them too, or it draws an untextured shape — which is what the target
+    /// them too, or it draws an untextured shape - which is what the target
     /// frame's portrait did until this was shared.
     ///
     /// Paths are resolved against the model's own directory, and only ones the
@@ -133,7 +133,7 @@ public:
     ///
     /// Most NPCs worth looking at are: a guard, a questgiver, an innkeeper.
     /// CreatureDisplayInfoExtra gives them a race, a sex and the same skin,
-    /// face, hair and facial-hair choices a player character has — so the way
+    /// face, hair and facial-hair choices a player character has - so the way
     /// to draw one is the way a character is drawn, not the way a creature is.
     /// A creature's skin fields are empty for these, which is why loading one
     /// as a creature gives an untextured shape.
@@ -142,8 +142,8 @@ public:
     /// style and hair colour, one byte each from the bottom up.
     /// The pre-composited skin for a humanoid display, or empty.
     ///
-    /// This is the whole appearance already baked — skin, face, hair and the
-    /// armour the NPC wears — which is how the game draws them and how this
+    /// This is the whole appearance already baked - skin, face, hair and the
+    /// armour the NPC wears - which is how the game draws them and how this
     /// client can, without compositing anything.
     std::string getHumanoidBakePath(uint32_t displayId) const;
 
@@ -151,7 +151,7 @@ public:
                                uint32_t& appearanceBytes, uint8_t& facialHair) const;
 
     /// What that humanoid is wearing, as (ItemDisplayInfo id, inventory type)
-    /// pairs — the shape applyEquipment reads. CreatureDisplayInfoExtra holds
+    /// pairs - the shape applyEquipment reads. CreatureDisplayInfoExtra holds
     /// eleven slots in its own order, and this is that order translated into
     /// the inventory types the rest of the client speaks.
     std::vector<std::pair<uint32_t, uint8_t>>
@@ -165,7 +165,7 @@ public:
     ///
     /// One function because there were two copies of this table, in
     /// entity_spawner_player.cpp and entity_spawner_processing.cpp, and the
-    /// queued path in the second is the one most spawns actually take —
+    /// queued path in the second is the one most spawns actually take -
     /// so fixing the first left the bug on screen.
     static std::string transportModelPath(uint32_t entry, uint32_t displayId);
     audio::VoiceType detectVoiceTypeFromDisplayId(uint32_t displayId) const;
@@ -251,9 +251,9 @@ public:
     /// Everything needed to draw a creature somewhere other than the world:
     /// the model it uses and the skins that go on it.
     ///
-    /// Both halves already live here — CreatureDisplayInfo.dbc gives the model
+    /// Both halves already live here - CreatureDisplayInfo.dbc gives the model
     /// id and the skin names, CreatureModelData.dbc turns the model id into a
-    /// path — and they were reachable only from inside the spawner. A preview
+    /// path - and they were reachable only from inside the spawner. A preview
     /// frame wants the same answer and reading the two files again would put a
     /// second copy of the layout somewhere else, which is how a display id ends
     /// up meaning two different creatures.
@@ -262,7 +262,7 @@ public:
         std::string skin1, skin2, skin3;
         uint32_t    modelId = 0;
         /// A model with no skin draws as a white shape, which is worse than an
-        /// empty frame — so a caller with nowhere to get textures should treat
+        /// empty frame - so a caller with nowhere to get textures should treat
         /// this as nothing to draw.
         bool valid() const { return !m2Path.empty() && !skin1.empty(); }
     };
@@ -273,8 +273,8 @@ public:
     // Character section lookups (needed for player character skin compositing)
     /// The key for charSectionsCache_, in one place.
     ///
-    /// It was written out twice — once where the cache is filled and once where
-    /// it is read — and the two had to agree bit for bit or every lookup missed
+    /// It was written out twice - once where the cache is filled and once where
+    /// it is read - and the two had to agree bit for bit or every lookup missed
     /// silently. Two copies of a packing rule is the same hazard as two copies
     /// of any other rule, and cheaper to remove than to remember.
     static constexpr uint64_t charSectionKey(uint8_t race, uint8_t sex, uint8_t section,
@@ -314,7 +314,7 @@ private:
     /// Apply the textures a creature display names: its own skin variations,
     /// and for a humanoid the composited body, face, hair and equipment. Once
     /// per display, since the model is shared by every creature using it.
-    /// Start a creature in the pose the server already has it in — dead,
+    /// Start a creature in the pose the server already has it in - dead,
     /// mid-emote, or newly arrived, and fade it in.
     void playCreatureSpawnPose(uint64_t guid, uint32_t instanceId);
 
@@ -477,7 +477,7 @@ private:
     ///
     /// Running out used to abandon the spawn for good, and nothing ever asked
     /// again: the server does not re-send an object that is already in range,
-    /// so the creature stayed missing until something made it re-send — which
+    /// so the creature stayed missing until something made it re-send - which
     /// is what walking out of the zone and back does, and why they "appear
     /// when I zone again". A window that expires now buys another one, up to
     /// this many, so a spawn that keeps failing is delayed rather than lost.
@@ -545,7 +545,7 @@ private:
         const std::array<uint8_t, 19>& inventoryTypes) const;
     std::unordered_map<uint32_t, uint32_t> playerModelCache_;
     /// Which runtime texture slot of a player model takes which art. Type 8 is
-    /// Skin Extra — the head detail sheet, not the underwear, though on the
+    /// Skin Extra - the head detail sheet, not the underwear, though on the
     /// models the game shipped the underwear art is what ends up in it.
     struct PlayerTextureSlots { int skin = -1; int hair = -1; int skinExtra = -1; };
     std::unordered_map<uint32_t, PlayerTextureSlots> playerTextureSlotsByModelId_;
@@ -624,7 +624,7 @@ private:
     };
 
     // A parsed WMO whose GPU upload is being spread across frames. Uploading a
-    // transport in one go cost ~40ms — its textures are large, and that upload
+    // transport in one go cost ~40ms - its textures are large, and that upload
     // has to happen on the main thread even though a worker decoded them. The
     // result is held here because it owns the model and the decoded pixels.
     struct PendingWmoUpload {
@@ -669,7 +669,7 @@ private:
     // Weapon model ids share CharacterRenderer's models map with NPC
     // composites, which are keyed by creature displayId (1..~35000). Starting
     // at 1000 collided with loaded NPC models once enough weapon reloads
-    // advanced the counter — attachWeapon then instanced an NPC mesh as the
+    // advanced the counter - attachWeapon then instanced an NPC mesh as the
     // weapon. Reserve a range no displayId can reach.
     uint32_t nextWeaponModelId_ = 0x40000000u;
 

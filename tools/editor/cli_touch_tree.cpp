@@ -37,7 +37,7 @@ struct TouchResult {
 
 // Walk the standard catalog header and report the deepest
 // stage that succeeded. World/asset formats (WOM/WOB/WHM/WOT/
-// WOW) are recognized by magic only — the version+name+count
+// WOW) are recognized by magic only - the version+name+count
 // probe is skipped since their layouts differ.
 TouchResult touchOne(const fs::path& path) {
     TouchResult r;
@@ -64,14 +64,14 @@ TouchResult touchOne(const fs::path& path) {
         return r;
     }
     // Confirm the file's actual extension matches the format
-    // — a renamed file with magic WCMS but suffix .wlot is a
+    // - a renamed file with magic WCMS but suffix .wlot is a
     // bug worth flagging (likely the file was hand-renamed
     // away from the truth).
     std::string ext = path.extension().string();
     if (!ext.empty() && ext != r.fmt->extension) {
         r.extensionMismatch = true;
     }
-    // World/asset formats stop here — their headers diverge.
+    // World/asset formats stop here - their headers diverge.
     if (r.fmt->infoFlag == nullptr) {
         return r;
     }
@@ -207,7 +207,7 @@ int handleTouch(int& i, int argc, char** argv) {
                 ? std::string(": ") + r.failReason
                 : std::string();
             std::string mismatchPart = r.extensionMismatch
-                ? std::string(" (extension mismatch — expected '") +
+                ? std::string(" (extension mismatch - expected '") +
                   r.fmt->extension + "')"
                 : std::string();
             std::printf("  [%s] %s '%s'%s%s\n",

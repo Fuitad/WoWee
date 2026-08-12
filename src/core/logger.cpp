@@ -63,7 +63,7 @@ void Logger::ensureFile() {
     // destroy the log the client wrote.
     //
     // This opens with trunc, and every process using this logger opened the
-    // same path — so running framexml_run from the repository root wiped the
+    // same path - so running framexml_run from the repository root wiped the
     // session log of the client that had just been played, which is the one
     // file anyone diagnosing a report needs. It was found the only way it
     // could be: by being asked to read a log and finding my own run in it.

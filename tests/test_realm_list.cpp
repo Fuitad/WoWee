@@ -3,7 +3,7 @@
 // Vanilla-family servers disagree on the auth protocol byte (vmangos-derived
 // 1.12 realms speak protocol 8, stock mangos/cmangos speak 3) while still
 // sending the vanilla realm-entry shape, so the realm-list layout is selected
-// by expansion rather than by protocol version — and the parser additionally
+// by expansion rather than by protocol version - and the parser additionally
 // recovers in-place when a modern-layout parse visibly shifts the fields.
 #include <catch_amalgamated.hpp>
 #include "auth/auth_packets.hpp"
@@ -33,7 +33,7 @@ void putStr(Bytes& b, const char* s) {
 // Header shared by both layouts: size(2) + unknown(4), then the realm count,
 // whose width is what differs (uint8 vanilla, uint16 TBC/WotLK).
 void putHeader(Bytes& b, uint16_t realmCount, bool legacyVanilla) {
-    putU16(b, 0);   // packet size — parser reads and ignores it
+    putU16(b, 0);   // packet size - parser reads and ignores it
     putU32(b, 0);   // unknown
     if (legacyVanilla) putU8(b, static_cast<uint8_t>(realmCount));
     else               putU16(b, realmCount);
@@ -42,7 +42,7 @@ void putHeader(Bytes& b, uint16_t realmCount, bool legacyVanilla) {
 // Vanilla realm entry: uint32 icon, NO lock byte.
 void putVanillaRealm(Bytes& b, const char* name, const char* addr, uint8_t id) {
     putU32(b, 1);            // icon (uint32 in vanilla)
-    putU8(b, 0x00);          // flags — no version info
+    putU8(b, 0x00);          // flags - no version info
     putStr(b, name);
     putStr(b, addr);
     putF(b, 0.5f);           // population
@@ -115,7 +115,7 @@ TEST_CASE("Realm list: WotLK version block consumed, not leaked into next realm"
     CHECK(resp.realms[0].hasVersionInfo());
     CHECK(resp.realms[0].build == 12340);
     // The second realm only parses correctly if the version block above was
-    // fully consumed — a stray byte shifts every field from here on.
+    // fully consumed - a stray byte shifts every field from here on.
     CHECK(resp.realms[1].name == "Realm Two");
     CHECK(resp.realms[1].address == "127.0.0.1:8086");
     CHECK(resp.realms[1].id == 2);
@@ -123,8 +123,8 @@ TEST_CASE("Realm list: WotLK version block consumed, not leaked into next realm"
 
 TEST_CASE("Realm list: vanilla body under modern flag recovers in-place", "[realm_list]") {
     // vmangos: auth protocol 8 (so the caller may not set the legacy flag) but
-    // a vanilla-shaped realm body. The modern parse mis-slices this — the extra
-    // icon bytes swallow the name — and the parser must detect and re-read it.
+    // a vanilla-shaped realm body. The modern parse mis-slices this - the extra
+    // icon bytes swallow the name - and the parser must detect and re-read it.
     Bytes b;
     putHeader(b, 1, /*legacyVanilla=*/false);
     putVanillaRealm(b, "VMangos Realm", "127.0.0.1:8085", 1);

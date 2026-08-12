@@ -372,17 +372,17 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": name is empty");
         if (e.spellId == 0) {
             errors.push_back(ctx +
-                ": spellId is 0 — buff has no spell to "
+                ": spellId is 0 - buff has no spell to "
                 "cast");
         }
         if (e.castClassMask == 0) {
             errors.push_back(ctx +
-                ": castClassMask is 0 — no class can cast "
+                ": castClassMask is 0 - no class can cast "
                 "this buff");
         }
         if (e.targetTypeMask == 0) {
             errors.push_back(ctx +
-                ": targetTypeMask is 0 — buff has no valid "
+                ": targetTypeMask is 0 - buff has no valid "
                 "targets");
         }
         if (e.statBonusKind > 9 && e.statBonusKind != 255) {
@@ -392,24 +392,24 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         if (e.rank == 0) {
             warnings.push_back(ctx +
-                ": rank is 0 — ranks are 1-indexed; rank 0 "
+                ": rank is 0 - ranks are 1-indexed; rank 0 "
                 "may sort unexpectedly in spellbook UI");
         }
         if (e.maxStackCount == 0) {
             warnings.push_back(ctx +
-                ": maxStackCount=0 — buff cannot be applied "
+                ": maxStackCount=0 - buff cannot be applied "
                 "(zero stack ceiling)");
         }
         // Self-reference check: an entry's own id should
         // never appear in its own next/previous fields.
         if (e.previousRankId == e.buffId) {
             errors.push_back(ctx +
-                ": previousRankId equals buffId — would "
+                ": previousRankId equals buffId - would "
                 "create a 1-element rank cycle");
         }
         if (e.nextRankId == e.buffId) {
             errors.push_back(ctx +
-                ": nextRankId equals buffId — would create "
+                ": nextRankId equals buffId - would create "
                 "a 1-element rank cycle");
         }
         if (!idsSeen.insert(e.buffId).second) {

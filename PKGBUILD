@@ -16,7 +16,7 @@ depends=(
   'ffmpeg'            # Video playback (login cinematics)
   'unicorn'           # Warden anti-cheat x86 emulation (cross-platform, no Wine)
   'libx11'            # X11 windowing support
-  'stormlib'          # AUR — MPQ extraction (wowee-extract-assets uses libstorm.so)
+  'stormlib'          # AUR - MPQ extraction (wowee-extract-assets uses libstorm.so)
 )
 makedepends=(
   'git'               # Clone submodules (imgui, vk-bootstrap)

@@ -113,7 +113,7 @@ WoweeLiquid WoweeLiquidLoader::makeStarter(const std::string& catalogName) {
     {
         WoweeLiquid::Entry e;
         e.liquidId = 2; e.name = "Lava";
-        e.description = "Burning magma — applies fire DoT to "
+        e.description = "Burning magma - applies fire DoT to "
                          "anyone who enters.";
         e.shaderPath = "shaders/water_emissive.frag";
         e.materialPath = "textures/liquid/lava_array.dds";
@@ -171,16 +171,16 @@ WoweeLiquid WoweeLiquidLoader::makeMagical(const std::string& catalogName) {
     };
     add(100, "FelFire",   WoweeLiquid::FelFire,
         80, 200, 30, 0.7f, 0.4f, 22682,
-        "Demonic green fel — burns even fire-immune creatures.");
+        "Demonic green fel - burns even fire-immune creatures.");
     add(101, "HolyLight", WoweeLiquid::HolyLight,
         240, 230, 180, 0.3f, 0.0f, 0,
-        "Pool of liquid Light — heals players who enter.");
+        "Pool of liquid Light - heals players who enter.");
     add(102, "Underworld", WoweeLiquid::UnderworldGoo,
         70, 30, 100, 0.9f, 0.8f, 27654,
-        "Shadow-tainted void liquid — drains mana on contact.");
+        "Shadow-tainted void liquid - drains mana on contact.");
     add(103, "Cosmic",    WoweeLiquid::HolyLight,
         100, 80, 200, 0.4f, 0.0f, 0,
-        "Naaru-touched water — randomly grants buffs.");
+        "Naaru-touched water - randomly grants buffs.");
     return c;
 }
 
@@ -207,13 +207,13 @@ WoweeLiquid WoweeLiquidLoader::makeHazardous(const std::string& catalogName) {
     };
     add(200, "NaxxSlime",  WoweeLiquid::Slime,
         28157, 1500, 100, 200, 60,
-        "Naxxramas-grade plague slime — lethal to non-tanks.");
+        "Naxxramas-grade plague slime - lethal to non-tanks.");
     add(201, "AcidBog",    WoweeLiquid::AcidBog,
         29213,  300,  90, 160, 40,
-        "Greenish acid — destroys armor durability over time.");
+        "Greenish acid - destroys armor durability over time.");
     add(202, "FelLava",    WoweeLiquid::Magma,
         30122, 2000, 130, 220, 30,
-        "Fel-corrupted lava — applies a stacking burn debuff.");
+        "Fel-corrupted lava - applies a stacking burn debuff.");
     return c;
 }
 

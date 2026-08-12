@@ -1,4 +1,4 @@
-// taxi_node_layer.hpp — Flight master markers on the world map.
+// taxi_node_layer.hpp - Flight master markers on the world map.
 // Two modes: passive diamonds on the normal world map, and the interactive
 // flight map (taxi selection) shown while a flight master window is open.
 #pragma once

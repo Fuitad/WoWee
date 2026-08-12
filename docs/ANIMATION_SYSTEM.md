@@ -1,20 +1,20 @@
 # Animation System
 
 Unified, FSM-based animation system for all characters (players, NPCs, companions).
-Every character uses the same `CharacterAnimator` — there is no separate NPC/Mob animator.
+Every character uses the same `CharacterAnimator` - there is no separate NPC/Mob animator.
 
 ## Architecture
 
 ```
-AnimationController          (thin adapter — bridges Renderer ↔ CharacterAnimator)
-  └─ CharacterAnimator       (FSM composer — implements ICharacterAnimator)
+AnimationController          (thin adapter - bridges Renderer ↔ CharacterAnimator)
+  └─ CharacterAnimator       (FSM composer - implements ICharacterAnimator)
        ├─ CombatFSM          (stun, hit reaction, spell cast, melee, ranged, charge)
        ├─ ActivityFSM         (emote, loot, sit/stand/kneel/sleep)
        ├─ LocomotionFSM       (idle, walk, run, sprint, jump, swim, strafe)
        └─ MountFSM            (mount idle, mount run, flight)
 
 AnimationManager             (registry of CharacterAnimator instances by ID)
-AnimCapabilitySet            (probed once per model — cached resolved anim IDs)
+AnimCapabilitySet            (probed once per model - cached resolved anim IDs)
 AnimCapabilityProbe          (queries which animations a model supports)
 ```
 
@@ -23,10 +23,10 @@ AnimCapabilityProbe          (queries which animations a model supports)
 `CharacterAnimator::resolveAnimation()` runs every frame. The first FSM to
 return a valid `AnimOutput` wins:
 
-1. **Mount** — if mounted, return `MOUNT` (overrides everything)
-2. **Combat** — stun > hit reaction > spell > charge > melee/ranged > combat idle
-3. **Activity** — emote > loot > sit/stand transitions
-4. **Locomotion** — run/walk/sprint/jump/swim/strafe/idle
+1. **Mount** - if mounted, return `MOUNT` (overrides everything)
+2. **Combat** - stun > hit reaction > spell > charge > melee/ranged > combat idle
+3. **Activity** - emote > loot > sit/stand transitions
+4. **Locomotion** - run/walk/sprint/jump/swim/strafe/idle
 
 If no FSM produces a valid output, the last animation continues (STAY policy).
 
@@ -43,7 +43,7 @@ After resolution, `applyOverlays()` substitutes stealth animation variants
 |---|---|
 | `i_animator.hpp` | Base interface: `onEvent()`, `update()` |
 | `i_character_animator.hpp` | 20 virtual methods (combat, spells, emotes, mounts, etc.) |
-| `character_animator.hpp` | FSM composer — the single animator class |
+| `character_animator.hpp` | FSM composer - the single animator class |
 | `locomotion_fsm.hpp` | Movement states: idle, walk, run, sprint, jump, swim |
 | `combat_fsm.hpp` | Combat states: melee, ranged, spell cast, stun, hit reaction |
 | `activity_fsm.hpp` | Activity states: emote, loot, sit/stand/kneel |
@@ -83,10 +83,10 @@ Thin adapter that:
 
 ## Key Types
 
-- **`AnimEvent`** — discrete events: `MOVE_START`, `MOVE_STOP`, `JUMP`, `LAND`, `MOUNT`, `DISMOUNT`, etc.
-- **`AnimOutput`** — result of FSM resolution: `{animId, loop, valid}`. `valid=false` means STAY.
-- **`AnimCapabilitySet`** — probed once per model load. Caches resolved IDs and capability flags.
-- **`CharacterAnimator::FrameInput`** — per-frame input struct (movement flags, timers, animation state queries).
+- **`AnimEvent`** - discrete events: `MOVE_START`, `MOVE_STOP`, `JUMP`, `LAND`, `MOUNT`, `DISMOUNT`, etc.
+- **`AnimOutput`** - result of FSM resolution: `{animId, loop, valid}`. `valid=false` means STAY.
+- **`AnimCapabilitySet`** - probed once per model load. Caches resolved IDs and capability flags.
+- **`CharacterAnimator::FrameInput`** - per-frame input struct (movement flags, timers, animation state queries).
 
 ## Adding a New Animation State
 

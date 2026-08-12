@@ -4,42 +4,42 @@
     tools/framexml_missing_api_triage.py [path-to-missing_api.txt]
 
 The report a session writes is measured rather than inferred, which makes it
-the most valuable thing a run produces — and also the most misleading, because
+the most valuable thing a run produces - and also the most misleading, because
 most of what lands in it is correctly absent. Every entry has been triaged by
 hand three times now and the answer keeps coming back "not a gap", so this
 asks the question the same way each time instead.
 
 The one thing this can decide, and the whole reason it works: a name FrameXML
 *defines somewhere* but that was not defined at shutdown belongs to a file that
-did not load. Nearly always that is a load-on-demand addon nobody opened — the
+did not load. Nearly always that is a load-on-demand addon nobody opened - the
 raid frames, the combat text, the time manager. Those need nothing.
 
 WHAT THE CATEGORIES MEAN
 ------------------------
-* **in an addon that did not load** — defined under Data/interface/addons.
+* **in an addon that did not load** - defined under Data/interface/addons.
   Correct: it resolves when the panel is opened. Only suspicious if the panel
   *was* opened this session.
 
-* **defined nowhere in this interface** — two different things wear this label,
+* **defined nowhere in this interface** - two different things wear this label,
   so it prints the callers and you read them:
     - Blizzard's own dangling references. 3.3.5 ships several. `CaptureBar_Hide`
       is named in worldstateframe.lua's ExtendedUI table and defined in no file;
       `OptionsFrame_ToggleSubCategories` is assigned from XML while the function
       that exists is `OptionsListButton_ToggleSubCategories`. Both assign nil in
       the real client too. Defining them would diverge from retail, not fix it.
-    - Frames the C client creates. worldmapframe.lua says so in a comment —
+    - Frames the C client creates. worldmapframe.lua says so in a comment -
       "PlayerArrowEffectFrame is created in code: CWorldMap::CreatePlayerArrowFrame()".
       This client draws its own world map, so those stay absent on purpose.
 
-* **assigned nil at file scope** — `ZonePVPType = nil` in zonetext.lua. Lua
+* **assigned nil at file scope** - `ZonePVPType = nil` in zonetext.lua. Lua
   cannot tell "assigned nil" from "never assigned", so the recorder cannot
   either. Permanent false positive.
 
-* **widget field** — a field read off a frame, not a call. Usually optional and
+* **widget field** - a field read off a frame, not a call. Usually optional and
   guarded at every read; `TextString` is only set on bars that have a text
   FontString. Worth a look when the field is one the interface always expects.
 
-* **worth reading** — everything left. This is the output that matters.
+* **worth reading** - everything left. This is the output that matters.
 """
 
 import os
@@ -86,7 +86,7 @@ def index():
 
 
 def read_report(path):
-    """The real-gaps section only — the rest of the file is already triaged."""
+    """The real-gaps section only - the rest of the file is already triaged."""
     names = []
     for line in open(path, encoding="utf-8", errors="ignore"):
         line = line.strip()
@@ -104,7 +104,7 @@ def bootstrap_globals():
     """Globals the client builds in C before the interface loads.
 
     A frame created in a bootstrap chunk is defined as far as FrameXML is
-    concerned and undefined as far as a scan of Data/interface can tell — the
+    concerned and undefined as far as a scan of Data/interface can tell - the
     two look identical from there, which is what the note at the bottom of this
     report used to warn about. It can be read instead: the chunks are Lua in
     C string literals, and a created frame is spelled the same way there.
@@ -208,7 +208,7 @@ def main():
     print(f"{real} worth reading." if real else
           "Nothing left that is a gap in this client. Read the callers of the")
     if not real:
-        print("'defined nowhere' group marked CALLED before believing that —")
+        print("'defined nowhere' group marked CALLED before believing that -")
         print("one marked 'never called' is only ever assigned or passed, and")
         print("cannot raise. A frame defined in an addon's own XML has been")
         print("read as missing here more than once, and a Blizzard leftover")

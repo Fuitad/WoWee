@@ -12,8 +12,8 @@ THREE THINGS IT COMPARES
 
 **Attributes the emitter never names.** The chat box says historyLines="32"
 and ignoreArrows="true"; the cast bar says drawLayer="BORDER". All three were
-going nowhere. An attribute with no method behind it is fine to ignore —
-emitting a call to a method that does not exist is worse — so this is a list to
+going nowhere. An attribute with no method behind it is fine to ignore -
+emitting a call to a method that does not exist is worse - so this is a list to
 read rather than a list to empty.
 
 **Script handlers nothing fires.** GameTooltip declares OnTooltipCleared and
@@ -22,7 +22,7 @@ kept a money line it should have dropped and a message put into the box by
 anything but typing went out on the wrong channel.
 
 **Constants set in both places that disagree.** The bootstrap pre-sets these so
-an addon has them before the interface loads — and on master the interface does
+an addon has them before the interface loads - and on master the interface does
 not load, so the bootstrap's values are the only ones there are.
 BOOKTYPE_PET was 1 against "pet": a number compared to a string is false rather
 than an error, so the question was always answered no.
@@ -44,9 +44,9 @@ nothing because chatMouseScroll gates the only EnableMouseWheel call; the
 keyring was unreachable because showKeyring gates the only Show.
 
 Read that way on 2026-08-05, the rest are correctly zero. Most are preferences
-a fresh account has off — lootUnderMouse, alwaysCompareItems, fullSizeFocusFrame,
+a fresh account has off - lootUnderMouse, alwaysCompareItems, fullSizeFocusFrame,
 displayFreeBagSlots, threatShowNumeric, the two tracker ones, miniWorldMap,
-equipmentManager, the buff filters — and the remainder belong to systems that
+equipmentManager, the buff filters - and the remainder belong to systems that
 are not here: movie recording, voice, Battle.net, the arena addon.
 
 Three worth naming because they look like faults and are not:
@@ -54,7 +54,7 @@ Three worth naming because they look like faults and are not:
   * worldMapOpacity is inverted. WorldMapFrame_SetOpacity computes
     `alpha = 0.35 + (1.0 - opacity) * 0.65`, so zero is fully opaque, which is
     what a stock client shows.
-  * ShowAllSpellRanks off is the stock state and the path behind it works —
+  * ShowAllSpellRanks off is the stock state and the path behind it works -
     GetSpellTabInfo returns the highest-rank offset and count as its fifth and
     sixth values precisely because SpellBook_GetTabInfo keeps those and throws
     the first pair away.
@@ -64,7 +64,7 @@ Three worth naming because they look like faults and are not:
 
 The one left undecided is screenEdgeFlash, the full-screen combat flash. Its
 default is plausibly on, LowHealthFrame exists to draw it, and unlike the
-entries above it is reachable from an Interface Options checkbox — so zero
+entries above it is reachable from an Interface Options checkbox - so zero
 costs a preference rather than a feature, and turning a full-screen flash on
 from a guess is the wrong way round.
 
@@ -72,34 +72,34 @@ THE SEVENTEEN ATTRIBUTES, READ 2026-08-05
 
 Not boilerplate, and not attributes:
 
-  * xmlns, xsi, schemaLocation on Ui — XML namespace declarations. They will
+  * xmlns, xsi, schemaLocation on Ui - XML namespace declarations. They will
     never be read and are counted only because this reads every name in the
     schema.
 
 No mechanism here to honour them:
 
-  * horizTile, vertTile on Texture — eleven uses, all of them chat frame
+  * horizTile, vertTile on Texture - eleven uses, all of them chat frame
     borders and tab backgrounds. Tiling needs a REPEAT sampler and the UI's is
     shared and CLAMP_TO_EDGE, so uv > 1 clamps instead of repeating. The cost
     of leaving it is a border strip stretched rather than tiled.
-  * monochrome on Font, rotatesTexture on StatusBar, protected on Frame —
+  * monochrome on Font, rotatesTexture on StatusBar, protected on Frame -
     a font flag, a fill-direction texture rotation, and secure-frame marking.
-  * minimapArrowModel, minimapPlayerModel on Minimap — the player arrow is
+  * minimapArrowModel, minimapPlayerModel on Minimap - the player arrow is
     drawn in minimap_display.frag.glsl, not from a model.
 
 No consequence:
 
-  * debug, platform on Binding — build metadata.
-  * nonBlocking on Texture — an async-load hint for a loader that is already
+  * debug, platform on Binding - build metadata.
+  * nonBlocking on Texture - an async-load hint for a loader that is already
     async.
   * bytes and indented on FontString, countInvisibleLetters on EditBox,
-    dontSavePosition on ScrollingMessageFrame — limits and layout niceties
+    dontSavePosition on ScrollingMessageFrame - limits and layout niceties
     with no case behind them in this interface.
 
 The one that came out of this list was motionScriptsWhileDisabled, and it is
 worth noting why it did not belong with the rest: it read as inert, and it was
 the opposite. Nothing here suppressed motion scripts at all, so every greyed
-control answered the mouse — the permissive superset, which looks like the
+control answered the mouse - the permissive superset, which looks like the
 attribute working. WoW fires OnEnter on a disabled button only when this asks,
 which is how a greyed control explains why it is greyed.
 """
@@ -136,12 +136,12 @@ def elements():
     """Element name -> the files it appears in, for the files that load.
 
     The other half of the attribute check above. An element the emitter does
-    not know is not a wrong value on a frame — it is a frame, region or
+    not know is not a wrong value on a frame - it is a frame, region or
     animation that never exists, and nothing says so.
 
     Scripts are excluded because they are handled by name rather than by a
     literal: emitScripts reads whatever <OnX> it is given. So are the two
-    directories the loader never opens — GlueXML is the login screen and
+    directories the loader never opens - GlueXML is the login screen and
     lcdxml is the Logitech display layout, and between them they contribute
     thirty-one element names that mean nothing here.
     """
@@ -199,7 +199,7 @@ def constants():
                              text, re.M):
             fx.setdefault(m.group(1), m.group(2).strip())
     # Whitespace and quote style are not disagreements, and neither is one
-    # side writing a number the other writes as the constant that holds it —
+    # side writing a number the other writes as the constant that holds it -
     # INVSLOT_LAST_EQUIPPED against INVSLOT_TABARD, both nineteen.
     def norm(v):
         v = v.rstrip(";").strip()
@@ -227,7 +227,7 @@ def vocabulary(pattern, known_from):
         text = path.read_text(errors="ignore")
         # Comments stripped first. A comment explaining what a CVar does quotes
         # its name, and counting that as an answer made removing the answer
-        # invisible — which is exactly the regression this is meant to catch.
+        # invisible - which is exactly the regression this is meant to catch.
         text = re.sub(r"/\*.*?\*/", "", text, flags=re.S)
         text = re.sub(r"//[^\n]*", "", text)
         known |= {s.lower() for s in
@@ -236,7 +236,7 @@ def vocabulary(pattern, known_from):
 
 
 #: Script types declared by the interface that nothing here fires, checked one
-#: at a time. A set rather than a count — a ceiling only says how many, so
+#: at a time. A set rather than a count - a ceiling only says how many, so
 #: fixing one and introducing another leaves the number unmoved.
 EXPECTED_UNFIRED = {
     # The movie player. This client plays no cinematics, so neither the end of
@@ -244,13 +244,13 @@ EXPECTED_UNFIRED = {
     "OnMovieFinished": "no movie playback",
     "OnMovieHideSubtitle": "no movie playback",
     # The item-push animation over a bag button. ITEM_PUSH shows a Model frame
-    # whose OnAnimFinished hides it again, and that never fires — so the frame
+    # whose OnAnimFinished hides it again, and that never fires - so the frame
     # is left shown. Nothing is drawn by it: a Model's `file` is an .mdx, not a
     # texture, and this client neither loads nor plays one, so there is no
     # moment at which the sequence ends. Worth revisiting if Model frames ever
     # render, because the frame staying shown is real even while it is
     # invisible.
-    "OnAnimFinished": "no .mdx playback, so no end of one — frame left shown",
+    "OnAnimFinished": "no .mdx playback, so no end of one - frame left shown",
     # Declared by nothing at all. There is no handler anywhere in the files
     # that load, so there is nothing for firing these to reach.
     "OnChar": "declared by no frame in the interface",
@@ -258,7 +258,7 @@ EXPECTED_UNFIRED = {
     "OnMovieShowSubtitle": "declared by no frame in the interface",
     # GameTooltip declares it to put the sell price on with coin icons, through
     # SetTooltipMoney. This client's own item builder already writes a
-    # "Sell Price:" line of its own — lua_engine.cpp, in the bootstrap Lua —
+    # "Sell Price:" line of its own - lua_engine.cpp, in the bootstrap Lua -
     # so firing this would put the price on twice. Correctly unfired while that
     # remains true; if the builder ever stops writing it, fire this instead
     # rather than adding a second line of text.
@@ -272,7 +272,7 @@ def main():
     attrs = attributes()
     unread = sorted(a for a in attrs if a not in named)
     # Case-insensitively, because the emitter folds an element name to the
-    # schema's spelling before it compares — FrameXML's own <Fontstring> is
+    # schema's spelling before it compares - FrameXML's own <Fontstring> is
     # built that way, and a check that did not fold would report it as a gap
     # for ever.
     namedLower = {n.lower() for n in named}
@@ -280,11 +280,11 @@ def main():
     unhandled = sorted(e for e in els if e.lower() not in namedLower)
 
     # Named where the script is *run*, not merely named. The emitter carries a
-    # table of every script type it knows a signature for —
+    # table of every script type it knows a signature for -
     #
     #     if (script == "OnCursorChanged") return "self, x, y, width, height";
     #
-    # — so a sweep that accepts any "OnX" literal in any .cpp counts every
+    # - so a sweep that accepts any "OnX" literal in any .cpp counts every
     # script type as fired and reports nothing, for ever. It did: OnCursorChanged
     # was declared by the interface, emitted with the right signature, and never
     # once called, and this check read it as fine because the emitter had said
@@ -295,14 +295,14 @@ def main():
     # callFrameScript and its variants, or by fetching it off __scripts with
     # lua_getfield.
     # Every literal inside the call, not the first one: a handler is often
-    # chosen by a ternary — callFrameScript(id, visible ? "OnShow" : "OnHide")
-    # — and stopping at the first match reports the second as never fired. It
+    # chosen by a ternary - callFrameScript(id, visible ? "OnShow" : "OnHide")
+    # - and stopping at the first match reports the second as never fired. It
     # did, for OnHide, which is fired for every frame that goes away.
     #
     # Every helper that runs one, not just the callFrameScript family: a
     # scroll frame's OnVerticalScroll goes through callScriptOnTable, and a
     # sweep that does not know that reports it as never fired. It did. Listing
-    # the helpers by hand is the weak part of this check — a new one added
+    # the helpers by hand is the weak part of this check - a new one added
     # without a line here reports its whole family as dead.
     OPEN = re.compile(r'(?:callFrameScript\w*|callScriptOnTable|frameHasScript'
                       r'|lua_getfield)\s*\(')
@@ -311,7 +311,7 @@ def main():
     # all: a good deal of the widget layer is bootstrap Lua living in string
     # literals inside these same .cpp files, and it runs a handler the Lua way.
     # The animation tick does `if a.OnFinished then a:OnFinished() end`, and the
-    # secure attribute path reads `self.__scripts.OnAttributeChanged` — neither
+    # secure attribute path reads `self.__scripts.OnAttributeChanged` - neither
     # is a quoted name passed to a helper, so a sweep that only knows the C
     # shape calls both dead. It did, for OnFinished and OnAttributeChanged,
     # which is every fading alert banner and every action bar state driver.
@@ -359,8 +359,8 @@ def main():
 
     sounds, silent = vocabulary(r'PlaySound\(\s*"([A-Za-z0-9_]+)"', SRC)
     # "No hand-written mapping", not "silent". PlaySound resolves the name
-    # through SoundEntries.dbc first — the interface is naming a row in that
-    # table — and 102 of the 103 names it asks for are in it. The mapping below
+    # through SoundEntries.dbc first - the interface is naming a row in that
+    # table - and 102 of the 103 names it asks for are in it. The mapping below
     # is the fallback for an install missing the sound or the table, so a name
     # here is one that has no approximation to fall back *to*, not one that
     # makes no noise.
@@ -386,7 +386,7 @@ def main():
         print("  (none)")
 
     # The half of that list that raises rather than reading as off. A CVar the
-    # interface only tests is survivable when it answers nothing — the branch
+    # interface only tests is survivable when it answers nothing - the branch
     # behind it does not run. One fed to tonumber() and then to arithmetic is
     # not: watchframe.lua sets WATCHFRAME_FILTER_TYPE from
     # tonumber(GetCVar("trackerFilter")) on VARIABLES_LOADED and then calls

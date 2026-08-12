@@ -19,7 +19,7 @@ namespace cli {
 namespace {
 
 int handleValidateStl(int& i, int argc, char** argv) {
-    // Structural validator for ASCII STL — pairs with --export-stl
+    // Structural validator for ASCII STL - pairs with --export-stl
     // and --import-stl (and --bake-zone-stl). Catches truncation,
     // missing solid framing, mismatched facet/vertex counts, and
     // non-finite vertex coords that would crash a slicer's mesh
@@ -144,13 +144,13 @@ int handleValidateStl(int& i, int argc, char** argv) {
         std::printf("  PASSED\n");
         return 0;
     }
-    std::printf("  FAILED — %zu error(s):\n", errors.size());
+    std::printf("  FAILED - %zu error(s):\n", errors.size());
     for (const auto& e : errors) std::printf("    - %s\n", e.c_str());
     return 1;
 }
 
 int handleValidatePng(int& i, int argc, char** argv) {
-    // Full PNG structural validator — beyond --info-png's
+    // Full PNG structural validator - beyond --info-png's
     // header-only sniff. Walks every chunk, verifies CRC,
     // ensures IHDR/IDAT/IEND are present and ordered correctly.
     // Catches the kind of corruption (truncation mid-IDAT,
@@ -281,7 +281,7 @@ int handleValidatePng(int& i, int argc, char** argv) {
         std::printf("  PASSED\n");
         return 0;
     }
-    std::printf("  FAILED — %zu error(s):\n", errors.size());
+    std::printf("  FAILED - %zu error(s):\n", errors.size());
     for (const auto& e : errors) std::printf("    - %s\n", e.c_str());
     return 1;
 }
@@ -289,7 +289,7 @@ int handleValidatePng(int& i, int argc, char** argv) {
 int handleValidateBlp(int& i, int argc, char** argv) {
     // BLP structural validator. --info-blp shows header fields
     // (full decode); this checks structural invariants without
-    // decoding pixels — useful for spot-checking thousands of
+    // decoding pixels - useful for spot-checking thousands of
     // BLPs in an extract dir without paying the DXT decompress
     // cost on each.
     std::string path = argv[++i];
@@ -401,7 +401,7 @@ int handleValidateBlp(int& i, int argc, char** argv) {
         std::printf("  PASSED\n");
         return 0;
     }
-    std::printf("  FAILED — %zu error(s):\n", errors.size());
+    std::printf("  FAILED - %zu error(s):\n", errors.size());
     for (const auto& e : errors) std::printf("    - %s\n", e.c_str());
     return 1;
 }
@@ -549,7 +549,7 @@ int handleValidateJsondbc(int& i, int argc, char** argv) {
         std::printf("  PASSED\n");
         return 0;
     }
-    std::printf("  FAILED — %d error(s):\n", errorCount);
+    std::printf("  FAILED - %d error(s):\n", errorCount);
     for (const auto& e : errors) std::printf("    - %s\n", e.c_str());
     return 1;
 }

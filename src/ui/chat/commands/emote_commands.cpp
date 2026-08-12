@@ -53,7 +53,7 @@ public:
         ctx.gameHandler.requestLogout(false);
         return {};
     }
-    // aliases() is the complete name list — "logout" itself was missing here, so
+    // aliases() is the complete name list - "logout" itself was missing here, so
     // /logout was never actually a command despite /help advertising it.
     std::vector<std::string> aliases() const override { return {"logout", "camp"}; }
     std::string helpText() const override { return "Logout to character select"; }

@@ -4,7 +4,7 @@ namespace wowee {
 namespace editor {
 namespace cli {
 
-// Dispatch the structural validators for INTEROP file formats —
+// Dispatch the structural validators for INTEROP file formats -
 // the formats that flow into and out of wowee from third-party
 // tools, where the open-format validators in cli_format_validate
 // don't apply. Each does a deep structural check (chunks, CRCs,

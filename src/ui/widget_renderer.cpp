@@ -90,9 +90,9 @@ std::vector<uint8_t> WidgetRenderer::readTextureFile(const std::string& path,
         }
         return true;
     };
-    // .tga means .blp. Blizzard's own markup still names 33 files that way —
+    // .tga means .blp. Blizzard's own markup still names 33 files that way -
     // the world map's quest icons and small frame edges, the login screen's
-    // rating art — and no .tga has shipped in the archives since long before
+    // rating art - and no .tga has shipped in the archives since long before
     // 3.3.5. The real client accepts the name and loads the BLP beside it;
     // taking the extension at its word left every one of those blank, which
     // looks exactly like art nobody meant to draw.
@@ -103,7 +103,7 @@ std::vector<uint8_t> WidgetRenderer::readTextureFile(const std::string& path,
     if (data.empty()) {
         // The interface is WotLK's; the assets are whichever expansion this
         // install carries, and the two do not always agree on a folder. The
-        // quest icon is the one that differs here — FrameXML asks for
+        // quest icon is the one that differs here - FrameXML asks for
         // Interface\GossipFrame\AvailableQuestIcon, which is where 3.3.5 keeps
         // it, and this install has Interface\Gossip\. Retried rather than
         // aliased at extraction time, because the extractor preserves the
@@ -147,7 +147,7 @@ VkDescriptorSet WidgetRenderer::texture(const std::string& path, bool add) {
     }
     if (add) {
         // Additive blending is not something a single ImGui draw list can be
-        // asked for — it has one pipeline and one blend state. But the art it
+        // asked for - it has one pipeline and one blend state. But the art it
         // is used for is a glow on black, with no alpha channel of its own, and
         // over a dark scene "add" and "blend with alpha taken from brightness"
         // put nearly the same pixels on the screen. Black stays invisible,
@@ -176,7 +176,7 @@ bool WidgetRenderer::textureSize(const std::string& path, float& w, float& h) {
     }
     // Deliberately no vkCtx_ here. Asking how big a picture is does not need a
     // GPU, and tying it to one would mean the headless harness could never
-    // check any of this — which is what kept this fix unwritten.
+    // check any of this - which is what kept this fix unwritten.
     std::string resolved;
     auto data = readTextureFile(path, resolved);
     if (data.empty()) { textureSizes_[path] = {0.0f, 0.0f}; return false; }
@@ -212,7 +212,7 @@ void WidgetRenderer::sizeTextures(WidgetTree& tree) {
         // older and stronger than this one. Sizing it from its image instead
         // takes every portrait ring, action button icon and bag slot off the
         // frame it is meant to cover and leaves it at whatever the artist
-        // happened to save the file at, centred — which warps the entire
+        // happened to save the file at, centred - which warps the entire
         // interface. Reported from a screenshot within minutes of this pass
         // existing.
         //
@@ -228,7 +228,7 @@ void WidgetRenderer::sizeTextures(WidgetTree& tree) {
         // Anything it already knows about itself wins. Two opposing anchors
         // are a statement about size just as much as <Size> is, so a piece
         // stretched between two others must not be pulled back to its file's
-        // dimensions — that is exactly the scroll bar middle, which would stop
+        // dimensions - that is exactly the scroll bar middle, which would stop
         // stretching and become 31 by 256.
         const bool spanX = anchorsSpanAxis(w->anchors, true);
         const bool spanY = anchorsSpanAxis(w->anchors, false);
@@ -261,8 +261,8 @@ void WidgetRenderer::sizeFontStrings(WidgetTree& tree) {
         // 285 and be as tall as that takes", and it is what every block of
         // prose in the interface declares. Reading the zero height as "size
         // yourself" and measuring the text on one unbounded line replaced the
-        // 285 with however wide the sentence happened to be — 424 for a short
-        // quest description, far more for a real one — and marked the string
+        // 285 with however wide the sentence happened to be - 424 for a short
+        // quest description, far more for a real one - and marked the string
         // auto-sized, which is also what tells the draw below not to wrap it.
         // So it drew one line out through the side of the scroll frame that
         // clips it, and everything anchored beneath it sat on top of the lines
@@ -280,7 +280,7 @@ void WidgetRenderer::sizeFontStrings(WidgetTree& tree) {
         // anchored to end exactly where the coin icon begins, so the overspill
         // lands on top of the coin.
         //
-        // Same face too — the widget's own, then the interface default —
+        // Same face too - the widget's own, then the interface default -
         // rather than whichever face this measure happened to be handed.
         ImFont* runFont = interfaceFaceOrDefault(w->fontFace);
         if (!runFont) runFont = font;
@@ -296,7 +296,7 @@ void WidgetRenderer::sizeFontStrings(WidgetTree& tree) {
         // The size and the face are part of that question. The interface's own
         // typeface is registered after the first frames have been laid out, and
         // a label measured before that kept a rect built from the fallback font
-        // for the rest of the session — its text had not changed, so nothing
+        // for the rest of the session - its text had not changed, so nothing
         // ever looked again. Every one of them then drew glyphs wider than the
         // box it was given, the backpack's coin amounts among them: that rect
         // is anchored to end exactly where the coin picture begins, so the
@@ -359,7 +359,7 @@ void WidgetRenderer::sizeTooltips(WidgetTree& tree) {
         if (w->tooltipLines.empty()) continue;
         // Only something that really is a tooltip. The flag is set by whichever
         // widget a tooltip setter was called on, and a stray call sets it on a
-        // frame that is not one — which then gets resized to fit lines it never
+        // frame that is not one - which then gets resized to fit lines it never
         // meant to show. The character sheet's model frame was 85x34 for that
         // reason: one line of text plus a tooltip's padding, in place of the
         // 233x215 its XML asks for.
@@ -452,7 +452,7 @@ void WidgetRenderer::drawMarkupText(ImDrawList* dl, ImFont* font, float size,
             const float runW = font->CalcTextSizeA(size, FLT_MAX, 0.0f,
                                                    run.text.c_str()).x;
             // Where the link landed, for the click that arrives in another
-            // pass entirely. Only from the pass that draws the text itself —
+            // pass entirely. Only from the pass that draws the text itself -
             // the outline and shadow draw the same glyphs and would file the
             // same link two or three times over.
             if (linkSink && !forceColor && !run.link.empty()) {
@@ -477,7 +477,7 @@ void WidgetRenderer::drawBackdrop(ImDrawList* dl, const Widget& w, float scale,
                                   float x0, float y0, float x1, float y1) {
     // Background sits inside the insets, which is what keeps it from showing
     // through the border drawn over it. The insets are interface units and the
-    // rect is pixels, so they are scaled here — without it a tooltip's border
+    // rect is pixels, so they are scaled here - without it a tooltip's border
     // was half its proper thickness on a 1528-tall display and would be twice
     // it on a short one.
     const float bx0 = x0 + w.insetLeft * scale;
@@ -501,7 +501,7 @@ void WidgetRenderer::drawBackdrop(ImDrawList* dl, const Widget& w, float scale,
             dl->AddImage(reinterpret_cast<ImTextureID>(bg), ImVec2(bx0, by0), ImVec2(bx1, by1),
                          ImVec2(0.0f, 0.0f), ImVec2(u1, v1), col);
         }
-        // A backdrop with no background file has no background — only its edge.
+        // A backdrop with no background file has no background - only its edge.
         // Filling the rect instead painted every such frame in the backdrop
         // colour, which defaults to opaque white, and a wide one is a white
         // slab across the screen. Nothing is drawn here either while the art is
@@ -524,8 +524,8 @@ void WidgetRenderer::drawBackdrop(ImDrawList* dl, const Widget& w, float scale,
     // An edge is a run of square tiles, and the top and bottom ones are stored
     // on their side.
     //
-    // Decoding UI-Tooltip-Border settles both points. It is 128x16 — eight
-    // 16x16 tiles — and measuring each one's opacity by row and by column
+    // Decoding UI-Tooltip-Border settles both points. It is 128x16 - eight
+    // 16x16 tiles - and measuring each one's opacity by row and by column
     // gives: tiles 0 to 3 are all *vertical* lines, and 4 to 7 are the four
     // corners. There is no horizontal line anywhere in the file. Tiles 2 and 3
     // are the top and bottom edges kept rotated, which is why their lines sit
@@ -534,7 +534,7 @@ void WidgetRenderer::drawBackdrop(ImDrawList* dl, const Widget& w, float scale,
     //
     // Drawing them unrotated repeats a vertical line along a horizontal edge,
     // which is a row of tick marks across the top and bottom of every tooltip.
-    // Stretching one instead — which is what this did before — smears that
+    // Stretching one instead - which is what this did before - smears that
     // line into a gradient, which is quieter but no more correct.
     //
     // Tiled by drawing repeated quads rather than by letting the UVs run past
@@ -547,11 +547,11 @@ void WidgetRenderer::drawBackdrop(ImDrawList* dl, const Widget& w, float scale,
         // Below a couple of pixels a tile carries no visible detail, and a
         // full-width frame would ask for a thousand quads to say nothing. One
         // tile stretched over the whole span is indistinguishable there and
-        // bounded — and it goes through the same loop rather than a separate
+        // bounded - and it goes through the same loop rather than a separate
         // path, so it keeps the rotation the horizontal edges need.
         // Bounded, because this is the one thing here whose cost grows with
         // the frame it is drawing. A border tiles at its authored size, so a
-        // very wide frame would ask for a quad every sixteen pixels across —
+        // very wide frame would ask for a quad every sixteen pixels across -
         // fine for a tooltip, and hundreds for anything full-width. Past the
         // cap the remainder is stretched, which is what this did everywhere
         // before tiling and is indistinguishable at that length.
@@ -573,7 +573,7 @@ void WidgetRenderer::drawBackdrop(ImDrawList* dl, const Widget& w, float scale,
                 // Quarter-turned: the strip runs along x, so screen x walks
                 // the tile's v and screen y walks its u. That puts the tile's
                 // left column along the top of the strip, which is where the
-                // top edge's line lives — and the bottom edge's line, sitting
+                // top edge's line lives - and the bottom edge's line, sitting
                 // at the opposite side of its own tile, lands along the bottom
                 // by the same mapping. One rotation serves both.
                 const float ax0 = px0 + at, ax1 = px0 + at + len;
@@ -628,7 +628,7 @@ void WidgetRenderer::drawColorPicker(ImDrawList* dl, const WidgetTree& tree,
 
     // Finds the wheel or the bar among the picker's children, which is how a
     // thumb learns the rect it has to sit on. The thumbs carry no anchors in
-    // the XML at all — Blizzard's client moves them, and so does this.
+    // the XML at all - Blizzard's client moves them, and so does this.
     auto sibling = [&](Widget::ColorRole role) -> const Widget* {
         for (uint32_t id : picker.children) {
             const Widget* c = tree.get(id);
@@ -650,7 +650,7 @@ void WidgetRenderer::drawColorPicker(ImDrawList* dl, const WidgetTree& tree,
     switch (w.colorRole) {
         case Widget::ColorRole::Wheel: {
             // Hue around, saturation outward, at the brightness the bar is set
-            // to — so the wheel dims with the colour rather than showing a
+            // to - so the wheel dims with the colour rather than showing a
             // brightness that is not being chosen.
             //
             // Drawn as flat cells rather than a gradient mesh: a hundred and
@@ -729,7 +729,7 @@ void WidgetRenderer::drawColorPicker(ImDrawList* dl, const WidgetTree& tree,
 }
 
 /// A picker thumb: its own art if the file is resident, and a plain outline
-/// while it is not. The outline matters — the thumb is the only thing on the
+/// while it is not. The outline matters - the thumb is the only thing on the
 /// wheel that says where the current colour is, and a picker that will not say
 /// cannot be used at all.
 void WidgetRenderer::drawThumb(ImDrawList* dl, const Widget& w,
@@ -749,7 +749,7 @@ void WidgetRenderer::drawSlider(ImDrawList* dl, const Widget& w,
                                 float x0, float y0, float x1, float y1) {
     // A slider that declared a <ThumbTexture> has a real region for its grip,
     // and the layout now moves that region to the value. Painting a second one
-    // here would double it — and worse, would ignore the region's own shown
+    // here would double it - and worse, would ignore the region's own shown
     // state: ScrollFrame_OnScrollRangeChanged hides `<bar>ThumbTexture` when the
     // list fits, and a knob painted from the file path alone stayed on a bar
     // with nothing to scroll.
@@ -759,7 +759,7 @@ void WidgetRenderer::drawSlider(ImDrawList* dl, const Widget& w,
     if (thumb == kMissing) return;
 
     // The thumb sits at the value along the track, and is as wide as the track
-    // is narrow — a scroll bar's grip is square to its channel.
+    // is narrow - a scroll bar's grip is square to its channel.
     const float f = w.barFraction();
     const uint32_t col = packColor(w.barColor, w.alpha);
     if (w.barVertical) {
@@ -789,8 +789,8 @@ void WidgetRenderer::drawCooldown(ImDrawList* dl, const Widget& w,
     const float remaining = w.cooldownReverse ? done : (1.0f - done);
 
     // A wedge from twelve o'clock, shrinking clockwise as the time runs out.
-    // Drawn to the corners rather than to an inscribed circle — the thing being
-    // covered is a square icon, and a circle would leave its corners lit — and
+    // Drawn to the corners rather than to an inscribed circle - the thing being
+    // covered is a square icon, and a circle would leave its corners lit - and
     // clipped to the frame so the overrun does not spill onto its neighbours.
     const ImVec2 centre((x0 + x1) * 0.5f, (y0 + y1) * 0.5f);
     const float radius = std::sqrt((x1 - x0) * (x1 - x0) + (y1 - y0) * (y1 - y0));
@@ -832,7 +832,7 @@ void WidgetRenderer::layout(WidgetTree& tree, float screenW, float screenH) {
     linkScale_ = tree.uiScale();
     // Every descriptor set in this cache belongs to the context, which frees
     // them all together. Drawing with one afterwards is a fault the GPU answers
-    // by resetting, so the cache goes when they do — at the cost of re-uploading
+    // by resetting, so the cache goes when they do - at the cost of re-uploading
     // whatever is on screen.
     if (vkCtx_) {
         const uint32_t generation = vkCtx_->uiTextureGeneration();
@@ -851,7 +851,7 @@ void WidgetRenderer::layout(WidgetTree& tree, float screenW, float screenH) {
     static const std::vector<std::string> kSuppressed = frameXmlSuppressedFrames();
     // Which of these never resolved, said once a few seconds in.
     //
-    // A name that matches no frame suppresses nothing, silently — the window
+    // A name that matches no frame suppresses nothing, silently - the window
     // it was meant to hide keeps opening beside this client's own, and the
     // list looks complete. Reported late rather than at load because several
     // of these frames belong to addons that are not loaded until something
@@ -865,7 +865,7 @@ void WidgetRenderer::layout(WidgetTree& tree, float screenW, float screenH) {
     // Resolved once and kept, because findByName is a linear scan over every
     // widget with a string compare on each. Sixty-two names against several
     // thousand FrameXML widgets is a few hundred thousand comparisons a frame,
-    // every frame, for a list that barely changes — the cost arrived with the
+    // every frame, for a list that barely changes - the cost arrived with the
     // list, which grew from fifteen names to sixty-two in one sitting.
     //
     // The id is verified against the name before use, so a slot reused by a
@@ -889,7 +889,7 @@ void WidgetRenderer::layout(WidgetTree& tree, float screenW, float screenH) {
     }
     // Suppression is a drawing decision and nothing more. A frame hidden here
     // keeps every event it registered, and the frame dispatch does not filter
-    // on visibility — rightly, because that is how the real client behaves and
+    // on visibility - rightly, because that is how the real client behaves and
     // FrameXML relies on it, registering and unregistering in OnShow/OnHide
     // where it wants otherwise.
     //
@@ -901,14 +901,14 @@ void WidgetRenderer::layout(WidgetTree& tree, float screenW, float screenH) {
     // What they do *not* run is OnShow and OnHide, and that is worth keeping
     // that way. LuaEngine::updateVisibility reports a change by comparing
     // `visible` against what it last reported, and the application calls it
-    // after this render — so a frame that a handler showed earlier in the same
+    // after this render - so a frame that a handler showed earlier in the same
     // iteration is already false again by the time it looks, and never counts
     // as having appeared.
     //
     // That ordering is load-bearing rather than incidental. LootFrame_OnHide
     // calls CloseLoot(), which releases the loot on the server. Report
     // visibility before this runs and every suppressed loot window would show
-    // for an instant, hide, and take the player's loot with it — through the
+    // for an instant, hide, and take the player's loot with it - through the
     // client's own loot window, which is the one actually on screen.
 
     if (!reportedUnresolved && (now - firstSeen) > 20.0) {
@@ -920,7 +920,7 @@ void WidgetRenderer::layout(WidgetTree& tree, float screenW, float screenH) {
             if (std::find(kLazy.begin(), kLazy.end(), name) != kLazy.end()) continue;
             if (!tree.findByName(name)) {
                 LOG_WARNING("FrameXML: nothing is named '", name,
-                            "' — that suppression is doing nothing, and "
+                            "' - that suppression is doing nothing, and "
                             "whatever it was meant to hide is still shown");
             }
         }
@@ -943,7 +943,7 @@ void WidgetRenderer::layout(WidgetTree& tree, float screenW, float screenH) {
 /// Labels whose glyphs are wider than the rect they were given.
 ///
 /// A font string with no width of its own is measured and the rect it gets is
-/// that measurement, so the two agree by construction — unless the draw and the
+/// that measurement, so the two agree by construction - unless the draw and the
 /// measure disagree about the face or the size, and then the text runs out of
 /// its own right edge. Where the label is anchored so that its right edge is
 /// something else's left edge, that overspill lands on top of whatever is
@@ -953,7 +953,7 @@ void WidgetRenderer::layout(WidgetTree& tree, float screenW, float screenH) {
 /// and each name is said once.
 /// Labels holding a coin amount with a letter on the end of it.
 ///
-/// "19g", "81s", "56c" — WoW writes the amount and the coin's picture, and the
+/// "19g", "81s", "56c" - WoW writes the amount and the coin's picture, and the
 /// only thing in the interface that writes the letter is the colourblind branch
 /// of MoneyFrame_Update. Reported over three passes as letters beside the coins
 /// in the backpack, and turning that branch off did not stop it, so whatever
@@ -977,7 +977,7 @@ void WidgetRenderer::reportLetteredAmounts(WidgetTree& tree) {
         const std::string key = w->name.empty() ? std::string("(unnamed)") : w->name;
         if (!said.insert(key).second) continue;
         LOG_WARNING("Coin amount written with a letter: ", key, " holds \"", s,
-                    "\" — WoW writes the amount and the coin's picture, and only "
+                    "\" - WoW writes the amount and the coin's picture, and only "
                     "MoneyFrame_Update's colourblind branch writes the letter. "
                     "ENABLE_COLORBLIND_MODE is \"", "0", "\" here, so this came "
                     "from somewhere else");
@@ -999,8 +999,8 @@ void WidgetRenderer::reportOverflowingText(WidgetTree& tree) {
         //
         // A pixel of slack, because rounding between the two is not a fault.
         // Through the scale its chain is drawn at: the rect is in scaled units
-        // and the measurement is not, so a frame that has been scaled down —
-        // every boss frame is — would otherwise read as an overflow when it is
+        // and the measurement is not, so a frame that has been scaled down -
+        // every boss frame is - would otherwise read as an overflow when it is
         // simply smaller.
         float chainScale = 1.0f;
         for (uint32_t up = static_cast<uint32_t>(id), guard = 0;
@@ -1018,12 +1018,12 @@ void WidgetRenderer::reportOverflowingText(WidgetTree& tree) {
         if (!said.insert(key).second) continue;
         LOG_WARNING("Text wider than its rect: ", key, " \"", w->text,
                     "\" draws ", drawn, " into ", w->rectW,
-                    " — fontHeight=", w->fontHeight,
+                    " - fontHeight=", w->fontHeight,
                     " size=", interfaceFontSize(w->fontHeight),
                     " face=", w->fontFace.empty() ? "(default)" : w->fontFace.c_str(),
                     " currentFontSize=", ImGui::GetFontSize(),
                     " scale=", tree.uiScale(),
-                    " — whatever its right edge is anchored to is being drawn over");
+                    " - whatever its right edge is anchored to is being drawn over");
     }
 }
 
@@ -1035,14 +1035,14 @@ void WidgetRenderer::reportOverflowingText(WidgetTree& tree) {
 // it there; a check that the elements handed over actually arrived; and a
 // report of frames FrameXML is drawing that no element accounts for.
 //
-// Split out of draw() because it was 536 of its 1193 lines — a function named
+// Split out of draw() because it was 536 of its 1193 lines - a function named
 // draw that spent nearly half its length not drawing.
 namespace {
 
-/// WOWEE_WIDGET_DUMP — how much this renderer says about what it drew.
+/// WOWEE_WIDGET_DUMP - how much this renderer says about what it drew.
 ///
 /// 1 lists what is drawn; 2 lists every named widget whether drawn or not,
-/// which is what shows a container's own rect — a frame paints nothing itself,
+/// which is what shows a container's own rect - a frame paints nothing itself,
 /// so the thing that mispositioned everything under it never appears in a list
 /// of what was painted. 3 and 4 outline widgets in place, and 5 draws ImGui's
 /// own font atlas as a control.
@@ -1070,12 +1070,12 @@ void WidgetRenderer::reportWidgetDiagnostics(WidgetTree& tree,
     // drawn widget with its name, its rect and its text, which turns "what is
     // that in the middle of the screen" into one line of log.
     // 1 lists what is drawn; 2 lists every named widget whether drawn or not,
-    // which is what shows a container's own rect — a frame paints nothing
+    // which is what shows a container's own rect - a frame paints nothing
     // itself, so the thing that mispositioned everything under it never
     // appears in a list of what was painted.
     // Not on the first frame. Textures upload a few per frame, so a dump taken
     // immediately reports nothing resident and says only that the load had not
-    // finished — which is true and useless. A couple of seconds in, what is
+    // finished - which is true and useless. A couple of seconds in, what is
     // missing is missing for a reason.
     static int framesSeen = 0;
     static bool dumped = false;
@@ -1086,12 +1086,12 @@ void WidgetRenderer::reportWidgetDiagnostics(WidgetTree& tree,
     // Reported without being asked for, because it only happens when someone
     // has already said WOWEE_FRAMEXML_UI, and because the alternative is
     // reading a screenshot for whether a frame is present, hidden, or laid out
-    // to nothing — three failures that look identical from outside and quite
+    // to nothing - three failures that look identical from outside and quite
     // different here. Late enough that textures have had time to upload.
     //
     // Twice: once when the interface has finished loading, and again once the
     // player is in the world. Those are two different pictures, because
-    // FrameXML repositions and hides frames from PLAYER_ENTERING_WORLD — at
+    // FrameXML repositions and hides frames from PLAYER_ENTERING_WORLD - at
     // load every frame is still where its XML put it. Reading a load-time
     // report as though it described the running game cost several rounds of
     // chasing a durability frame that had already been moved by the time
@@ -1128,7 +1128,7 @@ void WidgetRenderer::reportWidgetDiagnostics(WidgetTree& tree,
     // frameXmlReportUnaccountedElements cannot find these. It iterates the
     // element list, so it reports gaps among names somebody already thought of,
     // and zone text was not an element at all. This asks the question from the
-    // other end — what is on screen — which is the end that needs no foresight.
+    // other end - what is on screen - which is the end that needs no foresight.
     //
     // Said once per name, ever. A frame that is legitimately unlisted costs one
     // line for the life of the process.
@@ -1143,7 +1143,7 @@ void WidgetRenderer::reportWidgetDiagnostics(WidgetTree& tree,
         //
         // The id is cached because findByName scans the tree backwards and
         // UIParent is built early, so looking it up by name every frame walks
-        // almost the whole tree — a cost worth paying nowhere, least of all for
+        // almost the whole tree - a cost worth paying nowhere, least of all for
         // a diagnostic. Re-resolved if it ever stops naming UIParent, which is
         // what a rebuilt tree would look like from here.
         static uint32_t rootId = 0;
@@ -1160,7 +1160,7 @@ void WidgetRenderer::reportWidgetDiagnostics(WidgetTree& tree,
                 if (accounted.count(w->name) || said.count(w->name)) continue;
                 said.insert(w->name);
                 LOG_WARNING("FrameXML: '", w->name, "' is on screen and no "
-                            "element accounts for it — if this client draws the "
+                            "element accounts for it - if this client draws the "
                             "same thing, both are up");
             }
         }
@@ -1173,7 +1173,7 @@ void WidgetRenderer::reportWidgetDiagnostics(WidgetTree& tree,
 
         // Before reporting anything, give back any element whose top-level
         // frame does not exist. Handing one over hides this client's own, so a
-        // panel that did not build is not a worse panel — it is no panel, with
+        // panel that did not build is not a worse panel - it is no panel, with
         // no way back to the one that worked. Only in world: at load a panel
         // that builds on demand has not been asked for yet.
         if (worldPass || askedFor) {
@@ -1212,18 +1212,18 @@ void WidgetRenderer::reportWidgetDiagnostics(WidgetTree& tree,
 
             // Shown, and no size to be shown at.
             //
-            // The off-screen scan above skips these deliberately — a rect of
-            // zero is not off screen — so a frame that is laid out, told to
+            // The off-screen scan above skips these deliberately - a rect of
+            // zero is not off screen - so a frame that is laid out, told to
             // draw, and occupies nothing has been the one shape this check
             // could not see. It is a real signature rather than a curiosity:
             // uidropdownmenu asks for "uiscale", an exact-match CVar read
             // answered "0" for it, and every dropdown in the interface opened
-            // at SetScale(0) — built, shown, and drawing nothing. Anything
+            // at SetScale(0) - built, shown, and drawing nothing. Anything
             // that multiplies into a size can do that.
             //
             // Only where a size was ASKED FOR and did not survive. A frame
             // declared with no size of its own is sized by its anchors or not
-            // at all, and plenty are deliberately sizeless — reporting those
+            // at all, and plenty are deliberately sizeless - reporting those
             // would print a page every run, which trains the reader to skip
             // the whole check, the way the three shared UIParents would have.
             //
@@ -1248,14 +1248,14 @@ void WidgetRenderer::reportWidgetDiagnostics(WidgetTree& tree,
             // Visible, named, and anchored to nothing.
             //
             // An unanchored frame falls to the centre of its parent, so this
-            // is what a stray panel in the middle of the screen actually is —
+            // is what a stray panel in the middle of the screen actually is -
             // and the shape is unmistakable once looked for, where hunting it
             // by name means guessing what it is from a screenshot.
             // Names carried by more than one visible widget.
             //
             // Only the last one to take a name can be found by it, so a
             // duplicate is invisible to every lookup while both are still
-            // drawn — which reads as one label rendered twice in two places.
+            // drawn - which reads as one label rendered twice in two places.
             {
                 std::map<std::string, int> seen;
                 for (size_t id = 1; id < tree.size(); ++id) {
@@ -1275,7 +1275,7 @@ void WidgetRenderer::reportWidgetDiagnostics(WidgetTree& tree,
                     // intended.
                     if (name == "UIParent" || name == "WorldFrame") continue;
                     if (++dupes > 10) break;
-                    LOG_WARNING("  DUPLICATE ", name, " — ", count,
+                    LOG_WARNING("  DUPLICATE ", name, " - ", count,
                                 " visible widgets share this name");
                 }
             }
@@ -1283,7 +1283,7 @@ void WidgetRenderer::reportWidgetDiagnostics(WidgetTree& tree,
             // Two labels showing the same words.
             //
             // A duplicate that shares no name is invisible to the scan above,
-            // and the interface draws plenty of labels without one — so the
+            // and the interface draws plenty of labels without one - so the
             // text itself is what identifies the pair.
             {
                 std::map<std::string, int> texts;
@@ -1348,7 +1348,7 @@ void WidgetRenderer::reportWidgetDiagnostics(WidgetTree& tree,
             // Anything at all sitting over the paperdoll's rotate arrows.
             //
             // Text is drawn there and the label scan below does not see it, so
-            // it is not a FontString — an edit box draws its own text and a
+            // it is not a FontString - an edit box draws its own text and a
             // tooltip draws its lines, and neither is one.
             if (const Widget* arrow = tree.findByName("CharacterModelFrameRotateLeftButton");
                 arrow && arrow->visible) {
@@ -1375,8 +1375,8 @@ void WidgetRenderer::reportWidgetDiagnostics(WidgetTree& tree,
             // Every label inside the character sheet while it is open.
             //
             // Something is drawn over its rotate arrows and it is not a second
-            // copy of the name — the same-text and overlap scans both rule that
-            // out — so the way to find it is to list what is in there.
+            // copy of the name - the same-text and overlap scans both rule that
+            // out - so the way to find it is to list what is in there.
             if (const Widget* sheet = tree.findByName("CharacterFrame");
                 sheet && sheet->visible) {
                 int listed = 0;
@@ -1396,7 +1396,7 @@ void WidgetRenderer::reportWidgetDiagnostics(WidgetTree& tree,
                 // The tabs themselves, with the state that decides whether a
                 // click reaches them. WoW disables the tab you are already on,
                 // so exactly one being disabled is right and all of them being
-                // disabled is the fault — and the label dump above cannot tell
+                // disabled is the fault - and the label dump above cannot tell
                 // those two apart.
                 for (int i = 1; i <= 5; ++i) {
                     const std::string tabName = "CharacterFrameTab" + std::to_string(i);
@@ -1451,8 +1451,8 @@ void WidgetRenderer::reportWidgetDiagnostics(WidgetTree& tree,
                     // for a character carrying no auras.
                     LOG_WARNING("  ", name,
                                 frameXmlBuiltOnDemand(name)
-                                    ? " — not built yet (created when needed)"
-                                    : " — NOT BUILT");
+                                    ? " - not built yet (created when needed)"
+                                    : " - NOT BUILT");
                     continue;
                 }
                 const bool offscreen = (w->left * s > screenW) ||
@@ -1473,13 +1473,13 @@ void WidgetRenderer::reportWidgetDiagnostics(WidgetTree& tree,
                                       ? " BARTEXNOTRESIDENT" : ""));
                 }
                 // Whether it can be clicked at all, which is a different
-                // question from whether it is in the right place — a button
+                // question from whether it is in the right place - a button
                 // that takes no mouse looks identical to one whose handler
                 // does nothing.
                 const char* mouse = w->mouseEnabled ? " takesMouse" : "";
                 // What a label actually says. A font string that is built,
                 // shown and empty looks identical from every other field here,
-                // and empty is the interesting case — a level with no number
+                // and empty is the interesting case - a level with no number
                 // in it is a frame that was never told the number.
                 // Which slice of its atlas a texture is showing. A stack of
                 // pieces cut from one file is only debuggable with these: the
@@ -1522,13 +1522,13 @@ void WidgetRenderer::reportWidgetDiagnostics(WidgetTree& tree,
                             w->rectW, "x", w->rectH, ")",
                             // An external texture is what is actually drawn,
                             // and the path beside it is only the fallback the
-                            // interface set — so the report has to say which
+                            // interface set - so the report has to say which
                             // of the two is on screen.
                             (w->externalTexture != 0 ? " LIVE" : ""),
                             // Only worth saying of something being drawn.
                             // Textures upload when first drawn, so anything
                             // hidden reports missing art whether or not the
-                            // file exists — which reads as a fault and is not
+                            // file exists - which reads as a fault and is not
                             // one. Twice now that has sent someone looking for
                             // a .blp that was on disk all along.
                             (w->visible && w->kind == WidgetKind::Texture &&
@@ -1601,12 +1601,12 @@ void WidgetRenderer::draw(WidgetTree& tree, float screenW, float screenH) {
     // the frame's clicks are resolved. Emptying the list there and refilling it
     // here would leave nothing to click against in between, and a chat link
     // would never be hit at all. Clicks now test the rects this pass laid down
-    // last frame — a frame behind, where a link that stopped being drawn stays
+    // last frame - a frame behind, where a link that stopped being drawn stays
     // clickable for one more, which is the smaller of the two faults.
     tree.clearLinkRects();
 
     // The item on the cursor, drawn over everything. FrameXML never draws this
-    // — in WoW the client does — so without it picking something up looked
+    // - in WoW the client does - so without it picking something up looked
     // exactly like nothing happening.
     if (const std::string& carried = frameXmlCursorItem(); !carried.empty()) {
         if (VkDescriptorSet icon = texture(carried); icon != kMissing) {
@@ -1626,14 +1626,14 @@ void WidgetRenderer::draw(WidgetTree& tree, float screenW, float screenH) {
     //
     // Uploading one ends in vkDeviceWaitIdle. Doing that from inside the draw
     // loop stalls the whole device in the middle of building a frame, which is
-    // the shape of problem this renderer has already been bitten by once —
+    // the shape of problem this renderer has already been bitten by once -
     // enough synchronous submits in a row and the main loop stalls, a fence wait
     // fails, and the device is lost. Hoisting them out means the wait happens
     // between frames instead of during one, and the budget means a screen full
     // of new art costs several quiet frames rather than one very long one.
     // Three, not eight.
     //
-    // Each one is a BLP decode, a staging buffer, a copy and a wait — and the
+    // Each one is a BLP decode, a staging buffer, a copy and a wait - and the
     // batch around them is synchronous, so the whole cost lands inside
     // uiManager->render. A live log shows that stage reaching 186ms while the
     // terrain was uploading M2 instances on the same queue, and the device was
@@ -1641,7 +1641,7 @@ void WidgetRenderer::draw(WidgetTree& tree, float screenW, float screenH) {
     // VK_IMAGE_LAYOUT_UNDEFINED.
     //
     // FrameXML wants far more distinct art than this client's own interface
-    // did — icons per spellbook tab, per tracking type, per dropdown entry —
+    // did - icons per spellbook tab, per tracking type, per dropdown entry -
     // so the budget that was comfortable before is now reached every frame
     // during a load. Spreading the same work over more frames costs a texture
     // appearing a frame or two later, which is invisible, and shortens each
@@ -1727,7 +1727,7 @@ void WidgetRenderer::draw(WidgetTree& tree, float screenW, float screenH) {
                 // point of a scroll frame: the child is taller than its window
                 // and the part above or below is meant to be out of sight until
                 // it is scrolled to. Reporting that called every scrolled list
-                // in the interface a fault — a macro button eighty pixels below
+                // in the interface a fault - a macro button eighty pixels below
                 // its own window, sitting exactly where it belongs. A
                 // diagnostic that fires on correct behaviour is worse than none,
                 // because the next real one is read as more of the same.
@@ -1750,9 +1750,9 @@ void WidgetRenderer::draw(WidgetTree& tree, float screenW, float screenH) {
                             clip->name.empty() ? "(unnamed)" : clip->name,
                             "' at (", clip->left, ",", clip->bottom, " ",
                             clip->rectW, "x", clip->rectH,
-                            ")", overlapsY ? " — off to the side of its own "
+                            ")", overlapsY ? " - off to the side of its own "
                                              "window, which nothing scrolls back"
-                                           : " — outside it on both axes",
+                                           : " - outside it on both axes",
                             "; it is shown and clipped away");
                     }
                 }
@@ -1775,7 +1775,7 @@ void WidgetRenderer::draw(WidgetTree& tree, float screenW, float screenH) {
         //
         // ImGui takes these straight into vertex positions, and a triangle
         // with an infinity or a NaN in it is one the rasteriser can chew on
-        // until the driver's watchdog resets the device — which surfaces as
+        // until the driver's watchdog resets the device - which surfaces as
         // several seconds inside endFrame and then VK_ERROR_DEVICE_LOST, with
         // nothing to say which frame did it. Named once so there is.
         {
@@ -1791,7 +1791,7 @@ void WidgetRenderer::draw(WidgetTree& tree, float screenW, float screenH) {
                                 w->name.empty() ? "(unnamed)" : w->name.c_str(),
                                 "': its rect is (", w->left, ", ", w->bottom, " ",
                                 w->rectW, "x", w->rectH,
-                                ") — a value like that reaches the rasteriser as "
+                                ") - a value like that reaches the rasteriser as "
                                 "geometry it may never finish");
                 }
                 continue;
@@ -1804,7 +1804,7 @@ void WidgetRenderer::draw(WidgetTree& tree, float screenW, float screenH) {
         const float y1 = screenH - w->bottom * s;
 
         if (w->kind == WidgetKind::Frame) {
-            // Whatever the client rendered for it, under its own regions —
+            // Whatever the client rendered for it, under its own regions -
             // a model frame is a window onto a scene and the art around it
             // belongs on top.
             if (w->externalTexture != 0) {
@@ -1841,7 +1841,7 @@ void WidgetRenderer::draw(WidgetTree& tree, float screenW, float screenH) {
                                        packColor(rc, w->alpha), w->alpha, line.right);
                     }
                     // A wrapped line is as tall as the rows it produced, which
-                    // the sizing pass counted — otherwise the next line draws
+                    // the sizing pass counted - otherwise the next line draws
                     // over the middle of this one.
                     y += lineH * static_cast<float>(line.lines > 0 ? line.lines : 1);
                 }
@@ -1877,8 +1877,8 @@ void WidgetRenderer::draw(WidgetTree& tree, float screenW, float screenH) {
                 for (int i = static_cast<int>(w->messages.size()) - 1 - scroll;
                      i >= 0 && y >= y0 - lineH; --i) {
                     const auto& m = w->messages[static_cast<size_t>(i)];
-                    // A line whose time is up is still in the history — it
-                    // comes back when the frame is scrolled — but it takes no
+                    // A line whose time is up is still in the history - it
+                    // comes back when the frame is scrolled - but it takes no
                     // room on screen, so the ones still lit pack together.
                     if (m.color[3] <= 0.0f) continue;
                     float rgba[4] = {m.color[0], m.color[1], m.color[2], m.color[3]};
@@ -1887,7 +1887,7 @@ void WidgetRenderer::draw(WidgetTree& tree, float screenW, float screenH) {
                     // A chat line is the densest markup the interface produces:
                     // "|cff9d9d9d|Hitem:3299|h[Fractured Canine]|h|r" is one
                     // item link with a colour around it, and drawn raw that is
-                    // what appeared on screen — every escape, every bar, in the
+                    // what appeared on screen - every escape, every bar, in the
                     // middle of the sentence. It is also where the links are,
                     // so this is what files their rects and makes a click on
                     // one land somewhere.
@@ -1912,7 +1912,7 @@ void WidgetRenderer::draw(WidgetTree& tree, float screenW, float screenH) {
                 // This is the one place that knows the difference, so it is the
                 // one place that can say which of the reasons it was.
                 //
-                // Once per frame per session — it means nothing is on screen,
+                // Once per frame per session - it means nothing is on screen,
                 // so it cannot be noisy for long.
                 if (painted == 0) {
                     int lit = 0;
@@ -1920,7 +1920,7 @@ void WidgetRenderer::draw(WidgetTree& tree, float screenW, float screenH) {
                         if (m.color[3] > 0.0f) ++lit;
                     }
                     // A frame that fades its lines and has none left lit is
-                    // doing its job, not failing at it — UIErrorsFrame holds
+                    // doing its job, not failing at it - UIErrorsFrame holds
                     // errors for five seconds and is supposed to end up empty.
                     // The fault is lines that are lit and still not painted,
                     // or any line at all in a frame that never fades.
@@ -1934,7 +1934,7 @@ void WidgetRenderer::draw(WidgetTree& tree, float screenW, float screenH) {
                                     x0, ",", y0, " to ", x1, ",", y1,
                                     "), line height ", lineH, ", scrolled back ",
                                     w->messageScroll,
-                                    " — if the box has no height there is "
+                                    " - if the box has no height there is "
                                     "nowhere to draw, and if nothing is lit "
                                     "they have all faded");
                     }
@@ -1956,7 +1956,7 @@ void WidgetRenderer::draw(WidgetTree& tree, float screenW, float screenH) {
                 if (!w->editText.empty()) {
                     // Through the markup parser like everything else. An edit
                     // box holds what the player typed, which used to mean plain
-                    // words — but shift-clicking a link puts the whole
+                    // words - but shift-clicking a link puts the whole
                     // "|Hitem:3299|h[Fractured Canine]|h" into it, and drawn
                     // raw that is what the player sees themselves typing.
                     // Links are only clickable at all as of this branch, so
@@ -1967,7 +1967,7 @@ void WidgetRenderer::draw(WidgetTree& tree, float screenW, float screenH) {
                 if (w->editFocused) {
                     // Measured against what is drawn, not what is held. The
                     // caret sits after the text to its left, and to the left of
-                    // a link is its display name — measuring the raw string
+                    // a link is its display name - measuring the raw string
                     // would put the caret an escape sequence too far right.
                     const std::string upTo = strippedText(w->editText.substr(
                         0, std::min(w->cursorPos, w->editText.size())));
@@ -2034,7 +2034,7 @@ void WidgetRenderer::draw(WidgetTree& tree, float screenW, float screenH) {
             VkDescriptorSet tex = VK_NULL_HANDLE;
             if (w->externalTexture != 0) {
                 // Supplied by the client, and only valid for as long as it says
-                // so — a portrait's render target is recreated when the window
+                // so - a portrait's render target is recreated when the window
                 // resizes, and the widget is told each frame rather than
                 // holding a handle of its own.
                 tex = reinterpret_cast<VkDescriptorSet>(w->externalTexture);
@@ -2079,7 +2079,7 @@ void WidgetRenderer::draw(WidgetTree& tree, float screenW, float screenH) {
             }
         } else if (w->kind == WidgetKind::FontString) {
             // Font objects carry a height, and honouring it is most of what
-            // makes a label look right — a heading and a footnote are the same
+            // makes a label look right - a heading and a footnote are the same
             // words at different sizes. The atlas holds one face, so this scales
             // it rather than swapping fonts; loading FRIZQT__ properly needs an
             // atlas rebuild, which cannot happen while a frame is being built.
@@ -2097,11 +2097,11 @@ void WidgetRenderer::draw(WidgetTree& tree, float screenW, float screenH) {
             // Wider than one glyph, not merely positive. A label whose rect
             // has not been laid out yet reports a box a fraction of a pixel
             // wide, and wrapping to that puts one word on every line and makes
-            // the label a hundred lines tall — worse than the overflow this
+            // the label a hundred lines tall - worse than the overflow this
             // exists to stop.
             const float boxWidth = x1 - x0;
             // A region one line tall cannot show two. Wrapping there does not
-            // fit the text, it spills it over whatever is drawn beneath — and
+            // fit the text, it spills it over whatever is drawn beneath - and
             // in a list of fixed-height rows that is the next row.
             //
             // The quest log is the case. QuestLogTitleButton_Resize measures the
@@ -2109,8 +2109,8 @@ void WidgetRenderer::draw(WidgetTree& tree, float screenW, float screenH) {
             // and calls SetWidth with the room that is actually left. That is a
             // request to CUT the title there, not to reflow it: the row is 16
             // tall and the font string declares 10, one line. Reflowing put the
-            // tail of every long quest name — and of any zone header wider than
-            // its box — on top of the row below it.
+            // tail of every long quest name - and of any zone header wider than
+            // its box - on top of the row below it.
             //
             // Measured in pixels on both sides. rectH is in the interface's own
             // units and `size` is already scaled, so comparing the two directly
@@ -2127,8 +2127,8 @@ void WidgetRenderer::draw(WidgetTree& tree, float screenW, float screenH) {
             // sitting beside it.
             //
             // Across only, never down: a font string's declared height is the
-            // line it sits on rather than a box drawn around the glyphs — the
-            // quest log's is 10 for a 12-point line — so clipping vertically to
+            // line it sits on rather than a box drawn around the glyphs - the
+            // quest log's is 10 for a 12-point line - so clipping vertically to
             // it would shave the descenders off every label in the interface.
             const bool clipToBox = !w->autoSized && boxWidth > 0.0f;
             if (clipToBox) {
@@ -2162,10 +2162,10 @@ void WidgetRenderer::draw(WidgetTree& tree, float screenW, float screenH) {
             // Against the box in pixels, not in interface units. rectW and
             // rectH are the widget's own units and extent comes back from a
             // font already scaled by s, so centring on the raw rect placed a
-            // label off by half the difference between the two — around half
+            // label off by half the difference between the two - around half
             // the box's width at this scale, which is most of the way out of it.
             // A held button moves its label. The offset is declared on the
-            // button, and this is the label, so it comes from the parent — and
+            // button, and this is the label, so it comes from the parent - and
             // only while that parent is the frame being held.
             float pushX = 0.0f, pushY = 0.0f;
             if (const uint32_t held = tree.pressedWidget(); held != 0) {
@@ -2193,7 +2193,7 @@ void WidgetRenderer::draw(WidgetTree& tree, float screenW, float screenH) {
             ty += pushY;
             // An outline is drawn as the same glyphs in black around the text.
             // ImGui has no outlined draw, and offsetting a few copies is what
-            // the effect amounts to at these sizes — it is what keeps a
+            // the effect amounts to at these sizes - it is what keeps a
             // nameplate legible against whatever is behind it.
             if (!w->fontOutline.empty()) {
                 const float d = (w->fontOutline == "THICK") ? 2.0f : 1.0f;
@@ -2205,7 +2205,7 @@ void WidgetRenderer::draw(WidgetTree& tree, float screenW, float screenH) {
                 };
                 for (const ImVec2& o : around) {
                     // Through the same wrap as the text itself. Drawn straight
-                    // it was one long line behind a wrapped label — a second
+                    // it was one long line behind a wrapped label - a second
                     // copy of the words in a darker shade, out of line with
                     // the ones on top of it.
                     drawMarkupText(dl, font, size, ImVec2(tx + o.x, ty + o.y),

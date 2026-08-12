@@ -46,7 +46,7 @@ std::optional<std::string> AudioCallbackHandler::resolveSoundEntryPath(uint32_t 
 }
 
 void AudioCallbackHandler::setupCallbacks() {
-    // Level-up callback — play sound, cheer emote, and trigger UI ding overlay + 3D effect
+    // Level-up callback - play sound, cheer emote, and trigger UI ding overlay + 3D effect
     gameHandler_.setLevelUpCallback([this](uint32_t newLevel) {
         if (uiManager_) {
             uiManager_->getGameScreen().toastManager().triggerDing(newLevel);
@@ -56,7 +56,7 @@ void AudioCallbackHandler::setupCallbacks() {
         }
     });
 
-    // Achievement earned callback — show toast banner
+    // Achievement earned callback - show toast banner
     gameHandler_.setAchievementEarnedCallback([this](uint32_t achievementId, const std::string& name) {
         if (uiManager_) {
             uiManager_->getGameScreen().toastManager().triggerAchievementToast(achievementId, name);
@@ -101,7 +101,7 @@ void AudioCallbackHandler::setupCallbacks() {
         }
     });
 
-    // Other player level-up callback — trigger 3D effect + chat notification
+    // Other player level-up callback - trigger 3D effect + chat notification
     gameHandler_.setOtherPlayerLevelUpCallback([this](uint64_t guid, uint32_t newLevel) {
         if (!renderer_) return;
 
@@ -125,7 +125,7 @@ void AudioCallbackHandler::setupCallbacks() {
         }
     });
 
-    // Open dungeon finder callback — server sends SMSG_OPEN_LFG_DUNGEON_FINDER
+    // Open dungeon finder callback - server sends SMSG_OPEN_LFG_DUNGEON_FINDER
     gameHandler_.setOpenLfgCallback([this]() {
         if (uiManager_) uiManager_->getGameScreen().openDungeonFinder();
     });

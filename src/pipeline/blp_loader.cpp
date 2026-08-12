@@ -46,7 +46,7 @@ BLPImage BLPLoader::loadBLP1(const uint8_t* data, size_t size) {
     image.mipLevels = header.hasMips ? 16 : 1;
 
     // BLP1 compression: 0=JPEG (not used in WoW), 1=palette/indexed
-    // BLP1 does NOT support DXT — only palette with optional alpha
+    // BLP1 does NOT support DXT - only palette with optional alpha
     if (header.compression == 1) {
         image.compression = BLPCompression::PALETTE;
     } else if (header.compression == 0) {

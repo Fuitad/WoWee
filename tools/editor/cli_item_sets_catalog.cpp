@@ -128,7 +128,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     // Mirrors the JSON pairs added for every other novel
     // open format. Each set emits all 8 scalar fields plus
     // two nested arrays (itemIds[] and bonuses[{threshold,
-    // spellId}]) — only the populated slots are emitted to
+    // spellId}]) - only the populated slots are emitted to
     // keep hand-edits compact. classMask is dumped as a raw
     // integer; users can hand-edit using the bit positions
     // documented in the WCHC catalog.
@@ -161,7 +161,7 @@ int handleImportJson(int& i, int argc, char** argv) {
                     je.value("requiredSkillId", 0));
                 e.requiredSkillRank = static_cast<uint16_t>(
                     je.value("requiredSkillRank", 0));
-                // Items + bonuses are derived from array sizes —
+                // Items + bonuses are derived from array sizes -
                 // the explicit pieceCount / bonusCount fields in
                 // the binary header are redundant on import (the
                 // exporter emits them so info dumps stay
@@ -231,7 +231,7 @@ int handleValidate(int& i, int argc, char** argv) {
                     std::to_string(e.bonusCount) + " exceeds kMaxBonuses (4)");
             }
             // Verify the populated piece slots are non-zero and
-            // the unpopulated tail is zero — drift between
+            // the unpopulated tail is zero - drift between
             // pieceCount and the actual slot data confuses the
             // runtime resolver.
             for (size_t p = 0; p < wowee::pipeline::WoweeItemSet::kMaxPieces;
@@ -254,7 +254,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 }
             }
             // Bonus thresholds must be ascending and within
-            // pieceCount — a bonus that requires more pieces
+            // pieceCount - a bonus that requires more pieces
             // than the set has can never trigger.
             uint8_t prevThreshold = 0;
             for (size_t b = 0; b < e.bonusCount; ++b) {

@@ -92,7 +92,7 @@ public:
         bool swimming = false;
         bool sitting = false;
         // No flyingActive. The mount path asks the camera controller directly,
-        // and an unmounted flying character has no animation path at all —
+        // and an unmounted flying character has no animation path at all -
         // ActivityFSM branches on swimming, jumping, moving and sitting, and
         // there is no flight among them. That is a gap rather than something
         // this field was covering: it was filled in every frame and read

@@ -236,7 +236,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 errors.push_back(ctx + ": spellTreeBranch " +
                     std::to_string(e.spellTreeBranch) + " not in 0..3");
             }
-            // A DK has 6 runes total (2 of each kind) — a single
+            // A DK has 6 runes total (2 of each kind) - a single
             // ability cost shouldn't exceed 2 of any one type
             // because the system can't satisfy it.
             if (e.bloodCost > 2)
@@ -250,7 +250,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 errors.push_back(ctx + ": unholyCost " +
                     std::to_string(e.unholyCost) + " exceeds 2");
             // A spell with no rune cost AND no runic-power cost
-            // is weird — every DK ability either consumes
+            // is weird - every DK ability either consumes
             // resources, generates them, or applies a stance.
             // We don't have stance info here, so warn.
             bool noResourceCost = e.bloodCost == 0 && e.frostCost == 0 &&
@@ -259,10 +259,10 @@ int handleValidate(int& i, int argc, char** argv) {
                                   e.runicPowerCost == 0;
             if (noResourceCost) {
                 warnings.push_back(ctx +
-                    ": no rune or runic-power cost — verify this is "
+                    ": no rune or runic-power cost - verify this is "
                     "intentional (passive / stance / forms only)");
             }
-            // RP cost > 100 isn't possible — max RP cap is 100.
+            // RP cost > 100 isn't possible - max RP cap is 100.
             if (e.runicPowerCost > 100) {
                 errors.push_back(ctx +
                     ": runicPowerCost " +
@@ -273,7 +273,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 warnings.push_back(ctx +
                     ": runicPowerCost " +
                     std::to_string(e.runicPowerCost) +
-                    " generates more than 25 RP per cast — unusual");
+                    " generates more than 25 RP per cast - unusual");
             }
             if (!idsSeen.add(e.runeCostId)) errors.push_back(ctx + ": duplicate runeCostId");
         }

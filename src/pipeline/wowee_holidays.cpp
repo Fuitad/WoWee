@@ -103,7 +103,7 @@ WoweeHoliday WoweeHolidayLoader::makeStarter(const std::string& catalogName) {
         e.iconPath = "Interface/Calendar/Holidays/Calendar_HallowsEnd.blp";
         e.holidayKind = WoweeHoliday::Seasonal;
         e.recurrence = WoweeHoliday::Annual;
-        e.startMonth = 10; e.startDay = 18;     // Oct 18 — Nov 1
+        e.startMonth = 10; e.startDay = 18;     // Oct 18 - Nov 1
         e.durationHours = 14 * 24;
         e.bossCreatureId = 23682;               // Headless Horseman
         e.itemRewardId = 33226;                 // Tricky Treat
@@ -118,7 +118,7 @@ WoweeHoliday WoweeHolidayLoader::makeStarter(const std::string& catalogName) {
         e.iconPath = "Interface/Calendar/Holidays/Calendar_Brewfest.blp";
         e.holidayKind = WoweeHoliday::Seasonal;
         e.recurrence = WoweeHoliday::Annual;
-        e.startMonth = 9; e.startDay = 20;      // Sep 20 — Oct 6
+        e.startMonth = 9; e.startDay = 20;      // Sep 20 - Oct 6
         e.durationHours = 16 * 24;
         e.bossCreatureId = 23872;               // Coren Direbrew
         e.itemRewardId = 37829;                 // Brewfest Prize Token
@@ -133,7 +133,7 @@ WoweeHoliday WoweeHolidayLoader::makeStarter(const std::string& catalogName) {
         e.iconPath = "Interface/Calendar/Holidays/Calendar_WinterVeil.blp";
         e.holidayKind = WoweeHoliday::Seasonal;
         e.recurrence = WoweeHoliday::Annual;
-        e.startMonth = 12; e.startDay = 15;     // Dec 15 — Jan 2
+        e.startMonth = 12; e.startDay = 15;     // Dec 15 - Jan 2
         e.durationHours = 19 * 24;
         e.itemRewardId = 21525;                 // Green Winter Hat
         e.holidayQuestId = 7062;
@@ -152,7 +152,7 @@ WoweeHoliday WoweeHolidayLoader::makeWeekly(const std::string& catalogName) {
         e.iconPath = "Interface/Icons/Inv_Misc_PvpTrinket_05.blp";
         e.holidayKind = WoweeHoliday::Weekly;
         e.recurrence = WoweeHoliday::WeeklyRecur;
-        // Start any Friday at 00:00 — duration 4 days (Fri-Mon).
+        // Start any Friday at 00:00 - duration 4 days (Fri-Mon).
         e.startMonth = 0; e.startDay = 0;
         e.durationHours = 4 * 24;
         e.areaIdGate = bgZone;
@@ -174,7 +174,7 @@ WoweeHoliday WoweeHolidayLoader::makeSpecial(const std::string& catalogName) {
     {
         WoweeHoliday::Entry e;
         e.holidayId = 200; e.name = "Wintergrasp Battle";
-        e.description = "World-PvP siege of Wintergrasp Fortress — "
+        e.description = "World-PvP siege of Wintergrasp Fortress - "
                          "control rewards Stone Keeper's Shards.";
         e.iconPath = "Interface/Icons/Inv_Misc_PvpTrinket_03.blp";
         e.holidayKind = WoweeHoliday::WorldPvp;
@@ -196,7 +196,7 @@ WoweeHoliday WoweeHolidayLoader::makeSpecial(const std::string& catalogName) {
         e.iconPath = "Interface/Calendar/Holidays/Calendar_LunarFestival.blp";
         e.holidayKind = WoweeHoliday::Seasonal;
         e.recurrence = WoweeHoliday::Annual;
-        e.startMonth = 1; e.startDay = 26;      // late Jan — early Feb
+        e.startMonth = 1; e.startDay = 26;      // late Jan - early Feb
         e.durationHours = 16 * 24;
         e.itemRewardId = 21100;                 // Coin of Ancestry
         e.holidayQuestId = 8867;

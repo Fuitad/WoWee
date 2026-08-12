@@ -211,11 +211,11 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": name is empty");
         if (e.sourceSpellId == 0)
             errors.push_back(ctx +
-                ": sourceSpellId is 0 — proc has no "
+                ": sourceSpellId is 0 - proc has no "
                 "owning aura");
         if (e.procEffectSpellId == 0)
             errors.push_back(ctx +
-                ": procEffectSpellId is 0 — proc has "
+                ": procEffectSpellId is 0 - proc has "
                 "nothing to trigger");
         if (e.triggerEvent > 8) {
             errors.push_back(ctx + ": triggerEvent " +
@@ -224,7 +224,7 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         if (e.procChancePct == 0) {
             errors.push_back(ctx +
-                ": procChancePct is 0 — proc never "
+                ": procChancePct is 0 - proc never "
                 "fires");
         }
         if (e.procChancePct > 10000) {
@@ -234,7 +234,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 " exceeds 10000 (100% in basis points)");
         }
         // Self-proc on OnCast is the most dangerous
-        // case — sourceSpellId == procEffectSpellId
+        // case - sourceSpellId == procEffectSpellId
         // with OnCast trigger could create an infinite
         // proc loop where the effect spell triggers
         // its own re-cast. Other triggers are usually
@@ -247,11 +247,11 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx +
                 ": sourceSpellId == procEffectSpellId="
                 + std::to_string(e.sourceSpellId) +
-                " on OnCast trigger — infinite proc "
+                " on OnCast trigger - infinite proc "
                 "loop (effect re-casts itself)");
         }
         // 100% proc chance with 0 ICD on OnHit/OnCrit
-        // = every-melee-swing spam — almost certainly
+        // = every-melee-swing spam - almost certainly
         // unintended performance footgun. Warn unless
         // it's an OnCast bookkeeping rule (those are
         // intentional).
@@ -264,7 +264,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 ": 100% proc chance + 0ms ICD on "
                 "high-frequency event (" +
                 std::string(triggerEventName(e.triggerEvent)) +
-                ") — would spam every swing; verify "
+                ") - would spam every swing; verify "
                 "intentional or add an ICD");
         }
         if (!idsSeen.insert(e.procRuleId).second) {

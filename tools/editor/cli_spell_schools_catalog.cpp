@@ -114,7 +114,7 @@ int handleInfo(int& i, int argc, char** argv) {
 int handleExportJson(int& i, int argc, char** argv) {
     // Mirrors the JSON pairs added for every other novel
     // open format. WSCH has no enum fields with name forms
-    // — just raw numeric school bits and flag bytes — so
+    // - just raw numeric school bits and flag bytes - so
     // the JSON mapping is a direct dump.
     return cli::exportCatalogJson<wowee::pipeline::WoweeSpellSchoolLoader>(
         i, argc, argv, "wsch", "WSCH", "schools ",
@@ -229,7 +229,7 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": schoolId is 0");
         if (e.name.empty())
             errors.push_back(ctx + ": name is empty");
-        // canBeReflected without canBeAbsorbed is unusual —
+        // canBeReflected without canBeAbsorbed is unusual -
         // reflected damage typically also goes through absorb.
         if (e.canBeReflected && !e.canBeAbsorbed) {
             warnings.push_back(ctx +

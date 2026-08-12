@@ -28,7 +28,7 @@ struct Match {
 };
 
 // Read magic + version + name + entryCount. Same shape as
-// the helper in cli_summary_dir — kept local to avoid
+// the helper in cli_summary_dir - kept local to avoid
 // header-only utility ping-pong.
 bool peekHeader(const fs::path& path, char magic[4],
                 std::string& nameOut, uint32_t& entryCountOut) {
@@ -84,7 +84,7 @@ int handleList(int& i, int argc, char** argv) {
         return 1;
     }
     const FormatMagicEntry* fmt = findFormatByMagic(wantedMagic);
-    // fmt is allowed to be null — we still match files
+    // fmt is allowed to be null - we still match files
     // with that magic, just won't have format metadata for
     // the report header.
     std::vector<Match> matches;
@@ -143,7 +143,7 @@ int handleList(int& i, int argc, char** argv) {
         std::printf("  format    : %s (%s, %s)\n",
                     fmt->description, fmt->extension, fmt->category);
     } else {
-        std::printf("  format    : (unknown magic — no metadata)\n");
+        std::printf("  format    : (unknown magic - no metadata)\n");
     }
     std::printf("  matches   : %zu\n", matches.size());
     std::printf("  total     : %llu bytes, %llu entries\n",

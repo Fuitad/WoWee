@@ -4,7 +4,7 @@
     tools/framexml_script_args.py
 
 An <OnEnter> body is emitted as a Lua function, and the emitter decides its
-parameter list from the script's name — `self, motion` for OnEnter, `self,
+parameter list from the script's name - `self, motion` for OnEnter, `self,
 button` for OnClick, `self, offset` for OnVerticalScroll. A body that names
 something the list does not carry does not fail: Lua reads it as a global,
 finds nothing, and hands back nil. The line runs, the comparison takes the
@@ -12,10 +12,10 @@ wrong branch, and nothing anywhere says a value went missing.
 
 Both halves of that go wrong the same way and neither raises:
 
-  * the emitter's list is short — the handler really does receive the value in
+  * the emitter's list is short - the handler really does receive the value in
     WoW and this client does not name it, which is how every scroll frame in
     the interface scrolled to nil until OnVerticalScroll was given `offset`
-  * the body is wrong — it names an argument belonging to a different handler,
+  * the body is wrong - it names an argument belonging to a different handler,
     usually because the code was moved between two
 
 WHAT IT LOOKS FOR
@@ -27,14 +27,14 @@ the body does not declare as a local of its own, is reported.
 
 WHAT IT CANNOT SEE
 
-A body that calls a named function and lets that function be short — the
+A body that calls a named function and lets that function be short - the
 argument is passed correctly and lost one level down. It also cannot see
 whether the emitter's list is right in the first place, only whether it and
 the bodies agree; a name missing from every signature and every body is
 invisible to both sides of the comparison.
 
 False positives come from ordinary variables that happen to share a parameter
-name — `name`, `value`, `text` and `parent` are common. Ones assigned in the
+name - `name`, `value`, `text` and `parent` are common. Ones assigned in the
 body are subtracted; ones read from a global table are not, so check what a
 row's name refers to before treating it as a gap.
 
@@ -42,9 +42,9 @@ WHAT IS LEFT, AND WHY
 
 Two, both the same line of Blizzard's own: character creation's scroll frames
 call GlueScrollFrame_OnScrollRangeChanged(self, yrange) from their OnLoad,
-where there is no yrange to pass. It is deliberate — the function opens with
+where there is no yrange to pass. It is deliberate - the function opens with
 `if ( not yrange ) then yrange = self:GetVerticalScrollRange() end`, which this
-client answers — so the nil is expected on both sides and nothing is missing.
+client answers - so the nil is expected on both sides and nothing is missing.
 The ceiling is there for the third, which will not be.
 """
 import re
@@ -111,7 +111,7 @@ def main():
             # Its own locals, and the loop variables that are locals too.
             # `local min;` declares one as surely as `local min = 0` does,
             # and stopping only at `=` or a newline missed the semicolon
-            # spelling — which is how UIPanelScrollFrameTemplate, the busiest
+            # spelling - which is how UIPanelScrollFrameTemplate, the busiest
             # scroll template in the interface, read as broken.
             local = set(re.findall(r"\blocal\s+([\w,\s]+?)\s*[=;\n]", body))
             declared = {n.strip() for group in local for n in group.split(",")}
@@ -120,7 +120,7 @@ def main():
             declared = {n.strip() for entry in declared for n in entry.split(",")}
 
             # Fields and string contents first. `NORMAL_FONT_COLOR.r` is not
-            # a use of `r`, and neither is "text" — and between them those two
+            # a use of `r`, and neither is "text" - and between them those two
             # were nine of every ten findings in the first run, which is the
             # difference between a report worth reading and a list.
             # Comments, strings and fields first, in that order.

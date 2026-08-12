@@ -285,7 +285,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 errors.push_back(ctx + ": name is empty");
             if (e.spellId == 0)
                 errors.push_back(ctx +
-                    ": spellId is 0 — missing WSPL cross-ref");
+                    ": spellId is 0 - missing WSPL cross-ref");
             if (e.reagentKind > wowee::pipeline::WoweeSpellReagent::Tradeable) {
                 errors.push_back(ctx + ": reagentKind " +
                     std::to_string(e.reagentKind) + " not in 0..4");
@@ -299,12 +299,12 @@ int handleValidate(int& i, int argc, char** argv) {
                     warnings.push_back(ctx +
                         ": slot " + std::to_string(s) +
                         " has itemId=" + std::to_string(it) +
-                        " but count=0 — reagent will not be consumed");
+                        " but count=0 - reagent will not be consumed");
                 } else if (it == 0 && cnt != 0) {
                     warnings.push_back(ctx +
                         ": slot " + std::to_string(s) +
                         " has count=" + std::to_string(cnt) +
-                        " but itemId=0 — count is unreachable");
+                        " but itemId=0 - count is unreachable");
                 }
                 if (it != 0) ++usedSlots;
             }
@@ -324,10 +324,10 @@ int handleValidate(int& i, int argc, char** argv) {
                 usedSlots == 0) {
                 warnings.push_back(ctx +
                     ": FocusedItem kind with no reagent slots set " +
-                    "— focused-item gating has nothing to gate");
+                    "- focused-item gating has nothing to gate");
             }
             if (!idsSeen.add(e.reagentSetId)) errors.push_back(ctx + ": duplicate reagentSetId");
-            // Two reagent sets for the same spell collide —
+            // Two reagent sets for the same spell collide -
             // engine would honor only the first.
             if (e.spellId != 0) {
                 for (uint32_t prevSpell : spellsSeen) {
@@ -335,7 +335,7 @@ int handleValidate(int& i, int argc, char** argv) {
                         warnings.push_back(ctx +
                             ": duplicate spellId " +
                             std::to_string(e.spellId) +
-                            " — only first reagent set will be used");
+                            " - only first reagent set will be used");
                         break;
                     }
                 }

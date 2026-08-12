@@ -89,19 +89,19 @@ WoweeAnimation WoweeAnimationLoader::makeStarter(const std::string& catalogName)
     add(0,  "Stand",          0,
         WoweeAnimation::kFlagLooped |
         WoweeAnimation::kFlagBlendableCycle, 2000,
-        "Idle stance — looping default.");
+        "Idle stance - looping default.");
     add(4,  "Walk",           0,    // fall back to Stand
         WoweeAnimation::kFlagLooped |
         WoweeAnimation::kFlagMovementSync, 1000,
-        "Slow walk cycle — synced to movement speed.");
+        "Slow walk cycle - synced to movement speed.");
     add(5,  "Run",            4,    // fall back to Walk
         WoweeAnimation::kFlagLooped |
         WoweeAnimation::kFlagMovementSync, 800,
-        "Run cycle — synced to movement speed.");
+        "Run cycle - synced to movement speed.");
     add(1,  "Death",          0,
         WoweeAnimation::kFlagOneShot |
         WoweeAnimation::kFlagPreserveAtEnd, 2500,
-        "Death animation — pose preserved at end.");
+        "Death animation - pose preserved at end.");
     add(17, "AttackUnarmed",  0,
         WoweeAnimation::kFlagOneShot |
         WoweeAnimation::kFlagInterruptable, 1500,
@@ -129,7 +129,7 @@ WoweeAnimation WoweeAnimationLoader::makeCombat(const std::string& catalogName) 
         "1H melee swing.");
     add(18, "Attack2H",       17,    // fall back to Attack1H
         WoweeAnimation::kWeapon2HMelee, 2000,
-        "2H melee swing — slower wind-up.");
+        "2H melee swing - slower wind-up.");
     add(19, "AttackDualWield", 17,
         WoweeAnimation::kWeaponDualWield, 1200,
         "Dual-wield alternating swings.");
@@ -148,7 +148,7 @@ WoweeAnimation WoweeAnimationLoader::makeCombat(const std::string& catalogName) 
         "Defensive weapon parry.");
     add(54, "ChannelCast",    0,
         WoweeAnimation::kWeaponAny, 3000,
-        "Channeled spell cast — looping arms-out.");
+        "Channeled spell cast - looping arms-out.");
     return c;
 }
 
@@ -179,7 +179,7 @@ WoweeAnimation WoweeAnimationLoader::makeMovement(const std::string& catalogName
     add(7,   "Sprint",       5,
         WoweeAnimation::Default,
         WoweeAnimation::kFlagLooped, 600,
-        "Sprint — boosted run.");
+        "Sprint - boosted run.");
     add(8,   "Swim",         4,
         WoweeAnimation::Swimming,
         WoweeAnimation::kFlagLooped |

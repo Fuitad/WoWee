@@ -1,4 +1,4 @@
-// lua_unit_api.cpp — Unit query, stats, party/raid, and player state Lua API bindings.
+// lua_unit_api.cpp - Unit query, stats, party/raid, and player state Lua API bindings.
 // Extracted from lua_engine.cpp as part of §5.1 (Tame LuaEngine).
 #include "game/bg_score_defs.hpp"
 #include "addons/lua_api_helpers.hpp"
@@ -67,7 +67,7 @@ static int lua_UnitHealthMax(lua_State* L) {
     return 1;
 }
 
-/// UnitPower(unit, powerType) — the second argument names *which* bar.
+/// UnitPower(unit, powerType) - the second argument names *which* bar.
 ///
 /// Absent, it means the one the unit is using, which is what the main power
 /// bar wants. Given, it names one of the seven, and alternatepowerbar.lua is
@@ -76,7 +76,7 @@ static int lua_UnitHealthMax(lua_State* L) {
 /// alternate by index. Ignoring the argument answered with the current power,
 /// so the mana bar shown beside a cat's energy bar was that same energy.
 ///
-/// The seven are all tracked — Entity keeps powers[7] and maxPowers[7] — so
+/// The seven are all tracked - Entity keeps powers[7] and maxPowers[7] - so
 /// this is a matter of reading the one asked for.
 static int lua_UnitPower(lua_State* L) {
     const char* uid = luaL_optstring(L, 1, "player");
@@ -99,7 +99,7 @@ static int lua_UnitPower(lua_State* L) {
     return 1;
 }
 
-/// UnitPowerMax(unit, powerType) — the same, and the one that decides whether
+/// UnitPowerMax(unit, powerType) - the same, and the one that decides whether
 /// the alternate bar is drawn at all: alternatepowerbar tests this against zero
 /// before showing itself.
 static int lua_UnitPowerMax(lua_State* L) {
@@ -143,8 +143,8 @@ static int lua_UnitExists(lua_State* L) {
     // A game object is not a unit, and saying otherwise here does not stop at
     // the name. This client targets objects because its right-click path reads
     // the selection back, and its own target frame drew one greyed out and
-    // asked nothing further. FrameXML asks a great deal further — dead, level,
-    // classification, reaction — and every one of those reads the zero behind
+    // asked nothing further. FrameXML asks a great deal further - dead, level,
+    // classification, reaction - and every one of those reads the zero behind
     // an object that has no such field, so a targeted mailbox came up dead, at
     // skull level, with an attackable portrait. Retail never targets one at
     // all; the selection stays for the interaction path, and the interface is
@@ -210,8 +210,8 @@ static int lua_UnitClass(lua_State* L) {
         // answers for a unit it cannot see and what every caller is written
         // against: `local _, class = UnitClass(self.unit); if ( class ) then`.
         //
-        // "UNKNOWN" passes that guard and then indexes nothing —
-        // CLASS_ICON_TCOORDS has no such key — so the line after it unpacked a
+        // "UNKNOWN" passes that guard and then indexes nothing -
+        // CLASS_ICON_TCOORDS has no such key - so the line after it unpacked a
         // nil. ArenaEnemyFrame_OnLoad does exactly this, which took the whole
         // of Blizzard_ArenaUI down at load. A binding that answers a constant
         // where the real one answers nothing defeats every guard written for
@@ -237,7 +237,7 @@ static int lua_UnitClass(lua_State* L) {
     return 0;
 }
 
-// UnitIsGhost(unit) — true if unit is in ghost form
+// UnitIsGhost(unit) - true if unit is in ghost form
 static int lua_UnitIsGhost(lua_State* L) {
     const char* uid = luaL_optstring(L, 1, "player");
     auto* gh = getGameHandler(L);
@@ -247,14 +247,14 @@ static int lua_UnitIsGhost(lua_State* L) {
     if (uidStr == "player") {
         lua_pushboolean(L, gh->isPlayerGhost());
     } else {
-        // Check UNIT_FIELD_FLAGS for UNIT_FLAG_GHOST (0x00000100) — best approximation
+        // Check UNIT_FIELD_FLAGS for UNIT_FLAG_GHOST (0x00000100) - best approximation
         uint64_t guid = resolveUnitGuid(gh, uidStr);
         bool ghost = false;
         if (guid != 0) {
             auto entity = gh->getEntityManager().getEntity(guid);
             if (entity) {
                 // Ghost is PLAYER_FLAGS bit 0x10, NOT UNIT_FIELD_FLAGS bit 0x100
-                // (which is UNIT_FLAG_IMMUNE_TO_PC — would flag immune NPCs as ghosts).
+                // (which is UNIT_FLAG_IMMUNE_TO_PC - would flag immune NPCs as ghosts).
                 uint32_t pf = entity->getField(game::fieldIndex(game::UF::PLAYER_FLAGS));
                 ghost = (pf & 0x00000010) != 0;
             }
@@ -291,11 +291,11 @@ static int lua_UnitIsAFK(lua_State* L) {
         auto entity = gh->getEntityManager().getEntity(guid);
         if (entity) {
             // AFK is PLAYER_FLAGS bit 0x01, NOT UNIT_FIELD_FLAGS (where 0x01
-            // is UNIT_FLAG_SERVER_CONTROLLED — completely unrelated).
+            // is UNIT_FLAG_SERVER_CONTROLLED - completely unrelated).
             uint32_t playerFlags = entity->getField(game::fieldIndex(game::UF::PLAYER_FLAGS));
             // 1 or nil, the way WoW answers a Unit predicate. bnet.lua tests
             // `UnitIsAFK("player") == 1`, which a boolean fails silently, and
-            // the two chat sites test it for truth — 1 and nil satisfy both,
+            // the two chat sites test it for truth - 1 and nil satisfy both,
             // where true/false and 1/0 each break one of them.
             if (playerFlags & 0x01) lua_pushnumber(L, 1); else lua_pushnil(L);
             return 1;
@@ -326,7 +326,7 @@ static int lua_UnitIsDND(lua_State* L) {
     return 1;
 }
 
-// UnitPlayerControlled(unit) — true for players and player-controlled pets
+// UnitPlayerControlled(unit) - true for players and player-controlled pets
 static int lua_UnitPlayerControlled(lua_State* L) {
     const char* uid = luaL_optstring(L, 1, "player");
     auto* gh = getGameHandler(L);
@@ -347,7 +347,7 @@ static int lua_UnitPlayerControlled(lua_State* L) {
     return 1;
 }
 
-// UnitIsTapped(unit) — true if mob is tapped (tagged by any player)
+// UnitIsTapped(unit) - true if mob is tapped (tagged by any player)
 static int lua_UnitIsTapped(lua_State* L) {
     const char* uid = luaL_optstring(L, 1, "target");
     auto* unit = resolveUnit(L, uid);
@@ -356,7 +356,7 @@ static int lua_UnitIsTapped(lua_State* L) {
     return 1;
 }
 
-// UnitIsTappedByPlayer(unit) — true if tapped by the local player (can loot)
+// UnitIsTappedByPlayer(unit) - true if tapped by the local player (can loot)
 static int lua_UnitIsTappedByPlayer(lua_State* L) {
     const char* uid = luaL_optstring(L, 1, "target");
     auto* unit = resolveUnit(L, uid);
@@ -370,7 +370,7 @@ static int lua_UnitIsTappedByPlayer(lua_State* L) {
     return 1;
 }
 
-// UnitIsTappedByAllThreatList(unit) — true if shared-tag mob
+// UnitIsTappedByAllThreatList(unit) - true if shared-tag mob
 static int lua_UnitIsTappedByAllThreatList(lua_State* L) {
     const char* uid = luaL_optstring(L, 1, "target");
     auto* unit = resolveUnit(L, uid);
@@ -385,7 +385,7 @@ namespace {
 /// threat, and the leader's.
 ///
 /// One place, because UnitThreatSituation and UnitDetailedThreatSituation must
-/// agree — the indicator's colour comes from the first and its number from the
+/// agree - the indicator's colour comes from the first and its number from the
 /// second, and two copies of the rule would eventually disagree about which
 /// unit is tanking while the number beside it said otherwise.
 ///
@@ -442,7 +442,7 @@ static int lua_UnitThreatSituation(lua_State* L) {
     }
     // The mob's own threat list first, which is what the server actually sent.
     // This used to go straight to the guess below because the list was built
-    // from a misread packet and was never worth consulting — SMSG_THREAT_UPDATE
+    // from a misread packet and was never worth consulting - SMSG_THREAT_UPDATE
     // was read as though it carried the second guid that only
     // SMSG_HIGHEST_THREAT_UPDATE has.
     ThreatStanding standing;
@@ -537,7 +537,7 @@ static int lua_UnitDetailedThreatSituation(lua_State* L) {
     lua_pushnumber(L, status);
     lua_pushnumber(L, isTanking ? 100.0 : 0.0); // threatPct
     lua_pushnumber(L, isTanking ? 100.0 : 0.0); // rawThreatPct
-    lua_pushnumber(L, 0); // threatValue — unknown without the list
+    lua_pushnumber(L, 0); // threatValue - unknown without the list
     return 5;
 }
 
@@ -593,7 +593,7 @@ static int lua_CheckInteractDistance(lua_State* L) {
 // UnitInRange(unit) → inRange, checkedOk
 //
 // The raid frames dim a member who has gone too far to help. Forty yards is
-// what WoW means by it — the range most party-useful spells share — and the
+// what WoW means by it - the range most party-useful spells share - and the
 // second return says whether the question could be answered at all: a member
 // on another part of the map has no entity here, and dimming them for being
 // out of range would be a guess dressed as a measurement.
@@ -644,7 +644,7 @@ static int lua_UnitIsVisible(lua_State* L) {
 ///     local isTank, isHealer, isDamage = UnitGroupRolesAssigned(unit)
 ///     if ( isTank ) then ... elseif ( isHealer ) then ...
 ///
-/// A single string filled the first of those and left the other two nil — and
+/// A single string filled the first of those and left the other two nil - and
 /// every string is truthy in Lua, "NONE" included, so the first branch always
 /// won. The player frame and every party member frame showed the tank icon
 /// regardless of role, including for a player with no role and no party.
@@ -708,7 +708,7 @@ static int lua_UnitCanAttack(lua_State* L) {
 static int lua_UnitCanCooperate(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (!gh) { return luaReturnFalse(L); }
-    (void)luaL_checkstring(L, 1); // unit1 (unused — cooperation is based on unit2's hostility)
+    (void)luaL_checkstring(L, 1); // unit1 (unused - cooperation is based on unit2's hostility)
     const char* uid2 = luaL_checkstring(L, 2);
     auto* unit2 = resolveUnit(L, uid2);
     if (!unit2) { return luaReturnFalse(L); }
@@ -800,7 +800,7 @@ static int lua_UnitStat(lua_State* L) {
     }
     if (val < 0) val = 0;
     // We only have the effective value from the server; report base=effective, no buffs
-    lua_pushnumber(L, val); // base (approximate — server only sends effective)
+    lua_pushnumber(L, val); // base (approximate - server only sends effective)
     lua_pushnumber(L, val); // effective
     lua_pushnumber(L, 0);   // positive buff
     lua_pushnumber(L, 0);   // negative buff
@@ -921,7 +921,7 @@ static int lua_IsInRaid(lua_State* L) {
     return 1;
 }
 
-// PlaySound(soundId) — play a WoW UI sound by ID or name
+// PlaySound(soundId) - play a WoW UI sound by ID or name
 
 static int lua_UnitRace(lua_State* L) {
     auto* gh = getGameHandler(L);
@@ -989,8 +989,8 @@ static int lua_UnitGUID(lua_State* L) {
 /// UnitPVPName(unit) → the name with the player's title around it, or just
 /// the name when there is no title.
 ///
-/// The comment here used to say titles were not tracked. They are — the known
-/// bits and the chosen one both come off the player — so the character sheet
+/// The comment here used to say titles were not tracked. They are - the known
+/// bits and the chosen one both come off the player - so the character sheet
 /// showed a bare name for someone wearing a title.
 ///
 /// Only for the player: a title is a bit index on the unit's own fields and
@@ -1032,12 +1032,12 @@ static int lua_UnitHasVehicleUI(lua_State* L) {
     return luaReturnFalse(L);
 }
 /// Whether that unit is riding a vehicle. Only the player's own state is
-/// known — no per-unit vehicle field is parsed — so everyone else answers
+/// known - no per-unit vehicle field is parsed - so everyone else answers
 /// false, which is what this answered for the player too.
 ///
 /// UnitHasVehicleUI beside it stays false deliberately. Turning it on hands
-/// the action bar to VehicleMenuBar, whose own readers — GetVehicleUIIndicator,
-/// UnitVehicleSeatInfo, CanEjectPassengerFromSeat — are not bound, so the bar
+/// the action bar to VehicleMenuBar, whose own readers - GetVehicleUIIndicator,
+/// UnitVehicleSeatInfo, CanEjectPassengerFromSeat - are not bound, so the bar
 /// would raise where it now simply does not appear.
 static int lua_UnitInVehicle(lua_State* L) {
     auto* gh = getGameHandler(L);
@@ -1050,7 +1050,7 @@ static int lua_UnitControllingVehicle(lua_State* L) { return luaReturnFalse(L); 
 /// The guid held in a two-word unit field, or zero.
 ///
 /// Absent on an expansion whose table does not name the field, which is every
-/// one but WotLK for these two — an index that is not known is not guessed at.
+/// one but WotLK for these two - an index that is not known is not guessed at.
 static uint64_t guidField(game::GameHandler* gh, uint64_t unitGuid, game::UF field) {
     if (!gh) return 0;
     const uint16_t idx = game::fieldIndex(field);
@@ -1074,7 +1074,7 @@ static int lua_UnitIsPossessed(lua_State* L) {
     return 1;
 }
 
-/// Whether something else is driving this unit — the other end of the same
+/// Whether something else is driving this unit - the other end of the same
 /// relationship, in UNIT_FIELD_CHARMEDBY.
 ///
 /// Bound rather than left out because ToggleGameMenu reads it, and it used to
@@ -1130,8 +1130,8 @@ static int lua_UnitPlayerOrPetInRaid(lua_State* L) {
 /// the total spent. The micro button flashes on the first.
 // UnitCharacterPoints(unit) → talent points, primary professions still learnable
 //
-// Two values. The trainer's confirmation reads the second bare —
-// `if ( cp2 < MAX_LEARNABLE_PROFESSIONS )` — to decide whether it is offering a
+// Two values. The trainer's confirmation reads the second bare -
+// `if ( cp2 < MAX_LEARNABLE_PROFESSIONS )` - to decide whether it is offering a
 // first profession or a second, so returning one value made confirming a
 // profession an error rather than a question.
 //
@@ -1334,7 +1334,7 @@ static int lua_GetNumBagSlots(lua_State* L) {
 /// GetMirrorTimerProgress(timer) → milliseconds left on that timer.
 ///
 /// It answered a constant zero, and MirrorTimerFrame_OnUpdate divides it by a
-/// thousand and calls SetValue with the result on every frame — so the breath
+/// thousand and calls SetValue with the result on every frame - so the breath
 /// bar was reset to empty as fast as it could be drawn. An empty frame with a
 /// label was the whole of what it could ever show.
 ///
@@ -1358,7 +1358,7 @@ static int lua_GetMirrorTimerProgress(lua_State* L) {
 /// Confirmed called rather than guessed at: it turned up in the missing-API
 /// report from a real session, read by the experience bar's tooltip. Rest
 /// accrual is not modelled, and nil is what WoW itself answers when there is
-/// no timer to report — which is the branch the tooltip already handles.
+/// no timer to report - which is the branch the tooltip already handles.
 static int lua_GetTimeToWellRested(lua_State* L) {
     return luaReturnNil(L);
 }
@@ -1367,7 +1367,7 @@ static int lua_GetTimeToWellRested(lua_State* L) {
 // ── Character sheet ────────────────────────────────────────────────────────
 //
 // PaperDollFrame reads about forty functions and does arithmetic with nearly
-// all of them, so a missing one is not a blank field — it is "attempt to
+// all of them, so a missing one is not a blank field - it is "attempt to
 // perform arithmetic on a nil value" and the rest of the panel never draws.
 // The server sends most of what these want; where it does not, the honest
 // answer is a zero of the right shape rather than nothing.
@@ -1405,7 +1405,7 @@ static int lua_UnitRangedAttackPower(lua_State* L) {
     return 3;
 }
 
-/// UnitDefense(unit) → base, modifier. Base defense skill is five per level —
+/// UnitDefense(unit) → base, modifier. Base defense skill is five per level -
 /// the cap a character sits at in practice, which is all the server lets us
 /// infer since it does not send the trained skill. The modifier is the defense
 /// skill granted by defense rating: AzerothCore takes int32(GetRatingBonusValue(
@@ -1439,7 +1439,7 @@ static int lua_UnitAttackSpeed(lua_State* L) {
     toLowerInPlace(u);
     // The comment above used to say nothing tracked weapon speed. The equipped
     // item carries delayMs and always has, so both hands answer from the
-    // weapon rather than from a flat two seconds — which every damage-per-
+    // weapon rather than from a flat two seconds - which every damage-per-
     // second figure on the sheet is divided by.
     double mainSpeed = 2.0;      // unarmed, which is what WoW uses bare-handed
     double offSpeed = 0.0;
@@ -1464,7 +1464,7 @@ static int lua_UnitAttackSpeed(lua_State* L) {
 /// The comment here used to say weapon damage was not tracked, so it reported
 /// the attack-power contribution alone against a two-second swing. The
 /// equipped weapon carries its damage range and its speed, so the figure is
-/// the weapon's own damage plus what attack power adds over one swing —
+/// the weapon's own damage plus what attack power adds over one swing -
 /// attack power divided by fourteen is damage per second, times the speed.
 static int lua_UnitDamage(lua_State* L) {
     auto* gh = getGameHandler(L);
@@ -1552,7 +1552,7 @@ static int lua_UnitAttackBothHands(lua_State* L) {
 /// paperdoll multiplies by five to show mana-per-5-seconds. The server sends
 /// both figures already computed (UNIT_FIELD_POWER_REGEN_FLAT_MODIFIER and its
 /// interrupted twin), so this reads them rather than modelling the spirit and
-/// intellect formula — it was a flat zero, so every caster's mana regen read 0.
+/// intellect formula - it was a flat zero, so every caster's mana regen read 0.
 static int lua_GetManaRegen(lua_State* L) {
     auto* gh = getGameHandler(L);
     lua_pushnumber(L, gh ? gh->getManaRegen() : 0.0);
@@ -1561,8 +1561,8 @@ static int lua_GetManaRegen(lua_State* L) {
 }
 
 /// The several figures the sheet works out from a rating or a stat. None of
-/// the conversion formulae are modelled — they are level-dependent tables the
-/// server does not send — and the percentages that matter are reported
+/// the conversion formulae are modelled - they are level-dependent tables the
+/// server does not send - and the percentages that matter are reported
 /// directly by GetCritChance, GetDodgeChance and their kind, which do come
 /// from the server. Zero here loses a tooltip breakdown, not a number anyone
 /// plays by.
@@ -1603,7 +1603,7 @@ static int lua_GetCombatRatingBonus(lua_State* L) {
 // The server stores armour penetration as a rating in the combat-rating field
 // (Player::UpdateArmorPenetration writes PLAYER_FIELD_COMBAT_RATING_1 +
 // CR_ARMOR_PENETRATION), and the paperdoll shows the rating's converted percent
-// beside it — so this is the CR_ARMOR_PENETRATION rating bonus, index 24 in the
+// beside it - so this is the CR_ARMOR_PENETRATION rating bonus, index 24 in the
 // 0-based internal scheme. Takes no unit; the flyout only asks about the player.
 static int lua_GetArmorPenetration(lua_State* L) {
     auto* gh = getGameHandler(L);
@@ -1612,7 +1612,7 @@ static int lua_GetArmorPenetration(lua_State* L) {
     return 1;
 }
 
-// Health / mana regenerated per second from Spirit — the pair the Spirit stat
+// Health / mana regenerated per second from Spirit - the pair the Spirit stat
 // flyout shows. Were flat zeros. Only the player's Spirit and class are tracked,
 // so any other unit answers zero rather than the player's value under its name.
 static int lua_GetUnitHealthRegenRateFromSpirit(lua_State* L) {
@@ -1631,7 +1631,7 @@ static int lua_GetUnitManaRegenRateFromSpirit(lua_State* L) {
 }
 
 /// GetUnitMaxHealthModifier(unit) → the multiplier on maximum health. One,
-/// because nothing here modifies it — and one rather than zero because the
+/// because nothing here modifies it - and one rather than zero because the
 /// sheet multiplies by it.
 static int lua_GetUnitMaxHealthModifier(lua_State* L) {
     lua_pushnumber(L, 1.0);
@@ -1660,7 +1660,7 @@ static int lua_GetInventoryItemCooldown(lua_State* L) {
     return 3;
 }
 
-// SetPortraitTexture(texture, unit) — put a unit's face in a texture.
+// SetPortraitTexture(texture, unit) - put a unit's face in a texture.
 //
 // The player's and the target's, each rendered to an offscreen image of its
 // own. Any other unit leaves the texture as it was and clears every claim on
@@ -1701,13 +1701,13 @@ static int lua_SetPortraitTexture(lua_State* L) {
 //
 //     BarberShopFrameSelector1Category:SetText(_G["HAIR_"..GetHairCustomization().."_STYLE"])
 //
-// Concatenating nil raises, and this runs from BarberShop_OnLoad — which the
+// Concatenating nil raises, and this runs from BarberShop_OnLoad - which the
 // client reaches the moment a player sits down, because BARBER_SHOP_OPEN is
 // fired and the interface answers it by loading the barber addon. So sitting
 // in the chair took the addon down as it loaded.
 //
 // The hair category is NORMAL for everyone but tauren, who have horns where
-// other races have hair — the barber offers them "Horn Style" and "Horn Color",
+// other races have hair - the barber offers them "Horn Style" and "Horn Color",
 // and HAIR_HORNS_STYLE and HAIR_HORNS_COLOR are both there in globalstrings
 // beside the NORMAL pair. It is the only race that differs, which is why the
 // facial-hair function below has a switch and this has an if.
@@ -1719,7 +1719,7 @@ static int lua_GetHairCustomization(lua_State* L) {
     return 1;
 }
 
-/// The facial category, which genuinely differs by race — a troll's is tusks
+/// The facial category, which genuinely differs by race - a troll's is tusks
 /// and a night elf's is markings, and calling either "hair" reads as a mistake
 /// rather than as a shortcut. These are the game's own categories; anything
 /// unlisted falls back to NORMAL, which is what a beard is.
@@ -1740,7 +1740,7 @@ static int lua_GetFacialHairCustomization(lua_State* L) {
     return 1;
 }
 
-/// CanAlterSkin() — whether the barber offers a fourth selector for skin.
+/// CanAlterSkin() - whether the barber offers a fourth selector for skin.
 ///
 /// False, and not merely for want of data: answering yes would put a selector
 /// on screen that this client cannot fill, and the barber tests every selector
@@ -1760,7 +1760,7 @@ static int lua_CanAlterSkin(lua_State* L) {
 /// GetBarberShopStyleInfo(selector) → name, category, cost, isCurrent
 ///
 /// blizzard_barbershopui.lua reads the first and the fourth, and reads the
-/// fourth through select(4, ...) — so all four have to be there for the index
+/// fourth through select(4, ...) - so all four have to be there for the index
 /// to land on the right one.
 static int lua_GetBarberShopStyleInfo(lua_State* L) {
     const int selector = static_cast<int>(luaL_optinteger(L, 1, 0));
@@ -1778,7 +1778,7 @@ static int lua_GetBarberShopStyleInfo(lua_State* L) {
     return 4;
 }
 
-/// SetNextBarberShopStyle(selector, direction) — the arrows beside a selector.
+/// SetNextBarberShopStyle(selector, direction) - the arrows beside a selector.
 ///
 /// The forward arrow passes 1 and the back arrow passes nothing at all
 /// (blizzard_barbershopui.xml:31 and :56), so an absent argument means back
@@ -1800,13 +1800,13 @@ static int lua_GetBarberShopTotalCost(lua_State* L) {
     return 1;
 }
 
-/// BarberShopReset() — put every selector back to what the character wears.
+/// BarberShopReset() - put every selector back to what the character wears.
 static int lua_BarberShopReset(lua_State* L) {
     if (auto* svc = getLuaServices(L); svc && svc->barberReset) svc->barberReset();
     return 0;
 }
 
-/// CancelBarberShop() — leave the chair without buying anything.
+/// CancelBarberShop() - leave the chair without buying anything.
 static int lua_CancelBarberShop(lua_State* L) {
     if (auto* gh = getGameHandler(L)) gh->closeBarberShop();
     return 0;
@@ -1823,7 +1823,7 @@ static int lua_GetMaxCombatRatingBonus(lua_State* L) {
 // GetRestState() → 1 = normal, 2 = rested
 /// GetRestState() → stateID, stateName, xpMultiplier.
 ///
-/// One is rested and two is normal, which is the way round WoW numbers them —
+/// One is rested and two is normal, which is the way round WoW numbers them -
 /// this answered the opposite. MainMenuBar multiplies by the third return the
 /// line after reading it, so returning only the id was arithmetic on nil every
 /// time the cursor crossed the experience bar.
@@ -1865,7 +1865,7 @@ static int lua_UnitAffectingCombat(lua_State* L) {
 
 
 
-// HasFullControl() — whether the player is in command of their own character
+// HasFullControl() - whether the player is in command of their own character
 //
 // Read as `not HasFullControl()` to grey out the right-click menu, so an absent
 // answer disabled duelling, trading and inviting permanently. Nothing here
@@ -1874,7 +1874,7 @@ static int lua_UnitAffectingCombat(lua_State* L) {
 // GetPetSpellBonusDamage() → the spell power a pet inherits
 //
 // The pet tab formats this with %d before testing it, and %d against nil raises
-// on the spot — on a tab of the character frame, which is drawn by default.
+// on the spot - on a tab of the character frame, which is drawn by default.
 // Nothing here works out what a pet inherits, and zero is the honest figure
 // rather than a guess at a scaling rule.
 static int lua_GetPetSpellBonusDamage(lua_State* L) {
@@ -1892,21 +1892,21 @@ static int lua_HasFullControl(lua_State* L) {
 // The death popup already appears; its buttons had nothing behind them, so a
 // player could be told they had died and be unable to do anything about it.
 
-// RepopMe() — release the spirit and run back
+// RepopMe() - release the spirit and run back
 
-// RetrieveCorpse() — resurrect where the body is
+// RetrieveCorpse() - resurrect where the body is
 static int lua_RetrieveCorpse(lua_State* L) {
     if (auto* gh = getGameHandler(L)) gh->reclaimCorpse();
     return 0;
 }
 
-// Dismount() — what /dismount does
+// Dismount() - what /dismount does
 static int lua_Dismount(lua_State* L) {
     if (auto* gh = getGameHandler(L)) gh->dismount();
     return 0;
 }
 
-// StartAttack([unit]) / StopAttack() — swing at what is targeted
+// StartAttack([unit]) / StopAttack() - swing at what is targeted
 //
 // The interface passes a unit only to attack something other than the current
 // target, which this client cannot do without changing target first, so the
@@ -2044,7 +2044,7 @@ static int lua_GetReadyCheckStatus(lua_State* L) {
     return 1;
 }
 
-// RegisterUnitWatch / UnregisterUnitWatch — secure unit frame stubs
+// RegisterUnitWatch / UnregisterUnitWatch - secure unit frame stubs
 static int lua_RegisterUnitWatch(lua_State* L) { (void)L; return 0; }
 static int lua_UnregisterUnitWatch(lua_State* L) { (void)L; return 0; }
 
@@ -2062,16 +2062,16 @@ static int lua_UnitIsUnit(lua_State* L) {
     return 1;
 }
 
-/// UnitIsFriend(unit1, unit2) — is unit2 friendly to unit1.
+/// UnitIsFriend(unit1, unit2) - is unit2 friendly to unit1.
 ///
 /// Two units, and the answer is about the *second*. This read only the first,
-/// which every caller in the interface passes as "player" — and the player is
+/// which every caller in the interface passes as "player" - and the player is
 /// never hostile, so it answered true for whatever was being asked about.
 /// targetframe.lua colours the name from it, picks the debuff layout from it
 /// and filters with it, so every target read as a friend.
 ///
 /// Hostility is modelled relative to the player, so the unit that carries the
-/// answer is whichever of the pair is *not* the player — and the interface
+/// answer is whichever of the pair is *not* the player - and the interface
 /// passes both orders: UnitIsFriend("player", self.unit) beside
 /// UnitIsEnemy(self.unit, "player"). Keying on position would be right for one
 /// of them and wrong for the other.
@@ -2098,7 +2098,7 @@ static int lua_UnitIsFriend(lua_State* L) {
     return 1;
 }
 
-/// UnitIsEnemy(unit1, unit2) — is unit2 hostile to unit1. The same shape as
+/// UnitIsEnemy(unit1, unit2) - is unit2 hostile to unit1. The same shape as
 /// UnitIsFriend above, and it was wrong the same way: asked about the player it
 /// answered false for every enemy.
 static int lua_UnitIsEnemy(lua_State* L) {
@@ -2271,7 +2271,7 @@ filteredBgScores(const game::BgScoreboardData& sb) {
     const int want = battlefieldScoreFaction();
     for (const auto& p : sb.players) {
         // A row with no team on the wire cannot be filtered out of a faction
-        // tab — a battleground sends none, so every row shows on both tabs
+        // tab - a battleground sends none, so every row shows on both tabs
         // rather than all of them landing on Horde because zero is Horde.
         if (want < 0 || !p.hasTeam || static_cast<int>(p.team) == want)
             rows.push_back(&p);
@@ -2281,13 +2281,13 @@ filteredBgScores(const game::BgScoreboardData& sb) {
     if (column.empty()) return rows;
 
     // Only the columns this client has the numbers for. "class" is not one of
-    // them — the scoreboard packet carries no class.
+    // them - the scoreboard packet carries no class.
     //
     // Damage and healing were excluded here for the same reason, back when the
     // parser skipped their eight bytes and every row read zero; sorting by
     // them would have rearranged nothing while looking like it worked. The
     // parser reads them now and GetBattlefieldScore hands them to the frame,
-    // so the two columns show real numbers — and were the only two whose
+    // so the two columns show real numbers - and were the only two whose
     // header did nothing when clicked.
     auto key = [&column](const game::BgPlayerScore* p) -> double {
         if (column == "kills")   return p->killingBlows;
@@ -2356,7 +2356,7 @@ void registerUnitLuaAPI(lua_State* L) {
                 {"UnitLevel",     lua_UnitLevel},
                 {"UnitExists",    lua_UnitExists},
                 {"UnitIsDead",    lua_UnitIsDead},
-                // UnitUsingVehicle(unit) — in a vehicle, or moving between its
+                // UnitUsingVehicle(unit) - in a vehicle, or moving between its
                 // seats. This client models the vehicle a player is in and not
                 // its seats, so the second half never happens and the first is
                 // exactly isInVehicle.
@@ -2376,7 +2376,7 @@ void registerUnitLuaAPI(lua_State* L) {
                 //
                 // Seats are not modelled: SMSG_PLAYER_VEHICLE_DATA carries the
                 // vehicle a player is in and nothing about who else is aboard.
-                // Nothing rather than an invented seat — the caller shows an
+                // Nothing rather than an invented seat - the caller shows an
                 // occupant's name from it, and a made-up one would be a name.
                 {"UnitVehicleSeatInfo", [](lua_State* L) -> int {
             for (int i = 0; i < 5; ++i) lua_pushnil(L);
@@ -2403,7 +2403,7 @@ void registerUnitLuaAPI(lua_State* L) {
                 {"UnitArmor",     [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             // Whose armour. PaperDollFrame_SetArmor is shared between the two
-            // sheets and the pet tab calls it with "Pet" — capitalised, which
+            // sheets and the pet tab calls it with "Pet" - capitalised, which
             // is why this compares lowered.
             std::string who(luaL_optstring(L, 1, "player"));
             toLowerInPlace(who);
@@ -2527,7 +2527,7 @@ void registerUnitLuaAPI(lua_State* L) {
             auto entity = gh->getEntityManager().getEntity(guid);
             if (!entity) { return luaReturnFalse(L); }
             // FFA PvP is PLAYER_FLAGS bit 0x80, NOT UNIT_FIELD_FLAGS bit 0x00080000
-            // (which is UNIT_FLAG_PACIFIED — would flag pacified mobs as FFA-PVP).
+            // (which is UNIT_FLAG_PACIFIED - would flag pacified mobs as FFA-PVP).
             uint32_t pf = entity->getField(game::fieldIndex(game::UF::PLAYER_FLAGS));
             lua_pushboolean(L, (pf & 0x00000080) ? 1 : 0);
             return 1;
@@ -2582,7 +2582,7 @@ void registerUnitLuaAPI(lua_State* L) {
             lua_pushboolean(L, (unit && unit->getHealth() == 0) ? 1 : 0);
             return 1;
         }},
-                // Whether the first unit may help the second — true between
+                // Whether the first unit may help the second - true between
                 // anything not hostile to each other.
                 {"UnitCanAssist", [](lua_State* L) -> int {
             auto* other = resolveUnit(L, luaL_optstring(L, 2, "target"));
@@ -2620,8 +2620,8 @@ void registerUnitLuaAPI(lua_State* L) {
                 // "none" for every queue, while SMSG_BATTLEFIELD_STATUS has been
                 // parsed into three slots carrying exactly this. So the PVP
                 // frame showed nothing queued however long the player had been
-                // waiting, and battlefieldframe.lua's own test —
-                // `queueStatus ~= "none"` — never passed.
+                // waiting, and battlefieldframe.lua's own test -
+                // `queueStatus ~= "none"` - never passed.
                 //
                 // The status tokens are the four the interface compares against
                 // and the ids are AzerothCore's BattlegroundStatus: 1 waiting in
@@ -2651,7 +2651,7 @@ void registerUnitLuaAPI(lua_State* L) {
                     isRated = q.isRated;
                     // The range arrives with the status itself. It used to be
                     // looked up in the available-battleground list, which only
-                    // turns up at a battlemaster — so a queue joined anywhere
+                    // turns up at a battlemaster - so a queue joined anywhere
                     // else answered a range of zero to zero for as long as it
                     // lasted. The list is still the fallback, for a queue
                     // carried over from a login where the status came first.
@@ -2670,7 +2670,7 @@ void registerUnitLuaAPI(lua_State* L) {
             // An empty queue answers a nil map name, which is what the real
             // client does and what battlefieldframe.lua's `if ( mapName )` is
             // written for. Its own path rather than a conditional push, so the
-            // seven values read in order on both — the return-order sweep reads
+            // seven values read in order on both - the return-order sweep reads
             // the sequence of pushes, and a branch in the middle of one is a
             // sequence it cannot follow.
             if (mapName.empty()) {
@@ -2686,7 +2686,7 @@ void registerUnitLuaAPI(lua_State* L) {
             lua_pushstring(L, status);
             lua_pushstring(L, mapName.c_str());
             // Both were answered as a flat zero with a comment saying the wire
-            // does not carry them. It carries both — they sit between the map
+            // does not carry them. It carries both - they sit between the map
             // type and the status, in the stretch this used to read two bytes
             // short of. The interface uses them: battlefieldframe.lua appends a
             // non-zero instance to the name, which is what makes a queue read
@@ -2696,7 +2696,7 @@ void registerUnitLuaAPI(lua_State* L) {
             lua_pushnumber(L, maxLevel);
             lua_pushnumber(L, teamSize);
             // A boolean, not a number. The real binding answers true or false
-            // and the interface asks `if ( registeredMatch )` — and zero is
+            // and the interface asks `if ( registeredMatch )` - and zero is
             // true in Lua, so answering 0 for "not rated" labelled every arena
             // queue a rated match.
             lua_pushboolean(L, isRated ? 1 : 0);
@@ -2704,19 +2704,19 @@ void registerUnitLuaAPI(lua_State* L) {
         }},
                 // The money a quest asks for, which the tracker compares
                 // against the player's before calling an objective complete.
-                // SetBattlefieldScoreFaction(faction) — show one side only.
+                // SetBattlefieldScoreFaction(faction) - show one side only.
                 //
                 // The scoreboard's tabs are a filter, not a sort: 1 is
                 // Alliance, 0 is Horde, and nil is both. It has to reach the
                 // two functions below, because the rows the frame draws are
-                // the rows they hand back — the frame does no filtering of its
+                // the rows they hand back - the frame does no filtering of its
                 // own and would otherwise show everyone under either tab.
                 {"SetBattlefieldScoreFaction", [](lua_State* L) -> int {
             if (lua_isnoneornil(L, 1)) battlefieldScoreFaction() = -1;
             else battlefieldScoreFaction() = static_cast<int>(lua_tonumber(L, 1));
             return 0;
         }},
-                // SortBattlefieldScoreData(column) — order the rows.
+                // SortBattlefieldScoreData(column) - order the rows.
                 //
                 // The same column twice reverses, which is the real client's
                 // behaviour and has to be remembered here: the interface hands
@@ -2761,8 +2761,8 @@ void registerUnitLuaAPI(lua_State* L) {
             lua_pushnumber(L, 0);                   // rank
             lua_pushstring(L, "");                  // race
             lua_pushstring(L, "");                  // class
-            // Nil, not a class. The packet carries none — AppendToPacket sends
-            // a guid and six numbers — and the scoreboard asks for exactly
+            // Nil, not a class. The packet carries none - AppendToPacket sends
+            // a guid and six numbers - and the scoreboard asks for exactly
             // this case: `if (classToken) then ... else buttonClass:Hide()`.
             // So absence is an answer it handles, and "WARRIOR" was not a
             // safer default than nil but a wrong one that looks like data: it
@@ -2779,7 +2779,7 @@ void registerUnitLuaAPI(lua_State* L) {
                 // bases assaulted in Arathi, towers defended in Alterac. The
                 // server names each one and sends a value per player, and this
                 // client has parsed both into BgPlayerScore::bgStats all along
-                // — nothing read them, and GetNumBattlefieldStats answered zero
+                // - nothing read them, and GetNumBattlefieldStats answered zero
                 // from the counting stub, so the scoreboard drew the common
                 // columns and stopped.
                 {"GetNumBattlefieldStats", [](lua_State* L) -> int {
@@ -2805,7 +2805,7 @@ void registerUnitLuaAPI(lua_State* L) {
             if (!sb || index < 1) return luaReturnNil(L);
             // The label is this client's to supply. BuildObjectivesBlock
             // sends a count and that many bare numbers, so the name this used
-            // to read out of the row was never on the wire — it was bytes of
+            // to read out of the row was never on the wire - it was bytes of
             // the value before it, read as a string.
             //
             // Which column is which follows from the map: Warsong sends flags
@@ -2842,7 +2842,7 @@ void registerUnitLuaAPI(lua_State* L) {
                 //
                 // Arena only. The frame subtracts the two ratings to show the
                 // change, so the old one is derived from the new one and the
-                // change the server sent — which makes the subtraction come out
+                // change the server sent - which makes the subtraction come out
                 // as that change whichever way round the server means it.
                 //
                 // The matchmaker rating is not parsed, and nil is the right
@@ -2861,13 +2861,13 @@ void registerUnitLuaAPI(lua_State* L) {
             lua_pushnil(L);
             return 4;
         }},
-                // ReportPlayerIsPVPAFK(name) — flag someone as not taking part.
+                // ReportPlayerIsPVPAFK(name) - flag someone as not taking part.
                 //
                 // Named rather than targeted: the scoreboard row knows who it
                 // is showing but not their guid, so the name is matched against
                 // the scoreboard this client already holds. A name that is not
                 // on it cannot be reported, which is also true in the real
-                // client — the report is only offered from a row.
+                // client - the report is only offered from a row.
                 {"ReportPlayerIsPVPAFK", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             const char* name = lua_isstring(L, 1) ? lua_tostring(L, 1) : nullptr;
@@ -2933,7 +2933,7 @@ void registerUnitLuaAPI(lua_State* L) {
                 {"GetNumRaidMembers",   lua_GetNumRaidMembers},
                 {"GetNumPartyMembers",  lua_GetNumPartyMembers},
                 // The counts before the dungeon finder inflates them. There is
-                // no dungeon finder here, so they are the same number — and
+                // no dungeon finder here, so they are the same number - and
                 // UIParent does arithmetic on them, where absent is an error
                 // rather than a zero.
                 {"GetRealNumRaidMembers",  lua_GetNumRaidMembers},
@@ -2949,7 +2949,7 @@ void registerUnitLuaAPI(lua_State* L) {
                 {"UnitHasVehicleUI",    lua_UnitHasVehicleUI},
                 // Which vehicle art a unit's frame should wear. Reached only
                 // behind UnitHasVehicleUI, which answers false here because no
-                // vehicle is modelled — so this is unreachable today and nil
+                // vehicle is modelled - so this is unreachable today and nil
                 // is the honest answer for a unit that is not in one. It is
                 // bound because leaving it out is the difference between the
                 // party frames calling nothing this client lacks and calling
@@ -3007,14 +3007,14 @@ void registerUnitLuaAPI(lua_State* L) {
                 {"BarberShopReset",            lua_BarberShopReset},
                 {"CancelBarberShop",           lua_CancelBarberShop},
                 // The Okay button, named as an OnClick attribute rather than
-                // called from a script body — which is exactly why the
+                // called from a script body - which is exactly why the
                 // readiness report called this element finished while its one
                 // committing action raised.
                 {"ApplyBarberShopStyle", [](lua_State* L) -> int {
             if (auto* svc = getLuaServices(L); svc && svc->barberApply) svc->barberApply();
             return 0;
         }},
-                // HasWandEquipped() — a wand in the ranged slot, which the
+                // HasWandEquipped() - a wand in the ranged slot, which the
                 // character sheet needs because a wand's damage is read
                 // differently from a bow's: PaperDollFrame_SetRangedDamage
                 // takes the plain average and skips the attack-power bonus a
@@ -3036,7 +3036,7 @@ void registerUnitLuaAPI(lua_State* L) {
             lua_pushboolean(L, wand);
             return 1;
         }},
-                // UnitHasRelicSlot(unit) — the four classes whose ranged slot
+                // UnitHasRelicSlot(unit) - the four classes whose ranged slot
                 // holds a relic instead of a weapon: paladin librams, death
                 // knight sigils, shaman totems and druid idols. Answering no
                 // for all of them made the paperdoll label that slot "Ranged"
@@ -3060,7 +3060,7 @@ void registerUnitLuaAPI(lua_State* L) {
             lua_pushboolean(L, active ? 1 : 0);
             return 1;
         }},
-                // IsInventoryItemLocked(slot) — that slot's item is on the
+                // IsInventoryItemLocked(slot) - that slot's item is on the
                 // cursor, so the paperdoll greys it while it is in the air.
                 // Answering no meant a picked-up item stayed drawn in the slot
                 // it had already left.
@@ -3074,7 +3074,7 @@ void registerUnitLuaAPI(lua_State* L) {
             lua_pushboolean(L, slot > 0 && cursorEquipSlot() == slot);
             return 1;
         }},
-                // GetInventoryItemBroken(unit, slot) — worn out, so the
+                // GetInventoryItemBroken(unit, slot) - worn out, so the
                 // paperdoll draws that slot's icon red. The durability is
                 // already tracked and already answered by
                 // GetInventoryItemDurability; only this was left saying no.
@@ -3088,7 +3088,7 @@ void registerUnitLuaAPI(lua_State* L) {
                                sl.item.curDurability == 0);
             return 1;
         }},
-                // CursorCanGoInSlot(slot) — whether what the cursor is holding
+                // CursorCanGoInSlot(slot) - whether what the cursor is holding
                 // could be worn in that paperdoll slot, which is what makes the
                 // slot light up while an item is being dragged. Answering no
                 // for everything meant nothing ever lit up.
@@ -3136,20 +3136,20 @@ void registerUnitLuaAPI(lua_State* L) {
         }},
                 // Zero rather than false: paperdollframe.lua asks
                 // `IsTitleKnown(i) ~= 0`, and `false ~= 0` compares two
-                // different types and is therefore true — so every title would
+                // different types and is therefore true - so every title would
                 // have counted as known. This matters live, not just in
                 // theory: GetNumTitles answers 192, so the 1..GetNumTitles
                 // loop does run and reads this on every title.
-                // IsTitleKnown(bit) — the client tracks these already, as a
+                // IsTitleKnown(bit) - the client tracks these already, as a
                 // set of bits off the player's known-titles mask. Answering a
                 // constant zero meant the paperdoll's title dropdown listed
                 // nothing however many the character had earned.
                 //
                 // A number rather than a boolean, because paperdollframe.lua
                 // asks `IsTitleKnown(i) ~= 0` and false compares unequal to
-                // zero — which is the trap that made this a zero rather than a
+                // zero - which is the trap that made this a zero rather than a
                 // false in the first place.
-                // The pet tab of the character sheet, which is handed over —
+                // The pet tab of the character sheet, which is handed over -
                 // PetPaperDollFrame_SetStats and PetExpBar_Update run whenever
                 // it is shown, so with a pet out these raised on opening it.
                 //
@@ -3160,7 +3160,7 @@ void registerUnitLuaAPI(lua_State* L) {
                 {"GetUnitPowerModifier",    [](lua_State* L) -> int {
             lua_pushnumber(L, 1.0); return 1; }},
                 {"GetPetExperience", [](lua_State* L) -> int {
-            // currXP, nextXP — off the pet unit's own fields, not the player's.
+            // currXP, nextXP - off the pet unit's own fields, not the player's.
             auto* gh = getGameHandler(L);
             lua_pushnumber(L, gh ? gh->getPetExperience() : 0);
             lua_pushnumber(L, gh ? gh->getPetNextLevelExp() : 0);
@@ -3172,7 +3172,7 @@ void registerUnitLuaAPI(lua_State* L) {
                 // relationship GetTradeSkillCooldown reads for a recipe. The
                 // comment that used to sit here said this client does not
                 // enumerate companions, which stopped being true when
-                // rebuildCompanions was written — GetCompanionInfo has listed
+                // rebuildCompanions was written - GetCompanionInfo has listed
                 // them, and CallCompanion below has summoned them, ever since.
                 //
                 // (start, duration), not (now, remaining): the cooldown frame
@@ -3203,7 +3203,7 @@ void registerUnitLuaAPI(lua_State* L) {
             lua_pushnumber(L, 1);
             return 3;
         }},
-                // Summoning a mount or a critter is casting its spell — there
+                // Summoning a mount or a critter is casting its spell - there
                 // is no separate companion message on the wire in 3.3.5.
                 {"CallCompanion", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
@@ -3242,7 +3242,7 @@ void registerUnitLuaAPI(lua_State* L) {
                 {"GetCombatRatingBonus",    lua_GetCombatRatingBonus},
                 {"GetCritChanceFromAgility", lua_GetCritChanceFromAgility},
                 {"GetSpellCritChanceFromIntellect", lua_GetSpellCritChanceFromIntellect},
-                // Three values — main hand, off hand, ranged — because the
+                // Three values - main hand, off hand, ranged - because the
                 // character sheet reads the second and concatenates it. One
                 // value left it nil, and the line that prints "expertise /
                 // off-hand expertise" raised rather than printing.
@@ -3252,7 +3252,7 @@ void registerUnitLuaAPI(lua_State* L) {
                 // `local expertise, offhandExpertise = GetExpertise()` and
                 // prints them either side of a slash when an off hand is being
                 // swung. The third was never read, and both of the first two
-                // were zero for everyone — the server sends them, in points,
+                // were zero for everyone - the server sends them, in points,
                 // and nothing here was reading the fields.
                 {"GetExpertise", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
@@ -3267,7 +3267,7 @@ void registerUnitLuaAPI(lua_State* L) {
                 // every dual-wielder's stat panel broken on the next line.
                 // A point of expertise is a quarter of a percent off the
                 // chance to be dodged or parried, which is the arithmetic the
-                // sheet's tooltip line does not do for itself — it formats
+                // sheet's tooltip line does not do for itself - it formats
                 // whatever it is given with two decimal places and a % sign.
                 {"GetExpertisePercent", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
@@ -3278,7 +3278,7 @@ void registerUnitLuaAPI(lua_State* L) {
                 {"GetArmorPenetration",     lua_GetArmorPenetration},
                 // Spell penetration and shield block value are summed from equipped-item
                 // stat mods (ITEM_MOD_SPELL_PENETRATION, the shield's block value), not
-                // any player field the server sends — the inventory does not yet total
+                // any player field the server sends - the inventory does not yet total
                 // item stat mods, so these stay a genuine zero rather than a stale stub.
                 {"GetSpellPenetration",     lua_ZeroPercent},
                 {"GetShieldBlock",          lua_ZeroPercent},

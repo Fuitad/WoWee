@@ -46,11 +46,11 @@ The app uses Python's built-in `tkinter` module. If `tkinter` is missing, instal
 
 When no extractor path is configured, the GUI searches in order:
 
-1. `build/bin/asset_extract` — CMake build with bin subdirectory
-2. `build/asset_extract` — CMake build without bin subdirectory
-3. `bin/asset_extract` — standalone binary
-4. **Windows only**: `extract_assets.ps1` — invoked via `powershell -ExecutionPolicy Bypass -File`
-5. **Linux/macOS only**: `extract_assets.sh` — invoked via `bash`
+1. `build/bin/asset_extract` - CMake build with bin subdirectory
+2. `build/asset_extract` - CMake build without bin subdirectory
+3. `bin/asset_extract` - standalone binary
+4. **Windows only**: `extract_assets.ps1` - invoked via `powershell -ExecutionPolicy Bypass -File`
+5. **Linux/macOS only**: `extract_assets.sh` - invoked via `bash`
 
 On Windows, `.exe` is appended to binary candidates automatically.
 
@@ -92,7 +92,7 @@ On Windows, `.exe` is appended to binary candidates automatically.
 | **Rebuild Override** | Merges all active packs into `Data/override/` in a background thread. UI stays responsive. |
 | **Uninstall** | Removes the pack from disk after confirmation. |
 
-Pack list selection is preserved across refreshes — you can activate a pack and immediately reorder it without re-selecting.
+Pack list selection is preserved across refreshes - you can activate a pack and immediately reorder it without re-selecting.
 
 ## Pack Format
 
@@ -132,7 +132,7 @@ File type filters: All, BLP, M2, WMO, DBC, ADT, Audio, Text.
 | **CSV** (DBC exports) | Scrollable table with column names from `dbc_layouts.json`. First 500 rows loaded, click "Load more" for the rest. |
 | **ADT** | Colored heightmap grid parsed from MCNK chunks. |
 | **Text** (XML, LUA, JSON, HTML, TOC) | Syntax-highlighted scrollable text view. |
-| **Audio** (WAV, MP3, OGG) | Metadata display — format, channels, sample rate, duration (WAV). |
+| **Audio** (WAV, MP3, OGG) | Metadata display - format, channels, sample rate, duration (WAV). |
 | **Other** | Hex dump of the first 512 bytes. |
 
 ### Wireframe Controls
@@ -185,10 +185,10 @@ The `asset_pipeline/` directory is gitignored.
 
 1. Launch: `python3 tools/asset_pipeline_gui.py`
 2. **Configuration tab**: Browse to your WoW `Data/` folder, pick expansion, click **Save Configuration**.
-3. Click **Run Extraction** — watch progress in the **Logs** tab. Cancel with **Cancel Extraction** if needed.
+3. Click **Run Extraction** - watch progress in the **Logs** tab. Cancel with **Cancel Extraction** if needed.
 4. Switch to **Texture Packs** tab. Click **Install ZIP** and pick a texture pack.
 5. Select the pack and click **Activate**.
 6. (Optional) Install more packs, activate them, and use **Move Up/Down** to set priority.
-7. Click **Rebuild Override** — the status bar shows progress, and the result appears in Logs.
-8. (Optional) Switch to **Asset Browser** to explore extracted files — preview textures, inspect models, browse DBC tables.
-9. Run wowee — it loads override textures on top of the extracted base assets.
+7. Click **Rebuild Override** - the status bar shows progress, and the result appears in Logs.
+8. (Optional) Switch to **Asset Browser** to explore extracted files - preview textures, inspect models, browse DBC tables.
+9. Run wowee - it loads override textures on top of the extracted base assets.

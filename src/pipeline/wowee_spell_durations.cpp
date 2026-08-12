@@ -28,7 +28,7 @@ int32_t WoweeSpellDuration::resolveAtLevel(uint32_t durationId,
     const Entry* e = findById(durationId);
     if (!e) return 0;
     // Sentinel: a negative base (typically -1) means the
-    // engine should treat this as "no timer" — UntilCancelled
+    // engine should treat this as "no timer" - UntilCancelled
     // or UntilDeath.
     if (e->baseDurationMs < 0) return -1;
     int64_t ms = static_cast<int64_t>(e->baseDurationMs) +
@@ -104,15 +104,15 @@ WoweeSpellDuration WoweeSpellDurationLoader::makeStarter(
         c.entries.push_back(e);
     };
     add(1, "Instant",   WoweeSpellDuration::Instant,        0,        0,
-        100, 240, 100, "Instant — fires once, no aura applied.");
+        100, 240, 100, "Instant - fires once, no aura applied.");
     add(2, "Short",     WoweeSpellDuration::Timed,       5000,        0,
-        140, 240, 140, "Short — 5s timed effect (snare / brief debuff).");
+        140, 240, 140, "Short - 5s timed effect (snare / brief debuff).");
     add(3, "Medium",    WoweeSpellDuration::Timed,      30000,        0,
-        180, 240, 180, "Medium — 30s timed buff/debuff (most procs).");
+        180, 240, 180, "Medium - 30s timed buff/debuff (most procs).");
     add(4, "Long",      WoweeSpellDuration::Timed,     300000,        0,
-        220, 240, 100, "Long — 5min timed buff (most class buffs).");
+        220, 240, 100, "Long - 5min timed buff (most class buffs).");
     add(5, "OneHour",   WoweeSpellDuration::Timed,    3600000,  3600000,
-        240, 220, 100, "OneHour — 60min capped buff (food / scroll).");
+        240, 220, 100, "OneHour - 60min capped buff (food / scroll).");
     return c;
 }
 
@@ -132,12 +132,12 @@ WoweeSpellDuration WoweeSpellDurationLoader::makeBuffs(
         c.entries.push_back(e);
     };
     add(100, "PartyBuff",   WoweeSpellDuration::Timed,
-        1800000,  1800000,  "Party buff — 30 min (Mark of the Wild).");
+        1800000,  1800000,  "Party buff - 30 min (Mark of the Wild).");
     add(101, "RaidBuff",    WoweeSpellDuration::Timed,
-        3600000,  3600000,  "Raid buff — 60 min (Power Word: "
+        3600000,  3600000,  "Raid buff - 60 min (Power Word: "
         "Fortitude).");
     add(102, "WorldBuff",   WoweeSpellDuration::Timed,
-        14400000, 14400000, "World buff — 4 hr (Onyxia / "
+        14400000, 14400000, "World buff - 4 hr (Onyxia / "
         "Rallying Cry).");
     add(103, "UntilDeath",  WoweeSpellDuration::UntilDeath,
         -1,             0, "Permanent until target dies "
@@ -163,13 +163,13 @@ WoweeSpellDuration WoweeSpellDurationLoader::makeDot(
     };
     // Tick interval is canonically 3s; baseDuration = ticks * 3000.
     add(200, "DoT4Tick", 12000,  100,  18000,
-        "DoT — 4 ticks @ 3s (12s base, +0.1s/lvl, cap 18s).");
+        "DoT - 4 ticks @ 3s (12s base, +0.1s/lvl, cap 18s).");
     add(201, "DoT5Tick", 15000,  150,  24000,
-        "DoT — 5 ticks @ 3s (15s base, +0.15s/lvl, cap 24s).");
+        "DoT - 5 ticks @ 3s (15s base, +0.15s/lvl, cap 24s).");
     add(202, "DoT6Tick", 18000,  200,  30000,
-        "DoT — 6 ticks @ 3s (18s base, +0.2s/lvl, cap 30s).");
+        "DoT - 6 ticks @ 3s (18s base, +0.2s/lvl, cap 30s).");
     add(203, "DoT8Tick", 24000,  250,  36000,
-        "DoT — 8 ticks @ 3s (24s base, +0.25s/lvl, cap 36s).");
+        "DoT - 8 ticks @ 3s (24s base, +0.25s/lvl, cap 36s).");
     return c;
 }
 

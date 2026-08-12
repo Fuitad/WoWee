@@ -7,12 +7,12 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Achievement Criteria catalog (.wacr) —
+// Wowee Open Achievement Criteria catalog (.wacr) -
 // novel replacement for Blizzard's Achievement_Criteria.dbc.
 // Defines the individual progression criteria that a
 // character must complete to earn an achievement.
 //
-// Each WACH achievement has a tree of WACR criteria —
+// Each WACH achievement has a tree of WACR criteria -
 // "Kill 100 boars" is one criteria entry with
 // criteriaType=KillCreature, targetId=boarCreatureId,
 // requiredCount=100. Multi-criteria achievements
@@ -104,14 +104,14 @@ public:
 
     // Preset emitters used by --gen-acr* variants.
     //
-    //   makeKill   — 5 kill-counting criteria (Defias 50,
+    //   makeKill   - 5 kill-counting criteria (Defias 50,
     //                 Murloc 25, Naga 100, Dragon 1,
     //                 RareElite 1) for a "Kill 'Em All"
     //                 style achievement.
-    //   makeQuest  — 4 quest-completion criteria covering
+    //   makeQuest  - 4 quest-completion criteria covering
     //                 tutorial/zone/daily/escort progression
     //                 in one composite achievement.
-    //   makeMixed  — 5 cross-type criteria (ReachLevel 80,
+    //   makeMixed  - 5 cross-type criteria (ReachLevel 80,
     //                 EarnGold 10000, GainHonor 5000, PvPKill
     //                 100, ExploreZone Stormwind) showing
     //                 the variety of CriteriaType values.

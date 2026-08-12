@@ -2,7 +2,7 @@
 //
 // The unit tests check the shape of the output against cases someone thought
 // of. This asks Lua itself about every real file, which is a different and
-// harsher question — it found an empty function attribute emitting
+// harsher question - it found an empty function attribute emitting
 // SetScript("X", ), and temporaries running into Lua's limit of 200 locals per
 // function. Neither degrades: the whole chunk refuses to compile.
 //

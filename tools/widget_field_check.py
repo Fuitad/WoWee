@@ -4,14 +4,14 @@
     tools/widget_field_check.py
 
 A frame is two things at once: a Lua table the interface holds, and a widget in
-the C++ tree that is laid out and drawn. Some state belongs to the table —
-scripts, registered events — and some belongs to the widget — parent, size,
+the C++ tree that is laid out and drawn. Some state belongs to the table -
+scripts, registered events - and some belongs to the widget - parent, size,
 visibility, anchors. A method that writes the table where the widget is what
 gets read looks like it worked and changes nothing on screen.
 
 That is not a hypothetical shape. SetParent wrote `__parent` and nothing else,
 so GetParent answered the new parent while layout went on placing, clipping and
-hiding the frame under the old one — with QuestInfo reparenting every element of
+hiding the frame under the old one - with QuestInfo reparenting every element of
 a quest into whichever window is showing it on every display. GetCenter read
 `__xOfs`, written only by a SetPoint registered nowhere, so it answered zero for
 every frame in the interface. Both read as ordinary code.
@@ -19,7 +19,7 @@ every frame in the interface. Both read as ordinary code.
 WHAT IT LOOKS FOR
 
 Every method in the frame metatable whose body touches a `__field` on the frame
-table and never reaches the widget tree — no widgetOf, no widgetIdOf, no
+table and never reaches the widget tree - no widgetOf, no widgetIdOf, no
 getWidgetTree.
 
 WHAT IT CANNOT SEE
@@ -68,13 +68,13 @@ def bodies(src):
 #:
 #: What these six have in common is that the widget has no opinion to diverge
 #: from. A frame's name, its parent, its scripts and the events it listens to
-#: are all Lua-side truth — nothing renames a widget behind __name, and
+#: are all Lua-side truth - nothing renames a widget behind __name, and
 #: SetParent writes the widget as well as the field precisely because the
 #: widget *does* have an opinion about parenthood.
 #:
 #: GetParent is the one to be careful with. It has to answer nil for a frame
 #: created with an explicit nil parent, because that is how FrameXML tells a
-#: top-level frame from a nested one — a template's parent= is applied only to
+#: top-level frame from a nested one - a template's parent= is applied only to
 #: a frame that arrived without one. Reading the widget instead would answer
 #: the screen, which is not nil.
 EXPECTED_FIELD_ONLY = {
@@ -85,8 +85,8 @@ EXPECTED_FIELD_ONLY = {
     "RegisterEvent": "__events",
     "UnregisterEvent": "__events",
     # The reader for the pair above. Events are one of the few things that
-    # genuinely live in Lua rather than on the widget — the dispatch reads the
-    # same table — so answering from it is what keeps the answer and the
+    # genuinely live in Lua rather than on the widget - the dispatch reads the
+    # same table - so answering from it is what keeps the answer and the
     # behaviour from drifting apart.
     "IsEventRegistered": "__events",
     "UnregisterAllEvents": "__events",

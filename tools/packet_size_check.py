@@ -2,7 +2,7 @@
 """Client length checks that are longer than the packet the server sends.
 
 A handler that opens with `if (!packet.hasRemaining(N)) return;` and gets a
-packet shorter than N never runs. Not "runs and misreads" — never runs, no log
+packet shorter than N never runs. Not "runs and misreads" - never runs, no log
 line, no error. From every other angle the feature is simply absent, which is
 how SMSG_LFG_QUEUE_STATUS came to require thirty-three bytes of a thirty-one
 byte packet and the dungeon finder's queue never updated once.
@@ -15,7 +15,7 @@ HOW THE SERVER SIDE IS MEASURED
 
 Only the fixed prefix, and only where it can be measured honestly. From
 `WorldPacket data(SMSG_X, ...)` the following `data << uintN(...)` lines are
-summed until the first thing whose width is not obvious — a loop, a string, an
+summed until the first thing whose width is not obvious - a loop, a string, an
 ObjectGuid written packed, a conditional. Everything after that is unknown and
 the sum becomes a LOWER BOUND, which is the safe direction: a client check
 below the bound is fine, and only one above it is reported.
@@ -38,7 +38,7 @@ WIDTH = {"uint8": 1, "int8": 1, "uint16": 2, "int16": 2, "uint32": 4, "int32": 4
 # A variable written bare that is an ObjectGuid: `data << bidder;` is eight
 # bytes. Named rather than typed, because the declaration is usually in the
 # signature rather than the body. GetPackGUID() and appendPackGUID are variable
-# and do not match this — they are a call, not a bare name.
+# and do not match this - they are a call, not a bare name.
 GUIDISH = re.compile(r"(?i)guid$|^guid|^bidder$|^owner$|^target$|^player$")
 
 
@@ -58,12 +58,12 @@ def server_minimums(server_root):
                 if not s or s.startswith("//"):
                     continue
                 # The whole type name. An optional uint|int prefix here eats
-                # half of it — "uint32(" captured as "32" — and every writer
+                # half of it - "uint32(" captured as "32" - and every writer
                 # measured as zero.
                 # Every term of the line, not just the first. A writer that
                 # says `data << uint8(a) << uint32(b);` on one line was being
-                # measured as one byte, and SMSG_SET_PROFICIENCY — which is
-                # exactly that line — came out as "guards 5, packet is at least
+                # measured as one byte, and SMSG_SET_PROFICIENCY - which is
+                # exactly that line - came out as "guards 5, packet is at least
                 # 1" when the guard was right and the packet is five.
                 terms = re.findall(r"<<\s*(\w+)\s*\(", s)
                 if terms and all(t in WIDTH for t in terms):
@@ -96,10 +96,10 @@ def client_checks():
         # A handler body runs from its opcode to the NEXT opcode of any kind.
         # Splitting on SMSG_ alone lets a region run past the end of its own
         # handler and pick up a guard belonging to something else, which
-        # reported SMSG_TIME_SYNC_REQ — correctly guarding four — as guarding
+        # reported SMSG_TIME_SYNC_REQ - correctly guarding four - as guarding
         # eight.
-        # An opcode with no letter before MSG_ — MSG_RAID_READY_CHECK,
-        # MSG_MOVE_* and the rest — has to end a region too. It did not, so a
+        # An opcode with no letter before MSG_ - MSG_RAID_READY_CHECK,
+        # MSG_MOVE_* and the rest - has to end a region too. It did not, so a
         # region ran straight through the next handler and credited its reads
         # here: SMSG_PARTY_MEMBER_STATS_FULL was reported reading a guid that
         # belongs to the ready check below it.
@@ -138,13 +138,13 @@ def main():
 
     # Only an exact measurement is evidence. Where the writer ends in a string,
     # a guid or a loop the figure is a lower bound, and a guard above a lower
-    # bound says nothing — the packet has more to come.
+    # bound says nothing - the packet has more to come.
     # SMSG_CALENDAR_EVENT_INVITE_ALERT was reported for years on that basis: it
     # writes a uint64 and then a title, so the bound is eight and the guard of
     # nine is right. Reporting it made the whole list something to dismiss.
     rows = [(op, client[op], server[op][0], server[op][1])
             for op in shared if client[op] > server[op][0] and server[op][1]]
-    print(f"{len(rows)} guard(s) longer than the packet — these handlers never "
+    print(f"{len(rows)} guard(s) longer than the packet - these handlers never "
           f"run:\n")
     for op, guard, bound, exact in rows:
         print(f"  {op:44} guards {guard}, packet is exactly {bound}")
@@ -153,7 +153,7 @@ def main():
 
     loose = [(op, client[op], server[op][0])
              for op in shared if client[op] > server[op][0] and not server[op][1]]
-    print(f"\n{len(loose)} guard(s) above a lower bound — not evidence, listed "
+    print(f"\n{len(loose)} guard(s) above a lower bound - not evidence, listed "
           f"so the number is not zero by omission:\n")
     for op, guard, bound in loose:
         print(f"  {op:44} guards {guard}, packet is at least {bound}")

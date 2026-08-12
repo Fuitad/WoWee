@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Spell Variant catalog (.wspv) — novel
+// Wowee Open Spell Variant catalog (.wspv) - novel
 // replacement for the implicit context-conditional
 // spell substitution rules vanilla WoW encoded across
 // SpellSpecificType, SpellEffect.EffectMechanic
@@ -45,15 +45,15 @@ namespace pipeline {
 //     descLen + description
 //     baseSpellId (uint32)
 //     variantSpellId (uint32)
-//     conditionKind (uint8)      — Stance / Form /
+//     conditionKind (uint8)      - Stance / Form /
 //                                   Talent / Race /
 //                                   EquippedWeapon /
 //                                   AuraActive
-//     priority (uint8)           — higher overrides
+//     priority (uint8)           - higher overrides
 //                                   lower; 0 = base
 //                                   spell baseline
 //     pad0 (uint8) / pad1 (uint8)
-//     conditionValue (uint32)    — polymorphic — see
+//     conditionValue (uint32)    - polymorphic - see
 //                                   conditionKind
 //     iconColorRGBA (uint32)
 struct WoweeSpellVariants {
@@ -108,19 +108,19 @@ public:
 
     // Preset emitters used by --gen-spv* variants.
     //
-    //   makeWarriorStance — 4 stance-conditional Warrior
+    //   makeWarriorStance - 4 stance-conditional Warrior
     //                        spell variants (Heroic Strike
     //                        Battle vs Berserker damage
     //                        bonus, Mocking Blow
     //                        Defensive AoE, Pummel
     //                        Berserker silence).
-    //   makeTalentMod    — 4 talent-modified spell
+    //   makeTalentMod    - 4 talent-modified spell
     //                        variants (Frostbolt + Brain
     //                        Freeze proc, Lava Burst +
     //                        Flame Shock auto-crit,
     //                        Earth Shield + Improved,
     //                        Ferocious Bite + Berserk).
-    //   makeRacial       — 4 racial spell variants
+    //   makeRacial       - 4 racial spell variants
     //                        (Stoneform / War Stomp /
     //                        Berserking / WoTF).
     static WoweeSpellVariants makeWarriorStance(const std::string& catalogName);

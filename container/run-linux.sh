@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# run-linux.sh — Build WoWee for Linux (amd64) inside a Docker container.
+# run-linux.sh - Build WoWee for Linux (amd64) inside a Docker container.
 #
 # Usage (run from project root):
 #   ./container/run-linux.sh [--rebuild-image]
 #
 # Environment variables:
-#   WOWEE_FFX_SDK_REPO  — FidelityFX SDK git repo URL (passed through to container)
-#   WOWEE_FFX_SDK_REF   — FidelityFX SDK git ref / tag      (passed through to container)
-#   REBUILD_IMAGE       — Set to 1 to force a fresh docker build (same as --rebuild-image)
+#   WOWEE_FFX_SDK_REPO  - FidelityFX SDK git repo URL (passed through to container)
+#   WOWEE_FFX_SDK_REF   - FidelityFX SDK git ref / tag      (passed through to container)
+#   REBUILD_IMAGE       - Set to 1 to force a fresh docker build (same as --rebuild-image)
 
 set -euo pipefail
 

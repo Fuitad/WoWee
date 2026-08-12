@@ -66,7 +66,7 @@ int handleAddQuestRewardItem(int& i, int argc, char** argv) {
 
 int handleSetQuestReward(int& i, int argc, char** argv) {
     // Update XP / coin reward fields on an existing quest. Each
-    // field is optional — only the ones explicitly passed are
+    // field is optional - only the ones explicitly passed are
     // changed. This avoids the round-trip-and-clobber footgun of
     // a "replace whole reward" command.
     std::string zoneDir = argv[++i];
@@ -110,7 +110,7 @@ int handleSetQuestReward(int& i, int argc, char** argv) {
         }
         return false;
     };
-    // Loop until no more recognised flags consume their value —
+    // Loop until no more recognised flags consume their value -
     // order-independent, so callers can pass --gold then --xp.
     bool any = true;
     while (any) {
@@ -122,7 +122,7 @@ int handleSetQuestReward(int& i, int argc, char** argv) {
     }
     if (changed == 0) {
         std::fprintf(stderr,
-            "set-quest-reward: no fields changed — pass --xp / --gold / --silver / --copper\n");
+            "set-quest-reward: no fields changed - pass --xp / --gold / --silver / --copper\n");
         return 1;
     }
     if (!qe.saveToFile(path)) {

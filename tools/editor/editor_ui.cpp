@@ -107,7 +107,7 @@ void EditorUI::render(EditorApp& app) {
             if (sx < 0 || sx > vp2->Size.x || sy < 0 || sy > vp2->Size.y) continue;
 
             // Center the text on the projected position by measuring the
-            // actual string width — the previous fixed -30 X offset
+            // actual string width - the previous fixed -30 X offset
             // misaligned every name that wasn't ~6 chars long.
             ImVec2 textSz = ImGui::CalcTextSize(npc.name.c_str());
             ImVec4 col = npc.hostile ? ImVec4(1, 0.3f, 0.3f, 0.9f) : ImVec4(0.3f, 1, 0.3f, 0.9f);
@@ -307,7 +307,7 @@ void EditorUI::renderMenuBar(EditorApp& app) {
                     if (editor::ContentPacker::unpackZone(wcpImportPath, "custom_zones"))
                         app.showToast("Content pack imported");
                     else
-                        app.showToast("Import failed — check path");
+                        app.showToast("Import failed - check path");
                 }
                 if (ImGui::MenuItem("Import & Load")) {
                     editor::ContentPackInfo info;
@@ -322,7 +322,7 @@ void EditorUI::renderMenuBar(EditorApp& app) {
                             }
                         }
                     } else {
-                        app.showToast("Import failed — check path");
+                        app.showToast("Import failed - check path");
                     }
                 }
                 if (ImGui::BeginMenu("Inspect Pack Info")) {
@@ -368,13 +368,13 @@ void EditorUI::renderMenuBar(EditorApp& app) {
                     if (app.getTerrainEditor().importHeightmapImage(hmPath, hmScale))
                         app.showToast("Heightmap image imported (undoable)");
                     else
-                        app.showToast("Failed — check image path and format");
+                        app.showToast("Failed - check image path and format");
                 }
                 if (ImGui::MenuItem("Import RAW (16/8-bit binary)")) {
                     if (app.getTerrainEditor().importHeightmap(hmPath, hmScale))
                         app.showToast("RAW heightmap imported (undoable)");
                     else
-                        app.showToast("Failed — need 129x129 or 257x257 RAW");
+                        app.showToast("Failed - need 129x129 or 257x257 RAW");
                 }
                 ImGui::TextColored(ImVec4(0.5f,0.5f,0.5f,1),
                     "Supports any resolution PNG/JPG/BMP/TGA or RAW");
@@ -410,10 +410,10 @@ void EditorUI::renderMenuBar(EditorApp& app) {
                                   app.hasTerrainLoaded())) {
                 int issues = app.auditSpawnsAgainstTerrain(5.0f);
                 if (issues == 0)
-                    app.showToast("Audit clean — every spawn within 5y of terrain");
+                    app.showToast("Audit clean - every spawn within 5y of terrain");
                 else
                     app.showToast(std::to_string(issues) +
-                                   " spawn(s) more than 5y off terrain — try Snap All");
+                                   " spawn(s) more than 5y off terrain - try Snap All");
             }
             if (ImGui::IsItemHovered())
                 ImGui::SetTooltip(
@@ -465,7 +465,7 @@ void EditorUI::renderMenuBar(EditorApp& app) {
                 auto fmt = [](bool has, bool valid, const char* name, const char* desc) {
                     ImVec4 c = has ? (valid ? ImVec4(0.3f,1,0.3f,1) : ImVec4(1,0.7f,0.3f,1))
                                   : ImVec4(0.5f,0.5f,0.5f,1);
-                    ImGui::TextColored(c, "%s %s — %s",
+                    ImGui::TextColored(c, "%s %s - %s",
                         has ? (valid ? "[OK]" : "[!!]") : "[--]", name, desc);
                 };
                 fmt(val.hasWot, true, "WOT", "terrain metadata");
@@ -639,66 +639,66 @@ void EditorUI::renderMenuBar(EditorApp& app) {
         ImGui::SetNextWindowSize(ImVec2(420, 500), ImGuiCond_FirstUseEver);
         if (ImGui::Begin("Keyboard Shortcuts", &showHelp_)) {
             ImGui::Text("Navigation:");
-            ImGui::BulletText("WASD — fly camera");
-            ImGui::BulletText("Q/E — descend/ascend");
-            ImGui::BulletText("Right-drag — look around");
-            ImGui::BulletText("Scroll — adjust camera speed");
-            ImGui::BulletText("Shift — sprint");
+            ImGui::BulletText("WASD - fly camera");
+            ImGui::BulletText("Q/E - descend/ascend");
+            ImGui::BulletText("Right-drag - look around");
+            ImGui::BulletText("Scroll - adjust camera speed");
+            ImGui::BulletText("Shift - sprint");
             ImGui::Separator();
             ImGui::Text("Editing:");
-            ImGui::BulletText("Left-click — paint/place (depends on mode)");
-            ImGui::BulletText("[ / ] — decrease / increase brush size");
-            ImGui::BulletText("Ctrl+click — select object/NPC");
-            ImGui::BulletText("Ctrl+S — quick save");
-            ImGui::BulletText("Ctrl+Z — undo");
-            ImGui::BulletText("Ctrl+Shift+Z / Ctrl+Y — redo");
-            ImGui::BulletText("Delete — remove selected");
+            ImGui::BulletText("Left-click - paint/place (depends on mode)");
+            ImGui::BulletText("[ / ] - decrease / increase brush size");
+            ImGui::BulletText("Ctrl+click - select object/NPC");
+            ImGui::BulletText("Ctrl+S - quick save");
+            ImGui::BulletText("Ctrl+Z - undo");
+            ImGui::BulletText("Ctrl+Shift+Z / Ctrl+Y - redo");
+            ImGui::BulletText("Delete - remove selected");
             ImGui::Separator();
             ImGui::Text("Object Transform:");
-            ImGui::BulletText("G — move mode (then drag)");
-            ImGui::BulletText("R — rotate mode (then drag)");
-            ImGui::BulletText("T — scale mode (then drag)");
-            ImGui::BulletText("X/Y/Z — constrain to axis");
-            ImGui::BulletText("Escape — deselect / cancel");
-            ImGui::BulletText("Right-click — context menu");
+            ImGui::BulletText("G - move mode (then drag)");
+            ImGui::BulletText("R - rotate mode (then drag)");
+            ImGui::BulletText("T - scale mode (then drag)");
+            ImGui::BulletText("X/Y/Z - constrain to axis");
+            ImGui::BulletText("Escape - deselect / cancel");
+            ImGui::BulletText("Right-click - context menu");
             ImGui::Separator();
             ImGui::Text("View:");
             ImGui::Text("Modes:");
-            ImGui::BulletText("1 — Sculpt");
-            ImGui::BulletText("2 — Paint");
-            ImGui::BulletText("3 — Objects");
-            ImGui::BulletText("4 — Water");
-            ImGui::BulletText("5 — NPCs");
-            ImGui::BulletText("6 — Quests");
+            ImGui::BulletText("1 - Sculpt");
+            ImGui::BulletText("2 - Paint");
+            ImGui::BulletText("3 - Objects");
+            ImGui::BulletText("4 - Water");
+            ImGui::BulletText("5 - NPCs");
+            ImGui::BulletText("6 - Quests");
             ImGui::Separator();
             ImGui::Text("Quick Actions:");
-            ImGui::BulletText("Ctrl+N — new terrain");
-            ImGui::BulletText("Ctrl+O — load map tile");
-            ImGui::BulletText("Ctrl+A — select all objects");
-            ImGui::BulletText("Ctrl+D — duplicate selected (objects + NPCs)");
-            ImGui::BulletText("Ctrl+Wheel — rotate placement preview (Shift = fine)");
-            ImGui::BulletText("Alt+Click — eyedropper (paint mode)");
-            ImGui::BulletText("Ctrl+Shift+Click — add to selection");
-            ImGui::BulletText("Middle-drag — orbit camera");
+            ImGui::BulletText("Ctrl+N - new terrain");
+            ImGui::BulletText("Ctrl+O - load map tile");
+            ImGui::BulletText("Ctrl+A - select all objects");
+            ImGui::BulletText("Ctrl+D - duplicate selected (objects + NPCs)");
+            ImGui::BulletText("Ctrl+Wheel - rotate placement preview (Shift = fine)");
+            ImGui::BulletText("Alt+Click - eyedropper (paint mode)");
+            ImGui::BulletText("Ctrl+Shift+Click - add to selection");
+            ImGui::BulletText("Middle-drag - orbit camera");
             ImGui::Separator();
             ImGui::Text("NPC Mode:");
-            ImGui::BulletText("Click NPC marker — select (Shift+click forces placement)");
-            ImGui::BulletText("W — add patrol waypoint at cursor (selected NPC must use Patrol behavior)");
+            ImGui::BulletText("Click NPC marker - select (Shift+click forces placement)");
+            ImGui::BulletText("W - add patrol waypoint at cursor (selected NPC must use Patrol behavior)");
             ImGui::Separator();
             ImGui::Text("View:");
-            ImGui::BulletText("F1 — this help");
-            ImGui::BulletText("F3 — wireframe toggle");
-            ImGui::BulletText("F5 — save camera bookmark");
-            ImGui::BulletText("Home — center on terrain");
-            ImGui::BulletText("Scroll — zoom in/out");
-            ImGui::BulletText("Shift+Scroll — adjust speed");
+            ImGui::BulletText("F1 - this help");
+            ImGui::BulletText("F3 - wireframe toggle");
+            ImGui::BulletText("F5 - save camera bookmark");
+            ImGui::BulletText("Home - center on terrain");
+            ImGui::BulletText("Scroll - zoom in/out");
+            ImGui::BulletText("Shift+Scroll - adjust speed");
             ImGui::Separator();
             ImGui::Text("Object Tools:");
-            ImGui::BulletText("Snap Ground — drop to terrain surface");
-            ImGui::BulletText("Align Slope — rotate to terrain normal");
-            ImGui::BulletText("Flatten Ground — level terrain around object");
-            ImGui::BulletText("Scatter — mass-place with auto-align option");
-            ImGui::BulletText("Select by Type — M2 models or WMO buildings");
+            ImGui::BulletText("Snap Ground - drop to terrain surface");
+            ImGui::BulletText("Align Slope - rotate to terrain normal");
+            ImGui::BulletText("Flatten Ground - level terrain around object");
+            ImGui::BulletText("Scatter - mass-place with auto-align option");
+            ImGui::BulletText("Select by Type - M2 models or WMO buildings");
             ImGui::Separator();
             ImGui::Text("Terrain Tools:");
             ImGui::BulletText("Generators: Hill/Mesa/Crater/Canyon/Island/Ridge/Dunes");
@@ -708,8 +708,8 @@ void EditorUI::renderMenuBar(EditorApp& app) {
             ImGui::BulletText("Auto-paint by height/slope, scatter patches");
             ImGui::Separator();
             ImGui::Text("Export:");
-            ImGui::BulletText("Ctrl+S — quick save (all formats + collision)");
-            ImGui::BulletText("Ctrl+Shift+E — export content pack (.wcp)");
+            ImGui::BulletText("Ctrl+S - quick save (all formats + collision)");
+            ImGui::BulletText("Ctrl+Shift+E - export content pack (.wcp)");
             ImGui::BulletText("File → Batch Convert Assets (M2→WOM, WMO→WOB)");
             ImGui::BulletText("File → Generate Server Module (AzerothCore SQL)");
             ImGui::BulletText("Minimap: toggle slope overlay for collision preview");
@@ -876,7 +876,7 @@ void EditorUI::renderLoadDialog(EditorApp& app) {
                     // Check if it's a WMO-only instance
                     std::string wdtPath = "world\\maps\\" + mapLower + "\\" + mapLower + ".wdt";
                     if (app.getAssetManager()->getManifest().hasEntry(wdtPath))
-                        app.showToast("WMO-only instance — click Load to open");
+                        app.showToast("WMO-only instance - click Load to open");
                     else
                         app.showToast("No ADT tiles found for this map");
                 }
@@ -1077,7 +1077,7 @@ void EditorUI::renderBrushPanel(EditorApp& app) {
             ImGui::SliderFloat("Width##path", &pathWidth_, 2.0f, 50.0f);
             if (pathMode_ == 0) ImGui::SliderFloat("Depth##path", &pathDepth_, 1.0f, 30.0f);
 
-            // "Painting roads to/from models" — append the position of
+            // "Painting roads to/from models" - append the position of
             // the currently-selected object or NPC as a path waypoint.
             // Common workflow: place inn + town hall, select inn → click
             // append, select town hall → click append, click Apply Path.
@@ -1123,7 +1123,7 @@ void EditorUI::renderBrushPanel(EditorApp& app) {
                 }
             } else if (pathCapture_ == PathCapture::WaitingEnd) {
                 ImGui::TextColored(ImVec4(0.3f, 1, 0.3f, 1),
-                                    "Start at (%.0f, %.0f) — click for next point",
+                                    "Start at (%.0f, %.0f) - click for next point",
                                     pathPoints_[0].x, pathPoints_[0].y);
                 if (ImGui::SmallButton("Cancel##path")) {
                     clearPath();
@@ -1133,7 +1133,7 @@ void EditorUI::renderBrushPanel(EditorApp& app) {
                 // clicking to add waypoints, or hit Apply with the current
                 // polyline. The Apply branch iterates each segment.
                 ImGui::TextColored(ImVec4(0.5f, 0.9f, 0.5f, 1),
-                                    "%zu point(s) captured — click for more, or Apply",
+                                    "%zu point(s) captured - click for more, or Apply",
                                     pathPoints_.size());
                 if (ImGui::Button("Apply Path", ImVec2(-1, 0))) {
                     int segCount = 0;
@@ -1167,7 +1167,7 @@ void EditorUI::renderBrushPanel(EditorApp& app) {
                 if (ImGui::SmallButton("Reset##path")) clearPath();
             } else if (!pathPoints_.empty()) {
                 // Captured at least one point but the user dismissed the
-                // capture mode without setting more — let them resume.
+                // capture mode without setting more - let them resume.
                 if (ImGui::Button("Click Next Point", ImVec2(-1, 0)))
                     pathCapture_ = PathCapture::WaitingMore;
             }
@@ -1367,7 +1367,7 @@ void EditorUI::renderBrushPanel(EditorApp& app) {
             auto& pc = app.pendingCrater();
             if (pc.active) {
                 ImGui::TextColored(ImVec4(0.9f, 0.7f, 0.3f, 1),
-                    "ARMED — click on terrain to place");
+                    "ARMED - click on terrain to place");
                 if (ImGui::Button("Cancel##crater", ImVec2(-1, 0))) {
                     pc.active = false;
                 }
@@ -1995,7 +1995,7 @@ void EditorUI::renderNpcPanel(EditorApp& app) {
                     tmpl.minDamage = 3 + p.defaultLevel * 2;
                     tmpl.maxDamage = 5 + p.defaultLevel * 3;
                     tmpl.armor = p.defaultLevel * 10;
-                    // Sensible AzerothCore FactionTemplate default — only set
+                    // Sensible AzerothCore FactionTemplate default - only set
                     // if the user hasn't already typed in a custom value.
                     if (tmpl.faction == 0) {
                         if (p.category == CreatureCategory::Critter) tmpl.faction = 250;
@@ -2073,7 +2073,7 @@ void EditorUI::renderNpcPanel(EditorApp& app) {
                     "Runtime AI mode (not editor preview).\n"
                     "Stationary: stay put.\n"
                     "Patrol: walk waypoints (W to add at cursor on selected NPC).\n"
-                    "Wander: random walk within radius — common default.\n"
+                    "Wander: random walk within radius - common default.\n"
                     "Scripted: handled by server-side script.");
 
             if (tmpl.behavior == CreatureBehavior::Wander)
@@ -2185,7 +2185,7 @@ void EditorUI::renderNpcPanel(EditorApp& app) {
             int bi2 = static_cast<int>(sel->behavior);
             if (ImGui::Combo("AI##s", &bi2, beh2, 4)) sel->behavior = static_cast<CreatureBehavior>(bi2);
 
-            // NPC role flags — match the template editor's set so users can
+            // NPC role flags - match the template editor's set so users can
             // toggle these on already-placed NPCs without re-creating them.
             ImGui::Checkbox("Hostile##s", &sel->hostile);
             ImGui::SameLine(); ImGui::Checkbox("Quest##s", &sel->questgiver);
@@ -2247,7 +2247,7 @@ void EditorUI::renderNpcPanel(EditorApp& app) {
                         float waitS = pp.waitTimeMs / 1000.0f;
                         if (ImGui::DragFloat("wait s", &waitS, 0.25f, 0.0f, 60.0f, "%.1fs"))
                             pp.waitTimeMs = std::max(0.0f, waitS) * 1000.0f;
-                        // Insert-after at brush cursor — useful for slicing
+                        // Insert-after at brush cursor - useful for slicing
                         // a long segment into two.
                         ImGui::SameLine();
                         auto& brush2 = app.getTerrainEditor().brush();
@@ -2381,7 +2381,7 @@ void EditorUI::renderQuestPanel(EditorApp& app) {
 
             ImGui::Separator();
             ImGui::Text("Objectives (max 4 Kill + 6 Collect):");
-            // Limit to 10 total — matches the SQL exporter slot capacity
+            // Limit to 10 total - matches the SQL exporter slot capacity
             // (RequiredNpcOrGo[1..4] + RequiredItemId[1..6]).
             if (tmpl.objectives.size() < 10 && ImGui::Button("Add Objective")) {
                 QuestObjective obj;
@@ -2400,7 +2400,7 @@ void EditorUI::renderQuestPanel(EditorApp& app) {
                 if (ImGui::InputText("Desc", objDesc, sizeof(objDesc))) obj.description = objDesc;
                 int cnt = obj.targetCount;
                 if (ImGui::InputInt("Count", &cnt)) obj.targetCount = std::max(1, cnt);
-                // Target ID input — for Kill objectives this is the creature
+                // Target ID input - for Kill objectives this is the creature
                 // entry, for Collect it's the item ID. SQL export keys off it.
                 char targetBuf[64] = {};
                 std::strncpy(targetBuf, obj.targetName.c_str(), sizeof(targetBuf) - 1);
@@ -3023,13 +3023,13 @@ void EditorUI::renderPropertiesPanel(EditorApp& app) {
             }
             // "Play preview" via OS default audio player. Avoids
             // pulling SDL_mixer into the editor binary just for the
-            // preview workflow — the user already has a working audio
+            // preview workflow - the user already has a working audio
             // player and this hands the file off to it. macOS uses
             // 'open', most Linux desktops use 'xdg-open', Windows
             // uses 'start ""'.
             auto playFile = [](const std::string& path) {
                 if (path.empty()) return;
-                // Open file in OS default app without invoking a shell —
+                // Open file in OS default app without invoking a shell -
                 // CodeQL flagged the previous std::system path as
                 // command-injection because `path` is concatenated into
                 // a shell command. Use platform-native exec instead.
@@ -3037,7 +3037,7 @@ void EditorUI::renderPropertiesPanel(EditorApp& app) {
 #if defined(__APPLE__)
                     "/usr/bin/open",
 #elif defined(_WIN32)
-                    // `start` is a cmd.exe builtin, not an .exe — use the
+                    // `start` is a cmd.exe builtin, not an .exe - use the
                     // explorer fallback which works with CreateProcess.
                     "explorer.exe",
 #else

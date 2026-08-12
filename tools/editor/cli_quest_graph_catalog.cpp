@@ -149,7 +149,7 @@ int handleInfo(int& i, int argc, char** argv) {
     return 0;
 }
 
-// DFS cycle detection over prevQuestIds — same
+// DFS cycle detection over prevQuestIds - same
 // stack-based pattern as WMOD addon manifest. A
 // cycle in quest prereqs means the quest is
 // unreachable (player would need to complete Q1 to
@@ -297,7 +297,7 @@ int handleValidate(int& i, int argc, char** argv) {
             if (prev == e.questId) {
                 errors.push_back(ctx +
                     ": quest depends on itself "
-                    "(unreachable — catch-22)");
+                    "(unreachable - catch-22)");
             }
             if (!knownIds.count(prev)) {
                 errors.push_back(ctx +
@@ -307,14 +307,14 @@ int handleValidate(int& i, int argc, char** argv) {
             }
         }
         // Followup hints to unknown ids: NOT an
-        // error — followups are advisory hints,
+        // error - followups are advisory hints,
         // the missing target may live in a sibling
         // catalog. Just warn.
         for (uint32_t fol : e.followupQuestIds) {
             if (fol == e.questId) {
                 warnings.push_back(ctx +
                     ": followup hint points to self "
-                    "(no-op — prune)");
+                    "(no-op - prune)");
             }
             if (!knownIds.count(fol)) {
                 warnings.push_back(ctx +
@@ -325,20 +325,20 @@ int handleValidate(int& i, int argc, char** argv) {
             }
         }
         // chainHeadHint=1 with non-empty prereqs is a
-        // contradiction — a chain head BY DEFINITION
+        // contradiction - a chain head BY DEFINITION
         // has no prereqs. Warn.
         if (e.chainHeadHint && !e.prevQuestIds.empty()) {
             warnings.push_back(ctx +
                 ": chainHeadHint=1 but quest has " +
                 std::to_string(e.prevQuestIds.size()) +
-                " prereq(s) — chain heads should have "
+                " prereq(s) - chain heads should have "
                 "no prereqs");
         }
         if (!idsSeen.insert(e.questId).second) {
             errors.push_back(ctx + ": duplicate questId");
         }
     }
-    // DFS cycle on prevQuestIds — same pattern as WMOD.
+    // DFS cycle on prevQuestIds - same pattern as WMOD.
     auto cycle = findFirstCycle(c);
     if (!cycle.empty()) {
         std::string trail;
@@ -347,7 +347,7 @@ int handleValidate(int& i, int argc, char** argv) {
             trail += std::to_string(cycle[k]);
         }
         errors.push_back("prereq cycle detected: " + trail +
-                          " — quests would be unreachable "
+                          " - quests would be unreachable "
                           "(progression deadlock)");
     }
     return cli::reportValidation("wqgr", base, jsonOut, errors, warnings,

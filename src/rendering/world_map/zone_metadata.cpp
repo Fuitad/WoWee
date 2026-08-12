@@ -1,4 +1,4 @@
-// zone_metadata.cpp — Zone level ranges, faction data, and label formatting.
+// zone_metadata.cpp - Zone level ranges, faction data, and label formatting.
 // Extracted from WorldMap::initZoneMeta (Phase 4 of refactoring plan).
 #include "rendering/world_map/zone_metadata.hpp"
 

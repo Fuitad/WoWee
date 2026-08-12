@@ -109,18 +109,18 @@ WoweeAddonManifest WoweeAddonManifestLoader::makeStandardAddons(
         e.optionalDependencies = std::move(optDeps);
         c.entries.push_back(e);
     };
-    // Recount: standalone DPS meter — no deps,
+    // Recount: standalone DPS meter - no deps,
     // persists session combat history.
     add(1, "Recount", "2.0.4", "Cryect/Elsia", 1, 0,
         {}, {},
-        "Damage meter — tracks DPS/HPS/threat per "
+        "Damage meter - tracks DPS/HPS/threat per "
         "encounter. Saves recent combat sessions to "
         "SavedVariables.");
     // Atlas: standalone instance map browser, no deps,
     // no persistence.
     add(2, "Atlas", "1.10.2", "DanGilbert", 0, 0,
         {}, {},
-        "Instance map browser — shows boss + loot "
+        "Instance map browser - shows boss + loot "
         "locations for vanilla dungeons / raids. "
         "Static data, no SavedVariables.");
     // Auctioneer: optionally depends on Atlas for
@@ -135,7 +135,7 @@ WoweeAddonManifest WoweeAddonManifestLoader::makeStandardAddons(
     // log + completed-quest cache.
     add(4, "Questie", "4.4.1", "Questie-Team", 1, 0,
         {}, {},
-        "Quest helper — overlay markers + objective "
+        "Quest helper - overlay markers + objective "
         "tracking. Persists per-character completed "
         "quest list to SavedVariables.");
     return c;
@@ -167,23 +167,23 @@ WoweeAddonManifest WoweeAddonManifestLoader::makeUIReplacement(
     // UI-replacement dep chain.
     add(10, "Bartender4", "4.5.5", "Nevcairiel",
         {},
-        "Action-bar replacement — supports 10 movable "
+        "Action-bar replacement - supports 10 movable "
         "bars with per-bar visibility states. Standalone "
         "root of the UI-replacement dep chain.");
-    // ElvUI: full UI replacement — depends on
+    // ElvUI: full UI replacement - depends on
     // Bartender4 for action-bar layer (real ElvUI
     // ships its own bar mod, but for this preset we
     // model the dep chain).
     add(11, "ElvUI", "1.21", "TukUI-Team",
         {10},
-        "Full UI replacement — unitframes / nameplates "
+        "Full UI replacement - unitframes / nameplates "
         "/ chat / minimap. Depends on Bartender4 for "
         "the action-bar layer (preset models a chain).");
-    // SuperOrders: ElvUI extension for raid frames —
+    // SuperOrders: ElvUI extension for raid frames -
     // requires ElvUI.
     add(12, "SuperOrders", "0.9.3", "RaidLeader",
         {11},
-        "ElvUI raid-frame extension — adds clickcast "
+        "ElvUI raid-frame extension - adds clickcast "
         "+ smartheal. Requires ElvUI as parent.");
     return c;
 }
@@ -207,15 +207,15 @@ WoweeAddonManifest WoweeAddonManifestLoader::makeUtility(
         c.entries.push_back(e);
     };
     add(20, "XPerl", "3.7.5", "ZenTabi/XPerl-Team", 0,
-        "Unit-frame replacement — drop-in UI mod, no "
+        "Unit-frame replacement - drop-in UI mod, no "
         "deps, no persistence. Default-load.");
     add(21, "Decursive", "2.7.7", "Archarodim", 0,
-        "Auto-decurse mouseover — keybind helper for "
+        "Auto-decurse mouseover - keybind helper for "
         "removing harmful auras. Default-load.");
     // GearVendor is loadOnDemand: only loads when the
     // user opens the gear-comparison popup.
     add(22, "GearVendor", "1.0.2", "GearLab", 1,
-        "Item upgrade comparison popup — loadOnDemand: "
+        "Item upgrade comparison popup - loadOnDemand: "
         "skipped at login, loaded only when popup "
         "opens. Saves favorite-item list.");
     return c;

@@ -109,7 +109,7 @@ WoweeSpellProcRules WoweeSpellProcRulesLoader::makeWeaponProcs(
     using P = WoweeSpellProcRules;
     WoweeSpellProcRules c;
     c.name = catalogName;
-    // Crusader (Enchant Weapon — Crusader, spellId
+    // Crusader (Enchant Weapon - Crusader, spellId
     // 20007) procs spell 20007 buff OnHit at ~2%
     // chance, no ICD, requires melee weapon.
     c.entries.push_back(makeRule(
@@ -120,7 +120,7 @@ WoweeSpellProcRules WoweeSpellProcRulesLoader::makeWeaponProcs(
         200 /* 2% basis points */,
         0,
         P::RequireMeleeWeapon | P::ExcludeAutoAttack));
-    // Lifesteal: spellId 20004 (Enchant Weapon —
+    // Lifesteal: spellId 20004 (Enchant Weapon -
     // Lifestealing) procs heal-on-hit. 5% chance,
     // no ICD.
     c.entries.push_back(makeRule(
@@ -158,7 +158,7 @@ WoweeSpellProcRules WoweeSpellProcRulesLoader::makeRetPaladin(
         9452 /* Vengeance talent */,
         9452 /* stacking buff */,
         P::OnCrit,
-        10000 /* 100% — every crit */,
+        10000 /* 100% - every crit */,
         0,
         0,
         5 /* max 5 stacks */));
@@ -192,7 +192,7 @@ WoweeSpellProcRules WoweeSpellProcRulesLoader::makeRetPaladin(
         20218 /* Sanctity Aura */,
         20221 /* Holy-amp passive */,
         P::OnCast,
-        10000 /* 100% — bookkeeping */,
+        10000 /* 100% - bookkeeping */,
         0,
         P::RequireSpellSchool));
     return c;
@@ -204,7 +204,7 @@ WoweeSpellProcRules WoweeSpellProcRulesLoader::makeRageGen(
     WoweeSpellProcRules c;
     c.name = catalogName;
     // Bloodrage: instant 10 Rage on cast, costs
-    // health. Always procs (100%, no ICD — has
+    // health. Always procs (100%, no ICD - has
     // its own 60s shared cooldown).
     c.entries.push_back(makeRule(
         20, "Bloodrage Instant Rage",
@@ -221,7 +221,7 @@ WoweeSpellProcRules WoweeSpellProcRulesLoader::makeRageGen(
         21, "Berserker Rage CC Immune",
         18499 /* Berserker Rage spell */,
         23691 /* Berserker Rage CC-immunity aura
-                 effect — distinct spellId so the
+                 effect - distinct spellId so the
                  OnCast trigger does NOT recurse
                  into the source spell */,
         P::OnCast,

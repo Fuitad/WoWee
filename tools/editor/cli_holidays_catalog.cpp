@@ -270,7 +270,7 @@ int handleValidate(int& i, int argc, char** argv) {
                     ": durationHours=0 (holiday window has no length)");
             }
             // Annual / Monthly / OneTime require a real calendar
-            // start. WeeklyRecur is exempt — it triggers based on
+            // start. WeeklyRecur is exempt - it triggers based on
             // weekday rather than fixed date.
             if (e.recurrence != wowee::pipeline::WoweeHoliday::WeeklyRecur) {
                 if (e.startMonth == 0 || e.startMonth > 12) {
@@ -284,12 +284,12 @@ int handleValidate(int& i, int argc, char** argv) {
                 }
             }
             // Holidays with no quest, no boss, AND no reward have
-            // no in-game presence beyond a calendar entry — useful
+            // no in-game presence beyond a calendar entry - useful
             // for simple banner-only events but worth flagging.
             if (e.holidayQuestId == 0 && e.bossCreatureId == 0 &&
                 e.itemRewardId == 0) {
                 warnings.push_back(ctx +
-                    ": no quest, boss, or reward — calendar-only event");
+                    ": no quest, boss, or reward - calendar-only event");
             }
             if (!idsSeen.add(e.holidayId)) errors.push_back(ctx + ": duplicate holidayId");
         }

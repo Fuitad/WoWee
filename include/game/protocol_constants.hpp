@@ -15,7 +15,7 @@ constexpr uint32_t COPPER_PER_GOLD   = 10000;
 constexpr uint32_t COPPER_PER_SILVER = 100;
 
 // ---------------------------------------------------------------------------
-// Unit flags (UNIT_FIELD_FLAGS — index 59 in UnitFields for 3.3.5a;
+// Unit flags (UNIT_FIELD_FLAGS - index 59 in UnitFields for 3.3.5a;
 // 46 in Classic/TBC/Turtle. Bitmask values below are stable across expansions.)
 // ---------------------------------------------------------------------------
 constexpr uint32_t UNIT_FLAG_TAXI_FLIGHT = 0x00000100;
@@ -27,7 +27,7 @@ constexpr uint32_t UNIT_FLAG_IN_COMBAT   = 0x00080000;
 constexpr uint8_t UNIT_VIS_FLAG_CREEP = 0x02;
 
 // ---------------------------------------------------------------------------
-// NPC flags (UNIT_NPC_FLAGS — index 82 in UnitFields for 3.3.5a;
+// NPC flags (UNIT_NPC_FLAGS - index 82 in UnitFields for 3.3.5a;
 // 147 in Classic/Turtle. Bitmask values below are stable across expansions.)
 // ---------------------------------------------------------------------------
 constexpr uint32_t NPC_FLAG_FLIGHT_MASTER = 0x00002000;

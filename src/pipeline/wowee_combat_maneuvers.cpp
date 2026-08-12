@@ -96,7 +96,7 @@ WoweeCombatManeuvers WoweeCombatManeuversLoader::makeWarrior(
     e.groupId = 1;
     e.name = "WarriorStances";
     e.description =
-        "Warrior combat stances — only one stance active "
+        "Warrior combat stances - only one stance active "
         "at a time. Battle Stance is the leveling default; "
         "Defensive is tank-focused; Berserker enables "
         "high-damage abilities at the cost of armor.";
@@ -141,7 +141,7 @@ WoweeCombatManeuvers WoweeCombatManeuversLoader::makeDruid(
             33891,   // Tree of Life
             24858,   // Moonkin Form
         },
-        "Druid ground shapeshift forms — only one active "
+        "Druid ground shapeshift forms - only one active "
         "at a time. Switching to a new form cancels the "
         "previous and breaks invisible/stealth in many "
         "cases.");
@@ -151,7 +151,7 @@ WoweeCombatManeuvers WoweeCombatManeuversLoader::makeDruid(
             33943,   // Flight Form
             40120,   // Swift Flight Form
         },
-        "Druid flight forms — separate mutex bucket from "
+        "Druid flight forms - separate mutex bucket from "
         "ground shapeshift forms. Only available in flying "
         "zones (Outland, Northrend, post-Cata old world).");
     return c;
@@ -191,7 +191,7 @@ WoweeCombatManeuvers WoweeCombatManeuversLoader::makeAllMutex(
             20043,    // Aspect of the Wild
         },
         packRgba(170, 210, 100),
-        "Hunter aspect mutex — 7 aspects, only one active "
+        "Hunter aspect mutex - 7 aspects, only one active "
         "at a time. Dragonhawk added in WotLK; Beast and "
         "Wild present since Vanilla.");
     add(202, "DKPresences", 32, C::Presence,

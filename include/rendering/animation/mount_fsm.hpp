@@ -77,8 +77,8 @@ public:
         bool mountAnimChanged = false;  // true = should call playAnimation
 
         // No rider animation here. The caller resolves what the rider does from
-        // its own capability set — a flight variant of the seated pose where the
-        // model has one — and never read the three fields this used to carry,
+        // its own capability set - a flight variant of the seated pose where the
+        // model has one - and never read the three fields this used to carry,
         // one of which was never even written.
 
         // Mount procedural motion
@@ -119,7 +119,7 @@ private:
     MountAnimSet anims_;
     bool taxiFlight_ = false;
 
-    // Fidget system — per-instance, not static
+    // Fidget system - per-instance, not static
     float fidgetTimer_ = 0.0f;
     float nextFidgetTime_ = 30.0f;
     uint32_t activeFidget_ = 0;

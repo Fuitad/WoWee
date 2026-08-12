@@ -144,7 +144,7 @@ std::optional<float> movingEntityFloor(rendering::Renderer* renderer,
     if (auto* wmo = renderer->getWMORenderer()) {
         // Closest to the mover's own feet, so a creature or another player
         // under an overhang is not snapped up to the floor of the level above
-        // them — the same flip that pulled the local player between levels.
+        // them - the same flip that pulled the local player between levels.
         consider(wmo->getFloorHeight(renderPos.x, renderPos.y, probeZ, nullptr,
                                      renderPos.z));
     }
@@ -154,8 +154,8 @@ std::optional<float> movingEntityFloor(rendering::Renderer* renderer,
 
     // A jump between floors, named once a second while it is happening.
     //
-    // Reported as the character pulled between levels in Undercity — in
-    // portals, doorways, overhangs — which is this arbitration flipping between
+    // Reported as the character pulled between levels in Undercity - in
+    // portals, doorways, overhangs - which is this arbitration flipping between
     // two floors that both sit inside the step-up/drop window near a level
     // transition. Which floor won, from which source, and how far it moved the
     // player is the thing a report cannot carry and this can. Warning level and
@@ -179,7 +179,7 @@ std::optional<float> movingEntityFloor(rendering::Renderer* renderer,
                         " (terrain=", terrainF ? *terrainF : -99999.0f,
                         " wmo=", wmoF ? *wmoF : -99999.0f,
                         " m2=", m2F ? *m2F : -99999.0f,
-                        ") — moved ", *best - previousRenderPos->z);
+                        ") - moved ", *best - previousRenderPos->z);
         }
     }
 
@@ -242,7 +242,7 @@ bool Application::initialize() {
     // Create and initialize audio coordinator (owns all audio managers)
     audioCoordinator_ = std::make_unique<audio::AudioCoordinator>();
     if (!audioCoordinator_->initialize())
-        LOG_WARNING("Audio coordinator initialization failed — game will run without audio");
+        LOG_WARNING("Audio coordinator initialization failed - game will run without audio");
     renderer->setAudioCoordinator(audioCoordinator_.get());
 
     // Create UI manager
@@ -256,7 +256,7 @@ bool Application::initialize() {
     // screen's update.
     //
     // GameScreen's constructor has just read settings.cfg, so the value is
-    // known — but update() does not run until the game screen is up, which is
+    // known - but update() does not run until the game screen is up, which is
     // after character select. A saved setting therefore rebuilt the swapchain,
     // every render pass and every pipeline around fifteen hundred frames into
     // the session, with a world loaded, textures resident and uploads in
@@ -277,7 +277,7 @@ bool Application::initialize() {
     // Create asset manager
     assetManager = std::make_unique<pipeline::AssetManager>();
 
-    // Populate game services — all subsystems now available
+    // Populate game services - all subsystems now available
     gameServices_.renderer = renderer.get();
     gameServices_.audioCoordinator = audioCoordinator_.get();
     gameServices_.assetManager = assetManager.get();
@@ -350,13 +350,13 @@ bool Application::initialize() {
         LOG_INFO("Asset manager initialized successfully");
 
         // Fonts, now the archives are open and still before any frame is
-        // drawn — the only moment the glyph atlas can take another face
+        // drawn - the only moment the glyph atlas can take another face
         // without being rebuilt.
         //
         // It used to run above this, which meant it could only ever see loose
         // files. An install that never extracted its data keeps every font
         // inside the MPQs, so the search found nothing and the client fell
-        // back to ImGui's built-in face — the same build reading the game's
+        // back to ImGui's built-in face - the same build reading the game's
         // own fonts on one machine and not on another. The base Data path,
         // not the expansion overlay: overlays carry DBCs and art, not fonts.
         if (uiManager) uiManager->loadInterfaceFont(dataPath, assetManager.get());
@@ -414,7 +414,7 @@ bool Application::initialize() {
         addonManager_ = std::make_unique<addons::AddonManager>();
         // Bindings ask the interface whether someone is typing before they
         // fire. Set here rather than at the call sites because every panel
-        // polls its own key from inside its own draw — there are many askers
+        // polls its own key from inside its own draw - there are many askers
         // and one answer.
         ui::setTypedInputProbe(
             [this]() -> bool {
@@ -434,7 +434,7 @@ bool Application::initialize() {
         //
         // One table rather than a hook per setting. Every row is a CVar the
         // Blizzard panels already have a control for, and a field this client
-        // already had — they simply had never been introduced.
+        // already had - they simply had never been introduced.
         luaSvc.getClientSetting = [uim = uiManager.get()](const std::string& key) {
             return uim ? uim->getGameScreen().getSettingsPanel().settingValue(key) : std::string{};
         };
@@ -448,7 +448,7 @@ bool Application::initialize() {
         // Every schema key must be answered, or its control is drawn and inert.
         //
         // The schema names the settings, the panel answers them, and the two are
-        // in different files — so a setting added to one and not the other gives
+        // in different files - so a setting added to one and not the other gives
         // a checkbox that does nothing, with nothing to say why. Checked once at
         // startup rather than left to be noticed.
         {
@@ -457,7 +457,7 @@ bool Application::initialize() {
             for (std::size_t i = 0; i < count; ++i) {
                 if (luaSvc.getClientSetting(schema[i].key).empty()) {
                     LOG_WARNING("Setting '", schema[i].key, "' (", schema[i].label,
-                                ") is in the schema but nothing answers it — its "
+                                ") is in the schema but nothing answers it - its "
                                 "control in the interface options will do nothing");
                 }
             }
@@ -692,7 +692,7 @@ bool Application::initialize() {
                 if (!name.empty()) icons.push_back("Interface\\Icons\\" + name);
             }
             // A grid the player scrolls through, so the order has to be stable
-            // between one frame and the next — the manifest is a hash map and
+            // between one frame and the next - the manifest is a hash map and
             // is not.
             std::sort(icons.begin(), icons.end());
             LOG_INFO("Icon picker: ", icons.size(), " icons from the manifest");
@@ -707,7 +707,7 @@ bool Application::initialize() {
             // assets reached through the manifest, and they belong to the
             // installation rather than to whichever expansion happens to supply
             // asset overrides. assetPath is the expansion's directory whenever
-            // one carries its own manifest — and an overlay holding models and
+            // one carries its own manifest - and an overlay holding models and
             // a DBC has no interface/ at all, so taking it here meant the whole
             // Blizzard interface stopped loading the moment any overlay
             // existed, with one warning to say so.
@@ -740,7 +740,7 @@ bool Application::initialize() {
             // No second announcement of a chat message.
             //
             // This registered a callback that fired CHAT_MSG_* itself, off its
-            // own hand-written table of chat types, with two arguments —
+            // own hand-written table of chat types, with two arguments -
             // message and sender. The chat handler already announces every
             // message with the twelve the interface reads, so each line went out
             // twice: once complete, and once so short that
@@ -748,8 +748,8 @@ bool Application::initialize() {
             // drew anything. That raise is the one that filled the log.
             //
             // The table was the other half of it: fifty chat types have names
-            // and this knew thirty-two, so the eighteen it had never heard of —
-            // money, experience, honour, reputation, the channel notices —
+            // and this knew thirty-two, so the eighteen it had never heard of -
+            // money, experience, honour, reputation, the channel notices -
             // produced no event here at all.
             //
             // What it did better, the channel's index, moved into the handler's
@@ -835,7 +835,7 @@ bool Application::initialize() {
                 });
 
                 // Straight to the artwork, for callers that already hold an
-                // icon id rather than a spell — SkillLine.dbc names one for
+                // icon id rather than a spell - SkillLine.dbc names one for
                 // each spellbook tab.
                 gameHandler->setIconPathResolver(
                     [spellIconPaths, ensureLoaded](uint32_t iconId) -> std::string {
@@ -918,7 +918,7 @@ bool Application::initialize() {
                         const auto* spL = pipeline::getActiveDBCLayout() ? pipeline::getActiveDBCLayout()->getLayout("Spell") : nullptr;
                         if (sDbc && sDbc->isLoaded()) {
                             uint32_t idF = spL ? (*spL)["ID"] : 0;
-                            // From the file's shape — Classic and Turtle named
+                            // From the file's shape - Classic and Turtle named
                             // this 15, which is RequiresSpellFocus and zero for
                             // every spell.
                             uint32_t ctF = pipeline::detectSpellTimingFields(sDbc.get(), spL)
@@ -991,7 +991,7 @@ bool Application::initialize() {
                                 if (!name.empty() && rid > 0) (*propNames)[rid] = name;
                             }
                         }
-                        // ItemRandomSuffix.dbc: ID=0, Name=1 — keyed as negative IDs
+                        // ItemRandomSuffix.dbc: ID=0, Name=1 - keyed as negative IDs
                         if (auto dbc = amPtr->loadDBC("ItemRandomSuffix.dbc"); dbc && dbc->isLoaded()) {
                             for (uint32_t r = 0; r < dbc->getRecordCount(); ++r) {
                                 int32_t rid = static_cast<int32_t>(dbc->getUInt32(r, 0));
@@ -1027,7 +1027,7 @@ bool Application::initialize() {
                         *loaded = true;
                         // SpellItemEnchantment: enchId -> up to 3 (type, statArg, minAmount).
                         // Arg (stat type) is the 3 fields before Name; the effect-type array
-                        // precedes the amount block(s) — 2 blocks (Min+Max) on TBC/WotLK, 1 on Vanilla.
+                        // precedes the amount block(s) - 2 blocks (Min+Max) on TBC/WotLK, 1 on Vanilla.
                         if (auto dbc = amPtr->loadDBC("SpellItemEnchantment.dbc"); dbc && dbc->isLoaded()) {
                             const auto* sieL = pipeline::getActiveDBCLayout()
                                 ? pipeline::getActiveDBCLayout()->getLayout("SpellItemEnchantment") : nullptr;
@@ -1200,7 +1200,7 @@ void Application::run() {
                 if (!signalledForCurrentStall) {
                     watchdogRequestRelease.store(true, std::memory_order_release);
                     LOG_WARNING("Main-loop stall detected (", stallMs,
-                                "ms) — requesting mouse capture release");
+                                "ms) - requesting mouse capture release");
                     signalledForCurrentStall = true;
                 }
             } else {
@@ -1324,7 +1324,7 @@ void Application::run() {
                 else if (event.type == SDL_KEYDOWN || event.type == SDL_KEYUP) {
                     // Shift, control and alt announce themselves. The interface
                     // watches these to swap what a tooltip shows and what a
-                    // click will do — item comparison appears on shift, and an
+                    // click will do - item comparison appears on shift, and an
                     // action button's self-cast indicator on alt. Four frames
                     // listen and none had ever been told.
                     if (addonManager_ && addonsLoaded_) {
@@ -1359,7 +1359,7 @@ void Application::run() {
                                 (event.key.keysym.mod & KMOD_CTRL) != 0;
                             // Said before the dispatch, because dispatching is
                             // what lets go of the focus that the check above
-                            // just used — ask afterwards and the box no longer
+                            // just used - ask afterwards and the box no longer
                             // admits to having taken anything.
                             //
                             // Only the three that let go. Every other key
@@ -1389,7 +1389,7 @@ void Application::run() {
                             engine->dispatchKey(event.key.keysym.sym, ctrl);
                             continue;
                         }
-                        // No edit box, but a dialog may still be listening —
+                        // No edit box, but a dialog may still be listening -
                         // the colour picker, the stack splitter, the coin
                         // pickup. The key is only swallowed when one of them
                         // actually takes it, so with nothing up the movement
@@ -1414,7 +1414,7 @@ void Application::run() {
                         // Then whatever the interface has bound to the key.
                         //
                         // Last of the three, because a focused edit box and an
-                        // open dialog both outrank a binding — which is WoW's
+                        // open dialog both outrank a binding - which is WoW's
                         // order too. It declines for anything this client
                         // performs itself, so the keys that already work are
                         // untouched; what it adds is every command the client
@@ -1428,14 +1428,14 @@ void Application::run() {
                                     (mods & KMOD_SHIFT) != 0,
                                     (mods & KMOD_CTRL) != 0,
                                     (mods & KMOD_ALT) != 0, true)) {
-                                // The fourth way a press can end in the pump — an
-                                // interface key binding claimed it — which had no
+                                // The fourth way a press can end in the pump - an
+                                // interface key binding claimed it - which had no
                                 // line. For the DEFAULT Escape this does not fire:
                                 // Escape binds to TOGGLEGAMEMENU, which
                                 // clientActsOnBinding lists, so dispatchBindingKey
                                 // yields (returns false) and the poll chain below
                                 // runs. It fires only if Escape has been rebound to
-                                // a FrameXML command a binding script handles — in
+                                // a FrameXML command a binding script handles - in
                                 // which case *that* is why the game menu never
                                 // opens, and this line names it. So it is a real
                                 // signal for a rebound Escape, not the default one.
@@ -1453,7 +1453,7 @@ void Application::run() {
                     // interface wanted it, so the poll further down decides.
                     // Said as well as the other two, because the whole value of
                     // these lines is that exactly one of them appears per
-                    // press — silence would mean the key never arrived at all,
+                    // press - silence would mean the key never arrived at all,
                     // and that is a different fault in a different place.
                     if (event.key.keysym.sym == SDLK_ESCAPE) {
                         LOG_WARNING("Escape: through the pump untaken; the chain "
@@ -1543,7 +1543,7 @@ void Application::run() {
 
             // Exit gracefully on GPU device lost (unrecoverable)
             if (renderer && renderer->getVkContext() && renderer->getVkContext()->isDeviceLost()) {
-                LOG_ERROR("GPU device lost — exiting application");
+                LOG_ERROR("GPU device lost - exiting application");
                 window->setShouldClose(true);
             }
 
@@ -1619,7 +1619,7 @@ void Application::shutdown() {
     for (auto& p : partyPortraits_) p.shutdown(renderer.get());
     paperdollModel_.shutdown(renderer.get());
 
-    // Explicitly shut down the renderer before destroying it — this ensures
+    // Explicitly shut down the renderer before destroying it - this ensures
     // all sub-renderers free their VMA allocations in the correct order,
     // before VkContext::shutdown() calls vmaDestroyAllocator().
     LOG_DEBUG("Shutting down renderer...");
@@ -1794,10 +1794,10 @@ void Application::setState(AppState newState) {
                         if (auto* ac = getAudioCoordinator()) {
                             if (auto* music = ac->getMusicManager()) music->stopMusic(0.0f);
                         }
-                        LOG_INFO("Logout complete — quitting");
+                        LOG_INFO("Logout complete - quitting");
                         if (window) window->setShouldClose(true);
                     } else {
-                        LOG_INFO("Logout complete — returning to character select");
+                        LOG_INFO("Logout complete - returning to character select");
                         logoutToLogin();
                     }
                 });
@@ -2134,7 +2134,7 @@ void Application::applyServerMovementState(float deltaTime) {
     const bool externallyDrivenMotion = onTaxi ||
         (animationCallbacks_ && animationCallbacks_->isCharging());
     // Keep physics frozen (externalFollow) during landing clamp when terrain
-    // hasn't loaded yet — prevents gravity from pulling player through void.
+    // hasn't loaded yet - prevents gravity from pulling player through void.
     bool hearthFreeze = worldEntryCallbacks_ && worldEntryCallbacks_->isHearthTeleportPending();
     const bool transportTransferFreeze = gameHandler &&
         gameHandler->hasPendingPlayerTransportWorldTransfer();
@@ -2186,7 +2186,7 @@ void Application::applyServerMovementState(float deltaTime) {
             // Probing p.z + 40 therefore only found a floor while the
             // player was still far below it. Snapping them onto it lifted
             // the probe out of range, the floor stopped being reported, the
-            // clamp fell back to terrain and dropped them again — landing
+            // clamp fell back to terrain and dropped them again - landing
             // at Booty Bay flip-flopped between the WMO deck at 36.5 and
             // the terrain at 4.5 twelve times over, and whichever the last
             // frame chose is where the player was abandoned as the timer
@@ -2244,7 +2244,7 @@ void Application::applyServerMovementState(float deltaTime) {
                      "timer=", worldEntryCallbacks_ ? worldEntryCallbacks_->getTaxiLandingClampTimer() : 0.0f);
 
             if (targetFloor) {
-                // Floor found — snap player to it and start countdown to release
+                // Floor found - snap player to it and start countdown to release
                 float targetZ = *targetFloor + 0.10f;
                 if (std::abs(p.z - targetZ) > 0.05f) {
                     LOG_INFO("Taxi landing clamp: snapping z ", p.z, " -> ", targetZ,
@@ -2275,7 +2275,7 @@ void Application::applyServerMovementState(float deltaTime) {
     }
     if (renderer && renderer->getTerrainManager()) {
     renderer->getTerrainManager()->setStreamingEnabled(true);
-    // Taxi flights move fast (32 u/s) — load further ahead so terrain is ready
+    // Taxi flights move fast (32 u/s) - load further ahead so terrain is ready
     // before the camera arrives.  Keep updates frequent to spot new tiles early.
     renderer->getTerrainManager()->setUpdateInterval(onTaxi ? 0.033f : 0.033f);
     const int configuredLoadRadius = renderer->getTerrainLoadRadius();
@@ -2371,7 +2371,7 @@ void Application::applyServerMovementState(float deltaTime) {
 
             // The camera controller's ordinary static-world floor query accepts a
             // moving WMO deck only when it is right under the feet, so every WMO
-            // ship needs its exact transport-instance floor held under the rider —
+            // ship needs its exact transport-instance floor held under the rider -
             // otherwise gravity folds into the attachment and pulls them through
             // the hull, and multi-deck ships (stairs, ramps) can't be climbed
             // because nothing raises the rider onto the upper geometry. This is
@@ -2408,8 +2408,8 @@ void Application::applyServerMovementState(float deltaTime) {
                     //
                     // It did, and there was no way out of it: the flag is set
                     // on boarding and cleared only by a successful deck query,
-                    // so boarding somewhere the query never succeeds — a
-                    // gangway that belongs to the pier rather than the hull —
+                    // so boarding somewhere the query never succeeds - a
+                    // gangway that belongs to the pier rather than the hull -
                     // reapplied the boarding offset every frame forever. That
                     // is a rider running on the spot, unable to walk far
                     // enough to trigger disembark and so unable to get off.
@@ -2555,7 +2555,7 @@ void Application::applyServerMovementState(float deltaTime) {
         // Model-Z reversal probe: the floor-selection log stays
         // quiet through the reported Undercity bob, so the bob is in
         // the Z that actually reaches the character, not the floor
-        // chosen for it — gravity overshooting a stable floor, or a
+        // chosen for it - gravity overshooting a stable floor, or a
         // server correction blended in. This watches the committed
         // render Z for a direction flip (up-then-down or the
         // reverse) where both legs clear 0.15, the unmistakable
@@ -2600,7 +2600,7 @@ void Application::applyServerMovementState(float deltaTime) {
 
         // Send MSG_MOVE_SET_FACING when the player changes facing direction
         // (e.g. via mouse-look). Without this, the server predicts movement in
-        // the old facing and position-corrects on the next heartbeat — the
+        // the old facing and position-corrects on the next heartbeat - the
         // micro-teleporting the GM observed.
         // Skip while keyboard-turning: the server tracks that via TURN_LEFT/RIGHT flags.
         facingSendCooldown_ -= deltaTime;
@@ -2632,7 +2632,7 @@ void Application::applyServerMovementState(float deltaTime) {
 // Keep the render instances on top of what the server says.
 //
 // A creature's model is placed once when it spawns and would stay there, while
-// the target circle follows the entity — a drift between the two reads as a
+// the target circle follows the entity - a drift between the two reads as a
 // ring sliding off an NPC that never moved. Player instances need the same for
 // a different reason: without it they never leave the run animation when they
 // stop.
@@ -2738,7 +2738,7 @@ void Application::syncRenderInstancesToEntities(float deltaTime) {
 
             // Visual collision guard: keep hostile melee units from rendering inside the
             // player's model while attacking. This is client-side only (no server position change).
-            // Only check for creatures within 8 units (melee range) — saves expensive
+            // Only check for creatures within 8 units (melee range) - saves expensive
             // getRenderBoundsForGuid/getModelData calls for distant creatures.
             bool clipGuardEligible = false;
             bool isCombatTarget = false;
@@ -2815,7 +2815,7 @@ void Application::syncRenderInstancesToEntities(float deltaTime) {
                 // Use isActivelyMoving() so Run/Walk animation stops when the
                 // creature reaches its destination. Don't use position-change
                 // (planarDistSq) as a movement indicator when the entity is in
-                // the dead-reckoning overrun window — the residual velocity
+                // the dead-reckoning overrun window - the residual velocity
                 // drift would keep the walk/run animation playing long after
                 // the creature has actually arrived. Only fall back to position-
                 // change detection for entities with no active movement tracking
@@ -2844,7 +2844,7 @@ void Application::syncRenderInstancesToEntities(float deltaTime) {
                     charRenderer->setInstancePosition(instanceId, renderPos);
                 }
                 // When entity is moving but getX/Y/Z is stale (distance-culled),
-                // don't call moveInstanceTo — creatureMoveCallback_ already drove
+                // don't call moveInstanceTo - creatureMoveCallback_ already drove
                 // the renderer to the correct destination via the spline packet.
                 posIt->second = renderPos;
 
@@ -2861,7 +2861,7 @@ void Application::syncRenderInstancesToEntities(float deltaTime) {
                 bool prevFlying   = _creatureWasFlying[guid];
                 bool prevWalking  = _creatureWasWalking[guid];
                 // Trigger animation update on any locomotion-state transition, not just
-                // moving/idle — e.g. creature lands while still moving → FlyForward→Run,
+                // moving/idle - e.g. creature lands while still moving → FlyForward→Run,
                 // or server changes WALKING flag while creature is already running → Walk.
                 const bool stateChanged = (isMovingNow  != prevMoving)   ||
                                           (isSwimmingNow != prevSwimming) ||
@@ -2886,7 +2886,7 @@ void Application::syncRenderInstancesToEntities(float deltaTime) {
                             else if (isSwimmingNow) targetAnim = rendering::anim::SWIM_IDLE;
                             else {
                                 // Resume a retained state emote (work/chop loop),
-                                // but only if this model ships the animation —
+                                // but only if this model ships the animation -
                                 // display swaps can land on models without it
                                 // (the log-carrying peasant has no chop anim).
                                 targetAnim = rendering::anim::STAND;
@@ -2955,7 +2955,7 @@ void Application::syncRenderInstancesToEntities(float deltaTime) {
                 if (glm::dot(d, d) > pSyncRadiusSq && !activeCombatTarget) continue;
             }
 
-            // Position sync — clamp to destination during dead-reckoning
+            // Position sync - clamp to destination during dead-reckoning
             // overrun to avoid drift + backward snap (same as creature loop).
             const bool inOverrun = entity->isEntityMoving() && !entity->isActivelyMoving();
             glm::vec3 canonical(
@@ -3244,9 +3244,9 @@ void Application::updateInGame(float deltaTime, const char*& updateCheckpoint) {
             }
 
             // Counters for the summary below. "No NPCs at all" has three
-            // possible causes that look identical in-world — the server
+            // possible causes that look identical in-world - the server
             // sent no units, the units exist but carry no display id, or
-            // they exist and the spawner is refusing them — and the
+            // they exist and the spawner is refusing them - and the
             // difference decides where to look.
             int unitsSeen = 0, unitsNoDisplay = 0, unitsSpawned = 0, unitsQueued = 0;
 
@@ -3300,7 +3300,7 @@ void Application::updateInGame(float deltaTime, const char*& updateCheckpoint) {
                 noUnitsFor += 3.0f;
                 if (noUnitsFor >= 9.0f) {
                     noUnitsFor = 0.0f;
-                    LOG_WARNING("No UNIT entities in range at all — the server has "
+                    LOG_WARNING("No UNIT entities in range at all - the server has "
                                 "sent no creatures, or their update blocks were dropped");
                 }
             }
@@ -3351,7 +3351,7 @@ void Application::update(float deltaTime) {
     const char* updateCheckpoint = "enter";
     try {
     // A reload asked for by the interface. Done here, between frames, because
-    // the request comes from inside the Lua state that the reload destroys —
+    // the request comes from inside the Lua state that the reload destroys -
     // performing it at the call site would free the machinery mid-call.
     if (reloadUiPending_) {
         reloadUiPending_ = false;
@@ -3543,7 +3543,7 @@ void Application::render() {
                 // main render pass, not an image this renderer could place, so
                 // the map is told where FrameXML's frame ended up rather than
                 // the frame being handed a picture. One frame behind, because
-                // that pass has already run by the time this lays out — which
+                // that pass has already run by the time this lays out - which
                 // for a frame that does not move is not visible.
                 // The world map is an ImGui window that centres itself, so
                 // like the minimap it is told where to be rather than handed
@@ -3680,7 +3680,7 @@ void Application::render() {
                 }
 
                 // The dressing room. The player as they are, plus whatever
-                // has been tried on — which is the player's own paperdoll with
+                // has been tried on - which is the player's own paperdoll with
                 // an overlay, so it is built from the same character record.
                 //
                 // Two of them: the auction house has a dressing room of its
@@ -3748,7 +3748,7 @@ void Application::render() {
                 // Frames that have been *told* which creature to show, rather
                 // than frames that can work it out. The stable's paperdoll is
                 // told a slot and the companion preview a mount or critter, and
-                // in both cases only the binding knows which — so the id is
+                // in both cases only the binding knows which - so the id is
                 // written onto the frame and this builds whatever it finds.
                 struct CreatureModel {
                     const char* name;
@@ -3822,7 +3822,7 @@ void Application::render() {
                 }
 
                 // The inspect window's figure, on the same terms as the
-                // paperdoll's — a whole model rather than a face, and only
+                // paperdoll's - a whole model rather than a face, and only
                 // while the frame is up. Whoever was inspected rather than
                 // whoever is targeted: the interface keeps showing the player
                 // it was opened on while the target moves on, and the inspect
@@ -3870,9 +3870,9 @@ void Application::render() {
                                          renderer.get(), io.DeltaTime);
                     // Assigned every frame including when it is zero. Keeping
                     // the last good handle instead would leave the widget
-                    // pointing at a descriptor set that has been destroyed —
+                    // pointing at a descriptor set that has been destroyed -
                     // the render target is torn down whenever the model is
-                    // rebuilt — and drawing from that is a use-after-free
+                    // rebuilt - and drawing from that is a use-after-free
                     // rather than a stale picture.
                     portrait->externalTexture = unitPortrait_.textureId();
                 }
@@ -3881,7 +3881,7 @@ void Application::render() {
                 // player. Assigned here rather than when it was asked for,
                 // because the handle is rebuilt whenever the portrait's render
                 // target is and one kept across that is stale. The list is
-                // short — five frames name the player in all of FrameXML — so
+                // short - five frames name the player in all of FrameXML - so
                 // this costs a handful of lookups rather than a scan.
                 const uint64_t playerFace = unitPortrait_.textureId();
                 for (uint32_t id : widgets.playerPortraits()) {
@@ -3891,7 +3891,7 @@ void Application::render() {
                 }
 
                 // The target's face and the pet's, on the same terms as the
-                // player's, and only while a frame is asking for one — each is
+                // player's, and only while a frame is asking for one - each is
                 // a whole offscreen model pass, and running it for a portrait
                 // nothing draws costs a render and a composite every frame to
                 // produce a picture nobody sees.
@@ -3911,7 +3911,7 @@ void Application::render() {
                     const char* alias = nullptr;
                 };
                 // Party guids in the interface's order, which excludes the
-                // player — party1 is the first other member.
+                // player - party1 is the first other member.
                 std::array<uint64_t, 4> partyGuids{};
                 {
                     int found = 0;
@@ -3923,7 +3923,7 @@ void Application::render() {
                 }
                 const uint64_t npcGuid = gameHandler->getInteractNpcGuid();
                 const UnitFace kFaces[] = {
-                    // "npc" and "questnpc" are the same unit under two names —
+                    // "npc" and "questnpc" are the same unit under two names -
                     // whoever the open window belongs to. The interface uses
                     // the second only in questframe and means nothing different
                     // by it.
@@ -3946,7 +3946,7 @@ void Application::render() {
                     bool built = false;
                     face.portrait->setFraming(ui::UnitPortrait::Framing::Face);
                     // Sized for the circle it is drawn into rather than for the
-                    // paperdoll — the shape as much as the scale, since a
+                    // paperdoll - the shape as much as the scale, since a
                     // portrait frame is square and the old target was not.
                     sizeFor(*face.portrait,
                             widgets.get(claimed.empty() ? alsoClaimed.front()
@@ -3995,7 +3995,7 @@ void Application::render() {
                                 displayId = u->getDisplayId();
                             }
                         }
-                        // A humanoid NPC — a guard, a questgiver, an innkeeper —
+                        // A humanoid NPC - a guard, a questgiver, an innkeeper -
                         // is drawn the way a character is, from a race and the
                         // same skin, face and hair choices a player has.
                         // CreatureDisplayInfo leaves the skin fields empty for
@@ -4014,7 +4014,7 @@ void Application::render() {
                                      entitySpawner_->getHumanoidEquipment(displayId)) {
                                 npcWorn.push_back({did, invType, 0u});
                             }
-                            // The bake, where there is one — nearly always.
+                            // The bake, where there is one - nearly always.
                             // It is the whole appearance already composited,
                             // armour included, which is the half this client
                             // cannot build for an NPC. The equipment above
@@ -4053,7 +4053,7 @@ void Application::render() {
             //
             // Only the layout. The drawing waits until after the UI stage,
             // which is what puts the nameplates and the minimap's blips into
-            // the same ImGui background list — and in a draw list the last
+            // the same ImGui background list - and in a draw list the last
             // thing added is the thing on top. Drawing here put the panels
             // down first, so every player's name and health bar in the world
             // showed through the bags and the auction house.
@@ -4072,8 +4072,8 @@ void Application::render() {
             // First claim, though, is claimed on the press. Once a frame has
             // taken one the interface keeps the mouse until it comes up again,
             // wherever the cursor goes in the meantime. A drag crosses the
-            // screen by definition — spellbook to action bar passes over
-            // whatever else is on the way — and dispatchMouse is the only thing
+            // screen by definition - spellbook to action bar passes over
+            // whatever else is on the way - and dispatchMouse is the only thing
             // that advances the press state, so cutting it off part way does
             // not pause the drag, it strands it: OnDragStop and OnReceiveDrag
             // live on the release path and the release is never seen. That is
@@ -4086,7 +4086,7 @@ void Application::render() {
             //
             // Each of this client's panels polls its own keybinding from
             // inside its own draw, so a panel that is no longer drawn never
-            // sees the key — handing one over made it unopenable. The key has
+            // sees the key - handing one over made it unopenable. The key has
             // to reach the replacement instead, which is FrameXML's own toggle
             // for that panel.
             {
@@ -4097,7 +4097,7 @@ void Application::render() {
                     // Names checked against this FrameXML rather than assumed:
                     // ToggleAllBags, ToggleQuestLog and ToggleWorldMap are all
                     // later additions and do not exist in 3.3.5, so calling
-                    // them did nothing at all — the fallback answers an
+                    // them did nothing at all - the fallback answers an
                     // unknown name and calling it yields nothing.
                     {UiElement::Bags,           K::Action::TOGGLE_BAGS,             "ToggleBackpack()"},
                     {UiElement::Spellbook,      K::Action::TOGGLE_SPELLBOOK,        "ToggleSpellBook(BOOKTYPE_SPELL)"},
@@ -4108,7 +4108,7 @@ void Application::render() {
                     // their own draw, found by asking which of this client's
                     // windows do that and which of those are gated. Every one
                     // that is gated and not listed here is a key that stops
-                    // working the moment its element is handed over — the
+                    // working the moment its element is handed over - the
                     // talent frame on N, the guild roster and the dungeon
                     // finder on theirs.
                     //
@@ -4116,12 +4116,12 @@ void Application::render() {
                     // says to: ToggleTalentFrame is in uiparent.lua,
                     // ToggleFriendsFrame takes a tab number and three is the
                     // guild one, and the dungeon finder is ToggleLFDParentFrame
-                    // — the binding is still called TOGGLELFGPARENT, which is
+                    // - the binding is still called TOGGLELFGPARENT, which is
                     // the old name kept so nobody's key was reset.
                     {UiElement::Talents,        K::Action::TOGGLE_TALENTS,          "ToggleTalentFrame()"},
                     // ToggleFriendsFrame with no tab, which is what this key
-                    // is: bindings.xml gives TOGGLESOCIAL — O by default, and
-                    // the action here is O — the body ToggleFriendsFrame(),
+                    // is: bindings.xml gives TOGGLESOCIAL - O by default, and
+                    // the action here is O - the body ToggleFriendsFrame(),
                     // while ToggleFriendsFrame(3) belongs to TOGGLEGUILDTAB on
                     // a key of its own.
                     //
@@ -4130,7 +4130,7 @@ void Application::render() {
                     // anything at all when the player is in no guild, and when
                     // the selected tab is not the one asked for it re-shows on
                     // that tab rather than hiding. The plain form is what its
-                    // name says — shown becomes hidden, hidden becomes shown —
+                    // name says - shown becomes hidden, hidden becomes shown -
                     // so the key stopped closing the window it had opened.
                     {UiElement::Social,         K::Action::TOGGLE_GUILD_ROSTER,     "ToggleFriendsFrame()"},
                     {UiElement::DungeonFinder,  K::Action::TOGGLE_DUNGEON_FINDER,   "ToggleLFDParentFrame()"},
@@ -4157,7 +4157,7 @@ void Application::render() {
             // this looks, so it never counts as having appeared and its
             // OnShow/OnHide never run. Several of those handlers do real work:
             // LootFrame_OnHide calls CloseLoot, which releases the loot on the
-            // server — through the client's own loot window, the one actually
+            // server - through the client's own loot window, the one actually
             // on screen. Moving this earlier would take the player's loot.
             engine->updateVisibility();
             // After visibility, because a frame shown this frame is measured
@@ -4224,7 +4224,7 @@ void Application::render() {
             // batching them took this stage from 682ms to under 200.
             //
             // It also broke correctness, which is why it is not done. This
-            // stage does not only build draw lists — the unit portrait and the
+            // stage does not only build draw lists - the unit portrait and the
             // character preview render models to offscreen targets inside it,
             // and those are real draws. With the batch still open they sampled
             // images whose uploads had not been submitted, and validation
@@ -4232,8 +4232,8 @@ void Application::render() {
             // run rather than only at the moment the device was lost.
             //
             // The stall is real and worth fixing, but it has to be fixed where
-            // the uploads are — around each screen's icon loop, inside which
-            // nothing draws — not around a stage that draws.
+            // the uploads are - around each screen's icon loop, inside which
+            // nothing draws - not around a stage that draws.
             uiManager->render(state, authHandler.get(), gameHandler.get());
         });
 
@@ -4476,8 +4476,8 @@ void Application::spawnPlayerCharacter() {
 
         // Set voice profile to match character race/gender
         if (auto* asm_ = audioCoordinator_ ? audioCoordinator_->getActivitySoundManager() : nullptr) {
-            // Voice art is filed under the same race folder as the models —
-            // Scourge for the Undead — so it comes from the one table in
+            // Voice art is filed under the same race folder as the models -
+            // Scourge for the Undead - so it comes from the one table in
             // core/character_paths.hpp. The two names here were always equal.
             const char* raceFolder = core::raceModelFolder(static_cast<uint32_t>(playerRace_));
             const char* raceBase = raceFolder;
@@ -4518,14 +4518,14 @@ void Application::refreshPlayerCharacterModel() {
     if (!ch) return;
     // Only rebuild when the visible appearance actually changed. PLAYER_BYTES_2
     // also carries rest state, so the appearance hook fires on entering/leaving
-    // inns and cities — a full respawn on those would be needless and jarring.
+    // inns and cities - a full respawn on those would be needless and jarring.
     if (ch->appearanceBytes == spawnedAppearanceBytes_ &&
         ch->facialFeatures == spawnedFacialFeatures_) {
         return;
     }
     LOG_INFO("Rebuilding player model in place for appearance change (barber shop)");
 
-    // Keep the character exactly where it is — this is the same respawn path
+    // Keep the character exactly where it is - this is the same respawn path
     // teleport uses (so equipment/geometry are fully re-applied), just live.
     const glm::vec3 savedPos = renderer ? renderer->getCharacterPosition() : glm::vec3(0.0f);
 
@@ -4542,14 +4542,14 @@ void Application::refreshPlayerCharacterModel() {
     spawnedAppearanceBytes_ = 0;
     spawnedFacialFeatures_ = 0;
 
-    spawnSnapToGround = false; // don't snap Z — stay at the current position
+    spawnSnapToGround = false; // don't snap Z - stay at the current position
     if (appearanceComposer_) appearanceComposer_->setWeaponsSheathed(false);
     spawnPlayerCharacter();
 
     if (renderer) renderer->getCharacterPosition() = savedPos;
 
     // Force equipment geosets/textures to be re-composited onto the fresh model
-    // next frame — the respawn only builds the base body, and equipment isn't
+    // next frame - the respawn only builds the base body, and equipment isn't
     // "dirty" (nothing was equipped), so without this the model loses its armor.
     if (gameHandler) gameHandler->resetEquipmentDirtyTracking();
 }
@@ -4559,7 +4559,7 @@ void Application::buildFactionHostilityMap(uint8_t playerRace) {
     game::buildFactionHostilityMap(*assetManager, *gameHandler, playerRace);
 }
 
-// Render bounds/position queries — delegates to EntitySpawner
+// Render bounds/position queries - delegates to EntitySpawner
 bool Application::getRenderBoundsForGuid(uint64_t guid, glm::vec3& outCenter, float& outRadius) const {
     if (entitySpawner_) return entitySpawner_->getRenderBoundsForGuid(guid, outCenter, outRadius);
     return false;

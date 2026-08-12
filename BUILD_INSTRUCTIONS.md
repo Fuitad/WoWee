@@ -42,7 +42,7 @@ sudo pacman -S --needed \
 
 > **Note:** `vulkan-headers` provides the `vulkan/vulkan.h` development headers required
 > at build time. `vulkan-devel` is a group that includes these on some distros but is not
-> available by name on Arch — install `vulkan-headers` and `vulkan-icd-loader` explicitly.
+> available by name on Arch - install `vulkan-headers` and `vulkan-icd-loader` explicitly.
 
 Install `unicorn` for optional Warden execution. StormLib is available from the
 AUR as `stormlib-git` if you need `asset_extract`.
@@ -145,7 +145,7 @@ Maintainers can find the CI credential contract and verification commands in
 
 ---
 
-## 🪟 Windows (MSYS2 — Recommended)
+## 🪟 Windows (MSYS2 - Recommended)
 
 MSYS2 provides the normal client dependencies as pre-built packages. StormLib
 is built separately only when the optional asset extractor is needed.

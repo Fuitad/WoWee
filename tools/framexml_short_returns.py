@@ -2,7 +2,7 @@
 """Bindings that return fewer values than FrameXML unpacks.
 
 `local a, b, c = GetThing()` with a binding that pushes two leaves c nil, and
-nil is only an error when something touches it — so this shows up as a missing
+nil is only an error when something touches it - so this shows up as a missing
 column, a nil concat much later, or nothing at all until the one path that
 reads the last value.
 
@@ -26,7 +26,7 @@ and so a fifteenth stands out.
 
   * A name that is both a global and a widget method (1). GetCursorPosition
     the global answers two values; GetCursorPosition the edit-box method
-    answers one, and this cannot tell them apart — the same caveat
+    answers one, and this cannot tell them apart - the same caveat
     api_shadowing_check carries. The caller in blizzard_battlefieldminimap
     reaches the global.
   * Missing values that are correctly nil (6). UnitName's second return is the
@@ -68,8 +68,8 @@ for f in ADDONS.glob("*.cpp"):
     # through a table.
     #
     # Last, so it wins a name that is also a widget method. Both spellings of
-    # GetCursorPosition exist — an EditBox method answering where the caret is,
-    # and a global answering where the mouse is — and reading only the tables
+    # GetCursorPosition exist - an EditBox method answering where the caret is,
+    # and a global answering where the mouse is - and reading only the tables
     # found the method, whose one return was then held against
     # `xPos, yPos = GetCursorPosition()`. That call is a global call, and the
     # global returns both. A destructured call site is never a method call, so
@@ -79,13 +79,13 @@ for f in ADDONS.glob("*.cpp"):
             r'lua_setglobal\(\s*L_?\s*,\s*"([A-Za-z0-9_]+)"\s*\)', s):
         bound[m.group(2)] = (m.group(1), f)
 
-#: `return n;` — a count worked out at run time, which no reading of the source
+#: `return n;` - a count worked out at run time, which no reading of the source
 #: can pin down. A body with one of these is uncountable and is left out
 #: entirely rather than being scored on whatever literal returns it also has.
 #:
 #: Those literals are almost always guards. GetGossipOptions pushes two values
 #: per option and ends `return n;`, and its only literal return is the `if
-#: (!gh) return 0;` above the loop — so it read as answering nothing at all,
+#: (!gh) return 0;` above the loop - so it read as answering nothing at all,
 #: against a call site unpacking two.
 COMPUTED = re.compile(r"\breturn\s+(?!\d)[A-Za-z_]\w*\s*;")
 
@@ -102,7 +102,7 @@ for f in ADDONS.glob("*.cpp"):
         body = s[m.end():end]
         # Plain `return N;` and the conditional form `return c ? N : M;`.
         # Only the first was matched, and UnitCastingInfo ends
-        # `return wantChannel ? 8 : 9;` — so a binding returning nine values
+        # `return wantChannel ? 8 : 9;` - so a binding returning nine values
         # read as returning none and never appeared here, while the cast bar
         # was raising on a shifted endTime.
         rets = [int(x) for x in re.findall(r"\breturn\s+(\d+)\s*;", body)]
@@ -168,8 +168,8 @@ def top_level_split(rhs):
 
 # FrameXML: max destructured count per call
 unpack = {}
-# Only files the loader opens. GlueXML — login, character select, realm
-# list — sits in the same tree and is refused by name, so a name it calls
+# Only files the loader opens. GlueXML - login, character select, realm
+# list - sits in the same tree and is refused by name, so a name it calls
 # or a value it unpacks says nothing about this client.
 for path in sorted(loaded_files(XML)):
     t = strip_comments(path.read_text(errors="ignore"))
@@ -203,7 +203,7 @@ print(f"parsed {len(bound)} bindings, {len(pushes)} bodies, "
 #: Bindings answering short on purpose, checked one at a time.
 #:
 #: A set rather than a count. A ceiling says only how many there are, so fixing
-#: one and introducing another leaves the number where it was —
+#: one and introducing another leaves the number where it was -
 #: handler_announce_check was pinned that way and hid a live bug for as long as
 #: it was.
 EXPECTED_SHORT = {
@@ -227,12 +227,12 @@ EXPECTED_SHORT = {
     # only vehicles and a few encounters have; a nil leaves unitframe on the
     # power type's own colour, which is the answer for everything here.
     "UnitPowerType": "alt power colours, absent by design",
-    # One of three. Answering nil is the answer — the item objectives *are* the
+    # One of three. Answering nil is the answer - the item objectives *are* the
     # leaderboard objectives, listed by the branch above this one, so there is
     # nothing left for this to describe.
     "GetQuestLogItemDrop": "no drops left to name",
     # One of two. The second is the realm, which is nil for a player on your
-    # own realm — and there is no other kind here.
+    # own realm - and there is no other kind here.
     "UnitName": "realm is nil for a same-realm player",
     # One of two. The second is a trade skill link, which a spell only has when
     # it is a recipe being viewed in a trade skill window.

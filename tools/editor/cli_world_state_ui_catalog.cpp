@@ -264,7 +264,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 warnings.push_back(ctx + ": variableIndex=0 "
                     "(not bound to a server-side variable)");
             }
-            // alwaysVisible + hideWhenZero is contradictory —
+            // alwaysVisible + hideWhenZero is contradictory -
             // hide-when-zero implicitly negates always-visible
             // when the value happens to be 0.
             if (e.alwaysVisible && e.hideWhenZero) {
@@ -273,7 +273,7 @@ int handleValidate(int& i, int argc, char** argv) {
                     "(hideWhenZero wins when value=0)");
             }
             // Two world-state entries sharing the same
-            // (mapId, variableIndex) pair conflict — they'd both
+            // (mapId, variableIndex) pair conflict - they'd both
             // try to read the same server slot at the same time.
             for (size_t m = 0; m < k; ++m) {
                 const auto& other = c.entries[m];
@@ -285,7 +285,7 @@ int handleValidate(int& i, int argc, char** argv) {
                         ", variableIndex=" +
                         std::to_string(e.variableIndex) +
                         ") with entry " + std::to_string(m) +
-                        " — values will collide");
+                        " - values will collide");
                     break;
                 }
             }

@@ -280,13 +280,13 @@ int handleValidate(int& i, int argc, char** argv) {
                 errors.push_back(ctx + ": factionRestriction " +
                     std::to_string(e.factionRestriction) + " not in 0..2");
             }
-            // Epic rarity without an itemId is unusual — promo
+            // Epic rarity without an itemId is unusual - promo
             // pets typically have a redemption code item or
             // collector's edition box.
             if (e.rarity == wowee::pipeline::WoweeCompanion::Epic &&
                 e.itemId == 0) {
                 warnings.push_back(ctx +
-                    ": Epic rarity but itemId=0 (no source item — "
+                    ": Epic rarity but itemId=0 (no source item - "
                     "verify intentional for code-only redemption)");
             }
             if (!idsSeen.add(e.companionId)) errors.push_back(ctx + ": duplicate companionId");

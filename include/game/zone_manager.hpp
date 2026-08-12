@@ -35,7 +35,7 @@ public:
     uint32_t getZoneId(int tileX, int tileY) const;
     uint32_t resolveAreaZoneId(uint32_t areaId) const;
 
-    /// Whether an area is a world PvP objective — one of the eleven the
+    /// Whether an area is a world PvP objective - one of the eleven the
     /// AREA_FLAG_OUTDOOR_PVP bit marks, or anywhere in Wintergrasp, which
     /// carries a flag of its own instead.
     ///

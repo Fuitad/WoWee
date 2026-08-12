@@ -12,8 +12,8 @@ using namespace wowee::game::spellclass;
 namespace {
 
 // Real values from Spell.dbc / SpellRange.dbc (WotLK 3.3.5a).
-constexpr float kSelfOnly     = 0.0f;   // "Self Only"    — Battle Shout, Hearthstone
-constexpr float kCombatRange  = 5.0f;   // "Combat Range" — every melee ability
+constexpr float kSelfOnly     = 0.0f;   // "Self Only"    - Battle Shout, Hearthstone
+constexpr float kCombatRange  = 5.0f;   // "Combat Range" - every melee ability
 constexpr float kDeadlyThrow  = 30.0f;  // physical, but thrown
 constexpr float kSteadyShot   = 35.0f;  // physical, but shot
 constexpr float kFireball     = 35.0f;
@@ -201,7 +201,7 @@ TEST_CASE("A known spell is left alone", "[spell][rank]") {
 
     const std::unordered_set<uint32_t> known{772};
 
-    // Rank 1 is still the active rank — casting it must not be rewritten.
+    // Rank 1 is still the active rank - casting it must not be rewritten.
     REQUIRE(resolveHighestKnownRank(772, known, dbc.lookup()) == 772);
 }
 

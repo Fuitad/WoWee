@@ -1,11 +1,11 @@
-// lua_socket_api.cpp — putting gems into an item's sockets.
+// lua_socket_api.cpp - putting gems into an item's sockets.
 //
 // This client has never had a socketing window. It parses socket colours and
 // draws them on a tooltip, it has a handler for the server's reply, and there
 // was nothing in between: no way to open an item, no way to place a gem, and
-// nothing anywhere that sent CMSG_SOCKET_GEMS. FrameXML ships the whole panel —
+// nothing anywhere that sent CMSG_SOCKET_GEMS. FrameXML ships the whole panel -
 // Blizzard_ItemSocketingUI, plus the right-click entries in the paperdoll and
-// the bags that open it — and wanted six calls this client did not answer.
+// the bags that open it - and wanted six calls this client did not answer.
 // tools/framexml_nil_arithmetic.py had been reporting them as the one live
 // carrier left: ItemSocketingFrame_Update, reached from UIParent_OnEvent.
 //
@@ -14,7 +14,7 @@
 //   * The sockets are real, read from the item template this client already
 //     parses. So is the gem in a socket: the item's enchantment fields carry an
 //     enchantment id, and SpellItemEnchantment names the gem it came out of.
-//   * Whether a gem *matches* its socket is real, out of GemProperties.dbc —
+//   * Whether a gem *matches* its socket is real, out of GemProperties.dbc -
 //     the colour mask of the gem against the colour mask of the socket.
 //   * The refund and bound-tradeable windows are not modelled. Both answer nil,
 //     which is what GetContainerItemPurchaseInfo already answers and for the
@@ -49,8 +49,8 @@ const char* socketColorName(uint32_t mask) {
 /// A gem's own colour mask, from GemProperties.dbc.
 ///
 /// An item's socket has a colour; a gem does not. What a gem has is a
-/// GemProperties id — the field straight after socketBonus in the item query,
-/// which this client kept nothing of until the socket block was fixed — and
+/// GemProperties id - the field straight after socketBonus in the item query,
+/// which this client kept nothing of until the socket block was fixed - and
 /// that row's Type is the mask. The compound colours matter: an orange gem is
 /// 6, red|yellow, and fits either a red or a yellow socket.
 uint32_t gemColorMask(game::GameHandler* gh, uint32_t gemItemId) {
@@ -64,7 +64,7 @@ uint32_t gemColorMask(game::GameHandler* gh, uint32_t gemItemId) {
     if (!dbc || !dbc->isLoaded()) return 0;
     const int32_t row = dbc->findRecordById(info->gemProperties);
     if (row < 0) return 0;
-    // ID, Enchant_Id, MaxCountInv, MaxCountItem, Type — five columns in every
+    // ID, Enchant_Id, MaxCountInv, MaxCountItem, Type - five columns in every
     // shape that has gems at all, so the last one is the colour.
     if (dbc->getFieldCount() < 5) return 0;
     return dbc->getUInt32(static_cast<uint32_t>(row), 4);
@@ -86,7 +86,7 @@ uint32_t socketMaskAt(game::GameHandler* gh, int index) {
     return info->socketColor[index];
 }
 
-/// name, icon, gemMatchesSocket for a gem item in a given socket — the three
+/// name, icon, gemMatchesSocket for a gem item in a given socket - the three
 /// returns both socket-info calls share. Pushes nothing and returns 0 when
 /// there is no gem, which is how FrameXML asks "is this socket filled".
 int pushGemInfo(lua_State* L, game::GameHandler* gh, uint32_t gemItemId, int socketIndex) {
@@ -99,7 +99,7 @@ int pushGemInfo(lua_State* L, game::GameHandler* gh, uint32_t gemItemId, int soc
     if (gemItemId == 0) return pushEmpty();
     const auto* gem = gh->getItemInfo(gemItemId);
     if (!gem || !gem->valid) {
-        // Not queried yet. Ask, and answer nothing this frame — the panel
+        // Not queried yet. Ask, and answer nothing this frame - the panel
         // redraws on the next SOCKET_INFO_UPDATE with the name filled in.
         gh->ensureItemInfo(gemItemId);
         return pushEmpty();
@@ -131,7 +131,7 @@ int pushGemLink(lua_State* L, game::GameHandler* gh, uint32_t gemItemId) {
     return 1;
 }
 
-/// GetExistingSocketLink(index) — the gem already in the socket.
+/// GetExistingSocketLink(index) - the gem already in the socket.
 int lua_GetExistingSocketLink(lua_State* L) {
     auto* gh = getGameHandler(L);
     const int index = static_cast<int>(luaL_optnumber(L, 1, 1)) - 1;
@@ -140,7 +140,7 @@ int lua_GetExistingSocketLink(lua_State* L) {
     return pushGemLink(L, gh, gh->getEnchantGemItem(enchants[static_cast<size_t>(index)]));
 }
 
-/// GetNewSocketLink(index) — the gem waiting to go in.
+/// GetNewSocketLink(index) - the gem waiting to go in.
 int lua_GetNewSocketLink(lua_State* L) {
     auto* gh = getGameHandler(L);
     const int index = static_cast<int>(luaL_optnumber(L, 1, 1)) - 1;
@@ -148,7 +148,7 @@ int lua_GetNewSocketLink(lua_State* L) {
     return pushGemLink(L, gh, gh->getSocketPendingGemItemId(index));
 }
 
-/// SocketInventoryItem(invSlot) — the paperdoll's right-click entry.
+/// SocketInventoryItem(invSlot) - the paperdoll's right-click entry.
 int lua_SocketInventoryItem(lua_State* L) {
     auto* gh = getGameHandler(L);
     const int slotId = static_cast<int>(luaL_optnumber(L, 1, 0));
@@ -157,7 +157,7 @@ int lua_SocketInventoryItem(lua_State* L) {
     return 0;
 }
 
-/// SocketContainerItem(bag, slot) — the same entry on a bag item.
+/// SocketContainerItem(bag, slot) - the same entry on a bag item.
 int lua_SocketContainerItem(lua_State* L) {
     auto* gh = getGameHandler(L);
     const int bag = static_cast<int>(luaL_optnumber(L, 1, 0));
@@ -227,7 +227,7 @@ int lua_GetSocketItemInfo(lua_State* L) {
     return 3;
 }
 
-/// ClickSocketButton(index) — put down what is carried, or take back what is
+/// ClickSocketButton(index) - put down what is carried, or take back what is
 /// in the socket when nothing is.
 ///
 /// Only a *pending* gem comes back out. One already socketed is in the item on
@@ -286,7 +286,7 @@ int lua_CloseSocketInfo(lua_State* L) {
 /// The refund and bound-tradeable windows, which this client is not sent.
 ///
 /// Both gate a warning about socketing an item that could still be handed back.
-/// nil means "no window", which is true here — and the honest answer, because
+/// nil means "no window", which is true here - and the honest answer, because
 /// claiming one would have the panel warn about a refund that cannot happen.
 int lua_GetSocketItemRefundable(lua_State* L) {
     lua_pushnil(L);

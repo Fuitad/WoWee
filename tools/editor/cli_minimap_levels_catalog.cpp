@@ -241,23 +241,23 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": name is empty");
         if (e.areaId == 0) {
             errors.push_back(ctx +
-                ": areaId is 0 — level is unbound to "
+                ": areaId is 0 - level is unbound to "
                 "any WMS sub-area");
         }
         if (e.minZ >= e.maxZ) {
             errors.push_back(ctx + ": minZ " +
                 std::to_string(e.minZ) +
                 " >= maxZ " + std::to_string(e.maxZ) +
-                " — Z-range is empty or inverted");
+                " - Z-range is empty or inverted");
         }
         if (e.texturePath.empty()) {
             warnings.push_back(ctx +
-                ": texturePath is empty — minimap "
+                ": texturePath is empty - minimap "
                 "overlay layer would render untextured");
         }
         if (e.displayName.empty()) {
             warnings.push_back(ctx +
-                ": displayName is empty — UI level "
+                ": displayName is empty - UI level "
                 "picker would show blank entry");
         }
         if (!idsSeen.insert(e.levelId).second) {
@@ -290,7 +290,7 @@ int handleValidate(int& i, int argc, char** argv) {
                     std::to_string(areaId) +
                     "): two levels at levelIndex " +
                     std::to_string(L->levelIndex) +
-                    " — picker would show duplicate slot");
+                    " - picker would show duplicate slot");
             }
         }
         // Z-overlap check: for every pair of levels in
@@ -317,7 +317,7 @@ int handleValidate(int& i, int argc, char** argv) {
                         " (Z " +
                         std::to_string(Lb->minZ) + "-" +
                         std::to_string(Lb->maxZ) +
-                        ") — minimap renderer would "
+                        ") - minimap renderer would "
                         "flicker between layers in the "
                         "overlap region");
                 }

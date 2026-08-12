@@ -35,11 +35,11 @@ void CharacterAnimator::stopSpellCast() {
 }
 
 void CharacterAnimator::triggerMeleeSwing() {
-    // Melee is handled via timer in FrameInput — CombatFSM transitions automatically
+    // Melee is handled via timer in FrameInput - CombatFSM transitions automatically
 }
 
 void CharacterAnimator::triggerRangedShot() {
-    // Ranged is handled via timer in FrameInput — CombatFSM transitions automatically
+    // Ranged is handled via timer in FrameInput - CombatFSM transitions automatically
 }
 
 void CharacterAnimator::triggerHitReaction(uint32_t animId) {

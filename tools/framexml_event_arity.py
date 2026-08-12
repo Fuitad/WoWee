@@ -5,7 +5,7 @@ The unfired-event column says whether an event is sent at all. This asks the
 next question: whether what is sent carries what the handler reads.
 
 A handler that unpacks four values from an event fired with two gets nil for
-the last two, and nil is not an error — it is a blank name, a missing amount, a
+the last two, and nil is not an error - it is a blank name, a missing amount, a
 branch that quietly takes the other path. Nothing raises and nothing is
 reported, which puts this in the same family as the no-op allowlist.
 
@@ -16,7 +16,7 @@ The shape matched is FrameXML's own:
 
 so the destructure is inside the branch that names the event, and the count is
 unambiguous. Handlers that unpack once at the top for many events are NOT
-matched — the arity there belongs to no single event, and guessing which would
+matched - the arity there belongs to no single event, and guessing which would
 manufacture findings.
 
 Both sides can be wrong. Read the handler before adding an argument: FrameXML
@@ -51,7 +51,7 @@ for path in SRC.rglob("*.cpp"):
     for m in FIRE.finditer(text):
         name = m.group(1)
         if not name:
-            continue          # event name held in a variable — arity unknowable here
+            continue          # event name held in a variable - arity unknowable here
         body = m.group(3).strip()
         if not body:
             count = 0
@@ -74,9 +74,9 @@ for path in SRC.rglob("*.cpp"):
             (count, f"{path.relative_to(ROOT)}:{text.count(chr(10), 0, m.start()) + 1}"))
 
 # ---- What the handlers unpack, inside the branch that names the event ----
-# One event per branch. A condition naming several — battlefieldframe.lua has
+# One event per branch. A condition naming several - battlefieldframe.lua has
 # `UPDATE_BATTLEFIELD_STATUS or ZONE_CHANGED_NEW_AREA or ZONE_CHANGED` sharing
-# one body — unpacks for whichever of them carries arguments, and attributing
+# one body - unpacks for whichever of them carries arguments, and attributing
 # that count to the others invents a shortfall. Same reasoning as skipping the
 # handlers that unpack once at the top.
 BRANCH = re.compile(
@@ -84,7 +84,7 @@ BRANCH = re.compile(
 UNPACK = re.compile(r"local\s+([\w\s,]+?)\s*=\s*\.\.\.")
 # The other spelling, and the commoner one: a body that names arg1 and arg2
 # directly instead of unpacking them. Reading only `= ...` saw sixty-nine
-# branches and missed several hundred, ActionButton_OnEvent among them —
+# branches and missed several hundred, ActionButton_OnEvent among them -
 # ACTIONBAR_SLOT_CHANGED was fired with no argument at all from two of its
 # three sites, and the button compares `arg1 == 0 or arg1 == tonumber(self.action)`,
 # so nil matched neither and not one button on the bar redrew.
@@ -105,7 +105,7 @@ for path in sorted(loaded_files(XML)):
         if u:
             names = [n.strip() for n in u.group(1).split(",") if n.strip()]
         # However the body gets at them, the count it needs is the highest
-        # position it reads — unless the function unpacked at the top, where
+        # position it reads - unless the function unpacked at the top, where
         # the names belong to whichever of its several events carries them and
         # attributing them to this one invents a shortfall. That is the same
         # exclusion the docstring makes for `local a, b = ...` at the top, and
@@ -128,7 +128,7 @@ EXPECTED = {
     # pvpframe reads arg1 as "the roster you are holding is stale, ask for it
     # again", and redraws from what arrived only when arg1 is missing. This is
     # fired when a roster arrives, so passing anything would answer a roster by
-    # requesting another one without end — and a zero would do it as surely as
+    # requesting another one without end - and a zero would do it as surely as
     # a one, zero being true in Lua.
     "ARENA_TEAM_ROSTER_UPDATE",
     # readycheck reads arg1 as "a new ready check started before this one
@@ -149,7 +149,7 @@ rows = []
 for name, (need, where, names) in sorted(wanted.items()):
     have = fired.get(name)
     if have is None:
-        continue              # not fired at all — the other sweep's column
+        continue              # not fired at all - the other sweep's column
     if name in EXPECTED:
         continue
     if need > have:
@@ -186,9 +186,9 @@ EXPECTED_UNEVEN = {
     # Four from the criteria packet, one when the player ticks a box.
     # watchframe's branch does nothing with a nil elapsed or duration and then
     # calls WatchFrame_Update regardless, which is the whole point of the short
-    # firing — and the achievement UI calls it itself besides.
+    # firing - and the achievement UI calls it itself besides.
     "TRACKED_ACHIEVEMENT_UPDATE": "short firing still redraws the tracker",
-    # Two for a bag slot, one for an equipment slot — and the absent second
+    # Two for a bag slot, one for an equipment slot - and the absent second
     # argument is what says which. containerframe guards `if ( bag and slot
     # ... )` so the short firing falls through it, and the paperdoll's is
     # `if ( not arg2 and arg1 == self:GetID() )`, which a second argument makes

@@ -164,7 +164,7 @@ int handleRepairProject(int& i, int argc, char** argv) {
         std::printf("\n--- %s ---\n",
                     fs::path(zoneDir).filename().string().c_str());
         // Flush so the section marker lands before the spawned
-        // child's stdout — exec inherits FDs but each process has
+        // child's stdout - exec inherits FDs but each process has
         // its own buffer.
         std::fflush(stdout);
         std::vector<std::string> args = {"--repair-zone", zoneDir};

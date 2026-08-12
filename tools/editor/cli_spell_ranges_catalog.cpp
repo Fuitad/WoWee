@@ -207,7 +207,7 @@ int handleImportJson(int& i, int argc, char** argv) {
             if (je.contains("name"))        e.name = je["name"].get<std::string>();
             if (je.contains("description")) e.description = je["description"].get<std::string>();
             // Accept both rangeKind (int) and rangeKindName
-            // (string) — falling back to the other when only
+            // (string) - falling back to the other when only
             // one form is present, mirroring the dual int+name
             // shape the export emits.
             uint8_t kind = wowee::pipeline::WoweeSpellRange::Ranged;
@@ -280,7 +280,7 @@ int handleValidate(int& i, int argc, char** argv) {
             if (e.rangeKind == wowee::pipeline::WoweeSpellRange::Self &&
                 (e.maxRange != 0.0f || e.maxRangeFriendly != 0.0f)) {
                 warnings.push_back(ctx +
-                    ": Self kind with non-zero maxRange — engine "
+                    ": Self kind with non-zero maxRange - engine "
                     "treats this as targeted, not self-only");
             }
             // Melee-kind should be 0..5y by canonical convention.

@@ -163,7 +163,7 @@ void GameScreen::renderPlayerFrame(game::GameHandler& gameHandler) {
             ? classColorVec4(static_cast<uint8_t>(activeChar->characterClass))
             : kColorBrightGreen;
 
-        // Name in class color — clickable for self-target, right-click for menu
+        // Name in class color - clickable for self-target, right-click for menu
         ImGui::PushStyleColor(ImGuiCol_Text, classColor);
         if (ImGui::Selectable(playerName.c_str(), false, 0, ImVec2(0, 0))) {
             gameHandler.setTarget(gameHandler.getPlayerGuid());
@@ -211,18 +211,18 @@ void GameScreen::renderPlayerFrame(game::GameHandler& gameHandler) {
         if (gameHandler.isAfk()) {
             ImGui::SameLine();
             ImGui::TextColored(ImVec4(0.8f, 0.8f, 0.3f, 1.0f), "<AFK>");
-            if (ImGui::IsItemHovered()) ImGui::SetTooltip("Away from keyboard — /afk to cancel");
+            if (ImGui::IsItemHovered()) ImGui::SetTooltip("Away from keyboard - /afk to cancel");
         } else if (gameHandler.isDnd()) {
             ImGui::SameLine();
             ImGui::TextColored(ImVec4(0.9f, 0.5f, 0.2f, 1.0f), "<DND>");
-            if (ImGui::IsItemHovered()) ImGui::SetTooltip("Do not disturb — /dnd to cancel");
+            if (ImGui::IsItemHovered()) ImGui::SetTooltip("Do not disturb - /dnd to cancel");
         }
         if (auto* ren = services_.renderer) {
             if (auto* cam = ren->getCameraController()) {
                 if (cam->isAutoRunning()) {
                     ImGui::SameLine();
                     ImGui::TextColored(ImVec4(0.4f, 0.9f, 1.0f, 1.0f), "[Auto-Run]");
-                    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Auto-running — press ` or NumLock to stop");
+                    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Auto-running - press ` or NumLock to stop");
                 }
             }
         }
@@ -233,7 +233,7 @@ void GameScreen::renderPlayerFrame(game::GameHandler& gameHandler) {
             if (ImGui::IsItemHovered()) ImGui::SetTooltip("You are in combat");
         }
 
-        // Active title — shown in gold below the name/level line
+        // Active title - shown in gold below the name/level line
         {
             int32_t titleBit = gameHandler.getChosenTitleBit();
             if (titleBit >= 0) {
@@ -255,7 +255,7 @@ void GameScreen::renderPlayerFrame(game::GameHandler& gameHandler) {
             }
         }
 
-        // Health bar — color transitions green→yellow→red as HP drops
+        // Health bar - color transitions green→yellow→red as HP drops
         float pct = static_cast<float>(playerHp) / static_cast<float>(playerMaxHp);
         ImVec4 hpColor;
         if (isDead) {
@@ -266,7 +266,7 @@ void GameScreen::renderPlayerFrame(game::GameHandler& gameHandler) {
             float t = (pct - 0.2f) / 0.3f;  // 0 at 20%, 1 at 50%
             hpColor = ImVec4(0.9f - 0.7f * t, 0.4f + 0.4f * t, 0.0f, 1.0f); // orange→yellow
         } else {
-            // Critical — pulse red when < 20%
+            // Critical - pulse red when < 20%
             float pulse = 0.7f + 0.3f * std::sin(static_cast<float>(ImGui::GetTime()) * 3.5f);
             hpColor = ImVec4(0.9f * pulse, 0.05f, 0.05f, 1.0f);    // pulsing red
         }
@@ -302,7 +302,7 @@ void GameScreen::renderPlayerFrame(game::GameHandler& gameHandler) {
             }
         }
 
-        // Death Knight rune bar (class 6) — 6 colored squares with fill fraction
+        // Death Knight rune bar (class 6) - 6 colored squares with fill fraction
         if (gameHandler.getPlayerClass() == 6) {
             const auto& runes = gameHandler.getPlayerRunes();
             float dt = ImGui::GetIO().DeltaTime;
@@ -352,7 +352,7 @@ void GameScreen::renderPlayerFrame(game::GameHandler& gameHandler) {
             ImGui::Dummy(ImVec2(totalW, squareH));
         }
 
-        // Combo point display — Rogue (4) and Druid (11) in Cat Form
+        // Combo point display - Rogue (4) and Druid (11) in Cat Form
         {
             uint8_t cls = gameHandler.getPlayerClass();
             const bool isRogue  = (cls == 4);
@@ -373,8 +373,8 @@ void GameScreen::renderPlayerFrame(game::GameHandler& gameHandler) {
                     for (int i = 0; i < MAX_CP; ++i) {
                         float cx = startX + i * (DOT_R * 2.0f + SPACING) + DOT_R;
                         ImU32 col = (i < static_cast<int>(cp))
-                            ? IM_COL32(255, 210, 0, 240)   // bright gold — active
-                            : IM_COL32(60,  60, 60, 160);  // dark — empty
+                            ? IM_COL32(255, 210, 0, 240)   // bright gold - active
+                            : IM_COL32(60,  60, 60, 160);  // dark - empty
                         dl->AddCircleFilled(ImVec2(cx, cy), DOT_R, col);
                         dl->AddCircle(ImVec2(cx, cy), DOT_R, IM_COL32(160, 140, 0, 180), 0, 1.5f);
                     }
@@ -383,13 +383,13 @@ void GameScreen::renderPlayerFrame(game::GameHandler& gameHandler) {
             }
         }
 
-        // Shaman totem bar (class 7) — 4 slots: Earth, Fire, Water, Air
+        // Shaman totem bar (class 7) - 4 slots: Earth, Fire, Water, Air
         if (gameHandler.getPlayerClass() == 7) {
             static constexpr ImVec4 kTotemColors[] = {
-                ImVec4(0.80f, 0.55f, 0.25f, 1.0f), // Earth — brown
-                ImVec4(1.00f, 0.35f, 0.10f, 1.0f), // Fire  — orange-red
-                ImVec4(0.20f, 0.55f, 0.90f, 1.0f), // Water — blue
-                ImVec4(0.70f, 0.90f, 1.00f, 1.0f), // Air   — pale sky
+                ImVec4(0.80f, 0.55f, 0.25f, 1.0f), // Earth - brown
+                ImVec4(1.00f, 0.35f, 0.10f, 1.0f), // Fire  - orange-red
+                ImVec4(0.20f, 0.55f, 0.90f, 1.0f), // Water - blue
+                ImVec4(0.70f, 0.90f, 1.00f, 1.0f), // Air   - pale sky
             };
             static constexpr const char* kTotemNames[] = { "Earth", "Fire", "Water", "Air" };
 
@@ -426,7 +426,7 @@ void GameScreen::renderPlayerFrame(game::GameHandler& gameHandler) {
                     tdl->AddText(ImVec2(lx + 1, ly + 1), IM_COL32(0, 0, 0, 180), secBuf);
                     tdl->AddText(ImVec2(lx, ly), IM_COL32(255, 255, 255, 230), secBuf);
                 } else {
-                    // Inactive — show element letter
+                    // Inactive - show element letter
                     const char* letter = kTotemNames[i];
                     char single[2] = { letter[0], '\0' };
                     ImVec2 tsz = ImGui::CalcTextSize(single);
@@ -465,7 +465,7 @@ void GameScreen::renderPlayerFrame(game::GameHandler& gameHandler) {
         }
     }
 
-    // Melee swing timer — shown when player is auto-attacking
+    // Melee swing timer - shown when player is auto-attacking
     if (gameHandler.isAutoAttacking()) {
         const uint64_t lastSwingMs = gameHandler.getLastMeleeSwingMs();
         if (lastSwingMs > 0) {
@@ -543,7 +543,7 @@ void GameScreen::renderPetFrame(game::GameHandler& gameHandler) {
         const std::string& petName = petUnit->getName();
         uint32_t petLevel = petUnit->getLevel();
 
-        // Name + level on one row — clicking the pet name targets it
+        // Name + level on one row - clicking the pet name targets it
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.4f, 0.9f, 0.4f, 1.0f));
         char petLabel[96];
         snprintf(petLabel, sizeof(petLabel), "%s",
@@ -627,7 +627,7 @@ void GameScreen::renderPetFrame(game::GameHandler& gameHandler) {
             ImGui::PopStyleColor();
         }
 
-        // Happiness bar — hunter pets store happiness as power type 4
+        // Happiness bar - hunter pets store happiness as power type 4
         {
             uint32_t happiness = petUnit->getPowerByType(4);
             uint32_t maxHappiness = petUnit->getMaxPowerByType(4);
@@ -660,14 +660,14 @@ void GameScreen::renderPetFrame(game::GameHandler& gameHandler) {
             ImGui::PopStyleColor();
         }
 
-        // Stance row: Passive / Defensive / Aggressive — with Dismiss right-aligned
+        // Stance row: Passive / Defensive / Aggressive - with Dismiss right-aligned
         {
             static constexpr const char* kReactLabels[]     = { "Psv", "Def", "Agg" };
             static constexpr const char* kReactTooltips[]   = { "Passive", "Defensive", "Aggressive" };
             static constexpr ImVec4 kReactColors[]    = {
-                colors::kLightBlue,  // passive  — blue
-                ImVec4(0.3f, 0.85f, 0.3f, 1.0f), // defensive — green
-                colors::kHostileRed,// aggressive — red
+                colors::kLightBlue,  // passive  - blue
+                ImVec4(0.3f, 0.85f, 0.3f, 1.0f), // defensive - green
+                colors::kHostileRed,// aggressive - red
             };
             static constexpr ImVec4 kReactDimColors[] = {
                 ImVec4(0.15f, 0.2f, 0.4f, 0.8f),
@@ -676,7 +676,7 @@ void GameScreen::renderPetFrame(game::GameHandler& gameHandler) {
             };
             uint8_t curReact = gameHandler.getPetReact(); // 0=passive,1=defensive,2=aggressive
 
-            // A stance slot is identified by its type as well as its id — the
+            // A stance slot is identified by its type as well as its id - the
             // ids 0/1/2 also name stay/follow/attack under the command type, so
             // matching on the id alone found the wrong slot.
             static constexpr uint32_t kReactActionIds[] = {
@@ -722,13 +722,13 @@ void GameScreen::renderPetFrame(game::GameHandler& gameHandler) {
             }
         }
 
-        // Pet action bar — show up to 10 action slots from SMSG_PET_SPELLS
+        // Pet action bar - show up to 10 action slots from SMSG_PET_SPELLS
         {
             const int slotCount = game::GameHandler::PET_ACTION_BAR_SLOTS;
             // Filter to non-zero slots; lay them out as small icon/text buttons.
             // Raw slot value layout (WotLK 3.3.5): low 24 bits = spell/action ID,
             // high byte = type. The built-in commands and stances share the ids
-            // 0/1/2, so what a slot means depends on both halves — see
+            // 0/1/2, so what a slot means depends on both halves - see
             // game/pet_action.hpp.
             auto* assetMgr = services_.assetManager;
             const float iconSz = 20.0f;
@@ -863,7 +863,7 @@ void GameScreen::renderPetFrame(game::GameHandler& gameHandler) {
 }
 
 // ============================================================
-// Totem Frame (Shaman — below pet frame / player frame)
+// Totem Frame (Shaman - below pet frame / player frame)
 // ============================================================
 
 void GameScreen::renderTotemFrame(game::GameHandler& gameHandler) {
@@ -982,7 +982,7 @@ void GameScreen::renderTargetFrame(game::GameHandler& gameHandler) {
             uint32_t tgtDynFlags = u->getDynamicFlags();
             bool tgtTapped = (tgtDynFlags & 0x0004) != 0 && (tgtDynFlags & 0x0008) == 0;
             if (tgtTapped) {
-                hostileColor = kColorGray;  // grey — tapped by someone else
+                hostileColor = kColorGray;  // grey - tapped by someone else
             } else {
                 hostileColor = helpers::levelDifficultyColor(gameHandler.getPlayerLevel(),
                                                              u->getLevel());
@@ -1018,7 +1018,7 @@ void GameScreen::renderTargetFrame(game::GameHandler& gameHandler) {
         // frame's, which is close enough for parking another window underneath.
         lastTargetFrameBottom_ = ImGui::GetWindowPos().y + ImGui::GetWindowSize().y;
         // Raid mark icon (Star/Circle/Diamond/Triangle/Moon/Square/Cross/Skull),
-        // drawn from the Blizzard artwork — the font has no glyphs for most of
+        // drawn from the Blizzard artwork - the font has no glyphs for most of
         // these symbols, so the previous text version rendered as '?' boxes.
         uint8_t mark = gameHandler.getEntityRaidMark(target->getGuid());
         if (mark < game::GameHandler::kRaidMarkCount) {
@@ -1032,7 +1032,7 @@ void GameScreen::renderTargetFrame(game::GameHandler& gameHandler) {
             }
         }
 
-        // Entity name and type — Selectable so we can attach a right-click context menu
+        // Entity name and type - Selectable so we can attach a right-click context menu
         std::string name = game::entityDisplayName(target);
 
         // Player targets: use class color instead of the generic green
@@ -1102,7 +1102,7 @@ void GameScreen::renderTargetFrame(game::GameHandler& gameHandler) {
             ImGui::EndPopup();
         }
 
-        // Group leader crown — golden ♛ when the targeted player is the party/raid leader
+        // Group leader crown - golden ♛ when the targeted player is the party/raid leader
         if (gameHandler.isInGroup() && target->getType() == game::ObjectType::PLAYER) {
             if (gameHandler.getPartyData().leaderGuid == target->getGuid()) {
                 ImGui::SameLine(0, 4);
@@ -1111,7 +1111,7 @@ void GameScreen::renderTargetFrame(game::GameHandler& gameHandler) {
             }
         }
 
-        // Quest giver indicator — "!" for available quests, "?" for completable quests
+        // Quest giver indicator - "!" for available quests, "?" for completable quests
         {
             using QGS = game::QuestGiverStatus;
             QGS qgs = gameHandler.getQuestGiverStatus(target->getGuid());
@@ -1135,7 +1135,7 @@ void GameScreen::renderTargetFrame(game::GameHandler& gameHandler) {
         }
 
         // Player class, tinted with the class colour, flowed inline after the name.
-        // Note: do NOT right-align this to GetWindowContentRegionMax() — on an
+        // Note: do NOT right-align this to GetWindowContentRegionMax() - on an
         // AlwaysAutoResize window that edge is the *previous* frame's width, so
         // pinning content to it makes the frame keep any width a prior (wider)
         // target gave it and never shrink back. Inline keeps it "wide enough for
@@ -1158,7 +1158,7 @@ void GameScreen::renderTargetFrame(game::GameHandler& gameHandler) {
             }
         }
 
-        // Player guild name (e.g. "<My Guild>") — mirrors NPC subtitle styling
+        // Player guild name (e.g. "<My Guild>") - mirrors NPC subtitle styling
         if (target->getType() == game::ObjectType::PLAYER) {
             uint32_t guildId = gameHandler.getEntityGuildId(target->getGuid());
             if (guildId != 0) {
@@ -1226,7 +1226,7 @@ void GameScreen::renderTargetFrame(game::GameHandler& gameHandler) {
             ImGui::EndPopup();
         }
 
-        // Level (for units/players) — colored by difficulty
+        // Level (for units/players) - colored by difficulty
         if (target->getType() == game::ObjectType::UNIT || target->getType() == game::ObjectType::PLAYER) {
             auto unit = std::static_pointer_cast<game::Unit>(target);
             ImGui::SameLine();
@@ -1245,19 +1245,19 @@ void GameScreen::renderTargetFrame(game::GameHandler& gameHandler) {
                 if (rank == 1) {
                     ImGui::SameLine(0, 4);
                     ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.2f, 1.0f), "[Elite]");
-                    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Elite — requires a group");
+                    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Elite - requires a group");
                 } else if (rank == 2) {
                     ImGui::SameLine(0, 4);
                     ImGui::TextColored(ImVec4(0.8f, 0.4f, 1.0f, 1.0f), "[Rare Elite]");
-                    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Rare Elite — uncommon spawn, group recommended");
+                    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Rare Elite - uncommon spawn, group recommended");
                 } else if (rank == 3) {
                     ImGui::SameLine(0, 4);
                     ImGui::TextColored(kColorRed, "[Boss]");
-                    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Boss — raid / dungeon boss");
+                    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Boss - raid / dungeon boss");
                 } else if (rank == 4) {
                     ImGui::SameLine(0, 4);
                     ImGui::TextColored(ImVec4(0.5f, 0.9f, 1.0f, 1.0f), "[Rare]");
-                    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Rare — uncommon spawn with better loot");
+                    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Rare - uncommon spawn with better loot");
                 }
             }
             // Creature type label (Beast, Humanoid, Demon, etc.)
@@ -1322,7 +1322,7 @@ void GameScreen::renderTargetFrame(game::GameHandler& gameHandler) {
             }
         }
 
-        // Combo points — shown when the player has combo points on this target
+        // Combo points - shown when the player has combo points on this target
         {
             uint8_t cp = gameHandler.getComboPoints();
             if (cp > 0 && gameHandler.getComboTarget() == target->getGuid()) {
@@ -1354,7 +1354,7 @@ void GameScreen::renderTargetFrame(game::GameHandler& gameHandler) {
             }
         }
 
-        // Target cast bar — shown when the target is casting
+        // Target cast bar - shown when the target is casting
         if (gameHandler.isTargetCasting()) {
             float castPct   = gameHandler.getTargetCastProgress();
             float castLeft  = gameHandler.getTargetCastTimeRemaining();
@@ -1431,7 +1431,7 @@ void GameScreen::renderTargetFrame(game::GameHandler& gameHandler) {
                         gameHandler.setTarget(totGuid);
                     }
 
-                    // Compact health bar for the ToT — essential for healers tracking boss target
+                    // Compact health bar for the ToT - essential for healers tracking boss target
                     if (totEnt) {
                         auto totUnit = std::dynamic_pointer_cast<game::Unit>(totEnt);
                         if (totUnit && totUnit->getMaxHealth() > 0) {
@@ -1610,7 +1610,7 @@ void GameScreen::renderTargetFrame(game::GameHandler& gameHandler) {
                         tTimerColor, timeStr);
                 }
 
-                // Stack / charge count — upper-left corner
+                // Stack / charge count - upper-left corner
                 if (aura.charges > 1) {
                     ImVec2 iconMin = ImGui::GetItemRectMin();
                     char chargeStr[8];
@@ -1720,7 +1720,7 @@ void GameScreen::renderTargetFrame(game::GameHandler& gameHandler) {
                             ImGui::PopStyleColor();
                         }
 
-                        // ToT cast bar — green if interruptible, red if not; pulses near completion
+                        // ToT cast bar - green if interruptible, red if not; pulses near completion
                         if (auto* totCs = gameHandler.getUnitCastState(totGuid)) {
                             float totCastPct = (totCs->timeTotal > 0.0f)
                                 ? (totCs->timeTotal - totCs->timeRemaining) / totCs->timeTotal : 0.0f;
@@ -1746,7 +1746,7 @@ void GameScreen::renderTargetFrame(game::GameHandler& gameHandler) {
                             ImGui::PopStyleColor();
                         }
 
-                        // ToT aura row — compact icons, debuffs first
+                        // ToT aura row - compact icons, debuffs first
                         {
                             const std::vector<game::AuraSlot>* totAuras = nullptr;
                             if (totGuid == gameHandler.getPlayerGuid())
@@ -1970,7 +1970,7 @@ void GameScreen::renderFocusFrame(game::GameHandler& gameHandler) {
             ImGui::EndPopup();
         }
 
-        // Group leader crown — golden ♛ when the focused player is the party/raid leader
+        // Group leader crown - golden ♛ when the focused player is the party/raid leader
         if (gameHandler.isInGroup() && focus->getType() == game::ObjectType::PLAYER) {
             if (gameHandler.getPartyData().leaderGuid == focus->getGuid()) {
                 ImGui::SameLine(0, 4);
@@ -2122,7 +2122,7 @@ void GameScreen::renderFocusFrame(game::GameHandler& gameHandler) {
                 float rem   = focusCast->timeRemaining;
                 float prog  = std::clamp(1.0f - rem / total, 0.f, 1.f);
                 const std::string& spName = gameHandler.getSpellName(focusCast->spellId);
-                // Pulse orange when > 80% complete — interrupt window closing
+                // Pulse orange when > 80% complete - interrupt window closing
                 ImVec4 focusCastColor;
                 if (prog > 0.8f) {
                     float pulse = 0.7f + 0.3f * std::sin(static_cast<float>(ImGui::GetTime()) * 8.0f);
@@ -2152,7 +2152,7 @@ void GameScreen::renderFocusFrame(game::GameHandler& gameHandler) {
             }
         }
 
-        // Focus auras — buffs first, then debuffs, up to 8 icons wide
+        // Focus auras - buffs first, then debuffs, up to 8 icons wide
         {
             const std::vector<game::AuraSlot>* focusAuras =
                 (focus->getGuid() == gameHandler.getTargetGuid())
@@ -2234,7 +2234,7 @@ void GameScreen::renderFocusFrame(game::GameHandler& gameHandler) {
                             ImGui::GetWindowDrawList()->AddText(ImVec2(cx, cy), IM_COL32(255, 255, 255, 220), ts);
                         }
 
-                        // Stack / charge count — upper-left corner (parity with target frame)
+                        // Stack / charge count - upper-left corner (parity with target frame)
                         if (aura.charges > 1) {
                             ImVec2 faMin = ImGui::GetItemRectMin();
                             char chargeStr[8];

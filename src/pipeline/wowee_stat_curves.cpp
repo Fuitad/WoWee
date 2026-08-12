@@ -108,17 +108,17 @@ WoweeStatCurve WoweeStatCurveLoader::makeCrit(
     // Spell crit base 1%, +0.04% per level (mages
     // get class bonus on top).
     add(1, "MeleeCritChance",   5.0f,  0.05f,
-        "Melee crit chance — base 5%% at lvl 1, +0.05%% per level.");
+        "Melee crit chance - base 5%% at lvl 1, +0.05%% per level.");
     add(2, "RangedCritChance",  5.0f,  0.05f,
-        "Ranged crit chance — same scaling as melee.");
+        "Ranged crit chance - same scaling as melee.");
     add(3, "SpellCritChance",   1.0f,  0.04f,
-        "Spell crit chance — base 1%%, +0.04%% per level. "
+        "Spell crit chance - base 1%%, +0.04%% per level. "
         "Class talents add fixed bonuses.");
     add(4, "ParryChance",       5.0f,  0.0f,
-        "Parry chance — flat 5%% from level 1, scales via "
+        "Parry chance - flat 5%% from level 1, scales via "
         "Strength/Parry rating (see WCRR).");
     add(5, "DodgeChance",       5.0f,  0.04f,
-        "Base dodge — 5%% + 0.04%%/level + Agility scaling.");
+        "Base dodge - 5%% + 0.04%%/level + Agility scaling.");
     return c;
 }
 
@@ -139,16 +139,16 @@ WoweeStatCurve WoweeStatCurveLoader::makeRegen(
         c.entries.push_back(e);
     };
     add(100, "ManaPerSpirit",    0.0f, 0.0125f, 1.0f,
-        "Mana regen per Spirit out-of-combat — 0.0125 mp5/spirit "
+        "Mana regen per Spirit out-of-combat - 0.0125 mp5/spirit "
         "scaling per level.");
     add(101, "HpPerSpirit",      0.0f, 0.05f,   1.0f,
-        "Health regen per Spirit out-of-combat — 0.05 hp/sec "
+        "Health regen per Spirit out-of-combat - 0.05 hp/sec "
         "per spirit scaling per level.");
     add(102, "EnergyPerSec",    20.0f, 0.0f,    1.0f,
-        "Energy regen — flat 20 per 2s baseline (Rogue / Cat "
+        "Energy regen - flat 20 per 2s baseline (Rogue / Cat "
         "Druid). Haste reduces tick interval.");
     add(103, "RageDecayPerSec",  3.0f, 0.0f,    1.0f,
-        "Rage decay out-of-combat — 3 rage per second uniformly. "
+        "Rage decay out-of-combat - 3 rage per second uniformly. "
         "In-combat rage doesn't decay.");
     return c;
 }
@@ -169,13 +169,13 @@ WoweeStatCurve WoweeStatCurveLoader::makeArmor(
         c.entries.push_back(e);
     };
     add(200, "BaseArmorPerLevel", S::Mitigation,    0.0f,  10.0f,
-        "Base armor scaling — 10 armor per character level "
+        "Base armor scaling - 10 armor per character level "
         "for cloth/leather wearers without items.");
     add(201, "ArmorMitigationPct", S::Mitigation,   0.0f,   0.4f,
-        "Armor → damage reduction conversion — ~0.4%% per level "
+        "Armor → damage reduction conversion - ~0.4%% per level "
         "of effectiveness against same-level attackers.");
     add(202, "ResistancePerLevel", S::Resist,       0.0f,   1.0f,
-        "Magic resistance scaling — 1 resist per level for "
+        "Magic resistance scaling - 1 resist per level for "
         "Holy / Fire / Frost / etc; capped at level*5.");
     return c;
 }

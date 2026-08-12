@@ -130,7 +130,7 @@ WoweeVoiceovers WoweeVoiceoversLoader::makeQuestgiver(
         "Sound\\Creature\\Questgiver\\Reward01.ogg",
         "Well done! Take this as a token of my gratitude.",
         3800,
-        "Played at quest turn-in. Most emotive line — "
+        "Played at quest turn-in. Most emotive line - "
         "celebration register.");
     add(5, "Goodbye", V::Goodbye, 0,
         "Sound\\Creature\\Questgiver\\Goodbye01.ogg",
@@ -195,13 +195,13 @@ WoweeVoiceovers WoweeVoiceoversLoader::makeBoss(
         "Apocalypse!",
         2000, +5,
         "Special mechanic call (Defile cast warning). "
-        "+5dB above ambient — must be audible over "
+        "+5dB above ambient - must be audible over "
         "raid noise.");
     add(105, "BossDeath", V::Death, 0,
         "Sound\\Creature\\LichKing\\Death01.ogg",
         "No... it cannot be...",
         4500, +2,
-        "Death line — emotional conclusion.");
+        "Death line - emotional conclusion.");
     return c;
 }
 

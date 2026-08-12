@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Item Quality catalog (.wiqr) — novel
+// Wowee Open Item Quality catalog (.wiqr) - novel
 // replacement for the hardcoded item quality tiers in
 // the WoW client (Poor / Common / Uncommon / Rare / Epic
 // / Legendary / Artifact / Heirloom). Defines each tier's
@@ -93,16 +93,16 @@ public:
 
     // Preset emitters used by --gen-iqr* variants.
     //
-    //   makeStandard   — 8 canonical WoW item quality
+    //   makeStandard   - 8 canonical WoW item quality
     //                     tiers (Poor through Heirloom)
     //                     with their standard hex colors
     //                     and disenchant rules. Heirloom
     //                     gated to lvl 80.
-    //   makeServerCustom — 4 server-custom tiers
+    //   makeServerCustom - 4 server-custom tiers
     //                     (Junk / Weekly / QuestLocked /
     //                     Donator) with custom colors and
     //                     non-standard vendor multipliers.
-    //   makeRaidTiers  — 4 raid progression tiers
+    //   makeRaidTiers  - 4 raid progression tiers
     //                     (T1 lvl 60 / T2 lvl 60 / T3
     //                     lvl 60 / Legendary lvl 60+)
     //                     gated by minLevelToDrop and

@@ -115,7 +115,7 @@ void UIManager::loadInterfaceFont(const std::string& dataRoot,
     if (dataRoot.empty()) {
         // Nothing to search is not the same as searching and finding nothing,
         // and both end up in the built-in face.
-        LOG_WARNING("No data directory to load interface fonts from — keeping "
+        LOG_WARNING("No data directory to load interface fonts from - keeping "
                     "the built-in face");
         return;
     }
@@ -157,7 +157,7 @@ void UIManager::loadInterfaceFont(const std::string& dataRoot,
         // Said out loud: the client still runs, in a face that is not the
         // game's, and nothing else reports why.
         LOG_WARNING("No interface fonts under ", dataRoot,
-                    " — keeping the built-in face, so text will not look right");
+                    " - keeping the built-in face, so text will not look right");
         return;
     }
 
@@ -191,11 +191,11 @@ void UIManager::loadInterfaceFont(const std::string& dataRoot,
 
     // FRIZQT at the client's size, first, because ImGui draws with whichever
     // face was added first and that is what everything without an opinion gets
-    // — this client's own windows included. The same face is added again below
+    // - this client's own windows included. The same face is added again below
     // at the atlas size for the interface, which asks for it by name.
     // A font the archives hold, handed to ImGui as bytes. An install that never
     // extracted its data keeps every font inside the MPQs, where the directory
-    // walk above sees nothing at all — which is why the same build found them
+    // walk above sees nothing at all - which is why the same build found them
     // on one machine and not another. The bytes are copied because ImGui takes
     // ownership of the buffer it is given and frees it with its own allocator.
     auto addFromArchive = [&](const char* name, float size) -> ImFont* {
@@ -218,12 +218,12 @@ void UIManager::loadInterfaceFont(const std::string& dataRoot,
             // Found and refused is a different problem from not found, and
             // reads identically on screen.
             LOG_WARNING("Could not read the interface font at ", frizqt.string(),
-                        " — keeping the built-in face");
+                        " - keeping the built-in face");
             io.Fonts->AddFontDefault();
         }
     } else {
         LOG_WARNING("No frizqt__.ttf in ", fontDir.string(),
-                    " — keeping the built-in face");
+                    " - keeping the built-in face");
         io.Fonts->AddFontDefault();
     }
 
@@ -281,7 +281,7 @@ void UIManager::render(core::AppState appState, auth::AuthHandler* authHandler, 
 
     // Two ~150-200ms spikes land here every launch, before login. Decoding the
     // auth background off the main thread did not move them, so report which
-    // application state was being drawn when one happens — that narrows it to a
+    // application state was being drawn when one happens - that narrows it to a
     // screen before anyone goes looking inside one.
     const auto uiRenderStart = std::chrono::steady_clock::now();
     struct StateReport {
@@ -358,7 +358,7 @@ void UIManager::finishImGuiFrame() {
     // two. FrameXML's panels draw into the same background list the nameplates
     // and minimap blips use, and the last thing added to that list is on top,
     // so the panels have to go in after this stage has drawn the world's
-    // overlays — and before the draw data is closed, which is here.
+    // overlays - and before the draw data is closed, which is here.
     if (!imguiInitialized) return;
     ImGui::Render();
 }

@@ -36,7 +36,7 @@ struct ZoneManifest {
 
 /// The zone directories of a project, in a stable order.
 ///
-/// What makes a directory a zone is that it holds a zone.json — twenty-six
+/// What makes a directory a zone is that it holds a zone.json - twenty-six
 /// handlers said so for themselves, in twenty-two files, and each also
 /// remembered to sort the result so its report came out the same way twice.
 /// A change to what counts as a zone would have been twenty-six edits, and a

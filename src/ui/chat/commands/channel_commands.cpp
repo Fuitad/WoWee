@@ -212,7 +212,7 @@ public:
     std::string helpText() const override { return "Send to Trade channel ([WTS]/[WTB] prefix)"; }
 };
 
-// --- /1 through /9 — channel shortcuts ---
+// --- /1 through /9 - channel shortcuts ---
 class ChannelNumberCommand : public IChatCommand {
 public:
     explicit ChannelNumberCommand(int num) : num_(num), alias_(std::to_string(num)) {}
@@ -245,7 +245,7 @@ public:
         if (!ctx.args.empty()) {
             size_t msgStart = ctx.args.find(' ');
             if (msgStart != std::string::npos) {
-                // /w PlayerName message — send whisper immediately (PortBot-aware)
+                // /w PlayerName message - send whisper immediately (PortBot-aware)
                 std::string target = ctx.args.substr(0, msgStart);
                 std::string message = ctx.args.substr(msgStart + 1);
                 sendWhisperOrPortBot(ctx.gameHandler, target, message);
@@ -255,7 +255,7 @@ public:
                 strncpy(buf, target.c_str(), sz - 1);
                 buf[sz - 1] = '\0';
             } else {
-                // /w PlayerName — switch to whisper mode with target set
+                // /w PlayerName - switch to whisper mode with target set
                 char* buf = ctx.panel.getWhisperTargetBuffer();
                 size_t sz = ctx.panel.getWhisperTargetBufferSize();
                 strncpy(buf, ctx.args.c_str(), sz - 1);

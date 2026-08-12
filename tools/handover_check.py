@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """The client's side of a handover: dead calls, and keys with two owners.
 
-Handing a panel to FrameXML is two edits in two files — stop drawing it, and
-send the key that opened it somewhere else — and both fail quietly when they go
+Handing a panel to FrameXML is two edits in two files - stop drawing it, and
+send the key that opened it somewhere else - and both fail quietly when they go
 wrong. Neither shows up as an error, a warning, or a log line. The panel simply
 does not appear, which is also what a panel that was never handed over looks
 like.
@@ -15,14 +15,14 @@ TWO THINGS IT CHECKS
 asks the interface to do something by running a line of Lua. An unknown global
 is nil, calling it yields nothing, and the client cannot tell that from a call
 that worked. ToggleAllBags and ToggleWorldMap are later additions that 3.3.5
-never had, and both were being called here — the bags key did nothing at all
+never had, and both were being called here - the bags key did nothing at all
 for as long as it was written that way.
 
 **A keybinding action driving the interface from more than one file.**
 ImGui::IsKeyPressed does not consume a press, so every site that asks sees the
 same one. Two sites that both toggle the same panel cancel each other within a
 frame: it opens and shuts and nothing reaches the screen. That was the
-character panel, reported three times, with every link in its chain correct —
+character panel, reported three times, with every link in its chain correct -
 because the chain was correct and ran twice.
 
 Driving the interface, rather than merely watching the key: four actions are
@@ -35,7 +35,7 @@ WHAT IT CANNOT SEE
 
 Whether a function that exists does the right thing. Nor a driver separated
 from its action by more than REACH characters of code, by another action, or by
-a wrapper of the client's own — the window stops at the next action mentioned,
+a wrapper of the client's own - the window stops at the next action mentioned,
 which is what keeps one key's block from borrowing the next one's call, and it
 would equally hide a real driver written past one.
 
@@ -179,7 +179,7 @@ def main():
 
     print(f"{len(dead)} call(s) naming nothing that exists:\n")
     for rel, line, name, body in dead or []:
-        print(f"  {rel}:{line}: {name} — in '{body}'")
+        print(f"  {rel}:{line}: {name} - in '{body}'")
     if not dead:
         print("  (none)")
 

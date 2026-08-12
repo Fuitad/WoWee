@@ -2,7 +2,7 @@
 """Every load-on-demand panel, loaded and opened for real.
 
 The static sweeps read the interface and the bindings and compare them. None
-of them can see a call that *is* answered and answers wrongly — a widget method
+of them can see a call that *is* answered and answers wrongly - a widget method
 that exists and returns nil is not a missing name, not a short return and not a
 type mismatch, so it passes every one of them and raises the first time a
 handler reaches through it.
@@ -16,7 +16,7 @@ So this opens all of them:
 
     tools/framexml_addon_open_check.py
 
-For each panel — LoadAddOn, then Show, then its own OnShow handler, each inside
+For each panel - LoadAddOn, then Show, then its own OnShow handler, each inside
 a pcall. OnShow by hand rather than by showing alone, because visibility is
 reported after the render in the real client and there is no render here; the
 handler is where the work is, and a check that only called Show would have
@@ -28,7 +28,7 @@ and OnUpdate is where a panel dies quietly: it is dispatched from a list, gated
 on the widget's visible chain, and unhooked entirely after five consecutive
 failures. A frame whose OnUpdate raises looks perfectly healthy when its
 function is invoked by hand and is dead for the rest of the session in the
-running client — the symptom is something on screen that has simply stopped
+running client - the symptom is something on screen that has simply stopped
 moving.
 
 Canaried against the fault it was written for: with the region GetParent
@@ -36,7 +36,7 @@ binding removed, the calendar reports its raise and everything else stays
 clean.
 
 Needs `build/bin/framexml_run` and a `Data` directory, and skips rather than
-fails when either is absent — the same rule sweep_guard uses for the runner.
+fails when either is absent - the same rule sweep_guard uses for the runner.
 """
 
 import subprocess
@@ -47,7 +47,7 @@ ROOT = Path(__file__).resolve().parent.parent
 RUNNER = ROOT / "build" / "bin" / "framexml_run"
 DATA = ROOT / "Data"
 # What this actually needs. Data/expansions and Data/opcodes are tracked, so a
-# checkout with no extracted interface still has a Data directory — and testing
+# checkout with no extracted interface still has a Data directory - and testing
 # for that one ran the whole sweep against an interface that is not there.
 INTERFACE = ROOT / "Data/interface"
 
@@ -99,7 +99,7 @@ PIECE = (
 
 def main():
     if not RUNNER.is_file() or not DATA.is_dir() or not INTERFACE.is_dir():
-        print("framexml_run or Data is missing — nothing opened.")
+        print("framexml_run or Data is missing - nothing opened.")
         return 0
 
     lua = ["local out = {}"]
@@ -110,13 +110,13 @@ def main():
     lua.append('error("QQPANELS " .. table.concat(out, " ~ "))')
 
     # Four seconds of frames with everything open. Long enough for the timers
-    # FrameXML drives in seconds — fades, flashes, combat text ageing out — to
+    # FrameXML drives in seconds - fades, flashes, combat text ageing out - to
     # run to completion rather than only to start.
     try:
         run = subprocess.run([str(RUNNER), str(DATA), " ".join(lua), "--tick:240"],
                              capture_output=True, text=True, timeout=900)
     except subprocess.TimeoutExpired:
-        print("the runner did not finish — nothing opened.")
+        print("the runner did not finish - nothing opened.")
         return 1
 
     payload = None
@@ -125,7 +125,7 @@ def main():
             payload = line.split("QQPANELS ", 1)[1]
             break
     if payload is None:
-        print("no result from the runner — the chunk did not reach its report.")
+        print("no result from the runner - the chunk did not reach its report.")
         return 1
 
     # Errors reported while ticking. The runner prints them under the tick's
@@ -133,8 +133,8 @@ def main():
     # belongs to a per-frame handler rather than to opening a panel.
     # The runner prints each new error under the tick as an indented line, and
     # its own "ticked N frame(s)" beside them. Matching on the word "error"
-    # instead caught the engine's end-of-session summary — a count of errors,
-    # not an error — and reported a clean run as one failure.
+    # instead caught the engine's end-of-session summary - a count of errors,
+    # not an error - and reported a clean run as one failure.
     tickErrors = []
     inTick = False
     for line in (run.stdout + run.stderr).splitlines():

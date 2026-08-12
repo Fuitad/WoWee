@@ -287,7 +287,7 @@ int handleValidate(int& i, int argc, char** argv) {
                     errors.push_back(ctx + " slot " + std::to_string(ci) +
                         ": kind requires non-zero targetId");
                 }
-                // skillRequired only meaningful for Lockpick — flag
+                // skillRequired only meaningful for Lockpick - flag
                 // odd usage on other kinds.
                 if (ch.kind != wowee::pipeline::WoweeLock::ChannelLockpick &&
                     ch.kind != wowee::pipeline::WoweeLock::ChannelNone &&

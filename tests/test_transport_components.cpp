@@ -133,14 +133,14 @@ TEST_CASE("ClockSync: processServerUpdate sets yaw and rotation", "[transport_cl
     REQUIRE(t.position == pos);
 }
 
-// Server yaw s points along canonical (sin s, cos s) — see core/coordinates.hpp.
+// Server yaw s points along canonical (sin s, cos s) - see core/coordinates.hpp.
 // So a transport travelling along canonical +X is facing its direction of travel
 // at s = +pi/2, and facing exactly backwards at s = -pi/2.
 static constexpr float kServerYawAlongCanonicalX = glm::half_pi<float>();
 
 // Every transport hull is authored with its bow at model-space -X, so a hull
 // travelling along canonical +X renders at that heading plus PI. Measured from
-// the art, not chosen — see TransportManager::transportModelBowOffset.
+// the art, not chosen - see TransportManager::transportModelBowOffset.
 static constexpr float kHullYawAlongCanonicalX =
     kServerYawAlongCanonicalX + glm::pi<float>();
 
@@ -172,7 +172,7 @@ TEST_CASE("ClockSync: a transport facing its direction of travel is never flippe
 
     // The check used to compare the velocity against (cos s, sin s), the two
     // components of the heading swapped. That is a reflection, so a transport
-    // facing exactly along its travel scored sin(2s) instead of 1 — negative for
+    // facing exactly along its travel scored sin(2s) instead of 1 - negative for
     // half of all headings, which flipped correct transports through 180 degrees
     // purely on which way their route ran. Sweep the headings to pin that down.
     for (int step = 0; step < 16; ++step) {
@@ -237,7 +237,7 @@ TEST_CASE("Animator: a client-animated transport follows its route, not a stale 
     // hasServerYaw is set by every server update, including those for a ship the
     // client animates itself. Taking it unconditionally pinned the ship's facing
     // to its berth heading for the whole voyage while the position ran along the
-    // route underneath — sailing sideways or stern-first, and lying across the
+    // route underneath - sailing sideways or stern-first, and lying across the
     // pier on arrival.
     TransportAnimator animator;
     CatmullRomSpline spline({
@@ -315,7 +315,7 @@ TEST_CASE("Animator: a docked ship holds its arrival heading, not its spawn yaw"
     REQUIRE(t.position == glm::vec3(0.0f));
 
     // The route approaches along canonical +X, so the heading through the stop
-    // is that approach plus the hull's bow offset — derived, not inherited from
+    // is that approach plus the hull's bow offset - derived, not inherited from
     // whatever rotation happened to be left over, and never the spawn yaw.
     const glm::quat approach = glm::angleAxis(
         kHullYawAlongCanonicalX, glm::vec3(0.0f, 0.0f, 1.0f));
@@ -329,7 +329,7 @@ TEST_CASE("Animator: a ship holds its dock instead of overshooting through the w
           "[transport_animator][transport]") {
     // A Catmull-Rom spline is not constrained to the hull of its control points,
     // so evaluating through a repeated-position dwell key overshoots and recovers
-    // — the ship sails past its dock and comes back, for the whole wait. The hold
+    // - the ship sails past its dock and comes back, for the whole wait. The hold
     // used to apply only to the three entries with broadside berths; every ship
     // needs it. This entry is in none of those lists.
     TransportAnimator animator;
@@ -343,7 +343,7 @@ TEST_CASE("Animator: a ship holds its dock instead of overshooting through the w
 
     for (uint32_t atMs : {12000u, 25000u, 40000u, 55000u, 68000u}) {
         auto t = makeTransport(1, 190536u);
-        t.entry = 190536u;          // Kraken — not a berthRunsParallel entry
+        t.entry = 190536u;          // Kraken - not a berthRunsParallel entry
         t.displayId = 7446u;
         t.basePosition = glm::vec3(0.0f);
         t.isM2 = false;
@@ -432,7 +432,7 @@ TEST_CASE("Animator: every ship hull faces its direction of travel",
     // they all take the same PI correction and none of them is a special case.
     //
     // This used to assert the opposite: that 7087 and 7446 were bow-reversed
-    // while 3015 was not. Measuring the art says otherwise — the hulls taper to
+    // while 3015 was not. Measuring the art says otherwise - the hulls taper to
     // a point at -X (transportship 1.0 vs 10.1 half-width at the two ends,
     // icebreaker 4.1 vs 14.8), and the icebreaker's paddlewheel doodad, which
     // belongs at the stern of a paddle steamer, sits at x=+36.3 on a hull
@@ -620,7 +620,7 @@ TEST_CASE("ClockSync: the server route phase wraps rather than running off the e
     t.routePhaseAtTime = 0.0;
 
     uint32_t out = 0;
-    // 2.5 server periods on from a 0.9 phase — must land inside the spline, not
+    // 2.5 server periods on from a 0.9 phase - must land inside the spline, not
     // beyond it, and not at zero by accident.
     REQUIRE(sync.computePathTime(t, path.spline, 25.0, 0.0f, out));
     REQUIRE(out < clientMs);
@@ -663,7 +663,7 @@ TEST_CASE("Animator: a docked hull lies on the chord through its berth, not the 
           "[transport_animator][transport]") {
     // A route generally turns as it passes through its dock. Taking only the leg
     // the boat arrived on parks the hull half that turn out of true, which walks
-    // the gangway off the plank — reported live on the Maiden's Fancy at
+    // the gangway off the plank - reported live on the Maiden's Fancy at
     // Menethil, whose route turns 26 degrees at the berth.
     //
     // Approach runs along canonical +X, departure along canonical +Y, so the

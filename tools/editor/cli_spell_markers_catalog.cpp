@@ -306,23 +306,23 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": name is empty");
         if (e.spellId == 0) {
             errors.push_back(ctx +
-                ": spellId is 0 — marker is not bound to "
+                ": spellId is 0 - marker is not bound to "
                 "any spell");
         }
         if (e.groundTexturePath.empty()) {
             errors.push_back(ctx +
-                ": groundTexturePath is empty — decal "
+                ": groundTexturePath is empty - decal "
                 "would render as untextured solid color");
         }
         if (e.radius <= 0.0f) {
             errors.push_back(ctx + ": radius " +
                 std::to_string(e.radius) +
-                " <= 0 — decal would have zero area");
+                " <= 0 - decal would have zero area");
         }
         if (e.radius > 100.0f) {
             warnings.push_back(ctx + ": radius " +
                 std::to_string(e.radius) +
-                " > 100 yards — covers more than the "
+                " > 100 yards - covers more than the "
                 "average raid arena, verify if intentional");
         }
         if (e.edgeFadeMode > 2) {
@@ -336,15 +336,15 @@ int handleValidate(int& i, int argc, char** argv) {
         if (e.tickIntervalMs > 0 && e.tickIntervalMs < 100) {
             warnings.push_back(ctx + ": tickIntervalMs " +
                 std::to_string(e.tickIntervalMs) +
-                " < 100ms — fires more than 10× per second; "
+                " < 100ms - fires more than 10× per second; "
                 "verify performance impact for stackable "
                 "markers");
         }
-        // Decal alpha=0 = invisible — likely an error.
+        // Decal alpha=0 = invisible - likely an error.
         uint8_t alpha = (e.decalColor >> 24) & 0xFF;
         if (alpha == 0) {
             warnings.push_back(ctx +
-                ": decalColor has alpha=0 — marker would "
+                ": decalColor has alpha=0 - marker would "
                 "render fully transparent / invisible");
         }
         // Multiple markers binding the same spellId is
@@ -353,7 +353,7 @@ int handleValidate(int& i, int argc, char** argv) {
             !spellIdsSeen.insert(e.spellId).second) {
             errors.push_back(ctx +
                 ": spellId " + std::to_string(e.spellId) +
-                " is already bound by another marker — "
+                " is already bound by another marker - "
                 "spell-cast lookup would be ambiguous");
         }
         if (!idsSeen.insert(e.markerId).second) {

@@ -64,7 +64,7 @@ float interfaceTextWidth(const std::string& text, const std::string& fontFace,
     if (ImFont* font = interfaceFaceOrDefault(fontFace)) {
         return font->CalcTextSizeA(size, FLT_MAX, 0.0f, text.c_str()).x;
     }
-    // No context yet — during the FrameXML load there may be no frame in
+    // No context yet - during the FrameXML load there may be no frame in
     // flight to ask. An estimate is far better than nothing: the alternative
     // is answering zero, and MoneyFrame does SetWidth(GetTextWidth() +
     // iconWidth), which then places three buttons on top of each other.

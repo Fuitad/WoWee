@@ -3,7 +3,7 @@
 
 A manifest entry or a <Script file="..."> that resolves to nothing does not
 raise. The loader logs a line among thousands and carries on, and what is lost
-is every function that file defined — so the failure surfaces later and
+is every function that file defined - so the failure surfaces later and
 somewhere else, as a global that is nil for no visible reason.
 
 That is not hypothetical here. ToggleCharacter lives in characterframe.lua,
@@ -21,7 +21,7 @@ THREE THINGS IT CHECKS
   * the same for each bundled addon's own manifest
 
 Case-insensitively, because the loader resolves that way and the interface is
-inconsistent about it — the manifests are written in Blizzard's capitalisation
+inconsistent about it - the manifests are written in Blizzard's capitalisation
 and the files on disk are not.
 
 WHAT IT CANNOT SEE
@@ -58,8 +58,8 @@ def manifest_entries(toc):
 def check(directory, fallback=None):
     """(files listed, references seen, unresolved rows) for one directory.
 
-    An addon may reference a shared template out of FrameXML — by a bare name,
-    or by a path back out of its own folder written with Windows separators —
+    An addon may reference a shared template out of FrameXML - by a bare name,
+    or by a path back out of its own folder written with Windows separators -
     so the fallback is searched too, on the basename, exactly as the loader
     does.
     """

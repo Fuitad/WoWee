@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Combat Maneuver Group catalog (.wcmg) —
+// Wowee Open Combat Maneuver Group catalog (.wcmg) -
 // novel replacement for the hardcoded class-mutex tables
 // that the WoW client uses to grey out incompatible
 // action-bar buttons (only one Warrior stance active at
@@ -39,10 +39,10 @@ namespace pipeline {
 //     nameLen + name
 //     descLen + description
 //     classMask (uint32)
-//     categoryKind (uint8)       — Stance / Form / Aspect /
+//     categoryKind (uint8)       - Stance / Form / Aspect /
 //                                   Presence / Posture /
 //                                   Sigil
-//     exclusive (uint8)          — 0/1 bool, only one
+//     exclusive (uint8)          - 0/1 bool, only one
 //                                   active at a time
 //     pad0 (uint8) / pad1 (uint8)
 //     iconColorRGBA (uint32)
@@ -101,16 +101,16 @@ public:
 
     // Preset emitters used by --gen-cmg* variants.
     //
-    //   makeWarrior   — 1 entry: WarriorStances (3 spells:
+    //   makeWarrior   - 1 entry: WarriorStances (3 spells:
     //                    Battle / Defensive / Berserker)
     //                    classMask=1, exclusive.
-    //   makeDruid     — 2 entries: DruidShapeshiftForms
+    //   makeDruid     - 2 entries: DruidShapeshiftForms
     //                    (5 spells: Bear / Cat / Travel /
     //                    Tree of Life / Moonkin) and
     //                    DruidFlightForms (2 spells:
     //                    Flight Form / Swift Flight Form)
     //                    classMask=1024, both exclusive.
-    //   makeAllMutex  — 4 entries spanning all classes
+    //   makeAllMutex  - 4 entries spanning all classes
     //                    that have mutex groups: Warrior
     //                    stances / Hunter aspects / DK
     //                    presences / Druid forms (one

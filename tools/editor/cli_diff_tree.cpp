@@ -66,7 +66,7 @@ enum class ChangeKind {
     MagicChanged,  // present in both but different magic
     SizeChanged,   // same magic, different size
     Identical,     // same magic, same size (good enough as a
-                   // first-cut heuristic — true byte-equal
+                   // first-cut heuristic - true byte-equal
                    // takes a hash that we don't bother with)
 };
 

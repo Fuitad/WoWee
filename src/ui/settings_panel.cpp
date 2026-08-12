@@ -1,5 +1,5 @@
 // ============================================================
-// SettingsPanel — extracted from GameScreen
+// SettingsPanel - extracted from GameScreen
 // Owns all settings UI rendering, settings state, and
 // graphics preset logic.
 // ============================================================
@@ -53,8 +53,8 @@ namespace wowee { namespace ui {
 // over the world.
 //
 // Three schema categories drawn in order, and one button. Every control here
-// used to be written out — a slider, an apply, a saveCallback and a greyed
-// note beside it, sixty lines of them — with the note saying something the
+// used to be written out - a slider, an apply, a saveCallback and a greyed
+// note beside it, sixty lines of them - with the note saying something the
 // options panel on the other side of the bridge said differently or not at
 // all. Both windows read the same rows now.
 void SettingsPanel::renderSettingsInterfaceTab(std::function<void()> saveCallback) {
@@ -86,7 +86,7 @@ void SettingsPanel::renderSettingsInterfaceTab(std::function<void()> saveCallbac
 // at a corpse or a vendor.
 //
 // The mouse-look speed is drawn from the schema like the rest even though the
-// game's own Interface panel drives it too — it is a control this window has
+// game's own Interface panel drives it too - it is a control this window has
 // always had, and both write the same value through the same setter, so they
 // cannot disagree.
 void SettingsPanel::renderSettingsGameplayTab(std::function<void()> saveCallback) {
@@ -141,7 +141,7 @@ void SettingsPanel::renderSettingsGameplayTab(std::function<void()> saveCallback
         }
         // Two the schema cannot hold. Mouse look speed belongs to the game's
         // own Interface panel, and the bag scale's default depends on the
-        // display it is being shown on — a constant would make the bags small
+        // display it is being shown on - a constant would make the bags small
         // on a large screen, which is what the recommendation exists to avoid.
         pendingMouseSensitivity = 0.2f;
         applySettingSideEffects("mousespeed");
@@ -264,7 +264,7 @@ auto applyAudioSettings = [&]() {
 // Mute is a saved setting that forces the master volume to zero, and until now
 // the only control for it was a 20x20 invisible button at the corner of the
 // minimap. A client that starts silent because of a flag set by a stray click
-// gives no way to find out why from the place a player looks — here.
+// gives no way to find out why from the place a player looks - here.
 if (ImGui::Checkbox("Mute All Sound", &soundMuted_)) {
     if (soundMuted_) {
         preMuteVolume_ = audio::AudioEngine::instance().getMasterVolume();
@@ -289,7 +289,7 @@ if (ImGui::SliderInt("##EffectsVolume", &pendingEffectsVolume, 0, 100, "%d%%")) 
 if (ImGui::IsItemHovered())
     ImGui::SetTooltip("One scale over every sound below. WoW's Sound Effects slider is this one.");
 
-// The rest of the sound settings, from the schema — the same rows the
+// The rest of the sound settings, from the schema - the same rows the
 // interface's Sound panel is built from.
 //
 // These were thirteen blocks here of label, slider, apply, hint, each naming
@@ -303,7 +303,7 @@ ImGui::EndChild();
 
 if (ImGui::Button("Restore Audio Defaults", ImVec2(-1, 0))) {
     restoreSchemaDefaults("Sound");
-    // Master is not in that list — the game's own Sound panel drives it — so
+    // Master is not in that list - the game's own Sound panel drives it - so
     // it is the one value still named here.
     pendingMasterVolume = 100;
     applyAudioSettings();
@@ -370,14 +370,14 @@ void SettingsPanel::renderSettingsWindow(ChatPanel& chatPanel,
     if (!window) return;
 
     // Shared with the interface's own video panel, whose dropdown carries a
-    // position in this list rather than a size — see ui/display_modes.hpp.
+    // position in this list rather than a size - see ui/display_modes.hpp.
     const auto& kResolutions = kDisplayResolutions;
     constexpr int kResCount = kNumDisplayResolutions;
     constexpr int kDefaultResW = 1920;
     constexpr int kDefaultResH = 1080;
     // Fullscreen, vsync and shadows had constants here too. They are in the
     // schema now, where the options panels can read them as well; ground
-    // clutter stays because it is not in the schema — the game's own Video
+    // clutter stays because it is not in the schema - the game's own Video
     // panel drives it.
     constexpr int kDefaultGroundClutterDensity = 100;
 
@@ -492,8 +492,8 @@ void SettingsPanel::renderSettingsWindow(ChatPanel& chatPanel,
                 // game's own Video panel drives, and the button that puts them
                 // all back.
                 //
-                // It was written out control by control before — a hundred and
-                // sixty lines of combo, apply, preset-check, saveCallback —
+                // It was written out control by control before - a hundred and
+                // sixty lines of combo, apply, preset-check, saveCallback -
                 // with each dependent control wrapped in an `if` that the
                 // options panels on the other side of the bridge had no way to
                 // know about. Those dependencies are in the schema now, so both
@@ -521,7 +521,7 @@ void SettingsPanel::renderSettingsWindow(ChatPanel& chatPanel,
                 ImGui::SeparatorText("Graphics");
                 drawSchemaCategory("Graphics", saveCallback);
                 // The game's own Video panel drives these two, so they are not
-                // in the schema — and this window has always offered them.
+                // in the schema - and this window has always offered them.
                 ImGui::SetNextItemWidth(240.0f);
                 if (ImGui::SliderFloat("View Distance", &pendingViewDistance,
                                        400.0f, 2400.0f, "%.0f")) {
@@ -670,7 +670,7 @@ void SettingsPanel::drawSchemaCategory(const char* category,
         }
 
         // Read, draw, and write back only if it moved. The value lives in a
-        // field somewhere, but which field is the binding table's business —
+        // field somewhere, but which field is the binding table's business -
         // this side only ever sees the key.
         const std::string current = settingValue(d.key);
         bool changed = false;
@@ -772,7 +772,7 @@ namespace {
 
 /// What each quality preset means, in the order Low, Medium, High, Ultra.
 ///
-/// One row per preset, where there used to be a block per preset — the same
+/// One row per preset, where there used to be a block per preset - the same
 /// ten settings assigned and then pushed at the renderer four times over. The
 /// blocks had drifted apart, as four copies of one fact do:
 ///
@@ -817,8 +817,8 @@ constexpr const char* kGraphicsPresetKeys[] = {
 ///
 /// Changing one of these by hand means the settings are no longer that preset,
 /// and the dropdown has to say Custom. Each of the video tab's controls used to
-/// call for that itself, which is why the ones that were never given the call —
-/// and every control on the interface's own options panel — could turn shadows
+/// call for that itself, which is why the ones that were never given the call -
+/// and every control on the interface's own options panel - could turn shadows
 /// off under a preset that says they are on.
 bool isGraphicsPresetKey(const std::string& key) {
     for (const char* k : kGraphicsPresetKeys) {
@@ -830,7 +830,7 @@ bool isGraphicsPresetKey(const std::string& key) {
 }  // namespace
 
 void SettingsPanel::applyGraphicsPreset(GraphicsPreset preset) {
-    // Custom is not a set of values — it is the name for "these are whatever
+    // Custom is not a set of values - it is the name for "these are whatever
     // you made them", so it changes nothing but the marker.
     const int index = static_cast<int>(preset) - 1;
     if (index >= 0 && index < static_cast<int>(std::size(kGraphicsPresets))) {
@@ -860,7 +860,7 @@ void SettingsPanel::updateGraphicsPresetFromCurrentSettings() {
     // floats are compared with a little room because they arrive off sliders.
     //
     // This was a second copy of the table above, written as a range per field
-    // per preset — the same numbers again, plus or minus twenty. A preset whose
+    // per preset - the same numbers again, plus or minus twenty. A preset whose
     // values were changed in one place and not the other would have stopped
     // recognising itself and read as Custom for good.
     for (int i = 0; i < static_cast<int>(std::size(kGraphicsPresets)); ++i) {
@@ -892,7 +892,7 @@ namespace {
 
 /// Which field a setting key names.
 ///
-/// settingValue and setSettingValue used to spell this out separately — one
+/// settingValue and setSettingValue used to spell this out separately - one
 /// chain of branches reading the fields, another writing them, and nothing at
 /// all to say when the two stopped agreeing about which key meant which field.
 /// Adding a setting meant remembering both. This is the fact once; both
@@ -912,7 +912,7 @@ struct FieldBinding {
 constexpr FieldBinding kFieldBindings[] = {
     // Bound to a Blizzard control as well, through kClientCVars. These are the
     // six the game's own Video, Sound and Interface panels drive, so they are
-    // not in the schema — but they still have to be readable and writable,
+    // not in the schema - but they still have to be readable and writable,
     // because that is how those panels reach them.
     {.key = "viewdistance",   .asFloat = &SettingsPanel::pendingViewDistance},
     {.key = "mousespeed",     .asFloat = &SettingsPanel::pendingMouseSensitivity},
@@ -1029,7 +1029,7 @@ constexpr ChatFieldBinding kChatFieldBindings[] = {
     {"joinlocal",        &ChatSettings::autoJoinLocal},
     // Chat's appearance is deliberately absent. Timestamps, the font size, the
     // background and the fade are all fields of this struct too, and all four
-    // drive the chat panel this client draws — which is not drawn at all while
+    // drive the chat panel this client draws - which is not drawn at all while
     // FrameXML owns chat. The interface has its own controls for each of them,
     // and the timestamp one already reaches the value the chat frame reads.
 };
@@ -1067,7 +1067,7 @@ bool isVolumeKey(const std::string& key) {
 void SettingsPanel::applySettingSideEffects(const std::string& key) {
     // The settings window applies each value where its slider is, so a change
     // made through FrameXML or the Wowee options panel used to update the number
-    // and save it and nothing else — the option looked dead until the client was
+    // and save it and nothing else - the option looked dead until the client was
     // restarted or the same slider was touched in the other window.
     //
     // These are the same calls the sliders make, and nothing more: a setting
@@ -1201,7 +1201,7 @@ void SettingsPanel::applySettingSideEffects(const std::string& key) {
         }
     } else if (key == "woweemusic") {
         // Not a volume: it changes which tracks the zone rotation can pick, and
-        // switching it off has to stop whichever of ours is playing now — the
+        // switching it off has to stop whichever of ours is playing now - the
         // rotation would otherwise honour it only at the next zone change.
         //
         // The interface's options panel has offered this since the schema grew
@@ -1274,8 +1274,8 @@ bool SettingsPanel::setSettingValue(const std::string& key, const std::string& v
     }
     applySettingSideEffects(key);
     // Anything a preset covers, changed by hand, means these settings are no
-    // longer that preset. applyGraphicsPreset does not come through here — it
-    // assigns the fields itself — so there is nothing for this to fight with.
+    // longer that preset. applyGraphicsPreset does not come through here - it
+    // assigns the fields itself - so there is nothing for this to fight with.
     if (isGraphicsPresetKey(key)) updateGraphicsPresetFromCurrentSettings();
     return true;
 }

@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Raid Marker Set catalog (.wmar) — novel
+// Wowee Open Raid Marker Set catalog (.wmar) - novel
 // replacement for the hardcoded 8-marker set vanilla
 // WoW shipped (Star/Circle/Diamond/Triangle/Moon/Square
 // /Cross/Skull) plus world-map pin markers and 5-man
@@ -17,7 +17,7 @@ namespace pipeline {
 // for sort order in the marker-picker UI.
 //
 // Cross-references with previously-added formats:
-//   No catalog cross-references — markers are visual-
+//   No catalog cross-references - markers are visual-
 //   identity primitives consumed directly by the raid
 //   UI / minimap renderer.
 //
@@ -30,14 +30,14 @@ namespace pipeline {
 //     markerId (uint32)
 //     nameLen + name
 //     descLen + description
-//     markerKind (uint8)         — RaidTarget /
+//     markerKind (uint8)         - RaidTarget /
 //                                   WorldMap / Party /
 //                                   Custom
-//     priority (uint8)           — sort order in
+//     priority (uint8)           - sort order in
 //                                   picker UI
 //     pad0 (uint8) / pad1 (uint8)
-//     pathLen + iconPath          — BLP/WOT icon path
-//     glyphLen + displayChar      — single-character
+//     pathLen + iconPath          - BLP/WOT icon path
+//     glyphLen + displayChar      - single-character
 //                                   glyph for chat
 //                                   overlay (e.g.
 //                                   "*" for star)
@@ -85,18 +85,18 @@ public:
 
     // Preset emitters used by --gen-mar* variants.
     //
-    //   makeRaidTargets — 8 standard raid markers
+    //   makeRaidTargets - 8 standard raid markers
     //                      (Star / Circle / Diamond /
     //                      Triangle / Moon / Square /
     //                      Cross / Skull) at priorities
     //                      0..7 matching their canonical
     //                      keybind slot.
-    //   makeWorldMapPins — 5 world-map pin markers
+    //   makeWorldMapPins - 5 world-map pin markers
     //                      (Pin / Flag / Crosshair /
     //                      Question / Compass).
-    //   makeParty       — 4 5-man party-only markers
+    //   makeParty       - 4 5-man party-only markers
     //                      (Tank / Healer / DPS /
-    //                      Caster — role icons for
+    //                      Caster - role icons for
     //                      groupfinder).
     static WoweeRaidMarkers makeRaidTargets(const std::string& catalogName);
     static WoweeRaidMarkers makeWorldMapPins(const std::string& catalogName);

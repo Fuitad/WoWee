@@ -1,13 +1,13 @@
 #pragma once
 
 /**
- * addon_lua_snippets.hpp — the Lua this client injects into the interface.
+ * addon_lua_snippets.hpp - the Lua this client injects into the interface.
  *
  * Two of these are long enough to hide a mistake in: the options panels, which
  * build twelve categories of control out of the settings schema, and the coin
  * clearance, which reaches into MoneyFrame_Update. They lived as raw string
  * literals inside the functions that ran them, where a syntax error is not a
- * build failure — executeString simply answers false and the client carries on
+ * build failure - executeString simply answers false and the client carries on
  * with a warning in a log that is warning-only.
  *
  * Out here they can be handed to Lua by a test, which is the only way a
@@ -70,7 +70,7 @@ end
 --
 -- The same rule the settings window applies, because it is the same field.
 -- Without it these panels offered the FSR quality dropdown with upscaling off
--- and the anti-aliasing dropdown while FSR 3 was doing its own — controls that
+-- and the anti-aliasing dropdown while FSR 3 was doing its own - controls that
 -- answer, save, and change nothing.
 -- What a greyed control is waiting for, in words.
 --
@@ -197,9 +197,9 @@ local function addCheckButton(layout, panel, setting, onChanged)
     _G[name .. "Text"]:SetText(setting.label)
     button:SetScript("OnClick", function(self)
         WoweeSetSetting(setting.key, self:GetChecked() and "1" or "0")
-        -- Ticking one of these can be what makes another control live —
+        -- Ticking one of these can be what makes another control live -
         -- normal mapping gates its strength, each extra bar gates its offsets
-        -- — so the rest of the panel is re-read. A click is one event, unlike
+        -- - so the rest of the panel is re-read. A click is one event, unlike
         -- a slider drag, so there is nothing to throttle here.
         if onChanged then onChanged(setting.key) end
     end)
@@ -281,8 +281,8 @@ local function addDropdown(layout, panel, setting, onChanged)
                 WoweeSetSetting(setting.key, tostring(button.value - 1))
                 UIDropDownMenu_SetText(dropdown, choices[button.value])
                 CloseDropDownMenus()
-                -- A dropdown can change other settings — the quality preset
-                -- sets nine of them — so the rest of the panel is re-read.
+                -- A dropdown can change other settings - the quality preset
+                -- sets nine of them - so the rest of the panel is re-read.
                 -- Only dropdowns do this: a slider would do it on every frame
                 -- of a drag.
                 if onChanged then onChanged(setting.key) end
@@ -383,7 +383,7 @@ local function buildPanel(category, settings)
         panel.refresh()
     end
     -- The game puts a Defaults button on every options panel, and this was a
-    -- function that did nothing — the schema had no defaults to put back. It
+    -- function that did nothing - the schema had no defaults to put back. It
     -- has now, so the button does what it says for this panel's settings and
     -- leaves every other panel's alone.
     panel.default = function()
@@ -396,7 +396,7 @@ local function buildPanel(category, settings)
     -- Where a player will actually look for it.
     --
     -- These were all registered into Interface Options' AddOns tab, which is
-    -- two levels down from the game menu and is where an addon's settings go —
+    -- two levels down from the game menu and is where an addon's settings go -
     -- not the client's own. Reported as the options still being missing, and
     -- fairly: pressing Video showed the game's video panel and nothing of ours.
     --
@@ -447,7 +447,7 @@ end
 -- this client's own settings are, and where the six that are not here live.
 -- The root panel is laid out by hand rather than generated, so the anchors
 -- below carry the room each block needs as a "needs N" note. A test reads
--- those and checks nothing is placed inside anything else — which is how a
+-- those and checks nothing is placed inside anything else - which is how a
 -- search box came to be drawn straight through the two blocks under it, with
 -- every behavioural check still passing.
 local root = CreateFrame("Frame", "WoweeOptionsRoot")
@@ -538,7 +538,7 @@ searchBox:SetWidth(280)
 searchBox:SetHeight(20)
 searchBox:SetAutoFocus(false)
 
--- Named, so what the search decided can be read back from outside — the
+-- Named, so what the search decided can be read back from outside - the
 -- headless runner cannot enumerate a frame's regions.
 local searchResults = root:CreateFontString("WoweeOptionsSearchResults",
                                            "ARTWORK", "GameFontHighlightSmall")
@@ -618,7 +618,7 @@ end
 -- Nesting a category hides it: AddCategory marks the new parent collapsed and
 -- every child hidden, which is right for the game's own sub-panels and wrong
 -- here. Everything this client adds is nested, so a player who opened Video
--- looking for it would find one row reading WoWee and nothing else — the same
+-- looking for it would find one row reading WoWee and nothing else - the same
 -- thing as missing, which is how it was reported.
 --
 -- This is the state the toggle leaves them in, written directly because there
@@ -650,7 +650,7 @@ if InterfaceCategoryList_Update then InterfaceCategoryList_Update() end
 /// then wonder why nothing changed.
 ///
 /// Disabled and greyed, which is the same thing the Refresh dropdown two
-/// panels away does for the same reason — the setting is visible, and visibly
+/// panels away does for the same reason - the setting is visible, and visibly
 /// not a choice.
 inline constexpr const char* kAudioFixedSlidersLua = R"LUA(
 -- By name, not by frame: a nil frame used as a table key raises outright,
@@ -681,7 +681,7 @@ end
 )LUA";
 
 /// Move the coin amounts off the coins, and take off the coin textures the
-/// interface adds — the money bar this client draws already has them in its
+/// interface adds - the money bar this client draws already has them in its
 /// own art, and the second set reads as letters after each number.
 inline constexpr const char* kCoinAmountClearanceLua = R"LUA(
 -- Colourblind mode off, explicitly.
@@ -692,8 +692,8 @@ inline constexpr const char* kCoinAmountClearanceLua = R"LUA(
 -- writes the amount alone and leaves the coins. Reported as letters next to the
 -- coins in the backpack, which is that branch running.
 --
--- Nothing in this FrameXML ever assigns the global — every one of its dozen
--- readers compares it against "1" and there is no writer — so it is nil unless
+-- Nothing in this FrameXML ever assigns the global - every one of its dozen
+-- readers compares it against "1" and there is no writer - so it is nil unless
 -- something outside sets it, and nil is not "0" either. Saying so plainly is
 -- cheaper than finding out what set it.
 ENABLE_COLORBLIND_MODE = "0"
@@ -726,7 +726,7 @@ local function nudge(frameName)
             -- MoneyFrame_Update makes a texture per denomination and slices the
             -- coin out of UI-MoneyIcons for it. The money bar this client draws
             -- already carries the coins in its own art, so those three are a
-            -- second set on top of the first — and small, sliced and overlapping
+            -- second set on top of the first - and small, sliced and overlapping
             -- the amounts, they read as letters after each number. Four reports
             -- of "letters next to the coins" are that.
             --

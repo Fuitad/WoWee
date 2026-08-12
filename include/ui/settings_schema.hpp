@@ -1,16 +1,16 @@
 #pragma once
 
 /**
- * settings_schema.hpp — the client's settings, described once.
+ * settings_schema.hpp - the client's settings, described once.
  *
  * The settings window draws these as ImGui controls. FrameXML's Interface
  * Options needs the same list to build its own panels out of, and an addon that
  * asks what this client can be told needs it too. Three readers, one list.
  *
  * Only the settings with no Blizzard equivalent belong here. The six a Blizzard
- * panel already has a working control for — view distance, mouse speed, the
+ * panel already has a working control for - view distance, mouse speed, the
  * minimap clock, friendly nameplates, ground clutter and the sound effects
- * volume — are bound to their CVar instead, in kClientCVars, so that FrameXML's
+ * volume - are bound to their CVar instead, in kClientCVars, so that FrameXML's
  * own control drives them rather than a second one appearing beside it. Those
  * six are named on the root panel, so that a player looking for one is told
  * where it is rather than concluding it is missing.
@@ -53,8 +53,8 @@ struct SettingDesc {
     /// chosen index for an Enum.
     ///
     /// Here so that "restore defaults" is one fact rather than several. It was
-    /// three lists before — one in each of the settings window's three restore
-    /// buttons — and the options panels had no defaults at all, so the button
+    /// three lists before - one in each of the settings window's three restore
+    /// buttons - and the options panels had no defaults at all, so the button
     /// the game puts on every one of them was a function that did nothing.
     float defaultValue;
     /// When this control is worth offering, as a test against another setting.
@@ -62,13 +62,13 @@ struct SettingDesc {
     /// "" is always. "key" is whenever that setting is on. "key=2" and "key!=2"
     /// compare its value. A control whose test fails is drawn greyed rather
     /// than hidden, so the panel does not change shape as things are switched
-    /// on and off — and so that a player can see the setting exists and what it
+    /// on and off - and so that a player can see the setting exists and what it
     /// depends on.
     ///
     /// The settings window has always done this by wrapping each dependent
     /// control in an `if`. The options panels had no way to know, so they
     /// offered the FSR quality dropdown with upscaling off and the
-    /// anti-aliasing dropdown while FSR 3 was doing its own — controls that
+    /// anti-aliasing dropdown while FSR 3 was doing its own - controls that
     /// answer, save, and change nothing.
     const char* enabledWhen = "";
 };
@@ -76,7 +76,7 @@ struct SettingDesc {
 /// Whether `enabledWhen` is satisfied, given a way to read the other setting.
 ///
 /// Shared so that the settings window and the options panels cannot disagree
-/// about when a control is live — the point of the field is that there is one
+/// about when a control is live - the point of the field is that there is one
 /// answer, and two readers of it.
 template <typename ReadSetting>
 bool settingEnabled(const SettingDesc& desc, ReadSetting read) {
@@ -98,7 +98,7 @@ bool settingEnabled(const SettingDesc& desc, ReadSetting read) {
 ///
 /// A whole number with no decimal point, a fraction without the trailing zeros.
 /// std::to_string gives six decimals for everything, and the options panels
-/// compare some of these as strings — a checkbox tests `value == "1"`, which
+/// compare some of these as strings - a checkbox tests `value == "1"`, which
 /// "1.000000" fails, and the box unticks itself every time the panel opens.
 ///
 /// Written twice before this, once on each side of the bridge, ninety minutes
@@ -111,7 +111,7 @@ inline std::string settingNumberText(double v) {
     return s;
 }
 
-/// Whether a setting string means on. Empty and "0" are the only falses — a
+/// Whether a setting string means on. Empty and "0" are the only falses - a
 /// CVar arrives as a string, and in Lua every string including "0" is true, so
 /// the test cannot be left to the caller.
 inline bool settingIsOn(const std::string& v) { return !v.empty() && v != "0"; }

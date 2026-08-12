@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Mail Template catalog (.wmal) — novel
+// Wowee Open Mail Template catalog (.wmal) - novel
 // replacement for AzerothCore-style mail_loot_template SQL
 // + the in-game mail subset of the inventory + currency
 // systems. The 34th open format added to the editor.
@@ -92,13 +92,13 @@ public:
 
     // Preset emitters used by --gen-mail* variants.
     //
-    //   makeStarter — 3 templates covering quest reward
+    //   makeStarter - 3 templates covering quest reward
     //                  overflow / auction house / GM gift.
-    //   makeHoliday — 4 holiday-event mailings tied to WSEA
+    //   makeHoliday - 4 holiday-event mailings tied to WSEA
     //                  yearly events (Tricky Treats sample
     //                  pack, Brewfest sampler, Lunar Festival
     //                  blessing, Winter's Veil gift box).
-    //   makeAuction — full auction-house template family:
+    //   makeAuction - full auction-house template family:
     //                  outbid / won / sold / expired / cancelled.
     static WoweeMail makeStarter(const std::string& catalogName);
     static WoweeMail makeHoliday(const std::string& catalogName);

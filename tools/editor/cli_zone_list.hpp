@@ -4,7 +4,7 @@ namespace wowee {
 namespace editor {
 namespace cli {
 
-// Dispatch the zone discovery / aggregation handlers — list
+// Dispatch the zone discovery / aggregation handlers - list
 // every zone in the standard locations, or compute project-
 // wide tile / creature / quest / byte totals.
 //   --list-zones    quick name+dir listing across custom_zones/output

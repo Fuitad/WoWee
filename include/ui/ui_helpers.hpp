@@ -35,14 +35,14 @@ inline void renderAuraRemaining(int remainMs) {
 /// The colour WoW draws a hostile mob's level in: grey once it stops giving
 /// experience, then green, yellow, orange and red as it gets harder.
 ///
-/// Written out three times — the target frame's name, the focus frame's name,
-/// and the selection circle on the ground — and the circle's copy was missing
+/// Written out three times - the target frame's name, the focus frame's name,
+/// and the selection circle on the ground - and the circle's copy was missing
 /// the rule for an unlevelled mob. A raid boss reports level 0, so the
 /// subtraction gave it a difference of minus the player's level and it came out
 /// green: the one mob in the game that should read as unkillable drew the circle
 /// that means trivial, while its name two inches away was skull red.
 inline ImVec4 levelDifficultyColor(uint32_t playerLevel, uint32_t mobLevel) {
-    // Level 0 is "??" — a boss, or a unit whose level has not arrived yet.
+    // Level 0 is "??" - a boss, or a unit whose level has not arrived yet.
     if (mobLevel == 0) return colors::kSkullRed;
     if (game::CombatHandler::killXp(playerLevel, mobLevel) == 0) return colors::kGray;
 

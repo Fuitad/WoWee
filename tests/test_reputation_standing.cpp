@@ -4,7 +4,7 @@
 
 using namespace wowee::game;
 
-// These thresholds used to be written out twice — once for the panel this
+// These thresholds used to be written out twice - once for the panel this
 // client draws and once for the original interface's GetFactionInfo. They
 // agreed only because someone checked, and the top of the last band did not:
 // exalted was given the width of revered, so a faction at exalted drew an

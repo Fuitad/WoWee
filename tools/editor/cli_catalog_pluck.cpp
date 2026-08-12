@@ -19,7 +19,7 @@ namespace cli {
 
 namespace {
 
-// Same shell-quoting helper as cli_bulk_validate — single
+// Same shell-quoting helper as cli_bulk_validate - single
 // quote and escape embedded single quotes.
 std::string shellQuote(const std::string& s) {
     std::string out;
@@ -104,12 +104,12 @@ bool isExternalRefField(const std::string& k) {
         "animationId", "particleId", "ribbonId",
         "vehicleId", "seatId", "currencyId",
         "trainerId", "vendorId", "mailTemplateId",
-        // Player references — these are player profile
+        // Player references - these are player profile
         // references, not primary keys of the catalog
         // they appear in.
         "playerId", "characterId", "creatorPlayerId",
         "ownerId", "ownerCharacterId", "leaderId",
-        // Glyph / emblem indexes — refer to art-asset
+        // Glyph / emblem indexes - refer to art-asset
         // glyph tables, not catalog primary keys.
         "emblemId", "glyphId", "decalId",
         // Rank-chain references in graph-shaped catalogs
@@ -136,7 +136,7 @@ bool isExternalRefField(const std::string& k) {
 // the primary key, AND filtering them globally would
 // break other catalogs that legitimately use those
 // names as primary keys (e.g. WGLD has guildId as
-// primary key, so we can't filter guildId globally —
+// primary key, so we can't filter guildId globally -
 // but WTBD has guildId as a foreign reference and needs
 // tabardId picked instead).
 const char* findExplicitPrimaryKey(const char magic[4]) {
@@ -183,7 +183,7 @@ findEntryPrimaryKey(const nlohmann::json& entry) {
     return {false, 0};
 }
 
-// Same algorithm but returning the field NAME — used so
+// Same algorithm but returning the field NAME - used so
 // the operator can know which field they searched
 // (compId vs bindId vs broadcastId etc.) without having
 // to memorize per-format conventions.
@@ -268,7 +268,7 @@ int handlePluck(int& i, int argc, char** argv) {
     if (!fmt->infoFlag) {
         std::fprintf(stderr,
             "catalog-pluck: format '%c%c%c%c' has no "
-            "--info-* flag in the format table — pluck "
+            "--info-* flag in the format table - pluck "
             "is only supported for catalogs with an "
             "--info-* surface\n",
             magic[0], magic[1], magic[2], magic[3]);

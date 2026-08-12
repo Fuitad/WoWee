@@ -23,7 +23,7 @@ if [ ! -d "$DATA_DIR" ]; then
 fi
 
 if [ ! -f "$DATA_DIR/manifest.json" ]; then
-    echo "Error: No manifest.json in $DATA_DIR — doesn't look like an extracted asset directory" >&2
+    echo "Error: No manifest.json in $DATA_DIR - doesn't look like an extracted asset directory" >&2
     exit 1
 fi
 

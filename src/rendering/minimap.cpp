@@ -504,7 +504,7 @@ void Minimap::render(VkCommandBuffer cmd, const Camera& playerCamera,
     VkDeviceSize offset = 0;
     vkCmdBindVertexBuffers(cmd, 0, 1, &quadVB, &offset);
 
-    // Top-right corner, unless something asked for a particular rect — which
+    // Top-right corner, unless something asked for a particular rect - which
     // is what happens when FrameXML owns the minimap and the map has to sit
     // inside the frame it drew.
     float margin = 10.0f;

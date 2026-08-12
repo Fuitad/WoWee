@@ -32,7 +32,7 @@ int32_t WoweeSpellCastTime::resolveAtLevel(uint32_t castTimeId,
                  static_cast<int64_t>(e->perLevelMs) *
                  static_cast<int64_t>(characterLevel);
     if (e->minCastMs != 0 || e->maxCastMs != 0) {
-        // Clamp only when bounds are non-trivial — minCastMs=
+        // Clamp only when bounds are non-trivial - minCastMs=
         // maxCastMs=0 means "no clamp configured" rather than
         // "must be exactly zero".
         if (ms < e->minCastMs) ms = e->minCastMs;
@@ -103,18 +103,18 @@ WoweeSpellCastTime WoweeSpellCastTimeLoader::makeStarter(
         e.castKind = kind;
         e.baseCastMs = baseMs;
         // Starter buckets do not scale with level and don't
-        // clamp — leave perLevel=0, min=0, max=0.
+        // clamp - leave perLevel=0, min=0, max=0.
         e.iconColorRGBA = packRgba(r, g, b);
         c.entries.push_back(e);
     };
     add(1, "Instant",    WoweeSpellCastTime::Instant, 0,
-        100, 240, 100, "Instant — fires on cast (0ms).");
+        100, 240, 100, "Instant - fires on cast (0ms).");
     add(2, "FastCast",   WoweeSpellCastTime::Cast, 1000,
-        180, 240, 100, "Fast cast — 1.0s base.");
+        180, 240, 100, "Fast cast - 1.0s base.");
     add(3, "MediumCast", WoweeSpellCastTime::Cast, 1500,
-        240, 240, 100, "Medium cast — 1.5s base (Frostbolt rank 1).");
+        240, 240, 100, "Medium cast - 1.5s base (Frostbolt rank 1).");
     add(4, "LongCast",   WoweeSpellCastTime::Cast, 3000,
-        240, 180, 100, "Long cast — 3.0s base (Pyroblast).");
+        240, 180, 100, "Long cast - 3.0s base (Pyroblast).");
     return c;
 }
 
@@ -135,11 +135,11 @@ WoweeSpellCastTime WoweeSpellCastTimeLoader::makeChannel(
         c.entries.push_back(e);
     };
     add(100, "TickEvery1s",  3000,
-        "Channel — 3s total, ticks every 1s (Drain Life).");
+        "Channel - 3s total, ticks every 1s (Drain Life).");
     add(101, "TickEvery2s",  6000,
-        "Channel — 6s total, ticks every 2s (Mind Flay).");
+        "Channel - 6s total, ticks every 2s (Mind Flay).");
     add(102, "TickEvery3s",  9000,
-        "Channel — 9s total, ticks every 3s (Tranquility).");
+        "Channel - 9s total, ticks every 3s (Tranquility).");
     return c;
 }
 

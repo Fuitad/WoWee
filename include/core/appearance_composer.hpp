@@ -23,7 +23,7 @@ struct PlayerTextureInfo {
     std::string faceLowerPath;
     std::string faceUpperPath;
     std::string hairTexturePath;
-    /// CharSections' second texture on the skin row — the "Extra" art an HD
+    /// CharSections' second texture on the skin row - the "Extra" art an HD
     /// character model asks for as texture type 8. Empty on the stock models,
     /// which have no type-8 texture and never look for one.
     std::string skinExtraPath;

@@ -79,7 +79,7 @@ WDTInfo parseWDT(const std::vector<uint8_t>& data) {
         } else if (magic == MODF) {
             // MODF entry is 64 bytes (same layout as ADT MODF)
             if (chunkSize >= 64) {
-                // nameId at offset 0 (unused for WDT — path comes from MWMO)
+                // nameId at offset 0 (unused for WDT - path comes from MWMO)
                 // uniqueId at offset 4
                 info.position[0] = readF32(chunkData, 8);
                 info.position[1] = readF32(chunkData, 12);

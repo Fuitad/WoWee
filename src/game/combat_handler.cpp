@@ -144,7 +144,7 @@ void CombatHandler::registerOpcodes(DispatchTable& table) {
     // highest-threat target's packed guid*, and then the count. Reading the
     // second guid from both meant the plain update consumed its count as a
     // guid and then read the first victim's guid as the count, so the common
-    // one of the two — the one sent on every threat change — produced a list
+    // one of the two - the one sent on every threat change - produced a list
     // built from nothing.
     for (auto op : {Opcode::SMSG_HIGHEST_THREAT_UPDATE,
                     Opcode::SMSG_THREAT_UPDATE}) {
@@ -177,7 +177,7 @@ void CombatHandler::registerOpcodes(DispatchTable& table) {
             auto fire = owner_.addonEventCallbackRef();
             // The list changed, and separately: whether each unit on it is
             // tanking. They are different events and unit frames read the
-            // second one — UnitFrameThreatIndicator_OnEvent is registered for
+            // second one - UnitFrameThreatIndicator_OnEvent is registered for
             // UNIT_THREAT_SITUATION_UPDATE alone, and it is what puts the aggro
             // border on a frame. It was never fired, so no frame ever showed
             // one, and the list it would have been read from was misparsed
@@ -186,7 +186,7 @@ void CombatHandler::registerOpcodes(DispatchTable& table) {
             // Named per unit, because the indicator compares the argument
             // against its own frame's unit and ignores anything else. Every
             // unit on the list that the interface has a token for, plus the mob
-            // itself — a target frame's indicator is fed by the player's
+            // itself - a target frame's indicator is fed by the player's
             // situation against the target, so both ends have to be told.
             for (const ThreatEntry& e : threatLists_[unitGuid]) {
                 const std::string who = owner_.guidToUnitId(e.victimGuid);
@@ -322,7 +322,7 @@ void CombatHandler::addCombatText(CombatTextEntry::Type type, int32_t amount, ui
     entry.xSeed = dist(rng);
     combatText_.push_back(entry);
 
-    // UNIT_COMBAT — the same hit, for the frames that draw their own feedback
+    // UNIT_COMBAT - the same hit, for the frames that draw their own feedback
     // over a portrait. This client renders the floating numbers itself from the
     // list above; the interface's unit frames render theirs from this event and
     // were never told, so a pet or target frame showed nothing while the world
@@ -330,7 +330,7 @@ void CombatHandler::addCombatText(CombatTextEntry::Type type, int32_t amount, ui
     //
     // The tokens are not invented: CombatFeedback_OnCombatEvent enumerates the
     // ones it acts on, and everything else falls through its final else to a
-    // blank. Only a unit the interface has a token for is worth announcing —
+    // blank. Only a unit the interface has a token for is worth announcing -
     // the frame compares the first argument against its own unit.
     if (dstGuid != 0 && owner_.addonEventCallbackRef()) {
         const std::string unitId = owner_.guidToUnitId(dstGuid);
@@ -355,7 +355,7 @@ void CombatHandler::addCombatText(CombatTextEntry::Type type, int32_t amount, ui
                 case CombatTextEntry::HEAL:
                 case CombatTextEntry::PERIODIC_HEAL: action = "HEAL"; break;
                 case CombatTextEntry::CRIT_HEAL: action = "HEAL"; flags = "CRITICAL"; break;
-                default: break;  // energize, xp, honour — not combat feedback
+                default: break;  // energize, xp, honour - not combat feedback
             }
             if (action) {
                 owner_.addonEventCallbackRef()(
@@ -365,7 +365,7 @@ void CombatHandler::addCombatText(CombatTextEntry::Type type, int32_t amount, ui
         }
     }
 
-    // Persistent combat log — use explicit GUIDs if provided, else fall back to
+    // Persistent combat log - use explicit GUIDs if provided, else fall back to
     // player/current-target (the old behaviour for events without specific participants).
     CombatLogEntry log;
     log.type     = type;
@@ -477,7 +477,7 @@ void CombatHandler::handleAttackStart(network::Packet& packet) {
     // arrived and was taken from the wrong slot. Fixed 2026-08-05. This is
     // kept because the stock client does it anyway, but if a stealth-break
     // ever needs looking at again, start by checking whether the field now
-    // arrives — the premise behind this workaround is gone. Clear the cached
+    // arrives - the premise behind this workaround is gone. Clear the cached
     // presentation state here so the normal creature visual sync restores full
     // opacity instead of leaving an invisible monster in melee.
     auto revealCombatant = [this](uint64_t guid) {
@@ -560,7 +560,7 @@ void CombatHandler::handleAttackerStateUpdate(network::Packet& packet) {
         // SMSG_SPELL_GO (Auto Shot / Shoot / Throw).  The ranged animation
         // is already playing; firing the melee callback here would override it.
         if (owner_.consumeSuppressMeleeSwingAnim()) {
-            LOG_DEBUG("Suppressed melee swing anim — ranged shot already triggered");
+            LOG_DEBUG("Suppressed melee swing anim - ranged shot already triggered");
         } else {
             if (owner_.meleeSwingCallbackRef()) owner_.meleeSwingCallbackRef()(0);
         }
@@ -592,10 +592,10 @@ void CombatHandler::handleAttackerStateUpdate(network::Packet& packet) {
             if (data.isMiss()) {
                 csm->playWeaponMiss(false);
             } else if (data.victimState == 1 || data.victimState == 2) {
-                // Dodge/parry — swing whoosh but no impact
+                // Dodge/parry - swing whoosh but no impact
                 csm->playWeaponSwing(weaponSize, false);
             } else {
-                // Hit — swing + flesh impact
+                // Hit - swing + flesh impact
                 csm->playWeaponSwing(weaponSize, data.isCrit());
                 csm->playImpact(weaponSize, audio::CombatSoundManager::ImpactType::FLESH, data.isCrit());
             }
@@ -1114,14 +1114,14 @@ void CombatHandler::handlePetCastFailed(network::Packet& packet) {
 }
 
 void CombatHandler::handlePetBroken(network::Packet& packet) {
-    // Pet bond broken (died or forcibly dismissed) — clear pet state
+    // Pet bond broken (died or forcibly dismissed) - clear pet state
     owner_.petGuidRef() = 0;
     owner_.petSpellListRef().clear();
     owner_.petAutocastSpellsRef().clear();
     memset(owner_.petActionSlotsRef(), 0, sizeof(owner_.petActionSlotsRef()));
     owner_.addSystemChatMessage("Your pet has died.");
     // The same pair SMSG_PET_SPELLS fires, because the same two things have to
-    // be redrawn — the pet frame and the pet action bar. Losing the pet
+    // be redrawn - the pet frame and the pet action bar. Losing the pet
     // outright announced nothing while *learning one spell* announced
     // PET_BAR_UPDATE, so a dead pet's frame and its whole ability bar stayed on
     // screen until the next login.
@@ -1164,7 +1164,7 @@ void CombatHandler::handlePetMode(network::Packet& packet) {
         if (modeGuid == owner_.petGuidRef()) {
             // COMMAND_ATTACK is 2. The pet frame lights its attack indicator on
             // the start and clears it on the stop, so only the crossing matters
-            // — this packet arrives for every mode change, and firing on each
+            // - this packet arrives for every mode change, and firing on each
             // would relight an indicator that is already lit.
             constexpr uint8_t kCommandAttack = 2;
             const bool wasAttacking = owner_.petCommandRef() == kCommandAttack;
@@ -1210,7 +1210,7 @@ bool CombatHandler::isSelectableUnit(uint64_t /*guid*/) const {
     // stale across a death/resurrect cycle, and that gating on it left a
     // genuinely lootable corpse permanently unclickable. The symptom was real;
     // the explanation was not the whole of it. UNIT_DYNAMIC_FLAGS was being
-    // read from field 147 — which is UNIT_FIELD_PADDING — where the server
+    // read from field 147 - which is UNIT_FIELD_PADDING - where the server
     // writes 79, so the bit was never right in the first place. Fixed
     // 2026-08-05.
     //
@@ -1228,7 +1228,7 @@ void CombatHandler::setTarget(uint64_t guid) {
     // Looted-out, unskinnable corpses cannot be selected.
     if (!isSelectableUnit(guid)) return;
 
-    // Save previous target — once as "the last one whatever it was", which is
+    // Save previous target - once as "the last one whatever it was", which is
     // what TargetLastTarget flips back to, and once under its kind, which is
     // what makes TargetLastEnemy and TargetLastFriend worth having: a healer's
     // last friendly target survives half a fight's worth of tab-targeting.
@@ -1267,7 +1267,7 @@ void CombatHandler::setTarget(uint64_t guid) {
 
     // Report the interface once, the first time there is a target to report it
     // against. A target frame is only right or wrong with something targeted,
-    // and that is not a moment anything can be scheduled for — which is why
+    // and that is not a moment anything can be scheduled for - which is why
     // this one has been diagnosed from readings taken when nothing was
     // selected, where correct and broken look identical.
     static bool reportedOnce = false;
@@ -1276,7 +1276,7 @@ void CombatHandler::setTarget(uint64_t guid) {
         ui::frameXmlRequestCheck();
         // What UnitExists("target") resolves through, said plainly. The Lua
         // probe was meant to answer this and has not run; this is the same
-        // question asked where it can actually be answered — the interface
+        // question asked where it can actually be answered - the interface
         // reports "target" as existing exactly when this guid resolves to a
         // unit.
         auto entity = owner_.getEntityManager().getEntity(guid);
@@ -1414,7 +1414,7 @@ bool CombatHandler::isGroupMemberGuid(uint64_t guid) const {
 }
 
 void CombatHandler::targetEnemy(bool reverse) {
-    // Corpses are never candidates — that is what mouse looting is for.
+    // Corpses are never candidates - that is what mouse looting is for.
     cycleTarget(reverse, "No enemies in range.", [this](uint64_t guid, Entity& e) {
         const auto t = e.getType();
         if (t != ObjectType::UNIT && t != ObjectType::PLAYER) return false;
@@ -1425,7 +1425,7 @@ void CombatHandler::targetEnemy(bool reverse) {
 }
 
 void CombatHandler::targetFriend(bool reverse) {
-    // Dead friends stay targetable — you need to select them to resurrect them.
+    // Dead friends stay targetable - you need to select them to resurrect them.
     cycleTarget(reverse, "No friendly targets in range.", [](uint64_t, Entity& e) {
         return e.getType() == ObjectType::PLAYER;
     });
@@ -1510,7 +1510,7 @@ void CombatHandler::tabTarget(float playerX, float playerY, float playerZ) {
         return true;
     };
 
-    // Restart the cycle after a pause — the player has moved on; the next tab
+    // Restart the cycle after a pause - the player has moved on; the next tab
     // should grab the nearest enemy, not resume an old rotation.
     const uint64_t nowMs = static_cast<uint64_t>(
         std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -1537,7 +1537,7 @@ void CombatHandler::tabTarget(float playerX, float playerY, float playerZ) {
             float dx = entity->getX() - playerX;
             float dy = entity->getY() - playerY;
             float dz = entity->getZ() - playerZ;
-            // Sort by squared distance — monotonic with distance, skips sqrt per entity.
+            // Sort by squared distance - monotonic with distance, skips sqrt per entity.
             float distSq = dx*dx + dy*dy + dz*dz;
             if (distSq > kTabRangeSq) continue;
             auto* unit = static_cast<Unit*>(entity.get());
@@ -1592,7 +1592,7 @@ void CombatHandler::tabTarget(float playerX, float playerY, float playerZ) {
         }
     }
 
-    // All cached entries are stale — clear target and force a fresh rebuild next time.
+    // All cached entries are stale - clear target and force a fresh rebuild next time.
     owner_.tabCycleStaleRef() = true;
     clearTarget();
 }
@@ -1748,7 +1748,7 @@ void CombatHandler::acceptResurrect() {
     // Says which of the three refused it. Accepting a resurrect and nothing
     // happening looks the same from the chair whether the click never arrived,
     // the offer had already been cleared, or the packet went out and the server
-    // ignored it — and only the last of those is not this function's fault.
+    // ignored it - and only the last of those is not this function's fault.
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket() ||
         !owner_.resurrectRequestPendingRef()) {
         LOG_WARNING("acceptResurrect refused: inWorld=",

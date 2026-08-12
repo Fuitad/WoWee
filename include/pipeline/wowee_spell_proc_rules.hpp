@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Spell Proc Rules catalog (.wprc) —
+// Wowee Open Spell Proc Rules catalog (.wprc) -
 // novel replacement for the implicit
 // proc-on-event spell triggers vanilla WoW carried
 // in SpellProcEvents (later rows of Spell.dbc) +
@@ -36,13 +36,13 @@ namespace pipeline {
 //   entries (each):
 //     procRuleId (uint32)
 //     nameLen + name
-//     sourceSpellId (uint32)        — the aura/buff
+//     sourceSpellId (uint32)        - the aura/buff
 //                                     that owns the
 //                                     proc
-//     procEffectSpellId (uint32)    — the spell to
+//     procEffectSpellId (uint32)    - the spell to
 //                                     trigger on
 //                                     proc
-//     triggerEvent (uint8)          — 0=OnHit /
+//     triggerEvent (uint8)          - 0=OnHit /
 //                                     1=OnCrit /
 //                                     2=OnCast /
 //                                     3=OnTakeDamage
@@ -51,13 +51,13 @@ namespace pipeline {
 //                                     6=OnParry /
 //                                     7=OnBlock /
 //                                     8=OnKill
-//     maxStacksOnTarget (uint8)     — 0 = no stack
+//     maxStacksOnTarget (uint8)     - 0 = no stack
 //                                     limit
-//     procChancePct (uint16)        — basis points
+//     procChancePct (uint16)        - basis points
 //                                     0..10000 (100=
 //                                     1%)
-//     internalCooldownMs (uint32)   — 0 = no ICD
-//     procFlagsMask (uint16)        — bitmask of
+//     internalCooldownMs (uint32)   - 0 = no ICD
+//     procFlagsMask (uint16)        - bitmask of
 //                                     additional
 //                                     conditions
 //     pad0 (uint16)
@@ -109,7 +109,7 @@ struct WoweeSpellProcRules {
     std::vector<const Entry*> findBySourceSpell(uint32_t spellId) const;
 
     // Returns all proc rules that fire on a given
-    // event — used by the combat-event dispatcher
+    // event - used by the combat-event dispatcher
     // hot path.
     std::vector<const Entry*> findByEvent(uint8_t triggerEvent) const;
 };
@@ -123,19 +123,19 @@ public:
 
     // Preset emitters used by --gen-prc* variants.
     //
-    //   makeWeaponProcs   — 3 vanilla weapon-enchant
+    //   makeWeaponProcs   - 3 vanilla weapon-enchant
     //                        procs (Crusader buff
     //                        OnHit / Lifesteal heal-
     //                        on-hit / Fiery Weapon
     //                        damage proc).
-    //   makeRetPaladin    — 4 procs from a
+    //   makeRetPaladin    - 4 procs from a
     //                        Retribution Paladin
     //                        rotation (Vengeance buff
     //                        OnCrit / Seal of Justice
     //                        stun proc / Reckoning
     //                        block-counter / Sanctity
     //                        Aura damage amp).
-    //   makeRageGen       — 3 Rage-generation procs
+    //   makeRageGen       - 3 Rage-generation procs
     //                        (Bloodrage instant /
     //                        Berserker Rage immunity
     //                        / Anger Mgmt OnDodge).

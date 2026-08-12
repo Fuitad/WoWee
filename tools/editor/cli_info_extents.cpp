@@ -43,7 +43,7 @@ int handleInfoZoneExtents(int& i, int argc, char** argv) {
         std::fprintf(stderr, "info-zone-extents: parse failed\n");
         return 1;
     }
-    // Tile XY range — straightforward integer min/max.
+    // Tile XY range - straightforward integer min/max.
     int tileMinX = 64, tileMaxX = -1;
     int tileMinY = 64, tileMaxY = -1;
     for (const auto& [tx, ty] : zm.tiles) {

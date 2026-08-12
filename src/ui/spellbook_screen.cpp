@@ -479,7 +479,7 @@ VkDescriptorSet SpellbookScreen::getSpellIcon(uint32_t iconId, pipeline::AssetMa
 
     // Rate-limit GPU uploads to avoid a multi-frame stall when switching tabs.
     // Icons not loaded this frame will be retried next frame (progressive load).
-    // Defer without caching — returning null here allows retry next frame when
+    // Defer without caching - returning null here allows retry next frame when
     // the budget resets, rather than permanently blacklisting the icon as missing
     if (!claimUiTextureUpload()) return VK_NULL_HANDLE;
 
@@ -537,7 +537,7 @@ void SpellbookScreen::renderSpellTooltip(const SpellInfo* info, game::GameHandle
         ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f), "Passive");
     }
 
-    // Spell school — only show for non-physical schools (physical is the default/implicit)
+    // Spell school - only show for non-physical schools (physical is the default/implicit)
     if (info->schoolMask != 0 && info->schoolMask != 1 /*physical*/) {
         struct SchoolEntry { uint32_t mask; const char* name; ImVec4 color; };
         static constexpr SchoolEntry kSchools[] = {
@@ -568,7 +568,7 @@ void SpellbookScreen::renderSpellTooltip(const SpellInfo* info, game::GameHandle
         // Left: resource cost (with talent flat/pct modifier applied)
         char costBuf[64] = "";
         if (info->manaCost > 0) {
-            // Was its own table with Focus at 4, which is Happiness — a spell
+            // Was its own table with Focus at 4, which is Happiness - a spell
             // costing Focus said "Mana" and one costing Happiness said "Focus".
             const char* powerName = game::powerTypeName(info->powerType);
             if (!powerName) powerName = "Mana";
@@ -625,14 +625,14 @@ void SpellbookScreen::renderSpellTooltip(const SpellInfo* info, game::GameHandle
         ImGui::TextColored(ui::colors::kRed, "Cooldown: %.1fs", cd);
     }
 
-    // Description — resolve WoW $-tokens (e.g. "increased by $s1") to concrete values.
+    // Description - resolve WoW $-tokens (e.g. "increased by $s1") to concrete values.
     if (!info->description.empty()) {
         ImGui::Spacing();
         std::string desc = gameHandler.formatSpellDescription(info->spellId, info->description);
         ImGui::TextWrapped("%s", desc.c_str());
     }
 
-    // Usage hints — only shown when browsing the spellbook, not on action bar hover
+    // Usage hints - only shown when browsing the spellbook, not on action bar hover
     if (!info->isPassive() && showUsageHints) {
         ImGui::Spacing();
         ImGui::TextColored(ui::colors::kBrightGreen, "Drag to action bar");

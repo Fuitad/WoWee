@@ -267,7 +267,7 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx +
                 ": spawnable kind (" +
                 std::string(locKindName(e.locKind)) +
-                ") with respawnSec=0 — entity would "
+                ") with respawnSec=0 - entity would "
                 "spawn once and never come back");
         }
         // discoverableXp only meaningful for POI kind.
@@ -275,7 +275,7 @@ int handleValidate(int& i, int argc, char** argv) {
             warnings.push_back(ctx +
                 ": discoverableXp=" +
                 std::to_string(e.discoverableXp) +
-                " set but locKind is not POI — XP "
+                " set but locKind is not POI - XP "
                 "would never be awarded (the discovery "
                 "flow only fires for POIs)");
         }
@@ -290,17 +290,17 @@ int handleValidate(int& i, int argc, char** argv) {
                 ": requiredSkillId=" +
                 std::to_string(e.requiredSkillId) +
                 " set but locKind is not a gather "
-                "kind — skill check will never fire");
+                "kind - skill check will never fire");
         }
         // Gather kinds with zero requiredSkillLevel
-        // BUT non-zero skillId is suspicious — usually
+        // BUT non-zero skillId is suspicious - usually
         // a typo.
         if (gatherKind && e.requiredSkillId != 0 &&
             e.requiredSkillLevel == 0) {
             warnings.push_back(ctx +
                 ": gather kind with requiredSkillId=" +
                 std::to_string(e.requiredSkillId) +
-                " but requiredSkillLevel=0 — every "
+                " but requiredSkillLevel=0 - every "
                 "player satisfies; verify intentional");
         }
         if (!idsSeen.insert(e.locationId).second) {

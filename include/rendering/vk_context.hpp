@@ -101,7 +101,7 @@ public:
     // such as descriptor sets and buffers freed during streaming/unload.
     void deferAfterFrameFence(std::function<void()>&& fn);
     // Like deferAfterFrameFence, but waits until ALL in-flight frame slots have
-    // been fenced — safe for shared resources bound by multiple frames' command
+    // been fenced - safe for shared resources bound by multiple frames' command
     // buffers (material descriptor sets, vertex/index buffers, etc.).
     void deferAfterAllFrameFences(std::function<void()>&& fn);
 
@@ -172,7 +172,7 @@ public:
     VkImageView getDepthImageView() const { return depthImageView; }
 
     // Sampler cache: returns a shared VkSampler matching the given create info.
-    // Callers must NOT destroy the returned sampler — it is owned by VkContext.
+    // Callers must NOT destroy the returned sampler - it is owned by VkContext.
     // Automatically clamps anisotropy if the device doesn't support it.
     VkSampler getOrCreateSampler(const VkSamplerCreateInfo& info);
 
@@ -185,7 +185,7 @@ public:
 
     // UI texture upload: creates a Vulkan texture from RGBA data and returns
     // a VkDescriptorSet suitable for use as ImTextureID.
-    // The caller does NOT need to free the result — resources are tracked and
+    // The caller does NOT need to free the result - resources are tracked and
     // cleaned up when the VkContext is destroyed.
     VkDescriptorSet uploadImGuiTexture(const uint8_t* rgba, int width, int height);
 
@@ -349,7 +349,7 @@ private:
     /// A descriptor pool and layout this context owns, for UI textures.
     ///
     /// ImGui_ImplVulkan_AddTexture allocates from ImGui's pool, which is
-    /// destroyed whenever the backend restarts — and the backend restarts on
+    /// destroyed whenever the backend restarts - and the backend restarts on
     /// every anti-aliasing change, because that is how its render pass is
     /// rebound. Ten different caches around the interface hold sets from that
     /// pool and none of them hear about it. Allocating from a pool owned here
@@ -367,7 +367,7 @@ private:
     };
     std::vector<UiTexture> uiTextures_;
 
-    // Sampler cache — deduplicates VkSamplers by configuration hash.
+    // Sampler cache - deduplicates VkSamplers by configuration hash.
     std::mutex samplerCacheMutex_;
     std::unordered_map<uint64_t, VkSampler> samplerCache_;
     bool samplerAnisotropySupported_ = false;

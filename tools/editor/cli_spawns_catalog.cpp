@@ -128,7 +128,7 @@ int handleInfo(int& i, int argc, char** argv) {
 
 int handleExportJson(int& i, int argc, char** argv) {
     // Export a .wspn to a human-editable JSON sidecar.
-    // Mirrors the WOL/WOW/WOMX/WSND JSON pairs — gives a
+    // Mirrors the WOL/WOW/WOMX/WSND JSON pairs - gives a
     // quick-author surface for hand-editing spawn entries
     // without writing a binary patcher. Vector fields are
     // emitted as 3-element arrays; kind and flags both have
@@ -281,7 +281,7 @@ int handleValidate(int& i, int argc, char** argv) {
             if (e.kind == wowee::pipeline::WoweeSpawns::Doodad &&
                 e.respawnSec != 0) {
                 warnings.push_back(ctx +
-                    ": doodad has non-zero respawnSec — doodads are static");
+                    ": doodad has non-zero respawnSec - doodads are static");
             }
             // Creatures with respawn 0 will spawn once and never
             // come back; flag as a warning since it's almost

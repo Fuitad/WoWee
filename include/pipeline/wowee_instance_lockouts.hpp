@@ -8,7 +8,7 @@ namespace wowee {
 namespace pipeline {
 
 // Wowee Open Instance Lockout Schedule catalog (.whld)
-// — novel replacement for the engine-side instance reset
+// - novel replacement for the engine-side instance reset
 // timer logic plus the per-map InstanceTemplate.dbc reset
 // fields. Defines how often each (map × difficulty)
 // combination resets its lockout, how many boss kills
@@ -16,7 +16,7 @@ namespace pipeline {
 // number of bonus rolls available (Cataclysm+ feature
 // stubbed for forward compatibility).
 //
-// One entry per (map × difficulty × group size) — Icecrown
+// One entry per (map × difficulty × group size) - Icecrown
 // Citadel 10-Normal weekly, ICC 25-Normal weekly, ICC
 // 10-Heroic weekly, and ICC 25-Heroic weekly are four
 // separate entries with the same mapId but different
@@ -101,14 +101,14 @@ public:
 
     // Preset emitters used by --gen-hld* variants.
     //
-    //   makeRaidWeekly  — 4 raid weekly lockouts (ICC 10N /
+    //   makeRaidWeekly  - 4 raid weekly lockouts (ICC 10N /
     //                      ICC 25N / ICC 10H / ICC 25H) with
     //                      12-boss kill caps and 7-day
     //                      reset.
-    //   makeDungeonDaily — 4 5-man daily heroic lockouts
+    //   makeDungeonDaily - 4 5-man daily heroic lockouts
     //                      (HoR / FoS / PoS / TotC) with
     //                      24h reset and 1-boss caps each.
-    //   makeWorldEvent  — 3 special event lockouts
+    //   makeWorldEvent  - 3 special event lockouts
     //                      (Brewfest daily / Hallow's End
     //                      pumpkin daily / Wintergrasp
     //                      battle 2.5h reset).

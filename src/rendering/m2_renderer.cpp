@@ -58,7 +58,7 @@ void M2Instance::updateModelMatrix() {
     // buildings were composed Z, Y, X on the strength of that. All of it was
     // judged on the wrong evidence: with no pitch and no roll every order is
     // the same rotation, so an upright doodad settles nothing. Darkshore's
-    // bridges — WMOs, tilted, visibly askew — settled it the other way, and the
+    // bridges - WMOs, tilted, visibly askew - settled it the other way, and the
     // buildings compose X, Y, Z now too. See WMOInstance::updateModelMatrix.
     modelMatrix = glm::rotate(modelMatrix, rotation.x, glm::vec3(1.0f, 0.0f, 0.0f));
     modelMatrix = glm::rotate(modelMatrix, rotation.y, glm::vec3(0.0f, 1.0f, 0.0f));
@@ -190,7 +190,7 @@ uint32_t M2Renderer::gatherLocalLights(const glm::vec3& cameraPos,
 
         // Candles, hearth fires, campfires, torches and forges express their
         // flame purely as particle emitters, with no glow-card batch for the
-        // path above — so without this they lit nothing at all. One light at
+        // path above - so without this they lit nothing at all. One light at
         // the emitter centroid; chandeliers with an authored glow batch stay
         // represented by that batch rather than by five separate lights.
         const bool openFlame = model->isBrazierOrFire || model->isTorch ||
@@ -267,7 +267,7 @@ uint32_t M2Renderer::gatherLocalLights(const glm::vec3& cameraPos,
 ///
 /// Both paths used to build them: initialize() here and recreatePipelines() in
 /// m2_renderer_instance.cpp, which was a copy of these 190 lines that had
-/// drifted only in its comments. Eighty-seven overlapping twelve-line blocks —
+/// drifted only in its comments. Eighty-seven overlapping twelve-line blocks -
 /// the largest duplicate in the tree. A change to any blend state, depth mode
 /// or vertex layout landed in whichever copy was in front of whoever made it,
 /// and the one that did not get it only showed after a device loss.
@@ -315,7 +315,7 @@ bool M2Renderer::buildMainPassPipelines(VkDescriptorSetLayout perFrameLayout) {
         {4, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 14 * sizeof(float)}, // boneIndices (float)
     };
 
-    // Pipeline derivatives — opaque is the base, others derive from it for shared state optimization
+    // Pipeline derivatives - opaque is the base, others derive from it for shared state optimization
     auto buildM2Pipeline = [&](VkPipelineColorBlendAttachmentState blendState, bool depthWrite,
                                VkPipelineCreateFlags flags = 0, VkPipeline basePipeline = VK_NULL_HANDLE,
                                bool alphaToCoverage = false) -> VkPipeline {
@@ -631,7 +631,7 @@ bool M2Renderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout
         }
     }
 
-    // Mega bone SSBO — consolidates all animated instance bones into one buffer per frame.
+    // Mega bone SSBO - consolidates all animated instance bones into one buffer per frame.
     // Slot 0 = identity matrix (for non-animated instances), slots 1..N = animated instances.
     {
         const VkDeviceSize megaSize = VkDeviceSize(MEGA_BONE_MATRIX_CAPACITY) * sizeof(glm::mat4);
@@ -669,7 +669,7 @@ bool M2Renderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout
             }
         }
 
-        // Fresh buffers hold no bone data — invalidate any per-instance upload
+        // Fresh buffers hold no bone data - invalidate any per-instance upload
         // tracking so prepareRender() re-uploads everything (defensive: instances
         // are normally empty when this runs, but re-init must not skip uploads).
         for (auto& inst : instances) {
@@ -677,7 +677,7 @@ bool M2Renderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout
         }
     }
 
-    // Instance data SSBO — per-frame buffer holding per-instance transforms, fade, bones.
+    // Instance data SSBO - per-frame buffer holding per-instance transforms, fade, bones.
     // Shader reads instanceData[push.instanceDataOffset + gl_InstanceIndex].
     {
         static_assert(sizeof(M2InstanceGPU) == 96, "M2InstanceGPU must be 96 bytes (std430)");
@@ -723,7 +723,7 @@ bool M2Renderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout
         }
     }
 
-    // GPU frustum culling — compute pipeline, buffers, descriptors.
+    // GPU frustum culling - compute pipeline, buffers, descriptors.
     // Compute shader tests each instance bounding sphere against 6 frustum planes + distance.
     // Output: uint visibility[] read back by CPU to skip culled instances in sortedVisible_ build.
     {
@@ -750,7 +750,7 @@ bool M2Renderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout
         layoutCi.pBindings = bindings;
         vkCreateDescriptorSetLayout(device, &layoutCi, nullptr, &cullSetLayout_);
 
-        // Pipeline layout (no push constants — everything via UBO)
+        // Pipeline layout (no push constants - everything via UBO)
         VkPipelineLayoutCreateInfo plCi{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
         plCi.setLayoutCount = 1;
         plCi.pSetLayouts = &cullSetLayout_;
@@ -759,7 +759,7 @@ bool M2Renderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout
         // Load compute shader
         rendering::VkShaderModule cullComp;
         if (!cullComp.loadFromFile(device, "assets/shaders/m2_cull.comp.spv")) {
-            LOG_ERROR("M2Renderer: failed to load m2_cull.comp.spv — GPU culling disabled");
+            LOG_ERROR("M2Renderer: failed to load m2_cull.comp.spv - GPU culling disabled");
         } else {
             VkComputePipelineCreateInfo cpCi{VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO};
             cpCi.stage = cullComp.stageInfo(VK_SHADER_STAGE_COMPUTE_BIT);
@@ -800,7 +800,7 @@ bool M2Renderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout
             hizCpCi.stage = cullHiZComp.stageInfo(VK_SHADER_STAGE_COMPUTE_BIT);
             hizCpCi.layout = cullHiZPipelineLayout_;
             if (vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &hizCpCi, nullptr, &cullHiZPipeline_) != VK_SUCCESS) {
-                LOG_WARNING("M2Renderer: failed to create HiZ cull compute pipeline — HiZ disabled");
+                LOG_WARNING("M2Renderer: failed to create HiZ cull compute pipeline - HiZ disabled");
                 cullHiZPipeline_ = VK_NULL_HANDLE;
                 vkDestroyPipelineLayout(device, cullHiZPipelineLayout_, nullptr);
                 cullHiZPipelineLayout_ = VK_NULL_HANDLE;
@@ -816,7 +816,7 @@ bool M2Renderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout
 
             cullHiZComp.destroy();
         } else {
-            LOG_INFO("M2Renderer: m2_cull_hiz.comp.spv not found — HiZ occlusion culling not available");
+            LOG_INFO("M2Renderer: m2_cull_hiz.comp.spv not found - HiZ occlusion culling not available");
         }
 
         // Descriptor pool: 2 sets × 3 descriptors each (1 UBO + 2 SSBO)
@@ -860,7 +860,7 @@ bool M2Renderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout
                                 &cullInputBuffer_[i], &cullInputAlloc_[i], &ai);
                 cullInputMapped_[i] = ai.pMappedData;
             }
-            // Output SSBO (visibility flags — GPU writes, CPU reads)
+            // Output SSBO (visibility flags - GPU writes, CPU reads)
             {
                 VkBufferCreateInfo bci{VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
                 bci.size = outputSize;
@@ -993,7 +993,7 @@ bool M2Renderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout
         vmaCreateBuffer(vkCtx_->getAllocator(), &bci, &aci, &glowVB_, &glowVBAlloc_, &allocInfo);
         glowVBMapped_ = allocInfo.pMappedData;
 
-        // Ribbon vertex buffer — triangle strip: pos(3)+color(3)+alpha(1)+uv(2)=9 floats/vert
+        // Ribbon vertex buffer - triangle strip: pos(3)+color(3)+alpha(1)+uv(2)=9 floats/vert
         bci.size = MAX_RIBBON_VERTS * 9 * sizeof(float);
         vmaCreateBuffer(vkCtx_->getAllocator(), &bci, &aci, &ribbonVB_, &ribbonVBAlloc_, &allocInfo);
         ribbonVBMapped_ = allocInfo.pMappedData;
@@ -1210,7 +1210,7 @@ void M2Renderer::destroyInstanceBones(M2Instance& inst, bool defer) {
     VkDevice device = vkCtx_->getDevice();
     VmaAllocator alloc = vkCtx_->getAllocator();
     for (int i = 0; i < 2; i++) {
-        // Snapshot handles before clearing the instance — needed for both
+        // Snapshot handles before clearing the instance - needed for both
         // immediate and deferred paths.
         VkDescriptorSet boneSet = inst.boneSet[i];
         ::VkBuffer boneBuf = inst.boneBuffer[i];
@@ -1228,7 +1228,7 @@ void M2Renderer::destroyInstanceBones(M2Instance& inst, bool defer) {
                 vmaDestroyBuffer(alloc, boneBuf, boneAlloc);
             }
         } else if (boneSet != VK_NULL_HANDLE || boneBuf) {
-            // Deferred destruction — the loop destroys bone sets for ALL frame
+            // Deferred destruction - the loop destroys bone sets for ALL frame
             // slots, so the other slot's command buffer may still be in flight.
             // Must wait for all fences, not just the current frame's.
             VkDescriptorPool pool = boneDescPool_;
@@ -1416,7 +1416,7 @@ void M2Renderer::markModelAsSpellEffect(uint32_t modelId) {
         it->second.isSpellEffect = true;
         // Spell effects MUST have bone animation for ribbons/particles to work.
         // The classifier may have set disableAnimation=true based on name tokens
-        // (e.g. "chest" in HolySmite_Low_Chest.m2) — override that for spell effects.
+        // (e.g. "chest" in HolySmite_Low_Chest.m2) - override that for spell effects.
         if (it->second.disableAnimation && it->second.hasAnimation) {
             it->second.disableAnimation = false;
             LOG_INFO("SpellEffect: re-enabled animation for '", it->second.name, "'");
@@ -1458,7 +1458,7 @@ bool M2Renderer::loadModel(const pipeline::M2Model& model, uint32_t modelId) {
         tightMin = glm::vec3(std::numeric_limits<float>::max());
         tightMax = glm::vec3(-std::numeric_limits<float>::max());
         for (const auto& v : model.vertices) {
-            // Skip NaN-positioned vertices — would corrupt the bounds
+            // Skip NaN-positioned vertices - would corrupt the bounds
             // (glm::min on NaN is implementation-defined) and feed NaN
             // into the camera-occlusion / culling AABB.
             if (!std::isfinite(v.position.x) || !std::isfinite(v.position.y) ||
@@ -1474,7 +1474,7 @@ bool M2Renderer::loadModel(const pipeline::M2Model& model, uint32_t modelId) {
         }
     }
 
-    // Classify model from name and geometry — pure function, no GPU dependencies.
+    // Classify model from name and geometry - pure function, no GPU dependencies.
     auto cls = classifyM2Model(model.name, tightMin, tightMax,
                                 model.vertices.size(),
                                 model.particleEmitters.size());
@@ -1515,7 +1515,7 @@ bool M2Renderer::loadModel(const pipeline::M2Model& model, uint32_t modelId) {
     gpuModel.isTorch                     = cls.isTorch;
     // Data-driven flight-path detection: name tokens miss many flying doodads
     // (buzzards, swallows, bird swarms, ...). A small mesh whose bone animation
-    // translates it tens of units is a flight-path doodad — it visibly freezes
+    // translates it tens of units is a flight-path doodad - it visibly freezes
     // mid-air whenever distance culling stops its bone updates, so give it the
     // same treatment as named sky birds.
     bool flightPathDoodad = cls.isSkyBird;
@@ -1719,7 +1719,7 @@ bool M2Renderer::loadModel(const pipeline::M2Model& model, uint32_t modelId) {
         } else {
             LOG_WARNING("M2 '", model.name, "' particle emitter[", ei,
                         "] texture index ", texIdx, " out of range (", allTextures.size(),
-                        " textures) — using white fallback");
+                        " textures) - using white fallback");
         }
     }
 
@@ -1772,7 +1772,7 @@ bool M2Renderer::loadModel(const pipeline::M2Model& model, uint32_t modelId) {
                                 " (direct=", (texDirect < allTextures.size() ? "yes" : "OOB"),
                                 " lookup=", texIdx,
                                 " textures=", allTextures.size(),
-                                ") — using white fallback");
+                                ") - using white fallback");
                 }
             }
             // Allocate descriptor set (reuse particleTexLayout_ = single sampler)
@@ -1810,7 +1810,7 @@ bool M2Renderer::loadModel(const pipeline::M2Model& model, uint32_t modelId) {
             //
             // vkCmdDrawIndexed does not check this and the GPU does not survive
             // it: validation caught a batch starting at index 6,290,784 of a
-            // 768-index buffer — an ending offset 25 MB past the end — repeated
+            // 768-index buffer - an ending offset 25 MB past the end - repeated
             // 46 times over twelve seconds before the device was lost. The same
             // start every time, so it is a submesh read from the wrong offset
             // rather than memory going bad, and this client parses two M2
@@ -1822,7 +1822,7 @@ bool M2Renderer::loadModel(const pipeline::M2Model& model, uint32_t modelId) {
             if (end > gpuModel.indexCount) {
                 LOG_WARNING("M2 '", gpuModel.name, "': submesh indices ",
                             batch.indexStart, "..", end, " lie past the model's ",
-                            gpuModel.indexCount, " — not drawn");
+                            gpuModel.indexCount, " - not drawn");
                 continue;
             }
             M2ModelGPU::BatchGPU bgpu;
@@ -1864,7 +1864,7 @@ bool M2Renderer::loadModel(const pipeline::M2Model& model, uint32_t modelId) {
             } else if (!allTextures.empty()) {
                 LOG_WARNING("M2 '", model.name, "' batch textureIndex ", batch.textureIndex,
                             " out of range (textureLookup size=", model.textureLookup.size(),
-                            ") — falling back to texture[0]");
+                            ") - falling back to texture[0]");
                 tex = allTextures[0];
                 texFailed = !textureLoadFailed.empty() && textureLoadFailed[0];
                 if (!textureKeysLower.empty()) {
@@ -1903,7 +1903,7 @@ bool M2Renderer::loadModel(const pipeline::M2Model& model, uint32_t modelId) {
                 (tcls.hasGlowCardToken || tcls.softGlowSurface);
             // A flame texture is the fire itself, not a flat card standing in for
             // one, so swapping it for a featureless sprite deletes the visible
-            // flame — chandeliers and candelabra lit their surroundings while
+            // flame - chandeliers and candelabra lit their surroundings while
             // their candles sat unlit. Braziers already keep their flame mesh for
             // this reason (see fireGlowCard above); FLAMELICK counts as a
             // glow-card token, so lantern-family models were not getting the same
@@ -1920,7 +1920,7 @@ bool M2Renderer::loadModel(const pipeline::M2Model& model, uint32_t modelId) {
                     // Forge fire is drawn on cards with a black backing that has
                     // to be keyed out, and some of them use effect textures
                     // carrying none of the flame/glow tokens the hint looks for
-                    // — coals, lava lumps, ARMORREFLECT/ORBREFLECT. Keying the
+                    // - coals, lava lumps, ARMORREFLECT/ORBREFLECT. Keying the
                     // whole model instead made the masonry and ironwork
                     // translucent, since a forge is mostly those.
                     if (gpuModel.isForge && isForgeFireTexture(batchTexKeyLower, tcls)) {
@@ -1931,7 +1931,7 @@ bool M2Renderer::loadModel(const pipeline::M2Model& model, uint32_t modelId) {
             }
             // textureCoordIndex is an index into a texture coord combo table, not directly
             // a UV set selector. Most batches have index=0 (UV set 0). We always use UV set 0
-            // since we don't have the full combo table — dual-UV effects are rare edge cases.
+            // since we don't have the full combo table - dual-UV effects are rare edge cases.
             bgpu.textureUnit = 0;
 
             // Start at full opacity; hide only if texture failed to load.
@@ -2062,7 +2062,7 @@ bool M2Renderer::loadModel(const pipeline::M2Model& model, uint32_t modelId) {
 
     // Detect particle emitter volume models: box mesh (24 verts, 36 indices)
     // with disproportionately large bounds. These are invisible bounding volumes
-    // that only exist to spawn particles — their mesh should never be rendered.
+    // that only exist to spawn particles - their mesh should never be rendered.
     if (!isInvisibleTrap && !groundDetailModel &&
         gpuModel.vertexCount <= 24 && gpuModel.indexCount <= 36
         && !model.particleEmitters.empty()) {
@@ -2091,7 +2091,7 @@ bool M2Renderer::loadModel(const pipeline::M2Model& model, uint32_t modelId) {
             aci.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
             vmaCreateBuffer(vkCtx_->getAllocator(), &bci, &aci, &bgpu.materialUBO, &bgpu.materialUBOAlloc, &matAllocInfo);
 
-            // Write initial material data (static per-batch — fadeAlpha/interiorDarken updated at draw time)
+            // Write initial material data (static per-batch - fadeAlpha/interiorDarken updated at draw time)
             M2MaterialUBO mat{};
             mat.hasTexture = (bgpu.texture != nullptr && bgpu.texture != whiteTexture_.get()) ? 1 : 0;
             mat.alphaTest = (bgpu.blendMode == 1 || (bgpu.blendMode >= 2 && !bgpu.hasAlpha)) ? 1 : 0;
@@ -2145,7 +2145,7 @@ bool M2Renderer::loadModel(const pipeline::M2Model& model, uint32_t modelId) {
     }
 
     models[modelId] = std::move(gpuModel);
-    spatialIndexDirty_ = true;  // Map may have rehashed — refresh cachedModel pointers
+    spatialIndexDirty_ = true;  // Map may have rehashed - refresh cachedModel pointers
 
     LOG_DEBUG("Loaded M2 model: ", model.name, " (", models[modelId].vertexCount, " vertices, ",
               models[modelId].indexCount / 3, " triangles, ", models[modelId].batches.size(), " batches)");

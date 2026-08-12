@@ -44,7 +44,7 @@ bool WoweeTerrain::exportOpen(const pipeline::ADTTerrain& terrain,
                 if (!std::isfinite(clean[i])) clean[i] = 0.0f;
             }
             f.write(reinterpret_cast<const char*>(clean), 145 * 4);
-            // Cap alpha size at 64KB (matches loader cap) — alphaMap is
+            // Cap alpha size at 64KB (matches loader cap) - alphaMap is
             // bounded in practice but defensive truncation prevents a
             // stale memory state from producing an unloadable WHM.
             uint32_t alphaSize = std::min<uint32_t>(

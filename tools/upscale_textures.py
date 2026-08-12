@@ -5,12 +5,12 @@ Selects BLP textures from the extracted Data tree, decodes them with
 blp_convert, AI-upscales the PNGs, and writes them back as PNG sidecars
 (``foo.png`` next to ``foo.blp``).  The client's AssetManager checks for a
 PNG sidecar before decoding a BLP, so overrides take effect on next launch
-with no repacking — delete the sidecar to revert.
+with no repacking - delete the sidecar to revert.
 
 Upscaler backends (auto-detected, best first):
-  1. realesrgan-ncnn-vulkan  — AI upscale (https://github.com/xinntao/Real-ESRGAN/releases,
+  1. realesrgan-ncnn-vulkan  - AI upscale (https://github.com/xinntao/Real-ESRGAN/releases,
                                unzip anywhere on PATH; handles RGBA)
-  2. ImageMagick convert     — Lanczos resize + light sharpen (fallback)
+  2. ImageMagick convert     - Lanczos resize + light sharpen (fallback)
 
 Every generated sidecar is recorded in ``<data-dir>/upscale_manifest.txt`` so
 ``--clean`` can remove exactly what this tool created and nothing else.
@@ -51,7 +51,7 @@ def find_blp_convert() -> Path:
                  REPO_ROOT / "build/blp_convert"):
         if cand.is_file() and os.access(cand, os.X_OK):
             return cand
-    sys.exit("blp_convert not found — build it first: cmake --build build --target blp_convert")
+    sys.exit("blp_convert not found - build it first: cmake --build build --target blp_convert")
 
 
 def detect_upscaler():
@@ -127,7 +127,7 @@ def main():
                     help="extracted Data root (default: build/bin/Data)")
     ap.add_argument("--include", action="append", default=[],
                     help="path substring filter (repeatable); replaces the foliage preset")
-    ap.add_argument("--all", action="store_true", help="no filter — process every BLP")
+    ap.add_argument("--all", action="store_true", help="no filter - process every BLP")
     ap.add_argument("--scale", type=int, default=4, choices=(2, 3, 4))
     ap.add_argument("--max-dim", type=int, default=2048,
                     help="cap output dimensions (default 2048)")
@@ -173,7 +173,7 @@ def main():
         rel_sidecar = str(sidecar.relative_to(data_dir))
         if sidecar.exists():
             if rel_sidecar not in already:
-                # Hand-made override — never touch it.
+                # Hand-made override - never touch it.
                 continue
             if not args.force:
                 continue
@@ -205,7 +205,7 @@ def main():
             out_dir.mkdir()
 
             # Stage: copy BLPs to temp, decode to PNG there (blp_convert
-            # writes next to its input — decoding in place would activate a
+            # writes next to its input - decoding in place would activate a
             # low-res override).
             names = {}
             for i, blp in enumerate(batch):

@@ -1,4 +1,4 @@
-// world_map_facade.cpp — Public API for the world map system.
+// world_map_facade.cpp - Public API for the world map system.
 // Composes all extracted components and orchestrates the world map (Phase 10).
 #include "rendering/world_map/world_map_facade.hpp"
 #include "rendering/world_map/data_repository.hpp"
@@ -117,7 +117,7 @@ struct WorldMapFacade::Impl {
     bool userMapOverride = false; // true when user manually navigated to world/cosmic view
     // Set the map back to where the player is standing, on the next render.
     // The interface asks for this every time the map is shown, and the flow
-    // that works it out is the one the first open already runs — so this
+    // that works it out is the one the first open already runs - so this
     // re-enters that rather than keeping a second copy of it here.
     bool recenterOnPlayer = false;
 
@@ -147,7 +147,7 @@ struct WorldMapFacade::Impl {
     std::vector<TaxiNode> taxiNodes;
     std::vector<QuestPOI> questPois;
 
-    // Flight-map (taxi selection) mode — locks the view to the continent and
+    // Flight-map (taxi selection) mode - locks the view to the continent and
     // renders only the map, player marker, and interactive flight nodes.
     bool taxiMode = false;
 
@@ -252,7 +252,7 @@ void WorldMapFacade::Impl::switchToWorldView() {
 
     viewState.enterWorldView();
 
-    // Use the dedicated synthetic "World" zone — its tiles (world1-12.blp)
+    // Use the dedicated synthetic "World" zone - its tiles (world1-12.blp)
     // are cached independently from zone[0] (Azeroth), avoiding stale-tile
     // conflicts when transitioning between WORLD and CONTINENT views.
     int worldIdx = data.worldIdx();
@@ -484,7 +484,7 @@ void WorldMapFacade::render(const glm::vec3& playerRenderPos,
             d.compositor.invalidateComposite();
         }
 
-        // Flight map is always the continent overview — never open at zone level.
+        // Flight map is always the continent overview - never open at zone level.
         if (!d.taxiMode &&
             playerZone >= 0 && d.viewState.continentIdx() >= 0 &&
             zoneBelongsToContinent(d.data.zones(), playerZone, d.viewState.continentIdx())) {
@@ -701,7 +701,7 @@ std::string WorldMapFacade::zoneNameAtMapPoint(float u, float v) const {
     const uint32_t areaId = zones[static_cast<size_t>(idx)].areaID;
     const auto& names = impl_->data.areaNameByAreaId();
     auto it = names.find(areaId);
-    // The DBC's own area name, not the texture folder the zone is keyed by —
+    // The DBC's own area name, not the texture folder the zone is keyed by -
     // those differ, and the folder is not what anyone wants to read.
     if (it != names.end()) return it->second;
     return zones[static_cast<size_t>(idx)].areaName;
@@ -903,7 +903,7 @@ void WorldMapFacade::Impl::renderImGuiOverlay(const glm::vec3& playerRenderPos,
 
     // Hosted inside a frame someone else drew: fill exactly that rect, keep no
     // title bar of its own, and follow the frame rather than staying where it
-    // was first put — the frame is what moves now.
+    // was first put - the frame is what moves now.
     if (hasFrameRect) {
         mapX = frameRectX;
         mapY = frameRectY;
@@ -913,7 +913,7 @@ void WorldMapFacade::Impl::renderImGuiOverlay(const glm::vec3& playerRenderPos,
                  ImGuiWindowFlags_NoBackground;
         ImGui::SetNextWindowPos(ImVec2(mapX, mapY), ImGuiCond_Always);
     } else {
-        // Map window — styled like the character selection window
+        // Map window - styled like the character selection window
         ImGui::SetNextWindowPos(ImVec2(mapX, mapY), ImGuiCond_Once);
     }
     ImGui::SetNextWindowSize(ImVec2(windowW, windowH), ImGuiCond_Always);
@@ -1045,7 +1045,7 @@ void WorldMapFacade::Impl::renderImGuiOverlay(const glm::vec3& playerRenderPos,
         }
 
         // Flight-map mode: just the map, the player marker, and the
-        // interactive flight nodes — no zone navigation chrome.
+        // interactive flight nodes - no zone navigation chrome.
         if (taxiMode) {
             if (playerMarkerLayer) playerMarkerLayer->render(layerCtx);
             if (taxiNodeLayer) taxiNodeLayer->render(layerCtx);
@@ -1170,7 +1170,7 @@ void WorldMapFacade::Impl::renderImGuiOverlay(const glm::vec3& playerRenderPos,
                             region.mapId, data.zones(), data.currentMapId(), data.cosmicIdx());
                         switch (resolveResult.action) {
                             case MapResolveAction::NAVIGATE_CONTINENT:
-                                // Same map — just switch to the continent view
+                                // Same map - just switch to the continent view
                                 viewState.setContinentIdx(resolveResult.targetZoneIdx);
                                 compositor.loadZoneTextures(resolveResult.targetZoneIdx, data.zones(), mapName);
                                 compositor.requestComposite(resolveResult.targetZoneIdx);
@@ -1445,7 +1445,7 @@ namespace {
 
 /// The four continents 3.3.5 lists, and the map each one is. Fixed, and in
 /// that order, because the interface passes the position in this list straight
-/// back as the continent to show — a list discovered from the data would
+/// back as the continent to show - a list discovered from the data would
 /// reorder itself with the data and silently point every saved index at a
 /// different continent.
 struct ContinentEntry { uint32_t mapId; const char* name; };
@@ -1480,7 +1480,7 @@ std::vector<std::string> WorldMapFacade::continentNames() const {
 
 /// The zones on a continent as (display name, zone index), alphabetically.
 /// Both the name list and the navigation need this and would drift apart if
-/// each worked it out for itself — the index the interface hands back has to
+/// each worked it out for itself - the index the interface hands back has to
 /// mean the same row it was shown.
 static std::vector<std::pair<std::string, int>> zonesOnContinent(
         const std::vector<Zone>& zones,

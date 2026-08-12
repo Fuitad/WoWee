@@ -397,7 +397,7 @@ void ActivitySoundManager::setCharacterVoiceProfile(const std::string& raceFolde
 }
 
 // Splashes go through the mixer like every other activity sound. They used to
-// spawn ffplay on a temp file, which allowed exactly one at a time — so wading
+// spawn ffplay on a temp file, which allowed exactly one at a time - so wading
 // in and out of the shallows dropped the second sound and logged it as an error,
 // and with the landing and jump sounds suppressed on water exit that left the
 // transition silent.

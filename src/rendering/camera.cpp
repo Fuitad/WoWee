@@ -41,7 +41,7 @@ glm::vec3 Camera::getForward() const {
 glm::vec3 Camera::getRight() const {
     // Use Z-up for WoW coordinate system. If forward is parallel to the up
     // axis (camera staring straight up/down), cross is zero and normalize
-    // returns NaN — fall back to world +X so view/proj stay finite.
+    // returns NaN - fall back to world +X so view/proj stay finite.
     glm::vec3 c = glm::cross(getForward(), glm::vec3(0.0f, 0.0f, 1.0f));
     float len = glm::length(c);
     if (len < 1e-6f) return glm::vec3(1.0f, 0.0f, 0.0f);
@@ -57,7 +57,7 @@ glm::vec3 Camera::getUp() const {
 
 void Camera::setJitter(float jx, float jy) {
     // Sub-pixel jitter for temporal anti-aliasing (TAA / FSR2).
-    // Column 2 of the projection matrix holds the NDC x/y offset — modifying
+    // Column 2 of the projection matrix holds the NDC x/y offset - modifying
     // [2][0] and [2][1] shifts the entire rendered image by a sub-pixel amount
     // each frame, giving the upscaler different sample positions to reconstruct.
     projectionMatrix[2][0] -= jitterOffset.x;

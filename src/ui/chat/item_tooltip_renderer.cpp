@@ -1,4 +1,4 @@
-// ItemTooltipRenderer — renders full WoW-style item tooltips via ImGui.
+// ItemTooltipRenderer - renders full WoW-style item tooltips via ImGui.
 // Extracted from ChatMarkupRenderer::renderItemTooltip (Phase 6.7).
 #include "ui/chat/item_tooltip_renderer.hpp"
 #include "ui/ui_colors.hpp"
@@ -124,7 +124,7 @@ void ItemTooltipRenderer::render(
         // it was shifted: it read 34 as Resilience, 35 as Haste, 36 as
         // Expertise and 37 as Attack Power, where WotLK's ITEM_MOD has 34 as
         // crit-taken, 35 Resilience, 36 Haste, 37 Expertise, 38 Attack Power.
-        // Everything from 43 up was wrong too — 43 named Spell Penetration is
+        // Everything from 43 up was wrong too - 43 named Spell Penetration is
         // mana regen, 44 named Block Value is armour penetration, 47 named
         // Spell Damage is spell penetration. An item link in chat showed the
         // wrong stat name for most of the ratings on it.

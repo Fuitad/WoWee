@@ -88,7 +88,7 @@ WoweeWordFilters WoweeWordFiltersLoader::makeSpamRMT(
         e.iconColorRGBA = packRgba(220, 200, 80);   // RMT yellow
         c.entries.push_back(e);
     };
-    // RMT-pattern detection. All examples are PG —
+    // RMT-pattern detection. All examples are PG -
     // generic gold-seller phrases without profanity.
     add(1, "WtsGold",
         "wts gold", "***",
@@ -114,7 +114,7 @@ WoweeWordFilters WoweeWordFiltersLoader::makeSpamRMT(
     add(5, "FreeGold",
         "free gold", "***",
         F::Mute, 0,
-        "'free gold' adverts — almost always RMT or "
+        "'free gold' adverts - almost always RMT or "
         "phishing. Mute sender for 60s + drop message.");
     return c;
 }
@@ -142,7 +142,7 @@ WoweeWordFilters WoweeWordFiltersLoader::makeAllCaps(
         "ANYBODY",
         "anybody",
         F::Replace, 1,
-        "Single common all-caps word — replace with "
+        "Single common all-caps word - replace with "
         "lowercase. Case-sensitive match (caseSens=1) so "
         "'Anybody' isn't affected.");
     add(101, "AllCapsExclamation",
@@ -183,17 +183,17 @@ WoweeWordFilters WoweeWordFiltersLoader::makeURLDetect(
     add(200, "HttpUrl",
         "http://", "[link]",
         F::Replace, 0,
-        "HTTP URL — replace with [link] placeholder. "
+        "HTTP URL - replace with [link] placeholder. "
         "Server admins can decide per-channel whether "
         "to permit links via WCHN config.");
     add(201, "HttpsUrl",
         "https://", "[link]",
         F::Replace, 0,
-        "HTTPS URL — same handling as HTTP.");
+        "HTTPS URL - same handling as HTTP.");
     add(202, "WwwShortUrl",
         "www.", "[link]",
         F::Replace, 0,
-        "Bare www.example URL — common shortening when "
+        "Bare www.example URL - common shortening when "
         "the http:// prefix is omitted. Catch-all.");
     return c;
 }

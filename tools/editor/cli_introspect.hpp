@@ -4,7 +4,7 @@ namespace wowee {
 namespace editor {
 namespace cli {
 
-// Dispatch the CLI introspection / discoverability handlers —
+// Dispatch the CLI introspection / discoverability handlers -
 // auto-discover commands by parsing printUsage's output so the
 // surface stays self-describing as new flags are added. Useful
 // for shell completion, IDE plugins, and 'is there a flag for X?'

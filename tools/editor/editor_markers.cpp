@@ -43,7 +43,7 @@ void EditorMarkers::update(const std::vector<PlacedObject>& objects) {
     std::vector<MarkerVertex> verts;
 
     for (const auto& obj : objects) {
-        // Skip markers for objects with non-finite transform — would
+        // Skip markers for objects with non-finite transform - would
         // produce NaN vertex positions and trip Vulkan validation or
         // collapse the entire vertex buffer to garbage.
         if (!std::isfinite(obj.position.x) || !std::isfinite(obj.position.y) ||
@@ -132,7 +132,7 @@ bool EditorMarkers::createPipeline() {
     auto shaders = rendering::loadShaderPair(dev, "assets/shaders/editor_water.vert.spv",
                                              "assets/shaders/editor_water.frag.spv", "editor_water");
     if (!shaders) {
-        LOG_WARNING("Marker shaders not found — markers disabled");
+        LOG_WARNING("Marker shaders not found - markers disabled");
         return true;
     }
 

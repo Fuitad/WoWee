@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open World State UI catalog (.wwui) — novel
+// Wowee Open World State UI catalog (.wwui) - novel
 // replacement for Blizzard's WorldStateUI.dbc plus the
 // AzerothCore-style world_state SQL data. The 48th open
 // format added to the editor.
@@ -97,14 +97,14 @@ public:
 
     // Preset emitters used by --gen-wsui* variants.
     //
-    //   makeStarter     — 3 BG scoreboards (Warsong Gulch
+    //   makeStarter     - 3 BG scoreboards (Warsong Gulch
     //                      flag captures, Arathi Basin
     //                      resource counters, Eye of the
     //                      Storm flag carrier).
-    //   makeWintergrasp — 4 Wintergrasp UI (alliance + horde
+    //   makeWintergrasp - 4 Wintergrasp UI (alliance + horde
     //                      tank counts, time remaining,
     //                      towers controlled).
-    //   makeDungeon     — 3 dungeon UI (boss progress bar,
+    //   makeDungeon     - 3 dungeon UI (boss progress bar,
     //                      key fragments collected,
     //                      treasure hunt counter).
     static WoweeWorldStateUI makeStarter(const std::string& catalogName);

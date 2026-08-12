@@ -98,27 +98,27 @@ WoweeItemQuality WoweeItemQualityLoader::makeStandard(
     // matching the live client. Heirlooms (id 7) are gated
     // to character level 80 in WotLK.
     add(0, "Poor",      0x9d, 0x9d, 0x9d, 0.5f,  1,  0, 0,
-        "", "Poor (gray) — junk loot; vendor sells at half price.");
+        "", "Poor (gray) - junk loot; vendor sells at half price.");
     add(1, "Common",    0xff, 0xff, 0xff, 1.0f,  1,  0, 1,
-        "", "Common (white) — basic gear; standard vendor pricing.");
+        "", "Common (white) - basic gear; standard vendor pricing.");
     add(2, "Uncommon",  0x1e, 0xff, 0x00, 1.5f,  1,  0, 1,
         "Border-Uncommon",
-        "Uncommon (green) — early-tier quest reward; 50% markup.");
+        "Uncommon (green) - early-tier quest reward; 50% markup.");
     add(3, "Rare",      0x00, 0x70, 0xdd, 2.0f,  1,  0, 1,
         "Border-Rare",
-        "Rare (blue) — dungeon-tier; 2x markup, can be disenchanted.");
+        "Rare (blue) - dungeon-tier; 2x markup, can be disenchanted.");
     add(4, "Epic",      0xa3, 0x35, 0xee, 4.0f, 60,  0, 1,
         "Border-Epic",
-        "Epic (purple) — raid-tier; 4x markup, disenchants to high-tier dust.");
+        "Epic (purple) - raid-tier; 4x markup, disenchants to high-tier dust.");
     add(5, "Legendary", 0xff, 0x80, 0x00, 8.0f, 60,  0, 0,
         "Border-Legendary",
-        "Legendary (orange) — extremely rare; cannot be disenchanted.");
+        "Legendary (orange) - extremely rare; cannot be disenchanted.");
     add(6, "Artifact",  0xe6, 0xcc, 0x80, 16.0f, 80, 0, 0,
         "Border-Artifact",
-        "Artifact (red-gold) — unique, account-bound.");
+        "Artifact (red-gold) - unique, account-bound.");
     add(7, "Heirloom",  0x00, 0xcc, 0xff, 1.0f, 80, 0, 0,
         "Border-Heirloom",
-        "Heirloom (cyan) — scales to character level, lvl 80+ unlock.");
+        "Heirloom (cyan) - scales to character level, lvl 80+ unlock.");
     return c;
 }
 
@@ -171,19 +171,19 @@ WoweeItemQuality WoweeItemQualityLoader::makeRaidTiers(
         c.entries.push_back(e);
     };
     // Vanilla raid progression tiers as alternative quality
-    // markers — each tier gates at a higher minLevelToDrop
+    // markers - each tier gates at a higher minLevelToDrop
     // and commands a higher vendor multiplier.
     add(200, "Tier1Raid",  0xa3, 0x35, 0xee,  4.0f, 60,
-        "Tier 1 raid set (MC / Onyxia) — Epic-color, lvl 60.");
+        "Tier 1 raid set (MC / Onyxia) - Epic-color, lvl 60.");
     add(201, "Tier2Raid",  0xc8, 0x4c, 0xff,  6.0f, 60,
-        "Tier 2 raid set (BWL) — slightly brighter purple, "
+        "Tier 2 raid set (BWL) - slightly brighter purple, "
         "premium pricing.");
     add(202, "Tier3Raid",  0xff, 0x80, 0xc8, 10.0f, 60,
-        "Tier 3 raid set (Naxx pre-WotLK) — pink-orange, "
+        "Tier 3 raid set (Naxx pre-WotLK) - pink-orange, "
         "rarest pre-TBC tier.");
     add(203, "Legendary",  0xff, 0x80, 0x00, 50.0f, 60,
         "Tier-equivalent legendary (Thunderfury / Sulfuras / "
-        "Atiesh) — premium economy pricing.");
+        "Atiesh) - premium economy pricing.");
     return c;
 }
 

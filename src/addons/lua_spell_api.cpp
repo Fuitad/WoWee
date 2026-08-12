@@ -1,4 +1,4 @@
-// lua_spell_api.cpp — Spell info, casting, auras, and targeting Lua API bindings.
+// lua_spell_api.cpp - Spell info, casting, auras, and targeting Lua API bindings.
 // Extracted from lua_engine.cpp as part of §5.1 (Tame LuaEngine).
 #include "addons/lua_api_helpers.hpp"
 #include "game/item_text.hpp"
@@ -10,8 +10,8 @@ namespace wowee::addons {
 //
 // A spell cast with no target leaves the cursor holding it until something is
 // clicked; these are what the unit and party frames call when that click lands
-// on them. This client resolves a target at cast time instead — there is no
-// pending spell on the cursor to complete — so each answers false: nothing was
+// on them. This client resolves a target at cast time instead - there is no
+// pending spell on the cursor to complete - so each answers false: nothing was
 // waiting, so nothing was consumed, and the frame falls through to its ordinary
 // click handling rather than swallowing it.
 static int lua_SpellTargetUnit(lua_State* L) { lua_pushboolean(L, 0); return 1; }
@@ -30,7 +30,7 @@ static int lua_SetMultiCastSpell(lua_State* L) { (void)L; return 0; }
 //
 // Four slots, each holding a spell and how long it has left. The interface
 // wants the moment one was placed rather than its age, on the same clock
-// GetTime() reports — a bar that is drawn from start and duration cannot use a
+// GetTime() reports - a bar that is drawn from start and duration cannot use a
 // figure measured from a different zero.
 
 // GetTotemInfo(slot) → haveTotem, name, startTime, duration, icon
@@ -125,7 +125,7 @@ static int lua_IsSpellInRange(lua_State* L) {
 /// The "RAID" filter FrameXML passes on party frames means "only what I can do
 /// something about", and it is what showDispelDebuffs turns on. Without it the
 /// filter string was accepted and ignored, so the frames showed every debuff
-/// however little the healer could do — and answering the CVar without this
+/// however little the healer could do - and answering the CVar without this
 /// would have claimed a filter that does not filter.
 ///
 /// Dispel types are Spell.dbc's: 1 Magic, 2 Curse, 3 Disease, 4 Poison. The
@@ -135,19 +135,19 @@ static bool classCanDispel(uint8_t classId, uint8_t dispelType) {
     if (dispelType == 0) return false;
     constexpr uint8_t kMagic = 1, kCurse = 2, kDisease = 3, kPoison = 4;
     switch (classId) {
-        case 2:  // Paladin — Cleanse
+        case 2:  // Paladin - Cleanse
             return dispelType == kMagic || dispelType == kPoison || dispelType == kDisease;
-        case 5:  // Priest — Dispel Magic, Abolish Disease
+        case 5:  // Priest - Dispel Magic, Abolish Disease
             return dispelType == kMagic || dispelType == kDisease;
-        case 7:  // Shaman — Cure Toxins, Cleanse Spirit at 51
+        case 7:  // Shaman - Cure Toxins, Cleanse Spirit at 51
             return dispelType == kCurse || dispelType == kPoison || dispelType == kDisease;
-        case 8:  // Mage — Remove Curse
+        case 8:  // Mage - Remove Curse
             return dispelType == kCurse;
-        case 11: // Druid — Remove Curse, Abolish Poison
+        case 11: // Druid - Remove Curse, Abolish Poison
             return dispelType == kCurse || dispelType == kPoison;
-        case 6:  // Death Knight — the pet's Leech, and unholy's disease removal
+        case 6:  // Death Knight - the pet's Leech, and unholy's disease removal
             return dispelType == kDisease;
-        case 9:  // Warlock — the Felhunter's Devour Magic
+        case 9:  // Warlock - the Felhunter's Devour Magic
             return dispelType == kMagic;
         default: // Warrior, Hunter, Rogue: nothing
             return false;
@@ -176,7 +176,7 @@ static int lua_UnitAura(lua_State* L, bool wantBuff) {
 
     // "RAID" on a debuff means only what this character can remove. The index
     // counts into the filtered list, so the test has to come before the count
-    // — filtering after it would answer the wrong aura for every index past
+    // - filtering after it would answer the wrong aura for every index past
     // the first one skipped.
     const char* filterArg = luaL_optstring(L, 3, "");
     bool dispellableOnly = false;
@@ -260,7 +260,7 @@ static int lua_UnitAura(lua_State* L, bool wantBuff) {
 static int lua_UnitBuff(lua_State* L) { return lua_UnitAura(L, true); }
 static int lua_UnitDebuff(lua_State* L) { return lua_UnitAura(L, false); }
 
-// UnitAura(unit, index, filter) — generic aura query with filter string
+// UnitAura(unit, index, filter) - generic aura query with filter string
 // filter: "HELPFUL" = buffs, "HARMFUL" = debuffs, "PLAYER" = cast by player,
 //         "HELPFUL|PLAYER" = buffs cast by player, etc.
 static int lua_UnitAuraGeneric(lua_State* L) {
@@ -336,7 +336,7 @@ static int lua_UnitCastInfo(lua_State* L, bool wantChannel) {
     // nameSubtext is the rank, and leaving it out shifted every value after it
     // by one. castingbarframe.lua destructures all nine by name, so it read the
     // icon path as the bar's text, a timestamp as the texture, and a boolean as
-    // endTime — then computed (endTime - startTime) and raised, which is why no
+    // endTime - then computed (endTime - startTime) and raised, which is why no
     // cast bar was ever drawn rather than a wrong one.
     lua_pushstring(L, name.empty() ? "Unknown" : name.c_str()); // name
     const std::string& rank = gh->getSpellRank(spellId);
@@ -422,7 +422,7 @@ static int lua_GetNumSpellTabs(lua_State* L) {
 // tabIndex is 1-based; offset is 1-based global spell book slot
 //
 // Six values, and the last two are not optional. SpellBook_GetTabInfo unpacks
-// all six and then, when ShowAllSpellRanks is off — which is the default —
+// all six and then, when ShowAllSpellRanks is off - which is the default -
 // throws away offset and numSpells and uses the highest-rank pair instead. So
 // a four-value answer leaves both nil on the ordinary path and the spellbook
 // raises on the arithmetic, showing nothing at all.
@@ -438,7 +438,7 @@ static int lua_GetSpellTabInfo(lua_State* L) {
     //
     // SpellBookFrame's own OnLoad ends with SpellBookSkillLineTab_OnClick(nil,
     // 1), and three frames down that divides numSpells by the page size. In
-    // WoW tab one is General and always exists, so FrameXML never guards it —
+    // WoW tab one is General and always exists, so FrameXML never guards it -
     // here it does not exist until the spell list has arrived, and a single
     // nil made that a raise inside OnLoad, which loses the whole file.
     // SpellBookFrame.xml was failing to load outright.
@@ -471,7 +471,7 @@ static int lua_GetSpellTabInfo(lua_State* L) {
     lua_pushnumber(L, offset);                     // offset (0-based for WoW compat)
     lua_pushnumber(L, tab.spellIds.size());        // numSpells
     // The highest-rank pair, which is what FrameXML actually reads: with
-    // ShowAllSpellRanks off — the default — SpellBook_GetTabInfo throws away
+    // ShowAllSpellRanks off - the default - SpellBook_GetTabInfo throws away
     // the first offset and count and keeps these. Returning four values left
     // numSpells nil and the page count divided by nothing. This client does
     // not track ranks separately, so the whole tab is the highest rank.
@@ -541,7 +541,7 @@ static int lua_GetSpellName(lua_State* L) {
     // Through spellIdForCall, which reads the book as well as the slot. The
     // spellbook passes SpellBookFrame.bookType to every one of these, and
     // resolving a pet slot through the player's tabs names one of the player's
-    // own spells — the wrong answer wearing the shape of a right one.
+    // own spells - the wrong answer wearing the shape of a right one.
     const uint32_t id = spellIdForCall(L, gh);
     if (id == 0) { return luaReturnNil(L); }
     const std::string& name = gh->getSpellName(id);
@@ -550,7 +550,7 @@ static int lua_GetSpellName(lua_State* L) {
     return 2;
 }
 
-/// CastSpell(slot, bookType) — cast what is in that slot at the current
+/// CastSpell(slot, bookType) - cast what is in that slot at the current
 /// target, which is what clicking a spellbook entry does.
 static int lua_CastSpell(lua_State* L) {
     auto* gh = getGameHandler(L);
@@ -564,20 +564,20 @@ static int lua_CastSpell(lua_State* L) {
 
 /// IsPassiveSpell(slot, bookType) → whether the spell is passive, which is how
 /// the book decides not to draw a cast button for it. Spell attributes are not
-/// read from the DBC yet, so this answers no — which draws a button for a
+/// read from the DBC yet, so this answers no - which draws a button for a
 /// passive rather than hiding a real one, the less wrong way round.
 /// IsPassiveSpell(id or index, bookType) → whether the spell is never cast.
 ///
 /// It answered no for everything, so the spell book drew a passive with the
 /// same cast border as an ability and let it be dragged onto the action bar,
 /// where it would sit doing nothing. Spell.dbc's base attribute word carries
-/// it — bit 6 — beside the Ex word the client already read for
+/// it - bit 6 - beside the Ex word the client already read for
 /// interruptibility.
 static int lua_IsPassiveSpell(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (!gh) { lua_pushboolean(L, 0); return 1; }
     // Both forms: IsPassiveSpell(spellId) and IsPassiveSpell(slot, bookType),
-    // which is the one the spellbook uses — and reading a slot as an id
+    // which is the one the spellbook uses - and reading a slot as an id
     // answered for whichever spell happens to carry the number 1, 2 or 3.
     // The result decides whether a spell is drawn as castable at all.
     const uint32_t id = spellIdForCall(L, gh);
@@ -609,7 +609,7 @@ static int lua_GetKnownSlotFromHighestRankSlot(lua_State* L) {
     return 1;
 }
 
-/// UpdateSpells() — redraw the spell book page.
+/// UpdateSpells() - redraw the spell book page.
 ///
 /// The list itself needs no rebuilding, which is why this was a no-op. But in
 /// WoW the call is what makes the client announce SPELLS_CHANGED, and that
@@ -617,7 +617,7 @@ static int lua_GetKnownSlotFromHighestRankSlot(lua_State* L) {
 /// answers it with SpellButton_UpdateButton, and nothing else calls that.
 ///
 /// Six places in spellbookframe.lua call this, and every one of them is a
-/// "now redraw the page" — after a skill-line tab is clicked, after a page
+/// "now redraw the page" - after a skill-line tab is clicked, after a page
 /// turn, after the book type changes. SpellBookFrame_ShowSpells only calls
 /// Show() on buttons that are already shown, so no OnShow fires and without
 /// the event the page kept whatever it was displaying before. That is the
@@ -664,15 +664,15 @@ static int lua_GetSpellCooldown(lua_State* L) {
     // Three values on this path too, like every other. The cooldown frame does
     // `start > 0 and duration > 0 and enable > 0`, and `and` short-circuits, so
     // a missing third value is only ever reached when the first two say a
-    // cooldown is running — which this path cannot say, because it answers
+    // cooldown is running - which this path cannot say, because it answers
     // zero. Safe by accident rather than by design, and the next person to give
     // this branch a real start time would have found out the hard way.
     if (!gh) { lua_pushnumber(L, 0); lua_pushnumber(L, 0); lua_pushnumber(L, 1); return 3; }
-    // A name, an id, or a book slot with the book beside it — the spellbook
+    // A name, an id, or a book slot with the book beside it - the spellbook
     // asks in the last of those three.
     const uint32_t spellId = spellIdForCall(L, gh);
     float cd = gh->getSpellCooldown(spellId);
-    // Also check GCD — if spell has no individual cooldown but GCD is active,
+    // Also check GCD - if spell has no individual cooldown but GCD is active,
     // return the GCD timing (this is how WoW handles it)
     float gcdRem = gh->getGCDRemaining();
     float gcdTotal = gh->getGCDTotal();
@@ -682,7 +682,7 @@ static int lua_GetSpellCooldown(lua_State* L) {
 
     if (cd > 0.01f) {
         // Spell-specific cooldown (longer than GCD). The pair asked for is
-        // (start, duration), not (now, remaining) — the cooldown frame draws a
+        // (start, duration), not (now, remaining) - the cooldown frame draws a
         // sweep of `duration` beginning at `start`, so saying it began now with
         // a length of whatever is left restarts the swirl at full every time
         // the interface asks. It asks on every ACTIONBAR_UPDATE_COOLDOWN, which
@@ -695,7 +695,7 @@ static int lua_GetSpellCooldown(lua_State* L) {
         lua_pushnumber(L, start);
         lua_pushnumber(L, total);
     } else if (gcdRem > 0.01f) {
-        // GCD is active — return GCD timing
+        // GCD is active - return GCD timing
         double elapsed = gcdTotal - gcdRem;
         double start = nowSec - elapsed;
         lua_pushnumber(L, start);
@@ -714,7 +714,7 @@ static int lua_HasTarget(lua_State* L) {
     return 1;
 }
 
-// TargetUnit(unitId) — set current target
+// TargetUnit(unitId) - set current target
 static int lua_TargetUnit(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (!gh) return 0;
@@ -726,14 +726,14 @@ static int lua_TargetUnit(lua_State* L) {
     return 0;
 }
 
-// ClearTarget() — clear current target
+// ClearTarget() - clear current target
 static int lua_ClearTarget(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (gh) gh->clearTarget();
     return 0;
 }
 
-// FocusUnit(unitId) — set focus target
+// FocusUnit(unitId) - set focus target
 static int lua_FocusUnit(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (!gh) return 0;
@@ -746,14 +746,14 @@ static int lua_FocusUnit(lua_State* L) {
     return 0;
 }
 
-// ClearFocus() — clear focus target
+// ClearFocus() - clear focus target
 static int lua_ClearFocus(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (gh) gh->clearFocus();
     return 0;
 }
 
-// AssistUnit(unitId) — target whatever the given unit is targeting
+// AssistUnit(unitId) - target whatever the given unit is targeting
 static int lua_AssistUnit(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (!gh) return 0;
@@ -767,17 +767,17 @@ static int lua_AssistUnit(lua_State* L) {
     return 0;
 }
 
-// TargetLastTarget() — re-target previous target
+// TargetLastTarget() - re-target previous target
 static int lua_TargetLastTarget(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (gh) gh->targetLastTarget();
     return 0;
 }
 
-// TargetNearestEnemy() — tab-target nearest enemy
+// TargetNearestEnemy() - tab-target nearest enemy
 // The argument is the direction, and it was being thrown away. Bindings.xml
-// binds two keys to each of these — `TargetNearestEnemy()` forwards and
-// `TargetNearestEnemy(1)` backwards, with a comment on that line saying so —
+// binds two keys to each of these - `TargetNearestEnemy()` forwards and
+// `TargetNearestEnemy(1)` backwards, with a comment on that line saying so -
 // so cycling backwards through targets went forwards instead, and the second
 // key of every such pair did what the first did.
 static bool wantsReverse(lua_State* L) {
@@ -790,7 +790,7 @@ static int lua_TargetNearestEnemy(lua_State* L) {
     return 0;
 }
 
-// TargetNearestFriend([reverse]) — target nearest friendly unit
+// TargetNearestFriend([reverse]) - target nearest friendly unit
 static int lua_TargetNearestFriend(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (gh) gh->targetFriend(wantsReverse(L));
@@ -812,7 +812,7 @@ static int lua_GetRaidTargetIndex(lua_State* L) {
     return 1;
 }
 
-// SetRaidTarget(unit, index) — set raid marker (1-8, or 0 to clear)
+// SetRaidTarget(unit, index) - set raid marker (1-8, or 0 to clear)
 static int lua_SetRaidTarget(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (!gh) return 0;
@@ -899,8 +899,8 @@ static int lua_GetSpellInfo(lua_State* L) {
     //
     // Seven values were returned and only the first three were in the right
     // places. Everything asking for a cost got a cast time in milliseconds,
-    // everything asking for a cast time got the spell id — so a spell read as
-    // taking several thousand seconds to cast — and the two ranges were nil.
+    // everything asking for a cast time got the spell id - so a spell read as
+    // taking several thousand seconds to cast - and the two ranges were nil.
     // The interface unpacks all nine in one line in multicastactionbarframe,
     // and any addon reading a spell does the same.
     //
@@ -945,17 +945,17 @@ static int lua_GetSpellLink(lua_State* L) {
     return 1;
 }
 
-/// CancelUnitBuff(unit, indexOrName [, filterOrRank]) — both forms.
+/// CancelUnitBuff(unit, indexOrName [, filterOrRank]) - both forms.
 ///
 /// The interface uses both and this took only the index, through
-/// luaL_checknumber — so the two name forms raised on the spot rather than
+/// luaL_checknumber - so the two name forms raised on the spot rather than
 /// cancelling anything. The possess bar cancels the aura holding the player in
 /// a vehicle by name, and /cancelaura passes what was typed; both were an
 /// error message where an aura should have dropped.
 ///
 /// The third argument is a filter for the index form and a rank for the name
-/// form, which is how WoW spells it. Only HELPFUL is answerable — a debuff
-/// cannot be cancelled — so the filter decides nothing here beyond confirming
+/// form, which is how WoW spells it. Only HELPFUL is answerable - a debuff
+/// cannot be cancelled - so the filter decides nothing here beyond confirming
 /// buffs are what is being counted.
 static int lua_CancelUnitBuff(lua_State* L) {
     auto* gh = getGameHandler(L);
@@ -990,7 +990,7 @@ static int lua_CancelUnitBuff(lua_State* L) {
     return 0;
 }
 
-// CastSpellByID(spellId) — cast spell by numeric ID
+// CastSpellByID(spellId) - cast spell by numeric ID
 static int lua_CastSpellByID(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (!gh) return 0;
@@ -1061,7 +1061,7 @@ static int lua_IsUsableSpell(lua_State* L) {
 void registerSpellLuaAPI(lua_State* L) {
     static const struct { const char* name; lua_CFunction func; } api[] = {
                 {"GetTotemInfo",     lua_GetTotemInfo},
-                // DestroyTotem(slot) — pull one down early. The totem bar's
+                // DestroyTotem(slot) - pull one down early. The totem bar's
                 // right-click, and the slot is all the request carries.
                 {"DestroyTotem", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
@@ -1151,7 +1151,7 @@ void registerSpellLuaAPI(lua_State* L) {
             (void)L; lua_pushboolean(L, 0); return 1; // Stub
         }},
                 {"CastShapeshiftForm", [](lua_State* L) -> int {
-            // CastShapeshiftForm(index) — cast the spell for the given form slot
+            // CastShapeshiftForm(index) - cast the spell for the given form slot
             auto* gh = getGameHandler(L);
             int index = static_cast<int>(luaL_checknumber(L, 1));
             if (!gh || index < 1) return 0;
@@ -1181,7 +1181,7 @@ void registerSpellLuaAPI(lua_State* L) {
             return 0;
         }},
                 {"CancelShapeshiftForm", [](lua_State* L) -> int {
-            // Cancel current form — cast spell 0 or cancel aura
+            // Cancel current form - cast spell 0 or cancel aura
             auto* gh = getGameHandler(L);
             if (gh && gh->getShapeshiftFormId() != 0) {
                 // Cancelling a form is done by re-casting the same form spell
@@ -1192,7 +1192,7 @@ void registerSpellLuaAPI(lua_State* L) {
                 // GetShapeshiftFormCooldown is defined in the bootstrap, over
                 // GetShapeshiftFormInfo and GetSpellCooldown, because those are
                 // in two different files and it needs both. A stub here would
-                // be dead — the bootstrap runs after these are registered — and
+                // be dead - the bootstrap runs after these are registered - and
                 // framexml_lua_override_check exists to catch exactly that.
                 {"GetShapeshiftForm", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);

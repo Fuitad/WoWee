@@ -5,7 +5,7 @@
 // Where everything the player carries sits, as the wire numbers it.
 //
 // These figures were written out by hand in more than twenty places across
-// three files — the client's own bag and bank windows, and the interface
+// three files - the client's own bag and bank windows, and the interface
 // bindings, each arriving at the same numbers by its own route. They agreed,
 // and nothing made them agree.
 //
@@ -56,7 +56,7 @@ inline constexpr int keyringWireSlot(int index)     { return kKeyringFirst + ind
 /// The container number of the nth worn bag.
 inline constexpr int wornBagContainer(int index)    { return kWornBagFirst + index; }
 
-/// The nth bank bag — both the slot the bag sits in and the container its
+/// The nth bank bag - both the slot the bag sits in and the container its
 /// contents sit in, which are the same number. Named twice so the two uses read
 /// as deliberate rather than as one of them being a mistake.
 inline constexpr int bankBagWireSlot(int index)     { return kBankBagFirst + index; }

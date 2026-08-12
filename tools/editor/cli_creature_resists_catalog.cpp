@@ -347,7 +347,7 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": name is empty");
         if (e.creatureEntry == 0) {
             errors.push_back(ctx +
-                ": creatureEntry is 0 — resist profile is "
+                ": creatureEntry is 0 - resist profile is "
                 "not bound to any WCRT entry");
         }
         // Resist values: int16 covers -32768 to 32767.
@@ -358,7 +358,7 @@ int handleValidate(int& i, int argc, char** argv) {
             if (v < -100) {
                 warnings.push_back(ctx + ": " + school +
                     " resist " + std::to_string(v) +
-                    " < -100 — extreme negative resist "
+                    " < -100 - extreme negative resist "
                     "creates >2x damage taken; verify");
             }
         };
@@ -375,7 +375,7 @@ int handleValidate(int& i, int argc, char** argv) {
             warnings.push_back(ctx +
                 ": physicalResistPct " +
                 std::to_string(e.physicalResistPct) +
-                " > 75%% — clamped at runtime to game-"
+                " > 75%% - clamped at runtime to game-"
                 "engine cap (armor mitigation cap)");
         }
         // schoolImmunityMask uses bottom 6 bits (one per
@@ -383,7 +383,7 @@ int handleValidate(int& i, int argc, char** argv) {
         if (e.schoolImmunityMask & 0xC0) {
             warnings.push_back(ctx +
                 ": schoolImmunityMask has reserved bits "
-                "set (0xC0) — only bits 0-5 (Holy/Fire/"
+                "set (0xC0) - only bits 0-5 (Holy/Fire/"
                 "Nature/Frost/Shadow/Arcane) are meaningful");
         }
         // Multiple WCRE entries binding the same
@@ -394,7 +394,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 ": creatureEntry " +
                 std::to_string(e.creatureEntry) +
                 " is already bound by another resist "
-                "profile — damage-calc lookup would be "
+                "profile - damage-calc lookup would be "
                 "ambiguous");
         }
         if (!idsSeen.insert(e.resistId).second) {

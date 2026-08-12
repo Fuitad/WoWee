@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Animation Data catalog (.wani) — novel
+// Wowee Open Animation Data catalog (.wani) - novel
 // replacement for Blizzard's AnimationData.dbc plus the
 // hard-coded animation-id tables in M2 models. The 46th
 // open format added to the editor.
@@ -38,7 +38,7 @@ namespace pipeline {
 //     behaviorTier (uint8) / pad[3]
 //     flags (uint32)
 //     weaponFlags (uint32)
-//     loopDurationMs (uint32)        — 0 = oneshot
+//     loopDurationMs (uint32)        - 0 = oneshot
 struct WoweeAnimation {
     enum BehaviorTier : uint8_t {
         Default  = 0,    // standing on the ground
@@ -48,7 +48,7 @@ struct WoweeAnimation {
         Swimming = 4,    // underwater
     };
 
-    // Flag bits — animation behavior modifiers.
+    // Flag bits - animation behavior modifiers.
     static constexpr uint32_t kFlagLooped         = 0x00000001;
     static constexpr uint32_t kFlagBlendableCycle = 0x00000002;
     static constexpr uint32_t kFlagInterruptable  = 0x00000004;
@@ -56,7 +56,7 @@ struct WoweeAnimation {
     static constexpr uint32_t kFlagOneShot        = 0x00000010;
     static constexpr uint32_t kFlagPreserveAtEnd  = 0x00000020;
 
-    // Weapon-flag bits — which wielded weapon this anim
+    // Weapon-flag bits - which wielded weapon this anim
     // applies to. Match the WoW weapon class enum.
     static constexpr uint32_t kWeaponUnarmed   = 0x00000001;
     static constexpr uint32_t kWeapon1HMelee   = 0x00000002;
@@ -101,13 +101,13 @@ public:
 
     // Preset emitters used by --gen-animations* variants.
     //
-    //   makeStarter  — 5 essential animations every model
+    //   makeStarter  - 5 essential animations every model
     //                   needs (Stand / Walk / Run / Death /
     //                   AttackUnarmed).
-    //   makeCombat   — 8 combat animations covering 1H/2H/
+    //   makeCombat   - 8 combat animations covering 1H/2H/
     //                   dual-wield melee + bow/rifle/crossbow
     //                   ranged + channeled spell + parry.
-    //   makeMovement — 6 movement animations (Walk / Run /
+    //   makeMovement - 6 movement animations (Walk / Run /
     //                   Sprint / Swim / Mount / Fly) with
     //                   behavior-tier transitions.
     static WoweeAnimation makeStarter(const std::string& catalogName);

@@ -53,7 +53,7 @@ int handleStripZone(int& i, int argc, char** argv) {
     int removed = 0;
     uint64_t bytesFreed = 0;
     std::error_code ec;
-    // Top-level only — do NOT recurse into data/ (those are
+    // Top-level only - do NOT recurse into data/ (those are
     // source sidecars).
     for (const auto& e : fs::directory_iterator(zoneDir, ec)) {
         if (!e.is_regular_file()) continue;
@@ -115,7 +115,7 @@ int handleStripProject(int& i, int argc, char** argv) {
             projectDir.c_str());
         return 1;
     }
-    // Same derived-classifier as --strip-zone — keep in sync.
+    // Same derived-classifier as --strip-zone - keep in sync.
     auto isDerivedExt = [](const std::string& ext) {
         return ext == ".glb" || ext == ".obj" || ext == ".stl" ||
                ext == ".html" || ext == ".dot" || ext == ".csv";

@@ -101,11 +101,11 @@ WoweeItemSuffix WoweeItemSuffixLoader::makeStarter(
     // statKind values match WIT.statType:
     //  4 = STR, 3 = AGI, 5 = INT, 6 = SPI, 7 = STA.
     add(1, "of the Bear",  4, 100, 7,  80,
-        "Strength + Stamina — favored by tanks.");
+        "Strength + Stamina - favored by tanks.");
     add(2, "of the Eagle", 5, 100, 6,  60,
-        "Intellect + Spirit — favored by casters.");
+        "Intellect + Spirit - favored by casters.");
     add(3, "of the Tiger", 4, 100, 3,  80,
-        "Strength + Agility — favored by physical DPS.");
+        "Strength + Agility - favored by physical DPS.");
     return c;
 }
 
@@ -121,7 +121,7 @@ WoweeItemSuffix WoweeItemSuffixLoader::makeMagical(
         e.itemQualityCeiling = 4;
         e.suffixCategory = WoweeItemSuffix::Elemental;
         // schoolStat values 30..36 represent per-school spell
-        // power — Fire=30, Frost=31, Shadow=32, Arcane=33,
+        // power - Fire=30, Frost=31, Shadow=32, Arcane=33,
         // Holy=34, Nature=35, Healing=36 (engine-internal
         // mapping outside the WIT canonical set).
         e.statKind[0] = schoolStat;
@@ -159,11 +159,11 @@ WoweeItemSuffix WoweeItemSuffixLoader::makePvP(
         c.entries.push_back(e);
     };
     add(200, "of the Champion",  50, 80, 4,  60, 7,  60,
-        "Resilience + Strength + Stamina — melee PvP.");
+        "Resilience + Strength + Stamina - melee PvP.");
     add(201, "of the Gladiator", 50, 80, 5,  60, 6,  40,
-        "Resilience + Intellect + Spirit — caster PvP.");
+        "Resilience + Intellect + Spirit - caster PvP.");
     add(202, "of Resilience",    50, 120, 7, 80,  0,   0,
-        "Pure resilience + extra Stamina — peak PvP defense.");
+        "Pure resilience + extra Stamina - peak PvP defense.");
     return c;
 }
 

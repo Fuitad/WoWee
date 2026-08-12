@@ -458,11 +458,11 @@ int handleValidateWol(int& i, int argc, char** argv) {
         return errors.empty() ? 0 : 1;
     }
     if (errors.empty()) {
-        std::printf("WOL %s.wol PASSED — %zu keyframe(s) valid\n",
+        std::printf("WOL %s.wol PASSED - %zu keyframe(s) valid\n",
                     base.c_str(), wol.keyframes.size());
         return 0;
     }
-    std::printf("WOL %s.wol FAILED — %zu error(s):\n",
+    std::printf("WOL %s.wol FAILED - %zu error(s):\n",
                 base.c_str(), errors.size());
     for (const auto& e : errors) std::printf("  - %s\n", e.c_str());
     return 1;
@@ -634,7 +634,7 @@ int handleExportWolJson(int& i, int argc, char** argv) {
 
 int handleImportWolJson(int& i, int argc, char** argv) {
     // Import a JSON sidecar back into binary .wol. Validates
-    // structural correctness before saving — invalid JSON or
+    // structural correctness before saving - invalid JSON or
     // missing required fields fails out with a clear message.
     std::string jsonPath = argv[++i];
     std::string outBase;
@@ -759,11 +759,11 @@ int handleValidateWow(int& i, int argc, char** argv) {
         return errors.empty() ? 0 : 1;
     }
     if (errors.empty()) {
-        std::printf("WOW %s.wow PASSED — %zu entry/entries valid\n",
+        std::printf("WOW %s.wow PASSED - %zu entry/entries valid\n",
                     base.c_str(), wow.entries.size());
         return 0;
     }
-    std::printf("WOW %s.wow FAILED — %zu error(s):\n",
+    std::printf("WOW %s.wow FAILED - %zu error(s):\n",
                 base.c_str(), errors.size());
     for (const auto& e : errors) std::printf("  - %s\n", e.c_str());
     return 1;

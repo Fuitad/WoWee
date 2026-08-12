@@ -103,7 +103,7 @@ bool FootstepDriver::shouldTriggerFootstepEvent(uint32_t animationId, float anim
 
     bool trigger = false;
     if (eventTimesMs && !eventTimesMs->empty()) {
-        // Authored $FSD footfall keyframes from the M2 — exact foot-strike sync.
+        // Authored $FSD footfall keyframes from the M2 - exact foot-strike sync.
         for (uint32_t t : *eventTimesMs) {
             float eventNorm = std::min(static_cast<float>(t) / animationDurationMs, 0.999f);
             if (crossed(eventNorm)) {
@@ -266,7 +266,7 @@ void FootstepDriver::update(float deltaTime, Renderer* renderer,
 
                 // Beat timing: prefer the model's authored $FSD footfall
                 // keyframes (exact hoof-strike sync). Models without them fall
-                // back to a synthetic gait: quadrupeds gallop — four beats
+                // back to a synthetic gait: quadrupeds gallop - four beats
                 // clustered in the first half of the stride, then airborne
                 // suspension; two-legged striders alternate biped steps.
                 bool beat = false;

@@ -1,7 +1,7 @@
 // What an unloaded addon will define, read out of its own files.
 //
 // The cost of the two failures is not symmetric. A name this misses keeps
-// answering the truthy no-op it answers today — the bug being fixed, no worse
+// answering the truthy no-op it answers today - the bug being fixed, no worse
 // than before. A name it wrongly claims reads as absent for the whole session,
 // so a global FrameXML needs is gone. Every case below is one of the second
 // kind except where marked.

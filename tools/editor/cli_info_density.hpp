@@ -4,7 +4,7 @@ namespace wowee {
 namespace editor {
 namespace cli {
 
-// Dispatch the content-density audit handlers — count creatures
+// Dispatch the content-density audit handlers - count creatures
 // / objects / quests per tile to surface sparse zones (boring)
 // and over-stuffed ones (frame-rate bombs). Useful for content
 // pacing reviews and balance audits.

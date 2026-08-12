@@ -19,7 +19,7 @@ std::string PathMapper::toForwardSlash(const std::string& str) {
 }
 
 std::string PathMapper::mapPath(const std::string& wowPath) {
-    // Lowercase entire output path — WoW archives contain mixed-case variants
+    // Lowercase entire output path - WoW archives contain mixed-case variants
     // of the same path which create duplicate directories on case-sensitive filesystems.
     return toLower(toForwardSlash(wowPath));
 }

@@ -304,7 +304,7 @@ int handleValidate(int& i, int argc, char** argv) {
     }
     cli::DuplicateIdCheck idsSeen;
     // Track which spell IDs appear in any exclusive group
-    // — a spell that appears in TWO different exclusive
+    // - a spell that appears in TWO different exclusive
     // groups creates an undecidable mutex (which group's
     // outline does the action bar use?).
     std::set<uint32_t> spellInExclusiveGroup;
@@ -321,7 +321,7 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": name is empty");
         if (e.classMask == 0) {
             errors.push_back(ctx +
-                ": classMask is 0 — group is not "
+                ": classMask is 0 - group is not "
                 "associated with any class");
         }
         if (e.categoryKind > 5) {
@@ -331,14 +331,14 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         if (e.members.empty()) {
             errors.push_back(ctx +
-                ": members[] is empty — mutex group has "
+                ": members[] is empty - mutex group has "
                 "nothing to switch between");
         }
         // A single-member mutex group is technically legal
         // but suggests a content authoring error.
         if (e.members.size() == 1) {
             warnings.push_back(ctx +
-                ": only 1 member spell — mutex with one "
+                ": only 1 member spell - mutex with one "
                 "element has no exclusion to enforce; "
                 "verify if intentional");
         }
@@ -371,7 +371,7 @@ int handleValidate(int& i, int argc, char** argv) {
             "spellId " + std::to_string(spellId) +
             " appears in multiple exclusive groups "
             "(latest: groupId " + std::to_string(groupId) +
-            ") — action bar mutex would be undecidable");
+            ") - action bar mutex would be undecidable");
     }
     size_t totalSpells = 0;
     for (const auto& e : c.entries) totalSpells += e.members.size();

@@ -252,7 +252,7 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         // CRITICAL invariant: leashRadius MUST be >=
         // aggroRadius, else the creature would evade
-        // back to spawn before reaching its target —
+        // back to spawn before reaching its target -
         // permanently un-killable from outside the
         // leash radius.
         if (e.leashRadius > 0.f &&
@@ -262,7 +262,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 std::to_string(e.leashRadius) +
                 " < aggroRadius=" +
                 std::to_string(e.aggroRadius) +
-                " — creature would evade before "
+                " - creature would evade before "
                 "engaging (un-killable from outside "
                 "the leash)");
         }
@@ -274,7 +274,7 @@ int handleValidate(int& i, int argc, char** argv) {
             warnings.push_back(ctx +
                 ": corpseDurationSec=" +
                 std::to_string(e.corpseDurationSec) +
-                " is below 60s — looting may fail in "
+                " is below 60s - looting may fail in "
                 "busy zones");
         }
         // Per-special checks.
@@ -288,19 +288,19 @@ int handleValidate(int& i, int argc, char** argv) {
                     "].spellId is 0");
             }
             // useChancePct == 0 means the ability is
-            // never auto-fired — only valid for owner-
+            // never auto-fired - only valid for owner-
             // triggered (e.g., warlock Sacrifice).
             // Warn so the editor flags it.
             if (sp.useChancePct == 0 && sp.spellId != 0) {
                 warnings.push_back(ctx +
                     ": specialAbility[" +
                     std::to_string(s) +
-                    "].useChancePct=0 — ability never "
+                    "].useChancePct=0 - ability never "
                     "auto-fires; verify intentional "
                     "(e.g. owner-triggered like Sacrifice)");
             }
             // Same spellId twice in same behavior is
-            // a copy-paste bug — both entries would
+            // a copy-paste bug - both entries would
             // share an internal-cooldown bucket but
             // count as separate slots.
             if (sp.spellId != 0 &&
@@ -308,7 +308,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 errors.push_back(ctx +
                     ": specialAbility spellId " +
                     std::to_string(sp.spellId) +
-                    " appears twice in same behavior — "
+                    " appears twice in same behavior - "
                     "duplicate slot is wasted (merge or "
                     "rename)");
             }

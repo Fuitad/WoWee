@@ -14,8 +14,8 @@ using rendering::world_map::renderPosToMapUV;
 // somewhere plausible and wrong.
 //
 // It has been wrong before. Feeding TaxiNodes.dbc positions straight into
-// canonicalToRender — skipping the server-to-canonical swap because the numbers
-// look like coordinates already — transposed every node on the flight map.
+// canonicalToRender - skipping the server-to-canonical swap because the numbers
+// look like coordinates already - transposed every node on the flight map.
 
 namespace {
 
@@ -50,7 +50,7 @@ TEST_CASE("Each corner of the rectangle lands in a corner of the map",
     const ZoneBounds c = continent();
     // Server order: x is the west axis, y is the north axis. The rectangle's
     // "left" bounds the axis renderPosToMapUV pairs with u, and "top" the one
-    // it pairs with v — a pairing verified against real WorldMapArea values and
+    // it pairs with v - a pairing verified against real WorldMapArea values and
     // deliberately not "corrected" here.
     const glm::vec2 topLeft     = nodeToMapUV(c.locTop,    c.locLeft,  0.0f, c);
     const glm::vec2 bottomRight = nodeToMapUV(c.locBottom, c.locRight, 0.0f, c);
@@ -75,7 +75,7 @@ TEST_CASE("The two axes are not interchangeable", "[taxi][map]") {
 TEST_CASE("Skipping the server-to-canonical swap moves the marker",
           "[taxi][map]") {
     // Stated as a test rather than a comment: this is the mistake that was
-    // actually made, and it is silent — both paths return a perfectly good UV.
+    // actually made, and it is silent - both paths return a perfectly good UV.
     const ZoneBounds c = continent();
     const float sx = 4000.0f, sy = -6000.0f;
 

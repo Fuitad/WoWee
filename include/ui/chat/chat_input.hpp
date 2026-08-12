@@ -11,7 +11,7 @@ namespace ui {
  * Chat input state: buffer, whisper target, sent-history, focus management.
  *
  * Extracted from ChatPanel (Phase 1.2 of chat_panel_ref.md).
- * No UI or network dependencies — pure state management.
+ * No UI or network dependencies - pure state management.
  */
 class ChatInput {
 public:

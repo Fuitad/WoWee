@@ -9,8 +9,8 @@ namespace game {
 /**
  * Battleground score presentation, keyed by map.
  *
- * The server sends world states as bare key/value pairs — SMSG_INIT_WORLD_STATES
- * carries no labels — so which key means "Alliance flags" and what it counts up
+ * The server sends world states as bare key/value pairs - SMSG_INIT_WORLD_STATES
+ * carries no labels - so which key means "Alliance flags" and what it counts up
  * to is client knowledge. This table is that knowledge.
  *
  * It lives here rather than beside a renderer because two surfaces present the
@@ -45,7 +45,7 @@ inline constexpr BgScoreDef kBgScoreDefs[] = {
 
 /// What each battleground's per-player objective columns are called.
 ///
-/// BuildObjectivesBlock sends a count and that many bare numbers — no labels,
+/// BuildObjectivesBlock sends a count and that many bare numbers - no labels,
 /// the same way the world states carry none. Which column is which is client
 /// knowledge, and this is that knowledge for the scoreboard the way the table
 /// above is for the heads-up score.

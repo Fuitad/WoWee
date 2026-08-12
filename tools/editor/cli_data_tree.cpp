@@ -62,7 +62,7 @@ int handleMigrateDataTree(int& i, int argc, char** argv) {
                     s.rc == 0 ? "PASS" : "FAIL", s.name, s.rc);
     }
     if (totalFailed == 0) {
-        std::printf("\n  ALL FOUR PASSED — open-format migration complete\n");
+        std::printf("\n  ALL FOUR PASSED - open-format migration complete\n");
         return 0;
     }
     std::printf("\n  %d step(s) reported failures (re-run individually for detail)\n",
@@ -77,7 +77,7 @@ int handleBenchMigrateDataTree(int& i, int argc, char** argv) {
     // change shouldn't make M2 conversion 2x slower).
     //
     // Sub-batches are dispatched the same way --migrate-data-
-    // tree dispatches them — so the timings here are exactly
+    // tree dispatches them - so the timings here are exactly
     // what the user will experience running the migration.
     std::string srcDir = argv[++i];
     bool jsonOut = (i + 1 < argc &&
@@ -378,7 +378,7 @@ int handleInfoDataTree(int& i, int argc, char** argv) {
     // Non-destructive companion to --migrate-data-tree. Walks
     // <srcDir> recursively, counts files per format pair
     // (proprietary vs open replacement), and reports per-pair
-    // counts plus an overall "migration share" — the fraction
+    // counts plus an overall "migration share" - the fraction
     // of source files that already have an open sidecar
     // present.
     //
@@ -470,7 +470,7 @@ int handleInfoDataTree(int& i, int argc, char** argv) {
     std::printf("  total proprietary : %d\n", totalProp);
     std::printf("  total sidecars    : %d (open files matched to a proprietary)\n",
                 totalSidecar);
-    std::printf("  orphan open files : %d (no matching proprietary — already-stripped)\n",
+    std::printf("  orphan open files : %d (no matching proprietary - already-stripped)\n",
                 totalOrphanOpen);
     std::printf("  migration share   : %.1f%% (sidecars / proprietary)\n",
                 overallShare);
@@ -559,7 +559,7 @@ int handleStripDataTree(int& i, int argc, char** argv) {
             std::pair<std::string, std::string> key{
                 e.path().parent_path().string(),
                 e.path().stem().string()};
-            if (!openSet.count(key)) continue;  // no sidecar — keep
+            if (!openSet.count(key)) continue;  // no sidecar - keep
             uint64_t sz = e.file_size(ec);
             if (ec) sz = 0;
             if (dryRun) {
@@ -681,13 +681,13 @@ int handleAuditDataTree(int& i, [[maybe_unused]] int argc, char** argv) {
     std::printf("  missing sidecars  : %d\n", totalMissing);
     if (totalMissing == 0) {
         if (totalProp > 0) {
-            std::printf("\n  PASSED — every proprietary file has an open sidecar\n");
+            std::printf("\n  PASSED - every proprietary file has an open sidecar\n");
         } else {
-            std::printf("\n  PASSED — no proprietary files present\n");
+            std::printf("\n  PASSED - no proprietary files present\n");
         }
         return 0;
     }
-    std::printf("\n  FAILED — re-run --migrate-data-tree to fill the gaps\n");
+    std::printf("\n  FAILED - re-run --migrate-data-tree to fill the gaps\n");
     std::printf("\n  Per-extension missing:\n");
     for (const auto& [ext, count] : missingPerExt) {
         std::printf("    %-5s : %d\n", ext.c_str(), count);

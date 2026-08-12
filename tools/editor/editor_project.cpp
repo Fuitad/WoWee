@@ -55,7 +55,7 @@ bool EditorProject::load(const std::string& path) {
 
         zones.clear();
         if (j.contains("zones") && j["zones"].is_array()) {
-            // Cap project zones — same defense pattern as the other
+            // Cap project zones - same defense pattern as the other
             // editor JSON loaders. WoW only supports 65535 maps total
             // and the editor loads one tile at a time, so 1024 zones
             // per project is plenty.
@@ -63,7 +63,7 @@ bool EditorProject::load(const std::string& path) {
             for (const auto& jz : j["zones"]) {
                 if (zones.size() >= kMaxZones) {
                     LOG_WARNING("Project zone cap reached (", kMaxZones,
-                                ") — remaining entries dropped");
+                                ") - remaining entries dropped");
                     break;
                 }
                 ProjectZone z;

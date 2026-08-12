@@ -5,8 +5,8 @@
 
 WHAT HANDING CHAT OVER TOOK AWAY
 
-ChatPanel keeps a registry of slash commands — about a hundred and ninety
-aliases — and it was dispatched from exactly one place: this client's own chat
+ChatPanel keeps a registry of slash commands - about a hundred and ninety
+aliases - and it was dispatched from exactly one place: this client's own chat
 input, in chat_panel.cpp, after SlashCmdList and before the emote fallthrough.
 
 FrameXML's edit box does not know that registry exists. ChatEdit_ParseText
@@ -39,7 +39,7 @@ working followTarget sat unused.
 
 WHAT IT CANNOT SEE
 
-Whether the command *works* once reached — only that the name resolves. And it
+Whether the command *works* once reached - only that the name resolves. And it
 reads aliases out of the C++ by pattern, so a command registered some other way
 than an aliases() override is invisible; the count printed first is what says
 whether that parse is still finding them.
@@ -98,7 +98,7 @@ def main():
     print(f"{len(aliases)} client command aliases, {len(slash)} FrameXML slash names, "
           f"bridge {'present' if have_bridge else 'ABSENT'}")
     if not aliases:
-        print("  CANARY: no aliases parsed out of src/ui/chat/commands — "
+        print("  CANARY: no aliases parsed out of src/ui/chat/commands - "
               "the count below is meaningless.")
     print()
 
@@ -108,7 +108,7 @@ def main():
     for name in unreachable:
         print(f"  /{name}")
     if not unreachable:
-        print(f"  (none — {len(missing)} have no FrameXML equivalent and the "
+        print(f"  (none - {len(missing)} have no FrameXML equivalent and the "
               f"bridge carries all of them)")
     return 0
 

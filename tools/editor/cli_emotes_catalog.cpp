@@ -175,7 +175,7 @@ int parseTtsHintToken(const std::string& s) {
     return -1;
 }
 
-// Generic int-or-token coercion — same shape as the
+// Generic int-or-token coercion - same shape as the
 // WMSP helper. Returns false on parse error (hard error)
 // and reports via stderr; returns true on success OR
 // when the field is absent (leave outValue at default).
@@ -355,7 +355,7 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": name is empty");
         if (e.slashCommand.empty()) {
             errors.push_back(ctx +
-                ": slashCommand is empty — chat parser "
+                ": slashCommand is empty - chat parser "
                 "would fail to dispatch");
         }
         // Slash command should not start with '/' (the
@@ -363,17 +363,17 @@ int handleValidate(int& i, int argc, char** argv) {
         if (!e.slashCommand.empty() &&
             e.slashCommand[0] == '/') {
             errors.push_back(ctx + ": slashCommand starts "
-                "with '/' — store it bare (chat parser "
+                "with '/' - store it bare (chat parser "
                 "strips the leading slash before lookup)");
         }
-        // Lowercase only — chat commands are
+        // Lowercase only - chat commands are
         // case-folded before lookup, so an uppercase
         // letter would be unreachable.
         for (char ch : e.slashCommand) {
             if (ch >= 'A' && ch <= 'Z') {
                 errors.push_back(ctx + ": slashCommand '" +
                     e.slashCommand +
-                    "' contains uppercase — chat parser "
+                    "' contains uppercase - chat parser "
                     "lowercases input before lookup so "
                     "this entry would be unreachable");
                 break;
@@ -410,22 +410,22 @@ int handleValidate(int& i, int argc, char** argv) {
             warnings.push_back(ctx +
                 ": targetMessage has " +
                 std::to_string(tgtTokens) +
-                " %s token(s) — expected 2 (actor name + "
+                " %s token(s) - expected 2 (actor name + "
                 "target name)");
         }
         if (!e.noTargetMessage.empty() && noTgtTokens != 1) {
             warnings.push_back(ctx +
                 ": noTargetMessage has " +
                 std::to_string(noTgtTokens) +
-                " %s token(s) — expected exactly 1 (actor "
+                " %s token(s) - expected exactly 1 (actor "
                 "name)");
         }
-        // Slash commands must be unique — chat parser
+        // Slash commands must be unique - chat parser
         // dispatches by exact match.
         if (!e.slashCommand.empty() &&
             !commandsSeen.insert(e.slashCommand).second) {
             errors.push_back(ctx + ": duplicate slashCommand "
-                "'" + e.slashCommand + "' — chat parser "
+                "'" + e.slashCommand + "' - chat parser "
                 "would dispatch ambiguously");
         }
         if (!idsSeen.add(e.emoteId)) errors.push_back(ctx + ": duplicate emoteId");

@@ -1,4 +1,4 @@
-// data_repository.cpp — DBC data loading, ZMP pixel map, and zone/POI/overlay storage.
+// data_repository.cpp - DBC data loading, ZMP pixel map, and zone/POI/overlay storage.
 // Extracted from WorldMap::loadZonesFromDBC, loadPOIData, buildCosmicView
 // (Phase 5 of refactoring plan).
 #include "rendering/world_map/data_repository.hpp"
@@ -379,7 +379,7 @@ void DataRepository::loadZmpPixelMap(const std::string& continentName,
             }
         }
     }
-    LOG_INFO("DataRepository: loaded ZMP '", zmpPath, "' — ",
+    LOG_INFO("DataRepository: loaded ZMP '", zmpPath, "' - ",
              nonZero, "/", ZMP_SIZE * ZMP_SIZE, " non-zero cells, "
              "maxCol=", maxCol, " maxRow=", maxRow,
              " (if ~125/~111 → maps to 1024x768 FBO, if ~127/~127 → maps to 1002x668 visible)");
@@ -514,19 +514,19 @@ void DataRepository::buildCosmicView(int /*expLevel*/) {
     cosmicMaps_.clear();
 
     if (game::isClassicLikeExpansion()) {
-        // Vanilla/Classic: No cosmic view — skip from WORLD straight to CONTINENT.
+        // Vanilla/Classic: No cosmic view - skip from WORLD straight to CONTINENT.
         cosmicEnabled_ = false;
-        LOG_INFO("DataRepository: Classic mode — cosmic view disabled");
+        LOG_INFO("DataRepository: Classic mode - cosmic view disabled");
         return;
     }
 
     cosmicEnabled_ = true;
 
-    // Azeroth (EK + Kalimdor) — always present; bottom-right region of cosmic map
+    // Azeroth (EK + Kalimdor) - always present; bottom-right region of cosmic map
     cosmicMaps_.push_back({0, "Azeroth", 0.58f, 0.05f, 0.95f, 0.95f});
 
     if (game::isActiveExpansion("tbc") || game::isActiveExpansion("wotlk")) {
-        // TBC+: Add Outland — top-left region of cosmic map
+        // TBC+: Add Outland - top-left region of cosmic map
         cosmicMaps_.push_back({530, "Outland", 0.05f, 0.10f, 0.55f, 0.90f});
     }
 
@@ -539,14 +539,14 @@ void DataRepository::buildAzerothView(int /*expLevel*/) {
     // Clickable continent regions on the Azeroth world map (azeroth1-12.blp).
     // UV coordinates are approximate positions of each landmass on the combined map.
 
-    // Eastern Kingdoms — right side of the Azeroth map
+    // Eastern Kingdoms - right side of the Azeroth map
     azerothRegions_.push_back({0, mapDisplayName(0), 0.55f, 0.05f, 0.95f, 0.95f});
 
-    // Kalimdor — left side of the Azeroth map
+    // Kalimdor - left side of the Azeroth map
     azerothRegions_.push_back({1, mapDisplayName(1), 0.05f, 0.10f, 0.45f, 0.95f});
 
     if (game::isActiveExpansion("wotlk")) {
-        // WotLK: Northrend — top-center of the Azeroth map
+        // WotLK: Northrend - top-center of the Azeroth map
         azerothRegions_.push_back({571, mapDisplayName(571), 0.30f, 0.0f, 0.72f, 0.28f});
     }
 

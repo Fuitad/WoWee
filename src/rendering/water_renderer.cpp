@@ -317,7 +317,7 @@ void WaterRenderer::shutdown() {
 
     // clear() defers surface destruction, and those lambdas free descriptor sets
     // from the pools destroyed just below. Drain them here, while the pools are
-    // still valid — otherwise they linger until some later subsystem's flush
+    // still valid - otherwise they linger until some later subsystem's flush
     // runs them against a dead pool.
     vkCtx->flushDeferredCleanup();
 
@@ -563,11 +563,11 @@ void WaterRenderer::updateMaterialUBO(WaterSurface& surface) {
     if (surface.wmoId != 0) {
         const uint8_t basicType = (surface.liquidType == 0) ? 0 : ((surface.liquidType - 1) % 4);
         if (basicType == 2) {
-            // Magma — bright orange-red, opaque
+            // Magma - bright orange-red, opaque
             color = glm::vec4(1.0f, 0.35f, 0.05f, 1.0f);
             alpha = 0.95f;
         } else if (basicType == 3) {
-            // Slime — green, semi-opaque
+            // Slime - green, semi-opaque
             color = glm::vec4(0.2f, 0.6f, 0.1f, 1.0f);
             alpha = 0.85f;
         }
@@ -623,7 +623,7 @@ void WaterRenderer::updateMaterialUBO(WaterSurface& surface) {
 }
 
 // ==============================================================
-// Data loading (preserved from GL version — no GL calls)
+// Data loading (preserved from GL version - no GL calls)
 // ==============================================================
 
 void WaterRenderer::loadFromTerrain(const pipeline::ADTTerrain& terrain, bool append,
@@ -796,7 +796,7 @@ void WaterRenderer::loadFromTerrain(const pipeline::ADTTerrain& terrain, bool ap
         // Mask uses LSB bit order: tileIndex = row * 128 + col
         const int maskBytes = (MERGED_W * MERGED_W + 7) / 8;
         // Ocean water (basicType 1) at sea level fills each chunk that declares
-        // it, whatever its own bitmap says — an ocean layer's sub-rect is often
+        // it, whatever its own bitmap says - an ocean layer's sub-rect is often
         // sparse and the gaps read as holes in open sea.
         //
         // Each chunk that declares it, not the whole tile. This used to seed
@@ -1066,7 +1066,7 @@ void WaterRenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet,
     VkPipeline pipeline = (use1x && water1xPipeline) ? water1xPipeline : waterPipeline;
     if (!renderingEnabled || surfaces.empty() || !pipeline) {
         if (renderDiagCounter_++ % 300 == 0 && !surfaces.empty()) {
-            LOG_WARNING("Water: render skipped — enabled=", renderingEnabled,
+            LOG_WARNING("Water: render skipped - enabled=", renderingEnabled,
                         " surfaces=", surfaces.size(),
                         " pipeline=", (pipeline ? "ok" : "null"),
                         " use1x=", use1x);
@@ -1077,7 +1077,7 @@ void WaterRenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet,
     VkDescriptorSet activeSceneSet = sceneHistory[fi].sceneSet;
     if (!activeSceneSet) {
         if (renderDiagCounter_++ % 300 == 0) {
-            LOG_WARNING("Water: render skipped — sceneSet is null, surfaces=", surfaces.size());
+            LOG_WARNING("Water: render skipped - sceneSet is null, surfaces=", surfaces.size());
         }
         return;
     }
@@ -1121,7 +1121,7 @@ void WaterRenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet,
         bool isWmoWater = (surface.wmoId != 0);
         bool canalProfile = isWmoWater || (surface.liquidType == 5);
         uint8_t basicType = (surface.liquidType == 0) ? 0 : ((surface.liquidType - 1) % 4);
-        // WMO water gets no wave displacement — prevents visible slosh at
+        // WMO water gets no wave displacement - prevents visible slosh at
         // geometry edges (bridges, docks) where water is far below the surface.
         float waveAmp = isWmoWater ? 0.0f : (basicType == 1 ? 0.35f : 0.08f);
         float waveFreq = canalProfile ? 0.35f : (basicType == 1 ? 0.20f : 0.30f);
@@ -1163,7 +1163,7 @@ void WaterRenderer::captureSceneHistory(VkCommandBuffer cmd,
         return;
     }
 
-    // The scene is not always rendered at the history's resolution — FSR renders
+    // The scene is not always rendered at the history's resolution - FSR renders
     // smaller and upscales later. Copying the smaller image into the corner of a
     // larger history would leave the refraction sampling a fraction of the frame
     // stretched over all of it, so scale with a blit whenever they differ and
@@ -1256,7 +1256,7 @@ void WaterRenderer::captureSceneHistory(VkCommandBuffer cmd,
                  VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
 
         if (needsScaling) {
-            // Depth must not be filtered — an interpolated depth is a surface
+            // Depth must not be filtered - an interpolated depth is a surface
             // that exists nowhere.
             VkImageBlit depthBlit{};
             depthBlit.srcSubresource = {VK_IMAGE_ASPECT_DEPTH_BIT, 0, 0, 1};
@@ -1944,7 +1944,7 @@ void WaterRenderer::uploadFrameUBO() {
 
 // Disturbance trail. Points are dropped along the path rather than parented to
 // the character, so the froth stays where the water was churned and the
-// character runs out of it — froth pinned under the feet reads as a decal.
+// character runs out of it - froth pinned under the feet reads as a decal.
 void WaterRenderer::updateWake(float deltaTime, const glm::vec2& pos,
                                const glm::vec2& travelDir, float intensity, bool wading) {
     // Age the existing trail. Drift is what spreads a swimmer's two emission
@@ -2050,7 +2050,7 @@ std::optional<float> WaterRenderer::getDominantWaterHeight(const glm::vec3& came
     bool found = false;
 
     for (const auto& surface : surfaces) {
-        // Skip magma/slime — only reflect water/ocean
+        // Skip magma/slime - only reflect water/ocean
         uint8_t basicType = (surface.liquidType == 0) ? 0 : ((surface.liquidType - 1) % 4);
         if (basicType >= 2) continue;
 

@@ -377,14 +377,14 @@ int handleValidate(int& i, int argc, char** argv) {
             e.floatValue == 0.0f && e.intValue != 0) {
             warnings.push_back(ctx +
                 ": valueKind=Float but intValue is "
-                "non-zero — intValue will be ignored "
+                "non-zero - intValue will be ignored "
                 "by the server but stored on disk; "
                 "consider clearing for cleaner serialization");
         }
         if (e.valueKind == C::Int && e.floatValue != 0.0f) {
             warnings.push_back(ctx +
                 ": valueKind=Int but floatValue is "
-                "non-zero — floatValue will be ignored "
+                "non-zero - floatValue will be ignored "
                 "by the server");
         }
         if (e.valueKind == C::Bool && e.intValue != 0 &&
@@ -397,7 +397,7 @@ int handleValidate(int& i, int argc, char** argv) {
         if (e.valueKind == C::String && e.strValue.empty()) {
             warnings.push_back(ctx +
                 ": valueKind=String but strValue is "
-                "empty — config would default to empty "
+                "empty - config would default to empty "
                 "string");
         }
         // Names should be unique within a catalog (the
@@ -408,7 +408,7 @@ int handleValidate(int& i, int argc, char** argv) {
             !namesSeen.insert(e.name).second) {
             errors.push_back(ctx +
                 ": duplicate config name '" + e.name +
-                "' — server name-based lookups would "
+                "' - server name-based lookups would "
                 "be ambiguous");
         }
         if (!idsSeen.insert(e.configId).second) {

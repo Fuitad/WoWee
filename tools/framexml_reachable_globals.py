@@ -13,7 +13,7 @@ with the chain.
 
 THE ONE IT REPORTS TODAY, AND WHY IT IS NOT A FAULT
 
-Calendar_Toggle, reached from ToggleCalendar in uiparent.lua — which tests for
+Calendar_Toggle, reached from ToggleCalendar in uiparent.lua - which tests for
 it first:
 
     function ToggleCalendar()
@@ -27,7 +27,7 @@ button do nothing instead of raising. The report cannot see a guard on the
 name it is reporting.
 
 It read two hundred and two before it stopped reading files the loader never
-opens — GlueXML, and the handful in framexml/ that no manifest lists. A report
+opens - GlueXML, and the handful in framexml/ that no manifest lists. A report
 of two hundred is one nobody triages.
 """
 import re
@@ -45,7 +45,7 @@ XML = ROOT / "Data/interface"
 # files through the readiness tool's own table, and the shared files every
 # panel goes through. A hand-made list of what is live is the mistake that hid
 # the character sheet's other four tabs from one sweep and the whole verb
-# surface from another — and listing *every* element is the opposite error,
+# surface from another - and listing *every* element is the opposite error,
 # reporting friendsframe when social is deliberately not handed over.
 def _live_files():
     """The FrameXML files that are actually drawn, derived rather than listed.
@@ -91,7 +91,7 @@ def strip(t):
 
 # One source of truth. This tool used to work it out from the C++ tables
 # alone, which is why it reported GetNumStationeries as unbound and reachable
-# from the mail frame — it had been answered by the bootstrap counting table
+# from the mail frame - it had been answered by the bootstrap counting table
 # all along, and acting on the report made things worse.
 from framexml_provides import globals_provided, widget_methods_provided
 
@@ -100,7 +100,7 @@ bound = globals_provided() | widget_methods_provided()
 # Every FrameXML function body, and the file it lives in.
 bodies, defined = {}, set()
 # Names a file declares as its own locals, kept per file rather than pooled.
-# A local is not a global, and calling one is not a missing binding —
+# A local is not a global, and calling one is not a missing binding -
 # blizzard_auctiondressup opens with `local DressUpItemLink_orig =
 # DressUpItemLink` and calls it later, which read as a call to a global
 # nothing answers and was the last non-glue entry in a report headed "these

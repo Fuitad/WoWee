@@ -7,7 +7,7 @@ WHY THIS FINDS WHAT THE OTHER SWEEPS CANNOT
 
 Every readiness and stub check works down from the interface: which name does
 FrameXML call, and does it answer. This works up from the wire instead. The
-server sent a value, the parser stored it, the struct carries it — and no line
+server sent a value, the parser stored it, the struct carries it - and no line
 outside the parser mentions it. A field nobody reads is usually a branch nobody
 runs, and it is invisible from the interface side because the binding that
 should have consulted it looks complete: it returns a number, just always the
@@ -37,7 +37,7 @@ outside the packet header and the parser sources.
 TWO THINGS THAT MAKE A NAIVE VERSION REPORT ZERO FOREVER
 
 Both were hit while writing this, and both fail silently in the safe-looking
-direction — a clean report that has seen nothing.
+direction - a clean report that has seen nothing.
 
   * The declaring header counts as a mention. Reading it as a use makes every
     field look read, and the sweep reports zero for all time. The canary below
@@ -52,7 +52,7 @@ WHAT IT CANNOT SEE
 
 A field read through a name built at runtime, a memcpy over the whole struct,
 or a field whose *value* is wrong rather than unread. And it says nothing about
-whether the reader does the right thing with what it finds — only that there is
+whether the reader does the right thing with what it finds - only that there is
 one.
 """
 import collections
@@ -77,14 +77,14 @@ EXPECTED = {
     ("AuthChallengeData", "unknown1"): "unidentified field, by name",
     # Echoed, not decided: AzerothCore reads emoteNum off CMSG_TEXT_EMOTE and
     # relays it untouched, so every observer shows the phrasing the *sender*
-    # picked. It selects among an emote's several wordings — and this client's
+    # picked. It selects among an emote's several wordings - and this client's
     # EmoteRegistry keeps exactly one othersTarget and one othersNoTarget per
     # emote, so there is no second wording to select. Sending zero and ignoring
     # what comes back agree with each other. It becomes a real finding the day
     # the registry carries variants.
     ("TextEmoteData", "emoteNum"): "no text variants to choose between",
-    # Read correctly now — the condition was inverted and the field was taken
-    # exactly when it was absent — but there is nothing behind it on this
+    # Read correctly now - the condition was inverted and the field was taken
+    # exactly when it was absent - but there is nothing behind it on this
     # server. AzerothCore's only four-argument SendAuctionCommandResult passes
     # a literal zero and the parameter defaults to zero everywhere else, so a
     # reader would have nothing but zero to report. In the protocol at large it
@@ -96,18 +96,18 @@ EXPECTED = {
     # packets, which do carry one.
     ("InitialSpellsData", "talentSpec"): "AzerothCore writes a literal zero",
     # "1 = show window", and the one place that builds SMSG_SHOWTAXINODES
-    # always writes 1 — the packet arriving *is* the instruction to open it.
+    # always writes 1 - the packet arriving *is* the instruction to open it.
     ("ShowTaxiNodesData", "windowInfo"): "the only send site always writes 1",
     # The charter list a registrar sends. Both of these are on the wire and
     # neither has a consumer, and the reason is the same for both: the arena
-    # registrar's three tabs are told apart by the charter's *item name* —
-    # "Arena Team Charter (2v2)" and its siblings — which GetPetitionItemInfo
+    # registrar's three tabs are told apart by the charter's *item name* -
+    # "Arena Team Charter (2v2)" and its siblings - which GetPetitionItemInfo
     # already answers from the item query. The type word would say the same
     # thing a second time.
     #
     # The signature requirement is not shown at a registrar at all. It appears
     # on the charter once you hold one, and that comes from SMSG_PETITION_SHOW,
-    # which this client does read — signaturesRequired is filled from it, and
+    # which this client does read - signaturesRequired is filled from it, and
     # was the fix that stopped every charter reading "x / 9".
     ("PetitionShowlistData", "charterType"): "the item name already says which team size",
     ("PetitionShowlistData", "requiredSigs"): "shown from SMSG_PETITION_SHOW, not the list",
@@ -141,7 +141,7 @@ def structs_and_accessors():
 
 
 def mentions(skip=None):
-    """(parser counts, everywhere-else counts) — the header is neither."""
+    """(parser counts, everywhere-else counts) - the header is neither."""
     parser, other = collections.Counter(), collections.Counter()
     sources = list((ROOT / "src").rglob("*.cpp")) + list((ROOT / "include").rglob("*.hpp"))
     for p in sources:
@@ -164,7 +164,7 @@ def unread(fields, accessors, skip=None):
                 continue
             reached = sorted(a for a in accessors.get(f, ()) if other[a])
             (via if reached else plain).append((sname, f, tuple(reached)))
-    # A struct declared twice — the same name under two #if branches, say —
+    # A struct declared twice - the same name under two #if branches, say -
     # yields the same field twice and would read as two findings.
     return sorted(set(plain)), sorted(set(via))
 
@@ -174,7 +174,7 @@ def main():
 
     # The canary. GetLootSlotInfo is the one reader of LootItem.lootSlotType,
     # so hiding its file must bring that field back. If it does not, the
-    # comparison is broken and the empty report below means nothing — which is
+    # comparison is broken and the empty report below means nothing - which is
     # precisely how the first version of this passed while seeing nothing.
     hidden, _ = unread(fields, accessors, skip="lua_inventory_api.cpp")
     if not any(f == "lootSlotType" for _, f, _ in hidden):

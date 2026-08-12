@@ -159,12 +159,12 @@ WoweeCombatRating WoweeCombatRatingLoader::makeSpell(
     };
     add(200, "SpellPower",        1.0f, 1.0f, 1.0f, 1.0f, 100.0f,
         WoweeCombatRating::Spell,
-        "Direct 1:1 conversion — 1 spell power adds 1 to "
+        "Direct 1:1 conversion - 1 spell power adds 1 to "
         "spell damage / heal scaling pre-coefficient.");
     add(201, "SpellPenetration",  1.0f, 1.0f, 1.0f, 1.0f, 130.0f,
         WoweeCombatRating::Spell,
         "Reduces target's spell resistance by 1 per point "
-        "(no level scaling — flat).");
+        "(no level scaling - flat).");
     add(202, "ManaPer5Seconds",   1.0f, 1.0f, 1.0f, 1.0f, 9999.0f,
         WoweeCombatRating::Spell,
         "Mana regenerated every 5 seconds (combat + out-of-"

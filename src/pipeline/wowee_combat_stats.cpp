@@ -132,7 +132,7 @@ WoweeCombatStats fromRows(const std::string& catalogName,
 WoweeCombatStats WoweeCombatStatsLoader::makeWarriorStats(
     const std::string& catalogName) {
     // Warrior (classId=1) sparse sample. Numbers
-    // approximate vanilla 1.12 base stats — Warrior
+    // approximate vanilla 1.12 base stats - Warrior
     // uses Rage so baseMana=0 across all levels.
     // Stats grow steadily; armor scales with Agility.
     return fromRows(catalogName, {
@@ -148,7 +148,7 @@ WoweeCombatStats WoweeCombatStatsLoader::makeWarriorStats(
 WoweeCombatStats WoweeCombatStatsLoader::makeMageStats(
     const std::string& catalogName) {
     // Mage (classId=8) sparse sample. baseMana grows
-    // with Intellect — Mage is the canonical mana-
+    // with Intellect - Mage is the canonical mana-
     // user. Lower base HP, higher Int/Spi than
     // warrior at every level.
     return fromRows(catalogName, {
@@ -165,7 +165,7 @@ WoweeCombatStats WoweeCombatStatsLoader::makeStartingLevels(
     const std::string& catalogName) {
     // All 9 vanilla classes at level 1. classId 6
     // (Death Knight) and 10 (Monk) are unused in
-    // vanilla — skipped. Numbers reflect the per-
+    // vanilla - skipped. Numbers reflect the per-
     // class racial-base-stat skew (Warrior/Paladin
     // high Str, Hunter/Rogue high Agi, Mage/Priest/
     // Warlock high Int, Shaman/Druid balanced).

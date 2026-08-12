@@ -31,7 +31,7 @@ struct FileRow {
 };
 
 // Read the standard catalog header (magic+version+name+
-// entryCount). World/asset formats don't have this layout —
+// entryCount). World/asset formats don't have this layout -
 // for those we leave the header fields blank.
 bool peekHeader(const fs::path& path, char magic[4],
                 uint32_t& version, std::string& catalogName,

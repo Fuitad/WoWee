@@ -6,7 +6,7 @@
 WHY THIS FINDS WHAT THE OTHER SWEEPS CANNOT
 
 Every readiness and stub check asks whether a name is *bound*. This asks the
-opposite: the name is bound, in C, with a real body — and it is never reached,
+opposite: the name is bound, in C, with a real body - and it is never reached,
 because FrameXML declares a Lua function of the same name and the order settles
 it. Bindings are registered in LuaEngine::initialize; FrameXML is read after.
 The later definition wins, so the C one is dead from the moment the interface
@@ -16,14 +16,14 @@ Nothing reports that. The binding compiles, the name resolves, every sweep that
 counts bound names counts it, and the work inside it never happens.
 
 Usually this is the arrangement working as intended: FrameXML's version is a
-wrapper that calls the C binding under a different name — UIParentLoadAddOn
+wrapper that calls the C binding under a different name - UIParentLoadAddOn
 wraps LoadAddOn, GetUnitName wraps UnitName. The check is for the case where it
 is not, and the C body is simply lost.
 
 InspectUnit is the cautionary one. FrameXML's version loads the inspect addon
 and shows the frame; it never sends the request, which is what the C binding of
 that name does. The chain works only because the addon's own InspectFrame_Show
-calls NotifyInspect — and NotifyInspect was itself a no-op until 2026-08-06, so
+calls NotifyInspect - and NotifyInspect was itself a no-op until 2026-08-06, so
 for as long as both were true the unit menu's Inspect did nothing at all, from
 two directions at once.
 
@@ -35,7 +35,7 @@ stub and losing it costs nothing.
 
 WHAT IT CANNOT SEE
 
-A name FrameXML assigns rather than declares — `Foo = function() ... end` — and
+A name FrameXML assigns rather than declares - `Foo = function() ... end` - and
 whether the Lua version reaches the C work by some other name. That last one is
 the judgement each row needs, which is why the settled ones are listed with it.
 """
@@ -57,7 +57,7 @@ STUB_CHARS = 200
 #: with what settled each. A set rather than a count.
 EXPECTED = {
     # FrameXML's wrapper calls LoadAddOn, which is this same C body under its
-    # other name — and the C body's reason-token mapping exists *because* the
+    # other name - and the C body's reason-token mapping exists *because* the
     # wrapper does _G["ADDON_"..reason], which would raise on a token
     # globalstrings does not define. The two are written for each other.
     "UIParentLoadAddOn": "wrapper calls LoadAddOn, the same body",
@@ -65,7 +65,7 @@ EXPECTED = {
     # which is a real binding and is reached.
     "GetUnitName": "wrapper calls UnitName",
     # FrameXML's loads the inspect addon and shows the frame. It does not send
-    # the request — the addon's InspectFrame_Show calls NotifyInspect, which
+    # the request - the addon's InspectFrame_Show calls NotifyInspect, which
     # does. Correct only because NotifyInspect is real; see the note above.
     "InspectUnit": "addon's InspectFrame_Show calls NotifyInspect",
 }
@@ -118,7 +118,7 @@ def main():
     print(f"{len(lua)} interface functions, {len(c)} C bindings, "
           f"{len(shadowed)} names in both\n")
     if "UIParentLoadAddOn" not in shadowed:
-        print("  CANARY: a known overlap is missing — the report means nothing.\n")
+        print("  CANARY: a known overlap is missing - the report means nothing.\n")
 
     print(f"{len(rows)} C binding(s) doing real work that FrameXML overrides:\n")
     for name in rows:

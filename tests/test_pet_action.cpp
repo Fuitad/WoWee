@@ -7,7 +7,7 @@ using namespace wowee::game::pet;
 // The bug these cover: dismiss packed action 0 under the command type, which is
 // COMMAND_STAY, so the pet planted itself instead of leaving. The ids overlap
 // between the two built-in types, so a test that only checks the low bits would
-// have passed on the broken encoding too — each case pins both halves.
+// have passed on the broken encoding too - each case pins both halves.
 
 TEST_CASE("pet action packs type into the high byte", "[pet]") {
     REQUIRE(packPetAction(ActionType::Command, kAbandon) == 0x07000003u);
@@ -29,7 +29,7 @@ TEST_CASE("built-in ids collide across types and are told apart by type", "[pet]
     const uint32_t follow    = packPetAction(ActionType::Command,  kFollow);
     const uint32_t defensive = packPetAction(ActionType::Reaction, kDefensive);
 
-    // Same low bits — the id alone cannot distinguish them.
+    // Same low bits - the id alone cannot distinguish them.
     REQUIRE(petActionId(follow) == petActionId(defensive));
     REQUIRE(follow != defensive);
     REQUIRE(petActionType(follow) == ActionType::Command);
@@ -45,7 +45,7 @@ TEST_CASE("round trip through unpack", "[pet]") {
 }
 
 TEST_CASE("only castable slots count as spells", "[pet]") {
-    // Commands and stances are not spells, whatever their id — the old test for
+    // Commands and stances are not spells, whatever their id - the old test for
     // this was "id > 6", which called stay/follow/attack spells the moment the
     // server sent them with their real ids of 0/1/2.
     REQUIRE_FALSE(isPetSpellAction(packPetAction(ActionType::Command, kStay)));

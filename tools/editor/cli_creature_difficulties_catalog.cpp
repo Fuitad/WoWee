@@ -262,29 +262,29 @@ int handleValidate(int& i, int argc, char** argv) {
             }
             if (e.baseCreatureId == 0)
                 errors.push_back(ctx +
-                    ": baseCreatureId is 0 — missing WCRT cross-ref");
+                    ": baseCreatureId is 0 - missing WCRT cross-ref");
             // World bosses don't scale, so all 4 variant fields
             // should be 0 (engine falls through to base).
             if (e.spawnGroupKind == wowee::pipeline::WoweeCreatureDifficulty::WorldBoss &&
                 (e.normal10Id || e.normal25Id || e.heroic10Id || e.heroic25Id)) {
                 warnings.push_back(ctx +
-                    ": WorldBoss kind with non-zero variant ids — "
+                    ": WorldBoss kind with non-zero variant ids - "
                     "world bosses don't scale, set variant fields to 0");
             }
             // The asymmetric case n25 set without n10 is
-            // suspicious — typically a typo, since raid
+            // suspicious - typically a typo, since raid
             // sequencing always introduces n10 alongside n25.
             // (5-man bosses legitimately have only n10/h10, so
             // we don't warn on missing n25 alone.)
             if (e.spawnGroupKind == wowee::pipeline::WoweeCreatureDifficulty::Boss &&
                 e.normal25Id && !e.normal10Id) {
                 warnings.push_back(ctx +
-                    ": Boss has normal25Id but not normal10Id — "
+                    ": Boss has normal25Id but not normal10Id - "
                     "raid sequencing introduces n10 alongside n25; "
                     "this is probably a typo");
             }
             if (!idsSeen.add(e.difficultyId)) errors.push_back(ctx + ": duplicate difficultyId");
-            // Two routes for the same base creature collide —
+            // Two routes for the same base creature collide -
             // engine would only honor the first.
             if (e.baseCreatureId != 0) {
                 for (uint32_t prevBase : baseSeen) {
@@ -292,7 +292,7 @@ int handleValidate(int& i, int argc, char** argv) {
                         warnings.push_back(ctx +
                             ": duplicate baseCreatureId " +
                             std::to_string(e.baseCreatureId) +
-                            " — only the first route entry will be honored");
+                            " - only the first route entry will be honored");
                         break;
                     }
                 }
@@ -308,7 +308,7 @@ int handleValidate(int& i, int argc, char** argv) {
                      e.heroic25Id == e.baseCreatureId) &&
                     e.normal10Id != 0) {
                     warnings.push_back(ctx +
-                        ": all four variants point at baseCreatureId — "
+                        ": all four variants point at baseCreatureId - "
                         "creature doesn't scale; consider WorldBoss kind");
                 }
             }

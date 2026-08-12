@@ -31,7 +31,7 @@ float M2Renderer::interpFloat(const pipeline::M2AnimationTrack& track, float ani
 
 // Interpolate an M2 FBlock (particle lifetime curve) at a given life ratio [0..1].
 // FBlocks store per-lifetime keyframes for particle color, alpha, and scale.
-// NOTE: interpFBlockFloat and interpFBlockVec3 share identical interpolation logic —
+// NOTE: interpFBlockFloat and interpFBlockVec3 share identical interpolation logic -
 // if you fix a bug in one, update the other to match.
 float M2Renderer::interpFBlockFloat(const pipeline::M2FBlock& fb, float lifeRatio) {
     if (fb.floatValues.empty()) return 1.0f;
@@ -102,7 +102,7 @@ void M2Renderer::emitParticles(M2Instance& inst, const M2ModelGPU& gpu, float dt
         float life = interpFloat(em.lifespan, inst.animTime, inst.globalSequenceTime,
                                  inst.currentSequenceIndex, gpu.globalSequenceDurations);
         // A flame reads as a flame only when enough particles are alive at once.
-        // Authored rates vary wildly for the same visual intent — a candle asks
+        // Authored rates vary wildly for the same visual intent - a candle asks
         // for 40/s over half a second, CHANDELIER01 for 1/s over six seconds,
         // which sustains a single speck per candle and looks like a bare glow.
         // Steady-state population is rate x lifespan, so floor the rate against
@@ -233,8 +233,8 @@ void M2Renderer::updateParticles(M2Instance& inst, float dt) {
     const auto& gpu = *inst.cachedModel;
 
     // Hoist per-emitter gravity out of the per-particle loop. Gravity (and the
-    // emissionSpeed fallback) depends only on the emitter and animation time —
-    // not on the particle itself — so interpFloat was being re-evaluated for
+    // emissionSpeed fallback) depends only on the emitter and animation time -
+    // not on the particle itself - so interpFloat was being re-evaluated for
     // every particle even when 100s of particles share one emitter.
     constexpr size_t kMaxStackEmitters = 16;
     float emitterGravStack[kMaxStackEmitters];
@@ -434,7 +434,7 @@ void M2Renderer::renderM2Ribbons(VkCommandBuffer cmd, VkDescriptorSet perFrameSe
                     static bool ribbonTexWarn = false;
                     if (!ribbonTexWarn) {
                         LOG_WARNING("SpellEffect: ribbon[", ri, "] for '", gpu.name,
-                                    "' has null texSet — descriptor pool may be exhausted");
+                                    "' has null texSet - descriptor pool may be exhausted");
                         ribbonTexWarn = true;
                     }
                 }
@@ -550,7 +550,7 @@ void M2Renderer::renderM2Particles(VkCommandBuffer cmd, VkDescriptorSet perFrame
     if (kNoParticles) return;
 
     // Collect all particles from all instances, grouped by texture+blend
-    // Reuse persistent map — clear each group's vertex data but keep bucket structure.
+    // Reuse persistent map - clear each group's vertex data but keep bucket structure.
     for (auto& [k, g] : particleGroups_) {
         g.vertexData.clear();
         g.preAllocSet = VK_NULL_HANDLE;
@@ -567,7 +567,7 @@ void M2Renderer::renderM2Particles(VkCommandBuffer cmd, VkDescriptorSet perFrame
 
 
         // Cache the last emitter's per-emitter state so adjacent particles
-        // sharing an emitter (the common case — particles from one source
+        // sharing an emitter (the common case - particles from one source
         // cluster together) skip the texture/key/map-lookup work entirely.
         int lastEmitterIdx = -1;
         VkTexture* cachedTex = nullptr;
@@ -634,7 +634,7 @@ void M2Renderer::renderM2Particles(VkCommandBuffer cmd, VkDescriptorSet perFrame
             // Flame fixtures: the authored curves can leave a particle with
             // effectively no colour or alpha for most of its life. CHANDELIER01
             // ramps scale from zero over a six second life and its candles spend
-            // nearly all of that time contributing nothing — and because these
+            // nearly all of that time contributing nothing - and because these
             // draw additively, a near-black particle adds literally nothing to
             // the frame. Floor colour and alpha so a lit fixture always shows
             // flame. Floors only lift the dim end, leaving torches and candles
@@ -651,7 +651,7 @@ void M2Renderer::renderM2Particles(VkCommandBuffer cmd, VkDescriptorSet perFrame
             } else if (!gpu.isFireflyEffect) {
                 scale = std::min(rawScale, 1.5f);
                 // Candle flames are authored at a fraction of a unit, which lands
-                // sub-pixel at any normal viewing distance — the fixture glows
+                // sub-pixel at any normal viewing distance - the fixture glows
                 // with no visible flame. Small effect-heavy models dodge this by
                 // being classified as spell effects (three or more emitters and
                 // few vertices) and picking up that path's floor, but a
@@ -727,7 +727,7 @@ void M2Renderer::renderM2Particles(VkCommandBuffer cmd, VkDescriptorSet perFrame
         // Use pre-allocated stable descriptor set; fall back to per-frame alloc only if unavailable
         VkDescriptorSet texSet = group.preAllocSet;
         if (texSet == VK_NULL_HANDLE) {
-            // Fallback: allocate per-frame (pool exhaustion risk — should not happen in practice)
+            // Fallback: allocate per-frame (pool exhaustion risk - should not happen in practice)
             VkDescriptorSetAllocateInfo ai{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
             ai.descriptorPool = materialDescPool_;
             ai.descriptorSetCount = 1;

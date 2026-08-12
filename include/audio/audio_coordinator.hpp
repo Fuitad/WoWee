@@ -105,7 +105,7 @@ private:
 
     bool audioAvailable_ = false;
 
-    // Zone/music state — moved from Renderer
+    // Zone/music state - moved from Renderer
     uint32_t currentZoneId_ = 0;
     std::string currentZoneName_;
     bool inTavern_ = false;

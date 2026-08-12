@@ -230,7 +230,7 @@ int handleValidate(int& i, int argc, char** argv) {
             }
             if (e.itemId == 0) {
                 warnings.push_back(ctx + ": itemId=0 "
-                    "(no inscribed item — glyph can't be taught)");
+                    "(no inscribed item - glyph can't be taught)");
             }
             // WotLK glyphs unlock at character level 25 (minor),
             // 50 (major), 70 (major), 80 (prime). Anything below

@@ -334,7 +334,7 @@ int handleValidate(int& i, int argc, char** argv) {
                         " does not exist in this catalog");
                 }
             }
-            // Coinpouch flag without moneyCost is misleading — the
+            // Coinpouch flag without moneyCost is misleading - the
             // coin icon would show with no actual fee.
             if ((o.requiredFlags & wowee::pipeline::WoweeGossip::Coinpouch) &&
                 o.moneyCostCopper == 0) {

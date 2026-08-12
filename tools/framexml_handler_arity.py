@@ -4,7 +4,7 @@
     tools/framexml_handler_arity.py
 
 framexml_event_arity.py reads what a handler unpacks *inside the branch that
-names an event*, and deliberately skips handlers that unpack once at the top —
+names an event*, and deliberately skips handlers that unpack once at the top -
 because one handler usually serves many events and attributing the widest
 unpack to all of them invents shortfalls.
 
@@ -20,7 +20,7 @@ carries unit, spell name, rank, cast id, spell id; all of them were being fired
 with two values. The cast bar takes its cast id from UnitCastingInfo and
 compares `select(4, ...)` against it before finishing the bar, so that argument
 being absent meant the branch which flashes the bar and clears self.casting
-never ran — on a default element, on every cast.
+never ran - on a default element, on every cast.
 
 WHAT IT LOOKS FOR
 
@@ -30,7 +30,7 @@ of that event anywhere in src/.
 
 WHAT IT CANNOT SEE
 
-A handler serving several events — the other sweep's territory, and still
+A handler serving several events - the other sweep's territory, and still
 skipped here for the same reason. Nor whether the values are in the right
 ORDER, which is the fault this actually found: two values were fired where two
 were read, and the second was the wrong one. Arity is a floor, not a contract.

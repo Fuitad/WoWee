@@ -1,7 +1,7 @@
 // SMSG_MONSTER_MOVE's move-type byte and the facing that follows it.
 //
-// This was written out three times — once in the WotLK parser, once in the
-// vanilla one and once in the TBC one — and every field after it depends on
+// This was written out three times - once in the WotLK parser, once in the
+// vanilla one and once in the TBC one - and every field after it depends on
 // having consumed exactly the right number of bytes for the answer. A length
 // wrong here is not a wrong facing, it is a misread spline and a creature that
 // walks somewhere it was never sent.
@@ -32,7 +32,7 @@ Packet withFacing(uint8_t moveType, const std::vector<float>& floats = {},
 
 TEST_CASE("Stop ends the packet where the creature already is", "[monstermove]") {
     // Move type 1 carries nothing after it, and the caller must not go looking
-    // for a spline — there is none. The destination is the current position,
+    // for a spline - there is none. The destination is the current position,
     // and hasDest stays false so nothing treats it as somewhere to walk to.
     Packet p = withFacing(1);
     MonsterMoveData data;

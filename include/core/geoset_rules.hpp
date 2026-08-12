@@ -1,15 +1,15 @@
 #pragma once
 
 /**
- * geoset_rules.hpp — how a character geoset id is chosen when a model does not
+ * geoset_rules.hpp - how a character geoset id is chosen when a model does not
  * have the one that was asked for.
  *
  * A geoset id is a group and a variant: group * 100 + variant. The members of a
- * group are alternatives for one part of a character — five kinds of boot, six
- * kinds of cloak — so when a model does not carry the exact variant asked for,
+ * group are alternatives for one part of a character - five kinds of boot, six
+ * kinds of cloak - so when a model does not carry the exact variant asked for,
  * another member of the same group is usually the right answer.
  *
- * Usually. Variant 1 means NONE — bare feet, no cloak, no beard — and so does
+ * Usually. Variant 1 means NONE - bare feet, no cloak, no beard - and so does
  * variant 0 where a DBC stores the variant directly and uses zero for absent.
  * Every other member of the group is *something*, so substituting for none does
  * not approximate it, it contradicts it. That single mistake produced three
@@ -41,12 +41,12 @@ constexpr uint16_t kGeosetNoCape           = 1501;  // Group 15: no cape
 constexpr uint16_t kGeosetWithCape         = 1502;  // Group 15: with cape
 constexpr uint16_t kGeosetBareFeet         = 2002;  // Group 20: bare feet
 /// The other half of group 20. Models that split the feet out of the body do
-/// not agree on which number to use — an HD human male carries 2002 and an HD
-/// human female carries 2001 — so both are asked for and the model draws the
+/// not agree on which number to use - an HD human male carries 2002 and an HD
+/// human female carries 2001 - so both are asked for and the model draws the
 /// one it has. Stock models carry neither and are unaffected.
 constexpr uint16_t kGeosetBareFeetAlt      = 2001;
 
-/// Group 17: the eye-glow overlay — the mesh that makes a night elf's eyes
+/// Group 17: the eye-glow overlay - the mesh that makes a night elf's eyes
 /// shine rather than sit there pale.
 ///
 /// Off for everyone else, which is why the renderer strips group 17 from any
@@ -63,7 +63,7 @@ constexpr uint16_t geosetVariant(uint16_t id) { return static_cast<uint16_t>(id 
 
 /// Whether this id is the group's way of saying the character has none of it.
 ///
-/// Both spellings appear. The geoset tables use variant 1 — 501 is bare feet,
+/// Both spellings appear. The geoset tables use variant 1 - 501 is bare feet,
 /// 1501 is no cloak, 101 is no beard. The DBCs that store a variant directly,
 /// CharFacialHairStyles among them, use 0 for absent, and 0 arrives here as
 /// group*100 + 0.
@@ -75,7 +75,7 @@ constexpr bool geosetMeansNone(uint16_t id) {
 /// The geoset a model should actually draw for `preferred`.
 ///
 /// Returns `preferred` when the model has it; the group's lowest member when it
-/// does not and a substitute is meaningful; and 0 — draw nothing — when what was
+/// does not and a substitute is meaningful; and 0 - draw nothing - when what was
 /// asked for was none and the model has no way to say so. A caller that gets 0
 /// adds nothing for that group.
 ///
@@ -96,15 +96,15 @@ inline uint16_t resolveGeoset(uint16_t preferred,
     return lowest;
 }
 
-/// Add a character's facial-hair geosets — beard, moustache, sideburns — to a set.
+/// Add a character's facial-hair geosets - beard, moustache, sideburns - to a set.
 ///
 /// CharFacialHairStyles stores a variant per group and uses 0 for "this
 /// character has none of that". Zero must not be turned into an id: group*100+0
 /// is a geoset no model carries, and a caller that then substitutes within the
 /// group hands a beard to someone who asked for none. That happened, on NPCs.
 ///
-/// A caller that inserts raw ids was only accidentally safe — the invalid id
-/// matched nothing — so both spellings of the mistake are removed by asking here
+/// A caller that inserts raw ids was only accidentally safe - the invalid id
+/// matched nothing - so both spellings of the mistake are removed by asking here
 /// instead.
 inline void addFacialHairGeosets(std::unordered_set<uint16_t>& out,
                                  uint16_t variant100, uint16_t variant200,
@@ -119,7 +119,7 @@ inline void addFacialHairGeosets(std::unordered_set<uint16_t>& out,
 ///
 /// It was packed by hand in ten places across three files. Every one of them had
 /// to agree bit for bit with every other, or a lookup would miss and say
-/// nothing — and a hair or beard lookup that misses does not report a fault, it
+/// nothing - and a hair or beard lookup that misses does not report a fault, it
 /// quietly draws the default.
 constexpr uint32_t appearanceKey(uint8_t race, uint8_t sex, uint8_t variation) {
     return (static_cast<uint32_t>(race) << 16) |
@@ -129,7 +129,7 @@ constexpr uint32_t appearanceKey(uint8_t race, uint8_t sex, uint8_t variation) {
 
 /// Whether a race's eyes glow.
 ///
-/// Night elves', and only theirs among the playable races — it is not an option
+/// Night elves', and only theirs among the playable races - it is not an option
 /// they choose, both sexes have it and always have. The NPC path had this rule
 /// and the player path did not, so a night elf player looked out of pale eyes
 /// while every night elf standing next to them glowed.
@@ -145,7 +145,7 @@ inline bool raceHasGlowingEyes(uint8_t raceId) {
 /// known: the body, the chosen hair scalp, the chosen facial features, and the
 /// bare variant of every equipment group.
 ///
-/// Written twice before this — once for the player and once for the portrait —
+/// Written twice before this - once for the player and once for the portrait -
 /// and the two had drifted apart in exactly the ways that cost something. The
 /// portrait named one of the two feet variants, so an HD model spelling its feet
 /// the other way lost them there while the player kept his. The player named the
@@ -185,7 +185,7 @@ inline std::unordered_set<uint16_t> bareCharacterGeosets(uint16_t hairScalp,
 /// The geoset a piece of equipment selects within its group.
 ///
 /// ItemDisplayInfo's GeosetGroup columns hold a small number G meaning "the Gth
-/// variant after the bare one" — so a chest with G=2 wants group 8 variant 3,
+/// variant after the bare one" - so a chest with G=2 wants group 8 variant 3,
 /// which is the bare sleeves id plus 2. The arithmetic is a single addition and
 /// was written out at a dozen call sites, half of them against the named bare
 /// constant and half against the literal number it holds, with the convention
@@ -199,9 +199,9 @@ constexpr uint16_t equippedGeoset(uint16_t bareId, uint32_t geosetGroupValue) {
 
 /// Which geoset group each worn item drives, and the bare variant it replaces.
 ///
-/// The two paths that read equipment come at it from different directions — a
+/// The two paths that read equipment come at it from different directions - a
 /// player's inventory is numbered one way and an NPC's CreatureDisplayInfoExtra
-/// array another — so the slot numbers cannot be shared. What they were both
+/// array another - so the slot numbers cannot be shared. What they were both
 /// restating is this: which part of the body a given piece of armour changes.
 ///
 /// Kept as named constants rather than a table, because each call site reads one

@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open PvP Honor / Rank catalog (.wpvp) — novel
+// Wowee Open PvP Honor / Rank catalog (.wpvp) - novel
 // replacement for the AzerothCore-style PvP rank /
 // arena-tier tables plus the vanilla honor-rank reward
 // chains. The 60th open format added to the editor.
@@ -51,7 +51,7 @@ namespace pipeline {
 //     bracketBgId (uint32)
 struct WoweePVPRank {
     enum RankKind : uint8_t {
-        VanillaHonor   = 0,    // Private / Knight / etc — uses
+        VanillaHonor   = 0,    // Private / Knight / etc - uses
                                 // minHonor (kill points)
         ArenaRating    = 1,    // 1500-2400+ rating-based
         BattlegroundRated = 2, // 10v10 rated BG bracket
@@ -96,16 +96,16 @@ public:
 
     // Preset emitters used by --gen-pvp* variants.
     //
-    //   makeStarter     — 3 vanilla honor entry tiers
+    //   makeStarter     - 3 vanilla honor entry tiers
     //                      (Private/Knight, Sergeant/Stone
     //                      Guard, Knight-Lieutenant/Blood
     //                      Guard) showing the alliance-vs-
     //                      horde alternate-name pattern.
-    //   makeAllianceFull — 7 alliance vanilla ranks (R6-R14:
+    //   makeAllianceFull - 7 alliance vanilla ranks (R6-R14:
     //                       Knight-Captain through Grand
     //                       Marshal) with chest/gloves/
     //                       shoulders cross-refs into WIT.
-    //   makeArenaTiers  — 5 arena rating brackets
+    //   makeArenaTiers  - 5 arena rating brackets
     //                      (Combatant 1500 / Challenger 1750
     //                      / Rival 2000 / Duelist 2200 /
     //                      Gladiator 2400) with title +

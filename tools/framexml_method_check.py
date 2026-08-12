@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Widget methods FrameXML calls that answer nil — and so raise when called.
+"""Widget methods FrameXML calls that answer nil - and so raise when called.
 
 A missing *global* is harmless: the fallback makes it callable and it answers
 nil. A missing *method* is not. The frame metatable answers a no-op only for
 names in __WoweeWidgetMethods; anything else comes back nil, and `frame:Foo()`
-on nil is "attempt to call method 'Foo' (a nil value)" — a real error that
+on nil is "attempt to call method 'Foo' (a nil value)" - a real error that
 takes down whatever handler asked.
 
 So the known-methods set is doing the same job for methods that the fallback
@@ -17,8 +17,8 @@ if it is any of:
 
   - in __WoweeWidgetMethods (a recorded no-op)
   - registered from C, however the registration is spelled
-  - defined in bootstrap Lua on *any* metatable name — mt, __WoweeFrameMT,
-    animMeta, groupMeta — not only `function mt:`
+  - defined in bootstrap Lua on *any* metatable name - mt, __WoweeFrameMT,
+    animMeta, groupMeta - not only `function mt:`
   - defined by the interface itself on its own objects, either as
     `function Obj:Method()` or assigned as a field, including
     `self.Desaturate = AchievementIcon_Desaturate`, which names an existing
@@ -53,7 +53,7 @@ impl |= {m for pair in re.findall(r"\"function mt:(\w+)", src) for m in (pair,)}
 impl |= set(re.findall(r"\"mt\.(\w+) =", src))
 impl |= set(re.findall(r"\"mt\['(\w+)'\]", src))
 # Methods the bootstrap Lua defines on a metatable, under whatever name that
-# metatable is bound to there — mt, __WoweeFrameMT, animMeta, groupMeta.
+# metatable is bound to there - mt, __WoweeFrameMT, animMeta, groupMeta.
 # Looking only for `function mt:` reported GetOwner and IsOwned as missing when
 # both are defined a few lines apart as `function __WoweeFrameMT:...`.
 impl |= set(re.findall(r"function\s+[\w.]*[Mm][Tt]\w*\s*:\s*(\w+)", src))
@@ -64,13 +64,13 @@ answered = known | impl
 
 # Methods the interface defines on its own objects. dump.lua's context:Write
 # and the achievement buttons' Collapse are ordinary Lua methods on ordinary
-# Lua tables — nothing to do with the frame metatable, and not missing.
+# Lua tables - nothing to do with the frame metatable, and not missing.
 interface_defined = set()
 for _f in list((REPO / "Data" / "interface").glob("framexml/*.lua")) + \
           list((REPO / "Data" / "interface").glob("addons/*/*.lua")):
     _t = _f.read_text(errors="ignore")
     interface_defined |= set(re.findall(r'\bfunction\s+[\w.]+[:.](\w+)\s*\(', _t))
-    # `self.Desaturate = AchievementIcon_Desaturate` — assigned to a named
+    # `self.Desaturate = AchievementIcon_Desaturate` - assigned to a named
     # function, not an inline one. Requiring `= function` missed every method
     # installed that way, which is most of the achievement buttons'.
     interface_defined |= set(re.findall(r'[\w.\]\[]+\.(\w+)\s*=\s*[\w.]+\s*;?\s*$', _t, re.M))
@@ -88,10 +88,10 @@ answered |= interface_defined
 interface = (REPO / "Data" / "interface")
 files = list(interface.glob("framexml/*.lua")) + list(interface.glob("addons/*/*.lua"))
 
-# obj:Method( — a real method call. Not obj.Method, which is a field read.
+# obj:Method( - a real method call. Not obj.Method, which is a field read.
 CALL = re.compile(r'(?<![\w."\'])([A-Za-z_]\w*)\s*:\s*([A-Z]\w*)\s*\(')
 
-# obj.Method read as a field — the caller checking whether it exists.
+# obj.Method read as a field - the caller checking whether it exists.
 GUARD = re.compile(r'\b([A-Za-z_]\w*)\.([A-Z]\w*)\b')
 
 hits = collections.defaultdict(list)
@@ -120,7 +120,7 @@ for f in files:
 # Methods the emitter writes into the Lua it generates.
 #
 # These never appear in any .lua or .xml file, so the scan above cannot see
-# them — and a method emitted for an attribute nobody implemented is the same
+# them - and a method emitted for an attribute nobody implemented is the same
 # "attempt to call method" as any other, only harder to trace because the call
 # site does not exist in any file anyone reads. Reading `letters` and emitting
 # SetMaxLetters is safe because SetMaxLetters exists; reading `horizTile` and

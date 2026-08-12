@@ -227,7 +227,7 @@ int handleValidate(int& i, int argc, char** argv) {
         // must be < 10000 (100%), else seller would
         // lose money on every successful sale.
         // Pretty close to 100% (e.g. 50% + 50% = 100%
-        // is valid but unsellable) — error at sum >=
+        // is valid but unsellable) - error at sum >=
         // 10000.
         uint32_t totalRate = static_cast<uint32_t>(
             e.depositRatePct) +
@@ -238,24 +238,24 @@ int handleValidate(int& i, int argc, char** argv) {
                 std::to_string(e.depositRatePct) +
                 " + cutPct=" + std::to_string(e.cutPct)
                 + " = " + std::to_string(totalRate) +
-                " basis points — seller would lose "
+                " basis points - seller would lose "
                 "money on every sale (combined rates "
                 ">= 100%)");
         }
-        // Warn on combined > 50% — economically
+        // Warn on combined > 50% - economically
         // viable but harsh enough that listings would
         // dry up.
         if (totalRate > 5000 && totalRate < 10000) {
             warnings.push_back(ctx +
                 ": combined deposit+cut=" +
                 std::to_string(totalRate / 100) +
-                "% exceeds 50% — sellers might find "
+                "% exceeds 50% - sellers might find "
                 "this AH unprofitable; verify intentional"
                 " (e.g. neutral AH penalty)");
         }
         if (e.maxListingDurationHours == 0) {
             errors.push_back(ctx +
-                ": maxListingDurationHours is 0 — no "
+                ": maxListingDurationHours is 0 - no "
                 "duration available, AH would reject "
                 "all listings");
         }
@@ -266,11 +266,11 @@ int handleValidate(int& i, int argc, char** argv) {
                 std::to_string(e.minListingDurationHours) +
                 " > maxListingDurationHours=" +
                 std::to_string(e.maxListingDurationHours)
-                + " — no valid duration in range");
+                + " - no valid duration in range");
         }
         if (e.npcAuctioneerId == 0) {
             warnings.push_back(ctx +
-                ": npcAuctioneerId is 0 — no NPC bound,"
+                ": npcAuctioneerId is 0 - no NPC bound,"
                 " AH only reachable via direct UI "
                 "(e.g. console command)");
         }
@@ -281,10 +281,10 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx +
                 ": npcAuctioneerId " +
                 std::to_string(e.npcAuctioneerId) +
-                " already bound to another AH — gossip "
+                " already bound to another AH - gossip "
                 "dispatch would be ambiguous");
         }
-        // Duplicate (faction, name) — UI tab dispatch
+        // Duplicate (faction, name) - UI tab dispatch
         // would tie.
         if (e.factionAccess <= 3 && !e.name.empty()) {
             Pair p{e.factionAccess, e.name};
@@ -293,7 +293,7 @@ int handleValidate(int& i, int argc, char** argv) {
                     ": duplicate (factionAccess=" +
                     std::to_string(e.factionAccess) +
                     ", name=" + e.name +
-                    ") — AH browser would route "
+                    ") - AH browser would route "
                     "ambiguously");
             }
         }

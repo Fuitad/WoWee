@@ -29,7 +29,7 @@ int handleListWcp(int& i, int argc, char** argv) {
         std::fprintf(stderr, "Failed to read WCP: %s\n", path.c_str());
         return 1;
     }
-    std::printf("WCP: %s — %zu files\n", path.c_str(), info.files.size());
+    std::printf("WCP: %s - %zu files\n", path.c_str(), info.files.size());
     // Sort by path so identical packs produce identical output (the
     // packer order depends on the directory_iterator implementation).
     auto files = info.files;
@@ -227,7 +227,7 @@ int handleInfoPackTree(int& i, int argc, char** argv) {
                             static_cast<unsigned long long>(child->bytes));
                 subtotal += child->bytes;
             } else {
-                // Directory — recurse, then print header with subtotal.
+                // Directory - recurse, then print header with subtotal.
                 std::printf("%s%s%s/\n",
                             prefix.c_str(), branch, name.c_str());
                 subtotal += render(child.get(), prefix + cont);

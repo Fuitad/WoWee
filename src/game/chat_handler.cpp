@@ -428,7 +428,7 @@ void ChatHandler::handleMessageChat(network::Packet& packet) {
         // Every other source here is someone nearby or in the party. A
         // guildmate is characteristically neither: they are in another zone,
         // which is the whole point of guild chat. So a guild line from anyone
-        // not recently met arrived with no name at all — "[Guild] : message" —
+        // not recently met arrived with no name at all - "[Guild] : message" -
         // and a guild achievement, which is announced by whoever earned it
         // wherever they are, read "[] has earned the achievement".
         //
@@ -562,7 +562,7 @@ void ChatHandler::handleMessageChat(network::Packet& packet) {
     // WoW guild right bit 0x40 = GR_RIGHT_OFFCHATSPEAK, 0x80 = GR_RIGHT_OFFCHATLISTEN
     if (data.type == ChatType::OFFICER) {
         // Through the shared lookup, which answers zero rights when the roster
-        // has not arrived — the same "say nothing about it" this had before,
+        // has not arrived - the same "say nothing about it" this had before,
         // since the test below only hides chat when a rank is known and lacks
         // the bit.
         const uint32_t idx = owner_.getPlayerGuildRankIndex();
@@ -592,7 +592,7 @@ void ChatHandler::handleMessageChat(network::Packet& packet) {
     // Fill in the $-tokens before anything sees the line.
     //
     // A monster's say, yell, emote or whisper arrives with the player left as a
-    // blank — "$N, you have done well" — and the client is what writes the name
+    // blank - "$N, you have done well" - and the client is what writes the name
     // in. Nothing did, so every scripted NPC in the game addressed the player as
     // "$N", and a $gsir:madam; came out with the whole switch printed.
     //
@@ -622,7 +622,7 @@ void ChatHandler::handleMessageChat(network::Packet& packet) {
     }
     logChatMessage(data, "server");
     // No fireChatEvent here. This function announces the message itself,
-    // further down and with the fuller argument list — the channel number and
+    // further down and with the fuller argument list - the channel number and
     // short name, the line id, the sender's guid. Calling fireChatEvent as
     // well fired CHAT_MSG_* twice for every line the server sent, and the
     // interface drew both: every whisper, say, guild and channel message
@@ -694,7 +694,7 @@ void ChatHandler::handleMessageChat(network::Packet& packet) {
         //
         // and GetDefaultLanguage answers "Common" or "Orcish". A number never
         // matches either, so every line in the player's own language was
-        // printed with its id in front of it — guild chat in Common came out
+        // printed with its id in front of it - guild chat in Common came out
         // as "[7] Name: hello". Universal is the id the file does not carry
         // and the word the test above looks for.
         const std::string lang = owner_.getLanguageName(static_cast<uint32_t>(data.language));
@@ -708,7 +708,7 @@ void ChatHandler::handleMessageChat(network::Packet& packet) {
         // reached the window. arg9 is what the frame matches against the
         // channels it carries when the zone id does not settle it.
         // A line id of its own, remembered against the sender. FrameXML builds
-        // this into the player link on the name — "|Hplayer:Name:lineId:..." —
+        // this into the player link on the name - "|Hplayer:Name:lineId:..." -
         // so a right-click on that name hands it back and the client is
         // expected to know which message it was. Zero for every line is one id
         // shared by all of them, which is what made Report Spam unofferable:
@@ -728,7 +728,7 @@ void ChatHandler::handleMessageChat(network::Packet& packet) {
         const std::string shortChannel = (dash == std::string::npos)
             ? data.channelName : data.channelName.substr(0, dash);
         // arg5 is the *target*, not the sender. It was the sender's own name,
-        // which is only read by CHANNEL_NOTICE_USER — and read as "there are
+        // which is only read by CHANNEL_NOTICE_USER - and read as "there are
         // two names in this notice", so every kick and ban was formatted as
         // though someone had done it to someone else. receiverName is what the
         // packet carries for it, empty on an ordinary message.
@@ -736,8 +736,8 @@ void ChatHandler::handleMessageChat(network::Packet& packet) {
         // arg6 is the flag beside the name: FrameXML looks up CHAT_FLAG_<arg6>
         // and prints <Away>, <Busy> or <GM>. The tag is on the packet and was
         // being dropped, so nothing ever showed as away or as a game master.
-        // AzerothCore's values are a bitmask — AFK 0x01, DND 0x02, GM 0x04,
-        // COM 0x08, DEV 0x10 — and the interface takes one word, so the most
+        // AzerothCore's values are a bitmask - AFK 0x01, DND 0x02, GM 0x04,
+        // COM 0x08, DEV 0x10 - and the interface takes one word, so the most
         // significant is the one to name.
         const char* chatFlag = (data.chatTag & 0x04) ? "GM"
                              : (data.chatTag & 0x10) ? "DEV"
@@ -907,7 +907,7 @@ void ChatHandler::handleChannelNotify(network::Packet& packet) {
             break;
         }
         case ChannelNotifyType::PLAYER_ALREADY_MEMBER: {
-            // Server confirms we're in this channel but our local list doesn't have it yet —
+            // Server confirms we're in this channel but our local list doesn't have it yet -
             // can happen after reconnect or if the join notification was missed.
             if (std::find(joinedChannels_.begin(), joinedChannels_.end(), data.channelName) == joinedChannels_.end()) {
                 joinedChannels_.push_back(data.channelName);
@@ -947,7 +947,7 @@ void ChatHandler::handleChannelNotify(network::Packet& packet) {
             addSystemChatMessage("Password for '" + data.channelName + "' changed.");
             break;
         case ChannelNotifyType::OWNER_CHANGED:
-            // The guid beside the name is the new owner's —
+            // The guid beside the name is the new owner's -
             // Channel::MakeOwnerChanged writes _ownerGUID into it. Kept so the
             // unit menu can offer the moderator entries, which FrameXML hides
             // behind IsDisplayChannelOwner: the verbs behind them were built
@@ -1055,7 +1055,7 @@ void ChatHandler::fireChatEvent(const MessageChatData& msg) {
         }
     }
     // The channel's index, which the chat frame builds "CHANNEL"..arg8 out of
-    // and looks up in ChatTypeInfo — a zero there is CHANNEL0, which no table
+    // and looks up in ChatTypeInfo - a zero there is CHANNEL0, which no table
     // has, and the line is dropped before it reaches the window. This is the
     // one thing the callback that used to announce these as well did better,
     // and it is here now so nothing was lost when that went.
@@ -1155,8 +1155,8 @@ void ChatHandler::replyToLastWhisper(const std::string& message) {
 // ============================================================
 
 void ChatHandler::handleChannelList(network::Packet& packet) {
-    // A channel type byte comes first — Channel::List writes `uint8(1)` before
-    // the name — and this read the name straight from it. The stray byte does
+    // A channel type byte comes first - Channel::List writes `uint8(1)` before
+    // the name - and this read the name straight from it. The stray byte does
     // not shift anything, because the name's terminator ends the string either
     // way, but it rides along on the front of every use of it: the roster was
     // filed under "\x01General" while getChannelRoster is asked for "General",
@@ -1215,7 +1215,7 @@ void ChatHandler::handleChannelList(network::Packet& packet) {
     // member count on the second, and it registers for each separately.
     //
     // By display index, not by name. ChannelRoster_Update and
-    // ChannelList_CountUpdate both take a position in the channel list —
+    // ChannelList_CountUpdate both take a position in the channel list -
     // _G["ChannelButton"..id] is how the second finds its row, and the first is
     // called elsewhere with GetSelectedDisplayChannel(), which is an index. A
     // name built "ChannelButtonGeneral", which is nothing, so neither the
@@ -1230,14 +1230,14 @@ void ChatHandler::handleChannelList(network::Packet& packet) {
 }
 
 
-/// SMSG_USERLIST_ADD / _REMOVE / _UPDATE — one member of a channel changing.
+/// SMSG_USERLIST_ADD / _REMOVE / _UPDATE - one member of a channel changing.
 ///
 /// The full roster comes on SMSG_CHANNEL_LIST and is asked for; these arrive
 /// unasked as people join, leave and are promoted, and without them the roster
 /// is only ever as fresh as the last time somebody opened the list.
 ///
 /// Two readers rather than one with a branch, because the three layouts are
-/// not quite the same — remove carries no player flags — and a handler that
+/// not quite the same - remove carries no player flags - and a handler that
 /// reads its fields under an `if` cannot be checked against the server by
 /// tools/packet_layout_check.py, which reads the run of widths a body asks
 /// for. It flagged the first version of this, correctly by its own lights.

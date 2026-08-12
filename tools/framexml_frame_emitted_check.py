@@ -11,7 +11,7 @@ against the file it was given: for each concrete named frame in the XML, does
 the generated Lua create anything by that name.
 
 A frame the emitter drops is the worst shape this transition has. Nothing
-raises — the frame simply is not there — so every handler that touches it dies
+raises - the frame simply is not there - so every handler that touches it dies
 on a nil index at some later, unrelated moment, and what the player sees is a
 panel that is present and does nothing. Several bug reports of exactly that
 shape are what prompted this.
@@ -29,7 +29,7 @@ and 2369 frames.
 It also compiles what was emitted, which is a second and separate claim: a
 syntax error anywhere in a chunk takes down every frame in that file, and the
 name check cannot see it because the name is in the text either way. Also zero
-— and seen to fail before that zero was believed: putting `local x = = 1` in a
+- and seen to fail before that zero was believed: putting `local x = = 1` in a
 gamemenuframe OnLoad makes framexml_emit exit 2 and name the emitted line.
 
 WHAT IT DELIBERATELY SKIPS
@@ -44,7 +44,7 @@ WHAT IT DELIBERATELY SKIPS
 
 WHAT IT CANNOT SEE
 
-Whether a frame that *was* created is configured correctly — the wrong size,
+Whether a frame that *was* created is configured correctly - the wrong size,
 a dropped attribute, a script that did not attach. It answers existence only.
 """
 import pathlib
@@ -76,7 +76,7 @@ def declared_frames(text):
 
 def main():
     if not EMIT.exists():
-        print("  framexml_emit is not built — nothing was checked.")
+        print("  framexml_emit is not built - nothing was checked.")
         print("  cmake --build build --target framexml_emit")
         return 1
 

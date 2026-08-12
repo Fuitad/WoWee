@@ -97,17 +97,17 @@ WoweeGlyphSlot WoweeGlyphSlotLoader::makeStarter(
     };
     // Three Major + three Minor, all-class baseline.
     add(1, "MajorSlot1", G::Major, 0, 25,  240, 200, 100,
-        "Major glyph slot 1 — unlocks at level 25.");
+        "Major glyph slot 1 - unlocks at level 25.");
     add(2, "MajorSlot2", G::Major, 1, 50,  240, 200, 100,
-        "Major glyph slot 2 — unlocks at level 50.");
+        "Major glyph slot 2 - unlocks at level 50.");
     add(3, "MajorSlot3", G::Major, 2, 75,  240, 200, 100,
-        "Major glyph slot 3 — unlocks at level 75.");
+        "Major glyph slot 3 - unlocks at level 75.");
     add(4, "MinorSlot1", G::Minor, 0, 25,  150, 200, 240,
-        "Minor glyph slot 1 — unlocks at level 25.");
+        "Minor glyph slot 1 - unlocks at level 25.");
     add(5, "MinorSlot2", G::Minor, 1, 50,  150, 200, 240,
-        "Minor glyph slot 2 — unlocks at level 50.");
+        "Minor glyph slot 2 - unlocks at level 50.");
     add(6, "MinorSlot3", G::Minor, 2, 75,  150, 200, 240,
-        "Minor glyph slot 3 — unlocks at level 75.");
+        "Minor glyph slot 3 - unlocks at level 75.");
     return c;
 }
 
@@ -131,12 +131,12 @@ WoweeGlyphSlot WoweeGlyphSlotLoader::makeWotlk(
     };
     // WotLK 3.3.5a: 3 Major + 3 Minor with staggered
     // unlocks 15/30/50 and 15/50/70.
-    add(100, "WotlkMajor1", G::Major, 0, 15, "Major slot 1 — unlocks at 15.");
-    add(101, "WotlkMajor2", G::Major, 1, 30, "Major slot 2 — unlocks at 30.");
-    add(102, "WotlkMajor3", G::Major, 2, 50, "Major slot 3 — unlocks at 50.");
-    add(103, "WotlkMinor1", G::Minor, 0, 15, "Minor slot 1 — unlocks at 15.");
-    add(104, "WotlkMinor2", G::Minor, 1, 50, "Minor slot 2 — unlocks at 50.");
-    add(105, "WotlkMinor3", G::Minor, 2, 70, "Minor slot 3 — unlocks at 70.");
+    add(100, "WotlkMajor1", G::Major, 0, 15, "Major slot 1 - unlocks at 15.");
+    add(101, "WotlkMajor2", G::Major, 1, 30, "Major slot 2 - unlocks at 30.");
+    add(102, "WotlkMajor3", G::Major, 2, 50, "Major slot 3 - unlocks at 50.");
+    add(103, "WotlkMinor1", G::Minor, 0, 15, "Minor slot 1 - unlocks at 15.");
+    add(104, "WotlkMinor2", G::Minor, 1, 50, "Minor slot 2 - unlocks at 50.");
+    add(105, "WotlkMinor3", G::Minor, 2, 70, "Minor slot 3 - unlocks at 70.");
     return c;
 }
 
@@ -160,15 +160,15 @@ WoweeGlyphSlot WoweeGlyphSlotLoader::makeCata(
         c.entries.push_back(e);
     };
     // Cataclysm layout: 3 Prime + 3 Major + 3 Minor.
-    add(200, "CataPrime1", G::Prime, 0, 25, "Prime slot 1 — unlocks at 25.");
-    add(201, "CataPrime2", G::Prime, 1, 50, "Prime slot 2 — unlocks at 50.");
-    add(202, "CataPrime3", G::Prime, 2, 75, "Prime slot 3 — unlocks at 75.");
-    add(203, "CataMajor1", G::Major, 0, 25, "Major slot 1 — unlocks at 25.");
-    add(204, "CataMajor2", G::Major, 1, 50, "Major slot 2 — unlocks at 50.");
-    add(205, "CataMajor3", G::Major, 2, 75, "Major slot 3 — unlocks at 75.");
-    add(206, "CataMinor1", G::Minor, 0, 25, "Minor slot 1 — unlocks at 25.");
-    add(207, "CataMinor2", G::Minor, 1, 50, "Minor slot 2 — unlocks at 50.");
-    add(208, "CataMinor3", G::Minor, 2, 75, "Minor slot 3 — unlocks at 75.");
+    add(200, "CataPrime1", G::Prime, 0, 25, "Prime slot 1 - unlocks at 25.");
+    add(201, "CataPrime2", G::Prime, 1, 50, "Prime slot 2 - unlocks at 50.");
+    add(202, "CataPrime3", G::Prime, 2, 75, "Prime slot 3 - unlocks at 75.");
+    add(203, "CataMajor1", G::Major, 0, 25, "Major slot 1 - unlocks at 25.");
+    add(204, "CataMajor2", G::Major, 1, 50, "Major slot 2 - unlocks at 50.");
+    add(205, "CataMajor3", G::Major, 2, 75, "Major slot 3 - unlocks at 75.");
+    add(206, "CataMinor1", G::Minor, 0, 25, "Minor slot 1 - unlocks at 25.");
+    add(207, "CataMinor2", G::Minor, 1, 50, "Minor slot 2 - unlocks at 50.");
+    add(208, "CataMinor3", G::Minor, 2, 75, "Minor slot 3 - unlocks at 75.");
     return c;
 }
 

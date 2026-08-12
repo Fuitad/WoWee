@@ -119,20 +119,20 @@ WoweeMinimapLevels WoweeMinimapLevelsLoader::makeStormwind(
     add(1, "StormwindOldTown", 0, 0.0f, 80.0f,
         "Interface\\Minimap\\Stormwind\\OldTown.blp",
         "Old Town & Cathedral District",
-        "Stormwind ground level — Z 0-80. Old Town, "
+        "Stormwind ground level - Z 0-80. Old Town, "
         "Trade District, Cathedral District, Mage Quarter "
         "are all at this base elevation.");
     add(2, "StormwindKeep", 1, 80.0f, 130.0f,
         "Interface\\Minimap\\Stormwind\\KeepRamp.blp",
         "Stormwind Keep Approach",
-        "Stormwind Keep ramp + outer courtyard — Z "
+        "Stormwind Keep ramp + outer courtyard - Z "
         "80-130. Players above this elevation see the "
         "keep-approach overlay.");
     add(3, "StormwindThroneRoom", 2, 130.0f, 200.0f,
         "Interface\\Minimap\\Stormwind\\ThroneRoom.blp",
         "Throne Room & Royal Library",
         "Stormwind Keep upper level (Throne Room, Royal "
-        "Library, secret tunnel) — Z 130-200. Highest "
+        "Library, secret tunnel) - Z 130-200. Highest "
         "elevation in city map.");
     return c;
 }
@@ -160,26 +160,26 @@ WoweeMinimapLevels WoweeMinimapLevelsLoader::makeDalaran(
     add(100, "DalaranSewers", 0, 0.0f, 580.0f,
         "Interface\\Minimap\\Dalaran\\Sewers.blp",
         "The Underbelly",
-        "Dalaran sewer level (The Underbelly) — Z "
+        "Dalaran sewer level (The Underbelly) - Z "
         "0-580. Free-for-all PvP zone with rogue/druid "
         "stash.");
     add(101, "DalaranStreet", 1, 580.0f, 645.0f,
         "Interface\\Minimap\\Dalaran\\Street.blp",
         "Dalaran Street Level",
-        "Dalaran main street — Z 580-645. Most "
+        "Dalaran main street - Z 580-645. Most "
         "vendors, Krasus' Landing, the Wonderworks. "
         "Default level players spawn into.");
     add(102, "DalaranAboveStreet", 2, 645.0f, 700.0f,
         "Interface\\Minimap\\Dalaran\\AboveStreet.blp",
         "Above Street",
         "Dalaran upper buildings (rooftops, arcane "
-        "tower walkways) — Z 645-700. Reached via the "
+        "tower walkways) - Z 645-700. Reached via the "
         "few rooftop ladders.");
     add(103, "DalaranFloatingCathedral", 3, 700.0f, 800.0f,
         "Interface\\Minimap\\Dalaran\\Cathedral.blp",
         "Floating Cathedral",
         "Dalaran top-tier (Violet Citadel + Floating "
-        "Cathedral) — Z 700-800. Highest reachable "
+        "Cathedral) - Z 700-800. Highest reachable "
         "point in the city.");
     return c;
 }
@@ -205,35 +205,35 @@ WoweeMinimapLevels WoweeMinimapLevelsLoader::makeUndercity(
         c.entries.push_back(e);
     };
     // Undercity is the most vertically layered Eastern
-    // Kingdoms capital — has 5 distinct minimap layers.
+    // Kingdoms capital - has 5 distinct minimap layers.
     add(200, "UndercitySewer", 0, -110.0f, -85.0f,
         "Interface\\Minimap\\Undercity\\Sewer.blp",
         "Sewer Outlet",
-        "Undercity sewer outlet — Z -110 to -85. The "
+        "Undercity sewer outlet - Z -110 to -85. The "
         "lowest reachable point, where Tirisfal water "
         "drains.");
     add(201, "UndercityCanal", 1, -85.0f, -65.0f,
         "Interface\\Minimap\\Undercity\\Canal.blp",
         "Canal Walkway",
-        "Undercity canal walkway — Z -85 to -65. "
+        "Undercity canal walkway - Z -85 to -65. "
         "Connects the Trade Quarter to the apothecary "
         "labs via narrow walkways.");
     add(202, "UndercityOuterRing", 2, -65.0f, -45.0f,
         "Interface\\Minimap\\Undercity\\OuterRing.blp",
         "Outer Ring",
-        "Undercity outer ring — Z -65 to -45. The "
+        "Undercity outer ring - Z -65 to -45. The "
         "Trade Quarter, mailbox, auction house. Default "
         "Forsaken arrival point.");
     add(203, "UndercityInnerRing", 3, -45.0f, -20.0f,
         "Interface\\Minimap\\Undercity\\InnerRing.blp",
         "Inner Ring",
-        "Undercity inner ring — Z -45 to -20. The four "
+        "Undercity inner ring - Z -45 to -20. The four "
         "racial-trainer alcoves, Magic Quarter, "
         "Apothecarium ramp.");
     add(204, "UndercityThroneRoom", 4, -20.0f, 30.0f,
         "Interface\\Minimap\\Undercity\\Throne.blp",
         "Royal Quarter",
-        "Undercity Royal Quarter (Throne Room) — Z "
+        "Undercity Royal Quarter (Throne Room) - Z "
         "-20 to 30. Sylvanas Windrunner's seat. Highest "
         "elevation, opens via the central elevator.");
     return c;

@@ -120,7 +120,7 @@ int handleInfo(int& i, int argc, char** argv) {
 
 // Stack-based DFS cycle detection. Returns the first
 // cycle found as a vector of addonIds. Empty if no
-// cycle. Considers ONLY required dependencies — optional
+// cycle. Considers ONLY required dependencies - optional
 // deps don't deadlock.
 std::vector<uint32_t> findFirstCycle(
     const wowee::pipeline::WoweeAddonManifest& c) {
@@ -141,7 +141,7 @@ std::vector<uint32_t> findFirstCycle(
         for (uint32_t dep : graph[node]) {
             if (!known.count(dep)) continue;
             if (color[dep] == Gray) {
-                // Found back-edge to gray node — extract
+                // Found back-edge to gray node - extract
                 // the cycle starting at dep in path.
                 auto it = std::find(path.begin(), path.end(), dep);
                 cycle.assign(it, path.end());
@@ -196,7 +196,7 @@ int handleValidate(int& i, int argc, char** argv) {
             !namesSeen.insert(e.name).second) {
             errors.push_back(ctx +
                 ": duplicate addon name '" + e.name +
-                "' — addon-loader would dispatch ambiguously");
+                "' - addon-loader would dispatch ambiguously");
         }
         if (!idsSeen.insert(e.addonId).second) {
             errors.push_back(ctx + ": duplicate addonId");
@@ -220,10 +220,10 @@ int handleValidate(int& i, int argc, char** argv) {
             if (dep == e.addonId) {
                 warnings.push_back(ctx +
                     ": addon optionally depends on "
-                    "itself — has no effect, prune");
+                    "itself - has no effect, prune");
             }
             // Optional deps to unknown ids are NOT an
-            // error — addon may degrade gracefully if
+            // error - addon may degrade gracefully if
             // the optional dep is absent.
         }
         if (e.minClientBuild != 0 && e.minClientBuild < 4500) {
@@ -244,7 +244,7 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         errors.push_back("dependency cycle detected: " +
                           trail +
-                          " — addon-loader would deadlock");
+                          " - addon-loader would deadlock");
     }
     return cli::reportValidation("wmod", base, jsonOut, errors, warnings,
                                  formatted("%zu addons, all addonIds + "

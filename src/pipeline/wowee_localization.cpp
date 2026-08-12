@@ -102,7 +102,7 @@ WoweeLocalization WoweeLocalizationLoader::makeUIBasics(
         c.entries.push_back(e);
     };
     // Translations of the "Cancel" button across 5
-    // languages — common UI string used in every dialog
+    // languages - common UI string used in every dialog
     // box.
     add(1, "Cancel_deDE", L::deDE,
         "Cancel", "Abbrechen",
@@ -141,17 +141,17 @@ WoweeLocalization WoweeLocalizationLoader::makeQuestSample(
         e.iconColorRGBA = packRgba(220, 220, 100);   // quest gold
         c.entries.push_back(e);
     };
-    // One quest title in 3 languages — illustrates the
+    // One quest title in 3 languages - illustrates the
     // dotted-key convention "QUEST.123.title".
     add(100, "Quest123Title_deDE", L::deDE,
         "QUEST.123.title",
         "Die Verwüsteten Lande",
-        "Quest 123 title in German — placeholder "
+        "Quest 123 title in German - placeholder "
         "translation of 'The Blasted Lands'.");
     add(101, "Quest123Title_frFR", L::frFR,
         "QUEST.123.title",
         "Les Terres foudroyees",
-        "Quest 123 title in French — note: ASCII-only "
+        "Quest 123 title in French - note: ASCII-only "
         "approximation of 'foudroyées' to keep this "
         "source file ASCII-clean.");
     add(102, "Quest123Title_koKR", L::koKR,
@@ -179,7 +179,7 @@ WoweeLocalization WoweeLocalizationLoader::makeTooltipSet(
         e.iconColorRGBA = packRgba(180, 220, 180);   // tooltip green
         c.entries.push_back(e);
     };
-    // Item tooltip strings — high-volume client
+    // Item tooltip strings - high-volume client
     // localization use case. 4 strings × 2 languages
     // = 4 entries (deDE: 2, frFR: 2).
     add(200, "BindOnPickup_deDE", L::deDE,

@@ -1,4 +1,4 @@
-// lua_action_api.cpp — Action bar, cursor/pickup, keyboard input, key bindings, and pet actions Lua API bindings.
+// lua_action_api.cpp - Action bar, cursor/pickup, keyboard input, key bindings, and pet actions Lua API bindings.
 // Extracted from lua_engine.cpp as part of §5.1 (Tame LuaEngine).
 #include "addons/lua_api_helpers.hpp"
 // For fireEvent: paging has to reach the frames as well as the addons.
@@ -24,7 +24,7 @@ namespace wowee::addons {
 // This is the original interface's cursor, and it is not the only one: this
 // client's inventory screen keeps a held item of its own. They do not need
 // merging, because whichever interface is drawing the bags is the one the
-// player can pick anything up from, and that is the cursor in use — with the
+// player can pick anything up from, and that is the cursor in use - with the
 // bags owned, as they are by default, this is it.
 //
 // What that does mean is that CursorHasItem answers for this cursor alone. An
@@ -32,7 +32,7 @@ namespace wowee::addons {
 // no, which is true of the cursor it can see and not of the player's hand.
 // MERCHANT is a fifth kind and it is not an item: what the cursor holds is a
 // vendor's list index, not something the player owns. FrameXML's merchant
-// window puts one there on every left-click — PickupMerchantItem — and buying
+// window puts one there on every left-click - PickupMerchantItem - and buying
 // is what happens when it is dropped into a bag, so without it a left-click at
 // a vendor did nothing at all and only right-click bought.
 enum class CursorType { NONE, SPELL, ITEM, ACTION, MACRO, MERCHANT, MONEY, GUILDBANK };
@@ -80,15 +80,15 @@ int cursorEquipSlot() {
     return (s_cursorType == CursorType::ITEM && s_cursorBag == -1) ? s_cursorSlot : 0;
 }
 
-/// PickupPetAction(slot) — pick a pet ability up off the pet bar.
+/// PickupPetAction(slot) - pick a pet ability up off the pet bar.
 ///
 /// Defined and does nothing. The cursor here holds spells, items, actions and
 /// macros; a pet action is a fifth kind in its own slot space, and moving one
 /// is a server operation this client does not send. Inventing a cursor state
 /// that cannot be put down anywhere would be worse than not picking up.
 ///
-/// Defined because it is reachable three ways — shift-clicking a pet button,
-/// dragging one, and dropping on one — and the pet bar is drawn. Undefined,
+/// Defined because it is reachable three ways - shift-clicking a pet button,
+/// dragging one, and dropping on one - and the pet bar is drawn. Undefined,
 /// the first shift-click on a pet ability takes the bar down. Clicking a pet
 /// ability to use it goes through a different path and works; only rearranging
 /// the bar is lost.
@@ -97,7 +97,7 @@ static int lua_PickupPetAction(lua_State* L) { (void)L; return 0; }
 /// Change what the cursor is holding, and say so.
 ///
 /// CURSOR_UPDATE is how the interface learns the cursor picked something up or
-/// put it down — action buttons redraw their highlight on it, and the
+/// put it down - action buttons redraw their highlight on it, and the
 /// equipment and container frames test the cursor from it. Thirteen places set
 /// this and none of them said anything, so the cursor changed silently.
 ///
@@ -116,7 +116,7 @@ static void setCursorType(lua_State* L, CursorType type) {
     if (s_cursorType == type) return;
     // Putting anything down forgets the guild bank split. It rides on the
     // cursor between the pickup and the drop, and a leftover would be applied
-    // to the next withdrawal — a stack the player never asked to divide.
+    // to the next withdrawal - a stack the player never asked to divide.
     if (type != CursorType::GUILDBANK) s_cursorSplit = 0;
     const bool wasCarrying = (s_cursorType != CursorType::NONE);
     const bool nowCarrying = (type != CursorType::NONE);
@@ -129,7 +129,7 @@ static void setCursorType(lua_State* L, CursorType type) {
     // Picking something up shows the empty slots of the action bars, so there
     // is somewhere visible to drop it; putting it down hides them again. Every
     // action button registers for both and neither was ever fired, so dragging
-    // a spell towards the bar showed no targets at all — the bar looked as
+    // a spell towards the bar showed no targets at all - the bar looked as
     // though it would not take it.
     //
     // Fired on the change rather than on every set: this function is called
@@ -206,7 +206,7 @@ static int lua_IsUsableAction(lua_State* L) {
     }
     const auto& action = bar[slot];
     // Not the cooldown. WoW's answer here is about whether the action *could*
-    // be used — known, affordable, the right stance — and a spell waiting on a
+    // be used - known, affordable, the right stance - and a spell waiting on a
     // cooldown is all of those. The wait is shown by the sweep over the icon,
     // which is drawn from GetActionCooldown and nothing to do with this.
     //
@@ -296,8 +296,8 @@ static int lua_GetActionInfo(lua_State* L) {
             lua_pushnumber(L, action.id);
             lua_pushstring(L, "spell");
             // The fourth value, which for a spell action is the same id.
-            // vehiclemenubar reads it to build a link on a modified click —
-            // HandleModifiedItemClick(GetSpellLink(spellID)) — so without it
+            // vehiclemenubar reads it to build a link on a modified click -
+            // HandleModifiedItemClick(GetSpellLink(spellID)) - so without it
             // shift-clicking a vehicle button linked nothing. Only spells have
             // one; an item or a macro answers nil, as the real client does.
             lua_pushnumber(L, action.id);
@@ -381,7 +381,7 @@ static int lua_GetActionCooldown(lua_State* L) {
         lua_pushnumber(L, action.cooldownTotal);
         lua_pushnumber(L, 1);
     } else if (action.type == game::ActionBarSlot::SPELL && gh->isGCDActive()) {
-        // No individual cooldown but GCD is active — show GCD sweep
+        // No individual cooldown but GCD is active - show GCD sweep
         float gcdRem = gh->getGCDRemaining();
         float gcdTotal = gh->getGCDTotal();
         double now = 0;
@@ -400,12 +400,12 @@ static int lua_GetActionCooldown(lua_State* L) {
     return 3;
 }
 
-// UseAction(slot, unit, button) — activate action bar slot (1-indexed)
+// UseAction(slot, unit, button) - activate action bar slot (1-indexed)
 //
 // The second argument is a unit, and it was ignored. securetemplates is the
 // only caller and it passes what the button's own attributes resolved to:
 // nil for an ordinary click, and "player" when the self-cast modifier is
-// held — which is the whole of how self-casting works. Dropping it meant
+// held - which is the whole of how self-casting works. Dropping it meant
 // every action went at the current target, so self-cast did nothing, and a
 // unit-frame button carrying its own unit acted on whoever was targeted
 // instead.
@@ -426,7 +426,7 @@ static int lua_UseAction(lua_State* L) {
     if (action.type == game::ActionBarSlot::SPELL && action.isReady()) {
         // A unit that resolves wins; anything else falls back to the target,
         // which is what an ordinary click has always done. An unresolvable
-        // unit is not treated as "cast on nobody" — a raid frame naming a
+        // unit is not treated as "cast on nobody" - a raid frame naming a
         // member who has gone out of range should still cast at the target
         // rather than silently at nothing.
         uint64_t target = gh->hasTarget() ? gh->getTargetGuid() : 0;
@@ -452,8 +452,8 @@ static int lua_ClearCursor(lua_State* L) {
     //
     // This cleared the type, the id, the slot and the bag and left the icon,
     // which is a separate piece of state that only clearCursorItem touches. So
-    // cancelling a pickup — Escape, a right-click, a click on nothing, all of
-    // which reach this — put the item back and left its picture stuck to the
+    // cancelling a pickup - Escape, a right-click, a click on nothing, all of
+    // which reach this - put the item back and left its picture stuck to the
     // cursor for the rest of the session.
     clearCursorItem(L);
     return 0;
@@ -469,8 +469,8 @@ static int lua_GetCursorInfo(lua_State* L) {
             return 4;
         case CursorType::ITEM:
         // An item out of the guild bank is an item. Where it came from is this
-        // file's business — PickupContainerItem reads the cursor type to know a
-        // drop is a withdrawal — and saying so here would only give the
+        // file's business - PickupContainerItem reads the cursor type to know a
+        // drop is a withdrawal - and saying so here would only give the
         // interface a kind it has no branch for.
         case CursorType::GUILDBANK:
             lua_pushstring(L, "item");
@@ -515,7 +515,7 @@ static int lua_CursorHasSpell(lua_State* L) {
     return 1;
 }
 
-// PickupAction(slot) — picks up an action from the action bar
+// PickupAction(slot) - picks up an action from the action bar
 static int lua_PickupAction(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (!gh) return 0;
@@ -524,7 +524,7 @@ static int lua_PickupAction(lua_State* L) {
     if (slot < 1 || slot > static_cast<int>(bar.size())) return 0;
     const auto& action = bar[slot - 1];
     if (action.isEmpty()) {
-        // Empty slot — if cursor has something, place it
+        // Empty slot - if cursor has something, place it
         if (s_cursorType == CursorType::SPELL && s_cursorId != 0) {
             gh->setActionBarSlot(slot - 1, game::ActionBarSlot::SPELL, s_cursorId);
             clearCursorItem(L);
@@ -540,7 +540,7 @@ static int lua_PickupAction(lua_State* L) {
     return 0;
 }
 
-// PlaceAction(slot) — places cursor content into an action bar slot
+// PlaceAction(slot) - places cursor content into an action bar slot
 static int lua_PlaceAction(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (!gh) return 0;
@@ -557,7 +557,7 @@ static int lua_PlaceAction(lua_State* L) {
     return 0;
 }
 
-// PickupSpell(bookSlot, bookType) — picks up a spell from the spellbook
+// PickupSpell(bookSlot, bookType) - picks up a spell from the spellbook
 static int lua_PickupSpell(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (!gh) return 0;
@@ -575,14 +575,14 @@ static int lua_PickupSpell(lua_State* L) {
     return 0;
 }
 
-// PlaceGlyphInSocket(socket) — put the glyph on the cursor into that socket.
+// PlaceGlyphInSocket(socket) - put the glyph on the cursor into that socket.
 //
 // Registered here rather than with the other glyph calls because the glyph is
 // on the cursor and the cursor lives in this file. There is no socketing opcode
 // in 3.3.5: the glyph item is used with the socket written into the glyphIndex
 // field CMSG_USE_ITEM already carries, and the server applies the item's spell
 // to it. The comment this replaces said socketing "needs a packet this client
-// does not send" — the packet was there, one field short of saying where.
+// does not send" - the packet was there, one field short of saying where.
 static int lua_PlaceGlyphInSocket(lua_State* L) {
     auto* gh = getGameHandler(L);
     const int socket = static_cast<int>(luaL_optnumber(L, 1, 0));
@@ -594,11 +594,11 @@ static int lua_PlaceGlyphInSocket(lua_State* L) {
     return 0;
 }
 
-// PickupGuildBankItem(tab, slot) — both halves of a guild bank drag.
+// PickupGuildBankItem(tab, slot) - both halves of a guild bank drag.
 //
 // The frame calls this from OnDragStart and from OnReceiveDrag, so one function
 // picks up and puts down, the way PickupContainerItem does for bags. It was a
-// no-op, so nothing could be moved into or out of the guild bank at all —
+// no-op, so nothing could be moved into or out of the guild bank at all -
 // while the packet builder for the move sat verified against the server, and
 // AutoStoreGuildBankItem beside it has been using half of it for right-clicks.
 //
@@ -644,7 +644,7 @@ static int lua_PickupGuildBankItem(lua_State* L) {
     return 0;
 }
 
-// SplitGuildBankItem(tab, slot, amount) — take part of a stack.
+// SplitGuildBankItem(tab, slot, amount) - take part of a stack.
 //
 // The stack split dialog calls this instead of PickupGuildBankItem when the
 // player asks for fewer than all of them. It is the same pickup with a number
@@ -659,7 +659,7 @@ static int lua_SplitGuildBankItem(lua_State* L) {
     return 0;
 }
 
-// PickupCompanion(mode, index) — drag a mount or a critter to the bar.
+// PickupCompanion(mode, index) - drag a mount or a critter to the bar.
 //
 // Registered here rather than beside the other companion calls because the
 // cursor lives in this file, and because that is what this is: a pickup.
@@ -686,19 +686,19 @@ static int lua_PickupCompanion(lua_State* L) {
     return 0;
 }
 
-// PickupSpellBookItem(bookSlot, bookType) — alias for PickupSpell
+// PickupSpellBookItem(bookSlot, bookType) - alias for PickupSpell
 static int lua_PickupSpellBookItem(lua_State* L) {
     return lua_PickupSpell(L);
 }
 
-// PickupContainerItem(bag, slot) — picks up an item from a bag
+// PickupContainerItem(bag, slot) - picks up an item from a bag
 
 /// Where the item on the cursor lives, in the numbering the server uses.
 ///
 /// The server addresses one flat space: equipment is slots 0 to 22, the
 /// backpack follows at 23, and a bag's contents are addressed by that bag's own
 /// equipment slot together with an index inside it. FrameXML counts bags 0 to 4
-/// with 1-based slots instead, so the two have to be translated — the same
+/// with 1-based slots instead, so the two have to be translated - the same
 /// translation this client's own bag window does before sending a swap.
 static bool cursorWireSlot(uint8_t& bag, uint8_t& slot) {
     if (s_cursorType != CursorType::ITEM) return false;
@@ -799,7 +799,7 @@ static void pickupFromContainerSlot(lua_State* L, game::GameHandler* gh,
                     " item ", itemSlot->item.itemId);
     } else {
         LOG_WARNING("FrameXML pickup: bag ", bag, " slot ", slot,
-                    " — nothing there to pick up");
+                    " - nothing there to pick up");
     }
 }
 
@@ -814,11 +814,11 @@ void pickupSplitFromContainer(lua_State* L, game::GameHandler* gh,
 }
 
 
-/// PickupItem(id | "name" | link) — put an item on the cursor by naming it
+/// PickupItem(id | "name" | link) - put an item on the cursor by naming it
 /// rather than by pointing at a slot.
 ///
 /// A macro's own way to pick something up, and the 'item' branch of
-/// securehandlers.lua's cursor dispatcher — every other branch there was bound
+/// securehandlers.lua's cursor dispatcher - every other branch there was bound
 /// and this one raised.
 ///
 /// The first matching slot wins. WoW picks the first too, and a stack split
@@ -834,7 +834,7 @@ static int lua_PickupItem(lua_State* L) {
     if (lua_isnumber(L, 1)) {
         wantId = static_cast<uint32_t>(lua_tonumber(L, 1));
     } else if (const char* text = lua_tostring(L, 1)) {
-        // A link carries the id in it — "|Hitem:6948:0:..." — and is what a
+        // A link carries the id in it - "|Hitem:6948:0:..." - and is what a
         // shift-click puts in a macro, so it is the common case rather than
         // the exotic one.
         const std::string str(text);
@@ -923,7 +923,7 @@ static int lua_PickupContainerItem(lua_State* L) {
             dstSlot = static_cast<uint8_t>(slot - 1);
         }
         // At warning level because it is the outcome of a drag and happens
-        // once per drop, and because the log carries nothing below warning —
+        // once per drop, and because the log carries nothing below warning -
         // which is why "did the move go out" could not be answered at all.
         LOG_WARNING("FrameXML drop: bag ", s_cursorBag, " slot ", s_cursorSlot,
                     " (wire ", (int)srcBag, "/", (int)srcSlot, ") -> bag ", bag,
@@ -959,14 +959,14 @@ static int lua_PickupContainerItem(lua_State* L) {
     return 0;
 }
 
-// PickupInventoryItem(slot) — picks up an equipped item
-// ClickSendMailItemButton(index, isRightClick) — attach what is held to the
+// PickupInventoryItem(slot) - picks up an equipped item
+// ClickSendMailItemButton(index, isRightClick) - attach what is held to the
 // letter, or take an attachment back.
 //
 // Lives here rather than with the other mail functions because the cursor
 // does, and this is entirely about the cursor: carrying an item means attach
 // it, carrying nothing means the slot clicked gives its item back to the bags.
-// The attachment index is optional — the drop handler calls this with no
+// The attachment index is optional - the drop handler calls this with no
 // arguments at all, meaning "attach to wherever there is room", which is what
 // attachItemFrom* already does.
 static int lua_ClickSendMailItemButton(lua_State* L) {
@@ -992,20 +992,20 @@ static int lua_ClickSendMailItemButton(lua_State* L) {
     return 0;
 }
 
-// PickupBagFromSlot(inventorySlot) — pick up or put down a bank bag.
+// PickupBagFromSlot(inventorySlot) - pick up or put down a bank bag.
 //
 // The bank's bag buttons hand over an inventory slot rather than an index:
 // BankButtonIDToInvSlotID puts the seven bank bags at sixty-eight upward, and
 // the wire counts from zero, so the slot sent is one less. That is the same
 // arithmetic PickupInventoryItem does for worn equipment, and the cursor
-// carries it the same way — a negative bag means "not in a container", which
+// carries it the same way - a negative bag means "not in a container", which
 // cursorWireSlot turns back into container 0xFF and the slot less one.
 //
 // Deferred for a long time on the belief that this client had no cursor to
 // drop things from. It has had one all along, with both halves of a drag in
 // one function, and the wire numbers here are the ones its own bank window
 // already sends.
-/// The nth worn bag, as Lua numbers inventory slots — the four beside the
+/// The nth worn bag, as Lua numbers inventory slots - the four beside the
 /// backpack. BagSlotButton_OnDrag passes exactly these.
 static constexpr int kFirstWornBagInventorySlot =
     game::slots::toInventorySlot(game::slots::wornBagContainer(0));
@@ -1020,7 +1020,7 @@ static int lua_PickupBagFromSlot(lua_State* L) {
     const bool isBank = bankIndex >= 0 && bankIndex < game::Inventory::BANK_BAG_SLOTS;
     const bool isWorn = wornIndex >= 0 && wornIndex < game::Inventory::NUM_BAG_SLOTS;
     // Only the bank half was handled, so dragging one of the four worn bags did
-    // nothing at all — it returned here before doing anything. Latent until the
+    // nothing at all - it returned here before doing anything. Latent until the
     // bag bar was handed over, because this client's own bar never called it.
     if (!isBank && !isWorn) return 0;
 
@@ -1064,8 +1064,8 @@ static int lua_PickupBagFromSlot(lua_State* L) {
     wowee::ui::frameXmlSetCursorItem(
         displayId ? gh->getItemIconPath(displayId) : std::string());
     // And say the slot is locked, as the equipped pickup below does.
-    // IsInventoryItemLocked already answers true for it — cursorEquipSlot
-    // reads the same s_cursorSlot this just set — but nothing asks again
+    // IsInventoryItemLocked already answers true for it - cursorEquipSlot
+    // reads the same s_cursorSlot this just set - but nothing asks again
     // without this, so the square greyed only on the next unrelated redraw.
     // One argument, because the paperdoll's handler tests `not arg2`.
     gh->fireAddonEvent("ITEM_LOCK_CHANGED", {std::to_string(slot)});
@@ -1079,7 +1079,7 @@ static int lua_PickupInventoryItem(lua_State* L) {
     if (slot < 1 || slot > 23) return 0;
 
     // Before the pickup, because the paperdoll has no SpellCanTargetItem branch
-    // of its own — a left-click on a worn weapon always arrives here, and while
+    // of its own - a left-click on a worn weapon always arrives here, and while
     // a stone or an oil is waiting for a target that click is the target.
     if (slot <= 19 && completedItemTarget(L, gh->getEquipSlotGuid(slot - 1))) return 0;
 
@@ -1125,12 +1125,12 @@ static int lua_PickupInventoryItem(lua_State* L) {
                     " item ", eq.item.itemId);
     } else {
         LOG_WARNING("FrameXML pickup: equipment slot ", slot,
-                    " — nothing equipped there");
+                    " - nothing equipped there");
     }
     return 0;
 }
 
-// DeleteCursorItem() — destroys the item on the cursor.
+// DeleteCursorItem() - destroys the item on the cursor.
 //
 // It only put the cursor down. Nothing was ever destroyed: the item vanished
 // from the cursor, the server was never told, and the next bag update put it
@@ -1151,7 +1151,7 @@ static int lua_DeleteCursorItem(lua_State* L) {
     return 0;
 }
 
-// AutoEquipCursorItem() — equip item from cursor
+// AutoEquipCursorItem() - equip item from cursor
 static int lua_AutoEquipCursorItem(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (gh && s_cursorType == CursorType::ITEM && s_cursorId != 0) {
@@ -1181,7 +1181,7 @@ static bool altHeld()   { return (SDL_GetModState() & KMOD_ALT)   != 0; }
 ///
 /// One list, read once. The emitter keeps every <ModifiedClick action= default=>
 /// in __WoweeModifiedClick, which is the same file the key bindings panel is
-/// built from — so this cannot drift from what the interface believes.
+/// built from - so this cannot drift from what the interface believes.
 ///
 /// It had drifted. A table written out by hand here answered ALT for FOCUSCAST,
 /// which bindings.xml declares as NONE, so alt-clicking a spell tried to cast
@@ -1199,7 +1199,7 @@ static std::string modifiedClickBinding(lua_State* L, const std::string& action)
 
 /// Whether the modifiers a binding names are all held.
 ///
-/// A binding is a dash-separated list ending in an optional button —
+/// A binding is a dash-separated list ending in an optional button -
 /// "SHIFT-BUTTON1", "CTRL", "NONE". The button half is the caller's business:
 /// it already knows which button was pressed, and every caller here is inside
 /// a handler for one.
@@ -1220,7 +1220,7 @@ static bool modifiersHeldFor(const std::string& binding) {
         // else: CHATLINK is SHIFT-BUTTON1 and SOCKETITEM is SHIFT-BUTTON2.
         // Reading only the modifier made both true on any shift-click, so
         // shift-clicking an item in a bag put the link in chat and opened the
-        // socketing window behind it — or, when the link could not be
+        // socketing window behind it - or, when the link could not be
         // inserted, only the socketing window.
         else if (part == "BUTTON1") wantButton = "LeftButton";
         else if (part == "BUTTON2") wantButton = "RightButton";
@@ -1229,8 +1229,8 @@ static bool modifiersHeldFor(const std::string& binding) {
     }
     if (!wantShift && !wantCtrl && !wantAlt) return false;
     if (!wantButton.empty()) {
-        // Only while a click is being dispatched. Asked at any other moment —
-        // an OnUpdate deciding what a tooltip should say — the modifier alone
+        // Only while a click is being dispatched. Asked at any other moment -
+        // an OnUpdate deciding what a tooltip should say - the modifier alone
         // is the whole of the question, and the button has not been pressed.
         const std::string& clicking = currentClickButton();
         if (!clicking.empty() && clicking != wantButton) return false;
@@ -1271,7 +1271,7 @@ static int lua_GetModifiedClick(lua_State* L) {
     return 1;
 }
 
-// SetModifiedClick(action, binding) — rebinding one from the options panel.
+// SetModifiedClick(action, binding) - rebinding one from the options panel.
 //
 // It wrote nowhere, so the panel accepted a change and the next question about
 // that action answered the old value. The table the emitter fills is the same
@@ -1350,7 +1350,7 @@ static int lua_GetTradeTargetItemLink(lua_State* L) {
     return pushTradeLink(L, gh, gh->getPeerTradeSlots()[i - 1]);
 }
 
-// ClickTradeButton(slot) — put what is held into the slot, or take back what is
+// ClickTradeButton(slot) - put what is held into the slot, or take back what is
 // already there when nothing is held
 static int lua_ClickTradeButton(lua_State* L) {
     auto* gh = getGameHandler(L);
@@ -1358,8 +1358,8 @@ static int lua_ClickTradeButton(lua_State* L) {
     if (!gh || i < 1 || i > game::GameHandler::TRADE_SLOT_COUNT) return 0;
     uint8_t srcBag = 0, srcSlot = 0;
     // Through the same translation as every other send. This passed FrameXML's
-    // own numbering straight to the server — bags counted 0 to 4 and slots from
-    // one — where the wire wants the flat space GetItemByPos reads: container
+    // own numbering straight to the server - bags counted 0 to 4 and slots from
+    // one - where the wire wants the flat space GetItemByPos reads: container
     // 255 with an absolute slot, or a worn bag's equipment slot with a 0-based
     // index inside it. The server finds no item at the slot it was given and
     // answers TRADE_STATUS_TRADE_CANCELED, so offering an item ended the trade.
@@ -1471,7 +1471,7 @@ void pushBindingToClient(const std::string& command, const std::string& key) {
 /// The key the client is listening for, when this is a command it acts on.
 ///
 /// Read at the moment it is asked rather than from the copy below, because the
-/// client's own settings panel can rebind these too — and then the copy is a
+/// client's own settings panel can rebind these too - and then the copy is a
 /// second answer to a question the manager already owns, one keystroke out of
 /// date and shown on every action button.
 std::optional<std::string> liveKeyFor(const std::string& command) {
@@ -1487,7 +1487,7 @@ std::optional<std::string> liveKeyFor(const std::string& command) {
 }
 
 /// The keys the client is actually listening for, asked of the manager that
-/// listens rather than restated here — a second copy would be wrong the moment
+/// listens rather than restated here - a second copy would be wrong the moment
 /// either side moved. Commands the client has no action for keep their retail
 /// default, so the list reads correctly even where nothing acts on it yet.
 void seedBindingDefaults() {
@@ -1543,7 +1543,7 @@ std::string bindingAt(lua_State* L, int index) {
 
 bool clientActsOnBinding(const std::string& command) {
     // The nine the client really performs, asked of the same list that keeps
-    // their keys in step rather than restated — a second copy would be wrong
+    // their keys in step rather than restated - a second copy would be wrong
     // the moment either side moved.
     for (const auto& live : kLiveBindings) {
         if (command == live.command) return true;
@@ -1556,7 +1556,7 @@ bool clientActsOnBinding(const std::string& command) {
     //
     // By command rather than by key, because the conflict is that the *action*
     // happens twice. Most bindings toggle something, so two answers to one
-    // press cancel out and the key reads as dead — which is worse than doing
+    // press cancel out and the key reads as dead - which is worse than doing
     // nothing, since it looks like the binding never ran.
     static constexpr const char* kClientAnswers[] = {
         "MOVEFORWARD", "MOVEBACKWARD", "TURNLEFT", "TURNRIGHT",
@@ -1639,7 +1639,7 @@ static int lua_SetBinding(lua_State* L) {
     const char* command = lua_isnoneornil(L, 2) ? nullptr : luaL_checkstring(L, 2);
 
     // A key belongs to one command at a time, so it leaves the one that had it
-    // before it joins another — otherwise both claim it and which one answers
+    // before it joins another - otherwise both claim it and which one answers
     // depends on map order.
     for (auto& [existing, keys] : bindingKeys()) {
         for (std::string& slot : keys) {
@@ -1703,7 +1703,7 @@ static int lua_LoadBindings(lua_State* L) {
             comma == std::string::npos ? "" : rest.substr(comma + 1)
         };
         // What was saved is what the client should answer to, not what it
-        // started with — otherwise a rebind survives in the list and nowhere
+        // started with - otherwise a rebind survives in the list and nowhere
         // else, and only until the next save overwrites it.
         pushBindingToClient(command, bindingKeys()[command][0]);
     }
@@ -1729,7 +1729,7 @@ static int lua_RunBinding(lua_State* L) {
     lua_pop(L, 1);
     return 0;
 }
-// The override-binding family, none of which this client implements — only
+// The override-binding family, none of which this client implements - only
 // the Click variant was ever *bound*, and the other four raised. They are
 // reached from restrictedframes.lua, the secure-frame machinery behind action
 // buttons and unit frames, so a raise there breaks the frame rather than the
@@ -1751,7 +1751,7 @@ void registerActionLuaAPI(lua_State* L) {
                 // GetActionText(slot) → the name written under the button.
                 //
                 // Only a macro has one, which is what the action button draws
-                // in its Name font string — so with nil answered for every slot
+                // in its Name font string - so with nil answered for every slot
                 // a bar full of macros was a row of nameless icons, all of them
                 // the same question mark unless the player had picked an icon.
                 // The names were there: GetMacroInfo has been reading them off
@@ -1771,7 +1771,7 @@ void registerActionLuaAPI(lua_State* L) {
         }},
                 // Whether the action has a range to be in or out of. Nothing
                 // here tracks that yet, and false is what "no range check"
-                // looks like — the button simply never dims for distance.
+                // looks like - the button simply never dims for distance.
                 {"ActionHasRange",      [](lua_State* L) -> int {
                     lua_pushboolean(L, 0);
                     return 1;
@@ -1796,7 +1796,7 @@ void registerActionLuaAPI(lua_State* L) {
                 {"PickupItem",          lua_PickupItem},
                 // The totem bar's summon flyout calls these two from its
                 // OnClick and OnLeave, and nothing in this interface defines
-                // them — not multicastactionbarframe.lua beside the XML that
+                // them - not multicastactionbarframe.lua beside the XML that
                 // calls them, not anywhere. An upstream gap rather than one of
                 // this client's, but the raise lands here all the same, and it
                 // lands on a shaman clicking their own totem bar.
@@ -1896,7 +1896,7 @@ void registerActionLuaAPI(lua_State* L) {
             lua_pushnumber(L, id);
             return 1;
         }},
-                // DeleteMacro(index) — and the rest of the half shifts down.
+                // DeleteMacro(index) - and the rest of the half shifts down.
                 //
                 // Every macro verb here takes what WoW calls an index and what
                 // this client stores as an id, and the two are the same number
@@ -1906,7 +1906,7 @@ void registerActionLuaAPI(lua_State* L) {
                 //
                 // What that costs: with macros in slots 1, 2 and 3, deleting
                 // the second leaves 1 and 3. GetNumMacros counts two, so the
-                // macro frame asks for slots 1 and 2 — one macro, one blank
+                // macro frame asks for slots 1 and 2 - one macro, one blank
                 // row, and the macro in slot 3 invisible and unreachable.
                 //
                 // Compacting is also what WoW does. Deleting a macro there
@@ -1941,7 +1941,7 @@ void registerActionLuaAPI(lua_State* L) {
         }},
                 // Saved as each change is made, so this has nothing to do.
                 {"SaveMacros",          [](lua_State* L) -> int { (void)L; return 0; }},
-                // PickupMacro(id) — onto the cursor, so it can be dropped on
+                // PickupMacro(id) - onto the cursor, so it can be dropped on
                 // an action slot. The slot type already existed and the packet
                 // that sets it already went out for spells and items; a macro
                 // was simply never something the cursor could hold.
@@ -1963,7 +1963,7 @@ void registerActionLuaAPI(lua_State* L) {
                 {"ClickTradeButton",    lua_ClickTradeButton},
                 {"ClickTargetTradeButton", lua_ClickTargetTradeButton},
                 {"SetTradeMoney",       lua_SetTradeMoney},
-                // CancelTradeAccept() — take an acceptance back without
+                // CancelTradeAccept() - take an acceptance back without
                 // closing the trade. The cancel button does this instead of
                 // closing while the player has already accepted, so without it
                 // the only way out of an accepted trade was to end it.
@@ -1978,10 +1978,10 @@ void registerActionLuaAPI(lua_State* L) {
                 {"GetNumBindings",      lua_GetNumBindings},
                 {"GetBinding",          lua_GetBinding},
                 {"SetBinding",          lua_SetBinding},
-                // GetBindingByKey(key) — the binding a key runs, or nil.
+                // GetBindingByKey(key) - the binding a key runs, or nil.
                 //
                 // Reached from GetBindingFromClick, which StaticPopup_OnKeyDown
-                // calls on *every* keypress while a popup is up — so with
+                // calls on *every* keypress while a popup is up - so with
                 // dialogs handed over, pressing any key with one on screen hit
                 // an unbound global and raised. Escape is how a popup is
                 // dismissed, so it was the keypress most likely to hit it.
@@ -2000,7 +2000,7 @@ void registerActionLuaAPI(lua_State* L) {
             else                           lua_pushnil(L);
             return 1;
         }},
-                // GetQuestGreenRange() — how many levels below the player a
+                // GetQuestGreenRange() - how many levels below the player a
                 // thing can be before it turns grey.
                 //
                 // This was left unbound on the grounds that a guessed constant
@@ -2030,18 +2030,18 @@ void registerActionLuaAPI(lua_State* L) {
                 // because doing nothing is the right behaviour rather than a
                 // placeholder for it. SetUIVisibility is reached only from
                 // ToggleGameMenu's first branch, which runs when UIParent is
-                // hidden — out of the way until someone hides the interface,
+                // hidden - out of the way until someone hides the interface,
                 // and then on the only path that brings it back.
                 // ConsoleAddMessage is the sink for FrameXML's debug print.
                 {"SetUIVisibility",   [](lua_State* L) -> int { (void)L; return 0; }},
                 {"ConsoleAddMessage", [](lua_State* L) -> int { (void)L; return 0; }},
-                // GetCurrentBindingSet() — which set SaveBindings should write.
+                // GetCurrentBindingSet() - which set SaveBindings should write.
                 //
                 // 1 is account-wide and 2 is per character. This client keeps
                 // one set of bindings, so it is always the first. It was
                 // missing rather than stubbed, and interfaceoptionspanels.lua
                 // calls SaveBindings(GetCurrentBindingSet()) from three
-                // separate option handlers — so changing an option would have
+                // separate option handlers - so changing an option would have
                 // thrown rather than saved.
                 {"GetCurrentBindingSet", [](lua_State* L) -> int {
             lua_pushnumber(L, 1); return 1;
@@ -2056,8 +2056,8 @@ void registerActionLuaAPI(lua_State* L) {
                 {"SetOverrideBindingItem",  lua_SetOverrideBindingItem},
                 {"ClearOverrideBindings", lua_ClearOverrideBindings},
                 // Paging lives here, and the getter with it. Both were
-                // defined twice — this pair against __WoweeActionBarPage and a
-                // bootstrap pair against a local — so whichever won,
+                // defined twice - this pair against __WoweeActionBarPage and a
+                // bootstrap pair against a local - so whichever won,
                 // ChangeActionBarPage could move one number while
                 // GetActionBarPage read the other. Removing only the getter
                 // made that worse rather than better, which is what happened
@@ -2077,7 +2077,7 @@ void registerActionLuaAPI(lua_State* L) {
             //
             // This walked __WoweeEvents by hand and stopped there. That table
             // is where an addon's RegisterEvent lands; FrameXML registers
-            // through frame:RegisterEvent, which fills __WoweeFrameEvents — so
+            // through frame:RegisterEvent, which fills __WoweeFrameEvents - so
             // the six frames that listen for this, including the one in
             // actionbutton.lua that redraws every button, were never told.
             //
@@ -2103,7 +2103,7 @@ void registerActionLuaAPI(lua_State* L) {
         }},
                 // Happiness, for a hunter's pet only. Nil is the honest answer
                 // for everyone else and the one PetFrame_SetHappiness guards
-                // for — the fallback answering with an object instead made
+                // for - the fallback answering with an object instead made
                 // that guard pass and the branch index nothing.
                 // GetMirrorTimerInfo(index) → timer, value, maxvalue, scale,
                 // paused, label.
@@ -2139,8 +2139,8 @@ void registerActionLuaAPI(lua_State* L) {
                 // GetPetHappiness() → happiness 1..3, and what it does to damage
                 //
                 // Both values, and that is not tidiness. The pet frame does
-                // format(PET_DAMAGE_PERCENTAGE, damagePercentage) — "Causes %d%%
-                // of normal damage" — the moment happiness is anything at all,
+                // format(PET_DAMAGE_PERCENTAGE, damagePercentage) - "Causes %d%%
+                // of normal damage" - the moment happiness is anything at all,
                 // and %d against nil raises. Answering nil, as this did before,
                 // was safe only because the line above it returns early on a nil
                 // happiness; filling in the first value alone would have turned
@@ -2148,8 +2148,8 @@ void registerActionLuaAPI(lua_State* L) {
                 //
                 // Happiness is a power like mana, at index 4, running from
                 // nothing to its own maximum. The three faces are the thirds of
-                // that range, and the damage each is worth — three quarters,
-                // normal, a quarter more — is the game's, not a guess.
+                // that range, and the damage each is worth - three quarters,
+                // normal, a quarter more - is the game's, not a guess.
                 {"GetPetHappiness", [](lua_State* L) -> int {
             auto* pet = resolveUnit(L, "pet");
             if (!pet) { lua_pushnil(L); return 1; }
@@ -2177,7 +2177,7 @@ void registerActionLuaAPI(lua_State* L) {
                 // so an absent answer greyed out every ability the pet has. A
                 // slot holding a spell is usable; an empty one has nothing to
                 // grey.
-                // CancelItemTempEnchantment(hand) — drop a weapon imbue
+                // CancelItemTempEnchantment(hand) - drop a weapon imbue
                 //
                 // The interface counts the hands from one and the request from
                 // zero, which is the only thing between them.
@@ -2206,8 +2206,8 @@ void registerActionLuaAPI(lua_State* L) {
                 //
                 // Six of the pet bar's ten slots are not spells at all: three
                 // commands (attack, follow, stay) and three stances. This read
-                // every slot as a spell, so the low 24 bits — which for those
-                // six are 0, 1 or 2 — were looked up as spell ids. The bar's
+                // every slot as a spell, so the low 24 bits - which for those
+                // six are 0, 1 or 2 - were looked up as spell ids. The bar's
                 // command buttons were drawn with whatever Spell.dbc has at
                 // those numbers, or with "Unknown" and a question mark.
                 //
@@ -2259,9 +2259,9 @@ void registerActionLuaAPI(lua_State* L) {
             }
 
             if (tokenName) {
-                lua_pushstring(L, tokenName);       // 1: name — a global's name
+                lua_pushstring(L, tokenName);       // 1: name - a global's name
                 lua_pushstring(L, "");              // 2: subtext
-                lua_pushstring(L, tokenTexture);    // 3: texture — likewise
+                lua_pushstring(L, tokenTexture);    // 3: texture - likewise
                 lua_pushboolean(L, 1);              // 4: isToken
                 lua_pushboolean(L, active ? 1 : 0); // 5: isActive
                 // A command or a stance has nothing to cast automatically, and
@@ -2280,7 +2280,7 @@ void registerActionLuaAPI(lua_State* L) {
             lua_pushstring(L, iconPath.empty() ? "Interface\\Icons\\INV_Misc_QuestionMark"
                                                : iconPath.c_str());
             lua_pushboolean(L, 0);                                      // isToken
-            // A pet spell is never "active" — that is the checked ring, which
+            // A pet spell is never "active" - that is the checked ring, which
             // belongs to the stance. Reading the autocast bits as active put
             // it on every spell the pet knows.
             lua_pushboolean(L, 0);                                      // isActive
@@ -2288,7 +2288,7 @@ void registerActionLuaAPI(lua_State* L) {
             lua_pushboolean(L, gh->isPetSpellAutocast(spellId) ? 1 : 0);
             return 7;
         }},
-                // IsPetAttackAction(index) — which slot is the attack command,
+                // IsPetAttackAction(index) - which slot is the attack command,
                 // so the bar can flash it while the pet is on a target.
                 {"IsPetAttackAction", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
@@ -2306,7 +2306,7 @@ void registerActionLuaAPI(lua_State* L) {
                 //
                 // A flat zero, so a pet ability on cooldown was drawn ready and
                 // clickable. The client has tracked pet spell cooldowns all
-                // along — they arrive on the same packet as the player's.
+                // along - they arrive on the same packet as the player's.
                 //
                 // Only the remaining time is kept, not the original duration,
                 // so the cooldown is reported as starting now and lasting what
@@ -2371,7 +2371,7 @@ void registerActionLuaAPI(lua_State* L) {
             uint32_t packed = gh->getPetActionSlot(index - 1);
             uint32_t spellId = packed & 0x00FFFFFF;
             if (spellId != 0) {
-                // CastPetAction(action, unit) — the unit is what a click-cast
+                // CastPetAction(action, unit) - the unit is what a click-cast
                 // binding on a unit frame passes, and dropping it sent the pet
                 // at whatever was targeted instead of what was clicked. The
                 // same fault CastSpellByID had, two files over.
@@ -2438,7 +2438,7 @@ void registerActionLuaAPI(lua_State* L) {
                 // UNLEARN_SKILL's accept, from the skill panel's unlearn
                 // button. The skill line comes from the button's own row.
                 // Takes a skill id here, and FrameXML's one caller passes it
-                // whatever it was handed as the popup's data — which in the
+                // whatever it was handed as the popup's data - which in the
                 // original client is the skills tab's row index, not an id.
                 // Nothing shows UNLEARN_SKILL in this build (GetSkillLineInfo
                 // answers isAbandonable false, so no row offers to unlearn), so
@@ -2465,7 +2465,7 @@ void registerActionLuaAPI(lua_State* L) {
             return 0;
         }},
                 // The third stance, which was a no-op in another file entirely
-                // — so a hunter could set a pet passive or defensive and not
+                // - so a hunter could set a pet passive or defensive and not
                 // aggressive, and the button for it did nothing.
                 {"PetAggressiveMode", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
@@ -2482,7 +2482,7 @@ void registerActionLuaAPI(lua_State* L) {
 
     // The cursor, for this client's own windows to read. They keep a separate
     // held item of their own, so a drag out of a handed-over bag into a window
-    // that is still this client's — the bank, the mailbox, a trade — had no way
+    // that is still this client's - the bank, the mailbox, a trade - had no way
     // to know anything had been picked up.
     //
     // Registered here rather than mirrored into the ui layer because this is

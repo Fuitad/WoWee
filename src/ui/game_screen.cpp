@@ -68,7 +68,7 @@ namespace {
     // sphere is a poor click target: the half-diagonal reaches well past the geometry and
     // swallows NPCs standing next to it, so those units become unclickable. Clamping the
     // GO pick radius keeps large objects clickable near their center without stealing the
-    // click from a neighbor. Units are never clamped — this is a GO-only correction, the
+    // click from a neighbor. Units are never clamped - this is a GO-only correction, the
     // same reasoning that already makes WMO GOs fall back to a conservative fixed sphere.
 
 
@@ -126,7 +126,7 @@ namespace {
 /// This was a flat five pixels, which is a different gesture on different
 /// screens: five pixels is a third of a percent of a 1280-wide window and a
 /// tenth of that on a 3840-wide one, so the same small hand movement that reads
-/// as a click on a modest display reads as a drag on a large one — and a
+/// as a click on a modest display reads as a drag on a large one - and a
 /// discarded right-click is an NPC that cannot be interacted with at all.
 /// Scaled by the window, with a floor so it never becomes stricter than it was.
 float clickDragThreshold() {
@@ -246,7 +246,7 @@ void GameScreen::render(game::GameHandler& gameHandler) {
     if (!uiErrorCallbackSet_) {
         gameHandler.setUIErrorCallback([this](const std::string& msg) {
             // The sound first, and outside the gate. It belongs to no
-            // element — the error is the same error whoever draws the text —
+            // element - the error is the same error whoever draws the text -
             // and it sat after the return, so handing the errors over would
             // have taken the sound with them.
             if (auto* ac = services_.audioCoordinator) {
@@ -336,7 +336,7 @@ void GameScreen::render(game::GameHandler& gameHandler) {
         }
     }
 
-    // Normally already done at startup — see applySavedAntiAliasing, which the
+    // Normally already done at startup - see applySavedAntiAliasing, which the
     // application calls before the first frame. This is the fallback for a
     // renderer that was not there yet, and it latches either way.
     if (!settingsPanel_.msaaSettingsApplied_ && settingsPanel_.pendingAntiAliasing > 0) {
@@ -580,7 +580,7 @@ void GameScreen::render(game::GameHandler& gameHandler) {
         socialPanel_.renderSocialFrame(gameHandler, chatPanel_);
     }
     // FrameXML's buff frame is checked as in use beside the minimap cluster,
-    // and this one was drawn regardless — two bars of the same auras.
+    // and this one was drawn regardless - two bars of the same auras.
     if (!frameXmlOwns(UiElement::Buffs)) {
         combatUI_.renderBuffBar(gameHandler, spellbookScreen, inventoryScreen, settingsPanel_, spellIconFn);
     }
@@ -679,7 +679,7 @@ void GameScreen::render(game::GameHandler& gameHandler) {
     // minimap is the one place that is wrong: WoW's minimap blips come from
     // the C client, not from the interface. minimap.xml declares the border,
     // the buttons, the mail and battlefield icons and the north tag, and not
-    // one frame for a party member, a flight master or a corpse — so handing
+    // one frame for a party member, a flight master or a corpse - so handing
     // the minimap over and standing this down left the ring drawn, the map
     // inside it drawn, and nothing on it at all.
     //
@@ -698,7 +698,7 @@ void GameScreen::render(game::GameHandler& gameHandler) {
         windowManager_.renderEscapeMenu(settingsPanel_, gameHandler);
     }
     // Not gated on GameMenu ownership. FrameXML's own options frames are shells
-    // — its menu buttons are routed here through ShowUIPanel — and this window
+    // - its menu buttons are routed here through ShowUIPanel - and this window
     // draws nothing unless something opened it, so leaving it out cost every
     // setting in it the moment the menu was handed over.
     settingsPanel_.renderSettingsWindow(chatPanel_, [this]() { saveSettings(); });
@@ -707,7 +707,7 @@ void GameScreen::render(game::GameHandler& gameHandler) {
 
     // Always, because this is the only thing that feeds the map its data and
     // the only thing that draws it. Skipping it when FrameXML owns the map
-    // left the panel FrameXML drew with nothing in it — the half of that
+    // left the panel FrameXML drew with nothing in it - the half of that
     // handover that positions the map inside WorldMapDetailFrame was built and
     // the half that renders it was not. renderWorldMap decides for itself
     // whether the map is wanted; under FrameXML that is FrameXML's frame being
@@ -958,7 +958,7 @@ void GameScreen::render(game::GameHandler& gameHandler) {
         }
     }
 
-    // Screen edge damage flash — red vignette that fires on HP decrease
+    // Screen edge damage flash - red vignette that fires on HP decrease
     {
         const bool deadOrGhost = gameHandler.isPlayerDead() || gameHandler.isPlayerGhost();
         auto playerEntity = gameHandler.getEntityManager().getEntity(gameHandler.getPlayerGuid());
@@ -970,7 +970,7 @@ void GameScreen::render(game::GameHandler& gameHandler) {
                 currentHp = unit->getHealth();
         }
 
-        // Detect HP drop (ignore transitions from 0 — entity just spawned or uninitialized)
+        // Detect HP drop (ignore transitions from 0 - entity just spawned or uninitialized)
         if (!deadOrGhost && settingsPanel_.damageFlashEnabled_ &&
             lastPlayerHp_ > 0 && currentHp < lastPlayerHp_ && currentHp > 0) {
             damageFlashAlpha_ = 1.0f;
@@ -992,7 +992,7 @@ void GameScreen::render(game::GameHandler& gameHandler) {
         }
     }
 
-    // Persistent low-health vignette — pulsing red edges when HP < 20%
+    // Persistent low-health vignette - pulsing red edges when HP < 20%
     {
         auto playerEntity = gameHandler.getEntityManager().getEntity(gameHandler.getPlayerGuid());
         const bool deadOrGhost = gameHandler.isPlayerDead() || gameHandler.isPlayerGhost();
@@ -1086,7 +1086,7 @@ void GameScreen::renderMicroMenu(game::GameHandler& gameHandler) {
         //
         // Reachable only from a hand-picked WOWEE_FRAMEXML_UI that names one
         // of these panels without naming mainmenubar. Both the defaults and
-        // "candidates" include mainmenubar, which covers MicroMenu — so this
+        // "candidates" include mainmenubar, which covers MicroMenu - so this
         // whole menu is gated off there and none of these buttons is drawn at
         // all. I claimed otherwise when writing this and was wrong: the group
         // cover in coveredByGroup is easy to read past, and "bags is a default
@@ -1146,7 +1146,7 @@ void GameScreen::renderMicroMenu(game::GameHandler& gameHandler) {
         // Not routed, and there is nothing to route it to: FrameXML has no
         // toggle for party frames, which simply appear while there is a party.
         // With that element handed over this flips a flag whose only reader is
-        // gated off, which is a button that does nothing — but calling
+        // gated off, which is a button that does nothing - but calling
         // something that does not exist would be worse, and the frames are
         // already on screen at that point.
         if (button("G##MicroGroup", "Party/Raid Frames", socialPanel_.showRaidFrames_)) {
@@ -1327,7 +1327,7 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
     // Enter and slash open the chat box. Which chat box depends on who owns it.
     //
     // These reached this client's panel unconditionally, and its render is
-    // gated on the same ownership — so with the chat handed over they set a
+    // gated on the same ownership - so with the chat handed over they set a
     // focus flag on a panel that is never drawn, and the interface's own edit
     // box stayed shut. There was no other way in: FrameXML's OPENCHAT and
     // OPENCHATSLASH bindings are not in this client's route table, so with the
@@ -1335,7 +1335,7 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
     //
     // The keystrokes that follow do need a guard, and the reason they were
     // thought not to is worth keeping: the application's key loop does hand
-    // FrameXML's focused box every press and stop there — but only on the
+    // FrameXML's focused box every press and stop there - but only on the
     // event path. What is below reads the key state directly, once a frame,
     // and a poll never went through that loop to be stopped by it. So typing
     // did walk the character and did fire bindings, and the one question both
@@ -1354,7 +1354,7 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
         if (io.WantTextInput || interfaceTakingTypedInput() ||
             interfaceConsumedKey(ImGuiKey_Enter) ||
             chatPanel_.isChatInputActive()) {
-            LOG_WARNING("Chat key: refused — ImGui wants text: ",
+            LOG_WARNING("Chat key: refused - ImGui wants text: ",
                      io.WantTextInput ? "yes" : "no",
                      ", the interface's box has focus: ",
                      interfaceTakingTypedInput() ? "yes" : "no",
@@ -1370,7 +1370,7 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
     // The interface's box gets this press first when it has focus, and Enter
     // is where it says it is done: ChatEdit_OnEnterPressed sends the line and
     // ends in ChatEdit_OnEscapePressed, which hides the box. That is also what
-    // clears the focus this poll's guard reads — so the press that sent the
+    // clears the focus this poll's guard reads - so the press that sent the
     // message opened the box again behind it.
     if (!io.WantTextInput && !chatPanel_.isChatInputActive() &&
         !interfaceConsumedKey(ImGuiKey_Enter) &&
@@ -1384,7 +1384,7 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
     //
     // That third one was left out, and the block of game hotkeys further down
     // asks only this. So every one of them fired while the player was typing
-    // into a FrameXML box — H opened the titles window from the middle of a
+    // into a FrameXML box - H opened the titles window from the middle of a
     // mail recipient, C opened the character sheet, I the bags, and the digits
     // fired action bar slots. The two places that had noticed named the
     // interface's box separately, which is how the third came to be missing
@@ -1392,14 +1392,14 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
     const bool textFocus = chatPanel_.isChatInputActive() || io.WantTextInput ||
                            interfaceTakingTypedInput();
 
-    // Game hotkeys — gate on textFocus (chat/text-input active) rather than
+    // Game hotkeys - gate on textFocus (chat/text-input active) rather than
     // WantCaptureKeyboard so that toggle keys like M, C, I still work when an
     // ImGui window (character panel, map, etc.) happens to have focus.
     {
         // Two guards, because Tab reaches a focused box two ways. While one
         // holds focus the probe answers; when the box's own OnTabPressed moves
         // to the next field, the box that had it has let go by the time this
-        // is asked — and cycling between two fields of a form would have
+        // is asked - and cycling between two fields of a form would have
         // changed the player's target on every press.
         if (!textFocus &&
             !interfaceConsumedKey(ImGuiKey_Tab) &&
@@ -1408,7 +1408,7 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
             gameHandler.tabTarget(movement.x, movement.y, movement.z);
         }
 
-        // Escape (TOGGLE_SETTINGS) must not fire while chat input is active —
+        // Escape (TOGGLE_SETTINGS) must not fire while chat input is active -
         // otherwise pressing Escape to close chat also closes any open window or
         // opens the escape menu, since ImGui deactivates InputText on Escape but
         // the same press still propagates here. KeybindingManager only blocks
@@ -1416,14 +1416,14 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
         // Said out loud, at info, because this chain has now been read end to
         // end five times without the fault appearing in it. Every link checks
         // out on paper and the key still does nothing, which means the answer
-        // is which branch actually runs — and that is the one thing reading
+        // is which branch actually runs - and that is the one thing reading
         // cannot tell you. One line per press, invisible unless someone asks
         // for info, and it names the branch rather than the key.
         //
         // Asked of the key rather than of the binding, deliberately. The
         // binding declines to fire while either interface is taking typed
         // input, so routing this through it means a press that was swallowed
-        // for that reason produces no line — which reads exactly like a press
+        // for that reason produces no line - which reads exactly like a press
         // that never arrived, and those are the two remaining explanations.
         // Every press of the bound key now says something.
         const ImGuiKey escapeKey = KeybindingManager::getInstance().getKeyForAction(
@@ -1433,7 +1433,7 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
         // Nothing bound is its own explanation and looks identical to every
         // other one from a log: no line at all. The keybindings are read from a
         // config file that can rebind or clear this, and setKeyForAction turns
-        // a movement key into ImGuiKey_None outright — so "the action has no
+        // a movement key into ImGuiKey_None outright - so "the action has no
         // key" is a state the client can genuinely be in, and it would make
         // Escape do nothing while every branch below remains correct.
         //
@@ -1448,7 +1448,7 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
             }
         }
         if (escapePressed && textFocus) {
-            LOG_WARNING("Escape: swallowed before the chain — chat input ",
+            LOG_WARNING("Escape: swallowed before the chain - chat input ",
                      chatPanel_.isChatInputActive() ? "active" : "idle",
                      ", ImGui wants text: ", io.WantTextInput ? "yes" : "no",
                      ", the interface's box has focus: ",
@@ -1456,7 +1456,7 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
         }
         if (!textFocus &&
             KeybindingManager::getInstance().isActionPressed(KeybindingManager::Action::TOGGLE_SETTINGS, true)) {
-            // Gathered, then decided, then done — rather than decided while
+            // Gathered, then decided, then done - rather than decided while
             // being done. The order of these branches is the whole of what
             // Escape means, and as a chain of else-if inside a draw there was
             // no way to ask what the key would do without being in the
@@ -1488,7 +1488,7 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
             // the client and every link checks out on paper; what is missing is
             // which branch actually runs, and that is the one thing reading
             // cannot tell you. It was said at info, and the log a report
-            // arrives with is warnings only — so a session that reproduced
+            // arrives with is warnings only - so a session that reproduced
             // "Escape does nothing" came back with no Escape line in it at all,
             // and silence there meant nothing, because it is also exactly what
             // a working press sounds like.
@@ -1523,7 +1523,7 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
                 case EscapeAction::AskTheInterface: {
                     // Asked only here, because asking closes things. Everything
                     // above is a window the *server* knows about and each has
-                    // to go through the client so the closing packet is sent —
+                    // to go through the client so the closing packet is sent -
                     // CloseAllWindows would hide the frame and leave the server
                     // believing the vendor was still open.
                     //
@@ -1543,7 +1543,7 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
                     //
                     // Every other branch of this chain speaks at info, so a
                     // session that reproduces "Escape does nothing" came back
-                    // with no Escape line in it at all — and silence there
+                    // with no Escape line in it at all - and silence there
                     // meant nothing, since it is also what a working press
                     // sounds like. One line per press that gets this far, and
                     // it names which of the two menus was chosen. If that line
@@ -1563,20 +1563,20 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
                             // its own Escape binding calls. This branch used to
                             // set the flag behind *this* client's menu, and
                             // that menu is only drawn while the element is not
-                            // handed over — so with it handed over, Escape set
+                            // handed over - so with it handed over, Escape set
                             // a flag nobody read and nothing appeared.
                             gameHandler.runInterfaceCommand("ToggleGameMenu()");
                             // And whether it worked, which the line above
                             // cannot say. Asked straight afterwards so the two
                             // faults separate: shown but not on screen is a
                             // drawing problem, not shown is a problem in
-                            // ToggleGameMenu — which runs clean headlessly.
+                            // ToggleGameMenu - which runs clean headlessly.
                             //
                             // At warning when it did not work, because that is
                             // the one outcome nobody would think to look for.
                             // The whole of this chain has been read seven
                             // times and every link checks out; the interface
-                            // side is settled too — headlessly ToggleGameMenu
+                            // side is settled too - headlessly ToggleGameMenu
                             // shows GameMenuFrame at 195x240, visible, alpha
                             // one, parented to UIParent. So the answer is in
                             // the running client, and a line only the info
@@ -1589,7 +1589,7 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
                                 LOG_WARNING(
                                     "Escape: asked the interface for its game "
                                     "menu and GameMenuFrame is still not shown "
-                                    "— ToggleGameMenu ran and left it hidden");
+                                    "- ToggleGameMenu ran and left it hidden");
                             }
                             break;
                         case EscapeOutcome::OpenClientMenu:
@@ -1614,7 +1614,7 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
                     // key. Calling it here as well was the whole of the bug
                     // reported three times. IsKeyPressed does not consume, so
                     // both sites saw the same press and toggled in the same
-                    // frame — open, then shut, and nothing on screen. Every
+                    // frame - open, then shut, and nothing on screen. Every
                     // link in the chain read correct because the chain was;
                     // it simply ran twice.
                     //
@@ -1662,7 +1662,7 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
                 showMinimap_ = !showMinimap_;
                 // This flag gates this client's marker pass, which is drawn
                 // over FrameXML's minimap on purpose rather than instead of it
-                // — so on its own the key hid the markers and left the minimap
+                // - so on its own the key hid the markers and left the minimap
                 // underneath them up. ToggleMinimap is what the interface's own
                 // TOGGLEMINIMAP binding calls, and it hides the frame the
                 // markers sit on, which is what makes the two agree.
@@ -1692,7 +1692,7 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
                 }
             }
 
-            // Toggle Titles window with H (hero/title screen — no conflicting keybinding)
+            // Toggle Titles window with H (hero/title screen - no conflicting keybinding)
             if (input.isKeyJustPressed(SDL_SCANCODE_H)) {
                 windowManager_.showTitlesWindow_ = !windowManager_.showTitlesWindow_;
             }
@@ -1776,7 +1776,7 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
             float screenH = static_cast<float>(window->getHeight());
             rendering::Ray ray = camera->screenToWorldRay(mousePos.x, mousePos.y, screenW, screenH);
             // The same picker the click uses, so the cursor affordance cannot
-            // disagree with what clicking would actually select — including the
+            // disagree with what clicking would actually select - including the
             // tighter sphere critters get, which this copy did not have.
             const ui::ScenePick hoverPick =
                 ui::pickScene(gameHandler, ray, ui::ScenePickParams{});
@@ -1845,7 +1845,7 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
                         gameHandler.setTarget(closestGuid);
                     }
                 } else {
-                    // Clicked empty space — deselect current target
+                    // Clicked empty space - deselect current target
                     gameHandler.clearTarget();
                 }
             }
@@ -1854,7 +1854,7 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
 
     // Right-click: select NPC (if needed) then interact / loot / auto-attack.
     // Record the press position; the action only fires on release for a tap (below),
-    // never for a right-drag camera rotate — otherwise turning the view toward a nearby
+    // never for a right-drag camera rotate - otherwise turning the view toward a nearby
     // mob would auto-attack it without the player intending to engage.
     if (!io.WantCaptureMouse && !frameXmlOwnsMouse() &&
         input.isMouseButtonJustPressed(SDL_BUTTON_RIGHT) && !input.isMouseButtonPressed(SDL_BUTTON_LEFT)) {
@@ -1868,7 +1868,7 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
         glm::vec2 rDragDelta = input.getMousePosition() - rightClickPressPos_;
         const float RCLICK_THRESHOLD = clickDragThreshold();
         if (glm::dot(rDragDelta, rDragDelta) >= RCLICK_THRESHOLD * RCLICK_THRESHOLD) {
-            // Treated as a camera rotate — do not interact/attack.
+            // Treated as a camera rotate - do not interact/attack.
             return;
         }
         // Fishing bobbers are tiny and partly submerged, so their model bounds can

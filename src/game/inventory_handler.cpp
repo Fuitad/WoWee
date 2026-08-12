@@ -219,7 +219,7 @@ void InventoryHandler::registerOpcodes(DispatchTable& table) {
         // objectGuid(8) + mapId(4) (WotLK) + lootSlot(4) + itemId(4) +
         // randSuffix(4) + randProp(4) + itemCount(4) + countdown(4) + voteMask(1)
         //
-        // itemCount — "items in stack" — was missing, so the countdown was read
+        // itemCount - "items in stack" - was missing, so the countdown was read
         // from it and the vote mask from the countdown's first byte. The
         // countdown drives the bar that times the roll out and the mask decides
         // which of need, greed and disenchant are even offered.
@@ -328,7 +328,7 @@ void InventoryHandler::registerOpcodes(DispatchTable& table) {
             uint8_t slotIdx = packet.readUInt8();
             LOG_DEBUG("SMSG_LOOT_SLOT_CHANGED: slot=", (int)slotIdx);
             // The loot frame redraws the one row from this. It carries the
-            // slot, and the slot is what the event carries — the interface
+            // slot, and the slot is what the event carries - the interface
             // reads arg1 to know which button to refresh, so a bare fire would
             // make it redraw the wrong one.
             //
@@ -359,8 +359,8 @@ void InventoryHandler::registerOpcodes(DispatchTable& table) {
 
         auto* info = owner_.getItemInfo(itemId);
         // Which bag button the item landed in, in the numbering the interface
-        // uses. Item::GetBagSlot answers the container's own inventory slot —
-        // 19 to 22 for the four worn bags — or INVENTORY_SLOT_BAG_0, 255, for
+        // uses. Item::GetBagSlot answers the container's own inventory slot -
+        // 19 to 22 for the four worn bags - or INVENTORY_SLOT_BAG_0, 255, for
         // the backpack. FrameXML's buttons take their ids from
         // GetInventorySlotInfo("Bag0Slot") and friends, which are 20 to 23,
         // with MainMenuBarBackpackButton declared id="0" in the XML. So the
@@ -368,7 +368,7 @@ void InventoryHandler::registerOpcodes(DispatchTable& table) {
         const int bagButtonId = (bagSlot == 255) ? 0 : (static_cast<int>(bagSlot) + 1);
 
         if (!info || info->name.empty()) {
-            // Item info not yet cached — defer notification
+            // Item info not yet cached - defer notification
             owner_.pendingItemPushNotifsRef().push_back({itemId, count, bagButtonId});
             owner_.ensureItemInfo(itemId);
             return;
@@ -392,8 +392,8 @@ void InventoryHandler::registerOpcodes(DispatchTable& table) {
             // ITEM_PUSH(bagSlot, icon), which is what the bag button's flash
             // animation reads: mainmenubarbagbuttons compares its own GetID
             // against the first and calls ReplaceIconTexture with the second.
-            // This sent the item id and the stack count instead — two numbers
-            // where a bag id and a texture were meant — so the comparison
+            // This sent the item id and the stack count instead - two numbers
+            // where a bag id and a texture were meant - so the comparison
             // never matched and the animation has never once played.
             owner_.addonEventCallbackRef()("ITEM_PUSH",
                     {std::to_string(bagButtonId),
@@ -655,8 +655,8 @@ void InventoryHandler::registerOpcodes(DispatchTable& table) {
             // The stock left, said now rather than at the next reopen.
             //
             // The slot and the remaining count were read off this packet and
-            // dropped. For a limited item — a recipe the vendor has one of, a
-            // faction reward — that meant the count beside it never changed
+            // dropped. For a limited item - a recipe the vendor has one of, a
+            // faction reward - that meant the count beside it never changed
             // when it was bought: MERCHANT_UPDATE redrew from the list the
             // window opened with, which still had the old number, and only
             // closing and reopening the vendor pulled a fresh one. The server
@@ -760,7 +760,7 @@ void InventoryHandler::registerOpcodes(DispatchTable& table) {
         // SendAuctionOwnerNotification writes:
         //   auctionId(4) bid(4) unk(4) unkGuid(8) item_template(4) unk(4)
         //   unkTime(float 4) = 32 bytes.
-        // Sent only when an owned auction SELLS — expiry and outbids arrive on
+        // Sent only when an owned auction SELLS - expiry and outbids arrive on
         // their own opcodes (SMSG_AUCTION_REMOVED_NOTIFICATION /
         // SMSG_AUCTION_BIDDER_NOTIFICATION).
         //
@@ -1017,7 +1017,7 @@ void InventoryHandler::handleLootResponse(network::Packet& packet) {
     if (owner_.addonEventCallbackRef()) {
         // Carries whether this loot is being taken automatically. The loot
         // frame reads it on the path where it could not show itself, and
-        // closes with CloseLoot(autoLoot == 0) — so an absent argument
+        // closes with CloseLoot(autoLoot == 0) - so an absent argument
         // compares false and tells the server the window opened when it did
         // not.
         owner_.addonEventCallbackRef()("LOOT_OPENED", {autoLoot_ ? "1" : "0"});
@@ -1071,7 +1071,7 @@ void InventoryHandler::handleLootResponse(network::Packet& packet) {
     // A corpse that held only money is already empty, so close it here rather
     // than waiting for a slot to clear that will never clear. Only when there
     // are no items: an item loot's slots have not been confirmed cleared yet,
-    // and releasing before the server stores them would drop them — that case
+    // and releasing before the server stores them would drop them - that case
     // closes from handleLootRemoved once the last slot is gone.
     if (lootWindowOpen_ && currentLoot_.items.empty() && currentLoot_.gold == 0) {
         closeLoot();
@@ -1085,7 +1085,7 @@ void InventoryHandler::handleLootReleaseResponse(network::Packet& packet) {
     lootWindowOpen_ = false;
     if (owner_.lootWindowCallbackRef()) owner_.lootWindowCallbackRef()(false);
     if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("LOOT_CLOSED", {});
-    // Node lifetime is server-authoritative — see closeLoot(). The server despawns a
+    // Node lifetime is server-authoritative - see closeLoot(). The server despawns a
     // depleted gather node via SMSG_DESTROY_OBJECT; don't predict it here or a node the
     // server keeps (still holding charges for another gatherer) disappears locally.
     currentLoot_ = LootResponseData{};
@@ -1108,7 +1108,7 @@ void InventoryHandler::handleLootRemoved(network::Packet& packet) {
     // An emptied corpse closes itself.
     //
     // The interface's loot window opens on LOOT_OPENED and closes on
-    // LOOT_CLOSED and nothing else — LOOT_SLOT_CLEARED only hides the one
+    // LOOT_CLOSED and nothing else - LOOT_SLOT_CLEARED only hides the one
     // button. Autoloot sends an autostore for every slot at once, the server
     // clears them one by one, and when the last one goes there is nothing left
     // to loot but no close was ever sent: the window sat open and empty, which
@@ -1240,7 +1240,7 @@ void InventoryHandler::closeVendor() {
     currentVendorItems_ = ListInventoryData{};
     // Keep buybackItems_ and pendingSellToBuyback_: buyback slots live on the
     // player server-side (wire slots 74-85) and persist across vendor windows,
-    // so the local mirror must too — clearing here made the buyback list
+    // so the local mirror must too - clearing here made the buyback list
     // vanish when the vendor was reopened. The mirror resets on world entry.
     pendingBuybackSlot_ = -1;
     pendingBuybackWireSlot_ = 0;
@@ -1483,7 +1483,7 @@ void InventoryHandler::repairAll(uint64_t vendorGuid, bool useGuildBank) {
     //
     // Guild-bank repair (useGuildBank=true) cannot be confirmed client-side:
     // the server silently rejects when the player has no guild, no
-    // GUILD_BANK_RIGHT_REPAIR permission, or the guild bank lacks funds —
+    // GUILD_BANK_RIGHT_REPAIR permission, or the guild bank lacks funds -
     // in all those cases Player::DurabilityRepair returns early WITHOUT
     // setting durability and WITHOUT sending an UPDATE_OBJECT, so any
     // optimistic durability bump would persist on screen until relog
@@ -1520,8 +1520,8 @@ bool InventoryHandler::equipWouldBindFromBag(int bagIndex, int slotIndex) const 
 // server pick. CMSG_AUTOEQUIP_ITEM_SLOT has been in the opcode enum with
 // nothing building it, so /equipslot could name a slot and never reach one.
 //
-// The wire is the item's guid and a one-byte destination — ItemPackets.cpp
-// reads exactly that — and the destination is the server's own 0-based
+// The wire is the item's guid and a one-byte destination - ItemPackets.cpp
+// reads exactly that - and the destination is the server's own 0-based
 // equipment slot, which is what this client's EquipSlot enum counts in too.
 // The interface counts from one, so the caller takes the one off.
 void InventoryHandler::equipItemToSlot(uint64_t itemGuid, uint8_t equipSlot) {
@@ -1623,7 +1623,7 @@ void InventoryHandler::dispatchUseItem(uint8_t wowBag, uint8_t wowSlot, uint64_t
 
     if (itemGuid == 0) {
         LOG_WARNING("useItem: itemGuid=0 for item='", item.name, "' entry=", item.itemId,
-                    " — cannot use");
+                    " - cannot use");
         owner_.raiseUiError("Cannot use that item right now.");
         return;
     }
@@ -1664,7 +1664,7 @@ void InventoryHandler::dispatchUseItem(uint8_t wowBag, uint8_t wowSlot, uint64_t
     if (isBandageItem(itemInfo)) synchronizeStationaryBandageCast(owner_);
     // A unit the caller named wins over the default the item's class implies.
     // Only the interface's /use handling passes one, and it is the whole of
-    // what `/use [target=Bob] <bandage>` means — targetGuidForUseItem answers
+    // what `/use [target=Bob] <bandage>` means - targetGuidForUseItem answers
     // the player for every consumable, so without this the bandage went on
     // whoever asked for it rather than on whoever was named.
     sendUseItem(wowBag, wowSlot, itemGuid, useSpellId,
@@ -1685,7 +1685,7 @@ void InventoryHandler::sendUseItem(uint8_t wowBag, uint8_t wowSlot, uint64_t ite
 
 bool InventoryHandler::isAwaitingItemTarget() const {
     if (!pendingItemTarget_) return false;
-    // Leaving the world abandons the pending use — the slot and GUID would be
+    // Leaving the world abandons the pending use - the slot and GUID would be
     // stale for the next character.
     if (owner_.getState() != WorldState::IN_WORLD) {
         pendingItemTarget_.reset();
@@ -1940,7 +1940,7 @@ void InventoryHandler::destroyItem(uint8_t bag, uint8_t slot, uint8_t count) {
     // Zero means the whole stack, and this used to turn it into one.
     // HandleDestroyItemOpcode branches on exactly this: a count destroys that
     // many, no count destroys the slot. Coercing it away left no way to say
-    // "all of them" — which is what the confirmation prompt is asking about,
+    // "all of them" - which is what the confirmation prompt is asking about,
     // and the only thing a stack larger than 255 could be told to do.
     constexpr uint16_t kCmsgDestroyItem = 0x111;
     network::Packet packet(kCmsgDestroyItem);
@@ -1965,7 +1965,7 @@ void InventoryHandler::splitItemTo(uint8_t srcBag, uint8_t srcSlot,
 void InventoryHandler::splitItem(uint8_t srcBag, uint8_t srcSlot, uint8_t count) {
     // No destination given: the first free slot, which is what this client's
     // own bag window means by a split. The interface means something else and
-    // says where it wants it — see splitItemTo.
+    // says where it wants it - see splitItemTo.
     const int freeBp = owner_.inventoryRef().findFreeBackpackSlot();
     if (freeBp >= 0) {
         splitItemTo(srcBag, srcSlot, 0xFF,
@@ -1993,7 +1993,7 @@ void InventoryHandler::fireBagUpdates() {
     // bag it did not need to is cheaper than one that never redraws at all.
     //
     // Every bag means the seven bank bags as well. The interface numbers them
-    // straight after the four worn ones — NUM_BAG_SLOTS + 1 upward — and each
+    // straight after the four worn ones - NUM_BAG_SLOTS + 1 upward - and each
     // bank bag's frame redraws from BAG_UPDATE carrying its own number, exactly
     // as a worn bag's does. Stopping at four left them out, so an item moved
     // into or out of a purchased bank bag sat on screen where it had been until
@@ -2004,14 +2004,14 @@ void InventoryHandler::fireBagUpdates() {
     constexpr int kLastBankBag = kLastWornBag + game::slots::kBankBagCount;  // 5..11
     for (int bag = 0; bag <= kLastBankBag; ++bag) fire("BAG_UPDATE", {std::to_string(bag)});
     // The character sheet redraws from this one rather than from BAG_UPDATE, so
-    // both go out together — equipping something changes a bag and a slot.
+    // both go out together - equipping something changes a bag and a slot.
     fire("UNIT_INVENTORY_CHANGED", {"player"});
     // An open trade skill window is looking at the bags too, and it does not
     // watch them: TradeSkillFrame_OnLoad registers TRADE_SKILL_UPDATE,
     // TRADE_SKILL_FILTER_UPDATE, UNIT_PORTRAIT_UPDATE and
     // UPDATE_TRADESKILL_RECAST, and nothing else. So the only thing that redraws
     // a reagent's "12 /1" or a recipe's "[14]" is this event, and without it
-    // both stood still while the reagents were spent — craft after craft against
+    // both stood still while the reagents were spent - craft after craft against
     // numbers that never moved, until the window was closed and reopened.
     //
     // It also releases the row list, whose canMake comes from the same bag
@@ -2021,7 +2021,7 @@ void InventoryHandler::fireBagUpdates() {
     // goes out and the interface ignores it", without a line every time the
     // inventory is rebuilt.
     // Rate-limited rather than counted: the first few are the inventory being
-    // loaded at startup, and capping the count spent them all there — leaving
+    // loaded at startup, and capping the count spent them all there - leaving
     // nothing to say for the drag that prompted the question.
     static double lastSaid = 0.0;
     const double now = core::appTimeSeconds();
@@ -2033,9 +2033,9 @@ void InventoryHandler::fireBagUpdates() {
 
 /// Read and write a model slot by the wire's numbering.
 ///
-/// The wire keeps everything in one flat space — the backpack is slots 23
+/// The wire keeps everything in one flat space - the backpack is slots 23
 /// upward inside container 0xFF, a worn bag is container 19 upward with its own
-/// slots from zero — and the model keeps the two apart. False for a pair that
+/// slots from zero - and the model keeps the two apart. False for a pair that
 /// names neither, which is every bank and keyring slot: those have their own
 /// paths and a swap should leave them alone rather than guess.
 bool InventoryHandler::readWireSlot(uint8_t container, uint8_t slot,
@@ -2079,7 +2079,7 @@ void InventoryHandler::swapContainerItems(uint8_t srcBag, uint8_t srcSlot, uint8
     // done and this never did. Nothing else moved the item: the bags redrew
     // only if the server's answer happened to change a field the update path
     // watches, and a swap between two slots of one bag changes none of the
-    // item's own fields — it changes which slot holds which guid.
+    // item's own fields - it changes which slot holds which guid.
     //
     // So an item dragged across a bag stayed where it was drawn until
     // something unrelated forced a rebuild.
@@ -2383,7 +2383,7 @@ void InventoryHandler::openSocketing(uint64_t itemGuid) {
     socketSession_.itemGuid = itemGuid;
 
     // The template is what carries the socket colours and the bonus. Ask for it
-    // if it has not been seen — the panel redraws on the next SOCKET_INFO_UPDATE
+    // if it has not been seen - the panel redraws on the next SOCKET_INFO_UPDATE
     // and an item nobody has queried yet would otherwise show no sockets at all.
     const auto& online = owner_.onlineItemsRef();
     auto it = online.find(itemGuid);
@@ -2405,7 +2405,7 @@ bool InventoryHandler::setSocketGem(int index, uint64_t gemGuid, uint32_t gemIte
     if (!socketSession_.open || index < 0 || index > 2) return false;
 
     // The server drops the whole request when two sockets name one guid, so a
-    // gem already placed cannot be placed again — it moves instead.
+    // gem already placed cannot be placed again - it moves instead.
     if (gemGuid != 0) {
         for (int i = 0; i < 3; ++i) {
             if (i != index && socketSession_.newGemGuid[i] == gemGuid) {
@@ -2434,7 +2434,7 @@ void InventoryHandler::acceptSockets() {
 
     // The gems are gone from this client's hands the moment the request leaves.
     // What comes back is the item's new enchantment fields, which is where the
-    // panel reads a socketed gem from — so clear the pending set and let the
+    // panel reads a socketed gem from - so clear the pending set and let the
     // update redraw it as an existing gem rather than a waiting one.
     socketSession_.newGemGuid = {};
     socketSession_.newGemItemId = {};
@@ -2470,7 +2470,7 @@ void InventoryHandler::selectDefaultStationery() {
     // button, and one is that a stationery has been chosen. Nothing chooses one
     // when the frame opens: SendMailFrame_Reset is the only thing in the whole
     // interface that does, and it runs after a letter has been sent
-    // successfully. So the first letter of a session could never be sent — the
+    // successfully. So the first letter of a session could never be sent - the
     // button was disabled before it was ever pressed, which is exactly what the
     // input log shows and what "mail not being sent" turned out to be.
     owner_.runInterfaceCommand(
@@ -2516,7 +2516,7 @@ const char* InventoryHandler::mailResultText(uint32_t error) {
 void InventoryHandler::refuseSend(const std::string& reason, const char* logLine) {
     // The compose frame disables its Send button the moment it is pressed and
     // re-enables it only when it hears how the send went. A refusal on this
-    // side used to return without a word, so the button stayed disabled — one
+    // side used to return without a word, so the button stayed disabled - one
     // silent refusal and no letter could be sent for the rest of the session,
     // whatever was wrong the first time.
     LOG_WARNING("sendMail: ", logLine);
@@ -2558,7 +2558,7 @@ void InventoryHandler::sendMail(const std::string& recipient, const std::string&
         // Should be unreachable now that attaching is capped, but dropping
         // attachments without saying so is how this went unnoticed.
         LOG_ERROR("sendMail: ", itemGuids.size(), " attachments but this expansion's "
-                  "packet carries ", sendable, " — refusing to send and lose the rest");
+                  "packet carries ", sendable, " - refusing to send and lose the rest");
         refuseSend("This realm's mail carries one item per letter.", "too many attachments");
         return;
     }
@@ -2588,7 +2588,7 @@ void InventoryHandler::noteMailAttachRefundable(int attachIndex) {
     if (!att.occupied()) return;
     const auto* refund = owner_.getItemRefundInfo(att.itemGuid);
     if (!refund) {
-        // Not asked yet. Ask, so the next attachment of the same item knows —
+        // Not asked yet. Ask, so the next attachment of the same item knows -
         // and say nothing now rather than guess, which is what an item with no
         // window looks like too.
         owner_.requestItemRefundInfo(att.itemGuid);
@@ -2665,7 +2665,7 @@ void InventoryHandler::clearMailAttachments() {
 
 void InventoryHandler::notifyMailComposeChanged() {
     // The send frame recomputes its slots, its postage and its Send button from
-    // this and from nothing else — there is no poll behind it.
+    // this and from nothing else - there is no poll behind it.
     if (owner_.addonEventCallbackRef()) {
         owner_.addonEventCallbackRef()("MAIL_SEND_INFO_UPDATE", {});
     }
@@ -2719,7 +2719,7 @@ void InventoryHandler::mailMarkAsRead(uint32_t mailId) {
 
     // And locally, because the server does not send the list again for this.
     // Without it the letter stays bold and HasNewMail keeps answering true
-    // until something else refreshes the inbox — which, for a player who reads
+    // until something else refreshes the inbox - which, for a player who reads
     // their mail and walks away, is never.
     //
     // The flag is set *before* the event, and that order is load-bearing:
@@ -2741,7 +2741,7 @@ void InventoryHandler::mailMarkAsRead(uint32_t mailId) {
     // never fired. MAIL_INBOX_UPDATE redraws the list of letters;
     // MiniMapMailFrame does not listen to it and answers UPDATE_PENDING_MAIL
     // alone. So the last unread letter could be read with the list in front of
-    // the player and the notification stayed up — nothing had said the thing
+    // the player and the notification stayed up - nothing had said the thing
     // it was reporting had stopped being true.
     if (marked) {
         bool anyUnread = false;
@@ -2805,7 +2805,7 @@ void InventoryHandler::handleSendMailResult(network::Packet& packet) {
         if (error == 0) {
             owner_.addSystemChatMessage("Mail sent.");
             clearMailAttachments();
-            // The frame stays where it is — WoW resets its fields and leaves it
+            // The frame stays where it is - WoW resets its fields and leaves it
             // open. This used to close this client's own compose window here,
             // and that flag now means "the interface's send tab is showing",
             // which is what decides whether clicking an item in a bag attaches
@@ -2920,16 +2920,16 @@ void InventoryHandler::buyBankSlot() {
 }
 
 uint32_t InventoryHandler::getBankBagSlotPrice(int slotIndex) {
-    // BankBagSlotPrices.dbc — copper cost for each successive bank bag slot.
+    // BankBagSlotPrices.dbc - copper cost for each successive bank bag slot.
     // These values are stable across Classic 1.12, TBC 2.4.3, and WotLK 3.3.5a.
     static constexpr uint32_t kPrices[Inventory::BANK_BAG_SLOTS] = {
-        10000,    //   1g  — 1st slot
-        100000,   //  10g  — 2nd slot
-        250000,   //  25g  — 3rd slot
-        600000,   //  60g  — 4th slot
-        1000000,  // 100g  — 5th slot
-        2500000,  // 250g  — 6th slot
-        5000000,  // 500g  — 7th slot
+        10000,    //   1g  - 1st slot
+        100000,   //  10g  - 2nd slot
+        250000,   //  25g  - 3rd slot
+        600000,   //  60g  - 4th slot
+        1000000,  // 100g  - 5th slot
+        2500000,  // 250g  - 6th slot
+        5000000,  // 500g  - 7th slot
     };
     if (slotIndex < 0 || slotIndex >= Inventory::BANK_BAG_SLOTS) return 0;
     return kPrices[slotIndex];
@@ -2938,7 +2938,7 @@ uint32_t InventoryHandler::getBankBagSlotPrice(int slotIndex) {
 void InventoryHandler::depositItem(uint8_t srcBag, uint8_t srcSlot) {
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
     // CMSG_AUTOBANK_ITEM lets the server place the item into the first free slot
-    // across the whole bank — the main slots AND the purchased bank bags. The
+    // across the whole bank - the main slots AND the purchased bank bags. The
     // old code scanned only the main bank slots and reported "Bank is full" the
     // moment those filled, ignoring free space in the bank bags. The server
     // replies with a bank-full error if there is genuinely no room.
@@ -3070,7 +3070,7 @@ void InventoryHandler::guildBankDepositFromInventory(uint8_t srcBag, uint8_t src
         guildBankerGuid_ == 0 || !guildBankOpen_) return;
     // CMSG_GUILD_BANK_SWAP_ITEMS has no server-side auto-store for the deposit
     // direction (that path forces bank→character), so the client picks the
-    // target slot — the first empty one in the tab the player is viewing, which
+    // target slot - the first empty one in the tab the player is viewing, which
     // is what the retail client does on a right-click deposit.
     constexpr int kTabSlots = 98; // GUILD_BANK_MAX_SLOTS
     std::array<bool, kTabSlots> occupied{};
@@ -3091,7 +3091,7 @@ void InventoryHandler::guildBankDepositFromInventory(uint8_t srcBag, uint8_t src
 
 void InventoryHandler::handleGuildBankList(network::Packet& packet) {
     if (!GuildBankListParser::parse(packet, guildBankData_)) return;
-    // Receiving the bank list means the banker accepted us — make sure the
+    // Receiving the bank list means the banker accepted us - make sure the
     // window is shown even if the open path didn't (e.g. a server-initiated
     // refresh, or the banker guid arrived only with the list).
     if (guildBankerGuid_ != 0 && !guildBankOpen_) {
@@ -3100,7 +3100,7 @@ void InventoryHandler::handleGuildBankList(network::Packet& packet) {
     }
     // Each list is tagged with the tab it describes. Track it so the UI
     // highlights the right tab and item withdraw/deposit target the tab the
-    // player is actually viewing (clicking a tab only sends a query — it never
+    // player is actually viewing (clicking a tab only sends a query - it never
     // updated the active tab, so operations defaulted to tab 0).
     guildBankActiveTab_ = guildBankData_.tabId;
     if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("GUILDBANKBAGSLOTS_CHANGED", {});
@@ -3144,7 +3144,7 @@ void InventoryHandler::auctionSearch(const std::string& name, uint8_t levelMin, 
     owner_.getSocket()->send(packet);
     // Blocks the Search button until the answer comes back. The result carries
     // the server's own wait and replaces this with it, so five seconds is only
-    // what applies while a reply is outstanding — and on Classic and TBC, whose
+    // what applies while a reply is outstanding - and on Classic and TBC, whose
     // list result ends before that field.
     auctionSearchDelayTimer_ = 5.0f;
 }
@@ -3222,7 +3222,7 @@ void InventoryHandler::handleAuctionHello(network::Packet& packet) {
     // second time and set the same state a second time, so the packet's layout
     // was written down twice and openAuctionHouse was dead code that looked
     // live. The parser also reads the trailing enabled byte, which is in the
-    // WotLK packet and not the vanilla one — this did not, and would have
+    // WotLK packet and not the vanilla one - this did not, and would have
     // needed the same expansion difference written a second time to.
     AuctionHelloData data;
     if (!AuctionHelloParser::parse(packet, data)) return;
@@ -3238,15 +3238,15 @@ void InventoryHandler::handleAuctionListResult(network::Packet& packet) {
     const int enchantSlots = isClassicLikeExpansion() ? 1 : (isPreWotlk() ? 6 : 7);
     if (!AuctionListResultParser::parse(packet, result, enchantSlots)) return;
 
-    // How long before another search may be sent — the server's own figure,
+    // How long before another search may be sent - the server's own figure,
     // which every list result carries and which was parsed and then dropped.
     // AzerothCore's AUCTION_SEARCH_DELAY is 300, in milliseconds; the guess it
     // replaces was five whole seconds, so the Search button sat dead for about
     // seventeen times longer than the server ever asked for, and paging
     // through results crawled.
     //
-    // A zero means the field was not sent at all rather than "no wait" —
-    // Classic and TBC end the packet before it — so the old guess stays as the
+    // A zero means the field was not sent at all rather than "no wait" -
+    // Classic and TBC end the packet before it - so the old guess stays as the
     // floor for those, where an unthrottled client is what the server would
     // have to defend itself against.
     if (result.searchDelay > 0) {
@@ -3337,7 +3337,7 @@ void InventoryHandler::queryItemText(uint64_t itemGuid) {
     pkt.writeUInt64(itemGuid);
     owner_.getSocket()->send(pkt);
     // The read has started. The frame answers this by clearing the page and
-    // picking the material's text colour, before any words have arrived —
+    // picking the material's text colour, before any words have arrived -
     // which is why it is a separate event from ITEM_TEXT_READY and not a
     // duplicate of it.
     owner_.fireAddonEvent("ITEM_TEXT_BEGIN", {});
@@ -3384,7 +3384,7 @@ void InventoryHandler::declineTradeRequest() {
     resetTradeState();
 }
 
-/// TRADE_ACCEPT_UPDATE(playerState, targetState) — 1 for accepted, 0 for not.
+/// TRADE_ACCEPT_UPDATE(playerState, targetState) - 1 for accepted, 0 for not.
 ///
 /// TradeFrame_SetAcceptState reads both: the first decides whether the player's
 /// half is highlighted and whether the trade button is enabled, the second does
@@ -3400,7 +3400,7 @@ void InventoryHandler::fireTradeAcceptUpdate() {
 void InventoryHandler::acceptTrade() {
     // Open *or* Accepted. The status becomes Accepted the moment the partner
     // presses accept, and requiring Open meant that whoever pressed second
-    // could not press at all — the trade sat with one acceptance in it and no
+    // could not press at all - the trade sat with one acceptance in it and no
     // way to add the other.
     if (!isTradeOpen()) return;
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
@@ -3413,7 +3413,7 @@ void InventoryHandler::acceptTrade() {
 void InventoryHandler::unacceptTrade() {
     // Only where there is one of *ours* to take back. The status says the
     // trade has an acceptance in it, and TradeStatus::Accepted is set when the
-    // partner accepts — gating on that let the player withdraw an acceptance
+    // partner accepts - gating on that let the player withdraw an acceptance
     // they had never made, and stopped them withdrawing one they had.
     if (!tradeSelfAccepted_) return;
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
@@ -3483,7 +3483,7 @@ void InventoryHandler::handleTradeStatus(network::Packet& packet) {
             resetTradeState();
             owner_.addSystemChatMessage("Trade failed: player is busy.");
             break;
-        case 1: { // BEGIN_TRADE — someone is asking
+        case 1: { // BEGIN_TRADE - someone is asking
             if (packet.hasRemaining(8))
                 tradePeerGuid_ = packet.readUInt64();
             tradeStatus_ = TradeStatus::PendingIncoming;
@@ -3507,7 +3507,7 @@ void InventoryHandler::handleTradeStatus(network::Packet& packet) {
             owner_.addSystemChatMessage("Trade cancelled.");
             if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("TRADE_CLOSED", {});
             break;
-        case 4:   // TRADE_ACCEPT — the other side pressed accept
+        case 4:   // TRADE_ACCEPT - the other side pressed accept
             tradeStatus_ = TradeStatus::Accepted;
             tradePartnerAccepted_ = true;
             owner_.addSystemChatMessage("Trade partner accepted.");
@@ -3517,14 +3517,14 @@ void InventoryHandler::handleTradeStatus(network::Packet& packet) {
             resetTradeState();
             owner_.raiseUiError("You have no target.");
             break;
-        case 7:   // BACK_TO_TRADE — an acceptance was taken back
+        case 7:   // BACK_TO_TRADE - an acceptance was taken back
             tradeStatus_ = TradeStatus::Open;
             tradeSelfAccepted_ = false;
             tradePartnerAccepted_ = false;
             fireTradeAcceptUpdate();
             break;
         case 8:   // TRADE_COMPLETE
-            // Not reset immediately — SMSG_TRADE_STATUS_EXTENDED may arrive in
+            // Not reset immediately - SMSG_TRADE_STATUS_EXTENDED may arrive in
             // the same batch and needs the trade state to read the final items
             // and gold from.
             tradeStatus_ = TradeStatus::None;
@@ -3613,7 +3613,7 @@ void InventoryHandler::handleTradeStatusExtended(network::Packet& packet) {
     //
     // It went unnoticed because the arithmetic came out right. The note above
     // it read "8 + 8x65 + 4 = 532 (matches observed packet size)", and 532 is
-    // the true size — 21 + 7x73. A total that agrees says nothing about where
+    // the true size - 21 + 7x73. A total that agrees says nothing about where
     // the fields are, and every item in the trade window was read from the
     // wrong offset with the wrong stride.
     constexpr size_t kHeaderBytes = 1 + 4 * 5;
@@ -3678,7 +3678,7 @@ void InventoryHandler::handleTradeStatusExtended(network::Packet& packet) {
         // frame carries a moneyType and answers only its own name:
         // TARGET_TRADE listens for TRADE_MONEY_CHANGED, PLAYER_TRADE for
         // PLAYER_TRADE_MONEY. Announcing the peer's event for both refreshed
-        // their side when our own gold moved and never refreshed ours — so the
+        // their side when our own gold moved and never refreshed ours - so the
         // amount *this* player had put down never appeared.
         if (goldChanged) {
             owner_.addonEventCallbackRef()(
@@ -3804,8 +3804,8 @@ void InventoryHandler::handleEquipmentSetList(network::Packet& packet) {
     equipmentSets_.clear();
     equipmentSets_.reserve(count);
     for (uint32_t i = 0; i < count; ++i) {
-        // Every guid in this message is packed — a mask byte and then only the
-        // non-zero bytes — and all twenty were read as fixed eight-byte values.
+        // Every guid in this message is packed - a mask byte and then only the
+        // non-zero bytes - and all twenty were read as fixed eight-byte values.
         // A set guid of one is two bytes on the wire, so the first read ate the
         // set id and the front of the name, and with more than one set the loop
         // lost its place entirely. SendEquipmentSetList writes each of these
@@ -3826,7 +3826,7 @@ void InventoryHandler::handleEquipmentSetList(network::Packet& packet) {
             if (!packet.hasRemaining(1)) break;
             const uint64_t itemGuid = packet.readPackedGuid();
             if (itemGuid == 1) {
-                // "Ignore this slot" — the set leaves whatever is worn there.
+                // "Ignore this slot" - the set leaves whatever is worn there.
                 es.ignoreSlotMask |= (1u << slot);
                 es.itemGuids[slot] = 0;
             } else {
@@ -3847,7 +3847,7 @@ void InventoryHandler::handleEquipmentSetList(network::Packet& packet) {
     }
     LOG_INFO("SMSG_EQUIPMENT_SET_LIST: ", equipmentSets_.size(), " equipment sets received");
     // The manager redraws on this, and the list arriving is the only time it
-    // has anything new to draw — including straight after a set is saved or
+    // has anything new to draw - including straight after a set is saved or
     // deleted, which is when the server sends it again.
     if (owner_.addonEventCallbackRef()) {
         owner_.addonEventCallbackRef()("EQUIPMENT_SETS_CHANGED", {});
@@ -3905,8 +3905,8 @@ void InventoryHandler::handleItemQueryResponse(network::Packet& packet) {
         rebuildOnlineInventory();
         maybeDetectVisibleItemLayout();
 
-        // A quest's reward icons are drawn before their items are known — the
-        // query goes out when the panel opens and lands after it has drawn — so
+        // A quest's reward icons are drawn before their items are known - the
+        // query goes out when the panel opens and lands after it has drawn - so
         // without this the rewards stayed blank until something else redrew
         // them. Fired only while a quest window is up: the query runs hundreds
         // of times over a login, and the handler is only interesting when there
@@ -3934,8 +3934,8 @@ void InventoryHandler::handleItemQueryResponse(network::Packet& packet) {
 
         // The auction list, for the same reason as the quest rewards above.
         //
-        // An auction row carries an item entry and nothing else — no name, no
-        // icon — so the list arrives, the queries go out, and the answers land
+        // An auction row carries an item entry and nothing else - no name, no
+        // icon - so the list arrives, the queries go out, and the answers land
         // after the rows are drawn. This client's own auction window read the
         // item cache on every frame it drew and so filled itself in; an
         // interface told once draws "Item #41394" against a question mark and
@@ -3962,7 +3962,7 @@ void InventoryHandler::handleItemQueryResponse(network::Packet& packet) {
 
         // The vendor list, which arrives the same way: SMSG_LIST_INVENTORY
         // gives an item id and a price per row and nothing a player can read.
-        // Same shape, same cause, same gate — the window has to be open and a
+        // Same shape, same cause, same gate - the window has to be open and a
         // row has to be waiting on this entry.
         if (vendorWindowOpen_ && owner_.addonEventCallbackRef()) {
             for (const auto& v : currentVendorItems_.items) {
@@ -3988,7 +3988,7 @@ void InventoryHandler::handleItemQueryResponse(network::Packet& packet) {
                 // whose name was not cached when it arrived is exactly the
                 // first one of its kind the player picks up, so the interface
                 // heard nothing on precisely the pickups it most wanted to
-                // hear about — watchframe refreshes its objectives on this.
+                // hear about - watchframe refreshes its objectives on this.
                 if (owner_.addonEventCallbackRef()) {
                     owner_.addonEventCallbackRef()("ITEM_PUSH",
                             {std::to_string(it->bagButtonId),
@@ -4164,11 +4164,11 @@ bool InventoryHandler::applyInventoryFields(const FlatFieldMap& fields) {
     //
     // BankFrame registers PLAYERBANKSLOTS_CHANGED and refreshes exactly one
     // button from it. It does *not* register BAG_UPDATE, so that event was the
-    // only thing that could redraw a bank slot — and it was never fired, which
+    // only thing that could redraw a bank slot - and it was never fired, which
     // left an item moved into or out of the bank sitting on screen in its old
     // place until the window was closed and reopened.
     // The interface's own NUM_BANKGENERIC_SLOTS, which is 28 on WotLK and 24
-    // on Classic — the same figure this function already derives from the
+    // on Classic - the same figure this function already derives from the
     // field gap, so it is taken from there rather than written out again.
     const int kBankGeneralSlotCount = effectiveBankSlots_;
     std::set<int> changedBankSlots;
@@ -4231,7 +4231,7 @@ bool InventoryHandler::applyInventoryFields(const FlatFieldMap& fields) {
                 else guid = (guid & 0x00000000FFFFFFFFULL) | (uint64_t(val) << 32);
                 slotsChanged = true;
                 // The bag slots continue the same numbering, after the 28
-                // general ones — which is how bankframe.lua splits them again.
+                // general ones - which is how bankframe.lua splits them again.
                 if (guid != before) changedBankSlots.insert(kBankGeneralSlotCount + slotIndex + 1);
             }
         }
@@ -4361,7 +4361,7 @@ void InventoryHandler::rebuildOnlineInventory() {
     // Announced from here rather than from the callers, because this is the one
     // place the inventory picture is rebuilt and only one of its six callers
     // was saying so. Moving an item between two slots changes which item sits
-    // in which of the player's slot fields — not any item's own fields — so it
+    // in which of the player's slot fields - not any item's own fields - so it
     // never reached the path that announced a change, and the bags and the
     // character sheet went on drawing what they were last told.
     struct Announce {
@@ -4429,7 +4429,7 @@ void InventoryHandler::rebuildOnlineInventory() {
         // Set the bag size in the inventory bag data
         owner_.inventoryRef().setBagSize(bagIdx, numSlots);
         // Quivers (class 11) and profession bags (class 1, subclass != 0) only
-        // accept their own item type — sorting and the combined grid must know.
+        // accept their own item type - sorting and the combined grid must know.
         owner_.inventoryRef().setBagSpecial(bagIdx, bagTemplate &&
             (bagTemplate->itemClass == 11 ||
              (bagTemplate->itemClass == 1 && bagTemplate->subClass != 0)));
@@ -4624,7 +4624,7 @@ void InventoryHandler::rebuildOnlineInventory() {
         lastEquipEnchantIds_ = currentEquipEnchantIds;
         owner_.onlineEquipDirtyRef() = true;
         // And say so. The flag is polled by this client's own panels, which is
-        // why they redrew and FrameXML's did not — equipping something changes
+        // why they redrew and FrameXML's did not - equipping something changes
         // the player's own equipment fields rather than any item or container
         // field, so the BAG_UPDATE the object path sends never fired for it.
         //
@@ -4647,8 +4647,8 @@ void InventoryHandler::rebuildOnlineInventory() {
     // actually carrying. In 3.3.5a the server never pushes item objective
     // counts, so this bag-count pass is the only thing that advances "collect
     // N of item" progress when quest items are looted (or removed). Count
-    // backpack + the four equipped bags — the same set the server checks at
-    // turn-in — summing stacks per item id.
+    // backpack + the four equipped bags - the same set the server checks at
+    // turn-in - summing stacks per item id.
     std::unordered_map<uint32_t, uint32_t> carriedCounts;
     const auto& inv = owner_.inventoryRef();
     for (int i = 0; i < inv.getBackpackSize(); i++) {
@@ -4993,7 +4993,7 @@ void InventoryHandler::updateOtherPlayerVisibleItems(uint64_t guid, const FlatFi
     if (nonZero == 0) {
         LOG_DEBUG("updateOtherPlayerVisibleItems: guid=0x", std::hex, guid, std::dec,
                   " all entries zero (base=", base, " stride=", stride,
-                  " fieldCount=", fields.size(), ") — queuing auto-inspect");
+                  " fieldCount=", fields.size(), ") - queuing auto-inspect");
         if (owner_.getSocket() && owner_.getState() == WorldState::IN_WORLD) {
             owner_.pendingAutoInspectRef().insert(guid);
         }
@@ -5045,13 +5045,13 @@ void InventoryHandler::cacheInspectedPlayerEquipment(uint64_t guid, const std::a
 /// What another player is visibly wearing, without announcing it.
 ///
 /// emitOtherPlayerEquipment pushes this to whoever registered the callback,
-/// which suits the world — a spawn happens and the model is dressed. A
+/// which suits the world - a spawn happens and the model is dressed. A
 /// portrait asks the other way round: it is drawn for whichever unit a frame
 /// has claimed, at a moment nothing has just changed. Same resolution, so it
 /// is the same code rather than a second reading of the same two layouts.
 ///
 /// False when nothing is known yet, which is different from "wearing nothing"
-/// — the difference between leaving a model as it is and stripping it.
+/// - the difference between leaving a model as it is and stripping it.
 bool InventoryHandler::resolveOtherPlayerEquipment(
         uint64_t guid, std::array<uint32_t, 19>& displayIds,
         std::array<uint8_t, 19>& invTypes) const {
@@ -5134,7 +5134,7 @@ void InventoryHandler::emitOtherPlayerEquipment(uint64_t guid) {
              " chest=", displayIds[4], " legs=", displayIds[6],
              " mainhand=", displayIds[15], " offhand=", displayIds[16]);
 
-    // Don't emit all-zero displayIds — that strips existing equipment for no reason.
+    // Don't emit all-zero displayIds - that strips existing equipment for no reason.
     // Wait until at least one item resolves before applying.
     if (anyEntry && resolved == 0) {
         LOG_DEBUG("emitOtherPlayerEquipment: skipping all-zero emit (waiting for item queries)");
@@ -5251,7 +5251,7 @@ void InventoryHandler::addMoneyCopper(uint32_t amount) {
     msg += std::to_string(silver) + "s ";
     msg += std::to_string(copper) + "c.";
     // As money, not as a system line. Both were added because the typed one
-    // raised in the interface's handler and never appeared — see
+    // raised in the interface's handler and never appeared - see
     // ChatHandler::addLocalChatLine.
     owner_.addLocalChatLine(ChatType::MONEY, msg);
 }

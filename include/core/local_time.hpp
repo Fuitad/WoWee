@@ -1,7 +1,7 @@
 #pragma once
 
 /**
- * local_time.hpp — breaking a time_t into local calendar fields, portably.
+ * local_time.hpp - breaking a time_t into local calendar fields, portably.
  *
  * localtime_r is POSIX and does not exist on Windows, where the spelling is
  * localtime_s with its arguments the other way round. Eight places wrote that

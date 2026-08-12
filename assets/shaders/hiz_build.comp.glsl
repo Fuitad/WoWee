@@ -50,7 +50,7 @@ void main() {
     // Conservative maximum (standard depth buffer: 0=near, 1=far).
     // We store the farthest (largest) depth in each 2×2 block.
     // An object is occluded only when its nearest depth > the farthest occluder
-    // depth in the covered screen region — guaranteeing it's behind EVERYTHING.
+    // depth in the covered screen region - guaranteeing it's behind EVERYTHING.
     float maxDepth = max(max(d00, d10), max(d01, d11));
 
     imageStore(dstMip, pos, vec4(maxDepth));

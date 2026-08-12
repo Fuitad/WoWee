@@ -4,7 +4,7 @@ namespace wowee {
 namespace editor {
 namespace cli {
 
-// Dispatch the repair-* manifest-drift fix handlers — auto-fix
+// Dispatch the repair-* manifest-drift fix handlers - auto-fix
 // the common manifest-vs-disk inconsistencies that accumulate
 // when zones are hand-edited or partially copied. Both honor
 // --dry-run for safe previews.

@@ -164,17 +164,17 @@ int handleValidate(int& i, int argc, char** argv) {
         if (e.name.empty())
             errors.push_back(ctx + ": name is empty");
         // allowedSlotsMask=0 means no slot can roll
-        // this pool — pool is unreachable.
+        // this pool - pool is unreachable.
         if (e.allowedSlotsMask == 0) {
             errors.push_back(ctx +
-                ": allowedSlotsMask is 0 — no slot "
+                ": allowedSlotsMask is 0 - no slot "
                 "would ever roll this pool (unreachable)");
         }
         // Empty enchant array means the loot generator
         // would have nothing to pick from.
         if (e.enchants.empty()) {
             errors.push_back(ctx +
-                ": no enchants — loot generator would "
+                ": no enchants - loot generator would "
                 "have nothing to pick");
         }
         // Per-enchant checks.
@@ -188,17 +188,17 @@ int handleValidate(int& i, int argc, char** argv) {
                     "].enchantId is 0");
             }
             // Weight 0 means the enchant is in the
-            // pool but never picked — wastes catalog
+            // pool but never picked - wastes catalog
             // space. Warn.
             if (en.weight == 0 && en.enchantId != 0) {
                 warnings.push_back(ctx +
                     ": enchant[" + std::to_string(k2) +
                     "] enchantId=" +
                     std::to_string(en.enchantId) +
-                    " has weight=0 — never picked, "
+                    " has weight=0 - never picked, "
                     "remove or assign weight");
             }
-            // Same enchant listed twice — should be
+            // Same enchant listed twice - should be
             // merged into single entry with summed
             // weight.
             if (en.enchantId != 0 &&
@@ -206,14 +206,14 @@ int handleValidate(int& i, int argc, char** argv) {
                 errors.push_back(ctx +
                     ": enchant id " +
                     std::to_string(en.enchantId) +
-                    " appears twice in same pool — "
+                    " appears twice in same pool - "
                     "should be merged into single entry "
                     "with summed weight");
             }
             weightSum += en.weight;
         }
         // totalWeight should match sum of enchant
-        // weights — if not, the loot generator's
+        // weights - if not, the loot generator's
         // denormalized rolling won't pick the right
         // distribution.
         if (e.totalWeight !=
@@ -223,7 +223,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 std::to_string(e.totalWeight) +
                 " does not match sum of enchant weights="
                 + std::to_string(weightSum) +
-                " — loot generator would mis-pick");
+                " - loot generator would mis-pick");
         }
         if (!idsSeen.insert(e.poolId).second) {
             errors.push_back(ctx + ": duplicate poolId");

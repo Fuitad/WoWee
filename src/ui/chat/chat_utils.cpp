@@ -1,4 +1,4 @@
-// chat_utils.cpp — Shared chat utility functions.
+// chat_utils.cpp - Shared chat utility functions.
 // Extracted from chat_panel_utils.cpp (Phase 6.6 of chat_panel_ref.md).
 
 #include "ui/chat/chat_utils.hpp"

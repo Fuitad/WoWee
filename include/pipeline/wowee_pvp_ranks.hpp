@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open PvP Ranking Grades catalog (.wprg) —
+// Wowee Open PvP Ranking Grades catalog (.wprg) -
 // novel replacement for the hardcoded 14-rank PvP
 // ladder vanilla WoW shipped (Private through Grand
 // Marshal for Alliance, Scout through High Warlord for
@@ -20,7 +20,7 @@ namespace pipeline {
 //   WCHC: factionFilter uses the WCHC faction-mask
 //         convention (1=Alliance, 2=Horde).
 //   WIT:  gearItemId references the WIT item catalog
-//         (the rank-tier set piece — typically the
+//         (the rank-tier set piece - typically the
 //         legendary battlegear shoulders unlocked at
 //         high ranks).
 //   WPVP: WPRG supersedes the older WPVP simpler PvP
@@ -36,17 +36,17 @@ namespace pipeline {
 //     rankId (uint32)
 //     nameLen + name
 //     descLen + description
-//     factionFilter (uint8)      — 1=Alliance, 2=Horde
-//     tier (uint8)               — 1..14 vanilla rank
+//     factionFilter (uint8)      - 1=Alliance, 2=Horde
+//     tier (uint8)               - 1..14 vanilla rank
 //                                   ladder
 //     pad0 (uint8) / pad1 (uint8)
-//     honorRequiredWeekly (uint32) — RP threshold per
+//     honorRequiredWeekly (uint32) - RP threshold per
 //                                     week to maintain
-//     honorRequiredAchieve (uint32) — total RP for
+//     honorRequiredAchieve (uint32) - total RP for
 //                                     first-time
 //                                     achievement
-//     prefixLen + titlePrefix      — e.g. "Sergeant"
-//     gearItemId (uint32)          — 0 if no gear
+//     prefixLen + titlePrefix      - e.g. "Sergeant"
+//     gearItemId (uint32)          - 0 if no gear
 //                                     reward at this
 //                                     tier
 //     iconColorRGBA (uint32)
@@ -99,14 +99,14 @@ public:
 
     // Preset emitters used by --gen-prg* variants.
     //
-    //   makeAllianceRanks — 7 lower-tier Alliance ranks
+    //   makeAllianceRanks - 7 lower-tier Alliance ranks
     //                        (Private through Knight-
     //                        Lieutenant, tiers 1-7).
-    //   makeHordeRanks    — 7 lower-tier Horde ranks
+    //   makeHordeRanks    - 7 lower-tier Horde ranks
     //                        (Scout through Blood Guard,
     //                        tiers 1-7) with mirrored
     //                        honor thresholds.
-    //   makeHighRanks     — 4 high-tier Alliance ranks
+    //   makeHighRanks     - 4 high-tier Alliance ranks
     //                        (Knight-Captain through
     //                        Commander, tiers 8-11).
     //                        Plus 4 mirrored Horde

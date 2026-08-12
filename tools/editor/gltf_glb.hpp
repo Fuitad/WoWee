@@ -1,18 +1,18 @@
 #pragma once
 
 /**
- * gltf_glb.hpp — writing the .glb container, once.
+ * gltf_glb.hpp - writing the .glb container, once.
  *
  * A .glb is a twelve-byte header and then chunks: a JSON one and a binary one,
- * each with its own length and type word. Five exporters built that by hand —
- * two in cli_bake, two in cli_world_io, one in cli_wom_io — with the four spec
+ * each with its own length and type word. Five exporters built that by hand -
+ * two in cli_bake, two in cli_world_io, one in cli_wom_io - with the four spec
  * words written as bare hex and the padding rules restated, or assumed, in each.
  *
  * It is a format where being wrong is silent on this side and total on the
  * other: a length field off by the padding produces a file that this program
  * still reports as exported and that no viewer will open. The one caller that
  * skipped the BIN padding said in a comment that its data happened to be
- * aligned already — true when it was written, and not something the next
+ * aligned already - true when it was written, and not something the next
  * change to that buffer would be told about.
  */
 
@@ -45,7 +45,7 @@ inline constexpr int kGltfUnsignedInt = 5125;
 
 /// Write a .glb: the header, the JSON chunk, and the binary chunk.
 ///
-/// Both chunks are padded to a four-byte boundary — the JSON with spaces and
+/// Both chunks are padded to a four-byte boundary - the JSON with spaces and
 /// the binary with zeros, which is what the spec asks for and not
 /// interchangeable. The lengths in the headers are the padded ones, because
 /// that is what a reader steps over.

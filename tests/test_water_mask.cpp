@@ -46,7 +46,7 @@ TEST_CASE("an ocean chunk fills only itself") {
     REQUIRE(set == 64);
 }
 
-// A pond draws where its bitmap says and nowhere else — no mirroring of the bit
+// A pond draws where its bitmap says and nowhere else - no mirroring of the bit
 // order, no dilation into the neighbouring tile. Both were once compensation
 // for a transposition and both painted water past the bank.
 TEST_CASE("a sparse bitmap is honoured exactly") {
@@ -75,7 +75,7 @@ TEST_CASE("nothing outside the sub-rect") {
                     ((row >= 1 && row <= 2) && (col >= 1 && col <= 2)));
 }
 
-// A layer with no exists bitmap is solid across its sub-rect — that is what an
+// A layer with no exists bitmap is solid across its sub-rect - that is what an
 // absent bitmap means in both MH2O and MCLQ.
 TEST_CASE("an absent bitmap means solid") {
     const uint64_t m = chunkWaterMask({}, 0, 0, 8, 8, /*isOcean=*/false);

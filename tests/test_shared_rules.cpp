@@ -5,7 +5,7 @@
 // of it: a rule with one home is a rule one mistake can break everywhere, and
 // what used to be a hundred and forty-one chances to notice is now none.
 //
-// These are the cases I checked by hand while consolidating — the ones that
+// These are the cases I checked by hand while consolidating - the ones that
 // explain why the function is shaped the way it is, and the ones that were
 // actually wrong in one of the copies.
 #include <catch_amalgamated.hpp>
@@ -43,7 +43,7 @@ TEST_CASE("a setting's value is written the way a CVar carries one", "[settings]
 
     SECTION("on is anything that is not empty and not zero") {
         // A CVar arrives as a string, and in Lua every string including "0" is
-        // true — so the test cannot be left to the caller.
+        // true - so the test cannot be left to the caller.
         CHECK(ui::settingIsOn("1"));
         CHECK(ui::settingIsOn("0.5"));
         CHECK_FALSE(ui::settingIsOn("0"));
@@ -72,7 +72,7 @@ TEST_CASE("the settings schema is something a panel can be built from", "[settin
 
         // A default outside the control's own range cannot be selected, so
         // pressing Defaults would move the value somewhere the slider then
-        // refuses to show — and the panel would read back a different number
+        // refuses to show - and the panel would read back a different number
         // from the one that was just written.
         if (d.kind == ui::SettingKind::Bool) {
             CHECK((d.defaultValue == 0.0f || d.defaultValue == 1.0f));
@@ -83,7 +83,7 @@ TEST_CASE("the settings schema is something a panel can be built from", "[settin
 
         if (d.kind == ui::SettingKind::Enum) {
             // The value is the chosen index, so the choices have to cover the
-            // range exactly — one label per value from min to max.
+            // range exactly - one label per value from min to max.
             const std::string choices = d.choices;
             CHECK(choices != "");
             const auto labels =
@@ -107,7 +107,7 @@ TEST_CASE("the settings schema is something a panel can be built from", "[settin
         // The panels are built by walking this list once: a category is a
         // panel and a section is a heading on it, so a row that turns up again
         // after the list has moved on gets a second heading with the same name
-        // — or, for a category, is silently added to a panel that has already
+        // - or, for a category, is silently added to a panel that has already
         // been laid out.
         std::vector<std::string> seenCategories;
         std::vector<std::string> seenSections;
@@ -199,7 +199,7 @@ TEST_CASE("which equipped slot an item is compared against", "[item]") {
 
     SECTION("what is not equipped has nothing to compare") {
         CHECK(comparableEquipSlots(0).empty());   // not equippable
-        CHECK(comparableEquipSlots(24).empty());  // ammo — a quiver slot this client has no equivalent for
+        CHECK(comparableEquipSlots(24).empty());  // ammo - a quiver slot this client has no equivalent for
         CHECK(comparableEquipSlots(200).empty());
     }
 
@@ -217,7 +217,7 @@ TEST_CASE("which equipped slot an item is compared against", "[item]") {
 
 TEST_CASE("an amount of money as a line of text", "[item]") {
     // Two file-scope copies of this existed, and a third file reached one of
-    // them by forward-declaring it across translation units — which linked
+    // them by forward-declaring it across translation units - which linked
     // only because neither was in an anonymous namespace.
     CHECK(game::formatCopperAmount(12345) == "1g 23s 45c");
     CHECK(game::formatCopperAmount(10000) == "1g");
@@ -243,7 +243,7 @@ TEST_CASE("an amount of money as a line of text", "[item]") {
 
     SECTION("an amount too large for a uint32 of copper") {
         // splitCopper takes a 64-bit amount because a price times a stack can
-        // overflow before it is ever split — the vendor's total is computed
+        // overflow before it is ever split - the vendor's total is computed
         // that way.
         const auto coins = game::splitCopper(uint64_t(5'000'000) * 10000);
         CHECK(coins.gold == 5'000'000);
@@ -253,7 +253,7 @@ TEST_CASE("an amount of money as a line of text", "[item]") {
 }
 
 TEST_CASE("power types are named by POWER_*", "[spell]") {
-    // The spellbook had Focus at 4, which is Happiness — so a spell costing
+    // The spellbook had Focus at 4, which is Happiness - so a spell costing
     // Focus fell through to "Mana" and one costing Happiness said "Focus".
     CHECK(std::string(game::powerTypeName(2)) == "Focus");
     CHECK(std::string(game::powerTypeName(4)) == "Happiness");
@@ -291,7 +291,7 @@ TEST_CASE("the .skin beside a model", "[m2]") {
     SECTION("a path with no extension keeps its whole name") {
         // The common spelling chopped three characters off the end, which is
         // right for ".m2" and takes the last three letters of a name that has
-        // no extension — asking for a file that cannot exist. A model with no
+        // no extension - asking for a file that cannot exist. A model with no
         // skin draws nothing rather than reporting a bad path.
         CHECK(pipeline::skinPathForM2("Creature\\Wolf\\Wolf") == "Creature\\Wolf\\Wolf00.skin");
     }
@@ -309,7 +309,7 @@ TEST_CASE("the .m2 a model reference means", "[m2]") {
 
     SECTION(".mdl too, which is the half three of the nine copies missed") {
         // Those three left the reference as ".mdl", the asset manager found
-        // nothing, and the doodad did not appear — with nothing logged, since
+        // nothing, and the doodad did not appear - with nothing logged, since
         // a model that is not there is an ordinary thing.
         CHECK(pipeline::modelPathToM2("World\\Tree.mdl") == "World\\Tree.m2");
     }
@@ -382,7 +382,7 @@ TEST_CASE("the folder a race's art lives in", "[character]") {
 
     SECTION("an unknown race answers Human rather than nothing") {
         // A wrong body is more useful than no body while something upstream is
-        // wrong — and 9 is the id no race has.
+        // wrong - and 9 is the id no race has.
         CHECK(std::string(core::raceModelFolder(9)) == "Human");
         CHECK(std::string(core::raceModelFolder(0)) == "Human");
     }
@@ -397,7 +397,7 @@ TEST_CASE("the folder a race's art lives in", "[character]") {
 
 TEST_CASE("the four appearance choices packed into PLAYER_BYTES", "[character]") {
     // Which byte is which is not guessable, and reading face where skin was
-    // meant does not fail — it draws a face.
+    // meant does not fail - it draws a face.
     const auto a = core::unpackAppearanceBytes(0x04030201u);
     CHECK(a.skinId == 1);
     CHECK(a.faceId == 2);
@@ -471,7 +471,7 @@ TEST_CASE("a format's extension is added only when it is missing", "[formats]") 
     SECTION("an extension that is not four letters") {
         // Every per-format copy compared the last five characters against a
         // four-letter extension, which is right for fifty of them and wrong for
-        // .wol — so that format wrote its own and lost the string cap with it.
+        // .wol - so that format wrote its own and lost the string cap with it.
         CHECK(pipeline::normalizePath("sky", ".wol") == "sky.wol");
         CHECK(pipeline::normalizePath("sky.wol", ".wol") == "sky.wol");
     }

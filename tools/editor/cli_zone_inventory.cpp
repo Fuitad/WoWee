@@ -323,7 +323,7 @@ int handleZoneSummary(int& i, int argc, char** argv) {
                 mapName = zj["mapName"].get<std::string>();
             }
         }
-    } catch (...) { /* tolerated — leave as ? */ }
+    } catch (...) { /* tolerated - leave as ? */ }
     auto scan = [&](const std::string& sub, const std::string& ext)
         -> std::pair<int, uint64_t> {
         int n = 0;

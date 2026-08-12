@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Token Reward catalog (.wtbr) — novel
+// Wowee Open Token Reward catalog (.wtbr) - novel
 // replacement for the per-vendor token redemption tables
 // (currency_token_reward / npc_vendor token rows). Each
 // entry says "spend N copies of token X to receive
@@ -115,14 +115,14 @@ public:
 
     // Preset emitters used by --gen-tbr* variants.
     //
-    //   makeRaidTokens — 5 raid tier-token redemptions
+    //   makeRaidTokens - 5 raid tier-token redemptions
     //                     (T9 Conqueror's helm, Vanquisher's
     //                     chest, etc) consuming Trophy of
     //                     the Crusade.
-    //   makePvP        — 5 PvP redemptions (Honor → BG
+    //   makePvP        - 5 PvP redemptions (Honor → BG
     //                     mount, Arena → arena weapon,
     //                     Conquest → PvP tier helm).
-    //   makeFaction    — 5 faction-gated rewards (Argent
+    //   makeFaction    - 5 faction-gated rewards (Argent
     //                     Tournament tabard at Honored,
     //                     Hodir mammoth mount at Exalted,
     //                     Cenarion ring at Revered, etc.)

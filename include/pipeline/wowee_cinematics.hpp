@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Cinematic catalog (.wcms) — novel replacement
+// Wowee Open Cinematic catalog (.wcms) - novel replacement
 // for Blizzard's Movie.dbc + CinematicCamera.dbc +
 // CinematicSequences.dbc + the AzerothCore-style
 // cinematic_camera SQL tables. The 41st open format added
@@ -21,7 +21,7 @@ namespace pipeline {
 // gameplay event (quest accepted, class first-login,
 // dungeon cleared, achievement earned).
 //
-// Cross-references with previously-added formats — the
+// Cross-references with previously-added formats - the
 // triggerTargetId field is polymorphic by triggerKind:
 //   triggerKind=QuestStart/End  → WQT.entry.questId
 //   triggerKind=ZoneEntry       → WMS.area.areaId
@@ -98,13 +98,13 @@ public:
 
     // Preset emitters used by --gen-cinematics* variants.
     //
-    //   makeStarter — 3 cinematics: 1 pre-rendered intro,
+    //   makeStarter - 3 cinematics: 1 pre-rendered intro,
     //                  1 in-engine quest cutscene, 1 still
     //                  image with audio (login splash).
-    //   makeIntros  — 4 class-intro cinematics for Warrior /
+    //   makeIntros  - 4 class-intro cinematics for Warrior /
     //                  Mage / Hunter / Rogue, each shown on
     //                  first character login.
-    //   makeQuestCinematics — 3 quest-triggered cinematics
+    //   makeQuestCinematics - 3 quest-triggered cinematics
     //                          referencing WQT questIds 1 /
     //                          100 / 102 from the demo
     //                          content stack.

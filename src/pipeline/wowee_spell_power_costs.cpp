@@ -112,13 +112,13 @@ WoweeSpellPowerCost WoweeSpellPowerCostLoader::makeStarter(
         c.entries.push_back(e);
     };
     add(1, "NoCost",      P::NoCost, 0.0f,  0,
-        "Free spell — no resource cost (Auto Attack).");
+        "Free spell - no resource cost (Auto Attack).");
     add(2, "LowMana",     P::Mana,   0.05f, 0,
-        "Low-cost spell — 5% of max mana (Frostbolt).");
+        "Low-cost spell - 5% of max mana (Frostbolt).");
     add(3, "MediumMana",  P::Mana,   0.15f, 0,
-        "Medium-cost spell — 15% of max mana (Fireball).");
+        "Medium-cost spell - 15% of max mana (Fireball).");
     add(4, "HighMana",    P::Mana,   0.30f, 0,
-        "High-cost spell — 30% of max mana (Pyroblast).");
+        "High-cost spell - 30% of max mana (Pyroblast).");
     return c;
 }
 
@@ -139,13 +139,13 @@ WoweeSpellPowerCost WoweeSpellPowerCostLoader::makeRage(
     };
     // Warrior abilities, fixed rage cost (no level scaling).
     add(100, "HeroicStrikeRage",  15, 0,
-        "Heroic Strike — 15 rage on next melee.");
+        "Heroic Strike - 15 rage on next melee.");
     add(101, "SlamRage",          20, 0,
-        "Slam — 20 rage, channeled.");
+        "Slam - 20 rage, channeled.");
     add(102, "WhirlwindRage",     25, P::RequiresCombatStance,
-        "Whirlwind — 25 rage, requires Berserker stance.");
+        "Whirlwind - 25 rage, requires Berserker stance.");
     add(103, "MortalStrikeRage",  30, 0,
-        "Mortal Strike — 30 rage instant strike.");
+        "Mortal Strike - 30 rage instant strike.");
     return c;
 }
 
@@ -165,17 +165,17 @@ WoweeSpellPowerCost WoweeSpellPowerCostLoader::makeMixed(
         c.entries.push_back(e);
     };
     add(200, "HunterFocus30",   P::Focus,      30, 0,
-        "Hunter Focus — 30 focus (Cobra Shot).");
+        "Hunter Focus - 30 focus (Cobra Shot).");
     add(201, "RogueEnergy40",   P::Energy,     40, P::RefundOnMiss,
-        "Rogue Energy — 40 energy (Sinister Strike), refunds "
+        "Rogue Energy - 40 energy (Sinister Strike), refunds "
         "on miss/dodge/parry.");
     add(202, "DKRunic30",       P::RunicPower, 30, 0,
-        "Death Knight Runic Power — 30 RP (Death Coil).");
+        "Death Knight Runic Power - 30 RP (Death Coil).");
     add(203, "PaladinHoly1",    P::HolyPower,   1, 0,
-        "Paladin Holy Power — 1 HP per finisher (Templar's "
+        "Paladin Holy Power - 1 HP per finisher (Templar's "
         "Verdict, Word of Glory).");
     add(204, "WarlockShard1",   P::SoulShards,  1, 0,
-        "Warlock Soul Shard — 1 shard (Soulburn finishers).");
+        "Warlock Soul Shard - 1 shard (Soulburn finishers).");
     return c;
 }
 

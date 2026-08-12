@@ -85,7 +85,7 @@ bool containsAnyTerm(const std::string& haystack, const char* const* terms, size
 // GAMEOBJECT_TYPE_FISHINGHOLE. A fishing school is not a container: retail
 // gives it no interact cursor at all, and the only way to take from it is to
 // fish in it. Clicking one here sent CMSG_GAMEOBJ_USE and, while its metadata
-// was still pending, a CMSG_LOOT as well — which the server answers with the
+// was still pending, a CMSG_LOOT as well - which the server answers with the
 // hole's loot, harvesting the school in one right-click.
 constexpr uint32_t kGoTypeFishingHole = 25;
 
@@ -128,7 +128,7 @@ LockOpenPlan planGameObjectOpen(pipeline::AssetManager* assets,
     auto spellDbc = assets->loadDBC("Spell.dbc");
     if (!lockDbc || !spellDbc || !lockDbc->isLoaded() || !spellDbc->isLoaded() ||
         lockDbc->getFieldCount() < 33 || spellDbc->getFieldCount() < 234) {
-        return plan; // Can't inspect the lock — let the server adjudicate a USE.
+        return plan; // Can't inspect the lock - let the server adjudicate a USE.
     }
 
     const uint32_t lockId = info->data[0];
@@ -640,7 +640,7 @@ void GameHandler::selectCharacter(uint64_t characterGuid) {
     std::fill(playerExploredZones_.begin(), playerExploredZones_.end(), 0u);
     hasPlayerExploredZones_ = false;
     playerSkills_.clear();
-    // The handler's, not this class's same-named members — every reader
+    // The handler's, not this class's same-named members - every reader
     // forwards there, so clearing the copies here cleared nothing anyone
     // looks at and the previous character's quests stayed in the log.
     if (questHandler_) questHandler_->clearQuestStateForCharacterSwitch();
@@ -679,7 +679,7 @@ void GameHandler::handleLoginSetTimeSpeed(network::Packet& packet) {
     // SMSG_LOGIN_SETTIMESPEED (0x042)
     // Structure: PackedTime gameTime, float timeScale
     //
-    // gameTime is a packed bitfield, not a count of seconds — Player.cpp writes
+    // gameTime is a packed bitfield, not a count of seconds - Player.cpp writes
     // it with AppendPackedTime. It was being stored raw and then divided by
     // 86400 to get a time of day, which made the sky's clock a number with no
     // relation to the hour the server sent.
@@ -732,7 +732,7 @@ void GameHandler::handleLoginVerifyWorld(network::Packet& packet) {
     // same-map reload/reset path and starve networking for tens of seconds.
     // The distance test alone is not enough while flying. A taxi carries the
     // player a long way from where the packet's position points, so a late
-    // duplicate stops looking like a duplicate and is taken for a teleport —
+    // duplicate stops looking like a duplicate and is taken for a teleport -
     // and world entry puts the player back at the position it carries, which
     // is where they logged in. Any of these arriving mid-flight is a duplicate
     // whatever the distance says: the server moves a passenger along the
@@ -749,14 +749,14 @@ void GameHandler::handleLoginVerifyWorld(network::Packet& packet) {
     // Said at warning level when it happens in-world, because from here the
     // player is moved to the position this packet carries. A duplicate that
     // slips past the test above is indistinguishable, after the fact, from a
-    // teleport nobody asked for — and one arriving in-world is what puts a
+    // teleport nobody asked for - and one arriving in-world is what puts a
     // player back where they logged in.
     if (!initialWorldEntry) {
         LOG_WARNING("SMSG_LOGIN_VERIFY_WORLD in-world is being treated as a "
                     "teleport: mapId=", data.mapId, " sameMap=", sameMap,
                     " dist=", std::sqrt(distSqCurrent),
                     " onTaxi=", flying,
-                    " — the player is about to be placed at (", data.x, ", ",
+                    " - the player is about to be placed at (", data.x, ", ",
                     data.y, ", ", data.z, ")");
     }
 
@@ -805,7 +805,7 @@ void GameHandler::handleLoginVerifyWorld(network::Packet& packet) {
     taxiActivatePending_ = false;
     taxiClientActive_ = false;
     taxiClientPath_.clear();
-    // taxiRecoverPending_ is NOT cleared here — it must survive the general
+    // taxiRecoverPending_ is NOT cleared here - it must survive the general
     // state reset so the recovery check below can detect a mid-flight reconnect.
     taxiStartGrace_ = 0.0f;
     currentMountDisplayId_ = 0;
@@ -818,7 +818,7 @@ void GameHandler::handleLoginVerifyWorld(network::Packet& packet) {
     // Clear boss encounter unit slots and raid marks on world transfer
     if (socialHandler_) socialHandler_->resetTransferState();
 
-    // Suppress area triggers on initial login — prevents exit portals from
+    // Suppress area triggers on initial login - prevents exit portals from
     // immediately firing when spawning inside a dungeon/instance. Deeprun Tram
     // (map 369) needs a shorter window because exits are close to the spawn.
     const bool deeprunTram = data.mapId == 369;
@@ -934,11 +934,11 @@ void GameHandler::handleLoginVerifyWorld(network::Packet& packet) {
         preloadDBCCaches();
         // Asked once, read all session: the reply carries how long until the
         // daily quests reset, which is the only place that figure comes from.
-        // Silently — the announcement belongs to /time.
+        // Silently - the announcement belongs to /time.
         queryServerTime(false);
     }
 
-    // Fire PLAYER_ENTERING_WORLD — THE most important event for addon initialization.
+    // Fire PLAYER_ENTERING_WORLD - THE most important event for addon initialization.
     // Fires on initial login, teleports, instance transitions, and zone changes.
     if (addonEventCallback_) {
         fireAddonEvent("PLAYER_ENTERING_WORLD", {initialWorldEntry ? "1" : "0"});
@@ -949,7 +949,7 @@ void GameHandler::handleLoginVerifyWorld(network::Packet& packet) {
         fireAddonEvent("ZONE_CHANGED_NEW_AREA", {});
         fireAddonEvent("UPDATE_WORLD_STATES", {});
         // Entering a battleground, told apart by the map itself rather than by
-        // anything the server says about it — BattlemasterList.dbc names the
+        // anything the server says about it - BattlemasterList.dbc names the
         // maps and this client already reads it for the queue list.
         //
         // The battleground frame answers this by filtering chat: a battleground
@@ -959,7 +959,7 @@ void GameHandler::handleLoginVerifyWorld(network::Packet& packet) {
         if (isBattlegroundMap(getCurrentMapId())) {
             fireAddonEvent("PLAYER_ENTERING_BATTLEGROUND", {});
         }
-        // The currencies are known now — CurrencyTypes.dbc is read on demand
+        // The currencies are known now - CurrencyTypes.dbc is read on demand
         // and the amounts are item stacks that have just arrived with the
         // inventory. The main bar builds its token frame on this and had no
         // reason to, so the frame stayed empty however much was held.
@@ -982,7 +982,7 @@ void GameHandler::handleLoginVerifyWorld(network::Packet& packet) {
         // will change health or level just because someone is looking. The
         // original interface fills its unit frames on PLAYER_ENTERING_WORLD for
         // exactly this reason, and it reads the current values rather than the
-        // event's — so the event alone is enough, and this is where it belongs.
+        // event's - so the event alone is enough, and this is where it belongs.
         for (const char* what : {"UNIT_HEALTH", "UNIT_MAXHEALTH", "UNIT_LEVEL",
                                  "UNIT_DISPLAYPOWER", "UNIT_MANA", "UNIT_MAXMANA",
                                  "UNIT_RAGE", "UNIT_MAXRAGE", "UNIT_ENERGY",
@@ -994,7 +994,7 @@ void GameHandler::handleLoginVerifyWorld(network::Packet& packet) {
         // Dead on arrival, said now.
         //
         // Logging in as a corpse is the one time death is not a transition the
-        // client watches happen — it is the state the player already has when
+        // client watches happen - it is the state the player already has when
         // the world loads, so no health-drop and no flag-flip fires PLAYER_DEAD
         // and the interface never puts up the release-spirit popup. The player
         // sits dead, unable to act, until the server tires of waiting and
@@ -1084,7 +1084,7 @@ void GameHandler::sendPing() {
 
 void GameHandler::sendRequestVehicleExit() {
     if (state != WorldState::IN_WORLD || vehicleId_ == 0) return;
-    // CMSG_REQUEST_VEHICLE_EXIT has no payload — opcode only
+    // CMSG_REQUEST_VEHICLE_EXIT has no payload - opcode only
     network::Packet pkt(wireOpcode(Opcode::CMSG_REQUEST_VEHICLE_EXIT));
     socket->send(pkt);
     vehicleId_ = 0;  // Optimistically clear; server will confirm via SMSG_PLAYER_VEHICLE_DATA(0)
@@ -1493,7 +1493,7 @@ void GameHandler::setOrientation(float orientation) {
 
 // Entity lifecycle methods (handleUpdateObject, processOutOfRangeObjects,
 // applyUpdateObjectBlock, finalizeUpdateObjectBatch, handleCompressedUpdateObject,
-// handleDestroyObject) moved to EntityController — see entity_controller.cpp
+// handleDestroyObject) moved to EntityController - see entity_controller.cpp
 
 void GameHandler::sendChatMessage(ChatType type, const std::string& message, const std::string& target) {
     if (chatHandler_) chatHandler_->sendChatMessage(type, message, target);
@@ -1666,7 +1666,7 @@ void GameHandler::faceCanonicalYaw(float canonicalYaw) {
             LOG_WARNING("Facing mismatch: computed canonical=", canonicalYaw,
                         " but the character's ", r->getCharacterYaw(),
                         " deg maps to ", fromRender, " (off by ",
-                        delta * 57.2957795f, " deg) — the resync will undo this");
+                        delta * 57.2957795f, " deg) - the resync will undo this");
         }
     }
 
@@ -1821,7 +1821,7 @@ void GameHandler::setRaidMark(uint64_t guid, uint8_t icon) {
     if (socialHandler_) socialHandler_->setRaidMark(guid, icon);
 }
 
-// The marks live in SocialHandler — MSG_RAID_TARGET_UPDATE writes them there.
+// The marks live in SocialHandler - MSG_RAID_TARGET_UPDATE writes them there.
 // GameHandler kept a second, identical array that nothing ever wrote, so every
 // caller of these (target frame, nameplates, minimap, social panel) read an
 // array of zeros and no marker icon was ever drawn.
@@ -1934,7 +1934,7 @@ const std::vector<std::string>& GameHandler::getJoinedChannels() const {
 // ============================================================
 
 // Who a piece of mail is from. The wire gives a player GUID for player mail and
-// an entry for everything else, and nothing resolved either — the inbox showed
+// an entry for everything else, and nothing resolved either - the inbox showed
 // an empty From line for every message.
 //
 // Resolved on demand rather than stored, so a name that arrives after the inbox
@@ -2780,7 +2780,7 @@ void GameHandler::lootMasterGive(uint8_t lootSlot, uint64_t targetGuid) {
 void GameHandler::interactWithNpc(uint64_t guid) {
     if (!isInWorld()) return;
     // A dead player at an area spirit healer is a different conversation. The
-    // battleground ones do not answer a gossip hello at all — they answer
+    // battleground ones do not answer a gossip hello at all - they answer
     // CMSG_AREA_SPIRIT_HEALER_QUERY with the seconds to the next mass
     // resurrection, and the client has to ask. Nothing here ever asked, so the
     // reply never came, the countdown never appeared, and the queue that
@@ -2846,7 +2846,7 @@ void GameHandler::interactWithGameObject(uint64_t guid) {
     }
     // Set the pending GO guid so that:
     // 1. cancelCast() won't send CMSG_CANCEL_CAST for GO-triggered casts
-    //    (e.g., "Opening" on a quest chest) — without this, any movement
+    //    (e.g., "Opening" on a quest chest) - without this, any movement
     //    during the cast cancels it server-side and quest credit is lost.
     // 2. The cast-completion fallback in update() can call
     //    performGameObjectInteractionNow after the cast timer expires.
@@ -2916,7 +2916,7 @@ void GameHandler::performGameObjectInteractionNow(uint64_t guid) {
             raiseUiError("Too far away.");
             return;
         }
-        // Stop movement before interacting — servers may reject GO use or
+        // Stop movement before interacting - servers may reject GO use or
         // immediately cancel the resulting spell cast if the player is moving.
         const uint32_t moveFlags = movementInfo.flags;
         const bool isMoving = (moveFlags & 0x00000001u) || // FORWARD
@@ -3002,7 +3002,7 @@ void GameHandler::performGameObjectInteractionNow(uint64_t guid) {
             return;
         }
         // Key-item lock: a warrior knows no open-lock spell. Open it by USING the
-        // key item on the chest (CMSG_USE_ITEM targeting the GO) — the server casts
+        // key item on the chest (CMSG_USE_ITEM targeting the GO) - the server casts
         // the key's on-use OPEN_LOCK spell because the player holds the key. A plain
         // USE does not open a locked type-3 chest, and casting the item's spell via
         // CMSG_CAST_SPELL is rejected (the player doesn't "know" it).
@@ -3014,7 +3014,7 @@ void GameHandler::performGameObjectInteractionNow(uint64_t guid) {
                     if (sp.spellTrigger == 0 && sp.spellId != 0 && keyUseSpell == 0)
                         keyUseSpell = sp.spellId;
             } else {
-                ensureItemInfo(plan.keyItemId); // not cached yet — request for next click
+                ensureItemInfo(plan.keyItemId); // not cached yet - request for next click
             }
 
             // Locate the key: wire (bag, slot) + item GUID. Keyring wire slots
@@ -3051,7 +3051,7 @@ void GameHandler::performGameObjectInteractionNow(uint64_t guid) {
                 return;
             }
         }
-        // LockOpenMethod::UseDirect — fall through to CMSG_GAMEOBJ_USE.
+        // LockOpenMethod::UseDirect - fall through to CMSG_GAMEOBJ_USE.
         LOG_INFO("GO chest opens via direct USE: lockId=",
                  goInfo && goInfo->hasData ? goInfo->data[0] : 0,
                  " keyItem=", plan.keyItemId,
@@ -3070,7 +3070,7 @@ void GameHandler::performGameObjectInteractionNow(uint64_t guid) {
     }
 
     if (chestLike || metadataPending) {
-        // Don't send CMSG_LOOT immediately — the server may start a timed cast
+        // Don't send CMSG_LOOT immediately - the server may start a timed cast
         // (e.g., "Opening") and the GO isn't lootable until the cast finishes.
         // Sending LOOT prematurely gets an empty response or is silently dropped,
         // which can interfere with the server's loot state machine.
@@ -3121,7 +3121,7 @@ bool GameHandler::hasQuestInLog(uint32_t questId) const {
 
 Unit* GameHandler::getUnitByGuid(uint64_t guid) {
     auto entity = entityController_->getEntityManager().getEntity(guid);
-    // Use the type tag to skip RTTI — both UNIT and PLAYER object types derive from Unit.
+    // Use the type tag to skip RTTI - both UNIT and PLAYER object types derive from Unit.
     if (!entity || !entity->isUnit()) return nullptr;
     return static_cast<Unit*>(entity.get());
 }
@@ -3134,7 +3134,7 @@ std::string GameHandler::guidToUnitId(uint64_t guid) const {
     return {};
 }
 
-// Both read through getQuestLog(), which delegates to QuestHandler — the only
+// Both read through getQuestLog(), which delegates to QuestHandler - the only
 // place a quest log is ever filled in. They used to walk a GameHandler member
 // of the same name that the decomposition left behind and nothing ever wrote,
 // so every title came back empty and every lookup came back null.
@@ -3467,7 +3467,7 @@ void GameHandler::preloadDBCCaches() const {
     LOG_INFO("Pre-loading DBC caches during world entry...");
     auto t0 = std::chrono::steady_clock::now();
 
-    loadSpellNameCache();   // Spell.dbc — largest, ~170ms cold
+    loadSpellNameCache();   // Spell.dbc - largest, ~170ms cold
     loadTitleNameCache();   // CharTitles.dbc
     loadFactionNameCache(); // Faction.dbc
     loadAreaNameCache();    // WorldMapArea.dbc
@@ -3583,7 +3583,7 @@ std::string GameHandler::formatSpellDescription(uint32_t selfSpellId,
 
         char next = raw[i + 1];
 
-        // Plural "$lsingular:plural;" / gender "$gmale:female;" — emit one branch.
+        // Plural "$lsingular:plural;" / gender "$gmale:female;" - emit one branch.
         if (next == 'l' || next == 'L' || next == 'g' || next == 'G') {
             size_t semi = raw.find(';', i + 2);
             if (semi != std::string::npos) {
@@ -3598,7 +3598,7 @@ std::string GameHandler::formatSpellDescription(uint32_t selfSpellId,
             }
         }
 
-        // Bracketed math expression "${...}" — can't evaluate; strip it (and a trailing %).
+        // Bracketed math expression "${...}" - can't evaluate; strip it (and a trailing %).
         if (next == '{') {
             size_t close = raw.find('}', i + 2);
             if (close != std::string::npos) {
@@ -3608,7 +3608,7 @@ std::string GameHandler::formatSpellDescription(uint32_t selfSpellId,
             }
         }
 
-        // Division token "$/N;<valueToken>" — e.g. "$/5;s1" is "s1 divided by 5"
+        // Division token "$/N;<valueToken>" - e.g. "$/5;s1" is "s1 divided by 5"
         // (food eat spells: "Restores $/5;s1 health per second").
         if (next == '/') {
             size_t k = i + 2;
@@ -3634,7 +3634,7 @@ std::string GameHandler::formatSpellDescription(uint32_t selfSpellId,
                     }
                 }
             }
-            // Unparseable division token — strip through the terminating ';' if present.
+            // Unparseable division token - strip through the terminating ';' if present.
             size_t semi = raw.find(';', i + 2);
             i = (semi != std::string::npos) ? semi + 1 : i + 2;
             if (i < n && raw[i] == '%') ++i;
@@ -3669,7 +3669,7 @@ std::string GameHandler::formatSpellDescription(uint32_t selfSpellId,
                 if (!dur.empty()) { out += dur; resolved = true; }
                 break;
             }
-            default: break;  // $h proc chance, $t period, $a radius, ... — not resolvable here
+            default: break;  // $h proc chance, $t period, $a radius, ... - not resolvable here
         }
 
         if (resolved) {

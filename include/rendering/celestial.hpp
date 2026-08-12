@@ -16,7 +16,7 @@ class VkContext;
  * Sun rises at dawn, sets at dusk. Moon is visible at night.
  *
  * Pipeline layout:
- *   set 0  = perFrameLayout  (camera UBO — view, projection, etc.)
+ *   set 0  = perFrameLayout  (camera UBO - view, projection, etc.)
  *   push   = CelestialPush   (mat4 model + vec4 celestialColor + float intensity
  *                              + float moonPhase + float animTime = 96 bytes)
  */
@@ -82,7 +82,7 @@ public:
     float     getSunIntensity(float timeOfDay) const;
 
 private:
-    // Push constant block — MUST match celestial.vert.glsl / celestial.frag.glsl
+    // Push constant block - MUST match celestial.vert.glsl / celestial.frag.glsl
     struct CelestialPush {
         glm::mat4 model;         // 64 bytes
         glm::vec4 celestialColor; // 16 bytes (xyz = colour, w unused)

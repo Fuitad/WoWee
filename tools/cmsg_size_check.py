@@ -6,7 +6,7 @@ guard is longer than the packet the server sends, which disables it silently.
 This is the same question pointed the other way, and it fails harder.
 
 A WorldPacket read past its end throws inside AzerothCore's ByteBuffer. The
-session catches it, logs, and drops the packet — so the request simply never
+session catches it, logs, and drops the packet - so the request simply never
 happened. There is no error to the client, no refusal, nothing on screen. From
 this side it looks exactly like a server that ignored you.
 
@@ -22,14 +22,14 @@ HOW EACH SIDE IS MEASURED
 Server: from the handler named in Opcodes.cpp, the local declarations are
 collected (`uint32 BattleId;`) and then the first `recvData >> a >> b` chain is
 summed using those types. The sum stops at the first name whose type is not a
-plain integer — a string, an ObjectGuid, anything declared elsewhere — because
+plain integer - a string, an ObjectGuid, anything declared elsewhere - because
 past that point the length is not fixed. What is summed is therefore a minimum
 the server *will* read before it can branch.
 
 Client: from `network::Packet name(wireOpcode(Opcode::CMSG_X))`, the
 `name.writeUintN(...)` calls that follow are summed until the send. A
 writeString or a writePackedGuid ends the sum, since neither has a width here
-either — and a request that opens with one cannot be compared at all and is
+either - and a request that opens with one cannot be compared at all and is
 skipped rather than guessed at.
 
 TWO QUESTIONS, NOT ONE
@@ -42,8 +42,8 @@ little-endian puts the value in the low half.
 
 VALIDATED AGAINST THE BUG IT WAS WRITTEN FOR
 
-As acceptBfMgrInvite stood before the fix — one writeUInt8 straight after the
-packet was constructed — this reports it: sends 1, server reads 5. It does not
+As acceptBfMgrInvite stood before the fix - one writeUInt8 straight after the
+packet was constructed - this reports it: sends 1, server reads 5. It does not
 report it now, and not because the bug is fixed: the fix routed all three
 answers through one helper that takes the opcode as an argument, so there is no
 Opcode:: literal beside the writes for this to find. Worth knowing before
@@ -55,7 +55,7 @@ WHAT IT CANNOT SEE
     literal is at the call site and the writes are in the helper, and nothing
     here joins them.
   * A conditional write. `if (withFlag) pkt.writeUInt8(...)` ends the sum and
-    marks the size inexact, and an inexact size is never reported — being
+    marks the size inexact, and an inexact size is never reported - being
     silent is the right failure here, since a guess would report every
     branching builder as short.
   * Two thirds of what this client sends. Most AzerothCore handlers open with
@@ -67,7 +67,7 @@ WHAT IT DELIBERATELY DOES NOT DO
 
 Compare field by field. Two packets of the same length can still disagree
 about what those bytes mean, and this cannot see that. It answers one
-question — whether the server will run out of buffer — and a clean run is not
+question - whether the server will run out of buffer - and a clean run is not
 a statement that the layouts match.
 """
 import argparse
@@ -83,7 +83,7 @@ WIDTH = {"uint8": 1, "int8": 1, "uint16": 2, "int16": 2, "uint32": 4, "int32": 4
          # Leaving it out did not make the tool cautious, it made it blind: a
          # guid is usually the *first* field, so the chain broke before it
          # measured anything and the whole handler was skipped rather than
-         # compared. CMSG_SUMMON_RESPONSE went that way — the client sent one
+         # compared. CMSG_SUMMON_RESPONSE went that way - the client sent one
          # byte where the server reads a guid and a bool, so accepting a summon
          # never reached it, and this report said nothing.
          #
@@ -125,7 +125,7 @@ def server_reads(server_root, handlers):
             body = body[:body.find("\n}")] if "\n}" in body else body
             # Declarations, in every spelling AzerothCore uses: one name, a
             # comma-separated list, and either with an initialiser. Matching
-            # only `uint32 name;` measured a third of what it could — a
+            # only `uint32 name;` measured a third of what it could - a
             # handler declaring `uint32 a, b;` came out as reading nothing and
             # was skipped rather than compared.
             types = {}
@@ -171,9 +171,9 @@ def client_writes():
                 if not s or s.startswith("//"):
                     continue
                 # Every write on the line, not the first. This client puts
-                # three on one line where the fields are short —
+                # three on one line where the fields are short -
                 #     pkt.writeUInt8(a); pkt.writeUInt8(0); pkt.writeUInt32(b);
-                # — and reading only the leading one measured
+                # - and reading only the leading one measured
                 # CMSG_BATTLEFIELD_PORT as three bytes against the server's
                 # nine. Both sites write all nine; the report was wrong, and a
                 # sweep that invents a fault is worse than one that misses it.
@@ -191,7 +191,7 @@ def client_writes():
                     continue
                 if "send(" in s or s.startswith(("return", "}")):
                     break
-                # Anything else in the middle — a loop, a branch — ends it.
+                # Anything else in the middle - a loop, a branch - ends it.
                 exact = False
                 break
             if widths or not exact:
@@ -218,7 +218,7 @@ def main():
     print(f"{len(reads)} server handlers with a measurable prefix, "
           f"{len(writes)} client requests built, {len(shared)} in both")
     print(f"of those {len(shared)}, {inexact} end in a string, a guid or a branch "
-          f"and cannot be sized — so\n{len(shared) - inexact} are actually "
+          f"and cannot be sized - so\n{len(shared) - inexact} are actually "
           f"compared. A zero below is a zero over those.\n")
 
     rows = []
@@ -229,7 +229,7 @@ def main():
         if exact and sum(widths) < sum(reads[op]):
             rows.append((op, sum(widths), sum(reads[op])))
 
-    print(f"{len(rows)} request(s) shorter than the server reads — these are "
+    print(f"{len(rows)} request(s) shorter than the server reads - these are "
           f"dropped, silently:\n")
     for op, sent, needs in rows:
         print(f"  {op:52} sends {sent}, server reads {needs}")

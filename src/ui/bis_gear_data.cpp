@@ -1,4 +1,4 @@
-// Curated "max out" gear sets — see bis_gear_data.hpp for intent.
+// Curated "max out" gear sets - see bis_gear_data.hpp for intent.
 #include "ui/bis_gear_data.hpp"
 
 #include <cstring>

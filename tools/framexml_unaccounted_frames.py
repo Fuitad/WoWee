@@ -5,21 +5,21 @@ Known blind spot, measured rather than assumed: this reads parent="UIParent"
 out of the XML, so frames built at runtime by CreateFrame are invisible to it.
 Re-measured 2026-08-05 against files the loader actually opens: thirty-five
 named frames are built that way and seven reach UIParent. Read against what
-this client fires — the lens the main list needed — none is a duplicate:
+this client fires - the lens the main list needed - none is a duplicate:
 
-  * ChatFrame — the literal is "ChatFrame"..i, so the real names are
+  * ChatFrame - the literal is "ChatFrame"..i, so the real names are
     ChatFrame1..10 and all ten are suppressed by the chat element.
-  * CombatLogQuickButtonFrame, CombatLogUpdateFrame — Blizzard_CombatLog is
+  * CombatLogQuickButtonFrame, CombatLogUpdateFrame - Blizzard_CombatLog is
     load-on-demand and arrives only when the combat-log tab is picked. This
     client's own combat log is behind showCombatLog_, a toggle nothing fires.
-  * MacroEditBox — not a window. A hidden edit box chatframe.lua runs macro
+  * MacroEditBox - not a window. A hidden edit box chatframe.lua runs macro
     text through.
-  * RaidPullout — built by dragging a group out of FrameXML's own raid UI.
-  * WorldStateCaptureBar — cannot be built: GetWorldStateUIInfo reports uiType
+  * RaidPullout - built by dragging a group out of FrameXML's own raid UI.
+  * WorldStateCaptureBar - cannot be built: GetWorldStateUIInfo reports uiType
     0 for every entry, which is what keeps worldstateframe.lua's world-PvP
-    branch out. **This is the one to re-check after any world-state work** —
+    branch out. **This is the one to re-check after any world-state work** -
     it is the shape where finishing an API opens a window nobody asked for.
-  * WoweeWidgetDemoFrame — this client's own.
+  * WoweeWidgetDemoFrame - this client's own.
 
 Re-measure with:
 
@@ -36,8 +36,8 @@ That is the mistake this report invited for months, and it is why forty-one
 rows sat here unexamined. A row is only a duplicate if something can put the
 FrameXML frame on screen, and for a top-level window that is almost always one
 event. So the question per row is: what shows it, and does this client fire
-that? Anything else — a window opened by a button in FrameXML's own panel, or
-one waiting on an event nothing sends — cannot appear beside a second copy,
+that? Anything else - a window opened by a button in FrameXML's own panel, or
+one waiting on an event nothing sends - cannot appear beside a second copy,
 because it cannot appear.
 
 Reading the thirty-seven that way on 2026-08-05 turned up one real fault, and
@@ -50,12 +50,12 @@ thirty-seven.
 
 WHAT THE THIRTY-SEVEN ARE
 
-  * 15 dormant — nothing anywhere shows them. AutoCompleteBox, the four
+  * 15 dormant - nothing anywhere shows them. AutoCompleteBox, the four
     Battle.net frames, GuildControlPopupFrame, AddFriendFrame,
     FriendsFriendsFrame, SmallTextTooltip, MacOptionsCompressFrame,
     FolderPicker, StationeryPopupFrame, MovieProgressFrame, RuneFrame,
     TutorialFrameAlertButton, AutoFollowStatus.
-  * 18 opened by a control in FrameXML's own interface — the chat menu, a
+  * 18 opened by a control in FrameXML's own interface - the chat menu, a
     dropdown's colour swatch, the game menu, the vehicle bar, an item link's
     dress-up. Reachable, and correctly so: the control that opens them belongs
     to a panel already handed over, and nothing here opens a second one on the
@@ -87,7 +87,7 @@ for lit in re.findall(r'"([^"]*)"', src):
 tops = {}
 # Only files the loader opens. minigameframe, tictactoeframe, petpopup and
 # questtimerframe are in no manifest and included by nothing, so the top-level
-# frames they declare are never built — an element cannot be missing an entry
+# frames they declare are never built - an element cannot be missing an entry
 # for a frame that cannot exist.
 for path in sorted(q for q in loaded_files(XML.parent)
                    if q.suffix.lower() == ".xml" and q.parent == XML):

@@ -38,7 +38,7 @@ int handleForEachZone(int& i, int argc, char** argv) {
         return 1;
     }
     // Collect command tokens until end of argv. Don't try to be
-    // clever about quoting — just escape each token for shell
+    // clever about quoting - just escape each token for shell
     // safety using single quotes (' inside is escaped as '\\'').
     std::vector<std::string> cmdTokens;
     for (int k = i + 1; k < argc; ++k) cmdTokens.push_back(argv[k]);
@@ -49,7 +49,7 @@ int handleForEachZone(int& i, int argc, char** argv) {
                      projectDir.c_str());
         return 1;
     }
-    // Find every child dir that contains a zone.json — that's the
+    // Find every child dir that contains a zone.json - that's the
     // canonical 'is this a zone?' test the rest of the editor uses.
     std::vector<std::string> zones = wowee::editor::projectZoneDirs(projectDir);
     if (zones.empty()) {
@@ -101,7 +101,7 @@ int handleForEachTile(int& i, int argc, char** argv) {
     // Per-tile batch runner. --for-each-zone iterates zones in
     // a project; this iterates tiles within a zone. The '{}' in
     // the command template is replaced with the tile-base path
-    // (zoneDir/mapName_TX_TY) — the form most tile-level
+    // (zoneDir/mapName_TX_TY) - the form most tile-level
     // editor commands take.
     //
     //   wowee_editor --for-each-tile MyZone -- (continued)

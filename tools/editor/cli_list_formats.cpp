@@ -29,8 +29,8 @@ struct FormatRow {
 
 constexpr FormatRow kFormats[] = {
     // World / asset / pipeline foundations.
-    {"WOM ", ".wom",   "asset",     "M2",                              "M2 model — bones / vertices / animations"},
-    {"WOB ", ".wob",   "asset",     "WMO",                             "WMO building — groups / portals / collision"},
+    {"WOM ", ".wom",   "asset",     "M2",                              "M2 model - bones / vertices / animations"},
+    {"WOB ", ".wob",   "asset",     "WMO",                             "WMO building - groups / portals / collision"},
     {"WHM ", ".whm",   "world",     "ADT heightmap",                   "ADT terrain heightmap tile"},
     {"WOT ", ".wot",   "world",     "ADT textures",                    "ADT terrain texture splats + alpha layers"},
     {"WOW ", ".wow",   "world",     "WDT/WDL",                         "Per-zone world manifest + weather"},
@@ -126,7 +126,7 @@ constexpr FormatRow kFormats[] = {
     {"WCMG", ".wcmg",  "spells",    "Stance/Form/Aspect mutex tables",  "Combat maneuver group catalog (mutex spells)"},
     {"WMSP", ".wmsp",  "server",    "realmlist + SMSG_REALM_LIST data",  "Master server profile / realmlist catalog"},
     {"WEMO", ".wemo",  "social",    "EmotesText.dbc + EmotesTextSound", "Emote definition catalog (/dance, /wave, etc.)"},
-    {"WBAB", ".wbab",  "spells",    "Spell.dbc nextRank/prevRank ptrs",  "Buff & Aura book — long-duration class buffs with rank chains"},
+    {"WBAB", ".wbab",  "spells",    "Spell.dbc nextRank/prevRank ptrs",  "Buff & Aura book - long-duration class buffs with rank chains"},
     {"WTBD", ".wtbd",  "guilds",    "guild_member tabard config blob",   "Tabard design / heraldry catalog (3-color)"},
     {"WSPM", ".wspm",  "spellfx",   "AreaTrigger.dbc + decal blob",      "Spell persistent marker catalog (AoE ground decals)"},
     {"WLDN", ".wldn",  "server",    "TutorialPopup + LevelMilestone msgs","Learning notification catalog (level-up milestones)"},
@@ -165,7 +165,7 @@ constexpr FormatRow kFormats[] = {
     {"WPRC", ".wprc",  "spells",    "SpellProcEvents + per-spell procFlags","Spell proc rules catalog (event triggers + ICD + self-loop guard)"},
     {"WAUH", ".wauh",  "economy",   "AuctionHouse.dbc + AuctionMgr",       "Auction house config catalog (deposit/cut rates + duration tiers)"},
     {"WBRD", ".wbrd",  "pvp",       "BattlemasterList.dbc + BattlegroundMgr","Battleground reward stages catalog (per-bracket honor + marks)"},
-    {"WSWP", ".wswp",  "audio",     "(absent in vanilla — patch-level edits)","Sound swap rules catalog (priority + condition-gated substitution)"},
+    {"WSWP", ".wswp",  "audio",     "(absent in vanilla - patch-level edits)","Sound swap rules catalog (priority + condition-gated substitution)"},
     {"WTUR", ".wtur",  "ui",        "TutorialFrame.xml + Tutorial.lua",    "Tutorial steps catalog (event-triggered first-time-player popup sequences)"},
     {"WCMD", ".wcmd",  "chat",      "ChatFrame.lua + per-command CommandHandler","Chat slash command catalog (security-gated registry + aliases + throttle)"},
     {"WCAM", ".wcam",  "camera",    "CameraMgr hard-coded camera profiles","Camera preset catalog (per-purpose FOV/distance/pitch/damping)"},

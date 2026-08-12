@@ -285,7 +285,7 @@ if(NOT Vulkan_FOUND)
                 add_library(Vulkan::Vulkan INTERFACE IMPORTED)
             endif()
             # Vulkan::Headers is provided by vcpkg's vulkan-headers port and carries
-            # the correct MinGW include path — no Linux system headers involved.
+            # the correct MinGW include path - no Linux system headers involved.
             set_property(TARGET Vulkan::Vulkan APPEND PROPERTY
                 INTERFACE_LINK_LIBRARIES Vulkan::Headers)
             # Link against the Vulkan loader import library (vulkan-1.dll).
@@ -357,7 +357,7 @@ if(NOT Vulkan_FOUND)
     endif()
 endif()
 # macOS cross-compilation: the Vulkan loader (MoltenVK) is not available at link
-# time. Allow unresolved Vulkan symbols — they are resolved at runtime.
+# time. Allow unresolved Vulkan symbols - they are resolved at runtime.
 if(CMAKE_CROSSCOMPILING AND CMAKE_SYSTEM_NAME STREQUAL "Darwin")
     set(WOWEE_MACOS_CROSS_COMPILE TRUE)
 endif()
@@ -372,7 +372,7 @@ endif()
 if(PkgConfig_FOUND)
     pkg_check_modules(FFMPEG libavformat libavcodec libswscale libavutil)
 else()
-    # Fallback for MSVC/vcpkg — find FFmpeg libraries manually
+    # Fallback for MSVC/vcpkg - find FFmpeg libraries manually
     find_path(FFMPEG_INCLUDE_DIRS libavformat/avformat.h)
     find_library(AVFORMAT_LIB NAMES avformat)
     find_library(AVCODEC_LIB  NAMES avcodec)
@@ -387,7 +387,7 @@ elseif(FFMPEG_FOUND)
     set(HAVE_FFMPEG TRUE)
 else()
     set(HAVE_FFMPEG FALSE)
-    message(WARNING "FFmpeg not found — video_player will be disabled. Install via vcpkg: ffmpeg:x64-windows")
+    message(WARNING "FFmpeg not found - video_player will be disabled. Install via vcpkg: ffmpeg:x64-windows")
 endif()
 
 # Unicorn Engine (x86 emulator for cross-platform Warden module execution)
@@ -424,14 +424,14 @@ endif()
 
 # Shaders carry no source information by default, because -O strips it. Without
 # it a GPU-assisted validation error names a pipeline handle and an instruction
-# index and nothing else — which is a shader you then have to identify by
+# index and nothing else - which is a shader you then have to identify by
 # elimination, and that has already cost a full session once.
 #
 #   cmake -B build -DWOWEE_SHADER_DEBUG_INFO=ON && cmake --build build
 #
 # Off by default and worth keeping that way: it disables optimisation as well,
 # since an optimised shader has no line numbers left to report. The .spv files
-# are tracked, so a debug build rewrites them in place — check them out again
+# are tracked, so a debug build rewrites them in place - check them out again
 # before committing anything else.
 option(WOWEE_SHADER_DEBUG_INFO
        "Compile shaders unoptimised and with debug info, so GPU validation can name a line" OFF)
@@ -441,7 +441,7 @@ function(compile_shaders TARGET_NAME)
     set(SHADER_DIR ${CMAKE_CURRENT_SOURCE_DIR}/assets/shaders)
     # Compile in place, next to the GLSL. The .spv files are tracked (they are the
     # fallback when glslc is absent), and the POST_BUILD step below copies the whole
-    # source assets/ tree over the runtime one — so compiling into the runtime tree
+    # source assets/ tree over the runtime one - so compiling into the runtime tree
     # would just be overwritten by the committed .spv, silently running stale shaders.
     set(SPV_DIR ${SHADER_DIR})
     file(MAKE_DIRECTORY ${SPV_DIR})
@@ -1092,7 +1092,7 @@ set(WOWEE_PLATFORM_SOURCES)
 if(WIN32)
     # Copy icon into build tree so windres can find it via the relative path
     # in wowee.rc ("assets\\wowee.ico").  Tell the RC compiler to also search
-    # the build directory — GNU windres uses cwd (already the build dir) but
+    # the build directory - GNU windres uses cwd (already the build dir) but
     # llvm-windres resolves relative to the .rc file, so it needs the hint.
     configure_file(
         ${CMAKE_CURRENT_SOURCE_DIR}/assets/Wowee.ico
@@ -1127,7 +1127,7 @@ endif()
 # Create executable
 add_executable(wowee ${WOWEE_SOURCES} ${WOWEE_HEADERS} ${WOWEE_PLATFORM_SOURCES} ${WOWEE_MACOS_SOURCES})
 
-# Tracy profiler — zero overhead when WOWEE_ENABLE_TRACY is OFF
+# Tracy profiler - zero overhead when WOWEE_ENABLE_TRACY is OFF
 if(WOWEE_ENABLE_TRACY)
     target_sources(wowee PRIVATE ${CMAKE_SOURCE_DIR}/extern/tracy/public/TracyClient.cpp)
     target_compile_definitions(wowee PRIVATE TRACY_ENABLE)
@@ -1139,7 +1139,7 @@ if(TARGET opcodes-generate)
     add_dependencies(wowee opcodes-generate)
 endif()
 # macOS cross-compilation: MoltenVK is not available at link time.
-# Allow unresolved Vulkan symbols — resolved at runtime. Scoped to wowee only.
+# Allow unresolved Vulkan symbols - resolved at runtime. Scoped to wowee only.
 if(WOWEE_MACOS_CROSS_COMPILE)
     target_link_options(wowee PRIVATE "-undefined" "dynamic_lookup")
 endif()
@@ -1246,7 +1246,7 @@ endif()
 if(TARGET wowee_fsr3_official_runtime_copy)
     # FSR3 Path A runtime is an opt-in artifact; build explicitly with:
     #   cmake --build build --target wowee_fsr3_official_runtime_copy
-    # Do NOT add as a hard dependency of wowee — it would break arm64 and Windows CI
+    # Do NOT add as a hard dependency of wowee - it would break arm64 and Windows CI
     # (no DXC available on arm64; bash context issues on MSYS2 Windows).
 endif()
 
@@ -1299,10 +1299,10 @@ endif()
 
 # Debug build flags
 if(MSVC)
-    # /ZI  — Edit-and-Continue debug info (works with hot-reload in VS 2022)
-    # /RTC1 — stack-frame and uninitialised-variable runtime checks (Debug only)
-    # /sdl  — additional SDL security checks
-    # /Od   — disable optimisation so stepping matches source lines exactly
+    # /ZI  - Edit-and-Continue debug info (works with hot-reload in VS 2022)
+    # /RTC1 - stack-frame and uninitialised-variable runtime checks (Debug only)
+    # /sdl  - additional SDL security checks
+    # /Od   - disable optimisation so stepping matches source lines exactly
     target_compile_options(wowee PRIVATE
         $<$<CONFIG:Debug>:/ZI /RTC1 /sdl /Od>
     )
@@ -1312,9 +1312,9 @@ if(MSVC)
         $<$<CONFIG:RelWithDebInfo>:/DEBUG:FASTLINK>
     )
 else()
-    # -g3          — maximum DWARF debug info (includes macro definitions)
-    # -Og          — optimise for debugging (better than -O0, keeps most frames)
-    # -fno-omit-frame-pointer — preserve frame pointers so stack traces are clean
+    # -g3          - maximum DWARF debug info (includes macro definitions)
+    # -Og          - optimise for debugging (better than -O0, keeps most frames)
+    # -fno-omit-frame-pointer - preserve frame pointers so stack traces are clean
     # Frame pointers in all configs (negligible perf cost, critical for crash backtraces)
     target_compile_options(wowee PRIVATE
         -fno-omit-frame-pointer
@@ -1329,7 +1329,7 @@ if(WOWEE_BUILD_TESTS)
     add_subdirectory(tests)
 endif()
 
-# AddressSanitizer — catch buffer overflows, use-after-free, etc.
+# AddressSanitizer - catch buffer overflows, use-after-free, etc.
 # Enable with:  cmake ... -DWOWEE_ENABLE_ASAN=ON -DCMAKE_BUILD_TYPE=Debug
 if(WOWEE_ENABLE_ASAN)
     if(MSVC)
@@ -1395,7 +1395,7 @@ if(WIN32)
             COMMENT "Copying vulkan-1.dll to output directory"
         )
     else()
-        message(STATUS "  vulkan-1.dll not found — skipping copy (MSYS2 provides it via PATH)")
+        message(STATUS "  vulkan-1.dll not found - skipping copy (MSYS2 provides it via PATH)")
     endif()
 endif()
 
@@ -1442,7 +1442,7 @@ endif()
 # Every sweep in tools/ reads the interface as text and they are at their
 # floor. What is left is what only happens when it runs: a Lua error raised
 # inside a handler and swallowed, which looks exactly like a handler that
-# decided to do nothing. This target is that run without the client — the real
+# decided to do nothing. This target is that run without the client - the real
 # emitter, the real bindings, no game behind them and no window.
 #
 # Off by default because it compiles the client a second time, which is a cost
@@ -1465,7 +1465,7 @@ if(WOWEE_BUILD_FRAMEXML_RUN)
     )
     # Copied from the client rather than written out again. This target is the
     # client minus its main, so any answer that differs from wowee's is wrong
-    # by construction — and a hand-kept second list would drift the first time
+    # by construction - and a hand-kept second list would drift the first time
     # a dependency moved.
     get_target_property(_wowee_libs wowee LINK_LIBRARIES)
     get_target_property(_wowee_incs wowee INCLUDE_DIRECTORIES)
@@ -2141,7 +2141,7 @@ set_target_properties(wowee_editor PROPERTIES
     EXCLUDE_FROM_ALL $<NOT:$<BOOL:${WOWEE_BUILD_EDITOR}>>
 )
 if(WOWEE_BUILD_EDITOR)
-    # Only installable when it is part of the default build — installing a
+    # Only installable when it is part of the default build - installing a
     # target excluded from ALL fails at install time on a missing binary.
     install(TARGETS wowee_editor RUNTIME DESTINATION bin)
     message(STATUS "  wowee_editor tool: ENABLED (in default build)")
@@ -2183,7 +2183,7 @@ if(WIN32)
 elseif(APPLE)
     set(CPACK_GENERATOR "DragNDrop")
 else()
-    # Linux — generate postinst/prerm wrapper scripts
+    # Linux - generate postinst/prerm wrapper scripts
     file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/packaging)
     # postinst: write a wrapper script at /usr/local/bin/wowee that cd's to
     # the install dir so ./assets/ resolves correctly.

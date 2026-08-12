@@ -156,7 +156,7 @@ void PlayerVoiceManager::ensureLibrary(uint8_t raceId, uint8_t gender) {
     for (PlayerErrorSpeech type : kAllSpeechTypes) {
         const std::string base = dir + info->filePrefix + genderStr + "_err_" + speechToken(type);
         auto& samples = library_[static_cast<uint8_t>(type)];
-        // Variant numbering is sparse (e.g. 02, 04, 06) — probe each slot individually
+        // Variant numbering is sparse (e.g. 02, 04, 06) - probe each slot individually
         for (int n = 1; n <= 8; ++n) {
             char num[8];
             std::snprintf(num, sizeof(num), "%02d", n);

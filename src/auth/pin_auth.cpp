@@ -66,7 +66,7 @@ static std::optional<std::vector<uint8_t>> randomizePinDigits(const std::string&
             return std::nullopt;
         }
         // PIN grid encodes each digit as its ASCII character ('0'..'9') for the
-        // server-side HMAC computation — this matches Blizzard's auth protocol.
+        // server-side HMAC computation - this matches Blizzard's auth protocol.
         out.push_back(static_cast<uint8_t>(idx + '0'));
     }
 

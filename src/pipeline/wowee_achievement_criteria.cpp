@@ -120,7 +120,7 @@ WoweeAchievementCriteria WoweeAchievementCriteriaLoader::makeKill(
         c.entries.push_back(e);
     };
     // Five kill criteria all under one composite
-    // achievement (achievementId 5000) — slay diverse
+    // achievement (achievementId 5000) - slay diverse
     // enemies for "Kill 'Em All".
     add(1, "DefiasKills",     5000,  448, 50, 0,
         "Slay 50 Defias bandits in Westfall.");
@@ -186,7 +186,7 @@ WoweeAchievementCriteria WoweeAchievementCriteriaLoader::makeMixed(
         c.entries.push_back(e);
     };
     // Five different criteria types under achievement 5200
-    // — demonstrate the full CriteriaType variety.
+    // - demonstrate the full CriteriaType variety.
     add(200, "ReachLevel80",   5200, A::ReachLevel,    0,    80, 0,
         100, 240, 100, "Reach level 80.");
     add(201, "EarnGold10k",    5200, A::EarnGold,      0, 100000000, 1,

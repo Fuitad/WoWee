@@ -309,14 +309,14 @@ int handleValidate(int& i, int argc, char** argv) {
                 warnings.push_back(ctx +
                     ": behaviorFlags has bits outside known mask " +
                     "(0x" + std::to_string(e.behaviorFlags & ~kKnownFlagMask) +
-                    ") — engine will ignore unknown flags");
+                    ") - engine will ignore unknown flags");
             }
             // Both Hostile and Beneficial set is contradictory.
             if ((e.behaviorFlags & wowee::pipeline::WoweeSpellEffectType::IsHostileEffect) &&
                 (e.behaviorFlags & wowee::pipeline::WoweeSpellEffectType::IsBeneficialEffect)) {
                 warnings.push_back(ctx +
                     ": both IsHostileEffect and IsBeneficialEffect "
-                    "flags set — engine treats this as Hostile (flag "
+                    "flags set - engine treats this as Hostile (flag "
                     "wins) but the contradiction suggests a config bug");
             }
             // Damage kind without TriggersGCD is unusual.
@@ -324,7 +324,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 !(e.behaviorFlags & wowee::pipeline::WoweeSpellEffectType::TriggersGCD) &&
                 e.effectId != 13) {  // EnvironmentalDamage doesn't trigger GCD
                 warnings.push_back(ctx +
-                    ": Damage kind without TriggersGCD — most damage "
+                    ": Damage kind without TriggersGCD - most damage "
                     "effects should be on the GCD; double-check this "
                     "is intentional");
             }
@@ -332,7 +332,7 @@ int handleValidate(int& i, int argc, char** argv) {
             if (e.effectKind == wowee::pipeline::WoweeSpellEffectType::Heal &&
                 !(e.behaviorFlags & wowee::pipeline::WoweeSpellEffectType::IsBeneficialEffect)) {
                 warnings.push_back(ctx +
-                    ": Heal kind without IsBeneficialEffect — "
+                    ": Heal kind without IsBeneficialEffect - "
                     "engine treats heals as ungated, may damage enemies");
             }
             if (!idsSeen.add(e.effectId)) errors.push_back(ctx + ": duplicate effectId");

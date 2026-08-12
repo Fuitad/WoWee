@@ -1,4 +1,4 @@
-// poi_marker_layer.hpp — Town/dungeon/capital POI icons on the world map.
+// poi_marker_layer.hpp - Town/dungeon/capital POI icons on the world map.
 #pragma once
 #include "rendering/world_map/overlay_renderer.hpp"
 #include "rendering/world_map/world_map_types.hpp"

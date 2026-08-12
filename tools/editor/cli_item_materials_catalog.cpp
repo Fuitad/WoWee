@@ -340,13 +340,13 @@ int handleValidate(int& i, int argc, char** argv) {
                 warnings.push_back(ctx +
                     ": materialFlags has bits outside known mask " +
                     "(0x" + std::to_string(e.materialFlags & ~kKnownFlagMask) +
-                    ") — engine will ignore unknown flags");
+                    ") - engine will ignore unknown flags");
             }
             // Contradictory flag combos.
             if ((e.materialFlags & wowee::pipeline::WoweeItemMaterial::IsHolyCharged) &&
                 (e.materialFlags & wowee::pipeline::WoweeItemMaterial::IsCursed)) {
                 warnings.push_back(ctx +
-                    ": both IsHolyCharged and IsCursed flags set — "
+                    ": both IsHolyCharged and IsCursed flags set - "
                     "engine will pick one (typically IsCursed wins)");
             }
             // Plate kind is canonically heavy. Cloth is light.
@@ -355,14 +355,14 @@ int handleValidate(int& i, int argc, char** argv) {
                 warnings.push_back(ctx +
                     ": Plate kind with weightCategory=" +
                     wowee::pipeline::WoweeItemMaterial::weightCategoryName(e.weightCategory) +
-                    " — plate armor is canonically heavy");
+                    " - plate armor is canonically heavy");
             }
             if (e.materialKind == wowee::pipeline::WoweeItemMaterial::Cloth &&
                 e.weightCategory != wowee::pipeline::WoweeItemMaterial::Light) {
                 warnings.push_back(ctx +
                     ": Cloth kind with weightCategory=" +
                     wowee::pipeline::WoweeItemMaterial::weightCategoryName(e.weightCategory) +
-                    " — cloth is canonically light");
+                    " - cloth is canonically light");
             }
             if (!idsSeen.add(e.materialId)) errors.push_back(ctx + ": duplicate materialId");
         }

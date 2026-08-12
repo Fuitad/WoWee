@@ -3,7 +3,7 @@
 
 Three times now a feature has been dead because something defined a name twice
 and the copy that won was the empty one. The bug is invisible from either site:
-each looks like the only definition, and nothing errors — the call just does
+each looks like the only definition, and nothing errors - the call just does
 nothing, which reads as an unimplemented feature rather than a shadowed one.
 
 Three mechanisms, all found in this codebase:
@@ -64,10 +64,10 @@ def scan():
 
         # Globals the bootstrap Lua defines: "function Name(" and "Name = function".
         #
-        # Except where the chunk captures the binding first —
+        # Except where the chunk captures the binding first -
         #     local markPortrait = SetPortraitTexture
         #     function SetPortraitTexture(texture, unit) ... markPortrait(...)
-        # — which composes with it rather than replacing it. Redefining a name
+        # - which composes with it rather than replacing it. Redefining a name
         # is only a fault when what was underneath stops running, and that is
         # the difference between the two shapes.
         captured = set(re.findall(r'"local\s+\w+\s*=\s*([A-Z]\w*)\\n"', text))
@@ -80,14 +80,14 @@ def scan():
 
         # The counting stubs, defined by looping over a list of names rather
         # than one at a time. They were bootstrap Lua like any other, so one
-        # that shared a name with a C binding won and answered zero forever —
+        # that shared a name with a C binding won and answered zero forever -
         # GetNumMacroIcons did exactly that, leaving the icon picker empty
         # beside a working GetMacroIconInfo.
         #
         # That loop is guarded now: `if rawget(_G, name) == nil then`, so a
         # name a binding already defines is skipped and the stub is installed
         # only where there is nothing. Reading the list without reading the
-        # guard reported twenty-three bindings as shadowed when none was —
+        # guard reported twenty-three bindings as shadowed when none was -
         # including four bound the same day, which read as though the day's
         # work had been overwritten. So the guard is what decides whether the
         # list counts, and it is looked for here.
@@ -145,7 +145,7 @@ def main():
 
     # The one hit here that is never ambiguous: a name bound in C into
     # frameMethods and then redefined as Lua on the same metatable. The
-    # bootstrap runs afterwards, so the Lua one always wins — and these are
+    # bootstrap runs afterwards, so the Lua one always wins - and these are
     # written as no-ops, which turns a working method into silence. It has
     # happened twice: EnableMouse, so no frame took the mouse, and SetBackdrop
     # with its two colour setters, so no panel drew a background.
@@ -161,7 +161,7 @@ def main():
         if both:
             problems += len(both)
             print("\nbound in C and then redefined as Lua on the frame metatable"
-                  "\n(the Lua one runs later and wins — this is always a fault):")
+                  "\n(the Lua one runs later and wins - this is always a fault):")
             for n in both:
                 print(f"    {n}")
 
@@ -173,7 +173,7 @@ def main():
     if not problems:
         print("no name is defined in two places that could disagree")
     else:
-        print(f"\n{problems} to look at — each is a name whose winner depends on "
+        print(f"\n{problems} to look at - each is a name whose winner depends on "
               "load order.\nSome are harmless duplication; the dangerous ones are "
               "a stub over an implementation,\nand a setter and getter that end up "
               "on opposite sides.")
@@ -190,14 +190,14 @@ def main():
 #
 # It matters because the loser is not always harmless. A superseded
 # GetAttribute took one argument where the real one takes three and kept its
-# values under a different key — and it sat on the path every unit frame's
+# values under a different key - and it sat on the path every unit frame's
 # click goes through, so reordering the two chunks would have stopped
 # targeting and right-click menus with nothing to say why.
 import collections as _collections
 import pathlib as _pathlib
 # Resolved from this file rather than the working directory. Both of the
 # paths below were relative to it, so the report crashed anywhere but the
-# repository root — which is where anything running it from a build
+# repository root - which is where anything running it from a build
 # directory finds out, and only then.
 _src = (ADDONS / "lua_engine.cpp").read_text()
 _defs = _collections.Counter(
@@ -206,7 +206,7 @@ _dupes = sorted(n for n, c in _defs.items() if c > 1)
 print("\nbootstrap Lua defining the same metatable method more than once:")
 if _dupes:
     for n in _dupes:
-        print(f"    {n:28} {_defs[n]} definitions — the last one wins")
+        print(f"    {n:28} {_defs[n]} definitions - the last one wins")
 else:
     print("    (none)")
 
@@ -218,8 +218,8 @@ else:
 # the listeners.
 #
 # ChangeActionBarPage did exactly that, and the six FrameXML frames registered
-# for ACTIONBAR_PAGE_CHANGED — including the one that redraws every action
-# button — never heard it. The page number changed and the icons did not.
+# for ACTIONBAR_PAGE_CHANGED - including the one that redraws every action
+# button - never heard it. The page number changed and the icons did not.
 _here = ADDONS
 _offenders = []
 for _f in sorted(_here.glob("*.cpp")):
@@ -237,7 +237,7 @@ if _offenders:
         print("    " + _o)
     print("    → call engine->fireEvent instead; it delivers to both.")
 else:
-    print("    (none — every event goes through fireEvent)")
+    print("    (none - every event goes through fireEvent)")
 
 
 if __name__ == "__main__":

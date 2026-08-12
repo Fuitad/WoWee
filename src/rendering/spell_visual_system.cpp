@@ -36,7 +36,7 @@ void SpellVisualSystem::loadSpellVisualDbc() {
         cachedAssetManager_ = core::Application::getInstance().getAssetManager();
     }
     // Not an attempt. "Set early to prevent re-entry on failure" was the
-    // intent, but there is no failure yet — only assets that have not
+    // intent, but there is no failure yet - only assets that have not
     // arrived. Latching here left spell visuals off for the session
     // whenever this was reached first.
     if (!cachedAssetManager_) return;
@@ -68,7 +68,7 @@ void SpellVisualSystem::loadSpellVisualDbc() {
     for (size_t k = 0; k < numKitFields; ++k)
         kitFields[k] = kitLayout ? kitLayout->field(kitFieldDefs[k].name) : kitFieldDefs[k].fallback;
 
-    // Load SpellVisualEffectName.dbc — ID → M2 path
+    // Load SpellVisualEffectName.dbc - ID → M2 path
     auto fxDbc = cachedAssetManager_->loadDBC("SpellVisualEffectName.dbc");
     if (!fxDbc || !fxDbc->isLoaded() || fxDbc->getFieldCount() <= fxFilePathField) {
         LOG_DEBUG("SpellVisual: SpellVisualEffectName.dbc unavailable (fc=",
@@ -87,7 +87,7 @@ void SpellVisualSystem::loadSpellVisualDbc() {
         }
     }
 
-    // Load SpellVisualKit.dbc — kitId → best SpellVisualEffectName ID
+    // Load SpellVisualKit.dbc - kitId → best SpellVisualEffectName ID
     // Probes all effect slots in priority order and keeps the first valid hit.
     auto kitDbc = cachedAssetManager_->loadDBC("SpellVisualKit.dbc");
     std::unordered_map<uint32_t, uint32_t> kitToEffectName; // kitId → effectNameId
@@ -119,7 +119,7 @@ void SpellVisualSystem::loadSpellVisualDbc() {
         return (fxIt != effectPaths.end()) ? fxIt->second : std::string{};
     };
 
-    // Load SpellVisual.dbc — visualId → cast/impact M2 paths via kit chain
+    // Load SpellVisual.dbc - visualId → cast/impact M2 paths via kit chain
     auto svDbc = cachedAssetManager_->loadDBC("SpellVisual.dbc");
     if (!svDbc || !svDbc->isLoaded()) {
         LOG_DEBUG("SpellVisual: SpellVisual.dbc unavailable");
@@ -224,7 +224,7 @@ void SpellVisualSystem::playSpellVisualPrecast(uint32_t visualId, const glm::vec
     // Try precast path first, fall back to cast path
     auto pathIt = spellVisualPrecastPath_.find(visualId);
     if (pathIt == spellVisualPrecastPath_.end()) {
-        // No precast kit — fall back to playing cast kit
+        // No precast kit - fall back to playing cast kit
         playSpellVisual(visualId, worldPosition, false, attachInstanceId);
         return;
     }
@@ -328,7 +328,7 @@ void SpellVisualSystem::playSpellVisualPrecast(uint32_t visualId, const glm::vec
     // otherwise fall back to M2 animation duration, then default.
     float duration;
     if (castTimeMs >= 500) {
-        // Server cast time available — precast should last the full cast duration
+        // Server cast time available - precast should last the full cast duration
         duration = std::clamp(static_cast<float>(castTimeMs) / 1000.0f, 0.5f, 30.0f);
     } else {
         float animDurMs = m2Renderer_->getInstanceAnimDuration(instanceId);
@@ -441,7 +441,7 @@ void SpellVisualSystem::playSpellVisual(uint32_t visualId, const glm::vec3& worl
     }
 
     // Determine attachment point for bone tracking on cast effects. Only the
-    // caster identified by attachInstanceId may be tracked — never default to
+    // caster identified by attachInstanceId may be tracked - never default to
     // the local player (that glued every nearby unit's cast kit to the
     // player's hands).
     uint32_t attachId = 0;
@@ -568,7 +568,7 @@ void SpellVisualSystem::update(float deltaTime) {
             m2Renderer_->removeInstance(it->instanceId);
             it = activeSpellVisuals_.erase(it);
         } else {
-            // Update position for bone-tracked effects — follow the CASTER's
+            // Update position for bone-tracked effects - follow the CASTER's
             // hands/chest/head, not the local player's.
             if (it->attachmentId != 0 && it->attachInstanceId != 0 && charRenderer) {
                 glm::mat4 attachMat;

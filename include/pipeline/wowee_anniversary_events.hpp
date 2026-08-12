@@ -8,7 +8,7 @@ namespace wowee {
 namespace pipeline {
 
 // Wowee Open Anniversary & Recurring Event catalog
-// (.wanv) — novel replacement for the implicit
+// (.wanv) - novel replacement for the implicit
 // recurring-event scheduler vanilla WoW encoded across
 // the GameEvent SQL table + the per-holiday script
 // hooks. Each entry binds one calendar-driven recurring
@@ -36,26 +36,26 @@ namespace pipeline {
 //     eventId (uint32)
 //     nameLen + name
 //     descLen + description
-//     eventKind (uint8)          — Holiday / Anniversary
+//     eventKind (uint8)          - Holiday / Anniversary
 //                                   / DoubleXP /
 //                                   DoubleHonor /
 //                                   PetBattleWeekend /
 //                                   BattlegroundBonus /
 //                                   SeasonalQuest /
 //                                   Misc
-//     recurrenceKind (uint8)     — Yearly / Monthly /
+//     recurrenceKind (uint8)     - Yearly / Monthly /
 //                                   Weekly / OneOff
-//     startMonth (uint8)         — 1..12 for Yearly /
+//     startMonth (uint8)         - 1..12 for Yearly /
 //                                   Monthly; ignored for
 //                                   Weekly (use startDay
 //                                   = weekday 0..6)
-//     startDay (uint8)           — 1..31 for Yearly /
+//     startDay (uint8)           - 1..31 for Yearly /
 //                                   Monthly; 0..6 for
 //                                   Weekly (Sun..Sat)
-//     durationDays (uint16)      — event window length
+//     durationDays (uint16)      - event window length
 //     pad0 (uint8) / pad1 (uint8)
-//     payloadSpellId (uint32)    — 0 if no buff
-//     payloadItemId (uint32)     — 0 if no gift item
+//     payloadSpellId (uint32)    - 0 if no buff
+//     payloadItemId (uint32)     - 0 if no gift item
 //     iconColorRGBA (uint32)
 struct WoweeAnniversaryEvents {
     enum EventKind : uint8_t {
@@ -81,7 +81,7 @@ struct WoweeAnniversaryEvents {
         Weekly  = 2,    // same weekday every week
                          // (e.g. Tuesday maintenance)
         OneOff  = 3,    // single occurrence at the
-                         // specified date — Anniversary
+                         // specified date - Anniversary
                          // events stay this way until
                          // the next year manually
                          // re-schedules
@@ -127,17 +127,17 @@ public:
 
     // Preset emitters used by --gen-anv* variants.
     //
-    //   makeStandardHolidays — 5 yearly holidays
+    //   makeStandardHolidays - 5 yearly holidays
     //                           (Hallow's End / Winter
     //                           Veil / Lunar Festival /
     //                           Children's Week /
     //                           Brewfest).
-    //   makeBonusEvents      — 4 weekly bonus events
+    //   makeBonusEvents      - 4 weekly bonus events
     //                           (Double XP Weekend /
     //                           Double Honor / Pet
     //                           Battle Weekend / BG
     //                           Bonus).
-    //   makeAnniversary      — 3 game-launch
+    //   makeAnniversary      - 3 game-launch
     //                           anniversaries (WoW Nov
     //                           23 / TBC Jan 16 / WotLK
     //                           Nov 13).

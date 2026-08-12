@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Spell Persistent Marker catalog (.wspm) —
+// Wowee Open Spell Persistent Marker catalog (.wspm) -
 // novel replacement for the SpellAreaTrigger.dbc +
 // AreaTriggerCreateProperties combination that vanilla
 // WoW used for AoE ground decals (Blizzard, Hurricane,
@@ -40,27 +40,27 @@ namespace pipeline {
 //     nameLen + name
 //     descLen + description
 //     spellId (uint32)
-//     pathLen + groundTexturePath  — BLP/WOT path
-//     radius (float)               — world units
-//     duration (float)             — seconds (0 = until
+//     pathLen + groundTexturePath  - BLP/WOT path
+//     radius (float)               - world units
+//     duration (float)             - seconds (0 = until
 //                                     caster cancels /
 //                                     mana drains)
-//     tickIntervalMs (uint32)      — ms between damage
+//     tickIntervalMs (uint32)      - ms between damage
 //                                     ticks
-//     decalColor (uint32)          — RGBA tint applied to
+//     decalColor (uint32)          - RGBA tint applied to
 //                                     the texture
-//     edgeFadeMode (uint8)         — Hard / SoftEdge /
+//     edgeFadeMode (uint8)         - Hard / SoftEdge /
 //                                     Pulse
-//     stackable (uint8)            — 0/1 bool
-//     destroyOnCancel (uint8)      — 0/1: vanish when the
+//     stackable (uint8)            - 0/1 bool
+//     destroyOnCancel (uint8)      - 0/1: vanish when the
 //                                     caster cancels the
 //                                     channel
 //     pad0 (uint8)
-//     tickSoundId (uint32)         — 0 if silent
+//     tickSoundId (uint32)         - 0 if silent
 //     iconColorRGBA (uint32)
 struct WoweeSpellMarkers {
     enum EdgeFadeMode : uint8_t {
-        Hard      = 0,    // sharp circle edge — no fade
+        Hard      = 0,    // sharp circle edge - no fade
         SoftEdge  = 1,    // alpha-fade outer 20% of radius
         Pulse     = 2,    // sinusoidal alpha pulse, full
                            // radius
@@ -106,17 +106,17 @@ public:
 
     // Preset emitters used by --gen-spm* variants.
     //
-    //   makeMageAoE      — 4 mage AoE ground spells
+    //   makeMageAoE      - 4 mage AoE ground spells
     //                       (Blizzard / Flamestrike /
     //                       BlastWave / Frost Nova
     //                       visual ring).
-    //   makeRaidHazards  — 5 boss-arena hazard zones
+    //   makeRaidHazards  - 5 boss-arena hazard zones
     //                       (Putricide poison pool /
     //                       Sindragosa frost tomb /
     //                       Saurfang blood-frenzy bonus /
     //                       DBS shadow puddle / Marrowgar
     //                       Bone Storm radius).
-    //   makeEnvironment  — 3 environmental effects
+    //   makeEnvironment  - 3 environmental effects
     //                       (Wintergrasp lightning strike
     //                       radius / Silithus sandstorm
     //                       cone / open-world blizzard

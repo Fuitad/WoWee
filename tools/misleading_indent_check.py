@@ -6,7 +6,7 @@
         if (craftingWindowOpen_) fire("TRADE_SKILL_UPDATE", {});
 
 The second call is not guarded. It read as though it were, and it called a
-std::function without the null check above it — which throws rather than doing
+std::function without the null check above it - which throws rather than doing
 nothing. That one was live in spell_handler.cpp.
 
 GCC has -Wmisleading-indentation and it is on here, but it turns *itself* off
@@ -26,7 +26,7 @@ outside the statement and dressed as though it were inside.
 WHAT IT CANNOT SEE
 
 Whether the deception matters. Sometimes the unguarded statement re-tests the
-same condition and behaves identically — the one in handleAuraUpdate did — and
+same condition and behaves identically - the one in handleAuraUpdate did - and
 sometimes it is a call that must not run. Both are worth bracing; only one is a
 bug. Read each before changing it.
 

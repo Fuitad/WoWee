@@ -80,7 +80,7 @@ WoweeSpellVisualKit WoweeSpellVisualKitLoader::makeStarter(
     {
         WoweeSpellVisualKit::Entry e;
         e.visualKitId = 1; e.name = "Frostbolt";
-        e.description = "Mage frostbolt — slow icy projectile.";
+        e.description = "Mage frostbolt - slow icy projectile.";
         e.castEffectModelPath = "Spells/Cast/Frost/cast_frost.m2";
         e.projectileModelPath = "Spells/Missiles/frostbolt.m2";
         e.impactEffectModelPath = "Spells/Impact/Frost/impact_frost.m2";
@@ -96,7 +96,7 @@ WoweeSpellVisualKit WoweeSpellVisualKitLoader::makeStarter(
     {
         WoweeSpellVisualKit::Entry e;
         e.visualKitId = 2; e.name = "Fireball";
-        e.description = "Mage fireball — fast fiery projectile + AoE.";
+        e.description = "Mage fireball - fast fiery projectile + AoE.";
         e.castEffectModelPath = "Spells/Cast/Fire/cast_fire.m2";
         e.projectileModelPath = "Spells/Missiles/fireball.m2";
         e.impactEffectModelPath = "Spells/Impact/Fire/impact_fire.m2";
@@ -112,14 +112,14 @@ WoweeSpellVisualKit WoweeSpellVisualKitLoader::makeStarter(
     {
         WoweeSpellVisualKit::Entry e;
         e.visualKitId = 3; e.name = "HealingTouch";
-        e.description = "Druid healing — golden glow on caster + target.";
+        e.description = "Druid healing - golden glow on caster + target.";
         e.castEffectModelPath = "Spells/Cast/Holy/cast_holy.m2";
         e.impactEffectModelPath = "Spells/Impact/Holy/heal_glow.m2";
         e.handEffectModelPath = "Spells/Hand/holy_hand_glow.m2";
         e.castAnimId = 54;
         e.castSoundId = 104;
         e.impactSoundId = 105;
-        e.projectileSpeed = 0.0f;  // instant — no projectile
+        e.projectileSpeed = 0.0f;  // instant - no projectile
         e.castDurationMs = 3000;
         c.entries.push_back(e);
     }
@@ -151,7 +151,7 @@ WoweeSpellVisualKit WoweeSpellVisualKitLoader::makeCombat(
     };
     add(100, "SwordImpact",  17, 0, 0.0f, 0.0f,    0, 0.0f,
         "", "", "Spells/Impact/Physical/sword_hit.m2",
-        "Sword strike sparks on impact — no cast effect.");
+        "Sword strike sparks on impact - no cast effect.");
     add(101, "ArrowShot",    40, 0, 60.0f, 0.05f, 800, 0.0f,
         "Spells/Cast/Physical/draw_bow.m2",
         "Spells/Missiles/arrow.m2",
@@ -160,13 +160,13 @@ WoweeSpellVisualKit WoweeSpellVisualKitLoader::makeCombat(
     add(102, "GroundPound",  18, 0, 0.0f, 0.0f, 1200, 8.0f,
         "Spells/Cast/Physical/heave.m2", "",
         "Spells/Impact/Physical/ground_shockwave.m2",
-        "AoE ground pound — large impact radius.");
+        "AoE ground pound - large impact radius.");
     add(103, "ParryFlash",   53, 0, 0.0f, 0.0f,  500, 0.0f,
         "Spells/Cast/Physical/parry_flash.m2", "", "",
-        "Quick parry sparks — instant cast.");
+        "Quick parry sparks - instant cast.");
     add(104, "DeflectShield", 0, 0, 0.0f, 0.0f,  500, 0.0f,
         "Spells/Cast/Physical/shield_deflect.m2", "", "",
-        "Shield reflection visual — no projectile.");
+        "Shield reflection visual - no projectile.");
     return c;
 }
 
@@ -188,18 +188,18 @@ WoweeSpellVisualKit WoweeSpellVisualKitLoader::makeUtility(
     add(200, "PortalCast",       10000,
         "Spells/Cast/Arcane/portal_cast.m2",
         "Spells/Impact/Arcane/portal_open.m2",
-        "Mage portal — long channel + persistent doorway.");
+        "Mage portal - long channel + persistent doorway.");
     add(201, "HearthstoneReturn", 10000,
         "Spells/Cast/Arcane/hearth_glow.m2",
         "Spells/Impact/Arcane/hearth_arrive.m2",
-        "Hearthstone teleport — channel + arrival flash.");
+        "Hearthstone teleport - channel + arrival flash.");
     add(202, "MountSummon",        1500,
         "Spells/Cast/Nature/mount_summon.m2", "",
         "Quick mount spawn animation.");
     add(203, "Resurrect",          5000,
         "Spells/Cast/Holy/resurrect_cast.m2",
         "Spells/Impact/Holy/resurrect_target.m2",
-        "Resurrect — golden beam + corpse glow.");
+        "Resurrect - golden beam + corpse glow.");
     return c;
 }
 

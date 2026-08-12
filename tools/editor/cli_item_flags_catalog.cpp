@@ -252,10 +252,10 @@ int handleValidate(int& i, int argc, char** argv) {
             }
             if (e.bitMask == 0) {
                 errors.push_back(ctx +
-                    ": bitMask is 0 — flag will never match anything");
+                    ": bitMask is 0 - flag will never match anything");
             }
             // bitMask should typically be a single bit (power
-            // of 2). Multi-bit masks are valid but unusual —
+            // of 2). Multi-bit masks are valid but unusual -
             // warn so author can confirm.
             if (e.bitMask != 0 && (e.bitMask & (e.bitMask - 1)) != 0) {
                 warnings.push_back(ctx +
@@ -266,7 +266,7 @@ int handleValidate(int& i, int argc, char** argv) {
             }
             if (!idsSeen.add(e.flagId)) errors.push_back(ctx + ": duplicate flagId");
             // Two flags claiming the same bit is a serious
-            // collision — engine would only match the first
+            // collision - engine would only match the first
             // entry's name when decoding.
             if (e.bitMask != 0) {
                 for (uint32_t prevBit : bitsSeen) {
@@ -274,7 +274,7 @@ int handleValidate(int& i, int argc, char** argv) {
                         errors.push_back(ctx +
                             ": duplicate bitMask 0x" +
                             std::to_string(e.bitMask) +
-                            " — collides with another entry");
+                            " - collides with another entry");
                         break;
                     }
                 }

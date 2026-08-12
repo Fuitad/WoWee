@@ -248,7 +248,7 @@ int handleValidate(int& i, int argc, char** argv) {
             warnings.push_back(ctx +
                 ": levelRequirement=" +
                 std::to_string(e.levelRequirement) +
-                " is below 20 — vanilla mage cannot "
+                " is below 20 - vanilla mage cannot "
                 "unlock until 20 (Teleport) or 40 "
                 "(Portal). Possible typo?");
         }
@@ -266,7 +266,7 @@ int handleValidate(int& i, int argc, char** argv) {
             warnings.push_back(ctx +
                 ": Portal kind with reagentItemId=" +
                 std::to_string(e.reagentItemId) +
-                " — vanilla group portals require "
+                " - vanilla group portals require "
                 "Rune of Portals (itemId 17032). "
                 "Verify intentional");
         }
@@ -276,31 +276,31 @@ int handleValidate(int& i, int argc, char** argv) {
             warnings.push_back(ctx +
                 ": Teleport kind with reagentItemId=" +
                 std::to_string(e.reagentItemId) +
-                " — vanilla self-teleports require "
+                " - vanilla self-teleports require "
                 "Rune of Teleportation (itemId 17031). "
                 "Verify intentional");
         }
         // Duplicate spellId across portals would mean
         // two portal-cast handlers fight over the same
-        // spell — error.
+        // spell - error.
         if (e.spellId != 0 &&
             !spellIdsSeen.insert(e.spellId).second) {
             errors.push_back(ctx +
                 ": duplicate spellId " +
                 std::to_string(e.spellId) +
-                " — two portals would respond to the "
+                " - two portals would respond to the "
                 "same cast");
         }
         if (!e.destinationName.empty() &&
             !destNamesSeen.insert(e.destinationName).second) {
             // Duplicate destination NAME is allowed
             // (e.g., Teleport: SW + Portal: SW are
-            // both "Stormwind") — only warn so the
+            // both "Stormwind") - only warn so the
             // editor can flag potential dupes.
             warnings.push_back(ctx +
                 ": duplicate destinationName '" +
                 e.destinationName +
-                "' — could be a Teleport/Portal pair "
+                "' - could be a Teleport/Portal pair "
                 "(legitimate) or a copy-paste bug");
             // Re-allow in the seen set so subsequent
             // duplicates also warn

@@ -151,7 +151,7 @@ WoweeQuestGraph WoweeQuestGraphLoader::makeBranchedChain(
     using G = WoweeQuestGraph;
     WoweeQuestGraph c;
     c.name = catalogName;
-    // Demonstrates DAG semantics — Q1 unlocks both
+    // Demonstrates DAG semantics - Q1 unlocks both
     // Q2a and Q2b; both prereq Q3:
     //   Q1 -> Q2a -> Q3
     //   Q1 -> Q2b -> Q3
@@ -181,7 +181,7 @@ WoweeQuestGraph WoweeQuestGraphLoader::makeDailies(
     using G = WoweeQuestGraph;
     WoweeQuestGraph c;
     c.name = catalogName;
-    // Standalone daily quests — no prereqs, no
+    // Standalone daily quests - no prereqs, no
     // followups. chainHeadHint=1 since each is its
     // own root.
     c.entries.push_back(makeQuest(

@@ -177,7 +177,7 @@ WoweeCombatFormulas WoweeCombatFormulasLoader::makeRogueFormulas(
     c.name = catalogName;
     constexpr uint16_t kRogue = 1u << 4;  // class id 4
     // Rogue Str→AP: 1 Strength = 1 AP (vs Warrior's
-    // 2.0 — demonstrates per-class ratio variation).
+    // 2.0 - demonstrates per-class ratio variation).
     c.entries.push_back(makeFormula(
         20, "Rogue Strength to AP",
         F::AttackPower, F::Strength,

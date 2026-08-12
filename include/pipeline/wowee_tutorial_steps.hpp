@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Tutorial Steps catalog (.wtur) —
+// Wowee Open Tutorial Steps catalog (.wtur) -
 // novel format covering what vanilla WoW had as
 // a hard-coded LUA tipbox sequence (TutorialFrame.
 // xml + Tutorial.lua client-side). Each WTUR entry
@@ -34,28 +34,28 @@ namespace pipeline {
 //   entries (each):
 //     tutId (uint32)
 //     nameLen + name (admin label)
-//     stepIndex (uint8)            — sequential
+//     stepIndex (uint8)            - sequential
 //                                     order within
 //                                     triggerEvent
-//     triggerEvent (uint8)         — 0=Login /
+//     triggerEvent (uint8)         - 0=Login /
 //                                     1=ZoneEnter /
 //                                     2=LevelUp /
 //                                     3=ItemPickup /
 //                                     4=SkillTrain
 //     pad0 (uint16)
-//     triggerValue (uint32)        — interpretation
+//     triggerValue (uint32)        - interpretation
 //                                     depends on
 //                                     event (mapId
 //                                     / itemId /
 //                                     skillId / 0
 //                                     for Login)
 //     iconIndex (uint32)
-//     hideAfterSec (uint32)        — auto-dismiss
+//     hideAfterSec (uint32)        - auto-dismiss
 //                                     timer (0 = no
 //                                     auto-dismiss)
 //     titleLen + title
 //     bodyLen + body
-//     targetLen + targetUIElementName  — name of UI
+//     targetLen + targetUIElementName  - name of UI
 //                                         widget to
 //                                         highlight
 //                                         (empty =
@@ -106,17 +106,17 @@ public:
 
     // Preset emitters used by --gen-tut* variants.
     //
-    //   makeNewbieFlow   — 5 Login-trigger steps for
+    //   makeNewbieFlow   - 5 Login-trigger steps for
     //                       first-time players
     //                       (Welcome / Movement /
     //                       Interact / OpenQuestLog
     //                       / OpenInventory).
-    //   makeLevelUpFlow  — 3 LevelUp-trigger steps
+    //   makeLevelUpFlow  - 3 LevelUp-trigger steps
     //                       (level 1 unlock spells
     //                       hint / level 5 train
     //                       skill hint / level 10
     //                       talent unlock).
-    //   makeBgFlow       — 3 ZoneEnter-trigger steps
+    //   makeBgFlow       - 3 ZoneEnter-trigger steps
     //                       gated to BG mapIds (BG
     //                       queue / capture flag /
     //                       turn in marks).

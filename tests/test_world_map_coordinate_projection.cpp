@@ -79,7 +79,7 @@ TEST_CASE("renderPosToMapUV: continent applies vertical offset", "[world_map][co
     glm::vec2 zone_uv = renderPosToMapUV(center, bounds, false);
     glm::vec2 cont_uv = renderPosToMapUV(center, bounds, true);
 
-    // No vertical offset — continent and zone UV should be identical
+    // No vertical offset - continent and zone UV should be identical
     REQUIRE(zone_uv.x == Catch::Approx(cont_uv.x).margin(0.01f));
     REQUIRE(cont_uv.y == Catch::Approx(zone_uv.y).margin(0.01f));
 }
@@ -148,7 +148,7 @@ TEST_CASE("findZoneForPlayer: finds smallest containing zone", "[world_map][coor
     // Small zone fully inside large
     zones.push_back(makeZone(3, 200, 1000.0f, -1000.0f, 1000.0f, -1000.0f, 0, 1, "Small"));
 
-    // Player at center — should find the smaller zone
+    // Player at center - should find the smaller zone
     glm::vec3 playerPos(0.0f, 0.0f, 0.0f);
     int found = findZoneForPlayer(zones, playerPos);
     REQUIRE(found == 2);  // Small zone
@@ -196,7 +196,7 @@ TEST_CASE("getContinentProjectionBounds: rejects non-continent zones", "[world_m
 
 // The map opened on whichever WorldMapArea box the player sat deepest inside.
 // Those boxes are axis-aligned rectangles around irregular zones, so neighbours
-// overlap heavily and the deepest-inside answer is only ever a guess — hence a
+// overlap heavily and the deepest-inside answer is only ever a guess - hence a
 // map that opened on a zone the player was merely near. The server tells us the
 // zone outright; these pin that it is used, and that the guess still stands in
 // when it has not said.
@@ -236,7 +236,7 @@ TEST_CASE("findZoneForPlayer: the server's zone is honoured outside its own box"
           "[world_map][coordinate_projection]") {
     // The point of the fix. WorldMapArea bounds do not cover every part of a
     // zone, so a player near an edge could fall inside a neighbour's box only.
-    // The id must still win — that is what "sort of close to" was.
+    // The id must still win - that is what "sort of close to" was.
     std::vector<Zone> zones = {
         makeZone(1, 100, 10.0f, -10.0f, 10.0f, -10.0f, 0, 0, "Real zone"),
         makeZone(2, 200, 1000.0f, -1000.0f, 1000.0f, -1000.0f, 0, 0, "Neighbour"),

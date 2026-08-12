@@ -112,7 +112,7 @@ WoweeTradeSkill WoweeTradeSkillLoader::makeStarter(
     WoweeTradeSkill c;
     c.name = catalogName;
     {
-        // Coarse Sharpening Stone — Blacksmithing 75.
+        // Coarse Sharpening Stone - Blacksmithing 75.
         WoweeTradeSkill::Entry e;
         e.recipeId = 1; e.name = "Coarse Sharpening Stone";
         e.description = "Use stone on a weapon to apply +2 damage "
@@ -131,7 +131,7 @@ WoweeTradeSkill WoweeTradeSkillLoader::makeStarter(
         c.entries.push_back(e);
     }
     {
-        // Linen Bandage — First Aid 1.
+        // Linen Bandage - First Aid 1.
         WoweeTradeSkill::Entry e;
         e.recipeId = 2; e.name = "Linen Bandage";
         e.description = "Heal target for 66 health over 8 seconds.";
@@ -148,7 +148,7 @@ WoweeTradeSkill WoweeTradeSkillLoader::makeStarter(
         c.entries.push_back(e);
     }
     {
-        // Minor Healing Potion — Alchemy 1.
+        // Minor Healing Potion - Alchemy 1.
         WoweeTradeSkill::Entry e;
         e.recipeId = 3; e.name = "Minor Healing Potion";
         e.description = "Restores 70 to 90 health.";
@@ -196,7 +196,7 @@ WoweeTradeSkill WoweeTradeSkillLoader::makeBlacksmithing(
     };
     add(100, "RoughSharpeningStone", 1, 25, 50, 75, 2660, 2862, 5956,
         2835, 1, 0, 0, 0, 0,
-        "Apply to weapon — minor temp damage buff.");
+        "Apply to weapon - minor temp damage buff.");
     add(101, "CopperChainBelt",      50, 70, 90, 110, 2664, 2386, 5956,
         2840, 4, 0, 0, 0, 0,
         "Light chain belt for early-level warriors.");
@@ -205,10 +205,10 @@ WoweeTradeSkill WoweeTradeSkillLoader::makeBlacksmithing(
         "Bracers with a minor magic enhancement.");
     add(103, "IronforgeBreastplate", 195, 215, 235, 255, 9959, 7915, 5956,
         2842, 8, 3858, 4, 0, 0,
-        "Heavy iron breastplate — Ironforge guard standard issue.");
+        "Heavy iron breastplate - Ironforge guard standard issue.");
     add(104, "TruesilverChampion",   265, 285, 305, 325, 16728, 12793, 5956,
         7910, 10, 7910, 5, 12808, 1,
-        "Pinnacle 60-era plate — requires arcanite reagents.");
+        "Pinnacle 60-era plate - requires arcanite reagents.");
     return c;
 }
 
@@ -247,7 +247,7 @@ WoweeTradeSkill WoweeTradeSkillLoader::makeAlchemy(
         3819, 1, 3820, 1, "Restores 455 to 585 health.");
     add(204, "FlaskOfTheTitans", 300, 320, 340, 360, 17636, 13510, 1, 1,
         13463, 30, 13468, 10,
-        "2-hour flask — +400 max health, persists through death.");
+        "2-hour flask - +400 max health, persists through death.");
     return c;
 }
 

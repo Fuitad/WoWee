@@ -1,5 +1,5 @@
 // ============================================================
-// ActionBarPanel — extracted from GameScreen
+// ActionBarPanel - extracted from GameScreen
 // Owns all action bar rendering: main bar, stance bar, bag bar,
 // XP bar, reputation bar, macro resolution.
 // ============================================================

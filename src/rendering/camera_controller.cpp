@@ -40,7 +40,7 @@ std::optional<float> selectReachableFloor(const std::optional<float>& terrainH,
     if (wmoH && *wmoH <= refZ + maxStepUp) reachWmo = wmoH;
 
     if (reachTerrain && reachWmo) {
-        // Prefer the highest surface — prevents clipping through
+        // Prefer the highest surface - prevents clipping through
         // WMO floors that sit above terrain.
         return (*reachWmo >= *reachTerrain) ? reachWmo : reachTerrain;
     }
@@ -136,7 +136,7 @@ struct FloorBand {
 
 /// The highest walkable floor among the sampled points, if any.
 ///
-/// `query` is a renderer's getFloorHeight — it answers a height and writes the
+/// `query` is a renderer's getFloorHeight - it answers a height and writes the
 /// surface normal's Z, and a normal flatter than `minNormalZ` is a wall rather
 /// than something to stand on.
 template <typename Offsets, typename Query>
@@ -223,7 +223,7 @@ float CameraController::raymarchTerrainCameraLimit(const glm::vec3& pivot, const
 
     // If the pivot itself sits below the heightfield (caves, WMO basements,
     // terrain holes under cities), the heightfield is not the relevant occluder
-    // here — skip limiting rather than pinning the camera to first-person.
+    // here - skip limiting rather than pinning the camera to first-person.
     auto pivotH = terrainManager->getHeightAt(pivot.x, pivot.y);
     if (pivotH && pivot.z < *pivotH - 0.2f) return maxDist;
 
@@ -309,7 +309,7 @@ glm::vec3 CameraController::sweepAgainstWalls(const glm::vec3& from, const glm::
 // update(), and everything it needs from the half before it arrives in `f`.
 // Where the followed character wants to be this frame.
 //
-// The movement intent — walking, swimming, flying, jumping, falling — and the
+// The movement intent - walking, swimming, flying, jumping, falling - and the
 // swept wall collision that keeps it out of geometry. Answers the position it
 // arrived at; the floor has not been consulted yet.
 glm::vec3 CameraController::moveFollowedCharacter(float /*deltaTime*/, FrameInput& f,
@@ -336,7 +336,7 @@ glm::vec3 CameraController::moveFollowedCharacter(float /*deltaTime*/, FrameInpu
         constexpr float MAX_SWIM_DEPTH_FROM_SURFACE = 12.0f;
         // Hysteresis: starting to swim needs deeper water than continuing to
         // swim does. With one threshold, a character wading at the boundary
-        // flipped between swim and walk every frame — each flip restarts the
+        // flipped between swim and walk every frame - each flip restarts the
         // locomotion animation and sends a START_SWIM/STOP_SWIM pair, which
         // is what made walking out of water stutter. The two bounds sit
         // either side of the single 1.0 this replaces.
@@ -345,7 +345,7 @@ glm::vec3 CameraController::moveFollowedCharacter(float /*deltaTime*/, FrameInpu
         const float MIN_SWIM_WATER_DEPTH =
             swimming ? SWIM_EXIT_WATER_DEPTH : SWIM_ENTER_WATER_DEPTH;
         bool inWater = false;
-        // Water Walk: treat water surface as ground — player walks on top, not through.
+        // Water Walk: treat water surface as ground - player walks on top, not through.
         if (waterWalkActive_ && waterH && targetPos.z >= *waterH - 0.5f) {
             // Clamp to water surface so the player stands on it
             targetPos.z = *waterH;
@@ -363,7 +363,7 @@ glm::vec3 CameraController::moveFollowedCharacter(float /*deltaTime*/, FrameInpu
             }
             // Depth gate only applies when ENTERING swim (e.g. don't start
             // swimming in a dry cave beneath a lake's water plane). Once
-            // swimming, any depth is fine — you can only get deep by
+            // swimming, any depth is fine - you can only get deep by
             // deliberately diving through the water column.
             bool depthAllowed = swimming || isOcean ||
                                 ((*waterH - targetPos.z) <= MAX_SWIM_DEPTH_FROM_SURFACE);
@@ -606,7 +606,7 @@ glm::vec3 CameraController::moveFollowedCharacter(float /*deltaTime*/, FrameInpu
 
         grounded = false;
         } else {
-        // Exiting water — boost upward to help climb onto shore/stairs.
+        // Exiting water - boost upward to help climb onto shore/stairs.
         if (wasSwimming) {
             // Anchor lastGroundZ to current position so WMO floor probes
             // start from a sensible height instead of stale pre-swim values.
@@ -653,7 +653,7 @@ glm::vec3 CameraController::moveFollowedCharacter(float /*deltaTime*/, FrameInpu
                 targetPos += flyMove * flySpeed * f.physicsDeltaTime;
             }
             targetPos.z += verticalVelocity * f.physicsDeltaTime;
-            // Skip all ground physics — go straight to collision/WMO sections
+            // Skip all ground physics - go straight to collision/WMO sections
         } else {
 
         float moveLenSq = glm::dot(f.movement, f.movement);
@@ -778,7 +778,7 @@ CameraController::FloorSample CameraController::sampleFloorUnderFeet(const glm::
     if (useCached) {
         groundH = cachedFloorHeight_;
     } else {
-        // Full collision check — run terrain/WMO/M2 queries in parallel
+        // Full collision check - run terrain/WMO/M2 queries in parallel
         std::optional<float> terrainH;
         std::optional<float> wmoH;
         std::optional<float> m2H;
@@ -799,8 +799,8 @@ CameraController::FloorSample CameraController::sampleFloorUnderFeet(const glm::
             wmoAsync = true;
             // Closest to the feet, not the highest below the probe.
             //
-            // Under an overhang — the doorways and portals of
-            // Undercity — the floor of the level above sits about a
+            // Under an overhang - the doorways and portals of
+            // Undercity - the floor of the level above sits about a
             // metre over the one you stand on, both inside the
             // step-up window. The default highest-floor pick snapped
             // the player up to the level above even standing still,
@@ -813,7 +813,7 @@ CameraController::FloorSample CameraController::sampleFloorUnderFeet(const glm::
             // The reference is the feet themselves, NOT wmoBaseZ:
             // wmoBaseZ is max(z, lastGroundZ) so the probe can reach
             // up for a step, but feeding that same raised value back
-            // as the arbitration anchor ratchets the pick upward —
+            // as the arbitration anchor ratchets the pick upward -
             // one stray upper-floor frame lifts lastGroundZ, and the
             // reference then stays on the level above even after the
             // server drags the player back down, which is the very
@@ -869,18 +869,18 @@ CameraController::FloorSample CameraController::sampleFloorUnderFeet(const glm::
         // A real tunnel mouth burrows into rising ground: the heightfield
         // just ahead climbs above head height (or stops in a hole cut for
         // the passage). WMO ramps that merely run beneath flat walkable
-        // streets must not steal the player from the terrain above them —
+        // streets must not steal the player from the terrain above them -
         // that pulled players through the ground at the Stormwind gate
         // ramparts and down ramps into the void. Inside an interior WMO
         // group (tram entrance buildings) the heightfield under the city
-        // is meaningless, so it gets no veto — otherwise entry becomes
+        // is meaningless, so it gets no veto - otherwise entry becomes
         // dependent on approach angle.
         if (atTunnelSeam && !cachedInsideInteriorWMO && terrainManager) {
             glm::vec3 moveDir = targetPos - lastCollisionCheckPos_;
             moveDir.z = 0.0f;
             const float moveLen = glm::length(moveDir);
             if (moveLen < 1e-3f) {
-                atTunnelSeam = false;  // stationary — nothing to enter
+                atTunnelSeam = false;  // stationary - nothing to enter
             } else {
                 const glm::vec3 aheadPos = targetPos + moveDir * (2.5f / moveLen);
                 auto terrainAhead = terrainManager->getHeightAt(aheadPos.x, aheadPos.y);
@@ -904,7 +904,7 @@ CameraController::FloorSample CameraController::sampleFloorUnderFeet(const glm::
             centerWmoH = std::nullopt;
         }
         // An M2 doodad's collision sitting well below a valid WMO
-        // floor is BENEATH that floor — a decoration or structural
+        // floor is BENEATH that floor - a decoration or structural
         // base under the walkway, not a surface to stand on. Letting
         // it win drops the player through the WMO floor: in Undercity
         // the pick took an m2 floor ~6m below the wmo one (feet -48.8,
@@ -917,7 +917,7 @@ CameraController::FloorSample CameraController::sampleFloorUnderFeet(const glm::
             m2H = std::nullopt;
         }
         // A terrain hole is the artist saying there is no ground
-        // here — it is how cave mouths and sunken entrances get
+        // here - it is how cave mouths and sunken entrances get
         // opened up, and the mesh builder already skips those
         // quads, so nothing is drawn over them. getHeightAt does
         // not ask: it interpolates straight across the gap and
@@ -930,7 +930,7 @@ CameraController::FloorSample CameraController::sampleFloorUnderFeet(const glm::
         // of them could see it, because to them the terrain sample
         // was real.
         //
-        // Only ever hand the floor to the building underneath — a
+        // Only ever hand the floor to the building underneath - a
         // hole with nothing below it keeps the heightfield it has
         // always had, so this cannot open a pit anywhere new.
         if (terrainH && wmoH && terrainManager &&
@@ -938,8 +938,8 @@ CameraController::FloorSample CameraController::sampleFloorUnderFeet(const glm::
             terrainH = std::nullopt;
         }
 
-        // Inside an interior WMO group — Undercity's halls, a
-        // building's rooms — the outdoor heightfield is the roof far
+        // Inside an interior WMO group - Undercity's halls, a
+        // building's rooms - the outdoor heightfield is the roof far
         // overhead, never the floor. Veto it there so a brief gap in
         // the WMO floor query does not kick the player up to the
         // surface. (The seam case is handled above and keeps
@@ -947,7 +947,7 @@ CameraController::FloorSample CameraController::sampleFloorUnderFeet(const glm::
         //
         // Only when it really is overhead, though. isInsideInteriorWMO
         // is a bounding-box containment test, and an underground WMO's
-        // interior box reaches up through the ground above it — so
+        // interior box reaches up through the ground above it - so
         // standing on the grass over a cave counted as being inside
         // it. Vetoing terrain there left the WMO as the only
         // candidate, and the nearest WMO surface below is the cave's
@@ -1008,7 +1008,7 @@ CameraController::FloorSample CameraController::sampleFloorUnderFeet(const glm::
         // Undercity. It says which floor was chosen for the player
         // and the three candidates it chose among, so a jump that
         // survived the closest-to-feet change shows what is still
-        // competing — and whether both floors are even offered here
+        // competing - and whether both floors are even offered here
         // or only one is, which decides whether the fix belongs in
         // the selection or deeper in the WMO query.
         // Threshold sits below a floor gap (~1m) on purpose: the
@@ -1028,8 +1028,8 @@ CameraController::FloorSample CameraController::sampleFloorUnderFeet(const glm::
                     " m2=", m2H ? *m2H : -99999.0f,
                     " seam=", atTunnelSeam ? 1 : 0, ")");
             }
-            // A jump — the floor query landed a level away, not a
-            // step — is the Undercity pull, and the one thing needed
+            // A jump - the floor query landed a level away, not a
+            // step - is the Undercity pull, and the one thing needed
             // to solve it is which WMO groups and floors exist under
             // the player when it happens. That is exactly what F8's
             // dump prints, so dump it here automatically on a jump
@@ -1057,7 +1057,7 @@ CameraController::FloorSample CameraController::sampleFloorUnderFeet(const glm::
         if (groundH) {
             cachedFloorHeight_ = *groundH;
             hasCachedFloor_ = true;
-            // Ground found — cancel gravity suspension (WMO floor loaded)
+            // Ground found - cancel gravity suspension (WMO floor loaded)
             if (gravitySuspendTimer_ > 0.0f) gravitySuspendTimer_ = 0.0f;
         } else {
             hasCachedFloor_ = false;
@@ -1070,7 +1070,7 @@ void CameraController::groundFollowedCharacter(float deltaTime, FrameInput& f,
                                                glm::vec3& targetPos,
                                                const glm::vec3& prevTargetPos) {
     // Ground the character to terrain or WMO floor
-    // Skip entirely while swimming — the swim floor clamp handles vertical bounds.
+    // Skip entirely while swimming - the swim floor clamp handles vertical bounds.
     if (!swimming) {
         float stepUpBudget = grounded ? movement::kMaxStepUp : 1.2f;
         // 1. Center-only sample for terrain/WMO floor selection.
@@ -1137,8 +1137,8 @@ void CameraController::groundFollowedCharacter(float deltaTime, FrameInput& f,
             // are far below nearby terrain. Keeps shark-mouth transitions from
             // following erroneous WMO ramps into void.
             // Not while standing inside a building. Terrain is the ground
-            // *outside*, and a staircase descending below it — Gadgetzan's
-            // auction house, any cellar — is a legitimate floor far under
+            // *outside*, and a staircase descending below it - Gadgetzan's
+            // auction house, any cellar - is a legitimate floor far under
             // nearby terrain, which is exactly what this refuses. The
             // player hovered over the steps and sank at the clamp's rate
             // instead of walking down them.
@@ -1165,7 +1165,7 @@ void CameraController::groundFollowedCharacter(float deltaTime, FrameInput& f,
         if (groundH && hasRealGround_ && nearStructureSpace && !f.nowJump) {
             float dropFromLast = lastGroundZ - *groundH;
             // Only reject the lower sample while the feet are still up near
-            // lastGroundZ — that is the transient bad-ramp case this guard is
+            // lastGroundZ - that is the transient bad-ramp case this guard is
             // for. Once the feet have actually descended below the clamp
             // target the player is standing on the lower floor, and pinning
             // groundH back up to lastGroundZ leaves the ground reference
@@ -1292,7 +1292,7 @@ void CameraController::groundFollowedCharacter(float deltaTime, FrameInput& f,
             }
         }
 
-        // 2. Multi-sample for M2 objects (rugs, planks, bridges, ships) —
+        // 2. Multi-sample for M2 objects (rugs, planks, bridges, ships) -
         //    these are narrow and need offset probes to detect reliably.
         if (m2Renderer && !externalFollow_) {
             // Not highestWalkableFloor: this one prefers an M2 floor even when
@@ -1324,7 +1324,7 @@ void CameraController::groundFollowedCharacter(float deltaTime, FrameInput& f,
         // Outdoors the heightfield has exactly one surface per column, so feet
         // below it means the player is inside the hill, which is never a valid
         // position. Climbing a slope that rises faster than the step-up budget
-        // — a steep hill, or an ordinary one crossed in a long frame — got the
+        // - a steep hill, or an ordinary one crossed in a long frame - got the
         // terrain rejected as unreachable by selectReachableFloor3. Once inside,
         // every later sample was rejected the same way and the gap only widened
         // as the player fell, so nothing recovered until the void check fired 60
@@ -1362,14 +1362,14 @@ void CameraController::groundFollowedCharacter(float deltaTime, FrameInput& f,
             constexpr float kMaxPenetration = 12.0f;
             if (penetration > kMinPenetration && penetration < kMaxPenetration) {
                 // Everywhere the player may legitimately stand below the
-                // heightfield — the Darkshire crypts, the tunnel under the hill
-                // into Booty Bay, any cave — is a structure sitting under the
+                // heightfield - the Darkshire crypts, the tunnel under the hill
+                // into Booty Bay, any cave - is a structure sitting under the
                 // terrain at this column. Probe for one directly instead of
                 // trusting cachedInsideWMO and centerWmoH: the first lags by
                 // design, and the second is cleared outright for floors more
                 // than 12 yards below terrain while containment still reads
                 // false, which is exactly what descending a tunnel mouth looks
-                // like. Finding anything at all here means hands off — the
+                // like. Finding anything at all here means hands off - the
                 // player belongs under the terrain, and lifting them out would
                 // put them on the hillside above the entrance they just walked
                 // into.
@@ -1377,7 +1377,7 @@ void CameraController::groundFollowedCharacter(float deltaTime, FrameInput& f,
                 // floor query culls any group whose top sits more than 4 yards
                 // below the probe height, so probing from up at the heightfield
                 // would skip the crypt or the tunnel entirely and report clear
-                // ground — the exact opposite of the truth. From here the
+                // ground - the exact opposite of the truth. From here the
                 // structure the player is standing in is right above them.
                 const float probeZ = targetPos.z + 1.5f;
                 bool structureBelowTerrain = false;
@@ -1392,7 +1392,7 @@ void CameraController::groundFollowedCharacter(float deltaTime, FrameInput& f,
                 // A hole-cut chunk is how a cave mouth or a below-ground
                 // entrance is opened in the first place. getHeightAt
                 // interpolates straight across the hole, so the surface this
-                // rescue would push up to is not there at all — and the
+                // rescue would push up to is not there at all - and the
                 // structure underneath may still be too far below to have been
                 // found by the probes above.
                 if (!structureBelowTerrain && terrainManager &&
@@ -1421,7 +1421,7 @@ void CameraController::groundFollowedCharacter(float deltaTime, FrameInput& f,
             terrainRescueActive_ = false;
         }
 
-        // WOWEE_FLOOR_DEBUG=1 — what every floor query answered and which
+        // WOWEE_FLOOR_DEBUG=1 - what every floor query answered and which
         // one won, four times a second.
         //
         // Two fixes for one report of not being able to walk down a
@@ -1459,7 +1459,7 @@ void CameraController::groundFollowedCharacter(float deltaTime, FrameInput& f,
                          << " lastGroundZ="    << lastGroundZ;
                     LOG_WARNING(line.str());
                     // Also to a file. The console is where this used to go
-                    // and it scrolled past — asking someone to reproduce a
+                    // and it scrolled past - asking someone to reproduce a
                     // bug and then hand back terminal scrollback is asking
                     // twice. Truncated on the first line of a run so the
                     // file is always this session's.
@@ -1547,7 +1547,7 @@ void CameraController::groundFollowedCharacter(float deltaTime, FrameInput& f,
 
     // --- Safe position caching + void fall detection ---
     if (grounded && hasRealGround_ && !swimming && verticalVelocity >= 0.0f) {
-        // Player is safely on real geometry — save periodically
+        // Player is safely on real geometry - save periodically
         continuousFallTime_ = 0.0f;
         autoUnstuckFired_ = false;
         safePosSaveTimer_ += f.physicsDeltaTime;
@@ -1557,7 +1557,7 @@ void CameraController::groundFollowedCharacter(float deltaTime, FrameInput& f,
             hasLastSafe_ = true;
         }
     } else if (!grounded && !swimming && !externalFollow_) {
-        // Falling (or standing on nothing past grace period) — accumulate fall time
+        // Falling (or standing on nothing past grace period) - accumulate fall time
         continuousFallTime_ += f.physicsDeltaTime;
         if (continuousFallTime_ >= AUTO_UNSTUCK_FALL_TIME && !autoUnstuckFired_) {
             autoUnstuckFired_ = true;
@@ -1676,9 +1676,9 @@ void CameraController::updateOrbitCamera(float deltaTime, FrameInput& f,
         }
 
         // Asymmetric smoothing:
-        //   • Pull-in: τ ≈ 60 ms  — react quickly to prevent clipping
+        //   • Pull-in: τ ≈ 60 ms  - react quickly to prevent clipping
         //     (instant while actively rotating, matching the 1:1 drag snap)
-        //   • Recover: τ ≈ 400 ms — zoom out slowly after leaving geometry
+        //   • Recover: τ ≈ 400 ms - zoom out slowly after leaving geometry
         bool rotatingNow = mouseButtonDown || f.nowTurnLeft || f.nowTurnRight;
         if (rawLimit < smoothedCollisionDist_ && rotatingNow) {
             smoothedCollisionDist_ = rawLimit;
@@ -1794,7 +1794,7 @@ void CameraController::updateOrbitCamera(float deltaTime, FrameInput& f,
         // Hide only on first-person *intent* (the user's zoom), not on a
         // collision-squeezed distance. The `actualDist < MIN_DISTANCE + 0.1`
         // term fired whenever geometry pushed the camera close in third
-        // person — under Undercity's overhangs, or backing into a wall —
+        // person - under Undercity's overhangs, or backing into a wall -
         // but the renderer's visibility hardening forces the player visible
         // again in third person on the very same frame. So the two wrote
         // opposite values every frame, toggling the instance and its weapon
@@ -1807,7 +1807,7 @@ void CameraController::updateOrbitCamera(float deltaTime, FrameInput& f,
         characterRenderer->setInstanceVisible(playerInstanceId, !shouldHidePlayer);
 
         // Note: the Renderer's CharAnimState machine drives player character animations
-        // (Run, Walk, Jump, Swim, etc.) — no additional animation driving needed here.
+        // (Run, Walk, Jump, Swim, etc.) - no additional animation driving needed here.
     }
 }
 
@@ -1859,7 +1859,7 @@ void CameraController::updateFreeFlyCamera(float /*deltaTime*/, FrameInput& f) {
         auto floorH = selectHighestFloor(terrainH, wmoH, m2H);
         // Hysteresis: starting to swim needs deeper water than continuing to
         // swim does. With one threshold, a character wading at the boundary
-        // flipped between swim and walk every frame — each flip restarts the
+        // flipped between swim and walk every frame - each flip restarts the
         // locomotion animation and sends a START_SWIM/STOP_SWIM pair, which
         // is what made walking out of water stutter. The two bounds sit
         // either side of the single 1.0 this replaces.
@@ -2125,7 +2125,7 @@ void CameraController::update(float deltaTime) {
         } else {
             introTimer += deltaTime;
             if (idleOrbit_) {
-                // Continuous smooth rotation — no lerp endpoint, just constant angular velocity
+                // Continuous smooth rotation - no lerp endpoint, just constant angular velocity
                 float degreesPerSec = introOrbitDegrees / introDuration;
                 yaw -= degreesPerSec * deltaTime;
                 camera->setRotation(yaw, pitch);
@@ -2252,7 +2252,7 @@ void CameraController::update(float deltaTime) {
     float gravity = useWoWSpeed ? WOW_GRAVITY : GRAVITY;
     float jumpVel = useWoWSpeed ? WOW_JUMP_VELOCITY : JUMP_VELOCITY;
 
-    // Suspend gravity after world entry — hold Z position until timer expires
+    // Suspend gravity after world entry - hold Z position until timer expires
     // OR a floor is detected. This prevents falling through unloaded WMO floors.
     if (gravitySuspendTimer_ > 0.0f) {
         gravity = 0.0f;
@@ -2295,7 +2295,7 @@ void CameraController::update(float deltaTime) {
         runPace = hasMoveInput && shiftDown;
     }
 
-    // Get camera axes — project forward onto XY plane for walking
+    // Get camera axes - project forward onto XY plane for walking
     glm::vec3 forward3D = camera->getForward();
     bool cameraDrivesFacing = rightMouseDown || mouseAutorun;
     // During taxi flights, orientation is controlled by the flight path, not player input
@@ -2312,7 +2312,7 @@ void CameraController::update(float deltaTime) {
     glm::vec3 forward(std::cos(moveYawRad), std::sin(moveYawRad), 0.0f);
     glm::vec3 right(-std::sin(moveYawRad), std::cos(moveYawRad), 0.0f);
 
-    // Toggle sit/crouch with X key (edge-triggered) — only when UI doesn't want keyboard
+    // Toggle sit/crouch with X key (edge-triggered) - only when UI doesn't want keyboard
     // Blocked while mounted
     bool prevSitting = sitting;
     bool xDown = !uiWantsKeyboard && input.isKeyPressed(SDL_SCANCODE_X);
@@ -2323,7 +2323,7 @@ void CameraController::update(float deltaTime) {
     if (mounted_) sitting = false;
     xKeyWasDown = xDown;
 
-    // Reset camera angles with R key (edge-triggered) — only when UI doesn't want keyboard
+    // Reset camera angles with R key (edge-triggered) - only when UI doesn't want keyboard
     // Does NOT move the player; full reset() is reserved for world-entry/respawn.
     bool rDown = !uiWantsKeyboard && input.isKeyPressed(SDL_SCANCODE_R);
     if (rDown && !rKeyWasDown) {
@@ -2398,7 +2398,7 @@ void CameraController::update(float deltaTime) {
         updateFreeFlyCamera(deltaTime, f);
     }
 
-    // The modes adjust the move — the swim clamp and the flight path both do —
+    // The modes adjust the move - the swim clamp and the flight path both do -
     // and the movement opcodes below are decided from what actually happened.
     movement = f.movement;
 
@@ -2579,7 +2579,7 @@ void CameraController::processMouseButton(const SDL_MouseButtonEvent& event) {
 
     // Don't capture mouse when ImGui wants it (hovering UI windows), or when
     // FrameXML does. FrameXML draws into ImGui's background draw list, so
-    // WantCaptureMouse is false over every frame it owns — pressing a bag item
+    // WantCaptureMouse is false over every frame it owns - pressing a bag item
     // turned the camera as well as pressing the item, and dragging one swung
     // the view around.
     bool uiWantsMouse = ImGui::GetIO().WantCaptureMouse || ui::frameXmlOwnsMouse();
@@ -2952,7 +2952,7 @@ void CameraController::triggerMountJump() {
 void CameraController::applyKnockBack(float vcos, float vsin, float hspeed, float vspeed) {
     // The server sends (vcos, vsin) as the 2D direction vector in server/wire
     // coordinate space.  After the server→canonical→render swaps, the direction
-    // in render space is simply (vcos, vsin) — the two swaps cancel each other.
+    // in render space is simply (vcos, vsin) - the two swaps cancel each other.
     knockbackHorizVel_ = glm::vec2(vcos, vsin) * hspeed;
     knockbackActive_ = true;
 

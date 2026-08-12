@@ -45,7 +45,7 @@ void transitionImageLayout(VkCommandBuffer cmd, VkImage image,
     VkPipelineStageFlags srcStage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
     VkPipelineStageFlags dstStage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
 
-// Staging upload helper — copies CPU data to a GPU-local buffer
+// Staging upload helper - copies CPU data to a GPU-local buffer
 AllocatedBuffer uploadBuffer(VkContext& ctx, const void* data, VkDeviceSize size,
     VkBufferUsageFlags usage);
 

@@ -110,12 +110,12 @@ WoweeBossEncounter WoweeBossEncounterLoader::makeFiveMan(
     // is illustrative for "Drak'Tharon Keep"-style WotLK
     // 5-man instance.
     add(1, "TrollChieftain",  31000, 600, 200, 2, 200,
-        "Troll Chieftain — 5-man dungeon, 2-phase encounter, "
+        "Troll Chieftain - 5-man dungeon, 2-phase encounter, "
         "no enrage.");
     add(2, "ShamanWraith",    31010, 600, 201, 1, 200,
-        "Shaman Wraith — 5-man mid boss, single phase.");
+        "Shaman Wraith - 5-man mid boss, single phase.");
     add(3, "DrakTharonFinal", 31030, 600, 203, 3, 210,
-        "Drak'Tharon final boss — 5-man, 3-phase mass-death "
+        "Drak'Tharon final boss - 5-man, 3-phase mass-death "
         "encounter.");
     return c;
 }
@@ -145,16 +145,16 @@ WoweeBossEncounter WoweeBossEncounterLoader::makeRaid10(
     };
     // Spell 26662 = Berserk (canonical raid soft-enrage spell).
     add(100, "LordMarrowgar",     36612, 100, 2, 600000,  26662, 232,
-        "Lord Marrowgar 10N — 2-phase: tank-and-spank then "
+        "Lord Marrowgar 10N - 2-phase: tank-and-spank then "
         "Bone Storm whirlwind. 10min soft enrage.");
     add(101, "LadyDeathwhisper",  36855, 101, 2, 600000,  26662, 232,
-        "Lady Deathwhisper 10N — 2-phase: shield drop then "
+        "Lady Deathwhisper 10N - 2-phase: shield drop then "
         "mind-control adds. 10min soft enrage.");
     add(102, "DeathbringerSaurfang",37813, 102, 1, 480000, 26662, 232,
-        "Deathbringer Saurfang 10N — single phase, blood "
+        "Deathbringer Saurfang 10N - single phase, blood "
         "beasts add wave. 8min soft enrage.");
     add(103, "TheLichKing",       36597, 103, 5, 900000,  72546, 251,
-        "The Lich King 10N — 5-phase encounter (tank-spank, "
+        "The Lich King 10N - 5-phase encounter (tank-spank, "
         "platform jumps, Frostmourne soul realm). 15min hard "
         "enrage via Fury of Frostmourne.");
     return c;
@@ -173,10 +173,10 @@ WoweeBossEncounter WoweeBossEncounterLoader::makeWorldBoss(
         e.mapId = map;
         e.phaseCount = 1;
         e.requiredPartySize = 25;
-        // World bosses don't use the difficulty system —
+        // World bosses don't use the difficulty system -
         // single open-world spawn that scales to attackers.
         e.difficultyId = 0;
-        // No soft-enrage — outdoor encounters can take
+        // No soft-enrage - outdoor encounters can take
         // arbitrarily long.
         e.recommendedItemLevel = ilvl;
         e.iconColorRGBA = packRgba(240, 100, 240);   // world boss magenta
@@ -185,10 +185,10 @@ WoweeBossEncounter WoweeBossEncounterLoader::makeWorldBoss(
     // mapId 530 = Outland (Hellfire Peninsula for Kazzak).
     // mapId 530 also for Doomwalker (Shadowmoon Valley).
     add(200, "DoomLordKazzak", 18728, 530, 134,
-        "Doom Lord Kazzak — Hellfire Peninsula world boss, "
+        "Doom Lord Kazzak - Hellfire Peninsula world boss, "
         "single phase, no enrage. 25-player encounter.");
     add(201, "Doomwalker",     17711, 530, 132,
-        "Doomwalker — Shadowmoon Valley patrol, single phase, "
+        "Doomwalker - Shadowmoon Valley patrol, single phase, "
         "rare 25-player tap encounter.");
     return c;
 }

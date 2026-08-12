@@ -124,7 +124,7 @@ WoweeSoulbindRules WoweeSoulbindRulesLoader::makeVanillaPolicy(
     c.entries.push_back(makeRule(
         1, "Vanilla Poor (gray vendor trash)",
         B::NoBind, B::Poor, 0, 0, 0, 0,
-        "Gray-quality items never bind — always "
+        "Gray-quality items never bind - always "
         "tradable / vendorable. Used for vendor trash "
         "and crafting reagents."));
     c.entries.push_back(makeRule(
@@ -136,14 +136,14 @@ WoweeSoulbindRules WoweeSoulbindRulesLoader::makeVanillaPolicy(
         3, "Vanilla Uncommon (green) and above",
         B::BindOnPickup, B::Uncommon, 0, 0, 0, 0,
         "Green+ quality items bind on pickup. NO "
-        "trade window in vanilla — pick it up, it's "
+        "trade window in vanilla - pick it up, it's "
         "yours forever. Famous source of master-loot "
         "drama."));
     c.entries.push_back(makeRule(
         4, "Vanilla Epic+ (purple/orange)",
         B::Soulbound, B::Epic, 0, 0, 0, 0,
         "Epic+ quality items arrive already "
-        "Soulbound at loot — no transfer possible "
+        "Soulbound at loot - no transfer possible "
         "even before pickup acknowledgement."));
     return c;
 }
@@ -164,7 +164,7 @@ WoweeSoulbindRules WoweeSoulbindRulesLoader::makeTBCPolicy(
     c.entries.push_back(makeRule(
         11, "TBC Common (white)",
         B::BindOnEquip, B::Common, 0, 0, 0, 0,
-        "BoE — bind on equip."));
+        "BoE - bind on equip."));
     c.entries.push_back(makeRule(
         12, "TBC Uncommon (green)",
         B::BindOnPickup, B::Uncommon, 1, 0, 0, 7200,
@@ -178,7 +178,7 @@ WoweeSoulbindRules WoweeSoulbindRulesLoader::makeTBCPolicy(
     c.entries.push_back(makeRule(
         14, "TBC Epic+ (purple/orange)",
         B::Soulbound, B::Epic, 0, 0, 0, 0,
-        "Epic+ items arrive Soulbound — no trade "
+        "Epic+ items arrive Soulbound - no trade "
         "even within window."));
     return c;
 }
@@ -210,7 +210,7 @@ WoweeSoulbindRules WoweeSoulbindRulesLoader::makeWotLKPolicy(
     c.entries.push_back(makeRule(
         24, "WotLK Epic+ (purple/orange)",
         B::Soulbound, B::Epic, 0, 0, 0, 0,
-        "Soulbound on loot — no trade."));
+        "Soulbound on loot - no trade."));
     c.entries.push_back(makeRule(
         25, "WotLK Heirloom (gold)",
         B::BindOnAccount, B::Heirloom, 0, 0, 1, 0,

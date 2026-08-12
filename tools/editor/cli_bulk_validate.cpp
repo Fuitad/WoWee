@@ -77,7 +77,7 @@ int handleBulk(int& i, int argc, char** argv) {
             "bulk-validate: not a directory: %s\n", dir.c_str());
         return 1;
     }
-    // argv[0] is this binary's invocation path — needed
+    // argv[0] is this binary's invocation path - needed
     // so each file can be validated via a fresh subprocess
     // call, isolating one file's failures from another's.
     std::string self = argv[0];
@@ -94,7 +94,7 @@ int handleBulk(int& i, int argc, char** argv) {
         std::string validateFlag = deriveValidateFlag(fmt->infoFlag);
         if (validateFlag.empty()) {
             // Asset-style format with no validator hooked
-            // up — count it but don't try to invoke.
+            // up - count it but don't try to invoke.
             pf.skipped = true;
             rows.push_back(std::move(pf));
             continue;
@@ -152,7 +152,7 @@ int handleBulk(int& i, int argc, char** argv) {
     std::printf("  failed           : %zu\n", failCount);
     std::printf("  skipped (no val) : %zu\n", skipCount);
     if (ok) {
-        std::printf("  OK — every catalog with a validator passed\n");
+        std::printf("  OK - every catalog with a validator passed\n");
         return 0;
     }
     std::printf("\n  failures:\n");

@@ -742,7 +742,7 @@ class AssetPipelineGUI:
         self._browser_tree_populated.clear()
 
         if len(results) > 5000:
-            # Too many results — show directory structure
+            # Too many results - show directory structure
             self._browser_count_var.set(f"{len(results)} results (showing first 5000)")
             results = results[:5000]
         else:
@@ -894,9 +894,9 @@ class AssetPipelineGUI:
 
     # ── M2 Preview (wireframe + textures + animations) ──
 
-    # Common animation ID names — complete list from animation_ids.hpp (452 entries)
+    # Common animation ID names - complete list from animation_ids.hpp (452 entries)
     _ANIM_NAMES: dict[int, str] = {
-        # ── Classic (Vanilla WoW 1.x) — IDs 0–145 ──
+        # ── Classic (Vanilla WoW 1.x) - IDs 0–145 ──
         0: "STAND", 1: "DEATH", 2: "SPELL", 3: "STOP", 4: "WALK", 5: "RUN",
         6: "DEAD", 7: "RISE", 8: "STAND_WOUND", 9: "COMBAT_WOUND",
         10: "COMBAT_CRITICAL", 11: "SHUFFLE_LEFT", 12: "SHUFFLE_RIGHT",
@@ -946,7 +946,7 @@ class AssetPipelineGUI:
         139: "SPELL_SLEEP_DOWN", 140: "SPELL_KNEEL_START",
         141: "SPELL_KNEEL_LOOP", 142: "SPELL_KNEEL_END", 143: "SPRINT",
         144: "IN_FLIGHT", 145: "SPAWN",
-        # ── The Burning Crusade (TBC 2.x) — IDs 146–199 ──
+        # ── The Burning Crusade (TBC 2.x) - IDs 146–199 ──
         146: "CLOSE", 147: "CLOSED", 148: "OPEN", 149: "DESTROY",
         150: "DESTROYED", 151: "UNSHEATHE", 152: "SHEATHE_ALT",
         153: "ATTACK_UNARMED_NO_SHEATHE", 154: "STEALTH_RUN",
@@ -964,7 +964,7 @@ class AssetPipelineGUI:
         180: "CUSTOM_SPELL_07", 181: "CUSTOM_SPELL_08",
         182: "CUSTOM_SPELL_09", 183: "CUSTOM_SPELL_10",
         184: "EMOTE_STATE_DANCE",
-        # ── Wrath of the Lich King (WotLK 3.x) — IDs 185+ ──
+        # ── Wrath of the Lich King (WotLK 3.x) - IDs 185+ ──
         185: "FLY_STAND", 186: "EMOTE_STATE_LAUGH",
         187: "EMOTE_STATE_POINT", 188: "EMOTE_STATE_EAT",
         189: "EMOTE_STATE_WORK", 190: "EMOTE_STATE_SIT_GROUND",
@@ -1478,7 +1478,7 @@ class AssetPipelineGUI:
             if is_group:
                 verts, tris = self._parse_wmo_group(file_path)
             else:
-                # Root WMO — try to load first group
+                # Root WMO - try to load first group
                 verts, tris = self._parse_wmo_root_first_group(file_path)
 
             if not verts:
@@ -1878,7 +1878,7 @@ class AssetPipelineGUI:
                 if chunk_size >= 120:
                     # Base height at offset 112 in MCNK body
                     base_z = struct.unpack_from("<f", data, pos + 8 + 112)[0]
-                    # MCVT heights (145 floats) — scan for MCVT sub-chunk
+                    # MCVT heights (145 floats) - scan for MCVT sub-chunk
                     mcvt_heights: list[float] = []
                     sub_pos = pos + 8 + 128  # skip MCNK header
                     sub_end = pos + 8 + chunk_size

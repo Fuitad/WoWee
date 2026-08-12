@@ -8,7 +8,7 @@
 // running while in the world, at a size a portrait needs.
 //
 // Four units: the player, the target, the pet and the focus. They differ only
-// in whose appearance is loaded — a player from race, appearance bytes and
+// in whose appearance is loaded - a player from race, appearance bytes and
 // what they are visibly wearing, anything else from the model its display id
 // names. The party frames want the same thing and are left out on cost: each
 // of these is a 640x800 offscreen target and a character pass every frame.
@@ -30,7 +30,7 @@ class UnitPortrait {
 public:
     /// How much of the character to show. A portrait is the face in a circle;
     /// the paperdoll wants the whole figure in a tall rectangle. The offscreen
-    /// pass is the same either way — only the framing differs, which is why
+    /// pass is the same either way - only the framing differs, which is why
     /// this is one class and not two.
     enum class Framing { Face, FullBody };
 
@@ -43,9 +43,9 @@ public:
     void update(game::GameHandler& gameHandler, pipeline::AssetManager* assets,
                 rendering::Renderer* renderer, float deltaTime);
 
-    /// Answers whether there is actually a model to show. A load can fail —
+    /// Answers whether there is actually a model to show. A load can fail -
     /// a race this client has no model path for, an M2 the install is missing
-    /// — and the view then keeps whatever it had, which for a frame that has
+    /// - and the view then keeps whatever it had, which for a frame that has
     /// just changed unit means the previous one's face. The caller blanks the
     /// texture instead.
     ///
@@ -53,7 +53,7 @@ public:
     /// them: race, gender, the packed appearance bytes and facial features.
     ///
     /// Dressed in what they are visibly wearing, which for a portrait framed
-    /// on the head is the helm and the shoulders — the two pieces that change
+    /// on the head is the helm and the shoulders - the two pieces that change
     /// a face most. An empty list leaves the model as it is rather than
     /// stripping it, because "nothing known yet" and "wearing nothing" arrive
     /// looking the same and only one of them should undress anybody.
@@ -81,7 +81,7 @@ public:
     /// replacing the one made from CharSections.
     ///
     /// CreateDisplayInfoExtra carries one for nearly every humanoid NPC, and
-    /// it is the whole appearance already baked — skin, face, hair and the
+    /// it is the whole appearance already baked - skin, face, hair and the
     /// armour they wear. Set before the update that should use it; it is part
     /// of what decides a rebuild, so changing it is enough to apply it.
     void setBakedSkin(const std::string& path) { pendingBake_ = path; }

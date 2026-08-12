@@ -11,7 +11,7 @@
 namespace wowee {
 namespace rendering {
 
-// Push constant struct — must match skybox.frag.glsl layout
+// Push constant struct - must match skybox.frag.glsl layout
 struct SkyPushConstants {
     glm::vec4 zenithColor;    // DBC skyTopColor
     glm::vec4 midColor;       // DBC skyMiddleColor
@@ -53,7 +53,7 @@ bool Skybox::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout) {
         return false;
     }
 
-    // Fullscreen triangle — no vertex buffer, no vertex input.
+    // Fullscreen triangle - no vertex buffer, no vertex input.
     // Dynamic viewport and scissor
     std::vector<VkDynamicState> dynamicStates = viewportAndScissorDynamic();
 
@@ -147,7 +147,7 @@ void Skybox::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const SkyP
     // Bind pipeline
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 
-    // Bind per-frame descriptor set (set 0 — camera UBO)
+    // Bind per-frame descriptor set (set 0 - camera UBO)
     vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout,
         0, 1, &perFrameSet, 0, nullptr);
 
@@ -156,7 +156,7 @@ void Skybox::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const SkyP
         VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
         0, sizeof(push), &push);
 
-    // Draw fullscreen triangle — no vertex buffer needed
+    // Draw fullscreen triangle - no vertex buffer needed
     vkCmdDraw(cmd, 3, 1, 0, 0);
 }
 

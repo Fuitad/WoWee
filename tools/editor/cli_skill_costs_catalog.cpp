@@ -276,13 +276,13 @@ int handleValidate(int& i, int argc, char** argv) {
                     std::to_string(e.minSkillToLearn) +
                     " >= maxSkillUnlocked " +
                     std::to_string(e.maxSkillUnlocked) +
-                    " — tier provides no skill range");
+                    " - tier provides no skill range");
             }
             if (e.requiredLevel > 80) {
                 warnings.push_back(ctx +
                     ": requiredLevel " +
                     std::to_string(e.requiredLevel) +
-                    " > 80 — tier unreachable at WotLK cap");
+                    " > 80 - tier unreachable at WotLK cap");
             }
             // Riding skill at lvl < 20 is unusual (Apprentice
             // requires lvl 20).
@@ -291,15 +291,15 @@ int handleValidate(int& i, int argc, char** argv) {
                 warnings.push_back(ctx +
                     ": Riding skill with requiredLevel=" +
                     std::to_string(e.requiredLevel) +
-                    " < 20 — canonical Apprentice Riding unlocks "
+                    " < 20 - canonical Apprentice Riding unlocks "
                     "at level 20");
             }
-            // Profession with cost=0 is unusual — every standard
+            // Profession with cost=0 is unusual - every standard
             // profession tier costs at least a copper.
             if (e.costKind == wowee::pipeline::WoweeSkillCost::Profession &&
                 e.copperCost == 0) {
                 warnings.push_back(ctx +
-                    ": Profession kind with copperCost=0 — "
+                    ": Profession kind with copperCost=0 - "
                     "unusual, profession tiers normally cost "
                     "at least a copper");
             }

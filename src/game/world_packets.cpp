@@ -22,7 +22,7 @@ bool ItemQueryResponseData::readCommonRequirements(network::Packet& packet) {
     // compile time: read_never_written_check takes its field names from
     // world_packets.hpp and then skips that file when it looks for writers,
     // so that a default initialiser is not mistaken for one. A parser method
-    // living there is invisible to it the same way — the moment these five
+    // living there is invisible to it the same way - the moment these five
     // fields moved into the header they were reported as read and never
     // written, all five of them, and the ceiling is zero.
     if (!packet.hasRemaining(14 * 4)) return false;
@@ -265,7 +265,7 @@ bool AuthChallengeParser::parse(network::Packet& packet, AuthChallengeData& data
         LOG_INFO("SMSG_AUTH_CHALLENGE: TBC format (", packet.getSize(), " bytes)");
     } else if (packet.getSize() < 40) {
         // Vanilla with encryption seeds (36 bytes): serverSeed + 32 bytes seeds
-        // No "unknown1" prefix — first uint32 IS the server seed
+        // No "unknown1" prefix - first uint32 IS the server seed
         data.unknown1 = 0;
         data.serverSeed = packet.readUInt32();
         LOG_INFO("SMSG_AUTH_CHALLENGE: Classic+seeds format (", packet.getSize(), " bytes)");
@@ -1010,15 +1010,15 @@ bool UpdateObjectParser::parseMovementBlock(network::Packet& packet, UpdateBlock
         // Swimming/flying pitch
         // WotLK 3.3.5a movement flags (wire format):
         //   SWIMMING          = 0x00200000
-        //   CAN_FLY           = 0x01000000  (ability to fly — no pitch field)
-        //   FLYING            = 0x02000000  (actively flying — has pitch field)
+        //   CAN_FLY           = 0x01000000  (ability to fly - no pitch field)
+        //   FLYING            = 0x02000000  (actively flying - has pitch field)
         //   SPLINE_ELEVATION  = 0x04000000  (smooth vertical spline offset)
         // MovementFlags2:
         //   MOVEMENTFLAG2_ALWAYS_ALLOW_PITCHING = 0x0020
         //
         // Pitch is present when SWIMMING or FLYING are set, or the always-allow flag is set.
         // Note: CAN_FLY (0x01000000) does NOT gate pitch; only FLYING (0x02000000) does.
-        // (TBC uses 0x01000000 for FLYING — see TbcMoveFlags in packet_parsers_tbc.cpp.)
+        // (TBC uses 0x01000000 for FLYING - see TbcMoveFlags in packet_parsers_tbc.cpp.)
         if ((moveFlags & 0x00200000) /* SWIMMING */ ||
             (moveFlags & 0x02000000) /* FLYING */ ||
             (moveFlags2 & 0x0020)    /* MOVEMENTFLAG2_ALWAYS_ALLOW_PITCHING */) {
@@ -1254,7 +1254,7 @@ bool UpdateObjectParser::parseUpdateFields(network::Packet& packet, UpdateBlock&
                 return false;
             }
             uint32_t value = packet.readUInt32();
-            // fieldIndex is monotonically increasing here — append directly to the
+            // fieldIndex is monotonically increasing here - append directly to the
             // sorted flat vector (no tree-node allocation per field anymore).
             block.fields.append_sorted(fieldIndex, value);
             valuesReadCount++;
@@ -1297,7 +1297,7 @@ bool UpdateObjectParser::parseUpdateBlock(network::Packet& packet, UpdateBlock& 
         }
 
         case UpdateType::MOVEMENT: {
-            // Movement update — WotLK 3.3.5a uses PackedGuid (NOT full uint64)
+            // Movement update - WotLK 3.3.5a uses PackedGuid (NOT full uint64)
             if (!packet.hasData()) return false;
             block.guid = packet.readPackedGuid();
             LOG_DEBUG("  MOVEMENT update for GUID: 0x", std::hex, block.guid, std::dec);
@@ -1427,7 +1427,7 @@ bool UpdateObjectParser::parse(network::Packet& packet, UpdateObjectData& data) 
                 // The failing block is partially parsed: parseMovementBlock stores its
                 // updateFlags/moveFlags into `block` before it can fail, and the object
                 // type is read first. Log them here so the FIRST block failing (i==0, no
-                // prevBlock context) still reveals which movement layout desynced — the
+                // prevBlock context) still reveals which movement layout desynced - the
                 // moveFlags identify which optional field (transport/spline/falling/pitch)
                 // consumed the wrong byte count and misaligned the update-field mask.
                 LOG_ERROR("  failedBlock: updateType=", static_cast<int>(block.updateType),
@@ -1484,7 +1484,7 @@ bool UpdateObjectParser::parse(network::Packet& packet, UpdateObjectData& data) 
 bool DestroyObjectParser::parse(network::Packet& packet, DestroyObjectData& data) {
     // SMSG_DESTROY_OBJECT format:
     // uint64 guid
-    // uint8 isDeath (0 = despawn, 1 = death) — WotLK only; vanilla/TBC omit this
+    // uint8 isDeath (0 = despawn, 1 = death) - WotLK only; vanilla/TBC omit this
 
     if (packet.getSize() < 8) {
         LOG_ERROR("SMSG_DESTROY_OBJECT packet too small: ", packet.getSize(), " bytes");

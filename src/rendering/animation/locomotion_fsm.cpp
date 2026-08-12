@@ -113,7 +113,7 @@ void LocomotionFSM::updateTransitions(const Input& in, const AnimCapabilitySet& 
                 state_ = State::JUMP_END;
                 jumpEndSeen_ = false;
             } else if (caps.resolvedJumpStart == 0) {
-                // Model doesn't have JUMP_START animation — skip to mid-air
+                // Model doesn't have JUMP_START animation - skip to mid-air
                 state_ = State::JUMP_MID;
             } else if (in.haveAnimState) {
                 // Use the same resolved ID that resolve() outputs
@@ -125,7 +125,7 @@ void LocomotionFSM::updateTransitions(const Input& in, const AnimCapabilitySet& 
                     state_ = State::JUMP_MID;
                 }
             } else {
-                // No animation state available — fall through after 1 frame
+                // No animation state available - fall through after 1 frame
                 state_ = State::JUMP_MID;
             }
             break;
@@ -145,7 +145,7 @@ void LocomotionFSM::updateTransitions(const Input& in, const AnimCapabilitySet& 
                 // Movement overrides landing animation
                 state_ = effectiveSprinting ? State::RUN : State::WALK;
             } else if (caps.resolvedJumpEnd == 0) {
-                // Model doesn't have JUMP_END animation — go straight to IDLE
+                // Model doesn't have JUMP_END animation - go straight to IDLE
                 state_ = State::IDLE;
             } else if (in.haveAnimState) {
                 uint32_t expected = caps.resolvedJumpEnd;
@@ -222,7 +222,7 @@ AnimOutput LocomotionFSM::resolve(const Input& in, const AnimCapabilitySet& caps
             break;
         case State::JUMP_MID:
             animId = caps.resolvedJump ? caps.resolvedJump : anim::JUMP;
-            loop = true;  // Must loop — long falls outlast a single play cycle
+            loop = true;  // Must loop - long falls outlast a single play cycle
             break;
         case State::JUMP_END:
             animId = caps.resolvedJumpEnd ? caps.resolvedJumpEnd : anim::JUMP_END;

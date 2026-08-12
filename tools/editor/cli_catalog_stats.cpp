@@ -41,7 +41,7 @@ struct StatsProbe {
 
     // First few entry IDs we successfully read by reading
     // each entry's leading uint32. We can't reliably know
-    // the per-entry size, so once we read 3 IDs we stop —
+    // the per-entry size, so once we read 3 IDs we stop -
     // this is a sample, not an exhaustive enumeration.
     std::vector<uint32_t> firstEntryIds;
 };
@@ -83,7 +83,7 @@ bool probe(const fs::path& path, StatsProbe& out) {
     // entries without knowing the per-format size (each
     // entry has variable-length name+description strings),
     // so multi-sampling produces garbage for most formats.
-    // The first id is always at exactly headerBytes — that
+    // The first id is always at exactly headerBytes - that
     // one we can trust.
     if (out.entryCount > 0 && out.entrySectionBytes >= 4) {
         is.seekg(static_cast<std::streamoff>(out.headerBytes),
@@ -142,7 +142,7 @@ int handleStats(int& i, int argc, char** argv) {
     char ms[5] = {p.magic[0], p.magic[1], p.magic[2], p.magic[3], 0};
     std::printf("catalog-stats: %s\n", path.c_str());
     std::printf("  magic            : '%s'%s\n", ms,
-                fmt ? "" : "  (unknown — not in format table)");
+                fmt ? "" : "  (unknown - not in format table)");
     if (fmt) {
         std::printf("  format           : %s (%s, %s)\n",
                     fmt->description, fmt->extension, fmt->category);

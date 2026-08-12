@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Creature Difficulty catalog (.wcdf) — novel
+// Wowee Open Creature Difficulty catalog (.wcdf) - novel
 // replacement for Blizzard's CreatureDifficulty.dbc. Maps
 // a base creature entry to its difficulty variants:
 // Normal-10 / Normal-25 / Heroic-10 / Heroic-25 in WotLK
@@ -19,7 +19,7 @@ namespace pipeline {
 // reads the normal25Id field, and spawns that variant
 // instead. This is how Lord Marrowgar in 25-Heroic ICC
 // has 30M HP and hits for 80k while the same encounter
-// in 10-Normal has 5M HP and hits for 25k — same spawn
+// in 10-Normal has 5M HP and hits for 25k - same spawn
 // point, different WCRT entries.
 //
 // 5-man dungeons typically use only normal10Id +
@@ -30,7 +30,7 @@ namespace pipeline {
 // Cross-references with previously-added formats:
 //   WCRT: every non-zero *Id field points at a
 //         WCRT.creatureId entry. The base creature lives
-//         in WCRT too — this catalog is purely the
+//         in WCRT too - this catalog is purely the
 //         routing table from base id to variants.
 //
 // Binary layout (little-endian):
@@ -103,18 +103,18 @@ public:
 
     // Preset emitters used by --gen-cdf* variants.
     //
-    //   makeStarter    — 4 example boss entries with full
+    //   makeStarter    - 4 example boss entries with full
     //                     4-variant 10/25/H10/H25 routing,
     //                     using fictional creature ids in
     //                     the 8000-8200 range.
-    //   makeWotlkRaid  — 4 Icecrown Citadel-style bosses
+    //   makeWotlkRaid  - 4 Icecrown Citadel-style bosses
     //                     (Marrowgar / Deathwhisper /
     //                     Saurfang / Lich King) with full
     //                     diff variants.
-    //   makeFiveMan    — 4 five-man dungeon bosses with
+    //   makeFiveMan    - 4 five-man dungeon bosses with
     //                     only Normal + Heroic 10-man
     //                     variants set (25-man fields stay
-    //                     0 — engine falls through to the
+    //                     0 - engine falls through to the
     //                     10-man variant when 25-man is
     //                     queried).
     static WoweeCreatureDifficulty makeStarter(const std::string& catalogName);

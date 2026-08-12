@@ -1,6 +1,6 @@
 #pragma once
 /**
- * handler_types.hpp — Shared struct definitions used by GameHandler and domain handlers.
+ * handler_types.hpp - Shared struct definitions used by GameHandler and domain handlers.
  *
  * These types were previously duplicated across GameHandler, SpellHandler, SocialHandler,
  * ChatHandler, QuestHandler, and InventoryHandler.  Now they live here at namespace scope,
@@ -42,10 +42,10 @@ struct TalentTabEntry {
 // ---- Spell / cast state ----
 
 // Spell targeting classification for animation selection.
-// Derived from the spell packet's targetGuid field — NOT the player's UI target.
-//   DIRECTED — spell targets a specific unit (Frostbolt, Heal, Shadow Bolt)
-//   OMNI     — self-cast / no explicit target (Arcane Explosion, buffs)
-//   AREA     — ground-targeted AoE (Blizzard, Rain of Fire, Flamestrike)
+// Derived from the spell packet's targetGuid field - NOT the player's UI target.
+//   DIRECTED - spell targets a specific unit (Frostbolt, Heal, Shadow Bolt)
+//   OMNI     - self-cast / no explicit target (Arcane Explosion, buffs)
+//   AREA     - ground-targeted AoE (Blizzard, Rain of Fire, Flamestrike)
 enum class SpellCastType : uint8_t {
     DIRECTED = 0,  // Has a specific unit target
     OMNI     = 1,  // Self / no target
@@ -119,7 +119,7 @@ struct InspectResult {
 /// An event argument that should arrive in Lua as nil rather than as text.
 ///
 /// Every argument crosses this boundary as a string, and Lua has exactly two
-/// false values — nil and false. Neither can be spelled as a string: "0" is a
+/// false values - nil and false. Neither can be spelled as a string: "0" is a
 /// number and true, "" is a string and true. So an event with a *false*
 /// argument in front of a true one had no way to be fired correctly at all.
 ///
@@ -161,7 +161,7 @@ struct BgQueueSlot {
     uint32_t avgWaitTimeSec = 0;
     uint32_t timeInQueueSec = 0;
     // The level range comes with the status, so a queued battleground can say
-    // what it is without the available-battleground list having arrived — that
+    // what it is without the available-battleground list having arrived - that
     // list only turns up at a battlemaster, and the interface asks for the range
     // every time it draws the queue.
     uint32_t minLevel = 0;
@@ -201,7 +201,7 @@ struct BgPlayerScore {
     /// and saying so is better than answering zero as though it meant Horde.
     bool        hasTeam         = false;
     /// The objective values, in the order the battleground writes them. The
-    /// names are not on the wire — this used to read one before each value and
+    /// names are not on the wire - this used to read one before each value and
     /// took every value after the first from the wrong offset.
     std::vector<std::pair<std::string, uint32_t>> bgStats;
 };
@@ -269,7 +269,7 @@ struct PetitionInfo {
     std::string guildName;
     uint32_t signatureCount = 0;
     /// How many signatures the charter needs. Only SMSG_PETITION_QUERY_RESPONSE
-    /// says, so this is the fallback until that reply lands — nine is retail's
+    /// says, so this is the fallback until that reply lands - nine is retail's
     /// guild figure, and AzerothCore's is a config the reply carries.
     uint32_t signaturesRequired = 9;
     /// Guild or arena, from the query reply. The signature frame writes a
@@ -336,8 +336,8 @@ struct LfgReward {
 /// One row of the dungeon-ready dialog: who the proposal is offering, and
 /// whether they have answered it yet.
 ///
-/// The server sends no names or levels here — only what each player is for and
-/// what they have said — so those stay empty rather than being invented.
+/// The server sends no names or levels here - only what each player is for and
+/// what they have said - so those stay empty rather than being invented.
 struct LfgProposalMember {
     uint32_t role = 0;      // LFG role mask, same bits SetLFGRoles sends
     bool isSelf = false;
@@ -351,7 +351,7 @@ struct LfgProposalMember {
 /// lists them. Both are spells; what separates them is what the spell does.
 struct Companion {
     uint32_t spellId = 0;
-    uint32_t creatureId = 0;   // EffectMiscValue — the creature summoned or ridden
+    uint32_t creatureId = 0;   // EffectMiscValue - the creature summoned or ridden
     std::string name;
     bool isMount = false;
 };
@@ -359,7 +359,7 @@ struct Companion {
 /// One row of LFGDungeons.dbc, as the dungeon finder needs it.
 ///
 /// Field indices were read off the file rather than assumed: 195 records of 49
-/// fields, checked against values that can be recognised — Wailing Caverns on
+/// fields, checked against values that can be recognised - Wailing Caverns on
 /// map 43, Ragefire Chasm faction 0 where everything else is -1, Karazhan in
 /// the Burning Crusade raid group. The layout table only ever named ID and
 /// Name, which is why the picker had nothing to list.

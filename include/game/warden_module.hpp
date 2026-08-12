@@ -39,7 +39,7 @@ struct WardenFuncList {
  * IMPLEMENTATION STATUS:
  * ✅ Module metadata parsing and validation
  * ✅ RC4 decryption (WardenCrypto)
- * ✅ RSA-2048 signature verification (OpenSSL EVP — real Blizzard modulus)
+ * ✅ RSA-2048 signature verification (OpenSSL EVP - real Blizzard modulus)
  * ✅ zlib decompression
  * ✅ Custom executable format parsing (3 pair-format variants)
  * ✅ Address relocation (delta-encoded fixups)
@@ -136,7 +136,7 @@ public:
 
 private:
     bool loaded_;                          // Module successfully loaded
-    // False when the module did not unpack into a real code image — typically because
+    // False when the module did not unpack into a real code image - typically because
     // the server sent something other than a genuine Blizzard Warden module, which is
     // normal on private servers. Running the emulator over that image just executes
     // garbage, so we go straight to the stub callbacks instead.
@@ -156,7 +156,7 @@ private:
     uint32_t emulatedPacketHandlerAddr_ = 0;   // Raw emulated VA for 4-arg PacketHandler call
 
     // Dependencies injected via setCallbackDependencies() for module callbacks.
-    // These are NOT owned — the handler owns the crypto and socket lifetime.
+    // These are NOT owned - the handler owns the crypto and socket lifetime.
     WardenCrypto* callbackCrypto_ = nullptr;
     SendPacketFunc callbackSendPacket_;
 

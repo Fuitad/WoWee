@@ -299,7 +299,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 errors.push_back(ctx + ": name is empty");
             if (e.creatureGuid == 0)
                 errors.push_back(ctx +
-                    ": creatureGuid is 0 — path is unbound to any spawn");
+                    ": creatureGuid is 0 - path is unbound to any spawn");
             if (e.pathKind > wowee::pipeline::WoweeCreaturePatrol::Random) {
                 errors.push_back(ctx + ": pathKind " +
                     std::to_string(e.pathKind) + " not in 0..3");
@@ -309,10 +309,10 @@ int handleValidate(int& i, int argc, char** argv) {
                     std::to_string(e.moveType) + " not in 0..3");
             }
             if (e.waypoints.empty())
-                errors.push_back(ctx + ": no waypoints — path has nothing to walk");
+                errors.push_back(ctx + ": no waypoints - path has nothing to walk");
             if (e.waypoints.size() == 1)
                 warnings.push_back(ctx +
-                    ": only 1 waypoint — creature will idle in place");
+                    ": only 1 waypoint - creature will idle in place");
             // Loop with fewer than 3 waypoints is degenerate
             // (back and forth between 2 points isn't a loop).
             if (e.pathKind == wowee::pipeline::WoweeCreaturePatrol::Loop &&
@@ -320,7 +320,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 warnings.push_back(ctx +
                     ": Loop with " +
                     std::to_string(e.waypoints.size()) +
-                    " waypoints — fewer than 3 makes Loop "
+                    " waypoints - fewer than 3 makes Loop "
                     "indistinguishable from Reverse");
             }
             if (!idsSeen.add(e.pathId)) errors.push_back(ctx + ": duplicate pathId");

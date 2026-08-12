@@ -135,7 +135,7 @@ WoweePetCare WoweePetCareLoader::makeHunterCare(
         "No cost, no cooldown.");
     add(5, "TameBeast", 1515, P::Tame,
         0, 0, 0, 0, 20000,
-        "Tame a wild beast. 20s channel — beast attacks "
+        "Tame a wild beast. 20s channel - beast attacks "
         "during channel; succeed only if hunter survives. "
         "No reagent, no cost.");
     return c;
@@ -176,7 +176,7 @@ WoweePetCare WoweePetCareLoader::makeStableActions(
     add(101, "UntrainPet", 0, P::Untrain,
         10000,
         "Reset all pet talent points. Cost ramps with "
-        "each untrain (1g first, +1g each subsequent — "
+        "each untrain (1g first, +1g each subsequent - "
         "10000 copper = 1g shown as the base entry; "
         "client computes ramp at runtime).");
     add(102, "RenamePet", 0, P::Rename,
@@ -186,7 +186,7 @@ WoweePetCare WoweePetCareLoader::makeStableActions(
     add(103, "AbandonPet", 2641, P::Abandon,
         0,
         "Permanently release the active pet (back to "
-        "the wild). Free, instant — but PERMANENT. The "
+        "the wild). Free, instant - but PERMANENT. The "
         "pet is gone forever; cannot be re-tamed without "
         "finding the same beast in the world. UI "
         "confirmation prompt highly recommended.");
@@ -219,17 +219,17 @@ WoweePetCare WoweePetCareLoader::makeWarlockMinions(
     };
     // Reagent: Soul Shard (itemId 6265).
     add(200, "SummonImp",        688,  6265, 6500,
-        "Summon Imp — 6.5s cast, 1 Soul Shard. Imp is "
+        "Summon Imp - 6.5s cast, 1 Soul Shard. Imp is "
         "the leveling-default minion (ranged caster, "
         "Firebolt + Phase Shift).");
     add(201, "SummonVoidwalker", 697,  6265, 10000,
-        "Summon Voidwalker — 10s cast, 1 Soul Shard. "
+        "Summon Voidwalker - 10s cast, 1 Soul Shard. "
         "Tank minion (Sacrifice + Suffering taunt).");
     add(202, "SummonSuccubus",   712,  6265, 10000,
-        "Summon Succubus — 10s cast, 1 Soul Shard. "
+        "Summon Succubus - 10s cast, 1 Soul Shard. "
         "DPS minion (Lash of Pain + Seduce CC).");
     add(203, "SummonFelhunter",  691,  6265, 10000,
-        "Summon Felhunter — 10s cast, 1 Soul Shard. "
+        "Summon Felhunter - 10s cast, 1 Soul Shard. "
         "Anti-magic minion (Spell Lock interrupt + "
         "Devour Magic dispel).");
     return c;

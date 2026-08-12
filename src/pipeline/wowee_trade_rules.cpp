@@ -97,25 +97,25 @@ WoweeTradeRules WoweeTradeRulesLoader::makeStandard(
         0, 10, 0xFFFFFFFFu, 0,
         "Globally forbid trading soulbound items "
         "(itemCategoryFilter=0xFFFFFFFF means all "
-        "categories). Priority 10 — base default rule.");
+        "categories). Priority 10 - base default rule.");
     add(2, "QuestItemForbidden", T::Forbidden, T::AnyPlayer,
         0, 10, 1u << 12, 0,
         "Forbid quest items (itemClass=12). Priority "
-        "10 — base default. Quest items are inventory-"
+        "10 - base default. Quest items are inventory-"
         "frozen by design.");
     add(3, "RaidTradeBackException", T::SoulboundException,
         T::SameRealmOnly,
         0, 20, 0, 0,
-        "2-hour trade-back window for raid loot — "
+        "2-hour trade-back window for raid loot - "
         "overrides the SoulboundForbidden rule when "
         "the soulbind happened within 2hr to allow "
         "loot redistribution to absent players. "
-        "Priority 20 — overrides rule 1.");
+        "Priority 20 - overrides rule 1.");
     add(4, "SameFactionOnly", T::Forbidden, T::SameFactionOnly,
         0, 5, 0, 0,
-        "Default cross-faction trade restriction — "
+        "Default cross-faction trade restriction - "
         "Alliance and Horde players cannot initiate "
-        "trades. Priority 5 — low so server-custom "
+        "trades. Priority 5 - low so server-custom "
         "CrossFactionAllowed can override.");
     return c;
 }
@@ -144,13 +144,13 @@ WoweeTradeRules WoweeTradeRulesLoader::makeServerAdmin(
         0, 100, 0,
         "GM-only trade with no item/gold restriction "
         "for staff-mediated player disputes. Priority "
-        "100 — overrides all other rules.");
+        "100 - overrides all other rules.");
     add(101, "AccountBoundOwnTransfer", T::Allowed,
         T::SameAccountOnly,
         0, 90, 0,
         "Allow trading account-bound items between own "
         "characters via a cross-realm trade window. "
-        "Priority 90 — overrides Soulbound default.");
+        "Priority 90 - overrides Soulbound default.");
     add(102, "CrossFactionAt80", T::CrossFactionAllowed,
         T::AnyPlayer,
         80, 50, 0,
@@ -185,7 +185,7 @@ WoweeTradeRules WoweeTradeRulesLoader::makeRMTPrevent(
     add(200, "LowLevelGoldCap", T::GoldEscrowMax,
         T::AnyPlayer,
         0, 30, 100000,
-        "Cap gold side at 10g for level <30 trades — "
+        "Cap gold side at 10g for level <30 trades - "
         "anti-RMT (gold-buying typically targets fresh "
         "accounts). Priority 30. levelRequirement=0 "
         "but the rule is meant to apply to LOW levels; "
@@ -207,7 +207,7 @@ WoweeTradeRules WoweeTradeRulesLoader::makeRMTPrevent(
         T::AnyPlayer,
         0, 10, 0,
         "Block first trade for accounts < 24hr old. "
-        "Manual placeholder rule — the trade engine "
+        "Manual placeholder rule - the trade engine "
         "enforces the time check externally. "
         "Priority 10.");
     return c;

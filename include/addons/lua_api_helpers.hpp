@@ -1,4 +1,4 @@
-// lua_api_helpers.hpp — Shared helpers, lookup tables, and utility functions
+// lua_api_helpers.hpp - Shared helpers, lookup tables, and utility functions
 // used by all lua_*_api.cpp domain files.
 // Extracted from lua_engine.cpp as part of §5.1 (Tame LuaEngine).
 #pragma once
@@ -31,7 +31,7 @@ inline void toLowerInPlace(std::string& s) {
     for (char& c : s) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
 }
 
-// ---- Lua return helpers — used 200+ times as guard/fallback returns ----
+// ---- Lua return helpers - used 200+ times as guard/fallback returns ----
 inline int luaReturnNil(lua_State* L)  { lua_pushnil(L); return 1; }
 inline int luaReturnZero(lua_State* L) { lua_pushnumber(L, 0); return 1; }
 inline int luaReturnFalse(lua_State* L){ lua_pushboolean(L, 0); return 1; }
@@ -41,7 +41,7 @@ inline int luaReturnFalse(lua_State* L){ lua_pushboolean(L, 0); return 1; }
 // FrameXML hands a widget's own output straight to bindings that want a
 // number: the auction browse passes BrowseMinLevel:GetText() and
 // IsUsableCheckButton:GetChecked() to QueryAuctionItems without touching
-// either. luaL_optnumber falls back to its default only for nil and none —
+// either. luaL_optnumber falls back to its default only for nil and none -
 // anything else that will not convert raises instead, and an empty edit box
 // gives "", not nil. So an untouched level box did not mean "no minimum": it
 // aborted QueryAuctionItems before it sent anything, and the browse tab
@@ -64,7 +64,7 @@ inline double luaOptNumberText(lua_State* L, int idx, double def) {
 //
 // The application's clock, not one of its own. Both are steady_clock seconds
 // and both fixed their origin on first call, so they differed by however long
-// separated those two calls — the app's at startup, this one at the first Lua
+// separated those two calls - the app's at startup, this one at the first Lua
 // GetTime, which is after the addon system comes up.
 //
 // That gap landed on every cooldown. GetActionCooldown reports a start time on
@@ -87,14 +87,14 @@ inline constexpr const char* kLuaClasses[] = {
 /// Shared because two sides need it: the bindings that pick an item up and put
 /// it down, and the ones that describe a slot to the interface. A slot whose
 /// item is on the cursor is "locked", which is what makes it draw greyed while
-/// it is being dragged — and without somewhere common to ask, the binding that
+/// it is being dragged - and without somewhere common to ask, the binding that
 /// answers that question had no way to know.
 struct CursorItemSlot {
     int bag = -1;    ///< 0 for the backpack, 1-4 for a worn bag, -1 for none
     int slot = 0;    ///< 1-based within the bag, or the equipment slot
     bool equipped = false;
 };
-/// Which mouse button the click being dispatched right now belongs to —
+/// Which mouse button the click being dispatched right now belongs to -
 /// "LeftButton", "RightButton", or empty between clicks.
 ///
 /// A modified-click binding names a button as well as a modifier:
@@ -113,7 +113,7 @@ inline CursorItemSlot& cursorItemSlot() {
 }
 
 /// The uppercase tokens WoW returns second from UnitClass, and the key every
-/// class-indexed table in FrameXML uses — CLASS_ICON_TCOORDS for the class
+/// class-indexed table in FrameXML uses - CLASS_ICON_TCOORDS for the class
 /// portrait, RAID_CLASS_COLORS for a name's colour. Written out rather than
 /// derived from the display names above, because the token for Death Knight
 /// has no space in it.
@@ -125,7 +125,7 @@ inline constexpr const char* kLuaClassTokens[] = {
 ///
 /// Every caller wants the same thing and the same refusal, and getting the
 /// refusal wrong cost three panels in a day. The rule is that FrameXML guards
-/// these — `if ( classFileName ) then RAID_CLASS_COLORS[classFileName]` — so
+/// these - `if ( classFileName ) then RAID_CLASS_COLORS[classFileName]` - so
 /// the guard is the caller saying it already handles the value being missing.
 /// Anything truthy-but-wrong walks past it and raises a line later, inside a
 /// function that looks unrelated:
@@ -133,7 +133,7 @@ inline constexpr const char* kLuaClassTokens[] = {
 ///   * the numeric id took the guild roster down on its first online member,
 ///   * the string "UNKNOWN" took Blizzard_ArenaUI down at load,
 ///   * and the empty string would do the same as either, because "" is truthy
-///     in Lua as well — which is why this answers a null pointer and not a
+///     in Lua as well - which is why this answers a null pointer and not a
 ///     blank, and why the two unnamed slots in the table below (ids 0 and 10,
 ///     which WoW does not use) have to be treated as absent rather than
 ///     returned.
@@ -160,7 +160,7 @@ inline constexpr const char* kLuaRaces[] = {
 /// Whether a quest of this level is grey to a player of that one.
 ///
 /// The threshold is AzerothCore's Acore::XP::GetGrayLevel, which the server
-/// uses for the same judgement — `creatureOrQuestLevel <= GetGrayLevel(level)`.
+/// uses for the same judgement - `creatureOrQuestLevel <= GetGrayLevel(level)`.
 /// Written out rather than guessed at a "level - 8 or so", which is what the
 /// comment beside IsActiveQuestTrivial used to decline to do; the formula is
 /// three branches and it is the server's own.
@@ -176,8 +176,8 @@ inline bool questIsTrivial(int playerLevel, int questLevel) {
 
 /// The five loot methods, indexed by the value the group list carries, and the
 /// tokens the interface knows them by. unitpopup.lua does
-/// `UnitLootMethod[GetLootMethod()].text` — a table keyed by the token, with
-/// .text read straight off the result — so a spelling that misses raises rather
+/// `UnitLootMethod[GetLootMethod()].text` - a table keyed by the token, with
+/// .text read straight off the result - so a spelling that misses raises rather
 /// than losing a label.
 ///
 /// One table for both directions. It was a switch answering id-to-token in the
@@ -189,7 +189,7 @@ inline constexpr const char* kLootMethodTokens[] = {
 };
 inline constexpr uint8_t kNumLootMethods = 5;
 
-/// The wire value for a token, or zero — free-for-all — for one not known,
+/// The wire value for a token, or zero - free-for-all - for one not known,
 /// which is what the if-chain's fall-through did.
 inline uint8_t lootMethodFromToken(const std::string& lower) {
     for (uint8_t i = 0; i < kNumLootMethods; ++i)
@@ -200,7 +200,7 @@ inline uint8_t lootMethodFromToken(const std::string& lower) {
 /// UnitRace returns the display name first and this *file name* second, and the
 /// two differ for four races: the file name never has a space in it, and the
 /// Undead one is not the display name at all. It is a file name because that is
-/// literally what it is spliced into — DressUpTexturePath builds
+/// literally what it is spliced into - DressUpTexturePath builds
 /// "Interface\DressUpFrame\DressUpBackground-"..fileName, so "Night Elf" asks
 /// for an asset that does not exist and the dressing room draws no background.
 /// The -- HACK in dressupframe.lua that rewrites GNOME to Dwarf and TROLL to Orc
@@ -220,12 +220,12 @@ inline constexpr const char* kLuaPowerNames[] = {
 };
 
 // ---- Quality hex strings ----
-// No alpha prefix — for item links
+// No alpha prefix - for item links
 inline constexpr const char* kQualHexNoAlpha[] = {
     "9d9d9d","ffffff","1eff00","0070dd","a335ee","ff8000","e6cc80","e6cc80"
 };
-// With ff alpha prefix — for Lua color returns
-// Heirloom is e6cc80, the same gold as an artifact — the table beside this one
+// With ff alpha prefix - for Lua color returns
+// Heirloom is e6cc80, the same gold as an artifact - the table beside this one
 // has always said so and this one said 00ccff, which is a later expansion's
 // token colour and not a quality 3.3.5 has. An item link for an heirloom came
 // out cyan.
@@ -288,7 +288,7 @@ inline uint64_t resolveUnitGuid(game::GameHandler* gh, const std::string& uid) {
     // The NPC whose window is open, which is how FrameXML titles three of
     // them: GossipFrameNpcNameText and BankFrameTitleText both read
     // UnitName("npc"), and QuestFrameNpcNameText reads UnitName("questnpc").
-    // Neither token resolved, so all three came up blank — and the
+    // Neither token resolved, so all three came up blank - and the
     // UnitExists() beside each is what decides whether the portrait model is
     // set at all.
     //
@@ -346,7 +346,7 @@ inline uint64_t resolveUnitGuid(game::GameHandler* gh, const std::string& uid) {
 
 /// A unit token, or the name of somebody standing nearby.
 ///
-/// Several of the interface's verbs take either — "/wave Bob" and "/follow Bob"
+/// Several of the interface's verbs take either - "/wave Bob" and "/follow Bob"
 /// hand over whatever was typed after the command, and the same argument may be
 /// a unit token. resolveUnitGuid knows only the tokens and answers zero for a
 /// name, so a binding built on it alone silently used the current target
@@ -361,7 +361,7 @@ inline uint64_t resolveUnitOrName(game::GameHandler* gh, const std::string& text
     std::string lower = text;
     toLowerInPlace(lower);
     if (const uint64_t byToken = resolveUnitGuid(gh, lower)) return byToken;
-    // Units only — a name aimed at a doodad is not what anyone meant, and
+    // Units only - a name aimed at a doodad is not what anyone meant, and
     // getName lives on the concrete types rather than on Entity.
     for (const auto& [guid, entity] : gh->getEntityManager().getEntities()) {
         if (!entity || entity->getType() == game::ObjectType::GAMEOBJECT) continue;
@@ -376,7 +376,7 @@ inline uint64_t resolveUnitOrName(game::GameHandler* gh, const std::string& text
 
 /// Where the quest's usable item is sitting, if the player is carrying it.
 ///
-/// Some quests hand you an item to use — a horn, a lantern, a disguise — and
+/// Some quests hand you an item to use - a horn, a lantern, a disguise - and
 /// the watch frame draws a button for it beside the tracked objective. The item
 /// is the quest's start item, which arrives in SMSG_QUEST_QUERY_RESPONSE.
 ///
@@ -420,8 +420,8 @@ inline QuestSpecialItem questSpecialItemAt(game::GameHandler* gh, int questIndex
 
 /// The thirteen values GetFactionInfo and GetFactionInfoByID both answer with.
 ///
-/// Two bindings ask the same question — one by position in the reputation list,
-/// the other by faction id — and only the by-position one was answered in full.
+/// Two bindings ask the same question - one by position in the reputation list,
+/// the other by faction id - and only the by-position one was answered in full.
 /// The by-id one pushed a name and five nils, which is the shape that goes
 /// unnoticed: a caller reading position nine or eleven gets nil, nil is falsy,
 /// and the branch it guards silently takes the other path.
@@ -451,7 +451,7 @@ inline int pushFactionInfo(lua_State* L, game::GameHandler* gh,
     // Whether this row is a heading, and whether it is drawn indented. Both
     // come from Faction.dbc's parent chain, and both used to be false because
     // the rule looked for was the wrong one: a header was taken to be a parent
-    // with no reputation of its own, and no faction in the file is that —
+    // with no reputation of its own, and no faction in the file is that -
     // Alliance is ReputationListID 11, Horde is 12, Classic is 96. But isHeader
     // and hasRep are separate answers precisely so that a heading can carry a
     // standing too, which is what Alliance is. The rule is simply "something
@@ -468,7 +468,7 @@ inline int pushFactionInfo(lua_State* L, game::GameHandler* gh,
 
 /// Open or close the group at a drawn-row index. Shared because the two verbs
 /// differ only in the boolean, and because the index has to be resolved the
-/// same way both times — against the rows, which is what FrameXML counted.
+/// same way both times - against the rows, which is what FrameXML counted.
 inline int factionHeaderSetCollapsed(lua_State* L, bool collapsed) {
     auto* gh = getGameHandler(L);
     const int index = static_cast<int>(luaL_optnumber(L, 1, 0));
@@ -495,8 +495,8 @@ inline int pushFactionRow(lua_State* L, game::GameHandler* gh,
 
 /// The item behind a row of the currency list, or zero for no such row.
 ///
-/// A currency is an item held in the bags — 3.3.5 has no separate store for
-/// them — so its name, icon and tooltip are all the item's. Declared here
+/// A currency is an item held in the bags - 3.3.5 has no separate store for
+/// them - so its name, icon and tooltip are all the item's. Declared here
 /// because the tooltip methods live with the widget code and the list is built
 /// with the inventory bindings, and building it twice is how two answers to one
 /// question start to disagree.
@@ -542,7 +542,7 @@ inline uint8_t unitRaceOf(game::GameHandler* gh, const std::string& lowerUid) {
 // A sharpening stone, a weapon oil, an enchanting scroll and a disenchant all
 // park the use and wait for the player to pick the item it applies to. Every
 // button that can name an item has to be able to be that pick, and until now
-// the only one that could was this client's own bag window — which is handed
+// the only one that could was this client's own bag window - which is handed
 // over, so nothing could finish one at all.
 //
 // True means the click was the target and is therefore not also a use or a
@@ -562,8 +562,8 @@ inline bool completedItemTarget(lua_State* L, uint64_t targetGuid) {
 ///
 /// Three calls asked and answered this and none of them agreed:
 /// ShowRepairCursor and HideRepairCursor were no-ops and InRepairMode was a
-/// flat false. So the merchant's repair button never latched — every click
-/// took the "not in repair mode" branch and showed the cursor again — and the
+/// flat false. So the merchant's repair button never latched - every click
+/// took the "not in repair mode" branch and showed the cursor again - and the
 /// per-item repair the bags and the paperdoll gate on it was unreachable.
 inline bool& repairCursorUp() {
     static bool up = false;
@@ -575,7 +575,7 @@ inline bool& repairCursorUp() {
 ///
 /// The vendor being open is required rather than assumed. HideRepairCursor is
 /// only called from the button itself, so closing the window while the cursor
-/// is up leaves the flag set — and a left-click in the bags afterwards would
+/// is up leaves the flag set - and a left-click in the bags afterwards would
 /// otherwise try to repair against a vendor that is no longer there.
 inline bool repairedHeldItem(game::GameHandler* gh, uint64_t itemGuid) {
     if (!gh || !repairCursorUp() || !itemGuid) return false;
@@ -591,7 +591,7 @@ inline bool repairedHeldItem(game::GameHandler* gh, uint64_t itemGuid) {
 /// keyring frame by asking GetContainerNumSlots(-2) and then walking the slots.
 /// Every container binding here branched on 0 for the backpack and 1 to 4 for
 /// the worn bags and let everything else fall through to zero, so the keyring
-/// opened with no slots at all — while the keys themselves were being tracked
+/// opened with no slots at all - while the keys themselves were being tracked
 /// the whole time, out of PLAYER_FIELD_KEYRING_SLOT_1.
 constexpr int kKeyringContainer = -2;
 
@@ -644,7 +644,7 @@ inline const game::ItemSlot* containerItemSlot(const game::Inventory& inv,
 /// covered the paperdoll and nothing else. The bank is addressed this way:
 /// bankframe.lua draws its twenty-eight general slots by asking
 /// GetInventoryItemTexture("player", BankButtonIDToInvSlotID(id)), and those
-/// ids land at 40 and up — so every one of them read empty while
+/// ids land at 40 and up - so every one of them read empty while
 /// inventory_handler filled bankSlots_ from the update fields.
 inline const game::ItemSlot* inventorySlotItem(const game::Inventory& inv, int slotId) {
     const int wire = game::slots::toWireSlot(slotId);
@@ -655,7 +655,7 @@ inline const game::ItemSlot* inventorySlotItem(const game::Inventory& inv, int s
         wire <  game::slots::kBankGeneralFirst + game::slots::kBankGeneralCount) {
         return &inv.getBankSlot(wire - game::slots::kBankGeneralFirst);
     }
-    // The bag a bank bag *is*, not what is inside it — the seven slots the
+    // The bag a bank bag *is*, not what is inside it - the seven slots the
     // bank's own bag row draws.
     if (wire >= game::slots::kBankBagFirst &&
         wire <  game::slots::kBankBagFirst + game::slots::kBankBagCount) {
@@ -670,7 +670,7 @@ inline const game::ItemSlot* inventorySlotItem(const game::Inventory& inv, int s
 /// The backpack, the keyring and the general bank are all slots of the player's
 /// own container, 0xFF, at three different offsets; a worn bag and a bank bag
 /// are containers in their own right, numbered by the slot the bag sits in.
-/// Written out at each call site this cost two fixes in a day — the keyring
+/// Written out at each call site this cost two fixes in a day - the keyring
 /// asked wornBagContainer for container -3, and the first bank bag came out as
 /// container 23.
 inline uint8_t containerWireBag(int bag) {
@@ -704,7 +704,7 @@ inline uint32_t spellIdForBookSlot(game::GameHandler* gh, int slot) {
 /// GetSpellTexture, GetSpellCooldown and GetSpellLink are each overloaded:
 /// **one** argument is a spell id or a spell name, **two** are a book *slot*
 /// and the book holding it. Only the second form is ever used by the
-/// spellbook — SpellBook_GetSpellID hands its buttons a slot, never an id.
+/// spellbook - SpellBook_GetSpellID hands its buttons a slot, never an id.
 ///
 /// Read as an id regardless, a slot of 1, 2, 3 resolved to whatever spells
 /// happen to carry those ids, which is why the spellbook drew a page of
@@ -719,7 +719,7 @@ inline uint32_t spellIdForCall(lua_State* L, game::GameHandler* gh) {
         const int slot = static_cast<int>(lua_tonumber(L, 1));
         // The pet book is a list of its own, not a tab in the player's.
         // Resolving a pet slot through the player's tabs answers with one of
-        // the player's own spells — a wrong answer that looks like a right
+        // the player's own spells - a wrong answer that looks like a right
         // one, which is worse than none.
         const char* book = lua_tostring(L, 2);
         if (book && std::string(book) == "pet") {
@@ -758,7 +758,7 @@ inline uint64_t containerSlotGuid(game::GameHandler* gh, int bag, int slot) {
 /// An item's cooldown, which is its on-use spell's.
 ///
 /// The client tracks cooldowns per spell, and an item on cooldown is one whose
-/// use spell is — the same relationship dispatchUseItem walks to decide what
+/// use spell is - the same relationship dispatchUseItem walks to decide what
 /// using it casts. The original duration is now kept beside the remaining time,
 /// so the sweep is wound back to where it actually began: reporting it as
 /// starting *now* and lasting what is left drew the right arc only until the
@@ -800,7 +800,7 @@ inline const game::GroupMember* findPartyMember(game::GameHandler* gh, uint64_t 
 ///
 /// Declared here because the tooltip setters are in lua_engine.cpp and need the
 /// same lookup. Copying it there would mean two answers to "which talent is
-/// this", and the pair would agree only for as long as nobody touched either —
+/// this", and the pair would agree only for as long as nobody touched either -
 /// the tab ordering and the row/column sort both have to match exactly or the
 /// tooltip describes a different talent from the one under the cursor.
 /// The talent at a position in a class's tree. classIdOverride is zero for the
@@ -819,8 +819,8 @@ uint32_t cursorItemId();
 /// Money picked up onto the cursor, in copper, and zero when there is none.
 ///
 /// A drag of money is routed entirely by the interface: the frame it is
-/// dropped on reads the amount, puts it wherever it belongs — a mail's money
-/// field, a guild bank deposit, an auction bid — and then clears the cursor.
+/// dropped on reads the amount, puts it wherever it belongs - a mail's money
+/// field, a guild bank deposit, an auction bid - and then clears the cursor.
 /// So the whole of the client's part is holding the number.
 ///
 /// Declared beside cursorItemId because it is the same cursor: picking money
@@ -855,8 +855,8 @@ bool boughtHeldMerchantItem(lua_State* L);
 ///
 /// A quest log index is a DISPLAY index: the log is grouped under zone headers
 /// and the headers are rows too, so index N is not the Nth entry of
-/// getQuestLog(). Anything handed an index by FrameXML — including the
-/// selected index, which the log sets from a row it drew — has to come through
+/// getQuestLog(). Anything handed an index by FrameXML - including the
+/// selected index, which the log sets from a row it drew - has to come through
 /// here rather than subscripting the log, or it answers about a different
 /// quest than the one asked about.
 const game::GameHandler::QuestLogEntry* questAtLogRow(game::GameHandler* gh, int index);

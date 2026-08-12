@@ -32,14 +32,14 @@ bool SkySystem::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout)
         return false;
     }
 
-    // Celestial bodies — sun + 2 moons (Vulkan)
+    // Celestial bodies - sun + 2 moons (Vulkan)
     celestial_ = std::make_unique<Celestial>();
     if (!celestial_->initialize(ctx, perFrameLayout)) {
         LOG_ERROR("Failed to initialize celestial bodies");
         return false;
     }
 
-    // Procedural stars — fallback / debug (Vulkan)
+    // Procedural stars - fallback / debug (Vulkan)
     starField_ = std::make_unique<StarField>();
     if (!starField_->initialize(ctx, perFrameLayout)) {
         LOG_ERROR("Failed to initialize star field");

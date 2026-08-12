@@ -8,7 +8,7 @@
 
 // The client reads update-field values by a logical name, resolved through a
 // per-expansion offset file. If a name in the JSON stops matching the enum, the
-// loader silently skips it and fieldIndex returns 0xFFFF forever after — the
+// loader silently skips it and fieldIndex returns 0xFFFF forever after - the
 // field reads as absent and its stat shows zero, with nothing to fail. These
 // are the offsets the character sheet depends on; pin the ones a wrong value
 // would silently zero. The mana-regen pair is derived as OBJECT_END(6)+0x22 and

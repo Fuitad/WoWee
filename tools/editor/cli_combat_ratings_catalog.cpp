@@ -224,7 +224,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 errors.push_back(ctx + ": ratingKind " +
                     std::to_string(e.ratingKind) + " not in 0..4");
             }
-            // Conversion floor must be > 0 — division by zero
+            // Conversion floor must be > 0 - division by zero
             // would crash the stat resolver.
             if (e.pointsAtL1 <= 0.0f || e.pointsAtL60 <= 0.0f ||
                 e.pointsAtL70 <= 0.0f || e.pointsAtL80 <= 0.0f) {
@@ -255,7 +255,7 @@ int handleValidate(int& i, int argc, char** argv) {
                     std::to_string(e.pointsAtL60) + " / " +
                     std::to_string(e.pointsAtL70) + " / " +
                     std::to_string(e.pointsAtL80) +
-                    ") — typically rating cost ascends with level");
+                    ") - typically rating cost ascends with level");
             }
             if (!idsSeen.add(e.ratingType)) errors.push_back(ctx + ": duplicate ratingType");
         }

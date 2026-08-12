@@ -207,11 +207,11 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": name is empty");
         if (e.title.empty())
             errors.push_back(ctx +
-                ": title is empty — popup would be "
+                ": title is empty - popup would be "
                 "headerless");
         if (e.body.empty())
             errors.push_back(ctx +
-                ": body is empty — popup would have "
+                ": body is empty - popup would have "
                 "no instructional content");
         if (e.triggerEvent > 4) {
             errors.push_back(ctx + ": triggerEvent " +
@@ -220,7 +220,7 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         if (e.stepIndex == 0) {
             errors.push_back(ctx +
-                ": stepIndex is 0 — sequence ordering "
+                ": stepIndex is 0 - sequence ordering "
                 "starts at 1");
         }
         // (triggerEvent, triggerValue, stepIndex)
@@ -236,7 +236,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 std::to_string(e.triggerValue) +
                 ", stepIndex=" +
                 std::to_string(e.stepIndex) +
-                ") — sequence ordering ambiguous");
+                ") - sequence ordering ambiguous");
         }
         // Login event with non-zero triggerValue is
         // dead data (Login fires once, no value
@@ -247,18 +247,18 @@ int handleValidate(int& i, int argc, char** argv) {
                 ": Login triggerEvent with non-zero "
                 "triggerValue=" +
                 std::to_string(e.triggerValue) +
-                " — value is ignored at runtime "
+                " - value is ignored at runtime "
                 "(Login is unconditional)");
         }
         // Non-Login events without triggerValue would
         // fire on every event of that kind without
-        // discrimination — usually unintended.
+        // discrimination - usually unintended.
         if (e.triggerEvent != T::Login &&
             e.triggerValue == 0) {
             warnings.push_back(ctx +
                 ": triggerEvent=" +
                 std::string(triggerEventName(e.triggerEvent))
-                + " with triggerValue=0 — would fire "
+                + " with triggerValue=0 - would fire "
                 "for ALL events of this kind (any "
                 "zone / any level / any item / any "
                 "skill)");
@@ -272,7 +272,7 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx +
                 ": hideAfterSec=" +
                 std::to_string(e.hideAfterSec) +
-                " is below 5s — popup vanishes before "
+                " is below 5s - popup vanishes before "
                 "the player can read it");
         }
         // Body length sanity: under 10 chars usually
@@ -281,7 +281,7 @@ int handleValidate(int& i, int argc, char** argv) {
             warnings.push_back(ctx +
                 ": body length " +
                 std::to_string(e.body.size()) +
-                " is under 10 chars — likely "
+                " is under 10 chars - likely "
                 "placeholder text");
         }
         if (!idsSeen.insert(e.tutId).second) {

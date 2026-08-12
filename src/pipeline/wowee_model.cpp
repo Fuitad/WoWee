@@ -50,7 +50,7 @@ WoweeModel WoweeModelLoader::load(const std::string& basePath) {
         return WoweeModel{};
     }
 
-    // Bound sanity — radius drives M2 culling, min/max drive collision AABBs.
+    // Bound sanity - radius drives M2 culling, min/max drive collision AABBs.
     // NaN/inf would either cull-out the model or crash the cull math.
     if (!std::isfinite(model.boundRadius) || model.boundRadius < 0.0f)
         model.boundRadius = 1.0f;
@@ -90,13 +90,13 @@ WoweeModel WoweeModelLoader::load(const std::string& basePath) {
         }
     }
     // Sanitize per-vertex floats. NaN/inf positions crash the M2 vertex
-    // shader (silent device-lost on some drivers) — safer to render the
+    // shader (silent device-lost on some drivers) - safer to render the
     // vertex at the origin than corrupt the whole pipeline.
     sanitizeVertices(model.vertices);
 
     model.indices.resize(indexCount);
     f.read(reinterpret_cast<char*>(model.indices.data()), indexCount * 4);
-    // Clamp out-of-range indices — these would index past the vertex buffer
+    // Clamp out-of-range indices - these would index past the vertex buffer
     // and crash the GPU vertex shader. Replace with 0 rather than drop, so
     // triangle counts stay aligned (a degenerate triangle is harmless,
     // an off-by-one indexing the wrong vertex is silent corruption).
@@ -108,7 +108,7 @@ WoweeModel WoweeModelLoader::load(const std::string& basePath) {
     for (uint32_t i = 0; i < texCount; i++) {
         uint16_t pathLen;
         f.read(reinterpret_cast<char*>(&pathLen), 2);
-        // Same desync risk as elsewhere — pathLen=0 with the actual
+        // Same desync risk as elsewhere - pathLen=0 with the actual
         // bytes still on disk would shift every subsequent length+data
         // pair. Reject the whole load instead of silently dropping.
         if (pathLen > 1024) {
@@ -118,7 +118,7 @@ WoweeModel WoweeModelLoader::load(const std::string& basePath) {
         }
         std::string path(pathLen, '\0');
         f.read(path.data(), pathLen);
-        // Reject path-traversal — texture paths from a hostile WOM are fed
+        // Reject path-traversal - texture paths from a hostile WOM are fed
         // to the asset manager and could probe files outside assets/.
         if (path.find("..") != std::string::npos ||
             (!path.empty() && (path[0] == '/' || path[0] == '\\')) ||
@@ -140,12 +140,12 @@ WoweeModel WoweeModelLoader::load(const std::string& basePath) {
                 f.read(reinterpret_cast<char*>(&bone.parentBone), 2);
                 f.read(reinterpret_cast<char*>(&bone.pivot), 12);
                 f.read(reinterpret_cast<char*>(&bone.flags), 4);
-                // Sanitize pivot — bones with NaN pivots produce broken
+                // Sanitize pivot - bones with NaN pivots produce broken
                 // skeleton matrices that ripple into every child bone.
                 if (!std::isfinite(bone.pivot.x)) bone.pivot.x = 0.0f;
                 if (!std::isfinite(bone.pivot.y)) bone.pivot.y = 0.0f;
                 if (!std::isfinite(bone.pivot.z)) bone.pivot.z = 0.0f;
-                // parentBone must be < boneCount (or -1) — out-of-range
+                // parentBone must be < boneCount (or -1) - out-of-range
                 // parents would cause a use-after-free during bone-matrix
                 // computation that walks the parent chain.
                 if (bone.parentBone >= 0 &&
@@ -188,7 +188,7 @@ WoweeModel WoweeModelLoader::load(const std::string& basePath) {
                         f.read(reinterpret_cast<char*>(&kf.translation), 12);
                         f.read(reinterpret_cast<char*>(&kf.rotation), 16);
                         f.read(reinterpret_cast<char*>(&kf.scale), 12);
-                        // Sanitize keyframe floats — bone interp returns NaN
+                        // Sanitize keyframe floats - bone interp returns NaN
                         // for any NaN input and corrupts the whole skeleton.
                         auto fixVec = [](glm::vec3& v, float def) {
                             if (!std::isfinite(v.x)) v.x = def;
@@ -228,7 +228,7 @@ WoweeModel WoweeModelLoader::load(const std::string& basePath) {
                     LOG_WARNING("WOM3 batch ", i, " out of range (start=", b.indexStart,
                                 " count=", b.indexCount, " tex=", b.textureIndex,
                                 " maxIdx=", model.indices.size(),
-                                " maxTex=", model.texturePaths.size(), ") — dropping");
+                                " maxTex=", model.texturePaths.size(), ") - dropping");
                     continue;
                 }
                 model.batches.push_back(b);
@@ -253,7 +253,7 @@ bool WoweeModelLoader::save(const WoweeModel& model, const std::string& basePath
     bool hasAnim = model.hasAnimation();
     bool hasBatches = model.hasBatches();
     // WOM3 implies WOM2 layout (vertex format with bones), so we only emit
-    // WOM3 if the model also has animation data — pure-batch static meshes
+    // WOM3 if the model also has animation data - pure-batch static meshes
     // still go to WOM1/WOM2 with batches written via the WOM3 trailing block
     // when present alongside animation. For static-only with batches, write
     // as WOM3 anyway (decoder handles missing bones).
@@ -311,7 +311,7 @@ bool WoweeModelLoader::save(const WoweeModel& model, const std::string& basePath
         }
     }
 
-    // Clamp out-of-range indices on save too — symmetric with the load
+    // Clamp out-of-range indices on save too - symmetric with the load
     // guard. Avoids writing index values that the renderer would refuse
     // and that the load-time guard would have to clean up later.
     {
@@ -335,7 +335,7 @@ bool WoweeModelLoader::save(const WoweeModel& model, const std::string& basePath
         f.write(reinterpret_cast<const char*>(&boneCount), 4);
         for (uint32_t bi = 0; bi < boneCount; bi++) {
             const auto& bone = model.bones[bi];
-            // Symmetric scrub with load — pivot NaN propagates through
+            // Symmetric scrub with load - pivot NaN propagates through
             // skeleton matrices to every child bone; parent indices outside
             // bone array would walk off the end during matrix evaluation.
             glm::vec3 pivot = bone.pivot;
@@ -354,7 +354,7 @@ bool WoweeModelLoader::save(const WoweeModel& model, const std::string& basePath
         uint32_t animCount = static_cast<uint32_t>(
             std::min<size_t>(model.animations.size(), 1024));
         f.write(reinterpret_cast<const char*>(&animCount), 4);
-        // Same NaN scrub as load — keyframes can carry corrupt source data
+        // Same NaN scrub as load - keyframes can carry corrupt source data
         // straight through fromM2 without ever round-tripping a load, so the
         // save side has to defend independently.
         auto sanV3 = [](glm::vec3 v, float def) {
@@ -395,7 +395,7 @@ bool WoweeModelLoader::save(const WoweeModel& model, const std::string& basePath
     }
 
     // WOM3: write batches. Drop batches that reference invalid index ranges
-    // or texture slots — load would do the same drop and log a warning, but
+    // or texture slots - load would do the same drop and log a warning, but
     // skipping at save time keeps the file small and deterministic.
     if (hasBatches) {
         const uint32_t totalIdx = static_cast<uint32_t>(model.indices.size());
@@ -505,7 +505,7 @@ static WoweeModel convertM2ToWom(const M2Model& m2) {
     }
 
     // Convert batches with material/blend mode info (WOM3 feature).
-    // Each M2 batch maps to a WOM batch — preserves multi-submesh material structure.
+    // Each M2 batch maps to a WOM batch - preserves multi-submesh material structure.
     for (const auto& mb : m2.batches) {
         WoweeModel::Batch wb;
         wb.indexStart = mb.indexStart;
@@ -613,7 +613,7 @@ M2Model WoweeModelLoader::toM2(const WoweeModel& wom) {
         m.indices.push_back(static_cast<uint16_t>(idx));
 
     // Convert .png paths back to .blp so the M2 renderer's PNG override path
-    // engages — it's keyed on .blp extension, not .png. fromM2 stored .png to
+    // engages - it's keyed on .blp extension, not .png. fromM2 stored .png to
     // signal intent; toM2 has to undo that for the runtime to find textures.
     for (const auto& tp : wom.texturePaths) {
         M2Texture tex;
@@ -664,7 +664,7 @@ M2Model WoweeModelLoader::toM2(const WoweeModel& wom) {
         m.materials.push_back(mat);
     }
 
-    // Copy bones (WOM2/WOM3) — pivot/parent only, animation tracks are filled
+    // Copy bones (WOM2/WOM3) - pivot/parent only, animation tracks are filled
     // from the WoM animation block below.
     for (const auto& wb : wom.bones) {
         M2Bone bone;

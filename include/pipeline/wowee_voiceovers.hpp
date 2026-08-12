@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Voiceover Audio catalog (.wvox) — novel
+// Wowee Open Voiceover Audio catalog (.wvox) - novel
 // replacement for the implicit per-NPC voice dialog
 // system vanilla WoW encoded across CreatureTextSounds
 // (server-side aggro / death barks), npc_text (gossip
@@ -34,25 +34,25 @@ namespace pipeline {
 //     nameLen + name
 //     descLen + description
 //     npcId (uint32)
-//     eventKind (uint8)          — Greeting / Aggro /
+//     eventKind (uint8)          - Greeting / Aggro /
 //                                   Death / QuestStart /
 //                                   QuestProgress /
 //                                   QuestComplete /
 //                                   Goodbye / Special /
 //                                   Phase
-//     genderHint (uint8)         — Male / Female / Both
+//     genderHint (uint8)         - Male / Female / Both
 //                                   for randomized casts
-//     variantIndex (uint8)       — 0..N for multiple
+//     variantIndex (uint8)       - 0..N for multiple
 //                                   lines per event
 //                                   (random pick at
 //                                   trigger time)
 //     pad0 (uint8)
-//     pathLen + audioPath        — sound resource path
-//     transcriptLen + transcript — printable line text
+//     pathLen + audioPath        - sound resource path
+//     transcriptLen + transcript - printable line text
 //                                   for accessibility +
 //                                   chat-bubble display
 //     durationMs (uint32)
-//     volumeDb (int8)            — relative volume
+//     volumeDb (int8)            - relative volume
 //                                   (-20 to +6 typical)
 //     pad1 (uint8) / pad2 (uint8) / pad3 (uint8)
 //     iconColorRGBA (uint32)
@@ -103,7 +103,7 @@ struct WoweeVoiceovers {
 
     // Returns all voice entries for a given (npc, event)
     // pair. The trigger handler picks one randomly when
-    // multiple variantIndex values are available — the
+    // multiple variantIndex values are available - the
     // boss-aggro handler might have 3 lines and pick one
     // per encounter for variety.
     std::vector<const Entry*> findForTrigger(uint32_t npcId,
@@ -119,15 +119,15 @@ public:
 
     // Preset emitters used by --gen-vox* variants.
     //
-    //   makeQuestgiver  — 5 voice clips for one quest
+    //   makeQuestgiver  - 5 voice clips for one quest
     //                      NPC (Greeting / QuestStart /
     //                      QuestProgress / QuestComplete
     //                      / Goodbye).
-    //   makeBoss        — 6 boss voice clips with phase
+    //   makeBoss        - 6 boss voice clips with phase
     //                      milestones (Aggro / 75% /
     //                      50% / 25% / Special Mechanic
     //                      / Death).
-    //   makeVendor      — 4 vendor voice clips (Greeting
+    //   makeVendor      - 4 vendor voice clips (Greeting
     //                      / Buy = Goodbye / Sell /
     //                      Goodbye-final).
     static WoweeVoiceovers makeQuestgiver(const std::string& catalogName);

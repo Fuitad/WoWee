@@ -295,16 +295,16 @@ int handleValidate(int& i, int argc, char** argv) {
                 errors.push_back(ctx + ": name is empty");
             if (e.triggerSpellId == 0)
                 errors.push_back(ctx +
-                    ": triggerSpellId is 0 — proc will fire nothing");
+                    ": triggerSpellId is 0 - proc will fire nothing");
             if (e.procFlags == 0)
                 errors.push_back(ctx +
-                    ": procFlags is 0 — proc will never trigger "
+                    ": procFlags is 0 - proc will never trigger "
                     "(no qualifying event configured)");
             if (e.procFlags & ~kKnownFlagMask) {
                 warnings.push_back(ctx +
                     ": procFlags has bits outside known mask " +
                     "(0x" + std::to_string(e.procFlags & ~kKnownFlagMask) +
-                    ") — engine will ignore unknown flags");
+                    ") - engine will ignore unknown flags");
             }
             if (e.procChance < 0.0f || e.procChance > 1.0f) {
                 warnings.push_back(ctx +
@@ -314,22 +314,22 @@ int handleValidate(int& i, int argc, char** argv) {
             }
             if (e.procPpm < 0.0f) {
                 errors.push_back(ctx +
-                    ": procPpm < 0 — invalid procs-per-minute rate");
+                    ": procPpm < 0 - invalid procs-per-minute rate");
             }
-            // Both procChance and procPpm set is contradictory —
+            // Both procChance and procPpm set is contradictory -
             // engine prefers procPpm when non-zero so procChance
             // is ignored.
             if (e.procChance > 0.0f && e.procPpm > 0.0f) {
                 warnings.push_back(ctx +
                     ": both procChance (" + std::to_string(e.procChance) +
                     ") and procPpm (" + std::to_string(e.procPpm) +
-                    ") set — engine uses procPpm and ignores "
+                    ") set - engine uses procPpm and ignores "
                     "procChance");
             }
             // No chance configured at all = proc never fires.
             if (e.procChance == 0.0f && e.procPpm == 0.0f) {
                 warnings.push_back(ctx +
-                    ": both procChance=0 and procPpm=0 — proc " +
+                    ": both procChance=0 and procPpm=0 - proc " +
                     "will never trigger");
             }
             if (!idsSeen.add(e.procId)) errors.push_back(ctx + ": duplicate procId");

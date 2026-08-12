@@ -4,14 +4,14 @@
     tools/window_flag_check.py
 
 The companion to window_route_check.py, and the half it says it cannot see. That
-one follows *verbs* — toggle, toggleBackpack, openAllBags. This one follows
+one follows *verbs* - toggle, toggleBackpack, openAllBags. This one follows
 *flags*: `showFoo_ = true` opens a window just as surely, and reads the same
 whether it is a control or a piece of internal bookkeeping.
 
 What makes it separable is not the write. It is the render. This client has
 thirty-two show-flags and seventy places that write them, and most of those
 windows are drawn in every configuration and need no branch at all. The ones
-that matter are the flags whose render is gated on frameXmlOwns — because once
+that matter are the flags whose render is gated on frameXmlOwns - because once
 that element is handed over, the render is switched off and every write to its
 flag is a control that does nothing.
 
@@ -25,7 +25,7 @@ hand.
 
 WHAT IT CANNOT SEE
 
-A render whose flag is not a plain `if (!showFoo_) return;` at the top — it is
+A render whose flag is not a plain `if (!showFoo_) return;` at the top - it is
 matched by shape, and a window guarded some other way is invisible here.
 
 Whether a write is a control at all. `showFoo_ = false` inside the render, to
@@ -62,8 +62,8 @@ def guard_flags(src):
     """render method -> its flag, and the line span of its own body.
 
     The span, rather than the file. A control can live in the same file as the
-    window it opens — the escape menu's Help button sits a few thousand lines
-    above the render it belongs to — and excluding the whole file to skip the
+    window it opens - the escape menu's Help button sits a few thousand lines
+    above the render it belongs to - and excluding the whole file to skip the
     render's own `showFoo_ = false` hid it completely. Only the render's body is
     its own bookkeeping.
     """

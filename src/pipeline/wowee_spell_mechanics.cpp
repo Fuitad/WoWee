@@ -161,23 +161,23 @@ WoweeSpellMechanic WoweeSpellMechanicLoader::makeHardCC(
         c.entries.push_back(e);
     };
     // Hard-CC mechanics. conflictsMask uses bits = mechanicId
-    // shifted left — so id=10 (Stun) has bit 0x400 (1<<10)
+    // shifted left - so id=10 (Stun) has bit 0x400 (1<<10)
     // referenced by anything that conflicts with Stun.
     add(10, "Stun",       0, 0, WoweeSpellMechanic::DRStun,
         WoweeSpellMechanic::DispelNone,    4000, 0,
-        "Target stunned — no actions for 4 seconds.");
+        "Target stunned - no actions for 4 seconds.");
     add(11, "Polymorph",  1, 1, WoweeSpellMechanic::DRPolymorph,
         WoweeSpellMechanic::DispelMagic,   8000, (1u << 10),
-        "Transformed into a sheep — breaks on damage.");
+        "Transformed into a sheep - breaks on damage.");
     add(12, "Sleep",      1, 1, WoweeSpellMechanic::DRPolymorph,
         WoweeSpellMechanic::DispelMagic,   6000, (1u << 11),
-        "Target sleeping — breaks on damage.");
+        "Target sleeping - breaks on damage.");
     add(13, "Fear",       1, 1, WoweeSpellMechanic::DRDisorient,
         WoweeSpellMechanic::DispelMagic,   8000, 0,
         "Target flees in random direction.");
     add(14, "Knockback",  0, 0, WoweeSpellMechanic::DRStun,
         WoweeSpellMechanic::DispelNone,    1500, (1u << 10),
-        "Target launched backward — brief knockdown.");
+        "Target launched backward - brief knockdown.");
     return c;
 }
 
@@ -201,13 +201,13 @@ WoweeSpellMechanic WoweeSpellMechanicLoader::makeRoots(
         c.entries.push_back(e);
     };
     add(20, "Root",          0, 1,  6000,
-        "Target rooted in place — cannot move.");
+        "Target rooted in place - cannot move.");
     add(21, "Snare",         0, 1,  8000,
         "Movement speed reduced by 50%.");
     add(22, "Slow",          0, 5, 10000,
-        "Stacking slow — each stack adds 10% slow up to 50%.");
+        "Stacking slow - each stack adds 10% slow up to 50%.");
     add(23, "GroundPin",     1, 1,  3000,
-        "Pinned to the ground — breaks on damage.");
+        "Pinned to the ground - breaks on damage.");
     return c;
 }
 

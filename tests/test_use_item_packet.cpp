@@ -19,7 +19,7 @@ Application* Application::instance = nullptr;
 
 using namespace wowee::game;
 
-// Packet::getData() is the body only — the opcode is held separately — so these
+// Packet::getData() is the body only - the opcode is held separately - so these
 // offsets are into the CMSG_USE_ITEM payload.
 using Bytes = std::vector<uint8_t>;
 

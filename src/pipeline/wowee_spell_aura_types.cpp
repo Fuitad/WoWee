@@ -105,9 +105,9 @@ WoweeSpellAuraType WoweeSpellAuraTypeLoader::makePeriodic(
     // Standard WotLK periodic aura type IDs from
     // SpellEffect.EffectAuraType.
     add(3,   "PeriodicDamage",       A::HostileOnly,    3000,
-        220,  80,  80, "Tick damage every 3s (DoT — Corruption / Moonfire / etc).");
+        220,  80,  80, "Tick damage every 3s (DoT - Corruption / Moonfire / etc).");
     add(8,   "PeriodicHeal",         A::BeneficialOnly, 3000,
-         80, 240,  80, "Tick heal every 3s (HoT — Renew / Rejuvenation).");
+         80, 240,  80, "Tick heal every 3s (HoT - Renew / Rejuvenation).");
     add(21,  "PeriodicEnergize",     A::AnyUnit,        2000,
         100, 200, 240, "Tick power restore every 2s (Innervate, Drink).");
     add(53,  "PeriodicLeech",        A::HostileOnly,    3000,
@@ -130,7 +130,7 @@ WoweeSpellAuraType WoweeSpellAuraTypeLoader::makeStatMod(
         e.auraTypeId = id; e.name = name; e.description = desc;
         e.auraKind = A::StatMod;
         e.targetingHint = targeting;
-        // Stat mods don't tick — instant on-apply.
+        // Stat mods don't tick - instant on-apply.
         e.updateFrequencyMs = 0;
         e.iconColorRGBA = packRgba(180, 180, 240);   // stat blue
         c.entries.push_back(e);
@@ -165,11 +165,11 @@ WoweeSpellAuraType WoweeSpellAuraTypeLoader::makeMovement(
         e.iconColorRGBA = packRgba(240, 200, 100);   // CC yellow
         c.entries.push_back(e);
     };
-    add(12,  "Stun",              "Stun — target cannot act or move.");
-    add(33,  "ModDecreaseSpeed",  "Snare — reduce movement speed by %.");
-    add(80,  "ModConfuse",        "Confuse — target wanders randomly, "
+    add(12,  "Stun",              "Stun - target cannot act or move.");
+    add(33,  "ModDecreaseSpeed",  "Snare - reduce movement speed by %.");
+    add(80,  "ModConfuse",        "Confuse - target wanders randomly, "
         "cannot use abilities.");
-    add(83,  "Root",              "Root — target cannot move (can still act).");
+    add(83,  "Root",              "Root - target cannot move (can still act).");
     return c;
 }
 

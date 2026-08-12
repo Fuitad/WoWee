@@ -11,22 +11,22 @@ puts the bags up when a vendor opens. Nothing ties those together, so each is
 found only by looking.
 
 Three lists were found by hand before this existed and each was a separate
-sweep of the same seam — the keybinding routes, the micro menu, the bag bar.
+sweep of the same seam - the keybinding routes, the micro menu, the bag bar.
 This one found two more the moment it was written: the plain-click path on a
 bag slot, which lives in the drag handler rather than beside the button, and
 the auto-open when a vendor or the guild bank appears.
 
 WHAT IT LOOKS FOR
 
-A call to one of this client's window verbs — toggle, toggleCharacter,
-toggleBackpack, toggleBag, openAllBags — with no ownership check in the lines
+A call to one of this client's window verbs - toggle, toggleCharacter,
+toggleBackpack, toggleBag, openAllBags - with no ownership check in the lines
 around it. The check may be the literal frameXmlOwns or a named helper that
 wraps it, so both count.
 
 WHAT IT CANNOT SEE
 
 Whether the window that verb opens is gated at all. A panel this client still
-draws in every configuration needs no branch, and listing it would be noise —
+draws in every configuration needs no branch, and listing it would be noise -
 there are none today, which is why the ceiling is zero.
 
 Nor a window opened by writing its flag directly rather than through a verb.

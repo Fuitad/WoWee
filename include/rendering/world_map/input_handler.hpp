@@ -1,6 +1,6 @@
-// input_handler.hpp — Input processing for the world map.
+// input_handler.hpp - Input processing for the world map.
 // Extracted from WorldMap::render (Phase 9 of refactoring plan).
-// SRP — input interpretation separated from state changes and rendering.
+// SRP - input interpretation separated from state changes and rendering.
 #pragma once
 
 #include "rendering/world_map/world_map_types.hpp"

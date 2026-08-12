@@ -7,16 +7,16 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Spell Aura Type catalog (.waur) — novel
+// Wowee Open Spell Aura Type catalog (.waur) - novel
 // replacement for the SpellEffect.EffectAuraType field
 // meanings used when SpellEffect.Effect=APPLY_AURA.
 // Defines what each aura-type integer value actually does
-// once an aura is attached to a unit — PERIODIC_DAMAGE
+// once an aura is attached to a unit - PERIODIC_DAMAGE
 // ticks damage every N seconds, MOD_STAT adds a stat
 // bonus, MOD_INCREASE_SPEED scales movement speed,
 // MOD_DAMAGE_PERCENT_DONE scales spell power, etc.
 //
-// Companion to WSEF (Spell Effect Type) — together they
+// Companion to WSEF (Spell Effect Type) - together they
 // cover the full spell-effect classification space:
 //   WSEF: outer effect ID (what does the effect DO?)
 //   WAUR: inner aura type (when WSEF=APPLY_AURA, what
@@ -100,15 +100,15 @@ public:
 
     // Preset emitters used by --gen-aur* variants.
     //
-    //   makePeriodic — 5 periodic auras (PeriodicDamage,
+    //   makePeriodic - 5 periodic auras (PeriodicDamage,
     //                   PeriodicHeal, PeriodicEnergize,
     //                   PeriodicLeech, PeriodicTriggerSpell)
     //                   all with 3000ms canonical tick.
-    //   makeStatMod  — 5 stat modifiers (ModStat,
+    //   makeStatMod  - 5 stat modifiers (ModStat,
     //                   ModResistance, ModDamageDone,
-    //                   ModHaste, ModCritPercent) — non-
+    //                   ModHaste, ModCritPercent) - non-
     //                   periodic, instantly applied.
-    //   makeMovement — 4 movement-impairing auras (Stun,
+    //   makeMovement - 4 movement-impairing auras (Stun,
     //                   Root, ModDecreaseSpeed, ModConfuse)
     //                   typically applied by CC spells.
     static WoweeSpellAuraType makePeriodic(const std::string& catalogName);

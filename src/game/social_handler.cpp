@@ -46,7 +46,7 @@ std::filesystem::path guildNameCachePath() {
 // LFG join result codes from LFGJoinResult enum (WotLK 3.3.5a).
 // Case 0 = success (no error message needed), returns nullptr so the caller
 // knows not to display an error string.
-// A uint32 on the wire, so a uint32 here — narrowing it to a byte would
+// A uint32 on the wire, so a uint32 here - narrowing it to a byte would
 // wrap a large value into a case that means something else.
 static const char* lfgJoinResultString(uint32_t result) {
     switch (result) {
@@ -491,7 +491,7 @@ void SocialHandler::registerOpcodes(DispatchTable& table) {
     table[Opcode::SMSG_INSPECT_TALENT] = [this](network::Packet& packet) { handleInspectResults(packet); };
     // The honour tab's own answer, on the same opcode it was asked with.
     // AzerothCore replies with the target's guid, the honour byte, the packed
-    // kill counter and three totals — MiscHandler.cpp, HandleInspectHonorStats.
+    // kill counter and three totals - MiscHandler.cpp, HandleInspectHonorStats.
     table[Opcode::MSG_INSPECT_HONOR_STATS] = [this](network::Packet& packet) {
         if (!packet.hasRemaining(8 + 1 + 16)) return;
         const uint64_t guid = packet.readUInt64();
@@ -500,7 +500,7 @@ void SocialHandler::registerOpcodes(DispatchTable& table) {
         if (inspectResult_.guid != 0 && guid != inspectResult_.guid) return;
         inspectResult_.honorRank = packet.readUInt8();
         // One field holds both days: PAIR32_LOPART is today and the high half
-        // is yesterday, which is how the server rolls the counter over —
+        // is yesterday, which is how the server rolls the counter over -
         // MAKE_PAIR32(0, kills_today) at midnight.
         const uint32_t kills = packet.readUInt32();
         inspectResult_.honorTodayKills     = kills & 0xFFFFu;
@@ -570,7 +570,7 @@ void SocialHandler::registerOpcodes(DispatchTable& table) {
         std::string rname;
         if (nit != owner_.getPlayerNameCache().end()) rname = nit->second;
         else {
-            // Only cast to Unit if the entity actually is one — a raw
+            // Only cast to Unit if the entity actually is one - a raw
             // static_pointer_cast on a GameObject would be undefined behavior.
             auto ent = owner_.getEntityManager().getEntity(respGuid);
             if (ent && (ent->getType() == ObjectType::UNIT || ent->getType() == ObjectType::PLAYER))
@@ -817,7 +817,7 @@ void SocialHandler::registerOpcodes(DispatchTable& table) {
         // What was here read a map id, a difficulty, a time and a flag across
         // seventeen bytes, so the guard alone kept the handler from ever
         // running against the nine the server sends. It also answered on the
-        // player's behalf — always accept — which is the one thing this packet
+        // player's behalf - always accept - which is the one thing this packet
         // is asking them.
         if (!packet.hasRemaining(9)) { packet.skipAll(); return; }
         const uint32_t timerMs = packet.readUInt32();
@@ -851,7 +851,7 @@ void SocialHandler::registerOpcodes(DispatchTable& table) {
         owner_.addSystemChatMessage("The Dungeon Finder is currently disabled.");
     };
     table[Opcode::SMSG_LFG_OFFER_CONTINUE] = [this](network::Packet& packet) {
-        // uint32 dungeon entry, which the handler used to skip entirely — and
+        // uint32 dungeon entry, which the handler used to skip entirely - and
         // then fired the event with nothing. lfgframe.lua opens with
         // NORMAL_FONT_COLOR_CODE..displayName.."|r", and concatenating nil
         // raises, so the offer took its own handler down every time.
@@ -890,7 +890,7 @@ void SocialHandler::registerOpcodes(DispatchTable& table) {
         if (ready) owner_.addSystemChatMessage(pName + " has chosen: " + roleName);
         // Announced as well as written to chat. The role-check window lists
         // who has picked what as they pick it, and it learns that from this
-        // event alone — parsed here since the chat line needed the same three
+        // event alone - parsed here since the chat line needed the same three
         // bits, and never fired, so the list stayed blank while the chat
         // filled up beside it.
         //
@@ -1062,7 +1062,7 @@ void SocialHandler::handleInspectResults(network::Packet& packet) {
                 // INSPECT_READY is a later expansion's name and nothing in this
                 // interface listens for it. The inspect paperdoll refreshes on
                 // UNIT_INVENTORY_CHANGED for the unit it is showing, so the gear
-                // arrived and the window was never told — it kept whatever it had
+                // arrived and the window was never told - it kept whatever it had
                 // when it opened. Fired for the unit token this guid answers to,
                 // and only when it answers to one: an inspected player who is not
                 // the target has no token for the interface to match against.
@@ -1143,8 +1143,8 @@ void SocialHandler::handleInspectResults(network::Packet& packet) {
     // and put everything after it a byte out.
     //
     // The branch that used to sit behind that byte re-parsed the player's own
-    // talents into a second set of members on GameHandler. Nothing read them —
-    // SpellHandler keeps the ones the talent frame draws from — and this
+    // talents into a second set of members on GameHandler. Nothing read them -
+    // SpellHandler keeps the ones the talent frame draws from - and this
     // opcode never carries them anyway.
     const bool talentTbc = isPreWotlk();
     if (packet.getRemainingSize() < (talentTbc ? 8u : 2u)) return;
@@ -1241,7 +1241,7 @@ void SocialHandler::handleInspectResults(network::Packet& packet) {
 
     // A different player means the honour figures in hand are somebody else's.
     // The fields here are assigned one at a time rather than as a whole struct,
-    // so anything not named survives — and the honour tab reads
+    // so anything not named survives - and the honour tab reads
     // HasInspectHonorData to decide whether to ask, so a stale true would show
     // the last player's kills against this one's name and never correct itself.
     if (inspectResult_.guid != guid) {
@@ -1288,7 +1288,7 @@ void SocialHandler::handleInspectResults(network::Packet& packet) {
         owner_.addonEventCallbackRef()("INSPECT_READY", {guidBuf});
         // The same packet carries the talents, and the talent tab of the
         // inspect window redraws on this event alone. Only INSPECT_READY was
-        // fired, which is what the gear tab listens for — so inspecting anyone
+        // fired, which is what the gear tab listens for - so inspecting anyone
         // filled the paperdoll and left the talent tab blank, however
         // completely the ranks above had been parsed.
         owner_.addonEventCallbackRef()("INSPECT_TALENT_READY", {});
@@ -1382,7 +1382,7 @@ void SocialHandler::removeIgnore(const std::string& playerName) {
     auto packet = DelIgnorePacket::build(it->second);
     owner_.getSocket()->send(packet);
     owner_.addSystemChatMessage("Removing " + playerName + " from ignore list...");
-    // Don't erase from ignoreCache here — wait for the server's SMSG_IGNORE_LIST
+    // Don't erase from ignoreCache here - wait for the server's SMSG_IGNORE_LIST
     // response to confirm. Erasing optimistically desyncs the cache if the server
     // rejects the request. (Compare with removeFriend which also waits for
     // SMSG_FRIEND_STATUS before updating its cache.)
@@ -1462,7 +1462,7 @@ void SocialHandler::setGuildInfoText(const std::string& text) {
 void SocialHandler::takeInboxTextItem(uint32_t mailId) {
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
     network::Packet packet(wireOpcode(Opcode::CMSG_MAIL_CREATE_TEXT_ITEM));
-    packet.writeUInt64(0);            // mailbox guid — the server uses the open one
+    packet.writeUInt64(0);            // mailbox guid - the server uses the open one
     packet.writeUInt32(mailId);
     owner_.getSocket()->send(packet);
 }
@@ -1550,7 +1550,7 @@ void SocialHandler::declineGuildInvite() {
 }
 
 void SocialHandler::queryGuildInfo(uint32_t guildId) {
-    // Allow guild queries at the character screen too — the socket is
+    // Allow guild queries at the character screen too - the socket is
     // connected and the server accepts CMSG_GUILD_QUERY before login.
     if (!owner_.getSocket()) return;
     auto packet = GuildQueryPacket::build(guildId);
@@ -1609,7 +1609,7 @@ void SocialHandler::offerPetition(uint64_t petitionGuid, uint64_t targetGuid) {
     if (!owner_.getSocket() || owner_.getState() != WorldState::IN_WORLD) return;
     if (petitionGuid == 0 || targetGuid == 0) return;
     network::Packet pkt(wireOpcode(Opcode::CMSG_OFFER_PETITION));
-    // The leading dword is not the petition type despite where it sits — the
+    // The leading dword is not the petition type despite where it sits - the
     // server reads it and throws it away. Every expansion this client speaks
     // has it, so it is written unconditionally rather than gated.
     pkt.writeUInt32(0);
@@ -1760,7 +1760,7 @@ void SocialHandler::declineArenaTeamInvite() {
 }
 
 // The four arena team commands that had no sender. Every one is the team id
-// and, for three of them, a player name — the shape AzerothCore reads in
+// and, for three of them, a player name - the shape AzerothCore reads in
 // ArenaTeamHandler.cpp: `recvData >> arenaTeamId >> name`. Disband and the two
 // invite answers below were already built; these four were named by the
 // interface's own popups and slash commands and reached bindings with nothing
@@ -1869,8 +1869,8 @@ void SocialHandler::channelModeration(Opcode op, const std::string& channelName,
                                      const std::string& targetName,
                                      bool allowEmptyTarget) {
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
-    // An empty second string is meaningless for the moderation commands — there
-    // is no player called nothing — but it is how a channel password is
+    // An empty second string is meaningless for the moderation commands - there
+    // is no player called nothing - but it is how a channel password is
     // cleared, so that one caller says it means it.
     if (channelName.empty() || (targetName.empty() && !allowEmptyTarget)) return;
     auto packet = ChannelModerationPacket::build(op, channelName, targetName);
@@ -1895,7 +1895,7 @@ void SocialHandler::uninvitePlayer(const std::string& playerName) {
 // CMSG_LOOT_METHOD carries all three settings together, so changing one means
 // resending the other two as they stand. The master looter is only meaningful
 // for method 2 and is sent as an empty guid otherwise.
-// Removes the lowest rank, which is what the server does with this — it takes
+// Removes the lowest rank, which is what the server does with this - it takes
 // no index, so there is nothing to get wrong about which one goes.
 void SocialHandler::delGuildRank() {
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
@@ -2008,7 +2008,7 @@ void SocialHandler::setRaidMark(uint64_t guid, uint8_t icon) {
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
     // Raid marks are group state on the server: it drops MSG_RAID_TARGET_UPDATE
     // from an ungrouped player and broadcasts nothing back, so a solo mark used
-    // to do nothing at all. Apply it locally instead — a deliberate divergence
+    // to do nothing at all. Apply it locally instead - a deliberate divergence
     // from Blizzlike behaviour, since a solo player marking their own targets
     // harms nobody and the alternative is a feature that cannot be used, or
     // tested, without a second player. Joining a group later is safe: the
@@ -2033,7 +2033,7 @@ void SocialHandler::setRaidMark(uint64_t guid, uint8_t icon) {
 
 void SocialHandler::setSavedInstanceExtend(uint32_t mapId, uint32_t difficulty, bool extend) {
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
-    // uint32 mapId, uint32 difficulty, uint8 toggle — HandleSetSavedInstanceExtend.
+    // uint32 mapId, uint32 difficulty, uint8 toggle - HandleSetSavedInstanceExtend.
     // The server ignores it unless the bind is permanent and the flag actually
     // changes, so there is nothing to check here that it does not check better.
     network::Packet packet(wireOpcode(Opcode::CMSG_SET_SAVED_INSTANCE_EXTEND));
@@ -2061,7 +2061,7 @@ void SocialHandler::handleGroupInvite(network::Packet& packet) {
 
     // The leading byte is not decoration: AzerothCore sends this same opcode
     // with a zero in it to say "you were invited and it could not be offered,
-    // because you are already in a group" — its own comment beside the write,
+    // because you are already in a group" - its own comment beside the write,
     // and the interface carries Blizzard's sentence for exactly that case
     // (ERR_INVITED_ALREADY_IN_GROUP_SS).
     //
@@ -2103,7 +2103,7 @@ void SocialHandler::handleGroupList(network::Packet& packet) {
 
     // The roster carries online state in isOnline; the per-member stat updates
     // carry it in the onlineStatus bitmask. Seed the bitmask from the roster so
-    // both readers agree until the first SMSG_PARTY_MEMBER_STATS arrives —
+    // both readers agree until the first SMSG_PARTY_MEMBER_STATS arrives -
     // partyData was just reset, so every onlineStatus is otherwise zero and
     // every member would read as offline.
     for (auto& m : partyData.members) {
@@ -2132,7 +2132,7 @@ void SocialHandler::handleGroupList(network::Packet& packet) {
         owner_.addSystemChatMessage(std::string("Loot method changed to ") + methodName + ".");
         // Already noticed, and only ever said in chat. The party frames read
         // the method to decide whether to offer the master-looter menu, and
-        // they reread it on this — so the change was announced to the player
+        // they reread it on this - so the change was announced to the player
         // and not to the interface standing next to them.
         if (owner_.addonEventCallbackRef())
             owner_.addonEventCallbackRef()("PARTY_LOOT_METHOD_CHANGED", {});
@@ -2215,7 +2215,7 @@ void SocialHandler::handlePartyMemberStats(network::Packet& packet, bool isFull)
     // Track the online transition so it can be announced once the packet is
     // fully read. isOnline is what the Lua bindings read; onlineStatus is what
     // this client's own panels read. Both describe the same fact, so keep them
-    // in step here — otherwise UnitIsConnected answers with the stale roster
+    // in step here - otherwise UnitIsConnected answers with the stale roster
     // snapshot for as long as the group lasts.
     const bool wasOnline = (member->onlineStatus & 0x0001) != 0;
     bool onlineChanged = false;
@@ -2315,7 +2315,7 @@ void SocialHandler::handlePartyMemberStats(network::Packet& packet, bool isFull)
             if (updateFlags & (0x0010 | 0x0020)) owner_.addonEventCallbackRef()("UNIT_POWER", {unitId});
             if (updateFlags & 0x0200) owner_.addonEventCallbackRef()("UNIT_AURA", {unitId});
         }
-        // Fired without arguments, as the retail client does — the interface
+        // Fired without arguments, as the retail client does - the interface
         // re-reads the whole roster rather than acting on one member. Not
         // gated on unitId: the player's own stats resolve to no unit token,
         // and a member dropping is worth announcing either way.
@@ -2361,7 +2361,7 @@ void SocialHandler::handleGuildRoster(network::Packet& packet) {
     hasGuildRoster_ = true;
     // False: the roster in hand is the fresh one, so nothing should ask again.
     // The argument is "you may request a roster", and every reader answers it
-    // with `if arg1 then GuildRoster() end` — friendsframe, the guild bank and
+    // with `if arg1 then GuildRoster() end` - friendsframe, the guild bank and
     // the calendar all do exactly that. Sending true here would have each of
     // them request a roster, whose reply would fire this again, forever.
     if (owner_.addonEventCallbackRef())
@@ -2371,7 +2371,7 @@ void SocialHandler::handleGuildRoster(network::Packet& packet) {
 // CMSG_GUILD_RANK rewrites the rank whole: id, rights, name, gold per day, then
 // six pairs of bank tab rights and slots. Everything it carries has to be sent,
 // which is why the caller stages from the rank's current values rather than
-// from nothing — a field left at zero here is not "unchanged", it is revoked.
+// from nothing - a field left at zero here is not "unchanged", it is revoked.
 void SocialHandler::saveGuildRank(uint32_t rankId, uint32_t rights, const std::string& rankName,
                                   uint32_t goldLimit, const uint32_t* tabRights,
                                   const uint32_t* tabSlots) {
@@ -2438,7 +2438,7 @@ bool SocialHandler::guildMemberOnlineTransition(const std::string& name, bool no
             return true;
         }
     }
-    return true;  // not in the cached roster yet — announce rather than swallow
+    return true;  // not in the cached roster yet - announce rather than swallow
 }
 
 void SocialHandler::handleGuildEvent(network::Packet& packet) {
@@ -2498,7 +2498,7 @@ void SocialHandler::handleGuildEvent(network::Packet& packet) {
             break;
         default:
             msg = "Guild event " + std::to_string(data.eventType);
-            // Was `!numStrings && numStrings >= 1` — always false (0 can't be ≥1).
+            // Was `!numStrings && numStrings >= 1` - always false (0 can't be ≥1).
             if (data.numStrings >= 1) msg += ": " + data.strings[0];
             break;
     }
@@ -2514,7 +2514,7 @@ void SocialHandler::handleGuildEvent(network::Packet& packet) {
     // Whether this client is about to ask for a fresh roster itself, which is
     // the switch at the end of this function. The event's argument is the
     // negation: "nobody has asked, so you may". Working it out once and using
-    // it in both places is the point — FrameXML requesting when the client
+    // it in both places is the point - FrameXML requesting when the client
     // already has costs a second roster for a large guild, and FrameXML not
     // requesting when the client has not leaves every guild panel drawing from
     // a copy that no longer says who is online.
@@ -2590,7 +2590,7 @@ void SocialHandler::handleGuildCommandResult(network::Packet& packet) {
         }
         // Leaving a guild emptied the name, the ranks and the whole roster and
         // told nobody, so the interface's guild tab kept showing the guild the
-        // player had just left — every row of it, until something else
+        // player had just left - every row of it, until something else
         // happened to fire a roster update. PLAYER_GUILD_UPDATE is what
         // friendsframe and the paperdoll re-check IsInGuild on.
         //
@@ -2673,7 +2673,7 @@ void SocialHandler::handlePetitionQueryResponse(network::Packet& packet) {
     /*std::string body =*/ packet.readString();
 
     // Three words the reply carries that used to be skipped along with the
-    // rest of it. The first is how many signatures the charter needs — nothing
+    // rest of it. The first is how many signatures the charter needs - nothing
     // else on the wire says, so signaturesRequired sat at its default of nine
     // for every charter, and the counter under the signature list read "x / 9"
     // whatever the realm was configured for. CanSignPetition compares against
@@ -2699,7 +2699,7 @@ void SocialHandler::handlePetitionQueryResponse(network::Packet& packet) {
 
     // Said again, because the frame was drawn when the signatures arrived and
     // everything above lands after it. Without this the charter keeps the
-    // blank name and the placeholder count it opened with — the shape that
+    // blank name and the placeholder count it opened with - the shape that
     // reads as "only right after reopening it".
     if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("PETITION_SHOW", {});
 }
@@ -2724,8 +2724,8 @@ void SocialHandler::handlePetitionShowSignatures(network::Packet& packet) {
     petitionInfo_.showUI = true;
 
     // Ask what this charter actually is. Everything the frame needs beyond the
-    // signatures — the name, the number of signatures required, and whether it
-    // is a guild or an arena charter — comes only from the query reply, and
+    // signatures - the name, the number of signatures required, and whether it
+    // is a guild or an arena charter - comes only from the query reply, and
     // this client never sent the query. The opcode was in the table and the
     // reply had a handler waiting for it; nothing ever asked, so the handler
     // never ran and the frame opened on a nameless charter needing nine
@@ -2736,7 +2736,7 @@ void SocialHandler::handlePetitionShowSignatures(network::Packet& packet) {
     }
 
     // The signature list frame opens on this. The petition is parsed and
-    // stored above — showUI is what this client's own window reads — and the
+    // stored above - showUI is what this client's own window reads - and the
     // interface's version was never told, so a charter could not be signed
     // through it.
     if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("PETITION_SHOW", {});
@@ -2784,7 +2784,7 @@ void SocialHandler::handleQueryTimeResponse(network::Packet& packet) {
     QueryTimeResponseData data;
     if (!QueryTimeResponseParser::parse(packet, data)) return;
 
-    // The second word is how long until the daily quests reset —
+    // The second word is how long until the daily quests reset -
     // GetNextDailyQuestsResetTime() minus now, in AzerothCore's own terms. It
     // was parsed and dropped, and GetQuestResetTime answered the time until
     // local midnight instead, with a comment saying this was a realm setting
@@ -2821,7 +2821,7 @@ void SocialHandler::handlePlayedTime(network::Packet& packet) {
     if (data.triggerMessage) {
         // TIME_PLAYED_MSG(totalTime, levelTime), in seconds, which is what
         // ChatFrame_SystemEventHandler dispatches to ChatFrame_DisplayTimePlayed
-        // — the real client's own answer to /played, down to the localised
+        // - the real client's own answer to /played, down to the localised
         // "days, hours, minutes, seconds" string. The server also sends played
         // time unasked at login, and triggerMessage is what tells the two
         // apart, so this stays inside it.
@@ -2830,7 +2830,7 @@ void SocialHandler::handlePlayedTime(network::Packet& packet) {
                                std::to_string(data.levelTimePlayed)});
         // ...and the hand-built lines below are what this client says when it
         // is drawing its own chat. With FrameXML drawing it they would be a
-        // second, differently worded copy printed beside the real one — the
+        // second, differently worded copy printed beside the real one - the
         // same shape as the gossip binder in quest_handler, where doing the
         // work here as well as letting the interface do it asked twice.
         if (ui::frameXmlOwns(ui::UiElement::Chat)) return;
@@ -2884,7 +2884,7 @@ void SocialHandler::handleWho(network::Packet& packet) {
     // the panel closed printed nothing at all here: the rows were parsed,
     // stored, and kept.
     //
-    // The formats are WoW's own, from globalstrings — and they are the
+    // The formats are WoW's own, from globalstrings - and they are the
     // client's to print rather than the interface's, which is why no FrameXML
     // file formats them. The count line carries a |4 escape, which resolves on
     // the way to the screen.
@@ -2994,7 +2994,7 @@ void SocialHandler::handleFriendStatus(network::Packet& packet) {
     FriendStatusData data;
     if (!FriendStatusParser::parse(packet, data)) return;
 
-    // Single lookup — reuse iterator for name resolution and update/erase below
+    // Single lookup - reuse iterator for name resolution and update/erase below
     auto cit = std::find_if(owner_.contactsRef().begin(), owner_.contactsRef().end(),
         [&](const ContactEntry& e){ return e.guid == data.guid; });
 
@@ -3007,7 +3007,7 @@ void SocialHandler::handleFriendStatus(network::Packet& packet) {
         if (it != owner_.getPlayerNameCache().end()) playerName = it->second;
     }
 
-    // Only update friendsCache when we have a resolved name — inserting an empty
+    // Only update friendsCache when we have a resolved name - inserting an empty
     // key creates a phantom entry that masks the real one when the name arrives.
     if (!playerName.empty()) {
         if (data.status == 1 || data.status == 2) owner_.friendsCacheRef()[playerName] = data.guid;
@@ -3017,7 +3017,7 @@ void SocialHandler::handleFriendStatus(network::Packet& packet) {
     // AzerothCore's FriendsResult, read off SocialMgr.h rather than guessed.
     // The numbering here was five places out: zero is a database error and not
     // a removal, one is a full list and not an addition, and the three results
-    // that matter most — removed, added-online, added-offline — are 5, 6 and 7
+    // that matter most - removed, added-online, added-offline - are 5, 6 and 7
     // where this had "already in your list", "list is full" and "is ignoring
     // you". So adding a friend announced that the list was full, and a
     // database error deleted them from it.
@@ -3101,7 +3101,7 @@ void SocialHandler::handleLogoutResponse(network::Packet& packet) {
             // The timer the server just imposed, announced so the interface can
             // show it. UIParent answers PLAYER_CAMPING with the CAMP popup and
             // PLAYER_QUITING with QUIT, both of which count down and offer to
-            // cancel — and it already answers LOGOUT_CANCEL by hiding them, so
+            // cancel - and it already answers LOGOUT_CANCEL by hiding them, so
             // half of this conversation was wired and the half that starts it
             // was not. Nothing could show the twenty seconds but a line of chat.
             //
@@ -3120,7 +3120,7 @@ void SocialHandler::handleLogoutResponse(network::Packet& packet) {
 
 void SocialHandler::handleLogoutComplete(network::Packet& /*packet*/) {
     // The countdown finishing is not the end of it: the server says when the
-    // character is actually out of the world, and only then can the client leave —
+    // character is actually out of the world, and only then can the client leave -
     // to character select, or out of the game entirely for /quit and /exit.
     const bool exiting = exitAfterLogout_;
     owner_.addSystemChatMessage("Logout complete.");
@@ -3242,7 +3242,7 @@ void SocialHandler::acceptBattlefield(uint32_t queueSlot) {
 }
 
 // Leave the battleground the player is standing in, which is a different thing
-// from declining an invitation to one — that is CMSG_BATTLEFIELD_PORT with a
+// from declining an invitation to one - that is CMSG_BATTLEFIELD_PORT with a
 // refusal, this is the player walking out of a match already joined.
 // CMSG_BATTLEMASTER_JOIN: which battlemaster is being spoken to, which
 // battleground, which instance of it, and whether the whole group is coming.
@@ -3260,7 +3260,7 @@ void SocialHandler::joinBattlefield(uint64_t battlemasterGuid, uint32_t bgTypeId
 }
 
 // CMSG_BATTLEFIELD_LIST: ask which instances of one battleground are running.
-// The reply is SMSG_BATTLEFIELD_LIST, which this client already handles — it
+// The reply is SMSG_BATTLEFIELD_LIST, which this client already handles - it
 // just had no way to ask, because nothing reached the frame that asks.
 void SocialHandler::requestBattlefieldList(uint32_t bgTypeId) {
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
@@ -3277,7 +3277,7 @@ void SocialHandler::requestBattlefieldList(uint32_t bgTypeId) {
 }
 
 // CMSG_REPORT_PVP_AFK: this player is not participating. The reply,
-// SMSG_REPORT_PVP_AFK_RESULT, was already handled — the request was the half
+// SMSG_REPORT_PVP_AFK_RESULT, was already handled - the request was the half
 // that had no way to be sent.
 void SocialHandler::reportPvpAfk(uint64_t playerGuid) {
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
@@ -3354,7 +3354,7 @@ void SocialHandler::handleInstanceDifficulty(network::Packet& packet) {
         static const char* kDiffLabels[] = {"Normal", "Heroic", "25-Man Normal", "25-Man Heroic"};
         const char* diffLabel = (instanceDifficulty_ < 4) ? kDiffLabels[instanceDifficulty_] : nullptr;
         if (diffLabel) owner_.addSystemChatMessage(std::string("Dungeon difficulty set to ") + diffLabel + ".");
-        // Already noticed and already said — in chat, to the player. The
+        // Already noticed and already said - in chat, to the player. The
         // minimap hangs a difficulty banner off its own corner and rereads
         // GetInstanceInfo on this, which answers from the value just stored,
         // so the banner was the one thing not told the difficulty had changed.
@@ -3371,7 +3371,7 @@ void SocialHandler::handleInstanceDifficulty(network::Packet& packet) {
 
 void SocialHandler::handleLfgJoinResult(network::Packet& packet) {
     // Two uint32s, not two bytes. Reading a byte each left the result right by
-    // accident — every value in that enum fits in one — and the state wrong
+    // accident - every value in that enum fits in one - and the state wrong
     // always: it came from the second byte of the result, which is zero. So a
     // queue joined successfully set the state to None, and the dungeon finder
     // never knew it was in a queue.
@@ -3390,14 +3390,14 @@ void SocialHandler::handleLfgJoinResult(network::Packet& packet) {
         owner_.addSystemChatMessage(errMsg);
     }
     // The queue state moved, either into a queue or back out of the attempt,
-    // and LFG_UPDATE is how the panel is told to re-read it — the same event
+    // and LFG_UPDATE is how the panel is told to re-read it - the same event
     // handleLfgUpdate fires for the same reason two handlers down. Without it
     // the state was right in this client and stale in the interface until some
     // other LFG packet happened along.
     if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("LFG_UPDATE", {});
 }
 
-// SMSG_LFG_PLAYER_INFO — what the random dungeons pay out, and what this
+// SMSG_LFG_PLAYER_INFO - what the random dungeons pay out, and what this
 // character is not allowed to queue for.
 //
 // The reward block has to be walked even though none of it is kept, because
@@ -3453,7 +3453,7 @@ void SocialHandler::handleLfgQueueStatus(network::Packet& packet) {
     // Thirty-one bytes, not thirty-three: dungeon, five wait times, three
     // one-byte "needed" counts, and the time queued. The old length check was
     // longer than the packet the server sends, so this returned before reading
-    // anything and the queue status never updated at all — no wait times, no
+    // anything and the queue status never updated at all - no wait times, no
     // time in queue.
     if (!packet.hasRemaining(31)) return;
     lfgDungeonId_ = packet.readUInt32();
@@ -3462,7 +3462,7 @@ void SocialHandler::handleLfgQueueStatus(network::Packet& packet) {
     lfgWaitTank_   = static_cast<int32_t>(packet.readUInt32());
     lfgWaitHealer_ = static_cast<int32_t>(packet.readUInt32());
     lfgWaitDps_    = static_cast<int32_t>(packet.readUInt32());
-    // Three of these, one per role, and only one was being read — so the time
+    // Three of these, one per role, and only one was being read - so the time
     // in queue came from two bytes of the needed-counts and two of its own.
     lfgNeedTank_   = packet.readUInt8();
     lfgNeedHealer_ = packet.readUInt8();
@@ -3472,14 +3472,14 @@ void SocialHandler::handleLfgQueueStatus(network::Packet& packet) {
     lfgState_ = LfgState::Queued;
     // Read and then kept to itself. The wait time is what the queue window
     // counts up, and LFDSearchStatus_Update is reached from this event and no
-    // other — so the numbers above changed every few seconds and the display
+    // other - so the numbers above changed every few seconds and the display
     // built on them never moved.
     if (owner_.addonEventCallbackRef()) {
         owner_.addonEventCallbackRef()("LFG_QUEUE_STATUS_UPDATE", {});
         // The queue state is set two lines above, and LFG_QUEUE_STATUS_UPDATE
         // is not the event that re-reads it: the minimap's dungeon eye is shown
-        // by MiniMapLFG_UpdateIsShown, which asks GetLFGMode — which asks
-        // GetLFGInfoServer — and is reached from LFG_UPDATE and nowhere else.
+        // by MiniMapLFG_UpdateIsShown, which asks GetLFGMode - which asks
+        // GetLFGInfoServer - and is reached from LFG_UPDATE and nowhere else.
         //
         // SMSG_LFG_UPDATE_PLAYER usually arrives alongside this and does fire
         // it, which is why the eye appears at all. The case that has nothing
@@ -3494,7 +3494,7 @@ void SocialHandler::handleLfgProposalUpdate(network::Packet& packet) {
     // The header is fifteen bytes, and the state is ONE of them.
     //
     // This read three uint32s where the server writes dungeon(4), state(1),
-    // id(4), encounters(4), silent(1), size(1) — so the proposal id came out of
+    // id(4), encounters(4), silent(1), size(1) - so the proposal id came out of
     // the state byte plus three bytes of the id, and the state itself out of
     // the id's last byte plus three of the encounter count. Every branch below
     // was taken on a number assembled from the wrong bytes, which is why the
@@ -3505,7 +3505,7 @@ void SocialHandler::handleLfgProposalUpdate(network::Packet& packet) {
     const uint32_t proposalState = packet.readUInt8();
     const uint32_t proposalId = packet.readUInt32();
     const uint32_t encountersDone = packet.readUInt32();
-    // "silent" means do NOT raise the window — the player is already in the
+    // "silent" means do NOT raise the window - the player is already in the
     // group being proposed to, so there is nothing to accept.
     const bool silent = packet.readUInt8() != 0;
     const uint8_t groupSize = packet.hasRemaining(1) ? packet.readUInt8() : 0;
@@ -3540,14 +3540,14 @@ void SocialHandler::handleLfgProposalUpdate(network::Packet& packet) {
         default: break;
     }
     // The proposal dialog is built from GetLFGProposal, which already answers
-    // from this — it just had no way to know a proposal had arrived.
+    // from this - it just had no way to know a proposal had arrived.
     if (!owner_.addonEventCallbackRef()) return;
     auto fire = owner_.addonEventCallbackRef();
     fire("LFG_PROPOSAL_UPDATE", {});
 
     // UPDATE alone only refreshes a dialog already on screen.
-    // LFDFrame_OnEvent opens it on SHOW — that branch is the one calling
-    // StaticPopupSpecial_Show — and closes it on SUCCEEDED or FAILED. None of
+    // LFDFrame_OnEvent opens it on SHOW - that branch is the one calling
+    // StaticPopupSpecial_Show - and closes it on SUCCEEDED or FAILED. None of
     // the three was fired, so a pop arrived as a line of chat and nothing else,
     // with no way to accept it.
     //
@@ -3579,7 +3579,7 @@ void SocialHandler::handleLfgProposalUpdate(network::Packet& packet) {
 void SocialHandler::handleLfgRoleCheckUpdate(network::Packet& packet) {
     // state is the uint32; the uint8 after it says whether the check is only
     // starting. This read the state and threw it away, then took the starting
-    // flag for the state — so the branches below ran on 0 or 1 and never saw
+    // flag for the state - so the branches below ran on 0 or 1 and never saw
     // the values they test for.
     if (!packet.hasRemaining(6)) return;
     const uint32_t roleCheckState = packet.readUInt32();
@@ -3589,7 +3589,7 @@ void SocialHandler::handleLfgRoleCheckUpdate(network::Packet& packet) {
     // stopped at: the count was read and the list behind it left on the wire.
     //
     // That is not merely a blank. GetLFGRoleUpdate answered nil for the slot
-    // count, and the popup's own tooltip opens with `if ( slots <= 1 )` —
+    // count, and the popup's own tooltip opens with `if ( slots <= 1 )` -
     // comparing nil to a number, which raises. Hovering the role-check popup
     // took the file down.
     //
@@ -3605,13 +3605,13 @@ void SocialHandler::handleLfgRoleCheckUpdate(network::Packet& packet) {
     lfgRoleCheckMembers_ = packet.hasRemaining(1) ? packet.readUInt8() : 0;
 
     if (roleCheckState == 1) lfgState_ = LfgState::Queued;
-    else if (roleCheckState == 3) { lfgState_ = LfgState::None; owner_.addUIError("Dungeon Finder: Role check failed — missing required role."); owner_.addSystemChatMessage("Dungeon Finder: Role check failed — missing required role."); }
+    else if (roleCheckState == 3) { lfgState_ = LfgState::None; owner_.addUIError("Dungeon Finder: Role check failed - missing required role."); owner_.addSystemChatMessage("Dungeon Finder: Role check failed - missing required role."); }
     else if (roleCheckState == 2) { lfgState_ = LfgState::RoleCheck; owner_.addSystemChatMessage("Dungeon Finder: Performing role check..."); }
     // Likewise GetLFGRoleUpdate, which reports the check in progress.
     if (owner_.addonEventCallbackRef()) {
         owner_.addonEventCallbackRef()("LFG_ROLE_CHECK_UPDATE", {});
         // The role-check popup shows on one event and hides on another, and
-        // neither was ever fired — so the interface's own popup could not
+        // neither was ever fired - so the interface's own popup could not
         // appear at all, whichever side is drawing it.
         //
         // State 2 is LFG_ROLECHECK_INITIALITING, where the check begins.
@@ -3631,7 +3631,7 @@ void SocialHandler::handleLfgUpdatePlayer(network::Packet& packet) {
     if (!hasExtra || !packet.hasRemaining(3)) {
         switch (updateType) {
             case 8:  lfgState_ = LfgState::None; owner_.addSystemChatMessage("Dungeon Finder: Removed from queue."); break;
-            case 9:  lfgState_ = LfgState::Queued; owner_.addSystemChatMessage("Dungeon Finder: Proposal failed — re-queuing."); break;
+            case 9:  lfgState_ = LfgState::Queued; owner_.addSystemChatMessage("Dungeon Finder: Proposal failed - re-queuing."); break;
             case 10: lfgState_ = LfgState::Queued; owner_.addSystemChatMessage("Dungeon Finder: A member declined the proposal."); break;
             case 15: lfgState_ = LfgState::None; owner_.addSystemChatMessage("Dungeon Finder: Left the queue."); break;
             case 18: lfgState_ = LfgState::None; owner_.addSystemChatMessage("Dungeon Finder: Your group disbanded."); break;
@@ -3654,7 +3654,7 @@ void SocialHandler::handleLfgUpdatePlayer(network::Packet& packet) {
         case 14: lfgState_ = LfgState::InDungeon; break;
         default: break;
     }
-    // Queue state changed — GetLFGInfoServer answers the new one.
+    // Queue state changed - GetLFGInfoServer answers the new one.
     if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("LFG_UPDATE", {});
 }
 
@@ -3673,7 +3673,7 @@ void SocialHandler::handleLfgPlayerReward(network::Packet& packet) {
     //   itemNum x { uint32 itemId, uint32 displayId, uint32 count }
     //
     // This read the constant as the money, the money as the XP and the XP as
-    // the item count — so the line it printed was always "1c" followed by the
+    // the item count - so the line it printed was always "1c" followed by the
     // real money labelled XP, and then it looped tens of thousands of times
     // over whatever came next looking for items.
     //
@@ -3725,8 +3725,8 @@ void SocialHandler::handleLfgPlayerReward(network::Packet& packet) {
     }
     lfgState_ = LfgState::FinishedDungeon;
 
-    // The reward toast. It carries no arguments — the frame reads the nine
-    // values back through GetLFGCompletionReward — so the store above has to
+    // The reward toast. It carries no arguments - the frame reads the nine
+    // values back through GetLFGCompletionReward - so the store above has to
     // be written before this fires.
     if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("LFG_COMPLETION_REWARD", {});
 
@@ -3741,7 +3741,7 @@ void SocialHandler::handleLfgPlayerReward(network::Packet& packet) {
 
 void SocialHandler::handleLfgBootProposalUpdate(network::Packet& packet) {
     // The victim's GUID sits between the three flags and the counts, and was
-    // not being read — so every number after it came from eight bytes earlier
+    // not being read - so every number after it came from eight bytes earlier
     // than it should have.
     if (!packet.hasRemaining(27)) return;
     bool inProgress = packet.readUInt8() != 0;
@@ -3760,8 +3760,8 @@ void SocialHandler::handleLfgBootProposalUpdate(network::Packet& packet) {
     lfgBootTimeLeft_ = timeLeft; lfgBootNeeded_ = votesNeeded;
     if (packet.getReadPos() < packet.getSize()) lfgBootReason_ = packet.readString();
     // The packet carries one string and it is the reason. The victim is the
-    // guid above — AzerothCore writes `data << boot.victim` and then the
-    // reason, and nothing else — so a second string was being looked for that
+    // guid above - AzerothCore writes `data << boot.victim` and then the
+    // reason, and nothing else - so a second string was being looked for that
     // is never there, and the name it was meant to fill stayed empty. Resolved
     // from the guid instead, which is how every other name here is found.
     lfgBootTargetName_ = owner_.lookupName(lfgBootVictimGuid_);
@@ -3776,15 +3776,15 @@ void SocialHandler::handleLfgBootProposalUpdate(network::Packet& packet) {
         lfgBootDidVote_ = lfgBootMyVote_ = lfgBootInProgress_ = false;
         lfgBootVictimGuid_ = 0;
         lfgState_ = LfgState::InDungeon;
-        owner_.addSystemChatMessage(bootPassed ? "Dungeon Finder: Vote kick passed — member removed." : "Dungeon Finder: Vote kick failed.");
+        owner_.addSystemChatMessage(bootPassed ? "Dungeon Finder: Vote kick passed - member removed." : "Dungeon Finder: Vote kick failed.");
     }
     // The vote-to-kick dialog, whose countdown starts on this.
     if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("LFG_BOOT_PROPOSAL_UPDATE", {});
 }
 
 void SocialHandler::handleLfgTeleportDenied(network::Packet& packet) {
-    // A uint32, read as a byte. Little-endian kept it working — every reason
-    // is a small number — but the read was the wrong width and the next edit
+    // A uint32, read as a byte. Little-endian kept it working - every reason
+    // is a small number - but the read was the wrong width and the next edit
     // to this handler would have inherited it.
     if (!packet.hasRemaining(4)) return;
     const uint32_t reason = packet.readUInt32();
@@ -3799,7 +3799,7 @@ void SocialHandler::lfgJoin(const std::vector<uint32_t>& dungeonIds, uint8_t rol
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
     if (dungeonIds.empty()) return;   // the server drops a join with no slots
     // The dungeon finder is Wrath's. Classic and TBC have no CMSG_LFG_JOIN at
-    // all — TBC's 0x35C is CMSG_LFG_SET_AUTOJOIN, an unrelated packet — so the
+    // all - TBC's 0x35C is CMSG_LFG_SET_AUTOJOIN, an unrelated packet - so the
     // logical opcode is unmapped there and wireOpcode answers 0xFFFF. Sending
     // that would put a packet the server has no handler for on the wire.
     if (wireOpcode(Opcode::CMSG_LFG_JOIN) == 0xFFFF) return;
@@ -3818,8 +3818,8 @@ void SocialHandler::lfgLeave() {
 
 void SocialHandler::lfgSetRoles(uint8_t roles) {
     lfgOfferedRoles_ = roles;
-    // Three frames draw the same three role checkboxes — the dungeon queue, the
-    // raid browser queue and the role-check popup — and every one of them ticks
+    // Three frames draw the same three role checkboxes - the dungeon queue, the
+    // raid browser queue and the role-check popup - and every one of them ticks
     // from GetLFGRoles when this event arrives. Setting the roles without
     // firing it left whichever frame was clicked correct and the other two
     // showing what they were last drawn with, which is the shape that reads as
@@ -3901,7 +3901,7 @@ void SocialHandler::handleArenaTeamRoster(network::Packet& packet) {
     // teamId(4) + unk308(1) + memberCount(4) + teamType(4), then the members.
     //
     // The team type was never read, so the first member's guid was taken from
-    // four bytes earlier — the type plus the guid's low half — and every
+    // four bytes earlier - the type plus the guid's low half - and every
     // member after it followed from there. The roster was wrong from its first
     // row, and nothing about it looked like a length fault: the packet is long
     // enough either way.
@@ -3917,7 +3917,7 @@ void SocialHandler::handleArenaTeamRoster(network::Packet& packet) {
         if (!packet.hasRemaining(12)) break;
         ArenaTeamMember m;
         m.guid = packet.readUInt64(); m.online = (packet.readUInt8() != 0); m.name = packet.readString();
-        // Captain flag, level and class sit between the name and the record —
+        // Captain flag, level and class sit between the name and the record -
         // six bytes this went straight past, so the games played were the
         // captain flag, the wins were the level and class with two bytes of the
         // real figure behind them, and so on down the row.
@@ -3947,7 +3947,7 @@ void SocialHandler::handleArenaTeamRoster(network::Packet& packet) {
     //
     // Fired with no arguments, and that is the whole contract. pvpframe reads
     // arg1 as "the roster you hold is stale, ask for it again" and only
-    // redraws from what arrived when arg1 is absent — so any argument at all
+    // redraws from what arrived when arg1 is absent - so any argument at all
     // would answer this roster by requesting another one, forever. A zero
     // would do it too, zero being true in Lua.
     if (owner_.addonEventCallbackRef()) {
@@ -4021,8 +4021,8 @@ void SocialHandler::handlePvpLogData(network::Packet& packet) {
     if (remaining() < 1) return;
     // The layout is settled and the dump that asked about it is gone.
     //
-    // The question it existed to answer — whether there is a team byte after
-    // the guid — is answered by the source rather than by a byte count, and the
+    // The question it existed to answer - whether there is a team byte after
+    // the guid - is answered by the source rather than by a byte count, and the
     // answer is "in an arena, yes; in a battleground, no". They are two
     // different rows written by two different overrides, and the type byte at
     // the top of this packet says which one follows.
@@ -4054,16 +4054,16 @@ void SocialHandler::handlePvpLogData(network::Packet& packet) {
         ps.guid = packet.readUInt64();
         // Two different rows, and the type byte at the top says which.
         //
-        // BattlegroundScore::AppendToPacket — killing blows, honourable kills,
+        // BattlegroundScore::AppendToPacket - killing blows, honourable kills,
         // deaths, bonus honour, damage, healing. No team.
-        // ArenaScore::AppendToPacket — killing blows, a team BYTE, damage,
+        // ArenaScore::AppendToPacket - killing blows, a team BYTE, damage,
         // healing. No honourable kills, deaths or honour at all.
         //
         // This read one row that was neither: a team byte from the arena
         // shape followed by the battleground's four counters, then a stat block
         // with null-terminated names that no core writes. Everything after the
         // guid was off by a byte, and damage and healing were skipped entirely
-        // — which is why GetBattlefieldScore answered zero for both.
+        // - which is why GetBattlefieldScore answered zero for both.
         ps.killingBlows = packet.readUInt32();
         if (bgScoreboard_.isArena) {
             if (remaining() < 1) { bgScoreboard_.players.push_back(std::move(ps)); break; }
@@ -4088,8 +4088,8 @@ void SocialHandler::handlePvpLogData(network::Packet& packet) {
               { auto u = std::static_pointer_cast<game::Unit>(ent); if (!u->getName().empty()) ps.name = u->getName(); } }
 
         // BuildObjectivesBlock: a count and that many bare values. The names
-        // this used to read are not on the wire — BattlegroundWS writes
-        // uint32(2) and two numbers — so every value past the first came from
+        // this used to read are not on the wire - BattlegroundWS writes
+        // uint32(2) and two numbers - so every value past the first came from
         // the wrong offset.
         if (remaining() >= 4) {
             uint32_t statCount = packet.readUInt32();
@@ -4099,7 +4099,7 @@ void SocialHandler::handlePvpLogData(network::Packet& packet) {
         }
         bgScoreboard_.players.push_back(std::move(ps));
     }
-    // The scoreboard is drawn from this and asked for it by name —
+    // The scoreboard is drawn from this and asked for it by name -
     // RequestBattlefieldScoreData sends the query, UPDATE_BATTLEFIELD_SCORE is
     // the answer arriving. Every row, every column and the winner were parsed
     // and stored, and the frame that displays them was never told.
@@ -4164,7 +4164,7 @@ void SocialHandler::handleInitializeFactions(network::Packet& packet) {
     // Also keyed by faction, which is how everything that draws a standing
     // asks for one. This packet is indexed by ReputationListID and the map is
     // indexed by faction id, and only SMSG_SET_FACTION_STANDING wrote to the
-    // map — so a standing was known from login and unreadable until it next
+    // map - so a standing was known from login and unreadable until it next
     // moved. The reputation tab drew every bar empty at Neutral however much
     // the character had earned, and so did this client's own panel and the
     // watched-faction bar, all three reading the same empty map.
@@ -4349,7 +4349,7 @@ void SocialHandler::handleSummonRequest(network::Packet& packet) {
 /// HandleSummonResponseOpcode reads `ObjectGuid summoner_guid` and then a bool,
 /// nine bytes. Both answers were a single byte, so the server had one byte
 /// where it wanted eight, ran off the end of the buffer and dropped the packet
-/// — accepting a summon has never once reached it, and neither has declining
+/// - accepting a summon has never once reached it, and neither has declining
 /// one. The same mistake as the battlefield answers below, made next door.
 ///
 /// The guid is the one SMSG_SUMMON_REQUEST arrived with, which is already kept
@@ -4384,7 +4384,7 @@ void SocialHandler::declineSummon() {
 /// HandleBfEntryInviteResponse reads `uint32 BattleId >> uint8 Accepted` and
 /// the exit request reads a battle id alone. Both answers used to be a single
 /// byte, so the server read the accept flag as the low byte of a battle id,
-/// ran out of buffer and dropped the packet — accepting a Wintergrasp
+/// ran out of buffer and dropped the packet - accepting a Wintergrasp
 /// invitation had never once reached it.
 void SocialHandler::sendBfMgrResponse(Opcode op, uint32_t battleId, bool accept,
                                       bool withFlag) {
@@ -4433,7 +4433,7 @@ void SocialHandler::inviteToCalendarEvent(uint64_t eventId, uint64_t inviteId,
                                           const std::string& name,
                                           bool isPreInvite, bool isGuildEvent) {
     if (!owner_.isInWorld()) return;
-    // eventId, inviteId, name, isPreInvite, isGuildEvent — CalendarHandler.cpp:515.
+    // eventId, inviteId, name, isPreInvite, isGuildEvent - CalendarHandler.cpp:515.
     // The two flags are ByteBuffer bools, which are one byte each on the wire.
     network::Packet pkt(wireOpcode(Opcode::CMSG_CALENDAR_EVENT_INVITE));
     pkt.writeUInt64(eventId);
@@ -4505,7 +4505,7 @@ void SocialHandler::setCalendarInviteStatus(uint64_t inviteeGuid,
     if (!owner_.isInWorld()) return;
     // packedGuid invitee, eventId, inviteId, ownerInviteId, status
     // (CalendarHandler.cpp:695). Setting someone *else's* status, which is what
-    // an event's owner does to confirm or bench them — the player's own answer
+    // an event's owner does to confirm or bench them - the player's own answer
     // is CMSG_CALENDAR_EVENT_RSVP and a different packet entirely.
     network::Packet pkt(wireOpcode(Opcode::CMSG_CALENDAR_EVENT_STATUS));
     pkt.writePackedGuid(inviteeGuid);
@@ -4544,7 +4544,7 @@ void SocialHandler::requestCalendarEvent(uint64_t eventId) {
 void SocialHandler::createCalendarEvent(const CalendarEventDraft& draft) {
     if (!owner_.isInWorld()) return;
     // title, description, type, repeatable, maxInvites, dungeonId, then two
-    // packed times and the flags — CalendarHandler.cpp:228.
+    // packed times and the flags - CalendarHandler.cpp:228.
     //
     // The second time is unused by the server (it is stored and never read),
     // but it is read off the wire, so leaving it out shifts the flags into it
@@ -4568,7 +4568,7 @@ void SocialHandler::createCalendarEvent(const CalendarEventDraft& draft) {
 void SocialHandler::respondToCalendarInvite(uint64_t eventId, uint64_t inviteId,
                                             uint32_t status) {
     if (!owner_.isInWorld()) return;
-    // uint64 eventId, uint64 inviteId, uint32 status — CalendarHandler.cpp:630.
+    // uint64 eventId, uint64 inviteId, uint32 status - CalendarHandler.cpp:630.
     // The status is a CalendarInviteStatus: 1 accepted, 2 declined, 8
     // tentative, 9 removed. The server answers with an event-status alert and
     // clears the pending action, so nothing is assumed here.
@@ -4604,7 +4604,7 @@ void SocialHandler::sendSetDifficulty(uint32_t difficulty, bool raid) {
 
     // MSG_SET_DUNGEON_DIFFICULTY, not CMSG_CHANGEPLAYER_DIFFICULTY. The latter
     // is a real opcode number and the server registers it with Handle_NULL and
-    // STATUS_NEVER — it is read off the wire and discarded — so every
+    // STATUS_NEVER - it is read off the wire and discarded - so every
     // difficulty change ever sent from here went nowhere. Both of the real ones
     // carry a single uint32 mode.
     const Opcode op = raid ? Opcode::MSG_SET_RAID_DIFFICULTY
@@ -4689,7 +4689,7 @@ void SocialHandler::setGroupAssistant(uint64_t guid, bool apply) {
 void SocialHandler::requestContactList() {
     if (!owner_.isInWorld() || !owner_.getSocket()) return;
     // Once a second. FriendsFrame_Update calls ShowFriends every time it
-    // redraws, and it redraws on every friend status line — so an unthrottled
+    // redraws, and it redraws on every friend status line - so an unthrottled
     // send answers each one with a request for the whole list again.
     const auto now = std::chrono::steady_clock::now();
     if (now - lastContactListRequest_ < std::chrono::seconds(1)) return;
@@ -4747,7 +4747,7 @@ void SocialHandler::requestGuildBankLog(uint8_t tab) {
 //   per entry:
 //     int8   type
 //     uint64 playerGuid
-//     the payload the type calls for — an item and a count, those plus a
+//     the payload the type calls for - an item and a count, those plus a
 //     destination tab for a move, or a sum of money for everything else
 //     uint32 secondsAgo
 //
@@ -4840,7 +4840,7 @@ void SocialHandler::handleGuildEventLog(network::Packet& packet) {
 }
 
 // CMSG_GMTICKET_SYSTEMSTATUS: is the ticket queue open at all. The reply,
-// SMSG_GMTICKET_SYSTEMSTATUS, was already parsed — asking was the missing half,
+// SMSG_GMTICKET_SYSTEMSTATUS, was already parsed - asking was the missing half,
 // and the help frame asks every time it is shown.
 void SocialHandler::requestGmSystemStatus() {
     if (!owner_.isInWorld()) return;
@@ -4850,10 +4850,10 @@ void SocialHandler::requestGmSystemStatus() {
 
 void SocialHandler::requestGmTicket() {
     if (!owner_.isInWorld()) return;
-    // CMSG_GMTICKET_GETTICKET has no payload — server responds with SMSG_GMTICKET_GETTICKET
+    // CMSG_GMTICKET_GETTICKET has no payload - server responds with SMSG_GMTICKET_GETTICKET
     network::Packet pkt(wireOpcode(Opcode::CMSG_GMTICKET_GETTICKET));
     owner_.getSocket()->send(pkt);
-    LOG_DEBUG("Sent CMSG_GMTICKET_GETTICKET — querying open ticket status");
+    LOG_DEBUG("Sent CMSG_GMTICKET_GETTICKET - querying open ticket status");
 }
 
 } // namespace game

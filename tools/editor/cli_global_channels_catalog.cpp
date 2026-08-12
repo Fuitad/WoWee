@@ -229,35 +229,35 @@ int handleValidate(int& i, int argc, char** argv) {
                 std::to_string(e.accessKind) +
                 " out of range (must be 0..3)");
         }
-        // AutoJoinOnZone REQUIRES zoneDefaultMapId — else
+        // AutoJoinOnZone REQUIRES zoneDefaultMapId - else
         // the auto-join trigger never fires.
         using G = wowee::pipeline::WoweeGlobalChannels;
         if (e.accessKind == G::AutoJoinOnZone &&
             e.zoneDefaultMapId == 0) {
             errors.push_back(ctx +
                 ": AutoJoinOnZone access kind with "
-                "zoneDefaultMapId=0 — auto-join trigger "
+                "zoneDefaultMapId=0 - auto-join trigger "
                 "would never fire (no zone bound to "
                 "this channel)");
         }
         // Inverse: zoneDefaultMapId set with non-AutoJoin
-        // kind is dead data — warn.
+        // kind is dead data - warn.
         if (e.zoneDefaultMapId != 0 &&
             e.accessKind != G::AutoJoinOnZone) {
             warnings.push_back(ctx +
                 ": zoneDefaultMapId=" +
                 std::to_string(e.zoneDefaultMapId) +
                 " set but accessKind is not AutoJoinOn"
-                "Zone — the field is ignored at runtime");
+                "Zone - the field is ignored at runtime");
         }
-        // Channel names must be unique — chat-window
+        // Channel names must be unique - chat-window
         // dispatch identifies channels by name in /chat
         // commands.
         if (!e.name.empty() &&
             !namesSeen.insert(e.name).second) {
             errors.push_back(ctx +
                 ": duplicate channel name '" + e.name +
-                "' — /join command would route "
+                "' - /join command would route "
                 "ambiguously");
         }
         if (!idsSeen.insert(e.channelId).second) {

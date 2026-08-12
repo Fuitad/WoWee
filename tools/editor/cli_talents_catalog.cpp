@@ -314,7 +314,7 @@ int handleValidate(int& i, int argc, char** argv) {
                     ": talent lists itself as prerequisite");
             }
             // Active spell talents typically have rankSpellIds[0]
-            // set even at rank 1 — a passive (stat-modifier) talent
+            // set even at rank 1 - a passive (stat-modifier) talent
             // may legitimately leave them all 0. Just check for
             // ascending non-zero ordering: if rank N has a spell,
             // rank N-1 should too.

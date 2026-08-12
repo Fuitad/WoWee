@@ -257,7 +257,7 @@ int handleValidate(int& i, int argc, char** argv) {
             e.bindKind != B::BindOnPickup) {
             warnings.push_back(ctx +
                 ": tradableForRaidGroup=true but "
-                "bindKind is not BindOnPickup — flag "
+                "bindKind is not BindOnPickup - flag "
                 "would be ignored at runtime");
         }
         // tradableWindowSec only meaningful when raid-
@@ -268,7 +268,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 ": tradableWindowSec=" +
                 std::to_string(e.tradableWindowSec) +
                 " set but tradableForRaidGroup=false "
-                "— window would never be reachable");
+                "- window would never be reachable");
         }
         // tradableForRaidGroup=true with window=0 is
         // a contradiction (instant window expiry =
@@ -277,7 +277,7 @@ int handleValidate(int& i, int argc, char** argv) {
             e.tradableWindowSec == 0) {
             errors.push_back(ctx +
                 ": tradableForRaidGroup=true with "
-                "tradableWindowSec=0 — window expires "
+                "tradableWindowSec=0 - window expires "
                 "instantly, equivalent to no window");
         }
         // boeBecomesBoP only meaningful for BindOnEquip
@@ -286,7 +286,7 @@ int handleValidate(int& i, int argc, char** argv) {
         if (e.boeBecomesBoP && e.bindKind != B::BindOnEquip) {
             warnings.push_back(ctx +
                 ": boeBecomesBoP=true but bindKind is "
-                "not BindOnEquip — flag would never "
+                "not BindOnEquip - flag would never "
                 "fire");
         }
         // accountBoundCrossFaction only meaningful
@@ -295,11 +295,11 @@ int handleValidate(int& i, int argc, char** argv) {
             e.bindKind != B::BindOnAccount) {
             warnings.push_back(ctx +
                 ": accountBoundCrossFaction=true but "
-                "bindKind is not BindOnAccount — flag "
+                "bindKind is not BindOnAccount - flag "
                 "would never apply");
         }
         // (bindKind, itemQualityFloor) MUST be unique
-        // — runtime resolveForQuality() would
+        // - runtime resolveForQuality() would
         // ambiguously pick one rule when two rules
         // tie on (bindKind, floor).
         Pair p{e.bindKind, e.itemQualityFloor};
@@ -309,7 +309,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 std::to_string(e.bindKind) +
                 ", itemQualityFloor=" +
                 std::to_string(e.itemQualityFloor) +
-                ") — resolveForQuality() tie");
+                ") - resolveForQuality() tie");
         }
         if (!idsSeen.insert(e.ruleId).second) {
             errors.push_back(ctx + ": duplicate ruleId");

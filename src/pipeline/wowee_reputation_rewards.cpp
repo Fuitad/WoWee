@@ -143,23 +143,23 @@ WoweeReputationRewardsLoader::makeArgentCrusade(
     // Revered=21000, Exalted=42000.
     add(1, "ArgentCrusade_Friendly", 3000, 0, 0, 0,
         { 44128 }, {},
-        "Friendly tier — basic faction recognition. "
+        "Friendly tier - basic faction recognition. "
         "Quartermaster opens. No discount yet.");
     add(2, "ArgentCrusade_Honored", 9000, 5, 1, 0,
         { 44128, 44131, 44137 }, { 49736 },
-        "Honored tier — 5%% vendor discount, tabard "
+        "Honored tier - 5%% vendor discount, tabard "
         "becomes purchasable, first crafting recipe "
         "(Argent Sword pattern) unlocks.");
     add(3, "ArgentCrusade_Revered", 21000, 10, 1, 0,
         { 44128, 44131, 44137, 44141, 44144 },
         { 49736, 49737 },
-        "Revered tier — 10%% vendor discount. Two "
+        "Revered tier - 10%% vendor discount. Two "
         "additional rare items + second recipe (Argent "
         "Plate Gauntlets) unlock.");
     add(4, "ArgentCrusade_Exalted", 42000, 15, 1, 1,
         { 44128, 44131, 44137, 44141, 44144, 44171, 44174 },
         { 49736, 49737, 49738 },
-        "Exalted tier — 15%% vendor discount, the Argent "
+        "Exalted tier - 15%% vendor discount, the Argent "
         "Charger mount unlocks (3500g, paladin-only "
         "originally), full set of rare items, all recipes.");
     return c;
@@ -190,20 +190,20 @@ WoweeReputationRewards WoweeReputationRewardsLoader::makeKaluak(
     };
     add(100, "Kaluak_Friendly", 3000, 0, 0,
         { 44707 }, {},
-        "Friendly — basic Kalu'ak fishing pole "
+        "Friendly - basic Kalu'ak fishing pole "
         "purchasable.");
     add(101, "Kaluak_Honored", 9000, 5, 0,
         { 44707, 44710 }, { 45550 },
-        "Honored — Kalu'ak Cured Sweet Potato cooking "
+        "Honored - Kalu'ak Cured Sweet Potato cooking "
         "recipe unlocks.");
     add(102, "Kaluak_Revered", 21000, 10, 1,
         { 44707, 44710, 44715 }, { 45550, 45551 },
-        "Revered — Kalu'ak Tabard purchasable, second "
+        "Revered - Kalu'ak Tabard purchasable, second "
         "cooking recipe unlocks.");
     add(103, "Kaluak_Exalted", 42000, 15, 1,
         { 44707, 44710, 44715, 44722 },
         { 45550, 45551, 45552 },
-        "Exalted — Pygmy Suit cosmetic + 3rd cooking "
+        "Exalted - Pygmy Suit cosmetic + 3rd cooking "
         "recipe (Imperial Manta Steak) unlock. No "
         "mount reward for Kalu'ak.");
     return c;
@@ -233,16 +233,16 @@ WoweeReputationRewardsLoader::makeAccordTabard(
     };
     add(200, "WyrmrestAccord_Honored", 9000, 5, 0, 0,
         { 44156, 44158 },
-        "Honored — first ring + cloak unlock. No tabard "
+        "Honored - first ring + cloak unlock. No tabard "
         "yet (Accord makes you wait until Revered).");
     add(201, "WyrmrestAccord_Revered", 21000, 10, 1, 0,
         { 44156, 44158, 44160 },
-        "Revered — Accord Tabard purchasable + medallion. "
+        "Revered - Accord Tabard purchasable + medallion. "
         "Equipping the tabard counts Wyrmrest rep on "
         "ALL Northrend Heroic kills.");
     add(202, "WyrmrestAccord_Exalted", 42000, 15, 1, 1,
         { 44156, 44158, 44160, 44178 },
-        "Exalted — the Reins of the Red Drake mount "
+        "Exalted - the Reins of the Red Drake mount "
         "unlocks (3000g). One of the iconic Wrath rep "
         "rewards.");
     return c;

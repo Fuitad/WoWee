@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Localization catalog (.wlan) — novel
+// Wowee Open Localization catalog (.wlan) - novel
 // replacement for the per-language overlay tables that
 // vanilla WoW carried as Locale_*.MPQ patches plus the
 // Spell.dbc / Item.dbc trailing 16-locale string
@@ -16,7 +16,7 @@ namespace pipeline {
 // translation.
 //
 // Cross-references with previously-added formats:
-//   No catalog cross-references — WLAN is a pure
+//   No catalog cross-references - WLAN is a pure
 //   string-table overlay applied AFTER any per-format
 //   catalog has resolved its primary text. The lookup
 //   path is: format-default text -> WLAN override (if
@@ -32,21 +32,21 @@ namespace pipeline {
 //     stringId (uint32)
 //     nameLen + name (English / catalog label)
 //     descLen + description (translator notes)
-//     languageCode (uint8)       — enUS / enGB / deDE /
+//     languageCode (uint8)       - enUS / enGB / deDE /
 //                                   esES / frFR / itIT /
 //                                   koKR / ptBR / ruRU /
 //                                   zhCN / zhTW
-//     namespace_ (uint8)         — UI / Quest / Item /
+//     namespace_ (uint8)         - UI / Quest / Item /
 //                                   Spell / Creature /
 //                                   Tooltip / Gossip /
 //                                   System
 //     pad0 (uint8) / pad1 (uint8)
-//     keyLen + originalKey       — lookup key (canonical
-//                                   form — usually the
+//     keyLen + originalKey       - lookup key (canonical
+//                                   form - usually the
 //                                   English source text
 //                                   or a dotted ID like
 //                                   "QUEST.123.title")
-//     locLen + localizedText     — translation in the
+//     locLen + localizedText     - translation in the
 //                                   target language
 //     iconColorRGBA (uint32)
 struct WoweeLocalization {
@@ -121,15 +121,15 @@ public:
 
     // Preset emitters used by --gen-lan* variants.
     //
-    //   makeUIBasics    — 5 UI-button strings translated
+    //   makeUIBasics    - 5 UI-button strings translated
     //                      to deDE/frFR/esES/koKR/zhCN
-    //                      (5 entries × 1 key — the
+    //                      (5 entries × 1 key - the
     //                      "Cancel" button across 5
     //                      languages).
-    //   makeQuestSample — 3 entries — one quest title
+    //   makeQuestSample - 3 entries - one quest title
     //                      translated into deDE / frFR /
     //                      koKR.
-    //   makeTooltipSet  — 4 item tooltip strings in
+    //   makeTooltipSet  - 4 item tooltip strings in
     //                      deDE + frFR (high-volume use
     //                      case for client localization).
     static WoweeLocalization makeUIBasics(const std::string& catalogName);

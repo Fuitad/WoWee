@@ -2,14 +2,14 @@
 """Events the interface waits for that this client never sends.
 
 The companion to framexml_element_readiness.py, and the more productive of the
-two. That one asks whether an element's calls are answered — a call that is not
+two. That one asks whether an element's calls are answered - a call that is not
 raises, so the gap is loud. This asks whether its events arrive, and the failure
 is silent: the frame simply sits there, or shows what it was drawn with, or
 never opens at all.
 
     tools/framexml_event_gap.py
 
-Eleven real bugs came out of this after the call side had gone quiet — a mail
+Eleven real bugs came out of this after the call side had gone quiet - a mail
 frame that hung after sending, bag cooldown swirls that never drew, an
 achievements panel showing the empty state it was built with, a master looter
 menu that could not open, the whole dungeon finder silently inert.
@@ -17,7 +17,7 @@ menu that could not open, the whole dungeon finder silently inert.
 THE SHAPE TO LOOK FOR
 ---------------------
 Nearly every one was the same: a message **received, parsed, stored, and never
-announced**. The data was there and something already read it — often this
+announced**. The data was there and something already read it - often this
 client's own ImGui window, which is why the feature worked while FrameXML's
 version of it did not. Only the notification between the two was missing.
 
@@ -32,7 +32,7 @@ TWO THINGS THIS CANNOT DECIDE
   belonged, so the gossip frame opened over the quest list. Read the handler.
 
 * **Check whether the server sends the message, by finding where it builds it.**
-  The source is on this machine — /home/k/azerothcore-wotlk — so grep for
+  The source is on this machine - /home/k/azerothcore-wotlk - so grep for
   `WorldPacket data(SMSG_...)` in src/server/game.
 
   Do *not* use the STATUS_NEVER field in Opcodes.cpp for this. It reads like a
@@ -41,8 +41,8 @@ TWO THINGS THIS CANNOT DECIDE
   STATUS_NEVER and both are built and sent, in ItemHandler.cpp and TicketMgr.cpp.
   Trusting that field produced four wrong conclusions in a row here.
 
-  By the correct test, the three names below are all genuinely sent —
-  BattlefieldHandler.cpp and LFGMgr.cpp build them — so they are real gaps
+  By the correct test, the three names below are all genuinely sent -
+  BattlefieldHandler.cpp and LFGMgr.cpp build them - so they are real gaps
   rather than dead opcodes.
 
 * **An event is only worth firing if the data behind it exists.** The
@@ -77,7 +77,7 @@ def registered():
             # The closing paren matters: alternatepowerbar.lua registers
             # RegisterEvent("UNIT_"..self.powerName), and without it the
             # literal half of that concatenation was read as an event called
-            # "UNIT_" — a name nothing can ever send, reported as a gap on
+            # "UNIT_" - a name nothing can ever send, reported as a gap on
             # every run. A computed name cannot be checked from here at all.
             for pattern in (r'RegisterEvent\(\s*' + EVENT + r'\s*\)',
                             r'<Event\s+name=' + EVENT):
@@ -105,7 +105,7 @@ def sent():
             #     auto fire = owner_.addonEventCallbackRef();
             #     fire("LFG_PROPOSAL_UPDATE", {});
             # Neither pattern above sees that call, so every event sent this
-            # way read as never sent — LFG_PROPOSAL_UPDATE was reported as a
+            # way read as never sent - LFG_PROPOSAL_UPDATE was reported as a
             # gap while sitting two lines under its own alias.
             for alias in set(re.findall(
                     r'auto\s+(\w+)\s*=\s*[\w_.>()-]*addonEventCallback\w*\(\)', src)):
@@ -118,16 +118,16 @@ def chat_family():
     """The CHAT_MSG_ family, which neither half of the scan above can see.
 
     The client builds these names by concatenating the chat type onto a prefix,
-    and FrameXML registers them by walking its ChatTypeGroup tables — so a
+    and FrameXML registers them by walking its ChatTypeGroup tables - so a
     literal-name match finds nothing on either side and the family is absent
     from the report rather than wrong in it. A zero above says nothing about
     chat.
 
     Read from the two places that do name them literally: the switch that turns
     a wire chat type into its name, and the tables FrameXML registers from.
-    That comparison found ten types the client could not name — loot money,
+    That comparison found ten types the client could not name - loot money,
     experience, honour, reputation, tradeskills, pet info and the rest of the
-    run between LOOT and the battleground block — each of which fell to the
+    run between LOOT and the battleground block - each of which fell to the
     default, was named UNKNOWN, and was dropped by FrameXML's chat.
     """
     names = os.path.join(SRC, "game", "world_packets_social.cpp")
@@ -148,7 +148,7 @@ def handled_opcodes():
     """SMSG names this client has a handler for, and which of those only skip.
 
     A skipped opcode is named in the dispatch table and read to the end without
-    being parsed — the deliberate answer for a feature this client does not
+    being parsed - the deliberate answer for a feature this client does not
     have. Counting one as handled put SMSG_UPDATE_LFG_LIST at the top of the
     "read these first" list, where it stayed: the raid browser is not
     implemented, so an event backed by it is exactly as absent as one with no
@@ -164,7 +164,7 @@ def handled_opcodes():
                        errors="ignore").read()
             names |= set(re.findall(r"Opcode::(SMSG_[A-Z0-9_]+)", src))
             # registerSkipHandler(Opcode::X), and the lambda spelling of the
-            # same thing — a body that reads to the end and does nothing else,
+            # same thing - a body that reads to the end and does nothing else,
             # whether written once or shared by a list of opcodes.
             skipped |= set(re.findall(
                 r"registerSkipHandler\(\s*Opcode::(SMSG_[A-Z0-9_]+)", src))
@@ -180,7 +180,7 @@ def handled_opcodes():
             # long lists: a loop whose body calls registerSkipHandler on each.
             # Missing it filed sixty-odd deliberately-dropped opcodes as
             # handled, which is what put the voice and calendar events on the
-            # "read these first" list — features with no parser at all.
+            # "read these first" list - features with no parser at all.
             for block in re.finditer(
                     r"for\s*\(\s*auto\s+(\w+)\s*:\s*\{([^}]*)\}\s*\)\s*\{?"
                     r"\s*registerSkipHandler\(\s*\1\s*\)", src):
@@ -202,12 +202,12 @@ def shares_tokens(event, body):
     reads as a run inside the other, and that missed the case this arm exists
     for: INSPECT_ACHIEVEMENT_READY is backed by SMSG_RESPOND_INSPECT_ACHIEVEMENTS,
     whose extra leading word breaks the run. The report said zero for months
-    with that pair — and INSPECT_TALENT_READY, ARENA_TEAM_UPDATE and two more —
+    with that pair - and INSPECT_TALENT_READY, ARENA_TEAM_UPDATE and two more -
     sitting inside it, handled and never announced.
 
     So: compare word sets instead. Every word of the event that says what it is
     about has to appear in the message, plurals folded, and at least two of them
-    must — one word in common is how CORPSE finds CALENDAR.
+    must - one word in common is how CORPSE finds CALENDAR.
     """
     def words(name):
         return [w.rstrip("S") for w in name.split("_") if w]
@@ -245,7 +245,7 @@ def main():
     print(f"registered by FrameXML : {len(where)}")
     print(f"never sent             : {len(gap)}")
     print()
-    print("never sent, but the source message IS handled — read these first:")
+    print("never sent, but the source message IS handled - read these first:")
     for event, opcode in backed:
         files = " ".join(sorted(where[event])[:2])
         print(f"  {event:<38} {opcode:<44} {files}")
@@ -254,8 +254,8 @@ def main():
     print("features this client does not have, and are correctly silent.")
 
     # Told apart rather than hidden. An opcode that is only skipped is a
-    # decision on record — the packet arrives, is read to the end and nothing
-    # is done with it — and an event behind one is as absent as an event behind
+    # decision on record - the packet arrives, is read to the end and nothing
+    # is done with it - and an event behind one is as absent as an event behind
     # no handler at all. Worth seeing, and worth not being told to read first.
     onlySkipped = []
     for event in gap:
@@ -267,7 +267,7 @@ def main():
                 break
     if onlySkipped:
         print()
-        print("Backed only by a skip handler — the packet is read and dropped, "
+        print("Backed only by a skip handler - the packet is read and dropped, "
               "which is\na decision rather than a gap:")
         for event, opcode in onlySkipped:
             print(f"  {event:<38} {opcode}")
@@ -276,7 +276,7 @@ def main():
     unnamed = sorted(theirs - ours)
     print()
     print(f"Chat family, read separately because neither half above can see it "
-          f"—\nthe client names {len(ours)} wire chat types, FrameXML names "
+          f"-\nthe client names {len(ours)} wire chat types, FrameXML names "
           f"{len(theirs)}:")
     if unnamed:
         print(f"  {len(unnamed)} FrameXML names that the client cannot, so each "

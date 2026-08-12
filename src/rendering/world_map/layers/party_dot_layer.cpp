@@ -1,4 +1,4 @@
-// party_dot_layer.cpp — Party member position dots on the world map.
+// party_dot_layer.cpp - Party member position dots on the world map.
 // Extracted from WorldMap::renderImGuiOverlay (Phase 8 of refactoring plan).
 #include "rendering/world_map/layers/party_dot_layer.hpp"
 #include "rendering/world_map/coordinate_projection.hpp"

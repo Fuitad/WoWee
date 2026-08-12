@@ -11,8 +11,8 @@ namespace wowee::game {
 /// Two messages carry this record and they carry it identically:
 /// SMSG_CRITERIA_UPDATE for a single criteria that just moved, and the second
 /// half of SMSG_ALL_ACHIEVEMENT_DATA for every criteria at login. AzerothCore
-/// writes both from the same six lines — AchievementMgr::SendCriteriaUpdate and
-/// BuildAllDataPacket — so they are read from one place here.
+/// writes both from the same six lines - AchievementMgr::SendCriteriaUpdate and
+/// BuildAllDataPacket - so they are read from one place here.
 struct CriteriaProgressRecord {
     uint32_t criteriaId = 0;
     /// How far along. This is the number the achievement panel shows.
@@ -38,7 +38,7 @@ struct CriteriaProgressRecord {
 /// before it can know there is a record here at all.
 ///
 /// **The counter is a packed guid, not a uint64.** It is written with
-/// appendPackGUID — a mask byte and then only the non-zero bytes — so a counter
+/// appendPackGUID - a mask byte and then only the non-zero bytes - so a counter
 /// of five is two bytes on the wire and not eight. Reading it as a fixed uint64
 /// swallows the player guid behind it and puts every following field out of
 /// place, and in the login message, where records repeat until a sentinel, the
@@ -49,7 +49,7 @@ struct CriteriaProgressRecord {
 /// nothing.
 ///
 /// Returns false if the packet ends mid-record, leaving `out` untouched from
-/// that point — a truncated record must not become an entry, since a criteria
+/// that point - a truncated record must not become an entry, since a criteria
 /// id read out of noise is indistinguishable from a real one.
 inline bool readCriteriaProgressTail(network::Packet& packet,
                                      CriteriaProgressRecord& out) {

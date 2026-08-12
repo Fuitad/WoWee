@@ -251,25 +251,25 @@ int handleValidate(int& i, int argc, char** argv) {
             }
             if (e.requiredClassMask == 0) {
                 errors.push_back(ctx +
-                    ": requiredClassMask is 0 — no class can use "
+                    ": requiredClassMask is 0 - no class can use "
                     "this slot");
             }
             if (e.minLevelToUnlock > 80) {
                 warnings.push_back(ctx +
                     ": minLevelToUnlock " +
                     std::to_string(e.minLevelToUnlock) +
-                    " > 80 — slot will never unlock at WotLK cap");
+                    " > 80 - slot will never unlock at WotLK cap");
             }
             if (e.displayOrder > 4) {
                 warnings.push_back(ctx +
                     ": displayOrder " +
                     std::to_string(e.displayOrder) +
-                    " > 4 — UI typically shows only 3-4 slots per kind");
+                    " > 4 - UI typically shows only 3-4 slots per kind");
             }
             if (!idsSeen.add(e.slotId)) errors.push_back(ctx + ": duplicate slotId");
         }
         // Cross-entry check: detect overlapping (kind,order)
-        // pairs within the same class — two slots claiming the
+        // pairs within the same class - two slots claiming the
         // same UI position would collide.
         for (size_t a = 0; a < c.entries.size(); ++a) {
             for (size_t b = a + 1; b < c.entries.size(); ++b) {
@@ -286,7 +286,7 @@ int handleValidate(int& i, int argc, char** argv) {
                     wowee::pipeline::WoweeGlyphSlot::slotKindName(ea.slotKind) +
                     " kind + displayOrder " +
                     std::to_string(ea.displayOrder) +
-                    " for overlapping classMask — UI position collision");
+                    " for overlapping classMask - UI position collision");
             }
         }
             return formatted("%zu slots, all slotIds unique, no UI overlaps", c.entries.size());

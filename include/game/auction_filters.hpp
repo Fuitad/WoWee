@@ -1,4 +1,4 @@
-// auction_filters.hpp — the auction house's category tree, in one place.
+// auction_filters.hpp - the auction house's category tree, in one place.
 //
 // Both interfaces ask the same question of the same server field, so they ask
 // it from the same table. This client's own auction window had these three
@@ -11,7 +11,7 @@
 //
 // Row zero of every list is "All", and that is load-bearing rather than
 // decorative. FrameXML's filter indices are 1-based and it passes nil when
-// nothing is picked, which arrives as zero — so an unselected filter lands on
+// nothing is picked, which arrives as zero - so an unselected filter lands on
 // row zero and reads as "any" without a special case. Before this, nil arrived
 // as zero and went to the wire as zero, which is a real item class: searching
 // the auction house by name alone returned consumables and nothing else.
@@ -29,7 +29,7 @@ namespace game {
 
 /// 0xFFFFFFFF is what CMSG_AUCTION_LIST_ITEMS means by "do not filter on this".
 /// AzerothCore's searcher compares `proto->Class != itemClass` for anything
-/// else, so any other value is a filter — including zero.
+/// else, so any other value is a filter - including zero.
 inline constexpr uint32_t kAuctionAny = 0xFFFFFFFFu;
 
 struct AuctionClassFilter { const char* label; uint32_t classId; };
@@ -90,8 +90,8 @@ inline const AuctionSubFilter* auctionSubsFor(uint32_t classId, int& count) {
 /// The three lengths an auction may run for, in minutes, which is what the
 /// wire field carries: AzerothCore multiplies it by sixty and then accepts
 /// only 1, 2 or 4 times MIN_AUCTION_TIME (12 hours), rejecting the request
-/// outright otherwise. FrameXML's duration dropdown does not deal in minutes —
-/// its values are 1, 2 and 3 for the same three lengths — so a posting made
+/// outright otherwise. FrameXML's duration dropdown does not deal in minutes -
+/// its values are 1, 2 and 3 for the same three lengths - so a posting made
 /// through it asked for one, two or three minutes and the server dropped it
 /// without a word.
 inline constexpr uint32_t kAuctionDurationMinutes[3] = {720, 1440, 2880};

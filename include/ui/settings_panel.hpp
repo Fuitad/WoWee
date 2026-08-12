@@ -52,8 +52,8 @@ public:
     int pendingBellVolume = 50;
     /// One scale over every sound that is not music or ambience.
     ///
-    /// WoW has a single Sound Effects slider and this client has seven — ui,
-    /// combat, spell, movement, footsteps, activity, mount — plus the two voice
+    /// WoW has a single Sound Effects slider and this client has seven - ui,
+    /// combat, spell, movement, footsteps, activity, mount - plus the two voice
     /// managers. This multiplies them all, so Blizzard's slider has something to
     /// be, and the individual ones stay as the balance between them.
     int pendingEffectsVolume = 100;
@@ -189,8 +189,8 @@ public:
     /// Read or write a setting by the key the schema names it with.
     ///
     /// Here rather than in the Lua bridge because this is where the fields are.
-    /// The bridge was growing a second copy of the mapping — a branch per
-    /// setting in a lambda in Application — which is the shape that ends with
+    /// The bridge was growing a second copy of the mapping - a branch per
+    /// setting in a lambda in Application - which is the shape that ends with
     /// two lists of settings that disagree about which ones exist.
     ///
     /// Values are strings, because a CVar is a string. Unknown keys answer
@@ -210,7 +210,7 @@ public:
     /// controls, with a heading wherever the section changes.
     ///
     /// The label, the range, the choices and the hover text all come from the
-    /// schema — the same rows the interface's options panels are built from —
+    /// schema - the same rows the interface's options panels are built from -
     /// so the two windows cannot end up describing one setting differently, and
     /// a setting added to the schema appears in both.
     void drawSchemaCategory(const char* category, const std::function<void()>& saveCallback);
@@ -218,7 +218,7 @@ public:
     /// Put every setting in `category` back to what the schema says it is when
     /// nobody has chosen. A null category restores all of them.
     ///
-    /// One list rather than one per restore button — there were three, and each
+    /// One list rather than one per restore button - there were three, and each
     /// of them was free to disagree with the value the client actually starts
     /// with, which is the same list a fourth time.
     void restoreSchemaDefaults(const char* category);
@@ -236,8 +236,8 @@ public:
     /// alongside every other setting rather than through a second bridge.
     void setChatSettings(ChatSettings* settings) { chatSettings_ = settings; }
 
-    /// The bag windows, so that the three settings that only they can apply —
-    /// separate windows, the keyring, the scale — take effect when they are
+    /// The bag windows, so that the three settings that only they can apply -
+    /// separate windows, the keyring, the scale - take effect when they are
     /// changed from the interface's options rather than only from the slider.
     void setInventoryScreen(InventoryScreen* screen) { inventoryScreen_ = screen; }
 
@@ -248,7 +248,7 @@ private:
     float appliedWindowUiScale_ = 1.0f;
     bool windowUiScaleEditing_ = false;
 
-    // Keybinding customization (private — only used in Controls tab)
+    // Keybinding customization (private - only used in Controls tab)
     int pendingRebindAction_ = -1;  // -1 = not rebinding, otherwise action index
     bool awaitingKeyPress_ = false;
 

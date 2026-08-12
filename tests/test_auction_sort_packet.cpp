@@ -1,6 +1,6 @@
 // The sort block on the end of CMSG_AUCTION_LIST_ITEMS.
 //
-// It used to be a hardcoded zero — no columns, no ordering — and the browse
+// It used to be a hardcoded zero - no columns, no ordering - and the browse
 // tab's column headers did nothing at all as a result. Not "sorted only the
 // page on hand": nothing. The browse tab does not reorder what it already has,
 // it re-asks with the ordering attached (AuctionFrame_OnClickSortColumn calls
@@ -16,7 +16,7 @@
 //     the first column that separates two rows, so its front entry is primary.
 //
 // So the client's list is reversed on the way out. Reversed twice, or not at
-// all, and a two-column sort silently orders by the tiebreaker — which looks
+// all, and a two-column sort silently orders by the tiebreaker - which looks
 // almost right, which is what makes it worth pinning.
 //
 // Checked against WorldSession::HandleAuctionListItems, which reads guid,
@@ -27,7 +27,7 @@
 // This covers the block, not its position in the packet. The builder's
 // translation unit reaches the splines and the crypto through a shared facade,
 // so linking it here would mean pulling in half the client to check six bytes
-// — and building the packet by hand instead would test a copy of the code
+// - and building the packet by hand instead would test a copy of the code
 // rather than the code. The block is the part with a convention to get wrong;
 // where it sits is one line above it in the builder and covered by the
 // layout sweeps.
@@ -91,7 +91,7 @@ TEST_CASE("each sort column becomes a mode and a direction", "[auction]") {
 
 TEST_CASE("the order given is the order sent", "[auction]") {
     // The caller hands this over primary first, because that is the end the
-    // server reads from. Nothing here re-orders it — the one reversal happens
+    // server reads from. Nothing here re-orders it - the one reversal happens
     // where the interface's least-significant-first list is translated, and
     // doing it again here would undo it.
     const Tail t = buildAndRead({{1, false}, {0, true}, {9, false}});
@@ -114,7 +114,7 @@ TEST_CASE("a direction is one byte per column, not one for the block", "[auction
 
 TEST_CASE("too many columns are dropped rather than sent", "[auction]") {
     // AUCTION_SORT_MAX is 11 and the server abandons the whole request when the
-    // count exceeds it — returning nothing at all, not an unsorted list. A
+    // count exceeds it - returning nothing at all, not an unsorted list. A
     // request that cannot be honoured is worse than one that is not sorted.
     std::vector<AuctionSortKey> many;
     for (int i = 0; i < 20; ++i) many.push_back({static_cast<uint8_t>(i % 10), false});

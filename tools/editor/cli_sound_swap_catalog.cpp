@@ -208,18 +208,18 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": name is empty");
         if (e.originalSoundId == 0)
             errors.push_back(ctx +
-                ": originalSoundId is 0 — no source "
+                ": originalSoundId is 0 - no source "
                 "sound to swap");
         if (e.replacementSoundId == 0)
             errors.push_back(ctx +
-                ": replacementSoundId is 0 — no "
+                ": replacementSoundId is 0 - no "
                 "replacement to play");
         if (e.conditionKind > 4) {
             errors.push_back(ctx + ": conditionKind " +
                 std::to_string(e.conditionKind) +
                 " out of range (0..4)");
         }
-        // Self-replacement is always a bug — replacing
+        // Self-replacement is always a bug - replacing
         // a sound with itself is a no-op that wastes
         // a dispatch slot.
         if (e.originalSoundId != 0 &&
@@ -227,7 +227,7 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx +
                 ": originalSoundId == replacementSoundId="
                 + std::to_string(e.originalSoundId) +
-                " — no-op self-replacement");
+                " - no-op self-replacement");
         }
         // priorityIndex == 0 means the rule is never
         // picked when any other rule for the same
@@ -235,7 +235,7 @@ int handleValidate(int& i, int argc, char** argv) {
         // (disable rule) but warn.
         if (e.priorityIndex == 0) {
             warnings.push_back(ctx +
-                ": priorityIndex=0 — rule never wins "
+                ": priorityIndex=0 - rule never wins "
                 "tie-break (effectively disabled); "
                 "remove or set priority > 0");
         }
@@ -250,7 +250,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 " (=" +
                 std::to_string(e.gainAdjustDb_x10 / 10) +
                 " dB) outside ±30 dB practical range "
-                "— mixer may clip or sound becomes "
+                "- mixer may clip or sound becomes "
                 "inaudible");
         }
         // Condition-value sanity: Always condition
@@ -265,7 +265,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 ": Always condition with non-zero "
                 "conditionValue=" +
                 std::to_string(e.conditionValue) +
-                " — value is ignored at runtime "
+                " - value is ignored at runtime "
                 "(dead data)");
         }
         if (e.conditionKind != S::Always &&
@@ -276,7 +276,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 + " requires non-zero conditionValue");
         }
         // (originalSoundId, conditionKind,
-        // conditionValue) MUST be unique — two rules
+        // conditionValue) MUST be unique - two rules
         // with the same trigger triple at different
         // priorities are still ordered, but two with
         // the SAME priority would tie.
@@ -292,7 +292,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 std::string(conditionKindName(e.conditionKind))
                 + ", conditionValue=" +
                 std::to_string(e.conditionValue) +
-                ") — runtime would have two rules "
+                ") - runtime would have two rules "
                 "for the same trigger");
         }
         // Same priority within same originalSoundId
@@ -308,7 +308,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 " has another rule at same "
                 "priorityIndex=" +
                 std::to_string(e.priorityIndex) +
-                " — tie-break order undefined when "
+                " - tie-break order undefined when "
                 "both rules' conditions match");
         }
         if (!idsSeen.insert(e.ruleId).second) {

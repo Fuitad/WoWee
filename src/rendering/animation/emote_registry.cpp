@@ -197,7 +197,7 @@ void EmoteRegistry::loadFromDbc() {
         }
         LOG_DEBUG("Emotes: loaded ", emoteIdToAnim.size(), " anim mappings from Emotes.dbc");
     } else {
-        LOG_WARNING("Emotes: Emotes.dbc failed to load — all emotes will use fallback animations");
+        LOG_WARNING("Emotes: Emotes.dbc failed to load - all emotes will use fallback animations");
     }
 
     emoteTable_.clear();
@@ -248,13 +248,13 @@ void EmoteRegistry::loadFromDbc() {
     // /sleep uses the stand-state system in WoW rather than Emotes.dbc AnimID.
     // /laugh and /flirt should resolve from Emotes.dbc (70 and 83), but these
     // serve as backup if Emotes.dbc failed to load.
-    // /fart and /stink have EmoteRef=0 in EmotesText.dbc — no Emotes.dbc link.
+    // /fart and /stink have EmoteRef=0 in EmotesText.dbc - no Emotes.dbc link.
     static const std::unordered_map<std::string, uint32_t> kAnimOverrides = {
-        {"sleep",   anim::EMOTE_SLEEP},     // 71 — stand-state emote
-        {"laugh",   anim::EMOTE_LAUGH},     // 70 — backup
-        {"flirt",   anim::EMOTE_SHY},       // 83 — DBC calls it SHY; it's the flirt animation
-        {"fart",    anim::EMOTE_TALK},       // 60 — generic gesture (WoW has no dedicated anim)
-        {"stink",   anim::EMOTE_TALK},       // 60 — generic gesture (WoW has no dedicated anim)
+        {"sleep",   anim::EMOTE_SLEEP},     // 71 - stand-state emote
+        {"laugh",   anim::EMOTE_LAUGH},     // 70 - backup
+        {"flirt",   anim::EMOTE_SHY},       // 83 - DBC calls it SHY; it's the flirt animation
+        {"fart",    anim::EMOTE_TALK},       // 60 - generic gesture (WoW has no dedicated anim)
+        {"stink",   anim::EMOTE_TALK},       // 60 - generic gesture (WoW has no dedicated anim)
     };
     for (auto& [cmd, info] : emoteTable_) {
         if (info.animId == 0) {

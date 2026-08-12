@@ -121,7 +121,7 @@ WoweeGameTip WoweeGameTipLoader::makeNewPlayer(
         c.entries.push_back(e);
     };
     add(100, "BindHearthstone",
-        "Visit an innkeeper to bind your Hearthstone — it's "
+        "Visit an innkeeper to bind your Hearthstone - it's "
         "the easiest way to return home.", 10);
     add(101, "TalentSpec",
         "At level 10 you can spend talent points. Visit your "
@@ -157,7 +157,7 @@ WoweeGameTip WoweeGameTipLoader::makeAdvanced(
         c.entries.push_back(e);
     };
     add(200, "RaidMechanic",
-        "Raid bosses telegraph their abilities — watch for "
+        "Raid bosses telegraph their abilities - watch for "
         "ground markers and mechanic announcements.",
         WoweeGameTip::Hint, WoweeGameTip::kAudiencePvE, 0, 3);
     add(201, "PvPArena",

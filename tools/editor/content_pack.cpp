@@ -28,7 +28,7 @@ bool ContentPacker::packZone(const std::string& outputDir, const std::string& ma
     }
 
     // Collect all files. Normalize path separators to '/' so packs created
-    // on Windows are readable on Linux/macOS and vice versa — the unpack
+    // on Windows are readable on Linux/macOS and vice versa - the unpack
     // path-traversal check rejects '\' as an absolute prefix, so a Windows
     // path leaks would silently fail to extract.
     //
@@ -113,7 +113,7 @@ bool ContentPacker::packZone(const std::string& outputDir, const std::string& ma
         std::streamsize sz = fin.tellg();
         // Cap at the unpack-side per-file limit (256MB) so we never write
         // a pack the loader will reject as a whole. Files that big are
-        // almost certainly an authoring mistake — log + skip the body
+        // almost certainly an authoring mistake - log + skip the body
         // instead of producing an unpackable archive.
         constexpr uint64_t kMaxFileBytes = 256ull * 1024 * 1024;
         if (sz < 0 || static_cast<uint64_t>(sz) > kMaxFileBytes) {
@@ -174,7 +174,7 @@ bool ContentPacker::unpackZone(const std::string& wcpPath, const std::string& de
     // The zone name becomes a directory name. A malicious WCP could carry a
     // name with traversal sequences ("../etc") or an absolute path
     // ("/etc/passwd") that would write outside destDir. Strip to a safe
-    // identifier — same alphabet as the server module slug.
+    // identifier - same alphabet as the server module slug.
     std::string safeZoneName;
     for (char c : zoneName) {
         if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
@@ -196,7 +196,7 @@ bool ContentPacker::unpackZone(const std::string& wcpPath, const std::string& de
     for (uint32_t i = 0; i < fileCount; i++) {
         uint16_t pathLen;
         in.read(reinterpret_cast<char*>(&pathLen), 2);
-        // Cap path length — uint16 can hold up to 64KB but real zone paths
+        // Cap path length - uint16 can hold up to 64KB but real zone paths
         // are well under 256 chars. Anything longer is corrupt or malicious.
         if (pathLen > 1024) {
             LOG_ERROR("WCP rejected file ", i, " path length ", pathLen, " too large");
@@ -231,7 +231,7 @@ bool ContentPacker::unpackZone(const std::string& wcpPath, const std::string& de
 
         std::vector<char> data(dataSize);
         in.read(data.data(), dataSize);
-        // Detect short reads — indicates the WCP was truncated mid-file.
+        // Detect short reads - indicates the WCP was truncated mid-file.
         // gcount() reflects the actual bytes read; if it's less than dataSize
         // we'd write a partial file silently and the consumer would think
         // the zone is intact.
@@ -267,7 +267,7 @@ bool ContentPacker::readInfo(const std::string& wcpPath, ContentPackInfo& info) 
     uint32_t fileCount, infoSize;
     in.read(reinterpret_cast<char*>(&fileCount), 4);
     in.read(reinterpret_cast<char*>(&infoSize), 4);
-    // Same sanity bounds as unpack — refuse to allocate or read absurd
+    // Same sanity bounds as unpack - refuse to allocate or read absurd
     // info JSON on a malicious header.
     if (fileCount > 1'000'000 || infoSize > 16 * 1024 * 1024) {
         LOG_ERROR("WCP readInfo header rejected (fileCount=", fileCount,
@@ -288,7 +288,7 @@ bool ContentPacker::readInfo(const std::string& wcpPath, ContentPackInfo& info) 
         info.mapId = j.value("mapId", 9000u);
         info.files.clear();
         if (j.contains("files") && j["files"].is_array()) {
-            // Same cap as the header fileCount — info JSON could declare
+            // Same cap as the header fileCount - info JSON could declare
             // more entries than the header, so this defends both readInfo
             // callers and the listing CLI from runaway memory use.
             constexpr size_t kMaxFiles = 1'000'000;

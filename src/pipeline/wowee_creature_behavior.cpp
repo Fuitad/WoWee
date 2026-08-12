@@ -72,7 +72,7 @@ WoweeCreatureBehavior WoweeCreatureBehaviorLoader::load(
             !readPOD(is, e.mainAttackSpellId)) { return false; }
         uint32_t specCount = 0;
         if (!readPOD(is, specCount)) { return false; }
-        // Sanity cap — real bosses cap at ~6
+        // Sanity cap - real bosses cap at ~6
         // abilities; format cap 32.
         if (specCount > 32) { return false; }
         e.specialAbilities.resize(specCount);

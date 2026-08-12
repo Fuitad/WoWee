@@ -327,7 +327,7 @@ int handleValidate(int& i, int argc, char** argv) {
     }
     std::set<uint32_t> idsSeen;
     // Per-(originalKey, languageCode, namespace_) triple
-    // uniqueness — two entries with all three matching
+    // uniqueness - two entries with all three matching
     // would tie at runtime when the locale-aware text
     // layer looks up an override.
     std::set<std::string> tripleSeen;
@@ -359,12 +359,12 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         if (e.originalKey.empty()) {
             errors.push_back(ctx +
-                ": originalKey is empty — locale-aware "
+                ": originalKey is empty - locale-aware "
                 "text layer has nothing to look up");
         }
         if (e.localizedText.empty()) {
             warnings.push_back(ctx +
-                ": localizedText is empty — override "
+                ": localizedText is empty - override "
                 "would render blank, possibly worse than "
                 "falling through to default");
         }
@@ -381,7 +381,7 @@ int handleValidate(int& i, int argc, char** argv) {
                     ", namespace=" +
                     std::string(namespaceName(e.namespace_)) +
                     ") triple already bound by another "
-                    "entry — locale lookup would tie "
+                    "entry - locale lookup would tie "
                     "non-deterministically");
             }
         }

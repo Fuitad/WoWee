@@ -4,8 +4,8 @@
 
 // The eight standings a reputation can be at, and where each begins and ends.
 //
-// These thresholds were written out twice — once for the panel this client
-// draws and once for the original interface's GetFactionInfo — and the two
+// These thresholds were written out twice - once for the panel this client
+// draws and once for the original interface's GetFactionInfo - and the two
 // disagreeing would put the same faction at different standings depending on
 // which window was open. Numbers like these do not fail when they drift; they
 // render something plausible and wrong.

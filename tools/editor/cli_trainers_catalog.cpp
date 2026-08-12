@@ -370,7 +370,7 @@ int handleValidate(int& i, int argc, char** argv) {
                     errors.push_back(ictx + ": itemId is 0");
                 }
                 // Finite stock with restockSec=0 means "single fill"
-                // — usually intentional but worth surfacing.
+                // - usually intentional but worth surfacing.
                 if (it.stockCount != wowee::pipeline::WoweeTrainer::kUnlimitedStock &&
                     it.restockSec == 0 && it.stockCount > 0) {
                     warnings.push_back(ictx +

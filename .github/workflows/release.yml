@@ -77,7 +77,7 @@ jobs:
         # Binary
         cp build/bin/wowee "${STAGING}/"
 
-        # Asset extraction tool (if built — requires StormLib)
+        # Asset extraction tool (if built - requires StormLib)
         if [ -f build/bin/asset_extract ]; then
           cp build/bin/asset_extract "${STAGING}/"
         fi
@@ -389,7 +389,7 @@ jobs:
       shell: msys2 {0}
       run: |
         git clone --depth 1 https://github.com/ladislav-zezula/StormLib.git /tmp/StormLib
-        # Disable x86 inline asm in bundled libtomcrypt (bswapl/movl) —
+        # Disable x86 inline asm in bundled libtomcrypt (bswapl/movl) -
         # __MINGW32__ is defined on CLANGARM64 which incorrectly enables x86 asm
         cmake -S /tmp/StormLib -B /tmp/StormLib/build -G Ninja \
           -DCMAKE_BUILD_TYPE=Release \
@@ -435,7 +435,7 @@ jobs:
         cp build/bin/wowee.exe "${STAGING}/"
         cp build/bin/*.dll "${STAGING}/" 2>/dev/null || true
 
-        # Asset extraction tool (if built — requires StormLib)
+        # Asset extraction tool (if built - requires StormLib)
         if [ -f build/bin/asset_extract.exe ]; then
           cp build/bin/asset_extract.exe "${STAGING}/"
         fi

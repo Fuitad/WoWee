@@ -131,7 +131,7 @@ inline const char* errorString(int err) {
 #endif
 }
 
-// Portable send — Windows recv/send take char*, not void*.
+// Portable send - Windows recv/send take char*, not void*.
 inline ssize_t portableSend(socket_t s, const uint8_t* data, size_t len) {
     return ::send(s, reinterpret_cast<const char*>(data), static_cast<int>(len), 0);
 }

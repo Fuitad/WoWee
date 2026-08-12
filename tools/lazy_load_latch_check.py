@@ -16,12 +16,12 @@ glyphs, repair costs, achievements, titles, spell visuals.
 
 It is timing-dependent, so it presents as a different missing thing on each run
 and never reproduces on demand. It surfaced here as a probe printing nothing at
-all in a log where the client was plainly in the world — the loader had been
+all in a log where the client was plainly in the world - the loader had been
 marked done without ever opening the file.
 
 The fix is always the same: latch *after* the precondition, so "the assets are
 not ready yet" is not recorded as "this file has been read". Latching after a
-real but failed read is fine and is not reported — a missing file should not be
+real but failed read is fine and is not reported - a missing file should not be
 retried on every call.
 
 This looks for a `*Loaded*`/`*Init*` flag set to true with a bail-out on the
@@ -38,7 +38,7 @@ than on the assets being up:
     *loaded = true;                       // am may exist but not be initialised
 
 loadDBC answers nullptr before initialisation, so those latch on a read that
-returned nothing — spell icons, item icons, spell cast times and random stat
+returned nothing - spell icons, item icons, spell cast times and random stat
 bonuses, all empty for the session. A leading `*` and a `!am` without
 `isInitialized` were enough to hide four of them from the check written to find
 exactly this.
@@ -48,7 +48,7 @@ import sys
 import pathlib
 
 # Anchored to this file, not to the working directory. sweep_guard runs from
-# the build tree under ctest, where a relative "src" does not exist — and the
+# the build tree under ctest, where a relative "src" does not exist - and the
 # tool exited with a message instead of a count, which the guard could only
 # report as "the report's shape changed".
 root = pathlib.Path(sys.argv[1]) if len(sys.argv) > 1 \
@@ -61,8 +61,8 @@ LATCH = re.compile(
 # A guard on the pointer alone. Having an asset manager is not having assets:
 # loadDBC answers nullptr until it is initialised.
 # `am` exactly, or a name with "asset" in it. It used to be \w*[Aa]m\w*, which
-# matches any identifier containing those two letters — languageNamesLoaded_,
-# frameCount, cameraReady — and reported a loader whose guard was three lines
+# matches any identifier containing those two letters - languageNamesLoaded_,
+# frameCount, cameraReady - and reported a loader whose guard was three lines
 # above it and perfectly correct. A pattern loose enough to match "Names" will
 # find something in every file eventually.
 NULL_ONLY = re.compile(r'if\s*\(\s*!\s*(am|\w*[Aa]sset\w*)\b(?![^)]*isInitialized)')
@@ -84,7 +84,7 @@ for p in sorted(root.rglob("*.cpp")):
         # opening guard of the *next* one: CharacterPreview::loadCreature
         # latches on its final line and loadPreviewM2 begins four lines later
         # with `if (!assetManager_) return false;`, which reported a function
-        # that does check — at its top, before doing anything — as one that
+        # that does check - at its top, before doing anything - as one that
         # does not.
         window = []
         for w in lines[i + 1:i + 8]:

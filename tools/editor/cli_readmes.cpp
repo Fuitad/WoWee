@@ -208,7 +208,7 @@ int handleProjectReadme(int& i, int argc, char** argv) {
     // Auto-generate PROJECT.md for a project. Walks every zone,
     // classifies each (BOOTSTRAPPED/PARTIAL/EMPTY), and writes a
     // Markdown table with per-zone counts and a project-level
-    // rollup. Pairs with --gen-zone-readme — running both gives
+    // rollup. Pairs with --gen-zone-readme - running both gives
     // self-documenting content at every level.
     std::string projectDir = argv[++i];
     std::string outPath;

@@ -295,7 +295,7 @@ TEST_CASE("PathEntry spline evaluates position at midpoint", "[transport_path_re
     math::CatmullRomSpline spline(std::move(keys), false);
     game::PathEntry entry(std::move(spline), 1, false, true, false);
 
-    // At t=1000ms, should be near (100, 0, 0) — exactly at key 1
+    // At t=1000ms, should be near (100, 0, 0) - exactly at key 1
     glm::vec3 pos = entry.spline.evaluatePosition(1000);
     requireVec3Near(pos, 100.0f, 0.0f, 0.0f);
 }
@@ -352,7 +352,7 @@ TEST_CASE("PathEntry findNearestKey finds closest waypoint", "[transport_path_re
 // ── buildTaxiSegmentSpline: wrap topology per route shape ──────
 
 // Sample a spline densely and return the longest interval (ms) over which its position
-// does not move — used to prove a ferry never parks dead (no stationary offshore hold).
+// does not move - used to prove a ferry never parks dead (no stationary offshore hold).
 static uint32_t longestStationaryMs(const math::CatmullRomSpline& s) {
     const uint32_t dur = s.durationMs();
     const uint32_t step = std::max<uint32_t>(1u, dur / 400u);
@@ -445,7 +445,7 @@ TEST_CASE("buildTaxiSegmentSpline waits at the pier for the rest of the route",
     // A cross-continent route is split into a slice per map, each animated on its
     // own. Sized from its own nodes alone, a slice's cycle is far shorter than the
     // server's, so the boat laps its shore several times before the transfer comes
-    // due — the Kraken doing circuits instead of leaving Borean Tundra.
+    // due - the Kraken doing circuits instead of leaving Borean Tundra.
     //
     // The surplus is spent at the pier: visibly stopped, still boardable, and
     // never adrift offshore.

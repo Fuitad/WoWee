@@ -1,12 +1,12 @@
 #pragma once
 
 /**
- * item_text.hpp — the words an item's and a spell's numbers are displayed with.
+ * item_text.hpp - the words an item's and a spell's numbers are displayed with.
  *
  * Kept apart from world_packets.hpp so a tooltip can ask for a stat's name
  * without pulling in every packet structure in the game. Four things render item
- * tooltips — this client's bag, the chat item link, the one built for FrameXML,
- * and a shim written in Lua — and each of them had its own copy of these tables
+ * tooltips - this client's bag, the chat item link, the one built for FrameXML,
+ * and a shim written in Lua - and each of them had its own copy of these tables
  * until the copies were found to disagree.
  */
 
@@ -18,11 +18,11 @@
 namespace wowee {
 namespace game {
 
-/// The word an item's spell line starts with — "Use", "Equip", "Chance on Hit".
+/// The word an item's spell line starts with - "Use", "Equip", "Chance on Hit".
 ///
 /// Three tooltips render this and their tables disagreed. The chat item link
 /// called trigger 5 "Teaches" where the other two call it "Use", and WoW writes
-/// a recipe as "Use: Teaches you how to make..." — the word is Use and the
+/// a recipe as "Use: Teaches you how to make..." - the word is Use and the
 /// teaching is in the spell's own description. The chat link also had no entry
 /// for triggers 4 and 6 and skipped the line entirely, so an item whose spell
 /// fires on use with no delay showed no spell at all there.
@@ -36,7 +36,7 @@ inline const char* itemSpellTriggerText(uint32_t spellTrigger) {
         case 2: return "Chance on Hit";  // proc on melee hit
         case 4: return "Use";            // soulstone, still a use
         case 5: return "Use";            // on use, no delay
-        case 6: return "Use";            // learn spell — recipe or pattern
+        case 6: return "Use";            // learn spell - recipe or pattern
         default: return nullptr;
     }
 }
@@ -45,7 +45,7 @@ inline const char* itemSpellTriggerText(uint32_t spellTrigger) {
 ///
 /// Four places wrote this out: the combat log twice, the spellbook, and the
 /// tooltip built for FrameXML. The spellbook's copy had Focus at 4, which is
-/// Happiness — so a spell costing Focus fell through to "Mana" and one costing
+/// Happiness - so a spell costing Focus fell through to "Mana" and one costing
 /// Happiness said "Focus".
 ///
 /// 5 is the death knight's runes, which are drawn as runes rather than written
@@ -66,14 +66,14 @@ inline const char* powerTypeName(uint32_t powerType) {
 
 /// What an item's bindType says, or null for one that binds to nobody.
 ///
-/// Four places render this line — this client's own bag tooltip, the chat item
+/// Four places render this line - this client's own bag tooltip, the chat item
 /// link, the tooltip built for FrameXML, and a fourth copy written in Lua inside
 /// the tooltip shim. The three in C++ share this now. They did not all agree:
 /// two knew that 4 is a quest item and one did not, so a quest item's tooltip
 /// said nothing about being one, depending on which tooltip you were looking at.
 ///
-/// The colour stays with each renderer. They genuinely differ — one draws this
-/// line gold and one draws it dimmed — and that is a decision about a tooltip,
+/// The colour stays with each renderer. They genuinely differ - one draws this
+/// line gold and one draws it dimmed - and that is a decision about a tooltip,
 /// not about what bindType 4 means.
 inline const char* itemBindText(uint32_t bindType) {
     switch (bindType) {
@@ -88,8 +88,8 @@ inline const char* itemBindText(uint32_t bindType) {
 /// The name of an ItemQueryResponseData::ExtraStat type, or null for one there
 /// is nothing to say about.
 ///
-/// Shared because two tooltips read it — this client's own bag tooltip and the
-/// one FrameXML asks for through GameTooltip:SetBagItem — and a second copy of
+/// Shared because two tooltips read it - this client's own bag tooltip and the
+/// one FrameXML asks for through GameTooltip:SetBagItem - and a second copy of
 /// this table would drift the first time a rating was added to one of them.
 /// Several ids map to the same words on purpose: 16, 17, 18 and 31 are melee,
 /// ranged, spell and generic hit, and WoW writes all four as "Hit Rating".
@@ -124,8 +124,8 @@ inline const char* itemStatName(uint32_t statType) {
 /// An item's quality colour as an eight-digit hex string, alpha first.
 ///
 /// The same eight colours the interface uses, and the form a link's |c escape
-/// wants. Two tables carried these — one with the alpha prefix and one without
-/// — and they had already disagreed once: heirloom was 00ccff in the second,
+/// wants. Two tables carried these - one with the alpha prefix and one without
+/// - and they had already disagreed once: heirloom was 00ccff in the second,
 /// which is a later expansion's token colour and not a quality 3.3.5 has, so
 /// an heirloom link came out cyan.
 inline const char* itemQualityColorHex(uint32_t quality) {
@@ -137,7 +137,7 @@ inline const char* itemQualityColorHex(uint32_t quality) {
         "ffa335ee",  // epic
         "ffff8000",  // legendary
         "ffe6cc80",  // artifact
-        "ffe6cc80",  // heirloom — the same gold as an artifact
+        "ffe6cc80",  // heirloom - the same gold as an artifact
     };
     return quality < 8 ? kByQuality[quality] : "ffffffff";
 }
@@ -145,7 +145,7 @@ inline const char* itemQualityColorHex(uint32_t quality) {
 /// A chat hyperlink for an item, as 3.3.5a writes one.
 ///
 /// Nine fields after "item:": the id, then enchant, four gems, suffix, unique
-/// id and level. Six places built this by hand and they did not agree — the
+/// id and level. Six places built this by hand and they did not agree - the
 /// three on the Lua side wrote eight, one short, so a link handed to an addon
 /// by GetContainerItemLink had a different shape from one produced by
 /// shift-clicking a quest reward.
@@ -164,7 +164,7 @@ inline std::string itemChatLink(uint32_t itemId, uint32_t quality, const std::st
 ///
 /// The colour is not a choice: retail writes a spell link in ff71d5ff, and a
 /// player who links a spell expects the same blue every other client shows.
-/// Four places built one here and produced three different colours — the
+/// Four places built one here and produced three different colours - the
 /// spellbook's context menu gold, the chat-link catalog white, and only the
 /// Lua API the blue. Linking the same spell two ways gave two colours.
 inline std::string spellChatLink(uint32_t spellId, const std::string& name) {
@@ -175,7 +175,7 @@ inline std::string spellChatLink(uint32_t spellId, const std::string& name) {
 /// An amount of copper split into the three coins.
 ///
 /// Twenty-one places did this division themselves, and the constants for it
-/// have been in protocol_constants.hpp all along — most wrote 10000 and 100 as
+/// have been in protocol_constants.hpp all along - most wrote 10000 and 100 as
 /// literals instead.
 struct CoinAmount {
     uint32_t gold = 0;
@@ -192,12 +192,12 @@ inline CoinAmount splitCopper(uint64_t amount) {
 }
 
 /// An amount of money as a line of text: "5g 20s 3c", with the parts that are
-/// zero left out — except when everything is, which reads "0c" rather than
+/// zero left out - except when everything is, which reads "0c" rather than
 /// nothing at all.
 ///
 /// Written out twice as a file-scope function, in the game handler and the
 /// quest handler, and reached from a third file by forward-declaring it across
-/// translation units — which linked only because neither copy was in an
+/// translation units - which linked only because neither copy was in an
 /// anonymous namespace, and would have become two definitions the moment one
 /// was.
 inline std::string formatCopperAmount(uint32_t amount) {

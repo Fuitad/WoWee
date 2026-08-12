@@ -122,19 +122,19 @@ WoweeBuffBook WoweeBuffBookLoader::makeMage(
         e.iconColorRGBA = packRgba(140, 200, 255);   // mage blue
         c.entries.push_back(e);
     };
-    // Arcane Intellect rank chain — spell IDs from
+    // Arcane Intellect rank chain - spell IDs from
     // Spell.dbc 3.3.5a; intellect bonus per rank.
     add(1, "ArcaneIntellect_R1", 1459, 1,  3, 0, 2,
-        "Arcane Intellect Rank 1 — +3 Intellect, "
+        "Arcane Intellect Rank 1 - +3 Intellect, "
         "30 min party-wide. Trained at level 8.");
     add(2, "ArcaneIntellect_R2", 1460, 2,  7, 1, 3,
-        "Arcane Intellect Rank 2 — +7 Intellect. "
+        "Arcane Intellect Rank 2 - +7 Intellect. "
         "Trained at level 22.");
     add(3, "ArcaneIntellect_R3", 1461, 3, 15, 2, 4,
-        "Arcane Intellect Rank 3 — +15 Intellect. "
+        "Arcane Intellect Rank 3 - +15 Intellect. "
         "Trained at level 36.");
     add(4, "ArcaneIntellect_R4", 10157, 4, 25, 3, 0,
-        "Arcane Intellect Rank 4 — +25 Intellect. "
+        "Arcane Intellect Rank 4 - +25 Intellect. "
         "Trained at level 50. (Max rank in this preset; "
         "real WoTLK has higher ranks via Brilliance "
         "variant.)");
@@ -168,19 +168,19 @@ WoweeBuffBook WoweeBuffBookLoader::makeDruid(
         c.entries.push_back(e);
     };
     add(100, "MarkOfTheWild_R1", 1126,  1,  3, 0, 101,
-        "Mark of the Wild Rank 1 — +3 to all stats. "
+        "Mark of the Wild Rank 1 - +3 to all stats. "
         "Trained at level 1.");
     add(101, "MarkOfTheWild_R2", 5232,  2,  6, 100, 102,
-        "Mark of the Wild Rank 2 — +6 to all stats. "
+        "Mark of the Wild Rank 2 - +6 to all stats. "
         "Trained at level 10.");
     add(102, "MarkOfTheWild_R3", 6756,  3, 10, 101, 103,
-        "Mark of the Wild Rank 3 — +10 to all stats. "
+        "Mark of the Wild Rank 3 - +10 to all stats. "
         "Trained at level 20.");
     add(103, "MarkOfTheWild_R4", 5234,  4, 14, 102, 104,
-        "Mark of the Wild Rank 4 — +14 to all stats. "
+        "Mark of the Wild Rank 4 - +14 to all stats. "
         "Trained at level 30.");
     add(104, "MarkOfTheWild_R5", 8907,  5, 18, 103, 0,
-        "Mark of the Wild Rank 5 — +18 to all stats. "
+        "Mark of the Wild Rank 5 - +18 to all stats. "
         "Trained at level 40. (Top rank in this preset.)");
     return c;
 }
@@ -206,7 +206,7 @@ WoweeBuffBook WoweeBuffBookLoader::makeRaidMax(
         e.maxStackCount = 1;
         e.statBonusAmount = statAmount;
         e.duration = duration;
-        // No rank chain — these are max-rank standalone
+        // No rank chain - these are max-rank standalone
         // entries pulled from each class's top buff.
         e.previousRankId = 0;
         e.nextRankId = 0;
@@ -217,37 +217,37 @@ WoweeBuffBook WoweeBuffBookLoader::makeRaidMax(
         B::TargetSelf | B::TargetRaid, B::AllStats,
         7, 35, 1800,
         packRgba(255, 125, 10),
-        "Druid raid buff — Mark of the Wild rank 7, "
+        "Druid raid buff - Mark of the Wild rank 7, "
         "+35 to all stats, 30min, raid-wide.");
     add(201, "PowerWordFortitude_Max", 25389, 16,
         B::TargetSelf | B::TargetRaid, B::Stamina,
         8, 79, 1800,
         packRgba(255, 255, 255),
-        "Priest raid buff — Prayer of Fortitude rank 4, "
+        "Priest raid buff - Prayer of Fortitude rank 4, "
         "+79 Stamina, 60min, raid-wide.");
     add(202, "ArcaneIntellect_Max", 27126, 128,
         B::TargetSelf | B::TargetRaid, B::Intellect,
         6, 60, 1800,
         packRgba(140, 200, 255),
-        "Mage raid buff — Arcane Brilliance rank 2, "
+        "Mage raid buff - Arcane Brilliance rank 2, "
         "+60 Intellect, 60min, raid-wide.");
     add(203, "BlessingOfKings", 25898, 2,
         B::TargetSelf | B::TargetRaid, B::AllStats,
         1, 10, 1800,
         packRgba(220, 220, 100),
-        "Paladin raid buff — Greater Blessing of Kings, "
+        "Paladin raid buff - Greater Blessing of Kings, "
         "+10% to all stats, 60min, raid-wide.");
     add(204, "BattleShout_Max", 47436, 1,
         B::TargetSelf | B::TargetParty, B::AttackPower,
         9, 553, 120,
         packRgba(220, 60, 60),
-        "Warrior raid buff — Battle Shout rank 9, "
+        "Warrior raid buff - Battle Shout rank 9, "
         "+553 Attack Power, 2min, party-wide.");
     add(205, "TrueshotAura_Max", 19506, 4,
         B::TargetSelf | B::TargetRaid, B::Other,
         3, 0, 0,
         packRgba(170, 210, 100),
-        "Hunter raid buff — Trueshot Aura, +10% AP "
+        "Hunter raid buff - Trueshot Aura, +10% AP "
         "for all party/raid (until cancel). statKind="
         "Other because it's a percentage modifier, not a "
         "flat stat.");

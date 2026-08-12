@@ -142,7 +142,7 @@ int countPlaceholders(const std::string& tpl) {
             ++count;
             ++i;  // skip the format char
         } else if (c == '%') {
-            ++i;  // literal %% — don't count
+            ++i;  // literal %% - don't count
         }
     }
     return count;
@@ -223,7 +223,7 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": name is empty");
         if (e.linkTemplate.empty()) {
             errors.push_back(ctx +
-                ": linkTemplate is empty — link "
+                ": linkTemplate is empty - link "
                 "composer would have nothing to "
                 "format");
         }
@@ -235,7 +235,7 @@ int handleValidate(int& i, int argc, char** argv) {
         // CRITICAL: linkTemplate MUST contain at
         // least one %d or %s placeholder. A template
         // with no placeholders never substitutes link
-        // parameters — the chat composer would emit
+        // parameters - the chat composer would emit
         // a static string regardless of which item /
         // quest / spell was clicked.
         int placeholderCount = countPlaceholders(e.linkTemplate);
@@ -243,11 +243,11 @@ int handleValidate(int& i, int argc, char** argv) {
             placeholderCount == 0) {
             errors.push_back(ctx +
                 ": linkTemplate has no %%d / %%s "
-                "placeholders — composer would emit "
+                "placeholders - composer would emit "
                 "a static string regardless of input "
                 "(every link would render identically)");
         }
-        // Warn on excessive placeholders (> 12) —
+        // Warn on excessive placeholders (> 12) -
         // the achievement template legitimately has
         // 9 (achievementId + chardate + 5 progress
         // criteria + completion state + name) but
@@ -256,15 +256,15 @@ int handleValidate(int& i, int argc, char** argv) {
             warnings.push_back(ctx +
                 ": linkTemplate has " +
                 std::to_string(placeholderCount) +
-                " placeholders — > 12 is unusual; "
+                " placeholders - > 12 is unusual; "
                 "verify all are intentional");
         }
-        // colorRGBA = 0 means fully transparent —
+        // colorRGBA = 0 means fully transparent -
         // link text would be invisible. Warn.
         if (e.colorRGBA == 0) {
             warnings.push_back(ctx +
                 ": colorRGBA is 0 (fully transparent)"
-                " — link text would be invisible; "
+                " - link text would be invisible; "
                 "set a quality color");
         }
         // requireServerLookup=true with no template
@@ -276,7 +276,7 @@ int handleValidate(int& i, int argc, char** argv) {
             e.tooltipTemplate.empty()) {
             warnings.push_back(ctx +
                 ": requireServerLookup=true but "
-                "tooltipTemplate is empty — server "
+                "tooltipTemplate is empty - server "
                 "data would not be displayed anywhere "
                 "(verify intentional)");
         }

@@ -51,14 +51,14 @@ std::string replaceGenderPlaceholders(const std::string& text,
                                        game::GameHandler& gameHandler);
 
 // getEntityDisplayName was here, as a sixth copy of game::entityDisplayName
-// under a different name. Callers use that one now — it is beside the classes
+// under a different name. Callers use that one now - it is beside the classes
 // whose names it is asking about.
 
 /// The PortBot destination a whispered word means, or "" for none.
 ///
 /// The chat panel's whisper path and the /whisper command each had an
 /// identical copy of this, so the same whisper behaved differently depending
-/// on which of the two a player happened to type it through — and each carried
+/// on which of the two a player happened to type it through - and each carried
 /// its own help line listing the aliases, which is a third copy of the same
 /// vocabulary and the one that goes stale first.
 std::string portBotCommandFor(const std::string& rawInput);

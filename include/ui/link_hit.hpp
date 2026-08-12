@@ -5,7 +5,7 @@
 // Two passes meet over a hyperlink and they do not agree about y. The draw
 // pass works in screen pixels with y growing down, because that is what ImGui
 // hands it. The input pass works in interface units with y growing up, because
-// that is what the widget tree holds and what hitTest compares against — its
+// that is what the widget tree holds and what hitTest compares against - its
 // own comment says so: "top is the upper edge, and y grows upward here".
 //
 // A link rect filed in the first space and tested in the second misses by the
@@ -35,7 +35,7 @@ inline void mouseToTreeSpace(float& x, float& y, float screenH, float scale) {
 
 /// A run of link text drawn at (x, y) in screen pixels, as a rect in tree
 /// space. `y` is the top of the line, as ImGui draws it, and `lineH` its
-/// height — so the *bottom* in tree space comes off y + lineH.
+/// height - so the *bottom* in tree space comes off y + lineH.
 inline LinkRect linkRectFromDraw(uint32_t owner, const std::string& link,
                                  const std::string& text,
                                  float x, float y, float runW, float lineH,
@@ -59,7 +59,7 @@ inline LinkRect linkRectFromDraw(uint32_t owner, const std::string& link,
 /// string because that is what drew it. So the click has to walk up.
 ///
 /// Takes a predicate rather than asking Lua, so the walk can be tested on its
-/// own — the walk is the part with a loop in it, and the part that stops at
+/// own - the walk is the part with a loop in it, and the part that stops at
 /// the root, refuses a cycle, and returns zero when nothing along the chain
 /// wants the click.
 ///
@@ -82,7 +82,7 @@ uint32_t findScriptOwner(const Tree& tree, uint32_t start, HasScript hasScript) 
 ///
 /// What decides whether a link under the cursor is actually the thing being
 /// clicked. A link rect is filed wherever its text was drawn, and nothing about
-/// the rect says whether a window has since been opened over the top of it — so
+/// the rect says whether a window has since been opened over the top of it - so
 /// a link answers a click only when the frame the mouse is really on belongs to
 /// the same chain.
 template <typename Tree>

@@ -4,8 +4,8 @@
 //
 // The alternative was to build widgets from C++ directly, walking the XML and
 // calling into the tree. That would have meant a second implementation of
-// everything CreateFrame already does — parenting, naming, templates, script
-// binding — kept in step with the first by hand. Emitting Lua instead means XML
+// everything CreateFrame already does - parenting, naming, templates, script
+// binding - kept in step with the first by hand. Emitting Lua instead means XML
 // frames and hand-written frames travel the same path, so anything fixed for
 // one is fixed for both, and a template defined in XML is usable from a script
 // without translation.

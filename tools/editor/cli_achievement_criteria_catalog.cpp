@@ -269,14 +269,14 @@ int handleValidate(int& i, int argc, char** argv) {
                 errors.push_back(ctx + ": name is empty");
             if (e.achievementId == 0)
                 errors.push_back(ctx +
-                    ": achievementId is 0 — missing WACH cross-ref");
+                    ": achievementId is 0 - missing WACH cross-ref");
             if (e.criteriaType > wowee::pipeline::WoweeAchievementCriteria::Misc) {
                 errors.push_back(ctx + ": criteriaType " +
                     std::to_string(e.criteriaType) + " not in 0..12");
             }
             if (e.requiredCount == 0)
                 warnings.push_back(ctx +
-                    ": requiredCount is 0 — criteria completes "
+                    ": requiredCount is 0 - criteria completes "
                     "instantly on first progress event");
             // Type-specific cross-ref checks.
             switch (e.criteriaType) {
@@ -292,7 +292,7 @@ int handleValidate(int& i, int argc, char** argv) {
                         warnings.push_back(ctx +
                             ": " +
                             wowee::pipeline::WoweeAchievementCriteria::criteriaTypeName(e.criteriaType) +
-                            " kind requires targetId — engine cannot "
+                            " kind requires targetId - engine cannot "
                             "track progression without it");
                     }
                     break;
@@ -301,7 +301,7 @@ int handleValidate(int& i, int argc, char** argv) {
                         warnings.push_back(ctx +
                             ": ReachLevel with requiredCount=" +
                             std::to_string(e.requiredCount) +
-                            " > 80 — character cap is 80 in WotLK");
+                            " > 80 - character cap is 80 in WotLK");
                     }
                     break;
                 case wowee::pipeline::WoweeAchievementCriteria::EarnGold:
@@ -311,14 +311,14 @@ int handleValidate(int& i, int argc, char** argv) {
                     break;     // no specific cross-ref required
             }
             // timeLimitMs > 0 with non-time-sensitive criteria
-            // is suspicious — the engine ignores it for kinds
+            // is suspicious - the engine ignores it for kinds
             // like ReachLevel.
             if (e.timeLimitMs != 0 &&
                 (e.criteriaType == wowee::pipeline::WoweeAchievementCriteria::ReachLevel ||
                  e.criteriaType == wowee::pipeline::WoweeAchievementCriteria::EarnGold)) {
                 warnings.push_back(ctx +
                     ": timeLimitMs " + std::to_string(e.timeLimitMs) +
-                    " set on a non-time-sensitive criteria type — "
+                    " set on a non-time-sensitive criteria type - "
                     "engine will ignore");
             }
             if (!idsSeen.add(e.criteriaId)) errors.push_back(ctx + ": duplicate criteriaId");

@@ -10,7 +10,7 @@ the spell name's place. Arity is a floor, not a contract.
 
 WHAT IT COMPARES
 
-FrameXML names what it unpacks — `local unit, name, rank = ...` — and the client
+FrameXML names what it unpacks - `local unit, name, rank = ...` - and the client
 writes an expression per argument. Those pair off positionally, and the names on
 one side say what the expressions on the other are supposed to be. A position
 FrameXML calls `name`, `text`, `title`, `message`, `link` or `rank` that is
@@ -20,13 +20,13 @@ variable is the reverse.
 
 WHAT IT CANNOT SEE
 
-Two positions of the same kind swapped — a bag id and a slot id the wrong way
+Two positions of the same kind swapped - a bag id and a slot id the wrong way
 round read alike from here. It is also blind when FrameXML unpacks into names
 that say nothing, which is the more common way this hides.
 
 ITEM_PUSH was both at once, and was a live example rather than a hypothetical.
-mainmenubarbagbuttons.lua opens `local arg1, arg2 = ...` — no kind in either
-name — and then treats arg1 as a bag identifier and arg2 as an icon:
+mainmenubarbagbuttons.lua opens `local arg1, arg2 = ...` - no kind in either
+name - and then treats arg1 as a bag identifier and arg2 as an icon:
 
     local id = self:GetParent():GetID();
     if ( id == arg1 ) then self:ReplaceIconTexture(arg2);
@@ -35,11 +35,11 @@ This client fired it with (itemId, count): two numbers where a bag id and a
 texture were meant, so nothing here could tell, and the comparison never
 matched. Fixed 2026-08-05.
 
-The translation looked as though it needed a run, and did not — it is readable
+The translation looked as though it needed a run, and did not - it is readable
 from both ends. Item::GetBagSlot answers the container's own inventory slot,
 and INVENTORY_SLOT_BAG_START is 19, so the four worn bags are 19 to 22 and the
 backpack is INVENTORY_SLOT_BAG_0, 255. On the interface's side the bag buttons
-take their ids from GetInventorySlotInfo("Bag0Slot") and friends — 20 to 23 —
+take their ids from GetInventorySlotInfo("Bag0Slot") and friends - 20 to 23 -
 while MainMenuBarBackpackButton declares id="0" in the XML. So a worn bag is
 the server's slot plus one and the backpack is a special case.
 
@@ -47,7 +47,7 @@ The lesson is the one worth keeping: "this needs a look in-world" was wrong,
 and what settled it was reading the *other* side rather than the same side
 again. GetInventorySlotInfo was three greps away the whole time. Nor an argument built by a helper: an event fired
 through one call, as the spellcast events are now, is one expression and pairs
-with nothing. That is not a hole so much as the reason the helper is better —
+with nothing. That is not a hole so much as the reason the helper is better -
 the order lives in one place instead of at nine call sites.
 
 Nor whether the *value* is right, only whether it is the right kind of thing.

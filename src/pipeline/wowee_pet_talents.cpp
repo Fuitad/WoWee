@@ -118,30 +118,30 @@ WoweePetTalents WoweePetTalentsLoader::makeFerocity(
     };
     add(1, "CobraReflexes", 0, 0, 2,
         { 61682, 61683 }, 0,
-        "Tier 0 col 0 — Increases pet attack speed by "
+        "Tier 0 col 0 - Increases pet attack speed by "
         "15%/30%, reduces damage by 15%. Two ranks. No "
         "prerequisite (root of Ferocity tree).");
     add(2, "SerpentSwiftness", 0, 1, 5,
         { 16093, 16094, 16095, 16096, 16097 }, 0,
-        "Tier 0 col 1 — Increases pet attack speed by "
+        "Tier 0 col 1 - Increases pet attack speed by "
         "1%/2%/3%/4%/5%. Five ranks. Root talent.");
     add(3, "SpikedCollar", 1, 0, 3,
         { 19582, 19583, 19584 }, 1,
-        "Tier 1 col 0 — Increases pet damage by 1%/2%/3%. "
+        "Tier 1 col 0 - Increases pet damage by 1%/2%/3%. "
         "Requires CobraReflexes (talentId=1) as prereq.");
     add(4, "BoarsSpeed", 2, 1, 1,
         { 19596 }, 2,
-        "Tier 2 col 1 — Increases pet movement speed by "
+        "Tier 2 col 1 - Increases pet movement speed by "
         "30%. Requires SerpentSwiftness rank 2+ (modeled "
         "by talentId=2 prereq).");
     add(5, "SpidersBite", 2, 2, 3,
         { 19589, 19591, 19592 }, 3,
-        "Tier 2 col 2 — Increases pet melee crit chance "
+        "Tier 2 col 2 - Increases pet melee crit chance "
         "by 3%/6%/9%. Requires SpikedCollar (talentId=3) "
         "as prereq.");
     add(6, "Rabid", 3, 1, 1,
         { 53401 }, 4,
-        "Tier 3 col 1 — Active ability. Pet enrages, "
+        "Tier 3 col 1 - Active ability. Pet enrages, "
         "increasing damage by 5% per stack (max 5). Top-"
         "tier Ferocity talent. Requires BoarsSpeed "
         "(talentId=4).");
@@ -170,26 +170,26 @@ WoweePetTalents WoweePetTalentsLoader::makeCunning(
     };
     add(100, "Dash", 0, 0, 3,
         { 61684, 61685, 61686 }, 0,
-        "Tier 0 col 0 — Pet sprint. Increases run speed "
+        "Tier 0 col 0 - Pet sprint. Increases run speed "
         "by 30%/40%/50% for 16 sec. 32-sec cooldown. Root "
         "talent.");
     add(101, "OwlsFocus", 1, 1, 5,
         { 53513, 53514, 53515, 53516, 53517 }, 0,
-        "Tier 1 col 1 — Pet special-attack damage chance "
+        "Tier 1 col 1 - Pet special-attack damage chance "
         "increased by 4%/8%/12%/16%/20%. Root talent.");
     add(102, "RoarOfRecovery", 2, 0, 1,
         { 53517 }, 100,
-        "Tier 2 col 0 — Active. Restores 30% of hunter's "
+        "Tier 2 col 0 - Active. Restores 30% of hunter's "
         "maximum mana over 9 sec. 3-min cooldown. "
         "Requires Dash (talentId=100).");
     add(103, "Cornered", 2, 2, 2,
         { 53497, 53499 }, 101,
-        "Tier 2 col 2 — Pet damage increased by 5%/10% "
+        "Tier 2 col 2 - Pet damage increased by 5%/10% "
         "and crit by 5%/10% when below 35% health. "
         "Requires OwlsFocus (talentId=101).");
     add(104, "HeartOfThePhoenix", 3, 1, 1,
         { 55709 }, 102,
-        "Tier 3 col 1 — Active. Pet self-resurrects if "
+        "Tier 3 col 1 - Active. Pet self-resurrects if "
         "killed in combat. 10-min cooldown. Top-tier "
         "Cunning talent. Requires RoarOfRecovery "
         "(talentId=102).");
@@ -218,27 +218,27 @@ WoweePetTalents WoweePetTalentsLoader::makeTenacity(
     };
     add(200, "Charge", 0, 0, 1,
         { 61685 }, 0,
-        "Tier 0 col 0 — Active. Pet charges target, "
+        "Tier 0 col 0 - Active. Pet charges target, "
         "stunning for 1 sec and increasing next attack "
         "by 25%. 25-yd range. Root talent.");
     add(201, "GreatStamina", 0, 1, 3,
         { 61686, 61687, 61688 }, 0,
-        "Tier 0 col 1 — Increases pet stamina by "
-        "4%/8%/12%. Root talent — most Tenacity builds "
+        "Tier 0 col 1 - Increases pet stamina by "
+        "4%/8%/12%. Root talent - most Tenacity builds "
         "max this first.");
     add(202, "Thunderstomp", 1, 1, 1,
         { 63900 }, 200,
-        "Tier 1 col 1 — Active AoE. Pet stomps the "
+        "Tier 1 col 1 - Active AoE. Pet stomps the "
         "ground, dealing nature damage to nearby enemies "
         "and threat. Requires Charge (talentId=200).");
     add(203, "Taunt", 2, 0, 1,
         { 53477 }, 202,
-        "Tier 2 col 0 — Active. Forces target to attack "
+        "Tier 2 col 0 - Active. Forces target to attack "
         "the pet for 3 sec. Requires Thunderstomp "
         "(talentId=202).");
     add(204, "LastStand", 3, 1, 1,
         { 53478 }, 203,
-        "Tier 3 col 1 — Active. Pet temporarily gains "
+        "Tier 3 col 1 - Active. Pet temporarily gains "
         "30% maximum health for 20 sec. 10-min cooldown. "
         "Top-tier Tenacity talent. Requires Taunt "
         "(talentId=203).");

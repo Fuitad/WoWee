@@ -109,7 +109,7 @@ vec2 parallaxOcclusionMap(vec2 uv, vec3 viewDirTS, float lodFactor) {
     float layerDepth = 1.0 / float(numSamples);
     float currentLayerDepth = 0.0;
 
-    // Direction to shift UV per layer — clamp denominator to prevent explosion at grazing angles
+    // Direction to shift UV per layer - clamp denominator to prevent explosion at grazing angles
     vec2 P = viewDirTS.xy / max(VdotN, 0.15) * pomScale;
     // Hard-clamp total UV offset to prevent texture swimming
     float maxOffset = pomScale * 3.0;
@@ -151,7 +151,7 @@ void main() {
     // Lava/magma: scroll UVs for flowing effect
     if (isLava != 0) {
         float time = fogParams.z;
-        // Scroll both axes — pools get horizontal flow, waterfalls get vertical flow
+        // Scroll both axes - pools get horizontal flow, waterfalls get vertical flow
         // (UV orientation depends on mesh, so animate both)
         finalUV += vec2(time * 0.04, time * 0.06);
     }
@@ -212,7 +212,7 @@ void main() {
         // A small warm bias keeps low-valued texels from reading as dark glass.
         vec3 glass = texColor.rgb * 2.0 + vec3(0.16, 0.07, 0.015);
 
-        // Gentle guttering, weaker than the clock's open fire — these are steady
+        // Gentle guttering, weaker than the clock's open fire - these are steady
         // lamps, not flames in the wind.
         //
         // Every lamp in a building shares one batch, so a uniform phase would
@@ -266,7 +266,7 @@ void main() {
         result += lightColor.rgb * (gloss * 0.55 * shadow)
                 + ambientColor.rgb * (fresnel * 0.35);
     } else if (isLava != 0) {
-        // Lava is self-luminous — bright emissive, no shadows
+        // Lava is self-luminous - bright emissive, no shadows
         result = texColor.rgb * 1.5;
     } else if (isInterior != 0) {
         // WMO interior: vertex colors (MOCV) are pre-baked lighting from the artist.
@@ -279,7 +279,7 @@ void main() {
         float clampedShadow = max(shadow, 0.45);
         result = texColor.rgb * mocv * clampedShadow;
     } else if (unlit != 0) {
-        // Outdoor unlit surface — still receives directional shadows
+        // Outdoor unlit surface - still receives directional shadows
         result = texColor.rgb * shadow;
     } else {
         vec3 ldir = normalize(-lightDir.xyz);

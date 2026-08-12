@@ -1,10 +1,10 @@
 #pragma once
 
 /**
- * wowee_expansion_names.hpp — the four expansions, as the .w* sidecars spell them.
+ * wowee_expansion_names.hpp - the four expansions, as the .w* sidecars spell them.
  *
- * Three of the formats gate an entry on an expansion — character features,
- * loading screens and the dungeon finder — and each declares its own enum for
+ * Three of the formats gate an entry on an expansion - character features,
+ * loading screens and the dungeon finder - and each declares its own enum for
  * it with the same four values. That much is deliberate: a format is meant to
  * be readable from its own header alone.
  *
@@ -50,7 +50,7 @@ inline const char* expansionName(uint8_t e) {
 /// writing down because the invitation to add one is obvious: nine of these
 /// formats have a switch answering "alliance", and they look like nine copies.
 ///
-/// They are not. The formats number their factions five different ways —
+/// They are not. The formats number their factions five different ways -
 /// Alliance is 0 in chars, auction, channels and guilds; 1 in mounts, maps,
 /// events and achievements; and companions starts at AllianceOnly = 1 with no
 /// zero at all. Maps has a fourth value, Contested, that the others do not.

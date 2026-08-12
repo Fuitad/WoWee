@@ -1,4 +1,4 @@
-// WoW packed-time unpacking — the one uint32 that carries a whole date.
+// WoW packed-time unpacking - the one uint32 that carries a whole date.
 //
 // Four places in this client unpacked this field and no two agreed; every one
 // of them was wrong. The values are what make it dangerous: a date read with
@@ -103,7 +103,7 @@ TEST_CASE("a wrong reading is plausible, which is why this is tested") {
 TEST_CASE("A date packs back into the field it came from", "[packedtime]") {
     // The inverse matters because creating a calendar event *sends* two of
     // these, and a field written one bit out is a date the server accepts and
-    // stores as something else entirely — there is no error to notice.
+    // stores as something else entirely - there is no error to notice.
     //
     // Round-tripped rather than compared against hand-written constants: the
     // constants are what the reader already asserts, and repeating them here

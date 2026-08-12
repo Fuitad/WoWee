@@ -12,8 +12,8 @@ happens.
 
 WHAT IT LOOKS FOR
 
-Handlers that call addSystemChatMessage or raiseUiError — the client deciding
-this is worth telling the *player* — and fire no addon event at all. If it is
+Handlers that call addSystemChatMessage or raiseUiError - the client deciding
+this is worth telling the *player* - and fire no addon event at all. If it is
 worth a line of chat it is usually worth a redraw, and a line of chat is not
 one.
 
@@ -24,7 +24,7 @@ quest looking fine in the log until the next login.
 
 WHAT IT CANNOT SEE
 
-Handlers that change state silently and should announce — the larger half of
+Handlers that change state silently and should announce - the larger half of
 the same problem, and undetectable from shape alone, because most handlers
 that touch state correctly say nothing. It also cannot tell whether the event
 a handler *does* fire is the right one.
@@ -42,15 +42,15 @@ sweep's own fault and two were real.
 
 THE FALSE ROWS, WHICH MATTERED MORE THAN THE COUNT
 
-addonEventCallback_ — the same call spelled from inside GameHandler, where
-there is no Ref() accessor — was not in TELLS_INTERFACE, and
+addonEventCallback_ - the same call spelled from inside GameHandler, where
+there is no Ref() accessor - was not in TELLS_INTERFACE, and
 game_handler_packets is where most handlers live. So a whole file's worth of
 handlers that announce perfectly well were reported as silent.
 SMSG_BATTLEFIELD_MGR_ENTRY_INVITE fires its event two lines below the chat
 message this sweep caught it by.
 
 A false row here is worse than a missing one. The obvious response to "this
-handler tells nobody" is to add a fire — and raiseUiError already reaches
+handler tells nobody" is to add a fire - and raiseUiError already reaches
 UI_ERROR_MESSAGE through addUIError, which is how this file once grew a second
 answer to a question already answered two headers away.
 
@@ -60,7 +60,7 @@ THE TWO REAL ONES
     CalendarGetNumPendingInvites answered a constant zero. The calendar addon
     is refused by name, but the indicator is not its: gametime.lua puts it on
     the minimap's date button and asks only on CALENDAR_UPDATE_PENDING_INVITES
-    and PLAYER_ENTERING_WORLD. Correct at login, stale for the session — both
+    and PLAYER_ENTERING_WORLD. Correct at login, stale for the session - both
     halves fixed.
   * handleLfgJoinResult set lfgState_ and said nothing, so joining a queue left
     the dungeon finder reading the old state until some other LFG packet
@@ -70,7 +70,7 @@ THE TWO REAL ONES
 WHAT IS LEFT
 
 Thirteen, each read. What they write is bookkeeping this client keeps for
-itself — a fishing attempt that failed, a purchase refused, a home location
+itself - a fishing attempt that failed, a purchase refused, a home location
 that GetBindLocation polls rather than being told about, a logout after which
 there is no interface left to tell. The message is the whole content and a
 chat line is the right place for it. The ceiling is a number to look at when
@@ -87,27 +87,27 @@ ROOT = Path(__file__).resolve().parent.parent
 GAME = ROOT / "src/game"
 
 #: Telling the player. raiseUiError does reach the interface, as
-#: UI_ERROR_MESSAGE — but that is another line to read, not a redraw, so it
+#: UI_ERROR_MESSAGE - but that is another line to read, not a redraw, so it
 #: counts here rather than below.
 TELLS_PLAYER = ("addSystemChatMessage", "raiseUiError")
 #: Writing to this client's own model: a member, a handler-owned reference, or
-#: a field of something pulled out of one. Deliberately loose — the question is
+#: a field of something pulled out of one. Deliberately loose - the question is
 #: whether anything was changed at all, not what.
 WRITES_STATE = re.compile(
     r"\b\w+Ref\(\)(?:\[[^\]]*\])?(?:\.\w+)?\s*=[^=]"
     r"|\b\w+_\s*(?:\[[^\]]*\])?\s*=[^=]"
     r"|\b(?:quest|entry|item|data|info|state)\.\w+\s*=[^=]")
 
-#: Telling the interface — either directly, or through one of the announce*
+#: Telling the interface - either directly, or through one of the announce*
 #: helpers that exist so the several events one change needs are fired from a
 #: single place. Matching the whole family rather than naming them keeps the
 #: next one from arriving as a false positive; announceLootRollClosed did.
 #: addonEventCallbackRef() without the call after it: a handler firing several
-#: events takes the callback into a local first — `auto fire = ...; fire(...)`
-#: — and requiring the immediate call reported the whole dungeon-finder
+#: events takes the callback into a local first - `auto fire = ...; fire(...)`
+#: - and requiring the immediate call reported the whole dungeon-finder
 #: proposal path, which fires four.
 #: addonEventCallback_ is the same thing spelled from inside GameHandler,
-#: where there is no Ref() accessor to go through — and game_handler_packets
+#: where there is no Ref() accessor to go through - and game_handler_packets
 #: is where most handlers live, so leaving it out reported a whole file's worth
 #: of handlers that announce perfectly well. SMSG_BATTLEFIELD_MGR_ENTRY_INVITE
 #: was one: it fires its event two lines below the chat message this sweep
@@ -123,7 +123,7 @@ ANNOUNCES = re.compile(r"\bannounce[A-Z]\w*\(")
 #: Pinned as a *set* rather than as a count, which is what this list is for. A
 #: ceiling of thirteen says only how many there are: fix one, introduce
 #: another, and the number never moves. handleGuildCommandResult was exactly
-#: that — it emptied the guild name, the ranks and the whole roster on leaving
+#: that - it emptied the guild name, the ranks and the whole roster on leaving
 #: a guild and told nobody, and sat inside an accepted count for as long as the
 #: count was all that was pinned.
 #:
@@ -131,7 +131,7 @@ ANNOUNCES = re.compile(r"\bannounce[A-Z]\w*\(")
 #: bookkeeping, which no binding reads, or it is read on demand rather than
 #: drawn from an event.
 EXPECTED = {
-    # Auto-attack bookkeeping — the out-of-range flag and the warning cooldown.
+    # Auto-attack bookkeeping - the out-of-range flag and the warning cooldown.
     # No binding reads either. The message itself reaches the interface as
     # UI_ERROR_MESSAGE through raiseUiError, which is where the real client
     # puts these.
@@ -159,7 +159,7 @@ EXPECTED = {
     "SocialHandler::handleGuildInfo": "guild name, read on demand",
     # The seconds until the daily quest reset, which GetQuestResetTime answers
     # when the quest log's tooltip asks for it. Nothing draws it from an event
-    # because 3.3.5 has none — the same shape as the bind location below. The
+    # because 3.3.5 has none - the same shape as the bind location below. The
     # chat line is /time's answer and appears only when the player typed it.
     "SocialHandler::handleQueryTimeResponse": "daily reset offset, read on demand",
     # The session is ending and the client is leaving the world.
@@ -170,8 +170,8 @@ EXPECTED = {
 HANDLER = re.compile(
     r"(?:table|dispatchTable_)\[Opcode::(\w+)\]\s*=\s*\[[^\]]*\]\s*\([^)]*\)\s*\{")
 
-#: The other half. A dispatch entry is often one line — `= [this](Packet& p) {
-#: handleFoo(p); }` — with the work in a named method somewhere else in the
+#: The other half. A dispatch entry is often one line - `= [this](Packet& p) {
+#: handleFoo(p); }` - with the work in a named method somewhere else in the
 #: file, and reading only the lambda sees a body that calls one function.
 #: SMSG_QUEST_CONFIRM_ACCEPT was exactly that: it set the pending share, told
 #: the player in chat and fired nothing, and this check walked straight past it
@@ -208,8 +208,8 @@ def main():
             if any(t in body for t in TELLS_INTERFACE) or ANNOUNCES.search(body):
                 continue
             # ...and changed something while it was at it. Without this the
-            # report is a hundred and nine notifications — an attack that
-            # missed, an auction that sold — which carry no state and have
+            # report is a hundred and nine notifications - an attack that
+            # missed, an auction that sold - which carry no state and have
             # nothing for an interface to redraw. What matters is a handler
             # that wrote to the model and announced nothing, which is what
             # SMSG_QUESTUPDATE_COMPLETE did: it set quest.complete and left

@@ -1,9 +1,9 @@
 // Quest reward packet parsing across expansions.
 //
 // Layouts emulated here byte-for-byte from the server serializers:
-//   Classic — vmangos  src/game/Server/Packets/Quest.cpp
-//   TBC     — cmangos-tbc  src/game/Entities/GossipDef.cpp
-//   WotLK   — azerothcore-wotlk  src/server/game/Entities/Creature/GossipDef.cpp
+//   Classic - vmangos  src/game/Server/Packets/Quest.cpp
+//   TBC     - cmangos-tbc  src/game/Entities/GossipDef.cpp
+//   WotLK   - azerothcore-wotlk  src/server/game/Entities/Creature/GossipDef.cpp
 // Reward items were previously misparsed (wrong offsets / parallel-array
 // assumptions / phantom 4.x portrait strings), showing garbage item numbers.
 #include <catch_amalgamated.hpp>
@@ -47,7 +47,7 @@ void putStr(Bytes& b, const char* s) {
 } // namespace
 
 // ============================================================
-// SMSG_QUEST_QUERY_RESPONSE — quest log rewards
+// SMSG_QUEST_QUERY_RESPONSE - quest log rewards
 // ============================================================
 
 TEST_CASE("Quest query rewards: Classic layout (vmangos)", "[quest_rewards]") {
@@ -67,12 +67,12 @@ TEST_CASE("Quest query rewards: Classic layout (vmangos)", "[quest_rewards]") {
     putU32(b, 0);     // rewSpell
     putU32(b, 0);     // srcItemId
     putU32(b, 8);     // questFlags
-    // 4 reward (id, count) pairs — fixed loop, interleaved
+    // 4 reward (id, count) pairs - fixed loop, interleaved
     putU32(b, 1234); putU32(b, 1);
     putU32(b, 0);    putU32(b, 0);
     putU32(b, 0);    putU32(b, 0);
     putU32(b, 0);    putU32(b, 0);
-    // 6 choice (id, count) pairs — fixed loop, interleaved
+    // 6 choice (id, count) pairs - fixed loop, interleaved
     putU32(b, 2345); putU32(b, 2);
     putU32(b, 3456); putU32(b, 1);
     putU32(b, 0);    putU32(b, 0);
@@ -233,7 +233,7 @@ TEST_CASE("Quest query rewards: implausible data rejected", "[quest_rewards]") {
 }
 
 // ============================================================
-// SMSG_QUESTGIVER_QUEST_DETAILS — accept dialog rewards
+// SMSG_QUESTGIVER_QUEST_DETAILS - accept dialog rewards
 // ============================================================
 
 TEST_CASE("Quest details: Classic layout (vmangos)", "[quest_rewards]") {
@@ -243,8 +243,8 @@ TEST_CASE("Quest details: Classic layout (vmangos)", "[quest_rewards]") {
     putStr(b, "Test Quest");
     putStr(b, "Some details");
     putStr(b, "Some objectives");
-    putU32(b, 1);               // activateAccept — uint32 in vanilla
-    // choice items: count + count × (id, count, display) — only non-empty slots
+    putU32(b, 1);               // activateAccept - uint32 in vanilla
+    // choice items: count + count × (id, count, display) - only non-empty slots
     putU32(b, 2);
     putU32(b, 2345); putU32(b, 1); putU32(b, 7001);
     putU32(b, 3456); putU32(b, 5); putU32(b, 7002);
@@ -253,7 +253,7 @@ TEST_CASE("Quest details: Classic layout (vmangos)", "[quest_rewards]") {
     putU32(b, 1234); putU32(b, 1); putU32(b, 7003);
     putU32(b, 150);             // money
     putU32(b, 0);               // rewSpell
-    putU32(b, 4);               // emote count — LAST, after rewards
+    putU32(b, 4);               // emote count - LAST, after rewards
     for (int i = 0; i < 4; ++i) { putU32(b, 0); putU32(b, 0); }
 
     network::Packet pkt(0, b);
@@ -298,7 +298,7 @@ TEST_CASE("Quest details: TBC layout (cmangos-tbc)", "[quest_rewards]") {
     putU32(b, 200);
     putStr(b, "TBC Quest");
     putStr(b, "d"); putStr(b, "o");
-    putU32(b, 1);               // activateAccept — uint32
+    putU32(b, 1);               // activateAccept - uint32
     putU32(b, 3);               // suggestedPlayers (TBC only)
     putU32(b, 1);
     putU32(b, 25407); putU32(b, 1); putU32(b, 8001);
@@ -329,7 +329,7 @@ TEST_CASE("Quest details: WotLK layout (AzerothCore)", "[quest_rewards]") {
     putStr(b, "WotLK Quest");
     putStr(b, "Some details");
     putStr(b, "Some objectives");
-    putU8(b, 1);                // activateAccept — uint8 in WotLK
+    putU8(b, 1);                // activateAccept - uint8 in WotLK
     putU32(b, 8);               // flags
     putU32(b, 0);               // suggestedPlayers
     putU8(b, 0);                // isFinished
@@ -370,7 +370,7 @@ TEST_CASE("Quest details: WotLK layout (AzerothCore)", "[quest_rewards]") {
 }
 
 // ============================================================
-// SMSG_QUESTGIVER_OFFER_REWARD — completion dialog rewards
+// SMSG_QUESTGIVER_OFFER_REWARD - completion dialog rewards
 // ============================================================
 
 TEST_CASE("Offer reward: Classic layout (vmangos)", "[quest_rewards]") {
@@ -379,7 +379,7 @@ TEST_CASE("Offer reward: Classic layout (vmangos)", "[quest_rewards]") {
     putU32(b, 100);
     putStr(b, "Test Quest");
     putStr(b, "Well done, $n!");
-    putU32(b, 1);               // autoFinish — uint32, 4-byte prefix
+    putU32(b, 1);               // autoFinish - uint32, 4-byte prefix
     putU32(b, 1);               // emote count
     putU32(b, 0); putU32(b, 1); // delay, emote
     putU32(b, 2);               // choice count
@@ -410,7 +410,7 @@ TEST_CASE("Offer reward: TBC layout (cmangos-tbc)", "[quest_rewards]") {
     putStr(b, "TBC Quest");
     putStr(b, "Reward text");
     putU32(b, 1);               // autoFinish
-    putU32(b, 0);               // suggestedPlayers — 8-byte prefix
+    putU32(b, 0);               // suggestedPlayers - 8-byte prefix
     putU32(b, 0);               // emote count
     putU32(b, 1);               // choice count
     putU32(b, 25407); putU32(b, 1); putU32(b, 8001);
@@ -440,12 +440,12 @@ TEST_CASE("Offer reward: WotLK layout (AzerothCore)", "[quest_rewards]") {
     putU32(b, 300);
     putStr(b, "WotLK Quest");
     putStr(b, "Reward text");
-    putU8(b, 1);                // autoFinish — uint8 in WotLK, no portraits
+    putU8(b, 1);                // autoFinish - uint8 in WotLK, no portraits
     putU32(b, 8);               // flags
     putU32(b, 0);               // suggestedPlayers
     putU32(b, 1);               // emote count
     putU32(b, 0); putU32(b, 1); // delay, emote
-    putU32(b, 2);               // choice count — VARIABLE entries follow
+    putU32(b, 2);               // choice count - VARIABLE entries follow
     putU32(b, 36926); putU32(b, 1); putU32(b, 9001);
     putU32(b, 36927); putU32(b, 1); putU32(b, 9002);
     putU32(b, 1);               // reward count

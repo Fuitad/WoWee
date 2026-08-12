@@ -8,14 +8,14 @@
 // and the usable flag as whatever GetChecked answers.
 //
 // luaL_optnumber falls back to its default for nil and none only. Anything
-// else that will not convert raises instead — and an empty edit box gives ""
+// else that will not convert raises instead - and an empty edit box gives ""
 // rather than nil, so the commonest search in the game, type a name and press
 // Search, died on argument two before a byte went out. There was no error on
 // screen: a raise inside a click handler is swallowed, so the browse tab
 // simply answered every search with no items.
 //
 // This is a pure function of the Lua stack, so it can be tested without a
-// game, a window or an interface — which is the point. The fault it exists to
+// game, a window or an interface - which is the point. The fault it exists to
 // prevent is invisible at every other level.
 
 #include <catch_amalgamated.hpp>
@@ -94,7 +94,7 @@ TEST_CASE("A checkbox's answer counts as one or nothing", "[lua][args]") {
     OneArg a;
     // GetChecked answers 1 or nil in 3.3.5, but a boolean reaches these
     // bindings from other callers and from addons, and luaL_optnumber treats
-    // neither as absent — false is not nil, so the unticked box raised too.
+    // neither as absent - false is not nil, so the unticked box raised too.
     lua_pushboolean(a.L, 1);
     REQUIRE(luaOptNumberText(a.L, -1, 9.0) == Catch::Approx(1.0));
     lua_pop(a.L, 1);
@@ -116,8 +116,8 @@ TEST_CASE("Anything else takes the default rather than raising", "[lua][args]") 
 // a private copy of the table with a fallback of "WARRIOR", and UnitClass
 // answered the string "UNKNOWN" and took Blizzard_ArenaUI down at load.
 //
-// What they share is the refusal. FrameXML guards these — `if ( classFileName )
-// then RAID_CLASS_COLORS[classFileName]` — so the guard is the caller saying it
+// What they share is the refusal. FrameXML guards these - `if ( classFileName )
+// then RAID_CLASS_COLORS[classFileName]` - so the guard is the caller saying it
 // already copes with the value being missing, and anything truthy-but-wrong
 // walks past it and raises a line later somewhere that looks unrelated.
 
@@ -134,7 +134,7 @@ TEST_CASE("A real class answers its uppercase token", "[lua][class]") {
 TEST_CASE("A class id WoW does not use answers nothing", "[lua][class]") {
     using wowee::addons::luaClassToken;
     // Zero is "no class known yet", and 10 is a gap in WoW's own numbering.
-    // Both sit in the table as empty strings, and "" is truthy in Lua — so
+    // Both sit in the table as empty strings, and "" is truthy in Lua - so
     // returning the slot as-is would pass the caller's guard exactly as the
     // numeric id did.
     REQUIRE(luaClassToken(0) == nullptr);

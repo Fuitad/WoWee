@@ -3,7 +3,7 @@
 
 A sweep only helps on the day someone runs it. Every fault these catch was
 found by hand at least once, and each is the kind that raises nothing, logs
-nothing and fails no test — a panel drawn twice, a binding answering short, a
+nothing and fails no test - a panel drawn twice, a binding answering short, a
 name in a manifest that resolves to nothing, a chunk of bootstrap Lua replacing
 the binding underneath it. Left to a person remembering, they come back.
 
@@ -11,13 +11,13 @@ the binding underneath it. Left to a person remembering, they come back.
     tools/sweep_guard.py --list   # show the ceilings without running anything
 
 Each entry pins a ceiling rather than an exact figure, so a fix that lowers a
-count passes and is meant to be followed by lowering the ceiling here — a
+count passes and is meant to be followed by lowering the ceiling here - a
 ratchet, not a snapshot. Where the honest answer is none, the ceiling is zero
 and lowering it is not possible.
 
 These run in about a minute together, which is why they are the ones wired
-into the build; the slower reports — element readiness, the unbound global
-scan, the ungated-draw walk — stay manual. The line here used to say six of
+into the build; the slower reports - element readiness, the unbound global
+scan, the ungated-draw walk - stay manual. The line here used to say six of
 them in under three seconds, and had said so for long enough that the count was
 out by a factor of five: a comment about how much a thing costs stops being
 true the moment someone adds to it, and this one is worth keeping honest
@@ -37,7 +37,7 @@ ROOT = TOOLS.parent
 CHECKS = [
     # The settings screens are generated from one schema; saving them is not.
     # A setting added to that list appears in both windows, answers its value,
-    # applies correctly — and is gone at the next login if nobody wrote it out.
+    # applies correctly - and is gone at the next login if nobody wrote it out.
     # Nothing raises, and every other test passes.
     ("settings_persist_check.py",
      r"^(\d+) no field behind it", 0,
@@ -98,7 +98,7 @@ CHECKS = [
      r"^(\d+) that resolve to nothing", 0,
      "manifest entries and script references pointing at no file"),
     # Twenty, and the rise is the sweep seeing more rather than the client
-    # doing worse — the same blind spot the argument sweep had: only bindings
+    # doing worse - the same blind spot the argument sweep had: only bindings
     # written as *named* functions were matched, and a lambda has no name, so
     # more than half were never counted. Eight rows appeared and one was real:
     # GetAuctionSellItemInfo answered six values where the sell tab unpacks
@@ -108,7 +108,7 @@ CHECKS = [
     # Of the rest, five are the Battle.net family, which has no server behind it
     # in 3.3.5a; GetGuildTabardFileNames answers nothing and its callers set
     # textures, where nil reads as an empty slot; and GetGossipOptions returns a
-    # count it computes, which this sweep reads as zero — the known shape named
+    # count it computes, which this sweep reads as zero - the known shape named
     # in its docstring.
     ("framexml_short_returns.py",
      r"^(\d+) binding\(s\) may return short", 0,
@@ -128,7 +128,7 @@ CHECKS = [
      "XML attributes the emitter never reads"),
     # The other half. An attribute the emitter ignores is a wrong value on a
     # frame; an element it ignores is a frame, region or animation that never
-    # exists at all, and nothing says so. Zero, and it has to stay zero — the
+    # exists at all, and nothing says so. Zero, and it has to stay zero - the
     # one case that ever failed was FrameXML's own <Fontstring>, which is a
     # typo for FontString and which the emitter folds before comparing.
     ("declared_vs_read_check.py",
@@ -137,14 +137,14 @@ CHECKS = [
     # Eight, not zero, and the number went up because the check started
     # working. It used to accept any "OnX" literal anywhere in src, and the
     # emitter carries a table naming every script type it knows a signature
-    # for — so every type read as fired and this reported zero for ever, while
+    # for - so every type read as fired and this reported zero for ever, while
     # OnCursorChanged sat unfired and every multi-line edit box in the
     # interface raised on the first keystroke.
     #
     # Two, and both named: the chat box's input language, which the binding
     # beside it says outright that nothing fires yet, and the tooltip's default
     # anchor. Everything else that once appeared here was the sweep's own
-    # blindness — see the comments in the check.
+    # blindness - see the comments in the check.
     ("declared_vs_read_check.py",
      r"^(\d+) script type\(s\) declared and never fired", 2,
      "script handlers FrameXML declares that nothing fires"),
@@ -155,7 +155,7 @@ CHECKS = [
      r"CVars named, (\d+) the client never answers", 51,
      "CVars the client never answers, so they read as off"),
     # The half of that list that raises rather than reading as off. A CVar the
-    # interface only tests survives answering nothing — the branch behind it
+    # interface only tests survives answering nothing - the branch behind it
     # does not run. One fed to tonumber() and then to arithmetic does not:
     # watchframe.lua sets WATCHFRAME_FILTER_TYPE from
     # tonumber(GetCVar("trackerFilter")) on VARIABLES_LOADED and then calls
@@ -178,7 +178,7 @@ CHECKS = [
      r"^(\d+) constant\(s\) set in both places", 0,
      "constants the bootstrap and the interface disagree about"),
     # Both arms are zero, and what used to hold them up is now named in the
-    # tool with the reason rather than counted here — a count of one or four
+    # tool with the reason rather than counted here - a count of one or four
     # cannot tell a decision from a new fault arriving as an old one leaves.
     ("framexml_event_arity.py",
      r"^(\d+) fired with fewer arguments than a handler reads", 0,
@@ -189,7 +189,7 @@ CHECKS = [
     # Five, and every one is unreachable: the event that shows its dialog is
     # not fired anywhere under src/. LEVEL_GRANT_PROPOSED is Recruit-a-Friend
     # level granting, END_BOUND_TRADEABLE and END_REFUND end a refund window,
-    # and TRADE_REPLACE_ENCHANT is the trade-window twin of REPLACE_ENCHANT —
+    # and TRADE_REPLACE_ENCHANT is the trade-window twin of REPLACE_ENCHANT -
     # which *is* fired, from inventory_handler, and whose verb is bound.
     #
     # It was twenty-five. The rest went as the bind-confirmation family and the
@@ -199,7 +199,7 @@ CHECKS = [
     # The ceiling is for the day one of those four events starts being fired: a
     # popup that opens with an unbound accept is a player pressing a button and
     # getting an error. That day came for CONFIRM_LOOT_ROLL, and in the useful
-    # direction — it is raised by the *client*, not the server, so nothing here
+    # direction - it is raised by the *client*, not the server, so nothing here
     # raised it and Need on a bind-on-pickup item bound it with no warning.
     # Checking whether a popup is reachable means asking which event shows it
     # and whether this client fires that event, not whether the verb is bound.
@@ -231,7 +231,7 @@ CHECKS = [
      "frame methods writing a Lua field where the widget is what is read"),
     # Nineteen, none of them reachable: the login splash, the tic-tac-toe
     # minigame, and one talent-frame background behind a branch that cannot run
-    # — SELECTEDSPEC_DISPLAYTYPE is "GOLD_INSIDE" and the texture is only asked
+    # - SELECTEDSPEC_DISPLAYTYPE is "GOLD_INSIDE" and the texture is only asked
     # for by the two "PUSHED_OUT" spellings. The ceiling is for the twentieth. A
     # missing texture raises nothing: the frame is built, laid out and drawn,
     # and the part that should have art is simply absent.
@@ -239,7 +239,7 @@ CHECKS = [
      r"^(\d+) not in this install", 1,
      "art the interface asks for that this install does not have"),
     # CVAR_UPDATE carries the CVar's label, not its name, and the two are
-    # different spellings — so a mapping that cannot produce a label the
+    # different spellings - so a mapping that cannot produce a label the
     # interface tests for is a branch that can never be taken. Silently: a
     # string that is not equal to another string is not an error.
     ("framexml_cvar_label_check.py",
@@ -254,7 +254,7 @@ CHECKS = [
      r"^(\d+) body/signature disagreement", 0,
      "handler bodies reading an argument their signature does not carry"),
     # A dozen things are driven by finding a FrameXML frame by name and
-    # handing it something — the minimap and world map are told where to be,
+    # handing it something - the minimap and world map are told where to be,
     # every portrait and model frame is handed an image rendered for it. A name
     # matching nothing answers null: no error, no warning, no picture, and a
     # typo looks exactly like a frame that was never built. Zero, because there
@@ -264,28 +264,28 @@ CHECKS = [
      "frames this client looks up by a name the interface does not declare"),
     # Unit bindings that never look at the unit they were asked about and
     # answer from the player. A number belonging to the wrong character is the
-    # hardest kind of wrong to see — nothing empty, nothing zero, nothing
+    # hardest kind of wrong to see - nothing empty, nothing zero, nothing
     # raised. UnitStat, UnitResistance, UnitArmor, UnitAttackPower, UnitDamage
     # and UnitFactionGroup all sat here, listing a hunter's own figures as the
     # pet's and putting an Alliance badge over a Horde target;
     # SetInventoryItem did the same on the inspect paperdoll.
     #
     # Seven, each read once. Five are the player's sheet alone, the pet tab
-    # having no ranged or defence line — UnitDefense, UnitRangedAttack,
+    # having no ranged or defence line - UnitDefense, UnitRangedAttack,
     # UnitRangedAttackPower, UnitRangedDamage, UnitAttackBothHands. The other
     # two are the check's own blind spots, named in its docstring: IsUnitOnQuest
     # takes the unit second, and UnitPlayerOrPetInRaid delegates to a binding
     # that does resolve.
     #
     # UnitControllingVehicle left when the *named* bodies were brace-matched as
-    # well as the inline ones — a one-line function has no closing brace at the
+    # well as the inline ones - a one-line function has no closing brace at the
     # start of a line, so the non-greedy form ran on and gave it the next
     # function's calls.
     #
     # Was ten, and the two that left were never really here. The inline-lambda
     # body was found by looking for a closing "}}" at a fixed indent, which only
     # a multi-line lambda has, so a one-line one was invisible and a multi-line
-    # one's body ran on to the next "}}" it could find — swallowing whatever lay
+    # one's body ran on to the next "}}" it could find - swallowing whatever lay
     # between and inheriting its gh->getX() calls. GetUnitHealthModifier,
     # UnitIsSameServer and SetAchievementComparisonUnit were reported for code
     # that was not theirs, and which bindings appeared depended on how the ones
@@ -295,10 +295,10 @@ CHECKS = [
     ("unit_argument_check.py",
      r"^(\d+) unit binding\(s\) that never look at their unit", 0,
      "unit bindings answering from the player whatever they were asked"),
-    # Requests the server reads off the wire and throws away — an opcode
+    # Requests the server reads off the wire and throws away - an opcode
     # registered Handle_NULL. Two, and both are accounted for:
     # CMSG_SUSPEND_COMMS_ACK is an acknowledgement the server has no use for,
-    # and CMSG_PET_UNLEARN_TALENTS has no live opcode to replace it — a pet
+    # and CMSG_PET_UNLEARN_TALENTS has no live opcode to replace it - a pet
     # talent wipe is a spell, the way the player's spec switch turned out to
     # be. A third row means a request that leaves and changes nothing, which
     # is the quietest failure a request has: nothing malformed, nothing
@@ -309,7 +309,7 @@ CHECKS = [
      "requests the server reads and discards"),
     # The same table read backwards: a message the server sends that this
     # client names and never handles. Judged by whether the server *builds* one
-    # anywhere outside its own opcode table — a name kept only for recognition
+    # anywhere outside its own opcode table - a name kept only for recognition
     # is not a gap, and one in a WorldPacket constructor is a packet arriving
     # here and being dropped. Three were live on 2026-08-06: the hover,
     # feather-fall and water-walk broadcasts, missing from the relay list their
@@ -320,7 +320,7 @@ CHECKS = [
     # Update-field indices against the server's own UpdateFields.h. Zero, and it
     # has to stay zero: a wrong index reads whatever sits at that slot and the
     # value is simply wrong forever, with no error anywhere. Five were wrong
-    # when this was written — UNIT_FIELD_BYTES_1 and UNIT_DYNAMIC_FLAGS at 137
+    # when this was written - UNIT_FIELD_BYTES_1 and UNIT_DYNAMIC_FLAGS at 137
     # and 147, which are inside the unit block and so look right, against the
     # server's 74 and 79; and the chosen title and both PvP currencies past
     # PLAYER_END, where nothing can arrive. WotLK only: it is the only server
@@ -334,7 +334,7 @@ CHECKS = [
     # describe; the eight-column file both installs here carry is handled by
     # detectFacialHairFields, which picks 3-5 on the field count. Lower this
     # only by making that decision somewhere the JSON can express, and read a
-    # new row as a column being read from padding — that one was drawing no
+    # new row as a column being read from padding - that one was drawing no
     # facial hair at all and saying nothing.
     #
     # One rather than four because the check now scores the four layouts
@@ -345,12 +345,12 @@ CHECKS = [
      r"^(\d+) field\(s\) naming a column the file does not have", 1,
      "DBC field indices naming a column the file does not have"),
     # Packet handlers that change this client's own model, tell the player in
-    # chat, and tell the interface nothing — the shape that produces a bug
+    # chat, and tell the interface nothing - the shape that produces a bug
     # correct after a relog and wrong until then. Twenty, each read once: what
     # they write is bookkeeping nothing draws.
     #
     # The count rose from fourteen when the sweep learned to read named handler
-    # methods as well as inline lambdas — a dispatch entry is often one line
+    # methods as well as inline lambdas - a dispatch entry is often one line
     # calling handleFoo, and reading only the lambda sees a body that calls one
     # function. Four real ones have been fixed: the equipment manager's new
     # set, the withdrawn summon dialog, a dead pet's frame and ability bar, and
@@ -363,7 +363,7 @@ CHECKS = [
     # to pass on, this asks what the wire carried that nothing collected.
     #
     # Three, all in the charter-purchase path: the signature counts and type on
-    # the charters a vendor lists, which that list does not display — the
+    # the charters a vendor lists, which that list does not display - the
     # petition being signed reads its own requirement from a different struct.
     #
     # It was four. AuctionMailInvoice::ownerGuidLow came out when the auction
@@ -374,7 +374,7 @@ CHECKS = [
     # nobody reads usually means a branch nobody runs.
     #
     # Five were answered the day it was written and
-    # both were live — a loot row the player cannot take drawing as ordinary
+    # both were live - a loot row the player cannot take drawing as ordinary
     # loot, and a group invite the server had already refused raising the
     # accept popup. Both sat next to a comment saying the data was unavailable,
     # which is the shape this exists to catch.
@@ -386,8 +386,8 @@ CHECKS = [
      "packet fields stored by the parser and read by nobody"),
     # The mirror of the row above: a field every reader agrees on and no writer
     # ever fills, so they all agree on the declaration's initialiser. Zero,
-    # because the one that was found — a charter's signature requirement,
-    # permanently nine — is fixed and nothing should replace it.
+    # because the one that was found - a charter's signature requirement,
+    # permanently nine - is fixed and nothing should replace it.
     #
     # Three exceptions are named in the tool rather than counted here, all of
     # them written somewhere a member assignment does not appear: a reference
@@ -405,14 +405,14 @@ CHECKS = [
     # Zero across 172 files and 2369 frames. It matters because a dropped frame
     # raises nothing: the handlers that touch it die on a nil index somewhere
     # else entirely, and what the player sees is a panel that is present and
-    # does nothing — the shape of several reports this week.
+    # does nothing - the shape of several reports this week.
     #
     # Needs the framexml_emit target; it says so and stops rather than
     # reporting a clean zero it did not earn.
     ("framexml_frame_emitted_check.py",
      r"^(\d+) file\(s\) with frames the emitter does not create", 0,
      "frames declared in XML that the emitter never creates"),
-    # Top-level FrameXML frames named nowhere in framexml_takeover.cpp —
+    # Top-level FrameXML frames named nowhere in framexml_takeover.cpp -
     # neither handed over nor suppressed.
     #
     # This comment used to say all forty-four had been checked against this
@@ -433,22 +433,22 @@ CHECKS = [
     # Bindings answering a boolean or nil where FrameXML compares a number.
     # Never in this list until 2026-08-05, which is the whole reason its nil
     # arm could be added and be hollow at the same time: nothing ran it.
-    # Two standing rows, both read and both written into its docstring —
+    # Two standing rows, both read and both written into its docstring -
     # an unreachable debug reader and a Wintergrasp timer whose nil is
     # `and`-guarded.
     # A global FrameXML calls that exists here only as a widget method. The
-    # unbound-global sweep cannot see this by construction — methods and
+    # unbound-global sweep cannot see this by construction - methods and
     # globals register the same way, so a method makes the global read as
     # answered while it stays nil. GetText was that for months, raising every
     # time the reputation list opened. Zero is the only acceptable number and
     # the tool carries three canaries so a zero means something.
     # This client's own slash commands, and whether FrameXML's chat can reach
-    # them. Zero with the bridge in addon_manager, seventy-one without — so
+    # them. Zero with the bridge in addon_manager, seventy-one without - so
     # the number answers the real question rather than standing in for it, and
     # deleting the bridge is what makes it fail. Verified that way.
     # Verbs this client's own windows can reach and FrameXML cannot. The
     # question that found the slash-command registry, so it is worth running
-    # rather than remembering — 2.7s. Sixty-six, all triaged in the tool:
+    # rather than remembering - 2.7s. Sixty-six, all triaged in the tool:
     # callback wiring, the glue screen, the 3D world, five with a bound
     # FrameXML equivalent, and window state FrameXML replaces whole. The
     # sixty-seventh is the one to look at.
@@ -459,7 +459,7 @@ CHECKS = [
     # named "unused", which is a placeholder in FrameXML's own list. It was
     # two hundred and twenty-one until 2026-08-05, when DoEmote stopped
     # answering from a map written by hand and started reading EmotesText.dbc
-    # through EmoteRegistry — the same table this client's own chat had been
+    # through EmoteRegistry - the same table this client's own chat had been
     # reading directly all along, which is why nobody noticed until chat was
     # handed over and DoEmote became the only route.
     # Chat types FrameXML can hand SendChatMessage that it does not map. One,
@@ -468,7 +468,7 @@ CHECKS = [
     # thirteen until 2026-08-05 and *defaulted to SAY*, so every numbered
     # channel line, every raid warning and every custom emote was said out
     # loud to whoever was standing nearby. It refuses an unknown type now.
-    # Sweeps that cannot run at all. Not their numbers — this runs the ones
+    # Sweeps that cannot run at all. Not their numbers - this runs the ones
     # sweep_guard does not, and reports any that raise or exit non-zero.
     #
     # Two broke on 2026-08-05 from a single edit: the candidates tier lost its
@@ -478,24 +478,24 @@ CHECKS = [
     # and it sat crashing until someone happened to run it. 18s.
     # Bindings that answer something plausible and do nothing, reachable from
     # an element FrameXML draws. Thirty-nine, and almost all are systems that
-    # are genuinely absent — voice, Battle.net, movie recording, the debug zone
+    # are genuinely absent - voice, Battle.net, movie recording, the debug zone
     # map, arena opponents, WotLK's non-existent skill points. Two were read
     # properly on 2026-08-05 and left: GetBattlefieldInstanceRunTime, whose
     # value is in no packet this client is sent, and the container sell-cursor
     # pair, which is cosmetic.
     #
     # The ceiling is for the next one. A stub added on a handed-over element is
-    # the shape DoEmote had — plausible, silent, and invisible until the panel
+    # the shape DoEmote had - plausible, silent, and invisible until the panel
     # that needs it is the only route. 8s.
     #
     # A hundred and ninety-five now, and the jump is this sweep learning to see
-    # a stub written out in place. It recognised only the named shared ones —
-    # lua_ReturnNil and its family — so a lambda answering a literal in the
+    # a stub written out in place. It recognised only the named shared ones -
+    # lua_ReturnNil and its family - so a lambda answering a literal in the
     # table counted as an implementation. Which is what a stub is: the test is
     # now that stripping the pushes and the return leaves nothing that calls
     # anything, arrived at after asking the question the other way round marked
     # GetActionBarPage, GetSelectedFaction and GetSelectedSkill, all three of
-    # which do consult something — a Lua global, a C++ static — just not the
+    # which do consult something - a Lua global, a C++ static - just not the
     # game handler.
     #
     # The thirty-nine above were each read. The hundred and fifty-six that
@@ -503,14 +503,14 @@ CHECKS = [
     # Two are worth naming: GetQuestLogCompletionText answers "" and
     # GetQuestLogRequiredMoney answers 0, both to the quest log and the tracker.
     # Those two are real, and answering them needs SMSG_QUEST_QUERY_RESPONSE
-    # parsed further than it is — the quest log entry carries neither field, and
+    # parsed further than it is - the quest log entry carries neither field, and
     # the packet that does carry them is the turn-in one, which arrives only
     # when the player is already standing at the NPC.
     ("framexml_live_stubs.py",
      r"^\d+ bindings, \d+ of them stubs, (\d+) reached from a handed-over element", 128,
      "stubs reachable from an element FrameXML draws"),
     # Bindings that read fewer arguments than the interface passes. The only
-    # sweep here that asks whether an answer used everything it was told —
+    # sweep here that asks whether an answer used everything it was told -
     # every other one asks whether a name is answered, and these names all are.
     #
     # Seven faults on 2026-08-05, four of which *acted* on the wrong thing:
@@ -521,15 +521,15 @@ CHECKS = [
     #
     # Fifty-four, and the rise is the sweep seeing more rather than the client
     # doing worse: it matched only bindings written as named functions, so the
-    # 738 registered as inline lambdas — more than half — were never asked the
+    # 738 registered as inline lambdas - more than half - were never asked the
     # question. Three faults came out of that half and are fixed; the twenty-two
     # rows it added are otherwise trailing optional flags of the kind already
     # here (exactMatch on StartDuel, FollowUnit, PromoteToLeader; showError on
     # CanInspect; includeAll on GetCategoryNumAchievements).
     #
-    # Mostly genuinely optional arguments — the self-cast flag on UseAction and
+    # Mostly genuinely optional arguments - the self-cast flag on UseAction and
     # its siblings, the show-realm flag on GetUnitName, the notify flag on
-    # SetCVar — and three that are wrong and named here:
+    # SetCVar - and three that are wrong and named here:
     # GetAttackPowerForStat needs a per-class coefficient table this client does
     # not have; StartAuction's numStacks would need a several-item request where
     # the builder writes one; DoEmote's target is a player *name*, and there is
@@ -538,13 +538,13 @@ CHECKS = [
     # notice than the gap. 4s.
     # Fifty-five, and the move from fifty-four is composition rather than
     # decay: the named-function bodies are brace-matched now, like the inline
-    # ones, instead of running to the first "\n}" — which a one-line function
+    # ones, instead of running to the first "\n}" - which a one-line function
     # does not have, so it took the next function's body with it. Two rows were
     # never really there (SetOverrideBindingClick, ShowContainerSellCursor) and
     # three had been hidden behind swallowed text.
     #
     # Of those three: UnitBuff and UnitDebuff ignore a filter that is only ever
-    # "RAID", and only when showCastableBuffs is on — which has no default and
+    # "RAID", and only when showCastableBuffs is on - which has no default and
     # so reads false. Answering it means knowing which buffs the player could
     # cast or dispel, which this client has no model of, so the list would be
     # wrong in a different way. GetContainerItemPurchaseInfo ignores the
@@ -560,8 +560,8 @@ CHECKS = [
     ("tools_run_check.py",
      r"^(\d+) that cannot run", 0,
      "sweeps that cannot run at all"),
-    # A binding is registered two ways — as a named function, or as a lambda
-    # written out in the table — and they are the same binding to Lua. Five
+    # A binding is registered two ways - as a named function, or as a lambda
+    # written out in the table - and they are the same binding to Lua. Five
     # sweeps matched only the named form, so each asked its question of fewer
     # than half the bindings while reporting a number that read as all of them.
     # Fixing them on 2026-08-06 turned up a raising auction sell tab, a Create
@@ -573,7 +573,7 @@ CHECKS = [
      r"^(\d+) that read only one of the two binding forms", 0,
      "sweeps that see under half the bindings they claim to check"),
     # A lazy loader that sets its "done" flag before checking the assets are
-    # there disables itself for the session on one early call — no error, and
+    # there disables itself for the session on one early call - no error, and
     # the panel is simply empty from then on. Zero, and the fault was put back
     # into ensureAchievementCategoriesLoaded and seen to trip it. Reported one
     # before it was taught to stop at the end of a function: a latch on the
@@ -584,14 +584,14 @@ CHECKS = [
      "lazy loaders that latch before checking their assets are there"),
     # A frame named in the readiness tables that no file the loader reaches
     # declares. It reports NOT BUILT for ever, which reads as a fault in the
-    # interface rather than in the list — and the list is where it is. Zero,
+    # interface rather than in the list - and the list is where it is. Zero,
     # and a made-up name was put in and seen to trip it. 2s.
     ("framexml_promised_frames.py",
      r"^(\d+) promised by a table and declared nowhere", 0,
      "frames the readiness tables name that nothing declares"),
     # The mirror of the sweep above: not whether the answer used what it was
     # told, but whether it is spelled the way the caller looks it up. A token is
-    # a table key, so a misspelling is a nil rather than a wrong value — the
+    # a table key, so a misspelling is a nil rather than a wrong value - the
     # rune bar's prefix came back nil from _G[""], and UnitRace's file name
     # asked for an asset with a space in it. Zero, and both faults were put back
     # and seen to trip it before that zero was believed. 1s.
@@ -599,7 +599,7 @@ CHECKS = [
      r"^(\d+) token\(s\) spelled so", 0,
      "token strings the interface cannot look up"),
     # Where the interface indexes a table with a binding's answer directly. A
-    # reading list, not a verdict — the sweep can print the table's keys but not
+    # reading list, not a verdict - the sweep can print the table's keys but not
     # what the binding answers. Nine, and the one that put it here was
     # MAX_PLAYER_LEVEL_TABLE[GetAccountExpansionLevel()] against a table holding
     # 0, 1 and 2 while the binding counted from one: on Wrath it read nothing,
@@ -615,7 +615,7 @@ CHECKS = [
     # GetAbandonQuestItems offered "you will lose:" with nothing after the
     # colon, and GetGuildBankTabCost kept the buy screen up for a guild that
     # owned every tab. Zero, and the first of those was put back in its original
-    # shape and seen to trip it — the first draft could not, because it only
+    # shape and seen to trip it - the first draft could not, because it only
     # matched `if ( X() )` and both faults are written `local v = X()` and
     # tested on the next line. 2s.
     ("framexml_falsey_expected.py",
@@ -625,7 +625,7 @@ CHECKS = [
     # unpacked at these sites, so no short-return check reads them: the count
     # *is* the payload, and zero means the call runs its loop zero times and
     # the subsystem behind it does nothing. GetChatWindowMessages answered
-    # nothing and that was the whole of chat — ChatFrame_OnLoad registers a
+    # nothing and that was the whole of chat - ChatFrame_OnLoad registers a
     # chat frame for no CHAT_MSG_ event at all, every one comes from the line
     # this feeds, so the window showed nothing from login to logout while every
     # message parsed correctly. Zero, and the stub was put back and seen to
@@ -635,7 +635,7 @@ CHECKS = [
      "bindings spread into a vararg call that answer nothing"),
     # A C binding for a name FrameXML declares itself never runs: bindings are
     # registered in LuaEngine::initialize and the interface is read after, so
-    # the later definition wins. Nothing else reports it — the binding compiles,
+    # the later definition wins. Nothing else reports it - the binding compiles,
     # the name resolves, and every sweep that counts bound names counts it.
     # Usually the arrangement is deliberate and FrameXML's version wraps the
     # binding under another name; the three that do are listed in the tool with
@@ -646,7 +646,7 @@ CHECKS = [
     # GameTooltip setters that answer with a no-op, so the tooltip is blank.
     # A tooltip setter is the whole content of a tooltip: no error, no partial
     # result, just an empty box on one panel while every other hover works.
-    # Eight on 2026-08-05, four fixed — SetTradeTargetItem (its own twin was
+    # Eight on 2026-08-05, four fixed - SetTradeTargetItem (its own twin was
     # written and it was not), SetShapeshift (the stance bar, on screen the
     # whole time for five classes), SetMerchantCostItem, SetLFGDungeonReward.
     # The four left have nothing behind them to print; each is named in the
@@ -672,7 +672,7 @@ CHECKS = [
     ("global_vs_method_check.py",
      r"^(\d+) global\(s\) called by FrameXML and bound only", 0,
      "globals FrameXML calls that exist only as a widget method"),
-    # Two, and each is safe for its own reason — which is why they are listed
+    # Two, and each is safe for its own reason - which is why they are listed
     # rather than filtered. GetWintergraspWaitTime is guarded inside the same
     # expression that compares it (`nextBattleTime and nextBattleTime > 60`,
     # and `and` short-circuits); GetMapDebugObjectInfo would raise on
@@ -681,7 +681,7 @@ CHECKS = [
     # runs at all.
     #
     # It was two, then three when the search stopped reading only bindings
-    # written as named functions — 750 of 1322 — and is two again now that it
+    # written as named functions - 750 of 1322 - and is two again now that it
     # reads which *return position* was compared. A binding that answers a
     # boolean first and numbers after is correct and common (GetLFGQueueStats
     # leads with hasData, then thirteen numbers), and knowing only that the
@@ -694,7 +694,7 @@ CHECKS = [
     # straight to another binding, and luaL_optnumber treats a boolean as
     # neither absent nor convertible. GetChecked answered a boolean and
     # QueryAuctionItems read it as isUsable, so the auction browse raised
-    # before sending and the search came back empty with nothing logged —
+    # before sending and the search came back empty with nothing logged -
     # false is not nil, so an unticked box raised too. Zero, because there is
     # no benign version: the callee asked for a number.
     ("framexml_bool_vs_number.py",
@@ -705,7 +705,7 @@ CHECKS = [
     # GetGuildRosterInfo gave the class id where classFileName was wanted, so
     # `if ( classFileName ) then RAID_CLASS_COLORS[classFileName]` passed its
     # guard, found nothing, and read a field off nil inside GuildStatus_Update
-    # — which took the whole guild roster down, but only once somebody was
+    # - which took the whole guild roster down, but only once somebody was
     # online. GetWhoInfo had it too, from its own copy of the class table.
     #
     # Zero, because there is no benign version: the guard beside every one of
@@ -731,7 +731,7 @@ CHECKS = [
     # dispatchSlashCommand stops at the first handler and reports success even
     # when that handler errors, so any command FrameXML defines wins whether it
     # works or not. Zero is the honest ceiling for a handler that can do nothing
-    # at all; the tool's second list — a dead call beside a live one — is two
+    # at all; the tool's second list - a dead call beside a live one - is two
     # Battle.net branches that cannot run and is not guarded.
     ("framexml_slash_shadowing.py",
      r"^(\d+) client command\(s\) whose handler has no live call", 0,
@@ -744,7 +744,7 @@ CHECKS = [
      "single-event handlers unpacking more than the client fires"),
     # What the two arity sweeps structurally cannot see: the count being right
     # while the values are in the wrong places. That is what the spellcast
-    # events did — two fired where two were read, the second one wrong.
+    # events did - two fired where two were read, the second one wrong.
     #
     # Its own blind spot has a name now: ITEM_PUSH fires (itemId, count) where
     # a bag id and an icon were meant, and FrameXML unpacks it into arg1/arg2,
@@ -760,14 +760,14 @@ CHECKS = [
      r"^(\d+) return value\(s\) in the wrong position", 0,
      "binding return values of the wrong kind for their position"),
     # A panel that polls its own keybinding from inside its own draw stops
-    # answering that key the moment the draw is gated off — which is what
+    # answering that key the moment the draw is gated off - which is what
     # handing the element over does. Three were live on 2026-08-05: the talent
     # frame, the guild roster and the dungeon finder.
     ("keybinding_route_check.py",
      r"^(\d+) that would stop working when the panel is handed over", 0,
      "keys that stop working when their panel is handed over"),
     # A window gated on frameXmlOwns has to be opened through FrameXML once its
-    # element is handed over, and the controls that open it are scattered — a
+    # element is handed over, and the controls that open it are scattered - a
     # key, a micro-menu button, a bag icon, a context menu, the click half of a
     # drag handler, the code that puts the bags up for a vendor. Five separate
     # lists were found this way, three by hand before this existed.
@@ -776,14 +776,14 @@ CHECKS = [
      "controls opening a window without asking which interface owns it"),
     # The other half of the same seam: a window opened by writing its flag
     # rather than by calling a verb. Only the flags whose render is gated
-    # matter — nine of thirty-two — which is what makes the list readable.
+    # matter - nine of thirty-two - which is what makes the list readable.
     ("window_flag_check.py",
      r"^(\d+) write\(s\) to one of those flags with no ownership check", 0,
      "window flags written without asking which interface owns the window"),
     # "Owned or suppressed" applied to dialogs one at a time. Seven were drawn
     # twice on 2026-08-05, three of them under the plain defaults. The shared
     # quest joined them later the same day, once QUEST_ACCEPT_CONFIRM started
-    # being fired — which is exactly the day its reason stopped holding.
+    # being fired - which is exactly the day its reason stopped holding.
     #
     # Three left, each read: the duel countdown has no FrameXML counterpart at
     # all, the pet unlearn confirmation's CONFIRM_PET_UNLEARN exists here only
@@ -800,12 +800,12 @@ CHECKS = [
 
 # Prose rather than a count: the chunk checker says one of two sentences.
 # Three more that were written, left outside this guard, and quietly kept
-# working. Being outside it is not harmless — a sweep nobody runs finds its
+# working. Being outside it is not harmless - a sweep nobody runs finds its
 # fault on the day someone happens to run it rather than the day it broke.
 #
 # Each of these three was canaried before it was pinned: the defect it claims
 # to catch was written into a live interface file and each count went 0 -> 1.
-# Two others were written up alongside them and are *not* here —
+# Two others were written up alongside them and are *not* here -
 # framexml_nil_arithmetic's zero line and framexml_for_limit_check's sentence
 # both stayed clean with their own fault sitting in a loaded file, so pinning
 # them would have added two guards that cannot fail. (nil_arithmetic still
@@ -823,7 +823,7 @@ CHECKS += [
      "widget methods nothing answers at all"),
     # The one fault here that is not a wrong answer but a dead process. Lua
     # gives a binding twenty slots above its arguments and pushing past them
-    # writes outside the stack — GetChildren on UIParent, with 267 of them,
+    # writes outside the stack - GetChildren on UIParent, with 267 of them,
     # died in realloc rather than raising. Canaried by removing each of the
     # three guards in turn; all three are reported.
     ("lua_stack_room_check.py",
@@ -835,7 +835,7 @@ SENTENCES = [
     # The one check that opens the panels rather than reading about them. A
     # widget method that exists and answers nil is not a missing name, not a
     # short return and not a type mismatch, so it passes every static sweep
-    # here and raises the first time a handler reaches through it — which is
+    # here and raises the first time a handler reaches through it - which is
     # what kept the calendar shut. Canaried: with the region GetParent binding
     # removed, this reports the calendar and nothing else.
     ("framexml_addon_open_check.py",
@@ -851,7 +851,7 @@ SENTENCES = [
 # Data/opcodes are tracked; the extracted interface and the DBC files are the
 # player's own, so CI has a Data directory with neither in it.
 #
-# A sweep whose input is absent does not report zero — it reports whatever it
+# A sweep whose input is absent does not report zero - it reports whatever it
 # can see, which is nothing, and the shape of that report is not the shape this
 # guard reads. Eleven of them came back either unreadable or wildly over
 # ceiling on a checkout without the interface: framexml_promised_frames counted
@@ -898,14 +898,14 @@ def check_rebuild_idiom():
 
     That pair is how FrameXML asks a panel to rebuild itself, and it is the
     entire body of QuestFrame's handler for QUEST_DETAIL, QUEST_PROGRESS,
-    QUEST_COMPLETE and QUEST_GREETING — the four NPC dialogs. Everything those
+    QUEST_COMPLETE and QUEST_GREETING - the four NPC dialogs. Everything those
     panels display is positioned by QuestInfo_Display, which runs from OnShow
     and nowhere else.
 
     It is worth a guard of its own because of how it fails. Firing OnShow is
     noticed by comparing a frame against the last state anything reported for
     it, and a change that undoes itself before anything looks leaves nothing to
-    compare — the panel opens, the buttons work, and the text keeps the place
+    compare - the panel opens, the buttons work, and the text keeps the place
     its XML gave it, outside the scroll frame that clips it. Nothing raises and
     nothing is logged.
 
@@ -932,13 +932,13 @@ def check_rebuild_idiom():
         "--tick:1",
         "SHOWN = 0 HIDDEN = 0 P:Show()",
         "--tick:1",
-        "if SHOWN ~= 1 then error('a plain Show() did not fire OnShow — this "
+        "if SHOWN ~= 1 then error('a plain Show() did not fire OnShow - this "
         "check cannot see OnShow at all, so its other answers mean nothing') "
         "end",
         "SHOWN = 0 HIDDEN = 0 P:Hide() P:Show()",
         "--tick:1",
         "if HIDDEN ~= 1 or SHOWN ~= 1 then error('Hide();Show() fired OnHide x'"
-        "..HIDDEN..' OnShow x'..SHOWN..', wanted one of each — a panel asked to "
+        "..HIDDEN..' OnShow x'..SHOWN..', wanted one of each - a panel asked to "
         "rebuild itself will not') end",
         "SHOWN = 0 P:Show()",
         "--tick:1",
@@ -953,18 +953,18 @@ def check_rebuild_idiom():
         return True, what
     # The runner echoes each expression back on its own `== ` line before
     # running it, so the text of a failing check appears in the output whether
-    # or not it fired. Only the indented lines under it are what was raised —
+    # or not it fired. Only the indented lines under it are what was raised -
     # matching on the message alone reported this as broken while it worked.
     detail = next((ln.strip() for ln in (out.stdout + out.stderr).splitlines()
                    if ln.startswith("   ") and "OnShow" in ln), "")
-    return False, what + (" — " + detail if detail else "")
+    return False, what + (" - " + detail if detail else "")
 
 
 def check_paragraph_wrapping():
     """A font string with a declared width and no height wraps inside it.
 
     `<AbsDimension x="285" y="0"/>` is WoW's wrapping paragraph and 240 font
-    strings across the interface declare one — every quest description and
+    strings across the interface declare one - every quest description and
     objective, every mail body, every gossip greeting. The zero is not a
     missing height, it is "however tall the wrap makes me".
 
@@ -993,10 +993,10 @@ def check_paragraph_wrapping():
         "--tick:1",
         "if T:GetWidth() ~= 285 or W1 ~= 285 then error('the declared width did "
         "not survive: one line '..W1..', many lines '..T:GetWidth()..', wanted "
-        "285 for both — the string was sized from its text instead of wrapped "
+        "285 for both - the string was sized from its text instead of wrapped "
         "inside its box') end",
         "if T:GetHeight() <= H1 then error('height did not grow with the text: "
-        "one line '..H1..', many lines '..T:GetHeight()..' — everything "
+        "one line '..H1..', many lines '..T:GetHeight()..' - everything "
         "anchored below this sits on top of it') end",
     ]
     try:
@@ -1008,14 +1008,14 @@ def check_paragraph_wrapping():
     detail = next((ln.strip() for ln in (out.stdout + out.stderr).splitlines()
                    if ln.startswith("   ") and ("width" in ln or "height" in ln)),
                   "")
-    return False, what + (" — " + detail if detail else "")
+    return False, what + (" - " + detail if detail else "")
 
 
 def check_binding_dispatch():
     """A key press reaches FrameXML's bindings, but not one the client answers.
 
     The interface ships 273 binding scripts and, until the dispatch existed, no
-    press could reach any of them — a key bound in its own key-binding panel was
+    press could reach any of them - a key bound in its own key-binding panel was
     recorded and then never honoured.
 
     The guard is really on the exclusion. A key answered by both the client and
@@ -1055,7 +1055,7 @@ def check_binding_dispatch():
     ]
     for needle, why in wanted:
         if needle not in text:
-            return False, f"{what} — expected '{needle}' ({why})"
+            return False, f"{what} - expected '{needle}' ({why})"
     return True, what
 
 
@@ -1087,7 +1087,7 @@ CLICK_EVERYTHING = (
     "table.sort(names) "
     # Hovered as well as clicked. A tooltip is built in OnEnter and nowhere
     # else, and the mail tooltip died there on a colour argument the interface
-    # passes as an empty string — five hovers later the OnUpdate driving it was
+    # passes as an empty string - five hovers later the OnUpdate driving it was
     # unhooked for the session, and nothing said so on screen.
     "for _, n in ipairs(names) do "
     "  local b = _G[n] "
@@ -1138,7 +1138,7 @@ QuestGetAutoAccept    = function() return false end
 def check_npc_dialogs_fill():
     """All four NPC dialogs put their text on screen.
 
-    This is the reported bug — a parchment with working buttons and no text —
+    This is the reported bug - a parchment with working buttons and no text -
     and it had two independent causes, either of which alone reproduces it:
     the panel never ran its OnShow, so nothing was ever positioned; and a
     paragraph sized itself from its text instead of wrapping, so it ran out
@@ -1161,7 +1161,7 @@ def check_npc_dialogs_fill():
     # twice and what the second one must show is new text.
     #
     # Twice is the whole point. Opening a panel for the first time makes it
-    # visible, and that is a change anything watching can see — so the first
+    # visible, and that is a change anything watching can see - so the first
     # fire works even with the rebuild broken. The second arrives with the
     # panel already open, which is the case FrameXML uses Hide();Show() for and
     # the only one that fails. A single fire passed this check with the fix
@@ -1181,24 +1181,24 @@ def check_npc_dialogs_fill():
                 f"if not f or f == _G['QQNoSuchThing'] then "
                 f"error('{event}: {element} does not exist') end "
                 f"if not f:GetText() or f:GetText() == '' then "
-                f"error('{event}: {element} has no text — the panel never "
+                f"error('{event}: {element} has no text - the panel never "
                 f"filled itself in') end",
                 f"{getter} = function() return [[{second}]] end",
                 "--fire:" + event, "--tick:2",
                 f"local f = {element} "
                 f"if f:GetText() ~= [[{second}]] then "
                 f"error('{event}: {element} kept its first text when the "
-                f"dialog opened again — the panel did not rebuild') end "
+                f"dialog opened again - the panel did not rebuild') end "
                 f"if f:GetHeight() <= 0 then "
                 f"error('{event}: {element} has no height') end "
                 # Two lines at least. The text above is far too long to fit on
                 # one at any of these widths, so a single line's height means it
                 # was sized from its own text rather than wrapped inside its
-                # box — which is the other cause of the same blank dialog, and
+                # box - which is the other cause of the same blank dialog, and
                 # the one a height-above-zero test sails straight past.
                 f"if f:GetHeight() < 25 then "
                 f"error('{event}: {element} is one line tall holding text that "
-                f"cannot fit on one — it was sized from its text instead of "
+                f"cannot fit on one - it was sized from its text instead of "
                 f"wrapped inside its width') end "
                 f"if not f:IsVisible() then "
                 f"error('{event}: {element} is not visible') end"]
@@ -1210,7 +1210,7 @@ def check_npc_dialogs_fill():
             detail = next((ln.strip() for ln in
                            (out.stdout + out.stderr).splitlines()
                            if ln.startswith("   ") and event in ln), event)
-            return False, what + " — " + detail
+            return False, what + " - " + detail
     return True, what
 
 
@@ -1223,7 +1223,7 @@ def check_nothing_unsized():
     the screen is missing. Sixteen tab highlights and a status icon were in that
     state.
 
-    These three panels between them cover both ways it happened — art whose
+    These three panels between them cover both ways it happened - art whose
     anchors size one axis and leave the other open, and a texture with one
     anchor and no size at all, which takes the dimensions of its own image.
     That last needs the assets, so this reports a skip rather than a pass when
@@ -1249,16 +1249,16 @@ def check_nothing_unsized():
             return None, what + " (no assets)"
         m = re.search(r"^\s+(\d+) unsized, of (\d+) carrying", text, re.M)
         if not m:
-            return False, f"{what} — {panel} reported no count at all"
+            return False, f"{what} - {panel} reported no count at all"
         # The second number matters as much as the first: zero unsized is also
         # what "nothing on screen has anything to show" looks like.
         if int(m.group(2)) < 50:
-            return False, (f"{what} — {panel} had only {m.group(2)} regions "
+            return False, (f"{what} - {panel} had only {m.group(2)} regions "
                            f"carrying anything, so a zero here proves nothing")
         if int(m.group(1)) != 0:
             names = [ln.strip() for ln in text.splitlines()
                      if ln.strip().startswith("unsized:")]
-            return False, (f"{what} — {panel}: " +
+            return False, (f"{what} - {panel}: " +
                            "; ".join(names[:4]))
     return True, what
 
@@ -1273,7 +1273,7 @@ def check_panels_without_the_standin():
     could paint into a draw list.
 
     Together they found SetAuctionsTabShowing raising on the boolean the
-    interface actually passes it — from AuctionFrame's OnShow, so the auction
+    interface actually passes it - from AuctionFrame's OnShow, so the auction
     house raised the moment it opened, and again on every tab click. That is
     not a stand-in fault and was not hidden by one: it raised in ordinary runs
     too, and nothing had ever opened the panel to see it.
@@ -1290,7 +1290,7 @@ def check_panels_without_the_standin():
     for panel in ("AuctionFrame", "CharacterFrame", "MerchantFrame",
                   "SpellBookFrame", "QuestLogFrame"):
         # Clicked as well as opened. A handler only runs when something runs
-        # it, and clicking through a panel is what loads the calendar — which
+        # it, and clicking through a panel is what loads the calendar - which
         # is where CalendarCanSendInvite was found missing.
         argv = [str(exe), str(data), "--player",
                 f"local f = {panel} if f and f ~= _G['QQNoSuchThing'] then "
@@ -1304,7 +1304,7 @@ def check_panels_without_the_standin():
         raised = [ln.strip() for ln in (out.stdout + out.stderr).splitlines()
                   if re.match(r"^\s+\S.*:\d+:", ln)]
         if raised:
-            return False, f"{what} — {panel}: {raised[0][:150]}"
+            return False, f"{what} - {panel}: {raised[0][:150]}"
     return True, what
 
 
@@ -1313,7 +1313,7 @@ def check_dialogs_without_the_standin():
 
     Panels are reached by opening them; dialogs are reached by an event, and
     they are where the reported faults keep landing. Same three conditions as
-    the panel sweep — a player, no stand-in, a real draw — plus a click on
+    the panel sweep - a player, no stand-in, a real draw - plus a click on
     everything visible, because a handler only runs when something runs it.
 
     PETITION_SHOW is deliberately absent. Fired with no petition stored,
@@ -1343,22 +1343,22 @@ def check_dialogs_without_the_standin():
         raised = [ln.strip() for ln in (out.stdout + out.stderr).splitlines()
                   if re.match(r"^\s+\S.*:\d+:", ln)]
         if raised:
-            return False, f"{what} — {event}: {raised[0][:150]}"
+            return False, f"{what} - {event}: {raised[0][:150]}"
     return True, what
 
 
 def check_tooltip_colour_arguments():
     """A tooltip colour that is not a number is a default, not an error.
 
-    Blizzard writes `AddLine(ENCLOSED_MONEY, "", 1, 1, 1)` — an empty string
-    where the red goes — at seven places: the mail's money and COD lines, the
+    Blizzard writes `AddLine(ENCLOSED_MONEY, "", 1, 1, 1)` - an empty string
+    where the red goes - at seven places: the mail's money and COD lines, the
     bag and paperdoll repair costs, the taxi map's "you are here", the pet
     action bar, and uiparent. luaL_optnumber takes a string it can convert and
     "" is not one, so every one of those raised.
 
     What that costs is out of all proportion to the argument: a raise inside
     OnEnter loses the whole tooltip, and the OnUpdate driving it is unhooked
-    after five failures — so the tooltip dies for the session, silently.
+    after five failures - so the tooltip dies for the session, silently.
 
     Not covered by the panel sweep, and worth saying why rather than assuming
     it is: MailItem1Button's OnEnter only reaches that line when the mail
@@ -1386,14 +1386,14 @@ def check_tooltip_colour_arguments():
         return True, what
     detail = next((ln.strip() for ln in (out.stdout + out.stderr).splitlines()
                    if "AddLine" in ln and ":" in ln), "")
-    return False, what + (" — " + detail[:150] if detail else "")
+    return False, what + (" - " + detail[:150] if detail else "")
 
 
 def check_without_the_standin():
     """Load the whole interface with the missing-API stand-in turned off.
 
     By default an unknown global answers with a stand-in rather than nil, so a
-    file survives past a name nothing implements — and nothing says it was
+    file survives past a name nothing implements - and nothing says it was
     needed. With the stand-in off, anything the interface actually depends on
     raises and names itself.
 
@@ -1403,7 +1403,7 @@ def check_without_the_standin():
     interface rather than reading it, so it is also the only one that can see
     that.
 
-    Skipped, not failed, when the runner has not been built —
+    Skipped, not failed, when the runner has not been built -
     WOWEE_BUILD_FRAMEXML_RUN is off by default and most builds will not have
     it. A skip prints as a skip so it is never mistaken for a pass.
     """
@@ -1465,7 +1465,7 @@ def main():
         m = re.search(pattern, outputs[tool], re.M)
         if not m:
             failures.append(f"{tool}: could not read its own count for "
-                            f"'{what}' — the report's shape changed, which "
+                            f"'{what}' - the report's shape changed, which "
                             f"makes this guard silently useless")
             continue
         found = int(m.group(1))

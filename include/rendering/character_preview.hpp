@@ -40,20 +40,20 @@ public:
                        uint8_t hairStyle, uint8_t hairColor,
                        uint8_t facialHair, bool useFemaleModel = false);
 
-    /// Any model by path, with none of the appearance work — for a creature,
+    /// Any model by path, with none of the appearance work - for a creature,
     /// whose M2 names its own textures and has no geosets to choose between.
     /// Put a pre-composited skin on the loaded character, replacing the one
     /// built from CharSections.
     ///
     /// CreatureDisplayInfoExtra carries one of these for nearly every humanoid
-    /// NPC — 15,453 of 15,475 rows here — and it is the whole appearance
+    /// NPC - 15,453 of 15,475 rows here - and it is the whole appearance
     /// already baked: skin, face, hair and the armour they are wearing. The
     /// client cannot composite an NPC's armour, and does not have to.
     ///
     /// After loadCharacter, because it overrides the slot that one fills.
     bool setBakedSkin(const std::string& bakePath);
 
-    /// skins are (M2 texture type, path) pairs — a creature's model declares
+    /// skins are (M2 texture type, path) pairs - a creature's model declares
     /// texture slots and the display row fills them, so the M2 alone is an
     /// untextured shape. EntitySpawner::getCreatureSkinPaths answers with
     /// exactly this.
@@ -73,7 +73,7 @@ public:
     ///
     /// The viewing direction otherwise comes from whichever racial backdrop
     /// scene was loaded, and the model is turned to match only in that same
-    /// call — so without a scene the camera sits along one axis while the model
+    /// call - so without a scene the camera sits along one axis while the model
     /// still faces another, and the portrait shows a profile. This sets both
     /// together and zooms to the face.
     void setPortraitFraming();
@@ -84,7 +84,7 @@ public:
     /// colour inside that frame.
     void setTransparentBackground(bool transparent);
 
-    // Off-screen composite pass — call from Renderer::beginFrame() before main render pass
+    // Off-screen composite pass - call from Renderer::beginFrame() before main render pass
     void compositePass(VkCommandBuffer cmd, uint32_t frameIndex);
 
     // Mark that the preview needs compositing this frame (call from UI each frame)
@@ -149,7 +149,7 @@ private:
     // ImGui texture handle for displaying the preview (VkDescriptorSet in Vulkan backend)
     VkDescriptorSet imguiTextureId_ = VK_NULL_HANDLE;
 
-    // 4:5 portrait aspect ratio — taller than wide to show full character body
+    // 4:5 portrait aspect ratio - taller than wide to show full character body
     // from head to feet in the character creation/selection screen. Rendered at
     // roughly the size it is displayed at, so the larger panel is not upscaled mush.
     int fboWidth_ = 640;

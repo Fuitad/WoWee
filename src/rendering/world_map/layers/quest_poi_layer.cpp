@@ -1,4 +1,4 @@
-// quest_poi_layer.cpp — Quest objective markers on the world map.
+// quest_poi_layer.cpp - Quest objective markers on the world map.
 // Extracted from WorldMap::renderImGuiOverlay (Phase 8 of refactoring plan).
 #include "rendering/world_map/layers/quest_poi_layer.hpp"
 #include "rendering/world_map/coordinate_projection.hpp"

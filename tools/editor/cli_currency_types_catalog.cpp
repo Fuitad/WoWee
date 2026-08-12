@@ -275,15 +275,15 @@ int handleValidate(int& i, int argc, char** argv) {
                     std::to_string(e.maxQuantityWeekly) +
                     " > maxQuantity " +
                     std::to_string(e.maxQuantity) +
-                    " — weekly cap exceeds absolute cap, "
+                    " - weekly cap exceeds absolute cap, "
                     "weekly cap will never be reached");
             }
             // Faction tokens with no categoryId can't reference
-            // a faction — break the rep gate.
+            // a faction - break the rep gate.
             if (e.currencyKind == wowee::pipeline::WoweeCurrencyType::FactionToken &&
                 e.categoryId == 0) {
                 warnings.push_back(ctx +
-                    ": FactionToken kind with categoryId=0 — "
+                    ": FactionToken kind with categoryId=0 - "
                     "no faction is associated, rep gate will not "
                     "trigger");
             }
@@ -292,7 +292,7 @@ int handleValidate(int& i, int argc, char** argv) {
             if (e.maxQuantity == 0 && e.maxQuantityWeekly == 0 &&
                 e.itemId == 0 && e.iconPath.empty()) {
                 warnings.push_back(ctx +
-                    ": no caps + no itemId + no iconPath — "
+                    ": no caps + no itemId + no iconPath - "
                     "currency has no display data and unbounded "
                     "earn rate");
             }

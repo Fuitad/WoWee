@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """How far the Lua API is from running FrameXML.
 
-FrameXML calls a few thousand globals, but most of them are its own — it
+FrameXML calls a few thousand globals, but most of them are its own - it
 defines them itself as it loads. Subtracting those leaves the client API it
 expects to already be there, which is the real measure of what is left to do.
 
@@ -22,7 +22,7 @@ import re, os, collections
 #!/usr/bin/env python3
 """How far the Lua API is from running FrameXML.
 
-FrameXML calls a few thousand globals, but most of them are its own — it
+FrameXML calls a few thousand globals, but most of them are its own - it
 defines them itself as it loads. Subtracting those leaves the client API it
 expects to already be there, which is the real measure of what is left to do.
 
@@ -51,10 +51,10 @@ have |= set(re.findall(r'\{"(\w+)"\s*,', eng))
 have |= set(re.findall(r'"(\w+)\s*=', eng))
 have |= set(re.findall(r'"function (\w+)\(', eng))
 
-# What FrameXML itself defines — these are not gaps.
+# What FrameXML itself defines - these are not gaps.
 #
 # The addon directory counts as "itself". Blizzard ships a dozen of its own
-# addons and they define plenty of what framexml calls — the achievement UI,
+# addons and they define plenty of what framexml calls - the achievement UI,
 # the combat log and the combat text between them held five of the ten
 # most-called "missing" names, every one of them defined a directory away.
 # Loaded on demand is still loaded.
@@ -68,11 +68,11 @@ for fn in _lua:
     if not fn.endswith(".lua"): continue
     # Comments and the insides of strings blanked, from the one place that has
     # both rules. Without it the fifteen most-called "missing" names included
-    # Flanagan, Stephens, Master and TOP — the credits file and a handful of
+    # Flanagan, Stephens, Master and TOP - the credits file and a handful of
     # anchor points, read as calls because a string is full of parentheses.
     src = without_comments_or_strings(open(fn, errors="ignore").read())
     # `local function` too. Anchoring on `function` alone missed every
-    # file-local helper, and FrameXML declares plenty of them — GetHandleFrame
+    # file-local helper, and FrameXML declares plenty of them - GetHandleFrame
     # and GetUIPanelWindowInfo between them accounted for the two most-called
     # "gaps" in the report, neither of which was missing at all.
     defined |= set(re.findall(r'^\s*(?:local\s+)?function\s+([A-Za-z_][\w]*)\s*\(', src, re.M))

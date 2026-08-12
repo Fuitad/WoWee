@@ -137,7 +137,7 @@ public:
 
     // Free a model's GPU buffers and map entry once no instance references it.
     // For per-instance model ids (weapons/effects/player composites, which get
-    // a fresh id per attach or spawn) — without this every reload or despawn
+    // a fresh id per attach or spawn) - without this every reload or despawn
     // leaked the model. Do NOT call for displayId-keyed NPC models; those are
     // cached across despawn/respawn on purpose. Buffers are destroyed via the
     // frame-fence deferral path; shared textures stay in the cache.
@@ -175,7 +175,7 @@ public:
     void setPOMEnabled(bool enabled) { pomEnabled_ = enabled; }
     void setPOMQuality(int quality) { pomQuality_ = quality; }
 
-    // Fog/lighting/shadow are now in per-frame UBO — keep stubs for callers that haven't been updated
+    // Fog/lighting/shadow are now in per-frame UBO - keep stubs for callers that haven't been updated
     void setFog(const glm::vec3&, float, float) {}
     void setLighting(const float[3], const float[3], const float[3]) {}
     void setShadowMap(VkTexture*, const glm::mat4&) {}
@@ -209,7 +209,7 @@ private:
         std::vector<VkTexture*> textureIds;
 
         // Cached batch render order sorted by (priorityPlane, materialLayer).
-        // Built once at load time — the sort only depends on the model's static
+        // Built once at load time - the sort only depends on the model's static
         // batch metadata, so doing it per-instance per-frame in render() was
         // pure overhead.
         std::vector<size_t> sortedBatchIndices;
@@ -240,11 +240,11 @@ private:
         bool isDead = false;  // Prevents movement while in death state
         std::vector<glm::mat4> boneMatrices;  // Current bone transforms
 
-        // Geoset visibility — which submesh IDs to render
+        // Geoset visibility - which submesh IDs to render
         // Empty = render all (for non-character models)
         std::unordered_set<uint16_t> activeGeosets;
         /// Draw the Skin Extra (texture type 8) head-detail batch. True only
-        /// where the instance has been set up to composite it — the player.
+        /// where the instance has been set up to composite it - the player.
         bool drawSkinExtra = false;
 
         // Per-geoset-group texture overrides (group → VkTexture*)
@@ -280,7 +280,7 @@ private:
         // A scene rather than a character: the glue-screen backdrops. Two things
         // follow. Their origin can sit hundreds of units from their geometry, so
         // culling on it would drop them. And the material heuristics below exist to
-        // rescue character textures — applied to a scene they erase it, because
+        // rescue character textures - applied to a scene they erase it, because
         // Stormwind's walls are DXT5 with an unused alpha channel that the opaque
         // batches must ignore, exactly as the blend mode says.
         bool isSceneModel = false;
@@ -307,7 +307,7 @@ private:
     void destroyModelGPU(M2ModelGPU& gpuModel, bool defer = false);
     void destroyInstanceBones(CharacterInstance& inst, bool defer = false);
 
-    // Attachment point lookup helper — shared by attachWeapon() and getAttachmentTransform()
+    // Attachment point lookup helper - shared by attachWeapon() and getAttachmentTransform()
     bool findAttachmentBone(uint32_t modelId, uint32_t attachmentId,
                            uint16_t& outBoneIndex, glm::vec3& outOffset) const;
 
@@ -390,7 +390,7 @@ private:
         std::make_shared<std::atomic<uint64_t>>(0);
     uint32_t lastMaterialPoolResetFrame_ = 0xFFFFFFFFu;
 
-    // Material UBO ring buffer — pre-allocated per frame slot, sub-allocated each draw
+    // Material UBO ring buffer - pre-allocated per frame slot, sub-allocated each draw
     VkBuffer materialRingBuffer_[2] = {VK_NULL_HANDLE, VK_NULL_HANDLE};
     VmaAllocation materialRingAlloc_[2] = {VK_NULL_HANDLE, VK_NULL_HANDLE};
     void* materialRingMapped_[2] = {nullptr, nullptr};
@@ -442,7 +442,7 @@ private:
     std::unique_ptr<VkTexture> generateNormalHeightMap(
         const uint8_t* pixels, uint32_t width, uint32_t height, float& outVariance);
 
-    // Background normal map generation — CPU work on thread pool, GPU upload on main thread
+    // Background normal map generation - CPU work on thread pool, GPU upload on main thread
     struct NormalMapResult {
         std::string cacheKey;
         std::vector<uint8_t> pixels;  // RGBA normal map output

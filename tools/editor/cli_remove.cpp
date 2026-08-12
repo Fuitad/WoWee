@@ -121,7 +121,7 @@ int handleRemoveQuest(int& i, int /*argc*/, char** argv) {
 int handleRemoveItem(int& i, int /*argc*/, char** argv) {
     // Remove the item at given 0-based index from <zoneDir>/
     // items.json. Mirrors --remove-creature/--remove-object/
-    // --remove-quest semantics — bounds-checked, file rewrites
+    // --remove-quest semantics - bounds-checked, file rewrites
     // on success, exit 1 on out-of-range.
     std::string zoneDir = argv[++i];
     int idx = -1;

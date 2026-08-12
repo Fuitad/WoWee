@@ -55,7 +55,7 @@ int handleDiffWcp(int& i, int argc, char** argv) {
     int onlyA = 0, onlyB = 0, sizeChanged = 0, identical = 0;
     std::vector<std::string> onlyAList, onlyBList, changedList;
     // For JSON we want size-change rows as structured records, not
-    // pre-formatted strings — collect both forms in one pass.
+    // pre-formatted strings - collect both forms in one pass.
     struct ChangedRow { std::string path; uint64_t aSize, bSize; };
     std::vector<ChangedRow> changedRows;
     for (const auto& [p, sz] : aFiles) {
@@ -122,7 +122,7 @@ int handleDiffZone(int& i, int argc, char** argv) {
     for (const auto& d : {aDir, bDir}) {
         if (!fs::exists(d + "/zone.json")) {
             std::fprintf(stderr,
-                "diff-zone: %s has no zone.json — not a zone dir\n",
+                "diff-zone: %s has no zone.json - not a zone dir\n",
                 d.c_str());
             return 1;
         }
@@ -131,7 +131,7 @@ int handleDiffZone(int& i, int argc, char** argv) {
     aZ.load(aDir + "/zone.json");
     bZ.load(bDir + "/zone.json");
     // Helper: load a sub-file if present, returning empty container
-    // when missing — both sides may legitimately omit a content
+    // when missing - both sides may legitimately omit a content
     // file (e.g. a quest-free zone) without that being a diff per se.
     auto loadCreatures = [](const std::string& dir) {
         std::vector<std::string> names;
@@ -254,7 +254,7 @@ int handleDiffGlb(int& i, int argc, char** argv) {
     // (e.g. --bake-zone-glb vs concatenated --export-whm-glbs)
     // or that a re-export of the same source is byte-equivalent.
     // Compares structure (mesh/primitive/accessor counts +
-    // chunk sizes), NOT byte-level — JSON key ordering can vary.
+    // chunk sizes), NOT byte-level - JSON key ordering can vary.
     std::string aPath = argv[++i];
     std::string bPath = argv[++i];
     bool jsonOut = (i + 1 < argc &&
@@ -299,7 +299,7 @@ int handleDiffGlb(int& i, int argc, char** argv) {
         return 1;
     }
     // Pull structural counts from JSON. Skip if parse fails on
-    // either side — diff is meaningless then.
+    // either side - diff is meaningless then.
     auto countOf = [](const nlohmann::json& j, const char* key) {
         if (j.contains(key) && j[key].is_array()) {
             return static_cast<int>(j[key].size());
@@ -375,7 +375,7 @@ int handleDiffGlb(int& i, int argc, char** argv) {
 int handleDiffWom(int& i, int argc, char** argv) {
     // Structural compare of two WOM models. Useful for verifying
     // that a --migrate-wom or round-trip through OBJ/glTF/STL
-    // preserved the right counts. Compares sizes only — point-
+    // preserved the right counts. Compares sizes only - point-
     // wise vertex compare would be O(n²) and brittle to minor
     // float diffs from format conversions.
     std::string aBase = argv[++i];
@@ -503,7 +503,7 @@ int handleDiffWob(int& i, int argc, char** argv) {
         long long av, bv;
     };
     // WoweeBuilding doesn't have a top-level textures vector or
-    // doodadSets — materials and textures are per-group, doodad
+    // doodadSets - materials and textures are per-group, doodad
     // sets are flattened. Aggregate the per-group counts.
     long long aMats = 0, bMats = 0;
     long long aGroupTex = 0, bGroupTex = 0;
@@ -593,7 +593,7 @@ int handleDiffWhm(int& i, int argc, char** argv) {
     wowee::pipeline::ADTTerrain a, b;
     wowee::pipeline::WoweeTerrainLoader::load(aBase, a);
     wowee::pipeline::WoweeTerrainLoader::load(bBase, b);
-    // Per-side height range walk — same as --info-whm.
+    // Per-side height range walk - same as --info-whm.
     auto stats = [](const wowee::pipeline::ADTTerrain& t) {
         struct S { int loaded; float minH, maxH; } s{0, 1e30f, -1e30f};
         for (const auto& c : t.chunks) {
@@ -903,7 +903,7 @@ int handleDiffExtract(int& i, int argc, char** argv) {
 int handleDiffChecksum(int& i, int argc, char** argv) {
     // Compare two SHA256SUMS files (from --export-zone-checksum).
     // Reports which files are added / removed / changed between
-    // two zone snapshots — much faster than walking the
+    // two zone snapshots - much faster than walking the
     // filesystem to recompute hashes of unchanged content.
     std::string aPath = argv[++i];
     std::string bPath = argv[++i];

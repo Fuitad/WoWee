@@ -14,7 +14,7 @@ namespace rendering {
 // main → post-process → ImGui → present) into declarative graph nodes.
 // Graph auto-inserts VkImageMemoryBarrier between passes.
 
-// Resource handle — identifies a virtual resource (image or buffer) within the graph.
+// Resource handle - identifies a virtual resource (image or buffer) within the graph.
 struct RGResource {
     uint32_t id = UINT32_MAX;
     bool valid() const { return id != UINT32_MAX; }
@@ -43,7 +43,7 @@ struct RGBufferBarrier {
     VkPipelineStageFlags dstStage;
 };
 
-// Render pass node — wraps an execution callback with declared inputs/outputs.
+// Render pass node - wraps an execution callback with declared inputs/outputs.
 struct RGPass {
     std::string name;
     std::vector<RGResource> inputs;

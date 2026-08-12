@@ -1,5 +1,5 @@
 // ============================================================
-// WindowManager — extracted from GameScreen
+// WindowManager - extracted from GameScreen
 // Owns all NPC interaction windows, popup dialogs, and misc
 // overlay UI: loot, gossip, quest, vendor, trainer, mail, bank,
 // auction house, barber, stable, taxi, escape menu, death screen,
@@ -57,7 +57,7 @@ public:
     void renderTrainerWindow(game::GameHandler& gameHandler,
                              SpellIconFn getSpellIcon,
                              InventoryScreen& inventoryScreen);
-    // Standalone crafting window (crafting_window.cpp) — opened by casting a
+    // Standalone crafting window (crafting_window.cpp) - opened by casting a
     // profession spell (Cooking, First Aid, ...); recipe list with difficulty
     // colors, reagent counts, and multi-craft controls.
     void renderCraftingWindow(game::GameHandler& gameHandler,
@@ -225,7 +225,7 @@ public:
     // renderBarberShopWindow, so they existed only while this client drew the
     // chair. FrameXML's barber asks the same questions through
     // GetBarberShopStyleInfo and GetBarberShopTotalCost, and with the panel
-    // handed over that render never runs — the answers have to come from
+    // handed over that render never runs - the answers have to come from
     // somewhere that does not depend on who is drawing.
     void ensureBarberState(game::GameHandler& gameHandler);
     void rebuildBarberHairColors(uint8_t hairStyle, uint8_t preferredColor,

@@ -63,7 +63,7 @@ namespace InvType {
 /// Whether an item of this INVTYPE is a weapon, for the purpose of comparing
 /// two of them: damage per second is worth showing side by side, armour is not.
 ///
-/// Held-in-off-hand and shields are deliberately not weapons here — they occupy
+/// Held-in-off-hand and shields are deliberately not weapons here - they occupy
 /// a weapon slot and have no damage to compare.
 ///
 /// Written out twice before this, in the bags and in the chat tooltip, as a
@@ -85,13 +85,13 @@ inline bool isWeaponInventoryType(uint8_t inventoryType) {
 /// The equipped slots an item of this INVTYPE should be compared against, in
 /// the order to try them.
 ///
-/// Usually one. Two where the item could go in either of a pair — rings,
-/// trinkets, and a one-hander that may be in the off hand — and every bag slot
+/// Usually one. Two where the item could go in either of a pair - rings,
+/// trinkets, and a one-hander that may be in the off hand - and every bag slot
 /// for a bag. Empty for anything that is not equipped at all.
 ///
 /// This mapping is WoW's, not this client's, and it was written out twice: once
 /// for the bags' comparison tooltip and once for the chat link's. They agreed,
-/// which is luck rather than design — the stat-name table beside them in the
+/// which is luck rather than design - the stat-name table beside them in the
 /// same two files did not, and was shifted by one from 34 up for long enough
 /// that a resilience item read as haste.
 inline std::vector<EquipSlot> comparableEquipSlots(uint8_t inventoryType) {
@@ -124,7 +124,7 @@ inline std::vector<EquipSlot> comparableEquipSlots(uint8_t inventoryType) {
         case InvType::MAIN_HAND: return {ES::MAIN_HAND};
         case InvType::BAG: {
             // Counted off the enum rather than against Inventory::NUM_BAG_SLOTS,
-            // which is declared further down this file — and which would be a
+            // which is declared further down this file - and which would be a
             // second place to say how many bags there are.
             std::vector<EquipSlot> bags;
             for (int s = static_cast<int>(ES::BAG1); s <= static_cast<int>(ES::BAG4); ++s) {
@@ -175,7 +175,7 @@ struct ItemDef {
     ///
     /// Here rather than on a handler because it is a fact about the item, and
     /// because it had been written out three times in inventory_screen.cpp and
-    /// nowhere on the path FrameXML takes — so equipping through the interface
+    /// nowhere on the path FrameXML takes - so equipping through the interface
     /// bound the item with no prompt at all.
     bool wouldBindOnEquip() const { return bindType == 2 && !soulbound; }
     // Per-instance ITEM_FIELD_RANDOM_PROPERTIES_ID: >0 → ItemRandomProperties.dbc (prefix),
@@ -289,7 +289,7 @@ public:
 
     // Pour partial stacks of the same item together, so two half stacks become
     // one. Dropping a stack onto another of the same item is a swap as far as the
-    // wire is concerned — the server merges what fits and leaves the rest behind —
+    // wire is concerned - the server merges what fits and leaves the rest behind -
     // so the returned ops go through the same queue as a sort.
     //
     // Unlike the sort, this both plans and applies: keeping the plan and the local
@@ -298,7 +298,7 @@ public:
     std::vector<SwapOp> mergeBankPartialStacks(int mainSlotCount);
 
     // Compute the CMSG_SWAP_ITEM operations needed to reach sorted order.
-    // Does NOT modify the inventory — caller is responsible for sending packets.
+    // Does NOT modify the inventory - caller is responsible for sending packets.
     std::vector<SwapOp> computeSortSwaps() const;
     std::vector<SwapOp> computeBankSortSwaps(int mainSlotCount) const;
     std::vector<SwapOp> computeBankBagSortSwaps(int bagIndex) const;
@@ -319,7 +319,7 @@ private:
 
     struct BagData {
         int size = 0;
-        bool special = false;  // Quiver/ammo pouch/profession bag — restricted contents
+        bool special = false;  // Quiver/ammo pouch/profession bag - restricted contents
         ItemSlot bagItem;  // The bag item itself (for icon/name/tooltip)
         std::array<ItemSlot, MAX_BAG_SIZE> slots{};
     };

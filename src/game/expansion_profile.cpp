@@ -7,7 +7,7 @@
 #include <cstdlib>
 #include <limits>
 
-// Minimal JSON parsing (no external dependency) — expansion.json is tiny and flat.
+// Minimal JSON parsing (no external dependency) - expansion.json is tiny and flat.
 // We parse the subset we need: strings, integers, arrays of integers.
 namespace {
 
@@ -38,7 +38,7 @@ std::string jsonValue(const std::string& json, const std::string& key) {
         return (end != std::string::npos) ? json.substr(pos + 1, end - pos - 1) : "";
     }
     if (json[pos] == '{') {
-        // Nested object — return content between braces
+        // Nested object - return content between braces
         size_t depth = 1;
         size_t start = pos + 1;
         for (size_t i = start; i < json.size() && depth > 0; ++i) {
@@ -48,7 +48,7 @@ std::string jsonValue(const std::string& json, const std::string& key) {
         return "";
     }
     if (json[pos] == '[') {
-        // Array — return content between brackets (including brackets)
+        // Array - return content between brackets (including brackets)
         size_t end = json.find(']', pos);
         return (end != std::string::npos) ? json.substr(pos, end - pos + 1) : "";
     }
@@ -63,7 +63,7 @@ int jsonInt(const std::string& json, const std::string& key, int def = 0) {
     try {
         return std::stoi(v);
     } catch (...) {
-        // Non-numeric value for an integer field — fall back to default rather than
+        // Non-numeric value for an integer field - fall back to default rather than
         // crashing, but log it so malformed expansion.json files are diagnosable.
         wowee::core::Logger::getInstance().warning("jsonInt: failed to parse '", key, "' value '", v, "', using default ", def);
         return def;

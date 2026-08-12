@@ -1,4 +1,4 @@
-// lua_system_api.cpp — System, time, sound, locale, map, addons, instances, and utilities Lua API bindings.
+// lua_system_api.cpp - System, time, sound, locale, map, addons, instances, and utilities Lua API bindings.
 // Extracted from lua_engine.cpp as part of §5.1 (Tame LuaEngine).
 #include <array>
 #include <algorithm>
@@ -45,13 +45,13 @@
 
 namespace wowee::addons {
 
-// CombatLog_Object_IsA(unitFlags, mask) — does a combat log unit match a filter.
+// CombatLog_Object_IsA(unitFlags, mask) - does a combat log unit match a filter.
 //
 // The flags are four exclusive categories packed together (affiliation,
 // reaction, control, unit type) plus a set of non-exclusive special bits, and a
 // filter names every value it accepts within a category. COMBATLOG_FILTER_MINE
 // is AFFILIATION_MINE + REACTION_FRIENDLY + CONTROL_PLAYER + TYPE_PLAYER +
-// TYPE_OBJECT, and a player only ever carries one of those two type bits — so
+// TYPE_OBJECT, and a player only ever carries one of those two type bits - so
 // the obvious (flags & mask) == mask never matches anything, and the whole
 // combat log filters itself empty.
 //
@@ -83,7 +83,7 @@ static void calendarSetViewedMonth(int month, int year) {
     calendarViewedMonthState() = {month, year};
 }
 
-/// One end of the range the calendar offers, as weekday, month, day, year —
+/// One end of the range the calendar offers, as weekday, month, day, year -
 /// the order the interface unpacks it in.
 static int pushCalendarBoundDate(lua_State* L, int monthOffset) {
     const auto viewedNow = calendarViewedMonth();
@@ -108,7 +108,7 @@ static int pushCalendarBoundDate(lua_State* L, int monthOffset) {
 /// The rows on the day an interface call is asking about.
 ///
 /// Every day-indexed calendar getter takes (monthOffset, day) and indexes the
-/// same list, so resolving it lives here once — three getters computing "which
+/// same list, so resolving it lives here once - three getters computing "which
 /// month is offset -1 of the viewed one" separately is how they would drift
 /// apart on the first month that ends on a Sunday.
 static std::vector<wowee::game::CalendarDayEntry> calendarDayRows(lua_State* L) {
@@ -140,7 +140,7 @@ static wowee::game::CalendarEventDraft& calendarDraft() {
 ///
 /// State because the menu needs it to be. UIDropDownMenu builds its list in
 /// one call and runs the click in another, and nothing is carried between the
-/// two — so the row is named once by CalendarContextSelectEvent and every verb
+/// two - so the row is named once by CalendarContextSelectEvent and every verb
 /// on the menu reads it back.
 struct CalendarContextRow { int monthOffset = 0; int day = 0; int index = 0; };
 
@@ -184,7 +184,7 @@ static const char* calendarModStatus(lua_State* L,
 
 /// Answer the invitation on the menu's row, if that row has one.
 ///
-/// The invite id comes from the invite list the calendar arrived with — the
+/// The invite id comes from the invite list the calendar arrived with - the
 /// server wants both it and the event id, and an event the player was never
 /// invited to has no invite to answer. Silent when there is none rather than
 /// sending a request the server would refuse.
@@ -264,8 +264,8 @@ static int lua_PlaySound(lua_State* L) {
         }
     } else {
         const char* name = luaL_optstring(L, 1, "");
-        // The real sound first. These names are SoundEntries.dbc rows — the
-        // interface is naming one, and the row names the files — so looking it
+        // The real sound first. These names are SoundEntries.dbc rows - the
+        // interface is naming one, and the row names the files - so looking it
         // up plays what WoW plays rather than the nearest thing this client had
         // already loaded, and it covers all sixty-eight rather than the
         // forty-four below.
@@ -278,8 +278,8 @@ static int lua_PlaySound(lua_State* L) {
         sound = name;
         for (char& c : sound) c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
 
-        // FrameXML asks for eighty-nine names across the files that load —
-        // sixty-eight when this was written — and nine of them were answered,
+        // FrameXML asks for eighty-nine names across the files that load -
+        // sixty-eight when this was written - and nine of them were answered,
         // so nearly every panel this branch has handed over opened, closed and
         // was clicked in silence. The sound manager already had most of these
         // under its own names; only the mapping was missing.
@@ -351,9 +351,9 @@ static int lua_PlaySound(lua_State* L) {
         // from the dbc and the name is not in the table above, so the call
         // returns having done nothing and the panel is silent.
         //
-        // Silence is the right answer — substituting a sound that merely
+        // Silence is the right answer - substituting a sound that merely
         // exists would be wrong forever, where a missing one can still be
-        // heard — but it should be possible to find out which name it was
+        // heard - but it should be possible to find out which name it was
         // without guessing from a quiet button. The interface asks for eighty
         // nine of these across the files that load, and the table below covers
         // the ones the client has an equivalent for.
@@ -369,8 +369,8 @@ static int lua_PlaySound(lua_State* L) {
     return 0;
 }
 
-// PlaySoundFile(path) — stub (file-based sounds not loaded from Lua)
-/// PlaySoundFile(path) — a sound named by where it lives rather than by a
+// PlaySoundFile(path) - stub (file-based sounds not loaded from Lua)
+/// PlaySoundFile(path) - a sound named by where it lives rather than by a
 /// SoundEntries row.
 ///
 /// One caller in the interface, on the login screen, and a great many in
@@ -389,7 +389,7 @@ static int lua_PlaySoundFile(lua_State* L) {
 /// as a fraction across it.
 ///
 /// Two faults, both silent. It answered raw world coordinates, and
-/// worldmapframe.lua multiplies what it gets by WorldMapDetailFrame's width —
+/// worldmapframe.lua multiplies what it gets by WorldMapDetailFrame's width -
 /// so the player arrow was placed some thousands of pixels off the parchment
 /// rather than on it. And it ignored the unit it was asked about, so the four
 /// party markers and the forty raid ones all described the player.
@@ -414,13 +414,13 @@ static int lua_GetPlayerMapPosition(lua_State* L) {
         wx = mi.x; wy = mi.y; wz = mi.z;
     } else if (const uint64_t guid = resolveUnitGuid(gh, unit)) {
         // Through the entity when it is in range, and the group list when it is
-        // not — a raid member across the zone is exactly who this is asked
+        // not - a raid member across the zone is exactly who this is asked
         // about, and they have no entity here.
         if (auto e = gh->getEntityManager().getEntity(guid)) {
             wx = e->getX(); wy = e->getY(); wz = e->getZ();
         } else if (const auto* m = findPartyMember(gh, guid)) {
-            // The group list carries a coarse position — SMSG_PARTY_MEMBER_STATS
-            // truncates it to a pair of int16 yards — which is ample for a dot
+            // The group list carries a coarse position - SMSG_PARTY_MEMBER_STATS
+            // truncates it to a pair of int16 yards - which is ample for a dot
             // on a zone map and is the only position there is for someone out
             // of range.
             wx = static_cast<float>(m->posX);
@@ -459,8 +459,8 @@ static int lua_GetPlayerFacing(lua_State* L) {
 ///
 /// SetCVar was a no-op, so every option the interface changed reverted the
 /// instant it was read back: ticking a box in the interface options did
-/// nothing, and any code that writes a CVar and then reads it to confirm — of
-/// which FrameXML has a fair amount — saw its own write disappear.
+/// nothing, and any code that writes a CVar and then reads it to confirm - of
+/// which FrameXML has a fair amount - saw its own write disappear.
 static std::unordered_map<std::string, std::string>& cvarStore() {
     static std::unordered_map<std::string, std::string> store;
     return store;
@@ -482,7 +482,7 @@ static std::string cvarStorePath() {
 /// Storing them in memory alone made every interface option last exactly one
 /// session. That is not a small thing: the equipment manager is off until its
 /// box is ticked, the box writes equipmentManager, and the paperdoll reads that
-/// on VARIABLES_LOADED — so it came back off on every login, and so did every
+/// on VARIABLES_LOADED - so it came back off on every login, and so did every
 /// other option the player had set.
 static void loadStoredCVars() {
     std::ifstream in(cvarStorePath());
@@ -531,7 +531,7 @@ static void saveStoredCVars() {
 ///
 /// The stock client keeps these in account data, which this client is not
 /// sent, so they ride in the CVar file beside everything else that has to
-/// survive a login — one row, the ids comma separated. An in-memory set would
+/// survive a login - one row, the ids comma separated. An in-memory set would
 /// look finished and re-show every tutorial on the next login, which is the
 /// shape this repository keeps producing.
 ///
@@ -588,7 +588,7 @@ static void flagTutorial(int id) {
 /// A sound CVar's value, or the stock client's default for it.
 ///
 /// The defaults matter as much as the store does. Sound_MasterVolumeUp reads
-/// the CVar, runs it through tonumber and adds a step — with nothing stored and
+/// the CVar, runs it through tonumber and adds a step - with nothing stored and
 /// no default it reads nil, the `if (volume)` guard below it fails, and the
 /// volume keys do nothing at all rather than anything visible.
 static float soundCVar(const char* key, float fallback) {
@@ -607,15 +607,15 @@ static float soundCVar(const char* key, float fallback) {
 ///
 /// Every channel is recomputed from the store rather than from the one CVar
 /// that changed, so enable and volume compose and the order they arrive in does
-/// not matter — Sound_ToggleSound writes EnableSFX and EnableAmbience one after
+/// not matter - Sound_ToggleSound writes EnableSFX and EnableAmbience one after
 /// the other, and the interface's options panel writes a volume and an enable
 /// together on apply.
 ///
 /// This client splits sound finer than the interface does: it has separate
 /// volumes for combat, spells, movement, footsteps and the rest, where FrameXML
 /// has one "sound effects". Turning SFX off and on again therefore levels those
-/// channels rather than restoring them. That is the retail behaviour — there is
-/// no finer control there to restore — and the client's own settings panel
+/// channels rather than restoring them. That is the retail behaviour - there is
+/// no finer control there to restore - and the client's own settings panel
 /// re-applies its sliders whenever it is used, so neither owner is stuck with
 /// the other's answer.
 static void applySoundCVars(lua_State* L) {
@@ -624,7 +624,7 @@ static void applySoundCVars(lua_State* L) {
     if (!ac) return;
 
     // Master, music and ambience are the client's own settings now, reached
-    // through SetCVar above — this function must not write them too, or the two
+    // through SetCVar above - this function must not write them too, or the two
     // fight and the last writer wins.
     //
     // What is left here are the three enable switches, which the client's panel
@@ -664,7 +664,7 @@ static void applySoundCVars(lua_State* L) {
 /// The value a CVar has when nobody has set it.
 ///
 /// Split out so GetCVarDefault can answer it. That was aliased straight to
-/// GetCVar, which answers the *current* value — and every options panel
+/// GetCVar, which answers the *current* value - and every options panel
 /// captures control.defaultValue from it as the panel loads, so the Defaults
 /// button restored each control to whatever it had been when the panel was
 /// opened. Nothing looked broken: the button worked, it just always agreed
@@ -680,7 +680,7 @@ static void pushCvarDefault(lua_State* L, const std::string& n) {
              n == "sound_ambiencevolume") {
         lua_pushstring(L, "1");
     }
-    // Windowed, as one — the way round the checkbox is labelled. Answered from
+    // Windowed, as one - the way round the checkbox is labelled. Answered from
     // the window only as a *default*, below the store, unlike the settings this
     // client owns outright: gxWindow is applied by RestartGx after the panel
     // has written it, so between the tick and the Okay the stored value is the
@@ -695,7 +695,7 @@ static void pushCvarDefault(lua_State* L, const std::string& n) {
     // at. miniaudio mixes every voice it is given at the device's own rate:
     // there is no channel cap to raise and no quality tier to pick. Falling
     // through to the "0" at the end of this chain parked both sliders at the
-    // far left of the Sound panel — 32 channels and Low quality — which read
+    // far left of the Sound panel - 32 channels and Low quality - which read
     // as a client running at its worst and was not a setting at all.
     //
     // The two controls are disabled to say so; see kAudioFixedSlidersLua.
@@ -728,7 +728,7 @@ static void pushCvarDefault(lua_State* L, const std::string& n) {
     // Off, which is what the real client ships and is a decision here rather
     // than an accident. GearManagerDialog_OnEvent shows GearManagerToggleButton
     // only `if ( GetCVarBool("equipmentManager") )`, and that button is the only
-    // way onto the character sheet's gear manager — so this looks at first like
+    // way onto the character sheet's gear manager - so this looks at first like
     // an unanswered CVar hiding a feature this client implements in full.
     //
     // It is not hidden, it is opt-in, exactly as in 3.3.5: Interface >
@@ -749,18 +749,18 @@ static void pushCvarDefault(lua_State* L, const std::string& n) {
     //
     // Answered only now that it drives something. UnitDebuff took the "RAID"
     // filter FrameXML passes and ignored it, so turning this on before would
-    // have claimed a filter that does not filter — which is worse than the
+    // have claimed a filter that does not filter - which is worse than the
     // wrong default, because it reads as working.
     else if (n == "showdispeldebuffs") lua_pushstring(L, "1");
-    // Off, also as declared. It asks the same "RAID" filter of *buffs* — only
-    // the ones this character could cast — and that half is not implemented,
+    // Off, also as declared. It asks the same "RAID" filter of *buffs* - only
+    // the ones this character could cast - and that half is not implemented,
     // so this stays where the real client leaves it rather than being turned
     // on into a filter that would not filter.
     else if (n == "showcastablebuffs") lua_pushstring(L, "0");
     // The numbers on a unit frame's bars. A stock 3.3.5 client keeps these off
     // and shows them on mouseover; on this one they are wanted permanently,
     // which is what the Status Text interface option turns on.
-    // The unit frames each ask about their own, not about "statusText" — the
+    // The unit frames each ask about their own, not about "statusText" - the
     // player frame's bars carry cvar = "playerStatusText". Defaulting only the
     // general one left every bar's numbers hidden, correct text and all.
     else if (n == "statustext" || n == "playerstatustext" ||
@@ -770,7 +770,7 @@ static void pushCvarDefault(lua_State* L, const std::string& n) {
     }
     else if (n == "statustextpercentage") lua_pushstring(L, "0");
     // Which stat category each column of the character sheet shows. These are
-    // not preferences with a sensible fallback — UpdatePaperdollStats compares
+    // not preferences with a sensible fallback - UpdatePaperdollStats compares
     // the value against five names and fills the column from whichever matches,
     // so an unrecognised one matches nothing and every row is left blank. That
     // is what "0" gave it, and it is why the character sheet showed two empty
@@ -781,7 +781,7 @@ static void pushCvarDefault(lua_State* L, const std::string& n) {
     else if (n == "playerstatleftdropdown")  lua_pushstring(L, "PLAYERSTAT_BASE_STATS");
     else if (n == "playerstatrightdropdown") lua_pushstring(L, "PLAYERSTAT_MELEE_COMBAT");
     // Whether a conversation opens in its own window or in the chat frame.
-    // "0" already behaved as "inline" — the only test is against "popout" —
+    // "0" already behaved as "inline" - the only test is against "popout" -
     // so this changes nothing today. It is written out because the value is a
     // name rather than a number, which is the case where falling through to
     // "0" is luck rather than a default.
@@ -793,11 +793,11 @@ static void pushCvarDefault(lua_State* L, const std::string& n) {
     // line. Falling through to "0" made that test pass every time, so the GM
     // chat window opened on every login for a player no GM had ever contacted.
     //
-    // The empty string is not a placeholder here — it is the value the client
+    // The empty string is not a placeholder here - it is the value the client
     // stores until a GM actually writes.
     else if (n == "lasttalkedtogm") lua_pushstring(L, "");
     // On, as a stock client has them. Each of these gates something off
-    // entirely when it reads false, so "0" is not a quiet preference — it is
+    // entirely when it reads false, so "0" is not a quiet preference - it is
     // the feature missing with no way to ask for it back.
     //
     //   chatMouseScroll  the chat frame only calls EnableMouseWheel(true)
@@ -805,11 +805,11 @@ static void pushCvarDefault(lua_State* L, const std::string& n) {
     //   showKeyring      MainMenuBar_UpdateKeyRing only ever calls
     //                    KeyRingButton:Show() inside it, so the keyring was
     //                    unreachable despite the slots being tracked
-    // On, as WotLK has it — and everything behind it is built.
+    // On, as WotLK has it - and everything behind it is built.
     //
     // This was left off last time for being untested, on the grounds that
     // turning it on changes what clicking a talent does. Checking rather than
-    // assuming: all four preview functions are implemented, not stubbed —
+    // assuming: all four preview functions are implemented, not stubbed -
     // AddPreviewTalentPoints stages against the real max rank,
     // GetGroupPreviewTalentPointsSpent totals the staging map,
     // LearnPreviewTalents sends one request per rank, and
@@ -823,21 +823,21 @@ static void pushCvarDefault(lua_State* L, const std::string& n) {
     else if (n == "previewtalents") lua_pushstring(L, "1");
     else if (n == "chatmousescroll") lua_pushstring(L, "1");
     else if (n == "showkeyring")     lua_pushstring(L, "1");
-    // The quest tracker's filter, and it is not a preference — it is a bitmask
+    // The quest tracker's filter, and it is not a preference - it is a bitmask
     // fed to bit.band. watchframe.lua starts it at 0 on load and then, on
     // VARIABLES_LOADED, overwrites it with tonumber(GetCVar("trackerFilter")).
     // An unanswered CVar makes that nil, and bit.band(nil, x) raises: the
     // tracker worked until the login event that is supposed to configure it,
     // then went down on its next update, every session.
     //
-    // Seven is all three bits — achievements, completed quests, quests from
-    // other zones — which is what a stock client shows. Zero would not raise
+    // Seven is all three bits - achievements, completed quests, quests from
+    // other zones - which is what a stock client shows. Zero would not raise
     // but is worse than it looks: the two tests at watchframe.lua:813 skip a
     // quest that is complete and a quest outside the current map, so an empty
     // mask hides most of the log.
     else if (n == "trackerfilter") lua_pushstring(L, "7");
     // Manual, which is WATCHFRAME_SORT_MANUAL. Only ever compared with ==, so
-    // nil was survivable here — it is answered for the same reason its
+    // nil was survivable here - it is answered for the same reason its
     // neighbour is, and because the sort menu's ticks read it.
     else if (n == "trackersorting") lua_pushstring(L, "0");
     // The narrow tracker, which is what a stock client has.
@@ -845,7 +845,7 @@ static void pushCvarDefault(lua_State* L, const std::string& n) {
     // anything else, so nil quietly chose the wide one.
     else if (n == "watchframewidth") lua_pushstring(L, "0");
     // Opaque. WorldMapFrame_SetOpacity computes 0.5 + (1.0 - opacity) * 0.5,
-    // which raises on a nil — and WorldMap_ToggleSizeDown calls it, so putting
+    // which raises on a nil - and WorldMap_ToggleSizeDown calls it, so putting
     // the map into windowed mode took it down. Zero is opaque here: the
     // arithmetic reads the value as how transparent to be.
     else if (n == "worldmapopacity") lua_pushstring(L, "0");
@@ -866,7 +866,7 @@ static void pushCvarDefault(lua_State* L, const std::string& n) {
     else if (n == "ubertooltips") lua_pushstring(L, "1");
     // The target's cast bar, which a stock client shows. targetframe.lua tests
     // this as `if ( GetCVar("showTargetCastbar") == "0" )` and sets
-    // showCastbar false — and an unrecognised name answers exactly "0" here,
+    // showCastbar false - and an unrecognised name answers exactly "0" here,
     // so that branch was taken every time and the target frame is one of the
     // elements FrameXML draws by default. Nothing about it looked broken: the
     // bar was switched off by a setting nobody had touched.
@@ -882,10 +882,10 @@ static void pushCvarDefault(lua_State* L, const std::string& n) {
     // reading Never, which is a preference nobody chose.
     else if (n == "threatwarning") lua_pushstring(L, "3");
     // The social options panel branches on this and raises on anything it does
-    // not recognise, so "0" — what an unknown CVar answers — took its whole
+    // not recognise, so "0" - what an unknown CVar answers - took its whole
     // update down. "classic" is the stock setting.
     else if (n == "chatstyle") lua_pushstring(L, "classic");
-    // "none", which is the word this one is switched off with — and the blanket
+    // "none", which is the word this one is switched off with - and the blanket
     // default below is a number, which is not off but a format string.
     //
     // This is not a preference that read wrong. Timestamps are held as the
@@ -906,12 +906,12 @@ static void pushCvarDefault(lua_State* L, const std::string& n) {
 /// The CVars whose value is a client setting.
 ///
 /// FrameXML's Video and Interface panels are bound to CVar names. The values
-/// behind these names are settings this client already had — they simply had
+/// behind these names are settings this client already had - they simply had
 /// never been introduced, so the panels wrote to a store nothing read and the
 /// controls did nothing.
 ///
 /// A row here, a key in Application's bridge, and the control works. The
-/// alternative — which the entries below this table still are — is a getter and
+/// alternative - which the entries below this table still are - is a getter and
 /// a setter on LuaServices, a lambda in Application, and a branch in each of
 /// GetCVar and SetCVar, four places per option.
 struct ClientCVarBinding {
@@ -925,16 +925,16 @@ constexpr ClientCVarBinding kClientCVars[] = {
     {"showclock",            "minimapclock"},
     {"nameplateshowfriends", "friendlyplates"},
     // Deliberately not gxWindow. It is answered further down, from the store
-    // first and the window only as a default — RestartGx applies it after the
+    // first and the window only as a default - RestartGx applies it after the
     // panel has written it, so between the tick and the Okay the stored value
     // is the truth and the window is still showing the old state. A binding
     // here would sit above the store and hand RestartGx back what it was about
     // to set.
     {"groundeffectdensity",  "groundclutter"},
     {"sound_sfxvolume",      "effectsvolume"},
-    // Three that were each written out four times over — a getter and a setter
+    // Three that were each written out four times over - a getter and a setter
     // on LuaServices, a lambda in Application, and a branch in each of GetCVar
-    // and SetCVar — because the client had no key for them when they were
+    // and SetCVar - because the client had no key for them when they were
     // added. It has now, so they are rows like the rest.
     {"gxvsync",              "vsync"},
     {"mouseinvertpitch",     "invertmouse"},
@@ -958,7 +958,7 @@ static int lua_GetCVar(lua_State* L) {
     // case-sensitive and the interface does not spell them consistently.
     // uidropdownmenu.lua asks for "uiscale" where everything else says
     // "uiScale"; an exact match answered "0" for it, tonumber("0") is 0, and
-    // every dropdown menu in the interface opened at SetScale(0) — laid out,
+    // every dropdown menu in the interface opened at SetScale(0) - laid out,
     // drawn, and invisible.
     std::string n(name);
     toLowerInPlace(n);
@@ -985,7 +985,7 @@ static int lua_GetCVar(lua_State* L) {
                n == "sound_ambiencevolume" || n == "sound_enableallsound") {
         // FrameXML's Sound options are bound to these, and the client owns the
         // values. Answering from the CVar store would report whatever the panel
-        // last wrote and drift from what is actually playing — the same fault
+        // last wrote and drift from what is actually playing - the same fault
         // the nameplate and minimap entries above exist for.
         if (auto* svc = getLuaServices(L); svc && svc->getAudioSetting) {
             const bool isSwitch = (n == "sound_enableallsound");
@@ -995,7 +995,7 @@ static int lua_GetCVar(lua_State* L) {
                                                           : "enableall";
             const float v = svc->getAudioSetting(key);
             // A switch answers "1" or "0" and nothing else. The options panels
-            // compare the string exactly — `if ( value == "1" )` — so a float
+            // compare the string exactly - `if ( value == "1" )` - so a float
             // formatted as "1.000000" reads as off, and the box unticks itself
             // the moment the panel is opened again.
             if (isSwitch) {
@@ -1014,7 +1014,7 @@ static int lua_GetCVar(lua_State* L) {
         // A stored "0" here was never chosen. It is what the old default
         // answered, and the options panel writes back whatever it read, so a
         // config saved while that default was live has the fault baked into
-        // it — and fixing only the default would leave those players with the
+        // it - and fixing only the default would leave those players with the
         // 0 in front of every line for good. The word for off is "none"; a
         // digit is a strftime format that prints itself.
         if (auto it = cvarStore().find(n); it != cvarStore().end() &&
@@ -1026,7 +1026,7 @@ static int lua_GetCVar(lua_State* L) {
     if (n == "uiscale") {
         // From the tree, above the store. The tree clamps to the range the
         // slider offers, so a stored value would report back what was asked for
-        // rather than what was applied — which is how a control comes to show a
+        // rather than what was applied - which is how a control comes to show a
         // number the interface is not using.
         if (auto* tree = getWidgetTree(L)) {
             lua_pushstring(L, ui::settingNumberText(tree->userScale()).c_str());
@@ -1066,7 +1066,7 @@ static int lua_GetCVarDefault(lua_State* L) {
 /// FrameXML branches on this, and one of those branches decides how a unit
 /// frame's health bar keeps itself current: predictedHealth sends it down an
 /// OnUpdate poll instead of registering UNIT_HEALTH. Unimplemented, the call
-/// answered nil through the fallback and took the event branch by luck — which
+/// answered nil through the fallback and took the event branch by luck - which
 /// is the branch that works here, but only until the fallback is off, when the
 /// same call errors instead.
 static int lua_GetCVarBool(lua_State* L) {
@@ -1081,12 +1081,12 @@ static int lua_GetCVarBool(lua_State* L) {
 
 /// What CVAR_UPDATE carries as its first argument: the CVar's *label*, not its
 /// name. The two are different spellings of the same setting, and FrameXML uses
-/// both within two lines of each other —
+/// both within two lines of each other -
 ///
 ///     if ( (event == "CVAR_UPDATE") and (arg1 == "SHOW_TARGET_CASTBAR") ) then
 ///         if ( GetCVar("showTargetCastbar") == "0") then
 ///
-/// — so there is no ambiguity about which belongs where. Firing the name meant
+/// - so there is no ambiguity about which belongs where. Firing the name meant
 /// every consumer in the interface compared a camelCase name against an
 /// upper-case label and took the other branch, silently: the health and mana
 /// numbers on unit frames never appeared or disappeared, the free-bag-slots
@@ -1143,8 +1143,8 @@ static int lua_SetCVar(lua_State* L) {
         // nil is how an unticked box reports itself, and these are written
         // straight through: SetCVar("questPOI", self:GetChecked()). Storing
         // the empty string for it would make GetCVar answer something that is
-        // neither "0" nor a number, so tonumber(GetCVar(...)) — which the
-        // options panels do — would give nil where it wanted a zero.
+        // neither "0" nor a number, so tonumber(GetCVar(...)) - which the
+        // options panels do - would give nil where it wanted a zero.
         value = "0";
     }
     // The same folding as the read side, or a value written as "uiScale"
@@ -1160,7 +1160,7 @@ static int lua_SetCVar(lua_State* L) {
     // A sound CVar is a setting, not a note. Without this the interface's
     // volume keys and its Sound options both wrote to a map nobody read, so
     // turning music off left it playing.
-    // The interface's own scale, which is the widget tree's to keep — not a
+    // The interface's own scale, which is the widget tree's to keep - not a
     // client setting, and not the ImGui window scale beside it in the settings
     // window. Those are two different interfaces that happen to share a word.
     if (key == "uiscale") {
@@ -1175,8 +1175,8 @@ static int lua_SetCVar(lua_State* L) {
         }
     }
     // The four the client owns go to its settings, which then apply and save.
-    // Both systems used to write the same AudioEngine — the CVar store from
-    // here and the settings panel from its own sliders — and whichever ran last
+    // Both systems used to write the same AudioEngine - the CVar store from
+    // here and the settings panel from its own sliders - and whichever ran last
     // won. A client left muted by its own setting came back silent however the
     // interface's Sound panel was set, because the next thing to touch the
     // settings slammed the master volume back to zero.
@@ -1194,7 +1194,7 @@ static int lua_SetCVar(lua_State* L) {
     }
     else if (key.rfind("sound_", 0) == 0) applySoundCVars(L);
     // The two other CVars this client can act on. "0" is the only false value
-    // a CVar carries — and it arrives as a string, which in Lua would be true.
+    // a CVar carries - and it arrives as a string, which in Lua would be true.
     else if (key == "nameplateshowenemies") {
         if (auto* svc = getLuaServices(L); svc && svc->setNameplatesShown)
             svc->setNameplatesShown(value != "0");
@@ -1207,7 +1207,7 @@ static int lua_SetCVar(lua_State* L) {
         if (auto* svc = getLuaServices(L); svc && svc->setChatBubblesShown)
             svc->setChatBubblesShown(value != "0");
     }
-    // Announced, because nine frames listen for it — the options panels redraw
+    // Announced, because nine frames listen for it - the options panels redraw
     // themselves from this rather than from the click that caused it.
     // Through the engine in the registry, which is where it puts itself; the
     // event tables are its business rather than this file's.
@@ -1258,12 +1258,12 @@ static int lua_GetAddOnInfo(lua_State* L) {
     //
     // Five were returned and the fourth was not url, so everything from there
     // shifted: the loadable flag landed in url's place, the security string in
-    // loadable's — truthy, so addons read as loadable by accident — and the
+    // loadable's - truthy, so addons read as loadable by accident - and the
     // last three came back nil. addonlist.lua reads security seventh.
     lua_getfield(L, -1, "name");
     lua_getfield(L, -2, "title");
     lua_getfield(L, -3, "notes");
-    lua_pushnil(L);                 // 4: url — not in a 3.3.5 manifest
+    lua_pushnil(L);                 // 4: url - not in a 3.3.5 manifest
     lua_pushboolean(L, 1);          // 5: loadable
     lua_pushnil(L);                 // 6: reason it is not, and it is
     lua_pushstring(L, "INSECURE");  // 7: security
@@ -1345,8 +1345,8 @@ static int lua_GetCurrentMapAreaID(lua_State* L) {
     // result as "no zone, ask which continent instead". So zero means a
     // continent is showing, and every other value is an id plus one.
     //
-    // The physical map id was answered instead — 0 for Eastern Kingdoms, 571
-    // for Northrend — which is a different number in a different space. It
+    // The physical map id was answered instead - 0 for Eastern Kingdoms, 571
+    // for Northrend - which is a different number in a different space. It
     // made the Wintergrasp check (area 502) never true, and the windowed-size
     // toggle reopen the map somewhere else.
     if (auto* svc = getLuaServices(L)) {
@@ -1369,7 +1369,7 @@ static int lua_GetZoneText(lua_State* L) {
     // fallback.
     //
     // It was the other way round, and the server's zone reaches us on
-    // SMSG_INIT_WORLD_STATES alone — sent when the server notices a zone
+    // SMSG_INIT_WORLD_STATES alone - sent when the server notices a zone
     // change, and not otherwise. So the name stayed on the last zone the
     // server announced while the player walked out of it, which is what
     // "Silverpine Forest" over Hillsbrad Foothills is. The real client works
@@ -1388,7 +1388,7 @@ static int lua_GetZoneText(lua_State* L) {
     return 1;
 }
 
-// GetSubZoneText() → subzone name (same as zone for now — server doesn't always send subzone)
+// GetSubZoneText() → subzone name (same as zone for now - server doesn't always send subzone)
 static int lua_GetSubZoneText(lua_State* L) {
     return lua_GetZoneText(L);  // Best-effort: zone and subzone often overlap
 }
@@ -1418,7 +1418,7 @@ static int s_mapZone = 0;
 /// The map view changed, so say so.
 ///
 /// Fired unconditionally, including when the view was already what it is being
-/// set to. That is not laziness — watchframe.lua calls SetMapToCurrentZone
+/// set to. That is not laziness - watchframe.lua calls SetMapToCurrentZone
 /// purely for the side effect, and says so beside the call: "forces WatchFrame
 /// event via the WORLD_MAP_UPDATE event, needed to restore the POIs in the
 /// tracker to the current zone". Firing only on a change would drop exactly the
@@ -1430,7 +1430,7 @@ static void fireWorldMapUpdate(lua_State* L) {
     if (engine) engine->fireEvent("WORLD_MAP_UPDATE", {});
 }
 
-// SetMapToCurrentZone() — sets map view to the player's current zone
+// SetMapToCurrentZone() - sets map view to the player's current zone
 static int lua_SetMapToCurrentZone(lua_State* L) {
     // Called every time the map is shown. It set two statics that nothing
     // reads any more and never told the map, so a map left on another zone
@@ -1451,7 +1451,7 @@ static int lua_SetMapToCurrentZone(lua_State* L) {
 static int lua_GetCurrentMapContinent(lua_State* L) {
     // What the map is showing, asked of the map. This kept a static of its
     // own instead, set from the player's position on first use and from
-    // SetMapZoom after that, and the map itself was never consulted or told —
+    // SetMapZoom after that, and the map itself was never consulted or told -
     // so the two dropdowns and the zoom-out button moved a number no one drew
     // from while the map stayed where it was.
     if (auto* svc = getLuaServices(L)) {
@@ -1471,8 +1471,8 @@ static int lua_GetCurrentMapContinent(lua_State* L) {
 // GetCurrentMapZone() → zoneId
 static int lua_GetCurrentMapZone(lua_State* L) {
     // A row in the zone dropdown, not an area id. The fallback below answered
-    // the area id — a number in the thousands where the dropdown wanted a
-    // position in a list of a few dozen — so the selected row was never the
+    // the area id - a number in the thousands where the dropdown wanted a
+    // position in a list of a few dozen - so the selected row was never the
     // one being shown. SetMapZoom, meanwhile, wrote a row number into the same
     // static, and the two meanings sat in one variable.
     if (auto* svc = getLuaServices(L)) {
@@ -1489,13 +1489,13 @@ static int lua_GetCurrentMapZone(lua_State* L) {
     return 1;
 }
 
-// SetMapZoom(continent [, zone]) — sets map view to continent/zone
+// SetMapZoom(continent [, zone]) - sets map view to continent/zone
 static int lua_SetMapZoom(lua_State* L) {
     s_mapContinent = static_cast<int>(luaL_checknumber(L, 1));
     s_mapZone = static_cast<int>(luaL_optnumber(L, 2, 0));
     // Tell the map, which this never did. Every route out of a zone map runs
-    // through here — the zone dropdown, the continent dropdown, and four of
-    // the zoom-out button's six branches — so none of them changed what was
+    // through here - the zone dropdown, the continent dropdown, and four of
+    // the zoom-out button's six branches - so none of them changed what was
     // drawn.
     if (auto* svc = getLuaServices(L)) {
         if (svc->setMapByIndex) svc->setMapByIndex(s_mapContinent, s_mapZone);
@@ -1525,7 +1525,7 @@ static int lua_GetMapContinents(lua_State* L) {
 
 // GetMapZones(continent) → the zones on that continent, in dropdown order
 //
-// Four made-up names per continent before this — "a minimal representative
+// Four made-up names per continent before this - "a minimal representative
 // set", which is a list nobody's zone is on. The row picked from it was then
 // handed to SetMapZoom as the zone to show, so the dropdown offered four
 // zones out of dozens and choosing one of them did nothing anyway.
@@ -1628,14 +1628,14 @@ static int lua_GetMapOverlayInfo(lua_State* L) {
 /// Nothing is tracked here: tracking is a spell effect this client does not
 /// model, and GetNumTrackingTypes already answers none. Said explicitly
 /// because the missing-API fallback answers with an object, and an object is
-/// not nil — MiniMapTrackingIcon:SetTexture(GetTrackingTexture()) would then
+/// not nil - MiniMapTrackingIcon:SetTexture(GetTrackingTexture()) would then
 /// be handed a table where a path belongs and the button would show the
 /// tracking icon for a tracking type that does not exist.
 // ── Minimap tracking ───────────────────────────────────────────────────────
 //
 // The tracking menu is not a fixed list. It is whatever tracking the player
 // has learned, which is the known spells applying aura 44 (creatures) or 45
-// (resources) — Spell.dbc's EffectApplyAuraName, and the only thing in the
+// (resources) - Spell.dbc's EffectApplyAuraName, and the only thing in the
 // spell data that tells a tracking spell from any other buff. The effect id
 // beside it says an aura is applied but never which one.
 //
@@ -1740,7 +1740,7 @@ static int lua_GetNumTrackingTypes(lua_State* L) {
 /// GetTrackingInfo(index) → name, texture, active, category.
 ///
 /// "spell" for the category, because these are spell icons and the menu uses
-/// that to crop the icon's border — the same trim the action bar gives them.
+/// that to crop the icon's border - the same trim the action bar gives them.
 static int lua_GetTrackingInfo(lua_State* L) {
     auto* gh = getGameHandler(L);
     const int index = static_cast<int>(luaL_optnumber(L, 1, 0));
@@ -1754,7 +1754,7 @@ static int lua_GetTrackingInfo(lua_State* L) {
     return 4;
 }
 
-/// SetTracking(index) — casting the spell is how tracking is turned on; there
+/// SetTracking(index) - casting the spell is how tracking is turned on; there
 /// is no separate message for it. A nil index is the menu's "None" entry,
 /// which in a stock client cancels the running tracking aura. Cancelling a
 /// player's own buff is not wired up here, so that entry does nothing rather
@@ -1818,8 +1818,8 @@ static int lua_GetInstanceInfo(lua_State* L) {
     lua_pushstring(L, gh->isInInstance() ? "party" : "none"); // 2: instanceType
     // Counted from one, which is what the interface compares against.
     //
-    // The wire value is zero-based — social_handler reads heroic as
-    // difficulty == 1 — and this pushed it straight through. minimap.lua tests
+    // The wire value is zero-based - social_handler reads heroic as
+    // difficulty == 1 - and this pushed it straight through. minimap.lua tests
     // `difficulty == 1 and maxPlayers == 5` to decide there is nothing worth
     // showing, and `difficulty == 2` for heroic, so a normal dungeon failed
     // the first test and hung a difficulty banner on the minimap, while a
@@ -1832,7 +1832,7 @@ static int lua_GetInstanceInfo(lua_State* L) {
     lua_pushstring(L, (diff < 4) ? kDiff[diff] : "Normal"); // 4: difficultyName
     lua_pushnumber(L, 5);                                   // 5: maxPlayers (default 5-man)
     // The two the raid branch reads. Neither is tracked here, and both are
-    // only consulted for a dynamic-difficulty raid — but nil reaches
+    // only consulted for a dynamic-difficulty raid - but nil reaches
     // `playerDifficulty == 1` and `if ( isDynamicInstance )` in minimap.lua,
     // and the interface unpacks all seven on one line.
     lua_pushnumber(L, 0);                                   // 6: playerDifficulty
@@ -1855,7 +1855,7 @@ static int lua_strsplit(lua_State* L) {
     // One value per field, and the field count follows from the string rather
     // than from anything this client chose. Lua guarantees only a small slack
     // above the arguments, and pushing past the top corrupts the heap rather
-    // than raising — so the room is asked for before any of it is used.
+    // than raising - so the room is asked for before any of it is used.
     // A chat line of commas is all it takes.
     const size_t fields = static_cast<size_t>(
         std::count(s.begin(), s.end(), delim[0])) + 1;
@@ -1878,7 +1878,7 @@ static int lua_strsplit(lua_State* L) {
     return count;
 }
 
-// strtrim(str) — remove leading/trailing whitespace
+// strtrim(str) - remove leading/trailing whitespace
 static int lua_strtrim(lua_State* L) {
     const char* str = luaL_checkstring(L, 1);
     std::string s(str);
@@ -1888,7 +1888,7 @@ static int lua_strtrim(lua_State* L) {
     return 1;
 }
 
-/// strlenutf8(s) — the number of characters, where string.len counts bytes.
+/// strlenutf8(s) - the number of characters, where string.len counts bytes.
 ///
 /// Unbound, it answered nil through the fallback, and both callers do
 /// arithmetic on the result rather than checking it: autocomplete.lua and
@@ -1907,7 +1907,7 @@ static int lua_strlenutf8(lua_State* L) {
     return 1;
 }
 
-// wipe(table) — clear all entries from a table
+// wipe(table) - clear all entries from a table
 static int lua_wipe(lua_State* L) {
     luaL_checktype(L, 1, LUA_TTABLE);
     // Remove all integer keys
@@ -1928,8 +1928,8 @@ static int lua_wipe(lua_State* L) {
     return 1;
 }
 
-// date(format) — safe date function (os.date was removed)
-/// date(format, time) — the clock, as WoW exposes it.
+// date(format) - safe date function (os.date was removed)
+/// date(format, time) - the clock, as WoW exposes it.
 ///
 /// Both shapes FrameXML uses: "*t" for a table of parts, a strftime string
 /// otherwise, and an optional timestamp. Formatting "*t" as a strftime string
@@ -1968,13 +1968,13 @@ static int lua_wow_date(lua_State* L) {
     return 1;
 }
 
-// time() — current unix timestamp
+// time() - current unix timestamp
 static int lua_wow_time(lua_State* L) {
     lua_pushnumber(L, static_cast<double>(time(nullptr)));
     return 1;
 }
 
-// GetTime() — returns elapsed seconds since engine start (shared epoch)
+// GetTime() - returns elapsed seconds since engine start (shared epoch)
 static int lua_wow_gettime(lua_State* L) {
     lua_pushnumber(L, luaGetTimeNow());
     return 1;
@@ -1987,7 +1987,7 @@ static int lua_wow_gettime(lua_State* L) {
 // IsThreatWarningEnabled alone was asked 58 times in one load.
 //
 // Answering falsely is the point. Each returns what the feature being absent
-// looks like — no threat warnings, no runes, nobody to pass loot to — so the
+// looks like - no threat warnings, no runes, nobody to pass loot to - so the
 // caller takes the branch it would take on a client where that feature is off,
 // rather than dividing by a nil.
 static int lua_ReturnFalse(lua_State* L) { lua_pushboolean(L, 0); return 1; }
@@ -2009,7 +2009,7 @@ static int& selectedDisplayChannel() { static int selected = 0; return selected;
 ///
 /// The real client mirrors these from the server's account data. Here they are
 /// a preference with nowhere else to live, so they are kept beside the pair of
-/// calls that read and write them — the setter used to accept them and forget,
+/// calls that read and write them - the setter used to accept them and forget,
 /// which left the getter with nothing to answer.
 static std::array<bool, 4>& actionBarToggles() {
     static std::array<bool, 4> shown{};
@@ -2018,11 +2018,11 @@ static std::array<bool, 4>& actionBarToggles() {
 
 
 /// A cooldown that is not running: start and duration both zero. Two values,
-/// because the caller adds them together on the next line —
-/// local start, duration = GetSummonFriendCooldown(); start + duration — and
+/// because the caller adds them together on the next line -
+/// local start, duration = GetSummonFriendCooldown(); start + duration - and
 /// one of them missing is arithmetic on nil.
 /// The resolutions this client offers, as "WIDTHxHEIGHT" strings, and which of
-/// them is current. One entry — the window as it actually is — because this
+/// them is current. One entry - the window as it actually is - because this
 /// client does not enumerate modes.
 ///
 /// UpdateMenuBarTop reads them together and immediately divides:
@@ -2050,7 +2050,7 @@ static int lua_GetCurrentResolution(lua_State* L) {
     return 1;
 }
 
-// SetScreenResolution(index) — the dropdown's row, counted from one.
+// SetScreenResolution(index) - the dropdown's row, counted from one.
 //
 // A no-op before this, which is why the comment beside RestoreVideoResolutionDefaults
 // could say nothing above it was settable. Both records are moved together, so
@@ -2058,7 +2058,7 @@ static int lua_GetCurrentResolution(lua_State* L) {
 /// The four anti-aliasing modes, in the shape the video panel reads them.
 ///
 /// VideoOptionsResolutionPanel_GetMultisampleFormats walks its varargs in
-/// threes — colour bits, depth bits, sample count — and formats each into
+/// threes - colour bits, depth bits, sample count - and formats each into
 /// MULTISAMPLING_FORMAT_STRING. The colour and depth numbers are this client's
 /// swapchain and depth buffer, which do not change with the mode; only the
 /// sample count does, and those are the same four the client's own
@@ -2081,7 +2081,7 @@ static int lua_GetCurrentMultisampleFormat(lua_State* L) {
     return 1;
 }
 
-/// SetMultisampleFormat(row) — the dropdown's row, counted from one.
+/// SetMultisampleFormat(row) - the dropdown's row, counted from one.
 static int lua_SetMultisampleFormat(lua_State* L) {
     auto* svc = getLuaServices(L);
     const int row = static_cast<int>(luaL_optnumber(L, 1, 0));
@@ -2089,11 +2089,11 @@ static int lua_SetMultisampleFormat(lua_State* L) {
     return 0;
 }
 
-/// GetRefreshRates() — one zero, which is this API's own word for "none".
+/// GetRefreshRates() - one zero, which is this API's own word for "none".
 ///
 /// Not nothing. VideoOptionsResolutionPanel_GetRefreshRates tests for exactly
 /// one argument equal to zero and, finding it, disables the dropdown and greys
-/// its label and text — which is what the real client does in windowed mode,
+/// its label and text - which is what the real client does in windowed mode,
 /// where the desktop owns the refresh rate. Returning nothing instead runs its
 /// loop zero times, and the control was left blank, enabled and clickable with
 /// nothing behind it.
@@ -2105,13 +2105,13 @@ static int lua_SetMultisampleFormat(lua_State* L) {
 ///
 /// AudioOptionsSoundPanelHardwareDropDown_Initialize loops from 0 to num-1 and
 /// adds a button per driver. With num zero it added none, and an empty
-/// dropdown does not draw empty — UIDropDownMenu_Refresh walks the shared
+/// dropdown does not draw empty - UIDropDownMenu_Refresh walks the shared
 /// DropDownList1 buttons, so it reads whichever list was built last and takes
 /// its text. The same shape that put a screen resolution in the Multisampling
 /// box put someone else's answer in Game Sound Output.
 ///
 /// This client opens whichever playback device the system offers and does not
-/// switch between them, so the list is that one device by name — the truth
+/// switch between them, so the list is that one device by name - the truth
 /// rather than a stub, and the shape GetScreenResolutions already takes.
 static int lua_Sound_GetNumOutputDrivers(lua_State* L) {
     lua_pushnumber(L, audio::AudioEngine::instance().isInitialized() ? 1 : 0);
@@ -2142,8 +2142,8 @@ static int lua_SetScreenResolution(lua_State* L) {
 /// The battleground position list carries two kinds of entry, and the packet
 /// says which by the block it arrived in.
 ///
-/// AzerothCore's writer sends `m_numPlayerPositions` first — a count it always
-/// writes as zero, with a commented-out loop beside it — and then the flag
+/// AzerothCore's writer sends `m_numPlayerPositions` first - a count it always
+/// writes as zero, with a commented-out loop beside it - and then the flag
 /// carriers. So group 0 is the team positions, which no AzerothCore realm
 /// sends, and group 1 is the carriers. The parser has recorded which all along
 /// and the first version of these accessors ignored it, which would have drawn
@@ -2198,7 +2198,7 @@ static int lua_GetBattlefieldPosition(lua_State* L) {
 /// The third value names a texture under Interface\\WorldStateFrame, so a
 /// wrong one is not a missing icon but the enemy's flag drawn over your own.
 /// The server writes the alliance carrier and then the horde one, skipping
-/// whichever is not held — so with both carried the order says which is which,
+/// whichever is not held - so with both carried the order says which is which,
 /// and with one carried it does not. Rather than guess, that case answers zero
 /// and the frame hides: no flag on the map is a smaller lie than the wrong one.
 static int lua_GetBattlefieldFlagPosition(lua_State* L) {
@@ -2228,8 +2228,8 @@ static int lua_GetBattlefieldFlagPosition(lua_State* L) {
 // through a setter that did nothing, and the next FCF_LoadChatSettings read
 // back the same defaults it read the first time.
 //
-// This is entirely client-side — WoW keeps it in the config, not on the server
-// — so a store here is the whole feature rather than a stand-in for one.
+// This is entirely client-side - WoW keeps it in the config, not on the server
+// - so a store here is the whole feature rather than a stand-in for one.
 struct ChatWindowSettings {
     std::string name;
     float fontSize = 14.0f;
@@ -2256,7 +2256,7 @@ struct ChatWindowSettings {
 };
 
 /// Every group name ChatTypeGroup defines in 3.3.5, which is what the General
-/// window shows by default — say and yell through to loot, experience and the
+/// window shows by default - say and yell through to loot, experience and the
 /// error line. Names FrameXML does not know are skipped by the reader rather
 /// than raising, so the cost of listing one too many is nothing and the cost of
 /// missing one is that kind of message never appearing.
@@ -2290,8 +2290,8 @@ static std::array<ChatWindowSettings, kNumChatWindows>& chatWindows() {
         // empty here exactly as it is in the real client.
         for (const char* g : kDefaultChatGroups) w[0].messageGroups.emplace_back(g);
         // The channels the default layout carries. FrameXML never adds one by
-        // itself — ChatFrame_RegisterForChannels reads this list and nothing
-        // else fills it — so with it empty every channel line was matched
+        // itself - ChatFrame_RegisterForChannels reads this list and nothing
+        // else fills it - so with it empty every channel line was matched
         // against nothing and dropped, however well the message parsed.
         //
         // Names without the zone after them, which is what the frame compares:
@@ -2313,7 +2313,7 @@ static std::array<ChatWindowSettings, kNumChatWindows>& chatWindows() {
 /// which is the same defect twice: a player who moves a chat window, renames a
 /// tab, sends whispers to their own window or turns on the right-hand action
 /// bars finds all of it back to default on the next login. Nothing about that
-/// looks like a bug — it looks like the setting never took.
+/// looks like a bug - it looks like the setting never took.
 ///
 /// One file for both, because they are the same kind of thing: interface state
 /// the real client keeps in account data this one has no equivalent of.
@@ -2434,7 +2434,7 @@ static void loadInterfaceState() {
             // Read into locals and only kept if they are numbers. A file
             // written before this was refused on the way out still holds a
             // nan, and taking it back would restore the frame that swallows
-            // every hit test — see lua_SetChatWindowSavedPosition.
+            // every hit test - see lua_SetChatWindowSavedPosition.
             if (std::sscanf(value.c_str(), "%31[^,],%f,%f", pt, &px, &py) == 3 &&
                 std::isfinite(px) && std::isfinite(py)) {
                 w.point = pt;
@@ -2481,7 +2481,7 @@ static void loadInterfaceState() {
 
 /// A chat window's saved settings. FCF_SetWindowAlpha takes the alpha from
 /// here and remembers it as oldAlpha, which the fade handlers then hand to
-/// max() on every mouse-over — so a missing alpha is not a cosmetic gap, it is
+/// max() on every mouse-over - so a missing alpha is not a cosmetic gap, it is
 /// an error every time the cursor crosses the frame.
 static int lua_GetChatWindowInfo(lua_State* L) {
     const ChatWindowSettings* w = chatWindow(L, 1);
@@ -2493,7 +2493,7 @@ static int lua_GetChatWindowInfo(lua_State* L) {
     lua_pushnumber(L, w->g);
     lua_pushnumber(L, w->b);
     lua_pushnumber(L, w->alpha);
-    // Numbers and nil, not booleans. docked is a dock position, not a flag —
+    // Numbers and nil, not booleans. docked is a dock position, not a flag -
     // FCF_LoadChatSettings hands it straight to FCF_DockFrame as the index to
     // insert at, and that compares it against a count. A boolean there is a
     // comparison between a boolean and a number, which is an error rather than
@@ -2558,7 +2558,7 @@ static int lua_SetChatWindowLocked(lua_State* L) {
     saveInterfaceState();
     return 0;
 }
-/// The dock position, which is a number and not a flag — see GetChatWindowInfo.
+/// The dock position, which is a number and not a flag - see GetChatWindowInfo.
 /// A false or nil means undocked, which is zero here rather than a missing key.
 static int lua_SetChatWindowDocked(lua_State* L) {
     if (auto* w = chatWindow(L, 1)) {
@@ -2582,7 +2582,7 @@ static int lua_SetChatWindowSavedPosition(lua_State* L) {
     const float x = static_cast<float>(luaL_optnumber(L, 3, 0.0));
     const float y = static_cast<float>(luaL_optnumber(L, 4, 0.0));
     // A position is saved as a fraction of the screen, so anything that made
-    // the screen zero for a frame makes this nan — and a nan written out is
+    // the screen zero for a frame makes this nan - and a nan written out is
     // permanent, because it is read back on every login and put straight into
     // the frame's rect. From there it is not a misplaced window: a rect with a
     // nan in it matches every hit test, since every comparison against a nan
@@ -2618,7 +2618,7 @@ static int lua_SetChatWindowSavedDimensions(lua_State* L) {
     return 0;
 }
 
-/// ResetChatWindows() — back to the layout a new character starts with.
+/// ResetChatWindows() - back to the layout a new character starts with.
 ///
 /// Announced, because the settings changing is not something the windows can
 /// see. Every floating chat frame answers UPDATE_FLOATING_CHAT_WINDOWS by
@@ -2640,7 +2640,7 @@ static int lua_ResetChatWindows(lua_State* L) {
 }
 
 /// Whether a chat type colours player names by class. Stored per chat type
-/// rather than globally, which is how the chat options panel presents it —
+/// rather than globally, which is how the chat options panel presents it -
 /// a row per type, each with its own tick.
 static std::set<std::string>& chatColorByClass() {
     static std::set<std::string> types;
@@ -2679,7 +2679,7 @@ static int lua_GetMapInfo(lua_State* L) {
 /// format and the DBC layouts here assume.
 /// The expansion, counted from zero: 0 vanilla, 1 TBC, 2 Wrath. That is the
 /// numbering LFGDungeons.dbc's expansion column uses and the one
-/// MAX_PLAYER_LEVEL_TABLE is keyed by — [0]=60, [1]=70, [2]=80.
+/// MAX_PLAYER_LEVEL_TABLE is keyed by - [0]=60, [1]=70, [2]=80.
 static int expansionLevelZeroBased(lua_State* L) {
     auto* svc = getLuaServices(L);
     auto* reg = svc ? svc->expansionRegistry : nullptr;
@@ -2735,7 +2735,7 @@ static std::vector<WorldStateLine> worldStateLines(game::GameHandler* gh) {
     return out;
 }
 
-// GetNumWorldStateUI() — how many always-up lines there are to draw.
+// GetNumWorldStateUI() - how many always-up lines there are to draw.
 static int lua_GetNumWorldStateUI(lua_State* L) {
     lua_pushinteger(L, static_cast<lua_Integer>(worldStateLines(getGameHandler(L)).size()));
     return 1;
@@ -2778,7 +2778,7 @@ static int lua_GetDefaultLanguage(lua_State* L) {
 /// GetWeaponEnchantInfo() → per hand: hasEnchant, expiration, charges.
 ///
 /// It answered no for both hands unconditionally, so TemporaryEnchantFrame
-/// took its early exit and hid itself — a sharpening stone or an oil showed
+/// took its early exit and hid itself - a sharpening stone or an oil showed
 /// nothing at all. The buff bar is handed over, so this client's own weapon
 /// enchant display beside it is suppressed and this was the only one left.
 ///
@@ -2825,7 +2825,7 @@ static int lua_IsModifierKeyDown(lua_State* L) {
 
 /// Whether an addon is loaded. Real rather than false: the registry holds the
 /// addons that were enabled and loaded this session, and FrameXML asks before
-/// deciding whether a feature exists — answering no where the answer is yes
+/// deciding whether a feature exists - answering no where the answer is yes
 /// hides an addon from the interface that is meant to work with it.
 static int lua_IsAddOnLoaded(lua_State* L) {
     const char* wanted = lua_isstring(L, 1) ? lua_tostring(L, 1) : nullptr;
@@ -2852,8 +2852,8 @@ static int lua_IsAddOnLoaded(lua_State* L) {
         lua_pop(L, 1);
     }
     lua_pop(L, 1);
-    // A load-on-demand addon is not in the list handed to the VM at startup —
-    // it is not loaded then — so its loaded state is asked of the manager.
+    // A load-on-demand addon is not in the list handed to the VM at startup -
+    // it is not loaded then - so its loaded state is asked of the manager.
     if (!found) {
         auto* svc = getLuaServices(L);
         if (svc && svc->isAddOnLoaded) found = svc->isAddOnLoaded(wanted);
@@ -2866,14 +2866,14 @@ static int lua_IsAddOnLoaded(lua_State* L) {
 ///
 /// The interface's shared reference for anything timed: a cooldown records
 /// GetTime() + duration and something else compares against it later. It was
-/// never implemented, so every one of those comparisons was against nil —
+/// never implemented, so every one of those comparisons was against nil -
 /// including the ones in this client's own bootstrap.
 /// LoadAddOn(name) → loaded, reason.
 ///
 /// The reason is not optional when loaded is false: UIParentLoadAddOn builds
 /// an error message out of _G["ADDON_" .. reason], so nil there is a
 /// concatenation against nothing. These are Blizzard's own load-on-demand
-/// panels — the talent frame and its like — which this client does not ship,
+/// panels - the talent frame and its like - which this client does not ship,
 /// and MISSING is the reason string for exactly that.
 /// LoadAddOn(name) → loaded, reason
 ///
@@ -2881,7 +2881,7 @@ static int lua_IsAddOnLoaded(lua_State* L) {
 /// achievement window, the macro editor, the key bindings, the trade skill and
 /// glyph frames are all load-on-demand addons that FrameXML asks for the first
 /// time one is opened. This answered "MISSING" unconditionally, so none of them
-/// ever appeared — and an addon that ships an optional module got the same.
+/// ever appeared - and an addon that ships an optional module got the same.
 static int lua_LoadAddOn(lua_State* L) {
     const char* name = lua_isstring(L, 1) ? lua_tostring(L, 1) : nullptr;
     auto* svc = getLuaServices(L);
@@ -2896,7 +2896,7 @@ static int lua_LoadAddOn(lua_State* L) {
     // loading the addon with its verbs missing raised on one click. Saying no
     // made the button do nothing, which was the truth.
     //
-    // What changed is that there is a calendar behind it now — the packet is
+    // What changed is that there is a calendar behind it now - the packet is
     // parsed into CalendarData, and the month grid, the day lists and the
     // holidays are answered from it. The write side is still missing, and a
     // missing global is a callable stand-in rather than a raise, so creating
@@ -2910,7 +2910,7 @@ static int lua_LoadAddOn(lua_State* L) {
     //     message(format(ADDON_LOAD_FAILED, name, _G["ADDON_"..reason]))
     //
     // so a token globalstrings does not define makes that lookup nil and
-    // format raise — the report of a failed load failing, inside whichever
+    // format raise - the report of a failed load failing, inside whichever
     // panel was being opened. Every load-on-demand panel opens this way.
     //
     // The list is globalstrings' own ADDON_* names, which is where the far
@@ -2941,7 +2941,7 @@ static int lua_ReturnNoCooldown(lua_State* L) {
 /// localised name, which is the pair FrameXML expects.
 static int lua_UnitFactionGroup(lua_State* L) {
     // Whose faction. This answered the player's for every unit, and the target
-    // frame asks it about the *target* to pick the PvP badge — so an Alliance
+    // frame asks it about the *target* to pick the PvP badge - so an Alliance
     // player saw an Alliance badge over a Horde target, and the party frames
     // did the same for anyone in the group.
     std::string uid(luaL_optstring(L, 1, "player"));
@@ -2983,7 +2983,7 @@ static int lua_RunScript(lua_State* L) {
 
 // IsMouseButtonDown(button) → whether it is held right now
 //
-// Named as WoW names them — "LeftButton", "RightButton", "MiddleButton" — and
+// Named as WoW names them - "LeftButton", "RightButton", "MiddleButton" - and
 // answers for any button when asked for none, which is what a bare call means.
 static int lua_IsMouseButtonDown(lua_State* L) {
     const char* which = luaL_optstring(L, 1, nullptr);
@@ -3012,8 +3012,8 @@ static int lua_Screenshot(lua_State* L) {
 
 // HasLFGRestrictions() → whether the player is in a dungeon-finder group
 //
-// There is a dungeon finder here — the client tracks the queue, the proposal
-// and the dungeon — so this is answered from it rather than declared false the
+// There is a dungeon finder here - the client tracks the queue, the proposal
+// and the dungeon - so this is answered from it rather than declared false the
 // way it was when the comment here said no such thing existed.
 static int lua_HasLFGRestrictions(lua_State* L) {
     auto* gh = getGameHandler(L);
@@ -3065,11 +3065,11 @@ static int lua_GetLFGProposal(lua_State* L) {
     lua_pushstring(L, role);                                     // 6: role
     lua_pushboolean(L, 0);                                       // 7: hasResponded
     // Encounter progress is not parsed out of the proposal, and zero is the
-    // honest answer — it reads as "nothing cleared yet", which is what a fresh
+    // honest answer - it reads as "nothing cleared yet", which is what a fresh
     // pop is, and keeps the dialog off its in-progress layout.
     lua_pushnumber(L, 0);                                        // 8: totalEncounters
     lua_pushnumber(L, 0);                                        // 9: completedEncounters
-    // The real count now that the roster is parsed — each row is a role icon
+    // The real count now that the roster is parsed - each row is a role icon
     // and a tick, both of which GetLFGProposalMember can answer.
     lua_pushnumber(L, static_cast<double>(gh->getLfgProposalMembers().size()));  // 10
 
@@ -3096,7 +3096,7 @@ static int lua_GetLFGInfoServer(lua_State* L) {
 //
 // The last two were nil, and nil is not a harmless blank here.
 // LFDRoleCheckPopupDescription_OnEnter opens with `if ( slots <= 1 )`, which
-// compares nil to a number and raises — hovering the role-check popup took the
+// compares nil to a number and raises - hovering the role-check popup took the
 // file down with it. LFDRoleCheckPopup_Update branches on `slots == 1` too, so
 // every check also described itself as being for multiple dungeons.
 //
@@ -3132,12 +3132,12 @@ static int lua_IsPartyLFG(lua_State* L) {
 }
 
 // The two cooldowns that gate re-queuing. Neither is tracked, and both are read
-// as `if ( expiration )` — so nil, because a zero would read as a live cooldown
+// as `if ( expiration )` - so nil, because a zero would read as a live cooldown
 // and park the queue frame behind a countdown that never ends.
 static int lua_GetLFGDeserterExpiration(lua_State* L) { lua_pushnil(L); return 1; }
 static int lua_GetLFGRandomCooldownExpiration(lua_State* L) { lua_pushnil(L); return 1; }
 
-// RefreshLFGList() — the raid browser's refresh button.
+// RefreshLFGList() - the raid browser's refresh button.
 static int lua_RefreshLFGList(lua_State* L) { (void)L; return 0; }
 
 // GetTrackedAchievements() → the achievement ids being watched, as separate
@@ -3185,7 +3185,7 @@ static uint32_t arenaTeamIdAt(game::GameHandler* gh, int index) {
     return teams[static_cast<size_t>(index) - 1].teamId;
 }
 
-// ArenaTeamRoster(index) — ask the server for the roster.
+// ArenaTeamRoster(index) - ask the server for the roster.
 static int lua_ArenaTeamRoster(lua_State* L) {
     auto* gh = getGameHandler(L);
     const uint32_t teamId = arenaTeamIdAt(gh, static_cast<int>(luaL_optnumber(L, 1, 0)));
@@ -3197,7 +3197,7 @@ static int lua_ArenaTeamRoster(lua_State* L) {
 //   name, rank, level, class, online, played, win, seasonPlayed, seasonWin, rating
 //
 // The six counts are numbers rather than nil: the panel subtracts them the line
-// after — `loss = played - win` — so a nil raises there. Class stays nil, which
+// after - `loss = played - win` - so a nil raises there. Class stays nil, which
 // the panel does test before using, and rank and level are zero because the
 // roster carries neither.
 static int lua_GetArenaTeamRosterInfo(lua_State* L) {
@@ -3223,7 +3223,7 @@ static int lua_GetArenaTeamRosterInfo(lua_State* L) {
 }
 
 // Which roster row is selected, and closing the roster. Both are the panel's
-// own state — nothing is sent for either.
+// own state - nothing is sent for either.
 static int lua_GetArenaTeamRosterSelection(lua_State* L) { lua_pushnumber(L, 0); return 1; }
 static int lua_SetArenaTeamRosterSelection(lua_State* L) { (void)L; return 0; }
 static int lua_CloseArenaTeamRoster(lua_State* L) { (void)L; return 0; }
@@ -3237,7 +3237,7 @@ static int lua_CloseBattlefield(lua_State* L) { (void)L; return 0; }
 
 // Leaving a vehicle, and whether its aim can be raised or lowered. Vehicles
 // are not modelled here, so neither is possible.
-// CanExitVehicle() — whether the player is riding something they can get off.
+// CanExitVehicle() - whether the player is riding something they can get off.
 //
 // False always, so the leave-vehicle button on the main bar stayed hidden and
 // the unit menu's Leave Vehicle entry was removed from the menu every time it
@@ -3249,7 +3249,7 @@ static int lua_CanExitVehicle(lua_State* L) {
 }
 static int lua_IsVehicleAimAngleAdjustable(lua_State* L) { lua_pushboolean(L, 0); return 1; }
 
-// HasKey() — whether the player carries a key ring at all. The keyring exists
+// HasKey() - whether the player carries a key ring at all. The keyring exists
 // and holds keys, so the button that opens it is offered.
 static int lua_HasKey(lua_State* L) { lua_pushboolean(L, 1); return 1; }
 
@@ -3261,7 +3261,7 @@ static int lua_HasKey(lua_State* L) { lua_pushboolean(L, 1); return 1; }
 //
 // Twenty-two, because PVPTeam_Update unpacks every one of them on a single line
 // and then feeds the colour components straight to SetVertexColor. Answering
-// just the name — which is all the promote and kick confirmations need — left
+// just the name - which is all the promote and kick confirmations need - left
 // twenty-one nils behind it and took the team list down.
 //
 // The tabard is not tracked: SMSG_ARENA_TEAM_QUERY_RESPONSE carries the emblem
@@ -3297,7 +3297,7 @@ static int lua_GetArenaTeam(lua_State* L) {
 //
 // Zero rather than nil for the four amounts, and the difference matters: the
 // frame writes `if (winHonor ~= 0)` and shows a reward line when that passes.
-// nil passes it — nil is not zero — and the line appears with nothing in it.
+// nil passes it - nil is not zero - and the line appears with nothing in it.
 // Zero says "no bonus" and the line is correctly skipped.
 //
 // The bonus itself is a per-character daily the server tracks and does not
@@ -3305,7 +3305,7 @@ static int lua_GetArenaTeam(lua_State* L) {
 // for one. Reachable, unlike most of this file's absences: the random
 // battleground row is drawn from GetBattlegroundInfo, which answers for real.
 static int lua_BattlegroundHonorBonusesNone(lua_State* L) {
-    lua_pushboolean(L, 0);   // hasWin — the daily is not known to be waiting
+    lua_pushboolean(L, 0);   // hasWin - the daily is not known to be waiting
     lua_pushnumber(L, 0);    // winHonor
     lua_pushnumber(L, 0);    // winArena
     lua_pushnumber(L, 0);    // lossHonor
@@ -3315,13 +3315,13 @@ static int lua_BattlegroundHonorBonusesNone(lua_State* L) {
 
 // GetBattlefieldInstanceInfo(index) → which numbered instance that row is.
 //
-// Zero, which the list reads as unnumbered — the same "first available" the
+// Zero, which the list reads as unnumbered - the same "first available" the
 // selection means. The server numbers instances only for a client that asks to
 // pick one, and nothing here does.
 static int lua_GetBattlefieldInstanceInfo(lua_State* L) {
     // The instance number of the i-th battleground instance on offer, counting
     // from one. A flat zero before, so every row in the list read "Warsong
-    // Gulch 0" — and the count beside it, GetNumBattlefields, was not bound at
+    // Gulch 0" - and the count beside it, GetNumBattlefields, was not bound at
     // all, so the list never got that far: it raised on a nil global.
     //
     // SMSG_BATTLEFIELD_LIST carries these and they were parsed into
@@ -3337,7 +3337,7 @@ static int lua_GetBattlefieldInstanceInfo(lua_State* L) {
     return 1;
 }
 
-// GetNumBattlefields() — how many instances of it there are to choose between.
+// GetNumBattlefields() - how many instances of it there are to choose between.
 static int lua_GetNumBattlefields(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (!gh) { lua_pushnumber(L, 0); return 1; }
@@ -3347,7 +3347,7 @@ static int lua_GetNumBattlefields(lua_State* L) {
     return 1;
 }
 
-// IsInLFGDungeon() — standing inside a dungeon the finder put you in.
+// IsInLFGDungeon() - standing inside a dungeon the finder put you in.
 //
 // The state is already tracked: SocialHandler keeps an LfgState and InDungeon
 // is one of its values. Nothing read it, so the minimap's dungeon button could
@@ -3358,7 +3358,7 @@ static int lua_IsInLFGDungeon(lua_State* L) {
     return 1;
 }
 
-// LFGTeleport(out) — out to the dungeon's entrance, or back in.
+// LFGTeleport(out) - out to the dungeon's entrance, or back in.
 static int lua_LFGTeleport(lua_State* L) {
     if (auto* gh = getGameHandler(L)) gh->lfgTeleport(lua_toboolean(L, 1) != 0);
     return 0;
@@ -3367,7 +3367,7 @@ static int lua_LFGTeleport(lua_State* L) {
 // Whether the world the player is standing in is an arena.
 //
 // From BattlemasterList.dbc, which names each row's maps and which this client
-// already reads for the queue list — the arena rows are loaded alongside the
+// already reads for the queue list - the arena rows are loaded alongside the
 // battleground ones and only the battlegrounds are kept in the queue list, so
 // the arena maps were sitting there unasked.
 //
@@ -3383,7 +3383,7 @@ static int lua_IsBattlefieldArena(lua_State* L) {
 //
 // The second is whether the team is a registered one rather than a skirmish,
 // which needs the arena team the server never mentions outside a match. Left
-// nil, and the frame treats that as unregistered — which a skirmish is.
+// nil, and the frame treats that as unregistered - which a skirmish is.
 static int lua_IsActiveBattlefieldArena(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (gh && gh->isArenaMap(gh->getCurrentMapId())) lua_pushboolean(L, 1);
@@ -3404,7 +3404,7 @@ static int lua_CanHearthAndResurrectFromArea(lua_State* L) { lua_pushboolean(L, 
 //     status, mapName, queueID = GetWorldPVPQueueStatus(i);
 //     if ( status ~= "none" ) then numberQueues = numberQueues + 1; end
 //
-// nil is not "none", so this counted a queue that did not exist on every pass —
+// nil is not "none", so this counted a queue that did not exist on every pass -
 // and BattlefieldFrame_UpdateStatus ends by hiding the minimap's battlefield
 // icon only when numberQueues reaches zero, which it now never did. The icon
 // sat beside the minimap permanently, with no queue behind it and so nothing in
@@ -3420,7 +3420,7 @@ static int lua_GetWorldPVPQueueStatus(lua_State* L) {
     return 3;
 }
 
-// LeaveBattlefield() — walk out of the battleground currently being played.
+// LeaveBattlefield() - walk out of the battleground currently being played.
 static int lua_LeaveBattlefield(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (gh) gh->leaveBattlefield();
@@ -3455,14 +3455,14 @@ static int lua_ShowMiniWorldMapArrowFrame(lua_State* L) { (void)L; return 0; }
 
 // ---- The stored combat log (Blizzard_CombatLog's refilter) ----
 //
-// The client keeps no history of combat events — they are handled as they
-// arrive — so there is nothing to walk back through and the log rebuilds itself
+// The client keeps no history of combat events - they are handled as they
+// arrive - so there is nothing to walk back through and the log rebuilds itself
 // from new events only.
 //
 // CombatLogGetCurrentEntry answers nil rather than zero, and that distinction
 // is the whole of it. Blizzard_CombatLog_RefilterUpdate loops
 // `while (valid and total < COMBATLOG_LIMIT_PER_FRAME)`, and a zero is true in
-// Lua — it would add a line per iteration from an entry that does not exist,
+// Lua - it would add a line per iteration from an entry that does not exist,
 // stop only on the per-frame cap, and be re-armed by the OnUpdate that
 // scheduled it, every frame, for as long as the log was open.
 static int lua_CombatLogGetNumEntries(lua_State* L) { lua_pushnumber(L, 0); return 1; }
@@ -3472,7 +3472,7 @@ static int lua_CombatLogSetCurrentEntry(lua_State* L) { (void)L; return 0; }
 static int lua_CombatLogAddFilter(lua_State* L) { (void)L; return 0; }
 static int lua_CombatLogResetFilter(lua_State* L) { (void)L; return 0; }
 
-// CombatTextSetActiveUnit(unit) — which unit the floating combat text follows.
+// CombatTextSetActiveUnit(unit) - which unit the floating combat text follows.
 // It tells the client where to aim the events it already sends; the events do
 // not change, so this is recorded by the caller and nothing is needed here.
 static int lua_CombatTextSetActiveUnit(lua_State* L) { (void)L; return 0; }
@@ -3512,7 +3512,7 @@ static int lua_GetBattlefieldInfo(lua_State* L) {
     // Three more, all of which the panel reads. Whether the player is inside
     // the level bracket the server sent, whether this is the week's call to
     // arms, and whether it is the random battleground rather than a named one
-    // — type 32, which is what BattlefieldFrame keys the rewards block on.
+    // - type 32, which is what BattlefieldFrame keys the rewards block on.
     const uint32_t level = gh->getPlayerLevel();
     const bool inBracket = (bg.minLevel == 0 || level >= bg.minLevel) &&
                            (bg.maxLevel == 0 || level <= bg.maxLevel);
@@ -3526,7 +3526,7 @@ static int lua_GetBattlefieldInfo(lua_State* L) {
 // GetNumBattlegroundTypes() → how many battlegrounds there are to queue for.
 //
 // This is the PvP frame's own list, not the battlemaster's offering, and it
-// comes from BattlemasterList.dbc — which this client already loads. It was
+// comes from BattlemasterList.dbc - which this client already loads. It was
 // answering zero from the counting stub, so the list drew no rows, nothing was
 // ever assigned frame.BGindex, and the click handler read that field as nil.
 //
@@ -3553,7 +3553,7 @@ static int lua_GetBattlegroundInfo(lua_State* L) {
     if (index < 1 || index > static_cast<int>(list.size())) return luaReturnNil(L);
     const auto& bg = list[static_cast<size_t>(index - 1)];
 
-    // A row naming no level range — the random battleground is the only one —
+    // A row naming no level range - the random battleground is the only one -
     // is not a row saying nobody qualifies.
     const uint32_t level = gh->getPlayerLevel();
     const bool hasRange = bg.minLevel != 0 || bg.maxLevel != 0;
@@ -3567,7 +3567,7 @@ static int lua_GetBattlegroundInfo(lua_State* L) {
     return 5;
 }
 
-// RequestBattlegroundInstanceInfo(index) — ask which instances are running.
+// RequestBattlegroundInstanceInfo(index) - ask which instances are running.
 //
 // The reply is SMSG_BATTLEFIELD_LIST, which this client already handled and
 // had no way to ask for. The index is a row in the list above, not a
@@ -3589,7 +3589,7 @@ static int lua_RequestBattlegroundInstanceInfo(lua_State* L) {
 // first row highlighted whatever was clicked.
 //
 // Zero remains the default and still means "first available", which is what
-// the server understands as no preference — the list opens on it, and nothing
+// the server understands as no preference - the list opens on it, and nothing
 // here queues for a specific instance regardless. This is the selection the
 // interface is showing, not an instruction to the server.
 static int& selectedBattlefield() { static int selected = 0; return selected; }
@@ -3599,14 +3599,14 @@ static int lua_GetSelectedBattlefield(lua_State* L) {
     return 1;
 }
 
-// SetSelectedBattlefield(index) — called unguarded from two places, so it has
+// SetSelectedBattlefield(index) - called unguarded from two places, so it has
 // to exist before it has to do anything.
 static int lua_SetSelectedBattlefield(lua_State* L) {
     selectedBattlefield() = static_cast<int>(luaL_optnumber(L, 1, 0));
     return 0;
 }
 
-// JoinBattlefield(index, asGroup, isArena) — queue for it.
+// JoinBattlefield(index, asGroup, isArena) - queue for it.
 static int lua_JoinBattlefield(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (!gh) return 0;
@@ -3632,7 +3632,7 @@ static int lua_JoinBattlefield(lua_State* L) {
 //
 // The six counts answer zero rather than nil even with no reward to report,
 // which is the opposite of the usual choice and for the opposite reason: the
-// alert frame does not test them, it does arithmetic with them —
+// alert frame does not test them, it does arithmetic with them -
 //
 //     local moneyAmount = moneyBase + moneyVar * numStrangers
 //
@@ -3681,7 +3681,7 @@ static int lua_GetLFGCompletionReward(lua_State* L) {
 //
 // One-based, and the index runs over the rewards the call above counted. The
 // texture is the item's own icon, which is where the display id in the packet
-// earns its place — the reward can name an item the bags have never held and
+// earns its place - the reward can name an item the bags have never held and
 // so have no cached query behind it.
 static int lua_GetLFGCompletionRewardItem(lua_State* L) {
     auto* gh = getGameHandler(L);
@@ -3700,7 +3700,7 @@ static int lua_GetLFGCompletionRewardItem(lua_State* L) {
     return 2;
 }
 
-// RunMacroText(body) — run a macro body, one command per line.
+// RunMacroText(body) - run a macro body, one command per line.
 //
 // The same path the action bar takes for a macro button, so a macro run from a
 // party frame's click behaves as one run from the bar: /stopmacro is honoured,
@@ -3712,7 +3712,7 @@ static int lua_RunMacroText(lua_State* L) {
     return 0;
 }
 
-// RunMacro(id or name) — run a saved macro by which one it is.
+// RunMacro(id or name) - run a saved macro by which one it is.
 static int lua_RunMacro(lua_State* L) {
     auto* svc = getLuaServices(L);
     auto* gh = getGameHandler(L);
@@ -3732,14 +3732,14 @@ static int lua_RunMacro(lua_State* L) {
     return 0;
 }
 
-// TriggerTutorial(id) — show one of the interface's tutorial pop-outs.
+// TriggerTutorial(id) - show one of the interface's tutorial pop-outs.
 //
 // Tutorials are a saved per-account set of which have been seen, and none of
 // that is kept here, so nothing is shown. Answered rather than left missing
 // because the bag bar fires it whenever a bag is picked up.
 static int lua_TriggerTutorial(lua_State* L) { (void)L; return 0; }
 
-// Quit() — leave the game, as the game menu's Exit button does.
+// Quit() - leave the game, as the game menu's Exit button does.
 //
 // The same path /exit takes: a clean logout that ends the process rather than
 // dropping to character select.
@@ -3749,11 +3749,11 @@ static int lua_Quit(lua_State* L) {
     return 0;
 }
 
-/// ForceQuit() / ForceLogout() — leave now rather than after the timer.
+/// ForceQuit() / ForceLogout() - leave now rather than after the timer.
 ///
 /// QUIT's OnAccept calls the first, and the popup exists to offer exactly this:
 /// the server has imposed a countdown and the player would rather not wait.
-/// There is no message that shortens it — the server owns the timer — so what
+/// There is no message that shortens it - the server owns the timer - so what
 /// this can honestly do is ask again, which is what the real client's button
 /// amounts to once the timer is already running.
 ///
@@ -3772,7 +3772,7 @@ static int lua_ForceLogout(lua_State* L) {
     return 0;
 }
 
-// ReloadUI() — rebuild the interface, as /reload does.
+// ReloadUI() - rebuild the interface, as /reload does.
 //
 // Only asks. The reload shuts this Lua state down and builds a new one, and
 // every caller is inside it: a static popup's OnAccept after a setting that
@@ -3784,7 +3784,7 @@ static int lua_ReloadUI(lua_State* L) {
     return 0;
 }
 
-// WoweeSettingList() — every client setting FrameXML has no control for.
+// WoweeSettingList() - every client setting FrameXML has no control for.
 //
 // Answers an array of { key, label, kind, min, max, step, category }, from the
 // one schema in ui/settings_schema.hpp. The Wowee options category is built
@@ -3818,7 +3818,7 @@ static int lua_WoweeSettingList(lua_State* L) {
     return 1;
 }
 
-// WoweeVersion() — what this client calls itself, and when it was built.
+// WoweeVersion() - what this client calls itself, and when it was built.
 //
 // The same string the login screen shows. Here so the options panel can say it
 // without the version being written out a second time in Lua, where it would go
@@ -3828,7 +3828,7 @@ static int lua_WoweeVersion(lua_State* L) {
     return 1;
 }
 
-// WoweeGetSetting(key) / WoweeSetSetting(key, value) — the values behind that
+// WoweeGetSetting(key) / WoweeSetSetting(key, value) - the values behind that
 // list. Strings both ways, as a CVar is.
 static int lua_WoweeGetSetting(lua_State* L) {
     const char* key = luaL_checkstring(L, 1);
@@ -3852,12 +3852,12 @@ static int lua_WoweeSetSetting(lua_State* L) {
     return 0;
 }
 
-// WoweeShowSettings(tab) — open this client's settings window.
+// WoweeShowSettings(tab) - open this client's settings window.
 //
 // FrameXML's game menu has Video, Sound and Interface buttons, and the frames
 // they open are shells in this shim: InterfaceOptionsFrame exists so addons can
-// register panels against it, and nothing draws it. The settings themselves —
-// sixty-odd of them — are in this client's own window, so the menu's buttons
+// register panels against it, and nothing draws it. The settings themselves -
+// sixty-odd of them - are in this client's own window, so the menu's buttons
 // come here instead of opening an empty frame.
 //
 // The tab name is optional and matches the window's own tab labels.
@@ -3868,7 +3868,7 @@ static int lua_WoweeShowSettings(lua_State* L) {
     return 0;
 }
 
-// GetGamma() / SetGamma(value) — screen brightness, as the video options mean
+// GetGamma() / SetGamma(value) - screen brightness, as the video options mean
 // it. One is neutral. Backed by the client's own brightness setting, so the
 // two sliders move together instead of disagreeing.
 static int lua_GetGamma(lua_State* L) {
@@ -3887,7 +3887,7 @@ static int lua_SetGamma(lua_State* L) {
 //   anisotropic, pixelShaders, vertexShaders, trilinear, buffering,
 //   maxAnisotropy, hardwareCursor
 //
-// Everything here runs on Vulkan, so the capability questions all answer yes —
+// Everything here runs on Vulkan, so the capability questions all answer yes -
 // they were written for a Direct3D 9 client that could genuinely lack them.
 // maxAnisotropy is the one real number, and sixteen is the ceiling every
 // device this client will start on supports; the options panel uses it only to
@@ -3895,8 +3895,8 @@ static int lua_SetGamma(lua_State* L) {
 /// Terrain texture detail, as the video panel's TerrainDetail slider sets it.
 ///
 /// Both halves were missing, and the slider reads its own value on every
-/// refresh of the panel — `self.GetCurrentValue = function (self) return
-/// GetTerrainMip(); end` — so opening Video Options called nil, and moving the
+/// refresh of the panel - `self.GetCurrentValue = function (self) return
+/// GetTerrainMip(); end` - so opening Video Options called nil, and moving the
 /// slider called nil again.
 ///
 /// Held rather than applied: nothing in the terrain renderer takes a mip bias
@@ -3960,7 +3960,7 @@ static int lua_GetNumVoiceSessionMembersBySessionID(lua_State* L) {
     return 1;
 }
 
-// RequestRaidInfo() — ask the server for saved instance lockouts. The reply is
+// RequestRaidInfo() - ask the server for saved instance lockouts. The reply is
 // SMSG_RAID_INSTANCE_INFO, which the client already parses for
 // GetSavedInstanceInfo; nothing was asking for it.
 static int lua_RequestRaidInfo(lua_State* L) {
@@ -3978,8 +3978,8 @@ static int lua_CanShowAchievementUI(lua_State* L) {
 // GetAddOnMemoryUsage(index) → kilobytes, and UpdateAddOnMemoryUsage() to
 // refresh them
 //
-// Zero rather than nothing. The performance bar's tooltip adds these up —
-// `totalMem = totalMem + mem` for every addon loaded — and nil there is an
+// Zero rather than nothing. The performance bar's tooltip adds these up -
+// `totalMem = totalMem + mem` for every addon loaded - and nil there is an
 // error, on an interface element that is drawn by default. Nothing here
 // measures per-addon memory, and zero is what an unmeasured addon costs as far
 // as this client knows.
@@ -3991,7 +3991,7 @@ static int lua_GetAddOnMemoryUsage(lua_State* L) {
 // IsXPUserDisabled() → whether the player has turned experience off
 //
 // Nothing here can turn it off, so this is a definite no rather than an absent
-// answer — the reputation panel reads it to decide whether to offer the bar.
+// answer - the reputation panel reads it to decide whether to offer the bar.
 static int lua_IsXPUserDisabled(lua_State* L) {
     lua_pushboolean(L, 0);
     return 1;
@@ -4002,8 +4002,8 @@ static int lua_IsXPUserDisabled(lua_State* L) {
 /// Every taxi function is asked about a node by position in this list, and the
 /// answers only line up if each of them walks the same order. They used to walk
 /// `getTaxiNodes()` directly, which is an unordered_map: its order is arbitrary,
-/// and rehashing it — which learning a flight path while the window is open
-/// does — reorders it under a list already drawn. Clicking a destination would
+/// and rehashing it - which learning a flight path while the window is open
+/// does - reorders it under a list already drawn. Clicking a destination would
 /// then fly somewhere else. Sorting by node id costs a copy of a few hundred
 /// integers and makes the order the same every time it is asked.
 ///
@@ -4037,7 +4037,7 @@ static uint32_t taxiNodeAt(game::GameHandler* gh, int index) {
 /// height.
 ///
 /// The flight map is the continent's map, so this is the same projection the
-/// world map does — the one place it lives, in rendering/world_map, reached
+/// world map does - the one place it lives, in rendering/world_map, reached
 /// through the continent rectangle the game handler now reads.
 ///
 /// The order of the two conversions is the whole difficulty. TaxiNodes.dbc
@@ -4069,7 +4069,7 @@ static bool taxiNodeMapPos(game::GameHandler* gh, uint32_t nodeId,
     // interface uses and is the whole of why the flight map was wrong.
     //
     // The world map anchors what it places to TOPLEFT and negates the y it was
-    // given — worldmapframe.lua:789 — so GetPlayerMapPosition counts down from
+    // given - worldmapframe.lua:789 - so GetPlayerMapPosition counts down from
     // the top. The flight map anchors to BOTTOMLEFT and adds it, for the nodes
     // (taxiframe.lua:80) and for both ends of every route leg (140-142,
     // 179-181), so TaxiNodePosition counts up from the bottom.
@@ -4086,7 +4086,7 @@ static bool taxiNodeMapPos(game::GameHandler* gh, uint32_t nodeId,
 /// One end of one leg of a flight, as a fraction of the map.
 ///
 /// `End` is 0 for the leg's start and 1 for its finish; `Horizontal` picks x
-/// over y. Four names, one body — they differ only in which number they read.
+/// over y. Four names, one body - they differ only in which number they read.
 template <int End, bool Horizontal>
 static int lua_TaxiLegCoord(lua_State* L) {
     auto* gh = getGameHandler(L);
@@ -4119,8 +4119,8 @@ static std::vector<uint32_t>& taxiRouteShown() {
 }
 
 void registerSystemLuaAPI(lua_State* L) {
-    // Before any binding is registered, so the first GetCVar of the run — which
-    // happens while a panel is being built — sees what the player last set.
+    // Before any binding is registered, so the first GetCVar of the run - which
+    // happens while a panel is being built - sees what the player last set.
     loadStoredCVars();
     loadInterfaceState();
     static const struct { const char* name; lua_CFunction func; } api[] = {
@@ -4149,7 +4149,7 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"GetArenaTeamRosterInfo",       lua_GetArenaTeamRosterInfo},
                 // How many rows that reader has. Unbound, so opening a team's
                 // details called a nil global and raised before the first row
-                // was read — the reader beside it worked the whole time.
+                // was read - the reader beside it worked the whole time.
                 {"GetNumArenaTeamMembers", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             const uint32_t teamId =
@@ -4159,7 +4159,7 @@ void registerSystemLuaAPI(lua_State* L) {
                 ? static_cast<lua_Number>(roster->members.size()) : 0);
             return 1;
         }},
-                // SortArenaTeamRoster(column) — the details frame's column
+                // SortArenaTeamRoster(column) - the details frame's column
                 // headers. Unbound, every one of them raised on click.
                 {"SortArenaTeamRoster", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
@@ -4181,16 +4181,16 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"GetBattlefieldInstanceInfo",       lua_GetBattlefieldInstanceInfo},
                 {"GetNumBattlefields",       lua_GetNumBattlefields},
                 // Sorting the battleground list. This client sorts its own, so
-                // there is nothing to do — but the name has to exist, because
+                // there is nothing to do - but the name has to exist, because
                 // PVPBattlegroundFrame_OnShow calls it and a nil global raises
                 // as the panel opens.
                 {"SortBGList",               lua_ReturnNothing},
                 // Stationery for a letter. None is carried, and the picker
-                // draws the default when the count is zero — which it could
+                // draws the default when the count is zero - which it could
                 // not do while the count raised.
                 // One: the plain parchment. Zero left the stationery popup
                 // empty, and SendMailFrame_CanSend will not enable the Send
-                // button until a stationery has been picked — so with none to
+                // button until a stationery has been picked - so with none to
                 // pick, no letter could be sent. See GetStationeryInfo.
                 {"GetNumStationeries",       [](lua_State* L) -> int {
                     lua_pushnumber(L, 1);
@@ -4231,7 +4231,7 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"GetLFGCompletionRewardItem", lua_GetLFGCompletionRewardItem},
                 {"RunMacroText",             lua_RunMacroText},
                 // This client's own slash commands, for the bootstrap chunk
-                // that puts them into SlashCmdList. Not WoW API — the names
+                // that puts them into SlashCmdList. Not WoW API - the names
                 // are prefixed so nothing in FrameXML can collide with them.
                 {"__WoweeClientCommandNames", [](lua_State* L) -> int {
             auto* svc = getLuaServices(L);
@@ -4299,7 +4299,7 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"VehicleAimDownStart",      lua_ReturnNothing},
                 {"VehicleAimDownStop",       lua_ReturnNothing},
                 // The button and the slash command both end here, and it did
-                // nothing — so /leavevehicle, the main bar's button and the
+                // nothing - so /leavevehicle, the main bar's button and the
                 // unit menu's entry were three ways of not getting off.
                 // CMSG_REQUEST_VEHICLE_EXIT was already written and had no
                 // caller outside this client's own bar.
@@ -4319,8 +4319,8 @@ void registerSystemLuaAPI(lua_State* L) {
                 // one: DUNGEON_DIFFICULTY_NORMAL is 0 on AzerothCore, and the
                 // popup checks its menu entry with `GetDungeonDifficulty() ==
                 // index`, index being the 1-based row. Answering the stored
-                // value straight made Heroic read as Normal — `d ? d : 1` turns
-                // both 0 and 1 into 1 — so the tick sat on the wrong row and
+                // value straight made Heroic read as Normal - `d ? d : 1` turns
+                // both 0 and 1 into 1 - so the tick sat on the wrong row and
                 // unitpopup's `GetDungeonDifficulty() == 1` heroic-lockout
                 // check was true inside a heroic.
                 //
@@ -4357,7 +4357,7 @@ void registerSystemLuaAPI(lua_State* L) {
                 //
                 // A constant zero meant PartyMemberFrame_UpdateLeader hid the
                 // icon on every frame it ran for, so no party ever showed who
-                // was leading it — while partyData has carried leaderGuid all
+                // was leading it - while partyData has carried leaderGuid all
                 // along.
                 {"GetPartyLeaderIndex", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
@@ -4381,7 +4381,7 @@ void registerSystemLuaAPI(lua_State* L) {
                 // These hand back a list, not a value: the caller walks it with
                 // select("#", ...) and reads it in groups. One number makes the
                 // loop run once against nils, which is worse than an empty
-                // list — for anything returning a list, nothing is the right
+                // list - for anything returning a list, nothing is the right
                 // way to say there is none.
                 // The anti-aliasing dropdown, which used to be left empty on
                 // the argument that offering modes was worse than offering
@@ -4393,8 +4393,8 @@ void registerSystemLuaAPI(lua_State* L) {
                 //
                 // The four modes are real and are the same four this client's
                 // own panel offers, so choosing one applies it. MSAA is moot
-                // while FSR is upscaling — which is why the client's own combo
-                // disables itself there — but the choice is still recorded and
+                // while FSR is upscaling - which is why the client's own combo
+                // disables itself there - but the choice is still recorded and
                 // still takes effect when FSR is off, which is what that combo
                 // does with it too.
                 {"GetMultisampleFormats",    lua_GetMultisampleFormats},
@@ -4427,7 +4427,7 @@ void registerSystemLuaAPI(lua_State* L) {
                 // Applying video settings restarts the graphics device on the
                 // real client. This one applies what it can as it goes and has
                 // no device to tear down.
-                // RestartGx() — apply the display CVars marked `restart`.
+                // RestartGx() - apply the display CVars marked `restart`.
                 //
                 // The video panel writes every changed CVar and then, if any of
                 // them wanted it, restarts the device once so they take effect
@@ -4459,9 +4459,9 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"IsPlayerResolutionAvailable", lua_ReturnFalse},
                 // Which extra action bars are shown. FrameXML draws the bars
                 // and MultiActionBar_Update decides from the SHOW_MULTI_ACTIONBAR_*
-                // globals, which are CVars and persist on their own — so the
+                // globals, which are CVars and persist on their own - so the
                 // C-side toggle this mirrors has nothing left to do here.
-                // Set/GetActionBarToggles — which of the four extra action
+                // Set/GetActionBarToggles - which of the four extra action
                 // bars are shown.
                 //
                 // The setter was a no-op and the getter was not bound at all.
@@ -4494,7 +4494,7 @@ void registerSystemLuaAPI(lua_State* L) {
                 // spellID, icon, active
                 //
                 // "MOUNT" or "CRITTER". Both are spells the player knows, told
-                // apart by what the spell does — see rebuildCompanions.
+                // apart by what the spell does - see rebuildCompanions.
                 {"GetCompanionInfo", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             const char* kind = luaL_optstring(L, 1, "");
@@ -4506,7 +4506,7 @@ void registerSystemLuaAPI(lua_State* L) {
             const auto& c = list[static_cast<size_t>(index) - 1];
             // A display id, and both kinds have to be asked for one. What is
             // held is a creature *template entry* either way: the summon's
-            // misc value for a critter, and the mounted aura's for a mount —
+            // misc value for a critter, and the mounted aura's for a mount -
             // AzerothCore reads that one with GetCreatureTemplate and picks
             // the model with ChooseDisplayId, so it is an entry there too.
             //
@@ -4525,7 +4525,7 @@ void registerSystemLuaAPI(lua_State* L) {
             lua_pushnumber(L, c.spellId);
             lua_pushstring(L, gh->getSpellIconPath(c.spellId).c_str());
             // Whether it is out. A mount is an aura on the player; a critter is
-            // the pet that is following, and neither is tracked per companion —
+            // the pet that is following, and neither is tracked per companion -
             // so this reads from what is actually active rather than from a
             // flag nobody sets.
             bool active = false;
@@ -4537,8 +4537,8 @@ void registerSystemLuaAPI(lua_State* L) {
         }},
                 // Counts, and the count is the whole point: each of these is
                 // read straight into `for i = 1, X()`, where a nil limit is
-                // not an empty loop but an error — "'for' limit must be a
-                // number" — that takes down the handler around it. Unbound,
+                // not an empty loop but an error - "'for' limit must be a
+                // number" - that takes down the handler around it. Unbound,
                 // the fallback answered nil and the character sheet's title
                 // list, the companion tab and the token frame each raised
                 // rather than showing nothing.
@@ -4548,7 +4548,7 @@ void registerSystemLuaAPI(lua_State* L) {
                 // there is genuinely nothing to count. They stop being zero
                 // when something starts reading that data, and the frames
                 // above will fill themselves in when it does.
-                // GetNumTitles() — how many title *bits* there are to ask
+                // GetNumTitles() - how many title *bits* there are to ask
                 // about, not how many are owned. paperdollframe.lua walks
                 // 1..GetNumTitles() calling IsTitleKnown on each, so this is
                 // the size of the space: KNOWN_TITLES_SIZE * 64 in
@@ -4571,7 +4571,7 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"KBSetup_GetSubCategoryCount", lua_ReturnZero},
                 // The other thirteen, which the note above should have covered
                 // and did not: two counts were bound and the rest of the same
-                // window was not, so the "?" button still raised — on
+                // window was not, so the "?" button still raised - on
                 // KBSetup_BeginLoading, which KnowledgeBaseFrame_OnShow calls
                 // before anything else.
                 //
@@ -4598,18 +4598,18 @@ void registerSystemLuaAPI(lua_State* L) {
                 // `i <= numSockets`, the PvP frame formats the season number
                 // into its off-season line, and the achievement comparison
                 // concatenates its total. None of the three has data behind it
-                // here — no socketing, no arena seasons, and no way to read
-                // another player's achievements — so zero is what is true.
+                // here - no socketing, no arena seasons, and no way to read
+                // another player's achievements - so zero is what is true.
                 // Three battlefield timers, all read as `X()/1000`. This
-                // client has partial battlefield support — status, score,
-                // winner and positions are all bound — so these are gaps in a
+                // client has partial battlefield support - status, score,
+                // winner and positions are all bound - so these are gaps in a
                 // system a player reaches rather than one that does not exist,
                 // and each raises the moment a battleground is queued for or
                 // entered. Zero reads correctly at every call site: no time in
                 // queue, no shutdown pending, no elapsed run time.
                 // Both timers are read as X()/1000, so milliseconds. The
                 // queue slot carries each in seconds and this answered zero for
-                // both — a queue that always read as just-joined with no
+                // both - a queue that always read as just-joined with no
                 // estimate, which is the whole content of that window.
                 {"GetBattlefieldTimeWaited", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
@@ -4629,7 +4629,7 @@ void registerSystemLuaAPI(lua_State* L) {
             lua_pushnumber(L, ms);
             return 1;
         }},
-                // CanJoinBattlefieldAsGroup() — whether the queue button offers
+                // CanJoinBattlefieldAsGroup() - whether the queue button offers
                 // to take the party in.
                 //
                 // The server decides for itself when the request arrives; this
@@ -4650,7 +4650,7 @@ void registerSystemLuaAPI(lua_State* L) {
                 // window's own ratio is both truthful and what makes that read
                 // 640x360 on a 16:9 display rather than raising.
                 // The rest of the movie recorder, which this client does not
-                // have. Not stubs standing in for something — "we are not
+                // have. Not stubs standing in for something - "we are not
                 // recording" is simply true, and the two toggles have nothing
                 // to toggle.
                 //
@@ -4675,7 +4675,7 @@ void registerSystemLuaAPI(lua_State* L) {
                 // GetNumSockets answered zero here, which said every item has
                 // no sockets. It is real now, and in lua_socket_api.cpp.
                 {"GetPreviousArenaSeason",      lua_ReturnZero},
-                // GetInstanceBootTimeRemaining() — the countdown on the
+                // GetInstanceBootTimeRemaining() - the countdown on the
                 // "you are not in this instance's group" dialog, which reads
                 // it on show and hides itself when it is not positive.
                 {"GetInstanceBootTimeRemaining", [](lua_State* L) -> int {
@@ -4683,7 +4683,7 @@ void registerSystemLuaAPI(lua_State* L) {
             lua_pushnumber(L, gh ? gh->getInstanceBootTimeRemaining() : 0);
             return 1;
         }},
-                // The tutorial popups. Both raise where they are called —
+                // The tutorial popups. Both raise where they are called -
                 // FlagTutorial from TutorialFrame_Update as a tutorial is
                 // shown, IsTutorialFlagged from TutorialFrame_NewTutorial
                 // before one is queued.
@@ -4692,7 +4692,7 @@ void registerSystemLuaAPI(lua_State* L) {
             return 0;
         }},
                 // Walking the tutorials already seen. Both answer an id or
-                // nothing, and nothing is what disables the button — so a
+                // nothing, and nothing is what disables the button - so a
                 // wrong answer here is a button that looks available and does
                 // not move.
                 {"GetNextCompleatedTutorial", [](lua_State* L) -> int {
@@ -4750,7 +4750,7 @@ void registerSystemLuaAPI(lua_State* L) {
             lua_pushnumber(L, win ? win->getWidth() : 1920);
             return 1;
         }},
-                // How many of a category the compared player has earned — one
+                // How many of a category the compared player has earned - one
                 // value, which the summary puts straight into a bar and a
                 // "n/total" label beside the player's own. Zero for everyone
                 // drew their bar empty however much they had done.
@@ -4903,8 +4903,8 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"IsHarmfulSpell",           lua_ReturnFalse},
                 {"IsHelpfulSpell",           lua_ReturnFalse},
                 // Shown only while there is something to possess *and* a way
-                // out of it. The bar's second button is the escape — see
-                // GetPossessInfo below — so offering the bar without being
+                // out of it. The bar's second button is the escape - see
+                // GetPossessInfo below - so offering the bar without being
                 // able to name the aura it cancels would be a bar that traps
                 // rather than releases.
                 {"IsPossessBarVisible", [](lua_State* L) -> int {
@@ -4929,14 +4929,14 @@ void registerSystemLuaAPI(lua_State* L) {
                 //
                 // Slot two only, which is POSSESS_CANCEL_SLOT.
                 // PossessButton_OnClick reads the *name* from here and hands it
-                // to CancelUnitBuff("player", name) — that button is how
+                // to CancelUnitBuff("player", name) - that button is how
                 // someone gets out of a mind control, so it has to name the
                 // possessing aura and nothing else.
                 //
                 // The other slot answers nil, which hides its button. What
                 // belongs there is the possessed unit's own action, and this
                 // client has no way to know which of its ten action slots that
-                // is — a wrong icon on a bar whose other button works is worse
+                // is - a wrong icon on a bar whose other button works is worse
                 // than one button.
                 // GetPossessInfo(slot) → texture, name, enabled.
                 //
@@ -4944,14 +4944,14 @@ void registerSystemLuaAPI(lua_State* L) {
                 // way out: PossessButton_OnClick reads the name back and
                 // cancels that buff on the player, so it has to be the
                 // possessing aura's. Slot one is the possessed unit's own
-                // action, and its button does nothing when clicked — it is an
+                // action, and its button does nothing when clicked - it is an
                 // icon and a tooltip.
                 //
                 // Which action was recorded as unknown and is not.
                 // Player::PossessSpellInitialize sends SMSG_PET_SPELLS built by
                 // CharmInfo::BuildActionBar, and InitPossessCreateSpells fills
                 // that bar by calling AddSpellToActionBar(spell, ACT_PASSIVE, i)
-                // for the creature's spells in order — pinned to index i, since
+                // for the creature's spells in order - pinned to index i, since
                 // that function skips every slot but the one it was given. So
                 // the possessed creature's first spell is bar slot zero, which
                 // is the slot this button is for.
@@ -4964,7 +4964,7 @@ void registerSystemLuaAPI(lua_State* L) {
                 const uint32_t packed = gh->getPetActionSlot(0);
                 if (packed == 0) return luaReturnNil(L);
                 const auto type = game::pet::petActionType(packed);
-                // A command or a stance is not something to show here — an
+                // A command or a stance is not something to show here - an
                 // empty possess bar carries one of those in slot zero, and
                 // drawing its icon would put a Follow arrow where the
                 // creature's spell belongs.
@@ -4989,7 +4989,7 @@ void registerSystemLuaAPI(lua_State* L) {
             lua_pushboolean(L, 1);
             return 3;
         }},
-                // IsRaidOfficer() — whether this player is an assistant.
+                // IsRaidOfficer() - whether this player is an assistant.
                 //
                 // The same question UnitIsRaidOfficer already answers for
                 // anyone else, and off the same bit: MEMBER_FLAG_ASSISTANT is
@@ -5034,7 +5034,7 @@ void registerSystemLuaAPI(lua_State* L) {
                 // Sends the request rather than doing nothing. The reply is
                 // parsed, fires GUILD_EVENT_LOG_UPDATE and friendsframe
                 // listens for it, so answering nothing here was the one link
-                // missing at this end — and FrameXML's own call to it is
+                // missing at this end - and FrameXML's own call to it is
                 // commented out, which is the link missing at the other.
                 {"QueryGuildEventLog", [](lua_State* L) -> int {
             if (auto* gh = getGameHandler(L)) gh->requestGuildEventLog();
@@ -5047,7 +5047,7 @@ void registerSystemLuaAPI(lua_State* L) {
                 // DropCursorMoney is real now, and lives with the rest of the
                 // money cursor in lua_inventory_api.cpp. Two registrations of
                 // one name would be settled by load order.
-                // AchievementMicroButton_Update() — called by the achievement
+                // AchievementMicroButton_Update() - called by the achievement
                 // addon and defined nowhere. mainmenubarmicrobuttons.lua has
                 // AchievementMicroButton_OnEvent but not this, so it is a hole
                 // in this FrameXML rather than a binding this client owes. A
@@ -5063,10 +5063,10 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"GetCurrentResolution",     lua_GetCurrentResolution},
                 // Counts a loop bounds itself with. FrameXML writes
                 // "for i = 0, num-1" straight after asking, so nothing is not
-                // an answer — it is arithmetic on nil and the file is lost.
+                // an answer - it is arithmetic on nil and the file is lost.
                 // The channel list panel walks these two, and both answered
                 // "there are none" while the client knew exactly which
-                // channels the player had joined — GetChannelList reports them
+                // channels the player had joined - GetChannelList reports them
                 // from the same vector. A stub saying empty is how a working
                 // panel shows nothing.
                 {"GetNumDisplayChannels", [](lua_State* L) -> int {
@@ -5077,8 +5077,8 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"GetNumMapOverlays",        lua_GetNumMapOverlays},
                 {"GetNumMapDebugObjects",    lua_ReturnZero},
                 // How many team mates the battleground has reported. The loop
-                // that draws them does not use this — it walks to
-                // MAX_RAID_MEMBERS and hides whatever answers zero — but the
+                // that draws them does not use this - it walks to
+                // MAX_RAID_MEMBERS and hides whatever answers zero - but the
                 // count is asked for beside it and a flat zero said the
                 // positions were not there while they were.
                 {"GetNumBattlefieldPositions", [](lua_State* L) -> int {
@@ -5088,7 +5088,7 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"GetBattlefieldPosition",   lua_GetBattlefieldPosition},
                 // Both of these want a position normalised to the map frame
                 // currently on screen, which only the map that is drawing knows
-                // — and this client draws its own, so FrameXML's WorldMapFrame
+                // - and this client draws its own, so FrameXML's WorldMapFrame
                 // is suppressed and neither is reached.
                 //
                 // Zero is not a placeholder here, it is the answer: both call
@@ -5104,7 +5104,7 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"GetChatWindowInfo",        lua_GetChatWindowInfo},
                 // What a chat window listens to, and the whole reason chat
                 // shows anything. ChatFrame_OnLoad registers a chat frame for
-                // no CHAT_MSG_ event at all — every one of them comes from
+                // no CHAT_MSG_ event at all - every one of them comes from
                 // ChatFrame_RegisterForMessages walking this list on
                 // UPDATE_CHAT_WINDOWS. Answering nothing registered nothing,
                 // so every message the client parsed, coloured and routed
@@ -5114,14 +5114,14 @@ void registerSystemLuaAPI(lua_State* L) {
             const ChatWindowSettings* w = chatWindow(L, 1);
             if (!w) return 0;
             // An empty General is unset, not configured, and answers the
-            // defaults — which is what the real client does and what FrameXML
+            // defaults - which is what the real client does and what FrameXML
             // is written against.
             //
             // FCF_ResetChatWindows calls ChatFrame_RemoveAllMessageGroups on
             // ChatFrame1 and never adds anything back; the defaults it expects
             // to reappear come from the client. Ours took the removals
             // literally, wrote "groups=" empty to disk, and answered nothing
-            // ever after — so ChatFrame_RegisterForMessages registered for no
+            // ever after - so ChatFrame_RegisterForMessages registered for no
             // event at all and every line of chat was filtered out. The window
             // was not blank because nothing arrived: it was blank because
             // nothing was listening.
@@ -5161,7 +5161,7 @@ void registerSystemLuaAPI(lua_State* L) {
         }},
                 // The four the chat settings panel edits. Ticking a message
                 // group or joining a channel goes through these, and they did
-                // nothing — so a change made in the panel lasted until the
+                // nothing - so a change made in the panel lasted until the
                 // frame was next asked what it listened to, which is the next
                 // login, and then went back.
                 {"AddChatWindowMessages", [](lua_State* L) -> int {
@@ -5187,7 +5187,7 @@ void registerSystemLuaAPI(lua_State* L) {
                 // ( zoneChannel )`, so returning nothing meant the channel was
                 // recorded here and never reached the frame that shows it.
                 // Zero is a real answer for a channel that is not zone based,
-                // and passes that test — zero being true in Lua.
+                // and passes that test - zero being true in Lua.
                 {"AddChatWindowChannel", [](lua_State* L) -> int {
             ChatWindowSettings* w = chatWindow(L, 1);
             const char* name = lua_isstring(L, 2) ? lua_tostring(L, 2) : nullptr;
@@ -5238,7 +5238,7 @@ void registerSystemLuaAPI(lua_State* L) {
                 // or a warrior looking at the wrong page in every form.
                 //
                 // The mapping is in SpellShapeshiftForm.dbc rather than written
-                // out here — a table of class-and-form guesses is not
+                // out here - a table of class-and-form guesses is not
                 // checkable, and this one is: cat 1, bear 3, moonkin 4, the
                 // three warrior stances 1 to 3, 0 for the travel forms.
                 {"GetBonusBarOffset", [](lua_State* L) -> int {
@@ -5259,7 +5259,7 @@ void registerSystemLuaAPI(lua_State* L) {
                 // nothing: SkillFrame passes the result straight to
                 // GetSkillLineInfo as an index.
                 // Which row the skill list has selected. The client has no
-                // opinion about it — it is what the player last clicked — so
+                // opinion about it - it is what the player last clicked - so
                 // it is held here, the way the friends and ignore lists are.
                 //
                 // Answering a constant zero meant no row ever matched, because
@@ -5284,7 +5284,7 @@ void registerSystemLuaAPI(lua_State* L) {
             const auto& joined = gh->getJoinedChannels();
             if (index > static_cast<int>(joined.size())) { lua_pushnil(L); return 1; }
             lua_pushstring(L, joined[static_cast<size_t>(index) - 1].c_str());
-            lua_pushboolean(L, 0);      // header — flat list, no categories
+            lua_pushboolean(L, 0);      // header - flat list, no categories
             lua_pushboolean(L, 0);      // collapsed
             lua_pushnumber(L, index);   // channelNumber
             // The roster arrives with SMSG_CHANNEL_LIST, which the panel asks
@@ -5317,7 +5317,7 @@ void registerSystemLuaAPI(lua_State* L) {
             lua_pushboolean(L, on ? 1 : 0);
             return 1;
         }},
-                // IsAutoRepeatAction(slot) — the button flashes for as long as
+                // IsAutoRepeatAction(slot) - the button flashes for as long as
                 // an auto-repeat is running. There are exactly two in 3.3.5,
                 // Auto Shot and the wand's Shoot, which is how IsAttackAction
                 // beside it identifies auto-attack: by id rather than by an
@@ -5340,7 +5340,7 @@ void registerSystemLuaAPI(lua_State* L) {
                 // No, and deliberately no even on macOS, which this client does
                 // run on. It gates two things. The first is the game menu's Mac
                 // Options button, and the panel behind it is Blizzard's movie
-                // recorder and compression settings — every one of which this
+                // recorder and compression settings - every one of which this
                 // client has nothing behind, so answering yes would add a
                 // button that opens a window of dead controls. The second is
                 // the Mac spelling of key names in binding text, which is
@@ -5348,7 +5348,7 @@ void registerSystemLuaAPI(lua_State* L) {
                 //
                 // Turn this on with the recorder, not before it.
                 {"IsMacClient",              lua_ReturnFalse},
-                // IsPartyLeader() — whether *this* player leads the group.
+                // IsPartyLeader() - whether *this* player leads the group.
                 //
                 // The client has known this all along: the party data carries a
                 // leader guid and PARTY_LEADER_CHANGED is fired when it moves.
@@ -5366,7 +5366,7 @@ void registerSystemLuaAPI(lua_State* L) {
                 // HasPetSpells() → numSpells, petToken
                 //
                 // Answering nil meant the pet tab was never set up, so a hunter
-                // or a warlock with a pet out had no pet spell book at all —
+                // or a warlock with a pet out had no pet spell book at all -
                 // SpellBookFrame_Update only calls SpellBookFrame_SetTabType
                 // for it when this says there are spells.
                 //
@@ -5407,7 +5407,7 @@ void registerSystemLuaAPI(lua_State* L) {
                 // started, so the start is worked back from the fraction. It
                 // has to come off the same clock GetTime answers with, or the
                 // sweep is drawn against a different origin than it was
-                // measured on — CooldownFrame_SetTimer compares the two.
+                // measured on - CooldownFrame_SetTimer compares the two.
                 {"GetRuneCooldown", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             const int id = static_cast<int>(luaL_optinteger(L, 1, 0));
@@ -5436,7 +5436,7 @@ void registerSystemLuaAPI(lua_State* L) {
         }},
                 // Whether the player owns the channel that panel has selected.
                 // It answered a flat false, and that is the whole of whether
-                // Make Moderator and Remove Moderator appear on the unit menu —
+                // Make Moderator and Remove Moderator appear on the unit menu -
                 // so ChannelModerator and ChannelUnmoderator were built and
                 // could not be reached from the place that names them.
                 //
@@ -5457,15 +5457,15 @@ void registerSystemLuaAPI(lua_State* L) {
             selectedDisplayChannel() = static_cast<int>(luaL_optnumber(L, 1, 0));
             return 0;
         }},
-                // No categories exist to open or close — see the header note
-                // on GetChannelDisplayInfo — but the row click handler calls
+                // No categories exist to open or close - see the header note
+                // on GetChannelDisplayInfo - but the row click handler calls
                 // one of these on whatever it was given.
                 {"ExpandChannelHeader",      lua_ReturnNothing},
                 {"CollapseChannelHeader",    lua_ReturnNothing},
                 // Who is in a channel. The server sends a roster only on
                 // request and this client never asks, so there is nobody to
                 // report; the count above is zero for the same reason.
-                // GetNumChannelMembers(channelIndex) — how many are in it, and
+                // GetNumChannelMembers(channelIndex) - how many are in it, and
                 // the request that makes that true. The panel calls this in
                 // statement position when a channel row is clicked, which is
                 // the only thing that asks the server for a roster at all.
@@ -5511,16 +5511,16 @@ void registerSystemLuaAPI(lua_State* L) {
                 // Whether the player is standing on a world PvP objective.
                 //
                 // This gates the whole of uiType 1 in worldstateframe, and the
-                // CVar it is gated behind defaults to "2" — show these only in
-                // a PvP area — so a flat false hid every world PvP objective
+                // CVar it is gated behind defaults to "2" - show these only in
+                // a PvP area - so a flat false hid every world PvP objective
                 // display anywhere but inside a battleground, where the
                 // instanceType check lets them through instead. The note that
                 // stood here said the branch is unreachable; the branch is
                 // reachable and this was what closed it.
                 //
                 // Answered from AreaTable's Flags against the *area* under the
-                // player rather than the zone: the bit sits on the subzone —
-                // Halaa, The Overlook, the Plaguelands towers — and resolving
+                // player rather than the zone: the bit sits on the subzone -
+                // Halaa, The Overlook, the Plaguelands towers - and resolving
                 // to the zone loses it. Wintergrasp is marked with a flag of
                 // its own and is the one that would have survived either way.
                 {"IsSubZonePVPPOI", [](lua_State* L) -> int {
@@ -5534,7 +5534,7 @@ void registerSystemLuaAPI(lua_State* L) {
                 // Asked from WorldMapFrame_OnUpdate, so every frame the map is
                 // open. The handler throttles and refuses outside a
                 // battleground; before this nothing ever asked, and the reply
-                // that fills the position list is only ever sent on request —
+                // that fills the position list is only ever sent on request -
                 // so the list was empty for FrameXML's map and for this
                 // client's own minimap alike.
                 {"RequestBattlefieldPositions", [](lua_State* L) -> int {
@@ -5598,7 +5598,7 @@ void registerSystemLuaAPI(lua_State* L) {
                 // Answered rather than filled in. This client draws its own
                 // world map and keeps its zones, overlays and area POIs in
                 // rendering/world_map, which no callback reaches from here yet
-                // — so these say "nothing there" honestly instead of raising,
+                // - so these say "nothing there" honestly instead of raising,
                 // and the map opens empty rather than not at all.
                 //
                 // Nothing under the cursor: eight values, and the first is the
@@ -5613,7 +5613,7 @@ void registerSystemLuaAPI(lua_State* L) {
                 // WorldMapFrame_OnUpdate sets the area label from it. The
                 // other seven place a highlight *texture* over the zone, which
                 // needs the per-zone highlight art the client's own map layer
-                // loads on demand — nil leaves the label named and the glow
+                // loads on demand - nil leaves the label named and the glow
                 // off, which is the honest half.
                 {"UpdateMapHighlight", [](lua_State* L) -> int {
             auto* svc = getLuaServices(L);
@@ -5676,7 +5676,7 @@ void registerSystemLuaAPI(lua_State* L) {
                 // pair of zeroes rather than nil because that is what the
                 // caller tests: WorldMap_OpenToQuest asks `if ( mapID ~= 0 )`
                 // and then `if ( floorNumber ~= 0 )`, and nil ~= 0 is true in
-                // Lua — so answering nil ran both branches, on the path the
+                // Lua - so answering nil ran both branches, on the path the
                 // quest tracker takes every time a tracked quest is clicked.
                 // SetMapByID drops a zero id and SetDungeonMapLevel does
                 // nothing at all, so it was inert; it was inert by luck.
@@ -5686,7 +5686,7 @@ void registerSystemLuaAPI(lua_State* L) {
             return 2; }},
                 {"GetQuestLogItemDrop",    lua_ReturnNil},
                 // How many of those there are. Unbound, so the world map's
-                // quest tooltip called a nil global and raised — the guard
+                // quest tooltip called a nil global and raised - the guard
                 // beneath it reads the count and would have taken the right
                 // branch, but the call never got that far. Zero, matching the
                 // reader above, which has no item drops to describe.
@@ -5763,15 +5763,15 @@ void registerSystemLuaAPI(lua_State* L) {
                 //
                 // interfaceoptionspanels.xml drives both from a checkbox:
                 // `self:SetChecked(value); ShowHelm(value)`. Toggling on a set
-                // inverts the answer whenever the state already matched — the
-                // box would tick and the helm would go away — and the panel
+                // inverts the answer whenever the state already matched - the
+                // box would tick and the helm would go away - and the panel
                 // re-applies its value on every open, so it flipped again each
                 // time the options were shown.
                 //
                 // The client only has a toggle, so this toggles only when that
                 // lands on what was asked for. Same shape as SetPVP.
                 // The two getters beside ShowHelm and ShowCloak below, which
-                // have worked all along — so the checkbox wrote the setting
+                // have worked all along - so the checkbox wrote the setting
                 // correctly and could not show it, and reading it raised as
                 // the Display panel was built.
                 {"ShowingHelm", [](lua_State* L) -> int {
@@ -5784,8 +5784,8 @@ void registerSystemLuaAPI(lua_State* L) {
             lua_pushboolean(L, (gh && gh->isCloakVisible()) ? 1 : 0);
             return 1;
         }},
-                // The equipment manager exists here — GetNumEquipmentSets and
-                // the rest of its API are bound — so the panel's checkbox is
+                // The equipment manager exists here - GetNumEquipmentSets and
+                // the rest of its API are bound - so the panel's checkbox is
                 // offering something real.
                 {"CanUseEquipmentSets",         lua_ReturnTrue},
                 // Tutorials can be reset because they are kept: the flags live
@@ -5861,7 +5861,7 @@ void registerSystemLuaAPI(lua_State* L) {
                 // TaxiNodeGetType(index) → "CURRENT" | "REACHABLE" | "DISTANT" | "NONE"
                 //
                 // A name, not a number. The flight map compares this against
-                // those four words — to pick the pin's colour, and first of all
+                // those four words - to pick the pin's colour, and first of all
                 // to decide whether the node is on the map at all. Answering 0
                 // or 1 is never equal to any of them, so every node counted as
                 // shown, including the ones the player has never been to.
@@ -5893,7 +5893,7 @@ void registerSystemLuaAPI(lua_State* L) {
             lua_pushnumber(L, v);
             return 2;
         }},
-                // TaxiNodeSetCurrent(index) — the node the map is drawing a
+                // TaxiNodeSetCurrent(index) - the node the map is drawing a
                 // route to. Works out the journey once; the frame then asks
                 // about each leg of it.
                 {"TaxiNodeSetCurrent", [](lua_State* L) -> int {
@@ -5920,7 +5920,7 @@ void registerSystemLuaAPI(lua_State* L) {
                                   ? static_cast<double>(route.size() - 1) : 0.0);
             return 1;
         }},
-                // TaxiGetSrcX/Y(index, hop) and TaxiGetDestX/Y(index, hop) —
+                // TaxiGetSrcX/Y(index, hop) and TaxiGetDestX/Y(index, hop) -
                 // the ends of one leg, on the same scale as TaxiNodePosition.
                 //
                 // The index names the destination and the hop names the leg, so
@@ -5931,7 +5931,7 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"TaxiGetSrcY",  lua_TaxiLegCoord<0, false>},
                 {"TaxiGetDestX", lua_TaxiLegCoord<1, true>},
                 {"TaxiGetDestY", lua_TaxiLegCoord<1, false>},
-                // SetTaxiMap(texture) — the flight map's own picture.
+                // SetTaxiMap(texture) - the flight map's own picture.
                 //
                 // This client has continent artwork, but not in the shape this
                 // call wants: its flight map is a mode of the world map, which
@@ -5940,18 +5940,18 @@ void registerSystemLuaAPI(lua_State* L) {
                 // TAXIMAP image. So the texture keeps whatever its XML set.
                 // Named rather than left out so it does not read as a gap that
                 // was missed.
-                // SetTaxiMap(texture) — the continent behind the flight points.
+                // SetTaxiMap(texture) - the continent behind the flight points.
                 //
                 // TaxiFrame_OnEvent hands its TaxiMap texture to this and
                 // expects the picture of the continent to come back on it; the
                 // node buttons are then placed over it by TaxiNodePosition,
                 // which answers a fraction of the map rather than a position on
                 // screen. A no-op here left those buttons floating on an empty
-                // panel, which is not a flight map — it is a set of unlabelled
+                // panel, which is not a flight map - it is a set of unlabelled
                 // dots with nothing to read them against.
                 //
                 // The files are keyed by map id, not by name: this install has
-                // taximap0, taximap1, taximap530 and taximap571 — Eastern
+                // taximap0, taximap1, taximap530 and taximap571 - Eastern
                 // Kingdoms, Kalimdor, Outland and Northrend. So the id is the
                 // whole of the lookup and no table of continent names is
                 // needed, which is as well, because a name table would be a
@@ -5960,7 +5960,7 @@ void registerSystemLuaAPI(lua_State* L) {
             auto* tree = getWidgetTree(L);
             if (!tree || !lua_istable(L, 1)) return 0;
             // The widget id the frame table carries, read the same way
-            // SetPortraitTexture reads it — widgetIdOf is not visible here.
+            // SetPortraitTexture reads it - widgetIdOf is not visible here.
             lua_getfield(L, 1, "__wid");
             const uint32_t id = static_cast<uint32_t>(lua_tointeger(L, -1));
             lua_pop(L, 1);
@@ -6012,7 +6012,7 @@ void registerSystemLuaAPI(lua_State* L) {
             lua_pushstring(L, title.c_str());
             return 1;
         }},
-                // SetCurrentTitle(bit) — and the comment that used to sit here
+                // SetCurrentTitle(bit) - and the comment that used to sit here
                 // saying CMSG_SET_TITLE was not exposed was stale:
                 // sendSetTitle builds and sends it, and has for a while.
                 //
@@ -6057,7 +6057,7 @@ void registerSystemLuaAPI(lua_State* L) {
             lua_pushnumber(L, t.personalRating);
             return 8;
         }},
-                // CanInspect(unit [, showError]) — a player other than a
+                // CanInspect(unit [, showError]) - a player other than a
                 // corpse, which is as much as this client can judge; the server
                 // refuses the rest and the reply simply does not arrive.
                 {"CanInspect", [](lua_State* L) -> int {
@@ -6103,7 +6103,7 @@ void registerSystemLuaAPI(lua_State* L) {
             // GetPVPRankInfo and shows NONE for when that answers nothing.
             //
             // The rank byte is what the server puts in that slot, and what it
-            // puts there is the honour points truncated to eight bits — the
+            // puts there is the honour points truncated to eight bits - the
             // rank ladder was retired in this expansion and the field was
             // reused rather than removed. Passed on as sent rather than
             // interpreted here.
@@ -6125,14 +6125,14 @@ void registerSystemLuaAPI(lua_State* L) {
             lua_pushnumber(L, 0);
             return 1;
         }},
-                // UnitPVPRank(unit) — the old honour rank, which no WotLK
+                // UnitPVPRank(unit) - the old honour rank, which no WotLK
                 // server sends; GetPVPRankInfo is fed from it and handles zero.
                 {"UnitPVPRank", [](lua_State* L) -> int {
             (void)L;
             lua_pushnumber(L, 0);
             return 1;
         }},
-                // NotifyInspect(unit) — ask the server for this player's gear,
+                // NotifyInspect(unit) - ask the server for this player's gear,
                 // talents and achievements. The inspect window calls it as it
                 // opens and again whenever it is pointed at someone else, and
                 // it is the only request either of those makes.
@@ -6142,7 +6142,7 @@ void registerSystemLuaAPI(lua_State* L) {
                 // different thing: a background queue that keeps gear visuals
                 // right, throttled to one request every two seconds and only
                 // for players already spawned nearby. So the window opened on
-                // whatever that queue happened to have fetched last — often
+                // whatever that queue happened to have fetched last - often
                 // another player entirely, and on a first inspect nothing.
                 //
                 // inspectUnit sends the achievements query alongside on Wrath,
@@ -6161,7 +6161,7 @@ void registerSystemLuaAPI(lua_State* L) {
                 // Both answer the amount held *and the cap*. staticpopup.lua
                 // does `MerchantFrame.honorPoints + currentHonor > maxHonor`
                 // when confirming a PvP refund, and comparing a number against
-                // a nil raises — so refunding a honour purchase took the
+                // a nil raises - so refunding a honour purchase took the
                 // confirmation down rather than showing it.
                 //
                 // The caps are the client's own constants for this expansion,
@@ -6193,7 +6193,7 @@ void registerSystemLuaAPI(lua_State* L) {
             lua_pushstring(L, gh->getWhoAreaName(gh->getHomeBindZoneId()).c_str());
             return 1;
         }},
-                // SetSavedInstanceExtend(index, doExtend) — the Extend button
+                // SetSavedInstanceExtend(index, doExtend) - the Extend button
                 // on the raid lockout list, which raidframe.lua enables for any
                 // selected row. Everything around it was bound; this one was
                 // not, so pressing it raised.
@@ -6272,8 +6272,8 @@ void registerSystemLuaAPI(lua_State* L) {
                 //   texture, modStatus, inviteStatus, invitedBy, difficulty,
                 //   inviteType, sequenceIndex, numSequenceDays, difficultyName
                 //
-                // A nil title is how the list ends — the interface tests
-                // `if ( title and sequenceType ~= "ONGOING" )` — so an index
+                // A nil title is how the list ends - the interface tests
+                // `if ( title and sequenceType ~= "ONGOING" )` - so an index
                 // past the day's rows answers nothing at all rather than a row
                 // of blanks, which would draw an empty button on every day.
                 {"CalendarGetDayEvent", [](lua_State* L) -> int {
@@ -6344,7 +6344,7 @@ void registerSystemLuaAPI(lua_State* L) {
             lua_pushstring(L, "");                 // difficultyName
             return 15;
         }},
-                // name, description, texture — indexed into the same day list
+                // name, description, texture - indexed into the same day list
                 // as CalendarGetDayEvent, so a row that is not a holiday
                 // answers nothing rather than the wrong holiday.
                 {"CalendarGetHolidayInfo", [](lua_State* L) -> int {
@@ -6362,7 +6362,7 @@ void registerSystemLuaAPI(lua_State* L) {
             return 3;
         }},
                 // name, calendarType, raidID, hour, minute, difficulty,
-                // difficultyName — the seven the raid view unpacks. Indexed
+                // difficultyName - the seven the raid view unpacks. Indexed
                 // into the same day list as the other two readers, so a row
                 // that is not a lockout answers nothing rather than the wrong
                 // raid.
@@ -6391,14 +6391,14 @@ void registerSystemLuaAPI(lua_State* L) {
             return 0;
         }},
                 // Whether a request is in flight. Nothing here queues one, so
-                // the answer is no — and false rather than nothing, because
+                // the answer is no - and false rather than nothing, because
                 // the interface disables buttons on it and nil would read the
                 // same as false only by accident.
                 {"CalendarIsActionPending", [](lua_State* L) -> int {
             lua_pushboolean(L, 0);
             return 1;
         }},
-                // minLevel, maxLevel, rank — the default filter a guild event
+                // minLevel, maxLevel, rank - the default filter a guild event
                 // is created with. The whole guild, which is what the server
                 // defaults to as well.
                 {"CalendarDefaultGuildFilter", [](lua_State* L) -> int {
@@ -6442,8 +6442,8 @@ void registerSystemLuaAPI(lua_State* L) {
             return 0;
         }},
                 // Twenty-five values, in the order the view frame unpacks
-                // them. A nil title is how it knows there is nothing to show —
-                // `if ( not title ) then return end` — so an unopened event
+                // them. A nil title is how it knows there is nothing to show -
+                // `if ( not title ) then return end` - so an unopened event
                 // answers nothing rather than a row of blanks.
                 {"CalendarGetEventInfo", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
@@ -6479,18 +6479,18 @@ void registerSystemLuaAPI(lua_State* L) {
             lua_pushboolean(L, 0);              // pendingInvite
             lua_pushnumber(L, calendarInviteStatusFor(gh->getCalendarData(),
                                                       ev.eventId) + 1);
-            // CALENDAR_INVITETYPE_NORMAL, which is 1 — the interface's range
+            // CALENDAR_INVITETYPE_NORMAL, which is 1 - the interface's range
             // starts there, so zero is not "normal" but out of range.
             lua_pushnumber(L, 1);
             lua_pushstring(L, (ev.flags & 0x0400u) ? "GUILD_EVENT" : "PLAYER");
             return 25;
         }},
-                // CalendarCanSendInvite() — may this player invite to the event
+                // CalendarCanSendInvite() - may this player invite to the event
                 // that is open?
                 //
                 // Five places in the calendar ask it, and it was bound nowhere.
                 // With the missing-API stand-in on, an unknown global answers
-                // with a callable table and a table is truthy — so every one of
+                // with a callable table and a table is truthy - so every one of
                 // those five took the "yes, you may" branch, and the invite
                 // controls appeared on events belonging to other people. With
                 // the stand-in off it raises outright, which is how it was
@@ -6498,7 +6498,7 @@ void registerSystemLuaAPI(lua_State* L) {
                 // calendar raised on the way up.
                 //
                 // The event's creator always may. Anyone else may only if their
-                // own row on the invite list carries at least moderator —
+                // own row on the invite list carries at least moderator -
                 // CALENDAR_RANK_PLAYER 0, MODERATOR 1, OWNER 2, from
                 // CalendarMgr.h. The rank is per invitee rather than on the
                 // event, so it is this player's row that answers.
@@ -6524,7 +6524,7 @@ void registerSystemLuaAPI(lua_State* L) {
                 gh->getCalendarEventDetail().invitees.size()) : 0);
             return 1;
         }},
-                // name, level, className, classFilename, inviteStatus — the
+                // name, level, className, classFilename, inviteStatus - the
                 // five the invite list reads.
                 {"CalendarEventGetInvite", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
@@ -6591,7 +6591,7 @@ void registerSystemLuaAPI(lua_State* L) {
                 // zero, in the same order: constants.lua has
                 // CALENDAR_EVENTTYPE_RAID = 1 where CalendarMgr.h has
                 // CALENDAR_TYPE_RAID = 0. Passed straight through, every event
-                // would be created as the next type along — a raid saved as a
+                // would be created as the next type along - a raid saved as a
                 // dungeon, with nothing to see but the wrong icon.
                 {"CalendarEventSetType", [](lua_State* L) -> int {
             const int uiType = static_cast<int>(luaL_optnumber(L, 1, 1));
@@ -6619,7 +6619,7 @@ void registerSystemLuaAPI(lua_State* L) {
         }},
                 // The same boundary as the type. The interface hands over a
                 // dropdown button id, which counts from one, and the wire's
-                // CalendarRepeatType counts from zero — so "Never" would have
+                // CalendarRepeatType counts from zero - so "Never" would have
                 // been sent as "Weekly".
                 {"CalendarEventSetRepeatOption", [](lua_State* L) -> int {
             const int uiOption = static_cast<int>(luaL_optnumber(L, 1, 1));
@@ -6756,7 +6756,7 @@ void registerSystemLuaAPI(lua_State* L) {
                 //
                 // CalendarContextSelectEvent names the row the menu is about
                 // and every verb below acts on that one. Kept as state because
-                // the menu asks for it back — the dropdown is built in one
+                // the menu asks for it back - the dropdown is built in one
                 // call and clicked in another, with nothing carried between.
                 {"CalendarContextSelectEvent", [](lua_State* L) -> int {
             calendarContextRow() = {
@@ -6870,7 +6870,7 @@ void registerSystemLuaAPI(lua_State* L) {
                 // Which event is selected, as monthOffset, day, index.
                 //
                 // Nothing is selected until an event view exists to select
-                // into, so all three are nil — but three nils rather than no
+                // into, so all three are nil - but three nils rather than no
                 // values at all. The interface unpacks it as a group, and a
                 // binding that answers short is the shape framexml_short_returns
                 // is pinned at zero to catch: it reads as correct here only
@@ -6884,8 +6884,8 @@ void registerSystemLuaAPI(lua_State* L) {
                 // The first unanswered invite on a day, or zero.
                 //
                 // A number always, never nothing: the interface compares it
-                // straight away — `if ( pendingInviteIndex > 0 )` with no
-                // guard in front — so nil raises rather than reading as "no
+                // straight away - `if ( pendingInviteIndex > 0 )` with no
+                // guard in front - so nil raises rather than reading as "no
                 // invite". The invite list the server sends is not per-day, so
                 // a day has one only when one of its events is in it.
                 {"CalendarGetFirstPendingInvite", [](lua_State* L) -> int {
@@ -6897,7 +6897,7 @@ void registerSystemLuaAPI(lua_State* L) {
                 if (rows[i].kind != wowee::game::CalendarEntryKind::Event) continue;
                 const uint64_t id = cal.events[rows[i].index].eventId;
                 for (const auto& invite : cal.invites) {
-                    // 0 is CALENDAR_INVITESTATUS_INVITED — still unanswered.
+                    // 0 is CALENDAR_INVITESTATUS_INVITED - still unanswered.
                     if (invite.eventId == id && invite.status == 0) {
                         lua_pushnumber(L, static_cast<double>(i + 1));
                         return 1;
@@ -6912,7 +6912,7 @@ void registerSystemLuaAPI(lua_State* L) {
                 // The viewed month is the interface's own state in WoW too:
                 // CalendarSetMonth and CalendarSetAbsMonth move it and
                 // CalendarGetMonth reads it back, so it is kept here rather
-                // than recomputed from the clock on every call — which would
+                // than recomputed from the clock on every call - which would
                 // make the previous-month button do nothing.
                 {"CalendarGetMonth", [](lua_State* L) -> int {
             // The offset is optional: CalendarGetMonth() means the viewed
@@ -6946,8 +6946,8 @@ void registerSystemLuaAPI(lua_State* L) {
                 // Nothing on the wire says how far the server will let the
                 // player look or book, so this client offers the year either
                 // side of today. A year ahead is the limit the interface
-                // already has a string for — CALENDAR_ERROR_CREATEDATE_AFTER_MAX
-                // — and the same span back keeps past events reachable, which
+                // already has a string for - CALENDAR_ERROR_CREATEDATE_AFTER_MAX
+                // - and the same span back keeps past events reachable, which
                 // is what the previous-month button is for.
                 {"CalendarGetMinDate", [](lua_State* L) -> int {
             return pushCalendarBoundDate(L, -12);
@@ -7000,7 +7000,7 @@ void registerSystemLuaAPI(lua_State* L) {
                 // the table it is used to index. This answered one higher, and
                 // reputationframe.lua does
                 //     MAX_PLAYER_LEVEL = MAX_PLAYER_LEVEL_TABLE[GetAccountExpansionLevel()]
-                // against a table holding only 0, 1 and 2 — so on Wrath it read
+                // against a table holding only 0, 1 and 2 - so on Wrath it read
                 // nothing and MAX_PLAYER_LEVEL became nil, which
                 // `newLevel < MAX_PLAYER_LEVEL` then raised on every level gained.
                 // On the earlier two it simply came out an expansion too high,

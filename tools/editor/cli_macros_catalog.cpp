@@ -114,7 +114,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     // Mirrors the JSON pairs added for every other novel
     // open format. Each macro emits all 8 scalar fields
     // plus a dual int + name form for macroKind. The
-    // macroBody string is dumped verbatim — multi-line
+    // macroBody string is dumped verbatim - multi-line
     // bodies preserve '\n' as JSON-escape sequences which
     // most editors render readably.
     return cli::exportCatalogJson<wowee::pipeline::WoweeMacroLoader>(
@@ -239,7 +239,7 @@ int handleValidate(int& i, int argc, char** argv) {
                     " exceeds maxLength " +
                     std::to_string(e.maxLength));
             }
-            // Macro body must start with `/` (slash command) — any
+            // Macro body must start with `/` (slash command) - any
             // line that doesn't is a stray comment / orphan text.
             if (!e.macroBody.empty() && e.macroBody[0] != '/' &&
                 e.macroBody[0] != '#') {
@@ -248,7 +248,7 @@ int handleValidate(int& i, int argc, char** argv) {
                     "(likely missing slash on first line)");
             }
             // SystemSlash macros are run by the engine, not by the
-            // player — assigning a class restriction makes no sense
+            // player - assigning a class restriction makes no sense
             // since the slash command is shared by all classes.
             if (e.macroKind == wowee::pipeline::WoweeMacro::SystemSlash &&
                 e.requiredClassMask != 0) {

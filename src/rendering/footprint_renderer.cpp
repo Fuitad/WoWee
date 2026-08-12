@@ -238,7 +238,7 @@ bool FootprintRenderer::loadFootprintData(pipeline::AssetManager* assets) {
         std::string path = normalizeModelPath(modelDbc->getString(row, 2));
         // FootprintTextureLength/Width are inches; world units are yards, so the
         // conversion is /36.  Dividing by 12 yields feet and renders every print
-        // three times its real size — a human's came out a yard long.
+        // three times its real size - a human's came out a yard long.
         const float length = modelDbc->getFloat(row, 7) / 36.0f;
         const float width = modelDbc->getFloat(row, 8) / 36.0f;
         // Reject degenerate rows on the raw inches, so the /36 correction doesn't
@@ -300,7 +300,7 @@ void FootprintRenderer::spawn(const std::string& modelName, const glm::vec3& bas
     const Profile profile = resolveProfile(modelName, fallback);
     const glm::vec2 forward(std::cos(yawRadians), std::sin(yawRadians));
     const glm::vec2 right(-forward.y, forward.x);
-    // Stance is how far each foot sits off the centreline — a body dimension,
+    // Stance is how far each foot sits off the centreline - a body dimension,
     // roughly three quarters of a footprint's width to either side.  The
     // coefficient carries the /12-to-/36 correction so the gait stays as wide
     // as it was while the prints themselves shrink to life size.

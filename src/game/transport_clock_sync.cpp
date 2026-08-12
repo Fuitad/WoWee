@@ -26,7 +26,7 @@ bool TransportClockSync::computePathTime(
     // The server's own route clock wins over anything the client worked out for
     // itself. It publishes the phase as a fraction of the route period, so it
     // maps onto whatever timeline this spline happens to have without needing the
-    // two periods to agree — and it keeps agreeing as the ride goes on, because
+    // two periods to agree - and it keeps agreeing as the ride goes on, because
     // the phase advances at the server's rate rather than one derived from
     // distance over speed.
     //
@@ -115,14 +115,14 @@ void TransportClockSync::processServerUpdate(
         glm::vec3 pd = position - transport.position;
         float posDeltaSq = glm::dot(pd, pd);
         if (posDeltaSq > 1.0f) {
-            // Server sent a meaningfully different position — it's actively driving this transport
+            // Server sent a meaningfully different position - it's actively driving this transport
             transport.useClientAnimation = false;
             LOG_INFO("Transport 0x", std::hex, transport.guid, std::dec,
                      " switching to server-driven (posDeltaSq=", posDeltaSq, ")");
         }
         // Otherwise keep client animation (server just echoed spawn pos or sent small jitter)
     } else if (!hasPath || !pathEntry->fromDBC) {
-        // No DBC path — purely server-driven
+        // No DBC path - purely server-driven
         transport.useClientAnimation = false;
     }
     transport.clientAnimationReverse = false;
@@ -225,7 +225,7 @@ void TransportClockSync::updateYawAlignment(
         horizontalV *= glm::inversesqrt(hLenSq);
         // The velocity is canonical, so the heading has to be too. A server yaw s
         // is canonical yaw s - PI/2, and canonical yaw is atan2(-dy, dx), which
-        // puts the direction at (sin s, cos s) — see core/coordinates.hpp.
+        // puts the direction at (sin s, cos s) - see core/coordinates.hpp.
         //
         // This read it as (cos s, sin s), the two components swapped. That is a
         // reflection, not a rotation, so the dot product it produced was not the

@@ -75,7 +75,7 @@ public:
     // Dynamic state
     PipelineBuilder& setDynamicStates(const std::vector<VkDynamicState>& states);
 
-    // Pipeline derivatives — hint driver to share compiled state between similar pipelines
+    // Pipeline derivatives - hint driver to share compiled state between similar pipelines
     PipelineBuilder& setFlags(VkPipelineCreateFlags flags);
     PipelineBuilder& setBasePipeline(VkPipeline basePipeline);
 
@@ -120,7 +120,7 @@ private:
 // Two layouts account for every point-and-quad effect in the renderer, and both
 // happen to be twenty bytes: a position and two per-vertex floats, or a position
 // and a texture coordinate. Each was written out by hand at the twelve places
-// that build such a pipeline — binding, stride, then one struct per attribute
+// that build such a pipeline - binding, stride, then one struct per attribute
 // with its location, format and offset.
 //
 // The offsets have to agree with the shader that reads them, and nothing checks
@@ -138,7 +138,7 @@ inline VkVertexInputBindingDescription tightVertexBinding(uint32_t strideBytes,
     return desc;
 }
 
-/// vec3 position, then two single floats — size and alpha, or brightness and
+/// vec3 position, then two single floats - size and alpha, or brightness and
 /// twinkle phase, depending on what is being drawn. Stride 20.
 inline std::vector<VkVertexInputAttributeDescription> positionPlusTwoFloatsAttrs() {
     return {
@@ -157,7 +157,7 @@ inline std::vector<VkVertexInputAttributeDescription> positionPlusUvAttrs() {
 }
 
 /// Viewport and scissor set per command buffer rather than baked into the
-/// pipeline — which is every pipeline here, because the window can resize.
+/// pipeline - which is every pipeline here, because the window can resize.
 inline std::vector<VkDynamicState> viewportAndScissorDynamic() {
     return {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
 }

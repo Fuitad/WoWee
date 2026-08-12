@@ -264,7 +264,7 @@ int handleValidate(int& i, int argc, char** argv) {
                     ": maxStacks=0 (mechanic could never apply)");
             }
             // canBeDispelled=1 with dispelType=None is contradictory
-            // — without a dispel category, no spell can target this
+            // - without a dispel category, no spell can target this
             // mechanic for removal.
             if (e.canBeDispelled &&
                 e.dispelType == wowee::pipeline::WoweeSpellMechanic::DispelNone) {
@@ -272,7 +272,7 @@ int handleValidate(int& i, int argc, char** argv) {
                     ": canBeDispelled=1 but dispelType=none "
                     "(no dispel spell can target this)");
             }
-            // A mechanic that conflicts with itself is wrong —
+            // A mechanic that conflicts with itself is wrong -
             // `conflictsMask & (1 << mechanicId)` would mean the
             // mechanic blocks itself.
             if (e.mechanicId < 32 &&

@@ -4,7 +4,7 @@ namespace wowee {
 namespace editor {
 namespace cli {
 
-// Dispatch the spatial-bounds info handlers — compute world-space
+// Dispatch the spatial-bounds info handlers - compute world-space
 // XYZ bounding boxes from manifest tile coords + per-chunk
 // height samples. Useful for sizing camera frustums, planning
 // new tile placement, and sanity-checking project layouts.

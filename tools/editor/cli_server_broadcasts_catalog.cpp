@@ -317,7 +317,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 errors.push_back(ctx + ": name is empty");
             if (e.messageText.empty())
                 errors.push_back(ctx + ": messageText is empty "
-                    "— broadcast would deliver no payload");
+                    "- broadcast would deliver no payload");
             if (e.factionFilter == 0 || e.factionFilter > 3) {
                 errors.push_back(ctx + ": factionFilter " +
                     std::to_string(e.factionFilter) +
@@ -336,7 +336,7 @@ int handleValidate(int& i, int argc, char** argv) {
             }
             // Periodic broadcasts (interval>0) make sense
             // mainly on SystemChannel and HelpTip. Login/MOTD
-            // with interval>0 is a configuration mistake —
+            // with interval>0 is a configuration mistake -
             // those fire on session enter, not on a timer.
             using S = wowee::pipeline::WoweeServerBroadcasts;
             if (e.intervalSeconds > 0 &&
@@ -346,7 +346,7 @@ int handleValidate(int& i, int argc, char** argv) {
                     ": intervalSeconds=" +
                     std::to_string(e.intervalSeconds) +
                     " on " + channelKindName(e.channelKind) +
-                    " channel — login/MOTD fire on session "
+                    " channel - login/MOTD fire on session "
                     "enter, not on a timer; interval likely "
                     "ignored");
             }
@@ -355,13 +355,13 @@ int handleValidate(int& i, int argc, char** argv) {
             if (e.intervalSeconds > 0 && e.intervalSeconds < 10) {
                 errors.push_back(ctx + ": intervalSeconds " +
                     std::to_string(e.intervalSeconds) +
-                    " < 10 — would spam players faster than "
+                    " < 10 - would spam players faster than "
                     "they can read");
             } else if (e.intervalSeconds > 0 &&
                        e.intervalSeconds < 60) {
                 warnings.push_back(ctx + ": intervalSeconds " +
                     std::to_string(e.intervalSeconds) +
-                    " < 60 — broadcast fires more than once "
+                    " < 60 - broadcast fires more than once "
                     "per minute; verify if intentional");
             }
             // Message length sanity: WoW chat message buffer
@@ -369,7 +369,7 @@ int handleValidate(int& i, int argc, char** argv) {
             if (e.messageText.size() > 255) {
                 warnings.push_back(ctx + ": messageText is " +
                     std::to_string(e.messageText.size()) +
-                    " chars (>255) — server may truncate on "
+                    " chars (>255) - server may truncate on "
                     "delivery");
             }
             if (!idsSeen.add(e.broadcastId)) errors.push_back(ctx + ": duplicate broadcastId");

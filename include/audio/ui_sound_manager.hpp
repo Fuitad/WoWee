@@ -22,7 +22,7 @@ public:
     bool initialize(pipeline::AssetManager* assets);
     void shutdown();
 
-    /// Play a sound by the name FrameXML asks for — PlaySound("igQuestFailed")
+    /// Play a sound by the name FrameXML asks for - PlaySound("igQuestFailed")
     /// and its sixty-seven siblings.
     ///
     /// Resolved through SoundEntries.dbc, which is where those names come

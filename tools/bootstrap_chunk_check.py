@@ -11,7 +11,7 @@ in the log.
 That cost a session. Two tooltip methods were added to the wrong chunk and
 disappeared; FrameXML calls one of them from CursorOnUpdate, which runs every
 frame, so the error repeated until the render thread fell behind and the
-device was lost. The build was green throughout, and so were the tests — the
+device was lost. The build was green throughout, and so were the tests - the
 failure is in generated Lua that neither of them runs.
 
     tools/bootstrap_chunk_check.py

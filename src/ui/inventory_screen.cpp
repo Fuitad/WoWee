@@ -71,7 +71,7 @@ bool clampCurrentWindowToMainViewport() {
 }
 
 // Render "Classes: Warrior, Paladin" or "Races: Human, Orc" restriction text.
-// Shared between quest info and item info tooltips — both use the same WoW
+// Shared between quest info and item info tooltips - both use the same WoW
 // allowableClass/allowableRace bitmask format with identical display logic.
 void renderClassRestriction(uint32_t allowableMask, uint8_t playerClass) {
     const auto& entries = ui::kClassMasks;
@@ -201,7 +201,7 @@ namespace {
 ///
 /// game::itemStatName answers "Defense Rating" and "Crit Rating", which is what
 /// a tooltip says. The comparison puts a name and two numbers on one narrow row,
-/// so it says "Defense" and "Crit" — same ids, deliberately shorter words. It
+/// so it says "Defense" and "Crit" - same ids, deliberately shorter words. It
 /// was written out twice, identically.
 const char* comparisonStatLabel(uint32_t statType) {
     switch (statType) {
@@ -267,7 +267,7 @@ VkDescriptorSet InventoryScreen::getItemIcon(uint32_t displayInfoId) {
 
     // Rate-limit GPU uploads per frame to avoid stalling when many items appear at once
     // (e.g., opening a full bag, vendor window, or loot from a boss with many drops).
-    if (!claimUiTextureUpload()) return VK_NULL_HANDLE;  // defer — do NOT cache null here
+    if (!claimUiTextureUpload()) return VK_NULL_HANDLE;  // defer - do NOT cache null here
 
     // Load ItemDisplayInfo.dbc
     auto displayInfoDbc = assetManager_->loadDBC("ItemDisplayInfo.dbc");
@@ -936,7 +936,7 @@ void InventoryScreen::dropIntoBankSlot(game::GameHandler& /*gh*/, uint8_t dstBag
     uint8_t srcBag = 0xFF;
     uint8_t srcSlot = 0;
     if (!heldItemWireSource(srcBag, srcSlot)) return;
-    // Same source and dest — just cancel pickup (restore item locally).
+    // Same source and dest - just cancel pickup (restore item locally).
     // Server ignores same-slot swaps so no rebuild would run, losing the item data.
     if (srcBag == dstBag && srcSlot == dstSlot) {
         cancelPickup(gameHandler_->getInventory());
@@ -956,7 +956,7 @@ bool InventoryScreen::beginPickupFromEquipSlot(game::Inventory& inv, game::Equip
 }
 
 // ============================================================
-// Bags window (B key) — bottom of screen, no equipment panel
+// Bags window (B key) - bottom of screen, no equipment panel
 // ============================================================
 
 void InventoryScreen::toggleBackpack() {
@@ -1060,7 +1060,7 @@ void InventoryScreen::render(game::Inventory& inventory, uint64_t moneyCopper) {
         dropItemName_ = heldItem.name;
     }
 
-    // Drop item confirmation popup — positioned near cursor
+    // Drop item confirmation popup - positioned near cursor
     if (dropConfirmOpen_) {
         ImVec2 mousePos = ImGui::GetIO().MousePos;
         ImGui::SetNextWindowPos(ImVec2(mousePos.x - 80.0f, mousePos.y - 20.0f), ImGuiCond_Always);
@@ -1215,7 +1215,7 @@ void InventoryScreen::renderEquipConfirmationPopup(game::Inventory& inventory) {
 }
 
 // ============================================================
-// Aggregate mode — original single-window bags
+// Aggregate mode - original single-window bags
 // ============================================================
 
 void InventoryScreen::renderAggregateBags(game::Inventory& inventory, uint64_t moneyCopper) {
@@ -1341,7 +1341,7 @@ void InventoryScreen::renderAggregateBags(game::Inventory& inventory, uint64_t m
 }
 
 // ============================================================
-// Separate mode — individual draggable bag windows
+// Separate mode - individual draggable bag windows
 // ============================================================
 
 void InventoryScreen::renderSeparateBags(game::Inventory& inventory, uint64_t moneyCopper) {
@@ -1354,7 +1354,7 @@ void InventoryScreen::renderSeparateBags(game::Inventory& inventory, uint64_t mo
     constexpr int columns = 6;
     const float baseWindowW = columns * (slotSize + 4.0f * scale) + 30.0f * scale;
 
-    // Each bag window is independently closable — no forced backpack constraint.
+    // Each bag window is independently closable - no forced backpack constraint.
 
     // Anchor stack to the bag bar (bottom-right), opening upward.
     const float bagBarTop = screenH - (42.0f + 12.0f) - 10.0f;
@@ -1367,7 +1367,7 @@ void InventoryScreen::renderSeparateBags(game::Inventory& inventory, uint64_t mo
     // went above the screen; with every bag in one column and no wrap, tall
     // bags overlapped the ones already placed.
     //
-    // The real client tiles the same way — updateContainerFrameAnchors fills a
+    // The real client tiles the same way - updateContainerFrameAnchors fills a
     // column upward from the bottom right and steps left when the next bag no
     // longer fits.
     auto placeNext = [&](float height) {
@@ -1458,7 +1458,7 @@ void InventoryScreen::renderBagWindow(const char* title, bool& isOpen,
     float contentH = rows * (slotSize + 4.0f * scale) + 10.0f * scale;
     if (bagIndex < 0) {
         // Keyring renders at 24px in 8 columns and ONLY shows rows that have
-        // occupied slots (rounded up to a full row of 8) — must match the
+        // occupied slots (rounded up to a full row of 8) - must match the
         // render logic below or we reserve huge empty space.
         const float keySlotSize = 24.0f * scale;
         constexpr int   keyCols     = 8;
@@ -1486,7 +1486,7 @@ void InventoryScreen::renderBagWindow(const char* title, bool& isOpen,
 
     // Always, and unmovable with it. These are tiled: the caller works out
     // where each one goes so they sit in a column above the bag bar without
-    // touching. FirstUseEver meant that was only ever a starting suggestion —
+    // touching. FirstUseEver meant that was only ever a starting suggestion -
     // one drag and the window kept its own position for the rest of the
     // install, sitting over whichever bag was placed there afterwards. The real
     // client does not let a bag be dragged out of its stack either.
@@ -1609,7 +1609,7 @@ void InventoryScreen::renderBagsFooter(game::Inventory& inventory, uint64_t mone
     ImGui::Spacing();
     ImGui::Separator();
 
-    // Sort Bags button — compute swaps, apply client-side preview, queue server packets
+    // Sort Bags button - compute swaps, apply client-side preview, queue server packets
     bool sorting = !sortSwapQueue_.empty();
     if (sorting) ImGui::BeginDisabled();
     if (ImGui::SmallButton(sorting ? "Sorting..." : "Sort Bags")) {
@@ -1650,7 +1650,7 @@ void InventoryScreen::renderBagsFooter(game::Inventory& inventory, uint64_t mone
 }
 
 // ============================================================
-// Character screen (C key) — equipment + model preview + stats
+// Character screen (C key) - equipment + model preview + stats
 // ============================================================
 
 void InventoryScreen::renderCharacterScreen(game::GameHandler& gameHandler) {
@@ -1948,7 +1948,7 @@ void InventoryScreen::renderCharacterScreen(game::GameHandler& gameHandler) {
             ImGui::EndTabItem();
         }
 
-        // Equipment Sets tab (WotLK only — requires server support)
+        // Equipment Sets tab (WotLK only - requires server support)
         if (gameHandler.supportsEquipmentSets() && ImGui::BeginTabItem("Outfits")) {
             ImGui::Spacing();
 
@@ -2023,7 +2023,7 @@ void InventoryScreen::renderReputationPanel(game::GameHandler& gameHandler) {
 
     // Colours only. Where each standing begins and ends is in
     // game/reputation_standing.hpp, shared with the original interface's
-    // GetFactionInfo — two tables of the same thresholds would eventually
+    // GetFactionInfo - two tables of the same thresholds would eventually
     // disagree, and the same faction would sit at different standings
     // depending on which window was open.
     static const ImVec4 tierColors[8] = {
@@ -2123,7 +2123,7 @@ void InventoryScreen::renderReputationPanel(game::GameHandler& gameHandler) {
         float ratio = 0.0f;
         char overlay[64] = "";
         if (tier.floor == 42000) {
-            // Exalted — full bar
+            // Exalted - full bar
             ratio = 1.0f;
             snprintf(overlay, sizeof(overlay), "Exalted");
         } else {
@@ -2153,7 +2153,7 @@ void InventoryScreen::renderReputationPanel(game::GameHandler& gameHandler) {
             }
             if (hasRepList) {
                 ImGui::Separator();
-                // War / peace toggle — disabled when the server forces peace.
+                // War / peace toggle - disabled when the server forces peace.
                 if (peaceForced) {
                     ImGui::BeginDisabled();
                     ImGui::MenuItem("At War", nullptr, false);
@@ -2161,7 +2161,7 @@ void InventoryScreen::renderReputationPanel(game::GameHandler& gameHandler) {
                 } else if (ImGui::MenuItem("At War", nullptr, atWar)) {
                     gameHandler.setFactionAtWar(repListId, !atWar);
                 }
-                // Inactive toggle — parks the faction out of the active list.
+                // Inactive toggle - parks the faction out of the active list.
                 if (ImGui::MenuItem("Inactive", nullptr, inactive)) {
                     gameHandler.setFactionInactive(repListId, !inactive);
                 }
@@ -2507,7 +2507,7 @@ void InventoryScreen::renderStatsPanel(game::Inventory& inventory, uint32_t play
         }
     }
 
-    // Server-authoritative combat stats (WotLK update fields — only shown when received)
+    // Server-authoritative combat stats (WotLK update fields - only shown when received)
     if (gh) {
         int32_t meleeAP   = gh->getMeleeAttackPower();
         int32_t rangedAP  = gh->getRangedAttackPower();
@@ -2900,7 +2900,7 @@ void InventoryScreen::renderItemSlot(game::Inventory& inventory, const game::Ite
                 } else if (kind == SlotKind::EQUIPMENT) {
                     targetGuid = gameHandler_->getEquipSlotGuid(static_cast<int>(equipSlot));
                 }
-                // Empty slots are not targets — leave the cursor armed.
+                // Empty slots are not targets - leave the cursor armed.
                 if (targetGuid != 0) gameHandler_->completeItemUseOnItem(targetGuid);
             }
         } else if (!holdingItem) {
@@ -3051,7 +3051,7 @@ void InventoryScreen::renderItemSlot(game::Inventory& inventory, const game::Ite
                                 info->itemClass == 1)) {
                         gameHandler_->openItemBySlot(backpackIndex);
                     } else {
-                        // No bind warning in this window — see the loot click in
+                        // No bind warning in this window - see the loot click in
                         // window_manager.cpp for why that is said here.
                         gameHandler_->useItemBySlot(backpackIndex, true);
                     }
@@ -3250,7 +3250,7 @@ void InventoryScreen::renderItemTooltip(const game::ItemDef& item, const game::I
         ImGui::TextColored(ui::colors::kLightGray, "(%.1f damage per second)", dps);
     }
 
-    // Armor appears before stat bonuses — matches WoW tooltip order
+    // Armor appears before stat bonuses - matches WoW tooltip order
     if (item.armor > 0) {
         ImGui::Text("%d Armor", item.armor);
     }
@@ -3282,7 +3282,7 @@ void InventoryScreen::renderItemTooltip(const game::ItemDef& item, const game::I
         ImGui::TextColored(green, "%s", bonusLine.c_str());
     }
 
-    // Extra stats (hit, crit, haste, AP, SP, etc.) — one line each
+    // Extra stats (hit, crit, haste, AP, SP, etc.) - one line each
     for (const auto& es : item.extraStats) {
         const char* statName = game::itemStatName(es.statType);
         char buf[64];
@@ -3399,7 +3399,7 @@ void InventoryScreen::renderItemTooltip(const game::ItemDef& item, const game::I
         }
     }
 
-    // Gem socket slots and item set — look up from query cache
+    // Gem socket slots and item set - look up from query cache
     if (gameHandler_) {
         const auto* qi2 = gameHandler_->getItemInfo(item.itemId);
         if (qi2 && qi2->valid) {
@@ -3614,7 +3614,7 @@ void InventoryScreen::renderItemTooltip(const game::ItemDef& item, const game::I
             showDiff("Int",   static_cast<float>(item.intellect), static_cast<float>(eq->item.intellect));
             showDiff("Spi",   static_cast<float>(item.spirit),    static_cast<float>(eq->item.spirit));
 
-            // Extra stats diff — union of stat types from both items
+            // Extra stats diff - union of stat types from both items
             auto findExtraStat = [](const game::ItemDef& it, uint32_t type) -> int32_t {
                 for (const auto& es : it.extraStats)
                     if (es.statType == type) return es.statValue;
@@ -3688,7 +3688,7 @@ void InventoryScreen::renderItemTooltip(const game::ItemQueryResponseData& info,
     // Slot / subclass
     if (info.inventoryType > 0) {
         const char* slotName = ui::getInventorySlotName(info.inventoryType);
-        // Containers (bags, quivers, ammo pouches) show capacity as "N Slot Bag" —
+        // Containers (bags, quivers, ammo pouches) show capacity as "N Slot Bag" -
         // itemClass 1 = Container, 11 = Quiver/ammo. Same treatment as the ItemDef overload.
         const bool isContainer = (info.itemClass == 1 || info.itemClass == 11) &&
                                  info.containerSlots > 0;
@@ -4049,7 +4049,7 @@ void InventoryScreen::renderItemTooltip(const game::ItemQueryResponseData& info,
             showDiff("Int",   static_cast<float>(info.intellect), static_cast<float>(eq->item.intellect));
             showDiff("Spi",   static_cast<float>(info.spirit),    static_cast<float>(eq->item.spirit));
 
-            // Extra stats diff — union of stat types from both items
+            // Extra stats diff - union of stat types from both items
             auto findExtraStat = [](const auto& it, uint32_t type) -> int32_t {
                 for (const auto& es : it.extraStats)
                     if (es.statType == type) return es.statValue;

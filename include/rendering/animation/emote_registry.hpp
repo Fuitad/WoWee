@@ -11,10 +11,10 @@ namespace wowee {
 namespace rendering {
 
 // ============================================================================
-// EmoteRegistry — extracted from AnimationController
+// EmoteRegistry - extracted from AnimationController
 //
 // Owns all static emote data, DBC loading, emote text lookup, and
-// animation ID resolution.  Singleton — loaded once on first use.
+// animation ID resolution.  Singleton - loaded once on first use.
 // ============================================================================
 
 struct EmoteInfo {

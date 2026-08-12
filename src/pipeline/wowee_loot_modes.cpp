@@ -103,21 +103,21 @@ WoweeLootModes WoweeLootModesLoader::makeStandard(
         c.entries.push_back(e);
     };
     add(1, "FFAFarming", L::FreeForAll, 0, 0, 0,
-        "Free-For-All — first-click wins. Common in "
+        "Free-For-All - first-click wins. Common in "
         "solo/duo farming runs where all loot is "
         "destined for the AH.");
     add(2, "RoundRobinTrash", L::RoundRobin, 0, 0, 0,
-        "Round-Robin — rotates through party slots, "
+        "Round-Robin - rotates through party slots, "
         "assigns loot to the next player in sequence. "
         "Standard 5-man trash policy.");
     add(3, "NeedBeforeGreedUncommon",
         L::NeedBeforeGreed, 2, 0, 0,
-        "Need-Before-Greed at Uncommon threshold — "
+        "Need-Before-Greed at Uncommon threshold - "
         "anything Uncommon (green) or above triggers "
         "the Need/Greed/Pass roll dialog. Standard "
         "5-man heroic policy.");
     add(4, "MasterLootRare", L::MasterLoot, 3, 1, 0,
-        "Master Loot at Rare threshold — anything "
+        "Master Loot at Rare threshold - anything "
         "Rare (blue) or above goes to the master "
         "looter for hand distribution. Master looter "
         "REQUIRED.");
@@ -144,18 +144,18 @@ WoweeLootModes WoweeLootModesLoader::makeRaidPolicies(
     };
     add(100, "MasterLootEpicRaid", L::MasterLoot, 4, 1,
         L::NeedBeforeGreed,
-        "Master Loot at Epic threshold — standard 25-"
+        "Master Loot at Epic threshold - standard 25-"
         "man raid policy. Master looter REQUIRED. "
         "Fallback to Need-Before-Greed if master looter "
         "disconnects mid-distribution.");
     add(101, "PersonalLootEpic", L::Personal, 4, 0,
         L::Personal,
-        "Personal Loot at Epic threshold — each player "
+        "Personal Loot at Epic threshold - each player "
         "gets their own roll, no master-looter needed. "
         "Anti-drama policy for pug raids.");
     add(102, "NBGRareDefault", L::NeedBeforeGreed, 3, 0,
         L::FreeForAll,
-        "Need-Before-Greed at Rare (Blue) threshold — "
+        "Need-Before-Greed at Rare (Blue) threshold - "
         "less restrictive than Epic gating. Common "
         "10-man raid default.");
     return c;
@@ -182,19 +182,19 @@ WoweeLootModes WoweeLootModesLoader::makeAFKPrevention(
     };
     add(200, "RoundRobinIdleSkip30",
         L::RoundRobin, 0, 0, 30, L::FreeForAll,
-        "Round-Robin with 30-second idle-skip — "
+        "Round-Robin with 30-second idle-skip - "
         "advances rotation if current pick is AFK > "
         "30s. Prevents stuck loot rotations in casual "
         "groups.");
     add(201, "MasterLootTimeout",
         L::MasterLoot, 4, 1, 0, L::NeedBeforeGreed,
-        "Master Loot with timeout fallback — if master "
+        "Master Loot with timeout fallback - if master "
         "looter is unresponsive for 60s, the loot mode "
         "auto-promotes to Need-Before-Greed. Server "
         "enforces the 60s window externally.");
     add(202, "PersonalIdleSkip45",
         L::Personal, 3, 0, 45, L::Personal,
-        "Personal Loot with 45-second idle-skip — "
+        "Personal Loot with 45-second idle-skip - "
         "each player has 45s to pick up their personal "
         "drop, then it bag-skips. Anti-AFK-leech "
         "policy.");

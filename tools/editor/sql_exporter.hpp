@@ -35,7 +35,7 @@ public:
                            uint32_t startEntry = 100000);
 
     // Escape a string for safe inclusion inside single-quoted SQL literal.
-    // Doubles single quotes and escapes backslashes — matches MySQL/MariaDB
+    // Doubles single quotes and escapes backslashes - matches MySQL/MariaDB
     // string literal rules used by AzerothCore/TrinityCore. Use whenever you
     // emit user-provided text into SQL outside of this class.
     static std::string escape(const std::string& s);

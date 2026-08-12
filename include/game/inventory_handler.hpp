@@ -31,7 +31,7 @@ public:
     /// Announce that the bags changed, one event per bag.
     ///
     /// WoW passes the bag that changed as the event's first argument, and the
-    /// interface redraws only the bag whose id matches it — so an event with no
+    /// interface redraws only the bag whose id matches it - so an event with no
     /// id redraws nothing at all. That is why an item dragged to a new slot
     /// stayed drawn in its old one until the bag was closed and reopened.
     void fireBagUpdates();
@@ -50,7 +50,7 @@ public:
     };
 
     // WoW trade window: 7 slots total. Slots 0-5 are transferred to the partner;
-    // slot 6 (TRADE_SLOT_NONTRADED) is the "will not be traded" slot — you place your
+    // slot 6 (TRADE_SLOT_NONTRADED) is the "will not be traded" slot - you place your
     // own item there so the partner can enchant/craft on it without it changing hands.
     static constexpr int TRADE_SLOT_COUNT        = 7;
     static constexpr int TRADE_SLOT_TRADED_COUNT = 6;
@@ -87,7 +87,7 @@ public:
     /// money is not one of the numbered loot slots on the wire even
     /// though the interface shows it as one.
     void lootMoney();
-    /// Drop a temporary weapon enchant — a sharpening stone, poison, or a
+    /// Drop a temporary weapon enchant - a sharpening stone, poison, or a
     /// shaman's weapon imbue. Slot zero is the main hand and one the off hand,
     /// which is how the request numbers them; the interface counts from one.
     void cancelTempEnchantment(uint8_t handIndex);
@@ -154,7 +154,7 @@ public:
     void sellItemBySlot(int backpackIndex);
     void sellItemInBag(int bagIndex, int slotIndex);
     void buyBackItem(uint32_t buybackSlot);
-    /// Tell the interface durability moved — the armour indicator redraws
+    /// Tell the interface durability moved - the armour indicator redraws
     /// from an event, not by polling.
     void announceDurabilityChange();
     void repairItem(uint64_t vendorGuid, uint64_t itemGuid);
@@ -164,19 +164,19 @@ public:
     // ---- Equipping, and the prompt before something binds ----
     //
     // `confirmed` is how a caller says the player has already been asked. Both
-    // interfaces ask — this client's own popup and FrameXML's EQUIP_BIND — and
+    // interfaces ask - this client's own popup and FrameXML's EQUIP_BIND - and
     // both come back through here, so without it the answer to the prompt
     // raises the prompt again.
     void equipItemToSlot(uint64_t itemGuid, uint8_t equipSlot);
     void autoEquipItemBySlot(int backpackIndex, bool confirmed = false);
     void autoEquipItemInBag(int bagIndex, int slotIndex, bool confirmed = false);
 
-    /// Whether equipping what is in a slot would bind it — ItemDef carries
+    /// Whether equipping what is in a slot would bind it - ItemDef carries
     /// the rule; these two just find the item.
     bool equipWouldBindFromBackpack(int backpackIndex) const;
     bool equipWouldBindFromBag(int bagIndex, int slotIndex) const;
 
-    /// The equip held back waiting for an answer. One at a time — FrameXML's
+    /// The equip held back waiting for an answer. One at a time - FrameXML's
     /// dialog is exclusive and this client's is modal, so a second cannot be
     /// raised while the first is up.
     struct PendingEquip {
@@ -192,13 +192,13 @@ public:
     // interface warned before taking a bind-on-pickup item.
     void lootItem(uint8_t slotIndex, bool confirmed = false);
     /// Send the loot request that was held back. The dialog passes the slot it
-    /// was shown for, but only one can be waiting, so the held one is enough —
+    /// was shown for, but only one can be waiting, so the held one is enough -
     /// and going back through lootItem with the slot would raise the prompt
     /// again, which is a loop rather than a confirmation.
     void confirmPendingLoot();
 
     /// Send the use that was held back by the bind-on-use prompt. USE_BIND
-    /// carries no slot at all — FrameXML shows it and calls this with nothing —
+    /// carries no slot at all - FrameXML shows it and calls this with nothing -
     /// so the held request is the only record of what was being used.
     void confirmBindOnUse();
 
@@ -209,7 +209,7 @@ public:
     void cancelPendingEquip();
     /// `unitTarget` names who the item is used on, and overrides the default
     /// the item's own class implies. Only the interface's /use handling passes
-    /// it — `/use [target=Bob] Heavy Runecloth Bandage` — and zero keeps the
+    /// it - `/use [target=Bob] Heavy Runecloth Bandage` - and zero keeps the
     /// behaviour every other caller has always had.
     void useItemBySlot(int backpackIndex, bool confirmed = false,
                        uint64_t unitTarget = 0);
@@ -223,7 +223,7 @@ public:
     // ---- Item-targeted item use (sharpening stones, weightstones, weapon oils) ----
     /// True while a used item is waiting for the player to pick the item it applies to.
     bool isAwaitingItemTarget() const;
-    /// Entry of the item awaiting a target (0 if none) — drives the targeting cursor.
+    /// Entry of the item awaiting a target (0 if none) - drives the targeting cursor.
     uint32_t getPendingItemTargetSourceItemId() const;
     void cancelItemTargeting();
 
@@ -261,7 +261,7 @@ public:
 
     // ---- Mail ----
     // Slots the UI can hold. What can actually be sent depends on the wire
-    // format — see maxSendableMailAttachments().
+    // format - see maxSendableMailAttachments().
     static constexpr int MAIL_MAX_ATTACHMENTS = 12;
 
     /// How many attachments this expansion's CMSG_SEND_MAIL can carry. Vanilla
@@ -286,7 +286,7 @@ public:
     /// FrameXML owns the mail window and says so through SetSendMailShowing as
     /// its two tabs swap. openMailCompose empties the attachments, which is
     /// right when this client's own window opens a fresh letter and wrong on a
-    /// tab switch — flipping to the inbox and back would drop what was on it.
+    /// tab switch - flipping to the inbox and back would drop what was on it.
     void setMailComposeShowing(bool showing) { showMailCompose_ = showing; }
     void openMailCompose() { showMailCompose_ = true; clearMailAttachments(); }
     void closeMailCompose() { showMailCompose_ = false; clearMailAttachments(); }
@@ -296,7 +296,7 @@ public:
     /// What the server's mail refusal means, in words.
     ///
     /// SMSG_SEND_MAIL_RESULT carries a number from MailResponseResult and the
-    /// client printed it bare — "Failed to send mail (error 19)" says nothing
+    /// client printed it bare - "Failed to send mail (error 19)" says nothing
     /// about what to do differently, and 19 is the one a player can actually
     /// act on: something on the letter cannot be mailed.
     static const char* mailResultText(uint32_t error);
@@ -324,7 +324,7 @@ public:
     /// draws its twelve slots, its postage and its Send button from
     /// GetSendMailItem and redraws them only on MAIL_SEND_INFO_UPDATE. Attaching
     /// and detaching used to change the list without saying so, and only the
-    /// send — which clears it — announced itself. So an item clicked onto the
+    /// send - which clears it - announced itself. So an item clicked onto the
     /// letter went onto it and the slot stayed empty, with the item gone from
     /// the cursor as well: it read as the attach having been refused.
     void notifyMailComposeChanged();
@@ -357,7 +357,7 @@ public:
     void openSocketing(uint64_t itemGuid);
     void closeSocketing();
     /// Puts a gem in a socket, or takes back what is in one when guid is zero.
-    /// Refuses a gem already sitting in another socket — the server drops the
+    /// Refuses a gem already sitting in another socket - the server drops the
     /// whole request when two sockets name the same guid.
     bool setSocketGem(int index, uint64_t gemGuid, uint32_t gemItemId);
     /// Commits every pending gem. Nothing is sent when none are pending.
@@ -398,7 +398,7 @@ public:
     ///
     /// MSG_QUERY_GUILD_BANK_TEXT is a request the server answers with the same
     /// opcode: a tab id and the text. This client could already *write* the
-    /// text — SetGuildBankText has sent CMSG_SET_GUILD_BANK_TEXT all along —
+    /// text - SetGuildBankText has sent CMSG_SET_GUILD_BANK_TEXT all along -
     /// and had no way to read it, so a tab's description could be saved and
     /// never seen again.
     void queryGuildBankText(uint8_t tabId);
@@ -446,7 +446,7 @@ public:
     int getAuctionActiveTab() const { return auctionActiveTab_; }
     void setAuctionActiveTab(int tab) { auctionActiveTab_ = tab; }
     float getAuctionSearchDelay() const { return auctionSearchDelayTimer_; }
-    // Ticked from GameHandler::update — this member is the authoritative
+    // Ticked from GameHandler::update - this member is the authoritative
     // timer (GameHandler used to decrement its own never-set copy, leaving
     // the search button disabled forever after the first search).
     void tickAuctionSearchDelay(float deltaTime) {
@@ -486,7 +486,7 @@ public:
     void updateOtherPlayerVisibleItems(uint64_t guid, const FlatFieldMap& fields);
     void cacheInspectedPlayerEquipment(uint64_t guid, const std::array<uint32_t, 19>& itemEntries);
     void emitOtherPlayerEquipment(uint64_t guid);
-    /// The same resolution, answered rather than announced — see the
+    /// The same resolution, answered rather than announced - see the
     /// definition for why both shapes exist.
     bool resolveOtherPlayerEquipment(uint64_t guid,
                                      std::array<uint32_t, 19>& displayIds,
@@ -572,7 +572,7 @@ private:
     TradeStatus tradeStatus_  = TradeStatus::None;
     /// Which side has pressed accept, kept apart because TRADE_ACCEPT_UPDATE
     /// carries both and tradeStatus_ can only say one thing at a time. Ours is
-    /// set when the accept goes out — the server echoes an acceptance to the
+    /// set when the accept goes out - the server echoes an acceptance to the
     /// other player, not back to the one who made it, so there is nothing else
     /// to learn it from.
     bool tradeSelfAccepted_ = false;
@@ -639,7 +639,7 @@ private:
     ///
     /// The whole request is moved here rather than left parked in
     /// pendingItemTarget_. FrameXML's REPLACE_ENCHANT has a No with nothing
-    /// behind it — no OnCancel, no OnHide — so a refusal is silence, and a
+    /// behind it - no OnCancel, no OnHide - so a refusal is silence, and a
     /// request left waiting for a target it will never be given would be
     /// applied to whatever the player clicked next.
     struct PendingEnchant {

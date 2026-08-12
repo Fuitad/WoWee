@@ -4,7 +4,7 @@
 //
 // This is the thing the addon API was missing. CreateFrame answered, events
 // dispatched, and CreateTexture handed back a table whose every method was a
-// no-op — so an addon could compute and react but could not put a pixel on the
+// no-op - so an addon could compute and react but could not put a pixel on the
 // screen. The API looked supported and nothing drew.
 //
 // The same tree is what FrameXML targets, because FrameXML is only Lua and XML
@@ -70,7 +70,7 @@ struct Anchor {
 };
 
 /// Whether a region's anchors pin *opposite edges* on one axis, which is the
-/// only arrangement that decides a size — a 0 and a 1, not any two fractions
+/// only arrangement that decides a size - a 0 and a 1, not any two fractions
 /// that differ. `xAxis` selects which axis to ask about.
 ///
 /// The layout's own solve applies the same rule to the constraints it has
@@ -86,7 +86,7 @@ struct Widget {
     uint32_t parent = 0;
     std::vector<uint32_t> children;
     std::string name;
-    /// What CreateFrame was asked for — "Button", "StatusBar", "Texture".
+    /// What CreateFrame was asked for - "Button", "StatusBar", "Texture".
     /// FrameXML branches on this constantly, and answering "Frame" for
     /// everything makes every one of those branches take the wrong side.
     std::string objectType = "Frame";
@@ -104,7 +104,7 @@ struct Widget {
     /// Whether the frame may be dragged around the screen, and which mouse
     /// buttons begin a drag on it. WoW keeps these separate: a bag window is
     /// movable and registers the left button for drag, while an item button
-    /// registers for drag without being movable — dragging it picks the item up
+    /// registers for drag without being movable - dragging it picks the item up
     /// instead of moving the button.
     bool movable = false;
     /// Whether StartSizing will pick this frame up. A frame declares it in XML
@@ -145,7 +145,7 @@ struct Widget {
     /// no-op, so a tree that never scales lays out exactly as it did before.
     /// How far in from each edge the frame actually answers the mouse.
     ///
-    /// Positive shrinks, negative expands — WoW's sense. PaperDollFrame is the
+    /// Positive shrinks, negative expands - WoW's sense. PaperDollFrame is the
     /// case that matters: it covers the whole character sheet and takes the
     /// mouse, and declares 30 off its right and 45 off its bottom so the
     /// transparent parts do not swallow clicks meant for what is behind them.
@@ -154,7 +154,7 @@ struct Widget {
 
     /// Where a running Translation animation has moved the frame to, in
     /// interface units. Kept apart from the anchors so an animation that is
-    /// stopped or interrupted leaves no trace in them — nudging the anchors
+    /// stopped or interrupted leaves no trace in them - nudging the anchors
     /// instead would make every played animation permanent.
     float animOffsetX = 0.0f, animOffsetY = 0.0f;
 
@@ -188,7 +188,7 @@ struct Widget {
     /// leaves behind has to give way the next time the interface positions the
     /// frame itself: a bag is re-anchored every time it opens, with a bare
     /// SetPoint and no ClearAllPoints, and a leftover anchor on a different
-    /// point turns that into two constraints on one axis — which sizes the
+    /// point turns that into two constraints on one axis - which sizes the
     /// frame from them and opens a bag with no width.
     bool userMoved = false;
     /// The facing a model frame was told to show, in radians. FrameXML rotates
@@ -197,7 +197,7 @@ struct Widget {
     float modelFacing = 0.0f;
     /// A label whose size came from measuring its own text, and the text that
     /// was measured. Without the second, a label sized once keeps that size
-    /// forever — the character sheet's level line stayed the width of the
+    /// forever - the character sheet's level line stayed the width of the
     /// placeholder its XML shipped with, long after it read something else.
     bool autoSized = false;
     std::string measuredText;
@@ -212,7 +212,7 @@ struct Widget {
     std::string measuredFace;
     /// A label that declared a width and left its height at zero: WoW's
     /// wrapping paragraph. The width is the box to wrap inside and the height
-    /// is however many lines that takes — the opposite of autoSized, where the
+    /// is however many lines that takes - the opposite of autoSized, where the
     /// text decides the width and there is nothing to wrap to.
     ///
     /// `<AbsDimension x="285" y="0"/>` is the idiom, and it is what every
@@ -235,8 +235,8 @@ struct Widget {
     float texCoord[4] = {0.0f, 1.0f, 0.0f, 1.0f};   ///< left, right, top, bottom
 
     /// SetTexCoord's other form: a UV per corner, which is how the interface
-    /// rotates a texture. Eight numbers in WoW's order — upper-left,
-    /// lower-left, upper-right, lower-right — and only meaningful while
+    /// rotates a texture. Eight numbers in WoW's order - upper-left,
+    /// lower-left, upper-right, lower-right - and only meaningful while
     /// texCoordRotated is set.
     ///
     /// The paperdoll's flyout arrow is the case that matters: the same art
@@ -250,7 +250,7 @@ struct Widget {
     bool solidColor = false;    ///< SetTexture(r,g,b[,a]) rather than a file.
 
     // Backdrop, the bordered panel look most of the original interface is
-    // built from. The edge file is a strip of eight square tiles — verified
+    // built from. The edge file is a strip of eight square tiles - verified
     // against the art: UI-Tooltip-Border is 128x16 and UI-DialogBox-Border
     // 256x32, both exactly eight tiles wide.
     bool hasBackdrop = false;
@@ -277,7 +277,7 @@ struct Widget {
     /// out at its full size and moved by the scroll offset; what falls outside
     /// the frame is clipped rather than drawn.
     /// Whether the frame asked for the wheel. False by default, as in WoW,
-    /// where a frame ignores it until EnableMouseWheel is called — which is
+    /// where a frame ignores it until EnableMouseWheel is called - which is
     /// what keeps the wheel zooming the camera everywhere else.
     bool  wheelEnabled = false;
     /// A disabled button is greyed and takes no clicks. True by default, as a
@@ -314,7 +314,7 @@ struct Widget {
     /// Whether this box takes the keyboard the moment it appears.
     ///
     /// Declared on 42 boxes in FrameXML and false on 40 of them, which is the
-    /// point of the attribute — a box that grabs focus on sight takes the
+    /// point of the attribute - a box that grabs focus on sight takes the
     /// keyboard away from whatever the player was doing. The two that ask for
     /// it are the channel-name field and the box that names an equipment set,
     /// where typing is the only reason the dialog opened.
@@ -356,12 +356,12 @@ struct Widget {
     bool  editMultiLine = false;
     int   editMaxLetters = 0;   ///< Zero is no limit, which is WoW's default.
     /// Whether the markup that draws nothing counts against that limit. WoW's
-    /// default is no, and four boxes in the interface ask for yes — the macro
+    /// default is no, and four boxes in the interface ask for yes - the macro
     /// editor among them, where the escapes are the point.
     bool  countInvisibleLetters = false;
 
     /// Whether a label too long for its box breaks onto another line. On, as
-    /// WoW has it — a FontString given a width wraps inside it, and nothing
+    /// WoW has it - a FontString given a width wraps inside it, and nothing
     /// here did, so every one of them drew a single line straight out of its
     /// own frame.
     bool  wordWrap = true;
@@ -372,7 +372,7 @@ struct Widget {
     /// matches what is drawn. FrameXML sizes panels from GetStringHeight.
     ///
     /// Mutable because it is a record of what the renderer did, not part of
-    /// what the frame is — the draw pass holds every widget const and this is
+    /// what the frame is - the draw pass holds every widget const and this is
     /// the one thing it learns.
     mutable int wrappedLines = 1;
 
@@ -391,7 +391,7 @@ struct Widget {
     std::string thumbTexture;
     /// The slider's grip, as a region rather than a file. A <ThumbTexture>
     /// declares a size and no anchors at all, because in WoW the slider is what
-    /// puts it where the value says — so the layout moves it along the track
+    /// puts it where the value says - so the layout moves it along the track
     /// (the same thing already done for the colour picker's thumbs). Left at 0
     /// for a slider that never declared one.
     uint32_t thumbRegion = 0;
@@ -421,13 +421,13 @@ struct Widget {
     /// A line, and the three values the chat history hangs off it.
     ///
     /// FrameXML passes them to AddMessage and reads them back with
-    /// GetMessageInfo when it moves a conversation into its own window — so
+    /// GetMessageInfo when it moves a conversation into its own window - so
     /// they have to survive the round trip or the copy has nothing to copy.
     /// accessId groups the lines of one conversation; extra is the token that
     /// says which kind of chat it was.
     ///
     /// extra has to come back the same type it went in. The interface hands it
-    /// straight to a table lookup, and for chat lines it is a number — handed
+    /// straight to a table lookup, and for chat lines it is a number - handed
     /// back as text it keys nothing, which reads as "this line has no kind"
     /// rather than as a mistake.
     struct Message {
@@ -443,7 +443,7 @@ struct Widget {
     };
     std::deque<Message> messages;
     /// How long a message stays before it fades out, in seconds, and how long
-    /// the fade itself takes. Zero means it never goes — which is what a chat
+    /// the fade itself takes. Zero means it never goes - which is what a chat
     /// frame wants and what UIErrorsFrame very much does not: it declares
     /// displayDuration="5" and every error was staying on screen for good.
     float messageDuration = 0.0f;
@@ -459,7 +459,7 @@ struct Widget {
     int   messageScroll = 0;
 
     /// A tooltip holds lines the same way, but draws them from the top and
-    /// sizes itself to fit them — which is the part a chat frame does not do,
+    /// sizes itself to fit them - which is the part a chat frame does not do,
     /// because a tooltip has no size of its own until it has something to say.
     bool  isTooltip = false;
     /// Whose tooltip this is, as the unit token SetUnit was given.
@@ -476,8 +476,8 @@ struct Widget {
         float lc[4]; float rc[4];
         /// Whether this line breaks to fit rather than making the whole
         /// tooltip as wide as itself. FrameXML asks for it on every line of
-        /// prose — an item's flavour text, a spell's description, a newbie
-        /// tip — and the flag was read off the call and dropped, so one long
+        /// prose - an item's flavour text, a spell's description, a newbie
+        /// tip - and the flag was read off the call and dropped, so one long
         /// sentence stretched the tooltip across the screen.
         bool wrap = false;
         /// Lines the wrap produced, filled by the sizing pass so the draw and
@@ -503,8 +503,8 @@ struct Widget {
     std::vector<TryOnItem> tryOnItems;
 
     /// A creature this model frame has been told to show, by display id. Set
-    /// by whichever binding decides — the stable's paperdoll is told a slot
-    /// and resolves it — and read by the render loop, which is where the
+    /// by whichever binding decides - the stable's paperdoll is told a slot
+    /// and resolves it - and read by the render loop, which is where the
     /// model is actually built. Zero is "nothing chosen".
     uint32_t modelDisplayId = 0;
 
@@ -520,25 +520,25 @@ struct Widget {
     float pickerHSV[3] = {0.0f, 0.0f, 1.0f};
 
     /// Which part of a colour picker this region is, if any. The four are
-    /// declared in XML as their own elements rather than inside a Layer —
-    /// <ColorWheelTexture> and friends — and each is placed and drawn from the
+    /// declared in XML as their own elements rather than inside a Layer -
+    /// <ColorWheelTexture> and friends - and each is placed and drawn from the
     /// colour its ColorSelect parent holds.
     enum class ColorRole : uint8_t { None, Wheel, WheelThumb, Value, ValueThumb };
     ColorRole colorRole = ColorRole::None;
 
     /// Which named font object this region's type settings came from, so
     /// GetFontObject can hand it back. The fields copied out of one do not add
-    /// up to the object itself, and FrameXML passes the object around — the
+    /// up to the object itself, and FrameXML passes the object around - the
     /// options panels read a control's font object to get the colour to put a
     /// label back to when the control is re-enabled.
     std::string fontObjectName;
     /// Drawn added to what is under it rather than over it. Art authored for
-    /// this has no alpha channel at all — it is a glow on black, and black is
+    /// this has no alpha channel at all - it is a glow on black, and black is
     /// what adds nothing. Drawn the ordinary way it is a black slab instead,
     /// which is what covered the player frame while it pulsed.
     bool blendAdd = false;
 
-    /// A texture the client renders rather than one read from a file — a unit
+    /// A texture the client renders rather than one read from a file - a unit
     /// portrait is a live view of the character, not an image on disk. Zero
     /// means the path above is used instead.
     uint64_t externalTexture = 0;
@@ -556,7 +556,7 @@ struct Widget {
     /// Extra space between wrapped lines, which FrameXML reads back.
     float lineSpacing = 0.0f;
     std::string justifyH = "CENTER";
-    /// TOP, MIDDLE or BOTTOM. FrameXML declares it on 93 font strings — a
+    /// TOP, MIDDLE or BOTTOM. FrameXML declares it on 93 font strings - a
     /// multi-line label in a fixed box sits differently for each.
     std::string justifyV = "MIDDLE";
 
@@ -584,9 +584,9 @@ struct Widget {
     /// and what decides whether an OnUpdate runs.
     ///
     /// Distinct from `visible` below, which is this AND has somewhere to be
-    /// drawn. A frame with no anchors is not drawn — that is WoW's rule and
+    /// drawn. A frame with no anchors is not drawn - that is WoW's rule and
     /// the reason a stray unanchored panel does not land in the middle of the
-    /// screen — but it is still running. Eight of FrameXML's driver frames are
+    /// screen - but it is still running. Eight of FrameXML's driver frames are
     /// exactly that: created by CreateFrame, never positioned, existing only
     /// to carry an OnUpdate. frameFadeManager drives every fade in the
     /// interface, frameFlashManager every flash, AnimUpdateFrame the whole
@@ -594,16 +594,16 @@ struct Widget {
     bool  visibleChain = false;
     bool  visible = false;      ///< visibleChain, and anchored somewhere
     /// Whether the interface has been told this is on screen. Visibility is
-    /// not a property a frame sets — it is shown, and every ancestor shown too
-    /// — so becoming visible has to be noticed rather than announced at the
+    /// not a property a frame sets - it is shown, and every ancestor shown too
+    /// - so becoming visible has to be noticed rather than announced at the
     /// point something was hidden three levels up.
     bool  reportedVisible = false;
     /// How many times Lua has flipped `shown` since the last visibility pass.
     ///
     /// Noticing a change by comparing to the last reported state cannot see a
     /// change that undoes itself first. `panel:Hide(); panel:Show()` is how
-    /// FrameXML says "rebuild yourself" — it is the whole of QuestFrame's
-    /// QUEST_DETAIL handler — and between the two calls nothing looks. The
+    /// FrameXML says "rebuild yourself" - it is the whole of QuestFrame's
+    /// QUEST_DETAIL handler - and between the two calls nothing looks. The
     /// frame ends the frame exactly as it started, so a comparison finds
     /// nothing and OnShow, which is where the panel is actually filled in,
     /// never runs.
@@ -623,7 +623,7 @@ struct Widget {
 /// A link drawn on screen this frame, and where it landed.
 ///
 /// The runs carry the payload out of parseMarkup and the drawing pass is the
-/// only place the rect is known, but the click arrives in the input pass — so
+/// only place the rect is known, but the click arrives in the input pass - so
 /// it is recorded here, where both sides already meet.
 struct LinkRect {
     uint32_t    widget = 0;   ///< the font string the link was drawn in
@@ -641,7 +641,7 @@ public:
     /// same frame rather than one later.
     void clearLinkRects() { linkRects_.clear(); }
     void addLinkRect(const LinkRect& r) { linkRects_.push_back(r); }
-    /// The last link drawn under this point, which is the topmost — the draw
+    /// The last link drawn under this point, which is the topmost - the draw
     /// order is back to front and later rects sit over earlier ones.
     const LinkRect* linkAt(float x, float y) const {
         for (auto it = linkRects_.rbegin(); it != linkRects_.rend(); ++it) {
@@ -688,7 +688,7 @@ public:
     /// Put a frame in front of everything else in its strata.
     ///
     /// Strata come first in the draw order, so this only moves the frame within
-    /// its own — a DIALOG frame raised above its peers still sits under a
+    /// its own - a DIALOG frame raised above its peers still sits under a
     /// TOOLTIP one, which is what the strata are for.
     void raise(uint32_t id);
     /// The reverse, for Lower().
@@ -712,7 +712,7 @@ public:
     /// Same arrangement as the moving frame above and for the same reason:
     /// StartSizing is called from Lua and the cursor is read by the input loop.
     /// The corner matters because dragging the left edge has to move the frame
-    /// as well as resize it — its right edge must stay where it is.
+    /// as well as resize it - its right edge must stay where it is.
     uint32_t sizingWidget() const { return sizingWid_; }
     const std::string& sizingPoint() const { return sizingPoint_; }
     void setSizingWidget(uint32_t id, const std::string& point) {
@@ -730,8 +730,8 @@ public:
     /// Lays the tree out for a window of this many pixels.
     ///
     /// FrameXML's coordinates are not pixels. The interface is authored against
-    /// a virtual screen 768 units tall — a 232x100 unit frame is meant to look
-    /// the same size on every display — so the tree is laid out in those units
+    /// a virtual screen 768 units tall - a 232x100 unit frame is meant to look
+    /// the same size on every display - so the tree is laid out in those units
     /// and the renderer multiplies by the scale on the way to the screen.
     /// Treating them as pixels drew the whole interface at half size on a
     /// 1528-tall window and at double on a 384-tall one.
@@ -741,16 +741,16 @@ public:
     /// resolved.
     ///
     /// Rects used to be answered only from the once-a-frame pass, so a frame
-    /// anchored inside a handler measured as though it had never been placed —
-    /// its own height sitting at the origin — until the next frame. The real
+    /// anchored inside a handler measured as though it had never been placed -
+    /// its own height sitting at the origin - until the next frame. The real
     /// client answers a measurement whenever it is asked, and the interface is
     /// written to that: the quest tracker anchors each objective line and then
     /// reads its bottom edge to know how tall the block grew, and every one
     /// came back zero, so the tracker concluded it had nothing to show and
     /// collapsed itself.
     ///
-    /// Only what the answer depends on is resolved — the widget, what it is
-    /// anchored to, and the parents of both — rather than the whole tree. The
+    /// Only what the answer depends on is resolved - the widget, what it is
+    /// anchored to, and the parents of both - rather than the whole tree. The
     /// interface anchors a row and measures it in the same breath, so a
     /// whole-tree pass per measurement turned one tracker update into hundreds
     /// of them: correct, and about five milliseconds each.
@@ -762,7 +762,7 @@ public:
     /// How far a scroll child's contents actually reach, in interface units.
     ///
     /// A scroll child is very often smaller than what is inside it, because
-    /// nothing in the interface resizes it — the client does. The talent tree
+    /// nothing in the interface resizes it - the client does. The talent tree
     /// is the plainest case: PlayerTalentFrameScrollChildFrame declares 320x50
     /// and holds eleven rows of talents 63 apart, and no line of FrameXML ever
     /// gives it a height. Taking the declared 50 meant a scroll range of zero
@@ -774,7 +774,7 @@ public:
     /// not content, and counting it scrolls into empty space.
     void scrollContentExtent(uint32_t childId, float& outW, float& outH) const;
 
-    /// Something moved, resized or changed parent — every rect is stale.
+    /// Something moved, resized or changed parent - every rect is stale.
     void markLayoutDirty() { layoutDirty_ = true; ++layoutGeneration_; }
 
     /// Pixels per interface unit, from the last layout.
@@ -800,7 +800,7 @@ public:
     /// The screen-filling frame everything else hangs off.
     uint32_t rootId() const { return rootId_; }
     /// UIParent, which is the root's one child at startup and the parent of
-    /// nearly everything. Distinct from rootId() — see the note there.
+    /// nearly everything. Distinct from rootId() - see the note there.
     uint32_t uiParentId() const { return uiParentId_; }
 
     /// Records a frame as a scroll frame, and keeps the list of them. Walking
@@ -816,7 +816,7 @@ public:
     /// in and out of itself, so both were placing frames that stayed where they
     /// were.
     ///
-    /// Everything inherited — visibility, clipping, strata, level, scale — is
+    /// Everything inherited - visibility, clipping, strata, level, scale - is
     /// resolved from the parent during layout, so this only has to fix the link
     /// and the two children lists.
     void setParent(uint32_t id, uint32_t newParent);
@@ -826,7 +826,7 @@ public:
     /// Remember that a texture is meant to show the player's portrait.
     ///
     /// SetPortraitTexture names the texture to fill, and the handle it should
-    /// be filled with is rebuilt whenever the portrait's render target is —
+    /// be filled with is rebuilt whenever the portrait's render target is -
     /// so the assignment has to happen every frame rather than once here. A
     /// list, for the same reason scroll frames are a list: the alternative is
     /// scanning every widget in the tree for a flag, every frame.
@@ -836,15 +836,15 @@ public:
     /// and then something else, and a texture left on two lists is handed two
     /// faces a frame and keeps whichever was written last.
     ///
-    /// An empty unit releases it. Releasing clears the handle too — dropping
+    /// An empty unit releases it. Releasing clears the handle too - dropping
     /// off a list only stops the updates, and the last face would stay.
     void setPortraitUnit(uint32_t id, const std::string& unit);
     /// Every texture claimed for this unit, or an empty list.
     const std::vector<uint32_t>& portraitsFor(const std::string& unit) const;
 
     /// What the mouse is doing, so state art can be chosen. The engine owns
-    /// this — it is the only thing that knows what is under the cursor and
-    /// what is being held — and the tree needs it to decide which of a
+    /// this - it is the only thing that knows what is under the cursor and
+    /// what is being held - and the tree needs it to decide which of a
     /// button's textures to draw.
     void setInteraction(uint32_t hovered, uint32_t pressed) {
         hoveredId_ = hovered;
@@ -855,7 +855,7 @@ public:
     /// the label moves with it.
     uint32_t pressedWidget() const { return pressedId_; }
     /// Which frame the cursor is over, for anything that draws differently
-    /// under it — a button's label lightens in WoW, and that is a font object
+    /// under it - a button's label lightens in WoW, and that is a font object
     /// the template names rather than a colour the renderer invents.
     uint32_t hoveredWidget() const { return hoveredId_; }
     const std::vector<uint32_t>& scrollFrames() const { return scrollFrames_; }
@@ -871,14 +871,14 @@ public:
     static constexpr float kInterfaceHeight = 768.0f;
 
     /// The frame under a point, or 0. Topmost wins, by the same ordering that
-    /// decides what draws over what — so whatever the player can see on top is
+    /// decides what draws over what - so whatever the player can see on top is
     /// what they click. Regions are never hit: in WoW a texture is not a mouse
     /// target, its frame is.
     uint32_t hitTest(float x, float y) const;
 
     /// The same, for the mouse wheel, which frames may take without taking the
     /// mouse. EnableMouseWheel and EnableMouse are separate in WoW and
-    /// UIPanelScrollFrameTemplate asks for only the first — it declares
+    /// UIPanelScrollFrameTemplate asks for only the first - it declares
     /// OnMouseWheel and never enables the mouse. Asking the plain hit test
     /// meant no scroll frame in the interface was ever found under the cursor,
     /// so the wheel fell through to the camera and nothing scrolled.
@@ -918,7 +918,7 @@ private:
 
     /// A deque, not a vector, because get() hands out a pointer into this and
     /// create() grows it. A vector reallocates, and any pointer taken before a
-    /// create would dangle after one — a use-after-free waiting on the first
+    /// create would dangle after one - a use-after-free waiting on the first
     /// caller that holds a Widget* across creating a child. A deque keeps
     /// references valid when it grows, which is the guarantee this needs.
     float uiScale_ = 1.0f;
@@ -940,7 +940,7 @@ private:
     /// UIParent, but not quite everything: a frame declared at XML top level
     /// with no parent of its own is parentless in WoW, and that is load
     /// bearing. Opening the world map runs UIParent:Hide() and then shows the
-    /// map — so if the map is a child of UIParent it goes down with the rest
+    /// map - so if the map is a child of UIParent it goes down with the rest
     /// of the interface and nothing is left on screen. Dropdowns, tooltips and
     /// the cinematic frame have to outlive the same call.
     uint32_t rootId_ = 0;

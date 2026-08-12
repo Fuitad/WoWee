@@ -19,7 +19,7 @@ namespace game {
 // or the stack. Keep heap above 0x02000000 (32MB) to leave space for module + padding.
 constexpr uint32_t STACK_BASE = 0x00100000;  // 1MB
 constexpr uint32_t STACK_SIZE = 0x00100000;  // 1MB stack
-constexpr uint32_t HEAP_BASE  = 0x02000000;  // 32MB — well above typical module base (0x400000)
+constexpr uint32_t HEAP_BASE  = 0x02000000;  // 32MB - well above typical module base (0x400000)
 constexpr uint32_t HEAP_SIZE  = 0x01000000;  // 16MB heap
 constexpr uint32_t API_STUB_BASE = 0x70000000; // API stub area (high memory)
 
@@ -145,7 +145,7 @@ bool WardenEmulator::initialize(const void* moduleCode, size_t moduleSize, uint3
     // This allows execution to continue past NULL reads, making diagnostics easier.
     err = uc_mem_map(uc_, 0x0, 0x1000, UC_PROT_READ);
     if (err != UC_ERR_OK) {
-        // Non-fatal — just log it; the emulator will still function
+        // Non-fatal - just log it; the emulator will still function
         LOG_WARNING("WardenEmulator: could not map null guard page: ", uc_strerror(err));
     }
 
@@ -549,7 +549,7 @@ void WardenEmulator::hookCode(uc_engine* uc, uint64_t address, [[maybe_unused]] 
     if (!self) return;
 
     auto it = self->apiHandlers_.find(static_cast<uint32_t>(address));
-    if (it == self->apiHandlers_.end()) return; // not an API stub — trace disabled to avoid spam
+    if (it == self->apiHandlers_.end()) return; // not an API stub - trace disabled to avoid spam
 
     const ApiHookEntry& entry = it->second;
 
@@ -601,7 +601,7 @@ void WardenEmulator::hookMemInvalid([[maybe_unused]] uc_engine* uc, int type, ui
 }
 
 #else // !HAVE_UNICORN
-// Stub implementations — Unicorn Engine not available on this platform.
+// Stub implementations - Unicorn Engine not available on this platform.
 WardenEmulator::WardenEmulator()
     : uc_(nullptr), moduleBase_(0), moduleSize_(0)
     , stackBase_(0), stackSize_(0)

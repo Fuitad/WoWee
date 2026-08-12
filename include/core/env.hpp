@@ -1,7 +1,7 @@
 #pragma once
 
 /**
- * env.hpp — setting and clearing environment variables on every platform.
+ * env.hpp - setting and clearing environment variables on every platform.
  *
  * setenv and unsetenv are POSIX and do not exist on Windows, where the spelling
  * is _putenv_s. Three places had already written that #ifdef out by hand and a
@@ -10,7 +10,7 @@
  * failed CI there with "'::unsetenv' has not been declared".
  *
  * The hand-written branches also disagreed about what they were implementing.
- * POSIX setenv takes an overwrite flag and three call sites pass 0 — meaning
+ * POSIX setenv takes an overwrite flag and three call sites pass 0 - meaning
  * "only if it is not already set", which is how the client lets a variable the
  * player exported win over its own default. _putenv_s has no such flag and
  * always overwrites, so on Windows those defaults quietly took precedence over

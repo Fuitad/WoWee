@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""What the client answers for — the one place that decides.
+"""What the client answers for - the one place that decides.
 
 Seven sweeps each worked this out for themselves, and they disagreed. Most read
 only the C++ binding tables, which is between a third and a half of the answer:
@@ -9,7 +9,7 @@ a tool that cannot see those reports them as gaps.
 That is not hypothetical. `framexml_reachable_globals` reported
 GetNumStationeries as unbound and reachable from the mail frame. It has been
 answered by the counting table since long before, and acting on that report made
-things worse — binding it explicitly removed it from the missing-API report,
+things worse - binding it explicitly removed it from the missing-API report,
 which is the one thing that report exists to preserve. Meanwhile
 `framexml_element_readiness` had it right the whole time, because its
 `registered()` did read the bootstrap.
@@ -40,7 +40,7 @@ def globals_provided():
       * a C++ table entry, `{"Name", lua_Name}`
       * an explicit `lua_setglobal(L, "Name")`
       * a function defined in bootstrap Lua, which lives in C++ string
-        literals — `function Name(` and `function Name:`
+        literals - `function Name(` and `function Name:`
       * a name in a quoted list inside the bootstrap, which is how the counting
         table provides a zero for thirty-five names so that a nil never reaches
         a `for` limit
@@ -69,12 +69,12 @@ def widget_methods_provided():
     shims = set(re.findall(r'function\s+\w+\s*:\s*(\w+)\s*\(', src))
     # The region method table is built with a `set("Name", fn)` lambda rather
     # than a braced table, and fifty-seven names go on that way. Five of them
-    # were answered nowhere else and so read as unprovided — GetTextColor and
+    # were answered nowhere else and so read as unprovided - GetTextColor and
     # SetTextHeight among them, both of which had just been implemented. A
     # source of truth that cannot see one of the registration forms sends every
     # sweep that trusts it looking for gaps that are not there.
     region = set(re.findall(r'\bset\("([A-Za-z_]\w*)"', src))
-    # Several names per string literal — "SetMovable=1,SetNormalTexture=1,\n" —
+    # Several names per string literal - "SetMovable=1,SetNormalTexture=1,\n" -
     # so anchoring on the opening quote finds only the first of each and
     # under-counts the allowlist by four to one.
     allowlist = set(re.findall(r"\b([A-Za-z]\w*)=1", src))
@@ -94,7 +94,7 @@ def counting_table():
 
 
 def noop_widget_methods():
-    """Method names answered only by the no-op — which returns nothing.
+    """Method names answered only by the no-op - which returns nothing.
 
     The distinction the other sweeps do not draw. `widget_methods_provided`
     folds the allowlist in with the real ones, because for "does this raise
@@ -120,12 +120,12 @@ def _loop_built(src):
     assigns `mt['Set' .. slot]` and `mt['Get' .. slot]`, so twelve real methods
     appear nowhere as a literal. Reading only literals put GetNormalTexture,
     GetCheckedTexture and their neighbours in the no-op set, which is the
-    opposite of true — they are singled out for a real implementation *because*
+    opposite of true - they are singled out for a real implementation *because*
     the no-op was wrong for them, and the comment above the loop says so.
 
     Cross-product rather than exact: every affix used with a loop variable
     against every name in every list. Wider than the truth, and wide is the
-    safe direction here — a name wrongly called provided drops a row from a
+    safe direction here - a name wrongly called provided drops a row from a
     report, a name wrongly called missing sends someone to implement what
     already works.
     """

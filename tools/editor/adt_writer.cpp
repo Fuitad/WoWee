@@ -43,7 +43,7 @@ void ADTWriter::writeU16(std::vector<uint8_t>& buf, uint16_t val) {
 }
 
 void ADTWriter::writeFloat(std::vector<uint8_t>& buf, float val) {
-    // Reject NaN/inf — would silently turn into invisible terrain or
+    // Reject NaN/inf - would silently turn into invisible terrain or
     // off-map placements after the next ADT load.
     if (!std::isfinite(val)) val = 0.0f;
     uint32_t bits;
@@ -69,7 +69,7 @@ void ADTWriter::writeMVER(std::vector<uint8_t>& buf) {
 void ADTWriter::writeMHDR(std::vector<uint8_t>& buf, size_t& mhdrOffset) {
     mhdrOffset = buf.size();
     writeChunkHeader(buf, MHDR, 64);
-    // 16 uint32 fields — all zeros for now (offsets filled later if needed)
+    // 16 uint32 fields - all zeros for now (offsets filled later if needed)
     for (int i = 0; i < 16; i++) writeU32(buf, 0);
 }
 
@@ -177,7 +177,7 @@ void ADTWriter::writeMCNK(std::vector<uint8_t>& buf, const pipeline::MapChunk& c
     writeU32(buf, chunkY);
     writeU32(buf, static_cast<uint32_t>(chunk.layers.size()));
     writeU32(buf, 0); // nDoodadRefs
-    // Offsets within MCNK — filled with placeholder (parser uses sub-chunk magic scanning)
+    // Offsets within MCNK - filled with placeholder (parser uses sub-chunk magic scanning)
     for (int i = 0; i < 5; i++) writeU32(buf, 0); // ofsHeight, ofsNormal, ofsLayer, ofsRefs, ofsAlpha
     writeU32(buf, 0); // sizeAlpha
     writeU32(buf, 0); // ofsShadow
@@ -311,7 +311,7 @@ bool ADTWriter::writeWDT(const std::string& mapName, int tileX, int tileY,
     writeChunkHeader(buf, MVER, 4);
     writeU32(buf, 18);
 
-    // MPHD (map header — 32 bytes, all zeros = no special flags)
+    // MPHD (map header - 32 bytes, all zeros = no special flags)
     writeChunkHeader(buf, 0x4D504844, 32);
     for (int i = 0; i < 8; i++) writeU32(buf, 0);
 

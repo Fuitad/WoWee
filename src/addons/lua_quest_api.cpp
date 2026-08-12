@@ -1,4 +1,4 @@
-// lua_quest_api.cpp — Quest log, skills, talents, glyphs, and achievements Lua API bindings.
+// lua_quest_api.cpp - Quest log, skills, talents, glyphs, and achievements Lua API bindings.
 // Extracted from lua_engine.cpp as part of §5.1 (Tame LuaEngine).
 #include "addons/lua_api_helpers.hpp"
 #include "addons/lua_engine.hpp"
@@ -18,7 +18,7 @@ namespace wowee::addons {
 // ── The quest log is a list of headers with quests under them ───────────────
 //
 // WoW's quest log is grouped: a zone header, the quests in that zone, the next
-// header, and so on — and every index-taking quest function counts the headers
+// header, and so on - and every index-taking quest function counts the headers
 // as rows. This log was flat, so it listed 23 quests in server order with no
 // grouping at all, ExpandQuestHeader/CollapseQuestHeader were no-ops, and
 // GetQuestLogTitle answered false for isHeader on every row.
@@ -42,7 +42,7 @@ struct QuestRow {
 };
 
 /// Headers the player has collapsed, by group key. Interface state, so it lives
-/// here rather than in the model — and it is deliberately not persisted, which
+/// here rather than in the model - and it is deliberately not persisted, which
 /// is what WoW does with a fresh session too.
 std::set<int32_t>& collapsedQuestGroups() {
     static std::set<int32_t> collapsed;
@@ -65,7 +65,7 @@ std::string questGroupTitle(game::GameHandler* gh, int32_t group) {
 }
 
 /// The display list: one row per header, then the rows of its quests unless the
-/// header is collapsed. Rebuilt per call — the log holds tens of entries, and a
+/// header is collapsed. Rebuilt per call - the log holds tens of entries, and a
 /// cache here would have to be invalidated by every quest update, every query
 /// response and every collapse.
 std::vector<QuestRow> questRows(game::GameHandler* gh) {
@@ -81,7 +81,7 @@ std::vector<QuestRow> questRows(game::GameHandler* gh) {
     }
 
     // Zones first and in name order, then the QuestSort groups (Epic, class,
-    // profession), then the not-yet-known ones — which is the order the real
+    // profession), then the not-yet-known ones - which is the order the real
     // log reads in, and stable so the list does not reshuffle under the cursor
     // as query responses land.
     struct Group { int32_t key; std::string title; int rank; };
@@ -136,7 +136,7 @@ const game::GameHandler::QuestLogEntry* questAtLogRow(game::GameHandler* gh, int
 static int lua_GetNumQuestLogEntries(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (!gh) { lua_pushnumber(L, 0); lua_pushnumber(L, 0); return 2; }
-    // numEntries counts the rows the log displays — headers included, and the
+    // numEntries counts the rows the log displays - headers included, and the
     // quests under a collapsed header excluded, because that is what the frame
     // walks with GetQuestLogTitle.
     lua_pushnumber(L, questRows(gh).size());
@@ -178,8 +178,8 @@ static const game::GameHandler::QuestLogEntry* selectedLogEntry(game::GameHandle
 
 // Whether the quest being looked at has been failed.
 //
-// The quest slot's state field carries it beside completion — the server names
-// the two bits QUEST_STATE_COMPLETE and QUEST_STATE_FAIL — and the field was
+// The quest slot's state field carries it beside completion - the server names
+// the two bits QUEST_STATE_COMPLETE and QUEST_STATE_FAIL - and the field was
 // already being read for the first of them.
 static int lua_IsCurrentQuestFailed(lua_State* L) {
     auto* gh = getGameHandler(L);
@@ -190,16 +190,16 @@ static int lua_IsCurrentQuestFailed(lua_State* L) {
 
 // The spell, title and faction rewards a quest can carry. The query response
 // this client parses parses none of them, and each is asked behind `if ( ... )`
-// before its block is drawn — so nil leaves the block out rather than drawing
+// before its block is drawn - so nil leaves the block out rather than drawing
 // an empty one.
-// GetRewardSpell() — the quest *giver's* reward spell.
+// GetRewardSpell() - the quest *giver's* reward spell.
 //
 // The offer's own, not the log's: the panel asking this is showing a quest
 // being offered, which is usually not the one selected in the log, so the log
 // form cannot stand in for it.
 //
 // It answered nil because the details packet was not read this far. It is now
-// — four fields past the XP — so a quest that teaches a recipe shows what it
+// - four fields past the XP - so a quest that teaches a recipe shows what it
 // teaches. Same four values and same three flags as the log form beside it.
 static int lua_GetQuestRewardSpell(lua_State* L) {
     auto* gh = getGameHandler(L);
@@ -225,7 +225,7 @@ static int lua_GetQuestRewardTitle(lua_State* L) {
     if (!gh) { return luaReturnNil(L); }
     // The offer panel (GetRewardTitle) and the log panel (GetQuestLogRewardTitle)
     // share this; read whichever is open, the offer's own title id when it is,
-    // else the selected log quest's — the log selection is not the offer's.
+    // else the selected log quest's - the log selection is not the offer's.
     uint32_t titleId = 0;
     if (gh->isQuestOfferRewardOpen()) {
         titleId = gh->getQuestOfferReward().rewardTitleId;
@@ -253,7 +253,7 @@ static const game::QuestHandler::QuestLogEntry* selectedQuestForReward(game::Gam
     if (index < 1 || index > static_cast<int>(log.size())) return nullptr;
     return &log[static_cast<size_t>(index - 1)];
 }
-// The reputation reward slots for whichever panel is open — the offer's own
+// The reputation reward slots for whichever panel is open - the offer's own
 // when it is up, the selected log quest's otherwise (same reason as the title:
 // the log selection is not the offered quest). Copied into a common shape so
 // the two source structs, identical in fields, are read the same way.
@@ -290,12 +290,12 @@ static int lua_GetQuestLogRewardFactionInfo(lua_State* L) {
     return 2;
 }
 
-// GetFactionInfoByID(id) — the same thirteen values GetFactionInfo gives by
+// GetFactionInfoByID(id) - the same thirteen values GetFactionInfo gives by
 // position, found by faction id instead. The reputation list carries the id
 // already.
 //
 // This used to answer a name and five nils. The quest reward panel reads the
-// ninth and eleventh — isHeader and hasRep — to decide whether to print a
+// ninth and eleventh - isHeader and hasRep - to decide whether to print a
 // reputation line, and got nil for both; it survived only because `not nil` is
 // true and the test happens to fall the right way.
 static int lua_GetFactionInfoByID(lua_State* L) {
@@ -337,14 +337,14 @@ static int lua_GetQuestWatchIndex(lua_State* L) {
 // caller reads it as "did anything move" and rebuilds the tracker when it did.
 static int lua_SortQuestWatches(lua_State* L) { lua_pushboolean(L, 0); return 1; }
 
-// ShiftQuestWatches(from, to) — reorder the list by hand. Nothing is stored to
+// ShiftQuestWatches(from, to) - reorder the list by hand. Nothing is stored to
 // reorder, so dragging a tracker entry leaves it where the log puts it.
 static int lua_ShiftQuestWatches(lua_State* L) { (void)L; return 0; }
 
 // GetQuestSortIndex(questLogIndex) → the header the quest sits under.
 //
-// Nil: this quest log has no headers — GetQuestLogTitle answers false for
-// isHeader on every row — so there is no header index to give and nothing for
+// Nil: this quest log has no headers - GetQuestLogTitle answers false for
+// isHeader on every row - so there is no header index to give and nothing for
 // the caller to expand.
 static int lua_GetQuestSortIndex(lua_State* L) { (void)L; return luaReturnNil(L); }
 
@@ -352,11 +352,11 @@ static int lua_GetQuestSortIndex(lua_State* L) { (void)L; return luaReturnNil(L)
 //
 // Whether the quest item's target is close enough to use it on. Nothing here
 // knows an item's range, and nil is the answer that hides the range indicator
-// rather than colouring it wrongly — WatchFrameItem_OnUpdate takes the third
+// rather than colouring it wrongly - WatchFrameItem_OnUpdate takes the third
 // branch and hides the count text.
 static int lua_IsQuestLogSpecialItemInRange(lua_State* L) { (void)L; return luaReturnNil(L); }
 
-// UseQuestLogSpecialItem(questLogIndex) — clicking that button.
+// UseQuestLogSpecialItem(questLogIndex) - clicking that button.
 //
 // By slot rather than by item id, for the same reason UseContainerItem is:
 // searching by id can find a different stack of the same thing.
@@ -369,7 +369,7 @@ static int lua_UseQuestLogSpecialItem(lua_State* L);
 //
 // The item's cooldown is its on-use spell's, the same relationship the bag
 // buttons read. This answered a flat zero, so a quest item just used was drawn
-// ready again — and WatchFrameItem_UpdateCooldown runs on every
+// ready again - and WatchFrameItem_UpdateCooldown runs on every
 // BAG_UPDATE_COOLDOWN, so it had something to ask and nothing to hear.
 static int lua_GetQuestLogSpecialItemCooldown(lua_State* L) {
     auto* gh = getGameHandler(L);
@@ -388,12 +388,12 @@ static int lua_GetQuestLogSpecialItemCooldown(lua_State* L) {
     return 3;
 }
 
-// GetQuestTimers() — the seconds left on each timed quest, as separate values.
+// GetQuestTimers() - the seconds left on each timed quest, as separate values.
 //
 // QuestTimerFrame counts them with select("#", ...) and reads them with
 // select(i, ...), so the count is the return count. Returning nothing is the
 // honest answer for a log with no timed quest in it, and the frame hides
-// itself — which it could not do while this was missing, because the OnEvent
+// itself - which it could not do while this was missing, because the OnEvent
 // that calls it runs on every QUEST_LOG_UPDATE.
 static int lua_GetQuestTimers(lua_State* L) {
     auto* gh = getGameHandler(L);
@@ -408,7 +408,7 @@ static int lua_GetQuestTimers(lua_State* L) {
     return static_cast<int>(timers.size());
 }
 
-// GetQuestIndexForTimer(i) — the quest log index the i-th timer belongs to,
+// GetQuestIndexForTimer(i) - the quest log index the i-th timer belongs to,
 // so clicking a timer row selects its quest.
 static int lua_GetQuestIndexForTimer(lua_State* L) {
     auto* gh = getGameHandler(L);
@@ -472,14 +472,14 @@ static int lua_GetQuestLogTitle(lua_State* L) {
     // can shrink the log under a count the frame still holds, so an index it
     // believes valid comes back past the end. In colourblind mode the very next
     // line is `title = "["..level.."] "..title`, and a nil title raised there
-    // and tore down the whole redraw — which is what left the list a mess. An
+    // and tore down the whole redraw - which is what left the list a mess. An
     // empty title concatenates cleanly and the row corrects itself on the next
     // pass; a raise does not.
     //
     // The low end too, not just the high: the button loop guards only the upper
     // bound (`if questIndex <= numEntries`), so a scroll offset that drives the
     // index to zero or below still reaches here and hit `"  "..title` at a nil
-    // — the questlogframe.lua:430 raise seen driving the log headlessly. The
+    // - the questlogframe.lua:430 raise seen driving the log headlessly. The
     // `if title` callers all iterate 1..numEntries and never reach a low index,
     // so an empty row here changes nothing for them.
     const game::GameHandler::QuestLogEntry* qp =
@@ -509,7 +509,7 @@ static int lua_GetQuestLogTitle(lua_State* L) {
     // received the quest id, which is a large number and therefore true, so
     // every quest in the log was marked daily; and questID arrived nil.
     lua_pushstring(L, q.title.c_str());  // 1: title
-    // The level is tracked — the query response carries it — and was being
+    // The level is tracked - the query response carries it - and was being
     // answered as a flat zero beside a comment saying it was not.
     lua_pushnumber(L, q.level);          // 2: level
     lua_pushnil(L);                      // 3: questTag ("Elite", "PvP", …)
@@ -557,7 +557,7 @@ static int lua_GetQuestLogQuestText(lua_State* L) {
     const auto& q = *qp;
     // The quest giver's own text. It is the third string in the query
     // response and the parser already walked over it to reach the fifth, so
-    // "not stored" was true only of the store — the bytes were in hand and
+    // "not stored" was true only of the store - the bytes were in hand and
     // discarded, and the quest log drew a blank panel above every objective
     // list because of it.
     lua_pushstring(L, q.description.c_str());  // description
@@ -580,7 +580,7 @@ static int lua_IsQuestComplete(lua_State* L) {
     return 1;
 }
 
-// SelectQuestLogEntry(index) — select a quest in the quest log
+// SelectQuestLogEntry(index) - select a quest in the quest log
 static int lua_SelectQuestLogEntry(lua_State* L) {
     auto* gh = getGameHandler(L);
     int index = static_cast<int>(luaL_checknumber(L, 1));
@@ -590,7 +590,7 @@ static int lua_SelectQuestLogEntry(lua_State* L) {
     //
     // A quest accepted this session carries its description from the offer
     // packet, but a quest already in the log at login comes with only its id,
-    // title and objectives — the description is never sent with the log and
+    // title and objectives - the description is never sent with the log and
     // has to be asked for. Selecting the entry is when the panel wants it, and
     // nothing had ever requested it, so every quest carried from a previous
     // session showed an empty description above its objectives. The query
@@ -622,7 +622,7 @@ static const game::QuestHandler::QuestLogEntry* selectedQuest(game::GameHandler*
 // GetQuestLogPushable() → whether the selected quest may be offered to the party.
 //
 // Yes for any real selection. Which quests the server will actually share is a
-// flag on the quest, and no packet this client parses carries it — so the
+// flag on the quest, and no packet this client parses carries it - so the
 // choice is between offering the attempt and letting the server refuse, or
 // never offering it at all. The button is disabled without this, and sharing
 // works, so silence would be the more misleading answer of the two.
@@ -632,7 +632,7 @@ static int lua_GetQuestLogPushable(lua_State* L) {
 }
 
 // GetQuestLogRewardXP() → the experience the reward panel shows for the
-// selected quest. It is in no packet — the client derives it from QuestXP.dbc
+// selected quest. It is in no packet - the client derives it from QuestXP.dbc
 // at the quest's level and the XP-difficulty index the query carried, which is
 // what this now does. Zero (the old hard-coded answer) hid the reward line on
 // every quest; a real value restores "You will receive N experience."
@@ -644,7 +644,7 @@ static int lua_GetQuestLogRewardXP(lua_State* L) {
     return 1;
 }
 
-// Honor, talent points and arena points a quest awards — direct values the
+// Honor, talent points and arena points a quest awards - direct values the
 // query response carries, and hard zeros before, on a stale "not in any quest
 // packet" comment. WotLK-only, so classic/TBC keep zero until their layout is
 // read off a serializer.
@@ -664,7 +664,7 @@ static int lua_GetQuestLogRewardArenaPoints(lua_State* L) {
     return 1;
 }
 
-// QuestLogPushQuest() — offer the selected quest to the party.
+// QuestLogPushQuest() - offer the selected quest to the party.
 static int lua_QuestLogPushQuest(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (const auto* quest = selectedQuest(gh)) {
@@ -687,7 +687,7 @@ static int lua_GetQuestIndexForWatch(lua_State* L) {
     int watchIdx = static_cast<int>(luaL_checknumber(L, 1));
     if (!gh || watchIdx < 1) { return luaReturnNil(L); }
     // The index this answers is a quest log index, and a quest log index now
-    // counts header rows — so it has to be found in the display list rather
+    // counts header rows - so it has to be found in the display list rather
     // than by counting through getQuestLog(). Answering the raw log position
     // pointed the watch frame at whatever row happened to hold that number,
     // which after grouping is usually a different quest or a header.
@@ -708,7 +708,7 @@ static int lua_GetQuestIndexForWatch(lua_State* L) {
     return 1;
 }
 
-// AddQuestWatch(questLogIndex) — add a quest to the watch list
+// AddQuestWatch(questLogIndex) - add a quest to the watch list
 static int lua_AddQuestWatch(lua_State* L) {
     auto* gh = getGameHandler(L);
     int index = static_cast<int>(luaL_checknumber(L, 1));
@@ -719,7 +719,7 @@ static int lua_AddQuestWatch(lua_State* L) {
     return 0;
 }
 
-// RemoveQuestWatch(questLogIndex) — remove a quest from the watch list
+// RemoveQuestWatch(questLogIndex) - remove a quest from the watch list
 static int lua_RemoveQuestWatch(lua_State* L) {
     auto* gh = getGameHandler(L);
     int index = static_cast<int>(luaL_checknumber(L, 1));
@@ -782,7 +782,7 @@ static int lua_GetQuestLogLeaderBoard(lua_State* L);
 // ── Quest points of interest ───────────────────────────────────────────────
 //
 // The map's quest markers. The server sends these as SMSG_QUEST_POI and this
-// client already keeps them — it draws its own markers from the same list — so
+// client already keeps them - it draws its own markers from the same list - so
 // FrameXML's world map can read the real thing rather than an empty one.
 //
 // WoW numbers them by "visible index", which is a position in the list of
@@ -806,8 +806,8 @@ static std::vector<uint32_t> questsWithPois(game::GameHandler* gh) {
 /// QuestMapUpdateAllQuests() → how many quests have a marker on the map.
 ///
 /// Both a verb and a question in the real client: it refreshes the POI set and
-/// answers how many there are. There is nothing to refresh here — the list is
-/// whatever the server last sent — so this is the answer alone.
+/// answers how many there are. There is nothing to refresh here - the list is
+/// whatever the server last sent - so this is the answer alone.
 ///
 /// It was not bound at all, and WatchFrame_GetCurrentMapQuests reads it
 /// straight into `for i = 1, numQuests`. A nil limit there is not an empty
@@ -824,7 +824,7 @@ static int lua_QuestMapUpdateAllQuests(lua_State* L) {
 /// Both, because the world map uses the second to reach everything else about
 /// the quest: `if ( questLogIndex and questLogIndex > 0 )` gates the whole
 /// block that builds the map's quest list, and with only one value returned
-/// that gate never opened — so the list was always empty, quietly, with no
+/// that gate never opened - so the list was always empty, quietly, with no
 /// error to say why.
 static int lua_QuestPOIGetQuestIDByVisibleIndex(lua_State* L) {
     auto* gh = getGameHandler(L);
@@ -838,7 +838,7 @@ static int lua_QuestPOIGetQuestIDByVisibleIndex(lua_State* L) {
     const uint32_t questId = ids[static_cast<size_t>(index - 1)];
     lua_pushnumber(L, questId);
     // Where that quest sits in the log, counted as Lua counts. A marker can
-    // outlive the log entry — the server sends POIs separately — so a quest
+    // outlive the log entry - the server sends POIs separately - so a quest
     // that is no longer held answers zero rather than a stale position.
     int logIndex = 0;
     if (gh) {
@@ -881,7 +881,7 @@ static int lua_QuestPOIGetIconInfo(lua_State* L) {
     lua_pushnumber(L, best->y);
     // The fourth value the API names: which objective this marker belongs to.
     // The client has carried it all along as questObjectiveIndex, where -1
-    // means the quest itself rather than one of its lines — which is nil here,
+    // means the quest itself rather than one of its lines - which is nil here,
     // because that is what "not an objective" is in Lua and a zero would be a
     // real objective number.
     if (best->questObjectiveIndex < 0) lua_pushnil(L);
@@ -890,12 +890,12 @@ static int lua_QuestPOIGetIconInfo(lua_State* L) {
 }
 
 /// The markers arrive with the server's own updates, so there is nothing to
-/// refresh on demand — but the map asks before drawing and expects the call to
+/// refresh on demand - but the map asks before drawing and expects the call to
 /// exist.
 static int lua_QuestPOIUpdateIcons(lua_State* L) { (void)L; return 0; }
 
 /// GetQuestPOILeaderBoard(objectiveIndex, questId) → the objective's text and
-/// counts, the same as the quest log's version — except that this one is given
+/// counts, the same as the quest log's version - except that this one is given
 /// a quest id where that one takes a log index. Aliasing the two would look
 /// right and read the wrong quest, so the id is turned into an index here.
 static int lua_GetQuestPOILeaderBoard(lua_State* L) {
@@ -975,7 +975,7 @@ static int lua_GetQuestLogLeaderBoard(lua_State* L) {
     return 1;
 }
 
-// ExpandQuestHeader(index) / CollapseQuestHeader(index) — fold a zone away.
+// ExpandQuestHeader(index) / CollapseQuestHeader(index) - fold a zone away.
 //
 // The index is a display index naming a header row, and zero means every header
 // at once, which is what the log's own "collapse all" does. Anything that is
@@ -998,7 +998,7 @@ static int setQuestHeaderCollapsed(lua_State* L, bool collapse) {
         else          collapsedQuestGroups().erase(rows[index - 1].group);
     }
     // The list the frame is walking just changed length underneath it, so it
-    // has to be told to walk it again — nothing else fires for this.
+    // has to be told to walk it again - nothing else fires for this.
     gh->fireAddonEvent("QUEST_LOG_UPDATE", {});
     return 0;
 }
@@ -1052,8 +1052,8 @@ static int lua_UseQuestLogSpecialItem(lua_State* L) {
 /// The player's skills in the order the list shows them: by name.
 ///
 /// They live in an unordered_map, and the skill list used to be read out of it
-/// by counting to the asked-for position. That order is arbitrary — the list
-/// came out in no order a player could recognise — and worse, it is not fixed:
+/// by counting to the asked-for position. That order is arbitrary - the list
+/// came out in no order a player could recognise - and worse, it is not fixed:
 /// learning a skill inserts, inserting can rehash, and rehashing reorders a
 /// list already drawn under a selection held as an index. The skill being
 /// looked at would quietly become a different one.
@@ -1078,7 +1078,7 @@ static std::vector<uint32_t> skillOrder(game::GameHandler* gh) {
 /// One drawn line of the skills tab: a heading, or a skill under one.
 ///
 /// The tab is a flat list with a heading row every so often, exactly like the
-/// reputation panel — GetSkillLineInfo answers `header` and `isExpanded` for
+/// reputation panel - GetSkillLineInfo answers `header` and `isExpanded` for
 /// each row, and a closed heading takes its skills out of the list rather than
 /// hiding them in place, because GetNumSkillLines is what the scroll frame
 /// counts.
@@ -1129,7 +1129,7 @@ static std::vector<SkillRow> skillRows(game::GameHandler* gh) {
 // opened on nothing however many pets were in it.
 //
 // Slot 0 is the pet that is out, and 1 upwards are the ones stabled. That is
-// the interface's numbering, not this client's — the pets arrive in one list
+// the interface's numbering, not this client's - the pets arrive in one list
 // with a flag saying which is active.
 namespace {
 
@@ -1138,7 +1138,7 @@ namespace {
 /// Achievement.dbc names an icon by SpellIcon.dbc id and the loader has been
 /// caching that id all along; the two bindings that answer an icon were pushing
 /// a constant path and the raw id respectively, so every achievement in the
-/// panel wore the same picture. The resolver was already here — the spellbook's
+/// panel wore the same picture. The resolver was already here - the spellbook's
 /// tabs use it for the icons SkillLine.dbc names the same way.
 ///
 /// The generic one stays as the fallback: eighty-seven of the 1817 rows name no
@@ -1188,7 +1188,7 @@ int& selectedStableSlot() {
 // answer something and an empty one must answer nil.
 //
 // Family and talent tree are blank. They come from the creature's family, and
-// the stable packet carries the creature entry without it — this client's own
+// the stable packet carries the creature entry without it - this client's own
 // stable window shows a name and a level for the same reason.
 static int lua_GetStablePetInfo(lua_State* L) {
     auto* gh = getGameHandler(L);
@@ -1248,7 +1248,7 @@ static int lua_ClickStablePet(lua_State* L) {
 //
 // Both come from the creature's family. This client learns a family from
 // SMSG_CREATURE_QUERY_RESPONSE, which only ever arrives for creatures it has
-// seen — and a stabled pet is by definition not in the world, so its family is
+// seen - and a stabled pet is by definition not in the world, so its family is
 // never known. Mapping a family to a diet would need CreatureFamily.dbc on top
 // of that, whose field layout does not read cleanly enough to trust.
 //
@@ -1264,7 +1264,7 @@ static int lua_GetPetIcon(lua_State* L) {
 static int lua_GetPetTalentTree(lua_State* L) { return luaReturnNil(L); }
 static int lua_GetPetFoodTypes(lua_State* L)  { return luaReturnNil(L); }
 
-/// SetPetStablePaperdoll(model) — put the selected pet in the preview frame.
+/// SetPetStablePaperdoll(model) - put the selected pet in the preview frame.
 ///
 /// This was a deliberate no-op on the reading that there was no path putting
 /// an arbitrary creature in a model frame. There is one now: the portraits
@@ -1272,8 +1272,8 @@ static int lua_GetPetFoodTypes(lua_State* L)  { return luaReturnNil(L); }
 /// lookup turns a creature's display id into one.
 ///
 /// The slot is the window's own state, held beside ClickStablePet. The list the
-/// server sent carries a creature *template entry* — there is no display id on
-/// that wire at all — so it is resolved here, at the read, rather than stored
+/// server sent carries a creature *template entry* - there is no display id on
+/// that wire at all - so it is resolved here, at the read, rather than stored
 /// converted: the resolution asks the server the first time and answers zero
 /// until the reply lands, and a value frozen at parse time would keep that zero
 /// for the life of the window. What is written is the display id; the render
@@ -1301,7 +1301,7 @@ static int lua_SetPetStablePaperdoll(lua_State* L) {
     return 0;
 }
 
-/// PickupStablePet(slot) — start dragging a pet between stable slots.
+/// PickupStablePet(slot) - start dragging a pet between stable slots.
 ///
 /// Also a deliberate no-op. Moving a pet by dragging needs a cursor that can
 /// hold one, and this client's cursor holds items and spells; the buttons the
@@ -1310,7 +1310,7 @@ static int lua_SetPetStablePaperdoll(lua_State* L) {
 /// operation.
 static int lua_PickupStablePet(lua_State* L) { (void)L; return 0; }
 
-/// GetStablePetFoodTypes(slot) — and the one that cannot answer nil.
+/// GetStablePetFoodTypes(slot) - and the one that cannot answer nil.
 ///
 /// Its result goes straight into format(PET_DIET_TEMPLATE,
 /// BuildListString(...)) with no test in between. BuildListString hands nil
@@ -1339,7 +1339,7 @@ static int lua_IsAtStableMaster(lua_State* L) {
 //
 // Zero, because the server never says. It reaches a money frame, which divides
 // it into gold and silver the moment the window opens, so it has to be a number
-// — and a made-up price shown as though the server had quoted it is worse than
+// - and a made-up price shown as though the server had quoted it is worse than
 // a visible nothing.
 static int lua_GetNextStableSlotCost(lua_State* L) {
     lua_pushnumber(L, 0);
@@ -1379,7 +1379,7 @@ static int lua_GetSkillLineInfo(lua_State* L) {
     // An index with no skill behind it answers as an empty skill rather than a
     // single nil. SkillFrame_UpdateSkills passes GetSelectedSkill() straight in
     // and adds two of the results together on the next line, and before the
-    // server has sent any skills there is nothing selected — so a bare nil
+    // server has sent any skills there is nothing selected - so a bare nil
     // there is arithmetic on nothing and the file is lost. An empty row is the
     // truthful answer and it costs no more than a blank line in the list.
     // Short-circuit rather than a ternary: binding a reference across both arms
@@ -1405,7 +1405,7 @@ static int lua_GetSkillLineInfo(lua_State* L) {
     const auto& row = rows[static_cast<size_t>(index) - 1];
     if (row.isHeader) {
         // A heading carries its name and its open/closed state and nothing
-        // else. The costs stay nil for the same reason they are nil below —
+        // else. The costs stay nil for the same reason they are nil below -
         // zero is true in Lua and would send the heading down the
         // "Learn <skill>" branch.
         lua_pushstring(L, gh->getSkillCategoryName(row.categoryId).c_str());
@@ -1445,8 +1445,8 @@ static int lua_GetSkillLineInfo(lua_State* L) {
     //     else                                            -- an ordinary skill
     //
     // Zero is *true* in Lua, so the first branch always won and every row in
-    // the skills window was titled "Learn <skill>" — First Aid, Axes, Cooking,
-    // everything — as though none of them were known.
+    // the skills window was titled "Learn <skill>" - First Aid, Axes, Cooking,
+    // everything - as though none of them were known.
     //
     // No purchase cost is tracked here, and nil is how the client says a skill
     // has none. With both nil and no temporary points, the third branch runs
@@ -1461,7 +1461,7 @@ static int lua_GetSkillLineInfo(lua_State* L) {
     // Returning twelve values left it nil, and SkillDetailFrame_SetStatusBar
     // feeds it straight into SetFormattedText(SKILL_DESCRIPTION, type, desc).
     // string.format raises on a nil %s, so the guarded SetFormattedText fell
-    // back to writing the format string itself — the lower half of the skills
+    // back to writing the format string itself - the lower half of the skills
     // window showed "%s %s" where the description belongs.
     lua_pushstring(L, gh->getSkillDescription(skill.skillId).c_str());  // 13
     return 13;
@@ -1474,7 +1474,7 @@ static int lua_GetSkillLineInfo(lua_State* L) {
 ///
 /// Every talent binding takes an `inspect` flag that this client ignored, so
 /// the inspect talent tab enumerated the viewer's own class tabs and read the
-/// viewer's own ranks — the wrong tree under the target's name, rather than an
+/// viewer's own ranks - the wrong tree under the target's name, rather than an
 /// empty one. Zero means the inspect result has no class yet, in which case
 /// falling back to the player's is the only thing left to do.
 static uint8_t talentClassId(game::GameHandler* gh, bool inspect) {
@@ -1490,8 +1490,8 @@ static uint8_t talentClassId(game::GameHandler* gh, bool inspect) {
 ///
 /// Which tab is tab 1 is the whole of this: the interface asks for tabs by
 /// index and expects them in orderIndex order, and a tab list built any other
-/// way silently renames every tab. Four places worked it out for themselves —
-/// GetNumTalentTabs, GetTalentTabInfo, the talent lookup and resolveTalentId —
+/// way silently renames every tab. Four places worked it out for themselves -
+/// GetNumTalentTabs, GetTalentTabInfo, the talent lookup and resolveTalentId -
 /// and they agreed, which is luck rather than design in a file where the index
 /// conventions have bitten before.
 static std::vector<const game::GameHandler::TalentTabEntry*> classTalentTabs(
@@ -1522,8 +1522,8 @@ static int talentRankFor(game::GameHandler* gh, bool inspect, uint32_t talentId)
 
 /// The fourth argument asks for the *pet's* tree.
 ///
-/// Nothing here tracks pet talents — no packet fills them and no table holds
-/// them — and ignoring the argument answered out of the player's trees
+/// Nothing here tracks pet talents - no packet fills them and no table holds
+/// them - and ignoring the argument answered out of the player's trees
 /// instead, so a hunter's pet tab drew the hunter's own talents. Ten nils is
 /// the honest answer and leaves the tab empty; talentframebase treats a nil
 /// name as "no talent here", which is what it is.
@@ -1577,9 +1577,9 @@ static int lua_GetTalentTabInfo(lua_State* L) {
         if (entry && entry->tabId == tab->tabId) pointsSpent += rank;
     }
     // Points staged in the preview but not yet learned, for this tab. The
-    // talent frame adds this to the spent count without checking it —
+    // talent frame adds this to the spent count without checking it -
     //     local displayPointsSpent = pointsSpent + previewPointsSpent;
-    // — in a loop over every tab, so leaving it out took the whole frame down
+    // - in a loop over every tab, so leaving it out took the whole frame down
     // as it opened rather than merely showing the wrong total.
     // Staged points are the viewer part-way through spending their own; they
     // have no meaning on someone else's tree.
@@ -1636,7 +1636,7 @@ static uint32_t& pendingAbandonQuest() {
 /// by row and column.
 ///
 /// Shared rather than repeated, because two copies that drift disagree about
-/// which talent is fourth — and the prerequisite lines are drawn between
+/// which talent is fourth - and the prerequisite lines are drawn between
 /// positions, so a disagreement points an arrow at the wrong button rather than
 /// failing outright.
 // Not static: the tooltip setters in lua_engine.cpp ask the same question, and
@@ -1698,7 +1698,7 @@ static int lua_GetTalentInfo(lua_State* L) {
     }
     const auto* talent = talentAt(gh, tabIndex, talentIndex, talentClassId(gh, inspect));
     // Ten values, not eight. The frame reads previewRank into the rank it
-    // displays and then compares it against maxRank — as nil that is an error
+    // displays and then compares it against maxRank - as nil that is an error
     // rather than a blank, and it happens the moment points are staged, which
     // is how talents are spent at all.
     if (!talent) {
@@ -1734,7 +1734,7 @@ static int lua_GetTalentInfo(lua_State* L) {
 }
 
 /// The trainer panel's own selection and filters. The client has no opinion
-/// about either — they are what the player last clicked — so they live here
+/// about either - they are what the player last clicked - so they live here
 /// rather than being invented on every read.
 static int& tradeSkillSelection() {
     static int selected = 0;
@@ -1761,7 +1761,7 @@ static bool& tradeSkillOnlyMakeable() {
 /// The recipes the panel should show, in its order.
 ///
 /// Returned by value, as getCraftingRecipes already was at every one of these
-/// call sites — the copy is the list, not an extra one.
+/// call sites - the copy is the list, not an extra one.
 /// The item a recipe makes, or null while its details are still being asked
 /// for. The spell cache carries createdItemId; the item query fills the rest.
 static const game::ItemQueryResponseData* craftedItem(game::GameHandler* gh,
@@ -1776,8 +1776,8 @@ static const game::ItemQueryResponseData* craftedItem(game::GameHandler* gh,
     return (info && info->valid) ? info : nullptr;
 }
 
-/// Which entry of each dropdown is picked. Both are single-select — the click
-/// handler calls Set…Filter(id - 1, 1, 1) and nothing ever unchecks — so this
+/// Which entry of each dropdown is picked. Both are single-select - the click
+/// handler calls Set…Filter(id - 1, 1, 1) and nothing ever unchecks - so this
 /// is an index rather than a set, and zero is the "all" row the list opens
 /// with.
 static int& tradeSkillSubClassPick() { static int pick = 0; return pick; }
@@ -1785,7 +1785,7 @@ static int& tradeSkillInvSlotPick()  { static int pick = 0; return pick; }
 
 /// The item level range typed into the search box. The box does double duty:
 /// a number, a range "20-30" or an approximate "~25" filters by the level of
-/// what a recipe makes, and anything else filters by name — the panel decides
+/// what a recipe makes, and anything else filters by name - the panel decides
 /// which and calls one of the two, clearing the other. Both zero means no
 /// range, which is how it clears this one.
 static std::pair<int, int>& tradeSkillLevelRange() {
@@ -1794,7 +1794,7 @@ static std::pair<int, int>& tradeSkillLevelRange() {
 }
 
 /// The two dropdown lists, built from every known recipe rather than from the
-/// filtered ones — a list that shrank as it was filtered would renumber itself
+/// filtered ones - a list that shrank as it was filtered would renumber itself
 /// under the selection, and the selection is an index into it.
 static std::vector<std::string> tradeSkillSubClasses(game::GameHandler* gh) {
     std::vector<std::string> out;
@@ -1810,7 +1810,7 @@ static std::vector<std::string> tradeSkillSubClasses(game::GameHandler* gh) {
 }
 
 /// The equipment slots the recipes make something for, by the same labels the
-/// auction house filters by — one table for both rather than a second list of
+/// auction house filters by - one table for both rather than a second list of
 /// slot names that could drift from it.
 static std::vector<std::string> tradeSkillInvSlots(game::GameHandler* gh) {
     std::vector<std::string> out;
@@ -1888,8 +1888,8 @@ static std::vector<game::GameHandler::CraftRecipe> visibleCraftingRecipes(
 
 /// One drawn line of the crafting list: a subclass heading, or a recipe.
 ///
-/// Blizzard's own name for the verb says what the headings are —
-/// CollapseTradeSkillSubClass — and the subclass is the crafted item's, which
+/// Blizzard's own name for the verb says what the headings are -
+/// CollapseTradeSkillSubClass - and the subclass is the crafted item's, which
 /// is the same source the subclass filter dropdown beside the list is built
 /// from. One rule for both, so the headings and the filter cannot disagree.
 ///
@@ -1947,13 +1947,13 @@ static std::vector<TradeSkillRow> buildTradeSkillRows(game::GameHandler* gh) {
 /// The drawn rows, held still between the events that may change them.
 ///
 /// Every trade skill binding indexes into this list, and the frame reads it
-/// many times to draw one selection — GetNumTradeSkills for the count,
+/// many times to draw one selection - GetNumTradeSkills for the count,
 /// GetTradeSkillInfo for the row, GetTradeSkillReagentInfo for each reagent.
 /// Rebuilding it per call let it change shape *between* those reads, because
 /// its shape depends on data that arrives while they run: the headings come
 /// from the subclass of the item each recipe makes, craftedItem() asks for that
 /// item the first time it is missed, and the answer lands some frames later.
-/// So the list starts flat, and grows a heading — and one row — for each reply.
+/// So the list starts flat, and grows a heading - and one row - for each reply.
 ///
 /// The frame has no way to survive that. An index means a different recipe on
 /// either side of a reply, so the selection's own row read back as a heading:
@@ -1962,7 +1962,7 @@ static std::vector<TradeSkillRow> buildTradeSkillRows(game::GameHandler* gh) {
 /// row was drawn with a heading's expand box beside it.
 ///
 /// So the list is built once and held until something the player did is meant
-/// to change it — a filter, a heading opened or closed — or the game says the
+/// to change it - a filter, a heading opened or closed - or the game says the
 /// trade skill data itself moved. Late item info then lands at the next
 /// TRADE_SKILL_UPDATE rather than in the middle of a redraw.
 static std::vector<TradeSkillRow> tradeSkillRows(game::GameHandler* gh) {
@@ -1981,7 +1981,7 @@ void invalidateTradeSkillRows() { ++tradeSkillRowsGeneration(); }
 /// The recipe at a drawn-row index, or null for a heading or no such row.
 /// Every binding taking a trade skill index goes through this, because an
 /// index that lands on a heading must not be treated as the recipe that used
-/// to sit at that offset — DoTradeSkill would craft it.
+/// to sit at that offset - DoTradeSkill would craft it.
 static const game::GameHandler::CraftRecipe* tradeSkillRecipeAt(
         const std::vector<TradeSkillRow>& rows, int index) {
     if (index < 1 || index > static_cast<int>(rows.size())) return nullptr;
@@ -2036,7 +2036,7 @@ static bool trainerCategoryShowing(const char* category) {
     return it == filters.end() || it->second;
 }
 
-/// The trainer's list as the panel sees it — the services the filters leave.
+/// The trainer's list as the panel sees it - the services the filters leave.
 ///
 /// The filter was stored and read back and consulted by nothing, so ticking a
 /// box in the dropdown changed the tick and not the list. It has to be applied
@@ -2062,8 +2062,8 @@ static const game::TrainerSpell* shownTrainerService(game::GameHandler* gh, int 
 
 /// (tabIndex, talentIndex) → talent id, or 0.
 ///
-/// The same ordering GetTalentInfo reports by — tabs in orderIndex, talents by
-/// row then column — because the interface identifies a talent by its position
+/// The same ordering GetTalentInfo reports by - tabs in orderIndex, talents by
+/// row then column - because the interface identifies a talent by its position
 /// in that listing and nothing else.
 static uint32_t resolveTalentId(game::GameHandler* gh, int tabIndex, int talentIndex) {
     if (!gh || tabIndex < 1 || talentIndex < 1) return 0;
@@ -2121,7 +2121,7 @@ static int lua_AddPreviewTalentPoints(lua_State* L) {
     // And bounded by the points the player actually has. This was missing, so
     // a preview could stage more than were available and go on staging them:
     // GetUnspentTalentPoints subtracts the staged total and floors the answer
-    // at zero, which hid the overspend instead of stopping it — the counter sat
+    // at zero, which hid the overspend instead of stopping it - the counter sat
     // at 0 while every further click still took.
     //
     // Counted against every staged point rather than this talent's, because the
@@ -2147,7 +2147,7 @@ static int lua_AddPreviewTalentPoints(lua_State* L) {
 //                                 repeated once per prerequisite
 //
 // The frame draws a line from each prerequisite to the talent that needs it, so
-// the positions here have to be the same ones GetTalentInfo reports — 1-indexed
+// the positions here have to be the same ones GetTalentInfo reports - 1-indexed
 // row and column, from the same ordering.
 static int lua_GetTalentPrereqs(lua_State* L) {
     auto* gh = getGameHandler(L);
@@ -2199,12 +2199,12 @@ static int lua_ResetGroupPreviewTalentPoints(lua_State* L) {
     return 0;
 }
 
-// LearnPreviewTalents(pet) — commit the staged points
+// LearnPreviewTalents(pet) - commit the staged points
 static int lua_LearnPreviewTalents(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (!gh) return 0;
     // A copy, because learnTalent goes to the server and what comes back
-    // clears this map — iterating it while that happens is not safe.
+    // clears this map - iterating it while that happens is not safe.
     const auto staged = previewPoints();
     for (const auto& [id, n] : staged) {
         const uint8_t have = gh->getTalentRank(id);
@@ -2216,7 +2216,7 @@ static int lua_LearnPreviewTalents(lua_State* L) {
     return 0;
 }
 
-// LearnTalent(tabIndex, talentIndex, pet, group) — spend one point directly
+// LearnTalent(tabIndex, talentIndex, pet, group) - spend one point directly
 static int lua_LearnTalent(lua_State* L) {
     auto* gh = getGameHandler(L);
     // Pet talents are not modelled, and this is the argument that made that
@@ -2241,12 +2241,12 @@ static int lua_GetUnspentTalentPoints(lua_State* L) {
     // The frame subtracts the preview itself: TalentFrame_UpdateTalentPoints is
     // `GetUnspentTalentPoints() - GetGroupPreviewTalentPointsSpent()`. This
     // binding used to subtract the staged points as well, so every point
-    // clicked came off the counter twice — stage one and the "Talent Points"
+    // clicked came off the counter twice - stage one and the "Talent Points"
     // line dropped by two. The overspend that subtraction was meant to stop is
     // already stopped in AddPreviewTalentPoints, which bounds each stage by the
     // handler's own raw unspent minus what is already staged, so nothing here
     // needs to guard it. blizzard_talentui reads this raw too, to decide
-    // whether there are points left to commit — which must count the staged
+    // whether there are points left to commit - which must count the staged
     // ones, or the Learn controls vanish the moment the last point is staged.
     const int points = gh->getUnspentTalentPoints(spec);
     lua_pushnumber(L, points);
@@ -2339,8 +2339,8 @@ int countRewards(const Container* v) {
 /// The quest log entry the panel is showing, or null.
 static const game::GameHandler::QuestLogEntry* selectedLogEntry(game::GameHandler* gh) {
     if (!gh) return nullptr;
-    // The selected index is a display index — the log is grouped under zone
-    // headers and those are rows too — so it is resolved through the row list
+    // The selected index is a display index - the log is grouped under zone
+    // headers and those are rows too - so it is resolved through the row list
     // rather than subscripting getQuestLog(). Every reward binding reads the
     // selected quest through here, so getting it wrong shows one quest's
     // rewards beside another's text.
@@ -2350,7 +2350,7 @@ static const game::GameHandler::QuestLogEntry* selectedLogEntry(game::GameHandle
 // GetQuestLogRewardSpell() → texture, name, isTradeskillSpell, isSpellLearned
 //
 // Nil for every quest, and questinfo.lua gates the whole reward-spell row on
-// `if ( GetQuestLogRewardSpell() )` — so a quest that teaches a recipe or hands
+// `if ( GetQuestLogRewardSpell() )` - so a quest that teaches a recipe or hands
 // out a buff showed no sign of it, and the tooltip setter beside it had nothing
 // to describe. The spell is in SMSG_QUEST_QUERY_RESPONSE at the field between
 // two the reward parser already reads.
@@ -2400,7 +2400,7 @@ static int pushRewardAt(lua_State* L, game::GameHandler* gh,
 // suggests bringing
 //
 // QuestInfo assigns one of these and then tests `groupNum > 0`, so an absent
-// answer is an error rather than a quest that suggests nothing — and QuestInfo
+// answer is an error rather than a quest that suggests nothing - and QuestInfo
 // draws for the quest giver and the quest log both.
 //
 // The giver's packet carries the number. The log's does not, and zero is what
@@ -2409,7 +2409,7 @@ static int pushRewardAt(lua_State* L, game::GameHandler* gh,
 //
 // The quest log tests the first against zero before drawing the line at all, so
 // an absent answer is an error rather than a hidden line. Nothing here counts
-// dailies, and zero completed is what keeps the line hidden — which is the same
+// dailies, and zero completed is what keeps the line hidden - which is the same
 // thing the count would do if it were counting and found none.
 static int lua_GetDailyQuestsCompleted(lua_State* L) {
     lua_pushnumber(L, 0);
@@ -2536,9 +2536,9 @@ static int lua_GetQuestLogRequiredMoney(lua_State* L) {
 //
 // WoW's quest-giver functions do not name which quest they mean: GetTitleText
 // and the reward accessors serve the dialog and the quest log both, and answer
-// for whichever is in front. A dialog is in front while it is open — the
+// for whichever is in front. A dialog is in front while it is open - the
 // reward panel over the progress panel over the offer, in the order the server
-// walks a player through them — and the log's selection answers otherwise.
+// walks a player through them - and the log's selection answers otherwise.
 
 namespace {
 
@@ -2579,8 +2579,8 @@ int pushQuestText(lua_State* L, const std::string* s) {
     // Resolve WoW's in-text tokens against the player before the interface
     // sees the string.
     //
-    // These come off the wire as literals — $n for the player's name, $c for
-    // class, $r for race, $g male:female; for a gender-split phrase — and the
+    // These come off the wire as literals - $n for the player's name, $c for
+    // class, $r for race, $g male:female; for a gender-split phrase - and the
     // parser only ever turned $b into a line break, because it has no player
     // to resolve the rest against. So a quest that greeted "$n" showed the two
     // characters, and "$glad:lass;" showed its own markup. The binding is the
@@ -2648,7 +2648,7 @@ static int lua_GetRewardXP(lua_State* L) {
     lua_pushnumber(L, currentQuestSource(getGameHandler(L)).xp);
     return 1;
 }
-// The offer panel's honour, talents and arena points — the quest-giver twins of
+// The offer panel's honour, talents and arena points - the quest-giver twins of
 // GetQuestLogReward*, read from the offer packet (which carries all three after
 // the money and XP) rather than the query. Were hard zero.
 static int lua_GetRewardHonor(lua_State* L) {
@@ -2714,8 +2714,8 @@ static int lua_GetQuestItemInfo(lua_State* L) {
     const int index = static_cast<int>(luaL_optnumber(L, 2, 0));
     const QuestSource s = currentQuestSource(gh);
 
-    // Three lists, not two. "required" is what the *progress* page asks for —
-    // the items a quest wants handed in — and it was falling through to the
+    // Three lists, not two. "required" is what the *progress* page asks for -
+    // the items a quest wants handed in - and it was falling through to the
     // reward list, so turning in a quest showed what it would pay rather than
     // what it wanted.
     const std::string want(type);
@@ -2771,11 +2771,11 @@ static int lua_GetQuestItemLink(lua_State* L) {
     return luaReturnNil(L);
 }
 
-// GetQuestSpellLink(...) — the spell a quest gives, as a link.
+// GetQuestSpellLink(...) - the spell a quest gives, as a link.
 //
 // Nil, and deliberately: no quest packet this client parses carries a reward
 // spell, so there is nothing to name. The click handler passes whatever it
-// gets to HandleModifiedItemClick, which does nothing with nil — where a
+// gets to HandleModifiedItemClick, which does nothing with nil - where a
 // made-up link would put a spell in someone's chat that the quest does not
 // give.
 static int lua_GetQuestSpellLink(lua_State* L) {
@@ -2788,7 +2788,7 @@ void registerQuestLuaAPI(lua_State* L) {
                 // Whether a quest has been finished, ever.
                 //
                 // The client asks the server for this list on entering the
-                // world — CMSG_QUERY_QUESTS_COMPLETED — parses the reply into
+                // world - CMSG_QUERY_QUESTS_COMPLETED - parses the reply into
                 // completedQuests_ and keeps it there. Nothing could read it:
                 // the two names that ask, which every quest addon uses and
                 // which is how a quest giver knows to grey an offer out, were
@@ -2799,7 +2799,7 @@ void registerQuestLuaAPI(lua_State* L) {
             lua_pushboolean(L, (gh && id && gh->isQuestCompleted(id)) ? 1 : 0);
             return 1;
         }},
-                // GetQuestsCompleted([table]) — the whole set at once, keyed by
+                // GetQuestsCompleted([table]) - the whole set at once, keyed by
                 // quest id, which is the shape the caller indexes. Fills the
                 // table it is given, as WoW does, so a caller reusing one does
                 // not allocate per call.
@@ -2839,7 +2839,7 @@ void registerQuestLuaAPI(lua_State* L) {
                 {"GetQuestTimers",          lua_GetQuestTimers},
                 {"GetQuestIndexForTimer",   lua_GetQuestIndexForTimer},
                 {"GetQuestLogTitle",        lua_GetQuestLogTitle},
-                // IsUnitOnQuest(questIndex, unit) — whether that unit is also
+                // IsUnitOnQuest(questIndex, unit) - whether that unit is also
                 // on the quest, which the log prints as "[2]" beside an entry
                 // to say how many group mates share it.
                 //
@@ -2911,7 +2911,7 @@ void registerQuestLuaAPI(lua_State* L) {
             lua_pushstring(L, gh->getItemText().c_str());
             return 1;
         }},
-                // ItemTextGetItem() — the heading over the page. The page
+                // ItemTextGetItem() - the heading over the page. The page
                 // text response carries the words and the id of the page
                 // after it and nothing about what they belong to, so this is
                 // kept from wherever the book was opened: the game object's
@@ -2925,8 +2925,8 @@ void registerQuestLuaAPI(lua_State* L) {
             lua_pushstring(L, title.c_str());
             return 1;
         }},
-                // A page really has no author on this wire —
-                // SMSG_ITEM_TEXT_QUERY_RESPONSE is an id and the words — and
+                // A page really has no author on this wire -
+                // SMSG_ITEM_TEXT_QUERY_RESPONSE is an id and the words - and
                 // the frame drops the "from" line on a nil, which is honest
                 // where an invented name would not be.
                 {"ItemTextGetCreator",  [](lua_State* L) -> int { return luaReturnNil(L); }},
@@ -2938,7 +2938,7 @@ void registerQuestLuaAPI(lua_State* L) {
                 // words behind the page id.
                 //
                 // It names one of PageTextMaterial.dbc's seven backings, which
-                // is what itemtextframe wants — it picks both the frame's
+                // is what itemtextframe wants - it picks both the frame's
                 // texture and the text colour by that word, so every letter
                 // and tablet was drawn on parchment.
                 {"ItemTextGetMaterial", [](lua_State* L) -> int {
@@ -2954,7 +2954,7 @@ void registerQuestLuaAPI(lua_State* L) {
                 // A letter is one page and its buttons stay hidden. A book is
                 // as many as its chain has, all of them already fetched, so
                 // turning one is a move through what is in hand rather than a
-                // request — and the frame redraws on ITEM_TEXT_READY, which is
+                // request - and the frame redraws on ITEM_TEXT_READY, which is
                 // what makes the move visible.
                 {"ItemTextGetPage", [](lua_State* L) -> int {
             lua_pushnumber(L, bookPage() + 1);
@@ -2984,7 +2984,7 @@ void registerQuestLuaAPI(lua_State* L) {
                 {"CloseItemText", [](lua_State* L) -> int {
             if (auto* gh = getGameHandler(L)) {
                 gh->closeItemText();
-                // The pages go with the book, and so does the place in it —
+                // The pages go with the book, and so does the place in it -
                 // left behind, the next book opens at whatever page the last
                 // one was left on and shows nothing until it is paged back.
                 gh->clearBook();
@@ -3031,7 +3031,7 @@ void registerQuestLuaAPI(lua_State* L) {
                 {"GetSkillLineInfo",        lua_GetSkillLineInfo},
                 // Opening and closing a heading. The index is a position in
                 // the drawn rows, and a click on a skill row rather than a
-                // heading is ignored rather than refused — the tab calls these
+                // heading is ignored rather than refused - the tab calls these
                 // from the row label template whatever the row turns out to be.
                 {"ExpandSkillHeader",   [](lua_State* L) -> int {
             return skillHeaderSetCollapsed(L, false);
@@ -3082,7 +3082,7 @@ void registerQuestLuaAPI(lua_State* L) {
                 // quest it means, a confirmation shows its name, and only then
                 // is it abandoned. AbandonQuest therefore takes no argument in
                 // the interface, and requiring one raised a Lua error on every
-                // attempt — the id is accepted when given so anything already
+                // attempt - the id is accepted when given so anything already
                 // passing one keeps working.
                 {"SetAbandonQuest", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
@@ -3105,7 +3105,7 @@ void registerQuestLuaAPI(lua_State* L) {
                 // What is destroyed along with the quest. Nothing here knows
                 // which items a quest would take back, and an invented list
                 // would warn about items the player keeps.
-                // What abandoning the quest destroys, or nil for nothing —
+                // What abandoning the quest destroys, or nil for nothing -
                 // and nil is the load-bearing part. Both callers do
                 // `if ( items )` to choose between two popups, and an empty
                 // string is true in Lua, so answering "" always took the
@@ -3114,7 +3114,7 @@ void registerQuestLuaAPI(lua_State* L) {
                 //
                 // The quest's source item is the one the server takes back, and
                 // this client has stored it since the reward parser learned to
-                // read it — it even queries the item info for it on arrival.
+                // read it - it even queries the item info for it on arrival.
                 // Items gathered for the quest are not named: which of those
                 // the server destroys depends on flags this client does not
                 // parse, and listing the wrong ones is worse than listing none.
@@ -3196,7 +3196,7 @@ void registerQuestLuaAPI(lua_State* L) {
                 // How many items a quest wants handed in.
                 // QuestFrameProgressItems_Update reads it straight into
                 // `numRequiredItems > 0`, and comparing nil against a number
-                // raises — so opening the progress page of any quest that
+                // raises - so opening the progress page of any quest that
                 // takes items took the page down.
                 {"GetNumQuestItems", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
@@ -3213,7 +3213,7 @@ void registerQuestLuaAPI(lua_State* L) {
                 // That reason was "the only material this client has art for",
                 // and it is not: Data/interface/itemtextframe carries bronze,
                 // marble, silver, stone and valentine, and QuestFrame_GetMaterial
-                // builds exactly those names — Interface\ItemTextFrame\ItemText-
+                // builds exactly those names - Interface\ItemTextFrame\ItemText-
                 // <material>-TopLeft and its three corners. Parchment has no
                 // files because it is the frame's own art. The same set backs
                 // ItemTextGetMaterial, which does answer.
@@ -3229,7 +3229,7 @@ void registerQuestLuaAPI(lua_State* L) {
                 // opened it without being asked. Neither is parsed from the
                 // quest packets here, and false is what the interface does
                 // with an absent answer anyway.
-                // QuestFlagsPVP() — whether holding this quest forces the PvP
+                // QuestFlagsPVP() - whether holding this quest forces the PvP
                 // flag on. The accept button branches on it and puts up
                 // CONFIRM_ACCEPT_PVP_QUEST instead of accepting outright, so a
                 // flat false took a quest that flags you for PvP without
@@ -3269,7 +3269,7 @@ void registerQuestLuaAPI(lua_State* L) {
                 {"IsQuestCompletable",   lua_IsQuestCompletable},
                 {"GetQuestReward",       lua_GetQuestReward},
                 {"CloseQuest",           lua_CloseQuest},
-                // RemoveGlyphFromSocket(socket) — the Accept on the "remove
+                // RemoveGlyphFromSocket(socket) - the Accept on the "remove
                 // this glyph?" popup, which is the only way to clear a socket.
                 // Unbound, the dialog appeared and answering it raised, so a
                 // glyph could be put in and never taken out.
@@ -3304,8 +3304,8 @@ void registerQuestLuaAPI(lua_State* L) {
             lua_pushnumber(L, glyphType);       // glyphType (1=major, 2=minor)
             if (glyphId != 0) {
                 // The *spell*, not the properties id the server sent. Every
-                // caller treats this as a spell — the glyph panel builds its
-                // link from it and the tooltip describes it — and pushing the
+                // caller treats this as a spell - the glyph panel builds its
+                // link from it and the tooltip describes it - and pushing the
                 // properties id gave them a number that means something else.
                 // GlyphProperties.dbc field 1 is the spell; checked by
                 // resolving it for all 362 rows, which come out named "Glyph
@@ -3340,8 +3340,8 @@ void registerQuestLuaAPI(lua_State* L) {
             const int i = static_cast<int>(luaL_optnumber(L, 1, 0));
             if (!gh) return luaReturnNil(L);
             const auto rows = tradeSkillRows(gh);
-            // The scroll frame asks past the end on every redraw — it walks a
-            // fixed number of buttons and hides the ones that answer nil — so
+            // The scroll frame asks past the end on every redraw - it walks a
+            // fixed number of buttons and hides the ones that answer nil - so
             // this is routine and says nothing about anything being wrong.
             if (i < 1 || i > static_cast<int>(rows.size())) return luaReturnNil(L);
             const auto& row = rows[static_cast<size_t>(i) - 1];
@@ -3461,7 +3461,7 @@ void registerQuestLuaAPI(lua_State* L) {
             if (!gh) {
                 // The same three values, not one nil. TradeSkillFrame_Update
                 // reads the rank straight into `if ( rank < 75 )`, so a nil
-                // there raises and takes the rest of the update with it —
+                // there raises and takes the rest of the update with it -
                 // including the re-selection that is the only thing which
                 // re-enables the Create buttons after the Disable at the top.
                 lua_pushstring(L, "Trade Skill");
@@ -3483,14 +3483,14 @@ void registerQuestLuaAPI(lua_State* L) {
             lua_pushnumber(L, maxRank);
             return 3;
         }},
-                // DoTradeSkill(index, repeat) — make `repeat` of a recipe.
+                // DoTradeSkill(index, repeat) - make `repeat` of a recipe.
                 //
                 // Both of the trade skill frame's buttons pass a count: Create
                 // sends what the box holds and Create All sends numAvailable.
                 // Casting once regardless made "Create All" produce a single
                 // item, with no error to say why. The craft queue this needs
                 // already existed and the client's own crafting window has been
-                // using it — one press per craft is not the same as a queue,
+                // using it - one press per craft is not the same as a queue,
                 // because each craft has to wait for the last to finish.
                 {"DoTradeSkill", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
@@ -3506,7 +3506,7 @@ void registerQuestLuaAPI(lua_State* L) {
             // and the spell at the same time.
             if (!rec) {
                 LOG_DEBUG("DoTradeSkill: no recipe at row ", i,
-                          " — the row is a heading or the index is past the end");
+                          " - the row is a heading or the index is past the end");
                 return 0;
             }
             if (count < 1) count = 1;
@@ -3541,8 +3541,8 @@ void registerQuestLuaAPI(lua_State* L) {
         }},
                 // GetTradeSkillCooldown(index) → seconds left, or nil.
                 //
-                // A recipe's cooldown is its spell's — transmutes and the salt
-                // shaker are the ones that have any — and this client has been
+                // A recipe's cooldown is its spell's - transmutes and the salt
+                // shaker are the ones that have any - and this client has been
                 // tracking those all along. nil still means "not on cooldown",
                 // which is the branch that leaves the line blank.
                 {"GetTradeSkillCooldown", [](lua_State* L) -> int {
@@ -3559,7 +3559,7 @@ void registerQuestLuaAPI(lua_State* L) {
                 {"GetTradeSkillTools", [](lua_State* L) -> int {
             // NOTHING, not a nil. The tool requirement is not in what this
             // client parses, and claiming a tool is missing would grey out
-            // recipes that work — but answering one nil is not the same as
+            // recipes that work - but answering one nil is not the same as
             // answering none, and the difference is the whole bug.
             //
             // The only caller is
@@ -3572,7 +3572,7 @@ void registerQuestLuaAPI(lua_State* L) {
             // That line sits in TradeSkillFrame_SetSelection ABOVE
             // `if ( creatable ) then TradeSkillCreateButton:Enable()`, so the
             // raise took the selection down before either Create button was
-            // enabled again — they are disabled at the top of every trade skill
+            // enabled again - they are disabled at the top of every trade skill
             // update and re-enabled only there. Both stayed greyed with the
             // reagents in the bag and the recipe drawn, because everything the
             // panel had already filled in happened before the raise.
@@ -3583,8 +3583,8 @@ void registerQuestLuaAPI(lua_State* L) {
                 // recipe, and the play-time limits that only Chinese realms set.
                 // The two links a trade skill row can be shift-clicked for:
                 // what the recipe makes, and what it takes. Both item ids were
-                // already here — createdItemId off the spell and the reagent
-                // list GetTradeSkillReagentInfo walks — so the panel could name
+                // already here - createdItemId off the spell and the reagent
+                // list GetTradeSkillReagentInfo walks - so the panel could name
                 // and count them while answering nil to anyone asking for a
                 // link to the same thing.
                 {"GetTradeSkillItemLink", [](lua_State* L) -> int {
@@ -3604,7 +3604,7 @@ void registerQuestLuaAPI(lua_State* L) {
             return 1;
         }},
                 // A recipe link is an |Htrade: hyperlink carrying the whole
-                // skill list, which this client has no reader for — a link it
+                // skill list, which this client has no reader for - a link it
                 // cannot resolve on the way back in would be worse than none.
                 {"GetTradeSkillRecipeLink",   [](lua_State* L) -> int { return luaReturnNil(L); }},
                 {"GetTradeSkillReagentItemLink", [](lua_State* L) -> int {
@@ -3636,9 +3636,9 @@ void registerQuestLuaAPI(lua_State* L) {
                 {"GetBillingTimeRested",      [](lua_State* L) -> int { lua_pushnumber(L, 0); return 1; }},
                 // Filters and sub-classes: panel state, kept so it reads back.
                 // The trade skill window's two filter dropdowns. Both answered
-                // nothing and both are spread straight into a vararg call —
+                // nothing and both are spread straight into a vararg call -
                 // TradeSkillFilterFrame_LoadSubClasses(GetTradeSkillSubClasses())
-                // — so each dropdown built its "All" row and stopped, and
+                // - so each dropdown built its "All" row and stopped, and
                 // picking anything was impossible rather than merely inert.
                 //
                 // Single-select, not a set of ticks: the click handler calls
@@ -3683,7 +3683,7 @@ void registerQuestLuaAPI(lua_State* L) {
             return 0;
         }},
                 // A number in the search box filters by the level of what the
-                // recipe makes rather than by its name — "25", "20-30" and
+                // recipe makes rather than by its name - "25", "20-30" and
                 // "~25" all reach here, and the panel clears the name filter
                 // when they do. Both zero clears this one, which is what it
                 // sends when the text is not a number.
@@ -3731,9 +3731,9 @@ void registerQuestLuaAPI(lua_State* L) {
         }},
                 // ---- Trainer -------------------------------------------
                 //
-                // The client has parsed the trainer list all along — spell,
+                // The client has parsed the trainer list all along - spell,
                 // cost, required level and skill, and whether it is already
-                // known — and fires TRAINER_SHOW when it arrives. None of it
+                // known - and fires TRAINER_SHOW when it arrives. None of it
                 // had a way into the interface, so the panel opened blank at
                 // every trainer in the game.
                 {"GetNumTrainerServices", [](lua_State* L) -> int {
@@ -3754,8 +3754,8 @@ void registerQuestLuaAPI(lua_State* L) {
             if (name.empty()) name = "Spell " + std::to_string(sp.spellId);
             lua_pushstring(L, name.c_str());
             // The rank, from the same place the name came from. The trainer
-            // list on the wire carries neither — both are looked up by spell id
-            // — so "this list does not carry it" was true of the packet and
+            // list on the wire carries neither - both are looked up by spell id
+            // - so "this list does not carry it" was true of the packet and
             // not of the client, which has had getSpellRank all along.
             //
             // It is what tells two rows apart. The panel writes it in
@@ -3771,8 +3771,8 @@ void registerQuestLuaAPI(lua_State* L) {
             // trainer packet said so. The packet is a snapshot from when the
             // list was opened; learning a service adds it to the known set and
             // fires TRAINER_UPDATE, but the cached state stayed at 0. So the
-            // panel redrew the just-learned skill as still available — green,
-            // trainable, its cost still shown — and only a close and reopen,
+            // panel redrew the just-learned skill as still available - green,
+            // trainable, its cost still shown - and only a close and reopen,
             // which fetches a fresh list, corrected it. Asking the known set
             // makes the live redraw right.
             lua_pushstring(L, trainerServiceCategory(gh, sp));
@@ -3780,7 +3780,7 @@ void registerQuestLuaAPI(lua_State* L) {
             return 4;
         }},
                 // Three costs: coin, talent points, and a profession slot.
-                // The trainer reads the third bare — `if ( cpCost2 > 0 )` — so
+                // The trainer reads the third bare - `if ( cpCost2 > 0 )` - so
                 // one value made selecting anything a trainer offers an error.
                 //
                 // The second and third were zero on the reasoning that nothing
@@ -3788,7 +3788,7 @@ void registerQuestLuaAPI(lua_State* L) {
                 // list says exactly that and has all along: profDialog and
                 // profButton are the packet's two point costs, and AzerothCore
                 // fills the second with `primaryProfessionFirstRank ? 1 : 0`
-                // — the one thing it is for. Parsed since the parser was
+                // - the one thing it is for. Parsed since the parser was
                 // written, stored, and read by nothing.
                 //
                 // What it buys: learning a first profession rank now raises
@@ -3831,7 +3831,7 @@ void registerQuestLuaAPI(lua_State* L) {
             lua_pushnumber(L, sp.reqSkillValue);
             // Whether the player already meets it. The trainer window picks
             // between TRAINER_REQ_SKILL_RANK and its _RED twin on this, so
-            // leaving it nil painted every requirement red — including the
+            // leaving it nil painted every requirement red - including the
             // ones already satisfied, next to a spell the player could train.
             const auto& skills = gh->getPlayerSkills();
             const auto it = skills.find(sp.reqSkill);
@@ -3917,7 +3917,7 @@ void registerQuestLuaAPI(lua_State* L) {
                 //
                 // Nil, not zero. The trainer window does `if ( step ) then`
                 // and zero is truthy in Lua, so answering 0 claimed every
-                // service had a step requirement — and with `met` missing it
+                // service had a step requirement - and with `met` missing it
                 // took the red branch, printing a bogus unmet requirement of
                 // "0" beside every spell on the list.
                 //
@@ -3957,7 +3957,7 @@ void registerQuestLuaAPI(lua_State* L) {
         }},
                 // Selection and the type filter are the panel's own state; the
                 // client has no opinion about either, so they are kept here
-                // rather than pretended away — the panel reads back what it set.
+                // rather than pretended away - the panel reads back what it set.
                 {"SelectTrainerService", [](lua_State* L) -> int {
             trainerSelection() = static_cast<int>(luaL_optnumber(L, 1, 0));
             return 0;
@@ -3978,14 +3978,14 @@ void registerQuestLuaAPI(lua_State* L) {
             lua_pushboolean(L, it == trainerFilters().end() ? 1 : (it->second ? 1 : 0));
             return 1;
         }},
-                // Inert, and this one really is — unlike the three other
+                // Inert, and this one really is - unlike the three other
                 // Collapse/Expand pairs, which all turned out to have their
                 // grouping sitting in data the client already held.
                 //
                 // Blizzard's name says the heading is a skill line, and the
                 // only skill line in the packet is ReqSkillLine. Across
-                // AzerothCore's whole npc_trainer table — 880 trainers, 4934
-                // rows — not one trainer has more than a single distinct
+                // AzerothCore's whole npc_trainer table - 880 trainers, 4934
+                // rows - not one trainer has more than a single distinct
                 // non-zero value, and 816 have none at all. So grouping by it
                 // yields one heading over the entire list, or none, which is
                 // strictly worse than the flat list it would replace.
@@ -4019,7 +4019,7 @@ void registerQuestLuaAPI(lua_State* L) {
                 // GlyphMatchesSocket(socket) → whether what is on the cursor
                 // fits. Still false, and now for a narrower reason: the cursor
                 // does carry the item, but nothing here reads a glyph's own
-                // socket type — major glyphs go in three sockets and minor ones
+                // socket type - major glyphs go in three sockets and minor ones
                 // in the other three, and lighting all six would offer a drop
                 // the server then refuses.
                 {"GlyphMatchesSocket", [](lua_State* L) -> int {
@@ -4027,7 +4027,7 @@ void registerQuestLuaAPI(lua_State* L) {
             return 1;
         }},
                 
-                // SetCursor(art) — the pointer's own image, which this client
+                // SetCursor(art) - the pointer's own image, which this client
                 // does not change.
                 {"SetCursor", [](lua_State* L) -> int { (void)L; return 0; }},
                 // How long until the daily quests reset, which the quest log
@@ -4038,7 +4038,7 @@ void registerQuestLuaAPI(lua_State* L) {
                 // world: SMSG_QUERY_TIME_RESPONSE's second word is
                 // GetNextDailyQuestsResetTime() minus now. This used to count
                 // to the next local midnight, under a comment saying the real
-                // reset was a realm setting nothing sends — it is sent, in the
+                // reset was a realm setting nothing sends - it is sent, in the
                 // reply to a packet this client already knew how to ask for,
                 // and it was parsed and dropped.
                 //
@@ -4061,7 +4061,7 @@ void registerQuestLuaAPI(lua_State* L) {
         }},
                 // The cursor changes at a vendor: the hand that sells, and the
                 // hammer that repairs. This client draws its own cursor and
-                // has no art switched by name, so these do nothing — which is
+                // has no art switched by name, so these do nothing - which is
                 // what they did before, silently, as unknown globals.
                 //
                 // Bound rather than left to the fallback because the fallback
@@ -4079,8 +4079,8 @@ void registerQuestLuaAPI(lua_State* L) {
             (void)L; repairCursorUp() = false; return 0; }},
                 // GetNumCompletedAchievements() → total, completed.
                 //
-                // Two values, and the total comes first. This returned one —
-                // the *earned* count in the total's place — so the summary bar
+                // Two values, and the total comes first. This returned one -
+                // the *earned* count in the total's place - so the summary bar
                 // was scaled to the number earned, and `completed` was nil.
                 // AchievementFrameSummaryCategoriesStatusBar_Update then does
                 // SetText(completed.."/"..total), and concatenating nil raises,
@@ -4117,7 +4117,7 @@ void registerQuestLuaAPI(lua_State* L) {
                 // GetStatisticsCategoryList() → the same for the other tab.
                 //
                 // The Statistics tab reads this out of a table built when the
-                // panel loads — STAT_FUNCTIONS.categoryAccessor — and then calls
+                // panel loads - STAT_FUNCTIONS.categoryAccessor - and then calls
                 // it: `local cats = achievementFunctions.categoryAccessor()`.
                 // Absent, that is a call on a nil field, so opening Statistics
                 // raised rather than showing an empty tab. The list it wants is
@@ -4224,8 +4224,8 @@ void registerQuestLuaAPI(lua_State* L) {
         }},
                 // GetLatestCompletedAchievements() → the most recent earned
                 // ids, newest first. The summary page fills its top rows from
-                // these. The earn date is a WoW PackedTime — year in the low
-                // sixteen bits, then day, then month — so it does not sort as
+                // these. The earn date is a WoW PackedTime - year in the low
+                // sixteen bits, then day, then month - so it does not sort as
                 // a plain integer and has to be unpacked first.
                 {"GetLatestCompletedAchievements", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
@@ -4255,7 +4255,7 @@ void registerQuestLuaAPI(lua_State* L) {
             const auto critId = static_cast<uint32_t>(luaL_optnumber(L, 1, 0));
             if (!gh || critId == 0) return luaReturnNil(L);
             gh->ensureAchievementCriteriaLoaded();
-            // Nothing indexes criteria by their own id — the panel asks this
+            // Nothing indexes criteria by their own id - the panel asks this
             // once per link clicked, not per frame, so the walk is cheaper
             // than a second map kept in step with the first.
             for (const auto& [achId, list] : gh->getAchievementCriteriaMap()) {
@@ -4280,7 +4280,7 @@ void registerQuestLuaAPI(lua_State* L) {
                     lua_pushnumber(L, gh->getAchievementFlags(achId));            // 9: flags
                     // A path, not the id. The panel puts this straight on a
                     // button as its texture, and a number is not a texture in
-                    // 3.3.5 — the icon id was already cached, and the resolver
+                    // 3.3.5 - the icon id was already cached, and the resolver
                     // that turns one into a path was already here for the
                     // spellbook's tabs.
                     lua_pushstring(L, achievementIconPath(gh, achId).c_str());   // 10: icon
@@ -4309,7 +4309,7 @@ void registerQuestLuaAPI(lua_State* L) {
             return 1;
         }},
                 // ...and forwards, with whether that next step is already done
-                // — AchievementFrameSummaryAchievement_OnClick walks
+                // - AchievementFrameSummaryAchievement_OnClick walks
                 // `newID, completed = GetNextAchievement(nextID)` to find the
                 // furthest one earned, so the second value is what stops it.
                 {"GetNextAchievement", [](lua_State* L) -> int {
@@ -4331,7 +4331,7 @@ void registerQuestLuaAPI(lua_State* L) {
                 //
                 // A statistic is an achievement with one criterion and no
                 // quantity to reach, so its value is simply that criterion's
-                // counter — the same counter GetAchievementCriteriaInfo reads
+                // counter - the same counter GetAchievementCriteriaInfo reads
                 // for a half-finished achievement, which was already tracked
                 // while this answered "--" for every row. "--" is still the
                 // answer when nothing has been counted, because that is what
@@ -4372,7 +4372,7 @@ void registerQuestLuaAPI(lua_State* L) {
                 // GetAchievementComparisonInfo(id) → completed, month, day, year.
                 //
                 // Nil when nobody is being compared, which is what the tab reads
-                // as "no data yet" — distinct from a false that would claim the
+                // as "no data yet" - distinct from a false that would claim the
                 // other player has not earned it.
                 {"GetAchievementComparisonInfo", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);

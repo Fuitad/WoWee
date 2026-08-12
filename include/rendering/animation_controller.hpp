@@ -18,7 +18,7 @@ namespace rendering {
 class Renderer;
 
 // ============================================================================
-// AnimationController — thin adapter wrapping CharacterAnimator
+// AnimationController - thin adapter wrapping CharacterAnimator
 //
 // Bridges the Renderer world (camera state, CharacterRenderer, audio)
 // and the pure-logic CharacterAnimator + sub-FSMs. Public API unchanged.

@@ -4,10 +4,10 @@
 Handing a panel to FrameXML is two edits in two places:
 
   * a **suppression entry**, so FrameXML's frame is hidden while this client
-    still draws its own — without it both are on screen the moment the
+    still draws its own - without it both are on screen the moment the
     interface loads, before anyone has chosen anything;
   * a **frameXmlOwns gate** around this client's own drawing, so it stops when
-    the element is handed over — without it both are on screen again, in the
+    the element is handed over - without it both are on screen again, in the
     other direction.
 
 Neither omission raises, logs, or fails a test. Both look exactly like a panel
@@ -25,7 +25,7 @@ WHAT IT CANNOT SEE
 
 Whether the gate is in the right place. The world map had both halves and was
 still broken, because the gate wrapped the only function that *fed* the map as
-well as the only one that drew it — so handing it over produced no map rather
+well as the only one that drew it - so handing it over produced no map rather
 than two. A gate around a function that does more than draw is a different
 fault from a missing gate, and only reading the function finds it.
 
@@ -58,11 +58,11 @@ def main():
     # the element table names lowercase elements. True, and useless: a *check*
     # row names frames too, and every handed-over element has one. So the half
     # of this sweep that looks for a missing suppression entry answered zero
-    # for every element that had a check row — which is all of them. Caught by
+    # for every element that had a check row - which is all of them. Caught by
     # deleting a real suppression row and watching the count stay at zero.
     body = re.search(r"const Suppress kSuppress\[\] = \{(.*?)\n *\};", cpp, re.S)
     if not body:
-        print("could not find kSuppress — this reads it")
+        print("could not find kSuppress - this reads it")
         return 1
     suppress = set(re.findall(r'\{UiElement::(\w+),', body.group(1)))
 
@@ -75,12 +75,12 @@ def main():
     defaults = set(re.findall(r'"(\w+)"', re.search(
         r"return std::set<std::string>\{(.*?)\};", cpp, re.S).group(1)))
     # "candidates" used to add a list on top of the defaults. It adds
-    # nothing now — every element is in the defaults — so the loop it was read
+    # nothing now - every element is in the defaults - so the loop it was read
     # out of is gone. Read it as empty rather than as a parse failure, but only
     # when the word is still there: if the whole mechanism is renamed, this
     # should go back to failing loudly.
     if "candidates" not in cpp:
-        print("no 'candidates' tier in the takeover source — this reads it")
+        print("no 'candidates' tier in the takeover source - this reads it")
         return 1
     extra = re.search(r"for \(const char\* name : \{(.*?)\}\) \{", cpp, re.S)
     candidates = set(re.findall(r'"(\w+)"', extra.group(1))) if extra else set()
@@ -93,14 +93,14 @@ def main():
     print(f"{len(live)} elements handed over, {len(defaults)} by default and "
           f"{len(candidates)} named by 'candidates'\n")
 
-    print(f"{len(no_gate)} with no frameXmlOwns gate — this client goes on "
+    print(f"{len(no_gate)} with no frameXmlOwns gate - this client goes on "
           f"drawing when the element is handed over:")
     for e in no_gate:
         print(f'    {e:<20} "{names[e]}"')
     if not no_gate:
         print("    (none)")
 
-    print(f"\n{len(no_suppress)} with no suppression entry — FrameXML's frame "
+    print(f"\n{len(no_suppress)} with no suppression entry - FrameXML's frame "
           f"is drawn while this client still owns it:")
     for e in no_suppress:
         print(f'    {e:<20} "{names[e]}"')

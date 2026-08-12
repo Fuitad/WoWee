@@ -4,7 +4,7 @@
 The two size sweeps beside this one ask whether a packet is long enough. This
 asks the harder question: whether the fields line up. A handler can guard the
 right number of bytes, run every time, and still be wrong from the first field
-on — SMSG_BATTLEFIELD_MGR_EJECTED read a guid where the server wrote a battle
+on - SMSG_BATTLEFIELD_MGR_EJECTED read a guid where the server wrote a battle
 id, and it was the *length* that gave it away, not the layout. Two packets of
 the same size disagreeing about what those bytes mean is invisible to both of
 the other sweeps and to the client itself: nothing raises, nothing logs, the
@@ -17,8 +17,8 @@ WHAT IT COMPARES
 A sequence of widths, not a sequence of names. From the server, the run of
 `data << uintN(...)` after `WorldPacket data(SMSG_X, ...)`. From this client,
 the run of `packet.readUIntN()` after the handler's opcode. Each stops at the
-first thing whose width is not fixed — a string, a packed guid, a loop, a
-branch — because past that point the sequences cannot be lined up by position.
+first thing whose width is not fixed - a string, a packed guid, a loop, a
+branch - because past that point the sequences cannot be lined up by position.
 
 A mismatch in that prefix is reported with both readings, so the disagreement
 can be read rather than taken on trust.
@@ -32,7 +32,7 @@ not one a byte count can answer.
 WHAT IT FOUND, AND WHAT SURVIVED
 
 Seven more on 2026-08-05, once `data << guid` and GetPackGUID() stopped ending
-the prefix — coverage went from 76 opcodes to 117. SMSG_THREAT_UPDATE built its
+the prefix - coverage went from 76 opcodes to 117. SMSG_THREAT_UPDATE built its
 list from nothing, SMSG_LOOT_START_ROLL missed itemCount so the roll timer and
 the need/greed mask were both wrong, SMSG_MODIFY_COOLDOWN took half a player
 guid as the change in milliseconds, SMSG_SOCKET_GEMS_RESULT reported every
@@ -44,21 +44,21 @@ loop written out in place, which now goes through readPackedGuid.
 Six on the first run, all real: SMSG_CHAR_RENAME read a four-byte result where
 the server writes one byte, SMSG_BATTLEFIELD_MGR_ENTERED read a guid the server
 does not send, SMSG_GMRESPONSE_STATUS_UPDATE read a ticket id that is not
-there, and the three GM ticket answers each read one byte of a uint32 — which
+there, and the three GM ticket answers each read one byte of a uint32 - which
 little-endian kept working for the delete and broke for the other two.
 
 Two are reported and are not faults. Both have been read and neither should be
 silenced, because the shapes really do differ and a future edit could make one
 of them matter:
 
-  * SMSG_AUCTION_OWNER_NOTIFICATION — the client reads the server's uint64 as
+  * SMSG_AUCTION_OWNER_NOTIFICATION - the client reads the server's uint64 as
     two uint32s. Every field after it therefore lands on the same offset it
     would have anyway, and the item entry, which is what this handler is for,
     is read correctly at offset twenty.
-  * SMSG_PARTY_MEMBER_STATS_FULL — was an artifact, and the artifact turned
+  * SMSG_PARTY_MEMBER_STATS_FULL - was an artifact, and the artifact turned
     out to be worth fixing rather than annotating. A region ended at the next
     opcode, and the pattern that found opcodes required a letter in front of
-    MSG_ — so MSG_RAID_READY_CHECK did not end one, the region ran through its
+    MSG_ - so MSG_RAID_READY_CHECK did not end one, the region ran through its
     handler, and the guid that ready check reads was credited here. Both this
     and packet_size_check.py had it; two entries came off that report as well.
 
@@ -67,7 +67,7 @@ WHAT IT CANNOT SEE
   * Anything after the first variable-width field. Most packets have one early,
     which is why the compared prefix is often short. The run prints how many
     opcodes had a prefix worth comparing at all, and how many of those are two
-    fields or fewer — the zero means nothing without that number beside it.
+    fields or fewer - the zero means nothing without that number beside it.
 
     This is not theoretical. MSG_LIST_STABLED_PETS is written as
     uint32/uint32/uint32/name/uint8 and was read as
@@ -78,7 +78,7 @@ WHAT IT CANNOT SEE
 
   * A misalignment between fields of the same width, which is invisible here by
     construction: the two readings line up byte for byte and only the *meaning*
-    has slid. SMSG_LFG_PLAYER_REWARD was read that way — the server writes a
+    has slid. SMSG_LFG_PLAYER_REWARD was read that way - the server writes a
     constant 1, then money, then XP, and the client took the constant as the
     money, the money as the XP and the XP as an item count, then looped that
     many times over the rest. Five uint32s in a row, so this reported a match
@@ -87,7 +87,7 @@ WHAT IT CANNOT SEE
     right. Reading the server's writer is the only check for this shape.
   * A handler that reads through a helper or a parser class rather than
     directly. Those are the larger packets, and they are the ones where a
-    misparse is hardest to spot by eye — a real gap in this, not a small one.
+    misparse is hardest to spot by eye - a real gap in this, not a small one.
   * Two fields of the same width swapped. Identical widths line up perfectly;
     only the client's own reading of what the fields mean can catch that.
 """
@@ -122,7 +122,7 @@ def server_layouts(server_root):
                     widths.append(SERVER_WIDTH[w.group(1)])
                     continue
                 # A packed guid has no fixed width, but it is unambiguous on
-                # both sides — WriteAsPacked here, readPackedGuid there — so it
+                # both sides - WriteAsPacked here, readPackedGuid there - so it
                 # is a token the sequences can be lined up on rather than a
                 # stop. Most packets carry one early, and stopping at it left
                 # everything after the guid uncompared.
@@ -133,7 +133,7 @@ def server_layouts(server_root):
                 # A plain ObjectGuid is eight bytes, not a variable field:
                 # operator<<(ByteBuffer&, ObjectGuid const&) writes
                 # uint64(guid.GetRawValue()). It was ending the prefix anyway,
-                # and it is what ends it most often by a wide margin — fifty-odd
+                # and it is what ends it most often by a wide margin - fifty-odd
                 # opcodes stopped at `data << guid` or `<< x->GetGUID()` with
                 # everything after them uncompared. Checked after the packed
                 # spelling above, which is a different shape.
@@ -168,7 +168,7 @@ def _handler_bodies():
     """Named handler -> (body, the name its packet argument goes by).
 
     A hundred and fifty of this client's registrations are one line that calls
-    a handler by name, and those are the large packets — the quest, guild and
+    a handler by name, and those are the large packets - the quest, guild and
     auction replies, where a misparse is hardest to see by eye. Reading only
     the registration measured them as reading nothing.
     """
@@ -189,11 +189,11 @@ def _widths_in(body, var):
     # the run; anything that consumes bytes and is not a plain integer does.
     #
     # A read inside a conditional expression ends the run rather than being
-    # counted. This client picks its width by expansion in places —
+    # counted. This client picks its width by expansion in places -
     #
     #     spellId = classicSpellId ? packet.readUInt16() : packet.readUInt32();
     #
-    # — and taking the first branch reported four packets as misread when the
+    # - and taking the first branch reported four packets as misread when the
     # WotLK branch beside it was right. Which arm runs is not knowable here, so
     # the honest answer is to stop rather than to guess.
     for m in re.finditer(r"\b" + re.escape(var) + r"\.(\w+)\s*\(", body):
@@ -218,8 +218,8 @@ def client_layouts():
     out = {}
     for path in (ROOT / "src/game").rglob("*.cpp"):
         src = path.read_text(errors="ignore")
-        # An opcode with no letter before MSG_ — MSG_RAID_READY_CHECK,
-        # MSG_MOVE_* and the rest — has to end a region too. It did not, so a
+        # An opcode with no letter before MSG_ - MSG_RAID_READY_CHECK,
+        # MSG_MOVE_* and the rest - has to end a region too. It did not, so a
         # region ran straight through the next handler and credited its reads
         # here: SMSG_PARTY_MEMBER_STATS_FULL was reported reading a guid that
         # belongs to the ready check below it.
@@ -232,7 +232,7 @@ def client_layouts():
             body = src[at:end]
             widths = _widths_in(body, "packet")
             # A registration that only hands the packet to a named handler
-            # reads nothing itself. Follow it, once — a handler that delegates
+            # reads nothing itself. Follow it, once - a handler that delegates
             # again is not chased, because the second hop is where a wrong
             # guess starts costing more than the answer is worth.
             if not widths:
@@ -261,7 +261,7 @@ def main():
           f"{len(client)} client readers, {len(shared)} in both")
     # What the comparison could not reach. A prefix that ends after one or two
     # fields is a comparison that has barely started, and the zero below should
-    # be read against how much of each packet it actually covers — otherwise it
+    # be read against how much of each packet it actually covers - otherwise it
     # reads as "every packet lines up", which is a much larger claim than this
     # sweep can make. MSG_LIST_STABLED_PETS was misread from the field after
     # its name string, three fields past where the prefix ends.

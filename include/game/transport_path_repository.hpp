@@ -1,5 +1,5 @@
 // include/game/transport_path_repository.hpp
-// Owns and manages transport path data — DBC, taxi, and custom paths.
+// Owns and manages transport path data - DBC, taxi, and custom paths.
 // Uses CatmullRomSpline for spline evaluation (replaces duplicated evalTimedCatmullRom).
 // Separated from TransportManager for SOLID-S (single responsibility).
 #pragma once
@@ -16,8 +16,8 @@ namespace wowee::pipeline {
 
 namespace wowee::game {
 
-/// Whether a displayId belongs to a vehicle that travels a route — a ship, a
-/// zeppelin, an icebreaker, a gunship — as opposed to an elevator or a lift.
+/// Whether a displayId belongs to a vehicle that travels a route - a ship, a
+/// zeppelin, an icebreaker, a gunship - as opposed to an elevator or a lift.
 ///
 /// Both are transports and both animate, but they want opposite treatment: a
 /// vehicle's route is long and mostly horizontal and often comes from the
@@ -26,7 +26,7 @@ namespace wowee::game {
 /// Named because the numbers were being written out at three call sites and
 /// each list had picked up elevator displayIds along the way. 807 and 808 are
 /// Gnomeregan's two lifts, 2454 the Searing Gorge scaffold cars, 1587 a
-/// GameObject named "Elevator" — every one of them was being treated as a ship
+/// GameObject named "Elevator" - every one of them was being treated as a ship
 /// or drawn as an airship. Values verified against gameobject_template: these
 /// are the displayIds carried by type 15 (MO_TRANSPORT) rows.
 constexpr bool isVehicleTransportDisplay(uint32_t displayId) {
@@ -67,7 +67,7 @@ constexpr bool isOceanGoingTransportDisplay(uint32_t displayId) {
 struct PathEntry {
     math::CatmullRomSpline spline;
     uint32_t pathId = 0;
-    bool zOnly = false;       // Elevator/bobbing — no meaningful XY travel
+    bool zOnly = false;       // Elevator/bobbing - no meaningful XY travel
     bool fromDBC = false;     // Loaded from TransportAnimation.dbc
     bool worldCoords = false; // TaxiPathNode absolute world positions (not local offsets)
 

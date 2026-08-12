@@ -122,7 +122,7 @@ bool TbcPacketParsers::parseMovementBlock(network::Packet& packet, UpdateBlock& 
             /*float splineElevation =*/ packet.readFloat();
         }
 
-        // Speeds (TBC: 8 values — walk, run, runBack, swim, swimBack, fly, flyBack, turn)
+        // Speeds (TBC: 8 values - walk, run, runBack, swim, swimBack, fly, flyBack, turn)
         if (rem() < 32) return false;
         block.walkSpeed       = packet.readFloat();
         block.runSpeed        = packet.readFloat();
@@ -187,7 +187,7 @@ bool TbcPacketParsers::parseMovementBlock(network::Packet& packet, UpdateBlock& 
         LOG_DEBUG("  [TBC] STATIONARY: (", block.x, ", ", block.y, ", ", block.z, ")");
     }
 
-    // LOWGUID (0x08) — CMaNGOS TBC writes one uint32.
+    // LOWGUID (0x08) - CMaNGOS TBC writes one uint32.
     if (updateFlags & UPDATEFLAG_LOWGUID) {
         if (rem() < 4) return false;
         /*uint32_t lowGuidOrTypeMarker =*/ packet.readUInt32();
@@ -527,7 +527,7 @@ bool TbcPacketParsers::parseGossipMessage(network::Packet& packet, GossipMessage
         quest.questIcon = packet.readUInt32();
         quest.questLevel = static_cast<int32_t>(packet.readUInt32());
         // TBC 2.4.3: NO questFlags(u32) and NO isRepeatable(u8) here
-        // WotLK adds these 5 bytes — reading them from TBC garbles the quest title
+        // WotLK adds these 5 bytes - reading them from TBC garbles the quest title
         quest.questFlags = 0;
         quest.isRepeatable = 0;
         quest.title = normalizeWowTextTokens(packet.readString());
@@ -593,7 +593,7 @@ bool TbcPacketParsers::parseMonsterMove(network::Packet& packet, MonsterMoveData
 // ============================================================================
 // TBC 2.4.3 CMSG_CAST_SPELL
 // Format: spellId(u32) + castCount(u8) + SpellCastTargets
-// WotLK 3.3.5a adds castFlags(u8) between spellId and targets — TBC does NOT.
+// WotLK 3.3.5a adds castFlags(u8) between spellId and targets - TBC does NOT.
 // ============================================================================
 network::Packet TbcPacketParsers::buildCastSpell(uint32_t spellId, uint64_t targetGuid, uint8_t castCount) {
     network::Packet packet(wireOpcode(LogicalOpcode::CMSG_CAST_SPELL));
@@ -663,7 +663,7 @@ network::Packet TbcPacketParsers::buildAcceptQuestPacket(uint64_t npcGuid, uint3
 // ============================================================================
 // TBC 2.4.3 SMSG_QUESTGIVER_QUEST_DETAILS
 //
-// TBC and Classic share the same format — neither has the WotLK-specific fields
+// TBC and Classic share the same format - neither has the WotLK-specific fields
 // (informUnit GUID, flags uint32, isFinished uint8) that were added in 3.x.
 //
 // Format:
@@ -683,7 +683,7 @@ network::Packet TbcPacketParsers::buildAcceptQuestPacket(uint64_t npcGuid, uint3
 //   rewardCount(u32) + rewardCount × (itemId, count, displayId)   ← variable
 //   money(u32)
 //   trailing: Classic = rewSpell; TBC = honor + rewSpell + rewSpellCast + title
-//   emote block LAST (count + pairs) — never before the reward arrays.
+//   emote block LAST (count + pairs) - never before the reward arrays.
 // QUEST_FLAGS_HIDDEN_REWARDS quests serialize counts of 0 and money 0.
 bool TbcPacketParsers::parseQuestDetailsPreWotlk(network::Packet& packet, QuestDetailsData& data,
                                                  bool hasSuggestedPlayers) {
@@ -740,7 +740,7 @@ bool TbcPacketParsers::parseQuestDetailsPreWotlk(network::Packet& packet, QuestD
     if (packet.hasRemaining(4))
         data.rewardMoney = packet.readUInt32();
     // Remaining bytes are spell/honor/title trailing fields plus the emote
-    // block — no XP field exists pre-WotLK.
+    // block - no XP field exists pre-WotLK.
     data.rewardXp = 0;
 
     LOG_DEBUG("Quest details tbc/classic: id=", data.questId, " title='", data.title,
@@ -899,7 +899,7 @@ bool TbcPacketParsers::parseItemQueryResponse(network::Packet& packet, ItemQuery
         return false;
     }
 
-    data.itemFlags = packet.readUInt32(); // Flags  (TBC: 1 flags field only — no Flags2)
+    data.itemFlags = packet.readUInt32(); // Flags  (TBC: 1 flags field only - no Flags2)
     // TBC: NO Flags2, NO BuyCount
     packet.readUInt32(); // BuyPrice
     data.sellPrice = packet.readUInt32();
@@ -1020,7 +1020,7 @@ bool TbcPacketParsers::parseItemQueryResponse(network::Packet& packet, ItemQuery
 }
 
 // ============================================================================
-// TbcPacketParsers::parseMailList — TBC 2.4.3 SMSG_MAIL_LIST_RESULT
+// TbcPacketParsers::parseMailList - TBC 2.4.3 SMSG_MAIL_LIST_RESULT
 //
 // Differences from WotLK 3.3.5a (base implementation):
 //   - Header: uint8 count only (WotLK: uint32 totalCount + uint8 shownCount)
@@ -1122,7 +1122,7 @@ bool TbcPacketParsers::parseMailList(network::Packet& packet, std::vector<MailMe
 
 // ============================================================================
 // ---------------------------------------------------------------------------
-// skipTbcSpellCastTargets — consume all SpellCastTargets payload bytes for TBC.
+// skipTbcSpellCastTargets - consume all SpellCastTargets payload bytes for TBC.
 //
 // TBC uses uint32 targetFlags (Classic: uint16). Unit/item/object/corpse targets
 // are PackedGuid (same as Classic). Source/dest location is 3 floats (12 bytes)
@@ -1185,7 +1185,7 @@ static bool skipTbcSpellCastTargets(network::Packet& packet, uint64_t* primaryTa
     return true;
 }
 
-// TbcPacketParsers::parseSpellStart — TBC 2.4.3 SMSG_SPELL_START
+// TbcPacketParsers::parseSpellStart - TBC 2.4.3 SMSG_SPELL_START
 //
 // CMaNGOS TBC sends:
 //   PackedGuid(caster object/item) + PackedGuid(caster unit)
@@ -1231,7 +1231,7 @@ bool TbcPacketParsers::parseSpellStart(network::Packet& packet, SpellStartData& 
 }
 
 // ============================================================================
-// TbcPacketParsers::parseSpellGo — TBC 2.4.3 SMSG_SPELL_GO
+// TbcPacketParsers::parseSpellGo - TBC 2.4.3 SMSG_SPELL_GO
 //
 // CMaNGOS TBC sends:
 //   PackedGuid(caster object/item) + PackedGuid(caster unit)
@@ -1339,7 +1339,7 @@ bool TbcPacketParsers::parseSpellGo(network::Packet& packet, SpellGoData& data) 
     }
     data.missCount = static_cast<uint8_t>(data.missTargets.size());
 
-    // SpellCastTargets follows the miss list — consume all target bytes so that
+    // SpellCastTargets follows the miss list - consume all target bytes so that
     // any subsequent fields are not misaligned for ground-targeted AoE spells.
     skipTbcSpellCastTargets(packet, &data.targetGuid);
 
@@ -1368,7 +1368,7 @@ static uint8_t translateTbcCastFailure(uint8_t tbcResult) {
 }
 
 // ============================================================================
-// TbcPacketParsers::parseCastResult — TBC 2.4.3 SMSG_CAST_RESULT
+// TbcPacketParsers::parseCastResult - TBC 2.4.3 SMSG_CAST_RESULT
 //
 // TBC format: spellId(u32) + result(u8) + castCount(u8).
 // ============================================================================
@@ -1388,7 +1388,7 @@ bool TbcPacketParsers::parseCastResult(network::Packet& packet, uint32_t& spellI
 }
 
 // ============================================================================
-// TbcPacketParsers::parseCastFailed — TBC 2.4.3 SMSG_CAST_FAILED
+// TbcPacketParsers::parseCastFailed - TBC 2.4.3 SMSG_CAST_FAILED
 //
 // TBC format: spellId(u32) + result(u8) + castCount(u8).
 // ============================================================================
@@ -1408,7 +1408,7 @@ bool TbcPacketParsers::parseCastFailed(network::Packet& packet, CastFailedData& 
 }
 
 // ============================================================================
-// TbcPacketParsers::parseAttackerStateUpdate — TBC 2.4.3 SMSG_ATTACKERSTATEUPDATE
+// TbcPacketParsers::parseAttackerStateUpdate - TBC 2.4.3 SMSG_ATTACKERSTATEUPDATE
 //
 // CMaNGOS TBC writes attacker and target as packed GUIDs:
 //   hitInfo(u32) + PackedGuid(attacker) + PackedGuid(target)
@@ -1484,7 +1484,7 @@ bool TbcPacketParsers::parseAttackerStateUpdate(network::Packet& packet, Attacke
 }
 
 // ============================================================================
-// TbcPacketParsers::parseSpellDamageLog — TBC 2.4.3 SMSG_SPELLNONMELEEDAMAGELOG
+// TbcPacketParsers::parseSpellDamageLog - TBC 2.4.3 SMSG_SPELLNONMELEEDAMAGELOG
 //
 // CMaNGOS TBC writes target and attacker as packed GUIDs.
 // ============================================================================
@@ -1521,7 +1521,7 @@ bool TbcPacketParsers::parseSpellDamageLog(network::Packet& packet, SpellDamageL
 }
 
 // ============================================================================
-// TbcPacketParsers::parseSpellHealLog — TBC 2.4.3 SMSG_SPELLHEALLOG
+// TbcPacketParsers::parseSpellHealLog - TBC 2.4.3 SMSG_SPELLHEALLOG
 //
 // CMaNGOS TBC writes target and caster as packed GUIDs.
 // ============================================================================
@@ -1642,7 +1642,7 @@ bool TbcPacketParsers::parseGameObjectQueryResponse(network::Packet& packet, Gam
     packet.readString();
     packet.readString();
 
-    // TBC: 2 extra strings (iconName + castBarCaption) — WotLK has 3, Classic has 0
+    // TBC: 2 extra strings (iconName + castBarCaption) - WotLK has 3, Classic has 0
     packet.readString();  // iconName
     packet.readString();  // castBarCaption
 
@@ -1687,7 +1687,7 @@ bool TbcPacketParsers::parseGuildRoster(network::Packet& packet, GuildRosterData
     }
     uint32_t numMembers = packet.readUInt32();
 
-    // Safety cap — guilds rarely exceed 500 members; 1000 prevents excessive
+    // Safety cap - guilds rarely exceed 500 members; 1000 prevents excessive
     // memory allocation from malformed packets while covering all real cases
     const uint32_t MAX_GUILD_MEMBERS = 1000;
     if (numMembers > MAX_GUILD_MEMBERS) {

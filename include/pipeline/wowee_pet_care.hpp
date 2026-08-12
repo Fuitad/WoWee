@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Pet Care & Action catalog (.wpcr) — novel
+// Wowee Open Pet Care & Action catalog (.wpcr) - novel
 // replacement for the implicit pet-management action
 // rules vanilla WoW scattered across spell_template
 // (Revive Pet / Mend Pet / Feed Pet / Dismiss Pet
@@ -43,19 +43,19 @@ namespace pipeline {
 //     descLen + description
 //     spellId (uint32)
 //     classFilter (uint32)
-//     actionKind (uint8)         — Revive / Mend / Feed
+//     actionKind (uint8)         - Revive / Mend / Feed
 //                                   / Dismiss / Tame /
 //                                   BeastLore / Stable /
 //                                   Untrain / Rename /
 //                                   Abandon / Summon
-//     happinessRestore (int8)    — typically +10 (Feed),
+//     happinessRestore (int8)    - typically +10 (Feed),
 //                                   -10 (Abandon),
 //                                   0 (no effect)
-//     requiresPet (uint8)        — 0/1 bool
-//     requiresStableNPC (uint8)  — 0/1 bool
-//     costCopper (uint32)        — 100 = 1 silver,
+//     requiresPet (uint8)        - 0/1 bool
+//     requiresStableNPC (uint8)  - 0/1 bool
+//     costCopper (uint32)        - 100 = 1 silver,
 //                                   10000 = 1 gold
-//     reagentItemId (uint32)     — 0 if no reagent
+//     reagentItemId (uint32)     - 0 if no reagent
 //     castTimeMs (uint32)
 //     cooldownSec (uint32)
 //     iconColorRGBA (uint32)
@@ -103,7 +103,7 @@ struct WoweePetCare {
     // UI to populate the pet-actions tab per character.
     std::vector<const Entry*> findByClass(uint32_t classBit) const;
 
-    // Returns all actions of one kind — used by the
+    // Returns all actions of one kind - used by the
     // stable-master NPC interaction handler to find which
     // actions become available when the player talks to
     // a stable master.
@@ -119,13 +119,13 @@ public:
 
     // Preset emitters used by --gen-pcr* variants.
     //
-    //   makeHunterCare     — 5 Hunter pet care actions
+    //   makeHunterCare     - 5 Hunter pet care actions
     //                         (Revive / Mend / Feed /
     //                         Dismiss / Tame).
-    //   makeStableActions  — 4 stable-master actions
+    //   makeStableActions  - 4 stable-master actions
     //                         (Stable Slots / Untrain /
     //                         Rename / Abandon).
-    //   makeWarlockMinions — 4 Warlock minion summons
+    //   makeWarlockMinions - 4 Warlock minion summons
     //                         (Summon Imp / Voidwalker /
     //                         Succubus / Felhunter).
     static WoweePetCare makeHunterCare(const std::string& catalogName);

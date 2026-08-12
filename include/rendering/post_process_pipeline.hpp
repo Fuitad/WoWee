@@ -58,7 +58,7 @@ public:
     // The images behind getSceneFramebuffer(), so the scene can be copied for
     // water refraction after it is drawn but before the water goes over it.
     // True when the frame goes through the FXAA scene target. The water
-    // continuation split is held off on this path — see waterDrawsInContinuePass.
+    // continuation split is held off on this path - see waterDrawsInContinuePass.
     bool usesFxaaScenePath() const;
     VkImage getSceneColorImage() const;
     VkImage getSceneDepthImage() const;
@@ -182,7 +182,7 @@ private:
         bool enabled       = false;
         bool needsRecreate = false;
 
-        // Off-screen scene target (same resolution as swapchain — no scaling)
+        // Off-screen scene target (same resolution as swapchain - no scaling)
         AllocatedImage sceneColor{};        // 1x resolved color target
         AllocatedImage sceneDepth{};        // Depth (matches MSAA sample count)
         AllocatedImage sceneMsaaColor{};    // MSAA color target (when MSAA > 1x)
@@ -213,7 +213,7 @@ private:
         uint32_t internalWidth = 0;
         uint32_t internalHeight = 0;
 
-        // Off-screen scene targets (internal resolution, no MSAA — FSR2 replaces AA)
+        // Off-screen scene targets (internal resolution, no MSAA - FSR2 replaces AA)
         AllocatedImage sceneColor{};
         AllocatedImage sceneDepth{};
         VkFramebuffer sceneFramebuffer = VK_NULL_HANDLE;

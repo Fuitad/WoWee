@@ -34,7 +34,7 @@ inline void setCenteredBoundsXZ(wowee::pipeline::WoweeModel& wom,
 
 // Print the canonical "Wrote <base>.wom" success line shown at
 // the start of every --gen-mesh-* handler's stat report. 72 sites
-// each ran the same printf — hoisting collapses each to one call.
+// each ran the same printf - hoisting collapses each to one call.
 inline void printWomWrote(const std::string& base) {
     std::printf("Wrote %s.wom\n", base.c_str());
 }
@@ -64,7 +64,7 @@ inline bool saveWomOrError(const wowee::pipeline::WoweeModel& wom,
 
 // Strip a file-extension suffix from a base path if present. Used
 // pervasively by --gen-mesh-* / --bake-* / --info-* handlers that
-// accept either `path/foo` or `path/foo.ext` as input — the loader
+// accept either `path/foo` or `path/foo.ext` as input - the loader
 // expects the bare base, so the trailing ".wom" / ".wob" / ".woc"
 // must be removed if the user typed it.
 //
@@ -123,7 +123,7 @@ inline uint32_t addVertex(wowee::pipeline::WoweeModel& wom,
 // Append a closed Z-axis cylinder (side wall + ±Z end caps) to a
 // WoweeModel, centered at (cx, cy) on the XY plane and spanning
 // z=z0 to z=z1 with radius R. Used by primitives whose tubes lie
-// horizontally rather than vertically — woodpile logs, bedroll,
+// horizontally rather than vertically - woodpile logs, bedroll,
 // archery-target face, etc.
 inline void addClosedCylinderZ(wowee::pipeline::WoweeModel& wom,
                                float cx, float cy,
@@ -247,7 +247,7 @@ inline void addClosedCylinderY(wowee::pipeline::WoweeModel& wom,
 // Append a flat-shaded axis-aligned box to a WoweeModel. The box
 // is centered at (cx, cy, cz) with half-extents (hx, hy, hz). Each
 // of the 6 faces emits its own 4 vertices with the face's outward
-// normal, so adjacent faces don't share normals — exactly what
+// normal, so adjacent faces don't share normals - exactly what
 // flat shading needs. UVs are 0..1 across each face.
 //
 // Used pervasively by --gen-mesh-* primitives that build meshes

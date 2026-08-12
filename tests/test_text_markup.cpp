@@ -2,7 +2,7 @@
 //
 // The case that made this a file of its own: |Hitem:3299|h[Fractured Canine]|h
 // drew as nothing at all. The parser skipped from the opening marker to the
-// next bar — which is the |h *before* the display text — and then skipped
+// next bar - which is the |h *before* the display text - and then skipped
 // again from there to the |h after it, so the name between them went with the
 // payload. "You receive loot: [Fractured Canine]." rendered as "You receive
 // loot: ." on every FrameXML surface that draws a link, which is the loot
@@ -103,8 +103,8 @@ TEST_CASE("the caret steps by drawn characters", "[markup]") {
 
     SECTION("a link is one step whole, so the caret never rests inside it") {
         // "hi " is three characters and the link runs from 3 to the end. One
-        // step from 3 clears all of it — payload, display text and closing
-        // marker — because a caret inside a link is a caret that can leave
+        // step from 3 clears all of it - payload, display text and closing
+        // marker - because a caret inside a link is a caret that can leave
         // half an escape behind when something is erased.
         REQUIRE(caretStepRight(line, 3) == 19);
         REQUIRE(line.substr(19) == " x");
@@ -138,7 +138,7 @@ TEST_CASE("the caret steps by drawn characters", "[markup]") {
 //
 // Backspace over a link has to take the whole link. Removing a byte leaves
 // half an escape behind, which the parser then reads as whatever the wreckage
-// resembles — and the text is the player's own message, so the damage is
+// resembles - and the text is the player's own message, so the damage is
 // visible and unrecoverable by pressing the key again.
 namespace {
 
@@ -240,7 +240,7 @@ TEST_CASE("A selected run is replaced, and only that run", "[edit][selection]") 
 
     // The three shapes that must do nothing. FrameXML clears a highlight by
     // passing equal offsets, and a zero-width run that still counted would eat
-    // the next character typed — somewhere far from whatever set it.
+    // the next character typed - somewhere far from whatever set it.
     SECTION("no selection changes nothing") {
         std::string t = "Thrall";
         CHECK(replaceSelection(t, 4, {false, 0, 6}) == 4);
@@ -268,8 +268,8 @@ TEST_CASE("A selected run is replaced, and only that run", "[edit][selection]") 
 // What a letter limit counts.
 //
 // An edit box's limit is in characters shown, not bytes held, unless the box
-// asked for countInvisibleLetters. The chat box does not ask — it declares
-// letters="255" and nothing else — so the escapes a shift-clicked item link
+// asked for countInvisibleLetters. The chat box does not ask - it declares
+// letters="255" and nothing else - so the escapes a shift-clicked item link
 // brings with it must not be charged against it.
 TEST_CASE("A letter limit counts what is shown, not what is stored",
           "[edit][markup]") {

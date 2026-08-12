@@ -36,7 +36,7 @@ static void printUsage(const char* prog) {
               << "  --emit-terrain      Emit foo.whm + foo.wot + foo.woc next to every foo.adt\n"
               << "  --emit-open         Shortcut: enable every open-format emitter (png+json+wom+wob+terrain)\n"
               << "  --upgrade-extract <dir> [--json]\n"
-              << "                      Standalone post-extract pass on an existing tree —\n"
+              << "                      Standalone post-extract pass on an existing tree -\n"
               << "                      writes open-format sidecars without re-running MPQ extract\n"
               << "                      --json emits a structured summary instead of text\n"
               << "  --purge-proprietary <dir> [--json]\n"

@@ -47,7 +47,7 @@ int handleAddTile(int& i, int argc, char** argv) {
     namespace fs = std::filesystem;
     std::string manifestPath = zoneDir + "/zone.json";
     if (!fs::exists(manifestPath)) {
-        std::fprintf(stderr, "add-tile: %s has no zone.json — not a zone dir\n",
+        std::fprintf(stderr, "add-tile: %s has no zone.json - not a zone dir\n",
                      zoneDir.c_str());
         return 1;
     }
@@ -113,7 +113,7 @@ int handleRemoveTile(int& i, int /*argc*/, char** argv) {
     namespace fs = std::filesystem;
     std::string manifestPath = zoneDir + "/zone.json";
     if (!fs::exists(manifestPath)) {
-        std::fprintf(stderr, "remove-tile: %s has no zone.json — not a zone dir\n",
+        std::fprintf(stderr, "remove-tile: %s has no zone.json - not a zone dir\n",
                      zoneDir.c_str());
         return 1;
     }
@@ -129,7 +129,7 @@ int handleRemoveTile(int& i, int /*argc*/, char** argv) {
             "remove-tile: tile (%d, %d) not in manifest\n", tx, ty);
         return 1;
     }
-    // Don't strand a zone with zero tiles — server module gen and
+    // Don't strand a zone with zero tiles - server module gen and
     // pack-wcp both expect at least one. The user can --rename-zone
     // or rm -rf if they want the zone gone entirely.
     if (zm.tiles.size() == 1) {
@@ -139,7 +139,7 @@ int handleRemoveTile(int& i, int /*argc*/, char** argv) {
     }
     zm.tiles.erase(it);
     // Delete the slug-prefixed files for this tile. Use error_code
-    // so we don't throw on missing files — partial removal from
+    // so we don't throw on missing files - partial removal from
     // earlier failures shouldn't block cleanup of what's left.
     std::string base = zoneDir + "/" + zm.mapName + "_" +
                        std::to_string(tx) + "_" + std::to_string(ty);
@@ -160,7 +160,7 @@ int handleRemoveTile(int& i, int /*argc*/, char** argv) {
 
 int handleListTiles(int& i, int argc, char** argv) {
     // Enumerate every tile in the zone manifest with on-disk
-    // file presence — useful for spotting missing/orphan files
+    // file presence - useful for spotting missing/orphan files
     // before pack-wcp would fail.
     std::string zoneDir = argv[++i];
     bool jsonOut = (i + 1 < argc &&

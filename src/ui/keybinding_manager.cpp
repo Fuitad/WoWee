@@ -49,7 +49,7 @@ bool KeybindingManager::isActionPressed(Action action, bool repeat) {
     if (key == ImGuiKey_None) return false;
 
     // Someone typing into a FrameXML edit box gets no bindings at all, which is
-    // what the real client does and what the event path here already did — it
+    // what the real client does and what the event path here already did - it
     // hands the key to the box and stops. This is the other way in: every panel
     // polls its key from inside its own draw, and a poll never passed through
     // that path, so the key arrived twice.
@@ -87,7 +87,7 @@ void setTypedInputProbe(std::function<bool()> probe) {
 
 namespace {
 /// Set by the pump, read by the poll, cleared between iterations. A handful of
-/// keys at most — only the ones whose handling lets go of the box.
+/// keys at most - only the ones whose handling lets go of the box.
 std::vector<ImGuiKey>& consumedKeys() {
     static std::vector<ImGuiKey> keys;
     return keys;

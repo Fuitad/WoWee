@@ -49,7 +49,7 @@ namespace {
     constexpr auto& kColorDarkGray   = kDarkGray;
 
     // ---------------------------------------------------------------------------
-    // formatChatMessage — build the display string for a single chat message.
+    // formatChatMessage - build the display string for a single chat message.
     // Extracted from ChatPanel::render() message loop (Phase 6.2).
     // ---------------------------------------------------------------------------
     std::string formatChatMessage(
@@ -69,7 +69,7 @@ namespace {
 
         if (msg.type == CT::ACHIEVEMENT || msg.type == CT::GUILD_ACHIEVEMENT) {
             // Achievement packets carry only a sender GUID. Name resolution is
-            // asynchronous, so expand %s here—where resolvedSenderName is current—
+            // asynchronous, so expand %s here-where resolvedSenderName is current-
             // rather than permanently baking an early GUID/unknown fallback into
             // chat history when the packet first arrives.
             std::string rendered = processedMessage;
@@ -193,7 +193,7 @@ void ChatPanel::render(game::GameHandler& gameHandler,
     // The window is always resizable via its grips. Seed the size on first use, then
     // let the user drag it; the size is captured below so it persists. Locking only
     // pins the position (top-left, so the bottom-right grip stays usable) and blocks
-    // moving — it does NOT disable resizing.
+    // moving - it does NOT disable resizing.
     ImGui::SetNextWindowSize(ImVec2(chatW, chatH), ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowSizeConstraints(ImVec2(220.0f, 120.0f), ImVec2(screenW, screenH));
     if (chatWindowLocked_) {
@@ -281,7 +281,7 @@ void ChatPanel::render(game::GameHandler& gameHandler,
         }
         pendingChatTab_ = -1;
 
-        // Trailing "Find" toggle — search box over the visible history
+        // Trailing "Find" toggle - search box over the visible history
         if (ImGui::TabItemButton(chatFilterActive_ ? "Find*" : "Find",
                                  ImGuiTabItemFlags_Trailing | ImGuiTabItemFlags_NoTooltip)) {
             chatFilterActive_ = !chatFilterActive_;
@@ -401,7 +401,7 @@ void ChatPanel::render(game::GameHandler& gameHandler,
     auto nowTime = std::chrono::system_clock::now();
 
     // Cached lines embed the mention highlight, which depends on the local
-    // player's name — invalidate everything when it changes (login/char swap).
+    // player's name - invalidate everything when it changes (login/char swap).
     if (chatCacheSelfName_ != selfNameLower) {
         chatCacheSelfName_ = selfNameLower;
         chatLineCache_.clear();
@@ -619,7 +619,7 @@ void ChatPanel::render(game::GameHandler& gameHandler,
         ImGui::PopStyleColor(2);
     }
 
-    // Chat input row — compact WoW-style: [Type] input
+    // Chat input row - compact WoW-style: [Type] input
     const char* chatTypes[] = { "Say", "Yell", "Party", "Guild", "Whisper", "Raid", "Officer", "Battleground", "Raid Warning", "Instance", "Channel" };
     const char* chatTypeLabels[] = { "[Say]", "[Yell]", "[Party]", "[Guild]", "[Whisper]", "[Raid]", "[Officer]", "[BG]", "[RW]", "[Instance]", "[Channel]" };
 
@@ -681,7 +681,7 @@ void ChatPanel::render(game::GameHandler& gameHandler,
         ImGui::SameLine();
     }
 
-    // Show channel picker inline — numbered like the /1../9 shortcuts
+    // Show channel picker inline - numbered like the /1../9 shortcuts
     if (selectedChatType_ == 10) {
         const auto& channels = gameHandler.getJoinedChannels();
         if (channels.empty()) {
@@ -763,7 +763,7 @@ void ChatPanel::render(game::GameHandler& gameHandler,
 }
 
 // ---------------------------------------------------------------------------
-// detectChannelPrefix — auto-detect /say, /party, /whisper etc. prefixes
+// detectChannelPrefix - auto-detect /say, /party, /whisper etc. prefixes
 // and switch the chat type dropdown + strip the prefix from the input buffer.
 // Extracted from render() (Phase 6.2).
 // ---------------------------------------------------------------------------
@@ -828,7 +828,7 @@ void ChatPanel::detectChannelPrefix(game::GameHandler& gameHandler) {
 }
 
 // ---------------------------------------------------------------------------
-// inputTextCallback — static ImGui input text callback for tab-completion,
+// inputTextCallback - static ImGui input text callback for tab-completion,
 // cursor management, and sent-message history (Up/Down arrows).
 // Extracted from render() inline lambda (Phase 6.2).
 // ---------------------------------------------------------------------------
@@ -1035,7 +1035,7 @@ int ChatPanel::inputTextCallback(ImGuiInputTextCallbackData* data) {
 }
 
 // ---------------------------------------------------------------------------
-// cycleChatType — Tab key with an empty input walks the chat types that are
+// cycleChatType - Tab key with an empty input walks the chat types that are
 // actually available right now: Say → Party → Guild → Whisper → Channel.
 // ---------------------------------------------------------------------------
 void ChatPanel::cycleChatType(bool backwards) {
@@ -1068,7 +1068,7 @@ void ChatPanel::cycleChatType(bool backwards) {
 }
 
 // ---------------------------------------------------------------------------
-// onTabActivated — switching to a tab points the input at that tab's natural
+// onTabActivated - switching to a tab points the input at that tab's natural
 // destination, so Whispers/Guild/Trade tabs are ready to type into.
 // ---------------------------------------------------------------------------
 void ChatPanel::onTabActivated(int tab, game::GameHandler& gameHandler) {
@@ -1087,7 +1087,7 @@ void ChatPanel::onTabActivated(int tab, game::GameHandler& gameHandler) {
         case 3: // Guild
             if (gameHandler.isInGuild()) selectedChatType_ = 3;
             break;
-        case 4: { // Trade/LFG — pick the first city channel if one is joined
+        case 4: { // Trade/LFG - pick the first city channel if one is joined
             const auto& chans = gameHandler.getJoinedChannels();
             if (!chans.empty()) {
                 selectedChatType_ = 10;
@@ -1251,7 +1251,7 @@ void ChatPanel::sendChatMessage(game::GameHandler& gameHandler) {
 
     // GM dot-prefix commands (.gm, .tele, .additem, etc.)
     if (input.size() > 1 && input[0] == '.') {
-        LOG_INFO("GM command: '", input, "' — sending as SAY to server");
+        LOG_INFO("GM command: '", input, "' - sending as SAY to server");
         gameHandler.sendChatMessage(game::ChatType::SAY, input, "");
 
         std::string dotCmd = input;
@@ -1269,7 +1269,7 @@ void ChatPanel::sendChatMessage(game::GameHandler& gameHandler) {
         }
         if (feedback.empty())
             feedback = "Sent: " + input
-                + "  (requires GM access — server console: account set gmlevel <user> 3 -1)";
+                + "  (requires GM access - server console: account set gmlevel <user> 3 -1)";
         gameHandler.addLocalChatMessage(chat_utils::makeSystemMessage(feedback));
         chatInputBuffer_[0] = '\0';
         return;
@@ -1346,7 +1346,7 @@ void ChatPanel::sendChatMessage(game::GameHandler& gameHandler) {
             return;
         }
 
-        // Emote fallthrough — dynamic DBC lookup for emote text.
+        // Emote fallthrough - dynamic DBC lookup for emote text.
         {
             std::string targetName;
             const std::string* targetNamePtr = nullptr;
@@ -1382,7 +1382,7 @@ void ChatPanel::sendChatMessage(game::GameHandler& gameHandler) {
             }
         }
 
-        // Unrecognized slash command — fall through to dropdown chat type
+        // Unrecognized slash command - fall through to dropdown chat type
         message = input;
     }
 

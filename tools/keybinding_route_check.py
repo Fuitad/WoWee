@@ -6,7 +6,7 @@
 Each of this client's panels polls its own keybinding from inside its own draw.
 That is fine until the panel is handed to FrameXML: the draw is then gated off,
 so the poll never runs, and the key does nothing at all. Nothing raises, nothing
-is logged, and the panel is still openable by clicking — so it reads as a
+is logged, and the panel is still openable by clicking - so it reads as a
 keybinding that was never set rather than as one that was lost.
 
 The fix in every case is a line in the route table in application.cpp, which
@@ -17,8 +17,8 @@ WHAT IT LOOKS FOR
 
 Two arms, because a key can be lost in two ways.
 
-A KeybindingManager action polled inside a panel's own draw — a file under
-src/ui that is not game_screen.cpp — and not named in the route table in
+A KeybindingManager action polled inside a panel's own draw - a file under
+src/ui that is not game_screen.cpp - and not named in the route table in
 application.cpp.
 
 And an action handled inline in game_screen.cpp whose branch never asks who
@@ -26,19 +26,19 @@ owns the element. This arm exists because the first one skipped that file
 outright, on the stated ground that it "gates each one itself, in the branch
 that reads the key". Escape did not, and that cost the game menu: its branch
 ends by setting the flag behind *this* client's escape menu, which is drawn
-only while FrameXML does not own the element — so with the menu handed over
+only while FrameXML does not own the element - so with the menu handed over
 the key set a flag nobody read and nothing appeared. A file-wide assumption
 about how careful a file is, standing in for a check.
 
 The branch is brace-matched rather than taken as a fixed span, because the
 Escape branch is seventy lines and a window wide enough to hold it reaches
-into the next one — where a frameXmlOwns would answer for a key that has none.
+into the next one - where a frameXmlOwns would answer for a key that has none.
 
 WHAT IT CANNOT SEE
 
 Whether the panel's draw is actually gated. An ungated panel's key still works
 and does not need routing; listing it would be a false alarm, and there are
-none today. Nor whether the FrameXML function named in the route exists — the
+none today. Nor whether the FrameXML function named in the route exists - the
 comment beside the table says to check that by hand, and the three added on
 2026-08-05 were checked that way: ToggleTalentFrame in uiparent.lua,
 ToggleFriendsFrame(3) for the guild tab, and ToggleLFDParentFrame, whose
@@ -69,7 +69,7 @@ NO_ELEMENT = {
     # client-side switch.
     "TOGGLE_NAMEPLATES",
     # Raid frames likewise: the enum has PartyFrames and RaidWarning and
-    # nothing for the raid grid, which belongs to Blizzard_RaidUI — a
+    # nothing for the raid grid, which belongs to Blizzard_RaidUI - a
     # load-on-demand addon rather than a handed-over element.
     "TOGGLE_RAID_FRAMES",
 }
@@ -80,7 +80,7 @@ NO_ELEMENT = {
 #:
 #: askInterface is deliberately not here, and leaving it in hid the very bug
 #: this arm was written for. Escape calls it to ask FrameXML whether it closed
-#: a window — a question about state, not about ownership — so counting it made
+#: a window - a question about state, not about ownership - so counting it made
 #: the branch look careful while it still ended by setting a flag nobody reads.
 AWARE = ("frameXmlOwns", "runInterfaceCommand")
 
@@ -144,7 +144,7 @@ def main():
     for action in sorted(missing):
         print(f"  {action:28} {', '.join(sorted(missing[action]))}")
     for action in blind:
-        print(f"  {action:28} game_screen.cpp — branch never asks who owns it")
+        print(f"  {action:28} game_screen.cpp - branch never asks who owns it")
     if not total:
         print("  (none)")
     return 0

@@ -220,7 +220,7 @@ int handleImportJson(int& i, int argc, char** argv) {
             e.producedMaxCount = static_cast<uint8_t>(
                 je.value("producedMaxCount", 1));
             e.toolItemId = je.value("toolItemId", 0u);
-            // Reset to all-zero before parsing reagents — the
+            // Reset to all-zero before parsing reagents - the
             // exporter only emits non-empty slots, so a
             // reagents[] of size 2 should leave slots 2 and
             // 3 clean.
@@ -307,7 +307,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 warnings.push_back(ctx +
                     ": skillId=0 (recipe not bound to a WSKL skill line)");
             // A recipe with zero reagents and no tool is suspicious
-            // — most crafts need at least one of the two.
+            // - most crafts need at least one of the two.
             bool anyReagent = false;
             for (size_t r = 0;
                  r < wowee::pipeline::WoweeTradeSkill::kMaxReagents; ++r) {
@@ -323,7 +323,7 @@ int handleValidate(int& i, int argc, char** argv) {
             }
             if (!anyReagent && e.toolItemId == 0) {
                 warnings.push_back(ctx +
-                    ": no reagents and no tool — recipe is free");
+                    ": no reagents and no tool - recipe is free");
             }
             if (!idsSeen.add(e.recipeId)) errors.push_back(ctx + ": duplicate recipeId");
         }

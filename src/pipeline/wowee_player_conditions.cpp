@@ -204,13 +204,13 @@ WoweePlayerCondition WoweePlayerConditionLoader::makeComposite(
     };
     leaf(200, "Level80",        WoweePlayerCondition::Level,
         WoweePlayerCondition::GreaterOrEqual, 0, 80,
-        "Leaf — level 80 or higher.");
+        "Leaf - level 80 or higher.");
     leaf(201, "ClassWarriorLeaf", WoweePlayerCondition::Class,
         WoweePlayerCondition::Equal, 1, 0,
-        "Leaf — class is Warrior.");
+        "Leaf - class is Warrior.");
     leaf(202, "AllyMember",     WoweePlayerCondition::Faction,
         WoweePlayerCondition::Equal, 469, 0,
-        "Leaf — member of the Alliance "
+        "Leaf - member of the Alliance "
         "(WFAC factionId=469).");
     auto chain = [&](uint32_t id, const char* name, uint8_t headKind,
                       uint8_t headOp, uint32_t headTarget,
@@ -230,19 +230,19 @@ WoweePlayerCondition WoweePlayerConditionLoader::makeComposite(
         WoweePlayerCondition::Level,
         WoweePlayerCondition::GreaterOrEqual, 0, 80,
         WoweePlayerCondition::ChainAnd, 201,
-        "Composite — head=Level>=80 AND tail=Warrior.",
+        "Composite - head=Level>=80 AND tail=Warrior.",
         "Requires Warrior, level 80 or higher.");
     chain(301, "AllyOrHonored",
         WoweePlayerCondition::Reputation,
         WoweePlayerCondition::GreaterOrEqual, 72, 9000,
         WoweePlayerCondition::ChainOr, 202,
-        "Composite — head=Honored Stormwind OR tail=Alliance member.",
+        "Composite - head=Honored Stormwind OR tail=Alliance member.",
         "Requires Alliance membership or Honored Stormwind.");
     chain(302, "NotInCombat",
         WoweePlayerCondition::Always,
         WoweePlayerCondition::Equal, 0, 0,
         WoweePlayerCondition::ChainNot, 200,
-        "Composite — NOT (level 80 leaf) — sample inverted check.",
+        "Composite - NOT (level 80 leaf) - sample inverted check.",
         "Cannot be used at max level.");
     return c;
 }

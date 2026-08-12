@@ -164,7 +164,7 @@ bool MessageChatParser::parse(network::Packet& packet, MessageChatData& data) {
         case ChatType::BG_SYSTEM_NEUTRAL:
         case ChatType::BG_SYSTEM_ALLIANCE:
         case ChatType::BG_SYSTEM_HORDE:
-            // BG/Arena system messages — no sender GUID or name field, just message.
+            // BG/Arena system messages - no sender GUID or name field, just message.
             // Reclassify as SYSTEM for consistent display.
             data.type = ChatType::SYSTEM;
             break;
@@ -311,7 +311,7 @@ bool TextEmoteParser::parse(network::Packet& packet, TextEmoteData& data, bool l
     if (nameLen > 0 && nameLen <= 256) {
         data.targetName = packet.readString();
     } else if (nameLen > 0) {
-        // Implausible name length — misaligned read
+        // Implausible name length - misaligned read
         return false;
     }
     return true;
@@ -357,7 +357,7 @@ bool ChannelNotifyParser::parse(network::Packet& packet, ChannelNotifyData& data
 }
 
 // ============================================================
-// Foundation — Targeting, Name Queries
+// Foundation - Targeting, Name Queries
 // ============================================================
 
 network::Packet SetSelectionPacket::build(uint64_t targetGuid) {
@@ -501,8 +501,8 @@ bool FriendStatusParser::parse(network::Packet& packet, FriendStatusData& data) 
     //   FRIEND_ADDED_ONLINE / FRIEND_ONLINE         -> status, area, level, class
     //
     // so an add-while-online carries both, in that order. This used to read a
-    // note and one byte when the result was 1 — which is FRIEND_LIST_FULL and
-    // carries nothing at all — and read nothing for the two results that
+    // note and one byte when the result was 1 - which is FRIEND_LIST_FULL and
+    // carries nothing at all - and read nothing for the two results that
     // actually have a body. A friend coming online brought their area, level
     // and class every time and none of it was taken.
     constexpr uint8_t kFriendOnline = 0x02;
@@ -798,7 +798,7 @@ network::Packet PetitionBuyPacket::build(uint64_t npcGuid, const std::string& gu
                                          uint32_t clientIndex) {
     // Field for field as HandlePetitionBuyOpcode reads it. The previous layout
     // wrote a uint32 where the server reads a string, and skipped the ten
-    // strings it reads before the index — so every field after the name was
+    // strings it reads before the index - so every field after the name was
     // out of place and clientIndex, which is the whole of what distinguishes a
     // guild charter from a five-person arena one, came off the end of the
     // packet.
@@ -921,7 +921,7 @@ bool GuildInfoParser::parse(network::Packet& packet, GuildInfoData& data) {
     data.guildName = packet.readString();
     // One packed uint32, not three. Guild::SendInfo writes the creation date
     // with AppendPackedTime, so reading a day, a month and a year took twelve
-    // bytes where the server sent four — the date was nonsense and the two
+    // bytes where the server sent four - the date was nonsense and the two
     // counts after it were read from the wrong offset as well.
     const WowDate created = unpackWowPackedTime(packet.readUInt32());
     data.creationDay = static_cast<uint32_t>(created.day);
@@ -1114,7 +1114,7 @@ network::Packet ReadyCheckConfirmPacket::build(bool ready) {
     // and a body as "this is my answer", and broadcasts the state it finds.
     //
     // MSG_RAID_READY_CHECK_CONFIRM is a real opcode number and the server
-    // registers it Handle_NULL — read and discarded — so answering a ready
+    // registers it Handle_NULL - read and discarded - so answering a ready
     // check reached nobody. What made that hard to see is that this client
     // shows its own dialog and clears it on the click, so the answer looked
     // taken; only the rest of the group could tell it never arrived.
@@ -1188,7 +1188,7 @@ network::Packet GroupRaidConvertPacket::build() {
 
 network::Packet SetLootMethodPacket::build(uint32_t method, uint32_t threshold, uint64_t masterLooterGuid) {
     network::Packet packet(wireOpcode(Opcode::CMSG_LOOT_METHOD));
-    // Method, master looter, threshold — in that order.
+    // Method, master looter, threshold - in that order.
     // HandleLootMethodOpcode reads `lootMethod >> lootMaster >> lootThreshold`,
     // and the threshold was being written where the guid goes: the server took
     // the threshold and the low half of the guid as the master looter, and the
@@ -1216,7 +1216,7 @@ bool RaidTargetUpdateParser::parse(network::Packet& packet, RaidTargetUpdateData
 
     const uint8_t type = packet.readUInt8();
     if (type == 1) {
-        // Full list — variable length, only the icons that are set.
+        // Full list - variable length, only the icons that are set.
         data.fullList = true;
         while (packet.hasRemaining(9)) {
             const uint8_t  icon = packet.readUInt8();
@@ -1231,7 +1231,7 @@ bool RaidTargetUpdateParser::parse(network::Packet& packet, RaidTargetUpdateData
     // needed and a server that differs from its era still decodes.
     const size_t remaining = packet.getRemainingSize();
     if (remaining >= 17) {
-        packet.readUInt64();  // whoGuid — who placed the mark, not needed
+        packet.readUInt64();  // whoGuid - who placed the mark, not needed
     } else if (remaining < 9) {
         return false;
     }
@@ -1296,7 +1296,7 @@ network::Packet ClearTradeItemPacket::build(uint8_t tradeSlot) {
 network::Packet SetTradeGoldPacket::build(uint64_t copper) {
     network::Packet packet(wireOpcode(Opcode::CMSG_SET_TRADE_GOLD));
     // HandleSetTradeGoldOpcode reads a uint32. This wrote eight bytes, and it
-    // worked only because little-endian puts the value in the low four — the
+    // worked only because little-endian puts the value in the low four - the
     // other four went along as trailing rubbish the server logs and ignores.
     // Money is a uint32 of copper everywhere in 3.3.5, so nothing is lost by
     // saying so; the clamp is there to say it rather than to rely on it.

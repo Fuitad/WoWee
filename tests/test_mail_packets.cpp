@@ -319,7 +319,7 @@ TEST_CASE("Vanilla auction list parses id-only enchant, no flags, no delay", "[a
     packet.writeUInt32(2);
     writeAuctionEntry(packet, 301, 1, true);
     writeAuctionEntry(packet, 302, 1, true);
-    packet.writeUInt32(5);  // total count — vanilla sends no search delay
+    packet.writeUInt32(5);  // total count - vanilla sends no search delay
 
     AuctionListResult result;
     REQUIRE(AuctionListResultParser::parse(packet, result, 1));
@@ -333,7 +333,7 @@ TEST_CASE("Vanilla auction list parses id-only enchant, no flags, no delay", "[a
 
 // SMSG_ITEM_QUERY_SINGLE_RESPONSE comes in two shapes: some servers send
 // BuyCount between Flags2 and BuyPrice, some do not, and the client has to work
-// out which from the bytes. Guessing from InventoryType alone does not work — on
+// out which from the bytes. Guessing from InventoryType alone does not work - on
 // a server without BuyCount that read lands on AllowableClass, and a
 // class-restricted item's mask is a small, plausible-looking number. Priest-only
 // is 16, which is INVTYPE_CLOAK, so a priest robe claimed to be a cloak.
@@ -434,12 +434,12 @@ TEST_CASE("item query detects the BuyCount layout from more than one field",
 // colon-separated string the retail client never prints verbatim: it draws a
 // breakdown from it instead. This client parsed it all along and only its own
 // mail window read the result, so handing mail over to FrameXML left the
-// breakdown behind — a sale arrived as a letter with the raw string in it.
+// breakdown behind - a sale arrived as a letter with the raw string in it.
 //
 // Now that GetInboxInvoiceInfo answers from this, the shapes below are a
 // contract rather than an internal detail. In particular the binding decides
-// which of two entirely different panels FrameXML draws — the buyer's or the
-// seller's — from whether a deposit and a cut are present, so the difference
+// which of two entirely different panels FrameXML draws - the buyer's or the
+// seller's - from whether a deposit and a cut are present, so the difference
 // between a three-field body and a five-field one is load-bearing.
 
 TEST_CASE("A won auction's invoice carries the guid and the two prices",

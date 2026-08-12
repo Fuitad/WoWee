@@ -380,7 +380,7 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         if (e.durationDays == 0) {
             errors.push_back(ctx +
-                ": durationDays is 0 — event would never "
+                ": durationDays is 0 - event would never "
                 "have an active window");
         }
         // Per-recurrence schedule validity: Yearly /
@@ -392,12 +392,12 @@ int handleValidate(int& i, int argc, char** argv) {
                 errors.push_back(ctx +
                     ": Weekly recurrence with startDay " +
                     std::to_string(e.startDay) +
-                    " > 6 — must be 0 (Sun) through 6 (Sat)");
+                    " > 6 - must be 0 (Sun) through 6 (Sat)");
             }
             if (e.durationDays > 7) {
                 warnings.push_back(ctx +
                     ": Weekly recurrence with "
-                    "durationDays > 7 — event would "
+                    "durationDays > 7 - event would "
                     "overlap with itself across week "
                     "boundaries");
             }
@@ -416,12 +416,12 @@ int handleValidate(int& i, int argc, char** argv) {
             }
             // Calendar sanity: Feb has 28-29 days, etc.
             // The validator doesn't try to be a full
-            // calendar — just catches the obvious "Feb 30"
+            // calendar - just catches the obvious "Feb 30"
             // type errors.
             if (e.startMonth == 2 && e.startDay > 29) {
                 errors.push_back(ctx +
                     ": startDay " + std::to_string(e.startDay) +
-                    " for February — must be 1..29 (28 in "
+                    " for February - must be 1..29 (28 in "
                     "non-leap years; the schedule rolls "
                     "over to Mar 1 in those cases)");
             }
@@ -431,7 +431,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 errors.push_back(ctx +
                     ": startDay 31 for month " +
                     std::to_string(e.startMonth) +
-                    " — that month only has 30 days");
+                    " - that month only has 30 days");
             }
         }
         if (!idsSeen.insert(e.eventId).second) {

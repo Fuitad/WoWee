@@ -8,7 +8,7 @@ namespace cli {
 
 // Companion to kArgRequired for flags that take MORE than one
 // positional argument. main.cpp uses this list for the early
-// "missing argument" detector — for each entry we check whether
+// "missing argument" detector - for each entry we check whether
 // argv[i+needed] would run off the end and, if so, print the
 // synopsis and exit 1 instead of silently dropping into the GUI.
 //

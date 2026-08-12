@@ -39,7 +39,7 @@ const char* movementStateName(uint8_t s) {
 }
 
 const char* raceIdName(uint8_t r) {
-    // Vanilla 1.12 ChrRaces ids — display only.
+    // Vanilla 1.12 ChrRaces ids - display only.
     switch (r) {
         case 1:  return "Human";
         case 2:  return "Orc";
@@ -254,17 +254,17 @@ int handleValidate(int& i, int argc, char** argv) {
             e.movementState != wowee::pipeline::
                 WoweePlayerMovementAnim::StateIdle) {
             errors.push_back(ctx +
-                ": baseAnimId 0 on non-Idle state — model "
+                ": baseAnimId 0 on non-Idle state - model "
                 "would freeze when entering this state");
         }
-        // (race, gender, state) MUST be unique — the
+        // (race, gender, state) MUST be unique - the
         // renderer dispatches by this triple. Two
         // bindings would non-deterministically tie.
         KeyTriple key{e.raceId, e.genderId, e.movementState};
         if (!tripleSeen.insert(key).second) {
             errors.push_back(ctx +
                 ": duplicate (raceId, genderId, "
-                "movementState) triple — renderer "
+                "movementState) triple - renderer "
                 "dispatch ambiguous");
         }
         if (!idsSeen.insert(e.mapId).second) {
@@ -272,12 +272,12 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         // Self-variant: variantAnimId pointing to the
         // same id as baseAnimId is meaningless overhead
-        // — it's still a valid setup but the variant
+        // - it's still a valid setup but the variant
         // would be a no-op.
         if (e.variantAnimId != 0 &&
             e.variantAnimId == e.baseAnimId) {
             warnings.push_back(ctx +
-                ": variantAnimId equals baseAnimId — the "
+                ": variantAnimId equals baseAnimId - the "
                 "variant would visually equal the base "
                 "(no-op overhead)");
         }
@@ -288,7 +288,7 @@ int handleValidate(int& i, int argc, char** argv) {
             warnings.push_back(ctx +
                 ": transitionMs=" +
                 std::to_string(e.transitionMs) +
-                " exceeds 2000ms — would feel like an "
+                " exceeds 2000ms - would feel like an "
                 "animation hang");
         }
     }

@@ -105,11 +105,11 @@ private:
     void beginAuthAttempt(auth::AuthHandler& authHandler);
 
     // Auth protocol versions to try, in order. Vanilla-family servers disagree
-    // on this byte — vmangos-derived 1.12 realms speak protocol 8 while stock
-    // mangos/cmangos 1.12 speak 3 — and the profile can only name one of them,
+    // on this byte - vmangos-derived 1.12 realms speak protocol 8 while stock
+    // mangos/cmangos 1.12 speak 3 - and the profile can only name one of them,
     // so a mismatch is retried on the next candidate instead of hard-failing.
     // Retries only fire for protocol-shaped failures (see
-    // AuthHandler::lastFailureWasProtocol) — never for a rejected password.
+    // AuthHandler::lastFailureWasProtocol) - never for a rejected password.
     std::vector<uint8_t> authProtocols_;
     size_t authProtocolAttempt_ = 0;
 
@@ -135,7 +135,7 @@ private:
     bool bgInitAttempted = false;
     // The background is a 1408x768 PNG in a 2.4MB file; decoding it on the
     // frame it first appears cost ~190ms. Decode on a worker and upload when it
-    // arrives — the screen simply renders without it until then.
+    // arrives - the screen simply renders without it until then.
     struct DecodedBackground {
         std::vector<unsigned char> pixels;
         int width = 0;

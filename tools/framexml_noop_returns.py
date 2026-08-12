@@ -9,7 +9,7 @@ THE GAP THIS FILLS
 counts the no-op allowlist as answered. For "does this call raise on the spot"
 that is right. It is wrong for the caller that uses what comes back: a no-op
 returns nil, and nil compared against a number raises exactly as an absent
-method does — one line later, in a different function, which is why it reads
+method does - one line later, in a different function, which is why it reads
 as a different bug.
 
 GetFieldSize is the case that prompted this. It sat in the allowlist, so both
@@ -24,18 +24,18 @@ WHAT IT LOOKS FOR
 Calls to an allowlist-only method whose result is consumed on the same line,
 split by what the consumption does:
 
-  raises   arithmetic, comparison, concatenation, indexing, or a `for` limit —
+  raises   arithmetic, comparison, concatenation, indexing, or a `for` limit -
            nil in any of these is an error, so the enclosing function stops
-  silent   assigned to a name, or returned, or passed as an argument — the nil
+  silent   assigned to a name, or returned, or passed as an argument - the nil
            travels, and where it lands has to be read
   fine     called for effect, or tested for truth (nil is falsy, which is what
-           a no-op is for) — not reported
+           a no-op is for) - not reported
 
 A NO-OP WHOSE NIL IS THE DOCUMENTED ANSWER, AND MUST STAY ONE
 
 SetDesaturated, and it is worth naming because it is the shape someone
-"fixes". itembuttontemplate.lua — which backs every item button in the
-interface — writes:
+"fixes". itembuttontemplate.lua - which backs every item button in the
+interface - writes:
 
     local shaderSupported = icon:SetDesaturated(desaturated);
     if ( not desaturated ) then r, g, b = 1.0, 1.0, 1.0
@@ -44,7 +44,7 @@ interface — writes:
 
 The variable's own name says nil is expected: no shader, so dim it with vertex
 colour instead. The no-op returns nil, the fallback runs, and unusable and
-locked items grey out correctly — verified down to the draw, where textures are
+locked items grey out correctly - verified down to the draw, where textures are
 tinted by packColor(w->color, w->alpha) and SetVertexColor writes that colour.
 
 Binding SetDesaturated to return true without actually desaturating would take
@@ -56,8 +56,8 @@ WHAT IT CANNOT SEE
 Where a nil goes once assigned. The silent tier is a list to read, not a list
 of bugs; most no-ops are no-ops because nothing wanted the answer. It also
 cannot tell a widget from a plain Lua table. Names FrameXML defines on its own
-tables are subtracted, which covers the common case — FramePositionDelegate's
-GetUIPanel was four of the first five findings — but a method *assigned* from
+tables are subtracted, which covers the common case - FramePositionDelegate's
+GetUIPanel was four of the first five findings - but a method *assigned* from
 another function rather than declared is not seen. Check what the receiver is
 before acting on a row.
 """
@@ -78,16 +78,16 @@ XML = ROOT / "Data/interface"
 #:
 #: The colon belongs here for the same reason the bracket does: calling a
 #: method on the answer indexes it first, so a nil raises on the spot. Leaving
-#: it out is what let GetStatusBarTexture through — blizzard_achievementui does
+#: it out is what let GetStatusBarTexture through - blizzard_achievementui does
 #: `self:GetStatusBarTexture():SetDrawLayer("BORDER")` in the OnLoad of a
 #: virtual template, so every achievement progress bar built raised there, and
 #: this sweep classified it as a call made for effect.
 RAISES = re.compile(r"^\s*(?:[-+*/%^<>]|[<>=~]=|\.\.|\[|:)")
 #: ...whether it comes after the call or before it. Before means stepping back
-#: over the receiver first — `a .. frame:Foo()` has the concat three tokens
+#: over the receiver first - `a .. frame:Foo()` has the concat three tokens
 #: from the call, not next to it, and a check anchored on the call itself finds
 #: nothing at all. Both halves of this file's first draft were anchored there.
-#: The length operator belongs here too — `#frame:GetRegions()` raises on a
+#: The length operator belongs here too - `#frame:GetRegions()` raises on a
 #: nil exactly as a subscript does. Zero rows today; it is here so the first
 #: one is caught rather than discovered.
 RAISES_BEFORE = re.compile(r"(?:[-+*/%^<>#]|[<>=~]=|\.\.)\s*$")
@@ -128,7 +128,7 @@ def close_paren(text, open_at):
 
 
 def main():
-    # Only files the loader opens — GlueXML is refused by name and its
+    # Only files the loader opens - GlueXML is refused by name and its
     # calls say nothing about this client.
     files = sorted(loaded_files(XML))
     bodies = {p: strip(p.read_text(errors="ignore"), p.suffix == ".xml")
@@ -136,7 +136,7 @@ def main():
 
     # Methods FrameXML puts on its own tables. `:Method()` looks the same
     # whether the receiver is a widget or a plain table, and FramePositionDelegate
-    # — a table with a dozen methods of its own — supplied four of this sweep's
+    # - a table with a dozen methods of its own - supplied four of this sweep's
     # first five findings. The sibling sweep subtracts these for the same reason.
     defined = set()
     for text in bodies.values():
@@ -167,7 +167,7 @@ def main():
                 ch = text[recv - 1]
                 # `.` belongs to a receiver (`a.b:Foo()`) but `..` does not,
                 # and a walk that cannot tell them apart steps over a
-                # concatenation into the assignment beyond it — which is how
+                # concatenation into the assignment beyond it - which is how
                 # `_G["INPUT_"..self:GetInputLanguage()]` read as a value merely
                 # being kept rather than one being concatenated.
                 #
@@ -186,7 +186,7 @@ def main():
             before = text[head:recv]
             after = text[end:text.find("\n", end)]
             row = (name, f"{p.name}:{line_no}", line[:78])
-            # `x:Foo() and x:Foo() ~= y` is not a nil comparison — the first
+            # `x:Foo() and x:Foo() ~= y` is not a nil comparison - the first
             # call guards the second, and nil short-circuits before the
             # operator is reached. Blizzard writes this a lot.
             call = text[recv:end]

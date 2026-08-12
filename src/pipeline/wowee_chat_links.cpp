@@ -106,13 +106,13 @@ WoweeChatLinks WoweeChatLinksLoader::makeStandardLinks(
         "|cffffffff|Hitem:%d:%d:%d:%d|h[%s]|h|r",
         "%s",
         "inv"));
-    // Quest link: |cffffff00|Hquest:questId:level|h — the comment here said
+    // Quest link: |cffffff00|Hquest:questId:level|h - the comment here said
     // 808080, which is not the colour the line below writes.
     // [Name]|h|r. Gray color for completable quests.
     c.entries.push_back(makeLink(
         2, "Quest Hyperlink",
         L::Quest, 0,
-        0xFFFFFF00u /* yellow — quest color */,
+        0xFFFFFF00u /* yellow - quest color */,
         "|cffffff00|Hquest:%d:%d|h[%s]|h|r",
         "Level %d quest",
         "questmark"));
@@ -159,7 +159,7 @@ WoweeChatLinks WoweeChatLinksLoader::makeTalentTrade(
                        list */,
         0xFFFFA500u /* orange */,
         "|cffffa500|Htrade:%d:%d:%d:%s|h[%s]|h|r",
-        "%s — requires %d %s skill",
+        "%s - requires %d %s skill",
         "trade"));
     return c;
 }

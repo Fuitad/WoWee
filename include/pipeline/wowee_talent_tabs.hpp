@@ -7,10 +7,10 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Talent Tab catalog (.wtle) — novel
+// Wowee Open Talent Tab catalog (.wtle) - novel
 // replacement for Blizzard's TalentTab.dbc plus the
 // per-tab fields in Spell.dbc / Talent.dbc. Defines the
-// three talent trees that each class has — Warrior:
+// three talent trees that each class has - Warrior:
 // Arms / Fury / Protection; Mage: Arcane / Fire / Frost;
 // Paladin: Holy / Protection / Retribution; etc.
 //
@@ -92,13 +92,13 @@ public:
 
     // Preset emitters used by --gen-tle* variants.
     //
-    //   makeWarrior  — 3 tabs (Arms DPS / Fury DPS /
+    //   makeWarrior  - 3 tabs (Arms DPS / Fury DPS /
     //                   Protection Tank) with the
     //                   canonical Warrior icon paths.
-    //   makeMage     — 3 tabs (Arcane / Fire / Frost),
+    //   makeMage     - 3 tabs (Arcane / Fire / Frost),
     //                   all DPS, with the canonical Mage
     //                   icon paths.
-    //   makePaladin  — 3 tabs (Holy Healer / Protection
+    //   makePaladin  - 3 tabs (Holy Healer / Protection
     //                   Tank / Retribution DPS) covering
     //                   all three roles in one preset.
     static WoweeTalentTab makeWarrior(const std::string& catalogName);

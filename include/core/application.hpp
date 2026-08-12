@@ -100,12 +100,12 @@ public:
     // Logout to login screen
     void logoutToLogin();
 
-    // Render bounds lookup (for click targeting / selection) — delegates to EntitySpawner
+    // Render bounds lookup (for click targeting / selection) - delegates to EntitySpawner
     bool getRenderBoundsForGuid(uint64_t guid, glm::vec3& outCenter, float& outRadius) const;
     bool getRenderFootZForGuid(uint64_t guid, float& outFootZ) const;
     bool getRenderPositionForGuid(uint64_t guid, glm::vec3& outPos) const;
 
-    // Character skin composite state — delegated to AppearanceComposer
+    // Character skin composite state - delegated to AppearanceComposer
     const std::string& getBodySkinPath() const { return appearanceComposer_ ? appearanceComposer_->getBodySkinPath() : emptyString_; }
     const std::vector<std::string>& getUnderwearPaths() const { return appearanceComposer_ ? appearanceComposer_->getUnderwearPaths() : emptyStringVec_; }
     uint32_t getSkinTextureSlotIndex() const { return appearanceComposer_ ? appearanceComposer_->getSkinTextureSlotIndex() : 0; }
@@ -128,13 +128,13 @@ public:
 private:
     void update(float deltaTime);
 
-    /// One frame of being in the world — the largest arm of update()'s state
+    /// One frame of being in the world - the largest arm of update()'s state
     /// switch. updateCheckpoint travels by reference because the caller's catch
     /// reports it: an exception here has to say where here was.
     void updateInGame(float deltaTime, const char*& updateCheckpoint);
 
-    /// Everything the server says about how the player moves — speeds, rooting,
-    /// gravity, feather fall, water walking — handed to the camera that owns it.
+    /// Everything the server says about how the player moves - speeds, rooting,
+    /// gravity, feather fall, water walking - handed to the camera that owns it.
     void applyServerMovementState(float deltaTime);
 
     /// Keep render instances on top of what the server says. A model is placed
@@ -163,7 +163,7 @@ private:
     std::unique_ptr<game::World> world;
     std::unique_ptr<pipeline::AssetManager> assetManager;
     std::unique_ptr<addons::AddonManager> addonManager_;
-    // Set by ReloadUI() from inside Lua, acted on between frames — the reload
+    // Set by ReloadUI() from inside Lua, acted on between frames - the reload
     // destroys the state that asked for it.
     bool reloadUiPending_ = false;
     /// Draws the widget tree addons build through CreateFrame/CreateTexture.
@@ -186,7 +186,7 @@ private:
     uint32_t worldMapWidgetId_ = 0;
     /// The target's face, on the same terms as the player's. A third offscreen
     /// pass because all three are on screen at once and each holds a different
-    /// model — the alternative is reloading a model per frame, which is what a
+    /// model - the alternative is reloading a model per frame, which is what a
     /// shared view would amount to.
     ui::UnitPortrait targetPortrait_;
     /// And the focus, which is deliberate enough to be worth its own pass.
@@ -214,7 +214,7 @@ private:
     /// else's paperdoll.
     ui::UnitPortrait inspectModel_;
     uint32_t inspectModelWidgetId_ = 0;
-    /// And whoever this client is dealing with — the face in the gossip,
+    /// And whoever this client is dealing with - the face in the gossip,
     /// quest, merchant, flight master and trade panels. One view for all of
     /// them because only one such window is open at a time.
     ui::UnitPortrait npcPortrait_;
@@ -281,7 +281,7 @@ private:
     static inline const std::vector<std::string> emptyStringVec_;
 
     float facingSendCooldown_ = 0.0f;        // Rate-limits MSG_MOVE_SET_FACING
-    float lastSentCanonicalYaw_ = 1000.0f;   // Sentinel — triggers first send
+    float lastSentCanonicalYaw_ = 1000.0f;   // Sentinel - triggers first send
     float taxiStreamCooldown_ = 0.0f;
     bool idleYawned_ = false;
 
@@ -297,7 +297,7 @@ private:
     uint64_t lastWMORideTransportGuid_ = 0;
     uint32_t lastWMORideMapId_ = 0xFFFFFFFFu;
     // Set when a rider boards or transfers onto a WMO ship whose deck collision hasn't
-    // finished loading yet — holds the boarding-time offset (and freezes camera follow)
+    // finished loading yet - holds the boarding-time offset (and freezes camera follow)
     // until this exact transport instance's deck floor exists, instead of letting gravity
     // fold into the attachment and drop the rider through the hull.
     bool deckFloorPending_ = false;

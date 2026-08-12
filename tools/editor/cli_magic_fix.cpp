@@ -37,7 +37,7 @@ bool peekMagic(const fs::path& path, char magic[4]) {
 }
 
 // Match an extension against the format table case-
-// insensitively. Mirrors cli_audit_tree's helper — kept
+// insensitively. Mirrors cli_audit_tree's helper - kept
 // local to avoid a header-only utility ping-pong.
 const FormatMagicEntry* findFormatByExtension(const std::string& ext) {
     if (ext.empty()) return nullptr;
@@ -96,18 +96,18 @@ int handleFix(int& i, int argc, char** argv) {
         char magic[4] = {0, 0, 0, 0};
         if (!peekMagic(path, magic)) continue;
         const FormatMagicEntry* magicFmt = findFormatByMagic(magic);
-        if (!magicFmt) continue;       // unknown magic — leave alone
+        if (!magicFmt) continue;       // unknown magic - leave alone
         std::string ext = path.extension().string();
         const FormatMagicEntry* extFmt = findFormatByExtension(ext);
         if (extFmt == magicFmt) continue;   // already matches
-        // Either the extension is wrong or absent — propose
+        // Either the extension is wrong or absent - propose
         // a rename to the canonical extension for this magic.
         ProposedRename pr;
         pr.from = path;
         pr.to = proposeRenameTarget(path, magicFmt);
         pr.fmt = magicFmt;
         pr.reason = extFmt ? "ext-mismatch" : "magic-no-ext";
-        // Refuse to overwrite — flag collision so the user
+        // Refuse to overwrite - flag collision so the user
         // can resolve manually. fs::exists() is cheap; the
         // walk visits each file once.
         std::error_code ec;
@@ -165,7 +165,7 @@ int handleFix(int& i, int argc, char** argv) {
         std::printf("  skipped        : %zu\n", skipped);
     }
     if (proposals.empty()) {
-        std::printf("  no extension/magic mismatches found — tree is clean\n");
+        std::printf("  no extension/magic mismatches found - tree is clean\n");
         return 0;
     }
     std::printf("\n");

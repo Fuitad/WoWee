@@ -275,7 +275,7 @@ int handleValidate(int& i, int argc, char** argv) {
         warnings.push_back("catalog has zero entries");
     }
     std::set<uint32_t> idsSeen;
-    // Per-cinematic orderHint uniqueness — two blocks at
+    // Per-cinematic orderHint uniqueness - two blocks at
     // the same orderHint within one cinematic would
     // render in unstable order.
     std::set<uint64_t> orderSlotsSeen;
@@ -294,7 +294,7 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": name is empty");
         if (e.cinematicId == 0) {
             errors.push_back(ctx +
-                ": cinematicId is 0 — credit block is "
+                ": cinematicId is 0 - credit block is "
                 "unbound to any cinematic");
         }
         if (e.category > 6) {
@@ -304,7 +304,7 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         if (e.lines.empty()) {
             errors.push_back(ctx +
-                ": lines[] is empty — credit block has "
+                ": lines[] is empty - credit block has "
                 "nothing to display");
         }
         // Per-line length sanity. WoW cinematic credit
@@ -313,7 +313,7 @@ int handleValidate(int& i, int argc, char** argv) {
             if (e.lines[L].empty()) {
                 warnings.push_back(ctx +
                     ": lines[" + std::to_string(L) +
-                    "] is empty — would render as a "
+                    "] is empty - would render as a "
                     "blank line in the credit roll "
                     "(intentional spacers should still "
                     "have a placeholder character)");
@@ -322,7 +322,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 warnings.push_back(ctx + ": lines[" +
                     std::to_string(L) +
                     "] is " + std::to_string(e.lines[L].size()) +
-                    " chars (>80) — may wrap or truncate "
+                    " chars (>80) - may wrap or truncate "
                     "in the credit-renderer 80-char text "
                     "buffer");
             }
@@ -336,7 +336,7 @@ int handleValidate(int& i, int argc, char** argv) {
                     ", orderHint=" +
                     std::to_string(e.orderHint) +
                     ") slot already occupied by another "
-                    "block — credit roll order would be "
+                    "block - credit roll order would be "
                     "non-deterministic");
             }
         }

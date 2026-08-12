@@ -4,7 +4,7 @@ namespace wowee {
 namespace editor {
 namespace cli {
 
-// Dispatch the tree-style content browser handlers — Unix
+// Dispatch the tree-style content browser handlers - Unix
 // `tree`-style hierarchical views of zone and project contents
 // (manifest, tiles, creatures, objects, quests, files, baked
 // artifacts). Designed for at-a-glance comprehension of what

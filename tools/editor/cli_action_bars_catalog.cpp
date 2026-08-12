@@ -247,7 +247,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 errors.push_back(ctx + ": name is empty");
             if (e.classMask == 0)
                 errors.push_back(ctx +
-                    ": classMask is 0 — no class can use this binding");
+                    ": classMask is 0 - no class can use this binding");
             if (e.barMode > wowee::pipeline::WoweeActionBar::Custom) {
                 errors.push_back(ctx + ": barMode " +
                     std::to_string(e.barMode) + " not in 0..6");
@@ -260,13 +260,13 @@ int handleValidate(int& i, int argc, char** argv) {
             // Both spellId and itemId set is contradictory.
             if (e.spellId != 0 && e.itemId != 0) {
                 warnings.push_back(ctx +
-                    ": both spellId and itemId set — engine prefers "
+                    ": both spellId and itemId set - engine prefers "
                     "spellId; itemId is ignored");
             }
             // Neither set means an empty button.
             if (e.spellId == 0 && e.itemId == 0) {
                 warnings.push_back(ctx +
-                    ": both spellId=0 and itemId=0 — button will be empty");
+                    ": both spellId=0 and itemId=0 - button will be empty");
             }
             if (!idsSeen.add(e.bindingId)) errors.push_back(ctx + ": duplicate bindingId");
         }
@@ -286,7 +286,7 @@ int handleValidate(int& i, int argc, char** argv) {
                     eb.name + ") share " +
                     wowee::pipeline::WoweeActionBar::barModeName(ea.barMode) +
                     " bar slot " + std::to_string(ea.buttonSlot) +
-                    " for overlapping classMask — slot collision");
+                    " for overlapping classMask - slot collision");
             }
         }
             return formatted("%zu bindings, all bindingIds unique, no slot collisions", c.entries.size());

@@ -117,7 +117,7 @@ int handleInfo(int& i, int argc, char** argv) {
 int handleExportJson(int& i, int argc, char** argv) {
     // Mirrors the JSON pairs added for every other novel
     // open format. Each visual kit emits all 12 scalar fields
-    // and 4 model-path strings — there are no enums to widen
+    // and 4 model-path strings - there are no enums to widen
     // with name forms, so the mapping is straightforward.
     return cli::exportCatalogJson<wowee::pipeline::WoweeSpellVisualKitLoader>(
         i, argc, argv, "wsvk", "WSVK", "visuals ",
@@ -233,7 +233,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 e.castAnimId == 0 && e.impactAnimId == 0 &&
                 e.castSoundId == 0 && e.impactSoundId == 0) {
                 warnings.push_back(ctx +
-                    ": no models, animations, or sounds — visual kit has no observable effect");
+                    ": no models, animations, or sounds - visual kit has no observable effect");
             }
             if (!idsSeen.add(e.visualKitId)) errors.push_back(ctx + ": duplicate visualKitId");
         }

@@ -96,7 +96,7 @@ private:
  * key otherwise does. Typing "/logout" opened the quest log on the l and the
  * social panel on the o, and walked the character on the o's neighbours.
  *
- * Asked from several places — bindings, the camera, the sheathe key — so the
+ * Asked from several places - bindings, the camera, the sheathe key - so the
  * answer lives here once rather than at each of them.
  */
 bool interfaceTakingTypedInput();
@@ -110,7 +110,7 @@ void setTypedInputProbe(std::function<bool()> probe);
  *
  * The guard above is not enough for three of them, because the pump's handling
  * of the key *changes what that guard reports*. The pump hands a focused box
- * every keystroke and stops there — and for these three, taking the key is
+ * every keystroke and stops there - and for these three, taking the key is
  * what lets go of the box. The per-frame poll then runs later in the same
  * iteration, asks whether the interface is taking typed input, and is told no,
  * truthfully, by the box that let go on this very press:
@@ -121,14 +121,14 @@ void setTypedInputProbe(std::function<bool()> probe);
  *    hides the box. Enter is also this client's open-chat key, so sending a
  *    message reopened the box on the same press.
  *  - **Tab** is handed to the box's own handler, which is where the interface
- *    moves between fields — and the target key is Tab.
+ *    moves between fields - and the target key is Tab.
  *
  * A flag rather than a consumed key, because ImGui's IsKeyPressed does not
  * consume: both sites see the same press whatever either does with it.
  */
 bool interfaceConsumedKey(ImGuiKey key);
 
-/// Called by the pump, before it dispatches — after, the box no longer admits
+/// Called by the pump, before it dispatches - after, the box no longer admits
 /// to having taken anything.
 void noteInterfaceConsumedKey(ImGuiKey key);
 

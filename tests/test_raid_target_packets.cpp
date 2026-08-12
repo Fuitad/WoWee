@@ -24,7 +24,7 @@ void appendUInt64(std::vector<uint8_t>& out, uint64_t v) {
 } // namespace
 
 TEST_CASE("Full raid target list carries only the icons that are set", "[raid][packets]") {
-    // type 1, then (icon, guid) for the two marked units — NOT a fixed 8 entries.
+    // type 1, then (icon, guid) for the two marked units - NOT a fixed 8 entries.
     std::vector<uint8_t> payload{1};
     payload.push_back(7);                       // Skull
     appendUInt64(payload, 0xF130000123456789ull);
@@ -44,7 +44,7 @@ TEST_CASE("Full raid target list carries only the icons that are set", "[raid][p
 }
 
 TEST_CASE("WotLK single mark skips the setter GUID", "[raid][packets][wotlk]") {
-    // type 0, whoGuid, icon, targetGuid — the 3.3.5a layout.
+    // type 0, whoGuid, icon, targetGuid - the 3.3.5a layout.
     std::vector<uint8_t> payload{0};
     appendUInt64(payload, 0x0000000000008951ull);  // whoGuid: the player marking
     payload.push_back(6);                          // Cross
@@ -61,7 +61,7 @@ TEST_CASE("WotLK single mark skips the setter GUID", "[raid][packets][wotlk]") {
 }
 
 TEST_CASE("Classic and TBC single mark has no setter GUID", "[raid][packets][classic]") {
-    // type 0, icon, targetGuid — pre-WotLK omits whoGuid entirely.
+    // type 0, icon, targetGuid - pre-WotLK omits whoGuid entirely.
     std::vector<uint8_t> payload{0};
     payload.push_back(0);                          // Star
     appendUInt64(payload, 0xF130000CAFEBABEull);

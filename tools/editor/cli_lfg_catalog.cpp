@@ -300,7 +300,7 @@ int handleValidate(int& i, int argc, char** argv) {
             }
             if (e.requiredRolesMask == 0) {
                 errors.push_back(ctx +
-                    ": requiredRolesMask=0 (no role requirement — "
+                    ": requiredRolesMask=0 (no role requirement - "
                     "queue won't form a balanced group)");
             }
             if (!idsSeen.add(e.dungeonId)) errors.push_back(ctx + ": duplicate dungeonId");

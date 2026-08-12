@@ -173,7 +173,7 @@ WoweeTutorialSteps WoweeTutorialStepsLoader::makeLevelUpFlow(
         "Talent Tree Unlocked",
         "You can now spend your first talent point. "
         "Press N to open the talent tree and pick a "
-        "specialization. Choose carefully — talents "
+        "specialization. Choose carefully - talents "
         "cost gold to refund.",
         "TalentButton"));
     return c;

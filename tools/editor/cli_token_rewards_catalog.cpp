@@ -293,10 +293,10 @@ int handleValidate(int& i, int argc, char** argv) {
                 errors.push_back(ctx + ": name is empty");
             if (e.spentTokenItemId == 0)
                 errors.push_back(ctx +
-                    ": spentTokenItemId is 0 — missing token currency");
+                    ": spentTokenItemId is 0 - missing token currency");
             if (e.spentTokenCount == 0)
                 errors.push_back(ctx +
-                    ": spentTokenCount is 0 — would grant reward for free");
+                    ": spentTokenCount is 0 - would grant reward for free");
             if (e.rewardKind > wowee::pipeline::WoweeTokenReward::Cosmetic) {
                 errors.push_back(ctx + ": rewardKind " +
                     std::to_string(e.rewardKind) + " not in 0..7");
@@ -308,17 +308,17 @@ int handleValidate(int& i, int argc, char** argv) {
             }
             if (e.rewardId == 0)
                 warnings.push_back(ctx +
-                    ": rewardId is 0 — no actual reward target, "
+                    ": rewardId is 0 - no actual reward target, "
                     "vendor will offer the entry but grant nothing");
             // requiredFactionStanding > Neutral with no
-            // requiredFactionId is contradictory — the gate
+            // requiredFactionId is contradictory - the gate
             // can't apply.
             if (e.requiredFactionStanding > wowee::pipeline::WoweeTokenReward::Neutral &&
                 e.requiredFactionId == 0) {
                 warnings.push_back(ctx +
                     ": requiredFactionStanding=" +
                     wowee::pipeline::WoweeTokenReward::factionStandingName(e.requiredFactionStanding) +
-                    " set but requiredFactionId=0 — rep gate "
+                    " set but requiredFactionId=0 - rep gate "
                     "has no faction to check, gate will be ignored");
             }
             // Currency conversion to same item is suspicious
@@ -328,7 +328,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 warnings.push_back(ctx +
                     ": Currency conversion from item " +
                     std::to_string(e.spentTokenItemId) +
-                    " to itself — usually a typo");
+                    " to itself - usually a typo");
             }
             if (!idsSeen.add(e.tokenRewardId)) errors.push_back(ctx + ": duplicate tokenRewardId");
         }

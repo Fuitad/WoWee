@@ -390,7 +390,7 @@ bool ItemQueryResponseParser::parse(network::Packet& packet, ItemQueryResponseDa
     // after it by one field.
     //
     // Telling them apart from InventoryType alone does not work. On a server
-    // without BuyCount, reading five fields lands on AllowableClass — and a
+    // without BuyCount, reading five fields lands on AllowableClass - and a
     // class-restricted item's mask is a small number, so it passes any range
     // check InventoryType would. Priest-only is 16, which is a plausible enough
     // "Back" that Friar's Robes of the Light claimed to be a cloak while the
@@ -448,7 +448,7 @@ bool ItemQueryResponseParser::parse(network::Packet& packet, ItemQueryResponseDa
         // A vendor never sells an item for more than it buys it back for.
         if (out.sellPrice <= buyPrice) out.score++;
         // The decisive one when everything else looks plausible either way:
-        // BuyCount is how many the vendor sells at once — 1 for almost
+        // BuyCount is how many the vendor sells at once - 1 for almost
         // everything, a stack at most. Reading a layout that has no BuyCount as
         // though it did lands a price there, and prices are not small.
         constexpr uint32_t kMaxBuyCount = 100;
@@ -592,7 +592,7 @@ bool ItemQueryResponseParser::parse(network::Packet& packet, ItemQueryResponseDa
         // MaxDurability(7), Area(8), Map(9), BagFamily(10), TotemCategory(11)
         for (size_t i = 0; i < 5; ++i) packet.readUInt32();
         // The three sockets, colour and content together, one socket at a
-        // time — `for (s) { << Socket[s].Color; << Socket[s].Content; }`.
+        // time - `for (s) { << Socket[s].Color; << Socket[s].Content; }`.
         // Read as three colours followed by three contents this took the
         // first socket's *content* as the second socket's colour, and a
         // template's sockets are empty, so that is zero: an item with three
@@ -605,7 +605,7 @@ bool ItemQueryResponseParser::parse(network::Packet& packet, ItemQueryResponseDa
         }
         // socketBonus (enchantmentId)
         data.socketBonus = packet.readUInt32();
-        // GemProperties.dbc id — non-zero when this item *is* a gem, and how
+        // GemProperties.dbc id - non-zero when this item *is* a gem, and how
         // its colour is known. An item carries no socket colour of its own.
         if (packet.hasRemaining(4)) {
             data.gemProperties = packet.readUInt32();
@@ -887,7 +887,7 @@ bool SpellDamageLogParser::parse(network::Packet& packet, SpellDamageLogData& da
     (void)packet.readUInt8(); // periodicLog (not displayed)
     packet.readUInt8(); // unused
     packet.readUInt32(); // blocked
-    uint32_t flags = packet.readUInt32();  // flags IS used — bit 0x02 = crit
+    uint32_t flags = packet.readUInt32();  // flags IS used - bit 0x02 = crit
     data.isCrit = (flags & 0x02) != 0;
 
     LOG_DEBUG("Spell damage: spellId=", data.spellId, " dmg=", data.damage,
@@ -1190,7 +1190,7 @@ bool SpellStartParser::parse(network::Packet& packet, SpellStartData& data) {
         return false;
     }
 
-    // WotLK 3.3.5a SpellCastTargets — consume ALL target payload bytes so that
+    // WotLK 3.3.5a SpellCastTargets - consume ALL target payload bytes so that
     // subsequent fields (e.g. school mask, cast flags 0x20 extra data) are not
     // misaligned for ground-targeted or AoE spells.
     uint32_t targetFlags = packet.readUInt32();

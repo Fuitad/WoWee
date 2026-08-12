@@ -128,7 +128,7 @@ int handleInfoProjectBytes(int& i, int argc, char** argv) {
     // re-uses --info-zone-bytes' categorization, and prints a
     // per-zone breakdown table plus aggregated category totals.
     // The headline number is the proprietary-vs-open size split
-    // — surfaces how much disk a project still spends on .m2/
+    // - surfaces how much disk a project still spends on .m2/
     // .wmo/.blp/.dbc payloads vs the open WOM/WOB/PNG/JSON
     // replacements.
     std::string projectDir = argv[++i];
@@ -142,7 +142,7 @@ int handleInfoProjectBytes(int& i, int argc, char** argv) {
             projectDir.c_str());
         return 1;
     }
-    // Same categorizer used by --info-zone-bytes — keep in sync
+    // Same categorizer used by --info-zone-bytes - keep in sync
     // if categories evolve there.
     auto categorize = [](const fs::path& p) -> std::string {
         std::string ext = p.extension().string();

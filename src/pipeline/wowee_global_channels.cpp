@@ -111,22 +111,22 @@ WoweeGlobalChannelsLoader::makeStandardChannels(
     };
     add(1, "LookingForGroup", G::Global, G::PublicJoin,
         15, 0, 0,
-        "Server-wide LFG channel — players queue for "
+        "Server-wide LFG channel - players queue for "
         "5-man dungeons here. Level 15 required (matches "
         "first dungeon access age).");
     add(2, "World", G::Global, G::PublicJoin,
         10, 0, 0,
-        "Server-wide World channel — general chat. "
+        "Server-wide World channel - general chat. "
         "Level 10 minimum to filter trial-account spam.");
     add(3, "TradeStormwind", G::RealmZone, G::AutoJoinOnZone,
         0, 0, 1519,
-        "Trade chat — auto-enrolled when entering "
+        "Trade chat - auto-enrolled when entering "
         "Stormwind (areaId 1519). RealmZone scoped: "
         "players in other capitals see their own "
         "Trade channel.");
     add(4, "General", G::Global, G::PublicJoin,
         1, 0, 0,
-        "Generic catch-all general chat. Level 1 — "
+        "Generic catch-all general chat. Level 1 - "
         "open to all characters.");
     return c;
 }
@@ -154,12 +154,12 @@ WoweeGlobalChannels WoweeGlobalChannelsLoader::makeRoleplay(
     };
     add(100, "RP_OOC",     G::Custom, G::PublicJoin,
         0, 1, 0,
-        "Out-of-character RP chat — meta-discussion "
+        "Out-of-character RP chat - meta-discussion "
         "without breaking immersion in the IC channel. "
         "Public join, no level gate.");
     add(101, "RP_IC",      G::Custom, G::Moderated,
         0, 5, 200,
-        "In-character RP chat — moderated to enforce "
+        "In-character RP chat - moderated to enforce "
         "RP-only language. 200-member cap. Mods can "
         "/silence offenders.");
     add(102, "RP_Forum",   G::Custom, G::InviteOnly,
@@ -168,7 +168,7 @@ WoweeGlobalChannels WoweeGlobalChannelsLoader::makeRoleplay(
         "cap. Used for guild RP coordination.");
     add(103, "RP_Events",  G::Custom, G::PublicJoin,
         1, 1, 0,
-        "RP event announcements — password-protected "
+        "RP event announcements - password-protected "
         "to prevent troll spam. Password is shared via "
         "guild forums.");
     return c;
@@ -198,16 +198,16 @@ WoweeGlobalChannelsLoader::makeAdminChannels(
         c.entries.push_back(e);
     };
     add(200, "GMTraffic", G::InviteOnly, 30,
-        "GM coordination chat — handles in-game support "
+        "GM coordination chat - handles in-game support "
         "tickets. Invite-only with password. 30 member "
         "cap matches typical GM team size.");
     add(201, "AuditLog",  G::Moderated, 50,
-        "Read-only audit-log channel — automated GM-"
+        "Read-only audit-log channel - automated GM-"
         "command and trade-window logs broadcast here. "
         "Moderated kind means only the audit bot can "
         "speak; humans only read.");
     add(202, "Backstage", G::InviteOnly, 20,
-        "Server admin backstage chat — devops + senior "
+        "Server admin backstage chat - devops + senior "
         "GM only. Invite-only, password protected, "
         "20-member cap. NOT logged to AuditLog.");
     return c;

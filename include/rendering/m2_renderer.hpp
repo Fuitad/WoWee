@@ -35,8 +35,8 @@ class VkTexture;
 class HiZSystem;
 
 // Ceiling on the bone matrices computed and uploaded for one M2 instance.
-// WoW models run well past a hundred bones — the largest shipped model has
-// 315 — and a vertex weighted to a bone above this ceiling would read outside
+// WoW models run well past a hundred bones - the largest shipped model has
+// 315 - and a vertex weighted to a bone above this ceiling would read outside
 // its instance's range in the mega bone buffer, which is what threw stray
 // spikes out of water elementals and other high-bone-count creatures.
 inline constexpr uint32_t kMaxBonesPerInstance = 512;
@@ -157,8 +157,8 @@ struct M2ModelGPU {
     bool isLanternLike = false;     // Model name matches lantern/lamp/light (precomputed)
     bool isKoboldFlame = false;     // Model name matches kobold+(candle/torch/mine) (precomputed)
     bool isLavaModel = false;       // Model name contains lava/molten/magma (UV scroll fallback)
-    bool isSkyBird = false;         // Flying bird/bat doodad — hide until animation range
-    bool isLightBeam = false;       // Lighthouse/light-ray beam — distant bones must keep updating
+    bool isSkyBird = false;         // Flying bird/bat doodad - hide until animation range
+    bool isLightBeam = false;       // Lighthouse/light-ray beam - distant bones must keep updating
     bool isTransportDoodad = false; // Animated ship sail/paddle child
     bool hasTextureAnimation = false; // True if any batch has UV animation
     bool hasTransparentBatches = false; // True if any batch uses alpha-blend or additive (blendMode >= 2)
@@ -264,7 +264,7 @@ struct M2Instance {
     const M2ModelGPU* cachedModel = nullptr;  // Avoid per-frame hash lookups
 
     // Result of the most recent GPU cull dispatch that actually covered this
-    // instance, matched back by instance ID (never by array index — see
+    // instance, matched back by instance ID (never by array index - see
     // cullSubmittedIds_).  Defaults to visible so an instance created after the
     // in-flight dispatch draws immediately instead of waiting ~2 frames for its
     // first cull result.
@@ -290,13 +290,13 @@ struct M2Instance {
     // skip the memcpy when the bones are unchanged and still at the same slot.
     uint32_t megaBoneUploadedSlot[2] = {0, 0};
 
-    // Per-instance bone SSBO (double-buffered) — legacy; see mega bone SSBO in M2Renderer
+    // Per-instance bone SSBO (double-buffered) - legacy; see mega bone SSBO in M2Renderer
     ::VkBuffer boneBuffer[2] = {};
     VmaAllocation boneAlloc[2] = {};
     void* boneMapped[2] = {};
     VkDescriptorSet boneSet[2] = {};
 
-    // Mega bone SSBO offset — base bone index for this instance (set per-frame in prepareRender)
+    // Mega bone SSBO offset - base bone index for this instance (set per-frame in prepareRender)
     uint32_t megaBoneOffset = 0;
 
     void updateModelMatrix();
@@ -315,7 +315,7 @@ struct SmokeParticle {
     uint32_t instanceId = 0;
 };
 
-// M2 material UBO — matches M2Material in m2.frag.glsl (set 1, binding 2)
+// M2 material UBO - matches M2Material in m2.frag.glsl (set 1, binding 2)
 struct M2MaterialUBO {
     int32_t hasTexture;
     int32_t alphaTest;
@@ -329,7 +329,7 @@ struct M2MaterialUBO {
     float emissiveBoost;
 };
 
-// M2 params UBO — matches M2Params in m2.vert.glsl (set 1, binding 1)
+// M2 params UBO - matches M2Params in m2.vert.glsl (set 1, binding 1)
 struct M2ParamsUBO {
     float uvOffsetX;
     float uvOffsetY;
@@ -363,7 +363,7 @@ public:
     /// Instances of the same model at the same spot are treated as one placement,
     /// which is right for the static world and wrong for anything whose position
     /// arrives later from a parent. Pass allowPositionDedup=false for a child
-    /// instance created at a placeholder position — see the note in
+    /// instance created at a placeholder position - see the note in
     /// setInstanceTransform on why the placeholder key outlives the placement.
     uint32_t createInstance(uint32_t modelId, const glm::vec3& position,
                             const glm::vec3& rotation = glm::vec3(0.0f),
@@ -439,7 +439,7 @@ public:
     bool getInstanceBounds(uint32_t instanceId, glm::vec3& outCenter, float& outRadius) const;
     /// True while the instance is still live in the renderer. Owners that cache
     /// instance IDs (game objects, transports) use this to notice an instance
-    /// that was dropped underneath them — e.g. by a renderer-wide clear — and
+    /// that was dropped underneath them - e.g. by a renderer-wide clear - and
     /// respawn it instead of silently addressing a dead handle forever.
     bool hasInstance(uint32_t instanceId) const {
         return instanceIndexById.find(instanceId) != instanceIndexById.end();
@@ -458,7 +458,7 @@ public:
     void cleanupUnusedModels();
     /// Keep a model resident even while it has no instances. Game object models
     /// are a small, bounded set (one per display ID actually encountered) that
-    /// goes instance-free every time the player leaves an area and comes back —
+    /// goes instance-free every time the player leaves an area and comes back -
     /// exactly the reap/reload churn seen in the field. Pinning them keeps that
     /// cycle out of the picture entirely; ambient doodads still get reaped.
     void setModelPinned(uint32_t modelId, bool pinned);
@@ -571,7 +571,7 @@ private:
     VmaAllocation dummyBoneAlloc_ = VK_NULL_HANDLE;
     VkDescriptorSet dummyBoneSet_ = VK_NULL_HANDLE;
 
-    // Mega bone SSBO — consolidates all per-instance bone matrices into a single buffer per frame.
+    // Mega bone SSBO - consolidates all per-instance bone matrices into a single buffer per frame.
     // Replaces per-instance bone SSBOs for fewer descriptor binds and enables GPU instancing.
     static constexpr uint32_t MEGA_BONE_MAX_INSTANCES = 4096;
     // Per-instance bone ranges are packed at their model's true bone count
@@ -584,7 +584,7 @@ private:
     void* megaBoneMapped_[2] = {};
     VkDescriptorSet megaBoneSet_[2] = {};
 
-    // GPU instance data SSBO — per-instance transforms, fade, bones for instanced draws.
+    // GPU instance data SSBO - per-instance transforms, fade, bones for instanced draws.
     // Shader reads instanceData[push.instanceDataOffset + gl_InstanceIndex].
     struct M2InstanceGPU {
         glm::mat4 model;           // 64 bytes @ offset 0
@@ -592,8 +592,8 @@ private:
         float fadeAlpha;           //  4 bytes @ offset 72
         int32_t useBones;          //  4 bytes @ offset 76
         int32_t boneBase;          //  4 bytes @ offset 80
-        int32_t boneCount;         //  4 bytes @ offset 84 — clamps skinning reads
-        int32_t _pad[2] = {};      //  8 bytes @ offset 88 — align to 96 (std430)
+        int32_t boneCount;         //  4 bytes @ offset 84 - clamps skinning reads
+        int32_t _pad[2] = {};      //  8 bytes @ offset 88 - align to 96 (std430)
     };
     static constexpr uint32_t MAX_INSTANCE_DATA = 16384;
     VkDescriptorSetLayout instanceSetLayout_ = VK_NULL_HANDLE;
@@ -642,7 +642,7 @@ private:
     VmaAllocation cullOutputAlloc_[2] = {};
     void* cullOutputMapped_[2] = {};
 
-    // HiZ occlusion culling (Phase 6.3) — optional, driven by Renderer
+    // HiZ occlusion culling (Phase 6.3) - optional, driven by Renderer
     HiZSystem* hizSystem_ = nullptr;
 
     // Previous frame's view-projection for temporal reprojection in HiZ culling.
@@ -655,7 +655,7 @@ private:
     // The visibility SSBO is read back one full slot cycle after it is written:
     // dispatchCullCompute() records a dispatch into this frame's command buffer,
     // and render() reads the mapped output of the dispatch recorded on the SAME
-    // slot ~2 frames earlier.  Array indices are not stable across that gap —
+    // slot ~2 frames earlier.  Array indices are not stable across that gap -
     // createInstance() appends and removeInstance() swap-removes, so slot i can
     // easily describe a different object by the time it is read.  Recording the
     // IDs lets render() match each result back to the instance it was computed
@@ -782,7 +782,7 @@ private:
     std::unordered_map<uint32_t, uint32_t> boneSeedInstanceByModel_;
     // Collision scratch buffers are thread_local (see m2_renderer.cpp) for thread-safety.
 
-    // Collision query profiling — atomic because getFloorHeight is dispatched
+    // Collision query profiling - atomic because getFloorHeight is dispatched
     // on async threads from camera_controller while the main thread reads these.
     mutable std::atomic<double> queryTimeMs{0.0};
     mutable std::atomic<uint32_t> queryCallCount{0};

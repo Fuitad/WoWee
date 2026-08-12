@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Spell Cast Time Index catalog (.wsct) — novel
+// Wowee Open Spell Cast Time Index catalog (.wsct) - novel
 // replacement for Blizzard's SpellCastTimes.dbc plus the
 // per-spell castTime fields in Spell.dbc. Defines the
 // categorical cast-time buckets that spells reference
@@ -15,14 +15,14 @@ namespace pipeline {
 // can share the same timing metadata instead of each
 // embedding their own ms count.
 //
-// Cast time can scale with character level — Frostbolt at
+// Cast time can scale with character level - Frostbolt at
 // rank 1 might cast in 1500ms, but the rank-11 version
 // references a bucket where baseCastMs and perLevelMs
 // combine to give 2500ms by lvl 60. Haste is then applied
 // on top of the bucket result, clamped to [minCastMs,
 // maxCastMs].
 //
-// Companion catalog to WSRG (Spell Range Index) — together
+// Companion catalog to WSRG (Spell Range Index) - together
 // they let the spell engine look up "Frostbolt's range
 // bucket = id 3 (Spell, 0-30y)" and "Frostbolt's cast time
 // bucket = id 5 (LongCast, 3000ms base)" with two table
@@ -30,7 +30,7 @@ namespace pipeline {
 // every rank of every spell.
 //
 // Cross-references with previously-added formats:
-//   None — this catalog is consumed directly by the spell
+//   None - this catalog is consumed directly by the spell
 //   engine. WSPL spell entries reference castTimeId.
 //
 // Binary layout (little-endian):
@@ -50,7 +50,7 @@ namespace pipeline {
 //     iconColorRGBA (uint32)
 struct WoweeSpellCastTime {
     enum CastKind : uint8_t {
-        Instant      = 0,    // 0ms — fires on key release
+        Instant      = 0,    // 0ms - fires on key release
         Cast         = 1,    // standard cast, can be haste-shortened
         Channel      = 2,    // channels for full duration
         DelayedCast  = 3,    // queued / next-server-tick cast
@@ -94,16 +94,16 @@ public:
 
     // Preset emitters used by --gen-sct* variants.
     //
-    //   makeStarter   — 4 baseline buckets (Instant 0ms,
+    //   makeStarter   - 4 baseline buckets (Instant 0ms,
     //                    FastCast 1000ms, MediumCast 1500ms,
     //                    LongCast 3000ms) covering the
     //                    most common cast time tiers.
-    //   makeChannel   — 3 channeled-spell buckets (TickEvery1s
+    //   makeChannel   - 3 channeled-spell buckets (TickEvery1s
     //                    1000ms, TickEvery2s 2000ms,
     //                    TickEvery3s 3000ms) for AoE channels
     //                    like Arcane Missiles / Drain Life.
-    //   makeRamp      — 4 level-scaled buckets where
-    //                    perLevelMs > 0 — cast time grows
+    //   makeRamp      - 4 level-scaled buckets where
+    //                    perLevelMs > 0 - cast time grows
     //                    with character level, simulating
     //                    higher-rank spells with longer cast
     //                    times.

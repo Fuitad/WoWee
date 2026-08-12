@@ -45,7 +45,7 @@ MemoryMonitor& MemoryMonitor::getInstance() {
 
 void MemoryMonitor::initialize() {
     constexpr size_t kOneGB = 1024ull * 1024 * 1024;
-    // Fallback if OS API unavailable — 16 GB is a safe conservative estimate
+    // Fallback if OS API unavailable - 16 GB is a safe conservative estimate
     // that prevents over-aggressive asset caching on unknown hardware.
     constexpr size_t kFallbackRAM = 16 * kOneGB;
 
@@ -145,7 +145,7 @@ bool MemoryMonitor::isMemoryPressure() const {
 
 bool MemoryMonitor::isSevereMemoryPressure() const {
     size_t available = getAvailableRAM();
-    // Severe pressure if < 15% RAM available — background workers should
+    // Severe pressure if < 15% RAM available - background workers should
     // pause entirely to avoid OOM-killing other applications.
     return available < (totalRAM_ * 15 / 100);
 }

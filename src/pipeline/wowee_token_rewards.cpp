@@ -126,15 +126,15 @@ WoweeTokenReward WoweeTokenRewardLoader::makeRaidTokens(
     // Item 49426 = Emblem of Frost (T10 redeem token).
     // Item ids on the right are illustrative tier-set helms.
     add(1, "T9_Conqueror_Helm",  47241, 1, 47242,
-        "T9 Conqueror's Helm — 1 Trophy of the Crusade.");
+        "T9 Conqueror's Helm - 1 Trophy of the Crusade.");
     add(2, "T9_Vanquisher_Chest",47241, 1, 47243,
-        "T9 Vanquisher's Chest — 1 Trophy of the Crusade.");
+        "T9 Vanquisher's Chest - 1 Trophy of the Crusade.");
     add(3, "T10_Protector_Legs", 49426, 95, 50688,
-        "T10 Protector's Greaves — 95 Emblem of Frost.");
+        "T10 Protector's Greaves - 95 Emblem of Frost.");
     add(4, "T10_Trophy_Gloves",  49426, 60, 50689,
-        "T10 Trophy Gauntlets — 60 Emblem of Frost.");
+        "T10 Trophy Gauntlets - 60 Emblem of Frost.");
     add(5, "T10_Helm_Crusader",  49426, 95, 50690,
-        "T10 Crusader's Helm — 95 Emblem of Frost.");
+        "T10 Crusader's Helm - 95 Emblem of Frost.");
     return c;
 }
 
@@ -158,15 +158,15 @@ WoweeTokenReward WoweeTokenRewardLoader::makePvP(
     };
     // Honor Points = 43308; Arena Points = 29024 (item form).
     add(100, "PvPMount_Stallion",     43308, 50000,  T::Mount,
-        4806,  "PvP Stallion — 50000 honor points.");
+        4806,  "PvP Stallion - 50000 honor points.");
     add(101, "ArenaWeapon_Sword",     29024,  3650, T::Item,
-        51811, "Arena Season 8 Sword — 3650 Arena Points.");
+        51811, "Arena Season 8 Sword - 3650 Arena Points.");
     add(102, "PvPHelm_Wrathful",      29024,  1650, T::Item,
-        51812, "Wrathful Gladiator's Helm — 1650 Arena Points.");
+        51812, "Wrathful Gladiator's Helm - 1650 Arena Points.");
     add(103, "ConquestTitle_Combatant",29024,    50, T::Title,
-        38,    "Combatant title — 50 Arena Points.");
+        38,    "Combatant title - 50 Arena Points.");
     add(104, "PvPTabard",             43308,  3000, T::Cosmetic,
-        45984, "PvP Tabard — 3000 honor points.");
+        45984, "PvP Tabard - 3000 honor points.");
     return c;
 }
 
@@ -194,19 +194,19 @@ WoweeTokenReward WoweeTokenRewardLoader::makeFaction(
     // Token items: Champion's Seal (44990, Argent Tournament),
     // Spear-fragment of Hodir (41511, Sons of Hodir).
     add(200, "ArgentTabard",  44990, 25, T::Cosmetic, 45984, 1106,  T::Honored,
-        "Argent Tournament tabard — 25 Champion's Seals "
+        "Argent Tournament tabard - 25 Champion's Seals "
         "@ Honored with Argent Crusade.");
     add(201, "HodirMammoth",  41511,200, T::Mount,    44171, 1119,  T::Exalted,
-        "Sons of Hodir Mammoth — 200 Spear-fragments "
+        "Sons of Hodir Mammoth - 200 Spear-fragments "
         "@ Exalted with Sons of Hodir.");
     add(202, "CenarionRing",  20809,150, T::Item,     19438,  609,  T::Revered,
-        "Cenarion Ring of Casting — 150 Marks of Cenarion "
+        "Cenarion Ring of Casting - 150 Marks of Cenarion "
         "@ Revered with Cenarion Circle.");
     add(203, "ArgentTitle",   44990,250, T::Title,    149,   1106,  T::Exalted,
-        "Crusader title — 250 Champion's Seals @ Exalted "
+        "Crusader title - 250 Champion's Seals @ Exalted "
         "with Argent Crusade.");
     add(204, "WintergraspPet",43589, 30, T::Pet,      45890, 1156,  T::Honored,
-        "Wintergrasp commemorative pet — 30 Wintergrasp "
+        "Wintergrasp commemorative pet - 30 Wintergrasp "
         "Marks @ Honored with The Wintergrasp Defenders.");
     return c;
 }

@@ -46,7 +46,7 @@ void M2Renderer::setInstancePosition(uint32_t instanceId, const glm::vec3& posit
 
     inst.position = position;
     inst.updateModelMatrix();
-    // Use cachedModel instead of a fresh models.find() — the pointer was set
+    // Use cachedModel instead of a fresh models.find() - the pointer was set
     // at addInstance and stays valid as long as the instance exists.
     if (inst.cachedModel) {
         glm::vec3 localMin, localMax;
@@ -146,7 +146,7 @@ bool M2Renderer::getInstanceBounds(uint32_t instanceId, glm::vec3& outCenter, fl
 void M2Renderer::setInstanceTransform(uint32_t instanceId, const glm::mat4& transform) {
     auto idxIt = instanceIndexById.find(instanceId);
     if (idxIt == instanceIndexById.end()) return;
-    // Reject NaN matrix — would propagate into the model matrix uniform
+    // Reject NaN matrix - would propagate into the model matrix uniform
     // and the spatial-grid bounds, leaving stale grid cells pointing at
     // a NaN-bounded instance.
     for (int c = 0; c < 4; c++)
@@ -167,7 +167,7 @@ void M2Renderer::setInstanceTransform(uint32_t instanceId, const glm::mat4& tran
     inst.position = glm::vec3(transform[3]);
 
     // The dedup map is keyed on position, so it has to move with the instance.
-    // It did not, and only rebuildSpatialIndex ever put it right — which this
+    // It did not, and only rebuildSpatialIndex ever put it right - which this
     // path deliberately avoids. A ship's doodads are created at the origin and
     // moved here a frame later, so the origin key stayed pointing at them and
     // the next ship of the same class was handed the first ship's sails instead
@@ -227,7 +227,7 @@ void M2Renderer::setInstanceTransform(uint32_t instanceId, const glm::mat4& tran
             }
         }
     }
-    // No spatialIndexDirty_ = true — handled incrementally
+    // No spatialIndexDirty_ = true - handled incrementally
 }
 
 void M2Renderer::removeInstance(uint32_t instanceId) {
@@ -599,22 +599,22 @@ void M2Renderer::cleanupUnusedModels() {
 
     // Find models with no instances that have exceeded the grace period.
     // Models that just lost their last instance get tracked but not evicted
-    // immediately — this prevents thrashing when GO models are briefly
+    // immediately - this prevents thrashing when GO models are briefly
     // instance-free between despawn and respawn cycles.
     std::vector<uint32_t> toRemove;
     for (const auto& [id, model] : models) {
         if (usedModelIds.find(id) != usedModelIds.end() ||
             pinnedModelIds_.find(id) != pinnedModelIds_.end()) {
-            // Model still in use or pinned — clear any pending unused timestamp
+            // Model still in use or pinned - clear any pending unused timestamp
             modelUnusedSince_.erase(id);
             continue;
         }
         auto unusedIt = modelUnusedSince_.find(id);
         if (unusedIt == modelUnusedSince_.end()) {
-            // First cycle with no instances — start the grace timer
+            // First cycle with no instances - start the grace timer
             modelUnusedSince_[id] = now;
         } else if (now - unusedIt->second >= kGracePeriod) {
-            // Grace period expired — mark for removal
+            // Grace period expired - mark for removal
             toRemove.push_back(id);
             modelUnusedSince_.erase(unusedIt);
         }
@@ -622,11 +622,11 @@ void M2Renderer::cleanupUnusedModels() {
 
     // Delete GPU resources and remove from map.
     // Wait for the GPU to finish all in-flight frames before destroying any
-    // buffers — the previous frame's command buffer may still be referencing
+    // buffers - the previous frame's command buffer may still be referencing
     // vertex/index buffers that are about to be freed. Without this wait,
     // the GPU reads freed memory, which can cause VK_ERROR_DEVICE_LOST.
     // Suspected (not yet confirmed) contributor to multi-second freezes seen
-    // right after taxi landings — timed here so the next repro pins it down.
+    // right after taxi landings - timed here so the next repro pins it down.
     if (!toRemove.empty() && vkCtx_) {
         const auto waitStart = std::chrono::steady_clock::now();
         vkDeviceWaitIdle(vkCtx_->getDevice());
@@ -895,7 +895,7 @@ std::optional<float> M2Renderer::getFloorHeight(float glX, float glY, float glZ,
                 // projection is not a world-vertical intersection.
                 continue;
             }
-            // Fall through to AABB floor — both contribute, highest wins
+            // Fall through to AABB floor - both contribute, highest wins
         }
 
         float zMargin = model.collisionBridge ? 25.0f : 2.0f;
@@ -1033,7 +1033,7 @@ bool M2Renderer::checkCollision(const glm::vec3& from, const glm::vec3& to,
                 float distXY = std::sqrt(diff.x * diff.x + diff.y * diff.y);
 
                 if (distXY < localRadius && distXY > 1e-4f) {
-                    // Gentle push — very small fraction of penetration
+                    // Gentle push - very small fraction of penetration
                     float penetration = localRadius - distXY;
                     float pushDist = std::clamp(penetration * 0.08f, 0.001f, 0.015f);
                     float dx = (diff.x / distXY) * pushDist;
@@ -1044,7 +1044,7 @@ bool M2Renderer::checkCollision(const glm::vec3& from, const glm::vec3& to,
                     totalPushY += dy;
                     pushed = true;
                 } else if (distXY < 1e-4f) {
-                    // On the plane — soft push along triangle normal XY
+                    // On the plane - soft push along triangle normal XY
                     glm::vec3 n = glm::cross(v1 - v0, v2 - v0);
                     float nxyLen = std::sqrt(n.x * n.x + n.y * n.y);
                     if (nxyLen > 1e-4f) {
@@ -1068,8 +1068,8 @@ bool M2Renderer::checkCollision(const glm::vec3& from, const glm::vec3& to,
                 // Which doodad is in the way, once per model.
                 //
                 // A model that blocks and should not is reported as "I am
-                // stuck on this bush", and the one thing needed to fix it —
-                // the model's name — is the one thing nobody can see. The
+                // stuck on this bush", and the one thing needed to fix it -
+                // the model's name - is the one thing nobody can see. The
                 // classifier decides collision from that name, so without it
                 // the only way forward is guessing tokens, which is how the
                 // folder-token regression happened.
@@ -1080,7 +1080,7 @@ bool M2Renderer::checkCollision(const glm::vec3& from, const glm::vec3& to,
                 static std::set<std::string> saidBlocked;
                 if (!model.name.empty() && saidBlocked.insert(model.name).second) {
                     LOG_WARNING("Collision: blocked by '", model.name,
-                                "' — if this should be walked through, that is "
+                                "' - if this should be walked through, that is "
                                 "the name the classifier needs");
                 }
             }
@@ -1164,12 +1164,12 @@ bool M2Renderer::checkCollision(const glm::vec3& from, const glm::vec3& to,
                 // The first of these lines went inside the branch for models
                 // that carry a collision mesh. A model without one is stopped
                 // by its bounding box here instead, so the doodads reported as
-                // wrongly solid — grass among them — were exactly the ones the
+                // wrongly solid - grass among them - were exactly the ones the
                 // diagnostic could not see.
                 static std::set<std::string> saidBoxBlocked;
                 if (!model.name.empty() && saidBoxBlocked.insert(model.name).second) {
                     LOG_WARNING("Collision: blocked by '", model.name,
-                                "' (bounding box, no collision mesh) — if this "
+                                "' (bounding box, no collision mesh) - if this "
                                 "should be walked through, that is the name the "
                                 "classifier needs");
                 }

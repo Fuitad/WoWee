@@ -3,8 +3,8 @@
 // GPU Frustum + HiZ Occlusion Culling for M2 doodads (Phase 6.3).
 //
 // Two-level culling:
-//   1. Frustum — current-frame planes from viewProj.
-//   2. HiZ occlusion — projects bounding sphere into the PREVIOUS frame's
+//   1. Frustum - current-frame planes from viewProj.
+//   2. HiZ occlusion - projects bounding sphere into the PREVIOUS frame's
 //      screen space via prevViewProj and samples the Hierarchical-Z pyramid
 //      (built from said previous depth).  Conservative safeguards:
 //        • Only objects that were visible last frame get the HiZ test.
@@ -49,14 +49,14 @@ layout(std430, set = 0, binding = 2) buffer CullOutput {
 
 layout(set = 1, binding = 0) uniform sampler2D hizPyramid;
 
-// Screen-edge margin — skip HiZ if the AABB touches this border.
+// Screen-edge margin - skip HiZ if the AABB touches this border.
 // Depth data at screen edges is from unrelated geometry → false culls.
 const float SCREEN_EDGE_MARGIN = 0.02;
 
 // Sphere inflation factor for HiZ screen AABB (50 % larger → very conservative).
 const float HIZ_SPHERE_INFLATE = 1.5;
 
-// Depth bias — push nearest depth closer to camera so only objects
+// Depth bias - push nearest depth closer to camera so only objects
 // significantly behind occluders are culled.
 const float HIZ_DEPTH_BIAS = 0.02;
 
@@ -152,7 +152,7 @@ void main() {
                     float mipLevel = ceil(log2(max(screenSize, 1.0))) + 1.0;
                     mipLevel = clamp(mipLevel, 0.0, float(hizMipLevels - 1u));
 
-                    // Sample HiZ at 4 corners — take MAX (farthest occluder)
+                    // Sample HiZ at 4 corners - take MAX (farthest occluder)
                     float pz0 = textureLod(hizPyramid, uvMin, mipLevel).r;
                     float pz1 = textureLod(hizPyramid, vec2(uvMax.x, uvMin.y), mipLevel).r;
                     float pz2 = textureLod(hizPyramid, vec2(uvMin.x, uvMax.y), mipLevel).r;

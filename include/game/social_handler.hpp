@@ -97,7 +97,7 @@ public:
     ///
     /// SetWhoToUI is how the interface says which. FriendsFrame turns it on
     /// while its Who tab is up and off again on the way out, so a search typed
-    /// into chat with the panel closed is meant to print its results there —
+    /// into chat with the panel closed is meant to print its results there -
     /// which is what a stock client does and what this one did not, having
     /// treated the call as a no-op and always kept the rows to itself.
     void setWhoToUI(bool toUI) { whoToUI_ = toUI; }
@@ -153,7 +153,7 @@ public:
     /// Ask the battleground for everyone's position.
     ///
     /// MSG_BATTLEGROUND_PLAYER_POSITIONS is a request the server answers with
-    /// the same opcode — the reply was already parsed here and nothing ever
+    /// the same opcode - the reply was already parsed here and nothing ever
     /// asked, so the list it fills stayed empty for both maps. Throttled
     /// because the interface calls it from WorldMapFrame_OnUpdate, which is
     /// every frame the map is open.
@@ -162,13 +162,13 @@ public:
     ///
     /// The server sends them once at login and pushes a status line whenever a
     /// friend comes or goes, so this is a refresh rather than the only way to
-    /// have them — but the friends panel asks for one every time it redraws,
+    /// have them - but the friends panel asks for one every time it redraws,
     /// which is what ShowFriends means, and a stale online column is what
     /// happens without it.
     void requestContactList();
 
     /// Give or take raid assistant. CMSG_GROUP_ASSISTANT_LEADER is a guid and
-    /// a flag, and AzerothCore drops it unless the sender leads the group —
+    /// a flag, and AzerothCore drops it unless the sender leads the group -
     /// which is the same test the unit menu makes before offering the entry.
     void setGroupAssistant(uint64_t guid, bool apply);
     static constexpr uint8_t kGuildBankMoneyTab = 6;
@@ -213,7 +213,7 @@ public:
     /// rank each member holds; both were parsed and stored and neither was
     /// being read.
     /// Where the player sits in the guild, as an index into the rank list.
-    /// 0xFFFFFFFF when the roster has not arrived or the player is not in it —
+    /// 0xFFFFFFFF when the roster has not arrived or the player is not in it -
     /// distinct from rank zero, which is the guild master.
     uint32_t getPlayerGuildRankIndex() const;
     uint32_t getPlayerGuildRankRights() const;
@@ -231,7 +231,7 @@ public:
     /// different thing, so closing one has to close the other.
     void closePetitionVendor();
     bool isGuildRegistrar() const { return petitionIsGuildCharter_; }
-    /// The charters on offer, in the order the vendor listed them — one from a
+    /// The charters on offer, in the order the vendor listed them - one from a
     /// guild registrar, three from an arena registrar for the two, three and
     /// five person teams.
     const std::vector<PetitionShowlistData::Charter>& getPetitionCharters() const {
@@ -608,7 +608,7 @@ private:
     std::string pendingGuildInviterName_;
     std::string pendingGuildInviteGuildName_;
     bool showPetitionDialog_ = false;
-    /// Which of the two registrar panels is open — the offer says, not the
+    /// Which of the two registrar panels is open - the offer says, not the
     /// opcode, and closing has to name the same one that opened.
     bool petitionIsGuildCharter_ = false;
     std::vector<PetitionShowlistData::Charter> petitionCharters_;
@@ -677,7 +677,7 @@ private:
     uint64_t lfgBootVictimGuid_ = 0;
     /// Why the server will not let this character queue for a dungeon, by
     /// dungeon id. Empty means nothing is locked, which is also what it meant
-    /// while SMSG_LFG_PLAYER_INFO was being skipped — the difference is that
+    /// while SMSG_LFG_PLAYER_INFO was being skipped - the difference is that
     /// now it is an answer rather than an absence.
     std::unordered_map<uint32_t, uint32_t> lfgLocks_;
     std::vector<LfgReward> lfgRewards_;

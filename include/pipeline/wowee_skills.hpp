@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Skill Catalog (.wskl) — novel replacement for
+// Wowee Open Skill Catalog (.wskl) - novel replacement for
 // Blizzard's SkillLine.dbc + SkillLineCategory.dbc + the
 // AzerothCore-style player_classlevelstats / skill base
 // tables. The 19th open format added to the editor.
@@ -63,7 +63,7 @@ struct WoweeSkill {
 
     bool isValid() const { return !entries.empty(); }
 
-    // Lookup by skillId — nullptr if not present.
+    // Lookup by skillId - nullptr if not present.
     const Entry* findById(uint32_t skillId) const;
 
     static const char* categoryName(uint8_t c);
@@ -78,13 +78,13 @@ public:
 
     // Preset emitters used by --gen-skills* variants.
     //
-    //   makeStarter — minimal: Swords + Lockpicking + Mining +
+    //   makeStarter - minimal: Swords + Lockpicking + Mining +
     //                  First Aid + Common (one per category that
     //                  the runtime uses immediately).
-    //   makeProfessions — full primary + secondary profession
+    //   makeProfessions - full primary + secondary profession
     //                      set (the 12 classic gathering /
     //                      crafting professions).
-    //   makeWeapons — every weapon-skill slot with WoW's
+    //   makeWeapons - every weapon-skill slot with WoW's
     //                  canonical max-rank scaling (rankPerLevel=5).
     static WoweeSkill makeStarter(const std::string& catalogName);
     static WoweeSkill makeProfessions(const std::string& catalogName);

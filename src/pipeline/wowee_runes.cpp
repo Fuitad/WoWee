@@ -82,7 +82,7 @@ WoweeRuneCost WoweeRuneCostLoader::makeStarter(
     {
         WoweeRuneCost::Entry e;
         e.runeCostId = 1; e.name = "DeathStrikeRuneCost";
-        e.description = "Death Strike — costs 1 Frost + 1 Unholy, "
+        e.description = "Death Strike - costs 1 Frost + 1 Unholy, "
                          "generates 20 RP, heals based on damage taken.";
         e.spellId = 49998;       // canonical Death Strike spellId
         e.frostCost = 1; e.unholyCost = 1;
@@ -93,7 +93,7 @@ WoweeRuneCost WoweeRuneCostLoader::makeStarter(
     {
         WoweeRuneCost::Entry e;
         e.runeCostId = 2; e.name = "FrostStrikeRuneCost";
-        e.description = "Frost Strike — pure runic power spender, "
+        e.description = "Frost Strike - pure runic power spender, "
                          "no rune cost.";
         e.spellId = 49143;       // canonical Frost Strike
         e.runicPowerCost = 40;   // spender
@@ -103,7 +103,7 @@ WoweeRuneCost WoweeRuneCostLoader::makeStarter(
     {
         WoweeRuneCost::Entry e;
         e.runeCostId = 3; e.name = "HeartStrikeRuneCost";
-        e.description = "Heart Strike — costs 1 Blood, generates "
+        e.description = "Heart Strike - costs 1 Blood, generates "
                          "10 RP, blood-tree filler.";
         e.spellId = 55050;       // canonical Heart Strike
         e.bloodCost = 1;
@@ -132,13 +132,13 @@ WoweeRuneCost WoweeRuneCostLoader::makeBlood(
         c.entries.push_back(e);
     };
     add(100, "HeartStrike",    55050,   1, 0, 0, -10,
-        "Blood-tree filler — 1 Blood, generates 10 RP.");
+        "Blood-tree filler - 1 Blood, generates 10 RP.");
     add(101, "DeathAndDecay",  43265,   1, 1, 1, -15,
-        "AoE blood ability — 1 of each + 15 RP gain.");
+        "AoE blood ability - 1 of each + 15 RP gain.");
     add(102, "VampiricBlood",  55233,   0, 0, 0,  20,
-        "Tanking cooldown — pure 20 RP spender.");
+        "Tanking cooldown - pure 20 RP spender.");
     add(103, "RuneTap",        48982,   1, 0, 0,   0,
-        "Self-heal — 1 Blood, no RP gain or cost.");
+        "Self-heal - 1 Blood, no RP gain or cost.");
     return c;
 }
 
@@ -160,13 +160,13 @@ WoweeRuneCost WoweeRuneCostLoader::makeFrost(
         c.entries.push_back(e);
     };
     add(200, "FrostStrike",   49143,  0, 0, 0,  40,
-        "Pure RP spender — 40 RP for big single-target hit.");
+        "Pure RP spender - 40 RP for big single-target hit.");
     add(201, "HowlingBlast",  49184,  0, 1, 0, -10,
-        "AoE frost — 1 Frost, generates 10 RP.");
+        "AoE frost - 1 Frost, generates 10 RP.");
     add(202, "Obliterate",    49020,  0, 1, 1, -15,
-        "Frost finisher — 1 Frost + 1 Unholy, generates 15 RP.");
+        "Frost finisher - 1 Frost + 1 Unholy, generates 15 RP.");
     add(203, "IcyTouch",      45477,  0, 1, 0, -10,
-        "Frost ranged opener — 1 Frost, generates 10 RP, "
+        "Frost ranged opener - 1 Frost, generates 10 RP, "
         "applies Frost Fever DoT.");
     return c;
 }

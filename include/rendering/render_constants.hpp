@@ -35,7 +35,7 @@ constexpr float M2_PADDED_RADIUS_MIN_MARGIN  = 3.0f;
 
 // Distance floor for server game objects (mailboxes, chests, nodes, doors).
 // The adaptive doodad distance collapses to its densest-scene value in any
-// populated area — a city holds ~100k M2 instances, so ambient doodads are cut
+// populated area - a city holds ~100k M2 instances, so ambient doodads are cut
 // at 300 * viewDistanceScale, i.e. 200 world units at a mid view-distance
 // setting. Applying that to game objects hides objects the player interacts
 // with. The server only sends a game object when it is inside its own
@@ -58,7 +58,7 @@ constexpr float M2_DEFAULT_PARTICLE_ANIM_MS    = 3333.0f;
 // ---------------------------------------------------------------------------
 // HiZ occlusion culling
 // ---------------------------------------------------------------------------
-// VP matrix diff threshold — below this HiZ is considered safe.
+// VP matrix diff threshold - below this HiZ is considered safe.
 // Typical tracking camera (following a walking character) produces 0.05–0.25.
 constexpr float HIZ_VP_DIFF_THRESHOLD = 0.5f;
 

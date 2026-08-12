@@ -37,7 +37,7 @@ int handleBakeZoneGlb(int& i, int argc, char** argv) {
     // Bake every WHM tile in a zone into ONE .glb so the whole
     // multi-tile zone opens in three.js / model-viewer with one
     // file. Each tile becomes its own mesh+node so they can be
-    // toggled independently. v1: terrain only — object/WOB
+    // toggled independently. v1: terrain only - object/WOB
     // instances are a follow-up that needs careful per-mesh
     // bufferView slicing.
     std::string zoneDir = argv[++i];
@@ -81,7 +81,7 @@ int handleBakeZoneGlb(int& i, int argc, char** argv) {
                                std::to_string(tx) + "_" + std::to_string(ty);
         if (!wowee::pipeline::WoweeTerrainLoader::exists(tileBase)) {
             std::fprintf(stderr,
-                "bake-zone-glb: tile (%d,%d) WHM/WOT missing — skipping\n",
+                "bake-zone-glb: tile (%d,%d) WHM/WOT missing - skipping\n",
                 tx, ty);
             continue;
         }
@@ -174,7 +174,7 @@ int handleBakeZoneGlb(int& i, int argc, char** argv) {
     gj["buffers"] = nlohmann::json::array({nlohmann::json{
         {"byteLength", binSize}
     }});
-    // Three shared bufferViews — pos, nrm, idx — sliced into
+    // Three shared bufferViews - pos, nrm, idx - sliced into
     // per-tile primitives via byteOffset on the index accessor.
     nlohmann::json bufferViews = nlohmann::json::array();
     bufferViews.push_back({{"buffer", 0}, {"byteOffset", posOff},
@@ -228,7 +228,7 @@ int handleBakeZoneGlb(int& i, int argc, char** argv) {
     gj["scenes"] = nlohmann::json::array({nlohmann::json{
         {"nodes", sceneNodes}
     }});
-    // The container — header, chunks and the padding each needs — is shared
+    // The container - header, chunks and the padding each needs - is shared
     // with the other exporters here.
     std::string glbError;
     if (!writeGlb(outPath, gj, bin, glbError)) {
@@ -244,7 +244,7 @@ int handleBakeZoneGlb(int& i, int argc, char** argv) {
 
 int handleBakeZoneStl(int& i, int argc, char** argv) {
     // STL counterpart to --bake-zone-glb. Designers can 3D-print a
-    // miniature of an entire multi-tile zone in one slicer load —
+    // miniature of an entire multi-tile zone in one slicer load -
     // useful for tabletop RPG props or a physical reference of a
     // playtest area.
     std::string zoneDir = argv[++i];
@@ -288,14 +288,14 @@ int handleBakeZoneStl(int& i, int argc, char** argv) {
     uint64_t triCount = 0;
     // For each tile, generate the same 9x9 outer-grid mesh and
     // emit per-triangle facets directly (STL has no shared
-    // vertex pool — each triangle stands alone). Compute face
+    // vertex pool - each triangle stands alone). Compute face
     // normal from cross product (slicers use it for orientation).
     for (const auto& [tx, ty] : zm.tiles) {
         std::string tileBase = zoneDir + "/" + zm.mapName + "_" +
                                std::to_string(tx) + "_" + std::to_string(ty);
         if (!wowee::pipeline::WoweeTerrainLoader::exists(tileBase)) {
             std::fprintf(stderr,
-                "bake-zone-stl: tile (%d, %d) WHM/WOT missing — skipping\n",
+                "bake-zone-stl: tile (%d, %d) WHM/WOT missing - skipping\n",
                 tx, ty);
             continue;
         }
@@ -370,7 +370,7 @@ int handleBakeZoneStl(int& i, int argc, char** argv) {
 
 int handleBakeZoneObj(int& i, int argc, char** argv) {
     // OBJ companion to --bake-zone-glb / --bake-zone-stl. Same
-    // multi-tile WHM aggregation, but as Wavefront OBJ — opens
+    // multi-tile WHM aggregation, but as Wavefront OBJ - opens
     // directly in Blender / MeshLab / 3DS Max for hand-editing.
     // Each tile becomes its own 'g' block so designers can hide
     // tiles independently.
@@ -429,7 +429,7 @@ int handleBakeZoneObj(int& i, int argc, char** argv) {
                                std::to_string(tx) + "_" + std::to_string(ty);
         if (!wowee::pipeline::WoweeTerrainLoader::exists(tileBase)) {
             std::fprintf(stderr,
-                "bake-zone-obj: tile (%d, %d) WHM/WOT missing — skipping\n",
+                "bake-zone-obj: tile (%d, %d) WHM/WOT missing - skipping\n",
                 tx, ty);
             continue;
         }
@@ -869,7 +869,7 @@ int handleBakeWomCollision(int& i, int argc, char** argv) {
     // Convert a single WOM into a WOC collision file. Optional
     // --weld <eps> first welds vertices that share a position so
     // adjacent per-face-shaded faces land in the same triangle
-    // network for collision queries — without it, the WOC still
+    // network for collision queries - without it, the WOC still
     // has the right triangles but they're authored independently
     // (which is fine for raycast/walkability but loses the edge
     // adjacency info that some physics queries want).
@@ -966,7 +966,7 @@ int handleBakeWomCollision(int& i, int argc, char** argv) {
 int handleBakeWobCollision(int& i, int argc, char** argv) {
     // Convert a multi-group WOB into a single WOC collision file.
     // Each group's triangles are appended via WoweeCollisionBuilder
-    // ::addMesh. Optional --weld <eps> is applied PER GROUP — groups
+    // ::addMesh. Optional --weld <eps> is applied PER GROUP - groups
     // are intentionally separate (rooms with portals between them),
     // so welding across groups would fuse walls that should remain
     // distinct collision surfaces.
@@ -1068,7 +1068,7 @@ int handleBakeZoneCollision(int& i, int argc, char** argv) {
     // Walk every .wom and .wob under <zoneDir>, weld each one
     // independently (per-mesh / per-WOB-group), and append its
     // triangles to a single WoweeCollision. Useful for shipping
-    // a zone — one .woc file holds all object collision so the
+    // a zone - one .woc file holds all object collision so the
     // server side has a single artifact to serve.
     //
     // Per-file weld preserves between-object boundaries: two

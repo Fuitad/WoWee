@@ -5,7 +5,7 @@
 namespace wowee::core {
 
 namespace {
-// Zero in the live client — advanceTestClock is only ever called by the
+// Zero in the live client - advanceTestClock is only ever called by the
 // headless harness. Added to every reading so a --tick loop can move "now"
 // forward without waiting on real time.
 double& testClockOffset() {

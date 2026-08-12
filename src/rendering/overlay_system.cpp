@@ -272,7 +272,7 @@ void OverlaySystem::initBrightnessPipeline() {
     }
 
     // result.rgb = src.rgb * dst.rgb + dst.rgb * 1 = dst.rgb * (1 + src.rgb).
-    // Pushing src.rgb = (scale - 1) yields dst.rgb * scale — a true luminance
+    // Pushing src.rgb = (scale - 1) yields dst.rgb * scale - a true luminance
     // multiply. Alpha is left untouched (dst passes through).
     VkPipelineColorBlendAttachmentState mul{};
     mul.blendEnable = VK_TRUE;

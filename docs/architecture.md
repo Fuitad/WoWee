@@ -350,9 +350,9 @@ Wowee follows a modular architecture with clear separation of concerns:
 - SDL2, Vulkan SDK, OpenSSL, GLM, zlib (system)
 - ImGui (submodule in extern/)
 - VMA, vk-bootstrap, stb_image (vendored in extern/)
-- StormLib (system, optional — only for asset_extract)
-- Unicorn Engine (system, optional — only for Warden emulation)
-- FFmpeg (system, optional — for video playback)
+- StormLib (system, optional - only for asset_extract)
+- Unicorn Engine (system, optional - only for Warden emulation)
+- FFmpeg (system, optional - for video playback)
 
 **CI**: GitHub Actions for Linux (x86-64, ARM64), Windows (MSYS2), macOS (ARM64)
 **Container builds**: Docker cross-compilation for Linux, macOS (osxcross), Windows (LLVM-MinGW)

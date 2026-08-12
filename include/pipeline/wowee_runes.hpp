@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Death Knight Rune Cost catalog (.wrun) — novel
+// Wowee Open Death Knight Rune Cost catalog (.wrun) - novel
 // replacement for Blizzard's RuneCost.dbc plus the DK-specific
 // portions of ChrPowerType. Defines per-spell rune costs
 // (Blood / Frost / Unholy) and runic-power generation /
@@ -15,8 +15,8 @@ namespace pipeline {
 //
 // Each entry binds a spell to its rune cost: how many of each
 // rune kind the spell consumes, and how much runic power it
-// generates (positive) or spends (negative). Death runes —
-// the wildcard rune that fills any slot — are tracked
+// generates (positive) or spends (negative). Death runes -
+// the wildcard rune that fills any slot - are tracked
 // implicitly: a spell with anyDeathConvertCost > 0 will
 // consume Death runes preferentially over its specified type.
 //
@@ -78,15 +78,15 @@ public:
 
     // Preset emitters used by --gen-rune* variants.
     //
-    //   makeStarter — 3 baseline DK abilities (Death Strike
+    //   makeStarter - 3 baseline DK abilities (Death Strike
     //                  1B+1F, Frost Strike +20 RP spender,
     //                  Heart Strike 1B generator).
-    //   makeBlood   — 4 blood-tree abilities (Heart Strike,
+    //   makeBlood   - 4 blood-tree abilities (Heart Strike,
     //                  Death and Decay, Vampiric Blood, Rune
-    //                  Tap) — tanking + self-heal kit.
-    //   makeFrost   — 4 frost-tree abilities (Frost Strike,
+    //                  Tap) - tanking + self-heal kit.
+    //   makeFrost   - 4 frost-tree abilities (Frost Strike,
     //                  Howling Blast, Obliterate, Icy Touch)
-    //                  — DPS rotation kit.
+    //                  - DPS rotation kit.
     static WoweeRuneCost makeStarter(const std::string& catalogName);
     static WoweeRuneCost makeBlood(const std::string& catalogName);
     static WoweeRuneCost makeFrost(const std::string& catalogName);

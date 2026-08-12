@@ -1,9 +1,9 @@
-// CMSG_ACTIVATETAXIEXPRESS — the multi-hop flight request.
+// CMSG_ACTIVATETAXIEXPRESS - the multi-hop flight request.
 //
 // A total cost was being written between the guid and the node count, and
 // HandleActivateTaxiExpressOpcode does not read one. So the server took the
 // cost as the number of nodes to expect and read the client's own count as the
-// first node — a small number that is no taxi node anyone has visited, which it
+// first node - a small number that is no taxi node anyone has visited, which it
 // answers with ERR_TAXINOTVISITED. A multi-hop flight was refused for a flight
 // point the player had certainly been to, and with a large enough cost the
 // server ran off the end of the buffer and dropped the packet instead.
@@ -88,7 +88,7 @@ TEST_CASE("A single-hop route still takes the express shape", "[taxi][packet]") 
 }
 
 TEST_CASE("The single-hop request keeps its own three fields", "[taxi][packet]") {
-    // CMSG_ACTIVATETAXI is guid, source, destination — a different message that
+    // CMSG_ACTIVATETAXI is guid, source, destination - a different message that
     // was never wrong, pinned so the two do not drift into each other.
     auto packet = ActivateTaxiPacket::build(0xDEADBEEFull, 7, 9);
     const Bytes& bytes = packet.getData();

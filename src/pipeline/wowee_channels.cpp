@@ -151,7 +151,7 @@ WoweeChannel WoweeChannelLoader::makeModerated(const std::string& catalogName) {
         WoweeChannel::Entry e;
         e.channelId = 200; e.name = "LocalDefense";
         e.description =
-            "Alarm channel — broadcasts when zone is attacked. "
+            "Alarm channel - broadcasts when zone is attacked. "
             "Level 10+ auto-joined.";
         e.channelType = WoweeChannel::LocalDefense;
         e.autoJoin = 1; e.minLevel = 10;

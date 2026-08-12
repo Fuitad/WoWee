@@ -1,6 +1,6 @@
-// map_resolver.hpp — Centralized map navigation resolution for the world map.
+// map_resolver.hpp - Centralized map navigation resolution for the world map.
 // Determines the correct action when clicking a region or zone at any view level.
-// All functions are stateless free functions — trivially testable.
+// All functions are stateless free functions - trivially testable.
 // Map folder names are resolved from a built-in table matching
 // Data/interface/worldmap/ rather than WorldLoader::mapIdToName.
 #pragma once

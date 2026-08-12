@@ -7,22 +7,22 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Guild catalog (.wgld) — novel replacement for
+// Wowee Open Guild catalog (.wgld) - novel replacement for
 // AzerothCore-style guild + guild_member + guild_rank +
 // guild_bank_tab + guild_perk SQL tables. The 36th open
 // format added to the editor.
 //
 // Each guild entry holds:
-//   • header   — id, name, faction, leader, MOTD, info,
+//   • header   - id, name, faction, leader, MOTD, info,
 //                 creation date, level + experience, bank
 //                 money, emblem (packed style/color/border/bg)
-//   • ranks    — rank ladder (GM down to Initiate) with
+//   • ranks    - rank ladder (GM down to Initiate) with
 //                 permissions bitmask + daily money withdraw
-//   • members  — character roster with rank, join date,
+//   • members  - character roster with rank, join date,
 //                 public + officer notes
-//   • bankTabs — per-tab name, icon, deposit/withdraw/view
+//   • bankTabs - per-tab name, icon, deposit/withdraw/view
 //                 permission masks indexed by rank
-//   • perks    — purchased guild-level perks (cata-era spell
+//   • perks    - purchased guild-level perks (cata-era spell
 //                 buffs); each perk references a WSPL spell
 //
 // Cross-references with previously-added formats:
@@ -141,14 +141,14 @@ public:
 
     // Preset emitters used by --gen-guilds* variants.
     //
-    //   makeStarter — 1 small guild with default 5-rank ladder
+    //   makeStarter - 1 small guild with default 5-rank ladder
     //                  (GM/Officer/Veteran/Member/Initiate),
     //                  3 members, no bank tabs.
-    //   makeFull    — 1 fleshed-out guild with 6 ranks, 8
+    //   makeFull    - 1 fleshed-out guild with 6 ranks, 8
     //                  members, 4 bank tabs (each with
     //                  per-rank permission masks), 3 purchased
     //                  perks referencing WSPL spell IDs.
-    //   makeFactionPair — 2 guilds, one Alliance + one Horde,
+    //   makeFactionPair - 2 guilds, one Alliance + one Horde,
     //                      with parallel rank structures.
     static WoweeGuild makeStarter(const std::string& catalogName);
     static WoweeGuild makeFull(const std::string& catalogName);

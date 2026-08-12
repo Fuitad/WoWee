@@ -1,4 +1,4 @@
-// PostProcessPipeline — FSR 1.0, FXAA, FSR 2.2/3 state and passes (§4.3)
+// PostProcessPipeline - FSR 1.0, FXAA, FSR 2.2/3 state and passes (§4.3)
 // Extracted from Renderer to isolate post-processing concerns.
 
 #include "rendering/post_process_pipeline.hpp"
@@ -59,7 +59,7 @@ void PostProcessPipeline::manageResources() {
         }
     }
 
-    // FXAA resource management — FXAA can coexist with FSR1 and FSR3.
+    // FXAA resource management - FXAA can coexist with FSR1 and FSR3.
     // When both FXAA and FSR3 are enabled, FXAA runs as a post-FSR3 pass.
     // Do not force this pass for ghost mode; keep AA quality strictly user-controlled.
     const bool useFXAA = needsFXAAPass();
@@ -140,7 +140,7 @@ VkExtent2D PostProcessPipeline::getSceneRenderExtent() const {
     if (fsr2_.enabled && fsr2_.sceneFramebuffer)
         return { fsr2_.internalWidth, fsr2_.internalHeight };
     if (needsFXAAPass() && fxaa_.sceneFramebuffer)
-        return vkCtx_->getSwapchainExtent();  // native resolution — no downscaling
+        return vkCtx_->getSwapchainExtent();  // native resolution - no downscaling
     if (fsr_.enabled && fsr_.sceneFramebuffer)
         return { fsr_.internalWidth, fsr_.internalHeight };
     return vkCtx_->getSwapchainExtent();
@@ -334,7 +334,7 @@ bool PostProcessPipeline::executePostProcessing(VkCommandBuffer cmd, uint32_t im
             VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
             VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 
-        // Begin swapchain render pass (1x — no MSAA on the output pass)
+        // Begin swapchain render pass (1x - no MSAA on the output pass)
         VkRenderPassBeginInfo rpInfo{};
         rpInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
         // Output goes through the single-sampled overlay pass. The scene pass
@@ -365,7 +365,7 @@ bool PostProcessPipeline::executePostProcessing(VkCommandBuffer cmd, uint32_t im
 
     } else if (fsr_.enabled && fsr_.sceneFramebuffer) {
         inlineMode = true;
-        // FSR1 upscale path — only runs when FXAA is not active.
+        // FSR1 upscale path - only runs when FXAA is not active.
         // When both FSR1 and FXAA are enabled, FXAA took priority above.
         vkCmdEndRenderPass(currentCmd_);
 
@@ -424,7 +424,7 @@ void PostProcessPipeline::setFXAAEnabled(bool enabled) {
     // It conflicts with MSAA (which resolves AA during the scene render pass), so
     // refuse to enable FXAA when hardware MSAA is active.
     if (enabled && vkCtx_ && vkCtx_->getMsaaSamples() > VK_SAMPLE_COUNT_1_BIT) {
-        LOG_INFO("FXAA: blocked while MSAA is active — disable MSAA first");
+        LOG_INFO("FXAA: blocked while MSAA is active - disable MSAA first");
         return;
     }
     fxaa_.enabled = enabled;
@@ -439,13 +439,13 @@ MsaaChangeRequest PostProcessPipeline::setFSREnabled(bool enabled) {
     fsr_.enabled = enabled;
 
     if (enabled) {
-        // FSR1 upscaling renders its own AA — disable MSAA to avoid redundant work
+        // FSR1 upscaling renders its own AA - disable MSAA to avoid redundant work
         if (vkCtx_ && vkCtx_->getMsaaSamples() > VK_SAMPLE_COUNT_1_BIT) {
             req.requested = true;
             req.samples = VK_SAMPLE_COUNT_1_BIT;
         }
     } else {
-        // Defer destruction to next beginFrame() — can't destroy mid-render
+        // Defer destruction to next beginFrame() - can't destroy mid-render
         fsr_.needsRecreate = true;
     }
     // Resources created/destroyed lazily in beginFrame()
@@ -456,7 +456,7 @@ void PostProcessPipeline::setFSRQuality(float scaleFactor) {
     scaleFactor = glm::clamp(scaleFactor, 0.5f, 1.0f);
     fsr_.scaleFactor = scaleFactor;
     fsr2_.scaleFactor = scaleFactor;
-    // Don't destroy/recreate mid-frame — mark for lazy recreation in next beginFrame()
+    // Don't destroy/recreate mid-frame - mark for lazy recreation in next beginFrame()
     if (fsr_.enabled && fsr_.sceneFramebuffer) {
         fsr_.needsRecreate = true;
     }
@@ -576,7 +576,7 @@ bool PostProcessPipeline::initFSRResources() {
     VkFormat colorFmt = vkCtx_->getSwapchainFormat();
     VkFormat depthFmt = vkCtx_->getDepthFormat();
 
-    // sceneColor: always 1x, always sampled — this is what FSR reads
+    // sceneColor: always 1x, always sampled - this is what FSR reads
     // Non-MSAA: direct render target. MSAA: resolve target.
     fsr_.sceneColor = createImage(device, alloc, fsr_.internalWidth, fsr_.internalHeight,
         colorFmt, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT
@@ -867,7 +867,7 @@ bool PostProcessPipeline::initFSR2Resources() {
     VkFormat colorFmt = vkCtx_->getSwapchainFormat();
     VkFormat depthFmt = vkCtx_->getDepthFormat();
 
-    // Scene color (internal resolution, 1x — FSR2 replaces MSAA)
+    // Scene color (internal resolution, 1x - FSR2 replaces MSAA)
     fsr2_.sceneColor = createImage(device, alloc, fsr2_.internalWidth, fsr2_.internalHeight,
         colorFmt, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT
                 | VK_IMAGE_USAGE_TRANSFER_SRC_BIT);
@@ -896,7 +896,7 @@ bool PostProcessPipeline::initFSR2Resources() {
     if (!fsr2_.framegenOutput.image) { LOG_ERROR("FSR2: failed to create framegen output"); destroyFSR2Resources(); return false; }
 
     // Scene framebuffer (non-MSAA: [color, depth])
-    // Must use the same render pass as the swapchain — which must be non-MSAA when FSR2 is active
+    // Must use the same render pass as the swapchain - which must be non-MSAA when FSR2 is active
     VkImageView fbAttachments[2] = { fsr2_.sceneColor.imageView, fsr2_.sceneDepth.imageView };
     VkFramebufferCreateInfo fbInfo{};
     fbInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
@@ -1242,7 +1242,7 @@ bool PostProcessPipeline::initFSR2Resources() {
             .setLayout(fsr2_.sharpenPipelineLayout)
             // The output quad is single-sampled, so it belongs to the overlay
             // pass. getImGuiRenderPass() is the scene pass, which carries the
-            // scene's sample count — an 8x pass for a 1x pipeline.
+            // scene's sample count - an 8x pass for a 1x pipeline.
             .setRenderPass(vkCtx_->getOverlayRenderPass())
             .setDynamicStates(viewportAndScissorDynamic())
             .build(device, vkCtx_->getPipelineCache());
@@ -1691,7 +1691,7 @@ bool PostProcessPipeline::initFXAAResources() {
     VkFormat colorFmt = vkCtx_->getSwapchainFormat();
     VkFormat depthFmt = vkCtx_->getDepthFormat();
 
-    // sceneColor: 1x resolved color target — FXAA reads from here
+    // sceneColor: 1x resolved color target - FXAA reads from here
     fxaa_.sceneColor = createImage(device, alloc, ext.width, ext.height,
         colorFmt, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT
                 | VK_IMAGE_USAGE_TRANSFER_SRC_BIT);
@@ -1730,7 +1730,7 @@ bool PostProcessPipeline::initFXAAResources() {
         }
     }
 
-    // Framebuffer — same attachment layout as main render pass
+    // Framebuffer - same attachment layout as main render pass
     VkImageView fbAttachments[4]{};
     uint32_t fbCount;
     if (useMsaa) {
@@ -1826,7 +1826,7 @@ bool PostProcessPipeline::initFXAAResources() {
         vkUpdateDescriptorSets(device, 1, &write, 0, nullptr);
     }
 
-    // Pipeline layout — push constant holds vec4(rcpFrame.xy, sharpness, pad)
+    // Pipeline layout - push constant holds vec4(rcpFrame.xy, sharpness, pad)
     VkPushConstantRange pc{};
     pc.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
     pc.offset = 0;
@@ -1839,7 +1839,7 @@ bool PostProcessPipeline::initFXAAResources() {
     plCI.pPushConstantRanges = &pc;
     vkCreatePipelineLayout(device, &plCI, nullptr, &fxaa_.pipelineLayout);
 
-    // FXAA pipeline — fullscreen triangle into the swapchain render pass
+    // FXAA pipeline - fullscreen triangle into the swapchain render pass
     // Uses VK_SAMPLE_COUNT_1_BIT: it always runs after MSAA resolve.
     VkShaderModule vertMod, fragMod;
     if (!vertMod.loadFromFile(device, "assets/shaders/postprocess.vert.spv") ||

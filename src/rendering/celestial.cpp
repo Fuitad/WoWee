@@ -149,7 +149,7 @@ void Celestial::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet,
         updatePhasesFromGameTime(gameTime);
     }
 
-    // Bind pipeline and per-frame descriptor set once — reused for all draws
+    // Bind pipeline and per-frame descriptor set once - reused for all draws
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_);
     vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout_,
         0, 1, &perFrameSet, 0, nullptr);
@@ -159,7 +159,7 @@ void Celestial::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet,
     vkCmdBindVertexBuffers(cmd, 0, 1, &vertexBuffer_, &offset);
     vkCmdBindIndexBuffer(cmd, indexBuffer_, 0, VK_INDEX_TYPE_UINT32);
 
-    // Draw sun, then moon(s) — each call pushes different constants
+    // Draw sun, then moon(s) - each call pushes different constants
     renderSun(cmd, perFrameSet, timeOfDay, sunDir, sunColor);
     renderMoon(cmd, perFrameSet, timeOfDay, nightFactor);
     if (dualMoonMode_) {
@@ -179,7 +179,7 @@ void Celestial::renderSun(VkCommandBuffer cmd, VkDescriptorSet /*perFrameSet*/,
         return;
     }
 
-    // Resolve sun direction — prefer opposite of incoming light ray, clamp below horizon
+    // Resolve sun direction - prefer opposite of incoming light ray, clamp below horizon
     glm::vec3 lightDir = sunDir ? glm::normalize(*sunDir) : glm::vec3(0.0f, 0.0f, -1.0f);
     glm::vec3 dir = -lightDir;
     if (dir.z < 0.0f) {
@@ -218,7 +218,7 @@ void Celestial::renderMoon(VkCommandBuffer cmd, VkDescriptorSet /*perFrameSet*/,
     if (timeOfDay >= 5.0f && timeOfDay < 19.0f) {
         return;
     }
-    // Scale by actual sky darkness — the DBC sky can stay daylight-bright
+    // Scale by actual sky darkness - the DBC sky can stay daylight-bright
     // well past 19:00, and a full-brightness moon on a blue sky reads as a
     // second sun.
     if (nightFactor < 0.01f) {

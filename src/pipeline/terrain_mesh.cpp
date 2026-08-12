@@ -196,7 +196,7 @@ std::vector<TerrainVertex> TerrainMeshGenerator::generateVertices(const MapChunk
     // where gridStep = chunk*8 + vertexOffset runs 0..128 across the 16 chunks of a
     // tile. The previous form subtracted the chunk base and the per-vertex step
     // separately, so a tile's far edge (…*C - C) and the neighbouring tile's near edge
-    // ((…-1)*C) rounded to slightly different float32 values — a sub-yard gap that
+    // ((…-1)*C) rounded to slightly different float32 values - a sub-yard gap that
     // opened hairline "blue" T-junction cracks between tiles, worst far from the map
     // origin (across Kalimdor). Collapsing both to one multiply makes the shared edge
     // bit-identical on either side, closing the seam without the overlap hacks.
@@ -222,7 +222,7 @@ std::vector<TerrainVertex> TerrainMeshGenerator::generateVertices(const MapChunk
         // Position in render space:
         //   MCVT rows (offsetY) go west→east = renderX decreasing
         //   MCVT columns (offsetX) go north→south = renderY decreasing
-        // NaN heights are clamped — WHM load scrubs but mid-edit terrain
+        // NaN heights are clamped - WHM load scrubs but mid-edit terrain
         // can briefly carry NaN before stitchEdges runs, and a single NaN
         // vertex would propagate into normal computations and crash culling.
         float h = heightMap.heights[index];

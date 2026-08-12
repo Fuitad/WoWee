@@ -6,7 +6,7 @@
 WHY THIS FINDS WHAT THE OTHER SWEEPS CANNOT
 
 framexml_short_returns compares a binding's push count against what FrameXML
-*unpacks by name* — `local a, b, c = X()`. That reads nothing here, because at
+*unpacks by name* - `local a, b, c = X()`. That reads nothing here, because at
 these call sites nothing is unpacked at all. The binding sits as the last
 argument of a call, and Lua spreads every value it returns into that call's
 varargs. The count is the payload.
@@ -20,7 +20,7 @@ Found 2026-08-06, and it was the whole of chat:
 
     ChatFrame_RegisterForMessages(self, GetChatWindowMessages(self:GetID()))
 
-ChatFrame_OnLoad registers a chat frame for no CHAT_MSG_ event whatsoever —
+ChatFrame_OnLoad registers a chat frame for no CHAT_MSG_ event whatsoever -
 every one of them comes from that line, which walks the names it was handed,
 looks each up in ChatTypeGroup and calls RegisterEvent for the events in it.
 GetChatWindowMessages answered zero values. Zero groups, zero registrations,
@@ -32,7 +32,7 @@ WHAT IT COMPARES
 Lua functions declared with a trailing `...`, called with a binding call in
 final argument position, against C bindings that can return zero values. A
 binding is counted as "can answer nothing" when a `return 0` is reachable in
-its body without having pushed anything — which is both the stub spelling
+its body without having pushed anything - which is both the stub spelling
 `(void)L; return 0;` and the real one that returns early on a bad index.
 
 An early `return 0` on a *guard* is usually right: a bad window index should
@@ -44,7 +44,7 @@ WHAT IT CANNOT SEE
 
 A vararg callee reached through a local alias, or one whose declaration this
 sweep cannot find because it is built at runtime. And it says nothing about
-whether the *values* are right — only whether there are any.
+whether the *values* are right - only whether there are any.
 """
 import re
 import sys
@@ -78,7 +78,7 @@ def vararg_callees():
 
 def spread_sites(callees):
     """binding -> the callee it is spread into, and where."""
-    # The binding's own arguments may contain one level of parens — the site
+    # The binding's own arguments may contain one level of parens - the site
     # that mattered is GetChatWindowMessages(self:GetID()), and a pattern that
     # refuses nesting misses exactly the ones worth reading.
     inner = r"(?:[^()]|\([^()]*\))*"
@@ -139,7 +139,7 @@ def main():
 
     print(f"{len(callees)} vararg callees, {len(sites)} bindings spread into one\n")
     if not bodies or "GetChatWindowMessages" not in bodies:
-        print("  CANARY: bindings did not parse — the report below means nothing.\n")
+        print("  CANARY: bindings did not parse - the report below means nothing.\n")
 
     print(f"{len(loud)} answer nothing at all, so the call they feed does nothing:\n")
     for name, callee, where, _ in loud:
@@ -147,7 +147,7 @@ def main():
     if not loud:
         print("  (none)")
 
-    print(f"\n{len(quiet)} can answer nothing on some path — read the guard:\n")
+    print(f"\n{len(quiet)} can answer nothing on some path - read the guard:\n")
     for name, callee, where, pushes in quiet:
         print(f"  {name:34} -> {callee}  [{where}]  {pushes} push(es)")
     if not quiet:

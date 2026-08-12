@@ -104,16 +104,16 @@ const std::set<std::string>& requested() {
                 // line and the old window.
                 //
                 // These four first because they are the ones a fault shows on
-                // immediately, rather than waiting for the right NPC — the
+                // immediately, rather than waiting for the right NPC - the
                 // same reason the fourteen above went first.
                 //
-                //   bagbar, micromenu — the bag buttons and the micro buttons.
+                //   bagbar, micromenu - the bag buttons and the micro buttons.
                 //     They sit on the main bar, which FrameXML has drawn all
                 //     along, so this finishes a bar that was half handed over.
-                //   uierrors — the red error text. Its one unfired event,
+                //   uierrors - the red error text. Its one unfired event,
                 //     SYSMSG, has no opcode behind it anywhere; what the frame
                 //     is for is UI_ERROR_MESSAGE, raised from eighty sites.
-                //   raidwarning — both its events are fired.
+                //   raidwarning - both its events are fired.
                 //
                 // WOWEE_FRAMEXML_UI names the whole set, so any of these can
                 // be dropped by listing the others.
@@ -151,7 +151,7 @@ const std::set<std::string>& requested() {
                 "vendor", "mail", "bank", "trade",
                 // The occasional windows. None is on screen often, but each
                 // opens whole or not at all, so a fault is unmistakable the
-                // first time one is reached — and none of the nine has an
+                // first time one is reached - and none of the nine has an
                 // unfired event or an unanswered call that is not accounted
                 // for in the readiness report.
                 //
@@ -165,7 +165,7 @@ const std::set<std::string>& requested() {
                 "bgscore", "book", "gamemenu", "help", "readycheck",
                 "social", "stable", "taxi", "totems",
                 // The panels that arrive with an addon, now that the net can
-                // tell "nobody has opened it" from "it did not build" — the
+                // tell "nobody has opened it" from "it did not build" - the
                 // addon has loaded and the frame is still absent.
                 //
                 //   achievements auctionhouse barbershop classtrainer
@@ -177,7 +177,7 @@ const std::set<std::string>& requested() {
                 "achievements", "auctionhouse", "barbershop", "classtrainer",
                 "guildbank", "inspect", "talents", "tradeskill",
                 "dungeonfinder",
-                // The last three, and the ones held back longest — not for
+                // The last three, and the ones held back longest - not for
                 // readiness, but because this client draws all three well and
                 // has drawn them all along, so "builds but wrong" costs more
                 // here than anywhere else.
@@ -199,7 +199,7 @@ const std::set<std::string>& requested() {
                 // The world map is below, and it is the last one in.
                 "chat", "questlog", "questtracker",
                 // The world map, which was the last element outside the
-                // defaults and is not a replacement at all — it is a seam.
+                // defaults and is not a replacement at all - it is a seam.
                 //
                 // The reading that held it back was that FrameXML would draw a
                 // second map over this client's own. Both do draw: FrameXML
@@ -209,7 +209,7 @@ const std::set<std::string>& requested() {
                 // was never whether two maps are drawn but which is seen, and
                 // the answer is in the draw lists. The widget renderer draws
                 // into ImGui's BACKGROUND list, deliberately, so this client's
-                // interface stays on top while the two coexist — and this
+                // interface stays on top while the two coexist - and this
                 // client's map is an ImGui window. It covers FrameXML's tiles
                 // exactly where the two overlap, which is the detail frame,
                 // and application.cpp hands it that frame's rect so the
@@ -218,7 +218,7 @@ const std::set<std::string>& requested() {
                 // What that leaves is the arrangement the rect hand-off was
                 // written for: FrameXML owns the window, the chrome, the zone
                 // dropdown and the open/close, and this client owns the map
-                // surface inside it — with the party dots, taxi nodes, quest
+                // surface inside it - with the party dots, taxi nodes, quest
                 // POIs and player marker it already draws, none of which are
                 // gated on ownership. game_screen_hud reads the presence of
                 // the rect as the statement that the map is wanted, in place
@@ -236,12 +236,12 @@ const std::set<std::string>& requested() {
                 //   drawn here     corpse, death release, party dots, quest
                 //                  POIs, taxi nodes, rares, chests, the
                 //                  exploration mask, the player marker, the
-                //                  zone highlight — and battleground team
+                //                  zone highlight - and battleground team
                 //                  positions, which were the one layer nobody
                 //                  had checked and are drawn here now.
                 //   drawn here    the battleground flag carriers, which the
                 //                  same packet as the team positions carries
-                //                  in a second block — count, then guid and
+                //                  in a second block - count, then guid and
                 //                  x/y each. This note used to say no packet
                 //                  carried them; the parser reads both blocks
                 //                  and tags the second, and the map and the
@@ -266,7 +266,7 @@ const std::set<std::string>& requested() {
                 // Its two unfired events are accounted for:
                 // WORLD_MAP_NAME_UPDATE is registered with no branch to handle
                 // it, and CLOSE_WORLD_MAP is the server telling the map to
-                // shut, which nothing here sends — the key closes it through
+                // shut, which nothing here sends - the key closes it through
                 // the same toggle that opens it.
                 "worldmap",
                 // The charter windows, found by reading the unaccounted-frame
@@ -300,14 +300,14 @@ const std::set<std::string>& requested() {
             start = comma + 1;
         }
 
-        // "candidates" — the defaults plus every element the readiness report
+        // "candidates" - the defaults plus every element the readiness report
         // finds clean on both counts: every global its code calls is answered,
         // and every event its frames register for is either sent or verified as
         // correctly absent.
         //
         // Clean is not the same as seen working. These are windows that open on
         // an interaction rather than sitting on screen, so a fault in one waits
-        // for the right NPC and then blocks that NPC — which is exactly why
+        // for the right NPC and then blocks that NPC - which is exactly why
         // they are behind a word instead of in the defaults. Naming this is how
         // a run tests the batch without typing thirty names.
         //
@@ -339,8 +339,8 @@ const std::set<std::string>& requested() {
         // unfired events are correctly absent: the source of
         // LFG_OPEN_FROM_GOSSIP is STATUS_NEVER in AzerothCore and never sent,
         // UPDATE_LFG_LIST belongs to the raid browser whose three search
-        // packets are read and dropped here by decision — so this client's own
-        // browser is as empty as FrameXML's would be — LFG_ROLE_UPDATE
+        // packets are read and dropped here by decision - so this client's own
+        // browser is as empty as FrameXML's would be - LFG_ROLE_UPDATE
         // refreshes role checkboxes that are client state, and
         // VOTE_KICK_REASON_NEEDED needs a message this client is not sent.
         //
@@ -349,11 +349,11 @@ const std::set<std::string>& requested() {
         // quest POI part of that API to place markers, and every one of those
         // is answered now. Every event it registers is fired, its whole
         // quest-watch API is bound, and its two unbound names are achievement
-        // addon internals that exist once that addon loads — the same two
+        // addon internals that exist once that addon loads - the same two
         // already settled under "achievements".
         //
         // "uierrors" joins them. Its one unfired event is SYSMSG, which
-        // nothing backs — no opcode here produces one. What the frame is
+        // nothing backs - no opcode here produces one. What the frame is
         // actually for is UI_ERROR_MESSAGE, and addUIError raises that from
         // eighty sites now that the refusals in the social, inventory, spell,
         // quest, chat, combat and movement handlers go through it instead of
@@ -362,13 +362,13 @@ const std::set<std::string>& requested() {
         // "raidwarning" joins them. Three files, no missing call, no unfired
         // event: CHAT_MSG_RAID_WARNING and CHAT_MSG_RAID_BOSS_EMOTE are both
         // sent. It sat outside both tiers on a note saying the first was not
-        // fired — see the suppression entry for why that note was wrong.
+        // fired - see the suppression entry for why that note was wrong.
         //
         // "trade" joins them. Its two unfired events are correctly unfired:
         // TRADE_PLAYER_ITEM_CHANGED and TRADE_TARGET_ITEM_CHANGED each carry
         // one slot, and this client never learns of one slot changing.
         // SMSG_TRADE_STATUS_EXTENDED carries a whole side at once, TRADE_UPDATE
-        // is fired from it, and that branch calls TradeFrame_Update — a redraw
+        // is fired from it, and that branch calls TradeFrame_Update - a redraw
         // of every slot. The third, TRADE_POTENTIAL_BIND_ENCHANT, has a
         // commented-out body in FrameXML itself.
         //
@@ -380,7 +380,7 @@ const std::set<std::string>& requested() {
         //
         // "questlog" joins them. It was held back with the world map and the
         // quest tracker, on the reading that handing any of the three over
-        // draws a second map over this client's own — and it draws no map. What
+        // draws a second map over this client's own - and it draws no map. What
         // it did was call the world map API, which was unbound then and is
         // bound now, and the readiness report finds nothing missing in
         // questlogframe at all. Its own window is already gated, its
@@ -410,12 +410,12 @@ const std::set<std::string>& requested() {
         //
         // Its two unfired events are accounted for: WORLD_MAP_NAME_UPDATE is
         // registered with no branch to handle it, and CLOSE_WORLD_MAP is the
-        // server telling the map to shut, which nothing here sends — the key
+        // server telling the map to shut, which nothing here sends - the key
         // closes it through the same toggle that opens it.
         //
         // "chat" was out for a while and is back. It had forty-eight unbound
         // names in chatframe.lua, and unlike the Battle.net set they sat
-        // behind no feature flag — each was a slash command handler, so each
+        // behind no feature flag - each was a slash command handler, so each
         // was a raise the moment someone typed that command. All forty-eight
         // are bound now: implemented where this client can do the thing,
         // answered safely where it cannot. A safe answer makes the command do
@@ -426,17 +426,17 @@ const std::set<std::string>& requested() {
             // Nothing is added on top any more. bagbar, micromenu, uierrors,
             // raidwarning and finally worldmap have all come out of here and
             // into the defaults, so "candidates" and the defaults name the
-            // same set — every element is handed over. The word is kept
+            // same set - every element is handed over. The word is kept
             // because runs and notes use it, and because the next element
             // added goes here first.
-            LOG_WARNING("FrameXML: 'candidates' is the defaults now — every "
+            LOG_WARNING("FrameXML: 'candidates' is the defaults now - every "
                         "element is handed over, so there is nothing left for "
                         "it to add.");
         }
 
         if (out.count("all") == 0) {
             for (const std::string& name : out) {
-                // "none" and "all" are answers, not element names — "none" is
+                // "none" and "all" are answers, not element names - "none" is
                 // how a run says to use this client's own interface throughout,
                 // and reporting it as a misspelling reads as though the flag
                 // was ignored.
@@ -498,7 +498,7 @@ static bool frameXmlLoaded() {
 
 namespace {
 /// Elements handed back because their frames were never built. A bit per
-/// UiElement — written once from the render thread during the takeover check
+/// UiElement - written once from the render thread during the takeover check
 /// and read from everywhere, so an atomic rather than a set.
 std::atomic<uint64_t> gReleased{0};
 
@@ -577,8 +577,8 @@ namespace {
 ///
 /// Without this, a panel from one of them cannot be told apart from a panel
 /// that failed to build: both are "the frame does not exist". With it the
-/// question becomes answerable — the addon loaded and the frame still is not
-/// there — which is the only way the safety net can cover them.
+/// question becomes answerable - the addon loaded and the frame still is not
+/// there - which is the only way the safety net can cover them.
 ///
 /// Written from the addon loader and read from the render thread, and both are
 /// rare, so a lock rather than anything clever.
@@ -650,7 +650,7 @@ std::vector<std::string> frameXmlCandidateFrames() {
     // Derived from the check rows rather than named again here. It used to be
     // a list of its own, "so that adding a candidate is a deliberate act", and
     // it sat empty behind a comment saying everything worth swapping had been
-    // handed over — which stopped being true the moment thirty-three elements
+    // handed over - which stopped being true the moment thirty-three elements
     // went behind WOWEE_FRAMEXML_UI=candidates. Now that every one of those has
     // a check row, the deliberate act is writing that row, and one list cannot
     // disagree with the other.
@@ -664,8 +664,8 @@ struct Suppress {
     UiElement element;
     const char* frames;
     /// True when these frames arrive with a load-on-demand addon and so do not
-    /// exist until something asks for it. Suppression still works — the pass
-    /// looks each name up every frame — but the "nothing is named this" report
+    /// exist until something asks for it. Suppression still works - the pass
+    /// looks each name up every frame - but the "nothing is named this" report
     /// must stay quiet about them, or it fires for all of them every run and
     /// stops being worth reading.
     bool lazy = false;
@@ -684,7 +684,7 @@ const Suppress kSuppress[] = {
                               "CombatLogQuickButtonFrame_Custom", true},
         {UiElement::QuestLog, "QuestLogFrame QuestLogDetailFrame"},
         // Talking to an NPC opened two of everything: this client's gossip and
-        // quest windows, which work, and FrameXML's, which cannot — the calls
+        // quest windows, which work, and FrameXML's, which cannot - the calls
         // behind them are among the names the missing-API report lists every
         // run. The greeting and detail panels are children of QuestFrame and
         // go with it.
@@ -692,7 +692,7 @@ const Suppress kSuppress[] = {
         {UiElement::Gossip,     "GossipFrame"},
         {UiElement::Mail,       "MailFrame OpenMailFrame"},
         // The dungeon finder's three top-level frames. The ready popup is the
-        // live duplicate — LFG_PROPOSAL_SHOW is fired, so FrameXML raised it
+        // live duplicate - LFG_PROPOSAL_SHOW is fired, so FrameXML raised it
         // beside this client's own on every group that formed. The role-check
         // popup could not appear because LFG_ROLE_CHECK_SHOW was never fired,
         // and the browser only from a micro button this branch has taken over.
@@ -711,7 +711,7 @@ const Suppress kSuppress[] = {
         {UiElement::Vendor,      "MerchantFrame"},
         // The four roll windows go with the loot window. They are opened by
         // LootFrame's own START_LOOT_ROLL handler, which runs whether or not
-        // that frame is drawn, and they are top-level frames of their own — so
+        // that frame is drawn, and they are top-level frames of their own - so
         // hiding LootFrame left them showing beside this client's roll dialog.
         {UiElement::Loot,        "LootFrame GroupLootFrame1 GroupLootFrame2 "
                                  "GroupLootFrame3 GroupLootFrame4"},
@@ -719,14 +719,14 @@ const Suppress kSuppress[] = {
         // Buffs and durability had no suppression entry either, for the same
         // reason the bags did not: both are handed over by default, so nothing
         // ever showed twice and the gap stayed invisible. ConsolidatedBuffs and
-        // TemporaryEnchantFrame ride with the buff bar — this client draws the
+        // TemporaryEnchantFrame ride with the buff bar - this client draws the
         // weapon enchant inside renderBuffBar, so the three go together.
         {UiElement::Buffs,       "BuffFrame ConsolidatedBuffs TemporaryEnchantFrame"},
         {UiElement::Durability,  "DurabilityFrame"},
         // The party frames' shared backdrop, which is a top-level frame of its
         // own rather than a child of any of them.
         {UiElement::PartyFrames, "PartyMemberBackground"},
-        // The bags had no suppression entry at all — they are handed over by
+        // The bags had no suppression entry at all - they are handed over by
         // default, so nothing showed twice and the gap never surfaced. All
         // thirteen container frames, because a player with four bags open has
         // ContainerFrame1 through 5 on screen and naming only the first would
@@ -746,13 +746,13 @@ const Suppress kSuppress[] = {
         {UiElement::Social,      "FriendsFrame"},
         // Both of these were live: TRADE_SHOW and READY_CHECK are fired, and
         // this client draws its own trade window and its own ready-check popup
-        // in dialog_manager — so FrameXML raised a second one of each. Neither
+        // in dialog_manager - so FrameXML raised a second one of each. Neither
         // was an element, so nothing in this list had an opinion about them.
         {UiElement::Trade,       "TradeFrame"},
         {UiElement::ReadyCheck,  "ReadyCheckFrame"},
         // CHAT_MSG_RAID_WARNING and CHAT_MSG_RAID_BOSS_EMOTE are both fired,
         // so this suppression is live rather than precautionary. The note here
-        // used to say the first was not fired; it is, and had been all along —
+        // used to say the first was not fired; it is, and had been all along -
         // the whole CHAT_MSG_ family is built by concatenating the chat type
         // onto a prefix, so grepping the source for the literal name finds
         // nothing and says nothing. combat_ui, which gates this client's own
@@ -767,7 +767,7 @@ const Suppress kSuppress[] = {
         // or the duplicate simply swaps sides.
         {UiElement::Dialogs,     "StaticPopup1 StaticPopup2 StaticPopup3 "
                                  "StaticPopup4"},
-        // These four arrive with the load-on-demand addons, which now load —
+        // These four arrive with the load-on-demand addons, which now load -
         // so making them work is what put a second window beside the client's
         // at every profession, trainer, auctioneer and guild bank. The panels
         // themselves are finished and waiting; this only decides which of the
@@ -778,7 +778,7 @@ const Suppress kSuppress[] = {
         {UiElement::GuildBank,    "GuildBankFrame", true},
         {UiElement::Inspect,      "InspectFrame", true},
         // The vendor had no check entry at all, because the candidates list
-        // named it "merchant" and so never handed it over — there was nothing
+        // named it "merchant" and so never handed it over - there was nothing
         // to report on. MerchantItem1 is the first of the ten wares and
         // MerchantMoneyFrame the purse beneath them, which is where a window
         // that opened but laid out to nothing shows itself.
@@ -790,7 +790,7 @@ const Suppress kSuppress[] = {
         // beside the client's own.
         {UiElement::Achievements, "AchievementFrame", true},
         // The earned-achievement toast, which is not part of the achievement
-        // addon at all — alertframes.lua is core FrameXML and registers
+        // addon at all - alertframes.lua is core FrameXML and registers
         // ACHIEVEMENT_EARNED itself, an event this client fires. So the badge
         // was raised twice on every achievement, once by FrameXML's
         // AchievementAlertFrame and once by this client's own toast.
@@ -809,17 +809,17 @@ const Suppress kSuppress[] = {
         // That matters more than a stale comment usually does: each of these
         // suppresses a window this client draws and works. If the event were
         // genuinely unfired, handing the element over would not swap two
-        // versions of a window — it would remove the feature.
+        // versions of a window - it would remove the feature.
         //
         // ITEM_TEXT_BEGIN needed one thing more than the event: its *trigger*.
         // readItemBySlot had a single caller, this client's own bag window,
-        // which is handed over — so the event was fired and nothing could reach
+        // which is handed over - so the event was fired and nothing could reach
         // the code that asked for it. UseContainerItem reaches it now.
         {UiElement::Taxi,         "TaxiFrame"},
         {UiElement::Stable,       "PetStableFrame"},
         {UiElement::Book,         "ItemTextFrame"},
         // All three open from the micro buttons, which belong to the bar this
-        // branch draws — so they appear without anyone deciding they should,
+        // branch draws - so they appear without anyone deciding they should,
         // beside this client's own escape menu, settings and ticket window.
         {UiElement::GameMenu,   "GameMenuFrame InterfaceOptionsFrame "
                                 "VideoOptionsFrame AudioOptionsFrame"},
@@ -837,20 +837,20 @@ const Suppress kSuppress[] = {
         //
         // ReputationFrame is deliberately absent. It is one of
         // CHARACTERFRAME_SUBFRAMES, so it belongs to the character frame rather
-        // than standing alone — and that is owned, with this client's whole
+        // than standing alone - and that is owned, with this client's whole
         // character screen already gated on it. Suppressing the frame blanked
         // the Reputation tab of a window FrameXML is supposed to be drawing.
         {UiElement::Totems,     "TotemFrame MultiCastActionBarFrame"},
         {UiElement::Talents,    "PlayerTalentFrame", /*lazy=*/true},
         // Errors are fired as UI_ERROR_MESSAGE, which UIErrorsFrame listens
-        // for — so every refusal the server sends was shown twice, once by
+        // for - so every refusal the server sends was shown twice, once by
         // each interface.
         {UiElement::UiErrors,   "UIErrorsFrame"},
         // This client draws combo points on both the player and the target
         // frame, so FrameXML's separate display is a third set of them.
         {UiElement::TargetFrame, "ComboFrame"},
-        // The boss frames are target frames in all but name — same file, same
-        // template — so they go with the target frame. This client draws its
+        // The boss frames are target frames in all but name - same file, same
+        // template - so they go with the target frame. This client draws its
         // own set in renderBossFrames.
         {UiElement::TargetFrame, "Boss1TargetFrame Boss2TargetFrame "
                                  "Boss3TargetFrame Boss4TargetFrame"},
@@ -870,7 +870,7 @@ const Suppress kSuppress[] = {
         // ride on the same frame.
         {UiElement::QuestTracker, "WatchFrame"},
         // Both, because the sub-zone line is a separate frame that fades on its
-        // own — naming only the zone would leave "Trade District" announcing
+        // own - naming only the zone would leave "Trade District" announcing
         // itself twice while "Stormwind City" announced itself once.
         {UiElement::ZoneText,   "ZoneTextFrame SubZoneTextFrame"},
         // The eight oldest elements, which had no suppression rows at all.
@@ -878,13 +878,13 @@ const Suppress kSuppress[] = {
         // They are the first fourteen's survivors: handed over before this
         // table existed and owned by default ever since, so nothing exercised
         // the half of the contract they were missing. It only shows in a run
-        // that names a subset — WOWEE_FRAMEXML_UI=playerframe left FrameXML's
+        // that names a subset - WOWEE_FRAMEXML_UI=playerframe left FrameXML's
         // minimap, character sheet, spellbook, cast bar, pet and focus frames
         // and both halves of the bag and micro rows drawn beside this
         // client's own, which is the exact fault this table is for.
         //
         // Found by fixing handover_halves_check, whose suppression half had
-        // been answering zero for every element that has a check row —
+        // been answering zero for every element that has a check row -
         // including all eight of these.
         //
         // Frames are the top ones from each element's check row, plus the
@@ -951,7 +951,7 @@ void frameXmlReportUnaccountedElements() {
     // Every element must be one thing or the other: drawn by FrameXML with
     // this client's version gated off, or drawn by this client with FrameXML's
     // hidden. An element that is neither is drawn twice, and that is not
-    // visible from either list on its own — it is the gap between them.
+    // visible from either list on its own - it is the gap between them.
     //
     // Thirteen windows were in that gap and nobody noticed until they were
     // looked for: the vendor, the loot window, the bank, the party frames, the
@@ -974,7 +974,7 @@ void frameXmlReportUnaccountedElements() {
         }
         if (!hasFrames) {
             LOG_WARNING("FrameXML: '", e.name, "' is neither handed over nor "
-                        "suppressed — if FrameXML draws it, it is on screen "
+                        "suppressed - if FrameXML draws it, it is on screen "
                         "twice");
         }
     }
@@ -985,7 +985,7 @@ void frameXmlReportUnaccountedElements() {
 namespace {
 // One row per element: what has to exist for it to have arrived. Chosen as
 // the frame itself, the art that frames it, and the parts that carry live
-// data — which between them separate "never built" from "built and empty"
+// data - which between them separate "never built" from "built and empty"
 // from "built and misplaced".
 //
 // At namespace scope because the unaccounted-frame sweep reads it too: a name
@@ -994,15 +994,15 @@ namespace {
 struct Check {
     UiElement element;
     const char* frames;
-    /// Built only when the player opens it — a load-on-demand addon's panel.
+    /// Built only when the player opens it - a load-on-demand addon's panel.
     /// Reported as not built, which is the correct state for one nobody has
     /// opened, and never handed back for it while that is still the answer.
     bool lazy = false;
     /// The addon a lazy panel arrives with.
     ///
     /// Named so the two states can be told apart. "The frame does not exist"
-    /// means nothing on its own for these — it is the normal state before the
-    /// panel is first opened — but once the addon has loaded and the frame is
+    /// means nothing on its own for these - it is the normal state before the
+    /// panel is first opened - but once the addon has loaded and the frame is
     /// still absent, that is the same failure the net exists for. Without this
     /// the eight load-on-demand elements could only be handed over blind.
     const char* addOn = nullptr;
@@ -1036,7 +1036,7 @@ const Check kChecks[] = {
         {UiElement::MicroMenu,    "CharacterMicroButton MainMenuBarPerformanceBar"},
         // MainMenuExpBar is the bar itself; ExhaustionTick is the rested
         // marker that rides on it. Checked against the XML rather than
-        // guessed — a name invented here reports NOT BUILT forever and reads
+        // guessed - a name invented here reports NOT BUILT forever and reads
         // as a fault in the interface rather than in this list.
         {UiElement::XpBar,        "MainMenuExpBar ExhaustionTick"},
         // Both hang off the minimap cluster, so if either is in the wrong
@@ -1063,7 +1063,7 @@ const Check kChecks[] = {
                                     "MagicResFrame1 CharacterMainHandSlot "
                                     // The rotate arrows sit on the model
                                     // frame's top-left corner, which is also
-                                    // where the name sits — so where each one
+                                    // where the name sits - so where each one
                                     // actually lands is the question.
                                     "CharacterModelFrameRotateLeftButton "
                                     "CharacterModelFrameRotateRightButton"},
@@ -1093,7 +1093,7 @@ const Check kChecks[] = {
         //
         // Written so the release above can see them. An element with no row
         // here is one that, if its frames never arrive, draws nothing and says
-        // nothing — this client's own version is hidden the moment it is
+        // nothing - this client's own version is hidden the moment it is
         // handed over, and there is no way back to it.
         //
         // Top-level frame first in every row: that is the one the release
@@ -1104,7 +1104,7 @@ const Check kChecks[] = {
         // correctly, and the four frames above cannot show that.
         //
         // QuestInfo_Display reparents and anchors each element it is handed,
-        // and on the detail panel it runs twice — once into
+        // and on the detail panel it runs twice - once into
         // QuestDetailScrollChildFrame and once into QuestInfoFadingFrame. A
         // session was reported where the reward items sat some eight hundred
         // units right of the panel, and this list said nothing about it: the
@@ -1162,7 +1162,7 @@ const Check kChecks[] = {
         // Not lazy either: petitionframe.xml, guildregistrarframe.xml and
         // arenaregistrarframe.xml are all in framexml.toc. Only PetitionFrame
         // is named because the net asks about the top frame of a row and no
-        // more — which of the three is on screen depends on the NPC, and a
+        // more - which of the three is on screen depends on the NPC, and a
         // registrar the player has not walked up to is not a failure.
         {UiElement::Petition,      "PetitionFrame"},
 };
@@ -1176,8 +1176,8 @@ const Check kChecks[] = {
 /// says so.
 ///
 /// Deliberately not derived from the suppression rows instead. Those name the
-/// right frames, but half of them belong to load-on-demand addons — the
-/// auction house, the guild bank, the achievement panel — whose frames
+/// right frames, but half of them belong to load-on-demand addons - the
+/// auction house, the guild bank, the achievement panel - whose frames
 /// correctly do not exist until the player opens them, and handing those back
 /// on the first check in world would take away every panel that works exactly
 /// as intended.
@@ -1192,7 +1192,7 @@ void reportUncheckedElements() {
         }
         if (!checked) {
             LOG_WARNING("FrameXML: '", e.name, "' is handed over with no check "
-                        "row — if its frames never build, nothing draws it and "
+                        "row - if its frames never build, nothing draws it and "
                         "nothing notices");
         }
     }
@@ -1267,7 +1267,7 @@ int frameXmlReleaseUnbuiltElements(
         gReleased.fetch_or(releaseBit(c.element), std::memory_order_relaxed);
         ++released;
         LOG_WARNING("FrameXML: handing '", uiElementName(c.element),
-                    "' back to this client — ", top, " was never built, so "
+                    "' back to this client - ", top, " was never built, so "
                     "nothing would have drawn it");
     }
     return released;

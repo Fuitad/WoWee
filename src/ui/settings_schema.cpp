@@ -7,8 +7,8 @@ namespace {
 
 // Every setting this client has, except the six bound to a Blizzard control.
 //
-// Those six — view distance, mouse speed, the minimap clock, friendly
-// nameplates, ground clutter and the sound effects volume — are driven from
+// Those six - view distance, mouse speed, the minimap clock, friendly
+// nameplates, ground clutter and the sound effects volume - are driven from
 // FrameXML's own Video, Sound and Interface panels through kClientCVars, and
 // listing them here as well would draw a second control for the same value.
 // The root panel names them and says where they are.
@@ -33,7 +33,7 @@ constexpr SettingDesc kSchema[] = {
 
     {"antialiasing", "Anti-aliasing", SettingKind::Enum, 0, 3, 1, "Graphics", "Anti-aliasing",
      "Multisampling. Costs memory as well as time, and has no effect while\n"
-     "FSR 3 is upscaling — FSR does its own.",
+     "FSR 3 is upscaling - FSR does its own.",
      "Off|2x MSAA|4x MSAA|8x MSAA", 0, "upscaling!=2"},
     {"fxaa", "FXAA", SettingKind::Bool, 0, 0, 0, "Graphics", "",
      "Smooths edges after everything else is drawn. Cheap, slightly soft,\n"
@@ -120,7 +120,7 @@ constexpr SettingDesc kSchema[] = {
 
     // ----------------------------------------------------------------- Minimap
     // Rotate-with-camera is deliberately absent. The settings window still
-    // draws that checkbox and its handler pins it back off — the minimap is
+    // draws that checkbox and its handler pins it back off - the minimap is
     // north-up in this client and the control has not worked for as long as it
     // has existed. A tickbox that unticks itself is worse here than no tickbox
     // at all, so this list does not offer one.
@@ -140,17 +140,17 @@ constexpr SettingDesc kSchema[] = {
 
     {"showbar2", "Bottom left bar", SettingKind::Bool, 0, 0, 0, "Action Bars", "Extra bars",
      "The second bar, above the main one. Client action page 6.", "", 0},
-    {"bar2offsetx", "Bottom left — across", SettingKind::Float, -600, 600, 10,
+    {"bar2offsetx", "Bottom left - across", SettingKind::Float, -600, 600, 10,
      "Action Bars", "", "Move that bar sideways from its default place.", "", 0, "showbar2"},
-    {"bar2offsety", "Bottom left — up", SettingKind::Float, -400, 400, 10,
+    {"bar2offsety", "Bottom left - up", SettingKind::Float, -400, 400, 10,
      "Action Bars", "", "Move that bar up or down from its default place.", "", 0, "showbar2"},
     {"showrightbar", "Right side bar", SettingKind::Bool, 0, 0, 0, "Action Bars", "",
      "The upright bar at the right edge. Client action page 3.", "", 0},
-    {"rightbaroffsety", "Right side — up", SettingKind::Float, -400, 400, 10,
+    {"rightbaroffsety", "Right side - up", SettingKind::Float, -400, 400, 10,
      "Action Bars", "", "Move it up or down from the middle of the screen.", "", 0, "showrightbar"},
     {"showleftbar", "Left side bar", SettingKind::Bool, 0, 0, 0, "Action Bars", "",
      "The upright bar at the left edge. Client action page 4.", "", 0},
-    {"leftbaroffsety", "Left side — up", SettingKind::Float, -400, 400, 10,
+    {"leftbaroffsety", "Left side - up", SettingKind::Float, -400, 400, 10,
      "Action Bars", "", "Move it up or down from the middle of the screen.", "", 0, "showleftbar"},
 
     // ------------------------------------------------------------ Combat & HUD
@@ -202,7 +202,7 @@ constexpr SettingDesc kSchema[] = {
     // -------------------------------------------------------------------- Chat
     //
     // Which channels to join on entering the world. These are the client's own
-    // doing rather than the interface's — it sends the join for each one — so
+    // doing rather than the interface's - it sends the join for each one - so
     // they belong here whichever chat window is on screen.
     //
     // Chat's appearance is deliberately not here. Timestamps, the font size,

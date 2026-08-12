@@ -1,8 +1,8 @@
 #!/bin/bash
-# Linux amd64 build entrypoint — runs INSIDE the linux container.
+# Linux amd64 build entrypoint - runs INSIDE the linux container.
 # Bind-mounts:
-#   /src  (ro) — project source
-#   /out  (rw) — host ./build/linux
+#   /src  (ro) - project source
+#   /out  (rw) - host ./build/linux
 
 set -euo pipefail
 
@@ -29,14 +29,14 @@ echo "==> [linux] Fetching external SDKs (if needed)..."
 if [ ! -f extern/FidelityFX-FSR2/src/ffx-fsr2-api/ffx_fsr2.h ]; then
     git clone --depth 1 \
         https://github.com/GPUOpen-Effects/FidelityFX-FSR2.git \
-        extern/FidelityFX-FSR2 || echo "Warning: FSR2 clone failed — continuing without FSR2"
+        extern/FidelityFX-FSR2 || echo "Warning: FSR2 clone failed - continuing without FSR2"
 fi
 
 SDK_REPO="${WOWEE_FFX_SDK_REPO:-https://github.com/Kelsidavis/FidelityFX-SDK.git}"
 SDK_REF="${WOWEE_FFX_SDK_REF:-main}"
 if [ ! -f "extern/FidelityFX-SDK/sdk/include/FidelityFX/host/ffx_frameinterpolation.h" ]; then
     git clone --depth 1 --branch "${SDK_REF}" "${SDK_REPO}" extern/FidelityFX-SDK \
-        || echo "Warning: FidelityFX-SDK clone failed — continuing without FSR3"
+        || echo "Warning: FidelityFX-SDK clone failed - continuing without FSR3"
 fi
 
 echo "==> [linux] Configuring with CMake (Release, Ninja, amd64)..."

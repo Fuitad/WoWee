@@ -7,22 +7,22 @@ WHY THIS FINDS WHAT THE OTHER SWEEPS CANNOT
 
 Every sweep here asks whether a *name* is answered. This asks whether the
 answer used everything it was told. The name is bound either way, so nothing
-else can see it — and an ignored argument does not raise, it answers confidently
+else can see it - and an ignored argument does not raise, it answers confidently
 about the wrong thing.
 
 Seven faults came out of it on 2026-08-05, and the split is the point. Three
 showed wrong data:
 
-  * bookType — the pet spellbook named the player's spells
-  * powerType — a druid's mana bar in a form showed its energy
-  * pet (talents) — the pet tab drew the player's trees
+  * bookType - the pet spellbook named the player's spells
+  * powerType - a druid's mana bar in a form showed its energy
+  * pet (talents) - the pet tab drew the player's trees
 
 Four *acted* on the wrong thing, which is the half that matters:
 
   * PickupSpell    dragging a pet spell put a player spell on the bar
   * LearnTalent    clicking a pet talent spent a point in the player's tree
   * CancelUnitBuff a name where an index was expected raised instead of
-                   cancelling — the possess bar's way out of a vehicle
+                   cancelling - the possess bar's way out of a vehicle
   * CastSpellByID  click-casting on a unit frame cast on the current target,
                    and CastSpellByName two lines away was wrong the same way
 
@@ -39,7 +39,7 @@ docstring is honest about which way each errs:
   * the interface side takes the widest call it can see on one line, so a call
     split across lines is skipped rather than undercounted;
   * the binding side counts luaL_*(L, N) written in the body **and** arguments
-    read through a helper — `wantsPetTalents(L, 4)` names its index at the call
+    read through a helper - `wantsPetTalents(L, 4)` names its index at the call
     site, and `spellIdForCall(L, gh)` reads one and two inside itself. Missing
     that made four talent bindings read as unfixed immediately after they were
     fixed, which is the same shape as framexml_provides not seeing the
@@ -48,7 +48,7 @@ docstring is honest about which way each errs:
 WHAT IT COULD NOT SEE UNTIL 2026-08-06
 
 More than half the bindings. A binding registered as an inline lambda in the
-table — {"Name", [](lua_State* L) -> int { ... }} — is the same binding to Lua
+table - {"Name", [](lua_State* L) -> int { ... }} - is the same binding to Lua
 as one written as a named function above it, but only the named form was
 matched here, so 738 of 1420 were never asked the question. Three faults came
 straight out of the other half, and all three are the acting kind:
@@ -57,7 +57,7 @@ straight out of the other half, and all three are the acting kind:
                     Create All made one item. The craft queue it needed already
                     existed; the client's own crafting window was using it.
   * CastPetAction   the unit a click-cast binding passes was dropped, so the pet
-                    went at the current target instead of what was clicked —
+                    went at the current target instead of what was clicked -
                     exactly the fault CastSpellByID had, two files over.
   * ToggleSpellAutocast  the spellbook passes a book slot and its book; only the
                     name form was handled, so right-clicking a pet spell looked
@@ -65,7 +65,7 @@ straight out of the other half, and all three are the acting kind:
 
 WHAT IT CANNOT SEE
 
-An argument that is read and then misused — UnitIsFriend read its first
+An argument that is read and then misused - UnitIsFriend read its first
 argument and answered about the wrong unit of the two, so it never appeared
 here. That one came from reading the call sites, and this sweep is a way of
 choosing which call sites to read rather than a replacement for reading them.
@@ -73,7 +73,7 @@ choosing which call sites to read rather than a replacement for reading them.
 THE ONE ROW THAT IS WRONG AND IS LEFT
 
 GetAttackPowerForStat(statIndex, amount) is aliased to GetAttackPower, which
-answers the player's *total* melee attack power — so the character sheet's
+answers the player's *total* melee attack power - so the character sheet's
 "increases attack power by %d" prints that total as the contribution of one
 stat. Getting it right needs the per-class coefficient for each stat, which is
 a table this client does not carry and which a guess would get wrong for half
@@ -162,7 +162,7 @@ def main():
     widest = passed_by_interface()
     src = "".join(p.read_text(errors="ignore") for p in sorted(ADDONS.glob("*.cpp")))
     # Braces matched, not "to the first \n}". A named function written on one
-    # line — `static int lua_X(lua_State* L) { (void)L; return 0; }` — has no
+    # line - `static int lua_X(lua_State* L) { (void)L; return 0; }` - has no
     # closing brace at the start of a line, so the non-greedy form ran on and
     # took the next function's body with it. Which bindings got reported then
     # depended on how the ones above them happened to be formatted: adding two
@@ -222,7 +222,7 @@ def main():
     rows.sort(reverse=True)
     print(f"{len(widest)} names called by the interface, {len(registered)} bindings read")
     if "UnitName" not in widest:
-        print("  CANARY: UnitName never seen called — the interface is not parsing.")
+        print("  CANARY: UnitName never seen called - the interface is not parsing.")
     print()
     print(f"{len(rows)} binding(s) read fewer arguments than the interface passes:\n")
     for _, name, passes, reads in rows:

@@ -1,5 +1,5 @@
 /**
- * CharacterRenderer — GPU rendering of M2 character models with skeletal animation (Vulkan)
+ * CharacterRenderer - GPU rendering of M2 character models with skeletal animation (Vulkan)
  *
  * Handles:
  *  - Uploading M2 vertex/index data to Vulkan buffers via VMA
@@ -179,7 +179,7 @@ static constexpr int kBaseTexSize    = 256;  // NPC baked texture default
 static constexpr int kUpscaleTexSize = 512;  // Target size for region compositing
 static constexpr int32_t kPreviewSimpleTextureMode = -31336;
 
-// WOWEE_SCENE_DIAG=1 — dump what each glue-scene backdrop batch is handed at draw
+// WOWEE_SCENE_DIAG=1 - dump what each glue-scene backdrop batch is handed at draw
 // time. The scene renders through the character path, so when it comes out wrong
 // the question is always which texture, blend mode and shader path it actually got.
 static bool sceneDiagEnabled() {
@@ -619,7 +619,7 @@ void CharacterRenderer::clear() {
         materialRingOffset_[i] = 0;
     }
 
-    // Reset descriptor pools (don't destroy — reuse for new allocations)
+    // Reset descriptor pools (don't destroy - reuse for new allocations)
     for (int i = 0; i < 2; i++) {
         if (materialDescPools_[i]) {
             vkResetDescriptorPool(device, materialDescPools_[i], 0);
@@ -703,7 +703,7 @@ void CharacterRenderer::destroyInstanceBones(CharacterInstance& inst, bool defer
                 vmaDestroyBuffer(alloc, boneBuf, boneAlloc);
             }
         } else if (boneSet != VK_NULL_HANDLE || boneBuf) {
-            // Loop destroys bone sets for ALL frame slots — the other slot's
+            // Loop destroys bone sets for ALL frame slots - the other slot's
             // command buffer may still be in flight. Wait for all fences.
             VkDescriptorPool pool = boneDescPool_;
             auto poolGeneration = boneDescPoolGeneration_;
@@ -748,7 +748,7 @@ bool CharacterRenderer::queueNormalMapGeneration(const std::string& cacheKey,
                                                 uint32_t width, uint32_t height) {
     // Every surface this renderer draws derives its normal map from its own
     // diffuse art, and this is the one place that starts that work. It used to
-    // be spelled out inside the file-loading path alone — so a texture that
+    // be spelled out inside the file-loading path alone - so a texture that
     // never came from a file never got one, and a character's body is exactly
     // that: composited in memory from a skin, a face and whatever armour is
     // worn. The largest lit surface on screen was the one surface with no
@@ -965,7 +965,7 @@ VkTexture* CharacterRenderer::loadTexture(const std::string& path) {
     e.hasAlpha = hasAlpha;
     e.colorKeyBlack = colorKeyBlackHint;
 
-    // Launch normal map generation on background thread — CPU work is pure compute,
+    // Launch normal map generation on background thread - CPU work is pure compute,
     // only the GPU upload (in processPendingNormalMaps) needs the main thread (~1-2ms).
     e.normalMapPending = queueNormalMapGeneration(
         key, std::vector<uint8_t>(blpImage.data.begin(), blpImage.data.end()),
@@ -996,7 +996,7 @@ void CharacterRenderer::processPendingNormalMaps(int budget) {
         }
     }
 
-    // GPU upload only (~1-2ms each) — CPU work already done on background thread
+    // GPU upload only (~1-2ms each) - CPU work already done on background thread
     for (auto& result : ready) {
         auto it = textureCache.find(result.cacheKey);
         if (it == textureCache.end()) continue;  // texture was evicted
@@ -1285,7 +1285,7 @@ VkTexture* CharacterRenderer::compositeTextures(const std::vector<std::string>& 
     //
     // The body decided the atlas size on its own, and each overlay was then
     // squeezed into whatever region that gave it. An HD art set ships a body at
-    // the size the stock one uses and a face at twice it — so a 512x256 face was
+    // the size the stock one uses and a face at twice it - so a 512x256 face was
     // resampled down to 256x128 to fit a 512 body, which throws away exactly the
     // detail the art exists for and lands it soft next to a crisp body.
     //
@@ -1337,7 +1337,7 @@ VkTexture* CharacterRenderer::compositeTextures(const std::vector<std::string>& 
     // A layer that does not fit its region is not merely higher resolution. A
     // draenei's HD faceLower is a front-facing head where the stock one is a
     // side profile, and a tauren's is a muzzle seen head on where the stock one
-    // is the side of a head — different pictures, not larger ones, and shrinking
+    // is the side of a head - different pictures, not larger ones, and shrinking
     // them into a region sized for the stock art puts the wrong thing on the
     // face. At 512x256 they are exactly their region on a 1024 atlas, which is
     // the size their scale is asking for.
@@ -1368,7 +1368,7 @@ VkTexture* CharacterRenderer::compositeTextures(const std::vector<std::string>& 
         }
         core::Logger::getInstance().info("Composite: body is ", width, "x", height,
                                          " but its art asks for ", newSize, "x", newSize,
-                                         " — growing the atlas to keep the detail");
+                                         " - growing the atlas to keep the detail");
         composite = std::move(grown);
         width = height = newSize;
         coordScale = requiredScale;
@@ -1410,8 +1410,8 @@ VkTexture* CharacterRenderer::compositeTextures(const std::vector<std::string>& 
             // grew: an overlay arriving larger than its region was pasted at its
             // own size, spilling across neighbouring regions and dragging every
             // feature on the head to the wrong scale. These assets ship at two
-            // resolutions — a 256-wide face belongs in a 128-wide slot on a
-            // 256-wide atlas — so the two can meet whenever a lookup resolves
+            // resolutions - a 256-wide face belongs in a 128-wide slot on a
+            // 256-wide atlas - so the two can meet whenever a lookup resolves
             // the body and the face from different sets.
             const int expectedW = expectedW256 * coordScale;
             const int expectedH = expectedH256 * coordScale;
@@ -1420,7 +1420,7 @@ VkTexture* CharacterRenderer::compositeTextures(const std::vector<std::string>& 
 
             if (needsResample) {
                 // Resampling here means this overlay was authored for a different
-                // atlas size than the body it is going onto — the two came from
+                // atlas size than the body it is going onto - the two came from
                 // different art sets. It will be placed correctly, but a quarter
                 // resolution face stretched over an HD head is soft and muddy
                 // next to a crisp body, and that reads as the face not fitting.
@@ -1428,7 +1428,7 @@ VkTexture* CharacterRenderer::compositeTextures(const std::vector<std::string>& 
                     "Composite: '", loaded.path, "' is ", overlay.width, "x",
                     overlay.height, " but its region on this ", width, "x", height,
                     " body is ", expectedW, "x", expectedH,
-                    " — mismatched art sets; resampling to fit");
+                    " - mismatched art sets; resampling to fit");
             } else {
                 core::Logger::getInstance().info("Composite: placing '", loaded.path,
                     "' (", overlay.width, "x", overlay.height,
@@ -1468,7 +1468,7 @@ VkTexture* CharacterRenderer::compositeTextures(const std::vector<std::string>& 
     // No derived normal map for a composited body, and this is why: the
     // derivation reads luminance as height, which holds for stone and bark and
     // does not hold for skin. Every freckle, every painted shadow under a
-    // collarbone, becomes a ridge — and on a character that reads as stretch
+    // collarbone, becomes a ridge - and on a character that reads as stretch
     // marks. Art authored as a surface gets one; art authored as a person does
     // not.
     textureCache.emplace(cacheKey, std::move(e));
@@ -1569,7 +1569,7 @@ VkTexture* CharacterRenderer::compositeWithRegions(const std::string& basePath,
     // was meant to fix.
     //
     // The face it was meant to fix is a dwarf's, and a dwarf's HD faceLower is
-    // a faithful 2x of the stock one — same parts in the same places — so
+    // a faithful 2x of the stock one - same parts in the same places - so
     // resampling it down gives back the stock picture. Softer, and right.
     // compositeTextures still grows, because it has no equipment to misplace.
 
@@ -1720,10 +1720,10 @@ VkTexture* CharacterRenderer::compositeWithRegions(const std::string& basePath,
         int expectedW = regionSizes256[regionIdx][0] * scaleX;
         int expectedH = regionSizes256[regionIdx][1] * scaleY;
         if (overlay.width == expectedW && overlay.height == expectedH) {
-            // Exact match — blit 1:1
+            // Exact match - blit 1:1
             blitOverlay(composite, width, height, overlay, dstX, dstY);
         } else if (overlay.width * 2 == expectedW && overlay.height * 2 == expectedH) {
-            // Overlay is half size — upscale 2x
+            // Overlay is half size - upscale 2x
             blitOverlayScaled2x(composite, width, height, overlay, dstX, dstY);
         } else if (overlay.width > expectedW && overlay.height > expectedH &&
                    expectedW > 0 && expectedH > 0) {
@@ -1738,7 +1738,7 @@ VkTexture* CharacterRenderer::compositeWithRegions(const std::string& basePath,
                 blitOverlay(composite, width, height, overlay, dstX, dstY);
             }
         } else {
-            // Size mismatch — blit at natural size (may clip or leave gap)
+            // Size mismatch - blit at natural size (may clip or leave gap)
             core::Logger::getInstance().warning("compositeWithRegions: region ", regionIdx,
                 " at (", dstX, ",", dstY, ") overlay=", overlay.width, "x", overlay.height,
                 " expected=", expectedW, "x", expectedH, " from ", rl.second);
@@ -1926,14 +1926,14 @@ void CharacterRenderer::setupModelBuffers(M2ModelGPU& gpuModel) {
     //
     // An index at or above 128 is not that: it is what any model with more than
     // 128 bones has, and the character models have 219. Warning on it fired on
-    // every character in the world and reported outOfRange=0 every time — a
+    // every character in the world and reported outOfRange=0 every time - a
     // line per model saying nothing was wrong, in a log whose whole value is
     // that what is in it is.
     if (outOfRangeCount > 0) {
         LOG_WARNING("Model has bone indices past its bone list: bones=", numBones,
                     " verts=", vertCount, " outOfRange=", outOfRangeCount,
                     " (nonzeroWeight=", nonzeroWeightOOR, ")",
-                    " — those vertices skin to nothing and collapse to the origin");
+                    " - those vertices skin to nothing and collapse to the origin");
     }
 
     // Accumulate tangent/bitangent per triangle
@@ -2136,7 +2136,7 @@ void CharacterRenderer::update(float deltaTime, const glm::vec3& cameraPos) {
             }
         }
 
-        // Skip weapon instances for animation — their transforms are set by parent
+        // Skip weapon instances for animation - their transforms are set by parent
         // bones. Enchant visuals are the exception: they are pure animated FX.
         if (inst.hasOverrideModelMatrix && !inst.isEffectModel) continue;
 
@@ -2277,8 +2277,8 @@ void CharacterRenderer::update(float deltaTime, const glm::vec3& cameraPos) {
                 wa.localTransform;
 
             // Back-sheathed weapons: the swinging left arm passes through the
-            // canted blade while running. Sample the whole arm — shoulder,
-            // elbow, hand attachment points plus segment midpoints — against
+            // canted blade while running. Sample the whole arm - shoulder,
+            // elbow, hand attachment points plus segment midpoints - against
             // the weapon model's AABB and ease the blade outward, away from
             // the spine, so the arm pushes it instead of clipping. A single
             // sphere at the elbow joint missed forearm/upper-arm contact.
@@ -2405,7 +2405,7 @@ void CharacterRenderer::calculateBoneMatrices(CharacterInstance& instance) {
             const auto& bone = model.bones[i];
             if (bone.parentBone >= 0 && static_cast<size_t>(bone.parentBone) >= i) {
                 LOG_WARNING("Bone ", i, " references parent ", bone.parentBone,
-                            " which comes AFTER it — will use stale matrix!");
+                            " which comes AFTER it - will use stale matrix!");
             }
         }
     }
@@ -2838,7 +2838,7 @@ void CharacterRenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet,
                     // Group 15 joins them, for the same reason and a visible
                     // one: it is the cloak, and its variants above 1501 are
                     // cloaks that exist. A model drawn with no filter drew one
-                    // whether or not the character wore anything — and with no
+                    // whether or not the character wore anything - and with no
                     // cloak texture to bind, a white sheet. An NPC that owns a
                     // cape says so by naming the geoset; one that says nothing
                     // has none.
@@ -2848,7 +2848,7 @@ void CharacterRenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet,
                 // One line per head batch, for the first few instances: which
                 // texture slot it resolved to and what type that slot is. The
                 // player and an NPC use the same model, the same art and the
-                // same pairing, and one of them draws a face — so the answer is
+                // same pairing, and one of them draws a face - so the answer is
                 // in what each batch actually got, which nothing has yet shown.
                 // Only instances that are actually a character in the world: one
                 // with per-instance texture overrides is an NPC, and the player
@@ -2881,13 +2881,13 @@ void CharacterRenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet,
                 }
                 // Note on the Skin Extra batch, since it has been misread twice:
                 // it is NOT a layer over the head. On an HD character model it
-                // is its own section — 703 vertices and 634 triangles of the
+                // is its own section - 703 vertices and 634 triangles of the
                 // human female's head, separate from the 403 and 877 of the
-                // sections beside it — carrying the eyes, the mouth, the ears
+                // sections beside it - carrying the eyes, the mouth, the ears
                 // and the eyelashes. Skipping it does not remove a detail pass,
                 // it removes a face's features. Whatever is wrong with an NPC
                 // face, it is not this batch existing.
-                // M2 color-alpha animation gates prop submeshes per animation —
+                // M2 color-alpha animation gates prop submeshes per animation -
                 // e.g. the peasant lumberjack carry model has two wood-bundle
                 // submeshes and only one is alpha-1 in any given animation.
                 // Opaque batches can't express alpha in the shader, so cull
@@ -2983,7 +2983,7 @@ void CharacterRenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet,
                     }
                 }
                 // A scene means what its materials say. Stormwind's walls are DXT5 with
-                // an unused alpha channel — every texel below the 0.5 cutoff — so
+                // an unused alpha channel - every texel below the 0.5 cutoff - so
                 // inferring a cutout from "the texture has alpha" discards the whole
                 // building and leaves the sky showing through it. Only an alpha-key
                 // material (blendMode 1) cuts out here.
@@ -3010,12 +3010,12 @@ void CharacterRenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet,
                 if (instance.isEffectModel) {
                     // Enchant visuals are glow cards drawn on black. Their materials
                     // declare Mod/alpha blending, which would composite that black
-                    // background as an opaque quad — force additive so only the light adds.
+                    // background as an opaque quad - force additive so only the light adds.
                     desiredPipeline = additivePipeline_;
                 } else if (additiveBlend) {
                     // Decided before the fade branch below, not after it. An
-                    // additive card fades by adding less light — matData.opacity
-                    // already scales what it contributes — so a partial alpha is
+                    // additive card fades by adding less light - matData.opacity
+                    // already scales what it contributes - so a partial alpha is
                     // not a reason to divert it to the translucent pipeline, and
                     // diverting it composites the card's black backing as black.
                     //
@@ -3038,7 +3038,7 @@ void CharacterRenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet,
                     // additiveBlend (3/4/6/7) is handled above; only the
                     // non-additive modes reach here. 4/Add is the one that used
                     // to fall through to the alpha pipeline, which composited a
-                    // glow card's black backing as an actual black quad — every
+                    // glow card's black backing as an actual black quad - every
                     // material on Wisp.m2 declares it.
                     switch (blendMode) {
                         case 0: desiredPipeline = opaquePipeline_; break;
@@ -3140,7 +3140,7 @@ void CharacterRenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet,
                 }
 
                 // WOWEE_SCENE_DIAG=1 dumps what each backdrop batch is actually told to
-                // draw — texture, blend mode, shader path — once per scene model.
+                // draw - texture, blend mode, shader path - once per scene model.
                 static int sceneDiagLines = 0;
                 if (instance.isSceneModel && sceneDiagEnabled() && sceneDiagLines++ < 40) {
                     std::string texName = "<white>";
@@ -3256,8 +3256,8 @@ bool CharacterRenderer::initializeShadow(VkRenderPass shadowRenderPass) {
         int32_t colorKeyBlack = 0;
     };
 
-    // The same set the other three shadow passes bind — a sampler and a small
-    // uniform buffer — with this pass's own params behind binding 1.
+    // The same set the other three shadow passes bind - a sampler and a small
+    // uniform buffer - with this pass's own params behind binding 1.
     if (!createShadowParamsSet(device, vkCtx_->getAllocator(), sizeof(ShadowCharParams),
                                whiteTexture_->getImageView(), whiteTexture_->getSampler(),
                                "CharacterRenderer", shadowParams_)) {
@@ -3692,7 +3692,7 @@ void CharacterRenderer::removeInstance(uint32_t instanceId) {
         for (const auto& fx : wa.effects) unloadModelIfUnused(fx.effectModelId);
     }
 
-    // Defer bone buffer destruction — in-flight command buffers may still
+    // Defer bone buffer destruction - in-flight command buffers may still
     // reference these descriptor sets.
     destroyInstanceBones(it->second, /*defer=*/true);
 

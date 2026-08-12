@@ -342,16 +342,16 @@ int handleValidate(int& i, int argc, char** argv) {
                 warnings.push_back(ctx +
                     ": petFoodTypes has bits outside known mask " +
                     "(0x" + std::to_string(e.petFoodTypes & ~kKnownFoodMask) +
-                    ") — engine will ignore unknown food types");
+                    ") - engine will ignore unknown food types");
             }
-            // NotPet families should not specify a talent tree —
+            // NotPet families should not specify a talent tree -
             // confusing if they do.
             if (e.familyKind == wowee::pipeline::WoweeCreatureFamily::NotPet &&
                 e.petTalentTree != wowee::pipeline::WoweeCreatureFamily::TreeNone) {
                 warnings.push_back(ctx +
                     ": NotPet family with petTalentTree=" +
                     wowee::pipeline::WoweeCreatureFamily::petTalentTreeName(e.petTalentTree) +
-                    " — talent tree is irrelevant for non-pet kinds");
+                    " - talent tree is irrelevant for non-pet kinds");
             }
             // Exotic families above level 80 won't be tamable
             // by anyone (level cap).
@@ -360,16 +360,16 @@ int handleValidate(int& i, int argc, char** argv) {
                 warnings.push_back(ctx +
                     ": Exotic family with minLevelForTame=" +
                     std::to_string(e.minLevelForTame) +
-                    " > 80 — no hunter can reach this level");
+                    " > 80 - no hunter can reach this level");
             }
             // Pet kinds with no food types set means they can't
-            // be fed — common bug, especially for hand-edited
+            // be fed - common bug, especially for hand-edited
             // sidecars.
             if ((e.familyKind == wowee::pipeline::WoweeCreatureFamily::Beast ||
                  e.familyKind == wowee::pipeline::WoweeCreatureFamily::Exotic) &&
                 e.petFoodTypes == 0) {
                 warnings.push_back(ctx +
-                    ": pet-able family with no food types set — "
+                    ": pet-able family with no food types set - "
                     "hunter pet will starve, no food will satisfy it");
             }
             if (!idsSeen.add(e.familyId)) errors.push_back(ctx + ": duplicate familyId");

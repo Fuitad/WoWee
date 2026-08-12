@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# test.sh — Run the Catch2 unit tests and/or clang-tidy linter.
+# test.sh - Run the Catch2 unit tests and/or clang-tidy linter.
 #
 # Usage:
 #   ./test.sh                    # run both lint and tests (default)
@@ -13,8 +13,8 @@
 # Exit code is non-zero if any lint diagnostic or test failure is reported.
 #
 # Build directories:
-#   build/       — Release build used for normal ctest  (cmake -DCMAKE_BUILD_TYPE=Release)
-#   build_asan/  — Debug+ASAN build used with --asan    (cmake -DCMAKE_BUILD_TYPE=Debug
+#   build/       - Release build used for normal ctest  (cmake -DCMAKE_BUILD_TYPE=Release)
+#   build_asan/  - Debug+ASAN build used with --asan    (cmake -DCMAKE_BUILD_TYPE=Debug
 #                                                              -DWOWEE_ENABLE_ASAN=ON
 #                                                              -DWOWEE_BUILD_TESTS=ON)
 
@@ -80,7 +80,7 @@ if [[ $RUN_TEST -eq 1 ]]; then
 
     # Check that CTestTestfile.cmake exists (tests were configured)
     if [[ ! -f "$BUILD_TEST_DIR/CTestTestfile.cmake" ]]; then
-        echo "CTestTestfile.cmake not found in $BUILD_TEST_DIR — tests not configured."
+        echo "CTestTestfile.cmake not found in $BUILD_TEST_DIR - tests not configured."
         echo "Re-run cmake with -DWOWEE_BUILD_TESTS=ON"
         exit 1
     fi
@@ -177,7 +177,7 @@ if command -v gcc >/dev/null 2>&1; then
 
     while IFS= read -r inc_path; do
         [[ -d "$inc_path" ]] || continue
-        # Skip the GCC compiler built-in include dir — clang's resource dir above
+        # Skip the GCC compiler built-in include dir - clang's resource dir above
         # provides compatible replacements for xmmintrin.h, ia32intrin.h, etc.
         [[ "$inc_path" == */gcc/* ]] && continue
         EXTRA_TIDY_ARGS+=("--extra-arg=-isystem${inc_path}")
@@ -197,7 +197,7 @@ FIX="${FIX:-0}"
 FIX_FLAG=""
 if [[ "$FIX" == "1" ]]; then
     FIX_FLAG="-fix"
-    echo "Fix mode enabled — applying suggested fixes."
+    echo "Fix mode enabled - applying suggested fixes."
 fi
 
 LINT_FAILED=0

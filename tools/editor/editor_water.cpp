@@ -135,7 +135,7 @@ bool EditorWater::createPipeline() {
     auto shaders = rendering::loadShaderPair(dev, "assets/shaders/editor_water.vert.spv",
                                              "assets/shaders/editor_water.frag.spv", "editor_water");
     if (!shaders) {
-        LOG_WARNING("Water shaders not found — water rendering disabled");
+        LOG_WARNING("Water shaders not found - water rendering disabled");
         return true;
     }
 
@@ -180,7 +180,7 @@ bool EditorWater::createPipeline() {
     VkPipelineDepthStencilStateCreateInfo ds{};
     ds.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
     ds.depthTestEnable = VK_TRUE;
-    ds.depthWriteEnable = VK_FALSE; // Transparent — don't write depth
+    ds.depthWriteEnable = VK_FALSE; // Transparent - don't write depth
     ds.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
 
     VkPipelineColorBlendAttachmentState blend{};

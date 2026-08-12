@@ -108,12 +108,12 @@ WoweeGuildBank WoweeGuildBankLoader::makeStandardBank(
     c.entries.push_back(makeTab(
         1, 1, "General", 1392, 0, 98,
         {G::kUnlimited, 50, 30, 20, 15, 10, 5, 0}));
-    // Materials: cloth/herb/leather pool — modest
+    // Materials: cloth/herb/leather pool - modest
     // caps for ranks 1-4, none below.
     c.entries.push_back(makeTab(
         2, 1, "Materials", 5765, 0, 98,
         {G::kUnlimited, 100, 50, 25, 10, 0, 0, 0}));
-    // Consumables: pots/scrolls/elixirs — generous
+    // Consumables: pots/scrolls/elixirs - generous
     // cap for raiders (rank 1-3), nothing for casuals.
     c.entries.push_back(makeTab(
         3, 1, "Consumables", 5764, 0, 98,
@@ -158,7 +158,7 @@ WoweeGuildBank WoweeGuildBankLoader::makeSmallGuild(
     using G = WoweeGuildBank;
     WoweeGuildBank c;
     c.name = catalogName;
-    // Small guild: tight controls — most ranks
+    // Small guild: tight controls - most ranks
     // capped at 5 slots/day for the General tab,
     // Officer tab is GM+officer only.
     c.entries.push_back(makeTab(

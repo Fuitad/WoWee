@@ -1,7 +1,7 @@
 // The Lua this client injects into the interface, handed to Lua itself.
 //
 // These are C++ string literals that nothing compiles until the client runs.
-// executeString answers false on a syntax error and the client carries on —
+// executeString answers false on a syntax error and the client carries on -
 // the only sign is a warning in a log that is warning-only, and the panels
 // simply are not there. Four hundred lines of Lua with no build step is four
 // hundred lines where a stray `end` costs a release.
@@ -28,7 +28,7 @@ std::string compileError(const char* chunk, const char* name) {
     lua_State* L = luaL_newstate();
     REQUIRE(L != nullptr);
     // No libraries opened: parsing needs none, and the vendored Lua leaves out
-    // loadlib deliberately — a game client has no business dlopening things —
+    // loadlib deliberately - a game client has no business dlopening things -
     // so luaL_openlibs would not even link here.
     std::string err;
     if (luaL_loadbuffer(L, chunk, std::strlen(chunk), name) != 0) {
@@ -53,7 +53,7 @@ TEST_CASE("the options panel script parses", "[addonlua]") {
 
 TEST_CASE("the coin clearance script parses", "[addonlua]") {
     // Reaches into MoneyFrame_Update, which is Blizzard's, and hooks rather
-    // than edits it — so a mistake here shows up as money that draws wrong
+    // than edits it - so a mistake here shows up as money that draws wrong
     // rather than as anything that says "script error".
     const std::string err =
         compileError(wowee::addons::kCoinAmountClearanceLua, "CoinAmountClearance");

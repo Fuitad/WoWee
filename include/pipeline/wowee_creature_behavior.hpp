@@ -8,7 +8,7 @@ namespace wowee {
 namespace pipeline {
 
 // Wowee Open Creature Behavior Tree catalog (.wbhv)
-// — novel replacement for the implicit creature-AI
+// - novel replacement for the implicit creature-AI
 // rules vanilla WoW carried in
 // creature_template.AIName + per-creature C++
 // scripts in the server's ScriptMgr (most rare-
@@ -37,13 +37,13 @@ namespace pipeline {
 //   entries (each):
 //     behaviorId (uint32)
 //     nameLen + name
-//     creatureKind (uint8)         — 0=Melee /
+//     creatureKind (uint8)         - 0=Melee /
 //                                     1=Caster /
 //                                     2=Tank /
 //                                     3=Healer /
 //                                     4=Pet /
 //                                     5=Beast
-//     evadeBehavior (uint8)        — 0=ResetToSpawn
+//     evadeBehavior (uint8)        - 0=ResetToSpawn
 //                                     /1=HealAtPath
 //                                     /2=FleeToSpawn
 //                                     /3=NoEvade
@@ -74,7 +74,7 @@ struct WoweeCreatureBehavior {
                               //  path
         FleeToSpawn  = 2,    // run home but stay
                               //  attackable
-        NoEvade      = 3,    // permanent leash —
+        NoEvade      = 3,    // permanent leash -
                               //  bosses only
     };
 
@@ -107,7 +107,7 @@ struct WoweeCreatureBehavior {
 
     const Entry* findById(uint32_t behaviorId) const;
 
-    // Returns all behaviors of one kind — used by the
+    // Returns all behaviors of one kind - used by the
     // creature-template editor to suggest archetype
     // policies when authoring a new creature.
     std::vector<const Entry*> findByKind(uint8_t creatureKind) const;
@@ -122,16 +122,16 @@ public:
 
     // Preset emitters used by --gen-bhv* variants.
     //
-    //   makeMeleeBehaviors  — 3 entry-tier melee
+    //   makeMeleeBehaviors  - 3 entry-tier melee
     //                          creatures (Kobold /
     //                          Wolf / Raptor) with
     //                          1 special each.
-    //   makeCasterBehaviors — 3 caster creatures
+    //   makeCasterBehaviors - 3 caster creatures
     //                          (Defias Wizard /
     //                          Murloc Coastrunner /
     //                          Voidwalker) with 2-3
     //                          spells in rotation.
-    //   makeBossBehaviors   — 1 boss-style behavior
+    //   makeBossBehaviors   - 1 boss-style behavior
     //                          (Onyxia-pattern) with
     //                          4 special abilities,
     //                          NoEvade, and 600s

@@ -4,7 +4,7 @@
 // screen pixels measured from the top; the widget tree works in interface
 // units measured from the bottom. A rect filed in the first space and tested
 // in the second misses by the interface scale AND by the height of the screen,
-// and nothing says so — both sides compile, both run, every click lands on
+// and nothing says so - both sides compile, both run, every click lands on
 // nothing. That is exactly what shipped, and it is why both halves of the
 // conversion live in one header.
 //
@@ -86,8 +86,8 @@ TEST_CASE("a click lands where the link was drawn", "[linkhit]") {
 // space and tested in the tree's, and the dispatch was written against font
 // strings when a chat line is drawn by a message frame. Testing the layers
 // separately is what let all three through, so this walks a chat line the way
-// the client does — parse it, lay the runs out, file the link, click where the
-// text appears — and asks what the click found.
+// the client does - parse it, lay the runs out, file the link, click where the
+// text appears - and asks what the click found.
 namespace {
 
 /// One unit per character, so a width reads as a count. The renderer measures
@@ -171,7 +171,7 @@ TEST_CASE("a chat line's link is found by a click on its text", "[linkhit]") {
 //
 // FrameXML declares OnHyperlinkClick on the chat frame. The text is drawn in a
 // font string several levels below it, and the link rect names the font string
-// because that is what drew it — so the click walks up. This is that walk,
+// because that is what drew it - so the click walks up. This is that walk,
 // with the Lua question replaced by a predicate: the walk is the part with a
 // loop in it.
 namespace {
@@ -215,7 +215,7 @@ TEST_CASE("the click finds the frame that declares the handler", "[linkhit]") {
         //
         // The predicate counts, which is what makes this provable. A first
         // version answered a constant false, and then the walk had no side
-        // effects at all — a side-effect-free infinite loop is undefined
+        // effects at all - a side-effect-free infinite loop is undefined
         // behaviour the optimiser may delete, and at -O2 it did: removing the
         // bound left the test passing. At -O0 the same code spun. So the
         // "failable" check was hollow in exactly the build that ships.

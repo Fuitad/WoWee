@@ -181,7 +181,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 "items)");
         }
         // Vanilla skill cap is 300. Skill > 300 is
-        // valid for TBC (375) and WotLK (450) — only
+        // valid for TBC (375) and WotLK (450) - only
         // warn if absurdly above all expansions.
         if (e.requiredSkillLevel > 450) {
             warnings.push_back(ctx +
@@ -194,7 +194,7 @@ int handleValidate(int& i, int argc, char** argv) {
         // unusual. Warn.
         if (e.reagents.empty()) {
             warnings.push_back(ctx +
-                ": no reagents — recipe is "
+                ": no reagents - recipe is "
                 "free-to-craft (unusual; verify "
                 "intentional)");
         }
@@ -214,14 +214,14 @@ int handleValidate(int& i, int argc, char** argv) {
                     "].count is 0");
             }
             // Same itemId listed twice in the reagent
-            // array — should be merged into one
+            // array - should be merged into one
             // reagent with summed count.
             if (reagent.itemId != 0 &&
                 !reagentItems.insert(reagent.itemId).second) {
                 warnings.push_back(ctx +
                     ": reagent itemId " +
                     std::to_string(reagent.itemId) +
-                    " appears twice — should be merged "
+                    " appears twice - should be merged "
                     "into single entry with summed count");
             }
         }
@@ -234,18 +234,18 @@ int handleValidate(int& i, int argc, char** argv) {
                     ": reagent itemId equals "
                     "producedItemId=" +
                     std::to_string(e.producedItemId) +
-                    " — recipe consumes what it makes "
+                    " - recipe consumes what it makes "
                     "(perpetual-motion bug)");
             }
         }
-        // Duplicate spellId — recipe-cast handler
+        // Duplicate spellId - recipe-cast handler
         // would resolve ambiguously.
         if (e.spellId != 0 &&
             !spellIdsSeen.insert(e.spellId).second) {
             errors.push_back(ctx +
                 ": duplicate spellId " +
                 std::to_string(e.spellId) +
-                " — two recipes would respond to the "
+                " - two recipes would respond to the "
                 "same cast");
         }
         if (!idsSeen.insert(e.recipeId).second) {

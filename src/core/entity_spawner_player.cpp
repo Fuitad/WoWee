@@ -48,8 +48,8 @@ namespace {
 // The head of a character's bare geoset set: the body, the one scalp it wears,
 // and its facial hair.
 //
-// Two places build a player's geosets — one for a player seen across the world,
-// one for the equipped composition — and they had already drifted: only one of
+// Two places build a player's geosets - one for a player seen across the world,
+// one for the equipped composition - and they had already drifted: only one of
 // them knew about the second bare-feet id, and only one of them treated a zero
 // facial variant as "none" rather than as geoset x00.
 std::unordered_set<uint16_t> bareGeosetsFor(uint16_t scalp,
@@ -85,7 +85,7 @@ void EntitySpawner::spawnOnlinePlayer(uint64_t guid,
     if (!renderer_ || !renderer_->getCharacterRenderer() || !assetManager_ || !assetManager_->isInitialized()) return;
     if (playerInstances_.count(guid)) return;
 
-    // Skip local player — already spawned as the main character
+    // Skip local player - already spawned as the main character
     if (gameHandler_) {
         uint64_t localGuid = gameHandler_->getPlayerGuid();
         uint64_t activeGuid = gameHandler_->getActiveCharacterGuid();
@@ -186,7 +186,7 @@ void EntitySpawner::spawnOnlinePlayer(uint64_t guid,
     if (instanceId == 0) return;
 
     // The character's textures, through the one reader in
-    // pipeline/char_sections.hpp — the same scan the local player, the NPCs and
+    // pipeline/char_sections.hpp - the same scan the local player, the NPCs and
     // the portrait use. This path used to carry a fourth copy of it, and the
     // copy did not read the skin row's second texture, which is the head detail
     // an HD model draws its ears and eyelashes from. Every other player in the
@@ -215,7 +215,7 @@ void EntitySpawner::spawnOnlinePlayer(uint64_t guid,
         who.hairColorId = look.hairColorId;
 
         // The underwear rows name art that was never shipped for some skin
-        // colours — Draenei 10 to 16 among them — and this caller can check.
+        // colours - Draenei 10 to 16 among them - and this caller can check.
         const auto sections = pipeline::resolveCharacterSections(
             charSectionsDbc.get(), csF, who,
             [](const std::string& path, void* ctx) {
@@ -234,8 +234,8 @@ void EntitySpawner::spawnOnlinePlayer(uint64_t guid,
             LOG_WARNING("spawnOnlinePlayer: no DBC face match for face=",
                         static_cast<int>(look.faceId), " skin=", static_cast<int>(look.skinId),
                         " race=", raceId, " sex=", genderId,
-                        sections.haveFace ? " — using the nearest face instead"
-                                          : " — this player will render with no face");
+                        sections.haveFace ? " - using the nearest face instead"
+                                          : " - this player will render with no face");
         }
     }
 
@@ -260,7 +260,7 @@ void EntitySpawner::spawnOnlinePlayer(uint64_t guid,
     }
     // Texture type 8 is Skin Extra: the head detail sheet an HD model draws its
     // ears, eyes and eyelashes from. CharSections names it in the skin row's
-    // second texture, which the tables the game shipped leave blank — so on a
+    // second texture, which the tables the game shipped leave blank - so on a
     // stock model this still falls through to the underwear art it always used.
     rendering::VkTexture* skinExtraTex = nullptr;
     if (!skinExtraPath.empty()) skinExtraTex = charRenderer->loadTexture(skinExtraPath);
@@ -328,7 +328,7 @@ void EntitySpawner::setOnlinePlayerEquipment(uint64_t guid,
                                           const std::array<uint8_t, 19>& inventoryTypes) {
     if (!renderer_ || !renderer_->getCharacterRenderer() || !assetManager_ || !assetManager_->isInitialized()) return;
 
-    // Skip local player — equipment handled by GameScreen::updateCharacterGeosets/Textures
+    // Skip local player - equipment handled by GameScreen::updateCharacterGeosets/Textures
     // via consumeOnlineEquipmentDirty(), which fires on the same server update.
     if (gameHandler_) {
         uint64_t localGuid = gameHandler_->getPlayerGuid();
@@ -350,7 +350,7 @@ void EntitySpawner::setOnlinePlayerEquipment(uint64_t guid,
 
     if (st.bodySkinPath.empty()) {
         LOG_DEBUG("setOnlinePlayerEquipment: bodySkinPath empty for guid=0x", std::hex, guid, std::dec,
-                    " instanceId=", st.instanceId, " — skipping equipment");
+                    " instanceId=", st.instanceId, " - skipping equipment");
         return;
     }
 
@@ -405,7 +405,7 @@ void EntitySpawner::setOnlinePlayerEquipment(uint64_t guid,
         appearanceKey(st.raceId, st.genderId, st.facialFeatures));
     // The same bare set as everywhere else. This built its own and had drifted:
     // it named ears 701 where the other three name 702, which is the variant
-    // that has ears on it — so a player composed through this path lost them.
+    // that has ears on it - so a player composed through this path lost them.
     std::unordered_set<uint16_t> geosets = bareGeosetsFor(
         selectedHairScalp,
         itFacial != facialHairGeosetMap_.end() ? &itFacial->second : nullptr, st.raceId);
@@ -434,7 +434,7 @@ void EntitySpawner::setOnlinePlayerEquipment(uint64_t guid,
     // and the character preview's identically-named lambda does.
     //
     // geoset_rules.hpp says of that rule "it lives here now, with a test, and
-    // the call sites ask rather than decide". This call site still decides —
+    // the call sites ask rather than decide". This call site still decides -
     // it takes an exact match or the caller's fallback and nothing else.
     //
     // Where the two differ: an *equipped* geoset (a real variant, not a bare
@@ -447,7 +447,7 @@ void EntitySpawner::setOnlinePlayerEquipment(uint64_t guid,
     //
     // Deliberately not changed here. It is a difference in what gets drawn on
     // the character you play, in the same area as the unresolved bare-shin
-    // width bug, and it wants someone looking at the screen — which is the one
+    // width bug, and it wants someone looking at the screen - which is the one
     // thing this pass could not do.
     auto pickGeoset = [&](uint16_t preferred, uint16_t fallback) -> uint16_t {
         if (preferred != 0 && modelGeosets.count(preferred) > 0) return preferred;
@@ -465,7 +465,7 @@ void EntitySpawner::setOnlinePlayerEquipment(uint64_t guid,
         return best;
     };
 
-    // Per-group defaults — overridden below when equipment provides a geoset value.
+    // Per-group defaults - overridden below when equipment provides a geoset value.
     uint16_t geosetGloves  = pickGeoset(kGeosetBareForearms, kGeosetBareForearms);
     uint16_t geosetBoots   = pickGeoset(kGeosetBareShins, lowestInGroup(5));
     uint16_t geosetSleeves = pickGeoset(kGeosetBareSleeves, kGeosetBareSleeves);
@@ -552,7 +552,7 @@ void EntitySpawner::setOnlinePlayerEquipment(uint64_t guid,
     // HEAD slot is index 0 in the 19-element equipment array.
     // Helmet M2s are race/gender-specific (e.g. Helm_Plate_B_01_HuM.m2 for Human Male).
     if (displayInfoIds[0] != 0) {
-        // Only the helm point — detaching 0 as well would drop the shield.
+        // Only the helm point - detaching 0 as well would drop the shield.
         charRenderer->detachWeapon(st.instanceId, kAttachHelm);
 
         const core::HelmVisual helm = core::resolveHelmVisual(
@@ -580,7 +580,7 @@ void EntitySpawner::setOnlinePlayerEquipment(uint64_t guid,
             }
         }
     } else {
-        // No helmet equipped — detach any existing helmet model
+        // No helmet equipped - detach any existing helmet model
         charRenderer->detachWeapon(st.instanceId, kAttachHelm);
     }
 
@@ -687,7 +687,7 @@ void EntitySpawner::setOnlinePlayerEquipment(uint64_t guid,
             }
         }
     } else {
-        // No shoulders equipped — detach any existing shoulder models
+        // No shoulders equipped - detach any existing shoulder models
         charRenderer->detachWeapon(st.instanceId, 5);
         charRenderer->detachWeapon(st.instanceId, 6);
     }
@@ -704,7 +704,7 @@ void EntitySpawner::setOnlinePlayerEquipment(uint64_t guid,
                 // RightModelTexture is the field right after LeftModelTexture.
                 // Some cloaks (e.g. Jaina's Radiance) carry their texture only in
                 // the right field; the character-preview screen checks both, so
-                // match it here — otherwise the world model shows the cape mesh
+                // match it here - otherwise the world model shows the cape mesh
                 // untextured even though the paperdoll preview looks correct.
                 const uint32_t rightTexField = leftTexField + 1;
                 std::string leftName = displayInfoDbc->getString(
@@ -722,7 +722,7 @@ void EntitySpawner::setOnlinePlayerEquipment(uint64_t guid,
                 else                  { addCapeName(leftName);  addCapeName(rightName); }
 
                 if (!capeNames.empty()) {
-                    // Where a cape's art might be, in the order to try it —
+                    // Where a cape's art might be, in the order to try it -
                     // pipeline/item_textures.hpp. Written out here, in the NPC
                     // path and in the portrait, identically, which is the only
                     // reason the three agreed.
@@ -959,7 +959,7 @@ void EntitySpawner::spawnOnlineGameObject(uint64_t guid, uint32_t entry, uint32_
         // A tracked instance ID is only meaningful while the renderer still holds
         // it. Renderer-wide clears (map change, device reset) drop instances
         // without going through despawnGameObject(), which used to leave this map
-        // pointing at a dead handle — every later server CREATE for that GUID then
+        // pointing at a dead handle - every later server CREATE for that GUID then
         // took the position-update path below and the object stayed invisible for
         // the rest of the session. Treat a dead handle as "not spawned".
         bool instanceAlive = false;
@@ -973,7 +973,7 @@ void EntitySpawner::spawnOnlineGameObject(uint64_t guid, uint32_t entry, uint32_
             }
         }
         if (!instanceAlive) {
-            LOG_WARNING("GO render instance vanished — respawning: guid=0x", std::hex, guid, std::dec,
+            LOG_WARNING("GO render instance vanished - respawning: guid=0x", std::hex, guid, std::dec,
                         " displayId=", displayId, " instanceId=", goIt->second.instanceId);
             gameObjectInstances_.erase(goIt);
             goIt = gameObjectInstances_.end();
@@ -996,7 +996,7 @@ void EntitySpawner::spawnOnlineGameObject(uint64_t guid, uint32_t entry, uint32_
             return;
         }
 
-        // Already have a render instance — update its position (e.g. transport re-creation)
+        // Already have a render instance - update its position (e.g. transport re-creation)
         auto& info = goIt->second;
         glm::vec3 renderPos = core::coords::canonicalToRender(glm::vec3(x, y, z));
         LOG_DEBUG("GameObject position update: displayId=", displayId, " guid=0x", std::hex, guid, std::dec,
@@ -1121,10 +1121,10 @@ void EntitySpawner::spawnOnlineGameObject(uint64_t guid, uint32_t entry, uint32_
                     }
                 } else {
                     LOG_WARNING("No WMO groups loaded for gameobject: ", modelPath,
-                                " — falling back to M2");
+                                " - falling back to M2");
                 }
             } else {
-                LOG_WARNING("Failed to read gameobject WMO: ", modelPath, " — falling back to M2");
+                LOG_WARNING("Failed to read gameobject WMO: ", modelPath, " - falling back to M2");
             }
         }
 
@@ -1187,7 +1187,7 @@ void EntitySpawner::spawnOnlineGameObject(uint64_t guid, uint32_t entry, uint32_
             return;
         }
 
-        // WMO failed — fall through to try as M2
+        // WMO failed - fall through to try as M2
         // Convert .wmo path to .m2 for fallback
         modelPath = modelPath.substr(0, modelPath.size() - 4) + ".m2";
     }
@@ -1208,7 +1208,7 @@ void EntitySpawner::spawnOnlineGameObject(uint64_t guid, uint32_t entry, uint32_
             if (!m2Renderer->hasModel(modelId)) {
                 LOG_WARNING("GO M2 cache hit but model gone: displayId=", displayId,
                             " modelId=", modelId, " path=", modelPath,
-                            " — reloading");
+                            " - reloading");
                 gameObjectDisplayIdModelCache_.erase(itCache);
                 itCache = gameObjectDisplayIdModelCache_.end();
             }
@@ -1257,7 +1257,7 @@ void EntitySpawner::spawnOnlineGameObject(uint64_t guid, uint32_t entry, uint32_
 
             // Keep game object models resident across the away-and-back cycle.
             // Leaving town drops every instance of them, and the 60s reaper then
-            // evicted the model — the log showed PostBoxHuman.m2 (the mailbox)
+            // evicted the model - the log showed PostBoxHuman.m2 (the mailbox)
             // going through exactly that reap/reload churn on every return trip.
             m2Renderer->setModelPinned(modelId, true);
             gameObjectDisplayIdModelCache_[displayId] = modelId;

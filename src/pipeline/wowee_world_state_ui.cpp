@@ -95,7 +95,7 @@ WoweeWorldStateUI WoweeWorldStateUILoader::makeStarter(
     WoweeWorldStateUI c;
     c.name = catalogName;
     {
-        // Warsong Gulch — two-sided flag capture counter.
+        // Warsong Gulch - two-sided flag capture counter.
         WoweeWorldStateUI::Entry e;
         e.worldStateId = 1; e.name = "WSG Flag Captures";
         e.description = "Two-sided counter for flag captures in WSG.";
@@ -109,7 +109,7 @@ WoweeWorldStateUI WoweeWorldStateUILoader::makeStarter(
         c.entries.push_back(e);
     }
     {
-        // Arathi Basin — resource counter (5 bases, 0..1600).
+        // Arathi Basin - resource counter (5 bases, 0..1600).
         WoweeWorldStateUI::Entry e;
         e.worldStateId = 2; e.name = "AB Resources";
         e.description = "Two-sided resource counter (0..1600).";
@@ -123,7 +123,7 @@ WoweeWorldStateUI WoweeWorldStateUILoader::makeStarter(
         c.entries.push_back(e);
     }
     {
-        // EotS — flag carrier icon (single-sided, top-right).
+        // EotS - flag carrier icon (single-sided, top-right).
         WoweeWorldStateUI::Entry e;
         e.worldStateId = 3; e.name = "EotS Flag Carrier";
         e.description = "Flag carrier icon (Alliance/Horde) shown "
@@ -198,7 +198,7 @@ WoweeWorldStateUI WoweeWorldStateUILoader::makeDungeon(
     };
     add(200, "BossProgress",     WoweeWorldStateUI::ProgressBar,
         533, 20, 0, 0,    // Naxxramas
-        "Progress bar — bosses defeated this run.");
+        "Progress bar - bosses defeated this run.");
     add(201, "KeyFragments",     WoweeWorldStateUI::Counter,
         540, 21, 0, 1,    // Shattered Halls
         "Key fragments collected for the dungeon door.");

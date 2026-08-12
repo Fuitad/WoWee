@@ -209,8 +209,8 @@ WoweeQuest WoweeQuestLoader::makeChain(const std::string& catalogName) {
         e.giverCreatureId = 4001;
         e.turninCreatureId = 4001;
         e.prevQuestId = 101;
-        // No nextQuestId — chain end.
-        // No objectives — quest completes on dialogue alone.
+        // No nextQuestId - chain end.
+        // No objectives - quest completes on dialogue alone.
         e.flags = WoweeQuest::AutoComplete;
         e.xpReward = 200;
         e.moneyCopperReward = 500;          // 5s

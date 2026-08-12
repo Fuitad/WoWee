@@ -2,7 +2,7 @@
 """Client slash commands that FrameXML shadows with a handler that does nothing.
 
 This client's chat tries SlashCmdList before its own registry and returns as
-soon as it finds a handler — and dispatchSlashCommand returns true even when
+soon as it finds a handler - and dispatchSlashCommand returns true even when
 that handler *errors*. So any command FrameXML defines wins, working or not.
 
 /follow was found this way: SLASH_FOLLOW1..7 cover /f, /follow and /fol, all
@@ -10,7 +10,7 @@ landing on a no-op FollowUnit while the client's own /follow sat unreachable
 behind it.
 
 Reports only where both sides claim the same command AND FrameXML's handler
-bottoms out in a stub or a missing global — that is the pairing that loses a
+bottoms out in a stub or a missing global - that is the pairing that loses a
 working feature.
 
 Split into two lists, because a dead call is worth very different amounts
@@ -26,7 +26,7 @@ only real call was replaced by a name nothing binds still had UnitIsPlayer and
 SendSystemMessage in it, so "has a live call" stayed true and the fault
 vanished from the report. Listing both is the honest arrangement.
 
-This sweep sees which names a handler mentions, never which branch runs — so
+This sweep sees which names a handler mentions, never which branch runs - so
 read the whole handler before believing a hit, and before dismissing one.
 """
 import re
@@ -41,10 +41,10 @@ XML = ROOT / "Data/interface"
 STUBS = {"lua_ReturnNil", "lua_ReturnZero", "lua_ReturnFalse", "lua_ReturnNothing",
          "lua_ContainerNoOp", "lua_ContainerFalse"}
 
-# Bound at all — the loose pattern, because a lambda body full of braces is
+# Bound at all - the loose pattern, because a lambda body full of braces is
 # still a binding and matching only trivial ones made every real
 # implementation read as missing. InspectUnit was reported dead that way.
-# One source of truth for what is answered — see framexml_provides. Working
+# One source of truth for what is answered - see framexml_provides. Working
 # this out per tool is how six sweeps came to disagree about it.
 import sys as _sys
 _sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -60,7 +60,7 @@ for f in (ROOT / "src/addons").glob("*.cpp"):
     for m in re.finditer(r'\{"([A-Za-z0-9_]+)",\s*\[\]\(lua_State\*\s*L\)\s*->\s*int\s*\{\s*\(void\)L;\s*return 0;\s*\}\}', s):
         noop.add(m.group(1))
 
-# Defined in FrameXML itself — ChatFrame_DisplayUsageError and ShowUIPanel are
+# Defined in FrameXML itself - ChatFrame_DisplayUsageError and ShowUIPanel are
 # Lua, not bindings, and are not this client's business.
 defined = set()
 for path in sorted(loaded_files(XML)):
@@ -115,7 +115,7 @@ for name, cmds in sorted(slash.items()):
     #
     # What that gives up: a handler whose live call is on the branch that
     # never runs. Rarer, and the note below says to read the whole handler
-    # before believing a hit — which is advice worth taking either way.
+    # before believing a hit - which is advice worth taking either way.
     if dead:
         rows.append((name, overlap, dead, client[overlap[0]], bool(live)))
 
@@ -129,7 +129,7 @@ for name, cmds, dead, where, _ in hard:
 if not hard:
     print("  (none)")
 
-print(f"\n{len(soft)} with a dead call beside a live one — usually a branch "
+print(f"\n{len(soft)} with a dead call beside a live one - usually a branch "
       f"that cannot run, read each:\n")
 for name, cmds, dead, where, _ in soft:
     print(f"  {' '.join(cmds):<26} SlashCmdList[{name}] -> {', '.join(dead)}")

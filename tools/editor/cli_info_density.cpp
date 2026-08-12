@@ -70,7 +70,7 @@ int handleInfoZoneDensity(int& i, int argc, char** argv) {
             auto t = worldToTile(s.position.x, s.position.y);
             auto it = tiles.find(t);
             if (it != tiles.end()) it->second.creatures++;
-            // Out-of-zone spawns silently dropped — they'll
+            // Out-of-zone spawns silently dropped - they'll
             // surface in --check-zone-refs / --check-zone-content.
         }
     }

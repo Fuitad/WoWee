@@ -8,7 +8,7 @@ WHY THIS FINDS WHAT THE OTHER SWEEPS CANNOT
 parsed_never_read_check asks what the server sent that nothing collects. This
 is its mirror: a field with readers all over the client and no writer anywhere,
 so every one of them agrees on whatever the declaration's initialiser happened
-to say. Nothing is missing, nothing raises, and the value is plausible — which
+to say. Nothing is missing, nothing raises, and the value is plausible - which
 is why it survives. The other direction cannot see it, because there is no
 parser line to notice the absence of.
 
@@ -32,12 +32,12 @@ All three were hit while writing this and all three read as findings:
   * A container is filled, not assigned. `attachments`, `auctions`, `spells`
     and twenty more are only ever push_back'd, and reading `=` alone reported
     every one of them. Mutating calls count.
-  * A field passed as a reference out-parameter is written by the callee —
+  * A field passed as a reference out-parameter is written by the callee -
     `readCastResultArgs(packet, data.result, data.miscArg, data.miscArg2)`
     fills three fields with no `=` in sight. These are named in EXPECTED one at
     a time rather than detected, because every rule for spotting them also
     matches an ordinary argument: the first attempt excused any field passed to
-    a call, which includes `ImGui::Text("%u / %u", a.count, a.required)` — and
+    a call, which includes `ImGui::Text("%u / %u", a.count, a.required)` - and
     that is the very field this sweep was written for. The canary caught it.
   * A whole-struct assignment writes every field at once and names none of
     them. `result = {fields[0], fields[2], ...}` is how AuctionMailSubject is
@@ -48,7 +48,7 @@ All three were hit while writing this and all three read as findings:
 WHAT IT CANNOT SEE
 
 A field written through a memcpy or a pointer alias, and one whose writer runs
-only on a path nothing reaches — which is the *next* question and not this one.
+only on a path nothing reaches - which is the *next* question and not this one.
 It also says nothing about whether the value written is right.
 """
 import collections

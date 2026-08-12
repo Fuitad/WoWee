@@ -114,13 +114,13 @@ WoweeGroupComposition WoweeGroupCompositionLoader::makeFiveMan(
         c.entries.push_back(e);
     };
     add(1, "Classic5ManTanksHealsDPS", 600, 1, 1, 3, 1,
-        "Classic 5-man comp — 1 tank / 1 healer / 3 dps, "
+        "Classic 5-man comp - 1 tank / 1 healer / 3 dps, "
         "spec roles enforced.");
     add(2, "Heavy5ManTrashHeal",       600, 1, 2, 2, 1,
-        "Heavy-heal 5-man trash run — 1T/2H/2D for "
+        "Heavy-heal 5-man trash run - 1T/2H/2D for "
         "healing-intensive content.");
     add(3, "RolelessSpeedRun",         600, 0, 0, 5, 0,
-        "Roleless 5-man speed run — 5 dps, no spec gate. "
+        "Roleless 5-man speed run - 5 dps, no spec gate. "
         "Used by speed-run guilds for sub-15min clears.");
     return c;
 }
@@ -147,13 +147,13 @@ WoweeGroupComposition WoweeGroupCompositionLoader::makeRaid10(
         c.entries.push_back(e);
     };
     add(100, "Standard10Man", 631, 2, 3, 5,
-        "Standard 10-man raid — 2T/3H/5D matches most ICC "
+        "Standard 10-man raid - 2T/3H/5D matches most ICC "
         "10N progression.");
     add(101, "HealingHeavy10Man", 631, 2, 4, 4,
-        "Healing-heavy 10-man — 2T/4H/4D for healing-"
+        "Healing-heavy 10-man - 2T/4H/4D for healing-"
         "intensive ICC 10H bosses (Putricide, Sindragosa).");
     add(102, "MeleeStack10Man", 631, 1, 2, 7,
-        "Melee-stack 10-man — 1T/2H/7D for melee-cleave "
+        "Melee-stack 10-man - 1T/2H/7D for melee-cleave "
         "fights with no DPS race (Saurfang heroic exec, "
         "Festergut). Brings extra melee to nuke a single "
         "target; one-tank because no swap mechanic.");
@@ -182,13 +182,13 @@ WoweeGroupComposition WoweeGroupCompositionLoader::makeRaid25(
         c.entries.push_back(e);
     };
     add(200, "Standard25Man", 631, 2, 6, 17,
-        "Standard 25-man raid — 2T/6H/17D matches most ICC "
+        "Standard 25-man raid - 2T/6H/17D matches most ICC "
         "25N progression.");
     add(201, "HealingHeavy25Man", 631, 1, 8, 16,
-        "Healing-heavy 25-man — 1T/8H/16D for healing-"
+        "Healing-heavy 25-man - 1T/8H/16D for healing-"
         "intensive ICC 25H Putricide / LK heroic.");
     add(202, "ZergDPS25Man", 631, 0, 4, 21,
-        "Zerg DPS 25-man — 0T/4H/21D for tank-immune fights "
+        "Zerg DPS 25-man - 0T/4H/21D for tank-immune fights "
         "(Loatheb-style trash piles).");
     return c;
 }

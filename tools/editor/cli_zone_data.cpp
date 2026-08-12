@@ -23,7 +23,7 @@ namespace {
 int handleFixZone(int& i, int argc, char** argv) {
     // Re-parse + re-save every JSON/binary file in a zone to apply
     // the editor's load-time scrubs and save-time caps. Useful when
-    // an old zone was created before recent hardening — running
+    // an old zone was created before recent hardening - running
     // this once cleans up NaN/oversize fields without touching
     // the editor GUI.
     std::string zoneDir = argv[++i];
@@ -58,7 +58,7 @@ int handleFixZone(int& i, int argc, char** argv) {
         if (fs::exists(p) && qe.loadFromFile(p) && qe.saveToFile(p)) touched++;
     }
     // WHM/WOT pairs and WoB files would need full pipeline access;
-    // skip them — the editor opens them on next zone load anyway,
+    // skip them - the editor opens them on next zone load anyway,
     // and the load-time scrubs run then.
     std::printf("fix-zone: cleaned %d files in %s\n", touched, zoneDir.c_str());
     return 0;

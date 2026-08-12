@@ -42,7 +42,7 @@ inline const char* questObjectiveTypeName(QuestObjectiveType type) {
 }
 
 /// The type behind that word. False when it is not one of them, so a caller
-/// can say so rather than guess — which is why this answers into an out
+/// can say so rather than guess - which is why this answers into an out
 /// parameter instead of picking KillCreature for a typo.
 inline bool questObjectiveTypeFromName(const std::string& name, QuestObjectiveType& out) {
     if (name == "kill")    { out = QuestObjectiveType::KillCreature; return true; }

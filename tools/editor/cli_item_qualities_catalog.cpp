@@ -226,7 +226,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 errors.push_back(ctx + ": name is empty");
             if (e.vendorPriceMultiplier < 0.0f) {
                 errors.push_back(ctx +
-                    ": vendorPriceMultiplier < 0 — vendor would "
+                    ": vendorPriceMultiplier < 0 - vendor would "
                     "pay the player to take items");
             }
             if (e.maxLevelToDrop != 0 &&
@@ -235,24 +235,24 @@ int handleValidate(int& i, int argc, char** argv) {
                     std::to_string(e.minLevelToDrop) +
                     " > maxLevelToDrop " +
                     std::to_string(e.maxLevelToDrop) +
-                    " — quality will never drop");
+                    " - quality will never drop");
             }
             if (e.minLevelToDrop > 80) {
                 warnings.push_back(ctx +
                     ": minLevelToDrop " +
                     std::to_string(e.minLevelToDrop) +
-                    " > 80 — quality unreachable at WotLK cap");
+                    " > 80 - quality unreachable at WotLK cap");
             }
             if (e.vendorPriceMultiplier > 100.0f) {
                 warnings.push_back(ctx +
                     ": vendorPriceMultiplier " +
                     std::to_string(e.vendorPriceMultiplier) +
-                    "x is very high — sanity check the economy");
+                    "x is very high - sanity check the economy");
             }
             // Pure transparent color is suspicious (alpha=0).
             if ((e.nameColorRGBA & 0xFF000000u) == 0) {
                 warnings.push_back(ctx +
-                    ": nameColorRGBA has alpha=0 — text will be "
+                    ": nameColorRGBA has alpha=0 - text will be "
                     "invisible in tooltips");
             }
             if (!idsSeen.add(e.qualityId)) errors.push_back(ctx + ": duplicate qualityId");

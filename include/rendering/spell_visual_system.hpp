@@ -59,7 +59,7 @@ public:
     void reset();
 
 private:
-    // Spell visual effects — transient M2 instances spawned by SMSG_PLAY_SPELL_VISUAL/IMPACT
+    // Spell visual effects - transient M2 instances spawned by SMSG_PLAY_SPELL_VISUAL/IMPACT
     struct SpellVisualInstance {
         uint32_t instanceId;
         float elapsed;

@@ -117,7 +117,7 @@ public:
     ChatSettings settings;
     int   activeChatTab       = 0;
 
-    // Legacy accessors — forward to settings struct for external code
+    // Legacy accessors - forward to settings struct for external code
     // (GameScreen save/load reads these directly)
     bool& chatShowTimestamps       = settings.showTimestamps;
     int&  chatFontSize             = settings.fontSize;
@@ -127,10 +127,10 @@ public:
     bool& chatAutoJoinLFG          = settings.autoJoinLFG;
     bool& chatAutoJoinLocal        = settings.autoJoinLocal;
 
-    /** Spell icon lookup callback — set by GameScreen each frame before render(). */
+    /** Spell icon lookup callback - set by GameScreen each frame before render(). */
     std::function<VkDescriptorSet(uint32_t, pipeline::AssetManager*)> getSpellIcon;
 
-    /** Persist-settings callback — set once by GameScreen so the in-window
+    /** Persist-settings callback - set once by GameScreen so the in-window
      *  quick menu can save appearance changes immediately. */
     std::function<void()> saveSettingsFn;
 
@@ -167,7 +167,7 @@ private:
     // A ChatInput class exists at include/ui/chat/chat_input.hpp and is the
     // intended eventual home for these fields, but the Phase-6 ChatPanel
     // decomposition (6.2/6.6/6.7) shipped without migrating the input
-    // buffers — chat_panel*.cpp still reads/writes them directly. Keep here
+    // buffers - chat_panel*.cpp still reads/writes them directly. Keep here
     // until a follow-up extraction lands.
     char chatInputBuffer_[512] = "";
     char whisperTargetBuffer_[256] = "";
@@ -207,7 +207,7 @@ private:
     // /castsequence state (delegated to CastSequenceTracker, Phase 1.5)
     CastSequenceTracker castSeqTracker_;
 
-    // Command registry (Phase 3 — replaces if/else chain)
+    // Command registry (Phase 3 - replaces if/else chain)
     ChatCommandRegistry commandRegistry_;
     void registerAllCommands();
 
@@ -229,7 +229,7 @@ private:
     std::unordered_map<uint64_t, CachedChatLine> chatLineCache_;
     std::string chatCacheSelfName_;  // cache cleared when this changes
 
-    // Tab-completion (Phase 5 — delegated to ChatTabCompleter)
+    // Tab-completion (Phase 5 - delegated to ChatTabCompleter)
     ChatTabCompleter tabCompleter_;
 
     // Mention notification

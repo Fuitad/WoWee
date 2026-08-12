@@ -259,27 +259,27 @@ int handleValidate(int& i, int argc, char** argv) {
                 errors.push_back(ctx + ": minLevel " +
                     std::to_string(e.minLevel) +
                     " > maxLevel " + std::to_string(e.maxLevel) +
-                    " — curve will never apply");
+                    " - curve will never apply");
             }
             if (e.maxLevel > 80) {
                 warnings.push_back(ctx +
                     ": maxLevel " + std::to_string(e.maxLevel) +
-                    " > 80 — characters cap at 80 in WotLK");
+                    " > 80 - characters cap at 80 in WotLK");
             }
             if (e.multiplier == 0.0f)
                 warnings.push_back(ctx +
-                    ": multiplier=0 — curve always evaluates to 0");
+                    ": multiplier=0 - curve always evaluates to 0");
             if (e.multiplier < 0.0f)
                 warnings.push_back(ctx +
                     ": multiplier=" + std::to_string(e.multiplier) +
-                    " (< 0) — inverts the curve, double-check this "
+                    " (< 0) - inverts the curve, double-check this "
                     "is intentional");
-            // Negative perLevelDelta is unusual — most stats
+            // Negative perLevelDelta is unusual - most stats
             // grow with level.
             if (e.perLevelDelta < 0.0f)
                 warnings.push_back(ctx +
                     ": perLevelDelta=" + std::to_string(e.perLevelDelta) +
-                    " (< 0) — curve shrinks with level, double-check");
+                    " (< 0) - curve shrinks with level, double-check");
             if (!idsSeen.add(e.curveId)) errors.push_back(ctx + ": duplicate curveId");
         }
             return formatted("%zu curves, all curveIds unique, all minLevel<=maxLevel", c.entries.size());

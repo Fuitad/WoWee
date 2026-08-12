@@ -1,4 +1,4 @@
-// poi_marker_layer.cpp — Town/dungeon/capital POI icons on the world map.
+// poi_marker_layer.cpp - Town/dungeon/capital POI icons on the world map.
 // Extracted from WorldMap::renderPOIMarkers (Phase 8 of refactoring plan).
 #include "rendering/world_map/layers/poi_marker_layer.hpp"
 #include "rendering/world_map/coordinate_projection.hpp"

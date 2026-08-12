@@ -40,7 +40,7 @@ private:
 /// A pipeline's vertex and fragment shaders, loaded together.
 ///
 /// The stage infos carry the module handles, so this has to outlive the
-/// pipeline creation that reads them — keep it a local of whatever builds the
+/// pipeline creation that reads them - keep it a local of whatever builds the
 /// pipeline, which is what every call site already does.
 struct ShaderPair {
     VkShaderModule vert;

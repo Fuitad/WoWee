@@ -1,6 +1,6 @@
-// taxi_node_layer.cpp — Flight master markers on the world map.
+// taxi_node_layer.cpp - Flight master markers on the world map.
 // Passive mode: small diamonds with name tooltips (normal world map).
-// Flight-map mode: interactive taxi selection — green marker at the current
+// Flight-map mode: interactive taxi selection - green marker at the current
 // node, gold markers at reachable destinations, hover shows the dotted route
 // and the flight cost, click activates the flight.
 #include "rendering/world_map/layers/taxi_node_layer.hpp"
@@ -135,7 +135,7 @@ void TaxiNodeLayer::renderWorldMapMarkers(const LayerContext& ctx,
                 if (node.known) {
                     ImGui::SetTooltip("%s\n(Flight Master)", node.name.c_str());
                 } else {
-                    ImGui::SetTooltip("%s\n(Flight Master — not yet discovered)",
+                    ImGui::SetTooltip("%s\n(Flight Master - not yet discovered)",
                                       node.name.c_str());
                 }
             }

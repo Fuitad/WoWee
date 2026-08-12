@@ -40,7 +40,7 @@ public:
                 addons::AddonManager* addonManager);
     ~WorldLoader();
 
-    // Main terrain loading — drives loading screen, WMO/ADT detection, player spawn
+    // Main terrain loading - drives loading screen, WMO/ADT detection, player spawn
     void loadOnlineWorldTerrain(uint32_t mapId, float x, float y, float z);
 
     // Process deferred world entry (called from Application::update each frame)
@@ -51,7 +51,7 @@ public:
     static int mapNameToId(const std::string& name);
     static const char* mapDisplayName(uint32_t mapId);
 
-    // Background preloading — warms AssetManager file cache
+    // Background preloading - warms AssetManager file cache
     void startWorldPreload(uint32_t mapId, const std::string& mapName,
                            float serverX, float serverY);
     void cancelWorldPreload();
@@ -96,7 +96,7 @@ private:
     /// `if (ok) { screen.render(); window->swapBuffers(); }` wherever a step was
     /// slow enough to need it.
     ///
-    /// `ok` is false when the screen could not be set up at all — the world
+    /// `ok` is false when the screen could not be set up at all - the world
     /// still loads, it is just loaded blind.
     struct LoadingUi {
         rendering::LoadingScreen* screen = nullptr;
@@ -137,7 +137,7 @@ private:
     bool mapNameCacheLoaded_ = false;
     std::unordered_map<uint32_t, std::string> mapNameById_;
 
-    // Background world preloader — warms AssetManager file cache for the
+    // Background world preloader - warms AssetManager file cache for the
     // expected world before the user clicks Enter World.
     struct WorldPreload {
         uint32_t mapId = 0;

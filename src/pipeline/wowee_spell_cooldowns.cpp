@@ -88,18 +88,18 @@ WoweeSpellCooldown WoweeSpellCooldownLoader::makeStarter(
         1500,
         WoweeSpellCooldown::AffectedByHaste |
         WoweeSpellCooldown::OnGCDStart,
-        220, 220, 220, "Global cooldown — 1.5s, hasted, applies to "
+        220, 220, 220, "Global cooldown - 1.5s, hasted, applies to "
         "every combat spell cast.");
     add(2, "ShortItemCD",      WoweeSpellCooldown::Item,
         5000,  0,
-        180, 240, 180, "Short item cooldown — 5s (low-tier consumables).");
+        180, 240, 180, "Short item cooldown - 5s (low-tier consumables).");
     add(3, "MediumItemCD",     WoweeSpellCooldown::Item,
         30000, 0,
-        180, 240, 100, "Medium item cooldown — 30s (mid-tier "
+        180, 240, 100, "Medium item cooldown - 30s (mid-tier "
         "consumables / wands).");
     add(4, "LongItemCD",       WoweeSpellCooldown::Item,
         60000, WoweeSpellCooldown::SharedWithItems,
-        240, 220, 100, "Long item cooldown — 60s, shared between "
+        240, 220, 100, "Long item cooldown - 60s, shared between "
         "healing/mana potions.");
     return c;
 }
@@ -119,19 +119,19 @@ WoweeSpellCooldown WoweeSpellCooldownLoader::makeClass(
         c.entries.push_back(e);
     };
     add(100, "PolymorphFamily",  0,
-        0, "Mage Polymorph variants (Sheep / Pig / Turtle / Cat) — "
+        0, "Mage Polymorph variants (Sheep / Pig / Turtle / Cat) - "
         "0ms cooldown but exclusive: only one variant active per "
         "target.");
     add(101, "AlterTime",        90000,
         WoweeSpellCooldown::AffectedByHaste,
-        "Alter Time — 90s, hasted by spell haste.");
+        "Alter Time - 90s, hasted by spell haste.");
     add(102, "Counterspell",     24000,
-        0, "Counterspell — 24s, fixed cooldown.");
+        0, "Counterspell - 24s, fixed cooldown.");
     add(103, "Blink",            15000,
-        0, "Blink — 15s, fixed cooldown.");
+        0, "Blink - 15s, fixed cooldown.");
     add(104, "IceBlock",        300000,
         WoweeSpellCooldown::IgnoresCooldownReduction,
-        "Ice Block — 5min, not affected by Cold Snap or CDR.");
+        "Ice Block - 5min, not affected by Cold Snap or CDR.");
     return c;
 }
 
@@ -151,17 +151,17 @@ WoweeSpellCooldown WoweeSpellCooldownLoader::makeItems(
     };
     add(200, "HealingPotion",      60000,
         WoweeSpellCooldown::SharedWithItems,
-        "Healing potion family — 60s shared with mana potions.");
+        "Healing potion family - 60s shared with mana potions.");
     add(201, "ManaPotion",         60000,
         WoweeSpellCooldown::SharedWithItems,
-        "Mana potion family — 60s shared with healing potions.");
+        "Mana potion family - 60s shared with healing potions.");
     add(202, "ManaJade",            1500,
         WoweeSpellCooldown::OnGCDStart,
-        "Mana Jade / oil flasks — GCD-only, no item cooldown.");
+        "Mana Jade / oil flasks - GCD-only, no item cooldown.");
     add(203, "EngineerTrinket",    60000, 0,
-        "Engineer trinket — 60s standalone bucket.");
+        "Engineer trinket - 60s standalone bucket.");
     add(204, "HearthstoneFamily", 3600000, 0,
-        "Hearthstone — 60min, exclusive across alt-bind variants.");
+        "Hearthstone - 60min, exclusive across alt-bind variants.");
     return c;
 }
 

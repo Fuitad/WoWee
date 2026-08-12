@@ -2,7 +2,7 @@
 //
 // The report is that Escape does not open the game menu. The chain that
 // decides it has been read end to end seven times and every reading found it
-// sound — which is what a reading is bad at. It confirms each link and says
+// sound - which is what a reading is bad at. It confirms each link and says
 // nothing about which link runs, and the whole of the behaviour is which link
 // runs.
 //
@@ -20,7 +20,7 @@ using namespace wowee::ui;
 TEST_CASE("With nothing open at all, Escape reaches the interface",
           "[escape]") {
     // The reported case. Every earlier branch has to decline for the question
-    // to get this far, and any one of them holding wrongly eats the key —
+    // to get this far, and any one of them holding wrongly eats the key -
     // silently, because closing something that is already closed looks like
     // nothing happening.
     const EscapeState nothing;
@@ -49,7 +49,7 @@ TEST_CASE("A press the interface's edit box already took does nothing more",
     // The two paths run in an order that hides this. The pump hands a focused
     // box the key and stops; for Escape that closes the box, and closing it
     // clears the focus. The poll runs later in the same iteration, asks
-    // whether anyone is typing, and is told no — by the box that let go on
+    // whether anyone is typing, and is told no - by the box that let go on
     // this very press. So the chain ran on a key that had already been spent
     // and put the game menu up behind the box the player just dismissed.
     EscapeState s;
@@ -105,7 +105,7 @@ TEST_CASE("Each window closes itself when it is the only one open", "[escape]") 
 TEST_CASE("This client's own windows are closed before anything under them",
           "[escape]") {
     // The settings window and the client's menu draw over everything. With one
-    // of them up, Escape has to take it and not the vendor behind it —
+    // of them up, Escape has to take it and not the vendor behind it -
     // otherwise the key closes a window the player cannot see the effect of
     // while the one they are looking at stays.
     EscapeState s;

@@ -85,7 +85,7 @@ WoweeCraftingRecipes WoweeCraftingRecipesLoader::load(
             !readPOD(is, e.learnedFromItemId)) { return false; }
         uint32_t reagentCount = 0;
         if (!readPOD(is, reagentCount)) { return false; }
-        // Sanity cap — no recipe should have more than
+        // Sanity cap - no recipe should have more than
         // 32 reagents; vanilla cap is 8.
         if (reagentCount > 32) { return false; }
         e.reagents.resize(reagentCount);
@@ -179,12 +179,12 @@ WoweeCraftingRecipes WoweeCraftingRecipesLoader::makeEngineering(
         4357, 1, 1, 0,
         {{2835, 1}}));
     // Mechanical Squirrel Box: rough copper-bar
-    // recipe — 4 reagents.
+    // recipe - 4 reagents.
     c.entries.push_back(makeRecipe(
         11, 4413, "Mechanical Squirrel Box", kEngineering, 75,
         4401, 1, 1, 0,
         {{2840, 2}, {4399, 1}, {2589, 1}, {4357, 1}}));
-    // Target Dummy: 5 reagents — demonstrates
+    // Target Dummy: 5 reagents - demonstrates
     // variable reagent count within the recipe
     // catalog. Blueprint is itemId 4406.
     c.entries.push_back(makeRecipe(

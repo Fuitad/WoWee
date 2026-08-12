@@ -1,13 +1,13 @@
 #pragma once
 
 /**
- * cli_catalog_paths.hpp — turning a path the user typed into the base name a
+ * cli_catalog_paths.hpp - turning a path the user typed into the base name a
  * catalog writes.
  *
  * The formats are stored as "<base><extension>" and their JSON sidecars as
  * "<base><extension>.json", and a user may type either, or neither, or the base
  * on its own. Working back to the base was written out in every import handler,
- * in two different spellings that had to agree — and one of them measured the
+ * in two different spellings that had to agree - and one of them measured the
  * suffix with a hardcoded 10, which is the length of ".wxxx.json" and would be
  * wrong for any extension that is not four letters.
  */
@@ -22,7 +22,7 @@ namespace cli {
 
 /// Make sure the directory an output file is about to be written into exists.
 ///
-/// std::filesystem::create_directories("") throws — "Invalid argument" — and a
+/// std::filesystem::create_directories("") throws - "Invalid argument" - and a
 /// bare filename has an empty parent path. So
 ///
 ///     wowee_editor --gen-mesh-altar altar
@@ -70,7 +70,7 @@ inline std::string baseFromJsonPath(std::string path, const std::string& extensi
 ///
 /// Every one of the 139 format handlers defined this as a file-local function
 /// with its own types and its own extension baked into the message. The
-/// extension is the only thing that varied, and it is derivable — a catalog is
+/// extension is the only thing that varied, and it is derivable - a catalog is
 /// always written to "<base><extension>".
 template <typename Loader, typename Catalog>
 bool saveOrError(const Catalog& cat, const std::string& base, const char* cmd,
@@ -92,7 +92,7 @@ inline int reportMissing(const char* tag, const std::string& base, const char* e
 ///
 /// Written out at each of the 153 places a handler checks whether the file it
 /// was asked about exists. `tag` is the format's own name for itself in a
-/// message — "WSMC" — and the path is always "<base><extension>".
+/// message - "WSMC" - and the path is always "<base><extension>".
 inline int reportMissing(const char* cmd, const char* tag, const std::string& base,
                          const char* extension) {
     std::fprintf(stderr, "%s: %s not found: %s%s\n", cmd, tag, base.c_str(), extension);

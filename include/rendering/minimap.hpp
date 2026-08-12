@@ -31,10 +31,10 @@ public:
     void setAssetManager(pipeline::AssetManager* am) { assetManager = am; }
     void setMapName(const std::string& name);
 
-    /// Off-screen composite pass — call BEFORE the main render pass begins.
+    /// Off-screen composite pass - call BEFORE the main render pass begins.
     void compositePass(VkCommandBuffer cmd, const glm::vec3& centerWorldPos);
 
-    /// Display quad — call INSIDE the main render pass.
+    /// Display quad - call INSIDE the main render pass.
     void render(VkCommandBuffer cmd, const Camera& playerCamera,
                 const glm::vec3& centerWorldPos, int screenWidth, int screenHeight,
                 float playerOrientation = 0.0f, bool hasPlayerOrientation = false);
@@ -61,7 +61,7 @@ public:
     /// Unset, it goes in the top-right corner at its own size, which is where
     /// this client's own interface puts it. FrameXML puts it inside a frame it
     /// owns, so when the original interface is drawing the minimap the rect of
-    /// that frame is handed here instead — this is a Vulkan pass of its own
+    /// that frame is handed here instead - this is a Vulkan pass of its own
     /// rather than an image the widget renderer could draw, so the map moves to
     /// the frame rather than the frame receiving the map.
     void setScreenRect(float x, float y, float w, float h) {
@@ -150,7 +150,7 @@ private:
 
     // No arrow texture: the player arrow is a triangle the display shader
     // draws from push.arrowRotation. A MinimapArrow.blp was loaded here once
-    // and the members outlived the drawing — never assigned, so the teardown
+    // and the members outlived the drawing - never assigned, so the teardown
     // that freed them could not run, and the two accessors that read them had
     // no callers. Kept as a note rather than as fields, because the real
     // client draws the texture and honours SetPlayerTextureWidth/Height on it,

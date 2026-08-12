@@ -1,4 +1,4 @@
-// corpse_marker_layer.cpp — Death corpse tombstone marker on the world map.
+// corpse_marker_layer.cpp - Death corpse tombstone marker on the world map.
 // Uses Rotating-MinimapCorpseArrow.blp from the game data.
 #include "rendering/world_map/layers/corpse_marker_layer.hpp"
 #include "rendering/world_map/coordinate_projection.hpp"
@@ -75,7 +75,7 @@ void CorpseMarkerLayer::render(const LayerContext& ctx) {
     if (!projection) return;
 
     // Where a release would put the player. Drawn first so the corpse sits on
-    // top where the two coincide — the body is the thing being navigated to.
+    // top where the two coincide - the body is the thing being navigated to.
     if (hasGraveyard_) {
         glm::vec2 gv = renderPosToMapUV(graveyardRenderPos_, projection->bounds, projection->isContinent);
         if (gv.x >= 0.0f && gv.x <= 1.0f && gv.y >= 0.0f && gv.y <= 1.0f) {

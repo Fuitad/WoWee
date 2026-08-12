@@ -1,6 +1,6 @@
-// data_repository.hpp — DBC data loading, ZMP pixel map, and zone/POI/overlay storage.
+// data_repository.hpp - DBC data loading, ZMP pixel map, and zone/POI/overlay storage.
 // Extracted from WorldMap::loadZonesFromDBC, loadPOIData, buildCosmicView
-// (Phase 5 of refactoring plan). SRP — all DBC parsing lives here.
+// (Phase 5 of refactoring plan). SRP - all DBC parsing lives here.
 #pragma once
 
 #include "rendering/world_map/world_map_types.hpp"

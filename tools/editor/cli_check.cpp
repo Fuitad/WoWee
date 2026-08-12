@@ -165,7 +165,7 @@ int handleCheckZoneRefs(int& i, int argc, char** argv) {
         std::printf("  PASSED\n");
         return 0;
     }
-    std::printf("  FAILED — %d issue(s):\n", totalErrors);
+    std::printf("  FAILED - %d issue(s):\n", totalErrors);
     for (const auto& e : errors) std::printf("    - %s\n", e.c_str());
     return 1;
 }
@@ -175,7 +175,7 @@ int handleCheckZoneContent(int& i, int argc, char** argv) {
     // values. --check-zone-refs catches dangling references;
     // this catches data-quality issues like creatures with 0 HP,
     // objects with negative scale, quests with no objectives.
-    // Both are needed — a quest can have valid NPC IDs (refs OK)
+    // Both are needed - a quest can have valid NPC IDs (refs OK)
     // AND no objectives (content broken).
     std::string zoneDir = argv[++i];
     bool jsonOut = (i + 1 < argc &&
@@ -296,7 +296,7 @@ int handleCheckZoneContent(int& i, int argc, char** argv) {
         std::printf("  PASSED\n");
         return 0;
     }
-    std::printf("  FAILED — %d total warning(s):\n", total);
+    std::printf("  FAILED - %d total warning(s):\n", total);
     for (const auto& w : warnings) std::printf("    - %s\n", w.c_str());
     return 1;
 }

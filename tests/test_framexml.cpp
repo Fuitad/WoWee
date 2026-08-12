@@ -90,19 +90,19 @@ TEST_CASE("A frame emits CreateFrame with its type and parent", "[framexml][emit
 // The cases above emit XML written for them, which proves the emitter handles a
 // shape and nothing about whether it handles Blizzard's. characterframe.xml has
 // been reported three times as a window that will not open, and every link in
-// ToggleCharacter's chain reads correct — so the question worth asking here is
+// ToggleCharacter's chain reads correct - so the question worth asking here is
 // the one that can be answered without the game: does the frame get built at
 // all, and does its first tab get the id ToggleCharacter reads?
 
 namespace {
-/// A FrameXML file as shipped, or an empty node when it is not there — the
+/// A FrameXML file as shipped, or an empty node when it is not there - the
 /// tests using it skip rather than fail, since the interface is data and a
 /// checkout without it is not a broken emitter.
 XmlNode parseShippedFile(const std::string& name) {
     XmlNode root;
     // Anchored to the source tree rather than the working directory. ctest runs
     // from the build directory, where a relative path finds nothing and the
-    // test passes by skipping — which is worse than not having it.
+    // test passes by skipping - which is worse than not having it.
     std::ifstream in(std::string(WOWEE_SOURCE_DIR) +
                      "/Data/interface/framexml/" + name);
     if (!in) return root;
@@ -325,7 +325,7 @@ TEST_CASE("$parent inside a template resolves to the frame that inherits it",
           "[framexml][emit]") {
     // The subtlety that makes templates work at all. A region named $parentBg in
     // a template must become FooFrameBg on the frame inheriting it, not
-    // TemplateNameBg — the template's own name is never the answer, and every
+    // TemplateNameBg - the template's own name is never the answer, and every
     // frame sharing that template would collide on it if it were.
     XmlNode root = parseOrFail(
         "<Ui><Frame name=\"MyTemplate\" virtual=\"true\"><Layers><Layer>"
@@ -339,7 +339,7 @@ TEST_CASE("$parent inside a template resolves to the frame that inherits it",
 }
 
 TEST_CASE("A template installs OnLoad but does not run it", "[framexml][emit]") {
-    // A frame is loaded once, when it is finished — not once per template it
+    // A frame is loaded once, when it is finished - not once per template it
     // is built from. Running it per template fired ChatFrameEditBoxTemplate's
     // OnLoad before the edit box's own OnLoad had set self.chatFrame, which is
     // the first thing that handler indexes.
@@ -350,7 +350,7 @@ TEST_CASE("A template installs OnLoad but does not run it", "[framexml][emit]") 
         "<Frame name=\"Real\" inherits=\"T\"/></Ui>");
     const EmitResult r = emitFrameXml(root);
 
-    // Once, for the real frame — not inside the template body.
+    // Once, for the real frame - not inside the template body.
     const std::string fire = ":GetScript(\"OnLoad\")(";
     size_t count = 0;
     for (size_t at = r.lua.find(fire); at != std::string::npos;
@@ -374,7 +374,7 @@ TEST_CASE("$parent skips unnamed frames to the nearest named one",
         "</Frames></Frame></Ui>");
     const EmitResult r = emitFrameXml(root);
 
-    // Named from the template root, which is the only thing with a name —
+    // Named from the template root, which is the only thing with a name -
     // and only if it has one, since an owner with no name lends none.
     REQUIRE(has(r.lua, "self:GetName() .. \"Name\""));
     REQUIRE(has(r.lua, "self:GetName() and"));
@@ -383,7 +383,7 @@ TEST_CASE("$parent skips unnamed frames to the nearest named one",
 TEST_CASE("A frame can fill its parent instead of anchoring", "[framexml][emit]") {
     // Honoured for regions and ignored for frames, which is 139 declarations
     // across 53 files. An unanchored frame falls to the centre-on-parent
-    // default with no size, so its centre is the screen's — PlayerFrame's name
+    // default with no size, so its centre is the screen's - PlayerFrame's name
     // sat in the middle of the world because two frames above it said
     // setAllPoints and nothing acted on it.
     XmlNode root = parseOrFail(
@@ -439,8 +439,8 @@ TEST_CASE("A slider carries its range, step and grip", "[framexml][emit]") {
 
 TEST_CASE("A frame's id becomes SetID", "[framexml][emit]") {
     // How a frame in a numbered set knows which one it is. FrameXML builds
-    // names out of it — PartyMemberFrame_RefreshPetDebuffs reaches for
-    // _G["PartyMemberFrame" .. self:GetID() .. "PetFrame"] — and 848 of these
+    // names out of it - PartyMemberFrame_RefreshPetDebuffs reaches for
+    // _G["PartyMemberFrame" .. self:GetID() .. "PetFrame"] - and 848 of these
     // are declared across 57 files.
     XmlNode root = parseOrFail("<Ui><Frame name=\"F\" id=\"3\"/></Ui>");
     REQUIRE(has(emitFrameXml(root).lua, ":SetID(3)"));
@@ -463,8 +463,8 @@ TEST_CASE("parentKey binds a region to a field on its owner", "[framexml][emit]"
 }
 
 TEST_CASE("A template that inherits another applies it too", "[framexml][emit]") {
-    // Templates are built from other templates constantly — 217 of FrameXML's
-    // virtual frames inherit one — and the virtual branch used to return before
+    // Templates are built from other templates constantly - 217 of FrameXML's
+    // virtual frames inherit one - and the virtual branch used to return before
     // inherits was ever emitted. InterfaceOptionsListButtonTemplate silently
     // dropped the OptionsListButtonTemplate it is built on, so it arrived with
     // no highlight texture and no size.
@@ -484,7 +484,7 @@ TEST_CASE("A template that inherits another applies it too", "[framexml][emit]")
 TEST_CASE("A frame's own $parent anchor means its parent, not itself",
           "[framexml][emit]") {
     // A sibling reference. VideoOptionsFrameCancel anchors to $parentApply,
-    // meaning the Apply button beside it on the frame holding both — not a
+    // meaning the Apply button beside it on the frame holding both - not a
     // child of the Cancel button. Resolving it against the button's own name
     // produced VideoOptionsFrameCancelApply, which nothing is called, so the
     // anchor silently fell back to the parent and the button sat in the wrong
@@ -509,7 +509,7 @@ TEST_CASE("Button art declared outside a Layer is still created",
           "[framexml][emit]") {
     // <NormalTexture> and <ButtonText> are regions like any other, just
     // declared as their own element with an implied layer and a setter. The
-    // emitter ignored all of them, so the names they declare never existed —
+    // emitter ignored all of them, so the names they declare never existed -
     // _G["DropDownList1Button1NormalText"] among them, which is what stopped
     // UIDropDownMenu loading. The highlight belongs on its own layer, and the
     // label above the art rather than under it.
@@ -527,7 +527,7 @@ TEST_CASE("Button art declared outside a Layer is still created",
     REQUIRE(has(r.lua, ":SetFontString("));
     REQUIRE(has(r.lua, "\"HIGHLIGHT\""));
     REQUIRE(has(r.lua, "\"OVERLAY\""));
-    // A font string, not a texture — the element name does not say so.
+    // A font string, not a texture - the element name does not say so.
     REQUIRE(has(r.lua, "CreateFontString(\"MyButtonNormalText\""));
 }
 
@@ -582,8 +582,8 @@ TEST_CASE("A nested frame anchors to its container, not the screen",
 
 TEST_CASE("An anchor inside a template resolves its parent at replay time",
           "[framexml][emit]") {
-    // The containing frame is not known while emitting a template — it is
-    // whichever frame inherits it — so the parent has to be asked for then.
+    // The containing frame is not known while emitting a template - it is
+    // whichever frame inherits it - so the parent has to be asked for then.
     XmlNode root = parseOrFail(
         "<Ui><Frame name=\"T\" virtual=\"true\"><Anchors>"
         "<Anchor point=\"CENTER\"/></Anchors></Frame></Ui>");
@@ -600,7 +600,7 @@ TEST_CASE("A FontString's inherits names a font object, not a template",
     //
     // It is not either/or, though: FrameXML declares virtual FontStrings too,
     // and the name alone does not say which kind it is. So the emitted line
-    // asks — but a font object must still reach SetFontObject, which is what
+    // asks - but a font object must still reach SetFontObject, which is what
     // this checks.
     XmlNode root = parseOrFail(
         "<Ui><Frame name=\"F\"><Layers><Layer>"
@@ -613,7 +613,7 @@ TEST_CASE("A FontString's inherits names a font object, not a template",
 
 TEST_CASE("A virtual Texture becomes a template a region can inherit",
           "[framexml][emit]") {
-    // Twenty-two of these sit at the top level of FrameXML — the dialog
+    // Twenty-two of these sit at the top level of FrameXML - the dialog
     // button's normal, pushed and highlight art among them. None was emitted,
     // so every button inheriting its art had none.
     XmlNode root = parseOrFail(
@@ -641,7 +641,7 @@ TEST_CASE("A Texture's inherits is not treated as a font object",
 TEST_CASE("Handler bodies get their arguments by name", "[framexml][emit]") {
     // Blizzard's inline scripts use their argument names without declaring
     // them. Passed positionally instead, an OnUpdate body's `elapsed` is nil
-    // and the first arithmetic on it fails — which is most of FrameXML's
+    // and the first arithmetic on it fails - which is most of FrameXML's
     // OnUpdate handlers.
     XmlNode root = parseOrFail(
         "<Ui><Frame name=\"F\"><Scripts>"
@@ -672,7 +672,7 @@ TEST_CASE("A handler with no named arguments still takes self",
 TEST_CASE("Every handler is vararg whatever its named arguments",
           "[framexml][emit]") {
     // A body is free to use `...` whatever handler it belongs to, and a
-    // parameter list without it does not merely lose the values — it fails to
+    // parameter list without it does not merely lose the values - it fails to
     // compile, taking the whole template with it.
     XmlNode root = parseOrFail(
         "<Ui><Frame name=\"F\"><Scripts>"
@@ -691,7 +691,7 @@ TEST_CASE("Every handler is vararg whatever its named arguments",
 TEST_CASE("A $parent relativeTo becomes a name, not a bare symbol",
           "[framexml][emit]") {
     // $parentBg is not a Lua identifier. Pasted in as one it is a syntax error,
-    // which does not lose the anchor — it loses the whole file.
+    // which does not lose the anchor - it loses the whole file.
     XmlNode root = parseOrFail(
         "<Ui><Frame name=\"FooFrame\"><Layers><Layer>"
         "<Texture name=\"$parentBg\"/>"
@@ -707,7 +707,7 @@ TEST_CASE("A $parent relativeTo becomes a name, not a bare symbol",
 TEST_CASE("Temporaries do not run into Lua's local-variable limit",
           "[framexml][emit]") {
     // Lua allows 200 locals per function. A large file declares far more
-    // widgets than that, and going over does not degrade — the whole chunk
+    // widgets than that, and going over does not degrade - the whole chunk
     // refuses to compile. FriendsFrame and InterfaceOptionsPanels both did.
     std::string xml = "<Ui><Frame name=\"Big\"><Layers><Layer>";
     for (int i = 0; i < 300; ++i) {
@@ -742,7 +742,7 @@ TEST_CASE("$parent follows the parent attribute, not the file structure",
           "[framexml][emit]") {
     // A frame written at the top level with parent="Something" belongs to that
     // frame, and its $parent means it. WorldMapTitleButton is declared this way
-    // and anchors to $parentMiniBorderLeft — the world map's own border. Taken
+    // and anchors to $parentMiniBorderLeft - the world map's own border. Taken
     // from where it sits in the file instead, there is no containing frame to
     // name, so $parent collapsed to the bare suffix and SetPoint looked up a
     // global that nothing has.
@@ -764,7 +764,7 @@ TEST_CASE("A $parent name on an unnamed owner is no name at all",
           "[framexml][emit]") {
     // Inside a template the owner is not known until replay, so the name is
     // built then. If the frame inheriting the template has no name there is
-    // nothing to build from, and WoW gives the region no name — where falling
+    // nothing to build from, and WoW gives the region no name - where falling
     // back to an empty string publishes the bare suffix as a global.
     // ContainerFrameTemplate replayed onto an unnamed frame created a texture
     // called "Portrait", and the next frame to do the same overwrote it.
@@ -1050,7 +1050,7 @@ TEST_CASE("An edit box is built as it was declared", "[framexml][emit]") {
     // Every one of these had a method and a field behind it and no way to
     // reach them from the XML, so a box came out with the defaults whatever
     // it said. SendMailBodyEditBox declares letters="500" multiLine="true",
-    // and without them it was a single-line box with no limit — a letter
+    // and without them it was a single-line box with no limit - a letter
     // nobody could write a second line in.
     XmlNode root = parseOrFail(
         "<Ui><EditBox name=\"E\" letters=\"500\" multiLine=\"true\"/></Ui>");
@@ -1086,7 +1086,7 @@ TEST_CASE("autoFocus false is carried, because it is why it is written",
 TEST_CASE("text= names a global, not a caption", "[framexml][emit]") {
     // CharacterFrameTab1 says text="CHARACTER", and CHARACTER is a global
     // holding the word "Character". Emitting the literal put the key on screen
-    // and — because the tab is sized from the width of its own label — made
+    // and - because the tab is sized from the width of its own label - made
     // every tab on the character sheet a sliver with the text clipped inside.
     XmlNode root = parseOrFail(
         "<Ui><Button name=\"B\" text=\"CHARACTER\"/></Ui>");
@@ -1108,14 +1108,14 @@ TEST_CASE("A caption that is not a name is used as written",
 TEST_CASE("A button gets its font string before its text", "[framexml][emit]") {
     // The character sheet's tabs are the case this is about. The label comes
     // from text= on the tab, but the font string it lands on is declared by
-    // the template the tab inherits — so two separate emissions have to happen
+    // the template the tab inherits - so two separate emissions have to happen
     // in the right order, and SetText only forwards to a font string that is
     // already attached. Set the text first and it goes into __text, where
     // nothing draws it and nothing measures it.
     //
     // Both of the tab's symptoms come out of that single ordering: no label,
-    // and — because PanelTemplates_TabResize sizes the tab from
-    // CharacterFrameTab1Text:GetWidth() — a sliver barely wider than its
+    // and - because PanelTemplates_TabResize sizes the tab from
+    // CharacterFrameTab1Text:GetWidth() - a sliver barely wider than its
     // borders.
     XmlNode root = parseOrFail(
         "<Ui>"
@@ -1143,7 +1143,7 @@ TEST_CASE("OnEvent takes its arguments through the varargs, not by name",
           "[framexml][emit]") {
     // Both spellings are in the interface and both have to work. A body that
     // says `arg1` needs the name; a body that hands `...` to a Lua function
-    // needs the varargs — and fifty-three of them do, ContainerFrame among
+    // needs the varargs - and fifty-three of them do, ContainerFrame among
     // them. Naming arg1..arg9 as parameters served only the first, because
     // every value that arrived was bound to a name and `...` came out empty:
     // ContainerFrame_OnEvent compared a nil arg1 against the bag's own id, so

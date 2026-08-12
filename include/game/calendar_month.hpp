@@ -7,7 +7,7 @@ namespace game {
  * The month arithmetic the calendar grid is drawn from.
  *
  * `CalendarGetMonth(offset)` answers four values and FrameXML lays out the
- * whole month from them — which day of the week the first falls on decides
+ * whole month from them - which day of the week the first falls on decides
  * where the grid starts, and the day count decides where it ends and how many
  * of the next month's days are shown trailing. Every one of them goes straight
  * into arithmetic (`mod((firstWeekday - CALENDAR_FIRST_WEEKDAY - 1) + 7, 7)`),
@@ -58,7 +58,7 @@ struct CalendarMonthInfo {
 };
 
 /// The month `offset` months from the given one, with December wrapping into
-/// January of the next year and the sign of the offset respected — a negative
+/// January of the next year and the sign of the offset respected - a negative
 /// month index is the case a plain modulus gets wrong in C++.
 constexpr CalendarMonthInfo calendarMonthAt(int baseMonth, int baseYear,
                                             int offset) {

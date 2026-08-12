@@ -35,14 +35,14 @@ set(TEST_COMMON_SOURCES
 #
 # It is not vendored: it comes from find_package(glm QUIET), and its include
 # path arrives with the imported target rather than through any directory this
-# file lists. Three shapes exist in the wild — GLM 1.0 exposes the headers as
+# file lists. Three shapes exist in the wild - GLM 1.0 exposes the headers as
 # glm::glm-header-only and may build glm::glm as a real library beside it, and
 # some distributions provide neither target, only GLM_INCLUDE_DIRS. A target
 # that asks for glm::glm alone gets nothing in the third case and fails on
 # glm/glm.hpp.
 #
 # Linux has a system copy under /usr/include and compiles either way, so this
-# only ever shows up somewhere else — which is what makes it easy to leave
+# only ever shows up somewhere else - which is what makes it easy to leave
 # broken. The main target and the editor have walked all three branches since
 # they were written; this is the same ladder, once, for the tests.
 function(wowee_test_link_glm target)
@@ -71,7 +71,7 @@ add_executable(test_hill_climbing
 target_include_directories(test_hill_climbing PRIVATE ${TEST_INCLUDE_DIRS})
 target_include_directories(test_hill_climbing SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
 target_link_libraries(test_hill_climbing PRIVATE catch2_main)
-# glm is not vendored — it comes from find_package(glm), and its include path
+# glm is not vendored - it comes from find_package(glm), and its include path
 # arrives with the imported target rather than through any directory this file
 # lists. Adding TEST_SYSTEM_INCLUDE_DIRS above does not supply it, which is why
 # the first attempt at this failed CI unchanged: Linux has a system copy under
@@ -97,7 +97,7 @@ register_test_target(test_cli_catalog_paths)
 # The rules this codebase collapsed out of many copies into one. A rule with a
 # single home is a rule one mistake breaks everywhere, so the cases that were
 # actually wrong in one of the copies are pinned here.
-# Pure rules only — the item texture paths and the settings vocabulary are
+# Pure rules only - the item texture paths and the settings vocabulary are
 # header-only, and skinPathForM2 comes from m2_loader, which knows nothing about
 # where bytes come from.
 add_executable(test_shared_rules test_shared_rules.cpp
@@ -140,7 +140,7 @@ register_test_target(test_framexml)
 # transition's state is "FrameXML draws all of it", and that rested on a list
 # of forty-nine names and a grouping rule agreeing about fifty-two elements,
 # in a file where either can be edited alone. An element falling out is not an
-# error — this client just draws its own version again.
+# error - this client just draws its own version again.
 add_executable(test_framexml_takeover
     test_framexml_takeover.cpp
     ${CMAKE_SOURCE_DIR}/src/ui/framexml_takeover.cpp
@@ -154,7 +154,7 @@ register_test_target(test_framexml_takeover)
 
 # ── test_lua_arg_coercion ───────────────────────────────────
 # The lenient numeric argument, which is a pure function of the Lua stack and
-# so needs no game, window or interface — while the fault it prevents is
+# so needs no game, window or interface - while the fault it prevents is
 # invisible at every other level: a raise inside a click handler is swallowed,
 # so an auction search that never sent looked exactly like one that found
 # nothing.
@@ -185,7 +185,7 @@ target_link_libraries(framexml_emit PRIVATE lua51)
 # ── test_settings_panel_layout ───────────────────────────────
 # The options panels are generated from the schema by Lua, and nothing else
 # checks the arithmetic between them. A control laid out past the bottom of a
-# panel registers, refreshes and answers correctly — it is just not on screen.
+# panel registers, refreshes and answers correctly - it is just not on screen.
 add_executable(test_settings_panel_layout
     test_settings_panel_layout.cpp
     ${CMAKE_SOURCE_DIR}/src/ui/settings_schema.cpp
@@ -199,7 +199,7 @@ register_test_target(test_settings_panel_layout)
 
 # ── test_addon_lua_snippets ──────────────────────────────────
 # The Lua this client injects into the interface lives as C++ string literals,
-# which nothing compiles until the client runs — and a syntax error there is a
+# which nothing compiles until the client runs - and a syntax error there is a
 # false from executeString and a line in a warning-only log. This asks Lua
 # whether they parse.
 add_executable(test_addon_lua_snippets
@@ -232,7 +232,7 @@ add_test(NAME framexml_compiles COMMAND framexml_compile_check
 set_tests_properties(framexml_compiles PROPERTIES SKIP_RETURN_CODE 77)
 
 # The Blizzard addons go through the same emitter and were never checked by it.
-# Their XML is where the load-on-demand panels come from — a file that will not
+# Their XML is where the load-on-demand panels come from - a file that will not
 # compile takes its whole panel with it, and only when someone opens it.
 add_test(NAME addon_xml_compiles COMMAND framexml_compile_check
          ${CMAKE_SOURCE_DIR}/Data/interface/addons)
@@ -240,7 +240,7 @@ set_tests_properties(addon_xml_compiles PROPERTIES SKIP_RETURN_CODE 77)
 
 # ── test_taxi_map_projection ────────────────────────────────
 # The order of the coordinate conversions behind a flight map marker. Silent
-# when wrong — every marker still lands somewhere, just not where it belongs.
+# when wrong - every marker still lands somewhere, just not where it belongs.
 add_executable(test_taxi_map_projection
     test_taxi_map_projection.cpp
     ${CMAKE_SOURCE_DIR}/src/rendering/world_map/coordinate_projection.cpp
@@ -275,7 +275,7 @@ endif()
 
 # ── test_chat_types ─────────────────────────────────────────────
 # A chat type is a byte off the wire and the event name is built from it, so a
-# value missing from the enum is a line of chat that never appears — no error,
+# value missing from the enum is a line of chat that never appears - no error,
 # no log. The whole run between LOOT and the battleground block was absent once.
 add_executable(test_chat_types test_chat_types.cpp)
 target_include_directories(test_chat_types PRIVATE ${TEST_INCLUDE_DIRS})
@@ -286,7 +286,7 @@ add_test(NAME chat_types COMMAND test_chat_types)
 register_test_target(test_chat_types)
 
 # ── test_text_tokens ────────────────────────────────────────
-# The server writes the player as a blank — "$N, you have done well" — and the
+# The server writes the player as a blank - "$N, you have done well" - and the
 # client fills it in. Nothing did on the chat path, so every scripted NPC in the
 # game addressed the player as "$N". Pure: the substitution takes the four facts
 # it needs about the reader rather than a client.
@@ -447,7 +447,7 @@ register_test_target(test_opcode_table)
 
 # ── test_equipment_set_packets ───────────────────────────────
 # Every guid in the equipment-set family is packed and all twenty were read and
-# written as fixed eight-byte values — plus an ignore mask that the server does
+# written as fixed eight-byte values - plus an ignore mask that the server does
 # not send at all. Saving a set could never have worked.
 add_executable(test_equipment_set_packets
     test_equipment_set_packets.cpp
@@ -474,7 +474,7 @@ target_link_libraries(test_auction_sort_packet PRIVATE catch2_main)
 # visible at the target: test_shared_rules names m2_loader.cpp, and it is
 # m2_loader.hpp that includes glm two lines in. Linux has a system copy under
 # /usr/include and compiles either way; macOS does not, reports the first one
-# and stops — which is why one name appeared in a failing log while eight were
+# and stops - which is why one name appeared in a failing log while eight were
 # short. tools/test_glm_link_check.py answers the macOS question on any host.
 wowee_test_link_glm(test_auction_sort_packet)
 add_test(NAME auction_sort_packet COMMAND test_auction_sort_packet)
@@ -482,7 +482,7 @@ register_test_target(test_auction_sort_packet)
 
 # ── test_achievement_criteria ────────────────────────────────
 # The criteria progress record. Its counter is a packed guid and was read as a
-# fixed uint64, which put every field behind it out of place — and in the login
+# fixed uint64, which put every field behind it out of place - and in the login
 # message, where records repeat until a sentinel, took the whole list with it.
 add_executable(test_achievement_criteria
     test_achievement_criteria.cpp
@@ -924,10 +924,10 @@ target_link_libraries(test_activity_fsm PRIVATE catch2_main)
 add_test(NAME activity_fsm COMMAND test_activity_fsm)
 register_test_target(test_activity_fsm)
 
-# NPC animator tests removed — NpcAnimator replaced by generic CharacterAnimator
+# NPC animator tests removed - NpcAnimator replaced by generic CharacterAnimator
 
 # ── test_anim_capability ─────────────────────────────────────
-# Header-only struct tests — no source files needed
+# Header-only struct tests - no source files needed
 add_executable(test_anim_capability
     test_anim_capability.cpp
 )
@@ -1111,7 +1111,7 @@ add_test(NAME chat_markup_parser COMMAND test_chat_markup_parser)
 register_test_target(test_chat_markup_parser)
 
 # ── test_plural_escape ───────────────────────────────────────
-# WoW's |4singular:plural; escape, which nothing resolved — so the logout
+# WoW's |4singular:plural; escape, which nothing resolved - so the logout
 # prompt read "5 |4Second:Seconds; until logout" and seventy-four other
 # strings did the same.
 add_executable(test_plural_escape
@@ -1255,7 +1255,7 @@ add_test(NAME expansion_profile COMMAND test_expansion_profile)
 register_test_target(test_expansion_profile)
 
 # ── test_buff_bar_layout ────────────────────────────────────
-# Header-only layout arithmetic — no ImGui needed.
+# Header-only layout arithmetic - no ImGui needed.
 add_executable(test_buff_bar_layout
     test_buff_bar_layout.cpp
 )

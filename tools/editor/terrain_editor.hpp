@@ -121,7 +121,7 @@ public:
     // Offset all heights by a constant
     void offsetHeights(float amount);
 
-    // Voronoi cell noise — creates cell-like terrain patterns
+    // Voronoi cell noise - creates cell-like terrain patterns
     void applyVoronoiNoise(int cellCount, float amplitude, uint32_t seed);
 
     // Fill entire tile with water at a height
@@ -159,7 +159,7 @@ public:
     void setWaterLevel(const glm::vec3& center, float radius, float waterHeight, uint16_t liquidType = 0);
     void removeWater(const glm::vec3& center, float radius);
 
-    // Hole editing (4x4 bitmask per chunk — cave entrances, mine shafts)
+    // Hole editing (4x4 bitmask per chunk - cave entrances, mine shafts)
     void punchHole(const glm::vec3& center, float radius);
     void fillHole(const glm::vec3& center, float radius);
 

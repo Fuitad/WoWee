@@ -1,6 +1,6 @@
-// overlay_renderer.hpp — ImGui overlay layer system for the world map.
+// overlay_renderer.hpp - ImGui overlay layer system for the world map.
 // Extracted from WorldMap::renderImGuiOverlay (Phase 8 of refactoring plan).
-// OCP — new marker types are added by implementing IOverlayLayer.
+// OCP - new marker types are added by implementing IOverlayLayer.
 #pragma once
 
 #include "rendering/world_map/world_map_types.hpp"
@@ -66,7 +66,7 @@ struct MapProjection {
 /// showing somewhere a world position can be placed.
 ///
 /// Ten marker layers opened with the same three guards and the same two lines
-/// deriving the bounds — the view has to be a zone or a continent, the zone
+/// deriving the bounds - the view has to be a zone or a continent, the zone
 /// index has to be known, and the zone list has to be there. Three conditions
 /// restated ten times is three chances for a layer to be missing one and read
 /// past the end of a vector that is not there.

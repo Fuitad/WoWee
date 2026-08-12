@@ -1,7 +1,7 @@
 // ============================================================
 // Curated "max out" gear sets per expansion + class.
 //
-// These are NOT strictly-optimal, patch-exact BiS lists — assembling those
+// These are NOT strictly-optimal, patch-exact BiS lists - assembling those
 // for every class across every raid tier would be enormous and quickly
 // outdated. Instead each class gets a compact, iconic endgame kit (anchored
 // on its legendary weapon for the expansion where one exists) plus a couple
