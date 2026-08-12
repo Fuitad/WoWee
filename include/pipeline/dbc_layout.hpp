@@ -50,14 +50,6 @@ private:
 void setActiveDBCLayout(const DBCLayout* layout);
 const DBCLayout* getActiveDBCLayout();
 
-/** Convenience: get field index for a DBC field. */
-inline uint32_t dbcField(const std::string& dbcName, const std::string& fieldName) {
-    const auto* l = getActiveDBCLayout();
-    if (!l) return 0xFFFFFFFF;
-    const auto* fm = l->getLayout(dbcName);
-    return fm ? fm->field(fieldName) : 0xFFFFFFFF;
-}
-
 // Forward declaration
 class DBCFile;
 

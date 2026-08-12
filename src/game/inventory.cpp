@@ -516,20 +516,6 @@ std::vector<Inventory::SwapOp> Inventory::computeBankBagSortSwaps(int bagIndex) 
 
     return swapsToSort(entries);
 }
-const char* getQualityName(ItemQuality quality) {
-    switch (quality) {
-        case ItemQuality::POOR:      return "Poor";
-        case ItemQuality::COMMON:    return "Common";
-        case ItemQuality::UNCOMMON:  return "Uncommon";
-        case ItemQuality::RARE:      return "Rare";
-        case ItemQuality::EPIC:      return "Epic";
-        case ItemQuality::LEGENDARY: return "Legendary";
-        case ItemQuality::ARTIFACT:  return "Artifact";
-        case ItemQuality::HEIRLOOM:  return "Heirloom";
-        default:                     return "Unknown";
-    }
-}
-
 const char* getEquipSlotName(EquipSlot slot) {
     switch (slot) {
         case EquipSlot::HEAD:       return "Head";

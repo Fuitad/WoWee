@@ -76,6 +76,24 @@ DECL = re.compile(
 # every other name on it, and setMasterVolume looked dead with three callers.
 DEFN = re.compile(r"^[\w:<>,\s\*&]*\b\w+::(\w+)\s*\(")
 
+# A free function at namespace scope, declared or defined inline in a header:
+# `bool waterCellRendered(...);` or `inline void foo(...) {`. These are the
+# other half of the surface: the member scan above cannot see them, and a
+# helper whose last caller moved away looks exactly like one that is about to
+# get its first.
+FREE_DECL = re.compile(
+    r"^(?:inline\s+|static\s+|constexpr\s+|\[\[nodiscard\]\]\s+)*"
+    r"(?:const\s+)?\w[\w:<>,\s\*&]*?[\s\*&](\w+)\s*\([^;{]*\)\s*(?:const\s*)?"
+    r"(?:noexcept\s*)?[;{]\s*$")
+
+# A free function's *definition* head. Unlike a member, it carries no
+# `Class::` to recognise it by, so without this the definition line counts as a
+# use of itself and every free function looks alive.
+FREE_DEFN = re.compile(
+    r"^(?:inline\s+|static\s+|constexpr\s+)*"
+    r"(?:const\s+)?\w[\w:<>,\s\*&]*?[\s\*&](\w+)\s*\([^;]*\)\s*(?:const\s*)?"
+    r"(?:noexcept\s*)?\{")
+
 # Names that mean something else, or whose callers are not C++.
 SKIP_NAMES = {
     "if", "for", "while", "switch", "return", "sizeof", "operator",
@@ -85,14 +103,14 @@ SKIP_NAMES = {
 
 
 def declared_members():
-    """name -> the headers that declare it."""
+    """name -> the headers that declare it, members and free functions alike."""
     out = collections.defaultdict(set)
     for path in sorted((ROOT / "include").rglob("*.hpp")):
         text = path.read_text(errors="ignore")
         for line in text.split("\n"):
             if STATEMENT_START.match(line):
                 continue
-            match = DECL.match(line)
+            match = DECL.match(line) or FREE_DECL.match(line)
             if not match:
                 continue
             name = match.group(1)
@@ -126,7 +144,7 @@ def use_counts(names):
 
                 # The declaration itself is not a use. A statement that merely
                 # looks like one is.
-                if not statement and DECL.match(line):
+                if not statement and (DECL.match(line) or FREE_DECL.match(line)):
                     continue
 
                 # A definition head, not a qualified call: `return
@@ -134,7 +152,7 @@ def use_counts(names):
                 # definition discards the very call being looked for.
                 defined_here = None
                 if not statement and not stripped.endswith(";"):
-                    definition = DEFN.match(line)
+                    definition = DEFN.match(line) or FREE_DEFN.match(line)
                     if definition:
                         defined_here = definition.group(1)
 

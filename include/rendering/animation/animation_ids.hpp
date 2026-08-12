@@ -502,9 +502,6 @@ constexpr uint32_t ANIM_COUNT                 = 452;
 /// Returns "UNKNOWN" for IDs outside the known range.
 const char* nameFromId(uint32_t id);
 
-/// Return the FLY_* variant of a ground animation ID, or 0 if none exists.
-uint32_t flyVariant(uint32_t groundId);
-
 /// Validate animation_ids.hpp constants against AnimationData.dbc.
 /// Logs warnings for IDs present in DBC but missing from constants, and vice versa.
 void validateAgainstDBC(const std::shared_ptr<wowee::pipeline::DBCFile>& dbc);

@@ -33,16 +33,5 @@ inline std::tm localTime(std::time_t when) {
     return out;
 }
 
-/// The same in UTC, for the places that log or serialise an absolute time.
-inline std::tm utcTime(std::time_t when) {
-    std::tm out{};
-#ifdef _WIN32
-    gmtime_s(&out, &when);
-#else
-    gmtime_r(&when, &out);
-#endif
-    return out;
-}
-
 }  // namespace core
 }  // namespace wowee

@@ -97,15 +97,6 @@ void transitionImageLayout(VkCommandBuffer cmd, VkImage image,
 AllocatedBuffer uploadBuffer(VkContext& ctx, const void* data, VkDeviceSize size,
     VkBufferUsageFlags usage);
 
-// Check VkResult and log on failure
-inline bool vkCheck(VkResult result, [[maybe_unused]] const char* msg) {
-    if (result != VK_SUCCESS) {
-        // Caller should log the message
-        return false;
-    }
-    return true;
-}
-
 // Environment variable utility functions
 inline size_t envSizeMBOrDefault(const char* name, size_t defMb) {
     const char* v = std::getenv(name);

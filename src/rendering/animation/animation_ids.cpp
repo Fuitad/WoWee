@@ -470,61 +470,6 @@ const char* nameFromId(uint32_t id) {
     if (id < ANIM_COUNT) return names[id];
     return "UNKNOWN";
 }
-
-uint32_t flyVariant(uint32_t groundId) {
-    // Compact lookup: ground animation ID (0–451) → FLY_* variant, or 0 if none.
-    // Built from the 155 ground→fly pairs in animation_ids.hpp.
-    static const uint16_t table[] = {
-        // 0-9
-        185, 218, 229, 230, 231, 209, 232, 233, 219, 194,
-        // 10-19
-        195, 220, 221, 222, 223, 224, 225, 226, 227, 228,
-        // 20-29 (PARRY/READY/DODGE - no fly variants)
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        // 30-39 (BLOCK/SPELL_PRECAST/NPC - no fly variants)
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        // 40-49
-        235, 236, 237, 238, 239, 240, 241, 242, 243, 244,
-        // 50-59
-        248, 249, 250, 251, 252, 253, 254, 255, 256, 257,
-        // 60-69
-        258, 259, 260, 261, 0, 0, 262, 263, 264, 265,
-        // 70-79
-        266, 267, 268, 269, 270, 271, 272, 273, 274, 275,
-        // 80-89
-        276, 277, 278, 279, 280, 281, 282, 283, 284, 285,
-        // 90-99
-        286, 287, 288, 289, 290, 291, 292, 293, 294, 295,
-        // 100-109
-        296, 297, 298, 299, 300, 301, 302, 303, 304, 305,
-        // 110-119
-        306, 307, 308, 309, 310, 311, 312, 313, 314, 315,
-        // 120-129
-        316, 317, 318, 319, 320, 321, 322, 323, 324, 325,
-        // 130-139
-        326, 327, 328, 329, 330, 331, 332, 333, 334, 335,
-        // 140-149
-        336, 337, 338, 339, 340, 341, 342, 343, 344, 345,
-        // 150-159
-        346, 347, 348, 349, 350, 351, 352, 353, 0, 0,
-        // 160-169 (FLY_BACKWARDS..FLY_LAND_END are already FLY_ themselves: 0)
-        0, 0, 0, 0, 0, 0, 0, 0, 354, 355,
-        // 170-179
-        0, 0, 0, 0, 0, 361, 362, 363, 364, 365,
-        // 180-189
-        366, 367, 368, 369, 370, 0, 390, 391, 392, 393,
-        // 190-199
-        394, 395, 396, 397, 0, 0, 399, 398, 402, 403,
-        // 200-209
-        404, 405, 406, 407, 408, 409, 410, 411, 412, 0,
-        // 210-217
-        413, 414, 415, 416, 417, 418, 419, 420,
-    };
-    constexpr uint32_t tableSize = sizeof(table) / sizeof(table[0]);
-    if (groundId >= tableSize) return 0;
-    return table[groundId];
-}
-
 void validateAgainstDBC(const std::shared_ptr<wowee::pipeline::DBCFile>& dbc) {
     if (!dbc || !dbc->isLoaded()) {
         LOG_WARNING("AnimationData.dbc not available - skipping animation ID validation");
