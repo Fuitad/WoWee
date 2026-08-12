@@ -813,6 +813,30 @@ static int lua_GetContainerItemPurchaseItem(lua_State* L) {
 // parsed here - showing what is held is the subset that can be stated
 // truthfully, and the tab was completely empty before.
 namespace {
+/// The guild bank item sitting in a tab and slot, or nullptr for an empty one.
+///
+/// Two bindings ask this, for the icon and for the hyperlink, and both had
+/// their own copy of the tab rule: the tab currently open is the one the
+/// server keeps up to date, and any other answers from whatever the last full
+/// update left behind. Tabs and slots are 1-based from Lua and 0-based here.
+const game::GuildBankItemSlot* guildBankItemAt(game::GameHandler* gh, int tab, int slot) {
+    if (!gh) return nullptr;
+    const auto& data = gh->getGuildBankData();
+
+    const std::vector<game::GuildBankItemSlot>* items = nullptr;
+    if (tab - 1 == data.tabId) {
+        items = &data.tabItems;
+    } else if (tab >= 1 && tab <= static_cast<int>(data.tabs.size())) {
+        items = &data.tabs[tab - 1].items;
+    }
+    if (!items) return nullptr;
+
+    for (const auto& entry : *items) {
+        if (entry.slotId + 1 == slot) return &entry;
+    }
+    return nullptr;
+}
+
 
 struct CurrencyRow {
     std::string name;
@@ -3771,29 +3795,18 @@ void registerInventoryLuaAPI(lua_State* L) {
             const int tab  = static_cast<int>(luaL_optnumber(L, 1, 0));
             const int slot = static_cast<int>(luaL_optnumber(L, 2, 0));
             if (!gh) return luaReturnNil(L);
-            const auto& data = gh->getGuildBankData();
-            // The current tab's contents are the ones kept up to date; another
-            // tab answers from the last full update, if there was one.
-            const std::vector<game::GuildBankItemSlot>* items = nullptr;
-            if (tab - 1 == data.tabId) {
-                items = &data.tabItems;
-            } else if (tab >= 1 && tab <= static_cast<int>(data.tabs.size())) {
-                items = &data.tabs[tab - 1].items;
-            }
-            if (!items) return luaReturnNil(L);
-            for (const auto& it : *items) {
-                if (it.slotId + 1 != slot) continue;
-                gh->ensureItemInfo(it.itemEntry);
-                const auto* info = gh->getItemInfo(it.itemEntry);
-                const std::string icon =
-                    info ? gh->getItemIconPath(info->displayInfoId) : std::string();
-                lua_pushstring(L, icon.empty()
-                    ? "Interface\\Icons\\INV_Misc_QuestionMark" : icon.c_str());
-                lua_pushnumber(L, it.stackCount);
-                lua_pushboolean(L, 0);   // locked
-                return 3;
-            }
-            return luaReturnNil(L);     // empty slot
+            const auto* found = guildBankItemAt(gh, tab, slot);
+            if (!found) return luaReturnNil(L);   // empty slot
+            const auto& it = *found;
+            gh->ensureItemInfo(it.itemEntry);
+            const auto* info = gh->getItemInfo(it.itemEntry);
+            const std::string icon =
+                info ? gh->getItemIconPath(info->displayInfoId) : std::string();
+            lua_pushstring(L, icon.empty()
+                ? "Interface\\Icons\\INV_Misc_QuestionMark" : icon.c_str());
+            lua_pushnumber(L, it.stackCount);
+            lua_pushboolean(L, 0);   // locked
+            return 3;
         }},
                 // GetGuildBankItemLink(tab, slot) → hyperlink
                 {"GetGuildBankItemLink", [](lua_State* L) -> int {
@@ -3801,33 +3814,24 @@ void registerInventoryLuaAPI(lua_State* L) {
             const int tab  = static_cast<int>(luaL_optnumber(L, 1, 0));
             const int slot = static_cast<int>(luaL_optnumber(L, 2, 0));
             if (!gh) return luaReturnNil(L);
-            const auto& data = gh->getGuildBankData();
-            const std::vector<game::GuildBankItemSlot>* items = nullptr;
-            if (tab - 1 == data.tabId) {
-                items = &data.tabItems;
-            } else if (tab >= 1 && tab <= static_cast<int>(data.tabs.size())) {
-                items = &data.tabs[tab - 1].items;
-            }
-            if (!items) return luaReturnNil(L);
-            for (const auto& it : *items) {
-                if (it.slotId + 1 != slot) continue;
-                gh->ensureItemInfo(it.itemEntry);
-                const auto* info = gh->getItemInfo(it.itemEntry);
-                if (!info) return luaReturnNil(L);
-                // The same shape GetContainerItemLink builds, so a link from
-                // the guild bank behaves like one from a bag everywhere it is
-                // handed on to.
-                const uint32_t qi = info->quality < 8 ? info->quality : 1u;
-                char link[256];
-                snprintf(link, sizeof(link),
-                         "|cff%s|Hitem:%u:%u:0:0:0:0:%d:0|h[%s]|h|r",
-                         kQualHexNoAlpha[qi], it.itemEntry, it.enchantId,
-                         static_cast<int>(it.randomPropertyId),
-                         info->name.c_str());
-                lua_pushstring(L, link);
-                return 1;
-            }
-            return luaReturnNil(L);
+            const auto* found = guildBankItemAt(gh, tab, slot);
+            if (!found) return luaReturnNil(L);   // empty slot
+            const auto& it = *found;
+            gh->ensureItemInfo(it.itemEntry);
+            const auto* info = gh->getItemInfo(it.itemEntry);
+            if (!info) return luaReturnNil(L);
+            // The same shape GetContainerItemLink builds, so a link from
+            // the guild bank behaves like one from a bag everywhere it is
+            // handed on to.
+            const uint32_t qi = info->quality < 8 ? info->quality : 1u;
+            char link[256];
+            snprintf(link, sizeof(link),
+                     "|cff%s|Hitem:%u:%u:0:0:0:0:%d:0|h[%s]|h|r",
+                     kQualHexNoAlpha[qi], it.itemEntry, it.enchantId,
+                     static_cast<int>(it.randomPropertyId),
+                     info->name.c_str());
+            lua_pushstring(L, link);
+            return 1;
         }},
                 // Moving an item within the bank needs a cursor that can hold
                 // a guild bank slot, which this client does not model - the
