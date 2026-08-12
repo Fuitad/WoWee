@@ -1389,7 +1389,15 @@ public:
 
     // Unit move-flags callback: fired on every MSG_MOVE_* for other players with the raw flags field.
     // Drives Walk(4) vs Run(5) selection and swim state initialization from heartbeat packets.
-    using UnitMoveFlagsCallback = std::function<void(uint64_t guid, uint32_t moveFlags)>;
+    /// A unit's movement flags changed.
+    ///
+    /// `mask` says which flags this update actually speaks about, because most
+    /// of the opcodes that reach here speak about one. A full movement block
+    /// is authoritative and passes ~0u; SMSG_SPLINE_MOVE_START_SWIM knows only
+    /// about swimming and passes SWIMMING, so it cannot take the flying
+    /// animation off a creature that is doing both.
+    using UnitMoveFlagsCallback =
+        std::function<void(uint64_t guid, uint32_t moveFlags, uint32_t mask)>;
     void setUnitMoveFlagsCallback(UnitMoveFlagsCallback cb) { unitMoveFlagsCallback_ = std::move(cb); }
 
     // NPC swing callback (plays attack animation on NPC)

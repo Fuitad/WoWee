@@ -317,19 +317,21 @@ void AnimationCallbackHandler::setupCallbacks() {
     // This is more reliable than opcode-based hints for cold joins and heartbeats:
     // a player already swimming when we join will have SWIMMING set on the first heartbeat.
     // Walking(4) vs Running(5) is also driven here from the WALKING flag.
-    gameHandler_.setUnitMoveFlagsCallback([this](uint64_t guid, uint32_t moveFlags) {
-        const bool isSwimming = (moveFlags & static_cast<uint32_t>(game::MovementFlags::SWIMMING)) != 0;
-        const bool isWalking  = (moveFlags & static_cast<uint32_t>(game::MovementFlags::WALKING))  != 0;
-        const bool isFlying   = (moveFlags & static_cast<uint32_t>(game::MovementFlags::FLYING))   != 0;
-        auto& swimState = entitySpawner_.getCreatureSwimmingState();
-        auto& walkState = entitySpawner_.getCreatureWalkingState();
-        auto& flyState  = entitySpawner_.getCreatureFlyingState();
-        if (isSwimming) swimState[guid] = true;
-        else            swimState.erase(guid);
-        if (isWalking)  walkState[guid] = true;
-        else            walkState.erase(guid);
-        if (isFlying)   flyState[guid] = true;
-        else            flyState.erase(guid);
+    gameHandler_.setUnitMoveFlagsCallback([this](uint64_t guid, uint32_t moveFlags,
+                                                 uint32_t mask) {
+        // Only what this update speaks about. A full movement block passes a
+        // mask of all ones; the spline opcodes each pass the one bit they are
+        // named after, so starting to swim no longer says anything about
+        // whether the creature is also flying.
+        const auto apply = [&](game::MovementFlags flag, auto& state) {
+            const uint32_t bit = static_cast<uint32_t>(flag);
+            if ((mask & bit) == 0) return;
+            if (moveFlags & bit) state[guid] = true;
+            else                 state.erase(guid);
+        };
+        apply(game::MovementFlags::SWIMMING, entitySpawner_.getCreatureSwimmingState());
+        apply(game::MovementFlags::WALKING,  entitySpawner_.getCreatureWalkingState());
+        apply(game::MovementFlags::FLYING,   entitySpawner_.getCreatureFlyingState());
     });
 
     // Emote animation callback - play server-driven emote animations on NPCs and other players.

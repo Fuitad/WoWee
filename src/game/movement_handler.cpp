@@ -114,12 +114,12 @@ void MovementHandler::registerOpcodes(DispatchTable& table) {
 
     // Spline move: synth flags (each opcode produces different flags)
     {
-        auto makeSynthHandler = [this](uint32_t synthFlags) {
-            return [this, synthFlags](network::Packet& packet) {
+        auto makeSynthHandler = [this](uint32_t synthFlags, uint32_t mask) {
+            return [this, synthFlags, mask](network::Packet& packet) {
                 if (!packet.hasRemaining(1)) return;
                 uint64_t guid = packet.readPackedGuid();
                 if (guid == 0 || guid == owner_.getPlayerGuid() || !owner_.unitMoveFlagsCallbackRef()) return;
-                owner_.unitMoveFlagsCallbackRef()(guid, synthFlags);
+                owner_.unitMoveFlagsCallbackRef()(guid, synthFlags, mask);
             };
         };
         // These are this client's own movement flags, not wire values: the
@@ -127,19 +127,28 @@ void MovementHandler::registerOpcodes(DispatchTable& table) {
         // what the unit is now doing. Naming them keeps them following
         // MovementFlags, which is what every reader compares against.
         constexpr auto asFlag = [](MovementFlags f) { return static_cast<uint32_t>(f); };
+        constexpr uint32_t kWalkBit = asFlag(MovementFlags::WALKING);
+        constexpr uint32_t kSwimBit = asFlag(MovementFlags::SWIMMING);
+        constexpr uint32_t kFlyBits =
+            asFlag(MovementFlags::CAN_FLY) | asFlag(MovementFlags::FLYING);
+
         table[Opcode::SMSG_SPLINE_MOVE_SET_WALK_MODE] =
-            makeSynthHandler(asFlag(MovementFlags::WALKING));
-        table[Opcode::SMSG_SPLINE_MOVE_SET_RUN_MODE]  = makeSynthHandler(0u);
-        // CAN_FLY and DESCENDING, which is what this synthesised before it was
-        // named and so what it keeps synthesising. Worth a second look by
-        // somebody who knows the intent: isPlayerFlying() wants CAN_FLY *and*
-        // FLYING together, and FLYING is not among these two.
-        table[Opcode::SMSG_SPLINE_MOVE_SET_FLYING]    =
-            makeSynthHandler(asFlag(MovementFlags::CAN_FLY) |
-                             asFlag(MovementFlags::DESCENDING));
-        table[Opcode::SMSG_SPLINE_MOVE_START_SWIM]    =
-            makeSynthHandler(asFlag(MovementFlags::SWIMMING));
-        table[Opcode::SMSG_SPLINE_MOVE_STOP_SWIM]     = makeSynthHandler(0u);
+            makeSynthHandler(kWalkBit, kWalkBit);
+        // Run mode says the unit is not walking. It says nothing about
+        // swimming or flying, and clearing those took the flight animation off
+        // anything that started moving.
+        table[Opcode::SMSG_SPLINE_MOVE_SET_RUN_MODE]  = makeSynthHandler(0u, kWalkBit);
+        // CAN_FLY because that is what the opcode means - AzerothCore sends it
+        // from Unit::SetCanFly for units the client does not control - and
+        // FLYING because that is the flag the animation reads.
+        //
+        // It used to synthesise CAN_FLY and DESCENDING. Nothing reads either:
+        // the callback these flags reach keys swimming, walking and flying off
+        // SWIMMING, WALKING and FLYING, so the opcode landed, was parsed, and
+        // changed nothing. A gryphon told to fly kept its ground animation.
+        table[Opcode::SMSG_SPLINE_MOVE_SET_FLYING]    = makeSynthHandler(kFlyBits, kFlyBits);
+        table[Opcode::SMSG_SPLINE_MOVE_START_SWIM]    = makeSynthHandler(kSwimBit, kSwimBit);
+        table[Opcode::SMSG_SPLINE_MOVE_STOP_SWIM]     = makeSynthHandler(0u, kSwimBit);
     }
 
     // Spline speed: all opcodes share the same PackedGuid+float format, differing
@@ -290,7 +299,12 @@ void MovementHandler::registerOpcodes(DispatchTable& table) {
         if (!packet.hasRemaining(1)) return;
         uint64_t guid = packet.readPackedGuid();
         if (guid == 0 || guid == owner_.getPlayerGuid() || !owner_.unitMoveFlagsCallbackRef()) return;
-        owner_.unitMoveFlagsCallbackRef()(guid, 0u); // clear flying/CAN_FLY
+        // Only the flying bits: this opcode says nothing about walking or
+        // swimming.
+        owner_.unitMoveFlagsCallbackRef()(
+            guid, 0u,
+            static_cast<uint32_t>(MovementFlags::CAN_FLY) |
+                static_cast<uint32_t>(MovementFlags::FLYING));
     };
 
     // Remaining spline speed opcodes - same factory as above.
@@ -1245,7 +1259,7 @@ void MovementHandler::handleOtherPlayerMovement(network::Packet& packet) {
     }
 
     if (owner_.unitMoveFlagsCallbackRef()) {
-        owner_.unitMoveFlagsCallbackRef()(moverGuid, info.flags);
+        owner_.unitMoveFlagsCallbackRef()(moverGuid, info.flags, ~0u);
     }
 }
 
@@ -1567,7 +1581,7 @@ void MovementHandler::handleMonsterMove(network::Packet& packet) {
             isPreWotlkSplineWalking(data.splineFlags)
                 ? static_cast<uint32_t>(MovementFlags::WALKING)
                 : 0u;
-        owner_.unitMoveFlagsCallbackRef()(data.guid, locomotionFlags);
+        owner_.unitMoveFlagsCallbackRef()(data.guid, locomotionFlags, ~0u);
     }
 
     if (data.hasDest) {
@@ -1758,7 +1772,7 @@ void MovementHandler::handleMonsterMoveTransport(network::Packet& packet) {
             isPreWotlkSplineWalking(splineFlags)
                 ? static_cast<uint32_t>(MovementFlags::WALKING)
                 : 0u;
-        owner_.unitMoveFlagsCallbackRef()(moverGuid, locomotionFlags);
+        owner_.unitMoveFlagsCallbackRef()(moverGuid, locomotionFlags, ~0u);
     }
 
     if (!owner_.getTransportManager()) {

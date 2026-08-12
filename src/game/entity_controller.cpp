@@ -1945,7 +1945,7 @@ void EntityController::onCreateUnit(const UpdateBlock& block, std::shared_ptr<En
         dispatchEntitySpawn(block.guid, block.objectType, entity, unit, unitInitiallyDead);
         if (block.hasMovement && block.moveFlags != 0 && owner_.unitMoveFlagsCallbackRef() &&
             block.guid != owner_.getPlayerGuid()) {
-            owner_.unitMoveFlagsCallbackRef()(block.guid, block.moveFlags);
+            owner_.unitMoveFlagsCallbackRef()(block.guid, block.moveFlags, ~0u);
         }
     }
 }
@@ -2013,7 +2013,7 @@ void EntityController::onCreatePlayer(const UpdateBlock& block, std::shared_ptr<
         dispatchEntitySpawn(block.guid, block.objectType, entity, unit, unitInitiallyDead);
         if (block.hasMovement && block.moveFlags != 0 && owner_.unitMoveFlagsCallbackRef() &&
             block.guid != owner_.getPlayerGuid()) {
-            owner_.unitMoveFlagsCallbackRef()(block.guid, block.moveFlags);
+            owner_.unitMoveFlagsCallbackRef()(block.guid, block.moveFlags, ~0u);
         }
     }
 
