@@ -420,6 +420,22 @@ wowee_test_link_glm(test_m2_ribbon_tracks)
 add_test(NAME m2_ribbon_tracks COMMAND test_m2_ribbon_tracks)
 register_test_target(test_m2_ribbon_tracks)
 
+# ── test_tile_size_agreement ─────────────────────────────────
+# The ADT tile size, which three headers each declared and two files spelled
+# with two fewer decimals. Pins the value against its own arithmetic.
+add_executable(test_tile_size_agreement
+    test_tile_size_agreement.cpp
+    ${TEST_COMMON_SOURCES}
+    ${CMAKE_SOURCE_DIR}/src/pipeline/terrain_mesh.cpp
+    ${CMAKE_SOURCE_DIR}/src/pipeline/adt_loader.cpp
+)
+target_include_directories(test_tile_size_agreement PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_tile_size_agreement SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_tile_size_agreement PRIVATE catch2_main)
+wowee_test_link_glm(test_tile_size_agreement)
+add_test(NAME tile_size_agreement COMMAND test_tile_size_agreement)
+register_test_target(test_tile_size_agreement)
+
 # ── test_chunk_surface ───────────────────────────────────────
 # Where a point inside a terrain chunk sits in the world. The clutter and
 # doodad scatterers each had their own copy, including the crossed axes.

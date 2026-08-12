@@ -2720,7 +2720,7 @@ void Renderer::setViewDistance(float distance) {
 }
 
 int Renderer::getTerrainLoadRadius() const {
-    constexpr float kAdtTileSize = 533.33333f;
+    constexpr float kAdtTileSize = core::coords::TILE_SIZE;
     return glm::clamp(static_cast<int>(std::ceil(viewDistance_ / kAdtTileSize)) + 1, 2, 6);
 }
 void Renderer::renderHUD() {

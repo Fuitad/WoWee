@@ -1,3 +1,4 @@
+#include "core/coordinates.hpp"
 #include "rendering/water_surface_grid.hpp"
 #include "rendering/water_mask.hpp"
 #include "rendering/water_renderer.hpp"
@@ -681,8 +682,8 @@ void WaterRenderer::loadFromTerrain(const pipeline::ADTTerrain& terrain, bool ap
     float tileWorldX = 0, tileWorldY = 0;
     glm::vec2 moonwellPos2D(0.0f);
     if (isStormwindArea) {
-        tileWorldX = (32.0f - tileX) * 533.33333f;
-        tileWorldY = (32.0f - tileY) * 533.33333f;
+        tileWorldX = (32.0f - tileX) * core::coords::TILE_SIZE;
+        tileWorldY = (32.0f - tileY) * core::coords::TILE_SIZE;
         moonwellPos2D = glm::vec2(-8755.9f, 1108.9f);
     }
 

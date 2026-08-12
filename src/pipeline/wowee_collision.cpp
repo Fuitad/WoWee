@@ -1,3 +1,4 @@
+#include "core/coordinates.hpp"
 #include "pipeline/wowee_collision.hpp"
 #include "pipeline/wowee_binary_io.hpp"
 #include "pipeline/adt_loader.hpp"
@@ -34,7 +35,7 @@ WoweeCollision WoweeCollisionBuilder::fromTerrain(const ADTTerrain& terrain,
 
     float steepCos = std::cos(steepAngle * 3.14159265f / 180.0f);
 
-    float tileSize = 533.33333f;
+    float tileSize = core::coords::TILE_SIZE;
     float chunkSize = tileSize / 16.0f;
     float vertSpacing = chunkSize / 8.0f;
 

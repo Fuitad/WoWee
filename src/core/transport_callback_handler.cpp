@@ -65,8 +65,8 @@ void TransportCallbackHandler::setupCallbacks() {
         for (size_t i = 0; i < path.size(); i += stride) {
             const auto& waypoint = path[i];
             glm::vec3 renderPos = core::coords::canonicalToRender(waypoint);
-            int tileX = static_cast<int>(32 - (renderPos.x / 533.33333f));
-            int tileY = static_cast<int>(32 - (renderPos.y / 533.33333f));
+            int tileX = static_cast<int>(32 - (renderPos.x / core::coords::TILE_SIZE));
+            int tileY = static_cast<int>(32 - (renderPos.y / core::coords::TILE_SIZE));
 
             if (tileX >= 0 && tileX <= 63 && tileY >= 0 && tileY <= 63) {
                 for (int dx = -1; dx <= 1; ++dx) {
@@ -83,8 +83,8 @@ void TransportCallbackHandler::setupCallbacks() {
         // Ensure final destination tile is included.
         if (!path.empty()) {
             glm::vec3 renderPos = core::coords::canonicalToRender(path.back());
-            int tileX = static_cast<int>(32 - (renderPos.x / 533.33333f));
-            int tileY = static_cast<int>(32 - (renderPos.y / 533.33333f));
+            int tileX = static_cast<int>(32 - (renderPos.x / core::coords::TILE_SIZE));
+            int tileY = static_cast<int>(32 - (renderPos.y / core::coords::TILE_SIZE));
             if (tileX >= 0 && tileX <= 63 && tileY >= 0 && tileY <= 63) {
                 for (int dx = -1; dx <= 1; ++dx) {
                     for (int dy = -1; dy <= 1; ++dy) {

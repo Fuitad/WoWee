@@ -1,5 +1,6 @@
 #pragma once
 
+#include "core/coordinates.hpp"
 #include "pipeline/adt_loader.hpp"
 #include "pipeline/terrain_mesh.hpp"
 #include "pipeline/m2_loader.hpp"
@@ -404,7 +405,7 @@ private:
     // Tile size constants (WoW ADT specifications)
     // A tile (ADT) = 16x16 chunks = 533.33 units across
     // A chunk = 8x8 vertex quads = 33.33 units across
-    static constexpr float TILE_SIZE = 533.33333f;          // One tile = 533.33 units
+    static constexpr float TILE_SIZE = core::coords::TILE_SIZE;
     static constexpr float CHUNK_SIZE = 33.33333f;          // One chunk = 33.33 units
 
     // Background loading worker pool

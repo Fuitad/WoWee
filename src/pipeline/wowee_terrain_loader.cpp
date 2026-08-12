@@ -1,3 +1,4 @@
+#include "core/coordinates.hpp"
 #include "pipeline/wowee_terrain_loader.hpp"
 #include "core/logger.hpp"
 #include <nlohmann/json.hpp>
@@ -101,7 +102,7 @@ bool WoweeTerrainLoader::loadMetadata(const std::string& wotPath, ADTTerrain& te
         if (terrain.coord.y < 0 || terrain.coord.y > 63) terrain.coord.y = 32;
 
         // Compute chunk world positions from tile coordinates
-        float tileSize = 533.33333f;
+        float tileSize = core::coords::TILE_SIZE;
         float chunkSize = tileSize / 16.0f;
         for (int cy = 0; cy < 16; cy++) {
             for (int cx = 0; cx < 16; cx++) {

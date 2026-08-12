@@ -1323,8 +1323,8 @@ bool TerrainManager::advanceFinalization(FinalizingTile& ft) {
 
                 int chunkX = chunkIdx % 16;
                 int chunkY = chunkIdx / 16;
-                float tileOriginX = (32.0f - x) * 533.33333f;
-                float tileOriginY = (32.0f - y) * 533.33333f;
+                float tileOriginX = (32.0f - x) * core::coords::TILE_SIZE;
+                float tileOriginY = (32.0f - y) * core::coords::TILE_SIZE;
                 float chunkCenterX = tileOriginX + (chunkX + 0.5f) * 33.333333f;
                 float chunkCenterY = tileOriginY + (chunkY + 0.5f) * 33.333333f;
 

@@ -677,7 +677,7 @@ int WorldMapFacade::zoneAtMapPoint(float u, float v) const {
 
     // World coordinates into the ZMP's own grid, which covers 64 by 64 ADTs
     // with the world's centre at its middle.
-    constexpr float kWorldSize = 64.0f * 533.333f;
+    constexpr float kWorldSize = 64.0f * core::coords::TILE_SIZE;
     const float zmpX = 0.5f - wowX / kWorldSize;
     const float zmpY = 0.5f - wowY / kWorldSize;
     if (zmpX < 0.0f || zmpX > 1.0f || zmpY < 0.0f || zmpY > 1.0f) return -1;
