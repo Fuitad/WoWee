@@ -25,28 +25,6 @@ struct Orphan {
     const FormatMagicEntry* fmt = nullptr;
 };
 
-// Match an extension against the format table case-
-// insensitively. Mirrors helpers in cli_audit_tree /
-// cli_magic_fix.
-const FormatMagicEntry* findFormatByExtension(const std::string& ext) {
-    if (ext.empty()) return nullptr;
-    for (const FormatMagicEntry* p = formatTableBegin();
-         p != formatTableEnd(); ++p) {
-        const char* a = p->extension;
-        const char* b = ext.c_str();
-        bool match = true;
-        while (*a && *b) {
-            char ca = *a; char cb = *b;
-            if (ca >= 'A' && ca <= 'Z') ca += 32;
-            if (cb >= 'A' && cb <= 'Z') cb += 32;
-            if (ca != cb) { match = false; break; }
-            ++a; ++b;
-        }
-        if (match && *a == 0 && *b == 0) return p;
-    }
-    return nullptr;
-}
-
 int handleScan(int& i, int argc, char** argv) {
     std::string dir = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
@@ -71,7 +49,7 @@ int handleScan(int& i, int argc, char** argv) {
         size_t dot = stem.rfind('.');
         if (dot == std::string::npos) continue;
         std::string ext = stem.substr(dot);
-        const FormatMagicEntry* fmt = findFormatByExtension(ext);
+        const FormatMagicEntry* fmt = findFormatByExtension(ext.c_str());
         if (!fmt) continue;     // .json that isn't ours
         ++totalSidecars;
         // Expected binary = same path with the ".json"

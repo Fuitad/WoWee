@@ -1802,3 +1802,23 @@ target_link_libraries(test_model_bounds PRIVATE catch2_main)
 wowee_test_link_glm(test_model_bounds)
 add_test(NAME model_bounds COMMAND test_model_bounds)
 register_test_target(test_model_bounds)
+
+# ── test_format_lookup ───────────────────────────────────────
+# Finding a format by extension, which three commands each implemented.
+# --fix-magic renames on the answer. The oracle is the table itself: every
+# row's extension has to find that row.
+add_executable(test_format_lookup
+    test_format_lookup.cpp
+    ${CMAKE_SOURCE_DIR}/tools/editor/cli_format_table.cpp
+    ${TEST_COMMON_SOURCES})
+target_include_directories(test_format_lookup PRIVATE
+    ${TEST_INCLUDE_DIRS}
+    ${CMAKE_SOURCE_DIR}/tools/editor
+)
+target_include_directories(test_format_lookup SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS})
+target_compile_definitions(test_format_lookup PRIVATE
+    WOWEE_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+target_link_libraries(test_format_lookup PRIVATE catch2_main)
+add_test(NAME format_lookup COMMAND test_format_lookup)
+register_test_target(test_format_lookup)

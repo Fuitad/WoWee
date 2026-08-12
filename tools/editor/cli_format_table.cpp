@@ -152,15 +152,41 @@ constexpr FormatMagicEntry kFormats[] = {
     {{'W','F','A','C'}, ".wfac", "factions",  nullptr,               nullptr,          "Faction catalog"},
     {{'W','L','C','K'}, ".wlck", "locks",     nullptr,               nullptr,          "Lock catalog"},
     {{'W','S','K','L'}, ".wskl", "skills",    nullptr,               nullptr,          "Skill catalog"},
-    {{'W','O','L','A'}, ".wola", "light",     nullptr,               nullptr,          "Outdoor light catalog"},
+    {{'W','O','L','A'}, ".wol",  "light",     "--info-wol",          nullptr,          "Outdoor light catalog"},
+    // WoweeWeather writes ".wow", which the per-zone world manifest above
+    // already claims. Left as ".wowa" until one of the two formats gives the
+    // extension up: a second row claiming ".wow" would be unreachable by name.
     {{'W','O','W','A'}, ".wowa", "weather",   nullptr,               nullptr,          "Weather schedule catalog"},
-    {{'W','M','P','X'}, ".wmpx", "worldmap",  nullptr,               nullptr,          "World map catalog"},
+    {{'W','M','P','X'}, ".womx", "worldmap",  "--info-womx",         nullptr,          "World map catalog"},
 };
 
 constexpr size_t kFormatsCount =
     sizeof(kFormats) / sizeof(kFormats[0]);
 
 } // namespace
+
+const FormatMagicEntry* findFormatByExtension(const char* extension) {
+    if (!extension || !*extension) return nullptr;
+    for (const FormatMagicEntry* row = kFormats;
+         row != kFormats + kFormatsCount; ++row) {
+        const char* a = row->extension;
+        const char* b = extension;
+        bool match = true;
+        while (*a && *b) {
+            char ca = *a;
+            char cb = *b;
+            if (ca >= 'A' && ca <= 'Z') ca += 32;
+            if (cb >= 'A' && cb <= 'Z') cb += 32;
+            if (ca != cb) { match = false; break; }
+            ++a;
+            ++b;
+        }
+        // Both have to have ended: stopping at the shorter would answer .wom
+        // for a .womx file.
+        if (match && *a == 0 && *b == 0) return row;
+    }
+    return nullptr;
+}
 
 std::string formatFlagSuffix(const char* infoFlag) {
     if (!infoFlag) return {};

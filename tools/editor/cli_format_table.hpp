@@ -43,6 +43,17 @@ std::string formatFlagSuffix(const char* infoFlag);
 // null-terminated - only the first 4 bytes are inspected.
 const FormatMagicEntry* findFormatByMagic(const char magic[4]);
 
+// Look a format up by its file extension, including the dot and ignoring
+// case: the table stores ".wsrg" and a file may be named "FOO.WSRG".
+//
+// Three commands carried a copy of this. --fix-magic compares the answer
+// against the file's magic and proposes a rename when they disagree, so a
+// wrong answer renames a file that was already correct.
+//
+// Returns nullptr for an extension no format claims, which includes the empty
+// string a file without one produces.
+const FormatMagicEntry* findFormatByExtension(const char* extension);
+
 // Iterate the table - used by --summary-dir to pre-allocate
 // per-format counters keyed by index, and by tooling that
 // wants to enumerate the full set.
