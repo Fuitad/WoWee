@@ -1,5 +1,6 @@
 #pragma once
 
+#include "rendering/vk_shader.hpp"
 #include "rendering/spatial_grid.hpp"
 #include "rendering/shadow_params.hpp"
 
@@ -215,6 +216,11 @@ public:
      * Get number of loaded models
      */
     void recreatePipelines();
+    /// The four main-pass pipelines, which initialize() and
+    /// recreatePipelines() both need and each used to describe.
+    bool buildMainPassPipelines(VkDevice device,
+                                wowee::rendering::VkShaderModule& vertShader,
+                                wowee::rendering::VkShaderModule& fragShader);
     bool isInitialized() const { return initialized_; }
     uint32_t getModelCount() const { return loadedModels.size(); }
 
