@@ -1514,10 +1514,16 @@ network::Packet ClassicPacketParsers::buildItemQuery(uint32_t entry, uint64_t gu
     return packet;
 }
 
-bool ClassicPacketParsers::parseItemQueryResponse(network::Packet& packet, ItemQueryResponseData& data) {
-    // Validate minimum packet size: entry(4)
+/// SMSG_ITEM_QUERY_SINGLE_RESPONSE as classic and TBC send it.
+///
+/// The two readers were 154 lines each and differed in one field, which is now
+/// the parameter. WotLK is deliberately not folded in: that reader scores two
+/// candidate price layouts against each other to decide which the server sent,
+/// which is a different mechanism rather than a longer version of this one.
+bool parseItemQueryPreWotlk(network::Packet& packet, ItemQueryResponseData& data,
+                            bool hasSoundOverrideSubclass, const char* tag) {    // Validate minimum packet size: entry(4)
     if (packet.getSize() < 4) {
-        LOG_ERROR("Classic SMSG_ITEM_QUERY_SINGLE_RESPONSE: packet too small (", packet.getSize(), " bytes)");
+        LOG_ERROR(tag, " SMSG_ITEM_QUERY_SINGLE_RESPONSE: packet too small (", packet.getSize(), " bytes)");
         return false;
     }
 
@@ -1529,15 +1535,18 @@ bool ClassicPacketParsers::parseItemQueryResponse(network::Packet& packet, ItemQ
         return true;
     }
 
-    // Validate minimum size for fixed fields: itemClass(4) + subClass(4) + 4 name strings + displayInfoId(4) + quality(4)
-    if (!packet.hasRemaining(8)) {
-        LOG_ERROR("Classic SMSG_ITEM_QUERY_SINGLE_RESPONSE: truncated before names (entry=", data.entry, ")");
+    // itemClass(4) + subClass(4), plus the sound override where it is sent.
+    if (!packet.hasRemaining(hasSoundOverrideSubclass ? 12u : 8u)) {
+        LOG_ERROR(tag, " SMSG_ITEM_QUERY_SINGLE_RESPONSE: truncated before names (entry=", data.entry, ")");
         return false;
     }
 
     uint32_t itemClass = packet.readUInt32();
     uint32_t subClass = packet.readUInt32();
-    // Vanilla: NO SoundOverrideSubclass
+    // TBC sends a SoundOverrideSubclass here (int32, -1 = no override) and
+    // vanilla does not. It is the only field the two layouts differ by;
+    // everything after it is the same run in the same order.
+    if (hasSoundOverrideSubclass) packet.readUInt32();
 
     data.itemClass = itemClass;
     data.subClass = subClass;
@@ -1554,7 +1563,7 @@ bool ClassicPacketParsers::parseItemQueryResponse(network::Packet& packet, ItemQ
 
     // Validate minimum size for fixed fields: Flags(4) + BuyPrice(4) + SellPrice(4) + inventoryType(4)
     if (!packet.hasRemaining(16)) {
-        LOG_ERROR("Classic SMSG_ITEM_QUERY_SINGLE_RESPONSE: truncated before inventoryType (entry=", data.entry, ")");
+        LOG_ERROR(tag, " SMSG_ITEM_QUERY_SINGLE_RESPONSE: truncated before inventoryType (entry=", data.entry, ")");
         return false;
     }
 
@@ -1565,9 +1574,11 @@ bool ClassicPacketParsers::parseItemQueryResponse(network::Packet& packet, ItemQ
 
     data.inventoryType = packet.readUInt32();
 
-    // Validate minimum size for remaining fixed fields: 13×4 = 52 bytes
-    if (!packet.hasRemaining(52)) {
-        LOG_ERROR("Classic SMSG_ITEM_QUERY_SINGLE_RESPONSE: truncated before stats (entry=", data.entry, ")");
+    // readCommonRequirements guards its own fourteen fields at 56 bytes, so
+    // this is only an early exit with a clearer message. It said 13x4 and the
+    // run had grown to fourteen; classic asked for 52 here and TBC for 56.
+    if (!packet.hasRemaining(56)) {
+        LOG_ERROR(tag, " SMSG_ITEM_QUERY_SINGLE_RESPONSE: truncated before stats (entry=", data.entry, ")");
         return false;
     }
 
@@ -1576,12 +1587,12 @@ bool ClassicPacketParsers::parseItemQueryResponse(network::Packet& packet, ItemQ
 
     // Vanilla: 10 stat pairs, NO statsCount prefix (10×8 = 80 bytes)
     if (!packet.hasRemaining(80)) {
-        LOG_WARNING("Classic SMSG_ITEM_QUERY_SINGLE_RESPONSE: truncated in stats section (entry=", data.entry, ")");
+        LOG_WARNING(tag, " SMSG_ITEM_QUERY_SINGLE_RESPONSE: truncated in stats section (entry=", data.entry, ")");
         // Read what we can
     }
     for (uint32_t i = 0; i < 10; i++) {
         if (!packet.hasRemaining(8)) {
-            LOG_WARNING("Classic SMSG_ITEM_QUERY_SINGLE_RESPONSE: stat ", i, " truncated (entry=", data.entry, ")");
+            LOG_WARNING(tag, " SMSG_ITEM_QUERY_SINGLE_RESPONSE: stat ", i, " truncated (entry=", data.entry, ")");
             break;
         }
         uint32_t statType = packet.readUInt32();
@@ -1596,7 +1607,7 @@ bool ClassicPacketParsers::parseItemQueryResponse(network::Packet& packet, ItemQ
     for (int i = 0; i < 5; i++) {
         // Each damage entry is dmgMin(4) + dmgMax(4) + damageType(4) = 12 bytes
         if (!packet.hasRemaining(12)) {
-            LOG_WARNING("Classic SMSG_ITEM_QUERY_SINGLE_RESPONSE: damage ", i, " truncated (entry=", data.entry, ")");
+            LOG_WARNING(tag, " SMSG_ITEM_QUERY_SINGLE_RESPONSE: damage ", i, " truncated (entry=", data.entry, ")");
             break;
         }
         float dmgMin = packet.readFloat();
@@ -1614,7 +1625,7 @@ bool ClassicPacketParsers::parseItemQueryResponse(network::Packet& packet, ItemQ
 
     // Validate minimum size for armor field (4 bytes)
     if (!packet.hasRemaining(4)) {
-        LOG_WARNING("Classic SMSG_ITEM_QUERY_SINGLE_RESPONSE: truncated before armor (entry=", data.entry, ")");
+        LOG_WARNING(tag, " SMSG_ITEM_QUERY_SINGLE_RESPONSE: truncated before armor (entry=", data.entry, ")");
         return true;  // Have core fields; armor is important but optional
     }
     data.armor = static_cast<int32_t>(packet.readUInt32());
@@ -1668,6 +1679,12 @@ bool ClassicPacketParsers::parseItemQueryResponse(network::Packet& packet, ItemQ
     LOG_DEBUG("[Classic] Item query response: ", data.name, " (quality=", data.quality,
              " invType=", data.inventoryType, " stack=", data.maxStack, ")");
     return true;
+}
+
+bool ClassicPacketParsers::parseItemQueryResponse(network::Packet& packet,
+                                                  ItemQueryResponseData& data) {
+    return parseItemQueryPreWotlk(packet, data, /*hasSoundOverrideSubclass=*/false,
+                                  "Classic");
 }
 
 // ============================================================================

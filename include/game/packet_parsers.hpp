@@ -24,6 +24,11 @@ namespace game {
 bool parseCharEnumPreWotlk(network::Packet& packet, CharEnumResponse& response,
                            bool hasEnchantment, const char* tag);
 
+/// SMSG_ITEM_QUERY_SINGLE_RESPONSE as classic and TBC send it. The two differ
+/// in one field: TBC carries a SoundOverrideSubclass after subClass.
+bool parseItemQueryPreWotlk(network::Packet& packet, ItemQueryResponseData& data,
+                            bool hasSoundOverrideSubclass, const char* tag);
+
 class PacketParsers {
 public:
     virtual ~PacketParsers() = default;
