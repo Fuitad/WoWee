@@ -42,17 +42,6 @@
 #include "core/local_time.hpp"
 #include "ui/framexml_takeover.hpp"
 
-namespace {
-    // Common ImGui colors (aliases)
-    using namespace wowee::ui::colors;
-    constexpr auto& kColorRed        = kRed;
-    constexpr auto& kColorBrightGreen= kBrightGreen;
-    constexpr auto& kColorDarkGray   = kDarkGray;
-
-
-
-}
-
 namespace wowee { namespace ui {
 
 ChatPanel::ChatPanel() {
