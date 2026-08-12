@@ -4,6 +4,7 @@
 #include "rendering/render_constants.hpp"
 #include "rendering/m2_model_classifier.hpp"
 #include "rendering/vk_context.hpp"
+#include "rendering/bone_slots.hpp"
 #include "rendering/vk_buffer.hpp"
 #include "rendering/vk_texture.hpp"
 #include "rendering/vk_pipeline.hpp"
@@ -1207,45 +1208,18 @@ void M2Renderer::destroyModelGPU(M2ModelGPU& model) {
 
 void M2Renderer::destroyInstanceBones(M2Instance& inst, bool defer) {
     if (!vkCtx_) return;
-    VkDevice device = vkCtx_->getDevice();
-    VmaAllocator alloc = vkCtx_->getAllocator();
     for (int i = 0; i < 2; i++) {
-        // Snapshot handles before clearing the instance - needed for both
-        // immediate and deferred paths.
-        VkDescriptorSet boneSet = inst.boneSet[i];
-        ::VkBuffer boneBuf = inst.boneBuffer[i];
-        VmaAllocation boneAlloc = inst.boneAlloc[i];
+        // Snapshot the handles, clear the slot, then release the copies.
+        const VkDescriptorSet boneSet = inst.boneSet[i];
+        const ::VkBuffer boneBuf = inst.boneBuffer[i];
+        const VmaAllocation boneAlloc = inst.boneAlloc[i];
         inst.boneSet[i] = VK_NULL_HANDLE;
         inst.boneBuffer[i] = VK_NULL_HANDLE;
+        inst.boneAlloc[i] = VK_NULL_HANDLE;
         inst.boneMapped[i] = nullptr;
 
-        if (!defer) {
-            // Immediate destruction (safe after vkDeviceWaitIdle)
-            if (boneSet != VK_NULL_HANDLE) {
-                vkFreeDescriptorSets(device, boneDescPool_, 1, &boneSet);
-            }
-            if (boneBuf) {
-                vmaDestroyBuffer(alloc, boneBuf, boneAlloc);
-            }
-        } else if (boneSet != VK_NULL_HANDLE || boneBuf) {
-            // Deferred destruction - the loop destroys bone sets for ALL frame
-            // slots, so the other slot's command buffer may still be in flight.
-            // Must wait for all fences, not just the current frame's.
-            VkDescriptorPool pool = boneDescPool_;
-            auto poolGeneration = boneDescPoolGeneration_;
-            uint64_t generation = poolGeneration ? poolGeneration->load(std::memory_order_relaxed) : 0;
-            vkCtx_->deferAfterAllFrameFences([device, alloc, pool, poolGeneration, generation, boneSet, boneBuf, boneAlloc]() {
-                const bool poolStillValid =
-                    poolGeneration && poolGeneration->load(std::memory_order_relaxed) == generation;
-                if (boneSet != VK_NULL_HANDLE && pool != VK_NULL_HANDLE && poolStillValid) {
-                    VkDescriptorSet s = boneSet;
-                    vkFreeDescriptorSets(device, pool, 1, &s);
-                }
-                if (boneBuf) {
-                    vmaDestroyBuffer(alloc, boneBuf, boneAlloc);
-                }
-            });
-        }
+        releaseBoneSlot(*vkCtx_, boneDescPool_, boneDescPoolGeneration_,
+                        boneSet, boneBuf, boneAlloc, defer);
     }
 }
 
