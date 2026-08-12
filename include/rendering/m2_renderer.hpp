@@ -133,6 +133,12 @@ struct M2ModelGPU {
         std::vector<std::vector<uint32_t>> cellWallTris;
 
         void build();
+        /// The triangles of one of the two cell arrays that a query box
+        /// reaches. The two queries below differ only in which they pass.
+        void gatherTrisInRange(const std::vector<std::vector<uint32_t>>& cells,
+                               float minX, float minY, float maxX, float maxY,
+                               std::vector<uint32_t>& out) const;
+
         void getFloorTrisInRange(float minX, float minY, float maxX, float maxY,
                                  std::vector<uint32_t>& out) const;
         void getWallTrisInRange(float minX, float minY, float maxX, float maxY,

@@ -1313,21 +1313,31 @@ void M2ModelGPU::CollisionMesh::build() {
     }
 }
 
-void M2ModelGPU::CollisionMesh::getFloorTrisInRange(
+/// The triangles of one cell array that a query box reaches, deduplicated.
+///
+/// Floors and walls are asked separately and the two queries differed in one
+/// token: which array they read. A triangle spanning several cells is filed
+/// under each, so the sort and unique are not tidiness - a caller that tests
+/// the same triangle twice counts two hits, and a raycast then reports an even
+/// number of crossings where there was one surface.
+void M2ModelGPU::CollisionMesh::gatherTrisInRange(
+        const std::vector<std::vector<uint32_t>>& cells,
         float minX, float minY, float maxX, float maxY,
         std::vector<uint32_t>& out) const {
     out.clear();
     if (gridCellsX == 0 || gridCellsY == 0) return;
-    int cxMin = std::clamp(static_cast<int>((minX - gridOrigin.x) / CELL_SIZE), 0, gridCellsX - 1);
-    int cxMax = std::clamp(static_cast<int>((maxX - gridOrigin.x) / CELL_SIZE), 0, gridCellsX - 1);
-    int cyMin = std::clamp(static_cast<int>((minY - gridOrigin.y) / CELL_SIZE), 0, gridCellsY - 1);
-    int cyMax = std::clamp(static_cast<int>((maxY - gridOrigin.y) / CELL_SIZE), 0, gridCellsY - 1);
+
+    const int cxMin = std::clamp(static_cast<int>((minX - gridOrigin.x) / CELL_SIZE), 0, gridCellsX - 1);
+    const int cxMax = std::clamp(static_cast<int>((maxX - gridOrigin.x) / CELL_SIZE), 0, gridCellsX - 1);
+    const int cyMin = std::clamp(static_cast<int>((minY - gridOrigin.y) / CELL_SIZE), 0, gridCellsY - 1);
+    const int cyMax = std::clamp(static_cast<int>((maxY - gridOrigin.y) / CELL_SIZE), 0, gridCellsY - 1);
+
     const size_t cellCount = static_cast<size_t>(cxMax - cxMin + 1) *
                              static_cast<size_t>(cyMax - cyMin + 1);
     out.reserve(cellCount * 8);
     for (int cy = cyMin; cy <= cyMax; cy++) {
         for (int cx = cxMin; cx <= cxMax; cx++) {
-            const auto& cell = cellFloorTris[cy * gridCellsX + cx];
+            const auto& cell = cells[cy * gridCellsX + cx];
             out.insert(out.end(), cell.begin(), cell.end());
         }
     }
@@ -1335,26 +1345,16 @@ void M2ModelGPU::CollisionMesh::getFloorTrisInRange(
     out.erase(std::unique(out.begin(), out.end()), out.end());
 }
 
+void M2ModelGPU::CollisionMesh::getFloorTrisInRange(
+        float minX, float minY, float maxX, float maxY,
+        std::vector<uint32_t>& out) const {
+    gatherTrisInRange(cellFloorTris, minX, minY, maxX, maxY, out);
+}
+
 void M2ModelGPU::CollisionMesh::getWallTrisInRange(
         float minX, float minY, float maxX, float maxY,
         std::vector<uint32_t>& out) const {
-    out.clear();
-    if (gridCellsX == 0 || gridCellsY == 0) return;
-    int cxMin = std::clamp(static_cast<int>((minX - gridOrigin.x) / CELL_SIZE), 0, gridCellsX - 1);
-    int cxMax = std::clamp(static_cast<int>((maxX - gridOrigin.x) / CELL_SIZE), 0, gridCellsX - 1);
-    int cyMin = std::clamp(static_cast<int>((minY - gridOrigin.y) / CELL_SIZE), 0, gridCellsY - 1);
-    int cyMax = std::clamp(static_cast<int>((maxY - gridOrigin.y) / CELL_SIZE), 0, gridCellsY - 1);
-    const size_t cellCount = static_cast<size_t>(cxMax - cxMin + 1) *
-                             static_cast<size_t>(cyMax - cyMin + 1);
-    out.reserve(cellCount * 8);
-    for (int cy = cyMin; cy <= cyMax; cy++) {
-        for (int cx = cxMin; cx <= cxMax; cx++) {
-            const auto& cell = cellWallTris[cy * gridCellsX + cx];
-            out.insert(out.end(), cell.begin(), cell.end());
-        }
-    }
-    std::sort(out.begin(), out.end());
-    out.erase(std::unique(out.begin(), out.end()), out.end());
+    gatherTrisInRange(cellWallTris, minX, minY, maxX, maxY, out);
 }
 
 bool M2Renderer::hasModel(uint32_t modelId) const {

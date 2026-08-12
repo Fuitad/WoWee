@@ -94,6 +94,9 @@ FREE_DEFN = re.compile(
     r"(?:const\s+)?\w[\w:<>,\s\*&]*?[\s\*&](\w+)\s*\([^;]*\)\s*(?:const\s*)?"
     r"(?:noexcept\s*)?\{")
 
+# A double-quoted string, blanked before names are counted.
+STRING_LITERAL = re.compile(r'"(?:[^"\\\\]|\\\\.)*"')
+
 # Names that mean something else, or whose callers are not C++.
 SKIP_NAMES = {
     "if", "for", "while", "switch", "return", "sizeof", "operator",
@@ -156,7 +159,14 @@ def use_counts(names):
                     if definition:
                         defined_here = definition.group(1)
 
-                for match in pattern.finditer(line):
+                # A name inside a string literal is not a call. `loadTerrain`
+                # survived a removal pass on the strength of its own log line,
+                # `LOG_WARNING("loadTerrain[", ...)`, and stayed dead for
+                # another hundred and twelve lines. Anything genuinely reached
+                # by name from Lua or a config file is filtered before removal
+                # by grepping for that string deliberately, not by accident.
+                stripped_line = STRING_LITERAL.sub('""', line)
+                for match in pattern.finditer(stripped_line):
                     name = match.group(1)
                     # A function's own definition is not a use of it; anything
                     # else on the same line still is.
