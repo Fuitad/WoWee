@@ -17,6 +17,54 @@
 namespace wowee {
 namespace game {
 
+bool AttackerStateUpdateData::readCommonHead(network::Packet& packet, size_t startPos) {
+    auto rem = [&]() { return packet.getRemainingSize(); };
+
+    hitInfo = packet.readUInt32();
+    if (!packet.hasFullPackedGuid()) {
+        packet.setReadPos(startPos);
+        return false;
+    }
+    attackerGuid = packet.readPackedGuid();
+    if (!packet.hasFullPackedGuid()) {
+        packet.setReadPos(startPos);
+        return false;
+    }
+    targetGuid = packet.readPackedGuid();
+
+    // int32 totalDamage + uint8 subDamageCount
+    if (rem() < 5) {
+        packet.setReadPos(startPos);
+        return false;
+    }
+    totalDamage = static_cast<int32_t>(packet.readUInt32());
+    subDamageCount = packet.readUInt8();
+
+    // A count the packet cannot back up is a count from a misread, so it is
+    // capped by what is actually left rather than trusted.
+    const uint8_t maxSubDamageCount = static_cast<uint8_t>(std::min<size_t>(rem() / 20, 64));
+    if (subDamageCount > maxSubDamageCount) {
+        subDamageCount = maxSubDamageCount;
+    }
+
+    subDamages.reserve(subDamageCount);
+    for (uint8_t i = 0; i < subDamageCount; ++i) {
+        if (rem() < 20) {
+            packet.setReadPos(startPos);
+            return false;
+        }
+        SubDamage sub;
+        sub.schoolMask = packet.readUInt32();
+        sub.damage     = packet.readFloat();
+        sub.intDamage  = packet.readUInt32();
+        sub.absorbed   = packet.readUInt32();
+        sub.resisted   = packet.readUInt32();
+        subDamages.push_back(sub);
+    }
+    subDamageCount = static_cast<uint8_t>(subDamages.size());
+    return true;
+}
+
 bool ItemQueryResponseData::readCommonRequirements(network::Packet& packet) {
     // Out of line rather than in the header beside the struct, and not for
     // compile time: read_never_written_check takes its field names from

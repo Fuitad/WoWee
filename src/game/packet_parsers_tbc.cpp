@@ -1262,52 +1262,11 @@ bool TbcPacketParsers::parseCastFailed(network::Packet& packet, CastFailedData& 
 bool TbcPacketParsers::parseAttackerStateUpdate(network::Packet& packet, AttackerStateUpdateData& data) {
     data = AttackerStateUpdateData{};
 
-    const size_t startPos = packet.getReadPos();
     auto rem = [&]() { return packet.getRemainingSize(); };
+    if (rem() < 5) return false;  // hitInfo + at least one packed guid mask byte
 
-    if (rem() < 5) return false;  // hitInfo + at least one packed GUID mask byte
-
-    data.hitInfo = packet.readUInt32();
-    if (!packet.hasFullPackedGuid()) {
-        packet.setReadPos(startPos);
-        return false;
-    }
-    data.attackerGuid = packet.readPackedGuid();
-    if (!packet.hasFullPackedGuid()) {
-        packet.setReadPos(startPos);
-        return false;
-    }
-    data.targetGuid = packet.readPackedGuid();
-
-    if (rem() < 5) {
-        packet.setReadPos(startPos);
-        return false;
-    }
-    data.totalDamage    = static_cast<int32_t>(packet.readUInt32());
-    data.subDamageCount = packet.readUInt8();
-
-    // Clamp to what can fit in the remaining payload (20 bytes per sub-damage entry).
-    const uint8_t maxSubDamageCount = static_cast<uint8_t>(std::min<size_t>(rem() / 20, 64));
-    if (data.subDamageCount > maxSubDamageCount) {
-        data.subDamageCount = maxSubDamageCount;
-    }
-
-    data.subDamages.reserve(data.subDamageCount);
-    for (uint8_t i = 0; i < data.subDamageCount; ++i) {
-        if (rem() < 20) {
-            packet.setReadPos(startPos);
-            return false;
-        }
-        SubDamage sub;
-        sub.schoolMask = packet.readUInt32();
-        sub.damage     = packet.readFloat();
-        sub.intDamage  = packet.readUInt32();
-        sub.absorbed   = packet.readUInt32();
-        sub.resisted   = packet.readUInt32();
-        data.subDamages.push_back(sub);
-    }
-
-    data.subDamageCount = static_cast<uint8_t>(data.subDamages.size());
+    const size_t startPos = packet.getReadPos();
+    if (!data.readCommonHead(packet, startPos)) return false;
 
     // TBC sends victim state, an unknown field, a spell id field used by some
     // melee specials, then blocked amount.  There is no overkill field here.

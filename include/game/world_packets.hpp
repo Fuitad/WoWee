@@ -1954,6 +1954,15 @@ struct SubDamage {
 
 /** SMSG_ATTACKERSTATEUPDATE data */
 struct AttackerStateUpdateData {
+    /// The run classic and TBC send identically: hit flags, both packed guids,
+    /// the total, and the sub-damage list. What follows it is not shared -
+    /// classic sends an overkill where TBC sends an unknown and a spell id -
+    /// so the tails stay with their own readers.
+    ///
+    /// Rewinds to where it started and answers false on a short packet, so a
+    /// caller can try another reader against the same bytes.
+    bool readCommonHead(network::Packet& packet, size_t startPos);
+
     uint32_t hitInfo = 0;
     uint64_t attackerGuid = 0;
     uint64_t targetGuid = 0;

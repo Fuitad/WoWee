@@ -727,48 +727,10 @@ bool ClassicPacketParsers::parseAttackerStateUpdate(network::Packet& packet, Att
     data = AttackerStateUpdateData{};
 
     auto rem = [&]() { return packet.getRemainingSize(); };
-    if (rem() < 5) return false;  // hitInfo(4) + at least GUID mask byte(1)
+    if (rem() < 5) return false;  // hitInfo + at least one packed guid mask byte
 
     const size_t startPos = packet.getReadPos();
-    data.hitInfo      = packet.readUInt32();
-    if (!packet.hasFullPackedGuid()) {
-        packet.setReadPos(startPos);
-        return false;
-    }
-    data.attackerGuid = packet.readPackedGuid(); // PackedGuid in Vanilla
-    if (!packet.hasFullPackedGuid()) {
-        packet.setReadPos(startPos);
-        return false;
-    }
-    data.targetGuid   = packet.readPackedGuid(); // PackedGuid in Vanilla
-
-    if (rem() < 5) {
-        packet.setReadPos(startPos);
-        return false;
-    }  // int32 totalDamage + uint8 subDamageCount
-    data.totalDamage    = static_cast<int32_t>(packet.readUInt32());
-    data.subDamageCount = packet.readUInt8();
-
-    const uint8_t maxSubDamageCount = static_cast<uint8_t>(std::min<size_t>(rem() / 20, 64));
-    if (data.subDamageCount > maxSubDamageCount) {
-        data.subDamageCount = maxSubDamageCount;
-    }
-
-    data.subDamages.reserve(data.subDamageCount);
-    for (uint8_t i = 0; i < data.subDamageCount; ++i) {
-        if (rem() < 20) {
-            packet.setReadPos(startPos);
-            return false;
-        }
-        SubDamage sub;
-        sub.schoolMask = packet.readUInt32();
-        sub.damage     = packet.readFloat();
-        sub.intDamage  = packet.readUInt32();
-        sub.absorbed   = packet.readUInt32();
-        sub.resisted   = packet.readUInt32();
-        data.subDamages.push_back(sub);
-    }
-    data.subDamageCount = static_cast<uint8_t>(data.subDamages.size());
+    if (!data.readCommonHead(packet, startPos)) return false;
 
     if (rem() < 8) {
         packet.setReadPos(startPos);
