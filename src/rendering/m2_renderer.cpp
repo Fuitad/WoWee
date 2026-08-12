@@ -2010,6 +2010,43 @@ bool M2Renderer::loadModel(const pipeline::M2Model& model, uint32_t modelId) {
                 }
             }
 
+            // Why a batch of a named model came out the way it did.
+            //
+            // Set WOWEE_M2_BATCH_DIAG to a substring of the model's name and
+            // every batch of every model matching it is printed once, as it is
+            // built. A batch that never reaches the screen leaves no other
+            // trace: the values that decide its fate are read here and then
+            // only compared, so a mesh that vanishes looks the same from the
+            // outside as one that was never in the file.
+            static const std::string kBatchDiag = [] {
+                const char* v = std::getenv("WOWEE_M2_BATCH_DIAG");
+                std::string s = v ? v : "";
+                std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c) {
+                    return static_cast<char>(std::tolower(c));
+                });
+                return s;
+            }();
+            if (!kBatchDiag.empty()) {
+                std::string lowerName = model.name;
+                std::transform(lowerName.begin(), lowerName.end(), lowerName.begin(),
+                               [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+                if (lowerName.find(kBatchDiag) != std::string::npos) {
+                    LOG_INFO("M2 BATCH '", model.name, "' #", gpuModel.batches.size(),
+                             ": tex='", batchTexKeyLower,
+                             "' blend=", static_cast<int>(bgpu.blendMode),
+                             " matFlags=0x", std::hex, bgpu.materialFlags, std::dec,
+                             " alphaTestWillBe=",
+                             (bgpu.blendMode == 1 || (bgpu.blendMode >= 2 && !bgpu.hasAlpha)) ? 1 : 0,
+                             " hasAlpha=", bgpu.hasAlpha ? "Y" : "N",
+                             " colorKey=", bgpu.colorKeyBlack ? "Y" : "N",
+                             " glowCardLike=", bgpu.glowCardLike ? "Y" : "N",
+                             " preserveGlowMesh=", bgpu.preserveGlowMesh ? "Y" : "N",
+                             " opacity=", bgpu.batchOpacity,
+                             " idxCount=", bgpu.indexCount,
+                             " texFailed=", texFailed ? "Y" : "N");
+                }
+            }
+
             // Optional diagnostics for glow/light batches (disabled by default).
             if (kGlowDiag && gpuModel.isLanternLike) {
                 LOG_DEBUG("M2 GLOW DIAG '", model.name, "' batch ", gpuModel.batches.size(),
