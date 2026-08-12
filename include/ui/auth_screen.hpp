@@ -1,4 +1,6 @@
 #pragma once
+
+#include "ui/settings_panel.hpp"
 #include <future>
 
 #include "ui/ui_services.hpp"
@@ -170,7 +172,7 @@ private:
         int  preset          = 2;   // 0=Custom 1=Low 2=Medium 3=High 4=Ultra
         bool shadows         = true;
         float shadowDistance = 300.0f;
-        float viewDistance   = 1200.0f;
+        float viewDistance   = kDefaultViewDistance;
         int  antiAliasing    = 0;   // 0=Off 1=2x 2=4x 3=8x
         bool fxaa            = false;
         bool normalMapping   = true;
@@ -178,7 +180,7 @@ private:
         int  pomQuality      = 1;   // 0=Low 1=Medium 2=High
         int  upscalingMode   = 0;   // 0=Off 1=FSR1 2=FSR3
         bool waterRefraction = true;
-        int  groundClutter   = 100; // 0-150
+        int  groundClutter   = kDefaultGroundClutter; // 0-150
         int  brightness      = 50;  // 0-100
         bool vsync           = true;
         bool fullscreen      = false;

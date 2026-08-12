@@ -2082,6 +2082,7 @@ void GameScreen::loadSettings() {
     // Apply immediately if services are already wired. The constructor loads
     // settings before renderer injection, so setServices() applies them again.
     applyCameraControlSettings();
+    settingsPanel_.applyLoadedSettings();
 
     LOG_INFO("Settings loaded from ", path);
 }

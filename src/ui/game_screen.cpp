@@ -208,6 +208,9 @@ void GameScreen::setServices(const UIServices& services) {
     actionBarPanel_.setServices(services);
     windowManager_.setServices(services);
     applyCameraControlSettings();
+    // The settings file is read in the constructor, before there is a renderer
+    // to hand the graphics values to. This is where one arrives.
+    settingsPanel_.applyLoadedSettings();
 }
 
 void GameScreen::applyCameraControlSettings() {

@@ -379,7 +379,7 @@ void SettingsPanel::renderSettingsWindow(ChatPanel& chatPanel,
     // schema now, where the options panels can read them as well; ground
     // clutter stays because it is not in the schema - the game's own Video
     // panel drives it.
-    constexpr int kDefaultGroundClutterDensity = 100;
+    constexpr int kDefaultGroundClutterDensity = kDefaultGroundClutter;
 
     int defaultResIndex = 0;
     for (int i = 0; i < kResCount; i++) {
@@ -813,6 +813,20 @@ constexpr const char* kGraphicsPresetKeys[] = {
     "groundclutter",
 };
 
+/// Every graphics setting that has to reach something when it is loaded.
+///
+/// A value read from the config file only lands in a pending field. Until one
+/// of these is applied it is a number the panel displays and nothing else,
+/// which is why the graphics settings saved from the login screen did nothing
+/// until a slider was touched.
+constexpr const char* kGraphicsApplyKeys[] = {
+    "viewdistance", "shadows", "shadowdistance", "antialiasing", "fxaa",
+    "normalmapping", "normalmapstrength", "parallax", "parallaxquality",
+    "groundclutter", "waterrefraction", "upscaling", "fsrquality",
+    "fsrsharpness", "framegen", "brightness", "uiopacity", "minimapsquare",
+    "minimapnpcdots", "minimapclock", "minimapcoords", "latencymeter",
+};
+
 /// Whether a quality preset has an opinion about this setting.
 ///
 /// Changing one of these by hand means the settings are no longer that preset,
@@ -828,6 +842,12 @@ bool isGraphicsPresetKey(const std::string& key) {
 }
 
 }  // namespace
+
+void SettingsPanel::applyLoadedSettings() {
+    // Everything the config file just filled in, handed to the thing it
+    // affects. Same route the sliders and the presets take.
+    for (const char* key : kGraphicsApplyKeys) applySettingSideEffects(key);
+}
 
 void SettingsPanel::applyGraphicsPreset(GraphicsPreset preset) {
     // Custom is not a set of values - it is the name for "these are whatever

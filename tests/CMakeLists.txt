@@ -1850,3 +1850,19 @@ target_link_libraries(test_asset_token_name PRIVATE catch2_main)
 wowee_test_link_glm(test_asset_token_name)
 add_test(NAME asset_token_name COMMAND test_asset_token_name)
 register_test_target(test_asset_token_name)
+
+# ── test_settings_apply_on_load ──────────────────────────────
+# A graphics setting read from the config file has to reach something.
+# Loading only filled the panel's pending fields, so a view distance chosen
+# at the login screen was shown on the slider and never applied.
+add_executable(test_settings_apply_on_load
+    test_settings_apply_on_load.cpp
+    ${TEST_COMMON_SOURCES})
+target_include_directories(test_settings_apply_on_load PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_settings_apply_on_load SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS})
+target_compile_definitions(test_settings_apply_on_load PRIVATE
+    WOWEE_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+target_link_libraries(test_settings_apply_on_load PRIVATE catch2_main)
+add_test(NAME settings_apply_on_load COMMAND test_settings_apply_on_load)
+register_test_target(test_settings_apply_on_load)
