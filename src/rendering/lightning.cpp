@@ -1,4 +1,5 @@
 #include "rendering/lightning.hpp"
+#include "core/coordinates.hpp"
 #include "rendering/camera.hpp"
 #include "rendering/vk_context.hpp"
 #include "rendering/vk_shader.hpp"
@@ -335,7 +336,7 @@ void Lightning::spawnRandomStrike(const glm::vec3& cameraPos) {
     }
 
     // Random position around camera
-    float angle = randomRange(0.0f, 2.0f * 3.14159f);
+    float angle = randomRange(0.0f, core::coords::TWO_PI);
     float distance = randomRange(50.0f, STRIKE_DISTANCE);
 
     glm::vec3 strikePos;

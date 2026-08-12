@@ -77,7 +77,7 @@ glm::vec3 placementEuler(const float rotation[3]) {
     // span. A correctly placed bridge over a slightly wrong heightmap looks
     // exactly like a wrongly placed bridge, and it would explain the same
     // pattern turning up on other objects that sit against ground.
-    constexpr float kDeg = 3.14159265358979323846f / 180.0f;
+    constexpr float kDeg = core::coords::PI / 180.0f;
     return glm::vec3(-rotation[2] * kDeg,
                      -rotation[0] * kDeg,
                      (rotation[1] + 180.0f) * kDeg);
@@ -1993,7 +1993,7 @@ void TerrainManager::generateGroundClutterPlacements(std::shared_ptr<PendingTile
     };
 
     constexpr float unitSize = CHUNK_SIZE / 8.0f;
-    constexpr float pi = 3.1415926535f;
+    constexpr float pi = core::coords::PI;
     constexpr size_t kBaseMaxGroundClutterPerTile = 220;
     constexpr uint32_t kBaseMaxAttemptsPerLayer = 4;
     const float densityScaleRaw = glm::clamp(groundClutterDensityScale_, 0.0f, 1.5f);

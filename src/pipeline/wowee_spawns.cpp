@@ -1,4 +1,5 @@
 #include "pipeline/wowee_spawns.hpp"
+#include "core/coordinates.hpp"
 #include "pipeline/wowee_binary_io.hpp"
 
 #include <cmath>
@@ -127,7 +128,7 @@ WoweeSpawns WoweeSpawnsLoader::makeCamp(const std::string& catalogName) {
         e.kind = WoweeSpawns::Creature;
         e.entryId = 1000;
         e.position = {std::cos(a) * ringR, 0.0f, std::sin(a) * ringR};
-        e.rotation = {0.0f, a + 3.14159265f, 0.0f};   // facing inward
+        e.rotation = {0.0f, a + core::coords::PI, 0.0f};   // facing inward
         e.factionId = 14;       // hostile
         e.respawnSec = 240;
         e.wanderRadius = 3.0f;

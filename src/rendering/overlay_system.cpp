@@ -1,4 +1,5 @@
 #include "rendering/overlay_system.hpp"
+#include "core/coordinates.hpp"
 #include "rendering/vk_context.hpp"
 #include "rendering/vk_shader.hpp"
 #include "rendering/vk_pipeline.hpp"
@@ -86,7 +87,7 @@ void OverlaySystem::initSelectionCircle() {
     verts.insert(verts.end(), {0.0f, 0.0f, 0.0f});
     // Ring vertices
     for (int i = 0; i <= SEGMENTS; ++i) {
-        float angle = 2.0f * 3.14159265f * static_cast<float>(i) / static_cast<float>(SEGMENTS);
+        float angle = core::coords::TWO_PI * static_cast<float>(i) / static_cast<float>(SEGMENTS);
         verts.push_back(std::cos(angle));
         verts.push_back(std::sin(angle));
         verts.push_back(0.0f);

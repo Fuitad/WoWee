@@ -1,4 +1,5 @@
 #include "pipeline/wowee_battlegrounds.hpp"
+#include "core/coordinates.hpp"
 #include "pipeline/wowee_binary_io.hpp"
 
 #include <cstdio>
@@ -114,7 +115,7 @@ WoweeBattleground WoweeBattlegroundLoader::makeStarter(const std::string& catalo
         e.minPlayersPerSide = 5; e.maxPlayersPerSide = 10;
         e.scoreToWin = 3; e.timeLimitSeconds = 1800;
         e.allianceStart = {-100.0f, 50.0f, 0.0f}; e.allianceFacing = 0.0f;
-        e.hordeStart = {100.0f, 50.0f, 0.0f}; e.hordeFacing = 3.14159265f;
+        e.hordeStart = {100.0f, 50.0f, 0.0f}; e.hordeFacing = core::coords::PI;
         c.entries.push_back(e);
     }
     return c;

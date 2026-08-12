@@ -1,4 +1,5 @@
 #include "rendering/camera_controller.hpp"
+#include "core/coordinates.hpp"
 #include "ui/keybinding_manager.hpp"
 #include "ui/framexml_takeover.hpp"
 #include "rendering/movement_limits.hpp"
@@ -2152,7 +2153,7 @@ void CameraController::update(float deltaTime) {
         } else if (distSq2D > FOLLOW_STOP_DIST * FOLLOW_STOP_DIST) {
             // Face target (render-space yaw: atan2(-dx, -dy) -> degrees)
             float targetYawRad = std::atan2(-dx, -dy);
-            float targetYawDeg = targetYawRad * 180.0f / 3.14159265f;
+            float targetYawDeg = targetYawRad * 180.0f / core::coords::PI;
             facingYaw = targetYawDeg;
             yaw = targetYawDeg;
             autoFollowMove = true;
@@ -2482,7 +2483,7 @@ void CameraController::update(float deltaTime) {
         float t = shakeElapsed_ / shakeDuration_;
         // Envelope: fade out over the last 30% of shake duration
         float envelope = (t < 0.7f) ? 1.0f : (1.0f - (t - 0.7f) / 0.3f);
-        float theta = shakeElapsed_ * shakeFrequency_ * 2.0f * 3.14159265f;
+        float theta = shakeElapsed_ * shakeFrequency_ * core::coords::TWO_PI;
         glm::vec3 offset(
             shakeMagnitude_ * envelope * std::sin(theta),
             shakeMagnitude_ * envelope * std::cos(theta * 1.3f),
@@ -2690,7 +2691,7 @@ void CameraController::reset() {
     const float* radii = radiiOffline;
     const int radiiCount = 6;
     constexpr int ANGLES = 16;
-    constexpr float PI = 3.14159265f;
+    constexpr float PI = core::coords::PI;
     for (int ri = 0; ri < radiiCount; ri++) {
         float r = radii[ri];
         int steps = (r <= 0.01f) ? 1 : ANGLES;

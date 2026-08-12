@@ -1195,7 +1195,7 @@ void GameScreen::renderPlayerInfo(game::GameHandler& gameHandler) {
     ImGui::Text("X: %.2f", movement.x);
     ImGui::Text("Y: %.2f", movement.y);
     ImGui::Text("Z: %.2f", movement.z);
-    ImGui::Text("Orientation: %.2f rad (%.1f deg)", movement.orientation, movement.orientation * 180.0f / 3.14159f);
+    ImGui::Text("Orientation: %.2f rad (%.1f deg)", movement.orientation, movement.orientation * 180.0f / core::coords::PI);
     ImGui::Unindent();
 
     ImGui::Spacing();

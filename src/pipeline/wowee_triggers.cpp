@@ -1,4 +1,5 @@
 #include "pipeline/wowee_triggers.hpp"
+#include "core/coordinates.hpp"
 #include "pipeline/wowee_binary_io.hpp"
 
 #include <cstdio>
@@ -175,7 +176,7 @@ WoweeTrigger WoweeTriggerLoader::makeDungeon(const std::string& catalogName) {
         e.kind = WoweeTrigger::KindTeleport;
         e.actionTarget = 0;              // back to Eastern Kingdoms
         e.dest = {-11200.0f, 60.0f, 1605.0f};
-        e.destOrientation = 3.14159265f;  // facing south on exit
+        e.destOrientation = core::coords::PI;  // facing south on exit
         c.entries.push_back(e);
     }
     return c;

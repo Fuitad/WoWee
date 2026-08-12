@@ -1,6 +1,7 @@
 #pragma once
 
 #include "game/transport_path_repository.hpp"
+#include "core/coordinates.hpp"
 #include "game/transport_clock_sync.hpp"
 #include "game/transport_animator.hpp"
 #include <chrono>
@@ -146,7 +147,7 @@ public:
     // against a facing that came from a frozen server yaw rather than from the
     // route, so what it was correcting was not the hull.
     static float transportModelBowOffset(uint32_t /*displayId*/) {
-        constexpr float kBowReversed = 3.14159265358979323846f;  // PI
+        constexpr float kBowReversed = core::coords::PI;
         return kBowReversed;
     }
 

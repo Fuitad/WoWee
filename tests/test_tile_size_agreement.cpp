@@ -59,3 +59,24 @@ TEST_CASE("the truncated spelling is measurably different", "[coordinates]") {
     CHECK(driftAcrossMap > 0.001f);
     CHECK(driftAcrossMap < 0.05f);
 }
+
+TEST_CASE("pi is written down once", "[coordinates]") {
+    // Twenty-two sites spelled it out, in four precisions:
+    // 3.14159265358979323846f, 3.1415926535f, 3.14159265f and 3.14159f. The
+    // first three are the same float; the fourth is a different one, off by
+    // 2.6e-6, which is 0.00015 degrees of a turn.
+    //
+    // Nothing measurable came of that - the short spelling was in a bob phase,
+    // a turn-rate default and a degrees display, none of it persisted or sent
+    // - but it is the shape that made two files spell the ADT tile size to
+    // three decimals and the rest to five.
+    CHECK(wowee::core::coords::PI ==
+          Catch::Approx(std::acos(-1.0)).epsilon(1e-6));
+    CHECK(wowee::core::coords::TWO_PI ==
+          Catch::Approx(2.0 * std::acos(-1.0)).epsilon(1e-6));
+    CHECK(wowee::core::coords::TWO_PI == 2.0f * wowee::core::coords::PI);
+
+    // The short spelling is a different float, which is why it counts as a
+    // second value rather than a second way of writing the first.
+    CHECK(3.14159f != wowee::core::coords::PI);
+}

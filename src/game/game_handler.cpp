@@ -4313,7 +4313,7 @@ float GameHandler::getServerRunBackSpeed() const {
     return movementHandler_ ? movementHandler_->getServerRunBackSpeed() : 4.5f;
 }
 float GameHandler::getServerTurnRate() const {
-    return movementHandler_ ? movementHandler_->getServerTurnRate() : 3.14159f;
+    return movementHandler_ ? movementHandler_->getServerTurnRate() : core::coords::PI;
 }
 bool GameHandler::isTaxiWindowOpen() const {
     return movementHandler_ ? movementHandler_->isTaxiWindowOpen() : false;
