@@ -822,6 +822,19 @@ CHECKS = [
     ("lua_return_window_check.py",
      r"^(\d+) that pop after building them", 0,
      "bindings that pop after building their return values"),
+    # One fact in two files is this codebase's commonest fault, and the four
+    # pairs that remain are judged and named in the tool itself: two forwarding
+    # facades, the classic and WotLK item queries, and the in-world versus
+    # paper-doll geoset pick. Anything else is new.
+    #
+    # Only the cross-file number is pinned. The within-file count is reported
+    # but not ratcheted, because it moves for reasons that are not regressions:
+    # collapsing a four-line filter into a call brings previously separated
+    # code within one twelve-line window, and the count goes up while the
+    # duplication goes down. It did exactly that on the WMO queries.
+    ("duplicate_block_check.py",
+     r"^(\d+) file pair\(s\) sharing code", 0,
+     "unjudged pairs of files sharing a block of code"),
 ]
 
 # Prose rather than a count: the chunk checker says one of two sentences.

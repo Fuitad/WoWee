@@ -238,16 +238,18 @@ bool LoadingScreen::loadImage(const std::string& path) {
     return true;
 }
 
-void LoadingScreen::renderOverlay() {
-    // Draw loading screen content as ImGui overlay within an existing ImGui frame.
-    // Caller is responsible for ImGui NewFrame/Render and Vulkan frame management.
-    ImGuiIO& io = ImGui::GetIO();
-    float screenW = io.DisplaySize.x;
-    float screenH = io.DisplaySize.y;
-
+/// Opens the fullscreen window the loading screen draws into and blits its
+/// background.
+///
+/// Both draws need it: the overlay that sits over a live frame and the standalone
+/// one that runs its own ImGui frame. Every flag matters. NoInputs is what keeps
+/// the screen from swallowing clicks meant for what is behind it, and
+/// NoBringToFrontOnFocus is what stops it climbing over the windows it is meant
+/// to sit under.
+void LoadingScreen::beginBackdrop(const char* windowName, float screenW, float screenH) {
     ImGui::SetNextWindowPos(ImVec2(0, 0));
     ImGui::SetNextWindowSize(ImVec2(screenW, screenH));
-    ImGui::Begin("##LoadingScreenOverlay", nullptr,
+    ImGui::Begin(windowName, nullptr,
         ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
         ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar |
         ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoBackground |
@@ -258,6 +260,16 @@ void LoadingScreen::renderOverlay() {
             reinterpret_cast<ImTextureID>(bgDescriptorSet),
             ImVec2(0, 0), ImVec2(screenW, screenH));
     }
+}
+
+void LoadingScreen::renderOverlay() {
+    // Draw loading screen content as ImGui overlay within an existing ImGui frame.
+    // Caller is responsible for ImGui NewFrame/Render and Vulkan frame management.
+    ImGuiIO& io = ImGui::GetIO();
+    float screenW = io.DisplaySize.x;
+    float screenH = io.DisplaySize.y;
+
+    beginBackdrop("##LoadingScreenOverlay", screenW, screenH);
 
     // Zone name header
     if (!zoneName.empty()) {
@@ -329,20 +341,7 @@ void LoadingScreen::render() {
     ImGui::NewFrame();
 
     // Invisible fullscreen window
-    ImGui::SetNextWindowPos(ImVec2(0, 0));
-    ImGui::SetNextWindowSize(ImVec2(screenW, screenH));
-    ImGui::Begin("##LoadingScreen", nullptr,
-        ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
-        ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar |
-        ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoBackground |
-        ImGuiWindowFlags_NoBringToFrontOnFocus);
-
-    // Draw background image
-    if (bgDescriptorSet) {
-        ImGui::GetWindowDrawList()->AddImage(
-            reinterpret_cast<ImTextureID>(bgDescriptorSet),
-            ImVec2(0, 0), ImVec2(screenW, screenH));
-    }
+    beginBackdrop("##LoadingScreen", screenW, screenH);
 
     // Zone name header (large text centered above progress bar)
     if (!zoneName.empty()) {

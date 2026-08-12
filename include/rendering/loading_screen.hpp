@@ -27,6 +27,8 @@ public:
     // Draw loading screen as ImGui overlay (call within an existing ImGui frame).
     // Used during warmup to overlay loading screen on top of the rendered world.
     void renderOverlay();
+    /// The fullscreen window both draws open, and its background blit.
+    void beginBackdrop(const char* windowName, float screenW, float screenH);
 
     void setProgress(float progress) { loadProgress = progress; }
     void setStatus(const std::string& status) { statusText = status; }
