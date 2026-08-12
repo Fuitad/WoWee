@@ -1732,3 +1732,22 @@ target_compile_definitions(test_catalog_entry_key PRIVATE
 target_link_libraries(test_catalog_entry_key PRIVATE catch2_main)
 add_test(NAME catalog_entry_key COMMAND test_catalog_entry_key)
 register_test_target(test_catalog_entry_key)
+
+# ── test_catalog_subprocess ──────────────────────────────────
+# How the catalog searches reach a file: they re-invoke this executable with
+# the format's --info flag. Four commands carried the same four steps. The
+# oracle for the quoting is POSIX sh, which the test runs.
+add_executable(test_catalog_subprocess
+    test_catalog_subprocess.cpp
+    ${TEST_COMMON_SOURCES})
+target_include_directories(test_catalog_subprocess PRIVATE
+    ${TEST_INCLUDE_DIRS}
+    ${CMAKE_SOURCE_DIR}/tools/editor
+)
+target_include_directories(test_catalog_subprocess SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS}
+    ${CMAKE_SOURCE_DIR}/extern/nlohmann
+)
+target_link_libraries(test_catalog_subprocess PRIVATE catch2_main)
+add_test(NAME catalog_subprocess COMMAND test_catalog_subprocess)
+register_test_target(test_catalog_subprocess)

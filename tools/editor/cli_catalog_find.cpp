@@ -1,6 +1,7 @@
 #include "cli_catalog_find.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_catalog_entry_key.hpp"
+#include "cli_catalog_subprocess.hpp"
 #include "cli_format_table.hpp"
 
 #include <nlohmann/json.hpp>
@@ -21,45 +22,6 @@ namespace cli {
 namespace {
 
 namespace fs = std::filesystem;
-
-std::string shellQuote(const std::string& s) {
-    std::string out;
-    out.reserve(s.size() + 2);
-    out.push_back('\'');
-    for (char c : s) {
-        if (c == '\'') out += "'\"'\"'";
-        else out.push_back(c);
-    }
-    out.push_back('\'');
-    return out;
-}
-
-bool peekMagic(const fs::path& path, char magic[4]) {
-    std::ifstream is(path, std::ios::binary);
-    if (!is) return false;
-    if (!is.read(magic, 4) || is.gcount() != 4) return false;
-    return true;
-}
-
-std::string runAndCapture(const std::string& cmd, int& outRc) {
-    std::string buf;
-    FILE* pipe = popen(cmd.c_str(), "r");
-    if (!pipe) {
-        outRc = 127;
-        return buf;
-    }
-    char chunk[4096];
-    while (std::fgets(chunk, sizeof(chunk), pipe) != nullptr) {
-        buf += chunk;
-    }
-    int rc = pclose(pipe);
-#ifdef WEXITSTATUS
-    outRc = (rc != -1) ? WEXITSTATUS(rc) : rc;
-#else
-    outRc = rc;
-#endif
-    return buf;
-}
 
 struct Hit {
     fs::path path;
@@ -160,31 +122,9 @@ int handleFind(int& i, int argc, char** argv) {
             continue;
         }
         ++scanned;
-        // Strip extension to get the base path the
-        // per-format inspect handler expects.
-        std::string base = dirent.path().string();
-        if (fmt->extension && *fmt->extension) {
-            size_t extLen = std::strlen(fmt->extension);
-            if (base.size() >= extLen &&
-                base.compare(base.size() - extLen, extLen,
-                              fmt->extension) == 0) {
-                base.resize(base.size() - extLen);
-            }
-        }
-        std::string cmd = shellQuote(argv[0]) + " " +
-                           fmt->infoFlag + " " +
-                           shellQuote(base) + " --json 2>/dev/null";
-        int rc = 0;
-        std::string out = runAndCapture(cmd, rc);
-        if (rc != 0 || out.empty()) continue;
-        nlohmann::json doc;
-        try {
-            doc = nlohmann::json::parse(out);
-        } catch (...) {
-            continue;
-        }
-        if (!doc.contains("entries") ||
-            !doc["entries"].is_array()) continue;
+        const auto read = readCatalogEntries(argv[0], *fmt, dirent.path());
+        if (!read.ok()) continue;
+        const nlohmann::json& doc = read.doc;
         for (const auto& entry : doc["entries"]) {
             const auto pk =
                 entryPrimaryKey(entry, fmt->primaryKey, true);

@@ -1,6 +1,7 @@
 #include "cli_catalog_pluck.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_catalog_entry_key.hpp"
+#include "cli_catalog_subprocess.hpp"
 #include "cli_format_table.hpp"
 
 #include <nlohmann/json.hpp>
@@ -19,69 +20,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-// Same shell-quoting helper as cli_bulk_validate - single
-// quote and escape embedded single quotes.
-std::string shellQuote(const std::string& s) {
-    std::string out;
-    out.reserve(s.size() + 2);
-    out.push_back('\'');
-    for (char c : s) {
-        if (c == '\'') out += "'\"'\"'";
-        else out.push_back(c);
-    }
-    out.push_back('\'');
-    return out;
-}
-
-bool peekMagic(const std::string& path, char magic[4]) {
-    std::ifstream is(path, std::ios::binary);
-    if (!is) return false;
-    if (!is.read(magic, 4) || is.gcount() != 4) return false;
-    return true;
-}
-
-std::string normalizePathToBase(std::string base,
-                                 const char* extension) {
-    // Strip the format extension if present so subprocess
-    // calls receive the bare base path the per-format
-    // --info-wXXX handler expects.
-    if (!extension || !*extension) return base;
-    size_t extLen = std::strlen(extension);
-    if (base.size() >= extLen &&
-        base.compare(base.size() - extLen, extLen, extension) == 0) {
-        base.resize(base.size() - extLen);
-    }
-    return base;
-}
-
-// Capture the full stdout of a child process invoked via
-// popen. Returns the trimmed output string and the exit
-// status. On platforms without WEXITSTATUS, treat any
-// nonzero return as failure.
-std::string runAndCapture(const std::string& cmd, int& outRc) {
-    std::string buf;
-    FILE* pipe = popen(cmd.c_str(), "r");
-    if (!pipe) {
-        outRc = 127;
-        return buf;
-    }
-    char chunk[4096];
-    while (std::fgets(chunk, sizeof(chunk), pipe) != nullptr) {
-        buf += chunk;
-    }
-    int rc = pclose(pipe);
-#ifdef WEXITSTATUS
-    if (rc != -1) {
-        outRc = WEXITSTATUS(rc);
-    } else {
-        outRc = rc;
-    }
-#else
-    outRc = rc;
-#endif
-    return buf;
-}
 
 // Walk a JSON entry object and find the value of its
 // primary-key field. Convention: the primary key is the
@@ -154,37 +92,30 @@ int handlePluck(int& i, int argc, char** argv) {
         return 1;
     }
 
-    // Build the subprocess invocation: the same binary
-    // (argv[0]) with the per-format inspect flag and JSON
-    // output. Strip the extension so the inspect handler
-    // sees the bare base path it expects.
-    std::string base = normalizePathToBase(filePath, fmt->extension);
-    std::string cmd = shellQuote(argv[0]) + " " +
-                       fmt->infoFlag + " " +
-                       shellQuote(base) + " --json 2>/dev/null";
-    int rc = 0;
-    std::string stdoutBuf = runAndCapture(cmd, rc);
-    if (rc != 0 || stdoutBuf.empty()) {
-        std::fprintf(stderr,
-            "catalog-pluck: inspect subprocess for '%s' "
-            "failed (rc=%d)\n", filePath.c_str(), rc);
-        return 1;
+    // Re-invoke this binary with the format's inspect flag.
+    // Unlike the searches, which skip a file that yields
+    // nothing, pluck was given one file and says why.
+    const auto read = readCatalogEntries(argv[0], *fmt, filePath);
+    switch (read.status) {
+        case CatalogReadStatus::Ok:
+            break;
+        case CatalogReadStatus::HandlerFailed:
+            std::fprintf(stderr,
+                "catalog-pluck: inspect subprocess for '%s' "
+                "failed (rc=%d)\n", filePath.c_str(), read.exitCode);
+            return 1;
+        case CatalogReadStatus::NotJson:
+            std::fprintf(stderr,
+                "catalog-pluck: failed to parse inspect output "
+                "as JSON: %s\n", read.error.c_str());
+            return 1;
+        default:
+            std::fprintf(stderr,
+                "catalog-pluck: inspect output has no "
+                "'entries' array\n");
+            return 1;
     }
-    nlohmann::json doc;
-    try {
-        doc = nlohmann::json::parse(stdoutBuf);
-    } catch (const std::exception& ex) {
-        std::fprintf(stderr,
-            "catalog-pluck: failed to parse inspect output "
-            "as JSON: %s\n", ex.what());
-        return 1;
-    }
-    if (!doc.contains("entries") || !doc["entries"].is_array()) {
-        std::fprintf(stderr,
-            "catalog-pluck: inspect output has no "
-            "'entries' array\n");
-        return 1;
-    }
+    const nlohmann::json& doc = read.doc;
     // Locate the entry whose primary-key field matches. The
     // format declares which field that is; see
     // cli_catalog_entry_key.hpp for why guessing it from the
