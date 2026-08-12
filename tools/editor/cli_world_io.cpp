@@ -3,6 +3,8 @@
 #include "cli_catalog_paths.hpp"
 
 #include "pipeline/wowee_building.hpp"
+
+#include "obj_parse.hpp"
 #include "pipeline/wowee_collision.hpp"
 #include "pipeline/wowee_terrain_loader.hpp"
 #include "pipeline/adt_loader.hpp"
@@ -454,162 +456,102 @@ int handleImportWobObj(int& i, int argc, char** argv) {
         std::fprintf(stderr, "Failed to open OBJ: %s\n", objPath.c_str());
         return 1;
     }
-    // Global pools (OBJ vertex/uv/normal indices reference these
-    // across all groups).
-    std::vector<glm::vec3> positions;
-    std::vector<glm::vec2> texcoords;
-    std::vector<glm::vec3> normals;
     wowee::pipeline::WoweeBuilding bld;
-    // Active group bookkeeping: dedupe table is per-group since
-    // each WOB group has its own local vertex buffer.
-    std::string activeGroup = "imported";
-    std::unordered_map<std::string, uint32_t> groupDedupe;
-    int activeGroupIdx = -1;
-    int badFaces = 0;
-    int triangulatedNgons = 0;
-    std::string objectName;
-    auto ensureActiveGroup = [&]() {
-        if (activeGroupIdx >= 0) return;
+    const ObjDocument obj = parseObj(in);
+
+    // The doodad placements --export-wob-obj wrote as comments, read back so
+    // the round-trip keeps every prop in the building.
+    for (const std::string& comment : obj.comments) {
+        if (comment.rfind("# doodad ", 0) != 0) continue;
+        std::istringstream ss(comment);
+        std::string hash, doodadKw, modelPath, posKw, posStr, rotKw, rotStr,
+                    scaleKw;
+        float scale = 1.0f;
+        ss >> hash >> doodadKw >> modelPath >> posKw >> posStr
+           >> rotKw >> rotStr >> scaleKw >> scale;
+        const auto parse3 = [](const std::string& s, glm::vec3& out) {
+            return std::sscanf(s.c_str(), "%f,%f,%f", &out.x, &out.y, &out.z) == 3;
+        };
+        wowee::pipeline::WoweeBuilding::DoodadPlacement d;
+        d.modelPath = modelPath;
+        if (parse3(posStr, d.position) && parse3(rotStr, d.rotation) &&
+            std::isfinite(scale) && scale > 0.0f) {
+            d.scale = scale;
+            bld.doodads.push_back(d);
+        }
+    }
+
+    // One WOB group per `g` block, and one vertex pool per group: the dedupe
+    // table is per-group because a group's indices are local to its own
+    // buffer. Groups are created only when a face lands in them, so a `g` with
+    // no geometry does not become an empty group.
+    std::vector<int> groupIndexFor(obj.groupNames.size(), -1);
+    std::vector<std::unordered_map<std::string, uint32_t>> groupDedupe(
+        obj.groupNames.size());
+
+    const auto ensureGroup = [&](size_t objGroup) -> int {
+        if (groupIndexFor[objGroup] >= 0) return groupIndexFor[objGroup];
         wowee::pipeline::WoweeBuilding::Group g;
-        g.name = activeGroup;
+        // An unnamed group is one the file never declared: everything before
+        // the first `g`, which is the whole file for an OBJ without groups.
+        g.name = obj.groupNames[objGroup].empty() ? std::string("imported")
+                                                  : obj.groupNames[objGroup];
         if (g.name.size() >= 8 &&
             g.name.substr(g.name.size() - 8) == "_outdoor") {
             g.name = g.name.substr(0, g.name.size() - 8);
             g.isOutdoor = true;
         }
         bld.groups.push_back(g);
-        activeGroupIdx = static_cast<int>(bld.groups.size()) - 1;
-        groupDedupe.clear();
+        groupIndexFor[objGroup] = static_cast<int>(bld.groups.size()) - 1;
+        return groupIndexFor[objGroup];
     };
-    auto resolveCorner = [&](const std::string& token) -> int {
-        int v = 0, t = 0, n = 0;
-        {
-            const char* p = token.c_str();
-            char* endp = nullptr;
-            v = std::strtol(p, &endp, 10);
-            if (*endp == '/') {
-                ++endp;
-                if (*endp != '/') t = std::strtol(endp, &endp, 10);
-                if (*endp == '/') {
-                    ++endp;
-                    n = std::strtol(endp, &endp, 10);
-                }
-            }
-        }
-        auto absIdx = [](int idx, size_t pool) {
-            if (idx < 0) return static_cast<int>(pool) + idx;
-            return idx - 1;
-        };
-        int vi = absIdx(v, positions.size());
-        int ti = (t == 0) ? -1 : absIdx(t, texcoords.size());
-        int ni = (n == 0) ? -1 : absIdx(n, normals.size());
-        if (vi < 0 || vi >= static_cast<int>(positions.size())) return -1;
-        ensureActiveGroup();
-        std::string key = std::to_string(vi) + "/" +
-                          std::to_string(ti) + "/" +
-                          std::to_string(ni);
-        auto it = groupDedupe.find(key);
-        if (it != groupDedupe.end()) return static_cast<int>(it->second);
+
+    const auto vertexFor = [&](size_t objGroup, const ObjCorner& corner) -> uint32_t {
+        const int gi = ensureGroup(objGroup);
+        const std::string key = std::to_string(corner.position) + "/" +
+                                std::to_string(corner.texcoord) + "/" +
+                                std::to_string(corner.normal);
+        auto& dedupe = groupDedupe[objGroup];
+        const auto it = dedupe.find(key);
+        if (it != dedupe.end()) return it->second;
+
         wowee::pipeline::WoweeBuilding::Vertex vert;
-        vert.position = positions[vi];
-        if (ti >= 0 && ti < static_cast<int>(texcoords.size())) {
-            vert.texCoord = texcoords[ti];
+        vert.position = obj.positions[static_cast<size_t>(corner.position)];
+        if (corner.texcoord >= 0) {
+            vert.texCoord = obj.texcoords[static_cast<size_t>(corner.texcoord)];
             // Reverse the V-flip from --export-wob-obj.
             vert.texCoord.y = 1.0f - vert.texCoord.y;
         } else {
             vert.texCoord = {0, 0};
         }
-        if (ni >= 0 && ni < static_cast<int>(normals.size())) {
-            vert.normal = normals[ni];
-        } else {
-            vert.normal = {0, 0, 1};
-        }
+        vert.normal = corner.normal >= 0
+            ? obj.normals[static_cast<size_t>(corner.normal)]
+            : glm::vec3(0, 0, 1);
         vert.color = {1, 1, 1, 1};
-        auto& grp = bld.groups[activeGroupIdx];
-        uint32_t newIdx = static_cast<uint32_t>(grp.vertices.size());
+        auto& grp = bld.groups[static_cast<size_t>(gi)];
+        const uint32_t newIdx = static_cast<uint32_t>(grp.vertices.size());
         grp.vertices.push_back(vert);
-        groupDedupe[key] = newIdx;
-        return static_cast<int>(newIdx);
+        dedupe[key] = newIdx;
+        return newIdx;
     };
-    std::string line;
-    while (std::getline(in, line)) {
-        while (!line.empty() && (line.back() == '\r' || line.back() == ' '))
-            line.pop_back();
-        if (line.empty()) continue;
-        // Recognize doodad placement comment lines emitted by
-        // --export-wob-obj so the round-trip preserves them.
-        if (line[0] == '#') {
-            if (line.find("# doodad ") == 0) {
-                std::istringstream ss(line);
-                std::string hash, doodadKw, modelPath, posKw, posStr,
-                            rotKw, rotStr, scaleKw;
-                float scale = 1.0f;
-                ss >> hash >> doodadKw >> modelPath
-                   >> posKw >> posStr
-                   >> rotKw >> rotStr
-                   >> scaleKw >> scale;
-                auto parse3 = [](const std::string& s, glm::vec3& out) {
-                    int got = std::sscanf(s.c_str(), "%f,%f,%f",
-                                          &out.x, &out.y, &out.z);
-                    return got == 3;
-                };
-                wowee::pipeline::WoweeBuilding::DoodadPlacement d;
-                d.modelPath = modelPath;
-                if (parse3(posStr, d.position) &&
-                    parse3(rotStr, d.rotation) &&
-                    std::isfinite(scale) && scale > 0.0f) {
-                    d.scale = scale;
-                    bld.doodads.push_back(d);
-                }
-            }
-            continue;
+
+    for (const ObjFace& face : obj.faces) {
+        const int gi = ensureGroup(face.group);
+        for (size_t k = 1; k + 1 < face.cornerCount; ++k) {
+            const uint32_t a = vertexFor(face.group, obj.corners[face.firstCorner]);
+            const uint32_t b = vertexFor(face.group, obj.corners[face.firstCorner + k]);
+            const uint32_t c =
+                vertexFor(face.group, obj.corners[face.firstCorner + k + 1]);
+            auto& grp = bld.groups[static_cast<size_t>(gi)];
+            grp.indices.push_back(a);
+            grp.indices.push_back(b);
+            grp.indices.push_back(c);
         }
-        std::istringstream ss(line);
-        std::string tag;
-        ss >> tag;
-        if (tag == "v") {
-            glm::vec3 p; ss >> p.x >> p.y >> p.z;
-            positions.push_back(p);
-        } else if (tag == "vt") {
-            glm::vec2 t; ss >> t.x >> t.y;
-            texcoords.push_back(t);
-        } else if (tag == "vn") {
-            glm::vec3 n; ss >> n.x >> n.y >> n.z;
-            normals.push_back(n);
-        } else if (tag == "o") {
-            if (objectName.empty()) ss >> objectName;
-        } else if (tag == "g") {
-            // New group - flush dedupe table so the next batch of
-            // verts is local to this group.
-            std::string name;
-            ss >> name;
-            activeGroup = name.empty() ? "group" : name;
-            activeGroupIdx = -1;
-            groupDedupe.clear();
-        } else if (tag == "f") {
-            std::vector<std::string> corners;
-            std::string c;
-            while (ss >> c) corners.push_back(c);
-            if (corners.size() < 3) { badFaces++; continue; }
-            std::vector<int> resolved;
-            resolved.reserve(corners.size());
-            bool ok = true;
-            for (const auto& cc : corners) {
-                int idx = resolveCorner(cc);
-                if (idx < 0) { ok = false; break; }
-                resolved.push_back(idx);
-            }
-            if (!ok) { badFaces++; continue; }
-            if (resolved.size() > 3) triangulatedNgons++;
-            auto& grp = bld.groups[activeGroupIdx];
-            for (size_t k = 1; k + 1 < resolved.size(); ++k) {
-                grp.indices.push_back(static_cast<uint32_t>(resolved[0]));
-                grp.indices.push_back(static_cast<uint32_t>(resolved[k]));
-                grp.indices.push_back(static_cast<uint32_t>(resolved[k + 1]));
-            }
-        }
-        // mtllib/usemtl/s lines silently skipped.
     }
+    const size_t badFaces = obj.malformedFaces;
+    const size_t triangulatedNgons = obj.ngonFaces;
+    const std::string& objectName = obj.objectName;
+
     // Compute per-group bounds + global building bound.
     if (bld.groups.empty()) {
         std::fprintf(stderr, "import-wob-obj: no geometry found in %s\n",
@@ -654,10 +596,10 @@ int handleImportWobObj(int& i, int argc, char** argv) {
     std::printf("  %zu groups, %zu verts, %zu tris, %zu doodad placements\n",
                 bld.groups.size(), totalV, totalI / 3, bld.doodads.size());
     if (triangulatedNgons > 0) {
-        std::printf("  fan-triangulated %d n-gon(s)\n", triangulatedNgons);
+        std::printf("  fan-triangulated %zu n-gon(s)\n", triangulatedNgons);
     }
     if (badFaces > 0) {
-        std::printf("  warning: skipped %d malformed face(s)\n", badFaces);
+        std::printf("  warning: skipped %zu malformed face(s)\n", badFaces);
     }
     return 0;
 }

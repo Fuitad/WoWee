@@ -1768,3 +1768,22 @@ target_include_directories(test_cli_paths SYSTEM PRIVATE
 target_link_libraries(test_cli_paths PRIVATE catch2_main)
 add_test(NAME cli_paths COMMAND test_cli_paths)
 register_test_target(test_cli_paths)
+
+# ── test_obj_parse ───────────────────────────────────────────
+# Reading a Wavefront OBJ, which two importers each implemented. The oracle
+# is the OBJ format: 1-based indices, negative indices relative to the pool
+# as it stands, and three independently indexed pools.
+add_executable(test_obj_parse
+    test_obj_parse.cpp
+    ${TEST_COMMON_SOURCES})
+target_include_directories(test_obj_parse PRIVATE
+    ${TEST_INCLUDE_DIRS}
+    ${CMAKE_SOURCE_DIR}/tools/editor
+)
+target_include_directories(test_obj_parse SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS}
+)
+target_link_libraries(test_obj_parse PRIVATE catch2_main)
+wowee_test_link_glm(test_obj_parse)
+add_test(NAME obj_parse COMMAND test_obj_parse)
+register_test_target(test_obj_parse)
