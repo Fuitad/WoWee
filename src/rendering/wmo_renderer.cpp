@@ -3147,10 +3147,7 @@ std::optional<float> WMORenderer::getFloorHeight(float glX, float glY, float glZ
 
     for (size_t idx : tl_candidateScratch) {
         const auto& instance = instances[idx];
-        if (collisionFocusEnabled &&
-            pointAABBDistanceSq(collisionFocusPos, instance.worldBoundsMin, instance.worldBoundsMax) > collisionFocusRadiusSq) {
-            continue;
-        }
+        if (outsideCollisionFocus(instance)) continue;
 
         auto it = loadedModels.find(instance.modelId);
         if (it == loadedModels.end()) continue;
@@ -3165,9 +3162,7 @@ std::optional<float> WMORenderer::getFloorHeight(float glX, float glY, float glZ
         }
         const bool insideXY = glX >= instance.worldBoundsMin.x && glX <= instance.worldBoundsMax.x &&
                               glY >= instance.worldBoundsMin.y && glY <= instance.worldBoundsMax.y;
-        if (glX < instance.worldBoundsMin.x || glX > instance.worldBoundsMax.x ||
-            glY < instance.worldBoundsMin.y || glY > instance.worldBoundsMax.y ||
-            glZ < instance.worldBoundsMin.z - zMarginDown || glZ > instance.worldBoundsMax.z + zMarginUp) {
+        if (!withinWorldBounds(instance, glX, glY, glZ, zMarginDown, zMarginUp)) {
             // Over a building and rejected anyway: the only thing that can do
             // that here is the Z window, and it is worth naming when the answer
             // comes back "no floor" - falling through something you are
@@ -3269,9 +3264,7 @@ std::optional<float> WMORenderer::getInstanceFloorHeight(uint32_t instanceId,
     if (modelIt == loadedModels.end()) return std::nullopt;
     const auto& model = modelIt->second;
 
-    if (glX < instance.worldBoundsMin.x || glX > instance.worldBoundsMax.x ||
-        glY < instance.worldBoundsMin.y || glY > instance.worldBoundsMax.y ||
-        glZ < instance.worldBoundsMin.z - 2.0f || glZ > instance.worldBoundsMax.z + 4.0f) {
+    if (!withinWorldBounds(instance, glX, glY, glZ, 2.0f, 4.0f)) {
         return std::nullopt;
     }
 
@@ -3347,9 +3340,7 @@ void WMORenderer::debugDumpGroupsAtPosition(float glX, float glY, float glZ) con
         const ModelData& model = it->second;
 
         // Check instance world bounds
-        if (glX < instance.worldBoundsMin.x || glX > instance.worldBoundsMax.x ||
-            glY < instance.worldBoundsMin.y || glY > instance.worldBoundsMax.y ||
-            glZ < instance.worldBoundsMin.z - 20.0f || glZ > instance.worldBoundsMax.z + 20.0f) {
+        if (!withinWorldBounds(instance, glX, glY, glZ, 20.0f, 20.0f)) {
             continue;
         }
         totalInstancesChecked++;
@@ -3483,10 +3474,7 @@ bool WMORenderer::checkWallCollision(const glm::vec3& from, const glm::vec3& to,
 
     for (size_t idx : tl_candidateScratch) {
         const auto& instance = instances[idx];
-        if (collisionFocusEnabled &&
-            pointAABBDistanceSq(collisionFocusPos, instance.worldBoundsMin, instance.worldBoundsMax) > collisionFocusRadiusSq) {
-            continue;
-        }
+        if (outsideCollisionFocus(instance)) continue;
 
         const float broadMargin = PLAYER_RADIUS + 1.5f;
         if (from.x < instance.worldBoundsMin.x - broadMargin && to.x < instance.worldBoundsMin.x - broadMargin) continue;
@@ -3742,9 +3730,7 @@ void WMORenderer::updateActiveGroup(float glX, float glY, float glZ) {
 
     for (size_t idx : tl_candidateScratch) {
         const auto& instance = instances[idx];
-        if (glX < instance.worldBoundsMin.x || glX > instance.worldBoundsMax.x ||
-            glY < instance.worldBoundsMin.y || glY > instance.worldBoundsMax.y ||
-            glZ < instance.worldBoundsMin.z || glZ > instance.worldBoundsMax.z) {
+        if (!withinWorldBounds(instance, glX, glY, glZ)) {
             continue;
         }
 
@@ -3780,54 +3766,38 @@ void WMORenderer::updateActiveGroup(float glX, float glY, float glZ) {
     }
 }
 
-bool WMORenderer::isInsideWMO(float glX, float glY, float glZ, uint32_t* outModelId) const {
-    QueryTimer timer(&queryTimeMs, &queryCallCount);
-    glm::vec3 queryMin(glX - 0.5f, glY - 0.5f, glZ - 0.5f);
-    glm::vec3 queryMax(glX + 0.5f, glY + 0.5f, glZ + 0.5f);
-    gatherCandidates(queryMin, queryMax, tl_candidateScratch);
+/// Whether a collision focus is set and this instance falls outside it.
+///
+/// Five queries ask this before they look at an instance at all, and each had
+/// its own copy. The focus is what keeps a raycast from walking every building
+/// in the zone when the caller only cares about what is near the player.
+/// MOGP flag 0x2000: the group is indoors. It is what separates a
+/// building's inside from the porch and the roof, which are groups of the
+/// same model, and so what decides whether the sky is still drawn.
+constexpr uint32_t kWMOGroupIndoor = 0x2000;
 
-    for (size_t idx : tl_candidateScratch) {
-        const auto& instance = instances[idx];
-        if (collisionFocusEnabled &&
-            pointAABBDistanceSq(collisionFocusPos, instance.worldBoundsMin, instance.worldBoundsMax) > collisionFocusRadiusSq) {
-            continue;
-        }
+bool WMORenderer::outsideCollisionFocus(const WMOInstance& instance) const {
+    return collisionFocusEnabled &&
+           pointAABBDistanceSq(collisionFocusPos, instance.worldBoundsMin,
+                               instance.worldBoundsMax) > collisionFocusRadiusSq;
+}
 
-        if (glX < instance.worldBoundsMin.x || glX > instance.worldBoundsMax.x ||
-            glY < instance.worldBoundsMin.y || glY > instance.worldBoundsMax.y ||
-            glZ < instance.worldBoundsMin.z || glZ > instance.worldBoundsMax.z) {
-            continue;
-        }
-
-        auto it = loadedModels.find(instance.modelId);
-        if (it == loadedModels.end()) continue;
-
-        const ModelData& model = it->second;
-
-        // World-space pre-check: skip instance if no group's world bounds contain point
-        bool anyGroupContains = false;
-        for (size_t gi = 0; gi < model.groups.size() && gi < instance.worldGroupBounds.size(); ++gi) {
-            const auto& [gMin, gMax] = instance.worldGroupBounds[gi];
-            if (glX >= gMin.x && glX <= gMax.x &&
-                glY >= gMin.y && glY <= gMax.y &&
-                glZ >= gMin.z && glZ <= gMax.z) {
-                anyGroupContains = true;
-                break;
-            }
-        }
-        if (!anyGroupContains) continue;
-
-        glm::vec3 localPos = glm::vec3(instance.invModelMatrix * glm::vec4(glX, glY, glZ, 1.0f));
-        for (const auto& group : model.groups) {
-            if (localPos.x >= group.boundingBoxMin.x && localPos.x <= group.boundingBoxMax.x &&
-                localPos.y >= group.boundingBoxMin.y && localPos.y <= group.boundingBoxMax.y &&
-                localPos.z >= group.boundingBoxMin.z && localPos.z <= group.boundingBoxMax.z) {
-                if (outModelId) *outModelId = instance.modelId;
-                return true;
-            }
-        }
-    }
-    return false;
+/// Whether a point is inside an instance's world bounds, with the Z window
+/// widened by the margins the caller asks for.
+///
+/// The X and Y test is the same everywhere; the Z margins are not, and that is
+/// why they are arguments rather than a constant. Three different pairs are in
+/// use: none for the containment queries, the model-dependent pair the floor
+/// query computes, and a fixed 2 down by 4 up. Two call sites spell out
+/// numbers that match the two branches of the model-dependent rule, which may
+/// mean they were copied from it before it learned about low platforms.
+bool WMORenderer::withinWorldBounds(const WMOInstance& instance,
+                                    float glX, float glY, float glZ,
+                                    float zMarginDown, float zMarginUp) const {
+    return glX >= instance.worldBoundsMin.x && glX <= instance.worldBoundsMax.x &&
+           glY >= instance.worldBoundsMin.y && glY <= instance.worldBoundsMax.y &&
+           glZ >= instance.worldBoundsMin.z - zMarginDown &&
+           glZ <= instance.worldBoundsMax.z + zMarginUp;
 }
 
 uint32_t WMORenderer::gatherLavaLights(const glm::vec3& cameraPos,
@@ -3870,22 +3840,29 @@ uint32_t WMORenderer::gatherLavaLights(const glm::vec3& cameraPos,
     return count;
 }
 
-bool WMORenderer::isInsideInteriorWMO(float glX, float glY, float glZ) const {
-    glm::vec3 queryMin(glX - 0.5f, glY - 0.5f, glZ - 0.5f);
-    glm::vec3 queryMax(glX + 0.5f, glY + 0.5f, glZ + 0.5f);
+/// Whether a point is inside any of a WMO's groups.
+///
+/// Asked two ways: of every group, which is what tells the client it is under
+/// a roof at all, and of interior groups only, which is what decides whether
+/// the sky and the outdoor lighting are drawn. The two differed by one line
+/// and each had its own copy of the walk: the candidate gather, the focus
+/// filter, the world-bounds reject, the per-group world-bounds pre-check and
+/// the transform into model space.
+///
+/// The pre-check is not redundant with the transform below it. Inverting the
+/// model matrix and multiplying is the expensive part, and a building whose
+/// own bounds contain the point usually has no *group* that does.
+bool WMORenderer::isInsideWMOGroups(float glX, float glY, float glZ,
+                                    bool interiorOnly, uint32_t* outModelId) const {
+    const glm::vec3 queryMin(glX - 0.5f, glY - 0.5f, glZ - 0.5f);
+    const glm::vec3 queryMax(glX + 0.5f, glY + 0.5f, glZ + 0.5f);
     gatherCandidates(queryMin, queryMax, tl_candidateScratch);
 
     for (size_t idx : tl_candidateScratch) {
         const auto& instance = instances[idx];
-        if (collisionFocusEnabled &&
-            pointAABBDistanceSq(collisionFocusPos, instance.worldBoundsMin, instance.worldBoundsMax) > collisionFocusRadiusSq) {
-            continue;
-        }
-        if (glX < instance.worldBoundsMin.x || glX > instance.worldBoundsMax.x ||
-            glY < instance.worldBoundsMin.y || glY > instance.worldBoundsMax.y ||
-            glZ < instance.worldBoundsMin.z || glZ > instance.worldBoundsMax.z) {
-            continue;
-        }
+        if (outsideCollisionFocus(instance)) continue;
+        if (!withinWorldBounds(instance, glX, glY, glZ)) continue;
+
         auto it = loadedModels.find(instance.modelId);
         if (it == loadedModels.end()) continue;
         const ModelData& model = it->second;
@@ -3902,17 +3879,28 @@ bool WMORenderer::isInsideInteriorWMO(float glX, float glY, float glZ) const {
         }
         if (!anyGroupContains) continue;
 
-        glm::vec3 localPos = glm::vec3(instance.invModelMatrix * glm::vec4(glX, glY, glZ, 1.0f));
+        const glm::vec3 localPos =
+            glm::vec3(instance.invModelMatrix * glm::vec4(glX, glY, glZ, 1.0f));
         for (const auto& group : model.groups) {
-            if (!(group.groupFlags & 0x2000)) continue; // Skip exterior groups
+            if (interiorOnly && !(group.groupFlags & kWMOGroupIndoor)) continue;
             if (localPos.x >= group.boundingBoxMin.x && localPos.x <= group.boundingBoxMax.x &&
                 localPos.y >= group.boundingBoxMin.y && localPos.y <= group.boundingBoxMax.y &&
                 localPos.z >= group.boundingBoxMin.z && localPos.z <= group.boundingBoxMax.z) {
+                if (outModelId) *outModelId = instance.modelId;
                 return true;
             }
         }
     }
     return false;
+}
+
+bool WMORenderer::isInsideWMO(float glX, float glY, float glZ, uint32_t* outModelId) const {
+    QueryTimer timer(&queryTimeMs, &queryCallCount);
+    return isInsideWMOGroups(glX, glY, glZ, /*interiorOnly=*/false, outModelId);
+}
+
+bool WMORenderer::isInsideInteriorWMO(float glX, float glY, float glZ) const {
+    return isInsideWMOGroups(glX, glY, glZ, /*interiorOnly=*/true, nullptr);
 }
 
 float WMORenderer::raycastBoundingBoxes(const glm::vec3& origin, const glm::vec3& direction, float maxDistance) const {
@@ -3933,10 +3921,7 @@ float WMORenderer::raycastBoundingBoxes(const glm::vec3& origin, const glm::vec3
 
     for (size_t idx : tl_candidateScratch) {
         const auto& instance = instances[idx];
-        if (collisionFocusEnabled &&
-            pointAABBDistanceSq(collisionFocusPos, instance.worldBoundsMin, instance.worldBoundsMax) > collisionFocusRadiusSq) {
-            continue;
-        }
+        if (outsideCollisionFocus(instance)) continue;
 
         glm::vec3 center = (instance.worldBoundsMin + instance.worldBoundsMax) * 0.5f;
         glm::vec3 halfExtent = instance.worldBoundsMax - center;

@@ -663,6 +663,20 @@ private:
     /// model matrix has changed.
     void refreshInstanceBounds(WMOInstance& inst);
 
+    /// Whether a collision focus is set and this instance is outside it.
+    bool outsideCollisionFocus(const WMOInstance& instance) const;
+
+    /// Whether a point is inside any of a WMO's groups, or only its
+    /// interior ones. The two public queries above differ by that flag.
+    bool isInsideWMOGroups(float glX, float glY, float glZ,
+                           bool interiorOnly, uint32_t* outModelId) const;
+
+    /// Whether a point is inside an instance's world bounds, with the Z
+    /// window widened by the caller's margins.
+    bool withinWorldBounds(const WMOInstance& instance,
+                           float glX, float glY, float glZ,
+                           float zMarginDown = 0.0f, float zMarginUp = 0.0f) const;
+
     /**
      * Create GPU resources for a WMO group
      */
