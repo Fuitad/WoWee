@@ -699,11 +699,11 @@ void Renderer::shutdown() {
         m2Renderer->shutdown();
         m2Renderer.reset();
     }
-    if (outlandSkyRenderer_) {
-        outlandSkyRenderer_->shutdown();
-        outlandSkyRenderer_.reset();
-        outlandSkyInstanceId_ = 0;
-        outlandSkyPath_.clear();
+    if (skyboxModelRenderer_) {
+        skyboxModelRenderer_->shutdown();
+        skyboxModelRenderer_.reset();
+        skyboxModelInstanceId_ = 0;
+        skyboxModelPath_.clear();
     }
 
     // Audio shutdown is handled by AudioCoordinator (owned by Application).
@@ -808,7 +808,7 @@ void Renderer::applyMsaaChange() {
     }
     if (wmoRenderer) wmoRenderer->recreatePipelines();
     if (m2Renderer) m2Renderer->recreatePipelines();
-    if (outlandSkyRenderer_) outlandSkyRenderer_->recreatePipelines();
+    if (skyboxModelRenderer_) skyboxModelRenderer_->recreatePipelines();
     if (characterRenderer) characterRenderer->recreatePipelines();
     if (questMarkerRenderer) questMarkerRenderer->recreatePipelines();
     if (footprintRenderer) footprintRenderer->recreatePipelines();
@@ -1199,21 +1199,27 @@ const std::string& Renderer::getCurrentZoneName() const {
     return audioCoordinator_ ? audioCoordinator_->getCurrentZoneName() : empty;
 }
 
-bool Renderer::ensureOutlandSkybox() {
-    const auto* gh = core::Application::getInstance().getGameHandler();
-    if (!gh || gh->getCurrentMapId() != 530 || !outlandSkyRenderer_ ||
-        !lightingManager || !cachedAssetManager || !camera) {
+bool Renderer::ensureSkyboxModel() {
+    // Which skybox model a place uses is Light.dbc's answer, not a map id:
+    // LightParams names a LightSkybox row and LightSkybox names the model, and
+    // getActiveSkyboxPath already walks that for whatever map the player is
+    // on. This was restricted to Outland, so every other zone that defines one
+    // - Tirisfal's night sky among them - fell back to the procedural sky.
+    //
+    // A zone that names no skybox leaves the path empty and is unaffected.
+    if (!skyboxModelRenderer_ || !lightingManager || !cachedAssetManager ||
+        !camera) {
         return false;
     }
 
     std::string path = lightingManager->getActiveSkyboxPath();
     if (path.empty()) return false;
     std::replace(path.begin(), path.end(), '/', '\\');
-    if (path == outlandSkyPath_) return outlandSkyInstanceId_ != 0;
+    if (path == skyboxModelPath_) return skyboxModelInstanceId_ != 0;
 
-    outlandSkyRenderer_->clear();
-    outlandSkyPath_ = path;
-    outlandSkyInstanceId_ = 0;
+    skyboxModelRenderer_->clear();
+    skyboxModelPath_ = path;
+    skyboxModelInstanceId_ = 0;
 
     std::vector<std::string> candidates{path};
     const size_t dot = path.find_last_of('.');
@@ -1253,14 +1259,14 @@ bool Renderer::ensureOutlandSkybox() {
     }
 
     const uint32_t modelId = static_cast<uint32_t>(std::hash<std::string>{}(model.name));
-    if (!outlandSkyRenderer_->loadModel(model, modelId)) {
+    if (!skyboxModelRenderer_->loadModel(model, modelId)) {
         LOG_WARNING("Failed to upload Outland original skybox: ", resolvedPath);
         return false;
     }
-    outlandSkyInstanceId_ = outlandSkyRenderer_->createInstance(
+    skyboxModelInstanceId_ = skyboxModelRenderer_->createInstance(
         modelId, camera->getPosition(), glm::vec3(0.0f), 1.0f);
-    if (!outlandSkyInstanceId_) return false;
-    outlandSkyRenderer_->setSkipCollision(outlandSkyInstanceId_, true);
+    if (!skyboxModelInstanceId_) return false;
+    skyboxModelRenderer_->setSkipCollision(skyboxModelInstanceId_, true);
     LOG_INFO("Outland original skybox active: ", resolvedPath);
     return true;
 }
@@ -1480,9 +1486,9 @@ void Renderer::update(float deltaTime) {
     if (skySystem) {
         skySystem->update(deltaTime);
     }
-    if (ensureOutlandSkybox() && outlandSkyRenderer_ && camera) {
-        outlandSkyRenderer_->setInstancePosition(outlandSkyInstanceId_, camera->getPosition());
-        outlandSkyRenderer_->update(deltaTime, camera->getPosition(),
+    if (ensureSkyboxModel() && skyboxModelRenderer_ && camera) {
+        skyboxModelRenderer_->setInstancePosition(skyboxModelInstanceId_, camera->getPosition());
+        skyboxModelRenderer_->update(deltaTime, camera->getPosition(),
             camera->getProjectionMatrix() * camera->getViewMatrix());
     }
 
@@ -1784,8 +1790,8 @@ void Renderer::renderWorld(game::World* world, game::GameHandler* gameHandler) {
     float timeOfDay = lightingManager
         ? lightingManager->getVisualTimeOfDayHours()
         : (skybox ? skybox->getTimeOfDay() : 12.0f);
-    const bool useOutlandOriginalSky = gameHandler && gameHandler->getCurrentMapId() == 530 &&
-        outlandSkyRenderer_ && outlandSkyInstanceId_ != 0;
+    const bool useOriginalSkybox =
+        skyboxModelRenderer_ && skyboxModelInstanceId_ != 0;
 
     // ── Multithreaded secondary command buffer recording ──
     // Terrain, WMO, and M2 record on worker threads while main thread handles
@@ -1803,8 +1809,8 @@ void Renderer::renderWorld(game::World* world, game::GameHandler* gameHandler) {
         if (wmoRenderer) wmoRenderer->prepareRender();
         auto prepWmoEnd = std::chrono::steady_clock::now();
         if (m2Renderer && camera) m2Renderer->prepareRender(frameIdx, *camera);
-        if (useOutlandOriginalSky && camera)
-            outlandSkyRenderer_->prepareRender(frameIdx, *camera);
+        if (useOriginalSkybox && camera)
+            skyboxModelRenderer_->prepareRender(frameIdx, *camera);
         auto prepM2End = std::chrono::steady_clock::now();
         if (characterRenderer) characterRenderer->prepareRender(frameIdx);
         auto prepEnd = std::chrono::steady_clock::now();
@@ -1876,11 +1882,11 @@ void Renderer::renderWorld(game::World* world, game::GameHandler* gameHandler) {
                 }
                 if (gameHandler) skyParams.weatherIntensity = gameHandler->getWeatherIntensity();
                 skyParams.skyboxModelId = 0;
-                skyParams.skyboxHasStars = useOutlandOriginalSky;
-                skyParams.useOriginalSkybox = useOutlandOriginalSky;
+                skyParams.skyboxHasStars = useOriginalSkybox;
+                skyParams.useOriginalSkybox = useOriginalSkybox;
                 skySystem->render(cmd, perFrameSet, *camera, skyParams);
-                if (useOutlandOriginalSky) {
-                    outlandSkyRenderer_->render(cmd, perFrameSet, *camera);
+                if (useOriginalSkybox) {
+                    skyboxModelRenderer_->render(cmd, perFrameSet, *camera);
                 }
             }
             vkEndCommandBuffer(cmd);
@@ -2118,12 +2124,12 @@ void Renderer::renderWorld(game::World* world, game::GameHandler* gameHandler) {
             }
             if (gameHandler) skyParams.weatherIntensity = gameHandler->getWeatherIntensity();
             skyParams.skyboxModelId = 0;
-            skyParams.skyboxHasStars = useOutlandOriginalSky;
-            skyParams.useOriginalSkybox = useOutlandOriginalSky;
+            skyParams.skyboxHasStars = useOriginalSkybox;
+            skyParams.useOriginalSkybox = useOriginalSkybox;
             skySystem->render(currentCmd, perFrameSet, *camera, skyParams);
-            if (useOutlandOriginalSky) {
-                outlandSkyRenderer_->prepareRender(frameIdx, *camera);
-                outlandSkyRenderer_->render(currentCmd, perFrameSet, *camera);
+            if (useOriginalSkybox) {
+                skyboxModelRenderer_->prepareRender(frameIdx, *camera);
+                skyboxModelRenderer_->render(currentCmd, perFrameSet, *camera);
             }
         }
 
@@ -2443,12 +2449,12 @@ bool Renderer::initializeRenderers(pipeline::AssetManager* assetManager, const s
     // Outland's original client skies are camera-centered M2 models selected
     // through LightParams/LightSkybox. Keep them in a dedicated no-depth
     // renderer so they draw behind terrain and never enter world collision.
-    if (mapName == "Outland" && !outlandSkyRenderer_) {
-        outlandSkyRenderer_ = std::make_unique<M2Renderer>();
-        outlandSkyRenderer_->setSkyMode(true);
-        if (!outlandSkyRenderer_->initialize(vkCtx, perFrameSetLayout, assetManager)) {
+    if (mapName == "Outland" && !skyboxModelRenderer_) {
+        skyboxModelRenderer_ = std::make_unique<M2Renderer>();
+        skyboxModelRenderer_->setSkyMode(true);
+        if (!skyboxModelRenderer_->initialize(vkCtx, perFrameSetLayout, assetManager)) {
             LOG_WARNING("Outland sky M2 renderer initialization failed");
-            outlandSkyRenderer_.reset();
+            skyboxModelRenderer_.reset();
         }
     }
 
