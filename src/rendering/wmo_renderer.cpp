@@ -2947,136 +2947,76 @@ const std::vector<uint32_t>* WMORenderer::GroupResources::getTrianglesAtLocal(fl
     return &cellTriangles[cy * gridCellsX + cx];
 }
 
-void WMORenderer::GroupResources::getTrianglesInRange(
+/// The triangles of one cell array that a query box reaches.
+///
+/// Three queries walk this grid, for any triangle, for floors and for walls,
+/// and they differed in one token: which of the three per-cell arrays they
+/// read. Everything else, the cell rectangle, the reserve estimate, the
+/// visited-bit dedup and the single-cell shortcut that skips it, was written
+/// out three times.
+///
+/// The dedup matters because a triangle spanning several cells is filed under
+/// each of them, and a caller that tests it twice counts two hits: a raycast
+/// then reports an even number of crossings where there was one surface, which
+/// is how a solid wall reads as empty air.
+void WMORenderer::GroupResources::gatherCellTriangles(
+        const std::vector<std::vector<uint32_t>>& cells,
         float minX, float minY, float maxX, float maxY,
         std::vector<uint32_t>& out) const {
     out.clear();
-    if (gridCellsX == 0 || gridCellsY == 0) return;
+    if (gridCellsX == 0 || gridCellsY == 0 || cells.empty()) return;
 
-    const auto cells = cellRangeCovering(
+    const auto range = cellRangeCovering(
         gridCellsX, gridCellsY,
         boundingBoxMax.x - boundingBoxMin.x, boundingBoxMax.y - boundingBoxMin.y,
         glm::vec2(gridOrigin.x, gridOrigin.y), minX, minY, maxX, maxY);
-    if (!cells) return;
-    const int cellMinX = cells->minX;
-    const int cellMinY = cells->minY;
-    const int cellMaxX = cells->maxX;
-    const int cellMaxY = cells->maxY;
+    if (!range) return;
 
-    // Reserve estimate: cells queried * ~8 triangles per cell
-    out.reserve(cells->count() * 8);
+    // About eight triangles a cell, which is what the meshes here average.
+    out.reserve(range->count() * 8);
 
-    // Collect unique triangle indices using visited bitset (O(n) dedup)
-    bool multiCell = (cellMinX != cellMaxX || cellMinY != cellMaxY);
+    // One cell cannot hand out the same triangle twice, so the dedup and the
+    // bitset clear it needs are pure cost in the commonest case.
+    const bool multiCell = (range->minX != range->maxX || range->minY != range->maxY);
     if (multiCell && !triVisited.empty()) {
-        for (int cy = cellMinY; cy <= cellMaxY; ++cy) {
-            for (int cx = cellMinX; cx <= cellMaxX; ++cx) {
-                const auto& cell = cellTriangles[cy * gridCellsX + cx];
-                for (uint32_t tri : cell) {
-                    uint32_t idx = tri / 3;
-                    if (!triVisited[idx]) {
-                        triVisited[idx] = 1;
+        for (int cy = range->minY; cy <= range->maxY; ++cy) {
+            for (int cx = range->minX; cx <= range->maxX; ++cx) {
+                for (uint32_t tri : cells[cy * gridCellsX + cx]) {
+                    const uint32_t index = tri / 3;
+                    if (!triVisited[index]) {
+                        triVisited[index] = 1;
                         out.push_back(tri);
                     }
                 }
             }
         }
-        // Clear visited bits
         for (uint32_t tri : out) triVisited[tri / 3] = 0;
     } else {
-        for (int cy = cellMinY; cy <= cellMaxY; ++cy) {
-            for (int cx = cellMinX; cx <= cellMaxX; ++cx) {
-                const auto& cell = cellTriangles[cy * gridCellsX + cx];
+        for (int cy = range->minY; cy <= range->maxY; ++cy) {
+            for (int cx = range->minX; cx <= range->maxX; ++cx) {
+                const auto& cell = cells[cy * gridCellsX + cx];
                 out.insert(out.end(), cell.begin(), cell.end());
             }
         }
     }
+}
+
+void WMORenderer::GroupResources::getTrianglesInRange(
+        float minX, float minY, float maxX, float maxY,
+        std::vector<uint32_t>& out) const {
+    gatherCellTriangles(cellTriangles, minX, minY, maxX, maxY, out);
 }
 
 void WMORenderer::GroupResources::getFloorTrianglesInRange(
         float minX, float minY, float maxX, float maxY,
         std::vector<uint32_t>& out) const {
-    out.clear();
-    if (gridCellsX == 0 || gridCellsY == 0 || cellFloorTriangles.empty()) return;
-
-    const auto cells = cellRangeCovering(
-        gridCellsX, gridCellsY,
-        boundingBoxMax.x - boundingBoxMin.x, boundingBoxMax.y - boundingBoxMin.y,
-        glm::vec2(gridOrigin.x, gridOrigin.y), minX, minY, maxX, maxY);
-    if (!cells) return;
-    const int cellMinX = cells->minX;
-    const int cellMinY = cells->minY;
-    const int cellMaxX = cells->maxX;
-    const int cellMaxY = cells->maxY;
-
-    out.reserve(cells->count() * 8);
-
-    bool multiCell = (cellMinX != cellMaxX || cellMinY != cellMaxY);
-    if (multiCell && !triVisited.empty()) {
-        for (int cy = cellMinY; cy <= cellMaxY; ++cy) {
-            for (int cx = cellMinX; cx <= cellMaxX; ++cx) {
-                const auto& cell = cellFloorTriangles[cy * gridCellsX + cx];
-                for (uint32_t tri : cell) {
-                    uint32_t idx = tri / 3;
-                    if (!triVisited[idx]) {
-                        triVisited[idx] = 1;
-                        out.push_back(tri);
-                    }
-                }
-            }
-        }
-        for (uint32_t tri : out) triVisited[tri / 3] = 0;
-    } else {
-        for (int cy = cellMinY; cy <= cellMaxY; ++cy) {
-            for (int cx = cellMinX; cx <= cellMaxX; ++cx) {
-                const auto& cell = cellFloorTriangles[cy * gridCellsX + cx];
-                out.insert(out.end(), cell.begin(), cell.end());
-            }
-        }
-    }
+    gatherCellTriangles(cellFloorTriangles, minX, minY, maxX, maxY, out);
 }
 
 void WMORenderer::GroupResources::getWallTrianglesInRange(
         float minX, float minY, float maxX, float maxY,
         std::vector<uint32_t>& out) const {
-    out.clear();
-    if (gridCellsX == 0 || gridCellsY == 0 || cellWallTriangles.empty()) return;
-
-    const auto cells = cellRangeCovering(
-        gridCellsX, gridCellsY,
-        boundingBoxMax.x - boundingBoxMin.x, boundingBoxMax.y - boundingBoxMin.y,
-        glm::vec2(gridOrigin.x, gridOrigin.y), minX, minY, maxX, maxY);
-    if (!cells) return;
-    const int cellMinX = cells->minX;
-    const int cellMinY = cells->minY;
-    const int cellMaxX = cells->maxX;
-    const int cellMaxY = cells->maxY;
-
-    out.reserve(cells->count() * 8);
-
-    bool multiCell = (cellMinX != cellMaxX || cellMinY != cellMaxY);
-    if (multiCell && !triVisited.empty()) {
-        for (int cy = cellMinY; cy <= cellMaxY; ++cy) {
-            for (int cx = cellMinX; cx <= cellMaxX; ++cx) {
-                const auto& cell = cellWallTriangles[cy * gridCellsX + cx];
-                for (uint32_t tri : cell) {
-                    uint32_t idx = tri / 3;
-                    if (!triVisited[idx]) {
-                        triVisited[idx] = 1;
-                        out.push_back(tri);
-                    }
-                }
-            }
-        }
-        for (uint32_t tri : out) triVisited[tri / 3] = 0;
-    } else {
-        for (int cy = cellMinY; cy <= cellMaxY; ++cy) {
-            for (int cx = cellMinX; cx <= cellMaxX; ++cx) {
-                const auto& cell = cellWallTriangles[cy * gridCellsX + cx];
-                out.insert(out.end(), cell.begin(), cell.end());
-            }
-        }
-    }
+    gatherCellTriangles(cellWallTriangles, minX, minY, maxX, maxY, out);
 }
 
 std::optional<float> WMORenderer::getFloorHeight(float glX, float glY, float glZ, float* outNormalZ, float referenceZ) const {

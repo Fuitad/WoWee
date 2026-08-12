@@ -540,6 +540,13 @@ private:
         const std::vector<uint32_t>* getTrianglesAtLocal(float localX, float localY) const;
 
         // Get triangle indices for a local-space XY range (for wall collision)
+        /// The triangles of one of the three cell arrays that a query box
+        /// reaches, deduplicated. The three queries below differ only in
+        /// which array they pass.
+        void gatherCellTriangles(const std::vector<std::vector<uint32_t>>& cells,
+                                 float minX, float minY, float maxX, float maxY,
+                                 std::vector<uint32_t>& out) const;
+
         void getTrianglesInRange(float minX, float minY, float maxX, float maxY,
                                  std::vector<uint32_t>& out) const;
 
