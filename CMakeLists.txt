@@ -825,6 +825,7 @@ set(WOWEE_SOURCES
     src/rendering/character_renderer.cpp
     src/rendering/character_preview.cpp
     src/rendering/wmo_renderer.cpp
+    src/rendering/normal_map.cpp
     src/rendering/m2_renderer.cpp
     src/rendering/m2_renderer_render.cpp
     src/rendering/m2_renderer_particles.cpp
@@ -2066,6 +2067,7 @@ add_executable(wowee_editor
     src/rendering/m2_renderer_render.cpp
     src/rendering/m2_model_classifier.cpp
     src/rendering/wmo_renderer.cpp
+    src/rendering/normal_map.cpp
     src/rendering/frustum.cpp
 
     # Core

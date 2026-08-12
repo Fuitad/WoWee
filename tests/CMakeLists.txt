@@ -555,6 +555,21 @@ endif()
 add_test(NAME use_item_packet COMMAND test_use_item_packet)
 register_test_target(test_use_item_packet)
 
+# ── test_normal_map ────────────────────────────────────────────────────
+# The normal-map pass the character and WMO renderers used to duplicate. Both
+# copies lived inside a renderer class and needed a Vulkan context to reach, so
+# this is its first test.
+add_executable(test_normal_map
+    test_normal_map.cpp
+    ${TEST_COMMON_SOURCES}
+    ${CMAKE_SOURCE_DIR}/src/rendering/normal_map.cpp)
+target_include_directories(test_normal_map PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_normal_map SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_normal_map PRIVATE catch2_main)
+wowee_test_link_glm(test_normal_map)
+add_test(NAME normal_map COMMAND test_normal_map)
+register_test_target(test_normal_map)
+
 # ── test_asset_manifest_load ───────────────────────────────────────────
 # The 32 MB asset manifest, pinned so a change to how it is read cannot change
 # what it read. Skips when Data/manifest.json is not in the checkout.
