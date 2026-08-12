@@ -1224,32 +1224,54 @@ static int lua_GetNumAddOns(lua_State* L) {
     return 1;
 }
 
-static int lua_GetAddOnInfo(lua_State* L) {
-    // Accept index (1-based) or addon name
+/// Pushes the addon registry table and resolves argument `arg` to a 1-based
+/// index into it.
+///
+/// FrameXML passes either an index or a name to every addon query, so both
+/// GetAddOnInfo and GetAddOnMetadata had to accept both, and each carried its
+/// own copy of the search.
+///
+/// On success the table is left on the stack and the caller indexes it. On
+/// failure the stack is left exactly as it was found and the answer is 0, so
+/// the caller only has to push its own nil. Getting that asymmetry wrong is
+/// how a binding leaks a table per call and the interpreter grows all session.
+///
+/// Names are matched exactly. FrameXML's own addon list passes back the name
+/// it was given, so a case difference here would be one it introduced itself.
+int pushAddonRegistryAndIndex(lua_State* L, int arg) {
     lua_getfield(L, LUA_REGISTRYINDEX, "wowee_addon_info");
     if (!lua_istable(L, -1)) {
         lua_pop(L, 1);
-        return luaReturnNil(L);
+        return 0;
     }
 
     int idx = 0;
-    if (lua_isnumber(L, 1)) {
-        idx = static_cast<int>(lua_tonumber(L, 1));
-    } else if (lua_isstring(L, 1)) {
-        // Search by name
-        const char* name = lua_tostring(L, 1);
-        int count = static_cast<int>(lua_objlen(L, -1));
+    if (lua_isnumber(L, arg)) {
+        idx = static_cast<int>(lua_tonumber(L, arg));
+    } else if (lua_isstring(L, arg)) {
+        const char* wanted = lua_tostring(L, arg);
+        const int count = static_cast<int>(lua_objlen(L, -1));
         for (int i = 1; i <= count; i++) {
             lua_rawgeti(L, -1, i);
             lua_getfield(L, -1, "name");
-            const char* aName = lua_tostring(L, -1);
+            const char* name = lua_tostring(L, -1);
             lua_pop(L, 1);
-            if (aName && strcmp(aName, name) == 0) { idx = i; lua_pop(L, 1); break; }
+            if (name && strcmp(name, wanted) == 0) { idx = i; lua_pop(L, 1); break; }
             lua_pop(L, 1);
         }
     }
 
-    if (idx < 1) { lua_pop(L, 1); lua_pushnil(L); return 1; }
+    if (idx < 1) {
+        lua_pop(L, 1);
+        return 0;
+    }
+    return idx;
+}
+
+static int lua_GetAddOnInfo(lua_State* L) {
+    // Accept index (1-based) or addon name
+    const int idx = pushAddonRegistryAndIndex(L, 1);
+    if (idx < 1) { lua_pushnil(L); return 1; }
 
     lua_rawgeti(L, -1, idx);
     if (!lua_istable(L, -1)) { lua_pop(L, 2); lua_pushnil(L); return 1; }
@@ -1263,36 +1285,28 @@ static int lua_GetAddOnInfo(lua_State* L) {
     lua_getfield(L, -1, "name");
     lua_getfield(L, -2, "title");
     lua_getfield(L, -3, "notes");
+
+    // The registry table and the entry are still underneath, and `return 8`
+    // takes the top eight of the stack whatever they are. Leaving them there
+    // shifted the answer by one: the entry table arrived as the name, the name
+    // as the title, and loadable came back nil - falsy - so every addon read
+    // as unloadable while the security string landed in newVersion. The pop
+    // this replaces removed the last value pushed rather than either of them.
+    lua_remove(L, -4);              // the addon info entry
+    lua_remove(L, -4);              // the registry table
+
     lua_pushnil(L);                 // 4: url - not in a 3.3.5 manifest
     lua_pushboolean(L, 1);          // 5: loadable
     lua_pushnil(L);                 // 6: reason it is not, and it is
     lua_pushstring(L, "INSECURE");  // 7: security
     lua_pushnil(L);                 // 8: newVersion
-    lua_pop(L, 1); // the addon info entry; the eight above stay
     return 8;
 }
 
 // GetAddOnMetadata(addonNameOrIndex, key) → value
 static int lua_GetAddOnMetadata(lua_State* L) {
-    lua_getfield(L, LUA_REGISTRYINDEX, "wowee_addon_info");
-    if (!lua_istable(L, -1)) { lua_pop(L, 1); lua_pushnil(L); return 1; }
-
-    int idx = 0;
-    if (lua_isnumber(L, 1)) {
-        idx = static_cast<int>(lua_tonumber(L, 1));
-    } else if (lua_isstring(L, 1)) {
-        const char* name = lua_tostring(L, 1);
-        int count = static_cast<int>(lua_objlen(L, -1));
-        for (int i = 1; i <= count; i++) {
-            lua_rawgeti(L, -1, i);
-            lua_getfield(L, -1, "name");
-            const char* aName = lua_tostring(L, -1);
-            lua_pop(L, 1);
-            if (aName && strcmp(aName, name) == 0) { idx = i; lua_pop(L, 1); break; }
-            lua_pop(L, 1);
-        }
-    }
-    if (idx < 1) { lua_pop(L, 1); lua_pushnil(L); return 1; }
+    const int idx = pushAddonRegistryAndIndex(L, 1);
+    if (idx < 1) { lua_pushnil(L); return 1; }
 
     const char* key = luaL_checkstring(L, 2);
     lua_rawgeti(L, -1, idx);
