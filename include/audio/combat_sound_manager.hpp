@@ -48,8 +48,6 @@ public:
 
     void playImpact(WeaponSize weaponSize, ImpactType impactType, bool isCrit = false);
 
-    // Emote sounds
-    void playClap();
 
     // Player character vocals
     enum class PlayerRace {
@@ -59,9 +57,6 @@ public:
         DRAENEI_FEMALE
     };
 
-    void playPlayerAttackGrunt(PlayerRace race);
-    void playPlayerWound(PlayerRace race, bool isCrit = false);
-    void playPlayerDeath(PlayerRace race);
 
 private:
     struct CombatSample {

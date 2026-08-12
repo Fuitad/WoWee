@@ -2,23 +2,6 @@
 
 namespace wowee { namespace ui {
 
-// Push a message to sent-history (skip pure whitespace, cap at kMaxHistory).
-void ChatInput::pushToHistory(const std::string& msg) {
-    bool allSpace = true;
-    for (char c : msg) {
-        if (!std::isspace(static_cast<unsigned char>(c))) { allSpace = false; break; }
-    }
-    if (allSpace) return;
-
-    // Remove duplicate of last entry if identical
-    if (sentHistory_.empty() || sentHistory_.back() != msg) {
-        sentHistory_.push_back(msg);
-        if (static_cast<int>(sentHistory_.size()) > kMaxHistory)
-            sentHistory_.erase(sentHistory_.begin());
-    }
-    historyIdx_ = -1;  // reset browsing position after send
-}
-
 // Insert a spell / item link into the chat input buffer (shift-click).
 void ChatInput::insertLink(const std::string& link) {
     if (link.empty()) return;

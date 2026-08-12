@@ -274,11 +274,6 @@ void QuestMarkerRenderer::setMarker(uint64_t guid, const glm::vec3& position, in
                                     float boundingHeight, float grayscale) {
     markers_[guid] = {position, markerType, boundingHeight, grayscale};
 }
-
-void QuestMarkerRenderer::removeMarker(uint64_t guid) {
-    markers_.erase(guid);
-}
-
 void QuestMarkerRenderer::clear() {
     markers_.clear();
 }

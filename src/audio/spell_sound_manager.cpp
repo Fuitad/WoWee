@@ -281,26 +281,5 @@ void SpellSoundManager::playImpact(MagicSchool school, SpellPower power) {
             break;
     }
 }
-
-void SpellSoundManager::playFireball() {
-    playPrecast(MagicSchool::FIRE, SpellPower::MEDIUM);
-}
-
-void SpellSoundManager::playFrostbolt() {
-    playPrecast(MagicSchool::FROST, SpellPower::MEDIUM);
-}
-
-void SpellSoundManager::playLightningBolt() {
-    playPrecast(MagicSchool::NATURE, SpellPower::MEDIUM);
-}
-
-void SpellSoundManager::playHeal() {
-    playPrecast(MagicSchool::HOLY, SpellPower::MEDIUM);
-}
-
-void SpellSoundManager::playShadowBolt() {
-    playPrecast(MagicSchool::SHADOW, SpellPower::MEDIUM);
-}
-
 } // namespace audio
 } // namespace wowee

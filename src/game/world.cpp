@@ -8,11 +8,5 @@ void World::update([[maybe_unused]] float deltaTime) {
     // camera, etc.) and GameHandler (server packet processing). World is a thin
     // ownership token; per-frame logic lives in those subsystems.
 }
-
-void World::loadMap([[maybe_unused]] uint32_t mapId) {
-    // Terrain loading is driven by Application::loadOnlineWorld() via TerrainManager.
-    // This method exists as an extension point; no action needed here.
-}
-
 } // namespace game
 } // namespace wowee

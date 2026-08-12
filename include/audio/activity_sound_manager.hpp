@@ -33,7 +33,6 @@ public:
     void playMeleeSwing();
     void playAttackGrunt();
     void playWound(bool isCrit = false);
-    void playDeath();
     void setVolumeScale(float scale) { volumeScale = scale; }
     float getVolumeScale() const { return volumeScale; }
 

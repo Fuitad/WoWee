@@ -1720,11 +1720,6 @@ void CharacterRenderer::setModelTexture(uint32_t modelId, uint32_t textureSlot, 
     gpuModel.textureIds[textureSlot] = texture;
     core::Logger::getInstance().debug("Replaced model ", modelId, " texture slot ", textureSlot, " with composited texture");
 }
-
-void CharacterRenderer::resetModelTexture(uint32_t modelId, uint32_t textureSlot) {
-    setModelTexture(modelId, textureSlot, whiteTexture_.get());
-}
-
 bool CharacterRenderer::loadModel(const pipeline::M2Model& model, uint32_t id) {
     if (!model.isValid()) {
         core::Logger::getInstance().error("Cannot load invalid M2 model");
@@ -2270,38 +2265,6 @@ void CharacterRenderer::update(float deltaTime, const glm::vec3& cameraPos) {
         }
     }
 }
-
-void CharacterRenderer::updateAnimation(CharacterInstance& instance, float deltaTime) {
-    if (!instance.cachedModel) return;
-    const auto& model = instance.cachedModel->data;
-
-    if (model.sequences.empty()) {
-        return;
-    }
-
-    // Resolve sequence index if not set
-    if (instance.currentSequenceIndex < 0) {
-        instance.currentSequenceIndex = 0;
-        instance.currentAnimationId = model.sequences[0].id;
-    }
-
-    const auto& sequence = model.sequences[instance.currentSequenceIndex];
-
-    // Update animation time (convert to milliseconds)
-    instance.animationTime += deltaTime * 1000.0f;
-
-    if (sequence.duration > 0 && instance.animationTime >= static_cast<float>(sequence.duration)) {
-        if (instance.animationLoop) {
-            instance.animationTime = std::fmod(instance.animationTime, static_cast<float>(sequence.duration));
-        } else {
-            instance.animationTime = static_cast<float>(sequence.duration);
-        }
-    }
-
-    // Update bone matrices
-    calculateBoneMatrices(instance);
-}
-
 // --- Bone transform calculation ---
 
 constexpr int32_t kKeyBoneSpineLow = 4;

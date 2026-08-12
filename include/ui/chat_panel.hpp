@@ -186,9 +186,6 @@ private:
     // Programmatic tab switch (Ctrl+wheel / quick menu); applied next frame
     // via ImGuiTabItemFlags_SetSelected, -1 = none pending.
 
-    /** Sync the input chat type to a newly activated tab (Guild tab → guild
-     *  chat, Whispers tab → whisper with last sender, Trade/LFG → channel). */
-    void onTabActivated(int tab, game::GameHandler& gameHandler);
 
 
     // Macro stop flag
@@ -233,7 +230,6 @@ private:
 
     // ---- Helpers ----
     void sendChatMessage(game::GameHandler& gameHandler);
-    static int inputTextCallback(ImGuiInputTextCallbackData* data);
 
     // Cached game handler for input callback (set each frame in render)
     game::GameHandler* cachedGameHandler_ = nullptr;

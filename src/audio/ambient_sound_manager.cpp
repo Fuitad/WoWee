@@ -553,14 +553,6 @@ uint64_t AmbientSoundManager::addEmitter(const glm::vec3& position, AmbientType 
     emitters_.push_back(emitter);
     return emitter.id;
 }
-
-void AmbientSoundManager::removeEmitter(uint64_t id) {
-    emitters_.erase(
-        std::remove_if(emitters_.begin(), emitters_.end(),
-            [id](const AmbientEmitter& e) { return e.id == id; }),
-        emitters_.end()
-    );
-}
 void AmbientSoundManager::setGameTime(float hours) {
     gameTimeHours_ = std::fmod(hours, 24.0f);
     if (gameTimeHours_ < 0.0f) gameTimeHours_ += 24.0f;

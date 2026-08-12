@@ -66,21 +66,9 @@ namespace game {
 void GameHandler::registerSkipHandler(LogicalOpcode op) {
     dispatchTable_[op] = [](network::Packet& packet) { packet.skipAll(); };
 }
-void GameHandler::registerErrorHandler(LogicalOpcode op, const char* msg) {
-    dispatchTable_[op] = [this, msg](network::Packet&) {
-        addUIError(msg);
-        addSystemChatMessage(msg);
-    };
-}
 void GameHandler::registerHandler(LogicalOpcode op, void (GameHandler::*handler)(network::Packet&)) {
     dispatchTable_[op] = [this, handler](network::Packet& packet) { (this->*handler)(packet); };
 }
-void GameHandler::registerWorldHandler(LogicalOpcode op, void (GameHandler::*handler)(network::Packet&)) {
-    dispatchTable_[op] = [this, handler](network::Packet& packet) {
-        if (state == WorldState::IN_WORLD) (this->*handler)(packet);
-    };
-}
-
 GameHandler::GameHandler(GameServices& services)
     : services_(services) {
     LOG_DEBUG("GameHandler created");

@@ -335,8 +335,6 @@ public:
     static constexpr uint8_t BANK_SLOT_START = 39;
     static constexpr uint8_t BANK_BAG_CONTAINER_START = 67;
 
-    // Test data
-    void populateTestItems();
 
 private:
     std::array<ItemSlot, BACKPACK_SLOTS> backpack{};

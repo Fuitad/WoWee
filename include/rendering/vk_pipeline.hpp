@@ -35,8 +35,6 @@ public:
         const std::vector<VkVertexInputBindingDescription>& bindings,
         const std::vector<VkVertexInputAttributeDescription>& attributes);
 
-    // No vertex input (fullscreen quad generated in vertex shader)
-    PipelineBuilder& setNoVertexInput();
 
     // Input assembly
     PipelineBuilder& setTopology(VkPrimitiveTopology topology,

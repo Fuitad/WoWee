@@ -375,16 +375,6 @@ void ChargeEffect::stop() {
         activeCasterInstanceId_ = 0;
     }
 }
-
-void ChargeEffect::triggerImpact(const glm::vec3& position) {
-    if (!impactModelLoaded_ || !m2Renderer_) return;
-    uint32_t instanceId = m2Renderer_->createInstance(
-        IMPACT_MODEL_ID, position, glm::vec3(0.0f), 1.0f);
-    if (instanceId != 0) {
-        activeImpacts_.push_back({instanceId, 0.0f});
-    }
-}
-
 void ChargeEffect::update(float deltaTime) {
     // Age trail points and remove expired ones
     for (auto& tp : trail_) {

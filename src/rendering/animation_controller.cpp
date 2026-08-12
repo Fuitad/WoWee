@@ -156,13 +156,6 @@ std::string AnimationController::getEmoteTextByDbcId(uint32_t dbcId, const std::
     registry.loadFromDbc();
     return registry.textByDbcId(dbcId, senderName, targetName);
 }
-
-uint32_t AnimationController::getEmoteAnimByDbcId(uint32_t dbcId) {
-    auto& registry = EmoteRegistry::instance();
-    registry.loadFromDbc();
-    return registry.animByDbcId(dbcId);
-}
-
 uint32_t AnimationController::getEmoteAnimByEmotesId(uint32_t emoteId) {
     auto& registry = EmoteRegistry::instance();
     registry.loadFromDbc();

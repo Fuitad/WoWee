@@ -82,8 +82,6 @@ public:
     /// Mark the character preview as needing equipment update
     void markPreviewDirty() { previewDirty_ = true; }
 
-    /// Update the preview animation (call each frame)
-    void updatePreview(float deltaTime);
 
     /// Returns true if equipment changed since last call, and clears the flag.
     bool consumeEquipmentDirty() { bool d = equipmentDirty; equipmentDirty = false; return d; }
@@ -176,7 +174,6 @@ private:
     /// Shared footer for the backpack / All Bags windows: Sort Bags button + money display.
     void renderBagsFooter(game::Inventory& inventory, uint64_t moneyCopper);
     void renderEquipmentPanel(game::Inventory& inventory);
-    void renderBackpackPanel(game::Inventory& inventory, bool collapseEmptySections = false);
     void renderStatsPanel(game::Inventory& inventory, uint32_t playerLevel, int32_t serverArmor = 0,
                           const int32_t* serverStats = nullptr, const int32_t* serverResists = nullptr,
                           const game::GameHandler* gh = nullptr);

@@ -569,13 +569,5 @@ void ActivitySoundManager::playWound(bool isCrit) {
         lastWoundAt = now;
     }
 }
-
-void ActivitySoundManager::playDeath() {
-    if (!AudioEngine::instance().isInitialized() || deathClips.empty()) return;
-    std::uniform_int_distribution<size_t> dist(0, deathClips.size() - 1);
-    const Sample& sample = deathClips[dist(rng)];
-    AudioEngine::instance().playSound2D(sample.data, 0.85f * volumeScale, 1.0f);
-}
-
 } // namespace audio
 } // namespace wowee

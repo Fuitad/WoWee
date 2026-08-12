@@ -364,13 +364,6 @@ void InventoryScreen::initPreview() {
     previewInitialized_ = true;
     previewDirty_ = true; // apply equipment on first load
 }
-
-void InventoryScreen::updatePreview(float deltaTime) {
-    if (charPreview_ && previewInitialized_) {
-        charPreview_->update(deltaTime);
-    }
-}
-
 void InventoryScreen::updatePreviewEquipment(game::Inventory& inventory,
                                               bool showHelm, bool showCloak) {
     if (!charPreview_ || !charPreview_->isModelLoaded()) return;
@@ -2675,80 +2668,6 @@ void InventoryScreen::renderStatsPanel(game::Inventory& inventory, uint32_t play
         }
     }
 }
-
-void InventoryScreen::renderBackpackPanel(game::Inventory& inventory, bool collapseEmptySections) {
-    ImGui::TextColored(ui::colors::kWarmGold, "Backpack");
-    ImGui::Separator();
-
-    constexpr float slotSize = 40.0f;
-    constexpr int columns = 6;
-
-    for (int i = 0; i < inventory.getBackpackSize(); i++) {
-        if (i % columns != 0) ImGui::SameLine();
-
-        const auto& slot = inventory.getBackpackSlot(i);
-        char id[32];
-        snprintf(id, sizeof(id), "##bp_%d", i);
-        ImGui::PushID(id);
-        renderItemSlot(inventory, slot, slotSize, nullptr,
-                       SlotKind::BACKPACK, i, game::EquipSlot::NUM_SLOTS);
-        ImGui::PopID();
-    }
-
-    // Show extra bags if equipped
-    for (int bag = 0; bag < game::Inventory::NUM_BAG_SLOTS; bag++) {
-        int bagSize = inventory.getBagSize(bag);
-        if (bagSize <= 0) continue;
-        if (collapseEmptySections && !bagHasAnyItems(inventory, bag)) continue;
-
-        ImGui::Spacing();
-        ImGui::Separator();
-        game::EquipSlot bagSlot = static_cast<game::EquipSlot>(static_cast<int>(game::EquipSlot::BAG1) + bag);
-        const auto& bagItem = inventory.getEquipSlot(bagSlot);
-        std::string bagLabel = (!bagItem.empty() && !bagItem.item.name.empty())
-            ? bagItem.item.name
-            : ("Bag Slot " + std::to_string(bag + 1));
-        ImGui::TextColored(ui::colors::kDarkYellow, "%s", bagLabel.c_str());
-
-        for (int s = 0; s < bagSize; s++) {
-            if (s % columns != 0) ImGui::SameLine();
-            const auto& slot = inventory.getBagSlot(bag, s);
-            char sid[32];
-            snprintf(sid, sizeof(sid), "##bag%d_%d", bag, s);
-            ImGui::PushID(sid);
-            renderItemSlot(inventory, slot, slotSize, nullptr,
-                           SlotKind::BACKPACK, -1, game::EquipSlot::NUM_SLOTS,
-                           bag, s);
-            ImGui::PopID();
-        }
-    }
-
-    if (showKeyring_) {
-        constexpr float keySlotSize = 24.0f;
-        constexpr int keyCols = 8;
-        int lastOccupied = -1;
-        for (int i = inventory.getKeyringSize() - 1; i >= 0; --i) {
-            if (!inventory.getKeyringSlot(i).empty()) { lastOccupied = i; break; }
-        }
-        int visibleSlots = ((lastOccupied < 0 ? 0 : lastOccupied) / keyCols + 1) * keyCols;
-        if (visibleSlots > 0) {
-            ImGui::Spacing();
-            ImGui::Separator();
-            ImGui::TextColored(ui::colors::kDarkYellow, "Keyring");
-            for (int i = 0; i < visibleSlots; ++i) {
-                if (i % keyCols != 0) ImGui::SameLine();
-                const auto& slot = inventory.getKeyringSlot(i);
-                char sid[32];
-                snprintf(sid, sizeof(sid), "##keyring_%d", i);
-                ImGui::PushID(sid);
-                renderItemSlot(inventory, slot, keySlotSize, nullptr,
-                               SlotKind::KEYRING, -1, game::EquipSlot::NUM_SLOTS, -1, -1, i);
-                ImGui::PopID();
-            }
-        }
-    }
-}
-
 void InventoryScreen::renderItemSlot(game::Inventory& inventory, const game::ItemSlot& slot,
                                       float size, const char* label,
                                       SlotKind kind, int backpackIndex,

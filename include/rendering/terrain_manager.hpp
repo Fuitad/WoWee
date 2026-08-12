@@ -298,7 +298,6 @@ public:
     /** Get the precise MCNK AreaTable ID at a world position. */
     std::optional<uint32_t> getAreaIdAt(float glX, float glY) const;
 
-    uint8_t getCollisionFlags(float glX, float glY) const;
 
     /**
      * Get dominant terrain texture name at a GL position.
@@ -445,7 +444,6 @@ private:
     std::mutex tileCacheMutex_;
 
     std::shared_ptr<PendingTile> getCachedTile(const TileCoord& coord);
-    void putCachedTile(const std::shared_ptr<PendingTile>& tile);
     size_t estimatePendingTileBytes(const PendingTile& tile) const;
     void logMissingAdtOnce(const std::string& adtPath);
     std::atomic<bool> workerRunning{false};

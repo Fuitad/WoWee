@@ -1679,36 +1679,6 @@ std::shared_ptr<PendingTile> TerrainManager::getCachedTile(const TileCoord& coor
     it->second.lruIt = tileCacheLru_.begin();
     return it->second.tile;
 }
-
-void TerrainManager::putCachedTile(const std::shared_ptr<PendingTile>& tile) {
-    if (!tile) return;
-    std::lock_guard<std::mutex> lock(tileCacheMutex_);
-    TileCoord coord = tile->coord;
-
-    auto it = tileCache_.find(coord);
-    if (it != tileCache_.end()) {
-        tileCacheLru_.erase(it->second.lruIt);
-        tileCacheBytes_ -= it->second.bytes;
-        tileCache_.erase(it);
-    }
-
-    size_t bytes = estimatePendingTileBytes(*tile);
-    tileCacheLru_.push_front(coord);
-    tileCache_[coord] = CachedTile{tile, bytes, tileCacheLru_.begin()};
-    tileCacheBytes_ += bytes;
-
-    // Evict least-recently used tiles until under budget
-    while (tileCacheBytes_ > tileCacheBudgetBytes_ && !tileCacheLru_.empty()) {
-        TileCoord evictCoord = tileCacheLru_.back();
-        auto eit = tileCache_.find(evictCoord);
-        if (eit != tileCache_.end()) {
-            tileCacheBytes_ -= eit->second.bytes;
-            tileCache_.erase(eit);
-        }
-        tileCacheLru_.pop_back();
-    }
-}
-
 size_t TerrainManager::estimatePendingTileBytes(const PendingTile& tile) const {
     size_t bytes = 0;
     bytes += sizeof(PendingTile);
@@ -2753,30 +2723,6 @@ void TerrainManager::precacheTiles(const std::vector<std::pair<int, int>>& tiles
 
     // Notify workers to start loading
     queueCV.notify_all();
-}
-
-uint8_t TerrainManager::getCollisionFlags(float glX, float glY) const {
-    for (const auto& [key, cd] : collisionTiles_) {
-        if (!cd.loaded) continue;
-        if (glX < cd.boundsMin.x || glX > cd.boundsMax.x ||
-            glY < cd.boundsMin.y || glY > cd.boundsMax.y) continue;
-
-        for (const auto& tri : cd.triangles) {
-            // Barycentric point-in-triangle test (XY plane)
-            glm::vec2 p(glX, glY);
-            glm::vec2 a(tri.v0.x, tri.v0.y), b(tri.v1.x, tri.v1.y), c(tri.v2.x, tri.v2.y);
-            glm::vec2 v0 = c - a, v1 = b - a, v2 = p - a;
-            float d00 = glm::dot(v0, v0), d01 = glm::dot(v0, v1), d02 = glm::dot(v0, v2);
-            float d11 = glm::dot(v1, v1), d12 = glm::dot(v1, v2);
-            float inv = d00 * d11 - d01 * d01;
-            if (std::abs(inv) < 1e-10f) continue;
-            float u = (d11 * d02 - d01 * d12) / inv;
-            float v = (d00 * d12 - d01 * d02) / inv;
-            if (u >= 0 && v >= 0 && u + v <= 1)
-                return tri.flags;
-        }
-    }
-    return 0x01; // default walkable if no collision data
 }
 } // namespace rendering
 } // namespace wowee

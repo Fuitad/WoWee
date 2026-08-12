@@ -28,7 +28,6 @@ public:
     float getMouseWheelDelta() const { return mouseWheelDelta; }
 
     bool isMouseLocked() const { return mouseLocked; }
-    void setMouseLocked(bool locked);
 
 private:
     Input() = default;

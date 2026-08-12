@@ -300,9 +300,6 @@ void UiSoundManager::playCharacterSheetOpen() { playSound(characterSheetOpenSoun
 void UiSoundManager::playCharacterSheetClose() { playSound(characterSheetCloseSounds_); }
 void UiSoundManager::playAuctionHouseOpen() { playSound(auctionOpenSounds_); }
 void UiSoundManager::playAuctionHouseClose() { playSound(auctionCloseSounds_); }
-void UiSoundManager::playGuildBankOpen() { playSound(guildBankOpenSounds_); }
-void UiSoundManager::playGuildBankClose() { playSound(guildBankCloseSounds_); }
-
 // Button sounds
 void UiSoundManager::playButtonClick() { playSound(buttonClickSounds_); }
 void UiSoundManager::playMenuButtonClick() { playSound(menuButtonSounds_); }
@@ -323,10 +320,6 @@ void UiSoundManager::playLootItem() { playSound(lootItemSounds_); }
 void UiSoundManager::playDropOnGround() { playSound(dropSounds_); }
 void UiSoundManager::playPickupBag() { playSound(pickupBagSounds_); }
 void UiSoundManager::playPickupBook() { playSound(pickupBookSounds_); }
-void UiSoundManager::playPickupCloth() { playSound(pickupClothSounds_); }
-void UiSoundManager::playPickupFood() { playSound(pickupFoodSounds_); }
-void UiSoundManager::playPickupGem() { playSound(pickupGemSounds_); }
-
 // Eating/drinking
 void UiSoundManager::playEating() { playSound(eatingSounds_); }
 void UiSoundManager::playDrinking() { playSound(drinkingSounds_); }

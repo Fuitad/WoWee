@@ -49,12 +49,6 @@ public:
     void playCast(MagicSchool school);                        // When spell fires
     void playImpact(MagicSchool school, SpellPower power);    // When spell hits target
 
-    // Specific spell sounds
-    void playFireball();
-    void playFrostbolt();
-    void playLightningBolt();
-    void playHeal();
-    void playShadowBolt();
 
 private:
     struct SpellSample {

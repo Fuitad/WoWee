@@ -55,11 +55,6 @@ public:
     /// Returns the render extent for the active post-process pipeline.
     /// Falls back to swapchain extent if nothing is active.
     VkExtent2D getSceneRenderExtent() const;
-    // The images behind getSceneFramebuffer(), so the scene can be copied for
-    // water refraction after it is drawn but before the water goes over it.
-    // True when the frame goes through the FXAA scene target. The water
-    // continuation split is held off on this path - see waterDrawsInContinuePass.
-    bool usesFxaaScenePath() const;
     VkImage getSceneColorImage() const;
     VkImage getSceneDepthImage() const;
     bool sceneDepthIsMsaa() const;

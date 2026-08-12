@@ -135,14 +135,5 @@ std::string BigNum::toHex() const {
     OPENSSL_free(hex);
     return result;
 }
-
-std::string BigNum::toDecimal() const {
-    char* dec = BN_bn2dec(bn);
-    if (!dec) return "(null)";
-    std::string result(dec);
-    OPENSSL_free(dec);
-    return result;
-}
-
 } // namespace auth
 } // namespace wowee

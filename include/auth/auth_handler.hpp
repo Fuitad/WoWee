@@ -49,9 +49,6 @@ public:
     void authenticate(const std::string& username, const std::string& password, const std::string& pin);
     void authenticateWithHash(const std::string& username, const std::vector<uint8_t>& authHash);
     void authenticateWithHash(const std::string& username, const std::vector<uint8_t>& authHash, const std::string& pin);
-    // Optional: when the auth server requires a PIN (securityFlags & 0x01), call this to continue.
-    // PIN must be 4-10 digits.
-    void submitPin(const std::string& pin);
     // Generic continuation for PIN / authenticator-required servers.
     void submitSecurityCode(const std::string& code);
 

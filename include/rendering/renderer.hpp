@@ -104,19 +104,7 @@ public:
      */
     void setWireframeMode(bool enabled);
 
-    /**
-     * Load terrain tiles around position
-     * @param mapName Map name (e.g., "Azeroth", "Kalimdor")
-     * @param centerX Center tile X coordinate
-     * @param centerY Center tile Y coordinate
-     * @param radius Load radius in tiles
-     */
-    bool loadTerrainArea(const std::string& mapName, int centerX, int centerY, int radius = 1);
 
-    /**
-     * Enable/disable terrain streaming
-     */
-    void setTerrainStreaming(bool enabled);
 
     /**
      * Render performance HUD

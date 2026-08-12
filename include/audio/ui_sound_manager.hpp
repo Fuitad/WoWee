@@ -53,8 +53,6 @@ public:
     void playCharacterSheetClose();
     void playAuctionHouseOpen();
     void playAuctionHouseClose();
-    void playGuildBankOpen();
-    void playGuildBankClose();
 
     // Button sounds
     void playButtonClick();
@@ -76,9 +74,6 @@ public:
     void playDropOnGround();
     void playPickupBag();
     void playPickupBook();
-    void playPickupCloth();
-    void playPickupFood();
-    void playPickupGem();
 
     // Eating/drinking
     void playEating();

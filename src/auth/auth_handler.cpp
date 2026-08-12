@@ -376,11 +376,6 @@ void AuthHandler::sendLogonProof() {
 
     setState(AuthState::PROOF_SENT);
 }
-
-void AuthHandler::submitPin(const std::string& pin) {
-    submitSecurityCode(pin);
-}
-
 void AuthHandler::submitSecurityCode(const std::string& code) {
     pendingSecurityCode_ = code;
     // If we're waiting on a security code, continue immediately.

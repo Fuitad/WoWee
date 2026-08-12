@@ -31,8 +31,6 @@ public:
 
     // ── Character animators ─────────────────────────────────────────────
 
-    /// Get or create a CharacterAnimator for the given instance ID.
-    CharacterAnimator& getOrCreate(uint32_t instanceId);
 
     /// Get existing CharacterAnimator (nullptr if not found).
     CharacterAnimator* get(uint32_t instanceId);
@@ -42,8 +40,6 @@ public:
 
     // ── Per-frame ───────────────────────────────────────────────────────
 
-    /// Update all registered animators.
-    void updateAll(float dt);
 
     // ── Counts ──────────────────────────────────────────────────────────
     size_t count() const { return animators_.size(); }

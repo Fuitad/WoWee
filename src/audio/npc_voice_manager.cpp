@@ -541,10 +541,5 @@ void NpcVoiceManager::playCombatAttack(uint64_t npcGuid, uint32_t displayId,
     if (playSoundEntry(sound->second, position))
         lastCombatVocalTime_[npcGuid] = now;
 }
-
-void NpcVoiceManager::playFlee(uint64_t npcGuid, VoiceType voiceType, const glm::vec3& position) {
-    playSound(npcGuid, voiceType, SoundCategory::FLEE, position);
-}
-
 } // namespace audio
 } // namespace wowee

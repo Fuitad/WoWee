@@ -68,11 +68,5 @@ bool Input::isMouseButtonJustReleased(int button) const {
     if (button < 0 || button >= NUM_MOUSE_BUTTONS) return false;
     return !currentMouseState[button] && previousMouseState[button];
 }
-
-void Input::setMouseLocked(bool locked) {
-    mouseLocked = locked;
-    SDL_SetRelativeMouseMode(locked ? SDL_TRUE : SDL_FALSE);
-}
-
 } // namespace core
 } // namespace wowee

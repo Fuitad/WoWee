@@ -187,26 +187,6 @@ void Window::shutdown() {
     SDL_Quit();
     LOG_DEBUG("Window shutdown complete");
 }
-
-void Window::pollEvents() {
-    SDL_Event event;
-    while (SDL_PollEvent(&event)) {
-        if (event.type == SDL_QUIT) {
-            shouldCloseFlag = true;
-        }
-        else if (event.type == SDL_WINDOWEVENT) {
-            if (event.window.event == SDL_WINDOWEVENT_RESIZED) {
-                width = event.window.data1;
-                height = event.window.data2;
-                if (vkContext) {
-                    vkContext->markSwapchainDirty();
-                }
-                LOG_DEBUG("Window resized to ", width, "x", height);
-            }
-        }
-    }
-}
-
 void Window::setFullscreen(bool enable) {
     if (!window) return;
     if (enable == fullscreen) return;

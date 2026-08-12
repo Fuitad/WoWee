@@ -27,13 +27,6 @@ PipelineBuilder& PipelineBuilder::setVertexInput(
     vertexAttributes_ = attributes;
     return *this;
 }
-
-PipelineBuilder& PipelineBuilder::setNoVertexInput() {
-    vertexBindings_.clear();
-    vertexAttributes_.clear();
-    return *this;
-}
-
 PipelineBuilder& PipelineBuilder::setTopology(VkPrimitiveTopology topology,
     VkBool32 primitiveRestart)
 {

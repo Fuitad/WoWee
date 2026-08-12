@@ -306,7 +306,6 @@ private:
 
     void setupModelBuffers(M2ModelGPU& gpuModel);
     void calculateBindPose(M2ModelGPU& gpuModel);
-    void updateAnimation(CharacterInstance& instance, float deltaTime);
     void calculateBoneMatrices(CharacterInstance& instance);
     glm::mat4 getBoneTransform(const pipeline::M2Bone& bone, float animTime, float globalSeqTime,
                                int sequenceIndex, const std::vector<uint32_t>& globalSeqDurations);
@@ -342,8 +341,6 @@ public:
     /** Replace a loaded model's texture at the given slot. */
     void setModelTexture(uint32_t modelId, uint32_t textureSlot, VkTexture* texture);
 
-    /** Reset a model's texture slot back to white fallback. */
-    void resetModelTexture(uint32_t modelId, uint32_t textureSlot);
 
 
 private:

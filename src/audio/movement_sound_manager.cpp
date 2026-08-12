@@ -292,59 +292,5 @@ void MovementSoundManager::playJump(PlayerRace race) {
             break;
     }
 }
-
-void MovementSoundManager::playLand(PlayerRace race) {
-    switch (race) {
-        case PlayerRace::HUMAN_MALE:
-            playSound(landHumanMaleSounds_);
-            break;
-        case PlayerRace::HUMAN_FEMALE:
-            playSound(landHumanFemaleSounds_);
-            break;
-        case PlayerRace::DWARF_MALE:
-            playSound(landDwarfMaleSounds_);
-            break;
-        case PlayerRace::DWARF_FEMALE:
-            playSound(landDwarfFemaleSounds_);
-            break;
-        case PlayerRace::NIGHT_ELF_MALE:
-            playSound(landNightElfMaleSounds_);
-            break;
-        case PlayerRace::NIGHT_ELF_FEMALE:
-            playSound(landNightElfFemaleSounds_);
-            break;
-        case PlayerRace::ORC_MALE:
-            playSound(landOrcMaleSounds_);
-            break;
-        case PlayerRace::ORC_FEMALE:
-            playSound(landOrcFemaleSounds_);
-            break;
-        case PlayerRace::TAUREN_MALE:
-            playSound(landTaurenMaleSounds_);
-            break;
-        case PlayerRace::TAUREN_FEMALE:
-            playSound(landTaurenFemaleSounds_);
-            break;
-        case PlayerRace::TROLL_MALE:
-            playSound(landTrollMaleSounds_);
-            break;
-        case PlayerRace::TROLL_FEMALE:
-            playSound(landTrollFemaleSounds_);
-            break;
-        case PlayerRace::UNDEAD_MALE:
-            playSound(landUndeadMaleSounds_);
-            break;
-        case PlayerRace::UNDEAD_FEMALE:
-            playSound(landUndeadFemaleSounds_);
-            break;
-        case PlayerRace::GNOME_MALE:
-            playSound(landGnomeMaleSounds_);
-            break;
-        case PlayerRace::GNOME_FEMALE:
-            playSound(landGnomeFemaleSounds_);
-            break;
-    }
-}
-
 } // namespace audio
 } // namespace wowee

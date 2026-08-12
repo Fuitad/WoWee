@@ -262,14 +262,5 @@ AnimCapabilitySet AnimCapabilityProbe::probe(Renderer* renderer, uint32_t instan
 
     return caps;
 }
-
-AnimCapabilitySet AnimCapabilityProbe::probeMountModel(Renderer* /*renderer*/, uint32_t /*mountInstanceId*/) {
-    // Mount models use M2Renderer, not CharacterRenderer
-    // For now, mount capabilities are handled separately via MountAnimSet discovery
-    // This stub returns an empty set - mount animations are discovered in setMounted()
-    AnimCapabilitySet caps;
-    return caps;
-}
-
 } // namespace rendering
 } // namespace wowee

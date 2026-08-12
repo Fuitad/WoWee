@@ -184,11 +184,6 @@ glm::vec3 SkySystem::getSunPosition(const SkyParams& params) const {
 void SkySystem::setMoonPhaseCycling(bool enabled) {
     if (celestial_) celestial_->setMoonPhaseCycling(enabled);
 }
-
-void SkySystem::setWhiteLadyPhase(float phase) {
-    if (celestial_) celestial_->setMoonPhase(phase);
-}
-
 void SkySystem::setBlueChildPhase(float phase) {
     if (celestial_) celestial_->setBlueChildPhase(phase);
 }

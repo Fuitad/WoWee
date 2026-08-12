@@ -31,7 +31,6 @@ public:
     void shutdown();
 
     void swapBuffers() {} // No-op: Vulkan presents in Renderer::endFrame()
-    void pollEvents();
 
     bool shouldClose() const { return shouldCloseFlag; }
     void setShouldClose(bool value) { shouldCloseFlag = value; }

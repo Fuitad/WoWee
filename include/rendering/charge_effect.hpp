@@ -45,8 +45,6 @@ public:
     /// Stop adding trail points (existing ribbon fades out)
     void stop();
 
-    /// Spawn M2 impact burst at target position
-    void triggerImpact(const glm::vec3& position);
 
     void update(float deltaTime);
     void render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet);

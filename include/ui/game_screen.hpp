@@ -257,7 +257,6 @@ private:
 
     void renderMirrorTimers(game::GameHandler& gameHandler);
     void renderUIErrors(game::GameHandler& gameHandler, float deltaTime);
-    void renderQuestMarkers(game::GameHandler& gameHandler);
     void renderMinimapMarkers(game::GameHandler& gameHandler);
 
     /// The furniture around the minimap - mute, friends and zoom buttons, the

@@ -267,12 +267,6 @@ void TransportManager::registerTransport(uint64_t guid,
                     " base=(", transport.basePosition.x, ",", transport.basePosition.y, ",", transport.basePosition.z, ")");
     }
 }
-
-void TransportManager::unregisterTransport(uint64_t guid) {
-    transports_.erase(guid);
-    LOG_INFO("TransportManager: Unregistered transport ", guid);
-}
-
 void TransportManager::clearTransports() {
     const size_t count = transports_.size();
     transports_.clear();

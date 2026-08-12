@@ -139,14 +139,6 @@ public:
      */
     void clearDBCCache();
 
-    /**
-     * Delete all extracted asset files from the data directory on disk.
-     * Removes extracted subdirectories (db, character, creature, terrain, etc.),
-     * manifest.json, override dir, and expansion-specific extracted assets.
-     * After calling this, initialize() will fail until assets are re-extracted.
-     * @return Number of entries removed
-     */
-    size_t purgeExtractedAssets();
 
     /**
      * Resolve a normalized WoW path to its on-disk location. Checks the

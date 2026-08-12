@@ -40,10 +40,6 @@ public:
     void setMarker(uint64_t guid, const glm::vec3& position, int markerType,
                    float boundingHeight = 2.0f, float grayscale = 0.0f);
 
-    /**
-     * Remove a quest marker
-     */
-    void removeMarker(uint64_t guid);
 
     /**
      * Clear all markers
