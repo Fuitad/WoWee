@@ -1151,17 +1151,6 @@ target_link_libraries(test_macro_evaluator PRIVATE catch2_main)
 add_test(NAME macro_evaluator COMMAND test_macro_evaluator)
 register_test_target(test_macro_evaluator)
 
-# ── test_chat_tab_completer ──────────────────────────────────
-add_executable(test_chat_tab_completer
-    test_chat_tab_completer.cpp
-    ${TEST_COMMON_SOURCES}
-    ${CMAKE_SOURCE_DIR}/src/ui/chat/chat_tab_completer.cpp
-)
-target_include_directories(test_chat_tab_completer PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_chat_tab_completer SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_chat_tab_completer PRIVATE catch2_main)
-add_test(NAME chat_tab_completer COMMAND test_chat_tab_completer)
-register_test_target(test_chat_tab_completer)
 
 # ── test_gm_commands ─────────────────────────────────────────
 add_executable(test_gm_commands

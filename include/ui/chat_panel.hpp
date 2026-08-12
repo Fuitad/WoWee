@@ -4,13 +4,11 @@
 #include "ui/ui_services.hpp"
 #include "ui/chat/chat_settings.hpp"
 #include "ui/chat/chat_input.hpp"
-#include "ui/chat/chat_tab_manager.hpp"
 #include "ui/chat/chat_bubble_manager.hpp"
 #include "ui/chat/cast_sequence_tracker.hpp"
 #include "ui/chat/chat_markup_parser.hpp"
 #include "ui/chat/chat_markup_renderer.hpp"
 #include "ui/chat/chat_command_registry.hpp"
-#include "ui/chat/chat_tab_completer.hpp"
 #include <vulkan/vulkan.h>
 #include <imgui.h>
 #include <string>
@@ -220,11 +218,9 @@ private:
         std::vector<ChatSegment> segments;
     };
 
-    // Tab-completion (Phase 5 - delegated to ChatTabCompleter)
 
     // Mention notification
 
-    // ---- Chat tabs (delegated to ChatTabManager) ----
 
     // ---- Chat window visual state ----
     // windowLocked is in settings.windowLocked (kept in sync via reference)
