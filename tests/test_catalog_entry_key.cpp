@@ -33,6 +33,7 @@
 #include "cli_format_table.hpp"
 
 using wowee::editor::cli::entryPrimaryKey;
+using wowee::editor::cli::formatFlagSuffix;
 using wowee::editor::cli::formatTableBegin;
 using wowee::editor::cli::formatTableEnd;
 
@@ -70,6 +71,19 @@ const std::vector<std::string>& editorSources() {
         return out;
     }();
     return sources;
+}
+
+// The text of every cli_*.cpp, read once.
+const std::vector<std::string>& editorSourceTexts() {
+    static const std::vector<std::string> texts = [] {
+        std::vector<std::string> out;
+        for (const std::string& name : editorSources()) {
+            std::string text = slurp(kEditorDir + name);
+            if (!text.empty()) out.push_back(std::move(text));
+        }
+        return out;
+    }();
+    return texts;
 }
 
 // flag -> the text of every handler that answers it.
@@ -157,6 +171,53 @@ TEST_CASE("every --info flag in the format table is answered by a handler",
     INFO("flags no handler dispatches: " << unanswered.size());
     for (const auto& flag : unanswered) INFO("  " << flag);
     CHECK(unanswered.empty());
+}
+
+TEST_CASE("every flag derived from an --info flag is answered too",
+          "[catalog]") {
+    // A format with --info-wsrg also has --validate-wsrg, --export-wsrg-json
+    // and --import-wsrg-json, and the bulk commands build those from the
+    // table rather than being told. So a row naming an --info flag that no
+    // handler answers breaks four commands, not one: --bulk-validate on the
+    // item catalog ran --validate-witm, which does not exist, and reported
+    // every .wit file as failing validation.
+    const std::string shapes[] = {"--validate-", "--export-", "--import-"};
+    std::vector<std::string> unanswered;
+    for (const auto* f = formatTableBegin(); f != formatTableEnd(); ++f) {
+        const std::string suffix = formatFlagSuffix(f->infoFlag);
+        if (suffix.empty()) continue;
+        const std::string derived[] = {
+            "--validate-" + suffix,
+            "--export-" + suffix + "-json",
+            "--import-" + suffix + "-json",
+        };
+        for (const std::string& flag : derived) {
+            bool answered = false;
+            for (const std::string& handler : editorSourceTexts()) {
+                if (handler.find("\"" + flag + "\"") != std::string::npos) {
+                    answered = true;
+                    break;
+                }
+            }
+            if (!answered) unanswered.push_back(flag);
+        }
+    }
+    INFO("derived flags no handler mentions: " << unanswered.size());
+    for (const auto& flag : unanswered) INFO("  " << flag);
+    CHECK(unanswered.empty());
+}
+
+TEST_CASE("the suffix is the part every one of a format's flags shares",
+          "[catalog]") {
+    CHECK(formatFlagSuffix("--info-wsrg") == "wsrg");
+    CHECK(formatFlagSuffix("--info-wob-stats") == "wob-stats");
+
+    // Nothing to share: an asset format with no --info surface, and a flag
+    // that is not of that shape at all.
+    CHECK(formatFlagSuffix(nullptr).empty());
+    CHECK(formatFlagSuffix("--info-").empty());
+    CHECK(formatFlagSuffix("--summary-dir").empty());
+    CHECK(formatFlagSuffix("").empty());
 }
 
 TEST_CASE("a declared primary key is the field its own handler writes first",

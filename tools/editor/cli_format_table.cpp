@@ -162,6 +162,17 @@ constexpr size_t kFormatsCount =
 
 } // namespace
 
+std::string formatFlagSuffix(const char* infoFlag) {
+    if (!infoFlag) return {};
+    const std::string flag = infoFlag;
+    const std::string prefix = "--info-";
+    if (flag.size() <= prefix.size() ||
+        flag.compare(0, prefix.size(), prefix) != 0) {
+        return {};
+    }
+    return flag.substr(prefix.size());
+}
+
 const FormatMagicEntry* findFormatByMagic(const char magic[4]) {
     for (const auto& row : kFormats) {
         if (std::memcmp(row.magic, magic, 4) == 0) return &row;

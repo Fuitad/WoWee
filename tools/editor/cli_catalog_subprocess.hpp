@@ -41,41 +41,6 @@ namespace wowee {
 namespace editor {
 namespace cli {
 
-/// Wrap a string so a POSIX shell passes it through unchanged.
-///
-/// Single quotes, with the one character that cannot appear inside them
-/// spliced in as '"'"'. Paths under Data are user-named and a directory such
-/// as "Bob's zone" would otherwise end the quoting and run the rest as
-/// commands.
-inline std::string shellQuote(const std::string& s) {
-    std::string out;
-    out.reserve(s.size() + 2);
-    out.push_back('\'');
-    for (char c : s) {
-        if (c == '\'') out += "'\"'\"'";
-        else out.push_back(c);
-    }
-    out.push_back('\'');
-    return out;
-}
-
-/// The first four bytes of a file, which is its format magic.
-///
-/// False when the file cannot be opened or is shorter than four bytes; the
-/// buffer is untouched in that case.
-inline bool peekMagic(const std::filesystem::path& path, char magic[4]) {
-    std::FILE* f = std::fopen(path.string().c_str(), "rb");
-    if (!f) return false;
-    char head[4] = {};
-    const bool ok = std::fread(head, 1, 4, f) == 4;
-    std::fclose(f);
-    // Only on success: a two-byte file otherwise leaves two bytes of a magic
-    // and two of whatever the caller's buffer held, which still compares
-    // against the format table.
-    if (ok) std::memcpy(magic, head, 4);
-    return ok;
-}
-
 /// Run a command and collect everything it writes to stdout.
 ///
 /// `outRc` is the child's exit status, or 127 if it could not be started.

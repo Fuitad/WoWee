@@ -1,6 +1,7 @@
 #include "cli_magic_fix.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_format_table.hpp"
+#include "cli_paths.hpp"
 
 #include <nlohmann/json.hpp>
 
@@ -28,13 +29,6 @@ struct ProposedRename {
     bool collision = false;        // 'to' already exists
     std::string reason;            // ext-mismatch / magic-no-ext
 };
-
-bool peekMagic(const fs::path& path, char magic[4]) {
-    std::ifstream is(path, std::ios::binary);
-    if (!is) return false;
-    if (!is.read(magic, 4) || is.gcount() != 4) return false;
-    return true;
-}
 
 // Match an extension against the format table case-
 // insensitively. Mirrors cli_audit_tree's helper - kept

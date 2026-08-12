@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <string>
 
 namespace wowee {
 namespace editor {
@@ -24,6 +25,18 @@ struct FormatMagicEntry {
     const char* primaryKey;
     const char* description;
 };
+
+// The magic suffix shared by every one of a format's flags.
+//
+// A format that has --info-wsrg also has --validate-wsrg, --export-wsrg-json
+// and --import-wsrg-json: one suffix, four commands. Two bulk commands derived
+// their own sibling flag from the table's --info flag and each spelled the
+// rule out, so a row naming an --info flag that does not exist takes the bulk
+// commands down with it - which is what happened to .wit, .wcrt, .wspn, .wlot
+// and .wsnd, whose rows named a flag no handler answered.
+//
+// Empty for a format with no --info flag, and for a flag not of that shape.
+std::string formatFlagSuffix(const char* infoFlag);
 
 // Returns a pointer into the static table on match, nullptr
 // otherwise. The 4-byte magic argument does NOT need to be

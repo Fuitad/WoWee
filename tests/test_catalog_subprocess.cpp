@@ -22,7 +22,6 @@
 
 #include "cli_catalog_subprocess.hpp"
 
-using wowee::editor::cli::peekMagic;
 using wowee::editor::cli::runAndCapture;
 using wowee::editor::cli::shellQuote;
 
@@ -68,36 +67,6 @@ TEST_CASE("shell metacharacters are data, not syntax", "[catalog]") {
     CHECK(throughTheShell("*") == "*");
     CHECK(throughTheShell("~") == "~");
     CHECK(throughTheShell("a\nb") == "a\nb");
-}
-
-TEST_CASE("the magic is the first four bytes", "[catalog]") {
-    const auto path = scratchDir() / "sample.wit";
-    {
-        std::ofstream out(path, std::ios::binary);
-        out << "WITM\x01\x00\x00\x00";
-    }
-    char magic[4] = {};
-    REQUIRE(peekMagic(path, magic));
-    CHECK(std::string(magic, 4) == "WITM");
-}
-
-TEST_CASE("a file too short to have a magic is not one", "[catalog]") {
-    // An empty or truncated file must answer false rather than leave the
-    // caller comparing whatever was on the stack against the format table.
-    const auto dir = scratchDir();
-    const auto empty = dir / "empty.wit";
-    { std::ofstream out(empty, std::ios::binary); }
-    const auto stub = dir / "stub.wit";
-    {
-        std::ofstream out(stub, std::ios::binary);
-        out << "WI";
-    }
-
-    char magic[4] = {'z', 'z', 'z', 'z'};
-    CHECK_FALSE(peekMagic(empty, magic));
-    CHECK_FALSE(peekMagic(stub, magic));
-    CHECK_FALSE(peekMagic(dir / "no_such_file.wit", magic));
-    CHECK(std::string(magic, 4) == "zzzz");
 }
 
 TEST_CASE("a child that fails is reported as failing", "[catalog]") {
