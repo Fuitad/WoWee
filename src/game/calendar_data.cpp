@@ -4,6 +4,7 @@
 #include <ctime>
 
 #include "network/packet.hpp"
+#include "core/local_time.hpp"
 
 namespace wowee {
 namespace game {
@@ -206,11 +207,7 @@ std::vector<CalendarDayEntry> calendarEntriesForDay(const CalendarData& data,
                 static_cast<std::time_t>(data.serverTimeUnix) +
                 static_cast<std::time_t>(data.lockouts[l].secondsRemaining);
             std::tm tmv{};
-#ifdef _WIN32
-            localtime_s(&tmv, &expiry);
-#else
-            localtime_r(&expiry, &tmv);
-#endif
+            tmv = core::localTime(expiry);
             if (dayNumber(tmv.tm_year + 1900, tmv.tm_mon + 1, tmv.tm_mday) != wanted) {
                 continue;
             }

@@ -17,6 +17,7 @@
 #include "network/packet.hpp"
 
 #include <ctime>
+#include "core/local_time.hpp"
 
 namespace wowee::core {
 Application* Application::instance = nullptr;
@@ -405,8 +406,7 @@ TEST_CASE("A raid lockout lands on the day it expires", "[calendar]") {
     cal.lockouts.push_back(lock);
 
     const std::time_t expiry = base + lock.secondsRemaining;
-    std::tm tmv{};
-    localtime_r(&expiry, &tmv);
+    std::tm tmv = wowee::core::localTime(expiry);
 
     const auto onDay = calendarEntriesForDay(cal, tmv.tm_mon + 1, tmv.tm_mday,
                                              tmv.tm_year + 1900);

@@ -58,6 +58,7 @@
 
 #include <unordered_set>
 #include "ui/framexml_takeover.hpp"
+#include "core/local_time.hpp"
 
 namespace {
     using namespace wowee::ui::colors;
@@ -1980,11 +1981,7 @@ void GameScreen::takeScreenshot() {
     auto now = std::chrono::system_clock::now();
     auto tt  = std::chrono::system_clock::to_time_t(now);
     std::tm tm{};
-#ifdef _WIN32
-    localtime_s(&tm, &tt);
-#else
-    localtime_r(&tt, &tm);
-#endif
+    tm = core::localTime(tt);
 
     char filename[128];
     std::snprintf(filename, sizeof(filename),

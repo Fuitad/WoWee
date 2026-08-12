@@ -39,6 +39,7 @@
 #include <ctime>
 #include <unordered_set>
 #include <unordered_map>
+#include "core/local_time.hpp"
 
 namespace {
     // Common ImGui colors (aliases)
@@ -468,11 +469,7 @@ void ChatPanel::render(game::GameHandler& gameHandler,
             if (chatShowTimestamps) {
                 auto tt = std::chrono::system_clock::to_time_t(msg.timestamp);
                 std::tm tm{};
-#ifdef _WIN32
-                localtime_s(&tm, &tt);
-#else
-                localtime_r(&tt, &tm);
-#endif
+                tm = core::localTime(tt);
                 char tsBuf[16];
                 snprintf(tsBuf, sizeof(tsBuf), "[%02d:%02d] ", tm.tm_hour, tm.tm_min);
                 tsPrefix = tsBuf;
@@ -555,11 +552,7 @@ void ChatPanel::render(game::GameHandler& gameHandler,
             {
                 auto tt = std::chrono::system_clock::to_time_t(msg.timestamp);
                 std::tm tm{};
-#ifdef _WIN32
-                localtime_s(&tm, &tt);
-#else
-                localtime_r(&tt, &tm);
-#endif
+                tm = core::localTime(tt);
                 const char* typeName = (msg.type == game::ChatType::CHANNEL && !msg.channelName.empty())
                     ? msg.channelName.c_str()
                     : ChatTabManager::getChatTypeName(msg.type);

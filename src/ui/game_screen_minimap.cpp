@@ -56,6 +56,7 @@
 #include <ctime>
 
 #include <unordered_set>
+#include "core/local_time.hpp"
 
 namespace {
     using namespace wowee::ui::colors;
@@ -328,11 +329,7 @@ void GameScreen::renderMinimapClock(float centerX, float centerY, float mapRadiu
         auto now = std::chrono::system_clock::now();
         auto tt  = std::chrono::system_clock::to_time_t(now);
         std::tm tmBuf{};
-#ifdef _WIN32
-        localtime_s(&tmBuf, &tt);
-#else
-        localtime_r(&tt, &tmBuf);
-#endif
+        tmBuf = core::localTime(tt);
         char clockText[16];
         std::snprintf(clockText, sizeof(clockText), "%d:%02d %s",
                       (tmBuf.tm_hour % 12 == 0) ? 12 : tmBuf.tm_hour % 12,

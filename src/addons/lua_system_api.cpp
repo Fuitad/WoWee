@@ -41,6 +41,7 @@
 #include "game/expansion_profile.hpp"
 #include "core/coordinates.hpp"
 #include "rendering/world_map/coordinate_projection.hpp"
+#include "core/local_time.hpp"
 
 namespace wowee::addons {
 
@@ -1940,11 +1941,7 @@ static int lua_wow_date(lua_State* L) {
         : std::time(nullptr);
 
     std::tm parts{};
-#ifdef _WIN32
-    localtime_s(&parts, &when);
-#else
-    localtime_r(&when, &parts);
-#endif
+    parts = core::localTime(when);
 
     if (std::strcmp(fmt, "*t") == 0 || std::strcmp(fmt, "!*t") == 0) {
         lua_newtable(L);

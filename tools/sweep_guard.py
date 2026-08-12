@@ -60,6 +60,11 @@ CHECKS = [
     # today, not an endorsement of it; it exists so the number can only fall.
     # Only fails where the macro is actually passed, so a Windows-only build
     # error for something greppable on any host.
+    # Three Windows failures in a row were a POSIX-only function called
+    # directly in one place among several that had all remembered the #ifdef.
+    ("posix_only_check.py",
+     r"^(\d+) called directly instead", 0,
+     "POSIX-only calls that break the Windows build"),
     ("redefined_macro_check.py",
      r"^(\d+) redefined without an #ifndef", 0,
      "macros the build defines, redefined unguarded"),

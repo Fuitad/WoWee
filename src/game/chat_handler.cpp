@@ -19,6 +19,7 @@
 #include <iomanip>
 #include <sstream>
 #include <ctime>
+#include "core/local_time.hpp"
 
 namespace wowee {
 namespace game {
@@ -63,13 +64,7 @@ std::string formatChatLogTimestamp(std::chrono::system_clock::time_point timesta
     auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
         timestamp.time_since_epoch()) % 1000;
 
-    std::tm tm;
-#ifdef _WIN32
-    localtime_s(&tm, &time);
-#else
-    localtime_r(&time, &tm);
-#endif
-
+    std::tm tm = core::localTime(time);
     std::ostringstream oss;
     oss << std::put_time(&tm, "%Y-%m-%d %H:%M:%S")
         << "." << std::setfill('0') << std::setw(3) << ms.count();

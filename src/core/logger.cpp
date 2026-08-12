@@ -9,6 +9,7 @@
 #include <cstring>
 #include <iterator>
 #include <ranges>
+#include "core/local_time.hpp"
 
 namespace wowee {
 namespace core {
@@ -80,13 +81,7 @@ void Logger::emitLineLocked(LogLevel level, const std::string& message) {
     auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
         now.time_since_epoch()) % 1000;
 
-    std::tm tm;
-#ifdef _WIN32
-    localtime_s(&tm, &time);
-#else
-    localtime_r(&time, &tm);
-#endif
-
+    std::tm tm = core::localTime(time);
     // Format: [YYYY-MM-DD HH:MM:SS.mmm] [LEVEL] message
     std::ostringstream line;
     line << "["
