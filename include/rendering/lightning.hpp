@@ -29,6 +29,13 @@ public:
     [[nodiscard]] bool initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout);
     void shutdown();
     void recreatePipelines();
+    /// The two pipelines both initialize() and recreatePipelines() need.
+    void buildBoltPipeline(VkDevice device,
+                           const VkPipelineShaderStageCreateInfo& vertStage,
+                           const VkPipelineShaderStageCreateInfo& fragStage);
+    void buildFlashPipeline(VkDevice device,
+                            const VkPipelineShaderStageCreateInfo& vertStage,
+                            const VkPipelineShaderStageCreateInfo& fragStage);
 
     void update(float deltaTime, const Camera& camera);
     void render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet);

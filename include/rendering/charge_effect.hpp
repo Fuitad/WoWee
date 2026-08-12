@@ -25,6 +25,13 @@ public:
     [[nodiscard]] bool initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout);
     void shutdown();
     void recreatePipelines();
+    /// The two pipelines both initialize() and recreatePipelines() need.
+    void buildRibbonPipeline(VkDevice device,
+                             const VkPipelineShaderStageCreateInfo& vertStage,
+                             const VkPipelineShaderStageCreateInfo& fragStage);
+    void buildDustPipeline(VkDevice device,
+                           const VkPipelineShaderStageCreateInfo& vertStage,
+                           const VkPipelineShaderStageCreateInfo& fragStage);
 
     /// Try to load M2 spell models (Charge_Caster.m2, etc.)
     void tryLoadM2Models(M2Renderer* m2Renderer, pipeline::AssetManager* assets);

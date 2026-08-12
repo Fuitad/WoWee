@@ -18,32 +18,14 @@ Clouds::~Clouds() {
     shutdown();
 }
 
-bool Clouds::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout) {
-    LOG_INFO("Initializing cloud system (Vulkan)");
-
-    vkCtx_ = ctx;
-    VkDevice device = vkCtx_->getDevice();
-
-    // ------------------------------------------------------------------ shaders
-    auto shaders = loadShaderPair(device, "assets/shaders/clouds.vert.spv", "assets/shaders/clouds.frag.spv", "clouds");
-    if (!shaders) return false;
-    const auto& vertStage = shaders.vertStage;
-    const auto& fragStage = shaders.fragStage;
-
-    // ------------------------------------------------------------------ push constants
-    // Fragment-only push: 3 x vec4 = 48 bytes
-    VkPushConstantRange pushRange{};
-    pushRange.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-    pushRange.offset     = 0;
-    pushRange.size       = sizeof(CloudPush); // 48 bytes
-
-    // ------------------------------------------------------------------ pipeline layout
-    pipelineLayout_ = createPipelineLayout(device, {perFrameLayout}, {pushRange});
-    if (pipelineLayout_ == VK_NULL_HANDLE) {
-        LOG_ERROR("Failed to create clouds pipeline layout");
-        return false;
-    }
-
+/// Builds the one pipeline this effect draws with.
+///
+/// initialize() and recreatePipelines() both need it, described identically,
+/// and the vertex layout went with it: a stride and an attribute stated twice
+/// in one file are two chances to disagree about what a vertex is.
+void Clouds::buildPipeline(VkDevice device,
+                           const VkPipelineShaderStageCreateInfo& vertStage,
+                           const VkPipelineShaderStageCreateInfo& fragStage) {
     // ------------------------------------------------------------------ vertex input
     VkVertexInputBindingDescription binding{};
     binding.binding   = 0;
@@ -73,6 +55,36 @@ bool Clouds::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout) {
         .build(device, vkCtx_->getPipelineCache());
 
 
+}
+
+bool Clouds::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout) {
+    LOG_INFO("Initializing cloud system (Vulkan)");
+
+    vkCtx_ = ctx;
+    VkDevice device = vkCtx_->getDevice();
+
+    // ------------------------------------------------------------------ shaders
+    auto shaders = loadShaderPair(device, "assets/shaders/clouds.vert.spv", "assets/shaders/clouds.frag.spv", "clouds");
+    if (!shaders) return false;
+    const auto& vertStage = shaders.vertStage;
+    const auto& fragStage = shaders.fragStage;
+
+    // ------------------------------------------------------------------ push constants
+    // Fragment-only push: 3 x vec4 = 48 bytes
+    VkPushConstantRange pushRange{};
+    pushRange.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    pushRange.offset     = 0;
+    pushRange.size       = sizeof(CloudPush); // 48 bytes
+
+    // ------------------------------------------------------------------ pipeline layout
+    pipelineLayout_ = createPipelineLayout(device, {perFrameLayout}, {pushRange});
+    if (pipelineLayout_ == VK_NULL_HANDLE) {
+        LOG_ERROR("Failed to create clouds pipeline layout");
+        return false;
+    }
+
+    buildPipeline(device, vertStage, fragStage);
+
     if (pipeline_ == VK_NULL_HANDLE) {
         LOG_ERROR("Failed to create clouds pipeline");
         return false;
@@ -97,36 +109,7 @@ void Clouds::recreatePipelines() {
     const auto& vertStage = shaders.vertStage;
     const auto& fragStage = shaders.fragStage;
 
-    VkVertexInputBindingDescription binding{};
-    binding.binding   = 0;
-    binding.stride    = sizeof(glm::vec3);
-    binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-    VkVertexInputAttributeDescription posAttr{};
-    posAttr.location = 0;
-    posAttr.binding  = 0;
-    posAttr.format   = VK_FORMAT_R32G32B32_SFLOAT;
-    posAttr.offset   = 0;
-
-    std::vector<VkDynamicState> dynamicStates = viewportAndScissorDynamic();
-
-    pipeline_ = PipelineBuilder()
-        .setShaders(vertStage, fragStage)
-        .setVertexInput({binding}, {posAttr})
-        .setTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
-        .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
-        .setDepthTest(true, false, VK_COMPARE_OP_LESS_OR_EQUAL)
-        .setColorBlendAttachment(PipelineBuilder::blendAlpha())
-        .setMultisample(vkCtx_->getMsaaSamples())
-        .setLayout(pipelineLayout_)
-        .setRenderPass(vkCtx_->getImGuiRenderPass())
-        .setDynamicStates(dynamicStates)
-        .build(device, vkCtx_->getPipelineCache());
-
-
-    if (pipeline_ == VK_NULL_HANDLE) {
-        LOG_ERROR("Clouds::recreatePipelines: failed to create pipeline");
-    }
+    buildPipeline(device, vertStage, fragStage);
 }
 
 void Clouds::shutdown() {

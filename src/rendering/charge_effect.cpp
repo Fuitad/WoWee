@@ -31,11 +31,88 @@ static float randFloat(float lo, float hi) {
 ChargeEffect::ChargeEffect() = default;
 ChargeEffect::~ChargeEffect() { shutdown(); }
 
+/// The ribbon pipeline: the trail a charging unit leaves behind it.
+///
+/// initialize() and recreatePipelines() described this and the dust pipeline
+/// below identically, vertex layout included, so each was stated twice in one
+/// file. The layouts are the part worth having once: these are packed floats
+/// with no struct behind them, so a stride and an offset are all that say what
+/// a vertex is.
+void ChargeEffect::buildRibbonPipeline(VkDevice device,
+                                       const VkPipelineShaderStageCreateInfo& vertStage,
+                                       const VkPipelineShaderStageCreateInfo& fragStage) {
+    const std::vector<VkDynamicState> dynamicStates = viewportAndScissorDynamic();
+
+    // Vertex input: pos(vec3) + alpha(float) + heat(float) + height(float) = 6 floats, stride = 24 bytes
+    VkVertexInputBindingDescription binding{};
+    binding.binding = 0;
+    binding.stride = 6 * sizeof(float);
+    binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+    std::vector<VkVertexInputAttributeDescription> attrs(4);
+    // location 0: vec3 position
+    attrs[0].location = 0;
+    attrs[0].binding = 0;
+    attrs[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+    attrs[0].offset = 0;
+    // location 1: float alpha
+    attrs[1].location = 1;
+    attrs[1].binding = 0;
+    attrs[1].format = VK_FORMAT_R32_SFLOAT;
+    attrs[1].offset = 3 * sizeof(float);
+    // location 2: float heat
+    attrs[2].location = 2;
+    attrs[2].binding = 0;
+    attrs[2].format = VK_FORMAT_R32_SFLOAT;
+    attrs[2].offset = 4 * sizeof(float);
+    // location 3: float height
+    attrs[3].location = 3;
+    attrs[3].binding = 0;
+    attrs[3].format = VK_FORMAT_R32_SFLOAT;
+    attrs[3].offset = 5 * sizeof(float);
+
+    ribbonPipeline_ = PipelineBuilder()
+        .setShaders(vertStage, fragStage)
+        .setVertexInput({binding}, attrs)
+        .setTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP)
+        .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
+        .setDepthTest(true, false, VK_COMPARE_OP_LESS)
+        .setColorBlendAttachment(PipelineBuilder::blendAdditive())  // Additive blend for fiery glow
+        .setMultisample(vkCtx_->getMsaaSamples())
+        .setLayout(ribbonPipelineLayout_)
+        .setRenderPass(vkCtx_->getImGuiRenderPass())
+        .setDynamicStates(dynamicStates)
+        .build(device, vkCtx_->getPipelineCache());
+}
+
+/// The dust pipeline: the motes thrown up along the charge.
+void ChargeEffect::buildDustPipeline(VkDevice device,
+                                     const VkPipelineShaderStageCreateInfo& vertStage,
+                                     const VkPipelineShaderStageCreateInfo& fragStage) {
+    const std::vector<VkDynamicState> dynamicStates = viewportAndScissorDynamic();
+
+    // Vertex input: pos(vec3) + size(float) + alpha(float) = 5 floats, stride = 20 bytes
+    VkVertexInputBindingDescription binding = tightVertexBinding(5 * sizeof(float));
+    std::vector<VkVertexInputAttributeDescription> attrs = positionPlusTwoFloatsAttrs();
+
+    dustPipeline_ = PipelineBuilder()
+        .setShaders(vertStage, fragStage)
+        .setVertexInput({binding}, attrs)
+        .setTopology(VK_PRIMITIVE_TOPOLOGY_POINT_LIST)
+        .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
+        .setDepthTest(true, false, VK_COMPARE_OP_LESS)
+        .setColorBlendAttachment(PipelineBuilder::blendAlpha())
+        .setMultisample(vkCtx_->getMsaaSamples())
+        .setLayout(dustPipelineLayout_)
+        .setRenderPass(vkCtx_->getImGuiRenderPass())
+        .setDynamicStates(dynamicStates)
+        .build(device, vkCtx_->getPipelineCache());
+}
+
 bool ChargeEffect::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout) {
     vkCtx_ = ctx;
     VkDevice device = vkCtx_->getDevice();
 
-    std::vector<VkDynamicState> dynamicStates = viewportAndScissorDynamic();
 
     // ---- Ribbon trail pipeline (TRIANGLE_STRIP) ----
     {
@@ -50,46 +127,7 @@ bool ChargeEffect::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayo
             return false;
         }
 
-        // Vertex input: pos(vec3) + alpha(float) + heat(float) + height(float) = 6 floats, stride = 24 bytes
-        VkVertexInputBindingDescription binding{};
-        binding.binding = 0;
-        binding.stride = 6 * sizeof(float);
-        binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-        std::vector<VkVertexInputAttributeDescription> attrs(4);
-        // location 0: vec3 position
-        attrs[0].location = 0;
-        attrs[0].binding = 0;
-        attrs[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-        attrs[0].offset = 0;
-        // location 1: float alpha
-        attrs[1].location = 1;
-        attrs[1].binding = 0;
-        attrs[1].format = VK_FORMAT_R32_SFLOAT;
-        attrs[1].offset = 3 * sizeof(float);
-        // location 2: float heat
-        attrs[2].location = 2;
-        attrs[2].binding = 0;
-        attrs[2].format = VK_FORMAT_R32_SFLOAT;
-        attrs[2].offset = 4 * sizeof(float);
-        // location 3: float height
-        attrs[3].location = 3;
-        attrs[3].binding = 0;
-        attrs[3].format = VK_FORMAT_R32_SFLOAT;
-        attrs[3].offset = 5 * sizeof(float);
-
-        ribbonPipeline_ = PipelineBuilder()
-            .setShaders(vertStage, fragStage)
-            .setVertexInput({binding}, attrs)
-            .setTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP)
-            .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
-            .setDepthTest(true, false, VK_COMPARE_OP_LESS)
-            .setColorBlendAttachment(PipelineBuilder::blendAdditive())  // Additive blend for fiery glow
-            .setMultisample(vkCtx_->getMsaaSamples())
-            .setLayout(ribbonPipelineLayout_)
-            .setRenderPass(vkCtx_->getImGuiRenderPass())
-            .setDynamicStates(dynamicStates)
-            .build(device, vkCtx_->getPipelineCache());
+        buildRibbonPipeline(device, vertStage, fragStage);
 
 
         if (ribbonPipeline_ == VK_NULL_HANDLE) {
@@ -111,22 +149,7 @@ bool ChargeEffect::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayo
             return false;
         }
 
-        // Vertex input: pos(vec3) + size(float) + alpha(float) = 5 floats, stride = 20 bytes
-        VkVertexInputBindingDescription binding = tightVertexBinding(5 * sizeof(float));
-        std::vector<VkVertexInputAttributeDescription> attrs = positionPlusTwoFloatsAttrs();
-
-        dustPipeline_ = PipelineBuilder()
-            .setShaders(vertStage, fragStage)
-            .setVertexInput({binding}, attrs)
-            .setTopology(VK_PRIMITIVE_TOPOLOGY_POINT_LIST)
-            .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
-            .setDepthTest(true, false, VK_COMPARE_OP_LESS)
-            .setColorBlendAttachment(PipelineBuilder::blendAlpha())
-            .setMultisample(vkCtx_->getMsaaSamples())
-            .setLayout(dustPipelineLayout_)
-            .setRenderPass(vkCtx_->getImGuiRenderPass())
-            .setDynamicStates(dynamicStates)
-            .build(device, vkCtx_->getPipelineCache());
+        buildDustPipeline(device, vertStage, fragStage);
 
 
         if (dustPipeline_ == VK_NULL_HANDLE) {
@@ -198,7 +221,6 @@ void ChargeEffect::recreatePipelines() {
     destroy(device, ribbonPipeline_);
     destroy(device, dustPipeline_);
 
-    std::vector<VkDynamicState> dynamicStates = viewportAndScissorDynamic();
 
     // ---- Rebuild ribbon trail pipeline (TRIANGLE_STRIP) ----
     {
@@ -207,41 +229,7 @@ void ChargeEffect::recreatePipelines() {
         const auto& vertStage = shaders.vertStage;
         const auto& fragStage = shaders.fragStage;
 
-        VkVertexInputBindingDescription binding{};
-        binding.binding = 0;
-        binding.stride = 6 * sizeof(float);
-        binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-        std::vector<VkVertexInputAttributeDescription> attrs(4);
-        attrs[0].location = 0;
-        attrs[0].binding = 0;
-        attrs[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-        attrs[0].offset = 0;
-        attrs[1].location = 1;
-        attrs[1].binding = 0;
-        attrs[1].format = VK_FORMAT_R32_SFLOAT;
-        attrs[1].offset = 3 * sizeof(float);
-        attrs[2].location = 2;
-        attrs[2].binding = 0;
-        attrs[2].format = VK_FORMAT_R32_SFLOAT;
-        attrs[2].offset = 4 * sizeof(float);
-        attrs[3].location = 3;
-        attrs[3].binding = 0;
-        attrs[3].format = VK_FORMAT_R32_SFLOAT;
-        attrs[3].offset = 5 * sizeof(float);
-
-        ribbonPipeline_ = PipelineBuilder()
-            .setShaders(vertStage, fragStage)
-            .setVertexInput({binding}, attrs)
-            .setTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP)
-            .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
-            .setDepthTest(true, false, VK_COMPARE_OP_LESS)
-            .setColorBlendAttachment(PipelineBuilder::blendAdditive())
-            .setMultisample(vkCtx_->getMsaaSamples())
-            .setLayout(ribbonPipelineLayout_)
-            .setRenderPass(vkCtx_->getImGuiRenderPass())
-            .setDynamicStates(dynamicStates)
-            .build(device, vkCtx_->getPipelineCache());
+        buildRibbonPipeline(device, vertStage, fragStage);
 
     }
 
@@ -252,21 +240,7 @@ void ChargeEffect::recreatePipelines() {
         const auto& vertStage = shaders.vertStage;
         const auto& fragStage = shaders.fragStage;
 
-        VkVertexInputBindingDescription binding = tightVertexBinding(5 * sizeof(float));
-        std::vector<VkVertexInputAttributeDescription> attrs = positionPlusTwoFloatsAttrs();
-
-        dustPipeline_ = PipelineBuilder()
-            .setShaders(vertStage, fragStage)
-            .setVertexInput({binding}, attrs)
-            .setTopology(VK_PRIMITIVE_TOPOLOGY_POINT_LIST)
-            .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
-            .setDepthTest(true, false, VK_COMPARE_OP_LESS)
-            .setColorBlendAttachment(PipelineBuilder::blendAlpha())
-            .setMultisample(vkCtx_->getMsaaSamples())
-            .setLayout(dustPipelineLayout_)
-            .setRenderPass(vkCtx_->getImGuiRenderPass())
-            .setDynamicStates(dynamicStates)
-            .build(device, vkCtx_->getPipelineCache());
+        buildDustPipeline(device, vertStage, fragStage);
 
     }
 }

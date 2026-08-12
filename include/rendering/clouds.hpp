@@ -29,6 +29,10 @@ public:
     bool initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout);
     void shutdown();
     void recreatePipelines();
+    /// The pipeline both initialize() and recreatePipelines() need.
+    void buildPipeline(VkDevice device,
+                       const VkPipelineShaderStageCreateInfo& vertStage,
+                       const VkPipelineShaderStageCreateInfo& fragStage);
 
     /**
      * Render clouds using DBC-driven colors and sun lighting.

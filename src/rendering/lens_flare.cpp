@@ -18,6 +18,48 @@ LensFlare::~LensFlare() {
     shutdown();
 }
 
+/// Builds the one pipeline this effect draws with, vertex layout and all.
+///
+/// initialize() and recreatePipelines() described it identically, which is
+/// two statements of what a flare vertex is in one file.
+void LensFlare::buildPipelines(VkDevice device,
+                               const VkPipelineShaderStageCreateInfo& vertStage,
+                               const VkPipelineShaderStageCreateInfo& fragStage) {
+    VkVertexInputBindingDescription binding{};
+    binding.binding = 0;
+    binding.stride = 4 * sizeof(float);
+    binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+    VkVertexInputAttributeDescription posAttr{};
+    posAttr.location = 0;
+    posAttr.binding = 0;
+    posAttr.format = VK_FORMAT_R32G32_SFLOAT;
+    posAttr.offset = 0;
+
+    VkVertexInputAttributeDescription uvAttr{};
+    uvAttr.location = 1;
+    uvAttr.binding = 0;
+    uvAttr.format = VK_FORMAT_R32G32_SFLOAT;
+    uvAttr.offset = 2 * sizeof(float);
+
+    // Dynamic viewport and scissor
+    std::vector<VkDynamicState> dynamicStates = viewportAndScissorDynamic();
+
+    pipeline = PipelineBuilder()
+        .setShaders(vertStage, fragStage)
+        .setVertexInput({binding}, {posAttr, uvAttr})
+        .setTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
+        .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
+        .setNoDepthTest()
+        .setColorBlendAttachment(PipelineBuilder::blendAdditive())
+        .setMultisample(vkCtx->getMsaaSamples())
+        .setLayout(pipelineLayout)
+        .setRenderPass(vkCtx->getImGuiRenderPass())
+        .setDynamicStates(dynamicStates)
+        .build(device, vkCtx->getPipelineCache());
+
+}
+
 bool LensFlare::initialize(VkContext* ctx, VkDescriptorSetLayout /*perFrameLayout*/) {
     LOG_INFO("Initializing lens flare system");
 
@@ -65,38 +107,7 @@ bool LensFlare::initialize(VkContext* ctx, VkDescriptorSetLayout /*perFrameLayou
     }
 
     // Vertex input: pos2 + uv2, stride = 4 * sizeof(float)
-    VkVertexInputBindingDescription binding{};
-    binding.binding = 0;
-    binding.stride = 4 * sizeof(float);
-    binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-    VkVertexInputAttributeDescription posAttr{};
-    posAttr.location = 0;
-    posAttr.binding = 0;
-    posAttr.format = VK_FORMAT_R32G32_SFLOAT;
-    posAttr.offset = 0;
-
-    VkVertexInputAttributeDescription uvAttr{};
-    uvAttr.location = 1;
-    uvAttr.binding = 0;
-    uvAttr.format = VK_FORMAT_R32G32_SFLOAT;
-    uvAttr.offset = 2 * sizeof(float);
-
-    // Dynamic viewport and scissor
-    std::vector<VkDynamicState> dynamicStates = viewportAndScissorDynamic();
-
-    pipeline = PipelineBuilder()
-        .setShaders(vertStage, fragStage)
-        .setVertexInput({binding}, {posAttr, uvAttr})
-        .setTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
-        .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
-        .setNoDepthTest()
-        .setColorBlendAttachment(PipelineBuilder::blendAdditive())
-        .setMultisample(vkCtx->getMsaaSamples())
-        .setLayout(pipelineLayout)
-        .setRenderPass(vkCtx->getImGuiRenderPass())
-        .setDynamicStates(dynamicStates)
-        .build(device, vkCtx->getPipelineCache());
+    buildPipelines(device, vertStage, fragStage);
 
     // Shader modules can be freed after pipeline creation
 
@@ -134,38 +145,7 @@ void LensFlare::recreatePipelines() {
     const auto& vertStage = shaders.vertStage;
     const auto& fragStage = shaders.fragStage;
 
-    VkVertexInputBindingDescription binding{};
-    binding.binding = 0;
-    binding.stride = 4 * sizeof(float);
-    binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-    VkVertexInputAttributeDescription posAttr{};
-    posAttr.location = 0;
-    posAttr.binding = 0;
-    posAttr.format = VK_FORMAT_R32G32_SFLOAT;
-    posAttr.offset = 0;
-
-    VkVertexInputAttributeDescription uvAttr{};
-    uvAttr.location = 1;
-    uvAttr.binding = 0;
-    uvAttr.format = VK_FORMAT_R32G32_SFLOAT;
-    uvAttr.offset = 2 * sizeof(float);
-
-    std::vector<VkDynamicState> dynamicStates = viewportAndScissorDynamic();
-
-    pipeline = PipelineBuilder()
-        .setShaders(vertStage, fragStage)
-        .setVertexInput({binding}, {posAttr, uvAttr})
-        .setTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
-        .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
-        .setNoDepthTest()
-        .setColorBlendAttachment(PipelineBuilder::blendAdditive())
-        .setMultisample(vkCtx->getMsaaSamples())
-        .setLayout(pipelineLayout)
-        .setRenderPass(vkCtx->getImGuiRenderPass())
-        .setDynamicStates(dynamicStates)
-        .build(device, vkCtx->getPipelineCache());
-
+    buildPipelines(device, vertStage, fragStage);
 }
 
 void LensFlare::generateFlareElements() {
