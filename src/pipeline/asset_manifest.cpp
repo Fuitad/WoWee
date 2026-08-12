@@ -20,6 +20,16 @@ namespace {
 ///
 /// so a small state machine over the parser's callbacks fills the map directly
 /// and never allocates a node for anything.
+///
+/// Measured with the loader's own timing, ten interleaved runs of each build
+/// against the same file: 444ms for the document version, 284ms for this one.
+/// Reading the whole file into a buffer first and parsing over that was also
+/// tried and is 279ms, which is inside the run-to-run spread and costs a 32 MB
+/// transient allocation, so it was not kept.
+///
+/// Do not measure this by perf's children percentage. That said the document
+/// version was 12.28% and this one 9.97%, which is attribution moving rather
+/// than work going away, and it is off by a factor of three against the clock.
 struct ManifestSax {
     using string_t = nlohmann::json::string_t;
 
