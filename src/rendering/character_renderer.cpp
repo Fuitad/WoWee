@@ -266,6 +266,64 @@ CharacterRenderer::~CharacterRenderer() {
     shutdown();
 }
 
+/// Builds the five main-pass pipelines from an already-loaded shader pair.
+///
+/// initialize() and recreatePipelines() both need exactly these five, blend
+/// state apart, and each described the vertex layout and the builder for
+/// itself. The layout is the part worth having once: the bone weights and
+/// indices are packed bytes, so a description that drifts from the struct
+/// feeds the skinning garbage rather than failing to build.
+void CharacterRenderer::buildMainPassPipelines(VkDevice device, VkRenderPass mainPass,
+                                               VkSampleCountFlagBits samples,
+                                               wowee::rendering::VkShaderModule& charVert,
+                                               wowee::rendering::VkShaderModule& charFrag) {
+    // --- Vertex input ---
+    // CharVertexGPU: vec3 pos(12) + uint8[4] boneWeights(4) + uint8[4] boneIndices(4) +
+    //               vec3 normal(12) + vec2 texCoords(8) + vec4 tangent(16) = 56 bytes
+    VkVertexInputBindingDescription charBinding{};
+    charBinding.binding = 0;
+    charBinding.stride = sizeof(CharVertexGPU);
+    charBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+    std::vector<VkVertexInputAttributeDescription> charAttrs = {
+        {0, 0, VK_FORMAT_R32G32B32_SFLOAT, static_cast<uint32_t>(offsetof(CharVertexGPU, position))},
+        {1, 0, VK_FORMAT_R8G8B8A8_UNORM,   static_cast<uint32_t>(offsetof(CharVertexGPU, boneWeights))},
+        {2, 0, VK_FORMAT_R8G8B8A8_UINT,     static_cast<uint32_t>(offsetof(CharVertexGPU, boneIndices))},
+        {3, 0, VK_FORMAT_R32G32B32_SFLOAT,  static_cast<uint32_t>(offsetof(CharVertexGPU, normal))},
+        {4, 0, VK_FORMAT_R32G32_SFLOAT,     static_cast<uint32_t>(offsetof(CharVertexGPU, texCoords))},
+        {5, 0, VK_FORMAT_R32G32B32A32_SFLOAT, static_cast<uint32_t>(offsetof(CharVertexGPU, tangent))},
+    };
+
+    // --- Build pipelines ---
+    auto buildCharPipeline = [&](VkPipelineColorBlendAttachmentState blendState,
+                                  bool depthWrite, bool alphaToCoverage = false) -> VkPipeline {
+        auto builder = PipelineBuilder()
+            .setShaders(charVert.stageInfo(VK_SHADER_STAGE_VERTEX_BIT),
+                        charFrag.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT))
+            .setVertexInput({charBinding}, charAttrs)
+            .setTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
+            .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
+            .setDepthTest(true, depthWrite, VK_COMPARE_OP_LESS)
+            .setDepthBias(0.0f, 0.0f)
+            .setColorBlendAttachment(blendState)
+            .setMultisample(samples);
+        if (alphaToCoverage)
+            builder.setAlphaToCoverage(true);
+        return builder
+            .setLayout(pipelineLayout_)
+            .setRenderPass(mainPass)
+            .setDynamicStates({VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR, VK_DYNAMIC_STATE_DEPTH_BIAS})
+            .build(device, vkCtx_->getPipelineCache());
+    };
+
+    opaquePipeline_ = buildCharPipeline(PipelineBuilder::blendDisabled(), true);
+    alphaTestPipeline_ = buildCharPipeline(PipelineBuilder::blendDisabled(), true, true);
+    alphaPipeline_ = buildCharPipeline(PipelineBuilder::blendAlpha(), false);
+    additivePipeline_ = buildCharPipeline(PipelineBuilder::blendAdditive(), false);
+    translucentPipeline_ = buildCharPipeline(PipelineBuilder::blendAlpha(), true);
+
+}
+
 bool CharacterRenderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout,
                                     pipeline::AssetManager* am,
                                     VkRenderPass renderPassOverride,
@@ -404,50 +462,7 @@ bool CharacterRenderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFram
     VkRenderPass mainPass = renderPassOverride_ ? renderPassOverride_ : vkCtx_->getImGuiRenderPass();
     VkSampleCountFlagBits samples = renderPassOverride_ ? msaaSamplesOverride_ : vkCtx_->getMsaaSamples();
 
-    // --- Vertex input ---
-    // CharVertexGPU: vec3 pos(12) + uint8[4] boneWeights(4) + uint8[4] boneIndices(4) +
-    //               vec3 normal(12) + vec2 texCoords(8) + vec4 tangent(16) = 56 bytes
-    VkVertexInputBindingDescription charBinding{};
-    charBinding.binding = 0;
-    charBinding.stride = sizeof(CharVertexGPU);
-    charBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-    std::vector<VkVertexInputAttributeDescription> charAttrs = {
-        {0, 0, VK_FORMAT_R32G32B32_SFLOAT, static_cast<uint32_t>(offsetof(CharVertexGPU, position))},
-        {1, 0, VK_FORMAT_R8G8B8A8_UNORM,   static_cast<uint32_t>(offsetof(CharVertexGPU, boneWeights))},
-        {2, 0, VK_FORMAT_R8G8B8A8_UINT,     static_cast<uint32_t>(offsetof(CharVertexGPU, boneIndices))},
-        {3, 0, VK_FORMAT_R32G32B32_SFLOAT,  static_cast<uint32_t>(offsetof(CharVertexGPU, normal))},
-        {4, 0, VK_FORMAT_R32G32_SFLOAT,     static_cast<uint32_t>(offsetof(CharVertexGPU, texCoords))},
-        {5, 0, VK_FORMAT_R32G32B32A32_SFLOAT, static_cast<uint32_t>(offsetof(CharVertexGPU, tangent))},
-    };
-
-    // --- Build pipelines ---
-    auto buildCharPipeline = [&](VkPipelineColorBlendAttachmentState blendState,
-                                  bool depthWrite, bool alphaToCoverage = false) -> VkPipeline {
-        auto builder = PipelineBuilder()
-            .setShaders(charVert.stageInfo(VK_SHADER_STAGE_VERTEX_BIT),
-                        charFrag.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT))
-            .setVertexInput({charBinding}, charAttrs)
-            .setTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
-            .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
-            .setDepthTest(true, depthWrite, VK_COMPARE_OP_LESS)
-            .setDepthBias(0.0f, 0.0f)
-            .setColorBlendAttachment(blendState)
-            .setMultisample(samples);
-        if (alphaToCoverage)
-            builder.setAlphaToCoverage(true);
-        return builder
-            .setLayout(pipelineLayout_)
-            .setRenderPass(mainPass)
-            .setDynamicStates({VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR, VK_DYNAMIC_STATE_DEPTH_BIAS})
-            .build(device, vkCtx_->getPipelineCache());
-    };
-
-    opaquePipeline_ = buildCharPipeline(PipelineBuilder::blendDisabled(), true);
-    alphaTestPipeline_ = buildCharPipeline(PipelineBuilder::blendDisabled(), true, true);
-    alphaPipeline_ = buildCharPipeline(PipelineBuilder::blendAlpha(), false);
-    additivePipeline_ = buildCharPipeline(PipelineBuilder::blendAdditive(), false);
-    translucentPipeline_ = buildCharPipeline(PipelineBuilder::blendAlpha(), true);
+    buildMainPassPipelines(device, mainPass, samples, charVert, charFrag);
 
     // Clean up shader modules
     charVert.destroy();
@@ -4071,51 +4086,11 @@ void CharacterRenderer::recreatePipelines() {
     VkRenderPass mainPass = renderPassOverride_ ? renderPassOverride_ : vkCtx_->getImGuiRenderPass();
     VkSampleCountFlagBits samples = renderPassOverride_ ? msaaSamplesOverride_ : vkCtx_->getMsaaSamples();
 
-    // --- Vertex input ---
-    VkVertexInputBindingDescription charBinding{};
-    charBinding.binding = 0;
-    charBinding.stride = sizeof(CharVertexGPU);
-    charBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-    std::vector<VkVertexInputAttributeDescription> charAttrs = {
-        {0, 0, VK_FORMAT_R32G32B32_SFLOAT, static_cast<uint32_t>(offsetof(CharVertexGPU, position))},
-        {1, 0, VK_FORMAT_R8G8B8A8_UNORM,   static_cast<uint32_t>(offsetof(CharVertexGPU, boneWeights))},
-        {2, 0, VK_FORMAT_R8G8B8A8_UINT,     static_cast<uint32_t>(offsetof(CharVertexGPU, boneIndices))},
-        {3, 0, VK_FORMAT_R32G32B32_SFLOAT,  static_cast<uint32_t>(offsetof(CharVertexGPU, normal))},
-        {4, 0, VK_FORMAT_R32G32_SFLOAT,     static_cast<uint32_t>(offsetof(CharVertexGPU, texCoords))},
-        {5, 0, VK_FORMAT_R32G32B32A32_SFLOAT, static_cast<uint32_t>(offsetof(CharVertexGPU, tangent))},
-    };
-
-    auto buildCharPipeline = [&](VkPipelineColorBlendAttachmentState blendState,
-                                  bool depthWrite, bool alphaToCoverage = false) -> VkPipeline {
-        auto builder = PipelineBuilder()
-            .setShaders(charVert.stageInfo(VK_SHADER_STAGE_VERTEX_BIT),
-                        charFrag.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT))
-            .setVertexInput({charBinding}, charAttrs)
-            .setTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
-            .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
-            .setDepthTest(true, depthWrite, VK_COMPARE_OP_LESS)
-            .setDepthBias(0.0f, 0.0f)
-            .setColorBlendAttachment(blendState)
-            .setMultisample(samples);
-        if (alphaToCoverage)
-            builder.setAlphaToCoverage(true);
-        return builder
-            .setLayout(pipelineLayout_)
-            .setRenderPass(mainPass)
-            .setDynamicStates({VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR, VK_DYNAMIC_STATE_DEPTH_BIAS})
-            .build(device, vkCtx_->getPipelineCache());
-    };
-
     LOG_INFO("CharacterRenderer::recreatePipelines: renderPass=", (void*)mainPass,
              " samples=", static_cast<int>(samples),
              " pipelineLayout=", (void*)pipelineLayout_);
 
-    opaquePipeline_ = buildCharPipeline(PipelineBuilder::blendDisabled(), true);
-    alphaTestPipeline_ = buildCharPipeline(PipelineBuilder::blendDisabled(), true, true);
-    alphaPipeline_ = buildCharPipeline(PipelineBuilder::blendAlpha(), false);
-    additivePipeline_ = buildCharPipeline(PipelineBuilder::blendAdditive(), false);
-    translucentPipeline_ = buildCharPipeline(PipelineBuilder::blendAlpha(), true);
+    buildMainPassPipelines(device, mainPass, samples, charVert, charFrag);
 
     charVert.destroy();
     charFrag.destroy();

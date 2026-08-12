@@ -1,5 +1,6 @@
 #pragma once
 
+#include "rendering/vk_shader.hpp"
 #include "rendering/shadow_params.hpp"
 
 #include "pipeline/m2_loader.hpp"
@@ -88,6 +89,12 @@ public:
     void prepareRender(uint32_t frameIndex);
     void render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const Camera& camera);
     void recreatePipelines();
+    /// The five main-pass pipelines, which initialize() and
+    /// recreatePipelines() both need and each used to describe.
+    void buildMainPassPipelines(VkDevice device, VkRenderPass mainPass,
+                                VkSampleCountFlagBits samples,
+                                wowee::rendering::VkShaderModule& charVert,
+                                wowee::rendering::VkShaderModule& charFrag);
     [[nodiscard]] bool initializeShadow(VkRenderPass shadowRenderPass);
     void renderShadow(VkCommandBuffer cmd, const glm::mat4& lightSpaceMatrix,
                       const glm::vec3& shadowCenter = glm::vec3(0), float shadowRadius = 1e9f);

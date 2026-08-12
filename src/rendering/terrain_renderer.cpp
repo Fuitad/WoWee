@@ -36,6 +36,69 @@ TerrainRenderer::~TerrainRenderer() {
     shutdown();
 }
 
+/// Builds the fill pipeline and its wireframe derivative from a loaded shader
+/// pair.
+///
+/// initialize() and recreatePipelines() both need exactly these two in exactly
+/// these states, and each described both for itself. Answers whether the fill
+/// pipeline built; the wireframe is a debug view, so its absence is a warning
+/// rather than a failure. Destroying the shader modules is left to the caller,
+/// which loaded them.
+bool TerrainRenderer::buildMainPassPipelines(VkDevice device,
+                                             wowee::rendering::VkShaderModule& vertShader,
+                                             wowee::rendering::VkShaderModule& fragShader) {
+    VkVertexInputBindingDescription vertexBinding{};
+    vertexBinding = perVertexBinding(sizeof(pipeline::TerrainVertex));
+    const std::vector<VkVertexInputAttributeDescription> vertexAttribs =
+        toVkAttributes(kTerrainVertexAttributes);
+
+    // --- Build fill pipeline (base for derivatives - shared state optimization) ---
+    VkRenderPass mainPass = vkCtx->getImGuiRenderPass();
+
+    pipeline = PipelineBuilder()
+        .setShaders(vertShader.stageInfo(VK_SHADER_STAGE_VERTEX_BIT),
+                    fragShader.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT))
+        .setVertexInput({ vertexBinding }, vertexAttribs)
+        .setTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
+        .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
+        .setDepthTest(true, true, VK_COMPARE_OP_LESS_OR_EQUAL)
+        .setColorBlendAttachment(PipelineBuilder::blendDisabled())
+        .setMultisample(vkCtx->getMsaaSamples())
+        .setLayout(pipelineLayout)
+        .setRenderPass(mainPass)
+        .setDynamicStates(viewportAndScissorDynamic())
+        .setFlags(VK_PIPELINE_CREATE_ALLOW_DERIVATIVES_BIT)
+        .build(device, vkCtx->getPipelineCache());
+
+    if (!pipeline) {
+        LOG_ERROR("TerrainRenderer: failed to create fill pipeline");
+        return false;
+    }
+
+    // --- Build wireframe pipeline (derivative of fill) ---
+    wireframePipeline = PipelineBuilder()
+        .setShaders(vertShader.stageInfo(VK_SHADER_STAGE_VERTEX_BIT),
+                    fragShader.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT))
+        .setVertexInput({ vertexBinding }, vertexAttribs)
+        .setTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
+        .setRasterization(VK_POLYGON_MODE_LINE, VK_CULL_MODE_NONE)
+        .setDepthTest(true, true, VK_COMPARE_OP_LESS_OR_EQUAL)
+        .setColorBlendAttachment(PipelineBuilder::blendDisabled())
+        .setMultisample(vkCtx->getMsaaSamples())
+        .setLayout(pipelineLayout)
+        .setRenderPass(mainPass)
+        .setDynamicStates(viewportAndScissorDynamic())
+        .setFlags(VK_PIPELINE_CREATE_DERIVATIVE_BIT)
+        .setBasePipeline(pipeline)
+        .build(device, vkCtx->getPipelineCache());
+
+    if (!wireframePipeline) {
+        LOG_WARNING("TerrainRenderer: wireframe pipeline not available");
+    }
+
+    return true;
+}
+
 bool TerrainRenderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout,
                                   pipeline::AssetManager* assets) {
     vkCtx = ctx;
@@ -115,55 +178,10 @@ bool TerrainRenderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameL
     }
 
     // --- Vertex input ---
-    VkVertexInputBindingDescription vertexBinding{};
-    vertexBinding = perVertexBinding(sizeof(pipeline::TerrainVertex));
-    const std::vector<VkVertexInputAttributeDescription> vertexAttribs =
-        toVkAttributes(kTerrainVertexAttributes);
-
-    // --- Build fill pipeline (base for derivatives - shared state optimization) ---
-    VkRenderPass mainPass = vkCtx->getImGuiRenderPass();
-
-    pipeline = PipelineBuilder()
-        .setShaders(vertShader.stageInfo(VK_SHADER_STAGE_VERTEX_BIT),
-                    fragShader.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT))
-        .setVertexInput({ vertexBinding }, vertexAttribs)
-        .setTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
-        .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
-        .setDepthTest(true, true, VK_COMPARE_OP_LESS_OR_EQUAL)
-        .setColorBlendAttachment(PipelineBuilder::blendDisabled())
-        .setMultisample(vkCtx->getMsaaSamples())
-        .setLayout(pipelineLayout)
-        .setRenderPass(mainPass)
-        .setDynamicStates(viewportAndScissorDynamic())
-        .setFlags(VK_PIPELINE_CREATE_ALLOW_DERIVATIVES_BIT)
-        .build(device, vkCtx->getPipelineCache());
-
-    if (!pipeline) {
-        LOG_ERROR("TerrainRenderer: failed to create fill pipeline");
+    if (!buildMainPassPipelines(device, vertShader, fragShader)) {
         vertShader.destroy();
         fragShader.destroy();
         return false;
-    }
-
-    // --- Build wireframe pipeline (derivative of fill) ---
-    wireframePipeline = PipelineBuilder()
-        .setShaders(vertShader.stageInfo(VK_SHADER_STAGE_VERTEX_BIT),
-                    fragShader.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT))
-        .setVertexInput({ vertexBinding }, vertexAttribs)
-        .setTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
-        .setRasterization(VK_POLYGON_MODE_LINE, VK_CULL_MODE_NONE)
-        .setDepthTest(true, true, VK_COMPARE_OP_LESS_OR_EQUAL)
-        .setColorBlendAttachment(PipelineBuilder::blendDisabled())
-        .setMultisample(vkCtx->getMsaaSamples())
-        .setLayout(pipelineLayout)
-        .setRenderPass(mainPass)
-        .setDynamicStates(viewportAndScissorDynamic())
-        .setFlags(VK_PIPELINE_CREATE_DERIVATIVE_BIT)
-        .setBasePipeline(pipeline)
-        .build(device, vkCtx->getPipelineCache());
-
-    if (!wireframePipeline) {
-        LOG_WARNING("TerrainRenderer: wireframe pipeline not available");
     }
 
     vertShader.destroy();
@@ -267,54 +285,7 @@ void TerrainRenderer::recreatePipelines() {
         return;
     }
 
-    // Vertex input (same as initialize)
-    VkVertexInputBindingDescription vertexBinding{};
-    vertexBinding = perVertexBinding(sizeof(pipeline::TerrainVertex));
-    const std::vector<VkVertexInputAttributeDescription> vertexAttribs =
-        toVkAttributes(kTerrainVertexAttributes);
-
-    VkRenderPass mainPass = vkCtx->getImGuiRenderPass();
-
-    // Rebuild fill pipeline (base for derivatives - shared state optimization)
-    pipeline = PipelineBuilder()
-        .setShaders(vertShader.stageInfo(VK_SHADER_STAGE_VERTEX_BIT),
-                    fragShader.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT))
-        .setVertexInput({ vertexBinding }, vertexAttribs)
-        .setTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
-        .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
-        .setDepthTest(true, true, VK_COMPARE_OP_LESS_OR_EQUAL)
-        .setColorBlendAttachment(PipelineBuilder::blendDisabled())
-        .setMultisample(vkCtx->getMsaaSamples())
-        .setLayout(pipelineLayout)
-        .setRenderPass(mainPass)
-        .setDynamicStates(viewportAndScissorDynamic())
-        .setFlags(VK_PIPELINE_CREATE_ALLOW_DERIVATIVES_BIT)
-        .build(device, vkCtx->getPipelineCache());
-
-    if (!pipeline) {
-        LOG_ERROR("TerrainRenderer::recreatePipelines: failed to create fill pipeline");
-    }
-
-    // Rebuild wireframe pipeline (derivative of fill)
-    wireframePipeline = PipelineBuilder()
-        .setShaders(vertShader.stageInfo(VK_SHADER_STAGE_VERTEX_BIT),
-                    fragShader.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT))
-        .setVertexInput({ vertexBinding }, vertexAttribs)
-        .setTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
-        .setRasterization(VK_POLYGON_MODE_LINE, VK_CULL_MODE_NONE)
-        .setDepthTest(true, true, VK_COMPARE_OP_LESS_OR_EQUAL)
-        .setColorBlendAttachment(PipelineBuilder::blendDisabled())
-        .setMultisample(vkCtx->getMsaaSamples())
-        .setLayout(pipelineLayout)
-        .setRenderPass(mainPass)
-        .setDynamicStates(viewportAndScissorDynamic())
-        .setFlags(VK_PIPELINE_CREATE_DERIVATIVE_BIT)
-        .setBasePipeline(pipeline)
-        .build(device, vkCtx->getPipelineCache());
-
-    if (!wireframePipeline) {
-        LOG_WARNING("TerrainRenderer::recreatePipelines: wireframe pipeline not available");
-    }
+    buildMainPassPipelines(device, vertShader, fragShader);
 
     vertShader.destroy();
     fragShader.destroy();

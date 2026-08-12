@@ -1,5 +1,6 @@
 #pragma once
 
+#include "rendering/vk_shader.hpp"
 #include "rendering/shadow_params.hpp"
 
 #include "pipeline/terrain_mesh.hpp"
@@ -134,6 +135,11 @@ public:
     void clear();
 
     void recreatePipelines();
+    /// The fill pipeline and its wireframe derivative, which
+    /// initialize() and recreatePipelines() both need.
+    bool buildMainPassPipelines(VkDevice device,
+                                wowee::rendering::VkShaderModule& vertShader,
+                                wowee::rendering::VkShaderModule& fragShader);
 
     void setWireframe(bool enabled) { wireframe = enabled; }
     void setFrustumCulling(bool enabled) { frustumCullingEnabled = enabled; }
