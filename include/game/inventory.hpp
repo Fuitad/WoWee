@@ -287,6 +287,32 @@ public:
         uint8_t dstSlot;
     };
 
+    /// One slot as a sort sees it: where it is on the wire, and enough of what
+    /// is in it to order it.
+    struct SortEntry {
+        uint8_t bag;
+        uint8_t slot;
+        uint32_t itemId;
+        ItemQuality quality;
+        uint32_t stackCount;
+    };
+
+    /// The swaps that put a run of slots into sorted order.
+    ///
+    /// Bags, the main bank and a single bank bag each planned this for
+    /// themselves, and the plan is the half that is hard: ordering the entries
+    /// is a comparator, but turning a target permutation into a sequence of
+    /// two-slot swaps that a server will accept one at a time is not, and a
+    /// mistake there moves an item somewhere nobody asked for.
+    ///
+    /// Order is quality descending, then item id ascending, then stack count
+    /// descending, with empty slots last. Ties keep their existing order, so
+    /// two identical stacks are not swapped for nothing.
+    ///
+    /// Two empty slots are never swapped with each other: that costs a packet
+    /// and changes nothing.
+    static std::vector<SwapOp> swapsToSort(const std::vector<SortEntry>& entries);
+
     // Pour partial stacks of the same item together, so two half stacks become
     // one. Dropping a stack onto another of the same item is a swap as far as the
     // wire is concerned - the server merges what fits and leaves the rest behind -
