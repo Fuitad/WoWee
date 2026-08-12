@@ -19,7 +19,6 @@ this client fires - the lens the main list needed - none is a duplicate:
     0 for every entry, which is what keeps worldstateframe.lua's world-PvP
     branch out. **This is the one to re-check after any world-state work** -
     it is the shape where finishing an API opens a window nobody asked for.
-  * WoweeWidgetDemoFrame - this client's own.
 
 Re-measure with:
 
