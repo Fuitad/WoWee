@@ -162,6 +162,37 @@ inline std::vector<VkDynamicState> viewportAndScissorDynamic() {
     return {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
 }
 
+/// The depth-only pipeline every renderer draws its shadow pass with.
+///
+/// Four of them built it: characters, M2 doodads, WMOs and terrain. The state
+/// was identical in all four down to the depth bias, and only the shaders, the
+/// vertex format and the layout differ, which is what this takes.
+///
+/// Culling is off rather than front-face, because foliage and leaf cards are
+/// effectively two-sided and front-face culling drops them out of the shadow
+/// map depending on where the light is.
+inline VkPipeline buildShadowPipeline(
+        VkDevice device, VkPipelineCache cache,
+        const VkPipelineShaderStageCreateInfo& vertStage,
+        const VkPipelineShaderStageCreateInfo& fragStage,
+        const VkVertexInputBindingDescription& binding,
+        const std::vector<VkVertexInputAttributeDescription>& attributes,
+        VkPipelineLayout layout, VkRenderPass renderPass) {
+    return PipelineBuilder()
+        .setShaders(vertStage, fragStage)
+        .setVertexInput({binding}, attributes)
+        .setTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
+        .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
+        .setDepthTest(true, true, VK_COMPARE_OP_LESS_OR_EQUAL)
+        .setDepthBias(0.05f, 0.20f)
+        .setNoColorAttachment()
+        .setLayout(layout)
+        .setRenderPass(renderPass)
+        .setDynamicStates(viewportAndScissorDynamic())
+        .build(device, cache);
+}
+
+
 // Helper to create a pipeline layout from descriptor set layouts and push constant ranges
 VkPipelineLayout createPipelineLayout(VkDevice device,
     const std::vector<VkDescriptorSetLayout>& setLayouts,

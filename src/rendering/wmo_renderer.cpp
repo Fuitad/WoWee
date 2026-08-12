@@ -1858,19 +1858,11 @@ bool WMORenderer::initializeShadow(VkRenderPass shadowRenderPass) {
         {3, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 32},  // aBoneIndicesF (aliased to color, not used)
     };
 
-    shadowPipeline_ = PipelineBuilder()
-        .setShaders(vertShader.stageInfo(VK_SHADER_STAGE_VERTEX_BIT),
-                    fragShader.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT))
-        .setVertexInput({vertBind}, vertAttrs)
-        .setTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
-        .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
-        .setDepthTest(true, true, VK_COMPARE_OP_LESS_OR_EQUAL)
-        .setDepthBias(0.05f, 0.20f)
-        .setNoColorAttachment()
-        .setLayout(shadowPipelineLayout_)
-        .setRenderPass(shadowRenderPass)
-        .setDynamicStates(viewportAndScissorDynamic())
-        .build(device, vkCtx_->getPipelineCache());
+    shadowPipeline_ = buildShadowPipeline(
+        device, vkCtx_->getPipelineCache(),
+        vertShader.stageInfo(VK_SHADER_STAGE_VERTEX_BIT),
+        fragShader.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT),
+        vertBind, vertAttrs, shadowPipelineLayout_, shadowRenderPass);
 
     vertShader.destroy();
     fragShader.destroy();
