@@ -4,6 +4,8 @@
 #include "cli_arg_parse.hpp"
 
 #include "pipeline/wowee_model.hpp"
+
+#include "wom_model_bounds.hpp"
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -1464,13 +1466,7 @@ int handleStairs(int& i, int argc, char** argv) {
             wom.indices.push_back(base + 3);
         }
     }
-    wom.boundMin = glm::vec3(1e30f);
-    wom.boundMax = glm::vec3(-1e30f);
-    for (const auto& v : wom.vertices) {
-        wom.boundMin = glm::min(wom.boundMin, v.position);
-        wom.boundMax = glm::max(wom.boundMax, v.position);
-    }
-    wom.boundRadius = glm::length(wom.boundMax - wom.boundMin) * 0.5f;
+    setModelBounds(wom);
     wowee::pipeline::WoweeModel::Batch b;
     b.indexStart = 0;
     b.indexCount = static_cast<uint32_t>(wom.indices.size());
@@ -1557,7 +1553,7 @@ int handleGrid(int& i, int argc, char** argv) {
     }
     wom.boundMin = glm::vec3(-halfSize, -halfSize, 0);
     wom.boundMax = glm::vec3( halfSize,  halfSize, 0);
-    wom.boundRadius = glm::length(wom.boundMax - wom.boundMin) * 0.5f;
+    setModelBounds(wom);
     wowee::pipeline::WoweeModel::Batch b;
     b.indexStart = 0;
     b.indexCount = static_cast<uint32_t>(wom.indices.size());
@@ -1621,9 +1617,7 @@ int handleDisc(int& i, int argc, char** argv) {
         wom.indices.push_back(1 + k);
         wom.indices.push_back(2 + k);
     }
-    wom.boundMin = glm::vec3(-radius, -radius, 0);
-    wom.boundMax = glm::vec3( radius,  radius, 0);
-    wom.boundRadius = radius;
+    setModelBounds(wom);
     wowee::pipeline::WoweeModel::Batch b;
     b.indexStart = 0;
     b.indexCount = static_cast<uint32_t>(wom.indices.size());
@@ -1778,7 +1772,7 @@ int handleTube(int& i, int argc, char** argv) {
     }
     wom.boundMin = glm::vec3(-outerR, -h, -outerR);
     wom.boundMax = glm::vec3( outerR,  h,  outerR);
-    wom.boundRadius = glm::length(wom.boundMax - wom.boundMin) * 0.5f;
+    setModelBounds(wom);
     wowee::pipeline::WoweeModel::Batch b;
     b.indexStart = 0;
     b.indexCount = static_cast<uint32_t>(wom.indices.size());
@@ -1915,7 +1909,7 @@ int handleCapsule(int& i, int argc, char** argv) {
     }
     wom.boundMin = glm::vec3(-radius, -totalH * 0.5f, -radius);
     wom.boundMax = glm::vec3( radius,  totalH * 0.5f,  radius);
-    wom.boundRadius = glm::length(wom.boundMax - wom.boundMin) * 0.5f;
+    setModelBounds(wom);
     wowee::pipeline::WoweeModel::Batch b;
     b.indexStart = 0;
     b.indexCount = static_cast<uint32_t>(wom.indices.size());
@@ -2020,13 +2014,7 @@ int handleArch(int& i, int argc, char** argv) {
         wom.indices.push_back(base + 2);
         wom.indices.push_back(base + 3);
     }
-    wom.boundMin = glm::vec3(1e30f);
-    wom.boundMax = glm::vec3(-1e30f);
-    for (const auto& v : wom.vertices) {
-        wom.boundMin = glm::min(wom.boundMin, v.position);
-        wom.boundMax = glm::max(wom.boundMax, v.position);
-    }
-    wom.boundRadius = glm::length(wom.boundMax - wom.boundMin) * 0.5f;
+    setModelBounds(wom);
     wowee::pipeline::WoweeModel::Batch b;
     b.indexStart = 0;
     b.indexCount = static_cast<uint32_t>(wom.indices.size());
@@ -2118,7 +2106,7 @@ int handlePyramid(int& i, int argc, char** argv) {
         wom.indices.push_back(baseRingStart + k);
     }
     setCenteredBoundsXZ(wom, baseR, baseR, height);
-    wom.boundRadius = glm::length(wom.boundMax - wom.boundMin) * 0.5f;
+    setModelBounds(wom);
     wowee::pipeline::WoweeModel::Batch b;
     b.indexStart = 0;
     b.indexCount = static_cast<uint32_t>(wom.indices.size());
@@ -2196,7 +2184,7 @@ int handleFence(int& i, int argc, char** argv) {
     wom.boundMin = glm::vec3(-postHalfW, -postHalfW, 0);
     wom.boundMax = glm::vec3((posts - 1) * spacing + postHalfW,
                                postHalfW, postH);
-    wom.boundRadius = glm::length(wom.boundMax - wom.boundMin) * 0.5f;
+    setModelBounds(wom);
     wowee::pipeline::WoweeModel::Batch b;
     b.indexStart = 0;
     b.indexCount = static_cast<uint32_t>(wom.indices.size());
@@ -2312,7 +2300,7 @@ int handleTree(int& i, int argc, char** argv) {
         }
     }
     setCenteredBoundsXZ(wom, foliR, foliR, foliCY + foliR);
-    wom.boundRadius = glm::length(wom.boundMax - wom.boundMin) * 0.5f;
+    setModelBounds(wom);
     wowee::pipeline::WoweeModel::Batch b;
     b.indexStart = 0;
     b.indexCount = static_cast<uint32_t>(wom.indices.size());
@@ -2682,13 +2670,7 @@ int handleMeshDispatch(int& i, int argc, char** argv) {
         return 1;
     }
     // Compute bounds from the vertex positions we just emitted.
-    wom.boundMin = glm::vec3(1e30f);
-    wom.boundMax = glm::vec3(-1e30f);
-    for (const auto& v : wom.vertices) {
-        wom.boundMin = glm::min(wom.boundMin, v.position);
-        wom.boundMax = glm::max(wom.boundMax, v.position);
-    }
-    wom.boundRadius = glm::length(wom.boundMax - wom.boundMin) * 0.5f;
+    setModelBounds(wom);
     // Single material batch covering everything - keeps the
     // model immediately renderable.
     wowee::pipeline::WoweeModel::Batch b;

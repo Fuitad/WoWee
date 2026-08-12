@@ -5,6 +5,7 @@
 #include "pipeline/wowee_model.hpp"
 
 #include "obj_parse.hpp"
+#include "wom_model_bounds.hpp"
 #include <glm/glm.hpp>
 #include <nlohmann/json.hpp>
 
@@ -451,19 +452,7 @@ int handleImportStl(int& i, int argc, char** argv) {
         : solidName;
     // Compute bounds - renderer culls by these so wrong values
     // make models disappear at distance.
-    wom.boundMin = wom.vertices[0].position;
-    wom.boundMax = wom.boundMin;
-    for (const auto& v : wom.vertices) {
-        wom.boundMin = glm::min(wom.boundMin, v.position);
-        wom.boundMax = glm::max(wom.boundMax, v.position);
-    }
-    glm::vec3 center = (wom.boundMin + wom.boundMax) * 0.5f;
-    float r2 = 0;
-    for (const auto& v : wom.vertices) {
-        glm::vec3 d = v.position - center;
-        r2 = std::max(r2, glm::dot(d, d));
-    }
-    wom.boundRadius = std::sqrt(r2);
+    setModelBounds(wom);
     if (!wowee::pipeline::WoweeModelLoader::save(wom, womBase)) {
         std::fprintf(stderr, "import-stl: failed to write %s.wom\n",
                      womBase.c_str());
@@ -560,21 +549,7 @@ int handleImportObj(int& i, int argc, char** argv) {
     wom.name = objectName.empty()
         ? std::filesystem::path(objPath).stem().string()
         : objectName;
-    // Compute bounds from positions - the renderer culls by these
-    // so wrong values cause the model to disappear at distance.
-    wom.boundMin = wom.vertices[0].position;
-    wom.boundMax = wom.boundMin;
-    for (const auto& v : wom.vertices) {
-        wom.boundMin = glm::min(wom.boundMin, v.position);
-        wom.boundMax = glm::max(wom.boundMax, v.position);
-    }
-    glm::vec3 center = (wom.boundMin + wom.boundMax) * 0.5f;
-    float r2 = 0;
-    for (const auto& v : wom.vertices) {
-        glm::vec3 d = v.position - center;
-        r2 = std::max(r2, glm::dot(d, d));
-    }
-    wom.boundRadius = std::sqrt(r2);
+    setModelBounds(wom);
     if (!wowee::pipeline::WoweeModelLoader::save(wom, womBase)) {
         std::fprintf(stderr, "import-obj: failed to write %s.wom\n",
                      womBase.c_str());

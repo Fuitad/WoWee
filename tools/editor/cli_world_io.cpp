@@ -570,15 +570,16 @@ int handleImportWobObj(int& i, int argc, char** argv) {
         bMin = glm::min(bMin, grp.boundMin);
         bMax = glm::max(bMax, grp.boundMax);
     }
-    glm::vec3 center = (bMin + bMax) * 0.5f;
-    float r2 = 0;
+    // The radius is measured from the model origin, not from the centre of
+    // the box: WoweeBuildingLoader::fromWMO measures it that way and the M2
+    // header means it that way. See pipeline/model_bounds.hpp.
+    float furthestSq = 0.0f;
     for (const auto& grp : bld.groups) {
         for (const auto& v : grp.vertices) {
-            glm::vec3 d = v.position - center;
-            r2 = std::max(r2, glm::dot(d, d));
+            furthestSq = std::max(furthestSq, glm::dot(v.position, v.position));
         }
     }
-    bld.boundRadius = std::sqrt(r2);
+    bld.boundRadius = std::sqrt(furthestSq);
     bld.name = objectName.empty()
         ? std::filesystem::path(objPath).stem().string()
         : objectName;

@@ -1787,3 +1787,18 @@ target_link_libraries(test_obj_parse PRIVATE catch2_main)
 wowee_test_link_glm(test_obj_parse)
 add_test(NAME obj_parse COMMAND test_obj_parse)
 register_test_target(test_obj_parse)
+
+# ── test_model_bounds ────────────────────────────────────────
+# The box and radius a .wom carries. Eighteen places computed them three
+# different ways. The oracle is what the field means: M2Loader sets it from
+# the M2 header's boundingRadius, measured from the model origin.
+add_executable(test_model_bounds
+    test_model_bounds.cpp
+    ${TEST_COMMON_SOURCES})
+target_include_directories(test_model_bounds PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_model_bounds SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_model_bounds PRIVATE catch2_main)
+wowee_test_link_glm(test_model_bounds)
+add_test(NAME model_bounds COMMAND test_model_bounds)
+register_test_target(test_model_bounds)

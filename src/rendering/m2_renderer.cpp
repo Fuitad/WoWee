@@ -1,6 +1,7 @@
 #include <atomic>
 #include "rendering/m2_renderer.hpp"
 #include "rendering/m2_renderer_internal.h"
+#include "pipeline/model_bounds.hpp"
 #include "rendering/render_constants.hpp"
 #include "rendering/m2_model_classifier.hpp"
 #include "rendering/vk_context.hpp"
@@ -1525,10 +1526,16 @@ bool M2Renderer::loadModel(const pipeline::M2Model& model, uint32_t modelId) {
     gpuModel.boundMin = tightMin;
     gpuModel.boundMax = tightMax;
     gpuModel.boundRadius = model.boundRadius;
-    // Fallback: compute bound radius from vertex extents when M2 header reports 0
+    // Fallback when the M2 header reports 0. Measured from the model origin,
+    // like the header value it stands in for: the sphere this feeds is centred
+    // there, not on the box. See pipeline/model_bounds.hpp.
     if (gpuModel.boundRadius < 0.01f && !model.vertices.empty()) {
-        glm::vec3 extent = tightMax - tightMin;
-        gpuModel.boundRadius = glm::length(extent) * 0.5f;
+        gpuModel.boundRadius =
+            pipeline::modelBoundsOf(model.vertices,
+                                    [](const pipeline::M2Vertex& v) {
+                                        return v.position;
+                                    })
+                .radius;
     }
     gpuModel.indexCount = static_cast<uint32_t>(model.indices.size());
     gpuModel.vertexCount = static_cast<uint32_t>(model.vertices.size());
