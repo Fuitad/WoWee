@@ -22,6 +22,7 @@
 #include <filesystem>
 #include <fstream>
 #include <string>
+#include <vector>
 
 namespace wowee {
 namespace pipeline {
@@ -64,6 +65,39 @@ inline bool readStr(std::ifstream& is, std::string& s) {
         is.read(s.data(), n);
         if (is.gcount() != static_cast<std::streamsize>(n)) {
             s.clear();
+            return false;
+        }
+    }
+    return true;
+}
+
+/// Write a vector of ids as a 32-bit count followed by the values.
+inline void writeU32Vec(std::ofstream& os, const std::vector<uint32_t>& v) {
+    uint32_t n = static_cast<uint32_t>(v.size());
+    writePOD(os, n);
+    if (n > 0) {
+        os.write(reinterpret_cast<const char*>(v.data()),
+                 static_cast<std::streamsize>(n * sizeof(uint32_t)));
+    }
+}
+
+/// Read a count-prefixed vector of ids.
+///
+/// Capped for the reason readStr is: the count is the first thing a corrupt
+/// file gets to choose, and without a cap a garbage length is a resize() of
+/// whatever four bytes happened to be there. 4096 is what all three callers
+/// used, checked byte for byte before they were merged.
+inline bool readU32Vec(std::ifstream& is, std::vector<uint32_t>& v) {
+    uint32_t n = 0;
+    if (!readPOD(is, n)) return false;
+    if (n > 4096) return false;
+    v.resize(n);
+    if (n > 0) {
+        is.read(reinterpret_cast<char*>(v.data()),
+                static_cast<std::streamsize>(n * sizeof(uint32_t)));
+        if (is.gcount() !=
+            static_cast<std::streamsize>(n * sizeof(uint32_t))) {
+            v.clear();
             return false;
         }
     }

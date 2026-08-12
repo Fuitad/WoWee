@@ -14,32 +14,7 @@ constexpr char kMagic[4] = {'W', 'Q', 'G', 'R'};
 constexpr uint32_t kVersion = 1;
 constexpr char kExtension[] = ".wqgr";
 
-void writeU32Vec(std::ofstream& os,
-                  const std::vector<uint32_t>& v) {
-    uint32_t n = static_cast<uint32_t>(v.size());
-    writePOD(os, n);
-    if (n > 0) {
-        os.write(reinterpret_cast<const char*>(v.data()),
-                 static_cast<std::streamsize>(n * sizeof(uint32_t)));
-    }
-}
 
-bool readU32Vec(std::ifstream& is, std::vector<uint32_t>& v) {
-    uint32_t n = 0;
-    if (!readPOD(is, n)) return false;
-    if (n > 4096) return false;
-    v.resize(n);
-    if (n > 0) {
-        is.read(reinterpret_cast<char*>(v.data()),
-                static_cast<std::streamsize>(n * sizeof(uint32_t)));
-        if (is.gcount() !=
-            static_cast<std::streamsize>(n * sizeof(uint32_t))) {
-            v.clear();
-            return false;
-        }
-    }
-    return true;
-}
 
 } // namespace
 
