@@ -613,6 +613,19 @@ wowee_test_link_glm(test_macro_text)
 add_test(NAME macro_text COMMAND test_macro_text)
 register_test_target(test_macro_text)
 
+# ── test_dxt_block ───────────────────────────────────────────
+# The colour half of a DXT block, decoded three times in blp_loader.cpp and
+# never tested; the BLP tests stop at header validation.
+add_executable(test_dxt_block
+    test_dxt_block.cpp
+    ${TEST_COMMON_SOURCES})
+target_include_directories(test_dxt_block PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_dxt_block SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_dxt_block PRIVATE catch2_main)
+wowee_test_link_glm(test_dxt_block)
+add_test(NAME dxt_block COMMAND test_dxt_block)
+register_test_target(test_dxt_block)
+
 # ── test_vertex_layouts ──────────────────────────────────────
 # The WMO and terrain vertex layouts against the shaders that read them. Each
 # layout was stated three or four times, once with the stride and every offset
