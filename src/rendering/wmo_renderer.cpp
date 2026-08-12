@@ -1,3 +1,4 @@
+#include "rendering/spatial_grid.hpp"
 #include "rendering/wmo_vertex.hpp"
 #include "rendering/shadow_params.hpp"
 #include "rendering/wmo_renderer.hpp"
@@ -1062,27 +1063,41 @@ uint32_t WMORenderer::createInstance(uint32_t modelId, const glm::vec3& position
     return instance.id;
 }
 
+/// Recomputes an instance's world bounds from its model matrix.
+///
+/// Called whenever the matrix changes, which happens two ways: a plain move,
+/// and a transport being handed a whole transform by the server. Both used to
+/// do this themselves.
+///
+/// The half-unit of padding on each group's box is deliberate. The bounds are
+/// what a collision query tests before it looks at triangles, and a box fitted
+/// exactly to its geometry rejects a query that starts on the surface, so a
+/// character standing on a floor can fail to find the floor it is standing on.
+void WMORenderer::refreshInstanceBounds(WMOInstance& inst) {
+    auto modelIt = loadedModels.find(inst.modelId);
+    if (modelIt == loadedModels.end()) return;
+
+    const ModelData& model = modelIt->second;
+    transformAABB(inst.modelMatrix, model.boundingBoxMin, model.boundingBoxMax,
+                  inst.worldBoundsMin, inst.worldBoundsMax);
+    inst.worldGroupBounds.clear();
+    inst.worldGroupBounds.reserve(model.groups.size());
+    for (const auto& group : model.groups) {
+        glm::vec3 gMin, gMax;
+        transformAABB(inst.modelMatrix, group.boundingBoxMin, group.boundingBoxMax, gMin, gMax);
+        gMin -= glm::vec3(0.5f);
+        gMax += glm::vec3(0.5f);
+        inst.worldGroupBounds.emplace_back(gMin, gMax);
+    }
+}
+
 void WMORenderer::setInstancePosition(uint32_t instanceId, const glm::vec3& position) {
     auto idxIt = instanceIndexById.find(instanceId);
     if (idxIt == instanceIndexById.end()) return;
     auto& inst = instances[idxIt->second];
     inst.position = position;
     inst.updateModelMatrix();
-    auto modelIt = loadedModels.find(inst.modelId);
-    if (modelIt != loadedModels.end()) {
-        const ModelData& model = modelIt->second;
-        transformAABB(inst.modelMatrix, model.boundingBoxMin, model.boundingBoxMax,
-                      inst.worldBoundsMin, inst.worldBoundsMax);
-        inst.worldGroupBounds.clear();
-        inst.worldGroupBounds.reserve(model.groups.size());
-        for (const auto& group : model.groups) {
-            glm::vec3 gMin, gMax;
-            transformAABB(inst.modelMatrix, group.boundingBoxMin, group.boundingBoxMax, gMin, gMax);
-            gMin -= glm::vec3(0.5f);
-            gMax += glm::vec3(0.5f);
-            inst.worldGroupBounds.emplace_back(gMin, gMax);
-        }
-    }
+    refreshInstanceBounds(inst);
     rebuildSpatialIndex();
 }
 
@@ -1117,21 +1132,7 @@ void WMORenderer::setInstanceTransform(uint32_t instanceId, const glm::mat4& tra
     inst.modelMatrix = transform;
     inst.invModelMatrix = glm::inverse(transform);
 
-    auto modelIt = loadedModels.find(inst.modelId);
-    if (modelIt != loadedModels.end()) {
-        const ModelData& model = modelIt->second;
-        transformAABB(inst.modelMatrix, model.boundingBoxMin, model.boundingBoxMax,
-                      inst.worldBoundsMin, inst.worldBoundsMax);
-        inst.worldGroupBounds.clear();
-        inst.worldGroupBounds.reserve(model.groups.size());
-        for (const auto& group : model.groups) {
-            glm::vec3 gMin, gMax;
-            transformAABB(inst.modelMatrix, group.boundingBoxMin, group.boundingBoxMax, gMin, gMax);
-            gMin -= glm::vec3(0.5f);
-            gMax += glm::vec3(0.5f);
-            inst.worldGroupBounds.emplace_back(gMin, gMax);
-        }
-    }
+    refreshInstanceBounds(inst);
 
     // Propagate transform to child M2 doodads (chairs, furniture on transports)
     if (m2Renderer_ && !inst.doodads.empty()) {
@@ -2952,22 +2953,18 @@ void WMORenderer::GroupResources::getTrianglesInRange(
     out.clear();
     if (gridCellsX == 0 || gridCellsY == 0) return;
 
-    float extentX = boundingBoxMax.x - boundingBoxMin.x;
-    float extentY = boundingBoxMax.y - boundingBoxMin.y;
-    float invCellW = gridCellsX / std::max(0.01f, extentX);
-    float invCellH = gridCellsY / std::max(0.01f, extentY);
-
-    int cellMinX = std::max(0, static_cast<int>((minX - gridOrigin.x) * invCellW));
-    int cellMinY = std::max(0, static_cast<int>((minY - gridOrigin.y) * invCellH));
-    int cellMaxX = std::min(gridCellsX - 1, static_cast<int>((maxX - gridOrigin.x) * invCellW));
-    int cellMaxY = std::min(gridCellsY - 1, static_cast<int>((maxY - gridOrigin.y) * invCellH));
-
-    if (cellMinX > cellMaxX || cellMinY > cellMaxY) return;
+    const auto cells = cellRangeCovering(
+        gridCellsX, gridCellsY,
+        boundingBoxMax.x - boundingBoxMin.x, boundingBoxMax.y - boundingBoxMin.y,
+        glm::vec2(gridOrigin.x, gridOrigin.y), minX, minY, maxX, maxY);
+    if (!cells) return;
+    const int cellMinX = cells->minX;
+    const int cellMinY = cells->minY;
+    const int cellMaxX = cells->maxX;
+    const int cellMaxY = cells->maxY;
 
     // Reserve estimate: cells queried * ~8 triangles per cell
-    const size_t cellCount = static_cast<size_t>(cellMaxX - cellMinX + 1) *
-                             static_cast<size_t>(cellMaxY - cellMinY + 1);
-    out.reserve(cellCount * 8);
+    out.reserve(cells->count() * 8);
 
     // Collect unique triangle indices using visited bitset (O(n) dedup)
     bool multiCell = (cellMinX != cellMaxX || cellMinY != cellMaxY);
@@ -3002,21 +2999,17 @@ void WMORenderer::GroupResources::getFloorTrianglesInRange(
     out.clear();
     if (gridCellsX == 0 || gridCellsY == 0 || cellFloorTriangles.empty()) return;
 
-    float extentX = boundingBoxMax.x - boundingBoxMin.x;
-    float extentY = boundingBoxMax.y - boundingBoxMin.y;
-    float invCellW = gridCellsX / std::max(0.01f, extentX);
-    float invCellH = gridCellsY / std::max(0.01f, extentY);
+    const auto cells = cellRangeCovering(
+        gridCellsX, gridCellsY,
+        boundingBoxMax.x - boundingBoxMin.x, boundingBoxMax.y - boundingBoxMin.y,
+        glm::vec2(gridOrigin.x, gridOrigin.y), minX, minY, maxX, maxY);
+    if (!cells) return;
+    const int cellMinX = cells->minX;
+    const int cellMinY = cells->minY;
+    const int cellMaxX = cells->maxX;
+    const int cellMaxY = cells->maxY;
 
-    int cellMinX = std::max(0, static_cast<int>((minX - gridOrigin.x) * invCellW));
-    int cellMinY = std::max(0, static_cast<int>((minY - gridOrigin.y) * invCellH));
-    int cellMaxX = std::min(gridCellsX - 1, static_cast<int>((maxX - gridOrigin.x) * invCellW));
-    int cellMaxY = std::min(gridCellsY - 1, static_cast<int>((maxY - gridOrigin.y) * invCellH));
-
-    if (cellMinX > cellMaxX || cellMinY > cellMaxY) return;
-
-    const size_t cellCount = static_cast<size_t>(cellMaxX - cellMinX + 1) *
-                             static_cast<size_t>(cellMaxY - cellMinY + 1);
-    out.reserve(cellCount * 8);
+    out.reserve(cells->count() * 8);
 
     bool multiCell = (cellMinX != cellMaxX || cellMinY != cellMaxY);
     if (multiCell && !triVisited.empty()) {
@@ -3049,21 +3042,17 @@ void WMORenderer::GroupResources::getWallTrianglesInRange(
     out.clear();
     if (gridCellsX == 0 || gridCellsY == 0 || cellWallTriangles.empty()) return;
 
-    float extentX = boundingBoxMax.x - boundingBoxMin.x;
-    float extentY = boundingBoxMax.y - boundingBoxMin.y;
-    float invCellW = gridCellsX / std::max(0.01f, extentX);
-    float invCellH = gridCellsY / std::max(0.01f, extentY);
+    const auto cells = cellRangeCovering(
+        gridCellsX, gridCellsY,
+        boundingBoxMax.x - boundingBoxMin.x, boundingBoxMax.y - boundingBoxMin.y,
+        glm::vec2(gridOrigin.x, gridOrigin.y), minX, minY, maxX, maxY);
+    if (!cells) return;
+    const int cellMinX = cells->minX;
+    const int cellMinY = cells->minY;
+    const int cellMaxX = cells->maxX;
+    const int cellMaxY = cells->maxY;
 
-    int cellMinX = std::max(0, static_cast<int>((minX - gridOrigin.x) * invCellW));
-    int cellMinY = std::max(0, static_cast<int>((minY - gridOrigin.y) * invCellH));
-    int cellMaxX = std::min(gridCellsX - 1, static_cast<int>((maxX - gridOrigin.x) * invCellW));
-    int cellMaxY = std::min(gridCellsY - 1, static_cast<int>((maxY - gridOrigin.y) * invCellH));
-
-    if (cellMinX > cellMaxX || cellMinY > cellMaxY) return;
-
-    const size_t cellCount = static_cast<size_t>(cellMaxX - cellMinX + 1) *
-                             static_cast<size_t>(cellMaxY - cellMinY + 1);
-    out.reserve(cellCount * 8);
+    out.reserve(cells->count() * 8);
 
     bool multiCell = (cellMinX != cellMaxX || cellMinY != cellMaxY);
     if (multiCell && !triVisited.empty()) {

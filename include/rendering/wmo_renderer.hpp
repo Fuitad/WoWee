@@ -655,6 +655,10 @@ private:
         void updateModelMatrix();
     };
 
+    /// Recomputes one instance's world and per-group bounds after its
+    /// model matrix has changed.
+    void refreshInstanceBounds(WMOInstance& inst);
+
     /**
      * Create GPU resources for a WMO group
      */

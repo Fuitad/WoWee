@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <functional>
+#include <optional>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -145,6 +146,53 @@ inline void gatherIds(const SpatialGrid& grid, const glm::vec3& queryMin,
             }
         }
     }
+}
+
+
+/// A rectangle of cells in a dense grid, inclusive at both ends.
+struct CellRange {
+    int minX = 0;
+    int minY = 0;
+    int maxX = 0;
+    int maxY = 0;
+
+    size_t count() const {
+        return static_cast<size_t>(maxX - minX + 1) * static_cast<size_t>(maxY - minY + 1);
+    }
+};
+
+/// Which cells of a dense grid a query box covers, or nothing when it misses.
+///
+/// This is the other kind of grid in the renderer: where SpatialGrid above is a
+/// hash of cells over a whole zone, a WMO group carries a dense grid of its own
+/// triangles, sized to its bounding box. Three queries walked it, for any
+/// triangle, for floors and for walls, and each computed the cell rectangle
+/// itself.
+///
+/// A cell missed here is a triangle never tested, so the failure is falling
+/// through a floor or walking through a wall, and it happens only at whatever
+/// spot the arithmetic goes wrong.
+///
+/// The extents are guarded rather than trusted: a group whose bounding box is
+/// flat in one axis would divide by zero, and a degenerate group is a real
+/// thing, a doorway or a railing modelled as a single plane.
+inline std::optional<CellRange> cellRangeCovering(
+        int cellsX, int cellsY, float extentX, float extentY,
+        const glm::vec2& gridOrigin,
+        float minX, float minY, float maxX, float maxY) {
+    if (cellsX <= 0 || cellsY <= 0) return std::nullopt;
+
+    const float invCellW = static_cast<float>(cellsX) / std::max(0.01f, extentX);
+    const float invCellH = static_cast<float>(cellsY) / std::max(0.01f, extentY);
+
+    CellRange range;
+    range.minX = std::max(0, static_cast<int>((minX - gridOrigin.x) * invCellW));
+    range.minY = std::max(0, static_cast<int>((minY - gridOrigin.y) * invCellH));
+    range.maxX = std::min(cellsX - 1, static_cast<int>((maxX - gridOrigin.x) * invCellW));
+    range.maxY = std::min(cellsY - 1, static_cast<int>((maxY - gridOrigin.y) * invCellH));
+
+    if (range.minX > range.maxX || range.minY > range.maxY) return std::nullopt;
+    return range;
 }
 
 }  // namespace rendering

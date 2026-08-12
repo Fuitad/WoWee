@@ -195,3 +195,83 @@ TEST_CASE("growing within the same min cell still refiles", "[spatialgrid]") {
     CHECK(query(grid, {70.0f, 0.0f, 0.0f}, {70.0f, 0.0f, 0.0f}) ==
           std::vector<uint32_t>{1});
 }
+
+// ---- the dense per-group grid a WMO carries for its own triangles ----
+
+TEST_CASE("a box covering the whole group covers every cell", "[spatialgrid]") {
+    // Ten cells across an extent of 100, so each cell is 10 wide.
+    const auto range = cellRangeCovering(10, 10, 100.0f, 100.0f, {0.0f, 0.0f},
+                                         0.0f, 0.0f, 100.0f, 100.0f);
+    REQUIRE(range.has_value());
+    CHECK(range->minX == 0);
+    CHECK(range->minY == 0);
+    CHECK(range->maxX == 9);
+    CHECK(range->maxY == 9);
+    CHECK(range->count() == 100u);
+}
+
+TEST_CASE("a small box covers the cells it actually touches", "[spatialgrid]") {
+    const auto range = cellRangeCovering(10, 10, 100.0f, 100.0f, {0.0f, 0.0f},
+                                         25.0f, 35.0f, 26.0f, 36.0f);
+    REQUIRE(range.has_value());
+    CHECK(range->minX == 2);
+    CHECK(range->maxX == 2);
+    CHECK(range->minY == 3);
+    CHECK(range->maxY == 3);
+    CHECK(range->count() == 1u);
+}
+
+TEST_CASE("a box straddling a cell edge covers both", "[spatialgrid]") {
+    // The case a collision query depends on: a capsule sitting on the line
+    // between two cells has to test the triangles of both, or it falls
+    // through wherever the floor triangle happens to be filed.
+    const auto range = cellRangeCovering(10, 10, 100.0f, 100.0f, {0.0f, 0.0f},
+                                         19.0f, 5.0f, 21.0f, 5.0f);
+    REQUIRE(range.has_value());
+    CHECK(range->minX == 1);
+    CHECK(range->maxX == 2);
+}
+
+TEST_CASE("the grid origin shifts the query", "[spatialgrid]") {
+    // A group's grid starts at its own bounding box, not at the world origin.
+    const auto range = cellRangeCovering(10, 10, 100.0f, 100.0f, {1000.0f, -500.0f},
+                                         1025.0f, -465.0f, 1026.0f, -464.0f);
+    REQUIRE(range.has_value());
+    CHECK(range->minX == 2);
+    CHECK(range->minY == 3);
+}
+
+TEST_CASE("a box past the far edge is clamped, not extended", "[spatialgrid]") {
+    const auto range = cellRangeCovering(10, 10, 100.0f, 100.0f, {0.0f, 0.0f},
+                                         50.0f, 50.0f, 5000.0f, 5000.0f);
+    REQUIRE(range.has_value());
+    CHECK(range->maxX == 9);
+    CHECK(range->maxY == 9);
+}
+
+TEST_CASE("a box entirely past the grid covers nothing", "[spatialgrid]") {
+    // Clamping min to 0 and max to cells-1 can leave min above max, which is
+    // the only signal that the box missed: iterating anyway walks backwards
+    // over the whole grid.
+    CHECK_FALSE(cellRangeCovering(10, 10, 100.0f, 100.0f, {0.0f, 0.0f},
+                                  -50.0f, 5.0f, -10.0f, 6.0f).has_value());
+    CHECK_FALSE(cellRangeCovering(10, 10, 100.0f, 100.0f, {0.0f, 0.0f},
+                                  5.0f, 500.0f, 6.0f, 600.0f).has_value());
+}
+
+TEST_CASE("a group with no grid answers nothing", "[spatialgrid]") {
+    CHECK_FALSE(cellRangeCovering(0, 10, 100.0f, 100.0f, {0.0f, 0.0f},
+                                  0.0f, 0.0f, 1.0f, 1.0f).has_value());
+    CHECK_FALSE(cellRangeCovering(10, 0, 100.0f, 100.0f, {0.0f, 0.0f},
+                                  0.0f, 0.0f, 1.0f, 1.0f).has_value());
+}
+
+TEST_CASE("a flat group does not divide by zero", "[spatialgrid]") {
+    // A doorway or a railing can be modelled as a single plane, so one extent
+    // is genuinely zero. The guard keeps the cell size finite; what matters is
+    // that an answer comes back at all.
+    const auto range = cellRangeCovering(4, 4, 100.0f, 0.0f, {0.0f, 0.0f},
+                                         0.0f, 0.0f, 100.0f, 0.0f);
+    REQUIRE(range.has_value());
+    CHECK(range->minY == 0);
+}
