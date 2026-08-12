@@ -22,11 +22,18 @@ and reports windows that appear in more than one file. Comments, blank lines
 and preprocessor lines are dropped, so a shared comment does not read as shared
 code, and windows that are mostly punctuation are skipped.
 
+It also counts windows repeated inside a single file, which is where the
+duplication moved once the cross-file pairs were dealt with: a vertex layout
+written out once per pipeline, a mask read once per thing built from it, a
+sort planned once per container. Those are reported per file rather than
+pair by pair, because a file with forty of them has one shape repeated, not
+forty shapes.
+
 WHAT IT CANNOT SEE
 
-Duplication that has been reworded, and duplication inside one file. It also
-cannot tell a copy from a deliberate per-expansion difference, which is the
-whole reason the verdicts are written down rather than inferred.
+Duplication that has been reworded. It also cannot tell a copy from a
+deliberate per-expansion difference, which is the whole reason the verdicts
+are written down rather than inferred.
 """
 import collections
 import hashlib
@@ -113,6 +120,13 @@ def main():
         if len(names) > 1:
             pairs[names].append(hits)
 
+    # Windows repeated inside one file, counted per file.
+    within = collections.Counter()
+    for hits in blocks.values():
+        names = {f for f, _ in hits}
+        if len(names) == 1 and len(hits) > 1:
+            within[hits[0][0]] += 1
+
     unjudged, settled = [], 0
     for names, windows in pairs.items():
         key = names if len(names) == 2 else None
@@ -129,6 +143,12 @@ def main():
         where = ", ".join(f"{f}:{l}" for f, l in sorted(set(sample))[:3])
         print(f"  {count:3} block(s)  {where}")
     if not unjudged:
+        print("  (none)")
+
+    print(f"\n{sum(within.values())} block(s) repeated within one file:")
+    for rel, count in within.most_common(10):
+        print(f"  {count:3} block(s)  {rel}")
+    if not within:
         print("  (none)")
     return 0
 
