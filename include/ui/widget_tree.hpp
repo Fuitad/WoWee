@@ -20,6 +20,8 @@
 
 #include <cstdint>
 #include <deque>
+#include <functional>
+#include <unordered_map>
 #include <map>
 #include <string>
 #include <string_view>
@@ -936,6 +938,27 @@ private:
     /// Whether a state texture should be drawn given what the mouse is doing.
     bool buttonArtVisible(const Widget& w) const;
     std::deque<Widget> widgets_;   ///< Index 0 is a placeholder; id == index.
+
+    /// name -> the ids that took it, in creation order.
+    ///
+    /// findByName was a backwards linear scan of every widget, and a profile
+    /// of the headless interface load put it at 6.5% of the run, the largest
+    /// first-party function in it. Names are assigned in exactly one place
+    /// (create) and a widget is never removed or renamed, so this cannot go
+    /// stale.
+    ///
+    /// The hash is transparent so a std::string_view query is answered without
+    /// building a std::string for it. That matters here beyond tidiness: the
+    /// same profile put malloc, free and their friends at about 18% of the
+    /// run, and this is called with a view from every one of those lookups.
+    struct NameHash {
+        using is_transparent = void;
+        size_t operator()(std::string_view s) const noexcept {
+            return std::hash<std::string_view>{}(s);
+        }
+    };
+    std::unordered_map<std::string, std::vector<uint32_t>, NameHash,
+                       std::equal_to<>> byName_;
     /// The screen itself, above UIParent. Everything FrameXML draws hangs off
     /// UIParent, but not quite everything: a frame declared at XML top level
     /// with no parent of its own is parentless in WoW, and that is load

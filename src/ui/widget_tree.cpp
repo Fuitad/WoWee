@@ -91,6 +91,7 @@ uint32_t WidgetTree::create(WidgetKind kind, uint32_t parent, const std::string&
     w.id = id;
     w.kind = kind;
     w.name = name;
+    if (!name.empty()) byName_[name].push_back(id);
     w.creationOrder = nextOrder_++;
     // Regions belong to the frame that made them; a widget with no parent
     // hangs off the screen, which is the root and sits above UIParent.
@@ -185,10 +186,13 @@ const std::vector<uint32_t>& WidgetTree::portraitsFor(const std::string& unit) c
 
 Widget* WidgetTree::findByName(std::string_view name) {
     if (name.empty()) return nullptr;
-    // Backwards, so the last frame to take the name is the one found - the
-    // same rule as the global it was published under.
-    for (auto it = widgets_.rbegin(); it != widgets_.rend(); ++it) {
-        if (it->id != 0 && it->name == name) return &*it;
+    auto it = byName_.find(name);
+    if (it == byName_.end()) return nullptr;
+    // The last frame to take the name is the one found, which is the same rule
+    // as the global it was published under. The ids are appended in creation
+    // order, so that is the back of the list.
+    for (auto id = it->second.rbegin(); id != it->second.rend(); ++id) {
+        if (*id != 0 && *id < widgets_.size()) return &widgets_[*id];
     }
     return nullptr;
 }
