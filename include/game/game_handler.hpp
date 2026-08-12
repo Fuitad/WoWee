@@ -1826,7 +1826,6 @@ public:
     // 7 slots total: 0-5 are transferred, slot 6 (TRADE_SLOT_NONTRADED) is the
     // "will not be traded" slot used for enchanting/crafting on the partner's item.
     static constexpr int TRADE_SLOT_COUNT        = 7;
-    static constexpr int TRADE_SLOT_TRADED_COUNT = 6;
     static constexpr int TRADE_SLOT_NONTRADED    = 6;
 
     struct TradeSlot {

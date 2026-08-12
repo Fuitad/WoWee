@@ -53,7 +53,6 @@ public:
     // slot 6 (TRADE_SLOT_NONTRADED) is the "will not be traded" slot - you place your
     // own item there so the partner can enchant/craft on it without it changing hands.
     static constexpr int TRADE_SLOT_COUNT        = 7;
-    static constexpr int TRADE_SLOT_TRADED_COUNT = 6;
     static constexpr int TRADE_SLOT_NONTRADED    = 6;
 
     struct TradeSlot {

@@ -904,7 +904,6 @@ set(WOWEE_SOURCES
     src/ui/chat_panel.cpp
     src/ui/macro_text.cpp
     src/ui/chat/chat_settings.cpp
-    src/ui/chat/chat_input.cpp
     src/ui/chat/chat_utils.cpp
     src/ui/chat/chat_bubble_manager.cpp
     src/ui/chat/chat_markup_parser.cpp
