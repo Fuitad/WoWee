@@ -355,7 +355,6 @@ private:
     uint8_t purchasedBankBagSlots_ = 0;
 };
 
-const char* getQualityName(ItemQuality quality);
 const char* getEquipSlotName(EquipSlot slot);
 
 } // namespace game

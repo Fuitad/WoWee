@@ -133,11 +133,17 @@ void CharacterCreateScreen::reset() {
     hairStyle = 0;
     hairColor = 0;
     facialHair = 0;
-    maxSkin = 9;
-    maxFace = 9;
-    maxHairStyle = 11;
-    maxHairColor = 9;
-    maxFacialHair = 8;
+    // The same limits game::getMax* answers, asked rather than repeated: this
+    // is the fallback before the DBC scan has run, and the two have to agree
+    // or the sliders offer a face the scan will not produce.
+    const game::Race race = availableRaces_.empty()
+        ? game::Race::HUMAN : availableRaces_[0];
+    const game::Gender gender = game::Gender::MALE;
+    maxSkin = game::getMaxSkin(race, gender);
+    maxFace = game::getMaxFace(race, gender);
+    maxHairStyle = game::getMaxHairStyle(race, gender);
+    maxHairColor = game::getMaxHairColor(race, gender);
+    maxFacialHair = game::getMaxFacialFeature(race, gender);
     statusMessage.clear();
     statusIsError = false;
     createTimer_ = -1.0f;
@@ -270,11 +276,17 @@ void CharacterCreateScreen::updateAppearanceRanges() {
         return;
     }
 
-    maxSkin = 9;
-    maxFace = 9;
-    maxHairStyle = 11;
-    maxHairColor = 9;
-    maxFacialHair = 8;
+    // The fallback ranges, before the DBC scan narrows them to what this race
+    // and sex actually have art for.
+    const game::Race race = raceIndex < static_cast<int>(availableRaces_.size())
+        ? availableRaces_[raceIndex] : game::Race::HUMAN;
+    const game::Gender gender =
+        genderIndex == 0 ? game::Gender::MALE : game::Gender::FEMALE;
+    maxSkin = game::getMaxSkin(race, gender);
+    maxFace = game::getMaxFace(race, gender);
+    maxHairStyle = game::getMaxHairStyle(race, gender);
+    maxHairColor = game::getMaxHairColor(race, gender);
+    maxFacialHair = game::getMaxFacialFeature(race, gender);
     skinIds_.clear();
     faceIds_.clear();
     hairStyleIds_.clear();
