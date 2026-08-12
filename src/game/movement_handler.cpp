@@ -122,10 +122,23 @@ void MovementHandler::registerOpcodes(DispatchTable& table) {
                 owner_.unitMoveFlagsCallbackRef()(guid, synthFlags);
             };
         };
-        table[Opcode::SMSG_SPLINE_MOVE_SET_WALK_MODE] = makeSynthHandler(0x00000100u);
+        // These are this client's own movement flags, not wire values: the
+        // opcode carries no flag word and the handler invents one to describe
+        // what the unit is now doing. Naming them keeps them following
+        // MovementFlags, which is what every reader compares against.
+        constexpr auto asFlag = [](MovementFlags f) { return static_cast<uint32_t>(f); };
+        table[Opcode::SMSG_SPLINE_MOVE_SET_WALK_MODE] =
+            makeSynthHandler(asFlag(MovementFlags::WALKING));
         table[Opcode::SMSG_SPLINE_MOVE_SET_RUN_MODE]  = makeSynthHandler(0u);
-        table[Opcode::SMSG_SPLINE_MOVE_SET_FLYING]    = makeSynthHandler(0x01000000u | 0x00800000u);
-        table[Opcode::SMSG_SPLINE_MOVE_START_SWIM]    = makeSynthHandler(0x00200000u);
+        // CAN_FLY and DESCENDING, which is what this synthesised before it was
+        // named and so what it keeps synthesising. Worth a second look by
+        // somebody who knows the intent: isPlayerFlying() wants CAN_FLY *and*
+        // FLYING together, and FLYING is not among these two.
+        table[Opcode::SMSG_SPLINE_MOVE_SET_FLYING]    =
+            makeSynthHandler(asFlag(MovementFlags::CAN_FLY) |
+                             asFlag(MovementFlags::DESCENDING));
+        table[Opcode::SMSG_SPLINE_MOVE_START_SWIM]    =
+            makeSynthHandler(asFlag(MovementFlags::SWIMMING));
         table[Opcode::SMSG_SPLINE_MOVE_STOP_SWIM]     = makeSynthHandler(0u);
     }
 
