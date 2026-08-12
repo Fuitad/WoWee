@@ -796,6 +796,14 @@ CHECKS = [
     ("api_shadowing_check.py",
      r"^\s*(\d+) to look at", 9,
      "names whose winner depends on load order"),
+    # GameHandler forwards to the handlers it was split into, so its own copy
+    # of a member is the fallback nothing takes. A writable accessor beside a
+    # forwarding getter that hands out that copy gives a caller a list nobody
+    # reads: the auction column sort reordered one and the mail sender backfill
+    # filled in another, both to no visible effect and with nothing logged.
+    ("forwarding_ref_check.py",
+     r"^(\d+) member\(s\) written locally and read through a sub-handler", 0,
+     "members written locally while every reader forwards"),
 ]
 
 # Prose rather than a count: the chunk checker says one of two sentences.
