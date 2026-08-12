@@ -357,9 +357,10 @@ bool Application::initialize() {
         // files. An install that never extracted its data keeps every font
         // inside the MPQs, so the search found nothing and the client fell
         // back to ImGui's built-in face - the same build reading the game's
-        // own fonts on one machine and not on another. The base Data path,
-        // not the expansion overlay: overlays carry DBCs and art, not fonts.
-        if (uiManager) uiManager->loadInterfaceFont(dataPath, assetManager.get());
+        // own fonts on one machine and not on another. assetPath, not the raw
+        // dataPath: extract_assets.sh always writes with --expansion-subdir,
+        // so fonts live under expansions/<id>/ alongside everything else.
+        if (uiManager) uiManager->loadInterfaceFont(assetPath, assetManager.get());
 
         // Renderer creation precedes AssetManager creation, so DBC-driven
         // lighting must be initialized here rather than in Renderer::initialize.
@@ -1154,7 +1155,7 @@ bool Application::initialize() {
 
     // If the archives never opened, the fonts were not tried at all. Loose
     // files are still worth a look, and this is still before the first frame.
-    if (uiManager) uiManager->loadInterfaceFont(dataPath, nullptr);
+    if (uiManager) uiManager->loadInterfaceFont(assetPath, nullptr);
 
     // Set up UI callbacks
     setupUICallbacks();
