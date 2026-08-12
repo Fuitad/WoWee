@@ -599,6 +599,20 @@ add_test(NAME asset_manifest_load COMMAND test_asset_manifest_load
          WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
 register_test_target(test_asset_manifest_load)
 
+# ── test_movement_flags ──────────────────────────────────────
+# What the movement flag word means. Two handlers spelled these out against
+# their own copy of the flags; they now both ask MovementInfo. Header-only, so
+# no sources beyond the common set.
+add_executable(test_movement_flags
+    test_movement_flags.cpp
+    ${TEST_COMMON_SOURCES})
+target_include_directories(test_movement_flags PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_movement_flags SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_movement_flags PRIVATE catch2_main)
+wowee_test_link_glm(test_movement_flags)
+add_test(NAME movement_flags COMMAND test_movement_flags)
+register_test_target(test_movement_flags)
+
 # ── test_attacker_state_layout ─────────────────────────────────────────
 # SMSG_ATTACKERSTATEUPDATE for classic and TBC, pinned before the shared head
 # was factored out. Same link set as the other two layout tests.

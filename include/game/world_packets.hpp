@@ -443,6 +443,27 @@ struct MovementInfo {
     bool hasFlag(MovementFlags flag) const {
         return (flags & static_cast<uint32_t>(flag)) != 0;
     }
+
+    // What the movement flags mean. GameHandler and MovementHandler both used
+    // to spell these out against their own copy of the flag word, which is one
+    // definition of flying in two places.
+    bool isPlayerRooted() const { return hasFlag(MovementFlags::ROOT); }
+    bool isGravityDisabled() const { return hasFlag(MovementFlags::LEVITATING); }
+    bool isFeatherFalling() const { return hasFlag(MovementFlags::FEATHER_FALL); }
+    bool isWaterWalking() const { return hasFlag(MovementFlags::WATER_WALK); }
+    bool isHovering() const { return hasFlag(MovementFlags::HOVER); }
+    bool isSwimming() const { return hasFlag(MovementFlags::SWIMMING); }
+
+    /// Both flags, not either. CAN_FLY on its own is permission to fly, which
+    /// a player has while mounted on a flying mount and standing on the
+    /// ground, and FLYING on its own arrives briefly mid-transition. Treating
+    /// either as flying puts the character into the airborne animation while
+    /// it is walking around.
+    bool isPlayerFlying() const {
+        const uint32_t flyMask = static_cast<uint32_t>(MovementFlags::CAN_FLY) |
+                                 static_cast<uint32_t>(MovementFlags::FLYING);
+        return (flags & flyMask) == flyMask;
+    }
 };
 
 /**

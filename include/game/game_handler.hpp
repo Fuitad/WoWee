@@ -2912,35 +2912,19 @@ public:
     float getServerFlightBackSpeed() const;
     float getServerRunBackSpeed() const;
     float getServerTurnRate() const;
-    bool isPlayerRooted() const {
-        return (movementInfo.flags & static_cast<uint32_t>(MovementFlags::ROOT)) != 0;
-    }
-    bool isGravityDisabled() const {
-        return (movementInfo.flags & static_cast<uint32_t>(MovementFlags::LEVITATING)) != 0;
-    }
-    bool isFeatherFalling() const {
-        return (movementInfo.flags & static_cast<uint32_t>(MovementFlags::FEATHER_FALL)) != 0;
-    }
-    bool isWaterWalking() const {
-        return (movementInfo.flags & static_cast<uint32_t>(MovementFlags::WATER_WALK)) != 0;
-    }
-    bool isPlayerFlying() const {
-        const uint32_t flyMask = static_cast<uint32_t>(MovementFlags::CAN_FLY) |
-                                 static_cast<uint32_t>(MovementFlags::FLYING);
-        return (movementInfo.flags & flyMask) == flyMask;
-    }
+    bool isPlayerRooted() const { return movementInfo.isPlayerRooted(); }
+    bool isGravityDisabled() const { return movementInfo.isGravityDisabled(); }
+    bool isFeatherFalling() const { return movementInfo.isFeatherFalling(); }
+    bool isWaterWalking() const { return movementInfo.isWaterWalking(); }
+    bool isPlayerFlying() const { return movementInfo.isPlayerFlying(); }
     // The player is *allowed* to fly (CAN_FLY set by a flying mount or .gm fly).
     // Drives flight-mode physics: FLYING is only set once actually airborne, so
     // gating flight on isPlayerFlying() left .gm fly unable to take off.
     bool canFly() const {
         return (movementInfo.flags & static_cast<uint32_t>(MovementFlags::CAN_FLY)) != 0;
     }
-    bool isHovering() const {
-        return (movementInfo.flags & static_cast<uint32_t>(MovementFlags::HOVER)) != 0;
-    }
-    bool isSwimming() const {
-        return (movementInfo.flags & static_cast<uint32_t>(MovementFlags::SWIMMING)) != 0;
-    }
+    bool isHovering() const { return movementInfo.isHovering(); }
+    bool isSwimming() const { return movementInfo.isSwimming(); }
     // Set the character pitch angle (radians) for movement packets (flight / swimming).
     // Positive = nose up, negative = nose down.
     void setMovementPitch(float radians) { movementInfo.pitch = radians; }
