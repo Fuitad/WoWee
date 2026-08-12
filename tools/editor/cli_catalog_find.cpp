@@ -1,5 +1,6 @@
 #include "cli_catalog_find.hpp"
 #include "cli_arg_parse.hpp"
+#include "cli_catalog_entry_key.hpp"
 #include "cli_format_table.hpp"
 
 #include <nlohmann/json.hpp>
@@ -38,90 +39,6 @@ bool peekMagic(const fs::path& path, char magic[4]) {
     if (!is) return false;
     if (!is.read(magic, 4) || is.gcount() != 4) return false;
     return true;
-}
-
-// Same external-ref filter as cli_catalog_pluck. Kept in
-// sync - when a new format adds a foreign-key suffix that
-// the old filter misses, both files must be updated.
-// Future cleanup: share via cli_catalog_pluck.hpp once
-// either utility needs a third common helper.
-bool isExternalRefField(const std::string& k) {
-    static const char* kExternals[] = {
-        "mapId", "areaId", "zoneId", "subAreaId",
-        "spellId", "itemId", "npcId", "creatureId",
-        "objectId", "gameObjectId",
-        "factionId", "factionTemplateId",
-        "difficultyId", "instanceId",
-        "raceId", "classId", "classMask", "raceMask",
-        "skillLineId", "questId", "talentId",
-        "achievementId", "criteriaId", "lootId",
-        "soundId", "movieId", "displayId", "modelId",
-        "iconId", "textureId", "auraId",
-        "animationId", "particleId", "ribbonId",
-        "vehicleId", "seatId", "currencyId",
-        "trainerId", "vendorId", "mailTemplateId",
-        "playerId", "characterId", "creatorPlayerId",
-        "ownerId", "ownerCharacterId", "leaderId",
-        "emblemId", "glyphId", "decalId",
-        "previousRankId", "nextRankId",
-    };
-    for (const char* ref : kExternals) {
-        if (k == ref) return true;
-    }
-    return false;
-}
-
-std::pair<bool, uint64_t>
-findEntryPrimaryKey(const nlohmann::json& entry) {
-    if (!entry.is_object()) return {false, 0};
-    for (auto it = entry.begin(); it != entry.end(); ++it) {
-        const std::string& k = it.key();
-        if (k.size() >= 2 &&
-            k.compare(k.size() - 2, 2, "Id") == 0 &&
-            it.value().is_number_integer() &&
-            !isExternalRefField(k)) {
-            return {true, it.value().get<uint64_t>()};
-        }
-    }
-    for (auto it = entry.begin(); it != entry.end(); ++it) {
-        const std::string& k = it.key();
-        if (k.size() >= 2 &&
-            k.compare(k.size() - 2, 2, "Id") == 0 &&
-            it.value().is_number_integer()) {
-            return {true, it.value().get<uint64_t>()};
-        }
-    }
-    for (auto it = entry.begin(); it != entry.end(); ++it) {
-        if (it.value().is_number_integer()) {
-            return {true, it.value().get<uint64_t>()};
-        }
-    }
-    return {false, 0};
-}
-
-std::string findEntryPrimaryKeyName(const nlohmann::json& entry) {
-    if (!entry.is_object()) return {};
-    for (auto it = entry.begin(); it != entry.end(); ++it) {
-        const std::string& k = it.key();
-        if (k.size() >= 2 &&
-            k.compare(k.size() - 2, 2, "Id") == 0 &&
-            it.value().is_number_integer() &&
-            !isExternalRefField(k)) {
-            return k;
-        }
-    }
-    for (auto it = entry.begin(); it != entry.end(); ++it) {
-        const std::string& k = it.key();
-        if (k.size() >= 2 &&
-            k.compare(k.size() - 2, 2, "Id") == 0 &&
-            it.value().is_number_integer()) {
-            return k;
-        }
-    }
-    for (auto it = entry.begin(); it != entry.end(); ++it) {
-        if (it.value().is_number_integer()) return it.key();
-    }
-    return {};
 }
 
 std::string runAndCapture(const std::string& cmd, int& outRc) {
@@ -269,12 +186,13 @@ int handleFind(int& i, int argc, char** argv) {
         if (!doc.contains("entries") ||
             !doc["entries"].is_array()) continue;
         for (const auto& entry : doc["entries"]) {
-            auto [ok, key] = findEntryPrimaryKey(entry);
-            if (!ok || key != searchId) continue;
+            const auto pk =
+                entryPrimaryKey(entry, fmt->primaryKey, true);
+            if (!pk.found || pk.value != searchId) continue;
             Hit h;
             h.path = dirent.path();
             h.magic = std::string(magic, 4);
-            h.primaryKeyField = findEntryPrimaryKeyName(entry);
+            h.primaryKeyField = pk.name;
             if (entry.is_object() && entry.contains("name") &&
                 entry["name"].is_string()) {
                 h.entryName = entry["name"].get<std::string>();

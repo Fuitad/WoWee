@@ -1710,3 +1710,25 @@ target_include_directories(test_calendar_month SYSTEM PRIVATE ${TEST_SYSTEM_INCL
 target_link_libraries(test_calendar_month PRIVATE catch2_main)
 add_test(NAME calendar_month COMMAND test_calendar_month)
 register_test_target(test_calendar_month)
+
+# ── test_catalog_entry_key ───────────────────────────────────
+# Which field of a catalog entry is its id. Four commands guessed it from the
+# field's name and disagreed; the format table now declares it. The oracle is
+# each format's own --info handler, so the test reads the editor sources.
+add_executable(test_catalog_entry_key
+    test_catalog_entry_key.cpp
+    ${CMAKE_SOURCE_DIR}/tools/editor/cli_format_table.cpp
+    ${TEST_COMMON_SOURCES})
+target_include_directories(test_catalog_entry_key PRIVATE
+    ${TEST_INCLUDE_DIRS}
+    ${CMAKE_SOURCE_DIR}/tools/editor
+)
+target_include_directories(test_catalog_entry_key SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS}
+    ${CMAKE_SOURCE_DIR}/extern/nlohmann
+)
+target_compile_definitions(test_catalog_entry_key PRIVATE
+    WOWEE_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+target_link_libraries(test_catalog_entry_key PRIVATE catch2_main)
+add_test(NAME catalog_entry_key COMMAND test_catalog_entry_key)
+register_test_target(test_catalog_entry_key)

@@ -1,5 +1,6 @@
 #include "cli_catalog_pluck.hpp"
 #include "cli_arg_parse.hpp"
+#include "cli_catalog_entry_key.hpp"
 #include "cli_format_table.hpp"
 
 #include <nlohmann/json.hpp>
@@ -82,46 +83,6 @@ std::string runAndCapture(const std::string& cmd, int& outRc) {
     return buf;
 }
 
-// Field names that are conventionally cross-references
-// to OTHER catalogs, not the primary key of THIS entry.
-// nlohmann::json's default storage is std::map (alphabet-
-// ically ordered), so a naive "first *Id field" picks up
-// the wrong field for catalogs that mention foreign keys
-// before their own (WHRT areaId/bindId, etc.). The pluck
-// algorithm filters these out before falling back.
-bool isExternalRefField(const std::string& k) {
-    static const char* kExternals[] = {
-        "mapId", "areaId", "zoneId", "subAreaId",
-        "spellId", "itemId", "npcId", "creatureId",
-        "objectId", "gameObjectId",
-        "factionId", "factionTemplateId",
-        "difficultyId", "instanceId",
-        "raceId", "classId", "classMask", "raceMask",
-        "skillLineId", "questId", "talentId",
-        "achievementId", "criteriaId", "lootId",
-        "soundId", "movieId", "displayId", "modelId",
-        "iconId", "textureId", "auraId",
-        "animationId", "particleId", "ribbonId",
-        "vehicleId", "seatId", "currencyId",
-        "trainerId", "vendorId", "mailTemplateId",
-        // Player references - these are player profile
-        // references, not primary keys of the catalog
-        // they appear in.
-        "playerId", "characterId", "creatorPlayerId",
-        "ownerId", "ownerCharacterId", "leaderId",
-        // Glyph / emblem indexes - refer to art-asset
-        // glyph tables, not catalog primary keys.
-        "emblemId", "glyphId", "decalId",
-        // Rank-chain references in graph-shaped catalogs
-        // (WBAB next/previous edges).
-        "previousRankId", "nextRankId",
-    };
-    for (const char* ref : kExternals) {
-        if (k == ref) return true;
-    }
-    return false;
-}
-
 // Walk a JSON entry object and find the value of its
 // primary-key field. Convention: the primary key is the
 // first field whose name ends in "Id" AND is NOT a known
@@ -129,88 +90,6 @@ bool isExternalRefField(const std::string& k) {
 // alphabetically, so we filter foreign keys before
 // picking. Falls back to first numeric field if no *Id
 // remains.
-
-// Per-magic explicit primary-key override. Used for
-// catalogs where the heuristic picks the wrong field
-// because too many foreign-key *Id fields sort before
-// the primary key, AND filtering them globally would
-// break other catalogs that legitimately use those
-// names as primary keys (e.g. WGLD has guildId as
-// primary key, so we can't filter guildId globally -
-// but WTBD has guildId as a foreign reference and needs
-// tabardId picked instead).
-const char* findExplicitPrimaryKey(const char magic[4]) {
-    static const struct { char magic[4]; const char* pk; }
-    kOverrides[] = {
-        {{'W','T','B','D'}, "tabardId"},
-    };
-    for (const auto& m : kOverrides) {
-        if (std::memcmp(m.magic, magic, 4) == 0) return m.pk;
-    }
-    return nullptr;
-}
-
-std::pair<bool, uint64_t>
-findEntryPrimaryKey(const nlohmann::json& entry) {
-    if (!entry.is_object()) return {false, 0};
-    // First pass: *Id fields that aren't known foreign keys.
-    for (auto it = entry.begin(); it != entry.end(); ++it) {
-        const std::string& k = it.key();
-        if (k.size() >= 2 &&
-            k.compare(k.size() - 2, 2, "Id") == 0 &&
-            it.value().is_number_integer() &&
-            !isExternalRefField(k)) {
-            return {true, it.value().get<uint64_t>()};
-        }
-    }
-    // Second pass: any *Id (lets pluck still work on
-    // catalogs whose primary key happens to share a name
-    // with a foreign-key convention).
-    for (auto it = entry.begin(); it != entry.end(); ++it) {
-        const std::string& k = it.key();
-        if (k.size() >= 2 &&
-            k.compare(k.size() - 2, 2, "Id") == 0 &&
-            it.value().is_number_integer()) {
-            return {true, it.value().get<uint64_t>()};
-        }
-    }
-    // Fallback: first numeric field.
-    for (auto it = entry.begin(); it != entry.end(); ++it) {
-        if (it.value().is_number_integer()) {
-            return {true, it.value().get<uint64_t>()};
-        }
-    }
-    return {false, 0};
-}
-
-// Same algorithm but returning the field NAME - used so
-// the operator can know which field they searched
-// (compId vs bindId vs broadcastId etc.) without having
-// to memorize per-format conventions.
-std::string findEntryPrimaryKeyName(const nlohmann::json& entry) {
-    if (!entry.is_object()) return {};
-    for (auto it = entry.begin(); it != entry.end(); ++it) {
-        const std::string& k = it.key();
-        if (k.size() >= 2 &&
-            k.compare(k.size() - 2, 2, "Id") == 0 &&
-            it.value().is_number_integer() &&
-            !isExternalRefField(k)) {
-            return k;
-        }
-    }
-    for (auto it = entry.begin(); it != entry.end(); ++it) {
-        const std::string& k = it.key();
-        if (k.size() >= 2 &&
-            k.compare(k.size() - 2, 2, "Id") == 0 &&
-            it.value().is_number_integer()) {
-            return k;
-        }
-    }
-    for (auto it = entry.begin(); it != entry.end(); ++it) {
-        if (it.value().is_number_integer()) return it.key();
-    }
-    return {};
-}
 
 int handlePluck(int& i, int argc, char** argv) {
     if (i + 2 >= argc) {
@@ -306,30 +185,17 @@ int handlePluck(int& i, int argc, char** argv) {
             "'entries' array\n");
         return 1;
     }
-    // Locate the entry whose primary-key field matches.
-    // Prefer the explicit per-magic override if one exists
-    // (avoids the heuristic's failure modes on catalogs
-    // with multiple ambiguous *Id fields). Otherwise fall
-    // back to the heuristic.
-    const char* explicitPk = findExplicitPrimaryKey(magic);
+    // Locate the entry whose primary-key field matches. The
+    // format declares which field that is; see
+    // cli_catalog_entry_key.hpp for why guessing it from the
+    // field's name cannot work.
     const nlohmann::json* match = nullptr;
     std::string keyName;
     for (const auto& entry : doc["entries"]) {
-        uint64_t key = 0;
-        bool ok = false;
-        std::string fieldName;
-        if (explicitPk != nullptr && entry.is_object() &&
-            entry.contains(explicitPk) &&
-            entry[explicitPk].is_number_integer()) {
-            key = entry[explicitPk].get<uint64_t>();
-            ok = true;
-            fieldName = explicitPk;
-        } else {
-            auto [okHeur, keyHeur] = findEntryPrimaryKey(entry);
-            ok = okHeur;
-            key = keyHeur;
-            fieldName = findEntryPrimaryKeyName(entry);
-        }
+        const auto pk = entryPrimaryKey(entry, fmt->primaryKey);
+        const bool ok = pk.found;
+        const uint64_t key = pk.value;
+        const std::string& fieldName = pk.name;
         if (std::getenv("WOWEE_PLUCK_DEBUG") != nullptr) {
             std::fprintf(stderr,
                 "[pluck-debug] entry: pkField=%s pkValue=%llu "

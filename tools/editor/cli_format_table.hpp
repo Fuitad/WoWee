@@ -17,6 +17,11 @@ struct FormatMagicEntry {
     const char* extension;   // file suffix (with dot)
     const char* category;    // grouping label
     const char* infoFlag;    // --info-* flag, nullptr if none
+    // The JSON key that holds an entry's own id, nullptr for
+    // a format with no single one. The catalog searches used
+    // to guess this from the field name and got it wrong for
+    // 49 of 128 formats - see cli_catalog_entry_key.hpp.
+    const char* primaryKey;
     const char* description;
 };
 

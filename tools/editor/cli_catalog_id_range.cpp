@@ -1,5 +1,6 @@
 #include "cli_catalog_id_range.hpp"
 #include "cli_arg_parse.hpp"
+#include "cli_catalog_entry_key.hpp"
 #include "cli_format_table.hpp"
 
 #include <nlohmann/json.hpp>
@@ -40,51 +41,6 @@ bool peekMagic(const fs::path& path, char magic[4]) {
     if (!is) return false;
     if (!is.read(magic, 4) || is.gcount() != 4) return false;
     return true;
-}
-
-// Same external-ref filter pattern as cli_catalog_pluck
-// + cli_catalog_find. Picks the first non-foreign-key
-// *Id field for the displayed range.
-bool isExternalRefField(const std::string& k) {
-    static const char* kExternals[] = {
-        "mapId", "areaId", "spellId", "itemId", "npcId",
-        "creatureId", "factionId", "guildId", "soundId",
-        "movieId", "displayId", "modelId", "iconId",
-        "creatorPlayerId", "emblemId", "animationId",
-        "previousRankId", "nextRankId", "difficultyId",
-        "instanceId", "raceId", "classId",
-        "skillLineId", "questId", "talentId",
-        "achievementId", "criteriaId", "lootId",
-    };
-    for (const char* ref : kExternals) {
-        if (k == ref) return true;
-    }
-    return false;
-}
-
-// Extract the primary-key value from one entry. Returns
-// {false, 0} if no usable numeric field found.
-std::pair<bool, uint64_t>
-findEntryPrimaryKey(const nlohmann::json& entry) {
-    if (!entry.is_object()) return {false, 0};
-    for (auto it = entry.begin(); it != entry.end(); ++it) {
-        const std::string& k = it.key();
-        if (k.size() >= 2 &&
-            k.compare(k.size() - 2, 2, "Id") == 0 &&
-            it.value().is_number_integer() &&
-            !isExternalRefField(k)) {
-            return {true, it.value().get<uint64_t>()};
-        }
-    }
-    for (auto it = entry.begin(); it != entry.end(); ++it) {
-        const std::string& k = it.key();
-        if (k.size() >= 2 &&
-            k.compare(k.size() - 2, 2, "Id") == 0 &&
-            it.value().is_number_integer()) {
-            return {true, it.value().get<uint64_t>()};
-        }
-    }
-    return {false, 0};
 }
 
 std::string runAndCapture(const std::string& cmd, int& outRc) {
@@ -206,8 +162,8 @@ int handleIdRange(int& i, int argc, char** argv) {
 
         std::set<uint64_t> ids;
         for (const auto& entry : doc["entries"]) {
-            auto [ok, key] = findEntryPrimaryKey(entry);
-            if (ok) ids.insert(key);
+            const auto pk = entryPrimaryKey(entry, fmt->primaryKey);
+            if (pk.found) ids.insert(pk.value);
         }
         if (!ids.empty()) {
             s.minId = *ids.begin();
