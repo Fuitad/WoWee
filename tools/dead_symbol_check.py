@@ -31,6 +31,15 @@ WHAT IT CANNOT SEE, AND WHY IT REPORTS RATHER THAN JUDGES
 It also misses a call split across lines, where the name sits on a
 continuation with no statement keyword in front of it.
 
+**The counted surface is src/, include/, tests/ and tools/ - and tools/ holds
+516 more C++ files than anyone remembers, including the whole standalone world
+editor.** A grep scoped to src/ and include/ says "dead" about functions the
+editor calls, and the editor is not in the default build, so nothing local
+disagrees until CI builds it. That happened: loadTerrain was removed on the
+strength of a narrow grep while this scan was correctly counting ten uses, and
+two of five CI jobs caught it. **Trust this over a hand grep, and build
+`--target wowee_editor` before believing any removal.**
+
 So a hit is a question, not an answer, and the answer is the build: remove the
 declaration and the definition together, compile, and a live one fails to
 resolve. That is a complete oracle for anything not reached through a virtual,
@@ -159,12 +168,15 @@ def use_counts(names):
                     if definition:
                         defined_here = definition.group(1)
 
-                # A name inside a string literal is not a call. `loadTerrain`
-                # survived a removal pass on the strength of its own log line,
-                # `LOG_WARNING("loadTerrain[", ...)`, and stayed dead for
-                # another hundred and twelve lines. Anything genuinely reached
-                # by name from Lua or a config file is filtered before removal
-                # by grepping for that string deliberately, not by accident.
+                # A name inside a string literal is not a call. A function
+                # whose only remaining mention is its own log line -
+                # `LOG_WARNING("foo: ...")` inside foo - would otherwise count
+                # as used forever. Canaried both ways.
+                #
+                # This does not weaken the Lua case: a binding reached by name
+                # is registered as `{"Name", lua_Name}`, and `lua_Name` there is
+                # an identifier, not a string. The removal procedure greps for
+                # the quoted form deliberately, and should keep doing so.
                 stripped_line = STRING_LITERAL.sub('""', line)
                 for match in pattern.finditer(stripped_line):
                     name = match.group(1)

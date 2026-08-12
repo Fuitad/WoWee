@@ -91,6 +91,11 @@ public:
 
     void shutdown();
 
+    bool loadTerrain(const pipeline::TerrainMesh& mesh,
+                     const std::vector<std::string>& texturePaths,
+                     int tileX = -1, int tileY = -1);
+
+
     /// Upload a batch of terrain chunks incrementally. Returns true when all chunks done.
     /// chunkIndex is updated to the next chunk to process (0-255 row-major).
     bool loadTerrainIncremental(const pipeline::TerrainMesh& mesh,

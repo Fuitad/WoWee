@@ -341,6 +341,118 @@ void TerrainRenderer::shutdown() {
     vkCtx = nullptr;
 }
 
+bool TerrainRenderer::loadTerrain(const pipeline::TerrainMesh& mesh,
+                                   const std::vector<std::string>& texturePaths,
+                                   int tileX, int tileY) {
+    if (mesh.validChunkCount == 0) {
+        LOG_WARNING("loadTerrain[", tileX, ",", tileY, "]: mesh has 0 valid chunks (", texturePaths.size(), " textures)");
+        return false;
+    }
+    LOG_DEBUG("Loading terrain mesh: ", mesh.validChunkCount, " chunks");
+
+    vkCtx->beginUploadBatch();
+
+    for (int y = 0; y < 16; y++) {
+        for (int x = 0; x < 16; x++) {
+            const auto& chunk = mesh.getChunk(x, y);
+            if (!chunk.isValid()) continue;
+
+            TerrainChunkGPU gpuChunk = uploadChunk(chunk);
+            if (!gpuChunk.isValid()) {
+                LOG_WARNING("Failed to upload chunk [", x, ",", y, "]");
+                continue;
+            }
+
+            calculateBoundingSphere(gpuChunk, chunk);
+
+            // Load textures for this chunk
+            if (!chunk.layers.empty()) {
+                uint32_t baseTexId = chunk.layers[0].textureId;
+                if (baseTexId < texturePaths.size()) {
+                    gpuChunk.baseTexture = loadTexture(texturePaths[baseTexId]);
+                } else {
+                    LOG_WARNING("Terrain[", tileX, ",", tileY, "] chunk[", x, ",", y,
+                                "] base textureId ", baseTexId, " >= texturePaths size ",
+                                texturePaths.size(), " - white fallback");
+                    gpuChunk.baseTexture = whiteTexture.get();
+                }
+
+                for (size_t i = 1; i < chunk.layers.size() && i < 4; i++) {
+                    const auto& layer = chunk.layers[i];
+                    int li = static_cast<int>(i) - 1;
+
+                    VkTexture* layerTex = whiteTexture.get();
+                    if (layer.textureId < texturePaths.size()) {
+                        layerTex = loadTexture(texturePaths[layer.textureId]);
+                    } else {
+                        LOG_WARNING("Terrain[", tileX, ",", tileY, "] chunk[", x, ",", y,
+                                    "] layer[", i, "] textureId ", layer.textureId,
+                                    " >= texturePaths size ", texturePaths.size(),
+                                    " - white fallback");
+                    }
+                    gpuChunk.layerTextures[li] = layerTex;
+
+                    VkTexture* alphaTex = opaqueAlphaTexture.get();
+                    if (!layer.alphaData.empty()) {
+                        alphaTex = createAlphaTexture(layer.alphaData);
+                    }
+                    gpuChunk.alphaTextures[li] = alphaTex;
+                    gpuChunk.layerCount = static_cast<int>(i);
+                }
+            } else {
+                gpuChunk.baseTexture = whiteTexture.get();
+            }
+
+            gpuChunk.tileX = tileX;
+            gpuChunk.tileY = tileY;
+
+            // Create per-chunk params UBO
+            TerrainParamsUBO params{};
+            params.layerCount = gpuChunk.layerCount;
+            params.hasLayer1 = gpuChunk.layerCount >= 1 ? 1 : 0;
+            params.hasLayer2 = gpuChunk.layerCount >= 2 ? 1 : 0;
+            params.hasLayer3 = gpuChunk.layerCount >= 3 ? 1 : 0;
+
+            VkBufferCreateInfo bufCI{};
+            bufCI.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+            bufCI.size = sizeof(TerrainParamsUBO);
+            bufCI.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+
+            VmaAllocationCreateInfo allocCI{};
+            allocCI.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
+            allocCI.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
+
+            VmaAllocationInfo mapInfo{};
+            // Check return value - a null UBO handle would cause the GPU to
+            // read from an invalid descriptor, crashing the driver under
+            // memory pressure instead of gracefully skipping the chunk.
+            if (vmaCreateBuffer(vkCtx->getAllocator(), &bufCI, &allocCI,
+                                &gpuChunk.paramsUBO, &gpuChunk.paramsAlloc, &mapInfo) != VK_SUCCESS) {
+                LOG_WARNING("Terrain chunk UBO allocation failed - skipping chunk");
+                destroyChunkGPU(gpuChunk);
+                continue;
+            }
+            if (mapInfo.pMappedData) {
+                std::memcpy(mapInfo.pMappedData, &params, sizeof(params));
+            }
+
+            gpuChunk.materialSet = allocateMaterialSet();
+            if (!gpuChunk.materialSet) {
+                destroyChunkGPU(gpuChunk);
+                continue;
+            }
+            writeMaterialDescriptors(gpuChunk.materialSet, gpuChunk);
+
+            chunks.push_back(std::move(gpuChunk));
+        }
+    }
+
+    vkCtx->endUploadBatch();
+
+    LOG_DEBUG("Loaded ", chunks.size(), " terrain chunks to GPU");
+    return !chunks.empty();
+}
+
 bool TerrainRenderer::loadTerrainIncremental(const pipeline::TerrainMesh& mesh,
                                               const std::vector<std::string>& texturePaths,
                                               int tileX, int tileY,
