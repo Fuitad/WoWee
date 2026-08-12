@@ -34,31 +34,13 @@ Weather::~Weather() {
     shutdown();
 }
 
-bool Weather::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout) {
-    LOG_INFO("Initializing weather system");
-
-    vkCtx = ctx;
-    VkDevice device = vkCtx->getDevice();
-
-    // Load SPIR-V shaders
-    auto shaders = loadShaderPair(device, "assets/shaders/weather.vert.spv", "assets/shaders/weather.frag.spv", "weather");
-    if (!shaders) return false;
-    const auto& vertStage = shaders.vertStage;
-    const auto& fragStage = shaders.fragStage;
-
-    // Push constant range: { float particleSize; float pad0; float pad1; float pad2; vec4 particleColor; } = 32 bytes
-    VkPushConstantRange pushRange{};
-    pushRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
-    pushRange.offset = 0;
-    pushRange.size = 32;  // 4 floats + vec4
-
-    // Create pipeline layout with perFrameLayout (set 0) + push constants
-    pipelineLayout = createPipelineLayout(device, {perFrameLayout}, {pushRange});
-    if (pipelineLayout == VK_NULL_HANDLE) {
-        LOG_ERROR("Failed to create weather pipeline layout");
-        return false;
-    }
-
+/// Builds the one pipeline this effect draws with, vertex layout and all.
+///
+/// initialize() and recreatePipelines() described it identically, which is two
+/// statements of what a weather particle vertex is in one file.
+void Weather::buildPipelines(VkDevice device,
+                             const VkPipelineShaderStageCreateInfo& vertStage,
+                             const VkPipelineShaderStageCreateInfo& fragStage) {
     // Vertex input: position only (vec3), stride = 3 * sizeof(float)
     VkVertexInputBindingDescription binding{};
     binding.binding = 0;
@@ -86,6 +68,34 @@ bool Weather::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout) {
         .setRenderPass(vkCtx->getImGuiRenderPass())
         .setDynamicStates(dynamicStates)
         .build(device, vkCtx->getPipelineCache());
+}
+
+bool Weather::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout) {
+    LOG_INFO("Initializing weather system");
+
+    vkCtx = ctx;
+    VkDevice device = vkCtx->getDevice();
+
+    // Load SPIR-V shaders
+    auto shaders = loadShaderPair(device, "assets/shaders/weather.vert.spv", "assets/shaders/weather.frag.spv", "weather");
+    if (!shaders) return false;
+    const auto& vertStage = shaders.vertStage;
+    const auto& fragStage = shaders.fragStage;
+
+    // Push constant range: { float particleSize; float pad0; float pad1; float pad2; vec4 particleColor; } = 32 bytes
+    VkPushConstantRange pushRange{};
+    pushRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+    pushRange.offset = 0;
+    pushRange.size = 32;  // 4 floats + vec4
+
+    // Create pipeline layout with perFrameLayout (set 0) + push constants
+    pipelineLayout = createPipelineLayout(device, {perFrameLayout}, {pushRange});
+    if (pipelineLayout == VK_NULL_HANDLE) {
+        LOG_ERROR("Failed to create weather pipeline layout");
+        return false;
+    }
+
+    buildPipelines(device, vertStage, fragStage);
 
 
     if (pipeline == VK_NULL_HANDLE) {
@@ -125,32 +135,7 @@ void Weather::recreatePipelines() {
     const auto& vertStage = shaders.vertStage;
     const auto& fragStage = shaders.fragStage;
 
-    // Vertex input (same as initialize)
-    VkVertexInputBindingDescription binding{};
-    binding.binding = 0;
-    binding.stride = 3 * sizeof(float);
-    binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-    VkVertexInputAttributeDescription posAttr{};
-    posAttr.location = 0;
-    posAttr.binding = 0;
-    posAttr.format = VK_FORMAT_R32G32B32_SFLOAT;
-    posAttr.offset = 0;
-
-    std::vector<VkDynamicState> dynamicStates = viewportAndScissorDynamic();
-
-    pipeline = PipelineBuilder()
-        .setShaders(vertStage, fragStage)
-        .setVertexInput({binding}, {posAttr})
-        .setTopology(VK_PRIMITIVE_TOPOLOGY_POINT_LIST)
-        .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
-        .setDepthTest(true, false, VK_COMPARE_OP_LESS)
-        .setColorBlendAttachment(PipelineBuilder::blendAlpha())
-        .setMultisample(vkCtx->getMsaaSamples())
-        .setLayout(pipelineLayout)
-        .setRenderPass(vkCtx->getImGuiRenderPass())
-        .setDynamicStates(dynamicStates)
-        .build(device, vkCtx->getPipelineCache());
+    buildPipelines(device, vertStage, fragStage);
 
 
     if (pipeline == VK_NULL_HANDLE) {

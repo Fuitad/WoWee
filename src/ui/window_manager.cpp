@@ -1633,22 +1633,30 @@ void WindowManager::renderTrainerWindow(game::GameHandler& gameHandler,
                 renderSpellTable("TrainerTable", allSpells);
             }
 
+            // What "trainable right now" means, asked twice: once to price the
+            // Train All button and once to act on it. Two copies of this rule
+            // is a button that promises one set of spells and trains another.
+            const auto canTrainNow = [&](const game::TrainerSpell& spell) {
+                const bool prereqsMet = isKnown(spell.chainNode1) &&
+                                        isKnown(spell.chainNode2) &&
+                                        isKnown(spell.chainNode3);
+                const bool levelMet = (spell.reqLevel == 0 || playerLevel >= spell.reqLevel);
+                // State 1 is "not available yet". The server sends it from the
+                // last time it looked, so a prerequisite learned since is only
+                // reflected here.
+                uint8_t effectiveState = spell.state;
+                if (spell.state == 1 && prereqsMet && levelMet && skillMet(spell)) {
+                    effectiveState = 0;
+                }
+                return !isKnown(spell.spellId) && effectiveState == 0 &&
+                       prereqsMet && levelMet && money >= spell.spellCost;
+            };
+
             // Count how many spells are trainable right now
             int trainableCount = 0;
             uint64_t totalCost = 0;
             for (const auto& spell : trainer.spells) {
-                bool prereq1Met = isKnown(spell.chainNode1);
-                bool prereq2Met = isKnown(spell.chainNode2);
-                bool prereq3Met = isKnown(spell.chainNode3);
-                bool prereqsMet = prereq1Met && prereq2Met && prereq3Met;
-                bool levelMet = (spell.reqLevel == 0 || playerLevel >= spell.reqLevel);
-                bool alreadyKnown = isKnown(spell.spellId);
-                uint8_t effectiveState = spell.state;
-                if (spell.state == 1 && prereqsMet && levelMet && skillMet(spell)) effectiveState = 0;
-                bool canTrain = !alreadyKnown && effectiveState == 0
-                               && prereqsMet && levelMet
-                               && (money >= spell.spellCost);
-                if (canTrain) {
+                if (canTrainNow(spell)) {
                     ++trainableCount;
                     totalCost += spell.spellCost;
                 }
@@ -1673,18 +1681,7 @@ void WindowManager::renderTrainerWindow(game::GameHandler& gameHandler,
             }
             if (ImGui::Button(trainAllLabel, ImVec2(-1.0f, 0.0f))) {
                 for (const auto& spell : trainer.spells) {
-                    bool prereq1Met = isKnown(spell.chainNode1);
-                    bool prereq2Met = isKnown(spell.chainNode2);
-                    bool prereq3Met = isKnown(spell.chainNode3);
-                    bool prereqsMet = prereq1Met && prereq2Met && prereq3Met;
-                    bool levelMet = (spell.reqLevel == 0 || playerLevel >= spell.reqLevel);
-                    bool alreadyKnown = isKnown(spell.spellId);
-                    uint8_t effectiveState = spell.state;
-                    if (spell.state == 1 && prereqsMet && levelMet && skillMet(spell)) effectiveState = 0;
-                    bool canTrain = !alreadyKnown && effectiveState == 0
-                                   && prereqsMet && levelMet
-                                   && (money >= spell.spellCost);
-                    if (canTrain) {
+                    if (canTrainNow(spell)) {
                         gameHandler.trainSpell(spell.spellId);
                     }
                 }
