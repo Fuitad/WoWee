@@ -4,6 +4,8 @@
 #include "cli_weld.hpp"
 
 #include "pipeline/wowee_model.hpp"
+
+#include "cli_paths.hpp"
 #include "pipeline/wowee_building.hpp"
 #include <glm/glm.hpp>
 #include <nlohmann/json.hpp>
@@ -102,13 +104,9 @@ int handleZoneDeps(int& i, int argc, char** argv) {
     };
     std::vector<DepRef> refs;
     std::error_code ec;
-    for (const auto& e : fs::recursive_directory_iterator(zoneDir, ec)) {
-        if (!e.is_regular_file()) continue;
-        if (e.path().extension() != ".wom") continue;
-        std::string womRel = fs::relative(e.path(), zoneDir).string();
-        std::string base = e.path().string();
-        base = base.substr(0, base.size() - 4);
-        auto wom = wowee::pipeline::WoweeModelLoader::load(base);
+    for (const auto& womFile : findFilesByExtension(zoneDir, ".wom")) {
+        const std::string& womRel = womFile.relative;
+        auto wom = wowee::pipeline::WoweeModelLoader::load(womFile.base);
         for (const auto& tp : wom.texturePaths) {
             if (tp.empty()) continue;
             bool found = false;
@@ -116,7 +114,7 @@ int handleZoneDeps(int& i, int argc, char** argv) {
                 fs::path(tp),
                 fs::path(zoneDir) / tp,
                 fs::path(zoneDir) / "textures" / fs::path(tp).filename(),
-                e.path().parent_path() / fs::path(tp).filename(),
+                womFile.path.parent_path() / fs::path(tp).filename(),
             };
             for (const auto& c : candidates) {
                 if (fs::exists(c, ec) && fs::is_regular_file(c, ec)) {
@@ -223,19 +221,15 @@ int handleValidateZonePack(int& i, int argc, char** argv) {
     // Meshes: WOMs under meshes/ (load & sanity check)
     fs::path meshDir = fs::path(zoneDir) / "meshes";
     if (fs::exists(meshDir)) {
-        for (const auto& e : fs::recursive_directory_iterator(meshDir, ec)) {
-            if (!e.is_regular_file()) continue;
-            if (e.path().extension() != ".wom") continue;
+        for (const auto& womFile : findFilesByExtension(meshDir, ".wom")) {
             mesh.count++;
-            mesh.bytes += e.file_size();
-            std::string base = e.path().string();
-            base = base.substr(0, base.size() - 4);
-            auto wom = wowee::pipeline::WoweeModelLoader::load(base);
+            mesh.bytes += womFile.bytes;
+            auto wom = wowee::pipeline::WoweeModelLoader::load(womFile.base);
             if (wom.vertices.empty() || wom.indices.empty() ||
                 wom.batches.empty()) {
                 mesh.invalid++;
                 mesh.invalidPaths.push_back(
-                    fs::relative(e.path(), zoneDir).string());
+                    fs::relative(womFile.path, zoneDir).string());
             }
         }
     }
@@ -377,14 +371,10 @@ int handleAuditWatertight(int& i, int argc, char** argv) {
     };
     std::vector<Result> rows;
     std::error_code ec;
-    for (const auto& e : fs::recursive_directory_iterator(root, ec)) {
-        if (!e.is_regular_file()) continue;
-        if (e.path().extension() != ".wom") continue;
-        std::string base = e.path().string();
-        base = base.substr(0, base.size() - 4);
+    for (const auto& womFile : findFilesByExtension(root, ".wom")) {
         Result r;
-        r.rel = fs::relative(e.path(), root).string();
-        r.ok = isWomWatertightAfterWeld(base, weldEps, r.tris,
+        r.rel = womFile.relative;
+        r.ok = isWomWatertightAfterWeld(womFile.base, weldEps, r.tris,
                                          r.boundary, r.nonManifold);
         rows.push_back(std::move(r));
     }

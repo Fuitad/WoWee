@@ -1751,3 +1751,20 @@ target_include_directories(test_catalog_subprocess SYSTEM PRIVATE
 target_link_libraries(test_catalog_subprocess PRIVATE catch2_main)
 add_test(NAME catalog_subprocess COMMAND test_catalog_subprocess)
 register_test_target(test_catalog_subprocess)
+
+# ── test_cli_paths ───────────────────────────────────────────
+# Finding the files of one format under a directory. Eleven commands walked
+# the tree themselves for .wom alone. The oracle is a tree the test writes.
+add_executable(test_cli_paths
+    test_cli_paths.cpp
+    ${TEST_COMMON_SOURCES})
+target_include_directories(test_cli_paths PRIVATE
+    ${TEST_INCLUDE_DIRS}
+    ${CMAKE_SOURCE_DIR}/tools/editor
+)
+target_include_directories(test_cli_paths SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS}
+)
+target_link_libraries(test_cli_paths PRIVATE catch2_main)
+add_test(NAME cli_paths COMMAND test_cli_paths)
+register_test_target(test_cli_paths)

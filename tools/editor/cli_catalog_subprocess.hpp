@@ -31,6 +31,7 @@
 #include <nlohmann/json.hpp>
 
 #include "cli_format_table.hpp"
+#include "cli_paths.hpp"
 
 #ifndef _WIN32
 #include <sys/wait.h>
@@ -73,20 +74,6 @@ inline bool peekMagic(const std::filesystem::path& path, char magic[4]) {
     // against the format table.
     if (ok) std::memcpy(magic, head, 4);
     return ok;
-}
-
-/// Drop the format's extension, because the --info handlers take a base path.
-///
-/// A path that does not end in that extension is returned unchanged, so this
-/// is safe to call on anything.
-inline std::string basePathFor(std::string path, const char* extension) {
-    if (!extension || !*extension) return path;
-    const size_t extLen = std::strlen(extension);
-    if (path.size() >= extLen &&
-        path.compare(path.size() - extLen, extLen, extension) == 0) {
-        path.resize(path.size() - extLen);
-    }
-    return path;
 }
 
 /// Run a command and collect everything it writes to stdout.

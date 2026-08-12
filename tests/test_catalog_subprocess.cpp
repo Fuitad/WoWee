@@ -22,7 +22,6 @@
 
 #include "cli_catalog_subprocess.hpp"
 
-using wowee::editor::cli::basePathFor;
 using wowee::editor::cli::peekMagic;
 using wowee::editor::cli::runAndCapture;
 using wowee::editor::cli::shellQuote;
@@ -69,28 +68,6 @@ TEST_CASE("shell metacharacters are data, not syntax", "[catalog]") {
     CHECK(throughTheShell("*") == "*");
     CHECK(throughTheShell("~") == "~");
     CHECK(throughTheShell("a\nb") == "a\nb");
-}
-
-TEST_CASE("the extension the handler does not want is dropped", "[catalog]") {
-    // The --info handlers take a base path and append the extension
-    // themselves, so a search walking real files has to remove it.
-    CHECK(basePathFor("/d/stock.wit", ".wit") == "/d/stock");
-    CHECK(basePathFor("stock.wit", ".wit") == "stock");
-
-    // A path that does not end in that extension is left alone, which is what
-    // makes this safe to call on every file the walk turns up.
-    CHECK(basePathFor("/d/stock.wcrt", ".wit") == "/d/stock.wcrt");
-    CHECK(basePathFor("/d/stock", ".wit") == "/d/stock");
-
-    // Only the suffix, never a match in the middle of the name.
-    CHECK(basePathFor("/d/.wit/stock", ".wit") == "/d/.wit/stock");
-
-    // A name that is nothing but the extension is still a name.
-    CHECK(basePathFor(".wit", ".wit").empty());
-
-    // No extension declared: asset formats have one, but a row may not.
-    CHECK(basePathFor("/d/stock.wit", nullptr) == "/d/stock.wit");
-    CHECK(basePathFor("/d/stock.wit", "") == "/d/stock.wit");
 }
 
 TEST_CASE("the magic is the first four bytes", "[catalog]") {
