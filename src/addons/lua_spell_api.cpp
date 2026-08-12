@@ -6,6 +6,47 @@
 
 namespace wowee::addons {
 
+namespace {
+
+/// The highest-rank known spell with this name, or 0 when the player knows
+/// none by that name.
+///
+/// This is what `/cast Frostbolt` means: the name alone picks the best rank the
+/// player has. Two bindings resolved it with their own copy of the walk, and
+/// picking the wrong one is silent - the spell goes off, it is simply the
+/// rank-one version.
+///
+/// Rank arrives from the DBC as text, "Rank 4", so the number is parsed out of
+/// it. A spell with no rank string, which is most of them, sorts as rank zero:
+/// right, because it is the only one of its name.
+uint32_t highestKnownRankByName(game::GameHandler* gh, const std::string& name) {
+    std::string wanted(name);
+    toLowerInPlace(wanted);
+
+    uint32_t bestId = 0;
+    int bestRank = -1;
+    for (uint32_t sid : gh->getKnownSpells()) {
+        std::string known = gh->getSpellName(sid);
+        toLowerInPlace(known);
+        if (known != wanted) continue;
+
+        int rank = 0;
+        const std::string& rankText = gh->getSpellRank(sid);
+        if (!rankText.empty()) {
+            std::string lowered = rankText;
+            toLowerInPlace(lowered);
+            if (lowered.rfind("rank ", 0) == 0) {
+                try { rank = std::stoi(lowered.substr(5)); } catch (...) {}
+            }
+        }
+        if (rank > bestRank) { bestRank = rank; bestId = sid; }
+    }
+    return bestId;
+}
+
+}  // namespace
+
+
 // ---- Finishing a spell that is waiting for a target ----
 //
 // A spell cast with no target leaves the cursor holding it until something is
@@ -87,13 +128,12 @@ static int lua_IsSpellInRange(lua_State* L) {
     if (spellNameOrId[0] >= '0' && spellNameOrId[0] <= '9') {
         spellId = static_cast<uint32_t>(strtoul(spellNameOrId, nullptr, 10));
     } else {
-        std::string nameLow(spellNameOrId);
-        toLowerInPlace(nameLow);
-        for (uint32_t sid : gh->getKnownSpells()) {
-            std::string sn = gh->getSpellName(sid);
-            toLowerInPlace(sn);
-            if (sn == nameLow) { spellId = sid; break; }
-        }
+        // The rank that would actually be cast, not the first one found. A
+        // range check exists to say whether pressing the button will work, so
+        // it has to be asked of the same spell /cast would pick; where ranks
+        // differ in range, answering about rank one greys out a button that
+        // would have reached.
+        spellId = highestKnownRankByName(gh, spellNameOrId);
     }
     if (spellId == 0) { return luaReturnNil(L); }
 
@@ -363,27 +403,7 @@ static int lua_CastSpellByName(lua_State* L) {
     const char* name = luaL_checkstring(L, 1);
     if (!name || !*name) return 0;
 
-    // Find highest rank of spell by name (same logic as /cast)
-    std::string nameLow(name);
-    toLowerInPlace(nameLow);
-
-    uint32_t bestId = 0;
-    int bestRank = -1;
-    for (uint32_t sid : gh->getKnownSpells()) {
-        std::string sn = gh->getSpellName(sid);
-        toLowerInPlace(sn);
-        if (sn != nameLow) continue;
-        int rank = 0;
-        const std::string& rk = gh->getSpellRank(sid);
-        if (!rk.empty()) {
-            std::string rkl = rk;
-            toLowerInPlace(rkl);
-            if (rkl.rfind("rank ", 0) == 0) {
-                try { rank = std::stoi(rkl.substr(5)); } catch (...) {}
-            }
-        }
-        if (rank > bestRank) { bestRank = rank; bestId = sid; }
-    }
+    const uint32_t bestId = highestKnownRankByName(gh, name);
     if (bestId != 0) {
         // The same second argument, and the same branch of SECURE_ACTIONS.spell
         // reaches here: a spell named rather than numbered is cast by name, and
@@ -863,24 +883,7 @@ static int lua_GetSpellInfo(lua_State* L) {
     } else if (lua_isstring(L, 1)) {
         const char* name = lua_tostring(L, 1);
         if (!name || !*name) { return luaReturnNil(L); }
-        std::string nameLow(name);
-        toLowerInPlace(nameLow);
-        int bestRank = -1;
-        for (uint32_t sid : gh->getKnownSpells()) {
-            std::string sn = gh->getSpellName(sid);
-            toLowerInPlace(sn);
-            if (sn != nameLow) continue;
-            int rank = 0;
-            const std::string& rk = gh->getSpellRank(sid);
-            if (!rk.empty()) {
-                std::string rkl = rk;
-                toLowerInPlace(rkl);
-                if (rkl.rfind("rank ", 0) == 0) {
-                    try { rank = std::stoi(rkl.substr(5)); } catch (...) {}
-                }
-            }
-            if (rank > bestRank) { bestRank = rank; spellId = sid; }
-        }
+        spellId = highestKnownRankByName(gh, name);
     }
 
     if (spellId == 0) { return luaReturnNil(L); }
