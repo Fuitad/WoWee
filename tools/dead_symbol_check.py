@@ -175,12 +175,20 @@ def main():
     counts = use_counts(list(declared))
     dead = sorted(n for n in declared if counts[n] == 0)
 
+    # The .w* format headers are a library the client only partly uses, so an
+    # accessor nothing calls there is API rather than dead weight. Counted
+    # separately, because only the other number is meant to stay at its floor.
+    FORMAT_HEADERS = "include/pipeline/wowee_"
+    outside = [n for n in dead
+               if not all(h.startswith(FORMAT_HEADERS) for h in declared[n])]
+
     print(f"{len(declared)} member function name(s) declared in headers")
-    print(f"{len(dead)} with no use anywhere outside their declaration:\n")
-    for name in dead:
+    print(f"{len(dead)} with no use anywhere outside their declaration")
+    print(f"{len(outside)} of those outside the .w* format headers:\n")
+    for name in outside:
         where = ", ".join(sorted(declared[name])[:2])
         print(f"  {name:44} {where}")
-    if not dead:
+    if not outside:
         print("  (none)")
     print("\nEach is a question rather than an answer: virtuals called through a"
           "\nbase, Lua bindings and dispatch tables all look like this.")

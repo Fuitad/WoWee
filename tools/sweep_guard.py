@@ -804,6 +804,15 @@ CHECKS = [
     ("forwarding_ref_check.py",
      r"^(\d+) member\(s\) written locally and read through a sub-handler", 0,
      "members written locally while every reader forwards"),
+    # A function whose last caller moved away compiles, links and passes every
+    # test. 102 members and six free functions had, across the GameHandler
+    # decomposition and the FrameXML transition; what is left at two is a pair
+    # the scan cannot see through, a call on a continuation line and a
+    # multi-line qualified one. The .w* format headers are counted separately
+    # because an unused accessor there is API rather than dead weight.
+    ("dead_symbol_check.py",
+     r"^(\d+) of those outside the \.w\* format headers", 2,
+     "declared functions with no caller"),
 ]
 
 # Prose rather than a count: the chunk checker says one of two sentences.
