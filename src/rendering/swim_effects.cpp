@@ -209,27 +209,15 @@ void SwimEffects::shutdown() {
 
         destroy(device, ripplePipeline);
         destroy(device, ripplePipelineLayout);
-        if (rippleDynamicVB != VK_NULL_HANDLE) {
-            vmaDestroyBuffer(allocator, rippleDynamicVB, rippleDynamicVBAlloc);
-            rippleDynamicVB = VK_NULL_HANDLE;
-            rippleDynamicVBAlloc = VK_NULL_HANDLE;
-        }
+        destroy(allocator, rippleDynamicVB, rippleDynamicVBAlloc);
 
         destroy(device, bubblePipeline);
         destroy(device, bubblePipelineLayout);
-        if (bubbleDynamicVB != VK_NULL_HANDLE) {
-            vmaDestroyBuffer(allocator, bubbleDynamicVB, bubbleDynamicVBAlloc);
-            bubbleDynamicVB = VK_NULL_HANDLE;
-            bubbleDynamicVBAlloc = VK_NULL_HANDLE;
-        }
+        destroy(allocator, bubbleDynamicVB, bubbleDynamicVBAlloc);
 
         destroy(device, insectPipeline);
         destroy(device, insectPipelineLayout);
-        if (insectDynamicVB != VK_NULL_HANDLE) {
-            vmaDestroyBuffer(allocator, insectDynamicVB, insectDynamicVBAlloc);
-            insectDynamicVB = VK_NULL_HANDLE;
-            insectDynamicVBAlloc = VK_NULL_HANDLE;
-        }
+        destroy(allocator, insectDynamicVB, insectDynamicVBAlloc);
     }
 
     vkCtx = nullptr;

@@ -200,19 +200,11 @@ void Lightning::shutdown() {
 
         destroy(device, boltPipeline);
         destroy(device, boltPipelineLayout);
-        if (boltDynamicVB != VK_NULL_HANDLE) {
-            vmaDestroyBuffer(allocator, boltDynamicVB, boltDynamicVBAlloc);
-            boltDynamicVB = VK_NULL_HANDLE;
-            boltDynamicVBAlloc = VK_NULL_HANDLE;
-        }
+        destroy(allocator, boltDynamicVB, boltDynamicVBAlloc);
 
         destroy(device, flashPipeline);
         destroy(device, flashPipelineLayout);
-        if (flashQuadVB != VK_NULL_HANDLE) {
-            vmaDestroyBuffer(allocator, flashQuadVB, flashQuadVBAlloc);
-            flashQuadVB = VK_NULL_HANDLE;
-            flashQuadVBAlloc = VK_NULL_HANDLE;
-        }
+        destroy(allocator, flashQuadVB, flashQuadVBAlloc);
     }
 
     vkCtx = nullptr;

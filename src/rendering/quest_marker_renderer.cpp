@@ -129,11 +129,7 @@ void QuestMarkerRenderer::shutdown() {
     destroy(device, pipelineLayout_);
 
     // Destroy quad vertex buffer
-    if (quadVB_ != VK_NULL_HANDLE) {
-        vmaDestroyBuffer(allocator, quadVB_, quadVBAlloc_);
-        quadVB_ = VK_NULL_HANDLE;
-        quadVBAlloc_ = VK_NULL_HANDLE;
-    }
+    destroy(allocator, quadVB_, quadVBAlloc_);
 
     markers_.clear();
     vkCtx_ = nullptr;

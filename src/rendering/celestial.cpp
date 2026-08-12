@@ -430,16 +430,8 @@ void Celestial::destroyQuad() {
 
     VmaAllocator allocator = vkCtx_->getAllocator();
 
-    if (vertexBuffer_ != VK_NULL_HANDLE) {
-        vmaDestroyBuffer(allocator, vertexBuffer_, vertexAlloc_);
-        vertexBuffer_ = VK_NULL_HANDLE;
-        vertexAlloc_  = VK_NULL_HANDLE;
-    }
-    if (indexBuffer_ != VK_NULL_HANDLE) {
-        vmaDestroyBuffer(allocator, indexBuffer_, indexAlloc_);
-        indexBuffer_ = VK_NULL_HANDLE;
-        indexAlloc_  = VK_NULL_HANDLE;
-    }
+    destroy(allocator, vertexBuffer_, vertexAlloc_);
+    destroy(allocator, indexBuffer_, indexAlloc_);
 }
 
 } // namespace rendering

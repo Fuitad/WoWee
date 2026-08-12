@@ -226,7 +226,7 @@ void Minimap::shutdown() {
     destroy(device, descPool);
     destroy(device, samplerSetLayout);
 
-    if (quadVB) { vmaDestroyBuffer(alloc, quadVB, quadVBAlloc); quadVB = VK_NULL_HANDLE; }
+    destroy(alloc, quadVB, quadVBAlloc);
 
     for (auto& [hash, tex] : tileTextureCache) {
         if (tex) tex->destroy(device, alloc);

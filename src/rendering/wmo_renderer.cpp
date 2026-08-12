@@ -2158,23 +2158,14 @@ void WMORenderer::destroyGroupGPU(GroupResources& group, bool defer) {
 
     if (!defer) {
         // Immediate destruction (safe after vkDeviceWaitIdle)
-        if (group.vertexBuffer) {
-            vmaDestroyBuffer(allocator, group.vertexBuffer, group.vertexAlloc);
-            group.vertexBuffer = VK_NULL_HANDLE;
-        }
-        if (group.indexBuffer) {
-            vmaDestroyBuffer(allocator, group.indexBuffer, group.indexAlloc);
-            group.indexBuffer = VK_NULL_HANDLE;
-        }
+        destroy(allocator, group.vertexBuffer, group.vertexAlloc);
+        destroy(allocator, group.indexBuffer, group.indexAlloc);
         for (auto& mb : group.mergedBatches) {
             if (mb.materialSet) {
                 vkFreeDescriptorSets(device, materialDescPool_, 1, &mb.materialSet);
                 mb.materialSet = VK_NULL_HANDLE;
             }
-            if (mb.materialUBO) {
-                vmaDestroyBuffer(allocator, mb.materialUBO, mb.materialUBOAlloc);
-                mb.materialUBO = VK_NULL_HANDLE;
-            }
+            destroy(allocator, mb.materialUBO, mb.materialUBOAlloc);
         }
     } else {
         // Deferred destruction - previous frame's command buffer may still

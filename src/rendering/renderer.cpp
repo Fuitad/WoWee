@@ -398,10 +398,7 @@ void Renderer::destroyPerFrameResources() {
     VkDevice device = vkCtx->getDevice();
 
     for (uint32_t i = 0; i < MAX_FRAMES; i++) {
-        if (perFrameUBOs[i]) {
-            vmaDestroyBuffer(vkCtx->getAllocator(), perFrameUBOs[i], perFrameUBOAllocs[i]);
-            perFrameUBOs[i] = VK_NULL_HANDLE;
-        }
+        destroy(vkCtx->getAllocator(), perFrameUBOs[i], perFrameUBOAllocs[i]);
     }
     if (reflPerFrameUBO) {
         vmaDestroyBuffer(vkCtx->getAllocator(), reflPerFrameUBO, reflPerFrameUBOAlloc);

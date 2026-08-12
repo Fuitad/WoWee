@@ -233,7 +233,7 @@ void CompositeRenderer::shutdown() {
     destroy(device, overlayPipelineLayout_);
     destroy(device, descPool);
     destroy(device, samplerSetLayout);
-    if (quadVB) { vmaDestroyBuffer(alloc, quadVB, quadVBAlloc); quadVB = VK_NULL_HANDLE; }
+    destroy(alloc, quadVB, quadVBAlloc);
 
     for (auto& tex : zoneTextures) {
         if (tex) tex->destroy(device, alloc);

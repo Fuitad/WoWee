@@ -86,18 +86,14 @@ void FootprintRenderer::shutdown() {
     vkDeviceWaitIdle(device);
 
     for (auto& texture : textures_) texture.destroy(device, allocator);
-    if (quadVB_) vmaDestroyBuffer(allocator, quadVB_, quadVBAlloc_);
-    if (pipeline_) vkDestroyPipeline(device, pipeline_, nullptr);
-    if (pipelineLayout_) vkDestroyPipelineLayout(device, pipelineLayout_, nullptr);
-    if (descriptorPool_) vkDestroyDescriptorPool(device, descriptorPool_, nullptr);
-    if (materialSetLayout_) vkDestroyDescriptorSetLayout(device, materialSetLayout_, nullptr);
+    // Through the helpers, which clear each handle as they destroy it, so the
+    // block of assignments that used to follow is gone.
+    destroy(allocator, quadVB_, quadVBAlloc_);
+    destroy(device, pipeline_);
+    destroy(device, pipelineLayout_);
+    destroy(device, descriptorPool_);
+    destroy(device, materialSetLayout_);
 
-    quadVB_ = VK_NULL_HANDLE;
-    quadVBAlloc_ = VK_NULL_HANDLE;
-    pipeline_ = VK_NULL_HANDLE;
-    pipelineLayout_ = VK_NULL_HANDLE;
-    descriptorPool_ = VK_NULL_HANDLE;
-    materialSetLayout_ = VK_NULL_HANDLE;
     textureSets_.fill(VK_NULL_HANDLE);
     profilesByPath_.clear();
     profilesByBasename_.clear();

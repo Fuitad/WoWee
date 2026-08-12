@@ -23,8 +23,8 @@ void OverlaySystem::cleanup() {
     VkDevice device = vkCtx_->getDevice();
     destroy(device, selCirclePipeline_);
     destroy(device, selCirclePipelineLayout_);
-    if (selCircleVertBuf_) { vmaDestroyBuffer(vkCtx_->getAllocator(), selCircleVertBuf_, selCircleVertAlloc_); selCircleVertBuf_ = VK_NULL_HANDLE; selCircleVertAlloc_ = VK_NULL_HANDLE; }
-    if (selCircleIdxBuf_) { vmaDestroyBuffer(vkCtx_->getAllocator(), selCircleIdxBuf_, selCircleIdxAlloc_); selCircleIdxBuf_ = VK_NULL_HANDLE; selCircleIdxAlloc_ = VK_NULL_HANDLE; }
+    destroy(vkCtx_->getAllocator(), selCircleVertBuf_, selCircleVertAlloc_);
+    destroy(vkCtx_->getAllocator(), selCircleIdxBuf_, selCircleIdxAlloc_);
     destroy(device, overlayPipeline_);
     destroy(device, brightnessPipeline_);
     destroy(device, overlayPipelineLayout_);

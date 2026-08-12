@@ -114,11 +114,7 @@ void LensFlare::shutdown() {
         VkDevice device = vkCtx->getDevice();
         VmaAllocator allocator = vkCtx->getAllocator();
 
-        if (vertexBuffer != VK_NULL_HANDLE) {
-            vmaDestroyBuffer(allocator, vertexBuffer, vertexAlloc);
-            vertexBuffer = VK_NULL_HANDLE;
-            vertexAlloc  = VK_NULL_HANDLE;
-        }
+        destroy(allocator, vertexBuffer, vertexAlloc);
         destroy(device, pipeline);
         destroy(device, pipelineLayout);
     }

@@ -178,19 +178,11 @@ void ChargeEffect::shutdown() {
 
         destroy(device, ribbonPipeline_);
         destroy(device, ribbonPipelineLayout_);
-        if (ribbonDynamicVB_ != VK_NULL_HANDLE) {
-            vmaDestroyBuffer(allocator, ribbonDynamicVB_, ribbonDynamicVBAlloc_);
-            ribbonDynamicVB_ = VK_NULL_HANDLE;
-            ribbonDynamicVBAlloc_ = VK_NULL_HANDLE;
-        }
+        destroy(allocator, ribbonDynamicVB_, ribbonDynamicVBAlloc_);
 
         destroy(device, dustPipeline_);
         destroy(device, dustPipelineLayout_);
-        if (dustDynamicVB_ != VK_NULL_HANDLE) {
-            vmaDestroyBuffer(allocator, dustDynamicVB_, dustDynamicVBAlloc_);
-            dustDynamicVB_ = VK_NULL_HANDLE;
-            dustDynamicVBAlloc_ = VK_NULL_HANDLE;
-        }
+        destroy(allocator, dustDynamicVB_, dustDynamicVBAlloc_);
     }
 
     vkCtx_ = nullptr;

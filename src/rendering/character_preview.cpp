@@ -449,10 +449,7 @@ void CharacterPreview::destroyFBO() {
     }
 
     for (uint32_t i = 0; i < MAX_FRAMES; i++) {
-        if (previewUBO_[i]) {
-            vmaDestroyBuffer(allocator, previewUBO_[i], previewUBOAlloc_[i]);
-            previewUBO_[i] = VK_NULL_HANDLE;
-        }
+        destroy(allocator, previewUBO_[i], previewUBOAlloc_[i]);
     }
 
     destroy(device, previewDescPool_);

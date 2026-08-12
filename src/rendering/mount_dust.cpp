@@ -99,11 +99,7 @@ void MountDust::shutdown() {
 
         destroy(device, pipeline);
         destroy(device, pipelineLayout);
-        if (dynamicVB != VK_NULL_HANDLE) {
-            vmaDestroyBuffer(allocator, dynamicVB, dynamicVBAlloc);
-            dynamicVB = VK_NULL_HANDLE;
-            dynamicVBAlloc = VK_NULL_HANDLE;
-        }
+        destroy(allocator, dynamicVB, dynamicVBAlloc);
     }
 
     vkCtx = nullptr;

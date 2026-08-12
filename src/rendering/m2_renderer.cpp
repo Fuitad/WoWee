@@ -1107,10 +1107,10 @@ void M2Renderer::shutdown() {
     glowTexture_.reset();
 
     // Clean up particle/ribbon buffers
-    if (smokeVB_) { vmaDestroyBuffer(alloc, smokeVB_, smokeVBAlloc_); smokeVB_ = VK_NULL_HANDLE; }
-    if (m2ParticleVB_) { vmaDestroyBuffer(alloc, m2ParticleVB_, m2ParticleVBAlloc_); m2ParticleVB_ = VK_NULL_HANDLE; }
-    if (glowVB_) { vmaDestroyBuffer(alloc, glowVB_, glowVBAlloc_); glowVB_ = VK_NULL_HANDLE; }
-    if (ribbonVB_) { vmaDestroyBuffer(alloc, ribbonVB_, ribbonVBAlloc_); ribbonVB_ = VK_NULL_HANDLE; }
+    destroy(alloc, smokeVB_, smokeVBAlloc_);
+    destroy(alloc, m2ParticleVB_, m2ParticleVBAlloc_);
+    destroy(alloc, glowVB_, glowVBAlloc_);
+    destroy(alloc, ribbonVB_, ribbonVBAlloc_);
     smokeParticles.clear();
 
     // Destroy pipelines
@@ -1131,12 +1131,12 @@ void M2Renderer::shutdown() {
     destroy(device, ribbonPipelineLayout_);
 
     // Destroy descriptor pools and layouts
-    if (dummyBoneBuffer_) { vmaDestroyBuffer(alloc, dummyBoneBuffer_, dummyBoneAlloc_); dummyBoneBuffer_ = VK_NULL_HANDLE; }
+    destroy(alloc, dummyBoneBuffer_, dummyBoneAlloc_);
     // dummyBoneSet_ is freed implicitly when boneDescPool_ is destroyed
     dummyBoneSet_ = VK_NULL_HANDLE;
     // Mega bone SSBO cleanup (sets freed implicitly with boneDescPool_)
     for (int i = 0; i < 2; i++) {
-        if (megaBoneBuffer_[i]) { vmaDestroyBuffer(alloc, megaBoneBuffer_[i], megaBoneAlloc_[i]); megaBoneBuffer_[i] = VK_NULL_HANDLE; }
+        destroy(alloc, megaBoneBuffer_[i], megaBoneAlloc_[i]);
         megaBoneMapped_[i] = nullptr;
         megaBoneSet_[i] = VK_NULL_HANDLE;
     }
@@ -1148,7 +1148,7 @@ void M2Renderer::shutdown() {
     }
     // Instance data SSBO cleanup (sets freed with instanceDescPool_)
     for (int i = 0; i < 2; i++) {
-        if (instanceBuffer_[i]) { vmaDestroyBuffer(alloc, instanceBuffer_[i], instanceAlloc_[i]); instanceBuffer_[i] = VK_NULL_HANDLE; }
+        destroy(alloc, instanceBuffer_[i], instanceAlloc_[i]);
         instanceMapped_[i] = nullptr;
         instanceSet_[i] = VK_NULL_HANDLE;
     }
@@ -1160,9 +1160,9 @@ void M2Renderer::shutdown() {
     destroy(device, cullPipeline_);
     destroy(device, cullPipelineLayout_);
     for (int i = 0; i < 2; i++) {
-        if (cullUniformBuffer_[i]) { vmaDestroyBuffer(alloc, cullUniformBuffer_[i], cullUniformAlloc_[i]); cullUniformBuffer_[i] = VK_NULL_HANDLE; }
-        if (cullInputBuffer_[i])   { vmaDestroyBuffer(alloc, cullInputBuffer_[i], cullInputAlloc_[i]); cullInputBuffer_[i] = VK_NULL_HANDLE; }
-        if (cullOutputBuffer_[i])  { vmaDestroyBuffer(alloc, cullOutputBuffer_[i], cullOutputAlloc_[i]); cullOutputBuffer_[i] = VK_NULL_HANDLE; }
+        destroy(alloc, cullUniformBuffer_[i], cullUniformAlloc_[i]);
+        destroy(alloc, cullInputBuffer_[i], cullInputAlloc_[i]);
+        destroy(alloc, cullOutputBuffer_[i], cullOutputAlloc_[i]);
         cullUniformMapped_[i] = cullInputMapped_[i] = cullOutputMapped_[i] = nullptr;
         cullSet_[i] = VK_NULL_HANDLE;
     }
@@ -1186,12 +1186,12 @@ void M2Renderer::shutdown() {
 void M2Renderer::destroyModelGPU(M2ModelGPU& model) {
     if (!vkCtx_) return;
     VmaAllocator alloc = vkCtx_->getAllocator();
-    if (model.vertexBuffer) { vmaDestroyBuffer(alloc, model.vertexBuffer, model.vertexAlloc); model.vertexBuffer = VK_NULL_HANDLE; }
-    if (model.indexBuffer) { vmaDestroyBuffer(alloc, model.indexBuffer, model.indexAlloc); model.indexBuffer = VK_NULL_HANDLE; }
+    destroy(alloc, model.vertexBuffer, model.vertexAlloc);
+    destroy(alloc, model.indexBuffer, model.indexAlloc);
     VkDevice device = vkCtx_->getDevice();
     for (auto& batch : model.batches) {
         if (batch.materialSet) { vkFreeDescriptorSets(device, materialDescPool_, 1, &batch.materialSet); batch.materialSet = VK_NULL_HANDLE; }
-        if (batch.materialUBO) { vmaDestroyBuffer(alloc, batch.materialUBO, batch.materialUBOAlloc); batch.materialUBO = VK_NULL_HANDLE; }
+        destroy(alloc, batch.materialUBO, batch.materialUBOAlloc);
     }
     // Free pre-allocated particle texture descriptor sets
     for (auto& pSet : model.particleTexSets) {

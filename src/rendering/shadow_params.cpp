@@ -120,11 +120,7 @@ void destroyShadowParamsSet(VkDevice device, VmaAllocator allocator, ShadowParam
         s.set = VK_NULL_HANDLE;
     }
     destroy(device, s.layout);
-    if (s.ubo) {
-        vmaDestroyBuffer(allocator, s.ubo, s.alloc);
-        s.ubo = VK_NULL_HANDLE;
-        s.alloc = VK_NULL_HANDLE;
-    }
+    destroy(allocator, s.ubo, s.alloc);
 }
 
 }  // namespace rendering
