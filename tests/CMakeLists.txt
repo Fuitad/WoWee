@@ -1822,3 +1822,16 @@ target_compile_definitions(test_format_lookup PRIVATE
 target_link_libraries(test_format_lookup PRIVATE catch2_main)
 add_test(NAME format_lookup COMMAND test_format_lookup)
 register_test_target(test_format_lookup)
+
+# ── test_wmo_material_class ──────────────────────────────────
+# Which WMO materials are glass. The oracle is the shipped WMO data: the
+# MOMT flags the artist set, not the texture's file name.
+add_executable(test_wmo_material_class
+    test_wmo_material_class.cpp
+    ${TEST_COMMON_SOURCES})
+target_include_directories(test_wmo_material_class PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_wmo_material_class SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_wmo_material_class PRIVATE catch2_main)
+add_test(NAME wmo_material_class COMMAND test_wmo_material_class)
+register_test_target(test_wmo_material_class)

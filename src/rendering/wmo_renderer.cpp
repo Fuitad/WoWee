@@ -2,6 +2,7 @@
 #include "rendering/wmo_vertex.hpp"
 #include "rendering/shadow_params.hpp"
 #include "rendering/wmo_renderer.hpp"
+#include "rendering/wmo_material_class.hpp"
 #include "rendering/normal_map.hpp"
 #include "rendering/m2_renderer.hpp"
 #include "rendering/vk_context.hpp"
@@ -695,10 +696,10 @@ WMORenderer::ModelLoadResult WMORenderer::loadModelIncremental(
                 unlit = (matFlags & 0x01) != 0;
             }
 
-            // Detect window/glass materials by texture name.
-            // Flag 0x10 (F_SIDN) marks night-glow materials (windows AND lamps),
-            // so we additionally check for "window" or "glass" in the texture path to
-            // distinguish actual glass from lamp post geometry.
+            // Glass comes from the flags the artist set on the material, not
+            // from the texture's file name: most textures named for a window
+            // are walls with window openings painted into them. See
+            // rendering/wmo_material_class.hpp.
             bool isWindow = false;
             bool isLava = false;
             uint8_t emissiveLevel = 0;
@@ -717,8 +718,7 @@ WMORenderer::ModelLoadResult WMORenderer::loadModelIncremental(
                         emissiveLevel = 2;
                     }
                     isWindow = emissiveLevel == 0 &&
-                               (texNameLower.find("window") != std::string::npos ||
-                                texNameLower.find("glass") != std::string::npos);
+                               wmoMaterialIsGlass(matFlags, texName);
                     isLava = (texNameLower.find("lava") != std::string::npos ||
                               texNameLower.find("molten") != std::string::npos ||
                               texNameLower.find("magma") != std::string::npos);
