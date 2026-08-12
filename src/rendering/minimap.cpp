@@ -43,6 +43,39 @@ Minimap::~Minimap() {
     shutdown();
 }
 
+/// The pipeline that draws the minimap's assembled texture to the screen.
+///
+/// initialize() builds it beside the tile pipeline that composes that texture;
+/// recreatePipelines() rebuilds only this one, because the tile pipeline draws
+/// into an offscreen pass a settings change does not touch. Both described it
+/// identically, vertex layout included.
+void Minimap::buildDisplayPipeline(VkDevice device,
+                                   const VkPipelineShaderStageCreateInfo& vertStage,
+                                   const VkPipelineShaderStageCreateInfo& fragStage) {
+    // Two vec2s per vertex: position then texture coordinate.
+    VkVertexInputBindingDescription binding{};
+    binding.binding = 0;
+    binding.stride = 4 * sizeof(float);
+    binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+    std::vector<VkVertexInputAttributeDescription> attrs(2);
+    attrs[0] = { 0, 0, VK_FORMAT_R32G32_SFLOAT, 0 };
+    attrs[1] = { 1, 0, VK_FORMAT_R32G32_SFLOAT, 2 * sizeof(float) };
+
+    displayPipeline = PipelineBuilder()
+        .setShaders(vertStage, fragStage)
+        .setVertexInput({ binding }, attrs)
+        .setTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
+        .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
+        .setNoDepthTest()
+        .setColorBlendAttachment(PipelineBuilder::blendAlpha())
+        .setMultisample(vkCtx->getMsaaSamples())
+        .setLayout(displayPipelineLayout)
+        .setRenderPass(vkCtx->getImGuiRenderPass())
+        .setDynamicStates(viewportAndScissorDynamic())
+        .build(device, vkCtx->getPipelineCache());
+}
+
 bool Minimap::initialize(VkContext* ctx, VkDescriptorSetLayout /*perFrameLayout*/, int size) {
     vkCtx = ctx;
     mapSize = size;
@@ -184,19 +217,8 @@ bool Minimap::initialize(VkContext* ctx, VkDescriptorSetLayout /*perFrameLayout*
             return false;
         }
 
-        displayPipeline = PipelineBuilder()
-            .setShaders(vs.stageInfo(VK_SHADER_STAGE_VERTEX_BIT),
-                        fs.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT))
-            .setVertexInput({ binding }, attrs)
-            .setTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
-            .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
-            .setNoDepthTest()
-            .setColorBlendAttachment(PipelineBuilder::blendAlpha())
-            .setMultisample(vkCtx->getMsaaSamples())
-            .setLayout(displayPipelineLayout)
-            .setRenderPass(vkCtx->getImGuiRenderPass())
-            .setDynamicStates(viewportAndScissorDynamic())
-            .build(device, vkCtx->getPipelineCache());
+        buildDisplayPipeline(device, vs.stageInfo(VK_SHADER_STAGE_VERTEX_BIT),
+                             fs.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT));
 
         vs.destroy();
         fs.destroy();
@@ -253,28 +275,8 @@ void Minimap::recreatePipelines() {
         return;
     }
 
-    VkVertexInputBindingDescription binding{};
-    binding.binding = 0;
-    binding.stride = 4 * sizeof(float);
-    binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-    std::vector<VkVertexInputAttributeDescription> attrs(2);
-    attrs[0] = { 0, 0, VK_FORMAT_R32G32_SFLOAT, 0 };
-    attrs[1] = { 1, 0, VK_FORMAT_R32G32_SFLOAT, 2 * sizeof(float) };
-
-    displayPipeline = PipelineBuilder()
-        .setShaders(vs.stageInfo(VK_SHADER_STAGE_VERTEX_BIT),
-                    fs.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT))
-        .setVertexInput({ binding }, attrs)
-        .setTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
-        .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
-        .setNoDepthTest()
-        .setColorBlendAttachment(PipelineBuilder::blendAlpha())
-        .setMultisample(vkCtx->getMsaaSamples())
-        .setLayout(displayPipelineLayout)
-        .setRenderPass(vkCtx->getImGuiRenderPass())
-        .setDynamicStates(viewportAndScissorDynamic())
-        .build(device, vkCtx->getPipelineCache());
+    buildDisplayPipeline(device, vs.stageInfo(VK_SHADER_STAGE_VERTEX_BIT),
+                         fs.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT));
 
     vs.destroy();
     fs.destroy();

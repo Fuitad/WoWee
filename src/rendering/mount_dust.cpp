@@ -28,6 +28,31 @@ static float randFloat(float lo, float hi) {
 MountDust::MountDust() = default;
 MountDust::~MountDust() { shutdown(); }
 
+/// Builds the one pipeline this effect draws with, vertex layout and all.
+///
+/// initialize() and recreatePipelines() described it identically.
+void MountDust::buildPipelines(VkDevice device,
+                               const VkPipelineShaderStageCreateInfo& vertStage,
+                               const VkPipelineShaderStageCreateInfo& fragStage) {
+    VkVertexInputBindingDescription binding = tightVertexBinding(5 * sizeof(float));
+    std::vector<VkVertexInputAttributeDescription> attrs = positionPlusTwoFloatsAttrs();
+
+    std::vector<VkDynamicState> dynamicStates = viewportAndScissorDynamic();
+
+    pipeline = PipelineBuilder()
+        .setShaders(vertStage, fragStage)
+        .setVertexInput({binding}, attrs)
+        .setTopology(VK_PRIMITIVE_TOPOLOGY_POINT_LIST)
+        .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
+        .setDepthTest(true, false, VK_COMPARE_OP_LESS)
+        .setColorBlendAttachment(PipelineBuilder::blendAlpha())
+        .setMultisample(vkCtx->getMsaaSamples())
+        .setLayout(pipelineLayout)
+        .setRenderPass(vkCtx->getImGuiRenderPass())
+        .setDynamicStates(dynamicStates)
+        .build(device, vkCtx->getPipelineCache());
+}
+
 bool MountDust::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout) {
     LOG_INFO("Initializing mount dust effects");
 
@@ -48,23 +73,7 @@ bool MountDust::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout)
     }
 
     // Vertex input: pos(vec3) + size(float) + alpha(float) = 5 floats, stride = 20 bytes
-    VkVertexInputBindingDescription binding = tightVertexBinding(5 * sizeof(float));
-    std::vector<VkVertexInputAttributeDescription> attrs = positionPlusTwoFloatsAttrs();
-
-    std::vector<VkDynamicState> dynamicStates = viewportAndScissorDynamic();
-
-    pipeline = PipelineBuilder()
-        .setShaders(vertStage, fragStage)
-        .setVertexInput({binding}, attrs)
-        .setTopology(VK_PRIMITIVE_TOPOLOGY_POINT_LIST)
-        .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
-        .setDepthTest(true, false, VK_COMPARE_OP_LESS)
-        .setColorBlendAttachment(PipelineBuilder::blendAlpha())
-        .setMultisample(vkCtx->getMsaaSamples())
-        .setLayout(pipelineLayout)
-        .setRenderPass(vkCtx->getImGuiRenderPass())
-        .setDynamicStates(dynamicStates)
-        .build(device, vkCtx->getPipelineCache());
+    buildPipelines(device, vertStage, fragStage);
 
 
     if (pipeline == VK_NULL_HANDLE) {
@@ -118,23 +127,7 @@ void MountDust::recreatePipelines() {
     const auto& vertStage = shaders.vertStage;
     const auto& fragStage = shaders.fragStage;
 
-    VkVertexInputBindingDescription binding = tightVertexBinding(5 * sizeof(float));
-    std::vector<VkVertexInputAttributeDescription> attrs = positionPlusTwoFloatsAttrs();
-
-    std::vector<VkDynamicState> dynamicStates = viewportAndScissorDynamic();
-
-    pipeline = PipelineBuilder()
-        .setShaders(vertStage, fragStage)
-        .setVertexInput({binding}, attrs)
-        .setTopology(VK_PRIMITIVE_TOPOLOGY_POINT_LIST)
-        .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
-        .setDepthTest(true, false, VK_COMPARE_OP_LESS)
-        .setColorBlendAttachment(PipelineBuilder::blendAlpha())
-        .setMultisample(vkCtx->getMsaaSamples())
-        .setLayout(pipelineLayout)
-        .setRenderPass(vkCtx->getImGuiRenderPass())
-        .setDynamicStates(dynamicStates)
-        .build(device, vkCtx->getPipelineCache());
+    buildPipelines(device, vertStage, fragStage);
 
 }
 

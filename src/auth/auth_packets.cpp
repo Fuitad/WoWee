@@ -353,6 +353,50 @@ network::Packet RealmListPacket::build() {
     return packet;
 }
 
+namespace {
+
+/// Reads one realm entry in whichever of the two layouts the flag selects.
+///
+/// The layouts differ in exactly two places, both at the front: vanilla writes
+/// the icon as a uint32 and has no lock byte, TBC and WotLK write a uint8 icon
+/// followed by a lock. Everything after that is the same run of fields.
+///
+/// Read once by the main loop and once more by the recovery below, which
+/// re-reads an entry as vanilla after a modern parse visibly shifted. Those
+/// were two copies of this, and a field appended to one and not the other
+/// would show up only against a vmangos realm.
+void readRealmEntry(network::Packet& packet, Realm& realm, bool legacyVanilla) {
+    if (legacyVanilla) {
+        realm.icon = static_cast<uint8_t>(packet.readUInt32());
+        realm.lock = 0;
+    } else {
+        realm.icon = packet.readUInt8();
+        realm.lock = packet.readUInt8();
+    }
+
+    realm.flags = packet.readUInt8();
+    realm.name = packet.readString();
+    realm.address = packet.readString();
+
+    // Four bytes of little-endian float.
+    uint32_t populationBits = packet.readUInt32();
+    std::memcpy(&realm.population, &populationBits, sizeof(float));
+
+    realm.characters = packet.readUInt8();
+    realm.timezone = packet.readUInt8();
+    realm.id = packet.readUInt8();
+
+    // Only when flags carries 0x04.
+    if (realm.hasVersionInfo()) {
+        realm.majorVersion = packet.readUInt8();
+        realm.minorVersion = packet.readUInt8();
+        realm.patchVersion = packet.readUInt8();
+        realm.build = packet.readUInt16();
+    }
+}
+
+}  // namespace
+
 bool RealmListResponseParser::parse(network::Packet& packet, RealmListResponse& response, bool legacyVanillaLayout) {
     // Note: opcode byte already consumed by handlePacket()
     const bool isLegacyVanilla = legacyVanillaLayout;
@@ -380,46 +424,7 @@ bool RealmListResponseParser::parse(network::Packet& packet, RealmListResponse& 
         Realm realm;
         const size_t realmStart = packet.getReadPos();
 
-        // Icon/type: uint32 for legacy vanilla, uint8 for TBC/WotLK.
-        if (isLegacyVanilla) {
-            realm.icon = static_cast<uint8_t>(packet.readUInt32());
-        } else {
-            realm.icon = packet.readUInt8();
-        }
-
-        // Lock is not present in legacy vanilla, but is present in TBC/WotLK.
-        realm.lock = isLegacyVanilla ? 0 : packet.readUInt8();
-
-        // Flags
-        realm.flags = packet.readUInt8();
-
-        // Name (C-string)
-        realm.name = packet.readString();
-
-        // Address (C-string)
-        realm.address = packet.readString();
-
-        // Population (float)
-        // Read 4 bytes as little-endian float
-        uint32_t populationBits = packet.readUInt32();
-        std::memcpy(&realm.population, &populationBits, sizeof(float));
-
-        // Characters
-        realm.characters = packet.readUInt8();
-
-        // Timezone
-        realm.timezone = packet.readUInt8();
-
-        // ID
-        realm.id = packet.readUInt8();
-
-        // Version info (conditional - only if flags & 0x04)
-        if (realm.hasVersionInfo()) {
-            realm.majorVersion = packet.readUInt8();
-            realm.minorVersion = packet.readUInt8();
-            realm.patchVersion = packet.readUInt8();
-            realm.build = packet.readUInt16();
-        }
+        readRealmEntry(packet, realm, isLegacyVanilla);
 
         // VMangos 1.12 can use auth protocol v8 while still sending the
         // vanilla realm-entry shape. If the caller forgot to opt into the
@@ -435,24 +440,7 @@ bool RealmListResponseParser::parse(network::Packet& packet, RealmListResponse& 
             packet.setReadPos(realmStart);
 
             realm = Realm{};
-            realm.icon = static_cast<uint8_t>(packet.readUInt32());
-            realm.lock = 0;
-            realm.flags = packet.readUInt8();
-            realm.name = packet.readString();
-            realm.address = packet.readString();
-
-            uint32_t populationBits = packet.readUInt32();
-            std::memcpy(&realm.population, &populationBits, sizeof(float));
-            realm.characters = packet.readUInt8();
-            realm.timezone = packet.readUInt8();
-            realm.id = packet.readUInt8();
-
-            if (realm.hasVersionInfo()) {
-                realm.majorVersion = packet.readUInt8();
-                realm.minorVersion = packet.readUInt8();
-                realm.patchVersion = packet.readUInt8();
-                realm.build = packet.readUInt16();
-            }
+            readRealmEntry(packet, realm, /*legacyVanilla=*/true);
         }
 
         if (realm.hasVersionInfo()) {

@@ -19,6 +19,11 @@ public:
     [[nodiscard]] bool initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout);
     void shutdown();
     void recreatePipelines();
+    /// The pipeline state both initialize() and
+    /// recreatePipelines() need, described once.
+    void buildPipelines(VkDevice device,
+                        const VkPipelineShaderStageCreateInfo& vertStage,
+                        const VkPipelineShaderStageCreateInfo& fragStage);
 
     // Spawn dust particles at mount feet when moving on ground
     void spawnDust(const glm::vec3& position, const glm::vec3& velocity, bool isMoving);

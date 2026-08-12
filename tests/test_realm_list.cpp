@@ -173,3 +173,51 @@ TEST_CASE("Logon proof PIN format includes security proof data", "[auth_packets]
     auto v8 = LogonProofPacket::build(A, M1, 0x01, &crc, &pinSalt, &pinHash);
     CHECK(v8.getSize() == 32 + 20 + 20 + 1 + 1 + 16 + 20);
 }
+
+// The recovery path re-reads the same bytes as a vanilla parse, so whatever it
+// produces has to match what the vanilla parse produces from the same body.
+// Two readings of one layout is the shape that drifts: a field added to one
+// and not the other shows up as a realm list that is right until the server is
+// a vmangos one, which is the case nobody tests by hand.
+TEST_CASE("Realm list: the recovery yields exactly the vanilla parse",
+          "[realm_list]") {
+    Bytes vanillaBody;
+    putVanillaRealm(vanillaBody, "Whitemane", "logon.example:8085", 7);
+
+    Bytes declared;
+    putHeader(declared, 1, /*legacyVanilla=*/true);
+    declared.insert(declared.end(), vanillaBody.begin(), vanillaBody.end());
+
+    Bytes recovered;
+    putHeader(recovered, 1, /*legacyVanilla=*/false);
+    recovered.insert(recovered.end(), vanillaBody.begin(), vanillaBody.end());
+
+    network::Packet declaredPacket(0, declared);
+    RealmListResponse fromFlag;
+    REQUIRE(RealmListResponseParser::parse(declaredPacket, fromFlag, /*legacyVanillaLayout=*/true));
+
+    network::Packet recoveredPacket(0, recovered);
+    RealmListResponse fromRecovery;
+    REQUIRE(RealmListResponseParser::parse(recoveredPacket, fromRecovery, /*legacyVanillaLayout=*/false));
+
+    REQUIRE(fromFlag.realms.size() == 1);
+    REQUIRE(fromRecovery.realms.size() == 1);
+    const Realm& a = fromFlag.realms[0];
+    const Realm& b = fromRecovery.realms[0];
+
+    CHECK(a.name == b.name);
+    CHECK(a.address == b.address);
+    CHECK(a.icon == b.icon);
+    CHECK(a.lock == b.lock);
+    CHECK(a.flags == b.flags);
+    CHECK(a.population == Catch::Approx(b.population));
+    CHECK(a.characters == b.characters);
+    CHECK(a.timezone == b.timezone);
+    CHECK(a.id == b.id);
+    CHECK(a.majorVersion == b.majorVersion);
+    CHECK(a.build == b.build);
+
+    // And it is the realm that was actually sent, not two matching wrongs.
+    CHECK(a.name == "Whitemane");
+    CHECK(a.id == 7);
+}

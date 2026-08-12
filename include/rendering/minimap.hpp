@@ -27,6 +27,11 @@ public:
     bool initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout, int size = 200);
     void shutdown();
     void recreatePipelines();
+    /// The display pipeline, which initialize() and recreatePipelines()
+    /// both build.
+    void buildDisplayPipeline(VkDevice device,
+                              const VkPipelineShaderStageCreateInfo& vertStage,
+                              const VkPipelineShaderStageCreateInfo& fragStage);
 
     void setAssetManager(pipeline::AssetManager* am) { assetManager = am; }
     void setMapName(const std::string& name);
