@@ -1,4 +1,4 @@
-// Tests for MacroEvaluator — WoW macro conditional parsing and evaluation.
+// Tests for MacroEvaluator - WoW macro conditional parsing and evaluation.
 // Phase 4.5 of chat_panel_ref.md.
 
 #include <catch_amalgamated.hpp>

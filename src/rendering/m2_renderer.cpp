@@ -4,6 +4,7 @@
 #include "rendering/render_constants.hpp"
 #include "rendering/m2_model_classifier.hpp"
 #include "rendering/vk_context.hpp"
+#include "rendering/bone_slots.hpp"
 #include "rendering/vk_buffer.hpp"
 #include "rendering/vk_texture.hpp"
 #include "rendering/vk_pipeline.hpp"
@@ -52,7 +53,14 @@ void M2Instance::updateModelMatrix() {
     modelMatrix = glm::mat4(1.0f);
     modelMatrix = glm::translate(modelMatrix, position);
 
-    // Rotation in radians
+    // Rotation in radians, applied X then Y then Z.
+    //
+    // This order was changed four times and reported worse four times, and the
+    // buildings were composed Z, Y, X on the strength of that. All of it was
+    // judged on the wrong evidence: with no pitch and no roll every order is
+    // the same rotation, so an upright doodad settles nothing. Darkshore's
+    // bridges - WMOs, tilted, visibly askew - settled it the other way, and the
+    // buildings compose X, Y, Z now too. See WMOInstance::updateModelMatrix.
     modelMatrix = glm::rotate(modelMatrix, rotation.x, glm::vec3(1.0f, 0.0f, 0.0f));
     modelMatrix = glm::rotate(modelMatrix, rotation.y, glm::vec3(0.0f, 1.0f, 0.0f));
     modelMatrix = glm::rotate(modelMatrix, rotation.z, glm::vec3(0.0f, 0.0f, 1.0f));
@@ -183,7 +191,7 @@ uint32_t M2Renderer::gatherLocalLights(const glm::vec3& cameraPos,
 
         // Candles, hearth fires, campfires, torches and forges express their
         // flame purely as particle emitters, with no glow-card batch for the
-        // path above — so without this they lit nothing at all. One light at
+        // path above - so without this they lit nothing at all. One light at
         // the emitter centroid; chandeliers with an authored glow batch stay
         // represented by that batch rather than by five separate lights.
         const bool openFlame = model->isBrazierOrFire || model->isTorch ||
@@ -253,6 +261,221 @@ uint32_t M2Renderer::gatherLocalLights(const glm::vec3& cameraPos,
         }
     }
     return count;
+}
+
+/// The nine main-pass pipelines, built once at startup and again after a
+/// device loss.
+///
+/// Both paths used to build them: initialize() here and recreatePipelines() in
+/// m2_renderer_instance.cpp, which was a copy of these 190 lines that had
+/// drifted only in its comments. Eighty-seven overlapping twelve-line blocks -
+/// the largest duplicate in the tree. A change to any blend state, depth mode
+/// or vertex layout landed in whichever copy was in front of whoever made it,
+/// and the one that did not get it only showed after a device loss.
+///
+/// The one thing that genuinely differed is the ribbon pipeline layout, which
+/// is created here and is now created only when there is not one already: the
+/// rebuild destroys pipelines and keeps layouts.
+bool M2Renderer::buildMainPassPipelines(VkDescriptorSetLayout perFrameLayout) {
+    VkDevice device = vkCtx_->getDevice();
+
+    // --- Load shaders ---
+    rendering::VkShaderModule m2Vert, m2Frag;
+    rendering::VkShaderModule particleVert, particleFrag;
+    rendering::VkShaderModule smokeVert, smokeFrag;
+
+    (void)m2Vert.loadFromFile(device, "assets/shaders/m2.vert.spv");
+    (void)m2Frag.loadFromFile(device, "assets/shaders/m2.frag.spv");
+    (void)particleVert.loadFromFile(device, "assets/shaders/m2_particle.vert.spv");
+    (void)particleFrag.loadFromFile(device, "assets/shaders/m2_particle.frag.spv");
+    (void)smokeVert.loadFromFile(device, "assets/shaders/m2_smoke.vert.spv");
+    (void)smokeFrag.loadFromFile(device, "assets/shaders/m2_smoke.frag.spv");
+
+    if (!m2Vert.isValid() || !m2Frag.isValid()) {
+        LOG_ERROR("M2: Missing required shaders, cannot build pipelines");
+        return false;
+    }
+
+    VkRenderPass mainPass = vkCtx_->getImGuiRenderPass();
+
+    // --- Build M2 model pipelines ---
+    // Vertex input: 18 floats = 72 bytes stride
+    // loc 0: vec3 pos (0), loc 1: vec3 normal (12), loc 2: vec2 uv0 (24),
+    // loc 5: vec2 uv1 (32), loc 3: vec4 boneWeights (40), loc 4: vec4 boneIndices (56)
+    VkVertexInputBindingDescription m2Binding{};
+    m2Binding.binding = 0;
+    m2Binding.stride = 18 * sizeof(float);
+    m2Binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+    std::vector<VkVertexInputAttributeDescription> m2Attrs = {
+        {0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0},                     // position
+        {1, 0, VK_FORMAT_R32G32B32_SFLOAT, 3 * sizeof(float)},     // normal
+        {2, 0, VK_FORMAT_R32G32_SFLOAT, 6 * sizeof(float)},        // texCoord0
+        {5, 0, VK_FORMAT_R32G32_SFLOAT, 8 * sizeof(float)},        // texCoord1
+        {3, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 10 * sizeof(float)}, // boneWeights
+        {4, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 14 * sizeof(float)}, // boneIndices (float)
+    };
+
+    // Pipeline derivatives - opaque is the base, others derive from it for shared state optimization
+    auto buildM2Pipeline = [&](VkPipelineColorBlendAttachmentState blendState, bool depthWrite,
+                               VkPipelineCreateFlags flags = 0, VkPipeline basePipeline = VK_NULL_HANDLE,
+                               bool alphaToCoverage = false) -> VkPipeline {
+        auto builder = PipelineBuilder()
+            .setShaders(m2Vert.stageInfo(VK_SHADER_STAGE_VERTEX_BIT),
+                        m2Frag.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT))
+            .setVertexInput({m2Binding}, m2Attrs)
+            .setTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
+            .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
+            .setDepthTest(!skyMode_, skyMode_ ? false : depthWrite,
+                          skyMode_ ? VK_COMPARE_OP_ALWAYS : VK_COMPARE_OP_LESS_OR_EQUAL)
+            .setColorBlendAttachment(blendState)
+            .setMultisample(vkCtx_->getMsaaSamples());
+        // MSAA alpha-to-coverage dithers the shader's sharpened cutout alpha
+        // across samples for smooth foliage/leaf silhouettes.
+        if (alphaToCoverage) builder.setAlphaToCoverage(true);
+        return builder
+            .setLayout(pipelineLayout_)
+            .setRenderPass(mainPass)
+            .setDynamicStates(viewportAndScissorDynamic())
+            .setFlags(flags)
+            .setBasePipeline(basePipeline)
+            .build(device, vkCtx_->getPipelineCache());
+    };
+
+    opaquePipeline_ = buildM2Pipeline(PipelineBuilder::blendDisabled(), true,
+                                      VK_PIPELINE_CREATE_ALLOW_DERIVATIVES_BIT);
+    alphaTestPipeline_ = buildM2Pipeline(PipelineBuilder::blendAlpha(), true,
+                                         VK_PIPELINE_CREATE_DERIVATIVE_BIT, opaquePipeline_,
+                                         /*alphaToCoverage=*/true);
+    alphaPipeline_ = buildM2Pipeline(PipelineBuilder::blendAlpha(), false,
+                                     VK_PIPELINE_CREATE_DERIVATIVE_BIT, opaquePipeline_);
+    additivePipeline_ = buildM2Pipeline(PipelineBuilder::blendAdditive(), false,
+                                        VK_PIPELINE_CREATE_DERIVATIVE_BIT, opaquePipeline_);
+
+    // --- Build particle pipelines ---
+    if (particleVert.isValid() && particleFrag.isValid()) {
+        VkVertexInputBindingDescription pBind{};
+        pBind.binding = 0;
+        pBind.stride = 9 * sizeof(float); // pos3 + color4 + size1 + tile1
+        pBind.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+        std::vector<VkVertexInputAttributeDescription> pAttrs = {
+            {0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0},                    // position
+            {1, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 3 * sizeof(float)}, // color
+            {2, 0, VK_FORMAT_R32_SFLOAT, 7 * sizeof(float)},          // size
+            {3, 0, VK_FORMAT_R32_SFLOAT, 8 * sizeof(float)},          // tile
+        };
+
+        auto buildParticlePipeline = [&](VkPipelineColorBlendAttachmentState blend) -> VkPipeline {
+            return PipelineBuilder()
+                .setShaders(particleVert.stageInfo(VK_SHADER_STAGE_VERTEX_BIT),
+                            particleFrag.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT))
+                .setVertexInput({pBind}, pAttrs)
+                .setTopology(VK_PRIMITIVE_TOPOLOGY_POINT_LIST)
+                .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
+                .setDepthTest(true, false, VK_COMPARE_OP_LESS_OR_EQUAL)
+                .setColorBlendAttachment(blend)
+                .setMultisample(vkCtx_->getMsaaSamples())
+                .setLayout(particlePipelineLayout_)
+                .setRenderPass(mainPass)
+                .setDynamicStates(viewportAndScissorDynamic())
+                .build(device, vkCtx_->getPipelineCache());
+        };
+
+        particlePipeline_ = buildParticlePipeline(PipelineBuilder::blendAlpha());
+        particleAdditivePipeline_ = buildParticlePipeline(PipelineBuilder::blendAdditive());
+    }
+
+    // --- Build smoke pipeline ---
+    if (smokeVert.isValid() && smokeFrag.isValid()) {
+        VkVertexInputBindingDescription sBind{};
+        sBind.binding = 0;
+        sBind.stride = 6 * sizeof(float); // pos3 + lifeRatio1 + size1 + isSpark1
+        sBind.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+        std::vector<VkVertexInputAttributeDescription> sAttrs = {
+            {0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0},           // position
+            {1, 0, VK_FORMAT_R32_SFLOAT, 3 * sizeof(float)}, // lifeRatio
+            {2, 0, VK_FORMAT_R32_SFLOAT, 4 * sizeof(float)}, // size
+            {3, 0, VK_FORMAT_R32_SFLOAT, 5 * sizeof(float)}, // isSpark
+        };
+
+        smokePipeline_ = PipelineBuilder()
+            .setShaders(smokeVert.stageInfo(VK_SHADER_STAGE_VERTEX_BIT),
+                        smokeFrag.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT))
+            .setVertexInput({sBind}, sAttrs)
+            .setTopology(VK_PRIMITIVE_TOPOLOGY_POINT_LIST)
+            .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
+            .setDepthTest(true, false, VK_COMPARE_OP_LESS_OR_EQUAL)
+            .setColorBlendAttachment(PipelineBuilder::blendAlpha())
+            .setMultisample(vkCtx_->getMsaaSamples())
+            .setLayout(smokePipelineLayout_)
+            .setRenderPass(mainPass)
+            .setDynamicStates(viewportAndScissorDynamic())
+            .build(device, vkCtx_->getPipelineCache());
+    }
+
+    // --- Build ribbon pipelines ---
+    // Vertex format: pos(3) + color(3) + alpha(1) + uv(2) = 9 floats = 36 bytes
+    {
+        rendering::VkShaderModule ribVert, ribFrag;
+        (void)ribVert.loadFromFile(device, "assets/shaders/m2_ribbon.vert.spv");
+        (void)ribFrag.loadFromFile(device, "assets/shaders/m2_ribbon.frag.spv");
+        if (ribVert.isValid() && ribFrag.isValid()) {
+            // Reuse particleTexLayout_ for set 1 (single texture sampler).
+            // Only once: a pipeline layout outlives the pipelines built from
+            // it, and a device-loss rebuild destroys the pipelines alone. The
+            // rebuild path used to be a copy of this function that simply did
+            // not have these six lines, which is the whole reason the two
+            // could drift.
+            if (ribbonPipelineLayout_ == VK_NULL_HANDLE) {
+                VkDescriptorSetLayout ribLayouts[] = {perFrameLayout, particleTexLayout_};
+                VkPipelineLayoutCreateInfo lci{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
+                lci.setLayoutCount = 2;
+                lci.pSetLayouts = ribLayouts;
+                vkCreatePipelineLayout(device, &lci, nullptr, &ribbonPipelineLayout_);
+            }
+
+            VkVertexInputBindingDescription rBind{};
+            rBind.binding = 0;
+            rBind.stride = 9 * sizeof(float);
+            rBind.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+            std::vector<VkVertexInputAttributeDescription> rAttrs = {
+                {0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0},                    // pos
+                {1, 0, VK_FORMAT_R32G32B32_SFLOAT, 3 * sizeof(float)},    // color
+                {2, 0, VK_FORMAT_R32_SFLOAT,       6 * sizeof(float)},    // alpha
+                {3, 0, VK_FORMAT_R32G32_SFLOAT,    7 * sizeof(float)},    // uv
+            };
+
+            auto buildRibbonPipeline = [&](VkPipelineColorBlendAttachmentState blend) -> VkPipeline {
+                return PipelineBuilder()
+                    .setShaders(ribVert.stageInfo(VK_SHADER_STAGE_VERTEX_BIT),
+                                ribFrag.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT))
+                    .setVertexInput({rBind}, rAttrs)
+                    .setTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP)
+                    .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
+                    .setDepthTest(true, false, VK_COMPARE_OP_LESS_OR_EQUAL)
+                    .setColorBlendAttachment(blend)
+                    .setMultisample(vkCtx_->getMsaaSamples())
+                    .setLayout(ribbonPipelineLayout_)
+                    .setRenderPass(mainPass)
+                    .setDynamicStates(viewportAndScissorDynamic())
+                    .build(device, vkCtx_->getPipelineCache());
+            };
+
+            ribbonPipeline_         = buildRibbonPipeline(PipelineBuilder::blendAlpha());
+            ribbonAdditivePipeline_ = buildRibbonPipeline(PipelineBuilder::blendAdditive());
+        }
+        ribVert.destroy(); ribFrag.destroy();
+    }
+
+    // Clean up shader modules
+    m2Vert.destroy(); m2Frag.destroy();
+    particleVert.destroy(); particleFrag.destroy();
+    smokeVert.destroy(); smokeFrag.destroy();
+
+    return true;
 }
 
 bool M2Renderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout,
@@ -409,7 +632,7 @@ bool M2Renderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout
         }
     }
 
-    // Mega bone SSBO — consolidates all animated instance bones into one buffer per frame.
+    // Mega bone SSBO - consolidates all animated instance bones into one buffer per frame.
     // Slot 0 = identity matrix (for non-animated instances), slots 1..N = animated instances.
     {
         const VkDeviceSize megaSize = VkDeviceSize(MEGA_BONE_MATRIX_CAPACITY) * sizeof(glm::mat4);
@@ -447,7 +670,7 @@ bool M2Renderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout
             }
         }
 
-        // Fresh buffers hold no bone data — invalidate any per-instance upload
+        // Fresh buffers hold no bone data - invalidate any per-instance upload
         // tracking so prepareRender() re-uploads everything (defensive: instances
         // are normally empty when this runs, but re-init must not skip uploads).
         for (auto& inst : instances) {
@@ -455,7 +678,7 @@ bool M2Renderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout
         }
     }
 
-    // Instance data SSBO — per-frame buffer holding per-instance transforms, fade, bones.
+    // Instance data SSBO - per-frame buffer holding per-instance transforms, fade, bones.
     // Shader reads instanceData[push.instanceDataOffset + gl_InstanceIndex].
     {
         static_assert(sizeof(M2InstanceGPU) == 96, "M2InstanceGPU must be 96 bytes (std430)");
@@ -501,7 +724,7 @@ bool M2Renderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout
         }
     }
 
-    // GPU frustum culling — compute pipeline, buffers, descriptors.
+    // GPU frustum culling - compute pipeline, buffers, descriptors.
     // Compute shader tests each instance bounding sphere against 6 frustum planes + distance.
     // Output: uint visibility[] read back by CPU to skip culled instances in sortedVisible_ build.
     {
@@ -528,7 +751,7 @@ bool M2Renderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout
         layoutCi.pBindings = bindings;
         vkCreateDescriptorSetLayout(device, &layoutCi, nullptr, &cullSetLayout_);
 
-        // Pipeline layout (no push constants — everything via UBO)
+        // Pipeline layout (no push constants - everything via UBO)
         VkPipelineLayoutCreateInfo plCi{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
         plCi.setLayoutCount = 1;
         plCi.pSetLayouts = &cullSetLayout_;
@@ -537,7 +760,7 @@ bool M2Renderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout
         // Load compute shader
         rendering::VkShaderModule cullComp;
         if (!cullComp.loadFromFile(device, "assets/shaders/m2_cull.comp.spv")) {
-            LOG_ERROR("M2Renderer: failed to load m2_cull.comp.spv — GPU culling disabled");
+            LOG_ERROR("M2Renderer: failed to load m2_cull.comp.spv - GPU culling disabled");
         } else {
             VkComputePipelineCreateInfo cpCi{VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO};
             cpCi.stage = cullComp.stageInfo(VK_SHADER_STAGE_COMPUTE_BIT);
@@ -578,7 +801,7 @@ bool M2Renderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout
             hizCpCi.stage = cullHiZComp.stageInfo(VK_SHADER_STAGE_COMPUTE_BIT);
             hizCpCi.layout = cullHiZPipelineLayout_;
             if (vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &hizCpCi, nullptr, &cullHiZPipeline_) != VK_SUCCESS) {
-                LOG_WARNING("M2Renderer: failed to create HiZ cull compute pipeline — HiZ disabled");
+                LOG_WARNING("M2Renderer: failed to create HiZ cull compute pipeline - HiZ disabled");
                 cullHiZPipeline_ = VK_NULL_HANDLE;
                 vkDestroyPipelineLayout(device, cullHiZPipelineLayout_, nullptr);
                 cullHiZPipelineLayout_ = VK_NULL_HANDLE;
@@ -594,7 +817,7 @@ bool M2Renderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout
 
             cullHiZComp.destroy();
         } else {
-            LOG_INFO("M2Renderer: m2_cull_hiz.comp.spv not found — HiZ occlusion culling not available");
+            LOG_INFO("M2Renderer: m2_cull_hiz.comp.spv not found - HiZ occlusion culling not available");
         }
 
         // Descriptor pool: 2 sets × 3 descriptors each (1 UBO + 2 SSBO)
@@ -638,7 +861,7 @@ bool M2Renderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout
                                 &cullInputBuffer_[i], &cullInputAlloc_[i], &ai);
                 cullInputMapped_[i] = ai.pMappedData;
             }
-            // Output SSBO (visibility flags — GPU writes, CPU reads)
+            // Output SSBO (visibility flags - GPU writes, CPU reads)
             {
                 VkBufferCreateInfo bci{VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
                 bci.size = outputSize;
@@ -742,194 +965,8 @@ bool M2Renderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout
         vkCreatePipelineLayout(device, &ci, nullptr, &smokePipelineLayout_);
     }
 
-    // --- Load shaders ---
-    rendering::VkShaderModule m2Vert, m2Frag;
-    rendering::VkShaderModule particleVert, particleFrag;
-    rendering::VkShaderModule smokeVert, smokeFrag;
-
-    (void)m2Vert.loadFromFile(device, "assets/shaders/m2.vert.spv");
-    (void)m2Frag.loadFromFile(device, "assets/shaders/m2.frag.spv");
-    (void)particleVert.loadFromFile(device, "assets/shaders/m2_particle.vert.spv");
-    (void)particleFrag.loadFromFile(device, "assets/shaders/m2_particle.frag.spv");
-    (void)smokeVert.loadFromFile(device, "assets/shaders/m2_smoke.vert.spv");
-    (void)smokeFrag.loadFromFile(device, "assets/shaders/m2_smoke.frag.spv");
-
-    if (!m2Vert.isValid() || !m2Frag.isValid()) {
-        LOG_ERROR("M2: Missing required shaders, cannot initialize");
-        return false;
-    }
-
-    VkRenderPass mainPass = vkCtx_->getImGuiRenderPass();
-
-    // --- Build M2 model pipelines ---
-    // Vertex input: 18 floats = 72 bytes stride
-    // loc 0: vec3 pos (0), loc 1: vec3 normal (12), loc 2: vec2 uv0 (24),
-    // loc 5: vec2 uv1 (32), loc 3: vec4 boneWeights (40), loc 4: vec4 boneIndices (56)
-    VkVertexInputBindingDescription m2Binding{};
-    m2Binding.binding = 0;
-    m2Binding.stride = 18 * sizeof(float);
-    m2Binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-    std::vector<VkVertexInputAttributeDescription> m2Attrs = {
-        {0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0},                     // position
-        {1, 0, VK_FORMAT_R32G32B32_SFLOAT, 3 * sizeof(float)},     // normal
-        {2, 0, VK_FORMAT_R32G32_SFLOAT, 6 * sizeof(float)},        // texCoord0
-        {5, 0, VK_FORMAT_R32G32_SFLOAT, 8 * sizeof(float)},        // texCoord1
-        {3, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 10 * sizeof(float)}, // boneWeights
-        {4, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 14 * sizeof(float)}, // boneIndices (float)
-    };
-
-    // Pipeline derivatives — opaque is the base, others derive from it for shared state optimization
-    auto buildM2Pipeline = [&](VkPipelineColorBlendAttachmentState blendState, bool depthWrite,
-                               VkPipelineCreateFlags flags = 0, VkPipeline basePipeline = VK_NULL_HANDLE,
-                               bool alphaToCoverage = false) -> VkPipeline {
-        auto builder = PipelineBuilder()
-            .setShaders(m2Vert.stageInfo(VK_SHADER_STAGE_VERTEX_BIT),
-                        m2Frag.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT))
-            .setVertexInput({m2Binding}, m2Attrs)
-            .setTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
-            .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
-            .setDepthTest(!skyMode_, skyMode_ ? false : depthWrite,
-                          skyMode_ ? VK_COMPARE_OP_ALWAYS : VK_COMPARE_OP_LESS_OR_EQUAL)
-            .setColorBlendAttachment(blendState)
-            .setMultisample(vkCtx_->getMsaaSamples());
-        // MSAA alpha-to-coverage dithers the shader's sharpened cutout alpha
-        // across samples for smooth foliage/leaf silhouettes.
-        if (alphaToCoverage) builder.setAlphaToCoverage(true);
-        return builder
-            .setLayout(pipelineLayout_)
-            .setRenderPass(mainPass)
-            .setDynamicStates({VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR})
-            .setFlags(flags)
-            .setBasePipeline(basePipeline)
-            .build(device, vkCtx_->getPipelineCache());
-    };
-
-    opaquePipeline_ = buildM2Pipeline(PipelineBuilder::blendDisabled(), true,
-                                      VK_PIPELINE_CREATE_ALLOW_DERIVATIVES_BIT);
-    alphaTestPipeline_ = buildM2Pipeline(PipelineBuilder::blendAlpha(), true,
-                                         VK_PIPELINE_CREATE_DERIVATIVE_BIT, opaquePipeline_,
-                                         /*alphaToCoverage=*/true);
-    alphaPipeline_ = buildM2Pipeline(PipelineBuilder::blendAlpha(), false,
-                                     VK_PIPELINE_CREATE_DERIVATIVE_BIT, opaquePipeline_);
-    additivePipeline_ = buildM2Pipeline(PipelineBuilder::blendAdditive(), false,
-                                        VK_PIPELINE_CREATE_DERIVATIVE_BIT, opaquePipeline_);
-
-    // --- Build particle pipelines ---
-    if (particleVert.isValid() && particleFrag.isValid()) {
-        VkVertexInputBindingDescription pBind{};
-        pBind.binding = 0;
-        pBind.stride = 9 * sizeof(float); // pos3 + color4 + size1 + tile1
-        pBind.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-        std::vector<VkVertexInputAttributeDescription> pAttrs = {
-            {0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0},                    // position
-            {1, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 3 * sizeof(float)}, // color
-            {2, 0, VK_FORMAT_R32_SFLOAT, 7 * sizeof(float)},          // size
-            {3, 0, VK_FORMAT_R32_SFLOAT, 8 * sizeof(float)},          // tile
-        };
-
-        auto buildParticlePipeline = [&](VkPipelineColorBlendAttachmentState blend) -> VkPipeline {
-            return PipelineBuilder()
-                .setShaders(particleVert.stageInfo(VK_SHADER_STAGE_VERTEX_BIT),
-                            particleFrag.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT))
-                .setVertexInput({pBind}, pAttrs)
-                .setTopology(VK_PRIMITIVE_TOPOLOGY_POINT_LIST)
-                .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
-                .setDepthTest(true, false, VK_COMPARE_OP_LESS_OR_EQUAL)
-                .setColorBlendAttachment(blend)
-                .setMultisample(vkCtx_->getMsaaSamples())
-                .setLayout(particlePipelineLayout_)
-                .setRenderPass(mainPass)
-                .setDynamicStates({VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR})
-                .build(device, vkCtx_->getPipelineCache());
-        };
-
-        particlePipeline_ = buildParticlePipeline(PipelineBuilder::blendAlpha());
-        particleAdditivePipeline_ = buildParticlePipeline(PipelineBuilder::blendAdditive());
-    }
-
-    // --- Build smoke pipeline ---
-    if (smokeVert.isValid() && smokeFrag.isValid()) {
-        VkVertexInputBindingDescription sBind{};
-        sBind.binding = 0;
-        sBind.stride = 6 * sizeof(float); // pos3 + lifeRatio1 + size1 + isSpark1
-        sBind.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-        std::vector<VkVertexInputAttributeDescription> sAttrs = {
-            {0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0},           // position
-            {1, 0, VK_FORMAT_R32_SFLOAT, 3 * sizeof(float)}, // lifeRatio
-            {2, 0, VK_FORMAT_R32_SFLOAT, 4 * sizeof(float)}, // size
-            {3, 0, VK_FORMAT_R32_SFLOAT, 5 * sizeof(float)}, // isSpark
-        };
-
-        smokePipeline_ = PipelineBuilder()
-            .setShaders(smokeVert.stageInfo(VK_SHADER_STAGE_VERTEX_BIT),
-                        smokeFrag.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT))
-            .setVertexInput({sBind}, sAttrs)
-            .setTopology(VK_PRIMITIVE_TOPOLOGY_POINT_LIST)
-            .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
-            .setDepthTest(true, false, VK_COMPARE_OP_LESS_OR_EQUAL)
-            .setColorBlendAttachment(PipelineBuilder::blendAlpha())
-            .setMultisample(vkCtx_->getMsaaSamples())
-            .setLayout(smokePipelineLayout_)
-            .setRenderPass(mainPass)
-            .setDynamicStates({VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR})
-            .build(device, vkCtx_->getPipelineCache());
-    }
-
-    // --- Build ribbon pipelines ---
-    // Vertex format: pos(3) + color(3) + alpha(1) + uv(2) = 9 floats = 36 bytes
-    {
-        rendering::VkShaderModule ribVert, ribFrag;
-        (void)ribVert.loadFromFile(device, "assets/shaders/m2_ribbon.vert.spv");
-        (void)ribFrag.loadFromFile(device, "assets/shaders/m2_ribbon.frag.spv");
-        if (ribVert.isValid() && ribFrag.isValid()) {
-            // Reuse particleTexLayout_ for set 1 (single texture sampler)
-            VkDescriptorSetLayout ribLayouts[] = {perFrameLayout, particleTexLayout_};
-            VkPipelineLayoutCreateInfo lci{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
-            lci.setLayoutCount = 2;
-            lci.pSetLayouts = ribLayouts;
-            vkCreatePipelineLayout(device, &lci, nullptr, &ribbonPipelineLayout_);
-
-            VkVertexInputBindingDescription rBind{};
-            rBind.binding = 0;
-            rBind.stride = 9 * sizeof(float);
-            rBind.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-            std::vector<VkVertexInputAttributeDescription> rAttrs = {
-                {0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0},                    // pos
-                {1, 0, VK_FORMAT_R32G32B32_SFLOAT, 3 * sizeof(float)},    // color
-                {2, 0, VK_FORMAT_R32_SFLOAT,       6 * sizeof(float)},    // alpha
-                {3, 0, VK_FORMAT_R32G32_SFLOAT,    7 * sizeof(float)},    // uv
-            };
-
-            auto buildRibbonPipeline = [&](VkPipelineColorBlendAttachmentState blend) -> VkPipeline {
-                return PipelineBuilder()
-                    .setShaders(ribVert.stageInfo(VK_SHADER_STAGE_VERTEX_BIT),
-                                ribFrag.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT))
-                    .setVertexInput({rBind}, rAttrs)
-                    .setTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP)
-                    .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
-                    .setDepthTest(true, false, VK_COMPARE_OP_LESS_OR_EQUAL)
-                    .setColorBlendAttachment(blend)
-                    .setMultisample(vkCtx_->getMsaaSamples())
-                    .setLayout(ribbonPipelineLayout_)
-                    .setRenderPass(mainPass)
-                    .setDynamicStates({VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR})
-                    .build(device, vkCtx_->getPipelineCache());
-            };
-
-            ribbonPipeline_         = buildRibbonPipeline(PipelineBuilder::blendAlpha());
-            ribbonAdditivePipeline_ = buildRibbonPipeline(PipelineBuilder::blendAdditive());
-        }
-        ribVert.destroy(); ribFrag.destroy();
-    }
-
-    // Clean up shader modules
-    m2Vert.destroy(); m2Frag.destroy();
-    particleVert.destroy(); particleFrag.destroy();
-    smokeVert.destroy(); smokeFrag.destroy();
+    perFrameLayout_ = perFrameLayout;
+    if (!buildMainPassPipelines(perFrameLayout)) return false;
 
     // --- Create dynamic particle buffers (mapped for CPU writes) ---
     {
@@ -957,7 +994,7 @@ bool M2Renderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout
         vmaCreateBuffer(vkCtx_->getAllocator(), &bci, &aci, &glowVB_, &glowVBAlloc_, &allocInfo);
         glowVBMapped_ = allocInfo.pMappedData;
 
-        // Ribbon vertex buffer — triangle strip: pos(3)+color(3)+alpha(1)+uv(2)=9 floats/vert
+        // Ribbon vertex buffer - triangle strip: pos(3)+color(3)+alpha(1)+uv(2)=9 floats/vert
         bci.size = MAX_RIBBON_VERTS * 9 * sizeof(float);
         vmaCreateBuffer(vkCtx_->getAllocator(), &bci, &aci, &ribbonVB_, &ribbonVBAlloc_, &allocInfo);
         ribbonVBMapped_ = allocInfo.pMappedData;
@@ -1071,10 +1108,10 @@ void M2Renderer::shutdown() {
     glowTexture_.reset();
 
     // Clean up particle/ribbon buffers
-    if (smokeVB_) { vmaDestroyBuffer(alloc, smokeVB_, smokeVBAlloc_); smokeVB_ = VK_NULL_HANDLE; }
-    if (m2ParticleVB_) { vmaDestroyBuffer(alloc, m2ParticleVB_, m2ParticleVBAlloc_); m2ParticleVB_ = VK_NULL_HANDLE; }
-    if (glowVB_) { vmaDestroyBuffer(alloc, glowVB_, glowVBAlloc_); glowVB_ = VK_NULL_HANDLE; }
-    if (ribbonVB_) { vmaDestroyBuffer(alloc, ribbonVB_, ribbonVBAlloc_); ribbonVB_ = VK_NULL_HANDLE; }
+    destroy(alloc, smokeVB_, smokeVBAlloc_);
+    destroy(alloc, m2ParticleVB_, m2ParticleVBAlloc_);
+    destroy(alloc, glowVB_, glowVBAlloc_);
+    destroy(alloc, ribbonVB_, ribbonVBAlloc_);
     smokeParticles.clear();
 
     // Destroy pipelines
@@ -1089,22 +1126,22 @@ void M2Renderer::shutdown() {
     destroyPipeline(ribbonPipeline_);
     destroyPipeline(ribbonAdditivePipeline_);
 
-    if (pipelineLayout_) { vkDestroyPipelineLayout(device, pipelineLayout_, nullptr); pipelineLayout_ = VK_NULL_HANDLE; }
-    if (particlePipelineLayout_) { vkDestroyPipelineLayout(device, particlePipelineLayout_, nullptr); particlePipelineLayout_ = VK_NULL_HANDLE; }
-    if (smokePipelineLayout_) { vkDestroyPipelineLayout(device, smokePipelineLayout_, nullptr); smokePipelineLayout_ = VK_NULL_HANDLE; }
-    if (ribbonPipelineLayout_) { vkDestroyPipelineLayout(device, ribbonPipelineLayout_, nullptr); ribbonPipelineLayout_ = VK_NULL_HANDLE; }
+    destroy(device, pipelineLayout_);
+    destroy(device, particlePipelineLayout_);
+    destroy(device, smokePipelineLayout_);
+    destroy(device, ribbonPipelineLayout_);
 
     // Destroy descriptor pools and layouts
-    if (dummyBoneBuffer_) { vmaDestroyBuffer(alloc, dummyBoneBuffer_, dummyBoneAlloc_); dummyBoneBuffer_ = VK_NULL_HANDLE; }
+    destroy(alloc, dummyBoneBuffer_, dummyBoneAlloc_);
     // dummyBoneSet_ is freed implicitly when boneDescPool_ is destroyed
     dummyBoneSet_ = VK_NULL_HANDLE;
     // Mega bone SSBO cleanup (sets freed implicitly with boneDescPool_)
     for (int i = 0; i < 2; i++) {
-        if (megaBoneBuffer_[i]) { vmaDestroyBuffer(alloc, megaBoneBuffer_[i], megaBoneAlloc_[i]); megaBoneBuffer_[i] = VK_NULL_HANDLE; }
+        destroy(alloc, megaBoneBuffer_[i], megaBoneAlloc_[i]);
         megaBoneMapped_[i] = nullptr;
         megaBoneSet_[i] = VK_NULL_HANDLE;
     }
-    if (materialDescPool_) { vkDestroyDescriptorPool(device, materialDescPool_, nullptr); materialDescPool_ = VK_NULL_HANDLE; }
+    destroy(device, materialDescPool_);
     if (boneDescPool_) {
         if (boneDescPoolGeneration_) boneDescPoolGeneration_->fetch_add(1, std::memory_order_relaxed);
         vkDestroyDescriptorPool(device, boneDescPool_, nullptr);
@@ -1112,39 +1149,37 @@ void M2Renderer::shutdown() {
     }
     // Instance data SSBO cleanup (sets freed with instanceDescPool_)
     for (int i = 0; i < 2; i++) {
-        if (instanceBuffer_[i]) { vmaDestroyBuffer(alloc, instanceBuffer_[i], instanceAlloc_[i]); instanceBuffer_[i] = VK_NULL_HANDLE; }
+        destroy(alloc, instanceBuffer_[i], instanceAlloc_[i]);
         instanceMapped_[i] = nullptr;
         instanceSet_[i] = VK_NULL_HANDLE;
     }
-    if (instanceDescPool_) { vkDestroyDescriptorPool(device, instanceDescPool_, nullptr); instanceDescPool_ = VK_NULL_HANDLE; }
+    destroy(device, instanceDescPool_);
 
     // GPU frustum culling compute pipeline + buffers cleanup
-    if (cullHiZPipeline_) { vkDestroyPipeline(device, cullHiZPipeline_, nullptr); cullHiZPipeline_ = VK_NULL_HANDLE; }
-    if (cullHiZPipelineLayout_) { vkDestroyPipelineLayout(device, cullHiZPipelineLayout_, nullptr); cullHiZPipelineLayout_ = VK_NULL_HANDLE; }
-    if (cullPipeline_) { vkDestroyPipeline(device, cullPipeline_, nullptr); cullPipeline_ = VK_NULL_HANDLE; }
-    if (cullPipelineLayout_) { vkDestroyPipelineLayout(device, cullPipelineLayout_, nullptr); cullPipelineLayout_ = VK_NULL_HANDLE; }
+    destroy(device, cullHiZPipeline_);
+    destroy(device, cullHiZPipelineLayout_);
+    destroy(device, cullPipeline_);
+    destroy(device, cullPipelineLayout_);
     for (int i = 0; i < 2; i++) {
-        if (cullUniformBuffer_[i]) { vmaDestroyBuffer(alloc, cullUniformBuffer_[i], cullUniformAlloc_[i]); cullUniformBuffer_[i] = VK_NULL_HANDLE; }
-        if (cullInputBuffer_[i])   { vmaDestroyBuffer(alloc, cullInputBuffer_[i], cullInputAlloc_[i]); cullInputBuffer_[i] = VK_NULL_HANDLE; }
-        if (cullOutputBuffer_[i])  { vmaDestroyBuffer(alloc, cullOutputBuffer_[i], cullOutputAlloc_[i]); cullOutputBuffer_[i] = VK_NULL_HANDLE; }
+        destroy(alloc, cullUniformBuffer_[i], cullUniformAlloc_[i]);
+        destroy(alloc, cullInputBuffer_[i], cullInputAlloc_[i]);
+        destroy(alloc, cullOutputBuffer_[i], cullOutputAlloc_[i]);
         cullUniformMapped_[i] = cullInputMapped_[i] = cullOutputMapped_[i] = nullptr;
         cullSet_[i] = VK_NULL_HANDLE;
     }
-    if (cullDescPool_) { vkDestroyDescriptorPool(device, cullDescPool_, nullptr); cullDescPool_ = VK_NULL_HANDLE; }
-    if (cullSetLayout_) { vkDestroyDescriptorSetLayout(device, cullSetLayout_, nullptr); cullSetLayout_ = VK_NULL_HANDLE; }
+    destroy(device, cullDescPool_);
+    destroy(device, cullSetLayout_);
 
-    if (materialSetLayout_) { vkDestroyDescriptorSetLayout(device, materialSetLayout_, nullptr); materialSetLayout_ = VK_NULL_HANDLE; }
-    if (boneSetLayout_) { vkDestroyDescriptorSetLayout(device, boneSetLayout_, nullptr); boneSetLayout_ = VK_NULL_HANDLE; }
-    if (instanceSetLayout_) { vkDestroyDescriptorSetLayout(device, instanceSetLayout_, nullptr); instanceSetLayout_ = VK_NULL_HANDLE; }
-    if (particleTexLayout_) { vkDestroyDescriptorSetLayout(device, particleTexLayout_, nullptr); particleTexLayout_ = VK_NULL_HANDLE; }
+    destroy(device, materialSetLayout_);
+    destroy(device, boneSetLayout_);
+    destroy(device, instanceSetLayout_);
+    destroy(device, particleTexLayout_);
 
     // Destroy shadow resources
     destroyPipeline(shadowPipeline_);
-    if (shadowPipelineLayout_) { vkDestroyPipelineLayout(device, shadowPipelineLayout_, nullptr); shadowPipelineLayout_ = VK_NULL_HANDLE; }
+    destroy(device, shadowPipelineLayout_);
     for (auto& pool : shadowTexPool_) { if (pool) { vkDestroyDescriptorPool(device, pool, nullptr); pool = VK_NULL_HANDLE; } }
-    if (shadowParamsPool_) { vkDestroyDescriptorPool(device, shadowParamsPool_, nullptr); shadowParamsPool_ = VK_NULL_HANDLE; }
-    if (shadowParamsLayout_) { vkDestroyDescriptorSetLayout(device, shadowParamsLayout_, nullptr); shadowParamsLayout_ = VK_NULL_HANDLE; }
-    if (shadowParamsUBO_) { vmaDestroyBuffer(alloc, shadowParamsUBO_, shadowParamsAlloc_); shadowParamsUBO_ = VK_NULL_HANDLE; }
+    destroyShadowParamsSet(device, alloc, shadowParams_);
 
     initialized_ = false;
 }
@@ -1152,12 +1187,12 @@ void M2Renderer::shutdown() {
 void M2Renderer::destroyModelGPU(M2ModelGPU& model) {
     if (!vkCtx_) return;
     VmaAllocator alloc = vkCtx_->getAllocator();
-    if (model.vertexBuffer) { vmaDestroyBuffer(alloc, model.vertexBuffer, model.vertexAlloc); model.vertexBuffer = VK_NULL_HANDLE; }
-    if (model.indexBuffer) { vmaDestroyBuffer(alloc, model.indexBuffer, model.indexAlloc); model.indexBuffer = VK_NULL_HANDLE; }
+    destroy(alloc, model.vertexBuffer, model.vertexAlloc);
+    destroy(alloc, model.indexBuffer, model.indexAlloc);
     VkDevice device = vkCtx_->getDevice();
     for (auto& batch : model.batches) {
         if (batch.materialSet) { vkFreeDescriptorSets(device, materialDescPool_, 1, &batch.materialSet); batch.materialSet = VK_NULL_HANDLE; }
-        if (batch.materialUBO) { vmaDestroyBuffer(alloc, batch.materialUBO, batch.materialUBOAlloc); batch.materialUBO = VK_NULL_HANDLE; }
+        destroy(alloc, batch.materialUBO, batch.materialUBOAlloc);
     }
     // Free pre-allocated particle texture descriptor sets
     for (auto& pSet : model.particleTexSets) {
@@ -1173,45 +1208,18 @@ void M2Renderer::destroyModelGPU(M2ModelGPU& model) {
 
 void M2Renderer::destroyInstanceBones(M2Instance& inst, bool defer) {
     if (!vkCtx_) return;
-    VkDevice device = vkCtx_->getDevice();
-    VmaAllocator alloc = vkCtx_->getAllocator();
     for (int i = 0; i < 2; i++) {
-        // Snapshot handles before clearing the instance — needed for both
-        // immediate and deferred paths.
-        VkDescriptorSet boneSet = inst.boneSet[i];
-        ::VkBuffer boneBuf = inst.boneBuffer[i];
-        VmaAllocation boneAlloc = inst.boneAlloc[i];
+        // Snapshot the handles, clear the slot, then release the copies.
+        const VkDescriptorSet boneSet = inst.boneSet[i];
+        const ::VkBuffer boneBuf = inst.boneBuffer[i];
+        const VmaAllocation boneAlloc = inst.boneAlloc[i];
         inst.boneSet[i] = VK_NULL_HANDLE;
         inst.boneBuffer[i] = VK_NULL_HANDLE;
+        inst.boneAlloc[i] = VK_NULL_HANDLE;
         inst.boneMapped[i] = nullptr;
 
-        if (!defer) {
-            // Immediate destruction (safe after vkDeviceWaitIdle)
-            if (boneSet != VK_NULL_HANDLE) {
-                vkFreeDescriptorSets(device, boneDescPool_, 1, &boneSet);
-            }
-            if (boneBuf) {
-                vmaDestroyBuffer(alloc, boneBuf, boneAlloc);
-            }
-        } else if (boneSet != VK_NULL_HANDLE || boneBuf) {
-            // Deferred destruction — the loop destroys bone sets for ALL frame
-            // slots, so the other slot's command buffer may still be in flight.
-            // Must wait for all fences, not just the current frame's.
-            VkDescriptorPool pool = boneDescPool_;
-            auto poolGeneration = boneDescPoolGeneration_;
-            uint64_t generation = poolGeneration ? poolGeneration->load(std::memory_order_relaxed) : 0;
-            vkCtx_->deferAfterAllFrameFences([device, alloc, pool, poolGeneration, generation, boneSet, boneBuf, boneAlloc]() {
-                const bool poolStillValid =
-                    poolGeneration && poolGeneration->load(std::memory_order_relaxed) == generation;
-                if (boneSet != VK_NULL_HANDLE && pool != VK_NULL_HANDLE && poolStillValid) {
-                    VkDescriptorSet s = boneSet;
-                    vkFreeDescriptorSets(device, pool, 1, &s);
-                }
-                if (boneBuf) {
-                    vmaDestroyBuffer(alloc, boneBuf, boneAlloc);
-                }
-            });
-        }
+        releaseBoneSlot(*vkCtx_, boneDescPool_, boneDescPoolGeneration_,
+                        boneSet, boneBuf, boneAlloc, defer);
     }
 }
 
@@ -1382,7 +1390,7 @@ void M2Renderer::markModelAsSpellEffect(uint32_t modelId) {
         it->second.isSpellEffect = true;
         // Spell effects MUST have bone animation for ribbons/particles to work.
         // The classifier may have set disableAnimation=true based on name tokens
-        // (e.g. "chest" in HolySmite_Low_Chest.m2) — override that for spell effects.
+        // (e.g. "chest" in HolySmite_Low_Chest.m2) - override that for spell effects.
         if (it->second.disableAnimation && it->second.hasAnimation) {
             it->second.disableAnimation = false;
             LOG_INFO("SpellEffect: re-enabled animation for '", it->second.name, "'");
@@ -1424,7 +1432,7 @@ bool M2Renderer::loadModel(const pipeline::M2Model& model, uint32_t modelId) {
         tightMin = glm::vec3(std::numeric_limits<float>::max());
         tightMax = glm::vec3(-std::numeric_limits<float>::max());
         for (const auto& v : model.vertices) {
-            // Skip NaN-positioned vertices — would corrupt the bounds
+            // Skip NaN-positioned vertices - would corrupt the bounds
             // (glm::min on NaN is implementation-defined) and feed NaN
             // into the camera-occlusion / culling AABB.
             if (!std::isfinite(v.position.x) || !std::isfinite(v.position.y) ||
@@ -1440,7 +1448,7 @@ bool M2Renderer::loadModel(const pipeline::M2Model& model, uint32_t modelId) {
         }
     }
 
-    // Classify model from name and geometry — pure function, no GPU dependencies.
+    // Classify model from name and geometry - pure function, no GPU dependencies.
     auto cls = classifyM2Model(model.name, tightMin, tightMax,
                                 model.vertices.size(),
                                 model.particleEmitters.size());
@@ -1481,7 +1489,7 @@ bool M2Renderer::loadModel(const pipeline::M2Model& model, uint32_t modelId) {
     gpuModel.isTorch                     = cls.isTorch;
     // Data-driven flight-path detection: name tokens miss many flying doodads
     // (buzzards, swallows, bird swarms, ...). A small mesh whose bone animation
-    // translates it tens of units is a flight-path doodad — it visibly freezes
+    // translates it tens of units is a flight-path doodad - it visibly freezes
     // mid-air whenever distance culling stops its bone updates, so give it the
     // same treatment as named sky birds.
     bool flightPathDoodad = cls.isSkyBird;
@@ -1685,7 +1693,7 @@ bool M2Renderer::loadModel(const pipeline::M2Model& model, uint32_t modelId) {
         } else {
             LOG_WARNING("M2 '", model.name, "' particle emitter[", ei,
                         "] texture index ", texIdx, " out of range (", allTextures.size(),
-                        " textures) — using white fallback");
+                        " textures) - using white fallback");
         }
     }
 
@@ -1738,7 +1746,7 @@ bool M2Renderer::loadModel(const pipeline::M2Model& model, uint32_t modelId) {
                                 " (direct=", (texDirect < allTextures.size() ? "yes" : "OOB"),
                                 " lookup=", texIdx,
                                 " textures=", allTextures.size(),
-                                ") — using white fallback");
+                                ") - using white fallback");
                 }
             }
             // Allocate descriptor set (reuse particleTexLayout_ = single sampler)
@@ -1772,6 +1780,25 @@ bool M2Renderer::loadModel(const pipeline::M2Model& model, uint32_t modelId) {
     // Build per-batch GPU entries
     if (!model.batches.empty()) {
         for (const auto& batch : model.batches) {
+            // A submesh that reaches past the model's own indices is not drawn.
+            //
+            // vkCmdDrawIndexed does not check this and the GPU does not survive
+            // it: validation caught a batch starting at index 6,290,784 of a
+            // 768-index buffer - an ending offset 25 MB past the end - repeated
+            // 46 times over twelve seconds before the device was lost. The same
+            // start every time, so it is a submesh read from the wrong offset
+            // rather than memory going bad, and this client parses two M2
+            // layouts whose skin data does not sit in the same place.
+            //
+            // Dropping the submesh loses a piece of one doodad. Drawing it
+            // loses the device.
+            const uint64_t end = static_cast<uint64_t>(batch.indexStart) + batch.indexCount;
+            if (end > gpuModel.indexCount) {
+                LOG_WARNING("M2 '", gpuModel.name, "': submesh indices ",
+                            batch.indexStart, "..", end, " lie past the model's ",
+                            gpuModel.indexCount, " - not drawn");
+                continue;
+            }
             M2ModelGPU::BatchGPU bgpu;
             bgpu.indexStart = batch.indexStart;
             bgpu.indexCount = batch.indexCount;
@@ -1811,7 +1838,7 @@ bool M2Renderer::loadModel(const pipeline::M2Model& model, uint32_t modelId) {
             } else if (!allTextures.empty()) {
                 LOG_WARNING("M2 '", model.name, "' batch textureIndex ", batch.textureIndex,
                             " out of range (textureLookup size=", model.textureLookup.size(),
-                            ") — falling back to texture[0]");
+                            ") - falling back to texture[0]");
                 tex = allTextures[0];
                 texFailed = !textureLoadFailed.empty() && textureLoadFailed[0];
                 if (!textureKeysLower.empty()) {
@@ -1850,7 +1877,7 @@ bool M2Renderer::loadModel(const pipeline::M2Model& model, uint32_t modelId) {
                 (tcls.hasGlowCardToken || tcls.softGlowSurface);
             // A flame texture is the fire itself, not a flat card standing in for
             // one, so swapping it for a featureless sprite deletes the visible
-            // flame — chandeliers and candelabra lit their surroundings while
+            // flame - chandeliers and candelabra lit their surroundings while
             // their candles sat unlit. Braziers already keep their flame mesh for
             // this reason (see fireGlowCard above); FLAMELICK counts as a
             // glow-card token, so lantern-family models were not getting the same
@@ -1867,7 +1894,7 @@ bool M2Renderer::loadModel(const pipeline::M2Model& model, uint32_t modelId) {
                     // Forge fire is drawn on cards with a black backing that has
                     // to be keyed out, and some of them use effect textures
                     // carrying none of the flame/glow tokens the hint looks for
-                    // — coals, lava lumps, ARMORREFLECT/ORBREFLECT. Keying the
+                    // - coals, lava lumps, ARMORREFLECT/ORBREFLECT. Keying the
                     // whole model instead made the masonry and ironwork
                     // translucent, since a forge is mostly those.
                     if (gpuModel.isForge && isForgeFireTexture(batchTexKeyLower, tcls)) {
@@ -1878,7 +1905,7 @@ bool M2Renderer::loadModel(const pipeline::M2Model& model, uint32_t modelId) {
             }
             // textureCoordIndex is an index into a texture coord combo table, not directly
             // a UV set selector. Most batches have index=0 (UV set 0). We always use UV set 0
-            // since we don't have the full combo table — dual-UV effects are rare edge cases.
+            // since we don't have the full combo table - dual-UV effects are rare edge cases.
             bgpu.textureUnit = 0;
 
             // Start at full opacity; hide only if texture failed to load.
@@ -2009,7 +2036,7 @@ bool M2Renderer::loadModel(const pipeline::M2Model& model, uint32_t modelId) {
 
     // Detect particle emitter volume models: box mesh (24 verts, 36 indices)
     // with disproportionately large bounds. These are invisible bounding volumes
-    // that only exist to spawn particles — their mesh should never be rendered.
+    // that only exist to spawn particles - their mesh should never be rendered.
     if (!isInvisibleTrap && !groundDetailModel &&
         gpuModel.vertexCount <= 24 && gpuModel.indexCount <= 36
         && !model.particleEmitters.empty()) {
@@ -2038,7 +2065,7 @@ bool M2Renderer::loadModel(const pipeline::M2Model& model, uint32_t modelId) {
             aci.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
             vmaCreateBuffer(vkCtx_->getAllocator(), &bci, &aci, &bgpu.materialUBO, &bgpu.materialUBOAlloc, &matAllocInfo);
 
-            // Write initial material data (static per-batch — fadeAlpha/interiorDarken updated at draw time)
+            // Write initial material data (static per-batch - fadeAlpha/interiorDarken updated at draw time)
             M2MaterialUBO mat{};
             mat.hasTexture = (bgpu.texture != nullptr && bgpu.texture != whiteTexture_.get()) ? 1 : 0;
             mat.alphaTest = (bgpu.blendMode == 1 || (bgpu.blendMode >= 2 && !bgpu.hasAlpha)) ? 1 : 0;
@@ -2092,7 +2119,7 @@ bool M2Renderer::loadModel(const pipeline::M2Model& model, uint32_t modelId) {
     }
 
     models[modelId] = std::move(gpuModel);
-    spatialIndexDirty_ = true;  // Map may have rehashed — refresh cachedModel pointers
+    spatialIndexDirty_ = true;  // Map may have rehashed - refresh cachedModel pointers
 
     LOG_DEBUG("Loaded M2 model: ", model.name, " (", models[modelId].vertexCount, " vertices, ",
               models[modelId].indexCount / 3, " triangles, ", models[modelId].batches.size(), " batches)");

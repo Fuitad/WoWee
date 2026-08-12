@@ -1,4 +1,4 @@
-// view_state_machine.cpp — Navigation state and transitions for the world map.
+// view_state_machine.cpp - Navigation state and transitions for the world map.
 // Extracted from WorldMap::zoomIn, zoomOut, enterWorldView, enterCosmicView
 // (Phase 6 of refactoring plan).
 #include "rendering/world_map/view_state_machine.hpp"
@@ -112,7 +112,7 @@ ViewStateMachine::ZoomResult ViewStateMachine::enterWorldView() {
 }
 
 ViewStateMachine::ZoomResult ViewStateMachine::enterCosmicView() {
-    // Vanilla: cosmic view is disabled — stay in world view
+    // Vanilla: cosmic view is disabled - stay in world view
     if (!cosmicEnabled_) {
         return enterWorldView();
     }

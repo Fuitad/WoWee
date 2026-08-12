@@ -83,19 +83,19 @@ void main() {
         float windTime = fogParams.z;
         vec3 worldRef = model[3].xyz;
         float heightFactor = clamp(pos.z / 20.0, 0.0, 1.0);
-        heightFactor *= heightFactor; // quadratic — base stays grounded
+        heightFactor *= heightFactor; // quadratic - base stays grounded
 
-        // Layer 1: Trunk sway — slow, large amplitude
+        // Layer 1: Trunk sway - slow, large amplitude
         float trunkPhase = windTime * 0.8 + dot(worldRef.xy, vec2(0.1, 0.13));
         float trunkSwayX = sin(trunkPhase) * 0.35 * heightFactor;
         float trunkSwayY = cos(trunkPhase * 0.7) * 0.25 * heightFactor;
 
-        // Layer 2: Branch sway — medium frequency, per-branch phase
+        // Layer 2: Branch sway - medium frequency, per-branch phase
         float branchPhase = windTime * 1.7 + dot(worldRef.xy, vec2(0.37, 0.71));
         float branchSwayX = sin(branchPhase + pos.y * 0.4) * 0.15 * heightFactor;
         float branchSwayY = cos(branchPhase * 1.1 + pos.x * 0.3) * 0.12 * heightFactor;
 
-        // Layer 3: Leaf flutter — fast, small amplitude, per-vertex
+        // Layer 3: Leaf flutter - fast, small amplitude, per-vertex
         float leafPhase = windTime * 4.5 + dot(aPos, vec3(1.7, 2.3, 0.9));
         float leafFlutterX = sin(leafPhase) * 0.06 * heightFactor;
         float leafFlutterY = cos(leafPhase * 1.3) * 0.05 * heightFactor;

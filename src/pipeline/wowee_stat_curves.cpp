@@ -1,4 +1,5 @@
 #include "pipeline/wowee_stat_curves.hpp"
+#include "pipeline/wowee_binary_io.hpp"
 
 #include <cstdio>
 #include <cstring>
@@ -11,52 +12,7 @@ namespace {
 
 constexpr char kMagic[4] = {'W', 'S', 'T', 'M'};
 constexpr uint32_t kVersion = 1;
-
-template <typename T>
-void writePOD(std::ofstream& os, const T& v) {
-    os.write(reinterpret_cast<const char*>(&v), sizeof(T));
-}
-
-template <typename T>
-bool readPOD(std::ifstream& is, T& v) {
-    is.read(reinterpret_cast<char*>(&v), sizeof(T));
-    return is.gcount() == static_cast<std::streamsize>(sizeof(T));
-}
-
-void writeStr(std::ofstream& os, const std::string& s) {
-    uint32_t n = static_cast<uint32_t>(s.size());
-    writePOD(os, n);
-    if (n > 0) os.write(s.data(), n);
-}
-
-bool readStr(std::ifstream& is, std::string& s) {
-    uint32_t n = 0;
-    if (!readPOD(is, n)) return false;
-    if (n > (1u << 20)) return false;
-    s.resize(n);
-    if (n > 0) {
-        is.read(s.data(), n);
-        if (is.gcount() != static_cast<std::streamsize>(n)) {
-            s.clear();
-            return false;
-        }
-    }
-    return true;
-}
-
-std::string normalizePath(std::string base) {
-    if (base.size() < 5 || base.substr(base.size() - 5) != ".wstm") {
-        base += ".wstm";
-    }
-    return base;
-}
-
-uint32_t packRgba(uint8_t r, uint8_t g, uint8_t b, uint8_t a = 0xFF) {
-    return (static_cast<uint32_t>(a) << 24) |
-           (static_cast<uint32_t>(b) << 16) |
-           (static_cast<uint32_t>(g) << 8)  |
-            static_cast<uint32_t>(r);
-}
+constexpr char kExtension[] = ".wstm";
 
 } // namespace
 
@@ -93,15 +49,9 @@ const char* WoweeStatCurve::curveKindName(uint8_t k) {
 }
 
 bool WoweeStatCurveLoader::save(const WoweeStatCurve& cat,
-                                 const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath), std::ios::binary);
-    if (!os) return false;
-    os.write(kMagic, 4);
-    writePOD(os, kVersion);
-    writeStr(os, cat.name);
-    uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writePOD(os, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeStatCurve::Entry& e) {
         writePOD(os, e.curveId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -113,31 +63,15 @@ bool WoweeStatCurveLoader::save(const WoweeStatCurve& cat,
         writePOD(os, e.perLevelDelta);
         writePOD(os, e.multiplier);
         writePOD(os, e.iconColorRGBA);
-    }
-    return os.good();
+                       });
 }
 
-WoweeStatCurve WoweeStatCurveLoader::load(const std::string& basePath) {
-    WoweeStatCurve out;
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    if (!is) return out;
-    char magic[4];
-    is.read(magic, 4);
-    if (std::memcmp(magic, kMagic, 4) != 0) return out;
-    uint32_t version = 0;
-    if (!readPOD(is, version) || version != kVersion) return out;
-    if (!readStr(is, out.name)) return out;
-    uint32_t entryCount = 0;
-    if (!readPOD(is, entryCount)) return out;
-    if (entryCount > (1u << 20)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.curveId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name) || !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
+WoweeStatCurve WoweeStatCurveLoader::load(
+    const std::string& basePath) {
+    return loadCatalog<WoweeStatCurve>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeStatCurve::Entry& e) {
+        if (!readPOD(is, e.curveId)) { return false; }
+        if (!readStr(is, e.name) || !readStr(is, e.description)) { return false; }
         if (!readPOD(is, e.curveKind) ||
             !readPOD(is, e.minLevel) ||
             !readPOD(is, e.maxLevel) ||
@@ -145,16 +79,13 @@ WoweeStatCurve WoweeStatCurveLoader::load(const std::string& basePath) {
             !readPOD(is, e.baseValue) ||
             !readPOD(is, e.perLevelDelta) ||
             !readPOD(is, e.multiplier) ||
-            !readPOD(is, e.iconColorRGBA)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.iconColorRGBA)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeStatCurveLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeStatCurve WoweeStatCurveLoader::makeCrit(
@@ -177,17 +108,17 @@ WoweeStatCurve WoweeStatCurveLoader::makeCrit(
     // Spell crit base 1%, +0.04% per level (mages
     // get class bonus on top).
     add(1, "MeleeCritChance",   5.0f,  0.05f,
-        "Melee crit chance — base 5%% at lvl 1, +0.05%% per level.");
+        "Melee crit chance - base 5%% at lvl 1, +0.05%% per level.");
     add(2, "RangedCritChance",  5.0f,  0.05f,
-        "Ranged crit chance — same scaling as melee.");
+        "Ranged crit chance - same scaling as melee.");
     add(3, "SpellCritChance",   1.0f,  0.04f,
-        "Spell crit chance — base 1%%, +0.04%% per level. "
+        "Spell crit chance - base 1%%, +0.04%% per level. "
         "Class talents add fixed bonuses.");
     add(4, "ParryChance",       5.0f,  0.0f,
-        "Parry chance — flat 5%% from level 1, scales via "
+        "Parry chance - flat 5%% from level 1, scales via "
         "Strength/Parry rating (see WCRR).");
     add(5, "DodgeChance",       5.0f,  0.04f,
-        "Base dodge — 5%% + 0.04%%/level + Agility scaling.");
+        "Base dodge - 5%% + 0.04%%/level + Agility scaling.");
     return c;
 }
 
@@ -208,16 +139,16 @@ WoweeStatCurve WoweeStatCurveLoader::makeRegen(
         c.entries.push_back(e);
     };
     add(100, "ManaPerSpirit",    0.0f, 0.0125f, 1.0f,
-        "Mana regen per Spirit out-of-combat — 0.0125 mp5/spirit "
+        "Mana regen per Spirit out-of-combat - 0.0125 mp5/spirit "
         "scaling per level.");
     add(101, "HpPerSpirit",      0.0f, 0.05f,   1.0f,
-        "Health regen per Spirit out-of-combat — 0.05 hp/sec "
+        "Health regen per Spirit out-of-combat - 0.05 hp/sec "
         "per spirit scaling per level.");
     add(102, "EnergyPerSec",    20.0f, 0.0f,    1.0f,
-        "Energy regen — flat 20 per 2s baseline (Rogue / Cat "
+        "Energy regen - flat 20 per 2s baseline (Rogue / Cat "
         "Druid). Haste reduces tick interval.");
     add(103, "RageDecayPerSec",  3.0f, 0.0f,    1.0f,
-        "Rage decay out-of-combat — 3 rage per second uniformly. "
+        "Rage decay out-of-combat - 3 rage per second uniformly. "
         "In-combat rage doesn't decay.");
     return c;
 }
@@ -238,13 +169,13 @@ WoweeStatCurve WoweeStatCurveLoader::makeArmor(
         c.entries.push_back(e);
     };
     add(200, "BaseArmorPerLevel", S::Mitigation,    0.0f,  10.0f,
-        "Base armor scaling — 10 armor per character level "
+        "Base armor scaling - 10 armor per character level "
         "for cloth/leather wearers without items.");
     add(201, "ArmorMitigationPct", S::Mitigation,   0.0f,   0.4f,
-        "Armor → damage reduction conversion — ~0.4%% per level "
+        "Armor → damage reduction conversion - ~0.4%% per level "
         "of effectiveness against same-level attackers.");
     add(202, "ResistancePerLevel", S::Resist,       0.0f,   1.0f,
-        "Magic resistance scaling — 1 resist per level for "
+        "Magic resistance scaling - 1 resist per level for "
         "Holy / Fire / Frost / etc; capped at level*5.");
     return c;
 }

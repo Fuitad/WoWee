@@ -1,4 +1,6 @@
 #include "cli_boss_encounters_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -18,20 +20,6 @@ namespace cli {
 
 namespace {
 
-std::string stripWbosExt(std::string base) {
-    stripExt(base, ".wbos");
-    return base;
-}
-
-bool saveOrError(const wowee::pipeline::WoweeBossEncounter& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeBossEncounterLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wbos\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeBossEncounter& c,
                      const std::string& base) {
@@ -44,9 +32,9 @@ int handleGenFiveMan(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "FiveManBosses";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWbosExt(base);
+    base = cli::withoutExt(base, ".wbos");
     auto c = wowee::pipeline::WoweeBossEncounterLoader::makeFiveMan(name);
-    if (!saveOrError(c, base, "gen-bos")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeBossEncounterLoader>(c, base, "gen-bos", ".wbos")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -55,9 +43,9 @@ int handleGenRaid10(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "ICC10NormalBosses";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWbosExt(base);
+    base = cli::withoutExt(base, ".wbos");
     auto c = wowee::pipeline::WoweeBossEncounterLoader::makeRaid10(name);
-    if (!saveOrError(c, base, "gen-bos-raid10")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeBossEncounterLoader>(c, base, "gen-bos-raid10", ".wbos")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -66,9 +54,9 @@ int handleGenWorldBoss(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "WorldBosses";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWbosExt(base);
+    base = cli::withoutExt(base, ".wbos");
     auto c = wowee::pipeline::WoweeBossEncounterLoader::makeWorldBoss(name);
-    if (!saveOrError(c, base, "gen-bos-world")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeBossEncounterLoader>(c, base, "gen-bos-world", ".wbos")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -76,10 +64,9 @@ int handleGenWorldBoss(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWbosExt(base);
+    base = cli::withoutExt(base, ".wbos");
     if (!wowee::pipeline::WoweeBossEncounterLoader::exists(base)) {
-        std::fprintf(stderr, "WBOS not found: %s.wbos\n", base.c_str());
-        return 1;
+        return reportMissing("WBOS", base, ".wbos");
     }
     auto c = wowee::pipeline::WoweeBossEncounterLoader::load(base);
     if (jsonOut) {
@@ -135,12 +122,9 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWbosExt(base);
+    base = cli::withoutExt(base, ".wbos");
     if (!wowee::pipeline::WoweeBossEncounterLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wbos-json: WBOS not found: %s.wbos\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wbos-json", "WBOS", base, ".wbos");
     }
     auto c = wowee::pipeline::WoweeBossEncounterLoader::load(base);
     if (outPath.empty()) outPath = base + ".wbos.json";
@@ -218,21 +202,8 @@ int handleImportJson(int& i, int argc, char** argv) {
             c.entries.push_back(e);
         }
     }
-    if (outBase.empty()) {
-        outBase = jsonPath;
-        const std::string suffix1 = ".wbos.json";
-        const std::string suffix2 = ".json";
-        if (outBase.size() >= suffix1.size() &&
-            outBase.compare(outBase.size() - suffix1.size(),
-                            suffix1.size(), suffix1) == 0) {
-            outBase.resize(outBase.size() - suffix1.size());
-        } else if (outBase.size() >= suffix2.size() &&
-                   outBase.compare(outBase.size() - suffix2.size(),
-                                   suffix2.size(), suffix2) == 0) {
-            outBase.resize(outBase.size() - suffix2.size());
-        }
-    }
-    outBase = stripWbosExt(outBase);
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(jsonPath, ".wbos");
+    outBase = cli::withoutExt(outBase, ".wbos");
     if (!wowee::pipeline::WoweeBossEncounterLoader::save(c, outBase)) {
         std::fprintf(stderr,
             "import-wbos-json: failed to save %s.wbos\n",
@@ -246,110 +217,69 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWbosExt(base);
-    if (!wowee::pipeline::WoweeBossEncounterLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wbos: WBOS not found: %s.wbos\n", base.c_str());
-        return 1;
-    }
-    auto c = wowee::pipeline::WoweeBossEncounterLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    std::vector<uint32_t> idsSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.encounterId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.encounterId == 0)
-            errors.push_back(ctx + ": encounterId is 0");
-        if (e.name.empty())
-            errors.push_back(ctx + ": name is empty");
-        if (e.bossCreatureId == 0)
-            errors.push_back(ctx +
-                ": bossCreatureId is 0 — encounter has no boss");
-        if (e.mapId == 0)
-            errors.push_back(ctx +
-                ": mapId is 0 — encounter is unbound to a map");
-        if (e.phaseCount == 0)
-            errors.push_back(ctx +
-                ": phaseCount is 0 — encounter has no phases");
-        if (e.requiredPartySize == 0)
-            errors.push_back(ctx +
-                ": requiredPartySize is 0 — invalid group size");
-        if (e.requiredPartySize > 40)
-            warnings.push_back(ctx +
-                ": requiredPartySize " +
-                std::to_string(e.requiredPartySize) +
-                " > 40 (max raid size)");
-        // Standard sizes are 5/10/25/40 — anything else is a
-        // server-custom raid size, worth flagging.
-        if (e.requiredPartySize != 5 && e.requiredPartySize != 10 &&
-            e.requiredPartySize != 25 && e.requiredPartySize != 40) {
-            warnings.push_back(ctx +
-                ": non-standard requiredPartySize " +
-                std::to_string(e.requiredPartySize) +
-                " (canonical sizes are 5/10/25/40)");
-        }
-        // berserkSpellId without enrageTimerMs is contradictory
-        // (the spell never fires).
-        if (e.berserkSpellId != 0 && e.enrageTimerMs == 0) {
-            warnings.push_back(ctx +
-                ": berserkSpellId=" +
-                std::to_string(e.berserkSpellId) +
-                " set but enrageTimerMs=0 — spell will never "
-                "fire (no enrage countdown)");
-        }
-        // Enrage > 30 minutes is suspicious — typical raid
-        // encounters cap at ~15-20 minutes.
-        if (e.enrageTimerMs > 1800000) {
-            warnings.push_back(ctx +
-                ": enrageTimerMs " +
-                std::to_string(e.enrageTimerMs) +
-                " > 30 min (1800000ms) — exceptionally long "
-                "soft enrage, double-check");
-        }
-        for (uint32_t prev : idsSeen) {
-            if (prev == e.encounterId) {
-                errors.push_back(ctx + ": duplicate encounterId");
-                break;
+    return cli::validateCatalog<wowee::pipeline::WoweeBossEncounterLoader>(
+        i, argc, argv, "wbos", "WBOS",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.encounterId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.encounterId == 0)
+                errors.push_back(ctx + ": encounterId is 0");
+            if (e.name.empty())
+                errors.push_back(ctx + ": name is empty");
+            if (e.bossCreatureId == 0)
+                errors.push_back(ctx +
+                    ": bossCreatureId is 0 - encounter has no boss");
+            if (e.mapId == 0)
+                errors.push_back(ctx +
+                    ": mapId is 0 - encounter is unbound to a map");
+            if (e.phaseCount == 0)
+                errors.push_back(ctx +
+                    ": phaseCount is 0 - encounter has no phases");
+            if (e.requiredPartySize == 0)
+                errors.push_back(ctx +
+                    ": requiredPartySize is 0 - invalid group size");
+            if (e.requiredPartySize > 40)
+                warnings.push_back(ctx +
+                    ": requiredPartySize " +
+                    std::to_string(e.requiredPartySize) +
+                    " > 40 (max raid size)");
+            // Standard sizes are 5/10/25/40 - anything else is a
+            // server-custom raid size, worth flagging.
+            if (e.requiredPartySize != 5 && e.requiredPartySize != 10 &&
+                e.requiredPartySize != 25 && e.requiredPartySize != 40) {
+                warnings.push_back(ctx +
+                    ": non-standard requiredPartySize " +
+                    std::to_string(e.requiredPartySize) +
+                    " (canonical sizes are 5/10/25/40)");
             }
+            // berserkSpellId without enrageTimerMs is contradictory
+            // (the spell never fires).
+            if (e.berserkSpellId != 0 && e.enrageTimerMs == 0) {
+                warnings.push_back(ctx +
+                    ": berserkSpellId=" +
+                    std::to_string(e.berserkSpellId) +
+                    " set but enrageTimerMs=0 - spell will never "
+                    "fire (no enrage countdown)");
+            }
+            // Enrage > 30 minutes is suspicious - typical raid
+            // encounters cap at ~15-20 minutes.
+            if (e.enrageTimerMs > 1800000) {
+                warnings.push_back(ctx +
+                    ": enrageTimerMs " +
+                    std::to_string(e.enrageTimerMs) +
+                    " > 30 min (1800000ms) - exceptionally long "
+                    "soft enrage, double-check");
+            }
+            if (!idsSeen.add(e.encounterId)) errors.push_back(ctx + ": duplicate encounterId");
         }
-        idsSeen.push_back(e.encounterId);
-    }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wbos"] = base + ".wbos";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wbos: %s.wbos\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu encounters, all encounterIds unique\n",
-                    c.entries.size());
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+            return formatted("%zu encounters, all encounterIds unique", c.entries.size());
+        });
 }
 
 } // namespace

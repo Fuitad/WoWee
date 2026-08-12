@@ -17,8 +17,8 @@ inline bool has(const std::string& lower, std::string_view token) noexcept {
 }
 
 // Where in the name a token matched, so competing tokens can be ranked.
-// Model names are head-final compounds — StranglethornRuins is a ruin,
-// DustwallowTree is a tree — so the match ending furthest right is the one that
+// Model names are head-final compounds - StranglethornRuins is a ruin,
+// DustwallowTree is a tree - so the match ending furthest right is the one that
 // says what the model is. A longer token wins a tie on the same end position,
 // which is how "corner" beats the "corn" inside it.
 struct TokenMatch {
@@ -107,7 +107,7 @@ M2ClassificationResult classifyM2Model(
     // ---------------------------------------------------------------
     r.isInvisibleTrap = has(n, "invisibletrap");
     r.isGroundDetail  = has(fullPath, "\\nodxt\\detail\\") || has(fullPath, "\\detail\\");
-    // A model under PARTICLEEMITTERS\ is pure VFX — the 61 models there are
+    // A model under PARTICLEEMITTERS\ is pure VFX - the 61 models there are
     // auras, wisps and splashes, and not one of them is a physical object.
     // kEffectTokens already carries "particleemitter", but tokens are matched
     // on the BASENAME, and for these the word is only ever in the directory:
@@ -116,7 +116,7 @@ M2ClassificationResult classifyM2Model(
     //
     // That is the Rut'theran portal's second invisible wall. AuraPurple.m2 is
     // the glow inside the arch, placed at scale 10.69, and its unscaled 1.96 x
-    // 1.96 x 3.08 bounds land squarely in genericSolid's window — so it became
+    // 1.96 x 3.08 bounds land squarely in genericSolid's window - so it became
     // a small solid prop, and at that scale a ~21 x 21 x 33 unit block of solid
     // nothing centred on the portal. The player was stopped exactly where the
     // glow begins.
@@ -138,7 +138,7 @@ M2ClassificationResult classifyM2Model(
     r.isElvenLike   = has(n, "elf")     || has(n, "elven") || has(n, "quel");
     // Directional volumetric light effects (lighthouse beam, light rays/shafts) match
     // the broad "light" token but are NOT point lanterns. They are animated additive
-    // meshes — e.g. the Stormwind lighthouse beam rotates via a looped single-bone
+    // meshes - e.g. the Stormwind lighthouse beam rotates via a looped single-bone
     // animation. Classifying them as lanterns routed their batch through the glow-card
     // path, which skips the mesh and draws a static billboard instead, freezing the
     // sweep. Exclude beams/rays/shafts so their animated mesh renders normally.
@@ -157,7 +157,7 @@ M2ClassificationResult classifyM2Model(
     const bool brazierName = has(n, "brazier") || has(n, "cauldronfire");
     // A forge is a forge only when "forge" is what the name ends on. Matched as
     // a bare substring it also caught Ironforge, so all 64 doodads of the city
-    // — benches, statues, cliffs, elevators, lanterns — were treated as forge
+    // - benches, statues, cliffs, elevators, lanterns - were treated as forge
     // fire and drawn additive, which is to say translucent. Anything after the
     // token names something else: IronforgeBench is a bench, ForgeArms are
     // arms, CrystalForgeController is a control panel.
@@ -244,7 +244,7 @@ M2ClassificationResult classifyM2Model(
         // Blizzard's own misspelling, and it is the only spelling those models
         // have: WETLANDSSHURB09.M2 and its siblings. Reported as grass with
         // cobwebs that could not be walked through, and no amount of reading
-        // the token list would have found it — the name had to come off the
+        // the token list would have found it - the name had to come off the
         // model. The client names what blocks it now for exactly this reason.
         "shurb",
         "sprout",
@@ -279,24 +279,22 @@ M2ClassificationResult classifyM2Model(
     }
     const TokenMatch treeHit = lastMatch(n, "tree");
 
-    const bool foliagePlant = !isPlanter && has(n, "plant")
-                            && !structureHit.outranks(foliageHit);
     const bool foliageName  = foliageHit.found && !structureHit.outranks(foliageHit);
     const bool treeLike     = treeHit.found && !structureHit.outranks(treeHit);
     const bool hardTreePart = has(n, "trunk") || has(n, "stump") || has(n, "log");
 
     // A teleport structure is a doorway, not an object: you walk into or onto
-    // it. TeleportTree.m2 — the Rut'theran Village portal to Darnassus — is the
+    // it. TeleportTree.m2 - the Rut'theran Village portal to Darnassus - is the
     // case that proved it. The file carries no collision geometry at all
     // (nBoundingTriangles = 0, zeroed bounding box), so the real client lets you
     // walk straight through the arch. But the name ends in "tree", so treeLike
     // fired and the trunk-cylinder rule planted a solid block dead centre in the
-    // archway — an invisible wall over the portal, only passable with /unstuck.
+    // archway - an invisible wall over the portal, only passable with /unstuck.
     //
     // The token-ranking mechanism cannot express this: outranks() needs the
     // structure token to appear LATER in the name, and here "teleport" comes
     // first. So this is checked ahead of the tree rules and wins outright.
-    // It covers the whole family — arches, pads and PvP/goblin teleporters —
+    // It covers the whole family - arches, pads and PvP/goblin teleporters -
     // none of which is ever an obstacle.
     const bool teleportStructure = has(n, "teleport");
 
@@ -328,7 +326,7 @@ M2ClassificationResult classifyM2Model(
     const bool forceSolidCurb = r.collisionSteppedLowPlatform || knownSwPlanter
                               || likelyCurb || r.collisionPlanter;
     r.collisionNoBlock        = (foliageName || softTree || carpetOrRug) && !forceSolidCurb;
-    // Walk into the arch, walk onto the pad — never around either. Set after the
+    // Walk into the arch, walk onto the pad - never around either. Set after the
     // curb override so nothing can put the block back.
     if (teleportStructure) r.collisionNoBlock = true;
     // isSpellEffect already excludes VFX from every collision path; say it
@@ -338,7 +336,7 @@ M2ClassificationResult classifyM2Model(
     if (r.isGroundDetail) r.collisionNoBlock = true;
     // Small doodads that aren't explicitly solid should not block movement.
     // In WoW, only named solid objects (crates, barrels, anvils, etc.) and
-    // large structural doodads have collision — small decorative models are
+    // large structural doodads have collision - small decorative models are
     // always walkthrough regardless of their name.
     if (!r.collisionNoBlock && !smallSolid && !forceSolidCurb
         && !r.collisionSteppedFountain && !r.collisionTreeTrunk
@@ -400,11 +398,11 @@ M2ClassificationResult classifyM2Model(
         "smokepuff",      "sparkle",           "spotlight",
         "volumetriclight", "wisps",            "worldtreeportal",
     });
-    // A bare "steam" substring collides with solid models — the Steam Tonk /
-    // Steam Tank vehicles, Steamwheedle doodads — turning them additive/unlit
+    // A bare "steam" substring collides with solid models - the Steam Tonk /
+    // Steam Tank vehicles, Steamwheedle doodads - turning them additive/unlit
     // (glowing translucent). The low-poly gate below alone is not enough: the
     // TBC/Turtle SteamTonk overlay models are tiny proxies that slip under the
-    // vertex threshold, so also exclude vehicle names outright — a "tonk"/"tank"
+    // vertex threshold, so also exclude vehicle names outright - a "tonk"/"tank"
     // is never a steam VFX (real ones are steam/steamgeyser/lavasteam/etc.).
     const bool steamVehicle = has(n, "tonk") || has(n, "tank");
     const bool steamVfx = has(n, "steam") && !steamVehicle
@@ -495,7 +493,7 @@ M2BatchTexClassification classifyBatchTexture(const std::string& lowerTexKey)
 }
 
 // ---------------------------------------------------------------------------
-// classifyAmbientEmitter — lightweight name-only emitter type detection
+// classifyAmbientEmitter - lightweight name-only emitter type detection
 // ---------------------------------------------------------------------------
 
 AmbientEmitterType classifyAmbientEmitter(const std::string& lowerName)

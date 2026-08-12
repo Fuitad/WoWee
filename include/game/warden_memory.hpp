@@ -41,7 +41,7 @@ public:
      * @param expectedHash 20-byte expected HMAC-SHA1 digest
      * @param patternLen Length of the pattern to search for
      * @param imageOnly If true, search only executable sections (.text)
-     * @param hintOffset RVA hint from PAGE_A request — check this position first
+     * @param hintOffset RVA hint from PAGE_A request - check this position first
      * @return true if a matching pattern was found in the PE image
      */
     bool searchCodePattern(const uint8_t seed[4], const uint8_t expectedHash[20],

@@ -23,7 +23,7 @@ namespace {
 
 int handleInfoZoneTree(int& i, int /*argc*/, char** argv) {
     // Pretty `tree`-style hierarchical view of a zone's contents.
-    // Designed for at-a-glance comprehension — what creatures,
+    // Designed for at-a-glance comprehension - what creatures,
     // what objects, what quests, what tiles, what files. No
     // --json flag because the structured equivalent is just
     // running --info-* per category and concatenating.
@@ -55,7 +55,7 @@ int handleInfoZoneTree(int& i, int /*argc*/, char** argv) {
         }
     }
     std::sort(diskFiles.begin(), diskFiles.end());
-    // Tree-drawing helpers — Unix box characters since most
+    // Tree-drawing helpers - Unix box characters since most
     // terminals support UTF-8 by default. Pre-compute prefix
     // strings so leaf vs branch alignment looks right.
     auto branch = [](bool last) { return last ? "└─ " : "├─ "; };
@@ -102,18 +102,8 @@ int handleInfoZoneTree(int& i, int /*argc*/, char** argv) {
     }
     // Quests with sub-tree of objectives
     std::printf("├─ Quests (%zu)\n", qe.questCount());
-    using OT = wowee::editor::QuestObjectiveType;
-    auto typeName = [](OT t) {
-        switch (t) {
-            case OT::KillCreature: return "kill";
-            case OT::CollectItem:  return "collect";
-            case OT::TalkToNPC:    return "talk";
-            case OT::ExploreArea:  return "explore";
-            case OT::EscortNPC:    return "escort";
-            case OT::UseObject:    return "use";
-        }
-        return "?";
-    };
+        // The word is the format's, from beside the enum.
+        auto typeName = wowee::editor::questObjectiveTypeName;
     for (size_t k = 0; k < qe.questCount(); ++k) {
         bool lastQ = (k == qe.questCount() - 1);
         const auto& q = qe.getQuests()[k];
@@ -138,7 +128,7 @@ int handleInfoZoneTree(int& i, int /*argc*/, char** argv) {
                         q.reward.itemRewards[r].c_str());
         }
     }
-    // Files (last top-level branch — uses └─)
+    // Files (last top-level branch - uses └─)
     std::printf("└─ Files (%zu)\n", diskFiles.size());
     for (size_t k = 0; k < diskFiles.size(); ++k) {
         bool last = (k == diskFiles.size() - 1);
@@ -213,7 +203,7 @@ int handleInfoProjectTree(int& i, int /*argc*/, char** argv) {
         std::printf("%s%s/  (tiles=%d, creat=%d, obj=%d, quest=%d)\n",
                     zBranch, z.dir.c_str(),
                     z.tiles, z.creatures, z.objects, z.quests);
-        // Artifact status row — quick visual of what's been baked.
+        // Artifact status row - quick visual of what's been baked.
         std::printf("%s├─ name      : %s\n", zCont, z.name.c_str());
         std::printf("%s├─ mapName   : %s\n", zCont, z.mapName.c_str());
         std::printf("%s├─ artifacts : %s%s%s%s%s%s\n", zCont,

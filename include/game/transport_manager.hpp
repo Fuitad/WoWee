@@ -56,7 +56,7 @@ struct ActiveTransport {
     float dockYaw;                  // Authored server spawn yaw used during route dwell
     bool hasDockYaw;                // Whether dockYaw was captured before client route assignment
     // The yaw this object was placed at. An elevator never turns, so for a
-    // z-only path this is the heading for its whole life — there is no route
+    // z-only path this is the heading for its whole life - there is no route
     // tangent to derive one from, and deriving anyway is how a lift ended up
     // sideways.
     float spawnYaw = 0.0f;
@@ -125,7 +125,7 @@ public:
     // Single source of truth for a transport hull's fixed orientation offset:
     // its rendered facing is (direction of travel) + this constant. Every
     // orientation path funnels through here rather than re-listing ships.
-    // Server-position-driven transports (trams, zeppelins) never reach it — they
+    // Server-position-driven transports (trams, zeppelins) never reach it - they
     // measure the same offset live from heading-vs-velocity in updateYawAlignment().
     //
     // Measured from the art rather than guessed: every transport hull in the WoW
@@ -141,7 +141,7 @@ public:
     // stern at +X and so the bow at -X.
     //
     // The table this replaces claimed the opposite default and then listed the
-    // icebreaker and the NE ferry as the reversed ones — exactly inverted. It
+    // icebreaker and the NE ferry as the reversed ones - exactly inverted. It
     // could never have been right for everything at once, because it was fitted
     // against a facing that came from a frozen server yaw rather than from the
     // route, so what it was correcting was not the hull.
@@ -177,7 +177,6 @@ public:
                            uint32_t displayId = 0,
                            bool isM2 = false,
                            float spawnOrientation = 0.0f);
-    void unregisterTransport(uint64_t guid);
     // Logical transport GUIDs are only unique within the current map. Clear all
     // active instances on map transitions so a reused GUID cannot retain the
     // previous map's entry/path while merely rebinding to a new render model.
@@ -201,14 +200,13 @@ public:
     glm::vec3 getPlayerWorldPosition(uint64_t transportGuid, const glm::vec3& localOffset);
     glm::vec3 serverToTransportLocal(uint64_t transportGuid,
                                      const glm::vec3& serverOffset) const;
-    glm::mat4 getTransportInvTransform(uint64_t transportGuid);
     // Adopt the server's published route phase for a transport. phase is a
-    // fraction in [0,1) of periodMs. Cheap and idempotent — safe to call on every
+    // fraction in [0,1) of periodMs. Cheap and idempotent - safe to call on every
     // object update that carries the fields.
     void applyServerRouteClock(uint64_t transportGuid, float phase, uint32_t periodMs);
 
     // Ship machinery follows the hull: ShipMoving while under way, ShipStop when
-    // holding at a dock. Cheap to call every frame — it only reaches the
+    // holding at a dock. Cheap to call every frame - it only reaches the
     // renderer when the state or the doodad count actually changes.
     void applyDoodadMotionState(ActiveTransport& transport, bool moving);
 

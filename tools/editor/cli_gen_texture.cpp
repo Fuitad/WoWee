@@ -296,7 +296,7 @@ int handleMetal(int& i, int argc, char** argv) {
 int handleLeather(int& i, int argc, char** argv) {
     // Leather grain pattern. Cellular Worley noise where
     // each "pebble" cell darkens at its boundaries with
-    // its neighbors — the look of fine-grain leather.
+    // its neighbors - the look of fine-grain leather.
     // Each cell also gets per-cell tint variation so the
     // surface doesn't read as uniform.
     std::string outPath = argv[++i];
@@ -470,7 +470,7 @@ int handleSnow(int& i, int argc, char** argv) {
     };
     std::vector<uint8_t> pixels(static_cast<size_t>(W) * H * 3, 0);
     // Soft luminance variation via low-frequency cosine
-    // sums — gives the surface a gently uneven powdery
+    // sums - gives the surface a gently uneven powdery
     // look rather than a flat field.
     float seedF = static_cast<float>(seed);
     for (int y = 0; y < H; ++y) {
@@ -509,7 +509,7 @@ int handleSnow(int& i, int argc, char** argv) {
 
 int handleLava(int& i, int argc, char** argv) {
     // Lava texture: dark cooled-crust base with bright
-    // glowing cracks tracing Worley cell boundaries — the
+    // glowing cracks tracing Worley cell boundaries - the
     // canonical "broken obsidian shell over magma" look.
     // Same cellular noise structure as gen-texture-cobble
     // but the boundary regions glow hot instead of darken.
@@ -570,7 +570,7 @@ int handleLava(int& i, int argc, char** argv) {
             float crackWidth = 0.08f;
             float glow = 0.0f;
             if (boundary < crackWidth) {
-                // Inside the crack — bright hot color.
+                // Inside the crack - bright hot color.
                 glow = 1.0f - boundary / crackWidth;
             } else if (boundary < crackWidth * 4.0f) {
                 // Penumbra: soft glow falling off into crust.
@@ -599,7 +599,7 @@ int handleLava(int& i, int argc, char** argv) {
 
 int handleGradient(int& i, int argc, char** argv) {
     // Linear two-color gradient. Useful for sky strips, UI
-    // fills, glow rings, dirt-on-grass terrain blends — the
+    // fills, glow rings, dirt-on-grass terrain blends - the
     // common "fade" cases that --gen-texture's solid/checker/
     // grid don't cover.
     //
@@ -664,7 +664,7 @@ int handleGradient(int& i, int argc, char** argv) {
 
 int handleNoise(int& i, int argc, char** argv) {
     // Smooth value-noise PNG. Useful for terrain detail
-    // overlays, dirt/grass blends, magic-fog backdrops —
+    // overlays, dirt/grass blends, magic-fog backdrops -
     // anywhere a "natural-looking" pseudo-random texture
     // beats a flat color or grid.
     //
@@ -811,7 +811,7 @@ int handleNoiseColor(int& i, int argc, char** argv) {
 int handleRadial(int& i, int argc, char** argv) {
     // Radial gradient: centerHex at the image center fading
     // smoothly to edgeHex at the corner. Useful for spell
-    // glow rings, vignettes, soft-edged decals — the
+    // glow rings, vignettes, soft-edged decals - the
     // common "circular blob" cases that linear gradients
     // can't produce.
     //
@@ -869,7 +869,7 @@ int handleStripes(int& i, int argc, char** argv) {
     // Two-color stripe pattern. Stripe width in pixels, plus
     // direction (diagonal default, or horizontal/vertical).
     // Useful for caution tape, marble bands, hazard markers,
-    // and racing-style start/finish flags — patterns that
+    // and racing-style start/finish flags - patterns that
     // checker/grid don't capture.
     std::string outPath = argv[++i];
     std::string aHex = argv[++i];
@@ -971,7 +971,7 @@ int handleDots(int& i, int argc, char** argv) {
 int handleRings(int& i, int argc, char** argv) {
     // Concentric rings centered on the image. Useful for
     // archery targets, magic seal floors, dartboards, hypnosis
-    // visuals — anywhere a "circular alternation" reads as
+    // visuals - anywhere a "circular alternation" reads as
     // intentional design.
     std::string outPath = argv[++i];
     std::string aHex = argv[++i];
@@ -1312,7 +1312,7 @@ int handleFabric(int& i, int argc, char** argv) {
             bool isWarp = ((cx + cy) & 1) == 0;
             int across = isWarp ? xInCell : yInCell;
             float t = static_cast<float>(across) / (threadPx - 1);
-            // Center is brighter, edges darker — gives the
+            // Center is brighter, edges darker - gives the
             // illusion of a rounded yarn cross-section.
             float shade = 1.0f - 0.4f * std::abs(t - 0.5f) * 2.0f;
             uint8_t r = isWarp ? static_cast<uint8_t>(wr * shade)
@@ -1569,7 +1569,7 @@ int handleClouds(int& i, int argc, char** argv) {
 int handleStars(int& i, int argc, char** argv) {
     // Night sky: solid background color sprinkled with bright
     // stars at random positions and varied per-star brightness
-    // (so the sky has a depth feel — bright nearby stars + dim
+    // (so the sky has a depth feel - bright nearby stars + dim
     // distant ones). Density controls roughly what fraction of
     // pixels become stars.
     std::string outPath = argv[++i];
@@ -1853,7 +1853,7 @@ int handleRust(int& i, int argc, char** argv) {
 
 int handleCircuit(int& i, int argc, char** argv) {
     // Sci-fi circuit board: solid PCB background plus N traces
-    // that walk the surface in orthogonal Manhattan style — each
+    // that walk the surface in orthogonal Manhattan style - each
     // trace alternates random horizontal + vertical segments,
     // mimicking right-angle PCB routing. Each segment endpoint
     // gets a "via" dot (3×3 block) so the routing reads as
@@ -2100,7 +2100,7 @@ int handleTartan(int& i, int argc, char** argv) {
     // belongs to one of 6 logical zones (3 vertical + 3
     // horizontal bands per repeat unit) and the displayed
     // color is the additive mix of the band's vertical and
-    // horizontal contributions — produces the characteristic
+    // horizontal contributions - produces the characteristic
     // overlap diamond grid of Scottish tartans.
     std::string outPath = argv[++i];
     std::string aHex = argv[++i];
@@ -2130,7 +2130,7 @@ int handleTartan(int& i, int argc, char** argv) {
         // based on which segment t falls in.
         int slice = (t / bandPx) % 6;
         // 6-slice repeat pattern: A A B C C B (gives a typical
-        // tartan look — wide A blocks separated by thin B/C lines).
+        // tartan look - wide A blocks separated by thin B/C lines).
         switch (slice) {
             case 0: case 1: return {ar, ag, ab};
             case 2:         return {br, bg, bb_};
@@ -2193,7 +2193,7 @@ int handleArgyle(int& i, int argc, char** argv) {
     if (!parseHexOrError(aHex, ar, ag, ab, "gen-texture-argyle")) return 1;
     if (!parseHexOrError(bHex, br, bg, bb_, "gen-texture-argyle")) return 1;
     if (!parseHexOrError(stitchHex, sr_, sg_, sb_, "gen-texture-argyle")) return 1;
-    // Stitch lines are 2 pixels wide regardless of cell size — at
+    // Stitch lines are 2 pixels wide regardless of cell size - at
     // very small cells they'd dominate, but cellPx>=8 keeps them
     // visually subordinate to the diamond fill.
     const int stitchHalfWidth = 1;
@@ -2280,7 +2280,7 @@ int handleHerringbone(int& i, int argc, char** argv) {
         // stripHeight/lineSpacing). Odd strips: slant down-left.
         int sign = (rowOfStrips & 1) ? -1 : 1;
         for (int x = 0; x < W; ++x) {
-            // Shift x by ±withinStrip — collapses the slanted line
+            // Shift x by ±withinStrip - collapses the slanted line
             // into a vertical strip in shifted-x coords.
             int shifted = x + sign * withinStrip;
             int phase = ((shifted % lineSpacing) + lineSpacing) % lineSpacing;
@@ -2409,7 +2409,7 @@ int handleStainedGlass(int& i, int argc, char** argv) {
     if (!parseHexOrError(aHex, ar, ag, ab, "gen-texture-stained-glass")) return 1;
     if (!parseHexOrError(bHex, br, bg, bb_, "gen-texture-stained-glass")) return 1;
     if (!parseHexOrError(cHex, cr_, cg_, cb_, "gen-texture-stained-glass")) return 1;
-    // Deterministic seed placement — same image dimensions and
+    // Deterministic seed placement - same image dimensions and
     // cellCount always yield the same cells, so re-running the
     // command reproduces previous output exactly.
     struct Seed { float x, y; int colorIdx; };
@@ -2430,7 +2430,7 @@ int handleStainedGlass(int& i, int argc, char** argv) {
     }
     // Lead-line threshold: pixels where dist2/dist1 < threshold
     // are within the boundary band. 1.08 gives ~3-4 px lead
-    // lines at 256x256 with 32 cells — readable but not heavy.
+    // lines at 256x256 with 32 cells - readable but not heavy.
     const float boundaryRatio = 1.08f;
     std::vector<uint8_t> pixels(static_cast<size_t>(W) * H * 3, 0);
     for (int y = 0; y < H; ++y) {
@@ -2624,7 +2624,7 @@ int handleFrost(int& i, int argc, char** argv) {
                 blendPixel(px, py, alpha);
             }
         }
-        // Bright nucleus dot — a 2x2 block to make the seed
+        // Bright nucleus dot - a 2x2 block to make the seed
         // visible even when its spikes are short.
         for (int dyN = 0; dyN < 2; ++dyN) {
             for (int dxN = 0; dxN < 2; ++dxN) {
@@ -2853,7 +2853,7 @@ int handleSpiderWeb(int& i, int argc, char** argv) {
     const float maxR = std::min(cx, cy);
     const float spokeStep = 2.0f * kPi / spokes;
     const float ringStep = maxR / rings;
-    // Line widths in pixels — kept fixed so the web reads at any
+    // Line widths in pixels - kept fixed so the web reads at any
     // image size; users wanting a denser/thicker web can re-run
     // with bigger spoke/ring counts.
     const float lineHalfW = 1.0f;
@@ -2956,11 +2956,11 @@ int handleGingham(int& i, int argc, char** argv) {
 }
 
 int handleLattice(int& i, int argc, char** argv) {
-    // Lattice: garden trellis — two sets of diagonal lines, one
+    // Lattice: garden trellis - two sets of diagonal lines, one
     // at +45° and one at -45°, drawn simultaneously across the
     // whole image so they form diamond-shaped openings between
     // the lines. Distinct from --gen-texture-herringbone (which
-    // alternates strip orientation) — this draws both diagonals
+    // alternates strip orientation) - this draws both diagonals
     // at every pixel.
     std::string outPath  = argv[++i];
     std::string bgHex    = argv[++i];
@@ -3288,7 +3288,7 @@ int handleRunes(int& i, int argc, char** argv) {
 int handleLeopard(int& i, int argc, char** argv) {
     // Leopard print: irregular spots scattered across a tan
     // background. Each spot is the union of 3-4 small
-    // overlapping sub-circles at slightly offset positions —
+    // overlapping sub-circles at slightly offset positions -
     // gives spots an organic non-circular silhouette without
     // needing per-spot polygon authoring. Two colors total
     // (background + spot) for the classic leopard look.
@@ -3661,13 +3661,13 @@ int handleSnowflake(int& i, int argc, char** argv) {
 }
 
 int handleDamask(int& i, int argc, char** argv) {
-    // Damask: classic ornate-wallpaper motif — a 4-petal
+    // Damask: classic ornate-wallpaper motif - a 4-petal
     // flower shape (one peak at each cell N/S/E/W) plus a
     // small filled center dot, tiled across the texture.
     // Each cell is a square block of `cell` pixels; petals
     // are formed by `sin(theta * 2)^2` lobes that fade out
     // toward the cell edge. The result reads as ornate
-    // fabric / gilded wallpaper — fits palace interiors,
+    // fabric / gilded wallpaper - fits palace interiors,
     // throne-room banners, noble-faction tapestries.
     std::string outPath = argv[++i];
     std::string bgHex   = argv[++i];
@@ -3700,7 +3700,7 @@ int handleDamask(int& i, int argc, char** argv) {
             // rNorm: 0 at center, 1 at cell-half radius.
             float rNorm = std::min(1.0f, r / halfCell);
             float theta = std::atan2(dy, dx);
-            // 4-fold petal lobes — peaks at theta = 0, π/2,
+            // 4-fold petal lobes - peaks at theta = 0, π/2,
             // π, 3π/2 (cell N/S/E/W). Squared to sharpen
             // peaks vs valleys.
             float lobe = std::abs(std::sin(theta * 2.0f));
@@ -3793,7 +3793,7 @@ int handleBayer(int& i, int argc, char** argv) {
     // Classic 4x4 ordered-dither Bayer matrix tiled across the
     // image. Each pixel's color comes from interpolating bg → fg
     // by the matrix value at (x mod 4, y mod 4) normalized to
-    // [0, 1]. Distinctive retro / dithered look — useful for
+    // [0, 1]. Distinctive retro / dithered look - useful for
     // 8-bit-style backdrops, monochrome-CRT effects, ordered-
     // shadow approximations on low-bit palettes.
     std::string outPath = argv[++i];
@@ -3850,7 +3850,7 @@ int handleHalftone(int& i, int argc, char** argv) {
     // image-reproduction trick of varying dot size to encode
     // grayscale. Distinct from --gen-texture-dots (uniform dot
     // radius) and --gen-texture-studs (uniform with inner
-    // highlight) — halftone is the gradient-modulated variant.
+    // highlight) - halftone is the gradient-modulated variant.
     std::string outPath = argv[++i];
     std::string bgHex   = argv[++i];
     std::string dotHex  = argv[++i];
@@ -3934,7 +3934,7 @@ int handleStar(int& i, int argc, char** argv) {
     // saw-pattern. Pixels with r < boundary(θ) are filled with
     // the star color. Distinct from --gen-texture-starburst
     // (rays only) and --gen-texture-pinwheel (alternating wedges)
-    // — star is a single solid polygon shape.
+    // - star is a single solid polygon shape.
     std::string outPath = argv[++i];
     std::string bgHex   = argv[++i];
     std::string starHex = argv[++i];
@@ -4007,7 +4007,7 @@ int handleCrackle(int& i, int argc, char** argv) {
     // Voronoi cell boundary. Pixels near a boundary get the
     // crack color; inside cells get the base. Distinct from
     // --gen-texture-cracked (wide stone cracks at large scale)
-    // and --gen-texture-frost (6-spike crystal rosettes) — this
+    // and --gen-texture-frost (6-spike crystal rosettes) - this
     // is the fine-mud / dry-leather / parched-earth variant.
     std::string outPath = argv[++i];
     std::string baseHex = argv[++i];
@@ -4163,7 +4163,7 @@ int handlePinwheel(int& i, int argc, char** argv) {
     // N-sector pinwheel: alternating colored triangular wedges
     // radiating from the texture center, each subtending 2π/N
     // radians. Distinct from --gen-texture-starburst (thin rays
-    // with bg between) and --gen-texture-swirl (spiral arms) —
+    // with bg between) and --gen-texture-swirl (spiral arms) -
     // pinwheel uses solid wedges with no bg. Useful for ceiling
     // decorations, sun-mandala medallions, magical wheels,
     // wind-rose floor inlays.
@@ -4218,7 +4218,7 @@ int handlePinwheel(int& i, int argc, char** argv) {
 int handleDewdrops(int& i, int argc, char** argv) {
     // Scattered dewdrops / water droplets: N small circles of
     // hash-derived (position, radius) blended onto bg via radial
-    // brightness — bright at the center and fading to bg at the
+    // brightness - bright at the center and fading to bg at the
     // drop edge. Where drops overlap they accumulate brighter
     // (max-of-individual-contributions). Useful for morning
     // grass blades, wet glass, leaf surfaces, magic-pool detail.
@@ -4378,7 +4378,7 @@ int handleEmbroidery(int& i, int argc, char** argv) {
     // cell holds an X formed by two diagonal strokes from cell
     // corners through the center. Distinct from --gen-texture-
     // checker (filled squares) and --gen-texture-knit (V-stitch
-    // chevron) — embroidery is the explicit two-direction
+    // chevron) - embroidery is the explicit two-direction
     // diagonal stitch mark used by counted-thread textile work.
     std::string outPath = argv[++i];
     std::string bgHex   = argv[++i];
@@ -4440,7 +4440,7 @@ int handleMold(int& i, int argc, char** argv) {
     // (current + 8 neighbors) and is painted as mold if that
     // distance is under a fraction of stride. Distinct from
     // --gen-texture-moss (single-spot per cell with hash-derived
-    // presence/jitter/radius) — mold has irregular field-shaped
+    // presence/jitter/radius) - mold has irregular field-shaped
     // patches rather than discrete circles, mimicking real fungal
     // growth. Useful for cellars, dungeon walls, plague zones,
     // sewer overflow, food-warehouse spoilage.
@@ -4522,7 +4522,7 @@ int handleMold(int& i, int argc, char** argv) {
 int handleIronbark(int& i, int argc, char** argv) {
     // Ironbark: vertical wood-grain streaks (like --gen-texture-
     // bark) overlaid with horizontal "plate" bands at regular
-    // intervals — the segmented look of mature hardwood / iron-
+    // intervals - the segmented look of mature hardwood / iron-
     // wood / sycamore bark. Within each plate cell, the inside
     // is the base wood color and the cell border is the dark
     // crack color. Distinct from --gen-texture-bark (vertical-
@@ -4609,7 +4609,7 @@ int handleSwirl(int& i, int argc, char** argv) {
     // when (θ - log(r) * spiralFactor) mod 2π/N falls inside a
     // small angular band. N independent arms tile the circle.
     // Distinct from --gen-texture-starburst (straight rays from
-    // center) — this is the curved-arm vortex variant for magic
+    // center) - this is the curved-arm vortex variant for magic
     // sigils, summoning circles, ritual floor markings, mystical-
     // pool surfaces.
     std::string outPath = argv[++i];
@@ -4675,7 +4675,7 @@ int handleDunes(int& i, int argc, char** argv) {
     // falls on a curve if its (y mod spacing) is within lineW
     // pixels of the sine offset for the current x. Distinct
     // from --gen-texture-corrugated (uniform parallel lines)
-    // and --gen-texture-zebra (sin-shifted strip fills) — this
+    // and --gen-texture-zebra (sin-shifted strip fills) - this
     // is the discrete-curve variant for desert ground textures
     // and shallow-water sand patterns.
     std::string outPath = argv[++i];
@@ -4742,7 +4742,7 @@ int handleChevron(int& i, int argc, char** argv) {
     // its X (after a Y-dependent shift) falls inside a stripe
     // column. Distinct from --gen-texture-herringbone (which
     // alternates slab orientation) and --gen-texture-zebra
-    // (sinusoidal stripes) — chevron has the characteristic
+    // (sinusoidal stripes) - chevron has the characteristic
     // sharp-V seam.
     std::string outPath = argv[++i];
     std::string bgHex   = argv[++i];
@@ -4867,7 +4867,7 @@ int handleDiamondGrid(int& i, int argc, char** argv) {
     // Axis-aligned grid of solid diamond shapes (no row offset)
     // separated by visible bg gaps. Distinct from
     // --gen-texture-snake-skin (brick-offset diamonds that touch
-    // tangentially with a derived dark outline) — diamond-grid
+    // tangentially with a derived dark outline) - diamond-grid
     // uses uniform spacing and a configurable fill fraction so
     // diamonds float in clean rows.
     std::string outPath = argv[++i];
@@ -4928,9 +4928,9 @@ int handleDiamondGrid(int& i, int argc, char** argv) {
 int handlePlaid(int& i, int argc, char** argv) {
     // Plaid: two sets of parallel "translucent" bands (one
     // horizontal, one vertical) overlaid on a bg. Where bands
-    // cross, both half-alphas combine for the darkest color —
+    // cross, both half-alphas combine for the darkest color -
     // that's the plaid grid intersection. Distinct from
-    // --gen-texture-tartan (3-4 colors, asymmetric stripes) —
+    // --gen-texture-tartan (3-4 colors, asymmetric stripes) -
     // this is the simple 2-color symmetric variant.
     std::string outPath = argv[++i];
     std::string bgHex   = argv[++i];
@@ -4981,7 +4981,7 @@ int handleRustStreaks(int& i, int argc, char** argv) {
     // vertical band of varying width (hash-derived) starting at a
     // hash-jittered top position and fading toward bgHex over its
     // length. Distinct from --gen-texture-rust (generic rough
-    // surface noise) — this is the "drip-line" variant for
+    // surface noise) - this is the "drip-line" variant for
     // weathered metal walls, sewer-grate backings, ship-hull
     // stains, abandoned-machinery details.
     std::string outPath = argv[++i];
@@ -5070,7 +5070,7 @@ int handleBlueprint(int& i, int argc, char** argv) {
     // `majorEvery` steps. The major lines repeat in both axes so
     // the image reads as a sectioned drafting paper. Distinct
     // from --gen-texture-mesh-screen (which has uniform line
-    // weight) — this is the periodic-emphasis variant for
+    // weight) - this is the periodic-emphasis variant for
     // technical/architectural surfaces.
     std::string outPath = argv[++i];
     std::string bgHex   = argv[++i];
@@ -5200,7 +5200,7 @@ int handleBamboo(int& i, int argc, char** argv) {
                 int gg = clamp(static_cast<int>(sg * bright) + tint);
                 int bb2 = clamp(static_cast<int>(sb_ * bright) + tint);
                 if (inNode) {
-                    // Node bands are darker — knock brightness down.
+                    // Node bands are darker - knock brightness down.
                     rr = rr * 2 / 3;
                     gg = gg * 2 / 3;
                     bb2 = bb2 * 2 / 3;
@@ -5224,7 +5224,7 @@ int handleMeshScreen(int& i, int argc, char** argv) {
     // Orthogonal mesh-screen / grille: thin horizontal + vertical
     // wires forming an axis-aligned grid. Distinct from
     // --gen-texture-lattice (which uses ±45° diagonals to make
-    // diamond openings) — this is the right-angle window-screen /
+    // diamond openings) - this is the right-angle window-screen /
     // chain-link / sci-fi-grille look.
     std::string outPath = argv[++i];
     std::string bgHex   = argv[++i];
@@ -5610,7 +5610,7 @@ int handleWoodgrain(int& i, int argc, char** argv) {
 int handleMoss(int& i, int argc, char** argv) {
     // Moss: irregular spots scattered on a jittered grid. Each
     // grid cell has a hashed (x, y, presence, radius) so the
-    // spots don't form a visible lattice — they read as random
+    // spots don't form a visible lattice - they read as random
     // patches of organic growth. Inside a spot the color is
     // mossHex; outside is bg. Useful for forest floors,
     // weathered stone walls, dungeon flagstones, swamp ground.
@@ -5808,7 +5808,7 @@ int handleStarburst(int& i, int argc, char** argv) {
             uint8_t resR, resG, resB;
             if (angDist < beamWidth) {
                 // Brightness: 1.0 at the hub, falling linearly to
-                // 0.4 at the texture diagonal — gives sun-rays that
+                // 0.4 at the texture diagonal - gives sun-rays that
                 // taper as they extend outward.
                 float t = std::max(0.0f, std::min(1.0f, r / maxR));
                 float bright = 1.0f - 0.6f * t;
@@ -5937,7 +5937,7 @@ int handleRope(int& i, int argc, char** argv) {
             uint8_t r, g, b;
             if (d < fStrandHalf) {
                 // Brightness across the strand width: 1.0 at the
-                // centerline, 0.0 at the edge — gives the rounded
+                // centerline, 0.0 at the edge - gives the rounded
                 // highlight of a real cylindrical strand.
                 float t = 1.0f - (d / fStrandHalf);
                 float br = 0.55f + 0.45f * t * t;
@@ -6098,7 +6098,7 @@ int handlePlanks(int& i, int argc, char** argv) {
 
 int handleChainmail(int& i, int argc, char** argv) {
     // Chainmail: rings tile in a brick/hexagonal pattern with even
-    // and odd rows offset by half a cell width — each pixel is
+    // and odd rows offset by half a cell width - each pixel is
     // tested against the nearest ring center; if its distance lies
     // in [ringR-stroke/2, ringR+stroke/2] it's painted as the ring
     // color, else background. The cellH < cellW default produces
@@ -6135,7 +6135,7 @@ int handleChainmail(int& i, int argc, char** argv) {
     const float fRingR = static_cast<float>(ringR);
     for (int y = 0; y < H; ++y) {
         // Offset alternate rows by half a cell so rings interlock
-        // with the row above/below — classic brick/hex layout.
+        // with the row above/below - classic brick/hex layout.
         int row = y / cellH;
         float rowOffset = (row & 1) ? cellW * 0.5f : 0.0f;
         float cy = (row + 0.5f) * cellH;
@@ -6169,7 +6169,7 @@ int handleChainmail(int& i, int argc, char** argv) {
 namespace {
 // Same dispatch pattern as cli_gen_mesh.cpp's kMeshTable. Each row
 // names the flag, the minimum arg count after it (used as a guard
-// for the dispatcher — kArgRequired catches the bare-flag case at
+// for the dispatcher - kArgRequired catches the bare-flag case at
 // argv parse time, but this guard fires when there are zero args
 // AND no later argv slots), and the handler function pointer.
 struct TextureEntry {

@@ -1,4 +1,6 @@
 #include "cli_guild_bank_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -20,20 +22,6 @@ namespace cli {
 
 namespace {
 
-std::string stripWgbkExt(std::string base) {
-    stripExt(base, ".wgbk");
-    return base;
-}
-
-bool saveOrError(const wowee::pipeline::WoweeGuildBank& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeGuildBankLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wgbk\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeGuildBank& c,
                      const std::string& base) {
@@ -46,10 +34,10 @@ int handleGenStandard(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StandardGuildBank";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWgbkExt(base);
+    base = cli::withoutExt(base, ".wgbk");
     auto c = wowee::pipeline::WoweeGuildBankLoader::
         makeStandardBank(name);
-    if (!saveOrError(c, base, "gen-gbk")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeGuildBankLoader>(c, base, "gen-gbk", ".wgbk")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -58,10 +46,10 @@ int handleGenRaid(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "RaidGuildBank";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWgbkExt(base);
+    base = cli::withoutExt(base, ".wgbk");
     auto c = wowee::pipeline::WoweeGuildBankLoader::
         makeRaidGuild(name);
-    if (!saveOrError(c, base, "gen-gbk-raid")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeGuildBankLoader>(c, base, "gen-gbk-raid", ".wgbk")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -70,10 +58,10 @@ int handleGenSmall(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "SmallGuildBank";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWgbkExt(base);
+    base = cli::withoutExt(base, ".wgbk");
     auto c = wowee::pipeline::WoweeGuildBankLoader::
         makeSmallGuild(name);
-    if (!saveOrError(c, base, "gen-gbk-small")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeGuildBankLoader>(c, base, "gen-gbk-small", ".wgbk")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -87,7 +75,7 @@ std::string formatLimit(uint32_t v) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWgbkExt(base);
+    base = cli::withoutExt(base, ".wgbk");
     if (!wowee::pipeline::WoweeGuildBankLoader::exists(base)) {
         std::fprintf(stderr, "WGBK not found: %s.wgbk\n",
                      base.c_str());
@@ -145,12 +133,9 @@ int handleInfo(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWgbkExt(base);
+    base = cli::withoutExt(base, ".wgbk");
     if (!wowee::pipeline::WoweeGuildBankLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wgbk: WGBK not found: %s.wgbk\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wgbk", "WGBK", base, ".wgbk");
     }
     auto c = wowee::pipeline::WoweeGuildBankLoader::load(base);
     std::vector<std::string> errors;
@@ -177,7 +162,7 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": tabName is empty");
         if (e.slotCount == 0) {
             errors.push_back(ctx +
-                ": slotCount is 0 — empty tab is unusable");
+                ": slotCount is 0 - empty tab is unusable");
         }
         if (e.slotCount > G::kMaxSlots) {
             errors.push_back(ctx + ": slotCount " +
@@ -186,12 +171,12 @@ int handleValidate(int& i, int argc, char** argv) {
                 std::to_string(G::kMaxSlots));
         }
         // GuildMaster (rank 0) must have at least
-        // some withdrawal access — usually unlimited.
+        // some withdrawal access - usually unlimited.
         // A 0 here means even the GM can't withdraw,
         // which is almost certainly a bug.
         if (e.perRankWithdrawalLimit[0] == 0) {
             errors.push_back(ctx +
-                ": perRankWithdrawalLimit[0]=0 — GuildMaster"
+                ": perRankWithdrawalLimit[0]=0 - GuildMaster"
                 " cannot withdraw, almost certainly a typo");
         }
         // Per-rank monotonicity: a lower rank should
@@ -214,7 +199,7 @@ int handleValidate(int& i, int argc, char** argv) {
                     formatLimit(e.perRankWithdrawalLimit[r + 1]) +
                     " > rank[" + std::to_string(r) + "]=" +
                     formatLimit(e.perRankWithdrawalLimit[r]) +
-                    " — lower rank cannot exceed higher rank's"
+                    " - lower rank cannot exceed higher rank's"
                     " withdrawal cap");
             }
         }
@@ -228,10 +213,10 @@ int handleValidate(int& i, int argc, char** argv) {
                 ": depositOnly flag set but rank 0 has "
                 "withdrawal limit " +
                 formatLimit(e.perRankWithdrawalLimit[0]) +
-                " — flag will override the table at "
+                " - flag will override the table at "
                 "runtime, but the data is contradictory");
         }
-        // Duplicate (guildId, tabName) — UI dispatch
+        // Duplicate (guildId, tabName) - UI dispatch
         // would tie.
         if (e.guildId != 0 && !e.tabName.empty()) {
             Pair p{e.guildId, e.tabName};
@@ -240,57 +225,29 @@ int handleValidate(int& i, int argc, char** argv) {
                     ": duplicate (guildId=" +
                     std::to_string(e.guildId) +
                     ", tabName=" + e.tabName +
-                    ") — UI tab dispatch ambiguous");
+                    ") - UI tab dispatch ambiguous");
             }
         }
         if (!idsSeen.insert(e.tabId).second) {
             errors.push_back(ctx + ": duplicate tabId");
         }
     }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wgbk"] = base + ".wgbk";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wgbk: %s.wgbk\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu tabs, all tabIds + "
+    return cli::reportValidation("wgbk", base, jsonOut, errors, warnings,
+                                 formatted("%zu tabs, all tabIds + "
                     "(guildId,tabName) unique, slotCount "
                     "1..98, GM withdrawal > 0, per-rank "
                     "monotonicity (lower rank <= higher "
-                    "rank cap)\n",
-                    c.entries.size());
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+                    "rank cap)", c.entries.size()));
 }
 
 int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWgbkExt(base);
+    base = cli::withoutExt(base, ".wgbk");
     if (out.empty()) out = base + ".wgbk.json";
     if (!wowee::pipeline::WoweeGuildBankLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wgbk-json: WGBK not found: %s.wgbk\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wgbk-json", "WGBK", base, ".wgbk");
     }
     auto c = wowee::pipeline::WoweeGuildBankLoader::load(base);
     nlohmann::json j;
@@ -333,16 +290,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wgbk.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wgbk");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wgbk");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,

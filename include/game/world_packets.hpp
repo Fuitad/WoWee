@@ -1,12 +1,14 @@
 #pragma once
 
 #include "network/packet.hpp"
+#include "game/item_text.hpp"
 #include "game/opcodes.hpp"
 #include "game/character.hpp"
 #include "game/entity.hpp"
 #include "game/spell_defines.hpp"
 #include "game/group_defines.hpp"
 #include "game/flat_field_map.hpp"
+#include <array>
 #include <vector>
 #include <cstdint>
 #include <string>
@@ -441,6 +443,27 @@ struct MovementInfo {
     bool hasFlag(MovementFlags flag) const {
         return (flags & static_cast<uint32_t>(flag)) != 0;
     }
+
+    // What the movement flags mean. GameHandler and MovementHandler both used
+    // to spell these out against their own copy of the flag word, which is one
+    // definition of flying in two places.
+    bool isPlayerRooted() const { return hasFlag(MovementFlags::ROOT); }
+    bool isGravityDisabled() const { return hasFlag(MovementFlags::LEVITATING); }
+    bool isFeatherFalling() const { return hasFlag(MovementFlags::FEATHER_FALL); }
+    bool isWaterWalking() const { return hasFlag(MovementFlags::WATER_WALK); }
+    bool isHovering() const { return hasFlag(MovementFlags::HOVER); }
+    bool isSwimming() const { return hasFlag(MovementFlags::SWIMMING); }
+
+    /// Both flags, not either. CAN_FLY on its own is permission to fly, which
+    /// a player has while mounted on a flying mount and standing on the
+    /// ground, and FLYING on its own arrives briefly mid-transition. Treating
+    /// either as flying puts the character into the airborne animation while
+    /// it is walking around.
+    bool isPlayerFlying() const {
+        const uint32_t flyMask = static_cast<uint32_t>(MovementFlags::CAN_FLY) |
+                                 static_cast<uint32_t>(MovementFlags::FLYING);
+        return (flags & flyMask) == flyMask;
+    }
 };
 
 /**
@@ -501,7 +524,7 @@ struct UpdateBlock {
     uint64_t transportGuid = 0;
     float transportX = 0.0f, transportY = 0.0f, transportZ = 0.0f, transportO = 0.0f;
 
-    // Field data (for VALUES and CREATE updates) — sorted flat vector instead of
+    // Field data (for VALUES and CREATE updates) - sorted flat vector instead of
     // std::map to drop the per-field heap allocation on every UPDATE_OBJECT block.
     FlatFieldMap fields;
 };
@@ -580,7 +603,7 @@ public:
 };
 
 /**
- * Chat message types — wire values shared across Vanilla 1.12, TBC 2.4.3, and WotLK 3.3.5a.
+ * Chat message types - wire values shared across Vanilla 1.12, TBC 2.4.3, and WotLK 3.3.5a.
  * Core types (0x00–0x1B) are identical in all expansions.
  * WotLK adds: ACHIEVEMENT(0x30), GUILD_ACHIEVEMENT(0x31), PARTY_LEADER(0x33).
  */
@@ -614,13 +637,14 @@ enum class ChatType : uint8_t {
     SKILL = 0x1A,
     LOOT = 0x1B,
     // 0x1C–0x23: the messages the game narrates rather than a player sending
-    // them — loot, money, experience, honour, reputation.
+    // them - loot, money, experience, honour, reputation.
     //
-    // Absent, every one of these fell to the default in getChatTypeString and
-    // was named UNKNOWN, so the addon event fired was CHAT_MSG_UNKNOWN and
-    // anything listening for the real name heard nothing. Values from
-    // AzerothCore's SharedDefines; they fill the run between LOOT and the BG
-    // block exactly.
+    // Absent, every one of these fell to the default and was named UNKNOWN, so
+    // the event fired was CHAT_MSG_UNKNOWN and FrameXML's chat dropped it.
+    // With the chat window handed over that is the loot line, the money line,
+    // "you gain 150 experience", honour, reputation standing and the
+    // tradeskill and pet notices all missing. Values from AzerothCore's
+    // SharedDefines; they fill the run between LOOT and the BG block exactly.
     MONEY = 0x1C,
     OPENING = 0x1D,
     TRADESKILLS = 0x1E,
@@ -643,6 +667,15 @@ enum class ChatType : uint8_t {
     RESTRICTED = 0x2E,
     ACHIEVEMENT = 0x30,
     GUILD_ACHIEVEMENT = 0x31,
+    // 0x32 is CHAT_MSG_ARENA_POINTS, and is deliberately absent rather than
+    // overlooked: AzerothCore declares it in SharedDefines.h and never sends
+    // it - the only other mentions are the generated enum reflection. Naming
+    // it here would add a type nothing can arrive as.
+    //
+    // Checked while chasing CHAT_MSG_TARGETICONS, which FrameXML registers for
+    // and which looks like the gap at 0x32. It is not a wire type at all in
+    // 3.3.5a; the client generates that message itself when a raid marker is
+    // set, so nothing on the wire is missing for it either.
     PARTY_LEADER = 0x33,
 };
 
@@ -924,10 +957,20 @@ public:
 
 /** SMSG_FRIEND_STATUS data */
 struct FriendStatusData {
-    uint8_t status = 0;  // 0 = offline, 1 = online, etc.
+    /// AzerothCore's FriendsResult, which is not a state but an *outcome*:
+    /// 0 DB_ERROR, 1 LIST_FULL, 2 ONLINE, 3 OFFLINE, 4 NOT_FOUND, 5 REMOVED,
+    /// 6 ADDED_ONLINE, 7 ADDED_OFFLINE, 8 ALREADY, 9 SELF, 10 ENEMY, and the
+    /// ignore and mute results above those.
+    uint8_t status = 0;
     uint64_t guid = 0;
     std::string note;
+    /// FriendStatus, and a bitmask rather than a number: 0x01 online, 0x02
+    /// away, 0x04 do-not-disturb, 0x08 recruit-a-friend. An away friend is
+    /// 0x03, not 0x02.
     uint8_t chatFlag = 0;
+    uint32_t areaId = 0;
+    uint32_t level = 0;
+    uint32_t classId = 0;
 };
 
 /** SMSG_FRIEND_STATUS parser */
@@ -1151,20 +1194,61 @@ public:
     static network::Packet build(uint64_t npcGuid);
 };
 
-/** CMSG_PETITION_BUY packet builder */
+/** CMSG_PETITION_QUERY packet builder.
+ *
+ * Asks what a charter is: its name, how many signatures it needs, and whether
+ * it is a guild or an arena charter. SMSG_PETITION_SHOW_SIGNATURES carries
+ * none of those - only the guid, the owner and the signatures so far - so
+ * without this the charter has no name to draw and no requirement to count
+ * against.
+ *
+ * The leading word is the guild id, which AzerothCore reads and discards
+ * ("in Trinity always same as petition low guid"); the guid is what it answers
+ * from.
+ */
+class PetitionQueryPacket {
+public:
+    static network::Packet build(uint32_t petitionId, uint64_t petitionGuid);
+};
+
+/** CMSG_PETITION_BUY packet builder.
+ *
+ * `clientIndex` is what tells the server which charter is being bought: the
+ * guild registrar sends 1, and an arena registrar sends the arena slot plus
+ * one - 1, 2 and 3 for the two, three and five person teams. The tab the
+ * player opened is that number.
+ */
 class PetitionBuyPacket {
 public:
-    static network::Packet build(uint64_t npcGuid, const std::string& guildName);
+    static network::Packet build(uint64_t npcGuid, const std::string& guildName,
+                                 uint32_t clientIndex = 1);
 };
 
 /** SMSG_PETITION_SHOWLIST data */
 struct PetitionShowlistData {
+    /// One charter on offer. A guild registrar offers one; an arena registrar
+    /// offers three, for the two, three and five person teams.
+    struct Charter {
+        uint32_t index = 0;
+        uint32_t itemId = 0;
+        uint32_t displayId = 0;
+        uint32_t cost = 0;
+        uint32_t unknown = 0;
+        uint32_t requiredSigs = 0;
+    };
     uint64_t npcGuid = 0;
+    std::vector<Charter> charters;
+    // The first charter, flattened, for everything that only wants the one.
     uint32_t itemId = 0;
     uint32_t displayId = 0;
     uint32_t cost = 0;
     uint32_t charterType = 0;
     uint32_t requiredSigs = 0;
+
+    /// Guild Charter is item 5863; the arena charters are 23560, 23561 and
+    /// 23562. Which of the two panels opens depends on this and nothing else -
+    /// the opcode is the same for both.
+    bool isGuildCharter() const { return itemId == 5863; }
 
     bool isValid() const { return npcGuid != 0; }
 };
@@ -1254,6 +1338,10 @@ struct GuildRosterMember {
 struct GuildRankInfo {
     uint32_t rights = 0;
     uint32_t goldLimit = 0;
+    // Per guild bank tab, for this rank. The roster has always carried both -
+    // they were read to stay aligned with the packet and then thrown away.
+    std::array<uint32_t, 6> bankTabRights{};
+    std::array<uint32_t, 6> bankTabSlotsPerDay{};
 };
 
 /** SMSG_GUILD_ROSTER data */
@@ -1359,6 +1447,41 @@ public:
     static network::Packet build(const std::string& playerName);
 };
 
+/** CMSG_SET_GUILD_BANK_TEXT packet builder
+ *
+ * uint8 tab then the text, per AzerothCore's GuildBankSetTabText::Read. The
+ * tab is zero-based on the wire, which is how this client stores it - FrameXML
+ * is the side that counts from one.
+ */
+class GuildBankSetTabTextPacket {
+public:
+    static network::Packet build(uint8_t tab, const std::string& text);
+};
+
+/** The channel moderation commands, which share one shape.
+ *
+ * Every one of them is `channelName` then `targetName` as two strings -
+ * AzerothCore's ChannelHandler.cpp reads `recvPacket >> channelName >>
+ * targetName` identically for invite, kick, ban, unban, mute, unmute,
+ * moderator and unmoderator. One builder rather than eight, with the opcode
+ * passed in, because eight copies would only be eight chances to differ.
+ */
+class ChannelModerationPacket {
+public:
+    static network::Packet build(Opcode op, const std::string& channelName,
+                                 const std::string& targetName);
+};
+
+/** CMSG_GROUP_SET_LEADER packet builder
+ *
+ * A single raw ObjectGuid, not a packed one - AzerothCore's
+ * HandleGroupSetLeaderOpcode does `recvData >> guid` straight into eight bytes.
+ */
+class GroupSetLeaderPacket {
+public:
+    static network::Packet build(uint64_t guid);
+};
+
 /** CMSG_GROUP_DISBAND packet builder */
 class GroupDisbandPacket {
 public:
@@ -1409,9 +1532,9 @@ public:
      * Parse a raid target marker broadcast.
      *
      * Two shapes share the opcode, distinguished by a leading type byte:
-     *   type 1 — full list: only the icons that are actually set, so the
+     *   type 1 - full list: only the icons that are actually set, so the
      *            length varies; it is not a fixed 8 entries.
-     *   type 0 — single set: WotLK leads with the GUID of the player who
+     *   type 0 - single set: WotLK leads with the GUID of the player who
      *            placed the mark, classic/TBC/Turtle omit it. Told apart by
      *            remaining size so both wire layouts decode correctly.
      */
@@ -1440,7 +1563,7 @@ public:
     static network::Packet build(uint64_t targetGuid);
 };
 
-/** CMSG_BEGIN_TRADE packet builder (no payload — accepts incoming trade request) */
+/** CMSG_BEGIN_TRADE packet builder (no payload - accepts incoming trade request) */
 class BeginTradePacket {
 public:
     static network::Packet build();
@@ -1452,7 +1575,7 @@ public:
     static network::Packet build();
 };
 
-/** CMSG_ACCEPT_TRADE packet builder (no payload — lock in current offer) */
+/** CMSG_ACCEPT_TRADE packet builder (no payload - lock in current offer) */
 class AcceptTradePacket {
 public:
     static network::Packet build();
@@ -1529,7 +1652,7 @@ public:
 };
 
 // ============================================================
-// Foundation — Targeting, Name Queries
+// Foundation - Targeting, Name Queries
 // ============================================================
 
 /** CMSG_SET_SELECTION packet builder */
@@ -1708,13 +1831,67 @@ struct ItemQueryResponseData {
     uint32_t bindType = 0;      // 0=none, 1=BoP, 2=BoE, 3=BoU, 4=BoQ
     std::string description;    // Flavor/lore text
     uint32_t pageTextId = 0;     // Non-zero: item can be read via CMSG_READ_ITEM + page query
+    /// Which of PageTextMaterial.dbc's seven backings the page is drawn on -
+    /// Parchment, Stone, Marble, Silver, Bronze, Valentine, Illidan. Read off
+    /// the same four post-description words as pageTextId and thrown away
+    /// until 2026-08-06, so every letter and book opened on parchment.
+    uint32_t pageMaterial = 0;
     // Generic stat pairs for non-primary stats (hit, crit, haste, AP, SP, etc.)
     struct ExtraStat { uint32_t statType = 0; int32_t statValue = 0; };
     std::vector<ExtraStat> extraStats;
+
+    /// File one (type, value) pair from an item query into this item.
+    ///
+    /// Five of the ITEM_MOD ids have a field of their own here because
+    /// everything reads them; the rest are kept as they came so the tooltip can
+    /// name them. A pair with a zero value is a slot the item does not use -
+    /// every item ships the full run of them - and is dropped rather than
+    /// listed as "+0".
+    ///
+    /// Written out twice before this, once in the WotLK parser and once in the
+    /// vanilla one, and the two did not agree. The vanilla copy wrapped the
+    /// whole switch in `if (statType != 0)`, and ITEM_MOD_MANA is 0 - so a
+    /// vanilla item with +Mana on it lost that line, while the same item on
+    /// WotLK kept it. This is the wire's own format and does not differ by
+    /// expansion; only the code did.
+    /// Read the fourteen fields every expansion sends in the same order, from
+    /// AllowableClass through ContainerSlots.
+    ///
+    /// The three item-query parsers each wrote this run out. It is the same
+    /// bytes in all three - checked, not assumed - and after it they diverge
+    /// for real: WotLK goes on to the scaling stats, the other two to damage.
+    /// So this is the shared prefix and nothing beyond it.
+    ///
+    /// A run of same-width fields is the shape that misreads quietly: get the
+    /// count wrong and every field after it is one place out, with each one
+    /// still a plausible number. Three copies is three chances at that.
+    ///
+    /// False means the packet ended inside the run.
+    bool readCommonRequirements(network::Packet& packet);
+
+    void applyStat(uint32_t statType, int32_t statValue) {
+        switch (statType) {
+            case 3: agility = statValue; break;
+            case 4: strength = statValue; break;
+            case 5: intellect = statValue; break;
+            case 6: spirit = statValue; break;
+            case 7: stamina = statValue; break;
+            default:
+                if (statValue != 0) extraStats.push_back({statType, statValue});
+                break;
+        }
+    }
     uint32_t startQuestId = 0;  // Non-zero: item begins a quest
     // Gem socket slots (WotLK/TBC): 0=no socket; color mask: 1=Meta,2=Red,4=Yellow,8=Blue
     std::array<uint32_t, 3> socketColor{};
+    // What the *template* ships in each socket. Almost always empty - a gem an
+    // owner put in lives in the item's enchantment fields, not here.
+    std::array<uint32_t, 3> socketContent{};
     uint32_t socketBonus = 0;   // enchantmentId of socket bonus; 0=none
+    // GemProperties.dbc id: non-zero when this item is itself a gem. An item's
+    // socket has a colour mask; a gem does not, and this is where its colour
+    // has to be looked up from.
+    uint32_t gemProperties = 0;
     uint32_t itemSetId   = 0;   // ItemSet.dbc entry; 0=not part of a set
     // Requirement fields
     uint32_t requiredSkill = 0;       // SkillLine.dbc ID (0 = no skill required)
@@ -1798,6 +1975,15 @@ struct SubDamage {
 
 /** SMSG_ATTACKERSTATEUPDATE data */
 struct AttackerStateUpdateData {
+    /// The run classic and TBC send identically: hit flags, both packed guids,
+    /// the total, and the sub-damage list. What follows it is not shared -
+    /// classic sends an overkill where TBC sends an unknown and a spell id -
+    /// so the tails stay with their own readers.
+    ///
+    /// Rewinds to where it started and answers false on a short packet, so a
+    /// caller can try another reader against the same bytes.
+    bool readCommonHead(network::Packet& packet, size_t startPos);
+
     uint32_t hitInfo = 0;
     uint64_t attackerGuid = 0;
     uint64_t targetGuid = 0;
@@ -1903,7 +2089,7 @@ class CastSpellPacket {
 public:
     static network::Packet build(uint32_t spellId, uint64_t targetGuid, uint8_t castCount);
     static network::Packet buildGameObjectTarget(uint32_t spellId, uint64_t targetGuid, uint8_t castCount);
-    /// Cast at an item — Disenchant, Prospecting, Milling, enchant formulas.
+    /// Cast at an item - Disenchant, Prospecting, Milling, enchant formulas.
     static network::Packet buildItemTarget(uint32_t spellId, uint64_t itemGuid, uint8_t castCount);
 };
 
@@ -1930,7 +2116,7 @@ public:
 // Normalized (WotLK-numbered) SpellCastResults whose SMSG_CAST_RESULT /
 // SMSG_CAST_FAILED payload carries trailing uint32 ids the client can surface:
 //  - requires-spell-focus: one SpellFocusObject id (forge, anvil, cooking fire)
-//  - totems / totem-category: up to two ids naming the missing crafting tool —
+//  - totems / totem-category: up to two ids naming the missing crafting tool -
 //    item ids for totems, TotemCategory.dbc ids (Blacksmith Hammer, Mining
 //    Pick, ...) for totem-category.
 inline constexpr uint8_t kCastResultRequiresSpellFocus = 102;
@@ -2157,10 +2343,14 @@ public:
 /** CMSG_USE_ITEM packet builder */
 class UseItemPacket {
 public:
+    /// glyphIndex is the socket a glyph item is being put into, counted from
+    /// zero. The server reads it out of every use - it sits between the item
+    /// guid and the cast flags - and refuses the whole request when it is past
+    /// MAX_GLYPH_SLOT_INDEX, so it is a field rather than an extra opcode.
     static network::Packet build(uint8_t bagIndex, uint8_t slotIndex,
                                  uint64_t itemGuid, uint32_t spellId = 0,
                                  uint64_t targetGuid = 0, uint64_t itemTargetGuid = 0,
-                                 uint64_t gameObjectGuid = 0);
+                                 uint64_t gameObjectGuid = 0, uint32_t glyphIndex = 0);
 };
 
 /** CMSG_OPEN_ITEM packet builder (for locked containers / lockboxes) */
@@ -2335,10 +2525,21 @@ struct QuestDetailsData {
     std::string details;      // Quest description text
     std::string objectives;   // Objectives text
     uint32_t suggestedPlayers = 0;
+    /// QUEST_FLAGS_* as AzerothCore defines them. Only 3.x carries this - the
+    /// TBC and Classic offers have no flags field at all, so it stays zero
+    /// there rather than being guessed at.
+    uint32_t questFlags = 0;
     uint32_t rewardMoney = 0;
     uint32_t rewardXp = 0;
     std::vector<QuestRewardItem> rewardChoiceItems;  // Player picks one of these
     std::vector<QuestRewardItem> rewardItems;         // These are always given
+    /// The spell shown under "You will learn:" on the offer. Sent three fields
+    /// past the XP - honor, an unused float, then this.
+    ///
+    /// The cast id and the title id follow it on the wire and are deliberately
+    /// not kept: nothing reads them, and a field stored for nobody is a claim
+    /// that something uses it.
+    uint32_t rewardSpellId = 0;
 };
 
 /** SMSG_QUESTGIVER_QUEST_DETAILS parser */
@@ -2374,6 +2575,12 @@ struct QuestOfferRewardData {
     std::string rewardText;
     uint32_t rewardMoney = 0;
     uint32_t rewardXp = 0;
+    uint32_t rewardHonor = 0;   // honor points (the packet's ×10 value, unscaled)
+    uint32_t rewardTalents = 0;
+    uint32_t rewardArenaPoints = 0;
+    uint32_t rewardTitleId = 0;  // CharTitles.dbc id of an awarded title, 0 = none
+    struct FactionReward { uint32_t factionId = 0; int32_t valueId = 0; int32_t override = 0; };
+    std::array<FactionReward, 5> factionRewards{};
     std::vector<QuestRewardItem> choiceRewards;  // Pick one
     std::vector<QuestRewardItem> fixedRewards;   // Always given
 };
@@ -2396,6 +2603,34 @@ struct QuestQueryRewardsData {
     std::array<uint32_t, 4> itemCount{};
     std::array<uint32_t, 6> choiceItemId{};
     std::array<uint32_t, 6> choiceItemCount{};
+    /// The quest's start item, zero when it has none or when the layout for
+    /// this expansion has not been verified against a server serializer.
+    uint32_t sourceItemId = 0;
+    /// The spell the quest shows as a reward - a recipe taught, a buff given.
+    /// Same caveat as the start item: WotLK only, because that is the layout
+    /// counted off a serializer here.
+    uint32_t rewardSpellId = 0;
+    /// The quest's XP-difficulty index (GetXPId), which selects a column of
+    /// QuestXP.dbc; the reward experience is that column read at the quest's
+    /// level. Zero on the layouts not counted off a serializer here (classic,
+    /// TBC), which keeps their reward XP absent rather than guessed.
+    uint32_t xpId = 0;
+    /// Honor, bonus talent points and arena points a quest awards - direct
+    /// values in the query response (RewHonorAddition, BonusTalents,
+    /// RewArenaPoints). WotLK only, same caveat as the fields above; honor is
+    /// the flat addition, which is what most quests set (the multiplier path is
+    /// not derived here).
+    uint32_t rewardHonor = 0;
+    uint32_t bonusTalents = 0;
+    uint32_t arenaPoints = 0;
+    /// CharTitles.dbc id of a title the quest awards (few quests do). WotLK only.
+    uint32_t rewardTitleId = 0;
+    /// Up to five reputation rewards: the faction id, the QuestFactionReward.dbc
+    /// value index, and a direct override (hundredths). The reputation shown is
+    /// override/100 when set, else the dbc column at |valueId|. WotLK only.
+    std::array<uint32_t, 5> factionId{};
+    std::array<int32_t, 5>  factionValueId{};
+    std::array<int32_t, 5>  factionValueOverride{};
     bool valid = false;
 };
 
@@ -2522,32 +2757,10 @@ public:
 // Talents
 // ============================================================
 
-/** Talent info for a single talent */
-struct TalentInfo {
-    uint32_t talentId = 0;      // Talent.dbc ID
-    uint8_t currentRank = 0;    // 0-5 (0 = not learned)
-};
-
-/** SMSG_TALENTS_INFO data */
-struct TalentsInfoData {
-    uint8_t talentSpec = 0;           // Active spec (0 or 1 for dual-spec)
-    uint8_t unspentPoints = 0;        // Talent points available
-    std::vector<TalentInfo> talents;  // Learned talents
-    std::vector<uint32_t> glyphs;     // Glyph spell IDs
-
-    bool isValid() const { return true; }
-};
-
-/** SMSG_TALENTS_INFO parser */
-class TalentsInfoParser {
-public:
-    static bool parse(network::Packet& packet, TalentsInfoData& data);
-};
-
 /** CMSG_LEARN_TALENT packet builder */
 class LearnTalentPacket {
 public:
-    /// requestedRank counts from ONE — rank 1 is a talent's first rank, which is
+    /// requestedRank counts from ONE - rank 1 is a talent's first rank, which is
     /// how the rest of the client counts them and what SMSG_TALENTS_INFO is
     /// stored as. The wire counts from zero; the builder converts.
     static network::Packet build(uint32_t talentId, uint32_t requestedRank);
@@ -2568,7 +2781,7 @@ struct BattlefieldStatusData {
     uint32_t avgWaitMs = 0;        ///< status 1
     uint32_t timeInQueueMs = 0;    ///< status 1
     uint32_t mapId = 0;            ///< status 2 and 3
-    uint32_t inviteTimeoutMs = 0;  ///< status 2 — how long the invitation lasts
+    uint32_t inviteTimeoutMs = 0;  ///< status 2 - how long the invitation lasts
 };
 
 /**
@@ -2590,7 +2803,7 @@ public:
 class LfgJoinPacket {
 public:
     /// Roles is a uint32 on the wire, and the three "needs" bytes after the
-    /// slot list are not optional — the server reads Comment after them, so
+    /// slot list are not optional - the server reads Comment after them, so
     /// leaving them out moves every field. Slots carries every dungeon the
     /// player picked; the server queues for all of them in one join.
     static network::Packet build(const std::vector<uint32_t>& dungeonIds,
@@ -2604,12 +2817,7 @@ public:
     static network::Packet build(bool accept);
 };
 
-/** CMSG_SET_ACTIVE_TALENT_GROUP_OBSOLETE (0x4C3) — switch dual-spec talent group */
-class ActivateTalentGroupPacket {
-public:
-    /** @param group  0 = primary spec, 1 = secondary spec */
-    static network::Packet build(uint32_t group);
-};
+/** CMSG_SET_ACTIVE_TALENT_GROUP_OBSOLETE (0x4C3) - switch dual-spec talent group */
 
 // ============================================================
 // Taxi / Flight Paths
@@ -2667,6 +2875,18 @@ public:
 class GameObjectUsePacket {
 public:
     static network::Packet build(uint64_t guid);
+};
+
+/** CMSG_SOCKET_GEMS packet builder.
+ *
+ * The item, then one guid per socket - three of them, always, with zero for a
+ * socket nothing is being put into. The server refuses the whole request if any
+ * two non-zero guids match, so the caller must not offer one gem twice.
+ */
+class SocketGemsPacket {
+public:
+    static network::Packet build(uint64_t itemGuid,
+                                 const std::array<uint64_t, 3>& gemGuids);
 };
 
 /** CMSG_REPOP_REQUEST packet builder */
@@ -2741,7 +2961,7 @@ struct AuctionMailInvoice {
     uint32_t bid = 0;           // copper
     uint32_t buyout = 0;        // copper
     uint32_t deposit = 0;       // copper (successful-sale mail only)
-    uint32_t consignment = 0;   // copper — auction house cut (successful sale)
+    uint32_t consignment = 0;   // copper - auction house cut (successful sale)
 };
 
 bool parseAuctionMailSubject(const std::string& subject, AuctionMailSubject& result);
@@ -2780,6 +3000,12 @@ public:
 class MailDeletePacket {
 public:
     static network::Packet build(uint64_t mailboxGuid, uint32_t mailId, uint32_t mailTemplateId);
+};
+
+/** CMSG_MAIL_RETURN_TO_SENDER packet builder */
+class MailReturnToSenderPacket {
+public:
+    static network::Packet build(uint64_t mailboxGuid, uint32_t mailId);
 };
 
 /** CMSG_MAIL_MARK_AS_READ packet builder */
@@ -2940,15 +3166,57 @@ public:
     static bool parse(network::Packet& packet, AuctionHelloData& data);
 };
 
+/** One column of an auction search's ordering, as the wire carries it.
+ *
+ * `column` is AzerothCore's AuctionSortOrder - MINLEVEL 0, RARITY 1, BUYOUT 2,
+ * TIMELEFT 3, ITEM 5, MINBIDBUY 6, OWNER 7, BID 8, STACK 9.
+ *
+ * `descending` goes across as sent. The server's comparator is not uniformly
+ * ordered - it answers -1 for the *higher* required level and -1 for the
+ * *lower* quality - and the original interface's per-column reverse flags were
+ * written against those inversions. Normalising the flag here would undo that
+ * pairing and sort half the columns backwards.
+ */
+struct AuctionSortKey {
+    uint8_t column = 0;
+    bool descending = false;
+};
+
+/// Append the ordering to a CMSG_AUCTION_LIST_ITEMS: a count, then a mode and
+/// a direction per column, most significant first.
+///
+/// Written here rather than inside the builder so it can be tested without
+/// linking the packet family - the builder's translation unit reaches the
+/// splines and the crypto through a shared facade, and a test that pulls those
+/// in to check six bytes ends up testing a hand-written copy instead.
+///
+/// The count is clamped rather than allowed through: AzerothCore checks it
+/// against AUCTION_SORT_MAX and abandons the entire request when it is
+/// exceeded, so an over-long sort returns no auctions at all rather than
+/// unsorted ones.
+inline void writeAuctionSortBlock(network::Packet& p,
+                                  const std::vector<AuctionSortKey>& sort) {
+    constexpr size_t kMaxSortColumns = 11;  // AUCTION_SORT_MAX
+    const size_t count = sort.size() < kMaxSortColumns ? sort.size() : kMaxSortColumns;
+    p.writeUInt8(static_cast<uint8_t>(count));
+    for (size_t i = 0; i < count; ++i) {
+        p.writeUInt8(sort[i].column);
+        p.writeUInt8(sort[i].descending ? 1 : 0);
+    }
+}
+
 /** CMSG_AUCTION_LIST_ITEMS packet builder */
 class AuctionListItemsPacket {
 public:
+    /// `sort` is ordered most significant first, which is the order the server
+    /// walks it in.
     static network::Packet build(uint64_t guid, uint32_t offset,
                                   const std::string& searchName,
                                   uint8_t levelMin, uint8_t levelMax,
                                   uint32_t invTypeMask, uint32_t itemClass,
                                   uint32_t itemSubClass, uint32_t quality,
-                                  uint8_t usableOnly, uint8_t exactMatch);
+                                  uint8_t usableOnly, uint8_t exactMatch,
+                                  const std::vector<AuctionSortKey>& sort = {});
 };
 
 /** CMSG_AUCTION_SELL_ITEM packet builder */

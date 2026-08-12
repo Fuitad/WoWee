@@ -1,4 +1,6 @@
 #include "cli_camera_presets_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -20,11 +22,6 @@ namespace cli {
 
 namespace {
 
-std::string stripWcamExt(std::string base) {
-    stripExt(base, ".wcam");
-    return base;
-}
-
 const char* purposeKindName(uint8_t k) {
     using C = wowee::pipeline::WoweeCameraPresets;
     switch (k) {
@@ -38,15 +35,6 @@ const char* purposeKindName(uint8_t k) {
     }
 }
 
-bool saveOrError(const wowee::pipeline::WoweeCameraPresets& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeCameraPresetsLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wcam\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeCameraPresets& c,
                      const std::string& base) {
@@ -59,10 +47,10 @@ int handleGenCombat(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "CombatCameraPresets";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWcamExt(base);
+    base = cli::withoutExt(base, ".wcam");
     auto c = wowee::pipeline::WoweeCameraPresetsLoader::
         makeCombatPresets(name);
-    if (!saveOrError(c, base, "gen-cam-combat")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCameraPresetsLoader>(c, base, "gen-cam-combat", ".wcam")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -71,10 +59,10 @@ int handleGenMounted(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "MountedCameraPresets";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWcamExt(base);
+    base = cli::withoutExt(base, ".wcam");
     auto c = wowee::pipeline::WoweeCameraPresetsLoader::
         makeMountedPresets(name);
-    if (!saveOrError(c, base, "gen-cam-mounted")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCameraPresetsLoader>(c, base, "gen-cam-mounted", ".wcam")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -83,10 +71,10 @@ int handleGenCinematic(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "CinematicCameraPresets";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWcamExt(base);
+    base = cli::withoutExt(base, ".wcam");
     auto c = wowee::pipeline::WoweeCameraPresetsLoader::
         makeCinematicPresets(name);
-    if (!saveOrError(c, base, "gen-cam-cinematic")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCameraPresetsLoader>(c, base, "gen-cam-cinematic", ".wcam")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -94,7 +82,7 @@ int handleGenCinematic(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWcamExt(base);
+    base = cli::withoutExt(base, ".wcam");
     if (!wowee::pipeline::WoweeCameraPresetsLoader::exists(base)) {
         std::fprintf(stderr, "WCAM not found: %s.wcam\n",
                      base.c_str());
@@ -199,12 +187,9 @@ bool readEnumField(const nlohmann::json& je,
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWcamExt(base);
+    base = cli::withoutExt(base, ".wcam");
     if (!wowee::pipeline::WoweeCameraPresetsLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wcam: WCAM not found: %s.wcam\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wcam", "WCAM", base, ".wcam");
     }
     auto c = wowee::pipeline::WoweeCameraPresetsLoader::load(base);
     std::vector<std::string> errors;
@@ -244,27 +229,27 @@ int handleValidate(int& i, int argc, char** argv) {
             warnings.push_back(ctx + ": fovDegrees=" +
                 std::to_string(e.fovDegrees) +
                 " outside 30..120 player-comfort range "
-                "— may cause motion sickness or "
+                "- may cause motion sickness or "
                 "extreme telephoto compression");
         }
         // Negative distance places camera in front of
-        // target — almost certainly a typo.
+        // target - almost certainly a typo.
         if (e.distanceFromTarget < 0.f) {
             errors.push_back(ctx +
                 ": distanceFromTarget=" +
                 std::to_string(e.distanceFromTarget) +
-                " is negative — camera would render in "
+                " is negative - camera would render in "
                 "front of target");
         }
         // Very small distance (< 0.5m) clips into the
-        // model — warn, since some shots want this
+        // model - warn, since some shots want this
         // (extreme close-up portraits).
         if (e.distanceFromTarget > 0.f &&
             e.distanceFromTarget < 0.5f) {
             warnings.push_back(ctx +
                 ": distanceFromTarget=" +
                 std::to_string(e.distanceFromTarget) +
-                " under 0.5m — likely clips into the "
+                " under 0.5m - likely clips into the "
                 "model; verify intentional");
         }
         // Pitch outside ±89° gimbal-locks the camera.
@@ -280,56 +265,28 @@ int handleValidate(int& i, int argc, char** argv) {
             warnings.push_back(ctx +
                 ": yawOffsetDegrees=" +
                 std::to_string(e.yawOffsetDegrees) +
-                " beyond ±180° — wraps to a smaller "
+                " beyond ±180° - wraps to a smaller "
                 "equivalent angle, simplify");
         }
         if (!idsSeen.insert(e.presetId).second) {
             errors.push_back(ctx + ": duplicate presetId");
         }
     }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wcam"] = base + ".wcam";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wcam: %s.wcam\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu presets, all presetIds "
+    return cli::reportValidation("wcam", base, jsonOut, errors, warnings,
+                                 formatted("%zu presets, all presetIds "
                     "unique, purposeKind 0..5, FOV in "
                     "(0,180), distanceFromTarget >= 0, "
-                    "pitch within (-89, +89)\n",
-                    c.entries.size());
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+                    "pitch within (-89, +89)", c.entries.size()));
 }
 
 int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWcamExt(base);
+    base = cli::withoutExt(base, ".wcam");
     if (out.empty()) out = base + ".wcam.json";
     if (!wowee::pipeline::WoweeCameraPresetsLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wcam-json: WCAM not found: %s.wcam\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wcam-json", "WCAM", base, ".wcam");
     }
     auto c = wowee::pipeline::WoweeCameraPresetsLoader::load(base);
     nlohmann::json j;
@@ -372,16 +329,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wcam.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wcam");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wcam");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,

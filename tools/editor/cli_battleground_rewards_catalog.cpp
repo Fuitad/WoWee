@@ -1,4 +1,6 @@
 #include "cli_battleground_rewards_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -20,11 +22,6 @@ namespace cli {
 
 namespace {
 
-std::string stripWbrdExt(std::string base) {
-    stripExt(base, ".wbrd");
-    return base;
-}
-
 const char* bgName(uint16_t bgId) {
     switch (bgId) {
         case 1: return "AV";
@@ -34,17 +31,6 @@ const char* bgName(uint16_t bgId) {
     }
 }
 
-bool saveOrError(
-    const wowee::pipeline::WoweeBattlegroundRewards& c,
-    const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeBattlegroundRewardsLoader::save(
-            c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wbrd\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(
     const wowee::pipeline::WoweeBattlegroundRewards& c,
@@ -58,10 +44,10 @@ int handleGenAV(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "AlteracValleyRewards";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWbrdExt(base);
+    base = cli::withoutExt(base, ".wbrd");
     auto c = wowee::pipeline::WoweeBattlegroundRewardsLoader::
         makeAlteracValley(name);
-    if (!saveOrError(c, base, "gen-brd-av")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeBattlegroundRewardsLoader>(c, base, "gen-brd-av", ".wbrd")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -70,10 +56,10 @@ int handleGenWSG(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "WarsongRewards";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWbrdExt(base);
+    base = cli::withoutExt(base, ".wbrd");
     auto c = wowee::pipeline::WoweeBattlegroundRewardsLoader::
         makeWarsong(name);
-    if (!saveOrError(c, base, "gen-brd-wsg")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeBattlegroundRewardsLoader>(c, base, "gen-brd-wsg", ".wbrd")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -82,10 +68,10 @@ int handleGenAB(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "ArathiBasinRewards";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWbrdExt(base);
+    base = cli::withoutExt(base, ".wbrd");
     auto c = wowee::pipeline::WoweeBattlegroundRewardsLoader::
         makeArathiBasin(name);
-    if (!saveOrError(c, base, "gen-brd-ab")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeBattlegroundRewardsLoader>(c, base, "gen-brd-ab", ".wbrd")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -93,7 +79,7 @@ int handleGenAB(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWbrdExt(base);
+    base = cli::withoutExt(base, ".wbrd");
     if (!wowee::pipeline::WoweeBattlegroundRewardsLoader::exists(base)) {
         std::fprintf(stderr, "WBRD not found: %s.wbrd\n",
                      base.c_str());
@@ -145,12 +131,9 @@ int handleInfo(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWbrdExt(base);
+    base = cli::withoutExt(base, ".wbrd");
     if (!wowee::pipeline::WoweeBattlegroundRewardsLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wbrd: WBRD not found: %s.wbrd\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wbrd", "WBRD", base, ".wbrd");
     }
     auto c = wowee::pipeline::WoweeBattlegroundRewardsLoader::load(base);
     std::vector<std::string> errors;
@@ -184,7 +167,7 @@ int handleValidate(int& i, int argc, char** argv) {
         // else BG queue would never start a match.
         if (e.minPlayersToStart == 0) {
             errors.push_back(ctx +
-                ": minPlayersToStart is 0 — BG queue "
+                ": minPlayersToStart is 0 - BG queue "
                 "would never start a match");
         }
         // Loss honor should be < win honor (winning
@@ -196,15 +179,15 @@ int handleValidate(int& i, int argc, char** argv) {
                 std::to_string(e.lossHonor) +
                 " > winHonor=" +
                 std::to_string(e.winHonor) +
-                " — losing rewards more than winning "
+                " - losing rewards more than winning "
                 "(no win incentive)");
         }
-        // Mark = 0 on win is unusual — every BG win
+        // Mark = 0 on win is unusual - every BG win
         // grants at least 1 mark in vanilla. Warn.
         if (e.winMarks == 0 && e.markItemId != 0) {
             warnings.push_back(ctx +
                 ": winMarks=0 but markItemId is set "
-                "— win grants no marks; verify "
+                "- win grants no marks; verify "
                 "intentional (vanilla wins always "
                 "gave at least 1 mark)");
         }
@@ -214,11 +197,11 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx +
                 ": bonusItemCount=" +
                 std::to_string(e.bonusItemCount) +
-                " but bonusItemId is 0 — count of "
+                " but bonusItemId is 0 - count of "
                 "nothing");
         }
         // (battlegroundId, bracketIndex) MUST be
-        // unique — runtime dispatch by this pair
+        // unique - runtime dispatch by this pair
         // would tie.
         Pair p{e.battlegroundId, e.bracketIndex};
         if (!bgBracketPairs.insert(p).second) {
@@ -227,56 +210,28 @@ int handleValidate(int& i, int argc, char** argv) {
                 std::to_string(e.battlegroundId) +
                 ", bracket=" +
                 std::to_string(e.bracketIndex) +
-                ") — runtime reward-lookup tie");
+                ") - runtime reward-lookup tie");
         }
         if (!idsSeen.insert(e.rewardId).second) {
             errors.push_back(ctx + ": duplicate rewardId");
         }
     }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wbrd"] = base + ".wbrd";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wbrd: %s.wbrd\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu stages, all rewardIds + "
+    return cli::reportValidation("wbrd", base, jsonOut, errors, warnings,
+                                 formatted("%zu stages, all rewardIds + "
                     "(bgId,bracket) pairs unique, "
                     "bracketIndex 1..6, minPlayersToStart "
                     "> 0, winHonor >= lossHonor, no "
-                    "bonus-count without bonus-itemId\n",
-                    c.entries.size());
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+                    "bonus-count without bonus-itemId", c.entries.size()));
 }
 
 int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWbrdExt(base);
+    base = cli::withoutExt(base, ".wbrd");
     if (out.empty()) out = base + ".wbrd.json";
     if (!wowee::pipeline::WoweeBattlegroundRewardsLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wbrd-json: WBRD not found: %s.wbrd\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wbrd-json", "WBRD", base, ".wbrd");
     }
     auto c = wowee::pipeline::WoweeBattlegroundRewardsLoader::load(base);
     nlohmann::json j;
@@ -318,16 +273,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wbrd.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wbrd");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wbrd");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,

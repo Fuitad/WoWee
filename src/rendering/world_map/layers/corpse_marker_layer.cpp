@@ -1,5 +1,6 @@
-// corpse_marker_layer.cpp — Death corpse tombstone marker on the world map.
+// corpse_marker_layer.cpp - Death corpse tombstone marker on the world map.
 // Uses Rotating-MinimapCorpseArrow.blp from the game data.
+#include "rendering/imgui_texture.hpp"
 #include "rendering/world_map/layers/corpse_marker_layer.hpp"
 #include "rendering/world_map/coordinate_projection.hpp"
 #include "rendering/vk_texture.hpp"
@@ -41,51 +42,55 @@ void CorpseMarkerLayer::ensureTexture() {
     if (loadAttempted_ || !vkCtx_ || !assetManager_) return;
     loadAttempted_ = true;
 
-    VkDevice device = vkCtx_->getDevice();
-
-    auto blp = assetManager_->loadTexture("Interface\\Minimap\\Rotating-MinimapCorpseArrow.blp");
-    if (!blp.isValid()) {
-        LOG_WARNING("CorpseMarkerLayer: Rotating-MinimapCorpseArrow.blp not found");
+    auto loaded = loadImGuiTexture(*assetManager_, *vkCtx_,
+                                   "Interface\\Minimap\\Rotating-MinimapCorpseArrow.blp");
+    if (!loaded) {
+        LOG_WARNING("CorpseMarkerLayer: icon texture unavailable");
         return;
     }
-    auto tex = std::make_unique<VkTexture>();
-    if (!tex->upload(*vkCtx_, blp.data.data(), blp.width, blp.height,
-                     VK_FORMAT_R8G8B8A8_UNORM, false))
-        return;
-    if (!tex->createSampler(device, VK_FILTER_LINEAR, VK_FILTER_LINEAR,
-                            VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, 1.0f)) {
-        tex->destroy(device, vkCtx_->getAllocator());
-        return;
-    }
-    VkDescriptorSet ds = ImGui_ImplVulkan_AddTexture(
-        tex->getSampler(), tex->getImageView(),
-        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-    if (!ds) {
-        tex->destroy(device, vkCtx_->getAllocator());
-        return;
-    }
-    texture_ = std::move(tex);
-    imguiDS_ = ds;
-    LOG_INFO("CorpseMarkerLayer: loaded corpse icon ", blp.width, "x", blp.height);
+    texture_ = std::move(loaded.texture);
+    imguiDS_ = loaded.descriptorSet;
+    LOG_INFO("CorpseMarkerLayer: loaded corpse icon ", loaded.texture->getWidth(), "x",
+             loaded.texture->getHeight());
 }
 
 void CorpseMarkerLayer::render(const LayerContext& ctx) {
-    if (!hasCorpse_) return;
-    if (ctx.currentZoneIdx < 0) return;
-    if (ctx.viewLevel != ViewLevel::ZONE && ctx.viewLevel != ViewLevel::CONTINENT) return;
-    if (!ctx.zones) return;
+    if (!hasCorpse_ && !hasGraveyard_) return;
+    const auto projection = currentProjection(ctx);
+    if (!projection) return;
 
-    const auto& zone = (*ctx.zones)[ctx.currentZoneIdx];
-    ZoneBounds bounds = zone.bounds;
-    bool isContinent = zone.areaID == 0;
-    if (isContinent) {
-        float l, r, t, b;
-        if (getContinentProjectionBounds(*ctx.zones, ctx.currentZoneIdx, l, r, t, b)) {
-            bounds = {l, r, t, b};
+    // Where a release would put the player. Drawn first so the corpse sits on
+    // top where the two coincide - the body is the thing being navigated to.
+    if (hasGraveyard_) {
+        glm::vec2 gv = renderPosToMapUV(graveyardRenderPos_, projection->bounds, projection->isContinent);
+        if (gv.x >= 0.0f && gv.x <= 1.0f && gv.y >= 0.0f && gv.y <= 1.0f) {
+            const float gx = ctx.imgMin.x + gv.x * ctx.displayW;
+            const float gy = ctx.imgMin.y + gv.y * ctx.displayH;
+            constexpr float H = 7.0f;      // half-height of the upright
+            constexpr float W = 4.5f;      // half-width of the crossbar
+            constexpr float T = 2.6f;
+            const ImU32 halo = IM_COL32(0, 0, 0, 200);
+            const ImU32 pale = IM_COL32(180, 215, 255, 245);
+            // A cross, drawn with a dark pass under a pale one so it reads on
+            // both the parchment and the darker continent art.
+            for (int pass = 0; pass < 2; ++pass) {
+                const ImU32 col = pass == 0 ? halo : pale;
+                const float th = pass == 0 ? T + 1.6f : T;
+                ctx.drawList->AddLine(ImVec2(gx, gy - H), ImVec2(gx, gy + H), col, th);
+                ctx.drawList->AddLine(ImVec2(gx - W, gy - H * 0.25f),
+                                      ImVec2(gx + W, gy - H * 0.25f), col, th);
+            }
+            ImVec2 gmp = ImGui::GetMousePos();
+            const float gdx = gmp.x - gx, gdy = gmp.y - gy;
+            if (gdx * gdx + gdy * gdy < (H + 2.0f) * (H + 2.0f)) {
+                ImGui::SetTooltip("Spirit healer");
+            }
         }
     }
 
-    glm::vec2 uv = renderPosToMapUV(corpseRenderPos_, bounds, isContinent);
+    if (!hasCorpse_) return;
+
+    glm::vec2 uv = renderPosToMapUV(corpseRenderPos_, projection->bounds, projection->isContinent);
     if (uv.x < 0.0f || uv.x > 1.0f || uv.y < 0.0f || uv.y > 1.0f) return;
 
     float cx = ctx.imgMin.x + uv.x * ctx.displayW;

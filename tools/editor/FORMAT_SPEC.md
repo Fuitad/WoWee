@@ -2,7 +2,7 @@
 
 Novel file formats for custom WoW zone content. No Blizzard IP.
 
-## WOT — Wowee Open Terrain (JSON metadata)
+## WOT - Wowee Open Terrain (JSON metadata)
 - Extension: `.wot`
 - Contains: tile coords, texture list, per-chunk layers/holes, water data,
   doodad placements (M2 objects), WMO placements (buildings)
@@ -10,7 +10,7 @@ Novel file formats for custom WoW zone content. No Blizzard IP.
 - Placement fields: `doodadNames[]`, `doodads[]` (nameId, uniqueId, pos, rot, scale, flags)
 - WMO fields: `wmoNames[]`, `wmos[]` (nameId, uniqueId, pos, rot, flags, doodadSet)
 
-## WHM — Wowee HeightMap (binary)
+## WHM - Wowee HeightMap (binary)
 - Extension: `.whm`
 - Magic: `WHM1` (0x314D4857)
 - Layout: magic(4) + chunkCount(4=256) + vertsPerChunk(4=145) + per-chunk data × 256
@@ -18,7 +18,7 @@ Novel file formats for custom WoW zone content. No Blizzard IP.
 - Alpha data: raw alpha blend maps for texture layers (same format as ADT MCAL)
 - Backward compatible: older WHM files without alpha data still load (alphaSize=0)
 
-## WOM — Wowee Open Model (binary)
+## WOM - Wowee Open Model (binary)
 - Extension: `.wom`
 - Magic: `WOM1` (0x314D4F57) static, `WOM2` (0x324D4F57) animated, `WOM3` (0x334D4F57) multi-batch
 - Layout: magic(4) + vertCount(4) + indexCount(4) + texCount(4) + boundRadius(4) + boundMin(12) + boundMax(12) + nameLen(2) + name + vertices + indices(uint32 each) + [pathLen(2) + path] × texCount
@@ -32,7 +32,7 @@ Novel file formats for custom WoW zone content. No Blizzard IP.
 - WOM3 flags: bit 0 = unlit, bit 1 = two-sided, bit 2 = no z-write
 - Backward compatible: WOM1 files load without bone/animation data; WOM3 falls back to single-batch when batches block missing
 
-## WOB — Wowee Open Building (binary)
+## WOB - Wowee Open Building (binary)
 - Extension: `.wob`
 - Magic: `WOB1` (0x31424F57)
 - Layout: magic(4) + groupCount(4) + portalCount(4) + doodadCount(4) + boundRadius(4) + nameLen(2) + name + groups + portals + doodads
@@ -49,31 +49,31 @@ Novel file formats for custom WoW zone content. No Blizzard IP.
   - Doodad euler degrees → glm::quat using glm::eulerAngles convention
   - Default `Set_$DefaultGlobal` doodadSet emitted when doodads present
 
-## WCP — Wowee Content Pack (archive)
+## WCP - Wowee Content Pack (archive)
 - Extension: `.wcp`
 - Magic: `WCP1` (0x31504357)
 - Layout: magic(4) + fileCount(4) + infoJsonSize(4) + infoJSON + [pathLen(2) + path + dataSize(4) + data] × N
 - Info JSON includes categorized file list (terrain/model/building/texture/data)
 
-## zone.json — Map Definition
+## zone.json - Map Definition
 - Replaces WDT
 - Fields: `mapName`, `displayName`, `mapId`, `biome`, `baseHeight`
 - `hasCreatures`, `description`, `tiles` array, `files` map
 - `doodadNames[]`, `doodads[]`, `wmoNames[]`, `wmos[]` for placed objects
 - `editorVersion` for compatibility tracking
 
-## JSON DBC — Data Table Replacement
+## JSON DBC - Data Table Replacement
 - Replaces binary DBC files
 - Format: `{"format": "wowee-dbc-json-1.0", "records": [...], "fieldCount": N}`
 - Records are arrays of mixed types: integers, floats, strings
 - Client loads via DBCFile::loadJSON() when found in custom_zones/ or output/
 
-## PNG Textures — Texture Replacement
+## PNG Textures - Texture Replacement
 - Replaces BLP texture files
 - Standard PNG format, loaded by client's texture override system
 - Editor auto-converts BLP→PNG on export via stb_image_write
 
-## WOC — Wowee Open Collision (binary)
+## WOC - Wowee Open Collision (binary)
 - Extension: `.woc`
 - Magic: `WOC1` (0x31434F57)
 - Layout: magic(4) + triCount(4) + tileX(4) + tileY(4) + boundsMin(12) + boundsMax(12) + triangles
@@ -134,33 +134,33 @@ Novel file formats for custom WoW zone content. No Blizzard IP.
 The `wowee_editor` binary provides a complete non-GUI workflow over these formats:
 
 ### Inspection
-- `--info <wom-base>` — WOM metadata (vertices/bones/animations/batches)
-- `--info-wob <wob-base>` — WOB groups/portals/doodads
-- `--info-woc <woc-path>` — WOC triangles/walkability counts
-- `--info-wot <wot-base>` — WOT/WHM tile coord, chunks, height range
-- `--info-wcp <wcp-path>` — WCP archive metadata (per-category counts)
-- `--list-wcp <wcp-path>` — every file in a WCP, sorted by path
-- `--info-creatures <p>` — creatures.json summary
-- `--info-objects <p>` — objects.json summary
-- `--info-quests <p>` — quests.json summary + chain validation
+- `--info <wom-base>` - WOM metadata (vertices/bones/animations/batches)
+- `--info-wob <wob-base>` - WOB groups/portals/doodads
+- `--info-woc <woc-path>` - WOC triangles/walkability counts
+- `--info-wot <wot-base>` - WOT/WHM tile coord, chunks, height range
+- `--info-wcp <wcp-path>` - WCP archive metadata (per-category counts)
+- `--list-wcp <wcp-path>` - every file in a WCP, sorted by path
+- `--info-creatures <p>` - creatures.json summary
+- `--info-objects <p>` - objects.json summary
+- `--info-quests <p>` - quests.json summary + chain validation
 
 ### Validation
-- `--validate <zoneDir>` — open-format completeness score (0/7) with per-format counts
-- `--zone-summary <zoneDir>` — one-shot validate + creature/object/quest counts
-- `--diff-wcp <a> <b>` — file-by-file WCP comparison (added/removed/changed)
+- `--validate <zoneDir>` - open-format completeness score (0/7) with per-format counts
+- `--zone-summary <zoneDir>` - one-shot validate + creature/object/quest counts
+- `--diff-wcp <a> <b>` - file-by-file WCP comparison (added/removed/changed)
 
 ### Authoring
-- `--scaffold-zone <name> [tx ty]` — create a blank zone in custom_zones/<slug>/
-- `--build-woc <wot-base>` — generate WOC collision mesh from WHM/WOT
-- `--regen-collision <zoneDir>` — rebuild every WOC under a zone dir
-- `--export-png <wot-base>` — render heightmap/normal/zone-map PNG previews
-- `--convert-m2 <path>` — M2 → WOM
-- `--convert-wmo <path>` — WMO → WOB
+- `--scaffold-zone <name> [tx ty]` - create a blank zone in custom_zones/<slug>/
+- `--build-woc <wot-base>` - generate WOC collision mesh from WHM/WOT
+- `--regen-collision <zoneDir>` - rebuild every WOC under a zone dir
+- `--export-png <wot-base>` - render heightmap/normal/zone-map PNG previews
+- `--convert-m2 <path>` - M2 → WOM
+- `--convert-wmo <path>` - WMO → WOB
 
 ### Packaging
-- `--pack-wcp <zone> [dst]` — pack a zone into a WCP archive
-- `--unpack-wcp <wcp> [dst]` — extract a WCP archive
+- `--pack-wcp <zone> [dst]` - pack a zone into a WCP archive
+- `--unpack-wcp <wcp> [dst]` - extract a WCP archive
 
 ### Discovery
-- `--list-zones` — list custom_zones/ + output/ contents
-- `--version` — version info
+- `--list-zones` - list custom_zones/ + output/ contents
+- `--version` - version info

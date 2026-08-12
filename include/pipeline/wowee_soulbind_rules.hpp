@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Soulbind Rules catalog (.wbnd) —
+// Wowee Open Soulbind Rules catalog (.wbnd) -
 // novel replacement for the implicit item-binding
 // policy vanilla WoW carried in
 // ItemTemplate.bondingType + per-item special-case
@@ -25,7 +25,7 @@ namespace pipeline {
 //   WIT:  rules apply to items by qualityFloor
 //         predicate (every WIT item with quality >=
 //         floor uses this rule unless overridden).
-//   None to specific itemId — the rule catalog
+//   None to specific itemId - the rule catalog
 //   describes POLICY, not per-item bindings.
 //
 // Binary layout (little-endian):
@@ -36,7 +36,7 @@ namespace pipeline {
 //   entries (each):
 //     ruleId (uint32)
 //     nameLen + name
-//     bindKind (uint8)               — 0=BindOnPickup
+//     bindKind (uint8)               - 0=BindOnPickup
 //                                       /1=BindOnEquip
 //                                       /2=BindOnUse
 //                                       /3=BindOnAccount
@@ -44,20 +44,20 @@ namespace pipeline {
 //                                       (already on
 //                                       loot)
 //                                       /5=NoBind
-//     itemQualityFloor (uint8)       — quality at
+//     itemQualityFloor (uint8)       - quality at
 //                                       which this rule
 //                                       applies (0=
 //                                       Poor..7=Heir-
 //                                       loom)
-//     tradableForRaidGroup (uint8)   — 0/1 bool — BoP
+//     tradableForRaidGroup (uint8)   - 0/1 bool - BoP
 //                                       gets the 2hr
 //                                       raid-trade
 //                                       window
-//     boeBecomesBoP (uint8)          — 0/1 bool — BoE
+//     boeBecomesBoP (uint8)          - 0/1 bool - BoE
 //                                       becomes
 //                                       Soulbound on
 //                                       pickup
-//     accountBoundCrossFaction (uint8) — 0/1 bool —
+//     accountBoundCrossFaction (uint8) - 0/1 bool -
 //                                         BoA can
 //                                         transfer
 //                                         Alliance<->
@@ -67,13 +67,13 @@ namespace pipeline {
 //                                         flag)
 //     pad0 (uint8)
 //     pad1 (uint16)
-//     tradableWindowSec (uint32)     — duration of
+//     tradableWindowSec (uint32)     - duration of
 //                                       the raid-trade
 //                                       window (vanilla
 //                                       had no window;
 //                                       TBC default
 //                                       7200=2hr)
-//     descriptionLen + description   — human-readable
+//     descriptionLen + description   - human-readable
 //                                       policy summary
 //                                       for the editor
 struct WoweeSoulbindRules {
@@ -126,7 +126,7 @@ struct WoweeSoulbindRules {
     // picks the best match.
     const Entry* resolveForQuality(uint8_t itemQuality) const;
 
-    // Returns all rules of one bind kind — used by
+    // Returns all rules of one bind kind - used by
     // the inventory UI to color-code BoP vs BoE
     // tooltips uniformly.
     std::vector<const Entry*> findByBindKind(uint8_t bindKind) const;
@@ -141,18 +141,18 @@ public:
 
     // Preset emitters used by --gen-bnd* variants.
     //
-    //   makeVanillaPolicy — 4 vanilla rules (Poor=
+    //   makeVanillaPolicy - 4 vanilla rules (Poor=
     //                        NoBind, Common=BoE,
     //                        Uncommon+=BoP no-window,
     //                        Epic+=Soulbound). No
     //                        raid-trade window.
-    //   makeTBCPolicy     — 5 TBC rules (Poor=NoBind,
+    //   makeTBCPolicy     - 5 TBC rules (Poor=NoBind,
     //                        Common=BoE,
     //                        Uncommon+=BoP+2hr window,
     //                        Rare+=BoP+2hr window,
     //                        Epic+=Soulbound). Raid-
     //                        trade window introduced.
-    //   makeWotLKPolicy   — 6 WotLK rules adding
+    //   makeWotLKPolicy   - 6 WotLK rules adding
     //                        Heirloom=BindOnAccount
     //                        cross-faction. Otherwise
     //                        same as TBC.

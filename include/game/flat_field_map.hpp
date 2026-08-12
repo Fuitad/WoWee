@@ -41,7 +41,7 @@ public:
     const_iterator cend()   const { return data_.cend(); }
 
     // Append at end. Caller must ensure key is strictly greater than the
-    // previously appended key — used by the UPDATE_OBJECT parser which
+    // previously appended key - used by the UPDATE_OBJECT parser which
     // walks the bitmask low-to-high.
     void append_sorted(uint16_t key, uint32_t value) {
         data_.emplace_back(key, value);
@@ -59,7 +59,7 @@ public:
         }
     }
 
-    // Map-style operator[] — used by Entity::setField. Returns a reference
+    // Map-style operator[] - used by Entity::setField. Returns a reference
     // to the (existing or newly inserted) value.
     uint32_t& operator[](uint16_t key) {
         auto it = std::lower_bound(

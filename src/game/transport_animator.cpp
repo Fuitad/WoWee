@@ -18,12 +18,12 @@ namespace {
 
 // GO entries whose TaxiPath berth runs parallel to the pier: the ship holds a broadside
 // (side-on) heading through its dock dwell instead of its bow-first approach yaw. Kept
-// entry-scoped on purpose — this is route geometry, not a model trait, so an unrelated
+// entry-scoped on purpose - this is route geometry, not a model trait, so an unrelated
 // ship that happens to reuse one of these display ids keeps its own docking orientation.
 bool berthRunsParallel(uint32_t entry) {
-    return entry == 176310u ||  // The Bravery — Stormwind Harbor
-           entry == 176244u ||  // The Moonspray — Auberdine
-           entry == 181646u;    // Elune's Blessing — Auberdine
+    return entry == 176310u ||  // The Bravery - Stormwind Harbor
+           entry == 176244u ||  // The Moonspray - Auberdine
+           entry == 181646u;    // Elune's Blessing - Auberdine
 }
 
 }  // namespace
@@ -104,7 +104,7 @@ void TransportAnimator::evaluateAndApply(
     // it was written for their broadside berths. But the position hold is not a
     // berth-specific nicety: a Catmull-Rom spline is not constrained to the hull
     // of its control points, so evaluating through a repeated key overshoots and
-    // recovers — the ship sails past its dock and comes back, repeatedly, for
+    // recovers - the ship sails past its dock and comes back, repeatedly, for
     // the whole length of the wait. That is the same overshoot already
     // documented and clamped for the tram, and it applies to every ship.
     // berthRunsParallel now decides only what it is about: the heading.
@@ -131,7 +131,7 @@ void TransportAnimator::evaluateAndApply(
             // a route generally turns as it passes through its dock: the Maiden's
             // Fancy comes into Menethil on a bearing 26 degrees off the one it
             // leaves on. Taking the arrival leg alone therefore parked the hull
-            // half that turn out — 13 degrees, which over a hundred-unit hull is
+            // half that turn out - 13 degrees, which over a hundred-unit hull is
             // enough to walk the gangway off the plank. Use the chord through the
             // berth, from the node before the stop to the node after it, which is
             // the line the boat is lying on rather than either end of the turn.
@@ -181,8 +181,8 @@ void TransportAnimator::evaluateAndApply(
     //
     // hasServerYaw is set by every server update, including the ones that arrive
     // for a ship the client animates itself. Taking it here pinned such a ship's
-    // facing to whichever orientation the server last reported — its berth
-    // heading — and held it there for the whole voyage while the position ran
+    // facing to whichever orientation the server last reported - its berth
+    // heading - and held it there for the whole voyage while the position ran
     // along the route underneath. That is a ship sailing sideways or stern-first
     // and lying across its pier on arrival, and it also made everything below
     // (route yaw, the bow offset, the broadside dock hold) unreachable for any
@@ -263,7 +263,7 @@ void TransportAnimator::evaluateAndApply(
                 // snapshot as the dock yaw made the result depend on where the ship
                 // happened to be when the player logged in. berthRunsParallel routes run
                 // parallel to their piers, so the corrected route heading is also the
-                // stable broadside dock heading — the dock dwell holds routeYaw directly.
+                // stable broadside dock heading - the dock dwell holds routeYaw directly.
                 const float effectiveYaw = routeYaw;
                 transport.rotation = glm::angleAxis(
                     effectiveYaw, glm::vec3(0.0f, 0.0f, 1.0f));

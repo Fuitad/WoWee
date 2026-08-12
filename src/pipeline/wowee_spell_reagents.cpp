@@ -1,4 +1,5 @@
 #include "pipeline/wowee_spell_reagents.hpp"
+#include "pipeline/wowee_binary_io.hpp"
 
 #include <cstdio>
 #include <cstring>
@@ -11,52 +12,7 @@ namespace {
 
 constexpr char kMagic[4] = {'W', 'S', 'P', 'R'};
 constexpr uint32_t kVersion = 1;
-
-template <typename T>
-void writePOD(std::ofstream& os, const T& v) {
-    os.write(reinterpret_cast<const char*>(&v), sizeof(T));
-}
-
-template <typename T>
-bool readPOD(std::ifstream& is, T& v) {
-    is.read(reinterpret_cast<char*>(&v), sizeof(T));
-    return is.gcount() == static_cast<std::streamsize>(sizeof(T));
-}
-
-void writeStr(std::ofstream& os, const std::string& s) {
-    uint32_t n = static_cast<uint32_t>(s.size());
-    writePOD(os, n);
-    if (n > 0) os.write(s.data(), n);
-}
-
-bool readStr(std::ifstream& is, std::string& s) {
-    uint32_t n = 0;
-    if (!readPOD(is, n)) return false;
-    if (n > (1u << 20)) return false;
-    s.resize(n);
-    if (n > 0) {
-        is.read(s.data(), n);
-        if (is.gcount() != static_cast<std::streamsize>(n)) {
-            s.clear();
-            return false;
-        }
-    }
-    return true;
-}
-
-std::string normalizePath(std::string base) {
-    if (base.size() < 5 || base.substr(base.size() - 5) != ".wspr") {
-        base += ".wspr";
-    }
-    return base;
-}
-
-uint32_t packRgba(uint8_t r, uint8_t g, uint8_t b, uint8_t a = 0xFF) {
-    return (static_cast<uint32_t>(a) << 24) |
-           (static_cast<uint32_t>(b) << 16) |
-           (static_cast<uint32_t>(g) << 8)  |
-            static_cast<uint32_t>(r);
-}
+constexpr char kExtension[] = ".wspr";
 
 } // namespace
 
@@ -96,15 +52,9 @@ const char* WoweeSpellReagent::reagentKindName(uint8_t k) {
 }
 
 bool WoweeSpellReagentLoader::save(const WoweeSpellReagent& cat,
-                                    const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath), std::ios::binary);
-    if (!os) return false;
-    os.write(kMagic, 4);
-    writePOD(os, kVersion);
-    writeStr(os, cat.name);
-    uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writePOD(os, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeSpellReagent::Entry& e) {
         writePOD(os, e.reagentSetId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -118,59 +68,33 @@ bool WoweeSpellReagentLoader::save(const WoweeSpellReagent& cat,
         writePOD(os, e.pad1);
         writePOD(os, e.pad2);
         writePOD(os, e.iconColorRGBA);
-    }
-    return os.good();
+                       });
 }
 
 WoweeSpellReagent WoweeSpellReagentLoader::load(
     const std::string& basePath) {
-    WoweeSpellReagent out;
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    if (!is) return out;
-    char magic[4];
-    is.read(magic, 4);
-    if (std::memcmp(magic, kMagic, 4) != 0) return out;
-    uint32_t version = 0;
-    if (!readPOD(is, version) || version != kVersion) return out;
-    if (!readStr(is, out.name)) return out;
-    uint32_t entryCount = 0;
-    if (!readPOD(is, entryCount)) return out;
-    if (entryCount > (1u << 20)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.reagentSetId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name) || !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
-        if (!readPOD(is, e.spellId)) {
-            out.entries.clear(); return out;
+    return loadCatalog<WoweeSpellReagent>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeSpellReagent::Entry& e) {
+        if (!readPOD(is, e.reagentSetId)) { return false; }
+        if (!readStr(is, e.name) || !readStr(is, e.description)) { return false; }
+        if (!readPOD(is, e.spellId)) { return false; }
+        for (int s = 0; s < WoweeSpellReagent::kMaxReagentSlots; ++s) {
+            if (!readPOD(is, e.reagentItemId[s])) { return false; }
         }
         for (int s = 0; s < WoweeSpellReagent::kMaxReagentSlots; ++s) {
-            if (!readPOD(is, e.reagentItemId[s])) {
-                out.entries.clear(); return out;
-            }
-        }
-        for (int s = 0; s < WoweeSpellReagent::kMaxReagentSlots; ++s) {
-            if (!readPOD(is, e.reagentCount[s])) {
-                out.entries.clear(); return out;
-            }
+            if (!readPOD(is, e.reagentCount[s])) { return false; }
         }
         if (!readPOD(is, e.reagentKind) ||
             !readPOD(is, e.pad0) ||
             !readPOD(is, e.pad1) ||
             !readPOD(is, e.pad2) ||
-            !readPOD(is, e.iconColorRGBA)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.iconColorRGBA)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeSpellReagentLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeSpellReagent WoweeSpellReagentLoader::makeMage(
@@ -193,13 +117,13 @@ WoweeSpellReagent WoweeSpellReagentLoader::makeMage(
     // item id 17031 = Rune of Teleportation (single-use
     // teleport runes), 17032 = Rune of Portals (groups).
     add(1, "TeleportStormwind", 3565,  17031,
-        "Teleport: Stormwind — consumes 1 Rune of Teleportation.");
+        "Teleport: Stormwind - consumes 1 Rune of Teleportation.");
     add(2, "TeleportIronforge", 3562,  17031,
-        "Teleport: Ironforge — consumes 1 Rune of Teleportation.");
+        "Teleport: Ironforge - consumes 1 Rune of Teleportation.");
     add(3, "TeleportDarnassus", 3561,  17031,
-        "Teleport: Darnassus — consumes 1 Rune of Teleportation.");
+        "Teleport: Darnassus - consumes 1 Rune of Teleportation.");
     add(4, "PortalStormwind",  10059, 17032,
-        "Portal: Stormwind — consumes 1 Rune of Portals.");
+        "Portal: Stormwind - consumes 1 Rune of Portals.");
     return c;
 }
 
@@ -221,10 +145,10 @@ WoweeSpellReagent WoweeSpellReagentLoader::makeWarlock(
         c.entries.push_back(e);
     };
     // Warlock summon spell ids; each consumes 1 Soul Shard.
-    add(100, "SummonImp",        688, "Summon Imp — consumes 1 Soul Shard.");
-    add(101, "SummonVoidwalker",  697, "Summon Voidwalker — consumes 1 Soul Shard.");
-    add(102, "SummonSuccubus",   712, "Summon Succubus — consumes 1 Soul Shard.");
-    add(103, "SummonFelhunter",  691, "Summon Felhunter — consumes 1 Soul Shard.");
+    add(100, "SummonImp",        688, "Summon Imp - consumes 1 Soul Shard.");
+    add(101, "SummonVoidwalker",  697, "Summon Voidwalker - consumes 1 Soul Shard.");
+    add(102, "SummonSuccubus",   712, "Summon Succubus - consumes 1 Soul Shard.");
+    add(103, "SummonFelhunter",  691, "Summon Felhunter - consumes 1 Soul Shard.");
     return c;
 }
 
@@ -238,7 +162,7 @@ WoweeSpellReagent WoweeSpellReagentLoader::makeRez(
     R::Entry ankh;
     ankh.reagentSetId = 200;
     ankh.name = "ShamanReincarnation";
-    ankh.description = "Reincarnation — consumes 1 Ankh of Reincarnation.";
+    ankh.description = "Reincarnation - consumes 1 Ankh of Reincarnation.";
     ankh.spellId = 20608;
     ankh.reagentItemId[0] = 17030;   // Ankh
     ankh.reagentCount[0] = 1;
@@ -249,7 +173,7 @@ WoweeSpellReagent WoweeSpellReagentLoader::makeRez(
     R::Entry priestRez;
     priestRez.reagentSetId = 201;
     priestRez.name = "PriestResurrection";
-    priestRez.description = "Resurrection — requires Holy Candle "
+    priestRez.description = "Resurrection - requires Holy Candle "
         "(focused, NOT consumed on cast).";
     priestRez.spellId = 2006;
     priestRez.reagentItemId[0] = 17029;   // Holy Candle
@@ -261,10 +185,10 @@ WoweeSpellReagent WoweeSpellReagentLoader::makeRez(
     R::Entry druidRebirth;
     druidRebirth.reagentSetId = 202;
     druidRebirth.name = "DruidRebirth";
-    druidRebirth.description = "Rebirth — combat rez, no reagent in "
+    druidRebirth.description = "Rebirth - combat rez, no reagent in "
         "WotLK+ (legacy entry kept for migration).";
     druidRebirth.spellId = 20484;
-    // Empty reagent slots — Rebirth is reagent-free in
+    // Empty reagent slots - Rebirth is reagent-free in
     // 3.3.5a but the entry is kept so the engine has a
     // consistent lookup point.
     druidRebirth.reagentKind = R::Standard;

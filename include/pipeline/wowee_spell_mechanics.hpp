@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Spell Mechanic catalog (.wsmc) — novel
+// Wowee Open Spell Mechanic catalog (.wsmc) - novel
 // replacement for Blizzard's SpellMechanic.dbc plus the
 // AzerothCore-style diminishing-returns (DR) tables. Defines
 // crowd-control mechanic categories that spells reference:
@@ -23,7 +23,7 @@ namespace pipeline {
 //                           (each spell tags itself with the
 //                            CC category it applies)
 //   WSMC.entry.conflictsMask is a bitmask of OTHER WSMC
-//                             mechanicIds — only one mechanic
+//                             mechanicIds - only one mechanic
 //                             from a conflict-group can apply
 //                             to a target simultaneously.
 //
@@ -99,15 +99,15 @@ public:
 
     // Preset emitters used by --gen-smc* variants.
     //
-    //   makeStarter — 3 baseline mechanics (Stun / Silence /
-    //                  Snare) — covers the most common CC
+    //   makeStarter - 3 baseline mechanics (Stun / Silence /
+    //                  Snare) - covers the most common CC
     //                  cases one each in 3 different DR
     //                  categories.
-    //   makeHardCC  — 5 hard-CC mechanics (Stun, Polymorph,
+    //   makeHardCC  - 5 hard-CC mechanics (Stun, Polymorph,
     //                  Sleep, Fear, Knockback) with
     //                  conflictsMask wiring so they DR each
     //                  other in the right buckets.
-    //   makeRoots   — 4 movement-impair mechanics (Root,
+    //   makeRoots   - 4 movement-impair mechanics (Root,
     //                  Snare, Slow, GroundPin) with the
     //                  breaks-on-damage and stacking flags
     //                  set per real WoW behavior.

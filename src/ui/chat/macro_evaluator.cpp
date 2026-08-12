@@ -1,4 +1,4 @@
-// MacroEvaluator — WoW macro conditional parser and evaluator.
+// MacroEvaluator - WoW macro conditional parser and evaluator.
 // Moved from evaluateMacroConditionals() in chat_panel_commands.cpp (Phase 4.4).
 #include "ui/chat/macro_evaluator.hpp"
 #include "ui/chat/i_game_state.hpp"
@@ -212,7 +212,7 @@ std::string MacroEvaluator::evaluate(const std::string& rawArg,
                 return argPart;
             }
         } else {
-            // No condition block — default fallback always matches
+            // No condition block - default fallback always matches
             return alt;
         }
     }

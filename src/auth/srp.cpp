@@ -74,7 +74,7 @@ void SRP::feed(const std::vector<uint8_t>& B_bytes,
 
     // Now compute everything in sequence
 
-    // 1. Compute auth hash: H(I:P) — use stored hash if available
+    // 1. Compute auth hash: H(I:P) - use stored hash if available
     std::vector<uint8_t> auth_hash = stored_auth_hash.empty()
         ? computeAuthHash(stored_username, stored_password)
         : stored_auth_hash;
@@ -96,7 +96,7 @@ void SRP::feed(const std::vector<uint8_t>& B_bytes,
     // 5. Compute proofs (M1, M2)
     computeProofs(stored_username);
 
-    // Credentials are no longer needed — zero and release them so they don't
+    // Credentials are no longer needed - zero and release them so they don't
     // linger in process memory longer than necessary.
     clearCredentials();
 
@@ -136,9 +136,9 @@ void SRP::computeClientEphemeral() {
     // Generate random private ephemeral a (19 bytes = 152 bits).
     // WoW SRP-6a requires A != 0 mod N; in practice this almost never fails
     // (probability ≈ 2^-152), but we retry to be safe. 100 attempts is far more
-    // than needed — if it fails, the RNG is broken.
+    // than needed - if it fails, the RNG is broken.
     static constexpr int kMaxEphemeralAttempts = 100;
-    static constexpr int kEphemeralBytes = 19; // 152 bits — matches Blizzard client
+    static constexpr int kEphemeralBytes = 19; // 152 bits - matches Blizzard client
     int attempts = 0;
     while (attempts < kMaxEphemeralAttempts) {
         a = BigNum::fromRandom(kEphemeralBytes);
@@ -244,7 +244,7 @@ void SRP::computeProofs(const std::string& username) {
     // Compute H(username)
     std::vector<uint8_t> user_hash = Crypto::sha1(upperUser);
 
-    // Get A, B, and salt as byte arrays — natural sizes for hash inputs
+    // Get A, B, and salt as byte arrays - natural sizes for hash inputs
     std::vector<uint8_t> A_bytes = A.toArray(true);
     std::vector<uint8_t> B_bytes = B.toArray(true);
     std::vector<uint8_t> s_bytes = s.toArray(true);

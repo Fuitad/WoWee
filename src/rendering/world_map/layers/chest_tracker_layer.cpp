@@ -1,4 +1,4 @@
-// chest_tracker_layer.cpp — Nearby spawned chest markers on the world map.
+// chest_tracker_layer.cpp - Nearby spawned chest markers on the world map.
 #include "rendering/world_map/layers/chest_tracker_layer.hpp"
 #include "rendering/world_map/coordinate_projection.hpp"
 #include <imgui.h>
@@ -9,26 +9,14 @@ namespace world_map {
 
 void ChestTrackerLayer::render(const LayerContext& ctx) {
     if (!chests_ || chests_->empty()) return;
-    if (ctx.currentZoneIdx < 0) return;
-    if (ctx.viewLevel != ViewLevel::ZONE && ctx.viewLevel != ViewLevel::CONTINENT) return;
-    if (!ctx.zones) return;
-
-    const auto& zone = (*ctx.zones)[ctx.currentZoneIdx];
-    ZoneBounds bounds = zone.bounds;
-    const bool isContinent = zone.areaID == 0;
-    if (isContinent) {
-        float left, right, top, bottom;
-        if (getContinentProjectionBounds(*ctx.zones, ctx.currentZoneIdx,
-                                         left, right, top, bottom)) {
-            bounds = {left, right, top, bottom};
-        }
-    }
+    const auto projection = currentProjection(ctx);
+    if (!projection) return;
 
     constexpr ImU32 fill = IM_COL32(205, 125, 35, 255);
     constexpr ImU32 outline = IM_COL32(45, 25, 5, 230);
     ImFont* font = ImGui::GetFont();
     for (const auto& chest : *chests_) {
-        glm::vec2 uv = renderPosToMapUV(chest.renderPos, bounds, isContinent);
+        glm::vec2 uv = renderPosToMapUV(chest.renderPos, projection->bounds, projection->isContinent);
         if (uv.x < 0.0f || uv.x > 1.0f || uv.y < 0.0f || uv.y > 1.0f) continue;
         const float px = ctx.imgMin.x + uv.x * ctx.displayW;
         const float py = ctx.imgMin.y + uv.y * ctx.displayH;

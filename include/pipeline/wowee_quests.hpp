@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Quest Template (.wqt) — novel replacement for
+// Wowee Open Quest Template (.wqt) - novel replacement for
 // AzerothCore-style quest_template SQL tables PLUS the
 // Blizzard Quest.dbc / QuestObjective.dbc trio. The 15th
 // open format added to the editor.
@@ -120,7 +120,7 @@ struct WoweeQuest {
 
     bool isValid() const { return !entries.empty(); }
 
-    // Lookup by questId — nullptr if not present.
+    // Lookup by questId - nullptr if not present.
     const Entry* findById(uint32_t questId) const;
 
     static const char* objectiveKindName(uint8_t k);
@@ -135,14 +135,14 @@ public:
 
     // Preset emitters used by --gen-quests* variants.
     //
-    //   makeStarter — 1 short kill quest: "Kill 10 bandits" with
+    //   makeStarter - 1 short kill quest: "Kill 10 bandits" with
     //                  XP + small money reward. Cross-references
     //                  WCRT bandit (creatureId=1000) + WCRT
     //                  village innkeeper (giver/turnin=4001).
-    //   makeChain   — 3-quest chain: "Investigate" -> "Recover"
+    //   makeChain   - 3-quest chain: "Investigate" -> "Recover"
     //                  -> "Report Back". Each quest's nextQuestId
     //                  points to the next; the third closes the loop.
-    //   makeDaily   — 1 daily repeatable quest with the Daily +
+    //   makeDaily   - 1 daily repeatable quest with the Daily +
     //                  Repeatable + AutoAccept flag combo.
     static WoweeQuest makeStarter(const std::string& catalogName);
     static WoweeQuest makeChain(const std::string& catalogName);

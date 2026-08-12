@@ -1,4 +1,6 @@
 #include "cli_holidays_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -18,20 +20,6 @@ namespace cli {
 
 namespace {
 
-std::string stripWholExt(std::string base) {
-    stripExt(base, ".whol");
-    return base;
-}
-
-bool saveOrError(const wowee::pipeline::WoweeHoliday& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeHolidayLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.whol\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeHoliday& c,
                      const std::string& base) {
@@ -44,9 +32,9 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterHolidays";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWholExt(base);
+    base = cli::withoutExt(base, ".whol");
     auto c = wowee::pipeline::WoweeHolidayLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-holidays")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeHolidayLoader>(c, base, "gen-holidays", ".whol")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -55,9 +43,9 @@ int handleGenWeekly(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "WeeklyHolidays";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWholExt(base);
+    base = cli::withoutExt(base, ".whol");
     auto c = wowee::pipeline::WoweeHolidayLoader::makeWeekly(name);
-    if (!saveOrError(c, base, "gen-holidays-weekly")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeHolidayLoader>(c, base, "gen-holidays-weekly", ".whol")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -66,9 +54,9 @@ int handleGenSpecial(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "SpecialHolidays";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWholExt(base);
+    base = cli::withoutExt(base, ".whol");
     auto c = wowee::pipeline::WoweeHolidayLoader::makeSpecial(name);
-    if (!saveOrError(c, base, "gen-holidays-special")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeHolidayLoader>(c, base, "gen-holidays-special", ".whol")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -76,10 +64,9 @@ int handleGenSpecial(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWholExt(base);
+    base = cli::withoutExt(base, ".whol");
     if (!wowee::pipeline::WoweeHolidayLoader::exists(base)) {
-        std::fprintf(stderr, "WHOL not found: %s.whol\n", base.c_str());
-        return 1;
+        return reportMissing("WHOL", base, ".whol");
     }
     auto c = wowee::pipeline::WoweeHolidayLoader::load(base);
     if (jsonOut) {
@@ -137,71 +124,43 @@ int handleExportJson(int& i, int argc, char** argv) {
     // open format. Each holiday emits all 13 scalar fields
     // plus dual int + name forms for holidayKind and
     // recurrence so hand-edits can use either representation.
-    std::string base = argv[++i];
-    std::string outPath;
-    if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWholExt(base);
-    if (outPath.empty()) outPath = base + ".whol.json";
-    if (!wowee::pipeline::WoweeHolidayLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-whol-json: WHOL not found: %s.whol\n", base.c_str());
-        return 1;
-    }
-    auto c = wowee::pipeline::WoweeHolidayLoader::load(base);
-    nlohmann::json j;
-    j["name"] = c.name;
-    nlohmann::json arr = nlohmann::json::array();
-    for (const auto& e : c.entries) {
-        arr.push_back({
-            {"holidayId", e.holidayId},
-            {"name", e.name},
-            {"description", e.description},
-            {"iconPath", e.iconPath},
-            {"holidayKind", e.holidayKind},
-            {"holidayKindName", wowee::pipeline::WoweeHoliday::holidayKindName(e.holidayKind)},
-            {"recurrence", e.recurrence},
-            {"recurrenceName", wowee::pipeline::WoweeHoliday::recurrenceName(e.recurrence)},
-            {"startMonth", e.startMonth},
-            {"startDay", e.startDay},
-            {"durationHours", e.durationHours},
-            {"holidayQuestId", e.holidayQuestId},
-            {"bossCreatureId", e.bossCreatureId},
-            {"itemRewardId", e.itemRewardId},
-            {"areaIdGate", e.areaIdGate},
-            {"mapIdGate", e.mapIdGate},
+    return cli::exportCatalogJson<wowee::pipeline::WoweeHolidayLoader>(
+        i, argc, argv, "whol", "WHOL", "holidays ",
+        [](const auto& c) {
+        nlohmann::json j;
+        j["name"] = c.name;
+        nlohmann::json arr = nlohmann::json::array();
+        for (const auto& e : c.entries) {
+            arr.push_back({
+                {"holidayId", e.holidayId},
+                {"name", e.name},
+                {"description", e.description},
+                {"iconPath", e.iconPath},
+                {"holidayKind", e.holidayKind},
+                {"holidayKindName", wowee::pipeline::WoweeHoliday::holidayKindName(e.holidayKind)},
+                {"recurrence", e.recurrence},
+                {"recurrenceName", wowee::pipeline::WoweeHoliday::recurrenceName(e.recurrence)},
+                {"startMonth", e.startMonth},
+                {"startDay", e.startDay},
+                {"durationHours", e.durationHours},
+                {"holidayQuestId", e.holidayQuestId},
+                {"bossCreatureId", e.bossCreatureId},
+                {"itemRewardId", e.itemRewardId},
+                {"areaIdGate", e.areaIdGate},
+                {"mapIdGate", e.mapIdGate},
+            });
+        }
+        j["entries"] = arr;
+            return j;
         });
-    }
-    j["entries"] = arr;
-    std::ofstream out(outPath);
-    if (!out) {
-        std::fprintf(stderr,
-            "export-whol-json: cannot write %s\n", outPath.c_str());
-        return 1;
-    }
-    out << j.dump(2) << "\n";
-    out.close();
-    std::printf("Wrote %s\n", outPath.c_str());
-    std::printf("  source   : %s.whol\n", base.c_str());
-    std::printf("  holidays : %zu\n", c.entries.size());
-    return 0;
 }
 
 int handleImportJson(int& i, int argc, char** argv) {
     std::string jsonPath = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = jsonPath;
-        std::string suffix = ".whol.json";
-        if (outBase.size() > suffix.size() &&
-            outBase.substr(outBase.size() - suffix.size()) == suffix) {
-            outBase = outBase.substr(0, outBase.size() - suffix.size());
-        } else if (outBase.size() > 5 &&
-                   outBase.substr(outBase.size() - 5) == ".json") {
-            outBase = outBase.substr(0, outBase.size() - 5);
-        }
-    }
-    outBase = stripWholExt(outBase);
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(jsonPath, ".whol");
+    outBase = cli::withoutExt(outBase, ".whol");
     std::ifstream in(jsonPath);
     if (!in) {
         std::fprintf(stderr,
@@ -283,100 +242,59 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWholExt(base);
-    if (!wowee::pipeline::WoweeHolidayLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-whol: WHOL not found: %s.whol\n", base.c_str());
-        return 1;
-    }
-    auto c = wowee::pipeline::WoweeHolidayLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    std::vector<uint32_t> idsSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.holidayId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.holidayId == 0)
-            errors.push_back(ctx + ": holidayId is 0");
-        if (e.name.empty())
-            errors.push_back(ctx + ": name is empty");
-        if (e.holidayKind > wowee::pipeline::WoweeHoliday::Special) {
-            errors.push_back(ctx + ": holidayKind " +
-                std::to_string(e.holidayKind) + " not in 0..5");
-        }
-        if (e.recurrence > wowee::pipeline::WoweeHoliday::OneTime) {
-            errors.push_back(ctx + ": recurrence " +
-                std::to_string(e.recurrence) + " not in 0..3");
-        }
-        if (e.durationHours == 0) {
-            errors.push_back(ctx +
-                ": durationHours=0 (holiday window has no length)");
-        }
-        // Annual / Monthly / OneTime require a real calendar
-        // start. WeeklyRecur is exempt — it triggers based on
-        // weekday rather than fixed date.
-        if (e.recurrence != wowee::pipeline::WoweeHoliday::WeeklyRecur) {
-            if (e.startMonth == 0 || e.startMonth > 12) {
-                errors.push_back(ctx + ": startMonth " +
-                    std::to_string(e.startMonth) +
-                    " not in 1..12 (required for non-weekly recurrence)");
+    return cli::validateCatalog<wowee::pipeline::WoweeHolidayLoader>(
+        i, argc, argv, "whol", "WHOL",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.holidayId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.holidayId == 0)
+                errors.push_back(ctx + ": holidayId is 0");
+            if (e.name.empty())
+                errors.push_back(ctx + ": name is empty");
+            if (e.holidayKind > wowee::pipeline::WoweeHoliday::Special) {
+                errors.push_back(ctx + ": holidayKind " +
+                    std::to_string(e.holidayKind) + " not in 0..5");
             }
-            if (e.startDay == 0 || e.startDay > 31) {
-                errors.push_back(ctx + ": startDay " +
-                    std::to_string(e.startDay) + " not in 1..31");
+            if (e.recurrence > wowee::pipeline::WoweeHoliday::OneTime) {
+                errors.push_back(ctx + ": recurrence " +
+                    std::to_string(e.recurrence) + " not in 0..3");
             }
-        }
-        // Holidays with no quest, no boss, AND no reward have
-        // no in-game presence beyond a calendar entry — useful
-        // for simple banner-only events but worth flagging.
-        if (e.holidayQuestId == 0 && e.bossCreatureId == 0 &&
-            e.itemRewardId == 0) {
-            warnings.push_back(ctx +
-                ": no quest, boss, or reward — calendar-only event");
-        }
-        for (uint32_t prev : idsSeen) {
-            if (prev == e.holidayId) {
-                errors.push_back(ctx + ": duplicate holidayId");
-                break;
+            if (e.durationHours == 0) {
+                errors.push_back(ctx +
+                    ": durationHours=0 (holiday window has no length)");
             }
+            // Annual / Monthly / OneTime require a real calendar
+            // start. WeeklyRecur is exempt - it triggers based on
+            // weekday rather than fixed date.
+            if (e.recurrence != wowee::pipeline::WoweeHoliday::WeeklyRecur) {
+                if (e.startMonth == 0 || e.startMonth > 12) {
+                    errors.push_back(ctx + ": startMonth " +
+                        std::to_string(e.startMonth) +
+                        " not in 1..12 (required for non-weekly recurrence)");
+                }
+                if (e.startDay == 0 || e.startDay > 31) {
+                    errors.push_back(ctx + ": startDay " +
+                        std::to_string(e.startDay) + " not in 1..31");
+                }
+            }
+            // Holidays with no quest, no boss, AND no reward have
+            // no in-game presence beyond a calendar entry - useful
+            // for simple banner-only events but worth flagging.
+            if (e.holidayQuestId == 0 && e.bossCreatureId == 0 &&
+                e.itemRewardId == 0) {
+                warnings.push_back(ctx +
+                    ": no quest, boss, or reward - calendar-only event");
+            }
+            if (!idsSeen.add(e.holidayId)) errors.push_back(ctx + ": duplicate holidayId");
         }
-        idsSeen.push_back(e.holidayId);
-    }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["whol"] = base + ".whol";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-whol: %s.whol\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu holidays, all holidayIds unique\n",
-                    c.entries.size());
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+            return formatted("%zu holidays, all holidayIds unique", c.entries.size());
+        });
 }
 
 } // namespace

@@ -1,4 +1,5 @@
 #include "game/chat_handler.hpp"
+#include "game/text_tokens.hpp"
 #include "game/game_handler.hpp"
 #include "game/game_utils.hpp"
 #include "game/packet_parsers.hpp"
@@ -8,6 +9,7 @@
 #include "rendering/renderer.hpp"
 #include "rendering/animation_controller.hpp"
 #include "core/logger.hpp"
+#include "core/app_clock.hpp"
 #include <algorithm>
 #include <chrono>
 #include <cctype>
@@ -17,6 +19,7 @@
 #include <iomanip>
 #include <sstream>
 #include <ctime>
+#include "core/local_time.hpp"
 
 namespace wowee {
 namespace game {
@@ -61,13 +64,7 @@ std::string formatChatLogTimestamp(std::chrono::system_clock::time_point timesta
     auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
         timestamp.time_since_epoch()) % 1000;
 
-    std::tm tm;
-#ifdef _WIN32
-    localtime_s(&tm, &time);
-#else
-    localtime_r(&time, &tm);
-#endif
-
+    std::tm tm = core::localTime(time);
     std::ostringstream oss;
     oss << std::put_time(&tm, "%Y-%m-%d %H:%M:%S")
         << "." << std::setfill('0') << std::setw(3) << ms.count();
@@ -218,15 +215,15 @@ void ChatHandler::registerOpcodes(DispatchTable& table) {
     };
     table[Opcode::SMSG_CHAT_WRONG_FACTION] = [this](network::Packet& /*packet*/) {
         owner_.addUIError("You cannot send messages to members of that faction.");
-        addSystemChatMessage("You cannot send messages to members of that faction.");
+        owner_.raiseUiError("You cannot send messages to members of that faction.");
     };
     table[Opcode::SMSG_CHAT_NOT_IN_PARTY] = [this](network::Packet& /*packet*/) {
         owner_.addUIError("You are not in a party.");
-        addSystemChatMessage("You are not in a party.");
+        owner_.raiseUiError("You are not in a party.");
     };
     table[Opcode::SMSG_CHAT_RESTRICTED] = [this](network::Packet& /*packet*/) {
         owner_.addUIError("You cannot send chat messages in this area.");
-        addSystemChatMessage("You cannot send chat messages in this area.");
+        owner_.raiseUiError("You cannot send chat messages in this area.");
     };
 
     // ---- Channel list ----
@@ -277,6 +274,11 @@ void ChatHandler::registerOpcodes(DispatchTable& table) {
     };
 
     table[Opcode::SMSG_CHANNEL_LIST] = [this](network::Packet& p) { handleChannelList(p); };
+    // Add and update carry the same fields and mean the same thing to a
+    // roster that keys on the guid.
+    table[Opcode::SMSG_USERLIST_ADD] = [this](network::Packet& p) { handleUserlistAdd(p); };
+    table[Opcode::SMSG_USERLIST_UPDATE] = [this](network::Packet& p) { handleUserlistAdd(p); };
+    table[Opcode::SMSG_USERLIST_REMOVE] = [this](network::Packet& p) { handleUserlistRemove(p); };
 }
 
 void ChatHandler::sendChatMessage(ChatType type, const std::string& message, const std::string& target) {
@@ -420,6 +422,29 @@ void ChatHandler::handleMessageChat(network::Packet& packet) {
             }
         }
 
+        // The guild roster, which was not among the places looked and is the
+        // one that holds the names this most often needs.
+        //
+        // Every other source here is someone nearby or in the party. A
+        // guildmate is characteristically neither: they are in another zone,
+        // which is the whole point of guild chat. So a guild line from anyone
+        // not recently met arrived with no name at all - "[Guild] : message" -
+        // and a guild achievement, which is announced by whoever earned it
+        // wherever they are, read "[] has earned the achievement".
+        //
+        // The roster is already held and already carries the name beside the
+        // guid; nothing had asked it. It is only populated once the roster has
+        // been requested, so this is a source rather than a guarantee, and the
+        // query below still runs when it misses.
+        if (data.senderName.empty()) {
+            for (const auto& member : owner_.getGuildRoster().members) {
+                if (member.guid == data.senderGuid && !member.name.empty()) {
+                    data.senderName = member.name;
+                    break;
+                }
+            }
+        }
+
         if (data.senderName.empty()) {
             owner_.queryPlayerName(data.senderGuid);
         }
@@ -536,15 +561,13 @@ void ChatHandler::handleMessageChat(network::Packet& packet) {
     // Some servers send officer chat to all guild members regardless of rank.
     // WoW guild right bit 0x40 = GR_RIGHT_OFFCHATSPEAK, 0x80 = GR_RIGHT_OFFCHATLISTEN
     if (data.type == ChatType::OFFICER) {
-        const auto& roster = owner_.getGuildRoster();
-        uint64_t myGuid = owner_.getPlayerGuid();
-        uint32_t myRankIdx = 0;
-        for (const auto& m : roster.members) {
-            if (m.guid == myGuid) { myRankIdx = m.rankIndex; break; }
-        }
-        if (myRankIdx < roster.ranks.size()) {
-            uint32_t rights = roster.ranks[myRankIdx].rights;
-            if (!(rights & 0x80)) { // GR_RIGHT_OFFCHATLISTEN = 0x80
+        // Through the shared lookup, which answers zero rights when the roster
+        // has not arrived - the same "say nothing about it" this had before,
+        // since the test below only hides chat when a rank is known and lacks
+        // the bit.
+        const uint32_t idx = owner_.getPlayerGuildRankIndex();
+        if (idx != 0xFFFFFFFFu && idx < owner_.getGuildRoster().ranks.size()) {
+            if (!(owner_.getPlayerGuildRankRights() & 0x80)) { // GR_RIGHT_OFFCHATLISTEN
                 return; // Don't show officer chat to non-officers
             }
         }
@@ -566,6 +589,31 @@ void ChatHandler::handleMessageChat(network::Packet& packet) {
         }
     }
 
+    // Fill in the $-tokens before anything sees the line.
+    //
+    // A monster's say, yell, emote or whisper arrives with the player left as a
+    // blank - "$N, you have done well" - and the client is what writes the name
+    // in. Nothing did, so every scripted NPC in the game addressed the player as
+    // "$N", and a $gsir:madam; came out with the whole switch printed.
+    //
+    // Only what an NPC or a boss said. A player typing "$N" into say has typed
+    // those two characters and means them: the real client does not resolve
+    // tokens in player chat, and resolving them here would let one player make
+    // another's client print that player's own name.
+    switch (data.type) {
+        case ChatType::MONSTER_SAY:
+        case ChatType::MONSTER_PARTY:
+        case ChatType::MONSTER_YELL:
+        case ChatType::MONSTER_WHISPER:
+        case ChatType::MONSTER_EMOTE:
+        case ChatType::RAID_BOSS_EMOTE:
+        case ChatType::RAID_BOSS_WHISPER:
+            data.message = resolveTextTokens(data.message, owner_);
+            break;
+        default:
+            break;
+    }
+
     // Add to chat history
     data.uid = ++chatUidCounter_;
     chatHistory_.push_back(data);
@@ -573,6 +621,17 @@ void ChatHandler::handleMessageChat(network::Packet& packet) {
         chatHistory_.erase(chatHistory_.begin());
     }
     logChatMessage(data, "server");
+    // No fireChatEvent here. This function announces the message itself,
+    // further down and with the fuller argument list - the channel number and
+    // short name, the line id, the sender's guid. Calling fireChatEvent as
+    // well fired CHAT_MSG_* twice for every line the server sent, and the
+    // interface drew both: every whisper, say, guild and channel message
+    // appeared in the window doubled.
+    //
+    // The note that stood here said the event was fired only on the local
+    // path, which was true when it was written and stopped being true when
+    // this function grew its own. fireChatEvent stays for
+    // addLocalChatMessage's callers, which have no richer arguments to give.
 
     // Track whisper sender for /r command
     if (data.type == ChatType::WHISPER) {
@@ -623,25 +682,93 @@ void ChatHandler::handleMessageChat(network::Packet& packet) {
     LOG_DEBUG("[", getChatTypeString(data.type), "] ", channelInfo, senderInfo, ": ", data.message);
 
     // Fire CHAT_MSG_* addon events
-    if (owner_.addonChatCallbackRef()) owner_.addonChatCallbackRef()(data);
     if (owner_.addonEventCallbackRef()) {
         std::string eventName = "CHAT_MSG_";
         eventName += getChatTypeString(data.type);
-        std::string lang = std::to_string(static_cast<int>(data.language));
+        // The language's *name*, not its id. ChatFrame_MessageEventHandler
+        // does
+        //
+        //     if strlen(arg3) > 0 and arg3 ~= "Universal"
+        //                          and arg3 ~= self.defaultLanguage then
+        //         languageHeader = "["..arg3.."] "
+        //
+        // and GetDefaultLanguage answers "Common" or "Orcish". A number never
+        // matches either, so every line in the player's own language was
+        // printed with its id in front of it - guild chat in Common came out
+        // as "[7] Name: hello". Universal is the id the file does not carry
+        // and the word the test above looks for.
+        const std::string lang = owner_.getLanguageName(static_cast<uint32_t>(data.language));
         char guidBuf[32];
         snprintf(guidBuf, sizeof(guidBuf), "0x%016llX", (unsigned long long)data.senderGuid);
+        // arg8 is the channel's number and arg9 its name without the zone
+        // after it, and both were sent empty. That is the whole of whether a
+        // channel line is shown: the handler builds "CHANNEL"..arg8 and looks
+        // it up in ChatTypeInfo, so a zero made every channel message
+        // CHANNEL0, which no table has, and the message was dropped before it
+        // reached the window. arg9 is what the frame matches against the
+        // channels it carries when the zone id does not settle it.
+        // A line id of its own, remembered against the sender. FrameXML builds
+        // this into the player link on the name - "|Hplayer:Name:lineId:..." -
+        // so a right-click on that name hands it back and the client is
+        // expected to know which message it was. Zero for every line is one id
+        // shared by all of them, which is what made Report Spam unofferable:
+        // CanComplainChat is asked about the id before the entry is shown.
+        const uint32_t lineId = nextChatLineId_++;
+        if (data.senderGuid != 0) {
+            chatLineSenders_.emplace_back(lineId, data.senderGuid);
+            // Recent lines only. A session's chat has no end, and a message old
+            // enough to have fallen out of this is old enough not to be
+            // reportable.
+            constexpr size_t kRememberedLines = 512;
+            while (chatLineSenders_.size() > kRememberedLines)
+                chatLineSenders_.pop_front();
+        }
+        const int channelNumber = getChannelIndex(data.channelName);
+        const size_t dash = data.channelName.find(" - ");
+        const std::string shortChannel = (dash == std::string::npos)
+            ? data.channelName : data.channelName.substr(0, dash);
+        // arg5 is the *target*, not the sender. It was the sender's own name,
+        // which is only read by CHANNEL_NOTICE_USER - and read as "there are
+        // two names in this notice", so every kick and ban was formatted as
+        // though someone had done it to someone else. receiverName is what the
+        // packet carries for it, empty on an ordinary message.
+        //
+        // arg6 is the flag beside the name: FrameXML looks up CHAT_FLAG_<arg6>
+        // and prints <Away>, <Busy> or <GM>. The tag is on the packet and was
+        // being dropped, so nothing ever showed as away or as a game master.
+        // AzerothCore's values are a bitmask - AFK 0x01, DND 0x02, GM 0x04,
+        // COM 0x08, DEV 0x10 - and the interface takes one word, so the most
+        // significant is the one to name.
+        const char* chatFlag = (data.chatTag & 0x04) ? "GM"
+                             : (data.chatTag & 0x10) ? "DEV"
+                             : (data.chatTag & 0x02) ? "DND"
+                             : (data.chatTag & 0x01) ? "AFK"
+                                                     : "";
+        // Says a line reached the interface at all. A blank chat window is
+        // either nothing arriving or something arriving and not being drawn,
+        // and those have opposite causes with the same appearance. Rate
+        // limited, because a busy channel would otherwise fill the log.
+        {
+            static double lastSaid = 0.0;
+            const double now = core::appTimeSeconds();
+            if (now - lastSaid > 2.0) {
+                lastSaid = now;
+                LOG_WARNING("Chat: fired ", eventName, " to the interface from '",
+                            data.senderName, "'");
+            }
+        }
         owner_.addonEventCallbackRef()(eventName, {
             data.message,
             data.senderName,
             lang,
             data.channelName,
-            senderInfo,
-            "",
+            data.receiverName,
+            chatFlag,
             "0",
+            std::to_string(channelNumber),
+            shortChannel,
             "0",
-            "",
-            "0",
-            "0",
+            std::to_string(lineId),
             guidBuf
         });
     }
@@ -716,6 +843,17 @@ void ChatHandler::joinChannel(const std::string& channelName, const std::string&
     LOG_INFO("Requesting to join channel: ", channelName);
 }
 
+void ChatHandler::requestChannelList(const std::string& channelName) {
+    if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
+    // The channel name and nothing else. SMSG_CHANNEL_LIST was parsed all
+    // along and nothing ever asked for one, so the roster only existed in
+    // theory.
+    network::Packet packet(wireOpcode(Opcode::CMSG_CHANNEL_LIST));
+    packet.writeString(channelName);
+    owner_.getSocket()->send(packet);
+    LOG_INFO("Requesting member list for channel: ", channelName);
+}
+
 void ChatHandler::leaveChannel(const std::string& channelName) {
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
     auto packet = owner_.getPacketParsers()
@@ -757,6 +895,7 @@ void ChatHandler::handleChannelNotify(network::Packet& packet) {
             break;
         }
         case ChannelNotifyType::YOU_LEFT: {
+            ownedChannels_.erase(data.channelName);
             joinedChannels_.erase(
                 std::remove(joinedChannels_.begin(), joinedChannels_.end(), data.channelName),
                 joinedChannels_.end());
@@ -768,7 +907,7 @@ void ChatHandler::handleChannelNotify(network::Packet& packet) {
             break;
         }
         case ChannelNotifyType::PLAYER_ALREADY_MEMBER: {
-            // Server confirms we're in this channel but our local list doesn't have it yet —
+            // Server confirms we're in this channel but our local list doesn't have it yet -
             // can happen after reconnect or if the join notification was missed.
             if (std::find(joinedChannels_.begin(), joinedChannels_.end(), data.channelName) == joinedChannels_.end()) {
                 joinedChannels_.push_back(data.channelName);
@@ -808,6 +947,16 @@ void ChatHandler::handleChannelNotify(network::Packet& packet) {
             addSystemChatMessage("Password for '" + data.channelName + "' changed.");
             break;
         case ChannelNotifyType::OWNER_CHANGED:
+            // The guid beside the name is the new owner's -
+            // Channel::MakeOwnerChanged writes _ownerGUID into it. Kept so the
+            // unit menu can offer the moderator entries, which FrameXML hides
+            // behind IsDisplayChannelOwner: the verbs behind them were built
+            // and could not be reached.
+            if (data.senderGuid != 0 && data.senderGuid == owner_.getPlayerGuid()) {
+                ownedChannels_.insert(data.channelName);
+            } else {
+                ownedChannels_.erase(data.channelName);
+            }
             addSystemChatMessage("Owner of '" + data.channelName + "' changed.");
             break;
         case ChannelNotifyType::NOT_OWNER:
@@ -881,32 +1030,55 @@ void ChatHandler::addLocalChatMessage(const MessageChatData& msg) {
         chatHistory_.pop_front();
     }
     logChatMessage(msg, "local");
-    if (owner_.addonChatCallbackRef()) owner_.addonChatCallbackRef()(msg);
 
-    if (owner_.addonEventCallbackRef()) {
-        std::string eventName = "CHAT_MSG_";
-        eventName += getChatTypeString(msg.type);
-        const Character* ac = owner_.getActiveCharacter();
-        std::string senderName = msg.senderName.empty()
-            ? (ac ? ac->name : std::string{}) : msg.senderName;
-        char guidBuf[32];
-        snprintf(guidBuf, sizeof(guidBuf), "0x%016llX",
-                 (unsigned long long)(msg.senderGuid != 0 ? msg.senderGuid : owner_.getPlayerGuid()));
-        owner_.addonEventCallbackRef()(eventName, {
-            msg.message, senderName,
-            std::to_string(static_cast<int>(msg.language)),
-            msg.channelName, senderName, "", "0", "0", "", "0", "0", guidBuf
-        });
-    }
+    fireChatEvent(msg);
 }
 
-void ChatHandler::addSystemChatMessage(const std::string& message) {
+void ChatHandler::fireChatEvent(const MessageChatData& msg) {
+    if (!owner_.addonEventCallbackRef()) return;
+    std::string eventName = "CHAT_MSG_";
+    eventName += getChatTypeString(msg.type);
+    const Character* ac = owner_.getActiveCharacter();
+    std::string senderName = msg.senderName.empty()
+        ? (ac ? ac->name : std::string{}) : msg.senderName;
+    char guidBuf[32];
+    snprintf(guidBuf, sizeof(guidBuf), "0x%016llX",
+             (unsigned long long)(msg.senderGuid != 0 ? msg.senderGuid : owner_.getPlayerGuid()));
+    // The name, for the reason handleMessageChat gives: a number here is
+    // printed as a language header in front of every line.
+    {
+        static double lastSaid = 0.0;
+        const double now = core::appTimeSeconds();
+        if (now - lastSaid > 2.0) {
+            lastSaid = now;
+            LOG_WARNING("Chat: fired ", eventName, " to the interface (local)");
+        }
+    }
+    // The channel's index, which the chat frame builds "CHANNEL"..arg8 out of
+    // and looks up in ChatTypeInfo - a zero there is CHANNEL0, which no table
+    // has, and the line is dropped before it reaches the window. This is the
+    // one thing the callback that used to announce these as well did better,
+    // and it is here now so nothing was lost when that went.
+    const int channelIndex = getChannelIndex(msg.channelName);
+    owner_.addonEventCallbackRef()(eventName, {
+        msg.message, senderName,
+        owner_.getLanguageName(static_cast<uint32_t>(msg.language)),
+        msg.channelName, senderName, "", "0", std::to_string(channelIndex),
+        msg.channelName, "0", "0", guidBuf
+    });
+}
+
+void ChatHandler::addLocalChatLine(ChatType type, const std::string& message) {
     if (message.empty()) return;
     MessageChatData msg;
-    msg.type = ChatType::SYSTEM;
+    msg.type = type;
     msg.language = ChatLanguage::UNIVERSAL;
     msg.message = message;
     addLocalChatMessage(msg);
+}
+
+void ChatHandler::addSystemChatMessage(const std::string& message) {
+    addLocalChatLine(ChatType::SYSTEM, message);
 }
 
 void ChatHandler::toggleAfk(const std::string& message) {
@@ -969,7 +1141,7 @@ void ChatHandler::replyToLastWhisper(const std::string& message) {
     }
 
     if (message.empty()) {
-        addSystemChatMessage("You must specify a message to send.");
+        owner_.raiseUiError("You must specify a message to send.");
         return;
     }
 
@@ -983,34 +1155,163 @@ void ChatHandler::replyToLastWhisper(const std::string& message) {
 // ============================================================
 
 void ChatHandler::handleChannelList(network::Packet& packet) {
+    // A channel type byte comes first - Channel::List writes `uint8(1)` before
+    // the name - and this read the name straight from it. The stray byte does
+    // not shift anything, because the name's terminator ends the string either
+    // way, but it rides along on the front of every use of it: the roster was
+    // filed under "\x01General" while getChannelRoster is asked for "General",
+    // so the member count answered zero for every channel.
+    //
+    // Recognised rather than assumed, since not every realm's build sends it: a
+    // channel name always begins with a printable character, so a control byte
+    // here is the type and nothing else can be.
+    if (!packet.hasRemaining(1)) return;
+    if (!packet.getData().empty() &&
+        packet.getReadPos() < packet.getData().size() &&
+        packet.getData()[packet.getReadPos()] < 0x20) {
+        packet.readUInt8();  // channel type
+    }
     std::string chanName = packet.readString();
     if (!packet.hasRemaining(5)) return;
     /*uint8_t chanFlags =*/ packet.readUInt8();
     uint32_t memberCount = packet.readUInt32();
     memberCount = std::min(memberCount, 200u);
+
+    // The server's own member flags. What was here read 0x01 as moderator and
+    // 0x02 as muted, so the channel's owner was announced as its moderator and
+    // its moderators as muted.
+    constexpr uint8_t kOwner = 0x01, kModerator = 0x02, kMuted = 0x08;
+
+    std::vector<ChannelMember> roster;
+    roster.reserve(memberCount);
     addSystemChatMessage(chanName + " has " + std::to_string(memberCount) + " member(s):");
     for (uint32_t i = 0; i < memberCount; ++i) {
         if (!packet.hasRemaining(9)) break;
-        uint64_t memberGuid = packet.readUInt64();
-        uint8_t memberFlags = packet.readUInt8();
-        std::string name;
-        auto entity = owner_.getEntityManager().getEntity(memberGuid);
+        ChannelMember m;
+        m.guid = packet.readUInt64();
+        const uint8_t memberFlags = packet.readUInt8();
+        m.owner     = (memberFlags & kOwner) != 0;
+        m.moderator = (memberFlags & kModerator) != 0;
+        m.muted     = (memberFlags & kMuted) != 0;
+
+        auto entity = owner_.getEntityManager().getEntity(m.guid);
         if (entity) {
             auto player = std::dynamic_pointer_cast<Player>(entity);
-            if (player && !player->getName().empty()) name = player->getName();
+            if (player && !player->getName().empty()) m.name = player->getName();
         }
-        if (name.empty()) name = owner_.lookupName(memberGuid);
-        if (name.empty()) name = "(unknown)";
-        std::string entry = "  " + name;
-        if (memberFlags & 0x01) entry += " [Moderator]";
-        if (memberFlags & 0x02) entry += " [Muted]";
+        if (m.name.empty()) m.name = owner_.lookupName(m.guid);
+        if (m.name.empty()) m.name = "(unknown)";
+
+        std::string entry = "  " + m.name;
+        if (m.owner)     entry += " [Owner]";
+        if (m.moderator) entry += " [Moderator]";
+        if (m.muted)     entry += " [Muted]";
         addSystemChatMessage(entry);
+        roster.push_back(std::move(m));
     }
+
+    channelRosters_[chanName] = std::move(roster);
+    // Both, because the panel redraws its member list on the first and its
+    // member count on the second, and it registers for each separately.
+    //
+    // By display index, not by name. ChannelRoster_Update and
+    // ChannelList_CountUpdate both take a position in the channel list -
+    // _G["ChannelButton"..id] is how the second finds its row, and the first is
+    // called elsewhere with GetSelectedDisplayChannel(), which is an index. A
+    // name built "ChannelButtonGeneral", which is nothing, so neither the
+    // roster nor the count ever redrew.
+    const int displayIndex = getChannelIndex(chanName);
+    if (displayIndex > 0) {
+        const std::string idx = std::to_string(displayIndex);
+        owner_.fireAddonEvent("CHANNEL_ROSTER_UPDATE", {idx});
+        owner_.fireAddonEvent("CHANNEL_COUNT_UPDATE",
+                              {idx, std::to_string(channelRosters_[chanName].size())});
+    }
+}
+
+
+/// SMSG_USERLIST_ADD / _REMOVE / _UPDATE - one member of a channel changing.
+///
+/// The full roster comes on SMSG_CHANNEL_LIST and is asked for; these arrive
+/// unasked as people join, leave and are promoted, and without them the roster
+/// is only ever as fresh as the last time somebody opened the list.
+///
+/// Two readers rather than one with a branch, because the three layouts are
+/// not quite the same - remove carries no player flags - and a handler that
+/// reads its fields under an `if` cannot be checked against the server by
+/// tools/packet_layout_check.py, which reads the run of widths a body asks
+/// for. It flagged the first version of this, correctly by its own lights.
+///
+///   ADD, UPDATE  guid(8) playerFlags(1) channelFlags(1) count(4) name
+///   REMOVE       guid(8)                channelFlags(1) count(4) name
+void ChatHandler::applyUserlistChange(const std::string& chanName, uint64_t guid,
+                                      uint8_t memberFlags, bool removing) {
+    if (chanName.empty()) return;
+    // The same bits the full list reads, and the same trap: 0x01 is the owner
+    // and 0x02 the moderator, not the other way round.
+    constexpr uint8_t kOwner = 0x01, kModerator = 0x02, kMuted = 0x08;
+    auto& roster = channelRosters_[chanName];
+    auto it = std::find_if(roster.begin(), roster.end(),
+                           [&](const ChannelMember& m) { return m.guid == guid; });
+
+    if (removing) {
+        if (it != roster.end()) roster.erase(it);
+    } else {
+        if (it == roster.end()) {
+            ChannelMember m;
+            m.guid = guid;
+            m.name = owner_.lookupName(guid);
+            if (m.name.empty()) m.name = "(unknown)";
+            roster.push_back(std::move(m));
+            it = roster.end() - 1;
+        }
+        it->owner     = (memberFlags & kOwner) != 0;
+        it->moderator = (memberFlags & kModerator) != 0;
+        it->muted     = (memberFlags & kMuted) != 0;
+    }
+
+    // By display index, for the reason spelled out in handleChannelList: both
+    // of these take a position in the channel list, not a name.
+    const int displayIndex = getChannelIndex(chanName);
+    if (displayIndex > 0) {
+        const std::string idx = std::to_string(displayIndex);
+        owner_.fireAddonEvent("CHANNEL_ROSTER_UPDATE", {idx});
+        owner_.fireAddonEvent("CHANNEL_COUNT_UPDATE",
+                              {idx, std::to_string(roster.size())});
+    }
+}
+
+void ChatHandler::handleUserlistAdd(network::Packet& packet) {
+    if (!packet.hasRemaining(14)) return;
+    const uint64_t guid = packet.readUInt64();
+    const uint8_t memberFlags = packet.readUInt8();
+    packet.readUInt8();    // the channel's own flags
+    packet.readUInt32();   // how many are in it now
+    applyUserlistChange(packet.readString(), guid, memberFlags, /*removing=*/false);
+}
+
+void ChatHandler::handleUserlistRemove(network::Packet& packet) {
+    if (!packet.hasRemaining(13)) return;
+    const uint64_t guid = packet.readUInt64();
+    packet.readUInt8();    // the channel's own flags
+    packet.readUInt32();   // how many are in it now
+    applyUserlistChange(packet.readString(), guid, 0, /*removing=*/true);
 }
 
 // ============================================================
 // Methods moved from GameHandler
 // ============================================================
+
+void ChatHandler::updateGmTicket(const std::string& text) {
+    if (!owner_.isInWorld() || !owner_.getSocket()) return;
+    // CMSG_GMTICKET_UPDATETEXT (WotLK 3.3.5a): the new text and nothing else.
+    // Creating carries the player's position because a new ticket records where
+    // it was raised; editing one does not move it.
+    network::Packet pkt(wireOpcode(Opcode::CMSG_GMTICKET_UPDATETEXT));
+    pkt.writeString(text);
+    owner_.getSocket()->send(pkt);
+    LOG_INFO("Updated GM ticket text");
+}
 
 void ChatHandler::submitGmTicket(const std::string& text) {
     if (!owner_.isInWorld()) return;

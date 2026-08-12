@@ -11,10 +11,10 @@ namespace wowee {
 namespace rendering {
 
 // ============================================================================
-// EmoteRegistry — extracted from AnimationController
+// EmoteRegistry - extracted from AnimationController
 //
 // Owns all static emote data, DBC loading, emote text lookup, and
-// animation ID resolution.  Singleton — loaded once on first use.
+// animation ID resolution.  Singleton - loaded once on first use.
 // ============================================================================
 
 struct EmoteInfo {
@@ -40,8 +40,6 @@ public:
     /// Look up an emote by chat command (e.g. "dance", "wave").
     std::optional<EmoteResult> findEmote(const std::string& command) const;
 
-    /// Get the animation ID for an EmotesText.dbc text-emote ID.
-    uint32_t animByDbcId(uint32_t dbcId) const;
 
     /// Get the animation ID for an Emotes.dbc emote ID, as used by SMSG_EMOTE
     /// and UNIT_NPC_EMOTESTATE.
@@ -66,8 +64,6 @@ public:
                             const std::string& senderName,
                             const std::string* targetName = nullptr) const;
 
-    /// Get the full EmoteInfo for a command (nullptr if not found).
-    const EmoteInfo* findInfo(const std::string& command) const;
 
 private:
     EmoteRegistry() = default;

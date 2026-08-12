@@ -59,7 +59,6 @@ public:
 
     // Jump/Land sounds (player vocalizations)
     void playJump(PlayerRace race);
-    void playLand(PlayerRace race);
 
 private:
     struct MovementSample {

@@ -1,3 +1,6 @@
+#include <algorithm>
+#include <functional>
+#include <vector>
 #include "ui/keybinding_manager.hpp"
 #include "core/logger.hpp"
 #include <fstream>
@@ -45,6 +48,13 @@ bool KeybindingManager::isActionPressed(Action action, bool repeat) {
     ImGuiKey key = it->second;
     if (key == ImGuiKey_None) return false;
 
+    // Someone typing into a FrameXML edit box gets no bindings at all, which is
+    // what the real client does and what the event path here already did - it
+    // hands the key to the box and stops. This is the other way in: every panel
+    // polls its key from inside its own draw, and a poll never passed through
+    // that path, so the key arrived twice.
+    if (interfaceTakingTypedInput()) return false;
+
     // When typing in a text field (e.g. chat input), never treat A-Z or 0-9 as shortcuts.
     const ImGuiIO& io = ImGui::GetIO();
     if (io.WantTextInput) {
@@ -56,6 +66,44 @@ bool KeybindingManager::isActionPressed(Action action, bool repeat) {
 
     return ImGui::IsKeyPressed(key, repeat);
 }
+
+namespace {
+/// One probe for the whole client, set while the interface is built and read
+/// from every path that has to know whether someone is typing.
+std::function<bool()>& typedInputProbe() {
+    static std::function<bool()> probe;
+    return probe;
+}
+}  // namespace
+
+bool interfaceTakingTypedInput() {
+    const auto& probe = typedInputProbe();
+    return probe && probe();
+}
+
+void setTypedInputProbe(std::function<bool()> probe) {
+    typedInputProbe() = std::move(probe);
+}
+
+namespace {
+/// Set by the pump, read by the poll, cleared between iterations. A handful of
+/// keys at most - only the ones whose handling lets go of the box.
+std::vector<ImGuiKey>& consumedKeys() {
+    static std::vector<ImGuiKey> keys;
+    return keys;
+}
+}  // namespace
+
+bool interfaceConsumedKey(ImGuiKey key) {
+    const auto& keys = consumedKeys();
+    return std::find(keys.begin(), keys.end(), key) != keys.end();
+}
+
+void noteInterfaceConsumedKey(ImGuiKey key) {
+    if (!interfaceConsumedKey(key)) consumedKeys().push_back(key);
+}
+
+void clearInterfaceConsumedKeys() { consumedKeys().clear(); }
 
 ImGuiKey KeybindingManager::getKeyForAction(Action action) const {
     auto it = bindings_.find(static_cast<int>(action));

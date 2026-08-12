@@ -73,7 +73,7 @@ is expected for gameplay-affecting changes.
 - `opcodes.json` supports `_extends` / `_remove` (see
   `src/game/opcode_table.cpp` `loadOpcodeJsonRecursive`). The turtle
   profile uses this to inherit from classic.
-- `update_fields.json` does **not** currently support `_extends` — the
+- `update_fields.json` does **not** currently support `_extends` - the
   classic and turtle files must be kept byte-identical by hand. Update
   both together when changing vanilla field indices.
 - Authoritative source for vanilla 1.12 field indices: vmangos

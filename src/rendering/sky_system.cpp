@@ -32,14 +32,14 @@ bool SkySystem::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout)
         return false;
     }
 
-    // Celestial bodies — sun + 2 moons (Vulkan)
+    // Celestial bodies - sun + 2 moons (Vulkan)
     celestial_ = std::make_unique<Celestial>();
     if (!celestial_->initialize(ctx, perFrameLayout)) {
         LOG_ERROR("Failed to initialize celestial bodies");
         return false;
     }
 
-    // Procedural stars — fallback / debug (Vulkan)
+    // Procedural stars - fallback / debug (Vulkan)
     starField_ = std::make_unique<StarField>();
     if (!starField_->initialize(ctx, perFrameLayout)) {
         LOG_ERROR("Failed to initialize star field");
@@ -184,19 +184,9 @@ glm::vec3 SkySystem::getSunPosition(const SkyParams& params) const {
 void SkySystem::setMoonPhaseCycling(bool enabled) {
     if (celestial_) celestial_->setMoonPhaseCycling(enabled);
 }
-
-void SkySystem::setWhiteLadyPhase(float phase) {
-    if (celestial_) celestial_->setMoonPhase(phase);
-}
-
 void SkySystem::setBlueChildPhase(float phase) {
     if (celestial_) celestial_->setBlueChildPhase(phase);
 }
-
-float SkySystem::getWhiteLadyPhase() const {
-    return celestial_ ? celestial_->getMoonPhase() : 0.5f;
-}
-
 float SkySystem::getBlueChildPhase() const {
     return celestial_ ? celestial_->getBlueChildPhase() : 0.25f;
 }

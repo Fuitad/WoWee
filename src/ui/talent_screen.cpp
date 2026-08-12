@@ -1,4 +1,5 @@
 #include "ui/talent_screen.hpp"
+#include "ui/ui_upload_budget.hpp"
 #include "ui/ui_colors.hpp"
 #include "ui/keybinding_manager.hpp"
 #include "core/input.hpp"
@@ -173,7 +174,7 @@ void TalentScreen::renderTalentTrees(game::GameHandler& gameHandler) {
             }
         }
 
-        // Glyphs tab (WotLK only — visible when any glyph slot is populated or DBC data loaded)
+        // Glyphs tab (WotLK only - visible when any glyph slot is populated or DBC data loaded)
         if (!glyphProperties_.empty() || [&]() {
                 const auto& g = gameHandler.getGlyphs();
                 for (auto id : g) if (id != 0) return true;
@@ -202,7 +203,7 @@ void TalentScreen::renderTalentTrees(game::GameHandler& gameHandler) {
         if (ImGui::Button("Learn", ImVec2(80, 0))) {
             // pendingTalentRank_ holds how many ranks are already learned, which
             // is the wire's index for the next one. learnTalent counts a talent's
-            // first rank as 1 — the same as everywhere above the wire — so this
+            // first rank as 1 - the same as everywhere above the wire - so this
             // is the rank being asked for, and the builder converts.
             gameHandler.learnTalent(pendingTalentId_, pendingTalentRank_ + 1);
             ImGui::CloseCurrentPopup();
@@ -238,7 +239,7 @@ void TalentScreen::renderTalentTree(game::GameHandler& gameHandler, uint32_t tab
         return a->column < b->column;
     });
 
-    // Find grid dimensions — use int to avoid uint8_t wrap-around infinite loops
+    // Find grid dimensions - use int to avoid uint8_t wrap-around infinite loops
     int maxRow = 0, maxCol = 0;
     for (const auto* talent : talents) {
         maxRow = std::max(maxRow, static_cast<int>(talent->row));
@@ -380,7 +381,7 @@ void TalentScreen::renderTalentTree(game::GameHandler& gameHandler, uint32_t tab
             if (talent) {
                 renderTalent(gameHandler, *talent, pointsInTree);
             } else {
-                // Empty cell — invisible placeholder
+                // Empty cell - invisible placeholder
                 char emptyId[32];
                 snprintf(emptyId, sizeof(emptyId), "e_%u_%u_%u", tabId, row, col);
                 ImGui::InvisibleButton(emptyId, ImVec2(iconSize, iconSize));
@@ -482,9 +483,7 @@ void TalentScreen::renderTalent(game::GameHandler& gameHandler,
 
     // Icon
     if (iconTex) {
-        ImU32 tintCol = IM_COL32(
-            static_cast<int>(tint.x * 255), static_cast<int>(tint.y * 255),
-            static_cast<int>(tint.z * 255), static_cast<int>(tint.w * 255));
+        ImU32 tintCol = ImGui::ColorConvertFloat4ToU32(tint);
         dl->AddImage((ImTextureID)(uintptr_t)iconTex,
                      ImVec2(pMin.x + 2, pMin.y + 2),
                      ImVec2(pMax.x - 2, pMax.y - 2),
@@ -493,9 +492,7 @@ void TalentScreen::renderTalent(game::GameHandler& gameHandler,
 
     // Border
     float borderThick = hovered ? 2.5f : 1.5f;
-    ImU32 borderCol = IM_COL32(
-        static_cast<int>(borderColor.x * 255), static_cast<int>(borderColor.y * 255),
-        static_cast<int>(borderColor.z * 255), static_cast<int>(borderColor.w * 255));
+    ImU32 borderCol = ImGui::ColorConvertFloat4ToU32(borderColor);
     dl->AddRect(pMin, pMax, borderCol, 3.0f, 0, borderThick);
 
     // Hover glow
@@ -612,7 +609,7 @@ void TalentScreen::renderTalent(game::GameHandler& gameHandler,
         ImGui::EndTooltip();
     }
 
-    // Handle click — open confirmation dialog instead of learning directly
+    // Handle click - open confirmation dialog instead of learning directly
     if (clicked && canLearn && prereqsMet) {
         talentConfirmOpen_ = true;
         pendingTalentId_ = talent.talentId;
@@ -628,9 +625,12 @@ void TalentScreen::renderTalent(game::GameHandler& gameHandler,
 
 void TalentScreen::loadSpellDBC(pipeline::AssetManager* assetManager) {
     if (spellDbcLoaded) return;
-    spellDbcLoaded = true;
 
     if (!assetManager || !assetManager->isInitialized()) return;
+    // Not an attempt: the assets are not up yet, and a caller can reach
+    // this before they are. Latching here recorded "read" for a file
+    // never opened, and disabled it for the rest of the session.
+    spellDbcLoaded = true;
 
     auto dbc = assetManager->loadDBC("Spell.dbc");
     if (!dbc || !dbc->isLoaded()) return;
@@ -692,9 +692,12 @@ std::string TalentScreen::describeRankSpell(game::GameHandler& gameHandler, uint
 
 void TalentScreen::loadSpellIconDBC(pipeline::AssetManager* assetManager) {
     if (iconDbcLoaded) return;
-    iconDbcLoaded = true;
 
     if (!assetManager || !assetManager->isInitialized()) return;
+    // Not an attempt: the assets are not up yet, and a caller can reach
+    // this before they are. Latching here recorded "read" for a file
+    // never opened, and disabled it for the rest of the session.
+    iconDbcLoaded = true;
 
     auto dbc = assetManager->loadDBC("SpellIcon.dbc");
     if (!dbc || !dbc->isLoaded()) return;
@@ -711,9 +714,12 @@ void TalentScreen::loadSpellIconDBC(pipeline::AssetManager* assetManager) {
 
 void TalentScreen::loadGlyphPropertiesDBC(pipeline::AssetManager* assetManager) {
     if (glyphDbcLoaded) return;
-    glyphDbcLoaded = true;
 
     if (!assetManager || !assetManager->isInitialized()) return;
+    // Not an attempt: the assets are not up yet, and a caller can reach
+    // this before they are. Latching here recorded "read" for a file
+    // never opened, and disabled it for the rest of the session.
+    glyphDbcLoaded = true;
 
     auto dbc = assetManager->loadDBC("GlyphProperties.dbc");
     if (!dbc || !dbc->isLoaded()) return;
@@ -812,12 +818,7 @@ VkDescriptorSet TalentScreen::getSpellIcon(uint32_t iconId, pipeline::AssetManag
     // to a tab whose icons are not yet cached (each upload is a blocking GPU op).
     // Allow at most 4 new icon loads per frame; the rest show a blank icon and
     // load on the next frame, spreading the cost across ~5 frames.
-    static int loadsThisFrame = 0;
-    static int lastImGuiFrame = -1;
-    int curFrame = ImGui::GetFrameCount();
-    if (curFrame != lastImGuiFrame) { loadsThisFrame = 0; lastImGuiFrame = curFrame; }
-    if (loadsThisFrame >= 4) return VK_NULL_HANDLE;  // defer, don't cache null
-    ++loadsThisFrame;
+    if (!claimUiTextureUpload()) return VK_NULL_HANDLE;  // defer, don't cache null
 
     auto pit = spellIconPaths.find(iconId);
     if (pit == spellIconPaths.end()) {

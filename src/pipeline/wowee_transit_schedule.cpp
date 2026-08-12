@@ -1,4 +1,5 @@
 #include "pipeline/wowee_transit_schedule.hpp"
+#include "pipeline/wowee_binary_io.hpp"
 
 #include <cstdio>
 #include <cstring>
@@ -11,45 +12,7 @@ namespace {
 
 constexpr char kMagic[4] = {'W', 'T', 'S', 'C'};
 constexpr uint32_t kVersion = 1;
-
-template <typename T>
-void writePOD(std::ofstream& os, const T& v) {
-    os.write(reinterpret_cast<const char*>(&v), sizeof(T));
-}
-
-template <typename T>
-bool readPOD(std::ifstream& is, T& v) {
-    is.read(reinterpret_cast<char*>(&v), sizeof(T));
-    return is.gcount() == static_cast<std::streamsize>(sizeof(T));
-}
-
-void writeStr(std::ofstream& os, const std::string& s) {
-    uint32_t n = static_cast<uint32_t>(s.size());
-    writePOD(os, n);
-    if (n > 0) os.write(s.data(), n);
-}
-
-bool readStr(std::ifstream& is, std::string& s) {
-    uint32_t n = 0;
-    if (!readPOD(is, n)) return false;
-    if (n > (1u << 20)) return false;
-    s.resize(n);
-    if (n > 0) {
-        is.read(s.data(), n);
-        if (is.gcount() != static_cast<std::streamsize>(n)) {
-            s.clear();
-            return false;
-        }
-    }
-    return true;
-}
-
-std::string normalizePath(std::string base) {
-    if (base.size() < 5 || base.substr(base.size() - 5) != ".wtsc") {
-        base += ".wtsc";
-    }
-    return base;
-}
+constexpr char kExtension[] = ".wtsc";
 
 } // namespace
 
@@ -70,7 +33,7 @@ WoweeTransitSchedule::findAccessibleByFaction(uint8_t faction) const {
             out.push_back(&e);
         } else if (e.factionAccess == Neutral) {
             // Neutral routes are accessible to ALL
-            // factions including Both — Booty Bay /
+            // factions including Both - Booty Bay /
             // Ratchet style.
             out.push_back(&e);
         }
@@ -90,14 +53,8 @@ WoweeTransitSchedule::findDeparturesFromMap(uint32_t mapId) const {
 bool WoweeTransitScheduleLoader::save(
     const WoweeTransitSchedule& cat,
     const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath), std::ios::binary);
-    if (!os) return false;
-    os.write(kMagic, 4);
-    writePOD(os, kVersion);
-    writeStr(os, cat.name);
-    uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writePOD(os, entryCount);
-    for (const auto& e : cat.entries) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const auto& e) {
         writePOD(os, e.routeId);
         writeStr(os, e.name);
         writePOD(os, e.vehicleType);
@@ -115,24 +72,16 @@ bool WoweeTransitScheduleLoader::save(
         writePOD(os, e.travelDurationSec);
         writePOD(os, e.capacity);
         writePOD(os, e.pad1);
-    }
-    return os.good();
+    });
 }
 
 WoweeTransitSchedule WoweeTransitScheduleLoader::load(
     const std::string& basePath) {
     WoweeTransitSchedule out;
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
+    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
     if (!is) return out;
-    char magic[4];
-    is.read(magic, 4);
-    if (std::memcmp(magic, kMagic, 4) != 0) return out;
-    uint32_t version = 0;
-    if (!readPOD(is, version) || version != kVersion) return out;
-    if (!readStr(is, out.name)) return out;
     uint32_t entryCount = 0;
-    if (!readPOD(is, entryCount)) return out;
-    if (entryCount > (1u << 20)) return out;
+    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
     out.entries.resize(entryCount);
     for (auto& e : out.entries) {
         if (!readPOD(is, e.routeId)) {
@@ -174,8 +123,7 @@ WoweeTransitSchedule WoweeTransitScheduleLoader::load(
 
 bool WoweeTransitScheduleLoader::exists(
     const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeTransitSchedule WoweeTransitScheduleLoader::makeZeppelins(
@@ -303,7 +251,7 @@ WoweeTransitSchedule WoweeTransitScheduleLoader::makeTaxis(
         c.entries.push_back(e);
     };
     // Capacity=0 for taxis: each gryphon/wyvern is a
-    // solo ride, no shared seating — interval matters
+    // solo ride, no shared seating - interval matters
     // only for the visual gryphon respawn timer at the
     // taxi master.
     add(20, "Stormwind to Ironforge",

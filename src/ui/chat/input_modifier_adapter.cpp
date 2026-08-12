@@ -1,4 +1,4 @@
-// InputModifierAdapter — concrete IModifierState wrapping core::Input.
+// InputModifierAdapter - concrete IModifierState wrapping core::Input.
 // Phase 4.3 of chat_panel_ref.md.
 #include "ui/chat/input_modifier_adapter.hpp"
 #include "core/input.hpp"

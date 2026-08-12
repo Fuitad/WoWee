@@ -1,4 +1,6 @@
 #include "cli_pet_care_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -19,11 +21,6 @@ namespace cli {
 
 namespace {
 
-std::string stripWpcrExt(std::string base) {
-    stripExt(base, ".wpcr");
-    return base;
-}
-
 const char* actionKindName(uint8_t k) {
     using P = wowee::pipeline::WoweePetCare;
     switch (k) {
@@ -42,15 +39,6 @@ const char* actionKindName(uint8_t k) {
     }
 }
 
-bool saveOrError(const wowee::pipeline::WoweePetCare& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweePetCareLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wpcr\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweePetCare& c,
                      const std::string& base) {
@@ -63,9 +51,9 @@ int handleGenHunter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "HunterPetCare";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWpcrExt(base);
+    base = cli::withoutExt(base, ".wpcr");
     auto c = wowee::pipeline::WoweePetCareLoader::makeHunterCare(name);
-    if (!saveOrError(c, base, "gen-pcr")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweePetCareLoader>(c, base, "gen-pcr", ".wpcr")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -74,9 +62,9 @@ int handleGenStable(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StableMasterActions";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWpcrExt(base);
+    base = cli::withoutExt(base, ".wpcr");
     auto c = wowee::pipeline::WoweePetCareLoader::makeStableActions(name);
-    if (!saveOrError(c, base, "gen-pcr-stable")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweePetCareLoader>(c, base, "gen-pcr-stable", ".wpcr")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -85,9 +73,9 @@ int handleGenWarlock(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "WarlockMinionSummons";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWpcrExt(base);
+    base = cli::withoutExt(base, ".wpcr");
     auto c = wowee::pipeline::WoweePetCareLoader::makeWarlockMinions(name);
-    if (!saveOrError(c, base, "gen-pcr-warlock")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweePetCareLoader>(c, base, "gen-pcr-warlock", ".wpcr")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -95,10 +83,9 @@ int handleGenWarlock(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWpcrExt(base);
+    base = cli::withoutExt(base, ".wpcr");
     if (!wowee::pipeline::WoweePetCareLoader::exists(base)) {
-        std::fprintf(stderr, "WPCR not found: %s.wpcr\n", base.c_str());
-        return 1;
+        return reportMissing("WPCR", base, ".wpcr");
     }
     auto c = wowee::pipeline::WoweePetCareLoader::load(base);
     if (jsonOut) {
@@ -168,13 +155,10 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWpcrExt(base);
+    base = cli::withoutExt(base, ".wpcr");
     if (out.empty()) out = base + ".wpcr.json";
     if (!wowee::pipeline::WoweePetCareLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wpcr-json: WPCR not found: %s.wpcr\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wpcr-json", "WPCR", base, ".wpcr");
     }
     auto c = wowee::pipeline::WoweePetCareLoader::load(base);
     nlohmann::json j;
@@ -219,16 +203,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wpcr.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wpcr");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wpcr");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,
@@ -321,12 +296,9 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWpcrExt(base);
+    base = cli::withoutExt(base, ".wpcr");
     if (!wowee::pipeline::WoweePetCareLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wpcr: WPCR not found: %s.wpcr\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wpcr", "WPCR", base, ".wpcr");
     }
     auto c = wowee::pipeline::WoweePetCareLoader::load(base);
     std::vector<std::string> errors;
@@ -347,7 +319,7 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": name is empty");
         if (e.classFilter == 0) {
             errors.push_back(ctx +
-                ": classFilter is 0 — no class can use "
+                ": classFilter is 0 - no class can use "
                 "this action");
         }
         if (e.actionKind > 10) {
@@ -359,7 +331,7 @@ int handleValidate(int& i, int argc, char** argv) {
             warnings.push_back(ctx +
                 ": happinessRestore " +
                 std::to_string(e.happinessRestore) +
-                " outside +/-25 — pet happiness range "
+                " outside +/-25 - pet happiness range "
                 "is normally [-100, +100], single-action "
                 "swing >25 is unusual");
         }
@@ -368,18 +340,18 @@ int handleValidate(int& i, int argc, char** argv) {
         if (e.actionKind == P::Tame && e.requiresPet != 0) {
             errors.push_back(ctx +
                 ": Tame action requires NO pet active "
-                "(requiresPet must be 0) — you can't tame "
+                "(requiresPet must be 0) - you can't tame "
                 "while another pet is out");
         }
         if (e.actionKind == P::Summon && e.requiresPet != 0) {
             errors.push_back(ctx +
                 ": Summon action requires NO pet active "
-                "(requiresPet must be 0) — Warlock can't "
+                "(requiresPet must be 0) - Warlock can't "
                 "summon while another minion is out");
         }
         if (e.actionKind == P::Revive && e.requiresPet != 0) {
             warnings.push_back(ctx +
-                ": Revive action with requiresPet=1 — "
+                ": Revive action with requiresPet=1 - "
                 "revive should target a DEAD pet, not "
                 "require an active one. Verify intent.");
         }
@@ -387,15 +359,15 @@ int handleValidate(int& i, int argc, char** argv) {
             e.requiresStableNPC == 0) {
             warnings.push_back(ctx +
                 ": Stable action with requiresStableNPC=0 "
-                "— stable slot purchases are normally "
+                "- stable slot purchases are normally "
                 "gated to stable-master conversation");
         }
-        // Tame with cooldown — Tame Beast has a fixed
+        // Tame with cooldown - Tame Beast has a fixed
         // 15-second internal cooldown in 3.3.5; warn if
         // unset.
         if (e.actionKind == P::Tame && e.cooldownSec == 0) {
             warnings.push_back(ctx +
-                ": Tame action with cooldownSec=0 — Tame "
+                ": Tame action with cooldownSec=0 - Tame "
                 "Beast canonically has a 15-sec internal "
                 "cooldown to prevent macro-spam");
         }
@@ -403,34 +375,10 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": duplicate actionId");
         }
     }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wpcr"] = base + ".wpcr";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wpcr: %s.wpcr\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu actions, all actionIds "
+    return cli::reportValidation("wpcr", base, jsonOut, errors, warnings,
+                                 formatted("%zu actions, all actionIds "
                     "unique, per-kind constraints "
-                    "satisfied\n", c.entries.size());
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+                    "satisfied", c.entries.size()));
 }
 
 } // namespace

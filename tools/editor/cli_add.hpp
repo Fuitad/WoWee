@@ -4,7 +4,7 @@ namespace wowee {
 namespace editor {
 namespace cli {
 
-// Dispatch the add-* append-by-coords handlers — append a
+// Dispatch the add-* append-by-coords handlers - append a
 // single creature spawn / object placement / item record to a
 // zone's JSON files. Useful for batch-populating zones via
 // shell scripts without launching the GUI placement tool.

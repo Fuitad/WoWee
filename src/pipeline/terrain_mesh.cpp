@@ -1,4 +1,5 @@
 #include "pipeline/terrain_mesh.hpp"
+#include <algorithm>
 #include "core/coordinates.hpp"
 #include "core/logger.hpp"
 #include <cmath>
@@ -196,7 +197,7 @@ std::vector<TerrainVertex> TerrainMeshGenerator::generateVertices(const MapChunk
     // where gridStep = chunk*8 + vertexOffset runs 0..128 across the 16 chunks of a
     // tile. The previous form subtracted the chunk base and the per-vertex step
     // separately, so a tile's far edge (…*C - C) and the neighbouring tile's near edge
-    // ((…-1)*C) rounded to slightly different float32 values — a sub-yard gap that
+    // ((…-1)*C) rounded to slightly different float32 values - a sub-yard gap that
     // opened hairline "blue" T-junction cracks between tiles, worst far from the map
     // origin (across Kalimdor). Collapsing both to one multiply makes the shared edge
     // bit-identical on either side, closing the seam without the overlap hacks.
@@ -222,7 +223,7 @@ std::vector<TerrainVertex> TerrainMeshGenerator::generateVertices(const MapChunk
         // Position in render space:
         //   MCVT rows (offsetY) go west→east = renderX decreasing
         //   MCVT columns (offsetX) go north→south = renderY decreasing
-        // NaN heights are clamped — WHM load scrubs but mid-edit terrain
+        // NaN heights are clamped - WHM load scrubs but mid-edit terrain
         // can briefly carry NaN before stitchEdges runs, and a single NaN
         // vertex would propagate into normal computations and crash culling.
         float h = heightMap.heights[index];
@@ -326,17 +327,6 @@ std::vector<TerrainIndex> TerrainMeshGenerator::generateIndices(const MapChunk& 
 
     return indices;
 }
-
-void TerrainMeshGenerator::calculateTexCoords(TerrainVertex& vertex, int x, int y) {
-    // Base texture coordinates (0-1 range across chunk)
-    vertex.texCoord[0] = x / 16.0f;
-    vertex.texCoord[1] = y / 16.0f;
-
-    // Layer UVs (same as base for now)
-    vertex.layerUV[0] = vertex.texCoord[0];
-    vertex.layerUV[1] = vertex.texCoord[1];
-}
-
 void TerrainMeshGenerator::decompressNormal(const int8_t* compressedNormal, float* normal) {
     // WoW stores normals as signed bytes (-127 to 127)
     // Convert to float and normalize
@@ -359,26 +349,31 @@ void TerrainMeshGenerator::decompressNormal(const int8_t* compressedNormal, floa
     }
 }
 
-int TerrainMeshGenerator::getVertexIndex(int x, int y) {
-    // Convert virtual grid position (0-16) to actual vertex index (0-144)
-    // Outer vertices (even positions): 0-80 (9x9 grid)
-    // Inner vertices (odd positions): 81-144 (8x8 grid)
+glm::vec3 TerrainMeshGenerator::chunkSurfacePoint(const float chunkPosition[3],
+                                                  const HeightMap& heightMap,
+                                                  float fracX, float fracY,
+                                                  float unitSize) {
+    // The axes cross: world X runs against grid Y and world Y against grid X.
+    const float worldX = chunkPosition[0] - fracY * unitSize;
+    const float worldY = chunkPosition[1] - fracX * unitSize;
 
-    bool isOuter = (y % 2 == 0) && (x % 2 == 0);
-    bool isInner = (y % 2 == 1) && (x % 2 == 1);
+    const int gx0 = glm::clamp(static_cast<int>(std::floor(fracX)), 0, 8);
+    const int gy0 = glm::clamp(static_cast<int>(std::floor(fracY)), 0, 8);
+    const int gx1 = std::min(gx0 + 1, 8);
+    const int gy1 = std::min(gy0 + 1, 8);
+    const float tx = fracX - static_cast<float>(gx0);
+    const float ty = fracY - static_cast<float>(gy0);
 
-    if (isOuter) {
-        int gridX = x / 2;
-        int gridY = y / 2;
-        return gridY * 9 + gridX;  // 0-80
-    } else if (isInner) {
-        int gridX = (x - 1) / 2;
-        int gridY = (y - 1) / 2;
-        return 81 + gridY * 8 + gridX;  // 81-144
-    }
-
-    return -1;  // Invalid position
+    const float h00 = heightMap.getHeight(gx0, gy0);
+    const float h10 = heightMap.getHeight(gx1, gy0);
+    const float h01 = heightMap.getHeight(gx0, gy1);
+    const float h11 = heightMap.getHeight(gx1, gy1);
+    const float worldZ = chunkPosition[2] +
+                         (h00 * (1 - tx) * (1 - ty) +
+                          h10 * tx * (1 - ty) +
+                          h01 * (1 - tx) * ty +
+                          h11 * tx * ty);
+    return glm::vec3(worldX, worldY, worldZ);
 }
-
 } // namespace pipeline
 } // namespace wowee

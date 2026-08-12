@@ -148,7 +148,7 @@ void main() {
     worldPos.z += waves.displacement.z;
     WaveOffset = waves.waveHeight; // raw wave height for fragment shader foam
 
-    // Player interaction ripples — concentric waves emanating from player position
+    // Player interaction ripples - concentric waves emanating from player position
     vec2 playerPos = vec2(shadowParams.z, shadowParams.w);
     float rippleStrength = fogParams.w;
     float d = length(worldPos.xy - playerPos);

@@ -21,7 +21,7 @@ namespace cli {
 namespace {
 
 int handleCopyZone(int& i, int /*argc*/, char** argv) {
-    // Duplicate a zone — copy every file then rename slug-prefixed
+    // Duplicate a zone - copy every file then rename slug-prefixed
     // ones (heightmap/terrain/collision sidecars carry the slug in
     // their filenames, e.g. "Sample_28_30.whm") so the new zone is
     // self-consistent. Useful for templating: scaffold once, then
@@ -35,7 +35,7 @@ int handleCopyZone(int& i, int /*argc*/, char** argv) {
         return 1;
     }
     if (!fs::exists(srcDir + "/zone.json")) {
-        std::fprintf(stderr, "copy-zone: %s has no zone.json — not a zone dir\n",
+        std::fprintf(stderr, "copy-zone: %s has no zone.json - not a zone dir\n",
                      srcDir.c_str());
         return 1;
     }
@@ -62,7 +62,7 @@ int handleCopyZone(int& i, int /*argc*/, char** argv) {
         return 1;
     }
     // Read the source slug from its zone.json so we know what
-    // prefix to rewrite. Don't trust the directory name — a user
+    // prefix to rewrite. Don't trust the directory name - a user
     // could have renamed the dir without touching the manifest.
     wowee::editor::ZoneManifest src;
     if (!src.load(srcDir + "/zone.json")) {
@@ -120,7 +120,7 @@ int handleCopyZone(int& i, int /*argc*/, char** argv) {
 }
 
 int handleRenameZone(int& i, int /*argc*/, char** argv) {
-    // In-place rename — like --copy-zone but no copy. Useful when
+    // In-place rename - like --copy-zone but no copy. Useful when
     // the user wants to fix a typo or change a name without
     // doubling disk usage. Renames the directory itself too
     // (Old/ -> New/ under the same parent), so paths shift.
@@ -133,7 +133,7 @@ int handleRenameZone(int& i, int /*argc*/, char** argv) {
         return 1;
     }
     if (!fs::exists(srcDir + "/zone.json")) {
-        std::fprintf(stderr, "rename-zone: %s has no zone.json — not a zone dir\n",
+        std::fprintf(stderr, "rename-zone: %s has no zone.json - not a zone dir\n",
                      srcDir.c_str());
         return 1;
     }
@@ -177,7 +177,7 @@ int handleRenameZone(int& i, int /*argc*/, char** argv) {
         return 1;
     }
     // Rename slug-prefixed files inside the source dir BEFORE
-    // moving the directory — fewer paths to fix up if anything
+    // moving the directory - fewer paths to fix up if anything
     // fails midway. fs::rename is atomic per-call.
     std::error_code ec;
     int renamed = 0;
@@ -241,7 +241,7 @@ int handleRemoveZone(int& i, int argc, char** argv) {
         // look like a zone dir, even with --confirm. Catches typos
         // like '--remove-zone .' that would nuke the whole project.
         std::fprintf(stderr,
-            "remove-zone: %s has no zone.json — refusing to delete (not a zone dir)\n",
+            "remove-zone: %s has no zone.json - refusing to delete (not a zone dir)\n",
             zoneDir.c_str());
         return 1;
     }
@@ -268,7 +268,7 @@ int handleRemoveZone(int& i, int argc, char** argv) {
         std::printf("  re-run with --confirm to actually delete\n");
         return 0;
     }
-    // Confirmed — wipe it.
+    // Confirmed - wipe it.
     uintmax_t removed = fs::remove_all(zoneDir, ec);
     if (ec) {
         std::fprintf(stderr,
@@ -301,7 +301,7 @@ int handleClearZoneContent(int& i, int argc, char** argv) {
         else if (opt == "--all") {
             wipeCreatures = wipeObjects = wipeQuests = true; ++i;
         }
-        else break;  // unknown flag — stop consuming, surface the error
+        else break;  // unknown flag - stop consuming, surface the error
     }
     if (!wipeCreatures && !wipeObjects && !wipeQuests) {
         std::fprintf(stderr,
@@ -311,7 +311,7 @@ int handleClearZoneContent(int& i, int argc, char** argv) {
     namespace fs = std::filesystem;
     if (!fs::exists(zoneDir + "/zone.json")) {
         std::fprintf(stderr,
-            "clear-zone-content: %s has no zone.json — not a zone dir\n",
+            "clear-zone-content: %s has no zone.json - not a zone dir\n",
             zoneDir.c_str());
         return 1;
     }

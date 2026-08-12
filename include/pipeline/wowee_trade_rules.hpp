@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Trade Window Rules catalog (.wtrd) —
+// Wowee Open Trade Window Rules catalog (.wtrd) -
 // novel replacement for the implicit player-to-player
 // trade policy rules vanilla WoW hardcoded across the
 // trade-window message handlers (CMSG_INITIATE_TRADE,
@@ -33,23 +33,23 @@ namespace pipeline {
 //     ruleId (uint32)
 //     nameLen + name
 //     descLen + description
-//     ruleKind (uint8)            — Allowed / Forbidden /
+//     ruleKind (uint8)            - Allowed / Forbidden /
 //                                    SoulboundException /
 //                                    CrossFactionAllowed /
 //                                    LevelGated /
 //                                    GoldEscrowMax /
 //                                    AuditLogged
-//     targetingFilter (uint8)      — AnyPlayer /
+//     targetingFilter (uint8)      - AnyPlayer /
 //                                    SameRealmOnly /
 //                                    SameFactionOnly /
 //                                    SameAccountOnly /
 //                                    GMOnly
-//     levelRequirement (uint8)     — 0 = no level gate
-//     priority (uint8)             — higher overrides
+//     levelRequirement (uint8)     - 0 = no level gate
+//     priority (uint8)             - higher overrides
 //                                    lower in conflict
-//     itemCategoryFilter (uint32)  — bitmask of
+//     itemCategoryFilter (uint32)  - bitmask of
 //                                    WIT item classes
-//     goldEscrowMaxCopper (uint64) — max gold side for
+//     goldEscrowMaxCopper (uint64) - max gold side for
 //                                    this rule (0 =
 //                                    unlimited)
 //     iconColorRGBA (uint32)
@@ -120,17 +120,17 @@ public:
 
     // Preset emitters used by --gen-trd* variants.
     //
-    //   makeStandard   — 4 standard trade rules
+    //   makeStandard   - 4 standard trade rules
     //                     (Soulbound Forbidden globally,
     //                     Quest items Forbidden, 2hr
     //                     SoulboundException for raid
     //                     drops, SameFactionOnly default).
-    //   makeServerAdmin — 3 server-admin rules (GM-only
+    //   makeServerAdmin - 3 server-admin rules (GM-only
     //                     escrow trade, AccountBound
     //                     own-character transfer, Cross-
     //                     faction at level 80 for custom
     //                     servers).
-    //   makeRMTPrevent — 4 anti-RMT rules (LevelGated 30+
+    //   makeRMTPrevent - 4 anti-RMT rules (LevelGated 30+
     //                     for any gold trade, Gold cap for
     //                     new accounts, AuditLogged for
     //                     all trades > 1000g, mandatory

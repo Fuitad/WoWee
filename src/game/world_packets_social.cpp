@@ -112,19 +112,8 @@ bool MessageChatParser::parse(network::Packet& packet, MessageChatData& data) {
         case ChatType::MONSTER_PARTY:
         case ChatType::RAID_BOSS_EMOTE:
         case ChatType::RAID_BOSS_WHISPER: {
-            // Read sender name (SizedCString: uint32 len including null + chars)
-            uint32_t nameLen = packet.readUInt32();
-            if (nameLen > packet.getRemainingSize()) return false;
-            if (nameLen > 0 && nameLen < 256) {
-                data.senderName.resize(nameLen);
-                for (uint32_t i = 0; i < nameLen; ++i) {
-                    data.senderName[i] = static_cast<char>(packet.readUInt8());
-                }
-                // Strip trailing null (server includes it in nameLen)
-                if (!data.senderName.empty() && data.senderName.back() == '\0') {
-                    data.senderName.pop_back();
-                }
-            }
+            // Length-prefixed, bounds-checked against the packet, terminator stripped.
+            packet.readSizedString(data.senderName);
             // Read receiver GUID (NamedGuid: guid + optional name for non-player targets)
             data.receiverGuid = packet.readUInt64();
             if (data.receiverGuid != 0) {
@@ -175,7 +164,7 @@ bool MessageChatParser::parse(network::Packet& packet, MessageChatData& data) {
         case ChatType::BG_SYSTEM_NEUTRAL:
         case ChatType::BG_SYSTEM_ALLIANCE:
         case ChatType::BG_SYSTEM_HORDE:
-            // BG/Arena system messages — no sender GUID or name field, just message.
+            // BG/Arena system messages - no sender GUID or name field, just message.
             // Reclassify as SYSTEM for consistent display.
             data.type = ChatType::SYSTEM;
             break;
@@ -322,7 +311,7 @@ bool TextEmoteParser::parse(network::Packet& packet, TextEmoteData& data, bool l
     if (nameLen > 0 && nameLen <= 256) {
         data.targetName = packet.readString();
     } else if (nameLen > 0) {
-        // Implausible name length — misaligned read
+        // Implausible name length - misaligned read
         return false;
     }
     return true;
@@ -368,7 +357,7 @@ bool ChannelNotifyParser::parse(network::Packet& packet, ChannelNotifyData& data
 }
 
 // ============================================================
-// Foundation — Targeting, Name Queries
+// Foundation - Targeting, Name Queries
 // ============================================================
 
 network::Packet SetSelectionPacket::build(uint64_t targetGuid) {
@@ -505,13 +494,29 @@ bool FriendStatusParser::parse(network::Packet& packet, FriendStatusData& data) 
 
     data.status = packet.readUInt8();
     data.guid = packet.readUInt64();
-    if (data.status == 1) {  // Online
-        // Conditional: note (string) + chatFlag (1)
-        if (packet.hasData()) {
-            data.note = packet.readString();
-            if (packet.hasRemaining(1)) {
-                data.chatFlag = packet.readUInt8();
-            }
+    // What follows depends on the result, and SocialMgr::SendFriendStatus
+    // writes it in two separate switches rather than one:
+    //
+    //   FRIEND_ADDED_ONLINE / FRIEND_ADDED_OFFLINE  -> the note
+    //   FRIEND_ADDED_ONLINE / FRIEND_ONLINE         -> status, area, level, class
+    //
+    // so an add-while-online carries both, in that order. This used to read a
+    // note and one byte when the result was 1 - which is FRIEND_LIST_FULL and
+    // carries nothing at all - and read nothing for the two results that
+    // actually have a body. A friend coming online brought their area, level
+    // and class every time and none of it was taken.
+    constexpr uint8_t kFriendOnline = 0x02;
+    constexpr uint8_t kFriendAddedOnline = 0x06;
+    constexpr uint8_t kFriendAddedOffline = 0x07;
+    if (data.status == kFriendAddedOnline || data.status == kFriendAddedOffline) {
+        if (packet.hasData()) data.note = packet.readString();
+    }
+    if (data.status == kFriendAddedOnline || data.status == kFriendOnline) {
+        if (packet.hasRemaining(13)) {
+            data.chatFlag = packet.readUInt8();
+            data.areaId = packet.readUInt32();
+            data.level = packet.readUInt32();
+            data.classId = packet.readUInt32();
         }
     }
     LOG_DEBUG("Parsed SMSG_FRIEND_STATUS: status=", static_cast<int>(data.status), " guid=0x", std::hex, data.guid, std::dec);
@@ -781,24 +786,37 @@ network::Packet PetitionShowlistPacket::build(uint64_t npcGuid) {
     return packet;
 }
 
-network::Packet PetitionBuyPacket::build(uint64_t npcGuid, const std::string& guildName) {
+network::Packet PetitionQueryPacket::build(uint32_t petitionId, uint64_t petitionGuid) {
+    network::Packet packet(wireOpcode(Opcode::CMSG_PETITION_QUERY));
+    packet.writeUInt32(petitionId);
+    packet.writeUInt64(petitionGuid);
+    LOG_DEBUG("Built CMSG_PETITION_QUERY: id=", petitionId, " guid=", petitionGuid);
+    return packet;
+}
+
+network::Packet PetitionBuyPacket::build(uint64_t npcGuid, const std::string& guildName,
+                                         uint32_t clientIndex) {
+    // Field for field as HandlePetitionBuyOpcode reads it. The previous layout
+    // wrote a uint32 where the server reads a string, and skipped the ten
+    // strings it reads before the index - so every field after the name was
+    // out of place and clientIndex, which is the whole of what distinguishes a
+    // guild charter from a five-person arena one, came off the end of the
+    // packet.
     network::Packet packet(wireOpcode(Opcode::CMSG_PETITION_BUY));
     packet.writeUInt64(npcGuid);          // NPC GUID
-    packet.writeUInt32(0);                // unk
-    packet.writeUInt64(0);                // unk
-    packet.writeString(guildName);        // guild name
-    packet.writeUInt32(0);                // body text (empty)
-    packet.writeUInt32(0);                // min sigs
-    packet.writeUInt32(0);                // max sigs
-    packet.writeUInt32(0);                // unk
-    packet.writeUInt32(0);                // unk
-    packet.writeUInt32(0);                // unk
-    packet.writeUInt32(0);                // unk
-    packet.writeUInt16(0);                // unk
-    packet.writeUInt32(0);                // unk
-    packet.writeUInt32(0);                // unk index
-    packet.writeUInt32(0);                // unk
-    LOG_DEBUG("Built CMSG_PETITION_BUY: npcGuid=", npcGuid, " name=", guildName);
+    packet.writeUInt32(0);
+    packet.writeUInt64(0);
+    packet.writeString(guildName);        // the name being bought
+    packet.writeString("");               // body text, which the client leaves empty
+    for (int i = 0; i < 7; ++i) packet.writeUInt32(0);
+    packet.writeUInt16(0);
+    for (int i = 0; i < 3; ++i) packet.writeUInt32(0);
+    // Ten signature slots, empty. The server reads them whatever they hold.
+    for (int i = 0; i < 10; ++i) packet.writeString("");
+    packet.writeUInt32(clientIndex);      // 1 = guild, arena slot + 1 otherwise
+    packet.writeUInt32(0);
+    LOG_DEBUG("Built CMSG_PETITION_BUY: npcGuid=", npcGuid, " name=", guildName,
+              " index=", clientIndex);
     return packet;
 }
 
@@ -808,16 +826,29 @@ bool PetitionShowlistParser::parse(network::Packet& packet, PetitionShowlistData
         return false;
     }
     data.npcGuid = packet.readUInt64();
-    uint32_t count = packet.readUInt32();
-    if (count > 0) {
-        data.itemId = packet.readUInt32();
-        data.displayId = packet.readUInt32();
-        data.cost = packet.readUInt32();
-        // Skip unused fields if present
-        if (packet.hasRemaining(8)) {
-            data.charterType = packet.readUInt32();
-            data.requiredSigs = packet.readUInt32();
-        }
+    // One byte, not four. Reading a uint32 here swallowed the count and three
+    // bytes of the first charter's index, so every field after it was three
+    // bytes out of place and the cost this client showed was noise.
+    const uint8_t count = packet.readUInt8();
+    // Six uint32s per charter, the first of which is an index the reader also
+    // did not know was there.
+    for (uint8_t i = 0; i < count && packet.hasRemaining(24); ++i) {
+        PetitionShowlistData::Charter charter;
+        charter.index        = packet.readUInt32();
+        charter.itemId       = packet.readUInt32();
+        charter.displayId    = packet.readUInt32();
+        charter.cost         = packet.readUInt32();
+        charter.unknown      = packet.readUInt32();
+        charter.requiredSigs = packet.readUInt32();
+        data.charters.push_back(charter);
+    }
+    if (!data.charters.empty()) {
+        const auto& first = data.charters.front();
+        data.itemId       = first.itemId;
+        data.displayId    = first.displayId;
+        data.cost         = first.cost;
+        data.charterType  = first.unknown;
+        data.requiredSigs = first.requiredSigs;
     }
     LOG_INFO("Parsed SMSG_PETITION_SHOWLIST: npcGuid=", data.npcGuid, " cost=", data.cost);
     return true;
@@ -890,7 +921,7 @@ bool GuildInfoParser::parse(network::Packet& packet, GuildInfoData& data) {
     data.guildName = packet.readString();
     // One packed uint32, not three. Guild::SendInfo writes the creation date
     // with AppendPackedTime, so reading a day, a month and a year took twelve
-    // bytes where the server sent four — the date was nonsense and the two
+    // bytes where the server sent four - the date was nonsense and the two
     // counts after it were read from the wrong offset as well.
     const WowDate created = unpackWowPackedTime(packet.readUInt32());
     data.creationDay = static_cast<uint32_t>(created.day);
@@ -948,11 +979,13 @@ bool GuildRosterParser::parse(network::Packet& packet, GuildRosterData& data) {
         } else {
             data.ranks[i].goldLimit = packet.readUInt32();
         }
-        // 6 bank tab flags + 6 bank tab items per day
+        // 6 bank tab flags + 6 bank tab items per day. Kept rather than read
+        // past: the guild bank panel asks what this rank may do with each tab,
+        // and the rank editor cannot save without sending them back.
         for (int t = 0; t < 6; ++t) {
             if (!packet.hasRemaining(8)) break;
-            packet.readUInt32(); // tabFlags
-            packet.readUInt32(); // tabItemsPerDay
+            data.ranks[i].bankTabRights[t]      = packet.readUInt32();
+            data.ranks[i].bankTabSlotsPerDay[t] = packet.readUInt32();
         }
     }
 
@@ -1076,9 +1109,18 @@ network::Packet ReadyCheckPacket::build() {
 }
 
 network::Packet ReadyCheckConfirmPacket::build(bool ready) {
-    network::Packet packet(wireOpcode(Opcode::MSG_RAID_READY_CHECK_CONFIRM));
+    // The answer goes back on MSG_RAID_READY_CHECK, the same opcode that asked.
+    // HandleRaidReadyCheckOpcode reads an empty body as "start a ready check"
+    // and a body as "this is my answer", and broadcasts the state it finds.
+    //
+    // MSG_RAID_READY_CHECK_CONFIRM is a real opcode number and the server
+    // registers it Handle_NULL - read and discarded - so answering a ready
+    // check reached nobody. What made that hard to see is that this client
+    // shows its own dialog and clears it on the click, so the answer looked
+    // taken; only the rest of the group could tell it never arrived.
+    network::Packet packet(wireOpcode(Opcode::MSG_RAID_READY_CHECK));
     packet.writeUInt8(ready ? 1 : 0);
-    LOG_DEBUG("Built MSG_RAID_READY_CHECK_CONFIRM: ready=", ready);
+    LOG_DEBUG("Built MSG_RAID_READY_CHECK answer: ready=", ready);
     return packet;
 }
 
@@ -1109,6 +1151,29 @@ network::Packet GroupUninvitePacket::build(const std::string& playerName) {
     return packet;
 }
 
+network::Packet GuildBankSetTabTextPacket::build(uint8_t tab, const std::string& text) {
+    network::Packet packet(wireOpcode(Opcode::CMSG_SET_GUILD_BANK_TEXT));
+    packet.writeUInt8(tab);
+    packet.writeString(text);
+    return packet;
+}
+
+network::Packet ChannelModerationPacket::build(Opcode op,
+                                              const std::string& channelName,
+                                              const std::string& targetName) {
+    network::Packet packet(wireOpcode(op));
+    packet.writeString(channelName);
+    packet.writeString(targetName);
+    return packet;
+}
+
+network::Packet GroupSetLeaderPacket::build(uint64_t guid) {
+    network::Packet packet(wireOpcode(Opcode::CMSG_GROUP_SET_LEADER));
+    packet.writeUInt64(guid);
+    LOG_DEBUG("Built CMSG_GROUP_SET_LEADER for guid: 0x", std::hex, guid, std::dec);
+    return packet;
+}
+
 network::Packet GroupDisbandPacket::build() {
     network::Packet packet(wireOpcode(Opcode::CMSG_GROUP_DISBAND));
     LOG_DEBUG("Built CMSG_GROUP_DISBAND");
@@ -1123,7 +1188,7 @@ network::Packet GroupRaidConvertPacket::build() {
 
 network::Packet SetLootMethodPacket::build(uint32_t method, uint32_t threshold, uint64_t masterLooterGuid) {
     network::Packet packet(wireOpcode(Opcode::CMSG_LOOT_METHOD));
-    // Method, master looter, threshold — in that order.
+    // Method, master looter, threshold - in that order.
     // HandleLootMethodOpcode reads `lootMethod >> lootMaster >> lootThreshold`,
     // and the threshold was being written where the guid goes: the server took
     // the threshold and the low half of the guid as the master looter, and the
@@ -1151,7 +1216,7 @@ bool RaidTargetUpdateParser::parse(network::Packet& packet, RaidTargetUpdateData
 
     const uint8_t type = packet.readUInt8();
     if (type == 1) {
-        // Full list — variable length, only the icons that are set.
+        // Full list - variable length, only the icons that are set.
         data.fullList = true;
         while (packet.hasRemaining(9)) {
             const uint8_t  icon = packet.readUInt8();
@@ -1166,7 +1231,7 @@ bool RaidTargetUpdateParser::parse(network::Packet& packet, RaidTargetUpdateData
     // needed and a server that differs from its era still decodes.
     const size_t remaining = packet.getRemainingSize();
     if (remaining >= 17) {
-        packet.readUInt64();  // whoGuid — who placed the mark, not needed
+        packet.readUInt64();  // whoGuid - who placed the mark, not needed
     } else if (remaining < 9) {
         return false;
     }
@@ -1230,7 +1295,13 @@ network::Packet ClearTradeItemPacket::build(uint8_t tradeSlot) {
 
 network::Packet SetTradeGoldPacket::build(uint64_t copper) {
     network::Packet packet(wireOpcode(Opcode::CMSG_SET_TRADE_GOLD));
-    packet.writeUInt64(copper);
+    // HandleSetTradeGoldOpcode reads a uint32. This wrote eight bytes, and it
+    // worked only because little-endian puts the value in the low four - the
+    // other four went along as trailing rubbish the server logs and ignores.
+    // Money is a uint32 of copper everywhere in 3.3.5, so nothing is lost by
+    // saying so; the clamp is there to say it rather than to rely on it.
+    packet.writeUInt32(static_cast<uint32_t>(
+        std::min<uint64_t>(copper, 0xFFFFFFFFull)));
     LOG_DEBUG("Built CMSG_SET_TRADE_GOLD copper=", copper);
     return packet;
 }

@@ -1,4 +1,6 @@
 #include "cli_buff_book_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -18,11 +20,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWbabExt(std::string base) {
-    stripExt(base, ".wbab");
-    return base;
-}
 
 const char* statBonusKindName(uint8_t k) {
     using B = wowee::pipeline::WoweeBuffBook;
@@ -57,15 +54,6 @@ std::string targetMaskString(uint8_t m) {
     return out;
 }
 
-bool saveOrError(const wowee::pipeline::WoweeBuffBook& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeBuffBookLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wbab\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeBuffBook& c,
                      const std::string& base) {
@@ -78,9 +66,9 @@ int handleGenMage(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "MageBuffBook";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWbabExt(base);
+    base = cli::withoutExt(base, ".wbab");
     auto c = wowee::pipeline::WoweeBuffBookLoader::makeMage(name);
-    if (!saveOrError(c, base, "gen-bab")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeBuffBookLoader>(c, base, "gen-bab", ".wbab")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -89,9 +77,9 @@ int handleGenDruid(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "DruidBuffBook";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWbabExt(base);
+    base = cli::withoutExt(base, ".wbab");
     auto c = wowee::pipeline::WoweeBuffBookLoader::makeDruid(name);
-    if (!saveOrError(c, base, "gen-bab-druid")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeBuffBookLoader>(c, base, "gen-bab-druid", ".wbab")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -100,9 +88,9 @@ int handleGenRaidMax(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "RaidMaxBuffs";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWbabExt(base);
+    base = cli::withoutExt(base, ".wbab");
     auto c = wowee::pipeline::WoweeBuffBookLoader::makeRaidMax(name);
-    if (!saveOrError(c, base, "gen-bab-raid")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeBuffBookLoader>(c, base, "gen-bab-raid", ".wbab")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -110,10 +98,9 @@ int handleGenRaidMax(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWbabExt(base);
+    base = cli::withoutExt(base, ".wbab");
     if (!wowee::pipeline::WoweeBuffBookLoader::exists(base)) {
-        std::fprintf(stderr, "WBAB not found: %s.wbab\n", base.c_str());
-        return 1;
+        return reportMissing("WBAB", base, ".wbab");
     }
     auto c = wowee::pipeline::WoweeBuffBookLoader::load(base);
     if (jsonOut) {
@@ -210,13 +197,10 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWbabExt(base);
+    base = cli::withoutExt(base, ".wbab");
     if (out.empty()) out = base + ".wbab.json";
     if (!wowee::pipeline::WoweeBuffBookLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wbab-json: WBAB not found: %s.wbab\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wbab-json", "WBAB", base, ".wbab");
     }
     auto c = wowee::pipeline::WoweeBuffBookLoader::load(base);
     nlohmann::json j;
@@ -263,16 +247,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wbab.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wbab");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wbab");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,
@@ -374,12 +349,9 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWbabExt(base);
+    base = cli::withoutExt(base, ".wbab");
     if (!wowee::pipeline::WoweeBuffBookLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wbab: WBAB not found: %s.wbab\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wbab", "WBAB", base, ".wbab");
     }
     auto c = wowee::pipeline::WoweeBuffBookLoader::load(base);
     std::vector<std::string> errors;
@@ -400,17 +372,17 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": name is empty");
         if (e.spellId == 0) {
             errors.push_back(ctx +
-                ": spellId is 0 — buff has no spell to "
+                ": spellId is 0 - buff has no spell to "
                 "cast");
         }
         if (e.castClassMask == 0) {
             errors.push_back(ctx +
-                ": castClassMask is 0 — no class can cast "
+                ": castClassMask is 0 - no class can cast "
                 "this buff");
         }
         if (e.targetTypeMask == 0) {
             errors.push_back(ctx +
-                ": targetTypeMask is 0 — buff has no valid "
+                ": targetTypeMask is 0 - buff has no valid "
                 "targets");
         }
         if (e.statBonusKind > 9 && e.statBonusKind != 255) {
@@ -420,24 +392,24 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         if (e.rank == 0) {
             warnings.push_back(ctx +
-                ": rank is 0 — ranks are 1-indexed; rank 0 "
+                ": rank is 0 - ranks are 1-indexed; rank 0 "
                 "may sort unexpectedly in spellbook UI");
         }
         if (e.maxStackCount == 0) {
             warnings.push_back(ctx +
-                ": maxStackCount=0 — buff cannot be applied "
+                ": maxStackCount=0 - buff cannot be applied "
                 "(zero stack ceiling)");
         }
         // Self-reference check: an entry's own id should
         // never appear in its own next/previous fields.
         if (e.previousRankId == e.buffId) {
             errors.push_back(ctx +
-                ": previousRankId equals buffId — would "
+                ": previousRankId equals buffId - would "
                 "create a 1-element rank cycle");
         }
         if (e.nextRankId == e.buffId) {
             errors.push_back(ctx +
-                ": nextRankId equals buffId — would create "
+                ": nextRankId equals buffId - would create "
                 "a 1-element rank cycle");
         }
         if (!idsSeen.insert(e.buffId).second) {
@@ -491,34 +463,9 @@ int handleValidate(int& i, int argc, char** argv) {
             }
         }
     }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wbab"] = base + ".wbab";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wbab: %s.wbab\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu buffs, all buffIds unique, "
-                    "rank chain back-edges symmetric\n",
-                    c.entries.size());
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+    return cli::reportValidation("wbab", base, jsonOut, errors, warnings,
+                                 formatted("%zu buffs, all buffIds unique, "
+                    "rank chain back-edges symmetric", c.entries.size()));
 }
 
 } // namespace

@@ -29,7 +29,7 @@ int handleRandomPopulateZone(int& i, int argc, char** argv) {
     // Randomly add creatures and/or objects to a zone for
     // playtest scenarios. Reads the zone manifest's tile
     // bounds so spawn positions stay inside the actual
-    // playable area. Seeded LCG for reproducibility — same
+    // playable area. Seeded LCG for reproducibility - same
     // seed always produces the same population.
     //
     // Flags:

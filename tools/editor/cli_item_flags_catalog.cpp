@@ -1,4 +1,6 @@
 #include "cli_item_flags_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -19,20 +21,6 @@ namespace cli {
 
 namespace {
 
-std::string stripWifsExt(std::string base) {
-    stripExt(base, ".wifs");
-    return base;
-}
-
-bool saveOrError(const wowee::pipeline::WoweeItemFlags& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeItemFlagsLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wifs\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeItemFlags& c,
                      const std::string& base) {
@@ -45,9 +33,9 @@ int handleGenStandard(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StandardItemFlags";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWifsExt(base);
+    base = cli::withoutExt(base, ".wifs");
     auto c = wowee::pipeline::WoweeItemFlagsLoader::makeStandard(name);
-    if (!saveOrError(c, base, "gen-ifs")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeItemFlagsLoader>(c, base, "gen-ifs", ".wifs")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -56,9 +44,9 @@ int handleGenBinding(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "BindingItemFlags";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWifsExt(base);
+    base = cli::withoutExt(base, ".wifs");
     auto c = wowee::pipeline::WoweeItemFlagsLoader::makeBinding(name);
-    if (!saveOrError(c, base, "gen-ifs-binding")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeItemFlagsLoader>(c, base, "gen-ifs-binding", ".wifs")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -67,9 +55,9 @@ int handleGenServer(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "ServerCustomItemFlags";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWifsExt(base);
+    base = cli::withoutExt(base, ".wifs");
     auto c = wowee::pipeline::WoweeItemFlagsLoader::makeServer(name);
-    if (!saveOrError(c, base, "gen-ifs-server")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeItemFlagsLoader>(c, base, "gen-ifs-server", ".wifs")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -77,10 +65,9 @@ int handleGenServer(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWifsExt(base);
+    base = cli::withoutExt(base, ".wifs");
     if (!wowee::pipeline::WoweeItemFlagsLoader::exists(base)) {
-        std::fprintf(stderr, "WIFS not found: %s.wifs\n", base.c_str());
-        return 1;
+        return reportMissing("WIFS", base, ".wifs");
     }
     auto c = wowee::pipeline::WoweeItemFlagsLoader::load(base);
     if (jsonOut) {
@@ -124,12 +111,9 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWifsExt(base);
+    base = cli::withoutExt(base, ".wifs");
     if (!wowee::pipeline::WoweeItemFlagsLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wifs-json: WIFS not found: %s.wifs\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wifs-json", "WIFS", base, ".wifs");
     }
     auto c = wowee::pipeline::WoweeItemFlagsLoader::load(base);
     if (outPath.empty()) outPath = base + ".wifs.json";
@@ -231,21 +215,8 @@ int handleImportJson(int& i, int argc, char** argv) {
             c.entries.push_back(e);
         }
     }
-    if (outBase.empty()) {
-        outBase = jsonPath;
-        const std::string suffix1 = ".wifs.json";
-        const std::string suffix2 = ".json";
-        if (outBase.size() >= suffix1.size() &&
-            outBase.compare(outBase.size() - suffix1.size(),
-                            suffix1.size(), suffix1) == 0) {
-            outBase.resize(outBase.size() - suffix1.size());
-        } else if (outBase.size() >= suffix2.size() &&
-                   outBase.compare(outBase.size() - suffix2.size(),
-                                   suffix2.size(), suffix2) == 0) {
-            outBase.resize(outBase.size() - suffix2.size());
-        }
-    }
-    outBase = stripWifsExt(outBase);
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(jsonPath, ".wifs");
+    outBase = cli::withoutExt(outBase, ".wifs");
     if (!wowee::pipeline::WoweeItemFlagsLoader::save(c, outBase)) {
         std::fprintf(stderr,
             "import-wifs-json: failed to save %s.wifs\n",
@@ -259,100 +230,59 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWifsExt(base);
-    if (!wowee::pipeline::WoweeItemFlagsLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wifs: WIFS not found: %s.wifs\n", base.c_str());
-        return 1;
-    }
-    auto c = wowee::pipeline::WoweeItemFlagsLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    std::vector<uint32_t> idsSeen;
-    std::vector<uint32_t> bitsSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.flagId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.flagId == 0)
-            errors.push_back(ctx + ": flagId is 0");
-        if (e.name.empty())
-            errors.push_back(ctx + ": name is empty");
-        if (e.flagKind > wowee::pipeline::WoweeItemFlags::Misc) {
-            errors.push_back(ctx + ": flagKind " +
-                std::to_string(e.flagKind) + " not in 0..6");
-        }
-        if (e.bitMask == 0) {
-            errors.push_back(ctx +
-                ": bitMask is 0 — flag will never match anything");
-        }
-        // bitMask should typically be a single bit (power
-        // of 2). Multi-bit masks are valid but unusual —
-        // warn so author can confirm.
-        if (e.bitMask != 0 && (e.bitMask & (e.bitMask - 1)) != 0) {
-            warnings.push_back(ctx +
-                ": bitMask 0x" + std::to_string(e.bitMask) +
-                " is not a single bit (multi-bit flags are "
-                "unusual; usually you want one of the "
-                "individual bits)");
-        }
-        for (uint32_t prev : idsSeen) {
-            if (prev == e.flagId) {
-                errors.push_back(ctx + ": duplicate flagId");
-                break;
+    return cli::validateCatalog<wowee::pipeline::WoweeItemFlagsLoader>(
+        i, argc, argv, "wifs", "WIFS",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        std::vector<uint32_t> bitsSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.flagId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.flagId == 0)
+                errors.push_back(ctx + ": flagId is 0");
+            if (e.name.empty())
+                errors.push_back(ctx + ": name is empty");
+            if (e.flagKind > wowee::pipeline::WoweeItemFlags::Misc) {
+                errors.push_back(ctx + ": flagKind " +
+                    std::to_string(e.flagKind) + " not in 0..6");
             }
-        }
-        idsSeen.push_back(e.flagId);
-        // Two flags claiming the same bit is a serious
-        // collision — engine would only match the first
-        // entry's name when decoding.
-        if (e.bitMask != 0) {
-            for (uint32_t prevBit : bitsSeen) {
-                if (prevBit == e.bitMask) {
-                    errors.push_back(ctx +
-                        ": duplicate bitMask 0x" +
-                        std::to_string(e.bitMask) +
-                        " — collides with another entry");
-                    break;
+            if (e.bitMask == 0) {
+                errors.push_back(ctx +
+                    ": bitMask is 0 - flag will never match anything");
+            }
+            // bitMask should typically be a single bit (power
+            // of 2). Multi-bit masks are valid but unusual -
+            // warn so author can confirm.
+            if (e.bitMask != 0 && (e.bitMask & (e.bitMask - 1)) != 0) {
+                warnings.push_back(ctx +
+                    ": bitMask 0x" + std::to_string(e.bitMask) +
+                    " is not a single bit (multi-bit flags are "
+                    "unusual; usually you want one of the "
+                    "individual bits)");
+            }
+            if (!idsSeen.add(e.flagId)) errors.push_back(ctx + ": duplicate flagId");
+            // Two flags claiming the same bit is a serious
+            // collision - engine would only match the first
+            // entry's name when decoding.
+            if (e.bitMask != 0) {
+                for (uint32_t prevBit : bitsSeen) {
+                    if (prevBit == e.bitMask) {
+                        errors.push_back(ctx +
+                            ": duplicate bitMask 0x" +
+                            std::to_string(e.bitMask) +
+                            " - collides with another entry");
+                        break;
+                    }
                 }
+                bitsSeen.push_back(e.bitMask);
             }
-            bitsSeen.push_back(e.bitMask);
         }
-    }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wifs"] = base + ".wifs";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wifs: %s.wifs\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu flags, all flagIds + bitMasks unique\n",
-                    c.entries.size());
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+            return formatted("%zu flags, all flagIds + bitMasks unique", c.entries.size());
+        });
 }
 
 } // namespace

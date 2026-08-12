@@ -186,7 +186,7 @@ bool Inventory::addItem(const ItemDef& item) {
                 uint32_t toAdd = std::min(space, item.stackCount);
                 backpack[i].item.stackCount += toAdd;
                 if (toAdd >= item.stackCount) return true;
-                // Remaining needs a new slot — fall through
+                // Remaining needs a new slot - fall through
             }
         }
     }
@@ -285,6 +285,30 @@ std::vector<Inventory::SwapOp> Inventory::mergeBankPartialStacks(int mainSlotCou
     return mergeEntries(entries);
 }
 
+namespace {
+
+/// How a sorted bag, bank or bank bag is ordered.
+///
+/// Quality first and descending, so the good things are at the top; then item
+/// id, which keeps a kind of item together and in a stable order the server
+/// agrees with; then the larger stack first, so a part-stack sits below the
+/// full one it will be merged into.
+///
+/// Written out three times before this - sortBags, sortBank and sortBankBag -
+/// and two of the three carried a comment saying "same ordering as sortBags",
+/// which is the rule admitting it has one owner and three copies. A bank that
+/// sorted differently from a bag would not fail anything; it would just be
+/// wrong in a way only a player notices.
+bool itemSortsBefore(const ItemDef& a, const ItemDef& b) {
+    if (a.quality != b.quality) {
+        return static_cast<int>(a.quality) > static_cast<int>(b.quality);
+    }
+    if (a.itemId != b.itemId) return a.itemId < b.itemId;
+    return a.stackCount > b.stackCount;
+}
+
+}  // namespace
+
 void Inventory::sortBags() {
     // Collect all items from backpack and equip bags into a flat list.
     std::vector<ItemDef> items;
@@ -302,14 +326,7 @@ void Inventory::sortBags() {
         }
     }
 
-    // Sort: quality descending → itemId ascending → stackCount descending.
-    std::stable_sort(items.begin(), items.end(), [](const ItemDef& a, const ItemDef& b) {
-        if (a.quality != b.quality)
-            return static_cast<int>(a.quality) > static_cast<int>(b.quality);
-        if (a.itemId != b.itemId)
-            return a.itemId < b.itemId;
-        return a.stackCount > b.stackCount;
-    });
+    std::stable_sort(items.begin(), items.end(), itemSortsBefore);
 
     // Write sorted items back, filling backpack first then equip bags.
     int idx = 0;
@@ -325,18 +342,58 @@ void Inventory::sortBags() {
     }
 }
 
+std::vector<Inventory::SwapOp> Inventory::swapsToSort(
+        const std::vector<SortEntry>& entries) {
+    const int n = static_cast<int>(entries.size());
+
+    // sortedIdx[target] is the entry that should end up at position target.
+    std::vector<int> sortedIdx(n);
+    for (int i = 0; i < n; ++i) sortedIdx[i] = i;
+    std::stable_sort(sortedIdx.begin(), sortedIdx.end(), [&](int a, int b) {
+        const bool aEmpty = (entries[a].itemId == 0);
+        const bool bEmpty = (entries[b].itemId == 0);
+        if (aEmpty != bEmpty) return bEmpty;   // non-empty before empty
+        if (aEmpty) return false;              // both empty: leave them be
+        if (entries[a].quality != entries[b].quality)
+            return static_cast<int>(entries[a].quality) > static_cast<int>(entries[b].quality);
+        if (entries[a].itemId != entries[b].itemId)
+            return entries[a].itemId < entries[b].itemId;
+        return entries[a].stackCount > entries[b].stackCount;
+    });
+
+    // Selection-sort style: walk the targets in order and swap whatever is
+    // sitting there with the entry that belongs, keeping track of where
+    // everything has moved to.
+    //
+    // posOf[i] is where entry i is now; invPos[p] is which entry is at p.
+    std::vector<int> posOf(n);
+    std::vector<int> invPos(n);
+    for (int i = 0; i < n; ++i) posOf[i] = i;
+    for (int i = 0; i < n; ++i) invPos[i] = i;
+
+    std::vector<SwapOp> swaps;
+    for (int target = 0; target < n; ++target) {
+        const int need = sortedIdx[target];
+        const int cur = invPos[target];
+        if (cur == need) continue;
+        if (entries[cur].itemId == 0 && entries[need].itemId == 0) continue;
+
+        const int srcPos = posOf[need];
+        swaps.push_back({entries[srcPos].bag, entries[srcPos].slot,
+                         entries[target].bag, entries[target].slot});
+
+        posOf[cur] = srcPos;
+        posOf[need] = target;
+        invPos[srcPos] = cur;
+        invPos[target] = need;
+    }
+    return swaps;
+}
+
 std::vector<Inventory::SwapOp> Inventory::computeSortSwaps() const {
     // Build a flat list of (bag, slot, item) entries matching the same traversal
     // order as sortBags(): backpack first, then equip bags in order.
-    struct Entry {
-        uint8_t bag;   // WoW bag address: 0xFF=backpack, 19+i=equip bag i
-        uint8_t slot;  // WoW slot address: 23+i for backpack, slotIndex for bags
-        uint32_t itemId;
-        ItemQuality quality;
-        uint32_t stackCount;
-    };
-
-    std::vector<Entry> entries;
+    std::vector<SortEntry> entries;
     entries.reserve(BACKPACK_SLOTS + NUM_BAG_SLOTS * MAX_BAG_SIZE);
 
     for (int i = 0; i < BACKPACK_SLOTS; ++i) {
@@ -345,71 +402,16 @@ std::vector<Inventory::SwapOp> Inventory::computeSortSwaps() const {
                            backpack[i].item.stackCount});
     }
     for (int b = 0; b < NUM_BAG_SLOTS; ++b) {
-        if (bags[b].special) continue;  // must match sortBags(): never touch restricted bags
+        if (bags[b].special) continue;  // must match sortBags(): quivers keep their contents
         for (int s = 0; s < bags[b].size; ++s) {
-            entries.push_back({static_cast<uint8_t>(FIRST_BAG_EQUIP_SLOT + b), static_cast<uint8_t>(s),
+            entries.push_back({static_cast<uint8_t>(FIRST_BAG_EQUIP_SLOT + b),
+                               static_cast<uint8_t>(s),
                                bags[b].slots[s].item.itemId, bags[b].slots[s].item.quality,
                                bags[b].slots[s].item.stackCount});
         }
     }
 
-    // Build a sorted index array using the same comparator as sortBags().
-    int n = static_cast<int>(entries.size());
-    std::vector<int> sortedIdx(n);
-    for (int i = 0; i < n; ++i) sortedIdx[i] = i;
-
-    // Separate non-empty items and empty slots, then sort the non-empty items.
-    // Items are sorted by quality desc -> itemId asc -> stackCount desc.
-    // Empty slots go to the end.
-    std::stable_sort(sortedIdx.begin(), sortedIdx.end(), [&](int a, int b) {
-        bool aEmpty = (entries[a].itemId == 0);
-        bool bEmpty = (entries[b].itemId == 0);
-        if (aEmpty != bEmpty) return bEmpty; // non-empty before empty
-        if (aEmpty) return false; // both empty: preserve order
-        // Both non-empty: same comparator as sortBags()
-        if (entries[a].quality != entries[b].quality)
-            return static_cast<int>(entries[a].quality) > static_cast<int>(entries[b].quality);
-        if (entries[a].itemId != entries[b].itemId)
-            return entries[a].itemId < entries[b].itemId;
-        return entries[a].stackCount > entries[b].stackCount;
-    });
-
-    // sortedIdx[targetPos] = sourcePos means the item currently at sourcePos
-    // needs to end up at targetPos.  We use selection-sort-style swaps to
-    // permute current positions into sorted order, tracking where items move.
-
-    // posOf[i] = current position of the item that was originally at index i
-    std::vector<int> posOf(n);
-    for (int i = 0; i < n; ++i) posOf[i] = i;
-
-    // invPos[p] = which original item index is currently sitting at position p
-    std::vector<int> invPos(n);
-    for (int i = 0; i < n; ++i) invPos[i] = i;
-
-    std::vector<SwapOp> swaps;
-
-    for (int target = 0; target < n; ++target) {
-        int need = sortedIdx[target]; // original index that should be at 'target'
-        int cur = invPos[target];     // original index currently at 'target'
-        if (cur == need) continue;    // already in place
-
-        // Skip swaps between two empty slots
-        if (entries[cur].itemId == 0 && entries[need].itemId == 0) continue;
-
-        int srcPos = posOf[need]; // current position of the item we need
-
-        // Emit a swap between position srcPos and position target
-        swaps.push_back({entries[srcPos].bag, entries[srcPos].slot,
-                         entries[target].bag, entries[target].slot});
-
-        // Update tracking arrays
-        posOf[cur] = srcPos;
-        posOf[need] = target;
-        invPos[srcPos] = cur;
-        invPos[target] = need;
-    }
-
-    return swaps;
+    return swapsToSort(entries);
 }
 
 void Inventory::sortBank(int mainSlotCount) {
@@ -432,14 +434,7 @@ void Inventory::sortBank(int mainSlotCount) {
         }
     }
 
-    // Same ordering as sortBags(): quality desc → itemId asc → stackCount desc.
-    std::stable_sort(items.begin(), items.end(), [](const ItemDef& a, const ItemDef& b) {
-        if (a.quality != b.quality)
-            return static_cast<int>(a.quality) > static_cast<int>(b.quality);
-        if (a.itemId != b.itemId)
-            return a.itemId < b.itemId;
-        return a.stackCount > b.stackCount;
-    });
+    std::stable_sort(items.begin(), items.end(), itemSortsBefore);
 
     // Write sorted items back, filling main bank first then bank bags.
     int idx = 0;
@@ -461,15 +456,7 @@ std::vector<Inventory::SwapOp> Inventory::computeBankSortSwaps(int mainSlotCount
 
     // Build a flat list matching the same traversal order as sortBank():
     // main bank slots first, then bank bag contents in order.
-    struct Entry {
-        uint8_t bag;   // WoW bag address: 0xFF=main bank, BANK_BAG_CONTAINER_START+b=bank bag b
-        uint8_t slot;  // WoW slot address: BANK_SLOT_START+i for main bank, slotIndex for bags
-        uint32_t itemId;
-        ItemQuality quality;
-        uint32_t stackCount;
-    };
-
-    std::vector<Entry> entries;
+    std::vector<SortEntry> entries;
     entries.reserve(BANK_SLOTS + BANK_BAG_SLOTS * MAX_BAG_SIZE);
 
     for (int i = 0; i < mainSlotCount; ++i) {
@@ -480,61 +467,19 @@ std::vector<Inventory::SwapOp> Inventory::computeBankSortSwaps(int mainSlotCount
     for (int b = 0; b < BANK_BAG_SLOTS; ++b) {
         if (bankBags_[b].special) continue;  // must match sortBank(): never touch restricted bags
         for (int s = 0; s < bankBags_[b].size; ++s) {
-            entries.push_back({static_cast<uint8_t>(BANK_BAG_CONTAINER_START + b), static_cast<uint8_t>(s),
-                               bankBags_[b].slots[s].item.itemId, bankBags_[b].slots[s].item.quality,
+            entries.push_back({static_cast<uint8_t>(BANK_BAG_CONTAINER_START + b),
+                               static_cast<uint8_t>(s),
+                               bankBags_[b].slots[s].item.itemId,
+                               bankBags_[b].slots[s].item.quality,
                                bankBags_[b].slots[s].item.stackCount});
         }
     }
 
-    int n = static_cast<int>(entries.size());
-    std::vector<int> sortedIdx(n);
-    for (int i = 0; i < n; ++i) sortedIdx[i] = i;
-
-    // Non-empty items sort by quality desc → itemId asc → stackCount desc; empties go to the end.
-    std::stable_sort(sortedIdx.begin(), sortedIdx.end(), [&](int a, int b) {
-        bool aEmpty = (entries[a].itemId == 0);
-        bool bEmpty = (entries[b].itemId == 0);
-        if (aEmpty != bEmpty) return bEmpty; // non-empty before empty
-        if (aEmpty) return false;            // both empty: preserve order
-        if (entries[a].quality != entries[b].quality)
-            return static_cast<int>(entries[a].quality) > static_cast<int>(entries[b].quality);
-        if (entries[a].itemId != entries[b].itemId)
-            return entries[a].itemId < entries[b].itemId;
-        return entries[a].stackCount > entries[b].stackCount;
-    });
-
-    // Selection-sort-style permutation into sorted order, tracking where items move.
-    std::vector<int> posOf(n);
-    for (int i = 0; i < n; ++i) posOf[i] = i;
-    std::vector<int> invPos(n);
-    for (int i = 0; i < n; ++i) invPos[i] = i;
-
-    std::vector<SwapOp> swaps;
-
-    for (int target = 0; target < n; ++target) {
-        int need = sortedIdx[target]; // original index that should be at 'target'
-        int cur = invPos[target];     // original index currently at 'target'
-        if (cur == need) continue;    // already in place
-
-        // Skip swaps between two empty slots
-        if (entries[cur].itemId == 0 && entries[need].itemId == 0) continue;
-
-        int srcPos = posOf[need]; // current position of the item we need
-
-        swaps.push_back({entries[srcPos].bag, entries[srcPos].slot,
-                         entries[target].bag, entries[target].slot});
-
-        posOf[cur] = srcPos;
-        posOf[need] = target;
-        invPos[srcPos] = cur;
-        invPos[target] = need;
-    }
-
-    return swaps;
+    return swapsToSort(entries);
 }
 
 // Sort one bank bag in place. sortBank() pools every item into the main slots,
-// which destroys a bag being used as a deliberate category — a bag of herbs
+// which destroys a bag being used as a deliberate category - a bag of herbs
 // stays a bag of herbs, just in order.
 void Inventory::sortBankBag(int bagIndex) {
     if (bagIndex < 0 || bagIndex >= BANK_BAG_SLOTS) return;
@@ -547,14 +492,7 @@ void Inventory::sortBankBag(int bagIndex) {
         if (!bag.slots[s].empty()) items.push_back(bag.slots[s].item);
     }
 
-    // Same ordering as sortBags(): quality desc → itemId asc → stackCount desc.
-    std::stable_sort(items.begin(), items.end(), [](const ItemDef& a, const ItemDef& b) {
-        if (a.quality != b.quality)
-            return static_cast<int>(a.quality) > static_cast<int>(b.quality);
-        if (a.itemId != b.itemId)
-            return a.itemId < b.itemId;
-        return a.stackCount > b.stackCount;
-    });
+    std::stable_sort(items.begin(), items.end(), itemSortsBefore);
 
     int idx = 0;
     const int n = static_cast<int>(items.size());
@@ -568,199 +506,16 @@ std::vector<Inventory::SwapOp> Inventory::computeBankBagSortSwaps(int bagIndex) 
     const BagData& bag = bankBags_[bagIndex];
     if (bag.special) return swaps;  // must match sortBankBag(): never touch restricted bags
 
-    struct Entry {
-        uint8_t slot;
-        uint32_t itemId;
-        ItemQuality quality;
-        uint32_t stackCount;
-    };
-
-    std::vector<Entry> entries;
+    const uint8_t bagAddr = static_cast<uint8_t>(BANK_BAG_CONTAINER_START + bagIndex);
+    std::vector<SortEntry> entries;
     entries.reserve(static_cast<size_t>(bag.size));
     for (int s = 0; s < bag.size; ++s) {
-        entries.push_back({static_cast<uint8_t>(s), bag.slots[s].item.itemId,
+        entries.push_back({bagAddr, static_cast<uint8_t>(s), bag.slots[s].item.itemId,
                            bag.slots[s].item.quality, bag.slots[s].item.stackCount});
     }
 
-    const int n = static_cast<int>(entries.size());
-    std::vector<int> sortedIdx(n);
-    for (int i = 0; i < n; ++i) sortedIdx[i] = i;
-
-    // Non-empty items sort by quality desc → itemId asc → stackCount desc; empties go to the end.
-    std::stable_sort(sortedIdx.begin(), sortedIdx.end(), [&](int a, int b) {
-        const bool aEmpty = (entries[a].itemId == 0);
-        const bool bEmpty = (entries[b].itemId == 0);
-        if (aEmpty != bEmpty) return bEmpty;
-        if (aEmpty) return false;
-        if (entries[a].quality != entries[b].quality)
-            return static_cast<int>(entries[a].quality) > static_cast<int>(entries[b].quality);
-        if (entries[a].itemId != entries[b].itemId)
-            return entries[a].itemId < entries[b].itemId;
-        return entries[a].stackCount > entries[b].stackCount;
-    });
-
-    const uint8_t bagAddr = static_cast<uint8_t>(BANK_BAG_CONTAINER_START + bagIndex);
-
-    std::vector<int> posOf(n);
-    for (int i = 0; i < n; ++i) posOf[i] = i;
-    std::vector<int> invPos(n);
-    for (int i = 0; i < n; ++i) invPos[i] = i;
-
-    for (int target = 0; target < n; ++target) {
-        const int need = sortedIdx[target];
-        const int cur = invPos[target];
-        if (cur == need) continue;
-        if (entries[cur].itemId == 0 && entries[need].itemId == 0) continue;
-
-        const int srcPos = posOf[need];
-        swaps.push_back({bagAddr, entries[srcPos].slot, bagAddr, entries[target].slot});
-
-        posOf[cur] = srcPos;
-        posOf[need] = target;
-        invPos[srcPos] = cur;
-        invPos[target] = need;
-    }
-
-    return swaps;
+    return swapsToSort(entries);
 }
-
-void Inventory::populateTestItems() {
-    // Equipment
-    {
-        ItemDef sword;
-        sword.itemId = 25;
-        sword.name = "Worn Shortsword";
-        sword.quality = ItemQuality::COMMON;
-        sword.inventoryType = 21; // Main Hand
-        sword.strength = 1;
-        sword.displayInfoId = 1542;    // Sword_1H_Short_A_02.m2
-        sword.subclassName = "Sword";
-        setEquipSlot(EquipSlot::MAIN_HAND, sword);
-    }
-    {
-        ItemDef shield;
-        shield.itemId = 2129;
-        shield.name = "Large Round Shield";
-        shield.quality = ItemQuality::COMMON;
-        shield.inventoryType = 14; // Off Hand (Shield)
-        shield.armor = 18;
-        shield.stamina = 1;
-        shield.displayInfoId = 18662;  // Shield_Round_A_01.m2
-        shield.subclassName = "Shield";
-        setEquipSlot(EquipSlot::OFF_HAND, shield);
-    }
-    // Shirt/pants/boots in backpack (character model renders bare geosets)
-    {
-        ItemDef shirt;
-        shirt.itemId = 38;
-        shirt.name = "Recruit's Shirt";
-        shirt.quality = ItemQuality::COMMON;
-        shirt.inventoryType = 4; // Shirt
-        shirt.displayInfoId = 2163;
-        addItem(shirt);
-    }
-    {
-        ItemDef pants;
-        pants.itemId = 39;
-        pants.name = "Recruit's Pants";
-        pants.quality = ItemQuality::COMMON;
-        pants.inventoryType = 7; // Legs
-        pants.armor = 4;
-        pants.displayInfoId = 1883;
-        addItem(pants);
-    }
-    {
-        ItemDef boots;
-        boots.itemId = 40;
-        boots.name = "Recruit's Boots";
-        boots.quality = ItemQuality::COMMON;
-        boots.inventoryType = 8; // Feet
-        boots.armor = 3;
-        boots.displayInfoId = 2166;
-        addItem(boots);
-    }
-
-    // Backpack items
-    {
-        ItemDef potion;
-        potion.itemId = 118;
-        potion.name = "Minor Healing Potion";
-        potion.quality = ItemQuality::COMMON;
-        potion.stackCount = 3;
-        potion.maxStack = 5;
-        addItem(potion);
-    }
-    {
-        ItemDef hearthstone;
-        hearthstone.itemId = 6948;
-        hearthstone.name = "Hearthstone";
-        hearthstone.quality = ItemQuality::COMMON;
-        addItem(hearthstone);
-    }
-    {
-        ItemDef leather;
-        leather.itemId = 2318;
-        leather.name = "Light Leather";
-        leather.quality = ItemQuality::COMMON;
-        leather.stackCount = 5;
-        leather.maxStack = 20;
-        addItem(leather);
-    }
-    {
-        ItemDef cloth;
-        cloth.itemId = 2589;
-        cloth.name = "Linen Cloth";
-        cloth.quality = ItemQuality::COMMON;
-        cloth.stackCount = 8;
-        cloth.maxStack = 20;
-        addItem(cloth);
-    }
-    {
-        ItemDef quest;
-        quest.itemId = 50000;
-        quest.name = "Kobold Candle";
-        quest.quality = ItemQuality::COMMON;
-        quest.stackCount = 4;
-        quest.maxStack = 10;
-        addItem(quest);
-    }
-    {
-        ItemDef ring;
-        ring.itemId = 11287;
-        ring.name = "Verdant Ring";
-        ring.quality = ItemQuality::UNCOMMON;
-        ring.inventoryType = 11; // Ring
-        ring.stamina = 3;
-        ring.spirit = 2;
-        addItem(ring);
-    }
-    {
-        ItemDef cloak;
-        cloak.itemId = 2570;
-        cloak.name = "Linen Cloak";
-        cloak.quality = ItemQuality::UNCOMMON;
-        cloak.inventoryType = 16; // Back
-        cloak.armor = 10;
-        cloak.agility = 1;
-        cloak.displayInfoId = 15055;
-        addItem(cloak);
-    }
-    {
-        ItemDef rareAxe;
-        rareAxe.itemId = 15268;
-        rareAxe.name = "Stoneslayer";
-        rareAxe.quality = ItemQuality::RARE;
-        rareAxe.inventoryType = 17; // Two-Hand
-        rareAxe.strength = 8;
-        rareAxe.stamina = 7;
-        rareAxe.subclassName = "Axe";
-        rareAxe.displayInfoId = 782;    // Axe_2H_Battle_B_01.m2
-        addItem(rareAxe);
-    }
-
-    LOG_INFO("Inventory: populated test items (2 equipped, 11 backpack)");
-}
-
 const char* getQualityName(ItemQuality quality) {
     switch (quality) {
         case ItemQuality::POOR:      return "Poor";

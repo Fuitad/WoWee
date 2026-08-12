@@ -131,16 +131,15 @@ bool EditorWater::createPipeline() {
     if (vkCreatePipelineLayout(dev, &layoutInfo, nullptr, &pipelineLayout_) != VK_SUCCESS)
         return false;
 
-    rendering::VkShaderModule vertMod, fragMod;
-    if (!vertMod.loadFromFile(dev, "assets/shaders/editor_water.vert.spv") ||
-        !fragMod.loadFromFile(dev, "assets/shaders/editor_water.frag.spv")) {
-        LOG_WARNING("Water shaders not found — water rendering disabled");
+    // Not a failure: the editor runs without these and says so.
+    auto shaders = rendering::loadShaderPair(dev, "assets/shaders/editor_water.vert.spv",
+                                             "assets/shaders/editor_water.frag.spv", "editor_water");
+    if (!shaders) {
+        LOG_WARNING("Water shaders not found - water rendering disabled");
         return true;
     }
 
-    VkPipelineShaderStageCreateInfo stages[2]{};
-    stages[0] = vertMod.stageInfo(VK_SHADER_STAGE_VERTEX_BIT);
-    stages[1] = fragMod.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT);
+    VkPipelineShaderStageCreateInfo stages[2]{shaders.vertStage, shaders.fragStage};
 
     // Vertex input: pos(3f) + color(4f) = 28 bytes
     VkVertexInputBindingDescription binding{};
@@ -181,7 +180,7 @@ bool EditorWater::createPipeline() {
     VkPipelineDepthStencilStateCreateInfo ds{};
     ds.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
     ds.depthTestEnable = VK_TRUE;
-    ds.depthWriteEnable = VK_FALSE; // Transparent — don't write depth
+    ds.depthWriteEnable = VK_FALSE; // Transparent - don't write depth
     ds.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
 
     VkPipelineColorBlendAttachmentState blend{};

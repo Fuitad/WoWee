@@ -1,4 +1,6 @@
 #include "cli_pet_talents_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -19,11 +21,6 @@ namespace cli {
 
 namespace {
 
-std::string stripWpttExt(std::string base) {
-    stripExt(base, ".wptt");
-    return base;
-}
-
 const char* treeKindName(uint8_t k) {
     using P = wowee::pipeline::WoweePetTalents;
     switch (k) {
@@ -34,15 +31,6 @@ const char* treeKindName(uint8_t k) {
     }
 }
 
-bool saveOrError(const wowee::pipeline::WoweePetTalents& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweePetTalentsLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wptt\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweePetTalents& c,
                      const std::string& base) {
@@ -59,9 +47,9 @@ int handleGenFerocity(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "FerocityPetTree";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWpttExt(base);
+    base = cli::withoutExt(base, ".wptt");
     auto c = wowee::pipeline::WoweePetTalentsLoader::makeFerocity(name);
-    if (!saveOrError(c, base, "gen-ptt")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweePetTalentsLoader>(c, base, "gen-ptt", ".wptt")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -70,9 +58,9 @@ int handleGenCunning(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "CunningPetTree";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWpttExt(base);
+    base = cli::withoutExt(base, ".wptt");
     auto c = wowee::pipeline::WoweePetTalentsLoader::makeCunning(name);
-    if (!saveOrError(c, base, "gen-ptt-cunning")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweePetTalentsLoader>(c, base, "gen-ptt-cunning", ".wptt")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -81,9 +69,9 @@ int handleGenTenacity(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "TenacityPetTree";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWpttExt(base);
+    base = cli::withoutExt(base, ".wptt");
     auto c = wowee::pipeline::WoweePetTalentsLoader::makeTenacity(name);
-    if (!saveOrError(c, base, "gen-ptt-tenacity")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweePetTalentsLoader>(c, base, "gen-ptt-tenacity", ".wptt")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -91,10 +79,9 @@ int handleGenTenacity(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWpttExt(base);
+    base = cli::withoutExt(base, ".wptt");
     if (!wowee::pipeline::WoweePetTalentsLoader::exists(base)) {
-        std::fprintf(stderr, "WPTT not found: %s.wptt\n", base.c_str());
-        return 1;
+        return reportMissing("WPTT", base, ".wptt");
     }
     auto c = wowee::pipeline::WoweePetTalentsLoader::load(base);
     if (jsonOut) {
@@ -156,13 +143,10 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWpttExt(base);
+    base = cli::withoutExt(base, ".wptt");
     if (out.empty()) out = base + ".wptt.json";
     if (!wowee::pipeline::WoweePetTalentsLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wptt-json: WPTT not found: %s.wptt\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wptt-json", "WPTT", base, ".wptt");
     }
     auto c = wowee::pipeline::WoweePetTalentsLoader::load(base);
     nlohmann::json j;
@@ -204,16 +188,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wptt.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wptt");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wptt");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,
@@ -296,12 +271,9 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWpttExt(base);
+    base = cli::withoutExt(base, ".wptt");
     if (!wowee::pipeline::WoweePetTalentsLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wptt: WPTT not found: %s.wptt\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wptt", "WPTT", base, ".wptt");
     }
     auto c = wowee::pipeline::WoweePetTalentsLoader::load(base);
     std::vector<std::string> errors;
@@ -310,7 +282,7 @@ int handleValidate(int& i, int argc, char** argv) {
         warnings.push_back("catalog has zero entries");
     }
     std::set<uint32_t> idsSeen;
-    // Track (tree, tier, column) cell occupancy — two
+    // Track (tree, tier, column) cell occupancy - two
     // talents in the same cell would render on top of
     // each other.
     std::set<uint32_t> cellsSeen;
@@ -337,12 +309,12 @@ int handleValidate(int& i, int argc, char** argv) {
         if (e.tier > 6) {
             errors.push_back(ctx + ": tier " +
                 std::to_string(e.tier) +
-                " > 6 — pet trees have 7 tiers (0-6)");
+                " > 6 - pet trees have 7 tiers (0-6)");
         }
         if (e.column > 2) {
             errors.push_back(ctx + ": column " +
                 std::to_string(e.column) +
-                " > 2 — pet trees have 3 columns (0-2)");
+                " > 2 - pet trees have 3 columns (0-2)");
         }
         if (e.maxRank == 0 || e.maxRank > 5) {
             errors.push_back(ctx + ": maxRank " +
@@ -370,7 +342,7 @@ int handleValidate(int& i, int argc, char** argv) {
         // Self-reference check for prereq.
         if (e.prerequisiteTalentId == e.talentId) {
             errors.push_back(ctx +
-                ": prerequisiteTalentId equals talentId — "
+                ": prerequisiteTalentId equals talentId - "
                 "would create a 1-element prereq cycle");
         }
         // Cell occupancy uniqueness.
@@ -419,7 +391,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 std::string(treeKindName(pre->treeKind)) +
                 "' but this talent is in tree '" +
                 std::string(treeKindName(e.treeKind)) +
-                "' — prereq must be in same tree");
+                "' - prereq must be in same tree");
         }
         if (pre->tier >= e.tier) {
             errors.push_back("entry id=" +
@@ -428,41 +400,13 @@ int handleValidate(int& i, int argc, char** argv) {
                 std::to_string(pre->tier) +
                 " >= this talent's tier " +
                 std::to_string(e.tier) +
-                " — prereqs must be in earlier tiers");
+                " - prereqs must be in earlier tiers");
         }
     }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wptt"] = base + ".wptt";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wptt: %s.wptt\n", base.c_str());
-    if (ok && warnings.empty()) {
-        size_t totalSpells = 0;
-        for (const auto& e : c.entries)
-            totalSpells += e.spellIdsByRank.size();
-        std::printf("  OK — %zu talents, %zu rank-spells, "
-                    "all talentIds + cells unique, prereqs "
-                    "valid + earlier-tier\n",
-                    c.entries.size(), totalSpells);
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+    size_t totalSpells = 0;
+    for (const auto& e : c.entries) totalSpells += e.spellIdsByRank.size();
+    return cli::reportValidation("wptt", base, jsonOut, errors, warnings,
+                                 cli::formatted("%zu talents, %zu rank-spells, all talentIds + cells unique, prereqs valid + earlier-tier", c.entries.size(), totalSpells));
 }
 
 } // namespace

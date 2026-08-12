@@ -1,4 +1,6 @@
 #include "cli_world_io.hpp"
+#include "gltf_glb.hpp"
+#include "cli_catalog_paths.hpp"
 
 #include "pipeline/wowee_building.hpp"
 #include "pipeline/wowee_collision.hpp"
@@ -38,8 +40,7 @@ int handleExportWobGlb(int& i, int argc, char** argv) {
     if (base.size() >= 4 && base.substr(base.size() - 4) == ".wob")
         base = base.substr(0, base.size() - 4);
     if (!wowee::pipeline::WoweeBuildingLoader::exists(base)) {
-        std::fprintf(stderr, "WOB not found: %s.wob\n", base.c_str());
-        return 1;
+        return reportMissing("WOB", base, ".wob");
     }
     if (outPath.empty()) outPath = base + ".glb";
     auto bld = wowee::pipeline::WoweeBuildingLoader::load(base);
@@ -131,7 +132,7 @@ int handleExportWobGlb(int& i, int argc, char** argv) {
                           {"count", totalV}, {"type", "VEC3"}});
     accessors.push_back({{"bufferView", 2}, {"componentType", 5126},
                           {"count", totalV}, {"type", "VEC2"}});
-    // Per-group primitives — each gets its own indices accessor
+    // Per-group primitives - each gets its own indices accessor
     // sliced from the shared index bufferView via byteOffset.
     nlohmann::json primitives = nlohmann::json::array();
     for (size_t g = 0; g < bld.groups.size(); ++g) {
@@ -153,34 +154,17 @@ int handleExportWobGlb(int& i, int argc, char** argv) {
     gj["meshes"] = nlohmann::json::array({nlohmann::json{
         {"primitives", primitives}
     }});
-    std::string jsonStr = gj.dump();
-    while (jsonStr.size() % 4 != 0) jsonStr += ' ';
-    uint32_t jsonLen = static_cast<uint32_t>(jsonStr.size());
-    uint32_t binLen = binSize;
-    uint32_t totalLen = 12 + 8 + jsonLen + 8 + binLen;
-    std::ofstream out(outPath, std::ios::binary);
-    if (!out) {
-        std::fprintf(stderr, "Failed to open output: %s\n", outPath.c_str());
+    // The container - header, chunks and the padding each needs - is shared
+    // with the other exporters here.
+    std::string glbError;
+    if (!writeGlb(outPath, gj, bin, glbError)) {
+        std::fprintf(stderr, "Failed to write GLB: %s\n", glbError.c_str());
         return 1;
     }
-    uint32_t magic = 0x46546C67;
-    uint32_t version = 2;
-    out.write(reinterpret_cast<const char*>(&magic), 4);
-    out.write(reinterpret_cast<const char*>(&version), 4);
-    out.write(reinterpret_cast<const char*>(&totalLen), 4);
-    uint32_t jsonChunkType = 0x4E4F534A;
-    out.write(reinterpret_cast<const char*>(&jsonLen), 4);
-    out.write(reinterpret_cast<const char*>(&jsonChunkType), 4);
-    out.write(jsonStr.data(), jsonLen);
-    uint32_t binChunkType = 0x004E4942;
-    out.write(reinterpret_cast<const char*>(&binLen), 4);
-    out.write(reinterpret_cast<const char*>(&binChunkType), 4);
-    out.write(reinterpret_cast<const char*>(bin.data()), binLen);
-    out.close();
     std::printf("Exported %s.wob -> %s\n", base.c_str(), outPath.c_str());
     std::printf("  %zu groups -> %zu primitives, %u verts, %u tris, %u-byte BIN\n",
                 bld.groups.size(), primitives.size(),
-                totalV, totalI / 3, binLen);
+                totalV, totalI / 3, static_cast<uint32_t>(bin.size()));
     return 0;
 }
 
@@ -271,7 +255,7 @@ int handleExportWhmGlb(int& i, int argc, char** argv) {
     }
     // Synthesize normals as +Z (terrain is Z-up). Real per-vertex
     // normals would need a smoothing pass across chunk boundaries
-    // — skip for v1, viewers can compute their own from positions.
+    // - skip for v1, viewers can compute their own from positions.
     const uint32_t totalV = static_cast<uint32_t>(positions.size());
     const uint32_t totalI = static_cast<uint32_t>(indices.size());
     const uint32_t posOff = 0;
@@ -320,7 +304,7 @@ int handleExportWhmGlb(int& i, int argc, char** argv) {
     });
     accessors.push_back({{"bufferView", 1}, {"componentType", 5126},
                           {"count", totalV}, {"type", "VEC3"}});
-    // Per-chunk primitive — sliced from shared index bufferView.
+    // Per-chunk primitive - sliced from shared index bufferView.
     nlohmann::json primitives = nlohmann::json::array();
     for (const auto& cm : chunkMeshes) {
         if (cm.idxCount == 0) continue;  // all-hole chunk
@@ -342,32 +326,16 @@ int handleExportWhmGlb(int& i, int argc, char** argv) {
     gj["meshes"] = nlohmann::json::array({nlohmann::json{
         {"primitives", primitives}
     }});
-    std::string jsonStr = gj.dump();
-    while (jsonStr.size() % 4 != 0) jsonStr += ' ';
-    uint32_t jsonLen = static_cast<uint32_t>(jsonStr.size());
-    uint32_t binLen = binSize;
-    uint32_t totalLen = 12 + 8 + jsonLen + 8 + binLen;
-    std::ofstream out(outPath, std::ios::binary);
-    if (!out) {
-        std::fprintf(stderr, "Failed to open output: %s\n", outPath.c_str());
+    // The container - header, chunks and the padding each needs - is shared
+    // with the other exporters here.
+    std::string glbError;
+    if (!writeGlb(outPath, gj, bin, glbError)) {
+        std::fprintf(stderr, "Failed to write GLB: %s\n", glbError.c_str());
         return 1;
     }
-    uint32_t magic = 0x46546C67, version = 2;
-    out.write(reinterpret_cast<const char*>(&magic), 4);
-    out.write(reinterpret_cast<const char*>(&version), 4);
-    out.write(reinterpret_cast<const char*>(&totalLen), 4);
-    uint32_t jsonChunkType = 0x4E4F534A;
-    out.write(reinterpret_cast<const char*>(&jsonLen), 4);
-    out.write(reinterpret_cast<const char*>(&jsonChunkType), 4);
-    out.write(jsonStr.data(), jsonLen);
-    uint32_t binChunkType = 0x004E4942;
-    out.write(reinterpret_cast<const char*>(&binLen), 4);
-    out.write(reinterpret_cast<const char*>(&binChunkType), 4);
-    out.write(reinterpret_cast<const char*>(bin.data()), binLen);
-    out.close();
     std::printf("Exported %s.whm -> %s\n", base.c_str(), outPath.c_str());
     std::printf("  %d chunks loaded, %u verts, %u tris, %zu primitives, %u-byte BIN\n",
-                loadedChunks, totalV, totalI / 3, primitives.size(), binLen);
+                loadedChunks, totalV, totalI / 3, primitives.size(), static_cast<uint32_t>(bin.size()));
     return 0;
 }
 
@@ -384,8 +352,7 @@ int handleExportWobObj(int& i, int argc, char** argv) {
     if (base.size() >= 4 && base.substr(base.size() - 4) == ".wob")
         base = base.substr(0, base.size() - 4);
     if (!wowee::pipeline::WoweeBuildingLoader::exists(base)) {
-        std::fprintf(stderr, "WOB not found: %s.wob\n", base.c_str());
-        return 1;
+        return reportMissing("WOB", base, ".wob");
     }
     if (outPath.empty()) outPath = base + ".obj";
     auto bld = wowee::pipeline::WoweeBuildingLoader::load(base);
@@ -448,7 +415,7 @@ int handleExportWobObj(int& i, int argc, char** argv) {
         }
         vertOffset += static_cast<uint32_t>(grp.vertices.size());
     }
-    // Doodad placements as a separate informational block — emit
+    // Doodad placements as a separate informational block - emit
     // each as a comment line so OBJ stays valid but the data is
     // recoverable for tools that want to re-create the placements.
     if (!bld.doodads.empty()) {
@@ -621,7 +588,7 @@ int handleImportWobObj(int& i, int argc, char** argv) {
         } else if (tag == "o") {
             if (objectName.empty()) ss >> objectName;
         } else if (tag == "g") {
-            // New group — flush dedupe table so the next batch of
+            // New group - flush dedupe table so the next batch of
             // verts is local to this group.
             std::string name;
             ss >> name;
@@ -753,7 +720,7 @@ int handleExportWocObj(int& i, int argc, char** argv) {
         << " steep=" << woc.steepCount() << ")\n";
     obj << "# Tile: (" << woc.tileX << ", " << woc.tileY << ")\n\n";
     obj << "o WoweeCollision\n";
-    // Emit ALL vertices first (3 per triangle, no dedupe — the
+    // Emit ALL vertices first (3 per triangle, no dedupe - the
     // collision mesh has triangle-soup topology where shared
     // verts often have different flags, so deduping would
     // actually merge categories).
@@ -763,7 +730,7 @@ int handleExportWocObj(int& i, int argc, char** argv) {
         obj << "v " << tri.v2.x << " " << tri.v2.y << " " << tri.v2.z << "\n";
     }
     // Emit faces grouped by flag class. OBJ index of triangle t
-    // vertex k is (t * 3 + k + 1) — 1-based, three verts per tri.
+    // vertex k is (t * 3 + k + 1) - 1-based, three verts per tri.
     auto flagName = [](uint8_t f) {
         if (f == 0) return std::string("nonwalkable");
         std::string s;
@@ -792,7 +759,7 @@ int handleExportWhmObj(int& i, int argc, char** argv) {
     // Convert a WHM/WOT terrain pair to OBJ for visualization in
     // Blender / MeshLab. Emits the 9x9 outer vertex grid per
     // chunk (skipping the 8x8 inner verts the engine uses for
-    // 4-tri fans) — that's the canonical 'heightmap as mesh'
+    // 4-tri fans) - that's the canonical 'heightmap as mesh'
     // view, 256 chunks × 81 verts = 20736 verts, 32768 tris.
     // Geometry mirrors WoweeCollisionBuilder's outer-grid layout
     // exactly so the OBJ aligns with the corresponding WOC.
@@ -819,7 +786,7 @@ int handleExportWhmObj(int& i, int argc, char** argv) {
         std::fprintf(stderr, "Failed to open output file: %s\n", outPath.c_str());
         return 1;
     }
-    // Tile + chunk constants — must match WoweeCollisionBuilder so
+    // Tile + chunk constants - must match WoweeCollisionBuilder so
     // exports of the same source align in space when overlaid.
     constexpr float kTileSize = 533.33333f;
     constexpr float kChunkSize = kTileSize / 16.0f;
@@ -842,7 +809,7 @@ int handleExportWhmObj(int& i, int argc, char** argv) {
             float chunkBaseY = (32.0f - terrain.coord.x) * kTileSize - cx * kChunkSize;
             // Emit 9x9 outer verts. Layout: heights[row*17 + col]
             // for col in [0,8] (the inner 8 verts at col 9..16
-            // are skipped — they're the quad-center verts).
+            // are skipped - they're the quad-center verts).
             for (int row = 0; row < 9; ++row) {
                 for (int col = 0; col < 9; ++col) {
                     float x = chunkBaseX - row * kVertSpacing;
@@ -852,7 +819,7 @@ int handleExportWhmObj(int& i, int argc, char** argv) {
                     obj << "v " << x << " " << y << " " << z << "\n";
                 }
             }
-            // Per-vertex UV: just the row/col in 0..1 — Blender
+            // Per-vertex UV: just the row/col in 0..1 - Blender
             // can use this to slap a checker texture for scale.
             for (int row = 0; row < 9; ++row) {
                 for (int col = 0; col < 9; ++col) {
@@ -860,7 +827,7 @@ int handleExportWhmObj(int& i, int argc, char** argv) {
                                   << (row / 8.0f) << "\n";
                 }
             }
-            // 8x8 quads — two tris each, respecting hole bits so
+            // 8x8 quads - two tris each, respecting hole bits so
             // cave-entrance quads correctly disappear from the mesh.
             bool isHoleChunk = (chunk.holes != 0);
             obj << "g chunk_" << cx << "_" << cy << "\n";
@@ -891,7 +858,7 @@ int handleExportWhmObj(int& i, int argc, char** argv) {
     obj.close();
     // Estimated tri count: chunks × 128 (8x8 quads × 2 tris).
     // Holes reduce this but counting exactly would mean walking
-    // the bitmask again — the rough estimate is the user-visible
+    // the bitmask again - the rough estimate is the user-visible
     // useful number anyway.
     std::printf("Exported %s.whm -> %s\n", base.c_str(), outPath.c_str());
     std::printf("  %d chunks loaded, ~%d verts, ~%d tris\n",

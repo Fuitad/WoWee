@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Item Template (.wit) — novel replacement for
+// Wowee Open Item Template (.wit) - novel replacement for
 // Blizzard's Item.dbc + ItemDisplayInfo.dbc + the SQL
 // item_template tables that AzerothCore-style servers store
 // item definitions in. The 12th open format added to the
@@ -17,7 +17,7 @@ namespace pipeline {
 // weapons, armor, consumables, quest items, trade goods, etc.
 // Each entry pairs the gameplay metadata (stats, level reqs,
 // flags) with the display metadata (icon / model displayId,
-// quality color) — the runtime needs both together to render
+// quality color) - the runtime needs both together to render
 // inventory tooltips and equip slots.
 //
 // Binary layout (little-endian):
@@ -152,7 +152,7 @@ struct WoweeItem {
 
     bool isValid() const { return !entries.empty(); }
 
-    // Lookup by itemId — nullptr if not present.
+    // Lookup by itemId - nullptr if not present.
     const Entry* findById(uint32_t itemId) const;
 
     static const char* qualityName(uint8_t q);
@@ -170,11 +170,11 @@ public:
 
     // Preset emitters used by --gen-items* variants.
     //
-    //   makeStarter — a tiny demo catalog: 1 weapon + 1 chest
+    //   makeStarter - a tiny demo catalog: 1 weapon + 1 chest
     //                  armor + 1 healing potion + 1 quest item.
-    //   makeWeapons — 5 weapon entries spanning common,
+    //   makeWeapons - 5 weapon entries spanning common,
     //                  uncommon, rare, epic; both 1H and 2H.
-    //   makeArmor   — full gear set: head + chest + legs +
+    //   makeArmor   - full gear set: head + chest + legs +
     //                  feet + hands + cloak.
     static WoweeItem makeStarter(const std::string& catalogName);
     static WoweeItem makeWeapons(const std::string& catalogName);

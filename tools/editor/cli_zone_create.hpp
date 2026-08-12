@@ -6,7 +6,7 @@ namespace cli {
 
 // Dispatch the zone-creation handlers. Both kickstart a new
 // authoring session by generating a new zone directory under
-// custom_zones/ — empty for --scaffold-zone, populated with
+// custom_zones/ - empty for --scaffold-zone, populated with
 // one of each content type for --mvp-zone.
 //   --scaffold-zone   minimal valid empty zone (terrain + manifest)
 //   --mvp-zone        scaffold + 1 creature + 1 object + 1 quest

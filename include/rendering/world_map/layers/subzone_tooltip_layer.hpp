@@ -1,4 +1,4 @@
-// subzone_tooltip_layer.hpp — Overlay area hover labels in zone view.
+// subzone_tooltip_layer.hpp - Overlay area hover labels in zone view.
 #pragma once
 #include "rendering/world_map/overlay_renderer.hpp"
 

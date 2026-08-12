@@ -1,4 +1,5 @@
 #include "pipeline/wowee_spell_pack.hpp"
+#include "pipeline/wowee_binary_io.hpp"
 
 #include <cstdio>
 #include <cstring>
@@ -11,72 +12,9 @@ namespace {
 
 constexpr char kMagic[4] = {'W', 'S', 'P', 'K'};
 constexpr uint32_t kVersion = 1;
+constexpr char kExtension[] = ".wspk";
 
-template <typename T>
-void writePOD(std::ofstream& os, const T& v) {
-    os.write(reinterpret_cast<const char*>(&v), sizeof(T));
-}
 
-template <typename T>
-bool readPOD(std::ifstream& is, T& v) {
-    is.read(reinterpret_cast<char*>(&v), sizeof(T));
-    return is.gcount() == static_cast<std::streamsize>(sizeof(T));
-}
-
-void writeStr(std::ofstream& os, const std::string& s) {
-    uint32_t n = static_cast<uint32_t>(s.size());
-    writePOD(os, n);
-    if (n > 0) os.write(s.data(), n);
-}
-
-bool readStr(std::ifstream& is, std::string& s) {
-    uint32_t n = 0;
-    if (!readPOD(is, n)) return false;
-    if (n > (1u << 20)) return false;
-    s.resize(n);
-    if (n > 0) {
-        is.read(s.data(), n);
-        if (is.gcount() != static_cast<std::streamsize>(n)) {
-            s.clear();
-            return false;
-        }
-    }
-    return true;
-}
-
-void writeU32Vec(std::ofstream& os,
-                  const std::vector<uint32_t>& v) {
-    uint32_t n = static_cast<uint32_t>(v.size());
-    writePOD(os, n);
-    if (n > 0) {
-        os.write(reinterpret_cast<const char*>(v.data()),
-                 static_cast<std::streamsize>(n * sizeof(uint32_t)));
-    }
-}
-
-bool readU32Vec(std::ifstream& is, std::vector<uint32_t>& v) {
-    uint32_t n = 0;
-    if (!readPOD(is, n)) return false;
-    if (n > 4096) return false;
-    v.resize(n);
-    if (n > 0) {
-        is.read(reinterpret_cast<char*>(v.data()),
-                static_cast<std::streamsize>(n * sizeof(uint32_t)));
-        if (is.gcount() !=
-            static_cast<std::streamsize>(n * sizeof(uint32_t))) {
-            v.clear();
-            return false;
-        }
-    }
-    return true;
-}
-
-std::string normalizePath(std::string base) {
-    if (base.size() < 5 || base.substr(base.size() - 5) != ".wspk") {
-        base += ".wspk";
-    }
-    return base;
-}
 
 } // namespace
 
@@ -105,15 +43,9 @@ WoweeSpellPack::findByClass(uint8_t classId) const {
 }
 
 bool WoweeSpellPackLoader::save(const WoweeSpellPack& cat,
-                                  const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath), std::ios::binary);
-    if (!os) return false;
-    os.write(kMagic, 4);
-    writePOD(os, kVersion);
-    writeStr(os, cat.name);
-    uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writePOD(os, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeSpellPack::Entry& e) {
         writePOD(os, e.packId);
         writePOD(os, e.classId);
         writePOD(os, e.tabIndex);
@@ -121,46 +53,26 @@ bool WoweeSpellPackLoader::save(const WoweeSpellPack& cat,
         writePOD(os, e.pad0);
         writeStr(os, e.tabName);
         writeU32Vec(os, e.spellIds);
-    }
-    return os.good();
+                       });
 }
 
 WoweeSpellPack WoweeSpellPackLoader::load(
     const std::string& basePath) {
-    WoweeSpellPack out;
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    if (!is) return out;
-    char magic[4];
-    is.read(magic, 4);
-    if (std::memcmp(magic, kMagic, 4) != 0) return out;
-    uint32_t version = 0;
-    if (!readPOD(is, version) || version != kVersion) return out;
-    if (!readStr(is, out.name)) return out;
-    uint32_t entryCount = 0;
-    if (!readPOD(is, entryCount)) return out;
-    if (entryCount > (1u << 20)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
+    return loadCatalog<WoweeSpellPack>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeSpellPack::Entry& e) {
         if (!readPOD(is, e.packId) ||
             !readPOD(is, e.classId) ||
             !readPOD(is, e.tabIndex) ||
             !readPOD(is, e.iconIndex) ||
-            !readPOD(is, e.pad0)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.tabName)) {
-            out.entries.clear(); return out;
-        }
-        if (!readU32Vec(is, e.spellIds)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.pad0)) { return false; }
+        if (!readStr(is, e.tabName)) { return false; }
+        if (!readU32Vec(is, e.spellIds)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeSpellPackLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 namespace {
@@ -231,7 +143,7 @@ WoweeSpellPack WoweeSpellPackLoader::makeWarriorPack(
 WoweeSpellPack WoweeSpellPackLoader::makeMagePack(
     const std::string& catalogName) {
     // classId=8 (Mage). Frost tab includes Frostbolt
-    // rank 1 (spellId 116) — the canonical "every
+    // rank 1 (spellId 116) - the canonical "every
     // mage starts with this" spell.
     return makeFromTabs(catalogName, {
         {2001, 8, 0, 5, "General",
@@ -250,7 +162,7 @@ WoweeSpellPack WoweeSpellPackLoader::makeMagePack(
              2948,  // Scorch rank 1
             }},
         {2004, 8, 3, 52, "Frost",
-            {116,   // Frostbolt rank 1 — every mage
+            {116,   // Frostbolt rank 1 - every mage
                     //  begins here
              122,   // Frost Nova rank 1
              10,    // Blizzard rank 1

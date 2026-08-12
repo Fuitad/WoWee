@@ -1,4 +1,6 @@
 #include "cli_spell_mechanics_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -18,20 +20,6 @@ namespace cli {
 
 namespace {
 
-std::string stripWsmcExt(std::string base) {
-    stripExt(base, ".wsmc");
-    return base;
-}
-
-bool saveOrError(const wowee::pipeline::WoweeSpellMechanic& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeSpellMechanicLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wsmc\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeSpellMechanic& c,
                      const std::string& base) {
@@ -44,9 +32,9 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterMechanics";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWsmcExt(base);
+    base = cli::withoutExt(base, ".wsmc");
     auto c = wowee::pipeline::WoweeSpellMechanicLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-smc")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellMechanicLoader>(c, base, "gen-smc", ".wsmc")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -55,9 +43,9 @@ int handleGenHardCC(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "HardCCMechanics";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWsmcExt(base);
+    base = cli::withoutExt(base, ".wsmc");
     auto c = wowee::pipeline::WoweeSpellMechanicLoader::makeHardCC(name);
-    if (!saveOrError(c, base, "gen-smc-hard")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellMechanicLoader>(c, base, "gen-smc-hard", ".wsmc")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -66,9 +54,9 @@ int handleGenRoots(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "RootMechanics";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWsmcExt(base);
+    base = cli::withoutExt(base, ".wsmc");
     auto c = wowee::pipeline::WoweeSpellMechanicLoader::makeRoots(name);
-    if (!saveOrError(c, base, "gen-smc-roots")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellMechanicLoader>(c, base, "gen-smc-roots", ".wsmc")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -76,10 +64,9 @@ int handleGenRoots(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWsmcExt(base);
+    base = cli::withoutExt(base, ".wsmc");
     if (!wowee::pipeline::WoweeSpellMechanicLoader::exists(base)) {
-        std::fprintf(stderr, "WSMC not found: %s.wsmc\n", base.c_str());
-        return 1;
+        return reportMissing("WSMC", base, ".wsmc");
     }
     auto c = wowee::pipeline::WoweeSpellMechanicLoader::load(base);
     if (jsonOut) {
@@ -130,68 +117,40 @@ int handleExportJson(int& i, int argc, char** argv) {
     // Mirrors the JSON pairs added for every other novel
     // open format. Each mechanic emits all 9 scalar fields
     // plus dual int + name forms for drCategory and dispelType.
-    std::string base = argv[++i];
-    std::string outPath;
-    if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWsmcExt(base);
-    if (outPath.empty()) outPath = base + ".wsmc.json";
-    if (!wowee::pipeline::WoweeSpellMechanicLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wsmc-json: WSMC not found: %s.wsmc\n", base.c_str());
-        return 1;
-    }
-    auto c = wowee::pipeline::WoweeSpellMechanicLoader::load(base);
-    nlohmann::json j;
-    j["name"] = c.name;
-    nlohmann::json arr = nlohmann::json::array();
-    for (const auto& e : c.entries) {
-        arr.push_back({
-            {"mechanicId", e.mechanicId},
-            {"name", e.name},
-            {"description", e.description},
-            {"iconPath", e.iconPath},
-            {"breaksOnDamage", e.breaksOnDamage},
-            {"canBeDispelled", e.canBeDispelled},
-            {"drCategory", e.drCategory},
-            {"drCategoryName", wowee::pipeline::WoweeSpellMechanic::drCategoryName(e.drCategory)},
-            {"dispelType", e.dispelType},
-            {"dispelTypeName", wowee::pipeline::WoweeSpellMechanic::dispelTypeName(e.dispelType)},
-            {"defaultDurationMs", e.defaultDurationMs},
-            {"maxStacks", e.maxStacks},
-            {"conflictsMask", e.conflictsMask},
+    return cli::exportCatalogJson<wowee::pipeline::WoweeSpellMechanicLoader>(
+        i, argc, argv, "wsmc", "WSMC", "mechanics ",
+        [](const auto& c) {
+        nlohmann::json j;
+        j["name"] = c.name;
+        nlohmann::json arr = nlohmann::json::array();
+        for (const auto& e : c.entries) {
+            arr.push_back({
+                {"mechanicId", e.mechanicId},
+                {"name", e.name},
+                {"description", e.description},
+                {"iconPath", e.iconPath},
+                {"breaksOnDamage", e.breaksOnDamage},
+                {"canBeDispelled", e.canBeDispelled},
+                {"drCategory", e.drCategory},
+                {"drCategoryName", wowee::pipeline::WoweeSpellMechanic::drCategoryName(e.drCategory)},
+                {"dispelType", e.dispelType},
+                {"dispelTypeName", wowee::pipeline::WoweeSpellMechanic::dispelTypeName(e.dispelType)},
+                {"defaultDurationMs", e.defaultDurationMs},
+                {"maxStacks", e.maxStacks},
+                {"conflictsMask", e.conflictsMask},
+            });
+        }
+        j["entries"] = arr;
+            return j;
         });
-    }
-    j["entries"] = arr;
-    std::ofstream out(outPath);
-    if (!out) {
-        std::fprintf(stderr,
-            "export-wsmc-json: cannot write %s\n", outPath.c_str());
-        return 1;
-    }
-    out << j.dump(2) << "\n";
-    out.close();
-    std::printf("Wrote %s\n", outPath.c_str());
-    std::printf("  source    : %s.wsmc\n", base.c_str());
-    std::printf("  mechanics : %zu\n", c.entries.size());
-    return 0;
 }
 
 int handleImportJson(int& i, int argc, char** argv) {
     std::string jsonPath = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = jsonPath;
-        std::string suffix = ".wsmc.json";
-        if (outBase.size() > suffix.size() &&
-            outBase.substr(outBase.size() - suffix.size()) == suffix) {
-            outBase = outBase.substr(0, outBase.size() - suffix.size());
-        } else if (outBase.size() > 5 &&
-                   outBase.substr(outBase.size() - 5) == ".json") {
-            outBase = outBase.substr(0, outBase.size() - 5);
-        }
-    }
-    outBase = stripWsmcExt(outBase);
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(jsonPath, ".wsmc");
+    outBase = cli::withoutExt(outBase, ".wsmc");
     std::ifstream in(jsonPath);
     if (!in) {
         std::fprintf(stderr,
@@ -277,96 +236,55 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWsmcExt(base);
-    if (!wowee::pipeline::WoweeSpellMechanicLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wsmc: WSMC not found: %s.wsmc\n", base.c_str());
-        return 1;
-    }
-    auto c = wowee::pipeline::WoweeSpellMechanicLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    std::vector<uint32_t> idsSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.mechanicId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.mechanicId == 0)
-            errors.push_back(ctx + ": mechanicId is 0");
-        if (e.name.empty())
-            errors.push_back(ctx + ": name is empty");
-        if (e.drCategory > wowee::pipeline::WoweeSpellMechanic::DRMisc) {
-            errors.push_back(ctx + ": drCategory " +
-                std::to_string(e.drCategory) + " not in 0..7");
-        }
-        if (e.dispelType > wowee::pipeline::WoweeSpellMechanic::DispelStealth) {
-            errors.push_back(ctx + ": dispelType " +
-                std::to_string(e.dispelType) + " not in 0..6");
-        }
-        if (e.maxStacks == 0) {
-            errors.push_back(ctx +
-                ": maxStacks=0 (mechanic could never apply)");
-        }
-        // canBeDispelled=1 with dispelType=None is contradictory
-        // — without a dispel category, no spell can target this
-        // mechanic for removal.
-        if (e.canBeDispelled &&
-            e.dispelType == wowee::pipeline::WoweeSpellMechanic::DispelNone) {
-            errors.push_back(ctx +
-                ": canBeDispelled=1 but dispelType=none "
-                "(no dispel spell can target this)");
-        }
-        // A mechanic that conflicts with itself is wrong —
-        // `conflictsMask & (1 << mechanicId)` would mean the
-        // mechanic blocks itself.
-        if (e.mechanicId < 32 &&
-            (e.conflictsMask & (1u << e.mechanicId))) {
-            errors.push_back(ctx +
-                ": conflictsMask includes own mechanicId bit "
-                "(mechanic conflicts with itself)");
-        }
-        for (uint32_t prev : idsSeen) {
-            if (prev == e.mechanicId) {
-                errors.push_back(ctx + ": duplicate mechanicId");
-                break;
+    return cli::validateCatalog<wowee::pipeline::WoweeSpellMechanicLoader>(
+        i, argc, argv, "wsmc", "WSMC",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.mechanicId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.mechanicId == 0)
+                errors.push_back(ctx + ": mechanicId is 0");
+            if (e.name.empty())
+                errors.push_back(ctx + ": name is empty");
+            if (e.drCategory > wowee::pipeline::WoweeSpellMechanic::DRMisc) {
+                errors.push_back(ctx + ": drCategory " +
+                    std::to_string(e.drCategory) + " not in 0..7");
             }
+            if (e.dispelType > wowee::pipeline::WoweeSpellMechanic::DispelStealth) {
+                errors.push_back(ctx + ": dispelType " +
+                    std::to_string(e.dispelType) + " not in 0..6");
+            }
+            if (e.maxStacks == 0) {
+                errors.push_back(ctx +
+                    ": maxStacks=0 (mechanic could never apply)");
+            }
+            // canBeDispelled=1 with dispelType=None is contradictory
+            // - without a dispel category, no spell can target this
+            // mechanic for removal.
+            if (e.canBeDispelled &&
+                e.dispelType == wowee::pipeline::WoweeSpellMechanic::DispelNone) {
+                errors.push_back(ctx +
+                    ": canBeDispelled=1 but dispelType=none "
+                    "(no dispel spell can target this)");
+            }
+            // A mechanic that conflicts with itself is wrong -
+            // `conflictsMask & (1 << mechanicId)` would mean the
+            // mechanic blocks itself.
+            if (e.mechanicId < 32 &&
+                (e.conflictsMask & (1u << e.mechanicId))) {
+                errors.push_back(ctx +
+                    ": conflictsMask includes own mechanicId bit "
+                    "(mechanic conflicts with itself)");
+            }
+            if (!idsSeen.add(e.mechanicId)) errors.push_back(ctx + ": duplicate mechanicId");
         }
-        idsSeen.push_back(e.mechanicId);
-    }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wsmc"] = base + ".wsmc";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wsmc: %s.wsmc\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu mechanics, all mechanicIds unique\n",
-                    c.entries.size());
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+            return formatted("%zu mechanics, all mechanicIds unique", c.entries.size());
+        });
 }
 
 } // namespace

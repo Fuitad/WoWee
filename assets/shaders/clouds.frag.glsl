@@ -94,7 +94,7 @@ void main() {
     float towardSun = fbm(p + q * 1.4 + sunDir.xy * 0.35);
     float shadow = clamp(1.0 - (towardSun - shape) * 2.2, 0.35, 1.0);
 
-    // Thick cores read darker — sunlight doesn't penetrate deep cloud
+    // Thick cores read darker - sunlight doesn't penetrate deep cloud
     float coreDarken = mix(1.0, 0.55, cumulus * cumulus);
 
     vec3 baseColor = push.cloudColor.rgb;

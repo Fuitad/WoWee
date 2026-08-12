@@ -22,7 +22,7 @@ namespace {
 int handleExportZoneItemsMd(int& i, int argc, char** argv) {
     // Render items.json as a Markdown table grouped by
     // quality. Useful for design docs, PR descriptions, and
-    // GitHub Pages — one rendered page communicates the loot
+    // GitHub Pages - one rendered page communicates the loot
     // landscape better than scrolling through JSON.
     std::string zoneDir = argv[++i];
     std::string outPath;

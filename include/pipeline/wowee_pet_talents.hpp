@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Pet Talent Tree catalog (.wptt) — novel
+// Wowee Open Pet Talent Tree catalog (.wptt) - novel
 // replacement for the PetTalent.dbc + PetTalentTab.dbc
 // pair that defined the Hunter pet talent system added
 // in WotLK. Each entry is one talent in one of the three
@@ -22,14 +22,14 @@ namespace pipeline {
 //     WCMR's members[])
 //   - graph edge (prerequisiteTalentId, like WBAB's
 //     previousRankId)
-//   - grid placement (tier+column, novel — first format
+//   - grid placement (tier+column, novel - first format
 //     with explicit 2D layout coordinates)
 //
 // Cross-references with previously-added formats:
 //   WSPL: spellIdsByRank entries reference the WSPL
 //         spell catalog.
 //   WPTT: prerequisiteTalentId references ANOTHER entry
-//         in the same WPTT catalog — internal graph edge.
+//         in the same WPTT catalog - internal graph edge.
 //   WPET: pet families that can train this tree are
 //         filtered via the WPET catalog's treeKind field
 //         (lookup external).
@@ -43,32 +43,32 @@ namespace pipeline {
 //     talentId (uint32)
 //     nameLen + name
 //     descLen + description
-//     treeKind (uint8)            — Cunning / Ferocity /
+//     treeKind (uint8)            - Cunning / Ferocity /
 //                                    Tenacity
-//     tier (uint8)                — 0..6 (7 tiers in
+//     tier (uint8)                - 0..6 (7 tiers in
 //                                    standard pet tree)
-//     column (uint8)              — 0..2 (3 columns per
+//     column (uint8)              - 0..2 (3 columns per
 //                                    tier)
-//     maxRank (uint8)             — typically 1, 2, 3, or
+//     maxRank (uint8)             - typically 1, 2, 3, or
 //                                    5 talent points
-//     prerequisiteTalentId (uint32) — 0 if no prereq
-//     requiredLoyalty (uint8)     — Vanilla loyalty
+//     prerequisiteTalentId (uint32) - 0 if no prereq
+//     requiredLoyalty (uint8)     - Vanilla loyalty
 //                                    (0 = always);
 //                                    cosmetic in WotLK+
 //     pad0 (uint8) / pad1 (uint8) / pad2 (uint8)
 //     iconColorRGBA (uint32)
-//     spellCountByRank (uint32)   — = maxRank, captured
+//     spellCountByRank (uint32)   - = maxRank, captured
 //                                    explicitly so reader
 //                                    can validate the
 //                                    array size matches
 //     spellIdsByRank (count × uint32)
 struct WoweePetTalents {
     enum TreeKind : uint8_t {
-        Cunning  = 0,    // utility — Roar of Recovery,
+        Cunning  = 0,    // utility - Roar of Recovery,
                           // Dash, Heart of the Phoenix
-        Ferocity = 1,    // damage  — Cobra Reflexes,
+        Ferocity = 1,    // damage  - Cobra Reflexes,
                           // Spiked Collar, Rabid
-        Tenacity = 2,    // tank    — Charge, Thunder-
+        Tenacity = 2,    // tank    - Charge, Thunder-
                           // stomp, Last Stand
     };
 
@@ -116,17 +116,17 @@ public:
 
     // Preset emitters used by --gen-ptt* variants.
     //
-    //   makeFerocity — 6 Ferocity (DPS) tree talents
+    //   makeFerocity - 6 Ferocity (DPS) tree talents
     //                   spanning tiers 0-3 with prereq
     //                   chains (Cobra Reflexes /
     //                   Spiked Collar / Boar's Speed /
     //                   Spider's Bite / Rabid /
     //                   Wolverine Bite).
-    //   makeCunning  — 5 Cunning (utility) tree talents
+    //   makeCunning  - 5 Cunning (utility) tree talents
     //                   (Dash / Roar of Recovery /
     //                   Heart of the Phoenix / Owl's
     //                   Focus / Cornered).
-    //   makeTenacity — 5 Tenacity (tank) tree talents
+    //   makeTenacity - 5 Tenacity (tank) tree talents
     //                   (Charge / Thunderstomp / Last
     //                   Stand / Taunt / Roar of
     //                   Sacrifice).

@@ -226,7 +226,7 @@ TEST_CASE("CatmullRomSpline time-closed path", "[spline]") {
     REQUIRE(pos0.x == Catch::Approx(0.0f).margin(0.1f));
     REQUIRE(pos0.y == Catch::Approx(0.0f).margin(0.1f));
 
-    // Quarter way — should be near (10, 0, 0)
+    // Quarter way - should be near (10, 0, 0)
     auto pos1 = spline.evaluatePosition(1000);
     REQUIRE(pos1.x == Catch::Approx(10.0f).margin(0.1f));
     REQUIRE(pos1.y == Catch::Approx(0.0f).margin(0.1f));
@@ -259,7 +259,7 @@ TEST_CASE("orientationFromTangent for forward direction", "[spline]") {
 }
 
 TEST_CASE("orientationFromTangent for vertical tangent", "[spline]") {
-    // Nearly vertical tangent — tests the fallback up vector
+    // Nearly vertical tangent - tests the fallback up vector
     auto q = CatmullRomSpline::orientationFromTangent(glm::vec3(0.0f, 0.0f, 1.0f));
     float length = glm::length(q);
     REQUIRE(length == Catch::Approx(1.0f).margin(0.01f));

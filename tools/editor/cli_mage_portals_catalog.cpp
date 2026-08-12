@@ -1,4 +1,6 @@
 #include "cli_mage_portals_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -18,11 +20,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWprtExt(std::string base) {
-    stripExt(base, ".wprt");
-    return base;
-}
 
 const char* factionAccessName(uint8_t f) {
     using P = wowee::pipeline::WoweeMagePortals;
@@ -44,15 +41,6 @@ const char* portalKindName(uint8_t k) {
     }
 }
 
-bool saveOrError(const wowee::pipeline::WoweeMagePortals& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeMagePortalsLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wprt\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeMagePortals& c,
                      const std::string& base) {
@@ -65,10 +53,10 @@ int handleGenAlliance(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "AllianceCityPortals";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWprtExt(base);
+    base = cli::withoutExt(base, ".wprt");
     auto c = wowee::pipeline::WoweeMagePortalsLoader::
         makeAllianceCities(name);
-    if (!saveOrError(c, base, "gen-prt-alliance")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeMagePortalsLoader>(c, base, "gen-prt-alliance", ".wprt")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -77,10 +65,10 @@ int handleGenHorde(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "HordeCityPortals";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWprtExt(base);
+    base = cli::withoutExt(base, ".wprt");
     auto c = wowee::pipeline::WoweeMagePortalsLoader::
         makeHordeCities(name);
-    if (!saveOrError(c, base, "gen-prt-horde")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeMagePortalsLoader>(c, base, "gen-prt-horde", ".wprt")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -89,10 +77,10 @@ int handleGenTeleports(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "TeleportSpells";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWprtExt(base);
+    base = cli::withoutExt(base, ".wprt");
     auto c = wowee::pipeline::WoweeMagePortalsLoader::
         makeTeleports(name);
-    if (!saveOrError(c, base, "gen-prt-teleports")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeMagePortalsLoader>(c, base, "gen-prt-teleports", ".wprt")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -100,7 +88,7 @@ int handleGenTeleports(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWprtExt(base);
+    base = cli::withoutExt(base, ".wprt");
     if (!wowee::pipeline::WoweeMagePortalsLoader::exists(base)) {
         std::fprintf(stderr, "WPRT not found: %s.wprt\n",
                      base.c_str());
@@ -211,12 +199,9 @@ bool readEnumField(const nlohmann::json& je,
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWprtExt(base);
+    base = cli::withoutExt(base, ".wprt");
     if (!wowee::pipeline::WoweeMagePortalsLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wprt: WPRT not found: %s.wprt\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wprt", "WPRT", base, ".wprt");
     }
     auto c = wowee::pipeline::WoweeMagePortalsLoader::load(base);
     std::vector<std::string> errors;
@@ -263,7 +248,7 @@ int handleValidate(int& i, int argc, char** argv) {
             warnings.push_back(ctx +
                 ": levelRequirement=" +
                 std::to_string(e.levelRequirement) +
-                " is below 20 — vanilla mage cannot "
+                " is below 20 - vanilla mage cannot "
                 "unlock until 20 (Teleport) or 40 "
                 "(Portal). Possible typo?");
         }
@@ -281,7 +266,7 @@ int handleValidate(int& i, int argc, char** argv) {
             warnings.push_back(ctx +
                 ": Portal kind with reagentItemId=" +
                 std::to_string(e.reagentItemId) +
-                " — vanilla group portals require "
+                " - vanilla group portals require "
                 "Rune of Portals (itemId 17032). "
                 "Verify intentional");
         }
@@ -291,31 +276,31 @@ int handleValidate(int& i, int argc, char** argv) {
             warnings.push_back(ctx +
                 ": Teleport kind with reagentItemId=" +
                 std::to_string(e.reagentItemId) +
-                " — vanilla self-teleports require "
+                " - vanilla self-teleports require "
                 "Rune of Teleportation (itemId 17031). "
                 "Verify intentional");
         }
         // Duplicate spellId across portals would mean
         // two portal-cast handlers fight over the same
-        // spell — error.
+        // spell - error.
         if (e.spellId != 0 &&
             !spellIdsSeen.insert(e.spellId).second) {
             errors.push_back(ctx +
                 ": duplicate spellId " +
                 std::to_string(e.spellId) +
-                " — two portals would respond to the "
+                " - two portals would respond to the "
                 "same cast");
         }
         if (!e.destinationName.empty() &&
             !destNamesSeen.insert(e.destinationName).second) {
             // Duplicate destination NAME is allowed
             // (e.g., Teleport: SW + Portal: SW are
-            // both "Stormwind") — only warn so the
+            // both "Stormwind") - only warn so the
             // editor can flag potential dupes.
             warnings.push_back(ctx +
                 ": duplicate destinationName '" +
                 e.destinationName +
-                "' — could be a Teleport/Portal pair "
+                "' - could be a Teleport/Portal pair "
                 "(legitimate) or a copy-paste bug");
             // Re-allow in the seen set so subsequent
             // duplicates also warn
@@ -324,49 +309,21 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": duplicate portalId");
         }
     }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wprt"] = base + ".wprt";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wprt: %s.wprt\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu portals, all portalIds + "
+    return cli::reportValidation("wprt", base, jsonOut, errors, warnings,
+                                 formatted("%zu portals, all portalIds + "
                     "spellIds unique, factionAccess 0..3, "
                     "portalKind 0..1, levelRequirement >= 20, "
-                    "reagent matches kind\n",
-                    c.entries.size());
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+                    "reagent matches kind", c.entries.size()));
 }
 
 int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWprtExt(base);
+    base = cli::withoutExt(base, ".wprt");
     if (out.empty()) out = base + ".wprt.json";
     if (!wowee::pipeline::WoweeMagePortalsLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wprt-json: WPRT not found: %s.wprt\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wprt-json", "WPRT", base, ".wprt");
     }
     auto c = wowee::pipeline::WoweeMagePortalsLoader::load(base);
     nlohmann::json j;
@@ -413,16 +370,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wprt.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wprt");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wprt");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,

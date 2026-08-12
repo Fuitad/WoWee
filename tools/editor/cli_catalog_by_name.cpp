@@ -71,7 +71,7 @@ std::string runAndCapture(const std::string& cmd, int& outRc) {
 
 // Find the first numeric *Id field in an entry to use as
 // the displayed id for a hit. Same alphabetical-iteration
-// caveat as cli_catalog_pluck — we iterate alphabetically
+// caveat as cli_catalog_pluck - we iterate alphabetically
 // (nlohmann::json default storage), so we have a small
 // foreign-key filter to skip obvious external refs.
 // For catalog-by-name this is purely cosmetic (the search
@@ -252,7 +252,7 @@ int handleByName(int& i, int argc, char** argv) {
     }
     std::printf("\n");
     if (hits.empty()) {
-        std::printf("  no hits — no entry name matched the "
+        std::printf("  no hits - no entry name matched the "
                     "pattern in any catalog under this tree\n");
         return 1;
     }

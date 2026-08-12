@@ -199,7 +199,7 @@ WMOModel WMOLoader::load(const std::vector<uint8_t>& wmoData) {
             }
 
             case MOGN: {
-                // Group names — store raw chunk for offset-based lookup (MOGI nameOffset)
+                // Group names - store raw chunk for offset-based lookup (MOGI nameOffset)
                 if (chunkSize > 0 && chunkEnd <= wmoData.size()) {
                     model.groupNameRaw.assign(wmoData.begin() + chunkStart, wmoData.begin() + chunkEnd);
                 }
@@ -269,7 +269,7 @@ WMOModel WMOLoader::load(const std::vector<uint8_t>& wmoData) {
             }
 
             case MODN: {
-                // Doodad names — stored by byte offset into the MODN chunk
+                // Doodad names - stored by byte offset into the MODN chunk
                 // (MODD nameIndex is a byte offset, not a vector index)
                 uint32_t nameOffset = 0;  // Offset relative to chunk start
                 while (chunkStart + nameOffset < chunkEnd) {
@@ -395,7 +395,7 @@ WMOModel WMOLoader::load(const std::vector<uint8_t>& wmoData) {
     }
 
     // Initialize groups array. Cap at a sanity limit so a hostile or
-    // corrupted WMO header can't trigger a multi-gigabyte allocation —
+    // corrupted WMO header can't trigger a multi-gigabyte allocation -
     // Blizzard's largest real WMOs cap out around a few hundred groups.
     constexpr uint32_t kMaxWMOGroups = 4096;
     if (model.nGroups > kMaxWMOGroups) {
@@ -494,7 +494,7 @@ bool WMOLoader::loadGroup(const std::vector<uint8_t>& groupData,
                 magic[1] = (subChunkId >> 8) & 0xFF;
                 magic[2] = (subChunkId >> 16) & 0xFF;
                 magic[3] = (subChunkId >> 24) & 0xFF;
-                // Not static — previously this throttle was per-process, silencing
+                // Not static - previously this throttle was per-process, silencing
                 // all WMO group logging after the first 30 sub-chunks globally.
                 if (groupLogCount < 30) {
                     core::Logger::getInstance().debug("  WMO sub-chunk: ", magic, " (0x", std::hex, subChunkId, std::dec, ") size=", subChunkSize);
@@ -630,7 +630,7 @@ bool WMOLoader::loadGroup(const std::vector<uint8_t>& groupData,
                         group.liquid.heights.clear();
                         group.liquid.flags.clear();
 
-                        // MLIQ vertex data: each vertex is 8 bytes —
+                        // MLIQ vertex data: each vertex is 8 bytes -
                         // 4 bytes flow/unknown data + 4 bytes float height.
                         const size_t VERTEX_STRIDE = 8; // bytes per vertex
                         if (vertexCount > 0 && bytesRemaining >= vertexCount * VERTEX_STRIDE) {

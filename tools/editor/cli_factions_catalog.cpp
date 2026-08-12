@@ -1,4 +1,6 @@
 #include "cli_factions_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -18,11 +20,6 @@ namespace cli {
 
 namespace {
 
-std::string stripWfacExt(std::string base) {
-    stripExt(base, ".wfac");
-    return base;
-}
-
 void appendRepFlagsStr(std::string& s, uint32_t flags) {
     if (flags & wowee::pipeline::WoweeFaction::VisibleOnTab) s += "visible ";
     if (flags & wowee::pipeline::WoweeFaction::AtWarDefault) s += "at-war ";
@@ -33,15 +30,6 @@ void appendRepFlagsStr(std::string& s, uint32_t flags) {
     else if (s.back() == ' ') s.pop_back();
 }
 
-bool saveOrError(const wowee::pipeline::WoweeFaction& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeFactionLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wfac\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeFaction& c,
                      const std::string& base) {
@@ -54,9 +42,9 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterFactions";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWfacExt(base);
+    base = cli::withoutExt(base, ".wfac");
     auto c = wowee::pipeline::WoweeFactionLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-factions")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeFactionLoader>(c, base, "gen-factions", ".wfac")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -65,9 +53,9 @@ int handleGenAlliance(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "AllianceFactions";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWfacExt(base);
+    base = cli::withoutExt(base, ".wfac");
     auto c = wowee::pipeline::WoweeFactionLoader::makeAlliance(name);
-    if (!saveOrError(c, base, "gen-factions-alliance")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeFactionLoader>(c, base, "gen-factions-alliance", ".wfac")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -76,9 +64,9 @@ int handleGenWildlife(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "WildlifeFactions";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWfacExt(base);
+    base = cli::withoutExt(base, ".wfac");
     auto c = wowee::pipeline::WoweeFactionLoader::makeWildlife(name);
-    if (!saveOrError(c, base, "gen-factions-wildlife")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeFactionLoader>(c, base, "gen-factions-wildlife", ".wfac")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -86,10 +74,9 @@ int handleGenWildlife(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWfacExt(base);
+    base = cli::withoutExt(base, ".wfac");
     if (!wowee::pipeline::WoweeFactionLoader::exists(base)) {
-        std::fprintf(stderr, "WFAC not found: %s.wfac\n", base.c_str());
-        return 1;
+        return reportMissing("WFAC", base, ".wfac");
     }
     auto c = wowee::pipeline::WoweeFactionLoader::load(base);
     if (jsonOut) {
@@ -145,77 +132,49 @@ int handleExportJson(int& i, int argc, char** argv) {
     // open format. Each faction emits all 13 scalar fields
     // plus the variable-length enemies + friends arrays and
     // a string-array form for the reputation flag bitset.
-    std::string base = argv[++i];
-    std::string outPath;
-    if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWfacExt(base);
-    if (outPath.empty()) outPath = base + ".wfac.json";
-    if (!wowee::pipeline::WoweeFactionLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wfac-json: WFAC not found: %s.wfac\n", base.c_str());
-        return 1;
-    }
-    auto c = wowee::pipeline::WoweeFactionLoader::load(base);
-    nlohmann::json j;
-    j["name"] = c.name;
-    nlohmann::json arr = nlohmann::json::array();
-    for (const auto& e : c.entries) {
-        nlohmann::json je;
-        je["factionId"] = e.factionId;
-        je["parentFactionId"] = e.parentFactionId;
-        je["name"] = e.name;
-        je["description"] = e.description;
-        je["reputationFlags"] = e.reputationFlags;
-        nlohmann::json fa = nlohmann::json::array();
-        if (e.reputationFlags & wowee::pipeline::WoweeFaction::VisibleOnTab) fa.push_back("visible");
-        if (e.reputationFlags & wowee::pipeline::WoweeFaction::AtWarDefault) fa.push_back("at-war");
-        if (e.reputationFlags & wowee::pipeline::WoweeFaction::Hidden)       fa.push_back("hidden");
-        if (e.reputationFlags & wowee::pipeline::WoweeFaction::NoReputation) fa.push_back("no-rep");
-        if (e.reputationFlags & wowee::pipeline::WoweeFaction::IsHeader)     fa.push_back("header");
-        je["reputationFlagsList"] = fa;
-        je["baseReputation"] = e.baseReputation;
-        je["thresholdHostile"] = e.thresholdHostile;
-        je["thresholdUnfriendly"] = e.thresholdUnfriendly;
-        je["thresholdNeutral"] = e.thresholdNeutral;
-        je["thresholdFriendly"] = e.thresholdFriendly;
-        je["thresholdHonored"] = e.thresholdHonored;
-        je["thresholdRevered"] = e.thresholdRevered;
-        je["thresholdExalted"] = e.thresholdExalted;
-        je["enemies"] = e.enemies;
-        je["friends"] = e.friends;
-        arr.push_back(je);
-    }
-    j["entries"] = arr;
-    std::ofstream out(outPath);
-    if (!out) {
-        std::fprintf(stderr,
-            "export-wfac-json: cannot write %s\n", outPath.c_str());
-        return 1;
-    }
-    out << j.dump(2) << "\n";
-    out.close();
-    std::printf("Wrote %s\n", outPath.c_str());
-    std::printf("  source   : %s.wfac\n", base.c_str());
-    std::printf("  factions : %zu\n", c.entries.size());
-    return 0;
+    return cli::exportCatalogJson<wowee::pipeline::WoweeFactionLoader>(
+        i, argc, argv, "wfac", "WFAC", "factions ",
+        [](const auto& c) {
+        nlohmann::json j;
+        j["name"] = c.name;
+        nlohmann::json arr = nlohmann::json::array();
+        for (const auto& e : c.entries) {
+            nlohmann::json je;
+            je["factionId"] = e.factionId;
+            je["parentFactionId"] = e.parentFactionId;
+            je["name"] = e.name;
+            je["description"] = e.description;
+            je["reputationFlags"] = e.reputationFlags;
+            nlohmann::json fa = nlohmann::json::array();
+            if (e.reputationFlags & wowee::pipeline::WoweeFaction::VisibleOnTab) fa.push_back("visible");
+            if (e.reputationFlags & wowee::pipeline::WoweeFaction::AtWarDefault) fa.push_back("at-war");
+            if (e.reputationFlags & wowee::pipeline::WoweeFaction::Hidden)       fa.push_back("hidden");
+            if (e.reputationFlags & wowee::pipeline::WoweeFaction::NoReputation) fa.push_back("no-rep");
+            if (e.reputationFlags & wowee::pipeline::WoweeFaction::IsHeader)     fa.push_back("header");
+            je["reputationFlagsList"] = fa;
+            je["baseReputation"] = e.baseReputation;
+            je["thresholdHostile"] = e.thresholdHostile;
+            je["thresholdUnfriendly"] = e.thresholdUnfriendly;
+            je["thresholdNeutral"] = e.thresholdNeutral;
+            je["thresholdFriendly"] = e.thresholdFriendly;
+            je["thresholdHonored"] = e.thresholdHonored;
+            je["thresholdRevered"] = e.thresholdRevered;
+            je["thresholdExalted"] = e.thresholdExalted;
+            je["enemies"] = e.enemies;
+            je["friends"] = e.friends;
+            arr.push_back(je);
+        }
+        j["entries"] = arr;
+            return j;
+        });
 }
 
 int handleImportJson(int& i, int argc, char** argv) {
     std::string jsonPath = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = jsonPath;
-        std::string suffix = ".wfac.json";
-        if (outBase.size() > suffix.size() &&
-            outBase.substr(outBase.size() - suffix.size()) == suffix) {
-            outBase = outBase.substr(0, outBase.size() - suffix.size());
-        } else if (outBase.size() > 5 &&
-                   outBase.substr(outBase.size() - 5) == ".json") {
-            outBase = outBase.substr(0, outBase.size() - 5);
-        }
-    }
-    outBase = stripWfacExt(outBase);
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(jsonPath, ".wfac");
+    outBase = cli::withoutExt(outBase, ".wfac");
     std::ifstream in(jsonPath);
     if (!in) {
         std::fprintf(stderr,
@@ -296,105 +255,64 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWfacExt(base);
-    if (!wowee::pipeline::WoweeFactionLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wfac: WFAC not found: %s.wfac\n", base.c_str());
-        return 1;
-    }
-    auto c = wowee::pipeline::WoweeFactionLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    std::vector<uint32_t> idsSeen;
-    idsSeen.reserve(c.entries.size());
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.factionId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.factionId == 0) {
-            errors.push_back(ctx + ": factionId is 0");
-        }
-        if (e.name.empty()) {
-            errors.push_back(ctx + ": name is empty");
-        }
-        // Threshold ordering: hostile < unfriendly < neutral <
-        // friendly < honored < revered < exalted.
-        if (e.thresholdHostile >= e.thresholdUnfriendly ||
-            e.thresholdUnfriendly >= e.thresholdNeutral ||
-            e.thresholdNeutral >= e.thresholdFriendly ||
-            e.thresholdFriendly >= e.thresholdHonored ||
-            e.thresholdHonored >= e.thresholdRevered ||
-            e.thresholdRevered >= e.thresholdExalted) {
-            errors.push_back(ctx +
-                ": reputation thresholds not strictly ascending "
-                "(hostile<unfriendly<neutral<friendly<honored<revered<exalted)");
-        }
-        // Self-relationship: a faction can't be its own enemy.
-        for (uint32_t en : e.enemies) {
-            if (en == e.factionId) {
-                errors.push_back(ctx + ": faction lists itself as enemy");
-                break;
+    return cli::validateCatalog<wowee::pipeline::WoweeFactionLoader>(
+        i, argc, argv, "wfac", "WFAC",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        idsSeen.reserve(c.entries.size());
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.factionId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.factionId == 0) {
+                errors.push_back(ctx + ": factionId is 0");
             }
-        }
-        for (uint32_t fr : e.friends) {
-            if (fr == e.factionId) {
-                errors.push_back(ctx + ": faction lists itself as friend");
-                break;
+            if (e.name.empty()) {
+                errors.push_back(ctx + ": name is empty");
             }
-        }
-        // A faction in both enemies AND friends is incoherent.
-        for (uint32_t en : e.enemies) {
-            for (uint32_t fr : e.friends) {
-                if (en == fr) {
-                    errors.push_back(ctx +
-                        ": faction " + std::to_string(en) +
-                        " appears in both enemies and friends");
+            // Threshold ordering: hostile < unfriendly < neutral <
+            // friendly < honored < revered < exalted.
+            if (e.thresholdHostile >= e.thresholdUnfriendly ||
+                e.thresholdUnfriendly >= e.thresholdNeutral ||
+                e.thresholdNeutral >= e.thresholdFriendly ||
+                e.thresholdFriendly >= e.thresholdHonored ||
+                e.thresholdHonored >= e.thresholdRevered ||
+                e.thresholdRevered >= e.thresholdExalted) {
+                errors.push_back(ctx +
+                    ": reputation thresholds not strictly ascending "
+                    "(hostile<unfriendly<neutral<friendly<honored<revered<exalted)");
+            }
+            // Self-relationship: a faction can't be its own enemy.
+            for (uint32_t en : e.enemies) {
+                if (en == e.factionId) {
+                    errors.push_back(ctx + ": faction lists itself as enemy");
                     break;
                 }
             }
-        }
-        for (uint32_t prev : idsSeen) {
-            if (prev == e.factionId) {
-                errors.push_back(ctx + ": duplicate factionId");
-                break;
+            for (uint32_t fr : e.friends) {
+                if (fr == e.factionId) {
+                    errors.push_back(ctx + ": faction lists itself as friend");
+                    break;
+                }
             }
+            // A faction in both enemies AND friends is incoherent.
+            for (uint32_t en : e.enemies) {
+                for (uint32_t fr : e.friends) {
+                    if (en == fr) {
+                        errors.push_back(ctx +
+                            ": faction " + std::to_string(en) +
+                            " appears in both enemies and friends");
+                        break;
+                    }
+                }
+            }
+            if (!idsSeen.add(e.factionId)) errors.push_back(ctx + ": duplicate factionId");
         }
-        idsSeen.push_back(e.factionId);
-    }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wfac"] = base + ".wfac";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wfac: %s.wfac\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu factions, all factionIds unique\n",
-                    c.entries.size());
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+            return formatted("%zu factions, all factionIds unique", c.entries.size());
+        });
 }
 
 } // namespace

@@ -32,7 +32,7 @@ bool VkShaderModule::loadFromFile(VkDevice device, const std::string& path) {
     }
 
     size_t fileSize = static_cast<size_t>(file.tellg());
-    // SPIR-V is a stream of 32-bit words — file size must be a multiple of 4
+    // SPIR-V is a stream of 32-bit words - file size must be a multiple of 4
     if (fileSize == 0 || fileSize % 4 != 0) {
         LOG_ERROR("Invalid SPIR-V file size (", fileSize, "): ", path);
         return false;
@@ -84,7 +84,7 @@ VkPipelineShaderStageCreateInfo VkShaderModule::stageInfo(
 VkPipelineShaderStageCreateInfo loadShaderStage(VkDevice device,
     const std::string& path, VkShaderStageFlagBits stage)
 {
-    // This creates a temporary module — caller must keep it alive while pipeline is created.
+    // This creates a temporary module - caller must keep it alive while pipeline is created.
     // Prefer using VkShaderModule directly for proper lifetime management.
     VkShaderModuleCreateInfo moduleInfo{};
     moduleInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
@@ -109,6 +109,23 @@ VkPipelineShaderStageCreateInfo loadShaderStage(VkDevice device,
     info.module = module;
     info.pName = "main";
     return info;
+}
+
+
+ShaderPair loadShaderPair(VkDevice device, const std::string& vertPath,
+                          const std::string& fragPath, const char* what) {
+    ShaderPair pair;
+    if (!pair.vert.loadFromFile(device, vertPath)) {
+        LOG_ERROR("Failed to load ", what, " vertex shader: ", vertPath);
+        return pair;
+    }
+    if (!pair.frag.loadFromFile(device, fragPath)) {
+        LOG_ERROR("Failed to load ", what, " fragment shader: ", fragPath);
+        return pair;
+    }
+    pair.vertStage = pair.vert.stageInfo(VK_SHADER_STAGE_VERTEX_BIT);
+    pair.fragStage = pair.frag.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT);
+    return pair;
 }
 
 } // namespace rendering

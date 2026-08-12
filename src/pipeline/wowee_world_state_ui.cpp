@@ -1,4 +1,5 @@
 #include "pipeline/wowee_world_state_ui.hpp"
+#include "pipeline/wowee_binary_io.hpp"
 
 #include <cstdio>
 #include <cstring>
@@ -11,45 +12,7 @@ namespace {
 
 constexpr char kMagic[4] = {'W', 'W', 'U', 'I'};
 constexpr uint32_t kVersion = 1;
-
-template <typename T>
-void writePOD(std::ofstream& os, const T& v) {
-    os.write(reinterpret_cast<const char*>(&v), sizeof(T));
-}
-
-template <typename T>
-bool readPOD(std::ifstream& is, T& v) {
-    is.read(reinterpret_cast<char*>(&v), sizeof(T));
-    return is.gcount() == static_cast<std::streamsize>(sizeof(T));
-}
-
-void writeStr(std::ofstream& os, const std::string& s) {
-    uint32_t n = static_cast<uint32_t>(s.size());
-    writePOD(os, n);
-    if (n > 0) os.write(s.data(), n);
-}
-
-bool readStr(std::ifstream& is, std::string& s) {
-    uint32_t n = 0;
-    if (!readPOD(is, n)) return false;
-    if (n > (1u << 20)) return false;
-    s.resize(n);
-    if (n > 0) {
-        is.read(s.data(), n);
-        if (is.gcount() != static_cast<std::streamsize>(n)) {
-            s.clear();
-            return false;
-        }
-    }
-    return true;
-}
-
-std::string normalizePath(std::string base) {
-    if (base.size() < 5 || base.substr(base.size() - 5) != ".wwui") {
-        base += ".wwui";
-    }
-    return base;
-}
+constexpr char kExtension[] = ".wwui";
 
 } // namespace
 
@@ -84,15 +47,9 @@ const char* WoweeWorldStateUI::panelPositionName(uint8_t p) {
 }
 
 bool WoweeWorldStateUILoader::save(const WoweeWorldStateUI& cat,
-                                    const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath), std::ios::binary);
-    if (!os) return false;
-    os.write(kMagic, 4);
-    writePOD(os, kVersion);
-    writeStr(os, cat.name);
-    uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writePOD(os, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeWorldStateUI::Entry& e) {
         writePOD(os, e.worldStateId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -106,33 +63,16 @@ bool WoweeWorldStateUILoader::save(const WoweeWorldStateUI& cat,
         writePOD(os, e.variableIndex);
         writePOD(os, e.defaultValue);
         writePOD(os, e.iconColorRGBA);
-    }
-    return os.good();
+                       });
 }
 
 WoweeWorldStateUI WoweeWorldStateUILoader::load(
     const std::string& basePath) {
-    WoweeWorldStateUI out;
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    if (!is) return out;
-    char magic[4];
-    is.read(magic, 4);
-    if (std::memcmp(magic, kMagic, 4) != 0) return out;
-    uint32_t version = 0;
-    if (!readPOD(is, version) || version != kVersion) return out;
-    if (!readStr(is, out.name)) return out;
-    uint32_t entryCount = 0;
-    if (!readPOD(is, entryCount)) return out;
-    if (entryCount > (1u << 20)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.worldStateId)) {
-            out.entries.clear(); return out;
-        }
+    return loadCatalog<WoweeWorldStateUI>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeWorldStateUI::Entry& e) {
+        if (!readPOD(is, e.worldStateId)) { return false; }
         if (!readStr(is, e.name) || !readStr(is, e.description) ||
-            !readStr(is, e.iconPath)) {
-            out.entries.clear(); return out;
-        }
+            !readStr(is, e.iconPath)) { return false; }
         if (!readPOD(is, e.displayKind) ||
             !readPOD(is, e.panelPosition) ||
             !readPOD(is, e.alwaysVisible) ||
@@ -141,16 +81,13 @@ WoweeWorldStateUI WoweeWorldStateUILoader::load(
             !readPOD(is, e.areaId) ||
             !readPOD(is, e.variableIndex) ||
             !readPOD(is, e.defaultValue) ||
-            !readPOD(is, e.iconColorRGBA)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.iconColorRGBA)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeWorldStateUILoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeWorldStateUI WoweeWorldStateUILoader::makeStarter(
@@ -158,7 +95,7 @@ WoweeWorldStateUI WoweeWorldStateUILoader::makeStarter(
     WoweeWorldStateUI c;
     c.name = catalogName;
     {
-        // Warsong Gulch — two-sided flag capture counter.
+        // Warsong Gulch - two-sided flag capture counter.
         WoweeWorldStateUI::Entry e;
         e.worldStateId = 1; e.name = "WSG Flag Captures";
         e.description = "Two-sided counter for flag captures in WSG.";
@@ -172,7 +109,7 @@ WoweeWorldStateUI WoweeWorldStateUILoader::makeStarter(
         c.entries.push_back(e);
     }
     {
-        // Arathi Basin — resource counter (5 bases, 0..1600).
+        // Arathi Basin - resource counter (5 bases, 0..1600).
         WoweeWorldStateUI::Entry e;
         e.worldStateId = 2; e.name = "AB Resources";
         e.description = "Two-sided resource counter (0..1600).";
@@ -186,7 +123,7 @@ WoweeWorldStateUI WoweeWorldStateUILoader::makeStarter(
         c.entries.push_back(e);
     }
     {
-        // EotS — flag carrier icon (single-sided, top-right).
+        // EotS - flag carrier icon (single-sided, top-right).
         WoweeWorldStateUI::Entry e;
         e.worldStateId = 3; e.name = "EotS Flag Carrier";
         e.description = "Flag carrier icon (Alliance/Horde) shown "
@@ -261,7 +198,7 @@ WoweeWorldStateUI WoweeWorldStateUILoader::makeDungeon(
     };
     add(200, "BossProgress",     WoweeWorldStateUI::ProgressBar,
         533, 20, 0, 0,    // Naxxramas
-        "Progress bar — bosses defeated this run.");
+        "Progress bar - bosses defeated this run.");
     add(201, "KeyFragments",     WoweeWorldStateUI::Counter,
         540, 21, 0, 1,    // Shattered Halls
         "Key fragments collected for the dungeon door.");

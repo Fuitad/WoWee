@@ -292,7 +292,7 @@ void MusicManager::update(float deltaTime) {
         float t = std::clamp(1.0f - fadeOutTimer / std::max(fadeOutDuration, 0.001f), 0.0f, 1.0f);
         AudioEngine::instance().setMusicVolume(fadeOutStartVolume * t);
         if (t <= 0.0f) {
-            // Fade complete — stop playback and restore volume for next track
+            // Fade complete - stop playback and restore volume for next track
             fadingOut = false;
             AudioEngine::instance().stopMusic();
             AudioEngine::instance().setMusicVolume(effectiveMusicVolume());

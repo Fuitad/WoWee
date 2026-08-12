@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Creature Template (.wcrt) — novel replacement
+// Wowee Open Creature Template (.wcrt) - novel replacement
 // for AzerothCore-style creature_template SQL tables PLUS
 // the CreatureTemplate / CreatureFamily / CreatureType.dbc
 // trio. The 14th open format added to the editor.
@@ -17,7 +17,7 @@ namespace pipeline {
 // trainer / quest-giver / innkeeper), base damage, equipped
 // gear references. The WSPN file says where creatures
 // spawn; the WLOT file says what they drop on death; the
-// WCRT file says what they ARE — the canonical metadata
+// WCRT file says what they ARE - the canonical metadata
 // shared across every spawn instance.
 //
 // Cross-references:
@@ -130,7 +130,7 @@ struct WoweeCreature {
 
     bool isValid() const { return !entries.empty(); }
 
-    // Lookup by creatureId — nullptr if not present.
+    // Lookup by creatureId - nullptr if not present.
     const Entry* findById(uint32_t creatureId) const;
 
     static const char* typeName(uint8_t t);
@@ -146,13 +146,13 @@ public:
 
     // Preset emitters used by --gen-creatures* variants.
     //
-    //   makeStarter  — 1 friendly humanoid (innkeeper), level
+    //   makeStarter  - 1 friendly humanoid (innkeeper), level
     //                   30, vendor + innkeeper flags.
-    //   makeBandit   — 1 hostile humanoid (creatureId=1000,
+    //   makeBandit   - 1 hostile humanoid (creatureId=1000,
     //                   matches WSPN camp + WLOT bandit table).
     //                   level 5..7, aggressive AI, equips a
     //                   sword (WIT itemId=1001).
-    //   makeMerchants — 3 NPCs covering the WSPN village
+    //   makeMerchants - 3 NPCs covering the WSPN village
     //                    creatures (innkeeper / smith / alchemist),
     //                    creatureIds 4001/4002/4003.
     static WoweeCreature makeStarter(const std::string& catalogName);

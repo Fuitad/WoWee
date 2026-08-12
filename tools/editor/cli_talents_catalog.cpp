@@ -1,4 +1,6 @@
 #include "cli_talents_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -18,20 +20,6 @@ namespace cli {
 
 namespace {
 
-std::string stripWtalExt(std::string base) {
-    stripExt(base, ".wtal");
-    return base;
-}
-
-bool saveOrError(const wowee::pipeline::WoweeTalent& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeTalentLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wtal\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 uint32_t totalTalents(const wowee::pipeline::WoweeTalent& c) {
     uint32_t n = 0;
@@ -51,9 +39,9 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterTalents";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWtalExt(base);
+    base = cli::withoutExt(base, ".wtal");
     auto c = wowee::pipeline::WoweeTalentLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-talents")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeTalentLoader>(c, base, "gen-talents", ".wtal")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -62,9 +50,9 @@ int handleGenWarrior(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "WarriorTalents";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWtalExt(base);
+    base = cli::withoutExt(base, ".wtal");
     auto c = wowee::pipeline::WoweeTalentLoader::makeWarrior(name);
-    if (!saveOrError(c, base, "gen-talents-warrior")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeTalentLoader>(c, base, "gen-talents-warrior", ".wtal")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -73,9 +61,9 @@ int handleGenMage(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "MageTalents";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWtalExt(base);
+    base = cli::withoutExt(base, ".wtal");
     auto c = wowee::pipeline::WoweeTalentLoader::makeMage(name);
-    if (!saveOrError(c, base, "gen-talents-mage")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeTalentLoader>(c, base, "gen-talents-mage", ".wtal")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -83,10 +71,9 @@ int handleGenMage(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWtalExt(base);
+    base = cli::withoutExt(base, ".wtal");
     if (!wowee::pipeline::WoweeTalentLoader::exists(base)) {
-        std::fprintf(stderr, "WTAL not found: %s.wtal\n", base.c_str());
-        return 1;
+        return reportMissing("WTAL", base, ".wtal");
     }
     auto c = wowee::pipeline::WoweeTalentLoader::load(base);
     if (jsonOut) {
@@ -157,12 +144,10 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWtalExt(base);
+    base = cli::withoutExt(base, ".wtal");
     if (outPath.empty()) outPath = base + ".wtal.json";
     if (!wowee::pipeline::WoweeTalentLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wtal-json: WTAL not found: %s.wtal\n", base.c_str());
-        return 1;
+        return reportMissing("export-wtal-json", "WTAL", base, ".wtal");
     }
     auto c = wowee::pipeline::WoweeTalentLoader::load(base);
     nlohmann::json j;
@@ -212,18 +197,8 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string jsonPath = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = jsonPath;
-        std::string suffix = ".wtal.json";
-        if (outBase.size() > suffix.size() &&
-            outBase.substr(outBase.size() - suffix.size()) == suffix) {
-            outBase = outBase.substr(0, outBase.size() - suffix.size());
-        } else if (outBase.size() > 5 &&
-                   outBase.substr(outBase.size() - 5) == ".json") {
-            outBase = outBase.substr(0, outBase.size() - 5);
-        }
-    }
-    outBase = stripWtalExt(outBase);
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(jsonPath, ".wtal");
+    outBase = cli::withoutExt(outBase, ".wtal");
     std::ifstream in(jsonPath);
     if (!in) {
         std::fprintf(stderr,
@@ -288,11 +263,9 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWtalExt(base);
+    base = cli::withoutExt(base, ".wtal");
     if (!wowee::pipeline::WoweeTalentLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wtal: WTAL not found: %s.wtal\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wtal", "WTAL", base, ".wtal");
     }
     auto c = wowee::pipeline::WoweeTalentLoader::load(base);
     std::vector<std::string> errors;
@@ -341,7 +314,7 @@ int handleValidate(int& i, int argc, char** argv) {
                     ": talent lists itself as prerequisite");
             }
             // Active spell talents typically have rankSpellIds[0]
-            // set even at rank 1 — a passive (stat-modifier) talent
+            // set even at rank 1 - a passive (stat-modifier) talent
             // may legitimately leave them all 0. Just check for
             // ascending non-zero ordering: if rank N has a spell,
             // rank N-1 should too.
@@ -385,33 +358,8 @@ int handleValidate(int& i, int argc, char** argv) {
             }
         }
     }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wtal"] = base + ".wtal";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wtal: %s.wtal\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu trees, %u talents, all IDs unique\n",
-                    c.trees.size(), totalTalents(c));
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+    return cli::reportValidation("wtal", base, jsonOut, errors, warnings,
+                                 formatted("%zu trees, %u talents, all IDs unique", c.trees.size(), totalTalents(c)));
 }
 
 } // namespace

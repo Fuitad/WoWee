@@ -123,19 +123,19 @@ int handleAddCreature(int& i, int argc, char** argv) {
 
 int handleAddItem(int& i, int argc, char** argv) {
     // Append one item entry to <zoneDir>/items.json. Inline
-    // JSON without a dedicated editor class — items.json is
+    // JSON without a dedicated editor class - items.json is
     // a simple {"items": [...]} array of records, and the
     // schema is small enough that we don't need NpcSpawner-
     // style infrastructure yet.
     //
     // Schema per item:
-    //   id (uint32) — Item.dbc primary key (auto-increments
+    //   id (uint32) - Item.dbc primary key (auto-increments
     //                 from 1 if omitted)
     //   name (string)
-    //   quality (uint8) — 0..6 (poor..artifact, default 1)
-    //   displayId (uint32) — ItemDisplayInfo index (default 0)
-    //   itemLevel (uint32) — default 1
-    //   stackable (uint32) — max stack size (default 1)
+    //   quality (uint8) - 0..6 (poor..artifact, default 1)
+    //   displayId (uint32) - ItemDisplayInfo index (default 0)
+    //   itemLevel (uint32) - default 1
+    //   stackable (uint32) - max stack size (default 1)
     std::string zoneDir = argv[++i];
     std::string name = argv[++i];
     namespace fs = std::filesystem;
@@ -178,7 +178,7 @@ int handleAddItem(int& i, int argc, char** argv) {
             doc["items"] = nlohmann::json::array();
         }
     }
-    // Auto-assign id if user passed 0 / nothing — pick the
+    // Auto-assign id if user passed 0 / nothing - pick the
     // smallest unused positive integer so the items.json
     // numbering stays contiguous.
     if (id == 0) {

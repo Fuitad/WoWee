@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Game Tips catalog (.wgtp) — novel replacement
+// Wowee Open Game Tips catalog (.wgtp) - novel replacement
 // for Blizzard's GameTips.dbc plus loading-screen tutorial
 // hint tables. Defines the rotating tips shown during world
 // loads, the contextual tutorial hints that fire on first
@@ -15,9 +15,9 @@ namespace pipeline {
 // dungeon entry), and the persistent tooltip-help strings
 // that explain UI elements.
 //
-// Each tip has filter criteria — audience bitmask (faction /
+// Each tip has filter criteria - audience bitmask (faction /
 // new-player / hardcore), level range, optional class mask,
-// optional WPCN condition cross-ref — that the runtime uses
+// optional WPCN condition cross-ref - that the runtime uses
 // to pick the right pool of tips for the current player.
 // displayWeight controls relative frequency within the pool.
 //
@@ -51,7 +51,7 @@ struct WoweeGameTip {
         Hint          = 3,    // brief on-screen flyout
     };
 
-    // audienceFilter bits — combine with bitwise OR to broaden.
+    // audienceFilter bits - combine with bitwise OR to broaden.
     static constexpr uint32_t kAudienceAlliance   = 1u << 0;
     static constexpr uint32_t kAudienceHorde      = 1u << 1;
     static constexpr uint32_t kAudienceNewPlayer  = 1u << 2;
@@ -94,14 +94,14 @@ public:
 
     // Preset emitters used by --gen-tips* variants.
     //
-    //   makeStarter   — 3 generic loading-screen tips
+    //   makeStarter   - 3 generic loading-screen tips
     //                    (combat hint / movement hint /
-    //                    quest hint) — kAudienceAll, no
+    //                    quest hint) - kAudienceAll, no
     //                    condition gate.
-    //   makeNewPlayer — 5 onboarding tips for level 1-15
+    //   makeNewPlayer - 5 onboarding tips for level 1-15
     //                    players (kAudienceNewPlayer bit
     //                    set), Tutorial display kind.
-    //   makeAdvanced  — 4 tips for max-level players
+    //   makeAdvanced  - 4 tips for max-level players
     //                    (raid mechanics / PvP mechanics /
     //                    profession dailies / dungeon-finder
     //                    etiquette) gated by minLevel 70+.

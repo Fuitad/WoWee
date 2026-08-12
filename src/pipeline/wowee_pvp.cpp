@@ -1,4 +1,5 @@
 #include "pipeline/wowee_pvp.hpp"
+#include "pipeline/wowee_binary_io.hpp"
 
 #include <cstdio>
 #include <cstring>
@@ -11,45 +12,7 @@ namespace {
 
 constexpr char kMagic[4] = {'W', 'P', 'V', 'P'};
 constexpr uint32_t kVersion = 1;
-
-template <typename T>
-void writePOD(std::ofstream& os, const T& v) {
-    os.write(reinterpret_cast<const char*>(&v), sizeof(T));
-}
-
-template <typename T>
-bool readPOD(std::ifstream& is, T& v) {
-    is.read(reinterpret_cast<char*>(&v), sizeof(T));
-    return is.gcount() == static_cast<std::streamsize>(sizeof(T));
-}
-
-void writeStr(std::ofstream& os, const std::string& s) {
-    uint32_t n = static_cast<uint32_t>(s.size());
-    writePOD(os, n);
-    if (n > 0) os.write(s.data(), n);
-}
-
-bool readStr(std::ifstream& is, std::string& s) {
-    uint32_t n = 0;
-    if (!readPOD(is, n)) return false;
-    if (n > (1u << 20)) return false;
-    s.resize(n);
-    if (n > 0) {
-        is.read(s.data(), n);
-        if (is.gcount() != static_cast<std::streamsize>(n)) {
-            s.clear();
-            return false;
-        }
-    }
-    return true;
-}
-
-std::string normalizePath(std::string base) {
-    if (base.size() < 5 || base.substr(base.size() - 5) != ".wpvp") {
-        base += ".wpvp";
-    }
-    return base;
-}
+constexpr char kExtension[] = ".wpvp";
 
 } // namespace
 
@@ -71,15 +34,9 @@ const char* WoweePVPRank::rankKindName(uint8_t k) {
 }
 
 bool WoweePVPRankLoader::save(const WoweePVPRank& cat,
-                               const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath), std::ios::binary);
-    if (!os) return false;
-    os.write(kMagic, 4);
-    writePOD(os, kVersion);
-    writeStr(os, cat.name);
-    uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writePOD(os, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweePVPRank::Entry& e) {
         writePOD(os, e.rankId);
         writeStr(os, e.name);
         writeStr(os, e.factionAllianceName);
@@ -88,73 +45,45 @@ bool WoweePVPRankLoader::save(const WoweePVPRank& cat,
         writePOD(os, e.rankKind);
         writePOD(os, e.minBracketLevel);
         writePOD(os, e.maxBracketLevel);
-        uint8_t pad = 0;
-        writePOD(os, pad);
+        writePadding(os, 1);
         writePOD(os, e.minHonorOrRating);
         writePOD(os, e.rewardEmblems);
-        uint8_t pad2[2] = {0, 0};
-        os.write(reinterpret_cast<const char*>(pad2), 2);
+        writePadding(os, 2);
         writePOD(os, e.titleId);
         writePOD(os, e.chestItemId);
         writePOD(os, e.glovesItemId);
         writePOD(os, e.shouldersItemId);
         writePOD(os, e.bracketBgId);
-    }
-    return os.good();
+                       });
 }
 
-WoweePVPRank WoweePVPRankLoader::load(const std::string& basePath) {
-    WoweePVPRank out;
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    if (!is) return out;
-    char magic[4];
-    is.read(magic, 4);
-    if (std::memcmp(magic, kMagic, 4) != 0) return out;
-    uint32_t version = 0;
-    if (!readPOD(is, version) || version != kVersion) return out;
-    if (!readStr(is, out.name)) return out;
-    uint32_t entryCount = 0;
-    if (!readPOD(is, entryCount)) return out;
-    if (entryCount > (1u << 20)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.rankId)) {
-            out.entries.clear(); return out;
-        }
+WoweePVPRank WoweePVPRankLoader::load(
+    const std::string& basePath) {
+    return loadCatalog<WoweePVPRank>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweePVPRank::Entry& e) {
+        if (!readPOD(is, e.rankId)) { return false; }
         if (!readStr(is, e.name) ||
             !readStr(is, e.factionAllianceName) ||
             !readStr(is, e.factionHordeName) ||
-            !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
+            !readStr(is, e.description)) { return false; }
         if (!readPOD(is, e.rankKind) ||
             !readPOD(is, e.minBracketLevel) ||
-            !readPOD(is, e.maxBracketLevel)) {
-            out.entries.clear(); return out;
-        }
-        uint8_t pad = 0;
-        if (!readPOD(is, pad)) { out.entries.clear(); return out; }
+            !readPOD(is, e.maxBracketLevel)) { return false; }
+        if (!skipPadding(is, 1)) { return false; }
         if (!readPOD(is, e.minHonorOrRating) ||
-            !readPOD(is, e.rewardEmblems)) {
-            out.entries.clear(); return out;
-        }
-        uint8_t pad2[2];
-        is.read(reinterpret_cast<char*>(pad2), 2);
-        if (is.gcount() != 2) { out.entries.clear(); return out; }
+            !readPOD(is, e.rewardEmblems)) { return false; }
+        if (!skipPadding(is, 2)) { return false; }
         if (!readPOD(is, e.titleId) ||
             !readPOD(is, e.chestItemId) ||
             !readPOD(is, e.glovesItemId) ||
             !readPOD(is, e.shouldersItemId) ||
-            !readPOD(is, e.bracketBgId)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.bracketBgId)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweePVPRankLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweePVPRank WoweePVPRankLoader::makeStarter(
@@ -174,12 +103,12 @@ WoweePVPRank WoweePVPRankLoader::makeStarter(
         c.entries.push_back(e);
     };
     add(1, "Rank2", "Private",         "Scout",
-        2000, "Vanilla rank 2 — first PvP title.");
+        2000, "Vanilla rank 2 - first PvP title.");
     add(2, "Rank3", "Corporal",        "Grunt",
         5000, "Vanilla rank 3.");
     add(3, "Rank4", "Sergeant",        "Sergeant",
         10000,
-        "Vanilla rank 4 — same name on both factions.");
+        "Vanilla rank 4 - same name on both factions.");
     return c;
 }
 
@@ -209,7 +138,7 @@ WoweePVPRank WoweePVPRankLoader::makeAllianceFull(
     // values ramp exponentially toward the Grand Marshal cap.
     add(6,  "Knight",            "Stone Guard",
          50000,  3, 16462, 16472, 16482,
-         "Rank 6 — first epic gear unlock.");
+         "Rank 6 - first epic gear unlock.");
     add(7,  "Knight-Lieutenant", "Blood Guard",
          70000,  4, 16463, 16473, 16483,
          "Rank 7.");
@@ -233,7 +162,7 @@ WoweePVPRank WoweePVPRankLoader::makeAllianceFull(
         "Rank 13.");
     add(14, "Grand Marshal",     "High Warlord",
         260000, 11, 16470, 16480, 16490,
-        "Rank 14 — pinnacle. 'Grand Marshal' / 'High Warlord' "
+        "Rank 14 - pinnacle. 'Grand Marshal' / 'High Warlord' "
         "title + full epic PvP set.");
     return c;
 }
@@ -258,15 +187,15 @@ WoweePVPRank WoweePVPRankLoader::makeArenaTiers(
         c.entries.push_back(e);
     };
     add(100, "Combatant",  1500,  10,  0,
-        "Arena bracket — minimum entry rating.");
+        "Arena bracket - minimum entry rating.");
     add(101, "Challenger", 1750,  20,  44,
-        "Arena bracket — 'Challenger' title earned.");
+        "Arena bracket - 'Challenger' title earned.");
     add(102, "Rival",      2000,  40,  45,
-        "Arena bracket — 'Rival' title earned.");
+        "Arena bracket - 'Rival' title earned.");
     add(103, "Duelist",    2200,  80,  46,
-        "Arena bracket — 'Duelist' title earned.");
+        "Arena bracket - 'Duelist' title earned.");
     add(104, "Gladiator",  2400, 160,  47,
-        "Arena bracket — 'Gladiator' title + season mount.");
+        "Arena bracket - 'Gladiator' title + season mount.");
     return c;
 }
 

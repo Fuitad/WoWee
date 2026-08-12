@@ -1,4 +1,4 @@
-// rare_tracker_layer.hpp — Nearby rare / rare-elite creature markers on the world map.
+// rare_tracker_layer.hpp - Nearby rare / rare-elite creature markers on the world map.
 // Shows a distinctive diamond for every spawned rare currently loaded near the player,
 // so a passing rare that is "out" is visible at a glance on the zone map.
 #pragma once

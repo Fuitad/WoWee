@@ -1,4 +1,5 @@
 #include "pipeline/wowee_unit_movement.hpp"
+#include "pipeline/wowee_binary_io.hpp"
 
 #include <cstdio>
 #include <cstring>
@@ -11,45 +12,7 @@ namespace {
 
 constexpr char kMagic[4] = {'W', 'U', 'M', 'V'};
 constexpr uint32_t kVersion = 1;
-
-template <typename T>
-void writePOD(std::ofstream& os, const T& v) {
-    os.write(reinterpret_cast<const char*>(&v), sizeof(T));
-}
-
-template <typename T>
-bool readPOD(std::ifstream& is, T& v) {
-    is.read(reinterpret_cast<char*>(&v), sizeof(T));
-    return is.gcount() == static_cast<std::streamsize>(sizeof(T));
-}
-
-void writeStr(std::ofstream& os, const std::string& s) {
-    uint32_t n = static_cast<uint32_t>(s.size());
-    writePOD(os, n);
-    if (n > 0) os.write(s.data(), n);
-}
-
-bool readStr(std::ifstream& is, std::string& s) {
-    uint32_t n = 0;
-    if (!readPOD(is, n)) return false;
-    if (n > (1u << 20)) return false;
-    s.resize(n);
-    if (n > 0) {
-        is.read(s.data(), n);
-        if (is.gcount() != static_cast<std::streamsize>(n)) {
-            s.clear();
-            return false;
-        }
-    }
-    return true;
-}
-
-std::string normalizePath(std::string base) {
-    if (base.size() < 5 || base.substr(base.size() - 5) != ".wumv") {
-        base += ".wumv";
-    }
-    return base;
-}
+constexpr char kExtension[] = ".wumv";
 
 } // namespace
 
@@ -79,15 +42,9 @@ const char* WoweeUnitMovement::movementCategoryName(uint8_t c) {
 }
 
 bool WoweeUnitMovementLoader::save(const WoweeUnitMovement& cat,
-                                    const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath), std::ios::binary);
-    if (!os) return false;
-    os.write(kMagic, 4);
-    writePOD(os, kVersion);
-    writeStr(os, cat.name);
-    uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writePOD(os, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeUnitMovement::Entry& e) {
         writePOD(os, e.moveTypeId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -95,66 +52,39 @@ bool WoweeUnitMovementLoader::save(const WoweeUnitMovement& cat,
         writePOD(os, e.movementCategory);
         writePOD(os, e.requiresFlight);
         writePOD(os, e.canStackBuffs);
-        uint8_t pad = 0;
-        writePOD(os, pad);
+        writePadding(os, 1);
         writePOD(os, e.baseSpeed);
         writePOD(os, e.baseMultiplier);
         writePOD(os, e.maxMultiplier);
         writePOD(os, e.defaultDurationMs);
         writePOD(os, e.stackingPriority);
-        uint8_t pad3[3] = {0, 0, 0};
-        os.write(reinterpret_cast<const char*>(pad3), 3);
-    }
-    return os.good();
+        writePadding(os, 3);
+                       });
 }
 
 WoweeUnitMovement WoweeUnitMovementLoader::load(
     const std::string& basePath) {
-    WoweeUnitMovement out;
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    if (!is) return out;
-    char magic[4];
-    is.read(magic, 4);
-    if (std::memcmp(magic, kMagic, 4) != 0) return out;
-    uint32_t version = 0;
-    if (!readPOD(is, version) || version != kVersion) return out;
-    if (!readStr(is, out.name)) return out;
-    uint32_t entryCount = 0;
-    if (!readPOD(is, entryCount)) return out;
-    if (entryCount > (1u << 20)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.moveTypeId)) {
-            out.entries.clear(); return out;
-        }
+    return loadCatalog<WoweeUnitMovement>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeUnitMovement::Entry& e) {
+        if (!readPOD(is, e.moveTypeId)) { return false; }
         if (!readStr(is, e.name) || !readStr(is, e.description) ||
-            !readStr(is, e.iconPath)) {
-            out.entries.clear(); return out;
-        }
+            !readStr(is, e.iconPath)) { return false; }
         if (!readPOD(is, e.movementCategory) ||
             !readPOD(is, e.requiresFlight) ||
-            !readPOD(is, e.canStackBuffs)) {
-            out.entries.clear(); return out;
-        }
-        uint8_t pad = 0;
-        if (!readPOD(is, pad)) { out.entries.clear(); return out; }
+            !readPOD(is, e.canStackBuffs)) { return false; }
+        if (!skipPadding(is, 1)) { return false; }
         if (!readPOD(is, e.baseSpeed) ||
             !readPOD(is, e.baseMultiplier) ||
             !readPOD(is, e.maxMultiplier) ||
             !readPOD(is, e.defaultDurationMs) ||
-            !readPOD(is, e.stackingPriority)) {
-            out.entries.clear(); return out;
-        }
-        uint8_t pad3[3];
-        is.read(reinterpret_cast<char*>(pad3), 3);
-        if (is.gcount() != 3) { out.entries.clear(); return out; }
-    }
-    return out;
+            !readPOD(is, e.stackingPriority)) { return false; }
+        if (!skipPadding(is, 3)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeUnitMovementLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeUnitMovement WoweeUnitMovementLoader::makeStarter(
@@ -173,13 +103,13 @@ WoweeUnitMovement WoweeUnitMovementLoader::makeStarter(
         c.entries.push_back(e);
     };
     add(1, "WalkSpeed", WoweeUnitMovement::Walk, 2.5f,
-        "Canonical walk speed — 2.5 yards / second.");
+        "Canonical walk speed - 2.5 yards / second.");
     add(2, "RunSpeed",  WoweeUnitMovement::Run,  7.0f,
-        "Canonical run speed — 7.0 yards / second.");
+        "Canonical run speed - 7.0 yards / second.");
     add(3, "SwimSpeed", WoweeUnitMovement::Swim, 4.7f,
-        "Canonical swim speed — 4.7 yards / second underwater.");
+        "Canonical swim speed - 4.7 yards / second underwater.");
     add(4, "TurnRate",  WoweeUnitMovement::Turn, 3.14f,
-        "Canonical turn rate — π radians / second (180°/s).");
+        "Canonical turn rate - π radians / second (180°/s).");
     return c;
 }
 
@@ -202,21 +132,21 @@ WoweeUnitMovement WoweeUnitMovementLoader::makeFlight(
     };
     add(100, "Flight",         WoweeUnitMovement::Flight,
         7.0f,  1,
-        "Ground-rail flight speed — 7.0y/s, used by gryphon "
+        "Ground-rail flight speed - 7.0y/s, used by gryphon "
         "taxi rides.");
     add(101, "Fly",            WoweeUnitMovement::Fly,
         14.0f, 1,
-        "Free-flight cruise speed — 14.0y/s base on a flying "
+        "Free-flight cruise speed - 14.0y/s base on a flying "
         "mount.");
     add(102, "FlyBack",        WoweeUnitMovement::FlyBack,
         4.5f,  1,
-        "Backward flight — slower (no mount can reverse fast).");
+        "Backward flight - slower (no mount can reverse fast).");
     add(103, "FlightBack",     WoweeUnitMovement::FlightBack,
         4.5f,  1,
         "Backward ground-rail flight (taxi node reverse).");
     add(104, "Pitch",          WoweeUnitMovement::Pitch,
         1.5f,  1,
-        "Pitch rate while flying — 1.5 radians/second (≈86°/s).");
+        "Pitch rate while flying - 1.5 radians/second (≈86°/s).");
     return c;
 }
 
@@ -241,17 +171,17 @@ WoweeUnitMovement WoweeUnitMovementLoader::makeBuffs(
         c.entries.push_back(e);
     };
     add(200, "Sprint",            1.40f, 1.40f, 15000, 100,
-        "Rogue sprint — 40% movement speed for 15 seconds.");
+        "Rogue sprint - 40% movement speed for 15 seconds.");
     add(201, "AspectCheetah",     1.30f, 1.30f, 0,    50,
-        "Hunter aspect — 30% movement speed permanently. "
+        "Hunter aspect - 30% movement speed permanently. "
         "Breaks on damage.");
     add(202, "TravelForm",        1.40f, 1.40f, 0,    50,
-        "Druid travel form — 40% speed, persists until "
+        "Druid travel form - 40% speed, persists until "
         "shifted out.");
     add(203, "CrusaderAura",      1.20f, 1.20f, 0,    30,
-        "Paladin aura — 20% mounted speed for the party.");
+        "Paladin aura - 20% mounted speed for the party.");
     add(204, "WindWalk",          1.50f, 1.50f, 12000, 80,
-        "Shaman ghost-wolf style buff — 50% speed for "
+        "Shaman ghost-wolf style buff - 50% speed for "
         "12 seconds.");
     return c;
 }

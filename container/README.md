@@ -1,7 +1,7 @@
 # Container Builds
 
 Build WoWee for **Linux**, **macOS**, or **Windows** with a single command.  
-All builds run inside Docker — no toolchains to install on your host.
+All builds run inside Docker - no toolchains to install on your host.
 
 ## Prerequisites
 

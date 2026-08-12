@@ -397,7 +397,7 @@ void ActivitySoundManager::setCharacterVoiceProfile(const std::string& raceFolde
 }
 
 // Splashes go through the mixer like every other activity sound. They used to
-// spawn ffplay on a temp file, which allowed exactly one at a time — so wading
+// spawn ffplay on a temp file, which allowed exactly one at a time - so wading
 // in and out of the shallows dropped the second sound and logged it as an error,
 // and with the landing and jump sounds suppressed on water exit that left the
 // transition silent.
@@ -569,13 +569,5 @@ void ActivitySoundManager::playWound(bool isCrit) {
         lastWoundAt = now;
     }
 }
-
-void ActivitySoundManager::playDeath() {
-    if (!AudioEngine::instance().isInitialized() || deathClips.empty()) return;
-    std::uniform_int_distribution<size_t> dist(0, deathClips.size() - 1);
-    const Sample& sample = deathClips[dist(rng)];
-    AudioEngine::instance().playSound2D(sample.data, 0.85f * volumeScale, 1.0f);
-}
-
 } // namespace audio
 } // namespace wowee

@@ -1,4 +1,5 @@
 #include "pipeline/wowee_chars.hpp"
+#include "pipeline/wowee_binary_io.hpp"
 
 #include <cstdio>
 #include <cstring>
@@ -11,45 +12,7 @@ namespace {
 
 constexpr char kMagic[4] = {'W', 'C', 'H', 'C'};
 constexpr uint32_t kVersion = 1;
-
-template <typename T>
-void writePOD(std::ofstream& os, const T& v) {
-    os.write(reinterpret_cast<const char*>(&v), sizeof(T));
-}
-
-template <typename T>
-bool readPOD(std::ifstream& is, T& v) {
-    is.read(reinterpret_cast<char*>(&v), sizeof(T));
-    return is.gcount() == static_cast<std::streamsize>(sizeof(T));
-}
-
-void writeStr(std::ofstream& os, const std::string& s) {
-    uint32_t n = static_cast<uint32_t>(s.size());
-    writePOD(os, n);
-    if (n > 0) os.write(s.data(), n);
-}
-
-bool readStr(std::ifstream& is, std::string& s) {
-    uint32_t n = 0;
-    if (!readPOD(is, n)) return false;
-    if (n > (1u << 20)) return false;
-    s.resize(n);
-    if (n > 0) {
-        is.read(s.data(), n);
-        if (is.gcount() != static_cast<std::streamsize>(n)) {
-            s.clear();
-            return false;
-        }
-    }
-    return true;
-}
-
-std::string normalizePath(std::string base) {
-    if (base.size() < 5 || base.substr(base.size() - 5) != ".wchc") {
-        base += ".wchc";
-    }
-    return base;
-}
+constexpr char kExtension[] = ".wchc";
 
 } // namespace
 
@@ -96,13 +59,10 @@ const char* WoweeChars::raceFactionName(uint8_t f) {
 
 bool WoweeCharsLoader::save(const WoweeChars& cat,
                             const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath), std::ios::binary);
+    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
     if (!os) return false;
-    os.write(kMagic, 4);
-    writePOD(os, kVersion);
-    writeStr(os, cat.name);
-    uint32_t classCount = static_cast<uint32_t>(cat.classes.size());
-    writePOD(os, classCount);
+    const uint32_t classCount = static_cast<uint32_t>(cat.classes.size());
+    writeCatalogHeader(os, kMagic, kVersion, cat.name, classCount);
     for (const auto& c : cat.classes) {
         writePOD(os, c.classId);
         writeStr(os, c.name);
@@ -110,8 +70,7 @@ bool WoweeCharsLoader::save(const WoweeChars& cat,
         writePOD(os, c.powerType);
         writePOD(os, c.displayPower);
         writePOD(os, c.factionAvailability);
-        uint8_t pad1 = 0;
-        writePOD(os, pad1);
+        writePadding(os, 1);
         writePOD(os, c.baseHealth);
         writePOD(os, c.baseHealthPerLevel);
         writePOD(os, c.basePower);
@@ -124,8 +83,7 @@ bool WoweeCharsLoader::save(const WoweeChars& cat,
         writeStr(os, r.name);
         writeStr(os, r.iconPath);
         writePOD(os, r.factionId);
-        uint8_t pad3[3] = {0, 0, 0};
-        os.write(reinterpret_cast<const char*>(pad3), 3);
+        writePadding(os, 3);
         writePOD(os, r.maleDisplayId);
         writePOD(os, r.femaleDisplayId);
         writePOD(os, r.baseStrength);
@@ -133,7 +91,7 @@ bool WoweeCharsLoader::save(const WoweeChars& cat,
         writePOD(os, r.baseStamina);
         writePOD(os, r.baseIntellect);
         writePOD(os, r.baseSpirit);
-        os.write(reinterpret_cast<const char*>(pad3), 2);
+        writePadding(os, 2);
         writePOD(os, r.startingMapId);
         writePOD(os, r.startingZoneAreaId);
         writePOD(os, r.defaultLanguageSpellId);
@@ -148,8 +106,7 @@ bool WoweeCharsLoader::save(const WoweeChars& cat,
         uint8_t itemCount = static_cast<uint8_t>(
             o.items.size() > 255 ? 255 : o.items.size());
         writePOD(os, itemCount);
-        uint8_t pad2[2] = {0, 0};
-        os.write(reinterpret_cast<const char*>(pad2), 2);
+        writePadding(os, 2);
         for (uint8_t k = 0; k < itemCount; ++k) {
             const auto& it = o.items[k];
             writePOD(os, it.itemId);
@@ -163,17 +120,10 @@ bool WoweeCharsLoader::save(const WoweeChars& cat,
 
 WoweeChars WoweeCharsLoader::load(const std::string& basePath) {
     WoweeChars out;
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
+    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
     if (!is) return out;
-    char magic[4];
-    is.read(magic, 4);
-    if (std::memcmp(magic, kMagic, 4) != 0) return out;
-    uint32_t version = 0;
-    if (!readPOD(is, version) || version != kVersion) return out;
-    if (!readStr(is, out.name)) return out;
     uint32_t classCount = 0;
-    if (!readPOD(is, classCount)) return out;
-    if (classCount > (1u << 20)) return out;
+    if (!readCatalogHeader(is, kMagic, kVersion, out.name, classCount)) return out;
     out.classes.resize(classCount);
     for (auto& c : out.classes) {
         if (!readPOD(is, c.classId)) { out.classes.clear(); return out; }
@@ -185,8 +135,7 @@ WoweeChars WoweeCharsLoader::load(const std::string& basePath) {
             !readPOD(is, c.factionAvailability)) {
             out.classes.clear(); return out;
         }
-        uint8_t pad1 = 0;
-        if (!readPOD(is, pad1)) {
+        if (!skipPadding(is, 1)) {
             out.classes.clear(); return out;
         }
         if (!readPOD(is, c.baseHealth) ||
@@ -214,9 +163,7 @@ WoweeChars WoweeCharsLoader::load(const std::string& basePath) {
         if (!readPOD(is, r.factionId)) {
             out.classes.clear(); out.races.clear(); return out;
         }
-        uint8_t pad3[3];
-        is.read(reinterpret_cast<char*>(pad3), 3);
-        if (is.gcount() != 3) {
+        if (!skipPadding(is, 3)) {
             out.classes.clear(); out.races.clear(); return out;
         }
         if (!readPOD(is, r.maleDisplayId) ||
@@ -228,8 +175,7 @@ WoweeChars WoweeCharsLoader::load(const std::string& basePath) {
             !readPOD(is, r.baseSpirit)) {
             out.classes.clear(); out.races.clear(); return out;
         }
-        is.read(reinterpret_cast<char*>(pad3), 2);
-        if (is.gcount() != 2) {
+        if (!skipPadding(is, 2)) {
             out.classes.clear(); out.races.clear(); return out;
         }
         if (!readPOD(is, r.startingMapId) ||
@@ -259,9 +205,7 @@ WoweeChars WoweeCharsLoader::load(const std::string& basePath) {
             out.classes.clear(); out.races.clear();
             out.outfits.clear(); return out;
         }
-        uint8_t pad2[2];
-        is.read(reinterpret_cast<char*>(pad2), 2);
-        if (is.gcount() != 2) {
+        if (!skipPadding(is, 2)) {
             out.classes.clear(); out.races.clear();
             out.outfits.clear(); return out;
         }
@@ -285,8 +229,7 @@ WoweeChars WoweeCharsLoader::load(const std::string& basePath) {
 }
 
 bool WoweeCharsLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeChars WoweeCharsLoader::makeStarter(const std::string& catalogName) {

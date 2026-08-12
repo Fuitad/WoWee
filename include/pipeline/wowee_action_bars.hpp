@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Action Bar Layout catalog (.wact) — novel
+// Wowee Open Action Bar Layout catalog (.wact) - novel
 // replacement for the hardcoded per-class default action
 // bar bindings in the WoW client. Defines which abilities
 // auto-populate which action button slots when a new
@@ -20,7 +20,7 @@ namespace pipeline {
 // populated so the action bar isn't empty on first login.
 //
 // Distinct from WKBD (Keybindings) which maps physical
-// keys to action button slots — WACT maps action button
+// keys to action button slots - WACT maps action button
 // slots to abilities. The two together complete the
 // default-control configuration: Key 1 -> Action Slot 1
 // (WKBD) -> Heroic Strike (WACT).
@@ -97,14 +97,14 @@ public:
 
     // Preset emitters used by --gen-act* variants.
     //
-    //   makeWarrior — 10 Warrior starter bindings on the
+    //   makeWarrior - 10 Warrior starter bindings on the
     //                  Main bar (Heroic Strike, Charge,
     //                  Rend, Thunder Clap, Battle Shout,
     //                  Sunder Armor, Mocking Blow, etc).
-    //   makeMage    — 10 Mage starter bindings on the Main
+    //   makeMage    - 10 Mage starter bindings on the Main
     //                  bar (Fireball, Frostbolt, Frost
     //                  Nova, Polymorph, Mage Armor, etc).
-    //   makeHunterPet — 10 Hunter Pet-bar bindings using
+    //   makeHunterPet - 10 Hunter Pet-bar bindings using
     //                  barMode=Pet (Attack, Follow, Stay,
     //                  Aggressive/Defensive/Passive
     //                  stances, Bite, Claw, etc).

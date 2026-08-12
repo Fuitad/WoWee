@@ -422,7 +422,7 @@ void ZoneManager::initialize() {
     tileToZone[14 * 100 + 16] = 1657;
     tileToZone[14 * 100 + 17] = 1657;
 
-    // Seed removed — music shuffle now uses a local mt19937 (see pickMusicTrack).
+    // Seed removed - music shuffle now uses a local mt19937 (see pickMusicTrack).
 
     LOG_INFO("Zone manager initialized: ", zones.size(), " zones, ", tileToZone.size(), " tile mappings");
 }
@@ -434,6 +434,19 @@ uint32_t ZoneManager::getZoneId(int tileX, int tileY) const {
         return it->second;
     }
     return 0;  // Unknown zone
+}
+
+bool ZoneManager::isOutdoorPvpArea(uint32_t areaId) const {
+    if (areaId == 0) return false;
+    auto it = areaFlags_.find(areaId);
+    if (it == areaFlags_.end()) return false;
+    // The eleven objective subzones - the Plaguelands towers, Halaa, the
+    // Hellfire towers, Twin Spire Ruins, the Bone Wastes - and Wintergrasp,
+    // whose eighteen areas are marked with a flag of their own rather than
+    // this one.
+    constexpr uint32_t kOutdoorPvp  = 0x00008000u;
+    constexpr uint32_t kWintergrasp = 0x01000000u;
+    return (it->second & (kOutdoorPvp | kWintergrasp)) != 0;
 }
 
 uint32_t ZoneManager::resolveAreaZoneId(uint32_t areaId) const {
@@ -531,9 +544,17 @@ void ZoneManager::enrichFromDBC(pipeline::AssetManager* assets) {
     // layouts supported here. Preserve this relationship even when the music
     // DBCs are absent: renderer and ambience classification depend on it.
     areaParents_.clear();
+    areaFlags_.clear();
+    const bool haveFlags = areaFields > 4;
     for (uint32_t i = 0; i < numAreas; ++i) {
         const uint32_t areaId = areaDbc->getUInt32(i, 0);
-        if (areaId != 0) areaParents_[areaId] = areaDbc->getUInt32(i, 2);
+        if (areaId == 0) continue;
+        areaParents_[areaId] = areaDbc->getUInt32(i, 2);
+        // Field 4 is Flags. Not in dbc_layouts.json, so checked against known
+        // rows rather than trusted from its position: area 4197 is Wintergrasp
+        // and must carry 0x01000000, and 3703 is Shattrath and must carry the
+        // sanctuary bit 0x800. A wrong column reads as zero forever.
+        if (haveFlags) areaFlags_[areaId] = areaDbc->getUInt32(i, 4);
     }
 
     if (!zoneMusicDbc || !zoneMusicDbc->isLoaded()) {

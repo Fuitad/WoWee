@@ -38,7 +38,7 @@ bool readStandardHeader(std::ifstream& is, StandardHeader& out) {
         if (!is.read(out.catalogName.data(), nameLen)) return false;
     }
     if (!is.read(reinterpret_cast<char*>(&out.entryCount), 4)) {
-        // No count — version+name only (older variants)
+        // No count - version+name only (older variants)
         return true;
     }
     out.hasCount = true;
@@ -64,7 +64,7 @@ int handleMagic(int& i, int argc, char** argv) {
     const FormatMagicEntry* entry = findFormatByMagic(magic);
     StandardHeader hdr;
     bool standardOk = false;
-    // World/asset formats have non-standard headers — skip
+    // World/asset formats have non-standard headers - skip
     // the version+name+count probe for those (entry->infoFlag
     // is null for them).
     if (entry && entry->infoFlag != nullptr) {
@@ -114,7 +114,7 @@ int handleMagic(int& i, int argc, char** argv) {
         std::printf("  inspect with: %s %s\n",
                     entry->infoFlag, path.c_str());
     } else {
-        std::printf("  inspect with: (no --info-* flag — load via "
+        std::printf("  inspect with: (no --info-* flag - load via "
                      "engine or asset extractor)\n");
     }
     return 0;

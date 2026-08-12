@@ -1,4 +1,4 @@
-// IModifierState — abstract interface for keyboard modifier queries.
+// IModifierState - abstract interface for keyboard modifier queries.
 // Allows unit testing macro conditionals without real input system. Phase 4.1.
 #pragma once
 

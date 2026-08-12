@@ -1,4 +1,6 @@
 #include "cli_server_config_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -18,11 +20,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWcfgExt(std::string base) {
-    stripExt(base, ".wcfg");
-    return base;
-}
 
 const char* configKindName(uint8_t k) {
     using C = wowee::pipeline::WoweeServerConfig;
@@ -76,15 +73,6 @@ std::string activeValueString(
     }
 }
 
-bool saveOrError(const wowee::pipeline::WoweeServerConfig& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeServerConfigLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wcfg\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeServerConfig& c,
                      const std::string& base) {
@@ -97,9 +85,9 @@ int handleGenRates(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "RateMultipliers";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWcfgExt(base);
+    base = cli::withoutExt(base, ".wcfg");
     auto c = wowee::pipeline::WoweeServerConfigLoader::makeRates(name);
-    if (!saveOrError(c, base, "gen-cfg")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeServerConfigLoader>(c, base, "gen-cfg", ".wcfg")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -108,9 +96,9 @@ int handleGenPerf(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "PerformanceTuning";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWcfgExt(base);
+    base = cli::withoutExt(base, ".wcfg");
     auto c = wowee::pipeline::WoweeServerConfigLoader::makePerformance(name);
-    if (!saveOrError(c, base, "gen-cfg-perf")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeServerConfigLoader>(c, base, "gen-cfg-perf", ".wcfg")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -119,9 +107,9 @@ int handleGenSecurity(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "SecurityPolicy";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWcfgExt(base);
+    base = cli::withoutExt(base, ".wcfg");
     auto c = wowee::pipeline::WoweeServerConfigLoader::makeSecurity(name);
-    if (!saveOrError(c, base, "gen-cfg-sec")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeServerConfigLoader>(c, base, "gen-cfg-sec", ".wcfg")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -129,10 +117,9 @@ int handleGenSecurity(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWcfgExt(base);
+    base = cli::withoutExt(base, ".wcfg");
     if (!wowee::pipeline::WoweeServerConfigLoader::exists(base)) {
-        std::fprintf(stderr, "WCFG not found: %s.wcfg\n", base.c_str());
-        return 1;
+        return reportMissing("WCFG", base, ".wcfg");
     }
     auto c = wowee::pipeline::WoweeServerConfigLoader::load(base);
     if (jsonOut) {
@@ -243,13 +230,10 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWcfgExt(base);
+    base = cli::withoutExt(base, ".wcfg");
     if (out.empty()) out = base + ".wcfg.json";
     if (!wowee::pipeline::WoweeServerConfigLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wcfg-json: WCFG not found: %s.wcfg\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wcfg-json", "WCFG", base, ".wcfg");
     }
     auto c = wowee::pipeline::WoweeServerConfigLoader::load(base);
     nlohmann::json j;
@@ -292,16 +276,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wcfg.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wcfg");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wcfg");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,
@@ -362,12 +337,9 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWcfgExt(base);
+    base = cli::withoutExt(base, ".wcfg");
     if (!wowee::pipeline::WoweeServerConfigLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wcfg: WCFG not found: %s.wcfg\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wcfg", "WCFG", base, ".wcfg");
     }
     auto c = wowee::pipeline::WoweeServerConfigLoader::load(base);
     std::vector<std::string> errors;
@@ -405,14 +377,14 @@ int handleValidate(int& i, int argc, char** argv) {
             e.floatValue == 0.0f && e.intValue != 0) {
             warnings.push_back(ctx +
                 ": valueKind=Float but intValue is "
-                "non-zero — intValue will be ignored "
+                "non-zero - intValue will be ignored "
                 "by the server but stored on disk; "
                 "consider clearing for cleaner serialization");
         }
         if (e.valueKind == C::Int && e.floatValue != 0.0f) {
             warnings.push_back(ctx +
                 ": valueKind=Int but floatValue is "
-                "non-zero — floatValue will be ignored "
+                "non-zero - floatValue will be ignored "
                 "by the server");
         }
         if (e.valueKind == C::Bool && e.intValue != 0 &&
@@ -425,7 +397,7 @@ int handleValidate(int& i, int argc, char** argv) {
         if (e.valueKind == C::String && e.strValue.empty()) {
             warnings.push_back(ctx +
                 ": valueKind=String but strValue is "
-                "empty — config would default to empty "
+                "empty - config would default to empty "
                 "string");
         }
         // Names should be unique within a catalog (the
@@ -436,41 +408,17 @@ int handleValidate(int& i, int argc, char** argv) {
             !namesSeen.insert(e.name).second) {
             errors.push_back(ctx +
                 ": duplicate config name '" + e.name +
-                "' — server name-based lookups would "
+                "' - server name-based lookups would "
                 "be ambiguous");
         }
         if (!idsSeen.insert(e.configId).second) {
             errors.push_back(ctx + ": duplicate configId");
         }
     }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wcfg"] = base + ".wcfg";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wcfg: %s.wcfg\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu configs, all configIds + "
+    return cli::reportValidation("wcfg", base, jsonOut, errors, warnings,
+                                 formatted("%zu configs, all configIds + "
                     "names unique, per-kind value semantics "
-                    "satisfied\n", c.entries.size());
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+                    "satisfied", c.entries.size()));
 }
 
 } // namespace

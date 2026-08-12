@@ -121,10 +121,10 @@ std::vector<std::pair<int,int>> AssetBrowser::getMapTiles(const std::string& map
                                std::to_string(x) + "_" + std::to_string(y) + ".adt";
             // We stored entries as lowercase, so this should match
             // But we don't have direct access to entries here
-            // Use a dummy check — the UI already does manifest lookups
+            // Use a dummy check - the UI already does manifest lookups
         }
     }
-    return tiles; // Empty for now — UI uses direct manifest check per tile
+    return tiles; // Empty for now - UI uses direct manifest check per tile
 }
 
 } // namespace editor

@@ -1,4 +1,5 @@
 #include "pipeline/wowee_random_property.hpp"
+#include "pipeline/wowee_binary_io.hpp"
 
 #include <cstdio>
 #include <cstring>
@@ -11,45 +12,7 @@ namespace {
 
 constexpr char kMagic[4] = {'W', 'I', 'R', 'C'};
 constexpr uint32_t kVersion = 1;
-
-template <typename T>
-void writePOD(std::ofstream& os, const T& v) {
-    os.write(reinterpret_cast<const char*>(&v), sizeof(T));
-}
-
-template <typename T>
-bool readPOD(std::ifstream& is, T& v) {
-    is.read(reinterpret_cast<char*>(&v), sizeof(T));
-    return is.gcount() == static_cast<std::streamsize>(sizeof(T));
-}
-
-void writeStr(std::ofstream& os, const std::string& s) {
-    uint32_t n = static_cast<uint32_t>(s.size());
-    writePOD(os, n);
-    if (n > 0) os.write(s.data(), n);
-}
-
-bool readStr(std::ifstream& is, std::string& s) {
-    uint32_t n = 0;
-    if (!readPOD(is, n)) return false;
-    if (n > (1u << 20)) return false;
-    s.resize(n);
-    if (n > 0) {
-        is.read(s.data(), n);
-        if (is.gcount() != static_cast<std::streamsize>(n)) {
-            s.clear();
-            return false;
-        }
-    }
-    return true;
-}
-
-std::string normalizePath(std::string base) {
-    if (base.size() < 5 || base.substr(base.size() - 5) != ".wirc") {
-        base += ".wirc";
-    }
-    return base;
-}
+constexpr char kExtension[] = ".wirc";
 
 } // namespace
 
@@ -73,14 +36,8 @@ WoweeRandomProperty::findBySlot(uint8_t slotMask) const {
 bool WoweeRandomPropertyLoader::save(
     const WoweeRandomProperty& cat,
     const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath), std::ios::binary);
-    if (!os) return false;
-    os.write(kMagic, 4);
-    writePOD(os, kVersion);
-    writeStr(os, cat.name);
-    uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writePOD(os, entryCount);
-    for (const auto& e : cat.entries) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const auto& e) {
         writePOD(os, e.poolId);
         writeStr(os, e.name);
         writePOD(os, e.scaleLevel);
@@ -94,62 +51,36 @@ bool WoweeRandomPropertyLoader::save(
             writePOD(os, en.enchantId);
             writePOD(os, en.weight);
         }
-    }
-    return os.good();
+    });
 }
 
 WoweeRandomProperty WoweeRandomPropertyLoader::load(
     const std::string& basePath) {
-    WoweeRandomProperty out;
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    if (!is) return out;
-    char magic[4];
-    is.read(magic, 4);
-    if (std::memcmp(magic, kMagic, 4) != 0) return out;
-    uint32_t version = 0;
-    if (!readPOD(is, version) || version != kVersion) return out;
-    if (!readStr(is, out.name)) return out;
-    uint32_t entryCount = 0;
-    if (!readPOD(is, entryCount)) return out;
-    if (entryCount > (1u << 20)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.poolId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name)) {
-            out.entries.clear(); return out;
-        }
+    return loadCatalog<WoweeRandomProperty>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeRandomProperty::Entry& e) {
+        if (!readPOD(is, e.poolId)) { return false; }
+        if (!readStr(is, e.name)) { return false; }
         if (!readPOD(is, e.scaleLevel) ||
             !readPOD(is, e.allowedSlotsMask) ||
             !readPOD(is, e.allowedClassesMask) ||
-            !readPOD(is, e.totalWeight)) {
-            out.entries.clear(); return out;
-        }
+            !readPOD(is, e.totalWeight)) { return false; }
         uint32_t enchantCount = 0;
-        if (!readPOD(is, enchantCount)) {
-            out.entries.clear(); return out;
-        }
-        // Sanity cap — vanilla pools never exceed 12
+        if (!readPOD(is, enchantCount)) { return false; }
+        // Sanity cap - vanilla pools never exceed 12
         // enchants; format cap 64.
-        if (enchantCount > 64) {
-            out.entries.clear(); return out;
-        }
+        if (enchantCount > 64) { return false; }
         e.enchants.resize(enchantCount);
         for (auto& en : e.enchants) {
             if (!readPOD(is, en.enchantId) ||
-                !readPOD(is, en.weight)) {
-                out.entries.clear(); return out;
-            }
+                !readPOD(is, en.weight)) { return false; }
         }
-    }
-    return out;
+                                  return true;
+                              });
 }
 
 bool WoweeRandomPropertyLoader::exists(
     const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 namespace {
@@ -198,9 +129,9 @@ WoweeRandomProperty WoweeRandomPropertyLoader::makeOfTheBear(
         R::Helm | R::Chest | R::Leg | R::Boot,
         0x46,
         {mkEn(1189, 30),  // +3 Sta
-         mkEn(1190, 50),  // +5 Sta — most likely
+         mkEn(1190, 50),  // +5 Sta - most likely
          mkEn(1191, 15),  // +7 Sta
-         mkEn(1192, 5)})); // +10 Sta — rare
+         mkEn(1192, 5)})); // +10 Sta - rare
     return c;
 }
 
@@ -219,12 +150,12 @@ WoweeRandomProperty WoweeRandomPropertyLoader::makeOfTheEagle(
         R::Helm | R::Chest | R::Leg | R::Glove,
         0x320,
         {mkEn(1503, 25),  // +3 Int +3 Sta
-         mkEn(1504, 35),  // +5 Int +5 Sta — most
+         mkEn(1504, 35),  // +5 Int +5 Sta - most
                           //  common
          mkEn(1505, 25),  // +7 Int +7 Sta
          mkEn(1506, 10),  // +10 Int +10 Sta
          mkEn(1507, 5)})); // +12 Int +12 Sta
-                            //  — rarest
+                            //  - rarest
     return c;
 }
 
@@ -242,11 +173,11 @@ WoweeRandomProperty WoweeRandomPropertyLoader::makeOfTheTiger(
         R::Helm | R::Chest | R::Leg | R::Glove | R::Boot,
         0x818,
         {mkEn(1605, 25),  // +3 Str +3 Agi
-         mkEn(1606, 30),  // +5 Str +5 Agi — most
+         mkEn(1606, 30),  // +5 Str +5 Agi - most
                           //  common
          mkEn(1607, 25),  // +7 Str +7 Agi
          mkEn(1608, 15),  // +10 Str +10 Agi
-         mkEn(1609, 5)})); // +12 Str +12 Agi —
+         mkEn(1609, 5)})); // +12 Str +12 Agi -
                             //  rarest
     return c;
 }

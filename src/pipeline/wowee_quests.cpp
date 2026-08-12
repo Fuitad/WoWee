@@ -1,4 +1,5 @@
 #include "pipeline/wowee_quests.hpp"
+#include "pipeline/wowee_binary_io.hpp"
 
 #include <cstdio>
 #include <cstring>
@@ -11,45 +12,7 @@ namespace {
 
 constexpr char kMagic[4] = {'W', 'Q', 'T', 'M'};
 constexpr uint32_t kVersion = 1;
-
-template <typename T>
-void writePOD(std::ofstream& os, const T& v) {
-    os.write(reinterpret_cast<const char*>(&v), sizeof(T));
-}
-
-template <typename T>
-bool readPOD(std::ifstream& is, T& v) {
-    is.read(reinterpret_cast<char*>(&v), sizeof(T));
-    return is.gcount() == static_cast<std::streamsize>(sizeof(T));
-}
-
-void writeStr(std::ofstream& os, const std::string& s) {
-    uint32_t n = static_cast<uint32_t>(s.size());
-    writePOD(os, n);
-    if (n > 0) os.write(s.data(), n);
-}
-
-bool readStr(std::ifstream& is, std::string& s) {
-    uint32_t n = 0;
-    if (!readPOD(is, n)) return false;
-    if (n > (1u << 20)) return false;
-    s.resize(n);
-    if (n > 0) {
-        is.read(s.data(), n);
-        if (is.gcount() != static_cast<std::streamsize>(n)) {
-            s.clear();
-            return false;
-        }
-    }
-    return true;
-}
-
-std::string normalizePath(std::string base) {
-    if (base.size() < 4 || base.substr(base.size() - 4) != ".wqt") {
-        base += ".wqt";
-    }
-    return base;
-}
+constexpr char kExtension[] = ".wqt";
 
 } // namespace
 
@@ -73,15 +36,9 @@ const char* WoweeQuest::objectiveKindName(uint8_t k) {
 }
 
 bool WoweeQuestLoader::save(const WoweeQuest& cat,
-                            const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath), std::ios::binary);
-    if (!os) return false;
-    os.write(kMagic, 4);
-    writePOD(os, kVersion);
-    writeStr(os, cat.name);
-    uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writePOD(os, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeQuest::Entry& e) {
         writePOD(os, e.questId);
         writeStr(os, e.title);
         writeStr(os, e.objective);
@@ -100,12 +57,11 @@ bool WoweeQuestLoader::save(const WoweeQuest& cat,
         uint8_t objCount = static_cast<uint8_t>(
             e.objectives.size() > 255 ? 255 : e.objectives.size());
         writePOD(os, objCount);
-        uint8_t pad3[3] = {0, 0, 0};
-        os.write(reinterpret_cast<const char*>(pad3), 3);
+        writePadding(os, 3);
         for (uint8_t k = 0; k < objCount; ++k) {
             const auto& o = e.objectives[k];
             writePOD(os, o.kind);
-            os.write(reinterpret_cast<const char*>(pad3), 3);
+            writePadding(os, 3);
             writePOD(os, o.targetId);
             writePOD(os, o.quantity);
             writePOD(os, pad16);
@@ -115,7 +71,7 @@ bool WoweeQuestLoader::save(const WoweeQuest& cat,
         uint8_t rewCount = static_cast<uint8_t>(
             e.rewardItems.size() > 255 ? 255 : e.rewardItems.size());
         writePOD(os, rewCount);
-        os.write(reinterpret_cast<const char*>(pad3), 3);
+        writePadding(os, 3);
         for (uint8_t k = 0; k < rewCount; ++k) {
             const auto& r = e.rewardItems[k];
             writePOD(os, r.itemId);
@@ -124,97 +80,60 @@ bool WoweeQuestLoader::save(const WoweeQuest& cat,
             writePOD(os, pad16);
         }
         writePOD(os, e.flags);
-    }
-    return os.good();
+                       });
 }
 
-WoweeQuest WoweeQuestLoader::load(const std::string& basePath) {
-    WoweeQuest out;
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    if (!is) return out;
-    char magic[4];
-    is.read(magic, 4);
-    if (std::memcmp(magic, kMagic, 4) != 0) return out;
-    uint32_t version = 0;
-    if (!readPOD(is, version) || version != kVersion) return out;
-    if (!readStr(is, out.name)) return out;
-    uint32_t entryCount = 0;
-    if (!readPOD(is, entryCount)) return out;
-    if (entryCount > (1u << 20)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.questId)) { out.entries.clear(); return out; }
+WoweeQuest WoweeQuestLoader::load(
+    const std::string& basePath) {
+    return loadCatalog<WoweeQuest>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeQuest::Entry& e) {
+        if (!readPOD(is, e.questId)) { return false; }
         if (!readStr(is, e.title) || !readStr(is, e.objective) ||
-            !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
+            !readStr(is, e.description)) { return false; }
         if (!readPOD(is, e.minLevel) ||
             !readPOD(is, e.questLevel) ||
-            !readPOD(is, e.maxLevel)) {
-            out.entries.clear(); return out;
-        }
+            !readPOD(is, e.maxLevel)) { return false; }
         uint16_t pad16 = 0;
-        if (!readPOD(is, pad16)) { out.entries.clear(); return out; }
+        if (!readPOD(is, pad16)) { return false; }
         if (!readPOD(is, e.requiredClassMask) ||
             !readPOD(is, e.requiredRaceMask) ||
             !readPOD(is, e.prevQuestId) ||
             !readPOD(is, e.nextQuestId) ||
             !readPOD(is, e.giverCreatureId) ||
-            !readPOD(is, e.turninCreatureId)) {
-            out.entries.clear(); return out;
-        }
+            !readPOD(is, e.turninCreatureId)) { return false; }
         uint8_t objCount = 0;
-        if (!readPOD(is, objCount)) { out.entries.clear(); return out; }
-        uint8_t pad3[3];
-        is.read(reinterpret_cast<char*>(pad3), 3);
-        if (is.gcount() != 3) { out.entries.clear(); return out; }
+        if (!readPOD(is, objCount)) { return false; }
+        if (!skipPadding(is, 3)) { return false; }
         e.objectives.resize(objCount);
         for (uint8_t k = 0; k < objCount; ++k) {
             auto& o = e.objectives[k];
-            if (!readPOD(is, o.kind)) {
-                out.entries.clear(); return out;
-            }
-            is.read(reinterpret_cast<char*>(pad3), 3);
-            if (is.gcount() != 3) { out.entries.clear(); return out; }
-            if (!readPOD(is, o.targetId) || !readPOD(is, o.quantity)) {
-                out.entries.clear(); return out;
-            }
+            if (!readPOD(is, o.kind)) { return false; }
+            if (!skipPadding(is, 3)) { return false; }
+            if (!readPOD(is, o.targetId) || !readPOD(is, o.quantity)) { return false; }
             uint16_t opad = 0;
-            if (!readPOD(is, opad)) {
-                out.entries.clear(); return out;
-            }
+            if (!readPOD(is, opad)) { return false; }
         }
         if (!readPOD(is, e.xpReward) ||
-            !readPOD(is, e.moneyCopperReward)) {
-            out.entries.clear(); return out;
-        }
+            !readPOD(is, e.moneyCopperReward)) { return false; }
         uint8_t rewCount = 0;
-        if (!readPOD(is, rewCount)) { out.entries.clear(); return out; }
-        is.read(reinterpret_cast<char*>(pad3), 3);
-        if (is.gcount() != 3) { out.entries.clear(); return out; }
+        if (!readPOD(is, rewCount)) { return false; }
+        if (!skipPadding(is, 3)) { return false; }
         e.rewardItems.resize(rewCount);
         for (uint8_t k = 0; k < rewCount; ++k) {
             auto& r = e.rewardItems[k];
             if (!readPOD(is, r.itemId) ||
                 !readPOD(is, r.qty) ||
-                !readPOD(is, r.pickFlags)) {
-                out.entries.clear(); return out;
-            }
+                !readPOD(is, r.pickFlags)) { return false; }
             uint16_t rpad = 0;
-            if (!readPOD(is, rpad)) {
-                out.entries.clear(); return out;
-            }
+            if (!readPOD(is, rpad)) { return false; }
         }
-        if (!readPOD(is, e.flags)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+        if (!readPOD(is, e.flags)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeQuestLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeQuest WoweeQuestLoader::makeStarter(const std::string& catalogName) {
@@ -290,8 +209,8 @@ WoweeQuest WoweeQuestLoader::makeChain(const std::string& catalogName) {
         e.giverCreatureId = 4001;
         e.turninCreatureId = 4001;
         e.prevQuestId = 101;
-        // No nextQuestId — chain end.
-        // No objectives — quest completes on dialogue alone.
+        // No nextQuestId - chain end.
+        // No objectives - quest completes on dialogue alone.
         e.flags = WoweeQuest::AutoComplete;
         e.xpReward = 200;
         e.moneyCopperReward = 500;          // 5s

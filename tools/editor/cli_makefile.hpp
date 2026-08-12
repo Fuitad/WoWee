@@ -4,7 +4,7 @@ namespace wowee {
 namespace editor {
 namespace cli {
 
-// Dispatch the Makefile-generation handlers — emit GNU make
+// Dispatch the Makefile-generation handlers - emit GNU make
 // recipes that rebuild every derived output (.glb / .obj /
 // .stl / .html / .csv / .md) from sources via wowee_editor
 // flags. Designers can `make -j` to rebuild after editing

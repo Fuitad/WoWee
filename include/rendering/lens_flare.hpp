@@ -40,6 +40,11 @@ public:
     void shutdown();
 
     void recreatePipelines();
+    /// The pipeline state both initialize() and
+    /// recreatePipelines() need, described once.
+    void buildPipelines(VkDevice device,
+                        const VkPipelineShaderStageCreateInfo& vertStage,
+                        const VkPipelineShaderStageCreateInfo& fragStage);
 
     /**
      * @brief Render lens flare effect

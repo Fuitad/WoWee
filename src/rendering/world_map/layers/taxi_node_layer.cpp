@@ -1,9 +1,10 @@
-// taxi_node_layer.cpp — Flight master markers on the world map.
+// taxi_node_layer.cpp - Flight master markers on the world map.
 // Passive mode: small diamonds with name tooltips (normal world map).
-// Flight-map mode: interactive taxi selection — green marker at the current
+// Flight-map mode: interactive taxi selection - green marker at the current
 // node, gold markers at reachable destinations, hover shows the dotted route
 // and the flight cost, click activates the flight.
 #include "rendering/world_map/layers/taxi_node_layer.hpp"
+#include "game/item_text.hpp"
 #include "rendering/world_map/coordinate_projection.hpp"
 #include "core/coordinates.hpp"
 #include <imgui.h>
@@ -42,9 +43,10 @@ void drawDottedSegment(ImDrawList* dl, ImVec2 a, ImVec2 b, ImU32 color) {
 }
 
 void formatCost(uint32_t copperTotal, char* buf, size_t bufSize) {
-    uint32_t gold = copperTotal / 10000;
-    uint32_t silver = (copperTotal / 100) % 100;
-    uint32_t copper = copperTotal % 100;
+    const auto coins = game::splitCopper(copperTotal);
+    const uint32_t gold = coins.gold;
+    const uint32_t silver = coins.silver;
+    const uint32_t copper = coins.copper;
     if (gold > 0) {
         std::snprintf(buf, bufSize, "%ug %us %uc", gold, silver, copper);
     } else if (silver > 0) {
@@ -93,24 +95,13 @@ bool projectNodeToDisplayedMap(const TaxiNode& node, const LayerContext& ctx,
 
 void TaxiNodeLayer::render(const LayerContext& ctx) {
     if (!nodes_ || nodes_->empty()) return;
-    if (ctx.currentZoneIdx < 0) return;
-    if (ctx.viewLevel != ViewLevel::ZONE && ctx.viewLevel != ViewLevel::CONTINENT) return;
-    if (!ctx.zones) return;
-
-    const auto& zone = (*ctx.zones)[ctx.currentZoneIdx];
-    ZoneBounds bounds = zone.bounds;
-    bool isContinent = zone.areaID == 0;
-    if (isContinent) {
-        float l, r, t, b;
-        if (getContinentProjectionBounds(*ctx.zones, ctx.currentZoneIdx, l, r, t, b)) {
-            bounds = {l, r, t, b};
-        }
-    }
+    const auto projection = currentProjection(ctx);
+    if (!projection) return;
 
     if (taxiMode_) {
-        renderFlightMap(ctx, bounds, isContinent);
+        renderFlightMap(ctx, projection->bounds, projection->isContinent);
     } else {
-        renderWorldMapMarkers(ctx, bounds, isContinent);
+        renderWorldMapMarkers(ctx, projection->bounds, projection->isContinent);
     }
 }
 
@@ -144,7 +135,7 @@ void TaxiNodeLayer::renderWorldMapMarkers(const LayerContext& ctx,
                 if (node.known) {
                     ImGui::SetTooltip("%s\n(Flight Master)", node.name.c_str());
                 } else {
-                    ImGui::SetTooltip("%s\n(Flight Master — not yet discovered)",
+                    ImGui::SetTooltip("%s\n(Flight Master - not yet discovered)",
                                       node.name.c_str());
                 }
             }

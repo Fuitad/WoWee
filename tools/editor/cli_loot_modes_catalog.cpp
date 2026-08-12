@@ -1,4 +1,6 @@
 #include "cli_loot_modes_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -18,11 +20,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWlmaExt(std::string base) {
-    stripExt(base, ".wlma");
-    return base;
-}
 
 const char* modeKindName(uint8_t k) {
     using L = wowee::pipeline::WoweeLootModes;
@@ -51,15 +48,6 @@ const char* qualityName(uint8_t q) {
     }
 }
 
-bool saveOrError(const wowee::pipeline::WoweeLootModes& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeLootModesLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wlma\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeLootModes& c,
                      const std::string& base) {
@@ -72,9 +60,9 @@ int handleGenStandard(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StandardLootModes";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWlmaExt(base);
+    base = cli::withoutExt(base, ".wlma");
     auto c = wowee::pipeline::WoweeLootModesLoader::makeStandard(name);
-    if (!saveOrError(c, base, "gen-lma")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeLootModesLoader>(c, base, "gen-lma", ".wlma")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -83,9 +71,9 @@ int handleGenRaid(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "RaidLootPolicies";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWlmaExt(base);
+    base = cli::withoutExt(base, ".wlma");
     auto c = wowee::pipeline::WoweeLootModesLoader::makeRaidPolicies(name);
-    if (!saveOrError(c, base, "gen-lma-raid")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeLootModesLoader>(c, base, "gen-lma-raid", ".wlma")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -94,9 +82,9 @@ int handleGenAFK(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "AFKPreventionLootModes";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWlmaExt(base);
+    base = cli::withoutExt(base, ".wlma");
     auto c = wowee::pipeline::WoweeLootModesLoader::makeAFKPrevention(name);
-    if (!saveOrError(c, base, "gen-lma-afk")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeLootModesLoader>(c, base, "gen-lma-afk", ".wlma")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -104,10 +92,9 @@ int handleGenAFK(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWlmaExt(base);
+    base = cli::withoutExt(base, ".wlma");
     if (!wowee::pipeline::WoweeLootModesLoader::exists(base)) {
-        std::fprintf(stderr, "WLMA not found: %s.wlma\n", base.c_str());
-        return 1;
+        return reportMissing("WLMA", base, ".wlma");
     }
     auto c = wowee::pipeline::WoweeLootModesLoader::load(base);
     if (jsonOut) {
@@ -209,13 +196,10 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWlmaExt(base);
+    base = cli::withoutExt(base, ".wlma");
     if (out.empty()) out = base + ".wlma.json";
     if (!wowee::pipeline::WoweeLootModesLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wlma-json: WLMA not found: %s.wlma\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wlma-json", "WLMA", base, ".wlma");
     }
     auto c = wowee::pipeline::WoweeLootModesLoader::load(base);
     nlohmann::json j;
@@ -260,16 +244,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wlma.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wlma");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wlma");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,
@@ -334,12 +309,9 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWlmaExt(base);
+    base = cli::withoutExt(base, ".wlma");
     if (!wowee::pipeline::WoweeLootModesLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wlma: WLMA not found: %s.wlma\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wlma", "WLMA", base, ".wlma");
     }
     auto c = wowee::pipeline::WoweeLootModesLoader::load(base);
     std::vector<std::string> errors;
@@ -366,7 +338,7 @@ int handleValidate(int& i, int argc, char** argv) {
         if (e.thresholdQuality > 7) {
             errors.push_back(ctx + ": thresholdQuality " +
                 std::to_string(e.thresholdQuality) +
-                " out of range (must be 0..7 — Poor "
+                " out of range (must be 0..7 - Poor "
                 "through Heirloom)");
         }
         if (e.timeoutFallbackKind > 5) {
@@ -376,24 +348,24 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         // Per-kind validity: MasterLoot kind REQUIRES
         // masterLooterRequired=1 (else the policy is
-        // self-contradicting — saying use Master Loot
+        // self-contradicting - saying use Master Loot
         // without requiring a master looter).
         using L = wowee::pipeline::WoweeLootModes;
         if (e.modeKind == L::MasterLoot &&
             e.masterLooterRequired == 0) {
             errors.push_back(ctx +
                 ": MasterLoot kind with master"
-                "LooterRequired=0 — policy contradicts "
+                "LooterRequired=0 - policy contradicts "
                 "itself (Master Loot mode without "
                 "requiring a master looter)");
         }
         // Personal kind doesn't use master-looter
-        // semantics — flag as warning if set.
+        // semantics - flag as warning if set.
         if (e.modeKind == L::Personal &&
             e.masterLooterRequired != 0) {
             warnings.push_back(ctx +
                 ": Personal kind with master"
-                "LooterRequired=1 — Personal Loot "
+                "LooterRequired=1 - Personal Loot "
                 "doesn't use master-looter semantics; "
                 "the flag is meaningless");
         }
@@ -401,14 +373,14 @@ int handleValidate(int& i, int argc, char** argv) {
         // with a "leader" concept that can disconnect
         // (MasterLoot). Other kinds (FFA, Personal,
         // RoundRobin, NBG) have no leader-timeout
-        // scenario so the fallback field is unused —
+        // scenario so the fallback field is unused -
         // setting it to self is the conventional default
         // and not a bug.
         if (e.modeKind == L::MasterLoot &&
             e.timeoutFallbackKind == e.modeKind) {
             warnings.push_back(ctx +
                 ": MasterLoot timeoutFallbackKind equals "
-                "modeKind — if the master looter "
+                "modeKind - if the master looter "
                 "disconnects, the fallback would just "
                 "wait for them to reconnect (no policy "
                 "change). Common alternatives: Need"
@@ -419,34 +391,9 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": duplicate modeId");
         }
     }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wlma"] = base + ".wlma";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wlma: %s.wlma\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu modes, all modeIds unique, "
-                    "per-kind constraints satisfied\n",
-                    c.entries.size());
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+    return cli::reportValidation("wlma", base, jsonOut, errors, warnings,
+                                 formatted("%zu modes, all modeIds unique, "
+                    "per-kind constraints satisfied", c.entries.size()));
 }
 
 } // namespace

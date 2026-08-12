@@ -12,7 +12,7 @@ void Frustum::extractFromMatrix(const glm::mat4& vp) {
     // Gribb & Hartmann method adapted for Vulkan depth [0,1].
     // Left/Right/Top/Bottom use the standard row4 ± row1/row2 formulas
     // (the Y-flip swaps the TOP/BOTTOM row2 sign, but the extracted half-spaces
-    //  are still correct — they just get each other's label.  We swap the
+    //  are still correct - they just get each other's label.  We swap the
     //  assignments so the enum names match the geometric meaning.)
 
     // Left plane: row4 + row1  (x_clip >= -w_clip)

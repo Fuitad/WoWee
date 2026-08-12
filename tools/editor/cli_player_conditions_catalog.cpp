@@ -1,4 +1,6 @@
 #include "cli_player_conditions_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -18,20 +20,6 @@ namespace cli {
 
 namespace {
 
-std::string stripWpcnExt(std::string base) {
-    stripExt(base, ".wpcn");
-    return base;
-}
-
-bool saveOrError(const wowee::pipeline::WoweePlayerCondition& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweePlayerConditionLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wpcn\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweePlayerCondition& c,
                      const std::string& base) {
@@ -44,9 +32,9 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterConditions";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWpcnExt(base);
+    base = cli::withoutExt(base, ".wpcn");
     auto c = wowee::pipeline::WoweePlayerConditionLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-pcn")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweePlayerConditionLoader>(c, base, "gen-pcn", ".wpcn")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -55,9 +43,9 @@ int handleGenQuestGates(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "QuestGateConditions";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWpcnExt(base);
+    base = cli::withoutExt(base, ".wpcn");
     auto c = wowee::pipeline::WoweePlayerConditionLoader::makeQuestGates(name);
-    if (!saveOrError(c, base, "gen-pcn-quest-gates")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweePlayerConditionLoader>(c, base, "gen-pcn-quest-gates", ".wpcn")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -66,9 +54,9 @@ int handleGenComposite(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "CompositeConditions";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWpcnExt(base);
+    base = cli::withoutExt(base, ".wpcn");
     auto c = wowee::pipeline::WoweePlayerConditionLoader::makeComposite(name);
-    if (!saveOrError(c, base, "gen-pcn-composite")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweePlayerConditionLoader>(c, base, "gen-pcn-composite", ".wpcn")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -76,10 +64,9 @@ int handleGenComposite(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWpcnExt(base);
+    base = cli::withoutExt(base, ".wpcn");
     if (!wowee::pipeline::WoweePlayerConditionLoader::exists(base)) {
-        std::fprintf(stderr, "WPCN not found: %s.wpcn\n", base.c_str());
-        return 1;
+        return reportMissing("WPCN", base, ".wpcn");
     }
     auto c = wowee::pipeline::WoweePlayerConditionLoader::load(base);
     if (jsonOut) {
@@ -134,70 +121,42 @@ int handleExportJson(int& i, int argc, char** argv) {
     // open format. Each condition emits all 11 scalar fields
     // plus dual int + name forms for conditionKind /
     // comparisonOp / chainOp so hand-edits can use either.
-    std::string base = argv[++i];
-    std::string outPath;
-    if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWpcnExt(base);
-    if (outPath.empty()) outPath = base + ".wpcn.json";
-    if (!wowee::pipeline::WoweePlayerConditionLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wpcn-json: WPCN not found: %s.wpcn\n", base.c_str());
-        return 1;
-    }
-    auto c = wowee::pipeline::WoweePlayerConditionLoader::load(base);
-    nlohmann::json j;
-    j["name"] = c.name;
-    nlohmann::json arr = nlohmann::json::array();
-    for (const auto& e : c.entries) {
-        arr.push_back({
-            {"conditionId", e.conditionId},
-            {"name", e.name},
-            {"description", e.description},
-            {"conditionKind", e.conditionKind},
-            {"conditionKindName", wowee::pipeline::WoweePlayerCondition::conditionKindName(e.conditionKind)},
-            {"comparisonOp", e.comparisonOp},
-            {"comparisonOpName", wowee::pipeline::WoweePlayerCondition::comparisonOpName(e.comparisonOp)},
-            {"chainOp", e.chainOp},
-            {"chainOpName", wowee::pipeline::WoweePlayerCondition::chainOpName(e.chainOp)},
-            {"targetIdA", e.targetIdA},
-            {"targetIdB", e.targetIdB},
-            {"intValueA", e.intValueA},
-            {"intValueB", e.intValueB},
-            {"chainNextId", e.chainNextId},
-            {"failMessage", e.failMessage},
+    return cli::exportCatalogJson<wowee::pipeline::WoweePlayerConditionLoader>(
+        i, argc, argv, "wpcn", "WPCN", "conditions ",
+        [](const auto& c) {
+        nlohmann::json j;
+        j["name"] = c.name;
+        nlohmann::json arr = nlohmann::json::array();
+        for (const auto& e : c.entries) {
+            arr.push_back({
+                {"conditionId", e.conditionId},
+                {"name", e.name},
+                {"description", e.description},
+                {"conditionKind", e.conditionKind},
+                {"conditionKindName", wowee::pipeline::WoweePlayerCondition::conditionKindName(e.conditionKind)},
+                {"comparisonOp", e.comparisonOp},
+                {"comparisonOpName", wowee::pipeline::WoweePlayerCondition::comparisonOpName(e.comparisonOp)},
+                {"chainOp", e.chainOp},
+                {"chainOpName", wowee::pipeline::WoweePlayerCondition::chainOpName(e.chainOp)},
+                {"targetIdA", e.targetIdA},
+                {"targetIdB", e.targetIdB},
+                {"intValueA", e.intValueA},
+                {"intValueB", e.intValueB},
+                {"chainNextId", e.chainNextId},
+                {"failMessage", e.failMessage},
+            });
+        }
+        j["entries"] = arr;
+            return j;
         });
-    }
-    j["entries"] = arr;
-    std::ofstream out(outPath);
-    if (!out) {
-        std::fprintf(stderr,
-            "export-wpcn-json: cannot write %s\n", outPath.c_str());
-        return 1;
-    }
-    out << j.dump(2) << "\n";
-    out.close();
-    std::printf("Wrote %s\n", outPath.c_str());
-    std::printf("  source     : %s.wpcn\n", base.c_str());
-    std::printf("  conditions : %zu\n", c.entries.size());
-    return 0;
 }
 
 int handleImportJson(int& i, int argc, char** argv) {
     std::string jsonPath = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = jsonPath;
-        std::string suffix = ".wpcn.json";
-        if (outBase.size() > suffix.size() &&
-            outBase.substr(outBase.size() - suffix.size()) == suffix) {
-            outBase = outBase.substr(0, outBase.size() - suffix.size());
-        } else if (outBase.size() > 5 &&
-                   outBase.substr(outBase.size() - 5) == ".json") {
-            outBase = outBase.substr(0, outBase.size() - 5);
-        }
-    }
-    outBase = stripWpcnExt(outBase);
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(jsonPath, ".wpcn");
+    outBase = cli::withoutExt(outBase, ".wpcn");
     std::ifstream in(jsonPath);
     if (!in) {
         std::fprintf(stderr,
@@ -307,11 +266,9 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWpcnExt(base);
+    base = cli::withoutExt(base, ".wpcn");
     if (!wowee::pipeline::WoweePlayerConditionLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wpcn: WPCN not found: %s.wpcn\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wpcn", "WPCN", base, ".wpcn");
     }
     auto c = wowee::pipeline::WoweePlayerConditionLoader::load(base);
     std::vector<std::string> errors;
@@ -319,13 +276,14 @@ int handleValidate(int& i, int argc, char** argv) {
     if (c.entries.empty()) {
         warnings.push_back("catalog has zero entries");
     }
+    cli::DuplicateIdCheck idsUnique;
+    idsUnique.reserve(c.entries.size());
     std::vector<uint32_t> idsSeen;
     for (const auto& e : c.entries) idsSeen.push_back(e.conditionId);
     auto idExists = [&](uint32_t id) {
         for (uint32_t a : idsSeen) if (a == id) return true;
         return false;
     };
-    std::vector<uint32_t> dupCheck;
     for (size_t k = 0; k < c.entries.size(); ++k) {
         const auto& e = c.entries[k];
         std::string ctx = "entry " + std::to_string(k) +
@@ -349,7 +307,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 std::to_string(e.chainOp) + " not in 0..3");
         }
         // chainOp != ChainNone requires a non-zero chainNextId
-        // — and that ID must point at another condition in
+        // - and that ID must point at another condition in
         // this catalog.
         if (e.chainOp != wowee::pipeline::WoweePlayerCondition::ChainNone) {
             if (e.chainNextId == 0) {
@@ -367,48 +325,22 @@ int handleValidate(int& i, int argc, char** argv) {
             }
         }
         // chainOp == ChainNone and chainNextId != 0 is dead
-        // pointer — chainNextId is silently unused.
+        // pointer - chainNextId is silently unused.
         if (e.chainOp == wowee::pipeline::WoweePlayerCondition::ChainNone &&
             e.chainNextId != 0) {
             warnings.push_back(ctx +
                 ": chainNextId set but chainOp=none "
                 "(silently ignored at runtime)");
         }
-        // duplicates
-        for (size_t m = 0; m < k; ++m) {
-            if (c.entries[m].conditionId == e.conditionId) {
-                errors.push_back(ctx + ": duplicate conditionId");
-                break;
-            }
+        // Duplicates. Was a walk of every earlier entry, for every entry;
+        // there was also a dupCheck vector declared beside it that nothing
+        // ever touched.
+        if (!idsUnique.add(e.conditionId)) {
+            errors.push_back(ctx + ": duplicate conditionId");
         }
     }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wpcn"] = base + ".wpcn";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wpcn: %s.wpcn\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu conditions, all conditionIds unique, all chains resolved\n",
-                    c.entries.size());
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+    return cli::reportValidation("wpcn", base, jsonOut, errors, warnings,
+                                 formatted("%zu conditions, all conditionIds unique, all chains resolved", c.entries.size()));
 }
 
 } // namespace

@@ -1,4 +1,6 @@
 #include "cli_trade_rules_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -18,11 +20,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWtrdExt(std::string base) {
-    stripExt(base, ".wtrd");
-    return base;
-}
 
 const char* ruleKindName(uint8_t k) {
     using T = wowee::pipeline::WoweeTradeRules;
@@ -50,15 +47,6 @@ const char* targetingFilterName(uint8_t t) {
     }
 }
 
-bool saveOrError(const wowee::pipeline::WoweeTradeRules& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeTradeRulesLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wtrd\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeTradeRules& c,
                      const std::string& base) {
@@ -71,9 +59,9 @@ int handleGenStandard(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StandardTradeRules";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWtrdExt(base);
+    base = cli::withoutExt(base, ".wtrd");
     auto c = wowee::pipeline::WoweeTradeRulesLoader::makeStandard(name);
-    if (!saveOrError(c, base, "gen-trd")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeTradeRulesLoader>(c, base, "gen-trd", ".wtrd")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -82,9 +70,9 @@ int handleGenServerAdmin(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "ServerAdminTradeRules";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWtrdExt(base);
+    base = cli::withoutExt(base, ".wtrd");
     auto c = wowee::pipeline::WoweeTradeRulesLoader::makeServerAdmin(name);
-    if (!saveOrError(c, base, "gen-trd-admin")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeTradeRulesLoader>(c, base, "gen-trd-admin", ".wtrd")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -93,9 +81,9 @@ int handleGenRMT(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "AntiRMTTradeRules";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWtrdExt(base);
+    base = cli::withoutExt(base, ".wtrd");
     auto c = wowee::pipeline::WoweeTradeRulesLoader::makeRMTPrevent(name);
-    if (!saveOrError(c, base, "gen-trd-rmt")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeTradeRulesLoader>(c, base, "gen-trd-rmt", ".wtrd")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -103,10 +91,9 @@ int handleGenRMT(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWtrdExt(base);
+    base = cli::withoutExt(base, ".wtrd");
     if (!wowee::pipeline::WoweeTradeRulesLoader::exists(base)) {
-        std::fprintf(stderr, "WTRD not found: %s.wtrd\n", base.c_str());
-        return 1;
+        return reportMissing("WTRD", base, ".wtrd");
     }
     auto c = wowee::pipeline::WoweeTradeRulesLoader::load(base);
     if (jsonOut) {
@@ -218,13 +205,10 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWtrdExt(base);
+    base = cli::withoutExt(base, ".wtrd");
     if (out.empty()) out = base + ".wtrd.json";
     if (!wowee::pipeline::WoweeTradeRulesLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wtrd-json: WTRD not found: %s.wtrd\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wtrd-json", "WTRD", base, ".wtrd");
     }
     auto c = wowee::pipeline::WoweeTradeRulesLoader::load(base);
     nlohmann::json j;
@@ -267,16 +251,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wtrd.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wtrd");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wtrd");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,
@@ -334,12 +309,9 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWtrdExt(base);
+    base = cli::withoutExt(base, ".wtrd");
     if (!wowee::pipeline::WoweeTradeRulesLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wtrd: WTRD not found: %s.wtrd\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wtrd", "WTRD", base, ".wtrd");
     }
     auto c = wowee::pipeline::WoweeTradeRulesLoader::load(base);
     std::vector<std::string> errors;
@@ -371,7 +343,7 @@ int handleValidate(int& i, int argc, char** argv) {
         if (e.levelRequirement > 80) {
             warnings.push_back(ctx + ": levelRequirement " +
                 std::to_string(e.levelRequirement) +
-                " > 80 — exceeds current cap, the rule "
+                " > 80 - exceeds current cap, the rule "
                 "would never apply on a WotLK realm");
         }
         // Per-kind validity: GoldEscrowMax must specify
@@ -383,7 +355,7 @@ int handleValidate(int& i, int argc, char** argv) {
             e.goldEscrowMaxCopper == 0) {
             errors.push_back(ctx +
                 ": GoldEscrowMax kind with goldEscrow"
-                "MaxCopper=0 — rule contradicts itself "
+                "MaxCopper=0 - rule contradicts itself "
                 "(0 means unlimited but the rule's "
                 "purpose is to cap)");
         }
@@ -394,7 +366,7 @@ int handleValidate(int& i, int argc, char** argv) {
             warnings.push_back(ctx +
                 ": GMOnly targeting with priority " +
                 std::to_string(e.priority) +
-                " < 50 — GM-mediated trades typically "
+                " < 50 - GM-mediated trades typically "
                 "need high priority to override player-"
                 "initiated rules");
         }
@@ -402,34 +374,9 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": duplicate ruleId");
         }
     }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wtrd"] = base + ".wtrd";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wtrd: %s.wtrd\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu rules, all ruleIds unique, "
-                    "per-kind constraints satisfied\n",
-                    c.entries.size());
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+    return cli::reportValidation("wtrd", base, jsonOut, errors, warnings,
+                                 formatted("%zu rules, all ruleIds unique, "
+                    "per-kind constraints satisfied", c.entries.size()));
 }
 
 } // namespace

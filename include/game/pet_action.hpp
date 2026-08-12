@@ -7,7 +7,7 @@
 // same small numbers, so 1 means "follow" as a command and "defensive" as a
 // reaction, and the two are only told apart by the byte above them.
 //
-// Four callers each invented their own reading of this — a raw 1..6 with no
+// Four callers each invented their own reading of this - a raw 1..6 with no
 // type byte at all, the type and the action swapped, and a dismiss that packed
 // action 0 and so told the pet to stay. The bar slots the server sends down are
 // already packed correctly and can be sent straight back; everything the client
@@ -34,7 +34,7 @@ enum Command : uint32_t {
     kStay    = 0,
     kFollow  = 1,
     kAttack  = 2,
-    kAbandon = 3,  ///< Dismiss. Not present in the default bar — built by hand.
+    kAbandon = 3,  ///< Dismiss. Not present in the default bar - built by hand.
     kMoveTo  = 4,
 };
 

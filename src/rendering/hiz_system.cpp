@@ -154,7 +154,7 @@ void HiZSystem::destroyPyramidImage() {
     VkDevice device = ctx_->getDevice();
     VmaAllocator alloc = ctx_->getAllocator();
 
-    if (depthSampler_) { vkDestroySampler(device, depthSampler_, nullptr); depthSampler_ = VK_NULL_HANDLE; }
+    destroy(device, depthSampler_);
 
     for (uint32_t f = 0; f < MAX_FRAMES; f++) {
         for (auto& view : pyramidMipViews_[f]) {
@@ -250,10 +250,10 @@ void HiZSystem::destroyComputePipeline() {
     if (!ctx_) return;
     VkDevice device = ctx_->getDevice();
 
-    if (buildPipeline_) { vkDestroyPipeline(device, buildPipeline_, nullptr); buildPipeline_ = VK_NULL_HANDLE; }
-    if (buildPipelineLayout_) { vkDestroyPipelineLayout(device, buildPipelineLayout_, nullptr); buildPipelineLayout_ = VK_NULL_HANDLE; }
-    if (buildSetLayout_) { vkDestroyDescriptorSetLayout(device, buildSetLayout_, nullptr); buildSetLayout_ = VK_NULL_HANDLE; }
-    if (hizSetLayout_) { vkDestroyDescriptorSetLayout(device, hizSetLayout_, nullptr); hizSetLayout_ = VK_NULL_HANDLE; }
+    destroy(device, buildPipeline_);
+    destroy(device, buildPipelineLayout_);
+    destroy(device, buildSetLayout_);
+    destroy(device, hizSetLayout_);
 }
 
 // --- Descriptors ---
@@ -281,7 +281,7 @@ bool HiZSystem::createDescriptors() {
         return false;
     }
 
-    // We use the same pool for both build and HiZ sets — simpler cleanup
+    // We use the same pool for both build and HiZ sets - simpler cleanup
     hizDescPool_ = VK_NULL_HANDLE; // sharing buildDescPool_
 
     for (uint32_t f = 0; f < MAX_FRAMES; f++) {
@@ -384,7 +384,7 @@ void HiZSystem::destroyDescriptors() {
     VkDevice device = ctx_->getDevice();
 
     // All descriptor sets are freed when pool is destroyed
-    if (buildDescPool_) { vkDestroyDescriptorPool(device, buildDescPool_, nullptr); buildDescPool_ = VK_NULL_HANDLE; }
+    destroy(device, buildDescPool_);
     // hizDescPool_ shares buildDescPool_, so nothing extra to destroy
 
     for (uint32_t f = 0; f < MAX_FRAMES; f++) {

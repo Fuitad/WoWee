@@ -54,12 +54,6 @@ bool Input::isKeyJustPressed(SDL_Scancode key) const {
     if (key < 0 || key >= NUM_KEYS) return false;
     return currentKeyState[key] && !previousKeyState[key];
 }
-
-bool Input::isKeyJustReleased(SDL_Scancode key) const {
-    if (key < 0 || key >= NUM_KEYS) return false;
-    return !currentKeyState[key] && previousKeyState[key];
-}
-
 bool Input::isMouseButtonPressed(int button) const {
     if (button < 0 || button >= NUM_MOUSE_BUTTONS) return false;
     return currentMouseState[button];
@@ -74,11 +68,5 @@ bool Input::isMouseButtonJustReleased(int button) const {
     if (button < 0 || button >= NUM_MOUSE_BUTTONS) return false;
     return !currentMouseState[button] && previousMouseState[button];
 }
-
-void Input::setMouseLocked(bool locked) {
-    mouseLocked = locked;
-    SDL_SetRelativeMouseMode(locked ? SDL_TRUE : SDL_FALSE);
-}
-
 } // namespace core
 } // namespace wowee

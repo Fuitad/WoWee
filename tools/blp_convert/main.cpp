@@ -102,7 +102,7 @@ static bool convertPngToBlp(const std::string& pngPath) {
     f.write(reinterpret_cast<const char*>(&width), 4);
     f.write(reinterpret_cast<const char*>(&height), 4);
 
-    // Mip offsets (16 entries) — only first used
+    // Mip offsets (16 entries) - only first used
     uint32_t dataSize = width * height * 4;
     uint32_t headerSize = 4 + 4 + 4 + 4 + 16 * 4 + 16 * 4 + 256 * 4;  // magic+version+dims+mips+palette
     uint32_t mipOffsets[16] = {};

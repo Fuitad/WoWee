@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 
-// M2 models embed $FSD (footfall) animation events — the keyframes the game
+// M2 models embed $FSD (footfall) animation events - the keyframes the game
 // client uses to sync footstep sounds to feet striking the ground. The loader
 // collects them into M2Model::footstepEventTimes, one sorted ms-list per
 // sequence index. WotLK (v264) stores per-sequence timestamp arrays; vanilla

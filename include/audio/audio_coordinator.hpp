@@ -56,8 +56,6 @@ public:
     /// @return true if audio is available (engine initialized successfully)
     [[nodiscard]] bool initialize();
 
-    /// Initialize managers that need AssetManager (music lookups, sound banks).
-    void initializeWithAssets(pipeline::AssetManager* assetManager);
 
     /// Shutdown all audio managers and engine.
     void shutdown();
@@ -105,7 +103,7 @@ private:
 
     bool audioAvailable_ = false;
 
-    // Zone/music state — moved from Renderer
+    // Zone/music state - moved from Renderer
     uint32_t currentZoneId_ = 0;
     std::string currentZoneName_;
     bool inTavern_ = false;

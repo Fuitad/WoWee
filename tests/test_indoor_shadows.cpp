@@ -18,7 +18,7 @@
 using wowee::rendering::GPUPerFrameData;
 
 // Replicates the shadow params logic from Renderer::updatePerFrameUBO()
-// This should NOT be affected by indoor state — shadows remain globally enabled
+// This should NOT be affected by indoor state - shadows remain globally enabled
 static void applyShadowParams(GPUPerFrameData& fd,
                               bool shadowsEnabled,
                               float shadowDistance = 300.0f) {
@@ -28,11 +28,11 @@ static void applyShadowParams(GPUPerFrameData& fd,
 
 // Replicates the WMO interior shader logic:
 // interior groups skip shadow sampling entirely (shadow factor = 1.0 = fully lit).
-// This covers both lit and unlit interior materials — isInterior takes priority.
+// This covers both lit and unlit interior materials - isInterior takes priority.
 static float computeWmoShadowFactor(bool isInterior, float globalShadowEnabled, float rawShadow) {
     if (isInterior) {
         // Interior groups always get shadow factor 1.0 (no shadow darkening)
-        // regardless of unlit flag — isInterior is checked first in shader
+        // regardless of unlit flag - isInterior is checked first in shader
         return 1.0f;
     }
     if (globalShadowEnabled > 0.5f) {
@@ -44,11 +44,11 @@ static float computeWmoShadowFactor(bool isInterior, float globalShadowEnabled, 
 TEST_CASE("Global shadow params are not affected by indoor state", "[indoor_shadows]") {
     GPUPerFrameData fd{};
 
-    // Shadows enabled — should stay 1.0 regardless of any indoor logic
+    // Shadows enabled - should stay 1.0 regardless of any indoor logic
     applyShadowParams(fd, /*shadowsEnabled=*/true);
     REQUIRE(fd.shadowParams.x == Catch::Approx(1.0f));
 
-    // Shadows disabled — should be 0.0
+    // Shadows disabled - should be 0.0
     applyShadowParams(fd, /*shadowsEnabled=*/false);
     REQUIRE(fd.shadowParams.x == Catch::Approx(0.0f));
 }

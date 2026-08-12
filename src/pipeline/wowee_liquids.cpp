@@ -1,4 +1,5 @@
 #include "pipeline/wowee_liquids.hpp"
+#include "pipeline/wowee_binary_io.hpp"
 
 #include <cstdio>
 #include <cstring>
@@ -11,52 +12,7 @@ namespace {
 
 constexpr char kMagic[4] = {'W', 'L', 'I', 'Q'};
 constexpr uint32_t kVersion = 1;
-
-template <typename T>
-void writePOD(std::ofstream& os, const T& v) {
-    os.write(reinterpret_cast<const char*>(&v), sizeof(T));
-}
-
-template <typename T>
-bool readPOD(std::ifstream& is, T& v) {
-    is.read(reinterpret_cast<char*>(&v), sizeof(T));
-    return is.gcount() == static_cast<std::streamsize>(sizeof(T));
-}
-
-void writeStr(std::ofstream& os, const std::string& s) {
-    uint32_t n = static_cast<uint32_t>(s.size());
-    writePOD(os, n);
-    if (n > 0) os.write(s.data(), n);
-}
-
-bool readStr(std::ifstream& is, std::string& s) {
-    uint32_t n = 0;
-    if (!readPOD(is, n)) return false;
-    if (n > (1u << 20)) return false;
-    s.resize(n);
-    if (n > 0) {
-        is.read(s.data(), n);
-        if (is.gcount() != static_cast<std::streamsize>(n)) {
-            s.clear();
-            return false;
-        }
-    }
-    return true;
-}
-
-std::string normalizePath(std::string base) {
-    if (base.size() < 5 || base.substr(base.size() - 5) != ".wliq") {
-        base += ".wliq";
-    }
-    return base;
-}
-
-uint32_t packRgba(uint8_t r, uint8_t g, uint8_t b, uint8_t a = 0xFF) {
-    return (static_cast<uint32_t>(a) << 24) |
-           (static_cast<uint32_t>(b) << 16) |
-           (static_cast<uint32_t>(g) << 8)  |
-            static_cast<uint32_t>(r);
-}
+constexpr char kExtension[] = ".wliq";
 
 } // namespace
 
@@ -83,15 +39,9 @@ const char* WoweeLiquid::liquidKindName(uint8_t k) {
 }
 
 bool WoweeLiquidLoader::save(const WoweeLiquid& cat,
-                             const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath), std::ios::binary);
-    if (!os) return false;
-    os.write(kMagic, 4);
-    writePOD(os, kVersion);
-    writeStr(os, cat.name);
-    uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writePOD(os, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeLiquid::Entry& e) {
         writePOD(os, e.liquidId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -110,33 +60,17 @@ bool WoweeLiquidLoader::save(const WoweeLiquid& cat,
         writePOD(os, e.flowDirection);
         writePOD(os, e.flowSpeed);
         writePOD(os, e.viscosity);
-    }
-    return os.good();
+                       });
 }
 
-WoweeLiquid WoweeLiquidLoader::load(const std::string& basePath) {
-    WoweeLiquid out;
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    if (!is) return out;
-    char magic[4];
-    is.read(magic, 4);
-    if (std::memcmp(magic, kMagic, 4) != 0) return out;
-    uint32_t version = 0;
-    if (!readPOD(is, version) || version != kVersion) return out;
-    if (!readStr(is, out.name)) return out;
-    uint32_t entryCount = 0;
-    if (!readPOD(is, entryCount)) return out;
-    if (entryCount > (1u << 20)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.liquidId)) {
-            out.entries.clear(); return out;
-        }
+WoweeLiquid WoweeLiquidLoader::load(
+    const std::string& basePath) {
+    return loadCatalog<WoweeLiquid>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeLiquid::Entry& e) {
+        if (!readPOD(is, e.liquidId)) { return false; }
         if (!readStr(is, e.name) || !readStr(is, e.description) ||
             !readStr(is, e.shaderPath) ||
-            !readStr(is, e.materialPath)) {
-            out.entries.clear(); return out;
-        }
+            !readStr(is, e.materialPath)) { return false; }
         if (!readPOD(is, e.liquidKind) ||
             !readPOD(is, e.fogColorR) ||
             !readPOD(is, e.fogColorG) ||
@@ -149,16 +83,13 @@ WoweeLiquid WoweeLiquidLoader::load(const std::string& basePath) {
             !readPOD(is, e.minimapColor) ||
             !readPOD(is, e.flowDirection) ||
             !readPOD(is, e.flowSpeed) ||
-            !readPOD(is, e.viscosity)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.viscosity)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeLiquidLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeLiquid WoweeLiquidLoader::makeStarter(const std::string& catalogName) {
@@ -182,7 +113,7 @@ WoweeLiquid WoweeLiquidLoader::makeStarter(const std::string& catalogName) {
     {
         WoweeLiquid::Entry e;
         e.liquidId = 2; e.name = "Lava";
-        e.description = "Burning magma — applies fire DoT to "
+        e.description = "Burning magma - applies fire DoT to "
                          "anyone who enters.";
         e.shaderPath = "shaders/water_emissive.frag";
         e.materialPath = "textures/liquid/lava_array.dds";
@@ -240,16 +171,16 @@ WoweeLiquid WoweeLiquidLoader::makeMagical(const std::string& catalogName) {
     };
     add(100, "FelFire",   WoweeLiquid::FelFire,
         80, 200, 30, 0.7f, 0.4f, 22682,
-        "Demonic green fel — burns even fire-immune creatures.");
+        "Demonic green fel - burns even fire-immune creatures.");
     add(101, "HolyLight", WoweeLiquid::HolyLight,
         240, 230, 180, 0.3f, 0.0f, 0,
-        "Pool of liquid Light — heals players who enter.");
+        "Pool of liquid Light - heals players who enter.");
     add(102, "Underworld", WoweeLiquid::UnderworldGoo,
         70, 30, 100, 0.9f, 0.8f, 27654,
-        "Shadow-tainted void liquid — drains mana on contact.");
+        "Shadow-tainted void liquid - drains mana on contact.");
     add(103, "Cosmic",    WoweeLiquid::HolyLight,
         100, 80, 200, 0.4f, 0.0f, 0,
-        "Naaru-touched water — randomly grants buffs.");
+        "Naaru-touched water - randomly grants buffs.");
     return c;
 }
 
@@ -276,13 +207,13 @@ WoweeLiquid WoweeLiquidLoader::makeHazardous(const std::string& catalogName) {
     };
     add(200, "NaxxSlime",  WoweeLiquid::Slime,
         28157, 1500, 100, 200, 60,
-        "Naxxramas-grade plague slime — lethal to non-tanks.");
+        "Naxxramas-grade plague slime - lethal to non-tanks.");
     add(201, "AcidBog",    WoweeLiquid::AcidBog,
         29213,  300,  90, 160, 40,
-        "Greenish acid — destroys armor durability over time.");
+        "Greenish acid - destroys armor durability over time.");
     add(202, "FelLava",    WoweeLiquid::Magma,
         30122, 2000, 130, 220, 30,
-        "Fel-corrupted lava — applies a stacking burn debuff.");
+        "Fel-corrupted lava - applies a stacking burn debuff.");
     return c;
 }
 

@@ -8,11 +8,11 @@ namespace wowee {
 namespace pipeline {
 
 // Wowee Open Chat Hyperlink Templates catalog
-// (.wlnk) — novel replacement for the implicit
+// (.wlnk) - novel replacement for the implicit
 // chat-link format templates vanilla WoW carried
-// in client-side LUA (each link kind — item /
+// in client-side LUA (each link kind - item /
 // quest / spell / achievement / talent / trade-
-// skill — had a hard-coded sprintf template baked
+// skill - had a hard-coded sprintf template baked
 // into ChatFrame_OnHyperlinkClick with no formal
 // data-driven extension point). Each WLNK entry
 // binds one hyperlink kind to its sprintf-style
@@ -38,25 +38,25 @@ namespace pipeline {
 //   entries (each):
 //     linkId (uint32)
 //     nameLen + name
-//     linkKind (uint8)             — 0=Item /
+//     linkKind (uint8)             - 0=Item /
 //                                     1=Quest /
 //                                     2=Spell /
 //                                     3=Achievement
 //                                     /4=Talent /
 //                                     5=Trade
-//     requireServerLookup (uint8)  — 0/1 — client
+//     requireServerLookup (uint8)  - 0/1 - client
 //                                     calls server
 //                                     to fetch
 //                                     tooltip data
 //     pad0 (uint16)
-//     colorRGBA (uint32)           — link text
+//     colorRGBA (uint32)           - link text
 //                                     color (typical
 //                                     quality color)
-//     templateLen + linkTemplate   — sprintf with
+//     templateLen + linkTemplate   - sprintf with
 //                                     %d / %s placeholders
-//     tooltipLen + tooltipTemplate — first-line
+//     tooltipLen + tooltipTemplate - first-line
 //                                     tooltip header
-//     iconRuleLen + iconRule       — string
+//     iconRuleLen + iconRule       - string
 //                                     describing
 //                                     icon source
 //                                     ("inv", "spell",
@@ -94,7 +94,7 @@ struct WoweeChatLinks {
     // Returns the template for a given hyperlink
     // kind. Used by the chat-link composer when a
     // player shift-clicks an item/spell/quest into
-    // chat — picks the matching template and
+    // chat - picks the matching template and
     // sprintf-fills the parameters.
     const Entry* findByKind(uint8_t linkKind) const;
 };
@@ -108,17 +108,17 @@ public:
 
     // Preset emitters used by --gen-lnk* variants.
     //
-    //   makeStandardLinks — 4 standard link kinds
+    //   makeStandardLinks - 4 standard link kinds
     //                        (Item with 4 %d for
     //                        rune slots / Quest /
     //                        Spell / Achievement)
     //                        with quality-color
     //                        defaults.
-    //   makeTalentTrade   — 2 less-common link kinds
+    //   makeTalentTrade   - 2 less-common link kinds
     //                        (Talent / Trade-skill
     //                        recipe) with green +
     //                        orange colors.
-    //   makeColorVariants — 3 Item-kind variants for
+    //   makeColorVariants - 3 Item-kind variants for
     //                        different quality
     //                        colors (Common gray /
     //                        Epic purple / Legendary

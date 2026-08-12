@@ -1,4 +1,6 @@
 #include "cli_sky_params_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -21,20 +23,6 @@ namespace cli {
 
 namespace {
 
-std::string stripWskpExt(std::string base) {
-    stripExt(base, ".wskp");
-    return base;
-}
-
-bool saveOrError(const wowee::pipeline::WoweeSkyParams& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeSkyParamsLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wskp\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeSkyParams& c,
                      const std::string& base) {
@@ -47,9 +35,9 @@ int handleGenStormwind(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StormwindSkyDay";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWskpExt(base);
+    base = cli::withoutExt(base, ".wskp");
     auto c = wowee::pipeline::WoweeSkyParamsLoader::makeStormwindDay(name);
-    if (!saveOrError(c, base, "gen-skp")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSkyParamsLoader>(c, base, "gen-skp", ".wskp")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -58,9 +46,9 @@ int handleGenArctic(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "NorthrendArcticSky";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWskpExt(base);
+    base = cli::withoutExt(base, ".wskp");
     auto c = wowee::pipeline::WoweeSkyParamsLoader::makeNorthrendArctic(name);
-    if (!saveOrError(c, base, "gen-skp-arctic")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSkyParamsLoader>(c, base, "gen-skp-arctic", ".wskp")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -69,9 +57,9 @@ int handleGenHellfire(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "OutlandHellfireSky";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWskpExt(base);
+    base = cli::withoutExt(base, ".wskp");
     auto c = wowee::pipeline::WoweeSkyParamsLoader::makeOutlandHellfire(name);
-    if (!saveOrError(c, base, "gen-skp-hellfire")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSkyParamsLoader>(c, base, "gen-skp-hellfire", ".wskp")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -79,10 +67,9 @@ int handleGenHellfire(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWskpExt(base);
+    base = cli::withoutExt(base, ".wskp");
     if (!wowee::pipeline::WoweeSkyParamsLoader::exists(base)) {
-        std::fprintf(stderr, "WSKP not found: %s.wskp\n", base.c_str());
-        return 1;
+        return reportMissing("WSKP", base, ".wskp");
     }
     auto c = wowee::pipeline::WoweeSkyParamsLoader::load(base);
     if (jsonOut) {
@@ -136,13 +123,10 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWskpExt(base);
+    base = cli::withoutExt(base, ".wskp");
     if (out.empty()) out = base + ".wskp.json";
     if (!wowee::pipeline::WoweeSkyParamsLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wskp-json: WSKP not found: %s.wskp\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wskp-json", "WSKP", base, ".wskp");
     }
     auto c = wowee::pipeline::WoweeSkyParamsLoader::load(base);
     nlohmann::json j;
@@ -188,16 +172,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wskp.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wskp");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wskp");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,
@@ -268,12 +243,9 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWskpExt(base);
+    base = cli::withoutExt(base, ".wskp");
     if (!wowee::pipeline::WoweeSkyParamsLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wskp: WSKP not found: %s.wskp\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wskp", "WSKP", base, ".wskp");
     }
     auto c = wowee::pipeline::WoweeSkyParamsLoader::load(base);
     std::vector<std::string> errors;
@@ -283,7 +255,7 @@ int handleValidate(int& i, int argc, char** argv) {
     }
     std::set<uint32_t> idsSeen;
     // Per-(mapId, areaId, timeOfDayHour) triple
-    // uniqueness — two keyframes at same hour for the
+    // uniqueness - two keyframes at same hour for the
     // same area would render in unstable order during
     // diurnal interpolation.
     std::set<uint64_t> tripleSeen;
@@ -306,12 +278,12 @@ int handleValidate(int& i, int argc, char** argv) {
         if (e.timeOfDayHour > 23) {
             errors.push_back(ctx + ": timeOfDayHour " +
                 std::to_string(e.timeOfDayHour) +
-                " > 23 — must be 0..23");
+                " > 23 - must be 0..23");
         }
         if (e.sunAngleDeg < 0.0f || e.sunAngleDeg > 360.0f) {
             warnings.push_back(ctx + ": sunAngleDeg " +
                 std::to_string(e.sunAngleDeg) +
-                " outside [0, 360] — renderer wraps "
+                " outside [0, 360] - renderer wraps "
                 "modulo but values outside the canonical "
                 "range suggest authoring confusion");
         }
@@ -320,12 +292,12 @@ int handleValidate(int& i, int argc, char** argv) {
                 std::to_string(e.fogStartYards) +
                 " >= fogEndYards " +
                 std::to_string(e.fogEndYards) +
-                " — fog falloff would be inverted or "
+                " - fog falloff would be inverted or "
                 "zero-thickness");
         }
         if (e.fogStartYards < 0.0f || e.fogEndYards < 0.0f) {
             errors.push_back(ctx +
-                ": negative fog distance — fog distances "
+                ": negative fog distance - fog distances "
                 "must be non-negative");
         }
         // Triple uniqueness: same area + same hour
@@ -339,41 +311,16 @@ int handleValidate(int& i, int argc, char** argv) {
                 ", hour=" +
                 std::to_string(e.timeOfDayHour) +
                 ") triple already bound by another sky "
-                "entry — diurnal interpolation would tie "
+                "entry - diurnal interpolation would tie "
                 "non-deterministically");
         }
         if (!idsSeen.insert(e.skyId).second) {
             errors.push_back(ctx + ": duplicate skyId");
         }
     }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wskp"] = base + ".wskp";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wskp: %s.wskp\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu keyframes, all skyIds + "
-                    "(map,area,hour) triples unique\n",
-                    c.entries.size());
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+    return cli::reportValidation("wskp", base, jsonOut, errors, warnings,
+                                 formatted("%zu keyframes, all skyIds + "
+                    "(map,area,hour) triples unique", c.entries.size()));
 }
 
 } // namespace

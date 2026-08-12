@@ -1,4 +1,6 @@
 #include "cli_objects_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -18,11 +20,6 @@ namespace cli {
 
 namespace {
 
-std::string stripWgotExt(std::string base) {
-    stripExt(base, ".wgot");
-    return base;
-}
-
 void appendObjFlagsStr(std::string& s, uint32_t flags) {
     if (flags & wowee::pipeline::WoweeGameObject::Disabled)        s += "disabled ";
     if (flags & wowee::pipeline::WoweeGameObject::ScriptOnly)      s += "script-only ";
@@ -34,15 +31,6 @@ void appendObjFlagsStr(std::string& s, uint32_t flags) {
     else if (s.back() == ' ') s.pop_back();
 }
 
-bool saveOrError(const wowee::pipeline::WoweeGameObject& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeGameObjectLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wgot\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeGameObject& c,
                      const std::string& base) {
@@ -55,9 +43,9 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterObjects";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWgotExt(base);
+    base = cli::withoutExt(base, ".wgot");
     auto c = wowee::pipeline::WoweeGameObjectLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-objects")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeGameObjectLoader>(c, base, "gen-objects", ".wgot")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -66,9 +54,9 @@ int handleGenDungeon(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "DungeonObjects";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWgotExt(base);
+    base = cli::withoutExt(base, ".wgot");
     auto c = wowee::pipeline::WoweeGameObjectLoader::makeDungeon(name);
-    if (!saveOrError(c, base, "gen-objects-dungeon")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeGameObjectLoader>(c, base, "gen-objects-dungeon", ".wgot")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -77,9 +65,9 @@ int handleGenGather(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "GatheringNodes";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWgotExt(base);
+    base = cli::withoutExt(base, ".wgot");
     auto c = wowee::pipeline::WoweeGameObjectLoader::makeGather(name);
-    if (!saveOrError(c, base, "gen-objects-gather")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeGameObjectLoader>(c, base, "gen-objects-gather", ".wgot")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -87,10 +75,9 @@ int handleGenGather(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWgotExt(base);
+    base = cli::withoutExt(base, ".wgot");
     if (!wowee::pipeline::WoweeGameObjectLoader::exists(base)) {
-        std::fprintf(stderr, "WGOT not found: %s.wgot\n", base.c_str());
-        return 1;
+        return reportMissing("WGOT", base, ".wgot");
     }
     auto c = wowee::pipeline::WoweeGameObjectLoader::load(base);
     if (jsonOut) {
@@ -144,77 +131,49 @@ int handleExportJson(int& i, int argc, char** argv) {
     // Mirrors the JSON pairs added for every other novel
     // open format. Each object emits all 13 scalar fields
     // plus dual int + name forms for typeId and flags.
-    std::string base = argv[++i];
-    std::string outPath;
-    if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWgotExt(base);
-    if (outPath.empty()) outPath = base + ".wgot.json";
-    if (!wowee::pipeline::WoweeGameObjectLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wgot-json: WGOT not found: %s.wgot\n", base.c_str());
-        return 1;
-    }
-    auto c = wowee::pipeline::WoweeGameObjectLoader::load(base);
-    nlohmann::json j;
-    j["name"] = c.name;
-    nlohmann::json arr = nlohmann::json::array();
-    for (const auto& e : c.entries) {
-        nlohmann::json je;
-        je["objectId"] = e.objectId;
-        je["displayId"] = e.displayId;
-        je["name"] = e.name;
-        je["typeId"] = e.typeId;
-        je["typeName"] = wowee::pipeline::WoweeGameObject::typeName(e.typeId);
-        je["size"] = e.size;
-        je["castBarCaption"] = e.castBarCaption;
-        je["requiredSkill"] = e.requiredSkill;
-        je["requiredSkillValue"] = e.requiredSkillValue;
-        je["lockId"] = e.lockId;
-        je["lootTableId"] = e.lootTableId;
-        je["minOpenTimeMs"] = e.minOpenTimeMs;
-        je["maxOpenTimeMs"] = e.maxOpenTimeMs;
-        je["flags"] = e.flags;
-        nlohmann::json fa = nlohmann::json::array();
-        if (e.flags & wowee::pipeline::WoweeGameObject::Disabled)        fa.push_back("disabled");
-        if (e.flags & wowee::pipeline::WoweeGameObject::ScriptOnly)      fa.push_back("script-only");
-        if (e.flags & wowee::pipeline::WoweeGameObject::UsableFromMount) fa.push_back("from-mount");
-        if (e.flags & wowee::pipeline::WoweeGameObject::Despawn)         fa.push_back("despawn");
-        if (e.flags & wowee::pipeline::WoweeGameObject::Frozen)          fa.push_back("frozen");
-        if (e.flags & wowee::pipeline::WoweeGameObject::QuestGated)      fa.push_back("quest-gated");
-        je["flagsList"] = fa;
-        arr.push_back(je);
-    }
-    j["entries"] = arr;
-    std::ofstream out(outPath);
-    if (!out) {
-        std::fprintf(stderr,
-            "export-wgot-json: cannot write %s\n", outPath.c_str());
-        return 1;
-    }
-    out << j.dump(2) << "\n";
-    out.close();
-    std::printf("Wrote %s\n", outPath.c_str());
-    std::printf("  source  : %s.wgot\n", base.c_str());
-    std::printf("  objects : %zu\n", c.entries.size());
-    return 0;
+    return cli::exportCatalogJson<wowee::pipeline::WoweeGameObjectLoader>(
+        i, argc, argv, "wgot", "WGOT", "objects ",
+        [](const auto& c) {
+        nlohmann::json j;
+        j["name"] = c.name;
+        nlohmann::json arr = nlohmann::json::array();
+        for (const auto& e : c.entries) {
+            nlohmann::json je;
+            je["objectId"] = e.objectId;
+            je["displayId"] = e.displayId;
+            je["name"] = e.name;
+            je["typeId"] = e.typeId;
+            je["typeName"] = wowee::pipeline::WoweeGameObject::typeName(e.typeId);
+            je["size"] = e.size;
+            je["castBarCaption"] = e.castBarCaption;
+            je["requiredSkill"] = e.requiredSkill;
+            je["requiredSkillValue"] = e.requiredSkillValue;
+            je["lockId"] = e.lockId;
+            je["lootTableId"] = e.lootTableId;
+            je["minOpenTimeMs"] = e.minOpenTimeMs;
+            je["maxOpenTimeMs"] = e.maxOpenTimeMs;
+            je["flags"] = e.flags;
+            nlohmann::json fa = nlohmann::json::array();
+            if (e.flags & wowee::pipeline::WoweeGameObject::Disabled)        fa.push_back("disabled");
+            if (e.flags & wowee::pipeline::WoweeGameObject::ScriptOnly)      fa.push_back("script-only");
+            if (e.flags & wowee::pipeline::WoweeGameObject::UsableFromMount) fa.push_back("from-mount");
+            if (e.flags & wowee::pipeline::WoweeGameObject::Despawn)         fa.push_back("despawn");
+            if (e.flags & wowee::pipeline::WoweeGameObject::Frozen)          fa.push_back("frozen");
+            if (e.flags & wowee::pipeline::WoweeGameObject::QuestGated)      fa.push_back("quest-gated");
+            je["flagsList"] = fa;
+            arr.push_back(je);
+        }
+        j["entries"] = arr;
+            return j;
+        });
 }
 
 int handleImportJson(int& i, int argc, char** argv) {
     std::string jsonPath = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = jsonPath;
-        std::string suffix = ".wgot.json";
-        if (outBase.size() > suffix.size() &&
-            outBase.substr(outBase.size() - suffix.size()) == suffix) {
-            outBase = outBase.substr(0, outBase.size() - suffix.size());
-        } else if (outBase.size() > 5 &&
-                   outBase.substr(outBase.size() - 5) == ".json") {
-            outBase = outBase.substr(0, outBase.size() - 5);
-        }
-    }
-    outBase = stripWgotExt(outBase);
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(jsonPath, ".wgot");
+    outBase = cli::withoutExt(outBase, ".wgot");
     std::ifstream in(jsonPath);
     if (!in) {
         std::fprintf(stderr,
@@ -300,92 +259,51 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWgotExt(base);
-    if (!wowee::pipeline::WoweeGameObjectLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wgot: WGOT not found: %s.wgot\n", base.c_str());
-        return 1;
-    }
-    auto c = wowee::pipeline::WoweeGameObjectLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    std::vector<uint32_t> idsSeen;
-    idsSeen.reserve(c.entries.size());
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.objectId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.objectId == 0) {
-            errors.push_back(ctx + ": objectId is 0");
-        }
-        if (e.size <= 0.0f) {
-            errors.push_back(ctx + ": size <= 0");
-        }
-        if (e.minOpenTimeMs > e.maxOpenTimeMs) {
-            errors.push_back(ctx + ": minOpenTimeMs > maxOpenTimeMs");
-        }
-        // Gathering nodes need a skill requirement to be useful.
-        if ((e.typeId == wowee::pipeline::WoweeGameObject::HerbNode ||
-             e.typeId == wowee::pipeline::WoweeGameObject::MineralNode ||
-             e.typeId == wowee::pipeline::WoweeGameObject::FishingNode) &&
-            e.requiredSkill == 0) {
-            warnings.push_back(ctx +
-                ": gathering node has no required skill (anyone can harvest)");
-        }
-        // Chest with no loot table is rare but possible (event-spawn
-        // chests fill via script).
-        if (e.typeId == wowee::pipeline::WoweeGameObject::Chest &&
-            e.lootTableId == 0) {
-            warnings.push_back(ctx +
-                ": chest has no lootTableId (script must populate)");
-        }
-        // requiredSkillValue without requiredSkill is incoherent.
-        if (e.requiredSkill == 0 && e.requiredSkillValue > 0) {
-            errors.push_back(ctx +
-                ": requiredSkillValue > 0 but requiredSkill is 0");
-        }
-        for (uint32_t prev : idsSeen) {
-            if (prev == e.objectId) {
-                errors.push_back(ctx + ": duplicate objectId");
-                break;
+    return cli::validateCatalog<wowee::pipeline::WoweeGameObjectLoader>(
+        i, argc, argv, "wgot", "WGOT",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        idsSeen.reserve(c.entries.size());
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.objectId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.objectId == 0) {
+                errors.push_back(ctx + ": objectId is 0");
             }
+            if (e.size <= 0.0f) {
+                errors.push_back(ctx + ": size <= 0");
+            }
+            if (e.minOpenTimeMs > e.maxOpenTimeMs) {
+                errors.push_back(ctx + ": minOpenTimeMs > maxOpenTimeMs");
+            }
+            // Gathering nodes need a skill requirement to be useful.
+            if ((e.typeId == wowee::pipeline::WoweeGameObject::HerbNode ||
+                 e.typeId == wowee::pipeline::WoweeGameObject::MineralNode ||
+                 e.typeId == wowee::pipeline::WoweeGameObject::FishingNode) &&
+                e.requiredSkill == 0) {
+                warnings.push_back(ctx +
+                    ": gathering node has no required skill (anyone can harvest)");
+            }
+            // Chest with no loot table is rare but possible (event-spawn
+            // chests fill via script).
+            if (e.typeId == wowee::pipeline::WoweeGameObject::Chest &&
+                e.lootTableId == 0) {
+                warnings.push_back(ctx +
+                    ": chest has no lootTableId (script must populate)");
+            }
+            // requiredSkillValue without requiredSkill is incoherent.
+            if (e.requiredSkill == 0 && e.requiredSkillValue > 0) {
+                errors.push_back(ctx +
+                    ": requiredSkillValue > 0 but requiredSkill is 0");
+            }
+            if (!idsSeen.add(e.objectId)) errors.push_back(ctx + ": duplicate objectId");
         }
-        idsSeen.push_back(e.objectId);
-    }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wgot"] = base + ".wgot";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wgot: %s.wgot\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu objects, all objectIds unique\n",
-                    c.entries.size());
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+            return formatted("%zu objects, all objectIds unique", c.entries.size());
+        });
 }
 
 } // namespace

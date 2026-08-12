@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Faction Catalog (.wfac) — novel replacement for
+// Wowee Open Faction Catalog (.wfac) - novel replacement for
 // Blizzard's Faction.dbc + FactionTemplate.dbc + the
 // AzerothCore-style reputation_reward / reputation_spillover
 // SQL tables. The 17th open format added to the editor.
@@ -57,7 +57,7 @@ struct WoweeFaction {
         IsHeader        = 0x10,    // grouping header (parent), not a faction itself
     };
 
-    // Canonical reputation tiers — clients use the threshold
+    // Canonical reputation tiers - clients use the threshold
     // values to decide which tier badge to display.
     enum Tier : int32_t {
         Hated      = -42000,
@@ -93,7 +93,7 @@ struct WoweeFaction {
 
     bool isValid() const { return !entries.empty(); }
 
-    // Lookup by factionId — nullptr if not present.
+    // Lookup by factionId - nullptr if not present.
     const Entry* findById(uint32_t factionId) const;
 
     // True if A's enemies list contains B (hostile-on-sight).
@@ -111,14 +111,14 @@ public:
 
     // Preset emitters used by --gen-factions* variants.
     //
-    //   makeStarter — 3 factions: Friendly (35), Hostile (14),
+    //   makeStarter - 3 factions: Friendly (35), Hostile (14),
     //                  PlayerHorde (1). Friendly is enemies of
     //                  Hostile, vice versa. Useful as a starter
     //                  template.
-    //   makeAlliance — Stormwind / Ironforge / Darnassus (with
+    //   makeAlliance - Stormwind / Ironforge / Darnassus (with
     //                   reciprocal friend lists) + the canonical
     //                   Defias enemy.
-    //   makeWildlife — neutral wildlife factions: wolves, bears,
+    //   makeWildlife - neutral wildlife factions: wolves, bears,
     //                   spiders, kobolds. Each hostile to players
     //                   but not to each other.
     static WoweeFaction makeStarter(const std::string& catalogName);

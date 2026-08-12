@@ -43,6 +43,39 @@ Minimap::~Minimap() {
     shutdown();
 }
 
+/// The pipeline that draws the minimap's assembled texture to the screen.
+///
+/// initialize() builds it beside the tile pipeline that composes that texture;
+/// recreatePipelines() rebuilds only this one, because the tile pipeline draws
+/// into an offscreen pass a settings change does not touch. Both described it
+/// identically, vertex layout included.
+void Minimap::buildDisplayPipeline(VkDevice device,
+                                   const VkPipelineShaderStageCreateInfo& vertStage,
+                                   const VkPipelineShaderStageCreateInfo& fragStage) {
+    // Two vec2s per vertex: position then texture coordinate.
+    VkVertexInputBindingDescription binding{};
+    binding.binding = 0;
+    binding.stride = 4 * sizeof(float);
+    binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+    std::vector<VkVertexInputAttributeDescription> attrs(2);
+    attrs[0] = { 0, 0, VK_FORMAT_R32G32_SFLOAT, 0 };
+    attrs[1] = { 1, 0, VK_FORMAT_R32G32_SFLOAT, 2 * sizeof(float) };
+
+    displayPipeline = PipelineBuilder()
+        .setShaders(vertStage, fragStage)
+        .setVertexInput({ binding }, attrs)
+        .setTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
+        .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
+        .setNoDepthTest()
+        .setColorBlendAttachment(PipelineBuilder::blendAlpha())
+        .setMultisample(vkCtx->getMsaaSamples())
+        .setLayout(displayPipelineLayout)
+        .setRenderPass(vkCtx->getImGuiRenderPass())
+        .setDynamicStates(viewportAndScissorDynamic())
+        .build(device, vkCtx->getPipelineCache());
+}
+
 bool Minimap::initialize(VkContext* ctx, VkDescriptorSetLayout /*perFrameLayout*/, int size) {
     vkCtx = ctx;
     mapSize = size;
@@ -168,7 +201,7 @@ bool Minimap::initialize(VkContext* ctx, VkDescriptorSetLayout /*perFrameLayout*
             .setColorBlendAttachment(PipelineBuilder::blendDisabled())
             .setLayout(tilePipelineLayout)
             .setRenderPass(compositeTarget->getRenderPass())
-            .setDynamicStates({ VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR })
+            .setDynamicStates(viewportAndScissorDynamic())
             .build(device, vkCtx->getPipelineCache());
 
         vs.destroy();
@@ -184,19 +217,8 @@ bool Minimap::initialize(VkContext* ctx, VkDescriptorSetLayout /*perFrameLayout*
             return false;
         }
 
-        displayPipeline = PipelineBuilder()
-            .setShaders(vs.stageInfo(VK_SHADER_STAGE_VERTEX_BIT),
-                        fs.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT))
-            .setVertexInput({ binding }, attrs)
-            .setTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
-            .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
-            .setNoDepthTest()
-            .setColorBlendAttachment(PipelineBuilder::blendAlpha())
-            .setMultisample(vkCtx->getMsaaSamples())
-            .setLayout(displayPipelineLayout)
-            .setRenderPass(vkCtx->getImGuiRenderPass())
-            .setDynamicStates({ VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR })
-            .build(device, vkCtx->getPipelineCache());
+        buildDisplayPipeline(device, vs.stageInfo(VK_SHADER_STAGE_VERTEX_BIT),
+                             fs.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT));
 
         vs.destroy();
         fs.destroy();
@@ -219,14 +241,14 @@ void Minimap::shutdown() {
 
     vkDeviceWaitIdle(device);
 
-    if (tilePipeline) { vkDestroyPipeline(device, tilePipeline, nullptr); tilePipeline = VK_NULL_HANDLE; }
-    if (displayPipeline) { vkDestroyPipeline(device, displayPipeline, nullptr); displayPipeline = VK_NULL_HANDLE; }
-    if (tilePipelineLayout) { vkDestroyPipelineLayout(device, tilePipelineLayout, nullptr); tilePipelineLayout = VK_NULL_HANDLE; }
-    if (displayPipelineLayout) { vkDestroyPipelineLayout(device, displayPipelineLayout, nullptr); displayPipelineLayout = VK_NULL_HANDLE; }
-    if (descPool) { vkDestroyDescriptorPool(device, descPool, nullptr); descPool = VK_NULL_HANDLE; }
-    if (samplerSetLayout) { vkDestroyDescriptorSetLayout(device, samplerSetLayout, nullptr); samplerSetLayout = VK_NULL_HANDLE; }
+    destroy(device, tilePipeline);
+    destroy(device, displayPipeline);
+    destroy(device, tilePipelineLayout);
+    destroy(device, displayPipelineLayout);
+    destroy(device, descPool);
+    destroy(device, samplerSetLayout);
 
-    if (quadVB) { vmaDestroyBuffer(alloc, quadVB, quadVBAlloc); quadVB = VK_NULL_HANDLE; }
+    destroy(alloc, quadVB, quadVBAlloc);
 
     for (auto& [hash, tex] : tileTextureCache) {
         if (tex) tex->destroy(device, alloc);
@@ -237,9 +259,6 @@ void Minimap::shutdown() {
     if (noDataTexture) { noDataTexture->destroy(device, alloc); noDataTexture.reset(); }
     if (compositeTarget) { compositeTarget->destroy(device, alloc); compositeTarget.reset(); }
 
-    if (arrowDS_) { ImGui_ImplVulkan_RemoveTexture(arrowDS_); arrowDS_ = VK_NULL_HANDLE; }
-    if (arrowTexture_) { arrowTexture_->destroy(device, alloc); arrowTexture_.reset(); }
-
     vkCtx = nullptr;
 }
 
@@ -247,7 +266,7 @@ void Minimap::recreatePipelines() {
     if (!vkCtx || !displayPipelineLayout) return;
     VkDevice device = vkCtx->getDevice();
 
-    if (displayPipeline) { vkDestroyPipeline(device, displayPipeline, nullptr); displayPipeline = VK_NULL_HANDLE; }
+    destroy(device, displayPipeline);
 
     VkShaderModule vs, fs;
     if (!vs.loadFromFile(device, "assets/shaders/minimap_display.vert.spv") ||
@@ -256,28 +275,8 @@ void Minimap::recreatePipelines() {
         return;
     }
 
-    VkVertexInputBindingDescription binding{};
-    binding.binding = 0;
-    binding.stride = 4 * sizeof(float);
-    binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-    std::vector<VkVertexInputAttributeDescription> attrs(2);
-    attrs[0] = { 0, 0, VK_FORMAT_R32G32_SFLOAT, 0 };
-    attrs[1] = { 1, 0, VK_FORMAT_R32G32_SFLOAT, 2 * sizeof(float) };
-
-    displayPipeline = PipelineBuilder()
-        .setShaders(vs.stageInfo(VK_SHADER_STAGE_VERTEX_BIT),
-                    fs.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT))
-        .setVertexInput({ binding }, attrs)
-        .setTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
-        .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
-        .setNoDepthTest()
-        .setColorBlendAttachment(PipelineBuilder::blendAlpha())
-        .setMultisample(vkCtx->getMsaaSamples())
-        .setLayout(displayPipelineLayout)
-        .setRenderPass(vkCtx->getImGuiRenderPass())
-        .setDynamicStates({ VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR })
-        .build(device, vkCtx->getPipelineCache());
+    buildDisplayPipeline(device, vs.stageInfo(VK_SHADER_STAGE_VERTEX_BIT),
+                         fs.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT));
 
     vs.destroy();
     fs.destroy();
@@ -507,12 +506,22 @@ void Minimap::render(VkCommandBuffer cmd, const Camera& playerCamera,
     VkDeviceSize offset = 0;
     vkCmdBindVertexBuffers(cmd, 0, 1, &quadVB, &offset);
 
-    // Position minimap in top-right corner
+    // Top-right corner, unless something asked for a particular rect - which
+    // is what happens when FrameXML owns the minimap and the map has to sit
+    // inside the frame it drew.
     float margin = 10.0f;
-    float pixelW = static_cast<float>(mapSize) / screenWidth;
-    float pixelH = static_cast<float>(mapSize) / screenHeight;
-    float x = 1.0f - pixelW - margin / screenWidth;
-    float y = margin / screenHeight;  // top edge in Vulkan (y=0 is top)
+    float pixelW, pixelH, x, y;
+    if (haveRect_ && rectW_ > 0.0f && rectH_ > 0.0f) {
+        pixelW = rectW_ / screenWidth;
+        pixelH = rectH_ / screenHeight;
+        x = rectX_ / screenWidth;
+        y = rectY_ / screenHeight;   // y=0 is the top edge in Vulkan
+    } else {
+        pixelW = static_cast<float>(mapSize) / screenWidth;
+        pixelH = static_cast<float>(mapSize) / screenHeight;
+        x = 1.0f - pixelW - margin / screenWidth;
+        y = margin / screenHeight;
+    }
 
     // Compute player's UV in the composite texture
     constexpr float TILE_SIZE = core::coords::TILE_SIZE;
@@ -549,7 +558,6 @@ void Minimap::render(VkCommandBuffer cmd, const Camera& playerCamera,
     push.rect = glm::vec4(x, y, pixelW, pixelH);
     push.playerUV = glm::vec2(playerU, playerV);
     push.rotation = rotation;
-    arrowRotation_ = arrowRotation;
     push.arrowRotation = arrowRotation;
     push.zoomRadius = zoomRadius;
     push.squareShape = squareShape ? 1 : 0;

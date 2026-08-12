@@ -22,24 +22,6 @@ std::string evaluateMacroConditionals(const std::string& rawArg,
                                        game::GameHandler& gameHandler,
                                        uint64_t& targetOverride);
 
-namespace {
-
-inline std::string getEntityName(const std::shared_ptr<game::Entity>& entity) {
-    if (entity->getType() == game::ObjectType::PLAYER) {
-        auto player = std::static_pointer_cast<game::Player>(entity);
-        if (!player->getName().empty()) return player->getName();
-    } else if (entity->getType() == game::ObjectType::UNIT) {
-        auto unit = std::static_pointer_cast<game::Unit>(entity);
-        if (!unit->getName().empty()) return unit->getName();
-    } else if (entity->getType() == game::ObjectType::GAMEOBJECT) {
-        auto go = std::static_pointer_cast<game::GameObject>(entity);
-        if (!go->getName().empty()) return go->getName();
-    }
-    return "Unknown";
-}
-
-} // anon namespace
-
 // --- /transportinfo ---
 // Dumps active transport state (entry, path, clock mode, position) so
 // stationary/invisible transports can be diagnosed live instead of guessing.
@@ -81,7 +63,7 @@ public:
 class TimeCommand : public IChatCommand {
 public:
     ChatCommandResult execute(ChatCommandContext& ctx) override {
-        ctx.gameHandler.queryServerTime();
+        ctx.gameHandler.queryServerTime(true);  // typed by the player, so say it
         return {};
     }
     std::vector<std::string> aliases() const override { return {"time"}; }
@@ -99,7 +81,7 @@ public:
         char buf[256];
         snprintf(buf, sizeof(buf), "%.1f, %.1f, %.1f%s%s",
                  pmi.x, pmi.y, pmi.z,
-                 zoneName.empty() ? "" : " — ",
+                 zoneName.empty() ? "" : " - ",
                  zoneName.c_str());
         game::MessageChatData sysMsg;
         sysMsg.type = game::ChatType::SYSTEM;
@@ -259,7 +241,7 @@ public:
             if (atkGuid != 0) {
                 ctx.gameHandler.setTarget(atkGuid);
             } else {
-                std::string sn = getEntityName(srcEnt);
+                std::string sn = game::entityDisplayName(srcEnt);
                 game::MessageChatData msg;
                 msg.type = game::ChatType::SYSTEM;
                 msg.language = game::ChatLanguage::UNIVERSAL;
@@ -291,7 +273,7 @@ public:
                 const auto& pmi = ctx.gameHandler.getMovementInfo();
                 for (const auto& [guid, ent] : ctx.gameHandler.getEntityManager().getEntities()) {
                     if (!ent || ent->getType() == game::ObjectType::OBJECT) continue;
-                    std::string nm = getEntityName(ent);
+                    std::string nm = game::entityDisplayName(ent);
                     std::string nml = nm;
                     for (char& c : nml) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
                     if (nml.find(argLow) != 0) continue;

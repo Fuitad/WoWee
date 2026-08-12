@@ -310,7 +310,7 @@ Environments\Stars\*.m2 (actual sky dome models)
 **Solution:** Blend skyboxes using same volume weighting as lighting:
 
 ```cpp
-// In SkySystem::render() — Vulkan path
+// In SkySystem::render() - Vulkan path
 // Bind a sky pipeline whose VkPipelineColorBlendAttachmentState is
 // configured for additive blending (srcColor=SRC_ALPHA, dstColor=ONE,
 // blendOp=ADD), then render each skybox in weight order:

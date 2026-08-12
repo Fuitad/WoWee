@@ -1,4 +1,6 @@
 #include "cli_combat_stats_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -22,11 +24,6 @@ namespace cli {
 
 namespace {
 
-std::string stripWcstExt(std::string base) {
-    stripExt(base, ".wcst");
-    return base;
-}
-
 const char* classIdName(uint8_t c) {
     switch (c) {
         case 1:  return "Warrior";
@@ -42,15 +39,6 @@ const char* classIdName(uint8_t c) {
     }
 }
 
-bool saveOrError(const wowee::pipeline::WoweeCombatStats& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeCombatStatsLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wcst\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeCombatStats& c,
                      const std::string& base) {
@@ -63,10 +51,10 @@ int handleGenWarrior(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "WarriorBaseStats";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWcstExt(base);
+    base = cli::withoutExt(base, ".wcst");
     auto c = wowee::pipeline::WoweeCombatStatsLoader::
         makeWarriorStats(name);
-    if (!saveOrError(c, base, "gen-cst-warrior")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCombatStatsLoader>(c, base, "gen-cst-warrior", ".wcst")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -75,10 +63,10 @@ int handleGenMage(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "MageBaseStats";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWcstExt(base);
+    base = cli::withoutExt(base, ".wcst");
     auto c = wowee::pipeline::WoweeCombatStatsLoader::
         makeMageStats(name);
-    if (!saveOrError(c, base, "gen-cst-mage")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCombatStatsLoader>(c, base, "gen-cst-mage", ".wcst")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -87,10 +75,10 @@ int handleGenStarting(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StartingLevelStats";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWcstExt(base);
+    base = cli::withoutExt(base, ".wcst");
     auto c = wowee::pipeline::WoweeCombatStatsLoader::
         makeStartingLevels(name);
-    if (!saveOrError(c, base, "gen-cst-starting")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCombatStatsLoader>(c, base, "gen-cst-starting", ".wcst")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -98,7 +86,7 @@ int handleGenStarting(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWcstExt(base);
+    base = cli::withoutExt(base, ".wcst");
     if (!wowee::pipeline::WoweeCombatStatsLoader::exists(base)) {
         std::fprintf(stderr, "WCST not found: %s.wcst\n",
                      base.c_str());
@@ -150,12 +138,9 @@ int handleInfo(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWcstExt(base);
+    base = cli::withoutExt(base, ".wcst");
     if (!wowee::pipeline::WoweeCombatStatsLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wcst: WCST not found: %s.wcst\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wcst", "WCST", base, ".wcst");
     }
     auto c = wowee::pipeline::WoweeCombatStatsLoader::load(base);
     std::vector<std::string> errors;
@@ -194,17 +179,17 @@ int handleValidate(int& i, int argc, char** argv) {
                 ": baseHealth is 0 (player would die "
                 "instantly)");
         // Warrior(1) and Rogue(4) use Rage/Energy
-        // respectively — baseMana > 0 for these
+        // respectively - baseMana > 0 for these
         // classes is wrong.
         if ((e.classId == 1 || e.classId == 4) &&
             e.baseMana > 0) {
             warnings.push_back(ctx +
                 ": baseMana=" +
                 std::to_string(e.baseMana) +
-                " on Warrior/Rogue — these classes use "
+                " on Warrior/Rogue - these classes use "
                 "Rage/Energy, not mana. Likely typo");
         }
-        // (classId, level) MUST be unique — runtime
+        // (classId, level) MUST be unique - runtime
         // dispatch by this pair would tie.
         Pair p{e.classId, e.level};
         if (!classLevelPairs.insert(p).second) {
@@ -212,7 +197,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 ": duplicate (classId=" +
                 std::to_string(e.classId) +
                 ", level=" + std::to_string(e.level) +
-                ") — runtime stat-lookup tie");
+                ") - runtime stat-lookup tie");
         }
         if (!idsSeen.insert(e.statId).second) {
             errors.push_back(ctx + ": duplicate statId");
@@ -249,7 +234,7 @@ int handleValidate(int& i, int argc, char** argv) {
                         ") to " +
                         std::to_string(curV) +
                         " (L" + std::to_string(cur->level) +
-                        ") — likely typo");
+                        ") - likely typo");
                 }
             };
             chk("baseHealth",   prev->baseHealth,   cur->baseHealth);
@@ -262,50 +247,22 @@ int handleValidate(int& i, int argc, char** argv) {
             chk("baseArmor",    prev->baseArmor,    cur->baseArmor);
         }
     }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wcst"] = base + ".wcst";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wcst: %s.wcst\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu entries, all statIds + "
+    return cli::reportValidation("wcst", base, jsonOut, errors, warnings,
+                                 formatted("%zu entries, all statIds + "
                     "(classId,level) unique, classId 1..11, "
                     "level 1..60, no zero baseHealth, no "
                     "Warrior/Rogue mana, all stats "
-                    "monotonic over level\n",
-                    c.entries.size());
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+                    "monotonic over level", c.entries.size()));
 }
 
 int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWcstExt(base);
+    base = cli::withoutExt(base, ".wcst");
     if (out.empty()) out = base + ".wcst.json";
     if (!wowee::pipeline::WoweeCombatStatsLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wcst-json: WCST not found: %s.wcst\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wcst-json", "WCST", base, ".wcst");
     }
     auto c = wowee::pipeline::WoweeCombatStatsLoader::load(base);
     nlohmann::json j;
@@ -347,16 +304,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wcst.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wcst");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wcst");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,

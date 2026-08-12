@@ -146,6 +146,20 @@ std::string getPlayerModelPath(Race race, Gender gender, bool useFemaleModel) {
     }
 }
 
+bool hasPlayerModel(Race race) {
+    switch (race) {
+        case Race::HUMAN: case Race::ORC: case Race::DWARF:
+        case Race::NIGHT_ELF: case Race::UNDEAD: case Race::TAUREN:
+        case Race::GNOME: case Race::TROLL:
+        case Race::BLOOD_ELF: case Race::DRAENEI:
+            return true;
+        // Goblin is playable in a later expansion than any this client speaks,
+        // and the switch above has no case for it either.
+        default:
+            return false;
+    }
+}
+
 std::string getPlayerModelPath(const Character& character) {
     return getPlayerModelPath(character.race, character.gender, character.useFemaleModel);
 }

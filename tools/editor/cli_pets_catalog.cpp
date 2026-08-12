@@ -1,4 +1,6 @@
 #include "cli_pets_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -18,20 +20,6 @@ namespace cli {
 
 namespace {
 
-std::string stripWpetExt(std::string base) {
-    stripExt(base, ".wpet");
-    return base;
-}
-
-bool saveOrError(const wowee::pipeline::WoweePet& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweePetLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wpet\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweePet& c,
                      const std::string& base) {
@@ -45,9 +33,9 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterPets";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWpetExt(base);
+    base = cli::withoutExt(base, ".wpet");
     auto c = wowee::pipeline::WoweePetLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-pets")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweePetLoader>(c, base, "gen-pets", ".wpet")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -56,9 +44,9 @@ int handleGenHunter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "HunterPets";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWpetExt(base);
+    base = cli::withoutExt(base, ".wpet");
     auto c = wowee::pipeline::WoweePetLoader::makeHunter(name);
-    if (!saveOrError(c, base, "gen-pets-hunter")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweePetLoader>(c, base, "gen-pets-hunter", ".wpet")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -67,9 +55,9 @@ int handleGenWarlock(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "WarlockMinions";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWpetExt(base);
+    base = cli::withoutExt(base, ".wpet");
     auto c = wowee::pipeline::WoweePetLoader::makeWarlock(name);
-    if (!saveOrError(c, base, "gen-pets-warlock")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweePetLoader>(c, base, "gen-pets-warlock", ".wpet")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -77,10 +65,9 @@ int handleGenWarlock(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWpetExt(base);
+    base = cli::withoutExt(base, ".wpet");
     if (!wowee::pipeline::WoweePetLoader::exists(base)) {
-        std::fprintf(stderr, "WPET not found: %s.wpet\n", base.c_str());
-        return 1;
+        return reportMissing("WPET", base, ".wpet");
     }
     auto c = wowee::pipeline::WoweePetLoader::load(base);
     if (jsonOut) {
@@ -174,12 +161,10 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWpetExt(base);
+    base = cli::withoutExt(base, ".wpet");
     if (outPath.empty()) outPath = base + ".wpet.json";
     if (!wowee::pipeline::WoweePetLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wpet-json: WPET not found: %s.wpet\n", base.c_str());
-        return 1;
+        return reportMissing("export-wpet-json", "WPET", base, ".wpet");
     }
     auto c = wowee::pipeline::WoweePetLoader::load(base);
     nlohmann::json j;
@@ -248,18 +233,8 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string jsonPath = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = jsonPath;
-        std::string suffix = ".wpet.json";
-        if (outBase.size() > suffix.size() &&
-            outBase.substr(outBase.size() - suffix.size()) == suffix) {
-            outBase = outBase.substr(0, outBase.size() - suffix.size());
-        } else if (outBase.size() > 5 &&
-                   outBase.substr(outBase.size() - 5) == ".json") {
-            outBase = outBase.substr(0, outBase.size() - 5);
-        }
-    }
-    outBase = stripWpetExt(outBase);
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(jsonPath, ".wpet");
+    outBase = cli::withoutExt(outBase, ".wpet");
     std::ifstream in(jsonPath);
     if (!in) {
         std::fprintf(stderr,
@@ -346,11 +321,9 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWpetExt(base);
+    base = cli::withoutExt(base, ".wpet");
     if (!wowee::pipeline::WoweePetLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wpet: WPET not found: %s.wpet\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wpet", "WPET", base, ".wpet");
     }
     auto c = wowee::pipeline::WoweePetLoader::load(base);
     std::vector<std::string> errors;
@@ -410,33 +383,8 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         minIds.push_back(m.minionId);
     }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wpet"] = base + ".wpet";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wpet: %s.wpet\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu families, %zu minions, all IDs unique\n",
-                    c.families.size(), c.minions.size());
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+    return cli::reportValidation("wpet", base, jsonOut, errors, warnings,
+                                 formatted("%zu families, %zu minions, all IDs unique", c.families.size(), c.minions.size()));
 }
 
 } // namespace

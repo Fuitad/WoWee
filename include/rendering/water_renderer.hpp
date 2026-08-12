@@ -93,13 +93,11 @@ public:
 
     void recreatePipelines();
 
-    // Separate 1x pass for MSAA mode — water rendered after MSAA resolve
+    // Separate 1x pass for MSAA mode - water rendered after MSAA resolve
     bool createWater1xPass(VkFormat colorFormat, VkFormat depthFormat);
     void createWater1xFramebuffers(const std::vector<VkImageView>& swapViews,
                                     VkImageView depthView, VkExtent2D extent);
     void destroyWater1xResources();
-    bool beginWater1xPass(VkCommandBuffer cmd, uint32_t imageIndex, VkExtent2D extent);
-    void endWater1xPass(VkCommandBuffer cmd);
     bool hasWater1xPass() const { return water1xRenderPass != VK_NULL_HANDLE; }
     VkRenderPass getWater1xRenderPass() const { return water1xRenderPass; }
     VkFramebuffer getWater1xFramebuffer(uint32_t index) const {

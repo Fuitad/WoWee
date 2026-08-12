@@ -1,4 +1,6 @@
 #include "cli_skill_costs_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -19,20 +21,6 @@ namespace cli {
 
 namespace {
 
-std::string stripWscsExt(std::string base) {
-    stripExt(base, ".wscs");
-    return base;
-}
-
-bool saveOrError(const wowee::pipeline::WoweeSkillCost& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeSkillCostLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wscs\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeSkillCost& c,
                      const std::string& base) {
@@ -45,9 +33,9 @@ int handleGenProfession(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "ProfessionSkillCosts";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWscsExt(base);
+    base = cli::withoutExt(base, ".wscs");
     auto c = wowee::pipeline::WoweeSkillCostLoader::makeProfession(name);
-    if (!saveOrError(c, base, "gen-scs")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSkillCostLoader>(c, base, "gen-scs", ".wscs")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -56,9 +44,9 @@ int handleGenWeapon(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "WeaponSkillCosts";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWscsExt(base);
+    base = cli::withoutExt(base, ".wscs");
     auto c = wowee::pipeline::WoweeSkillCostLoader::makeWeapon(name);
-    if (!saveOrError(c, base, "gen-scs-weapon")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSkillCostLoader>(c, base, "gen-scs-weapon", ".wscs")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -67,9 +55,9 @@ int handleGenRiding(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "RidingSkillCosts";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWscsExt(base);
+    base = cli::withoutExt(base, ".wscs");
     auto c = wowee::pipeline::WoweeSkillCostLoader::makeRiding(name);
-    if (!saveOrError(c, base, "gen-scs-riding")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSkillCostLoader>(c, base, "gen-scs-riding", ".wscs")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -90,10 +78,9 @@ void formatGold(uint32_t copper, char* buf, size_t bufSize) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWscsExt(base);
+    base = cli::withoutExt(base, ".wscs");
     if (!wowee::pipeline::WoweeSkillCostLoader::exists(base)) {
-        std::fprintf(stderr, "WSCS not found: %s.wscs\n", base.c_str());
-        return 1;
+        return reportMissing("WSCS", base, ".wscs");
     }
     auto c = wowee::pipeline::WoweeSkillCostLoader::load(base);
     if (jsonOut) {
@@ -143,12 +130,9 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWscsExt(base);
+    base = cli::withoutExt(base, ".wscs");
     if (!wowee::pipeline::WoweeSkillCostLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wscs-json: WSCS not found: %s.wscs\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wscs-json", "WSCS", base, ".wscs");
     }
     auto c = wowee::pipeline::WoweeSkillCostLoader::load(base);
     if (outPath.empty()) outPath = base + ".wscs.json";
@@ -252,21 +236,8 @@ int handleImportJson(int& i, int argc, char** argv) {
             c.entries.push_back(e);
         }
     }
-    if (outBase.empty()) {
-        outBase = jsonPath;
-        const std::string suffix1 = ".wscs.json";
-        const std::string suffix2 = ".json";
-        if (outBase.size() >= suffix1.size() &&
-            outBase.compare(outBase.size() - suffix1.size(),
-                            suffix1.size(), suffix1) == 0) {
-            outBase.resize(outBase.size() - suffix1.size());
-        } else if (outBase.size() >= suffix2.size() &&
-                   outBase.compare(outBase.size() - suffix2.size(),
-                                   suffix2.size(), suffix2) == 0) {
-            outBase.resize(outBase.size() - suffix2.size());
-        }
-    }
-    outBase = stripWscsExt(outBase);
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(jsonPath, ".wscs");
+    outBase = cli::withoutExt(outBase, ".wscs");
     if (!wowee::pipeline::WoweeSkillCostLoader::save(c, outBase)) {
         std::fprintf(stderr,
             "import-wscs-json: failed to save %s.wscs\n",
@@ -280,103 +251,62 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWscsExt(base);
-    if (!wowee::pipeline::WoweeSkillCostLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wscs: WSCS not found: %s.wscs\n", base.c_str());
-        return 1;
-    }
-    auto c = wowee::pipeline::WoweeSkillCostLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    std::vector<uint32_t> idsSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.costId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.costId == 0)
-            errors.push_back(ctx + ": costId is 0");
-        if (e.name.empty())
-            errors.push_back(ctx + ": name is empty");
-        if (e.costKind > wowee::pipeline::WoweeSkillCost::Misc) {
-            errors.push_back(ctx + ": costKind " +
-                std::to_string(e.costKind) + " not in 0..4");
-        }
-        if (e.minSkillToLearn >= e.maxSkillUnlocked) {
-            errors.push_back(ctx +
-                ": minSkillToLearn " +
-                std::to_string(e.minSkillToLearn) +
-                " >= maxSkillUnlocked " +
-                std::to_string(e.maxSkillUnlocked) +
-                " — tier provides no skill range");
-        }
-        if (e.requiredLevel > 80) {
-            warnings.push_back(ctx +
-                ": requiredLevel " +
-                std::to_string(e.requiredLevel) +
-                " > 80 — tier unreachable at WotLK cap");
-        }
-        // Riding skill at lvl < 20 is unusual (Apprentice
-        // requires lvl 20).
-        if (e.costKind == wowee::pipeline::WoweeSkillCost::RidingSkill &&
-            e.requiredLevel < 20) {
-            warnings.push_back(ctx +
-                ": Riding skill with requiredLevel=" +
-                std::to_string(e.requiredLevel) +
-                " < 20 — canonical Apprentice Riding unlocks "
-                "at level 20");
-        }
-        // Profession with cost=0 is unusual — every standard
-        // profession tier costs at least a copper.
-        if (e.costKind == wowee::pipeline::WoweeSkillCost::Profession &&
-            e.copperCost == 0) {
-            warnings.push_back(ctx +
-                ": Profession kind with copperCost=0 — "
-                "unusual, profession tiers normally cost "
-                "at least a copper");
-        }
-        for (uint32_t prev : idsSeen) {
-            if (prev == e.costId) {
-                errors.push_back(ctx + ": duplicate costId");
-                break;
+    return cli::validateCatalog<wowee::pipeline::WoweeSkillCostLoader>(
+        i, argc, argv, "wscs", "WSCS",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.costId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.costId == 0)
+                errors.push_back(ctx + ": costId is 0");
+            if (e.name.empty())
+                errors.push_back(ctx + ": name is empty");
+            if (e.costKind > wowee::pipeline::WoweeSkillCost::Misc) {
+                errors.push_back(ctx + ": costKind " +
+                    std::to_string(e.costKind) + " not in 0..4");
             }
+            if (e.minSkillToLearn >= e.maxSkillUnlocked) {
+                errors.push_back(ctx +
+                    ": minSkillToLearn " +
+                    std::to_string(e.minSkillToLearn) +
+                    " >= maxSkillUnlocked " +
+                    std::to_string(e.maxSkillUnlocked) +
+                    " - tier provides no skill range");
+            }
+            if (e.requiredLevel > 80) {
+                warnings.push_back(ctx +
+                    ": requiredLevel " +
+                    std::to_string(e.requiredLevel) +
+                    " > 80 - tier unreachable at WotLK cap");
+            }
+            // Riding skill at lvl < 20 is unusual (Apprentice
+            // requires lvl 20).
+            if (e.costKind == wowee::pipeline::WoweeSkillCost::RidingSkill &&
+                e.requiredLevel < 20) {
+                warnings.push_back(ctx +
+                    ": Riding skill with requiredLevel=" +
+                    std::to_string(e.requiredLevel) +
+                    " < 20 - canonical Apprentice Riding unlocks "
+                    "at level 20");
+            }
+            // Profession with cost=0 is unusual - every standard
+            // profession tier costs at least a copper.
+            if (e.costKind == wowee::pipeline::WoweeSkillCost::Profession &&
+                e.copperCost == 0) {
+                warnings.push_back(ctx +
+                    ": Profession kind with copperCost=0 - "
+                    "unusual, profession tiers normally cost "
+                    "at least a copper");
+            }
+            if (!idsSeen.add(e.costId)) errors.push_back(ctx + ": duplicate costId");
         }
-        idsSeen.push_back(e.costId);
-    }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wscs"] = base + ".wscs";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wscs: %s.wscs\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu tiers, all costIds unique\n",
-                    c.entries.size());
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+            return formatted("%zu tiers, all costIds unique", c.entries.size());
+        });
 }
 
 } // namespace

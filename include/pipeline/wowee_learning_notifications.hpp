@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Learning Notification catalog (.wldn) —
+// Wowee Open Learning Notification catalog (.wldn) -
 // novel replacement for the hardcoded server-side
 // milestone messages that fire when a player crosses a
 // progression threshold ("You can now learn Apprentice
@@ -31,7 +31,7 @@ namespace pipeline {
 //   WMS:  when triggerKind=ZoneEntered, triggerValue is
 //         a WMS areaId.
 //
-// The triggerValue field is polymorphic — its semantics
+// The triggerValue field is polymorphic - its semantics
 // depend on triggerKind. The validator can't fully
 // cross-check without all referenced catalogs in the
 // directory; it does range-check what it can per kind.
@@ -46,22 +46,22 @@ namespace pipeline {
 //     nameLen + name
 //     descLen + description
 //     msgLen + messageText
-//     triggerKind (uint8)        — LevelReach /
+//     triggerKind (uint8)        - LevelReach /
 //                                   FactionStanding /
 //                                   ItemAcquired /
 //                                   QuestComplete /
 //                                   SpellLearned /
 //                                   ZoneEntered
-//     channelKind (uint8)        — RaidWarning /
+//     channelKind (uint8)        - RaidWarning /
 //                                   SystemMsg /
 //                                   Subtitle / Tutorial /
 //                                   MOTD
-//     factionFilter (uint8)      — 1=A / 2=H / 3=Both
+//     factionFilter (uint8)      - 1=A / 2=H / 3=Both
 //     pad0 (uint8)
-//     triggerValue (int32)       — level / standing /
+//     triggerValue (int32)       - level / standing /
 //                                   itemId / etc.
-//     soundId (uint32)           — 0 if silent
-//     minTotalTimePlayed (uint32)— seconds; 0 = always
+//     soundId (uint32)           - 0 if silent
+//     minTotalTimePlayed (uint32)- seconds; 0 = always
 //                                   fire (else only
 //                                   first-time players
 //                                   below threshold)
@@ -136,19 +136,19 @@ public:
 
     // Preset emitters used by --gen-ldn* variants.
     //
-    //   makeLevelMilestones — 5 LevelReach notifications
+    //   makeLevelMilestones - 5 LevelReach notifications
     //                          covering the canonical
     //                          unlock thresholds (mounts
     //                          at 20, talent reset gold
     //                          at 30, epic mount at 40,
     //                          dual spec at 40, flying
     //                          mount at 60).
-    //   makeAccountUnlocks  — 4 ItemAcquired / SpellLearned
+    //   makeAccountUnlocks  - 4 ItemAcquired / SpellLearned
     //                          notifications for major
     //                          UI unlocks (mailbox usage,
     //                          auction house, dual spec
     //                          activation, transmog vendor).
-    //   makeReputation      — 3 FactionStanding milestones
+    //   makeReputation      - 3 FactionStanding milestones
     //                          (Honored / Revered / Exalted
     //                          with a major faction).
     static WoweeLearningNotifications makeLevelMilestones(const std::string& catalogName);

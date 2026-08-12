@@ -21,12 +21,10 @@ TransportCallbackHandler::TransportCallbackHandler(
     EntitySpawner& entitySpawner,
     rendering::Renderer& renderer,
     game::GameHandler& gameHandler,
-    WorldLoader* worldLoader,
     AppearanceComposer* appearanceComposer)
     : entitySpawner_(entitySpawner)
     , renderer_(renderer)
     , gameHandler_(gameHandler)
-    , worldLoader_(worldLoader)
     , appearanceComposer_(appearanceComposer)
 {
 }

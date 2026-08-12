@@ -1,5 +1,8 @@
 #pragma once
 
+#include "rendering/vk_shader.hpp"
+#include "rendering/shadow_params.hpp"
+
 #include "pipeline/m2_loader.hpp"
 #include "pipeline/blp_loader.hpp"
 #include <vulkan/vulkan.h>
@@ -86,6 +89,12 @@ public:
     void prepareRender(uint32_t frameIndex);
     void render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const Camera& camera);
     void recreatePipelines();
+    /// The five main-pass pipelines, which initialize() and
+    /// recreatePipelines() both need and each used to describe.
+    void buildMainPassPipelines(VkDevice device, VkRenderPass mainPass,
+                                VkSampleCountFlagBits samples,
+                                wowee::rendering::VkShaderModule& charVert,
+                                wowee::rendering::VkShaderModule& charFrag);
     [[nodiscard]] bool initializeShadow(VkRenderPass shadowRenderPass);
     void renderShadow(VkCommandBuffer cmd, const glm::mat4& lightSpaceMatrix,
                       const glm::vec3& shadowCenter = glm::vec3(0), float shadowRadius = 1e9f);
@@ -99,6 +108,12 @@ public:
     const pipeline::M2Model* getModelData(uint32_t modelId) const;
     const pipeline::M2Model* getInstanceModelData(uint32_t instanceId) const;
     void setActiveGeosets(uint32_t instanceId, const std::unordered_set<uint16_t>& geosets);
+    /// Opt an instance into the Skin Extra head-detail batch. Only a character
+    /// whose type 8 slot has been filled from CharSections should ask for it.
+    void setDrawSkinExtra(uint32_t instanceId, bool enabled);
+
+    /// Counts the head-batch diagnostic lines so it stops after a few.
+    int headBatchCanaryCount_ = 0;
     void setGroupTextureOverride(uint32_t instanceId, uint16_t geosetGroup, VkTexture* texture);
     void setTextureSlotOverride(uint32_t instanceId, uint16_t textureSlot, VkTexture* texture);
     void clearTextureSlotOverride(uint32_t instanceId, uint16_t textureSlot);
@@ -129,7 +144,7 @@ public:
 
     // Free a model's GPU buffers and map entry once no instance references it.
     // For per-instance model ids (weapons/effects/player composites, which get
-    // a fresh id per attach or spawn) — without this every reload or despawn
+    // a fresh id per attach or spawn) - without this every reload or despawn
     // leaked the model. Do NOT call for displayId-keyed NPC models; those are
     // cached across despawn/respawn on purpose. Buffers are destroyed via the
     // frame-fence deferral path; shared textures stay in the cache.
@@ -167,7 +182,7 @@ public:
     void setPOMEnabled(bool enabled) { pomEnabled_ = enabled; }
     void setPOMQuality(int quality) { pomQuality_ = quality; }
 
-    // Fog/lighting/shadow are now in per-frame UBO — keep stubs for callers that haven't been updated
+    // Fog/lighting/shadow are now in per-frame UBO - keep stubs for callers that haven't been updated
     void setFog(const glm::vec3&, float, float) {}
     void setLighting(const float[3], const float[3], const float[3]) {}
     void setShadowMap(VkTexture*, const glm::mat4&) {}
@@ -201,7 +216,7 @@ private:
         std::vector<VkTexture*> textureIds;
 
         // Cached batch render order sorted by (priorityPlane, materialLayer).
-        // Built once at load time — the sort only depends on the model's static
+        // Built once at load time - the sort only depends on the model's static
         // batch metadata, so doing it per-instance per-frame in render() was
         // pure overhead.
         std::vector<size_t> sortedBatchIndices;
@@ -232,9 +247,12 @@ private:
         bool isDead = false;  // Prevents movement while in death state
         std::vector<glm::mat4> boneMatrices;  // Current bone transforms
 
-        // Geoset visibility — which submesh IDs to render
+        // Geoset visibility - which submesh IDs to render
         // Empty = render all (for non-character models)
         std::unordered_set<uint16_t> activeGeosets;
+        /// Draw the Skin Extra (texture type 8) head-detail batch. True only
+        /// where the instance has been set up to composite it - the player.
+        bool drawSkinExtra = false;
 
         // Per-geoset-group texture overrides (group → VkTexture*)
         std::unordered_map<uint16_t, VkTexture*> groupTextureOverrides;
@@ -269,7 +287,7 @@ private:
         // A scene rather than a character: the glue-screen backdrops. Two things
         // follow. Their origin can sit hundreds of units from their geometry, so
         // culling on it would drop them. And the material heuristics below exist to
-        // rescue character textures — applied to a scene they erase it, because
+        // rescue character textures - applied to a scene they erase it, because
         // Stormwind's walls are DXT5 with an unused alpha channel that the opaque
         // batches must ignore, exactly as the blend mode says.
         bool isSceneModel = false;
@@ -288,7 +306,6 @@ private:
 
     void setupModelBuffers(M2ModelGPU& gpuModel);
     void calculateBindPose(M2ModelGPU& gpuModel);
-    void updateAnimation(CharacterInstance& instance, float deltaTime);
     void calculateBoneMatrices(CharacterInstance& instance);
     glm::mat4 getBoneTransform(const pipeline::M2Bone& bone, float animTime, float globalSeqTime,
                                int sequenceIndex, const std::vector<uint32_t>& globalSeqDurations);
@@ -296,7 +313,7 @@ private:
     void destroyModelGPU(M2ModelGPU& gpuModel, bool defer = false);
     void destroyInstanceBones(CharacterInstance& inst, bool defer = false);
 
-    // Attachment point lookup helper — shared by attachWeapon() and getAttachmentTransform()
+    // Attachment point lookup helper - shared by attachWeapon() and getAttachmentTransform()
     bool findAttachmentBone(uint32_t modelId, uint32_t attachmentId,
                            uint16_t& outBoneIndex, glm::vec3& outOffset) const;
 
@@ -324,8 +341,6 @@ public:
     /** Replace a loaded model's texture at the given slot. */
     void setModelTexture(uint32_t modelId, uint32_t textureSlot, VkTexture* texture);
 
-    /** Reset a model's texture slot back to white fallback. */
-    void resetModelTexture(uint32_t modelId, uint32_t textureSlot);
 
 
 private:
@@ -379,7 +394,7 @@ private:
         std::make_shared<std::atomic<uint64_t>>(0);
     uint32_t lastMaterialPoolResetFrame_ = 0xFFFFFFFFu;
 
-    // Material UBO ring buffer — pre-allocated per frame slot, sub-allocated each draw
+    // Material UBO ring buffer - pre-allocated per frame slot, sub-allocated each draw
     VkBuffer materialRingBuffer_[2] = {VK_NULL_HANDLE, VK_NULL_HANDLE};
     VmaAllocation materialRingAlloc_[2] = {VK_NULL_HANDLE, VK_NULL_HANDLE};
     void* materialRingMapped_[2] = {nullptr, nullptr};
@@ -431,7 +446,7 @@ private:
     std::unique_ptr<VkTexture> generateNormalHeightMap(
         const uint8_t* pixels, uint32_t width, uint32_t height, float& outVariance);
 
-    // Background normal map generation — CPU work on thread pool, GPU upload on main thread
+    // Background normal map generation - CPU work on thread pool, GPU upload on main thread
     struct NormalMapResult {
         std::string cacheKey;
         std::vector<uint8_t> pixels;  // RGBA normal map output
@@ -445,6 +460,13 @@ private:
     std::atomic<int> pendingNormalMapCount_{0};  // in-flight background tasks
 
     // Pure CPU normal map generation (thread-safe, no GPU access)
+    /// Start deriving a normal/height map for a texture already in the cache.
+    /// Called for every surface this renderer draws, whether it came from a
+    /// file or was composited in memory.
+    bool queueNormalMapGeneration(const std::string& cacheKey,
+                                  std::vector<uint8_t> pixels,
+                                  uint32_t width, uint32_t height);
+
     static NormalMapResult generateNormalHeightMapCPU(
         std::string cacheKey, std::vector<uint8_t> pixels, uint32_t width, uint32_t height);
 public:
@@ -466,11 +488,9 @@ private:
     // Shadow pipeline resources
     VkPipeline shadowPipeline_ = VK_NULL_HANDLE;
     VkPipelineLayout shadowPipelineLayout_ = VK_NULL_HANDLE;
-    VkDescriptorSetLayout shadowParamsLayout_ = VK_NULL_HANDLE;
-    VkDescriptorPool shadowParamsPool_ = VK_NULL_HANDLE;
-    VkDescriptorSet shadowParamsSet_ = VK_NULL_HANDLE;
-    VkBuffer shadowParamsUBO_ = VK_NULL_HANDLE;
-    VmaAllocation shadowParamsAlloc_ = VK_NULL_HANDLE;
+    /// The set the shadow pass binds. Five separate members before,
+    /// built and torn down here and in three other renderers.
+    ShadowParamsSet shadowParams_;
 };
 
 } // namespace rendering

@@ -1,4 +1,5 @@
 #include "pipeline/wowee_realm_list.hpp"
+#include "pipeline/wowee_binary_io.hpp"
 
 #include <cstdio>
 #include <cstring>
@@ -11,52 +12,7 @@ namespace {
 
 constexpr char kMagic[4] = {'W', 'M', 'S', 'P'};
 constexpr uint32_t kVersion = 1;
-
-template <typename T>
-void writePOD(std::ofstream& os, const T& v) {
-    os.write(reinterpret_cast<const char*>(&v), sizeof(T));
-}
-
-template <typename T>
-bool readPOD(std::ifstream& is, T& v) {
-    is.read(reinterpret_cast<char*>(&v), sizeof(T));
-    return is.gcount() == static_cast<std::streamsize>(sizeof(T));
-}
-
-void writeStr(std::ofstream& os, const std::string& s) {
-    uint32_t n = static_cast<uint32_t>(s.size());
-    writePOD(os, n);
-    if (n > 0) os.write(s.data(), n);
-}
-
-bool readStr(std::ifstream& is, std::string& s) {
-    uint32_t n = 0;
-    if (!readPOD(is, n)) return false;
-    if (n > (1u << 20)) return false;
-    s.resize(n);
-    if (n > 0) {
-        is.read(s.data(), n);
-        if (is.gcount() != static_cast<std::streamsize>(n)) {
-            s.clear();
-            return false;
-        }
-    }
-    return true;
-}
-
-std::string normalizePath(std::string base) {
-    if (base.size() < 5 || base.substr(base.size() - 5) != ".wmsp") {
-        base += ".wmsp";
-    }
-    return base;
-}
-
-uint32_t packRgba(uint8_t r, uint8_t g, uint8_t b, uint8_t a = 0xFF) {
-    return (static_cast<uint32_t>(a) << 24) |
-           (static_cast<uint32_t>(b) << 16) |
-           (static_cast<uint32_t>(g) << 8)  |
-            static_cast<uint32_t>(r);
-}
+constexpr char kExtension[] = ".wmsp";
 
 } // namespace
 
@@ -84,15 +40,9 @@ WoweeRealmList::findByType(uint8_t realmType) const {
 }
 
 bool WoweeRealmListLoader::save(const WoweeRealmList& cat,
-                                  const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath), std::ios::binary);
-    if (!os) return false;
-    os.write(kMagic, 4);
-    writePOD(os, kVersion);
-    writeStr(os, cat.name);
-    uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writePOD(os, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeRealmList::Entry& e) {
         writePOD(os, e.realmId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -111,33 +61,17 @@ bool WoweeRealmListLoader::save(const WoweeRealmList& cat,
         writePOD(os, e.pad1);
         writePOD(os, e.buildNumber);
         writePOD(os, e.iconColorRGBA);
-    }
-    return os.good();
+                       });
 }
 
-WoweeRealmList WoweeRealmListLoader::load(const std::string& basePath) {
-    WoweeRealmList out;
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    if (!is) return out;
-    char magic[4];
-    is.read(magic, 4);
-    if (std::memcmp(magic, kMagic, 4) != 0) return out;
-    uint32_t version = 0;
-    if (!readPOD(is, version) || version != kVersion) return out;
-    if (!readStr(is, out.name)) return out;
-    uint32_t entryCount = 0;
-    if (!readPOD(is, entryCount)) return out;
-    if (entryCount > (1u << 20)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.realmId)) {
-            out.entries.clear(); return out;
-        }
+WoweeRealmList WoweeRealmListLoader::load(
+    const std::string& basePath) {
+    return loadCatalog<WoweeRealmList>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeRealmList::Entry& e) {
+        if (!readPOD(is, e.realmId)) { return false; }
         if (!readStr(is, e.name) ||
             !readStr(is, e.description) ||
-            !readStr(is, e.address)) {
-            out.entries.clear(); return out;
-        }
+            !readStr(is, e.address)) { return false; }
         if (!readPOD(is, e.realmType) ||
             !readPOD(is, e.realmCategory) ||
             !readPOD(is, e.expansion) ||
@@ -151,16 +85,13 @@ WoweeRealmList WoweeRealmListLoader::load(const std::string& basePath) {
             !readPOD(is, e.versionPatch) ||
             !readPOD(is, e.pad1) ||
             !readPOD(is, e.buildNumber) ||
-            !readPOD(is, e.iconColorRGBA)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.iconColorRGBA)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeRealmListLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeRealmList WoweeRealmListLoader::makeSingleRealm(
@@ -172,7 +103,7 @@ WoweeRealmList WoweeRealmListLoader::makeSingleRealm(
     e.realmId = 1;
     e.name = "WoweeMain";
     e.description =
-        "Default Wowee server realm — WotLK 3.3.5a, Normal "
+        "Default Wowee server realm - WotLK 3.3.5a, Normal "
         "PvE rule-set, public category, US East timezone, "
         "10-character cap per account.";
     e.address = "logon.wowee.example.com:8085";
@@ -214,15 +145,15 @@ WoweeRealmList WoweeRealmListLoader::makePvPCluster(
     };
     add(1, "WoweePvE", R::Normal, R::Medium,
         packRgba(140, 200, 255),
-        "Cluster realm — Normal PvE rule-set. World PvP "
+        "Cluster realm - Normal PvE rule-set. World PvP "
         "is opt-in; ganking flagged as harassment.");
     add(2, "WoweePvP", R::PvP, R::High,
         packRgba(220, 80, 100),
-        "Cluster realm — PvP rule-set. Cross-faction "
+        "Cluster realm - PvP rule-set. Cross-faction "
         "world combat is always-on outside of cities.");
     add(3, "WoweeRP", R::RP, R::Low,
         packRgba(180, 100, 240),
-        "Cluster realm — Roleplay. Naming policy "
+        "Cluster realm - Roleplay. Naming policy "
         "enforced; in-character chat encouraged.");
     return c;
 }
@@ -256,19 +187,19 @@ WoweeRealmList WoweeRealmListLoader::makeMultiExpansion(
     };
     add(1, "Wowee-Vanilla", R::Vanilla, 1, 12, 1, 5875,
         packRgba(220, 220, 100),
-        "Vanilla 1.12.1 progression realm — original "
+        "Vanilla 1.12.1 progression realm - original "
         "60-cap content, no Outland zones.");
     add(2, "Wowee-TBC", R::TBC, 2, 4, 3, 8606,
         packRgba(100, 220, 100),
-        "TBC 2.4.3 progression realm — Outland + 70-cap "
+        "TBC 2.4.3 progression realm - Outland + 70-cap "
         "content, Sunwell endgame.");
     add(3, "Wowee-WotLK", R::WotLK, 3, 3, 5, 12340,
         packRgba(140, 200, 255),
-        "WotLK 3.3.5a progression realm — Northrend + "
+        "WotLK 3.3.5a progression realm - Northrend + "
         "80-cap content, ICC endgame.");
     add(4, "Wowee-Cata", R::Cata, 4, 3, 4, 15595,
         packRgba(220, 130, 80),
-        "Cata 4.3.4 progression realm — post-Shattering "
+        "Cata 4.3.4 progression realm - post-Shattering "
         "world + 85-cap content, DS endgame. Currently "
         "Beta access only.");
     // Mark Cata as beta category (override the default

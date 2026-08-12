@@ -41,7 +41,7 @@ public:
     /**
      * Check if system is under severe memory pressure (< 15% RAM available).
      * At this level, background loading should pause entirely until memory
-     * is freed — continuing to allocate risks OOM-killing other applications.
+     * is freed - continuing to allocate risks OOM-killing other applications.
      */
     bool isSevereMemoryPressure() const;
 

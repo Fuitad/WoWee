@@ -1,4 +1,5 @@
 #include "pipeline/wowee_creature_resists.hpp"
+#include "pipeline/wowee_binary_io.hpp"
 
 #include <cstdio>
 #include <cstring>
@@ -11,52 +12,7 @@ namespace {
 
 constexpr char kMagic[4] = {'W', 'C', 'R', 'E'};
 constexpr uint32_t kVersion = 1;
-
-template <typename T>
-void writePOD(std::ofstream& os, const T& v) {
-    os.write(reinterpret_cast<const char*>(&v), sizeof(T));
-}
-
-template <typename T>
-bool readPOD(std::ifstream& is, T& v) {
-    is.read(reinterpret_cast<char*>(&v), sizeof(T));
-    return is.gcount() == static_cast<std::streamsize>(sizeof(T));
-}
-
-void writeStr(std::ofstream& os, const std::string& s) {
-    uint32_t n = static_cast<uint32_t>(s.size());
-    writePOD(os, n);
-    if (n > 0) os.write(s.data(), n);
-}
-
-bool readStr(std::ifstream& is, std::string& s) {
-    uint32_t n = 0;
-    if (!readPOD(is, n)) return false;
-    if (n > (1u << 20)) return false;
-    s.resize(n);
-    if (n > 0) {
-        is.read(s.data(), n);
-        if (is.gcount() != static_cast<std::streamsize>(n)) {
-            s.clear();
-            return false;
-        }
-    }
-    return true;
-}
-
-std::string normalizePath(std::string base) {
-    if (base.size() < 5 || base.substr(base.size() - 5) != ".wcre") {
-        base += ".wcre";
-    }
-    return base;
-}
-
-uint32_t packRgba(uint8_t r, uint8_t g, uint8_t b, uint8_t a = 0xFF) {
-    return (static_cast<uint32_t>(a) << 24) |
-           (static_cast<uint32_t>(b) << 16) |
-           (static_cast<uint32_t>(g) << 8)  |
-            static_cast<uint32_t>(r);
-}
+constexpr char kExtension[] = ".wcre";
 
 } // namespace
 
@@ -75,15 +31,9 @@ WoweeCreatureResists::findByCreature(uint32_t creatureEntry) const {
 }
 
 bool WoweeCreatureResistsLoader::save(const WoweeCreatureResists& cat,
-                                        const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath), std::ios::binary);
-    if (!os) return false;
-    os.write(kMagic, 4);
-    writePOD(os, kVersion);
-    writeStr(os, cat.name);
-    uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writePOD(os, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeCreatureResists::Entry& e) {
         writePOD(os, e.resistId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -103,32 +53,15 @@ bool WoweeCreatureResistsLoader::save(const WoweeCreatureResists& cat,
         writePOD(os, e.pad2);
         writePOD(os, e.pad3);
         writePOD(os, e.iconColorRGBA);
-    }
-    return os.good();
+                       });
 }
 
 WoweeCreatureResists WoweeCreatureResistsLoader::load(
     const std::string& basePath) {
-    WoweeCreatureResists out;
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    if (!is) return out;
-    char magic[4];
-    is.read(magic, 4);
-    if (std::memcmp(magic, kMagic, 4) != 0) return out;
-    uint32_t version = 0;
-    if (!readPOD(is, version) || version != kVersion) return out;
-    if (!readStr(is, out.name)) return out;
-    uint32_t entryCount = 0;
-    if (!readPOD(is, entryCount)) return out;
-    if (entryCount > (1u << 20)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.resistId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name) || !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
+    return loadCatalog<WoweeCreatureResists>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeCreatureResists::Entry& e) {
+        if (!readPOD(is, e.resistId)) { return false; }
+        if (!readStr(is, e.name) || !readStr(is, e.description)) { return false; }
         if (!readPOD(is, e.creatureEntry) ||
             !readPOD(is, e.holyResist) ||
             !readPOD(is, e.fireResist) ||
@@ -144,16 +77,13 @@ WoweeCreatureResists WoweeCreatureResistsLoader::load(
             !readPOD(is, e.pad1) ||
             !readPOD(is, e.pad2) ||
             !readPOD(is, e.pad3) ||
-            !readPOD(is, e.iconColorRGBA)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.iconColorRGBA)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeCreatureResistsLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeCreatureResists WoweeCreatureResistsLoader::makeRaidBosses(
@@ -179,42 +109,42 @@ WoweeCreatureResists WoweeCreatureResistsLoader::makeRaidBosses(
         e.ccImmunityMask = ccImm;
         e.schoolImmunityMask = schoolImm;
         // Bosses immune to most CC by convention (server-
-        // wide behavior — bosses can't be CC'd at all).
+        // wide behavior - bosses can't be CC'd at all).
         e.mechanicImmunityMask = 0xFFFFFFFFu;
         e.iconColorRGBA = packRgba(220, 60, 60);   // boss red
         c.entries.push_back(e);
     };
-    // Ragnaros — fire-school immune (school bit 0x04 in
+    // Ragnaros - fire-school immune (school bit 0x04 in
     // typical school-bit numbering: holy=1, fire=2,
     // nature=4, frost=8, shadow=16, arcane=32). Using
     // 0x02 here for fire.
     add(1, "RagnarosFireImmune", 11502,
         0, 32767, 0, 0, 0, 0, 0,
         0xFFFF, 0x02,
-        "Ragnaros (Molten Core boss) — 100% fire-school "
+        "Ragnaros (Molten Core boss) - 100% fire-school "
         "immunity (fireResist=32767 = full block) plus "
         "schoolImmunityMask bit for fire. All CC immune.");
     add(2, "VaelHalfResist", 13020,
         100, 100, 100, 100, 100, 100, 0,
         0xFFFF, 0,
-        "Vaelastrasz (BWL) — 100 resist to all 6 magic "
+        "Vaelastrasz (BWL) - 100 resist to all 6 magic "
         "schools (~50% mitigation against caster spells). "
         "All CC immune.");
     add(3, "HakkarArcaneImmune", 14834,
         0, 0, 0, 0, 0, 32767, 0,
         0xFFFF, 0x20,
-        "Hakkar (ZG) — full arcane immunity. All CC "
+        "Hakkar (ZG) - full arcane immunity. All CC "
         "immune. Other schools at default zero resist.");
     add(4, "KelthuzadShadowImmune", 15990,
         0, 0, 0, 200, 32767, 0, 0,
         0xFFFF, 0x10,
-        "Kel'Thuzad (Naxx) — full shadow-school "
+        "Kel'Thuzad (Naxx) - full shadow-school "
         "immunity, plus 200 frost resist (~50% frost "
         "mitigation). Iconic anti-warlock fight.");
     add(5, "OnyxiaPartialImmune", 10184,
         0, 100, 0, 100, 0, 0, 0,
         0xFFFF, 0,
-        "Onyxia — 100 fire + 100 frost resist (50% "
+        "Onyxia - 100 fire + 100 frost resist (50% "
         "mitigation against both schools). All CC "
         "immune.");
     return c;
@@ -238,7 +168,7 @@ WoweeCreatureResists WoweeCreatureResistsLoader::makeElites(
         e.natureResist = nature; e.frostResist = frost;
         e.shadowResist = shadow; e.arcaneResist = arcane;
         e.physicalResistPct = 0;
-        // Elites can be CC'd but not all — 80%
+        // Elites can be CC'd but not all - 80%
         // mechanicImmune to common debuffs.
         e.ccImmunityMask = R::ImmuneFear | R::ImmuneSleep;
         e.mechanicImmunityMask = 0;
@@ -248,27 +178,27 @@ WoweeCreatureResists WoweeCreatureResistsLoader::makeElites(
     };
     add(100, "WaterElementalFireResist", 12471,
         0, 60, 0, 0, 0, 0,
-        "Water Elemental (Bog of Sorrows) — 60 fire "
+        "Water Elemental (Bog of Sorrows) - 60 fire "
         "resist (~30% mitigation). Frost-themed mob "
         "resists fire by lore.");
     add(101, "StoneGiantNatureResist", 12476,
         0, 0, 100, 0, 0, 0,
-        "Stone Giant (Stonetalon) — 100 nature resist "
+        "Stone Giant (Stonetalon) - 100 nature resist "
         "(50% mitigation). Earth-element mob resists "
         "druid spells.");
     add(102, "ScarletPriestHolyResist", 11030,
         80, 0, 0, 0, 60, 0,
-        "Scarlet Crusade Priest (Scarlet Monastery) — "
+        "Scarlet Crusade Priest (Scarlet Monastery) - "
         "80 holy + 60 shadow resist. Light/dark-school "
         "trained.");
     add(103, "DustwindStormcasterArcane", 8519,
         0, 0, 0, 0, 0, 80,
-        "Dustwind Stormcaster (Silithus) — 80 arcane "
+        "Dustwind Stormcaster (Silithus) - 80 arcane "
         "resist (40% mitigation). Caster mob favors "
         "arcane defense.");
     add(104, "FrostwolfEntinelFrost", 10920,
         0, 0, 0, 60, 0, 0,
-        "Frostwolf Sentinel (Alterac Valley) — 60 frost "
+        "Frostwolf Sentinel (Alterac Valley) - 60 frost "
         "resist (30% mitigation). Northern enemy "
         "acclimated to cold.");
     return c;
@@ -293,21 +223,21 @@ WoweeCreatureResists WoweeCreatureResistsLoader::makeImmunities(
     };
     add(200, "RootImmuneTreant",   12477,
         R::ImmuneRoot | R::ImmuneSnare, 0,
-        "Treant (Felwood) — root + snare immune. "
+        "Treant (Felwood) - root + snare immune. "
         "Cannot be Entangling Roots or Frost Trap'd.");
     add(201, "StunImmuneAlphaWolf", 14283,
         R::ImmuneStun, 0,
-        "Alpha Worg (Silverpine) — stun immune. "
+        "Alpha Worg (Silverpine) - stun immune. "
         "Cannot be Cheap Shot'd or Concussion Blow'd.");
     add(202, "SilenceImmuneCaster", 11839,
         R::ImmuneSilence | R::ImmuneInterrupt, 0,
-        "Cult of the Damned Acolyte — silence + "
+        "Cult of the Damned Acolyte - silence + "
         "interrupt immune. Spell pushback works but "
         "the cast itself can't be interrupted.");
     add(203, "FearImmuneUndead",    18525,
         R::ImmuneFear | R::ImmuneCharm | R::ImmunePolymorph,
         0,
-        "Risen Construct (Naxxramas) — fear + charm + "
+        "Risen Construct (Naxxramas) - fear + charm + "
         "polymorph immune. Mind-affecting CC has no "
         "effect; physical CC like stun/root still works.");
     return c;

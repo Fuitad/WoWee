@@ -1,4 +1,8 @@
+#include "game/reputation_standing.hpp"
+#include "ui/ui_upload_budget.hpp"
 #include "ui/inventory_screen.hpp"
+#include "game/inventory_slots.hpp"
+#include "ui/framexml_takeover.hpp"
 #include "ui/ui_colors.hpp"
 #include "ui/keybinding_manager.hpp"
 #include "game/game_handler.hpp"
@@ -67,7 +71,7 @@ bool clampCurrentWindowToMainViewport() {
 }
 
 // Render "Classes: Warrior, Paladin" or "Races: Human, Orc" restriction text.
-// Shared between quest info and item info tooltips — both use the same WoW
+// Shared between quest info and item info tooltips - both use the same WoW
 // allowableClass/allowableRace bitmask format with identical display logic.
 void renderClassRestriction(uint32_t allowableMask, uint8_t playerClass) {
     const auto& entries = ui::kClassMasks;
@@ -146,53 +150,13 @@ struct ComparableEquipped {
 };
 
 ComparableEquipped findComparableEquipped(const game::Inventory& inventory, uint8_t inventoryType) {
-    using ES = game::EquipSlot;
-    auto slotPtr = [&](ES slot) -> ComparableEquipped {
+    // Which slots to try is WoW's mapping and lives beside the enum; this only
+    // walks them and stops at the first one holding something.
+    for (game::EquipSlot slot : game::comparableEquipSlots(inventoryType)) {
         const auto& s = inventory.getEquipSlot(slot);
-        return s.empty() ? ComparableEquipped{} : ComparableEquipped{&s, slot};
-    };
-
-    switch (inventoryType) {
-        case 1: return slotPtr(ES::HEAD);
-        case 2: return slotPtr(ES::NECK);
-        case 3: return slotPtr(ES::SHOULDERS);
-        case 4: return slotPtr(ES::SHIRT);
-        case 5:
-        case 20: return slotPtr(ES::CHEST);
-        case 6: return slotPtr(ES::WAIST);
-        case 7: return slotPtr(ES::LEGS);
-        case 8: return slotPtr(ES::FEET);
-        case 9: return slotPtr(ES::WRISTS);
-        case 10: return slotPtr(ES::HANDS);
-        case 11: {
-            if (auto s = slotPtr(ES::RING1)) return s;
-            return slotPtr(ES::RING2);
-        }
-        case 12: {
-            if (auto s = slotPtr(ES::TRINKET1)) return s;
-            return slotPtr(ES::TRINKET2);
-        }
-        case 13: // One-hand
-            if (auto s = slotPtr(ES::MAIN_HAND)) return s;
-            return slotPtr(ES::OFF_HAND);
-        case 14:
-        case 22:
-        case 23: return slotPtr(ES::OFF_HAND);
-        case 15:
-        case 25:
-        case 26: return slotPtr(ES::RANGED);
-        case 16: return slotPtr(ES::BACK);
-        case 17:
-        case 21: return slotPtr(ES::MAIN_HAND);
-        case 18: // bag
-            for (int i = 0; i < game::Inventory::NUM_BAG_SLOTS; ++i) {
-                auto slot = static_cast<ES>(static_cast<int>(ES::BAG1) + i);
-                if (auto s = slotPtr(slot)) return s;
-            }
-            return {};
-        case 19: return slotPtr(ES::TABARD);
-        default: return {};
+        if (!s.empty()) return ComparableEquipped{&s, slot};
     }
+    return {};
 }
 
 void renderEquippedEnhancements(
@@ -231,6 +195,43 @@ InventoryScreen::~InventoryScreen() {
     iconCache_.clear();
 }
 
+namespace {
+
+/// The short stat words the side-by-side comparison uses.
+///
+/// game::itemStatName answers "Defense Rating" and "Crit Rating", which is what
+/// a tooltip says. The comparison puts a name and two numbers on one narrow row,
+/// so it says "Defense" and "Crit" - same ids, deliberately shorter words. It
+/// was written out twice, identically.
+const char* comparisonStatLabel(uint32_t statType) {
+    switch (statType) {
+        case 0:  return "Mana";
+        case 1:  return "Health";
+        case 12: return "Defense";
+        case 13: return "Dodge";
+        case 14: return "Parry";
+        case 15: return "Block Rating";
+        case 16: case 17: case 18: case 31: return "Hit";
+        case 19: case 20: case 21: case 32: return "Crit";
+        case 28: case 29: case 30: case 36: return "Haste";
+        case 35: return "Resilience";
+        case 37: return "Expertise";
+        case 38: return "Attack Power";
+        case 39: return "Ranged AP";
+        case 41: return "Healing";
+        case 42: return "Spell Damage";
+        case 43: return "MP5";
+        case 44: return "Armor Pen";
+        case 45: return "Spell Power";
+        case 46: return "HP5";
+        case 47: return "Spell Pen";
+        case 48: return "Block Value";
+        default: return nullptr;
+    }
+}
+
+}  // namespace
+
 void InventoryScreen::setBagMoveConfigActive(bool active) {
     if (!ImGui::GetCurrentContext()) {
         bagMoveConfigActive_ = false;
@@ -266,11 +267,7 @@ VkDescriptorSet InventoryScreen::getItemIcon(uint32_t displayInfoId) {
 
     // Rate-limit GPU uploads per frame to avoid stalling when many items appear at once
     // (e.g., opening a full bag, vendor window, or loot from a boss with many drops).
-    static int iiLoadsThisFrame = 0;
-    static int iiLastImGuiFrame = -1;
-    int iiCurFrame = ImGui::GetFrameCount();
-    if (iiCurFrame != iiLastImGuiFrame) { iiLoadsThisFrame = 0; iiLastImGuiFrame = iiCurFrame; }
-    if (iiLoadsThisFrame >= 4) return VK_NULL_HANDLE;  // defer — do NOT cache null here
+    if (!claimUiTextureUpload()) return VK_NULL_HANDLE;  // defer - do NOT cache null here
 
     // Load ItemDisplayInfo.dbc
     auto displayInfoDbc = assetManager_->loadDBC("ItemDisplayInfo.dbc");
@@ -322,7 +319,6 @@ VkDescriptorSet InventoryScreen::getItemIcon(uint32_t displayInfoId) {
         return VK_NULL_HANDLE;
     }
 
-    ++iiLoadsThisFrame;
     VkDescriptorSet ds = vkCtx->uploadImGuiTexture(image.data.data(), image.width, image.height);
     iconCache_[displayInfoId] = ds;
     return ds;
@@ -368,13 +364,6 @@ void InventoryScreen::initPreview() {
     previewInitialized_ = true;
     previewDirty_ = true; // apply equipment on first load
 }
-
-void InventoryScreen::updatePreview(float deltaTime) {
-    if (charPreview_ && previewInitialized_) {
-        charPreview_->update(deltaTime);
-    }
-}
-
 void InventoryScreen::updatePreviewEquipment(game::Inventory& inventory,
                                               bool showHelm, bool showCloak) {
     if (!charPreview_ || !charPreview_->isModelLoaded()) return;
@@ -555,31 +544,55 @@ void InventoryScreen::pickupFromBankBagEquip(game::Inventory& inv, int bagIndex)
     inventoryDirty = true;
 }
 
+bool InventoryScreen::heldItemWireSource(uint8_t& srcBag, uint8_t& srcSlot) const {
+    srcBag = 0xFF;
+    srcSlot = 0;
+    switch (heldSource) {
+        case HeldSource::BACKPACK:
+            if (heldBackpackIndex < 0) return false;
+            srcSlot = static_cast<uint8_t>(game::slots::backpackWireSlot(heldBackpackIndex));
+            return true;
+        case HeldSource::BAG:
+            if (heldBagIndex < 0 || heldBagSlotIndex < 0) return false;
+            srcBag = static_cast<uint8_t>(game::slots::wornBagContainer(heldBagIndex));
+            srcSlot = static_cast<uint8_t>(heldBagSlotIndex);
+            return true;
+        case HeldSource::EQUIPMENT:
+            if (heldEquipSlot == game::EquipSlot::NUM_SLOTS) return false;
+            srcSlot = static_cast<uint8_t>(heldEquipSlot);
+            return true;
+        case HeldSource::BANK:
+            if (heldBankIndex < 0) return false;
+            srcSlot = static_cast<uint8_t>(game::slots::bankGeneralWireSlot(heldBankIndex));
+            return true;
+        case HeldSource::BANK_BAG:
+            if (heldBankBagIndex < 0 || heldBankBagSlotIndex < 0) return false;
+            srcBag = static_cast<uint8_t>(game::slots::bankBagContainer(heldBankBagIndex));
+            srcSlot = static_cast<uint8_t>(heldBankBagSlotIndex);
+            return true;
+        case HeldSource::BANK_BAG_EQUIP:
+            if (heldBankBagIndex < 0) return false;
+            srcSlot = static_cast<uint8_t>(game::slots::bankBagWireSlot(heldBankBagIndex));
+            return true;
+        case HeldSource::KEYRING:
+            if (heldKeyringIndex < 0) return false;
+            srcSlot = static_cast<uint8_t>(game::slots::keyringWireSlot(heldKeyringIndex));
+            return true;
+        case HeldSource::NONE:
+            break;
+    }
+    return false;
+}
+
 void InventoryScreen::placeInBackpack(game::Inventory& inv, int index) {
     if (!holdingItem) return;
     if (gameHandler_) {
         // Online mode: send server swap packet for all container moves
         uint8_t dstBag = 0xFF;
-        uint8_t dstSlot = static_cast<uint8_t>(23 + index);
+        uint8_t dstSlot = static_cast<uint8_t>(game::slots::backpackWireSlot(index));
         uint8_t srcBag = 0xFF;
         uint8_t srcSlot = 0;
-        if (heldSource == HeldSource::BACKPACK && heldBackpackIndex >= 0) {
-            srcSlot = static_cast<uint8_t>(23 + heldBackpackIndex);
-        } else if (heldSource == HeldSource::BAG) {
-            srcBag = static_cast<uint8_t>(19 + heldBagIndex);
-            srcSlot = static_cast<uint8_t>(heldBagSlotIndex);
-        } else if (heldSource == HeldSource::EQUIPMENT) {
-            srcSlot = static_cast<uint8_t>(heldEquipSlot);
-        } else if (heldSource == HeldSource::BANK && heldBankIndex >= 0) {
-            srcSlot = static_cast<uint8_t>(39 + heldBankIndex);
-        } else if (heldSource == HeldSource::BANK_BAG && heldBankBagIndex >= 0) {
-            srcBag = static_cast<uint8_t>(67 + heldBankBagIndex);
-            srcSlot = static_cast<uint8_t>(heldBankBagSlotIndex);
-        } else if (heldSource == HeldSource::BANK_BAG_EQUIP && heldBankBagIndex >= 0) {
-            srcSlot = static_cast<uint8_t>(67 + heldBankBagIndex);
-        } else if (heldSource == HeldSource::KEYRING && heldKeyringIndex >= 0) {
-            srcSlot = static_cast<uint8_t>(86 + heldKeyringIndex); // KEYRING_SLOT_START
-        } else {
+        if (!heldItemWireSource(srcBag, srcSlot)) {
             cancelPickup(inv);
             return;
         }
@@ -606,27 +619,11 @@ void InventoryScreen::placeInBag(game::Inventory& inv, int bagIndex, int slotInd
     if (!holdingItem) return;
     if (gameHandler_) {
         // Online mode: send server swap packet
-        uint8_t dstBag = static_cast<uint8_t>(19 + bagIndex);
+        uint8_t dstBag = static_cast<uint8_t>(game::slots::wornBagContainer(bagIndex));
         uint8_t dstSlot = static_cast<uint8_t>(slotIndex);
         uint8_t srcBag = 0xFF;
         uint8_t srcSlot = 0;
-        if (heldSource == HeldSource::BACKPACK && heldBackpackIndex >= 0) {
-            srcSlot = static_cast<uint8_t>(23 + heldBackpackIndex);
-        } else if (heldSource == HeldSource::BAG) {
-            srcBag = static_cast<uint8_t>(19 + heldBagIndex);
-            srcSlot = static_cast<uint8_t>(heldBagSlotIndex);
-        } else if (heldSource == HeldSource::EQUIPMENT) {
-            srcSlot = static_cast<uint8_t>(heldEquipSlot);
-        } else if (heldSource == HeldSource::BANK && heldBankIndex >= 0) {
-            srcSlot = static_cast<uint8_t>(39 + heldBankIndex);
-        } else if (heldSource == HeldSource::BANK_BAG && heldBankBagIndex >= 0) {
-            srcBag = static_cast<uint8_t>(67 + heldBankBagIndex);
-            srcSlot = static_cast<uint8_t>(heldBankBagSlotIndex);
-        } else if (heldSource == HeldSource::BANK_BAG_EQUIP && heldBankBagIndex >= 0) {
-            srcSlot = static_cast<uint8_t>(67 + heldBankBagIndex);
-        } else if (heldSource == HeldSource::KEYRING && heldKeyringIndex >= 0) {
-            srcSlot = static_cast<uint8_t>(86 + heldKeyringIndex); // KEYRING_SLOT_START
-        } else {
+        if (!heldItemWireSource(srcBag, srcSlot)) {
             cancelPickup(inv);
             return;
         }
@@ -653,15 +650,15 @@ void InventoryScreen::placeInKeyring(game::Inventory& inv, int index) {
     if (!holdingItem) return;
     if (gameHandler_) {
         uint8_t dstBag = 0xFF;
-        uint8_t dstSlot = static_cast<uint8_t>(86 + index); // KEYRING_SLOT_START
+        uint8_t dstSlot = static_cast<uint8_t>(game::slots::keyringWireSlot(index));
         uint8_t srcBag = 0xFF;
         uint8_t srcSlot = 0;
         if (heldSource == HeldSource::KEYRING && heldKeyringIndex >= 0) {
-            srcSlot = static_cast<uint8_t>(86 + heldKeyringIndex);
+            srcSlot = static_cast<uint8_t>(game::slots::keyringWireSlot(heldKeyringIndex));
         } else if (heldSource == HeldSource::BACKPACK && heldBackpackIndex >= 0) {
-            srcSlot = static_cast<uint8_t>(23 + heldBackpackIndex);
+            srcSlot = static_cast<uint8_t>(game::slots::backpackWireSlot(heldBackpackIndex));
         } else if (heldSource == HeldSource::BAG && heldBagIndex >= 0 && heldBagSlotIndex >= 0) {
-            srcBag = static_cast<uint8_t>(19 + heldBagIndex);
+            srcBag = static_cast<uint8_t>(game::slots::wornBagContainer(heldBagIndex));
             srcSlot = static_cast<uint8_t>(heldBagSlotIndex);
         } else {
             // Only keys (from bags/backpack/keyring) belong in the keyring; the
@@ -695,8 +692,9 @@ void InventoryScreen::placeInEquipment(game::Inventory& inv, game::EquipSlot slo
     if (!holdingItem) return;
 
     // Only prompt for a BoE item that has not already bound. Once soulbound, re-equipping
-    // (slot swaps, unequip/re-equip) must not ask again.
-    if (heldItem.bindType == 2 && !heldItem.soulbound && !equipConfirmOpen_) {
+    // (slot swaps, unequip/re-equip) must not ask again. The rule itself lives on
+    // InventoryHandler, where the path FrameXML takes can reach it too.
+    if (heldItem.wouldBindOnEquip() && !equipConfirmOpen_) {
         equipConfirmOpen_ = true;
         equipConfirmAuto_ = false;
         equipConfirmSlot_ = slot;
@@ -731,19 +729,7 @@ void InventoryScreen::placeInEquipment(game::Inventory& inv, game::EquipSlot slo
         uint8_t dstSlot = static_cast<uint8_t>(slot);
         uint8_t srcBag = 0xFF;
         uint8_t srcSlot = 0;
-        if (heldSource == HeldSource::BACKPACK && heldBackpackIndex >= 0) {
-            srcSlot = static_cast<uint8_t>(23 + heldBackpackIndex);
-        } else if (heldSource == HeldSource::BAG && heldBagIndex >= 0 && heldBagSlotIndex >= 0) {
-            srcBag = static_cast<uint8_t>(19 + heldBagIndex);
-            srcSlot = static_cast<uint8_t>(heldBagSlotIndex);
-        } else if (heldSource == HeldSource::EQUIPMENT && heldEquipSlot != game::EquipSlot::NUM_SLOTS) {
-            srcSlot = static_cast<uint8_t>(heldEquipSlot);
-        } else if (heldSource == HeldSource::BANK && heldBankIndex >= 0) {
-            srcSlot = static_cast<uint8_t>(39 + heldBankIndex);
-        } else if (heldSource == HeldSource::BANK_BAG && heldBankBagIndex >= 0) {
-            srcBag = static_cast<uint8_t>(67 + heldBankBagIndex);
-            srcSlot = static_cast<uint8_t>(heldBankBagSlotIndex);
-        } else {
+        if (!heldItemWireSource(srcBag, srcSlot)) {
             cancelPickup(inv);
             return;
         }
@@ -942,24 +928,8 @@ void InventoryScreen::dropIntoBankSlot(game::GameHandler& /*gh*/, uint8_t dstBag
     if (!holdingItem || !gameHandler_) return;
     uint8_t srcBag = 0xFF;
     uint8_t srcSlot = 0;
-    if (heldSource == HeldSource::BACKPACK && heldBackpackIndex >= 0) {
-        srcSlot = static_cast<uint8_t>(23 + heldBackpackIndex);
-    } else if (heldSource == HeldSource::BAG) {
-        srcBag = static_cast<uint8_t>(19 + heldBagIndex);
-        srcSlot = static_cast<uint8_t>(heldBagSlotIndex);
-    } else if (heldSource == HeldSource::EQUIPMENT) {
-        srcSlot = static_cast<uint8_t>(heldEquipSlot);
-    } else if (heldSource == HeldSource::BANK && heldBankIndex >= 0) {
-        srcSlot = static_cast<uint8_t>(39 + heldBankIndex);
-    } else if (heldSource == HeldSource::BANK_BAG && heldBankBagIndex >= 0) {
-        srcBag = static_cast<uint8_t>(67 + heldBankBagIndex);
-        srcSlot = static_cast<uint8_t>(heldBankBagSlotIndex);
-    } else if (heldSource == HeldSource::BANK_BAG_EQUIP && heldBankBagIndex >= 0) {
-        srcSlot = static_cast<uint8_t>(67 + heldBankBagIndex);
-    } else {
-        return;
-    }
-    // Same source and dest — just cancel pickup (restore item locally).
+    if (!heldItemWireSource(srcBag, srcSlot)) return;
+    // Same source and dest - just cancel pickup (restore item locally).
     // Server ignores same-slot swaps so no rebuild would run, losing the item data.
     if (srcBag == dstBag && srcSlot == dstSlot) {
         cancelPickup(gameHandler_->getInventory());
@@ -979,7 +949,7 @@ bool InventoryScreen::beginPickupFromEquipSlot(game::Inventory& inv, game::Equip
 }
 
 // ============================================================
-// Bags window (B key) — bottom of screen, no equipment panel
+// Bags window (B key) - bottom of screen, no equipment panel
 // ============================================================
 
 void InventoryScreen::toggleBackpack() {
@@ -1015,16 +985,6 @@ void InventoryScreen::toggleCombinedBags() {
         open = true;
     }
 }
-
-bool InventoryScreen::bagHasAnyItems(const game::Inventory& inventory, int bagIndex) const {
-    int bagSize = inventory.getBagSize(bagIndex);
-    if (bagSize <= 0) return false;
-    for (int i = 0; i < bagSize; ++i) {
-        if (!inventory.getBagSlot(bagIndex, i).empty()) return true;
-    }
-    return false;
-}
-
 void InventoryScreen::render(game::Inventory& inventory, uint64_t moneyCopper) {
     // Bags toggle (B key, edge-triggered)
     bool bagsDown = KeybindingManager::getInstance().isActionPressed(
@@ -1083,7 +1043,7 @@ void InventoryScreen::render(game::Inventory& inventory, uint64_t moneyCopper) {
         dropItemName_ = heldItem.name;
     }
 
-    // Drop item confirmation popup — positioned near cursor
+    // Drop item confirmation popup - positioned near cursor
     if (dropConfirmOpen_) {
         ImVec2 mousePos = ImGui::GetIO().MousePos;
         ImGui::SetNextWindowPos(ImVec2(mousePos.x - 80.0f, mousePos.y - 20.0f), ImGuiCond_Always);
@@ -1095,14 +1055,19 @@ void InventoryScreen::render(game::Inventory& inventory, uint64_t moneyCopper) {
         ImGui::Spacing();
         if (ImGui::Button("Yes", ImVec2(80, 0))) {
             if (gameHandler_) {
+                // Deliberately not heldItemWireSource: that answers for all
+                // seven places an item can be held, and this destroys the item.
+                // Whether a bank slot or the keyring should be destroyable from
+                // here is a question about the server, not about this code, so
+                // widening it silently is the one thing not to do.
                 uint8_t srcBag = 0xFF;
                 uint8_t srcSlot = 0;
                 bool haveSource = false;
                 if (heldSource == HeldSource::BACKPACK && heldBackpackIndex >= 0) {
-                    srcSlot = static_cast<uint8_t>(23 + heldBackpackIndex);
+                    srcSlot = static_cast<uint8_t>(game::slots::backpackWireSlot(heldBackpackIndex));
                     haveSource = true;
                 } else if (heldSource == HeldSource::BAG && heldBagIndex >= 0 && heldBagSlotIndex >= 0) {
-                    srcBag = static_cast<uint8_t>(19 + heldBagIndex);
+                    srcBag = static_cast<uint8_t>(game::slots::wornBagContainer(heldBagIndex));
                     srcSlot = static_cast<uint8_t>(heldBagSlotIndex);
                     haveSource = true;
                 } else if (heldSource == HeldSource::EQUIPMENT &&
@@ -1210,10 +1175,12 @@ void InventoryScreen::renderEquipConfirmationPopup(game::Inventory& inventory) {
         ImGui::Spacing();
         if (ImGui::Button("Equip", ImVec2(85, 0))) {
             if (equipConfirmAuto_ && gameHandler_) {
+                // Already asked, so say so: the handler prompts too, and
+                // without this the answer to the prompt raises it again.
                 if (equipConfirmBag_ == 0xFF)
-                    gameHandler_->autoEquipItemBySlot(static_cast<int>(equipConfirmSourceSlot_ - game::Inventory::NUM_EQUIP_SLOTS));
+                    gameHandler_->autoEquipItemBySlot(static_cast<int>(equipConfirmSourceSlot_ - game::Inventory::NUM_EQUIP_SLOTS), true);
                 else
-                    gameHandler_->autoEquipItemInBag(equipConfirmBag_, equipConfirmSourceSlot_);
+                    gameHandler_->autoEquipItemInBag(equipConfirmBag_, equipConfirmSourceSlot_, true);
             } else if (holdingItem) {
                 equipConfirmOpen_ = true;
                 placeInEquipment(inventory, equipConfirmSlot_);
@@ -1231,7 +1198,7 @@ void InventoryScreen::renderEquipConfirmationPopup(game::Inventory& inventory) {
 }
 
 // ============================================================
-// Aggregate mode — original single-window bags
+// Aggregate mode - original single-window bags
 // ============================================================
 
 void InventoryScreen::renderAggregateBags(game::Inventory& inventory, uint64_t moneyCopper) {
@@ -1357,7 +1324,7 @@ void InventoryScreen::renderAggregateBags(game::Inventory& inventory, uint64_t m
 }
 
 // ============================================================
-// Separate mode — individual draggable bag windows
+// Separate mode - individual draggable bag windows
 // ============================================================
 
 void InventoryScreen::renderSeparateBags(game::Inventory& inventory, uint64_t moneyCopper) {
@@ -1370,7 +1337,7 @@ void InventoryScreen::renderSeparateBags(game::Inventory& inventory, uint64_t mo
     constexpr int columns = 6;
     const float baseWindowW = columns * (slotSize + 4.0f * scale) + 30.0f * scale;
 
-    // Each bag window is independently closable — no forced backpack constraint.
+    // Each bag window is independently closable - no forced backpack constraint.
 
     // Anchor stack to the bag bar (bottom-right), opening upward.
     const float bagBarTop = screenH - (42.0f + 12.0f) - 10.0f;
@@ -1383,7 +1350,7 @@ void InventoryScreen::renderSeparateBags(game::Inventory& inventory, uint64_t mo
     // went above the screen; with every bag in one column and no wrap, tall
     // bags overlapped the ones already placed.
     //
-    // The real client tiles the same way — updateContainerFrameAnchors fills a
+    // The real client tiles the same way - updateContainerFrameAnchors fills a
     // column upward from the bottom right and steps left when the next bag no
     // longer fits.
     auto placeNext = [&](float height) {
@@ -1474,7 +1441,7 @@ void InventoryScreen::renderBagWindow(const char* title, bool& isOpen,
     float contentH = rows * (slotSize + 4.0f * scale) + 10.0f * scale;
     if (bagIndex < 0) {
         // Keyring renders at 24px in 8 columns and ONLY shows rows that have
-        // occupied slots (rounded up to a full row of 8) — must match the
+        // occupied slots (rounded up to a full row of 8) - must match the
         // render logic below or we reserve huge empty space.
         const float keySlotSize = 24.0f * scale;
         constexpr int   keyCols     = 8;
@@ -1502,7 +1469,7 @@ void InventoryScreen::renderBagWindow(const char* title, bool& isOpen,
 
     // Always, and unmovable with it. These are tiled: the caller works out
     // where each one goes so they sit in a column above the bag bar without
-    // touching. FirstUseEver meant that was only ever a starting suggestion —
+    // touching. FirstUseEver meant that was only ever a starting suggestion -
     // one drag and the window kept its own position for the rest of the
     // install, sitting over whichever bag was placed there afterwards. The real
     // client does not let a bag be dragged out of its stack either.
@@ -1625,7 +1592,7 @@ void InventoryScreen::renderBagsFooter(game::Inventory& inventory, uint64_t mone
     ImGui::Spacing();
     ImGui::Separator();
 
-    // Sort Bags button — compute swaps, apply client-side preview, queue server packets
+    // Sort Bags button - compute swaps, apply client-side preview, queue server packets
     bool sorting = !sortSwapQueue_.empty();
     if (sorting) ImGui::BeginDisabled();
     if (ImGui::SmallButton(sorting ? "Sorting..." : "Sort Bags")) {
@@ -1666,7 +1633,7 @@ void InventoryScreen::renderBagsFooter(game::Inventory& inventory, uint64_t mone
 }
 
 // ============================================================
-// Character screen (C key) — equipment + model preview + stats
+// Character screen (C key) - equipment + model preview + stats
 // ============================================================
 
 void InventoryScreen::renderCharacterScreen(game::GameHandler& gameHandler) {
@@ -1964,7 +1931,7 @@ void InventoryScreen::renderCharacterScreen(game::GameHandler& gameHandler) {
             ImGui::EndTabItem();
         }
 
-        // Equipment Sets tab (WotLK only — requires server support)
+        // Equipment Sets tab (WotLK only - requires server support)
         if (gameHandler.supportsEquipmentSets() && ImGui::BeginTabItem("Outfits")) {
             ImGui::Spacing();
 
@@ -2037,31 +2004,30 @@ void InventoryScreen::renderReputationPanel(game::GameHandler& gameHandler) {
         return;
     }
 
-    // WoW reputation tier breakpoints (cumulative from floor -42000)
-    // Tier name, threshold for next rank, bar color
+    // Colours only. Where each standing begins and ends is in
+    // game/reputation_standing.hpp, shared with the original interface's
+    // GetFactionInfo - two tables of the same thresholds would eventually
+    // disagree, and the same faction would sit at different standings
+    // depending on which window was open.
+    static const ImVec4 tierColors[8] = {
+        ImVec4(0.6f, 0.1f, 0.1f, 1.0f),   // Hated
+        ImVec4(0.8f, 0.2f, 0.1f, 1.0f),   // Hostile
+        ImVec4(0.9f, 0.5f, 0.1f, 1.0f),   // Unfriendly
+        ImVec4(0.8f, 0.8f, 0.2f, 1.0f),   // Neutral
+        ui::colors::kFriendlyGreen,        // Friendly
+        ImVec4(0.2f, 0.8f, 0.5f, 1.0f),   // Honored
+        ImVec4(0.3f, 0.6f, 1.0f, 1.0f),   // Revered
+        ui::colors::kWarmGold,             // Exalted
+    };
     struct RepTier {
         const char* name;
-        int32_t     floor;   // raw value where this tier begins
-        int32_t     ceiling; // raw value where the next tier begins
+        int32_t     floor;
+        int32_t     ceiling;
         ImVec4      color;
     };
-    static constexpr RepTier tiers[] = {
-        { "Hated",       -42000, -6001, ImVec4(0.6f, 0.1f, 0.1f, 1.0f) },
-        { "Hostile",      -6000, -3001, ImVec4(0.8f, 0.2f, 0.1f, 1.0f) },
-        { "Unfriendly",   -3000,    -1, ImVec4(0.9f, 0.5f, 0.1f, 1.0f) },
-        { "Neutral",          0,  2999, ImVec4(0.8f, 0.8f, 0.2f, 1.0f) },
-        { "Friendly",      3000,  8999, ui::colors::kFriendlyGreen },
-        { "Honored",       9000, 20999, ImVec4(0.2f, 0.8f, 0.5f, 1.0f) },
-        { "Revered",      21000, 41999, ImVec4(0.3f, 0.6f, 1.0f, 1.0f) },
-        { "Exalted",      42000, 42000, ui::colors::kWarmGold },
-    };
-
-    constexpr int kNumTiers = static_cast<int>(sizeof(tiers) / sizeof(tiers[0]));
-    auto getTier = [&](int32_t val) -> const RepTier& {
-        for (int i = kNumTiers - 1; i >= 0; --i) {
-            if (val >= tiers[i].floor) return tiers[i];
-        }
-        return tiers[0];
+    auto getTier = [&](int32_t val) -> RepTier {
+        const auto& band = game::reputationStandingFor(val);
+        return {band.name, band.floor, band.ceiling, tierColors[band.id - 1]};
     };
 
     // --- Reputation controls ---
@@ -2101,7 +2067,7 @@ void InventoryScreen::renderReputationPanel(game::GameHandler& gameHandler) {
         });
 
     for (const auto& [factionId, standing] : sortedFactions) {
-        const RepTier& tier = getTier(standing);
+        const RepTier tier = getTier(standing);
 
         const std::string& factionName = gameHandler.getFactionNamePublic(factionId);
         const char* displayName = factionName.empty() ? "Unknown Faction" : factionName.c_str();
@@ -2140,7 +2106,7 @@ void InventoryScreen::renderReputationPanel(game::GameHandler& gameHandler) {
         float ratio = 0.0f;
         char overlay[64] = "";
         if (tier.floor == 42000) {
-            // Exalted — full bar
+            // Exalted - full bar
             ratio = 1.0f;
             snprintf(overlay, sizeof(overlay), "Exalted");
         } else {
@@ -2170,7 +2136,7 @@ void InventoryScreen::renderReputationPanel(game::GameHandler& gameHandler) {
             }
             if (hasRepList) {
                 ImGui::Separator();
-                // War / peace toggle — disabled when the server forces peace.
+                // War / peace toggle - disabled when the server forces peace.
                 if (peaceForced) {
                     ImGui::BeginDisabled();
                     ImGui::MenuItem("At War", nullptr, false);
@@ -2178,7 +2144,7 @@ void InventoryScreen::renderReputationPanel(game::GameHandler& gameHandler) {
                 } else if (ImGui::MenuItem("At War", nullptr, atWar)) {
                     gameHandler.setFactionAtWar(repListId, !atWar);
                 }
-                // Inactive toggle — parks the faction out of the active list.
+                // Inactive toggle - parks the faction out of the active list.
                 if (ImGui::MenuItem("Inactive", nullptr, inactive)) {
                     gameHandler.setFactionInactive(repListId, !inactive);
                 }
@@ -2524,7 +2490,7 @@ void InventoryScreen::renderStatsPanel(game::Inventory& inventory, uint32_t play
         }
     }
 
-    // Server-authoritative combat stats (WotLK update fields — only shown when received)
+    // Server-authoritative combat stats (WotLK update fields - only shown when received)
     if (gh) {
         int32_t meleeAP   = gh->getMeleeAttackPower();
         int32_t rangedAP  = gh->getRangedAttackPower();
@@ -2692,80 +2658,6 @@ void InventoryScreen::renderStatsPanel(game::Inventory& inventory, uint32_t play
         }
     }
 }
-
-void InventoryScreen::renderBackpackPanel(game::Inventory& inventory, bool collapseEmptySections) {
-    ImGui::TextColored(ui::colors::kWarmGold, "Backpack");
-    ImGui::Separator();
-
-    constexpr float slotSize = 40.0f;
-    constexpr int columns = 6;
-
-    for (int i = 0; i < inventory.getBackpackSize(); i++) {
-        if (i % columns != 0) ImGui::SameLine();
-
-        const auto& slot = inventory.getBackpackSlot(i);
-        char id[32];
-        snprintf(id, sizeof(id), "##bp_%d", i);
-        ImGui::PushID(id);
-        renderItemSlot(inventory, slot, slotSize, nullptr,
-                       SlotKind::BACKPACK, i, game::EquipSlot::NUM_SLOTS);
-        ImGui::PopID();
-    }
-
-    // Show extra bags if equipped
-    for (int bag = 0; bag < game::Inventory::NUM_BAG_SLOTS; bag++) {
-        int bagSize = inventory.getBagSize(bag);
-        if (bagSize <= 0) continue;
-        if (collapseEmptySections && !bagHasAnyItems(inventory, bag)) continue;
-
-        ImGui::Spacing();
-        ImGui::Separator();
-        game::EquipSlot bagSlot = static_cast<game::EquipSlot>(static_cast<int>(game::EquipSlot::BAG1) + bag);
-        const auto& bagItem = inventory.getEquipSlot(bagSlot);
-        std::string bagLabel = (!bagItem.empty() && !bagItem.item.name.empty())
-            ? bagItem.item.name
-            : ("Bag Slot " + std::to_string(bag + 1));
-        ImGui::TextColored(ui::colors::kDarkYellow, "%s", bagLabel.c_str());
-
-        for (int s = 0; s < bagSize; s++) {
-            if (s % columns != 0) ImGui::SameLine();
-            const auto& slot = inventory.getBagSlot(bag, s);
-            char sid[32];
-            snprintf(sid, sizeof(sid), "##bag%d_%d", bag, s);
-            ImGui::PushID(sid);
-            renderItemSlot(inventory, slot, slotSize, nullptr,
-                           SlotKind::BACKPACK, -1, game::EquipSlot::NUM_SLOTS,
-                           bag, s);
-            ImGui::PopID();
-        }
-    }
-
-    if (showKeyring_) {
-        constexpr float keySlotSize = 24.0f;
-        constexpr int keyCols = 8;
-        int lastOccupied = -1;
-        for (int i = inventory.getKeyringSize() - 1; i >= 0; --i) {
-            if (!inventory.getKeyringSlot(i).empty()) { lastOccupied = i; break; }
-        }
-        int visibleSlots = ((lastOccupied < 0 ? 0 : lastOccupied) / keyCols + 1) * keyCols;
-        if (visibleSlots > 0) {
-            ImGui::Spacing();
-            ImGui::Separator();
-            ImGui::TextColored(ui::colors::kDarkYellow, "Keyring");
-            for (int i = 0; i < visibleSlots; ++i) {
-                if (i % keyCols != 0) ImGui::SameLine();
-                const auto& slot = inventory.getKeyringSlot(i);
-                char sid[32];
-                snprintf(sid, sizeof(sid), "##keyring_%d", i);
-                ImGui::PushID(sid);
-                renderItemSlot(inventory, slot, keySlotSize, nullptr,
-                               SlotKind::KEYRING, -1, game::EquipSlot::NUM_SLOTS, -1, -1, i);
-                ImGui::PopID();
-            }
-        }
-    }
-}
-
 void InventoryScreen::renderItemSlot(game::Inventory& inventory, const game::ItemSlot& slot,
                                       float size, const char* label,
                                       SlotKind kind, int backpackIndex,
@@ -2890,10 +2782,9 @@ void InventoryScreen::renderItemSlot(game::Inventory& inventory, const game::Ite
         if (kind == SlotKind::EQUIPMENT && item.maxDurability > 0) {
             float durPct = static_cast<float>(item.curDurability) /
                            static_cast<float>(item.maxDurability);
-            ImU32 durCol;
-            if (durPct > 0.5f)       durCol = IM_COL32(0, 200, 0, 220);
-            else if (durPct > 0.25f) durCol = IM_COL32(220, 220, 0, 220);
-            else                     durCol = IM_COL32(220, 40, 40, 220);
+            ImVec4 durRgb = ui::colors::durabilityColor(durPct);
+            durRgb.w = 220.0f / 255.0f;  // the strip is drawn under the icon
+            const ImU32 durCol = ImGui::ColorConvertFloat4ToU32(durRgb);
             float barW = size * durPct;
             drawList->AddRectFilled(ImVec2(pos.x, pos.y + size - 3.0f),
                                     ImVec2(pos.x + barW, pos.y + size),
@@ -2918,7 +2809,7 @@ void InventoryScreen::renderItemSlot(game::Inventory& inventory, const game::Ite
                 } else if (kind == SlotKind::EQUIPMENT) {
                     targetGuid = gameHandler_->getEquipSlotGuid(static_cast<int>(equipSlot));
                 }
-                // Empty slots are not targets — leave the cursor armed.
+                // Empty slots are not targets - leave the cursor armed.
                 if (targetGuid != 0) gameHandler_->completeItemUseOnItem(targetGuid);
             }
         } else if (!holdingItem) {
@@ -2987,9 +2878,9 @@ void InventoryScreen::renderItemSlot(game::Inventory& inventory, const game::Ite
                 if (splitCount_ < 1) splitCount_ = 1;
                 if (kind == SlotKind::BACKPACK && backpackIndex >= 0) {
                     splitBag_ = 0xFF;
-                    splitSlot_ = static_cast<uint8_t>(23 + backpackIndex);
+                    splitSlot_ = game::slots::backpackWireSlot(backpackIndex);
                 } else if (kind == SlotKind::BACKPACK && isBagSlot) {
-                    splitBag_ = static_cast<uint8_t>(19 + bagIndex);
+                    splitBag_ = static_cast<uint8_t>(game::slots::wornBagContainer(bagIndex));
                     splitSlot_ = static_cast<uint8_t>(bagSlotIndex);
                 }
             } else if (item.bindType != 4) {
@@ -3000,9 +2891,9 @@ void InventoryScreen::renderItemSlot(game::Inventory& inventory, const game::Ite
                     std::max<uint32_t>(1u, item.stackCount), 1u, 255u));
                 if (kind == SlotKind::BACKPACK && backpackIndex >= 0) {
                     destroyBag_ = 0xFF;
-                    destroySlot_ = static_cast<uint8_t>(23 + backpackIndex);
+                    destroySlot_ = game::slots::backpackWireSlot(backpackIndex);
                 } else if (kind == SlotKind::BACKPACK && isBagSlot) {
-                    destroyBag_ = static_cast<uint8_t>(19 + bagIndex);
+                    destroyBag_ = static_cast<uint8_t>(game::slots::wornBagContainer(bagIndex));
                     destroySlot_ = static_cast<uint8_t>(bagSlotIndex);
                 } else if (kind == SlotKind::EQUIPMENT) {
                     destroyBag_ = 0xFF;
@@ -3025,13 +2916,13 @@ void InventoryScreen::renderItemSlot(game::Inventory& inventory, const game::Ite
             } else if (gameHandler_->isMailComposeOpen() && kind == SlotKind::BACKPACK && isBagSlot) {
                 gameHandler_->attachItemFromBag(bagIndex, bagSlotIndex);
             } else if (gameHandler_->isBankOpen() && kind == SlotKind::BACKPACK && backpackIndex >= 0) {
-                gameHandler_->depositItem(0xFF, static_cast<uint8_t>(23 + backpackIndex));
+                gameHandler_->depositItem(0xFF, game::slots::backpackWireSlot(backpackIndex));
             } else if (gameHandler_->isBankOpen() && kind == SlotKind::BACKPACK && isBagSlot) {
-                gameHandler_->depositItem(static_cast<uint8_t>(19 + bagIndex), static_cast<uint8_t>(bagSlotIndex));
+                gameHandler_->depositItem(static_cast<uint8_t>(game::slots::wornBagContainer(bagIndex)), static_cast<uint8_t>(bagSlotIndex));
             } else if (gameHandler_->isGuildBankOpen() && kind == SlotKind::BACKPACK && backpackIndex >= 0) {
-                gameHandler_->guildBankDepositFromInventory(0xFF, static_cast<uint8_t>(23 + backpackIndex));
+                gameHandler_->guildBankDepositFromInventory(0xFF, game::slots::backpackWireSlot(backpackIndex));
             } else if (gameHandler_->isGuildBankOpen() && kind == SlotKind::BACKPACK && isBagSlot) {
-                gameHandler_->guildBankDepositFromInventory(static_cast<uint8_t>(19 + bagIndex), static_cast<uint8_t>(bagSlotIndex));
+                gameHandler_->guildBankDepositFromInventory(static_cast<uint8_t>(game::slots::wornBagContainer(bagIndex)), static_cast<uint8_t>(bagSlotIndex));
             } else if (vendorMode_ && kind == SlotKind::BACKPACK && backpackIndex >= 0) {
                 gameHandler_->sellItemBySlot(backpackIndex);
             } else if (vendorMode_ && kind == SlotKind::BACKPACK && isBagSlot) {
@@ -3048,7 +2939,7 @@ void InventoryScreen::renderItemSlot(game::Inventory& inventory, const game::Ite
                     uint64_t iGuid = gameHandler_->getBackpackItemGuid(backpackIndex);
                     gameHandler_->offerQuestFromItem(iGuid, item.startQuestId);
                 } else if (item.inventoryType > 0) {
-                    if (item.bindType == 2 && !item.soulbound) {
+                    if (gameHandler_->equipWouldBindFromBackpack(backpackIndex)) {
                         equipConfirmOpen_ = true;
                         equipConfirmAuto_ = true;
                         equipConfirmBag_ = 0xFF;
@@ -3069,7 +2960,9 @@ void InventoryScreen::renderItemSlot(game::Inventory& inventory, const game::Ite
                                 info->itemClass == 1)) {
                         gameHandler_->openItemBySlot(backpackIndex);
                     } else {
-                        gameHandler_->useItemBySlot(backpackIndex);
+                        // No bind warning in this window - see the loot click in
+                        // window_manager.cpp for why that is said here.
+                        gameHandler_->useItemBySlot(backpackIndex, true);
                     }
                 }
             } else if (kind == SlotKind::BACKPACK && isBagSlot) {
@@ -3081,7 +2974,7 @@ void InventoryScreen::renderItemSlot(game::Inventory& inventory, const game::Ite
                     uint64_t iGuid = gameHandler_->getBagItemGuid(bagIndex, bagSlotIndex);
                     gameHandler_->offerQuestFromItem(iGuid, item.startQuestId);
                 } else if (item.inventoryType > 0) {
-                    if (item.bindType == 2 && !item.soulbound) {
+                    if (gameHandler_->equipWouldBindFromBag(bagIndex, bagSlotIndex)) {
                         equipConfirmOpen_ = true;
                         equipConfirmAuto_ = true;
                         equipConfirmBag_ = static_cast<uint8_t>(bagIndex);
@@ -3099,7 +2992,7 @@ void InventoryScreen::renderItemSlot(game::Inventory& inventory, const game::Ite
                                 info->itemClass == 1)) {
                         gameHandler_->openItemInBag(bagIndex, bagSlotIndex);
                     } else {
-                        gameHandler_->useItemInBag(bagIndex, bagSlotIndex);
+                        gameHandler_->useItemInBag(bagIndex, bagSlotIndex, true);
                     }
                 }
             } else if (isKeyringSlot) {
@@ -3149,7 +3042,7 @@ void InventoryScreen::renderItemSlot(game::Inventory& inventory, const game::Ite
 const std::unordered_map<uint32_t, std::string>& InventoryScreen::getEnchantmentNames() {
     static std::unordered_map<uint32_t, std::string> s_cache;
     static bool s_loaded = false;
-    if (!s_loaded && assetManager_) {
+    if (!s_loaded && assetManager_ && assetManager_->isInitialized()) {
         s_loaded = true;
         auto dbc = assetManager_->loadDBC("SpellItemEnchantment.dbc");
         if (dbc && dbc->isLoaded()) {
@@ -3253,20 +3146,7 @@ void InventoryScreen::renderItemTooltip(const game::ItemDef& item, const game::I
             renderItemTypeWarningIfNeeded(gameHandler_, qi->itemClass, qi->subClass);
     }
 
-    auto isWeaponInventoryType = [](uint32_t invType) {
-        switch (invType) {
-            case 13: // One-Hand
-            case 15: // Ranged
-            case 17: // Two-Hand
-            case 21: // Main Hand
-            case 25: // Thrown
-            case 26: // Ranged Right
-                return true;
-            default:
-                return false;
-        }
-    };
-    const bool isWeapon = isWeaponInventoryType(item.inventoryType);
+    const bool isWeapon = game::isWeaponInventoryType(item.inventoryType);
 
     // Compact stats view for weapons: damage range + speed + DPS
     ImVec4 green(0.0f, 1.0f, 0.0f, 1.0f);
@@ -3279,7 +3159,7 @@ void InventoryScreen::renderItemTooltip(const game::ItemDef& item, const game::I
         ImGui::TextColored(ui::colors::kLightGray, "(%.1f damage per second)", dps);
     }
 
-    // Armor appears before stat bonuses — matches WoW tooltip order
+    // Armor appears before stat bonuses - matches WoW tooltip order
     if (item.armor > 0) {
         ImGui::Text("%d Armor", item.armor);
     }
@@ -3311,42 +3191,9 @@ void InventoryScreen::renderItemTooltip(const game::ItemDef& item, const game::I
         ImGui::TextColored(green, "%s", bonusLine.c_str());
     }
 
-    // Extra stats (hit, crit, haste, AP, SP, etc.) — one line each
+    // Extra stats (hit, crit, haste, AP, SP, etc.) - one line each
     for (const auto& es : item.extraStats) {
-        const char* statName = nullptr;
-        switch (es.statType) {
-            case 0:  statName = "Mana"; break;
-            case 1:  statName = "Health"; break;
-            case 12: statName = "Defense Rating"; break;
-            case 13: statName = "Dodge Rating"; break;
-            case 14: statName = "Parry Rating"; break;
-            case 15: statName = "Block Rating"; break;
-            case 16: statName = "Hit Rating"; break;
-            case 17: statName = "Hit Rating"; break;
-            case 18: statName = "Hit Rating"; break;
-            case 19: statName = "Crit Rating"; break;
-            case 20: statName = "Crit Rating"; break;
-            case 21: statName = "Crit Rating"; break;
-            case 28: statName = "Haste Rating"; break;
-            case 29: statName = "Haste Rating"; break;
-            case 30: statName = "Haste Rating"; break;
-            case 31: statName = "Hit Rating"; break;
-            case 32: statName = "Crit Rating"; break;
-            case 35: statName = "Resilience"; break;
-            case 36: statName = "Haste Rating"; break;
-            case 37: statName = "Expertise Rating"; break;
-            case 38: statName = "Attack Power"; break;
-            case 39: statName = "Ranged Attack Power"; break;
-            case 41: statName = "Healing Power"; break;
-            case 42: statName = "Spell Damage"; break;
-            case 43: statName = "Mana per 5 sec"; break;
-            case 44: statName = "Armor Penetration"; break;
-            case 45: statName = "Spell Power"; break;
-            case 46: statName = "Health per 5 sec"; break;
-            case 47: statName = "Spell Penetration"; break;
-            case 48: statName = "Block Value"; break;
-            default: statName = nullptr; break;
-        }
+        const char* statName = game::itemStatName(es.statType);
         char buf[64];
         if (statName) {
             std::snprintf(buf, sizeof(buf), "%+d %s", es.statValue, statName);
@@ -3364,10 +3211,7 @@ void InventoryScreen::renderItemTooltip(const game::ItemDef& item, const game::I
     }
     if (item.maxDurability > 0) {
         float durPct = static_cast<float>(item.curDurability) / static_cast<float>(item.maxDurability);
-        ImVec4 durColor;
-        if (durPct > 0.5f)       durColor = ImVec4(0.1f, 1.0f, 0.1f, 1.0f);  // green
-        else if (durPct > 0.25f) durColor = ImVec4(1.0f, 1.0f, 0.0f, 1.0f);  // yellow
-        else                     durColor = ui::colors::kBrightRed;  // red
+        const ImVec4 durColor = ui::colors::durabilityColor(durPct);
         ImGui::TextColored(durColor, "Durability %u / %u",
                            item.curDurability, item.maxDurability);
     }
@@ -3377,16 +3221,7 @@ void InventoryScreen::renderItemTooltip(const game::ItemDef& item, const game::I
         if (info) {
             for (const auto& sp : info->spells) {
                 if (sp.spellId == 0) continue;
-                const char* trigger = nullptr;
-                switch (sp.spellTrigger) {
-                    case 0: trigger = "Use"; break;        // on use
-                    case 1: trigger = "Equip"; break;      // on equip
-                    case 2: trigger = "Chance on Hit"; break; // proc on melee hit
-                    case 4: trigger = "Use"; break;        // soulstone (still shows as Use)
-                    case 5: trigger = "Use"; break;        // on use, no delay
-                    case 6: trigger = "Use"; break;        // learn spell (recipe/pattern)
-                    default: break;
-                }
+                const char* trigger = game::itemSpellTriggerText(sp.spellTrigger);
                 if (!trigger) continue;
                 const std::string& spDesc = gameHandler_->getSpellDescription(sp.spellId);
                 std::string spText = spDesc.empty()
@@ -3412,7 +3247,7 @@ void InventoryScreen::renderItemTooltip(const game::ItemDef& item, const game::I
             if (qInfo->requiredSkill != 0 && qInfo->requiredSkillRank > 0) {
                 static std::unordered_map<uint32_t, std::string> s_skillNamesB;
                 static bool s_skillNamesLoadedB = false;
-                if (!s_skillNamesLoadedB && assetManager_) {
+                if (!s_skillNamesLoadedB && assetManager_ && assetManager_->isInitialized()) {
                     s_skillNamesLoadedB = true;
                     auto dbc = assetManager_->loadDBC("SkillLine.dbc");
                     if (dbc && dbc->isLoaded()) {
@@ -3443,7 +3278,7 @@ void InventoryScreen::renderItemTooltip(const game::ItemDef& item, const game::I
             if (qInfo->requiredReputationFaction != 0 && qInfo->requiredReputationRank > 0) {
                 static std::unordered_map<uint32_t, std::string> s_factionNamesB;
                 static bool s_factionNamesLoadedB = false;
-                if (!s_factionNamesLoadedB && assetManager_) {
+                if (!s_factionNamesLoadedB && assetManager_ && assetManager_->isInitialized()) {
                     s_factionNamesLoadedB = true;
                     auto dbc = assetManager_->loadDBC("Faction.dbc");
                     if (dbc && dbc->isLoaded()) {
@@ -3473,7 +3308,7 @@ void InventoryScreen::renderItemTooltip(const game::ItemDef& item, const game::I
         }
     }
 
-    // Gem socket slots and item set — look up from query cache
+    // Gem socket slots and item set - look up from query cache
     if (gameHandler_) {
         const auto* qi2 = gameHandler_->getItemInfo(item.itemId);
         if (qi2 && qi2->valid) {
@@ -3521,7 +3356,7 @@ void InventoryScreen::renderItemTooltip(const game::ItemDef& item, const game::I
                 };
                 static std::unordered_map<uint32_t, SetEntryD> s_setDataD;
                 static bool s_setDataLoadedD = false;
-                if (!s_setDataLoadedD && assetManager_) {
+                if (!s_setDataLoadedD && assetManager_ && assetManager_->isInitialized()) {
                     s_setDataLoadedD = true;
                     auto dbc = assetManager_->loadDBC("ItemSet.dbc");
                     if (dbc && dbc->isLoaded()) {
@@ -3669,7 +3504,7 @@ void InventoryScreen::renderItemTooltip(const game::ItemDef& item, const game::I
             };
 
             // DPS comparison for weapons
-            if (isWeaponInventoryType(item.inventoryType) && isWeaponInventoryType(eq->item.inventoryType)) {
+            if (game::isWeaponInventoryType(item.inventoryType) && game::isWeaponInventoryType(eq->item.inventoryType)) {
                 float newDps = 0.0f, eqDps = 0.0f;
                 if (item.damageMax > 0.0f && item.delayMs > 0)
                     newDps = ((item.damageMin + item.damageMax) * 0.5f) / (item.delayMs / 1000.0f);
@@ -3688,7 +3523,7 @@ void InventoryScreen::renderItemTooltip(const game::ItemDef& item, const game::I
             showDiff("Int",   static_cast<float>(item.intellect), static_cast<float>(eq->item.intellect));
             showDiff("Spi",   static_cast<float>(item.spirit),    static_cast<float>(eq->item.spirit));
 
-            // Extra stats diff — union of stat types from both items
+            // Extra stats diff - union of stat types from both items
             auto findExtraStat = [](const game::ItemDef& it, uint32_t type) -> int32_t {
                 for (const auto& es : it.extraStats)
                     if (es.statType == type) return es.statValue;
@@ -3706,31 +3541,7 @@ void InventoryScreen::renderItemTooltip(const game::ItemDef& item, const game::I
                 int32_t nv = findExtraStat(item, t);
                 int32_t ev = findExtraStat(eq->item, t);
                 // Find a label for this stat type
-                const char* lbl = nullptr;
-                switch (t) {
-                    case 0:  lbl = "Mana"; break;
-                    case 1:  lbl = "Health"; break;
-                    case 12: lbl = "Defense"; break;
-                    case 13: lbl = "Dodge"; break;
-                    case 14: lbl = "Parry"; break;
-                    case 15: lbl = "Block Rating"; break;
-                    case 16: case 17: case 18: case 31: lbl = "Hit"; break;
-                    case 19: case 20: case 21: case 32: lbl = "Crit"; break;
-                    case 28: case 29: case 30: case 36: lbl = "Haste"; break;
-                    case 35: lbl = "Resilience"; break;
-                    case 37: lbl = "Expertise"; break;
-                    case 38: lbl = "Attack Power"; break;
-                    case 39: lbl = "Ranged AP"; break;
-                    case 41: lbl = "Healing"; break;
-                    case 42: lbl = "Spell Damage"; break;
-                    case 43: lbl = "MP5"; break;
-                    case 44: lbl = "Armor Pen"; break;
-                    case 45: lbl = "Spell Power"; break;
-                    case 46: lbl = "HP5"; break;
-                    case 47: lbl = "Spell Pen"; break;
-                    case 48: lbl = "Block Value"; break;
-                    default: lbl = nullptr; break;
-                }
+                const char* lbl = comparisonStatLabel(t);
                 if (!lbl) continue;
                 showDiff(lbl, static_cast<float>(nv), static_cast<float>(ev));
             }
@@ -3786,7 +3597,7 @@ void InventoryScreen::renderItemTooltip(const game::ItemQueryResponseData& info,
     // Slot / subclass
     if (info.inventoryType > 0) {
         const char* slotName = ui::getInventorySlotName(info.inventoryType);
-        // Containers (bags, quivers, ammo pouches) show capacity as "N Slot Bag" —
+        // Containers (bags, quivers, ammo pouches) show capacity as "N Slot Bag" -
         // itemClass 1 = Container, 11 = Quiver/ammo. Same treatment as the ItemDef overload.
         const bool isContainer = (info.itemClass == 1 || info.itemClass == 11) &&
                                  info.containerSlots > 0;
@@ -3843,28 +3654,7 @@ void InventoryScreen::renderItemTooltip(const game::ItemQueryResponseData& info,
 
     // Extra stats
     for (const auto& es : info.extraStats) {
-        const char* statName = nullptr;
-        switch (es.statType) {
-            case 12: statName = "Defense Rating"; break;
-            case 13: statName = "Dodge Rating"; break;
-            case 14: statName = "Parry Rating"; break;
-            case 16: case 17: case 18: case 31: statName = "Hit Rating"; break;
-            case 19: case 20: case 21: case 32: statName = "Crit Rating"; break;
-            case 28: case 29: case 30: case 36: statName = "Haste Rating"; break;
-            case 35: statName = "Resilience"; break;
-            case 37: statName = "Expertise Rating"; break;
-            case 38: statName = "Attack Power"; break;
-            case 39: statName = "Ranged Attack Power"; break;
-            case 41: statName = "Healing Power"; break;
-            case 42: statName = "Spell Damage"; break;
-            case 43: statName = "Mana per 5 sec"; break;
-            case 44: statName = "Armor Penetration"; break;
-            case 45: statName = "Spell Power"; break;
-            case 46: statName = "Health per 5 sec"; break;
-            case 47: statName = "Spell Penetration"; break;
-            case 48: statName = "Block Value"; break;
-            default: statName = nullptr; break;
-        }
+        const char* statName = game::itemStatName(es.statType);
         char buf[64];
         if (statName)
             std::snprintf(buf, sizeof(buf), "%+d %s", es.statValue, statName);
@@ -3885,7 +3675,7 @@ void InventoryScreen::renderItemTooltip(const game::ItemQueryResponseData& info,
         // Lazy-load SkillLine.dbc names
         static std::unordered_map<uint32_t, std::string> s_skillNames;
         static bool s_skillNamesLoaded = false;
-        if (!s_skillNamesLoaded && assetManager_) {
+        if (!s_skillNamesLoaded && assetManager_ && assetManager_->isInitialized()) {
             s_skillNamesLoaded = true;
             auto dbc = assetManager_->loadDBC("SkillLine.dbc");
             if (dbc && dbc->isLoaded()) {
@@ -3920,7 +3710,7 @@ void InventoryScreen::renderItemTooltip(const game::ItemQueryResponseData& info,
     if (info.requiredReputationFaction != 0 && info.requiredReputationRank > 0) {
         static std::unordered_map<uint32_t, std::string> s_factionNames;
         static bool s_factionNamesLoaded = false;
-        if (!s_factionNamesLoaded && assetManager_) {
+        if (!s_factionNamesLoaded && assetManager_ && assetManager_->isInitialized()) {
             s_factionNamesLoaded = true;
             auto dbc = assetManager_->loadDBC("Faction.dbc");
             if (dbc && dbc->isLoaded()) {
@@ -3952,16 +3742,7 @@ void InventoryScreen::renderItemTooltip(const game::ItemQueryResponseData& info,
     // Spell effects
     for (const auto& sp : info.spells) {
         if (sp.spellId == 0) continue;
-        const char* trigger = nullptr;
-        switch (sp.spellTrigger) {
-            case 0: trigger = "Use"; break;        // on use
-            case 1: trigger = "Equip"; break;      // on equip
-            case 2: trigger = "Chance on Hit"; break; // proc on melee hit
-            case 4: trigger = "Use"; break;        // soulstone (still shows as Use)
-            case 5: trigger = "Use"; break;        // on use, no delay
-            case 6: trigger = "Use"; break;        // learn spell (recipe/pattern)
-            default: break;
-        }
+        const char* trigger = game::itemSpellTriggerText(sp.spellTrigger);
         if (!trigger) continue;
         if (gameHandler_) {
             // Prefer the spell's tooltip text (the actual effect description).
@@ -4041,7 +3822,7 @@ void InventoryScreen::renderItemTooltip(const game::ItemQueryResponseData& info,
         };
         static std::unordered_map<uint32_t, SetEntry> s_setData;
         static bool s_setDataLoaded = false;
-        if (!s_setDataLoaded && assetManager_) {
+        if (!s_setDataLoaded && assetManager_ && assetManager_->isInitialized()) {
             s_setDataLoaded = true;
             auto dbc = assetManager_->loadDBC("ItemSet.dbc");
             if (dbc && dbc->isLoaded()) {
@@ -4177,7 +3958,7 @@ void InventoryScreen::renderItemTooltip(const game::ItemQueryResponseData& info,
             showDiff("Int",   static_cast<float>(info.intellect), static_cast<float>(eq->item.intellect));
             showDiff("Spi",   static_cast<float>(info.spirit),    static_cast<float>(eq->item.spirit));
 
-            // Extra stats diff — union of stat types from both items
+            // Extra stats diff - union of stat types from both items
             auto findExtraStat = [](const auto& it, uint32_t type) -> int32_t {
                 for (const auto& es : it.extraStats)
                     if (es.statType == type) return es.statValue;
@@ -4193,31 +3974,7 @@ void InventoryScreen::renderItemTooltip(const game::ItemQueryResponseData& info,
             for (uint32_t t : allTypes) {
                 int32_t nv = findExtraStat(info, t);
                 int32_t ev = findExtraStat(eq->item, t);
-                const char* lbl = nullptr;
-                switch (t) {
-                    case 0:  lbl = "Mana"; break;
-                    case 1:  lbl = "Health"; break;
-                    case 12: lbl = "Defense"; break;
-                    case 13: lbl = "Dodge"; break;
-                    case 14: lbl = "Parry"; break;
-                    case 15: lbl = "Block Rating"; break;
-                    case 16: case 17: case 18: case 31: lbl = "Hit"; break;
-                    case 19: case 20: case 21: case 32: lbl = "Crit"; break;
-                    case 28: case 29: case 30: case 36: lbl = "Haste"; break;
-                    case 35: lbl = "Resilience"; break;
-                    case 37: lbl = "Expertise"; break;
-                    case 38: lbl = "Attack Power"; break;
-                    case 39: lbl = "Ranged AP"; break;
-                    case 41: lbl = "Healing"; break;
-                    case 42: lbl = "Spell Damage"; break;
-                    case 43: lbl = "MP5"; break;
-                    case 44: lbl = "Armor Pen"; break;
-                    case 45: lbl = "Spell Power"; break;
-                    case 46: lbl = "HP5"; break;
-                    case 47: lbl = "Spell Pen"; break;
-                    case 48: lbl = "Block Value"; break;
-                    default: lbl = nullptr; break;
-                }
+                const char* lbl = comparisonStatLabel(t);
                 if (!lbl) continue;
                 showDiff(lbl, static_cast<float>(nv), static_cast<float>(ev));
             }

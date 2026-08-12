@@ -65,7 +65,7 @@ public:
 
     // Nameplates: when true, only show the floating name label on the
     // currently-selected NPC; otherwise show on all of them. Default true
-    // to keep the viewport quiet — was previously always-on, which got
+    // to keep the viewport quiet - was previously always-on, which got
     // noisy fast on populated zones.
     void setNpcNameplatesSelectedOnly(bool sel) { npcNameplatesSelectedOnly_ = sel; }
     bool getNpcNameplatesSelectedOnly() const { return npcNameplatesSelectedOnly_; }

@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Unit Movement Type catalog (.wumv) — novel
+// Wowee Open Unit Movement Type catalog (.wumv) - novel
 // replacement for Blizzard's UnitMovement.dbc plus the
 // movement-modifier portions of CreatureModelData.dbc.
 // Defines movement speed types (walk / run / swim / flight
@@ -17,12 +17,12 @@ namespace pipeline {
 //
 // baseMultiplier 1.0 = canonical default (walk = 2.5y/s,
 // run = 7.0y/s, swim = 4.7y/s, flight = 7.0y/s, fly =
-// 14.0y/s). maxMultiplier caps stacking — Sprint capped at
+// 14.0y/s). maxMultiplier caps stacking - Sprint capped at
 // 1.4 means even with Sprint + Aspect of the Cheetah you
 // don't exceed 1.4× run speed.
 //
 // Cross-references with previously-added formats:
-//   None — this catalog is consumed directly by the
+//   None - this catalog is consumed directly by the
 //   movement subsystem. Spell auras (WSPL) reference
 //   moveTypeId to know which speed multiplier they modify.
 //
@@ -38,7 +38,7 @@ namespace pipeline {
 //     iconLen + iconPath
 //     movementCategory (uint8) / requiresFlight (uint8) /
 //       canStackBuffs (uint8) / pad[1]
-//     baseSpeed (float)         — yards per second
+//     baseSpeed (float)         - yards per second
 //     baseMultiplier (float)
 //     maxMultiplier (float)
 //     defaultDurationMs (uint32)
@@ -93,15 +93,15 @@ public:
 
     // Preset emitters used by --gen-umv* variants.
     //
-    //   makeStarter   — 4 baseline movement types (Walk
+    //   makeStarter   - 4 baseline movement types (Walk
     //                    2.5y/s, Run 7.0y/s, Swim 4.7y/s,
     //                    Turn 3.14rad/s) at canonical
     //                    WoW vanilla speeds.
-    //   makeFlight    — 5 flight-related entries (Fly free
+    //   makeFlight    - 5 flight-related entries (Fly free
     //                    flight 14y/s, Flight ground-rail
     //                    7y/s, Pitch rate, FlyBackward,
     //                    FlightBackward).
-    //   makeBuffs     — 5 temporary speed buffs (Sprint
+    //   makeBuffs     - 5 temporary speed buffs (Sprint
     //                    1.4×, Aspect of the Cheetah 1.3×,
     //                    Travel Form 1.4×, Crusader Aura
     //                    1.2×, Wind Walk 1.5×).

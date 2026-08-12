@@ -31,8 +31,6 @@ public:
     [[nodiscard]] bool createMapped(VmaAllocator allocator, VkDeviceSize size,
         VkBufferUsageFlags usage);
 
-    // Update mapped buffer contents (only valid for mapped buffers)
-    void updateMapped(const void* data, VkDeviceSize size, VkDeviceSize offset = 0);
 
     void destroy();
 

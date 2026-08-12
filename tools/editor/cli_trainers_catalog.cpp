@@ -1,4 +1,6 @@
 #include "cli_trainers_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -18,20 +20,6 @@ namespace cli {
 
 namespace {
 
-std::string stripWtrnExt(std::string base) {
-    stripExt(base, ".wtrn");
-    return base;
-}
-
-bool saveOrError(const wowee::pipeline::WoweeTrainer& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeTrainerLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wtrn\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 uint32_t totalSpellOffers(const wowee::pipeline::WoweeTrainer& c) {
     uint32_t n = 0;
@@ -59,9 +47,9 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterTrainers";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWtrnExt(base);
+    base = cli::withoutExt(base, ".wtrn");
     auto c = wowee::pipeline::WoweeTrainerLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-trainers")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeTrainerLoader>(c, base, "gen-trainers", ".wtrn")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -70,9 +58,9 @@ int handleGenMage(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "MageTrainer";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWtrnExt(base);
+    base = cli::withoutExt(base, ".wtrn");
     auto c = wowee::pipeline::WoweeTrainerLoader::makeMageTrainer(name);
-    if (!saveOrError(c, base, "gen-trainers-mage")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeTrainerLoader>(c, base, "gen-trainers-mage", ".wtrn")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -81,9 +69,9 @@ int handleGenWeaponVendor(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "WeaponVendor";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWtrnExt(base);
+    base = cli::withoutExt(base, ".wtrn");
     auto c = wowee::pipeline::WoweeTrainerLoader::makeWeaponVendor(name);
-    if (!saveOrError(c, base, "gen-trainers-weapons")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeTrainerLoader>(c, base, "gen-trainers-weapons", ".wtrn")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -91,10 +79,9 @@ int handleGenWeaponVendor(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWtrnExt(base);
+    base = cli::withoutExt(base, ".wtrn");
     if (!wowee::pipeline::WoweeTrainerLoader::exists(base)) {
-        std::fprintf(stderr, "WTRN not found: %s.wtrn\n", base.c_str());
-        return 1;
+        return reportMissing("WTRN", base, ".wtrn");
     }
     auto c = wowee::pipeline::WoweeTrainerLoader::load(base);
     if (jsonOut) {
@@ -184,92 +171,64 @@ int handleExportJson(int& i, int argc, char** argv) {
     // open format. Each NPC emits scalar + greeting fields
     // plus the spell-offer and item-offer arrays. The
     // kindMask emits dual int + name forms.
-    std::string base = argv[++i];
-    std::string outPath;
-    if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWtrnExt(base);
-    if (outPath.empty()) outPath = base + ".wtrn.json";
-    if (!wowee::pipeline::WoweeTrainerLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wtrn-json: WTRN not found: %s.wtrn\n", base.c_str());
-        return 1;
-    }
-    auto c = wowee::pipeline::WoweeTrainerLoader::load(base);
-    nlohmann::json j;
-    j["name"] = c.name;
-    nlohmann::json arr = nlohmann::json::array();
-    for (const auto& e : c.entries) {
-        nlohmann::json je;
-        je["npcId"] = e.npcId;
-        je["kindMask"] = e.kindMask;
-        je["kindMaskName"] = wowee::pipeline::WoweeTrainer::kindMaskName(e.kindMask);
-        nlohmann::json km = nlohmann::json::array();
-        if (e.kindMask & wowee::pipeline::WoweeTrainer::Trainer) km.push_back("trainer");
-        if (e.kindMask & wowee::pipeline::WoweeTrainer::Vendor)  km.push_back("vendor");
-        je["kindList"] = km;
-        je["greeting"] = e.greeting;
-        nlohmann::json sa = nlohmann::json::array();
-        for (const auto& s : e.spells) {
-            sa.push_back({
-                {"spellId", s.spellId},
-                {"moneyCostCopper", s.moneyCostCopper},
-                {"requiredSkillId", s.requiredSkillId},
-                {"requiredSkillRank", s.requiredSkillRank},
-                {"requiredLevel", s.requiredLevel},
-            });
-        }
-        je["spells"] = sa;
-        nlohmann::json ia = nlohmann::json::array();
-        for (const auto& it : e.items) {
-            nlohmann::json ji;
-            ji["itemId"] = it.itemId;
-            // Emit "unlimited" string when stock is the sentinel
-            // value so JSON is friendlier to hand-edit. Importer
-            // accepts either form.
-            if (it.stockCount == wowee::pipeline::WoweeTrainer::kUnlimitedStock) {
-                ji["stockCount"] = "unlimited";
-            } else {
-                ji["stockCount"] = it.stockCount;
+    return cli::exportCatalogJson<wowee::pipeline::WoweeTrainerLoader>(
+        i, argc, argv, "wtrn", "WTRN", "npcs   ",
+        [](const auto& c) {
+        nlohmann::json j;
+        j["name"] = c.name;
+        nlohmann::json arr = nlohmann::json::array();
+        for (const auto& e : c.entries) {
+            nlohmann::json je;
+            je["npcId"] = e.npcId;
+            je["kindMask"] = e.kindMask;
+            je["kindMaskName"] = wowee::pipeline::WoweeTrainer::kindMaskName(e.kindMask);
+            nlohmann::json km = nlohmann::json::array();
+            if (e.kindMask & wowee::pipeline::WoweeTrainer::Trainer) km.push_back("trainer");
+            if (e.kindMask & wowee::pipeline::WoweeTrainer::Vendor)  km.push_back("vendor");
+            je["kindList"] = km;
+            je["greeting"] = e.greeting;
+            nlohmann::json sa = nlohmann::json::array();
+            for (const auto& s : e.spells) {
+                sa.push_back({
+                    {"spellId", s.spellId},
+                    {"moneyCostCopper", s.moneyCostCopper},
+                    {"requiredSkillId", s.requiredSkillId},
+                    {"requiredSkillRank", s.requiredSkillRank},
+                    {"requiredLevel", s.requiredLevel},
+                });
             }
-            ji["restockSec"] = it.restockSec;
-            ji["extendedCost"] = it.extendedCost;
-            ji["moneyCostCopper"] = it.moneyCostCopper;
-            ia.push_back(ji);
+            je["spells"] = sa;
+            nlohmann::json ia = nlohmann::json::array();
+            for (const auto& it : e.items) {
+                nlohmann::json ji;
+                ji["itemId"] = it.itemId;
+                // Emit "unlimited" string when stock is the sentinel
+                // value so JSON is friendlier to hand-edit. Importer
+                // accepts either form.
+                if (it.stockCount == wowee::pipeline::WoweeTrainer::kUnlimitedStock) {
+                    ji["stockCount"] = "unlimited";
+                } else {
+                    ji["stockCount"] = it.stockCount;
+                }
+                ji["restockSec"] = it.restockSec;
+                ji["extendedCost"] = it.extendedCost;
+                ji["moneyCostCopper"] = it.moneyCostCopper;
+                ia.push_back(ji);
+            }
+            je["items"] = ia;
+            arr.push_back(je);
         }
-        je["items"] = ia;
-        arr.push_back(je);
-    }
-    j["entries"] = arr;
-    std::ofstream out(outPath);
-    if (!out) {
-        std::fprintf(stderr,
-            "export-wtrn-json: cannot write %s\n", outPath.c_str());
-        return 1;
-    }
-    out << j.dump(2) << "\n";
-    out.close();
-    std::printf("Wrote %s\n", outPath.c_str());
-    std::printf("  source : %s.wtrn\n", base.c_str());
-    std::printf("  npcs   : %zu\n", c.entries.size());
-    return 0;
+        j["entries"] = arr;
+            return j;
+        });
 }
 
 int handleImportJson(int& i, int argc, char** argv) {
     std::string jsonPath = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = jsonPath;
-        std::string suffix = ".wtrn.json";
-        if (outBase.size() > suffix.size() &&
-            outBase.substr(outBase.size() - suffix.size()) == suffix) {
-            outBase = outBase.substr(0, outBase.size() - suffix.size());
-        } else if (outBase.size() > 5 &&
-                   outBase.substr(outBase.size() - 5) == ".json") {
-            outBase = outBase.substr(0, outBase.size() - 5);
-        }
-    }
-    outBase = stripWtrnExt(outBase);
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(jsonPath, ".wtrn");
+    outBase = cli::withoutExt(outBase, ".wtrn");
     std::ifstream in(jsonPath);
     if (!in) {
         std::fprintf(stderr,
@@ -357,114 +316,73 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWtrnExt(base);
-    if (!wowee::pipeline::WoweeTrainerLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wtrn: WTRN not found: %s.wtrn\n", base.c_str());
-        return 1;
-    }
-    auto c = wowee::pipeline::WoweeTrainerLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    std::vector<uint32_t> idsSeen;
-    idsSeen.reserve(c.entries.size());
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (npcId=" + std::to_string(e.npcId) + ")";
-        if (e.npcId == 0) {
-            errors.push_back(ctx + ": npcId is 0");
-        }
-        if (e.kindMask == 0) {
-            errors.push_back(ctx + ": kindMask is 0 (NPC offers nothing)");
-        }
-        // Trainer kind needs spells; vendor kind needs items.
-        if ((e.kindMask & wowee::pipeline::WoweeTrainer::Trainer) &&
-            e.spells.empty()) {
-            warnings.push_back(ctx +
-                ": flagged Trainer but has no spells");
-        }
-        if ((e.kindMask & wowee::pipeline::WoweeTrainer::Vendor) &&
-            e.items.empty()) {
-            warnings.push_back(ctx +
-                ": flagged Vendor but has no items");
-        }
-        // Items / spells with kindMask not matching are dead config.
-        if (!(e.kindMask & wowee::pipeline::WoweeTrainer::Trainer) &&
-            !e.spells.empty()) {
-            warnings.push_back(ctx +
-                ": has " + std::to_string(e.spells.size()) +
-                " spells but Trainer bit not set (spells will be ignored)");
-        }
-        if (!(e.kindMask & wowee::pipeline::WoweeTrainer::Vendor) &&
-            !e.items.empty()) {
-            warnings.push_back(ctx +
-                ": has " + std::to_string(e.items.size()) +
-                " items but Vendor bit not set (items will be ignored)");
-        }
-        for (size_t si = 0; si < e.spells.size(); ++si) {
-            const auto& s = e.spells[si];
-            std::string sctx = ctx + " spell " + std::to_string(si);
-            if (s.spellId == 0) {
-                errors.push_back(sctx + ": spellId is 0");
+    return cli::validateCatalog<wowee::pipeline::WoweeTrainerLoader>(
+        i, argc, argv, "wtrn", "WTRN",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        idsSeen.reserve(c.entries.size());
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (npcId=" + std::to_string(e.npcId) + ")";
+            if (e.npcId == 0) {
+                errors.push_back(ctx + ": npcId is 0");
             }
-        }
-        for (size_t ii = 0; ii < e.items.size(); ++ii) {
-            const auto& it = e.items[ii];
-            std::string ictx = ctx + " item " + std::to_string(ii);
-            if (it.itemId == 0) {
-                errors.push_back(ictx + ": itemId is 0");
+            if (e.kindMask == 0) {
+                errors.push_back(ctx + ": kindMask is 0 (NPC offers nothing)");
             }
-            // Finite stock with restockSec=0 means "single fill"
-            // — usually intentional but worth surfacing.
-            if (it.stockCount != wowee::pipeline::WoweeTrainer::kUnlimitedStock &&
-                it.restockSec == 0 && it.stockCount > 0) {
-                warnings.push_back(ictx +
-                    ": finite stock with restockSec=0 (no automatic refresh)");
+            // Trainer kind needs spells; vendor kind needs items.
+            if ((e.kindMask & wowee::pipeline::WoweeTrainer::Trainer) &&
+                e.spells.empty()) {
+                warnings.push_back(ctx +
+                    ": flagged Trainer but has no spells");
             }
-        }
-        for (uint32_t prev : idsSeen) {
-            if (prev == e.npcId) {
-                errors.push_back(ctx + ": duplicate npcId");
-                break;
+            if ((e.kindMask & wowee::pipeline::WoweeTrainer::Vendor) &&
+                e.items.empty()) {
+                warnings.push_back(ctx +
+                    ": flagged Vendor but has no items");
             }
+            // Items / spells with kindMask not matching are dead config.
+            if (!(e.kindMask & wowee::pipeline::WoweeTrainer::Trainer) &&
+                !e.spells.empty()) {
+                warnings.push_back(ctx +
+                    ": has " + std::to_string(e.spells.size()) +
+                    " spells but Trainer bit not set (spells will be ignored)");
+            }
+            if (!(e.kindMask & wowee::pipeline::WoweeTrainer::Vendor) &&
+                !e.items.empty()) {
+                warnings.push_back(ctx +
+                    ": has " + std::to_string(e.items.size()) +
+                    " items but Vendor bit not set (items will be ignored)");
+            }
+            for (size_t si = 0; si < e.spells.size(); ++si) {
+                const auto& s = e.spells[si];
+                std::string sctx = ctx + " spell " + std::to_string(si);
+                if (s.spellId == 0) {
+                    errors.push_back(sctx + ": spellId is 0");
+                }
+            }
+            for (size_t ii = 0; ii < e.items.size(); ++ii) {
+                const auto& it = e.items[ii];
+                std::string ictx = ctx + " item " + std::to_string(ii);
+                if (it.itemId == 0) {
+                    errors.push_back(ictx + ": itemId is 0");
+                }
+                // Finite stock with restockSec=0 means "single fill"
+                // - usually intentional but worth surfacing.
+                if (it.stockCount != wowee::pipeline::WoweeTrainer::kUnlimitedStock &&
+                    it.restockSec == 0 && it.stockCount > 0) {
+                    warnings.push_back(ictx +
+                        ": finite stock with restockSec=0 (no automatic refresh)");
+                }
+            }
+            if (!idsSeen.add(e.npcId)) errors.push_back(ctx + ": duplicate npcId");
         }
-        idsSeen.push_back(e.npcId);
-    }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wtrn"] = base + ".wtrn";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wtrn: %s.wtrn\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu npcs, %u spell offers, %u item offers\n",
-                    c.entries.size(),
+            return formatted("%zu npcs, %u spell offers, %u item offers", c.entries.size(),
                     totalSpellOffers(c),
                     totalItemOffers(c));
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+        });
 }
 
 } // namespace

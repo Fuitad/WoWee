@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Transit Schedule catalog (.wtsc) —
+// Wowee Open Transit Schedule catalog (.wtsc) -
 // novel replacement for the implicit
 // taxi/zeppelin/boat scheduling that vanilla WoW
 // drove from a tangle of TaxiNodes.dbc +
@@ -24,7 +24,7 @@ namespace pipeline {
 //   WMS:   originMapId / destinationMapId reference
 //          the WMS map catalog.
 //   WTAX:  vehicleType=Taxi routes are derived from
-//          (and extend) WTAX taxi-node catalog —
+//          (and extend) WTAX taxi-node catalog -
 //          WTRN adds the scheduling layer that WTAX
 //          lacked.
 //
@@ -36,11 +36,11 @@ namespace pipeline {
 //   entries (each):
 //     routeId (uint32)
 //     nameLen + name
-//     vehicleType (uint8)        — 0=Taxi /
+//     vehicleType (uint8)        - 0=Taxi /
 //                                   1=Zeppelin /
 //                                   2=Boat /
 //                                   3=Mount
-//     factionAccess (uint8)      — 0=Both /
+//     factionAccess (uint8)      - 0=Both /
 //                                   1=Alliance /
 //                                   2=Horde /
 //                                   3=Neutral
@@ -53,13 +53,13 @@ namespace pipeline {
 //     destinationX (float)
 //     destinationY (float)
 //     destinationMapId (uint32)
-//     departureIntervalSec (uint32)  — period between
+//     departureIntervalSec (uint32)  - period between
 //                                       successive
 //                                       departures from
 //                                       origin
-//     travelDurationSec (uint32)     — in-flight time
+//     travelDurationSec (uint32)     - in-flight time
 //                                       origin->dest
-//     capacity (uint16)              — max simultaneous
+//     capacity (uint16)              - max simultaneous
 //                                       riders (0 =
 //                                       unlimited, e.g.
 //                                       solo gryphon)
@@ -133,17 +133,17 @@ public:
 
     // Preset emitters used by --gen-trn* variants.
     //
-    //   makeZeppelins — 3 vanilla zeppelin routes
+    //   makeZeppelins - 3 vanilla zeppelin routes
     //                    (Orgrimmar<->Undercity 240s
     //                    interval / OG<->Grom'gol /
     //                    UC<->Grom'gol). All Horde-only.
-    //   makeBoats     — 3 vanilla boat routes
+    //   makeBoats     - 3 vanilla boat routes
     //                    (Auberdine<->Stormwind /
     //                    Menethil<->Theramore /
-    //                    BootyBay<->Ratchet — last is
+    //                    BootyBay<->Ratchet - last is
     //                    Neutral, both factions can
     //                    board).
-    //   makeTaxis     — 3 taxi gryphon/wyvern routes
+    //   makeTaxis     - 3 taxi gryphon/wyvern routes
     //                    (Stormwind<->Ironforge
     //                    Alliance / Crossroads<->
     //                    Razor Hill Horde /

@@ -4,7 +4,7 @@ namespace wowee {
 namespace editor {
 namespace cli {
 
-// Dispatch the strip-* cleanup handlers — remove derived
+// Dispatch the strip-* cleanup handlers - remove derived
 // outputs (.glb / .obj / .stl / .html / .dot / .csv / .png /
 // ZONE.md / DEPS.md) leaving only source files. Useful before
 // --pack-wcp so archives don't carry redundant exports, or

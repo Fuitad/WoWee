@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Reputation Reward Tier catalog (.wrpr) —
+// Wowee Open Reputation Reward Tier catalog (.wrpr) -
 // novel replacement for the implicit reputation-tier
 // rules vanilla WoW encoded across multiple SQL tables
 // (npc_vendor with reqstanding columns, item_template
@@ -19,7 +19,7 @@ namespace pipeline {
 // mount unlock flags.
 //
 // First catalog with TWO variable-length payload arrays
-// per entry (unlockedItemIds + unlockedRecipeIds) —
+// per entry (unlockedItemIds + unlockedRecipeIds) -
 // previous variable-length formats used a single array
 // (WCMR waypoints, WCMG members, WPTT spellIdsByRank).
 //
@@ -43,12 +43,12 @@ namespace pipeline {
 //     nameLen + name
 //     descLen + description
 //     factionId (uint32)
-//     minStanding (int32)            — Hated -42000 to
+//     minStanding (int32)            - Hated -42000 to
 //                                       Exalted +42000
-//     discountPct (uint8)            — 0..20 vendor
+//     discountPct (uint8)            - 0..20 vendor
 //                                       discount tier
-//     grantsTabard (uint8)           — 0/1 bool
-//     grantsMount (uint8)            — 0/1 bool
+//     grantsTabard (uint8)           - 0/1 bool
+//     grantsMount (uint8)            - 0/1 bool
 //     pad0 (uint8)
 //     iconColorRGBA (uint32)
 //     unlockedItemCount (uint32)
@@ -101,17 +101,17 @@ public:
 
     // Preset emitters used by --gen-rpr* variants.
     //
-    //   makeArgentCrusade — 4 tiers (Friendly 3000 /
+    //   makeArgentCrusade - 4 tiers (Friendly 3000 /
     //                        Honored 9000 / Revered 21000
     //                        / Exalted 42000) with
     //                        progressive item + recipe
     //                        unlocks plus tabard at
     //                        Friendly and mount at
     //                        Exalted.
-    //   makeKaluak        — 4 fishing-themed tiers for
+    //   makeKaluak        - 4 fishing-themed tiers for
     //                        Kalu'ak faction, progressive
     //                        cooking recipe unlocks.
-    //   makeAccordTabard  — 3 tiers showcasing the
+    //   makeAccordTabard  - 3 tiers showcasing the
     //                        grantsTabard + grantsMount
     //                        flags (Wyrmrest Accord
     //                        Honored item / Revered

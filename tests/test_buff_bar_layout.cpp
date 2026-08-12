@@ -117,3 +117,25 @@ TEST_CASE("Counts are never negative", "[ui][buffbar]") {
     REQUIRE(l.enchantShown >= 0);
     REQUIRE(l.iconCount >= 0);
 }
+
+TEST_CASE("The row clears whichever minimap is drawn", "[buffbar]") {
+    // FrameXML's MinimapCluster is 192 interface units wide, and interface units
+    // scale with the window height - at 1528px tall that is 382px, against the
+    // 210px this client's own minimap claims. Laid out against the smaller
+    // number the row ran underneath the minimap by the difference.
+    const float w = 3840.0f, h = 1528.0f;
+    REQUIRE(minimapReservedWidth(h, false) ==
+            Catch::Approx(BuffBarMetrics::kMinimapLeftEdge));
+    const float frameXml = minimapReservedWidth(h, true);
+    REQUIRE(frameXml == Catch::Approx(382.0f));
+
+    const auto own = computeBuffBarLayout(w, h, 1.0f, 8, 0);
+    const auto fx  = computeBuffBarLayout(w, h, 1.0f, 8, 0, frameXml);
+
+    // Both end short of the minimap they were told about, and the FrameXML one
+    // ends further left by exactly the difference in minimap width.
+    REQUIRE(own.barX + own.barWidth <= w - BuffBarMetrics::kMinimapLeftEdge);
+    REQUIRE(fx.barX + fx.barWidth <= w - frameXml);
+    REQUIRE(own.barX - fx.barX ==
+            Catch::Approx(frameXml - BuffBarMetrics::kMinimapLeftEdge));
+}

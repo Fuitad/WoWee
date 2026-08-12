@@ -98,15 +98,10 @@ public:
      */
     bool freeMemory(uint32_t address);
 
-    /**
-     * Get CPU register value
-     */
-    uint32_t getRegister(int regId);
 
     /**
      * Set CPU register value
      */
-    void setRegister(int regId, uint32_t value);
 
     /**
      * Check if emulator is initialized
@@ -136,7 +131,6 @@ public:
     /**
      * Read data from emulated memory into vector
      */
-    std::vector<uint8_t> readData(uint32_t address, size_t size);
 
     // Look up an already-registered API stub address by DLL and function name.
     // Returns 0 if not found. Used by WardenModule::bindAPIs() for IAT patching.

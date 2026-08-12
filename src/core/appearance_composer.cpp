@@ -1,4 +1,8 @@
 #include "core/appearance_composer.hpp"
+#include "core/geoset_rules.hpp"
+#include "pipeline/item_textures.hpp"
+#include "pipeline/m2_asset_loader.hpp"
+#include "core/character_paths.hpp"
 #include "core/helm_visual.hpp"
 #include "core/entity_spawner.hpp"
 #include "core/logger.hpp"
@@ -8,6 +12,7 @@
 #include "pipeline/asset_manager.hpp"
 #include "pipeline/m2_loader.hpp"
 #include "pipeline/dbc_loader.hpp"
+#include "pipeline/char_sections.hpp"
 #include "pipeline/dbc_layout.hpp"
 #include "game/game_handler.hpp"
 #include <glm/gtc/matrix_transform.hpp>
@@ -19,8 +24,7 @@ namespace {
 
 constexpr uint32_t kAttachShield = 0;
 // M2 attachment 11 is the helm; 0 is the shield mount, which is where head
-// gear was going — attached successfully, on the forearm, invisible on the head.
-constexpr uint32_t kAttachHelm = 11;
+// gear was going - attached successfully, on the forearm, invisible on the head.
 constexpr uint32_t kAttachRightHand = 1;
 constexpr uint32_t kAttachLeftHand = 2;
 constexpr uint32_t kAttachRightHip = 9;
@@ -78,12 +82,10 @@ glm::mat4 weaponLocalTransform(bool sheathed, game::EquipSlot /*slot*/,
 AppearanceComposer::AppearanceComposer(rendering::Renderer* renderer,
                                        pipeline::AssetManager* assetManager,
                                        game::GameHandler* gameHandler,
-                                       pipeline::DBCLayout* dbcLayout,
                                        EntitySpawner* entitySpawner)
     : renderer_(renderer)
     , assetManager_(assetManager)
     , gameHandler_(gameHandler)
-    , dbcLayout_(dbcLayout)
     , entitySpawner_(entitySpawner)
 {
 }
@@ -100,135 +102,63 @@ PlayerTextureInfo AppearanceComposer::resolvePlayerTextures(pipeline::M2Model& m
     uint32_t targetRaceId = static_cast<uint32_t>(race);
     uint32_t targetSexId = (gender == game::Gender::FEMALE) ? 1u : 0u;
 
-    // Race name for fallback texture paths
-    const char* raceFolderName = "Human";
-    switch (race) {
-        case game::Race::HUMAN:    raceFolderName = "Human"; break;
-        case game::Race::ORC:      raceFolderName = "Orc"; break;
-        case game::Race::DWARF:    raceFolderName = "Dwarf"; break;
-        case game::Race::NIGHT_ELF: raceFolderName = "NightElf"; break;
-        case game::Race::UNDEAD:    raceFolderName = "Scourge"; break;
-        case game::Race::TAUREN:    raceFolderName = "Tauren"; break;
-        case game::Race::GNOME:     raceFolderName = "Gnome"; break;
-        case game::Race::TROLL:     raceFolderName = "Troll"; break;
-        case game::Race::BLOOD_ELF: raceFolderName = "BloodElf"; break;
-        case game::Race::DRAENEI:   raceFolderName = "Draenei"; break;
-        default: break;
-    }
-    const char* genderFolder = (gender == game::Gender::FEMALE) ? "Female" : "Male";
-    std::string raceGender = std::string(raceFolderName) + genderFolder;
-    result.bodySkinPath = std::string("Character\\") + raceFolderName + "\\" + genderFolder + "\\" + raceGender + "Skin00_00.blp";
-    std::string pelvisPath = std::string("Character\\") + raceFolderName + "\\" + genderFolder + "\\" + raceGender + "NakedPelvisSkin00_00.blp";
+    const char* raceFolderName = raceModelFolder(targetRaceId);
+    result.bodySkinPath = defaultBodySkinPath(targetRaceId, targetSexId);
 
-    // Extract appearance bytes for texture lookups
-    uint8_t charSkinId = appearanceBytes & 0xFF;
-    uint8_t charFaceId = (appearanceBytes >> 8) & 0xFF;
-    uint8_t charHairStyleId = (appearanceBytes >> 16) & 0xFF;
-    uint8_t charHairColorId = (appearanceBytes >> 24) & 0xFF;
+    const AppearanceBytes look = unpackAppearanceBytes(appearanceBytes);
+    const uint8_t charSkinId = look.skinId;
+    const uint8_t charFaceId = look.faceId;
+    const uint8_t charHairStyleId = look.hairStyleId;
+    const uint8_t charHairColorId = look.hairColorId;
     LOG_INFO("Appearance: skin=", static_cast<int>(charSkinId), " face=", static_cast<int>(charFaceId),
              " hairStyle=", static_cast<int>(charHairStyleId), " hairColor=", static_cast<int>(charHairColorId));
 
-    // Parse CharSections.dbc for skin/face/hair/underwear texture paths
+    // CharSections, through the one reader in pipeline/char_sections.hpp.
+    //
+    // This scan used to be written out here, and again in entity_spawner for
+    // NPCs, and again in character_preview for the portrait - three readings of
+    // one table that did not agree on what they read. Only this one looked at
+    // the skin row's second texture, so ears and eyelashes were unbound on the
+    // other two; only this one had a fallback for a face the table does not
+    // carry. Every fault in this area had to be fixed two or three times.
     auto charSectionsDbc = assetManager_->loadDBC("CharSections.dbc");
     if (charSectionsDbc) {
-        LOG_INFO("CharSections.dbc loaded: ", charSectionsDbc->getRecordCount(), " records");
-        const auto* csL = pipeline::getActiveDBCLayout() ? pipeline::getActiveDBCLayout()->getLayout("CharSections") : nullptr;
-        auto csF = pipeline::detectCharSectionsFields(charSectionsDbc.get(), csL);
-        bool foundSkin = false;
-        bool foundUnderwear = false;
-        bool foundFaceLower = false;
-        bool foundHair = false;
-        // Nearest usable face if the exact (variation, colour) pair is absent.
-        // Character creation falls back to a synthetic 0..9 range whenever its
-        // DBC scan comes up empty, so a character can be created carrying a face
-        // number that has no row at all — and then has no face for good, because
-        // this lookup used to just not match and say nothing.
-        std::string faceAltLower, faceAltUpper;
-        bool haveFaceAlt = false;
-        for (uint32_t r = 0; r < charSectionsDbc->getRecordCount(); r++) {
-            uint32_t raceId = charSectionsDbc->getUInt32(r, csF.raceId);
-            uint32_t sexId = charSectionsDbc->getUInt32(r, csF.sexId);
-            uint32_t baseSection = charSectionsDbc->getUInt32(r, csF.baseSection);
-            uint32_t variationIndex = charSectionsDbc->getUInt32(r, csF.variationIndex);
-            uint32_t colorIndex = charSectionsDbc->getUInt32(r, csF.colorIndex);
+        const auto* csL = pipeline::getActiveDBCLayout()
+            ? pipeline::getActiveDBCLayout()->getLayout("CharSections") : nullptr;
+        const auto csF = pipeline::detectCharSectionsFields(charSectionsDbc.get(), csL);
 
-            if (raceId != targetRaceId || sexId != targetSexId) continue;
+        pipeline::CharacterAppearance who;
+        who.raceId = targetRaceId;
+        who.sexId = targetSexId;
+        who.skinId = charSkinId;
+        who.faceId = charFaceId;
+        who.hairStyleId = charHairStyleId;
+        who.hairColorId = charHairColorId;
 
-            // Section 0 = skin: match by colorIndex = skin byte
-            if (baseSection == 0 && !foundSkin && colorIndex == charSkinId) {
-                std::string tex1 = charSectionsDbc->getString(r, csF.texture1);
-                if (!tex1.empty()) {
-                    result.bodySkinPath = tex1;
-                    foundSkin = true;
-                    LOG_INFO("  DBC body skin: ", result.bodySkinPath, " (skin=", static_cast<int>(charSkinId), ")");
-                }
-            }
-            // Section 3 = hair: match variation=hairStyle, color=hairColor
-            else if (baseSection == 3 && !foundHair &&
-                     variationIndex == charHairStyleId && colorIndex == charHairColorId) {
-                result.hairTexturePath = charSectionsDbc->getString(r, csF.texture1);
-                if (!result.hairTexturePath.empty()) {
-                    foundHair = true;
-                    LOG_INFO("  DBC hair texture: ", result.hairTexturePath,
-                             " (style=", static_cast<int>(charHairStyleId), " color=", static_cast<int>(charHairColorId), ")");
-                }
-            }
-            // Section 1 = face: match variation=faceId, colorIndex=skinId
-            // Texture1 = face lower, Texture2 = face upper
-            else if (baseSection == 1 && !foundFaceLower &&
-                     variationIndex == charFaceId && colorIndex == charSkinId) {
-                std::string tex1 = charSectionsDbc->getString(r, csF.texture1);
-                std::string tex2 = charSectionsDbc->getString(r, csF.texture2);
-                if (!tex1.empty()) {
-                    result.faceLowerPath = tex1;
-                    LOG_INFO("  DBC face lower: ", result.faceLowerPath);
-                }
-                if (!tex2.empty()) {
-                    result.faceUpperPath = tex2;
-                    LOG_INFO("  DBC face upper: ", result.faceUpperPath);
-                }
-                foundFaceLower = true;
-            }
-            // Same face variation in another skin colour, or failing that any
-            // face at all in the right colour: either beats a blank head.
-            else if (baseSection == 1 && !foundFaceLower && !haveFaceAlt &&
-                     (variationIndex == charFaceId || colorIndex == charSkinId)) {
-                std::string tex1 = charSectionsDbc->getString(r, csF.texture1);
-                std::string tex2 = charSectionsDbc->getString(r, csF.texture2);
-                if (!tex1.empty()) {
-                    faceAltLower = tex1;
-                    faceAltUpper = tex2;
-                    haveFaceAlt = true;
-                }
-            }
-            // Section 4 = underwear
-            else if (baseSection == 4 && !foundUnderwear && colorIndex == charSkinId) {
-                for (uint32_t f = csF.texture1; f <= csF.texture1 + 2; f++) {
-                    std::string tex = charSectionsDbc->getString(r, f);
-                    if (!tex.empty() && assetManager_->fileExists(tex)) {
-                        result.underwearPaths.push_back(tex);
-                        LOG_INFO("  DBC underwear texture: ", tex);
-                    }
-                }
-                foundUnderwear = !result.underwearPaths.empty();
-            }
+        // The underwear rows name art that is not always on disk, and this
+        // caller can ask.
+        const auto sections = pipeline::resolveCharacterSections(
+            charSectionsDbc.get(), csF, who,
+            [](const std::string& path, void* ctx) {
+                return static_cast<pipeline::AssetManager*>(ctx)->fileExists(path);
+            },
+            assetManager_);
 
-            if (foundSkin && foundHair && foundFaceLower && foundUnderwear) break;
-        }
+        if (!sections.bodySkin.empty()) result.bodySkinPath = sections.bodySkin;
+        result.skinExtraPath = sections.skinExtra;
+        result.faceLowerPath = sections.faceLower;
+        result.faceUpperPath = sections.faceUpper;
+        if (!sections.hair.empty()) result.hairTexturePath = sections.hair;
+        result.underwearPaths = sections.underwear;
 
-        if (!foundFaceLower) {
+        if (!sections.exactFace) {
             LOG_WARNING("No DBC face match for face=", static_cast<int>(charFaceId),
                         " skin=", static_cast<int>(charSkinId),
                         " race=", targetRaceId, " sex=", targetSexId,
-                        haveFaceAlt ? " — using the nearest face instead"
-                                    : " — this character will render with no face");
-            if (haveFaceAlt) {
-                result.faceLowerPath = faceAltLower;
-                result.faceUpperPath = faceAltUpper;
-            }
+                        sections.haveFace ? " - using the nearest face instead"
+                                          : " - this character will render with no face");
         }
-
-        if (!foundHair) {
+        if (!sections.haveHair) {
             LOG_WARNING("No DBC hair match for style=", static_cast<int>(charHairStyleId),
                         " color=", static_cast<int>(charHairColorId),
                         " race=", targetRaceId, " sex=", targetSexId);
@@ -237,23 +167,33 @@ PlayerTextureInfo AppearanceComposer::resolvePlayerTextures(pipeline::M2Model& m
         LOG_WARNING("Failed to load CharSections.dbc, using hardcoded textures");
     }
 
-    // Fill model texture slots with resolved paths
-    for (auto& tex : model.textures) {
-        if (tex.type == 1 && tex.filename.empty()) {
-            tex.filename = result.bodySkinPath;
-        } else if (tex.type == 6) {
-            if (!result.hairTexturePath.empty()) {
-                tex.filename = result.hairTexturePath;
-            } else if (tex.filename.empty()) {
-                tex.filename = std::string("Character\\") + raceFolderName + "\\Hair00_00.blp";
-            }
-        } else if (tex.type == 8 && tex.filename.empty()) {
-            if (!result.underwearPaths.empty()) {
-                tex.filename = result.underwearPaths[0];
-            } else {
-                tex.filename = pelvisPath;
-            }
+    // pipeline/char_sections.hpp fills the runtime slots - the same rules the
+    // portrait and the NPC path use, in one place.
+    {
+        pipeline::CharacterSectionTextures resolved;
+        resolved.bodySkin  = result.bodySkinPath;
+        resolved.skinExtra = result.skinExtraPath;
+        resolved.hair      = result.hairTexturePath;
+        resolved.underwear = result.underwearPaths;
+        pipeline::applyCharacterTextures(model, resolved, raceFolderName);
+    }
+
+    // Everything the head detail depends on, in one line, whichever way it went.
+    // Skin-coloured eyelashes are what you see when type 8 falls back to the
+    // body or pelvis art, and the three things that decide it - whether the
+    // model asks for type 8, whether CharSections offered an extra texture, and
+    // what was bound in the end - cannot be told apart from a screenshot.
+    {
+        bool modelWantsExtra = false;
+        std::string bound;
+        for (const auto& tex : model.textures) {
+            if (tex.type == 8) { modelWantsExtra = true; bound = tex.filename; break; }
         }
+        LOG_WARNING("Character head detail: model asks for type 8: ",
+                    (modelWantsExtra ? "yes" : "no"),
+                    " | CharSections extra: '", result.skinExtraPath,
+                    "' | bound: '", bound,
+                    "' | body: '", result.bodySkinPath, "'");
     }
 
     return result;
@@ -285,7 +225,7 @@ void AppearanceComposer::compositePlayerSkin(uint32_t modelSlotId, const PlayerT
             rendering::VkTexture* compositeTex = charRenderer->compositeTextures(layers);
             if (compositeTex != 0) {
                 // Find type-1 (skin) texture slot and replace with composite
-                // We need model texture info — walk slots via charRenderer
+                // We need model texture info - walk slots via charRenderer
                 // Use the model slot ID to find the right texture index
                 auto* modelData = charRenderer->getModelData(modelSlotId);
                 if (modelData) {
@@ -336,60 +276,35 @@ void AppearanceComposer::compositePlayerSkin(uint32_t modelSlotId, const PlayerT
 
 std::unordered_set<uint16_t> AppearanceComposer::buildDefaultPlayerGeosets(uint8_t raceId, uint8_t sexId,
                                                                            uint8_t hairStyleId, uint8_t facialId) {
-    std::unordered_set<uint16_t> activeGeosets;
-
-    // Look up the correct hair scalp geoset from CharHairGeosets.dbc
-    uint16_t selectedHairScalp = 1; // default
+    // Look up the hair scalp and the facial features this character wears, then
+    // ask for the bare set around them. Which geosets a character shows with
+    // nothing equipped is one answer, in core/geoset_rules.hpp, shared with the
+    // portrait - the two used to keep their own and had drifted.
+    uint16_t selectedHairScalp = 1;
+    uint16_t facial100 = 0, facial200 = 0, facial300 = 0;
+    bool haveFacial = false;
     if (entitySpawner_) {
         const auto& hairMap = entitySpawner_->getHairGeosetMap();
-        uint32_t hairKey = (static_cast<uint32_t>(raceId) << 16) |
-                           (static_cast<uint32_t>(sexId) << 8) |
-                           static_cast<uint32_t>(hairStyleId);
-        auto it = hairMap.find(hairKey);
-        if (it != hairMap.end() && it->second > 0)
-            selectedHairScalp = it->second;
-    }
+        auto itHair = hairMap.find(appearanceKey(raceId, sexId, hairStyleId));
+        if (itHair != hairMap.end() && itHair->second > 0) selectedHairScalp = itHair->second;
 
-    // Group 0: body base plus exactly one selected hair scalp. Do not enable
-    // every non-mapped group-0 submesh as a fallback; if the hair DBC map is
-    // unavailable or incomplete, that path activates multiple hair variants.
-    activeGeosets.insert(0);  // body base
-    activeGeosets.insert(selectedHairScalp);
-
-    // Groups 1xx, 2xx and 3xx are independent facial-feature channels from
-    // CharacterFacialHairStyles. They must not be derived from the hairstyle.
-    if (entitySpawner_) {
         const auto& facialMap = entitySpawner_->getFacialHairGeosetMap();
-        uint32_t facialKey = (static_cast<uint32_t>(raceId) << 16) |
-                             (static_cast<uint32_t>(sexId) << 8) |
-                             static_cast<uint32_t>(facialId);
-        auto it = facialMap.find(facialKey);
-        if (it != facialMap.end()) {
-            // A zero means this channel has no feature — a night elf female has
-            // none on any of the three. Clamping to 1 handed every character the
-            // first variant of all three channels instead.
-            activeGeosets.insert(static_cast<uint16_t>(100 + it->second.geoset100));
-            activeGeosets.insert(static_cast<uint16_t>(200 + it->second.geoset200));
-            activeGeosets.insert(static_cast<uint16_t>(300 + it->second.geoset300));
-        } else {
-            activeGeosets.insert(101);
-            activeGeosets.insert(201);
-            activeGeosets.insert(301);
+        auto itFacial = facialMap.find(appearanceKey(raceId, sexId, facialId));
+        if (itFacial != facialMap.end()) {
+            facial100 = itFacial->second.geoset100;
+            facial200 = itFacial->second.geoset200;
+            facial300 = itFacial->second.geoset300;
+            haveFacial = true;
         }
-    } else {
-        activeGeosets.insert(101);
-        activeGeosets.insert(201);
-        activeGeosets.insert(301);
+    }
+    if (!haveFacial) {
+        // No row for this character: the "none" variant of all three channels.
+        facial100 = facial200 = facial300 = 1;
     }
 
-    activeGeosets.insert(kGeosetBareForearms);
-    activeGeosets.insert(kGeosetBareShins);
-    activeGeosets.insert(kGeosetDefaultEars);
-    activeGeosets.insert(kGeosetBareSleeves);
-    activeGeosets.insert(kGeosetDefaultKneepads);
-    activeGeosets.insert(kGeosetBarePants);
-    activeGeosets.insert(kGeosetWithCape);
-    activeGeosets.insert(kGeosetBareFeet);
+    std::unordered_set<uint16_t> activeGeosets =
+        bareCharacterGeosets(selectedHairScalp, facial100, facial200, facial300, raceId);
+
     return activeGeosets;
 }
 
@@ -446,19 +361,9 @@ void AppearanceComposer::applyEnchantVisuals(uint32_t charInstanceId, int equipS
 }
 
 bool AppearanceComposer::loadWeaponM2(const std::string& m2Path, pipeline::M2Model& outModel) {
-    auto m2Data = assetManager_->readFile(m2Path);
-    if (m2Data.empty()) return false;
-    outModel = pipeline::M2Loader::load(m2Data);
-    if (outModel.name.empty()) outModel.name = m2Path;
-    // Load skin (WotLK+ M2 format): strip .m2, append 00.skin
-    std::string skinPath = m2Path;
-    size_t dotPos = skinPath.rfind('.');
-    if (dotPos != std::string::npos) skinPath = skinPath.substr(0, dotPos);
-    skinPath += "00.skin";
-    auto skinData = assetManager_->readFile(skinPath);
-    if (!skinData.empty() && outModel.version >= 264)
-        pipeline::M2Loader::loadSkin(skinData, outModel);
-    return outModel.isValid();
+    // pipeline/m2_asset_loader.hpp. Kept as a method because a dozen call sites
+    // read better for it.
+    return pipeline::loadM2WithSkin(*assetManager_, m2Path, outModel);
 }
 
 // Head gear, which only other players used to get. The local character's
@@ -588,26 +493,20 @@ void AppearanceComposer::loadEquippedWeapons() {
             continue;
         }
 
-        const auto* idiL = pipeline::getActiveDBCLayout() ? pipeline::getActiveDBCLayout()->getLayout("ItemDisplayInfo") : nullptr;
-        std::string modelName = displayInfoDbc->getString(static_cast<uint32_t>(recIdx), idiL ? (*idiL)["LeftModel"] : 1);
-        std::string textureName = displayInfoDbc->getString(static_cast<uint32_t>(recIdx), idiL ? (*idiL)["LeftModelTexture"] : 3);
+        // The left pair first, the right one when there is none - the rule this
+        // copy did not have, which is why a weapon whose display names only the
+        // right model rendered on an NPC and not on the player holding it.
+        const auto art = pipeline::readItemDisplayArt(*displayInfoDbc,
+                                                      static_cast<uint32_t>(recIdx));
+        const std::string& textureName = art.textureName;
 
-        if (modelName.empty()) {
+        if (art.modelFile.empty()) {
             LOG_WARNING("loadEquippedWeapons: empty model name for displayInfoId ", displayInfoId);
             charRenderer->detachWeapon(charInstanceId, ws.attachmentId);
             continue;
         }
 
-        // Convert .mdx → .m2
-        std::string modelFile = modelName;
-        {
-            size_t dotPos = modelFile.rfind('.');
-            if (dotPos != std::string::npos) {
-                modelFile = modelFile.substr(0, dotPos) + ".m2";
-            } else {
-                modelFile += ".m2";
-            }
-        }
+        const std::string& modelFile = art.modelFile;
 
         // Try Weapon directory first, then Shield
         std::string m2Path = "Item\\ObjectComponents\\Weapon\\" + modelFile;
@@ -651,20 +550,12 @@ void AppearanceComposer::loadEquippedWeapons() {
         uint32_t displayInfoId = rangedSlot.item.displayInfoId;
         int32_t recIdx = displayInfoDbc->findRecordById(displayInfoId);
         if (recIdx >= 0) {
-            const auto* idiL = pipeline::getActiveDBCLayout() ? pipeline::getActiveDBCLayout()->getLayout("ItemDisplayInfo") : nullptr;
-            std::string modelName = displayInfoDbc->getString(static_cast<uint32_t>(recIdx), idiL ? (*idiL)["LeftModel"] : 1);
-            std::string textureName = displayInfoDbc->getString(static_cast<uint32_t>(recIdx), idiL ? (*idiL)["LeftModelTexture"] : 3);
+            const auto art = pipeline::readItemDisplayArt(*displayInfoDbc,
+                                                          static_cast<uint32_t>(recIdx));
+            const std::string& textureName = art.textureName;
 
-            if (!modelName.empty()) {
-                std::string modelFile = modelName;
-                {
-                    size_t dotPos = modelFile.rfind('.');
-                    if (dotPos != std::string::npos) {
-                        modelFile = modelFile.substr(0, dotPos) + ".m2";
-                    } else {
-                        modelFile += ".m2";
-                    }
-                }
+            if (!art.modelFile.empty()) {
+                const std::string& modelFile = art.modelFile;
 
                 std::string m2Path = "Item\\ObjectComponents\\Weapon\\" + modelFile;
                 pipeline::M2Model weaponModel;

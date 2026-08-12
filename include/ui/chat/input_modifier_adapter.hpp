@@ -1,4 +1,4 @@
-// InputModifierAdapter — wraps core::Input to implement IModifierState.
+// InputModifierAdapter - wraps core::Input to implement IModifierState.
 // Phase 4.3 of chat_panel_ref.md.
 #pragma once
 

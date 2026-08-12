@@ -1,4 +1,4 @@
-// ItemTooltipRenderer — renders full WoW-style item tooltips via ImGui.
+// ItemTooltipRenderer - renders full WoW-style item tooltips via ImGui.
 // Extracted from ChatMarkupRenderer::renderItemTooltip (Phase 6.7).
 #include "ui/chat/item_tooltip_renderer.hpp"
 #include "ui/ui_colors.hpp"
@@ -24,61 +24,15 @@ void ItemTooltipRenderer::render(
     if (!info || !info->valid) return;
 
     auto findComparableEquipped = [&](uint8_t inventoryType) -> const game::ItemSlot* {
-        using ES = game::EquipSlot;
+        // The same mapping the bags use, from beside the enum that names it.
         const auto& inv = gameHandler.getInventory();
-        auto slotPtr = [&](ES slot) -> const game::ItemSlot* {
+        for (game::EquipSlot slot : game::comparableEquipSlots(inventoryType)) {
             const auto& s = inv.getEquipSlot(slot);
-            return s.empty() ? nullptr : &s;
-        };
-        switch (inventoryType) {
-            case 1: return slotPtr(ES::HEAD);
-            case 2: return slotPtr(ES::NECK);
-            case 3: return slotPtr(ES::SHOULDERS);
-            case 4: return slotPtr(ES::SHIRT);
-            case 5:
-            case 20: return slotPtr(ES::CHEST);
-            case 6: return slotPtr(ES::WAIST);
-            case 7: return slotPtr(ES::LEGS);
-            case 8: return slotPtr(ES::FEET);
-            case 9: return slotPtr(ES::WRISTS);
-            case 10: return slotPtr(ES::HANDS);
-            case 11: {
-                if (auto* s = slotPtr(ES::RING1)) return s;
-                return slotPtr(ES::RING2);
-            }
-            case 12: {
-                if (auto* s = slotPtr(ES::TRINKET1)) return s;
-                return slotPtr(ES::TRINKET2);
-            }
-            case 13:
-                if (auto* s = slotPtr(ES::MAIN_HAND)) return s;
-                return slotPtr(ES::OFF_HAND);
-            case 14:
-            case 22:
-            case 23: return slotPtr(ES::OFF_HAND);
-            case 15:
-            case 25:
-            case 26: return slotPtr(ES::RANGED);
-            case 16: return slotPtr(ES::BACK);
-            case 17:
-            case 21: return slotPtr(ES::MAIN_HAND);
-            case 18:
-                for (int i = 0; i < game::Inventory::NUM_BAG_SLOTS; ++i) {
-                    auto slot = static_cast<ES>(static_cast<int>(ES::BAG1) + i);
-                    if (auto* s = slotPtr(slot)) return s;
-                }
-                return nullptr;
-            case 19: return slotPtr(ES::TABARD);
-            default: return nullptr;
+            if (!s.empty()) return &s;
         }
+        return nullptr;
     };
 
-    auto isWeaponInventoryType = [](uint32_t invType) {
-        switch (invType) {
-            case 13: case 15: case 17: case 21: case 25: case 26: return true;
-            default: return false;
-        }
-    };
 
     auto appendBonus = [](std::string& out, int32_t val, const char* shortName) {
         if (val <= 0) return;
@@ -99,11 +53,8 @@ void ItemTooltipRenderer::render(
         ImGui::TextColored(ImVec4(0.0f, 0.8f, 0.0f, 1.0f), "Heroic");
 
     // Bind type (appears right under name in WoW)
-    switch (info->bindType) {
-        case 1: ImGui::TextDisabled("Binds when picked up");   break;
-        case 2: ImGui::TextDisabled("Binds when equipped");    break;
-        case 3: ImGui::TextDisabled("Binds when used");        break;
-        case 4: ImGui::TextDisabled("Quest Item");             break;
+    if (const char* bindText = game::itemBindText(info->bindType)) {
+        ImGui::TextDisabled("%s", bindText);
     }
     // Unique / Unique-Equipped
     if (info->maxCount == 1)
@@ -122,7 +73,7 @@ void ItemTooltipRenderer::render(
         }
     }
 
-    const bool isWeapon = isWeaponInventoryType(info->inventoryType);
+    const bool isWeapon = game::isWeaponInventoryType(info->inventoryType);
 
     // Item level (after slot/subclass)
     if (info->itemLevel > 0)
@@ -169,28 +120,15 @@ void ItemTooltipRenderer::render(
     }
     // Extra stats (hit/crit/haste/sp/ap/expertise/resilience/etc.)
     if (!info->extraStats.empty()) {
-        auto statName = [](uint32_t t) -> const char* {
-            switch (t) {
-                case 12: return "Defense Rating";
-                case 13: return "Dodge Rating";
-                case 14: return "Parry Rating";
-                case 15: return "Block Rating";
-                case 16: case 17: case 18: case 31: return "Hit Rating";
-                case 19: case 20: case 21: case 32: return "Critical Strike Rating";
-                case 28: case 29: case 30: case 35: return "Haste Rating";
-                case 34: return "Resilience Rating";
-                case 36: return "Expertise Rating";
-                case 37: return "Attack Power";
-                case 38: return "Ranged Attack Power";
-                case 45: return "Spell Power";
-                case 46: return "Healing Power";
-                case 47: return "Spell Damage";
-                case 49: return "Mana per 5 sec.";
-                case 43: return "Spell Penetration";
-                case 44: return "Block Value";
-                default: return nullptr;
-            }
-        };
+        // game::itemStatName, not a table of its own. This one had its own and
+        // it was shifted: it read 34 as Resilience, 35 as Haste, 36 as
+        // Expertise and 37 as Attack Power, where WotLK's ITEM_MOD has 34 as
+        // crit-taken, 35 Resilience, 36 Haste, 37 Expertise, 38 Attack Power.
+        // Everything from 43 up was wrong too - 43 named Spell Penetration is
+        // mana regen, 44 named Block Value is armour penetration, 47 named
+        // Spell Damage is spell penetration. An item link in chat showed the
+        // wrong stat name for most of the ratings on it.
+        auto statName = [](uint32_t t) { return game::itemStatName(t); };
         for (const auto& es : info->extraStats) {
             const char* nm = statName(es.statType);
             if (nm && es.statValue > 0)
@@ -214,7 +152,7 @@ void ItemTooltipRenderer::render(
         if (hasSocket && info->socketBonus != 0) {
             static std::unordered_map<uint32_t, std::string> s_enchantNames;
             static bool s_enchantNamesLoaded = false;
-            if (!s_enchantNamesLoaded && assetMgr) {
+            if (!s_enchantNamesLoaded && assetMgr && assetMgr->isInitialized()) {
                 s_enchantNamesLoaded = true;
                 auto dbc = assetMgr->loadDBC("SpellItemEnchantment.dbc");
                 if (dbc && dbc->isLoaded()) {
@@ -247,7 +185,7 @@ void ItemTooltipRenderer::render(
         };
         static std::unordered_map<uint32_t, SetEntry> s_setData;
         static bool s_setDataLoaded = false;
-        if (!s_setDataLoaded && assetMgr) {
+        if (!s_setDataLoaded && assetMgr && assetMgr->isInitialized()) {
             s_setDataLoaded = true;
             auto dbc = assetMgr->loadDBC("ItemSet.dbc");
             if (dbc && dbc->isLoaded()) {
@@ -310,13 +248,9 @@ void ItemTooltipRenderer::render(
     // Item spell effects (Use / Equip / Chance on Hit / Teaches)
     for (const auto& sp : info->spells) {
         if (sp.spellId == 0) continue;
-        const char* triggerLabel = nullptr;
-        switch (sp.spellTrigger) {
-            case 0: triggerLabel = "Use";          break;
-            case 1: triggerLabel = "Equip";        break;
-            case 2: triggerLabel = "Chance on Hit"; break;
-            case 5: triggerLabel = "Teaches";      break;
-        }
+        // Was its own table: it called trigger 5 "Teaches" and had no entry for
+        // 4 or 6, so those spell lines were skipped entirely here.
+        const char* triggerLabel = game::itemSpellTriggerText(sp.spellTrigger);
         if (!triggerLabel) continue;
         const std::string& spDesc = gameHandler.getSpellDescription(sp.spellId);
         std::string spText = !spDesc.empty()
@@ -336,7 +270,7 @@ void ItemTooltipRenderer::render(
     if (info->requiredSkill != 0 && info->requiredSkillRank > 0) {
         static std::unordered_map<uint32_t, std::string> s_skillNames;
         static bool s_skillNamesLoaded = false;
-        if (!s_skillNamesLoaded && assetMgr) {
+        if (!s_skillNamesLoaded && assetMgr && assetMgr->isInitialized()) {
             s_skillNamesLoaded = true;
             auto dbc = assetMgr->loadDBC("SkillLine.dbc");
             if (dbc && dbc->isLoaded()) {
@@ -368,7 +302,7 @@ void ItemTooltipRenderer::render(
     if (info->requiredReputationFaction != 0 && info->requiredReputationRank > 0) {
         static std::unordered_map<uint32_t, std::string> s_factionNames;
         static bool s_factionNamesLoaded = false;
-        if (!s_factionNamesLoaded && assetMgr) {
+        if (!s_factionNamesLoaded && assetMgr && assetMgr->isInitialized()) {
             s_factionNamesLoaded = true;
             auto dbc = assetMgr->loadDBC("Faction.dbc");
             if (dbc && dbc->isLoaded()) {
@@ -464,7 +398,7 @@ void ItemTooltipRenderer::render(
                 ImGui::SameLine();
             }
             ImGui::TextColored(InventoryScreen::getQualityColor(eq->item.quality), "%s", eq->item.name.c_str());
-            if (isWeaponInventoryType(eq->item.inventoryType) &&
+            if (game::isWeaponInventoryType(eq->item.inventoryType) &&
                 eq->item.damageMax > 0.0f && eq->item.delayMs > 0) {
                 float speed = static_cast<float>(eq->item.delayMs) / 1000.0f;
                 float dps = ((eq->item.damageMin + eq->item.damageMax) * 0.5f) / speed;
@@ -492,23 +426,7 @@ void ItemTooltipRenderer::render(
             }
             // Extra stats for the equipped item
             for (const auto& es : eq->item.extraStats) {
-                const char* nm = nullptr;
-                switch (es.statType) {
-                    case 12: nm = "Defense Rating"; break;
-                    case 13: nm = "Dodge Rating"; break;
-                    case 14: nm = "Parry Rating"; break;
-                    case 16: case 17: case 18: case 31: nm = "Hit Rating"; break;
-                    case 19: case 20: case 21: case 32: nm = "Critical Strike Rating"; break;
-                    case 28: case 29: case 30: case 35: nm = "Haste Rating"; break;
-                    case 34: nm = "Resilience Rating"; break;
-                    case 36: nm = "Expertise Rating"; break;
-                    case 37: nm = "Attack Power"; break;
-                    case 38: nm = "Ranged Attack Power"; break;
-                    case 45: nm = "Spell Power"; break;
-                    case 46: nm = "Healing Power"; break;
-                    case 49: nm = "Mana per 5 sec."; break;
-                    default: break;
-                }
+                const char* nm = game::itemStatName(es.statType);
                 if (nm && es.statValue > 0)
                     ImGui::TextColored(green, "+%d %s", es.statValue, nm);
             }

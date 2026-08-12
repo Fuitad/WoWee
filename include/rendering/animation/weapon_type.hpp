@@ -9,7 +9,7 @@ namespace rendering {
 enum class RangedWeaponType : uint8_t { NONE = 0, BOW, GUN, CROSSBOW, THROWN };
 
 // ============================================================================
-// WeaponLoadout — extracted from AnimationController
+// WeaponLoadout - extracted from AnimationController
 //
 // Consolidates the 6 weapon boolean fields + inventory type + ranged type
 // into a single value type.

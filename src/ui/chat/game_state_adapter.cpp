@@ -1,4 +1,4 @@
-// GameStateAdapter — concrete IGameState wrapping GameHandler + Renderer.
+// GameStateAdapter - concrete IGameState wrapping GameHandler + Renderer.
 // Phase 4.2 of chat_panel_ref.md.
 #include "ui/chat/game_state_adapter.hpp"
 #include "game/game_handler.hpp"

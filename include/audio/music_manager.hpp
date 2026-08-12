@@ -46,7 +46,7 @@ private:
     float effectiveMusicVolume() const;
 
     // Tracks run to several MB, so reading one on the calling thread stalls whatever
-    // frame asked for it — starting the login music was costing ~200ms of render time.
+    // frame asked for it - starting the login music was costing ~200ms of render time.
     // The read happens on a worker; update() hands the bytes to the AudioEngine once
     // they land, keeping every miniaudio call on the main thread.
     struct PendingFileLoad {

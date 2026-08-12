@@ -1,3 +1,5 @@
+#include "pipeline/wowee_vertex_sanitize.hpp"
+#include "pipeline/wowee_binary_io.hpp"
 #include "pipeline/wowee_building.hpp"
 #include "pipeline/wmo_loader.hpp"
 #include "core/logger.hpp"
@@ -83,23 +85,12 @@ WoweeBuilding WoweeBuildingLoader::load(const std::string& basePath) {
 
         grp.vertices.resize(vc);
         f.read(reinterpret_cast<char*>(grp.vertices.data()), vc * sizeof(WoweeBuilding::Vertex));
-        // Sanitize vertex floats — WMO renderer matrix math is sensitive
+        // Sanitize vertex floats - WMO renderer matrix math is sensitive
         // and a NaN position can desync the entire group's draw state.
-        for (auto& v : grp.vertices) {
-            if (!std::isfinite(v.position.x)) v.position.x = 0.0f;
-            if (!std::isfinite(v.position.y)) v.position.y = 0.0f;
-            if (!std::isfinite(v.position.z)) v.position.z = 0.0f;
-            if (!std::isfinite(v.normal.x)) v.normal.x = 0.0f;
-            if (!std::isfinite(v.normal.y)) v.normal.y = 0.0f;
-            if (!std::isfinite(v.normal.z)) v.normal.z = 1.0f;
-            if (!std::isfinite(v.texCoord.x)) v.texCoord.x = 0.0f;
-            if (!std::isfinite(v.texCoord.y)) v.texCoord.y = 0.0f;
-            for (int c = 0; c < 4; c++)
-                if (!std::isfinite(v.color[c])) v.color[c] = 1.0f;
-        }
+        sanitizeVertices(grp.vertices);
         grp.indices.resize(ic);
         f.read(reinterpret_cast<char*>(grp.indices.data()), ic * 4);
-        // Same out-of-range index clamp as the WOM loader — bad indices
+        // Same out-of-range index clamp as the WOM loader - bad indices
         // would crash the GPU draw on the WMO group.
         const uint32_t vMax = vc > 0 ? vc - 1 : 0;
         for (auto& idx : grp.indices) {
@@ -119,7 +110,7 @@ WoweeBuilding WoweeBuildingLoader::load(const std::string& basePath) {
             uint16_t tl;
             f.read(reinterpret_cast<char*>(&tl), 2);
             // tl > 1024 means we'd previously zero-out tl and skip the
-            // read — but the original bytes are still on disk, so the
+            // read - but the original bytes are still on disk, so the
             // next iteration would read garbage as the next length+path.
             // Reject the whole load instead of silently desyncing.
             if (tl > 1024) {
@@ -148,7 +139,7 @@ WoweeBuilding WoweeBuildingLoader::load(const std::string& basePath) {
                 WoweeBuilding::Material mat;
                 uint16_t pl;
                 f.read(reinterpret_cast<char*>(&pl), 2);
-                // Same load-desync risk as group texture paths above —
+                // Same load-desync risk as group texture paths above -
                 // overlong path means stale on-disk bytes would become
                 // the next material's length+data. Reject the load.
                 if (pl > 1024) {
@@ -182,14 +173,14 @@ WoweeBuilding WoweeBuildingLoader::load(const std::string& basePath) {
         }
         portal.vertices.resize(pvCount);
         f.read(reinterpret_cast<char*>(portal.vertices.data()), pvCount * 12);
-        // Sanitize vertex floats — NaN portal vertices break the WMO
+        // Sanitize vertex floats - NaN portal vertices break the WMO
         // portal-frustum cull and would draw the whole interior every frame.
         for (auto& v : portal.vertices) {
             if (!std::isfinite(v.x)) v.x = 0.0f;
             if (!std::isfinite(v.y)) v.y = 0.0f;
             if (!std::isfinite(v.z)) v.z = 0.0f;
         }
-        // Validate group indices are in range — out-of-range groupA/groupB
+        // Validate group indices are in range - out-of-range groupA/groupB
         // would index past wmo.groups during cull and segfault.
         const int32_t maxGroup = static_cast<int32_t>(groupCount);
         if (portal.groupA >= maxGroup) portal.groupA = -1;
@@ -208,7 +199,7 @@ WoweeBuilding WoweeBuildingLoader::load(const std::string& basePath) {
         }
         dp.modelPath.resize(pl);
         f.read(dp.modelPath.data(), pl);
-        // Reject path-traversal in doodad model paths — these end up in
+        // Reject path-traversal in doodad model paths - these end up in
         // outModel.doodadNames and are passed to the asset manager. While
         // the manager only reads files, '..' paths in custom_zones could
         // probe for files outside the assets/ tree.
@@ -225,7 +216,7 @@ WoweeBuilding WoweeBuildingLoader::load(const std::string& basePath) {
         // the field, or NaNs from a partial write). The renderer would
         // collapse the doodad to a point with scale 0.
         if (!std::isfinite(dp.scale) || dp.scale <= 0.0001f) dp.scale = 1.0f;
-        // Same NaN scrub for position/rotation — doodads with non-finite
+        // Same NaN scrub for position/rotation - doodads with non-finite
         // transforms produce NaN model matrices and crash the GPU.
         for (int k = 0; k < 3; k++) {
             if (!std::isfinite(dp.position[k])) dp.position[k] = 0.0f;
@@ -241,7 +232,7 @@ WoweeBuilding WoweeBuildingLoader::load(const std::string& basePath) {
 
 bool WoweeBuildingLoader::save(const WoweeBuilding& bld, const std::string& basePath) {
     namespace fs = std::filesystem;
-    fs::create_directories(fs::path(basePath).parent_path());
+    ensureParentDirectory(basePath);
 
     std::ofstream f(basePath + ".wob", std::ios::binary);
     if (!f) return false;
@@ -256,12 +247,12 @@ bool WoweeBuildingLoader::save(const WoweeBuilding& bld, const std::string& base
     f.write(reinterpret_cast<const char*>(&gc), 4);
     f.write(reinterpret_cast<const char*>(&pc), 4);
     f.write(reinterpret_cast<const char*>(&dc), 4);
-    // Same float sanitize as WOM/WOC saves — defaults to 1.0 if non-finite.
+    // Same float sanitize as WOM/WOC saves - defaults to 1.0 if non-finite.
     float boundRadius = std::isfinite(bld.boundRadius) && bld.boundRadius >= 0.0f
                             ? bld.boundRadius : 1.0f;
     f.write(reinterpret_cast<const char*>(&boundRadius), 4);
 
-    // Truncate length-prefixed strings to fit their u16 length field — without
+    // Truncate length-prefixed strings to fit their u16 length field - without
     // this, names over 65535 chars would silently get a wrap-around length and
     // produce a corrupt file (the string text would be longer than the saved
     // length and shift everything after it).
@@ -288,7 +279,7 @@ bool WoweeBuildingLoader::save(const WoweeBuilding& bld, const std::string& base
         f.write(reinterpret_cast<const char*>(&tc), 4);
         uint8_t outdoor = grp.isOutdoor ? 1 : 0;
         f.write(reinterpret_cast<const char*>(&outdoor), 1);
-        // Sanitize group bounds — non-finite would corrupt cull frustum.
+        // Sanitize group bounds - non-finite would corrupt cull frustum.
         glm::vec3 bMin = grp.boundMin, bMax = grp.boundMax;
         for (int k = 0; k < 3; k++) {
             if (!std::isfinite(bMin[k])) bMin[k] = 0.0f;
@@ -297,26 +288,15 @@ bool WoweeBuildingLoader::save(const WoweeBuilding& bld, const std::string& base
         f.write(reinterpret_cast<const char*>(&bMin), 12);
         f.write(reinterpret_cast<const char*>(&bMax), 12);
 
-        // Sanitize vertices on the way out — same scrub the load side does.
+        // Sanitize vertices on the way out - same scrub the load side does.
         // Without this, a manually-constructed WoweeBuilding with NaN-laced
         // vertices would persist them into the file and have the load-time
         // guard clean up forever after.
         std::vector<WoweeBuilding::Vertex> sanVerts = grp.vertices;
-        for (auto& v : sanVerts) {
-            if (!std::isfinite(v.position.x)) v.position.x = 0.0f;
-            if (!std::isfinite(v.position.y)) v.position.y = 0.0f;
-            if (!std::isfinite(v.position.z)) v.position.z = 0.0f;
-            if (!std::isfinite(v.normal.x)) v.normal.x = 0.0f;
-            if (!std::isfinite(v.normal.y)) v.normal.y = 0.0f;
-            if (!std::isfinite(v.normal.z)) v.normal.z = 1.0f;
-            if (!std::isfinite(v.texCoord.x)) v.texCoord.x = 0.0f;
-            if (!std::isfinite(v.texCoord.y)) v.texCoord.y = 0.0f;
-            for (int c = 0; c < 4; c++)
-                if (!std::isfinite(v.color[c])) v.color[c] = 1.0f;
-        }
+        sanitizeVertices(sanVerts);
         f.write(reinterpret_cast<const char*>(sanVerts.data()),
                 vc * sizeof(WoweeBuilding::Vertex));
-        // Clamp out-of-range indices on save too — symmetric with load.
+        // Clamp out-of-range indices on save too - symmetric with load.
         const uint32_t vMax = vc > 0 ? vc - 1 : 0;
         std::vector<uint32_t> sanIdx = grp.indices;
         for (auto& idx : sanIdx) if (idx > vMax) idx = 0;
@@ -326,7 +306,7 @@ bool WoweeBuildingLoader::save(const WoweeBuilding& bld, const std::string& base
         // matches the header (tc) on round-trip.
         for (uint32_t ti = 0; ti < tc; ti++) writeStr(grp.texturePaths[ti]);
 
-        // Write material data — cap at 256 to match load-side limit so a
+        // Write material data - cap at 256 to match load-side limit so a
         // pathological in-memory count can't write a file the loader will
         // reject and produce a partially-zero build on round-trip.
         uint32_t mc = static_cast<uint32_t>(
@@ -350,7 +330,7 @@ bool WoweeBuildingLoader::save(const WoweeBuilding& bld, const std::string& base
         uint32_t pvCount = static_cast<uint32_t>(
             std::min<size_t>(portal.vertices.size(), 4096));
         f.write(reinterpret_cast<const char*>(&pvCount), 4);
-        // Sanitize vertices on the way out — NaN portal vertices break
+        // Sanitize vertices on the way out - NaN portal vertices break
         // the WMO portal-frustum cull and fail-back to drawing the entire
         // building, defeating the indoor optimization.
         std::vector<glm::vec3> sanPortal(portal.vertices.begin(),
@@ -458,7 +438,7 @@ bool WoweeBuildingLoader::toWMOModel(const WoweeBuilding& building, WMOModel& ou
 
         wmoGroup.indices.reserve(grp.indices.size());
         // WMO format uses uint16 indices, so each group must stay under 65k
-        // verts. WoB allows uint32 — log + clamp instead of silently
+        // verts. WoB allows uint32 - log + clamp instead of silently
         // wrapping and producing garbage triangles in the renderer.
         bool warnedTrunc = false;
         for (uint32_t idx : grp.indices) {

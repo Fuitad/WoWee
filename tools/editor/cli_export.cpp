@@ -217,18 +217,8 @@ int handleExportZoneSummaryMd(int& i, int argc, char** argv) {
     if (qe.questCount() == 0) {
         md << "*No quests.*\n";
     } else {
-        using OT = wowee::editor::QuestObjectiveType;
-        auto typeName = [](OT t) {
-            switch (t) {
-                case OT::KillCreature: return "kill";
-                case OT::CollectItem:  return "collect";
-                case OT::TalkToNPC:    return "talk";
-                case OT::ExploreArea:  return "explore";
-                case OT::EscortNPC:    return "escort";
-                case OT::UseObject:    return "use";
-            }
-            return "?";
-        };
+        // The word is the format's, from beside the enum.
+        auto typeName = wowee::editor::questObjectiveTypeName;
         for (size_t k = 0; k < qe.questCount(); ++k) {
             const auto& q = qe.getQuests()[k];
             md << "### " << k << ". " << q.title << "\n\n";
@@ -246,7 +236,7 @@ int handleExportZoneSummaryMd(int& i, int argc, char** argv) {
                     md << "  - **" << typeName(obj.type) << "** "
                        << obj.targetName << " ×" << obj.targetCount;
                     if (!obj.description.empty()) {
-                        md << " — *" << obj.description << "*";
+                        md << " - *" << obj.description << "*";
                     }
                     md << "\n";
                 }
@@ -347,7 +337,7 @@ int handleExportZoneCsv(int& i, int argc, char** argv) {
                     op.getObjects().size());
         filesWritten++;
     }
-    // Quests — flatten to one row per quest. Objectives + items
+    // Quests - flatten to one row per quest. Objectives + items
     // are joined into a single semicolon-separated cell so the
     // CSV stays one-row-per-quest (designer-friendly for sorting).
     wowee::editor::QuestEditor qe;
@@ -358,18 +348,8 @@ int handleExportZoneCsv(int& i, int argc, char** argv) {
         f << "index,id,title,requiredLevel,giverNpcId,turnInNpcId,"
              "xp,gold,silver,copper,nextQuestId,objectiveCount,"
              "objectives,itemRewards\n";
-        using OT = wowee::editor::QuestObjectiveType;
-        auto typeName = [](OT t) {
-            switch (t) {
-                case OT::KillCreature: return "kill";
-                case OT::CollectItem:  return "collect";
-                case OT::TalkToNPC:    return "talk";
-                case OT::ExploreArea:  return "explore";
-                case OT::EscortNPC:    return "escort";
-                case OT::UseObject:    return "use";
-            }
-            return "?";
-        };
+        // The word is the format's, from beside the enum.
+        auto typeName = wowee::editor::questObjectiveTypeName;
         for (size_t k = 0; k < qe.questCount(); ++k) {
             const auto& q = qe.getQuests()[k];
             std::string objs;
@@ -396,7 +376,7 @@ int handleExportZoneCsv(int& i, int argc, char** argv) {
         std::printf("  wrote %s (%zu rows)\n", out.c_str(), qe.questCount());
         filesWritten++;
     }
-    // Items — read items.json inline since the items pipeline
+    // Items - read items.json inline since the items pipeline
     // doesn't have a dedicated editor class yet.
     std::string itemsPath = zoneDir + "/items.json";
     if (fs::exists(itemsPath)) {
@@ -452,7 +432,7 @@ int handleExportZoneChecksum(int& i, int argc, char** argv) {
         return 1;
     }
     if (outPath.empty()) outPath = zoneDir + "/SHA256SUMS";
-    // Source files only — derived outputs (.glb/.obj/.stl/.html/
+    // Source files only - derived outputs (.glb/.obj/.stl/.html/
     // ZONE.md/DEPS.md/quests.dot/SHA256SUMS itself) are excluded
     // since they're regeneratable and would invalidate the
     // checksum on every rebuild.
@@ -501,7 +481,7 @@ int handleExportProjectChecksum(int& i, int argc, char** argv) {
     // Project-wide manifest in the same sha256sum format, with
     // paths kept relative to <projectDir> (so entries look like
     // "<hex>  <zoneName>/<file>"). Also emits a single SHA-256
-    // fingerprint over the manifest itself — a one-line
+    // fingerprint over the manifest itself - a one-line
     // identity for the whole project, handy for CI release
     // gates and reproducibility checks.
     //
@@ -530,13 +510,9 @@ int handleExportProjectChecksum(int& i, int argc, char** argv) {
         if (ext == ".png") return true;
         return false;
     };
-    std::vector<std::string> zones;
-    for (const auto& entry : fs::directory_iterator(projectDir)) {
-        if (!entry.is_directory()) continue;
-        if (!fs::exists(entry.path() / "zone.json")) continue;
-        zones.push_back(entry.path().string());
-    }
-    std::sort(zones.begin(), zones.end());
+    // What counts as a zone, and the order they are reported in,
+    // from one place.
+    std::vector<std::string> zones = wowee::editor::projectZoneDirs(projectDir);
     std::vector<std::pair<std::string, std::string>> entries;
     for (const auto& zoneDir : zones) {
         std::error_code ec;
@@ -584,7 +560,7 @@ int handleExportProjectChecksum(int& i, int argc, char** argv) {
 int handleValidateProjectChecksum(int& i, int argc, char** argv) {
     // In-tool verification of the manifest produced by
     // --export-project-checksum. Equivalent to 'sha256sum -c
-    // PROJECT_SHA256SUMS' but cross-platform — Windows and
+    // PROJECT_SHA256SUMS' but cross-platform - Windows and
     // CI runners without coreutils don't need an external tool.
     // Exit 1 if any file is missing or its hash drifted.
     std::string projectDir = argv[++i];
@@ -644,7 +620,7 @@ int handleValidateProjectChecksum(int& i, int argc, char** argv) {
 
 int handleExportZoneHtml(int& i, int argc, char** argv) {
     // Generate a single-file HTML viewer next to the zone .glb.
-    // Anyone with a modern browser can open it — no installs, no
+    // Anyone with a modern browser can open it - no installs, no
     // CDN-mining the user's network. Uses model-viewer (Google's
     // web component) bundled from the unpkg CDN since it's
     // standards-based and doesn't require a build step.
@@ -672,7 +648,7 @@ int handleExportZoneHtml(int& i, int argc, char** argv) {
     std::string glbPath = zoneDir + "/" + glbName;
     if (!fs::exists(glbPath)) {
         std::fprintf(stderr,
-            "export-zone-html: %s does not exist — run --bake-zone-glb first\n",
+            "export-zone-html: %s does not exist - run --bake-zone-glb first\n",
             glbPath.c_str());
         return 1;
     }
@@ -700,7 +676,7 @@ int handleExportZoneHtml(int& i, int argc, char** argv) {
            "<html lang=\"en\">\n"
            "<head>\n"
            "  <meta charset=\"utf-8\">\n"
-           "  <title>" << title << " — Wowee Zone Viewer</title>\n"
+           "  <title>" << title << " - Wowee Zone Viewer</title>\n"
            "  <script type=\"module\" "
                "src=\"https://unpkg.com/@google/model-viewer@^4.0.0/dist/model-viewer.min.js\">"
            "</script>\n"
@@ -736,7 +712,7 @@ int handleExportZoneHtml(int& i, int argc, char** argv) {
     out.close();
     std::printf("Wrote %s\n", outPath.c_str());
     std::printf("  references %s (must sit next to .html)\n", glbHref.c_str());
-    std::printf("  open in any modern browser — no install required\n");
+    std::printf("  open in any modern browser - no install required\n");
     return 0;
 }
 
@@ -807,7 +783,7 @@ int handleExportProjectHtml(int& i, int argc, char** argv) {
            "<html lang=\"en\">\n"
            "<head>\n"
            "  <meta charset=\"utf-8\">\n"
-           "  <title>Wowee Project — Zone Index</title>\n"
+           "  <title>Wowee Project - Zone Index</title>\n"
            "  <style>\n"
            "    body { margin:0; font-family: sans-serif; background:#1a1a1a; color:#eee; padding:20px; }\n"
            "    h1 { margin:0 0 8px; font-size:22px; }\n"
@@ -823,7 +799,7 @@ int handleExportProjectHtml(int& i, int argc, char** argv) {
            "  </style>\n"
            "</head>\n"
            "<body>\n"
-           "  <h1>Wowee Project — Zone Index</h1>\n"
+           "  <h1>Wowee Project - Zone Index</h1>\n"
            "  <div class=\"count\">" << entries.size() << " zone(s) found in <code>"
         << projectDir << "</code></div>\n"
            "  <div class=\"zones\">\n";
@@ -861,7 +837,7 @@ int handleExportProjectMd(int& i, int argc, char** argv) {
     // Markdown counterpart to --export-project-html. Generates a
     // README.md indexing every zone with counts + bake/viewer
     // status. GitHub renders it natively at the project root.
-    // Pairs with --export-zone-summary-md (per-zone) — the project
+    // Pairs with --export-zone-summary-md (per-zone) - the project
     // README links to each zone's per-zone .md.
     std::string projectDir = argv[++i];
     std::string outPath;
@@ -921,7 +897,7 @@ int handleExportProjectMd(int& i, int argc, char** argv) {
             "export-project-md: cannot write %s\n", outPath.c_str());
         return 1;
     }
-    out << "# Wowee Project — Zone Index\n\n";
+    out << "# Wowee Project - Zone Index\n\n";
     out << "*Auto-generated. " << rows.size()
         << " zone(s) discovered in `" << projectDir << "`.*\n\n";
     out << "## Summary\n\n";
@@ -943,9 +919,9 @@ int handleExportProjectMd(int& i, int argc, char** argv) {
         }
         out << " | " << r.tiles << " | " << r.creatures << " | "
             << r.objects << " | " << r.quests << " | "
-            << (r.hasGlb ? "✓" : "—") << " | "
-            << (r.hasHtml ? "[view](" + r.dirRel + "/" + r.mapName + ".html)" : "—") << " | "
-            << (r.hasZoneMd ? "[md](" + r.dirRel + "/ZONE.md)" : "—") << " |\n";
+            << (r.hasGlb ? "✓" : "-") << " | "
+            << (r.hasHtml ? "[view](" + r.dirRel + "/" + r.mapName + ".html)" : "-") << " | "
+            << (r.hasZoneMd ? "[md](" + r.dirRel + "/ZONE.md)" : "-") << " |\n";
     }
     out.close();
     std::printf("Wrote %s\n", outPath.c_str());
@@ -986,7 +962,7 @@ int handleExportQuestGraph(int& i, int argc, char** argv) {
             "export-quest-graph: cannot write %s\n", outPath.c_str());
         return 1;
     }
-    // DOT-escape strings (just quotes and backslashes) — quest
+    // DOT-escape strings (just quotes and backslashes) - quest
     // titles can include arbitrary punctuation that breaks DOT
     // parsing if not escaped.
     auto dotEsc = [](const std::string& s) {

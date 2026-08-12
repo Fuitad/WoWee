@@ -7,13 +7,13 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Item Set catalog (.wset) — novel replacement
+// Wowee Open Item Set catalog (.wset) - novel replacement
 // for Blizzard's ItemSet.dbc + ItemSetSpell.dbc plus the
 // AzerothCore-style item_set_spell SQL data. New open
 // format that closes the tier-bonus gap.
 //
 // Defines tiered item sets like "Battlegear of Wrath" or
-// "Vengeful Gladiator's Plate" — N piece IDs (up to 8) plus
+// "Vengeful Gladiator's Plate" - N piece IDs (up to 8) plus
 // M bonus thresholds (up to 4) where each threshold maps to
 // a spell aura that activates when the player wears at least
 // `threshold` pieces simultaneously. Standard 2-piece /
@@ -38,7 +38,7 @@ namespace pipeline {
 //     pieceCount (uint8) / bonusCount (uint8) / pad[2]
 //     requiredClassMask (uint32)
 //     requiredSkillId (uint16) / requiredSkillRank (uint16)
-//     itemIds[8] (uint32)            — unused slots = 0
+//     itemIds[8] (uint32)            - unused slots = 0
 //     bonusThresholds[4] (uint8) / pad[4]
 //     bonusSpellIds[4] (uint32)
 struct WoweeItemSet {
@@ -48,7 +48,7 @@ struct WoweeItemSet {
     // Class-mask bits matching WCHC.classId (1=Warrior=bit 1,
     // 2=Paladin, 3=Hunter, 4=Rogue, 5=Priest, 6=DK, 7=Shaman,
     // 8=Mage, 9=Warlock, 11=Druid). 32-bit so the wider WotLK
-    // class set (Druid bit 11) fits — same convention as WGLY.
+    // class set (Druid bit 11) fits - same convention as WGLY.
     static constexpr uint32_t kClassNone     = 0;
     static constexpr uint32_t kClassWarrior  = 1u << 1;
     static constexpr uint32_t kClassPaladin  = 1u << 2;
@@ -94,13 +94,13 @@ public:
 
     // Preset emitters used by --gen-itset* variants.
     //
-    //   makeStarter — 2 raid sets (Battlegear of Wrath
+    //   makeStarter - 2 raid sets (Battlegear of Wrath
     //                  warrior tier-2; Stormrage Raiment
     //                  druid tier-2) with 8-piece layouts.
-    //   makeTier    — 4 progression sets across class-role
+    //   makeTier    - 4 progression sets across class-role
     //                  archetypes (warrior plate, mage cloth,
     //                  rogue leather, paladin holy plate).
-    //   makePvP     — 3 PvP gladiator sets (Vindication,
+    //   makePvP     - 3 PvP gladiator sets (Vindication,
     //                  Doomcaller, Predatory) with 5-piece
     //                  layouts and 2/4-piece set bonuses.
     static WoweeItemSet makeStarter(const std::string& catalogName);

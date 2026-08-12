@@ -1,4 +1,6 @@
 #include "cli_spell_pack_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -20,20 +22,6 @@ namespace cli {
 
 namespace {
 
-std::string stripWspkExt(std::string base) {
-    stripExt(base, ".wspk");
-    return base;
-}
-
-bool saveOrError(const wowee::pipeline::WoweeSpellPack& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeSpellPackLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wspk\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeSpellPack& c,
                      const std::string& base) {
@@ -46,10 +34,10 @@ int handleGenWarrior(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "WarriorSpellPack";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWspkExt(base);
+    base = cli::withoutExt(base, ".wspk");
     auto c = wowee::pipeline::WoweeSpellPackLoader::
         makeWarriorPack(name);
-    if (!saveOrError(c, base, "gen-spk-warrior")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellPackLoader>(c, base, "gen-spk-warrior", ".wspk")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -58,10 +46,10 @@ int handleGenMage(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "MageSpellPack";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWspkExt(base);
+    base = cli::withoutExt(base, ".wspk");
     auto c = wowee::pipeline::WoweeSpellPackLoader::
         makeMagePack(name);
-    if (!saveOrError(c, base, "gen-spk-mage")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellPackLoader>(c, base, "gen-spk-mage", ".wspk")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -70,16 +58,16 @@ int handleGenRogue(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "RogueSpellPack";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWspkExt(base);
+    base = cli::withoutExt(base, ".wspk");
     auto c = wowee::pipeline::WoweeSpellPackLoader::
         makeRoguePack(name);
-    if (!saveOrError(c, base, "gen-spk-rogue")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellPackLoader>(c, base, "gen-spk-rogue", ".wspk")) return 1;
     printGenSummary(c, base);
     return 0;
 }
 
 const char* classIdName(uint8_t c) {
-    // Vanilla 1.12 PlayerClass DBC ids — used for the
+    // Vanilla 1.12 PlayerClass DBC ids - used for the
     // info-table display only.
     switch (c) {
         case 1:  return "Warrior";
@@ -98,7 +86,7 @@ const char* classIdName(uint8_t c) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWspkExt(base);
+    base = cli::withoutExt(base, ".wspk");
     if (!wowee::pipeline::WoweeSpellPackLoader::exists(base)) {
         std::fprintf(stderr, "WSPK not found: %s.wspk\n",
                      base.c_str());
@@ -144,12 +132,9 @@ int handleInfo(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWspkExt(base);
+    base = cli::withoutExt(base, ".wspk");
     if (!wowee::pipeline::WoweeSpellPackLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wspk: WSPK not found: %s.wspk\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wspk", "WSPK", base, ".wspk");
     }
     auto c = wowee::pipeline::WoweeSpellPackLoader::load(base);
     std::vector<std::string> errors;
@@ -184,9 +169,9 @@ int handleValidate(int& i, int argc, char** argv) {
         if (e.tabIndex > 3) {
             errors.push_back(ctx + ": tabIndex " +
                 std::to_string(e.tabIndex) +
-                " out of range (0..3 — General + 3 specs)");
+                " out of range (0..3 - General + 3 specs)");
         }
-        // (classId, tabIndex) MUST be unique — the
+        // (classId, tabIndex) MUST be unique - the
         // spellbook UI dispatches by this pair, two
         // entries with the same pair would tie.
         auto pair = std::make_pair(e.classId, e.tabIndex);
@@ -196,12 +181,12 @@ int handleValidate(int& i, int argc, char** argv) {
                 std::to_string(e.classId) +
                 ", tabIndex=" +
                 std::to_string(e.tabIndex) +
-                ") — spellbook UI tab dispatch tie");
+                ") - spellbook UI tab dispatch tie");
         }
         if (!packIdsSeen.insert(e.packId).second) {
             errors.push_back(ctx + ": duplicate packId");
         }
-        // Per-tab spell uniqueness — the same spellId
+        // Per-tab spell uniqueness - the same spellId
         // appearing twice in one tab is a copy-paste bug
         // (the UI would render it twice).
         std::set<uint32_t> spellsInTab;
@@ -215,62 +200,34 @@ int handleValidate(int& i, int argc, char** argv) {
                 errors.push_back(ctx +
                     ": duplicate spellId " +
                     std::to_string(sid) +
-                    " within tab — would render twice in "
+                    " within tab - would render twice in "
                     "spellbook");
             }
         }
-        // Empty tab: warn — General tab with zero spells
+        // Empty tab: warn - General tab with zero spells
         // means the player starts with no abilities at
         // all on that tree.
         if (e.spellIds.empty()) {
             warnings.push_back(ctx +
-                ": tab has zero spells — player would see "
+                ": tab has zero spells - player would see "
                 "an empty spellbook tab");
         }
     }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wspk"] = base + ".wspk";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wspk: %s.wspk\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu packs, all packIds unique, "
+    return cli::reportValidation("wspk", base, jsonOut, errors, warnings,
+                                 formatted("%zu packs, all packIds unique, "
                     "(classId,tabIndex) unique, classId in "
                     "1..11, tabIndex in 0..3, no duplicate "
-                    "spellIds within any tab\n",
-                    c.entries.size());
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+                    "spellIds within any tab", c.entries.size()));
 }
 
 int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWspkExt(base);
+    base = cli::withoutExt(base, ".wspk");
     if (out.empty()) out = base + ".wspk.json";
     if (!wowee::pipeline::WoweeSpellPackLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wspk-json: WSPK not found: %s.wspk\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wspk-json", "WSPK", base, ".wspk");
     }
     auto c = wowee::pipeline::WoweeSpellPackLoader::load(base);
     nlohmann::json j;
@@ -307,16 +264,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wspk.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wspk");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wspk");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,

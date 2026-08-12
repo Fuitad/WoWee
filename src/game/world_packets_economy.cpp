@@ -69,7 +69,7 @@ bool parseAuctionMailBody(const std::string& body, AuctionMailInvoice& result) {
     size_t fieldCount = 0;
     size_t start = 0;
     while (start <= body.size() && fieldCount < fields.size()) {
-        // The GUID field is space-padded to width 16 — skip leading whitespace.
+        // The GUID field is space-padded to width 16 - skip leading whitespace.
         while (start < body.size() &&
                std::isspace(static_cast<unsigned char>(body[start]))) {
             ++start;
@@ -141,7 +141,7 @@ network::Packet ActivateTaxiExpressPacket::build(uint64_t npcGuid,
     // guid, node count, then the nodes. That is all of it.
     //
     // A total cost was being written between the guid and the count, and
-    // HandleActivateTaxiExpressOpcode does not read one — so the server took
+    // HandleActivateTaxiExpressOpcode does not read one - so the server took
     // the cost as the number of nodes to expect. What followed was read as the
     // first node: the client's own count, a small number that is no taxi node
     // anyone has visited, which the server answers with ERR_TAXINOTVISITED and
@@ -238,6 +238,13 @@ network::Packet MailDeletePacket::build(uint64_t mailboxGuid, uint32_t mailId, u
     return packet;
 }
 
+network::Packet MailReturnToSenderPacket::build(uint64_t mailboxGuid, uint32_t mailId) {
+    network::Packet packet(wireOpcode(Opcode::CMSG_MAIL_RETURN_TO_SENDER));
+    packet.writeUInt64(mailboxGuid);
+    packet.writeUInt32(mailId);
+    return packet;
+}
+
 network::Packet MailMarkAsReadPacket::build(uint64_t mailboxGuid, uint32_t mailId) {
     network::Packet packet(wireOpcode(Opcode::CMSG_MAIL_MARK_AS_READ));
     packet.writeUInt64(mailboxGuid);
@@ -246,7 +253,7 @@ network::Packet MailMarkAsReadPacket::build(uint64_t mailboxGuid, uint32_t mailI
 }
 
 // ============================================================================
-// PacketParsers::parseMailList — WotLK 3.3.5a format (base/default)
+// PacketParsers::parseMailList - WotLK 3.3.5a format (base/default)
 // ============================================================================
 bool PacketParsers::parseMailList(network::Packet& packet, std::vector<MailMessage>& inbox) {
     size_t remaining = packet.getRemainingSize();
@@ -279,7 +286,7 @@ bool PacketParsers::parseMailList(network::Packet& packet, std::vector<MailMessa
         // framing: some AzerothCore-derived cores over-declare it (observed a
         // consistent +4 per mail), so skipping to the declared end overshoots and
         // desyncs every mail after the first. Instead we advance by the natural
-        // parse position — our field parse reads the complete documented WotLK
+        // parse position - our field parse reads the complete documented WotLK
         // entry, so it lands exactly on the next entry on both correct and
         // over-declaring servers.
         packet.readUInt16(); // declared size (advisory only)
@@ -433,7 +440,7 @@ network::Packet GuildBankWithdrawMoneyPacket::build(uint64_t guid, uint32_t amou
 //   else:         u8 playerBag, u8 playerSlot, u8 toChar, u32 splitedAmount
 // toChar: 1 = bank→character (withdraw), 0 = character→bank (deposit).
 // The old builder omitted toChar, wrote splitCount as a mid-packet u8, and the
-// deposit variant set bankToBank=1 — so item transfers were silently dropped.
+// deposit variant set bankToBank=1 - so item transfers were silently dropped.
 network::Packet GuildBankSwapItemsPacket::buildBankToInventory(
     uint64_t guid, uint8_t tabId, uint8_t bankSlot,
     uint8_t destBag, uint8_t destSlot, uint32_t splitCount)
@@ -486,7 +493,11 @@ bool GuildBankListParser::parse(network::Packet& packet, GuildBankData& data) {
     data.withdrawAmount = static_cast<int32_t>(packet.readUInt32());
     uint8_t fullUpdate = packet.readUInt8();
 
-    if (fullUpdate) {
+    // Tab zero only. GuildBankQueryResults::Write sends the tab list under
+    // `if (!Tab && FullUpdate)`, so a full update of any other tab carries no
+    // names - and reading a count there took the item count as a tab count and
+    // the items as tab names.
+    if (fullUpdate && data.tabId == 0) {
         if (!packet.hasRemaining(1)) {
             LOG_WARNING("GuildBankListParser: truncated before tabCount");
             data.tabs.clear();
@@ -532,37 +543,44 @@ bool GuildBankListParser::parse(network::Packet& packet, GuildBankData& data) {
         slot.slotId = packet.readUInt8();
         slot.itemEntry = packet.readUInt32();
         if (slot.itemEntry != 0) {
-            // Validate before reading enchant mask
-            if (!packet.hasRemaining(4)) break;
-            // Enchant info
-            uint32_t enchantMask = packet.readUInt32();
-            for (int bit = 0; bit < 10; ++bit) {
-                if (enchantMask & (1u << bit)) {
-                    if (!packet.hasRemaining(12)) {
-                        LOG_WARNING("GuildBankListParser: truncated enchant data");
-                        break;
-                    }
-                    uint32_t enchId = packet.readUInt32();
-                    uint32_t enchDur = packet.readUInt32();
-                    uint32_t enchCharges = packet.readUInt32();
-                    if (bit == 0) slot.enchantId = enchId;
-                    (void)enchDur; (void)enchCharges;
-                }
-            }
-            // Validate before reading remaining item fields
-            if (!packet.hasRemaining(12)) {
+            // Flags, then the random property and - only when that is non-zero
+            // - its seed; then the stack, the permanent enchantment, the
+            // charges, and a socket list counted in a byte.
+            //
+            // This used to read a uint32 "enchant mask" and up to ten twelve-byte
+            // enchant records, then a stack, a spare word and a random property.
+            // None of that is on the wire. The first item came out with its
+            // flags read as a mask - so a flags value with low bits set invented
+            // enchant records - and every slot after it was read at whatever
+            // offset that left.
+            if (!packet.hasRemaining(8)) {
                 LOG_WARNING("GuildBankListParser: truncated item fields");
                 break;
             }
-            slot.stackCount = packet.readUInt32();
-            /*spare=*/ packet.readUInt32();
+            /*flags=*/ packet.readUInt32();
             slot.randomPropertyId = packet.readUInt32();
             if (slot.randomPropertyId) {
                 if (!packet.hasRemaining(4)) {
-                    LOG_WARNING("GuildBankListParser: truncated suffix factor");
+                    LOG_WARNING("GuildBankListParser: truncated property seed");
                     break;
                 }
-                /*suffixFactor=*/ packet.readUInt32();
+                /*seed=*/ packet.readUInt32();
+            }
+            if (!packet.hasRemaining(10)) {
+                LOG_WARNING("GuildBankListParser: truncated item body");
+                break;
+            }
+            slot.stackCount = packet.readUInt32();
+            slot.enchantId  = packet.readUInt32();
+            /*charges=*/ packet.readUInt8();
+            const uint8_t socketCount = packet.readUInt8();
+            for (uint8_t sock = 0; sock < socketCount; ++sock) {
+                if (!packet.hasRemaining(5)) {
+                    LOG_WARNING("GuildBankListParser: truncated socket list");
+                    break;
+                }
+                packet.readUInt8();   // socket index
+                packet.readUInt32();  // socket enchantment
             }
         }
         data.tabItems.push_back(slot);
@@ -603,7 +621,8 @@ network::Packet AuctionListItemsPacket::build(
     uint8_t levelMin, uint8_t levelMax,
     uint32_t invTypeMask, uint32_t itemClass,
     uint32_t itemSubClass, uint32_t quality,
-    uint8_t usableOnly, uint8_t exactMatch)
+    uint8_t usableOnly, uint8_t exactMatch,
+    const std::vector<AuctionSortKey>& sort)
 {
     network::Packet p(wireOpcode(Opcode::CMSG_AUCTION_LIST_ITEMS));
     p.writeUInt64(guid);
@@ -620,7 +639,16 @@ network::Packet AuctionListItemsPacket::build(
     // WotLK has no exact-match field here; the next byte is the sort count.
     // Keep the API argument for callers shared with older server profiles.
     (void)exactMatch;
-    p.writeUInt8(0);
+
+    // The ordering, which used to be a hardcoded zero - no columns, no sort.
+    // That is not a small loss: the browse tab does not sort what it already
+    // has, it re-asks with the ordering attached (AuctionFrame_OnClickSortColumn
+    // calls AuctionFrameBrowse_Search for "list" rather than
+    // SortAuctionApplySort), and AzerothCore only sorts at all once the result
+    // runs past one page - which is exactly when ordering the fifty rows on
+    // hand gives the wrong answer.
+    //
+    writeAuctionSortBlock(p, sort);
     return p;
 }
 
@@ -686,9 +714,9 @@ bool AuctionListResultParser::parse(network::Packet& packet, AuctionListResult& 
     // Entry layout, verified against the servers' BuildAuctionInfo
     // (vmangos / cmangos-tbc / AzerothCore):
     //   auctionId(4) + itemEntry(4)
-    //   Vanilla (numEnchantSlots=1): enchantId(4) only — no duration/charges
+    //   Vanilla (numEnchantSlots=1): enchantId(4) only - no duration/charges
     //   TBC/WotLK: numEnchantSlots × [id(4)+duration(4)+charges(4)]
-    //     (TBC inspects 6 slots; WotLK 7 — PRISMATIC was added in 3.x)
+    //     (TBC inspects 6 slots; WotLK 7 - PRISMATIC was added in 3.x)
     //   randProp(4) + suffix(4) + stack(4) + spellCharges(4) +
     //   flags(4, TBC/WotLK only) + ownerGuid(8) + startBid(4) + outbid(4) +
     //   buyout(4) + expire(4) + bidderGuid(8) + curBid(4)
@@ -754,7 +782,13 @@ bool AuctionCommandResultParser::parse(network::Packet& packet, AuctionCommandRe
     data.auctionId = packet.readUInt32();
     data.action = packet.readUInt32();
     data.errorCode = packet.readUInt32();
-    if (data.errorCode != 0 && data.action == 2 && packet.hasRemaining(4)) {
+    // The fourth word is conditional, and the condition was inverted. The
+    // server writes it under `if (!ErrorCode && Action)` - on *success*, for
+    // any action but the zeroth - while this read it on failure and only for a
+    // bid. The two conditions never overlap, so the field was read exactly
+    // when it was absent and skipped exactly when it was there. Only the
+    // remaining-size guard kept that from reading off the end.
+    if (data.errorCode == 0 && data.action != 0 && packet.hasRemaining(4)) {
         data.bidError = packet.readUInt32();
     }
     return true;

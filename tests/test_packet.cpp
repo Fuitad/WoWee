@@ -2,6 +2,8 @@
 #include <catch_amalgamated.hpp>
 #include "network/packet.hpp"
 
+#include <string>
+
 using wowee::network::Packet;
 
 TEST_CASE("Packet default constructor", "[packet]") {
@@ -189,4 +191,46 @@ TEST_CASE("Packet getRemainingSize clamps after overshoot", "[packet]") {
     p.setReadPos(999);
     REQUIRE(p.getRemainingSize() == 0);
     REQUIRE_FALSE(p.hasRemaining(1));
+}
+
+TEST_CASE("Packet sized string, length-prefixed with a terminator", "[packet]") {
+    // How a chat packet writes a sender name: a uint32 length that counts the
+    // trailing null, then that many bytes.
+    Packet p(1);
+    p.writeUInt32(6);
+    for (char c : std::string("Thrall")) p.writeUInt8(static_cast<uint8_t>(c));
+    p.writeUInt8(0);
+    std::string name;
+    REQUIRE(p.readSizedString(name));
+    CHECK(name == "Thrall");
+
+    SECTION("a length longer than the packet is refused, not padded") {
+        // Three parsers read this by hand and only one checked. readUInt8
+        // answers zero past the end rather than failing, so without the check
+        // the name comes back padded with nulls and every field after it is
+        // read from beyond the data.
+        Packet q(1);
+        q.writeUInt32(200);
+        for (char c : std::string("short")) q.writeUInt8(static_cast<uint8_t>(c));
+        std::string out = "untouched";
+        CHECK_FALSE(q.readSizedString(out));
+        CHECK(out == "untouched");
+        // And the read position is where it started, so a caller that carries
+        // on reads the length again rather than the middle of it.
+        CHECK(q.getReadPos() == 0);
+    }
+
+    SECTION("zero length is refused") {
+        Packet q(1);
+        q.writeUInt32(0);
+        std::string out;
+        CHECK_FALSE(q.readSizedString(out));
+    }
+
+    SECTION("a length past the cap is refused") {
+        Packet q(1);
+        q.writeUInt32(5000);
+        std::string out;
+        CHECK_FALSE(q.readSizedString(out));
+    }
 }

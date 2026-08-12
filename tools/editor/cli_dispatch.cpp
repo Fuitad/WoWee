@@ -230,8 +230,8 @@ namespace {
 // Each handler family takes (int& i, int argc, char** argv,
 // int& outRc) and returns true if it claimed the flag. The
 // table is walked in order until one returns true. Order
-// rarely matters — flags are exact-string-matched, so two
-// families can't both claim the same flag — but families with
+// rarely matters - flags are exact-string-matched, so two
+// families can't both claim the same flag - but families with
 // shorter/cheaper checks still come first by convention.
 using DispatchFn = bool (*)(int&, int, char**, int&);
 

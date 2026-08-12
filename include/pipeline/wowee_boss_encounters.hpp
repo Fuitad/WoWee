@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Boss Encounter catalog (.wbos) — novel
+// Wowee Open Boss Encounter catalog (.wbos) - novel
 // replacement for AzerothCore's instance_encounter SQL
 // table plus the per-boss script bindings. Defines raid
 // boss encounter metadata: which creature is the boss,
@@ -95,15 +95,15 @@ public:
 
     // Preset emitters used by --gen-bos* variants.
     //
-    //   makeFiveMan  — 3 5-man dungeon bosses (trash boss,
+    //   makeFiveMan  - 3 5-man dungeon bosses (trash boss,
     //                   mid boss, final boss) at recommended
     //                   ilvl 200 with no soft-enrage.
-    //   makeRaid10   — 4 ICC-style 10-man raid bosses
+    //   makeRaid10   - 4 ICC-style 10-man raid bosses
     //                   (Marrowgar / Deathwhisper / Saurfang
     //                   / Lich King) with multi-phase
     //                   structure and soft-enrage timers.
-    //   makeWorldBoss — 2 outdoor world bosses (Doom Lord
-    //                   Kazzak / Doomwalker) — single phase,
+    //   makeWorldBoss - 2 outdoor world bosses (Doom Lord
+    //                   Kazzak / Doomwalker) - single phase,
     //                   no enrage timer, 25-player size.
     static WoweeBossEncounter makeFiveMan(const std::string& catalogName);
     static WoweeBossEncounter makeRaid10(const std::string& catalogName);

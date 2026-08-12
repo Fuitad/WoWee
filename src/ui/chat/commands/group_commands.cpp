@@ -97,12 +97,12 @@ public:
 };
 
 // --- /leave, /leaveparty ---
-// /leave — leave party (no args) or leave channel (with args, WoW-style overload)
+// /leave - leave party (no args) or leave channel (with args, WoW-style overload)
 class LeavePartyCommand : public IChatCommand {
 public:
     ChatCommandResult execute(ChatCommandContext& ctx) override {
         if (!ctx.args.empty()) {
-            // /leave ChannelName — leave a chat channel
+            // /leave ChannelName - leave a chat channel
             ctx.gameHandler.leaveChannel(ctx.args);
         } else {
             ctx.gameHandler.leaveParty();
@@ -309,7 +309,7 @@ public:
         uint8_t icon = 7; // default: skull
         if (!ctx.args.empty()) {
             std::string argLow = ctx.args;
-            for (auto& c : argLow) c = static_cast<char>(std::tolower(c));
+            for (auto& c : argLow) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
             while (!argLow.empty() && argLow.front() == ' ') argLow.erase(argLow.begin());
             if (argLow == "clear" || argLow == "0" || argLow == "none") {
                 ctx.gameHandler.setRaidMark(ctx.gameHandler.getTargetGuid(), 0xFF);

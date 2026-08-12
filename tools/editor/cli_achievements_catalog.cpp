@@ -1,4 +1,6 @@
 #include "cli_achievements_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -18,11 +20,6 @@ namespace cli {
 
 namespace {
 
-std::string stripWachExt(std::string base) {
-    stripExt(base, ".wach");
-    return base;
-}
-
 void appendAchFlagsStr(std::string& s, uint32_t flags) {
     if (flags & wowee::pipeline::WoweeAchievement::HiddenUntilEarned) s += "hidden ";
     if (flags & wowee::pipeline::WoweeAchievement::ServerFirst)       s += "server-first ";
@@ -34,15 +31,6 @@ void appendAchFlagsStr(std::string& s, uint32_t flags) {
     else if (s.back() == ' ') s.pop_back();
 }
 
-bool saveOrError(const wowee::pipeline::WoweeAchievement& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeAchievementLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wach\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 uint32_t totalCriteria(const wowee::pipeline::WoweeAchievement& c) {
     uint32_t n = 0;
@@ -62,9 +50,9 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterAchievements";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWachExt(base);
+    base = cli::withoutExt(base, ".wach");
     auto c = wowee::pipeline::WoweeAchievementLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-achievements")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeAchievementLoader>(c, base, "gen-achievements", ".wach")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -73,9 +61,9 @@ int handleGenBandit(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "BanditAchievements";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWachExt(base);
+    base = cli::withoutExt(base, ".wach");
     auto c = wowee::pipeline::WoweeAchievementLoader::makeBandit(name);
-    if (!saveOrError(c, base, "gen-achievements-bandit")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeAchievementLoader>(c, base, "gen-achievements-bandit", ".wach")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -84,9 +72,9 @@ int handleGenMeta(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "MetaAchievements";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWachExt(base);
+    base = cli::withoutExt(base, ".wach");
     auto c = wowee::pipeline::WoweeAchievementLoader::makeMeta(name);
-    if (!saveOrError(c, base, "gen-achievements-meta")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeAchievementLoader>(c, base, "gen-achievements-meta", ".wach")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -94,10 +82,9 @@ int handleGenMeta(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWachExt(base);
+    base = cli::withoutExt(base, ".wach");
     if (!wowee::pipeline::WoweeAchievementLoader::exists(base)) {
-        std::fprintf(stderr, "WACH not found: %s.wach\n", base.c_str());
-        return 1;
+        return reportMissing("WACH", base, ".wach");
     }
     auto c = wowee::pipeline::WoweeAchievementLoader::load(base);
     if (jsonOut) {
@@ -175,86 +162,58 @@ int handleExportJson(int& i, int argc, char** argv) {
     // open format. Each achievement emits scalar fields plus
     // criteria array; criterion.kind, faction, and flags emit
     // dual int + name forms.
-    std::string base = argv[++i];
-    std::string outPath;
-    if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWachExt(base);
-    if (outPath.empty()) outPath = base + ".wach.json";
-    if (!wowee::pipeline::WoweeAchievementLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wach-json: WACH not found: %s.wach\n", base.c_str());
-        return 1;
-    }
-    auto c = wowee::pipeline::WoweeAchievementLoader::load(base);
-    nlohmann::json j;
-    j["name"] = c.name;
-    nlohmann::json arr = nlohmann::json::array();
-    for (const auto& e : c.entries) {
-        nlohmann::json je;
-        je["achievementId"] = e.achievementId;
-        je["categoryId"] = e.categoryId;
-        je["name"] = e.name;
-        je["description"] = e.description;
-        je["iconPath"] = e.iconPath;
-        je["titleReward"] = e.titleReward;
-        je["points"] = e.points;
-        je["minLevel"] = e.minLevel;
-        je["faction"] = e.faction;
-        je["factionName"] = wowee::pipeline::WoweeAchievement::factionName(e.faction);
-        je["flags"] = e.flags;
-        nlohmann::json fa = nlohmann::json::array();
-        if (e.flags & wowee::pipeline::WoweeAchievement::HiddenUntilEarned) fa.push_back("hidden");
-        if (e.flags & wowee::pipeline::WoweeAchievement::ServerFirst)       fa.push_back("server-first");
-        if (e.flags & wowee::pipeline::WoweeAchievement::RealmFirst)        fa.push_back("realm-first");
-        if (e.flags & wowee::pipeline::WoweeAchievement::Tracking)          fa.push_back("tracking");
-        if (e.flags & wowee::pipeline::WoweeAchievement::Counter)           fa.push_back("counter");
-        if (e.flags & wowee::pipeline::WoweeAchievement::Account)           fa.push_back("account");
-        je["flagsList"] = fa;
-        nlohmann::json ca = nlohmann::json::array();
-        for (const auto& cr : e.criteria) {
-            ca.push_back({
-                {"criteriaId", cr.criteriaId},
-                {"kind", cr.kind},
-                {"kindName", wowee::pipeline::WoweeAchievement::criteriaKindName(cr.kind)},
-                {"targetId", cr.targetId},
-                {"quantity", cr.quantity},
-                {"description", cr.description},
-            });
+    return cli::exportCatalogJson<wowee::pipeline::WoweeAchievementLoader>(
+        i, argc, argv, "wach", "WACH", "achievements ",
+        [](const auto& c) {
+        nlohmann::json j;
+        j["name"] = c.name;
+        nlohmann::json arr = nlohmann::json::array();
+        for (const auto& e : c.entries) {
+            nlohmann::json je;
+            je["achievementId"] = e.achievementId;
+            je["categoryId"] = e.categoryId;
+            je["name"] = e.name;
+            je["description"] = e.description;
+            je["iconPath"] = e.iconPath;
+            je["titleReward"] = e.titleReward;
+            je["points"] = e.points;
+            je["minLevel"] = e.minLevel;
+            je["faction"] = e.faction;
+            je["factionName"] = wowee::pipeline::WoweeAchievement::factionName(e.faction);
+            je["flags"] = e.flags;
+            nlohmann::json fa = nlohmann::json::array();
+            if (e.flags & wowee::pipeline::WoweeAchievement::HiddenUntilEarned) fa.push_back("hidden");
+            if (e.flags & wowee::pipeline::WoweeAchievement::ServerFirst)       fa.push_back("server-first");
+            if (e.flags & wowee::pipeline::WoweeAchievement::RealmFirst)        fa.push_back("realm-first");
+            if (e.flags & wowee::pipeline::WoweeAchievement::Tracking)          fa.push_back("tracking");
+            if (e.flags & wowee::pipeline::WoweeAchievement::Counter)           fa.push_back("counter");
+            if (e.flags & wowee::pipeline::WoweeAchievement::Account)           fa.push_back("account");
+            je["flagsList"] = fa;
+            nlohmann::json ca = nlohmann::json::array();
+            for (const auto& cr : e.criteria) {
+                ca.push_back({
+                    {"criteriaId", cr.criteriaId},
+                    {"kind", cr.kind},
+                    {"kindName", wowee::pipeline::WoweeAchievement::criteriaKindName(cr.kind)},
+                    {"targetId", cr.targetId},
+                    {"quantity", cr.quantity},
+                    {"description", cr.description},
+                });
+            }
+            je["criteria"] = ca;
+            arr.push_back(je);
         }
-        je["criteria"] = ca;
-        arr.push_back(je);
-    }
-    j["entries"] = arr;
-    std::ofstream out(outPath);
-    if (!out) {
-        std::fprintf(stderr,
-            "export-wach-json: cannot write %s\n", outPath.c_str());
-        return 1;
-    }
-    out << j.dump(2) << "\n";
-    out.close();
-    std::printf("Wrote %s\n", outPath.c_str());
-    std::printf("  source       : %s.wach\n", base.c_str());
-    std::printf("  achievements : %zu\n", c.entries.size());
-    return 0;
+        j["entries"] = arr;
+            return j;
+        });
 }
 
 int handleImportJson(int& i, int argc, char** argv) {
     std::string jsonPath = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = jsonPath;
-        std::string suffix = ".wach.json";
-        if (outBase.size() > suffix.size() &&
-            outBase.substr(outBase.size() - suffix.size()) == suffix) {
-            outBase = outBase.substr(0, outBase.size() - suffix.size());
-        } else if (outBase.size() > 5 &&
-                   outBase.substr(outBase.size() - 5) == ".json") {
-            outBase = outBase.substr(0, outBase.size() - 5);
-        }
-    }
-    outBase = stripWachExt(outBase);
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(jsonPath, ".wach");
+    outBase = cli::withoutExt(outBase, ".wach");
     std::ifstream in(jsonPath);
     if (!in) {
         std::fprintf(stderr,
@@ -351,95 +310,54 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWachExt(base);
-    if (!wowee::pipeline::WoweeAchievementLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wach: WACH not found: %s.wach\n", base.c_str());
-        return 1;
-    }
-    auto c = wowee::pipeline::WoweeAchievementLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    std::vector<uint32_t> idsSeen;
-    idsSeen.reserve(c.entries.size());
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.achievementId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.achievementId == 0) {
-            errors.push_back(ctx + ": achievementId is 0");
-        }
-        if (e.name.empty()) {
-            errors.push_back(ctx + ": name is empty");
-        }
-        if (e.faction > wowee::pipeline::WoweeAchievement::FactionHorde) {
-            errors.push_back(ctx + ": faction " +
-                std::to_string(e.faction) + " not in 0..2");
-        }
-        if (e.criteria.empty()) {
-            warnings.push_back(ctx +
-                ": no criteria (achievement can never be earned)");
-        }
-        for (size_t ci = 0; ci < e.criteria.size(); ++ci) {
-            const auto& cr = e.criteria[ci];
-            std::string cctx = ctx + " criterion " + std::to_string(ci);
-            if (cr.kind > wowee::pipeline::WoweeAchievement::CompleteAchievement) {
-                errors.push_back(cctx + ": kind " +
-                    std::to_string(cr.kind) + " not in 0..8");
+    return cli::validateCatalog<wowee::pipeline::WoweeAchievementLoader>(
+        i, argc, argv, "wach", "WACH",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        idsSeen.reserve(c.entries.size());
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.achievementId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.achievementId == 0) {
+                errors.push_back(ctx + ": achievementId is 0");
             }
-            if (cr.quantity == 0) {
-                errors.push_back(cctx + ": quantity is 0");
+            if (e.name.empty()) {
+                errors.push_back(ctx + ": name is empty");
             }
-            // ReachLevel and Counter-style criteria can have
-            // targetId=0; everything else needs a real target.
-            bool needsTarget =
-                cr.kind != wowee::pipeline::WoweeAchievement::ReachLevel;
-            if (needsTarget && cr.targetId == 0) {
-                errors.push_back(cctx + ": targetId is 0 (no resource referenced)");
+            if (e.faction > wowee::pipeline::WoweeAchievement::FactionHorde) {
+                errors.push_back(ctx + ": faction " +
+                    std::to_string(e.faction) + " not in 0..2");
             }
+            if (e.criteria.empty()) {
+                warnings.push_back(ctx +
+                    ": no criteria (achievement can never be earned)");
+            }
+            for (size_t ci = 0; ci < e.criteria.size(); ++ci) {
+                const auto& cr = e.criteria[ci];
+                std::string cctx = ctx + " criterion " + std::to_string(ci);
+                if (cr.kind > wowee::pipeline::WoweeAchievement::CompleteAchievement) {
+                    errors.push_back(cctx + ": kind " +
+                        std::to_string(cr.kind) + " not in 0..8");
+                }
+                if (cr.quantity == 0) {
+                    errors.push_back(cctx + ": quantity is 0");
+                }
+                // ReachLevel and Counter-style criteria can have
+                // targetId=0; everything else needs a real target.
+                bool needsTarget =
+                    cr.kind != wowee::pipeline::WoweeAchievement::ReachLevel;
+                if (needsTarget && cr.targetId == 0) {
+                    errors.push_back(cctx + ": targetId is 0 (no resource referenced)");
+                }
+            }
+            if (!idsSeen.add(e.achievementId)) errors.push_back(ctx + ": duplicate achievementId");
         }
-        for (uint32_t prev : idsSeen) {
-            if (prev == e.achievementId) {
-                errors.push_back(ctx + ": duplicate achievementId");
-                break;
-            }
-        }
-        idsSeen.push_back(e.achievementId);
-    }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wach"] = base + ".wach";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wach: %s.wach\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu achievements (%u criteria), all IDs unique\n",
-                    c.entries.size(), totalCriteria(c));
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+            return formatted("%zu achievements (%u criteria), all IDs unique", c.entries.size(), totalCriteria(c));
+        });
 }
 
 } // namespace

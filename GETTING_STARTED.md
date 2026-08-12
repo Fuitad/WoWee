@@ -155,7 +155,7 @@ WoWee auto-detects expansion from server:
 - **TBC 2.4.3** - Burning Crusade
 - **WotLK 3.3.5a** - Wrath of the Lich King
 
-Pick the expansion from the realm/auth screen at launch — the selection is wired through `ExpansionRegistry::setActive()` (`src/ui/auth_screen.cpp`). There is no `WOWEE_EXPANSION` environment variable.
+Pick the expansion from the realm/auth screen at launch - the selection is wired through `ExpansionRegistry::setActive()` (`src/ui/auth_screen.cpp`). There is no `WOWEE_EXPANSION` environment variable.
 
 ## Troubleshooting
 

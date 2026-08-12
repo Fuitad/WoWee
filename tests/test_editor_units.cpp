@@ -1,8 +1,8 @@
 // Editor unit tests:
-//   - SQLExporter::escape — ensures user-provided strings can't produce
+//   - SQLExporter::escape - ensures user-provided strings can't produce
 //     malformed SQL when emitted into INSERT statements.
-//   - QuestEditor::validateChains — orphan/cycle detection.
-//   - ContentPacker::unpackZone — security guards (path traversal,
+//   - QuestEditor::validateChains - orphan/cycle detection.
+//   - ContentPacker::unpackZone - security guards (path traversal,
 //     header bounds, name sanitization).
 #include <catch_amalgamated.hpp>
 #include "sql_exporter.hpp"
@@ -155,7 +155,7 @@ TEST_CASE("WCP unpack rejects absurd fileCount", "[wcp]") {
 TEST_CASE("WCP unpack rejects absurd infoSize", "[wcp]") {
     namespace fs = std::filesystem;
     fs::create_directories("test_wcp_out");
-    // 32MB infoSize — past the 16MB cap.
+    // 32MB infoSize - past the 16MB cap.
     writeMalformedWcp("test_wcp_out/big_info.wcp", 1, 32 * 1024 * 1024, "{}");
     REQUIRE_FALSE(ContentPacker::unpackZone("test_wcp_out/big_info.wcp",
                                               "test_wcp_out/dest"));

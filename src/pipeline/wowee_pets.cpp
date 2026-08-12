@@ -1,4 +1,5 @@
 #include "pipeline/wowee_pets.hpp"
+#include "pipeline/wowee_binary_io.hpp"
 
 #include <cstdio>
 #include <cstring>
@@ -11,45 +12,7 @@ namespace {
 
 constexpr char kMagic[4] = {'W', 'P', 'E', 'T'};
 constexpr uint32_t kVersion = 1;
-
-template <typename T>
-void writePOD(std::ofstream& os, const T& v) {
-    os.write(reinterpret_cast<const char*>(&v), sizeof(T));
-}
-
-template <typename T>
-bool readPOD(std::ifstream& is, T& v) {
-    is.read(reinterpret_cast<char*>(&v), sizeof(T));
-    return is.gcount() == static_cast<std::streamsize>(sizeof(T));
-}
-
-void writeStr(std::ofstream& os, const std::string& s) {
-    uint32_t n = static_cast<uint32_t>(s.size());
-    writePOD(os, n);
-    if (n > 0) os.write(s.data(), n);
-}
-
-bool readStr(std::ifstream& is, std::string& s) {
-    uint32_t n = 0;
-    if (!readPOD(is, n)) return false;
-    if (n > (1u << 20)) return false;
-    s.resize(n);
-    if (n > 0) {
-        is.read(s.data(), n);
-        if (is.gcount() != static_cast<std::streamsize>(n)) {
-            s.clear();
-            return false;
-        }
-    }
-    return true;
-}
-
-std::string normalizePath(std::string base) {
-    if (base.size() < 5 || base.substr(base.size() - 5) != ".wpet") {
-        base += ".wpet";
-    }
-    return base;
-}
+constexpr char kExtension[] = ".wpet";
 
 } // namespace
 
@@ -87,21 +50,17 @@ std::string WoweePet::dietMaskName(uint32_t mask) {
 
 bool WoweePetLoader::save(const WoweePet& cat,
                           const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath), std::ios::binary);
+    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
     if (!os) return false;
-    os.write(kMagic, 4);
-    writePOD(os, kVersion);
-    writeStr(os, cat.name);
-    uint32_t famCount = static_cast<uint32_t>(cat.families.size());
-    writePOD(os, famCount);
+    const uint32_t famCount = static_cast<uint32_t>(cat.families.size());
+    writeCatalogHeader(os, kMagic, kVersion, cat.name, famCount);
     for (const auto& f : cat.families) {
         writePOD(os, f.familyId);
         writeStr(os, f.name);
         writeStr(os, f.description);
         writeStr(os, f.iconPath);
         writePOD(os, f.petType);
-        uint8_t pad3[3] = {0, 0, 0};
-        os.write(reinterpret_cast<const char*>(pad3), 3);
+        writePadding(os, 3);
         writePOD(os, f.baseAttackSpeed);
         writePOD(os, f.damageMultiplier);
         writePOD(os, f.armorMultiplier);
@@ -109,14 +68,13 @@ bool WoweePetLoader::save(const WoweePet& cat,
         uint8_t abCount = static_cast<uint8_t>(
             f.abilities.size() > 255 ? 255 : f.abilities.size());
         writePOD(os, abCount);
-        os.write(reinterpret_cast<const char*>(pad3), 3);
+        writePadding(os, 3);
         for (uint8_t k = 0; k < abCount; ++k) {
             const auto& a = f.abilities[k];
             writePOD(os, a.spellId);
             writePOD(os, a.learnedAtLevel);
             writePOD(os, a.rank);
-            uint8_t pad = 0;
-            writePOD(os, pad);
+            writePadding(os, 1);
         }
     }
     uint32_t minCount = static_cast<uint32_t>(cat.minions.size());
@@ -129,15 +87,13 @@ bool WoweePetLoader::save(const WoweePet& cat,
         uint8_t abCount = static_cast<uint8_t>(
             m.abilities.size() > 255 ? 255 : m.abilities.size());
         writePOD(os, abCount);
-        uint8_t pad3[3] = {0, 0, 0};
-        os.write(reinterpret_cast<const char*>(pad3), 3);
+        writePadding(os, 3);
         for (uint8_t k = 0; k < abCount; ++k) {
             const auto& a = m.abilities[k];
             writePOD(os, a.spellId);
             writePOD(os, a.rank);
             writePOD(os, a.autocastDefault);
-            uint8_t pad2[2] = {0, 0};
-            os.write(reinterpret_cast<const char*>(pad2), 2);
+            writePadding(os, 2);
         }
     }
     return os.good();
@@ -145,46 +101,35 @@ bool WoweePetLoader::save(const WoweePet& cat,
 
 WoweePet WoweePetLoader::load(const std::string& basePath) {
     WoweePet out;
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
+    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
     if (!is) return out;
-    char magic[4];
-    is.read(magic, 4);
-    if (std::memcmp(magic, kMagic, 4) != 0) return out;
-    uint32_t version = 0;
-    if (!readPOD(is, version) || version != kVersion) return out;
-    if (!readStr(is, out.name)) return out;
     auto fail = [&]() {
         out.families.clear(); out.minions.clear();
         return out;
     };
     uint32_t famCount = 0;
-    if (!readPOD(is, famCount)) return out;
-    if (famCount > (1u << 20)) return out;
+    if (!readCatalogHeader(is, kMagic, kVersion, out.name, famCount)) return out;
     out.families.resize(famCount);
     for (auto& f : out.families) {
         if (!readPOD(is, f.familyId)) return fail();
         if (!readStr(is, f.name) || !readStr(is, f.description) ||
             !readStr(is, f.iconPath)) return fail();
         if (!readPOD(is, f.petType)) return fail();
-        uint8_t pad3[3];
-        is.read(reinterpret_cast<char*>(pad3), 3);
-        if (is.gcount() != 3) return fail();
+        if (!skipPadding(is, 3)) return fail();
         if (!readPOD(is, f.baseAttackSpeed) ||
             !readPOD(is, f.damageMultiplier) ||
             !readPOD(is, f.armorMultiplier) ||
             !readPOD(is, f.dietMask)) return fail();
         uint8_t abCount = 0;
         if (!readPOD(is, abCount)) return fail();
-        is.read(reinterpret_cast<char*>(pad3), 3);
-        if (is.gcount() != 3) return fail();
+        if (!skipPadding(is, 3)) return fail();
         f.abilities.resize(abCount);
         for (uint8_t k = 0; k < abCount; ++k) {
             auto& a = f.abilities[k];
             if (!readPOD(is, a.spellId) ||
                 !readPOD(is, a.learnedAtLevel) ||
                 !readPOD(is, a.rank)) return fail();
-            uint8_t pad = 0;
-            if (!readPOD(is, pad)) return fail();
+            if (!skipPadding(is, 1)) return fail();
         }
     }
     uint32_t minCount = 0;
@@ -198,26 +143,21 @@ WoweePet WoweePetLoader::load(const std::string& basePath) {
             !readPOD(is, m.creatureId)) return fail();
         uint8_t abCount = 0;
         if (!readPOD(is, abCount)) return fail();
-        uint8_t pad3[3];
-        is.read(reinterpret_cast<char*>(pad3), 3);
-        if (is.gcount() != 3) return fail();
+        if (!skipPadding(is, 3)) return fail();
         m.abilities.resize(abCount);
         for (uint8_t k = 0; k < abCount; ++k) {
             auto& a = m.abilities[k];
             if (!readPOD(is, a.spellId) ||
                 !readPOD(is, a.rank) ||
                 !readPOD(is, a.autocastDefault)) return fail();
-            uint8_t pad2[2];
-            is.read(reinterpret_cast<char*>(pad2), 2);
-            if (is.gcount() != 2) return fail();
+            if (!skipPadding(is, 2)) return fail();
         }
     }
     return out;
 }
 
 bool WoweePetLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweePet WoweePetLoader::makeStarter(const std::string& catalogName) {

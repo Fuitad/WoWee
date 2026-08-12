@@ -14,7 +14,7 @@
 namespace wowee {
 namespace game {
 
-// Bounds-checked little-endian reads for PE parsing — malformed Warden modules
+// Bounds-checked little-endian reads for PE parsing - malformed Warden modules
 // must not cause out-of-bounds access.
 static inline uint32_t readLE32(const std::vector<uint8_t>& data, size_t offset) {
     if (offset + 4 > data.size()) return 0;
@@ -115,7 +115,7 @@ bool WardenMemory::parsePE(const std::vector<uint8_t>& fileData) {
                  " size=0x", copySize, std::dec);
     }
 
-    LOG_WARNING("WardenMemory: PE loaded — imageBase=0x", std::hex, imageBase_,
+    LOG_WARNING("WardenMemory: PE loaded - imageBase=0x", std::hex, imageBase_,
                 " imageSize=0x", imageSize_, std::dec,
                 " (", numSections, " sections, ", fileData.size(), " bytes on disk)");
 
@@ -126,7 +126,7 @@ void WardenMemory::initKuserSharedData() {
     std::memset(kuserData_, 0, KUSER_SIZE);
 
     // -------------------------------------------------------------------
-    // KUSER_SHARED_DATA layout — Windows 7 SP1 x86 (from ntddk.h PDB)
+    // KUSER_SHARED_DATA layout - Windows 7 SP1 x86 (from ntddk.h PDB)
     // Warden reads this in 238-byte chunks for OS fingerprinting.
     // All offsets verified against the canonical _KUSER_SHARED_DATA struct.
     // -------------------------------------------------------------------
@@ -146,12 +146,12 @@ void WardenMemory::initKuserSharedData() {
     w32(0x000C, 0x00000029);
     w32(0x0010, 0x00000029);
 
-    // +0x014 SystemTime (KSYSTEM_TIME) — ~2024 epoch FILETIME
+    // +0x014 SystemTime (KSYSTEM_TIME) - ~2024 epoch FILETIME
     w32(0x0014, 0xA0B71B00);
     w32(0x0018, 0x01DA5E80);
     w32(0x001C, 0x01DA5E80);
 
-    // +0x020 TimeZoneBias (KSYSTEM_TIME) — 0 = UTC
+    // +0x020 TimeZoneBias (KSYSTEM_TIME) - 0 = UTC
     // (leave zeros)
 
     // +0x02C ImageNumberLow / ImageNumberHigh (USHORT each)
@@ -167,31 +167,31 @@ void WardenMemory::initKuserSharedData() {
     // +0x238 MaxStackTraceDepth (ULONG)
     w32(0x0238, 0);
 
-    // +0x23C CryptoExponent (ULONG) — 65537
+    // +0x23C CryptoExponent (ULONG) - 65537
     w32(0x023C, 0x00010001);
 
-    // +0x240 TimeZoneId (ULONG) — TIME_ZONE_ID_UNKNOWN
+    // +0x240 TimeZoneId (ULONG) - TIME_ZONE_ID_UNKNOWN
     w32(0x0240, 0);
 
-    // +0x244 LargePageMinimum (ULONG) — 2 MB
+    // +0x244 LargePageMinimum (ULONG) - 2 MB
     w32(0x0244, 0x00200000);
 
-    // +0x248 Reserved2[7] (28 bytes) — zeros
+    // +0x248 Reserved2[7] (28 bytes) - zeros
     // (leave zeros)
 
-    // +0x264 NtProductType (NT_PRODUCT_TYPE = ULONG) — VER_NT_WORKSTATION
+    // +0x264 NtProductType (NT_PRODUCT_TYPE = ULONG) - VER_NT_WORKSTATION
     w32(0x0264, 1);
 
     // +0x268 ProductTypeIsValid (BOOLEAN = UCHAR)
     w8(0x0268, 1);
 
-    // +0x269 Reserved9[3] — padding
+    // +0x269 Reserved9[3] - padding
     // (leave zeros)
 
-    // +0x26C NtMajorVersion (ULONG) — 6 (Windows Vista/7/8/10)
+    // +0x26C NtMajorVersion (ULONG) - 6 (Windows Vista/7/8/10)
     w32(0x026C, 6);
 
-    // +0x270 NtMinorVersion (ULONG) — 1 (Windows 7)
+    // +0x270 NtMinorVersion (ULONG) - 1 (Windows 7)
     w32(0x0270, 1);
 
     // +0x274 ProcessorFeatures (BOOLEAN[64] = 64 bytes, ends at +0x2B4)
@@ -232,19 +232,19 @@ void WardenMemory::initKuserSharedData() {
     // +0x2C8 SystemExpirationDate (LARGE_INTEGER = 8 bytes)
     // (leave zeros)
 
-    // +0x2D0 SuiteMask (ULONG) — VER_SUITE_SINGLEUSERTS | VER_SUITE_TERMINAL
+    // +0x2D0 SuiteMask (ULONG) - VER_SUITE_SINGLEUSERTS | VER_SUITE_TERMINAL
     w32(0x02D0, 0x0110); // 0x0100=SINGLEUSERTS, 0x0010=TERMINAL
 
     // +0x2D4 KdDebuggerEnabled (BOOLEAN = UCHAR)
     w8(0x02D4, 0);
 
-    // +0x2D5 NXSupportPolicy (UCHAR) — 2 = OptIn
+    // +0x2D5 NXSupportPolicy (UCHAR) - 2 = OptIn
     w8(0x02D5, 2);
 
     // +0x2D6 Reserved6[2]
     // (leave zeros)
 
-    // +0x2D8 ActiveConsoleId (ULONG) — session 0 or 1
+    // +0x2D8 ActiveConsoleId (ULONG) - session 0 or 1
     w32(0x02D8, 1);
 
     // +0x2DC DismountCount (ULONG)
@@ -253,19 +253,19 @@ void WardenMemory::initKuserSharedData() {
     // +0x2E0 ComPlusPackage (ULONG)
     w32(0x02E0, 0);
 
-    // +0x2E4 LastSystemRITEventTickCount (ULONG) — recent input tick
+    // +0x2E4 LastSystemRITEventTickCount (ULONG) - recent input tick
     w32(0x02E4, 0x003F4900);
 
-    // +0x2E8 NumberOfPhysicalPages (ULONG) — 4GB / 4KB ≈ 1M pages
+    // +0x2E8 NumberOfPhysicalPages (ULONG) - 4GB / 4KB ≈ 1M pages
     w32(0x02E8, 0x000FF000);
 
-    // +0x2EC SafeBootMode (BOOLEAN) — 0 = normal boot
+    // +0x2EC SafeBootMode (BOOLEAN) - 0 = normal boot
     w8(0x02EC, 0);
 
     // +0x2F0 SharedDataFlags / TraceLogging (ULONG)
     w32(0x02F0, 0);
 
-    // +0x2F8 TestRetInstruction (ULONGLONG = 8 bytes) — RET opcode
+    // +0x2F8 TestRetInstruction (ULONGLONG = 8 bytes) - RET opcode
     w8(0x02F8, 0xC3); // x86 RET instruction
 
     // +0x300 SystemCall (ULONG)
@@ -277,16 +277,16 @@ void WardenMemory::initKuserSharedData() {
     // +0x308 SystemCallPad[3] (24 bytes)
     // (leave zeros)
 
-    // +0x320 TickCount (KSYSTEM_TIME) — matches TickCountLowDeprecated
+    // +0x320 TickCount (KSYSTEM_TIME) - matches TickCountLowDeprecated
     w32(0x0320, 0x003F4A00);
 
     // +0x32C TickCountPad[1]
     // (leave zeros)
 
-    // +0x330 Cookie (ULONG) — stack cookie, random-looking value
+    // +0x330 Cookie (ULONG) - stack cookie, random-looking value
     w32(0x0330, 0x4A2F8C15);
 
-    // +0x334 ConsoleSessionForegroundProcessId (ULONG) — some PID
+    // +0x334 ConsoleSessionForegroundProcessId (ULONG) - some PID
     w32(0x0334, 0x00001234);
 
     // Everything after +0x338 is typically zero on Win7 x86
@@ -305,7 +305,7 @@ void WardenMemory::writeLE32(uint32_t va, uint32_t value) {
 void WardenMemory::patchRuntimeGlobals() {
     if (imageBase_ != 0x00400000) {
         LOG_WARNING("WardenMemory: unexpected imageBase=0x", std::hex, imageBase_, std::dec,
-                    " — skipping runtime global patches");
+                    " - skipping runtime global patches");
         return;
     }
 
@@ -313,7 +313,7 @@ void WardenMemory::patchRuntimeGlobals() {
     // VMaNGOS has TWO types of Warden scans that read these addresses:
     //
     // 1. DB-driven scans (warden_scans table): memcmp against expected bytes.
-    //    These check CODE sections for integrity — never check runtime data addresses.
+    //    These check CODE sections for integrity - never check runtime data addresses.
     //
     // 2. Scripted scans (WardenWin::LoadScriptedScans): READ and INTERPRET values.
     //    - "Warden locate" reads 0xCE897C as a pointer, follows chain to SYSTEM_INFO
@@ -413,7 +413,7 @@ void WardenMemory::patchRuntimeGlobals() {
     writeLE32(WORLD_ENABLES, enables);
     LOG_WARNING("WardenMemory: Patched WorldEnables @0x", std::hex, WORLD_ENABLES, std::dec);
 
-    // LastHardwareAction — must be a recent GetTickCount()-style timestamp
+    // LastHardwareAction - must be a recent GetTickCount()-style timestamp
     // so the anti-AFK scan sees (currentTime - lastAction) < threshold.
     constexpr uint32_t LAST_HARDWARE_ACTION = 0xCF0BC8;
     uint32_t nowMs = static_cast<uint32_t>(
@@ -612,7 +612,7 @@ uint32_t WardenMemory::expectedImageSizeForBuild(uint16_t build, bool isTurtle) 
             // Turtle WoW uses a custom WoW.exe with different code bytes.
             // Their warden_scans DB expects bytes from this custom exe.
             return isTurtle ? 0x00906000 : 0x009FD000;
-        default:   return 0;          // Unknown — accept any
+        default:   return 0;          // Unknown - accept any
     }
 }
 
@@ -726,7 +726,7 @@ bool WardenMemory::loadFromFile(const std::string& exePath) {
         patchTurtleWowBinary();
         LOG_WARNING("WardenMemory: Applied Turtle patches to vanilla PE (imageSize=0x", std::hex, imageSize_, std::dec, ")");
     } else if (isTurtle_) {
-        LOG_WARNING("WardenMemory: Loaded native Turtle PE — skipping patches");
+        LOG_WARNING("WardenMemory: Loaded native Turtle PE - skipping patches");
     }
     loaded_ = true;
     LOG_INFO("WardenMemory: Loaded PE image (", fileData.size(), " bytes on disk, ",

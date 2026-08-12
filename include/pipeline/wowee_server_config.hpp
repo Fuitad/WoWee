@@ -7,12 +7,12 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Server Config catalog (.wcfg) — novel
+// Wowee Open Server Config catalog (.wcfg) - novel
 // replacement for the worldserver.conf / mangosd.conf
 // flat-text configuration files vanilla server forks
 // shipped. Each entry binds one configId to its
 // polymorphic value via the valueKind enum
-// (Float / Int / Bool / String) — only the matching
+// (Float / Int / Bool / String) - only the matching
 // value field is meaningful per entry.
 //
 // Polymorphic value is the novel data shape: each
@@ -24,7 +24,7 @@ namespace pipeline {
 // its kind label so operators can edit the right one.
 //
 // Cross-references with previously-added formats:
-//   No catalog cross-references — WCFG is a TOP-LEVEL
+//   No catalog cross-references - WCFG is a TOP-LEVEL
 //   bootstrap catalog read at world startup, before
 //   any in-world data is loaded.
 //
@@ -37,21 +37,21 @@ namespace pipeline {
 //     configId (uint32)
 //     nameLen + name
 //     descLen + description
-//     configKind (uint8)         — XPRate / DropRate /
+//     configKind (uint8)         - XPRate / DropRate /
 //                                   HonorRate / RestedXP
 //                                   / RealmType / World-
 //                                   Flag / Performance /
 //                                   Security / Misc
-//     valueKind (uint8)          — Float / Int / Bool /
+//     valueKind (uint8)          - Float / Int / Bool /
 //                                   String
-//     restartRequired (uint8)    — 0/1 bool
+//     restartRequired (uint8)    - 0/1 bool
 //     pad0 (uint8)
-//     floatValue (float)         — meaningful if
+//     floatValue (float)         - meaningful if
 //                                   valueKind == Float
-//     intValue (int64)           — meaningful if
+//     intValue (int64)           - meaningful if
 //                                   valueKind == Int
 //                                   (or Bool: 0/1)
-//     strLen + strValue          — meaningful if
+//     strLen + strValue          - meaningful if
 //                                   valueKind == String
 //     iconColorRGBA (uint32)
 struct WoweeServerConfig {
@@ -61,7 +61,7 @@ struct WoweeServerConfig {
         HonorRate    = 2,
         RestedXP     = 3,
         RealmType    = 4,    // Normal / PvP / RP /
-                              // RP-PvP — see WMSP
+                              // RP-PvP - see WMSP
         WorldFlag    = 5,    // bool world-state flags
                               // (DoubleXPWeekend, etc.)
         Performance  = 6,    // server tuning (cell-grid
@@ -114,21 +114,21 @@ public:
 
     // Preset emitters used by --gen-cfg* variants.
     //
-    //   makeRates       — 4 rate-multiplier configs
+    //   makeRates       - 4 rate-multiplier configs
     //                      (XPRate 1.0x / DropRate 1.0x /
     //                      HonorRate 1.0x / RestedXP
-    //                      200%) — vanilla baseline.
-    //   makePerformance — 4 server tuning configs
+    //                      200%) - vanilla baseline.
+    //   makePerformance - 4 server tuning configs
     //                      (max creatures per cell 100 /
     //                      view distance 533 yards /
     //                      spawn-rate 1.0x / GC interval
-    //                      300s) — Performance kind.
-    //   makeSecurity    — 4 anti-cheat configs
+    //                      300s) - Performance kind.
+    //   makeSecurity    - 4 anti-cheat configs
     //                      (speedhack tolerance 1.05x /
     //                      trade gold cap 100000g /
     //                      GM command audit logging
     //                      enabled / cheat-detection
-    //                      sensitivity "high" — String
+    //                      sensitivity "high" - String
     //                      value).
     static WoweeServerConfig makeRates(const std::string& catalogName);
     static WoweeServerConfig makePerformance(const std::string& catalogName);

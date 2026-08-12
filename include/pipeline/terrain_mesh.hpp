@@ -1,6 +1,8 @@
 #pragma once
 
 #include "pipeline/adt_loader.hpp"
+
+#include <glm/glm.hpp>
 #include <vector>
 #include <cstdint>
 
@@ -86,6 +88,29 @@ public:
      */
     static TerrainMesh generate(const ADTTerrain& terrain);
 
+    /**
+     * Where a point inside a chunk sits in the world.
+     *
+     * `fracX` and `fracY` are cell coordinates within the chunk, 0 to 8, and
+     * need not be whole: the height between the four surrounding grid points
+     * is interpolated bilinearly. This is what the ground-clutter and doodad
+     * scatterers ask when they drop something at a random spot on a chunk,
+     * and both had their own copy of it.
+     *
+     * The axes cross on purpose. A chunk's world X runs against the grid's
+     * Y and its world Y against the grid's X, which is the terrain axis
+     * pairing this codebase uses throughout; swapping them back lays every
+     * scattered object out mirrored, which reads as the doodad data being
+     * wrong rather than the sampling.
+     *
+     * Out-of-range coordinates clamp to the chunk rather than reading past
+     * it, so a caller that rounds slightly past 8 gets the edge height
+     * instead of a zero that would bury the object.
+     */
+    static glm::vec3 chunkSurfacePoint(const float chunkPosition[3],
+                                       const HeightMap& heightMap,
+                                       float fracX, float fracY, float unitSize);
+
 private:
     /**
      * Generate mesh for a single map chunk
@@ -105,10 +130,6 @@ private:
      */
     static std::vector<TerrainIndex> generateIndices(const MapChunk& chunk);
 
-    /**
-     * Calculate texture coordinates for vertex
-     */
-    static void calculateTexCoords(TerrainVertex& vertex, int x, int y);
 
     /**
      * Convert WoW's compressed normals to float
@@ -120,10 +141,7 @@ private:
      */
     static float getHeightAt(const HeightMap& heightMap, int x, int y);
 
-    /**
-     * Convert grid coordinates to vertex index
-     */
-    static int getVertexIndex(int x, int y);
+
 
     // Terrain constants
     // WoW terrain: 64x64 tiles, each tile = 533.33 yards, each chunk = 33.33 yards

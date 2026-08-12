@@ -1,3 +1,4 @@
+#include "ui/framexml_takeover.hpp"
 #include "game/game_handler.hpp"
 #include "game/achievement_criteria.hpp"
 #include "game/packed_time.hpp"
@@ -65,24 +66,6 @@ namespace game {
 
 namespace {
 
-const char* worldStateName(WorldState state) {
-    switch (state) {
-        case WorldState::DISCONNECTED: return "DISCONNECTED";
-        case WorldState::CONNECTING: return "CONNECTING";
-        case WorldState::CONNECTED: return "CONNECTED";
-        case WorldState::CHALLENGE_RECEIVED: return "CHALLENGE_RECEIVED";
-        case WorldState::AUTH_SENT: return "AUTH_SENT";
-        case WorldState::AUTHENTICATED: return "AUTHENTICATED";
-        case WorldState::READY: return "READY";
-        case WorldState::CHAR_LIST_REQUESTED: return "CHAR_LIST_REQUESTED";
-        case WorldState::CHAR_LIST_RECEIVED: return "CHAR_LIST_RECEIVED";
-        case WorldState::ENTERING_WORLD: return "ENTERING_WORLD";
-        case WorldState::IN_WORLD: return "IN_WORLD";
-        case WorldState::FAILED: return "FAILED";
-    }
-    return "UNKNOWN";
-}
-
 bool isAuthCharPipelineOpcode(LogicalOpcode op) {
     switch (op) {
         case Opcode::SMSG_AUTH_CHALLENGE:
@@ -134,7 +117,29 @@ constexpr size_t kMaxQueuedInboundPackets = 4096;
 
 } // end anonymous namespace
 
-void GameHandler::registerOpcodeHandlers() {
+// The rune bar draws itself from these two events and from nothing else. All
+// three rune packets stored their state and announced none of it, so a death
+// knight's runes were drawn once at login and then stood still.
+//
+// "usable" is sent as a present argument or no argument at all rather than as
+// one and zero, because zero is true in Lua: an argument saying the rune is on
+// cooldown would read as one saying it is ready.
+void GameHandler::fireRuneUpdate(uint32_t index) {
+    if (index >= playerRunes_.size()) return;
+    const std::string oneBased = std::to_string(index + 1);
+    fireAddonEvent("RUNE_TYPE_UPDATE", {oneBased});
+    if (playerRunes_[index].ready) {
+        fireAddonEvent("RUNE_POWER_UPDATE", {oneBased, "1"});
+    } else {
+        fireAddonEvent("RUNE_POWER_UPDATE", {oneBased});
+    }
+}
+
+// The opcodes this handler answers itself, grouped by what they are about: the
+// session handshake, XP and exploration, corpses and combat state, guilds and
+// loot and vendors, teleports and taxis and battlegrounds, world states, action
+// buttons, levelling.
+void GameHandler::registerCoreOpcodes() {
     // -----------------------------------------------------------------------
     // Auth / session / pre-world handshake
     // -----------------------------------------------------------------------
@@ -224,10 +229,9 @@ void GameHandler::registerOpcodeHandlers() {
                     std::snprintf(buf, sizeof(buf), "Discovered new area! Gained %u experience.", xpGained);
                     msg = buf;
                 }
-                addSystemChatMessage(msg);
+                addLocalChatLine(game::ChatType::COMBAT_XP_GAIN, msg);
                 addCombatText(CombatTextEntry::XP_GAIN, static_cast<int32_t>(xpGained), 0, true);
                 if (areaDiscoveryCallback_) areaDiscoveryCallback_(areaName, xpGained);
-                                    fireAddonEvent("CHAT_MSG_COMBAT_XP_GAIN", {msg, std::to_string(xpGained)});
             }
         }
     };
@@ -249,9 +253,13 @@ void GameHandler::registerOpcodeHandlers() {
         LOG_DEBUG("SMSG_UPDATE_WORLD_STATE: field=", field, " value=", value);
         fireAddonEvent("UPDATE_WORLD_STATES", {});
     };
-    dispatchTable_[Opcode::SMSG_WORLD_STATE_UI_TIMER_UPDATE] = [](network::Packet& packet) {
+    dispatchTable_[Opcode::SMSG_WORLD_STATE_UI_TIMER_UPDATE] = [this](network::Packet& packet) {
         if (packet.hasRemaining(4)) {
             uint32_t serverTime = packet.readUInt32();
+            // The world state timer bar counts from this and had nothing to
+            // count from - it was read and logged and dropped.
+            if (addonEventCallback_)
+                addonEventCallback_("WORLD_STATE_UI_TIMER_UPDATE", {std::to_string(serverTime)});
             LOG_DEBUG("SMSG_WORLD_STATE_UI_TIMER_UPDATE: serverTime=", serverTime);
         }
     };
@@ -274,10 +282,19 @@ void GameHandler::registerOpcodeHandlers() {
             mirrorTimers_[type].paused    = (paused != 0);
             mirrorTimers_[type].active    = true;
             mirrorTimers_[type].pendingMs = 0.0f;  // server re-sync; drop the local carry
-                            fireAddonEvent("MIRROR_TIMER_START", {
-                    std::to_string(type), std::to_string(value),
+            // The interface names its timers rather than numbering them, and
+            // wants a label to draw beside the bar: MirrorTimer_Show(timer,
+            // value, maxvalue, scale, paused, label). Sending the type as a
+            // number and omitting the label left it matching no timer and
+            // dividing a nil.
+            // The names WoW passes, not the wire's own ordering words - see
+            // kMirrorTimerNames, which every path that names a timer shares.
+            const char* timerName = (type < 3) ? kMirrorTimerNames[type] : "BREATH";
+            const char* timerLabel = (type < 3) ? kMirrorTimerLabels[type] : "Breath";
+            fireAddonEvent("MIRROR_TIMER_START", {
+                    timerName, std::to_string(value),
                     std::to_string(maxV), std::to_string(scale),
-                    paused ? "1" : "0"});
+                    paused ? "1" : "0", timerLabel});
         }
     };
     dispatchTable_[Opcode::SMSG_STOP_MIRROR_TIMER] = [this](network::Packet& packet) {
@@ -286,7 +303,10 @@ void GameHandler::registerOpcodeHandlers() {
         if (type < 3) {
             mirrorTimers_[type].active = false;
             mirrorTimers_[type].value  = 0;
-            fireAddonEvent("MIRROR_TIMER_STOP", {std::to_string(type)});
+            // Named, like the start above: MirrorTimer_Hide matches on the
+            // timer's name, so a number hides nothing.
+            fireAddonEvent("MIRROR_TIMER_STOP",
+                           {type < 3 ? kMirrorTimerNames[type] : "BREATH"});
         }
     };
     dispatchTable_[Opcode::SMSG_PAUSE_MIRROR_TIMER] = [this](network::Packet& packet) {
@@ -361,6 +381,11 @@ void GameHandler::registerOpcodeHandlers() {
         }
         if (isLost) knownTitleBits_.erase(titleBit);
         else        knownTitleBits_.insert(titleBit);
+        // And announce it. The set is read by IsTitleKnown, which the character
+        // sheet's title dropdown builds itself from - but only when told to
+        // rebuild, and this is what tells it. Without it a title earned mid
+        // session did not appear in the list until the sheet was reopened.
+        fireAddonEvent("KNOWN_TITLES_UPDATE", {});
         addSystemChatMessage(msg);
         LOG_INFO("SMSG_TITLE_EARNED: bit=", titleBit, " lost=", isLost, " title='", titleStr, "'");
     };
@@ -368,10 +393,20 @@ void GameHandler::registerOpcodeHandlers() {
         LOG_DEBUG("SMSG_LEARNED_DANCE_MOVES: ignored (size=", packet.getSize(), ")");
     };
     dispatchTable_[Opcode::SMSG_CHAR_RENAME] = [this](network::Packet& packet) {
-        if (packet.hasRemaining(13)) {
-            uint32_t result = packet.readUInt32();
-            /*uint64_t guid =*/ packet.readUInt64();
-            std::string newName = packet.readString();
+        // uint8 result, and the guid and the new name only when it succeeded.
+        //
+        // This read a four-byte result and required thirteen bytes. A refusal
+        // is one byte, so no rename error was ever shown; a success carries the
+        // name, so it usually cleared the guard and then took three bytes of
+        // the guid as part of the result - which read as an enormous number,
+        // fell past the error table and reported the rename as failed.
+        if (packet.hasRemaining(1)) {
+            const uint8_t result = packet.readUInt8();
+            std::string newName;
+            if (result == 0 && packet.hasRemaining(9)) {
+                /*uint64_t guid =*/ packet.readUInt64();
+                newName = packet.readString();
+            }
             if (result == 0) {
                 addSystemChatMessage("Character name changed to: " + newName);
             } else {
@@ -384,7 +419,8 @@ void GameHandler::registerOpcodeHandlers() {
                 std::string renameErr = errMsg ? std::string("Rename failed: ") + errMsg : "Character rename failed.";
                 addUIError(renameErr); addSystemChatMessage(renameErr);
             }
-            LOG_INFO("SMSG_CHAR_RENAME: result=", result, " newName=", newName);
+            LOG_INFO("SMSG_CHAR_RENAME: result=", static_cast<int>(result),
+                     " newName=", newName);
         }
     };
 
@@ -406,7 +442,18 @@ void GameHandler::registerOpcodeHandlers() {
         pbMsg += '.';
         addSystemChatMessage(pbMsg);
     };
-    registerSkipHandler(Opcode::SMSG_BINDER_CONFIRM);
+    // The innkeeper asking whether to make this the player's home. It was
+    // skipped because this client's own gossip window never waited for it - it
+    // matches the option's English text and sends the activate itself. FrameXML
+    // draws the gossip window now and follows the real flow: the server asks,
+    // a popup accepts, and the reply goes back.
+    dispatchTable_[Opcode::SMSG_BINDER_CONFIRM] = [this](network::Packet& packet) {
+        binderGuid_ = packet.hasRemaining(8) ? packet.readUInt64() : 0;
+        // Who is asking. StaticPopup_Show("CONFIRM_BINDER", arg1) puts the name
+        // into "Do you want to make <name> your new home?" - without it the
+        // question had a hole where the innkeeper should be.
+        fireAddonEvent("CONFIRM_BINDER", {lookupName(binderGuid_)});
+    };
     registerSkipHandler(Opcode::SMSG_SET_PHASE_SHIFT);
     dispatchTable_[Opcode::SMSG_TOGGLE_XP_GAIN] = [this](network::Packet& packet) {
         if (!packet.hasRemaining(1)) return;
@@ -417,7 +464,7 @@ void GameHandler::registerOpcodeHandlers() {
         if (packet.hasRemaining(4)) {
             uint32_t result = packet.readUInt32();
             if (result == 0) addSystemChatMessage("Your home is now set to this location.");
-            else { addUIError("You are too far from the innkeeper."); addSystemChatMessage("You are too far from the innkeeper."); }
+            else { raiseUiError("You are too far from the innkeeper."); }
         }
     };
     dispatchTable_[Opcode::SMSG_CHANGEPLAYER_DIFFICULTY_RESULT] = [this](network::Packet& packet) {
@@ -478,7 +525,7 @@ void GameHandler::registerOpcodeHandlers() {
             }
         }
     };
-    // Consume silently — opcodes we receive but don't need to act on
+    // Consume silently - opcodes we receive but don't need to act on
     for (auto op : {
         Opcode::SMSG_FLIGHT_SPLINE_SYNC, Opcode::SMSG_FORCE_DISPLAY_UPDATE,
         Opcode::SMSG_FORCE_SEND_QUEUED_PACKETS, Opcode::SMSG_FORCE_SET_VEHICLE_REC_ID,
@@ -486,14 +533,14 @@ void GameHandler::registerOpcodeHandlers() {
         Opcode::SMSG_DYNAMIC_DROP_ROLL_RESULT, Opcode::SMSG_DESTRUCTIBLE_BUILDING_DAMAGE,
     }) { registerSkipHandler(op); }
 
-    // Game object despawn animation — reset state to closed before actual despawn
+    // Game object despawn animation - reset state to closed before actual despawn
     dispatchTable_[Opcode::SMSG_GAMEOBJECT_DESPAWN_ANIM] = [this](network::Packet& packet) {
         if (!packet.hasRemaining(8)) return;
         uint64_t guid = packet.readUInt64();
         // Trigger a CLOSE animation / freeze before the object is removed
         if (gameObjectStateCallback_) gameObjectStateCallback_(guid, 0);
     };
-    // Game object reset state — return to READY(closed) state
+    // Game object reset state - return to READY(closed) state
     dispatchTable_[Opcode::SMSG_GAMEOBJECT_RESET_STATE] = [this](network::Packet& packet) {
         if (!packet.hasRemaining(8)) return;
         uint64_t guid = packet.readUInt64();
@@ -512,7 +559,7 @@ void GameHandler::registerOpcodeHandlers() {
         LOG_INFO("SMSG_FORCED_DEATH_UPDATE: player force-killed");
         packet.skipAll();
     };
-    // SMSG_DEFENSE_MESSAGE — moved to ChatHandler::registerOpcodes
+    // SMSG_DEFENSE_MESSAGE - moved to ChatHandler::registerOpcodes
     dispatchTable_[Opcode::SMSG_CORPSE_RECLAIM_DELAY] = [this](network::Packet& packet) {
         if (packet.hasRemaining(4)) {
             uint32_t delayMs = packet.readUInt32();
@@ -523,11 +570,27 @@ void GameHandler::registerOpcodeHandlers() {
             LOG_INFO("SMSG_CORPSE_RECLAIM_DELAY: ", delayMs, "ms");
         }
     };
-    dispatchTable_[Opcode::SMSG_DEATH_RELEASE_LOC] = [](network::Packet& packet) {
+    dispatchTable_[Opcode::SMSG_DEATH_RELEASE_LOC] = [this](network::Packet& packet) {
         if (packet.hasRemaining(16)) {
             uint32_t relMapId = packet.readUInt32();
             float relX = packet.readFloat(), relY = packet.readFloat(), relZ = packet.readFloat();
-            LOG_INFO("SMSG_DEATH_RELEASE_LOC (graveyard spawn): map=", relMapId, " x=", relX, " y=", relY, " z=", relZ);
+            // Read and logged and nothing else, until now: this is where the
+            // server says the nearest spirit healer is, and a ghost with no
+            // marker for it has to go looking.
+            //
+            // Map id -1 is the withdrawal. ResurrectPlayer sends it to take the
+            // marker down, so it is not a graveyard at (0,0,0).
+            if (relMapId == 0xFFFFFFFFu) {
+                deathReleaseValid_ = false;
+                LOG_INFO("SMSG_DEATH_RELEASE_LOC: spirit healer position cleared");
+            } else {
+                deathReleaseValid_ = true;
+                deathReleaseMapId_ = relMapId;
+                deathReleaseCanonical_ =
+                    core::coords::serverToCanonical(glm::vec3(relX, relY, relZ));
+                LOG_INFO("SMSG_DEATH_RELEASE_LOC (graveyard spawn): map=", relMapId,
+                         " x=", relX, " y=", relY, " z=", relZ);
+            }
         }
     };
     dispatchTable_[Opcode::SMSG_ENABLE_BARBER_SHOP] = [this](network::Packet& /*packet*/) {
@@ -540,21 +603,39 @@ void GameHandler::registerOpcodeHandlers() {
     //                movement/speed/flags, attack, spells, group ----
 
     dispatchTable_[Opcode::MSG_CORPSE_QUERY] = [this](network::Packet& packet) {
+        // found(1) + travelMapId(4) + x,y,z(12) + corpseMapId(4) + unk(4).
+        //
+        // Two map ids, and they are not the same question. The first is where
+        // the coordinates are: for a corpse left in a dungeon the server
+        // answers with the instance's *entrance* on the outdoor map, because
+        // that is where a ghost has to walk to. The second is the map the
+        // corpse is actually lying on.
+        //
+        // This paired the coordinates with the second, and everything that
+        // reads corpseMapId_ compares it against the map the player is
+        // standing on - every other writer sets it to exactly that. So a
+        // corpse in a dungeon gave a position on the outdoor map filed under
+        // the dungeon's id, and the check `currentMapId_ != corpseMapId_`
+        // refused to show it precisely where it would have been useful.
         if (!packet.hasRemaining(1)) return;
-        uint8_t found = packet.readUInt8();
-        if (found && packet.hasRemaining(20)) {
-            /*uint32_t mapId =*/ packet.readUInt32();
-            float cx = packet.readFloat();
-            float cy = packet.readFloat();
-            float cz = packet.readFloat();
-            uint32_t corpseMapId = packet.readUInt32();
-            corpseX_ = cx;
-            corpseY_ = cy;
-            corpseZ_ = cz;
-            corpseMapId_ = corpseMapId;
-            corpsePositionValid_ = true;
-            LOG_INFO("MSG_CORPSE_QUERY: corpse at (", cx, ",", cy, ",", cz, ") map=", corpseMapId);
-        }
+        const uint8_t found = packet.readUInt8();
+        if (!found || !packet.hasRemaining(20)) return;
+        const uint32_t travelMapId = packet.readUInt32();
+        const float cx = packet.readFloat();
+        const float cy = packet.readFloat();
+        const float cz = packet.readFloat();
+        const uint32_t corpseMapId = packet.readUInt32();
+
+        corpseX_ = cx;
+        corpseY_ = cy;
+        corpseZ_ = cz;
+        corpseMapId_ = travelMapId;
+        corpsePositionValid_ = true;
+        LOG_INFO("MSG_CORPSE_QUERY: walk to (", cx, ",", cy, ",", cz,
+                 ") on map ", travelMapId,
+                 corpseMapId != travelMapId
+                     ? " (the corpse itself is inside map " + std::to_string(corpseMapId) + ")"
+                     : "");
     };
     dispatchTable_[Opcode::SMSG_FEIGN_DEATH_RESISTED] = [this](network::Packet& /*packet*/) {
         addUIError("Your Feign Death was resisted.");
@@ -609,8 +690,11 @@ void GameHandler::registerOpcodeHandlers() {
 
     // Combat clearing
     dispatchTable_[Opcode::SMSG_BREAK_TARGET] = [this](network::Packet& packet) {
-        if (packet.hasRemaining(8)) {
-            uint64_t bGuid = packet.readUInt64();
+        // Packed, not plain: Unit::BreakTarget sizes the packet with
+        // GetPackGUID().size() and writes GetPackGUID(). Read as a uint64 the
+        // guid never matched the target, so the target was never dropped.
+        if (packet.hasRemaining(1)) {
+            uint64_t bGuid = packet.readPackedGuid();
             if (bGuid == targetGuid) targetGuid = 0;
         }
     };
@@ -734,7 +818,7 @@ void GameHandler::registerOpcodeHandlers() {
         uint32_t result = packet.readUInt32();
         if (result != 0) {
             addUIError("Cannot dismount here.");
-            addSystemChatMessage("Cannot dismount here.");
+            raiseUiError("Cannot dismount here.");
         }
     };
 
@@ -761,6 +845,10 @@ void GameHandler::registerOpcodeHandlers() {
     registerHandler(Opcode::SMSG_SUMMON_REQUEST, &GameHandler::handleSummonRequest);
     dispatchTable_[Opcode::SMSG_SUMMON_CANCEL] = [this](network::Packet& /*packet*/) {
         pendingSummonRequest_ = false;
+        // social_handler raised the prompt with CONFIRM_SUMMON; uiparent.lua
+        // takes this one down again. Told only in chat, the dialog stays on
+        // screen offering a summon the server has already withdrawn.
+        fireAddonEvent("CANCEL_SUMMON", {});
         addSystemChatMessage("Summon cancelled.");
     };
 
@@ -801,25 +889,51 @@ void GameHandler::registerOpcodeHandlers() {
             resurrectCasterName_ = "";
             resurrectIsSpiritHealer_ = true;
             resurrectRequestPending_ = true;
+            // The spirit healer's prompt is CONFIRM_XP_LOSS, not
+            // RESURRECT_REQUEST - uiparent.lua answers it with the durability
+            // and sickness warning and its Accept calls AcceptXPLoss. Nothing
+            // fired it, and the only thing that could reach
+            // activateSpiritHealer was this client's own gossip window, so with
+            // gossip handed over there was no way left to accept at all.
+            fireAddonEvent("CONFIRM_XP_LOSS", {});
         }
     };
     dispatchTable_[Opcode::SMSG_RESURRECT_REQUEST] = [this](network::Packet& packet) {
-        if (!packet.hasRemaining(8)) return;
-        uint64_t casterGuid = packet.readUInt64();
-        std::string casterName;
-        if (packet.hasData())
-            casterName = packet.readString();
-        if (casterGuid) {
-            resurrectCasterGuid_ = casterGuid;
-            resurrectIsSpiritHealer_ = false;
-            if (!casterName.empty()) {
-                resurrectCasterName_ = casterName;
-            } else {
-                resurrectCasterName_ = lookupName(casterGuid);
-            }
-            resurrectRequestPending_ = true;
-                            fireAddonEvent("RESURRECT_REQUEST", {resurrectCasterName_});
-        }
+        // Spell::SendResurrectRequest writes:
+        //
+        //   uint64 casterGuid
+        //   uint32 nameLength      (the name plus its terminator)
+        //   char[] name            with that terminator
+        //   uint8  0               a second one, written explicitly
+        //   uint8  sickness        1 from a creature, 0 from a player
+        //   uint32 0               only when the spell overrides the timer
+        //
+        // The length was never read, so readString took the first byte of it
+        // as the whole name - a control character, for any name shorter than
+        // two hundred and fifty-five - and the dialog was raised offering a
+        // resurrection from that. Everything after it was out of step too, so
+        // the sickness flag was never read at all.
+        if (!packet.hasRemaining(12)) { packet.skipAll(); return; }
+        const uint64_t casterGuid = packet.readUInt64();
+        /*uint32_t nameLength =*/ packet.readUInt32();
+        std::string casterName = packet.readString();
+        if (packet.hasRemaining(1)) packet.readUInt8();   // the second terminator
+        const bool sickness = packet.hasRemaining(1) && packet.readUInt8() != 0;
+        // The trailing word is present only when the spell waives the reclaim
+        // delay, so having one means there is no timer to wait out.
+        const bool hasTimer = !packet.hasRemaining(4);
+        packet.skipAll();
+
+        if (!casterGuid) return;
+        resurrectCasterGuid_ = casterGuid;
+        // A creature offering this is a spirit healer, and that is what the
+        // sickness flag says - it is set for every non-player caster.
+        resurrectIsSpiritHealer_ = false;
+        resurrectHasSickness_ = sickness;
+        resurrectHasTimer_ = hasTimer;
+        resurrectCasterName_ = casterName.empty() ? lookupName(casterGuid) : casterName;
+        resurrectRequestPending_ = true;
+        fireAddonEvent("RESURRECT_REQUEST", {resurrectCasterName_});
     };
 
     // Time sync
@@ -854,29 +968,64 @@ void GameHandler::registerOpcodeHandlers() {
         if (senderGuid != playerGuid) {
                             withSoundManager(&audio::AudioCoordinator::getUiSoundManager, [](auto* sfx) { sfx->playMinimapPing(); });
         }
+        // The ping is drawn by this client from minimapPings_ and was never
+        // announced, so a handed-over minimap heard the sound and showed
+        // nothing. The interface wants the unit that pinged and the position,
+        // and marks the spot itself.
+        //
+        // x then y, in that order, which is the reverse of how they are stored
+        // above: the wire sends them the other way round and this client swaps
+        // them on the way in. Passing the stored pair straight through would
+        // put every ping at its own mirror image.
+        std::string unitId = guidToUnitId(senderGuid);
+        if (unitId.empty()) unitId = "player";
+        fireAddonEvent("MINIMAP_PING", {unitId,
+                                        std::to_string(ping.wowY),
+                                        std::to_string(ping.wowX)});
     };
     dispatchTable_[Opcode::SMSG_ZONE_UNDER_ATTACK] = [this](network::Packet& packet) {
         if (packet.hasRemaining(4)) {
             uint32_t areaId = packet.readUInt32();
             std::string areaName = getAreaName(areaId);
-            std::string msg = areaName.empty()
-                ? std::string("A zone is under attack!")
-                : (areaName + " is under attack!");
-            addUIError(msg);
-            addSystemChatMessage(msg);
+            // The zone name goes with it: the interface writes its own warning
+            // from arg1 rather than reusing the chat line.
+            if (addonEventCallback_) addonEventCallback_("ZONE_UNDER_ATTACK", {areaName});
+            // ...which is why this client only writes the line when nothing
+            // else will. chatframe.lua's own ZONE_UNDER_ATTACK branch calls
+            // AddMessage with ZONE_UNDER_ATTACK formatted from arg1, so with
+            // the interface in charge the player read every attack twice in
+            // chat and a third time on the error line - which the real client
+            // never puts it on at all. Booty Bay under sustained attack filled
+            // the window.
+            if (!ui::frameXmlOwns(ui::UiElement::Chat)) {
+                const std::string msg = areaName.empty()
+                    ? std::string("A zone is under attack!")
+                    : (areaName + " is under attack!");
+                addUIError(msg);
+                addSystemChatMessage(msg);
+            }
         }
     };
 
     // Spirit healer time / durability
     dispatchTable_[Opcode::SMSG_AREA_SPIRIT_HEALER_TIME] = [this](network::Packet& packet) {
-        if (packet.hasRemaining(12)) {
-            /*uint64_t guid =*/ packet.readUInt64();
-            uint32_t timeMs = packet.readUInt32();
-            uint32_t secs = timeMs / 1000;
-            char buf[128];
-            std::snprintf(buf, sizeof(buf), "You will be able to resurrect in %u seconds.", secs);
-            addSystemChatMessage(buf);
-        }
+        if (!packet.hasRemaining(12)) { packet.skipAll(); return; }
+        const uint64_t guid = packet.readUInt64();
+        const uint32_t timeMs = packet.readUInt32();
+        areaSpiritHealerGuid_ = guid;
+        areaSpiritHealerSeconds_ = static_cast<float>(timeMs) / 1000.0f;
+
+        char buf[128];
+        std::snprintf(buf, sizeof(buf), "You will be able to resurrect in %u seconds.",
+                      timeMs / 1000);
+        addSystemChatMessage(buf);
+
+        // Parsed and said in chat and announced to nobody. UIParent_OnEvent
+        // answers this by joining the queue and raising the countdown dialog,
+        // and it was never told - so the reply arrived, the line was printed,
+        // and the resurrection it was counting down to was one this player had
+        // not joined.
+        fireAddonEvent("AREA_SPIRIT_HEALER_IN_RANGE", {});
     };
     dispatchTable_[Opcode::SMSG_DURABILITY_DAMAGE_DEATH] = [this](network::Packet& packet) {
         if (packet.hasRemaining(4)) {
@@ -919,9 +1068,9 @@ void GameHandler::registerOpcodeHandlers() {
         }
     };
 
-    // SMSG_SERVER_MESSAGE — moved to ChatHandler::registerOpcodes
-    // SMSG_CHAT_SERVER_MESSAGE — moved to ChatHandler::registerOpcodes
-    // SMSG_AREA_TRIGGER_MESSAGE — moved to ChatHandler::registerOpcodes
+    // SMSG_SERVER_MESSAGE - moved to ChatHandler::registerOpcodes
+    // SMSG_CHAT_SERVER_MESSAGE - moved to ChatHandler::registerOpcodes
+    // SMSG_AREA_TRIGGER_MESSAGE - moved to ChatHandler::registerOpcodes
     dispatchTable_[Opcode::SMSG_TRIGGER_CINEMATIC] = [this](network::Packet& packet) {
         packet.skipAll();
         network::Packet ack(wireOpcode(Opcode::CMSG_NEXT_CINEMATIC_CAMERA));
@@ -940,23 +1089,44 @@ void GameHandler::registerOpcodeHandlers() {
         (void)pendingMapId;
     };
     dispatchTable_[Opcode::SMSG_TRANSFER_ABORTED] = [this](network::Packet& packet) {
-        uint32_t mapId = packet.readUInt32();
-        uint8_t reason = (packet.hasData()) ? packet.readUInt8() : 0;
-        (void)mapId;
+        // uint32 mapId + uint8 reason, and a further uint8 for exactly three of
+        // them - the expansion level, the difficulty and the unique message.
+        //
+        // Every code from 0x01 on named the wrong failure. The table here was
+        // shifted against Player.h's own enum: 0x02 is a full instance and was
+        // read as a missing expansion, 0x06 is an encounter in progress and was
+        // read as a full instance, 0x07 is the missing expansion and was read
+        // as the encounter. Nothing above 0x09 was known at all, which
+        // includes the one a map refusing entry outright sends.
+        //
+        // So a refusal always said something, and what it said was not why.
+        if (!packet.hasRemaining(4)) { packet.skipAll(); return; }
+        /*uint32_t mapId =*/ packet.readUInt32();
+        const uint8_t reason = packet.hasRemaining(1) ? packet.readUInt8() : 0;
         const char* abortMsg = nullptr;
         switch (reason) {
-            case 0x01: abortMsg = "Transfer aborted: difficulty unavailable."; break;
-            case 0x02: abortMsg = "Transfer aborted: expansion required."; break;
+            case 0x01: abortMsg = "Transfer aborted: an error occurred."; break;
+            case 0x02: abortMsg = "Transfer aborted: instance is full."; break;
             case 0x03: abortMsg = "Transfer aborted: instance not found."; break;
-            case 0x04: abortMsg = "Transfer aborted: too many instances. Please wait before entering a new instance."; break;
-            case 0x06: abortMsg = "Transfer aborted: instance is full."; break;
-            case 0x07: abortMsg = "Transfer aborted: zone is in combat."; break;
-            case 0x08: abortMsg = "Transfer aborted: you are already in this instance."; break;
-            case 0x09: abortMsg = "Transfer aborted: not enough players."; break;
+            case 0x04: abortMsg = "You have entered too many instances recently."; break;
+            case 0x06: abortMsg = "Unable to zone in while an encounter is in progress."; break;
+            case 0x07: abortMsg = "You do not have the expansion required to enter this area."; break;
+            case 0x08: abortMsg = "That difficulty is not available for this instance."; break;
+            case 0x09: abortMsg = "You cannot leave this place yet."; break;
+            case 0x0A: abortMsg = "Additional instances cannot be launched. Please try again later."; break;
+            case 0x0B: abortMsg = "Transfer aborted: you must be in a group to enter."; break;
+            case 0x0C:
+            case 0x0D:
+            case 0x0E: abortMsg = "Transfer aborted: instance not found."; break;
+            case 0x0F: abortMsg = "Transfer aborted: everyone in the party must be on the same realm."; break;
+            case 0x10: abortMsg = "This map cannot be entered at this time."; break;
             default:   abortMsg = "Transfer aborted."; break;
         }
+        packet.skipAll();
         addUIError(abortMsg);
         addSystemChatMessage(abortMsg);
+        LOG_WARNING("SMSG_TRANSFER_ABORTED: reason 0x", std::hex,
+                    static_cast<int>(reason), std::dec, " - ", abortMsg);
     };
 
     // Taxi
@@ -1030,11 +1200,16 @@ void GameHandler::registerOpcodeHandlers() {
         }
     };
     dispatchTable_[Opcode::SMSG_SOCKET_GEMS_RESULT] = [this](network::Packet& packet) {
-        if (packet.hasRemaining(4)) {
-            uint32_t result = packet.readUInt32();
-            if (result == 0) addSystemChatMessage("Gems socketed successfully.");
-            else addSystemChatMessage("Failed to socket gems.");
-        }
+        // There is no result field. Item::SendUpdateSockets writes the item's
+        // guid and then the four enchantment ids now in its sockets, and sends
+        // it only when the sockets were actually changed - so arriving *is* the
+        // success. This read a uint32 at offset zero and called it the result,
+        // which is the low half of the item's guid: never zero, so socketing a
+        // gem always reported that it had failed.
+        if (!packet.hasRemaining(8)) return;
+        const uint64_t itemGuid = packet.readUInt64();
+        addSystemChatMessage("Gems socketed successfully.");
+        LOG_DEBUG("SMSG_SOCKET_GEMS_RESULT: itemGuid=0x", std::hex, itemGuid, std::dec);
     };
     dispatchTable_[Opcode::SMSG_ITEM_TIME_UPDATE] = [](network::Packet& packet) {
         if (packet.hasRemaining(12)) {
@@ -1050,18 +1225,27 @@ void GameHandler::registerOpcodeHandlers() {
     dispatchTable_[Opcode::SMSG_ALL_ACHIEVEMENT_DATA] = [this](network::Packet& packet) {
         handleAllAchievementData(packet);
     };
+    // Both are errors rather than remarks, and the real client shows them on
+    // the error line rather than in the chat log - ERR_FISH_NOT_HOOKED and
+    // ERR_FISH_ESCAPED are globalstrings. raiseUiError puts them there, fires
+    // UI_ERROR_MESSAGE so the interface's own error frame draws them, and
+    // keeps the chat line this client has always written.
     dispatchTable_[Opcode::SMSG_FISH_NOT_HOOKED] = [this](network::Packet& /*packet*/) {
         hookedFishingBobberGuid_ = 0;
-        addSystemChatMessage("Your fish got away.");
+        raiseUiError("Your fish got away.");
     };
     dispatchTable_[Opcode::SMSG_FISH_ESCAPED] = [this](network::Packet& /*packet*/) {
         hookedFishingBobberGuid_ = 0;
-        addSystemChatMessage("Your fish escaped!");
+        raiseUiError("Your fish escaped!");
     };
 
     // ---- Auto-repeat / auras / dispel / totem ----
-    dispatchTable_[Opcode::SMSG_CANCEL_AUTO_REPEAT] = [](network::Packet& /*packet*/) {
-        // Server signals to stop a repeating spell (wand/shoot); no client action needed
+    dispatchTable_[Opcode::SMSG_CANCEL_AUTO_REPEAT] = [this](network::Packet& /*packet*/) {
+        // The server saying a repeating spell has stopped. Nothing in this
+        // client's own interface reads it, which is why it did nothing - but
+        // the action button flashes for as long as one is running and stops on
+        // exactly this.
+        fireAddonEvent("STOP_AUTOREPEAT_SPELL", {});
     };
 
 
@@ -1152,7 +1336,7 @@ void GameHandler::registerOpcodeHandlers() {
             rem -= 4;
             if (i >= ACTION_BAR_SLOTS) continue;
             if (packed == 0) {
-                // Empty slot — only clear if not already set to Attack/Hearthstone defaults
+                // Empty slot - only clear if not already set to Attack/Hearthstone defaults
                 // so we don't wipe hardcoded fallbacks when the server sends zeros.
                 continue;
             }
@@ -1172,7 +1356,7 @@ void GameHandler::registerOpcodeHandlers() {
                 case 0x01: slot.type = ActionBarSlot::ITEM;  slot.id = id; break;  // Classic item
                 case 0x80: slot.type = ActionBarSlot::ITEM;  slot.id = id; break;  // TBC/WotLK item
                 case 0x40: slot.type = ActionBarSlot::MACRO; slot.id = id; break;  // macro (all expansions)
-                default:   continue;  // unknown — leave as-is
+                default:   continue;  // unknown - leave as-is
             }
             actionBar[i] = slot;
         }
@@ -1207,7 +1391,11 @@ void GameHandler::registerOpcodeHandlers() {
             }
         }
         LOG_INFO("SMSG_ACTION_BUTTONS: populated action bar from server");
-        fireAddonEvent("ACTIONBAR_SLOT_CHANGED", {});
+        // Zero means every slot, which is what the whole bar arriving at
+        // once is. Sent with no argument the buttons compared nil against
+        // zero and against their own action, matched neither, and the bar
+        // the server had just sent drew nothing.
+        fireAddonEvent("ACTIONBAR_SLOT_CHANGED", {"0"});
         packet.skipAll();
     };
 
@@ -1237,14 +1425,41 @@ void GameHandler::registerOpcodeHandlers() {
                     for (auto& ch : characters) {
                         if (ch.guid == playerGuid) {
                             ch.level = serverPlayerLevel_;
-                            break;  // was 'return' — must NOT exit here or level-up notification is skipped
+                            break;  // was 'return' - must NOT exit here or level-up notification is skipped
                         }
                     }
                     if (newLevel > oldLevel) {
-                        addSystemChatMessage("You have reached level " + std::to_string(newLevel) + "!");
+                        // Not when the interface writes it: chatframe.lua's
+                        // PLAYER_LEVEL_UP branch formats LEVEL_UP from arg1
+                        // and adds the health and mana gains under it, so this
+                        // line was a second, shorter copy above its own.
+                        if (!ui::frameXmlOwns(ui::UiElement::Chat)) {
+                            addSystemChatMessage("You have reached level " +
+                                                 std::to_string(newLevel) + "!");
+                        }
                         withSoundManager(&audio::AudioCoordinator::getUiSoundManager, [](auto* sfx) { sfx->playLevelUp(); });
                         if (levelUpCallback_) levelUpCallback_(newLevel);
-                        fireAddonEvent("PLAYER_LEVEL_UP", {std::to_string(newLevel)});
+                        // All nine, in the order the interface reads them:
+                        // level, health, power, talent points, then the five
+                        // stats. The chat frame tests the third against zero
+                        // to decide whether to mention mana, so sending only
+                        // the level was an error on every level gained - and
+                        // every one of these was already parsed above.
+                        //
+                        // Talent points are zero: the packet carries no such
+                        // delta, and zero is what stops the interface claiming
+                        // a point was gained.
+                        fireAddonEvent("PLAYER_LEVEL_UP", {
+                            std::to_string(newLevel),
+                            std::to_string(lastLevelUpDeltas_.hp),
+                            std::to_string(lastLevelUpDeltas_.mana),
+                            "0",
+                            std::to_string(lastLevelUpDeltas_.str),
+                            std::to_string(lastLevelUpDeltas_.agi),
+                            std::to_string(lastLevelUpDeltas_.sta),
+                            std::to_string(lastLevelUpDeltas_.intel),
+                            std::to_string(lastLevelUpDeltas_.spi),
+                        });
                     }
                 }
             }
@@ -1290,6 +1505,28 @@ void GameHandler::registerOpcodeHandlers() {
                 // Fire addon event for achievement tracking addons
                 if (progress != oldProgress)
                     fireAddonEvent("CRITERIA_UPDATE", {std::to_string(criteriaId), std::to_string(progress)});
+
+                // A timed criteria also drives the tracker's countdown. The
+                // message says how far into the window the player is; how long
+                // the window is comes from the DBC, so the two have to be put
+                // together here - the interface reads the pair and works out a
+                // start time from them.
+                //
+                // Fired for any timed criteria rather than only tracked ones.
+                // The tracker stores what it is told and draws a timer only
+                // inside its tracked-achievement loop, so entries for the rest
+                // cost a table row and show nothing; the gain is that tracking
+                // an achievement part-way through its timer still shows the
+                // right countdown, instead of nothing until the next update.
+                ensureAchievementCriteriaLoaded();
+                const auto idx = getAchievementCriterionIndex(criteriaId);
+                if (idx.timeLimit != 0 && idx.achievementId != 0) {
+                    fireAddonEvent("TRACKED_ACHIEVEMENT_UPDATE",
+                                   {std::to_string(idx.achievementId),
+                                    std::to_string(criteriaId),
+                                    std::to_string(rec.timeElapsed),
+                                    std::to_string(idx.timeLimit)});
+                }
             }
         }
     };
@@ -1314,6 +1551,15 @@ void GameHandler::registerOpcodeHandlers() {
         }
     };
 
+}
+
+// Everything else - inspects, quests, auctions, spells, calendars,
+// battlefields, voice, and a long tail that is consumed and ignored.
+//
+// Named for what it is rather than given a theme it does not have: it arrived
+// as five batches of whatever was left over, and the honest description of that
+// is 'the rest'.
+void GameHandler::registerRemainingOpcodes() {
     // -----------------------------------------------------------------------
     // Batch 8-12: Remaining opcodes (inspects, quests, auctions, spells,
     //             calendars, battlefields, voice, misc consume-only)
@@ -1370,9 +1616,9 @@ void GameHandler::registerOpcodeHandlers() {
             }
         }
     };
-    // Server-script text message — display in system chat
+    // Server-script text message - display in system chat
     dispatchTable_[Opcode::SMSG_SCRIPT_MESSAGE] = [this](network::Packet& packet) {
-        // Server-script text message — display in system chat
+        // Server-script text message - display in system chat
         std::string msg = packet.readString();
         if (!msg.empty()) {
             addSystemChatMessage(msg);
@@ -1443,8 +1689,8 @@ void GameHandler::registerOpcodeHandlers() {
     // auctionId(u32) + action(u32) + error(u32) + itemEntry(u32) + randomPropertyId(u32) + ...
     // action: 0=sold/won, 1=expired, 2=bid placed on your auction
     // auctionHouseId(u32) + auctionId(u32) + bidderGuid(u64) + bidAmount(u32) + outbidAmount(u32) + itemEntry(u32) + randomPropertyId(u32)
-    // uint32 auctionId + uint32 itemEntry + uint32 itemRandom — auction expired/cancelled
-    // uint64 containerGuid — tells client to open this container
+    // uint32 auctionId + uint32 itemEntry + uint32 itemRandom - auction expired/cancelled
+    // uint64 containerGuid - tells client to open this container
     // The actual items come via update packets; we just log this.
     // PackedGuid (player guid) + uint32 vehicleId
     // vehicleId == 0 means the player left the vehicle
@@ -1461,8 +1707,16 @@ void GameHandler::registerOpcodeHandlers() {
         bool wasInVehicle = vehicleId_ != 0;
         bool nowInVehicle = newVehicleId != 0;
         vehicleId_ = newVehicleId;
-        if (wasInVehicle != nowInVehicle && vehicleStateCallback_) {
-            vehicleStateCallback_(nowInVehicle, newVehicleId);
+        if (wasInVehicle != nowInVehicle) {
+            if (vehicleStateCallback_) vehicleStateCallback_(nowInVehicle, newVehicleId);
+            // Announced as well as stored. The state was kept and handed to
+            // this client's own bar, and the interface heard nothing - so the
+            // leave-vehicle button, which redraws on VEHICLE_UPDATE, never
+            // learned there was a vehicle to leave.
+            fireAddonEvent("VEHICLE_UPDATE", {});
+            fireAddonEvent(nowInVehicle ? "UNIT_ENTERED_VEHICLE"
+                                        : "UNIT_EXITED_VEHICLE", {"player"});
+            fireAddonEvent("UPDATE_BONUS_ACTIONBAR", {});
         }
     };
     // guid(8) + status(1): status 1 = NPC has available/new routes for this player
@@ -1474,30 +1728,24 @@ void GameHandler::registerOpcodeHandlers() {
             taxiNpcHasRoutes_[npcGuid] = (status != 0);
         }
     };
-    // SMSG_GUILD_DECLINE — moved to SocialHandler::registerOpcodes
+    // SMSG_GUILD_DECLINE - moved to SocialHandler::registerOpcodes
     // Clear cached talent data so the talent screen reflects the reset.
     dispatchTable_[Opcode::SMSG_TALENTS_INVOLUNTARILY_RESET] = [this](network::Packet& packet) {
         // Clear cached talent data so the talent screen reflects the reset.
         if (spellHandler_) spellHandler_->resetTalentState();
         addUIError("Your talents have been reset by the server.");
         addSystemChatMessage("Your talents have been reset by the server.");
+        // The talent frame rebuilds from this; the cached state was cleared
+        // above and nothing told it to redraw, so it kept the old trees.
+        if (addonEventCallback_) addonEventCallback_("TALENTS_INVOLUNTARILY_RESET", {});
         packet.skipAll();
     };
-    dispatchTable_[Opcode::SMSG_SET_REST_START] = [this](network::Packet& packet) {
-        if (packet.hasRemaining(4)) {
-            uint32_t restTrigger = packet.readUInt32();
-            const bool nowResting = (restTrigger > 0);
-            // The server pushes SMSG_SET_REST_START periodically while in
-            // a rest area, so only emit chat / fire the addon event on
-            // actual transitions — otherwise "You are now resting." spams
-            // the chat log every tick.
-            if (nowResting != isResting_) {
-                isResting_ = nowResting;
-                addSystemChatMessage(isResting_ ? "You are now resting."
-                                                : "You are no longer resting.");
-                fireAddonEvent("PLAYER_UPDATE_RESTING", {});
-            }
-        }
+    dispatchTable_[Opcode::SMSG_SET_REST_START] = [](network::Packet& packet) {
+        // The rest-XP accumulation start time, not a statement about where the
+        // player is standing: the server sends it on login wherever that is.
+        // Resting itself comes from PLAYER_FLAGS_RESTING, which entity_controller
+        // watches, because that is the one that clears again on leaving an inn.
+        packet.skipAll();
     };
     dispatchTable_[Opcode::SMSG_UPDATE_AURA_DURATION] = [this](network::Packet& packet) {
         if (packet.hasRemaining(5)) {
@@ -1520,7 +1768,11 @@ void GameHandler::registerOpcodeHandlers() {
         }
         packet.skipAll();
     };
-    dispatchTable_[Opcode::SMSG_MOUNTSPECIAL_ANIM] = [](network::Packet& packet) { (void)packet.readPackedGuid(); };
+    // A plain guid: Unit::SendMountSpecialAnim writes GetGUID(), not the
+    // packed form, so reading it packed consumed the wrong number of bytes.
+    dispatchTable_[Opcode::SMSG_MOUNTSPECIAL_ANIM] = [](network::Packet& packet) {
+        if (packet.hasRemaining(8)) (void)packet.readUInt64();
+    };
     dispatchTable_[Opcode::SMSG_CHAR_CUSTOMIZE] = [this](network::Packet& packet) {
         if (packet.hasRemaining(1)) {
             uint8_t result = packet.readUInt8();
@@ -1543,9 +1795,9 @@ void GameHandler::registerOpcodeHandlers() {
             entityController_->invalidatePlayerName(guid);
         }
     };
-    // uint32 movieId — we don't play movies; acknowledge immediately.
+    // uint32 movieId - we don't play movies; acknowledge immediately.
     dispatchTable_[Opcode::SMSG_TRIGGER_MOVIE] = [this](network::Packet& packet) {
-        // uint32 movieId — we don't play movies; acknowledge immediately.
+        // uint32 movieId - we don't play movies; acknowledge immediately.
         packet.skipAll();
         // WotLK servers expect CMSG_COMPLETE_MOVIE after the movie finishes;
         // without it, the server may hang or disconnect the client.
@@ -1570,9 +1822,9 @@ void GameHandler::registerOpcodeHandlers() {
         if (openLfgCallback_) openLfgCallback_();
         packet.skipAll();
     };
-    // uint32 result — LFG auto-join attempt failed (player selected auto-join at queue time)
+    // uint32 result - LFG auto-join attempt failed (player selected auto-join at queue time)
     dispatchTable_[Opcode::SMSG_LFG_AUTOJOIN_FAILED] = [this](network::Packet& packet) {
-        // uint32 result — LFG auto-join attempt failed (player selected auto-join at queue time)
+        // uint32 result - LFG auto-join attempt failed (player selected auto-join at queue time)
         if (packet.hasRemaining(4)) {
             uint32_t result = packet.readUInt32();
             (void)result;
@@ -1594,9 +1846,9 @@ void GameHandler::registerOpcodeHandlers() {
         addSystemChatMessage("Your party leader is currently Looking for More.");
         packet.skipAll();
     };
-    // uint32 zoneId + uint8 level_min + uint8 level_max — player queued for meeting stone
+    // uint32 zoneId + uint8 level_min + uint8 level_max - player queued for meeting stone
     dispatchTable_[Opcode::SMSG_MEETINGSTONE_SETQUEUE] = [this](network::Packet& packet) {
-        // uint32 zoneId + uint8 level_min + uint8 level_max — player queued for meeting stone
+        // uint32 zoneId + uint8 level_min + uint8 level_max - player queued for meeting stone
         if (packet.hasRemaining(6)) {
             uint32_t zoneId   = packet.readUInt32();
             uint8_t  levelMin = packet.readUInt8();
@@ -1631,9 +1883,9 @@ void GameHandler::registerOpcodeHandlers() {
         LOG_DEBUG("SMSG_MEETINGSTONE_IN_PROGRESS");
         packet.skipAll();
     };
-    // uint64 memberGuid — a player was added to your group via meeting stone
+    // uint64 memberGuid - a player was added to your group via meeting stone
     dispatchTable_[Opcode::SMSG_MEETINGSTONE_MEMBER_ADDED] = [this](network::Packet& packet) {
-        // uint64 memberGuid — a player was added to your group via meeting stone
+        // uint64 memberGuid - a player was added to your group via meeting stone
         if (packet.hasRemaining(8)) {
             uint64_t memberGuid = packet.readUInt64();
             const auto& memberName = lookupName(memberGuid);
@@ -1646,10 +1898,10 @@ void GameHandler::registerOpcodeHandlers() {
             LOG_INFO("SMSG_MEETINGSTONE_MEMBER_ADDED: guid=0x", std::hex, memberGuid, std::dec);
         }
     };
-    // uint8 reason — failed to join group via meeting stone
+    // uint8 reason - failed to join group via meeting stone
     // 0=target_not_in_lfg, 1=target_in_party, 2=target_invalid_map, 3=target_not_available
     dispatchTable_[Opcode::SMSG_MEETINGSTONE_JOINFAILED] = [this](network::Packet& packet) {
-        // uint8 reason — failed to join group via meeting stone
+        // uint8 reason - failed to join group via meeting stone
         // 0=target_not_in_lfg, 1=target_in_party, 2=target_invalid_map, 3=target_not_available
         static const char* kMeetingstoneErrors[] = {
             "Target player is not using the Meeting Stone.",
@@ -1672,29 +1924,38 @@ void GameHandler::registerOpcodeHandlers() {
         LOG_DEBUG("SMSG_MEETINGSTONE_LEAVE");
         packet.skipAll();
     };
+    // All three of these carry a uint32 from the same enum, and all three read
+    // a single byte of it. Little-endian kept the comparison working for the
+    // delete, whose value is nine, and broke the other two outright: creating a
+    // ticket answers 2 and updating one answers 4, and both were compared
+    // against 1 - so a ticket that went through reported that it had not.
+    constexpr uint32_t kTicketAlreadyExists = 1, kTicketCreated = 2,
+                       kTicketUpdated = 4, kTicketDeleted = 9;
     dispatchTable_[Opcode::SMSG_GMTICKET_CREATE] = [this](network::Packet& packet) {
-        if (packet.hasRemaining(1)) {
-            uint8_t res = packet.readUInt8();
-            addSystemChatMessage(res == 1 ? "GM ticket submitted."
-                                          : "Failed to submit GM ticket.");
+        if (packet.hasRemaining(4)) {
+            const uint32_t res = packet.readUInt32();
+            addSystemChatMessage(
+                res == kTicketCreated       ? "GM ticket submitted."
+              : res == kTicketAlreadyExists ? "You already have a GM ticket open."
+                                            : "Failed to submit GM ticket.");
         }
     };
     dispatchTable_[Opcode::SMSG_GMTICKET_UPDATETEXT] = [this](network::Packet& packet) {
-        if (packet.hasRemaining(1)) {
-            uint8_t res = packet.readUInt8();
-            addSystemChatMessage(res == 1 ? "GM ticket updated."
-                                          : "Failed to update GM ticket.");
+        if (packet.hasRemaining(4)) {
+            const uint32_t res = packet.readUInt32();
+            addSystemChatMessage(res == kTicketUpdated ? "GM ticket updated."
+                                                       : "Failed to update GM ticket.");
         }
     };
     dispatchTable_[Opcode::SMSG_GMTICKET_DELETETICKET] = [this](network::Packet& packet) {
-        if (packet.hasRemaining(1)) {
-            uint8_t res = packet.readUInt8();
-            addSystemChatMessage(res == 9 ? "GM ticket deleted."
-                                          : "No ticket to delete.");
+        if (packet.hasRemaining(4)) {
+            const uint32_t res = packet.readUInt32();
+            addSystemChatMessage(res == kTicketDeleted ? "GM ticket deleted."
+                                                       : "No ticket to delete.");
         }
     };
     // WotLK 3.3.5a format:
-    //   uint8  status  — 1=no ticket, 6=has open ticket, 3=closed, 10=suspended
+    //   uint8  status  - 1=no ticket, 6=has open ticket, 3=closed, 10=suspended
     // If status == 6 (GMTICKET_STATUS_HASTEXT):
     //   cstring ticketText
     //   uint32  ticketAge       (seconds old)
@@ -1702,7 +1963,7 @@ void GameHandler::registerOpcodeHandlers() {
     //   float   waitTimeHours   (estimated GM wait time)
     dispatchTable_[Opcode::SMSG_GMTICKET_GETTICKET] = [this](network::Packet& packet) {
         // WotLK 3.3.5a format:
-        //   uint8  status  — 1=no ticket, 6=has open ticket, 3=closed, 10=suspended
+        //   uint8  status  - 1=no ticket, 6=has open ticket, 3=closed, 10=suspended
         // If status == 6 (GMTICKET_STATUS_HASTEXT):
         //   cstring ticketText
         //   uint32  ticketAge       (seconds old)
@@ -1710,7 +1971,7 @@ void GameHandler::registerOpcodeHandlers() {
         //   float   waitTimeHours   (estimated GM wait time)
         if (!packet.hasRemaining(1)) { packet.skipAll(); return; }
         uint8_t gmStatus = packet.readUInt8();
-        // Status 6 = GMTICKET_STATUS_HASTEXT — open ticket with text
+        // Status 6 = GMTICKET_STATUS_HASTEXT - open ticket with text
         if (gmStatus == 6 && packet.hasRemaining(1)) {
             gmTicketText_    = packet.readString();
             uint32_t ageSec  = (packet.hasRemaining(4)) ? packet.readUInt32() : 0;
@@ -1732,21 +1993,50 @@ void GameHandler::registerOpcodeHandlers() {
             addSystemChatMessage(buf);
             LOG_INFO("SMSG_GMTICKET_GETTICKET: open ticket age=", ageSec,
                      "s wait=", gmTicketWaitHours_, "h");
+
+            // The interface measures all of this in days and works the wait out
+            // itself, as (oldestTicketTime - ticketAge). This packet gives the
+            // wait directly, so the oldest time is the age plus it - which
+            // arrives at the same number the server meant.
+            //
+            // updateTime says how stale the estimate is; anything over an hour
+            // is treated as no estimate at all, and this one was computed from
+            // the packet that just arrived.
+            const double ageDays = static_cast<double>(ageSec) / 86400.0;
+            auto days = [](double v) {
+                char out[32];
+                std::snprintf(out, sizeof(out), "%.6f", v);
+                return std::string(out);
+            };
+            fireAddonEvent("UPDATE_TICKET", {
+                "1",                                            // category: has one
+                gmTicketText_,
+                days(ageDays),
+                days(ageDays + gmTicketWaitHours_ / 24.0),
+                "0",                                            // just measured
+                "0",                                            // not assigned
+                "0",                                            // not opened by a GM
+            });
         } else if (gmStatus == 3) {
             gmTicketActive_ = false;
             gmTicketText_.clear();
             addSystemChatMessage("Your GM ticket has been closed.");
             LOG_INFO("SMSG_GMTICKET_GETTICKET: ticket closed");
+            // No arguments at all is how the interface is told there is no
+            // ticket: it reads the first one and stops if it is absent.
+            fireAddonEvent("UPDATE_TICKET", {});
         } else if (gmStatus == 10) {
             gmTicketActive_ = false;
             gmTicketText_.clear();
             addSystemChatMessage("Your GM ticket has been suspended.");
             LOG_INFO("SMSG_GMTICKET_GETTICKET: ticket suspended");
+            fireAddonEvent("UPDATE_TICKET", {});
         } else {
             // Status 1 = no open ticket (default/no ticket)
             gmTicketActive_ = false;
             gmTicketText_.clear();
             LOG_DEBUG("SMSG_GMTICKET_GETTICKET: no open ticket (status=", static_cast<int>(gmStatus), ")");
+            fireAddonEvent("UPDATE_TICKET", {});
         }
         packet.skipAll();
     };
@@ -1760,6 +2050,11 @@ void GameHandler::registerOpcodeHandlers() {
                 ? "GM support is currently available."
                 : "GM support is currently unavailable.");
             LOG_INFO("SMSG_GMTICKET_SYSTEMSTATUS: available=", gmSupportAvailable_);
+            // The help frame disables its "open a ticket" button on anything
+            // but GMTICKET_QUEUE_STATUS_ENABLED, which is the number 1 - and
+            // gets it from here. Parsed and stored and never said, so a closed
+            // queue looked open until the ticket was refused.
+            fireAddonEvent("UPDATE_GM_STATUS", {gmSupportAvailable_ ? "1" : "0"});
         }
         packet.skipAll();
     };
@@ -1772,24 +2067,44 @@ void GameHandler::registerOpcodeHandlers() {
         }
         uint8_t idx  = packet.readUInt8();
         uint8_t type = packet.readUInt8();
-        if (idx < 6) playerRunes_[idx].type = static_cast<RuneType>(type & 0x3);
+        if (idx < 6) {
+            playerRunes_[idx].type = static_cast<RuneType>(type & 0x3);
+            // Stored and never announced: the rune bar redraws a rune on this
+            // event and on nothing else, so a rune converted to Death kept the
+            // colour it was drawn with at login.
+            fireAddonEvent("RUNE_TYPE_UPDATE", {std::to_string(idx + 1)});
+        }
     };
-    // uint8 runeReadyMask (bit i=1 → rune i is ready)
-    // uint8[6] cooldowns (0=ready, 255=just used → readyFraction = 1 - val/255)
+    // uint32 count, then per rune: uint8 type, uint8 elapsed.
+    //
+    // This read a one-byte "ready mask" and six cooldowns, which is neither the
+    // shape nor the meaning. Player::ResyncRunes writes a count first, so the
+    // mask was the low byte of that count and every cooldown after it was
+    // half a type and half an elapsed value.
+    //
+    // The polarity was inverted as well. The server sends
+    // 255 - cooldown * 51, so 255 means the cooldown has fully elapsed and the
+    // rune is ready, and 0 means it was just spent - the opposite of what
+    // `1 - cd/255` computed.
+    //
+    // The type is in here too and was never read, so a rune converted to Death
+    // kept whatever it was at login.
     dispatchTable_[Opcode::SMSG_RESYNC_RUNES] = [this](network::Packet& packet) {
-        // uint8 runeReadyMask (bit i=1 → rune i is ready)
-        // uint8[6] cooldowns (0=ready, 255=just used → readyFraction = 1 - val/255)
-        if (!packet.hasRemaining(7)) {
+        if (!packet.hasRemaining(4)) {
             packet.skipAll();
             return;
         }
-        uint8_t readyMask = packet.readUInt8();
-        for (int i = 0; i < 6; i++) {
-            uint8_t cd = packet.readUInt8();
-            playerRunes_[i].ready = (readyMask & (1u << i)) != 0;
-            playerRunes_[i].readyFraction = 1.0f - cd / 255.0f;
-            if (playerRunes_[i].ready) playerRunes_[i].readyFraction = 1.0f;
+        const uint32_t count = packet.readUInt32();
+        for (uint32_t i = 0; i < count && i < playerRunes_.size(); ++i) {
+            if (!packet.hasRemaining(2)) break;
+            const uint8_t type    = packet.readUInt8();
+            const uint8_t elapsed = packet.readUInt8();
+            playerRunes_[i].type = static_cast<RuneType>(type & 0x3);
+            playerRunes_[i].readyFraction = elapsed / 255.0f;
+            playerRunes_[i].ready = (elapsed >= 255);
+            fireRuneUpdate(i);
         }
+        packet.skipAll();
     };
     // uint32 runeMask (bit i=1 → rune i just became ready)
     dispatchTable_[Opcode::SMSG_ADD_RUNE_POWER] = [this](network::Packet& packet) {
@@ -1803,6 +2118,7 @@ void GameHandler::registerOpcodeHandlers() {
             if (runeMask & (1u << i)) {
                 playerRunes_[i].ready = true;
                 playerRunes_[i].readyFraction = 1.0f;
+                fireRuneUpdate(static_cast<uint32_t>(i));
             }
         }
     };
@@ -1821,18 +2137,89 @@ void GameHandler::registerOpcodeHandlers() {
     };
     // uint32 slot + packed_guid unit (0 packed = clear slot)
     dispatchTable_[Opcode::SMSG_UPDATE_INSTANCE_ENCOUNTER_UNIT] = [this](network::Packet& packet) {
-        // uint32 slot + packed_guid unit (0 packed = clear slot)
-        if (!packet.hasRemaining(5)) {
+        // uint32 type, then a body that depends on it. The first three types
+        // carry a packed guid and a one-byte frame priority; the objective and
+        // timer types carry one or two bytes; a refresh carries nothing and is
+        // four bytes on the wire.
+        //
+        // What was here read the type as a slot index and the rest as a guid,
+        // which put every engaging boss in slot zero - the value of
+        // ENCOUNTER_FRAME_ENGAGE - and wrote a disengaging one into slot one
+        // instead of clearing it. The five-byte guard also dropped a refresh
+        // outright.
+        enum : uint32_t {
+            kEngage = 0, kDisengage = 1, kUpdatePriority = 2,
+            kAddTimer = 3, kEnableObjective = 4, kUpdateObjective = 5,
+            kDisableObjective = 6, kRefreshFrames = 7,
+        };
+        if (!packet.hasRemaining(4)) { packet.skipAll(); return; }
+        const uint32_t type = packet.readUInt32();
+        if (!socialHandler_) { packet.skipAll(); return; }
+
+        const uint32_t kSlots = game::SocialHandler::kMaxEncounterSlots;
+
+        switch (type) {
+        case kEngage:
+        case kDisengage:
+        case kUpdatePriority: {
+            if (!packet.hasRemaining(1)) { packet.skipAll(); return; }
+            const uint64_t unit = packet.readPackedGuid();
+            // Non-zero means the encounter wants this unit in a particular
+            // frame - Halion's two bodies ask for one and two. Zero, which is
+            // the default and what most scripts send, means anywhere.
+            const uint8_t priority = packet.hasRemaining(1) ? packet.readUInt8() : 0;
+            if (!unit) break;
+
+            uint32_t existing = kSlots;
+            uint32_t firstFree = kSlots;
+            for (uint32_t i = 0; i < kSlots; ++i) {
+                const uint64_t held = socialHandler_->getEncounterUnitGuid(i);
+                if (held == unit) existing = i;
+                else if (!held && firstFree == kSlots) firstFree = i;
+            }
+
+            if (type == kDisengage) {
+                if (existing < kSlots) socialHandler_->setEncounterUnitGuid(existing, 0);
+                break;
+            }
+
+            uint32_t slot = existing;
+            if (priority >= 1 && priority <= kSlots) {
+                slot = priority - 1u;
+            } else if (slot == kSlots) {
+                slot = firstFree;
+            }
+            if (slot >= kSlots) break;   // all five frames already taken
+            if (existing < kSlots && existing != slot) {
+                socialHandler_->setEncounterUnitGuid(existing, 0);
+            }
+            socialHandler_->setEncounterUnitGuid(slot, unit);
+            LOG_DEBUG("SMSG_UPDATE_INSTANCE_ENCOUNTER_UNIT: ",
+                      type == kEngage ? "engage" : "priority",
+                      " slot=", slot, " guid=0x", std::hex, unit, std::dec);
+            break;
+        }
+        case kRefreshFrames:
+            // Nothing changed; the frames are asked to draw themselves again
+            // after a unit was destroyed client-side, so the event below is
+            // the whole of it.
+            break;
+        case kAddTimer:
+        case kEnableObjective:
+        case kDisableObjective:
+        case kUpdateObjective:
+            // Encounter objective and timer widgets, which nothing draws yet.
+            packet.skipAll();
+            return;
+        default:
             packet.skipAll();
             return;
         }
-        uint32_t slot = packet.readUInt32();
-        uint64_t unit = packet.readPackedGuid();
-        if (socialHandler_) {
-            socialHandler_->setEncounterUnitGuid(slot, unit);
-            LOG_DEBUG("SMSG_UPDATE_INSTANCE_ENCOUNTER_UNIT: slot=", slot,
-                      " guid=0x", std::hex, unit, std::dec);
-        }
+
+        // The boss frames redraw all five slots on this event, which is why it
+        // carries no argument. Stored and never announced, so an encounter
+        // filled its slots and no boss frame appeared.
+        fireAddonEvent("INSTANCE_ENCOUNTER_ENGAGE_UNIT", {});
     };
     // charName (cstring) + guid (uint64) + achievementId (uint32) + ...
     dispatchTable_[Opcode::SMSG_SERVER_FIRST_ACHIEVEMENT] = [this](network::Packet& packet) {
@@ -1895,10 +2282,40 @@ void GameHandler::registerOpcodeHandlers() {
             }
         }
     };
+    // The instance boot timer, which this read nothing of.
+    //
+    // Two uint32s: how long is left in milliseconds, and why. The whole
+    // countdown arrives once and nothing more is sent until it stops, so the
+    // deadline is worked out here and the remainder counted from it.
+    //
+    // It also said the wrong thing. The message was "you must be in a raid
+    // group to enter this instance", and that is not what the server sends
+    // this for: UpdateHomebindTime raises it when the player is standing in an
+    // instance they are not valid for - saved to a different id, or in a party
+    // inside a raid - and the sixty seconds is until they are teleported to a
+    // graveyard. A player got one line of the wrong explanation and no
+    // countdown at all.
     dispatchTable_[Opcode::SMSG_RAID_GROUP_ONLY] = [this](network::Packet& packet) {
-        addUIError("You must be in a raid group to enter this instance.");
-        addSystemChatMessage("You must be in a raid group to enter this instance.");
+        uint32_t timerMs = 0;
+        if (packet.hasRemaining(8)) {
+            timerMs = packet.readUInt32();
+            packet.readUInt32();   // reason; only 0 and 1 are ever sent
+        }
         packet.skipAll();
+
+        if (timerMs == 0) {
+            instanceBootDeadline_.reset();
+            fireAddonEvent("INSTANCE_BOOT_STOP", {});
+            return;
+        }
+        instanceBootDeadline_ = std::chrono::steady_clock::now() +
+                                std::chrono::milliseconds(timerMs);
+        const std::string msg = "You are not in this instance's group. You will be "
+                                "teleported out in " + std::to_string(timerMs / 1000) +
+                                " seconds.";
+        addUIError(msg);
+        addSystemChatMessage(msg);
+        fireAddonEvent("INSTANCE_BOOT_START", {});
     };
     dispatchTable_[Opcode::SMSG_RAID_READY_CHECK_ERROR] = [this](network::Packet& packet) {
         if (packet.hasRemaining(1)) {
@@ -1910,7 +2327,7 @@ void GameHandler::registerOpcodeHandlers() {
     };
     dispatchTable_[Opcode::SMSG_RESET_FAILED_NOTIFY] = [this](network::Packet& packet) {
         addUIError("Cannot reset instance: another player is still inside.");
-        addSystemChatMessage("Cannot reset instance: another player is still inside.");
+        raiseUiError("Cannot reset instance: another player is still inside.");
         packet.skipAll();
     };
     // uint32 splitType + uint32 deferTime + string realmName
@@ -1927,7 +2344,7 @@ void GameHandler::registerOpcodeHandlers() {
             resp.writeUInt32(splitType);
             resp.writeString("3.3.5");
             socket->send(resp);
-            LOG_DEBUG("SMSG_REALM_SPLIT splitType=", splitType, " — sent CMSG_REALM_SPLIT ack");
+            LOG_DEBUG("SMSG_REALM_SPLIT splitType=", splitType, " - sent CMSG_REALM_SPLIT ack");
         }
     };
     dispatchTable_[Opcode::SMSG_REAL_GROUP_UPDATE] = [this](network::Packet& packet) {
@@ -2000,19 +2417,19 @@ void GameHandler::registerOpcodeHandlers() {
         }
         if (auto* sv = renderer->getSpellVisualSystem()) sv->playSpellVisual(impVisualId, spawnPos, /*useImpactKit=*/true);
     };
-    // SMSG_READ_ITEM_OK — moved to InventoryHandler::registerOpcodes
-    // SMSG_READ_ITEM_FAILED — moved to InventoryHandler::registerOpcodes
-    // SMSG_QUERY_QUESTS_COMPLETED_RESPONSE — moved to QuestHandler::registerOpcodes
+    // SMSG_READ_ITEM_OK - moved to InventoryHandler::registerOpcodes
+    // SMSG_READ_ITEM_FAILED - moved to InventoryHandler::registerOpcodes
+    // SMSG_QUERY_QUESTS_COMPLETED_RESPONSE - moved to QuestHandler::registerOpcodes
     dispatchTable_[Opcode::SMSG_NPC_WONT_TALK] = [this](network::Packet& packet) {
         addUIError("That creature can't talk to you right now.");
-        addSystemChatMessage("That creature can't talk to you right now.");
+        raiseUiError("That creature can't talk to you right now.");
         packet.skipAll();
     };
 
     // (SMSG_PET_UNLEARN_CONFIRM → registered by SpellHandler, which owns the
     // pending-unlearn state the confirm dialog reads. Handling it here wrote
     // to dead duplicate members and the dialog never appeared.)
-    // These pet opcodes have incompatible formats — just consume the packet.
+    // These pet opcodes have incompatible formats - just consume the packet.
     // Previously they shared the unlearn handler, which misinterpreted sound IDs
     // or GUID lists as unlearn costs and could trigger a bogus unlearn dialog.
     for (auto op : { Opcode::SMSG_PET_GUIDS, Opcode::SMSG_PET_DISMISS_SOUND,
@@ -2023,11 +2440,14 @@ void GameHandler::registerOpcodeHandlers() {
     dispatchTable_[Opcode::SMSG_PET_RENAMEABLE] = [this](network::Packet& packet) {
         // Server signals that the pet can now be named (first tame)
         petRenameablePending_ = true;
+        // The naming dialog opens on this. The flag alone is read by this
+        // client's own UI, so the interface's version never appeared.
+        if (addonEventCallback_) addonEventCallback_("PET_RENAMEABLE", {});
         packet.skipAll();
     };
     dispatchTable_[Opcode::SMSG_PET_NAME_INVALID] = [this](network::Packet& packet) {
         addUIError("That pet name is invalid. Please choose a different name.");
-        addSystemChatMessage("That pet name is invalid. Please choose a different name.");
+        raiseUiError("That pet name is invalid. Please choose a different name.");
         packet.skipAll();
     };
     // Classic 1.12: PackedGUID + 19×uint32 itemEntries (EQUIPMENT_SLOT_END=19)
@@ -2083,6 +2503,17 @@ void GameHandler::registerOpcodeHandlers() {
             char guidBuf[32];
             snprintf(guidBuf, sizeof(guidBuf), "0x%016llX", (unsigned long long)guid);
             fireAddonEvent("INSPECT_READY", {guidBuf});
+            // INSPECT_READY is a later expansion's name and nothing in this
+            // interface listens for it. The inspect paperdoll refreshes on
+            // UNIT_INVENTORY_CHANGED for the unit it is showing, so the gear
+            // arrived and the window was never told - it kept whatever it had
+            // when it opened. Fired for the unit token this guid answers to,
+            // and only when it answers to one: an inspected player who is not
+            // the target has no token for the interface to match against.
+            const std::string inspectUnit = guidToUnitId(guid);
+            if (!inspectUnit.empty()) {
+                fireAddonEvent("UNIT_INVENTORY_CHANGED", {inspectUnit});
+            }
         }
     };
     // Same wire format as SMSG_COMPRESSED_MOVES: uint8 size + uint16 opcode + payload[]
@@ -2130,9 +2561,10 @@ void GameHandler::registerOpcodeHandlers() {
     };
     // Recruit-A-Friend: a mentor is offering to grant you a level
     dispatchTable_[Opcode::SMSG_PROPOSE_LEVEL_GRANT] = [this](network::Packet& packet) {
-        // Recruit-A-Friend: a mentor is offering to grant you a level
-        if (packet.hasRemaining(8)) {
-            uint64_t mentorGuid = packet.readUInt64();
+        // Recruit-A-Friend: a mentor is offering to grant you a level.
+        // HandleGrantLevel writes GetPackGUID(), so this is packed.
+        if (packet.hasRemaining(1)) {
+            uint64_t mentorGuid = packet.readPackedGuid();
             std::string mentorName;
             auto ent = entityController_->getEntityManager().getEntity(mentorGuid);
             if (auto* unit = dynamic_cast<Unit*>(ent.get())) mentorName = unit->getName();
@@ -2143,21 +2575,22 @@ void GameHandler::registerOpcodeHandlers() {
         }
         packet.skipAll();
     };
-    // SMSG_REFER_A_FRIEND_EXPIRED — moved to SocialHandler::registerOpcodes
-    // SMSG_REFER_A_FRIEND_FAILURE — moved to SocialHandler::registerOpcodes
-    // SMSG_REPORT_PVP_AFK_RESULT — moved to SocialHandler::registerOpcodes
+    // SMSG_REFER_A_FRIEND_EXPIRED - moved to SocialHandler::registerOpcodes
+    // SMSG_REFER_A_FRIEND_FAILURE - moved to SocialHandler::registerOpcodes
+    // SMSG_REPORT_PVP_AFK_RESULT - moved to SocialHandler::registerOpcodes
     dispatchTable_[Opcode::SMSG_RESPOND_INSPECT_ACHIEVEMENTS] = [this](network::Packet& packet) {
         loadAchievementNameCache();
         if (!packet.hasRemaining(1)) return;
         uint64_t inspectedGuid = packet.readPackedGuid();
         if (inspectedGuid == 0) { packet.skipAll(); return; }
-        std::unordered_set<uint32_t> achievements;
+        std::unordered_map<uint32_t, uint32_t> achievements;
         while (packet.hasRemaining(4)) {
             uint32_t id = packet.readUInt32();
             if (id == 0xFFFFFFFF) break;
             if (!packet.hasRemaining(4)) break;
-            /*date*/ packet.readUInt32();
-            achievements.insert(id);
+            // Kept rather than skipped: the comparison tab prints the date each
+            // row was earned beside it.
+            achievements[id] = packet.readUInt32();
         }
         while (packet.hasRemaining(4)) {
             uint32_t id = packet.readUInt32();
@@ -2168,11 +2601,20 @@ void GameHandler::registerOpcodeHandlers() {
         inspectedPlayerAchievements_[inspectedGuid] = std::move(achievements);
         LOG_INFO("SMSG_RESPOND_INSPECT_ACHIEVEMENTS: guid=0x", std::hex, inspectedGuid, std::dec,
                  " achievements=", inspectedPlayerAchievements_[inspectedGuid].size());
+        // The comparison tab reads its totals on this and nothing else, so
+        // without it the panel sat on whatever it had when it opened.
+        fireAddonEvent("INSPECT_ACHIEVEMENT_READY", {});
     };
     dispatchTable_[Opcode::SMSG_ON_CANCEL_EXPECTED_RIDE_VEHICLE_AURA] = [this](network::Packet& packet) {
+        const bool wasRiding = vehicleId_ != 0;
         vehicleId_ = 0;  // Vehicle ride cancelled; clear UI
         if (vehicleStateCallback_) {
             vehicleStateCallback_(false, 0);
+        }
+        if (wasRiding) {
+            fireAddonEvent("VEHICLE_UPDATE", {});
+            fireAddonEvent("UNIT_EXITED_VEHICLE", {"player"});
+            fireAddonEvent("UPDATE_BONUS_ACTIONBAR", {});
         }
         packet.skipAll();
     };
@@ -2200,23 +2642,23 @@ void GameHandler::registerOpcodeHandlers() {
         }
     };
     // WotLK 3.3.5a format:
-    //   uint64 mirrorGuid — GUID of the mirror image unit
-    //   uint32 displayId  — display ID to render the image with
-    //   uint8  raceId     — race of caster
-    //   uint8  genderFlag — gender of caster
-    //   uint8  classId    — class of caster
-    //   uint64 casterGuid — GUID of the player who cast the spell
+    //   uint64 mirrorGuid - GUID of the mirror image unit
+    //   uint32 displayId  - display ID to render the image with
+    //   uint8  raceId     - race of caster
+    //   uint8  genderFlag - gender of caster
+    //   uint8  classId    - class of caster
+    //   uint64 casterGuid - GUID of the player who cast the spell
     //   Followed by equipped item display IDs (11 × uint32) if casterGuid != 0
     // Purpose: tells client how to render the image (same appearance as caster).
     // We parse the GUIDs so units render correctly via their existing display IDs.
     dispatchTable_[Opcode::SMSG_MIRRORIMAGE_DATA] = [this](network::Packet& packet) {
         // WotLK 3.3.5a format:
-        //   uint64 mirrorGuid — GUID of the mirror image unit
-        //   uint32 displayId  — display ID to render the image with
-        //   uint8  raceId     — race of caster
-        //   uint8  genderFlag — gender of caster
-        //   uint8  classId    — class of caster
-        //   uint64 casterGuid — GUID of the player who cast the spell
+        //   uint64 mirrorGuid - GUID of the mirror image unit
+        //   uint32 displayId  - display ID to render the image with
+        //   uint8  raceId     - race of caster
+        //   uint8  genderFlag - gender of caster
+        //   uint8  classId    - class of caster
+        //   uint64 casterGuid - GUID of the player who cast the spell
         //   Followed by equipped item display IDs (11 × uint32) if casterGuid != 0
         // Purpose: tells client how to render the image (same appearance as caster).
         // We parse the GUIDs so units render correctly via their existing display IDs.
@@ -2243,14 +2685,21 @@ void GameHandler::registerOpcodeHandlers() {
     };
     // uint64 battlefieldGuid + uint32 zoneId + uint64 expireUnixTime (seconds)
     dispatchTable_[Opcode::SMSG_BATTLEFIELD_MGR_ENTRY_INVITE] = [this](network::Packet& packet) {
-        // uint64 battlefieldGuid + uint32 zoneId + uint64 expireUnixTime (seconds)
-        if (!packet.hasRemaining(20)) {
+        // uint32 battleId + uint32 zoneId + uint32 acceptTime - twelve bytes.
+        //
+        // This required twenty and read a 64-bit guid and a 64-bit time that
+        // the server does not send, so it returned on the length check every
+        // time and the handler never ran once. The event was written down as
+        // never fired, which was true and was the symptom rather than the
+        // cause.
+        if (!packet.hasRemaining(12)) {
             packet.skipAll(); return;
         }
-        uint64_t bfGuid    = packet.readUInt64();
-        uint32_t bfZoneId  = packet.readUInt32();
-        uint64_t expireTime = packet.readUInt64();
-        (void)bfGuid; (void)expireTime;
+        const uint32_t bfBattleId = packet.readUInt32();
+        const uint32_t bfZoneId   = packet.readUInt32();
+        const uint32_t expireTime = packet.readUInt32();
+        (void)expireTime;
+        bfMgrBattleId_ = bfBattleId;
         // Store the invitation so the UI can show a prompt
         bfMgrInvitePending_ = true;
         bfMgrZoneId_        = bfZoneId;
@@ -2265,41 +2714,57 @@ void GameHandler::registerOpcodeHandlers() {
                 "You are invited to the outdoor battlefield in zone %u. Click to enter.",
                 bfZoneId);
         addSystemChatMessage(buf);
+        // The prompt to enter is a static popup the interface raises from this.
+        // The zone id goes with it as the battle id: every handler in the group
+        // opens `local battleID = ...` and passes it back when the player
+        // answers, so a bare fire would answer for no battlefield.
+        if (addonEventCallback_)
+            addonEventCallback_("BATTLEFIELD_MGR_ENTRY_INVITE", {std::to_string(bfBattleId)});
         LOG_INFO("SMSG_BATTLEFIELD_MGR_ENTRY_INVITE: zoneId=", bfZoneId);
     };
-    // uint64 battlefieldGuid + uint8 isSafe (1=pvp zones enabled) + uint8 onQueue
     dispatchTable_[Opcode::SMSG_BATTLEFIELD_MGR_ENTERED] = [this](network::Packet& packet) {
-        // uint64 battlefieldGuid + uint8 isSafe (1=pvp zones enabled) + uint8 onQueue
-        if (packet.hasRemaining(8)) {
-            uint64_t bfGuid2 = packet.readUInt64();
-            (void)bfGuid2;
-            uint8_t isSafe  = (packet.hasRemaining(1)) ? packet.readUInt8() : 0;
-            uint8_t onQueue = (packet.hasRemaining(1)) ? packet.readUInt8() : 0;
+        // uint32 battleId, then three flags - seven bytes. This read a 64-bit
+        // guid the server does not send and guarded eight, so on a seven-byte
+        // packet it never ran: entering Wintergrasp announced nothing.
+        if (packet.hasRemaining(7)) {
+            const uint32_t bfBattleId = packet.readUInt32();
+            bfMgrBattleId_ = bfBattleId;
+            packet.readUInt8();   // unk, always one
+            uint8_t isSafe  = packet.readUInt8();
+            uint8_t onQueue = packet.readUInt8();
             bfMgrInvitePending_ = false;
             bfMgrActive_        = true;
             addSystemChatMessage(isSafe ? "You are in the battlefield zone (safe area)."
                                         : "You have entered the battlefield!");
             if (onQueue) addSystemChatMessage("You are in the battlefield queue.");
+            if (addonEventCallback_)
+                addonEventCallback_("BATTLEFIELD_MGR_ENTERED", {std::to_string(bfMgrZoneId_)});
             LOG_INFO("SMSG_BATTLEFIELD_MGR_ENTERED: isSafe=", static_cast<int>(isSafe), " onQueue=", static_cast<int>(onQueue));
         }
         packet.skipAll();
     };
     // uint64 battlefieldGuid + uint32 battlefieldId + uint64 expireTime
     dispatchTable_[Opcode::SMSG_BATTLEFIELD_MGR_QUEUE_INVITE] = [this](network::Packet& packet) {
-        // uint64 battlefieldGuid + uint32 battlefieldId + uint64 expireTime
-        if (!packet.hasRemaining(20)) {
+        // uint32 battleId + uint8 warmup - five bytes, and this required
+        // twenty. Same shape as the entry invite above: never ran, and the
+        // event it fires was recorded as one the server never sends.
+        if (!packet.hasRemaining(5)) {
             packet.skipAll(); return;
         }
-        uint64_t bfGuid3   = packet.readUInt64();
-        uint32_t bfId      = packet.readUInt32();
-        uint64_t expTime   = packet.readUInt64();
-        (void)bfGuid3; (void)expTime;
+        const uint32_t bfId = packet.readUInt32();
+        const bool warmup = packet.readUInt8() != 0;
+        bfMgrBattleId_ = bfId;
         bfMgrInvitePending_ = true;
         bfMgrZoneId_        = bfId;
         char buf[128];
         std::snprintf(buf, sizeof(buf),
             "A spot has opened in the battlefield queue (battlefield %u).", bfId);
         addSystemChatMessage(buf);
+        if (addonEventCallback_)
+            // The warmup flag picks between two dialogs and was read off the
+            // wire and thrown away, so the warmup one could never appear.
+            addonEventCallback_("BATTLEFIELD_MGR_QUEUE_INVITE",
+                                {std::to_string(bfId), eventBool(warmup)});
         LOG_INFO("SMSG_BATTLEFIELD_MGR_QUEUE_INVITE: bfId=", bfId);
     };
     // uint32 battlefieldId + uint32 teamId + uint8 accepted + uint8 loggingEnabled + uint8 result
@@ -2330,46 +2795,82 @@ void GameHandler::registerOpcodeHandlers() {
                                            : "Battlefield queue request failed.";
             addSystemChatMessage(std::string("Battlefield: ") + msg);
         }
+        // The battle id and whether the queue took, in that order - the
+        // interface reads both to say which battlefield answered and how.
+        if (addonEventCallback_) {
+            addonEventCallback_("BATTLEFIELD_MGR_QUEUE_REQUEST_RESPONSE",
+                                {std::to_string(bfId2), std::to_string(accepted)});
+        }
         LOG_INFO("SMSG_BATTLEFIELD_MGR_QUEUE_REQUEST_RESPONSE: accepted=", static_cast<int>(accepted),
                  " result=", static_cast<int>(result));
         packet.skipAll();
     };
     // uint64 battlefieldGuid + uint8 remove
     dispatchTable_[Opcode::SMSG_BATTLEFIELD_MGR_EJECT_PENDING] = [this](network::Packet& packet) {
-        // uint64 battlefieldGuid + uint8 remove
-        if (packet.hasRemaining(9)) {
-            uint64_t bfGuid4 = packet.readUInt64();
-            uint8_t  remove  = packet.readUInt8();
-            (void)bfGuid4;
-            if (remove) {
-                addSystemChatMessage("You will be removed from the battlefield shortly.");
-            }
-            LOG_INFO("SMSG_BATTLEFIELD_MGR_EJECT_PENDING: remove=", static_cast<int>(remove));
-        }
+        // A battle id and nothing else. This read a packed pair of a guid and a
+        // flag across nine bytes, so the guard alone kept it from running.
+        //
+        // AzerothCore declares this opcode and never sends it, so nothing here
+        // has been exercised - but a wrong reading is worse than an untested
+        // one, and the frame that answers it is live.
+        if (!packet.hasRemaining(4)) { packet.skipAll(); return; }
+        const uint32_t battleId = packet.readUInt32();
         packet.skipAll();
+
+        addSystemChatMessage("You will be removed from the battlefield shortly.");
+        LOG_INFO("SMSG_BATTLEFIELD_MGR_EJECT_PENDING: battle ", battleId);
+        // The second argument picks between two dialogs and nothing here knows
+        // which; nil is the local one, which is what a player being ejected
+        // from the battlefield they are standing in should see.
+        fireAddonEvent("BATTLEFIELD_MGR_EJECT_PENDING",
+                       {std::to_string(battleId), kEventNil});
     };
     // uint64 battlefieldGuid + uint32 reason + uint32 battleStatus + uint8 relocated
     dispatchTable_[Opcode::SMSG_BATTLEFIELD_MGR_EJECTED] = [this](network::Packet& packet) {
-        // uint64 battlefieldGuid + uint32 reason + uint32 battleStatus + uint8 relocated
-        if (packet.hasRemaining(17)) {
-            uint64_t bfGuid5    = packet.readUInt64();
-            uint32_t reason     = packet.readUInt32();
-            /*uint32_t status  =*/ packet.readUInt32();
-            uint8_t relocated   = packet.readUInt8();
-            (void)bfGuid5;
-            static const char* kEjectReasons[] = {
-                "Removed from battlefield.", "Transported from battlefield.",
-                "Left battlefield voluntarily.", "Offline.",
-            };
-            const char* msg = (reason < 4) ? kEjectReasons[reason]
-                                           : "You have been ejected from the battlefield.";
-            addSystemChatMessage(msg);
-            if (relocated) addSystemChatMessage("You have been relocated outside the battlefield.");
-            LOG_INFO("SMSG_BATTLEFIELD_MGR_EJECTED: reason=", reason, " relocated=", static_cast<int>(relocated));
+        // Seven bytes: a battle id, then three single bytes. SendBfLeaveMessage
+        // writes exactly that.
+        //
+        // This guarded seventeen and read a guid, two thirty-two-bit fields and
+        // a flag, so it never ran once - and the reason it treated as a small
+        // enum is a bit mask, which would have named the wrong thing if it had.
+        if (!packet.hasRemaining(7)) { packet.skipAll(); return; }
+        const uint32_t battleId = packet.readUInt32();
+        const uint8_t reason = packet.readUInt8();
+        const uint8_t battleStatus = packet.readUInt8();
+        const uint8_t relocated = packet.readUInt8();
+        packet.skipAll();
+
+        constexpr uint8_t kClose = 0x01, kExited = 0x08, kLowLevel = 0x10;
+        const bool exited = (reason & kExited) != 0;
+        const bool lowLevel = (reason & kLowLevel) != 0;
+
+        if (lowLevel) {
+            raiseUiError("You are not high enough level for this battlefield.");
+        } else if (reason & kClose) {
+            addSystemChatMessage("The battlefield has closed.");
+        } else if (exited) {
+            addSystemChatMessage("You have left the battlefield.");
+        } else {
+            addSystemChatMessage("You have been removed from the battlefield.");
         }
+
+        LOG_INFO("SMSG_BATTLEFIELD_MGR_EJECTED: battle ", battleId,
+                 " reason 0x", std::hex, static_cast<int>(reason), std::dec,
+                 " status ", static_cast<int>(battleStatus),
+                 relocated ? " (relocated)" : "");
+
         bfMgrActive_        = false;
         bfMgrInvitePending_ = false;
-        packet.skipAll();
+
+        // battleID, playerExited, relocated, battleActive, lowLevel. The four
+        // flags are booleans in the middle of the list, so they go through
+        // eventBool - a zero here would read as true and pick the wrong dialog.
+        fireAddonEvent("BATTLEFIELD_MGR_EJECTED",
+                       {std::to_string(battleId),
+                        eventBool(exited),
+                        eventBool(relocated != 0),
+                        eventBool(battleStatus != 0),
+                        eventBool(lowLevel)});
     };
     // uint32 oldState + uint32 newState
     // States: 0=Waiting, 1=Starting, 2=InProgress, 3=Ending, 4=Cooldown
@@ -2390,12 +2891,61 @@ void GameHandler::registerOpcodeHandlers() {
         }
         packet.skipAll();
     };
-    // uint32 numPending — number of unacknowledged calendar invites
+    // One event in full, in answer to opening it.
+    dispatchTable_[Opcode::SMSG_CALENDAR_SEND_EVENT] = [this](network::Packet& packet) {
+        CalendarEventDetail parsed;
+        if (!parseCalendarSendEvent(packet, parsed)) {
+            LOG_WARNING("SMSG_CALENDAR_SEND_EVENT: could not be read whole; "
+                        "keeping the previous event rather than a partial one");
+            packet.skipAll();
+            return;
+        }
+        calendarEventDetail_ = std::move(parsed);
+        LOG_INFO("SMSG_CALENDAR_SEND_EVENT: '", calendarEventDetail_.title,
+                 "' with ", calendarEventDetail_.invitees.size(), " invitee(s)");
+        if (addonEventCallback_) addonEventCallback_("CALENDAR_UPDATE_EVENT", {});
+        packet.skipAll();
+    };
+
+    // The whole calendar, in answer to a request for it.
+    //
+    // Six lists back to back with no length prefix on any of them, so this is
+    // parsed in one place with a test rather than read inline - a row taken
+    // one field wrong slides everything after it and the next count is read
+    // out of the middle of a string, which fails silently and completely.
+    // See parseCalendarSendCalendar.
+    dispatchTable_[Opcode::SMSG_CALENDAR_SEND_CALENDAR] = [this](network::Packet& packet) {
+        CalendarData parsed;
+        if (!parseCalendarSendCalendar(packet, parsed)) {
+            LOG_WARNING("SMSG_CALENDAR_SEND_CALENDAR: could not be read whole; "
+                        "keeping the previous calendar rather than a partial one");
+            packet.skipAll();
+            return;
+        }
+        calendarData_ = std::move(parsed);
+        LOG_INFO("SMSG_CALENDAR_SEND_CALENDAR: ", calendarData_.events.size(),
+                 " event(s), ", calendarData_.invites.size(), " invite(s), ",
+                 calendarData_.lockouts.size(), " raid lockout(s), ",
+                 calendarData_.holidays.size(), " holiday(s)");
+        // The addon reads the whole thing on this event and nothing else
+        // announces that it arrived.
+        if (addonEventCallback_) addonEventCallback_("CALENDAR_UPDATE_EVENT_LIST", {});
+        packet.skipAll();
+    };
+    // uint32 numPending - number of unacknowledged calendar invites
     dispatchTable_[Opcode::SMSG_CALENDAR_SEND_NUM_PENDING] = [this](network::Packet& packet) {
-        // uint32 numPending — number of unacknowledged calendar invites
+        // uint32 numPending - number of unacknowledged calendar invites
         if (packet.hasRemaining(4)) {
             uint32_t numPending = packet.readUInt32();
+            const bool countChanged = (calendarPendingInvites_ != numPending);
             calendarPendingInvites_ = numPending;
+            // The minimap's date button carries the indicator: gametime.lua
+            // shows GameTimeCalendarInvitesTexture when the count rises and
+            // hides it at zero, and it only ever asks on this event and on
+            // PLAYER_ENTERING_WORLD. Firing nothing left it correct at login
+            // and stale for the rest of the session.
+            if (countChanged && addonEventCallback_)
+                addonEventCallback_("CALENDAR_UPDATE_PENDING_INVITES", {});
             if (numPending > 0) {
                 char buf[64];
                 std::snprintf(buf, sizeof(buf),
@@ -2452,9 +3002,15 @@ void GameHandler::registerOpcodeHandlers() {
     //                   eventType(1) + dungeonId(4) + inviteId(8) + status(1) + rank(1) +
     //                   isGuildEvent(1) + inviterGuid(8)
     dispatchTable_[Opcode::SMSG_CALENDAR_EVENT_INVITE_ALERT] = [this](network::Packet& packet) {
-        // Rich notification: eventId(8) + title(cstring) + eventTime(8) + flags(4) +
-        //                   eventType(1) + dungeonId(4) + inviteId(8) + status(1) + rank(1) +
-        //                   isGuildEvent(1) + inviterGuid(8)
+        // eventId(8) + title(cstring) + eventTime(4, packed) + flags(4) +
+        // eventType(4) + dungeonId(4, signed) + inviteId(8) + status(1) +
+        // rank(1) + creatorGuid(packed) + senderGuid(packed).
+        //
+        // Only the id and the title are read; the rest is skipped. The widths
+        // written here before were a different shape - an eight-byte time, a
+        // one-byte type, an isGuildEvent that is not sent, and two full guids
+        // where the wire has packed ones - which would misread everything past
+        // the title for whoever went to use it.
         if (!packet.hasRemaining(9)) {
             packet.skipAll(); return;
         }
@@ -2467,6 +3023,10 @@ void GameHandler::registerOpcodeHandlers() {
             addSystemChatMessage("You have a new calendar invite.");
         }
         if (calendarPendingInvites_ < 255) ++calendarPendingInvites_;
+        // Same indicator, and this is the path that matters most: an invite
+        // arriving mid-session is exactly when the button has to light up.
+        if (addonEventCallback_)
+            addonEventCallback_("CALENDAR_UPDATE_PENDING_INVITES", {});
         LOG_INFO("SMSG_CALENDAR_EVENT_INVITE_ALERT: title='", title, "'");
     };
     // Sent when an event invite's RSVP status changes for the local player
@@ -2500,6 +3060,11 @@ void GameHandler::registerOpcodeHandlers() {
                           evTitle.c_str(), statusStr);
             addSystemChatMessage(buf);
         }
+        // The chat line is the whole of it, deliberately. framexml_event_gap
+        // pairs this message with CALENDAR_UPDATE_EVENT on the words they
+        // share, but an RSVP changing is CALENDAR_UPDATE_INVITE_LIST in
+        // retail - and both are read by a calendar that would re-read nothing,
+        // since no event list is kept here for either to draw from.
         packet.skipAll();
     };
     // uint64 inviteId + uint64 eventId + uint32 mapId + uint32 difficulty + uint64 resetTime
@@ -2544,9 +3109,9 @@ void GameHandler::registerOpcodeHandlers() {
         }
         packet.skipAll();
     };
-    // uint32 unixTime — server's current unix timestamp; use to sync gameTime_
-    dispatchTable_[Opcode::SMSG_SERVERTIME] = [this](network::Packet& packet) {
-        // uint32 unixTime — server's current unix timestamp; use to sync gameTime_
+    // uint32 unixTime - server's current unix timestamp; use to sync gameTime_
+    dispatchTable_[Opcode::SMSG_SERVERTIME] = [](network::Packet& packet) {
+        // uint32 unixTime - server's current unix timestamp; use to sync gameTime_
         // A unix timestamp, which is not a time of day. It used to be stored
         // in gameTime_ alongside values in three other units, so whichever
         // packet arrived last decided what the sky thought the hour was.
@@ -2584,9 +3149,9 @@ void GameHandler::registerOpcodeHandlers() {
         LOG_INFO("SMSG_KICK_REASON: reasonType=", reasonType,
                  " reason='", reason, "'");
     };
-    // uint32 throttleMs — rate-limited group action; notify the player
+    // uint32 throttleMs - rate-limited group action; notify the player
     dispatchTable_[Opcode::SMSG_GROUPACTION_THROTTLED] = [this](network::Packet& packet) {
-        // uint32 throttleMs — rate-limited group action; notify the player
+        // uint32 throttleMs - rate-limited group action; notify the player
         if (packet.hasRemaining(4)) {
             uint32_t throttleMs = packet.readUInt32();
             char buf[128];
@@ -2637,15 +3202,27 @@ void GameHandler::registerOpcodeHandlers() {
             msg = "[GM Response] Your ticket has been answered.";
         addSystemChatMessage(msg);
         addUIError(msg);
+        // The help frame takes the ticket's own text and the reply, and opens
+        // the panel that lets the answer be accepted or more help asked for.
+        // Both strings are parsed right here and were only ever said in chat,
+        // so the reply arrived and the frame that deals with it never opened.
+        //
+        // The description first, then the response - the order it unpacks them
+        // - and the body stands in for a description the server did not send,
+        // since an empty first argument leaves the panel captionless.
+        fireAddonEvent("GMRESPONSE_RECEIVED",
+                       {subject.empty() ? body : subject, responseText});
         LOG_INFO("SMSG_GMRESPONSE_RECEIVED: ticketId=", ticketId,
                  " subject='", subject, "'");
     };
-    // uint32 ticketId + uint8 status (1=open, 2=surveyed, 3=need_more_help)
     dispatchTable_[Opcode::SMSG_GMRESPONSE_STATUS_UPDATE] = [this](network::Packet& packet) {
-        // uint32 ticketId + uint8 status (1=open, 2=surveyed, 3=need_more_help)
-        if (packet.hasRemaining(5)) {
-            uint32_t ticketId = packet.readUInt32();
-            uint8_t  status   = packet.readUInt8();
+        // One byte, and it is not a status: SendGMResponse writes
+        // uint8(getSurvey), which asks whether to offer the survey now that the
+        // ticket is answered. This read a four-byte ticket id and a status
+        // across five bytes, so it never ran once.
+        if (packet.hasRemaining(1)) {
+            const uint32_t ticketId = 0;
+            const uint8_t  status   = packet.readUInt8() ? 2u : 1u;
             const char* statusStr = (status == 1) ? "open"
                                   : (status == 2) ? "answered"
                                   : (status == 3) ? "needs more info"
@@ -2660,34 +3237,76 @@ void GameHandler::registerOpcodeHandlers() {
     };
     // GM ticket status (new/updated); no ticket UI yet
     registerSkipHandler(Opcode::SMSG_GM_TICKET_STATUS_UPDATE);
-    // Broadcast of another player's collision height change — cosmetic only.
+    // Broadcast of another player's collision height change - cosmetic only.
     registerSkipHandler(Opcode::MSG_MOVE_SET_COLLISION_HGT);
     // Client uses this outbound; treat inbound variant as no-op for robustness.
     registerSkipHandler(Opcode::MSG_MOVE_WORLDPORT_ACK);
     // Observed custom server packet (8 bytes). Safe-consume for now.
     registerSkipHandler(Opcode::MSG_MOVE_TIME_SKIPPED);
     // loggingOut_ already cleared by cancelLogout(); this is server's confirmation
-    registerSkipHandler(Opcode::SMSG_LOGOUT_CANCEL_ACK);
+    // Not skipped: this is the server confirming a logout was called off, and
+    // the interface hides its countdown on it. The client already cancels
+    // optimistically in cancelLogout(), so the ack changes no state here - it
+    // is the only thing that tells the interface the countdown is over.
+    dispatchTable_[Opcode::SMSG_LOGOUT_CANCEL_ACK] = [this](network::Packet& packet) {
+        if (addonEventCallback_) addonEventCallback_("LOGOUT_CANCEL", {});
+        packet.skipAll();
+    };
+    // Someone has taken the player's insignia, so the corpse is gone and any
+    // resurrect offer against it is void. The body carries a free-repop flag
+    // the interface reads only in code Blizzard commented out, so it is not
+    // parsed here - the message and the cancelled offers are the whole effect.
+    dispatchTable_[Opcode::SMSG_PLAYER_SKINNED] = [this](network::Packet& packet) {
+        addUIError("Insignia Taken - You can only resurrect at the graveyard");
+        if (addonEventCallback_) addonEventCallback_("PLAYER_SKINNED", {});
+        packet.skipAll();
+    };
     // These packets are not damage-shield events. Consume them without
     // synthesizing reflected damage entries or misattributing GUIDs.
     registerSkipHandler(Opcode::SMSG_AURACASTLOG);
     // These packets are not damage-shield events. Consume them without
     // synthesizing reflected damage entries or misattributing GUIDs.
     registerSkipHandler(Opcode::SMSG_SPELLBREAKLOG);
-    // Consume silently — informational, no UI action needed
-    registerSkipHandler(Opcode::SMSG_ITEM_REFUND_INFO_RESPONSE);
-    // Consume silently — informational, no UI action needed
+    // Consume silently - informational, no UI action needed
+    // What an item cost and how long is left to hand it back.
+    //
+    // Skipped until now, which is why GetContainerItemPurchaseInfo answered
+    // nil and the refund lock never appeared. The client was never sent this
+    // unasked - it is a reply to CMSG_ITEM_REFUND_INFO, and nothing asked.
+    dispatchTable_[Opcode::SMSG_ITEM_REFUND_INFO_RESPONSE] = [this](network::Packet& packet) {
+        if (!packet.hasRemaining(8 + 4 * 3)) return;
+        const uint64_t itemGuid = packet.readUInt64();
+        ItemRefundInfo info;
+        info.money = packet.readUInt32();
+        info.honor = packet.readUInt32();
+        info.arena = packet.readUInt32();
+        // Five cost slots, id and count together - the same interleaving the
+        // item query's sockets use, and the same trap if read as two runs.
+        for (auto& slot : info.items) {
+            if (!packet.hasRemaining(8)) break;
+            slot.first  = packet.readUInt32();
+            slot.second = packet.readUInt32();
+        }
+        if (packet.hasRemaining(8)) {
+            packet.readUInt32();                       // always zero
+            info.playedSincePurchase = packet.readUInt32();
+        }
+        packet.skipAll();
+        itemRefundInfo_[itemGuid] = info;
+        fireAddonEvent("UPDATE_INVENTORY_ALERTS", {});
+    };
+    // Consume silently - informational, no UI action needed
     registerSkipHandler(Opcode::SMSG_LOOT_LIST);
     // Same format as LOCKOUT_ADDED; consume
     registerSkipHandler(Opcode::SMSG_CALENDAR_RAID_LOCKOUT_UPDATED);
     // Sent one line before SMSG_DESTROY_OBJECT and carrying the same guid, and
-    // only inside an arena — Object::DestroyForPlayer writes both. The unit is
+    // only inside an arena - Object::DestroyForPlayer writes both. The unit is
     // removed by the second one whatever happens here, so this is a decision
     // rather than a gap: the real client uses it to tell an arena opponent who
     // died from one who merely went out of range, and nothing here draws that
     // distinction.
     registerSkipHandler(Opcode::SMSG_ARENA_UNIT_DESTROYED);
-    // Consume — remaining server notifications not yet parsed
+    // Consume - remaining server notifications not yet parsed
     for (auto op : {
         Opcode::SMSG_AFK_MONITOR_INFO_RESPONSE,
         Opcode::SMSG_AUCTION_LIST_PENDING_SALES,
@@ -2704,8 +3323,6 @@ void GameHandler::registerOpcodeHandlers() {
         Opcode::SMSG_CALENDAR_EVENT_REMOVED_ALERT,
         Opcode::SMSG_CALENDAR_EVENT_UPDATED_ALERT,
         Opcode::SMSG_CALENDAR_FILTER_GUILD,
-        Opcode::SMSG_CALENDAR_SEND_CALENDAR,
-        Opcode::SMSG_CALENDAR_SEND_EVENT,
         Opcode::SMSG_CHEAT_DUMP_ITEMS_DEBUG_ONLY_RESPONSE,
         Opcode::SMSG_CHEAT_DUMP_ITEMS_DEBUG_ONLY_RESPONSE_WRITE_FILE,
         Opcode::SMSG_CHEAT_PLAYER_LOOKUP,
@@ -2742,7 +3359,6 @@ void GameHandler::registerOpcodeHandlers() {
         Opcode::SMSG_NOTIFY_DEST_LOC_SPELL_CAST,
         Opcode::SMSG_PETGODMODE,
         Opcode::SMSG_PET_UPDATE_COMBO_POINTS,
-        Opcode::SMSG_PLAYER_SKINNED,
         Opcode::SMSG_PLAY_DANCE,
         Opcode::SMSG_PROFILEDATA_RESPONSE,
         Opcode::SMSG_PVP_QUEUE_STATS,
@@ -2772,9 +3388,15 @@ void GameHandler::registerOpcodeHandlers() {
         Opcode::SMSG_VOICE_SET_TALKER_MUTED
     }) { registerSkipHandler(op); }
 
-    // -----------------------------------------------------------------------
-    // Domain handler registrations (override duplicate entries above)
-    // -----------------------------------------------------------------------
+}
+
+// The domain handlers registering their own.
+//
+// This used to be described as overriding duplicate entries above, which has
+// not been true since those were moved out. The two sets are disjoint - checked
+// opcode by opcode, 182 here against 320 there, no overlap - so the order
+// between them carries no meaning and a reader need not look for one.
+void GameHandler::registerDomainOpcodes() {
     chatHandler_->registerOpcodes(dispatchTable_);
     movementHandler_->registerOpcodes(dispatchTable_);
     combatHandler_->registerOpcodes(dispatchTable_);
@@ -2785,11 +3407,17 @@ void GameHandler::registerOpcodeHandlers() {
     wardenHandler_->registerOpcodes(dispatchTable_);
 }
 
+void GameHandler::registerOpcodeHandlers() {
+    registerCoreOpcodes();
+    registerRemainingOpcodes();
+    registerDomainOpcodes();
+}
+
 void GameHandler::handlePacket(network::Packet& packet) {
     // Do NOT drop packets with an empty body. getSize() is the payload length and the
     // opcode is carried separately, so for the many opcodes that have no payload the
     // opcode *is* the message. Dropping them here silently swallowed
-    // SMSG_LOGOUT_COMPLETE — the server logged the character out and moved on while
+    // SMSG_LOGOUT_COMPLETE - the server logged the character out and moved on while
     // the client waited forever, so the countdown ended and nothing happened.
     uint16_t opcode = packet.getOpcode();
 

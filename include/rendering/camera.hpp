@@ -17,7 +17,7 @@ public:
     Camera();
 
     void setPosition(const glm::vec3& pos) {
-        // Reject NaN/inf — would produce a NaN view matrix and freeze the
+        // Reject NaN/inf - would produce a NaN view matrix and freeze the
         // GPU in some drivers, or produce garbage frustum culling.
         if (!std::isfinite(pos.x) || !std::isfinite(pos.y) || !std::isfinite(pos.z)) return;
         position = pos; updateViewMatrix();

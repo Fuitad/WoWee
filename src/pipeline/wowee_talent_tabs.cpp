@@ -1,4 +1,5 @@
 #include "pipeline/wowee_talent_tabs.hpp"
+#include "pipeline/wowee_binary_io.hpp"
 
 #include <algorithm>
 #include <cstdio>
@@ -12,52 +13,7 @@ namespace {
 
 constexpr char kMagic[4] = {'W', 'T', 'L', 'E'};
 constexpr uint32_t kVersion = 1;
-
-template <typename T>
-void writePOD(std::ofstream& os, const T& v) {
-    os.write(reinterpret_cast<const char*>(&v), sizeof(T));
-}
-
-template <typename T>
-bool readPOD(std::ifstream& is, T& v) {
-    is.read(reinterpret_cast<char*>(&v), sizeof(T));
-    return is.gcount() == static_cast<std::streamsize>(sizeof(T));
-}
-
-void writeStr(std::ofstream& os, const std::string& s) {
-    uint32_t n = static_cast<uint32_t>(s.size());
-    writePOD(os, n);
-    if (n > 0) os.write(s.data(), n);
-}
-
-bool readStr(std::ifstream& is, std::string& s) {
-    uint32_t n = 0;
-    if (!readPOD(is, n)) return false;
-    if (n > (1u << 20)) return false;
-    s.resize(n);
-    if (n > 0) {
-        is.read(s.data(), n);
-        if (is.gcount() != static_cast<std::streamsize>(n)) {
-            s.clear();
-            return false;
-        }
-    }
-    return true;
-}
-
-std::string normalizePath(std::string base) {
-    if (base.size() < 5 || base.substr(base.size() - 5) != ".wtle") {
-        base += ".wtle";
-    }
-    return base;
-}
-
-uint32_t packRgba(uint8_t r, uint8_t g, uint8_t b, uint8_t a = 0xFF) {
-    return (static_cast<uint32_t>(a) << 24) |
-           (static_cast<uint32_t>(b) << 16) |
-           (static_cast<uint32_t>(g) << 8)  |
-            static_cast<uint32_t>(r);
-}
+constexpr char kExtension[] = ".wtle";
 
 constexpr uint32_t CLS_WARRIOR = 1u << 0;
 constexpr uint32_t CLS_PALADIN = 1u << 1;
@@ -97,15 +53,9 @@ const char* WoweeTalentTab::roleHintName(uint8_t r) {
 }
 
 bool WoweeTalentTabLoader::save(const WoweeTalentTab& cat,
-                                 const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath), std::ios::binary);
-    if (!os) return false;
-    os.write(kMagic, 4);
-    writePOD(os, kVersion);
-    writeStr(os, cat.name);
-    uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writePOD(os, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeTalentTab::Entry& e) {
         writePOD(os, e.tabId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -117,53 +67,29 @@ bool WoweeTalentTabLoader::save(const WoweeTalentTab& cat,
         writeStr(os, e.iconPath);
         writeStr(os, e.backgroundFile);
         writePOD(os, e.iconColorRGBA);
-    }
-    return os.good();
+                       });
 }
 
 WoweeTalentTab WoweeTalentTabLoader::load(
     const std::string& basePath) {
-    WoweeTalentTab out;
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    if (!is) return out;
-    char magic[4];
-    is.read(magic, 4);
-    if (std::memcmp(magic, kMagic, 4) != 0) return out;
-    uint32_t version = 0;
-    if (!readPOD(is, version) || version != kVersion) return out;
-    if (!readStr(is, out.name)) return out;
-    uint32_t entryCount = 0;
-    if (!readPOD(is, entryCount)) return out;
-    if (entryCount > (1u << 20)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.tabId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name) || !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
+    return loadCatalog<WoweeTalentTab>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeTalentTab::Entry& e) {
+        if (!readPOD(is, e.tabId)) { return false; }
+        if (!readStr(is, e.name) || !readStr(is, e.description)) { return false; }
         if (!readPOD(is, e.classMask) ||
             !readPOD(is, e.displayOrder) ||
             !readPOD(is, e.roleHint) ||
             !readPOD(is, e.pad0) ||
-            !readPOD(is, e.pad1)) {
-            out.entries.clear(); return out;
-        }
+            !readPOD(is, e.pad1)) { return false; }
         if (!readStr(is, e.iconPath) ||
-            !readStr(is, e.backgroundFile)) {
-            out.entries.clear(); return out;
-        }
-        if (!readPOD(is, e.iconColorRGBA)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readStr(is, e.backgroundFile)) { return false; }
+        if (!readPOD(is, e.iconColorRGBA)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeTalentTabLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeTalentTab WoweeTalentTabLoader::makeWarrior(
@@ -187,15 +113,15 @@ WoweeTalentTab WoweeTalentTabLoader::makeWarrior(
     add(161, "Arms",       0, T::DPS,
         "Interface\\Icons\\Ability_Rogue_Eviscerate",
         "WarriorArms",
-        "Arms — two-handed weapon mastery, Mortal Strike DPS spec.");
+        "Arms - two-handed weapon mastery, Mortal Strike DPS spec.");
     add(164, "Fury",       1, T::DPS,
         "Interface\\Icons\\Ability_Warrior_InnerRage",
         "WarriorFury",
-        "Fury — dual-wield berserker DPS spec.");
+        "Fury - dual-wield berserker DPS spec.");
     add(163, "Protection", 2, T::Tank,
         "Interface\\Icons\\INV_Shield_06",
         "WarriorProtection",
-        "Protection — shield-wielding tank spec.");
+        "Protection - shield-wielding tank spec.");
     return c;
 }
 
@@ -220,15 +146,15 @@ WoweeTalentTab WoweeTalentTabLoader::makeMage(
     add(81, "Arcane", 0,
         "Interface\\Icons\\Spell_Holy_MagicalSentry",
         "MageArcane",
-        "Arcane — burst-mana spec around Arcane Blast scaling.");
+        "Arcane - burst-mana spec around Arcane Blast scaling.");
     add(41, "Fire",   1,
         "Interface\\Icons\\Spell_Fire_FireBolt02",
         "MageFire",
-        "Fire — crit-focused spec around Pyroblast / Combustion.");
+        "Fire - crit-focused spec around Pyroblast / Combustion.");
     add(61, "Frost",  2,
         "Interface\\Icons\\Spell_Frost_FrostBolt02",
         "MageFrost",
-        "Frost — control + sustained-damage spec.");
+        "Frost - control + sustained-damage spec.");
     return c;
 }
 
@@ -254,15 +180,15 @@ WoweeTalentTab WoweeTalentTabLoader::makePaladin(
     add(382, "Holy",        0, T::Healer,
         "Interface\\Icons\\Spell_Holy_HolyBolt",
         "PaladinHoly",
-        240, 240, 200, "Holy — single-target healing spec.");
+        240, 240, 200, "Holy - single-target healing spec.");
     add(383, "Protection",  1, T::Tank,
         "Interface\\Icons\\Spell_Holy_DevotionAura",
         "PaladinProtection",
-        220, 220, 180, "Protection — shield + holy power tank spec.");
+        220, 220, 180, "Protection - shield + holy power tank spec.");
     add(381, "Retribution", 2, T::DPS,
         "Interface\\Icons\\Spell_Holy_AuraOfLight",
         "PaladinRetribution",
-        240, 200, 100, "Retribution — two-handed melee DPS spec.");
+        240, 200, 100, "Retribution - two-handed melee DPS spec.");
     return c;
 }
 

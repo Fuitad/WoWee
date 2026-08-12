@@ -1,4 +1,6 @@
 #include "cli_currency_types_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -19,20 +21,6 @@ namespace cli {
 
 namespace {
 
-std::string stripWctrExt(std::string base) {
-    stripExt(base, ".wctr");
-    return base;
-}
-
-bool saveOrError(const wowee::pipeline::WoweeCurrencyType& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeCurrencyTypeLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wctr\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeCurrencyType& c,
                      const std::string& base) {
@@ -45,9 +33,9 @@ int handleGenPvP(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "PvPCurrencies";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWctrExt(base);
+    base = cli::withoutExt(base, ".wctr");
     auto c = wowee::pipeline::WoweeCurrencyTypeLoader::makePvP(name);
-    if (!saveOrError(c, base, "gen-ctr")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCurrencyTypeLoader>(c, base, "gen-ctr", ".wctr")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -56,9 +44,9 @@ int handleGenPvE(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "PvECurrencies";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWctrExt(base);
+    base = cli::withoutExt(base, ".wctr");
     auto c = wowee::pipeline::WoweeCurrencyTypeLoader::makePvE(name);
-    if (!saveOrError(c, base, "gen-ctr-pve")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCurrencyTypeLoader>(c, base, "gen-ctr-pve", ".wctr")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -67,9 +55,9 @@ int handleGenFactionTokens(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "FactionTokens";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWctrExt(base);
+    base = cli::withoutExt(base, ".wctr");
     auto c = wowee::pipeline::WoweeCurrencyTypeLoader::makeFactionTokens(name);
-    if (!saveOrError(c, base, "gen-ctr-faction")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCurrencyTypeLoader>(c, base, "gen-ctr-faction", ".wctr")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -77,10 +65,9 @@ int handleGenFactionTokens(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWctrExt(base);
+    base = cli::withoutExt(base, ".wctr");
     if (!wowee::pipeline::WoweeCurrencyTypeLoader::exists(base)) {
-        std::fprintf(stderr, "WCTR not found: %s.wctr\n", base.c_str());
-        return 1;
+        return reportMissing("WCTR", base, ".wctr");
     }
     auto c = wowee::pipeline::WoweeCurrencyTypeLoader::load(base);
     if (jsonOut) {
@@ -131,12 +118,9 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWctrExt(base);
+    base = cli::withoutExt(base, ".wctr");
     if (!wowee::pipeline::WoweeCurrencyTypeLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wctr-json: WCTR not found: %s.wctr\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wctr-json", "WCTR", base, ".wctr");
     }
     auto c = wowee::pipeline::WoweeCurrencyTypeLoader::load(base);
     if (outPath.empty()) outPath = base + ".wctr.json";
@@ -249,21 +233,8 @@ int handleImportJson(int& i, int argc, char** argv) {
             c.entries.push_back(e);
         }
     }
-    if (outBase.empty()) {
-        outBase = jsonPath;
-        const std::string suffix1 = ".wctr.json";
-        const std::string suffix2 = ".json";
-        if (outBase.size() >= suffix1.size() &&
-            outBase.compare(outBase.size() - suffix1.size(),
-                            suffix1.size(), suffix1) == 0) {
-            outBase.resize(outBase.size() - suffix1.size());
-        } else if (outBase.size() >= suffix2.size() &&
-                   outBase.compare(outBase.size() - suffix2.size(),
-                                   suffix2.size(), suffix2) == 0) {
-            outBase.resize(outBase.size() - suffix2.size());
-        }
-    }
-    outBase = stripWctrExt(outBase);
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(jsonPath, ".wctr");
+    outBase = cli::withoutExt(outBase, ".wctr");
     if (!wowee::pipeline::WoweeCurrencyTypeLoader::save(c, outBase)) {
         std::fprintf(stderr,
             "import-wctr-json: failed to save %s.wctr\n",
@@ -277,99 +248,58 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWctrExt(base);
-    if (!wowee::pipeline::WoweeCurrencyTypeLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wctr: WCTR not found: %s.wctr\n", base.c_str());
-        return 1;
-    }
-    auto c = wowee::pipeline::WoweeCurrencyTypeLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    std::vector<uint32_t> idsSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.currencyId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.currencyId == 0)
-            errors.push_back(ctx + ": currencyId is 0");
-        if (e.name.empty())
-            errors.push_back(ctx + ": name is empty");
-        if (e.currencyKind > wowee::pipeline::WoweeCurrencyType::Misc) {
-            errors.push_back(ctx + ": currencyKind " +
-                std::to_string(e.currencyKind) + " not in 0..5");
-        }
-        if (e.maxQuantity != 0 &&
-            e.maxQuantityWeekly != 0 &&
-            e.maxQuantityWeekly > e.maxQuantity) {
-            warnings.push_back(ctx +
-                ": maxQuantityWeekly " +
-                std::to_string(e.maxQuantityWeekly) +
-                " > maxQuantity " +
-                std::to_string(e.maxQuantity) +
-                " — weekly cap exceeds absolute cap, "
-                "weekly cap will never be reached");
-        }
-        // Faction tokens with no categoryId can't reference
-        // a faction — break the rep gate.
-        if (e.currencyKind == wowee::pipeline::WoweeCurrencyType::FactionToken &&
-            e.categoryId == 0) {
-            warnings.push_back(ctx +
-                ": FactionToken kind with categoryId=0 — "
-                "no faction is associated, rep gate will not "
-                "trigger");
-        }
-        // Currencies with no caps at all and no item backing
-        // are likely misconfigured.
-        if (e.maxQuantity == 0 && e.maxQuantityWeekly == 0 &&
-            e.itemId == 0 && e.iconPath.empty()) {
-            warnings.push_back(ctx +
-                ": no caps + no itemId + no iconPath — "
-                "currency has no display data and unbounded "
-                "earn rate");
-        }
-        for (uint32_t prev : idsSeen) {
-            if (prev == e.currencyId) {
-                errors.push_back(ctx + ": duplicate currencyId");
-                break;
+    return cli::validateCatalog<wowee::pipeline::WoweeCurrencyTypeLoader>(
+        i, argc, argv, "wctr", "WCTR",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.currencyId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.currencyId == 0)
+                errors.push_back(ctx + ": currencyId is 0");
+            if (e.name.empty())
+                errors.push_back(ctx + ": name is empty");
+            if (e.currencyKind > wowee::pipeline::WoweeCurrencyType::Misc) {
+                errors.push_back(ctx + ": currencyKind " +
+                    std::to_string(e.currencyKind) + " not in 0..5");
             }
+            if (e.maxQuantity != 0 &&
+                e.maxQuantityWeekly != 0 &&
+                e.maxQuantityWeekly > e.maxQuantity) {
+                warnings.push_back(ctx +
+                    ": maxQuantityWeekly " +
+                    std::to_string(e.maxQuantityWeekly) +
+                    " > maxQuantity " +
+                    std::to_string(e.maxQuantity) +
+                    " - weekly cap exceeds absolute cap, "
+                    "weekly cap will never be reached");
+            }
+            // Faction tokens with no categoryId can't reference
+            // a faction - break the rep gate.
+            if (e.currencyKind == wowee::pipeline::WoweeCurrencyType::FactionToken &&
+                e.categoryId == 0) {
+                warnings.push_back(ctx +
+                    ": FactionToken kind with categoryId=0 - "
+                    "no faction is associated, rep gate will not "
+                    "trigger");
+            }
+            // Currencies with no caps at all and no item backing
+            // are likely misconfigured.
+            if (e.maxQuantity == 0 && e.maxQuantityWeekly == 0 &&
+                e.itemId == 0 && e.iconPath.empty()) {
+                warnings.push_back(ctx +
+                    ": no caps + no itemId + no iconPath - "
+                    "currency has no display data and unbounded "
+                    "earn rate");
+            }
+            if (!idsSeen.add(e.currencyId)) errors.push_back(ctx + ": duplicate currencyId");
         }
-        idsSeen.push_back(e.currencyId);
-    }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wctr"] = base + ".wctr";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wctr: %s.wctr\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu currencies, all currencyIds unique\n",
-                    c.entries.size());
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+            return formatted("%zu currencies, all currencyIds unique", c.entries.size());
+        });
 }
 
 } // namespace

@@ -1,6 +1,6 @@
 #version 450
 
-// FXAA 3.11 — Fast Approximate Anti-Aliasing post-process pass.
+// FXAA 3.11 - Fast Approximate Anti-Aliasing post-process pass.
 // Reads the resolved scene color and outputs a smoothed result.
 // Push constant: rcpFrame, sharpness, intoxication (0=sober, 1=smashed).
 

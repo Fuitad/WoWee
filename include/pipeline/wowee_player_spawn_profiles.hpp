@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Player Spawn Profile catalog (.wpsp) —
+// Wowee Open Player Spawn Profile catalog (.wpsp) -
 // novel replacement for AzerothCore's playercreateinfo
 // SQL table plus the per-class/race starting fields in
 // CharStartOutfit.dbc. Defines the initial state for a
@@ -15,7 +15,7 @@ namespace pipeline {
 // position, bind point (Hearthstone destination),
 // starting items, and starting spells.
 //
-// One entry per (class, race) combination — a Human
+// One entry per (class, race) combination - a Human
 // Warrior spawns at Northshire Abbey with a Warrior's
 // Hammer and Heroic Strike already learned, while an
 // Orc Hunter spawns in Valley of Trials with a starter
@@ -114,18 +114,18 @@ public:
 
     // Preset emitters used by --gen-psp* variants.
     //
-    //   makeAlliance   — 5 Alliance combos covering each
+    //   makeAlliance   - 5 Alliance combos covering each
     //                     starting zone (Human Warrior in
     //                     Northshire, Dwarf Hunter in Coldridge,
     //                     NightElf Druid in Shadowglen, Gnome
     //                     Mage in Anvilmar, Draenei Shaman
     //                     in Ammen Vale).
-    //   makeHorde      — 5 Horde combos (Orc Warrior in
+    //   makeHorde      - 5 Horde combos (Orc Warrior in
     //                     Valley of Trials, Tauren Druid in
     //                     Camp Narache, Undead Mage in Deathknell,
     //                     Troll Hunter in Valley of Trials,
     //                     BloodElf Priest in Sunstrider Isle).
-    //   makeDeathKnight — 2 DK combos (Alliance Human DK and
+    //   makeDeathKnight - 2 DK combos (Alliance Human DK and
     //                     Horde Orc DK) starting at lvl 55 in
     //                     Acherus, with the standard DK
     //                     starter spell set.

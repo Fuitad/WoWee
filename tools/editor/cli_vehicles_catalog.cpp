@@ -1,4 +1,6 @@
 #include "cli_vehicles_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -18,20 +20,6 @@ namespace cli {
 
 namespace {
 
-std::string stripWvhcExt(std::string base) {
-    stripExt(base, ".wvhc");
-    return base;
-}
-
-bool saveOrError(const wowee::pipeline::WoweeVehicle& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeVehicleLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wvhc\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 size_t totalSeats(const wowee::pipeline::WoweeVehicle& c) {
     size_t n = 0;
@@ -51,9 +39,9 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterVehicles";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWvhcExt(base);
+    base = cli::withoutExt(base, ".wvhc");
     auto c = wowee::pipeline::WoweeVehicleLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-vehicles")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeVehicleLoader>(c, base, "gen-vehicles", ".wvhc")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -62,9 +50,9 @@ int handleGenSiege(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "SiegeVehicles";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWvhcExt(base);
+    base = cli::withoutExt(base, ".wvhc");
     auto c = wowee::pipeline::WoweeVehicleLoader::makeSiege(name);
-    if (!saveOrError(c, base, "gen-vehicles-siege")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeVehicleLoader>(c, base, "gen-vehicles-siege", ".wvhc")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -73,9 +61,9 @@ int handleGenFlying(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "FlyingVehicles";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWvhcExt(base);
+    base = cli::withoutExt(base, ".wvhc");
     auto c = wowee::pipeline::WoweeVehicleLoader::makeFlying(name);
-    if (!saveOrError(c, base, "gen-vehicles-flying")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeVehicleLoader>(c, base, "gen-vehicles-flying", ".wvhc")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -83,10 +71,9 @@ int handleGenFlying(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWvhcExt(base);
+    base = cli::withoutExt(base, ".wvhc");
     if (!wowee::pipeline::WoweeVehicleLoader::exists(base)) {
-        std::fprintf(stderr, "WVHC not found: %s.wvhc\n", base.c_str());
-        return 1;
+        return reportMissing("WVHC", base, ".wvhc");
     }
     auto c = wowee::pipeline::WoweeVehicleLoader::load(base);
     if (jsonOut) {
@@ -155,12 +142,10 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWvhcExt(base);
+    base = cli::withoutExt(base, ".wvhc");
     if (outPath.empty()) outPath = base + ".wvhc.json";
     if (!wowee::pipeline::WoweeVehicleLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wvhc-json: WVHC not found: %s.wvhc\n", base.c_str());
-        return 1;
+        return reportMissing("export-wvhc-json", "WVHC", base, ".wvhc");
     }
     auto c = wowee::pipeline::WoweeVehicleLoader::load(base);
     nlohmann::json j;
@@ -216,18 +201,8 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string jsonPath = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = jsonPath;
-        std::string suffix = ".wvhc.json";
-        if (outBase.size() > suffix.size() &&
-            outBase.substr(outBase.size() - suffix.size()) == suffix) {
-            outBase = outBase.substr(0, outBase.size() - suffix.size());
-        } else if (outBase.size() > 5 &&
-                   outBase.substr(outBase.size() - 5) == ".json") {
-            outBase = outBase.substr(0, outBase.size() - 5);
-        }
-    }
-    outBase = stripWvhcExt(outBase);
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(jsonPath, ".wvhc");
+    outBase = cli::withoutExt(outBase, ".wvhc");
     std::ifstream in(jsonPath);
     if (!in) {
         std::fprintf(stderr,
@@ -341,121 +316,80 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWvhcExt(base);
-    if (!wowee::pipeline::WoweeVehicleLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wvhc: WVHC not found: %s.wvhc\n", base.c_str());
-        return 1;
-    }
-    auto c = wowee::pipeline::WoweeVehicleLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    std::vector<uint32_t> idsSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.vehicleId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.vehicleId == 0) errors.push_back(ctx + ": vehicleId is 0");
-        if (e.name.empty()) errors.push_back(ctx + ": name is empty");
-        if (e.creatureId == 0)
-            errors.push_back(ctx + ": creatureId is 0 "
-                "(no rendered model)");
-        if (e.vehicleKind > wowee::pipeline::WoweeVehicle::SiegeWeapon) {
-            errors.push_back(ctx + ": vehicleKind " +
-                std::to_string(e.vehicleKind) + " not in 0..7");
-        }
-        if (e.movementKind > wowee::pipeline::WoweeVehicle::AmphibiousGW) {
-            errors.push_back(ctx + ": movementKind " +
-                std::to_string(e.movementKind) + " not in 0..5");
-        }
-        if (e.powerType > wowee::pipeline::WoweeVehicle::None) {
-            errors.push_back(ctx + ": powerType " +
-                std::to_string(e.powerType) + " not in 0..4");
-        }
-        if (e.seats.empty()) {
-            errors.push_back(ctx +
-                ": no seats (vehicle has no rideable position)");
-        }
-        // Flying vehicles MUST be on Air or AmphibiousAW
-        // movement, otherwise they fall through the world.
-        if ((e.vehicleKind == wowee::pipeline::WoweeVehicle::FlyingMount ||
-             e.vehicleKind == wowee::pipeline::WoweeVehicle::Gunship) &&
-            e.movementKind != wowee::pipeline::WoweeVehicle::Air &&
-            e.movementKind != wowee::pipeline::WoweeVehicle::AmphibiousAW) {
-            errors.push_back(ctx +
-                ": flying vehicle without Air/AmphibiousAW movement "
-                "(would fall through world)");
-        }
-        // Driver-flag exclusivity check.
-        int driverCount = 0;
-        std::vector<uint8_t> seatIdxSeen;
-        for (size_t si = 0; si < e.seats.size(); ++si) {
-            const auto& s = e.seats[si];
-            if (s.seatFlags & wowee::pipeline::WoweeVehicle::kSeatDriver) {
-                ++driverCount;
+    return cli::validateCatalog<wowee::pipeline::WoweeVehicleLoader>(
+        i, argc, argv, "wvhc", "WVHC",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.vehicleId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.vehicleId == 0) errors.push_back(ctx + ": vehicleId is 0");
+            if (e.name.empty()) errors.push_back(ctx + ": name is empty");
+            if (e.creatureId == 0)
+                errors.push_back(ctx + ": creatureId is 0 "
+                    "(no rendered model)");
+            if (e.vehicleKind > wowee::pipeline::WoweeVehicle::SiegeWeapon) {
+                errors.push_back(ctx + ": vehicleKind " +
+                    std::to_string(e.vehicleKind) + " not in 0..7");
             }
-            for (uint8_t prev : seatIdxSeen) {
-                if (prev == s.seatIndex) {
-                    errors.push_back(ctx + ": seat[" +
-                        std::to_string(si) + "] duplicate seatIndex=" +
-                        std::to_string(s.seatIndex));
-                    break;
+            if (e.movementKind > wowee::pipeline::WoweeVehicle::AmphibiousGW) {
+                errors.push_back(ctx + ": movementKind " +
+                    std::to_string(e.movementKind) + " not in 0..5");
+            }
+            if (e.powerType > wowee::pipeline::WoweeVehicle::None) {
+                errors.push_back(ctx + ": powerType " +
+                    std::to_string(e.powerType) + " not in 0..4");
+            }
+            if (e.seats.empty()) {
+                errors.push_back(ctx +
+                    ": no seats (vehicle has no rideable position)");
+            }
+            // Flying vehicles MUST be on Air or AmphibiousAW
+            // movement, otherwise they fall through the world.
+            if ((e.vehicleKind == wowee::pipeline::WoweeVehicle::FlyingMount ||
+                 e.vehicleKind == wowee::pipeline::WoweeVehicle::Gunship) &&
+                e.movementKind != wowee::pipeline::WoweeVehicle::Air &&
+                e.movementKind != wowee::pipeline::WoweeVehicle::AmphibiousAW) {
+                errors.push_back(ctx +
+                    ": flying vehicle without Air/AmphibiousAW movement "
+                    "(would fall through world)");
+            }
+            // Driver-flag exclusivity check.
+            int driverCount = 0;
+            std::vector<uint8_t> seatIdxSeen;
+            for (size_t si = 0; si < e.seats.size(); ++si) {
+                const auto& s = e.seats[si];
+                if (s.seatFlags & wowee::pipeline::WoweeVehicle::kSeatDriver) {
+                    ++driverCount;
                 }
+                for (uint8_t prev : seatIdxSeen) {
+                    if (prev == s.seatIndex) {
+                        errors.push_back(ctx + ": seat[" +
+                            std::to_string(si) + "] duplicate seatIndex=" +
+                            std::to_string(s.seatIndex));
+                        break;
+                    }
+                }
+                seatIdxSeen.push_back(s.seatIndex);
             }
-            seatIdxSeen.push_back(s.seatIndex);
-        }
-        if (driverCount == 0) {
-            warnings.push_back(ctx +
-                ": no seat marked kSeatDriver "
-                "(no one can steer this vehicle)");
-        }
-        if (driverCount > 1) {
-            errors.push_back(ctx +
-                ": multiple seats marked kSeatDriver (driverCount=" +
-                std::to_string(driverCount) + ")");
-        }
-        for (uint32_t prev : idsSeen) {
-            if (prev == e.vehicleId) {
-                errors.push_back(ctx + ": duplicate vehicleId");
-                break;
+            if (driverCount == 0) {
+                warnings.push_back(ctx +
+                    ": no seat marked kSeatDriver "
+                    "(no one can steer this vehicle)");
             }
+            if (driverCount > 1) {
+                errors.push_back(ctx +
+                    ": multiple seats marked kSeatDriver (driverCount=" +
+                    std::to_string(driverCount) + ")");
+            }
+            if (!idsSeen.add(e.vehicleId)) errors.push_back(ctx + ": duplicate vehicleId");
         }
-        idsSeen.push_back(e.vehicleId);
-    }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wvhc"] = base + ".wvhc";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wvhc: %s.wvhc\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu vehicles, %zu seats, all vehicleIds unique\n",
-                    c.entries.size(), totalSeats(c));
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+            return formatted("%zu vehicles, %zu seats, all vehicleIds unique", c.entries.size(), totalSeats(c));
+        });
 }
 
 } // namespace

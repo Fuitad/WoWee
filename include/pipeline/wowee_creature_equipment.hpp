@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Creature Equipment catalog (.wceq) — novel
+// Wowee Open Creature Equipment catalog (.wceq) - novel
 // replacement for the AzerothCore-style creature_equip_template
 // SQL tables plus the visible-weapon / shield / ranged-slot
 // data that's traditionally embedded in creature templates.
@@ -16,7 +16,7 @@ namespace pipeline {
 //
 // Until this format existed, WCRT defined a creature's stats,
 // WSPN placed it in the world, and WLOT defined what it drops
-// — but nothing defined what items it visibly equips. WCEQ
+// - but nothing defined what items it visibly equips. WCEQ
 // binds a creatureId to up to three equipped items (main
 // hand, off hand, ranged) plus the visual kit that fires
 // when the main-hand weapon is brandished.
@@ -47,12 +47,12 @@ namespace pipeline {
 //     mainHandVisualId (uint32)
 struct WoweeCreatureEquipment {
     // Equipment-slot indices match the WoW visible-equipment
-    // attachment table — Mainhand=16, Offhand=17, Ranged=18.
+    // attachment table - Mainhand=16, Offhand=17, Ranged=18.
     static constexpr uint8_t kSlotMainHand = 16;
     static constexpr uint8_t kSlotOffHand  = 17;
     static constexpr uint8_t kSlotRanged   = 18;
 
-    // equipFlags bits — modifiers for how the items are
+    // equipFlags bits - modifiers for how the items are
     // worn / brandished.
     static constexpr uint8_t kFlagHidden        = 0x01;  // weapons sheathed
     static constexpr uint8_t kFlagDualWield     = 0x02;  // off-hand is weapon
@@ -92,14 +92,14 @@ public:
 
     // Preset emitters used by --gen-ceq* variants.
     //
-    //   makeStarter     — 3 generic loadouts (warrior 1H+
+    //   makeStarter     - 3 generic loadouts (warrior 1H+
     //                      shield, hunter bow + offhand,
     //                      rogue dual-dagger).
-    //   makeBosses      — 4 boss loadouts (Onyxian 2H sword,
+    //   makeBosses      - 4 boss loadouts (Onyxian 2H sword,
     //                      Lich King's Frostmourne, Sylvanas's
     //                      bow, Illidan dual warglaives) with
     //                      WSVK main-hand visual cross-refs.
-    //   makeRanged      — 3 ranged-only loadouts (gun, bow,
+    //   makeRanged      - 3 ranged-only loadouts (gun, bow,
     //                      crossbow) covering the kFlagThrown
     //                      and Ranged-slot variants.
     static WoweeCreatureEquipment makeStarter(const std::string& catalogName);

@@ -1,4 +1,6 @@
 #include "cli_stable_slots_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -18,20 +20,6 @@ namespace cli {
 
 namespace {
 
-std::string stripWstcExt(std::string base) {
-    stripExt(base, ".wstc");
-    return base;
-}
-
-bool saveOrError(const wowee::pipeline::WoweeStableSlot& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeStableSlotLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wstc\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeStableSlot& c,
                      const std::string& base) {
@@ -44,9 +32,9 @@ int handleGenStandard(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StandardStableSlots";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWstcExt(base);
+    base = cli::withoutExt(base, ".wstc");
     auto c = wowee::pipeline::WoweeStableSlotLoader::makeStandard(name);
-    if (!saveOrError(c, base, "gen-stc")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeStableSlotLoader>(c, base, "gen-stc", ".wstc")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -55,9 +43,9 @@ int handleGenCata(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "CataStableSlots";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWstcExt(base);
+    base = cli::withoutExt(base, ".wstc");
     auto c = wowee::pipeline::WoweeStableSlotLoader::makeCata(name);
-    if (!saveOrError(c, base, "gen-stc-cata")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeStableSlotLoader>(c, base, "gen-stc-cata", ".wstc")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -66,9 +54,9 @@ int handleGenPremium(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "PremiumStableSlots";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWstcExt(base);
+    base = cli::withoutExt(base, ".wstc");
     auto c = wowee::pipeline::WoweeStableSlotLoader::makePremium(name);
-    if (!saveOrError(c, base, "gen-stc-premium")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeStableSlotLoader>(c, base, "gen-stc-premium", ".wstc")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -86,10 +74,9 @@ void formatGold(uint32_t copper, char* buf, size_t bufSize) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWstcExt(base);
+    base = cli::withoutExt(base, ".wstc");
     if (!wowee::pipeline::WoweeStableSlotLoader::exists(base)) {
-        std::fprintf(stderr, "WSTC not found: %s.wstc\n", base.c_str());
-        return 1;
+        return reportMissing("WSTC", base, ".wstc");
     }
     auto c = wowee::pipeline::WoweeStableSlotLoader::load(base);
     if (jsonOut) {
@@ -134,12 +121,9 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWstcExt(base);
+    base = cli::withoutExt(base, ".wstc");
     if (!wowee::pipeline::WoweeStableSlotLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wstc-json: WSTC not found: %s.wstc\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wstc-json", "WSTC", base, ".wstc");
     }
     auto c = wowee::pipeline::WoweeStableSlotLoader::load(base);
     if (outPath.empty()) outPath = base + ".wstc.json";
@@ -214,21 +198,8 @@ int handleImportJson(int& i, int argc, char** argv) {
             c.entries.push_back(e);
         }
     }
-    if (outBase.empty()) {
-        outBase = jsonPath;
-        const std::string suffix1 = ".wstc.json";
-        const std::string suffix2 = ".json";
-        if (outBase.size() >= suffix1.size() &&
-            outBase.compare(outBase.size() - suffix1.size(),
-                            suffix1.size(), suffix1) == 0) {
-            outBase.resize(outBase.size() - suffix1.size());
-        } else if (outBase.size() >= suffix2.size() &&
-                   outBase.compare(outBase.size() - suffix2.size(),
-                                   suffix2.size(), suffix2) == 0) {
-            outBase.resize(outBase.size() - suffix2.size());
-        }
-    }
-    outBase = stripWstcExt(outBase);
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(jsonPath, ".wstc");
+    outBase = cli::withoutExt(outBase, ".wstc");
     if (!wowee::pipeline::WoweeStableSlotLoader::save(c, outBase)) {
         std::fprintf(stderr,
             "import-wstc-json: failed to save %s.wstc\n",
@@ -242,95 +213,54 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWstcExt(base);
-    if (!wowee::pipeline::WoweeStableSlotLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wstc: WSTC not found: %s.wstc\n", base.c_str());
-        return 1;
-    }
-    auto c = wowee::pipeline::WoweeStableSlotLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    std::vector<uint32_t> idsSeen;
-    std::vector<uint8_t> ordersSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.slotId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.slotId == 0)
-            errors.push_back(ctx + ": slotId is 0");
-        if (e.name.empty())
-            errors.push_back(ctx + ": name is empty");
-        if (e.minLevelToUnlock > 80) {
-            warnings.push_back(ctx +
-                ": minLevelToUnlock " +
-                std::to_string(e.minLevelToUnlock) +
-                " > 80 — slot unreachable at WotLK cap");
-        }
-        // Premium slot with non-zero cost is contradictory —
-        // donator slots should be free (status-gated, not
-        // gold-gated).
-        if (e.isPremium && e.copperCost > 0) {
-            warnings.push_back(ctx +
-                ": Premium slot with copperCost=" +
-                std::to_string(e.copperCost) +
-                " — donator slots are typically free; the gate "
-                "is donor status, not gold");
-        }
-        for (uint32_t prev : idsSeen) {
-            if (prev == e.slotId) {
-                errors.push_back(ctx + ": duplicate slotId");
-                break;
-            }
-        }
-        idsSeen.push_back(e.slotId);
-        // Two slots with the same displayOrder collide in
-        // the stable UI — only the first would render.
-        for (uint8_t prevOrd : ordersSeen) {
-            if (prevOrd == e.displayOrder) {
+    return cli::validateCatalog<wowee::pipeline::WoweeStableSlotLoader>(
+        i, argc, argv, "wstc", "WSTC",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        std::vector<uint8_t> ordersSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.slotId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.slotId == 0)
+                errors.push_back(ctx + ": slotId is 0");
+            if (e.name.empty())
+                errors.push_back(ctx + ": name is empty");
+            if (e.minLevelToUnlock > 80) {
                 warnings.push_back(ctx +
-                    ": duplicate displayOrder " +
-                    std::to_string(e.displayOrder) +
-                    " — stable UI position collision");
-                break;
+                    ": minLevelToUnlock " +
+                    std::to_string(e.minLevelToUnlock) +
+                    " > 80 - slot unreachable at WotLK cap");
             }
+            // Premium slot with non-zero cost is contradictory -
+            // donator slots should be free (status-gated, not
+            // gold-gated).
+            if (e.isPremium && e.copperCost > 0) {
+                warnings.push_back(ctx +
+                    ": Premium slot with copperCost=" +
+                    std::to_string(e.copperCost) +
+                    " - donator slots are typically free; the gate "
+                    "is donor status, not gold");
+            }
+            if (!idsSeen.add(e.slotId)) errors.push_back(ctx + ": duplicate slotId");
+            // Two slots with the same displayOrder collide in
+            // the stable UI - only the first would render.
+            for (uint8_t prevOrd : ordersSeen) {
+                if (prevOrd == e.displayOrder) {
+                    warnings.push_back(ctx +
+                        ": duplicate displayOrder " +
+                        std::to_string(e.displayOrder) +
+                        " - stable UI position collision");
+                    break;
+                }
+            }
+            ordersSeen.push_back(e.displayOrder);
         }
-        ordersSeen.push_back(e.displayOrder);
-    }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wstc"] = base + ".wstc";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wstc: %s.wstc\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu slots, all slotIds unique, no UI collisions\n",
-                    c.entries.size());
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+            return formatted("%zu slots, all slotIds unique, no UI collisions", c.entries.size());
+        });
 }
 
 } // namespace

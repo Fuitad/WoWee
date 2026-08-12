@@ -27,7 +27,7 @@ void main() {
     vec2 uv = TexCoord - 0.5;
     float dist = length(uv);
 
-    // Hard circular cutoff — nothing beyond radius 0.35
+    // Hard circular cutoff - nothing beyond radius 0.35
     if (dist > 0.35) discard;
 
     bool isMoon = push.celestialColor.w < 0.5;

@@ -53,7 +53,7 @@ bool DBCFile::load(const std::vector<uint8_t>& dbcData) {
         return false;
     }
 
-    // Read header safely (avoid unaligned reinterpret_cast — UB on strict platforms)
+    // Read header safely (avoid unaligned reinterpret_cast - UB on strict platforms)
     DBCHeader header;
     std::memcpy(&header, dbcData.data(), sizeof(DBCHeader));
 
@@ -71,7 +71,7 @@ bool DBCFile::load(const std::vector<uint8_t>& dbcData) {
     // Reject absurd header values up front. Real DBCs cap at ~1M records
     // and 1024 fields; large stringBlockSize is up to ~64MB. Multiplying
     // these without bounds risks uint32 overflow on the totalRecordSize
-    // computation below — the resize would be tiny but the memcpy would
+    // computation below - the resize would be tiny but the memcpy would
     // read TB of memory.
     if (recordCount > 10'000'000 || fieldCount > 1024 ||
         recordSize > 1024 * 4 ||
@@ -82,7 +82,7 @@ bool DBCFile::load(const std::vector<uint8_t>& dbcData) {
         return false;
     }
 
-    // Validate sizes — use uint64 for the product so the overflow check
+    // Validate sizes - use uint64 for the product so the overflow check
     // above is the only path that allows a large recordCount * recordSize.
     uint64_t expectedSize = sizeof(DBCHeader) +
                             static_cast<uint64_t>(recordCount) * recordSize +
@@ -272,7 +272,7 @@ bool DBCFile::loadCSV(const std::vector<uint8_t>& csvData) {
         }
     }
 
-    // Field 0 is always the numeric record ID in DBC files — never a string.
+    // Field 0 is always the numeric record ID in DBC files - never a string.
     // Some CSV exports incorrectly mark it as a string column; force-remove it.
     if (stringCols.erase(0) > 0) {
         LOG_DEBUG("CSV DBC: removed field 0 from string columns (always numeric ID)");
@@ -330,7 +330,7 @@ bool DBCFile::loadCSV(const std::vector<uint8_t>& csvData) {
                     row.fields[col] = offset;
                 }
             } else if (pos < line.size() && line[pos] == '"') {
-                // Quoted value in numeric field — skip quotes, try to parse content
+                // Quoted value in numeric field - skip quotes, try to parse content
                 pos++; // skip opening quote
                 std::string str;
                 while (pos < line.size()) {
@@ -355,7 +355,7 @@ bool DBCFile::loadCSV(const std::vector<uint8_t>& csvData) {
                     }
                 }
             } else {
-                // Numeric field — read until comma or end of line
+                // Numeric field - read until comma or end of line
                 size_t end = line.find(',', pos);
                 if (end == std::string::npos) end = line.size();
                 std::string tok = line.substr(pos, end - pos);
@@ -441,7 +441,7 @@ bool DBCFile::loadJSON(const std::vector<uint8_t>& jsonData) {
 
         for (uint32_t i = 0; i < recordCount; i++) {
             const auto& row = records[i];
-            // Skip non-array rows (object, string, etc.) — row[col] throws
+            // Skip non-array rows (object, string, etc.) - row[col] throws
             // on a non-array, which the outer try-catch would treat as a
             // hard load failure for the whole file. Empty record stays
             // zero-initialized from the resize() above.

@@ -46,21 +46,11 @@ bool QuestMarkerRenderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFr
     createDescriptorResources();
 
     // --- Load shaders ---
-    VkShaderModule vertModule;
-    if (!vertModule.loadFromFile(device, "assets/shaders/quest_marker.vert.spv")) {
-        LOG_ERROR("Failed to load quest_marker vertex shader");
-        return false;
-    }
-
-    VkShaderModule fragModule;
-    if (!fragModule.loadFromFile(device, "assets/shaders/quest_marker.frag.spv")) {
-        LOG_ERROR("Failed to load quest_marker fragment shader");
-        vertModule.destroy();
-        return false;
-    }
-
-    VkPipelineShaderStageCreateInfo vertStage = vertModule.stageInfo(VK_SHADER_STAGE_VERTEX_BIT);
-    VkPipelineShaderStageCreateInfo fragStage = fragModule.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT);
+    auto shaders = loadShaderPair(device, "assets/shaders/quest_marker.vert.spv",
+                                  "assets/shaders/quest_marker.frag.spv", "quest_marker");
+    if (!shaders) return false;
+    const auto& vertStage = shaders.vertStage;
+    const auto& fragStage = shaders.fragStage;
 
     // --- Push constant range: mat4 model (64) + float alpha (4) = 68 bytes ---
     VkPushConstantRange pushRange{};
@@ -73,39 +63,20 @@ bool QuestMarkerRenderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFr
         {perFrameLayout, materialSetLayout_}, {pushRange});
     if (pipelineLayout_ == VK_NULL_HANDLE) {
         LOG_ERROR("Failed to create quest marker pipeline layout");
-        vertModule.destroy();
-        fragModule.destroy();
         return false;
     }
 
     // --- Vertex input: vec3 pos (offset 0) + vec2 uv (offset 12), stride 20 ---
-    VkVertexInputBindingDescription binding{};
-    binding.binding = 0;
-    binding.stride = 5 * sizeof(float); // 20 bytes
-    binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-    VkVertexInputAttributeDescription posAttr{};
-    posAttr.location = 0;
-    posAttr.binding = 0;
-    posAttr.format = VK_FORMAT_R32G32B32_SFLOAT;
-    posAttr.offset = 0;
-
-    VkVertexInputAttributeDescription uvAttr{};
-    uvAttr.location = 1;
-    uvAttr.binding = 0;
-    uvAttr.format = VK_FORMAT_R32G32_SFLOAT;
-    uvAttr.offset = 3 * sizeof(float); // 12
+    VkVertexInputBindingDescription binding = tightVertexBinding(5 * sizeof(float));
+    std::vector<VkVertexInputAttributeDescription> attrs = positionPlusUvAttrs();
 
     // Dynamic viewport and scissor
-    std::vector<VkDynamicState> dynamicStates = {
-        VK_DYNAMIC_STATE_VIEWPORT,
-        VK_DYNAMIC_STATE_SCISSOR
-    };
+    std::vector<VkDynamicState> dynamicStates = viewportAndScissorDynamic();
 
     // --- Build pipeline: alpha blending, no cull, depth test on / write off ---
     pipeline_ = PipelineBuilder()
         .setShaders(vertStage, fragStage)
-        .setVertexInput({binding}, {posAttr, uvAttr})
+        .setVertexInput({binding}, attrs)
         .setTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
         .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
         .setDepthTest(true, false, VK_COMPARE_OP_LESS) // depth test on, write off
@@ -116,8 +87,6 @@ bool QuestMarkerRenderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFr
         .setDynamicStates(dynamicStates)
         .build(device, vkCtx_->getPipelineCache());
 
-    vertModule.destroy();
-    fragModule.destroy();
 
     if (pipeline_ == VK_NULL_HANDLE) {
         LOG_ERROR("Failed to create quest marker pipeline");
@@ -150,33 +119,17 @@ void QuestMarkerRenderer::shutdown() {
     }
 
     // Destroy descriptor pool (frees all descriptor sets allocated from it)
-    if (descriptorPool_ != VK_NULL_HANDLE) {
-        vkDestroyDescriptorPool(device, descriptorPool_, nullptr);
-        descriptorPool_ = VK_NULL_HANDLE;
-    }
+    destroy(device, descriptorPool_);
 
     // Destroy descriptor set layout
-    if (materialSetLayout_ != VK_NULL_HANDLE) {
-        vkDestroyDescriptorSetLayout(device, materialSetLayout_, nullptr);
-        materialSetLayout_ = VK_NULL_HANDLE;
-    }
+    destroy(device, materialSetLayout_);
 
     // Destroy pipeline
-    if (pipeline_ != VK_NULL_HANDLE) {
-        vkDestroyPipeline(device, pipeline_, nullptr);
-        pipeline_ = VK_NULL_HANDLE;
-    }
-    if (pipelineLayout_ != VK_NULL_HANDLE) {
-        vkDestroyPipelineLayout(device, pipelineLayout_, nullptr);
-        pipelineLayout_ = VK_NULL_HANDLE;
-    }
+    destroy(device, pipeline_);
+    destroy(device, pipelineLayout_);
 
     // Destroy quad vertex buffer
-    if (quadVB_ != VK_NULL_HANDLE) {
-        vmaDestroyBuffer(allocator, quadVB_, quadVBAlloc_);
-        quadVB_ = VK_NULL_HANDLE;
-        quadVBAlloc_ = VK_NULL_HANDLE;
-    }
+    destroy(allocator, quadVB_, quadVBAlloc_);
 
     markers_.clear();
     vkCtx_ = nullptr;
@@ -187,47 +140,21 @@ void QuestMarkerRenderer::recreatePipelines() {
     VkDevice device = vkCtx_->getDevice();
 
     // Destroy old pipeline (NOT layout)
-    if (pipeline_ != VK_NULL_HANDLE) {
-        vkDestroyPipeline(device, pipeline_, nullptr);
-        pipeline_ = VK_NULL_HANDLE;
-    }
+    destroy(device, pipeline_);
 
-    VkShaderModule vertModule;
-    VkShaderModule fragModule;
-    if (!vertModule.loadFromFile(device, "assets/shaders/quest_marker.vert.spv") ||
-        !fragModule.loadFromFile(device, "assets/shaders/quest_marker.frag.spv")) {
-        LOG_ERROR("QuestMarkerRenderer::recreatePipelines: failed to load shader modules");
-        return;
-    }
+    auto shaders = loadShaderPair(device, "assets/shaders/quest_marker.vert.spv", "assets/shaders/quest_marker.frag.spv", "quest_marker");
+    if (!shaders) return;
+    const auto& vertStage = shaders.vertStage;
+    const auto& fragStage = shaders.fragStage;
 
-    VkPipelineShaderStageCreateInfo vertStage = vertModule.stageInfo(VK_SHADER_STAGE_VERTEX_BIT);
-    VkPipelineShaderStageCreateInfo fragStage = fragModule.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT);
+    VkVertexInputBindingDescription binding = tightVertexBinding(5 * sizeof(float));
+    std::vector<VkVertexInputAttributeDescription> attrs = positionPlusUvAttrs();
 
-    VkVertexInputBindingDescription binding{};
-    binding.binding = 0;
-    binding.stride = 5 * sizeof(float);
-    binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-    VkVertexInputAttributeDescription posAttr{};
-    posAttr.location = 0;
-    posAttr.binding = 0;
-    posAttr.format = VK_FORMAT_R32G32B32_SFLOAT;
-    posAttr.offset = 0;
-
-    VkVertexInputAttributeDescription uvAttr{};
-    uvAttr.location = 1;
-    uvAttr.binding = 0;
-    uvAttr.format = VK_FORMAT_R32G32_SFLOAT;
-    uvAttr.offset = 3 * sizeof(float);
-
-    std::vector<VkDynamicState> dynamicStates = {
-        VK_DYNAMIC_STATE_VIEWPORT,
-        VK_DYNAMIC_STATE_SCISSOR
-    };
+    std::vector<VkDynamicState> dynamicStates = viewportAndScissorDynamic();
 
     pipeline_ = PipelineBuilder()
         .setShaders(vertStage, fragStage)
-        .setVertexInput({binding}, {posAttr, uvAttr})
+        .setVertexInput({binding}, attrs)
         .setTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
         .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
         .setDepthTest(true, false, VK_COMPARE_OP_LESS)
@@ -238,8 +165,6 @@ void QuestMarkerRenderer::recreatePipelines() {
         .setDynamicStates(dynamicStates)
         .build(device, vkCtx_->getPipelineCache());
 
-    vertModule.destroy();
-    fragModule.destroy();
 }
 
 void QuestMarkerRenderer::createDescriptorResources() {
@@ -349,11 +274,6 @@ void QuestMarkerRenderer::setMarker(uint64_t guid, const glm::vec3& position, in
                                     float boundingHeight, float grayscale) {
     markers_[guid] = {position, markerType, boundingHeight, grayscale};
 }
-
-void QuestMarkerRenderer::removeMarker(uint64_t guid) {
-    markers_.erase(guid);
-}
-
 void QuestMarkerRenderer::clear() {
     markers_.clear();
 }

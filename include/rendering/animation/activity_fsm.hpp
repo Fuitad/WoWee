@@ -35,7 +35,9 @@ public:
         bool grounded = true;
         bool swimming = false;
         bool sitting = false;    // Camera controller sitting state
-        bool stunned = false;
+        // No stunned here: CombatFSM holds that state and resolves before this
+        // one, returning the stun pose itself, so this was filled in from
+        // CombatFSM::isStunned and then never looked at.
         // Animation state query for one-shot completion detection
         uint32_t currentAnimId = 0;
         float currentAnimTime = 0.0f;

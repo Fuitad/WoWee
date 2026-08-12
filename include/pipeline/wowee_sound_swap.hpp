@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Sound Swap Rules catalog (.wswp) —
+// Wowee Open Sound Swap Rules catalog (.wswp) -
 // novel format covering a need vanilla WoW lacked
 // entirely: priority-based sound substitution
 // (Blizzard had no formal mechanism for swapping a
@@ -35,23 +35,23 @@ namespace pipeline {
 //   entries (each):
 //     ruleId (uint32)
 //     nameLen + name
-//     originalSoundId (uint32)     — WSND ref
-//     replacementSoundId (uint32)  — WSND ref
-//     conditionKind (uint8)        — 0=Always /
+//     originalSoundId (uint32)     - WSND ref
+//     replacementSoundId (uint32)  - WSND ref
+//     conditionKind (uint8)        - 0=Always /
 //                                     1=ZoneOnly /
 //                                     2=ClassOnly /
 //                                     3=RaceOnly /
 //                                     4=GenderOnly
-//     priorityIndex (uint8)        — higher wins
+//     priorityIndex (uint8)        - higher wins
 //                                     when multiple
 //                                     rules match
 //                                     (1..255; 0 =
 //                                     never picked)
-//     gainAdjustDb_x10 (int16)     — gain in 0.1 dB
+//     gainAdjustDb_x10 (int16)     - gain in 0.1 dB
 //                                     units, range
 //                                     [-300..+300] =
 //                                     -30..+30 dB
-//     conditionValue (uint32)      — interpretation
+//     conditionValue (uint32)      - interpretation
 //                                     depends on
 //                                     conditionKind
 //                                     (mapId / classId
@@ -86,7 +86,7 @@ struct WoweeSoundSwap {
     const Entry* findById(uint32_t ruleId) const;
 
     // Returns all rules that target a given
-    // originalSoundId — used by the audio dispatch
+    // originalSoundId - used by the audio dispatch
     // hot path to walk candidate replacements for an
     // about-to-play sound.
     std::vector<const Entry*> findByOriginalSound(uint32_t soundId) const;
@@ -101,21 +101,21 @@ public:
 
     // Preset emitters used by --gen-swp* variants.
     //
-    //   makeBossOverrides   — 3 raid-boss sound
+    //   makeBossOverrides   - 3 raid-boss sound
     //                          swaps (Onyxia roar /
     //                          Ragnaros emerge /
     //                          Nefarian shout) all
     //                          ZoneOnly to their
     //                          respective raid
     //                          mapIds.
-    //   makeRaceVoices      — 3 race-specific voice
+    //   makeRaceVoices      - 3 race-specific voice
     //                          replacements
     //                          (BloodElf priest cast
     //                          / Tauren shaman cast /
     //                          Undead warlock cast)
     //                          conditionKind=
     //                          RaceOnly.
-    //   makeGlobalUI        — 3 always-on UI sound
+    //   makeGlobalUI        - 3 always-on UI sound
     //                          replacements
     //                          (level-up / quest-
     //                          complete / mount-up)

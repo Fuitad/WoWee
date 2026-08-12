@@ -4,7 +4,7 @@ namespace wowee {
 namespace editor {
 namespace cli {
 
-// Dispatch the item-export handlers — render items.json as
+// Dispatch the item-export handlers - render items.json as
 // human-readable Markdown / CSV reports for design docs and
 // pivot-table workflows.
 //   --export-zone-items-md       per-zone Markdown by quality

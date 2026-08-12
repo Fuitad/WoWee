@@ -24,8 +24,6 @@ public:
     /// Returns a fully-populated AnimCapabilitySet.
     static AnimCapabilitySet probe(Renderer* renderer, uint32_t instanceId);
 
-    /// Probe mount animation capabilities (separate model).
-    static AnimCapabilitySet probeMountModel(Renderer* renderer, uint32_t mountInstanceId);
 
 private:
     /// Pick the first available animation from candidates for the given instance.

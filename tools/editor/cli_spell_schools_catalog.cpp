@@ -1,4 +1,6 @@
 #include "cli_spell_schools_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -18,20 +20,6 @@ namespace cli {
 
 namespace {
 
-std::string stripWschExt(std::string base) {
-    stripExt(base, ".wsch");
-    return base;
-}
-
-bool saveOrError(const wowee::pipeline::WoweeSpellSchool& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeSpellSchoolLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wsch\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeSpellSchool& c,
                      const std::string& base) {
@@ -44,9 +32,9 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterSchools";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWschExt(base);
+    base = cli::withoutExt(base, ".wsch");
     auto c = wowee::pipeline::WoweeSpellSchoolLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-sch")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellSchoolLoader>(c, base, "gen-sch", ".wsch")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -55,9 +43,9 @@ int handleGenMagical(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "MagicalSchools";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWschExt(base);
+    base = cli::withoutExt(base, ".wsch");
     auto c = wowee::pipeline::WoweeSpellSchoolLoader::makeMagical(name);
-    if (!saveOrError(c, base, "gen-sch-magical")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellSchoolLoader>(c, base, "gen-sch-magical", ".wsch")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -66,9 +54,9 @@ int handleGenCombined(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "CombinedSchools";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWschExt(base);
+    base = cli::withoutExt(base, ".wsch");
     auto c = wowee::pipeline::WoweeSpellSchoolLoader::makeCombined(name);
-    if (!saveOrError(c, base, "gen-sch-combined")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellSchoolLoader>(c, base, "gen-sch-combined", ".wsch")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -76,10 +64,9 @@ int handleGenCombined(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWschExt(base);
+    base = cli::withoutExt(base, ".wsch");
     if (!wowee::pipeline::WoweeSpellSchoolLoader::exists(base)) {
-        std::fprintf(stderr, "WSCH not found: %s.wsch\n", base.c_str());
-        return 1;
+        return reportMissing("WSCH", base, ".wsch");
     }
     auto c = wowee::pipeline::WoweeSpellSchoolLoader::load(base);
     if (jsonOut) {
@@ -127,132 +114,79 @@ int handleInfo(int& i, int argc, char** argv) {
 int handleExportJson(int& i, int argc, char** argv) {
     // Mirrors the JSON pairs added for every other novel
     // open format. WSCH has no enum fields with name forms
-    // — just raw numeric school bits and flag bytes — so
+    // - just raw numeric school bits and flag bytes - so
     // the JSON mapping is a direct dump.
-    std::string base = argv[++i];
-    std::string outPath;
-    if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWschExt(base);
-    if (outPath.empty()) outPath = base + ".wsch.json";
-    if (!wowee::pipeline::WoweeSpellSchoolLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wsch-json: WSCH not found: %s.wsch\n", base.c_str());
-        return 1;
-    }
-    auto c = wowee::pipeline::WoweeSpellSchoolLoader::load(base);
-    nlohmann::json j;
-    j["name"] = c.name;
-    nlohmann::json arr = nlohmann::json::array();
-    for (const auto& e : c.entries) {
-        arr.push_back({
-            {"schoolId", e.schoolId},
-            {"name", e.name},
-            {"description", e.description},
-            {"iconPath", e.iconPath},
-            {"canBeImmune", e.canBeImmune},
-            {"canBeAbsorbed", e.canBeAbsorbed},
-            {"canBeReflected", e.canBeReflected},
-            {"canCrit", e.canCrit},
-            {"colorRGBA", e.colorRGBA},
-            {"baseResistanceCap", e.baseResistanceCap},
-            {"castSoundId", e.castSoundId},
-            {"impactSoundId", e.impactSoundId},
-            {"combinedSchoolMask", e.combinedSchoolMask},
+    return cli::exportCatalogJson<wowee::pipeline::WoweeSpellSchoolLoader>(
+        i, argc, argv, "wsch", "WSCH", "schools ",
+        [](const auto& c) {
+        nlohmann::json j;
+        j["name"] = c.name;
+        nlohmann::json arr = nlohmann::json::array();
+        for (const auto& e : c.entries) {
+            arr.push_back({
+                {"schoolId", e.schoolId},
+                {"name", e.name},
+                {"description", e.description},
+                {"iconPath", e.iconPath},
+                {"canBeImmune", e.canBeImmune},
+                {"canBeAbsorbed", e.canBeAbsorbed},
+                {"canBeReflected", e.canBeReflected},
+                {"canCrit", e.canCrit},
+                {"colorRGBA", e.colorRGBA},
+                {"baseResistanceCap", e.baseResistanceCap},
+                {"castSoundId", e.castSoundId},
+                {"impactSoundId", e.impactSoundId},
+                {"combinedSchoolMask", e.combinedSchoolMask},
+            });
+        }
+        j["entries"] = arr;
+            return j;
         });
-    }
-    j["entries"] = arr;
-    std::ofstream out(outPath);
-    if (!out) {
-        std::fprintf(stderr,
-            "export-wsch-json: cannot write %s\n", outPath.c_str());
-        return 1;
-    }
-    out << j.dump(2) << "\n";
-    out.close();
-    std::printf("Wrote %s\n", outPath.c_str());
-    std::printf("  source  : %s.wsch\n", base.c_str());
-    std::printf("  schools : %zu\n", c.entries.size());
-    return 0;
 }
 
 int handleImportJson(int& i, int argc, char** argv) {
-    std::string jsonPath = argv[++i];
-    std::string outBase;
-    if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = jsonPath;
-        std::string suffix = ".wsch.json";
-        if (outBase.size() > suffix.size() &&
-            outBase.substr(outBase.size() - suffix.size()) == suffix) {
-            outBase = outBase.substr(0, outBase.size() - suffix.size());
-        } else if (outBase.size() > 5 &&
-                   outBase.substr(outBase.size() - 5) == ".json") {
-            outBase = outBase.substr(0, outBase.size() - 5);
+    return cli::importCatalogJson<wowee::pipeline::WoweeSpellSchoolLoader, wowee::pipeline::WoweeSpellSchool>(
+        i, argc, argv, "wsch", "schools ",
+        [](const nlohmann::json& j) {
+        wowee::pipeline::WoweeSpellSchool c;
+        c.name = j.value("name", std::string{});
+        if (j.contains("entries") && j["entries"].is_array()) {
+            for (const auto& je : j["entries"]) {
+                wowee::pipeline::WoweeSpellSchool::Entry e;
+                e.schoolId = je.value("schoolId", 0u);
+                e.name = je.value("name", std::string{});
+                e.description = je.value("description", std::string{});
+                e.iconPath = je.value("iconPath", std::string{});
+                // Defaults match the WoW canonical behavior: most
+                // schools allow absorbs and crits, only Holy is
+                // non-immune by default. Hand-edits should set
+                // these explicitly when they differ.
+                e.canBeImmune = static_cast<uint8_t>(
+                    je.value("canBeImmune", 1));
+                e.canBeAbsorbed = static_cast<uint8_t>(
+                    je.value("canBeAbsorbed", 1));
+                e.canBeReflected = static_cast<uint8_t>(
+                    je.value("canBeReflected", 0));
+                e.canCrit = static_cast<uint8_t>(
+                    je.value("canCrit", 1));
+                e.colorRGBA = je.value("colorRGBA", 0xFFFFFFFFu);
+                e.baseResistanceCap = je.value("baseResistanceCap", 0u);
+                e.castSoundId = je.value("castSoundId", 0u);
+                e.impactSoundId = je.value("impactSoundId", 0u);
+                e.combinedSchoolMask = je.value("combinedSchoolMask", 0u);
+                c.entries.push_back(e);
+            }
         }
-    }
-    outBase = stripWschExt(outBase);
-    std::ifstream in(jsonPath);
-    if (!in) {
-        std::fprintf(stderr,
-            "import-wsch-json: cannot read %s\n", jsonPath.c_str());
-        return 1;
-    }
-    nlohmann::json j;
-    try { in >> j; }
-    catch (const std::exception& e) {
-        std::fprintf(stderr,
-            "import-wsch-json: bad JSON in %s: %s\n",
-            jsonPath.c_str(), e.what());
-        return 1;
-    }
-    wowee::pipeline::WoweeSpellSchool c;
-    c.name = j.value("name", std::string{});
-    if (j.contains("entries") && j["entries"].is_array()) {
-        for (const auto& je : j["entries"]) {
-            wowee::pipeline::WoweeSpellSchool::Entry e;
-            e.schoolId = je.value("schoolId", 0u);
-            e.name = je.value("name", std::string{});
-            e.description = je.value("description", std::string{});
-            e.iconPath = je.value("iconPath", std::string{});
-            // Defaults match the WoW canonical behavior: most
-            // schools allow absorbs and crits, only Holy is
-            // non-immune by default. Hand-edits should set
-            // these explicitly when they differ.
-            e.canBeImmune = static_cast<uint8_t>(
-                je.value("canBeImmune", 1));
-            e.canBeAbsorbed = static_cast<uint8_t>(
-                je.value("canBeAbsorbed", 1));
-            e.canBeReflected = static_cast<uint8_t>(
-                je.value("canBeReflected", 0));
-            e.canCrit = static_cast<uint8_t>(
-                je.value("canCrit", 1));
-            e.colorRGBA = je.value("colorRGBA", 0xFFFFFFFFu);
-            e.baseResistanceCap = je.value("baseResistanceCap", 0u);
-            e.castSoundId = je.value("castSoundId", 0u);
-            e.impactSoundId = je.value("impactSoundId", 0u);
-            e.combinedSchoolMask = je.value("combinedSchoolMask", 0u);
-            c.entries.push_back(e);
-        }
-    }
-    if (!wowee::pipeline::WoweeSpellSchoolLoader::save(c, outBase)) {
-        std::fprintf(stderr,
-            "import-wsch-json: failed to save %s.wsch\n", outBase.c_str());
-        return 1;
-    }
-    std::printf("Wrote %s.wsch\n", outBase.c_str());
-    std::printf("  source  : %s\n", jsonPath.c_str());
-    std::printf("  schools : %zu\n", c.entries.size());
-    return 0;
+            return c;
+        });
 }
 
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWschExt(base);
+    base = cli::withoutExt(base, ".wsch");
     if (!wowee::pipeline::WoweeSpellSchoolLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wsch: WSCH not found: %s.wsch\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wsch", "WSCH", base, ".wsch");
     }
     auto c = wowee::pipeline::WoweeSpellSchoolLoader::load(base);
     std::vector<std::string> errors;
@@ -260,7 +194,7 @@ int handleValidate(int& i, int argc, char** argv) {
     if (c.entries.empty()) {
         warnings.push_back("catalog has zero entries");
     }
-    std::vector<uint32_t> idsSeen;
+    cli::DuplicateIdCheck idsSeen;
     // Build the set of canonical (single-bit) school IDs so we
     // can check that combinedSchoolMask only references real
     // schools defined in this catalog.
@@ -295,7 +229,7 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": schoolId is 0");
         if (e.name.empty())
             errors.push_back(ctx + ": name is empty");
-        // canBeReflected without canBeAbsorbed is unusual —
+        // canBeReflected without canBeAbsorbed is unusual -
         // reflected damage typically also goes through absorb.
         if (e.canBeReflected && !e.canBeAbsorbed) {
             warnings.push_back(ctx +
@@ -329,41 +263,11 @@ int handleValidate(int& i, int argc, char** argv) {
                     "(self-referential)");
             }
         }
-        for (uint32_t prev : idsSeen) {
-            if (prev == e.schoolId) {
-                errors.push_back(ctx + ": duplicate schoolId");
-                break;
-            }
-        }
-        idsSeen.push_back(e.schoolId);
+        if (!idsSeen.add(e.schoolId)) errors.push_back(ctx + ": duplicate schoolId");
     }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wsch"] = base + ".wsch";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wsch: %s.wsch\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu schools, all schoolIds unique, "
-                    "all combined masks resolve\n", c.entries.size());
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+    return cli::reportValidation("wsch", base, jsonOut, errors, warnings,
+                                 formatted("%zu schools, all schoolIds unique, "
+                    "all combined masks resolve", c.entries.size()));
 }
 
 } // namespace

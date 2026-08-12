@@ -41,12 +41,48 @@
 #include <mach/mach.h>
 #include <mach/thread_policy.h>
 #include <pthread.h>
+#include <array>
+#include <cstring>
+
 #endif
 
 namespace wowee {
 namespace rendering {
 
 namespace {
+/// The euler triple a placement's three degrees become, in render axes.
+///
+/// MDDF and MODF store the rotation identically and this was written out twice,
+/// once for each; it is one function. Both are composed X, Y, Z - see the note
+/// in WMOInstance::updateModelMatrix for how the buildings came to be composed
+/// the other way round and what it took to settle it.
+glm::vec3 placementEuler(const float rotation[3]) {
+    // MDDF and MODF store the rotation identically, this was written out once
+    // for each, and both are composed X, Y, Z - see the note in
+    // WMOInstance::updateModelMatrix for how the buildings came to be composed
+    // the other way and what it took to settle it.
+    //
+    // What is *not* wrong: this mapping. Darkshore's bridges are still slightly
+    // askew, and every dial that could be turned here has been turned - all six
+    // composition orders, all four source permutations, the sign of each
+    // component, and the yaw offset. None of them stands the bridges up, and
+    // the closest compromise anyone found was multiplying one component by
+    // four, which is not a thing a placement convention ever does: a convention
+    // is a sign and a right angle. A factor of four is a small wrong number
+    // stretched until it resembles a different one, and it is wrong differently
+    // for every placement with a different roll.
+    //
+    // So the remaining error is not in the euler mapping, and the next thing to
+    // suspect is what the bridges are being judged against - the terrain they
+    // span. A correctly placed bridge over a slightly wrong heightmap looks
+    // exactly like a wrongly placed bridge, and it would explain the same
+    // pattern turning up on other objects that sit against ground.
+    constexpr float kDeg = 3.14159265358979323846f / 180.0f;
+    return glm::vec3(-rotation[2] * kDeg,
+                     -rotation[0] * kDeg,
+                     (rotation[1] + 180.0f) * kDeg);
+}
+
 
 // Alpha map format constants
 constexpr size_t  ALPHA_MAP_SIZE    = 4096;  // 64×64 uncompressed alpha bytes
@@ -59,7 +95,6 @@ constexpr uint8_t ALPHA_COUNT_MASK  = 0x7F;  // RLE command: count bits
 constexpr float kRand16Max = 65535.0f;
 
 // Placement transform constants
-constexpr float kDegToRad = 3.14159f / 180.0f;
 constexpr float kInv1024  = 1.0f / 1024.0f;
 
 int computeTerrainWorkerCount() {
@@ -229,7 +264,7 @@ void TerrainManager::update(const Camera& camera, float deltaTime) {
     // Reconcile the "already uploaded" cache against models the renderer reaped
     // for being instanceless. Without this, a model freed after leaving an area
     // stays marked uploaded, so the next tile prep skips its load and pushes an
-    // empty placeholder — doodads (e.g. Stormwind tunnel torches) then fail to
+    // empty placeholder - doodads (e.g. Stormwind tunnel torches) then fail to
     // spawn on revisit with "M2 model has no renderable content".
     if (m2Renderer) {
         std::vector<uint32_t> reaped = m2Renderer->drainReapedModelIds();
@@ -246,7 +281,7 @@ void TerrainManager::update(const Camera& camera, float deltaTime) {
     processReadyTiles();
     readyMs = elapsedMs(tReconcile, clock::now());
 
-    // Always drain a bounded batch of pending unloads each frame — same
+    // Always drain a bounded batch of pending unloads each frame - same
     // frame-spike rationale as processReadyTiles() above.
     const auto tUnloadStart = clock::now();
     processPendingUnloads();
@@ -301,39 +336,6 @@ void TerrainManager::update(const Camera& camera, float deltaTime) {
     }
 }
 
-// Synchronous fallback for initial tile loading (before worker thread is useful)
-bool TerrainManager::loadTile(int x, int y) {
-    TileCoord coord = {x, y};
-
-    // Check if already loaded
-    if (loadedTiles.find(coord) != loadedTiles.end()) {
-        return true;
-    }
-
-    // Don't retry tiles that already failed
-    if (failedTiles.find(coord) != failedTiles.end()) {
-        return false;
-    }
-
-    LOG_INFO("Loading terrain tile [", x, ",", y, "] (synchronous)");
-
-    auto pending = prepareTile(x, y);
-    if (!pending) {
-        failedTiles[coord] = true;
-        return false;
-    }
-
-    VkContext* vkCtx = terrainRenderer ? terrainRenderer->getVkContext() : nullptr;
-    if (vkCtx) vkCtx->beginUploadBatch();
-
-    FinalizingTile ft;
-    ft.pending = std::move(pending);
-    while (!advanceFinalization(ft)) {}
-
-    if (vkCtx) vkCtx->endUploadBatchSync();  // Sync — caller expects tile ready
-    return true;
-}
-
 bool TerrainManager::enqueueTile(int x, int y) {
     TileCoord coord = {x, y};
     if (loadedTiles.find(coord) != loadedTiles.end()) {
@@ -364,7 +366,7 @@ std::shared_ptr<PendingTile> TerrainManager::prepareTile(int x, int y) {
 
     LOG_DEBUG("Preparing tile [", x, ",", y, "] (CPU work)");
 
-    // Early-exit check — worker should bail fast during shutdown
+    // Early-exit check - worker should bail fast during shutdown
     if (!workerRunning.load()) return nullptr;
 
     // Try Wowee Open Terrain format first (custom zones)
@@ -618,7 +620,7 @@ std::shared_ptr<PendingTile> TerrainManager::prepareTile(int x, int y) {
         // The asset path carries foliage semantics; embedded names frequently
         // do not. Always classify ADT doodads using the path.
         m2Model.name = m2Path;
-        std::string skinPath = m2Path.substr(0, m2Path.size() - 3) + "00.skin";
+        std::string skinPath = pipeline::skinPathForM2(m2Path);
         std::vector<uint8_t> skinData = assetManager->readFileOptional(skinPath);
         if (!skinData.empty() && m2Model.version >= 264) {
             pipeline::M2Loader::loadSkin(skinData, m2Model);
@@ -665,12 +667,10 @@ std::shared_ptr<PendingTile> TerrainManager::prepareTile(int x, int y) {
         }
 
         std::string m2Path = pending->terrain.doodadNames[placement.nameId];
-        if (m2Path.size() > 4) {
-            std::string ext = toLowerCopy(m2Path.substr(m2Path.size() - 4));
-            if (ext == ".mdx") {
-                m2Path = m2Path.substr(0, m2Path.size() - 4) + ".m2";
-            }
-        }
+        // .mdx and .mdl both mean the .m2 that shipped. This site knew only
+        // .mdx, so an ADT doodad named with .mdl was looked up as ".mdl", found
+        // nothing, and did not appear.
+        m2Path = pipeline::modelPathToM2(m2Path);
 
         uint32_t modelId = static_cast<uint32_t>(std::hash<std::string>{}(m2Path));
         if (!ensureModelPrepared(m2Path, modelId, skippedFileNotFound, skippedInvalid, skippedSkinNotFound)) {
@@ -686,11 +686,7 @@ std::shared_ptr<PendingTile> TerrainManager::prepareTile(int x, int y) {
         p.modelId = modelId;
         p.uniqueId = placement.uniqueId;
         p.position = glPos;
-        p.rotation = glm::vec3(
-            -placement.rotation[2] * kDegToRad,
-            -placement.rotation[0] * kDegToRad,
-            (placement.rotation[1] + 180.0f) * kDegToRad
-        );
+        p.rotation = placementEuler(placement.rotation);
         p.scale = placement.scale * kInv1024;
         pending->m2Placements.push_back(p);
     }
@@ -784,11 +780,7 @@ std::shared_ptr<PendingTile> TerrainManager::prepareTile(int x, int y) {
                                                        placement.position[1],
                                                        placement.position[2]);
 
-                glm::vec3 rot(
-                    -placement.rotation[2] * kDegToRad,
-                    -placement.rotation[0] * kDegToRad,
-                    (placement.rotation[1] + 180.0f) * kDegToRad
-                );
+                glm::vec3 rot = placementEuler(placement.rotation);
 
                 // Pre-load WMO doodads (M2 models inside WMO)
                 if (!workerRunning.load()) return nullptr;
@@ -830,13 +822,7 @@ std::shared_ptr<PendingTile> TerrainManager::prepareTile(int x, int y) {
                         std::string m2Path = nameIt->second;
                         if (m2Path.empty()) continue;
 
-                        if (m2Path.size() > 4) {
-                            std::string ext = m2Path.substr(m2Path.size() - 4);
-                            for (char& c : ext) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-                            if (ext == ".mdx" || ext == ".mdl") {
-                                m2Path = m2Path.substr(0, m2Path.size() - 4) + ".m2";
-                            }
-                        }
+                        m2Path = pipeline::modelPathToM2(m2Path);
 
                         uint32_t doodadModelId = static_cast<uint32_t>(std::hash<std::string>{}(m2Path));
 
@@ -846,7 +832,7 @@ std::shared_ptr<PendingTile> TerrainManager::prepareTile(int x, int y) {
                             std::lock_guard<std::mutex> lock(uploadedM2IdsMutex_);
                             modelAlreadyUploaded = uploadedM2Ids_.count(doodadModelId) > 0;
                         }
-                        // Membership check only — the id is claimed below, after a
+                        // Membership check only - the id is claimed below, after a
                         // successful prep. Claiming up front meant a model whose first
                         // occurrence failed (missing/invalid file) poisoned every later
                         // occurrence into an empty placeholder push, which finalize then
@@ -860,7 +846,7 @@ std::shared_ptr<PendingTile> TerrainManager::prepareTile(int x, int y) {
 
                             m2Model = pipeline::M2Loader::load(m2Data);
                             m2Model.name = m2Path;
-                            std::string skinPath = m2Path.substr(0, m2Path.size() - 3) + "00.skin";
+                            std::string skinPath = pipeline::skinPathForM2(m2Path);
                             std::vector<uint8_t> skinData = assetManager->readFile(skinPath);
                             if (!skinData.empty() && m2Model.version >= 264) {
                                 pipeline::M2Loader::loadSkin(skinData, m2Model);
@@ -1061,7 +1047,7 @@ bool TerrainManager::advanceFinalization(FinalizingTile& ft) {
                 pending->mesh, pending->terrain.textures, x, y,
                 ft.terrainChunkNext, 16);
             if (!allDone) {
-                return false; // More chunks remain — yield to time budget
+                return false; // More chunks remain - yield to time budget
             }
             ft.terrainMeshDone = true;
         }
@@ -1165,7 +1151,7 @@ bool TerrainManager::advanceFinalization(FinalizingTile& ft) {
                 }
             }
             if (ft.m2InstanceIndex < pending->m2Placements.size()) {
-                return false; // More instances to create — yield
+                return false; // More instances to create - yield
             }
             LOG_DEBUG("  Loaded doodads for tile [", x, ",", y, "]: ",
                      ft.m2InstanceIds.size(), " instances (", ft.uploadedM2ModelIds.size(), " new models)");
@@ -1203,7 +1189,7 @@ bool TerrainManager::advanceFinalization(FinalizingTile& ft) {
                 if (result == WMORenderer::ModelLoadResult::InProgress) {
                     break;  // same model resumes on the next call
                 }
-                ft.wmoModelIndex++;  // Complete or Failed — either way, move on
+                ft.wmoModelIndex++;  // Complete or Failed - either way, move on
                 break;               // one model per step
             }
             wmoRenderer->setDeferNormalMaps(false);
@@ -1272,7 +1258,7 @@ bool TerrainManager::advanceFinalization(FinalizingTile& ft) {
                         waterRenderer->loadFromWMO(group.liquid, modelMatrix, wmoInstId);
                         liquidGroupsLoaded++;
                     }
-                    // More liquid groups remain on this WMO — yield
+                    // More liquid groups remain on this WMO - yield
                     if (ft.wmoLiquidGroupIndex < groups.size()) {
                         return false;
                     }
@@ -1282,7 +1268,7 @@ bool TerrainManager::advanceFinalization(FinalizingTile& ft) {
                 created++;
             }
             if (ft.wmoInstanceIndex < pending->wmoModels.size()) {
-                return false; // More WMO instances to create — yield
+                return false; // More WMO instances to create - yield
             }
             LOG_DEBUG("  Loaded WMOs for tile [", x, ",", y, "]: ", ft.wmoInstanceIds.size(), " instances");
         }
@@ -1385,7 +1371,7 @@ bool TerrainManager::advanceFinalization(FinalizingTile& ft) {
         tile->doodadUniqueIds = std::move(ft.tileUniqueIds);
         getTileBounds(coord, tile->minX, tile->minY, tile->maxX, tile->maxY);
         loadedTiles[coord] = std::move(tile);
-        // NOTE: Don't cache pending here — std::move above empties terrain/mesh,
+        // NOTE: Don't cache pending here - std::move above empties terrain/mesh,
         // so the cached tile would have 0 valid chunks on reuse.  Tiles are
         // re-parsed from ADT files (file-cache hit) when they re-enter range.
 
@@ -1435,14 +1421,14 @@ void TerrainManager::workerLoop() {
             // WoWee from consuming all system memory during world load.
             const auto& memMon = core::MemoryMonitor::getInstance();
             if (memMon.isSevereMemoryPressure()) {
-                // Severe pressure — don't pull ANY work until main thread
+                // Severe pressure - don't pull ANY work until main thread
                 // finalizes tiles and frees decoded texture data.
                 lock.unlock();
                 std::this_thread::sleep_for(std::chrono::milliseconds(200));
                 continue;
             }
             if (readyQueue.size() >= maxReadyQueueSize_ || memMon.isMemoryPressure()) {
-                // Moderate pressure or ready queue is backing up — sleep briefly
+                // Moderate pressure or ready queue is backing up - sleep briefly
                 // to let the main thread catch up with finalization.
                 lock.unlock();
                 std::this_thread::sleep_for(std::chrono::milliseconds(50));
@@ -1496,7 +1482,7 @@ void TerrainManager::processReadyTiles() {
     // Reclaim completed async uploads from previous frames (non-blocking)
     if (vkCtx) vkCtx->pollUploadBatches();
 
-    // Nothing to finalize — done.
+    // Nothing to finalize - done.
     if (finalizingTiles_.empty()) return;
 
     // Async upload batch: record GPU copies into a command buffer, submit with
@@ -1512,7 +1498,7 @@ void TerrainManager::processReadyTiles() {
 
     if (vkCtx) vkCtx->beginUploadBatch();
 
-    // The budget is checked between steps, so it bounds how many run — not how
+    // The budget is checked between steps, so it bounds how many run - not how
     // long one takes. Most phases handle a single model per call, but TERRAIN
     // uploads a whole tile's chunks and textures, and the INSTANCES phases build
     // every instance at once, so one step can overrun the whole budget on its
@@ -1553,7 +1539,7 @@ void TerrainManager::processReadyTiles() {
         if (elapsed >= budgetMs) break;
     }
 
-    if (vkCtx) vkCtx->endUploadBatch();  // Async — submits but doesn't wait
+    if (vkCtx) vkCtx->endUploadBatch();  // Async - submits but doesn't wait
 }
 
 void TerrainManager::processPendingUnloads() {
@@ -1614,14 +1600,14 @@ void TerrainManager::processAllReadyTiles() {
     VkContext* vkCtx = terrainRenderer ? terrainRenderer->getVkContext() : nullptr;
     if (vkCtx) vkCtx->beginUploadBatch();
 
-    // Finalize all tiles completely (no time budget — used for loading screens)
+    // Finalize all tiles completely (no time budget - used for loading screens)
     while (!finalizingTiles_.empty()) {
         auto& ft = finalizingTiles_.front();
         while (!advanceFinalization(ft)) {}
         finalizingTiles_.pop_front();
     }
 
-    if (vkCtx) vkCtx->endUploadBatchSync();  // Sync — load screen needs data ready
+    if (vkCtx) vkCtx->endUploadBatchSync();  // Sync - load screen needs data ready
 }
 
 void TerrainManager::processOneReadyTile() {
@@ -1647,7 +1633,7 @@ void TerrainManager::processOneReadyTile() {
         while (!advanceFinalization(ft)) {}
         finalizingTiles_.pop_front();
 
-        if (vkCtx) vkCtx->endUploadBatchSync();  // Sync — load screen needs data ready
+        if (vkCtx) vkCtx->endUploadBatchSync();  // Sync - load screen needs data ready
     }
 }
 
@@ -1660,84 +1646,6 @@ std::shared_ptr<PendingTile> TerrainManager::getCachedTile(const TileCoord& coor
     it->second.lruIt = tileCacheLru_.begin();
     return it->second.tile;
 }
-
-void TerrainManager::putCachedTile(const std::shared_ptr<PendingTile>& tile) {
-    if (!tile) return;
-    std::lock_guard<std::mutex> lock(tileCacheMutex_);
-    TileCoord coord = tile->coord;
-
-    auto it = tileCache_.find(coord);
-    if (it != tileCache_.end()) {
-        tileCacheLru_.erase(it->second.lruIt);
-        tileCacheBytes_ -= it->second.bytes;
-        tileCache_.erase(it);
-    }
-
-    size_t bytes = estimatePendingTileBytes(*tile);
-    tileCacheLru_.push_front(coord);
-    tileCache_[coord] = CachedTile{tile, bytes, tileCacheLru_.begin()};
-    tileCacheBytes_ += bytes;
-
-    // Evict least-recently used tiles until under budget
-    while (tileCacheBytes_ > tileCacheBudgetBytes_ && !tileCacheLru_.empty()) {
-        TileCoord evictCoord = tileCacheLru_.back();
-        auto eit = tileCache_.find(evictCoord);
-        if (eit != tileCache_.end()) {
-            tileCacheBytes_ -= eit->second.bytes;
-            tileCache_.erase(eit);
-        }
-        tileCacheLru_.pop_back();
-    }
-}
-
-size_t TerrainManager::estimatePendingTileBytes(const PendingTile& tile) const {
-    size_t bytes = 0;
-    bytes += sizeof(PendingTile);
-    bytes += tile.terrain.textures.size() * 64;
-    bytes += tile.terrain.doodadNames.size() * 64;
-    bytes += tile.terrain.wmoNames.size() * 64;
-    bytes += tile.terrain.doodadPlacements.size() * sizeof(pipeline::ADTTerrain::DoodadPlacement);
-    bytes += tile.terrain.wmoPlacements.size() * sizeof(pipeline::ADTTerrain::WMOPlacement);
-
-    for (const auto& chunk : tile.terrain.chunks) {
-        bytes += sizeof(chunk);
-        bytes += chunk.layers.size() * sizeof(pipeline::TextureLayer);
-        bytes += chunk.alphaMap.size();
-    }
-
-    for (const auto& cm : tile.mesh.chunks) {
-        bytes += cm.vertices.size() * sizeof(pipeline::TerrainVertex);
-        bytes += cm.indices.size() * sizeof(pipeline::TerrainIndex);
-        for (const auto& layer : cm.layers) {
-            bytes += layer.alphaData.size();
-        }
-    }
-
-    for (const auto& ready : tile.m2Models) {
-        bytes += ready.model.vertices.size() * sizeof(pipeline::M2Vertex);
-        bytes += ready.model.indices.size() * sizeof(uint16_t);
-        bytes += ready.model.textures.size() * sizeof(pipeline::M2Texture);
-    }
-    bytes += tile.m2Placements.size() * sizeof(PendingTile::M2Placement);
-
-    for (const auto& ready : tile.wmoModels) {
-        for (const auto& group : ready.model.groups) {
-            bytes += group.vertices.size() * sizeof(pipeline::WMOVertex);
-            bytes += group.indices.size() * sizeof(uint16_t);
-            bytes += group.batches.size() * sizeof(pipeline::WMOBatch);
-            bytes += group.portalVertices.size() * sizeof(glm::vec3);
-            bytes += group.portals.size() * sizeof(pipeline::WMOPortal);
-            bytes += group.bspNodes.size();
-        }
-    }
-    bytes += tile.wmoDoodads.size() * sizeof(PendingTile::WMODoodadReady);
-
-    for (const auto& [_, img] : tile.preloadedTextures) {
-        bytes += img.data.size();
-    }
-    return bytes;
-}
-
 void TerrainManager::unloadTile(int x, int y) {
     TileCoord coord = {x, y};
 
@@ -1755,7 +1663,7 @@ void TerrainManager::unloadTile(int x, int y) {
             if (fit->terrainMeshDone && terrainRenderer) {
                 terrainRenderer->removeTile(x, y);
             }
-            // If past TERRAIN phase, water was already loaded — remove it
+            // If past TERRAIN phase, water was already loaded - remove it
             if (fit->phase != FinalizationPhase::TERRAIN && waterRenderer) {
                 waterRenderer->removeTile(x, y);
             }
@@ -1840,7 +1748,7 @@ void TerrainManager::stopWorkers() {
     queueCV.notify_all();
 
     // Workers check workerRunning at each I/O point in prepareTile() and bail
-    // out quickly.  Use plain join() which is safe with std::thread — no
+    // out quickly.  Use plain join() which is safe with std::thread - no
     // pthread_timedjoin_np (which silently joins the pthread but leaves the
     // std::thread object thinking it's still joinable → std::terminate on dtor).
     for (size_t i = 0; i < workerThreads.size(); i++) {
@@ -1923,7 +1831,7 @@ void TerrainManager::unloadAll() {
 }
 
 void TerrainManager::softReset() {
-    // Clear queues (workers may still be running — they'll find empty queues)
+    // Clear queues (workers may still be running - they'll find empty queues)
     {
         std::lock_guard<std::mutex> lock(queueMutex);
         loadQueue.clear();
@@ -1942,7 +1850,7 @@ void TerrainManager::softReset() {
         preparedWmoUniqueIds_.clear();
     }
 
-    // Clear tile cache — keys are (x,y) without map name, so stale entries from
+    // Clear tile cache - keys are (x,y) without map name, so stale entries from
     // a different map with overlapping coordinates would produce wrong geometry.
     {
         std::lock_guard<std::mutex> lock(tileCacheMutex_);
@@ -2065,7 +1973,7 @@ void TerrainManager::generateGroundClutterPlacements(std::shared_ptr<PendingTile
 
         pipeline::M2Model m2Model = pipeline::M2Loader::load(m2Data);
         m2Model.name = m2Path;
-        std::string skinPath = m2Path.substr(0, m2Path.size() - 3) + "00.skin";
+        std::string skinPath = pipeline::skinPathForM2(m2Path);
         std::vector<uint8_t> skinData = assetManager->readFileOptional(skinPath);
         if (!skinData.empty() && m2Model.version >= 264) {
             pipeline::M2Loader::loadSkin(skinData, m2Model);
@@ -2251,24 +2159,11 @@ void TerrainManager::generateGroundClutterPlacements(std::shared_ptr<PendingTile
                         }
                     }
 
-                    float worldX = chunk.position[0] - fracY * unitSize;
-                    float worldY = chunk.position[1] - fracX * unitSize;
-
-                    int gx0 = glm::clamp(static_cast<int>(std::floor(fracX)), 0, 8);
-                    int gy0 = glm::clamp(static_cast<int>(std::floor(fracY)), 0, 8);
-                    int gx1 = std::min(gx0 + 1, 8);
-                    int gy1 = std::min(gy0 + 1, 8);
-                    float tx = fracX - static_cast<float>(gx0);
-                    float ty = fracY - static_cast<float>(gy0);
-                    float h00 = chunk.heightMap.getHeight(gx0, gy0);
-                    float h10 = chunk.heightMap.getHeight(gx1, gy0);
-                    float h01 = chunk.heightMap.getHeight(gx0, gy1);
-                    float h11 = chunk.heightMap.getHeight(gx1, gy1);
-                    float worldZ = chunk.position[2] +
-                                 (h00 * (1 - tx) * (1 - ty) +
-                                  h10 * tx * (1 - ty) +
-                                  h01 * (1 - tx) * ty +
-                                  h11 * tx * ty);
+                    const glm::vec3 surfacePoint = pipeline::TerrainMeshGenerator::chunkSurfacePoint(
+                        chunk.position, chunk.heightMap, fracX, fracY, unitSize);
+                    const float worldX = surfacePoint.x;
+                    const float worldY = surfacePoint.y;
+                    const float worldZ = surfacePoint.z;
 
                     PendingTile::M2Placement p;
                     p.modelId = modelId;
@@ -2321,24 +2216,11 @@ void TerrainManager::generateGroundClutterPlacements(std::shared_ptr<PendingTile
                             roadRejected++;
                             continue;
                         }
-                        float worldX = chunk.position[0] - fracY * unitSize;
-                        float worldY = chunk.position[1] - fracX * unitSize;
-
-                        int gx0 = glm::clamp(static_cast<int>(std::floor(fracX)), 0, 8);
-                        int gy0 = glm::clamp(static_cast<int>(std::floor(fracY)), 0, 8);
-                        int gx1 = std::min(gx0 + 1, 8);
-                        int gy1 = std::min(gy0 + 1, 8);
-                        float tx = fracX - static_cast<float>(gx0);
-                        float ty = fracY - static_cast<float>(gy0);
-                        float h00 = chunk.heightMap.getHeight(gx0, gy0);
-                        float h10 = chunk.heightMap.getHeight(gx1, gy0);
-                        float h01 = chunk.heightMap.getHeight(gx0, gy1);
-                        float h11 = chunk.heightMap.getHeight(gx1, gy1);
-                        float worldZ = chunk.position[2] +
-                                     (h00 * (1 - tx) * (1 - ty) +
-                                      h10 * tx * (1 - ty) +
-                                      h01 * (1 - tx) * ty +
-                                      h11 * tx * ty);
+                        const glm::vec3 surfacePoint = pipeline::TerrainMeshGenerator::chunkSurfacePoint(
+                            chunk.position, chunk.heightMap, fracX, fracY, unitSize);
+                        const float worldX = surfacePoint.x;
+                        const float worldY = surfacePoint.y;
+                        const float worldZ = surfacePoint.z;
 
                         PendingTile::M2Placement p;
                         p.modelId = proxyModelId;
@@ -2388,107 +2270,123 @@ void TerrainManager::generateGroundClutterPlacements(std::shared_ptr<PendingTile
     }
 }
 
-std::optional<float> TerrainManager::getHeightAt(float glX, float glY) const {
-    // Terrain mesh vertices use chunk.position directly (WoW coordinates)
-    // But camera is in GL coordinates. We query using the mesh coordinates directly
-    // since terrain is rendered without model transformation.
+const pipeline::MapChunk* TerrainManager::findChunkAt(float glX, float glY,
+                                                      float& fracX, float& fracY) const {
+    // Terrain mesh vertices use chunk.position directly (WoW coordinates) and
+    // the terrain is rendered without a model transform, so the camera's own
+    // coordinates index it unchanged. A chunk spans
+    //   X: [position[0] - 8 * unitSize, position[0]]
+    //   Y: [position[1] - 8 * unitSize, position[1]]
+    // and the two fractions handed back are the offsets within it, in the same
+    // order the mesh builder walks its grid: fracY down the 17-stride rows,
+    // fracX across.
     //
-    // The terrain mesh generation puts vertices at:
-    //   vertex.position[0] = chunk.position[0] - (offsetY * unitSize)
-    //   vertex.position[1] = chunk.position[1] - (offsetX * unitSize)
-    //   vertex.position[2] = chunk.position[2] + height
-    //
-    // So chunk spans:
-    //   X: [chunk.position[0] - 8*unitSize, chunk.position[0]]
-    //   Y: [chunk.position[1] - 8*unitSize, chunk.position[1]]
-
+    // One finder for everyone who needs "which chunk is under this point".
+    // isHoleAt used to carry its own copy and the copy was missing the full
+    // scan below, so a chunk the guess did not land on read as no-hole rather
+    // than as look-harder - which is every hole whose tile is indexed a little
+    // differently from the guess. That is the whole reason the Gadgetzan
+    // stairwell still reported hole=0 with 0x1000 sitting in its MCNK header.
     const float unitSize = CHUNK_SIZE / 8.0f;
 
-    auto sampleTileHeight = [&](const TerrainTile* tile) -> std::optional<float> {
-        if (!tile || !tile->loaded) return std::nullopt;
+    auto inChunk = [&](const TerrainTile* tile, int cx, int cy) -> const pipeline::MapChunk* {
+        if (!tile || cx < 0 || cx >= 16 || cy < 0 || cy >= 16) return nullptr;
+        const auto& chunk = tile->terrain.getChunk(cx, cy);
+        if (!chunk.hasHeightMap()) return nullptr;
 
-        auto sampleChunk = [&](int cx, int cy) -> std::optional<float> {
-            if (cx < 0 || cx >= 16 || cy < 0 || cy >= 16) return std::nullopt;
-            const auto& chunk = tile->terrain.getChunk(cx, cy);
-            if (!chunk.hasHeightMap()) return std::nullopt;
+        const float chunkMaxX = chunk.position[0];
+        const float chunkMinX = chunk.position[0] - 8.0f * unitSize;
+        const float chunkMaxY = chunk.position[1];
+        const float chunkMinY = chunk.position[1] - 8.0f * unitSize;
+        if (glX < chunkMinX || glX > chunkMaxX ||
+            glY < chunkMinY || glY > chunkMaxY) {
+            return nullptr;
+        }
 
-            float chunkMaxX = chunk.position[0];
-            float chunkMinX = chunk.position[0] - 8.0f * unitSize;
-            float chunkMaxY = chunk.position[1];
-            float chunkMinY = chunk.position[1] - 8.0f * unitSize;
+        fracY = glm::clamp((chunk.position[0] - glX) / unitSize, 0.0f, 8.0f);
+        fracX = glm::clamp((chunk.position[1] - glY) / unitSize, 0.0f, 8.0f);
+        return &chunk;
+    };
 
-            if (glX < chunkMinX || glX > chunkMaxX ||
-                glY < chunkMinY || glY > chunkMaxY) {
-                return std::nullopt;
-            }
+    auto inTile = [&](const TerrainTile* tile) -> const pipeline::MapChunk* {
+        if (!tile || !tile->loaded) return nullptr;
 
-            // Fractional position within chunk (0-8 range)
-            float fracY = (chunk.position[0] - glX) / unitSize;  // maps to offsetY
-            float fracX = (chunk.position[1] - glY) / unitSize;  // maps to offsetX
-
-            fracX = glm::clamp(fracX, 0.0f, 8.0f);
-            fracY = glm::clamp(fracY, 0.0f, 8.0f);
-
-            // Bilinear interpolation on 9x9 outer grid
-            int gx0 = static_cast<int>(std::floor(fracX));
-            int gy0 = static_cast<int>(std::floor(fracY));
-            int gx1 = std::min(gx0 + 1, 8);
-            int gy1 = std::min(gy0 + 1, 8);
-
-            float tx = fracX - gx0;
-            float ty = fracY - gy0;
-
-            float h00 = chunk.heightMap.heights[gy0 * 17 + gx0];
-            float h10 = chunk.heightMap.heights[gy0 * 17 + gx1];
-            float h01 = chunk.heightMap.heights[gy1 * 17 + gx0];
-            float h11 = chunk.heightMap.heights[gy1 * 17 + gx1];
-
-            float h = h00 * (1 - tx) * (1 - ty) +
-                      h10 * tx * (1 - ty) +
-                      h01 * (1 - tx) * ty +
-                      h11 * tx * ty;
-
-            return chunk.position[2] + h;
-        };
-
-        // Fast path: infer likely chunk index and probe 3x3 neighborhood.
-        int guessCy = glm::clamp(static_cast<int>(std::floor((tile->maxX - glX) / CHUNK_SIZE)), 0, 15);
-        int guessCx = glm::clamp(static_cast<int>(std::floor((tile->maxY - glY) / CHUNK_SIZE)), 0, 15);
+        // Fast path: infer the likely chunk index and probe a 3x3 neighbourhood.
+        const int guessCy = glm::clamp(
+            static_cast<int>(std::floor((tile->maxX - glX) / CHUNK_SIZE)), 0, 15);
+        const int guessCx = glm::clamp(
+            static_cast<int>(std::floor((tile->maxY - glY) / CHUNK_SIZE)), 0, 15);
         for (int dy = -1; dy <= 1; dy++) {
             for (int dx = -1; dx <= 1; dx++) {
-                auto h = sampleChunk(guessCx + dx, guessCy + dy);
-                if (h) return h;
+                if (auto* c = inChunk(tile, guessCx + dx, guessCy + dy)) return c;
             }
         }
 
         // Fallback full scan for robustness at seams/unusual coords.
         for (int cy = 0; cy < 16; cy++) {
             for (int cx = 0; cx < 16; cx++) {
-                auto h = sampleChunk(cx, cy);
-                if (h) {
-                    return h;
-                }
+                if (auto* c = inChunk(tile, cx, cy)) return c;
             }
         }
-        return std::nullopt;
+        return nullptr;
     };
 
-    // Fast path: sample the expected containing tile first.
-    TileCoord tc = worldToTile(glX, glY);
+    // Fast path: the expected containing tile first.
+    const TileCoord tc = worldToTile(glX, glY);
     auto it = loadedTiles.find(tc);
     if (it != loadedTiles.end()) {
-        auto h = sampleTileHeight(it->second.get());
-        if (h) return h;
+        if (auto* c = inTile(it->second.get())) return c;
     }
 
-    // Fallback: check all loaded tiles (handles seam/edge coordinate ambiguity).
+    // Fallback: every loaded tile (handles seam/edge coordinate ambiguity).
     for (const auto& [coord, tile] : loadedTiles) {
         if (coord == tc) continue;
-        auto h = sampleTileHeight(tile.get());
-        if (h) return h;
+        if (auto* c = inTile(tile.get())) return c;
     }
+    return nullptr;
+}
 
-    return std::nullopt;
+std::optional<float> TerrainManager::getHeightAt(float glX, float glY) const {
+    float fracX = 0.0f, fracY = 0.0f;
+    const pipeline::MapChunk* chunk = findChunkAt(glX, glY, fracX, fracY);
+    if (!chunk) return std::nullopt;
+
+    // Bilinear interpolation on the 9x9 outer grid.
+    const int gx0 = static_cast<int>(std::floor(fracX));
+    const int gy0 = static_cast<int>(std::floor(fracY));
+    const int gx1 = std::min(gx0 + 1, 8);
+    const int gy1 = std::min(gy0 + 1, 8);
+
+    const float tx = fracX - gx0;
+    const float ty = fracY - gy0;
+
+    const float h00 = chunk->heightMap.heights[gy0 * 17 + gx0];
+    const float h10 = chunk->heightMap.heights[gy0 * 17 + gx1];
+    const float h01 = chunk->heightMap.heights[gy1 * 17 + gx0];
+    const float h11 = chunk->heightMap.heights[gy1 * 17 + gx1];
+
+    const float h = h00 * (1 - tx) * (1 - ty) +
+                    h10 * tx * (1 - ty) +
+                    h01 * (1 - tx) * ty +
+                    h11 * tx * ty;
+
+    return chunk->position[2] + h;
+}
+
+bool TerrainManager::isHoleAt(float glX, float glY) const {
+    float fracX = 0.0f, fracY = 0.0f;
+    const pipeline::MapChunk* chunk = findChunkAt(glX, glY, fracX, fracY);
+    if (!chunk || chunk->holes == 0) return false;
+
+    // The quad, in the order the mesh builder passes to isHole: it walks
+    // `for y { for x { if (chunk.isHole(y, x)) continue; ... } }` over vertices
+    // at `y * 17 + x`, which is the grid getHeightAt samples as
+    // `heights[gy * 17 + gx]`. Reading the quad from the same two fractions is
+    // what keeps the surface stood on and the surface drawn agreeing about
+    // which quads are there.
+    const int qy = glm::clamp(static_cast<int>(std::floor(fracY)), 0, 7);
+    const int qx = glm::clamp(static_cast<int>(std::floor(fracX)), 0, 7);
+    return chunk->isHole(qy, qx);
 }
 
 bool TerrainManager::isHoleAt(float glX, float glY) const {
@@ -2751,7 +2649,7 @@ void TerrainManager::streamTiles() {
     queueCV.notify_all();
 
     // Unload tiles beyond unload radius (well past the camera far clip).
-    // Queue them rather than unloading synchronously here — processPendingUnloads()
+    // Queue them rather than unloading synchronously here - processPendingUnloads()
     // drains a time-budgeted batch per frame instead (see pendingUnloadQueue_'s comment).
     std::unordered_set<TileCoord, TileCoord::Hash> alreadyQueued(
         pendingUnloadQueue_.begin(), pendingUnloadQueue_.end());
@@ -2802,34 +2700,5 @@ void TerrainManager::precacheTiles(const std::vector<std::pair<int, int>>& tiles
     // Notify workers to start loading
     queueCV.notify_all();
 }
-
-uint8_t TerrainManager::getCollisionFlags(float glX, float glY) const {
-    for (const auto& [key, cd] : collisionTiles_) {
-        if (!cd.loaded) continue;
-        if (glX < cd.boundsMin.x || glX > cd.boundsMax.x ||
-            glY < cd.boundsMin.y || glY > cd.boundsMax.y) continue;
-
-        for (const auto& tri : cd.triangles) {
-            // Barycentric point-in-triangle test (XY plane)
-            glm::vec2 p(glX, glY);
-            glm::vec2 a(tri.v0.x, tri.v0.y), b(tri.v1.x, tri.v1.y), c(tri.v2.x, tri.v2.y);
-            glm::vec2 v0 = c - a, v1 = b - a, v2 = p - a;
-            float d00 = glm::dot(v0, v0), d01 = glm::dot(v0, v1), d02 = glm::dot(v0, v2);
-            float d11 = glm::dot(v1, v1), d12 = glm::dot(v1, v2);
-            float inv = d00 * d11 - d01 * d01;
-            if (std::abs(inv) < 1e-10f) continue;
-            float u = (d11 * d02 - d01 * d12) / inv;
-            float v = (d00 * d12 - d01 * d02) / inv;
-            if (u >= 0 && v >= 0 && u + v <= 1)
-                return tri.flags;
-        }
-    }
-    return 0x01; // default walkable if no collision data
-}
-
-bool TerrainManager::isPositionWalkable(float glX, float glY) const {
-    return (getCollisionFlags(glX, glY) & 0x01) != 0;
-}
-
 } // namespace rendering
 } // namespace wowee

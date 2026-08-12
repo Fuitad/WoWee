@@ -81,7 +81,7 @@ std::vector<std::string> TextureExporter::collectWMOTextures(pipeline::AssetMana
         unique.insert(p);
     }
 
-    // WMO doodads (props inside the building) are M2 models — their textures
+    // WMO doodads (props inside the building) are M2 models - their textures
     // also need to ship with the zone or the building will render with missing
     // chairs/decorations.
     std::unordered_set<std::string> seenDoodadM2;
@@ -143,7 +143,7 @@ int TextureExporter::exportTexturesAsPng(pipeline::AssetManager* am,
         if (blpImage.width <= 0 || blpImage.height <= 0 ||
             blpImage.width > 8192 || blpImage.height > 8192 ||
             blpImage.data.size() < expectedBytes) {
-            LOG_WARNING("PNG export skipped — invalid image (",
+            LOG_WARNING("PNG export skipped - invalid image (",
                         blpImage.width, "x", blpImage.height,
                         " data=", blpImage.data.size(), "): ", texPath);
             continue;

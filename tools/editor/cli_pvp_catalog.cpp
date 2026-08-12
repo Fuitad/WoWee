@@ -1,4 +1,6 @@
 #include "cli_pvp_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -18,20 +20,6 @@ namespace cli {
 
 namespace {
 
-std::string stripWpvpExt(std::string base) {
-    stripExt(base, ".wpvp");
-    return base;
-}
-
-bool saveOrError(const wowee::pipeline::WoweePVPRank& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweePVPRankLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wpvp\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweePVPRank& c,
                      const std::string& base) {
@@ -44,9 +32,9 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterPvPRanks";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWpvpExt(base);
+    base = cli::withoutExt(base, ".wpvp");
     auto c = wowee::pipeline::WoweePVPRankLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-pvp")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweePVPRankLoader>(c, base, "gen-pvp", ".wpvp")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -55,9 +43,9 @@ int handleGenAllianceFull(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "AllianceVanillaRanks";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWpvpExt(base);
+    base = cli::withoutExt(base, ".wpvp");
     auto c = wowee::pipeline::WoweePVPRankLoader::makeAllianceFull(name);
-    if (!saveOrError(c, base, "gen-pvp-alliance")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweePVPRankLoader>(c, base, "gen-pvp-alliance", ".wpvp")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -66,9 +54,9 @@ int handleGenArena(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "ArenaTiers";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWpvpExt(base);
+    base = cli::withoutExt(base, ".wpvp");
     auto c = wowee::pipeline::WoweePVPRankLoader::makeArenaTiers(name);
-    if (!saveOrError(c, base, "gen-pvp-arena")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweePVPRankLoader>(c, base, "gen-pvp-arena", ".wpvp")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -76,10 +64,9 @@ int handleGenArena(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWpvpExt(base);
+    base = cli::withoutExt(base, ".wpvp");
     if (!wowee::pipeline::WoweePVPRankLoader::exists(base)) {
-        std::fprintf(stderr, "WPVP not found: %s.wpvp\n", base.c_str());
-        return 1;
+        return reportMissing("WPVP", base, ".wpvp");
     }
     auto c = wowee::pipeline::WoweePVPRankLoader::load(base);
     if (jsonOut) {
@@ -136,71 +123,43 @@ int handleExportJson(int& i, int argc, char** argv) {
     // open format. Each rank emits all 12 scalar fields plus
     // a dual int + name form for rankKind so hand-edits can
     // use either representation.
-    std::string base = argv[++i];
-    std::string outPath;
-    if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWpvpExt(base);
-    if (outPath.empty()) outPath = base + ".wpvp.json";
-    if (!wowee::pipeline::WoweePVPRankLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wpvp-json: WPVP not found: %s.wpvp\n", base.c_str());
-        return 1;
-    }
-    auto c = wowee::pipeline::WoweePVPRankLoader::load(base);
-    nlohmann::json j;
-    j["name"] = c.name;
-    nlohmann::json arr = nlohmann::json::array();
-    for (const auto& e : c.entries) {
-        arr.push_back({
-            {"rankId", e.rankId},
-            {"name", e.name},
-            {"factionAllianceName", e.factionAllianceName},
-            {"factionHordeName", e.factionHordeName},
-            {"description", e.description},
-            {"rankKind", e.rankKind},
-            {"rankKindName", wowee::pipeline::WoweePVPRank::rankKindName(e.rankKind)},
-            {"minBracketLevel", e.minBracketLevel},
-            {"maxBracketLevel", e.maxBracketLevel},
-            {"minHonorOrRating", e.minHonorOrRating},
-            {"rewardEmblems", e.rewardEmblems},
-            {"titleId", e.titleId},
-            {"chestItemId", e.chestItemId},
-            {"glovesItemId", e.glovesItemId},
-            {"shouldersItemId", e.shouldersItemId},
-            {"bracketBgId", e.bracketBgId},
+    return cli::exportCatalogJson<wowee::pipeline::WoweePVPRankLoader>(
+        i, argc, argv, "wpvp", "WPVP", "ranks  ",
+        [](const auto& c) {
+        nlohmann::json j;
+        j["name"] = c.name;
+        nlohmann::json arr = nlohmann::json::array();
+        for (const auto& e : c.entries) {
+            arr.push_back({
+                {"rankId", e.rankId},
+                {"name", e.name},
+                {"factionAllianceName", e.factionAllianceName},
+                {"factionHordeName", e.factionHordeName},
+                {"description", e.description},
+                {"rankKind", e.rankKind},
+                {"rankKindName", wowee::pipeline::WoweePVPRank::rankKindName(e.rankKind)},
+                {"minBracketLevel", e.minBracketLevel},
+                {"maxBracketLevel", e.maxBracketLevel},
+                {"minHonorOrRating", e.minHonorOrRating},
+                {"rewardEmblems", e.rewardEmblems},
+                {"titleId", e.titleId},
+                {"chestItemId", e.chestItemId},
+                {"glovesItemId", e.glovesItemId},
+                {"shouldersItemId", e.shouldersItemId},
+                {"bracketBgId", e.bracketBgId},
+            });
+        }
+        j["entries"] = arr;
+            return j;
         });
-    }
-    j["entries"] = arr;
-    std::ofstream out(outPath);
-    if (!out) {
-        std::fprintf(stderr,
-            "export-wpvp-json: cannot write %s\n", outPath.c_str());
-        return 1;
-    }
-    out << j.dump(2) << "\n";
-    out.close();
-    std::printf("Wrote %s\n", outPath.c_str());
-    std::printf("  source : %s.wpvp\n", base.c_str());
-    std::printf("  ranks  : %zu\n", c.entries.size());
-    return 0;
 }
 
 int handleImportJson(int& i, int argc, char** argv) {
     std::string jsonPath = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = jsonPath;
-        std::string suffix = ".wpvp.json";
-        if (outBase.size() > suffix.size() &&
-            outBase.substr(outBase.size() - suffix.size()) == suffix) {
-            outBase = outBase.substr(0, outBase.size() - suffix.size());
-        } else if (outBase.size() > 5 &&
-                   outBase.substr(outBase.size() - 5) == ".json") {
-            outBase = outBase.substr(0, outBase.size() - 5);
-        }
-    }
-    outBase = stripWpvpExt(outBase);
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(jsonPath, ".wpvp");
+    outBase = cli::withoutExt(outBase, ".wpvp");
     std::ifstream in(jsonPath);
     if (!in) {
         std::fprintf(stderr,
@@ -245,7 +204,7 @@ int handleImportJson(int& i, int argc, char** argv) {
                     je["rankKindName"].get<std::string>());
             }
             // Bracket-level defaults to 1..80 (no level gate)
-            // when omitted — vanilla ranks weren't level-gated
+            // when omitted - vanilla ranks weren't level-gated
             // beyond the cap.
             e.minBracketLevel = static_cast<uint8_t>(
                 je.value("minBracketLevel", 1));
@@ -274,125 +233,84 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWpvpExt(base);
-    if (!wowee::pipeline::WoweePVPRankLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wpvp: WPVP not found: %s.wpvp\n", base.c_str());
-        return 1;
-    }
-    auto c = wowee::pipeline::WoweePVPRankLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    std::vector<uint32_t> idsSeen;
-    // Track threshold monotonicity within a single rankKind —
-    // arena ratings should ascend (1500 < 1750 < ...), so a
-    // catalog with two arena entries at the same rating or
-    // a higher-id entry below a lower-id entry is suspicious.
-    uint32_t prevHonorByKind[5] = {0, 0, 0, 0, 0};
-    bool prevHonorSeen[5] = {false, false, false, false, false};
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.rankId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.rankId == 0)
-            errors.push_back(ctx + ": rankId is 0");
-        if (e.name.empty())
-            errors.push_back(ctx + ": name is empty");
-        if (e.rankKind > wowee::pipeline::WoweePVPRank::ConquestPoint) {
-            errors.push_back(ctx + ": rankKind " +
-                std::to_string(e.rankKind) + " not in 0..4");
-        }
-        if (e.minBracketLevel > e.maxBracketLevel) {
-            errors.push_back(ctx + ": minBracketLevel " +
-                std::to_string(e.minBracketLevel) +
-                " > maxBracketLevel " +
-                std::to_string(e.maxBracketLevel));
-        }
-        // Vanilla honor ranks must use VanillaHonor kind and
-        // have minHonor > 0 (rank 1 is the implicit baseline).
-        if (e.rankKind == wowee::pipeline::WoweePVPRank::VanillaHonor &&
-            e.minHonorOrRating == 0) {
-            warnings.push_back(ctx +
-                ": VanillaHonor kind with minHonor=0 "
-                "(rank 1 baseline — verify intentional)");
-        }
-        // Arena ratings below 1500 don't unlock any reward —
-        // 1500 is the WoW arena floor.
-        if (e.rankKind == wowee::pipeline::WoweePVPRank::ArenaRating &&
-            e.minHonorOrRating < 1500) {
-            warnings.push_back(ctx +
-                ": ArenaRating with rating " +
-                std::to_string(e.minHonorOrRating) +
-                " below 1500 floor");
-        }
-        // Faction alternate names — vanilla ranks have
-        // distinct alliance / horde names; arena tiers share
-        // the same name on both factions. Either is valid; an
-        // empty alliance name + non-empty horde (or vice
-        // versa) is a typo signal.
-        if (e.factionAllianceName.empty() !=
-            e.factionHordeName.empty()) {
-            warnings.push_back(ctx +
-                ": only one faction-alternate name set "
-                "(alliance='" + e.factionAllianceName +
-                "', horde='" + e.factionHordeName + "')");
-        }
-        // Threshold monotonicity within rankKind.
-        if (e.rankKind < 5) {
-            if (prevHonorSeen[e.rankKind] &&
-                e.minHonorOrRating < prevHonorByKind[e.rankKind]) {
+    return cli::validateCatalog<wowee::pipeline::WoweePVPRankLoader>(
+        i, argc, argv, "wpvp", "WPVP",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        // Track threshold monotonicity within a single rankKind -
+        // arena ratings should ascend (1500 < 1750 < ...), so a
+        // catalog with two arena entries at the same rating or
+        // a higher-id entry below a lower-id entry is suspicious.
+        uint32_t prevHonorByKind[5] = {0, 0, 0, 0, 0};
+        bool prevHonorSeen[5] = {false, false, false, false, false};
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.rankId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.rankId == 0)
+                errors.push_back(ctx + ": rankId is 0");
+            if (e.name.empty())
+                errors.push_back(ctx + ": name is empty");
+            if (e.rankKind > wowee::pipeline::WoweePVPRank::ConquestPoint) {
+                errors.push_back(ctx + ": rankKind " +
+                    std::to_string(e.rankKind) + " not in 0..4");
+            }
+            if (e.minBracketLevel > e.maxBracketLevel) {
+                errors.push_back(ctx + ": minBracketLevel " +
+                    std::to_string(e.minBracketLevel) +
+                    " > maxBracketLevel " +
+                    std::to_string(e.maxBracketLevel));
+            }
+            // Vanilla honor ranks must use VanillaHonor kind and
+            // have minHonor > 0 (rank 1 is the implicit baseline).
+            if (e.rankKind == wowee::pipeline::WoweePVPRank::VanillaHonor &&
+                e.minHonorOrRating == 0) {
                 warnings.push_back(ctx +
-                    ": threshold " +
+                    ": VanillaHonor kind with minHonor=0 "
+                    "(rank 1 baseline - verify intentional)");
+            }
+            // Arena ratings below 1500 don't unlock any reward -
+            // 1500 is the WoW arena floor.
+            if (e.rankKind == wowee::pipeline::WoweePVPRank::ArenaRating &&
+                e.minHonorOrRating < 1500) {
+                warnings.push_back(ctx +
+                    ": ArenaRating with rating " +
                     std::to_string(e.minHonorOrRating) +
-                    " below previous " +
-                    std::to_string(prevHonorByKind[e.rankKind]) +
-                    " in same rankKind (non-monotonic)");
+                    " below 1500 floor");
             }
-            prevHonorByKind[e.rankKind] = e.minHonorOrRating;
-            prevHonorSeen[e.rankKind] = true;
-        }
-        for (uint32_t prev : idsSeen) {
-            if (prev == e.rankId) {
-                errors.push_back(ctx + ": duplicate rankId");
-                break;
+            // Faction alternate names - vanilla ranks have
+            // distinct alliance / horde names; arena tiers share
+            // the same name on both factions. Either is valid; an
+            // empty alliance name + non-empty horde (or vice
+            // versa) is a typo signal.
+            if (e.factionAllianceName.empty() !=
+                e.factionHordeName.empty()) {
+                warnings.push_back(ctx +
+                    ": only one faction-alternate name set "
+                    "(alliance='" + e.factionAllianceName +
+                    "', horde='" + e.factionHordeName + "')");
             }
+            // Threshold monotonicity within rankKind.
+            if (e.rankKind < 5) {
+                if (prevHonorSeen[e.rankKind] &&
+                    e.minHonorOrRating < prevHonorByKind[e.rankKind]) {
+                    warnings.push_back(ctx +
+                        ": threshold " +
+                        std::to_string(e.minHonorOrRating) +
+                        " below previous " +
+                        std::to_string(prevHonorByKind[e.rankKind]) +
+                        " in same rankKind (non-monotonic)");
+                }
+                prevHonorByKind[e.rankKind] = e.minHonorOrRating;
+                prevHonorSeen[e.rankKind] = true;
+            }
+            if (!idsSeen.add(e.rankId)) errors.push_back(ctx + ": duplicate rankId");
         }
-        idsSeen.push_back(e.rankId);
-    }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wpvp"] = base + ".wpvp";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wpvp: %s.wpvp\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu ranks, all rankIds unique, all thresholds monotonic\n",
-                    c.entries.size());
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+            return formatted("%zu ranks, all rankIds unique, all thresholds monotonic", c.entries.size());
+        });
 }
 
 } // namespace

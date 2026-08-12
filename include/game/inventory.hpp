@@ -60,6 +60,83 @@ namespace InvType {
     constexpr uint8_t RANGED_GUN    = 26;  // Gun / Crossbow / Wand
 } // namespace InvType
 
+/// Whether an item of this INVTYPE is a weapon, for the purpose of comparing
+/// two of them: damage per second is worth showing side by side, armour is not.
+///
+/// Held-in-off-hand and shields are deliberately not weapons here - they occupy
+/// a weapon slot and have no damage to compare.
+///
+/// Written out twice before this, in the bags and in the chat tooltip, as a
+/// switch over the bare numbers rather than the names two dozen lines above.
+inline bool isWeaponInventoryType(uint8_t inventoryType) {
+    switch (inventoryType) {
+        case InvType::ONE_HAND:
+        case InvType::RANGED_BOW:
+        case InvType::TWO_HAND:
+        case InvType::MAIN_HAND:
+        case InvType::THROWN:
+        case InvType::RANGED_GUN:
+            return true;
+        default:
+            return false;
+    }
+}
+
+/// The equipped slots an item of this INVTYPE should be compared against, in
+/// the order to try them.
+///
+/// Usually one. Two where the item could go in either of a pair - rings,
+/// trinkets, and a one-hander that may be in the off hand - and every bag slot
+/// for a bag. Empty for anything that is not equipped at all.
+///
+/// This mapping is WoW's, not this client's, and it was written out twice: once
+/// for the bags' comparison tooltip and once for the chat link's. They agreed,
+/// which is luck rather than design - the stat-name table beside them in the
+/// same two files did not, and was shifted by one from 34 up for long enough
+/// that a resilience item read as haste.
+inline std::vector<EquipSlot> comparableEquipSlots(uint8_t inventoryType) {
+    using ES = EquipSlot;
+    switch (inventoryType) {
+        case InvType::HEAD:      return {ES::HEAD};
+        case InvType::NECK:      return {ES::NECK};
+        case InvType::SHOULDERS: return {ES::SHOULDERS};
+        case InvType::SHIRT:     return {ES::SHIRT};
+        case InvType::CHEST:
+        case InvType::ROBE:      return {ES::CHEST};
+        case InvType::WAIST:     return {ES::WAIST};
+        case InvType::LEGS:      return {ES::LEGS};
+        case InvType::FEET:      return {ES::FEET};
+        case InvType::WRISTS:    return {ES::WRISTS};
+        case InvType::HANDS:     return {ES::HANDS};
+        case InvType::FINGER:    return {ES::RING1, ES::RING2};
+        case InvType::TRINKET:   return {ES::TRINKET1, ES::TRINKET2};
+        // A one-hander can be wielded in either hand, so the main hand is tried
+        // first and the off hand second.
+        case InvType::ONE_HAND:  return {ES::MAIN_HAND, ES::OFF_HAND};
+        case InvType::SHIELD:
+        case InvType::OFF_HAND:
+        case InvType::HOLDABLE:  return {ES::OFF_HAND};
+        case InvType::RANGED_BOW:
+        case InvType::THROWN:
+        case InvType::RANGED_GUN: return {ES::RANGED};
+        case InvType::BACK:      return {ES::BACK};
+        case InvType::TWO_HAND:
+        case InvType::MAIN_HAND: return {ES::MAIN_HAND};
+        case InvType::BAG: {
+            // Counted off the enum rather than against Inventory::NUM_BAG_SLOTS,
+            // which is declared further down this file - and which would be a
+            // second place to say how many bags there are.
+            std::vector<EquipSlot> bags;
+            for (int s = static_cast<int>(ES::BAG1); s <= static_cast<int>(ES::BAG4); ++s) {
+                bags.push_back(static_cast<ES>(s));
+            }
+            return bags;
+        }
+        case InvType::TABARD:    return {ES::TABARD};
+        default:                 return {};
+    }
+}
+
 struct ItemDef {
     uint32_t itemId = 0;
     std::string name;
@@ -90,6 +167,17 @@ struct ItemDef {
     // A BoE item is bindType==2 but only prompts on equip while this is false; once the
     // server sets the soulbound bit (on equip), it is already bound and must not prompt.
     bool soulbound = false;
+
+    /// Would equipping this bind it to the player?
+    ///
+    /// Bind-on-equip and not yet bound. Once the server sets the soulbound
+    /// bit, moving the same piece between slots must not ask again.
+    ///
+    /// Here rather than on a handler because it is a fact about the item, and
+    /// because it had been written out three times in inventory_screen.cpp and
+    /// nowhere on the path FrameXML takes - so equipping through the interface
+    /// bound the item with no prompt at all.
+    bool wouldBindOnEquip() const { return bindType == 2 && !soulbound; }
     // Per-instance ITEM_FIELD_RANDOM_PROPERTIES_ID: >0 → ItemRandomProperties.dbc (prefix),
     // <0 → ItemRandomSuffix.dbc (e.g. "of the Bear"). 0 means no random property rolled.
     int32_t randomPropertyId = 0;
@@ -199,9 +287,35 @@ public:
         uint8_t dstSlot;
     };
 
+    /// One slot as a sort sees it: where it is on the wire, and enough of what
+    /// is in it to order it.
+    struct SortEntry {
+        uint8_t bag;
+        uint8_t slot;
+        uint32_t itemId;
+        ItemQuality quality;
+        uint32_t stackCount;
+    };
+
+    /// The swaps that put a run of slots into sorted order.
+    ///
+    /// Bags, the main bank and a single bank bag each planned this for
+    /// themselves, and the plan is the half that is hard: ordering the entries
+    /// is a comparator, but turning a target permutation into a sequence of
+    /// two-slot swaps that a server will accept one at a time is not, and a
+    /// mistake there moves an item somewhere nobody asked for.
+    ///
+    /// Order is quality descending, then item id ascending, then stack count
+    /// descending, with empty slots last. Ties keep their existing order, so
+    /// two identical stacks are not swapped for nothing.
+    ///
+    /// Two empty slots are never swapped with each other: that costs a packet
+    /// and changes nothing.
+    static std::vector<SwapOp> swapsToSort(const std::vector<SortEntry>& entries);
+
     // Pour partial stacks of the same item together, so two half stacks become
     // one. Dropping a stack onto another of the same item is a swap as far as the
-    // wire is concerned — the server merges what fits and leaves the rest behind —
+    // wire is concerned - the server merges what fits and leaves the rest behind -
     // so the returned ops go through the same queue as a sort.
     //
     // Unlike the sort, this both plans and applies: keeping the plan and the local
@@ -210,7 +324,7 @@ public:
     std::vector<SwapOp> mergeBankPartialStacks(int mainSlotCount);
 
     // Compute the CMSG_SWAP_ITEM operations needed to reach sorted order.
-    // Does NOT modify the inventory — caller is responsible for sending packets.
+    // Does NOT modify the inventory - caller is responsible for sending packets.
     std::vector<SwapOp> computeSortSwaps() const;
     std::vector<SwapOp> computeBankSortSwaps(int mainSlotCount) const;
     std::vector<SwapOp> computeBankBagSortSwaps(int bagIndex) const;
@@ -221,8 +335,6 @@ public:
     static constexpr uint8_t BANK_SLOT_START = 39;
     static constexpr uint8_t BANK_BAG_CONTAINER_START = 67;
 
-    // Test data
-    void populateTestItems();
 
 private:
     std::array<ItemSlot, BACKPACK_SLOTS> backpack{};
@@ -231,7 +343,7 @@ private:
 
     struct BagData {
         int size = 0;
-        bool special = false;  // Quiver/ammo pouch/profession bag — restricted contents
+        bool special = false;  // Quiver/ammo pouch/profession bag - restricted contents
         ItemSlot bagItem;  // The bag item itself (for icon/name/tooltip)
         std::array<ItemSlot, MAX_BAG_SIZE> slots{};
     };

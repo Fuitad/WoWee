@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Quest Sort catalog (.wqso) — novel
+// Wowee Open Quest Sort catalog (.wqso) - novel
 // replacement for Blizzard's QuestSort.dbc plus the quest-
 // log categorization fields in QuestInfo.dbc. Defines the
 // categories that quests fall into for the quest-log UI:
@@ -92,14 +92,14 @@ public:
 
     // Preset emitters used by --gen-qso* variants.
     //
-    //   makeStarter    — 3 generic sorts (General catch-all,
+    //   makeStarter    - 3 generic sorts (General catch-all,
     //                     Daily reset, Repeatable non-daily).
-    //   makeClass      — 10 class-specific sorts (Warrior /
+    //   makeClass      - 10 class-specific sorts (Warrior /
     //                     Paladin / Hunter / Rogue / Priest /
     //                     DK / Shaman / Mage / Warlock / Druid)
     //                     each with the matching WCHC class
     //                     bit set.
-    //   makeProfession — 8 profession sorts (Blacksmithing,
+    //   makeProfession - 8 profession sorts (Blacksmithing,
     //                     Tailoring, Engineering, Alchemy,
     //                     Enchanting, Leatherworking,
     //                     Jewelcrafting, Inscription).

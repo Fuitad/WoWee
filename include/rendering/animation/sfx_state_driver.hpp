@@ -9,7 +9,7 @@ class Renderer;
 class FootstepDriver;
 
 // ============================================================================
-// SfxStateDriver — extracted from AnimationController
+// SfxStateDriver - extracted from AnimationController
 //
 // Tracks state transitions for activity SFX (jump, landing, swim) and
 // mount ambient sounds.
@@ -32,7 +32,7 @@ private:
 
     // Seconds since the character last left the water. Climbing out is not a
     // jump and not a landing, but the vertical state passes through both on the
-    // way — briefly airborne, then grounded — so the exertion sounds are held
+    // way - briefly airborne, then grounded - so the exertion sounds are held
     // off for a moment afterwards rather than for a single frame.
     float sinceWaterExit_ = kWaterExitSfxSuppress;
     static constexpr float kWaterExitSfxSuppress = 0.45f;

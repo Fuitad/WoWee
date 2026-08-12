@@ -1,5 +1,5 @@
 // ============================================================
-// GM command screen — browse/search the GM command reference and
+// GM command screen - browse/search the GM command reference and
 // send commands to the server (part of WindowManager). Opened from
 // the micro-menu "GM" button.
 //

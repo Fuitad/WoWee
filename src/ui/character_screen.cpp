@@ -179,7 +179,7 @@ void CharacterScreen::render(game::GameHandler& gameHandler) {
 
     // ── Two-column layout: character list (left) | details (right) ──
     float availW = ImGui::GetContentRegionAvail().x;
-    // The preview is the centrepiece of this screen — give it a wide panel, but
+    // The preview is the centrepiece of this screen - give it a wide panel, but
     // never at the cost of the character list becoming unusable.
     float detailPanelW = std::min(520.0f * layout.scale,
                                   std::max(360.0f * layout.scale, availW * 0.38f));

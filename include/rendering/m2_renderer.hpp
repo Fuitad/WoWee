@@ -1,5 +1,8 @@
 #pragma once
 
+#include "rendering/spatial_grid.hpp"
+#include "rendering/shadow_params.hpp"
+
 #include "pipeline/m2_loader.hpp"
 #include "pipeline/blp_loader.hpp"
 #include "rendering/m2_model_classifier.hpp"
@@ -33,8 +36,8 @@ class VkTexture;
 class HiZSystem;
 
 // Ceiling on the bone matrices computed and uploaded for one M2 instance.
-// WoW models run well past a hundred bones — the largest shipped model has
-// 315 — and a vertex weighted to a bone above this ceiling would read outside
+// WoW models run well past a hundred bones - the largest shipped model has
+// 315 - and a vertex weighted to a bone above this ceiling would read outside
 // its instance's range in the mega bone buffer, which is what threw stray
 // spikes out of water elementals and other high-bone-count creatures.
 inline constexpr uint32_t kMaxBonesPerInstance = 512;
@@ -155,8 +158,8 @@ struct M2ModelGPU {
     bool isLanternLike = false;     // Model name matches lantern/lamp/light (precomputed)
     bool isKoboldFlame = false;     // Model name matches kobold+(candle/torch/mine) (precomputed)
     bool isLavaModel = false;       // Model name contains lava/molten/magma (UV scroll fallback)
-    bool isSkyBird = false;         // Flying bird/bat doodad — hide until animation range
-    bool isLightBeam = false;       // Lighthouse/light-ray beam — distant bones must keep updating
+    bool isSkyBird = false;         // Flying bird/bat doodad - hide until animation range
+    bool isLightBeam = false;       // Lighthouse/light-ray beam - distant bones must keep updating
     bool isTransportDoodad = false; // Animated ship sail/paddle child
     bool hasTextureAnimation = false; // True if any batch has UV animation
     bool hasTransparentBatches = false; // True if any batch uses alpha-blend or additive (blendMode >= 2)
@@ -262,7 +265,7 @@ struct M2Instance {
     const M2ModelGPU* cachedModel = nullptr;  // Avoid per-frame hash lookups
 
     // Result of the most recent GPU cull dispatch that actually covered this
-    // instance, matched back by instance ID (never by array index — see
+    // instance, matched back by instance ID (never by array index - see
     // cullSubmittedIds_).  Defaults to visible so an instance created after the
     // in-flight dispatch draws immediately instead of waiting ~2 frames for its
     // first cull result.
@@ -288,13 +291,13 @@ struct M2Instance {
     // skip the memcpy when the bones are unchanged and still at the same slot.
     uint32_t megaBoneUploadedSlot[2] = {0, 0};
 
-    // Per-instance bone SSBO (double-buffered) — legacy; see mega bone SSBO in M2Renderer
+    // Per-instance bone SSBO (double-buffered) - legacy; see mega bone SSBO in M2Renderer
     ::VkBuffer boneBuffer[2] = {};
     VmaAllocation boneAlloc[2] = {};
     void* boneMapped[2] = {};
     VkDescriptorSet boneSet[2] = {};
 
-    // Mega bone SSBO offset — base bone index for this instance (set per-frame in prepareRender)
+    // Mega bone SSBO offset - base bone index for this instance (set per-frame in prepareRender)
     uint32_t megaBoneOffset = 0;
 
     void updateModelMatrix();
@@ -313,7 +316,7 @@ struct SmokeParticle {
     uint32_t instanceId = 0;
 };
 
-// M2 material UBO — matches M2Material in m2.frag.glsl (set 1, binding 2)
+// M2 material UBO - matches M2Material in m2.frag.glsl (set 1, binding 2)
 struct M2MaterialUBO {
     int32_t hasTexture;
     int32_t alphaTest;
@@ -327,7 +330,7 @@ struct M2MaterialUBO {
     float emissiveBoost;
 };
 
-// M2 params UBO — matches M2Params in m2.vert.glsl (set 1, binding 1)
+// M2 params UBO - matches M2Params in m2.vert.glsl (set 1, binding 1)
 struct M2ParamsUBO {
     float uvOffsetX;
     float uvOffsetY;
@@ -361,7 +364,7 @@ public:
     /// Instances of the same model at the same spot are treated as one placement,
     /// which is right for the static world and wrong for anything whose position
     /// arrives later from a parent. Pass allowPositionDedup=false for a child
-    /// instance created at a placeholder position — see the note in
+    /// instance created at a placeholder position - see the note in
     /// setInstanceTransform on why the placeholder key outlives the placement.
     uint32_t createInstance(uint32_t modelId, const glm::vec3& position,
                             const glm::vec3& rotation = glm::vec3(0.0f),
@@ -437,7 +440,7 @@ public:
     bool getInstanceBounds(uint32_t instanceId, glm::vec3& outCenter, float& outRadius) const;
     /// True while the instance is still live in the renderer. Owners that cache
     /// instance IDs (game objects, transports) use this to notice an instance
-    /// that was dropped underneath them — e.g. by a renderer-wide clear — and
+    /// that was dropped underneath them - e.g. by a renderer-wide clear - and
     /// respawn it instead of silently addressing a dead handle forever.
     bool hasInstance(uint32_t instanceId) const {
         return instanceIndexById.find(instanceId) != instanceIndexById.end();
@@ -456,7 +459,7 @@ public:
     void cleanupUnusedModels();
     /// Keep a model resident even while it has no instances. Game object models
     /// are a small, bounded set (one per display ID actually encountered) that
-    /// goes instance-free every time the player leaves an area and comes back —
+    /// goes instance-free every time the player leaves an area and comes back -
     /// exactly the reap/reload churn seen in the field. Pinning them keeps that
     /// cycle out of the picture entirely; ambient doodads still get reaped.
     void setModelPinned(uint32_t modelId, bool pinned);
@@ -469,13 +472,17 @@ public:
     std::optional<float> getFloorHeight(float glX, float glY, float glZ, float* outNormalZ = nullptr) const;
     float raycastBoundingBoxes(const glm::vec3& origin, const glm::vec3& direction, float maxDistance) const;
     void setCollisionFocus(const glm::vec3& worldPos, float radius);
-    void clearCollisionFocus();
 
     void resetQueryStats();
     double getQueryTimeMs() const { return queryTimeMs; }
     uint32_t getQueryCallCount() const { return queryCallCount; }
 
     void recreatePipelines();
+
+    /// Build the nine main-pass pipelines. Called by initialize() and again by
+    /// recreatePipelines() after a device loss, which is the reason it exists:
+    /// the two used to be separate copies of the same 190 lines.
+    bool buildMainPassPipelines(VkDescriptorSetLayout perFrameLayout);
 
     // Stats
     bool isInitialized() const { return initialized_; }
@@ -522,11 +529,9 @@ private:
     // Shadow rendering (Phase 7)
     VkPipeline shadowPipeline_ = VK_NULL_HANDLE;
     VkPipelineLayout shadowPipelineLayout_ = VK_NULL_HANDLE;
-    VkDescriptorSetLayout shadowParamsLayout_ = VK_NULL_HANDLE;
-    VkDescriptorPool shadowParamsPool_ = VK_NULL_HANDLE;
-    VkDescriptorSet shadowParamsSet_ = VK_NULL_HANDLE;
-    ::VkBuffer shadowParamsUBO_ = VK_NULL_HANDLE;
-    VmaAllocation shadowParamsAlloc_ = VK_NULL_HANDLE;
+    /// The set the shadow pass binds. Five separate members before,
+    /// built and torn down here and in three other renderers.
+    ShadowParamsSet shadowParams_;
     // Per-frame pools for foliage shadow texture descriptor sets (one per frame-in-flight)
     static constexpr uint32_t kShadowTexPoolFrames = 2;
     VkDescriptorPool shadowTexPool_[kShadowTexPoolFrames] = {};
@@ -542,6 +547,9 @@ private:
     VkPipeline ribbonPipeline_ = VK_NULL_HANDLE;          // Alpha-blend ribbons
     VkPipeline ribbonAdditivePipeline_ = VK_NULL_HANDLE;  // Additive ribbons
     VkPipelineLayout ribbonPipelineLayout_ = VK_NULL_HANDLE;
+    /// The per-frame set layout initialize() was given. recreatePipelines()
+    /// runs long after that call and needs the same one.
+    VkDescriptorSetLayout perFrameLayout_ = VK_NULL_HANDLE;
 
     // Descriptor set layouts
     VkDescriptorSetLayout materialSetLayout_ = VK_NULL_HANDLE;  // set 1
@@ -563,7 +571,7 @@ private:
     VmaAllocation dummyBoneAlloc_ = VK_NULL_HANDLE;
     VkDescriptorSet dummyBoneSet_ = VK_NULL_HANDLE;
 
-    // Mega bone SSBO — consolidates all per-instance bone matrices into a single buffer per frame.
+    // Mega bone SSBO - consolidates all per-instance bone matrices into a single buffer per frame.
     // Replaces per-instance bone SSBOs for fewer descriptor binds and enables GPU instancing.
     static constexpr uint32_t MEGA_BONE_MAX_INSTANCES = 4096;
     // Per-instance bone ranges are packed at their model's true bone count
@@ -576,7 +584,7 @@ private:
     void* megaBoneMapped_[2] = {};
     VkDescriptorSet megaBoneSet_[2] = {};
 
-    // GPU instance data SSBO — per-instance transforms, fade, bones for instanced draws.
+    // GPU instance data SSBO - per-instance transforms, fade, bones for instanced draws.
     // Shader reads instanceData[push.instanceDataOffset + gl_InstanceIndex].
     struct M2InstanceGPU {
         glm::mat4 model;           // 64 bytes @ offset 0
@@ -584,8 +592,8 @@ private:
         float fadeAlpha;           //  4 bytes @ offset 72
         int32_t useBones;          //  4 bytes @ offset 76
         int32_t boneBase;          //  4 bytes @ offset 80
-        int32_t boneCount;         //  4 bytes @ offset 84 — clamps skinning reads
-        int32_t _pad[2] = {};      //  8 bytes @ offset 88 — align to 96 (std430)
+        int32_t boneCount;         //  4 bytes @ offset 84 - clamps skinning reads
+        int32_t _pad[2] = {};      //  8 bytes @ offset 88 - align to 96 (std430)
     };
     static constexpr uint32_t MAX_INSTANCE_DATA = 16384;
     VkDescriptorSetLayout instanceSetLayout_ = VK_NULL_HANDLE;
@@ -634,7 +642,7 @@ private:
     VmaAllocation cullOutputAlloc_[2] = {};
     void* cullOutputMapped_[2] = {};
 
-    // HiZ occlusion culling (Phase 6.3) — optional, driven by Renderer
+    // HiZ occlusion culling (Phase 6.3) - optional, driven by Renderer
     HiZSystem* hizSystem_ = nullptr;
 
     // Previous frame's view-projection for temporal reprojection in HiZ culling.
@@ -647,7 +655,7 @@ private:
     // The visibility SSBO is read back one full slot cycle after it is written:
     // dispatchCullCompute() records a dispatch into this frame's command buffer,
     // and render() reads the mapped output of the dispatch recorded on the SAME
-    // slot ~2 frames earlier.  Array indices are not stable across that gap —
+    // slot ~2 frames earlier.  Array indices are not stable across that gap -
     // createInstance() appends and removeInstance() swap-removes, so slot i can
     // easily describe a different object by the time it is read.  Recording the
     // IDs lets render() match each result back to the instance it was computed
@@ -744,28 +752,10 @@ private:
     float collisionFocusRadius = 0.0f;
     float collisionFocusRadiusSq = 0.0f;
 
-    struct GridCell {
-        int x;
-        int y;
-        int z;
-        bool operator==(const GridCell& other) const {
-            return x == other.x && y == other.y && z == other.z;
-        }
-    };
-    struct GridCellHash {
-        size_t operator()(const GridCell& c) const {
-            size_t h1 = std::hash<int>()(c.x);
-            size_t h2 = std::hash<int>()(c.y);
-            size_t h3 = std::hash<int>()(c.z);
-            return h1 ^ (h2 * 0x9e3779b9u) ^ (h3 * 0x85ebca6bu);
-        }
-    };
-    GridCell toCell(const glm::vec3& p) const;
     void rebuildSpatialIndex();
     void gatherCandidates(const glm::vec3& queryMin, const glm::vec3& queryMax, std::vector<size_t>& outIndices) const;
 
-    static constexpr float SPATIAL_CELL_SIZE = 64.0f;
-    std::unordered_map<GridCell, std::vector<uint32_t>, GridCellHash> spatialGrid;
+    SpatialGrid spatialGrid;
     std::unordered_map<uint32_t, size_t> instanceIndexById;
     // Instance to copy bone matrices from when spawning another of the same
     // model. Finding one by scanning every instance is O(n) per spawn, which
@@ -774,7 +764,7 @@ private:
     std::unordered_map<uint32_t, uint32_t> boneSeedInstanceByModel_;
     // Collision scratch buffers are thread_local (see m2_renderer.cpp) for thread-safety.
 
-    // Collision query profiling — atomic because getFloorHeight is dispatched
+    // Collision query profiling - atomic because getFloorHeight is dispatched
     // on async threads from camera_controller while the main thread reads these.
     mutable std::atomic<double> queryTimeMs{0.0};
     mutable std::atomic<uint32_t> queryCallCount{0};

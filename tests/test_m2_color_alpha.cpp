@@ -12,7 +12,7 @@
 // bundle submeshes; M2 color-alpha animation keeps exactly one visible per
 // animation (the second only appears while the bundle is dropped during the
 // Death sequence). If the loader stops parsing these tracks, the character
-// renderer draws both bundles at once — the "carrying two bundles of wood"
+// renderer draws both bundles at once - the "carrying two bundles of wood"
 // bug. Both the WotLK (v264, array-of-arrays tracks) and vanilla/Turtle
 // (v256, flat tracks with ranges) encodings must produce usable tracks.
 

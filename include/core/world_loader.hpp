@@ -1,5 +1,7 @@
 #pragma once
 
+#include <functional>
+#include <glm/glm.hpp>
 #include <string>
 #include <vector>
 #include <unordered_map>
@@ -11,7 +13,7 @@
 
 namespace wowee {
 
-namespace rendering { class Renderer; }
+namespace rendering { class Renderer; class LoadingScreen; }
 namespace pipeline { class AssetManager; class DBCLayout; }
 namespace game { class GameHandler; class World; }
 namespace addons { class AddonManager; }
@@ -38,7 +40,7 @@ public:
                 addons::AddonManager* addonManager);
     ~WorldLoader();
 
-    // Main terrain loading — drives loading screen, WMO/ADT detection, player spawn
+    // Main terrain loading - drives loading screen, WMO/ADT detection, player spawn
     void loadOnlineWorldTerrain(uint32_t mapId, float x, float y, float z);
 
     // Process deferred world entry (called from Application::update each frame)
@@ -46,10 +48,9 @@ public:
 
     // Map name utilities
     static const char* mapIdToName(uint32_t mapId);
-    static int mapNameToId(const std::string& name);
     static const char* mapDisplayName(uint32_t mapId);
 
-    // Background preloading — warms AssetManager file cache
+    // Background preloading - warms AssetManager file cache
     void startWorldPreload(uint32_t mapId, const std::string& mapName,
                            float serverX, float serverY);
     void cancelWorldPreload();
@@ -86,6 +87,33 @@ public:
     void resetMapNameCache() { mapNameCacheLoaded_ = false; mapNameById_.clear(); }
 
 private:
+    /// The loading screen, while a world is being loaded into.
+    ///
+    /// Loading a map takes seconds, and the screen has to keep drawing through
+    /// it or the window stops answering the compositor and the desktop paints it
+    /// as hung. So every slow step pumps it, and pumping was written out as
+    /// `if (ok) { screen.render(); window->swapBuffers(); }` wherever a step was
+    /// slow enough to need it.
+    ///
+    /// `ok` is false when the screen could not be set up at all - the world
+    /// still loads, it is just loaded blind.
+    struct LoadingUi {
+        rendering::LoadingScreen* screen = nullptr;
+        Window* window = nullptr;
+        bool ok = false;
+        std::function<void(const char*, float)> showProgress;
+
+        /// Draw one frame of the loading screen, if there is one.
+        void pump() const;
+    };
+
+    /// Read the map's WDT, then load either its root WMO or its terrain tiles,
+    /// and precompute what the player will stand on. The longest step of a world
+    /// load by far, which is why it takes the loading screen with it.
+    void loadMapGeometry(uint32_t mapId, const std::string& mapName,
+                         const glm::vec3& spawnCanonical, const glm::vec3& spawnRender,
+                         const LoadingUi& ui);
+
     Application& app_;
     rendering::Renderer* renderer_;
     pipeline::AssetManager* assetManager_;
@@ -97,7 +125,6 @@ private:
     addons::AddonManager* addonManager_;
 
     uint32_t loadedMapId_ = 0xFFFFFFFF;  // Map ID of currently loaded terrain (0xFFFFFFFF = none)
-    uint32_t worldLoadGeneration_ = 0;   // Incremented on each world entry to detect re-entrant loads
     bool loadingWorld_ = false;          // True while loadOnlineWorldTerrain is running
 
     struct PendingWorldEntry {
@@ -109,7 +136,7 @@ private:
     bool mapNameCacheLoaded_ = false;
     std::unordered_map<uint32_t, std::string> mapNameById_;
 
-    // Background world preloader — warms AssetManager file cache for the
+    // Background world preloader - warms AssetManager file cache for the
     // expected world before the user clicks Enter World.
     struct WorldPreload {
         uint32_t mapId = 0;

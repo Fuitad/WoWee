@@ -1,4 +1,5 @@
 #include "ui/game_screen.hpp"
+#include "ui/ui_upload_budget.hpp"
 #include "core/helm_visual.hpp"
 #include "ui/ui_raid_icons.hpp"
 #include "ui/ui_colors.hpp"
@@ -35,6 +36,8 @@
 #include "pipeline/asset_manager.hpp"
 #include "pipeline/dbc_loader.hpp"
 #include "pipeline/dbc_layout.hpp"
+#include "core/geoset_rules.hpp"
+#include "pipeline/item_textures.hpp"
 
 #include "game/expansion_profile.hpp"
 #include "game/character.hpp"
@@ -54,6 +57,8 @@
 #include <limits>
 
 #include <unordered_set>
+#include "ui/framexml_takeover.hpp"
+#include "core/local_time.hpp"
 
 namespace {
     using namespace wowee::ui::colors;
@@ -61,32 +66,7 @@ namespace {
     constexpr auto& kColorGreen      = kGreen;
     constexpr auto& kColorGray       = kGray;
 
-    bool raySphereIntersect(const wowee::rendering::Ray& ray, const glm::vec3& center, float radius, float& tOut) {
-        glm::vec3 oc = ray.origin - center;
-        float b = glm::dot(oc, ray.direction);
-        float c = glm::dot(oc, oc) - radius * radius;
-        float discriminant = b * b - c;
-        if (discriminant < 0.0f) return false;
-        float t = -b - std::sqrt(discriminant);
-        if (t < 0.0f) t = -b + std::sqrt(discriminant);
-        if (t < 0.0f) return false;
-        tOut = t;
-        return true;
-    }
 
-    std::string getEntityName(const std::shared_ptr<wowee::game::Entity>& entity) {
-        if (entity->getType() == wowee::game::ObjectType::PLAYER) {
-            auto player = std::static_pointer_cast<wowee::game::Player>(entity);
-            if (!player->getName().empty()) return player->getName();
-        } else if (entity->getType() == wowee::game::ObjectType::UNIT) {
-            auto unit = std::static_pointer_cast<wowee::game::Unit>(entity);
-            if (!unit->getName().empty()) return unit->getName();
-        } else if (entity->getType() == wowee::game::ObjectType::GAMEOBJECT) {
-            auto go = std::static_pointer_cast<wowee::game::GameObject>(entity);
-            if (!go->getName().empty()) return go->getName();
-        }
-        return "Unknown";
-    }
 
 }
 
@@ -186,19 +166,10 @@ void GameScreen::updateCharacterGeosets(game::Inventory& inventory) {
         }
     }
 
-    auto pickGeoset = [&](uint16_t preferred, uint16_t fallback) -> uint16_t {
-        if (modelGeosets.empty()) return preferred;
-        if (preferred != 0 && modelGeosets.count(preferred) > 0) return preferred;
-        if (fallback != 0 && modelGeosets.count(fallback) > 0) return fallback;
-        return preferred;
-    };
-
-    auto lowestInGroup = [&](uint16_t group) -> uint16_t {
-        uint16_t best = 0;
-        for (uint16_t g : modelGeosets) {
-            if (g / 100 == group && (best == 0 || g < best)) best = g;
-        }
-        return best;
+    // The same rule the player, NPC and portrait paths use, from
+    // core::geoset_rules - ask for a variant, get the one this model has.
+    auto pickGeoset = [&](uint16_t preferred) {
+        return core::resolveGeoset(preferred, modelGeosets);
     };
 
     eraseGroup(4);
@@ -221,14 +192,16 @@ void GameScreen::updateCharacterGeosets(game::Inventory& inventory) {
     {
         uint32_t did = findEquippedDisplayId({10});
         uint32_t gg = getGeosetGroup(did, geosetGroup1Field);
-        geosets.insert(pickGeoset(static_cast<uint16_t>(gg > 0 ? 401 + gg : 401), lowestInGroup(4)));
+        geosets.insert(pickGeoset(gg > 0 ? core::equippedGeoset(core::equipment::kGlovesBare, gg)
+                                          : core::kGeosetBareForearms));
     }
 
     // Boots: inventoryType 8 → group 5 (shins/lower legs)
     {
         uint32_t did = findEquippedDisplayId({8});
         uint32_t gg = getGeosetGroup(did, geosetGroup1Field);
-        uint16_t selectedShin = pickGeoset(static_cast<uint16_t>(gg > 0 ? 501 + gg : core::kGeosetBareShins), lowestInGroup(5));
+        uint16_t selectedShin = pickGeoset(gg > 0 ? core::equippedGeoset(core::equipment::kBootsBare, gg)
+                                                  : core::kGeosetBareShins);
         geosets.insert(selectedShin);
     }
 
@@ -238,15 +211,16 @@ void GameScreen::updateCharacterGeosets(game::Inventory& inventory) {
     {
         uint32_t did = findEquippedDisplayId({4, 5, 20});
         uint32_t gg = getGeosetGroup(did, geosetGroup1Field);
-        geosets.insert(static_cast<uint16_t>(gg > 0 ? 801 + gg : 801));
+        geosets.insert(gg > 0 ? core::equippedGeoset(core::equipment::kChestBare, gg)
+                              : core::kGeosetBareSleeves);
         uint32_t gg3 = getGeosetGroup(did, geosetGroup3Field);
         if (gg3 > 0) {
-            geosets.insert(static_cast<uint16_t>(1301 + gg3));
+            geosets.insert(core::equippedGeoset(core::equipment::kRobeKiltBare, gg3));
         }
     }
 
     // Kneepads: group 9 (always default 902)
-    geosets.insert(902);
+    geosets.insert(core::kGeosetDefaultKneepads);
 
     // Legs/Pants: inventoryType 7 → group 13 (trousers/thighs)
     // 1301=bare legs, 1302+=pant/kilt styles
@@ -254,8 +228,17 @@ void GameScreen::updateCharacterGeosets(game::Inventory& inventory) {
         uint32_t did = findEquippedDisplayId({7});
         uint32_t gg = getGeosetGroup(did, geosetGroup1Field);
         // Only add if robe hasn't already set a kilt geoset
-        if (geosets.count(1302) == 0 && geosets.count(1303) == 0) {
-            geosets.insert(static_cast<uint16_t>(gg > 0 ? 1301 + gg : 1301));
+        // Only when the robe above has not already put a kilt on the legs.
+        // 1302 and 1303 are the first two kilt variants; anything in group 13
+        // beyond the bare one means something is already covering them.
+        const bool kiltAlreadySet = std::any_of(
+            geosets.begin(), geosets.end(), [](uint16_t g) {
+                return core::geosetGroup(g) == core::geosetGroup(core::kGeosetBarePants) &&
+                       !core::geosetMeansNone(g);
+            });
+        if (!kiltAlreadySet) {
+            geosets.insert(gg > 0 ? core::equippedGeoset(core::equipment::kLegsBare, gg)
+                                  : core::kGeosetBarePants);
         }
     }
 
@@ -270,11 +253,12 @@ void GameScreen::updateCharacterGeosets(game::Inventory& inventory) {
     }
 
     // Back/Cloak: inventoryType 16 → group 15
-    geosets.insert((hasEquippedType({16}) && cloakShown) ? 1502 : 1501);
+    geosets.insert((hasEquippedType({16}) && cloakShown) ? core::kGeosetWithCape
+                                                         : core::kGeosetNoCape);
 
     // Tabard: inventoryType 19 → group 12
     if (hasEquippedType({19})) {
-        geosets.insert(1201);
+        geosets.insert(core::kGeosetDefaultTabard);
     }
 
     // Hide hair under a helm: drop the style scalp and put the bald cap on.
@@ -293,7 +277,7 @@ void GameScreen::updateCharacterGeosets(game::Inventory& inventory) {
             }
         }
         // A circlet, tiara or crown sits over the hair rather than covering it,
-        // and the data says which does what — see core::helmHidesHair.
+        // and the data says which does what - see core::helmHidesHair.
         if (auto* assets = app.getAssetManager();
             assets && core::helmHidesHair(*assets, headDisplayId, genderId)) {
             for (auto it = geosets.begin(); it != geosets.end();) {
@@ -304,16 +288,42 @@ void GameScreen::updateCharacterGeosets(game::Inventory& inventory) {
         }
     }
 
+    // Bald with nothing on your head, which is the reported bug and the one
+    // thing this function can say for certain about it.
+    //
+    // Group 0 holds the body (geoset 0) and one scalp. Wearing a helm that
+    // covers hair replaces the style scalp with 1, the bald cap - that is the
+    // branch above. With no helm equipped there is nothing to do that, so a
+    // set whose only group-0 members are 0 and 1 means the scalp was never
+    // selected rather than removed, and the fault is upstream in
+    // buildDefaultPlayerGeosets or the hair map it reads.
+    //
+    // Silent whenever it is working: it can only fire when the character is
+    // bare-headed and bald. The measurement that ruled out the DBC is at
+    // entity_spawner.cpp, and what remains unproven is which of the two
+    // possible answers this is.
+    if (!hasEquippedType({1})) {
+        bool hasStyleScalp = false;
+        for (uint16_t g : geosets) {
+            if (g / 100 == 0 && g != 0 && g != 1) { hasStyleScalp = true; break; }
+        }
+        if (!hasStyleScalp && geosets.count(1) > 0) {
+            LOG_WARNING("Player geosets carry the bald cap with no helm equipped - "
+                        "the hair scalp was never selected. Hair style byte and "
+                        "CharHairGeosets lookup are the two places to look.");
+        }
+    }
+
     // Groups 17 and 18 are the Death Knight / Night Elf eye glow. Nothing here
     // should ever select one, and the renderer only auto-skips them when no
-    // geoset filter is applied — with a filter, whatever is in this set is what
+    // geoset filter is applied - with a filter, whatever is in this set is what
     // gets drawn. Glowing eyes on a character that should not have them come
     // from exactly this, so say so rather than leaving it to be spotted.
     for (uint16_t g : geosets) {
         const uint16_t group = g / 100;
         if (group == 17 || group == 18) {
             LOG_WARNING("Player geosets include eye-glow geoset ", g,
-                        " (group ", group, ") — this will draw glowing eyes");
+                        " (group ", group, ") - this will draw glowing eyes");
         }
     }
 
@@ -338,16 +348,6 @@ void GameScreen::updateCharacterTextures(game::Inventory& inventory) {
     if (bodySkinPath.empty()) return;
 
     // Component directory names indexed by region
-    static constexpr const char* componentDirs[] = {
-        "ArmUpperTexture",   // 0
-        "ArmLowerTexture",   // 1
-        "HandTexture",       // 2
-        "TorsoUpperTexture", // 3
-        "TorsoLowerTexture", // 4
-        "LegUpperTexture",   // 5
-        "LegLowerTexture",   // 6
-        "FootTexture",       // 7
-    };
 
     // Load ItemDisplayInfo.dbc
     auto displayInfoDbc = assetManager->loadDBC("ItemDisplayInfo.dbc");
@@ -372,11 +372,8 @@ void GameScreen::updateCharacterTextures(game::Inventory& inventory) {
                 static_cast<uint32_t>(recIdx), texRegionFields[region]);
             if (texName.empty()) continue;
 
-            // Actual MPQ files have a gender suffix: _M (male), _F (female), _U (unisex)
-            // Try gender-specific first, then unisex fallback
-            std::string base = "Item\\TextureComponents\\" +
-                std::string(componentDirs[region]) + "\\" + texName;
-            // Determine gender suffix from active character
+            // Which of _M, _F, _U exists is not recorded anywhere, so the
+            // order they are asked in is the rule - pipeline/item_textures.hpp.
             bool isFemale = false;
             if (auto* gh = app.getGameHandler()) {
                 if (auto* ch = gh->getActiveCharacter()) {
@@ -384,18 +381,9 @@ void GameScreen::updateCharacterTextures(game::Inventory& inventory) {
                                (ch->gender == game::Gender::NONBINARY && ch->useFemaleModel);
                 }
             }
-            std::string genderPath = base + (isFemale ? "_F.blp" : "_M.blp");
-            std::string unisexPath = base + "_U.blp";
-            std::string fullPath;
-            if (assetManager->fileExists(genderPath)) {
-                fullPath = genderPath;
-            } else if (assetManager->fileExists(unisexPath)) {
-                fullPath = unisexPath;
-            } else if (assetManager->fileExists(base + ".blp")) {
-                fullPath = base + ".blp";
-            } else {
-                continue;
-            }
+            const std::string fullPath = pipeline::resolveItemRegionTexture(
+                *assetManager, region, texName, isFemale);
+            if (fullPath.empty()) continue;
             regionLayers.emplace_back(region, fullPath);
         }
     }
@@ -410,7 +398,7 @@ void GameScreen::updateCharacterTextures(game::Inventory& inventory) {
         charRenderer->setTextureSlotOverride(instanceId, static_cast<uint16_t>(skinSlot), newTex);
     }
 
-    // Cloak cape texture — separate from skin atlas, uses texture slot type-2 (Object Skin)
+    // Cloak cape texture - separate from skin atlas, uses texture slot type-2 (Object Skin)
     uint32_t cloakSlot = app.getCloakTextureSlotIndex();
     if (cloakSlot > 0 && instanceId != 0) {
         // Find equipped cloak (inventoryType 16)
@@ -430,16 +418,30 @@ void GameScreen::updateCharacterTextures(game::Inventory& inventory) {
                 const auto* dispL = pipeline::getActiveDBCLayout() ? pipeline::getActiveDBCLayout()->getLayout("ItemDisplayInfo") : nullptr;
                 std::string capeName = displayInfoDbc->getString(static_cast<uint32_t>(recIdx), dispL ? (*dispL)["LeftModelTexture"] : 3);
                 if (!capeName.empty()) {
-                    std::string capePath = "Item\\ObjectComponents\\Cape\\" + capeName + ".blp";
-                    auto* capeTex = charRenderer->loadTexture(capePath);
-                    if (capeTex != nullptr) {
+                    // This asked for one path only - ObjectComponents, no
+                    // suffix - and a cape whose art is filed anywhere else
+                    // showed white. The full list, in order, is in
+                    // pipeline/item_textures.hpp, and the other three places
+                    // that load a cape have always used all of it.
+                    bool isFemale = false;
+                    if (auto* gh = app.getGameHandler()) {
+                        if (auto* ch = gh->getActiveCharacter()) {
+                            isFemale = (ch->gender == game::Gender::FEMALE) ||
+                                       (ch->gender == game::Gender::NONBINARY && ch->useFemaleModel);
+                        }
+                    }
+                    const rendering::VkTexture* whiteTex = charRenderer->loadTexture("");
+                    for (const auto& capePath : pipeline::capeTextureCandidates(capeName, isFemale)) {
+                        auto* capeTex = charRenderer->loadTexture(capePath);
+                        if (capeTex == nullptr || capeTex == whiteTex) continue;
                         charRenderer->setTextureSlotOverride(instanceId, static_cast<uint16_t>(cloakSlot), capeTex);
                         LOG_INFO("Cloak texture applied: ", capePath);
+                        break;
                     }
                 }
             }
         } else {
-            // No cloak equipped — clear override so model's default (white) shows
+            // No cloak equipped - clear override so model's default (white) shows
             charRenderer->clearTextureSlotOverride(instanceId, static_cast<uint16_t>(cloakSlot));
         }
     }
@@ -461,7 +463,12 @@ void GameScreen::renderWorldMap(game::GameHandler& gameHandler) {
     // mode: opening SMSG_SHOWTAXINODES opens the map, activating a flight or
     // closing the gossip closes it. A user-dismissed map (Escape / X) closes
     // the flight master window through the onClose handler.
-    const bool taxiWanted = gameHandler.isTaxiWindowOpen();
+    // Not while FrameXML is drawing the flight map itself. The legacy taxi
+    // list a few lines up already stands aside for that element; this mode did
+    // not, so talking to a flight master put both on screen at once - TaxiFrame
+    // over this client's own map, each with its own set of pins.
+    const bool taxiWanted = gameHandler.isTaxiWindowOpen() &&
+                            !frameXmlOwns(UiElement::Taxi);
     if (taxiWanted && !wm->isTaxiMapOpen()) {
         auto* gh = &gameHandler;
         wm->openTaxiMap(
@@ -472,7 +479,15 @@ void GameScreen::renderWorldMap(game::GameHandler& gameHandler) {
         wm->closeTaxiMap();
     }
 
-    if (!showWorldMap_ && !wm->isTaxiMapOpen()) return;
+    // Who says the map is wanted depends on who owns it. FrameXML's world map
+    // is a frame it shows and hides, and application.cpp gives this one that
+    // frame's rect while it is visible - so a rect being set is the same
+    // statement as showWorldMap_ is for this client's own window.
+    const bool frameXmlDrivesMap = frameXmlOwns(UiElement::WorldMap);
+    const bool wanted = frameXmlDrivesMap
+        ? (wm->hasFrameRect() || wm->isTaxiMapOpen())
+        : (showWorldMap_ || wm->isTaxiMapOpen());
+    if (!wanted) return;
 
     // Keep map name in sync with minimap's map name
     auto* minimap = renderer->getMinimap();
@@ -510,6 +525,31 @@ void GameScreen::renderWorldMap(game::GameHandler& gameHandler) {
                 dots.push_back({ rpos, col, member.name });
             }
         }
+        // Battleground team positions, which this client had only ever drawn
+        // on the minimap.
+        //
+        // FrameXML draws them on its own world map - WorldMapRaid1..40, placed
+        // from GetNumBattlefieldPositions and GetBattlefieldPosition - but that
+        // is exactly the area this client's map surface covers, so nothing
+        // FrameXML puts there can be seen. Handing the map over made the
+        // interface responsible for a layer it cannot show, so the surface
+        // that hides it has to draw them instead.
+        //
+        // The same two group colours the minimap uses, so a flag carrier is
+        // the same colour on both.
+        {
+            static const uint32_t kBgGroupColors[2] = {
+                IM_COL32( 80, 180, 255, 240),   // group 0
+                IM_COL32(220,  50,  50, 240),   // group 1
+            };
+            for (const auto& bp : gameHandler.getBgPlayerPositions()) {
+                // Packet coords are canonical: wowX north, wowY west.
+                const glm::vec3 rpos =
+                    core::coords::canonicalToRender(glm::vec3(bp.wowX, bp.wowY, 0.0f));
+                dots.push_back({ rpos, kBgGroupColors[bp.group & 1],
+                                 gameHandler.lookupName(bp.guid) });
+            }
+        }
         wm->setPartyDots(std::move(dots));
     }
 
@@ -538,7 +578,7 @@ void GameScreen::renderWorldMap(game::GameHandler& gameHandler) {
             rendering::WorldMapTaxiNode wtn;
             wtn.id    = node.id;
             wtn.mapId = node.mapId;
-            // TaxiNodes.dbc stores server/wire-order coordinates — convert to
+            // TaxiNodes.dbc stores server/wire-order coordinates - convert to
             // canonical (X=north, Y=west) like the taxi flight path code does,
             // or the markers land transposed on the map.
             glm::vec3 canonical = core::coords::serverToCanonical(
@@ -644,6 +684,18 @@ void GameScreen::renderWorldMap(game::GameHandler& gameHandler) {
             ? core::coords::canonicalToRender(glm::vec3(corpseCanX, corpseCanY, 0.0f))
             : glm::vec3{};
         wm->setCorpsePos(ghostWithCorpse, corpseRender);
+
+        // And where releasing would put them. Shown while dead either way:
+        // before releasing it is the choice being offered, and after it is the
+        // place to walk back from.
+        uint32_t healerMap = 0;
+        glm::vec3 healerCanonical(0.0f);
+        const bool haveHealer = gameHandler.isPlayerDead() &&
+                                gameHandler.getDeathReleaseLocation(healerMap, healerCanonical) &&
+                                healerMap == gameHandler.getCurrentMapId();
+        wm->setGraveyardPos(haveHealer,
+                            haveHealer ? core::coords::canonicalToRender(healerCanonical)
+                                       : glm::vec3{});
     }
 
     // Rare tracker: mark every spawned rare / rare-elite the client currently has loaded.
@@ -698,7 +750,9 @@ void GameScreen::renderWorldMap(game::GameHandler& gameHandler) {
     wm->render(playerPos, screenW, screenH, playerYaw);
 
     // Sync showWorldMap_ if the map closed itself (e.g. ESC key inside the overlay).
-    if (!wm->isOpen()) showWorldMap_ = false;
+    // Only where that flag is what opened it: under FrameXML the frame's own
+    // visibility is the state, and clearing this would say nothing.
+    if (!frameXmlDrivesMap && !wm->isOpen()) showWorldMap_ = false;
 }
 
 // ============================================================
@@ -769,11 +823,7 @@ VkDescriptorSet GameScreen::getSpellIcon(uint32_t spellId, pipeline::AssetManage
 
     // Rate-limit GPU uploads per frame to prevent stalls when many icons are uncached
     // (e.g., first login, after loading screen, or many new auras appearing at once).
-    static int gsLoadsThisFrame = 0;
-    static int gsLastImGuiFrame = -1;
-    int gsCurFrame = ImGui::GetFrameCount();
-    if (gsCurFrame != gsLastImGuiFrame) { gsLoadsThisFrame = 0; gsLastImGuiFrame = gsCurFrame; }
-    if (gsLoadsThisFrame >= 4) return VK_NULL_HANDLE;  // defer — do NOT cache null here
+    if (!claimUiTextureUpload()) return VK_NULL_HANDLE;  // defer - do NOT cache null here
 
     // Look up spellId -> SpellIconID -> icon path
     auto iit = spellIconIds_.find(spellId);
@@ -788,7 +838,7 @@ VkDescriptorSet GameScreen::getSpellIcon(uint32_t spellId, pipeline::AssetManage
         return VK_NULL_HANDLE;
     }
 
-    // Path from DBC has no extension — append .blp
+    // Path from DBC has no extension - append .blp
     std::string iconPath = pit->second + ".blp";
     auto blpData = am->readFile(iconPath);
     if (blpData.empty()) {
@@ -810,7 +860,6 @@ VkDescriptorSet GameScreen::getSpellIcon(uint32_t spellId, pipeline::AssetManage
         return VK_NULL_HANDLE;
     }
 
-    ++gsLoadsThisFrame;
     VkDescriptorSet ds = vkCtx->uploadImGuiTexture(image.data.data(), image.width, image.height);
     spellIconCache_[spellId] = ds;
     return ds;
@@ -869,7 +918,7 @@ void GameScreen::renderMirrorTimers(game::GameHandler& gameHandler) {
 }
 
 // ============================================================
-// Cooldown Tracker — floating panel showing all active spell CDs
+// Cooldown Tracker - floating panel showing all active spell CDs
 // ============================================================
 
 // ============================================================
@@ -961,7 +1010,7 @@ void GameScreen::renderQuestObjectiveTracker(game::GameHandler& gameHandler) {
         if (ImGui::Begin("##QuestTrackerBubble", nullptr, bubbleFlags)) {
             ImGui::TextColored(colors::kWarmGold, "! %d", static_cast<int>(toShow.size()));
             if (ImGui::IsWindowHovered()) {
-                ImGui::SetTooltip("Quest tracker — click to expand, drag to move");
+                ImGui::SetTooltip("Quest tracker - click to expand, drag to move");
                 // Expand on click, but not when the press was a drag
                 if (ImGui::IsMouseReleased(ImGuiMouseButton_Left) &&
                     ImGui::GetIO().MouseDragMaxDistanceSqr[ImGuiMouseButton_Left] < 9.0f) {
@@ -986,7 +1035,13 @@ void GameScreen::renderQuestObjectiveTracker(game::GameHandler& gameHandler) {
         return;
     }
 
-    ImGui::SetNextWindowPos(questTrackerPos_, ImGuiCond_Always);
+    // Placed by this client only when the screen changed size - otherwise the
+    // window keeps whatever position a drag gave it. Setting it every frame is
+    // what nailed the tracker down.
+    const bool screenResized = (questTrackerLastScreenW_ != screenW);
+    questTrackerLastScreenW_ = screenW;
+    ImGui::SetNextWindowPos(questTrackerPos_,
+                            screenResized ? ImGuiCond_Always : ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowSize(questTrackerSize_, ImGuiCond_FirstUseEver);
 
     ImGuiWindowFlags flags = ImGuiWindowFlags_NoTitleBar |
@@ -999,6 +1054,19 @@ void GameScreen::renderQuestObjectiveTracker(game::GameHandler& gameHandler) {
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4.0f, 2.0f));
 
     if (ImGui::Begin("##QuestTracker", nullptr, flags)) {
+        // Where a drag left it, kept the way the collapsed bubble keeps its
+        // own, so the two share one anchor and it survives a restart.
+        {
+            ImVec2 moved = ImGui::GetWindowPos();
+            moved.x = std::clamp(moved.x, 0.0f, screenW - ImGui::GetWindowSize().x);
+            moved.y = std::clamp(moved.y, 0.0f, screenH - 40.0f);
+            if (std::abs(moved.x - questTrackerPos_.x) > 0.5f ||
+                std::abs(moved.y - questTrackerPos_.y) > 0.5f) {
+                questTrackerPos_ = moved;
+                questTrackerRightOffset_ = screenW - moved.x;
+                saveSettings();
+            }
+        }
         // Header row: quest count + completion filter (click to cycle) + hide
         static const char* kFilterNames[] = {"All", "Active", "Done", "Zone"};
         ImGui::TextDisabled("Quests (%d)", static_cast<int>(toShow.size()));
@@ -1067,7 +1135,7 @@ void GameScreen::renderQuestObjectiveTracker(game::GameHandler& gameHandler) {
             ImGui::PopStyleColor();
 
             // Right-click context menu for quest tracker entry (attaches to the
-            // title Selectable — must come before the untrack button below)
+            // title Selectable - must come before the untrack button below)
             if (ImGui::BeginPopupContextItem("##QTCtx")) {
                 ImGui::TextDisabled("%s", q.title.c_str());
                 ImGui::Separator();
@@ -1121,13 +1189,13 @@ void GameScreen::renderQuestObjectiveTracker(game::GameHandler& gameHandler) {
             }
             ImGui::PopID();
 
-            // Objectives — every required objective with progress, done ones marked
+            // Objectives - every required objective with progress, done ones marked
             if (q.complete) {
                 ImGui::TextColored(colors::kActiveGreen, "  Ready to turn in");
             } else {
                 constexpr ImVec4 kPendingGray(0.75f, 0.75f, 0.75f, 1.0f);
 
-                // Kill/interact objective line — green + "(done)" when finished
+                // Kill/interact objective line - green + "(done)" when finished
                 auto renderKillLine = [&](uint32_t entry, uint32_t count, uint32_t required) {
                     bool objDone = (required > 0 && count >= required);
                     ImVec4 objColor = objDone ? kColorGreen : kPendingGray;
@@ -1162,7 +1230,7 @@ void GameScreen::renderQuestObjectiveTracker(game::GameHandler& gameHandler) {
                     renderKillLine(entry, progress.first, progress.second);
                 }
 
-                // Item objective line — small icon + name, green + "(done)" when finished
+                // Item objective line - small icon + name, green + "(done)" when finished
                 auto renderItemLine = [&](uint32_t itemId, uint32_t count, uint32_t required) {
                     bool objDone = (required > 0 && count >= required);
                     ImVec4 objColor = objDone ? kColorGreen : kPendingGray;
@@ -1271,7 +1339,7 @@ void GameScreen::renderQuestObjectiveTracker(game::GameHandler& gameHandler) {
 }
 
 // ============================================================
-// Nameplates — world-space health bars projected to screen
+// Nameplates - world-space health bars projected to screen
 // ============================================================
 
 void GameScreen::renderNameplates(game::GameHandler& gameHandler) {
@@ -1680,8 +1748,8 @@ void GameScreen::renderNameplates(game::GameHandler& gameHandler) {
                 : IM_COL32(102, 153, 255, A(230));
         } else {
             nameColor = isHostile
-                ? IM_COL32(220,  80,  80, A(230))   // red  — hostile NPC
-                : IM_COL32(240, 200, 100, A(230));  // yellow — friendly NPC
+                ? IM_COL32(220,  80,  80, A(230))   // red  - hostile NPC
+                : IM_COL32(240, 200, 100, A(230));  // yellow - friendly NPC
         }
         // Sub-label below the name: guild tag for players, subtitle for NPCs
         std::string subLabel;
@@ -1701,7 +1769,7 @@ void GameScreen::renderNameplates(game::GameHandler& gameHandler) {
         drawList->AddText(ImVec2(nameX + 1.0f, nameY + 1.0f), IM_COL32(0, 0, 0, A(160)), labelBuf);
         drawList->AddText(ImVec2(nameX,         nameY),         nameColor, labelBuf);
 
-        // Gold chevron above the current target's plate — a gently bobbing
+        // Gold chevron above the current target's plate - a gently bobbing
         // down-arrow so the selected enemy is unmistakable at a glance.
         if (isTarget) {
             float bob = 2.0f * std::sin(static_cast<float>(ImGui::GetTime()) * 5.0f);
@@ -1837,7 +1905,7 @@ void GameScreen::renderNameplates(game::GameHandler& gameHandler) {
         if (ImGui::Begin("##NameplateCtxHost", nullptr, ctxHostFlags)) {
             if (ImGui::BeginPopup("##NameplateCtx")) {
                 auto entityPtr = gameHandler.getEntityManager().getEntity(nameplateCtxGuid_);
-                std::string ctxName = entityPtr ? getEntityName(entityPtr) : "";
+                std::string ctxName = entityPtr ? game::entityDisplayName(entityPtr) : "";
                 if (!ctxName.empty()) {
                     ImGui::TextDisabled("%s", ctxName.c_str());
                     ImGui::Separator();
@@ -1861,7 +1929,7 @@ void GameScreen::renderNameplates(game::GameHandler& gameHandler) {
                     if (ImGui::MenuItem("Inspect")) {
                         gameHandler.setTarget(nameplateCtxGuid_);
                         gameHandler.inspectTarget();
-                        socialPanel_.showInspectWindow_ = true;
+                        socialPanel_.openInspectWindow(gameHandler);
                     }
                     ImGui::Separator();
                     if (ImGui::MenuItem("Add Friend"))
@@ -1882,7 +1950,25 @@ void GameScreen::renderNameplates(game::GameHandler& gameHandler) {
 // Durability Warning (equipment damage indicator)
 // ============================================================
 
-void GameScreen::takeScreenshot(game::GameHandler& /*gameHandler*/) {
+// The settings panel keeps brightness as 0-100 with 50 neutral, and the post
+// process pipeline wants that over 50 - so the number the video options call
+// gamma is exactly what the pipeline is already given, and this converts
+// between the two rather than introducing a third scale.
+float GameScreen::getGamma() const {
+    return static_cast<float>(settingsPanel_.pendingBrightness) / 50.0f;
+}
+
+void GameScreen::setGamma(float gamma) {
+    // WoW's own slider runs 0.3 to 2.8; clamped to what the 0-100 setting can
+    // hold so a value from outside cannot push the slider off its own track.
+    const float clamped = std::clamp(gamma, 0.0f, 2.0f);
+    settingsPanel_.pendingBrightness = static_cast<int>(clamped * 50.0f + 0.5f);
+    if (auto* renderer = services_.renderer) {
+        renderer->getPostProcessPipeline()->setBrightness(clamped);
+    }
+}
+
+void GameScreen::takeScreenshot() {
     auto* renderer = services_.renderer;
     if (!renderer) return;
 
@@ -1895,11 +1981,7 @@ void GameScreen::takeScreenshot(game::GameHandler& /*gameHandler*/) {
     auto now = std::chrono::system_clock::now();
     auto tt  = std::chrono::system_clock::to_time_t(now);
     std::tm tm{};
-#ifdef _WIN32
-    localtime_s(&tm, &tt);
-#else
-    localtime_r(&tt, &tm);
-#endif
+    tm = core::localTime(tt);
 
     char filename[128];
     std::snprintf(filename, sizeof(filename),
@@ -2039,86 +2121,4 @@ void GameScreen::renderUIErrors(game::GameHandler& /*gameHandler*/, float deltaT
     ImGui::End();
     ImGui::PopStyleVar();
 }
-
-void GameScreen::renderQuestMarkers(game::GameHandler& gameHandler) {
-    const auto& statuses = gameHandler.getNpcQuestStatuses();
-    if (statuses.empty()) return;
-
-    auto* renderer = services_.renderer;
-    auto* camera = renderer ? renderer->getCamera() : nullptr;
-    auto* window = services_.window;
-    if (!camera || !window) return;
-
-    float screenW = static_cast<float>(window->getWidth());
-    float screenH = static_cast<float>(window->getHeight());
-    glm::mat4 viewProj = camera->getViewProjectionMatrix();
-    auto* drawList = ImGui::GetForegroundDrawList();
-
-    for (const auto& [guid, status] : statuses) {
-        // Only show markers for available (!) and reward/completable (?)
-        const char* marker = nullptr;
-        ImU32 color = IM_COL32(255, 210, 0, 255); // yellow
-        if (status == game::QuestGiverStatus::AVAILABLE) {
-            marker = "!";
-        } else if (status == game::QuestGiverStatus::AVAILABLE_LOW) {
-            marker = "!";
-            color = IM_COL32(160, 160, 160, 255); // gray
-        } else if (status == game::QuestGiverStatus::REWARD ||
-                   status == game::QuestGiverStatus::REWARD_REP) {
-            marker = "?";
-        } else if (status == game::QuestGiverStatus::INCOMPLETE) {
-            marker = "?";
-            color = IM_COL32(160, 160, 160, 255); // gray
-        } else {
-            continue;
-        }
-
-        // Get entity position (canonical coords)
-        auto entity = gameHandler.getEntityManager().getEntity(guid);
-        if (!entity) continue;
-
-        glm::vec3 canonical(entity->getX(), entity->getY(), entity->getZ());
-        glm::vec3 renderPos = core::coords::canonicalToRender(canonical);
-
-        // Get model height for offset
-        float heightOffset = 3.0f;
-        glm::vec3 boundsCenter;
-        float boundsRadius = 0.0f;
-        if (core::Application::getInstance().getRenderBoundsForGuid(guid, boundsCenter, boundsRadius)) {
-            heightOffset = boundsRadius * 2.0f + 1.0f;
-        }
-        renderPos.z += heightOffset;
-
-        // Project to screen
-        glm::vec4 clipPos = viewProj * glm::vec4(renderPos, 1.0f);
-        if (clipPos.w <= 0.0f) continue;
-
-        glm::vec2 ndc(clipPos.x / clipPos.w, clipPos.y / clipPos.w);
-        float sx = (ndc.x + 1.0f) * 0.5f * screenW;
-        float sy = (1.0f - ndc.y) * 0.5f * screenH;
-
-        // Skip if off-screen
-        if (sx < -50 || sx > screenW + 50 || sy < -50 || sy > screenH + 50) continue;
-
-        // Scale text size based on distance
-        float dist = clipPos.w;
-        float fontSize = std::clamp(800.0f / dist, 14.0f, 48.0f);
-
-        // Draw outlined text: 4 shadow copies then main text
-        ImFont* font = ImGui::GetFont();
-        ImU32 outlineColor = IM_COL32(0, 0, 0, 220);
-        float off = std::max(1.0f, fontSize * 0.06f);
-        ImVec2 textSize = font->CalcTextSizeA(fontSize, FLT_MAX, 0.0f, marker);
-        float tx = sx - textSize.x * 0.5f;
-        float ty = sy - textSize.y * 0.5f;
-
-        drawList->AddText(font, fontSize, ImVec2(tx - off, ty), outlineColor, marker);
-        drawList->AddText(font, fontSize, ImVec2(tx + off, ty), outlineColor, marker);
-        drawList->AddText(font, fontSize, ImVec2(tx, ty - off), outlineColor, marker);
-        drawList->AddText(font, fontSize, ImVec2(tx, ty + off), outlineColor, marker);
-        drawList->AddText(font, fontSize, ImVec2(tx, ty), color, marker);
-    }
-}
-
-
 }} // namespace wowee::ui

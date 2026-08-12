@@ -105,7 +105,7 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends file nasm && \
     rm -rf /var/lib/apt/lists/*
 
-# vcpkg — macOS cross triplets (arm64-osx-cross / x64-osx-cross)
+# vcpkg - macOS cross triplets (arm64-osx-cross / x64-osx-cross)
 ENV VCPKG_ROOT=/opt/vcpkg
 RUN git clone --depth 1 https://github.com/microsoft/vcpkg.git "${VCPKG_ROOT}" && \
     "${VCPKG_ROOT}/bootstrap-vcpkg.sh" -disableMetrics
@@ -129,7 +129,7 @@ RUN "${VCPKG_ROOT}/vcpkg" install \
     --triplet x64-osx-cross \
     --overlay-triplets=/opt/vcpkg-triplets
 
-# Vulkan SDK headers (MoltenVK is the runtime — headers only needed to compile)
+# Vulkan SDK headers (MoltenVK is the runtime - headers only needed to compile)
 RUN apt-get update && \
     apt-get install -y --no-install-recommends libvulkan-dev glslang-tools && \
     rm -rf /var/lib/apt/lists/*

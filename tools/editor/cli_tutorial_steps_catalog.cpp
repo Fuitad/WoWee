@@ -1,4 +1,6 @@
 #include "cli_tutorial_steps_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -20,11 +22,6 @@ namespace cli {
 
 namespace {
 
-std::string stripWturExt(std::string base) {
-    stripExt(base, ".wtur");
-    return base;
-}
-
 const char* triggerEventName(uint8_t e) {
     using T = wowee::pipeline::WoweeTutorialSteps;
     switch (e) {
@@ -37,15 +34,6 @@ const char* triggerEventName(uint8_t e) {
     }
 }
 
-bool saveOrError(const wowee::pipeline::WoweeTutorialSteps& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeTutorialStepsLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wtur\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeTutorialSteps& c,
                      const std::string& base) {
@@ -58,10 +46,10 @@ int handleGenNewbie(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "NewbieTutorialFlow";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWturExt(base);
+    base = cli::withoutExt(base, ".wtur");
     auto c = wowee::pipeline::WoweeTutorialStepsLoader::
         makeNewbieFlow(name);
-    if (!saveOrError(c, base, "gen-tut-newbie")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeTutorialStepsLoader>(c, base, "gen-tut-newbie", ".wtur")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -70,10 +58,10 @@ int handleGenLevelUp(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "LevelUpTutorialFlow";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWturExt(base);
+    base = cli::withoutExt(base, ".wtur");
     auto c = wowee::pipeline::WoweeTutorialStepsLoader::
         makeLevelUpFlow(name);
-    if (!saveOrError(c, base, "gen-tut-levelup")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeTutorialStepsLoader>(c, base, "gen-tut-levelup", ".wtur")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -82,10 +70,10 @@ int handleGenBg(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "BattlegroundTutorialFlow";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWturExt(base);
+    base = cli::withoutExt(base, ".wtur");
     auto c = wowee::pipeline::WoweeTutorialStepsLoader::
         makeBgFlow(name);
-    if (!saveOrError(c, base, "gen-tut-bg")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeTutorialStepsLoader>(c, base, "gen-tut-bg", ".wtur")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -93,7 +81,7 @@ int handleGenBg(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWturExt(base);
+    base = cli::withoutExt(base, ".wtur");
     if (!wowee::pipeline::WoweeTutorialStepsLoader::exists(base)) {
         std::fprintf(stderr, "WTUR not found: %s.wtur\n",
                      base.c_str());
@@ -193,12 +181,9 @@ bool readEnumField(const nlohmann::json& je,
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWturExt(base);
+    base = cli::withoutExt(base, ".wtur");
     if (!wowee::pipeline::WoweeTutorialStepsLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wtur: WTUR not found: %s.wtur\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wtur", "WTUR", base, ".wtur");
     }
     auto c = wowee::pipeline::WoweeTutorialStepsLoader::load(base);
     std::vector<std::string> errors;
@@ -222,11 +207,11 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": name is empty");
         if (e.title.empty())
             errors.push_back(ctx +
-                ": title is empty — popup would be "
+                ": title is empty - popup would be "
                 "headerless");
         if (e.body.empty())
             errors.push_back(ctx +
-                ": body is empty — popup would have "
+                ": body is empty - popup would have "
                 "no instructional content");
         if (e.triggerEvent > 4) {
             errors.push_back(ctx + ": triggerEvent " +
@@ -235,7 +220,7 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         if (e.stepIndex == 0) {
             errors.push_back(ctx +
-                ": stepIndex is 0 — sequence ordering "
+                ": stepIndex is 0 - sequence ordering "
                 "starts at 1");
         }
         // (triggerEvent, triggerValue, stepIndex)
@@ -251,7 +236,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 std::to_string(e.triggerValue) +
                 ", stepIndex=" +
                 std::to_string(e.stepIndex) +
-                ") — sequence ordering ambiguous");
+                ") - sequence ordering ambiguous");
         }
         // Login event with non-zero triggerValue is
         // dead data (Login fires once, no value
@@ -262,18 +247,18 @@ int handleValidate(int& i, int argc, char** argv) {
                 ": Login triggerEvent with non-zero "
                 "triggerValue=" +
                 std::to_string(e.triggerValue) +
-                " — value is ignored at runtime "
+                " - value is ignored at runtime "
                 "(Login is unconditional)");
         }
         // Non-Login events without triggerValue would
         // fire on every event of that kind without
-        // discrimination — usually unintended.
+        // discrimination - usually unintended.
         if (e.triggerEvent != T::Login &&
             e.triggerValue == 0) {
             warnings.push_back(ctx +
                 ": triggerEvent=" +
                 std::string(triggerEventName(e.triggerEvent))
-                + " with triggerValue=0 — would fire "
+                + " with triggerValue=0 - would fire "
                 "for ALL events of this kind (any "
                 "zone / any level / any item / any "
                 "skill)");
@@ -287,7 +272,7 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx +
                 ": hideAfterSec=" +
                 std::to_string(e.hideAfterSec) +
-                " is below 5s — popup vanishes before "
+                " is below 5s - popup vanishes before "
                 "the player can read it");
         }
         // Body length sanity: under 10 chars usually
@@ -296,56 +281,28 @@ int handleValidate(int& i, int argc, char** argv) {
             warnings.push_back(ctx +
                 ": body length " +
                 std::to_string(e.body.size()) +
-                " is under 10 chars — likely "
+                " is under 10 chars - likely "
                 "placeholder text");
         }
         if (!idsSeen.insert(e.tutId).second) {
             errors.push_back(ctx + ": duplicate tutId");
         }
     }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wtur"] = base + ".wtur";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wtur: %s.wtur\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu steps, all tutIds unique, "
+    return cli::reportValidation("wtur", base, jsonOut, errors, warnings,
+                                 formatted("%zu steps, all tutIds unique, "
                     "title+body non-empty, triggerEvent "
                     "0..4, no duplicate (event,value,step) "
-                    "triples, hideAfterSec >= 5 when set\n",
-                    c.entries.size());
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+                    "triples, hideAfterSec >= 5 when set", c.entries.size()));
 }
 
 int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWturExt(base);
+    base = cli::withoutExt(base, ".wtur");
     if (out.empty()) out = base + ".wtur.json";
     if (!wowee::pipeline::WoweeTutorialStepsLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wtur-json: WTUR not found: %s.wtur\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wtur-json", "WTUR", base, ".wtur");
     }
     auto c = wowee::pipeline::WoweeTutorialStepsLoader::load(base);
     nlohmann::json j;
@@ -388,16 +345,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wtur.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wtur");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wtur");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,

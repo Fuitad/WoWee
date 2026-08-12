@@ -18,7 +18,7 @@ namespace cli {
 // `uniqueOut`.
 //
 // Implementation uses std::map<tuple<int64,int64,int64>, uint32_t>
-// for exact equality on the quantized key — a hash-based key would
+// for exact equality on the quantized key - a hash-based key would
 // risk false-positive collisions that incorrectly merge distinct
 // corners (e.g. a unit cube's 8 corners all hashing to 2 buckets).
 std::vector<uint32_t> buildWeldMap(

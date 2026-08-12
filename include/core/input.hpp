@@ -17,7 +17,6 @@ public:
     // Keyboard
     bool isKeyPressed(SDL_Scancode key) const;
     bool isKeyJustPressed(SDL_Scancode key) const;
-    bool isKeyJustReleased(SDL_Scancode key) const;
 
     // Mouse
     bool isMouseButtonPressed(int button) const;
@@ -29,7 +28,6 @@ public:
     float getMouseWheelDelta() const { return mouseWheelDelta; }
 
     bool isMouseLocked() const { return mouseLocked; }
-    void setMouseLocked(bool locked);
 
 private:
     Input() = default;

@@ -40,7 +40,7 @@ struct ChatSegment {
  * Parses raw WoW-markup text into a flat list of typed segments.
  *
  * Extracted from ChatPanel::render() inline lambdas (Phase 2.1 of chat_panel_ref.md).
- * Pure logic — no ImGui calls, no game-state access. Fully unit-testable.
+ * Pure logic - no ImGui calls, no game-state access. Fully unit-testable.
  */
 class ChatMarkupParser {
 public:

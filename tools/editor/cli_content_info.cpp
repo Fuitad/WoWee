@@ -175,7 +175,7 @@ int handleInfoCreaturesByLevel(int& i, int argc, char** argv) {
 
 int handleInfoObjectsByPath(int& i, int argc, char** argv) {
     // Most-used model paths with counts. Designers can quickly
-    // spot which trees/lamps/walls dominate a zone — helps with
+    // spot which trees/lamps/walls dominate a zone - helps with
     // both texture-budget audits and 'this looks repetitive,
     // diversify the doodads' design feedback.
     std::string path = argv[++i];
@@ -353,7 +353,7 @@ int handleInfoQuestsByXp(int& i, int argc, char** argv) {
     uint32_t maxXp = 0;
     uint64_t sumXp = 0;
     int zeroXp = 0;
-    // Bucket size grows with max — keeps the histogram readable
+    // Bucket size grows with max - keeps the histogram readable
     // for both starter zones (10-100 XP) and endgame (5000+).
     std::map<uint32_t, int> buckets;
     for (const auto& q : qe.getQuests()) {
@@ -407,7 +407,7 @@ int handleInfoQuestsByXp(int& i, int argc, char** argv) {
 }
 
 int handleListCreatures(int& i, int argc, char** argv) {
-    // Verbose enumeration of every spawn — needed because
+    // Verbose enumeration of every spawn - needed because
     // --remove-creature takes a 0-based index but --info-creatures
     // only shows aggregate counts.
     std::string path = argv[++i];
@@ -542,7 +542,7 @@ int handleListQuests(int& i, int argc, char** argv) {
 }
 
 int handleListQuestObjectives(int& i, int argc, char** argv) {
-    // Per-quest objective listing — pairs with --remove-quest-objective
+    // Per-quest objective listing - pairs with --remove-quest-objective
     // (which takes objIdx). Tabulates type, target, count, description.
     std::string path = argv[++i];
     std::string idxStr = argv[++i];
@@ -567,18 +567,8 @@ int handleListQuestObjectives(int& i, int argc, char** argv) {
         return 1;
     }
     const auto& q = qe.getQuests()[qIdx];
-    using OT = wowee::editor::QuestObjectiveType;
-    auto typeName = [](OT t) {
-        switch (t) {
-            case OT::KillCreature: return "kill";
-            case OT::CollectItem:  return "collect";
-            case OT::TalkToNPC:    return "talk";
-            case OT::ExploreArea:  return "explore";
-            case OT::EscortNPC:    return "escort";
-            case OT::UseObject:    return "use";
-        }
-        return "?";
-    };
+        // The word is the format's, from beside the enum.
+        auto typeName = wowee::editor::questObjectiveTypeName;
     if (jsonOut) {
         nlohmann::json j;
         j["file"] = path;
@@ -742,18 +732,18 @@ int handleInfoQuestGraphStats(int& i, int argc, char** argv) {
     }
     std::printf("Quest graph: %s\n", path.c_str());
     std::printf("  total quests : %zu\n", quests.size());
-    std::printf("  roots        : %d (no inbound chain — entry points)\n", roots);
-    std::printf("  leaves       : %d (no outbound chain — terminal)\n", leaves);
-    std::printf("  orphans      : %d (root AND leaf — one-shot)\n", orphans);
+    std::printf("  roots        : %d (no inbound chain - entry points)\n", roots);
+    std::printf("  leaves       : %d (no outbound chain - terminal)\n", leaves);
+    std::printf("  orphans      : %d (root AND leaf - one-shot)\n", orphans);
     std::printf("  cycles       : %d %s\n", cycles,
-                cycles == 0 ? "" : "(BROKEN — chains loop back)");
+                cycles == 0 ? "" : "(BROKEN - chains loop back)");
     std::printf("  max depth    : %d\n", maxDepth);
     std::printf("  avg depth    : %.2f (chain length per root)\n", avgDepth);
     return cycles == 0 ? 0 : 1;
 }
 
 int handleInfoCreature(int& i, int argc, char** argv) {
-    // Single-creature deep dive — every CreatureSpawn field for
+    // Single-creature deep dive - every CreatureSpawn field for
     // one entry. Companion to --list-creatures (which is a
     // table view); useful for digging into 'why is this NPC
     // not behaving like I expect?'.
@@ -843,7 +833,7 @@ int handleInfoCreature(int& i, int argc, char** argv) {
 }
 
 int handleInfoQuest(int& i, int argc, char** argv) {
-    // Single-quest deep dive — combines what --list-quest-objectives
+    // Single-quest deep dive - combines what --list-quest-objectives
     // and --list-quest-rewards show into one view, plus the chain
     // pointer + descriptions that neither covers.
     std::string path = argv[++i];
@@ -869,18 +859,8 @@ int handleInfoQuest(int& i, int argc, char** argv) {
         return 1;
     }
     const auto& q = qe.getQuests()[idx];
-    using OT = wowee::editor::QuestObjectiveType;
-    auto typeName = [](OT t) {
-        switch (t) {
-            case OT::KillCreature: return "kill";
-            case OT::CollectItem:  return "collect";
-            case OT::TalkToNPC:    return "talk";
-            case OT::ExploreArea:  return "explore";
-            case OT::EscortNPC:    return "escort";
-            case OT::UseObject:    return "use";
-        }
-        return "?";
-    };
+        // The word is the format's, from beside the enum.
+        auto typeName = wowee::editor::questObjectiveTypeName;
     if (jsonOut) {
         nlohmann::json j;
         j["index"] = idx;
@@ -938,14 +918,14 @@ int handleInfoQuest(int& i, int argc, char** argv) {
         std::printf("    [%zu] %-7s ×%u  %s%s%s\n",
                     k, typeName(o.type), o.targetCount,
                     o.targetName.c_str(),
-                    o.description.empty() ? "" : "  — ",
+                    o.description.empty() ? "" : "  - ",
                     o.description.c_str());
     }
     return 0;
 }
 
 int handleInfoObject(int& i, int argc, char** argv) {
-    // Single-object deep dive — every PlacedObject field for one
+    // Single-object deep dive - every PlacedObject field for one
     // entry. Completes the single-entity inspector trio
     // (creature/quest/object).
     std::string path = argv[++i];
@@ -1003,6 +983,7 @@ int handleInfoObject(int& i, int argc, char** argv) {
 
 
 int handleInfoQuests(int& i, int argc, char** argv) {
+    using OT = wowee::editor::QuestObjectiveType;
     std::string path = argv[++i];
     bool jsonOut = (i + 1 < argc &&
                     std::strcmp(argv[i + 1], "--json") == 0);
@@ -1022,7 +1003,6 @@ int handleInfoQuests(int& i, int argc, char** argv) {
             q.reward.silver > 0 || q.reward.copper > 0) withReward++;
         if (!q.reward.itemRewards.empty()) withItems++;
         totalXp += q.reward.xp;
-        using OT = wowee::editor::QuestObjectiveType;
         for (const auto& obj : q.objectives) {
             if (obj.type == OT::KillCreature) objKill++;
             else if (obj.type == OT::CollectItem) objCollect++;

@@ -30,7 +30,7 @@ struct FormatBucket {
 
 // Read magic+version+name+entryCount from a candidate file.
 // Returns true on success and fills out entryCount; the
-// version+name fields are skipped — we only need the count.
+// version+name fields are skipped - we only need the count.
 bool peekEntryCount(const fs::path& path, char magic[4],
                     uint32_t& entryCountOut) {
     std::ifstream is(path, std::ios::binary);
@@ -91,7 +91,7 @@ int handleSummary(int& i, int argc, char** argv) {
                 ++b.fileCount;
                 // Only catalog formats (those with an
                 // --info-* flag) follow the standard
-                // header — for asset/world formats we
+                // header - for asset/world formats we
                 // still count the file but leave entries
                 // at 0.
                 if (b.fmt->infoFlag != nullptr) {

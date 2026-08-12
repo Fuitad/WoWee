@@ -123,5 +123,22 @@ std::string Packet::readString() {
     return result;
 }
 
+bool Packet::readSizedString(std::string& out, uint32_t maxLength) {
+    const size_t mark = readPos;
+    const uint32_t length = readUInt32();
+    if (length == 0 || length >= maxLength || length > getRemainingSize()) {
+        readPos = mark;
+        return false;
+    }
+    out.resize(length);
+    for (uint32_t i = 0; i < length; ++i) {
+        out[i] = static_cast<char>(readUInt8());
+    }
+    // The length counts the terminator, so it is in the string and has to come
+    // back off.
+    if (!out.empty() && out.back() == '\0') out.pop_back();
+    return true;
+}
+
 } // namespace network
 } // namespace wowee

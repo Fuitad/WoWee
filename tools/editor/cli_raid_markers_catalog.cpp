@@ -1,4 +1,6 @@
 #include "cli_raid_markers_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -20,11 +22,6 @@ namespace cli {
 
 namespace {
 
-std::string stripWmarExt(std::string base) {
-    stripExt(base, ".wmar");
-    return base;
-}
-
 const char* markerKindName(uint8_t k) {
     using M = wowee::pipeline::WoweeRaidMarkers;
     switch (k) {
@@ -36,15 +33,6 @@ const char* markerKindName(uint8_t k) {
     }
 }
 
-bool saveOrError(const wowee::pipeline::WoweeRaidMarkers& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeRaidMarkersLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wmar\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeRaidMarkers& c,
                      const std::string& base) {
@@ -57,9 +45,9 @@ int handleGenRaid(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "RaidTargetMarkers";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWmarExt(base);
+    base = cli::withoutExt(base, ".wmar");
     auto c = wowee::pipeline::WoweeRaidMarkersLoader::makeRaidTargets(name);
-    if (!saveOrError(c, base, "gen-mar")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeRaidMarkersLoader>(c, base, "gen-mar", ".wmar")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -68,9 +56,9 @@ int handleGenWorld(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "WorldMapPinMarkers";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWmarExt(base);
+    base = cli::withoutExt(base, ".wmar");
     auto c = wowee::pipeline::WoweeRaidMarkersLoader::makeWorldMapPins(name);
-    if (!saveOrError(c, base, "gen-mar-world")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeRaidMarkersLoader>(c, base, "gen-mar-world", ".wmar")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -79,9 +67,9 @@ int handleGenParty(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "PartyRoleMarkers";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWmarExt(base);
+    base = cli::withoutExt(base, ".wmar");
     auto c = wowee::pipeline::WoweeRaidMarkersLoader::makeParty(name);
-    if (!saveOrError(c, base, "gen-mar-party")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeRaidMarkersLoader>(c, base, "gen-mar-party", ".wmar")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -89,10 +77,9 @@ int handleGenParty(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWmarExt(base);
+    base = cli::withoutExt(base, ".wmar");
     if (!wowee::pipeline::WoweeRaidMarkersLoader::exists(base)) {
-        std::fprintf(stderr, "WMAR not found: %s.wmar\n", base.c_str());
-        return 1;
+        return reportMissing("WMAR", base, ".wmar");
     }
     auto c = wowee::pipeline::WoweeRaidMarkersLoader::load(base);
     if (jsonOut) {
@@ -147,13 +134,10 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWmarExt(base);
+    base = cli::withoutExt(base, ".wmar");
     if (out.empty()) out = base + ".wmar.json";
     if (!wowee::pipeline::WoweeRaidMarkersLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wmar-json: WMAR not found: %s.wmar\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wmar-json", "WMAR", base, ".wmar");
     }
     auto c = wowee::pipeline::WoweeRaidMarkersLoader::load(base);
     nlohmann::json j;
@@ -192,16 +176,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wmar.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wmar");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wmar");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,
@@ -273,12 +248,9 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWmarExt(base);
+    base = cli::withoutExt(base, ".wmar");
     if (!wowee::pipeline::WoweeRaidMarkersLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wmar: WMAR not found: %s.wmar\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wmar", "WMAR", base, ".wmar");
     }
     auto c = wowee::pipeline::WoweeRaidMarkersLoader::load(base);
     std::vector<std::string> errors;
@@ -287,7 +259,7 @@ int handleValidate(int& i, int argc, char** argv) {
         warnings.push_back("catalog has zero entries");
     }
     std::set<uint32_t> idsSeen;
-    // Per-(markerKind, priority) tuple uniqueness — two
+    // Per-(markerKind, priority) tuple uniqueness - two
     // markers at same kind+priority would render in
     // unstable order in the picker UI.
     std::set<uint32_t> kindPrioSeen;
@@ -311,7 +283,7 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         if (e.iconPath.empty()) {
             warnings.push_back(ctx +
-                ": iconPath is empty — marker would "
+                ": iconPath is empty - marker would "
                 "render as untextured fallback glyph");
         }
         // displayChar should be 1-3 visible characters
@@ -320,7 +292,7 @@ int handleValidate(int& i, int argc, char** argv) {
         // would break chat-overlay text.
         if (e.displayChar.empty()) {
             warnings.push_back(ctx +
-                ": displayChar is empty — chat overlay "
+                ": displayChar is empty - chat overlay "
                 "(e.g. \"{star}\" link) would render "
                 "blank");
         }
@@ -328,7 +300,7 @@ int handleValidate(int& i, int argc, char** argv) {
             warnings.push_back(ctx +
                 ": displayChar is " +
                 std::to_string(e.displayChar.size()) +
-                " bytes (>4) — chat overlay glyphs "
+                " bytes (>4) - chat overlay glyphs "
                 "should be terse (1-3 chars typical)");
         }
         // RaidTarget kind has a canonical 8-marker max
@@ -339,7 +311,7 @@ int handleValidate(int& i, int argc, char** argv) {
             warnings.push_back(ctx +
                 ": RaidTarget priority " +
                 std::to_string(e.priority) +
-                " > 7 — exceeds the canonical 8-slot "
+                " > 7 - exceeds the canonical 8-slot "
                 "/raidicon dispatch range; client "
                 "keybind macros may not reach this slot");
         }
@@ -352,41 +324,16 @@ int handleValidate(int& i, int argc, char** argv) {
                 std::string(markerKindName(e.markerKind)) +
                 ", priority=" + std::to_string(e.priority) +
                 ") slot already occupied by another "
-                "marker — picker UI sort would be non-"
+                "marker - picker UI sort would be non-"
                 "deterministic");
         }
         if (!idsSeen.insert(e.markerId).second) {
             errors.push_back(ctx + ": duplicate markerId");
         }
     }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wmar"] = base + ".wmar";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wmar: %s.wmar\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu markers, all markerIds + "
-                    "(kind,priority) tuples unique\n",
-                    c.entries.size());
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+    return cli::reportValidation("wmar", base, jsonOut, errors, warnings,
+                                 formatted("%zu markers, all markerIds + "
+                    "(kind,priority) tuples unique", c.entries.size()));
 }
 
 } // namespace

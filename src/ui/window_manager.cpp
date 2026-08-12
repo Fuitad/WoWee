@@ -1,8 +1,12 @@
 // ============================================================
-// WindowManager — extracted from GameScreen
+// WindowManager - extracted from GameScreen
 // Owns all NPC interaction windows, popup dialogs, etc.
 // ============================================================
 #include "ui/window_manager.hpp"
+#include "game/item_text.hpp"
+#include "ui/framexml_takeover.hpp"
+#include "ui/ui_upload_budget.hpp"
+#include "game/inventory_slots.hpp"
 #include "ui/chat_panel.hpp"
 #include "ui/chat/chat_utils.hpp"
 #include "ui/settings_panel.hpp"
@@ -16,6 +20,7 @@
 #include "rendering/vk_context.hpp"
 #include "core/window.hpp"
 #include "game/game_handler.hpp"
+#include "game/auction_filters.hpp"
 #include "game/packed_time.hpp"
 #include "pipeline/asset_manager.hpp"
 #include "pipeline/dbc_layout.hpp"
@@ -68,15 +73,6 @@ namespace {
         return total;
     }
 
-    // Build a WoW-format item link string for chat insertion.
-    std::string buildItemChatLink(uint32_t itemId, uint8_t quality, const std::string& name) {
-        static constexpr const char* kQualHex[] = {"9d9d9d","ffffff","1eff00","0070dd","a335ee","ff8000","e6cc80","e6cc80"};
-        uint8_t qi = quality < 8 ? quality : 1;
-        char buf[512];
-        snprintf(buf, sizeof(buf), "|cff%s|Hitem:%u:0:0:0:0:0:0:0:0|h[%s]|h|r",
-                 kQualHex[qi], itemId, name.c_str());
-        return buf;
-    }
 } // anonymous namespace
 
 namespace wowee {
@@ -138,7 +134,7 @@ void WindowManager::renderLootWindow(game::GameHandler& gameHandler,
             if (ImGui::Selectable("##loot", false, 0, ImVec2(0, rowH))) {
                 if (ImGui::GetIO().KeyShift && info && !info->name.empty()) {
                     // Shift-click: insert item link into chat
-                    std::string link = buildItemChatLink(info->entry, info->quality, info->name);
+                    std::string link = game::itemChatLink(info->entry, info->quality, info->name);
                     chatPanel.insertChatLink(link);
                 } else {
                     lootSlotClicked = item.slotIndex;
@@ -153,7 +149,7 @@ void WindowManager::renderLootWindow(game::GameHandler& gameHandler,
             if (hovered && info && info->valid) {
                 inventoryScreen.renderItemTooltip(*info);
             } else if (hovered && info && !info->name.empty()) {
-                // Item info received but not yet fully valid — show name at minimum
+                // Item info received but not yet fully valid - show name at minimum
                 ImGui::SetTooltip("%s", info->name.c_str());
             }
 
@@ -217,7 +213,16 @@ void WindowManager::renderLootWindow(game::GameHandler& gameHandler,
                 snprintf(popupId, sizeof(popupId), "##MLGive%d", lootSlotClicked);
                 ImGui::OpenPopup(popupId);
             } else {
-                gameHandler.lootItem(static_cast<uint8_t>(lootSlotClicked));
+                // Taken as already confirmed: this window has no bind warning
+                // to show. The handler raises LOOT_BIND_CONFIRM for a
+                // bind-on-pickup item and holds the request until it is
+                // answered, and there is nothing here to answer it - the click
+                // would do nothing at all.
+                //
+                // So the warning is on the interface's path only, which is the
+                // one being moved to. Closing that gap means giving this window
+                // a confirm of its own, the way it already has one for equip.
+                gameHandler.lootItem(static_cast<uint8_t>(lootSlotClicked), true);
             }
         }
 
@@ -259,7 +264,7 @@ void WindowManager::renderLootWindow(game::GameHandler& gameHandler,
         if (hasItems) {
             if (ImGui::Button("Loot All", ImVec2(-1, 0))) {
                 for (const auto& item : loot.items) {
-                    gameHandler.lootItem(item.slotIndex);
+                    gameHandler.lootItem(item.slotIndex, true);
                 }
             }
             ImGui::Spacing();
@@ -414,16 +419,16 @@ void WindowManager::renderGossipWindow(game::GameHandler& gameHandler,
                 const char* statusIcon = "!";
                 ImVec4 statusColor = kColorYellow; // yellow
                 switch (quest.questIcon) {
-                    case 5:  // INCOMPLETE — in progress but not done
+                    case 5:  // INCOMPLETE - in progress but not done
                         statusIcon = "?";
                         statusColor = colors::kMediumGray; // gray
                         break;
-                    case 6:  // REWARD_REP — repeatable, ready to turn in
-                    case 10: // REWARD — ready to turn in
+                    case 6:  // REWARD_REP - repeatable, ready to turn in
+                    case 10: // REWARD - ready to turn in
                         statusIcon = "?";
                         statusColor = kColorYellow; // yellow
                         break;
-                    case 7:  // AVAILABLE_LOW — available but gray (low-level)
+                    case 7:  // AVAILABLE_LOW - available but gray (low-level)
                         statusIcon = "!";
                         statusColor = colors::kMediumGray; // gray
                         break;
@@ -463,6 +468,12 @@ void WindowManager::renderQuestDetailsWindow(game::GameHandler& gameHandler,
                                           ChatPanel& chatPanel,
                                           InventoryScreen& inventoryScreen) {
     if (!gameHandler.isQuestDetailsOpen()) return;
+    // And not until the reward item names have had a moment to arrive. This
+    // window draws the icons itself, so opening the instant the packet lands
+    // shows a row of blanks that fill in a frame later. The wait used to be
+    // part of "is it open", which meant the interface's own bindings answered
+    // "no rewards" for the same hundred milliseconds - see isQuestDetailsOpen.
+    if (!gameHandler.questDetailsItemInfoReady()) return;
 
     auto* window = services_.window;
     float screenW = window ? static_cast<float>(window->getWidth()) : 1280.0f;
@@ -520,7 +531,7 @@ void WindowManager::renderQuestDetailsWindow(game::GameHandler& gameHandler,
                 inventoryScreen.renderItemTooltip(*info, &gameHandler.getInventory());
             if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Left) &&
                 ImGui::GetIO().KeyShift && info && info->valid && !info->name.empty()) {
-                std::string link = buildItemChatLink(info->entry, info->quality, info->name);
+                std::string link = game::itemChatLink(info->entry, info->quality, info->name);
                 chatPanel.insertChatLink(link);
             }
         };
@@ -634,7 +645,7 @@ void WindowManager::renderQuestRequestItemsWindow(game::GameHandler& gameHandler
                 }
                 if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Left) &&
                     ImGui::GetIO().KeyShift && info && info->valid && !info->name.empty()) {
-                    std::string link = buildItemChatLink(info->entry, info->quality, info->name);
+                    std::string link = game::itemChatLink(info->entry, info->quality, info->name);
                     chatPanel.insertChatLink(link);
                 }
             }
@@ -793,7 +804,7 @@ void WindowManager::renderQuestOfferRewardWindow(game::GameHandler& gameHandler,
                 if (ImGui::IsItemHovered()) rewardItemTooltip(item, qualityColor);
                 if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Left) &&
                     ImGui::GetIO().KeyShift && info && info->valid && !info->name.empty()) {
-                    std::string link = buildItemChatLink(info->entry, info->quality, info->name);
+                    std::string link = game::itemChatLink(info->entry, info->quality, info->name);
                     chatPanel.insertChatLink(link);
                 }
             }
@@ -846,35 +857,13 @@ void WindowManager::renderQuestOfferRewardWindow(game::GameHandler& gameHandler,
     }
 }
 
-void WindowManager::loadExtendedCostDBC() {
-    if (extendedCostDbLoaded_) return;
-    extendedCostDbLoaded_ = true;
-    auto* am = services_.assetManager;
-    if (!am || !am->isInitialized()) return;
-    auto dbc = am->loadDBC("ItemExtendedCost.dbc");
-    if (!dbc || !dbc->isLoaded()) return;
-    // WotLK ItemExtendedCost.dbc: field 0=ID, 1=honorPoints, 2=arenaPoints,
-    // 3=arenaSlotRestrictions, 4-8=itemId[5], 9-13=itemCount[5], 14=reqRating, 15=purchaseGroup
-    for (uint32_t i = 0; i < dbc->getRecordCount(); ++i) {
-        uint32_t id = dbc->getUInt32(i, 0);
-        if (id == 0) continue;
-        ExtendedCostEntry e;
-        e.honorPoints = dbc->getUInt32(i, 1);
-        e.arenaPoints = dbc->getUInt32(i, 2);
-        for (int j = 0; j < 5; ++j) {
-            e.itemId[j]    = dbc->getUInt32(i, 4 + j);
-            e.itemCount[j] = dbc->getUInt32(i, 9 + j);
-        }
-        extendedCostCache_[id] = e;
-    }
-    LOG_INFO("ItemExtendedCost.dbc: loaded ", extendedCostCache_.size(), " entries");
-}
-
 std::string WindowManager::formatExtendedCost(uint32_t extendedCostId, game::GameHandler& gameHandler) {
-    loadExtendedCostDBC();
-    auto it = extendedCostCache_.find(extendedCostId);
-    if (it == extendedCostCache_.end()) return "[Tokens]";
-    const auto& e = it->second;
+    // Read from the game handler, which is where this lives now: the original
+    // interface asks the same question through GetMerchantItemCostItem and
+    // cannot reach in here.
+    const auto* entry = gameHandler.getExtendedCost(extendedCostId);
+    if (!entry) return "[Tokens]";
+    const auto& e = *entry;
     std::string result;
     if (e.honorPoints > 0) {
         result += std::to_string(e.honorPoints) + " Honor";
@@ -1016,9 +1005,10 @@ void WindowManager::renderVendorWindow(game::GameHandler& gameHandler,
                     }
                     uint64_t price = static_cast<uint64_t>(sellPrice) *
                                      static_cast<uint64_t>(entry.count > 0 ? entry.count : 1);
-                    uint32_t g = static_cast<uint32_t>(price / 10000);
-                    uint32_t s = static_cast<uint32_t>((price / 100) % 100);
-                    uint32_t c = static_cast<uint32_t>(price % 100);
+                    const auto coins = game::splitCopper(price);
+                    const uint32_t g = coins.gold;
+                    const uint32_t s = coins.silver;
+                    const uint32_t c = coins.copper;
                     bool canAfford = money >= price;
                     const bool slotReady = entry.wireSlot >= 74 && entry.wireSlot < 86;
 
@@ -1139,7 +1129,7 @@ void WindowManager::renderVendorWindow(game::GameHandler& gameHandler,
                         }
                         // Shift-click: insert item link into chat
                         if (ImGui::IsItemClicked() && ImGui::GetIO().KeyShift) {
-                            std::string link = buildItemChatLink(info->entry, info->quality, info->name);
+                            std::string link = game::itemChatLink(info->entry, info->quality, info->name);
                             chatPanel.insertChatLink(link);
                         }
                     } else {
@@ -1148,13 +1138,14 @@ void WindowManager::renderVendorWindow(game::GameHandler& gameHandler,
 
                     ImGui::TableSetColumnIndex(2);
                     if (item.buyPrice == 0 && item.extendedCost != 0) {
-                        // Token-only item — show detailed cost from ItemExtendedCost.dbc
+                        // Token-only item - show detailed cost from ItemExtendedCost.dbc
                         std::string costStr = formatExtendedCost(item.extendedCost, gameHandler);
                         ImGui::TextColored(ImVec4(0.4f, 0.8f, 1.0f, 1.0f), "%s", costStr.c_str());
                     } else {
-                        uint32_t g = item.buyPrice / 10000;
-                        uint32_t s = (item.buyPrice / 100) % 100;
-                        uint32_t c = item.buyPrice % 100;
+                        const auto coins = game::splitCopper(item.buyPrice);
+                        const uint32_t g = coins.gold;
+                        const uint32_t s = coins.silver;
+                        const uint32_t c = coins.copper;
                         bool canAfford = money >= item.buyPrice;
                         if (canAfford) {
                             renderCoinsText(g, s, c);
@@ -1227,9 +1218,10 @@ void WindowManager::renderVendorWindow(game::GameHandler& gameHandler,
         ImGui::Text("Buy %s", vendorConfirmItemName_.c_str());
         if (vendorConfirmQty_ > 1)
             ImGui::Text("Quantity: %u", vendorConfirmQty_);
-        uint32_t g = vendorConfirmPrice_ / 10000;
-        uint32_t s = (vendorConfirmPrice_ / 100) % 100;
-        uint32_t c = vendorConfirmPrice_ % 100;
+        const auto coins = game::splitCopper(vendorConfirmPrice_);
+        const uint32_t g = coins.gold;
+        const uint32_t s = coins.silver;
+        const uint32_t c = coins.copper;
         ImGui::Text("Cost: %ug %us %uc", g, s, c);
         ImGui::Spacing();
         if (ImGui::Button("Buy", ImVec2(80, 0))) {
@@ -1388,7 +1380,7 @@ void WindowManager::renderTrainerWindow(game::GameHandler& gameHandler,
                         statusLabel = "Unavailable";
                     }
 
-                    // Icon column — use item icon for crafting recipes, spell icon otherwise
+                    // Icon column - use item icon for crafting recipes, spell icon otherwise
                     ImGui::TableSetColumnIndex(0);
                     {
                         VkDescriptorSet icon = VK_NULL_HANDLE;
@@ -1526,9 +1518,10 @@ void WindowManager::renderTrainerWindow(game::GameHandler& gameHandler,
                     // Cost
                     ImGui::TableSetColumnIndex(3);
                     if (spell->spellCost > 0) {
-                        uint32_t g = spell->spellCost / 10000;
-                        uint32_t s = (spell->spellCost / 100) % 100;
-                        uint32_t c = spell->spellCost % 100;
+                        const auto coins = game::splitCopper(spell->spellCost);
+                        const uint32_t g = coins.gold;
+                        const uint32_t s = coins.silver;
+                        const uint32_t c = coins.copper;
                         bool canAfford = money >= spell->spellCost;
                         if (canAfford) {
                             renderCoinsText(g, s, c);
@@ -1665,9 +1658,10 @@ void WindowManager::renderTrainerWindow(game::GameHandler& gameHandler,
             bool canAffordAll = (money >= totalCost);
             bool hasTrainable = (trainableCount > 0) && canAffordAll;
             if (!hasTrainable) ImGui::BeginDisabled();
-            uint32_t tag = static_cast<uint32_t>(totalCost / 10000);
-            uint32_t tas = static_cast<uint32_t>((totalCost / 100) % 100);
-            uint32_t tac = static_cast<uint32_t>(totalCost % 100);
+            const auto coins = game::splitCopper(totalCost);
+            const uint32_t tag = coins.gold;
+            const uint32_t tas = coins.silver;
+            const uint32_t tac = coins.copper;
             char trainAllLabel[80];
             if (trainableCount == 0) {
                 snprintf(trainAllLabel, sizeof(trainAllLabel), "Train All Available (none)");
@@ -1705,7 +1699,7 @@ void WindowManager::renderTrainerWindow(game::GameHandler& gameHandler,
 
                 gameHandler.loadSpellNameCache();
 
-                // Difficulty color/label from skill thresholds — shared with
+                // Difficulty color/label from skill thresholds - shared with
                 // the standalone crafting window (crafting_window.cpp)
                 auto getDifficultyColor = [&](uint32_t spellId) -> ImVec4 {
                     return recipeDifficultyColor(gameHandler, spellId);
@@ -1909,7 +1903,8 @@ void WindowManager::renderTrainerWindow(game::GameHandler& gameHandler,
     }
 }
 
-void WindowManager::renderEscapeMenu(SettingsPanel& settingsPanel) {
+void WindowManager::renderEscapeMenu(SettingsPanel& settingsPanel,
+                                     game::GameHandler& gameHandler) {
     if (!showEscapeMenu) return;
 
     ImGuiIO& io = ImGui::GetIO();
@@ -1957,7 +1952,12 @@ void WindowManager::renderEscapeMenu(SettingsPanel& settingsPanel) {
             showEscapeMenu = false;
         }
         if (ImGui::Button("Help / GM Ticket", ImVec2(-1, 0))) {
-            showGmTicketWindow_ = true;
+            // This menu is this client's own, and the panel behind the button
+            // may not be. The same routing as the slash command that opens it.
+            if (frameXmlOwns(UiElement::Help))
+                gameHandler.runInterfaceCommand("ToggleHelpFrame()");
+            else
+                showGmTicketWindow_ = true;
             showEscapeMenu = false;
         }
 
@@ -1972,6 +1972,274 @@ void WindowManager::renderEscapeMenu(SettingsPanel& settingsPanel) {
     ImGui::End();
 }
 
+// ---------------------------------------------------------------------------
+// Barber shop state
+//
+// Built once each time the chair opens, and kept out of the render function so
+// that the answers survive the panel being handed to FrameXML.
+// ---------------------------------------------------------------------------
+int WindowManager::barberFindAppearance(const std::vector<BarberStyleOption>& options,
+                                        uint8_t id) {
+    const auto it = std::find_if(options.begin(), options.end(),
+                                 [id](const auto& option) { return option.appearanceId == id; });
+    return it == options.end() ? -1 : static_cast<int>(std::distance(options.begin(), it));
+}
+
+uint8_t WindowManager::barberSelectedAppearance(const std::vector<BarberStyleOption>& options,
+                                                int index, uint8_t fallback) {
+    return index >= 0 && index < static_cast<int>(options.size())
+        ? options[static_cast<size_t>(index)].appearanceId : fallback;
+}
+
+void WindowManager::rebuildBarberHairColors(uint8_t hairStyle, uint8_t preferredColor,
+                                            uint32_t raceId, uint32_t sexId) {
+    barberHairColors_.clear();
+    if (services_.assetManager) {
+        auto dbc = services_.assetManager->loadDBC("CharSections.dbc");
+        if (dbc && dbc->isLoaded()) {
+            const auto* layout = pipeline::getActiveDBCLayout()
+                ? pipeline::getActiveDBCLayout()->getLayout("CharSections") : nullptr;
+            const auto fields = pipeline::detectCharSectionsFields(dbc.get(), layout);
+            for (uint32_t row = 0; row < dbc->getRecordCount(); ++row) {
+                if (dbc->getUInt32(row, fields.raceId) != raceId ||
+                    dbc->getUInt32(row, fields.sexId) != sexId ||
+                    dbc->getUInt32(row, fields.baseSection) != 3 ||
+                    dbc->getUInt32(row, fields.variationIndex) != hairStyle) {
+                    continue;
+                }
+                const uint32_t color = dbc->getUInt32(row, fields.colorIndex);
+                if (color <= 255) barberHairColors_.push_back(static_cast<uint8_t>(color));
+            }
+        }
+    }
+    std::sort(barberHairColors_.begin(), barberHairColors_.end());
+    barberHairColors_.erase(std::unique(barberHairColors_.begin(), barberHairColors_.end()),
+                            barberHairColors_.end());
+    const auto preferred = std::find(barberHairColors_.begin(), barberHairColors_.end(),
+                                     preferredColor);
+    barberHairColor_ = preferred == barberHairColors_.end()
+        ? (barberHairColors_.empty() ? -1 : 0)
+        : static_cast<int>(std::distance(barberHairColors_.begin(), preferred));
+    barberColorsForHairStyle_ = hairStyle;
+}
+
+void WindowManager::ensureBarberState(game::GameHandler& gameHandler) {
+    // Leaving the chair clears the state so the next visit rebuilds it against
+    // whatever the character wears by then. The render function used to do this
+    // on its early return, which stops happening the moment the panel is handed
+    // over - and stale originals would price a change against the wrong hair.
+    if (!gameHandler.isBarberShopOpen()) {
+        barberInitialized_ = false;
+        return;
+    }
+    if (barberInitialized_) return;
+    const auto* ch = gameHandler.getActiveCharacter();
+    if (!ch) return;
+
+    const uint32_t raceId = static_cast<uint32_t>(ch->race);
+    const uint32_t sexId = (ch->gender == game::Gender::FEMALE || ch->useFemaleModel) ? 1u : 0u;
+
+    // BarberShopStyle IDs, rather than the visible appearance numbers, are the
+    // wire values expected by a WotLK server. Build the race/sex-specific lists
+    // once each time the chair opens.
+    barberOrigSkinColor_ = static_cast<uint8_t>(ch->appearanceBytes & 0xFF);
+    barberOrigHairStyle_ = static_cast<uint8_t>((ch->appearanceBytes >> 16) & 0xFF);
+    barberOrigHairColor_ = static_cast<uint8_t>((ch->appearanceBytes >> 24) & 0xFF);
+    barberOrigFacialHair_ = ch->facialFeatures;
+    barberHairStyles_.clear();
+    barberFacialStyles_.clear();
+    barberSkinStyles_.clear();
+    // Entry zero tells the server to retain the existing skin.
+    barberSkinStyles_.push_back({0, barberOrigSkinColor_, "Current"});
+
+    if (services_.assetManager) {
+        auto dbc = services_.assetManager->loadDBC("BarberShopStyle.dbc");
+        if (dbc && dbc->isLoaded() && dbc->getFieldCount() >= 40) {
+            for (uint32_t row = 0; row < dbc->getRecordCount(); ++row) {
+                if (dbc->getUInt32(row, 37) != raceId || dbc->getUInt32(row, 38) != sexId)
+                    continue;
+                const uint32_t appearance = dbc->getUInt32(row, 39);
+                if (appearance > 255) continue;
+                std::string name;
+                for (uint32_t field = 2; field <= 17 && name.empty(); ++field)
+                    name = dbc->getString(row, field);
+                if (name.empty()) name = "Style " + std::to_string(appearance);
+                BarberStyleOption option{dbc->getUInt32(row, 0),
+                                         static_cast<uint8_t>(appearance), std::move(name)};
+                switch (dbc->getUInt32(row, 1)) {
+                    case 0: barberHairStyles_.push_back(std::move(option)); break;
+                    case 2: barberFacialStyles_.push_back(std::move(option)); break;
+                    case 3: barberSkinStyles_.push_back(std::move(option)); break;
+                    default: break;
+                }
+            }
+        } else {
+            LOG_WARNING("Barber Shop: WotLK BarberShopStyle.dbc is unavailable or malformed");
+        }
+
+        auto baseCost = services_.assetManager->loadDBC("gtBarberShopCostBase.dbc");
+        if (baseCost && baseCost->isLoaded() && baseCost->getRecordCount() > 0) {
+            const uint32_t level = std::max<uint32_t>(1, ch->level);
+            const uint32_t row = std::min(level, baseCost->getRecordCount()) - 1;
+            barberBaseCost_ = baseCost->getFloat(row, 0);
+        } else {
+            barberBaseCost_ = 0.0f;
+        }
+    }
+
+    auto normalizeOptions = [](std::vector<BarberStyleOption>& options) {
+        std::sort(options.begin(), options.end(), [](const auto& a, const auto& b) {
+            return a.appearanceId != b.appearanceId
+                ? a.appearanceId < b.appearanceId : a.entryId < b.entryId;
+        });
+        options.erase(std::unique(options.begin(), options.end(), [](const auto& a, const auto& b) {
+            return a.appearanceId == b.appearanceId;
+        }), options.end());
+    };
+    normalizeOptions(barberHairStyles_);
+    normalizeOptions(barberFacialStyles_);
+    if (barberSkinStyles_.size() > 1) {
+        std::sort(barberSkinStyles_.begin() + 1, barberSkinStyles_.end(),
+                  [](const auto& a, const auto& b) { return a.appearanceId < b.appearanceId; });
+        barberSkinStyles_.erase(std::unique(barberSkinStyles_.begin() + 1,
+                                            barberSkinStyles_.end(),
+                                            [](const auto& a, const auto& b) {
+                                                return a.appearanceId == b.appearanceId;
+                                            }), barberSkinStyles_.end());
+    }
+
+    barberHairStyle_ = barberFindAppearance(barberHairStyles_, barberOrigHairStyle_);
+    barberFacialHair_ = barberFindAppearance(barberFacialStyles_, barberOrigFacialHair_);
+    barberSkinColor_ = 0;
+    rebuildBarberHairColors(barberOrigHairStyle_, barberOrigHairColor_, raceId, sexId);
+    barberPreviewSkin_ = barberPreviewHairStyle_ = barberPreviewHairColor_ =
+        barberPreviewFacialHair_ = -1;
+    barberInitialized_ = true;
+}
+
+WindowManager::BarberSelection WindowManager::barberSelection(game::GameHandler& gameHandler) {
+    BarberSelection out;
+    ensureBarberState(gameHandler);
+    const auto* ch = gameHandler.getActiveCharacter();
+    if (!ch) return out;
+    const uint32_t raceId = static_cast<uint32_t>(ch->race);
+    const uint32_t sexId = (ch->gender == game::Gender::FEMALE || ch->useFemaleModel) ? 1u : 0u;
+
+    out.hairStyle = barberSelectedAppearance(barberHairStyles_, barberHairStyle_,
+                                             barberOrigHairStyle_);
+    // The colours on offer depend on the hair style, so a style change has to
+    // rebuild them before the colour selection can be read back.
+    if (out.hairStyle != barberColorsForHairStyle_) {
+        const uint8_t previousColor =
+            barberHairColor_ >= 0 && barberHairColor_ < static_cast<int>(barberHairColors_.size())
+                ? barberHairColors_[static_cast<size_t>(barberHairColor_)] : barberOrigHairColor_;
+        rebuildBarberHairColors(out.hairStyle, previousColor, raceId, sexId);
+    }
+    out.hairColor = barberHairColor_ >= 0 &&
+                    barberHairColor_ < static_cast<int>(barberHairColors_.size())
+        ? barberHairColors_[static_cast<size_t>(barberHairColor_)] : barberOrigHairColor_;
+    out.facialHair = barberSelectedAppearance(barberFacialStyles_, barberFacialHair_,
+                                              barberOrigFacialHair_);
+    out.skin = barberSelectedAppearance(barberSkinStyles_, barberSkinColor_,
+                                        barberOrigSkinColor_);
+    return out;
+}
+
+uint32_t WindowManager::barberTotalCostCopper(game::GameHandler& gameHandler) {
+    const BarberSelection sel = barberSelection(gameHandler);
+    float cost = 0.0f;
+    if (sel.hairStyle != barberOrigHairStyle_)      cost += barberBaseCost_;
+    else if (sel.hairColor != barberOrigHairColor_) cost += barberBaseCost_ * 0.5f;
+    if (sel.facialHair != barberOrigFacialHair_)    cost += barberBaseCost_ * 0.75f;
+    if (sel.skin != barberOrigSkinColor_)           cost += barberBaseCost_ * 0.75f;
+    return static_cast<uint32_t>(cost);
+}
+
+void WindowManager::barberResetSelections(game::GameHandler& gameHandler) {
+    ensureBarberState(gameHandler);
+    const auto* ch = gameHandler.getActiveCharacter();
+    if (!ch) return;
+    const uint32_t raceId = static_cast<uint32_t>(ch->race);
+    const uint32_t sexId = (ch->gender == game::Gender::FEMALE || ch->useFemaleModel) ? 1u : 0u;
+    barberHairStyle_ = barberFindAppearance(barberHairStyles_, barberOrigHairStyle_);
+    barberFacialHair_ = barberFindAppearance(barberFacialStyles_, barberOrigFacialHair_);
+    barberSkinColor_ = 0;
+    rebuildBarberHairColors(barberOrigHairStyle_, barberOrigHairColor_, raceId, sexId);
+}
+
+void WindowManager::barberApplySelection(game::GameHandler& gameHandler) {
+    ensureBarberState(gameHandler);
+    const BarberSelection sel = barberSelection(gameHandler);
+    // The server is sent BarberShopStyle.dbc entry ids, not the appearance
+    // numbers the preview uses - the two are different numbering spaces and
+    // only the entry id means anything on the wire.
+    auto entryOf = [](const std::vector<BarberStyleOption>& options, int index) {
+        return index >= 0 && index < static_cast<int>(options.size())
+            ? options[static_cast<size_t>(index)].entryId : 0u;
+    };
+    gameHandler.sendAlterAppearance(entryOf(barberHairStyles_, barberHairStyle_),
+                                    sel.hairColor,
+                                    entryOf(barberFacialStyles_, barberFacialHair_),
+                                    entryOf(barberSkinStyles_, barberSkinColor_));
+}
+
+bool WindowManager::barberStyleInfo(game::GameHandler& gameHandler, int selector,
+                                    std::string& name, bool& isCurrent) {
+    ensureBarberState(gameHandler);
+    const BarberSelection sel = barberSelection(gameHandler);
+    switch (selector) {
+        case 1:
+            if (barberHairStyle_ < 0 ||
+                barberHairStyle_ >= static_cast<int>(barberHairStyles_.size())) return false;
+            name = barberHairStyles_[static_cast<size_t>(barberHairStyle_)].name;
+            isCurrent = sel.hairStyle == barberOrigHairStyle_;
+            return true;
+        case 2: {
+            if (barberHairColor_ < 0 ||
+                barberHairColor_ >= static_cast<int>(barberHairColors_.size())) return false;
+            // The colours have no names of their own in the data, so they are
+            // numbered the way the character creation screen numbers them.
+            name = "Color " + std::to_string(barberHairColor_ + 1);
+            isCurrent = sel.hairColor == barberOrigHairColor_;
+            return true;
+        }
+        case 3:
+            if (barberFacialHair_ < 0 ||
+                barberFacialHair_ >= static_cast<int>(barberFacialStyles_.size())) return false;
+            name = barberFacialStyles_[static_cast<size_t>(barberFacialHair_)].name;
+            isCurrent = sel.facialHair == barberOrigFacialHair_;
+            return true;
+        case 4:
+            if (barberSkinColor_ < 0 ||
+                barberSkinColor_ >= static_cast<int>(barberSkinStyles_.size())) return false;
+            name = barberSkinStyles_[static_cast<size_t>(barberSkinColor_)].name;
+            isCurrent = sel.skin == barberOrigSkinColor_;
+            return true;
+        default:
+            return false;
+    }
+}
+
+void WindowManager::barberCycleStyle(game::GameHandler& gameHandler, int selector,
+                                     int direction) {
+    ensureBarberState(gameHandler);
+    const int step = direction >= 0 ? 1 : -1;
+    auto advance = [step](int& index, size_t count) {
+        if (count == 0) { index = -1; return; }
+        const int n = static_cast<int>(count);
+        index = ((index < 0 ? 0 : index) + step % n + n) % n;
+    };
+    switch (selector) {
+        case 1: advance(barberHairStyle_, barberHairStyles_.size()); break;
+        case 2: advance(barberHairColor_, barberHairColors_.size()); break;
+        case 3: advance(barberFacialHair_, barberFacialStyles_.size()); break;
+        case 4: advance(barberSkinColor_, barberSkinStyles_.size()); break;
+        default: break;
+    }
+    // Re-resolve so a hair style change rebuilds the colours behind it.
+    barberSelection(gameHandler);
+}
+
 void WindowManager::renderBarberShopWindow(game::GameHandler& gameHandler) {
     if (!gameHandler.isBarberShopOpen()) {
         barberInitialized_ = false;
@@ -1981,132 +2249,14 @@ void WindowManager::renderBarberShopWindow(game::GameHandler& gameHandler) {
     const auto* ch = gameHandler.getActiveCharacter();
     if (!ch) return;
 
-    const uint32_t raceId = static_cast<uint32_t>(ch->race);
-    const uint32_t sexId = (ch->gender == game::Gender::FEMALE || ch->useFemaleModel) ? 1u : 0u;
-
-    auto selectedAppearance = [](const std::vector<BarberStyleOption>& options, int index,
-                                 uint8_t fallback) {
-        return index >= 0 && index < static_cast<int>(options.size())
-            ? options[static_cast<size_t>(index)].appearanceId : fallback;
-    };
     auto selectedEntry = [](const std::vector<BarberStyleOption>& options, int index) {
         return index >= 0 && index < static_cast<int>(options.size())
             ? options[static_cast<size_t>(index)].entryId : 0u;
     };
 
-    auto rebuildHairColors = [&](uint8_t hairStyle, uint8_t preferredColor) {
-        barberHairColors_.clear();
-        if (services_.assetManager) {
-            auto dbc = services_.assetManager->loadDBC("CharSections.dbc");
-            if (dbc && dbc->isLoaded()) {
-                const auto* layout = pipeline::getActiveDBCLayout()
-                    ? pipeline::getActiveDBCLayout()->getLayout("CharSections") : nullptr;
-                const auto fields = pipeline::detectCharSectionsFields(dbc.get(), layout);
-                for (uint32_t row = 0; row < dbc->getRecordCount(); ++row) {
-                    if (dbc->getUInt32(row, fields.raceId) != raceId ||
-                        dbc->getUInt32(row, fields.sexId) != sexId ||
-                        dbc->getUInt32(row, fields.baseSection) != 3 ||
-                        dbc->getUInt32(row, fields.variationIndex) != hairStyle) {
-                        continue;
-                    }
-                    const uint32_t color = dbc->getUInt32(row, fields.colorIndex);
-                    if (color <= 255) barberHairColors_.push_back(static_cast<uint8_t>(color));
-                }
-            }
-        }
-        std::sort(barberHairColors_.begin(), barberHairColors_.end());
-        barberHairColors_.erase(std::unique(barberHairColors_.begin(), barberHairColors_.end()),
-                                barberHairColors_.end());
-        const auto preferred = std::find(barberHairColors_.begin(), barberHairColors_.end(),
-                                         preferredColor);
-        barberHairColor_ = preferred == barberHairColors_.end()
-            ? (barberHairColors_.empty() ? -1 : 0)
-            : static_cast<int>(std::distance(barberHairColors_.begin(), preferred));
-        barberColorsForHairStyle_ = hairStyle;
-    };
-
-    // BarberShopStyle IDs, rather than the visible appearance numbers, are the
-    // wire values expected by a WotLK server. Build the race/sex-specific lists
-    // once each time the chair opens.
-    if (!barberInitialized_) {
-        barberOrigSkinColor_ = static_cast<uint8_t>(ch->appearanceBytes & 0xFF);
-        barberOrigHairStyle_ = static_cast<uint8_t>((ch->appearanceBytes >> 16) & 0xFF);
-        barberOrigHairColor_ = static_cast<uint8_t>((ch->appearanceBytes >> 24) & 0xFF);
-        barberOrigFacialHair_ = ch->facialFeatures;
-        barberHairStyles_.clear();
-        barberFacialStyles_.clear();
-        barberSkinStyles_.clear();
-        // Entry zero tells the server to retain the existing skin.
-        barberSkinStyles_.push_back({0, barberOrigSkinColor_, "Current"});
-
-        if (services_.assetManager) {
-            auto dbc = services_.assetManager->loadDBC("BarberShopStyle.dbc");
-            if (dbc && dbc->isLoaded() && dbc->getFieldCount() >= 40) {
-                for (uint32_t row = 0; row < dbc->getRecordCount(); ++row) {
-                    if (dbc->getUInt32(row, 37) != raceId || dbc->getUInt32(row, 38) != sexId)
-                        continue;
-                    const uint32_t appearance = dbc->getUInt32(row, 39);
-                    if (appearance > 255) continue;
-                    std::string name;
-                    for (uint32_t field = 2; field <= 17 && name.empty(); ++field)
-                        name = dbc->getString(row, field);
-                    if (name.empty()) name = "Style " + std::to_string(appearance);
-                    BarberStyleOption option{dbc->getUInt32(row, 0),
-                                             static_cast<uint8_t>(appearance), std::move(name)};
-                    switch (dbc->getUInt32(row, 1)) {
-                        case 0: barberHairStyles_.push_back(std::move(option)); break;
-                        case 2: barberFacialStyles_.push_back(std::move(option)); break;
-                        case 3: barberSkinStyles_.push_back(std::move(option)); break;
-                        default: break;
-                    }
-                }
-            } else {
-                LOG_WARNING("Barber Shop: WotLK BarberShopStyle.dbc is unavailable or malformed");
-            }
-
-            auto baseCost = services_.assetManager->loadDBC("gtBarberShopCostBase.dbc");
-            if (baseCost && baseCost->isLoaded() && baseCost->getRecordCount() > 0) {
-                const uint32_t level = std::max<uint32_t>(1, ch->level);
-                const uint32_t row = std::min(level, baseCost->getRecordCount()) - 1;
-                barberBaseCost_ = baseCost->getFloat(row, 0);
-            } else {
-                barberBaseCost_ = 0.0f;
-            }
-        }
-
-        auto normalizeOptions = [](std::vector<BarberStyleOption>& options) {
-            std::sort(options.begin(), options.end(), [](const auto& a, const auto& b) {
-                return a.appearanceId != b.appearanceId
-                    ? a.appearanceId < b.appearanceId : a.entryId < b.entryId;
-            });
-            options.erase(std::unique(options.begin(), options.end(), [](const auto& a, const auto& b) {
-                return a.appearanceId == b.appearanceId;
-            }), options.end());
-        };
-        normalizeOptions(barberHairStyles_);
-        normalizeOptions(barberFacialStyles_);
-        if (barberSkinStyles_.size() > 1) {
-            std::sort(barberSkinStyles_.begin() + 1, barberSkinStyles_.end(),
-                      [](const auto& a, const auto& b) { return a.appearanceId < b.appearanceId; });
-            barberSkinStyles_.erase(std::unique(barberSkinStyles_.begin() + 1,
-                                                barberSkinStyles_.end(),
-                                                [](const auto& a, const auto& b) {
-                                                    return a.appearanceId == b.appearanceId;
-                                                }), barberSkinStyles_.end());
-        }
-
-        auto findAppearance = [](const std::vector<BarberStyleOption>& options, uint8_t id) {
-            const auto it = std::find_if(options.begin(), options.end(),
-                                         [id](const auto& option) { return option.appearanceId == id; });
-            return it == options.end() ? -1 : static_cast<int>(std::distance(options.begin(), it));
-        };
-        barberHairStyle_ = findAppearance(barberHairStyles_, barberOrigHairStyle_);
-        barberFacialHair_ = findAppearance(barberFacialStyles_, barberOrigFacialHair_);
-        barberSkinColor_ = 0;
-        rebuildHairColors(barberOrigHairStyle_, barberOrigHairColor_);
-        barberPreviewSkin_ = barberPreviewHairStyle_ = barberPreviewHairColor_ =
-            barberPreviewFacialHair_ = -1;
-
+    const bool firstFrame = !barberInitialized_;
+    ensureBarberState(gameHandler);
+    if (firstFrame) {
         if (!barberPreview_ && services_.assetManager && services_.renderer) {
             barberPreview_ = std::make_unique<rendering::CharacterPreview>();
             if (barberPreview_->initialize(services_.assetManager)) {
@@ -2117,24 +2267,15 @@ void WindowManager::renderBarberShopWindow(game::GameHandler& gameHandler) {
                 barberPreview_.reset();
             }
         }
-        barberInitialized_ = true;
     }
 
-    const uint8_t hairStyle = selectedAppearance(barberHairStyles_, barberHairStyle_,
-                                                  barberOrigHairStyle_);
-    if (hairStyle != barberColorsForHairStyle_) {
-        const uint8_t previousColor = barberHairColor_ >= 0 &&
-                                      barberHairColor_ < static_cast<int>(barberHairColors_.size())
-            ? barberHairColors_[static_cast<size_t>(barberHairColor_)] : barberOrigHairColor_;
-        rebuildHairColors(hairStyle, previousColor);
-    }
-    const uint8_t hairColor = barberHairColor_ >= 0 &&
-                              barberHairColor_ < static_cast<int>(barberHairColors_.size())
-        ? barberHairColors_[static_cast<size_t>(barberHairColor_)] : barberOrigHairColor_;
-    const uint8_t facial = selectedAppearance(barberFacialStyles_, barberFacialHair_,
-                                               barberOrigFacialHair_);
-    const uint8_t skin = selectedAppearance(barberSkinStyles_, barberSkinColor_,
-                                             barberOrigSkinColor_);
+    // Resolves the selections and rebuilds the colour list when the hair style
+    // has moved, which is the same work the interface's own barber asks for.
+    const BarberSelection sel = barberSelection(gameHandler);
+    const uint8_t hairStyle = sel.hairStyle;
+    const uint8_t hairColor = sel.hairColor;
+    const uint8_t facial    = sel.facialHair;
+    const uint8_t skin      = sel.skin;
 
     if (barberPreview_ && (barberPreviewSkin_ != skin ||
                            barberPreviewHairStyle_ != hairStyle ||
@@ -2225,7 +2366,8 @@ void WindowManager::renderBarberShopWindow(game::GameHandler& gameHandler) {
             ImGui::EndCombo();
         }
 
-        const char* facialLabel = sexId == 1 ? "Piercings / Features" : "Facial Hair / Features";
+        const bool female = (ch->gender == game::Gender::FEMALE || ch->useFemaleModel);
+        const char* facialLabel = female ? "Piercings / Features" : "Facial Hair / Features";
         styleCombo(facialLabel, barberFacialHair_, barberFacialStyles_);
         if (barberSkinStyles_.size() > 1)
             styleCombo("Skin Color", barberSkinColor_, barberSkinStyles_);
@@ -2269,25 +2411,14 @@ void WindowManager::renderBarberShopWindow(game::GameHandler& gameHandler) {
                 hairColor,
                 selectedEntry(barberFacialStyles_, barberFacialHair_),
                 selectedEntry(barberSkinStyles_, barberSkinColor_));
-            // Keep window open — server will respond with SMSG_BARBER_SHOP_RESULT
+            // Keep window open - server will respond with SMSG_BARBER_SHOP_RESULT
         }
         if (!changed || !canAfford) ImGui::EndDisabled();
 
         ImGui::SameLine();
         if (!changed) ImGui::BeginDisabled();
         if (ImGui::Button("Reset", ImVec2(btnW, 0))) {
-            auto findAppearance = [](const std::vector<BarberStyleOption>& options, uint8_t id) {
-                const auto it = std::find_if(options.begin(), options.end(),
-                                             [id](const auto& option) {
-                                                 return option.appearanceId == id;
-                                             });
-                return it == options.end() ? -1
-                    : static_cast<int>(std::distance(options.begin(), it));
-            };
-            barberHairStyle_ = findAppearance(barberHairStyles_, barberOrigHairStyle_);
-            barberFacialHair_ = findAppearance(barberFacialStyles_, barberOrigFacialHair_);
-            barberSkinColor_ = 0;
-            rebuildHairColors(barberOrigHairStyle_, barberOrigHairColor_);
+            barberResetSelections(gameHandler);
         }
         if (!changed) ImGui::EndDisabled();
 
@@ -2457,9 +2588,10 @@ void WindowManager::renderTaxiWindow(game::GameHandler& gameHandler) {
                 if (!taxiData.isNodeKnown(nodeId)) continue;
 
                 uint32_t costCopper = gameHandler.getTaxiCostTo(nodeId);
-                uint32_t gold = costCopper / 10000;
-                uint32_t silver = (costCopper / 100) % 100;
-                uint32_t copper = costCopper % 100;
+                const auto coins = game::splitCopper(costCopper);
+                const uint32_t gold = coins.gold;
+                const uint32_t silver = coins.silver;
+                const uint32_t copper = coins.copper;
 
                 ImGui::PushID(static_cast<int>(nodeId));
                 ImGui::TableNextRow();
@@ -2516,6 +2648,12 @@ void WindowManager::renderTaxiWindow(game::GameHandler& gameHandler) {
 
 void WindowManager::renderLogoutCountdown(game::GameHandler& gameHandler) {
     if (!gameHandler.isLoggingOut()) return;
+    // FrameXML counts the same seconds down. uiparent.lua raises the CAMP and
+    // QUIT popups from PLAYER_CAMPING and PLAYER_QUITING, both of which this
+    // client fires from social_handler, and "dialogs" has been handed over
+    // since the branch started - so every /logout put two countdowns on
+    // screen, one above the other.
+    if (frameXmlOwns(UiElement::Dialogs)) return;
 
     auto* window = services_.window;
     float screenW = window ? static_cast<float>(window->getWidth())  : 1280.0f;
@@ -2555,7 +2693,7 @@ void WindowManager::renderLogoutCountdown(game::GameHandler& gameHandler) {
             ImGui::Spacing();
         }
 
-        // Cancel button — only while countdown is still running
+        // Cancel button - only while countdown is still running
         if (cd > 0.0f) {
             float btnW = 100.0f;
             ImGui::SetCursorPosX((W - btnW) * 0.5f);
@@ -2599,6 +2737,12 @@ void WindowManager::renderDeathScreen(game::GameHandler& gameHandler) {
         ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoFocusOnAppearing);
     ImGui::End();
     ImGui::PopStyleColor();
+
+    // The prompt below is FrameXML's StaticPopup "DEATH", raised from
+    // PLAYER_DEAD which this client fires. The red wash above it is not - WoW
+    // desaturates the screen from C, so nothing on FrameXML's side draws it and
+    // it stays whoever owns the dialogs.
+    if (frameXmlOwns(UiElement::Dialogs)) return;
 
     // "Release Spirit" dialog centered on screen
     const bool hasSelfRes = gameHandler.canSelfRes();
@@ -2674,6 +2818,9 @@ void WindowManager::renderDeathScreen(game::GameHandler& gameHandler) {
 
 void WindowManager::renderReclaimCorpseButton(game::GameHandler& gameHandler) {
     if (!gameHandler.isPlayerGhost() || !gameHandler.canReclaimCorpse()) return;
+    // StaticPopup "RECOVER_CORPSE" now has the CORPSE_IN_RANGE edge it needs,
+    // so the prompt appears on FrameXML's side and this one steps aside.
+    if (frameXmlOwns(UiElement::Dialogs)) return;
 
     auto* window = services_.window;
     float screenW = window ? static_cast<float>(window->getWidth()) : 1280.0f;
@@ -2963,7 +3110,7 @@ void WindowManager::renderMailWindow(game::GameHandler& gameHandler,
                             inventoryScreen.renderItemTooltip(*info);
                         if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Left) &&
                             ImGui::GetIO().KeyShift && info && info->valid && !info->name.empty()) {
-                            std::string link = buildItemChatLink(info->entry, info->quality, info->name);
+                            std::string link = game::itemChatLink(info->entry, info->quality, info->name);
                             chatPanel.insertChatLink(link);
                         }
                         ImGui::SameLine();
@@ -2972,7 +3119,7 @@ void WindowManager::renderMailWindow(game::GameHandler& gameHandler,
                             inventoryScreen.renderItemTooltip(*info);
                         if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Left) &&
                             ImGui::GetIO().KeyShift && info && info->valid && !info->name.empty()) {
-                            std::string link = buildItemChatLink(info->entry, info->quality, info->name);
+                            std::string link = game::itemChatLink(info->entry, info->quality, info->name);
                             chatPanel.insertChatLink(link);
                         }
                         ImGui::SameLine();
@@ -3214,6 +3361,19 @@ bool WindowManager::renderBankWindow(game::GameHandler& gameHandler,
             ImGui::InvisibleButton("slot", ImVec2(SLOT_SIZE, SLOT_SIZE));
             if (isHolding && ImGui::IsItemHovered() && ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
                 inventoryScreen.dropIntoBankSlot(gameHandler, dstBag, dstSlot);
+            } else if (!isHolding && ImGui::IsItemHovered() &&
+                       ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
+                // Dropped out of a handed-over bag. FrameXML picked it up, so
+                // InventoryScreen knows nothing about it - its own held item is
+                // empty and the branch above never runs. The source arrives in
+                // the same flat slot space dropIntoBankSlot converts to, so the
+                // swap is the same one.
+                uint8_t srcBag = 0, srcSlot = 0;
+                if (frameXmlCursorWireSlot(srcBag, srcSlot) &&
+                    !(srcBag == dstBag && srcSlot == dstSlot)) {
+                    gameHandler.swapContainerItems(srcBag, srcSlot, dstBag, dstSlot);
+                    frameXmlPutCursorDown();
+                }
             }
         } else {
             const auto& item = slot.item;
@@ -3291,12 +3451,12 @@ bool WindowManager::renderBankWindow(game::GameHandler& gameHandler,
                     uint8_t srcBag = 0xFF;
                     uint8_t srcSlot = 0;
                     if (pickType == 1) {
-                        srcBag = static_cast<uint8_t>(67 + bagIdx);
+                        srcBag = static_cast<uint8_t>(game::slots::bankBagContainer(bagIdx));
                         srcSlot = static_cast<uint8_t>(bagSlotIdx);
                     } else if (pickType == 2) {
-                        srcSlot = static_cast<uint8_t>(67 + mainIdx);
+                        srcSlot = static_cast<uint8_t>(game::slots::bankBagWireSlot(mainIdx));
                     } else { // pickType == 0: main bank slot
-                        srcSlot = static_cast<uint8_t>(39 + mainIdx);
+                        srcSlot = static_cast<uint8_t>(game::slots::bankGeneralWireSlot(mainIdx));
                     }
                     gameHandler.withdrawItem(srcBag, srcSlot);
                 }
@@ -3327,7 +3487,7 @@ bool WindowManager::renderBankWindow(game::GameHandler& gameHandler,
                         : static_cast<uint8_t>(item.quality);
                     const std::string& lname = (info2 && info2->valid && !info2->name.empty())
                         ? info2->name : item.name;
-                    std::string link = buildItemChatLink(item.itemId, q, lname);
+                    std::string link = game::itemChatLink(item.itemId, q, lname);
                     chatPanel.insertChatLink(link);
                 }
             }
@@ -3446,7 +3606,7 @@ bool WindowManager::renderBankWindow(game::GameHandler& gameHandler,
         }
     }
 
-    // Bank bag equip slots — show bag icon with pickup/drop, or a "Buy" button with its price.
+    // Bank bag equip slots - show bag icon with pickup/drop, or a "Buy" button with its price.
     ImGui::Spacing();
     ImGui::Separator();
     ImGui::Text("Bank Bags");
@@ -3536,9 +3696,10 @@ void WindowManager::renderGuildBankWindow(game::GameHandler& gameHandler,
     uint8_t activeTab = gameHandler.getGuildBankActiveTab();
 
     // Money display
-    uint32_t gold = static_cast<uint32_t>(data.money / 10000);
-    uint32_t silver = static_cast<uint32_t>((data.money / 100) % 100);
-    uint32_t copper = static_cast<uint32_t>(data.money % 100);
+    const auto coins = game::splitCopper(data.money);
+    const uint32_t gold = coins.gold;
+    const uint32_t silver = coins.silver;
+    const uint32_t copper = coins.copper;
     ImGui::TextDisabled("Guild Bank Money:"); ImGui::SameLine(0, 4);
     renderCoinsText(gold, silver, copper);
 
@@ -3568,7 +3729,7 @@ void WindowManager::renderGuildBankWindow(game::GameHandler& gameHandler,
 
     // Fixed 98-slot tab grid (14 columns × 7 rows). The server sends only the
     // slots it has data for (often just the occupied ones, and nothing for an
-    // empty tab), so render every slot and look items up by slotId — otherwise
+    // empty tab), so render every slot and look items up by slotId - otherwise
     // an empty or sparsely-populated tab showed no slots at all.
     constexpr float GB_SLOT = 34.0f;
     constexpr int kGuildTabSlots = 98;
@@ -3644,7 +3805,7 @@ void WindowManager::renderGuildBankWindow(game::GameHandler& gameHandler,
                 if (ImGui::IsMouseClicked(ImGuiMouseButton_Left) && ImGui::GetIO().KeyShift
                     && !name.empty() && item.itemEntry != 0) {
                     uint8_t q = static_cast<uint8_t>(quality);
-                    std::string link = buildItemChatLink(item.itemEntry, q, name);
+                    std::string link = game::itemChatLink(item.itemEntry, q, name);
                     chatPanel.insertChatLink(link);
                 }
             }
@@ -3799,53 +3960,20 @@ void WindowManager::renderAuctionHouseWindow(game::GameHandler& gameHandler,
         // Browse tab - Search filters
 
         // --- Helper: resolve current UI filter state into wire-format search params ---
-        // WoW 3.3.5a item class IDs:
-        //   0=Consumable, 1=Container, 2=Weapon, 3=Gem, 4=Armor,
-        //   7=Projectile/TradeGoods, 9=Recipe, 11=Quiver, 15=Miscellaneous
-        struct AHClassMapping { const char* label; uint32_t classId; };
-        static const AHClassMapping classMappings[] = {
-            {"All",         0xFFFFFFFF},
-            {"Weapon",      2},
-            {"Armor",       4},
-            {"Container",   1},
-            {"Consumable",  0},
-            {"Trade Goods", 7},
-            {"Gem",         3},
-            {"Recipe",      9},
-            {"Quiver",      11},
-            {"Miscellaneous", 15},
-        };
-        static constexpr int NUM_CLASSES = 10;
-
-        // Weapon subclass IDs (WoW 3.3.5a)
-        struct AHSubMapping { const char* label; uint32_t subId; };
-        static const AHSubMapping weaponSubs[] = {
-            {"All", 0xFFFFFFFF}, {"Axe (1H)", 0}, {"Axe (2H)", 1}, {"Bow", 2},
-            {"Gun", 3}, {"Mace (1H)", 4}, {"Mace (2H)", 5}, {"Polearm", 6},
-            {"Sword (1H)", 7}, {"Sword (2H)", 8}, {"Staff", 10},
-            {"Fist Weapon", 13}, {"Dagger", 15}, {"Thrown", 16},
-            {"Crossbow", 18}, {"Wand", 19},
-        };
-        static constexpr int NUM_WEAPON_SUBS = 16;
-
-        // Armor subclass IDs
-        static const AHSubMapping armorSubs[] = {
-            {"All", 0xFFFFFFFF}, {"Cloth", 1}, {"Leather", 2}, {"Mail", 3},
-            {"Plate", 4}, {"Shield", 6}, {"Miscellaneous", 0},
-        };
-        static constexpr int NUM_ARMOR_SUBS = 7;
-
-        // Equipment-slot (inventory type) IDs — a server-side filter carried in
-        // the CMSG_AUCTION_LIST_ITEMS auctionSlotID field.
-        struct AHSlotMapping { const char* label; uint32_t invType; };
-        static const AHSlotMapping slotMappings[] = {
-            {"All Slots", 0xFFFFFFFF}, {"Head", 1}, {"Neck", 2}, {"Shoulder", 3},
-            {"Chest", 5}, {"Waist", 6}, {"Legs", 7}, {"Feet", 8}, {"Wrist", 9},
-            {"Hands", 10}, {"Finger", 11}, {"Trinket", 12}, {"Back", 16},
-            {"One-Hand", 13}, {"Two-Hand", 17}, {"Main Hand", 21}, {"Off Hand", 22},
-            {"Ranged", 26}, {"Shield", 14}, {"Held Off-hand", 23}, {"Relic", 28},
-        };
-        static constexpr int NUM_AH_SLOTS = 21;
+        //
+        // The tables moved to game/auction_filters.hpp when FrameXML's own
+        // filter column needed the identical lists: the index it hands back to
+        // QueryAuctionItems has to mean the same thing on the way in as it did
+        // on the way out, and two copies of a list whose positions are the
+        // protocol drift silently.
+        const auto* classMappings = game::kAuctionClasses;
+        constexpr int NUM_CLASSES = game::kNumAuctionClasses;
+        const auto* weaponSubs = game::kAuctionWeaponSubs;
+        constexpr int NUM_WEAPON_SUBS = game::kNumAuctionWeaponSubs;
+        const auto* armorSubs = game::kAuctionArmorSubs;
+        constexpr int NUM_ARMOR_SUBS = game::kNumAuctionArmorSubs;
+        const auto* slotMappings = game::kAuctionSlots;
+        constexpr int NUM_AH_SLOTS = game::kNumAuctionSlots;
 
         auto getSearchClassId = [&]() -> uint32_t {
             if (auctionItemClass_ < 0 || auctionItemClass_ >= NUM_CLASSES) return 0xFFFFFFFF;
@@ -3855,7 +3983,7 @@ void WindowManager::renderAuctionHouseWindow(game::GameHandler& gameHandler,
         auto getSearchSubClassId = [&]() -> uint32_t {
             if (auctionItemSubClass_ < 0) return 0xFFFFFFFF;
             // Stored value is the list row minus 1 (row 0 is "All" → -1), so
-            // shift back when indexing — indexing with the stored value
+            // shift back when indexing - indexing with the stored value
             // directly returned the previous row (2H swords queried as 1H).
             int row = auctionItemSubClass_ + 1;
             uint32_t cid = getSearchClassId();
@@ -3901,7 +4029,7 @@ void WindowManager::renderAuctionHouseWindow(game::GameHandler& gameHandler,
 
                 uint32_t classId = classMappings[c].classId;
                 if (selected && (classId == 2 || classId == 4)) {
-                    const AHSubMapping* subs = (classId == 2) ? weaponSubs : armorSubs;
+                    const game::AuctionSubFilter* subs = (classId == 2) ? weaponSubs : armorSubs;
                     int numSubs = (classId == 2) ? NUM_WEAPON_SUBS : NUM_ARMOR_SUBS;
                     ImGui::Indent(14.0f);
                     for (int s = 0; s < numSubs; ++s) {
@@ -3982,7 +4110,7 @@ void WindowManager::renderAuctionHouseWindow(game::GameHandler& gameHandler,
         constexpr uint32_t AH_PAGE_SIZE = 50;
 
         // Client-side page filters (buyout-only / max price). These refine only
-        // the current server page — the server pages by 50, so this cannot see
+        // the current server page - the server pages by 50, so this cannot see
         // beyond it. The header reflects that distinction when a filter is on.
         auto passesClientFilter = [&](const game::AuctionEntry& a) -> bool {
             if (auctionBuyoutOnly_ && a.buyoutPrice == 0) return false;
@@ -4135,7 +4263,7 @@ void WindowManager::renderAuctionHouseWindow(game::GameHandler& gameHandler,
                     }
                     if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Left) &&
                         ImGui::GetIO().KeyShift && info && info->valid && !info->name.empty()) {
-                        std::string link = buildItemChatLink(info->entry, info->quality, info->name);
+                        std::string link = game::itemChatLink(info->entry, info->quality, info->name);
                         chatPanel.insertChatLink(link);
                     }
 
@@ -4316,8 +4444,7 @@ void WindowManager::renderAuctionHouseWindow(game::GameHandler& gameHandler,
             uint32_t buyoutCopper = static_cast<uint32_t>(auctionSellBuyout_[0]) * 10000
                                   + static_cast<uint32_t>(auctionSellBuyout_[1]) * 100
                                   + static_cast<uint32_t>(auctionSellBuyout_[2]);
-            const uint32_t durationMins[] = {720, 1440, 2880};
-            uint32_t dur = durationMins[auctionSellDuration_];
+            uint32_t dur = game::kAuctionDurationMinutes[auctionSellDuration_];
             gameHandler.auctionSellItemByGuid(sellSlot->item.guid, sellSlot->item.stackCount,
                                               bidCopper, buyoutCopper, dur);
             // Clear sell inputs
@@ -4375,7 +4502,7 @@ void WindowManager::renderAuctionHouseWindow(game::GameHandler& gameHandler,
                     inventoryScreen.renderItemTooltip(*info);
                 if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Left) &&
                     ImGui::GetIO().KeyShift && info && info->valid && !info->name.empty()) {
-                    std::string link = buildItemChatLink(info->entry, info->quality, info->name);
+                    std::string link = game::itemChatLink(info->entry, info->quality, info->name);
                     chatPanel.insertChatLink(link);
                 }
                 ImGui::TableSetColumnIndex(1);
@@ -4449,7 +4576,7 @@ void WindowManager::renderAuctionHouseWindow(game::GameHandler& gameHandler,
                     inventoryScreen.renderItemTooltip(*info);
                 if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Left) &&
                     ImGui::GetIO().KeyShift && info && info->valid && !info->name.empty()) {
-                    std::string link = buildItemChatLink(info->entry, info->quality, info->name);
+                    std::string link = game::itemChatLink(info->entry, info->quality, info->name);
                     chatPanel.insertChatLink(link);
                 }
                 ImGui::TableSetColumnIndex(1);
@@ -4523,7 +4650,7 @@ void WindowManager::renderInstanceLockouts(game::GameHandler& gameHandler) {
             for (const auto& lo : lockouts) {
                 ImGui::TableNextRow();
 
-                // Instance name — use GameHandler's Map.dbc cache (avoids duplicate DBC load)
+                // Instance name - use GameHandler's Map.dbc cache (avoids duplicate DBC load)
                 ImGui::TableSetColumnIndex(0);
                 std::string mapName = gameHandler.getMapName(lo.mapId);
                 if (!mapName.empty()) {
@@ -4617,15 +4744,11 @@ VkDescriptorSet WindowManager::getAchievementIcon(uint32_t spellIconId) {
     // Rate-limit GPU uploads per frame to avoid a stall when the list first scrolls
     // into view with many uncached icons; leave uncached (do NOT store null) so a
     // later frame retries.
-    static int achLoadsThisFrame = 0;
-    static int achLastFrame = -1;
-    int curFrame = ImGui::GetFrameCount();
-    if (curFrame != achLastFrame) { achLoadsThisFrame = 0; achLastFrame = curFrame; }
-    if (achLoadsThisFrame >= 6) return VK_NULL_HANDLE;
+    if (!claimUiTextureUpload()) return VK_NULL_HANDLE;
 
     auto pit = achievementIconPaths_.find(spellIconId);
     if (pit == achievementIconPaths_.end()) {
-        achievementIconCache_[spellIconId] = VK_NULL_HANDLE;  // no such icon — cache the miss
+        achievementIconCache_[spellIconId] = VK_NULL_HANDLE;  // no such icon - cache the miss
         return VK_NULL_HANDLE;
     }
 
@@ -4636,9 +4759,8 @@ VkDescriptorSet WindowManager::getAchievementIcon(uint32_t spellIconId) {
 
     auto* window = services_.window;
     auto* vkCtx = window ? window->getVkContext() : nullptr;
-    if (!vkCtx) return VK_NULL_HANDLE;  // no context yet — retry next frame
+    if (!vkCtx) return VK_NULL_HANDLE;  // no context yet - retry next frame
 
-    ++achLoadsThisFrame;
     VkDescriptorSet ds = vkCtx->uploadImGuiTexture(image.data.data(), image.width, image.height);
     achievementIconCache_[spellIconId] = ds;
     return ds;
@@ -5083,6 +5205,12 @@ void WindowManager::renderTitlesWindow(game::GameHandler& gameHandler) {
 }
 
 // ─── Equipment Set Manager Window ─────────────────────────────────────────────
+// Nothing sets showEquipSetWindow_ true, anywhere - this window has no way to
+// be opened and never draws. Left rather than removed because the equipment-set
+// packets it reads were repaired this week and FrameXML's GearManagerDialog is
+// the path that reaches them now: the manager is behind the equipmentManager
+// CVar, which the interface options can set and which persists since cvars.cfg
+// exists. If this client ever wants its own again, the window is here.
 void WindowManager::renderEquipSetWindow(game::GameHandler& gameHandler) {
     if (!showEquipSetWindow_) return;
 

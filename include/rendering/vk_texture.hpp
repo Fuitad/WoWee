@@ -48,8 +48,6 @@ public:
         VkSamplerAddressMode addressModeV,
         float maxAnisotropy = 16.0f);
 
-    // Create a comparison sampler (for shadow mapping)
-    bool createShadowSampler(VkDevice device);
 
     void destroy(VkDevice device, VmaAllocator allocator);
 

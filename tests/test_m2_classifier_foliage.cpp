@@ -9,7 +9,7 @@ using wowee::rendering::classifyM2Model;
 namespace {
 
 // Bounds and counts stand in for a mid-size doodad. None of the cases below
-// turn on geometry — they are all decided by the name — but the classifier
+// turn on geometry - they are all decided by the name - but the classifier
 // needs something plausible to reason about.
 wowee::rendering::M2ClassificationResult classify(const std::string& name,
                                                   float horiz = 3.0f,
@@ -28,7 +28,7 @@ wowee::rendering::M2ClassificationResult classify(const std::string& name,
 TEST_CASE("rigid props whose names contain a foliage token do not sway",
           "[m2][classifier][foliage]") {
     SECTION("zone name inside the filename") {
-        // "thorn" inside Stranglethorn — the Stranglethorn Vale troll ruins.
+        // "thorn" inside Stranglethorn - the Stranglethorn Vale troll ruins.
         for (const char* n : {"STRANGLETHORNRUINS01", "StranglethornRuins14",
                               "stranglethornruins21", "StranglethornRuins_Pylon",
                               "StranglethornCliffRock02"}) {
@@ -98,7 +98,7 @@ TEST_CASE("a ruin misread as foliage would also lose its collision",
 }
 
 // isForge forces the batch additive, so a false positive renders a solid model
-// as glowing translucent VFX — the same failure the Steam Tank had.
+// as glowing translucent VFX - the same failure the Steam Tank had.
 TEST_CASE("only an actual forge is treated as forge fire", "[m2][classifier][forge]") {
     SECTION("the city of Ironforge is not a forge") {
         for (const char* n : {"IronforgeBench_Average01", "IronforgeStatue_01",
@@ -135,7 +135,7 @@ TEST_CASE("only an actual forge is treated as forge fire", "[m2][classifier][for
 }
 
 TEST_CASE("Blizzard's own misspellings are foliage too", "[m2][classifier]") {
-    // WETLANDSSHURB09.M2 is a real path — "shurb", not "shrub" — and it is the
+    // WETLANDSSHURB09.M2 is a real path - "shurb", not "shrub" - and it is the
     // only spelling those models have. Reported as grass with cobwebs on it
     // that the player could not walk through.
     //
@@ -150,7 +150,7 @@ TEST_CASE("Blizzard's own misspellings are foliage too", "[m2][classifier]") {
     }
 }
 
-// The Rut'theran Village portal to Darnassus is TeleportTree.m2 — an archway
+// The Rut'theran Village portal to Darnassus is TeleportTree.m2 - an archway
 // you walk through, whose name ends in "tree". The file ships no collision
 // geometry at all (nBoundingTriangles = 0), so the real client lets you walk
 // straight in; our trunk-cylinder rule instead planted a solid block dead
@@ -191,7 +191,7 @@ TEST_CASE("a teleport arch is a doorway, not a tree", "[m2][classifier][collisio
 // inside the arch; its VFX identity is only in the DIRECTORY, and tokens are
 // matched on the basename, so "particleemitter" in kEffectTokens never fired.
 // Its real unscaled bounds (1.96 x 1.96 x 3.08) land inside genericSolid's
-// window, so it became a solid prop — and the doodad is placed at scale 10.69,
+// window, so it became a solid prop - and the doodad is placed at scale 10.69,
 // making a ~21 x 21 x 33 unit block of solid nothing over the portal.
 TEST_CASE("models under PARTICLEEMITTERS are VFX, not props",
           "[m2][classifier][collision]") {

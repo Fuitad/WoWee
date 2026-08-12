@@ -1,5 +1,6 @@
-// zone_highlight_layer.cpp — Continent view zone rectangles + hover effects.
+// zone_highlight_layer.cpp - Continent view zone rectangles + hover effects.
 // Extracted from WorldMap::renderZoneHighlights (Phase 8 of refactoring plan).
+#include "rendering/imgui_texture.hpp"
 #include "rendering/world_map/layers/zone_highlight_layer.hpp"
 #include "rendering/world_map/coordinate_projection.hpp"
 #include "rendering/vk_texture.hpp"
@@ -106,30 +107,13 @@ void ZoneHighlightLayer::ensureHighlight(const std::string& key,
         }
     }
 
-    VkDevice device = vkCtx_->getDevice();
-
-    auto tex = std::make_unique<VkTexture>();
-    if (!tex->upload(*vkCtx_, blpImage.data.data(), blpImage.width, blpImage.height,
-                     VK_FORMAT_R8G8B8A8_UNORM, false)) {
+    auto loaded = makeImGuiTexture(*vkCtx_, blpImage);
+    if (!loaded) {
         missingHighlights_.insert(key);
         return;
     }
-    if (!tex->createSampler(device, VK_FILTER_LINEAR, VK_FILTER_LINEAR,
-                            VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, 1.0f)) {
-        tex->destroy(device, vkCtx_->getAllocator());
-        missingHighlights_.insert(key);
-        return;
-    }
-
-    VkDescriptorSet ds = ImGui_ImplVulkan_AddTexture(
-        tex->getSampler(), tex->getImageView(),
-        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-
-    if (!ds) {
-        tex->destroy(device, vkCtx_->getAllocator());
-        missingHighlights_.insert(key);
-        return;
-    }
+    auto tex = std::move(loaded.texture);
+    VkDescriptorSet ds = loaded.descriptorSet;
 
     HighlightEntry entry;
     entry.texture = std::move(tex);
@@ -151,10 +135,14 @@ void ZoneHighlightLayer::render(const LayerContext& ctx) {
     if (ctx.viewLevel != ViewLevel::CONTINENT || ctx.continentIdx < 0) return;
     if (!ctx.zones) return;
 
-    const auto& cont = (*ctx.zones)[ctx.continentIdx];
-    float cLeft = cont.bounds.locLeft, cRight = cont.bounds.locRight;
-    float cTop = cont.bounds.locTop, cBottom = cont.bounds.locBottom;
-    getContinentProjectionBounds(*ctx.zones, ctx.continentIdx, cLeft, cRight, cTop, cBottom);
+    // The same bounds every marker layer projects against. This spelled the
+    // fallback out instead - seeding the four from the continent's own bounds
+    // and letting the call leave them alone on failure - which is correct, and
+    // is the eleventh place to say so.
+    bool isContinent = false;
+    const ZoneBounds cb = projectionBoundsFor(*ctx.zones, ctx.continentIdx, isContinent);
+    const float cLeft = cb.locLeft, cRight = cb.locRight;
+    const float cTop = cb.locTop, cBottom = cb.locBottom;
     float cDenomU = cLeft - cRight;
     float cDenomV = cTop - cBottom;
 

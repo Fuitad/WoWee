@@ -7,6 +7,7 @@
 #include <chrono>
 #include <deque>
 #include <functional>
+#include <set>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -80,29 +81,13 @@ public:
                                    float flightBack, float turn, float pitch);
 
     // Movement flag queries
-    bool isPlayerRooted() const {
-        return (movementInfo.flags & static_cast<uint32_t>(MovementFlags::ROOT)) != 0;
-    }
-    bool isGravityDisabled() const {
-        return (movementInfo.flags & static_cast<uint32_t>(MovementFlags::LEVITATING)) != 0;
-    }
-    bool isFeatherFalling() const {
-        return (movementInfo.flags & static_cast<uint32_t>(MovementFlags::FEATHER_FALL)) != 0;
-    }
-    bool isWaterWalking() const {
-        return (movementInfo.flags & static_cast<uint32_t>(MovementFlags::WATER_WALK)) != 0;
-    }
-    bool isPlayerFlying() const {
-        const uint32_t flyMask = static_cast<uint32_t>(MovementFlags::CAN_FLY) |
-                                 static_cast<uint32_t>(MovementFlags::FLYING);
-        return (movementInfo.flags & flyMask) == flyMask;
-    }
-    bool isHovering() const {
-        return (movementInfo.flags & static_cast<uint32_t>(MovementFlags::HOVER)) != 0;
-    }
-    bool isSwimming() const {
-        return (movementInfo.flags & static_cast<uint32_t>(MovementFlags::SWIMMING)) != 0;
-    }
+    bool isPlayerRooted() const { return movementInfo.isPlayerRooted(); }
+    bool isGravityDisabled() const { return movementInfo.isGravityDisabled(); }
+    bool isFeatherFalling() const { return movementInfo.isFeatherFalling(); }
+    bool isWaterWalking() const { return movementInfo.isWaterWalking(); }
+    bool isPlayerFlying() const { return movementInfo.isPlayerFlying(); }
+    bool isHovering() const { return movementInfo.isHovering(); }
+    bool isSwimming() const { return movementInfo.isSwimming(); }
 
     // Taxi / Flight Paths
     bool isTaxiWindowOpen() const { return taxiWindowOpen_; }
@@ -326,6 +311,8 @@ private:
     bool taxiWindowOpen_ = false;
     ShowTaxiNodesData currentTaxiData_;
     uint64_t taxiNpcGuid_ = 0;
+    /// Triggers already reported as a near miss, so the log says it once.
+    std::set<uint32_t> nearMissLogged_;
     bool onTaxiFlight_ = false;
     std::string taxiDestName_;
     // Set in activateTaxi(); used by finishClientTaxiFlight() to snap to the

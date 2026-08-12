@@ -1,4 +1,5 @@
 #include "cli_project_inventory.hpp"
+#include "zone_manifest.hpp"
 
 #include "pipeline/wowee_model.hpp"
 #include <nlohmann/json.hpp>
@@ -31,14 +32,7 @@ bool consumeJsonFlag(int& i, int argc, char** argv) {
 // Walk every direct subdirectory of <projectDir> that contains a
 // zone.json. All five handlers below need this enumeration.
 std::vector<std::string> enumerateZones(const std::string& projectDir) {
-    std::vector<std::string> zones;
-    namespace fs = std::filesystem;
-    for (const auto& entry : fs::directory_iterator(projectDir)) {
-        if (!entry.is_directory()) continue;
-        if (!fs::exists(entry.path() / "zone.json")) continue;
-        zones.push_back(entry.path().string());
-    }
-    std::sort(zones.begin(), zones.end());
+    std::vector<std::string> zones = wowee::editor::projectZoneDirs(projectDir);
     return zones;
 }
 
@@ -346,7 +340,7 @@ int handleProjectAudio(int& i, int argc, char** argv) {
 int handleProjectTextures(int& i, int argc, char** argv) {
     // Per-zone WOM/texture counts + global deduped texture set
     // with usage counts. Helps answer "how many textures do I
-    // need to ship across the whole project?" — texture sharing
+    // need to ship across the whole project?" - texture sharing
     // across zones often makes the global set smaller than the
     // per-zone sum.
     std::string projectDir = argv[++i];

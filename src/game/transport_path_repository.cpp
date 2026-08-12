@@ -1,5 +1,5 @@
 // src/game/transport_path_repository.cpp
-// Owns and manages transport path data — DBC, taxi, and custom paths.
+// Owns and manages transport path data - DBC, taxi, and custom paths.
 // Ported from TransportManager (path management subset).
 #include "game/transport_path_repository.hpp"
 #include "core/coordinates.hpp"
@@ -131,11 +131,11 @@ uint32_t TransportPathRepository::pickFallbackMovingPath(uint32_t entry, uint32_
     // Zeppelins are client-animated and map to real zeppelin TransportAnimation paths.
     // The continent-crossing SHIPS (Maiden's Fancy, Bravery, Black Princess, and the
     // icebreakers) were previously remapped to Deeprun Tram paths (176080-176085) here
-    // — a straight ~2482-unit underground line — which sailed them underwater to
+    // - a straight ~2482-unit underground line - which sailed them underwater to
     // nowhere. Those ships are server-driven MO_TRANSPORT objects with no
     // TransportAnimation.dbc entry; they get their route from their taxi path
     // (GO template data[0] -> TaxiPathNode.dbc), assigned by the GO-query hook. So
-    // they are intentionally NOT listed here — a ship with no real/taxi path stays
+    // they are intentionally NOT listed here - a ship with no real/taxi path stays
     // docked rather than borrowing an unrelated route (see the looksLikeShip guard below).
     static const std::unordered_map<uint32_t, uint32_t> kEntryRemap = {
         {164871u, 193182u}, // The Thundercaller (zeppelin)
@@ -172,14 +172,14 @@ uint32_t TransportPathRepository::pickFallbackMovingPath(uint32_t entry, uint32_
         // Continent-crossing ships are server-driven MO_TRANSPORT objects: their
         // route comes from their taxi path (TaxiPathNode.dbc via GO template data[0]),
         // not from TransportAnimation.dbc. There is no correct TransportAnimation
-        // fallback for them — borrowing any (previously the Deeprun Tram paths) sent
+        // fallback for them - borrowing any (previously the Deeprun Tram paths) sent
         // them underwater. Return 0 so the ship stays docked until the GO-query hook
         // assigns its taxi path; never fabricate a path from an unrelated route.
         return 0;
     }
 
     // Zeppelins used to fall back to the first usable id in a candidate list,
-    // which is one route — so every zeppelin flew it. Three of them are already
+    // which is one route - so every zeppelin flew it. Three of them are already
     // remapped to 193182 above, and the display families cover five more ids, so
     // in practice the whole fleet traced the same line regardless of where it
     // spawned or where it was meant to go.
@@ -380,7 +380,7 @@ bool TransportPathRepository::loadTransportAnimationDBC(pipeline::AssetManager* 
             tramYMajor = (mx.y - mn.y) > (mx.x - mn.x);
             if (tramYMajor) {
                 LOG_INFO("Tram entry ", transportEntry,
-                         " uses Y-major local frame (WotLK export) — rotating to X-major");
+                         " uses Y-major local frame (WotLK export) - rotating to X-major");
             }
         }
         auto tramNormalize = [tramYMajor](const glm::vec3& p) {
@@ -396,7 +396,7 @@ bool TransportPathRepository::loadTransportAnimationDBC(pipeline::AssetManager* 
             // Skip waypoints where serverToCanonical zeroes nonzero inputs
             if ((pos.x != 0.0f || pos.y != 0.0f || pos.z != 0.0f) &&
                 (canonical.x == 0.0f && canonical.y == 0.0f && canonical.z == 0.0f)) {
-                LOG_ERROR("serverToCanonical ZEROED — skipping waypoint! entry=", transportEntry,
+                LOG_ERROR("serverToCanonical ZEROED - skipping waypoint! entry=", transportEntry,
                           " server=(", pos.x, ",", pos.y, ",", pos.z, ")",
                           " → canon=(", canonical.x, ",", canonical.y, ",", canonical.z, ")");
                 continue;
@@ -564,7 +564,7 @@ math::CatmullRomSpline TransportPathRepository::buildTaxiSegmentSpline(
         // harbour shuttle AND one map's slice of a continent route (nodes run
         // offshore-in -> dock -> offshore-out): the hull sails out, U-turns at the far
         // node, and sails back through its dock. It must NEVER hold stationary offshore
-        // for the time it "spends" on the other continent — a rider aboard experiences
+        // for the time it "spends" on the other continent - a rider aboard experiences
         // that hold as the boat sitting dead at sea. The real cross-continent handoff is
         // the server's SMSG_NEW_WORLD teleport at the offshore node, independent of this
         // client animation; the boat just keeps ferrying while it waits for passengers.
@@ -640,7 +640,7 @@ bool TransportPathRepository::loadTaxiPathNodeDBC(pipeline::AssetManager* assetM
     // A cross-continent route is split into one slice per map, and each slice is
     // animated on its own. Sized from its own nodes alone, a slice's cycle is far
     // shorter than the server's, so the boat completed several round trips of the
-    // Borean shore before the server's transfer came due — reported live as the
+    // Borean shore before the server's transfer came due - reported live as the
     // Kraken doing a couple of circuits instead of leaving.
     //
     // Measure the whole route first, across every map it touches, so a slice can
@@ -682,7 +682,7 @@ bool TransportPathRepository::loadTaxiPathNodeDBC(pipeline::AssetManager* assetM
         // Each map's slice is animated independently as a continuous there-and-back
         // ferry (see buildTaxiSegmentSpline). The cross-continent handoff is the server's
         // SMSG_NEW_WORLD teleport at the offshore node, not this client animation, so a
-        // slice must never park offshore waiting on the other map — that reads as the boat
+        // slice must never park offshore waiting on the other map - that reads as the boat
         // sitting dead at sea to anyone aboard. The surplus is spent at the pier instead,
         // where the boat is both plainly waiting and still boardable.
         const auto cycleIt = routeCycleMs.find(pathId);

@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Camera Presets catalog (.wcam) —
+// Wowee Open Camera Presets catalog (.wcam) -
 // novel format covering what vanilla WoW handled
 // with hard-coded camera profiles in the client's
 // CameraMgr (the standard third-person camera, the
@@ -21,7 +21,7 @@ namespace pipeline {
 // / Mounted / Vehicle / Cutscene / PhotoMode).
 //
 // Cross-references with previously-added formats:
-//   None directly — camera presets are
+//   None directly - camera presets are
 //   self-contained client-side configurations
 //   selected by the camera controller based on
 //   gameplay context.
@@ -34,31 +34,31 @@ namespace pipeline {
 //   entries (each):
 //     presetId (uint32)
 //     nameLen + name
-//     purposeKind (uint8)          — 0=Cinematic /
+//     purposeKind (uint8)          - 0=Cinematic /
 //                                     1=Combat /
 //                                     2=Mounted /
 //                                     3=Vehicle /
 //                                     4=Cutscene /
 //                                     5=PhotoMode
-//     motionDamping (uint8)        — 0..255 (0 =
+//     motionDamping (uint8)        - 0..255 (0 =
 //                                     instant
 //                                     follow / 255 =
 //                                     maximum lag)
 //     pad0 (uint16)
-//     fovDegrees (float)           — typical 60..90
-//     distanceFromTarget (float)   — meters from
+//     fovDegrees (float)           - typical 60..90
+//     distanceFromTarget (float)   - meters from
 //                                     focus point
-//     pitchDegrees (float)         — vertical angle
-//     yawOffsetDegrees (float)     — horizontal
+//     pitchDegrees (float)         - vertical angle
+//     yawOffsetDegrees (float)     - horizontal
 //                                     offset from
 //                                     character
 //                                     facing
-//     shoulderOffsetMeters (float) — over-shoulder
+//     shoulderOffsetMeters (float) - over-shoulder
 //                                     offset
 //                                     (negative =
 //                                     left, positive
 //                                     = right)
-//     focusBoneId (uint32)         — M2 bone index
+//     focusBoneId (uint32)         - M2 bone index
 //                                     (typical:
 //                                     0=root, 12=
 //                                     chest, 50=
@@ -97,7 +97,7 @@ struct WoweeCameraPresets {
 
     const Entry* findById(uint32_t presetId) const;
 
-    // Returns all presets of one purpose — used by
+    // Returns all presets of one purpose - used by
     // the camera controller when context changes
     // (e.g. entering a vehicle picks the first
     // Vehicle-purpose preset).
@@ -113,20 +113,20 @@ public:
 
     // Preset emitters used by --gen-cam* variants.
     //
-    //   makeCombatPresets — 3 combat camera variants
+    //   makeCombatPresets - 3 combat camera variants
     //                        (default 75 FOV / wide
     //                        90 FOV ranged-DPS / tight
     //                        60 FOV melee shoulder-
     //                        cam). Low motion damping
     //                        (10) for responsive
     //                        tracking.
-    //   makeMountedPresets — 2 mounted-camera variants
+    //   makeMountedPresets - 2 mounted-camera variants
     //                        (ground-mount slightly-
     //                        pulled-back vs flying-
     //                        mount higher pitch).
     //                        Medium damping (60) for
     //                        smooth turning.
-    //   makeCinematicPresets — 3 cinematic angles
+    //   makeCinematicPresets - 3 cinematic angles
     //                          (over-shoulder dialogue
     //                          / wide establishing
     //                          / close-up portrait).

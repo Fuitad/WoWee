@@ -1,6 +1,6 @@
 FROM ubuntu:24.04
 
-# Windows cross-compile using LLVM-MinGW — best-in-class Clang/LLD toolchain
+# Windows cross-compile using LLVM-MinGW - best-in-class Clang/LLD toolchain
 # targeting x86_64-w64-mingw32. Produces native .exe/.dll without MSVC or Wine.
 # LLVM-MinGW ships: clang, clang++, lld, libc++ / libunwind headers, winpthreads.
 
@@ -56,7 +56,7 @@ RUN apt-get update && \
 
 # Provide a no-op powershell.exe so vcpkg's MinGW applocal post-build hook
 # exits cleanly.  The x64-mingw-static triplet is fully static (no DLLs to
-# copy), so the script has nothing to do — it just needs to not fail.
+# copy), so the script has nothing to do - it just needs to not fail.
 RUN printf '#!/bin/sh\nexit 0\n' > /usr/local/bin/powershell.exe && \
     chmod +x /usr/local/bin/powershell.exe
 

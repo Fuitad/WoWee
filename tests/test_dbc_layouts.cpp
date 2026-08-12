@@ -111,7 +111,7 @@ TEST_CASE("Spell field indices are distinct", "[dbc][layout]") {
 
 // CharacterFacialHairStyles drives the three facial-feature geoset channels: a
 // beard, and for races like the Draenei the face tendrils. The geoset columns
-// are not where the obvious reading of the WotLK definition puts them — in every
+// are not where the obvious reading of the WotLK definition puts them - in every
 // copy of the DBC shipped here, columns 3-5 hold a constant per race and the
 // variant numbers are at 6-8. Reading 3-5 yields values like 2010429269, which
 // match no geoset in any model, so every character silently lost their facial
@@ -149,7 +149,7 @@ TEST_CASE("CharacterFacialHairStyles geoset columns hold plausible variants",
 
 // ── Update-field indices ────────────────────────────────────────────────────
 
-// These are read straight out of the wire, so a wrong index does not fail — it
+// These are read straight out of the wire, so a wrong index does not fail - it
 // quietly reports whatever field happens to sit there. UNIT_FIELD_CRITTER is the
 // only signal that a non-combat companion is out (it has no aura), and the
 // dismiss toggle keys off it, so pin it against neighbours whose values are

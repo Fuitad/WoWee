@@ -1,0 +1,6 @@
+## Interface: 30300
+## Title: Wowee All Bags
+## Notes: Every bag in one window, with search and sorting.
+## Author: wowee
+
+WoweeAllBags.lua

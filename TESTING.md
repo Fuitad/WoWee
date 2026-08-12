@@ -13,7 +13,7 @@ This document covers everything needed to build, run, lint, and extend the WoWee
    - [Release Build (normal)](#release-build-normal)
    - [Debug + ASAN/UBSan Build](#debug--asanubsan-build)
 5. [Running Tests](#running-tests)
-   - [test.sh — the unified entry point](#testsh--the-unified-entry-point)
+   - [test.sh - the unified entry point](#testsh--the-unified-entry-point)
    - [Running directly with ctest](#running-directly-with-ctest)
 6. [Lint (clang-tidy)](#lint-clang-tidy)
    - [Running lint](#running-lint)
@@ -83,44 +83,43 @@ pacman -S --needed mingw-w64-x86_64-clang-tools-extra
 
 ```
 tests/
-  CMakeLists.txt                          — CMake test configuration
+  CMakeLists.txt                          - CMake test configuration
 
   # Core
-  test_packet.cpp                         — Network packet encode/decode
-  test_srp.cpp                            — SRP-6a authentication math (requires OpenSSL)
-  test_opcode_table.cpp                   — Opcode registry lookup
-  test_entity.cpp                         — ECS entity basics
-  test_dbc_loader.cpp                     — DBC binary file parsing
-  test_m2_structs.cpp                     — M2 model struct layout / alignment
-  test_blp_loader.cpp                     — BLP texture file parsing
-  test_frustum.cpp                        — View-frustum culling math
+  test_packet.cpp                         - Network packet encode/decode
+  test_srp.cpp                            - SRP-6a authentication math (requires OpenSSL)
+  test_opcode_table.cpp                   - Opcode registry lookup
+  test_entity.cpp                         - ECS entity basics
+  test_dbc_loader.cpp                     - DBC binary file parsing
+  test_m2_structs.cpp                     - M2 model struct layout / alignment
+  test_blp_loader.cpp                     - BLP texture file parsing
+  test_frustum.cpp                        - View-frustum culling math
 
   # Animation
-  test_animation_ids.cpp                  — Animation ID constants
-  test_locomotion_fsm.cpp                 — Locomotion state machine transitions
-  test_combat_fsm.cpp                     — Combat animation state machine
-  test_activity_fsm.cpp                   — Activity state machine
-  test_anim_capability.cpp                — Animation capability queries
-  test_indoor_shadows.cpp                 — Indoor shadow rendering
+  test_animation_ids.cpp                  - Animation ID constants
+  test_locomotion_fsm.cpp                 - Locomotion state machine transitions
+  test_combat_fsm.cpp                     - Combat animation state machine
+  test_activity_fsm.cpp                   - Activity state machine
+  test_anim_capability.cpp                - Animation capability queries
+  test_indoor_shadows.cpp                 - Indoor shadow rendering
 
   # Transport & Spline
-  test_spline.cpp                         — CatmullRomSpline math (interpolation, binary search, looping)
-  test_transport_components.cpp           — Transport clock sync and animator
-  test_transport_path_repo.cpp            — TransportPathRepository (DBC loading, path inference)
+  test_spline.cpp                         - CatmullRomSpline math (interpolation, binary search, looping)
+  test_transport_components.cpp           - Transport clock sync and animator
+  test_transport_path_repo.cpp            - TransportPathRepository (DBC loading, path inference)
 
   # World Map
-  test_world_map.cpp                      — World map integration tests
-  test_world_map_coordinate_projection.cpp — UV projection, zone/continent spatial lookups
-  test_world_map_exploration_state.cpp    — Server exploration mask, local tracking
-  test_world_map_map_resolver.cpp         — Cross-map navigation (Outland, Northrend)
-  test_world_map_view_state_machine.cpp   — COSMIC→WORLD→CONTINENT→ZONE transitions
-  test_world_map_zone_metadata.cpp        — Zone level ranges and faction labels
+  test_world_map.cpp                      - World map integration tests
+  test_world_map_coordinate_projection.cpp - UV projection, zone/continent spatial lookups
+  test_world_map_exploration_state.cpp    - Server exploration mask, local tracking
+  test_world_map_map_resolver.cpp         - Cross-map navigation (Outland, Northrend)
+  test_world_map_view_state_machine.cpp   - COSMIC→WORLD→CONTINENT→ZONE transitions
+  test_world_map_zone_metadata.cpp        - Zone level ranges and faction labels
 
   # Chat
-  test_chat_markup_parser.cpp             — Item link and markup parsing
-  test_chat_tab_completer.cpp             — Tab-completion for names and commands
-  test_gm_commands.cpp                    — GM command data table and dispatch
-  test_macro_evaluator.cpp                — Macro conditional evaluation
+  test_chat_markup_parser.cpp             - Item link and markup parsing
+  test_gm_commands.cpp                    - GM command data table and dispatch
+  test_macro_evaluator.cpp                - Macro conditional evaluation
 ```
 
 The Catch2 v3 amalgamated source lives at:
@@ -155,7 +154,7 @@ cmake --build build --target test_packet test_spline test_world_map
 Or simply run a full rebuild (builds everything including the main binary):
 
 ```bash
-./rebuild.sh      # ~10 minutes — see BUILD_INSTRUCTIONS.md
+./rebuild.sh      # ~10 minutes - see BUILD_INSTRUCTIONS.md
 ```
 
 ### Debug + ASAN/UBSan Build
@@ -177,18 +176,18 @@ CMake will print: `Test targets: ASAN + UBSan ENABLED` when configured correctly
 
 ## Running Tests
 
-### test.sh — the unified entry point
+### test.sh - the unified entry point
 
 `test.sh` is the recommended way to run tests and/or lint. It handles build-directory discovery, dependency checking, and exit-code aggregation across both steps.
 
 ```bash
-# Run everything (tests + lint) — default when no flags are given
+# Run everything (tests + lint) - default when no flags are given
 ./test.sh
 
 # Tests only (Release build)
 ./test.sh --test
 
-# Tests only under ASAN+UBSan (Debug build — requires build_asan/)
+# Tests only under ASAN+UBSan (Debug build - requires build_asan/)
 ./test.sh --asan
 
 # Lint only
@@ -269,7 +268,7 @@ Some clang-tidy checks can apply fixes automatically (e.g. `modernize-*`, `reada
 FIX=1 ./test.sh --lint
 ```
 
-> **Caution:** Review the diff before committing — automatic fixes occasionally produce non-idiomatic results in complex template code.
+> **Caution:** Review the diff before committing - automatic fixes occasionally produce non-idiomatic results in complex template code.
 
 ### Configuration (.clang-tidy)
 
@@ -370,7 +369,7 @@ target_include_directories(test_<name> PRIVATE ${TEST_INCLUDE_DIRS})
 target_include_directories(test_<name> SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
 target_link_libraries(test_<name> PRIVATE catch2_main)
 add_test(NAME <name> COMMAND test_<name>)
-register_test_target(test_<name>)   # required — enables ASAN propagation
+register_test_target(test_<name>)   # required - enables ASAN propagation
 ```
 
 3. **Build** and verify:
@@ -380,7 +379,7 @@ cmake --build build --target test_<name>
 ./test.sh --test
 ```
 
-The `register_test_target()` macro call is **mandatory** — without it the new test will not receive ASAN/UBSan flags when `WOWEE_ENABLE_ASAN=ON`.
+The `register_test_target()` macro call is **mandatory** - without it the new test will not receive ASAN/UBSan flags when `WOWEE_ENABLE_ASAN=ON`.
 
 ---
 

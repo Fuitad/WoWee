@@ -1,4 +1,5 @@
 #include "pipeline/wowee_item_sets.hpp"
+#include "pipeline/wowee_binary_io.hpp"
 
 #include <cstdio>
 #include <cstring>
@@ -11,45 +12,7 @@ namespace {
 
 constexpr char kMagic[4] = {'W', 'S', 'E', 'T'};
 constexpr uint32_t kVersion = 1;
-
-template <typename T>
-void writePOD(std::ofstream& os, const T& v) {
-    os.write(reinterpret_cast<const char*>(&v), sizeof(T));
-}
-
-template <typename T>
-bool readPOD(std::ifstream& is, T& v) {
-    is.read(reinterpret_cast<char*>(&v), sizeof(T));
-    return is.gcount() == static_cast<std::streamsize>(sizeof(T));
-}
-
-void writeStr(std::ofstream& os, const std::string& s) {
-    uint32_t n = static_cast<uint32_t>(s.size());
-    writePOD(os, n);
-    if (n > 0) os.write(s.data(), n);
-}
-
-bool readStr(std::ifstream& is, std::string& s) {
-    uint32_t n = 0;
-    if (!readPOD(is, n)) return false;
-    if (n > (1u << 20)) return false;
-    s.resize(n);
-    if (n > 0) {
-        is.read(s.data(), n);
-        if (is.gcount() != static_cast<std::streamsize>(n)) {
-            s.clear();
-            return false;
-        }
-    }
-    return true;
-}
-
-std::string normalizePath(std::string base) {
-    if (base.size() < 5 || base.substr(base.size() - 5) != ".wset") {
-        base += ".wset";
-    }
-    return base;
-}
+constexpr char kExtension[] = ".wset";
 
 } // namespace
 
@@ -60,22 +23,15 @@ WoweeItemSet::findById(uint32_t setId) const {
 }
 
 bool WoweeItemSetLoader::save(const WoweeItemSet& cat,
-                              const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath), std::ios::binary);
-    if (!os) return false;
-    os.write(kMagic, 4);
-    writePOD(os, kVersion);
-    writeStr(os, cat.name);
-    uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writePOD(os, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeItemSet::Entry& e) {
         writePOD(os, e.setId);
         writeStr(os, e.name);
         writeStr(os, e.description);
         writePOD(os, e.pieceCount);
         writePOD(os, e.bonusCount);
-        uint8_t pad2[2] = {0, 0};
-        os.write(reinterpret_cast<const char*>(pad2), 2);
+        writePadding(os, 2);
         writePOD(os, e.requiredClassMask);
         writePOD(os, e.requiredSkillId);
         writePOD(os, e.requiredSkillRank);
@@ -88,65 +44,36 @@ bool WoweeItemSetLoader::save(const WoweeItemSet& cat,
         for (size_t k = 0; k < WoweeItemSet::kMaxBonuses; ++k) {
             writePOD(os, e.bonusSpellIds[k]);
         }
-    }
-    return os.good();
+                       });
 }
 
-WoweeItemSet WoweeItemSetLoader::load(const std::string& basePath) {
-    WoweeItemSet out;
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    if (!is) return out;
-    char magic[4];
-    is.read(magic, 4);
-    if (std::memcmp(magic, kMagic, 4) != 0) return out;
-    uint32_t version = 0;
-    if (!readPOD(is, version) || version != kVersion) return out;
-    if (!readStr(is, out.name)) return out;
-    uint32_t entryCount = 0;
-    if (!readPOD(is, entryCount)) return out;
-    if (entryCount > (1u << 20)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.setId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name) || !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
+WoweeItemSet WoweeItemSetLoader::load(
+    const std::string& basePath) {
+    return loadCatalog<WoweeItemSet>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeItemSet::Entry& e) {
+        if (!readPOD(is, e.setId)) { return false; }
+        if (!readStr(is, e.name) || !readStr(is, e.description)) { return false; }
         if (!readPOD(is, e.pieceCount) ||
-            !readPOD(is, e.bonusCount)) {
-            out.entries.clear(); return out;
-        }
-        uint8_t pad2[2];
-        is.read(reinterpret_cast<char*>(pad2), 2);
-        if (is.gcount() != 2) { out.entries.clear(); return out; }
+            !readPOD(is, e.bonusCount)) { return false; }
+        if (!skipPadding(is, 2)) { return false; }
         if (!readPOD(is, e.requiredClassMask) ||
             !readPOD(is, e.requiredSkillId) ||
-            !readPOD(is, e.requiredSkillRank)) {
-            out.entries.clear(); return out;
-        }
+            !readPOD(is, e.requiredSkillRank)) { return false; }
         for (size_t k = 0; k < WoweeItemSet::kMaxPieces; ++k) {
-            if (!readPOD(is, e.itemIds[k])) {
-                out.entries.clear(); return out;
-            }
+            if (!readPOD(is, e.itemIds[k])) { return false; }
         }
         for (size_t k = 0; k < WoweeItemSet::kMaxBonuses; ++k) {
-            if (!readPOD(is, e.bonusThresholds[k])) {
-                out.entries.clear(); return out;
-            }
+            if (!readPOD(is, e.bonusThresholds[k])) { return false; }
         }
         for (size_t k = 0; k < WoweeItemSet::kMaxBonuses; ++k) {
-            if (!readPOD(is, e.bonusSpellIds[k])) {
-                out.entries.clear(); return out;
-            }
+            if (!readPOD(is, e.bonusSpellIds[k])) { return false; }
         }
-    }
-    return out;
+                                  return true;
+                              });
 }
 
 bool WoweeItemSetLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeItemSet WoweeItemSetLoader::makeStarter(
@@ -154,7 +81,7 @@ WoweeItemSet WoweeItemSetLoader::makeStarter(
     WoweeItemSet c;
     c.name = catalogName;
     {
-        // Battlegear of Wrath — Warrior tier-2 (8 pieces).
+        // Battlegear of Wrath - Warrior tier-2 (8 pieces).
         // Real WoW item / spell IDs from the canonical set.
         WoweeItemSet::Entry e;
         e.setId = 1; e.name = "Battlegear of Wrath";
@@ -175,10 +102,10 @@ WoweeItemSet WoweeItemSetLoader::makeStarter(
         c.entries.push_back(e);
     }
     {
-        // Stormrage Raiment — Druid tier-2 (8 pieces).
+        // Stormrage Raiment - Druid tier-2 (8 pieces).
         WoweeItemSet::Entry e;
         e.setId = 2; e.name = "Stormrage Raiment";
-        e.description = "Druid tier-2 leather set — Onyxia / BWL.";
+        e.description = "Druid tier-2 leather set - Onyxia / BWL.";
         e.pieceCount = 8;
         e.requiredClassMask = WoweeItemSet::kClassDruid;
         e.itemIds[0] = 16897; e.itemIds[1] = 16898;
@@ -245,7 +172,7 @@ WoweeItemSet WoweeItemSetLoader::makePvP(
         e.requiredSkillId = skillId;
         e.requiredSkillRank = skillRank;
         // PvP sets typically have 5 pieces (head/shoulder/chest
-        // /legs/gloves) — leave slots 5-7 empty.
+        // /legs/gloves) - leave slots 5-7 empty.
         e.pieceCount = 5;
         for (size_t k = 0; k < 5; ++k) {
             e.itemIds[k] = baseItemId + static_cast<uint32_t>(k);
@@ -261,13 +188,13 @@ WoweeItemSet WoweeItemSetLoader::makePvP(
     // requiredSkillRank values represent honor thresholds.
     add(200, "GladiatorVindication",
         WoweeItemSet::kClassPlate, 599, 1850, 41868, 35114, 35116,
-        "Gladiator's plate set — requires 1850 honor rank.");
+        "Gladiator's plate set - requires 1850 honor rank.");
     add(201, "Doomcaller",
         WoweeItemSet::kClassMage,  599, 1850, 41888, 35124, 35126,
-        "Mage doomcaller PvP set — requires 1850 honor rank.");
+        "Mage doomcaller PvP set - requires 1850 honor rank.");
     add(202, "Predatory",
         WoweeItemSet::kClassRogue, 599, 1500, 41878, 35134, 35136,
-        "Rogue predatory PvP set — requires 1500 honor rank.");
+        "Rogue predatory PvP set - requires 1500 honor rank.");
     return c;
 }
 

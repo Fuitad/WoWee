@@ -9,7 +9,7 @@ namespace wowee {
 namespace ui {
 
 /**
- * /castsequence persistent state — shared across all macros using the same spell list.
+ * /castsequence persistent state - shared across all macros using the same spell list.
  *
  * Extracted from chat_panel_commands.cpp static global (Phase 1.5 of chat_panel_ref.md).
  * Keyed by the normalized (lowercase, comma-joined) spell sequence string.

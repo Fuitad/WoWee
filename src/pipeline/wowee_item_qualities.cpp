@@ -1,4 +1,5 @@
 #include "pipeline/wowee_item_qualities.hpp"
+#include "pipeline/wowee_binary_io.hpp"
 
 #include <cstdio>
 #include <cstring>
@@ -11,52 +12,7 @@ namespace {
 
 constexpr char kMagic[4] = {'W', 'I', 'Q', 'R'};
 constexpr uint32_t kVersion = 1;
-
-template <typename T>
-void writePOD(std::ofstream& os, const T& v) {
-    os.write(reinterpret_cast<const char*>(&v), sizeof(T));
-}
-
-template <typename T>
-bool readPOD(std::ifstream& is, T& v) {
-    is.read(reinterpret_cast<char*>(&v), sizeof(T));
-    return is.gcount() == static_cast<std::streamsize>(sizeof(T));
-}
-
-void writeStr(std::ofstream& os, const std::string& s) {
-    uint32_t n = static_cast<uint32_t>(s.size());
-    writePOD(os, n);
-    if (n > 0) os.write(s.data(), n);
-}
-
-bool readStr(std::ifstream& is, std::string& s) {
-    uint32_t n = 0;
-    if (!readPOD(is, n)) return false;
-    if (n > (1u << 20)) return false;
-    s.resize(n);
-    if (n > 0) {
-        is.read(s.data(), n);
-        if (is.gcount() != static_cast<std::streamsize>(n)) {
-            s.clear();
-            return false;
-        }
-    }
-    return true;
-}
-
-std::string normalizePath(std::string base) {
-    if (base.size() < 5 || base.substr(base.size() - 5) != ".wiqr") {
-        base += ".wiqr";
-    }
-    return base;
-}
-
-uint32_t packRgba(uint8_t r, uint8_t g, uint8_t b, uint8_t a = 0xFF) {
-    return (static_cast<uint32_t>(a) << 24) |
-           (static_cast<uint32_t>(b) << 16) |
-           (static_cast<uint32_t>(g) << 8)  |
-            static_cast<uint32_t>(r);
-}
+constexpr char kExtension[] = ".wiqr";
 
 } // namespace
 
@@ -78,15 +34,9 @@ bool WoweeItemQuality::canDropAtLevel(uint32_t qualityId,
 }
 
 bool WoweeItemQualityLoader::save(const WoweeItemQuality& cat,
-                                   const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath), std::ios::binary);
-    if (!os) return false;
-    os.write(kMagic, 4);
-    writePOD(os, kVersion);
-    writeStr(os, cat.name);
-    uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writePOD(os, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeItemQuality::Entry& e) {
         writePOD(os, e.qualityId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -98,51 +48,29 @@ bool WoweeItemQualityLoader::save(const WoweeItemQuality& cat,
         writePOD(os, e.canBeDisenchanted);
         writePOD(os, e.pad0);
         writeStr(os, e.inventoryBorderTexture);
-    }
-    return os.good();
+                       });
 }
 
 WoweeItemQuality WoweeItemQualityLoader::load(
     const std::string& basePath) {
-    WoweeItemQuality out;
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    if (!is) return out;
-    char magic[4];
-    is.read(magic, 4);
-    if (std::memcmp(magic, kMagic, 4) != 0) return out;
-    uint32_t version = 0;
-    if (!readPOD(is, version) || version != kVersion) return out;
-    if (!readStr(is, out.name)) return out;
-    uint32_t entryCount = 0;
-    if (!readPOD(is, entryCount)) return out;
-    if (entryCount > (1u << 20)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.qualityId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name) || !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
+    return loadCatalog<WoweeItemQuality>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeItemQuality::Entry& e) {
+        if (!readPOD(is, e.qualityId)) { return false; }
+        if (!readStr(is, e.name) || !readStr(is, e.description)) { return false; }
         if (!readPOD(is, e.nameColorRGBA) ||
             !readPOD(is, e.borderColorRGBA) ||
             !readPOD(is, e.vendorPriceMultiplier) ||
             !readPOD(is, e.minLevelToDrop) ||
             !readPOD(is, e.maxLevelToDrop) ||
             !readPOD(is, e.canBeDisenchanted) ||
-            !readPOD(is, e.pad0)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.inventoryBorderTexture)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.pad0)) { return false; }
+        if (!readStr(is, e.inventoryBorderTexture)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeItemQualityLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeItemQuality WoweeItemQualityLoader::makeStandard(
@@ -170,27 +98,27 @@ WoweeItemQuality WoweeItemQualityLoader::makeStandard(
     // matching the live client. Heirlooms (id 7) are gated
     // to character level 80 in WotLK.
     add(0, "Poor",      0x9d, 0x9d, 0x9d, 0.5f,  1,  0, 0,
-        "", "Poor (gray) — junk loot; vendor sells at half price.");
+        "", "Poor (gray) - junk loot; vendor sells at half price.");
     add(1, "Common",    0xff, 0xff, 0xff, 1.0f,  1,  0, 1,
-        "", "Common (white) — basic gear; standard vendor pricing.");
+        "", "Common (white) - basic gear; standard vendor pricing.");
     add(2, "Uncommon",  0x1e, 0xff, 0x00, 1.5f,  1,  0, 1,
         "Border-Uncommon",
-        "Uncommon (green) — early-tier quest reward; 50% markup.");
+        "Uncommon (green) - early-tier quest reward; 50% markup.");
     add(3, "Rare",      0x00, 0x70, 0xdd, 2.0f,  1,  0, 1,
         "Border-Rare",
-        "Rare (blue) — dungeon-tier; 2x markup, can be disenchanted.");
+        "Rare (blue) - dungeon-tier; 2x markup, can be disenchanted.");
     add(4, "Epic",      0xa3, 0x35, 0xee, 4.0f, 60,  0, 1,
         "Border-Epic",
-        "Epic (purple) — raid-tier; 4x markup, disenchants to high-tier dust.");
+        "Epic (purple) - raid-tier; 4x markup, disenchants to high-tier dust.");
     add(5, "Legendary", 0xff, 0x80, 0x00, 8.0f, 60,  0, 0,
         "Border-Legendary",
-        "Legendary (orange) — extremely rare; cannot be disenchanted.");
+        "Legendary (orange) - extremely rare; cannot be disenchanted.");
     add(6, "Artifact",  0xe6, 0xcc, 0x80, 16.0f, 80, 0, 0,
         "Border-Artifact",
-        "Artifact (red-gold) — unique, account-bound.");
+        "Artifact (red-gold) - unique, account-bound.");
     add(7, "Heirloom",  0x00, 0xcc, 0xff, 1.0f, 80, 0, 0,
         "Border-Heirloom",
-        "Heirloom (cyan) — scales to character level, lvl 80+ unlock.");
+        "Heirloom (cyan) - scales to character level, lvl 80+ unlock.");
     return c;
 }
 
@@ -243,19 +171,19 @@ WoweeItemQuality WoweeItemQualityLoader::makeRaidTiers(
         c.entries.push_back(e);
     };
     // Vanilla raid progression tiers as alternative quality
-    // markers — each tier gates at a higher minLevelToDrop
+    // markers - each tier gates at a higher minLevelToDrop
     // and commands a higher vendor multiplier.
     add(200, "Tier1Raid",  0xa3, 0x35, 0xee,  4.0f, 60,
-        "Tier 1 raid set (MC / Onyxia) — Epic-color, lvl 60.");
+        "Tier 1 raid set (MC / Onyxia) - Epic-color, lvl 60.");
     add(201, "Tier2Raid",  0xc8, 0x4c, 0xff,  6.0f, 60,
-        "Tier 2 raid set (BWL) — slightly brighter purple, "
+        "Tier 2 raid set (BWL) - slightly brighter purple, "
         "premium pricing.");
     add(202, "Tier3Raid",  0xff, 0x80, 0xc8, 10.0f, 60,
-        "Tier 3 raid set (Naxx pre-WotLK) — pink-orange, "
+        "Tier 3 raid set (Naxx pre-WotLK) - pink-orange, "
         "rarest pre-TBC tier.");
     add(203, "Legendary",  0xff, 0x80, 0x00, 50.0f, 60,
         "Tier-equivalent legendary (Thunderfury / Sulfuras / "
-        "Atiesh) — premium economy pricing.");
+        "Atiesh) - premium economy pricing.");
     return c;
 }
 

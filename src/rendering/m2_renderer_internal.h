@@ -1,4 +1,4 @@
-// m2_renderer_internal.h — shared helpers for the m2_renderer split files.
+// m2_renderer_internal.h - shared helpers for the m2_renderer split files.
 // All functions are inline to allow inclusion in multiple translation units.
 #pragma once
 
@@ -333,16 +333,16 @@ inline void computeBoneMatrices(const M2ModelGPU& model, M2Instance& instance) {
 // Firelight guttering for lamps, torches and braziers.
 //
 // The phase is hashed from the fixture's world position so no two lights ever
-// pulse together — a synchronised row of street lamps reads as a rendering
-// artifact rather than firelight — and it stays stable frame to frame because
+// pulse together - a synchronised row of street lamps reads as a rendering
+// artifact rather than firelight - and it stays stable frame to frame because
 // it derives from a fixed position rather than a counter.
 //
 // Two detuned sines with periods of roughly 3.7 and 1.6 seconds, sharing no
 // common multiple over any watchable span. Slower than this and the eye adapts
-// to the change and stops seeing it at all — a 15-second swell is invisible no
-// matter how deep it goes — while faster reads as a strobe.
+// to the change and stops seeing it at all - a 15-second swell is invisible no
+// matter how deep it goes - while faster reads as a strobe.
 //
-// phaseSeed must be a position that does not move frame to frame — the fixture's
+// phaseSeed must be a position that does not move frame to frame - the fixture's
 // placement, never an animated bone centre or a sprite offset toward the camera.
 // The hash is chaotic by design, so a seed that drifts even slightly re-rolls the
 // phase every frame and the result is a strobe rather than a flicker. It is also

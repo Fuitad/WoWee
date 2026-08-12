@@ -1,4 +1,4 @@
-// party_dot_layer.hpp — Party member position dots on the world map.
+// party_dot_layer.hpp - Party member position dots on the world map.
 #pragma once
 #include "rendering/world_map/overlay_renderer.hpp"
 #include "rendering/world_map/world_map_types.hpp"

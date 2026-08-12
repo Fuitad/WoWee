@@ -1,10 +1,10 @@
 #!/bin/bash
-# macOS cross-compile entrypoint — runs INSIDE the macos container.
+# macOS cross-compile entrypoint - runs INSIDE the macos container.
 # Toolchain: osxcross + Apple Clang, target: arm64-apple-darwin (default) or
 #            x86_64-apple-darwin when MACOS_ARCH=x86_64.
 # Bind-mounts:
-#   /src  (ro) — project source
-#   /out  (rw) — host ./build/macos
+#   /src  (ro) - project source
+#   /out  (rw) - host ./build/macos
 
 set -euo pipefail
 

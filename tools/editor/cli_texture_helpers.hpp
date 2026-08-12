@@ -4,7 +4,7 @@ namespace wowee {
 namespace editor {
 namespace cli {
 
-// Dispatch the simple texture-helper handlers — placeholder
+// Dispatch the simple texture-helper handlers - placeholder
 // generation and PNG import workflows that complement the
 // procedural pattern generators in cli_gen_texture.
 //   --gen-texture           solid hex / checker / grid PNG

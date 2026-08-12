@@ -1,4 +1,6 @@
 #include "cli_spell_cooldowns_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -19,20 +21,6 @@ namespace cli {
 
 namespace {
 
-std::string stripWscdExt(std::string base) {
-    stripExt(base, ".wscd");
-    return base;
-}
-
-bool saveOrError(const wowee::pipeline::WoweeSpellCooldown& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeSpellCooldownLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wscd\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeSpellCooldown& c,
                      const std::string& base) {
@@ -45,9 +33,9 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterCooldowns";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWscdExt(base);
+    base = cli::withoutExt(base, ".wscd");
     auto c = wowee::pipeline::WoweeSpellCooldownLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-cdb")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellCooldownLoader>(c, base, "gen-cdb", ".wscd")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -56,9 +44,9 @@ int handleGenClass(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "MageClassCooldowns";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWscdExt(base);
+    base = cli::withoutExt(base, ".wscd");
     auto c = wowee::pipeline::WoweeSpellCooldownLoader::makeClass(name);
-    if (!saveOrError(c, base, "gen-cdb-class")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellCooldownLoader>(c, base, "gen-cdb-class", ".wscd")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -67,9 +55,9 @@ int handleGenItems(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "ItemCooldowns";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWscdExt(base);
+    base = cli::withoutExt(base, ".wscd");
     auto c = wowee::pipeline::WoweeSpellCooldownLoader::makeItems(name);
-    if (!saveOrError(c, base, "gen-cdb-items")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellCooldownLoader>(c, base, "gen-cdb-items", ".wscd")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -90,10 +78,9 @@ void appendFlagNames(uint32_t flags, std::string& out) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWscdExt(base);
+    base = cli::withoutExt(base, ".wscd");
     if (!wowee::pipeline::WoweeSpellCooldownLoader::exists(base)) {
-        std::fprintf(stderr, "WSCD not found: %s.wscd\n", base.c_str());
-        return 1;
+        return reportMissing("WSCD", base, ".wscd");
     }
     auto c = wowee::pipeline::WoweeSpellCooldownLoader::load(base);
     if (jsonOut) {
@@ -143,12 +130,9 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWscdExt(base);
+    base = cli::withoutExt(base, ".wscd");
     if (!wowee::pipeline::WoweeSpellCooldownLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wscd-json: WSCD not found: %s.wscd\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wscd-json", "WSCD", base, ".wscd");
     }
     auto c = wowee::pipeline::WoweeSpellCooldownLoader::load(base);
     if (outPath.empty()) outPath = base + ".wscd.json";
@@ -227,7 +211,7 @@ uint32_t parseCategoryFlagsField(const nlohmann::json& jv) {
             else if (tok == "sharedwithitems")     out |= F::SharedWithItems;
             else if (tok == "ongcdstart")          out |= F::OnGCDStart;
             else if (tok == "ignorescooldownreduction") out |= F::IgnoresCooldownReduction;
-            // unknown labels silently ignored — they're
+            // unknown labels silently ignored - they're
             // already filtered by the validator's warning
             pos = end + 1;
         }
@@ -272,7 +256,7 @@ int handleImportJson(int& i, int argc, char** argv) {
             e.bucketKind = kind;
             if (je.contains("cooldownMs")) e.cooldownMs = je["cooldownMs"].get<uint32_t>();
             // Prefer the int form of categoryFlags when both
-            // are present — it preserves unknown bits across
+            // are present - it preserves unknown bits across
             // round-trip; fall back to the label form when
             // only that's present (hand-edited sidecars).
             if (je.contains("categoryFlags"))
@@ -283,21 +267,8 @@ int handleImportJson(int& i, int argc, char** argv) {
             c.entries.push_back(e);
         }
     }
-    if (outBase.empty()) {
-        outBase = jsonPath;
-        const std::string suffix1 = ".wscd.json";
-        const std::string suffix2 = ".json";
-        if (outBase.size() >= suffix1.size() &&
-            outBase.compare(outBase.size() - suffix1.size(),
-                            suffix1.size(), suffix1) == 0) {
-            outBase.resize(outBase.size() - suffix1.size());
-        } else if (outBase.size() >= suffix2.size() &&
-                   outBase.compare(outBase.size() - suffix2.size(),
-                                   suffix2.size(), suffix2) == 0) {
-            outBase.resize(outBase.size() - suffix2.size());
-        }
-    }
-    outBase = stripWscdExt(outBase);
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(jsonPath, ".wscd");
+    outBase = cli::withoutExt(outBase, ".wscd");
     if (!wowee::pipeline::WoweeSpellCooldownLoader::save(c, outBase)) {
         std::fprintf(stderr,
             "import-wscd-json: failed to save %s.wscd\n",
@@ -311,97 +282,56 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWscdExt(base);
-    if (!wowee::pipeline::WoweeSpellCooldownLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wscd: WSCD not found: %s.wscd\n", base.c_str());
-        return 1;
-    }
-    auto c = wowee::pipeline::WoweeSpellCooldownLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    std::vector<uint32_t> idsSeen;
-    constexpr uint32_t kKnownFlagMask =
-        wowee::pipeline::WoweeSpellCooldown::AffectedByHaste |
-        wowee::pipeline::WoweeSpellCooldown::SharedWithItems |
-        wowee::pipeline::WoweeSpellCooldown::OnGCDStart |
-        wowee::pipeline::WoweeSpellCooldown::IgnoresCooldownReduction;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.bucketId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.bucketId == 0)
-            errors.push_back(ctx + ": bucketId is 0");
-        if (e.name.empty())
-            errors.push_back(ctx + ": name is empty");
-        if (e.bucketKind > wowee::pipeline::WoweeSpellCooldown::Misc) {
-            errors.push_back(ctx + ": bucketKind " +
-                std::to_string(e.bucketKind) + " not in 0..4");
-        }
-        if (e.categoryFlags & ~kKnownFlagMask) {
-            warnings.push_back(ctx +
-                ": categoryFlags has bits outside known mask " +
-                "(0x" + std::to_string(e.categoryFlags & ~kKnownFlagMask) +
-                ") — engine will ignore unknown flags");
-        }
-        // Global bucket should be GCD-marked. Otherwise the
-        // engine wouldn't trigger it on cast start.
-        if (e.bucketKind == wowee::pipeline::WoweeSpellCooldown::Global &&
-            !(e.categoryFlags & wowee::pipeline::WoweeSpellCooldown::OnGCDStart)) {
-            warnings.push_back(ctx +
-                ": Global kind without OnGCDStart flag — "
-                "engine will not trigger this on cast start");
-        }
-        // SharedWithItems on a Spell-only bucket is
-        // contradictory.
-        if (e.bucketKind == wowee::pipeline::WoweeSpellCooldown::Spell &&
-            (e.categoryFlags & wowee::pipeline::WoweeSpellCooldown::SharedWithItems)) {
-            warnings.push_back(ctx +
-                ": Spell kind with SharedWithItems flag — "
-                "switch kind to Item or Misc, or drop the flag");
-        }
-        for (uint32_t prev : idsSeen) {
-            if (prev == e.bucketId) {
-                errors.push_back(ctx + ": duplicate bucketId");
-                break;
+    return cli::validateCatalog<wowee::pipeline::WoweeSpellCooldownLoader>(
+        i, argc, argv, "wscd", "WSCD",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        constexpr uint32_t kKnownFlagMask =
+            wowee::pipeline::WoweeSpellCooldown::AffectedByHaste |
+            wowee::pipeline::WoweeSpellCooldown::SharedWithItems |
+            wowee::pipeline::WoweeSpellCooldown::OnGCDStart |
+            wowee::pipeline::WoweeSpellCooldown::IgnoresCooldownReduction;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.bucketId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.bucketId == 0)
+                errors.push_back(ctx + ": bucketId is 0");
+            if (e.name.empty())
+                errors.push_back(ctx + ": name is empty");
+            if (e.bucketKind > wowee::pipeline::WoweeSpellCooldown::Misc) {
+                errors.push_back(ctx + ": bucketKind " +
+                    std::to_string(e.bucketKind) + " not in 0..4");
             }
+            if (e.categoryFlags & ~kKnownFlagMask) {
+                warnings.push_back(ctx +
+                    ": categoryFlags has bits outside known mask " +
+                    "(0x" + std::to_string(e.categoryFlags & ~kKnownFlagMask) +
+                    ") - engine will ignore unknown flags");
+            }
+            // Global bucket should be GCD-marked. Otherwise the
+            // engine wouldn't trigger it on cast start.
+            if (e.bucketKind == wowee::pipeline::WoweeSpellCooldown::Global &&
+                !(e.categoryFlags & wowee::pipeline::WoweeSpellCooldown::OnGCDStart)) {
+                warnings.push_back(ctx +
+                    ": Global kind without OnGCDStart flag - "
+                    "engine will not trigger this on cast start");
+            }
+            // SharedWithItems on a Spell-only bucket is
+            // contradictory.
+            if (e.bucketKind == wowee::pipeline::WoweeSpellCooldown::Spell &&
+                (e.categoryFlags & wowee::pipeline::WoweeSpellCooldown::SharedWithItems)) {
+                warnings.push_back(ctx +
+                    ": Spell kind with SharedWithItems flag - "
+                    "switch kind to Item or Misc, or drop the flag");
+            }
+            if (!idsSeen.add(e.bucketId)) errors.push_back(ctx + ": duplicate bucketId");
         }
-        idsSeen.push_back(e.bucketId);
-    }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wscd"] = base + ".wscd";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wscd: %s.wscd\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu buckets, all bucketIds unique\n",
-                    c.entries.size());
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+            return formatted("%zu buckets, all bucketIds unique", c.entries.size());
+        });
 }
 
 } // namespace

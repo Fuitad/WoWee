@@ -82,8 +82,6 @@ public:
     /// Mark the character preview as needing equipment update
     void markPreviewDirty() { previewDirty_ = true; }
 
-    /// Update the preview animation (call each frame)
-    void updatePreview(float deltaTime);
 
     /// Returns true if equipment changed since last call, and clears the flag.
     bool consumeEquipmentDirty() { bool d = equipmentDirty; equipmentDirty = false; return d; }
@@ -101,7 +99,6 @@ private:
     float bagScale_ = 1.0f;
     bool backpackOpen_ = false;
     std::array<bool, 4> bagOpen_{};
-    bool cKeyWasDown = false;
     bool equipmentDirty = false;
     bool inventoryDirty = false;
 
@@ -177,7 +174,6 @@ private:
     /// Shared footer for the backpack / All Bags windows: Sort Bags button + money display.
     void renderBagsFooter(game::Inventory& inventory, uint64_t moneyCopper);
     void renderEquipmentPanel(game::Inventory& inventory);
-    void renderBackpackPanel(game::Inventory& inventory, bool collapseEmptySections = false);
     void renderStatsPanel(game::Inventory& inventory, uint32_t playerLevel, int32_t serverArmor = 0,
                           const int32_t* serverStats = nullptr, const int32_t* serverResists = nullptr,
                           const game::GameHandler* gh = nullptr);
@@ -201,14 +197,21 @@ private:
     void placeInEquipment(game::Inventory& inv, game::EquipSlot slot);
     void placeInKeyring(game::Inventory& inv, int index);
     void cancelPickup(game::Inventory& inv);
+
+    /// Where the held item came from, as the (container, slot) pair the server
+    /// addresses. False when nothing usable is held.
+    ///
+    /// Four places worked this out and they did not agree on how many places an
+    /// item can be picked up from: two knew all seven, one knew five and one
+    /// six. The keyring was missing from two of them, so dragging a key onto an
+    /// equipment slot or into the bank did nothing at all.
+    bool heldItemWireSource(uint8_t& srcBag, uint8_t& srcSlot) const;
     game::EquipSlot getEquipSlotForType(uint8_t inventoryType, game::Inventory& inv);
     void renderHeldItem();
     void renderEquipConfirmationPopup(game::Inventory& inventory);
-    bool bagHasAnyItems(const game::Inventory& inventory, int bagIndex) const;
 
     // Drop confirmation (drag-outside-window destroy)
     bool dropConfirmOpen_ = false;
-    int dropBackpackIndex_ = -1;
     std::string dropItemName_;
 
     // Destroy confirmation (Shift+right-click destroy)

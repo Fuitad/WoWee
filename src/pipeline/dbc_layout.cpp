@@ -96,6 +96,30 @@ const DBCFieldMap* DBCLayout::getLayout(const std::string& dbcName) const {
     return (it != layouts_.end()) ? &it->second : nullptr;
 }
 
+FacialHairFields detectFacialHairFields(const DBCFile* dbc, const DBCFieldMap* fhL) {
+    static const DBCFile* s_cached = nullptr;
+    static FacialHairFields s_cachedResult;
+    if (dbc && dbc == s_cached) return s_cachedResult;
+
+    FacialHairFields f;
+    f.geoset100 = fhL ? (*fhL)["Geoset100"] : 6;
+    f.geoset300 = fhL ? (*fhL)["Geoset300"] : 7;
+    f.geoset200 = fhL ? (*fhL)["Geoset200"] : 8;
+    if (!dbc || dbc->getRecordCount() == 0) return f;
+
+    // The field count decides it, and decides it exactly: the nine-column file
+    // is the only one where column 8 exists at all. Asked this way there is
+    // nothing to probe and nothing to get wrong on an unusual row.
+    if (dbc->getFieldCount() < 9) {
+        f.geoset100 = 3;
+        f.geoset300 = 4;
+        f.geoset200 = 5;
+    }
+    s_cached = dbc;
+    s_cachedResult = f;
+    return f;
+}
+
 CharSectionsFields detectCharSectionsFields(const DBCFile* dbc, const DBCFieldMap* csL) {
     // Cache: avoid re-probing the same DBC on every call.
     static const DBCFile* s_cachedDbc = nullptr;
@@ -160,6 +184,27 @@ CharSectionsFields detectCharSectionsFields(const DBCFile* dbc, const DBCFieldMa
     return f;
 }
 
+SpellTimingFields detectSpellTimingFields(const DBCFile* dbc, const DBCFieldMap* spellL) {
+    // WotLK is the fallback: it is the file this client ships and the one a
+    // profile without its own Spell.dbc falls through to.
+    SpellTimingFields f{28, 29, 30};
+    if (!dbc || dbc->getRecordCount() == 0) return f;
+
+    const uint32_t fieldCount = dbc->getFieldCount();
+    if (fieldCount < 216)      f = {18, 19, 20};  // Vanilla 1.12 / Turtle
+    else if (fieldCount < 234) f = {22, 23, 24};  // TBC 2.4.3
+
+    // A layout may name CastingTimeIndex, and TBC's and WotLK's are right. It is
+    // taken only when it matches the shape the file actually has, because the
+    // two that disagreed were both pointing at a column of zeros.
+    if (spellL) {
+        const uint32_t named = spellL->field("CastingTimeIndex");
+        if (named == f.castingTimeIndex) f.castingTimeIndex = named;
+    }
+    if (f.categoryRecoveryTime >= fieldCount) return {0, 0, 0};
+    return f;
+}
+
 uint32_t detectEnchantmentNameField(const DBCFile* dbc, const DBCFieldMap* sieL) {
     if (!dbc || dbc->getRecordCount() == 0) return 14;
 
@@ -172,7 +217,7 @@ uint32_t detectEnchantmentNameField(const DBCFile* dbc, const DBCFieldMap* sieL)
     else if (fieldCount >= 34) nameField = 13;  // TBC 2.4.3
     else                       nameField = 10;  // Vanilla 1.12 / Turtle
 
-    // A layout override wins, but only when it is in range — a stale index here
+    // A layout override wins, but only when it is in range - a stale index here
     // reads an integer column as a string offset and garbles every enchant name.
     if (sieL) {
         uint32_t f = sieL->field("Name");
@@ -198,6 +243,33 @@ uint32_t detectEnchantmentItemVisualField(const DBCFile* dbc, const DBCFieldMap*
     }
     if (visualField >= fieldCount) return 0;
     return visualField;
+}
+
+uint32_t detectEnchantmentGemItemField(const DBCFile* dbc, const DBCFieldMap* sieL) {
+    if (!dbc || dbc->getRecordCount() == 0) return 0;
+
+    const uint32_t fieldCount = dbc->getFieldCount();
+
+    // Src_ItemID: the gem this enchantment came out of, and the only route from
+    // an enchantment sitting in a socket back to what is in the socket. It
+    // trails the localized name block like ItemVisual and Flags do, so it moves
+    // with them between the two shapes - WotLK 38 fields, TBC 34.
+    //
+    // Verified against the files rather than counted off a wiki page: field 33
+    // of the WotLK file has 617 non-zero values and every one is in item-id
+    // range, and field 32 of the TBC file has 260 that are. Vanilla has 24
+    // fields and no gems to name, so there is nothing to point at.
+    uint32_t gemField;
+    if (fieldCount >= 38)      gemField = 33;  // WotLK 3.3.5a
+    else if (fieldCount >= 34) gemField = 32;  // TBC 2.4.3
+    else                       return 0;       // Vanilla 1.12 / Turtle: no gems
+
+    if (sieL) {
+        uint32_t f = sieL->field("SrcItemID");
+        if (f != 0xFFFFFFFF && f < fieldCount) gemField = f;
+    }
+    if (gemField >= fieldCount) return 0;
+    return gemField;
 }
 
 std::array<std::string, 5> resolveItemVisualModels(uint32_t itemVisualId,

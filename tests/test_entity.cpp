@@ -189,7 +189,7 @@ TEST_CASE("Player inherits Unit", "[entity]") {
     REQUIRE(p.getType() == ObjectType::PLAYER);
     REQUIRE(p.getGuid() == 0xABC);
 
-    // Player inherits Unit name — regression test for the shadowed-field fix
+    // Player inherits Unit name - regression test for the shadowed-field fix
     p.setName("Arthas");
     REQUIRE(p.getName() == "Arthas");
 

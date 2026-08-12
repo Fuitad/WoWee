@@ -14,7 +14,7 @@ namespace cli {
 // module has no dependency on the procedural generators it calls.
 //
 // Returns true if matched; outRc holds the exit code. Returns
-// false if no match — caller should continue its dispatch chain.
+// false if no match - caller should continue its dispatch chain.
 bool handleZonePacks(int& i, int argc, char** argv, int& outRc);
 
 } // namespace cli

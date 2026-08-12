@@ -1,4 +1,6 @@
 #include "cli_spell_procs_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -19,20 +21,6 @@ namespace cli {
 
 namespace {
 
-std::string stripWspsExt(std::string base) {
-    stripExt(base, ".wsps");
-    return base;
-}
-
-bool saveOrError(const wowee::pipeline::WoweeSpellProc& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeSpellProcLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wsps\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeSpellProc& c,
                      const std::string& base) {
@@ -45,9 +33,9 @@ int handleGenWeapon(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "WeaponProcs";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWspsExt(base);
+    base = cli::withoutExt(base, ".wsps");
     auto c = wowee::pipeline::WoweeSpellProcLoader::makeWeapon(name);
-    if (!saveOrError(c, base, "gen-sps")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellProcLoader>(c, base, "gen-sps", ".wsps")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -56,9 +44,9 @@ int handleGenAura(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "AuraProcs";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWspsExt(base);
+    base = cli::withoutExt(base, ".wsps");
     auto c = wowee::pipeline::WoweeSpellProcLoader::makeAura(name);
-    if (!saveOrError(c, base, "gen-sps-aura")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellProcLoader>(c, base, "gen-sps-aura", ".wsps")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -67,9 +55,9 @@ int handleGenTalent(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "TalentProcs";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWspsExt(base);
+    base = cli::withoutExt(base, ".wsps");
     auto c = wowee::pipeline::WoweeSpellProcLoader::makeTalent(name);
-    if (!saveOrError(c, base, "gen-sps-talent")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellProcLoader>(c, base, "gen-sps-talent", ".wsps")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -99,10 +87,9 @@ void appendProcFlagNames(uint32_t flags, std::string& out) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWspsExt(base);
+    base = cli::withoutExt(base, ".wsps");
     if (!wowee::pipeline::WoweeSpellProcLoader::exists(base)) {
-        std::fprintf(stderr, "WSPS not found: %s.wsps\n", base.c_str());
-        return 1;
+        return reportMissing("WSPS", base, ".wsps");
     }
     auto c = wowee::pipeline::WoweeSpellProcLoader::load(base);
     if (jsonOut) {
@@ -156,12 +143,9 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWspsExt(base);
+    base = cli::withoutExt(base, ".wsps");
     if (!wowee::pipeline::WoweeSpellProcLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wsps-json: WSPS not found: %s.wsps\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wsps-json", "WSPS", base, ".wsps");
     }
     auto c = wowee::pipeline::WoweeSpellProcLoader::load(base);
     if (outPath.empty()) outPath = base + ".wsps.json";
@@ -203,35 +187,24 @@ int handleExportJson(int& i, int argc, char** argv) {
 
 uint32_t parseProcFlagsField(const nlohmann::json& jv) {
     using F = wowee::pipeline::WoweeSpellProc;
-    if (jv.is_number_integer() || jv.is_number_unsigned())
-        return jv.get<uint32_t>();
-    if (jv.is_string()) {
-        std::string s = jv.get<std::string>();
-        uint32_t out = 0;
-        size_t pos = 0;
-        while (pos < s.size()) {
-            size_t end = s.find('|', pos);
-            if (end == std::string::npos) end = s.size();
-            std::string tok = s.substr(pos, end - pos);
-            for (auto& ch : tok) ch = static_cast<char>(std::tolower(ch));
-            if (tok == "dealtmeleeautoattack")  out |= F::DealtMeleeAutoAttack;
-            else if (tok == "dealtmeleespell")  out |= F::DealtMeleeSpell;
-            else if (tok == "takenmeleeautoattack") out |= F::TakenMeleeAutoAttack;
-            else if (tok == "takenmeleespell")  out |= F::TakenMeleeSpell;
-            else if (tok == "dealtrangedautoattack") out |= F::DealtRangedAutoAttack;
-            else if (tok == "dealtrangedspell") out |= F::DealtRangedSpell;
-            else if (tok == "dealtspell")       out |= F::DealtSpell;
-            else if (tok == "dealtspellheal")   out |= F::DealtSpellHeal;
-            else if (tok == "takenspell")       out |= F::TakenSpell;
-            else if (tok == "onkill")           out |= F::OnKill;
-            else if (tok == "ondeath")          out |= F::OnDeath;
-            else if (tok == "oncastfinished")   out |= F::OnCastFinished;
-            else if (tok == "critical")         out |= F::Critical;
-            pos = end + 1;
-        }
-        return out;
-    }
-    return 0;
+    // The splitting is shared; the words and the bits are this
+    // format's own.
+    return cli::flagMaskFromJson(jv, [](const std::string& token) -> uint32_t {
+        if (token == "dealtmeleeautoattack") return F::DealtMeleeAutoAttack;
+        if (token == "dealtmeleespell") return F::DealtMeleeSpell;
+        if (token == "takenmeleeautoattack") return F::TakenMeleeAutoAttack;
+        if (token == "takenmeleespell") return F::TakenMeleeSpell;
+        if (token == "dealtrangedautoattack") return F::DealtRangedAutoAttack;
+        if (token == "dealtrangedspell") return F::DealtRangedSpell;
+        if (token == "dealtspell") return F::DealtSpell;
+        if (token == "dealtspellheal") return F::DealtSpellHeal;
+        if (token == "takenspell") return F::TakenSpell;
+        if (token == "onkill") return F::OnKill;
+        if (token == "ondeath") return F::OnDeath;
+        if (token == "oncastfinished") return F::OnCastFinished;
+        if (token == "critical") return F::Critical;
+        return 0;
+    });
 }
 
 int handleImportJson(int& i, int argc, char** argv) {
@@ -276,21 +249,8 @@ int handleImportJson(int& i, int argc, char** argv) {
             c.entries.push_back(e);
         }
     }
-    if (outBase.empty()) {
-        outBase = jsonPath;
-        const std::string suffix1 = ".wsps.json";
-        const std::string suffix2 = ".json";
-        if (outBase.size() >= suffix1.size() &&
-            outBase.compare(outBase.size() - suffix1.size(),
-                            suffix1.size(), suffix1) == 0) {
-            outBase.resize(outBase.size() - suffix1.size());
-        } else if (outBase.size() >= suffix2.size() &&
-                   outBase.compare(outBase.size() - suffix2.size(),
-                                   suffix2.size(), suffix2) == 0) {
-            outBase.resize(outBase.size() - suffix2.size());
-        }
-    }
-    outBase = stripWspsExt(outBase);
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(jsonPath, ".wsps");
+    outBase = cli::withoutExt(outBase, ".wsps");
     if (!wowee::pipeline::WoweeSpellProcLoader::save(c, outBase)) {
         std::fprintf(stderr,
             "import-wsps-json: failed to save %s.wsps\n",
@@ -304,119 +264,78 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWspsExt(base);
-    if (!wowee::pipeline::WoweeSpellProcLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wsps: WSPS not found: %s.wsps\n", base.c_str());
-        return 1;
-    }
-    auto c = wowee::pipeline::WoweeSpellProcLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    std::vector<uint32_t> idsSeen;
-    constexpr uint32_t kKnownFlagMask =
-        wowee::pipeline::WoweeSpellProc::DealtMeleeAutoAttack |
-        wowee::pipeline::WoweeSpellProc::DealtMeleeSpell |
-        wowee::pipeline::WoweeSpellProc::TakenMeleeAutoAttack |
-        wowee::pipeline::WoweeSpellProc::TakenMeleeSpell |
-        wowee::pipeline::WoweeSpellProc::DealtRangedAutoAttack |
-        wowee::pipeline::WoweeSpellProc::DealtRangedSpell |
-        wowee::pipeline::WoweeSpellProc::DealtSpell |
-        wowee::pipeline::WoweeSpellProc::DealtSpellHeal |
-        wowee::pipeline::WoweeSpellProc::TakenSpell |
-        wowee::pipeline::WoweeSpellProc::OnKill |
-        wowee::pipeline::WoweeSpellProc::OnDeath |
-        wowee::pipeline::WoweeSpellProc::OnCastFinished |
-        wowee::pipeline::WoweeSpellProc::Critical;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.procId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.procId == 0)
-            errors.push_back(ctx + ": procId is 0");
-        if (e.name.empty())
-            errors.push_back(ctx + ": name is empty");
-        if (e.triggerSpellId == 0)
-            errors.push_back(ctx +
-                ": triggerSpellId is 0 — proc will fire nothing");
-        if (e.procFlags == 0)
-            errors.push_back(ctx +
-                ": procFlags is 0 — proc will never trigger "
-                "(no qualifying event configured)");
-        if (e.procFlags & ~kKnownFlagMask) {
-            warnings.push_back(ctx +
-                ": procFlags has bits outside known mask " +
-                "(0x" + std::to_string(e.procFlags & ~kKnownFlagMask) +
-                ") — engine will ignore unknown flags");
-        }
-        if (e.procChance < 0.0f || e.procChance > 1.0f) {
-            warnings.push_back(ctx +
-                ": procChance " + std::to_string(e.procChance) +
-                " is outside [0..1]; engine clamps but author "
-                "should double-check");
-        }
-        if (e.procPpm < 0.0f) {
-            errors.push_back(ctx +
-                ": procPpm < 0 — invalid procs-per-minute rate");
-        }
-        // Both procChance and procPpm set is contradictory —
-        // engine prefers procPpm when non-zero so procChance
-        // is ignored.
-        if (e.procChance > 0.0f && e.procPpm > 0.0f) {
-            warnings.push_back(ctx +
-                ": both procChance (" + std::to_string(e.procChance) +
-                ") and procPpm (" + std::to_string(e.procPpm) +
-                ") set — engine uses procPpm and ignores "
-                "procChance");
-        }
-        // No chance configured at all = proc never fires.
-        if (e.procChance == 0.0f && e.procPpm == 0.0f) {
-            warnings.push_back(ctx +
-                ": both procChance=0 and procPpm=0 — proc " +
-                "will never trigger");
-        }
-        for (uint32_t prev : idsSeen) {
-            if (prev == e.procId) {
-                errors.push_back(ctx + ": duplicate procId");
-                break;
+    return cli::validateCatalog<wowee::pipeline::WoweeSpellProcLoader>(
+        i, argc, argv, "wsps", "WSPS",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        constexpr uint32_t kKnownFlagMask =
+            wowee::pipeline::WoweeSpellProc::DealtMeleeAutoAttack |
+            wowee::pipeline::WoweeSpellProc::DealtMeleeSpell |
+            wowee::pipeline::WoweeSpellProc::TakenMeleeAutoAttack |
+            wowee::pipeline::WoweeSpellProc::TakenMeleeSpell |
+            wowee::pipeline::WoweeSpellProc::DealtRangedAutoAttack |
+            wowee::pipeline::WoweeSpellProc::DealtRangedSpell |
+            wowee::pipeline::WoweeSpellProc::DealtSpell |
+            wowee::pipeline::WoweeSpellProc::DealtSpellHeal |
+            wowee::pipeline::WoweeSpellProc::TakenSpell |
+            wowee::pipeline::WoweeSpellProc::OnKill |
+            wowee::pipeline::WoweeSpellProc::OnDeath |
+            wowee::pipeline::WoweeSpellProc::OnCastFinished |
+            wowee::pipeline::WoweeSpellProc::Critical;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.procId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.procId == 0)
+                errors.push_back(ctx + ": procId is 0");
+            if (e.name.empty())
+                errors.push_back(ctx + ": name is empty");
+            if (e.triggerSpellId == 0)
+                errors.push_back(ctx +
+                    ": triggerSpellId is 0 - proc will fire nothing");
+            if (e.procFlags == 0)
+                errors.push_back(ctx +
+                    ": procFlags is 0 - proc will never trigger "
+                    "(no qualifying event configured)");
+            if (e.procFlags & ~kKnownFlagMask) {
+                warnings.push_back(ctx +
+                    ": procFlags has bits outside known mask " +
+                    "(0x" + std::to_string(e.procFlags & ~kKnownFlagMask) +
+                    ") - engine will ignore unknown flags");
             }
+            if (e.procChance < 0.0f || e.procChance > 1.0f) {
+                warnings.push_back(ctx +
+                    ": procChance " + std::to_string(e.procChance) +
+                    " is outside [0..1]; engine clamps but author "
+                    "should double-check");
+            }
+            if (e.procPpm < 0.0f) {
+                errors.push_back(ctx +
+                    ": procPpm < 0 - invalid procs-per-minute rate");
+            }
+            // Both procChance and procPpm set is contradictory -
+            // engine prefers procPpm when non-zero so procChance
+            // is ignored.
+            if (e.procChance > 0.0f && e.procPpm > 0.0f) {
+                warnings.push_back(ctx +
+                    ": both procChance (" + std::to_string(e.procChance) +
+                    ") and procPpm (" + std::to_string(e.procPpm) +
+                    ") set - engine uses procPpm and ignores "
+                    "procChance");
+            }
+            // No chance configured at all = proc never fires.
+            if (e.procChance == 0.0f && e.procPpm == 0.0f) {
+                warnings.push_back(ctx +
+                    ": both procChance=0 and procPpm=0 - proc " +
+                    "will never trigger");
+            }
+            if (!idsSeen.add(e.procId)) errors.push_back(ctx + ": duplicate procId");
         }
-        idsSeen.push_back(e.procId);
-    }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wsps"] = base + ".wsps";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wsps: %s.wsps\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu procs, all procIds unique\n",
-                    c.entries.size());
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+            return formatted("%zu procs, all procIds unique", c.entries.size());
+        });
 }
 
 } // namespace

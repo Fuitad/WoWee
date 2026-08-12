@@ -1,4 +1,5 @@
 #include "pipeline/wowee_player_movement_anim.hpp"
+#include "pipeline/wowee_binary_io.hpp"
 
 #include <cstdio>
 #include <cstring>
@@ -11,45 +12,7 @@ namespace {
 
 constexpr char kMagic[4] = {'W', 'P', 'H', 'M'};
 constexpr uint32_t kVersion = 1;
-
-template <typename T>
-void writePOD(std::ofstream& os, const T& v) {
-    os.write(reinterpret_cast<const char*>(&v), sizeof(T));
-}
-
-template <typename T>
-bool readPOD(std::ifstream& is, T& v) {
-    is.read(reinterpret_cast<char*>(&v), sizeof(T));
-    return is.gcount() == static_cast<std::streamsize>(sizeof(T));
-}
-
-void writeStr(std::ofstream& os, const std::string& s) {
-    uint32_t n = static_cast<uint32_t>(s.size());
-    writePOD(os, n);
-    if (n > 0) os.write(s.data(), n);
-}
-
-bool readStr(std::ifstream& is, std::string& s) {
-    uint32_t n = 0;
-    if (!readPOD(is, n)) return false;
-    if (n > (1u << 20)) return false;
-    s.resize(n);
-    if (n > 0) {
-        is.read(s.data(), n);
-        if (is.gcount() != static_cast<std::streamsize>(n)) {
-            s.clear();
-            return false;
-        }
-    }
-    return true;
-}
-
-std::string normalizePath(std::string base) {
-    if (base.size() < 5 || base.substr(base.size() - 5) != ".wphm") {
-        base += ".wphm";
-    }
-    return base;
-}
+constexpr char kExtension[] = ".wphm";
 
 } // namespace
 
@@ -86,14 +49,8 @@ WoweePlayerMovementAnim::findByRaceGender(uint8_t raceId,
 bool WoweePlayerMovementAnimLoader::save(
     const WoweePlayerMovementAnim& cat,
     const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath), std::ios::binary);
-    if (!os) return false;
-    os.write(kMagic, 4);
-    writePOD(os, kVersion);
-    writeStr(os, cat.name);
-    uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writePOD(os, entryCount);
-    for (const auto& e : cat.entries) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const auto& e) {
         writePOD(os, e.mapId);
         writePOD(os, e.raceId);
         writePOD(os, e.genderId);
@@ -103,26 +60,13 @@ bool WoweePlayerMovementAnimLoader::save(
         writePOD(os, e.variantAnimId);
         writePOD(os, e.transitionMs);
         writePOD(os, e.pad1);
-    }
-    return os.good();
+    });
 }
 
 WoweePlayerMovementAnim WoweePlayerMovementAnimLoader::load(
     const std::string& basePath) {
-    WoweePlayerMovementAnim out;
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    if (!is) return out;
-    char magic[4];
-    is.read(magic, 4);
-    if (std::memcmp(magic, kMagic, 4) != 0) return out;
-    uint32_t version = 0;
-    if (!readPOD(is, version) || version != kVersion) return out;
-    if (!readStr(is, out.name)) return out;
-    uint32_t entryCount = 0;
-    if (!readPOD(is, entryCount)) return out;
-    if (entryCount > (1u << 20)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
+    return loadCatalog<WoweePlayerMovementAnim>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweePlayerMovementAnim::Entry& e) {
         if (!readPOD(is, e.mapId) ||
             !readPOD(is, e.raceId) ||
             !readPOD(is, e.genderId) ||
@@ -131,17 +75,14 @@ WoweePlayerMovementAnim WoweePlayerMovementAnimLoader::load(
             !readPOD(is, e.baseAnimId) ||
             !readPOD(is, e.variantAnimId) ||
             !readPOD(is, e.transitionMs) ||
-            !readPOD(is, e.pad1)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.pad1)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweePlayerMovementAnimLoader::exists(
     const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 namespace {
@@ -209,7 +150,7 @@ WoweePlayerMovementAnimLoader::makeHumanMovement(
     });
     // Human Female: identical state shape but anim
     // base ids differ (M2 sex models have separate
-    // anim tables) — using same numeric ids here as
+    // anim tables) - using same numeric ids here as
     // placeholder; in production these would be the
     // female-model-specific anim indices.
     appendRaceGender(c, 1100, 1, 1, {
@@ -270,7 +211,7 @@ WoweePlayerMovementAnimLoader::makeUndeadMovement(
         {P::StateWalk,  4, 40, 250},
         {P::StateRun,   5, 38, 200},
         {P::StateSwim, 12,  0, 400},  // slower blend
-                                        //  — undead aren't
+                                        //  - undead aren't
                                         //  graceful in
                                         //  water
         {P::StateFly,  68,  0, 400},

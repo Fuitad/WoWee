@@ -7,6 +7,7 @@
 #include "game/game_handler.hpp"
 #include "addons/addon_manager.hpp"
 #include "core/application.hpp"
+#include "ui/framexml_takeover.hpp"
 #include <algorithm>
 #include <cctype>
 
@@ -65,6 +66,11 @@ public:
         if (am) {
             am->reload();
             am->fireEvent("VARIABLES_LOADED");
+            // The chat windows are rebuilt by the reload and come up with the
+            // defaults their XML carries, so they have to be told to read the
+            // settings back - same as at login, and the reason a /reload used
+            // to lose the chat layout.
+            am->fireEvent("UPDATE_CHAT_WINDOWS");
             am->fireEvent("PLAYER_LOGIN");
             am->fireEvent("PLAYER_ENTERING_WORLD");
             game::MessageChatData rlMsg;
@@ -83,6 +89,47 @@ public:
     }
     std::vector<std::string> aliases() const override { return {"reload", "reloadui", "rl"}; }
     std::string helpText() const override { return "Reload all addons"; }
+};
+
+// --- /fxcheck ---
+class FrameXmlCheckCommand : public IChatCommand {
+public:
+    ChatCommandResult execute(ChatCommandContext& ctx) override {
+        frameXmlRequestCheck();
+
+        // What the interface itself can see, asked through the same bindings
+        // FrameXML uses. The widget report says whether a frame is shown; it
+        // cannot say whether it *should* be, and those are the two readings
+        // that have to be told apart. A hidden target frame is correct with no
+        // target and a fault with one, and from the tree alone they are the
+        // same line. print() reaches the log, so the answer lands beside the
+        // report it belongs to.
+        if (auto* am = ctx.services.addonManager) {
+            am->runScript(
+                "local function yn(v) return v and 'yes' or 'no' end\n"
+                "local auras = 0\n"
+                "for i = 1, 40 do if not UnitAura('player', i) then break end auras = i end\n"
+                "print('[fxcheck] target=' .. yn(UnitExists('target')) ..\n"
+                "      ' name=' .. tostring(UnitExists('target') and UnitName('target')) ..\n"
+                "      ' | TargetFrame shown=' .. yn(TargetFrame and TargetFrame:IsShown()) ..\n"
+                "      ' unit=' .. tostring(TargetFrame and TargetFrame.unit) ..\n"
+                "      ' | player auras=' .. auras ..\n"
+                "      ' BuffButton1=' .. tostring(BuffButton1 ~= nil) ..\n"
+                "      ' | XP=' .. tostring(UnitXP('player')) .. '/' .. tostring(UnitXPMax('player')) ..\n"
+                "      ' | bag0 slots=' .. tostring(GetContainerNumSlots(0)))\n");
+        }
+
+        game::MessageChatData msg;
+        msg.type = game::ChatType::SYSTEM;
+        msg.language = game::ChatLanguage::UNIVERSAL;
+        msg.message = "FrameXML takeover check written to the log.";
+        ctx.gameHandler.addLocalChatMessage(msg);
+        return {};
+    }
+    std::vector<std::string> aliases() const override { return {"fxcheck"}; }
+    std::string helpText() const override {
+        return "Report the FrameXML takeover check for the interface as it is now";
+    }
 };
 
 // --- /stopmacro [conditions] ---
@@ -170,6 +217,7 @@ void registerSystemCommands(ChatCommandRegistry& reg) {
     reg.registerCommand(std::make_unique<RunCommand>());
     reg.registerCommand(std::make_unique<DumpCommand>());
     reg.registerCommand(std::make_unique<ReloadCommand>());
+    reg.registerCommand(std::make_unique<FrameXmlCheckCommand>());
     reg.registerCommand(std::make_unique<StopMacroCommand>());
     reg.registerCommand(std::make_unique<ClearCommand>());
     reg.registerCommand(std::make_unique<DifficultyCommand>());

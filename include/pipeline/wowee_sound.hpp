@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Sound Catalog (.wsnd) — novel replacement for
+// Wowee Open Sound Catalog (.wsnd) - novel replacement for
 // Blizzard's SoundEntries.dbc + SoundEntriesAdvanced.dbc.
 // One file holds all sound metadata for a zone or feature: UI
 // clicks, ambient loops, spell SFX, voice clips, combat hits.
@@ -68,7 +68,7 @@ struct WoweeSound {
 
     bool isValid() const { return !entries.empty(); }
 
-    // Lookup by soundId — returns nullptr if not present.
+    // Lookup by soundId - returns nullptr if not present.
     const Entry* findById(uint32_t soundId) const;
 
     static const char* kindName(uint8_t k);
@@ -83,13 +83,13 @@ public:
 
     // Preset emitters used by --gen-sound-catalog* variants.
     //
-    //   makeStarter — one entry per kind covering the common
+    //   makeStarter - one entry per kind covering the common
     //                  sound categories (sfx / music / ambient
     //                  / ui / voice / spell / combat). Useful
     //                  as a template for hand-edit.
-    //   makeAmbient — wilderness-style: bird-loop ambient +
+    //   makeAmbient - wilderness-style: bird-loop ambient +
     //                  wind ambient + footstep variants.
-    //   makeTavern  — interior: crackling-fire ambient + crowd
+    //   makeTavern  - interior: crackling-fire ambient + crowd
     //                  murmur + drink-clink + door-creak.
     static WoweeSound makeStarter(const std::string& catalogName);
     static WoweeSound makeAmbient(const std::string& catalogName);

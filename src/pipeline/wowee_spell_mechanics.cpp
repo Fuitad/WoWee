@@ -1,4 +1,5 @@
 #include "pipeline/wowee_spell_mechanics.hpp"
+#include "pipeline/wowee_binary_io.hpp"
 
 #include <cstdio>
 #include <cstring>
@@ -11,45 +12,7 @@ namespace {
 
 constexpr char kMagic[4] = {'W', 'S', 'M', 'C'};
 constexpr uint32_t kVersion = 1;
-
-template <typename T>
-void writePOD(std::ofstream& os, const T& v) {
-    os.write(reinterpret_cast<const char*>(&v), sizeof(T));
-}
-
-template <typename T>
-bool readPOD(std::ifstream& is, T& v) {
-    is.read(reinterpret_cast<char*>(&v), sizeof(T));
-    return is.gcount() == static_cast<std::streamsize>(sizeof(T));
-}
-
-void writeStr(std::ofstream& os, const std::string& s) {
-    uint32_t n = static_cast<uint32_t>(s.size());
-    writePOD(os, n);
-    if (n > 0) os.write(s.data(), n);
-}
-
-bool readStr(std::ifstream& is, std::string& s) {
-    uint32_t n = 0;
-    if (!readPOD(is, n)) return false;
-    if (n > (1u << 20)) return false;
-    s.resize(n);
-    if (n > 0) {
-        is.read(s.data(), n);
-        if (is.gcount() != static_cast<std::streamsize>(n)) {
-            s.clear();
-            return false;
-        }
-    }
-    return true;
-}
-
-std::string normalizePath(std::string base) {
-    if (base.size() < 5 || base.substr(base.size() - 5) != ".wsmc") {
-        base += ".wsmc";
-    }
-    return base;
-}
+constexpr char kExtension[] = ".wsmc";
 
 } // namespace
 
@@ -88,15 +51,9 @@ const char* WoweeSpellMechanic::dispelTypeName(uint8_t d) {
 }
 
 bool WoweeSpellMechanicLoader::save(const WoweeSpellMechanic& cat,
-                                     const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath), std::ios::binary);
-    if (!os) return false;
-    os.write(kMagic, 4);
-    writePOD(os, kVersion);
-    writeStr(os, cat.name);
-    uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writePOD(os, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeSpellMechanic::Entry& e) {
         writePOD(os, e.mechanicId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -107,57 +64,32 @@ bool WoweeSpellMechanicLoader::save(const WoweeSpellMechanic& cat,
         writePOD(os, e.dispelType);
         writePOD(os, e.defaultDurationMs);
         writePOD(os, e.maxStacks);
-        uint8_t pad3[3] = {0, 0, 0};
-        os.write(reinterpret_cast<const char*>(pad3), 3);
+        writePadding(os, 3);
         writePOD(os, e.conflictsMask);
-    }
-    return os.good();
+                       });
 }
 
 WoweeSpellMechanic WoweeSpellMechanicLoader::load(
     const std::string& basePath) {
-    WoweeSpellMechanic out;
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    if (!is) return out;
-    char magic[4];
-    is.read(magic, 4);
-    if (std::memcmp(magic, kMagic, 4) != 0) return out;
-    uint32_t version = 0;
-    if (!readPOD(is, version) || version != kVersion) return out;
-    if (!readStr(is, out.name)) return out;
-    uint32_t entryCount = 0;
-    if (!readPOD(is, entryCount)) return out;
-    if (entryCount > (1u << 20)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.mechanicId)) {
-            out.entries.clear(); return out;
-        }
+    return loadCatalog<WoweeSpellMechanic>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeSpellMechanic::Entry& e) {
+        if (!readPOD(is, e.mechanicId)) { return false; }
         if (!readStr(is, e.name) || !readStr(is, e.description) ||
-            !readStr(is, e.iconPath)) {
-            out.entries.clear(); return out;
-        }
+            !readStr(is, e.iconPath)) { return false; }
         if (!readPOD(is, e.breaksOnDamage) ||
             !readPOD(is, e.canBeDispelled) ||
             !readPOD(is, e.drCategory) ||
             !readPOD(is, e.dispelType) ||
             !readPOD(is, e.defaultDurationMs) ||
-            !readPOD(is, e.maxStacks)) {
-            out.entries.clear(); return out;
-        }
-        uint8_t pad3[3];
-        is.read(reinterpret_cast<char*>(pad3), 3);
-        if (is.gcount() != 3) { out.entries.clear(); return out; }
-        if (!readPOD(is, e.conflictsMask)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.maxStacks)) { return false; }
+        if (!skipPadding(is, 3)) { return false; }
+        if (!readPOD(is, e.conflictsMask)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeSpellMechanicLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeSpellMechanic WoweeSpellMechanicLoader::makeStarter(
@@ -229,23 +161,23 @@ WoweeSpellMechanic WoweeSpellMechanicLoader::makeHardCC(
         c.entries.push_back(e);
     };
     // Hard-CC mechanics. conflictsMask uses bits = mechanicId
-    // shifted left — so id=10 (Stun) has bit 0x400 (1<<10)
+    // shifted left - so id=10 (Stun) has bit 0x400 (1<<10)
     // referenced by anything that conflicts with Stun.
     add(10, "Stun",       0, 0, WoweeSpellMechanic::DRStun,
         WoweeSpellMechanic::DispelNone,    4000, 0,
-        "Target stunned — no actions for 4 seconds.");
+        "Target stunned - no actions for 4 seconds.");
     add(11, "Polymorph",  1, 1, WoweeSpellMechanic::DRPolymorph,
         WoweeSpellMechanic::DispelMagic,   8000, (1u << 10),
-        "Transformed into a sheep — breaks on damage.");
+        "Transformed into a sheep - breaks on damage.");
     add(12, "Sleep",      1, 1, WoweeSpellMechanic::DRPolymorph,
         WoweeSpellMechanic::DispelMagic,   6000, (1u << 11),
-        "Target sleeping — breaks on damage.");
+        "Target sleeping - breaks on damage.");
     add(13, "Fear",       1, 1, WoweeSpellMechanic::DRDisorient,
         WoweeSpellMechanic::DispelMagic,   8000, 0,
         "Target flees in random direction.");
     add(14, "Knockback",  0, 0, WoweeSpellMechanic::DRStun,
         WoweeSpellMechanic::DispelNone,    1500, (1u << 10),
-        "Target launched backward — brief knockdown.");
+        "Target launched backward - brief knockdown.");
     return c;
 }
 
@@ -269,13 +201,13 @@ WoweeSpellMechanic WoweeSpellMechanicLoader::makeRoots(
         c.entries.push_back(e);
     };
     add(20, "Root",          0, 1,  6000,
-        "Target rooted in place — cannot move.");
+        "Target rooted in place - cannot move.");
     add(21, "Snare",         0, 1,  8000,
         "Movement speed reduced by 50%.");
     add(22, "Slow",          0, 5, 10000,
-        "Stacking slow — each stack adds 10% slow up to 50%.");
+        "Stacking slow - each stack adds 10% slow up to 50%.");
     add(23, "GroundPin",     1, 1,  3000,
-        "Pinned to the ground — breaks on damage.");
+        "Pinned to the ground - breaks on damage.");
     return c;
 }
 

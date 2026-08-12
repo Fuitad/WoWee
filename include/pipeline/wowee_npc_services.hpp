@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open NPC Service Definition catalog (.wbkd) —
+// Wowee Open NPC Service Definition catalog (.wbkd) -
 // novel replacement for AzerothCore's npc_vendor /
 // npc_trainer / npc_gossip / npc_options SQL tables plus
 // the engine's hard-coded service-type dispatch. Defines
@@ -19,7 +19,7 @@ namespace pipeline {
 // When a player right-clicks an NPC, the engine looks
 // at the NPC's serviceId list (from WCRT.npcFlags or
 // equivalent) and dispatches to the appropriate
-// service-frame handler — Banker opens the inventory
+// service-frame handler - Banker opens the inventory
 // expansion frame, Auctioneer opens the auction house,
 // StableMaster opens the pet stable. This catalog
 // defines what each service actually does and what
@@ -103,15 +103,15 @@ public:
 
     // Preset emitters used by --gen-bkd* variants.
     //
-    //   makeCity     — 5 city services (Banker / Mailbox /
+    //   makeCity     - 5 city services (Banker / Mailbox /
     //                   Innkeeper / Auctioneer /
     //                   FlightMaster) typically present in
     //                   a capital city like Stormwind or
     //                   Orgrimmar.
-    //   makeBattle   — 3 battlemaster services (Alterac /
+    //   makeBattle   - 3 battlemaster services (Alterac /
     //                   Warsong / Arathi) for queueing into
     //                   each Vanilla battleground.
-    //   makeProfession — 4 profession services (Blacksmith
+    //   makeProfession - 4 profession services (Blacksmith
     //                   Trainer / Tailoring Trainer /
     //                   Reagent Vendor / Stable Master)
     //                   typical of profession districts.

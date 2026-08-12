@@ -1,7 +1,7 @@
 name: wowee-codeql-config
 
 # Skip vendored third-party libraries. We do not modify upstream code in
-# extern/ (ImGui, miniaudio, stb_*, etc.) — those projects own their own
+# extern/ (ImGui, miniaudio, stb_*, etc.) - those projects own their own
 # triage and accepting CodeQL findings there blocks our update path and
 # drowns out signal in our own code.
 paths-ignore:

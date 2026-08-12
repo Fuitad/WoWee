@@ -1,4 +1,5 @@
 #include "pipeline/wowee_instance_lockouts.hpp"
+#include "pipeline/wowee_binary_io.hpp"
 
 #include <cstdio>
 #include <cstring>
@@ -11,52 +12,7 @@ namespace {
 
 constexpr char kMagic[4] = {'W', 'H', 'L', 'D'};
 constexpr uint32_t kVersion = 1;
-
-template <typename T>
-void writePOD(std::ofstream& os, const T& v) {
-    os.write(reinterpret_cast<const char*>(&v), sizeof(T));
-}
-
-template <typename T>
-bool readPOD(std::ifstream& is, T& v) {
-    is.read(reinterpret_cast<char*>(&v), sizeof(T));
-    return is.gcount() == static_cast<std::streamsize>(sizeof(T));
-}
-
-void writeStr(std::ofstream& os, const std::string& s) {
-    uint32_t n = static_cast<uint32_t>(s.size());
-    writePOD(os, n);
-    if (n > 0) os.write(s.data(), n);
-}
-
-bool readStr(std::ifstream& is, std::string& s) {
-    uint32_t n = 0;
-    if (!readPOD(is, n)) return false;
-    if (n > (1u << 20)) return false;
-    s.resize(n);
-    if (n > 0) {
-        is.read(s.data(), n);
-        if (is.gcount() != static_cast<std::streamsize>(n)) {
-            s.clear();
-            return false;
-        }
-    }
-    return true;
-}
-
-std::string normalizePath(std::string base) {
-    if (base.size() < 5 || base.substr(base.size() - 5) != ".whld") {
-        base += ".whld";
-    }
-    return base;
-}
-
-uint32_t packRgba(uint8_t r, uint8_t g, uint8_t b, uint8_t a = 0xFF) {
-    return (static_cast<uint32_t>(a) << 24) |
-           (static_cast<uint32_t>(b) << 16) |
-           (static_cast<uint32_t>(g) << 8)  |
-            static_cast<uint32_t>(r);
-}
+constexpr char kExtension[] = ".whld";
 
 } // namespace
 
@@ -98,15 +54,9 @@ const char* WoweeInstanceLockout::lockoutKindName(uint8_t k) {
 }
 
 bool WoweeInstanceLockoutLoader::save(const WoweeInstanceLockout& cat,
-                                       const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath), std::ios::binary);
-    if (!os) return false;
-    os.write(kMagic, 4);
-    writePOD(os, kVersion);
-    writeStr(os, cat.name);
-    uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writePOD(os, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeInstanceLockout::Entry& e) {
         writePOD(os, e.lockoutId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -118,24 +68,16 @@ bool WoweeInstanceLockoutLoader::save(const WoweeInstanceLockout& cat,
         writePOD(os, e.raidLockoutKind);
         writePOD(os, e.raidGroupSize);
         writePOD(os, e.iconColorRGBA);
-    }
-    return os.good();
+                       });
 }
 
 WoweeInstanceLockout WoweeInstanceLockoutLoader::load(
     const std::string& basePath) {
     WoweeInstanceLockout out;
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
+    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
     if (!is) return out;
-    char magic[4];
-    is.read(magic, 4);
-    if (std::memcmp(magic, kMagic, 4) != 0) return out;
-    uint32_t version = 0;
-    if (!readPOD(is, version) || version != kVersion) return out;
-    if (!readStr(is, out.name)) return out;
     uint32_t entryCount = 0;
-    if (!readPOD(is, entryCount)) return out;
-    if (entryCount > (1u << 20)) return out;
+    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
     out.entries.resize(entryCount);
     for (auto& e : out.entries) {
         if (!readPOD(is, e.lockoutId)) {
@@ -159,8 +101,7 @@ WoweeInstanceLockout WoweeInstanceLockoutLoader::load(
 }
 
 bool WoweeInstanceLockoutLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeInstanceLockout WoweeInstanceLockoutLoader::makeRaidWeekly(
@@ -182,10 +123,10 @@ WoweeInstanceLockout WoweeInstanceLockoutLoader::makeRaidWeekly(
         e.iconColorRGBA = packRgba(220, 80, 100);    // raid red
         c.entries.push_back(e);
     };
-    add(1, "ICC10Normal",  100, 10, "ICC 10-Normal weekly lockout — 12 bosses, 10 players.");
-    add(2, "ICC25Normal",  101, 25, "ICC 25-Normal weekly lockout — 12 bosses, 25 players.");
-    add(3, "ICC10Heroic",  102, 10, "ICC 10-Heroic weekly lockout — 12 bosses, 10 players, heroic loot tier.");
-    add(4, "ICC25Heroic",  103, 25, "ICC 25-Heroic weekly lockout — 12 bosses, 25 players, heroic loot tier.");
+    add(1, "ICC10Normal",  100, 10, "ICC 10-Normal weekly lockout - 12 bosses, 10 players.");
+    add(2, "ICC25Normal",  101, 25, "ICC 25-Normal weekly lockout - 12 bosses, 25 players.");
+    add(3, "ICC10Heroic",  102, 10, "ICC 10-Heroic weekly lockout - 12 bosses, 10 players, heroic loot tier.");
+    add(4, "ICC25Heroic",  103, 25, "ICC 25-Heroic weekly lockout - 12 bosses, 25 players, heroic loot tier.");
     return c;
 }
 
@@ -209,13 +150,13 @@ WoweeInstanceLockout WoweeInstanceLockoutLoader::makeDungeonDaily(
     };
     // WotLK 5-man heroic dungeon mapIds.
     add(100, "HallsOfReflectionH",  668, 3,
-        "Halls of Reflection heroic — daily lockout, 3 bosses, 5 players.");
+        "Halls of Reflection heroic - daily lockout, 3 bosses, 5 players.");
     add(101, "ForgeOfSoulsH",       632, 2,
-        "Forge of Souls heroic — daily lockout, 2 bosses, 5 players.");
+        "Forge of Souls heroic - daily lockout, 2 bosses, 5 players.");
     add(102, "PitOfSaronH",         658, 3,
-        "Pit of Saron heroic — daily lockout, 3 bosses, 5 players.");
+        "Pit of Saron heroic - daily lockout, 3 bosses, 5 players.");
     add(103, "TrialOfTheChampionH", 650, 4,
-        "Trial of the Champion heroic — daily lockout, 4 bosses, 5 players.");
+        "Trial of the Champion heroic - daily lockout, 4 bosses, 5 players.");
     return c;
 }
 
@@ -240,11 +181,11 @@ WoweeInstanceLockout WoweeInstanceLockoutLoader::makeWorldEvent(
     // World-event lockouts with non-standard intervals.
     // Wintergrasp's 2.5h cycle is the canonical Custom kind.
     add(200, "BrewfestRamDaily",     0, L::kDailyMs, L::Daily, 1,
-        "Brewfest Ram Racing — daily reset, 1 reward per day.");
+        "Brewfest Ram Racing - daily reset, 1 reward per day.");
     add(201, "HallowsEndPumpkin",    0, L::kDailyMs, L::Daily, 1,
-        "Hallow's End pumpkin spawn — daily reset, 1 candy bag per day.");
+        "Hallow's End pumpkin spawn - daily reset, 1 candy bag per day.");
     add(202, "WintergraspBattle",  571, 9000000u, L::Custom, 1,
-        "Wintergrasp battle — 2.5h reset (9000000ms) outdoor PvP zone.");
+        "Wintergrasp battle - 2.5h reset (9000000ms) outdoor PvP zone.");
     return c;
 }
 

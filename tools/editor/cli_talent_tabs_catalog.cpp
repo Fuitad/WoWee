@@ -1,4 +1,6 @@
 #include "cli_talent_tabs_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -19,20 +21,6 @@ namespace cli {
 
 namespace {
 
-std::string stripWtleExt(std::string base) {
-    stripExt(base, ".wtle");
-    return base;
-}
-
-bool saveOrError(const wowee::pipeline::WoweeTalentTab& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeTalentTabLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wtle\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeTalentTab& c,
                      const std::string& base) {
@@ -45,9 +33,9 @@ int handleGenWarrior(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "WarriorTalentTabs";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWtleExt(base);
+    base = cli::withoutExt(base, ".wtle");
     auto c = wowee::pipeline::WoweeTalentTabLoader::makeWarrior(name);
-    if (!saveOrError(c, base, "gen-tle")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeTalentTabLoader>(c, base, "gen-tle", ".wtle")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -56,9 +44,9 @@ int handleGenMage(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "MageTalentTabs";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWtleExt(base);
+    base = cli::withoutExt(base, ".wtle");
     auto c = wowee::pipeline::WoweeTalentTabLoader::makeMage(name);
-    if (!saveOrError(c, base, "gen-tle-mage")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeTalentTabLoader>(c, base, "gen-tle-mage", ".wtle")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -67,9 +55,9 @@ int handleGenPaladin(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "PaladinTalentTabs";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWtleExt(base);
+    base = cli::withoutExt(base, ".wtle");
     auto c = wowee::pipeline::WoweeTalentTabLoader::makePaladin(name);
-    if (!saveOrError(c, base, "gen-tle-paladin")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeTalentTabLoader>(c, base, "gen-tle-paladin", ".wtle")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -77,10 +65,9 @@ int handleGenPaladin(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWtleExt(base);
+    base = cli::withoutExt(base, ".wtle");
     if (!wowee::pipeline::WoweeTalentTabLoader::exists(base)) {
-        std::fprintf(stderr, "WTLE not found: %s.wtle\n", base.c_str());
-        return 1;
+        return reportMissing("WTLE", base, ".wtle");
     }
     auto c = wowee::pipeline::WoweeTalentTabLoader::load(base);
     if (jsonOut) {
@@ -127,12 +114,9 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWtleExt(base);
+    base = cli::withoutExt(base, ".wtle");
     if (!wowee::pipeline::WoweeTalentTabLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wtle-json: WTLE not found: %s.wtle\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wtle-json", "WTLE", base, ".wtle");
     }
     auto c = wowee::pipeline::WoweeTalentTabLoader::load(base);
     if (outPath.empty()) outPath = base + ".wtle.json";
@@ -232,21 +216,8 @@ int handleImportJson(int& i, int argc, char** argv) {
             c.entries.push_back(e);
         }
     }
-    if (outBase.empty()) {
-        outBase = jsonPath;
-        const std::string suffix1 = ".wtle.json";
-        const std::string suffix2 = ".json";
-        if (outBase.size() >= suffix1.size() &&
-            outBase.compare(outBase.size() - suffix1.size(),
-                            suffix1.size(), suffix1) == 0) {
-            outBase.resize(outBase.size() - suffix1.size());
-        } else if (outBase.size() >= suffix2.size() &&
-                   outBase.compare(outBase.size() - suffix2.size(),
-                                   suffix2.size(), suffix2) == 0) {
-            outBase.resize(outBase.size() - suffix2.size());
-        }
-    }
-    outBase = stripWtleExt(outBase);
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(jsonPath, ".wtle");
+    outBase = cli::withoutExt(outBase, ".wtle");
     if (!wowee::pipeline::WoweeTalentTabLoader::save(c, outBase)) {
         std::fprintf(stderr,
             "import-wtle-json: failed to save %s.wtle\n",
@@ -260,104 +231,63 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWtleExt(base);
-    if (!wowee::pipeline::WoweeTalentTabLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wtle: WTLE not found: %s.wtle\n", base.c_str());
-        return 1;
-    }
-    auto c = wowee::pipeline::WoweeTalentTabLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    std::vector<uint32_t> idsSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.tabId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.tabId == 0)
-            errors.push_back(ctx + ": tabId is 0");
-        if (e.name.empty())
-            errors.push_back(ctx + ": name is empty");
-        if (e.classMask == 0)
-            errors.push_back(ctx +
-                ": classMask is 0 — no class can use this tab");
-        if (e.roleHint > wowee::pipeline::WoweeTalentTab::PetClass) {
-            errors.push_back(ctx + ": roleHint " +
-                std::to_string(e.roleHint) + " not in 0..4");
+    return cli::validateCatalog<wowee::pipeline::WoweeTalentTabLoader>(
+        i, argc, argv, "wtle", "WTLE",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.tabId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.tabId == 0)
+                errors.push_back(ctx + ": tabId is 0");
+            if (e.name.empty())
+                errors.push_back(ctx + ": name is empty");
+            if (e.classMask == 0)
+                errors.push_back(ctx +
+                    ": classMask is 0 - no class can use this tab");
+            if (e.roleHint > wowee::pipeline::WoweeTalentTab::PetClass) {
+                errors.push_back(ctx + ": roleHint " +
+                    std::to_string(e.roleHint) + " not in 0..4");
+            }
+            if (e.displayOrder > 3) {
+                warnings.push_back(ctx +
+                    ": displayOrder " +
+                    std::to_string(e.displayOrder) +
+                    " > 3 - talent UI shows at most 4 tabs");
+            }
+            if (e.iconPath.empty())
+                warnings.push_back(ctx +
+                    ": iconPath is empty - tab will render with "
+                    "the missing-texture placeholder");
+            if (e.backgroundFile.empty())
+                warnings.push_back(ctx +
+                    ": backgroundFile is empty - talent tree "
+                    "panel will have no background art");
+            if (!idsSeen.add(e.tabId)) errors.push_back(ctx + ": duplicate tabId");
         }
-        if (e.displayOrder > 3) {
-            warnings.push_back(ctx +
-                ": displayOrder " +
-                std::to_string(e.displayOrder) +
-                " > 3 — talent UI shows at most 4 tabs");
-        }
-        if (e.iconPath.empty())
-            warnings.push_back(ctx +
-                ": iconPath is empty — tab will render with "
-                "the missing-texture placeholder");
-        if (e.backgroundFile.empty())
-            warnings.push_back(ctx +
-                ": backgroundFile is empty — talent tree "
-                "panel will have no background art");
-        for (uint32_t prev : idsSeen) {
-            if (prev == e.tabId) {
-                errors.push_back(ctx + ": duplicate tabId");
-                break;
+        // Cross-entry: detect duplicate (classMask, displayOrder)
+        // for overlapping classMasks - two tabs can't share a UI
+        // slot for the same class.
+        for (size_t a = 0; a < c.entries.size(); ++a) {
+            for (size_t b = a + 1; b < c.entries.size(); ++b) {
+                const auto& ea = c.entries[a];
+                const auto& eb = c.entries[b];
+                if (ea.displayOrder != eb.displayOrder) continue;
+                if ((ea.classMask & eb.classMask) == 0) continue;
+                warnings.push_back(
+                    "entries " + std::to_string(a) + " (" +
+                    ea.name + ") and " + std::to_string(b) + " (" +
+                    eb.name + ") share displayOrder " +
+                    std::to_string(ea.displayOrder) +
+                    " for overlapping classMask - tab UI position collision");
             }
         }
-        idsSeen.push_back(e.tabId);
-    }
-    // Cross-entry: detect duplicate (classMask, displayOrder)
-    // for overlapping classMasks — two tabs can't share a UI
-    // slot for the same class.
-    for (size_t a = 0; a < c.entries.size(); ++a) {
-        for (size_t b = a + 1; b < c.entries.size(); ++b) {
-            const auto& ea = c.entries[a];
-            const auto& eb = c.entries[b];
-            if (ea.displayOrder != eb.displayOrder) continue;
-            if ((ea.classMask & eb.classMask) == 0) continue;
-            warnings.push_back(
-                "entries " + std::to_string(a) + " (" +
-                ea.name + ") and " + std::to_string(b) + " (" +
-                eb.name + ") share displayOrder " +
-                std::to_string(ea.displayOrder) +
-                " for overlapping classMask — tab UI position collision");
-        }
-    }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wtle"] = base + ".wtle";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wtle: %s.wtle\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu tabs, all tabIds unique, no UI overlaps\n",
-                    c.entries.size());
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+            return formatted("%zu tabs, all tabIds unique, no UI overlaps", c.entries.size());
+        });
 }
 
 } // namespace

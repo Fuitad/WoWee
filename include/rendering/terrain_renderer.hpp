@@ -1,5 +1,8 @@
 #pragma once
 
+#include "rendering/vk_shader.hpp"
+#include "rendering/shadow_params.hpp"
+
 #include "pipeline/terrain_mesh.hpp"
 #include "pipeline/blp_loader.hpp"
 #include "rendering/camera.hpp"
@@ -132,6 +135,11 @@ public:
     void clear();
 
     void recreatePipelines();
+    /// The fill pipeline and its wireframe derivative, which
+    /// initialize() and recreatePipelines() both need.
+    bool buildMainPassPipelines(VkDevice device,
+                                wowee::rendering::VkShaderModule& vertShader,
+                                wowee::rendering::VkShaderModule& fragShader);
 
     void setWireframe(bool enabled) { wireframe = enabled; }
     void setFrustumCulling(bool enabled) { frustumCullingEnabled = enabled; }
@@ -170,15 +178,19 @@ private:
     // Shadow pipeline
     VkPipeline shadowPipeline_ = VK_NULL_HANDLE;
     VkPipelineLayout shadowPipelineLayout_ = VK_NULL_HANDLE;
-    VkDescriptorSetLayout shadowParamsLayout_ = VK_NULL_HANDLE;
-    VkDescriptorPool shadowParamsPool_ = VK_NULL_HANDLE;
-    VkDescriptorSet shadowParamsSet_ = VK_NULL_HANDLE;
-    VkBuffer shadowParamsUBO_ = VK_NULL_HANDLE;
-    VmaAllocation shadowParamsAlloc_ = VK_NULL_HANDLE;
+    /// The set the shadow pass binds. Five separate members before,
+    /// built and torn down here and in three other renderers.
+    ShadowParamsSet shadowParams_;
 
-    // Descriptor pool for material sets
+    // Descriptor pool for material sets. One set per terrain chunk, 256 chunks
+    // to a tile, so this is a tile budget: 65536 covered 256 tiles, and tiles
+    // are held to the *unload* radius, not the load radius - 8 loading and 11
+    // unloading is 23×23 = 529 resident. Every tile past the 256th arrived
+    // with no descriptor set and, before the retry in loadTerrainIncremental,
+    // was dropped for good: terrain that simply was not there, in whichever
+    // direction the player had travelled furthest.
     VkDescriptorPool materialDescPool = VK_NULL_HANDLE;
-    static constexpr uint32_t MAX_MATERIAL_SETS = 65536;
+    static constexpr uint32_t MAX_MATERIAL_SETS = 160 * 1024;  // 640 tiles
 
     // Loaded terrain chunks
     std::vector<TerrainChunkGPU> chunks;

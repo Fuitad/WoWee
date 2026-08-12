@@ -1,4 +1,5 @@
 #include "pipeline/wowee_spell_schools.hpp"
+#include "pipeline/wowee_binary_io.hpp"
 
 #include <cstdio>
 #include <cstring>
@@ -11,52 +12,7 @@ namespace {
 
 constexpr char kMagic[4] = {'W', 'S', 'C', 'H'};
 constexpr uint32_t kVersion = 1;
-
-template <typename T>
-void writePOD(std::ofstream& os, const T& v) {
-    os.write(reinterpret_cast<const char*>(&v), sizeof(T));
-}
-
-template <typename T>
-bool readPOD(std::ifstream& is, T& v) {
-    is.read(reinterpret_cast<char*>(&v), sizeof(T));
-    return is.gcount() == static_cast<std::streamsize>(sizeof(T));
-}
-
-void writeStr(std::ofstream& os, const std::string& s) {
-    uint32_t n = static_cast<uint32_t>(s.size());
-    writePOD(os, n);
-    if (n > 0) os.write(s.data(), n);
-}
-
-bool readStr(std::ifstream& is, std::string& s) {
-    uint32_t n = 0;
-    if (!readPOD(is, n)) return false;
-    if (n > (1u << 20)) return false;
-    s.resize(n);
-    if (n > 0) {
-        is.read(s.data(), n);
-        if (is.gcount() != static_cast<std::streamsize>(n)) {
-            s.clear();
-            return false;
-        }
-    }
-    return true;
-}
-
-std::string normalizePath(std::string base) {
-    if (base.size() < 5 || base.substr(base.size() - 5) != ".wsch") {
-        base += ".wsch";
-    }
-    return base;
-}
-
-uint32_t packRgba(uint8_t r, uint8_t g, uint8_t b, uint8_t a = 0xFF) {
-    return (static_cast<uint32_t>(a) << 24) |
-           (static_cast<uint32_t>(b) << 16) |
-           (static_cast<uint32_t>(g) << 8)  |
-            static_cast<uint32_t>(r);
-}
+constexpr char kExtension[] = ".wsch";
 
 } // namespace
 
@@ -68,15 +24,9 @@ WoweeSpellSchool::findById(uint32_t schoolId) const {
 }
 
 bool WoweeSpellSchoolLoader::save(const WoweeSpellSchool& cat,
-                                   const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath), std::ios::binary);
-    if (!os) return false;
-    os.write(kMagic, 4);
-    writePOD(os, kVersion);
-    writeStr(os, cat.name);
-    uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writePOD(os, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeSpellSchool::Entry& e) {
         writePOD(os, e.schoolId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -90,33 +40,16 @@ bool WoweeSpellSchoolLoader::save(const WoweeSpellSchool& cat,
         writePOD(os, e.castSoundId);
         writePOD(os, e.impactSoundId);
         writePOD(os, e.combinedSchoolMask);
-    }
-    return os.good();
+                       });
 }
 
 WoweeSpellSchool WoweeSpellSchoolLoader::load(
     const std::string& basePath) {
-    WoweeSpellSchool out;
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    if (!is) return out;
-    char magic[4];
-    is.read(magic, 4);
-    if (std::memcmp(magic, kMagic, 4) != 0) return out;
-    uint32_t version = 0;
-    if (!readPOD(is, version) || version != kVersion) return out;
-    if (!readStr(is, out.name)) return out;
-    uint32_t entryCount = 0;
-    if (!readPOD(is, entryCount)) return out;
-    if (entryCount > (1u << 20)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.schoolId)) {
-            out.entries.clear(); return out;
-        }
+    return loadCatalog<WoweeSpellSchool>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeSpellSchool::Entry& e) {
+        if (!readPOD(is, e.schoolId)) { return false; }
         if (!readStr(is, e.name) || !readStr(is, e.description) ||
-            !readStr(is, e.iconPath)) {
-            out.entries.clear(); return out;
-        }
+            !readStr(is, e.iconPath)) { return false; }
         if (!readPOD(is, e.canBeImmune) ||
             !readPOD(is, e.canBeAbsorbed) ||
             !readPOD(is, e.canBeReflected) ||
@@ -125,16 +58,13 @@ WoweeSpellSchool WoweeSpellSchoolLoader::load(
             !readPOD(is, e.baseResistanceCap) ||
             !readPOD(is, e.castSoundId) ||
             !readPOD(is, e.impactSoundId) ||
-            !readPOD(is, e.combinedSchoolMask)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.combinedSchoolMask)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeSpellSchoolLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeSpellSchool WoweeSpellSchoolLoader::makeStarter(
@@ -241,22 +171,22 @@ WoweeSpellSchool WoweeSpellSchoolLoader::makeCombined(
         e.baseResistanceCap = 365;
         c.entries.push_back(e);
     };
-    // Hybrid schools — combinedSchoolMask is the bitmask of
+    // Hybrid schools - combinedSchoolMask is the bitmask of
     // canonical schools they qualify as. Spell engine uses the
     // LOWER resistance of the combined set, so hybrids bypass
     // single-school resist gear.
     add(0x80000001, "Spellfire",
         WoweeSpellSchool::kSchoolFire | WoweeSpellSchool::kSchoolArcane,
         230, 100, 200,
-        "Combined Fire+Arcane — bypasses single-school resist.");
+        "Combined Fire+Arcane - bypasses single-school resist.");
     add(0x80000002, "Spellshadow",
         WoweeSpellSchool::kSchoolShadow | WoweeSpellSchool::kSchoolArcane,
         140, 50, 200,
-        "Combined Shadow+Arcane — Shadow priest specialty.");
+        "Combined Shadow+Arcane - Shadow priest specialty.");
     add(0x80000003, "Spellfrost",
         WoweeSpellSchool::kSchoolFrost | WoweeSpellSchool::kSchoolArcane,
         130, 180, 240,
-        "Combined Frost+Arcane — Frostfire bolt class.");
+        "Combined Frost+Arcane - Frostfire bolt class.");
     return c;
 }
 

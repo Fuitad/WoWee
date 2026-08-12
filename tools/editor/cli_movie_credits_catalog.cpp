@@ -1,4 +1,6 @@
 #include "cli_movie_credits_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -19,11 +21,6 @@ namespace cli {
 
 namespace {
 
-std::string stripWmvcExt(std::string base) {
-    stripExt(base, ".wmvc");
-    return base;
-}
-
 const char* categoryName(uint8_t k) {
     using M = wowee::pipeline::WoweeMovieCredits;
     switch (k) {
@@ -38,15 +35,6 @@ const char* categoryName(uint8_t k) {
     }
 }
 
-bool saveOrError(const wowee::pipeline::WoweeMovieCredits& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeMovieCreditsLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wmvc\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeMovieCredits& c,
                      const std::string& base) {
@@ -62,9 +50,9 @@ int handleGenWotLK(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "WotLKIntroCredits";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWmvcExt(base);
+    base = cli::withoutExt(base, ".wmvc");
     auto c = wowee::pipeline::WoweeMovieCreditsLoader::makeWotLKIntro(name);
-    if (!saveOrError(c, base, "gen-mvc")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeMovieCreditsLoader>(c, base, "gen-mvc", ".wmvc")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -73,9 +61,9 @@ int handleGenQuest(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "QuestCinematicCredits";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWmvcExt(base);
+    base = cli::withoutExt(base, ".wmvc");
     auto c = wowee::pipeline::WoweeMovieCreditsLoader::makeQuestCinema(name);
-    if (!saveOrError(c, base, "gen-mvc-quest")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeMovieCreditsLoader>(c, base, "gen-mvc-quest", ".wmvc")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -84,9 +72,9 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterRollCredits";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWmvcExt(base);
+    base = cli::withoutExt(base, ".wmvc");
     auto c = wowee::pipeline::WoweeMovieCreditsLoader::makeStarterRoll(name);
-    if (!saveOrError(c, base, "gen-mvc-starter")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeMovieCreditsLoader>(c, base, "gen-mvc-starter", ".wmvc")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -94,10 +82,9 @@ int handleGenStarter(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWmvcExt(base);
+    base = cli::withoutExt(base, ".wmvc");
     if (!wowee::pipeline::WoweeMovieCreditsLoader::exists(base)) {
-        std::fprintf(stderr, "WMVC not found: %s.wmvc\n", base.c_str());
-        return 1;
+        return reportMissing("WMVC", base, ".wmvc");
     }
     auto c = wowee::pipeline::WoweeMovieCreditsLoader::load(base);
     if (jsonOut) {
@@ -157,13 +144,10 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWmvcExt(base);
+    base = cli::withoutExt(base, ".wmvc");
     if (out.empty()) out = base + ".wmvc.json";
     if (!wowee::pipeline::WoweeMovieCreditsLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wmvc-json: WMVC not found: %s.wmvc\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wmvc-json", "WMVC", base, ".wmvc");
     }
     auto c = wowee::pipeline::WoweeMovieCreditsLoader::load(base);
     nlohmann::json j;
@@ -202,16 +186,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wmvc.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wmvc");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wmvc");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,
@@ -289,12 +264,9 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWmvcExt(base);
+    base = cli::withoutExt(base, ".wmvc");
     if (!wowee::pipeline::WoweeMovieCreditsLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wmvc: WMVC not found: %s.wmvc\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wmvc", "WMVC", base, ".wmvc");
     }
     auto c = wowee::pipeline::WoweeMovieCreditsLoader::load(base);
     std::vector<std::string> errors;
@@ -303,7 +275,7 @@ int handleValidate(int& i, int argc, char** argv) {
         warnings.push_back("catalog has zero entries");
     }
     std::set<uint32_t> idsSeen;
-    // Per-cinematic orderHint uniqueness — two blocks at
+    // Per-cinematic orderHint uniqueness - two blocks at
     // the same orderHint within one cinematic would
     // render in unstable order.
     std::set<uint64_t> orderSlotsSeen;
@@ -322,7 +294,7 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": name is empty");
         if (e.cinematicId == 0) {
             errors.push_back(ctx +
-                ": cinematicId is 0 — credit block is "
+                ": cinematicId is 0 - credit block is "
                 "unbound to any cinematic");
         }
         if (e.category > 6) {
@@ -332,7 +304,7 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         if (e.lines.empty()) {
             errors.push_back(ctx +
-                ": lines[] is empty — credit block has "
+                ": lines[] is empty - credit block has "
                 "nothing to display");
         }
         // Per-line length sanity. WoW cinematic credit
@@ -341,7 +313,7 @@ int handleValidate(int& i, int argc, char** argv) {
             if (e.lines[L].empty()) {
                 warnings.push_back(ctx +
                     ": lines[" + std::to_string(L) +
-                    "] is empty — would render as a "
+                    "] is empty - would render as a "
                     "blank line in the credit roll "
                     "(intentional spacers should still "
                     "have a placeholder character)");
@@ -350,7 +322,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 warnings.push_back(ctx + ": lines[" +
                     std::to_string(L) +
                     "] is " + std::to_string(e.lines[L].size()) +
-                    " chars (>80) — may wrap or truncate "
+                    " chars (>80) - may wrap or truncate "
                     "in the credit-renderer 80-char text "
                     "buffer");
             }
@@ -364,7 +336,7 @@ int handleValidate(int& i, int argc, char** argv) {
                     ", orderHint=" +
                     std::to_string(e.orderHint) +
                     ") slot already occupied by another "
-                    "block — credit roll order would be "
+                    "block - credit roll order would be "
                     "non-deterministic");
             }
         }
@@ -372,37 +344,10 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": duplicate rollId");
         }
     }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wmvc"] = base + ".wmvc";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wmvc: %s.wmvc\n", base.c_str());
-    if (ok && warnings.empty()) {
-        size_t totalLines = 0;
-        for (const auto& e : c.entries) totalLines += e.lines.size();
-        std::printf("  OK — %zu blocks, %zu lines, all "
-                    "rollIds + per-cinematic orderHints "
-                    "unique\n",
-                    c.entries.size(), totalLines);
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+    size_t totalLines = 0;
+    for (const auto& e : c.entries) totalLines += e.lines.size();
+    return cli::reportValidation("wmvc", base, jsonOut, errors, warnings,
+                                 cli::formatted("%zu blocks, %zu lines, all rollIds + per-cinematic orderHints unique", c.entries.size(), totalLines));
 }
 
 } // namespace

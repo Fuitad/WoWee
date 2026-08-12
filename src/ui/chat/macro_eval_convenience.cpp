@@ -1,4 +1,4 @@
-// evaluateMacroConditionals — convenience free function.
+// evaluateMacroConditionals - convenience free function.
 // Thin wrapper over MacroEvaluator with concrete adapters.
 // Separate TU to avoid pulling Application/Renderer into macro_evaluator unit tests.
 #include "ui/chat/macro_evaluator.hpp"

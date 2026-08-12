@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Currency Type catalog (.wctr) — novel
+// Wowee Open Currency Type catalog (.wctr) - novel
 // replacement for Blizzard's CurrencyTypes.dbc plus the
 // per-currency cap tables in CurrencyCategory.dbc.
 // Defines the in-game currencies that are NOT regular
@@ -16,7 +16,7 @@ namespace pipeline {
 // faction tokens (Champion's Seal, Wintergrasp Mark of
 // Honor, Emblem of Frost, etc).
 //
-// Distinct from regular items in WIT — currencies are
+// Distinct from regular items in WIT - currencies are
 // tracked per-character as scalar quantities with
 // weekly+absolute caps, not as stackable inventory slots.
 // Some currencies are still backed by a WIT item entry
@@ -80,7 +80,7 @@ struct WoweeCurrencyType {
     const Entry* findById(uint32_t currencyId) const;
 
     // Returns the smaller of (remaining weekly cap,
-    // remaining absolute cap) — i.e. the maximum amount a
+    // remaining absolute cap) - i.e. the maximum amount a
     // character can earn right now given current balances.
     // Either cap is unbounded if the corresponding field
     // is 0.
@@ -100,18 +100,18 @@ public:
 
     // Preset emitters used by --gen-ctr* variants.
     //
-    //   makePvP    — 4 PvP currencies (Honor Points 75k
+    //   makePvP    - 4 PvP currencies (Honor Points 75k
     //                 cap, Arena Points 5k cap weekly,
     //                 Conquest Points 1650 weekly,
     //                 Champion's Seal no cap).
-    //   makePvE    — 4 PvE raid currencies (Justice Points
+    //   makePvE    - 4 PvE raid currencies (Justice Points
     //                 4k cap, Valor Points 1k weekly,
     //                 Emblem of Frost no weekly cap,
     //                 Trophy of the Crusade no cap).
-    //   makeFactionTokens — 4 faction reputation tokens
+    //   makeFactionTokens - 4 faction reputation tokens
     //                 (Hodir Spear-fragment, Cenarion Mark,
     //                 Argent Dawn Valor Token, Wintergrasp
-    //                 Mark) — no quantity cap, gated by
+    //                 Mark) - no quantity cap, gated by
     //                 reputation thresholds.
     static WoweeCurrencyType makePvP(const std::string& catalogName);
     static WoweeCurrencyType makePvE(const std::string& catalogName);

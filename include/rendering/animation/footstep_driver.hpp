@@ -13,7 +13,7 @@ namespace rendering {
 class Renderer;
 
 // ============================================================================
-// FootstepDriver — extracted from AnimationController
+// FootstepDriver - extracted from AnimationController
 //
 // Owns animation-driven footstep event detection, surface resolution,
 // and player/mount footstep tracking state.

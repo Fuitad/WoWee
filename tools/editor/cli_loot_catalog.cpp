@@ -1,4 +1,6 @@
 #include "cli_loot_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -19,20 +21,6 @@ namespace cli {
 
 namespace {
 
-std::string stripWlotExt(std::string base) {
-    stripExt(base, ".wlot");
-    return base;
-}
-
-bool saveOrError(const wowee::pipeline::WoweeLoot& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeLootLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wlot\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 uint32_t totalDrops(const wowee::pipeline::WoweeLoot& c) {
     uint32_t n = 0;
@@ -52,9 +40,9 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterLoot";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWlotExt(base);
+    base = cli::withoutExt(base, ".wlot");
     auto c = wowee::pipeline::WoweeLootLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-loot")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeLootLoader>(c, base, "gen-loot", ".wlot")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -63,9 +51,9 @@ int handleGenBandit(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "BanditLoot";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWlotExt(base);
+    base = cli::withoutExt(base, ".wlot");
     auto c = wowee::pipeline::WoweeLootLoader::makeBandit(name);
-    if (!saveOrError(c, base, "gen-loot-bandit")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeLootLoader>(c, base, "gen-loot-bandit", ".wlot")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -74,9 +62,9 @@ int handleGenBoss(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "BossLoot";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWlotExt(base);
+    base = cli::withoutExt(base, ".wlot");
     auto c = wowee::pipeline::WoweeLootLoader::makeBoss(name);
-    if (!saveOrError(c, base, "gen-loot-boss")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeLootLoader>(c, base, "gen-loot-boss", ".wlot")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -100,10 +88,9 @@ void appendTableFlagsStr(std::string& s, uint32_t flags) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWlotExt(base);
+    base = cli::withoutExt(base, ".wlot");
     if (!wowee::pipeline::WoweeLootLoader::exists(base)) {
-        std::fprintf(stderr, "WLOT not found: %s.wlot\n", base.c_str());
-        return 1;
+        return reportMissing("WLOT", base, ".wlot");
     }
     auto c = wowee::pipeline::WoweeLootLoader::load(base);
     if (jsonOut) {
@@ -180,12 +167,10 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWlotExt(base);
+    base = cli::withoutExt(base, ".wlot");
     if (outPath.empty()) outPath = base + ".wlot.json";
     if (!wowee::pipeline::WoweeLootLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wlot-json: WLOT not found: %s.wlot\n", base.c_str());
-        return 1;
+        return reportMissing("export-wlot-json", "WLOT", base, ".wlot");
     }
     auto c = wowee::pipeline::WoweeLootLoader::load(base);
     nlohmann::json j;
@@ -246,18 +231,8 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string jsonPath = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = jsonPath;
-        std::string suffix = ".wlot.json";
-        if (outBase.size() > suffix.size() &&
-            outBase.substr(outBase.size() - suffix.size()) == suffix) {
-            outBase = outBase.substr(0, outBase.size() - suffix.size());
-        } else if (outBase.size() > 5 &&
-                   outBase.substr(outBase.size() - 5) == ".json") {
-            outBase = outBase.substr(0, outBase.size() - 5);
-        }
-    }
-    outBase = stripWlotExt(outBase);
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(jsonPath, ".wlot");
+    outBase = cli::withoutExt(outBase, ".wlot");
     std::ifstream in(jsonPath);
     if (!in) {
         std::fprintf(stderr,
@@ -334,91 +309,50 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWlotExt(base);
-    if (!wowee::pipeline::WoweeLootLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wlot: WLOT not found: %s.wlot\n", base.c_str());
-        return 1;
-    }
-    auto c = wowee::pipeline::WoweeLootLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    std::vector<uint32_t> idsSeen;
-    idsSeen.reserve(c.entries.size());
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (creatureId=" + std::to_string(e.creatureId) + ")";
-        if (e.creatureId == 0) {
-            errors.push_back(ctx + ": creatureId is 0");
-        }
-        if (e.moneyMinCopper > e.moneyMaxCopper) {
-            errors.push_back(ctx + ": moneyMin > moneyMax");
-        }
-        if (e.dropCount == 0 && !e.itemDrops.empty()) {
-            warnings.push_back(ctx +
-                ": dropCount=0 but item drops are defined (none will be rolled)");
-        }
-        for (size_t di = 0; di < e.itemDrops.size(); ++di) {
-            const auto& d = e.itemDrops[di];
-            std::string dctx = ctx + " drop " + std::to_string(di) +
-                                " (itemId=" + std::to_string(d.itemId) + ")";
-            if (d.itemId == 0) {
-                errors.push_back(dctx + ": itemId is 0");
+    return cli::validateCatalog<wowee::pipeline::WoweeLootLoader>(
+        i, argc, argv, "wlot", "WLOT",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        idsSeen.reserve(c.entries.size());
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (creatureId=" + std::to_string(e.creatureId) + ")";
+            if (e.creatureId == 0) {
+                errors.push_back(ctx + ": creatureId is 0");
             }
-            if (!std::isfinite(d.chancePercent) ||
-                d.chancePercent < 0.0f || d.chancePercent > 100.0f) {
-                errors.push_back(dctx +
-                    ": chancePercent must be in 0..100, got " +
-                    std::to_string(d.chancePercent));
+            if (e.moneyMinCopper > e.moneyMaxCopper) {
+                errors.push_back(ctx + ": moneyMin > moneyMax");
             }
-            if (d.minQty == 0) {
-                warnings.push_back(dctx + ": minQty=0 (drop with zero quantity)");
+            if (e.dropCount == 0 && !e.itemDrops.empty()) {
+                warnings.push_back(ctx +
+                    ": dropCount=0 but item drops are defined (none will be rolled)");
             }
-            if (d.minQty > d.maxQty) {
-                errors.push_back(dctx + ": minQty > maxQty");
+            for (size_t di = 0; di < e.itemDrops.size(); ++di) {
+                const auto& d = e.itemDrops[di];
+                std::string dctx = ctx + " drop " + std::to_string(di) +
+                                    " (itemId=" + std::to_string(d.itemId) + ")";
+                if (d.itemId == 0) {
+                    errors.push_back(dctx + ": itemId is 0");
+                }
+                if (!std::isfinite(d.chancePercent) ||
+                    d.chancePercent < 0.0f || d.chancePercent > 100.0f) {
+                    errors.push_back(dctx +
+                        ": chancePercent must be in 0..100, got " +
+                        std::to_string(d.chancePercent));
+                }
+                if (d.minQty == 0) {
+                    warnings.push_back(dctx + ": minQty=0 (drop with zero quantity)");
+                }
+                if (d.minQty > d.maxQty) {
+                    errors.push_back(dctx + ": minQty > maxQty");
+                }
             }
+            if (!idsSeen.add(e.creatureId)) errors.push_back(ctx + ": duplicate creatureId");
         }
-        for (uint32_t prev : idsSeen) {
-            if (prev == e.creatureId) {
-                errors.push_back(ctx + ": duplicate creatureId");
-                break;
-            }
-        }
-        idsSeen.push_back(e.creatureId);
-    }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wlot"] = base + ".wlot";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wlot: %s.wlot\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu tables, %u total drops, all creatureIds unique\n",
-                    c.entries.size(), totalDrops(c));
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+            return formatted("%zu tables, %u total drops, all creatureIds unique", c.entries.size(), totalDrops(c));
+        });
 }
 
 } // namespace

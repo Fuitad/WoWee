@@ -1,4 +1,6 @@
 #include "cli_voiceovers_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -18,11 +20,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWvoxExt(std::string base) {
-    stripExt(base, ".wvox");
-    return base;
-}
 
 const char* eventKindName(uint8_t k) {
     using V = wowee::pipeline::WoweeVoiceovers;
@@ -50,15 +47,6 @@ const char* genderHintName(uint8_t g) {
     }
 }
 
-bool saveOrError(const wowee::pipeline::WoweeVoiceovers& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeVoiceoversLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wvox\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeVoiceovers& c,
                      const std::string& base) {
@@ -71,9 +59,9 @@ int handleGenQuest(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "QuestgiverVoices";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWvoxExt(base);
+    base = cli::withoutExt(base, ".wvox");
     auto c = wowee::pipeline::WoweeVoiceoversLoader::makeQuestgiver(name);
-    if (!saveOrError(c, base, "gen-vox")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeVoiceoversLoader>(c, base, "gen-vox", ".wvox")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -82,9 +70,9 @@ int handleGenBoss(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "LichKingVoices";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWvoxExt(base);
+    base = cli::withoutExt(base, ".wvox");
     auto c = wowee::pipeline::WoweeVoiceoversLoader::makeBoss(name);
-    if (!saveOrError(c, base, "gen-vox-boss")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeVoiceoversLoader>(c, base, "gen-vox-boss", ".wvox")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -93,9 +81,9 @@ int handleGenVendor(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "VendorVoices";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWvoxExt(base);
+    base = cli::withoutExt(base, ".wvox");
     auto c = wowee::pipeline::WoweeVoiceoversLoader::makeVendor(name);
-    if (!saveOrError(c, base, "gen-vox-vendor")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeVoiceoversLoader>(c, base, "gen-vox-vendor", ".wvox")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -103,10 +91,9 @@ int handleGenVendor(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWvoxExt(base);
+    base = cli::withoutExt(base, ".wvox");
     if (!wowee::pipeline::WoweeVoiceoversLoader::exists(base)) {
-        std::fprintf(stderr, "WVOX not found: %s.wvox\n", base.c_str());
-        return 1;
+        return reportMissing("WVOX", base, ".wvox");
     }
     auto c = wowee::pipeline::WoweeVoiceoversLoader::load(base);
     if (jsonOut) {
@@ -221,13 +208,10 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWvoxExt(base);
+    base = cli::withoutExt(base, ".wvox");
     if (out.empty()) out = base + ".wvox.json";
     if (!wowee::pipeline::WoweeVoiceoversLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wvox-json: WVOX not found: %s.wvox\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wvox-json", "WVOX", base, ".wvox");
     }
     auto c = wowee::pipeline::WoweeVoiceoversLoader::load(base);
     nlohmann::json j;
@@ -271,16 +255,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wvox.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wvox");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wvox");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,
@@ -338,12 +313,9 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWvoxExt(base);
+    base = cli::withoutExt(base, ".wvox");
     if (!wowee::pipeline::WoweeVoiceoversLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wvox: WVOX not found: %s.wvox\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wvox", "WVOX", base, ".wvox");
     }
     auto c = wowee::pipeline::WoweeVoiceoversLoader::load(base);
     std::vector<std::string> errors;
@@ -353,7 +325,7 @@ int handleValidate(int& i, int argc, char** argv) {
     }
     std::set<uint32_t> idsSeen;
     // Per-(npcId, eventKind, variantIndex) triple
-    // uniqueness — two voice clips with all three
+    // uniqueness - two voice clips with all three
     // matching would be ambiguous (which one plays?).
     std::set<uint64_t> tripleSeen;
     auto tripleKey = [](uint32_t npc, uint8_t event,
@@ -374,7 +346,7 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": name is empty");
         if (e.npcId == 0) {
             errors.push_back(ctx +
-                ": npcId is 0 — voice clip is unbound to "
+                ": npcId is 0 - voice clip is unbound to "
                 "any creature");
         }
         if (e.eventKind > 8) {
@@ -389,12 +361,12 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         if (e.audioPath.empty()) {
             errors.push_back(ctx +
-                ": audioPath is empty — voice clip would "
+                ": audioPath is empty - voice clip would "
                 "play no audio");
         }
         if (e.durationMs == 0 && !e.audioPath.empty()) {
             warnings.push_back(ctx +
-                ": durationMs=0 but audioPath set — "
+                ": durationMs=0 but audioPath set - "
                 "trigger handler can't subtitle-sync "
                 "without duration; consider populating "
                 "from the audio file's actual length");
@@ -402,12 +374,12 @@ int handleValidate(int& i, int argc, char** argv) {
         if (e.volumeDb < -20 || e.volumeDb > 6) {
             warnings.push_back(ctx + ": volumeDb " +
                 std::to_string(e.volumeDb) +
-                " outside [-20, +6] typical range — "
+                " outside [-20, +6] typical range - "
                 "extreme values may clip or be inaudible");
         }
         if (e.transcript.empty()) {
             warnings.push_back(ctx +
-                ": transcript is empty — accessibility "
+                ": transcript is empty - accessibility "
                 "TTS engines + chat-bubble subtitles "
                 "have no text to display");
         }
@@ -424,7 +396,7 @@ int handleValidate(int& i, int argc, char** argv) {
                     ", variantIndex=" +
                     std::to_string(e.variantIndex) +
                     ") triple already bound by another "
-                    "voice clip — random pick at trigger "
+                    "voice clip - random pick at trigger "
                     "time would be ambiguous");
             }
         }
@@ -432,34 +404,9 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": duplicate voiceId");
         }
     }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wvox"] = base + ".wvox";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wvox: %s.wvox\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu voice clips, all voiceIds + "
-                    "(npc,event,variant) triples unique\n",
-                    c.entries.size());
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+    return cli::reportValidation("wvox", base, jsonOut, errors, warnings,
+                                 formatted("%zu voice clips, all voiceIds + "
+                    "(npc,event,variant) triples unique", c.entries.size()));
 }
 
 } // namespace

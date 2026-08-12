@@ -4,7 +4,7 @@ namespace wowee {
 namespace editor {
 namespace cli {
 
-// Dispatch the diff handlers — each compares two files of the
+// Dispatch the diff handlers - each compares two files of the
 // same format and reports differences:
 //   --diff-wcp        --diff-zone
 //   --diff-glb        --diff-wom

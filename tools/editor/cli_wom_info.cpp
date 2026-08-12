@@ -1,4 +1,5 @@
 #include "cli_wom_info.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_arg_parse.hpp"
 
 #include "pipeline/wowee_model.hpp"
@@ -33,8 +34,7 @@ int handleInfo(int& i, int argc, char** argv) {
     if (base.size() >= 4 && base.substr(base.size() - 4) == ".wom")
         base = base.substr(0, base.size() - 4);
     if (!wowee::pipeline::WoweeModelLoader::exists(base)) {
-        std::fprintf(stderr, "WOM not found: %s.wom\n", base.c_str());
-        return 1;
+        return reportMissing("WOM", base, ".wom");
     }
     auto wom = wowee::pipeline::WoweeModelLoader::load(base);
     if (jsonOut) {
@@ -79,8 +79,7 @@ int handleInfoBatches(int& i, int argc, char** argv) {
     if (base.size() >= 4 && base.substr(base.size() - 4) == ".wom")
         base = base.substr(0, base.size() - 4);
     if (!wowee::pipeline::WoweeModelLoader::exists(base)) {
-        std::fprintf(stderr, "WOM not found: %s.wom\n", base.c_str());
-        return 1;
+        return reportMissing("WOM", base, ".wom");
     }
     auto wom = wowee::pipeline::WoweeModelLoader::load(base);
     // Blend modes per WoweeModel::Batch comment:
@@ -166,8 +165,7 @@ int handleInfoTextures(int& i, int argc, char** argv) {
     if (base.size() >= 4 && base.substr(base.size() - 4) == ".wom")
         base = base.substr(0, base.size() - 4);
     if (!wowee::pipeline::WoweeModelLoader::exists(base)) {
-        std::fprintf(stderr, "WOM not found: %s.wom\n", base.c_str());
-        return 1;
+        return reportMissing("WOM", base, ".wom");
     }
     auto wom = wowee::pipeline::WoweeModelLoader::load(base);
     namespace fs = std::filesystem;
@@ -244,8 +242,7 @@ int handleInfoDoodads(int& i, int argc, char** argv) {
     if (base.size() >= 4 && base.substr(base.size() - 4) == ".wob")
         base = base.substr(0, base.size() - 4);
     if (!wowee::pipeline::WoweeBuildingLoader::exists(base)) {
-        std::fprintf(stderr, "WOB not found: %s.wob\n", base.c_str());
-        return 1;
+        return reportMissing("WOB", base, ".wob");
     }
     auto bld = wowee::pipeline::WoweeBuildingLoader::load(base);
     if (jsonOut) {
@@ -286,7 +283,7 @@ int handleInfoDoodads(int& i, int argc, char** argv) {
 }
 
 int handleInfoAttachParticleSequence(int& i, int argc, char** argv) {
-    // Three M2 inspectors share an entry point — they all need
+    // Three M2 inspectors share an entry point - they all need
     // the same M2Loader::load + skin merge dance, then differ
     // only in which sub-array they iterate.
     enum Kind { kAttach, kParticle, kSequence };
@@ -311,10 +308,7 @@ int handleInfoAttachParticleSequence(int& i, int argc, char** argv) {
     // Auto-merge skin for vertex/index counts to match render.
     std::vector<uint8_t> skinBytes;
     {
-        std::string skinPath = path;
-        auto dot = skinPath.rfind('.');
-        if (dot != std::string::npos)
-            skinPath = skinPath.substr(0, dot) + "00.skin";
+        std::string skinPath = pipeline::skinPathForM2(path);
         std::ifstream sf(skinPath, std::ios::binary);
         if (sf) {
             skinBytes.assign((std::istreambuf_iterator<char>(sf)),
@@ -467,7 +461,7 @@ int handleInfoAttachParticleSequence(int& i, int argc, char** argv) {
 int handleInfoBones(int& i, int argc, char** argv) {
     // Inspect M2 bone tree. Shows parent index, key-bone ID
     // (-1 if not a named bone), pivot offset, and a depth
-    // indicator computed by walking up parents — useful for
+    // indicator computed by walking up parents - useful for
     // debugging skeleton structure when something looks wrong
     // in the renderer ('why is this bone not following its parent?').
     std::string path = argv[++i];
@@ -480,7 +474,7 @@ int handleInfoBones(int& i, int argc, char** argv) {
     std::vector<uint8_t> bytes((std::istreambuf_iterator<char>(in)),
                                 std::istreambuf_iterator<char>());
     auto m2 = wowee::pipeline::M2Loader::load(bytes);
-    // Compute depth per bone — guard against cycles by capping
+    // Compute depth per bone - guard against cycles by capping
     // walk length at boneCount (a real DAG can't exceed that).
     std::vector<int> depths(m2.bones.size(), -1);
     for (size_t k = 0; k < m2.bones.size(); ++k) {
@@ -541,9 +535,7 @@ int handleValidateWom(int& i, int argc, char** argv) {
     if (base.size() >= 4 && base.substr(base.size() - 4) == ".wom")
         base = base.substr(0, base.size() - 4);
     if (!wowee::pipeline::WoweeModelLoader::exists(base)) {
-        std::fprintf(stderr, "validate-wom: WOM not found: %s.wom\n",
-                     base.c_str());
-        return 1;
+        return reportMissing("validate-wom", "WOM", base, ".wom");
     }
     auto wom = wowee::pipeline::WoweeModelLoader::load(base);
     std::vector<std::string> errors;
@@ -694,7 +686,7 @@ int handleValidateWom(int& i, int argc, char** argv) {
     }
     std::printf("validate-wom: %s.wom\n", base.c_str());
     if (ok && warnings.empty()) {
-        std::printf("  OK — %zu vertices, %zu triangles, %zu batches, %zu bones, %zu animations\n",
+        std::printf("  OK - %zu vertices, %zu triangles, %zu batches, %zu bones, %zu animations\n",
                     wom.vertices.size(), wom.indices.size() / 3,
                     wom.batches.size(), wom.bones.size(),
                     wom.animations.size());
@@ -724,9 +716,7 @@ int handleExportBonesDot(int& i, int argc, char** argv) {
     if (base.size() >= 4 && base.substr(base.size() - 4) == ".wom")
         base = base.substr(0, base.size() - 4);
     if (!wowee::pipeline::WoweeModelLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-bones-dot: WOM not found: %s.wom\n", base.c_str());
-        return 1;
+        return reportMissing("export-bones-dot", "WOM", base, ".wom");
     }
     if (outPath.empty()) outPath = base + ".bones.dot";
     auto wom = wowee::pipeline::WoweeModelLoader::load(base);

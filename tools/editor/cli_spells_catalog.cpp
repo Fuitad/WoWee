@@ -1,4 +1,6 @@
 #include "cli_spells_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -19,11 +21,6 @@ namespace cli {
 
 namespace {
 
-std::string stripWsplExt(std::string base) {
-    stripExt(base, ".wspl");
-    return base;
-}
-
 void appendSpellFlagsStr(std::string& s, uint32_t flags) {
     if (flags & wowee::pipeline::WoweeSpell::Passive)        s += "passive ";
     if (flags & wowee::pipeline::WoweeSpell::Hidden)         s += "hidden ";
@@ -38,15 +35,6 @@ void appendSpellFlagsStr(std::string& s, uint32_t flags) {
     else if (s.back() == ' ') s.pop_back();
 }
 
-bool saveOrError(const wowee::pipeline::WoweeSpell& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeSpellLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wspl\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeSpell& c,
                      const std::string& base) {
@@ -59,9 +47,9 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterSpells";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWsplExt(base);
+    base = cli::withoutExt(base, ".wspl");
     auto c = wowee::pipeline::WoweeSpellLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-spells")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellLoader>(c, base, "gen-spells", ".wspl")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -70,9 +58,9 @@ int handleGenMage(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "MageSpells";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWsplExt(base);
+    base = cli::withoutExt(base, ".wspl");
     auto c = wowee::pipeline::WoweeSpellLoader::makeMage(name);
-    if (!saveOrError(c, base, "gen-spells-mage")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellLoader>(c, base, "gen-spells-mage", ".wspl")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -81,9 +69,9 @@ int handleGenWarrior(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "WarriorSpells";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWsplExt(base);
+    base = cli::withoutExt(base, ".wspl");
     auto c = wowee::pipeline::WoweeSpellLoader::makeWarrior(name);
-    if (!saveOrError(c, base, "gen-spells-warrior")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellLoader>(c, base, "gen-spells-warrior", ".wspl")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -91,10 +79,9 @@ int handleGenWarrior(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWsplExt(base);
+    base = cli::withoutExt(base, ".wspl");
     if (!wowee::pipeline::WoweeSpellLoader::exists(base)) {
-        std::fprintf(stderr, "WSPL not found: %s.wspl\n", base.c_str());
-        return 1;
+        return reportMissing("WSPL", base, ".wspl");
     }
     auto c = wowee::pipeline::WoweeSpellLoader::load(base);
     if (jsonOut) {
@@ -160,89 +147,61 @@ int handleExportJson(int& i, int argc, char** argv) {
     // open format. Each spell emits all 18 scalar fields
     // plus dual int + name forms for school, targetType,
     // effectKind, and the flags bitset.
-    std::string base = argv[++i];
-    std::string outPath;
-    if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWsplExt(base);
-    if (outPath.empty()) outPath = base + ".wspl.json";
-    if (!wowee::pipeline::WoweeSpellLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wspl-json: WSPL not found: %s.wspl\n", base.c_str());
-        return 1;
-    }
-    auto c = wowee::pipeline::WoweeSpellLoader::load(base);
-    nlohmann::json j;
-    j["name"] = c.name;
-    nlohmann::json arr = nlohmann::json::array();
-    for (const auto& e : c.entries) {
-        nlohmann::json je;
-        je["spellId"] = e.spellId;
-        je["name"] = e.name;
-        je["description"] = e.description;
-        je["iconPath"] = e.iconPath;
-        je["school"] = e.school;
-        je["schoolName"] = wowee::pipeline::WoweeSpell::schoolName(e.school);
-        je["targetType"] = e.targetType;
-        je["targetTypeName"] = wowee::pipeline::WoweeSpell::targetTypeName(e.targetType);
-        je["effectKind"] = e.effectKind;
-        je["effectKindName"] = wowee::pipeline::WoweeSpell::effectKindName(e.effectKind);
-        je["castTimeMs"] = e.castTimeMs;
-        je["cooldownMs"] = e.cooldownMs;
-        je["gcdMs"] = e.gcdMs;
-        je["manaCost"] = e.manaCost;
-        je["rangeMin"] = e.rangeMin;
-        je["rangeMax"] = e.rangeMax;
-        je["minLevel"] = e.minLevel;
-        je["maxStacks"] = e.maxStacks;
-        je["durationMs"] = e.durationMs;
-        je["effectValueMin"] = e.effectValueMin;
-        je["effectValueMax"] = e.effectValueMax;
-        je["effectMisc"] = e.effectMisc;
-        je["flags"] = e.flags;
-        nlohmann::json fa = nlohmann::json::array();
-        if (e.flags & wowee::pipeline::WoweeSpell::Passive)        fa.push_back("passive");
-        if (e.flags & wowee::pipeline::WoweeSpell::Hidden)         fa.push_back("hidden");
-        if (e.flags & wowee::pipeline::WoweeSpell::Channeled)      fa.push_back("channeled");
-        if (e.flags & wowee::pipeline::WoweeSpell::Ranged)         fa.push_back("ranged");
-        if (e.flags & wowee::pipeline::WoweeSpell::AreaOfEffect)   fa.push_back("aoe");
-        if (e.flags & wowee::pipeline::WoweeSpell::Triggered)      fa.push_back("triggered");
-        if (e.flags & wowee::pipeline::WoweeSpell::UnitTargetOnly) fa.push_back("unit-only");
-        if (e.flags & wowee::pipeline::WoweeSpell::FriendlyOnly)   fa.push_back("friendly");
-        if (e.flags & wowee::pipeline::WoweeSpell::HostileOnly)    fa.push_back("hostile");
-        je["flagsList"] = fa;
-        arr.push_back(je);
-    }
-    j["entries"] = arr;
-    std::ofstream out(outPath);
-    if (!out) {
-        std::fprintf(stderr,
-            "export-wspl-json: cannot write %s\n", outPath.c_str());
-        return 1;
-    }
-    out << j.dump(2) << "\n";
-    out.close();
-    std::printf("Wrote %s\n", outPath.c_str());
-    std::printf("  source : %s.wspl\n", base.c_str());
-    std::printf("  spells : %zu\n", c.entries.size());
-    return 0;
+    return cli::exportCatalogJson<wowee::pipeline::WoweeSpellLoader>(
+        i, argc, argv, "wspl", "WSPL", "spells ",
+        [](const auto& c) {
+        nlohmann::json j;
+        j["name"] = c.name;
+        nlohmann::json arr = nlohmann::json::array();
+        for (const auto& e : c.entries) {
+            nlohmann::json je;
+            je["spellId"] = e.spellId;
+            je["name"] = e.name;
+            je["description"] = e.description;
+            je["iconPath"] = e.iconPath;
+            je["school"] = e.school;
+            je["schoolName"] = wowee::pipeline::WoweeSpell::schoolName(e.school);
+            je["targetType"] = e.targetType;
+            je["targetTypeName"] = wowee::pipeline::WoweeSpell::targetTypeName(e.targetType);
+            je["effectKind"] = e.effectKind;
+            je["effectKindName"] = wowee::pipeline::WoweeSpell::effectKindName(e.effectKind);
+            je["castTimeMs"] = e.castTimeMs;
+            je["cooldownMs"] = e.cooldownMs;
+            je["gcdMs"] = e.gcdMs;
+            je["manaCost"] = e.manaCost;
+            je["rangeMin"] = e.rangeMin;
+            je["rangeMax"] = e.rangeMax;
+            je["minLevel"] = e.minLevel;
+            je["maxStacks"] = e.maxStacks;
+            je["durationMs"] = e.durationMs;
+            je["effectValueMin"] = e.effectValueMin;
+            je["effectValueMax"] = e.effectValueMax;
+            je["effectMisc"] = e.effectMisc;
+            je["flags"] = e.flags;
+            nlohmann::json fa = nlohmann::json::array();
+            if (e.flags & wowee::pipeline::WoweeSpell::Passive)        fa.push_back("passive");
+            if (e.flags & wowee::pipeline::WoweeSpell::Hidden)         fa.push_back("hidden");
+            if (e.flags & wowee::pipeline::WoweeSpell::Channeled)      fa.push_back("channeled");
+            if (e.flags & wowee::pipeline::WoweeSpell::Ranged)         fa.push_back("ranged");
+            if (e.flags & wowee::pipeline::WoweeSpell::AreaOfEffect)   fa.push_back("aoe");
+            if (e.flags & wowee::pipeline::WoweeSpell::Triggered)      fa.push_back("triggered");
+            if (e.flags & wowee::pipeline::WoweeSpell::UnitTargetOnly) fa.push_back("unit-only");
+            if (e.flags & wowee::pipeline::WoweeSpell::FriendlyOnly)   fa.push_back("friendly");
+            if (e.flags & wowee::pipeline::WoweeSpell::HostileOnly)    fa.push_back("hostile");
+            je["flagsList"] = fa;
+            arr.push_back(je);
+        }
+        j["entries"] = arr;
+            return j;
+        });
 }
 
 int handleImportJson(int& i, int argc, char** argv) {
     std::string jsonPath = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = jsonPath;
-        std::string suffix = ".wspl.json";
-        if (outBase.size() > suffix.size() &&
-            outBase.substr(outBase.size() - suffix.size()) == suffix) {
-            outBase = outBase.substr(0, outBase.size() - suffix.size());
-        } else if (outBase.size() > 5 &&
-                   outBase.substr(outBase.size() - 5) == ".json") {
-            outBase = outBase.substr(0, outBase.size() - 5);
-        }
-    }
-    outBase = stripWsplExt(outBase);
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(jsonPath, ".wspl");
+    outBase = cli::withoutExt(outBase, ".wspl");
     std::ifstream in(jsonPath);
     if (!in) {
         std::fprintf(stderr,
@@ -356,113 +315,72 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWsplExt(base);
-    if (!wowee::pipeline::WoweeSpellLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wspl: WSPL not found: %s.wspl\n", base.c_str());
-        return 1;
-    }
-    auto c = wowee::pipeline::WoweeSpellLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    std::vector<uint32_t> idsSeen;
-    idsSeen.reserve(c.entries.size());
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.spellId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.spellId == 0) {
-            errors.push_back(ctx + ": spellId is 0");
-        }
-        if (e.name.empty()) {
-            errors.push_back(ctx + ": name is empty");
-        }
-        if (e.school > wowee::pipeline::WoweeSpell::SchoolArcane) {
-            errors.push_back(ctx + ": school " +
-                std::to_string(e.school) + " not in 0..6");
-        }
-        if (e.effectKind > wowee::pipeline::WoweeSpell::EffectDispel) {
-            errors.push_back(ctx + ": effectKind " +
-                std::to_string(e.effectKind) + " not in 0..6");
-        }
-        if (!std::isfinite(e.rangeMin) || !std::isfinite(e.rangeMax)) {
-            errors.push_back(ctx + ": rangeMin/Max not finite");
-        }
-        if (e.rangeMin > e.rangeMax) {
-            errors.push_back(ctx + ": rangeMin > rangeMax");
-        }
-        if (e.effectValueMin > e.effectValueMax) {
-            errors.push_back(ctx + ": effectValueMin > effectValueMax");
-        }
-        // Friendly + Hostile target restrictions are mutually exclusive.
-        if ((e.flags & wowee::pipeline::WoweeSpell::FriendlyOnly) &&
-            (e.flags & wowee::pipeline::WoweeSpell::HostileOnly)) {
-            errors.push_back(ctx +
-                ": FriendlyOnly and HostileOnly both set (incoherent)");
-        }
-        // Damage / debuff effects on a friendly-only spell don't make sense.
-        if ((e.flags & wowee::pipeline::WoweeSpell::FriendlyOnly) &&
-            (e.effectKind == wowee::pipeline::WoweeSpell::EffectDamage ||
-             e.effectKind == wowee::pipeline::WoweeSpell::EffectDebuff)) {
-            warnings.push_back(ctx +
-                ": friendly-only spell with damage/debuff effect");
-        }
-        // Heal / buff on a hostile-only spell is incoherent.
-        if ((e.flags & wowee::pipeline::WoweeSpell::HostileOnly) &&
-            (e.effectKind == wowee::pipeline::WoweeSpell::EffectHeal ||
-             e.effectKind == wowee::pipeline::WoweeSpell::EffectBuff)) {
-            warnings.push_back(ctx +
-                ": hostile-only spell with heal/buff effect");
-        }
-        // Buff / debuff effects need a non-zero duration to mean anything.
-        if ((e.effectKind == wowee::pipeline::WoweeSpell::EffectBuff ||
-             e.effectKind == wowee::pipeline::WoweeSpell::EffectDebuff) &&
-            e.durationMs == 0) {
-            warnings.push_back(ctx +
-                ": buff/debuff effect with durationMs=0 (instant fade)");
-        }
-        for (uint32_t prev : idsSeen) {
-            if (prev == e.spellId) {
-                errors.push_back(ctx + ": duplicate spellId");
-                break;
+    return cli::validateCatalog<wowee::pipeline::WoweeSpellLoader>(
+        i, argc, argv, "wspl", "WSPL",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        idsSeen.reserve(c.entries.size());
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.spellId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.spellId == 0) {
+                errors.push_back(ctx + ": spellId is 0");
             }
+            if (e.name.empty()) {
+                errors.push_back(ctx + ": name is empty");
+            }
+            if (e.school > wowee::pipeline::WoweeSpell::SchoolArcane) {
+                errors.push_back(ctx + ": school " +
+                    std::to_string(e.school) + " not in 0..6");
+            }
+            if (e.effectKind > wowee::pipeline::WoweeSpell::EffectDispel) {
+                errors.push_back(ctx + ": effectKind " +
+                    std::to_string(e.effectKind) + " not in 0..6");
+            }
+            if (!std::isfinite(e.rangeMin) || !std::isfinite(e.rangeMax)) {
+                errors.push_back(ctx + ": rangeMin/Max not finite");
+            }
+            if (e.rangeMin > e.rangeMax) {
+                errors.push_back(ctx + ": rangeMin > rangeMax");
+            }
+            if (e.effectValueMin > e.effectValueMax) {
+                errors.push_back(ctx + ": effectValueMin > effectValueMax");
+            }
+            // Friendly + Hostile target restrictions are mutually exclusive.
+            if ((e.flags & wowee::pipeline::WoweeSpell::FriendlyOnly) &&
+                (e.flags & wowee::pipeline::WoweeSpell::HostileOnly)) {
+                errors.push_back(ctx +
+                    ": FriendlyOnly and HostileOnly both set (incoherent)");
+            }
+            // Damage / debuff effects on a friendly-only spell don't make sense.
+            if ((e.flags & wowee::pipeline::WoweeSpell::FriendlyOnly) &&
+                (e.effectKind == wowee::pipeline::WoweeSpell::EffectDamage ||
+                 e.effectKind == wowee::pipeline::WoweeSpell::EffectDebuff)) {
+                warnings.push_back(ctx +
+                    ": friendly-only spell with damage/debuff effect");
+            }
+            // Heal / buff on a hostile-only spell is incoherent.
+            if ((e.flags & wowee::pipeline::WoweeSpell::HostileOnly) &&
+                (e.effectKind == wowee::pipeline::WoweeSpell::EffectHeal ||
+                 e.effectKind == wowee::pipeline::WoweeSpell::EffectBuff)) {
+                warnings.push_back(ctx +
+                    ": hostile-only spell with heal/buff effect");
+            }
+            // Buff / debuff effects need a non-zero duration to mean anything.
+            if ((e.effectKind == wowee::pipeline::WoweeSpell::EffectBuff ||
+                 e.effectKind == wowee::pipeline::WoweeSpell::EffectDebuff) &&
+                e.durationMs == 0) {
+                warnings.push_back(ctx +
+                    ": buff/debuff effect with durationMs=0 (instant fade)");
+            }
+            if (!idsSeen.add(e.spellId)) errors.push_back(ctx + ": duplicate spellId");
         }
-        idsSeen.push_back(e.spellId);
-    }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wspl"] = base + ".wspl";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wspl: %s.wspl\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu spells, all spellIds unique\n",
-                    c.entries.size());
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+            return formatted("%zu spells, all spellIds unique", c.entries.size());
+        });
 }
 
 } // namespace

@@ -5,6 +5,7 @@
 #include "rendering/animation_controller.hpp"
 #include "audio/audio_coordinator.hpp"
 #include "audio/ui_sound_manager.hpp"
+#include "ui/framexml_takeover.hpp"
 
 #include <imgui.h>
 #include <algorithm>
@@ -14,7 +15,7 @@
 namespace wowee { namespace ui {
 
 // ---------------------------------------------------------------------------
-// Setup toast callbacks on GameHandler (idempotent — safe to call every frame)
+// Setup toast callbacks on GameHandler (idempotent - safe to call every frame)
 // ---------------------------------------------------------------------------
 void ToastManager::setupCallbacks(game::GameHandler& gameHandler) {
     // NOTE: Level-up and achievement callbacks are registered by Application
@@ -129,7 +130,7 @@ void ToastManager::setupCallbacks(game::GameHandler& gameHandler) {
 // Render early toasts (before action bars)
 // ---------------------------------------------------------------------------
 void ToastManager::renderEarlyToasts(float deltaTime, game::GameHandler& gameHandler) {
-    // Zone entry detection — fire a toast when the renderer's zone name changes
+    // Zone entry detection - fire a toast when the renderer's zone name changes
     if (auto* rend = services_.renderer) {
         const std::string& curZone = rend->getCurrentZoneName();
         if (!curZone.empty() && curZone != lastKnownZone_) {
@@ -153,7 +154,12 @@ void ToastManager::renderEarlyToasts(float deltaTime, game::GameHandler& gameHan
 // ---------------------------------------------------------------------------
 void ToastManager::renderLateToasts(game::GameHandler& gameHandler) {
     renderDingEffect();
-    renderAchievementToast();
+    // FrameXML's AlertFrame answers ACHIEVEMENT_EARNED, which this client
+    // fires, and it is suppressed only while the achievements element is not
+    // owned. So with it owned both popups appeared, one over the other, on
+    // every achievement - the same shape the zone banner had before its own
+    // gate went in a few lines below.
+    if (!frameXmlOwns(UiElement::Achievements)) renderAchievementToast();
     renderDiscoveryToast();
     renderWhisperToasts();
     renderQuestProgressToasts();
@@ -320,7 +326,7 @@ void ToastManager::renderZoneToasts(float deltaTime) {
             [](const ZoneToastEntry& e) { return e.age >= kZoneToastLifetime; }),
         zoneToasts_.end());
 
-    // Suppress toasts while the zone text overlay is showing the same zone —
+    // Suppress toasts while the zone text overlay is showing the same zone -
     // avoids duplicate "Entering: Stormwind City" messages.
     if (zoneTextTimer_ > 0.0f) {
         zoneToasts_.erase(
@@ -551,7 +557,14 @@ void ToastManager::renderDingEffect() {
 void ToastManager::triggerAchievementToast(uint32_t achievementId, std::string name) {
     achievementToastId_    = achievementId;
     achievementToastName_  = std::move(name);
-    achievementToastTimer_ = ACHIEVEMENT_TOAST_DURATION;
+    // alertframes.lua registers ACHIEVEMENT_EARNED itself and raises
+    // AchievementAlertFrame, so leaving the timer at zero is how this banner
+    // stands down. The sound below still plays: FrameXML's alert frame plays
+    // one only for LFG rewards, so handing the badge over would otherwise
+    // earn achievements in silence.
+    if (!frameXmlOwns(UiElement::Achievements)) {
+        achievementToastTimer_ = ACHIEVEMENT_TOAST_DURATION;
+    }
 
     // Play a UI sound if available
     auto* ac = services_.audioCoordinator;
@@ -573,7 +586,7 @@ void ToastManager::renderAchievementToast() {
     float screenW = window ? static_cast<float>(window->getWidth())  : 1280.0f;
     float screenH = window ? static_cast<float>(window->getHeight()) :  720.0f;
 
-    // Slide in from the right — fully visible for most of the duration, slides out at end
+    // Slide in from the right - fully visible for most of the duration, slides out at end
     constexpr float SLIDE_TIME = 0.4f;
     float  slideIn  = std::min(achievementToastTimer_, ACHIEVEMENT_TOAST_DURATION - achievementToastTimer_);
     float  slideFrac = (ACHIEVEMENT_TOAST_DURATION > 0.0f && SLIDE_TIME > 0.0f)
@@ -625,7 +638,7 @@ void ToastManager::renderAchievementToast() {
 }
 
 // ---------------------------------------------------------------------------
-// Area discovery toast — "Discovered: <AreaName>! (+XP XP)" centered on screen
+// Area discovery toast - "Discovered: <AreaName>! (+XP XP)" centered on screen
 // ---------------------------------------------------------------------------
 
 void ToastManager::renderDiscoveryToast() {
@@ -698,7 +711,7 @@ void ToastManager::renderDiscoveryToast() {
 }
 
 // ---------------------------------------------------------------------------
-// Quest objective progress toasts — shown at screen bottom-right on kill/item updates
+// Quest objective progress toasts - shown at screen bottom-right on kill/item updates
 // ---------------------------------------------------------------------------
 
 void ToastManager::renderQuestProgressToasts() {
@@ -765,7 +778,7 @@ void ToastManager::renderQuestProgressToasts() {
         // Bar background
         bgDL->AddRectFilled(ImVec2(barX0, barY), ImVec2(barX1, barY + barH),
                             IM_COL32(50, 40, 10, static_cast<uint8_t>(180 * alpha)), 3.0f);
-        // Bar fill — green when complete, amber otherwise
+        // Bar fill - green when complete, amber otherwise
         ImU32 barCol = (pct >= 1.0f) ? IM_COL32(60, 220, 80, fgA) : IM_COL32(200, 160, 30, fgA);
         bgDL->AddRectFilled(ImVec2(barX0, barY),
                             ImVec2(barX0 + (barX1 - barX0) * pct, barY + barH),
@@ -784,7 +797,7 @@ void ToastManager::renderQuestProgressToasts() {
 }
 
 // ---------------------------------------------------------------------------
-// Item loot toasts — quality-coloured strip at bottom-left when item received
+// Item loot toasts - quality-coloured strip at bottom-left when item received
 // ---------------------------------------------------------------------------
 
 void ToastManager::renderItemLootToasts() {
@@ -873,7 +886,7 @@ void ToastManager::renderItemLootToasts() {
 }
 
 // ---------------------------------------------------------------------------
-// PvP honor credit toasts — shown at screen top-right on honorable kill
+// PvP honor credit toasts - shown at screen top-right on honorable kill
 // ---------------------------------------------------------------------------
 
 void ToastManager::renderPvpHonorToasts() {
@@ -937,7 +950,7 @@ void ToastManager::renderPvpHonorToasts() {
 }
 
 // ---------------------------------------------------------------------------
-// Nearby player level-up toasts — shown at screen bottom-centre
+// Nearby player level-up toasts - shown at screen bottom-centre
 // ---------------------------------------------------------------------------
 
 void ToastManager::renderPlayerLevelUpToasts(game::GameHandler& gameHandler) {
@@ -946,7 +959,7 @@ void ToastManager::renderPlayerLevelUpToasts(game::GameHandler& gameHandler) {
     float dt = ImGui::GetIO().DeltaTime;
     for (auto& t : playerLevelUpToasts_) {
         t.age += dt;
-        // Lazy name resolution — fill in once the name cache has it
+        // Lazy name resolution - fill in once the name cache has it
         if (t.playerName.empty() && t.guid != 0) {
             t.playerName = gameHandler.lookupName(t.guid);
         }
@@ -1016,7 +1029,7 @@ void ToastManager::renderPlayerLevelUpToasts(game::GameHandler& gameHandler) {
 }
 
 // ---------------------------------------------------------------------------
-// Resurrection flash — brief screen brightening + "You have been resurrected!"
+// Resurrection flash - brief screen brightening + "You have been resurrected!"
 // banner when the player transitions from ghost back to alive.
 // ---------------------------------------------------------------------------
 
@@ -1051,7 +1064,7 @@ void ToastManager::renderResurrectFlash() {
 
     ImDrawList* bg = ImGui::GetBackgroundDrawList();
 
-    // Soft golden/white vignette — brightening instead of darkening
+    // Soft golden/white vignette - brightening instead of darkening
     uint8_t vigA = static_cast<uint8_t>(50 * alpha);
     bg->AddRectFilled(ImVec2(0, 0), ImVec2(screenW, screenH),
                       IM_COL32(200, 230, 255, vigA));
@@ -1094,7 +1107,7 @@ void ToastManager::renderResurrectFlash() {
 }
 
 // ---------------------------------------------------------------------------
-// Whisper toast notifications — brief overlay when a player whispers you
+// Whisper toast notifications - brief overlay when a player whispers you
 // ---------------------------------------------------------------------------
 
 void ToastManager::renderWhisperToasts() {
@@ -1146,7 +1159,7 @@ void ToastManager::renderWhisperToasts() {
         uint8_t bgA = static_cast<uint8_t>(210 * alpha);
         uint8_t fgA = static_cast<uint8_t>(255 * alpha);
 
-        // Background panel — dark purple tint (whisper color convention)
+        // Background panel - dark purple tint (whisper color convention)
         bgDL->AddRectFilled(ImVec2(tx, ty), ImVec2(tx + TOAST_W, ty + TOAST_H),
                             IM_COL32(25, 10, 40, bgA), 6.0f);
         // Purple border
@@ -1168,7 +1181,7 @@ void ToastManager::renderWhisperToasts() {
     }
 }
 
-// Zone discovery text — "Entering: <ZoneName>" fades in/out at screen centre
+// Zone discovery text - "Entering: <ZoneName>" fades in/out at screen centre
 // ---------------------------------------------------------------------------
 
 void ToastManager::renderZoneText(game::GameHandler& gameHandler) {
@@ -1204,6 +1217,13 @@ void ToastManager::renderZoneText(game::GameHandler& gameHandler) {
     float dt = ImGui::GetIO().DeltaTime;
     zoneTextTimer_ -= dt;
     if (zoneTextTimer_ < 0.0f) zoneTextTimer_ = 0.0f;
+
+    // Drawn only if FrameXML is not, but tracked either way: the zone toasts
+    // above are suppressed while this timer is running, so a plain early
+    // return at the top of this function would swap one duplicate for
+    // another - the banner would go and "Entering: Stormwind City" would come
+    // back beside FrameXML's.
+    if (frameXmlOwns(UiElement::ZoneText)) return;
 
     auto* window = services_.window;
     float screenW = window ? static_cast<float>(window->getWidth())  : 1280.0f;

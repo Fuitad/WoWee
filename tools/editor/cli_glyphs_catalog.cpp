@@ -1,4 +1,6 @@
 #include "cli_glyphs_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -18,20 +20,6 @@ namespace cli {
 
 namespace {
 
-std::string stripWglyExt(std::string base) {
-    stripExt(base, ".wgly");
-    return base;
-}
-
-bool saveOrError(const wowee::pipeline::WoweeGlyph& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeGlyphLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wgly\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeGlyph& c,
                      const std::string& base) {
@@ -44,9 +32,9 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterGlyphs";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWglyExt(base);
+    base = cli::withoutExt(base, ".wgly");
     auto c = wowee::pipeline::WoweeGlyphLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-glyphs")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeGlyphLoader>(c, base, "gen-glyphs", ".wgly")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -55,9 +43,9 @@ int handleGenWarrior(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "WarriorGlyphs";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWglyExt(base);
+    base = cli::withoutExt(base, ".wgly");
     auto c = wowee::pipeline::WoweeGlyphLoader::makeWarrior(name);
-    if (!saveOrError(c, base, "gen-glyphs-warrior")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeGlyphLoader>(c, base, "gen-glyphs-warrior", ".wgly")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -66,9 +54,9 @@ int handleGenUniversal(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "UniversalGlyphs";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWglyExt(base);
+    base = cli::withoutExt(base, ".wgly");
     auto c = wowee::pipeline::WoweeGlyphLoader::makeUniversal(name);
-    if (!saveOrError(c, base, "gen-glyphs-universal")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeGlyphLoader>(c, base, "gen-glyphs-universal", ".wgly")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -76,10 +64,9 @@ int handleGenUniversal(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWglyExt(base);
+    base = cli::withoutExt(base, ".wgly");
     if (!wowee::pipeline::WoweeGlyphLoader::exists(base)) {
-        std::fprintf(stderr, "WGLY not found: %s.wgly\n", base.c_str());
-        return 1;
+        return reportMissing("WGLY", base, ".wgly");
     }
     auto c = wowee::pipeline::WoweeGlyphLoader::load(base);
     if (jsonOut) {
@@ -126,65 +113,37 @@ int handleExportJson(int& i, int argc, char** argv) {
     // open format. Each glyph emits all 8 scalar fields plus
     // a dual int + name form for glyphType so hand-edits can
     // use either representation.
-    std::string base = argv[++i];
-    std::string outPath;
-    if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWglyExt(base);
-    if (outPath.empty()) outPath = base + ".wgly.json";
-    if (!wowee::pipeline::WoweeGlyphLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wgly-json: WGLY not found: %s.wgly\n", base.c_str());
-        return 1;
-    }
-    auto c = wowee::pipeline::WoweeGlyphLoader::load(base);
-    nlohmann::json j;
-    j["name"] = c.name;
-    nlohmann::json arr = nlohmann::json::array();
-    for (const auto& e : c.entries) {
-        arr.push_back({
-            {"glyphId", e.glyphId},
-            {"name", e.name},
-            {"description", e.description},
-            {"iconPath", e.iconPath},
-            {"glyphType", e.glyphType},
-            {"glyphTypeName", wowee::pipeline::WoweeGlyph::glyphTypeName(e.glyphType)},
-            {"spellId", e.spellId},
-            {"itemId", e.itemId},
-            {"classMask", e.classMask},
-            {"requiredLevel", e.requiredLevel},
+    return cli::exportCatalogJson<wowee::pipeline::WoweeGlyphLoader>(
+        i, argc, argv, "wgly", "WGLY", "glyphs ",
+        [](const auto& c) {
+        nlohmann::json j;
+        j["name"] = c.name;
+        nlohmann::json arr = nlohmann::json::array();
+        for (const auto& e : c.entries) {
+            arr.push_back({
+                {"glyphId", e.glyphId},
+                {"name", e.name},
+                {"description", e.description},
+                {"iconPath", e.iconPath},
+                {"glyphType", e.glyphType},
+                {"glyphTypeName", wowee::pipeline::WoweeGlyph::glyphTypeName(e.glyphType)},
+                {"spellId", e.spellId},
+                {"itemId", e.itemId},
+                {"classMask", e.classMask},
+                {"requiredLevel", e.requiredLevel},
+            });
+        }
+        j["entries"] = arr;
+            return j;
         });
-    }
-    j["entries"] = arr;
-    std::ofstream out(outPath);
-    if (!out) {
-        std::fprintf(stderr,
-            "export-wgly-json: cannot write %s\n", outPath.c_str());
-        return 1;
-    }
-    out << j.dump(2) << "\n";
-    out.close();
-    std::printf("Wrote %s\n", outPath.c_str());
-    std::printf("  source : %s.wgly\n", base.c_str());
-    std::printf("  glyphs : %zu\n", c.entries.size());
-    return 0;
 }
 
 int handleImportJson(int& i, int argc, char** argv) {
     std::string jsonPath = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = jsonPath;
-        std::string suffix = ".wgly.json";
-        if (outBase.size() > suffix.size() &&
-            outBase.substr(outBase.size() - suffix.size()) == suffix) {
-            outBase = outBase.substr(0, outBase.size() - suffix.size());
-        } else if (outBase.size() > 5 &&
-                   outBase.substr(outBase.size() - 5) == ".json") {
-            outBase = outBase.substr(0, outBase.size() - 5);
-        }
-    }
-    outBase = stripWglyExt(outBase);
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(jsonPath, ".wgly");
+    outBase = cli::withoutExt(outBase, ".wgly");
     std::ifstream in(jsonPath);
     if (!in) {
         std::fprintf(stderr,
@@ -243,89 +202,48 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWglyExt(base);
-    if (!wowee::pipeline::WoweeGlyphLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wgly: WGLY not found: %s.wgly\n", base.c_str());
-        return 1;
-    }
-    auto c = wowee::pipeline::WoweeGlyphLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    std::vector<uint32_t> idsSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.glyphId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.glyphId == 0)
-            errors.push_back(ctx + ": glyphId is 0");
-        if (e.name.empty())
-            errors.push_back(ctx + ": name is empty");
-        if (e.spellId == 0)
-            errors.push_back(ctx + ": spellId is 0 "
-                "(glyph applies no aura)");
-        if (e.glyphType > wowee::pipeline::WoweeGlyph::Prime) {
-            errors.push_back(ctx + ": glyphType " +
-                std::to_string(e.glyphType) + " not in 0..2");
-        }
-        if (e.classMask == 0) {
-            errors.push_back(ctx +
-                ": classMask=0 (no class can use this glyph)");
-        }
-        if (e.itemId == 0) {
-            warnings.push_back(ctx + ": itemId=0 "
-                "(no inscribed item — glyph can't be taught)");
-        }
-        // WotLK glyphs unlock at character level 25 (minor),
-        // 50 (major), 70 (major), 80 (prime). Anything below
-        // 15 is suspicious.
-        if (e.requiredLevel != 0 && e.requiredLevel < 15) {
-            warnings.push_back(ctx + ": requiredLevel=" +
-                std::to_string(e.requiredLevel) +
-                " below WotLK glyph threshold (25)");
-        }
-        for (uint32_t prev : idsSeen) {
-            if (prev == e.glyphId) {
-                errors.push_back(ctx + ": duplicate glyphId");
-                break;
+    return cli::validateCatalog<wowee::pipeline::WoweeGlyphLoader>(
+        i, argc, argv, "wgly", "WGLY",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.glyphId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.glyphId == 0)
+                errors.push_back(ctx + ": glyphId is 0");
+            if (e.name.empty())
+                errors.push_back(ctx + ": name is empty");
+            if (e.spellId == 0)
+                errors.push_back(ctx + ": spellId is 0 "
+                    "(glyph applies no aura)");
+            if (e.glyphType > wowee::pipeline::WoweeGlyph::Prime) {
+                errors.push_back(ctx + ": glyphType " +
+                    std::to_string(e.glyphType) + " not in 0..2");
             }
+            if (e.classMask == 0) {
+                errors.push_back(ctx +
+                    ": classMask=0 (no class can use this glyph)");
+            }
+            if (e.itemId == 0) {
+                warnings.push_back(ctx + ": itemId=0 "
+                    "(no inscribed item - glyph can't be taught)");
+            }
+            // WotLK glyphs unlock at character level 25 (minor),
+            // 50 (major), 70 (major), 80 (prime). Anything below
+            // 15 is suspicious.
+            if (e.requiredLevel != 0 && e.requiredLevel < 15) {
+                warnings.push_back(ctx + ": requiredLevel=" +
+                    std::to_string(e.requiredLevel) +
+                    " below WotLK glyph threshold (25)");
+            }
+            if (!idsSeen.add(e.glyphId)) errors.push_back(ctx + ": duplicate glyphId");
         }
-        idsSeen.push_back(e.glyphId);
-    }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wgly"] = base + ".wgly";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wgly: %s.wgly\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu glyphs, all glyphIds unique\n",
-                    c.entries.size());
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+            return formatted("%zu glyphs, all glyphIds unique", c.entries.size());
+        });
 }
 
 } // namespace

@@ -42,7 +42,7 @@ int TexturePainter::ensureLayerOnChunk(int chunkIdx, uint32_t textureId) {
         return static_cast<int>(chunk.layers.size() - 1);
     }
 
-    // At 4 layers — find the non-base layer with lowest total alpha and replace it
+    // At 4 layers - find the non-base layer with lowest total alpha and replace it
     int weakest = -1;
     int weakestSum = INT32_MAX;
     for (int i = 1; i < static_cast<int>(chunk.layers.size()); i++) {
@@ -85,7 +85,7 @@ void TexturePainter::modifyAlpha(int chunkIdx, int layerIdx, const glm::vec3& ce
     // Reject NaN center / non-positive radius up front. Without this, every
     // dist comparison below becomes NaN-vs-finite (which returns false), so
     // the falloff path falls through and paints full strength on every
-    // texel in the chunk — the opposite of what was asked.
+    // texel in the chunk - the opposite of what was asked.
     if (!std::isfinite(center.x) || !std::isfinite(center.y) ||
         !std::isfinite(radius) || radius <= 0.0f) return;
     auto& chunk = terrain_->chunks[chunkIdx];
@@ -252,7 +252,7 @@ void TexturePainter::paintAlongPath(const glm::vec3& start, const glm::vec3& end
     float lineLen = glm::length(lineEnd - lineStart);
     // Reject zero-length lines: glm::normalize would produce NaN, then
     // every subsequent dist would be NaN and the chunk-skip check would
-    // pass — painting full strength on every chunk in the tile.
+    // pass - painting full strength on every chunk in the tile.
     if (lineLen < 1e-4f) return;
     glm::vec2 lineDir = (lineEnd - lineStart) / lineLen;
 

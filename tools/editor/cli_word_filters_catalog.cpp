@@ -1,4 +1,6 @@
 #include "cli_word_filters_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -18,11 +20,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWwflExt(std::string base) {
-    stripExt(base, ".wwfl");
-    return base;
-}
 
 const char* filterKindName(uint8_t k) {
     using F = wowee::pipeline::WoweeWordFilters;
@@ -49,15 +46,6 @@ const char* severityName(uint8_t s) {
     }
 }
 
-bool saveOrError(const wowee::pipeline::WoweeWordFilters& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeWordFiltersLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wwfl\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeWordFilters& c,
                      const std::string& base) {
@@ -70,9 +58,9 @@ int handleGenSpam(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "SpamRMTFilters";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWwflExt(base);
+    base = cli::withoutExt(base, ".wwfl");
     auto c = wowee::pipeline::WoweeWordFiltersLoader::makeSpamRMT(name);
-    if (!saveOrError(c, base, "gen-wfl")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeWordFiltersLoader>(c, base, "gen-wfl", ".wwfl")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -81,9 +69,9 @@ int handleGenCaps(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "AllCapsFilters";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWwflExt(base);
+    base = cli::withoutExt(base, ".wwfl");
     auto c = wowee::pipeline::WoweeWordFiltersLoader::makeAllCaps(name);
-    if (!saveOrError(c, base, "gen-wfl-caps")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeWordFiltersLoader>(c, base, "gen-wfl-caps", ".wwfl")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -92,9 +80,9 @@ int handleGenURL(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "URLDetectFilters";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWwflExt(base);
+    base = cli::withoutExt(base, ".wwfl");
     auto c = wowee::pipeline::WoweeWordFiltersLoader::makeURLDetect(name);
-    if (!saveOrError(c, base, "gen-wfl-url")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeWordFiltersLoader>(c, base, "gen-wfl-url", ".wwfl")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -102,10 +90,9 @@ int handleGenURL(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWwflExt(base);
+    base = cli::withoutExt(base, ".wwfl");
     if (!wowee::pipeline::WoweeWordFiltersLoader::exists(base)) {
-        std::fprintf(stderr, "WWFL not found: %s.wwfl\n", base.c_str());
-        return 1;
+        return reportMissing("WWFL", base, ".wwfl");
     }
     auto c = wowee::pipeline::WoweeWordFiltersLoader::load(base);
     if (jsonOut) {
@@ -212,13 +199,10 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWwflExt(base);
+    base = cli::withoutExt(base, ".wwfl");
     if (out.empty()) out = base + ".wwfl.json";
     if (!wowee::pipeline::WoweeWordFiltersLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wwfl-json: WWFL not found: %s.wwfl\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wwfl-json", "WWFL", base, ".wwfl");
     }
     auto c = wowee::pipeline::WoweeWordFiltersLoader::load(base);
     nlohmann::json j;
@@ -259,16 +243,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wwfl.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wwfl");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wwfl");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,
@@ -328,12 +303,9 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWwflExt(base);
+    base = cli::withoutExt(base, ".wwfl");
     if (!wowee::pipeline::WoweeWordFiltersLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wwfl: WWFL not found: %s.wwfl\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wwfl", "WWFL", base, ".wwfl");
     }
     auto c = wowee::pipeline::WoweeWordFiltersLoader::load(base);
     std::vector<std::string> errors;
@@ -355,7 +327,7 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": name is empty");
         if (e.pattern.empty()) {
             errors.push_back(ctx +
-                ": pattern is empty — filter would match "
+                ": pattern is empty - filter would match "
                 "nothing (or every message, depending on "
                 "the matcher's empty-string semantics)");
         }
@@ -377,18 +349,18 @@ int handleValidate(int& i, int argc, char** argv) {
         if (e.severity == F::Replace && e.replacement.empty()) {
             warnings.push_back(ctx +
                 ": Replace severity with empty "
-                "replacement — message would silently lose "
+                "replacement - message would silently lose "
                 "the matched substring (effectively Drop "
                 "semantics for that span). Use severity="
                 "Drop explicitly if that's the intent.");
         }
-        // Pattern uniqueness — two filters with the same
+        // Pattern uniqueness - two filters with the same
         // pattern would fire ambiguously.
         if (!e.pattern.empty() &&
             !patternsSeen.insert(e.pattern).second) {
             errors.push_back(ctx +
                 ": pattern '" + e.pattern +
-                "' already used by another filter — "
+                "' already used by another filter - "
                 "preprocessor dispatch would be "
                 "non-deterministic");
         }
@@ -396,33 +368,9 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": duplicate filterId");
         }
     }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wwfl"] = base + ".wwfl";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wwfl: %s.wwfl\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu filters, all filterIds + "
-                    "patterns unique\n", c.entries.size());
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+    return cli::reportValidation("wwfl", base, jsonOut, errors, warnings,
+                                 formatted("%zu filters, all filterIds + "
+                    "patterns unique", c.entries.size()));
 }
 
 } // namespace

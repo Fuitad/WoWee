@@ -1,4 +1,5 @@
 #include "pipeline/wowee_gossip.hpp"
+#include "pipeline/wowee_binary_io.hpp"
 
 #include <cstdio>
 #include <cstring>
@@ -11,45 +12,7 @@ namespace {
 
 constexpr char kMagic[4] = {'W', 'G', 'S', 'P'};
 constexpr uint32_t kVersion = 1;
-
-template <typename T>
-void writePOD(std::ofstream& os, const T& v) {
-    os.write(reinterpret_cast<const char*>(&v), sizeof(T));
-}
-
-template <typename T>
-bool readPOD(std::ifstream& is, T& v) {
-    is.read(reinterpret_cast<char*>(&v), sizeof(T));
-    return is.gcount() == static_cast<std::streamsize>(sizeof(T));
-}
-
-void writeStr(std::ofstream& os, const std::string& s) {
-    uint32_t n = static_cast<uint32_t>(s.size());
-    writePOD(os, n);
-    if (n > 0) os.write(s.data(), n);
-}
-
-bool readStr(std::ifstream& is, std::string& s) {
-    uint32_t n = 0;
-    if (!readPOD(is, n)) return false;
-    if (n > (1u << 20)) return false;
-    s.resize(n);
-    if (n > 0) {
-        is.read(s.data(), n);
-        if (is.gcount() != static_cast<std::streamsize>(n)) {
-            s.clear();
-            return false;
-        }
-    }
-    return true;
-}
-
-std::string normalizePath(std::string base) {
-    if (base.size() < 5 || base.substr(base.size() - 5) != ".wgsp") {
-        base += ".wgsp";
-    }
-    return base;
-}
+constexpr char kExtension[] = ".wgsp";
 
 } // namespace
 
@@ -80,85 +43,54 @@ const char* WoweeGossip::optionKindName(uint8_t k) {
 }
 
 bool WoweeGossipLoader::save(const WoweeGossip& cat,
-                             const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath), std::ios::binary);
-    if (!os) return false;
-    os.write(kMagic, 4);
-    writePOD(os, kVersion);
-    writeStr(os, cat.name);
-    uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writePOD(os, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeGossip::Entry& e) {
         writePOD(os, e.menuId);
         writeStr(os, e.titleText);
         uint8_t optCount = static_cast<uint8_t>(
             e.options.size() > 255 ? 255 : e.options.size());
         writePOD(os, optCount);
-        uint8_t pad[3] = {0, 0, 0};
-        os.write(reinterpret_cast<const char*>(pad), 3);
+        writePadding(os, 3);
         for (uint8_t k = 0; k < optCount; ++k) {
             const auto& o = e.options[k];
             writePOD(os, o.optionId);
             writeStr(os, o.text);
             writePOD(os, o.kind);
-            os.write(reinterpret_cast<const char*>(pad), 3);
+            writePadding(os, 3);
             writePOD(os, o.actionTarget);
             writePOD(os, o.requiredFlags);
             writePOD(os, o.moneyCostCopper);
         }
-    }
-    return os.good();
+                       });
 }
 
-WoweeGossip WoweeGossipLoader::load(const std::string& basePath) {
-    WoweeGossip out;
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    if (!is) return out;
-    char magic[4];
-    is.read(magic, 4);
-    if (std::memcmp(magic, kMagic, 4) != 0) return out;
-    uint32_t version = 0;
-    if (!readPOD(is, version) || version != kVersion) return out;
-    if (!readStr(is, out.name)) return out;
-    uint32_t entryCount = 0;
-    if (!readPOD(is, entryCount)) return out;
-    if (entryCount > (1u << 20)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.menuId)) { out.entries.clear(); return out; }
-        if (!readStr(is, e.titleText)) { out.entries.clear(); return out; }
+WoweeGossip WoweeGossipLoader::load(
+    const std::string& basePath) {
+    return loadCatalog<WoweeGossip>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeGossip::Entry& e) {
+        if (!readPOD(is, e.menuId)) { return false; }
+        if (!readStr(is, e.titleText)) { return false; }
         uint8_t optCount = 0;
-        if (!readPOD(is, optCount)) { out.entries.clear(); return out; }
-        uint8_t pad[3];
-        is.read(reinterpret_cast<char*>(pad), 3);
-        if (is.gcount() != 3) { out.entries.clear(); return out; }
+        if (!readPOD(is, optCount)) { return false; }
+        if (!skipPadding(is, 3)) { return false; }
         e.options.resize(optCount);
         for (uint8_t k = 0; k < optCount; ++k) {
             auto& o = e.options[k];
-            if (!readPOD(is, o.optionId)) {
-                out.entries.clear(); return out;
-            }
-            if (!readStr(is, o.text)) {
-                out.entries.clear(); return out;
-            }
-            if (!readPOD(is, o.kind)) {
-                out.entries.clear(); return out;
-            }
-            is.read(reinterpret_cast<char*>(pad), 3);
-            if (is.gcount() != 3) { out.entries.clear(); return out; }
+            if (!readPOD(is, o.optionId)) { return false; }
+            if (!readStr(is, o.text)) { return false; }
+            if (!readPOD(is, o.kind)) { return false; }
+            if (!skipPadding(is, 3)) { return false; }
             if (!readPOD(is, o.actionTarget) ||
                 !readPOD(is, o.requiredFlags) ||
-                !readPOD(is, o.moneyCostCopper)) {
-                out.entries.clear(); return out;
-            }
+                !readPOD(is, o.moneyCostCopper)) { return false; }
         }
-    }
-    return out;
+                                  return true;
+                              });
 }
 
 bool WoweeGossipLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeGossip WoweeGossipLoader::makeStarter(const std::string& catalogName) {
@@ -188,12 +120,12 @@ WoweeGossip WoweeGossipLoader::makeInnkeeper(const std::string& catalogName) {
     {
         // menuId 4001 deliberately matches what WCRT.makeStarter
         // and WCRT.makeMerchants set as Bartleby's gossipId
-        // (currently 0 — set this when the demo content stack
+        // (currently 0 - set this when the demo content stack
         // is updated to wire WCRT.gossipId = 4001).
         WoweeGossip::Entry e;
         e.menuId = 4001;
         e.titleText =
-            "Welcome to the inn! What'll it be — a room, "
+            "Welcome to the inn! What'll it be - a room, "
             "a meal, or directions?";
         e.options.push_back({1, "Make this inn my home.",
                               WoweeGossip::Innkeeper, 0,

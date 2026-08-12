@@ -1,4 +1,6 @@
 #include "cli_sound_swap_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -20,11 +22,6 @@ namespace cli {
 
 namespace {
 
-std::string stripWswpExt(std::string base) {
-    stripExt(base, ".wswp");
-    return base;
-}
-
 const char* conditionKindName(uint8_t k) {
     using S = wowee::pipeline::WoweeSoundSwap;
     switch (k) {
@@ -37,15 +34,6 @@ const char* conditionKindName(uint8_t k) {
     }
 }
 
-bool saveOrError(const wowee::pipeline::WoweeSoundSwap& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeSoundSwapLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wswp\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeSoundSwap& c,
                      const std::string& base) {
@@ -58,10 +46,10 @@ int handleGenBosses(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "BossSoundOverrides";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWswpExt(base);
+    base = cli::withoutExt(base, ".wswp");
     auto c = wowee::pipeline::WoweeSoundSwapLoader::
         makeBossOverrides(name);
-    if (!saveOrError(c, base, "gen-swp-bosses")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSoundSwapLoader>(c, base, "gen-swp-bosses", ".wswp")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -70,10 +58,10 @@ int handleGenRace(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "RaceVoiceOverrides";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWswpExt(base);
+    base = cli::withoutExt(base, ".wswp");
     auto c = wowee::pipeline::WoweeSoundSwapLoader::
         makeRaceVoices(name);
-    if (!saveOrError(c, base, "gen-swp-race")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSoundSwapLoader>(c, base, "gen-swp-race", ".wswp")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -82,10 +70,10 @@ int handleGenUI(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "GlobalUISoundOverrides";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWswpExt(base);
+    base = cli::withoutExt(base, ".wswp");
     auto c = wowee::pipeline::WoweeSoundSwapLoader::
         makeGlobalUI(name);
-    if (!saveOrError(c, base, "gen-swp-ui")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSoundSwapLoader>(c, base, "gen-swp-ui", ".wswp")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -93,7 +81,7 @@ int handleGenUI(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWswpExt(base);
+    base = cli::withoutExt(base, ".wswp");
     if (!wowee::pipeline::WoweeSoundSwapLoader::exists(base)) {
         std::fprintf(stderr, "WSWP not found: %s.wswp\n",
                      base.c_str());
@@ -193,12 +181,9 @@ bool readEnumField(const nlohmann::json& je,
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWswpExt(base);
+    base = cli::withoutExt(base, ".wswp");
     if (!wowee::pipeline::WoweeSoundSwapLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wswp: WSWP not found: %s.wswp\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wswp", "WSWP", base, ".wswp");
     }
     auto c = wowee::pipeline::WoweeSoundSwapLoader::load(base);
     std::vector<std::string> errors;
@@ -223,18 +208,18 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": name is empty");
         if (e.originalSoundId == 0)
             errors.push_back(ctx +
-                ": originalSoundId is 0 — no source "
+                ": originalSoundId is 0 - no source "
                 "sound to swap");
         if (e.replacementSoundId == 0)
             errors.push_back(ctx +
-                ": replacementSoundId is 0 — no "
+                ": replacementSoundId is 0 - no "
                 "replacement to play");
         if (e.conditionKind > 4) {
             errors.push_back(ctx + ": conditionKind " +
                 std::to_string(e.conditionKind) +
                 " out of range (0..4)");
         }
-        // Self-replacement is always a bug — replacing
+        // Self-replacement is always a bug - replacing
         // a sound with itself is a no-op that wastes
         // a dispatch slot.
         if (e.originalSoundId != 0 &&
@@ -242,7 +227,7 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx +
                 ": originalSoundId == replacementSoundId="
                 + std::to_string(e.originalSoundId) +
-                " — no-op self-replacement");
+                " - no-op self-replacement");
         }
         // priorityIndex == 0 means the rule is never
         // picked when any other rule for the same
@@ -250,7 +235,7 @@ int handleValidate(int& i, int argc, char** argv) {
         // (disable rule) but warn.
         if (e.priorityIndex == 0) {
             warnings.push_back(ctx +
-                ": priorityIndex=0 — rule never wins "
+                ": priorityIndex=0 - rule never wins "
                 "tie-break (effectively disabled); "
                 "remove or set priority > 0");
         }
@@ -265,7 +250,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 " (=" +
                 std::to_string(e.gainAdjustDb_x10 / 10) +
                 " dB) outside ±30 dB practical range "
-                "— mixer may clip or sound becomes "
+                "- mixer may clip or sound becomes "
                 "inaudible");
         }
         // Condition-value sanity: Always condition
@@ -280,7 +265,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 ": Always condition with non-zero "
                 "conditionValue=" +
                 std::to_string(e.conditionValue) +
-                " — value is ignored at runtime "
+                " - value is ignored at runtime "
                 "(dead data)");
         }
         if (e.conditionKind != S::Always &&
@@ -291,7 +276,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 + " requires non-zero conditionValue");
         }
         // (originalSoundId, conditionKind,
-        // conditionValue) MUST be unique — two rules
+        // conditionValue) MUST be unique - two rules
         // with the same trigger triple at different
         // priorities are still ordered, but two with
         // the SAME priority would tie.
@@ -307,7 +292,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 std::string(conditionKindName(e.conditionKind))
                 + ", conditionValue=" +
                 std::to_string(e.conditionValue) +
-                ") — runtime would have two rules "
+                ") - runtime would have two rules "
                 "for the same trigger");
         }
         // Same priority within same originalSoundId
@@ -323,58 +308,30 @@ int handleValidate(int& i, int argc, char** argv) {
                 " has another rule at same "
                 "priorityIndex=" +
                 std::to_string(e.priorityIndex) +
-                " — tie-break order undefined when "
+                " - tie-break order undefined when "
                 "both rules' conditions match");
         }
         if (!idsSeen.insert(e.ruleId).second) {
             errors.push_back(ctx + ": duplicate ruleId");
         }
     }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wswp"] = base + ".wswp";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wswp: %s.wswp\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu rules, all ruleIds unique, "
+    return cli::reportValidation("wswp", base, jsonOut, errors, warnings,
+                                 formatted("%zu rules, all ruleIds unique, "
                     "non-zero original+replacement sound, "
                     "no self-replacement, conditionKind "
                     "0..4, no duplicate trigger triples, "
                     "non-Always kinds have non-zero "
-                    "conditionValue\n",
-                    c.entries.size());
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+                    "conditionValue", c.entries.size()));
 }
 
 int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWswpExt(base);
+    base = cli::withoutExt(base, ".wswp");
     if (out.empty()) out = base + ".wswp.json";
     if (!wowee::pipeline::WoweeSoundSwapLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wswp-json: WSWP not found: %s.wswp\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wswp-json", "WSWP", base, ".wswp");
     }
     auto c = wowee::pipeline::WoweeSoundSwapLoader::load(base);
     nlohmann::json j;
@@ -414,16 +371,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wswp.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wswp");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wswp");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,

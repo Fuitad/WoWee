@@ -1,4 +1,6 @@
 #include "cli_maps_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -18,20 +20,6 @@ namespace cli {
 
 namespace {
 
-std::string stripWmsExt(std::string base) {
-    stripExt(base, ".wms");
-    return base;
-}
-
-bool saveOrError(const wowee::pipeline::WoweeMaps& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeMapsLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wms\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeMaps& c,
                      const std::string& base) {
@@ -45,9 +33,9 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterMaps";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWmsExt(base);
+    base = cli::withoutExt(base, ".wms");
     auto c = wowee::pipeline::WoweeMapsLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-maps")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeMapsLoader>(c, base, "gen-maps", ".wms")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -56,9 +44,9 @@ int handleGenClassic(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "ClassicMaps";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWmsExt(base);
+    base = cli::withoutExt(base, ".wms");
     auto c = wowee::pipeline::WoweeMapsLoader::makeClassic(name);
-    if (!saveOrError(c, base, "gen-maps-classic")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeMapsLoader>(c, base, "gen-maps-classic", ".wms")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -67,9 +55,9 @@ int handleGenBgArena(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "BgArenaMaps";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWmsExt(base);
+    base = cli::withoutExt(base, ".wms");
     auto c = wowee::pipeline::WoweeMapsLoader::makeBgArena(name);
-    if (!saveOrError(c, base, "gen-maps-bgarena")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeMapsLoader>(c, base, "gen-maps-bgarena", ".wms")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -77,10 +65,9 @@ int handleGenBgArena(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWmsExt(base);
+    base = cli::withoutExt(base, ".wms");
     if (!wowee::pipeline::WoweeMapsLoader::exists(base)) {
-        std::fprintf(stderr, "WMS not found: %s.wms\n", base.c_str());
-        return 1;
+        return reportMissing("WMS", base, ".wms");
     }
     auto c = wowee::pipeline::WoweeMapsLoader::load(base);
     if (jsonOut) {
@@ -162,12 +149,10 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWmsExt(base);
+    base = cli::withoutExt(base, ".wms");
     if (outPath.empty()) outPath = base + ".wms.json";
     if (!wowee::pipeline::WoweeMapsLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wms-json: WMS not found: %s.wms\n", base.c_str());
-        return 1;
+        return reportMissing("export-wms-json", "WMS", base, ".wms");
     }
     auto c = wowee::pipeline::WoweeMapsLoader::load(base);
     nlohmann::json j;
@@ -221,18 +206,8 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string jsonPath = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = jsonPath;
-        std::string suffix = ".wms.json";
-        if (outBase.size() > suffix.size() &&
-            outBase.substr(outBase.size() - suffix.size()) == suffix) {
-            outBase = outBase.substr(0, outBase.size() - suffix.size());
-        } else if (outBase.size() > 5 &&
-                   outBase.substr(outBase.size() - 5) == ".json") {
-            outBase = outBase.substr(0, outBase.size() - 5);
-        }
-    }
-    outBase = stripWmsExt(outBase);
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(jsonPath, ".wms");
+    outBase = cli::withoutExt(outBase, ".wms");
     std::ifstream in(jsonPath);
     if (!in) {
         std::fprintf(stderr,
@@ -328,11 +303,9 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWmsExt(base);
+    base = cli::withoutExt(base, ".wms");
     if (!wowee::pipeline::WoweeMapsLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wms: WMS not found: %s.wms\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wms", "WMS", base, ".wms");
     }
     auto c = wowee::pipeline::WoweeMapsLoader::load(base);
     std::vector<std::string> errors;
@@ -424,33 +397,8 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         areaIdsSeen.push_back(a.areaId);
     }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wms"] = base + ".wms";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wms: %s.wms\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu maps, %zu areas, all IDs unique\n",
-                    c.maps.size(), c.areas.size());
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+    return cli::reportValidation("wms", base, jsonOut, errors, warnings,
+                                 formatted("%zu maps, %zu areas, all IDs unique", c.maps.size(), c.areas.size()));
 }
 
 } // namespace

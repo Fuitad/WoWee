@@ -563,4 +563,4 @@ The client is now ready for character operations and world entry! 🎮
 
 ---
 
-**Implementation Status:** Complete — authentication, character enumeration, and world entry all working.
+**Implementation Status:** Complete - authentication, character enumeration, and world entry all working.

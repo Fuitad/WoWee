@@ -50,7 +50,7 @@ void sortUnique(std::vector<uint8_t>& ids) {
 
 // Last resort when the DBC scan found nothing for this race and sex. The
 // numbers it invents are not backed by any CharSections row, so a character
-// created from them has an appearance the client cannot draw — a face picked
+// created from them has an appearance the client cannot draw - a face picked
 // this way never resolves to a texture and the head renders bare. Keeping the
 // fallback (an empty slider is worse than a wrong one) but saying so, because
 // silently offering unrenderable choices is how a character ends up broken for
@@ -59,7 +59,7 @@ void useFallbackRange(const char* what, std::vector<uint8_t>& ids, int maxId) {
     if (!ids.empty()) return;
     core::Logger::getInstance().warning(
         "Character creation: no DBC entries for ", what,
-        " — offering an unverified 0..", maxId,
+        " - offering an unverified 0..", maxId,
         " range; choices may not render");
     ids.reserve(static_cast<size_t>(maxId + 1));
     for (int id = 0; id <= maxId; ++id) {

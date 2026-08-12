@@ -1,4 +1,6 @@
 #include "cli_npc_services_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -19,20 +21,6 @@ namespace cli {
 
 namespace {
 
-std::string stripWbkdExt(std::string base) {
-    stripExt(base, ".wbkd");
-    return base;
-}
-
-bool saveOrError(const wowee::pipeline::WoweeNPCService& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeNPCServiceLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wbkd\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeNPCService& c,
                      const std::string& base) {
@@ -45,9 +33,9 @@ int handleGenCity(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "CityServices";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWbkdExt(base);
+    base = cli::withoutExt(base, ".wbkd");
     auto c = wowee::pipeline::WoweeNPCServiceLoader::makeCity(name);
-    if (!saveOrError(c, base, "gen-bkd")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeNPCServiceLoader>(c, base, "gen-bkd", ".wbkd")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -56,9 +44,9 @@ int handleGenBattle(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "BattleServices";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWbkdExt(base);
+    base = cli::withoutExt(base, ".wbkd");
     auto c = wowee::pipeline::WoweeNPCServiceLoader::makeBattle(name);
-    if (!saveOrError(c, base, "gen-bkd-battle")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeNPCServiceLoader>(c, base, "gen-bkd-battle", ".wbkd")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -67,9 +55,9 @@ int handleGenProfession(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "ProfessionServices";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWbkdExt(base);
+    base = cli::withoutExt(base, ".wbkd");
     auto c = wowee::pipeline::WoweeNPCServiceLoader::makeProfession(name);
-    if (!saveOrError(c, base, "gen-bkd-profession")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeNPCServiceLoader>(c, base, "gen-bkd-profession", ".wbkd")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -77,10 +65,9 @@ int handleGenProfession(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWbkdExt(base);
+    base = cli::withoutExt(base, ".wbkd");
     if (!wowee::pipeline::WoweeNPCServiceLoader::exists(base)) {
-        std::fprintf(stderr, "WBKD not found: %s.wbkd\n", base.c_str());
-        return 1;
+        return reportMissing("WBKD", base, ".wbkd");
     }
     auto c = wowee::pipeline::WoweeNPCServiceLoader::load(base);
     if (jsonOut) {
@@ -125,12 +112,9 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWbkdExt(base);
+    base = cli::withoutExt(base, ".wbkd");
     if (!wowee::pipeline::WoweeNPCServiceLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wbkd-json: WBKD not found: %s.wbkd\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wbkd-json", "WBKD", base, ".wbkd");
     }
     auto c = wowee::pipeline::WoweeNPCServiceLoader::load(base);
     if (outPath.empty()) outPath = base + ".wbkd.json";
@@ -239,21 +223,8 @@ int handleImportJson(int& i, int argc, char** argv) {
             c.entries.push_back(e);
         }
     }
-    if (outBase.empty()) {
-        outBase = jsonPath;
-        const std::string suffix1 = ".wbkd.json";
-        const std::string suffix2 = ".json";
-        if (outBase.size() >= suffix1.size() &&
-            outBase.compare(outBase.size() - suffix1.size(),
-                            suffix1.size(), suffix1) == 0) {
-            outBase.resize(outBase.size() - suffix1.size());
-        } else if (outBase.size() >= suffix2.size() &&
-                   outBase.compare(outBase.size() - suffix2.size(),
-                                   suffix2.size(), suffix2) == 0) {
-            outBase.resize(outBase.size() - suffix2.size());
-        }
-    }
-    outBase = stripWbkdExt(outBase);
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(jsonPath, ".wbkd");
+    outBase = cli::withoutExt(outBase, ".wbkd");
     if (!wowee::pipeline::WoweeNPCServiceLoader::save(c, outBase)) {
         std::fprintf(stderr,
             "import-wbkd-json: failed to save %s.wbkd\n",
@@ -267,98 +238,57 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWbkdExt(base);
-    if (!wowee::pipeline::WoweeNPCServiceLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wbkd: WBKD not found: %s.wbkd\n", base.c_str());
-        return 1;
-    }
-    auto c = wowee::pipeline::WoweeNPCServiceLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    std::vector<uint32_t> idsSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.serviceId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.serviceId == 0)
-            errors.push_back(ctx + ": serviceId is 0");
-        if (e.name.empty())
-            errors.push_back(ctx + ": name is empty");
-        if (e.serviceKind > wowee::pipeline::WoweeNPCService::Misc) {
-            errors.push_back(ctx + ": serviceKind " +
-                std::to_string(e.serviceKind) + " not in 0..11");
-        }
-        // Mailbox is a gameobject service, not an NPC —
-        // shouldn't have a gossipTextId. Warn so authors
-        // double-check.
-        if (e.serviceKind == wowee::pipeline::WoweeNPCService::Mailbox &&
-            e.gossipTextId != 0) {
-            warnings.push_back(ctx +
-                ": Mailbox kind with gossipTextId=" +
-                std::to_string(e.gossipTextId) +
-                " — mailboxes are gameobject services with "
-                "no NPC dialogue; gossip will not display");
-        }
-        // Innkeeper without a gossip text reads as a silent
-        // bind interaction — usually a missing link.
-        if (e.serviceKind == wowee::pipeline::WoweeNPCService::Innkeeper &&
-            e.gossipTextId == 0) {
-            warnings.push_back(ctx +
-                ": Innkeeper kind with gossipTextId=0 — "
-                "no welcome/bind dialogue, will silently bind");
-        }
-        // Battlemaster gold cost > 0 is unusual — battle
-        // queues are typically free.
-        if (e.serviceKind == wowee::pipeline::WoweeNPCService::Battlemaster &&
-            e.requiresGold > 0) {
-            warnings.push_back(ctx +
-                ": Battlemaster kind with requiresGold=" +
-                std::to_string(e.requiresGold) +
-                " — battle queue services are typically free");
-        }
-        for (uint32_t prev : idsSeen) {
-            if (prev == e.serviceId) {
-                errors.push_back(ctx + ": duplicate serviceId");
-                break;
+    return cli::validateCatalog<wowee::pipeline::WoweeNPCServiceLoader>(
+        i, argc, argv, "wbkd", "WBKD",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.serviceId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.serviceId == 0)
+                errors.push_back(ctx + ": serviceId is 0");
+            if (e.name.empty())
+                errors.push_back(ctx + ": name is empty");
+            if (e.serviceKind > wowee::pipeline::WoweeNPCService::Misc) {
+                errors.push_back(ctx + ": serviceKind " +
+                    std::to_string(e.serviceKind) + " not in 0..11");
             }
+            // Mailbox is a gameobject service, not an NPC -
+            // shouldn't have a gossipTextId. Warn so authors
+            // double-check.
+            if (e.serviceKind == wowee::pipeline::WoweeNPCService::Mailbox &&
+                e.gossipTextId != 0) {
+                warnings.push_back(ctx +
+                    ": Mailbox kind with gossipTextId=" +
+                    std::to_string(e.gossipTextId) +
+                    " - mailboxes are gameobject services with "
+                    "no NPC dialogue; gossip will not display");
+            }
+            // Innkeeper without a gossip text reads as a silent
+            // bind interaction - usually a missing link.
+            if (e.serviceKind == wowee::pipeline::WoweeNPCService::Innkeeper &&
+                e.gossipTextId == 0) {
+                warnings.push_back(ctx +
+                    ": Innkeeper kind with gossipTextId=0 - "
+                    "no welcome/bind dialogue, will silently bind");
+            }
+            // Battlemaster gold cost > 0 is unusual - battle
+            // queues are typically free.
+            if (e.serviceKind == wowee::pipeline::WoweeNPCService::Battlemaster &&
+                e.requiresGold > 0) {
+                warnings.push_back(ctx +
+                    ": Battlemaster kind with requiresGold=" +
+                    std::to_string(e.requiresGold) +
+                    " - battle queue services are typically free");
+            }
+            if (!idsSeen.add(e.serviceId)) errors.push_back(ctx + ": duplicate serviceId");
         }
-        idsSeen.push_back(e.serviceId);
-    }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wbkd"] = base + ".wbkd";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wbkd: %s.wbkd\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu services, all serviceIds unique\n",
-                    c.entries.size());
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+            return formatted("%zu services, all serviceIds unique", c.entries.size());
+        });
 }
 
 } // namespace

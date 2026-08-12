@@ -1,4 +1,5 @@
 #include "cli_readmes.hpp"
+#include "zone_manifest.hpp"
 
 #include "pipeline/wowee_model.hpp"
 #include <nlohmann/json.hpp>
@@ -207,7 +208,7 @@ int handleProjectReadme(int& i, int argc, char** argv) {
     // Auto-generate PROJECT.md for a project. Walks every zone,
     // classifies each (BOOTSTRAPPED/PARTIAL/EMPTY), and writes a
     // Markdown table with per-zone counts and a project-level
-    // rollup. Pairs with --gen-zone-readme — running both gives
+    // rollup. Pairs with --gen-zone-readme - running both gives
     // self-documenting content at every level.
     std::string projectDir = argv[++i];
     std::string outPath;
@@ -220,13 +221,9 @@ int handleProjectReadme(int& i, int argc, char** argv) {
         return 1;
     }
     if (outPath.empty()) outPath = projectDir + "/PROJECT.md";
-    std::vector<std::string> zones;
-    for (const auto& entry : fs::directory_iterator(projectDir)) {
-        if (!entry.is_directory()) continue;
-        if (!fs::exists(entry.path() / "zone.json")) continue;
-        zones.push_back(entry.path().string());
-    }
-    std::sort(zones.begin(), zones.end());
+    // What counts as a zone, and the order they are reported in,
+    // from one place.
+    std::vector<std::string> zones = wowee::editor::projectZoneDirs(projectDir);
     auto scan = [](const std::string& base, const std::string& sub,
                    const std::string& ext) -> std::pair<int, uint64_t> {
         int n = 0;

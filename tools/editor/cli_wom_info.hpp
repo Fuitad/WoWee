@@ -9,7 +9,7 @@ namespace cli {
 //   --info-batches        (per-batch material info)
 //   --info-textures       (texture path list)
 //   --info-doodads        (doodad set / instance list)
-//   --info-attachments    } combined handler under the hood —
+//   --info-attachments    } combined handler under the hood -
 //   --info-particles      } same M2 load + skin merge,
 //   --info-sequences      } different sub-array iteration
 //   --info-bones          (bone hierarchy)

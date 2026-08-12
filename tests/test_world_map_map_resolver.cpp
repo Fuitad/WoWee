@@ -1,4 +1,4 @@
-// Tests for the map_resolver module — centralized map navigation resolution.
+// Tests for the map_resolver module - centralized map navigation resolution.
 #include <catch_amalgamated.hpp>
 #include "rendering/world_map/map_resolver.hpp"
 #include "rendering/world_map/world_map_types.hpp"

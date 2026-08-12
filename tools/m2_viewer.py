@@ -360,7 +360,7 @@ class M2Parser:
         return track
 
     def _parse_track_vanilla(self, base: int, key_size: int, key_dtype: str) -> M2Track:
-        """Parse a Vanilla M2TrackDiskVanilla (28 bytes) — flat arrays with M2Range indexing."""
+        """Parse a Vanilla M2TrackDiskVanilla (28 bytes) - flat arrays with M2Range indexing."""
         track = M2Track()
         if base + 28 > len(self.data):
             return track
@@ -411,7 +411,7 @@ class M2Parser:
                     track.timestamps.append(np.empty(0, dtype=np.uint32))
                     track.keys.append(np.empty(0, dtype=np.float32))
         else:
-            # No ranges — treat entire array as single sequence
+            # No ranges - treat entire array as single sequence
             if len(all_ts) > 0:
                 track.timestamps.append(all_ts)
                 track.keys.append(all_keys_flat if len(all_keys_flat) > 0 else np.empty(0, dtype=np.float32))
@@ -538,7 +538,7 @@ class M2Parser:
 # ---------------------------------------------------------------------------
 
 _ANIM_NAMES: dict[int, str] = {
-    # ── Classic (Vanilla WoW 1.x) — IDs 0–145 ──
+    # ── Classic (Vanilla WoW 1.x) - IDs 0–145 ──
     0: "STAND", 1: "DEATH", 2: "SPELL", 3: "STOP", 4: "WALK", 5: "RUN",
     6: "DEAD", 7: "RISE", 8: "STAND_WOUND", 9: "COMBAT_WOUND",
     10: "COMBAT_CRITICAL", 11: "SHUFFLE_LEFT", 12: "SHUFFLE_RIGHT",
@@ -587,7 +587,7 @@ _ANIM_NAMES: dict[int, str] = {
     138: "EMOTE_USE_STANDING_NO_SHEATHE", 139: "SPELL_SLEEP_DOWN",
     140: "SPELL_KNEEL_START", 141: "SPELL_KNEEL_LOOP",
     142: "SPELL_KNEEL_END", 143: "SPRINT", 144: "IN_FLIGHT", 145: "SPAWN",
-    # ── The Burning Crusade (TBC 2.x) — IDs 146–199 ──
+    # ── The Burning Crusade (TBC 2.x) - IDs 146–199 ──
     146: "CLOSE", 147: "CLOSED", 148: "OPEN", 149: "DESTROY",
     150: "DESTROYED", 151: "UNSHEATHE", 152: "SHEATHE_ALT",
     153: "ATTACK_UNARMED_NO_SHEATHE", 154: "STEALTH_RUN",
@@ -603,7 +603,7 @@ _ANIM_NAMES: dict[int, str] = {
     178: "CUSTOM_SPELL_05", 179: "CUSTOM_SPELL_06", 180: "CUSTOM_SPELL_07",
     181: "CUSTOM_SPELL_08", 182: "CUSTOM_SPELL_09", 183: "CUSTOM_SPELL_10",
     184: "EMOTE_STATE_DANCE",
-    # ── Wrath of the Lich King (WotLK 3.x) — IDs 185+ ──
+    # ── Wrath of the Lich King (WotLK 3.x) - IDs 185+ ──
     185: "FLY_STAND", 186: "EMOTE_STATE_LAUGH", 187: "EMOTE_STATE_POINT",
     188: "EMOTE_STATE_EAT", 189: "EMOTE_STATE_WORK",
     190: "EMOTE_STATE_SIT_GROUND", 191: "EMOTE_STATE_HOLD_BOW",
@@ -1345,7 +1345,7 @@ class M2ViewerWindow:
         self._last_mouse = (0, 0)
 
     def run(self):
-        """Main entry point — parse, init GL, run loop."""
+        """Main entry point - parse, init GL, run loop."""
         import pygame
         from pygame.locals import (
             DOUBLEBUF, OPENGL, RESIZABLE, QUIT, KEYDOWN, MOUSEBUTTONDOWN,
@@ -1392,7 +1392,7 @@ class M2ViewerWindow:
 
         # Init Pygame + OpenGL
         pygame.init()
-        pygame.display.set_caption(f"M2 Viewer — {Path(self.m2_path).name}")
+        pygame.display.set_caption(f"M2 Viewer - {Path(self.m2_path).name}")
         pygame.display.gl_set_attribute(pygame.GL_CONTEXT_MAJOR_VERSION, 3)
         pygame.display.gl_set_attribute(pygame.GL_CONTEXT_MINOR_VERSION, 3)
         pygame.display.gl_set_attribute(pygame.GL_CONTEXT_PROFILE_MASK,
@@ -1563,7 +1563,7 @@ class M2ViewerWindow:
         gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_MIN_FILTER, gl.GL_NEAREST)
         gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_MAG_FILTER, gl.GL_NEAREST)
 
-        # Draw fullscreen quad in ortho — use compatibility approach with glWindowPos + glDrawPixels
+        # Draw fullscreen quad in ortho - use compatibility approach with glWindowPos + glDrawPixels
         # Simpler: use a small shader-less blit via fixed function emulation
         # Actually, let's just use the modern approach with a screen quad
         self._blit_texture(gl, tex_id, 8, self.height - total_height - 8, surf_width, total_height)
@@ -2119,7 +2119,7 @@ class WMOViewerWindow:
         # Init Pygame
         pygame.init()
         name = Path(self.wmo_root_path or self.group_paths[0]).stem
-        pygame.display.set_caption(f"WMO Viewer — {name}")
+        pygame.display.set_caption(f"WMO Viewer - {name}")
         pygame.display.gl_set_attribute(pygame.GL_CONTEXT_MAJOR_VERSION, 3)
         pygame.display.gl_set_attribute(pygame.GL_CONTEXT_MINOR_VERSION, 3)
         pygame.display.gl_set_attribute(pygame.GL_CONTEXT_PROFILE_MASK,

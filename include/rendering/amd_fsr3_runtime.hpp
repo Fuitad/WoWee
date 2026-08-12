@@ -86,8 +86,14 @@ private:
     RuntimeFns* fns_ = nullptr;
     void* contextStorage_ = nullptr;
     ApiMode apiMode_ = ApiMode::LegacyFsr3;
+    // Guarded to match their uses: every read and write of these is inside a
+    // WOWEE_HAS_AMD_FSR3_FRAMEGEN block, so with the backend off they are
+    // fields nothing touches, which clang rejects under -Werror.
+#if WOWEE_HAS_AMD_FSR3_FRAMEGEN
     void* genericUpscaleContext_ = nullptr;
     void* genericFramegenContext_ = nullptr;
+#endif
+    // Not guarded: this one is read outside the block, unlike the two above.
     uint64_t genericFrameId_ = 1;
 };
 

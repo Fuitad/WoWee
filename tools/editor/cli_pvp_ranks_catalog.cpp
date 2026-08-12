@@ -1,4 +1,6 @@
 #include "cli_pvp_ranks_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -21,11 +23,6 @@ namespace cli {
 
 namespace {
 
-std::string stripWprgExt(std::string base) {
-    stripExt(base, ".wprg");
-    return base;
-}
-
 const char* factionFilterName(uint8_t f) {
     using P = wowee::pipeline::WoweePvPRanks;
     switch (f) {
@@ -35,15 +32,6 @@ const char* factionFilterName(uint8_t f) {
     }
 }
 
-bool saveOrError(const wowee::pipeline::WoweePvPRanks& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweePvPRanksLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wprg\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweePvPRanks& c,
                      const std::string& base) {
@@ -56,9 +44,9 @@ int handleGenAlliance(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "AllianceLowerRanks";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWprgExt(base);
+    base = cli::withoutExt(base, ".wprg");
     auto c = wowee::pipeline::WoweePvPRanksLoader::makeAllianceRanks(name);
-    if (!saveOrError(c, base, "gen-prg")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweePvPRanksLoader>(c, base, "gen-prg", ".wprg")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -67,9 +55,9 @@ int handleGenHorde(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "HordeLowerRanks";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWprgExt(base);
+    base = cli::withoutExt(base, ".wprg");
     auto c = wowee::pipeline::WoweePvPRanksLoader::makeHordeRanks(name);
-    if (!saveOrError(c, base, "gen-prg-horde")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweePvPRanksLoader>(c, base, "gen-prg-horde", ".wprg")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -78,9 +66,9 @@ int handleGenHigh(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "HighRanks";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWprgExt(base);
+    base = cli::withoutExt(base, ".wprg");
     auto c = wowee::pipeline::WoweePvPRanksLoader::makeHighRanks(name);
-    if (!saveOrError(c, base, "gen-prg-high")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweePvPRanksLoader>(c, base, "gen-prg-high", ".wprg")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -88,10 +76,9 @@ int handleGenHigh(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWprgExt(base);
+    base = cli::withoutExt(base, ".wprg");
     if (!wowee::pipeline::WoweePvPRanksLoader::exists(base)) {
-        std::fprintf(stderr, "WPRG not found: %s.wprg\n", base.c_str());
-        return 1;
+        return reportMissing("WPRG", base, ".wprg");
     }
     auto c = wowee::pipeline::WoweePvPRanksLoader::load(base);
     if (jsonOut) {
@@ -146,13 +133,10 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWprgExt(base);
+    base = cli::withoutExt(base, ".wprg");
     if (out.empty()) out = base + ".wprg.json";
     if (!wowee::pipeline::WoweePvPRanksLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wprg-json: WPRG not found: %s.wprg\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wprg-json", "WPRG", base, ".wprg");
     }
     auto c = wowee::pipeline::WoweePvPRanksLoader::load(base);
     nlohmann::json j;
@@ -194,16 +178,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wprg.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wprg");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wprg");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,
@@ -279,12 +254,9 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWprgExt(base);
+    base = cli::withoutExt(base, ".wprg");
     if (!wowee::pipeline::WoweePvPRanksLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wprg: WPRG not found: %s.wprg\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wprg", "WPRG", base, ".wprg");
     }
     auto c = wowee::pipeline::WoweePvPRanksLoader::load(base);
     std::vector<std::string> errors;
@@ -293,7 +265,7 @@ int handleValidate(int& i, int argc, char** argv) {
         warnings.push_back("catalog has zero entries");
     }
     std::set<uint32_t> idsSeen;
-    // Per-(faction, tier) tuple uniqueness — two ranks
+    // Per-(faction, tier) tuple uniqueness - two ranks
     // at the same tier for the same faction would tie
     // at runtime when the rank-progression UI looks up
     // "what's tier 5 for Alliance?"
@@ -326,12 +298,12 @@ int handleValidate(int& i, int argc, char** argv) {
         if (e.tier < 1 || e.tier > 14) {
             errors.push_back(ctx + ": tier " +
                 std::to_string(e.tier) +
-                " out of range (must be 1..14 — vanilla "
+                " out of range (must be 1..14 - vanilla "
                 "ladder)");
         }
         if (e.titlePrefix.empty()) {
             warnings.push_back(ctx +
-                ": titlePrefix is empty — UI rank-name "
+                ": titlePrefix is empty - UI rank-name "
                 "display would render blank");
         }
         if (e.tier <= 14 && (e.factionFilter == 1 ||
@@ -344,7 +316,7 @@ int handleValidate(int& i, int argc, char** argv) {
                     std::string(factionFilterName(e.factionFilter)) +
                     ", tier=" + std::to_string(e.tier) +
                     ") slot already occupied by another "
-                    "rank — runtime lookup would tie");
+                    "rank - runtime lookup would tie");
             }
         }
         if (!idsSeen.insert(e.rankId).second) {
@@ -371,40 +343,15 @@ int handleValidate(int& i, int argc, char** argv) {
                     " > tier " + std::to_string(ranks[k]->tier) +
                     " (" + ranks[k]->name + ") requiring " +
                     std::to_string(ranks[k]->honorRequiredAchieve) +
-                    " — higher tier should require more "
+                    " - higher tier should require more "
                     "honor, not less");
             }
         }
     }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wprg"] = base + ".wprg";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wprg: %s.wprg\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu ranks, all rankIds + "
+    return cli::reportValidation("wprg", base, jsonOut, errors, warnings,
+                                 formatted("%zu ranks, all rankIds + "
                     "(faction,tier) tuples unique, honor "
-                    "thresholds monotonic per faction\n",
-                    c.entries.size());
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+                    "thresholds monotonic per faction", c.entries.size()));
 }
 
 } // namespace

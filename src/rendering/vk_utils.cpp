@@ -32,11 +32,7 @@ AllocatedBuffer createBuffer(VmaAllocator allocator, VkDeviceSize size,
 }
 
 void destroyBuffer(VmaAllocator allocator, AllocatedBuffer& buffer) {
-    if (buffer.buffer) {
-        vmaDestroyBuffer(allocator, buffer.buffer, buffer.allocation);
-        buffer.buffer = VK_NULL_HANDLE;
-        buffer.allocation = VK_NULL_HANDLE;
-    }
+    destroy(allocator, buffer.buffer, buffer.allocation);
 }
 
 AllocatedImage createImage(VkDevice device, VmaAllocator allocator,

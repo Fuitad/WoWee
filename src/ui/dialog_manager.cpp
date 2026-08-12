@@ -1,4 +1,7 @@
 #include "ui/dialog_manager.hpp"
+#include "game/item_text.hpp"
+#include "game/inventory_slots.hpp"
+#include "ui/framexml_takeover.hpp"
 #include "ui/inventory_screen.hpp"
 #include "ui/chat_panel.hpp"
 #include "ui/chat/chat_utils.hpp"
@@ -20,16 +23,6 @@ namespace {
     constexpr auto& kColorGreen    = kGreen;
 } // namespace
 
-// Build a WoW-format item link string for chat insertion.
-// Format: |cff<qualHex>|Hitem:<itemId>:0:0:0:0:0:0:0:0|h[<name>]|h|r
-static std::string buildItemChatLink(uint32_t itemId, uint8_t quality, const std::string& name) {
-    static constexpr const char* kQualHex[] = {"9d9d9d","ffffff","1eff00","0070dd","a335ee","ff8000","e6cc80","e6cc80"};
-    uint8_t qi = quality < 8 ? quality : 1;
-    char buf[512];
-    snprintf(buf, sizeof(buf), "|cff%s|Hitem:%u:0:0:0:0:0:0:0:0|h[%s]|h|r",
-             kQualHex[qi], itemId, name.c_str());
-    return buf;
-}
 
 // ---------------------------------------------------------------------------
 // Render early dialogs (group invite through LFG role check)
@@ -37,29 +30,101 @@ static std::string buildItemChatLink(uint32_t itemId, uint8_t quality, const std
 void DialogManager::renderDialogs(game::GameHandler& gameHandler,
                                   InventoryScreen& inventoryScreen,
                                   ChatPanel& chatPanel) {
-    renderGroupInvitePopup(gameHandler);
-    renderDuelRequestPopup(gameHandler);
+    // The prompts FrameXML asks with a StaticPopup of its own, on events this
+    // client fires: the group invite here, the trade request and summon below,
+    // and the resurrect and talent wipe in renderLateDialogs. Whichever side
+    // asks the question answers it - AcceptGroup, DeclineGroup,
+    // AcceptResurrect, ConfirmSummon, ConfirmTalentWipe, BeginTrade and
+    // CancelTrade are all bound, so FrameXML's buttons do the same thing these
+    // do.
+    //
+    // The rest below have no FrameXML counterpart that can appear: the duel,
+    // the guild invite, the battleground invites and the LFG pair are all
+    // raised from events that are not fired. That claim is only true for the
+    // ones named - it read "the rest" when trade and the ready check were also
+    // in the list, and both were being drawn twice.
+    if (!frameXmlOwns(UiElement::Dialogs)) renderGroupInvitePopup(gameHandler);
+    // FrameXML answers DUEL_REQUESTED with StaticPopup_Show("DUEL_REQUESTED"),
+    // and this client fires that event - so with dialogs handed over both
+    // appeared. Three of the popups in this function were already gated on
+    // exactly this and the rest were not.
+    if (!frameXmlOwns(UiElement::Dialogs)) renderDuelRequestPopup(gameHandler);
     renderDuelCountdown(gameHandler);
-    renderLootRollPopup(gameHandler, inventoryScreen, chatPanel);
-    renderTradeRequestPopup(gameHandler);
-    renderTradeWindow(gameHandler, inventoryScreen, chatPanel);
-    renderSummonRequestPopup(gameHandler);
-    renderSharedQuestPopup(gameHandler);
-    renderItemTextWindow(gameHandler);
-    renderGuildInvitePopup(gameHandler);
-    renderReadyCheckPopup(gameHandler);
-    renderBgInvitePopup(gameHandler);
-    renderBfMgrInvitePopup(gameHandler);
-    renderLfgProposalPopup(gameHandler);
-    renderLfgRoleCheckPopup(gameHandler);
+    // The roll dialog belongs to the loot window, and FrameXML has four of its
+    // own that open on the same roll. Whichever side draws the loot window
+    // draws the roll that comes out of it.
+    if (!frameXmlOwns(UiElement::Loot)) {
+        // GroupLootFrame1..4, which belong to the loot element rather than to
+    // dialogs - they are frames of their own, not static popups.
+    if (!frameXmlOwns(UiElement::Loot))
+        renderLootRollPopup(gameHandler, inventoryScreen, chatPanel);
+    }
+    // The trade request and the trade window belong to different elements on
+    // FrameXML's side: uiparent.lua answers TRADE_REQUEST with StaticPopup
+    // "TRADE", while TradeFrame opens on TRADE_SHOW. This client fires both
+    // events, so each surface has to stand down for its own owner.
+    if (!frameXmlOwns(UiElement::Dialogs)) renderTradeRequestPopup(gameHandler);
+    if (!frameXmlOwns(UiElement::Trade)) {
+        // TradeFrame is its own element, and its suppression entry names exactly
+    // that frame - so with trade handed over this drew a second trade window
+    // beside FrameXML's, both live, both showing the same slots.
+    if (!frameXmlOwns(UiElement::Trade))
+        renderTradeWindow(gameHandler, inventoryScreen, chatPanel);
+    }
+    if (!frameXmlOwns(UiElement::Dialogs)) renderSummonRequestPopup(gameHandler);
+    // Beside the summon popup now that QUEST_ACCEPT_CONFIRM is fired.
+    // uiparent.lua raises "QUEST_ACCEPT" - or "QUEST_ACCEPT_LOG_FULL", which
+    // this client's version has no equivalent of - so leaving this ungated
+    // asks the same question twice.
+    if (!frameXmlOwns(UiElement::Dialogs)) renderSharedQuestPopup(gameHandler);
+    // ItemTextFrame answers ITEM_TEXT_BEGIN, which this client fires. The
+    // client's other page-text surface, WindowManager::renderBookWindow, was
+    // already gated on Book; this one reads different state and was not.
+    if (!frameXmlOwns(UiElement::Book)) renderItemTextWindow(gameHandler);
+    // StaticPopupDialogs["GUILD_INVITE"], shown from UIParent's own handler
+    // for GUILD_INVITE_REQUEST.
+    if (!frameXmlOwns(UiElement::Dialogs)) renderGuildInvitePopup(gameHandler);
+    if (!frameXmlOwns(UiElement::ReadyCheck)) renderReadyCheckPopup(gameHandler);
+    // The battleground invitation, which was the fourth and was missed.
+    //
+    // FrameXML answers the same three invitations below from staticpopup.lua,
+    // and this client fires every event that raises them - so both were on
+    // screen. This one is no different: UPDATE_BATTLEFIELD_STATUS is fired
+    // from social_handler, battlefieldframe.lua raises
+    // CONFIRM_BATTLEFIELD_ENTRY on it, and "dialogs" has been handed over from
+    // the start. Every battleground invitation put up two accept buttons.
+    //
+    // tools/framexml_ungated_draws.py had it the whole time, in among the
+    // surfaces this client draws on purpose - the nameplates, the toasts, the
+    // damage meter - which is what a report of thirty entries costs when only
+    // some of them are faults.
+    if (!frameXmlOwns(UiElement::Dialogs)) renderBgInvitePopup(gameHandler);
+    if (!frameXmlOwns(UiElement::Dialogs)) {
+        renderBfMgrInvitePopup(gameHandler);
+    }
+    if (!frameXmlOwns(UiElement::DungeonFinder)) {
+        // LFDDungeonReadyPopup and LFDRoleCheckPopup, both named in the dungeon
+    // finder's suppression list.
+    if (!frameXmlOwns(UiElement::DungeonFinder)) renderLfgProposalPopup(gameHandler);
+        if (!frameXmlOwns(UiElement::DungeonFinder)) renderLfgRoleCheckPopup(gameHandler);
+    }
 }
 
 // ---------------------------------------------------------------------------
 // Render late dialogs (resurrect, talent wipe, pet unlearn)
 // ---------------------------------------------------------------------------
 void DialogManager::renderLateDialogs(game::GameHandler& gameHandler) {
-    renderResurrectDialog(gameHandler);
-    renderTalentWipeConfirmDialog(gameHandler);
+    if (!frameXmlOwns(UiElement::Dialogs)) {
+        // ShowResurrectRequest, from UIParent's RESURRECT_REQUEST handler.
+    if (!frameXmlOwns(UiElement::Dialogs)) renderResurrectDialog(gameHandler);
+        // uiparent.lua answers CONFIRM_TALENT_WIPE with StaticPopup_Show for the
+    // same name, and this client fires that event - the binding for the
+    // popup's own accept button says so in as many words.
+    if (!frameXmlOwns(UiElement::Dialogs)) renderTalentWipeConfirmDialog(gameHandler);
+    }
+    // Not gated: FrameXML has the string for this one and no dialog behind it.
+    // staticpopup.lua declares no CONFIRM_PET_UNLEARN, so this client's is the
+    // only one and hiding it would leave the confirmation with no answer.
     renderPetUnlearnConfirmDialog(gameHandler);
 }
 
@@ -135,7 +200,7 @@ void DialogManager::renderDuelCountdown(game::GameHandler& gameHandler) {
         snprintf(buf, sizeof(buf), "Fight!");
     }
 
-    // Large font by scaling — use 4x font size for dramatic effect
+    // Large font by scaling - use 4x font size for dramatic effect
     float scale = 4.0f;
     float scaledSize = fontSize * scale;
     ImVec2 textSz = font->CalcTextSizeA(scaledSize, FLT_MAX, 0.0f, buf);
@@ -357,17 +422,31 @@ void DialogManager::renderTradeWindow(game::GameHandler& gameHandler,
                     }
                     if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Left) &&
                         ImGui::GetIO().KeyShift && info && info->valid && !info->name.empty()) {
-                        std::string link = buildItemChatLink(info->entry, info->quality, info->name);
+                        std::string link = game::itemChatLink(info->entry, info->quality, info->name);
                         chatPanel.insertChatLink(link);
                     }
                 } else {
-                    if (isNonTraded) ImGui::TextDisabled("  (empty — place item to enchant/craft)");
+                    if (isNonTraded) ImGui::TextDisabled("  (empty - place item to enchant/craft)");
                     else             ImGui::TextDisabled("  %d. (empty)", i + 1);
 
                     // Allow dragging inventory items into trade slots via right-click context menu
                     char addItemId[16]; snprintf(addItemId, sizeof(addItemId), "##additem%d", i);
                     if (isMine && ImGui::IsItemClicked(ImGuiMouseButton_Right)) {
                         ImGui::OpenPopup(addItemId);
+                    }
+
+                    // Dropped out of a handed-over bag. The popup below lists
+                    // the backpack only, so with the bags drawn by FrameXML a
+                    // drag was the natural way to offer something and there was
+                    // nothing here to catch it - and anything in one of the four
+                    // worn bags could not be traded at all.
+                    if (isMine && ImGui::IsItemHovered() &&
+                        ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
+                        uint8_t srcBag = 0, srcSlot = 0;
+                        if (frameXmlCursorWireSlot(srcBag, srcSlot)) {
+                            gameHandler.setTradeItem(static_cast<uint8_t>(i), srcBag, srcSlot);
+                            frameXmlPutCursorDown();
+                        }
                     }
                 }
 
@@ -387,9 +466,15 @@ void DialogManager::renderTradeWindow(game::GameHandler& gameHandler,
                                 : (!slot.item.name.empty() ? slot.item.name
                                    : ("Item " + std::to_string(slot.item.itemId)));
                             if (ImGui::Selectable(iname.c_str())) {
-                                // bag=255 = main backpack
-                                gameHandler.setTradeItem(static_cast<uint8_t>(i), 255u,
-                                                         static_cast<uint8_t>(si));
+                                // Container 255 is the flat space the server
+                                // reads with GetItemByPos, where the backpack
+                                // starts after the equipment - not at zero.
+                                // Sending the backpack index raw named an
+                                // equipment slot, and an offer the server finds
+                                // no item for cancels the trade outright.
+                                gameHandler.setTradeItem(
+                                    static_cast<uint8_t>(i), 255u,
+                                    static_cast<uint8_t>(game::slots::backpackWireSlot(si)));
                                 ImGui::CloseCurrentPopup();
                             }
                         }
@@ -519,7 +604,7 @@ void DialogManager::renderLootRollPopup(game::GameHandler& gameHandler,
         }
         if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Left) &&
             ImGui::GetIO().KeyShift && rollInfo && rollInfo->valid && !rollInfo->name.empty()) {
-            std::string link = buildItemChatLink(rollInfo->entry, rollInfo->quality, rollInfo->name);
+            std::string link = game::itemChatLink(rollInfo->entry, rollInfo->quality, rollInfo->name);
             chatPanel.insertChatLink(link);
         }
         ImGui::Spacing();
@@ -561,10 +646,10 @@ void DialogManager::renderLootRollPopup(game::GameHandler& gameHandler,
             // (0=Pass, 1=Need, 2=Greed, 3=Disenchant).
             static constexpr const char* kRollLabels[] = {"Pass", "Need", "Greed", "Disenchant"};
             static constexpr ImVec4 kRollColors[] = {
-                kColorDarkGray,                    // Pass — gray
-                ImVec4(0.2f, 0.9f, 0.2f, 1.0f),  // Need  — green
-                ImVec4(0.3f, 0.6f, 1.0f, 1.0f),  // Greed — blue
-                ImVec4(0.7f, 0.3f, 0.9f, 1.0f),  // Disenchant — purple
+                kColorDarkGray,                    // Pass - gray
+                ImVec4(0.2f, 0.9f, 0.2f, 1.0f),  // Need  - green
+                ImVec4(0.3f, 0.6f, 1.0f, 1.0f),  // Greed - blue
+                ImVec4(0.7f, 0.3f, 0.9f, 1.0f),  // Disenchant - purple
             };
             auto rollTypeIndex = [](uint8_t t) -> int {
                 return (t < 4) ? static_cast<int>(t) : 0;
@@ -586,7 +671,7 @@ void DialogManager::renderLootRollPopup(game::GameHandler& gameHandler,
                     if (r.rollType != 0) {
                         ImGui::TextColored(kRollColors[ri], "%d", static_cast<int>(r.rollNum));
                     } else {
-                        ImGui::TextDisabled("—");
+                        ImGui::TextDisabled("-");
                     }
                 }
                 ImGui::EndTable();

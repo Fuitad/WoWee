@@ -28,12 +28,20 @@ public:
 
     explicit InventoryHandler(GameHandler& owner);
 
+    /// Announce that the bags changed, one event per bag.
+    ///
+    /// WoW passes the bag that changed as the event's first argument, and the
+    /// interface redraws only the bag whose id matches it - so an event with no
+    /// id redraws nothing at all. That is why an item dragged to a new slot
+    /// stayed drawn in its old one until the bag was closed and reopened.
+    void fireBagUpdates();
+
     void registerOpcodes(DispatchTable& table);
 
     // ---- Item text (books / readable items) ----
     bool isItemTextOpen() const { return itemTextOpen_; }
     const std::string& getItemText() const { return itemText_; }
-    void closeItemText() { itemTextOpen_ = false; }
+    void closeItemText();
     void queryItemText(uint64_t itemGuid);
 
     // ---- Trade ----
@@ -42,7 +50,7 @@ public:
     };
 
     // WoW trade window: 7 slots total. Slots 0-5 are transferred to the partner;
-    // slot 6 (TRADE_SLOT_NONTRADED) is the "will not be traded" slot — you place your
+    // slot 6 (TRADE_SLOT_NONTRADED) is the "will not be traded" slot - you place your
     // own item there so the partner can enchant/craft on it without it changing hands.
     static constexpr int TRADE_SLOT_COUNT        = 7;
     static constexpr int TRADE_SLOT_TRADED_COUNT = 6;
@@ -59,6 +67,7 @@ public:
     bool hasPendingTradeRequest() const { return tradeStatus_ == TradeStatus::PendingIncoming; }
     bool isTradeOpen() const { return tradeStatus_ == TradeStatus::Open || tradeStatus_ == TradeStatus::Accepted; }
     const std::string& getTradePeerName() const { return tradePeerName_; }
+    uint64_t getTradePeerGuid() const { return tradePeerGuid_; }
     const std::array<TradeSlot, TRADE_SLOT_COUNT>& getMyTradeSlots() const { return myTradeSlots_; }
     const std::array<TradeSlot, TRADE_SLOT_COUNT>& getPeerTradeSlots() const { return peerTradeSlots_; }
     uint64_t getMyTradeGold() const { return myTradeGold_; }
@@ -66,6 +75,7 @@ public:
     void acceptTradeRequest();
     void declineTradeRequest();
     void acceptTrade();
+    void unacceptTrade();
     void cancelTrade();
     void setTradeItem(uint8_t tradeSlot, uint8_t srcBag, uint8_t srcSlot);
     void clearTradeItem(uint8_t tradeSlot);
@@ -73,7 +83,14 @@ public:
 
     // ---- Loot ----
     void lootTarget(uint64_t targetGuid);
-    void lootItem(uint8_t slotIndex);
+    /// Take the coin on the corpse. Its own request, with no slot:
+    /// money is not one of the numbered loot slots on the wire even
+    /// though the interface shows it as one.
+    void lootMoney();
+    /// Drop a temporary weapon enchant - a sharpening stone, poison, or a
+    /// shaman's weapon imbue. Slot zero is the main hand and one the off hand,
+    /// which is how the request numbers them; the interface counts from one.
+    void cancelTempEnchantment(uint8_t handIndex);
     void closeLoot();
     bool isLootWindowOpen() const { return lootWindowOpen_; }
     const LootResponseData& getCurrentLoot() const { return currentLoot_; }
@@ -98,6 +115,21 @@ public:
     // ---- Equipment Sets (aliased from handler_types.hpp) ----
     using EquipmentSetInfo = game::EquipmentSetInfo;
     const std::vector<EquipmentSetInfo>& getEquipmentSets() const { return equipmentSetInfo_; }
+    /// The items a saved set holds, by equipment slot, and which slots it was
+    /// told to leave alone. Held as item guids, which is what the server sends.
+    /// Null when no set has that id.
+    const std::array<uint64_t, 19>* getEquipmentSetItems(uint32_t setId) const {
+        for (const auto& set : equipmentSets_) {
+            if (set.setId == setId) return &set.itemGuids;
+        }
+        return nullptr;
+    }
+    uint32_t getEquipmentSetIgnoreMask(uint32_t setId) const {
+        for (const auto& set : equipmentSets_) {
+            if (set.setId == setId) return set.ignoreSlotMask;
+        }
+        return 0;
+    }
     bool supportsEquipmentSets() const;
     void useEquipmentSet(uint32_t setId);
     void saveEquipmentSet(const std::string& name, const std::string& iconName = "INV_Misc_QuestionMark",
@@ -122,19 +154,76 @@ public:
     void sellItemBySlot(int backpackIndex);
     void sellItemInBag(int bagIndex, int slotIndex);
     void buyBackItem(uint32_t buybackSlot);
+    /// Tell the interface durability moved - the armour indicator redraws
+    /// from an event, not by polling.
+    void announceDurabilityChange();
     void repairItem(uint64_t vendorGuid, uint64_t itemGuid);
     void repairAll(uint64_t vendorGuid, bool useGuildBank = false);
     uint32_t estimateRepairAllCost() const;
     const std::deque<BuybackItem>& getBuybackItems() const { return buybackItems_; }
-    void autoEquipItemBySlot(int backpackIndex);
-    void autoEquipItemInBag(int bagIndex, int slotIndex);
-    void useItemBySlot(int backpackIndex);
-    void useItemInBag(int bagIndex, int slotIndex);
+    // ---- Equipping, and the prompt before something binds ----
+    //
+    // `confirmed` is how a caller says the player has already been asked. Both
+    // interfaces ask - this client's own popup and FrameXML's EQUIP_BIND - and
+    // both come back through here, so without it the answer to the prompt
+    // raises the prompt again.
+    void equipItemToSlot(uint64_t itemGuid, uint8_t equipSlot);
+    void autoEquipItemBySlot(int backpackIndex, bool confirmed = false);
+    void autoEquipItemInBag(int bagIndex, int slotIndex, bool confirmed = false);
+
+    /// Whether equipping what is in a slot would bind it - ItemDef carries
+    /// the rule; these two just find the item.
+    bool equipWouldBindFromBackpack(int backpackIndex) const;
+    bool equipWouldBindFromBag(int bagIndex, int slotIndex) const;
+
+    /// The equip held back waiting for an answer. One at a time - FrameXML's
+    /// dialog is exclusive and this client's is modal, so a second cannot be
+    /// raised while the first is up.
+    struct PendingEquip {
+        bool    active  = false;
+        bool    fromBag = false;
+        int     bag     = 0;
+        int     slot    = 0;
+        uint8_t wireSlot = 0;   ///< what the event carried, for the reply
+    };
+    // ---- Looting, and the prompt before something binds ----
+    //
+    // Same shape as the equip prompt above and for the same reason: neither
+    // interface warned before taking a bind-on-pickup item.
+    void lootItem(uint8_t slotIndex, bool confirmed = false);
+    /// Send the loot request that was held back. The dialog passes the slot it
+    /// was shown for, but only one can be waiting, so the held one is enough -
+    /// and going back through lootItem with the slot would raise the prompt
+    /// again, which is a loop rather than a confirmation.
+    void confirmPendingLoot();
+
+    /// Send the use that was held back by the bind-on-use prompt. USE_BIND
+    /// carries no slot at all - FrameXML shows it and calls this with nothing -
+    /// so the held request is the only record of what was being used.
+    void confirmBindOnUse();
+
+    /// Apply the enchant that was held back by the replace prompt.
+    void replaceEnchant();
+
+    void equipPendingItem();
+    void cancelPendingEquip();
+    /// `unitTarget` names who the item is used on, and overrides the default
+    /// the item's own class implies. Only the interface's /use handling passes
+    /// it - `/use [target=Bob] Heavy Runecloth Bandage` - and zero keeps the
+    /// behaviour every other caller has always had.
+    void useItemBySlot(int backpackIndex, bool confirmed = false,
+                       uint64_t unitTarget = 0);
+    /// Use a key from the keyring. Its own entry point because the keyring is
+    /// addressed by a wire slot of its own past the bags, and useItemBySlot
+    /// bounds-checks against the backpack and would silently do nothing.
+    void useKeyringItem(int index, bool confirmed = false);
+    void useItemInBag(int bagIndex, int slotIndex, bool confirmed = false,
+                      uint64_t unitTarget = 0);
 
     // ---- Item-targeted item use (sharpening stones, weightstones, weapon oils) ----
     /// True while a used item is waiting for the player to pick the item it applies to.
     bool isAwaitingItemTarget() const;
-    /// Entry of the item awaiting a target (0 if none) — drives the targeting cursor.
+    /// Entry of the item awaiting a target (0 if none) - drives the targeting cursor.
     uint32_t getPendingItemTargetSourceItemId() const;
     void cancelItemTargeting();
 
@@ -142,7 +231,7 @@ public:
     /// sent once the player picks one.
     void beginSpellItemTargeting(uint32_t spellId, const std::string& spellName);
     /// Sends the parked CMSG_USE_ITEM with TARGET_FLAG_ITEM against targetItemGuid.
-    void completeItemUseOnItem(uint64_t targetItemGuid);
+    void completeItemUseOnItem(uint64_t targetItemGuid, bool confirmed = false);
 
     void openItemBySlot(int backpackIndex);
     void openItemInBag(int bagIndex, int slotIndex);
@@ -150,10 +239,21 @@ public:
     void readItemInBag(int bagIndex, int slotIndex);
     void destroyItem(uint8_t bag, uint8_t slot, uint8_t count = 1);
     void splitItem(uint8_t srcBag, uint8_t srcSlot, uint8_t count);
+    /// Split `count` off a stack into a named slot.
+    ///
+    /// The interface's SplitContainerItem does not choose a destination: it puts
+    /// the split portion on the cursor and the drop decides. Choosing one here
+    /// is right only for this client's own bag window, which has no cursor to
+    /// put it on.
+    void splitItemTo(uint8_t srcBag, uint8_t srcSlot,
+                     uint8_t dstBag, uint8_t dstSlot, uint8_t count);
     void swapContainerItems(uint8_t srcBag, uint8_t srcSlot, uint8_t dstBag, uint8_t dstSlot);
+    /// Read and write a model slot by the wire's flat numbering.
+    bool readWireSlot(uint8_t container, uint8_t slot, game::ItemDef& out) const;
+    bool writeWireSlot(uint8_t container, uint8_t slot, const game::ItemDef& item);
     void swapBagSlots(int srcBagIndex, int dstBagIndex);
     void unequipToBackpack(EquipSlot equipSlot);
-    void useItemById(uint32_t itemId);
+    void useItemById(uint32_t itemId, uint64_t unitTarget = 0);
     bool isVendorWindowOpen() const { return vendorWindowOpen_; }
     const ListInventoryData& getVendorItems() const { return currentVendorItems_; }
     void setVendorCanRepair(bool v) { currentVendorItems_.canRepair = v; }
@@ -161,7 +261,7 @@ public:
 
     // ---- Mail ----
     // Slots the UI can hold. What can actually be sent depends on the wire
-    // format — see maxSendableMailAttachments().
+    // format - see maxSendableMailAttachments().
     static constexpr int MAIL_MAX_ATTACHMENTS = 12;
 
     /// How many attachments this expansion's CMSG_SEND_MAIL can carry. Vanilla
@@ -177,27 +277,94 @@ public:
     };
     bool isMailboxOpen() const { return mailboxOpen_; }
     const std::vector<MailMessage>& getMailInbox() const { return mailInbox_; }
+    /// Writable, for the backfill that fills in a mail's sender once the name
+    /// packet for that guid arrives.
+    std::vector<MailMessage>& mailInboxRef() { return mailInbox_; }
     int getSelectedMailIndex() const { return selectedMailIndex_; }
     void setSelectedMailIndex(int idx) { selectedMailIndex_ = idx; }
     bool isMailComposeOpen() const { return showMailCompose_; }
+
+    /// Whether the compose frame is on screen, without touching the draft.
+    ///
+    /// FrameXML owns the mail window and says so through SetSendMailShowing as
+    /// its two tabs swap. openMailCompose empties the attachments, which is
+    /// right when this client's own window opens a fresh letter and wrong on a
+    /// tab switch - flipping to the inbox and back would drop what was on it.
+    void setMailComposeShowing(bool showing) { showMailCompose_ = showing; }
     void openMailCompose() { showMailCompose_ = true; clearMailAttachments(); }
     void closeMailCompose() { showMailCompose_ = false; clearMailAttachments(); }
     bool hasNewMail() const { return hasNewMail_; }
     void openMailbox(uint64_t guid);
     void closeMailbox();
+    /// What the server's mail refusal means, in words.
+    ///
+    /// SMSG_SEND_MAIL_RESULT carries a number from MailResponseResult and the
+    /// client printed it bare - "Failed to send mail (error 19)" says nothing
+    /// about what to do differently, and 19 is the one a player can actually
+    /// act on: something on the letter cannot be mailed.
+    static const char* mailResultText(uint32_t error);
+
+    /// Put paper in the compose frame, so its Send button can be enabled.
+    void selectDefaultStationery();
+
+    /// Say why a letter is not going out, and tell the compose frame so it
+    /// puts its Send button back.
+    void refuseSend(const std::string& reason, const char* logLine);
+
     void sendMail(const std::string& recipient, const std::string& subject,
                   const std::string& body, uint64_t money, uint64_t cod = 0);
     bool attachItemFromBackpack(int backpackIndex);
+    /// Raise MAIL_LOCK_SEND_ITEMS when the attachment still has a refund
+    /// window, which posting it ends.
+    void noteMailAttachRefundable(int attachIndex);
     bool attachItemFromBag(int bagIndex, int slotIndex);
     bool detachMailAttachment(int attachIndex);
     void clearMailAttachments();
+
+    /// Tell the compose frame its attachments changed.
+    ///
+    /// The letter being written lives entirely on this side; the send frame
+    /// draws its twelve slots, its postage and its Send button from
+    /// GetSendMailItem and redraws them only on MAIL_SEND_INFO_UPDATE. Attaching
+    /// and detaching used to change the list without saying so, and only the
+    /// send - which clears it - announced itself. So an item clicked onto the
+    /// letter went onto it and the slot stayed empty, with the item gone from
+    /// the cursor as well: it read as the attach having been refused.
+    void notifyMailComposeChanged();
     const std::array<MailAttachSlot, 12>& getMailAttachments() const { return mailAttachments_; }
     int getMailAttachmentCount() const;
     void mailTakeMoney(uint32_t mailId);
     void mailTakeItem(uint32_t mailId, uint32_t itemGuidLow);
     void mailDelete(uint32_t mailId);
+    void mailReturnToSender(uint32_t mailId);
     void mailMarkAsRead(uint32_t mailId);
     void refreshMailList();
+
+    // ---- Item socketing ----
+    //
+    // A gem is not put into an item one at a time: the player fills the sockets
+    // on screen and then commits all three at once, and until they press the
+    // button nothing has happened on the server. So the pending gems are this
+    // client's own state, exactly like the mail attachment slots above.
+    struct SocketSession {
+        bool     open     = false;
+        uint64_t itemGuid = 0;   ///< the item whose sockets are on screen
+        uint32_t itemId   = 0;   ///< its template, for colours and the portrait
+        /// Gems placed but not yet committed, per socket. Guid is what the
+        /// server is told; the item id is what the panel draws.
+        std::array<uint64_t, 3> newGemGuid{};
+        std::array<uint32_t, 3> newGemItemId{};
+    };
+    const SocketSession& getSocketSession() const { return socketSession_; }
+    /// Opens the panel on an item the player owns, wherever it is.
+    void openSocketing(uint64_t itemGuid);
+    void closeSocketing();
+    /// Puts a gem in a socket, or takes back what is in one when guid is zero.
+    /// Refuses a gem already sitting in another socket - the server drops the
+    /// whole request when two sockets name the same guid.
+    bool setSocketGem(int index, uint64_t gemGuid, uint32_t gemItemId);
+    /// Commits every pending gem. Nothing is sent when none are pending.
+    void acceptSockets();
 
     // ---- Bank ----
     void openBank(uint64_t guid);
@@ -220,7 +387,34 @@ public:
     void buyGuildBankTab();
     void depositGuildBankMoney(uint32_t amount);
     void withdrawGuildBankMoney(uint32_t amount);
-    void guildBankWithdrawItem(uint8_t tabId, uint8_t bankSlot, uint8_t destBag, uint8_t destSlot);
+    void guildBankWithdrawItem(uint8_t tabId, uint8_t bankSlot, uint8_t destBag,
+                               uint8_t destSlot, uint32_t splitCount = 0);
+    /// Put a glyph from a bag slot into a socket.
+    ///
+    /// There is no separate socketing opcode in 3.3.5: the glyph item is used
+    /// with the socket written into the glyphIndex field CMSG_USE_ITEM already
+    /// carries, and the server applies the item's spell to that socket. The
+    /// wire's bag and slot are the same ones a plain use writes.
+    void placeGlyphFromBag(uint8_t wireBag, uint8_t wireSlot, uint32_t socketIndex);
+
+    /// Ask for a tab's info text, and read back what arrived.
+    ///
+    /// MSG_QUERY_GUILD_BANK_TEXT is a request the server answers with the same
+    /// opcode: a tab id and the text. This client could already *write* the
+    /// text - SetGuildBankText has sent CMSG_SET_GUILD_BANK_TEXT all along -
+    /// and had no way to read it, so a tab's description could be saved and
+    /// never seen again.
+    void queryGuildBankText(uint8_t tabId);
+    const std::string& getGuildBankTabText(uint8_t tabId) const;
+
+    /// Rename a guild bank tab and pick its icon.
+    ///
+    /// CMSG_GUILD_BANK_UPDATE_TAB: the banker's guid, the tab counted from
+    /// zero, then the name and the icon path. AzerothCore drops it unless both
+    /// strings are non-empty and the player is standing at the bank, which is
+    /// why the empty name the popup allows is refused here rather than sent.
+    void setGuildBankTabInfo(uint8_t tabId, const std::string& name,
+                             const std::string& icon);
     void guildBankDepositItem(uint8_t tabId, uint8_t bankSlot, uint8_t srcBag, uint8_t srcSlot);
     // Deposit an inventory item into the first free slot of the viewed tab.
     void guildBankDepositFromInventory(uint8_t srcBag, uint8_t srcSlot);
@@ -234,7 +428,8 @@ public:
     void closeAuctionHouse();
     void auctionSearch(const std::string& name, uint8_t levelMin, uint8_t levelMax,
                        uint32_t quality, uint32_t itemClass, uint32_t itemSubClass,
-                       uint32_t invTypeMask, uint8_t usableOnly, uint32_t offset = 0);
+                       uint32_t invTypeMask, uint8_t usableOnly, uint32_t offset = 0,
+                       const std::vector<AuctionSortKey>& sort = {});
     void auctionSellItem(int backpackIndex, uint32_t bid,
                          uint32_t buyout, uint32_t duration);
     // Post an auction for an item identified by its server GUID, so items in any
@@ -251,10 +446,16 @@ public:
     const AuctionListResult& getAuctionBrowseResults() const { return auctionBrowseResults_; }
     const AuctionListResult& getAuctionOwnerResults() const { return auctionOwnerResults_; }
     const AuctionListResult& getAuctionBidderResults() const { return auctionBidderResults_; }
+    /// Writable, for the one thing that reorders a result set in place: the
+    /// panel's own column sort. The server sends a list and the client sorts
+    /// it, which is what the real client does too, there is no re-query.
+    AuctionListResult& auctionBrowseResultsRef() { return auctionBrowseResults_; }
+    AuctionListResult& auctionOwnerResultsRef()  { return auctionOwnerResults_; }
+    AuctionListResult& auctionBidderResultsRef() { return auctionBidderResults_; }
     int getAuctionActiveTab() const { return auctionActiveTab_; }
     void setAuctionActiveTab(int tab) { auctionActiveTab_ = tab; }
     float getAuctionSearchDelay() const { return auctionSearchDelayTimer_; }
-    // Ticked from GameHandler::update — this member is the authoritative
+    // Ticked from GameHandler::update - this member is the authoritative
     // timer (GameHandler used to decrement its own never-set copy, leaving
     // the search button disabled forever after the first search).
     void tickAuctionSearchDelay(float deltaTime) {
@@ -294,6 +495,11 @@ public:
     void updateOtherPlayerVisibleItems(uint64_t guid, const FlatFieldMap& fields);
     void cacheInspectedPlayerEquipment(uint64_t guid, const std::array<uint32_t, 19>& itemEntries);
     void emitOtherPlayerEquipment(uint64_t guid);
+    /// The same resolution, answered rather than announced - see the
+    /// definition for why both shapes exist.
+    bool resolveOtherPlayerEquipment(uint64_t guid,
+                                     std::array<uint32_t, 19>& displayIds,
+                                     std::array<uint8_t, 19>& invTypes) const;
     void emitAllOtherPlayerEquipment();
     void handleItemQueryResponse(network::Packet& packet);
 
@@ -309,6 +515,13 @@ private:
     void handleTradeStatusExtended(network::Packet& packet);
     void handleLootRoll(network::Packet& packet);
     void handleLootRollWon(network::Packet& packet);
+
+    /// Tell the interface a roll is over, by the id it was opened with.
+    ///
+    /// The roll window hides itself on this and nothing else, so without it a
+    /// resolved roll stays on screen over a bar that has run down, offering
+    /// buttons the server has already stopped listening for.
+    void announceLootRollClosed(uint32_t lootSlot);
     void handleShowBank(network::Packet& packet);
     void handleBuyBankSlotResult(network::Packet& packet);
     void handleGuildBankList(network::Packet& packet);
@@ -332,7 +545,9 @@ private:
 
     // Resolves the item's on-use spell, then either parks the use for item
     // targeting or sends it immediately.
-    void dispatchUseItem(uint8_t wowBag, uint8_t wowSlot, uint64_t itemGuid, const ItemDef& item);
+    void dispatchUseItem(uint8_t wowBag, uint8_t wowSlot, uint64_t itemGuid,
+                         const ItemDef& item, bool confirmed = false,
+                         uint64_t unitTarget = 0);
     void sendUseItem(uint8_t wowBag, uint8_t wowSlot, uint64_t itemGuid, uint32_t spellId,
                      uint64_t targetGuid, uint64_t itemTargetGuid);
 
@@ -364,6 +579,14 @@ private:
 
     // ---- Trade state ----
     TradeStatus tradeStatus_  = TradeStatus::None;
+    /// Which side has pressed accept, kept apart because TRADE_ACCEPT_UPDATE
+    /// carries both and tradeStatus_ can only say one thing at a time. Ours is
+    /// set when the accept goes out - the server echoes an acceptance to the
+    /// other player, not back to the one who made it, so there is nothing else
+    /// to learn it from.
+    bool tradeSelfAccepted_ = false;
+    bool tradePartnerAccepted_ = false;
+    void fireTradeAcceptUpdate();
     uint64_t    tradePeerGuid_= 0;
     std::string tradePeerName_;
     std::array<TradeSlot, TRADE_SLOT_COUNT> myTradeSlots_{};
@@ -407,6 +630,35 @@ private:
     void reconcileBuybackSlots();
 
     // ---- Mail state ----
+    SocketSession socketSession_;
+    PendingEquip pendingEquip_;
+    /// The use held back waiting for an answer. Kept whole rather than as a
+    /// slot pair: the item may be gone from that slot by the time the player
+    /// answers, and re-reading it would use whatever moved into its place.
+    struct PendingUse {
+        bool     active = false;
+        uint8_t  wowBag = 0;
+        uint8_t  wowSlot = 0;
+        uint64_t itemGuid = 0;
+        ItemDef  item;
+    };
+    PendingUse pendingUse_;
+    /// The enchant held back waiting for an answer, with the request it was
+    /// made from and the item it was aimed at.
+    ///
+    /// The whole request is moved here rather than left parked in
+    /// pendingItemTarget_. FrameXML's REPLACE_ENCHANT has a No with nothing
+    /// behind it - no OnCancel, no OnHide - so a refusal is silence, and a
+    /// request left waiting for a target it will never be given would be
+    /// applied to whatever the player clicked next.
+    struct PendingEnchant {
+        bool              active = false;
+        uint64_t          targetItemGuid = 0;
+        PendingItemTarget request;
+    };
+    PendingEnchant pendingEnchant_;
+    bool pendingLootActive_ = false;
+    uint8_t pendingLootSlot_ = 0;
     bool mailboxOpen_ = false;
     uint64_t mailboxGuid_ = 0;
     std::vector<MailMessage> mailInbox_;
@@ -426,6 +678,7 @@ private:
     // ---- Guild Bank state ----
     bool guildBankOpen_ = false;
     uint64_t guildBankerGuid_ = 0;
+    std::array<std::string, 6> guildBankTabText_{};
     GuildBankData guildBankData_;
     uint8_t guildBankActiveTab_ = 0;
 
@@ -447,6 +700,10 @@ private:
         uint32_t invTypeMask = 0;
         uint8_t usableOnly = 0;
         uint32_t offset = 0;
+        /// Carried so the re-query after a successful bid asks for the same
+        /// ordering. Dropping it there would reorder the list under the player
+        /// at the moment they bought something.
+        std::vector<AuctionSortKey> sort;
     };
     AuctionSearchParams lastAuctionSearch_;
     bool hasAuctionSearch_ = false;  // true after any search (including empty-name browse-all)

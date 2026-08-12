@@ -1,6 +1,6 @@
-// view_state_machine.hpp — Navigation state and transitions for the world map.
+// view_state_machine.hpp - Navigation state and transitions for the world map.
 // Extracted from WorldMap zoom/enter methods (Phase 6 of refactoring plan).
-// SRP — pure state machine, no rendering or input code.
+// SRP - pure state machine, no rendering or input code.
 #pragma once
 
 #include "rendering/world_map/world_map_types.hpp"

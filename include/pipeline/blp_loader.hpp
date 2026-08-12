@@ -68,7 +68,7 @@ public:
     static const char* getCompressionName(BLPCompression compression);
 
 private:
-    // BLP1 file header — all fields after magic are uint32
+    // BLP1 file header - all fields after magic are uint32
     // Used by classic WoW through WotLK for many textures
     struct BLP1Header {
         char magic[4];           // 'BLP1'
@@ -83,7 +83,7 @@ private:
         uint32_t palette[256];   // 256-color BGRA palette (for compression=1)
     };
 
-    // BLP2 file header — compression fields are uint8
+    // BLP2 file header - compression fields are uint8
     // Used by WoW from TBC onwards (coexists with BLP1 in WotLK)
     struct BLP2Header {
         char magic[4];           // 'BLP2'

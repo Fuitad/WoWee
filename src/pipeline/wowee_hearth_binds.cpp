@@ -1,4 +1,5 @@
 #include "pipeline/wowee_hearth_binds.hpp"
+#include "pipeline/wowee_binary_io.hpp"
 
 #include <cstdio>
 #include <cstring>
@@ -11,52 +12,7 @@ namespace {
 
 constexpr char kMagic[4] = {'W', 'H', 'R', 'T'};
 constexpr uint32_t kVersion = 1;
-
-template <typename T>
-void writePOD(std::ofstream& os, const T& v) {
-    os.write(reinterpret_cast<const char*>(&v), sizeof(T));
-}
-
-template <typename T>
-bool readPOD(std::ifstream& is, T& v) {
-    is.read(reinterpret_cast<char*>(&v), sizeof(T));
-    return is.gcount() == static_cast<std::streamsize>(sizeof(T));
-}
-
-void writeStr(std::ofstream& os, const std::string& s) {
-    uint32_t n = static_cast<uint32_t>(s.size());
-    writePOD(os, n);
-    if (n > 0) os.write(s.data(), n);
-}
-
-bool readStr(std::ifstream& is, std::string& s) {
-    uint32_t n = 0;
-    if (!readPOD(is, n)) return false;
-    if (n > (1u << 20)) return false;
-    s.resize(n);
-    if (n > 0) {
-        is.read(s.data(), n);
-        if (is.gcount() != static_cast<std::streamsize>(n)) {
-            s.clear();
-            return false;
-        }
-    }
-    return true;
-}
-
-std::string normalizePath(std::string base) {
-    if (base.size() < 5 || base.substr(base.size() - 5) != ".whrt") {
-        base += ".whrt";
-    }
-    return base;
-}
-
-uint32_t packRgba(uint8_t r, uint8_t g, uint8_t b, uint8_t a = 0xFF) {
-    return (static_cast<uint32_t>(a) << 24) |
-           (static_cast<uint32_t>(b) << 16) |
-           (static_cast<uint32_t>(g) << 8)  |
-            static_cast<uint32_t>(r);
-}
+constexpr char kExtension[] = ".whrt";
 
 } // namespace
 
@@ -85,15 +41,9 @@ WoweeHearthBinds::findByMap(uint32_t mapId) const {
 }
 
 bool WoweeHearthBindsLoader::save(const WoweeHearthBinds& cat,
-                                    const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath), std::ios::binary);
-    if (!os) return false;
-    os.write(kMagic, 4);
-    writePOD(os, kVersion);
-    writeStr(os, cat.name);
-    uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writePOD(os, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeHearthBinds::Entry& e) {
         writePOD(os, e.bindId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -109,32 +59,15 @@ bool WoweeHearthBindsLoader::save(const WoweeHearthBinds& cat,
         writePOD(os, e.levelMin);
         writePOD(os, e.pad0);
         writePOD(os, e.iconColorRGBA);
-    }
-    return os.good();
+                       });
 }
 
 WoweeHearthBinds WoweeHearthBindsLoader::load(
     const std::string& basePath) {
-    WoweeHearthBinds out;
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    if (!is) return out;
-    char magic[4];
-    is.read(magic, 4);
-    if (std::memcmp(magic, kMagic, 4) != 0) return out;
-    uint32_t version = 0;
-    if (!readPOD(is, version) || version != kVersion) return out;
-    if (!readStr(is, out.name)) return out;
-    uint32_t entryCount = 0;
-    if (!readPOD(is, entryCount)) return out;
-    if (entryCount > (1u << 20)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.bindId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name) || !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
+    return loadCatalog<WoweeHearthBinds>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeHearthBinds::Entry& e) {
+        if (!readPOD(is, e.bindId)) { return false; }
+        if (!readStr(is, e.name) || !readStr(is, e.description)) { return false; }
         if (!readPOD(is, e.mapId) ||
             !readPOD(is, e.areaId) ||
             !readPOD(is, e.x) ||
@@ -146,16 +79,13 @@ WoweeHearthBinds WoweeHearthBindsLoader::load(
             !readPOD(is, e.bindKind) ||
             !readPOD(is, e.levelMin) ||
             !readPOD(is, e.pad0) ||
-            !readPOD(is, e.iconColorRGBA)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.iconColorRGBA)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeHearthBindsLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeHearthBinds WoweeHearthBindsLoader::makeStarterCities(
@@ -182,27 +112,27 @@ WoweeHearthBinds WoweeHearthBindsLoader::makeStarterCities(
     add(1, "StormwindInn", 0, 1519,
         -8843.0f, 645.0f, 95.0f, 1.5f,
         6739, H::AllianceOnly,
-        "Pig and Whistle Tavern — Stormwind Old Town. "
+        "Pig and Whistle Tavern - Stormwind Old Town. "
         "Allerian Holimion is the local innkeeper.");
     // Eastern Kingdoms: Ironforge Inn (Forlorn Cavern).
     add(2, "IronforgeInn", 0, 1537,
         -4862.0f, -872.0f, 502.0f, 4.7f,
         6741, H::AllianceOnly,
-        "Stonefire Tavern — Ironforge Commons. Inn-keeper "
+        "Stonefire Tavern - Ironforge Commons. Inn-keeper "
         "Firebrew serves the Wildhammer dwarves passing "
         "through.");
     // Kalimdor (mapId=1): Orgrimmar Inn (Valley of Strength).
     add(3, "OrgrimmarInn", 1, 1637,
         1665.0f, -4326.0f, 60.0f, 1.0f,
         6929, H::HordeOnly,
-        "Wreckin' Ball Tavern — Valley of Strength. "
+        "Wreckin' Ball Tavern - Valley of Strength. "
         "Innkeeper Gryshka serves the Horde travelers "
         "arriving from the eastern continents.");
     // Kalimdor: Thunder Bluff Inn (Lower Rise).
     add(4, "ThunderBluffInn", 1, 1638,
         -1290.0f, 161.0f, 130.0f, 4.7f,
         6746, H::HordeOnly,
-        "Thunder Bluff Inn — Lower Rise. Innkeeper Pala "
+        "Thunder Bluff Inn - Lower Rise. Innkeeper Pala "
         "serves the Tauren and visiting Horde.");
     return c;
 }
@@ -230,34 +160,34 @@ WoweeHearthBinds WoweeHearthBindsLoader::makeCapitals(
     add(100, "StormwindKeepBind", 0, 1519,
         -8866.0f, 671.0f, 97.0f, 1.5f,
         7232, H::AllianceOnly,
-        "Stormwind Keep bind clerk — used by Alliance "
+        "Stormwind Keep bind clerk - used by Alliance "
         "officers and quest chains that grant capital-bind "
         "as a reward.");
     add(101, "IronforgeBind", 0, 1537,
         -4924.0f, -955.0f, 501.0f, 0.0f,
         13283, H::AllianceOnly,
-        "Ironforge royal hall bind clerk — used by dwarven "
+        "Ironforge royal hall bind clerk - used by dwarven "
         "Magni quest line.");
     add(102, "DarnassusBind", 1, 1657,
         9947.0f, 2516.0f, 1330.0f, 4.5f,
         7301, H::AllianceOnly,
-        "Darnassus Temple of the Moon bind clerk — kaldorei "
+        "Darnassus Temple of the Moon bind clerk - kaldorei "
         "lore quest line completion reward.");
     add(103, "OrgrimmarGrommashHold", 1, 1637,
         1633.0f, -4439.0f, 16.0f, 0.5f,
         7236, H::HordeOnly,
-        "Orgrimmar Grommash Hold bind clerk — Horde "
+        "Orgrimmar Grommash Hold bind clerk - Horde "
         "officer hall, requires honored standing with "
         "Orgrimmar.");
     add(104, "UndercityBind", 0, 1497,
         1633.0f, 240.0f, -50.0f, 1.5f,
         13208, H::HordeOnly,
-        "Undercity Royal Quarters bind clerk — Forsaken "
+        "Undercity Royal Quarters bind clerk - Forsaken "
         "lore quest line reward.");
     add(105, "ThunderBluffBind", 1, 1638,
         -1271.0f, 80.0f, 128.0f, 5.0f,
         13284, H::HordeOnly,
-        "Thunder Bluff High Rise bind clerk — Tauren "
+        "Thunder Bluff High Rise bind clerk - Tauren "
         "elder lore quest reward.");
     return c;
 }
@@ -286,44 +216,44 @@ WoweeHearthBinds WoweeHearthBindsLoader::makeStarterInns(
     add(200, "GoldshireLionsPride", 0, 9,
         -9460.0f, 64.0f, 56.0f, 0.0f,
         6740, H::AllianceOnly,
-        "Lion's Pride Inn — Goldshire, Elwynn Forest. "
+        "Lion's Pride Inn - Goldshire, Elwynn Forest. "
         "Innkeeper Farley serves the human starter zone.");
     add(201, "BrillGallowsEnd", 0, 85,
         2266.0f, 286.0f, 35.0f, 1.5f,
         6747, H::HordeOnly,
-        "Gallows' End Tavern — Brill, Tirisfal Glades. "
+        "Gallows' End Tavern - Brill, Tirisfal Glades. "
         "Innkeeper Renee Renee serves the Forsaken "
         "starter zone.");
     add(202, "RazorHillInn", 1, 362,
         345.0f, -4710.0f, 16.0f, 0.0f,
         6748, H::HordeOnly,
-        "Razor Hill Inn — Durotar. Innkeeper Grosk "
+        "Razor Hill Inn - Durotar. Innkeeper Grosk "
         "serves the orc/troll starter zone.");
     add(203, "BloodhoofVillageInn", 1, 222,
         -2370.0f, -370.0f, -10.0f, 4.5f,
         6929, H::HordeOnly,
-        "Bloodhoof Village Inn — Mulgore. Innkeeper "
+        "Bloodhoof Village Inn - Mulgore. Innkeeper "
         "Kauth serves the Tauren starter zone.");
     add(204, "KharanosThunderBrew", 0, 132,
         -5605.0f, -480.0f, 400.0f, 1.5f,
         6735, H::AllianceOnly,
-        "Thunderbrew Distillery — Kharanos, Dun Morogh. "
+        "Thunderbrew Distillery - Kharanos, Dun Morogh. "
         "Innkeeper Belm serves the dwarf/gnome starter "
         "zone.");
     add(205, "AldrassilStarbreezeInn", 1, 188,
         10318.0f, 829.0f, 1326.0f, 1.0f,
         6736, H::AllianceOnly,
-        "Starbreeze Village Inn — Teldrassil. Innkeeper "
+        "Starbreeze Village Inn - Teldrassil. Innkeeper "
         "Saelienne serves the night elf starter zone.");
     add(206, "ShadowglenInn", 1, 188,
         10311.0f, 822.0f, 1326.0f, 1.0f,
         6737, H::AllianceOnly,
-        "Shadowglen Inn — Teldrassil. The first inn night "
+        "Shadowglen Inn - Teldrassil. The first inn night "
         "elf characters can bind to (level 5+).");
     add(207, "SunRockRetreatInn", 1, 405,
         -2392.0f, -1992.0f, 95.0f, 0.5f,
         6738, H::HordeOnly,
-        "Sun Rock Retreat Inn — Stonetalon Mountains. "
+        "Sun Rock Retreat Inn - Stonetalon Mountains. "
         "Innkeeper Heather serves the Tauren level 15-25 "
         "Horde travelers.");
     return c;

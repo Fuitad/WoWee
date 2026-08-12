@@ -1,4 +1,6 @@
 #include "cli_heroic_scaling_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -19,20 +21,6 @@ namespace cli {
 
 namespace {
 
-std::string stripWhrdExt(std::string base) {
-    stripExt(base, ".whrd");
-    return base;
-}
-
-bool saveOrError(const wowee::pipeline::WoweeHeroicScaling& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeHeroicScalingLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.whrd\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeHeroicScaling& c,
                      const std::string& base) {
@@ -45,9 +33,9 @@ int handleGen5man(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "WotLK5manHeroicScaling";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWhrdExt(base);
+    base = cli::withoutExt(base, ".whrd");
     auto c = wowee::pipeline::WoweeHeroicScalingLoader::makeWotLK5manHeroic(name);
-    if (!saveOrError(c, base, "gen-hrd")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeHeroicScalingLoader>(c, base, "gen-hrd", ".whrd")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -56,9 +44,9 @@ int handleGenRaid25(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "Raid25HeroicScaling";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWhrdExt(base);
+    base = cli::withoutExt(base, ".whrd");
     auto c = wowee::pipeline::WoweeHeroicScalingLoader::makeRaid25Heroic(name);
-    if (!saveOrError(c, base, "gen-hrd-raid25")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeHeroicScalingLoader>(c, base, "gen-hrd-raid25", ".whrd")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -67,9 +55,9 @@ int handleGenChallenge(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "ChallengeModeScaling";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWhrdExt(base);
+    base = cli::withoutExt(base, ".whrd");
     auto c = wowee::pipeline::WoweeHeroicScalingLoader::makeChallengeMode(name);
-    if (!saveOrError(c, base, "gen-hrd-cm")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeHeroicScalingLoader>(c, base, "gen-hrd-cm", ".whrd")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -77,10 +65,9 @@ int handleGenChallenge(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWhrdExt(base);
+    base = cli::withoutExt(base, ".whrd");
     if (!wowee::pipeline::WoweeHeroicScalingLoader::exists(base)) {
-        std::fprintf(stderr, "WHRD not found: %s.whrd\n", base.c_str());
-        return 1;
+        return reportMissing("WHRD", base, ".whrd");
     }
     auto c = wowee::pipeline::WoweeHeroicScalingLoader::load(base);
     if (jsonOut) {
@@ -131,13 +118,10 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWhrdExt(base);
+    base = cli::withoutExt(base, ".whrd");
     if (out.empty()) out = base + ".whrd.json";
     if (!wowee::pipeline::WoweeHeroicScalingLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-whrd-json: WHRD not found: %s.whrd\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-whrd-json", "WHRD", base, ".whrd");
     }
     auto c = wowee::pipeline::WoweeHeroicScalingLoader::load(base);
     nlohmann::json j;
@@ -180,16 +164,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".whrd.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".whrd");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".whrd");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,
@@ -258,12 +233,9 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWhrdExt(base);
+    base = cli::withoutExt(base, ".whrd");
     if (!wowee::pipeline::WoweeHeroicScalingLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-whrd: WHRD not found: %s.whrd\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-whrd", "WHRD", base, ".whrd");
     }
     auto c = wowee::pipeline::WoweeHeroicScalingLoader::load(base);
     std::vector<std::string> errors;
@@ -272,7 +244,7 @@ int handleValidate(int& i, int argc, char** argv) {
         warnings.push_back("catalog has zero entries");
     }
     std::set<uint32_t> idsSeen;
-    // (mapId, difficultyId) tuple uniqueness — two
+    // (mapId, difficultyId) tuple uniqueness - two
     // scalings binding the same instance+difficulty
     // would make the loot-roll lookup ambiguous.
     std::set<uint64_t> instanceComboSeen;
@@ -288,7 +260,7 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": name is empty");
         if (e.difficultyId == 0) {
             errors.push_back(ctx +
-                ": difficultyId is 0 — Heroic scaling "
+                ": difficultyId is 0 - Heroic scaling "
                 "must specify a non-default difficulty "
                 "(Normal mode is difficultyId=0 by "
                 "convention)");
@@ -300,14 +272,14 @@ int handleValidate(int& i, int argc, char** argv) {
             warnings.push_back(ctx +
                 ": itemLevelDelta " +
                 std::to_string(e.itemLevelDelta) +
-                " < 0 — Heroic loot is worse than Normal? "
+                " < 0 - Heroic loot is worse than Normal? "
                 "Verify if intentional");
         }
         if (e.itemLevelDelta > 50) {
             warnings.push_back(ctx +
                 ": itemLevelDelta " +
                 std::to_string(e.itemLevelDelta) +
-                " > 50 — exceeds typical Heroic-scaling "
+                " > 50 - exceeds typical Heroic-scaling "
                 "delta range (max canonical is +26 for "
                 "raid Heroic)");
         }
@@ -315,22 +287,22 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx +
                 ": bonusQualityChance " +
                 std::to_string(e.bonusQualityChance) +
-                " > 10000 (basis points cap) — would "
+                " > 10000 (basis points cap) - would "
                 "guarantee multiple bonus drops");
         }
         if (e.dropChanceMultiplier <= 0.0f) {
             errors.push_back(ctx +
-                ": dropChanceMultiplier <= 0 — would "
+                ": dropChanceMultiplier <= 0 - would "
                 "block all loot drops on Heroic");
         }
         if (e.dropChanceMultiplier > 10.0f) {
             warnings.push_back(ctx +
                 ": dropChanceMultiplier " +
                 std::to_string(e.dropChanceMultiplier) +
-                " > 10x — extreme drop boost; verify if "
+                " > 10x - extreme drop boost; verify if "
                 "intentional");
         }
-        // (mapId, difficultyId) uniqueness — but mapId=0
+        // (mapId, difficultyId) uniqueness - but mapId=0
         // is the wildcard (any map at the given
         // difficulty), which is allowed multiple times.
         if (e.mapId != 0) {
@@ -342,7 +314,7 @@ int handleValidate(int& i, int argc, char** argv) {
                     ", difficultyId=" +
                     std::to_string(e.difficultyId) +
                     ") combo already bound by another "
-                    "scaling — loot-roll lookup would be "
+                    "scaling - loot-roll lookup would be "
                     "ambiguous");
             }
         }
@@ -350,34 +322,9 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": duplicate scalingId");
         }
     }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["whrd"] = base + ".whrd";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-whrd: %s.whrd\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu scalings, all scalingIds + "
-                    "(map,difficulty) tuples unique\n",
-                    c.entries.size());
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+    return cli::reportValidation("whrd", base, jsonOut, errors, warnings,
+                                 formatted("%zu scalings, all scalingIds + "
+                    "(map,difficulty) tuples unique", c.entries.size()));
 }
 
 } // namespace

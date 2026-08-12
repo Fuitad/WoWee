@@ -1,4 +1,6 @@
 #include "cli_mounts_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -18,20 +20,6 @@ namespace cli {
 
 namespace {
 
-std::string stripWmouExt(std::string base) {
-    stripExt(base, ".wmou");
-    return base;
-}
-
-bool saveOrError(const wowee::pipeline::WoweeMount& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeMountLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wmou\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeMount& c,
                      const std::string& base) {
@@ -44,9 +32,9 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterMounts";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWmouExt(base);
+    base = cli::withoutExt(base, ".wmou");
     auto c = wowee::pipeline::WoweeMountLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-mounts")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeMountLoader>(c, base, "gen-mounts", ".wmou")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -55,9 +43,9 @@ int handleGenRacial(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "RacialMounts";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWmouExt(base);
+    base = cli::withoutExt(base, ".wmou");
     auto c = wowee::pipeline::WoweeMountLoader::makeRacial(name);
-    if (!saveOrError(c, base, "gen-mounts-racial")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeMountLoader>(c, base, "gen-mounts-racial", ".wmou")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -66,9 +54,9 @@ int handleGenFlying(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "FlyingMounts";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWmouExt(base);
+    base = cli::withoutExt(base, ".wmou");
     auto c = wowee::pipeline::WoweeMountLoader::makeFlying(name);
-    if (!saveOrError(c, base, "gen-mounts-flying")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeMountLoader>(c, base, "gen-mounts-flying", ".wmou")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -76,10 +64,9 @@ int handleGenFlying(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWmouExt(base);
+    base = cli::withoutExt(base, ".wmou");
     if (!wowee::pipeline::WoweeMountLoader::exists(base)) {
-        std::fprintf(stderr, "WMOU not found: %s.wmou\n", base.c_str());
-        return 1;
+        return reportMissing("WMOU", base, ".wmou");
     }
     auto c = wowee::pipeline::WoweeMountLoader::load(base);
     if (jsonOut) {
@@ -135,72 +122,44 @@ int handleExportJson(int& i, int argc, char** argv) {
     // open format. Each mount emits all 14 scalar fields
     // plus dual int + name forms for kind / faction /
     // category.
-    std::string base = argv[++i];
-    std::string outPath;
-    if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWmouExt(base);
-    if (outPath.empty()) outPath = base + ".wmou.json";
-    if (!wowee::pipeline::WoweeMountLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wmou-json: WMOU not found: %s.wmou\n", base.c_str());
-        return 1;
-    }
-    auto c = wowee::pipeline::WoweeMountLoader::load(base);
-    nlohmann::json j;
-    j["name"] = c.name;
-    nlohmann::json arr = nlohmann::json::array();
-    for (const auto& e : c.entries) {
-        arr.push_back({
-            {"mountId", e.mountId},
-            {"name", e.name},
-            {"description", e.description},
-            {"iconPath", e.iconPath},
-            {"displayId", e.displayId},
-            {"summonSpellId", e.summonSpellId},
-            {"itemIdToLearn", e.itemIdToLearn},
-            {"requiredSkillId", e.requiredSkillId},
-            {"requiredSkillRank", e.requiredSkillRank},
-            {"speedPercent", e.speedPercent},
-            {"mountKind", e.mountKind},
-            {"mountKindName", wowee::pipeline::WoweeMount::kindName(e.mountKind)},
-            {"factionId", e.factionId},
-            {"factionName", wowee::pipeline::WoweeMount::factionName(e.factionId)},
-            {"categoryId", e.categoryId},
-            {"categoryName", wowee::pipeline::WoweeMount::categoryName(e.categoryId)},
-            {"raceMask", e.raceMask},
+    return cli::exportCatalogJson<wowee::pipeline::WoweeMountLoader>(
+        i, argc, argv, "wmou", "WMOU", "mounts ",
+        [](const auto& c) {
+        nlohmann::json j;
+        j["name"] = c.name;
+        nlohmann::json arr = nlohmann::json::array();
+        for (const auto& e : c.entries) {
+            arr.push_back({
+                {"mountId", e.mountId},
+                {"name", e.name},
+                {"description", e.description},
+                {"iconPath", e.iconPath},
+                {"displayId", e.displayId},
+                {"summonSpellId", e.summonSpellId},
+                {"itemIdToLearn", e.itemIdToLearn},
+                {"requiredSkillId", e.requiredSkillId},
+                {"requiredSkillRank", e.requiredSkillRank},
+                {"speedPercent", e.speedPercent},
+                {"mountKind", e.mountKind},
+                {"mountKindName", wowee::pipeline::WoweeMount::kindName(e.mountKind)},
+                {"factionId", e.factionId},
+                {"factionName", wowee::pipeline::WoweeMount::factionName(e.factionId)},
+                {"categoryId", e.categoryId},
+                {"categoryName", wowee::pipeline::WoweeMount::categoryName(e.categoryId)},
+                {"raceMask", e.raceMask},
+            });
+        }
+        j["entries"] = arr;
+            return j;
         });
-    }
-    j["entries"] = arr;
-    std::ofstream out(outPath);
-    if (!out) {
-        std::fprintf(stderr,
-            "export-wmou-json: cannot write %s\n", outPath.c_str());
-        return 1;
-    }
-    out << j.dump(2) << "\n";
-    out.close();
-    std::printf("Wrote %s\n", outPath.c_str());
-    std::printf("  source : %s.wmou\n", base.c_str());
-    std::printf("  mounts : %zu\n", c.entries.size());
-    return 0;
 }
 
 int handleImportJson(int& i, int argc, char** argv) {
     std::string jsonPath = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = jsonPath;
-        std::string suffix = ".wmou.json";
-        if (outBase.size() > suffix.size() &&
-            outBase.substr(outBase.size() - suffix.size()) == suffix) {
-            outBase = outBase.substr(0, outBase.size() - suffix.size());
-        } else if (outBase.size() > 5 &&
-                   outBase.substr(outBase.size() - 5) == ".json") {
-            outBase = outBase.substr(0, outBase.size() - 5);
-        }
-    }
-    outBase = stripWmouExt(outBase);
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(jsonPath, ".wmou");
+    outBase = cli::withoutExt(outBase, ".wmou");
     std::ifstream in(jsonPath);
     if (!in) {
         std::fprintf(stderr,
@@ -291,97 +250,56 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWmouExt(base);
-    if (!wowee::pipeline::WoweeMountLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wmou: WMOU not found: %s.wmou\n", base.c_str());
-        return 1;
-    }
-    auto c = wowee::pipeline::WoweeMountLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    std::vector<uint32_t> idsSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.mountId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.mountId == 0) errors.push_back(ctx + ": mountId is 0");
-        if (e.name.empty()) errors.push_back(ctx + ": name is empty");
-        if (e.summonSpellId == 0) {
-            errors.push_back(ctx + ": summonSpellId is 0 (mount cannot be cast)");
-        }
-        if (e.mountKind > wowee::pipeline::WoweeMount::Aquatic) {
-            errors.push_back(ctx + ": mountKind " +
-                std::to_string(e.mountKind) + " not in 0..4");
-        }
-        if (e.factionId > wowee::pipeline::WoweeMount::Horde) {
-            errors.push_back(ctx + ": factionId " +
-                std::to_string(e.factionId) + " not in 0..2");
-        }
-        if (e.categoryId > wowee::pipeline::WoweeMount::ClassMount) {
-            errors.push_back(ctx + ": categoryId " +
-                std::to_string(e.categoryId) + " not in 0..7");
-        }
-        if (e.speedPercent == 0) {
-            warnings.push_back(ctx +
-                ": speedPercent=0 (mount provides no speed bonus)");
-        }
-        // Flying / Hybrid mounts need >= journeyman riding
-        // (rank 150 in canonical Classic+TBC scaling).
-        if ((e.mountKind == wowee::pipeline::WoweeMount::Flying ||
-             e.mountKind == wowee::pipeline::WoweeMount::Hybrid) &&
-            e.requiredSkillRank < 150) {
-            warnings.push_back(ctx +
-                ": flying mount with riding rank < 150 (player can't fly)");
-        }
-        // Racial category needs raceMask; non-racial shouldn't have one.
-        if (e.categoryId == wowee::pipeline::WoweeMount::Racial &&
-            e.raceMask == 0) {
-            warnings.push_back(ctx +
-                ": Racial category but raceMask=0 (any race can use)");
-        }
-        for (uint32_t prev : idsSeen) {
-            if (prev == e.mountId) {
-                errors.push_back(ctx + ": duplicate mountId");
-                break;
+    return cli::validateCatalog<wowee::pipeline::WoweeMountLoader>(
+        i, argc, argv, "wmou", "WMOU",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.mountId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.mountId == 0) errors.push_back(ctx + ": mountId is 0");
+            if (e.name.empty()) errors.push_back(ctx + ": name is empty");
+            if (e.summonSpellId == 0) {
+                errors.push_back(ctx + ": summonSpellId is 0 (mount cannot be cast)");
             }
+            if (e.mountKind > wowee::pipeline::WoweeMount::Aquatic) {
+                errors.push_back(ctx + ": mountKind " +
+                    std::to_string(e.mountKind) + " not in 0..4");
+            }
+            if (e.factionId > wowee::pipeline::WoweeMount::Horde) {
+                errors.push_back(ctx + ": factionId " +
+                    std::to_string(e.factionId) + " not in 0..2");
+            }
+            if (e.categoryId > wowee::pipeline::WoweeMount::ClassMount) {
+                errors.push_back(ctx + ": categoryId " +
+                    std::to_string(e.categoryId) + " not in 0..7");
+            }
+            if (e.speedPercent == 0) {
+                warnings.push_back(ctx +
+                    ": speedPercent=0 (mount provides no speed bonus)");
+            }
+            // Flying / Hybrid mounts need >= journeyman riding
+            // (rank 150 in canonical Classic+TBC scaling).
+            if ((e.mountKind == wowee::pipeline::WoweeMount::Flying ||
+                 e.mountKind == wowee::pipeline::WoweeMount::Hybrid) &&
+                e.requiredSkillRank < 150) {
+                warnings.push_back(ctx +
+                    ": flying mount with riding rank < 150 (player can't fly)");
+            }
+            // Racial category needs raceMask; non-racial shouldn't have one.
+            if (e.categoryId == wowee::pipeline::WoweeMount::Racial &&
+                e.raceMask == 0) {
+                warnings.push_back(ctx +
+                    ": Racial category but raceMask=0 (any race can use)");
+            }
+            if (!idsSeen.add(e.mountId)) errors.push_back(ctx + ": duplicate mountId");
         }
-        idsSeen.push_back(e.mountId);
-    }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wmou"] = base + ".wmou";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wmou: %s.wmou\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu mounts, all mountIds unique\n",
-                    c.entries.size());
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+            return formatted("%zu mounts, all mountIds unique", c.entries.size());
+        });
 }
 
 } // namespace

@@ -28,58 +28,16 @@ static float randFloat(float lo, float hi) {
 MountDust::MountDust() = default;
 MountDust::~MountDust() { shutdown(); }
 
-bool MountDust::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout) {
-    LOG_INFO("Initializing mount dust effects");
+/// Builds the one pipeline this effect draws with, vertex layout and all.
+///
+/// initialize() and recreatePipelines() described it identically.
+void MountDust::buildPipelines(VkDevice device,
+                               const VkPipelineShaderStageCreateInfo& vertStage,
+                               const VkPipelineShaderStageCreateInfo& fragStage) {
+    VkVertexInputBindingDescription binding = tightVertexBinding(5 * sizeof(float));
+    std::vector<VkVertexInputAttributeDescription> attrs = positionPlusTwoFloatsAttrs();
 
-    vkCtx = ctx;
-    VkDevice device = vkCtx->getDevice();
-
-    // Load SPIR-V shaders
-    VkShaderModule vertModule;
-    if (!vertModule.loadFromFile(device, "assets/shaders/mount_dust.vert.spv")) {
-        LOG_ERROR("Failed to load mount_dust vertex shader");
-        return false;
-    }
-    VkShaderModule fragModule;
-    if (!fragModule.loadFromFile(device, "assets/shaders/mount_dust.frag.spv")) {
-        LOG_ERROR("Failed to load mount_dust fragment shader");
-        return false;
-    }
-
-    VkPipelineShaderStageCreateInfo vertStage = vertModule.stageInfo(VK_SHADER_STAGE_VERTEX_BIT);
-    VkPipelineShaderStageCreateInfo fragStage = fragModule.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT);
-
-    // No push constants needed for mount dust (all data is per-vertex)
-    pipelineLayout = createPipelineLayout(device, {perFrameLayout}, {});
-    if (pipelineLayout == VK_NULL_HANDLE) {
-        LOG_ERROR("Failed to create mount dust pipeline layout");
-        return false;
-    }
-
-    // Vertex input: pos(vec3) + size(float) + alpha(float) = 5 floats, stride = 20 bytes
-    VkVertexInputBindingDescription binding{};
-    binding.binding = 0;
-    binding.stride = 5 * sizeof(float);
-    binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-    std::vector<VkVertexInputAttributeDescription> attrs(3);
-    attrs[0].location = 0;
-    attrs[0].binding = 0;
-    attrs[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-    attrs[0].offset = 0;
-    attrs[1].location = 1;
-    attrs[1].binding = 0;
-    attrs[1].format = VK_FORMAT_R32_SFLOAT;
-    attrs[1].offset = 3 * sizeof(float);
-    attrs[2].location = 2;
-    attrs[2].binding = 0;
-    attrs[2].format = VK_FORMAT_R32_SFLOAT;
-    attrs[2].offset = 4 * sizeof(float);
-
-    std::vector<VkDynamicState> dynamicStates = {
-        VK_DYNAMIC_STATE_VIEWPORT,
-        VK_DYNAMIC_STATE_SCISSOR
-    };
+    std::vector<VkDynamicState> dynamicStates = viewportAndScissorDynamic();
 
     pipeline = PipelineBuilder()
         .setShaders(vertStage, fragStage)
@@ -93,9 +51,30 @@ bool MountDust::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout)
         .setRenderPass(vkCtx->getImGuiRenderPass())
         .setDynamicStates(dynamicStates)
         .build(device, vkCtx->getPipelineCache());
+}
 
-    vertModule.destroy();
-    fragModule.destroy();
+bool MountDust::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout) {
+    LOG_INFO("Initializing mount dust effects");
+
+    vkCtx = ctx;
+    VkDevice device = vkCtx->getDevice();
+
+    // Load SPIR-V shaders
+    auto shaders = loadShaderPair(device, "assets/shaders/mount_dust.vert.spv", "assets/shaders/mount_dust.frag.spv", "mount_dust");
+    if (!shaders) return false;
+    const auto& vertStage = shaders.vertStage;
+    const auto& fragStage = shaders.fragStage;
+
+    // No push constants needed for mount dust (all data is per-vertex)
+    pipelineLayout = createPipelineLayout(device, {perFrameLayout}, {});
+    if (pipelineLayout == VK_NULL_HANDLE) {
+        LOG_ERROR("Failed to create mount dust pipeline layout");
+        return false;
+    }
+
+    // Vertex input: pos(vec3) + size(float) + alpha(float) = 5 floats, stride = 20 bytes
+    buildPipelines(device, vertStage, fragStage);
+
 
     if (pipeline == VK_NULL_HANDLE) {
         LOG_ERROR("Failed to create mount dust pipeline");
@@ -127,19 +106,9 @@ void MountDust::shutdown() {
         VkDevice device = vkCtx->getDevice();
         VmaAllocator allocator = vkCtx->getAllocator();
 
-        if (pipeline != VK_NULL_HANDLE) {
-            vkDestroyPipeline(device, pipeline, nullptr);
-            pipeline = VK_NULL_HANDLE;
-        }
-        if (pipelineLayout != VK_NULL_HANDLE) {
-            vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
-            pipelineLayout = VK_NULL_HANDLE;
-        }
-        if (dynamicVB != VK_NULL_HANDLE) {
-            vmaDestroyBuffer(allocator, dynamicVB, dynamicVBAlloc);
-            dynamicVB = VK_NULL_HANDLE;
-            dynamicVBAlloc = VK_NULL_HANDLE;
-        }
+        destroy(device, pipeline);
+        destroy(device, pipelineLayout);
+        destroy(allocator, dynamicVB, dynamicVBAlloc);
     }
 
     vkCtx = nullptr;
@@ -151,61 +120,15 @@ void MountDust::recreatePipelines() {
     VkDevice device = vkCtx->getDevice();
 
     // Destroy old pipeline (NOT layout)
-    if (pipeline != VK_NULL_HANDLE) {
-        vkDestroyPipeline(device, pipeline, nullptr);
-        pipeline = VK_NULL_HANDLE;
-    }
+    destroy(device, pipeline);
 
-    VkShaderModule vertModule;
-    VkShaderModule fragModule;
-    if (!vertModule.loadFromFile(device, "assets/shaders/mount_dust.vert.spv") ||
-        !fragModule.loadFromFile(device, "assets/shaders/mount_dust.frag.spv")) {
-        LOG_ERROR("MountDust::recreatePipelines: failed to load shader modules");
-        return;
-    }
+    auto shaders = loadShaderPair(device, "assets/shaders/mount_dust.vert.spv", "assets/shaders/mount_dust.frag.spv", "mount_dust");
+    if (!shaders) return;
+    const auto& vertStage = shaders.vertStage;
+    const auto& fragStage = shaders.fragStage;
 
-    VkPipelineShaderStageCreateInfo vertStage = vertModule.stageInfo(VK_SHADER_STAGE_VERTEX_BIT);
-    VkPipelineShaderStageCreateInfo fragStage = fragModule.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT);
+    buildPipelines(device, vertStage, fragStage);
 
-    VkVertexInputBindingDescription binding{};
-    binding.binding = 0;
-    binding.stride = 5 * sizeof(float);
-    binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-    std::vector<VkVertexInputAttributeDescription> attrs(3);
-    attrs[0].location = 0;
-    attrs[0].binding = 0;
-    attrs[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-    attrs[0].offset = 0;
-    attrs[1].location = 1;
-    attrs[1].binding = 0;
-    attrs[1].format = VK_FORMAT_R32_SFLOAT;
-    attrs[1].offset = 3 * sizeof(float);
-    attrs[2].location = 2;
-    attrs[2].binding = 0;
-    attrs[2].format = VK_FORMAT_R32_SFLOAT;
-    attrs[2].offset = 4 * sizeof(float);
-
-    std::vector<VkDynamicState> dynamicStates = {
-        VK_DYNAMIC_STATE_VIEWPORT,
-        VK_DYNAMIC_STATE_SCISSOR
-    };
-
-    pipeline = PipelineBuilder()
-        .setShaders(vertStage, fragStage)
-        .setVertexInput({binding}, attrs)
-        .setTopology(VK_PRIMITIVE_TOPOLOGY_POINT_LIST)
-        .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
-        .setDepthTest(true, false, VK_COMPARE_OP_LESS)
-        .setColorBlendAttachment(PipelineBuilder::blendAlpha())
-        .setMultisample(vkCtx->getMsaaSamples())
-        .setLayout(pipelineLayout)
-        .setRenderPass(vkCtx->getImGuiRenderPass())
-        .setDynamicStates(dynamicStates)
-        .build(device, vkCtx->getPipelineCache());
-
-    vertModule.destroy();
-    fragModule.destroy();
 }
 
 void MountDust::spawnDust(const glm::vec3& position, const glm::vec3& velocity, bool isMoving) {

@@ -8,7 +8,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Taxi catalog (.wtax) — novel replacement for
+// Wowee Open Taxi catalog (.wtax) - novel replacement for
 // Blizzard's TaxiNodes.dbc + TaxiPath.dbc + TaxiPathNode.dbc.
 // The 24th open format added to the editor.
 //
@@ -16,13 +16,13 @@ namespace pipeline {
 // (positions on the world map) plus the paths between them
 // (sequences of waypoints with per-segment delay and a
 // per-path gold cost). The same file holds both node and
-// path lists — flat arrays keyed by id.
+// path lists - flat arrays keyed by id.
 //
 // Cross-references with previously-added formats:
 //   WCRT.entry (with FlightMaster npcFlag) ≈ WTAX.entry.nodeId
 //                                            (matched by world
 //                                             position, not by
-//                                             direct ID — the
+//                                             direct ID - the
 //                                             flight-master NPC
 //                                             stands at the node)
 //   WTAX.path.fromNodeId / toNodeId → WTAX.entry.nodeId
@@ -96,12 +96,12 @@ public:
 
     // Preset emitters used by --gen-taxi* variants.
     //
-    //   makeStarter — 2 nodes + 1 path (round-trip 2 cities,
+    //   makeStarter - 2 nodes + 1 path (round-trip 2 cities,
     //                  3 waypoints, 50 silver each way).
-    //   makeRegion  — 4 nodes around a square (~500m apart) +
+    //   makeRegion  - 4 nodes around a square (~500m apart) +
     //                  4 paths forming a connected ring
     //                  (each path is 2 waypoints).
-    //   makeContinent — 6 nodes + 8 paths covering a small
+    //   makeContinent - 6 nodes + 8 paths covering a small
     //                    continent's flight network with
     //                    cross-route shortcuts.
     static WoweeTaxi makeStarter(const std::string& catalogName);

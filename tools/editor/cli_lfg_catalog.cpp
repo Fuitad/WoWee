@@ -1,7 +1,10 @@
 #include "cli_lfg_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
+#include "pipeline/wowee_expansion_names.hpp"
 #include "pipeline/wowee_lfg.hpp"
 #include <nlohmann/json.hpp>
 
@@ -18,20 +21,6 @@ namespace cli {
 
 namespace {
 
-std::string stripWlfgExt(std::string base) {
-    stripExt(base, ".wlfg");
-    return base;
-}
-
-bool saveOrError(const wowee::pipeline::WoweeLFGDungeon& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeLFGDungeonLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wlfg\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeLFGDungeon& c,
                      const std::string& base) {
@@ -44,9 +33,9 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterLFG";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWlfgExt(base);
+    base = cli::withoutExt(base, ".wlfg");
     auto c = wowee::pipeline::WoweeLFGDungeonLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-lfg")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeLFGDungeonLoader>(c, base, "gen-lfg", ".wlfg")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -55,9 +44,9 @@ int handleGenHeroic(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "HeroicLFG";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWlfgExt(base);
+    base = cli::withoutExt(base, ".wlfg");
     auto c = wowee::pipeline::WoweeLFGDungeonLoader::makeHeroic(name);
-    if (!saveOrError(c, base, "gen-lfg-heroic")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeLFGDungeonLoader>(c, base, "gen-lfg-heroic", ".wlfg")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -66,9 +55,9 @@ int handleGenRaid(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "RaidLFG";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWlfgExt(base);
+    base = cli::withoutExt(base, ".wlfg");
     auto c = wowee::pipeline::WoweeLFGDungeonLoader::makeRaid(name);
-    if (!saveOrError(c, base, "gen-lfg-raid")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeLFGDungeonLoader>(c, base, "gen-lfg-raid", ".wlfg")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -76,10 +65,9 @@ int handleGenRaid(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWlfgExt(base);
+    base = cli::withoutExt(base, ".wlfg");
     if (!wowee::pipeline::WoweeLFGDungeonLoader::exists(base)) {
-        std::fprintf(stderr, "WLFG not found: %s.wlfg\n", base.c_str());
-        return 1;
+        return reportMissing("WLFG", base, ".wlfg");
     }
     auto c = wowee::pipeline::WoweeLFGDungeonLoader::load(base);
     if (jsonOut) {
@@ -138,72 +126,44 @@ int handleExportJson(int& i, int argc, char** argv) {
     // plus dual int + name forms for difficulty (4 values)
     // and expansionRequired (4 values) so hand-edits can
     // use either representation.
-    std::string base = argv[++i];
-    std::string outPath;
-    if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWlfgExt(base);
-    if (outPath.empty()) outPath = base + ".wlfg.json";
-    if (!wowee::pipeline::WoweeLFGDungeonLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wlfg-json: WLFG not found: %s.wlfg\n", base.c_str());
-        return 1;
-    }
-    auto c = wowee::pipeline::WoweeLFGDungeonLoader::load(base);
-    nlohmann::json j;
-    j["name"] = c.name;
-    nlohmann::json arr = nlohmann::json::array();
-    for (const auto& e : c.entries) {
-        arr.push_back({
-            {"dungeonId", e.dungeonId},
-            {"name", e.name},
-            {"description", e.description},
-            {"mapId", e.mapId},
-            {"minLevel", e.minLevel},
-            {"maxLevel", e.maxLevel},
-            {"recommendedLevel", e.recommendedLevel},
-            {"minGearLevel", e.minGearLevel},
-            {"difficulty", e.difficulty},
-            {"difficultyName", wowee::pipeline::WoweeLFGDungeon::difficultyName(e.difficulty)},
-            {"groupSize", e.groupSize},
-            {"requiredRolesMask", e.requiredRolesMask},
-            {"expansionRequired", e.expansionRequired},
-            {"expansionRequiredName", wowee::pipeline::WoweeLFGDungeon::expansionRequiredName(e.expansionRequired)},
-            {"queueRewardItemId", e.queueRewardItemId},
-            {"queueRewardEmblemCount", e.queueRewardEmblemCount},
-            {"firstClearAchievement", e.firstClearAchievement},
+    return cli::exportCatalogJson<wowee::pipeline::WoweeLFGDungeonLoader>(
+        i, argc, argv, "wlfg", "WLFG", "dungeons ",
+        [](const auto& c) {
+        nlohmann::json j;
+        j["name"] = c.name;
+        nlohmann::json arr = nlohmann::json::array();
+        for (const auto& e : c.entries) {
+            arr.push_back({
+                {"dungeonId", e.dungeonId},
+                {"name", e.name},
+                {"description", e.description},
+                {"mapId", e.mapId},
+                {"minLevel", e.minLevel},
+                {"maxLevel", e.maxLevel},
+                {"recommendedLevel", e.recommendedLevel},
+                {"minGearLevel", e.minGearLevel},
+                {"difficulty", e.difficulty},
+                {"difficultyName", wowee::pipeline::WoweeLFGDungeon::difficultyName(e.difficulty)},
+                {"groupSize", e.groupSize},
+                {"requiredRolesMask", e.requiredRolesMask},
+                {"expansionRequired", e.expansionRequired},
+                {"expansionRequiredName", wowee::pipeline::WoweeLFGDungeon::expansionRequiredName(e.expansionRequired)},
+                {"queueRewardItemId", e.queueRewardItemId},
+                {"queueRewardEmblemCount", e.queueRewardEmblemCount},
+                {"firstClearAchievement", e.firstClearAchievement},
+            });
+        }
+        j["entries"] = arr;
+            return j;
         });
-    }
-    j["entries"] = arr;
-    std::ofstream out(outPath);
-    if (!out) {
-        std::fprintf(stderr,
-            "export-wlfg-json: cannot write %s\n", outPath.c_str());
-        return 1;
-    }
-    out << j.dump(2) << "\n";
-    out.close();
-    std::printf("Wrote %s\n", outPath.c_str());
-    std::printf("  source   : %s.wlfg\n", base.c_str());
-    std::printf("  dungeons : %zu\n", c.entries.size());
-    return 0;
 }
 
 int handleImportJson(int& i, int argc, char** argv) {
     std::string jsonPath = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = jsonPath;
-        std::string suffix = ".wlfg.json";
-        if (outBase.size() > suffix.size() &&
-            outBase.substr(outBase.size() - suffix.size()) == suffix) {
-            outBase = outBase.substr(0, outBase.size() - suffix.size());
-        } else if (outBase.size() > 5 &&
-                   outBase.substr(outBase.size() - 5) == ".json") {
-            outBase = outBase.substr(0, outBase.size() - 5);
-        }
-    }
-    outBase = stripWlfgExt(outBase);
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(jsonPath, ".wlfg");
+    outBase = cli::withoutExt(outBase, ".wlfg");
     std::ifstream in(jsonPath);
     if (!in) {
         std::fprintf(stderr,
@@ -225,12 +185,9 @@ int handleImportJson(int& i, int argc, char** argv) {
         if (s == "hardmode") return wowee::pipeline::WoweeLFGDungeon::Hardmode;
         return wowee::pipeline::WoweeLFGDungeon::Normal;
     };
+    // The same four words the exporter writes, from beside them.
     auto expansionFromName = [](const std::string& s) -> uint8_t {
-        if (s == "classic") return wowee::pipeline::WoweeLFGDungeon::Classic;
-        if (s == "tbc")     return wowee::pipeline::WoweeLFGDungeon::TBC;
-        if (s == "wotlk")   return wowee::pipeline::WoweeLFGDungeon::WotLK;
-        if (s == "turtle")  return wowee::pipeline::WoweeLFGDungeon::TurtleWoW;
-        return wowee::pipeline::WoweeLFGDungeon::Classic;
+        return wowee::pipeline::expansionFromName(s);
     };
     wowee::pipeline::WoweeLFGDungeon c;
     c.name = j.value("name", std::string{});
@@ -293,104 +250,63 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWlfgExt(base);
-    if (!wowee::pipeline::WoweeLFGDungeonLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wlfg: WLFG not found: %s.wlfg\n", base.c_str());
-        return 1;
-    }
-    auto c = wowee::pipeline::WoweeLFGDungeonLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    std::vector<uint32_t> idsSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.dungeonId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.dungeonId == 0)
-            errors.push_back(ctx + ": dungeonId is 0");
-        if (e.name.empty())
-            errors.push_back(ctx + ": name is empty");
-        if (e.mapId == 0)
-            errors.push_back(ctx +
-                ": mapId is 0 (dungeon has no instance map)");
-        if (e.difficulty > wowee::pipeline::WoweeLFGDungeon::Hardmode) {
-            errors.push_back(ctx + ": difficulty " +
-                std::to_string(e.difficulty) + " not in 0..3");
-        }
-        if (e.expansionRequired > wowee::pipeline::WoweeLFGDungeon::TurtleWoW) {
-            errors.push_back(ctx + ": expansionRequired " +
-                std::to_string(e.expansionRequired) + " not in 0..3");
-        }
-        if (e.minLevel > e.maxLevel) {
-            errors.push_back(ctx + ": minLevel " +
-                std::to_string(e.minLevel) + " > maxLevel " +
-                std::to_string(e.maxLevel));
-        }
-        if (e.recommendedLevel != 0 &&
-            (e.recommendedLevel < e.minLevel ||
-             e.recommendedLevel > e.maxLevel)) {
-            warnings.push_back(ctx + ": recommendedLevel " +
-                std::to_string(e.recommendedLevel) +
-                " outside [" + std::to_string(e.minLevel) +
-                ", " + std::to_string(e.maxLevel) + "]");
-        }
-        // Common group sizes: 5 (dungeon), 10/25 (raid),
-        // 40 (vanilla raid). Other values are unusual but
-        // not technically wrong.
-        if (e.groupSize != 5 && e.groupSize != 10 &&
-            e.groupSize != 25 && e.groupSize != 40) {
-            warnings.push_back(ctx + ": groupSize " +
-                std::to_string(e.groupSize) +
-                " is unusual (5 / 10 / 25 / 40 are canonical)");
-        }
-        if (e.requiredRolesMask == 0) {
-            errors.push_back(ctx +
-                ": requiredRolesMask=0 (no role requirement — "
-                "queue won't form a balanced group)");
-        }
-        for (uint32_t prev : idsSeen) {
-            if (prev == e.dungeonId) {
-                errors.push_back(ctx + ": duplicate dungeonId");
-                break;
+    return cli::validateCatalog<wowee::pipeline::WoweeLFGDungeonLoader>(
+        i, argc, argv, "wlfg", "WLFG",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.dungeonId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.dungeonId == 0)
+                errors.push_back(ctx + ": dungeonId is 0");
+            if (e.name.empty())
+                errors.push_back(ctx + ": name is empty");
+            if (e.mapId == 0)
+                errors.push_back(ctx +
+                    ": mapId is 0 (dungeon has no instance map)");
+            if (e.difficulty > wowee::pipeline::WoweeLFGDungeon::Hardmode) {
+                errors.push_back(ctx + ": difficulty " +
+                    std::to_string(e.difficulty) + " not in 0..3");
             }
+            if (e.expansionRequired > wowee::pipeline::WoweeLFGDungeon::TurtleWoW) {
+                errors.push_back(ctx + ": expansionRequired " +
+                    std::to_string(e.expansionRequired) + " not in 0..3");
+            }
+            if (e.minLevel > e.maxLevel) {
+                errors.push_back(ctx + ": minLevel " +
+                    std::to_string(e.minLevel) + " > maxLevel " +
+                    std::to_string(e.maxLevel));
+            }
+            if (e.recommendedLevel != 0 &&
+                (e.recommendedLevel < e.minLevel ||
+                 e.recommendedLevel > e.maxLevel)) {
+                warnings.push_back(ctx + ": recommendedLevel " +
+                    std::to_string(e.recommendedLevel) +
+                    " outside [" + std::to_string(e.minLevel) +
+                    ", " + std::to_string(e.maxLevel) + "]");
+            }
+            // Common group sizes: 5 (dungeon), 10/25 (raid),
+            // 40 (vanilla raid). Other values are unusual but
+            // not technically wrong.
+            if (e.groupSize != 5 && e.groupSize != 10 &&
+                e.groupSize != 25 && e.groupSize != 40) {
+                warnings.push_back(ctx + ": groupSize " +
+                    std::to_string(e.groupSize) +
+                    " is unusual (5 / 10 / 25 / 40 are canonical)");
+            }
+            if (e.requiredRolesMask == 0) {
+                errors.push_back(ctx +
+                    ": requiredRolesMask=0 (no role requirement - "
+                    "queue won't form a balanced group)");
+            }
+            if (!idsSeen.add(e.dungeonId)) errors.push_back(ctx + ": duplicate dungeonId");
         }
-        idsSeen.push_back(e.dungeonId);
-    }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wlfg"] = base + ".wlfg";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wlfg: %s.wlfg\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu dungeons, all dungeonIds unique, all level ranges valid\n",
-                    c.entries.size());
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+            return formatted("%zu dungeons, all dungeonIds unique, all level ranges valid", c.entries.size());
+        });
 }
 
 } // namespace

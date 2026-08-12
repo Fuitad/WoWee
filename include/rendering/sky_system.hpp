@@ -108,13 +108,8 @@ public:
      */
     void setMoonPhaseCycling(bool enabled);
 
-    /**
-     * Set moon phases manually (0.0-1.0 each)
-     */
-    void setWhiteLadyPhase(float phase);
     void setBlueChildPhase(float phase);
 
-    float getWhiteLadyPhase() const;
     float getBlueChildPhase() const;
 
     // Component accessors (for direct control if needed)

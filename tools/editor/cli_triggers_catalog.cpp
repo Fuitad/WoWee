@@ -1,4 +1,6 @@
 #include "cli_triggers_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -19,20 +21,6 @@ namespace cli {
 
 namespace {
 
-std::string stripWtrgExt(std::string base) {
-    stripExt(base, ".wtrg");
-    return base;
-}
-
-bool saveOrError(const wowee::pipeline::WoweeTrigger& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeTriggerLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wtrg\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeTrigger& c,
                      const std::string& base) {
@@ -45,9 +33,9 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterTriggers";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWtrgExt(base);
+    base = cli::withoutExt(base, ".wtrg");
     auto c = wowee::pipeline::WoweeTriggerLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-triggers")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeTriggerLoader>(c, base, "gen-triggers", ".wtrg")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -56,9 +44,9 @@ int handleGenDungeon(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "DungeonTriggers";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWtrgExt(base);
+    base = cli::withoutExt(base, ".wtrg");
     auto c = wowee::pipeline::WoweeTriggerLoader::makeDungeon(name);
-    if (!saveOrError(c, base, "gen-triggers-dungeon")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeTriggerLoader>(c, base, "gen-triggers-dungeon", ".wtrg")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -67,9 +55,9 @@ int handleGenFlightPath(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "FlightPathTriggers";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWtrgExt(base);
+    base = cli::withoutExt(base, ".wtrg");
     auto c = wowee::pipeline::WoweeTriggerLoader::makeFlightPath(name);
-    if (!saveOrError(c, base, "gen-triggers-flightpath")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeTriggerLoader>(c, base, "gen-triggers-flightpath", ".wtrg")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -77,10 +65,9 @@ int handleGenFlightPath(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWtrgExt(base);
+    base = cli::withoutExt(base, ".wtrg");
     if (!wowee::pipeline::WoweeTriggerLoader::exists(base)) {
-        std::fprintf(stderr, "WTRG not found: %s.wtrg\n", base.c_str());
-        return 1;
+        return reportMissing("WTRG", base, ".wtrg");
     }
     auto c = wowee::pipeline::WoweeTriggerLoader::load(base);
     if (jsonOut) {
@@ -156,72 +143,44 @@ int handleExportJson(int& i, int argc, char** argv) {
     // open format. Vec3 fields (center / boxDims / dest)
     // become 3-element JSON arrays. Shape and kind emit dual
     // int + name forms.
-    std::string base = argv[++i];
-    std::string outPath;
-    if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWtrgExt(base);
-    if (outPath.empty()) outPath = base + ".wtrg.json";
-    if (!wowee::pipeline::WoweeTriggerLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wtrg-json: WTRG not found: %s.wtrg\n", base.c_str());
-        return 1;
-    }
-    auto c = wowee::pipeline::WoweeTriggerLoader::load(base);
-    nlohmann::json j;
-    j["name"] = c.name;
-    nlohmann::json arr = nlohmann::json::array();
-    for (const auto& e : c.entries) {
-        arr.push_back({
-            {"triggerId", e.triggerId},
-            {"mapId", e.mapId},
-            {"areaId", e.areaId},
-            {"name", e.name},
-            {"center", {e.center.x, e.center.y, e.center.z}},
-            {"shape", e.shape},
-            {"shapeName", wowee::pipeline::WoweeTrigger::shapeName(e.shape)},
-            {"kind", e.kind},
-            {"kindName", wowee::pipeline::WoweeTrigger::kindName(e.kind)},
-            {"boxDims", {e.boxDims.x, e.boxDims.y, e.boxDims.z}},
-            {"radius", e.radius},
-            {"actionTarget", e.actionTarget},
-            {"dest", {e.dest.x, e.dest.y, e.dest.z}},
-            {"destOrientation", e.destOrientation},
-            {"requiredQuestId", e.requiredQuestId},
-            {"requiredItemId", e.requiredItemId},
-            {"minLevel", e.minLevel},
+    return cli::exportCatalogJson<wowee::pipeline::WoweeTriggerLoader>(
+        i, argc, argv, "wtrg", "WTRG", "triggers ",
+        [](const auto& c) {
+        nlohmann::json j;
+        j["name"] = c.name;
+        nlohmann::json arr = nlohmann::json::array();
+        for (const auto& e : c.entries) {
+            arr.push_back({
+                {"triggerId", e.triggerId},
+                {"mapId", e.mapId},
+                {"areaId", e.areaId},
+                {"name", e.name},
+                {"center", {e.center.x, e.center.y, e.center.z}},
+                {"shape", e.shape},
+                {"shapeName", wowee::pipeline::WoweeTrigger::shapeName(e.shape)},
+                {"kind", e.kind},
+                {"kindName", wowee::pipeline::WoweeTrigger::kindName(e.kind)},
+                {"boxDims", {e.boxDims.x, e.boxDims.y, e.boxDims.z}},
+                {"radius", e.radius},
+                {"actionTarget", e.actionTarget},
+                {"dest", {e.dest.x, e.dest.y, e.dest.z}},
+                {"destOrientation", e.destOrientation},
+                {"requiredQuestId", e.requiredQuestId},
+                {"requiredItemId", e.requiredItemId},
+                {"minLevel", e.minLevel},
+            });
+        }
+        j["entries"] = arr;
+            return j;
         });
-    }
-    j["entries"] = arr;
-    std::ofstream out(outPath);
-    if (!out) {
-        std::fprintf(stderr,
-            "export-wtrg-json: cannot write %s\n", outPath.c_str());
-        return 1;
-    }
-    out << j.dump(2) << "\n";
-    out.close();
-    std::printf("Wrote %s\n", outPath.c_str());
-    std::printf("  source   : %s.wtrg\n", base.c_str());
-    std::printf("  triggers : %zu\n", c.entries.size());
-    return 0;
 }
 
 int handleImportJson(int& i, int argc, char** argv) {
     std::string jsonPath = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = jsonPath;
-        std::string suffix = ".wtrg.json";
-        if (outBase.size() > suffix.size() &&
-            outBase.substr(outBase.size() - suffix.size()) == suffix) {
-            outBase = outBase.substr(0, outBase.size() - suffix.size());
-        } else if (outBase.size() > 5 &&
-                   outBase.substr(outBase.size() - 5) == ".json") {
-            outBase = outBase.substr(0, outBase.size() - 5);
-        }
-    }
-    outBase = stripWtrgExt(outBase);
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(jsonPath, ".wtrg");
+    outBase = cli::withoutExt(outBase, ".wtrg");
     std::ifstream in(jsonPath);
     if (!in) {
         std::fprintf(stderr,
@@ -301,103 +260,62 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWtrgExt(base);
-    if (!wowee::pipeline::WoweeTriggerLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wtrg: WTRG not found: %s.wtrg\n", base.c_str());
-        return 1;
-    }
-    auto c = wowee::pipeline::WoweeTriggerLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    std::vector<uint32_t> idsSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.triggerId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.triggerId == 0) errors.push_back(ctx + ": triggerId is 0");
-        if (e.shape > wowee::pipeline::WoweeTrigger::ShapeSphere) {
-            errors.push_back(ctx + ": shape " +
-                std::to_string(e.shape) + " not in 0..1");
-        }
-        if (e.kind > wowee::pipeline::WoweeTrigger::KindWaypoint) {
-            errors.push_back(ctx + ": kind " +
-                std::to_string(e.kind) + " not in 0..6");
-        }
-        if (!std::isfinite(e.center.x) ||
-            !std::isfinite(e.center.y) ||
-            !std::isfinite(e.center.z)) {
-            errors.push_back(ctx + ": center not finite");
-        }
-        // Sphere needs positive radius; box needs at least one
-        // positive half-extent.
-        if (e.shape == wowee::pipeline::WoweeTrigger::ShapeSphere) {
-            if (!std::isfinite(e.radius) || e.radius <= 0) {
+    return cli::validateCatalog<wowee::pipeline::WoweeTriggerLoader>(
+        i, argc, argv, "wtrg", "WTRG",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.triggerId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.triggerId == 0) errors.push_back(ctx + ": triggerId is 0");
+            if (e.shape > wowee::pipeline::WoweeTrigger::ShapeSphere) {
+                errors.push_back(ctx + ": shape " +
+                    std::to_string(e.shape) + " not in 0..1");
+            }
+            if (e.kind > wowee::pipeline::WoweeTrigger::KindWaypoint) {
+                errors.push_back(ctx + ": kind " +
+                    std::to_string(e.kind) + " not in 0..6");
+            }
+            if (!std::isfinite(e.center.x) ||
+                !std::isfinite(e.center.y) ||
+                !std::isfinite(e.center.z)) {
+                errors.push_back(ctx + ": center not finite");
+            }
+            // Sphere needs positive radius; box needs at least one
+            // positive half-extent.
+            if (e.shape == wowee::pipeline::WoweeTrigger::ShapeSphere) {
+                if (!std::isfinite(e.radius) || e.radius <= 0) {
+                    errors.push_back(ctx +
+                        ": sphere shape requires positive radius");
+                }
+            } else {
+                if (e.boxDims.x <= 0 && e.boxDims.y <= 0 && e.boxDims.z <= 0) {
+                    errors.push_back(ctx +
+                        ": box shape has all-zero half-extents");
+                }
+            }
+            // Teleport / InstanceEntrance must have a destination.
+            if (e.kind == wowee::pipeline::WoweeTrigger::KindTeleport ||
+                e.kind == wowee::pipeline::WoweeTrigger::KindInstanceEntrance) {
+                if (e.dest.x == 0 && e.dest.y == 0 && e.dest.z == 0) {
+                    warnings.push_back(ctx +
+                        ": teleport / instance trigger has dest=(0,0,0)");
+                }
+            }
+            // Quest exploration must reference a quest id.
+            if (e.kind == wowee::pipeline::WoweeTrigger::KindQuestExploration &&
+                e.actionTarget == 0) {
                 errors.push_back(ctx +
-                    ": sphere shape requires positive radius");
+                    ": KindQuestExploration requires actionTarget=questId");
             }
-        } else {
-            if (e.boxDims.x <= 0 && e.boxDims.y <= 0 && e.boxDims.z <= 0) {
-                errors.push_back(ctx +
-                    ": box shape has all-zero half-extents");
-            }
+            if (!idsSeen.add(e.triggerId)) errors.push_back(ctx + ": duplicate triggerId");
         }
-        // Teleport / InstanceEntrance must have a destination.
-        if (e.kind == wowee::pipeline::WoweeTrigger::KindTeleport ||
-            e.kind == wowee::pipeline::WoweeTrigger::KindInstanceEntrance) {
-            if (e.dest.x == 0 && e.dest.y == 0 && e.dest.z == 0) {
-                warnings.push_back(ctx +
-                    ": teleport / instance trigger has dest=(0,0,0)");
-            }
-        }
-        // Quest exploration must reference a quest id.
-        if (e.kind == wowee::pipeline::WoweeTrigger::KindQuestExploration &&
-            e.actionTarget == 0) {
-            errors.push_back(ctx +
-                ": KindQuestExploration requires actionTarget=questId");
-        }
-        for (uint32_t prev : idsSeen) {
-            if (prev == e.triggerId) {
-                errors.push_back(ctx + ": duplicate triggerId");
-                break;
-            }
-        }
-        idsSeen.push_back(e.triggerId);
-    }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wtrg"] = base + ".wtrg";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wtrg: %s.wtrg\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu triggers, all triggerIds unique\n",
-                    c.entries.size());
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+            return formatted("%zu triggers, all triggerIds unique", c.entries.size());
+        });
 }
 
 } // namespace

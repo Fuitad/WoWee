@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Hearth Bind Point catalog (.whrt) — novel
+// Wowee Open Hearth Bind Point catalog (.whrt) - novel
 // replacement for the hardcoded list of hearthstone bind
 // locations used by the SMSG_BINDPOINTUPDATE flow. Each
 // entry is one valid bind point: a tavern innkeeper, a
@@ -37,11 +37,11 @@ namespace pipeline {
 //     mapId (uint32) / areaId (uint32)
 //     x (float) / y (float) / z (float)
 //     facing (float, radians)
-//     npcId (uint32)            — 0 if no NPC bind clerk
-//     factionMask (uint8)        — 1=A / 2=H / 3=Both
-//     bindKind (uint8)           — Inn / Capital / Quest /
+//     npcId (uint32)            - 0 if no NPC bind clerk
+//     factionMask (uint8)        - 1=A / 2=H / 3=Both
+//     bindKind (uint8)           - Inn / Capital / Quest /
 //                                  Guild / SpecialPort
-//     levelMin (uint8)           — earliest level allowed
+//     levelMin (uint8)           - earliest level allowed
 //                                  to bind here (0 = any)
 //     pad0 (uint8)
 //     iconColorRGBA (uint32)
@@ -112,14 +112,14 @@ public:
 
     // Preset emitters used by --gen-hrt* variants.
     //
-    //   makeStarterCities — 4 entries (Stormwind / Ironforge
+    //   makeStarterCities - 4 entries (Stormwind / Ironforge
     //                        / Orgrimmar / Thunder Bluff
     //                        innkeepers, faction-gated).
-    //   makeCapitals      — 6 entries (Stormwind / Ironforge
+    //   makeCapitals      - 6 entries (Stormwind / Ironforge
     //                        / Darnassus / Orgrimmar /
     //                        Undercity / Thunder Bluff
     //                        capital-hall bind clerks).
-    //   makeStarterInns   — 8 entries (mix of starter-zone
+    //   makeStarterInns   - 8 entries (mix of starter-zone
     //                        inns: Goldshire / Brill /
     //                        Razor Hill / Bloodhoof Village
     //                        / Kharanos / Aldrassil /

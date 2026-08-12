@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Character Classes/Races catalog (.wchc) —
+// Wowee Open Character Classes/Races catalog (.wchc) -
 // novel replacement for Blizzard's CharClasses.dbc +
 // CharRaces.dbc + CharStartOutfit.dbc trio. The 27th open
 // format added to the editor.
@@ -129,12 +129,12 @@ public:
 
     // Preset emitters used by --gen-chars* variants.
     //
-    //   makeStarter — 2 classes (Warrior + Mage) + 2 races
+    //   makeStarter - 2 classes (Warrior + Mage) + 2 races
     //                  (Human Alliance + Orc Horde) + 4 outfits
     //                  (2 classes × 2 races, male-only).
-    //   makeAlliance — full Alliance faction: 4 classes + 4
+    //   makeAlliance - full Alliance faction: 4 classes + 4
     //                   races + 8 outfits.
-    //   makeAllRaces — 8 classic playable races (Human / Dwarf
+    //   makeAllRaces - 8 classic playable races (Human / Dwarf
     //                   / NightElf / Gnome on Alliance side;
     //                   Orc / Undead / Tauren / Troll on Horde)
     //                   plus 9 classes (no DK).

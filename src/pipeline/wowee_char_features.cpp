@@ -1,4 +1,6 @@
+#include "pipeline/wowee_expansion_names.hpp"
 #include "pipeline/wowee_char_features.hpp"
+#include "pipeline/wowee_binary_io.hpp"
 
 #include <cstdio>
 #include <cstring>
@@ -11,45 +13,7 @@ namespace {
 
 constexpr char kMagic[4] = {'W', 'C', 'H', 'F'};
 constexpr uint32_t kVersion = 1;
-
-template <typename T>
-void writePOD(std::ofstream& os, const T& v) {
-    os.write(reinterpret_cast<const char*>(&v), sizeof(T));
-}
-
-template <typename T>
-bool readPOD(std::ifstream& is, T& v) {
-    is.read(reinterpret_cast<char*>(&v), sizeof(T));
-    return is.gcount() == static_cast<std::streamsize>(sizeof(T));
-}
-
-void writeStr(std::ofstream& os, const std::string& s) {
-    uint32_t n = static_cast<uint32_t>(s.size());
-    writePOD(os, n);
-    if (n > 0) os.write(s.data(), n);
-}
-
-bool readStr(std::ifstream& is, std::string& s) {
-    uint32_t n = 0;
-    if (!readPOD(is, n)) return false;
-    if (n > (1u << 20)) return false;
-    s.resize(n);
-    if (n > 0) {
-        is.read(s.data(), n);
-        if (is.gcount() != static_cast<std::streamsize>(n)) {
-            s.clear();
-            return false;
-        }
-    }
-    return true;
-}
-
-std::string normalizePath(std::string base) {
-    if (base.size() < 5 || base.substr(base.size() - 5) != ".wchf") {
-        base += ".wchf";
-    }
-    return base;
-}
+constexpr char kExtension[] = ".wchf";
 
 } // namespace
 
@@ -84,25 +48,15 @@ const char* WoweeCharFeature::sexIdName(uint8_t s) {
 }
 
 const char* WoweeCharFeature::expansionGateName(uint8_t e) {
-    switch (e) {
-        case Classic:   return "classic";
-        case TBC:       return "tbc";
-        case WotLK:     return "wotlk";
-        case TurtleWoW: return "turtle";
-        default:        return "unknown";
-    }
+    // The word is the sidecar's, shared with the other two formats
+    // that gate on an expansion and with the importers that read them.
+    return expansionName(e);
 }
 
 bool WoweeCharFeatureLoader::save(const WoweeCharFeature& cat,
-                                   const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath), std::ios::binary);
-    if (!os) return false;
-    os.write(kMagic, 4);
-    writePOD(os, kVersion);
-    writeStr(os, cat.name);
-    uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writePOD(os, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeCharFeature::Entry& e) {
         writePOD(os, e.featureId);
         writePOD(os, e.raceId);
         writeStr(os, e.name);
@@ -114,49 +68,29 @@ bool WoweeCharFeatureLoader::save(const WoweeCharFeature& cat,
         writePOD(os, e.requiresExpansion);
         writePOD(os, e.geosetGroupBits);
         writePOD(os, e.hairColorOverlayId);
-    }
-    return os.good();
+                       });
 }
 
 WoweeCharFeature WoweeCharFeatureLoader::load(
     const std::string& basePath) {
-    WoweeCharFeature out;
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    if (!is) return out;
-    char magic[4];
-    is.read(magic, 4);
-    if (std::memcmp(magic, kMagic, 4) != 0) return out;
-    uint32_t version = 0;
-    if (!readPOD(is, version) || version != kVersion) return out;
-    if (!readStr(is, out.name)) return out;
-    uint32_t entryCount = 0;
-    if (!readPOD(is, entryCount)) return out;
-    if (entryCount > (1u << 20)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
+    return loadCatalog<WoweeCharFeature>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeCharFeature::Entry& e) {
         if (!readPOD(is, e.featureId) ||
-            !readPOD(is, e.raceId)) {
-            out.entries.clear(); return out;
-        }
+            !readPOD(is, e.raceId)) { return false; }
         if (!readStr(is, e.name) || !readStr(is, e.description) ||
-            !readStr(is, e.texturePath)) {
-            out.entries.clear(); return out;
-        }
+            !readStr(is, e.texturePath)) { return false; }
         if (!readPOD(is, e.featureKind) ||
             !readPOD(is, e.sexId) ||
             !readPOD(is, e.variationIndex) ||
             !readPOD(is, e.requiresExpansion) ||
             !readPOD(is, e.geosetGroupBits) ||
-            !readPOD(is, e.hairColorOverlayId)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.hairColorOverlayId)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeCharFeatureLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeCharFeature WoweeCharFeatureLoader::makeStarter(
@@ -173,7 +107,7 @@ WoweeCharFeature WoweeCharFeatureLoader::makeStarter(
         e.variationIndex = variation;
         e.name = name;
         e.texturePath = tex;
-        e.description = std::string("Human Male — ") +
+        e.description = std::string("Human Male - ") +
                          WoweeCharFeature::featureKindName(kind) +
                          " variation " + std::to_string(variation);
         c.entries.push_back(e);
@@ -217,7 +151,7 @@ WoweeCharFeature WoweeCharFeatureLoader::makeBloodElfFemale(
         c.entries.push_back(e);
     };
     // 8 iconic Blood Elf Female hairstyles. geosetGroupBits
-    // values are placeholder — real M2 geoset masks come from
+    // values are placeholder - real M2 geoset masks come from
     // CharHairGeosets.dbc when ported.
     add(100, 0, "LongStraight",   0x0001);
     add(101, 1, "ShortBob",       0x0002);
@@ -246,7 +180,7 @@ WoweeCharFeature WoweeCharFeatureLoader::makeTauren(
         e.texturePath = std::string("textures/character/Tauren/Male/Tauren") +
                          WoweeCharFeature::featureKindName(kind) +
                          "_" + std::to_string(variation) + ".blp";
-        e.description = std::string("Tauren Male — ") +
+        e.description = std::string("Tauren Male - ") +
                          WoweeCharFeature::featureKindName(kind) +
                          " variant " + std::to_string(variation);
         c.entries.push_back(e);

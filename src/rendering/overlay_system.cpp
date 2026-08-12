@@ -21,22 +21,22 @@ OverlaySystem::~OverlaySystem() {
 void OverlaySystem::cleanup() {
     if (!vkCtx_) return;
     VkDevice device = vkCtx_->getDevice();
-    if (selCirclePipeline_) { vkDestroyPipeline(device, selCirclePipeline_, nullptr); selCirclePipeline_ = VK_NULL_HANDLE; }
-    if (selCirclePipelineLayout_) { vkDestroyPipelineLayout(device, selCirclePipelineLayout_, nullptr); selCirclePipelineLayout_ = VK_NULL_HANDLE; }
-    if (selCircleVertBuf_) { vmaDestroyBuffer(vkCtx_->getAllocator(), selCircleVertBuf_, selCircleVertAlloc_); selCircleVertBuf_ = VK_NULL_HANDLE; selCircleVertAlloc_ = VK_NULL_HANDLE; }
-    if (selCircleIdxBuf_) { vmaDestroyBuffer(vkCtx_->getAllocator(), selCircleIdxBuf_, selCircleIdxAlloc_); selCircleIdxBuf_ = VK_NULL_HANDLE; selCircleIdxAlloc_ = VK_NULL_HANDLE; }
-    if (overlayPipeline_) { vkDestroyPipeline(device, overlayPipeline_, nullptr); overlayPipeline_ = VK_NULL_HANDLE; }
-    if (brightnessPipeline_) { vkDestroyPipeline(device, brightnessPipeline_, nullptr); brightnessPipeline_ = VK_NULL_HANDLE; }
-    if (overlayPipelineLayout_) { vkDestroyPipelineLayout(device, overlayPipelineLayout_, nullptr); overlayPipelineLayout_ = VK_NULL_HANDLE; }
+    destroy(device, selCirclePipeline_);
+    destroy(device, selCirclePipelineLayout_);
+    destroy(vkCtx_->getAllocator(), selCircleVertBuf_, selCircleVertAlloc_);
+    destroy(vkCtx_->getAllocator(), selCircleIdxBuf_, selCircleIdxAlloc_);
+    destroy(device, overlayPipeline_);
+    destroy(device, brightnessPipeline_);
+    destroy(device, overlayPipelineLayout_);
 }
 
 void OverlaySystem::recreatePipelines() {
     if (!vkCtx_) return;
     VkDevice device = vkCtx_->getDevice();
     // Destroy only pipelines (keep geometry buffers)
-    if (selCirclePipeline_) { vkDestroyPipeline(device, selCirclePipeline_, nullptr); selCirclePipeline_ = VK_NULL_HANDLE; }
-    if (overlayPipeline_) { vkDestroyPipeline(device, overlayPipeline_, nullptr); overlayPipeline_ = VK_NULL_HANDLE; }
-    if (brightnessPipeline_) { vkDestroyPipeline(device, brightnessPipeline_, nullptr); brightnessPipeline_ = VK_NULL_HANDLE; }
+    destroy(device, selCirclePipeline_);
+    destroy(device, overlayPipeline_);
+    destroy(device, brightnessPipeline_);
 }
 
 void OverlaySystem::setSelectionCircle(const glm::vec3& pos, float radius, const glm::vec3& color) {
@@ -127,7 +127,7 @@ void OverlaySystem::initSelectionCircle() {
         .setMultisample(vkCtx_->getMsaaSamples())
         .setLayout(selCirclePipelineLayout_)
         .setRenderPass(vkCtx_->getImGuiRenderPass())
-        .setDynamicStates({VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR})
+        .setDynamicStates(viewportAndScissorDynamic())
         .build(device, vkCtx_->getPipelineCache());
 
     vertShader.destroy();
@@ -229,7 +229,7 @@ void OverlaySystem::initOverlayPipeline() {
         .setMultisample(vkCtx_->getMsaaSamples())
         .setLayout(overlayPipelineLayout_)
         .setRenderPass(vkCtx_->getImGuiRenderPass())
-        .setDynamicStates({VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR})
+        .setDynamicStates(viewportAndScissorDynamic())
         .build(device, vkCtx_->getPipelineCache());
 
     vertMod.destroy(); fragMod.destroy();
@@ -272,7 +272,7 @@ void OverlaySystem::initBrightnessPipeline() {
     }
 
     // result.rgb = src.rgb * dst.rgb + dst.rgb * 1 = dst.rgb * (1 + src.rgb).
-    // Pushing src.rgb = (scale - 1) yields dst.rgb * scale — a true luminance
+    // Pushing src.rgb = (scale - 1) yields dst.rgb * scale - a true luminance
     // multiply. Alpha is left untouched (dst passes through).
     VkPipelineColorBlendAttachmentState mul{};
     mul.blendEnable = VK_TRUE;
@@ -296,7 +296,7 @@ void OverlaySystem::initBrightnessPipeline() {
         .setMultisample(vkCtx_->getMsaaSamples())
         .setLayout(overlayPipelineLayout_)
         .setRenderPass(vkCtx_->getImGuiRenderPass())
-        .setDynamicStates({VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR})
+        .setDynamicStates(viewportAndScissorDynamic())
         .build(device, vkCtx_->getPipelineCache());
 
     vertMod.destroy(); fragMod.destroy();

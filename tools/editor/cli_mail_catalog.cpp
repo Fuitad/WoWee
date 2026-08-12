@@ -1,4 +1,6 @@
 #include "cli_mail_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -18,20 +20,6 @@ namespace cli {
 
 namespace {
 
-std::string stripWmalExt(std::string base) {
-    stripExt(base, ".wmal");
-    return base;
-}
-
-bool saveOrError(const wowee::pipeline::WoweeMail& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeMailLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wmal\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeMail& c,
                      const std::string& base) {
@@ -44,9 +32,9 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterMail";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWmalExt(base);
+    base = cli::withoutExt(base, ".wmal");
     auto c = wowee::pipeline::WoweeMailLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-mail")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeMailLoader>(c, base, "gen-mail", ".wmal")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -55,9 +43,9 @@ int handleGenHoliday(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "HolidayMail";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWmalExt(base);
+    base = cli::withoutExt(base, ".wmal");
     auto c = wowee::pipeline::WoweeMailLoader::makeHoliday(name);
-    if (!saveOrError(c, base, "gen-mail-holiday")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeMailLoader>(c, base, "gen-mail-holiday", ".wmal")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -66,9 +54,9 @@ int handleGenAuction(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "AuctionMail";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWmalExt(base);
+    base = cli::withoutExt(base, ".wmal");
     auto c = wowee::pipeline::WoweeMailLoader::makeAuction(name);
-    if (!saveOrError(c, base, "gen-mail-auction")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeMailLoader>(c, base, "gen-mail-auction", ".wmal")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -76,10 +64,9 @@ int handleGenAuction(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWmalExt(base);
+    base = cli::withoutExt(base, ".wmal");
     if (!wowee::pipeline::WoweeMailLoader::exists(base)) {
-        std::fprintf(stderr, "WMAL not found: %s.wmal\n", base.c_str());
-        return 1;
+        return reportMissing("WMAL", base, ".wmal");
     }
     auto c = wowee::pipeline::WoweeMailLoader::load(base);
     if (jsonOut) {
@@ -151,72 +138,44 @@ int handleExportJson(int& i, int argc, char** argv) {
     // open format. Each template emits scalar fields plus
     // attachments array; categoryId emits dual int + name
     // forms.
-    std::string base = argv[++i];
-    std::string outPath;
-    if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWmalExt(base);
-    if (outPath.empty()) outPath = base + ".wmal.json";
-    if (!wowee::pipeline::WoweeMailLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wmal-json: WMAL not found: %s.wmal\n", base.c_str());
-        return 1;
-    }
-    auto c = wowee::pipeline::WoweeMailLoader::load(base);
-    nlohmann::json j;
-    j["name"] = c.name;
-    nlohmann::json arr = nlohmann::json::array();
-    for (const auto& e : c.entries) {
-        nlohmann::json je;
-        je["templateId"] = e.templateId;
-        je["senderNpcId"] = e.senderNpcId;
-        je["subject"] = e.subject;
-        je["body"] = e.body;
-        je["senderName"] = e.senderName;
-        je["moneyCopperAttached"] = e.moneyCopperAttached;
-        je["categoryId"] = e.categoryId;
-        je["categoryName"] = wowee::pipeline::WoweeMail::categoryName(e.categoryId);
-        je["cod"] = e.cod;
-        je["returnable"] = e.returnable;
-        je["expiryDays"] = e.expiryDays;
-        nlohmann::json att = nlohmann::json::array();
-        for (const auto& a : e.attachments) {
-            att.push_back({{"itemId", a.itemId},
-                            {"quantity", a.quantity}});
+    return cli::exportCatalogJson<wowee::pipeline::WoweeMailLoader>(
+        i, argc, argv, "wmal", "WMAL", "templates ",
+        [](const auto& c) {
+        nlohmann::json j;
+        j["name"] = c.name;
+        nlohmann::json arr = nlohmann::json::array();
+        for (const auto& e : c.entries) {
+            nlohmann::json je;
+            je["templateId"] = e.templateId;
+            je["senderNpcId"] = e.senderNpcId;
+            je["subject"] = e.subject;
+            je["body"] = e.body;
+            je["senderName"] = e.senderName;
+            je["moneyCopperAttached"] = e.moneyCopperAttached;
+            je["categoryId"] = e.categoryId;
+            je["categoryName"] = wowee::pipeline::WoweeMail::categoryName(e.categoryId);
+            je["cod"] = e.cod;
+            je["returnable"] = e.returnable;
+            je["expiryDays"] = e.expiryDays;
+            nlohmann::json att = nlohmann::json::array();
+            for (const auto& a : e.attachments) {
+                att.push_back({{"itemId", a.itemId},
+                                {"quantity", a.quantity}});
+            }
+            je["attachments"] = att;
+            arr.push_back(je);
         }
-        je["attachments"] = att;
-        arr.push_back(je);
-    }
-    j["entries"] = arr;
-    std::ofstream out(outPath);
-    if (!out) {
-        std::fprintf(stderr,
-            "export-wmal-json: cannot write %s\n", outPath.c_str());
-        return 1;
-    }
-    out << j.dump(2) << "\n";
-    out.close();
-    std::printf("Wrote %s\n", outPath.c_str());
-    std::printf("  source    : %s.wmal\n", base.c_str());
-    std::printf("  templates : %zu\n", c.entries.size());
-    return 0;
+        j["entries"] = arr;
+            return j;
+        });
 }
 
 int handleImportJson(int& i, int argc, char** argv) {
     std::string jsonPath = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = jsonPath;
-        std::string suffix = ".wmal.json";
-        if (outBase.size() > suffix.size() &&
-            outBase.substr(outBase.size() - suffix.size()) == suffix) {
-            outBase = outBase.substr(0, outBase.size() - suffix.size());
-        } else if (outBase.size() > 5 &&
-                   outBase.substr(outBase.size() - 5) == ".json") {
-            outBase = outBase.substr(0, outBase.size() - 5);
-        }
-    }
-    outBase = stripWmalExt(outBase);
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(jsonPath, ".wmal");
+    outBase = cli::withoutExt(outBase, ".wmal");
     std::ifstream in(jsonPath);
     if (!in) {
         std::fprintf(stderr,
@@ -285,102 +244,61 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWmalExt(base);
-    if (!wowee::pipeline::WoweeMailLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wmal: WMAL not found: %s.wmal\n", base.c_str());
-        return 1;
-    }
-    auto c = wowee::pipeline::WoweeMailLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    std::vector<uint32_t> idsSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.templateId) + ")";
-        if (e.templateId == 0) errors.push_back(ctx + ": templateId is 0");
-        if (e.subject.empty()) errors.push_back(ctx + ": subject is empty");
-        if (e.senderNpcId == 0 && e.senderName.empty()) {
-            errors.push_back(ctx +
-                ": neither senderNpcId nor senderName set (no displayable sender)");
-        }
-        if (e.categoryId > wowee::pipeline::WoweeMail::ReturnedMail) {
-            errors.push_back(ctx + ": categoryId " +
-                std::to_string(e.categoryId) + " not in 0..7");
-        }
-        if (e.expiryDays == 0) {
-            warnings.push_back(ctx +
-                ": expiryDays=0 (mail expires immediately)");
-        }
-        if (e.cod && e.moneyCopperAttached == 0) {
-            warnings.push_back(ctx +
-                ": cod=1 but moneyCopperAttached=0 (free COD)");
-        }
-        // Mail with no money + no items is informational only.
-        // Legitimate for GM correspondence (text-only notices)
-        // and for the Auction category where the runtime fills
-        // in the real outcome (winning bid amount / sold item)
-        // at send time. Flag only for the categories where
-        // empty mail is genuinely a typo.
-        if (e.moneyCopperAttached == 0 && e.attachments.empty() &&
-            e.categoryId != wowee::pipeline::WoweeMail::GmCorrespondence &&
-            e.categoryId != wowee::pipeline::WoweeMail::Auction &&
-            e.categoryId != wowee::pipeline::WoweeMail::ReturnedMail) {
-            warnings.push_back(ctx +
-                ": no money + no items (informational mail only)");
-        }
-        for (size_t ai = 0; ai < e.attachments.size(); ++ai) {
-            const auto& a = e.attachments[ai];
-            if (a.itemId == 0) {
-                errors.push_back(ctx + " attachment " + std::to_string(ai) +
-                    ": itemId is 0");
+    return cli::validateCatalog<wowee::pipeline::WoweeMailLoader>(
+        i, argc, argv, "wmal", "WMAL",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.templateId) + ")";
+            if (e.templateId == 0) errors.push_back(ctx + ": templateId is 0");
+            if (e.subject.empty()) errors.push_back(ctx + ": subject is empty");
+            if (e.senderNpcId == 0 && e.senderName.empty()) {
+                errors.push_back(ctx +
+                    ": neither senderNpcId nor senderName set (no displayable sender)");
             }
-            if (a.quantity == 0) {
-                errors.push_back(ctx + " attachment " + std::to_string(ai) +
-                    ": quantity is 0");
+            if (e.categoryId > wowee::pipeline::WoweeMail::ReturnedMail) {
+                errors.push_back(ctx + ": categoryId " +
+                    std::to_string(e.categoryId) + " not in 0..7");
             }
-        }
-        for (uint32_t prev : idsSeen) {
-            if (prev == e.templateId) {
-                errors.push_back(ctx + ": duplicate templateId");
-                break;
+            if (e.expiryDays == 0) {
+                warnings.push_back(ctx +
+                    ": expiryDays=0 (mail expires immediately)");
             }
+            if (e.cod && e.moneyCopperAttached == 0) {
+                warnings.push_back(ctx +
+                    ": cod=1 but moneyCopperAttached=0 (free COD)");
+            }
+            // Mail with no money + no items is informational only.
+            // Legitimate for GM correspondence (text-only notices)
+            // and for the Auction category where the runtime fills
+            // in the real outcome (winning bid amount / sold item)
+            // at send time. Flag only for the categories where
+            // empty mail is genuinely a typo.
+            if (e.moneyCopperAttached == 0 && e.attachments.empty() &&
+                e.categoryId != wowee::pipeline::WoweeMail::GmCorrespondence &&
+                e.categoryId != wowee::pipeline::WoweeMail::Auction &&
+                e.categoryId != wowee::pipeline::WoweeMail::ReturnedMail) {
+                warnings.push_back(ctx +
+                    ": no money + no items (informational mail only)");
+            }
+            for (size_t ai = 0; ai < e.attachments.size(); ++ai) {
+                const auto& a = e.attachments[ai];
+                if (a.itemId == 0) {
+                    errors.push_back(ctx + " attachment " + std::to_string(ai) +
+                        ": itemId is 0");
+                }
+                if (a.quantity == 0) {
+                    errors.push_back(ctx + " attachment " + std::to_string(ai) +
+                        ": quantity is 0");
+                }
+            }
+            if (!idsSeen.add(e.templateId)) errors.push_back(ctx + ": duplicate templateId");
         }
-        idsSeen.push_back(e.templateId);
-    }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wmal"] = base + ".wmal";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wmal: %s.wmal\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu templates, all templateIds unique\n",
-                    c.entries.size());
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+            return formatted("%zu templates, all templateIds unique", c.entries.size());
+        });
 }
 
 } // namespace

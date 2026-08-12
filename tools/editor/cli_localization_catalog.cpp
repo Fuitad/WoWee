@@ -1,4 +1,6 @@
 #include "cli_localization_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -18,11 +20,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWlanExt(std::string base) {
-    stripExt(base, ".wlan");
-    return base;
-}
 
 const char* languageCodeName(uint8_t l) {
     using L = wowee::pipeline::WoweeLocalization;
@@ -58,15 +55,6 @@ const char* namespaceName(uint8_t n) {
     }
 }
 
-bool saveOrError(const wowee::pipeline::WoweeLocalization& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeLocalizationLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wlan\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeLocalization& c,
                      const std::string& base) {
@@ -79,9 +67,9 @@ int handleGenUI(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "UIBasicsLocalization";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWlanExt(base);
+    base = cli::withoutExt(base, ".wlan");
     auto c = wowee::pipeline::WoweeLocalizationLoader::makeUIBasics(name);
-    if (!saveOrError(c, base, "gen-lan")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeLocalizationLoader>(c, base, "gen-lan", ".wlan")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -90,9 +78,9 @@ int handleGenQuest(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "QuestSampleLocalization";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWlanExt(base);
+    base = cli::withoutExt(base, ".wlan");
     auto c = wowee::pipeline::WoweeLocalizationLoader::makeQuestSample(name);
-    if (!saveOrError(c, base, "gen-lan-quest")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeLocalizationLoader>(c, base, "gen-lan-quest", ".wlan")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -101,9 +89,9 @@ int handleGenTooltip(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "TooltipSetLocalization";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWlanExt(base);
+    base = cli::withoutExt(base, ".wlan");
     auto c = wowee::pipeline::WoweeLocalizationLoader::makeTooltipSet(name);
-    if (!saveOrError(c, base, "gen-lan-tooltip")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeLocalizationLoader>(c, base, "gen-lan-tooltip", ".wlan")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -111,10 +99,9 @@ int handleGenTooltip(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWlanExt(base);
+    base = cli::withoutExt(base, ".wlan");
     if (!wowee::pipeline::WoweeLocalizationLoader::exists(base)) {
-        std::fprintf(stderr, "WLAN not found: %s.wlan\n", base.c_str());
-        return 1;
+        return reportMissing("WLAN", base, ".wlan");
     }
     auto c = wowee::pipeline::WoweeLocalizationLoader::load(base);
     if (jsonOut) {
@@ -229,13 +216,10 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWlanExt(base);
+    base = cli::withoutExt(base, ".wlan");
     if (out.empty()) out = base + ".wlan.json";
     if (!wowee::pipeline::WoweeLocalizationLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wlan-json: WLAN not found: %s.wlan\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wlan-json", "WLAN", base, ".wlan");
     }
     auto c = wowee::pipeline::WoweeLocalizationLoader::load(base);
     nlohmann::json j;
@@ -276,16 +260,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wlan.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wlan");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wlan");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,
@@ -340,12 +315,9 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWlanExt(base);
+    base = cli::withoutExt(base, ".wlan");
     if (!wowee::pipeline::WoweeLocalizationLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wlan: WLAN not found: %s.wlan\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wlan", "WLAN", base, ".wlan");
     }
     auto c = wowee::pipeline::WoweeLocalizationLoader::load(base);
     std::vector<std::string> errors;
@@ -355,7 +327,7 @@ int handleValidate(int& i, int argc, char** argv) {
     }
     std::set<uint32_t> idsSeen;
     // Per-(originalKey, languageCode, namespace_) triple
-    // uniqueness — two entries with all three matching
+    // uniqueness - two entries with all three matching
     // would tie at runtime when the locale-aware text
     // layer looks up an override.
     std::set<std::string> tripleSeen;
@@ -387,12 +359,12 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         if (e.originalKey.empty()) {
             errors.push_back(ctx +
-                ": originalKey is empty — locale-aware "
+                ": originalKey is empty - locale-aware "
                 "text layer has nothing to look up");
         }
         if (e.localizedText.empty()) {
             warnings.push_back(ctx +
-                ": localizedText is empty — override "
+                ": localizedText is empty - override "
                 "would render blank, possibly worse than "
                 "falling through to default");
         }
@@ -409,7 +381,7 @@ int handleValidate(int& i, int argc, char** argv) {
                     ", namespace=" +
                     std::string(namespaceName(e.namespace_)) +
                     ") triple already bound by another "
-                    "entry — locale lookup would tie "
+                    "entry - locale lookup would tie "
                     "non-deterministically");
             }
         }
@@ -417,34 +389,9 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": duplicate stringId");
         }
     }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wlan"] = base + ".wlan";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wlan: %s.wlan\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu strings, all stringIds + "
-                    "(key,lang,ns) triples unique\n",
-                    c.entries.size());
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+    return cli::reportValidation("wlan", base, jsonOut, errors, warnings,
+                                 formatted("%zu strings, all stringIds + "
+                    "(key,lang,ns) triples unique", c.entries.size()));
 }
 
 } // namespace

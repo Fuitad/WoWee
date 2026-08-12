@@ -224,7 +224,7 @@ int handleAuditZoneSpawns(int& i, int argc, char** argv) {
     std::printf("  objects      : %zu\n", placer.getObjects().size());
     std::printf("  issues       : %zu\n", issues.size());
     if (issues.empty()) {
-        std::printf("\n  PASSED — every spawn is within %.1f y of the terrain\n",
+        std::printf("\n  PASSED - every spawn is within %.1f y of the terrain\n",
                     threshold);
         return 0;
     }
@@ -321,7 +321,7 @@ int handleListZoneSpawns(int& i, int argc, char** argv) {
 
 int handleDiffZoneSpawns(int& i, int argc, char** argv) {
     // Compare two zones' creatures + objects. Matches by
-    // (kind, name) — paired entries with mismatched positions
+    // (kind, name) - paired entries with mismatched positions
     // are reported as "moved" with the delta. Entries that
     // exist in only one zone are added/removed.
     //
@@ -588,13 +588,9 @@ int handleListProjectSpawns(int& i, int argc, char** argv) {
             projectDir.c_str());
         return 1;
     }
-    std::vector<std::string> zones;
-    for (const auto& entry : fs::directory_iterator(projectDir)) {
-        if (!entry.is_directory()) continue;
-        if (!fs::exists(entry.path() / "zone.json")) continue;
-        zones.push_back(entry.path().string());
-    }
-    std::sort(zones.begin(), zones.end());
+    // What counts as a zone, and the order they are reported in,
+    // from one place.
+    std::vector<std::string> zones = wowee::editor::projectZoneDirs(projectDir);
     int totalCreat = 0, totalObj = 0;
     struct Row {
         std::string zone, kind, name;

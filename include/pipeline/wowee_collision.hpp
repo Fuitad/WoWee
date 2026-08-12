@@ -10,7 +10,7 @@ namespace pipeline {
 
 struct ADTTerrain;
 
-// Wowee Open Collision format (.woc) — walkability mesh for custom zones
+// Wowee Open Collision format (.woc) - walkability mesh for custom zones
 struct WoweeCollision {
     struct Triangle {
         glm::vec3 v0, v1, v2;

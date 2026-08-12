@@ -1,0 +1,7 @@
+#!/bin/sh
+cat > /usr/local/bin/wowee << 'WOWEE_WRAPPER'
+#!/bin/sh
+cd /opt/wowee/bin
+exec ./wowee "$@"
+WOWEE_WRAPPER
+chmod +x /usr/local/bin/wowee

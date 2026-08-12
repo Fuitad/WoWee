@@ -1,4 +1,5 @@
 #include "cli_world_info.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_weld.hpp"
 
 #include "pipeline/wowee_building.hpp"
@@ -34,8 +35,7 @@ int handleInfoWob(int& i, int argc, char** argv) {
     if (base.size() >= 4 && base.substr(base.size() - 4) == ".wob")
         base = base.substr(0, base.size() - 4);
     if (!wowee::pipeline::WoweeBuildingLoader::exists(base)) {
-        std::fprintf(stderr, "WOB not found: %s.wob\n", base.c_str());
-        return 1;
+        return reportMissing("WOB", base, ".wob");
     }
     auto bld = wowee::pipeline::WoweeBuildingLoader::load(base);
     size_t totalVerts = 0, totalIdx = 0, totalMats = 0;
@@ -94,8 +94,7 @@ int handleInfoWobStats(int& i, int argc, char** argv) {
     if (base.size() >= 4 && base.substr(base.size() - 4) == ".wob")
         base = base.substr(0, base.size() - 4);
     if (!wowee::pipeline::WoweeBuildingLoader::exists(base)) {
-        std::fprintf(stderr, "WOB not found: %s.wob\n", base.c_str());
-        return 1;
+        return reportMissing("WOB", base, ".wob");
     }
     auto bld = wowee::pipeline::WoweeBuildingLoader::load(base);
     struct GroupStats {
@@ -341,8 +340,7 @@ int handleInfoWol(int& i, int argc, char** argv) {
     if (base.size() >= 4 && base.substr(base.size() - 4) == ".wol")
         base = base.substr(0, base.size() - 4);
     if (!wowee::pipeline::WoweeLightLoader::exists(base)) {
-        std::fprintf(stderr, "WOL not found: %s.wol\n", base.c_str());
-        return 1;
+        return reportMissing("WOL", base, ".wol");
     }
     auto wol = wowee::pipeline::WoweeLightLoader::load(base);
     if (!wol.isValid()) {
@@ -406,8 +404,7 @@ int handleValidateWol(int& i, int argc, char** argv) {
     if (base.size() >= 4 && base.substr(base.size() - 4) == ".wol")
         base = base.substr(0, base.size() - 4);
     if (!wowee::pipeline::WoweeLightLoader::exists(base)) {
-        std::fprintf(stderr, "WOL not found: %s.wol\n", base.c_str());
-        return 1;
+        return reportMissing("WOL", base, ".wol");
     }
     auto wol = wowee::pipeline::WoweeLightLoader::load(base);
     std::vector<std::string> errors;
@@ -461,11 +458,11 @@ int handleValidateWol(int& i, int argc, char** argv) {
         return errors.empty() ? 0 : 1;
     }
     if (errors.empty()) {
-        std::printf("WOL %s.wol PASSED — %zu keyframe(s) valid\n",
+        std::printf("WOL %s.wol PASSED - %zu keyframe(s) valid\n",
                     base.c_str(), wol.keyframes.size());
         return 0;
     }
-    std::printf("WOL %s.wol FAILED — %zu error(s):\n",
+    std::printf("WOL %s.wol FAILED - %zu error(s):\n",
                 base.c_str(), errors.size());
     for (const auto& e : errors) std::printf("  - %s\n", e.c_str());
     return 1;
@@ -503,8 +500,7 @@ int handleInfoWolAt(int& i, int argc, char** argv) {
     if (base.size() >= 4 && base.substr(base.size() - 4) == ".wol")
         base = base.substr(0, base.size() - 4);
     if (!wowee::pipeline::WoweeLightLoader::exists(base)) {
-        std::fprintf(stderr, "WOL not found: %s.wol\n", base.c_str());
-        return 1;
+        return reportMissing("WOL", base, ".wol");
     }
     auto wol = wowee::pipeline::WoweeLightLoader::load(base);
     if (!wol.isValid()) {
@@ -595,8 +591,7 @@ int handleExportWolJson(int& i, int argc, char** argv) {
         base = base.substr(0, base.size() - 4);
     if (outPath.empty()) outPath = base + ".wol.json";
     if (!wowee::pipeline::WoweeLightLoader::exists(base)) {
-        std::fprintf(stderr, "WOL not found: %s.wol\n", base.c_str());
-        return 1;
+        return reportMissing("WOL", base, ".wol");
     }
     auto wol = wowee::pipeline::WoweeLightLoader::load(base);
     if (!wol.isValid()) {
@@ -639,7 +634,7 @@ int handleExportWolJson(int& i, int argc, char** argv) {
 
 int handleImportWolJson(int& i, int argc, char** argv) {
     // Import a JSON sidecar back into binary .wol. Validates
-    // structural correctness before saving — invalid JSON or
+    // structural correctness before saving - invalid JSON or
     // missing required fields fails out with a clear message.
     std::string jsonPath = argv[++i];
     std::string outBase;
@@ -720,8 +715,7 @@ int handleValidateWow(int& i, int argc, char** argv) {
     if (base.size() >= 4 && base.substr(base.size() - 4) == ".wow")
         base = base.substr(0, base.size() - 4);
     if (!wowee::pipeline::WoweeWeatherLoader::exists(base)) {
-        std::fprintf(stderr, "WOW not found: %s.wow\n", base.c_str());
-        return 1;
+        return reportMissing("WOW", base, ".wow");
     }
     auto wow = wowee::pipeline::WoweeWeatherLoader::load(base);
     std::vector<std::string> errors;
@@ -765,11 +759,11 @@ int handleValidateWow(int& i, int argc, char** argv) {
         return errors.empty() ? 0 : 1;
     }
     if (errors.empty()) {
-        std::printf("WOW %s.wow PASSED — %zu entry/entries valid\n",
+        std::printf("WOW %s.wow PASSED - %zu entry/entries valid\n",
                     base.c_str(), wow.entries.size());
         return 0;
     }
-    std::printf("WOW %s.wow FAILED — %zu error(s):\n",
+    std::printf("WOW %s.wow FAILED - %zu error(s):\n",
                 base.c_str(), errors.size());
     for (const auto& e : errors) std::printf("  - %s\n", e.c_str());
     return 1;
@@ -786,8 +780,7 @@ int handleInfoWow(int& i, int argc, char** argv) {
     if (base.size() >= 4 && base.substr(base.size() - 4) == ".wow")
         base = base.substr(0, base.size() - 4);
     if (!wowee::pipeline::WoweeWeatherLoader::exists(base)) {
-        std::fprintf(stderr, "WOW not found: %s.wow\n", base.c_str());
-        return 1;
+        return reportMissing("WOW", base, ".wow");
     }
     auto wow = wowee::pipeline::WoweeWeatherLoader::load(base);
     if (!wow.isValid()) {
@@ -897,8 +890,7 @@ int handleExportWowJson(int& i, int argc, char** argv) {
         base = base.substr(0, base.size() - 4);
     if (outPath.empty()) outPath = base + ".wow.json";
     if (!wowee::pipeline::WoweeWeatherLoader::exists(base)) {
-        std::fprintf(stderr, "WOW not found: %s.wow\n", base.c_str());
-        return 1;
+        return reportMissing("WOW", base, ".wow");
     }
     auto wow = wowee::pipeline::WoweeWeatherLoader::load(base);
     if (!wow.isValid()) {

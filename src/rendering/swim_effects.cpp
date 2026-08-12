@@ -31,6 +31,76 @@ static float randFloat(float lo, float hi) {
 SwimEffects::SwimEffects() = default;
 SwimEffects::~SwimEffects() { shutdown(); }
 
+/// The ripple pipeline: the rings that spread where a swimmer breaks the
+/// surface.
+///
+/// initialize() and recreatePipelines() described these three identically,
+/// so each was stated twice in one file.
+void SwimEffects::buildRipplePipeline(
+        VkDevice device, const VkPipelineShaderStageCreateInfo& vertStage,
+        const VkPipelineShaderStageCreateInfo& fragStage,
+        const VkVertexInputBindingDescription& binding,
+        const std::vector<VkVertexInputAttributeDescription>& attrs) {
+    const std::vector<VkDynamicState> dynamicStates = viewportAndScissorDynamic();
+
+    ripplePipeline = PipelineBuilder()
+        .setShaders(vertStage, fragStage)
+        .setVertexInput({binding}, attrs)
+        .setTopology(VK_PRIMITIVE_TOPOLOGY_POINT_LIST)
+        .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
+        .setDepthTest(true, false, VK_COMPARE_OP_LESS)
+        .setColorBlendAttachment(PipelineBuilder::blendAlpha())
+        .setMultisample(targetSamples_)
+        .setLayout(ripplePipelineLayout)
+        .setRenderPass(targetPass_)
+        .setDynamicStates(dynamicStates)
+        .build(device, vkCtx->getPipelineCache());
+}
+
+/// The bubble pipeline: what rises from a swimmer under the surface.
+void SwimEffects::buildBubblePipeline(
+        VkDevice device, const VkPipelineShaderStageCreateInfo& vertStage,
+        const VkPipelineShaderStageCreateInfo& fragStage,
+        const VkVertexInputBindingDescription& binding,
+        const std::vector<VkVertexInputAttributeDescription>& attrs) {
+    const std::vector<VkDynamicState> dynamicStates = viewportAndScissorDynamic();
+
+    bubblePipeline = PipelineBuilder()
+        .setShaders(vertStage, fragStage)
+        .setVertexInput({binding}, attrs)
+        .setTopology(VK_PRIMITIVE_TOPOLOGY_POINT_LIST)
+        .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
+        .setDepthTest(true, false, VK_COMPARE_OP_LESS)
+        .setColorBlendAttachment(PipelineBuilder::blendAlpha())
+        .setMultisample(targetSamples_)
+        .setLayout(bubblePipelineLayout)
+        .setRenderPass(targetPass_)
+        .setDynamicStates(dynamicStates)
+        .build(device, vkCtx->getPipelineCache());
+}
+
+/// The insect pipeline: the midges that hover over still water.
+void SwimEffects::buildInsectPipeline(
+        VkDevice device, const VkPipelineShaderStageCreateInfo& vertStage,
+        const VkPipelineShaderStageCreateInfo& fragStage,
+        const VkVertexInputBindingDescription& binding,
+        const std::vector<VkVertexInputAttributeDescription>& attrs) {
+    const std::vector<VkDynamicState> dynamicStates = viewportAndScissorDynamic();
+
+    insectPipeline = PipelineBuilder()
+        .setShaders(vertStage, fragStage)
+        .setVertexInput({binding}, attrs)
+        .setTopology(VK_PRIMITIVE_TOPOLOGY_POINT_LIST)
+        .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
+        .setDepthTest(false, false, VK_COMPARE_OP_LESS)
+        .setColorBlendAttachment(PipelineBuilder::blendAlpha())
+        .setMultisample(targetSamples_)
+        .setLayout(insectPipelineLayout)
+        .setRenderPass(targetPass_)
+        .setDynamicStates(dynamicStates)
+        .build(device, vkCtx->getPipelineCache());
+}
+
 bool SwimEffects::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout) {
     LOG_INFO("Initializing swim effects");
 
@@ -45,48 +115,16 @@ bool SwimEffects::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayou
     }
 
     // ---- Vertex input: pos(vec3) + size(float) + alpha(float) = 5 floats, stride = 20 bytes ----
-    VkVertexInputBindingDescription binding{};
-    binding.binding = 0;
-    binding.stride = 5 * sizeof(float);
-    binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+    VkVertexInputBindingDescription binding = tightVertexBinding(5 * sizeof(float));
+    std::vector<VkVertexInputAttributeDescription> attrs = positionPlusTwoFloatsAttrs();
 
-    std::vector<VkVertexInputAttributeDescription> attrs(3);
-    // location 0: vec3 position
-    attrs[0].location = 0;
-    attrs[0].binding = 0;
-    attrs[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-    attrs[0].offset = 0;
-    // location 1: float size
-    attrs[1].location = 1;
-    attrs[1].binding = 0;
-    attrs[1].format = VK_FORMAT_R32_SFLOAT;
-    attrs[1].offset = 3 * sizeof(float);
-    // location 2: float alpha
-    attrs[2].location = 2;
-    attrs[2].binding = 0;
-    attrs[2].format = VK_FORMAT_R32_SFLOAT;
-    attrs[2].offset = 4 * sizeof(float);
-
-    std::vector<VkDynamicState> dynamicStates = {
-        VK_DYNAMIC_STATE_VIEWPORT,
-        VK_DYNAMIC_STATE_SCISSOR
-    };
 
     // ---- Ripple pipeline ----
     {
-        VkShaderModule vertModule;
-        if (!vertModule.loadFromFile(device, "assets/shaders/swim_ripple.vert.spv")) {
-            LOG_ERROR("Failed to load swim_ripple vertex shader");
-            return false;
-        }
-        VkShaderModule fragModule;
-        if (!fragModule.loadFromFile(device, "assets/shaders/swim_ripple.frag.spv")) {
-            LOG_ERROR("Failed to load swim_ripple fragment shader");
-            return false;
-        }
-
-        VkPipelineShaderStageCreateInfo vertStage = vertModule.stageInfo(VK_SHADER_STAGE_VERTEX_BIT);
-        VkPipelineShaderStageCreateInfo fragStage = fragModule.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT);
+        auto shaders = loadShaderPair(device, "assets/shaders/swim_ripple.vert.spv", "assets/shaders/swim_ripple.frag.spv", "swim_ripple");
+        if (!shaders) return false;
+        const auto& vertStage = shaders.vertStage;
+        const auto& fragStage = shaders.fragStage;
 
         ripplePipelineLayout = createPipelineLayout(device, {perFrameLayout}, {});
         if (ripplePipelineLayout == VK_NULL_HANDLE) {
@@ -94,21 +132,8 @@ bool SwimEffects::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayou
             return false;
         }
 
-        ripplePipeline = PipelineBuilder()
-            .setShaders(vertStage, fragStage)
-            .setVertexInput({binding}, attrs)
-            .setTopology(VK_PRIMITIVE_TOPOLOGY_POINT_LIST)
-            .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
-            .setDepthTest(true, false, VK_COMPARE_OP_LESS)
-            .setColorBlendAttachment(PipelineBuilder::blendAlpha())
-            .setMultisample(targetSamples_)
-            .setLayout(ripplePipelineLayout)
-            .setRenderPass(targetPass_)
-            .setDynamicStates(dynamicStates)
-            .build(device, vkCtx->getPipelineCache());
+        buildRipplePipeline(device, vertStage, fragStage, binding, attrs);
 
-        vertModule.destroy();
-        fragModule.destroy();
 
         if (ripplePipeline == VK_NULL_HANDLE) {
             LOG_ERROR("Failed to create ripple pipeline");
@@ -118,19 +143,10 @@ bool SwimEffects::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayou
 
     // ---- Bubble pipeline ----
     {
-        VkShaderModule vertModule;
-        if (!vertModule.loadFromFile(device, "assets/shaders/swim_bubble.vert.spv")) {
-            LOG_ERROR("Failed to load swim_bubble vertex shader");
-            return false;
-        }
-        VkShaderModule fragModule;
-        if (!fragModule.loadFromFile(device, "assets/shaders/swim_bubble.frag.spv")) {
-            LOG_ERROR("Failed to load swim_bubble fragment shader");
-            return false;
-        }
-
-        VkPipelineShaderStageCreateInfo vertStage = vertModule.stageInfo(VK_SHADER_STAGE_VERTEX_BIT);
-        VkPipelineShaderStageCreateInfo fragStage = fragModule.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT);
+        auto shaders = loadShaderPair(device, "assets/shaders/swim_bubble.vert.spv", "assets/shaders/swim_bubble.frag.spv", "swim_bubble");
+        if (!shaders) return false;
+        const auto& vertStage = shaders.vertStage;
+        const auto& fragStage = shaders.fragStage;
 
         bubblePipelineLayout = createPipelineLayout(device, {perFrameLayout}, {});
         if (bubblePipelineLayout == VK_NULL_HANDLE) {
@@ -138,21 +154,8 @@ bool SwimEffects::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayou
             return false;
         }
 
-        bubblePipeline = PipelineBuilder()
-            .setShaders(vertStage, fragStage)
-            .setVertexInput({binding}, attrs)
-            .setTopology(VK_PRIMITIVE_TOPOLOGY_POINT_LIST)
-            .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
-            .setDepthTest(true, false, VK_COMPARE_OP_LESS)
-            .setColorBlendAttachment(PipelineBuilder::blendAlpha())
-            .setMultisample(targetSamples_)
-            .setLayout(bubblePipelineLayout)
-            .setRenderPass(targetPass_)
-            .setDynamicStates(dynamicStates)
-            .build(device, vkCtx->getPipelineCache());
+        buildBubblePipeline(device, vertStage, fragStage, binding, attrs);
 
-        vertModule.destroy();
-        fragModule.destroy();
 
         if (bubblePipeline == VK_NULL_HANDLE) {
             LOG_ERROR("Failed to create bubble pipeline");
@@ -162,19 +165,10 @@ bool SwimEffects::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayou
 
     // ---- Insect pipeline (dark point sprites) ----
     {
-        VkShaderModule vertModule;
-        if (!vertModule.loadFromFile(device, "assets/shaders/swim_ripple.vert.spv")) {
-            LOG_ERROR("Failed to load insect vertex shader");
-            return false;
-        }
-        VkShaderModule fragModule;
-        if (!fragModule.loadFromFile(device, "assets/shaders/swim_insect.frag.spv")) {
-            LOG_ERROR("Failed to load insect fragment shader");
-            return false;
-        }
-
-        VkPipelineShaderStageCreateInfo vertStage = vertModule.stageInfo(VK_SHADER_STAGE_VERTEX_BIT);
-        VkPipelineShaderStageCreateInfo fragStage = fragModule.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT);
+        auto shaders = loadShaderPair(device, "assets/shaders/swim_ripple.vert.spv", "assets/shaders/swim_insect.frag.spv", "swim_ripple");
+        if (!shaders) return false;
+        const auto& vertStage = shaders.vertStage;
+        const auto& fragStage = shaders.fragStage;
 
         insectPipelineLayout = createPipelineLayout(device, {perFrameLayout}, {});
         if (insectPipelineLayout == VK_NULL_HANDLE) {
@@ -182,23 +176,10 @@ bool SwimEffects::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayou
             return false;
         }
 
-        // Depth test disabled — insects are screen-space sprites that must always
+        // Depth test disabled - insects are screen-space sprites that must always
         // render above the water surface regardless of scene geometry.
-        insectPipeline = PipelineBuilder()
-            .setShaders(vertStage, fragStage)
-            .setVertexInput({binding}, attrs)
-            .setTopology(VK_PRIMITIVE_TOPOLOGY_POINT_LIST)
-            .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
-            .setDepthTest(false, false, VK_COMPARE_OP_LESS)
-            .setColorBlendAttachment(PipelineBuilder::blendAlpha())
-            .setMultisample(targetSamples_)
-            .setLayout(insectPipelineLayout)
-            .setRenderPass(targetPass_)
-            .setDynamicStates(dynamicStates)
-            .build(device, vkCtx->getPipelineCache());
+        buildInsectPipeline(device, vertStage, fragStage, binding, attrs);
 
-        vertModule.destroy();
-        fragModule.destroy();
 
         if (insectPipeline == VK_NULL_HANDLE) {
             LOG_ERROR("Failed to create insect pipeline");
@@ -262,47 +243,17 @@ void SwimEffects::shutdown() {
         VkDevice device = vkCtx->getDevice();
         VmaAllocator allocator = vkCtx->getAllocator();
 
-        if (ripplePipeline != VK_NULL_HANDLE) {
-            vkDestroyPipeline(device, ripplePipeline, nullptr);
-            ripplePipeline = VK_NULL_HANDLE;
-        }
-        if (ripplePipelineLayout != VK_NULL_HANDLE) {
-            vkDestroyPipelineLayout(device, ripplePipelineLayout, nullptr);
-            ripplePipelineLayout = VK_NULL_HANDLE;
-        }
-        if (rippleDynamicVB != VK_NULL_HANDLE) {
-            vmaDestroyBuffer(allocator, rippleDynamicVB, rippleDynamicVBAlloc);
-            rippleDynamicVB = VK_NULL_HANDLE;
-            rippleDynamicVBAlloc = VK_NULL_HANDLE;
-        }
+        destroy(device, ripplePipeline);
+        destroy(device, ripplePipelineLayout);
+        destroy(allocator, rippleDynamicVB, rippleDynamicVBAlloc);
 
-        if (bubblePipeline != VK_NULL_HANDLE) {
-            vkDestroyPipeline(device, bubblePipeline, nullptr);
-            bubblePipeline = VK_NULL_HANDLE;
-        }
-        if (bubblePipelineLayout != VK_NULL_HANDLE) {
-            vkDestroyPipelineLayout(device, bubblePipelineLayout, nullptr);
-            bubblePipelineLayout = VK_NULL_HANDLE;
-        }
-        if (bubbleDynamicVB != VK_NULL_HANDLE) {
-            vmaDestroyBuffer(allocator, bubbleDynamicVB, bubbleDynamicVBAlloc);
-            bubbleDynamicVB = VK_NULL_HANDLE;
-            bubbleDynamicVBAlloc = VK_NULL_HANDLE;
-        }
+        destroy(device, bubblePipeline);
+        destroy(device, bubblePipelineLayout);
+        destroy(allocator, bubbleDynamicVB, bubbleDynamicVBAlloc);
 
-        if (insectPipeline != VK_NULL_HANDLE) {
-            vkDestroyPipeline(device, insectPipeline, nullptr);
-            insectPipeline = VK_NULL_HANDLE;
-        }
-        if (insectPipelineLayout != VK_NULL_HANDLE) {
-            vkDestroyPipelineLayout(device, insectPipelineLayout, nullptr);
-            insectPipelineLayout = VK_NULL_HANDLE;
-        }
-        if (insectDynamicVB != VK_NULL_HANDLE) {
-            vmaDestroyBuffer(allocator, insectDynamicVB, insectDynamicVBAlloc);
-            insectDynamicVB = VK_NULL_HANDLE;
-            insectDynamicVBAlloc = VK_NULL_HANDLE;
-        }
+        destroy(device, insectPipeline);
+        destroy(device, insectPipelineLayout);
+        destroy(allocator, insectDynamicVB, insectDynamicVBAlloc);
     }
 
     vkCtx = nullptr;
@@ -323,43 +274,14 @@ void SwimEffects::recreatePipelines() {
     }
 
     // Destroy old pipelines (NOT layouts)
-    if (ripplePipeline != VK_NULL_HANDLE) {
-        vkDestroyPipeline(device, ripplePipeline, nullptr);
-        ripplePipeline = VK_NULL_HANDLE;
-    }
-    if (bubblePipeline != VK_NULL_HANDLE) {
-        vkDestroyPipeline(device, bubblePipeline, nullptr);
-        bubblePipeline = VK_NULL_HANDLE;
-    }
-    if (insectPipeline != VK_NULL_HANDLE) {
-        vkDestroyPipeline(device, insectPipeline, nullptr);
-        insectPipeline = VK_NULL_HANDLE;
-    }
+    destroy(device, ripplePipeline);
+    destroy(device, bubblePipeline);
+    destroy(device, insectPipeline);
 
     // Shared vertex input: pos(vec3) + size(float) + alpha(float) = 5 floats
-    VkVertexInputBindingDescription binding{};
-    binding.binding = 0;
-    binding.stride = 5 * sizeof(float);
-    binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+    VkVertexInputBindingDescription binding = tightVertexBinding(5 * sizeof(float));
+    std::vector<VkVertexInputAttributeDescription> attrs = positionPlusTwoFloatsAttrs();
 
-    std::vector<VkVertexInputAttributeDescription> attrs(3);
-    attrs[0].location = 0;
-    attrs[0].binding = 0;
-    attrs[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-    attrs[0].offset = 0;
-    attrs[1].location = 1;
-    attrs[1].binding = 0;
-    attrs[1].format = VK_FORMAT_R32_SFLOAT;
-    attrs[1].offset = 3 * sizeof(float);
-    attrs[2].location = 2;
-    attrs[2].binding = 0;
-    attrs[2].format = VK_FORMAT_R32_SFLOAT;
-    attrs[2].offset = 4 * sizeof(float);
-
-    std::vector<VkDynamicState> dynamicStates = {
-        VK_DYNAMIC_STATE_VIEWPORT,
-        VK_DYNAMIC_STATE_SCISSOR
-    };
 
     // ---- Rebuild ripple pipeline ----
     {
@@ -371,21 +293,8 @@ void SwimEffects::recreatePipelines() {
         VkPipelineShaderStageCreateInfo vertStage = vertModule.stageInfo(VK_SHADER_STAGE_VERTEX_BIT);
         VkPipelineShaderStageCreateInfo fragStage = fragModule.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT);
 
-        ripplePipeline = PipelineBuilder()
-            .setShaders(vertStage, fragStage)
-            .setVertexInput({binding}, attrs)
-            .setTopology(VK_PRIMITIVE_TOPOLOGY_POINT_LIST)
-            .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
-            .setDepthTest(true, false, VK_COMPARE_OP_LESS)
-            .setColorBlendAttachment(PipelineBuilder::blendAlpha())
-            .setMultisample(targetSamples_)
-            .setLayout(ripplePipelineLayout)
-            .setRenderPass(targetPass_)
-            .setDynamicStates(dynamicStates)
-            .build(device, vkCtx->getPipelineCache());
+        buildRipplePipeline(device, vertStage, fragStage, binding, attrs);
 
-        vertModule.destroy();
-        fragModule.destroy();
     }
 
     // ---- Rebuild bubble pipeline ----
@@ -398,21 +307,8 @@ void SwimEffects::recreatePipelines() {
         VkPipelineShaderStageCreateInfo vertStage = vertModule.stageInfo(VK_SHADER_STAGE_VERTEX_BIT);
         VkPipelineShaderStageCreateInfo fragStage = fragModule.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT);
 
-        bubblePipeline = PipelineBuilder()
-            .setShaders(vertStage, fragStage)
-            .setVertexInput({binding}, attrs)
-            .setTopology(VK_PRIMITIVE_TOPOLOGY_POINT_LIST)
-            .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
-            .setDepthTest(true, false, VK_COMPARE_OP_LESS)
-            .setColorBlendAttachment(PipelineBuilder::blendAlpha())
-            .setMultisample(targetSamples_)
-            .setLayout(bubblePipelineLayout)
-            .setRenderPass(targetPass_)
-            .setDynamicStates(dynamicStates)
-            .build(device, vkCtx->getPipelineCache());
+        buildBubblePipeline(device, vertStage, fragStage, binding, attrs);
 
-        vertModule.destroy();
-        fragModule.destroy();
     }
 
     // ---- Rebuild insect pipeline ----
@@ -425,21 +321,8 @@ void SwimEffects::recreatePipelines() {
         VkPipelineShaderStageCreateInfo vertStage = vertModule.stageInfo(VK_SHADER_STAGE_VERTEX_BIT);
         VkPipelineShaderStageCreateInfo fragStage = fragModule.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT);
 
-        insectPipeline = PipelineBuilder()
-            .setShaders(vertStage, fragStage)
-            .setVertexInput({binding}, attrs)
-            .setTopology(VK_PRIMITIVE_TOPOLOGY_POINT_LIST)
-            .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
-            .setDepthTest(false, false, VK_COMPARE_OP_LESS)
-            .setColorBlendAttachment(PipelineBuilder::blendAlpha())
-            .setMultisample(targetSamples_)
-            .setLayout(insectPipelineLayout)
-            .setRenderPass(targetPass_)
-            .setDynamicStates(dynamicStates)
-            .build(device, vkCtx->getPipelineCache());
+        buildInsectPipeline(device, vertStage, fragStage, binding, attrs);
 
-        vertModule.destroy();
-        fragModule.destroy();
     }
 }
 
@@ -568,7 +451,7 @@ void SwimEffects::update(const Camera& camera, const CameraController& cc,
         }
     } else {
         rippleSpawnAccum = 0.0f;
-        // Don't clear ripples — foot splash particles are added while wading
+        // Don't clear ripples - foot splash particles are added while wading
         // (not swimming) and need to live out their lifetime.
     }
 
@@ -590,7 +473,7 @@ void SwimEffects::update(const Camera& camera, const CameraController& cc,
             // only ever reach 0.5 in a frame and never crossed the threshold.
             wadeSpawnAccum += 30.0f * depthScale * deltaTime;
 
-            // Forward from yaw is (cos, sin) — the same derivation the camera
+            // Forward from yaw is (cos, sin) - the same derivation the camera
             // controller uses to move the character.
             const float yawRad = glm::radians(cc.getYaw());
             const glm::vec2 travel(std::cos(yawRad), std::sin(yawRad));

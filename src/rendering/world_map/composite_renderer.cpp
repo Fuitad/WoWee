@@ -1,4 +1,4 @@
-// composite_renderer.cpp — Vulkan off-screen composite rendering for the world map.
+// composite_renderer.cpp - Vulkan off-screen composite rendering for the world map.
 // Extracted from WorldMap::initialize, shutdown, compositePass, loadZoneTextures,
 // loadOverlayTextures, destroyZoneTextures (Phase 7 of refactoring plan).
 #include "rendering/world_map/composite_renderer.hpp"
@@ -137,16 +137,11 @@ bool CompositeRenderer::initialize(VkContext* ctx, pipeline::AssetManager* am) {
 
     // --- Load tile shaders and build pipeline ---
     {
-        VkShaderModule vs, fs;
-        if (!vs.loadFromFile(device, "assets/shaders/world_map.vert.spv") ||
-            !fs.loadFromFile(device, "assets/shaders/world_map.frag.spv")) {
-            LOG_ERROR("CompositeRenderer: failed to load tile shaders");
-            return false;
-        }
+        auto shaders = loadShaderPair(device, "assets/shaders/world_map.vert.spv", "assets/shaders/world_map.frag.spv", "world_map tile");
+        if (!shaders) return false;
 
         tilePipeline = PipelineBuilder()
-            .setShaders(vs.stageInfo(VK_SHADER_STAGE_VERTEX_BIT),
-                        fs.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT))
+            .setShaders(shaders.vertStage, shaders.fragStage)
             .setVertexInput({ binding }, attrs)
             .setTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
             .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
@@ -154,11 +149,9 @@ bool CompositeRenderer::initialize(VkContext* ctx, pipeline::AssetManager* am) {
             .setColorBlendAttachment(PipelineBuilder::blendDisabled())
             .setLayout(tilePipelineLayout)
             .setRenderPass(compositeTarget->getRenderPass())
-            .setDynamicStates({ VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR })
+            .setDynamicStates(viewportAndScissorDynamic())
             .build(device, vkCtx->getPipelineCache());
 
-        vs.destroy();
-        fs.destroy();
     }
 
     if (!tilePipeline) {
@@ -181,16 +174,11 @@ bool CompositeRenderer::initialize(VkContext* ctx, pipeline::AssetManager* am) {
         overlayPipelineLayout_ = createPipelineLayout(device, { samplerSetLayout },
                                                        { overlayPushVert, overlayPushFrag });
 
-        VkShaderModule vs, fs;
-        if (!vs.loadFromFile(device, "assets/shaders/world_map.vert.spv") ||
-            !fs.loadFromFile(device, "assets/shaders/world_map_fog.frag.spv")) {
-            LOG_ERROR("CompositeRenderer: failed to load overlay shaders");
-            return false;
-        }
+        auto shaders = loadShaderPair(device, "assets/shaders/world_map.vert.spv", "assets/shaders/world_map_fog.frag.spv", "world_map overlay");
+        if (!shaders) return false;
 
         overlayPipeline_ = PipelineBuilder()
-            .setShaders(vs.stageInfo(VK_SHADER_STAGE_VERTEX_BIT),
-                        fs.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT))
+            .setShaders(shaders.vertStage, shaders.fragStage)
             .setVertexInput({ binding }, attrs)
             .setTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
             .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
@@ -198,11 +186,9 @@ bool CompositeRenderer::initialize(VkContext* ctx, pipeline::AssetManager* am) {
             .setColorBlendAttachment(PipelineBuilder::blendAlpha())
             .setLayout(overlayPipelineLayout_)
             .setRenderPass(compositeTarget->getRenderPass())
-            .setDynamicStates({ VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR })
+            .setDynamicStates(viewportAndScissorDynamic())
             .build(device, vkCtx->getPipelineCache());
 
-        vs.destroy();
-        fs.destroy();
     }
 
     if (!overlayPipeline_) {
@@ -241,13 +227,13 @@ void CompositeRenderer::shutdown() {
 
     vkDeviceWaitIdle(device);
 
-    if (tilePipeline) { vkDestroyPipeline(device, tilePipeline, nullptr); tilePipeline = VK_NULL_HANDLE; }
-    if (tilePipelineLayout) { vkDestroyPipelineLayout(device, tilePipelineLayout, nullptr); tilePipelineLayout = VK_NULL_HANDLE; }
-    if (overlayPipeline_) { vkDestroyPipeline(device, overlayPipeline_, nullptr); overlayPipeline_ = VK_NULL_HANDLE; }
-    if (overlayPipelineLayout_) { vkDestroyPipelineLayout(device, overlayPipelineLayout_, nullptr); overlayPipelineLayout_ = VK_NULL_HANDLE; }
-    if (descPool) { vkDestroyDescriptorPool(device, descPool, nullptr); descPool = VK_NULL_HANDLE; }
-    if (samplerSetLayout) { vkDestroyDescriptorSetLayout(device, samplerSetLayout, nullptr); samplerSetLayout = VK_NULL_HANDLE; }
-    if (quadVB) { vmaDestroyBuffer(alloc, quadVB, quadVBAlloc); quadVB = VK_NULL_HANDLE; }
+    destroy(device, tilePipeline);
+    destroy(device, tilePipelineLayout);
+    destroy(device, overlayPipeline_);
+    destroy(device, overlayPipelineLayout_);
+    destroy(device, descPool);
+    destroy(device, samplerSetLayout);
+    destroy(alloc, quadVB, quadVBAlloc);
 
     for (auto& tex : zoneTextures) {
         if (tex) tex->destroy(device, alloc);

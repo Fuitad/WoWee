@@ -6,7 +6,7 @@ namespace wowee {
 namespace editor {
 
 float EditorBrush::getInfluence(float distance) const {
-    // NaN distance must produce 0 influence — comparisons against NaN
+    // NaN distance must produce 0 influence - comparisons against NaN
     // return false, so without this the function would fall through to
     // the "fully inside" branch and return 1.0 for every queried point.
     if (!std::isfinite(distance) || !std::isfinite(settings_.radius) ||

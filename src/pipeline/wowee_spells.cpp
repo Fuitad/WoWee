@@ -1,4 +1,5 @@
 #include "pipeline/wowee_spells.hpp"
+#include "pipeline/wowee_binary_io.hpp"
 
 #include <cstdio>
 #include <cstring>
@@ -11,45 +12,7 @@ namespace {
 
 constexpr char kMagic[4] = {'W', 'S', 'P', 'L'};
 constexpr uint32_t kVersion = 1;
-
-template <typename T>
-void writePOD(std::ofstream& os, const T& v) {
-    os.write(reinterpret_cast<const char*>(&v), sizeof(T));
-}
-
-template <typename T>
-bool readPOD(std::ifstream& is, T& v) {
-    is.read(reinterpret_cast<char*>(&v), sizeof(T));
-    return is.gcount() == static_cast<std::streamsize>(sizeof(T));
-}
-
-void writeStr(std::ofstream& os, const std::string& s) {
-    uint32_t n = static_cast<uint32_t>(s.size());
-    writePOD(os, n);
-    if (n > 0) os.write(s.data(), n);
-}
-
-bool readStr(std::ifstream& is, std::string& s) {
-    uint32_t n = 0;
-    if (!readPOD(is, n)) return false;
-    if (n > (1u << 20)) return false;
-    s.resize(n);
-    if (n > 0) {
-        is.read(s.data(), n);
-        if (is.gcount() != static_cast<std::streamsize>(n)) {
-            s.clear();
-            return false;
-        }
-    }
-    return true;
-}
-
-std::string normalizePath(std::string base) {
-    if (base.size() < 5 || base.substr(base.size() - 5) != ".wspl") {
-        base += ".wspl";
-    }
-    return base;
-}
+constexpr char kExtension[] = ".wspl";
 
 } // namespace
 
@@ -99,15 +62,9 @@ const char* WoweeSpell::effectKindName(uint8_t e) {
 }
 
 bool WoweeSpellLoader::save(const WoweeSpell& cat,
-                            const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath), std::ios::binary);
-    if (!os) return false;
-    os.write(kMagic, 4);
-    writePOD(os, kVersion);
-    writeStr(os, cat.name);
-    uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writePOD(os, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeSpell::Entry& e) {
         writePOD(os, e.spellId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -115,8 +72,7 @@ bool WoweeSpellLoader::save(const WoweeSpell& cat,
         writePOD(os, e.school);
         writePOD(os, e.targetType);
         writePOD(os, e.effectKind);
-        uint8_t pad = 0;
-        writePOD(os, pad);
+        writePadding(os, 1);
         writePOD(os, e.castTimeMs);
         writePOD(os, e.cooldownMs);
         writePOD(os, e.gcdMs);
@@ -130,39 +86,20 @@ bool WoweeSpellLoader::save(const WoweeSpell& cat,
         writePOD(os, e.effectValueMax);
         writePOD(os, e.effectMisc);
         writePOD(os, e.flags);
-    }
-    return os.good();
+                       });
 }
 
-WoweeSpell WoweeSpellLoader::load(const std::string& basePath) {
-    WoweeSpell out;
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    if (!is) return out;
-    char magic[4];
-    is.read(magic, 4);
-    if (std::memcmp(magic, kMagic, 4) != 0) return out;
-    uint32_t version = 0;
-    if (!readPOD(is, version) || version != kVersion) return out;
-    if (!readStr(is, out.name)) return out;
-    uint32_t entryCount = 0;
-    if (!readPOD(is, entryCount)) return out;
-    if (entryCount > (1u << 20)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.spellId)) { out.entries.clear(); return out; }
+WoweeSpell WoweeSpellLoader::load(
+    const std::string& basePath) {
+    return loadCatalog<WoweeSpell>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeSpell::Entry& e) {
+        if (!readPOD(is, e.spellId)) { return false; }
         if (!readStr(is, e.name) || !readStr(is, e.description) ||
-            !readStr(is, e.iconPath)) {
-            out.entries.clear(); return out;
-        }
+            !readStr(is, e.iconPath)) { return false; }
         if (!readPOD(is, e.school) ||
             !readPOD(is, e.targetType) ||
-            !readPOD(is, e.effectKind)) {
-            out.entries.clear(); return out;
-        }
-        uint8_t pad = 0;
-        if (!readPOD(is, pad)) {
-            out.entries.clear(); return out;
-        }
+            !readPOD(is, e.effectKind)) { return false; }
+        if (!skipPadding(is, 1)) { return false; }
         if (!readPOD(is, e.castTimeMs) ||
             !readPOD(is, e.cooldownMs) ||
             !readPOD(is, e.gcdMs) ||
@@ -175,16 +112,13 @@ WoweeSpell WoweeSpellLoader::load(const std::string& basePath) {
             !readPOD(is, e.effectValueMin) ||
             !readPOD(is, e.effectValueMax) ||
             !readPOD(is, e.effectMisc) ||
-            !readPOD(is, e.flags)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.flags)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeSpellLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeSpell WoweeSpellLoader::makeStarter(const std::string& catalogName) {

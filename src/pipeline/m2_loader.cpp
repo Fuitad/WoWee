@@ -1,5 +1,5 @@
 /**
- * M2 Model Loader — Binary parser for WoW's M2 model format (WotLK 3.3.5a)
+ * M2 Model Loader - Binary parser for WoW's M2 model format (WotLK 3.3.5a)
  *
  * M2 files contain skeletal-animated meshes used for characters, creatures,
  * and doodads. The format stores geometry, bones with animation tracks,
@@ -14,7 +14,7 @@
  *    an offset mapping (not simple division).
  *  - Skin file indices use two-level indirection: triangle → vertex lookup
  *    table → global vertex index.
- *  - Skin batch struct is 24 bytes on disk — the geosetIndex field at offset 10
+ *  - Skin batch struct is 24 bytes on disk - the geosetIndex field at offset 10
  *    is easily missed, causing a 2-byte alignment shift on all subsequent fields.
  *
  * Reference: https://wowdev.wiki/M2
@@ -129,7 +129,7 @@ struct M2TrackDisk {
     uint32_t ofsKeys;
 };
 
-// FBlock header (on-disk, 16 bytes) — particle lifetime curves
+// FBlock header (on-disk, 16 bytes) - particle lifetime curves
 // Like M2TrackDisk but WITHOUT interpolationType/globalSequence prefix
 struct FBlockDisk {
     uint32_t nTimestamps;
@@ -151,19 +151,19 @@ struct M2BoneDisk {
     float pivot[3];             // 12
 };                              // Total: 88
 
-// Vanilla M2 animation track header (on-disk, 28 bytes — has extra ranges M2Array)
+// Vanilla M2 animation track header (on-disk, 28 bytes - has extra ranges M2Array)
 struct M2TrackDiskVanilla {
     uint16_t interpolationType; // 2
     int16_t globalSequence;     // 2
-    uint32_t nRanges;           // 4 — extra in vanilla (animation sequence ranges)
-    uint32_t ofsRanges;         // 4 — extra in vanilla
+    uint32_t nRanges;           // 4 - extra in vanilla (animation sequence ranges)
+    uint32_t ofsRanges;         // 4 - extra in vanilla
     uint32_t nTimestamps;       // 4
     uint32_t ofsTimestamps;     // 4
     uint32_t nKeys;             // 4
     uint32_t ofsKeys;           // 4
 };                              // Total: 28
 
-// Vanilla M2 bone structure (on-disk, 108 bytes — no boneNameCRC, 28-byte tracks)
+// Vanilla M2 bone structure (on-disk, 108 bytes - no boneNameCRC, 28-byte tracks)
 struct M2BoneDiskVanilla {
     int32_t keyBoneId;              // 4
     uint32_t flags;                 // 4
@@ -178,13 +178,13 @@ struct M2BoneDiskVanilla {
 // TBC M2 bone structure (on-disk, 112 bytes). Like vanilla (28-byte tracks WITH
 // interpolation ranges) but with the boneNameCRC field that BC introduced (and
 // WotLK kept). TBC rotations are compressed int16[4] quaternions, NOT vanilla's
-// float[4] — see parseAnimTrackVanilla's compressedQuat flag.
+// float[4] - see parseAnimTrackVanilla's compressedQuat flag.
 struct M2BoneDiskTBC {
     int32_t keyBoneId;              // 4
     uint32_t flags;                 // 4
     int16_t parentBone;             // 2
     uint16_t submeshId;             // 2
-    uint32_t boneNameCRC;           // 4 — added in BC
+    uint32_t boneNameCRC;           // 4 - added in BC
     M2TrackDiskVanilla translation; // 28
     M2TrackDiskVanilla rotation;    // 28
     M2TrackDiskVanilla scale;       // 28
@@ -211,7 +211,7 @@ struct M2SequenceDisk {
     uint16_t aliasNext;
 };
 
-// Vanilla M2 animation sequence (68 bytes — has start_timestamp before duration)
+// Vanilla M2 animation sequence (68 bytes - has start_timestamp before duration)
 struct M2SequenceDiskVanilla {
     uint16_t id;
     uint16_t variationIndex;
@@ -271,7 +271,7 @@ struct M2SkinSubmesh {
     float sortRadius;
 };
 
-// Vanilla M2 skin submesh (32 bytes, version < 264 — no sortCenter/sortRadius)
+// Vanilla M2 skin submesh (32 bytes, version < 264 - no sortCenter/sortRadius)
 struct M2SkinSubmeshVanilla {
     uint16_t id;
     uint16_t level;
@@ -339,7 +339,7 @@ struct M2TextureTransformDiskVanilla {
     M2TrackDiskVanilla scaling;     // 28
 };
 
-// M2 attachment point (on-disk, WotLK — 40 bytes)
+// M2 attachment point (on-disk, WotLK - 40 bytes)
 struct M2AttachmentDisk {
     uint32_t id;
     uint16_t bone;
@@ -348,7 +348,7 @@ struct M2AttachmentDisk {
     uint8_t trackData[20]; // M2TrackDisk (20 bytes)
 };
 
-// M2 attachment point (on-disk, vanilla — 48 bytes, track is 28 bytes)
+// M2 attachment point (on-disk, vanilla - 48 bytes, track is 28 bytes)
 struct M2AttachmentDiskVanilla {
     uint32_t id;
     uint16_t bone;
@@ -357,7 +357,7 @@ struct M2AttachmentDiskVanilla {
     uint8_t trackData[28]; // M2TrackDiskVanilla (28 bytes)
 };
 
-// M2 camera (on-disk, WotLK — 100 bytes; tracks are 20 bytes)
+// M2 camera (on-disk, WotLK - 100 bytes; tracks are 20 bytes)
 struct M2CameraDisk {
     uint32_t type;
     float fov;
@@ -370,7 +370,7 @@ struct M2CameraDisk {
     uint8_t rollTrack[20];
 };
 
-// M2 camera (on-disk, vanilla — 124 bytes; tracks are 28 bytes)
+// M2 camera (on-disk, vanilla - 124 bytes; tracks are 28 bytes)
 struct M2CameraDiskVanilla {
     uint32_t type;
     float fov;
@@ -455,11 +455,11 @@ std::string readString(const std::vector<uint8_t>& data, uint32_t offset, uint32
     return std::string(reinterpret_cast<const char*>(&data[offset]), actualLen);
 }
 
-enum class TrackType { VEC3, QUAT_COMPRESSED, FLOAT, FIXED16 };
+enum class TrackType { VEC3, QUAT_COMPRESSED, FLOAT, FIXED16, BYTE_BOOL };
 
 // M2 sequence flag: when set, keyframe data is embedded in the M2 file.
 // When clear, data lives in an external .anim file and the M2 offsets are
-// .anim-relative — reading them from the M2 produces garbage.
+// .anim-relative - reading them from the M2 produces garbage.
 constexpr uint32_t kM2SeqFlagEmbeddedData = 0x20;
 
 // Parse an M2 animation track from the binary data.
@@ -510,6 +510,7 @@ void parseAnimTrack(const std::vector<uint8_t>& data,
         size_t keyElementSize;
         if (type == TrackType::FLOAT) keyElementSize = sizeof(float);
         else if (type == TrackType::FIXED16) keyElementSize = sizeof(int16_t);
+        else if (type == TrackType::BYTE_BOOL) keyElementSize = sizeof(uint8_t);
         else if (type == TrackType::VEC3) keyElementSize = sizeof(float) * 3;
         else keyElementSize = sizeof(int16_t) * 4;
         if (keyOffset + keyCount * keyElementSize > data.size()) {
@@ -528,6 +529,15 @@ void parseAnimTrack(const std::vector<uint8_t>& data,
             for (int16_t v : raw) {
                 track.sequences[i].floatValues.push_back(
                     std::clamp(static_cast<float>(v) / 32767.0f, 0.0f, 1.0f));
+            }
+        } else if (type == TrackType::BYTE_BOOL) {
+            // One byte per key, and only ever 0 or 1. Reading these as floats
+            // turns a 1 into a denormal of about 1.4e-45, which passes for
+            // zero at every threshold downstream and hides the ribbon.
+            track.sequences[i].floatValues.reserve(keyCount);
+            for (uint32_t k = 0; k < keyCount; k++) {
+                track.sequences[i].floatValues.push_back(
+                    readValue<uint8_t>(data, keyOffset + k) != 0 ? 1.0f : 0.0f);
             }
         } else if (type == TrackType::VEC3) {
             // Translation/scale: float[3] per key
@@ -665,7 +675,7 @@ void parseAnimTrackVanilla(const std::vector<uint8_t>& data,
                     allVec3Keys[k].x, allVec3Keys[k].y, allVec3Keys[k].z);
             }
         } else if (compressedQuat) {
-            // TBC: compressed int16[4] quaternion — same offset mapping as WotLK
+            // TBC: compressed int16[4] quaternion - same offset mapping as WotLK
             track.sequences[i].quatValues.reserve(keyCount);
             for (uint32_t k = start; k < start + keyCount; k++) {
                 const auto& cq = allCompQuatKeys[k];
@@ -681,7 +691,7 @@ void parseAnimTrackVanilla(const std::vector<uint8_t>& data,
                 track.sequences[i].quatValues.push_back(q);
             }
         } else {
-            // Vanilla: C4Quaternion — full float[4] per key (XYZW on disk)
+            // Vanilla: C4Quaternion - full float[4] per key (XYZW on disk)
             track.sequences[i].quatValues.reserve(keyCount);
             for (uint32_t k = start; k < start + keyCount; k++) {
                 const auto& fq = allQuatKeys[k];
@@ -771,7 +781,7 @@ M2Model M2Loader::load(const std::vector<uint8_t>& m2Data) {
 
     M2Header header;
     std::memset(&header, 0, sizeof(header));
-    // Read common prefix (magic through ofsAnimationLookup) — same for all versions
+    // Read common prefix (magic through ofsAnimationLookup) - same for all versions
     std::memcpy(&header, m2Data.data(), COMMON_PREFIX_SIZE);
 
     // Verify magic
@@ -900,7 +910,7 @@ M2Model M2Loader::load(const std::vector<uint8_t>& m2Data) {
     // (112-byte bones vs vanilla's 108), compressed int16[4] rotation
     // quaternions (vs vanilla's float[4]), and 48-byte embedded skin submeshes
     // (vs vanilla's 32). Treating TBC as plain vanilla misaligns every bone
-    // after the first, producing garbage pivots — the "vertex explosion" bug.
+    // after the first, producing garbage pivots - the "vertex explosion" bug.
     const bool isTBC = (header.version >= 260 && header.version < 264);
 
     // Bounding box
@@ -1175,7 +1185,7 @@ M2Model M2Loader::load(const std::vector<uint8_t>& m2Data) {
     // Parse color animation alpha tracks (M2Color: vec3 color track + fixed16 alpha track).
     // WotLK: two 20-byte M2TrackDisk headers (40 bytes/color).
     // Vanilla/TBC (<264): two 28-byte M2TrackDiskVanilla headers (56 bytes/color).
-    // The alpha track gates per-batch visibility per animation — e.g. the peasant
+    // The alpha track gates per-batch visibility per animation - e.g. the peasant
     // lumberjack's carry model has two wood-bundle submeshes, and only one is
     // alpha-1 in any given animation.
     if (header.nColors > 0 && header.ofsColors > 0 && header.nColors < 4096) {
@@ -1202,7 +1212,7 @@ M2Model M2Loader::load(const std::vector<uint8_t>& m2Data) {
                     parseAnimTrackVanilla(m2Data, td, track, TrackType::FIXED16);
                 }
             }
-            // At-rest alpha (first key of the first sequence with data) — used by
+            // At-rest alpha (first key of the first sequence with data) - used by
             // renderers that don't evaluate the track per frame.
             float alpha = 1.0f;
             for (const auto& seq : track.sequences) {
@@ -1281,7 +1291,7 @@ M2Model M2Loader::load(const std::vector<uint8_t>& m2Data) {
         model.textureTransformLookup = readArray<uint16_t>(m2Data, header.ofsUVAnimLookup, header.nUVAnimLookup);
     }
 
-    // Parse transparency tracks (M2Track<fixed16>) — controls per-batch opacity.
+    // Parse transparency tracks (M2Track<fixed16>) - controls per-batch opacity.
     // fixed16 = uint16_t / 32767.0f, range 0 (transparent) to 1 (opaque).
     // Keep the full track for runtime evaluation; using only its first key makes
     // pulsing weapon glints such as Sparkle_A stay at full intensity continuously.
@@ -1351,7 +1361,7 @@ M2Model M2Loader::load(const std::vector<uint8_t>& m2Data) {
         model.attachmentLookup = readArray<uint16_t>(m2Data, header.ofsAttachmentLookup, header.nAttachmentLookup);
     }
 
-    // Cameras — only the static base position/target are used; scene models keep
+    // Cameras - only the static base position/target are used; scene models keep
     // their framing here, and animated camera tracks are not needed for a backdrop.
     if (header.nCameras > 0 && header.ofsCameras > 0) {
         const uint32_t cameraCount = capCount(header.nCameras, kMaxM2Cameras, "nCameras");
@@ -1380,7 +1390,7 @@ M2Model M2Loader::load(const std::vector<uint8_t>& m2Data) {
         core::Logger::getInstance().debug("  Cameras: ", model.cameras.size());
     }
 
-    // Parse particle emitters — struct size differs between versions:
+    // Parse particle emitters - struct size differs between versions:
     //   WotLK (version >= 264): M2ParticleOld = 0x1DC (476) bytes, M2TrackDisk (20 bytes), FBlocks
     //   Vanilla (version < 264): 0x1F8 (504) bytes, M2TrackDiskVanilla (28 bytes), static lifecycle arrays
     if (header.nParticleEmitters > 0 && header.ofsParticleEmitters > 0 &&
@@ -1442,7 +1452,7 @@ M2Model M2Loader::load(const std::vector<uint8_t>& m2Data) {
                 parseTrackV(0x114, em.emissionAreaWidth);  // +28 = 0x130
                 parseTrackV(0x130, em.deceleration);       // +28 = 0x14C
 
-                // Vanilla: NO FBlocks — color/alpha/scale are static inline values
+                // Vanilla: NO FBlocks - color/alpha/scale are static inline values
                 // Layout (empirically confirmed from real vanilla M2 files):
                 //   +0x14C: float midpoint (lifecycle split: 0→mid→1)
                 //   +0x150: uint32 colorValues[3] (BGRA, A channel = opacity)
@@ -1505,7 +1515,7 @@ M2Model M2Loader::load(const std::vector<uint8_t>& m2Data) {
                 parseTrack(0xDC, em.emissionAreaWidth);
                 parseTrack(0xF0, em.deceleration);
 
-                // Parse FBlocks (color, alpha, scale) — FBlocks are 16 bytes each
+                // Parse FBlocks (color, alpha, scale) - FBlocks are 16 bytes each
                 parseFBlock(m2Data, base + 0x104, em.particleColor, 0);
                 parseFBlock(m2Data, base + 0x114, em.particleAlpha, 1);
                 parseFBlock(m2Data, base + 0x124, em.particleScale, 2);
@@ -1570,34 +1580,8 @@ M2Model M2Loader::load(const std::vector<uint8_t>& m2Data) {
                 // alphaTrack M2TrackDisk at 0x38 (fixed16: int16/32767)
                 // Same nested-array layout as parseAnimTrack but keys are int16.
                 if (base + 0x38 + sizeof(M2TrackDisk) <= m2Data.size()) {
-                    M2TrackDisk disk = readValue<M2TrackDisk>(m2Data, base + 0x38);
-                    auto& track = rib.alphaTrack;
-                    track.interpolationType = disk.interpolationType;
-                    track.globalSequence    = disk.globalSequence;
-                    uint32_t nSeqs = disk.nTimestamps;
-                    if (nSeqs > 0 && nSeqs <= 4096) {
-                        track.sequences.resize(nSeqs);
-                        for (uint32_t s = 0; s < nSeqs; s++) {
-                            if (s < ribSeqFlags.size() && !(ribSeqFlags[s] & kM2SeqFlagEmbeddedData)) continue;
-                            uint32_t tsHdr  = disk.ofsTimestamps + s * 8;
-                            uint32_t keyHdr = disk.ofsKeys + s * 8;
-                            if (tsHdr + 8 > m2Data.size() || keyHdr + 8 > m2Data.size()) continue;
-                            uint32_t tsCount = readValue<uint32_t>(m2Data, tsHdr);
-                            uint32_t tsOfs   = readValue<uint32_t>(m2Data, tsHdr + 4);
-                            uint32_t kCount  = readValue<uint32_t>(m2Data, keyHdr);
-                            uint32_t kOfs    = readValue<uint32_t>(m2Data, keyHdr + 4);
-                            if (tsCount == 0 || kCount == 0) continue;
-                            if (tsOfs + tsCount * 4 > m2Data.size()) continue;
-                            if (kOfs + kCount * sizeof(int16_t) > m2Data.size()) continue;
-                            track.sequences[s].timestamps = readArray<uint32_t>(m2Data, tsOfs, tsCount);
-                            auto raw = readArray<int16_t>(m2Data, kOfs, kCount);
-                            track.sequences[s].floatValues.reserve(raw.size());
-                            for (auto v : raw) {
-                                track.sequences[s].floatValues.push_back(
-                                    static_cast<float>(v) / 32767.0f);
-                            }
-                        }
-                    }
+                    parseAnimTrack(m2Data, readValue<M2TrackDisk>(m2Data, base + 0x38),
+                                   rib.alphaTrack, TrackType::FIXED16, ribSeqFlags);
                 }
 
                 // heightAboveTrack M2TrackDisk at 0x4C (float)
@@ -1624,37 +1608,12 @@ M2Model M2Loader::load(const std::vector<uint8_t>& m2Data) {
                 if (rib.edgesPerSecond < 1.0f  || rib.edgesPerSecond > 200.0f) rib.edgesPerSecond = 15.0f;
                 if (rib.edgeLifetime   < 0.05f || rib.edgeLifetime   > 10.0f)  rib.edgeLifetime   = 0.5f;
 
-                // visibilityTrack M2TrackDisk at 0x98 — keys are uint8 (0/1), NOT float.
+                // visibilityTrack M2TrackDisk at 0x98 - keys are uint8 (0/1), NOT float.
                 // Must read as uint8 and convert to float, else 0x01 reads as
                 // float ~1.4e-45 which fails the visibility > 0.5 check.
                 if (base + 0x98 + sizeof(M2TrackDisk) <= m2Data.size()) {
-                    M2TrackDisk disk = readValue<M2TrackDisk>(m2Data, base + 0x98);
-                    auto& track = rib.visibilityTrack;
-                    track.interpolationType = disk.interpolationType;
-                    track.globalSequence    = disk.globalSequence;
-                    uint32_t nSeqs = disk.nTimestamps;
-                    if (nSeqs > 0 && nSeqs <= 4096) {
-                        track.sequences.resize(nSeqs);
-                        for (uint32_t s = 0; s < nSeqs; s++) {
-                            if (s < ribSeqFlags.size() && !(ribSeqFlags[s] & kM2SeqFlagEmbeddedData)) continue;
-                            uint32_t tsHdr  = disk.ofsTimestamps + s * 8;
-                            uint32_t keyHdr = disk.ofsKeys + s * 8;
-                            if (tsHdr + 8 > m2Data.size() || keyHdr + 8 > m2Data.size()) continue;
-                            uint32_t tsCount = readValue<uint32_t>(m2Data, tsHdr);
-                            uint32_t tsOfs   = readValue<uint32_t>(m2Data, tsHdr + 4);
-                            uint32_t kCount  = readValue<uint32_t>(m2Data, keyHdr);
-                            uint32_t kOfs    = readValue<uint32_t>(m2Data, keyHdr + 4);
-                            if (tsCount == 0 || kCount == 0) continue;
-                            if (tsOfs + tsCount * 4 > m2Data.size()) continue;
-                            if (kOfs + kCount * sizeof(uint8_t) > m2Data.size()) continue;
-                            track.sequences[s].timestamps = readArray<uint32_t>(m2Data, tsOfs, tsCount);
-                            track.sequences[s].floatValues.reserve(kCount);
-                            for (uint32_t k = 0; k < kCount; k++) {
-                                uint8_t raw = readValue<uint8_t>(m2Data, kOfs + k);
-                                track.sequences[s].floatValues.push_back(raw != 0 ? 1.0f : 0.0f);
-                            }
-                        }
-                    }
+                    parseAnimTrack(m2Data, readValue<M2TrackDisk>(m2Data, base + 0x98),
+                                   rib.visibilityTrack, TrackType::BYTE_BOOL, ribSeqFlags);
                 }
 
                 // Skip garbage emitters (common M2 artifact: alternating emitters
@@ -1806,7 +1765,7 @@ M2Model M2Loader::load(const std::vector<uint8_t>& m2Data) {
             }
         }
 
-        core::Logger::getInstance().debug("Vanilla M2: embedded skin loaded — ",
+        core::Logger::getInstance().debug("Vanilla M2: embedded skin loaded - ",
             model.indices.size(), " indices, ", model.batches.size(), " batches");
     }
 
@@ -1870,6 +1829,7 @@ bool M2Loader::loadSkin(const std::vector<uint8_t>& skinData, M2Model& model) {
         core::Logger::getInstance().warning("  ", outOfBounds, " out-of-bounds indices clamped to 0");
     }
 
+
     // Read submeshes (proper vertex/index ranges)
     std::vector<M2SkinSubmesh> submeshes;
     if (header.nSubmeshes > 0 && header.ofsSubmeshes > 0) {
@@ -1920,6 +1880,40 @@ bool M2Loader::loadSkin(const std::vector<uint8_t>& skinData, M2Model& model) {
 
             model.batches.push_back(batch);
         }
+
+    // A batch that reaches past the model's own indices is emptied here, after
+    // the last of them is built, where every renderer that draws this model
+    // shares the check.
+    //
+    // Placed after the loop rather than before it, which is where this first
+    // went: the guard ran between the two batch-building paths and so checked
+    // batches that did not exist yet, leaving the skin path - the one character
+    // models take - unguarded.
+    //
+    // A submesh
+    // read from the wrong offset gives a start that no buffer could satisfy,
+    // and vkCmdDrawIndexed does not check. One such batch - start 6,290,784 in
+    // a 768-index model - was read 25 MB past the end forty-six times and took
+    // the GPU with it. Emptied rather than dropped so nothing downstream has to
+    // cope with a batch list that changed length.
+    {
+        const uint32_t total = static_cast<uint32_t>(model.indices.size());
+        uint32_t emptied = 0;
+        for (auto& batch : model.batches) {
+            const uint64_t end = static_cast<uint64_t>(batch.indexStart) + batch.indexCount;
+            if (end <= total) continue;
+            batch.indexStart = 0;
+            batch.indexCount = 0;
+            ++emptied;
+        }
+        if (emptied > 0) {
+            core::Logger::getInstance().warning(
+                "  ", emptied, " batch(es) index past the model's ", total,
+                " indices - emptied; this model's submeshes are being read from "
+                "the wrong offset");
+        }
+    }
+
 
         core::Logger::getInstance().debug("  Batches: ", model.batches.size());
     }
@@ -2021,6 +2015,28 @@ void M2Loader::loadAnimFile(const std::vector<uint8_t>& m2Data,
 
     core::Logger::getInstance().debug("Loaded .anim for sequence ", sequenceIndex,
         " (id=", model.sequences[sequenceIndex].id, "): patched ", patchedTracks, " bone tracks");
+}
+
+
+std::string skinPathForM2(const std::string& m2Path) {
+    const size_t dot = m2Path.rfind('.');
+    const size_t slash = m2Path.find_last_of("\\/");
+    // Only an extension in the last component counts; a dot in a folder name is
+    // part of the folder.
+    const bool hasExt = dot != std::string::npos &&
+                        (slash == std::string::npos || dot > slash);
+    return (hasExt ? m2Path.substr(0, dot) : m2Path) + "00.skin";
+}
+
+
+std::string modelPathToM2(const std::string& modelPath) {
+    if (modelPath.size() < 4) return modelPath;
+    std::string ext = modelPath.substr(modelPath.size() - 4);
+    for (char& c : ext) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    if (ext == ".mdx" || ext == ".mdl") {
+        return modelPath.substr(0, modelPath.size() - 4) + ".m2";
+    }
+    return modelPath;
 }
 
 } // namespace pipeline

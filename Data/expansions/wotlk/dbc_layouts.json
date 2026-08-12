@@ -217,7 +217,9 @@
   "SkillLine": {
     "Category": 1,
     "ID": 0,
-    "Name": 3
+    "Name": 3,
+    "SpellIcon": 37,
+    "Description": 20
   },
   "SkillLineAbility": {
     "SkillLineID": 1,
@@ -250,7 +252,18 @@
     "SchoolMask": 225,
     "SpellVisualID": 131,
     "TargetAuraState": 21,
-    "Tooltip": 187
+    "Tooltip": 187,
+    "EffectApplyAuraName0": 95,
+    "EffectApplyAuraName1": 96,
+    "EffectApplyAuraName2": 97,
+    "EffectMiscValue0": 110,
+    "EffectMiscValue1": 111,
+    "EffectMiscValue2": 112,
+    "EffectMiscValueB0": 113,
+    "EffectMiscValueB1": 114,
+    "EffectMiscValueB2": 115,
+    "RecoveryTime": 29,
+    "CategoryRecoveryTime": 30
   },
   "SpellIcon": {
     "ID": 0,
@@ -341,5 +354,10 @@
     "LocTop": 6,
     "MapID": 1,
     "ParentWorldMapID": 10
+  },
+  "SpellShapeshiftForm": {
+    "ID": 0,
+    "BonusActionBar": 1,
+    "Name": 2
   }
 }

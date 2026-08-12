@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Stat Modifier Curve catalog (.wstm) —
+// Wowee Open Stat Modifier Curve catalog (.wstm) -
 // novel replacement for the gtChanceTo*.dbc / gtRegen*.dbc
 // / gtCombatRatings.dbc family of "1D level-keyed curve"
 // tables. Each entry defines a single linear curve mapping
@@ -18,7 +18,7 @@ namespace pipeline {
 // Curves are simple linear: value(level) = baseValue +
 // perLevelDelta * (level - 1), with the result optionally
 // scaled by a global multiplier and clamped to a level
-// range. Most stock WoW curves fit this shape — the few
+// range. Most stock WoW curves fit this shape - the few
 // that don't (Combat Ratings) live in the dedicated WCRR
 // catalog with cubic spline support.
 //
@@ -30,7 +30,7 @@ namespace pipeline {
 // per-rating.
 //
 // Cross-references with previously-added formats:
-//   None — this catalog is consumed directly by the
+//   None - this catalog is consumed directly by the
 //   character stat resolver. Engines look up curves by
 //   curveId or by name.
 //
@@ -98,15 +98,15 @@ public:
 
     // Preset emitters used by --gen-stm* variants.
     //
-    //   makeCrit   — 5 crit-related curves (MeleeCritChance,
+    //   makeCrit   - 5 crit-related curves (MeleeCritChance,
     //                 RangedCritChance, SpellCritChance,
     //                 ParryChance, DodgeChance) covering
     //                 the standard crit-tier scaling.
-    //   makeRegen  — 4 regen curves (ManaPerSpirit,
+    //   makeRegen  - 4 regen curves (ManaPerSpirit,
     //                 HpPerSpirit, EnergyPerSec, RageDecay)
     //                 with the canonical Vanilla/TBC/WotLK
     //                 stock formulas.
-    //   makeArmor  — 3 armor / mitigation curves
+    //   makeArmor  - 3 armor / mitigation curves
     //                 (BaseArmorPerLevel, ArmorMitigation,
     //                 ResistancePerLevel).
     static WoweeStatCurve makeCrit(const std::string& catalogName);

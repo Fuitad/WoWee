@@ -1,4 +1,7 @@
+#include "rendering/water_surface_grid.hpp"
+#include "rendering/water_mask.hpp"
 #include "rendering/water_renderer.hpp"
+#include "rendering/water_mask.hpp"
 #include "rendering/vk_context.hpp"
 #include "rendering/vk_pipeline.hpp"
 #include "rendering/vk_shader.hpp"
@@ -191,7 +194,7 @@ bool WaterRenderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLay
         .setMultisample(vkCtx->getMsaaSamples())
         .setLayout(pipelineLayout)
         .setRenderPass(mainPass)
-        .setDynamicStates({ VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR })
+        .setDynamicStates(viewportAndScissorDynamic())
         .build(device, vkCtx->getPipelineCache());
 
     vertShader.destroy();
@@ -217,7 +220,7 @@ void WaterRenderer::recreatePipelines() {
                                 vkCtx->getDepthFormat());
 
     // Destroy old pipeline (keep layout)
-    if (waterPipeline) { vkDestroyPipeline(device, waterPipeline, nullptr); waterPipeline = VK_NULL_HANDLE; }
+    destroy(device, waterPipeline);
 
     // Load shaders
     VkShaderModule vertShader, fragShader;
@@ -255,7 +258,7 @@ void WaterRenderer::recreatePipelines() {
         .setMultisample(vkCtx->getMsaaSamples())
         .setLayout(pipelineLayout)
         .setRenderPass(mainPass)
-        .setDynamicStates({ VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR })
+        .setDynamicStates(viewportAndScissorDynamic())
         .build(device, vkCtx->getPipelineCache());
 
     vertShader.destroy();
@@ -316,19 +319,19 @@ void WaterRenderer::shutdown() {
 
     // clear() defers surface destruction, and those lambdas free descriptor sets
     // from the pools destroyed just below. Drain them here, while the pools are
-    // still valid — otherwise they linger until some later subsystem's flush
+    // still valid - otherwise they linger until some later subsystem's flush
     // runs them against a dead pool.
     vkCtx->flushDeferredCleanup();
 
     destroyWater1xResources();
     destroyReflectionResources();
     destroySceneHistoryResources();
-    if (waterPipeline) { vkDestroyPipeline(device, waterPipeline, nullptr); waterPipeline = VK_NULL_HANDLE; }
-    if (pipelineLayout) { vkDestroyPipelineLayout(device, pipelineLayout, nullptr); pipelineLayout = VK_NULL_HANDLE; }
-    if (sceneDescPool) { vkDestroyDescriptorPool(device, sceneDescPool, nullptr); sceneDescPool = VK_NULL_HANDLE; }
-    if (sceneSetLayout) { vkDestroyDescriptorSetLayout(device, sceneSetLayout, nullptr); sceneSetLayout = VK_NULL_HANDLE; }
-    if (materialDescPool) { vkDestroyDescriptorPool(device, materialDescPool, nullptr); materialDescPool = VK_NULL_HANDLE; }
-    if (materialSetLayout) { vkDestroyDescriptorSetLayout(device, materialSetLayout, nullptr); materialSetLayout = VK_NULL_HANDLE; }
+    destroy(device, waterPipeline);
+    destroy(device, pipelineLayout);
+    destroy(device, sceneDescPool);
+    destroy(device, sceneSetLayout);
+    destroy(device, materialDescPool);
+    destroy(device, materialSetLayout);
 
     vkCtx = nullptr;
 }
@@ -562,11 +565,11 @@ void WaterRenderer::updateMaterialUBO(WaterSurface& surface) {
     if (surface.wmoId != 0) {
         const uint8_t basicType = (surface.liquidType == 0) ? 0 : ((surface.liquidType - 1) % 4);
         if (basicType == 2) {
-            // Magma — bright orange-red, opaque
+            // Magma - bright orange-red, opaque
             color = glm::vec4(1.0f, 0.35f, 0.05f, 1.0f);
             alpha = 0.95f;
         } else if (basicType == 3) {
-            // Slime — green, semi-opaque
+            // Slime - green, semi-opaque
             color = glm::vec4(0.2f, 0.6f, 0.1f, 1.0f);
             alpha = 0.85f;
         }
@@ -622,7 +625,7 @@ void WaterRenderer::updateMaterialUBO(WaterSurface& surface) {
 }
 
 // ==============================================================
-// Data loading (preserved from GL version — no GL calls)
+// Data loading (preserved from GL version - no GL calls)
 // ==============================================================
 
 void WaterRenderer::loadFromTerrain(const pipeline::ADTTerrain& terrain, bool append,
@@ -794,11 +797,21 @@ void WaterRenderer::loadFromTerrain(const pipeline::ADTTerrain& terrain, bool ap
         // Initialize mask (128×128 sub-tiles)
         // Mask uses LSB bit order: tileIndex = row * 128 + col
         const int maskBytes = (MERGED_W * MERGED_W + 7) / 8;
-        // For ocean water (basicType 1) at sea level, fill the entire tile.
-        // Depth testing against terrain handles land occlusion naturally.
+        // Ocean water (basicType 1) at sea level fills each chunk that declares
+        // it, whatever its own bitmap says - an ocean layer's sub-rect is often
+        // sparse and the gaps read as holes in open sea.
+        //
+        // Each chunk that declares it, not the whole tile. This used to seed
+        // the entire 128×128 mask, on the reading that depth testing against
+        // the terrain would hide the water wherever there was land. That holds
+        // only for land *above* sea level. Somewhere the ground drops below it
+        // the water is drawn over the top with nothing to occlude it, and a
+        // chunk that declares no liquid at all got a surface anyway: the
+        // Caverns of Time, a hole in a coastal tile in Tanaris, was roofed with
+        // ocean. Any cave below sea level on an ocean tile had the same.
         uint8_t basicType = (key.liquidType == 0) ? 0 : ((key.liquidType - 1) % 4);
         bool isOcean = (basicType == 1) && (std::abs(groupHeight) < 1.0f);
-        surface.mask.resize(maskBytes, isOcean ? 0xFF : 0x00);
+        surface.mask.resize(maskBytes, 0x00);
 
         // ── Fill from each contributing chunk ──
         for (const auto& info : chunkLayers) {
@@ -843,30 +856,21 @@ void WaterRenderer::loadFromTerrain(const pipeline::ADTTerrain& terrain, bool ap
                 }
             }
 
-            // Copy mask — mark contributing sub-tiles as renderable.
-            // layer.mask is the canonical chunk-wide 8x8 mask (row*8+col, LSB).
-            for (int ly = 0; ly < layer.height; ly++) {
-                for (int lx = 0; lx < layer.width; lx++) {
-                    bool render = true;
-                    if (!layer.mask.empty()) {
-                        int origTileIdx = (layer.y + ly) * 8 + (layer.x + lx);
-                        int origByte = origTileIdx / 8;
-                        int origBit = origTileIdx % 8;
-                        if (origByte < static_cast<int>(layer.mask.size())) {
-                            render = (layer.mask[origByte] & (1 << origBit)) != 0;
-                        }
-                    }
-
-                    if (render) {
-                        int mx = baseGx + layer.y + ly;
-                        int my = baseGy + layer.x + lx;
-                        if (mx >= MERGED_W || my >= MERGED_W) continue;
-
-                        int mergedTileIdx = my * MERGED_W + mx;
-                        int byteIdx = mergedTileIdx / 8;
-                        int bitIdx = mergedTileIdx % 8;
-                        surface.mask[byteIdx] |= static_cast<uint8_t>(1 << bitIdx);
-                    }
+            // Which of this chunk's sixty-four sub-tiles are drawn. The rule
+            // lives in water_mask.hpp so it can be checked without a device;
+            // this places the answer, in the chunk-row-to-render-X order the
+            // merged grid uses.
+            const uint64_t chunkMask = chunkWaterMask(
+                layer.mask, layer.x, layer.y, layer.width, layer.height, isOcean);
+            for (int row = 0; row < 8; row++) {
+                for (int col = 0; col < 8; col++) {
+                    if (!(chunkMask & (uint64_t{1} << (row * 8 + col)))) continue;
+                    const int mx = baseGx + row;
+                    const int my = baseGy + col;
+                    if (mx >= MERGED_W || my >= MERGED_W) continue;
+                    const int mergedTileIdx = my * MERGED_W + mx;
+                    surface.mask[mergedTileIdx / 8] |=
+                        static_cast<uint8_t>(1 << (mergedTileIdx % 8));
                 }
             }
         }
@@ -1064,7 +1068,7 @@ void WaterRenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet,
     VkPipeline pipeline = (use1x && water1xPipeline) ? water1xPipeline : waterPipeline;
     if (!renderingEnabled || surfaces.empty() || !pipeline) {
         if (renderDiagCounter_++ % 300 == 0 && !surfaces.empty()) {
-            LOG_WARNING("Water: render skipped — enabled=", renderingEnabled,
+            LOG_WARNING("Water: render skipped - enabled=", renderingEnabled,
                         " surfaces=", surfaces.size(),
                         " pipeline=", (pipeline ? "ok" : "null"),
                         " use1x=", use1x);
@@ -1075,7 +1079,7 @@ void WaterRenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet,
     VkDescriptorSet activeSceneSet = sceneHistory[fi].sceneSet;
     if (!activeSceneSet) {
         if (renderDiagCounter_++ % 300 == 0) {
-            LOG_WARNING("Water: render skipped — sceneSet is null, surfaces=", surfaces.size());
+            LOG_WARNING("Water: render skipped - sceneSet is null, surfaces=", surfaces.size());
         }
         return;
     }
@@ -1119,7 +1123,7 @@ void WaterRenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet,
         bool isWmoWater = (surface.wmoId != 0);
         bool canalProfile = isWmoWater || (surface.liquidType == 5);
         uint8_t basicType = (surface.liquidType == 0) ? 0 : ((surface.liquidType - 1) % 4);
-        // WMO water gets no wave displacement — prevents visible slosh at
+        // WMO water gets no wave displacement - prevents visible slosh at
         // geometry edges (bridges, docks) where water is far below the surface.
         float waveAmp = isWmoWater ? 0.0f : (basicType == 1 ? 0.35f : 0.08f);
         float waveFreq = canalProfile ? 0.35f : (basicType == 1 ? 0.20f : 0.30f);
@@ -1161,7 +1165,7 @@ void WaterRenderer::captureSceneHistory(VkCommandBuffer cmd,
         return;
     }
 
-    // The scene is not always rendered at the history's resolution — FSR renders
+    // The scene is not always rendered at the history's resolution - FSR renders
     // smaller and upscales later. Copying the smaller image into the corner of a
     // larger history would leave the refraction sampling a fraction of the frame
     // stretched over all of it, so scale with a blit whenever they differ and
@@ -1254,7 +1258,7 @@ void WaterRenderer::captureSceneHistory(VkCommandBuffer cmd,
                  VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
 
         if (needsScaling) {
-            // Depth must not be filtered — an interpolated depth is a surface
+            // Depth must not be filtered - an interpolated depth is a surface
             // that exists nowhere.
             VkImageBlit depthBlit{};
             depthBlit.srcSubresource = {VK_IMAGE_ASPECT_DEPTH_BIT, 0, 0, 1};
@@ -1328,26 +1332,9 @@ void WaterRenderer::createWaterMesh(WaterSurface& surface) {
     // Generate indices respecting render mask (same logic as GL version)
     for (int y = 0; y < gridHeight - 1; y++) {
         for (int x = 0; x < gridWidth - 1; x++) {
-            bool renderTile = true;
-            if (!surface.mask.empty()) {
-                int tileIndex;
-                if (surface.wmoId == 0 && surface.width <= 8 && surface.mask.size() >= 8) {
-                    // Per-chunk terrain surfaces carry the canonical
-                    // chunk-wide 8x8 mask: bit = row*8 + col, LSB-first.
-                    int cx = static_cast<int>(surface.xOffset) + x;
-                    int cy = static_cast<int>(surface.yOffset) + y;
-                    tileIndex = cy * 8 + cx;
-                } else {
-                    // Merged terrain and WMO masks are packed width×height,
-                    // row-major, LSB-first.
-                    tileIndex = y * surface.width + x;
-                }
-                int byteIndex = tileIndex / 8;
-                int bitIndex = tileIndex % 8;
-                if (byteIndex < static_cast<int>(surface.mask.size())) {
-                    renderTile = (surface.mask[byteIndex] & (1 << bitIndex)) != 0;
-                }
-            }
+            const bool renderTile =
+                waterCellRendered(surface.mask, surface.wmoId, surface.width,
+                                  surface.xOffset, surface.yOffset, x, y);
 
             if (!renderTile) continue;
 
@@ -1436,56 +1423,24 @@ std::optional<float> WaterRenderer::getWaterHeightAt(float glX, float glY) const
     std::optional<float> best;
 
     for (const auto& surface : surfaces) {
-        glm::vec2 rel(glX - surface.origin.x, glY - surface.origin.y);
-        glm::vec2 sX(surface.stepX.x, surface.stepX.y);
-        glm::vec2 sY(surface.stepY.x, surface.stepY.y);
-        float lenSqX = glm::dot(sX, sX);
-        float lenSqY = glm::dot(sY, sY);
-        if (lenSqX < 1e-6f || lenSqY < 1e-6f) continue;
-        float gx = glm::dot(rel, sX) / lenSqX;
-        float gy = glm::dot(rel, sY) / lenSqY;
+        const auto grid = surfaceGridPosition(surface.origin, surface.stepX, surface.stepY,
+                                              surface.width, surface.height, glX, glY);
+        if (!grid) continue;
+        const float gx = grid->x;
+        const float gy = grid->y;
 
-        if (gx < 0.0f || gx > static_cast<float>(surface.width) ||
-            gy < 0.0f || gy > static_cast<float>(surface.height)) continue;
-
-        int gridWidth = surface.width + 1;
-        int ix = static_cast<int>(gx);
-        int iy = static_cast<int>(gy);
-        float fx = gx - ix;
-        float fy = gy - iy;
-
-        if (ix >= surface.width) { ix = surface.width - 1; fx = 1.0f; }
-        if (iy >= surface.height) { iy = surface.height - 1; fy = 1.0f; }
-        if (ix < 0 || iy < 0) continue;
-
-        if (!surface.mask.empty()) {
-            int tileIndex;
-            if (surface.wmoId == 0 && surface.width <= 8 && surface.mask.size() >= 8) {
-                tileIndex = (static_cast<int>(surface.yOffset) + iy) * 8 +
-                            (static_cast<int>(surface.xOffset) + ix);
-            } else {
-                tileIndex = iy * surface.width + ix;
-            }
-            int byteIndex = tileIndex / 8;
-            int bitIndex = tileIndex % 8;
-            if (byteIndex < static_cast<int>(surface.mask.size())) {
-                uint8_t maskByte = surface.mask[byteIndex];
-                bool renderTile = (maskByte & (1 << bitIndex)) != 0;
-                if (!renderTile) continue;
-            }
+        // The cell the point lands in, clamped at the far edge.
+        const int ix = std::min(static_cast<int>(gx), static_cast<int>(surface.width) - 1);
+        const int iy = std::min(static_cast<int>(gy), static_cast<int>(surface.height) - 1);
+        if (!waterCellRendered(surface.mask, surface.wmoId, surface.width,
+                               surface.xOffset, surface.yOffset, ix, iy)) {
+            continue;
         }
 
-        int idx00 = iy * gridWidth + ix;
-        int idx10 = idx00 + 1;
-        int idx01 = idx00 + gridWidth;
-        int idx11 = idx01 + 1;
-
-        int total = static_cast<int>(surface.heights.size());
-        if (idx11 >= total) continue;
-
-        float h00 = surface.heights[idx00], h10 = surface.heights[idx10];
-        float h01 = surface.heights[idx01], h11 = surface.heights[idx11];
-        float h = h00*(1-fx)*(1-fy) + h10*fx*(1-fy) + h01*(1-fx)*fy + h11*fx*fy;
+        const auto sampled = sampleGridHeight(surface.heights, surface.width,
+                                              surface.height, gx, gy);
+        if (!sampled) continue;
+        const float h = *sampled;
 
         if (!best || h > *best) best = h;
     }
@@ -1498,56 +1453,24 @@ std::optional<float> WaterRenderer::getNearestWaterHeightAt(float glX, float glY
     float bestDist = 1e9f;
 
     for (const auto& surface : surfaces) {
-        glm::vec2 rel(glX - surface.origin.x, glY - surface.origin.y);
-        glm::vec2 sX(surface.stepX.x, surface.stepX.y);
-        glm::vec2 sY(surface.stepY.x, surface.stepY.y);
-        float lenSqX = glm::dot(sX, sX);
-        float lenSqY = glm::dot(sY, sY);
-        if (lenSqX < 1e-6f || lenSqY < 1e-6f) continue;
-        float gx = glm::dot(rel, sX) / lenSqX;
-        float gy = glm::dot(rel, sY) / lenSqY;
+        const auto grid = surfaceGridPosition(surface.origin, surface.stepX, surface.stepY,
+                                              surface.width, surface.height, glX, glY);
+        if (!grid) continue;
+        const float gx = grid->x;
+        const float gy = grid->y;
 
-        if (gx < 0.0f || gx > static_cast<float>(surface.width) ||
-            gy < 0.0f || gy > static_cast<float>(surface.height)) continue;
-
-        int gridWidth = surface.width + 1;
-        int ix = static_cast<int>(gx);
-        int iy = static_cast<int>(gy);
-        float fx = gx - ix;
-        float fy = gy - iy;
-
-        if (ix >= surface.width) { ix = surface.width - 1; fx = 1.0f; }
-        if (iy >= surface.height) { iy = surface.height - 1; fy = 1.0f; }
-        if (ix < 0 || iy < 0) continue;
-
-        if (!surface.mask.empty()) {
-            int tileIndex;
-            if (surface.wmoId == 0 && surface.width <= 8 && surface.mask.size() >= 8) {
-                tileIndex = (static_cast<int>(surface.yOffset) + iy) * 8 +
-                            (static_cast<int>(surface.xOffset) + ix);
-            } else {
-                tileIndex = iy * surface.width + ix;
-            }
-            int byteIndex = tileIndex / 8;
-            int bitIndex = tileIndex % 8;
-            if (byteIndex < static_cast<int>(surface.mask.size())) {
-                uint8_t maskByte = surface.mask[byteIndex];
-                bool renderTile = (maskByte & (1 << bitIndex)) != 0;
-                if (!renderTile) continue;
-            }
+        // The cell the point lands in, clamped at the far edge.
+        const int ix = std::min(static_cast<int>(gx), static_cast<int>(surface.width) - 1);
+        const int iy = std::min(static_cast<int>(gy), static_cast<int>(surface.height) - 1);
+        if (!waterCellRendered(surface.mask, surface.wmoId, surface.width,
+                               surface.xOffset, surface.yOffset, ix, iy)) {
+            continue;
         }
 
-        int idx00 = iy * gridWidth + ix;
-        int idx10 = idx00 + 1;
-        int idx01 = idx00 + gridWidth;
-        int idx11 = idx01 + 1;
-
-        int total = static_cast<int>(surface.heights.size());
-        if (idx11 >= total) continue;
-
-        float h00 = surface.heights[idx00], h10 = surface.heights[idx10];
-        float h01 = surface.heights[idx01], h11 = surface.heights[idx11];
-        float h = h00*(1-fx)*(1-fy) + h10*fx*(1-fy) + h01*(1-fx)*fy + h11*fx*fy;
+        const auto sampled = sampleGridHeight(surface.heights, surface.width,
+                                              surface.height, gx, gy);
+        if (!sampled) continue;
+        const float h = *sampled;
 
         // Only consider water that's above queryZ but not too far above
         if (h < queryZ - 2.0f) continue;  // water below camera, skip
@@ -1568,17 +1491,11 @@ std::optional<uint16_t> WaterRenderer::getWaterTypeAt(float glX, float glY) cons
     std::optional<uint16_t> bestType;
 
     for (const auto& surface : surfaces) {
-        glm::vec2 rel(glX - surface.origin.x, glY - surface.origin.y);
-        glm::vec2 sX(surface.stepX.x, surface.stepX.y);
-        glm::vec2 sY(surface.stepY.x, surface.stepY.y);
-        float lenSqX = glm::dot(sX, sX);
-        float lenSqY = glm::dot(sY, sY);
-        if (lenSqX < 1e-6f || lenSqY < 1e-6f) continue;
-
-        float gx = glm::dot(rel, sX) / lenSqX;
-        float gy = glm::dot(rel, sY) / lenSqY;
-        if (gx < 0.0f || gx > static_cast<float>(surface.width) ||
-            gy < 0.0f || gy > static_cast<float>(surface.height)) continue;
+        const auto grid = surfaceGridPosition(surface.origin, surface.stepX, surface.stepY,
+                                              surface.width, surface.height, glX, glY);
+        if (!grid) continue;
+        const float gx = grid->x;
+        const float gy = grid->y;
 
         int ix = static_cast<int>(gx);
         int iy = static_cast<int>(gy);
@@ -1586,21 +1503,9 @@ std::optional<uint16_t> WaterRenderer::getWaterTypeAt(float glX, float glY) cons
         if (iy >= surface.height) iy = surface.height - 1;
         if (ix < 0 || iy < 0) continue;
 
-        if (!surface.mask.empty()) {
-            int tileIndex;
-            if (surface.wmoId == 0 && surface.width <= 8 && surface.mask.size() >= 8) {
-                tileIndex = (static_cast<int>(surface.yOffset) + iy) * 8 +
-                            (static_cast<int>(surface.xOffset) + ix);
-            } else {
-                tileIndex = iy * surface.width + ix;
-            }
-            int byteIndex = tileIndex / 8;
-            int bitIndex = tileIndex % 8;
-            if (byteIndex < static_cast<int>(surface.mask.size())) {
-                uint8_t maskByte = surface.mask[byteIndex];
-                bool renderTile = (maskByte & (1 << bitIndex)) != 0;
-                if (!renderTile) continue;
-            }
+        if (!waterCellRendered(surface.mask, surface.wmoId, surface.width,
+                               surface.xOffset, surface.yOffset, ix, iy)) {
+            continue;
         }
 
         float h = surface.minHeight;
@@ -1616,17 +1521,10 @@ std::optional<uint16_t> WaterRenderer::getWaterTypeAt(float glX, float glY) cons
 bool WaterRenderer::isWmoWaterAt(float glX, float glY) const {
     for (const auto& surface : surfaces) {
         if (surface.wmoId == 0) continue;
-        glm::vec2 rel(glX - surface.origin.x, glY - surface.origin.y);
-        glm::vec2 sX(surface.stepX.x, surface.stepX.y);
-        glm::vec2 sY(surface.stepY.x, surface.stepY.y);
-        float lenSqX = glm::dot(sX, sX);
-        float lenSqY = glm::dot(sY, sY);
-        if (lenSqX < 1e-6f || lenSqY < 1e-6f) continue;
-        float gx = glm::dot(rel, sX) / lenSqX;
-        float gy = glm::dot(rel, sY) / lenSqY;
-        if (gx >= 0.0f && gx <= static_cast<float>(surface.width) &&
-            gy >= 0.0f && gy <= static_cast<float>(surface.height))
+        if (surfaceGridPosition(surface.origin, surface.stepX, surface.stepY,
+                                surface.width, surface.height, glX, glY)) {
             return true;
+        }
     }
     return false;
 }
@@ -1942,7 +1840,7 @@ void WaterRenderer::uploadFrameUBO() {
 
 // Disturbance trail. Points are dropped along the path rather than parented to
 // the character, so the froth stays where the water was churned and the
-// character runs out of it — froth pinned under the feet reads as a decal.
+// character runs out of it - froth pinned under the feet reads as a decal.
 void WaterRenderer::updateWake(float deltaTime, const glm::vec2& pos,
                                const glm::vec2& travelDir, float intensity, bool wading) {
     // Age the existing trail. Drift is what spreads a swimmer's two emission
@@ -2048,7 +1946,7 @@ std::optional<float> WaterRenderer::getDominantWaterHeight(const glm::vec3& came
     bool found = false;
 
     for (const auto& surface : surfaces) {
-        // Skip magma/slime — only reflect water/ocean
+        // Skip magma/slime - only reflect water/ocean
         uint8_t basicType = (surface.liquidType == 0) ? 0 : ((surface.liquidType - 1) % 4);
         if (basicType >= 2) continue;
 
@@ -2202,7 +2100,7 @@ bool WaterRenderer::createWater1xPass(VkFormat colorFormat, VkFormat depthFormat
         .setMultisample(VK_SAMPLE_COUNT_1_BIT)
         .setLayout(pipelineLayout)
         .setRenderPass(water1xRenderPass)
-        .setDynamicStates({ VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR })
+        .setDynamicStates(viewportAndScissorDynamic())
         .build(device, vkCtx->getPipelineCache());
 
     vertShader.destroy();
@@ -2252,34 +2150,8 @@ void WaterRenderer::destroyWater1xResources() {
         if (fb) vkDestroyFramebuffer(device, fb, nullptr);
     }
     water1xFramebuffers.clear();
-    if (water1xPipeline) { vkDestroyPipeline(device, water1xPipeline, nullptr); water1xPipeline = VK_NULL_HANDLE; }
+    destroy(device, water1xPipeline);
     if (water1xRenderPass) { vkDestroyRenderPass(device, water1xRenderPass, nullptr); water1xRenderPass = VK_NULL_HANDLE; }
 }
-
-bool WaterRenderer::beginWater1xPass(VkCommandBuffer cmd, uint32_t imageIndex, VkExtent2D extent) {
-    if (!water1xRenderPass || imageIndex >= water1xFramebuffers.size() || !water1xFramebuffers[imageIndex])
-        return false;
-
-    VkRenderPassBeginInfo rpBI{};
-    rpBI.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    rpBI.renderPass = water1xRenderPass;
-    rpBI.framebuffer = water1xFramebuffers[imageIndex];
-    rpBI.renderArea = {{0, 0}, extent};
-    rpBI.clearValueCount = 0;
-    rpBI.pClearValues = nullptr;
-    vkCmdBeginRenderPass(cmd, &rpBI, VK_SUBPASS_CONTENTS_INLINE);
-
-    VkViewport vp{0, 0, static_cast<float>(extent.width), static_cast<float>(extent.height), 0.0f, 1.0f};
-    vkCmdSetViewport(cmd, 0, 1, &vp);
-    VkRect2D sc{{0, 0}, extent};
-    vkCmdSetScissor(cmd, 0, 1, &sc);
-
-    return true;
-}
-
-void WaterRenderer::endWater1xPass(VkCommandBuffer cmd) {
-    vkCmdEndRenderPass(cmd);
-}
-
 } // namespace rendering
 } // namespace wowee

@@ -27,14 +27,19 @@ public:
     bool initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout, int size = 200);
     void shutdown();
     void recreatePipelines();
+    /// The display pipeline, which initialize() and recreatePipelines()
+    /// both build.
+    void buildDisplayPipeline(VkDevice device,
+                              const VkPipelineShaderStageCreateInfo& vertStage,
+                              const VkPipelineShaderStageCreateInfo& fragStage);
 
     void setAssetManager(pipeline::AssetManager* am) { assetManager = am; }
     void setMapName(const std::string& name);
 
-    /// Off-screen composite pass — call BEFORE the main render pass begins.
+    /// Off-screen composite pass - call BEFORE the main render pass begins.
     void compositePass(VkCommandBuffer cmd, const glm::vec3& centerWorldPos);
 
-    /// Display quad — call INSIDE the main render pass.
+    /// Display quad - call INSIDE the main render pass.
     void render(VkCommandBuffer cmd, const Camera& playerCamera,
                 const glm::vec3& centerWorldPos, int screenWidth, int screenHeight,
                 float playerOrientation = 0.0f, bool hasPlayerOrientation = false);
@@ -56,8 +61,29 @@ public:
 
     void setOpacity(float opacity) { opacity_ = opacity; }
 
-    float getArrowRotation() const { return arrowRotation_; }
-    VkDescriptorSet getArrowDS() const { return arrowDS_; }
+    /// Where the map is drawn, in pixels from the top-left of the window.
+    ///
+    /// Unset, it goes in the top-right corner at its own size, which is where
+    /// this client's own interface puts it. FrameXML puts it inside a frame it
+    /// owns, so when the original interface is drawing the minimap the rect of
+    /// that frame is handed here instead - this is a Vulkan pass of its own
+    /// rather than an image the widget renderer could draw, so the map moves to
+    /// the frame rather than the frame receiving the map.
+    void setScreenRect(float x, float y, float w, float h) {
+        rectX_ = x; rectY_ = y; rectW_ = w; rectH_ = h; haveRect_ = true;
+    }
+    void clearScreenRect() { haveRect_ = false; }
+    /// Where the map is actually being drawn, when something placed it.
+    ///
+    /// The marker pass needs this: it used to assume the corner this client
+    /// puts its own minimap in, and when FrameXML draws the ring the map moves
+    /// to whatever rect the Minimap widget occupies. Blips computed against
+    /// the old corner land beside the map rather than on it.
+    bool hasScreenRect() const { return haveRect_; }
+    float screenRectX() const { return rectX_; }
+    float screenRectY() const { return rectY_; }
+    float screenRectW() const { return rectW_; }
+    float screenRectH() const { return rectH_; }
 
     // Public accessors for WorldMap
     VkTexture* getOrLoadTileTexture(int tileX, int tileY);
@@ -113,6 +139,8 @@ private:
     bool rotateWithCamera = false;
     bool squareShape = false;
     float opacity_ = 1.0f;
+    bool  haveRect_ = false;
+    float rectX_ = 0.0f, rectY_ = 0.0f, rectW_ = 0.0f, rectH_ = 0.0f;
 
     // Throttling
     float updateIntervalSec = 0.25f;
@@ -125,11 +153,13 @@ private:
     int lastCenterTileX = -1;
     int lastCenterTileY = -1;
 
-    // Player arrow texture (MinimapArrow.blp)
-    std::unique_ptr<VkTexture> arrowTexture_;
-    VkDescriptorSet arrowDS_ = VK_NULL_HANDLE;
-    bool arrowLoadAttempted_ = false;
-    float arrowRotation_ = 0.0f;
+    // No arrow texture: the player arrow is a triangle the display shader
+    // draws from push.arrowRotation. A MinimapArrow.blp was loaded here once
+    // and the members outlived the drawing - never assigned, so the teardown
+    // that freed them could not run, and the two accessors that read them had
+    // no callers. Kept as a note rather than as fields, because the real
+    // client draws the texture and honours SetPlayerTextureWidth/Height on it,
+    // which this cannot: those two are still no-ops.
 };
 
 } // namespace rendering

@@ -1,4 +1,6 @@
 #include "cli_skills_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -18,20 +20,6 @@ namespace cli {
 
 namespace {
 
-std::string stripWsklExt(std::string base) {
-    stripExt(base, ".wskl");
-    return base;
-}
-
-bool saveOrError(const wowee::pipeline::WoweeSkill& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeSkillLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wskl\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeSkill& c,
                      const std::string& base) {
@@ -44,9 +32,9 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterSkills";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWsklExt(base);
+    base = cli::withoutExt(base, ".wskl");
     auto c = wowee::pipeline::WoweeSkillLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-skills")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSkillLoader>(c, base, "gen-skills", ".wskl")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -55,9 +43,9 @@ int handleGenProfessions(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "ProfessionSkills";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWsklExt(base);
+    base = cli::withoutExt(base, ".wskl");
     auto c = wowee::pipeline::WoweeSkillLoader::makeProfessions(name);
-    if (!saveOrError(c, base, "gen-skills-professions")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSkillLoader>(c, base, "gen-skills-professions", ".wskl")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -66,9 +54,9 @@ int handleGenWeapons(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "WeaponSkills";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWsklExt(base);
+    base = cli::withoutExt(base, ".wskl");
     auto c = wowee::pipeline::WoweeSkillLoader::makeWeapons(name);
-    if (!saveOrError(c, base, "gen-skills-weapons")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSkillLoader>(c, base, "gen-skills-weapons", ".wskl")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -76,10 +64,9 @@ int handleGenWeapons(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWsklExt(base);
+    base = cli::withoutExt(base, ".wskl");
     if (!wowee::pipeline::WoweeSkillLoader::exists(base)) {
-        std::fprintf(stderr, "WSKL not found: %s.wskl\n", base.c_str());
-        return 1;
+        return reportMissing("WSKL", base, ".wskl");
     }
     auto c = wowee::pipeline::WoweeSkillLoader::load(base);
     if (jsonOut) {
@@ -125,64 +112,36 @@ int handleExportJson(int& i, int argc, char** argv) {
     // Mirrors the JSON pairs added for every other novel
     // open format. Each skill emits all 8 scalar fields plus
     // dual int + name forms for categoryId.
-    std::string base = argv[++i];
-    std::string outPath;
-    if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWsklExt(base);
-    if (outPath.empty()) outPath = base + ".wskl.json";
-    if (!wowee::pipeline::WoweeSkillLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wskl-json: WSKL not found: %s.wskl\n", base.c_str());
-        return 1;
-    }
-    auto c = wowee::pipeline::WoweeSkillLoader::load(base);
-    nlohmann::json j;
-    j["name"] = c.name;
-    nlohmann::json arr = nlohmann::json::array();
-    for (const auto& e : c.entries) {
-        arr.push_back({
-            {"skillId", e.skillId},
-            {"name", e.name},
-            {"description", e.description},
-            {"categoryId", e.categoryId},
-            {"categoryName", wowee::pipeline::WoweeSkill::categoryName(e.categoryId)},
-            {"canTrain", e.canTrain},
-            {"maxRank", e.maxRank},
-            {"rankPerLevel", e.rankPerLevel},
-            {"iconPath", e.iconPath},
+    return cli::exportCatalogJson<wowee::pipeline::WoweeSkillLoader>(
+        i, argc, argv, "wskl", "WSKL", "skills ",
+        [](const auto& c) {
+        nlohmann::json j;
+        j["name"] = c.name;
+        nlohmann::json arr = nlohmann::json::array();
+        for (const auto& e : c.entries) {
+            arr.push_back({
+                {"skillId", e.skillId},
+                {"name", e.name},
+                {"description", e.description},
+                {"categoryId", e.categoryId},
+                {"categoryName", wowee::pipeline::WoweeSkill::categoryName(e.categoryId)},
+                {"canTrain", e.canTrain},
+                {"maxRank", e.maxRank},
+                {"rankPerLevel", e.rankPerLevel},
+                {"iconPath", e.iconPath},
+            });
+        }
+        j["entries"] = arr;
+            return j;
         });
-    }
-    j["entries"] = arr;
-    std::ofstream out(outPath);
-    if (!out) {
-        std::fprintf(stderr,
-            "export-wskl-json: cannot write %s\n", outPath.c_str());
-        return 1;
-    }
-    out << j.dump(2) << "\n";
-    out.close();
-    std::printf("Wrote %s\n", outPath.c_str());
-    std::printf("  source : %s.wskl\n", base.c_str());
-    std::printf("  skills : %zu\n", c.entries.size());
-    return 0;
 }
 
 int handleImportJson(int& i, int argc, char** argv) {
     std::string jsonPath = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = jsonPath;
-        std::string suffix = ".wskl.json";
-        if (outBase.size() > suffix.size() &&
-            outBase.substr(outBase.size() - suffix.size()) == suffix) {
-            outBase = outBase.substr(0, outBase.size() - suffix.size());
-        } else if (outBase.size() > 5 &&
-                   outBase.substr(outBase.size() - 5) == ".json") {
-            outBase = outBase.substr(0, outBase.size() - 5);
-        }
-    }
-    outBase = stripWsklExt(outBase);
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(jsonPath, ".wskl");
+    outBase = cli::withoutExt(outBase, ".wskl");
     std::ifstream in(jsonPath);
     if (!in) {
         std::fprintf(stderr,
@@ -240,89 +199,48 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWsklExt(base);
-    if (!wowee::pipeline::WoweeSkillLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wskl: WSKL not found: %s.wskl\n", base.c_str());
-        return 1;
-    }
-    auto c = wowee::pipeline::WoweeSkillLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    std::vector<uint32_t> idsSeen;
-    idsSeen.reserve(c.entries.size());
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.skillId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.skillId == 0) {
-            errors.push_back(ctx + ": skillId is 0");
-        }
-        if (e.name.empty()) {
-            errors.push_back(ctx + ": name is empty");
-        }
-        if (e.maxRank == 0) {
-            errors.push_back(ctx + ": maxRank is 0");
-        }
-        if (e.categoryId > wowee::pipeline::WoweeSkill::WeaponSpec) {
-            errors.push_back(ctx + ": categoryId " +
-                std::to_string(e.categoryId) + " not in 0..7");
-        }
-        // Languages have maxRank=1 (you either know it or you don't);
-        // anything else with maxRank=1 is suspicious.
-        if (e.maxRank == 1 &&
-            e.categoryId != wowee::pipeline::WoweeSkill::Language) {
-            warnings.push_back(ctx +
-                ": maxRank=1 on non-Language skill (only languages cap at 1)");
-        }
-        // Weapon skills should auto-grow (rankPerLevel > 0).
-        if (e.categoryId == wowee::pipeline::WoweeSkill::Weapon &&
-            e.rankPerLevel == 0) {
-            warnings.push_back(ctx +
-                ": weapon skill with rankPerLevel=0 (won't auto-grow on use)");
-        }
-        for (uint32_t prev : idsSeen) {
-            if (prev == e.skillId) {
-                errors.push_back(ctx + ": duplicate skillId");
-                break;
+    return cli::validateCatalog<wowee::pipeline::WoweeSkillLoader>(
+        i, argc, argv, "wskl", "WSKL",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        idsSeen.reserve(c.entries.size());
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.skillId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.skillId == 0) {
+                errors.push_back(ctx + ": skillId is 0");
             }
+            if (e.name.empty()) {
+                errors.push_back(ctx + ": name is empty");
+            }
+            if (e.maxRank == 0) {
+                errors.push_back(ctx + ": maxRank is 0");
+            }
+            if (e.categoryId > wowee::pipeline::WoweeSkill::WeaponSpec) {
+                errors.push_back(ctx + ": categoryId " +
+                    std::to_string(e.categoryId) + " not in 0..7");
+            }
+            // Languages have maxRank=1 (you either know it or you don't);
+            // anything else with maxRank=1 is suspicious.
+            if (e.maxRank == 1 &&
+                e.categoryId != wowee::pipeline::WoweeSkill::Language) {
+                warnings.push_back(ctx +
+                    ": maxRank=1 on non-Language skill (only languages cap at 1)");
+            }
+            // Weapon skills should auto-grow (rankPerLevel > 0).
+            if (e.categoryId == wowee::pipeline::WoweeSkill::Weapon &&
+                e.rankPerLevel == 0) {
+                warnings.push_back(ctx +
+                    ": weapon skill with rankPerLevel=0 (won't auto-grow on use)");
+            }
+            if (!idsSeen.add(e.skillId)) errors.push_back(ctx + ": duplicate skillId");
         }
-        idsSeen.push_back(e.skillId);
-    }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wskl"] = base + ".wskl";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wskl: %s.wskl\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu skills, all skillIds unique\n",
-                    c.entries.size());
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+            return formatted("%zu skills, all skillIds unique", c.entries.size());
+        });
 }
 
 } // namespace

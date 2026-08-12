@@ -1,6 +1,6 @@
 # Warden Implementation
 
-**Status**: Partial — infrastructure complete, execution path still has stubs (`src/game/warden_module.cpp:1023,1155,1167`). The module is loaded, decrypted, and parsed, but import binding and `WardenFuncList` extraction return placeholder values; the server falls back to fake responses via `GameHandler` (`warden_module.cpp:234`).
+**Status**: Partial - infrastructure complete, execution path still has stubs (`src/game/warden_module.cpp:1023,1155,1167`). The module is loaded, decrypted, and parsed, but import binding and `WardenFuncList` extraction return placeholder values; the server falls back to fake responses via `GameHandler` (`warden_module.cpp:234`).
 **WoW Version**: 3.3.5a (build 12340)
 
 ---
@@ -11,7 +11,7 @@ Warden is WoW's client integrity checking system. The server sends encrypted mod
 containing native x86 code; the client is expected to load and execute them, then
 return check results.
 
-Wowee handles this via Unicorn Engine CPU emulation — the x86 module is executed
+Wowee handles this via Unicorn Engine CPU emulation - the x86 module is executed
 directly in an emulated environment with Windows API hooks, without Wine or a Windows OS.
 
 ---
@@ -21,7 +21,7 @@ directly in an emulated environment with Windows API hooks, without Wine or a Wi
 ```
 1. MD5       - Verify module checksum matches server challenge
 2. RC4       - Decrypt module payload
-3. RSA-2048  - Verify module signature (currently uses a hardcoded placeholder modulus — see Crypto Layer below)
+3. RSA-2048  - Verify module signature (currently uses a hardcoded placeholder modulus - see Crypto Layer below)
 4. zlib      - Decompress module
 5. Parse     - Read PE header (sections, relocations, imports)
 6. Relocate  - Apply base relocations to load address
@@ -77,8 +77,8 @@ verification will not match a stock Blizzard module.
 
 ## Opcodes
 
-- `SMSG_WARDEN_DATA` = 0x2E6 — server sends module + checks
-- `CMSG_WARDEN_DATA` = 0x2E7 — client sends results
+- `SMSG_WARDEN_DATA` = 0x2E6 - server sends module + checks
+- `CMSG_WARDEN_DATA` = 0x2E7 - client sends results
 
 ---
 

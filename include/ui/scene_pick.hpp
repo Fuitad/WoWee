@@ -3,9 +3,9 @@
 // Ray-picking entities under the cursor, shared by the two callers that need it.
 //
 // The left-click target picker and the right-click world picker each grew their
-// own copy of this traversal. They agreed on everything that matters — how a
+// own copy of this traversal. They agreed on everything that matters - how a
 // unit is ranked against an object, that a hostile is preferred, that a corpse
-// must not outrank the living — and had to be edited in lockstep to stay that
+// must not outrank the living - and had to be edited in lockstep to stay that
 // way, which is exactly how one of them quietly diverges. What genuinely
 // differs between them is expressed as parameters instead.
 
@@ -13,13 +13,41 @@
 #include <functional>
 #include <memory>
 
+#include <cmath>
+
 #include <glm/glm.hpp>
+
+#include "rendering/camera.hpp"  // rendering::Ray
 
 namespace wowee {
 namespace game { class GameHandler; class Entity; }
-namespace rendering { struct Ray; }
 
 namespace ui {
+
+/// Where a ray first meets a sphere, if it does at all.
+///
+/// The picker's own test, and the one every hand-rolled click target in the
+/// interface needs. It was written out five times - once here and once in each
+/// of the four files GameScreen was split into - and three of those four copies
+/// were never called from the file they sat in. Identical to the character, so
+/// nothing had gone wrong yet; five copies of a quadratic is simply five
+/// chances for one of them to lose a sign.
+inline bool raySphereIntersect(const rendering::Ray& ray, const glm::vec3& center,
+                               float radius, float& tOut) {
+    const glm::vec3 oc = ray.origin - center;
+    const float b = glm::dot(oc, ray.direction);
+    const float c = glm::dot(oc, oc) - radius * radius;
+    const float disc = b * b - c;
+    if (disc < 0.0f) return false;
+    const float root = std::sqrt(disc);
+    float t = -b - root;
+    // Behind the near root means the origin is inside the sphere; the far root
+    // is then the first surface the ray meets going forward.
+    if (t < 0.0f) t = -b + root;
+    if (t < 0.0f) return false;
+    tOut = t;
+    return true;
+}
 
 /// The parts of picking the two callers disagree about.
 struct ScenePickParams {
@@ -50,7 +78,7 @@ struct ScenePick {
     float    objectCenterT = 1e30f;
 
     /// The living win; a corpse is still selectable, but only when nothing alive
-    /// was under the cursor — which is what makes a player standing on a body
+    /// was under the cursor - which is what makes a player standing on a body
     /// clickable, and what looting and skinning still need.
     uint64_t unitGuid() const { return livingUnitGuid != 0 ? livingUnitGuid : deadUnitGuid; }
     float unitCenterT() const {

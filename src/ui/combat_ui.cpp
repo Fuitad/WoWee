@@ -1,11 +1,12 @@
 // ============================================================
-// CombatUI — extracted from GameScreen
+// CombatUI - extracted from GameScreen
 // Owns all combat-related UI rendering: cast bar, cooldown tracker,
 // raid warning overlay, combat text, DPS meter, buff bar,
 // battleground score HUD, combat log, threat window, BG scoreboard.
 // ============================================================
 #include "ui/combat_ui.hpp"
 #include "ui/buff_bar_layout.hpp"
+#include "ui/framexml_takeover.hpp"
 #include "ui/settings_panel.hpp"
 #include "ui/spellbook_screen.hpp"
 #include "ui/inventory_screen.hpp"
@@ -17,6 +18,7 @@
 #include "rendering/renderer.hpp"
 #include "rendering/camera.hpp"
 #include "game/game_handler.hpp"
+#include "game/bg_score_defs.hpp"
 #include "pipeline/asset_manager.hpp"
 #include "audio/audio_coordinator.hpp"
 #include "audio/audio_engine.hpp"
@@ -150,7 +152,7 @@ void CombatUI::renderCastBar(game::GameHandler& gameHandler, SpellIconFn getSpel
 
 
 // ============================================================
-// Cooldown Tracker — floating panel showing all active spell CDs
+// Cooldown Tracker - floating panel showing all active spell CDs
 // ============================================================
 
 void CombatUI::renderCooldownTracker(game::GameHandler& gameHandler,
@@ -249,18 +251,27 @@ void CombatUI::renderCooldownTracker(game::GameHandler& gameHandler,
 // ============================================================
 
 void CombatUI::renderRaidWarningOverlay(game::GameHandler& gameHandler) {
+    // FrameXML's RaidWarningFrame and RaidBossEmoteFrame answer
+    // CHAT_MSG_RAID_WARNING and CHAT_MSG_RAID_BOSS_EMOTE, both of which this
+    // client fires - so when it owns them, collect no entries and the empty
+    // check below returns before anything is drawn. The gate is here rather
+    // than at the top of the function because the same scan plays the whisper
+    // sound, which belongs to no element and has to keep happening.
+    const bool ownsWarnings = frameXmlOwns(UiElement::RaidWarning);
+
     // Scan chat history for new RAID_WARNING / RAID_BOSS_EMOTE messages
     const auto& chatHistory = gameHandler.getChatHistory();
     size_t newCount = chatHistory.size();
     if (newCount > raidWarnChatSeenCount_) {
-        // Walk only the new messages (deque — iterate from back by skipping old ones)
+        // Walk only the new messages (deque - iterate from back by skipping old ones)
         size_t toScan = newCount - raidWarnChatSeenCount_;
         size_t startIdx = newCount > toScan ? newCount - toScan : 0;
         for (size_t i = startIdx; i < newCount; ++i) {
             const auto& msg = chatHistory[i];
-            if (msg.type == game::ChatType::RAID_WARNING ||
-                msg.type == game::ChatType::RAID_BOSS_EMOTE ||
-                msg.type == game::ChatType::MONSTER_EMOTE) {
+            if (!ownsWarnings &&
+                (msg.type == game::ChatType::RAID_WARNING ||
+                 msg.type == game::ChatType::RAID_BOSS_EMOTE ||
+                 msg.type == game::ChatType::MONSTER_EMOTE)) {
                 bool isBoss = (msg.type != game::ChatType::RAID_WARNING);
                 // Limit display text length to avoid giant overlay
                 std::string text = msg.message;
@@ -346,6 +357,17 @@ void CombatUI::renderRaidWarningOverlay(game::GameHandler& gameHandler) {
 // Floating Combat Text
 // ============================================================
 
+// Not gated, and there is no element to gate it on.
+//
+// FrameXML's own floating combat text lives in Blizzard_CombatText, which is
+// load-on-demand and reached from exactly one place: the float-mode dropdown in
+// the Interface Options combat panel, which calls UIParentLoadAddOn for it. So
+// it is absent until a player touches that setting, and drawing beside it after
+// that is a latent double rather than a live one.
+//
+// Left alone deliberately. Covering it means a new UiElement and a suppression
+// entry, which is a decision about what this interface owns rather than a fix
+// to something broken - and the client's combat text is the one on screen today.
 void CombatUI::renderCombatText(game::GameHandler& gameHandler) {
     const auto& entries = gameHandler.getCombatText();
     if (entries.empty()) return;
@@ -694,7 +716,7 @@ void CombatUI::renderDPSMeter(game::GameHandler& gameHandler,
     // Track combat duration for accurate DPS denominator in short fights
     bool inCombat = gameHandler.isInCombat();
     if (inCombat && !dpsWasInCombat_) {
-        // Just entered combat — reset encounter accumulators
+        // Just entered combat - reset encounter accumulators
         dpsEncounterDamage_ = 0.0f;
         dpsEncounterHeal_   = 0.0f;
         dpsLogSeenCount_    = gameHandler.getCombatLog().size();
@@ -725,7 +747,7 @@ void CombatUI::renderDPSMeter(game::GameHandler& gameHandler,
             }
         }
     } else if (dpsWasInCombat_) {
-        // Just left combat — keep encounter totals but stop accumulating
+        // Just left combat - keep encounter totals but stop accumulating
     }
     dpsWasInCombat_ = inCombat;
 
@@ -868,7 +890,7 @@ void CombatUI::renderDPSMeter(game::GameHandler& gameHandler,
             dpsMeterPos_ = ImVec2(-1.0f, -1.0f);
         }
         if (ImGui::IsWindowHovered()) {
-            ImGui::SetTooltip("Drag to move — right-click to reset position");
+            ImGui::SetTooltip("Drag to move - right-click to reset position");
         }
     }
     ImGui::End();
@@ -914,8 +936,13 @@ void CombatUI::renderBuffBar(game::GameHandler& gameHandler,
     ImVec2 displaySize = ImGui::GetIO().DisplaySize;
     const float screenW = displaySize.x > 0.0f ? displaySize.x : 1280.0f;
     const float screenH = displaySize.y > 0.0f ? displaySize.y : 720.0f;
+    // Which minimap the row has to stop short of: this client's, or the larger
+    // one FrameXML draws in the same corner.
+    const float minimapWidth = minimapReservedWidth(
+        screenH, frameXmlOwns(UiElement::Minimap));
     const BuffBarLayout layout = computeBuffBarLayout(
-        screenW, screenH, settings.pendingBuffBarScale, activeCount, enchantCount);
+        screenW, screenH, settings.pendingBuffBarScale, activeCount, enchantCount,
+        minimapWidth);
 
     const float uiScale = buffBarScale(screenH, settings.pendingBuffBarScale);
     const float ICON_SIZE = layout.iconSize;
@@ -956,7 +983,7 @@ void CombatUI::renderBuffBar(game::GameHandler& gameHandler,
             return ra < rb;
         });
 
-        // Render one pass for buffs, one for debuffs — both on a single continuous row.
+        // Render one pass for buffs, one for debuffs - both on a single continuous row.
         int shown = 0;
         for (int pass = 0; pass < 2; ++pass) {
             bool wantBuff = (pass == 0);
@@ -978,21 +1005,8 @@ void CombatUI::renderBuffBar(game::GameHandler& gameHandler,
             ImGui::PushID(static_cast<int>(i) + (pass * 256));
 
             // Determine border color: buffs = green; debuffs use WoW dispel-type colors
-            ImVec4 borderColor;
-            if (isBuff) {
-                borderColor = ImVec4(0.2f, 0.8f, 0.2f, 0.9f);  // green
-            } else {
-                // Debuff: color by dispel type (0=none/red, 1=magic/blue, 2=curse/purple,
-                //         3=disease/brown, 4=poison/green, other=dark-red)
-                uint8_t dt = gameHandler.getSpellDispelType(aura.spellId);
-                switch (dt) {
-                    case 1:  borderColor = ImVec4(0.15f, 0.50f, 1.00f, 0.9f); break;  // magic: blue
-                    case 2:  borderColor = ImVec4(0.70f, 0.20f, 0.90f, 0.9f); break;  // curse: purple
-                    case 3:  borderColor = ImVec4(0.55f, 0.30f, 0.10f, 0.9f); break;  // disease: brown
-                    case 4:  borderColor = ImVec4(0.10f, 0.70f, 0.10f, 0.9f); break;  // poison: green
-                    default: borderColor = ImVec4(0.80f, 0.20f, 0.20f, 0.9f); break;  // other: red
-                }
-            }
+            const ImVec4 borderColor =
+                wowee::ui::auraBorderColor(isBuff, gameHandler.getSpellDispelType(aura.spellId));
 
             // Try to get spell icon
             VkDescriptorSet iconTex = VK_NULL_HANDLE;
@@ -1052,7 +1066,7 @@ void CombatUI::renderBuffBar(game::GameHandler& gameHandler,
                 }
             }
 
-            // Duration countdown overlay — always visible on the icon bottom
+            // Duration countdown overlay - always visible on the icon bottom
             if (remainMs > 0) {
                 ImVec2 iconMin = ImGui::GetItemRectMin();
                 ImVec2 iconMax = ImGui::GetItemRectMax();
@@ -1089,7 +1103,7 @@ void CombatUI::renderBuffBar(game::GameHandler& gameHandler,
                     timerColor, timeStr);
             }
 
-            // Stack / charge count overlay — upper-left corner of the icon
+            // Stack / charge count overlay - upper-left corner of the icon
             if (aura.charges > 1) {
                 ImVec2 iconMin = ImGui::GetItemRectMin();
                 char chargeStr[8];
@@ -1127,16 +1141,16 @@ void CombatUI::renderBuffBar(game::GameHandler& gameHandler,
             shown++;
         }  // end aura loop
         }  // end pass loop
-        // The buff/debuff gap is horizontal now (see SameLine above) — a vertical
+        // The buff/debuff gap is horizontal now (see SameLine above) - a vertical
         // Spacing() here would push debuffs onto a second row.
 
         // Temporary weapon enchant timers (Shaman imbues, Rogue poisons, sharpening
         // stones, oils). Shown as the enchanted weapon's icon with its remaining time
-        // beneath, the way the retail client does — not as a labelled bar.
+        // beneath, the way the retail client does - not as a labelled bar.
         {
             const auto& timers = gameHandler.getTempEnchantTimers();
             if (!timers.empty()) {
-                // Continue the aura row rather than starting a second one — a Spacing()
+                // Continue the aura row rather than starting a second one - a Spacing()
                 // or Separator() here is what used to push these onto their own line.
                 static constexpr game::EquipSlot kWeaponEquipSlots[] = {
                     game::EquipSlot::MAIN_HAND, game::EquipSlot::OFF_HAND, game::EquipSlot::RANGED
@@ -1236,7 +1250,7 @@ void CombatUI::renderBuffBar(game::GameHandler& gameHandler,
                     }
                     ImGui::PopID();
                     ++enchantsShown;
-                    ++shown;  // shared row counter — drives the SameLine above
+                    ++shown;  // shared row counter - drives the SameLine above
                 }
             }
         }
@@ -1264,40 +1278,14 @@ void CombatUI::renderBuffBar(game::GameHandler& gameHandler,
 //   EotS 566 – Alliance / Horde resource scores (max 1600)
 // ============================================================================
 void CombatUI::renderBattlegroundScore(game::GameHandler& gameHandler) {
+    // FrameXML presents the same scores through WorldStateAlwaysUpFrame, which
+    // reads the shared table below via GetWorldStateUIInfo.
+    if (frameXmlOwns(UiElement::BattlegroundScore)) return;
+
     // Only show when in a recognised battleground map
     uint32_t mapId = gameHandler.getWorldStateMapId();
 
-    // World state key sets per battleground
-    // Keys from the WoW 3.3.5a WorldState.dbc / client source
-    struct BgScoreDef {
-        uint32_t mapId;
-        const char* name;
-        uint32_t allianceKey;   // world state key for Alliance value
-        uint32_t hordeKey;      // world state key for Horde value
-        uint32_t maxKey;        // max score world state key (0 = use hardcoded)
-        uint32_t hardcodedMax;  // used when maxKey == 0
-        const char* unit;       // suffix label (e.g. "flags", "resources")
-    };
-
-    static constexpr BgScoreDef kBgDefs[] = {
-        // Warsong Gulch: 3 flag captures wins
-        { 489, "Warsong Gulch", 1581, 1582, 0, 3, "flags" },
-        // Arathi Basin: 1600 resources wins
-        { 529, "Arathi Basin",  1218, 1219, 0, 1600, "resources" },
-        // Alterac Valley: reinforcements count down from 600 / 800 etc.
-        {  30, "Alterac Valley", 1322, 1323, 0, 600, "reinforcements" },
-        // Eye of the Storm: 1600 resources wins
-        { 566, "Eye of the Storm", 2757, 2758, 0, 1600, "resources" },
-        // Strand of the Ancients (WotLK)
-        { 607, "Strand of the Ancients", 3476, 3477, 0, 4, "" },
-        // Isle of Conquest (WotLK): reinforcements (300 default)
-        { 628, "Isle of Conquest", 4221, 4222, 0, 300, "reinforcements" },
-    };
-
-    const BgScoreDef* def = nullptr;
-    for (const auto& d : kBgDefs) {
-        if (d.mapId == mapId) { def = &d; break; }
-    }
+    const game::BgScoreDef* def = game::findBgScoreDef(mapId);
     if (!def) return;
 
     auto allianceOpt = gameHandler.getWorldState(def->allianceKey);
@@ -1593,15 +1581,8 @@ void CombatUI::renderCombatLog(game::GameHandler& gameHandler,
                     break;
                 }
                 case T::ENERGIZE: {
-                    const char* pwrName = "power";
-                    switch (e.powerType) {
-                        case 0: pwrName = "Mana"; break;
-                        case 1: pwrName = "Rage"; break;
-                        case 2: pwrName = "Focus"; break;
-                        case 3: pwrName = "Energy"; break;
-                        case 4: pwrName = "Happiness"; break;
-                        case 6: pwrName = "Runic Power"; break;
-                    }
+                    const char* pwrName = game::powerTypeName(e.powerType);
+                    if (!pwrName) pwrName = "power";
                     if (spell)
                         snprintf(desc, sizeof(desc), "%s gains %d %s (%s)", tgt, e.amount, pwrName, spell);
                     else
@@ -1610,15 +1591,8 @@ void CombatUI::renderCombatLog(game::GameHandler& gameHandler,
                     break;
                 }
                 case T::POWER_DRAIN: {
-                    const char* drainName = "power";
-                    switch (e.powerType) {
-                        case 0: drainName = "Mana"; break;
-                        case 1: drainName = "Rage"; break;
-                        case 2: drainName = "Focus"; break;
-                        case 3: drainName = "Energy"; break;
-                        case 4: drainName = "Happiness"; break;
-                        case 6: drainName = "Runic Power"; break;
-                    }
+                    const char* drainName = game::powerTypeName(e.powerType);
+                    if (!drainName) drainName = "power";
                     if (spell)
                         snprintf(desc, sizeof(desc), "%s loses %d %s to %s's %s", tgt, e.amount, drainName, src, spell);
                     else
@@ -1772,10 +1746,10 @@ void CombatUI::renderThreatWindow(game::GameHandler& gameHandler) {
 
     // Status bar: aggro alert or rank summary
     if (playerRank == 1) {
-        // Player has aggro — persistent red warning
+        // Player has aggro - persistent red warning
         ImGui::TextColored(ImVec4(1.0f, 0.25f, 0.25f, 1.0f), "!! YOU HAVE AGGRO !!");
     } else if (playerRank > 1 && playerPct >= 0.8f) {
-        // Close to pulling — pulsing warning
+        // Close to pulling - pulsing warning
         float pulse = 0.55f + 0.45f * sinf(static_cast<float>(ImGui::GetTime()) * 5.0f);
         ImGui::TextColored(ImVec4(1.0f, 0.55f, 0.1f, pulse), "! PULLING AGGRO (%.0f%%) !", playerPct * 100.0f);
     } else if (playerRank > 0) {
@@ -1810,7 +1784,7 @@ void CombatUI::renderThreatWindow(game::GameHandler& gameHandler) {
         // Colour: gold for #1 (tank), red if player is highest, white otherwise
         ImVec4 col = ui::colors::kWhite;
         if (rank == 1) col = ui::colors::kTooltipGold;      // gold
-        if (isPlayer && rank == 1) col = kColorRed; // red — you have aggro
+        if (isPlayer && rank == 1) col = kColorRed; // red - you have aggro
 
         // Threat bar
         float pct = (maxThreat > 0) ? static_cast<float>(entry.threat) / static_cast<float>(maxThreat) : 0.0f;

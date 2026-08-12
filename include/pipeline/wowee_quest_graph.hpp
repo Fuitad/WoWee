@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Quest Graph catalog (.wqgr) — novel
+// Wowee Open Quest Graph catalog (.wqgr) - novel
 // representation of quest-chain dependencies that
 // vanilla WoW carried implicitly in
 // QuestRelations.dbc (the prequest column) +
@@ -23,7 +23,7 @@ namespace pipeline {
 // validator something interesting to check: a DFS
 // cycle detector flags player-unreachable quests
 // (Q1 prereq=Q2, Q2 prereq=Q3, Q3 prereq=Q1 is a
-// progression deadlock — no player could ever
+// progression deadlock - no player could ever
 // satisfy the cycle).
 //
 // Cross-references with previously-added formats:
@@ -42,31 +42,31 @@ namespace pipeline {
 //     questId (uint32)
 //     nameLen + name
 //     minLevel (uint8)
-//     maxLevel (uint8)         — 0 = no upper gate
-//     questType (uint8)        — 0=Normal /
+//     maxLevel (uint8)         - 0 = no upper gate
+//     questType (uint8)        - 0=Normal /
 //                                 1=Daily /
 //                                 2=Repeatable /
 //                                 3=Group /
 //                                 4=Raid
-//     factionAccess (uint8)    — 0=Both /
+//     factionAccess (uint8)    - 0=Both /
 //                                 1=Alliance /
 //                                 2=Horde /
 //                                 3=Neutral
-//     classRestriction (uint16)  — bitmask of allowed
+//     classRestriction (uint16)  - bitmask of allowed
 //                                   classIds (0 =
 //                                   no restriction)
-//     raceRestriction (uint16)   — bitmask of allowed
+//     raceRestriction (uint16)   - bitmask of allowed
 //                                   raceIds (0 =
 //                                   no restriction)
 //     zoneId (uint32)
-//     chainHeadHint (uint8)    — 0/1 bool — first
+//     chainHeadHint (uint8)    - 0/1 bool - first
 //                                 quest in a chain
 //                                 (UI sort hint)
 //     pad0 (uint8)
 //     pad1 (uint16)
-//     prevCount (uint32)       — prereq array
+//     prevCount (uint32)       - prereq array
 //     prevQuestIds (uint32 × count)
-//     followupCount (uint32)   — hint array
+//     followupCount (uint32)   - hint array
 //     followupQuestIds (uint32 × count)
 struct WoweeQuestGraph {
     enum QuestType : uint8_t {
@@ -110,11 +110,11 @@ struct WoweeQuestGraph {
 
     // Returns all quests that have the given questId
     // as a prereq (the "what unlocks once I finish
-    // this" lookup — used by the journal UI's
+    // this" lookup - used by the journal UI's
     // "completing this opens" panel).
     std::vector<const Entry*> findUnlocksFrom(uint32_t questId) const;
 
-    // Returns all quests in a zone — used by the
+    // Returns all quests in a zone - used by the
     // zone-detail UI to populate the per-zone quest
     // list.
     std::vector<const Entry*> findByZone(uint32_t zoneId) const;
@@ -129,17 +129,17 @@ public:
 
     // Preset emitters used by --gen-qgr* variants.
     //
-    //   makeStarterChain  — 5-quest linear chain
+    //   makeStarterChain  - 5-quest linear chain
     //                        (Northshire human starter
     //                        Q1->Q2->Q3->Q4->Q5).
     //                        Q1 has chainHeadHint=1.
     //                        Levels 1..5.
-    //   makeBranchedChain — 4-quest converging chain
+    //   makeBranchedChain - 4-quest converging chain
     //                        (Q1 -> Q2a, Q1 -> Q2b,
     //                        both -> Q3). Demonstrates
     //                        DAG semantics not just
     //                        a linear list.
-    //   makeDailies       — 3 standalone daily quests
+    //   makeDailies       - 3 standalone daily quests
     //                        (Daily type, no prereqs,
     //                        no follow-ups). Baseline
     //                        empty-deps path.

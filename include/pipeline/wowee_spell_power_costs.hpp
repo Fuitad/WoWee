@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Spell Power Cost catalog (.wspc) — novel
+// Wowee Open Spell Power Cost catalog (.wspc) - novel
 // replacement for the per-spell power-cost fields in
 // Spell.dbc plus SpellPowerCost-related side tables.
 // Defines categorical power-cost buckets that spells
@@ -17,11 +17,11 @@ namespace pipeline {
 // per-rank cost numbers.
 //
 // Completes the small lookup-bucket set:
-//   WSRG — range bucket
-//   WSCT — cast time bucket
-//   WSDR — duration bucket
-//   WSCD — cooldown bucket
-//   WSPC — power cost bucket   (this catalog)
+//   WSRG - range bucket
+//   WSCT - cast time bucket
+//   WSDR - duration bucket
+//   WSCD - cooldown bucket
+//   WSPC - power cost bucket   (this catalog)
 //
 // Five small integer ids per spell (range / cast / dur /
 // cd / cost) replace the dozens of duplicate per-rank
@@ -36,7 +36,7 @@ namespace pipeline {
 // baseCost=10 means "5% of max mana + 10 flat".
 //
 // Cross-references with previously-added formats:
-//   None — this catalog is consumed directly by the spell
+//   None - this catalog is consumed directly by the spell
 //   engine. WSPL spell entries reference powerCostId.
 //
 // Binary layout (little-endian):
@@ -116,14 +116,14 @@ public:
 
     // Preset emitters used by --gen-spc* variants.
     //
-    //   makeStarter — 4 baseline mana cost tiers (NoCost,
+    //   makeStarter - 4 baseline mana cost tiers (NoCost,
     //                  LowMana 5%, MediumMana 15%, HighMana
-    //                  30%) — % of max mana, scales with
+    //                  30%) - % of max mana, scales with
     //                  caster level naturally.
-    //   makeRage    — 4 fixed rage costs for warrior abilities
+    //   makeRage    - 4 fixed rage costs for warrior abilities
     //                  (HeroicStrike 15, Slam 20, Whirlwind 25,
     //                  MortalStrike 30).
-    //   makeMixed   — 5 cross-class cost buckets covering
+    //   makeMixed   - 5 cross-class cost buckets covering
     //                  every non-mana power type (Hunter
     //                  Focus 30, Rogue Energy 40, DK Runic 30,
     //                  Paladin Holy 1, Warlock SoulShard 1).

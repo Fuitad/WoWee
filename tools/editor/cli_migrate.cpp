@@ -1,4 +1,6 @@
 #include "cli_migrate.hpp"
+#include "zone_manifest.hpp"
+#include "cli_catalog_paths.hpp"
 
 #include "pipeline/wowee_model.hpp"
 #include <nlohmann/json.hpp>
@@ -33,8 +35,7 @@ int handleMigrateWom(int& i, int argc, char** argv) {
     if (base.size() >= 4 && base.substr(base.size() - 4) == ".wom")
         base = base.substr(0, base.size() - 4);
     if (!wowee::pipeline::WoweeModelLoader::exists(base)) {
-        std::fprintf(stderr, "WOM not found: %s.wom\n", base.c_str());
-        return 1;
+        return reportMissing("WOM", base, ".wom");
     }
     if (outBase.empty()) outBase = base;
     auto wom = wowee::pipeline::WoweeModelLoader::load(base);
@@ -47,7 +48,7 @@ int handleMigrateWom(int& i, int argc, char** argv) {
     if (wom.batches.empty()) {
         // Single batch covering the entire index range with the
         // first texture (or 0 if no textures exist). Opaque
-        // blend mode + no flags — safe defaults that match how
+        // blend mode + no flags - safe defaults that match how
         // the renderer was treating the whole mesh implicitly.
         wowee::pipeline::WoweeModel::Batch b;
         b.indexStart = 0;
@@ -130,7 +131,7 @@ int handleMigrateZone(int& i, int argc, char** argv) {
 int handleMigrateProject(int& i, int argc, char** argv) {
     // Project-level wrapper around --migrate-zone. Walks every
     // zone in <projectDir> and upgrades legacy WOMs in-place.
-    // Idempotent — already-migrated files become no-ops, safe to
+    // Idempotent - already-migrated files become no-ops, safe to
     // run repeatedly.
     (void)argc;
     std::string projectDir = argv[++i];
@@ -141,13 +142,9 @@ int handleMigrateProject(int& i, int argc, char** argv) {
             projectDir.c_str());
         return 1;
     }
-    std::vector<std::string> zones;
-    for (const auto& entry : fs::directory_iterator(projectDir)) {
-        if (!entry.is_directory()) continue;
-        if (!fs::exists(entry.path() / "zone.json")) continue;
-        zones.push_back(entry.path().string());
-    }
-    std::sort(zones.begin(), zones.end());
+    // What counts as a zone, and the order they are reported in,
+    // from one place.
+    std::vector<std::string> zones = wowee::editor::projectZoneDirs(projectDir);
     int totalScanned = 0, totalUpgraded = 0, totalAlreadyV3 = 0, totalFailed = 0;
     // Per-zone breakdown for the summary table.
     struct ZRow { std::string name; int scanned, upgraded, alreadyV3, failed; };
@@ -244,7 +241,7 @@ int handleMigrateJsondbc(int& i, int argc, char** argv) {
     }
     if (!doc.contains("source") || !doc["source"].is_string() ||
         doc["source"].get<std::string>().empty()) {
-        // Derive from input path's stem + .dbc — best-effort
+        // Derive from input path's stem + .dbc - best-effort
         // matching the convention asset_extract uses.
         std::string stem = std::filesystem::path(path).stem().string();
         doc["source"] = stem + ".dbc";
@@ -255,7 +252,7 @@ int handleMigrateJsondbc(int& i, int argc, char** argv) {
     // recordCount + fieldCount are non-negotiable for re-import.
     if (!doc.contains("records") || !doc["records"].is_array()) {
         std::fprintf(stderr,
-            "migrate-jsondbc: 'records' missing or not an array — cannot fix\n");
+            "migrate-jsondbc: 'records' missing or not an array - cannot fix\n");
         return 1;
     }
     const auto& records = doc["records"];

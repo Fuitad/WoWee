@@ -4,7 +4,7 @@ namespace wowee {
 namespace editor {
 namespace cli {
 
-// Dispatch the zone & project mesh-bake handlers — these stitch
+// Dispatch the zone & project mesh-bake handlers - these stitch
 // every WHM heightfield + WOM/WOB asset in a zone into a single
 // 3D file (.obj / .stl / .glb) for external DCC import.
 //   --bake-zone-glb       --bake-zone-stl       --bake-zone-obj

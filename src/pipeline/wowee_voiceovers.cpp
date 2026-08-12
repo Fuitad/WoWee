@@ -1,4 +1,5 @@
 #include "pipeline/wowee_voiceovers.hpp"
+#include "pipeline/wowee_binary_io.hpp"
 
 #include <cstdio>
 #include <cstring>
@@ -11,52 +12,7 @@ namespace {
 
 constexpr char kMagic[4] = {'W', 'V', 'O', 'X'};
 constexpr uint32_t kVersion = 1;
-
-template <typename T>
-void writePOD(std::ofstream& os, const T& v) {
-    os.write(reinterpret_cast<const char*>(&v), sizeof(T));
-}
-
-template <typename T>
-bool readPOD(std::ifstream& is, T& v) {
-    is.read(reinterpret_cast<char*>(&v), sizeof(T));
-    return is.gcount() == static_cast<std::streamsize>(sizeof(T));
-}
-
-void writeStr(std::ofstream& os, const std::string& s) {
-    uint32_t n = static_cast<uint32_t>(s.size());
-    writePOD(os, n);
-    if (n > 0) os.write(s.data(), n);
-}
-
-bool readStr(std::ifstream& is, std::string& s) {
-    uint32_t n = 0;
-    if (!readPOD(is, n)) return false;
-    if (n > (1u << 20)) return false;
-    s.resize(n);
-    if (n > 0) {
-        is.read(s.data(), n);
-        if (is.gcount() != static_cast<std::streamsize>(n)) {
-            s.clear();
-            return false;
-        }
-    }
-    return true;
-}
-
-std::string normalizePath(std::string base) {
-    if (base.size() < 5 || base.substr(base.size() - 5) != ".wvox") {
-        base += ".wvox";
-    }
-    return base;
-}
-
-uint32_t packRgba(uint8_t r, uint8_t g, uint8_t b, uint8_t a = 0xFF) {
-    return (static_cast<uint32_t>(a) << 24) |
-           (static_cast<uint32_t>(b) << 16) |
-           (static_cast<uint32_t>(g) << 8)  |
-            static_cast<uint32_t>(r);
-}
+constexpr char kExtension[] = ".wvox";
 
 } // namespace
 
@@ -79,15 +35,9 @@ WoweeVoiceovers::findForTrigger(uint32_t npcId,
 }
 
 bool WoweeVoiceoversLoader::save(const WoweeVoiceovers& cat,
-                                   const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath), std::ios::binary);
-    if (!os) return false;
-    os.write(kMagic, 4);
-    writePOD(os, kVersion);
-    writeStr(os, cat.name);
-    uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writePOD(os, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeVoiceovers::Entry& e) {
         writePOD(os, e.voiceId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -104,58 +54,34 @@ bool WoweeVoiceoversLoader::save(const WoweeVoiceovers& cat,
         writePOD(os, e.pad2);
         writePOD(os, e.pad3);
         writePOD(os, e.iconColorRGBA);
-    }
-    return os.good();
+                       });
 }
 
 WoweeVoiceovers WoweeVoiceoversLoader::load(
     const std::string& basePath) {
-    WoweeVoiceovers out;
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    if (!is) return out;
-    char magic[4];
-    is.read(magic, 4);
-    if (std::memcmp(magic, kMagic, 4) != 0) return out;
-    uint32_t version = 0;
-    if (!readPOD(is, version) || version != kVersion) return out;
-    if (!readStr(is, out.name)) return out;
-    uint32_t entryCount = 0;
-    if (!readPOD(is, entryCount)) return out;
-    if (entryCount > (1u << 20)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.voiceId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name) || !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
+    return loadCatalog<WoweeVoiceovers>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeVoiceovers::Entry& e) {
+        if (!readPOD(is, e.voiceId)) { return false; }
+        if (!readStr(is, e.name) || !readStr(is, e.description)) { return false; }
         if (!readPOD(is, e.npcId) ||
             !readPOD(is, e.eventKind) ||
             !readPOD(is, e.genderHint) ||
             !readPOD(is, e.variantIndex) ||
-            !readPOD(is, e.pad0)) {
-            out.entries.clear(); return out;
-        }
+            !readPOD(is, e.pad0)) { return false; }
         if (!readStr(is, e.audioPath) ||
-            !readStr(is, e.transcript)) {
-            out.entries.clear(); return out;
-        }
+            !readStr(is, e.transcript)) { return false; }
         if (!readPOD(is, e.durationMs) ||
             !readPOD(is, e.volumeDb) ||
             !readPOD(is, e.pad1) ||
             !readPOD(is, e.pad2) ||
             !readPOD(is, e.pad3) ||
-            !readPOD(is, e.iconColorRGBA)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.iconColorRGBA)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeVoiceoversLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeVoiceovers WoweeVoiceoversLoader::makeQuestgiver(
@@ -204,7 +130,7 @@ WoweeVoiceovers WoweeVoiceoversLoader::makeQuestgiver(
         "Sound\\Creature\\Questgiver\\Reward01.ogg",
         "Well done! Take this as a token of my gratitude.",
         3800,
-        "Played at quest turn-in. Most emotive line — "
+        "Played at quest turn-in. Most emotive line - "
         "celebration register.");
     add(5, "Goodbye", V::Goodbye, 0,
         "Sound\\Creature\\Questgiver\\Goodbye01.ogg",
@@ -269,13 +195,13 @@ WoweeVoiceovers WoweeVoiceoversLoader::makeBoss(
         "Apocalypse!",
         2000, +5,
         "Special mechanic call (Defile cast warning). "
-        "+5dB above ambient — must be audible over "
+        "+5dB above ambient - must be audible over "
         "raid noise.");
     add(105, "BossDeath", V::Death, 0,
         "Sound\\Creature\\LichKing\\Death01.ogg",
         "No... it cannot be...",
         4500, +2,
-        "Death line — emotional conclusion.");
+        "Death line - emotional conclusion.");
     return c;
 }
 

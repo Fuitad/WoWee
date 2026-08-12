@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Seasonal Event catalog (.wsea) — novel
+// Wowee Open Seasonal Event catalog (.wsea) - novel
 // replacement for Blizzard's GameEvents.dbc + the
 // AzerothCore-style game_event / game_event_creature /
 // game_event_gameobject SQL tables. The 31st open format
@@ -23,7 +23,7 @@ namespace pipeline {
 // Cross-references with previously-added formats:
 //   WSEA.entry.tokenIdReward → WTKN.entry.tokenId
 //                              (the seasonal currency the
-//                               event hands out — Tricky
+//                               event hands out - Tricky
 //                               Treats during Hallow's End,
 //                               Brewfest Tokens during
 //                               Brewfest, etc.)
@@ -97,15 +97,15 @@ public:
 
     // Preset emitters used by --gen-events* variants.
     //
-    //   makeStarter — 3 events covering Combat / Collection /
+    //   makeStarter - 3 events covering Combat / Collection /
     //                  Anniversary holidayKind categories.
-    //   makeYearly  — 4 yearly recurring holidays with WTKN
+    //   makeYearly  - 4 yearly recurring holidays with WTKN
     //                  reward cross-refs (Hallow's End ->
     //                  Tricky Treats, Brewfest -> Brewfest
     //                  Tokens, Lunar Festival -> Coin of
     //                  Ancestry, Winter's Veil -> Stranger's
     //                  Gift).
-    //   makeBonusWeekends — 3 short XP-bonus weekend events
+    //   makeBonusWeekends - 3 short XP-bonus weekend events
     //                        (50% / 100% / 200% bonus tiers).
     static WoweeEvent makeStarter(const std::string& catalogName);
     static WoweeEvent makeYearly(const std::string& catalogName);

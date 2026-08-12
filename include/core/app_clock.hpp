@@ -15,4 +15,12 @@ namespace wowee::core {
 /// backwards, which is what anything measuring a duration needs.
 double appTimeSeconds();
 
+/// Harness only: add `seconds` to the clock without real time passing, so a
+/// synchronous --tick loop can drive GetTime-based animations - FadingFrame
+/// (RaidWarning, boss emote), cooldown sweeps, cast bars - which read the wall
+/// clock rather than a per-frame elapsed and so stand still when ticks run
+/// faster than real time. The live client never calls this, so its clock is
+/// exactly the steady_clock as before.
+void advanceTestClock(double seconds);
+
 } // namespace wowee::core

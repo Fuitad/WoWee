@@ -1,4 +1,5 @@
 #include "cli_gen_mesh.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_box_emitter.hpp"
 #include "cli_arg_parse.hpp"
 
@@ -28,7 +29,7 @@ int handleRock(int& i, int argc, char** argv) {
     // each face N times to get a rounded base, then displaces
     // each vertex along its outward direction by a smooth
     // sin/cos noise term controlled by `seed` and `roughness`.
-    // Result is a unique-shaped rock per seed — perfect for
+    // Result is a unique-shaped rock per seed - perfect for
     // scattering across a zone via random-populate-zone.
     //
     // The 16th procedural primitive in the WOM library.
@@ -125,7 +126,7 @@ int handleRock(int& i, int argc, char** argv) {
         vtx.position = finalPos[v];
         vtx.normal = normals[v];
         // Spherical UV unwrap. Visible seam at u=0/1 is
-        // acceptable for rocks — usually hidden by terrain.
+        // acceptable for rocks - usually hidden by terrain.
         glm::vec3 d = glm::normalize(sv[v]);
         vtx.texCoord = {
             0.5f + std::atan2(d.z, d.x) / (2.0f * 3.14159265f),
@@ -158,7 +159,7 @@ int handlePillar(int& i, int argc, char** argv) {
     // cylinder with N concave flutes (radius modulated by
     // cos²(theta*flutes/2)), capped above and below by
     // wider disc caps that act as a simple capital and
-    // base. The 17th procedural mesh primitive — useful
+    // base. The 17th procedural mesh primitive - useful
     // for ruins, temples, dungeons, plaza decoration.
     std::string womBase = argv[++i];
     float radius = 0.4f;
@@ -254,7 +255,7 @@ int handlePillar(int& i, int argc, char** argv) {
             { topCenter, capTop + sg, capTop + sg + 1 });
     }
     // Annular surfaces where caps meet shaft (top of base disc
-    // out to shaft, etc.). Just connect the two rings — they
+    // out to shaft, etc.). Just connect the two rings - they
     // sit at the same Y so this looks like a flat ring.
     connect(baseTop, shaftBot);
     connect(shaftTop, capBot);
@@ -276,7 +277,7 @@ int handleBridge(int& i, int argc, char** argv) {
     // running across the bridge's width with small gaps
     // between, plus two side rails (top + bottom rails on
     // posts). Bridge length runs along +X, width is on Z.
-    // The 18th procedural mesh primitive — useful for
+    // The 18th procedural mesh primitive - useful for
     // river crossings, dungeon catwalks, scenic overlooks.
     std::string womBase = argv[++i];
     float length = 6.0f;     // along X
@@ -297,7 +298,7 @@ int handleBridge(int& i, int argc, char** argv) {
     stripExt(womBase, ".wom");
     wowee::pipeline::WoweeModel wom;
     initWomDefaults(wom, womBase);
-    // Box helper — builds 24-vert / 12-tri box centered on
+    // Box helper - builds 24-vert / 12-tri box centered on
     // (cx, cy, cz) with half-extents (hx, hy, hz). Each face
     // gets unique vertices so flat-shading works. Indices are
     // pushed into wom.indices directly.
@@ -487,7 +488,7 @@ int handleHouse(int& i, int argc, char** argv) {
     // Simple procedural house: cube body + pyramid roof
     // meeting at a central apex above the body's roofline.
     // The pyramid sits flush on the body so the eaves
-    // line up with the wall edges. No door cutout — that
+    // line up with the wall edges. No door cutout - that
     // can be added later via mesh boolean ops or texture.
     //
     // The 20th procedural mesh primitive.
@@ -514,7 +515,7 @@ int handleHouse(int& i, int argc, char** argv) {
     };
     float hx = width * 0.5f;
     float hz = depth * 0.5f;
-    // 4 walls — each a quad with an outward-facing normal so
+    // 4 walls - each a quad with an outward-facing normal so
     // the house reads as solid even with backface culling on.
     struct Wall {
         glm::vec3 a, b, c, d;  // CCW from outside
@@ -545,7 +546,7 @@ int handleHouse(int& i, int argc, char** argv) {
     // Roof: 4 triangles meeting at central apex.
     float apexY = height + roofH;
     glm::vec3 apex(0, apexY, 0);
-    // Eave corners (Y = wall height) — each triangle shares
+    // Eave corners (Y = wall height) - each triangle shares
     // two adjacent corners + the apex. Per-face normal is
     // computed once so flat shading works.
     glm::vec3 eaves[4] = {
@@ -578,7 +579,7 @@ int handleHouse(int& i, int argc, char** argv) {
 int handleFountain(int& i, int argc, char** argv) {
     // Procedural fountain: low cylindrical basin with a
     // narrower spout column rising from its center. Solid
-    // basin (not hollow) for simplicity — readable as a
+    // basin (not hollow) for simplicity - readable as a
     // fountain because of the spout silhouette. Useful for
     // town squares, plazas, garden centerpieces.
     //
@@ -796,7 +797,7 @@ int handleAltar(int& i, int argc, char** argv) {
     // the altar surface (where offerings would go); base
     // discs widen out to anchor the structure visually.
     //
-    // The 23rd procedural mesh primitive — pairs naturally
+    // The 23rd procedural mesh primitive - pairs naturally
     // with --gen-texture-marble for a temple aesthetic.
     std::string womBase = argv[++i];
     float topR = 0.7f;        // top altar disc radius
@@ -918,7 +919,7 @@ int handlePortal(int& i, int argc, char** argv) {
     stripExt(womBase, ".wom");
     wowee::pipeline::WoweeModel wom;
     initWomDefaults(wom, womBase);
-    // Box helper — same pattern as other multi-box meshes.
+    // Box helper - same pattern as other multi-box meshes.
     auto addBox = [&](float cx, float cy, float cz,
                       float hx, float hy, float hz) {
         addFlatBox(wom, cx, cy, cz, hx, hy, hz);
@@ -959,7 +960,7 @@ int handleArchway(int& i, int argc, char** argv) {
     // pillar-top to pillar-top. The opening is the empty
     // semicircular space below.
     //
-    // The 25th procedural mesh primitive — the "fancier"
+    // The 25th procedural mesh primitive - the "fancier"
     // sibling of --gen-mesh-portal which uses a flat lintel.
     std::string womBase = argv[++i];
     float width = 3.0f;        // outer-to-outer pillar centers along Z
@@ -1029,7 +1030,7 @@ int handleArchway(int& i, int argc, char** argv) {
     // up over to (z = -pillarZ, y = pillarH). Center of arch:
     // (z = 0, y = pillarH). Arch radius = pillarZ.
     // Inner arch (radius pillarZ - thickness*0.5) and outer
-    // (radius pillarZ + thickness*0.5) — the vault sits between.
+    // (radius pillarZ + thickness*0.5) - the vault sits between.
     float archCY = pillarH;
     float arcInner = pillarZ - thickness * 0.5f;
     float arcOuter = pillarZ + thickness * 0.5f;
@@ -1142,7 +1143,7 @@ int handleBarrel(int& i, int argc, char** argv) {
     };
     // Radius profile: smooth cosine bulge from rim to mid.
     // r(t) = topR + (midR - topR) * sin(pi*t) where t in 0..1
-    // gives 0 at t=0/1 and 1 at t=0.5 — exact rim fit.
+    // gives 0 at t=0/1 and 1 at t=0.5 - exact rim fit.
     auto radiusAt = [&](float t) -> float {
         return topR + (midR - topR) * std::sin(pi * t);
     };
@@ -1205,7 +1206,7 @@ int handleChest(int& i, int argc, char** argv) {
     // Treasure chest: rectangular body box + smaller lid
     // box on top + 3 thin iron bands wrapping around the
     // body + a small lock plate on the front center face.
-    // The 27th procedural mesh primitive — useful for
+    // The 27th procedural mesh primitive - useful for
     // dungeon loot, room decoration, quest objectives.
     std::string womBase = argv[++i];
     float width = 1.4f;       // along X
@@ -1224,7 +1225,7 @@ int handleChest(int& i, int argc, char** argv) {
     stripExt(womBase, ".wom");
     wowee::pipeline::WoweeModel wom;
     initWomDefaults(wom, womBase);
-    // Box helper — adds 24 unique verts / 12 tris centered
+    // Box helper - adds 24 unique verts / 12 tris centered
     // on (cx, cy, cz) with half-extents (hx, hy, hz). Each
     // face gets unique normals for flat shading.
     auto addBox = [&](float cx, float cy, float cz,
@@ -1243,7 +1244,7 @@ int handleChest(int& i, int argc, char** argv) {
         addBox(0, bodyH + lidH * 0.5f, 0,
                lidHx, lidH * 0.5f, lidHz);
     }
-    // 3 iron bands wrapping the body — thin slabs
+    // 3 iron bands wrapping the body - thin slabs
     // protruding ~3% radially on the sides + top.
     // Band positions: 15%, 50%, 85% of body width.
     float bandThickX = width * 0.04f;  // band depth along X
@@ -1391,7 +1392,7 @@ int handleStairs(int& i, int argc, char** argv) {
     // normals are flat (looks correct without smoothing).
     //
     // Defaults: 5 steps, stepHeight=0.2, stepDepth=0.3,
-    // width=1.0 — roughly 1m tall × 1.5m long × 1m wide,
+    // width=1.0 - roughly 1m tall × 1.5m long × 1m wide,
     // a believable single flight.
     //
     // Useful for level-design placeholders ("I need a staircase
@@ -1479,7 +1480,7 @@ int handleStairs(int& i, int argc, char** argv) {
     wom.batches.push_back(b);
     wom.texturePaths.push_back("");
     std::filesystem::path womPath(womBase);
-    std::filesystem::create_directories(womPath.parent_path());
+    ensureParentDirectory(womPath);
     if (!saveWomOrError(wom, womBase, "gen-mesh-stairs")) return 1;
     printWomWrote(womBase);
     std::printf("  steps     : %d\n", steps);
@@ -1566,7 +1567,7 @@ int handleGrid(int& i, int argc, char** argv) {
     wom.batches.push_back(b);
     wom.texturePaths.push_back("");
     std::filesystem::path womPath(womBase);
-    std::filesystem::create_directories(womPath.parent_path());
+    ensureParentDirectory(womPath);
     if (!saveWomOrError(wom, womBase, "gen-mesh-grid")) return 1;
     printWomWrote(womBase);
     std::printf("  subdivisions : %d (%dx%d cells)\n", N, N, N);
@@ -1632,7 +1633,7 @@ int handleDisc(int& i, int argc, char** argv) {
     wom.batches.push_back(b);
     wom.texturePaths.push_back("");
     std::filesystem::path womPath(womBase);
-    std::filesystem::create_directories(womPath.parent_path());
+    ensureParentDirectory(womPath);
     if (!saveWomOrError(wom, womBase, "gen-mesh-disc")) return 1;
     printWomWrote(womBase);
     std::printf("  radius    : %.3f\n", radius);
@@ -1646,7 +1647,7 @@ int handleDisc(int& i, int argc, char** argv) {
 int handleTube(int& i, int argc, char** argv) {
     // Hollow cylinder along Y axis. Outer + inner walls + top
     // and bottom annular caps. Useful for railings, fence
-    // posts, pipes, hollow logs, ring towers — anywhere a
+    // posts, pipes, hollow logs, ring towers - anywhere a
     // solid cylinder would feel wrong because you should be
     // able to see through the middle.
     std::string womBase = argv[++i];
@@ -1787,7 +1788,7 @@ int handleTube(int& i, int argc, char** argv) {
     wom.batches.push_back(b);
     wom.texturePaths.push_back("");
     std::filesystem::path womPath(womBase);
-    std::filesystem::create_directories(womPath.parent_path());
+    ensureParentDirectory(womPath);
     if (!saveWomOrError(wom, womBase, "gen-mesh-tube")) return 1;
     printWomWrote(womBase);
     std::printf("  outer R   : %.3f\n", outerR);
@@ -1924,7 +1925,7 @@ int handleCapsule(int& i, int argc, char** argv) {
     wom.batches.push_back(b);
     wom.texturePaths.push_back("");
     std::filesystem::path womPath(womBase);
-    std::filesystem::create_directories(womPath.parent_path());
+    ensureParentDirectory(womPath);
     if (!saveWomOrError(wom, womBase, "gen-mesh-capsule")) return 1;
     printWomWrote(womBase);
     std::printf("  radius     : %.3f\n", radius);
@@ -2035,7 +2036,7 @@ int handleArch(int& i, int argc, char** argv) {
     wom.batches.push_back(b);
     wom.texturePaths.push_back("");
     std::filesystem::path womPath(womBase);
-    std::filesystem::create_directories(womPath.parent_path());
+    ensureParentDirectory(womPath);
     if (!saveWomOrError(wom, womBase, "gen-mesh-arch")) return 1;
     printWomWrote(womBase);
     std::printf("  opening    : %.3f W × %.3f H\n", openingW, openingH);
@@ -2127,7 +2128,7 @@ int handlePyramid(int& i, int argc, char** argv) {
     wom.batches.push_back(b);
     wom.texturePaths.push_back("");
     std::filesystem::path womPath(womBase);
-    std::filesystem::create_directories(womPath.parent_path());
+    ensureParentDirectory(womPath);
     if (!saveWomOrError(wom, womBase, "gen-mesh-pyramid")) return 1;
     printWomWrote(womBase);
     std::printf("  sides     : %d\n", sides);
@@ -2205,7 +2206,7 @@ int handleFence(int& i, int argc, char** argv) {
     wom.batches.push_back(b);
     wom.texturePaths.push_back("");
     std::filesystem::path womPath(womBase);
-    std::filesystem::create_directories(womPath.parent_path());
+    ensureParentDirectory(womPath);
     if (!saveWomOrError(wom, womBase, "gen-mesh-fence")) return 1;
     printWomWrote(womBase);
     std::printf("  posts     : %d\n", posts);
@@ -2226,7 +2227,7 @@ int handleTree(int& i, int argc, char** argv) {
     //
     // Useful for ambient zone decoration, distant tree
     // placeholders, magic-grove props. The 15th procedural
-    // primitive — pairs naturally with --add-texture-to-mesh
+    // primitive - pairs naturally with --add-texture-to-mesh
     // for trunk-bark and leaf textures (or just one texture
     // since this is a single-batch mesh).
     std::string womBase = argv[++i];
@@ -2321,7 +2322,7 @@ int handleTree(int& i, int argc, char** argv) {
     wom.batches.push_back(b);
     wom.texturePaths.push_back("");
     std::filesystem::path womPath(womBase);
-    std::filesystem::create_directories(womPath.parent_path());
+    ensureParentDirectory(womPath);
     if (!saveWomOrError(wom, womBase, "gen-mesh-tree")) return 1;
     printWomWrote(womBase);
     std::printf("  trunk R   : %.3f\n", trunkR);
@@ -2340,9 +2341,9 @@ int handleMeshDispatch(int& i, int argc, char** argv) {
     // immediately in the editor without further processing.
     //
     // Shapes:
-    //   cube   — 24 verts / 12 tris, axis-aligned, ±size/2
-    //   plane  — 4 verts / 2 tris, on XY plane (Z=0), ±size/2
-    //   sphere — UV sphere, 16 segments × 12 stacks, radius=size/2
+    //   cube   - 24 verts / 12 tris, axis-aligned, ±size/2
+    //   plane  - 4 verts / 2 tris, on XY plane (Z=0), ±size/2
+    //   sphere - UV sphere, 16 segments × 12 stacks, radius=size/2
     std::string womBase = argv[++i];
     std::string shape = argv[++i];
     float size = 1.0f;
@@ -2352,7 +2353,7 @@ int handleMeshDispatch(int& i, int argc, char** argv) {
             "gen-mesh: size must be positive (got %g)\n", size);
         return 1;
     }
-    // Strip .wom if user passed a full filename — saver expects base.
+    // Strip .wom if user passed a full filename - saver expects base.
     stripExt(womBase, ".wom");
     wowee::pipeline::WoweeModel wom;
     initWomDefaults(wom, womBase);
@@ -2437,7 +2438,7 @@ int handleMeshDispatch(int& i, int argc, char** argv) {
         }
     } else if (s == "cylinder") {
         // Capped cylinder along the Y axis. radius=size/2,
-        // height=size. 24 side segments — smooth enough for
+        // height=size. 24 side segments - smooth enough for
         // pillars and torches without exploding the vertex
         // count. UVs: side wraps the texture once around;
         // caps map [0..1] from a square sampled at the disc.
@@ -2502,7 +2503,7 @@ int handleMeshDispatch(int& i, int argc, char** argv) {
     } else if (s == "torus") {
         // Torus around the Y axis. Major radius (ring center
         // distance from origin) = size/2, minor radius (tube
-        // thickness) = size/8 — the 4:1 ratio reads as a
+        // thickness) = size/8 - the 4:1 ratio reads as a
         // ring rather than a fat donut. 32 ring segments × 16
         // tube segments = ~544 verts / ~1024 tris.
         const int ringSeg = 32;
@@ -2588,7 +2589,7 @@ int handleMeshDispatch(int& i, int argc, char** argv) {
             wom.indices.push_back(c);
             wom.indices.push_back(b);
             // Second triangle would be (b,c,d) but b == d at
-            // the apex visually — we still emit it so the
+            // the apex visually - we still emit it so the
             // per-vertex normals on b and d shade the joining
             // seam smoothly.
             wom.indices.push_back(b);
@@ -2622,7 +2623,7 @@ int handleMeshDispatch(int& i, int argc, char** argv) {
         // stay flat: top slope, bottom, back-tall, +Y side,
         // -Y side. Front-short (X = -size/2) is open since
         // the ramp meets ground there at zero height.
-        // Actually we still emit 5 faces — the "front" edge
+        // Actually we still emit 5 faces - the "front" edge
         // is just where slope and ground meet, no separate
         // face needed.
         float xMin = -h, xMax = h;
@@ -2649,8 +2650,8 @@ int handleMeshDispatch(int& i, int argc, char** argv) {
             { 1, 0, 0,
                {{xMax, yMin, zMin},{xMax, yMin, zMax},
                 {xMax, yMax, zMax},{xMax, yMax, zMin}}},
-            // -Y side triangle (degenerate quad — last 2 verts
-            // collapse to a point — but indexing uniformly is
+            // -Y side triangle (degenerate quad - last 2 verts
+            // collapse to a point - but indexing uniformly is
             // simpler than a special tri path)
             { 0, -1, 0,
                {{xMin, yMin, zMin},{xMax, yMin, zMin},
@@ -2688,7 +2689,7 @@ int handleMeshDispatch(int& i, int argc, char** argv) {
         wom.boundMax = glm::max(wom.boundMax, v.position);
     }
     wom.boundRadius = glm::length(wom.boundMax - wom.boundMin) * 0.5f;
-    // Single material batch covering everything — keeps the
+    // Single material batch covering everything - keeps the
     // model immediately renderable.
     wowee::pipeline::WoweeModel::Batch b;
     b.indexStart = 0;
@@ -2702,7 +2703,7 @@ int handleMeshDispatch(int& i, int argc, char** argv) {
     // real path or run --gen-texture next to it.
     wom.texturePaths.push_back("");
     std::filesystem::path womPath(womBase);
-    std::filesystem::create_directories(womPath.parent_path());
+    ensureParentDirectory(womPath);
     if (!saveWomOrError(wom, womBase, "gen-mesh")) return 1;
     printWomWrote(womBase);
     std::printf("  shape    : %s\n", s.c_str());
@@ -2722,13 +2723,13 @@ int handleTextured(int& i, int argc, char** argv) {
     // together so the resulting WOM's texturePaths[0] points
     // at the freshly-written PNG sidecar. Output is a model
     // that renders with the synthesized texture out of the
-    // box — useful for prototyping textured props without
+    // box - useful for prototyping textured props without
     // chaining three commands by hand.
     //
     // The texture is written next to the mesh as
     //   <wom-base>.png
     // and the WOM's texturePaths[0] is set to that filename
-    // (just the leaf — runtime resolves it relative to the
+    // (just the leaf - runtime resolves it relative to the
     // model's own directory).
     std::string womBase = argv[++i];
     std::string shape = argv[++i];
@@ -3099,7 +3100,7 @@ int handleGrave(int& i, int argc, char** argv) {
     // Tombstone: low rectangular base + vertical tablet on top.
     // Tablet sits centered on the base; base is wider so the
     // grave reads with a stable foundation. The 32nd procedural
-    // mesh primitive — useful for graveyards, undead zones,
+    // mesh primitive - useful for graveyards, undead zones,
     // memorial set dressing.
     std::string womBase = argv[++i];
     float tabletW = 0.6f;     // along X
@@ -3152,7 +3153,7 @@ int handleBench(int& i, int argc, char** argv) {
     // by 2 leg slabs (vertical Y rectangles) at each end. Legs
     // are 90% of the bench's depth and span the full seat
     // height down to the floor. The 33rd procedural mesh
-    // primitive — useful for taverns, plazas, roadside rest
+    // primitive - useful for taverns, plazas, roadside rest
     // stops.
     std::string womBase = argv[++i];
     float length = 1.5f;       // along X (bench length)
@@ -3296,7 +3297,7 @@ int handleShrine(int& i, int argc, char** argv) {
 int handleTotem(int& i, int argc, char** argv) {
     // Tribal totem: stack of N square blocks alternating wide/
     // narrow widths so each carved face reads as distinct.
-    // Even-indexed blocks are full width, odd are 70% — gives
+    // Even-indexed blocks are full width, odd are 70% - gives
     // the carved-segment look characteristic of totem poles.
     // The 35th procedural mesh primitive.
     std::string womBase = argv[++i];
@@ -3481,9 +3482,9 @@ int handleCoffin(int& i, int argc, char** argv) {
     // Coffin: classic 6-sided "hexagonal" prism with the
     // characteristic narrow-head / wide-shoulder / tapered-foot
     // top-down profile that reads as a coffin from any angle.
-    // Six side faces + top lid + bottom panel — face-shared
+    // Six side faces + top lid + bottom panel - face-shared
     // normals via separate vertex sets per face. The 38th
-    // procedural mesh primitive — useful for graveyard set
+    // procedural mesh primitive - useful for graveyard set
     // dressing alongside --gen-mesh-grave.
     std::string womBase = argv[++i];
     float length = 2.0f;     // along Z
@@ -3502,7 +3503,7 @@ int handleCoffin(int& i, int argc, char** argv) {
     initWomDefaults(wom, womBase);
     // Top-down hexagonal coffin profile (CCW from head looking
     // down +Y). Head end is narrow, shoulder is widest, feet
-    // taper to a narrow toe — the canonical "casket" silhouette.
+    // taper to a narrow toe - the canonical "casket" silhouette.
     float hL = length * 0.5f;
     float hW = width * 0.5f;
     glm::vec2 ring[6] = {
@@ -3528,7 +3529,7 @@ int handleCoffin(int& i, int argc, char** argv) {
         wom.indices.insert(wom.indices.end(),
             {base, base + 1, base + 2, base, base + 2, base + 3});
     };
-    // Six side faces — each a quad from bottom-edge to top-edge
+    // Six side faces - each a quad from bottom-edge to top-edge
     // of one segment of the hexagon. Normal is the outward
     // perpendicular to the side edge in the XZ plane.
     for (int s = 0; s < 6; ++s) {
@@ -3596,7 +3597,7 @@ int handleCoffin(int& i, int argc, char** argv) {
 }
 
 int handleArchwayDouble(int& i, int argc, char** argv) {
-    // Double archway: 5-box twin-opening passage — 3 vertical
+    // Double archway: 5-box twin-opening passage - 3 vertical
     // posts (left / shared center / right) plus 2 horizontal
     // lintels spanning each opening. Pairs with the existing
     // single --gen-mesh-archway for plaza approaches, double-
@@ -3663,11 +3664,11 @@ int handleArchwayDouble(int& i, int argc, char** argv) {
 }
 
 int handleBrazier(int& i, int argc, char** argv) {
-    // Brazier: 7-box fire-pit on a pedestal — square base
+    // Brazier: 7-box fire-pit on a pedestal - square base
     // plate, narrow vertical stem, wider bowl on top of the
     // stem, and 3 small flame boxes of varying heights rising
     // from the bowl. Useful for dungeons, temples, watchtowers,
-    // throne rooms — anywhere a fantasy world needs visible
+    // throne rooms - anywhere a fantasy world needs visible
     // light sources. The 57th procedural mesh primitive.
     std::string womBase = argv[++i];
     float bowlSize = 0.55f;
@@ -3740,7 +3741,7 @@ int handleBrazier(int& i, int argc, char** argv) {
 }
 
 int handlePodium(int& i, int argc, char** argv) {
-    // Podium: 4-box stepped pyramid speaker stand — large
+    // Podium: 4-box stepped pyramid speaker stand - large
     // bottom step, medium middle step, small top platform,
     // and a small lectern box on top of the platform. Useful
     // for throne rooms, ceremonies, NPC speaker positions,
@@ -3804,7 +3805,7 @@ int handlePodium(int& i, int argc, char** argv) {
 }
 
 int handleSundial(int& i, int argc, char** argv) {
-    // Sundial: 8-box garden timekeeper — square base plate at
+    // Sundial: 8-box garden timekeeper - square base plate at
     // floor, central vertical gnomon slab spanning the diameter
     // (long axis along Z, simulates the angled blade that casts
     // a shadow), and 4 small hour-marker nubs at the cardinal
@@ -3874,12 +3875,12 @@ int handleSundial(int& i, int argc, char** argv) {
 }
 
 int handleScarecrow(int& i, int argc, char** argv) {
-    // Scarecrow: 5-box cruciform farm pest deterrent — anchor
+    // Scarecrow: 5-box cruciform farm pest deterrent - anchor
     // post into the ground, vertical body, horizontal arm cross,
     // round-ish head box at the top, and a brimmed hat box on
     // the head. The cross silhouette reads as a scarecrow even
     // without rotated geometry. The 54th procedural mesh
-    // primitive — useful for crop fields, abandoned villages,
+    // primitive - useful for crop fields, abandoned villages,
     // harvest set dressing.
     std::string womBase = argv[++i];
     float bodyHeight = 1.80f;
@@ -3904,28 +3905,28 @@ int handleScarecrow(int& i, int argc, char** argv) {
                       float hx, float hy, float hz) {
         addFlatBox(wom, cx, cy, cz, hx, hy, hz);
     };
-    // Vertical body post — full bodyHeight.
+    // Vertical body post - full bodyHeight.
     float halfPost = postT * 0.5f;
     float bodyCY = bodyHeight * 0.5f;
     addBox(0, bodyCY, 0, halfPost, bodyHeight * 0.5f, halfPost);
-    // Cross-arm — horizontal, sits about 75% up the body.
+    // Cross-arm - horizontal, sits about 75% up the body.
     float armT     = postT * 0.85f;
     float halfArmT = armT * 0.5f;
     float armCY    = bodyHeight * 0.72f;
     addBox(0, armCY, 0, armSpan * 0.5f, halfArmT, halfArmT);
-    // Head — sits on top of the body. Slightly above the post
+    // Head - sits on top of the body. Slightly above the post
     // tip so it visually sits on the post rather than passing
     // through it.
     float halfHead = headSize * 0.5f;
     float headCY   = bodyHeight + halfHead;
     addBox(0, headCY, 0, halfHead, halfHead, halfHead);
-    // Hat — wider than the head (the brim) but shorter
+    // Hat - wider than the head (the brim) but shorter
     // (so the head still pokes through visually).
     float halfHat = hatSize * 0.5f;
     float hatH    = headSize * 0.40f;
     float hatCY   = headCY + halfHead - hatH * 0.3f;
     addBox(0, hatCY, 0, halfHat, hatH * 0.5f, halfHat);
-    // Hat crown — taller, narrower top of the hat (so the
+    // Hat crown - taller, narrower top of the hat (so the
     // overall hat reads as a brim + crown silhouette).
     float crownSize = hatSize * 0.55f;
     float crownH    = headSize * 0.65f;
@@ -3949,7 +3950,7 @@ int handleScarecrow(int& i, int argc, char** argv) {
 }
 
 int handleWeathervane(int& i, int argc, char** argv) {
-    // Weathervane: 6-box rooftop wind indicator — base plate,
+    // Weathervane: 6-box rooftop wind indicator - base plate,
     // tall vertical post, perpendicular N-S and E-W cross arms
     // (cardinal direction markers), a long horizontal arrow on
     // top of the cross, and a small tail box at the back end of
@@ -3991,14 +3992,14 @@ int handleWeathervane(int& i, int argc, char** argv) {
     float poleTopY    = baseHeight + postHeight;
     float poleCY      = (poleBottomY + poleTopY) * 0.5f;
     addBox(0, poleCY, 0, halfPost, postHeight * 0.5f, halfPost);
-    // Cross arms at the top of the post — 2 perpendicular thin
+    // Cross arms at the top of the post - 2 perpendicular thin
     // bars forming the cardinal-direction "+" marker.
     float armT       = postT * 0.7f;
     float halfArmT   = armT * 0.5f;
     float crossY     = poleTopY - armT * 1.0f;
     addBox(0, crossY, 0, armLen, halfArmT, halfArmT);   // E-W (along X)
     addBox(0, crossY, 0, halfArmT, halfArmT, armLen);   // N-S (along Z)
-    // Arrow body on top of the cross — long thin bar that
+    // Arrow body on top of the cross - long thin bar that
     // would rotate to the wind direction. Aligned along +X by
     // default (designers can rotate at placement time).
     float arrowY  = poleTopY + armT * 0.7f;
@@ -4030,7 +4031,7 @@ int handleWeathervane(int& i, int argc, char** argv) {
 }
 
 int handleBeehive(int& i, int argc, char** argv) {
-    // Beehive: 5-box woven straw skep — stacked tiers of
+    // Beehive: 5-box woven straw skep - stacked tiers of
     // decreasing width approximating a dome, with a small
     // entrance notch box at the front. Useful for druidic
     // groves, beekeeper farms, hunter camps. The 52nd
@@ -4098,12 +4099,12 @@ int handleBeehive(int& i, int argc, char** argv) {
 }
 
 int handleGate(int& i, int argc, char** argv) {
-    // Gate: 5-box wooden farm gate — 2 vertical posts on either
+    // Gate: 5-box wooden farm gate - 2 vertical posts on either
     // side and 3 horizontal cross rails (top, middle, bottom)
     // spanning the opening. The opening sits flat in the X-Y
     // plane (rails along X, posts along Y) so it can hang in
     // a wall slot without rotation. The 51st procedural mesh
-    // primitive — useful for fenced fields, manor entrances,
+    // primitive - useful for fenced fields, manor entrances,
     // pen openings, courtyard barriers.
     std::string womBase = argv[++i];
     float openingWidth = 1.80f;     // gap between posts (rail span)
@@ -4163,12 +4164,12 @@ int handleGate(int& i, int argc, char** argv) {
 }
 
 int handleCauldron(int& i, int argc, char** argv) {
-    // Cauldron: 7-box witch's pot — 4 small corner legs at the
+    // Cauldron: 7-box witch's pot - 4 small corner legs at the
     // floor, narrow bottom-bowl tier, wider mid-bowl tier, and
     // a still-wider thin rim at the top. The stacked tiers
     // approximate the curved silhouette of a cast-iron pot
     // without needing rotated faces. The 50th procedural mesh
-    // primitive — pairs with --gen-mesh-shrine / --gen-mesh-totem
+    // primitive - pairs with --gen-mesh-shrine / --gen-mesh-totem
     // for ritual / alchemy set dressing.
     std::string womBase = argv[++i];
     float rimWidth   = 0.80f;   // top-rim extent (widest dim)
@@ -4234,7 +4235,7 @@ int handleCauldron(int& i, int argc, char** argv) {
 }
 
 int handleStool(int& i, int argc, char** argv) {
-    // Stool: 5-box small backless seat — flat round-ish seat
+    // Stool: 5-box small backless seat - flat round-ish seat
     // (square here, since axis-aligned) on 4 short legs at the
     // corners. Pairs with --gen-mesh-table for taverns and
     // workshops. Smaller-footprint counterpart to --gen-mesh-bench.
@@ -4289,11 +4290,11 @@ int handleStool(int& i, int argc, char** argv) {
 }
 
 int handleCrate(int& i, int argc, char** argv) {
-    // Crate: 5-box wooden shipping crate — main cube body
+    // Crate: 5-box wooden shipping crate - main cube body
     // plus 4 reinforcement posts running along the vertical
     // edges. The posts are slightly proud of the body so they
     // read as separate rails rather than texture detail. The
-    // 48th procedural mesh primitive — useful for dock yards,
+    // 48th procedural mesh primitive - useful for dock yards,
     // warehouse interiors, dungeon room set dressing.
     std::string womBase = argv[++i];
     float size       = 0.80f;     // cube side length
@@ -4342,7 +4343,7 @@ int handleCrate(int& i, int argc, char** argv) {
 }
 
 int handleTombstone(int& i, int argc, char** argv) {
-    // Tombstone: 3-box vertical headstone — wide low base
+    // Tombstone: 3-box vertical headstone - wide low base
     // plinth, tall thin main slab on top, and a small
     // decorative crown / cornice at the very top. Pairs
     // naturally with --gen-mesh-grave and --gen-mesh-coffin
@@ -4408,7 +4409,7 @@ int handleTombstone(int& i, int argc, char** argv) {
 }
 
 int handleMailbox(int& i, int argc, char** argv) {
-    // Mailbox: 4-box wayside prop — vertical post, horizontal
+    // Mailbox: 4-box wayside prop - vertical post, horizontal
     // box body mounted on top of the post (long axis along Z),
     // small rectangular flag mounted on the right side near the
     // front of the body. Useful for inns, post stations, manor
@@ -4488,7 +4489,7 @@ int handleMailbox(int& i, int argc, char** argv) {
 }
 
 int handleSignpost(int& i, int argc, char** argv) {
-    // Signpost: 4-box wayfinding prop — stone base anchor at the
+    // Signpost: 4-box wayfinding prop - stone base anchor at the
     // ground, tall vertical pole, decorative cap, and one
     // horizontal sign board mounted face-out from the pole near
     // the top. Useful for crossroads, tavern fronts, town
@@ -4532,7 +4533,7 @@ int handleSignpost(int& i, int argc, char** argv) {
            halfPole, postHeight * 0.5f, halfPole);
     // Sign board: thin rectangle mounted on the pole near the top.
     // signWidth runs along Z (the long axis), signHeight along Y,
-    // and a sliver of postThickness along X — a billboard that
+    // and a sliver of postThickness along X - a billboard that
     // reads as a sign when viewed from either +Z or -Z.
     float signCenterY = poleTopY - signHeight * 0.7f;
     float signThickness = postThickness * 0.6f;
@@ -4602,17 +4603,17 @@ int handleWell(int& i, int argc, char** argv) {
     // x = ±(halfOuter - halfWallT) but shortened so they don't
     // overlap the X walls (interior length = outerSize - 2*wallT).
     float wallCY = wallH * 0.5f;
-    // North wall (+Z edge) — full outerSize wide.
+    // North wall (+Z edge) - full outerSize wide.
     addBox(0, wallCY, halfOuter - halfWallT,
            halfOuter, wallH * 0.5f, halfWallT);
-    // South wall (-Z edge) — full outerSize wide.
+    // South wall (-Z edge) - full outerSize wide.
     addBox(0, wallCY, -halfOuter + halfWallT,
            halfOuter, wallH * 0.5f, halfWallT);
-    // East wall (+X edge) — interior length only.
+    // East wall (+X edge) - interior length only.
     float eastWestLen = outerSize - 2 * wallT;
     addBox(halfOuter - halfWallT, wallCY, 0,
            halfWallT, wallH * 0.5f, eastWestLen * 0.5f);
-    // West wall (-X edge) — interior length only.
+    // West wall (-X edge) - interior length only.
     addBox(-halfOuter + halfWallT, wallCY, 0,
            halfWallT, wallH * 0.5f, eastWestLen * 0.5f);
     // 2 vertical roof posts mounted on top of the east and west
@@ -4649,7 +4650,7 @@ int handleLadder(int& i, int argc, char** argv) {
     // Ladder: 2 vertical rails + N horizontal rungs evenly
     // spaced between them. Sits flat against +Z (the climbing
     // face) so it can be parented to walls / wagons / ship
-    // hulls. The 43rd procedural mesh primitive — useful for
+    // hulls. The 43rd procedural mesh primitive - useful for
     // attics, ship rigging, dungeons, mage towers.
     std::string womBase = argv[++i];
     float height = 3.0f;
@@ -4685,7 +4686,7 @@ int handleLadder(int& i, int argc, char** argv) {
     addBox(-railX, railCY, 0, halfRail, height * 0.5f, halfRail);
     // N rungs: horizontal boxes between rails, evenly spaced.
     // First rung is rungSpacing/2 from the bottom; last is the
-    // same distance from the top — keeps the ladder symmetric.
+    // same distance from the top - keeps the ladder symmetric.
     // Rung interior length is width - 2*railT (between the rails).
     float rungLen = width - 2 * railT;
     float halfRungLen = rungLen * 0.5f;
@@ -4708,7 +4709,7 @@ int handleLadder(int& i, int argc, char** argv) {
 }
 
 int handleBed(int& i, int argc, char** argv) {
-    // Bed: 7-box bedroom prop — flat mattress slab, tall
+    // Bed: 7-box bedroom prop - flat mattress slab, tall
     // headboard at one end, short shorter footboard at the
     // other, 4 corner legs, and a small pillow box at the
     // headboard end. Pairs with --gen-mesh-table /
@@ -4791,7 +4792,7 @@ int handleBed(int& i, int argc, char** argv) {
 }
 
 int handleLamppost(int& i, int argc, char** argv) {
-    // Lamppost: 4-box urban prop — square base plinth, tall
+    // Lamppost: 4-box urban prop - square base plinth, tall
     // vertical pole, lantern body box around the pole top,
     // and a small cap box on top. Useful for streets, plazas,
     // taverns, anywhere that wants explicit lighting fixtures.
@@ -4867,7 +4868,7 @@ int handleLamppost(int& i, int argc, char** argv) {
 }
 
 int handleTable(int& i, int argc, char** argv) {
-    // Table: 5 boxes — flat tabletop slab on top of 4 vertical
+    // Table: 5 boxes - flat tabletop slab on top of 4 vertical
     // legs at each corner. Thinnest of the furniture meshes,
     // pairs naturally with --gen-mesh-bench / --gen-mesh-throne
     // for taverns and dining halls. The 40th procedural mesh
@@ -4972,11 +4973,11 @@ int handleBookshelf(int& i, int argc, char** argv) {
            panelT * 0.5f, sideHY, halfD);
     addBox( halfW - panelT * 0.5f, sideCY, 0,
            panelT * 0.5f, sideHY, halfD);
-    // Back panel — thin slab at the rear of the cabinet.
+    // Back panel - thin slab at the rear of the cabinet.
     addBox(0, sideCY, -halfD + panelT * 0.5f,
            halfW - panelT, sideHY, panelT * 0.5f);
     // Horizontal shelves divide the interior into 'shelves' bays.
-    // shelf[0] is the cabinet bottom, shelf[shelves] is the top —
+    // shelf[0] is the cabinet bottom, shelf[shelves] is the top -
     // we only emit the (shelves-1) interior shelves between them.
     float interiorTop = height - panelT;
     float interiorBottom = panelT;
@@ -5006,7 +5007,7 @@ int handleBookshelf(int& i, int argc, char** argv) {
         float availableH = bayTopY - bayBottomY;
         if (availableH < bayHeight * 0.3f) continue;
         // Lay books from left to right with narrow gaps. Variable
-        // book widths are 50–120% of nominal — yields ~6 books per
+        // book widths are 50–120% of nominal - yields ~6 books per
         // bay at default size.
         float nominalBookW = bayHeight * 0.18f;
         float bookHalfD    = (halfD - panelT) * 0.7f;
@@ -5073,7 +5074,7 @@ int handleTent(int& i, int argc, char** argv) {
     };
     const float L2 = length * 0.5f;
     const float W2 = width  * 0.5f;
-    // Slope normals for the two roof panels — built from the panel
+    // Slope normals for the two roof panels - built from the panel
     // edge vectors then normalized so adjacent vertices share the
     // same per-face shading.
     glm::vec3 nBack = glm::normalize(glm::vec3(0.0f, W2, -height));
@@ -5105,7 +5106,7 @@ int handleTent(int& i, int argc, char** argv) {
         wom.indices.insert(wom.indices.end(), {a, r0, d});
     }
     // +X gable: B=(+L2,0,-W2), C=(+L2,0,+W2), R1=(+L2,H,0). Faces +X.
-    // If doorH>0 we carve out a tapered notch — bottom edge of width
+    // If doorH>0 we carve out a tapered notch - bottom edge of width
     // doorW, apex on the centerline at height doorH. The remaining
     // polygon (B → bl → dt → br → C → R1, going CCW from -X view to
     // match the existing gable winding) is triangulated as a fan
@@ -5264,7 +5265,7 @@ int handleMortarPestle(int& i, int argc, char** argv) {
 int handleRuneStone(int& i, int argc, char** argv) {
     // Standing rune stone: a wide flat base block plus a tall
     // narrow monolith standing on top. Reads as a small carved
-    // standing-stone marker — fits alongside --gen-mesh-altar
+    // standing-stone marker - fits alongside --gen-mesh-altar
     // / --gen-mesh-shrine / --gen-mesh-tombstone in the
     // ritual-prop family. Distinct from --gen-mesh-tombstone
     // (curved top, narrower) and --gen-mesh-pillar (round
@@ -5366,7 +5367,7 @@ int handleStove(int& i, int argc, char** argv) {
     // Pot-bellied wood stove: wide cylindrical body + thin
     // tall chimney column rising from the top of the body.
     // Distinct from --gen-mesh-forge (square stone hearth +
-    // hood + chimney) — stove is the round-cylinder home/
+    // hood + chimney) - stove is the round-cylinder home/
     // workshop variant. The 85th procedural mesh primitive.
     std::string womBase = argv[++i];
     float bodyR    = 0.30f;
@@ -5406,7 +5407,7 @@ int handleScrollCase(int& i, int argc, char** argv) {
     // Cylindrical scroll case / map tube: thin tall cylindrical
     // body with an optional shorter wider cap on top. Distinct
     // from --gen-mesh-chalice (foot + stem + bowl) and
-    // --gen-mesh-lantern (4-tier base/globe/neck/cap) — scroll
+    // --gen-mesh-lantern (4-tier base/globe/neck/cap) - scroll
     // case is the simplest 1-or-2-tier "tube with lid"
     // silhouette. The 84th procedural mesh primitive.
     std::string womBase = argv[++i];
@@ -5457,7 +5458,7 @@ int handleStandingTorch(int& i, int argc, char** argv) {
     // Standing floor torch: tall thin post with a wider shallow
     // fire-bowl cylinder on top. Distinct from --gen-mesh-brazier
     // (squat fire-bowl on a stem with a bowl-on-base silhouette)
-    // — standing-torch is the tall thin walking-height variant
+    // - standing-torch is the tall thin walking-height variant
     // for lining hallways, ceremonial paths, dungeon entries.
     // The 83rd procedural mesh primitive.
     std::string womBase = argv[++i];
@@ -5550,7 +5551,7 @@ int handleLantern(int& i, int argc, char** argv) {
     // → narrow neck → wider top cap. 4 cylindrical tiers stacked,
     // mimicking a hooded oil-lantern silhouette. Distinct from
     // --gen-mesh-candle (just wax + saucer) and --gen-mesh-urn
-    // (4-tier pottery shape) — lantern's wide-narrow-wide tier
+    // (4-tier pottery shape) - lantern's wide-narrow-wide tier
     // sequence reads as glass enclosed by metal hood. The 81st
     // procedural mesh primitive.
     std::string womBase = argv[++i];
@@ -5606,7 +5607,7 @@ int handleLantern(int& i, int argc, char** argv) {
 int handleCandle(int& i, int argc, char** argv) {
     // Wax pillar candle: thin tall wax cylinder optionally
     // standing on a wider shallow saucer base (the drip catcher).
-    // Both pieces use addClosedCylinderY — same pattern as
+    // Both pieces use addClosedCylinderY - same pattern as
     // --gen-mesh-bird-bath but with a much skinnier upper
     // cylinder. The 80th procedural mesh primitive.
     std::string womBase = argv[++i];
@@ -5715,9 +5716,9 @@ int handlePlanterBox(int& i, int argc, char** argv) {
     // Window-sill / garden planter box: long open-top wooden
     // basin (5-piece bottom + 4 walls construction) plus a
     // visible "soil" slab inside that fills most of the cavity
-    // a bit below the rim — the natural "filled with potting
+    // a bit below the rim - the natural "filled with potting
     // dirt" look. Distinct from --gen-mesh-water-trough (square
-    // basin without a soil-fill block) — planter-box is the
+    // basin without a soil-fill block) - planter-box is the
     // long elongated garden variant. The 78th procedural mesh
     // primitive.
     std::string womBase = argv[++i];
@@ -5783,7 +5784,7 @@ int handlePlanterBox(int& i, int argc, char** argv) {
 int handleBirdBath(int& i, int argc, char** argv) {
     // Garden bird-bath: thin cylindrical stem topped by a wide
     // shallow disc basin. Distinct from --gen-mesh-fountain
-    // (basin + spout column, larger water feature) — this is
+    // (basin + spout column, larger water feature) - this is
     // the small ornamental garden version. The 77th procedural
     // mesh primitive.
     std::string womBase = argv[++i];
@@ -5824,7 +5825,7 @@ int handleStatueBase(int& i, int argc, char** argv) {
     // Statue / monument pedestal: 3-tier stacked-box pedestal
     // (plinth foundation, tall body, capital cap). Distinct from
     // --gen-mesh-podium (stepped pyramid with lectern) and
-    // --gen-mesh-altar (stacked discs) — this is the classic
+    // --gen-mesh-altar (stacked discs) - this is the classic
     // single-statue square pedestal for monuments, plazas,
     // hero-of-the-revolution memorials. The 76th procedural mesh
     // primitive.
@@ -5885,7 +5886,7 @@ int handlePillarRow(int& i, int argc, char** argv) {
     // Each pillar is a single tall rectangular box, optionally
     // crowned by a slightly-wider square cap. Useful for ruined
     // temples, colonnades, palace walks, dungeon hallways. The
-    // 75th procedural mesh primitive — and the third "scene"
+    // 75th procedural mesh primitive - and the third "scene"
     // composite (after crate-stack and gravel-pile) using the
     // simple regular-grid placement.
     std::string womBase = argv[++i];
@@ -5944,7 +5945,7 @@ int handlePillarRow(int& i, int argc, char** argv) {
 int handleHitchingRail(int& i, int argc, char** argv) {
     // Long hitching rail: a horizontal bar held up by N evenly-
     // spaced vertical posts. Distinct from --gen-mesh-hitching-
-    // post (which is just 2 posts + bar) — this is the longer
+    // post (which is just 2 posts + bar) - this is the longer
     // multi-post variant for taverns, stockyards, racecourse
     // parking, market days. The 74th procedural mesh primitive.
     std::string womBase = argv[++i];
@@ -5999,7 +6000,7 @@ int handleMineCart(int& i, int argc, char** argv) {
     // Mine cart: rectangular open-top bin on 4 wheel boxes. The
     // bin uses the 5-piece basin construction from
     // --gen-mesh-water-trough (bottom + 4 walls); wheels are
-    // 4 thin cube boxes at the corners. All axis-aligned —
+    // 4 thin cube boxes at the corners. All axis-aligned -
     // exercises every shared helper. Useful for mines, dwarven
     // forges, gnomish junk-yards, abandoned-tunnel set dressing.
     // The 73rd procedural mesh primitive.
@@ -6029,7 +6030,7 @@ int handleMineCart(int& i, int argc, char** argv) {
     initWomDefaults(wom, womBase);
     const float L2 = length * 0.5f;
     const float W2 = width  * 0.5f;
-    // Wheels first — sit on the ground (y from 0 to 2*wheelR),
+    // Wheels first - sit on the ground (y from 0 to 2*wheelR),
     // pushed inward from cart corners.
     const float wheelY = wheelR;
     const float wheelX = L2 - wheelInset - wheelR;
@@ -6070,7 +6071,7 @@ int handleMineCart(int& i, int argc, char** argv) {
 int handleStoneBench(int& i, int argc, char** argv) {
     // Long stone bench: horizontal seat slab on 2 vertical block
     // supports near the ends. Distinct from --gen-mesh-bench
-    // (wooden 4-leg bench with thinner construction) — this is
+    // (wooden 4-leg bench with thinner construction) - this is
     // the heavier stone variant for parks, temple courtyards,
     // ruined cities, dwarven mead halls. The 72nd procedural
     // mesh primitive.
@@ -6130,7 +6131,7 @@ int handleGravelPile(int& i, int argc, char** argv) {
     // the base and the pile thins toward the top. Useful for
     // mine entrances, construction sites, quarries, ruined
     // walls, abandoned-fort rubble. The 71st procedural mesh
-    // primitive — and the second multi-box "scene" composite
+    // primitive - and the second multi-box "scene" composite
     // (after --gen-mesh-crate-stack), but using irregular
     // hashed placement instead of a regular grid.
     std::string womBase = argv[++i];
@@ -6326,7 +6327,7 @@ int handleOuthouse(int& i, int argc, char** argv) {
     // Small wooden shed / outhouse: solid body box with an
     // inset door slab on the +Z face and a slightly-larger flat
     // roof slab overhanging the body. Distinct from
-    // --gen-mesh-house (multi-walled, peaked-roof dwelling) — an
+    // --gen-mesh-house (multi-walled, peaked-roof dwelling) - an
     // outhouse is the single-room privy / tool-shed variant.
     // The 68th procedural mesh primitive.
     std::string womBase = argv[++i];
@@ -6388,7 +6389,7 @@ int handleOuthouse(int& i, int argc, char** argv) {
 int handleHitchingPost(int& i, int argc, char** argv) {
     // Hitching post: two vertical posts joined by a horizontal
     // cross-bar at upper height. Standard town/stable fixture
-    // for tying up mounts. All axis-aligned boxes — exercises
+    // for tying up mounts. All axis-aligned boxes - exercises
     // the new addFlatBox helper. The 67th procedural mesh
     // primitive.
     std::string womBase = argv[++i];
@@ -6419,7 +6420,7 @@ int handleHitchingPost(int& i, int argc, char** argv) {
                postW * 0.5f, height * 0.5f, postW * 0.5f);
     // Cross-bar at upper post height (between post tops). Inset
     // by postW so it tucks BETWEEN the post inner faces, not over
-    // them — matches the standard 4-rail fence look.
+    // them - matches the standard 4-rail fence look.
     const float barCY = height - barT * 0.5f;
     const float barHX = (span - postW) * 0.5f;
     addFlatBox(wom, 0.0f, barCY, 0.0f,
@@ -6454,7 +6455,7 @@ int handleHitchingPost(int& i, int argc, char** argv) {
 int handleTrainingDummy(int& i, int argc, char** argv) {
     // Combat training dummy: vertical pole with a cubic torso block
     // and a horizontal cross-bar simulating outstretched arms. All
-    // axis-aligned boxes — uses every shared helper from
+    // axis-aligned boxes - uses every shared helper from
     // cli_box_emitter. Pairs with --gen-mesh-anvil / --gen-mesh-
     // workbench / --gen-mesh-fence for sparring grounds, training
     // yards, militia drill squares. The 66th procedural mesh
@@ -6520,7 +6521,7 @@ int handleTrainingDummy(int& i, int argc, char** argv) {
 
 int handleWaterTrough(int& i, int argc, char** argv) {
     // Open-top water trough / horse trough: a 4-walled rectangular
-    // basin with a flat floor. 5 boxes total — bottom slab plus
+    // basin with a flat floor. 5 boxes total - bottom slab plus
     // 4 perimeter walls. Perimeter walls are sized so they butt up
     // against the floor and each other without overlap; the inner
     // cavity (length-2*wallT × height-wallT × width-2*wallT) is
@@ -6580,7 +6581,7 @@ int handleWaterTrough(int& i, int argc, char** argv) {
 int handleWatchpost(int& i, int argc, char** argv) {
     // Sentry watchpost: tall central pole topped by a wider square
     // platform, with optional corner railing posts. Distinct from
-    // --gen-mesh-tower (round castle tower with battlements) — a
+    // --gen-mesh-tower (round castle tower with battlements) - a
     // watchpost is the rough scout/lookout variant. Pairs with
     // --gen-mesh-tent / --gen-mesh-firepit for outdoor camps and
     // forward outposts. The 64th procedural mesh primitive.
@@ -6650,7 +6651,7 @@ int handleCrateStack(int& i, int argc, char** argv) {
     // a small gap between each so they read as discrete shipping
     // boxes rather than one merged solid. The first procedural
     // mesh that explicitly composes a *scene* of multiple objects
-    // — useful for warehouses, cargo holds, dock loading bays,
+    // - useful for warehouses, cargo holds, dock loading bays,
     // market stalls, dwarven mining caches. The 63rd procedural
     // mesh primitive.
     std::string womBase = argv[++i];
@@ -6713,7 +6714,7 @@ int handleWorkbench(int& i, int argc, char** argv) {
     // Crafter's workbench: flat top slab on 4 corner legs, plus
     // an optional vise box at the +X end of the top and a small
     // raised tool tray along the +Z back edge. All axis-aligned
-    // boxes — uses cli_box_emitter::addFlatBox throughout. Pairs
+    // boxes - uses cli_box_emitter::addFlatBox throughout. Pairs
     // naturally with --gen-mesh-anvil (existing) for blacksmith
     // shop set dressing. The 62nd procedural mesh primitive.
     std::string womBase = argv[++i];
@@ -6848,7 +6849,7 @@ int handleBedroll(int& i, int argc, char** argv) {
 int handleChimney(int& i, int argc, char** argv) {
     // Brick chimney: rectangular shaft topped by a slightly-wider
     // cap (the protective crown that throws rain off the masonry).
-    // All axis-aligned boxes — uses cli_box_emitter::addFlatBox.
+    // All axis-aligned boxes - uses cli_box_emitter::addFlatBox.
     // The 60th procedural mesh primitive.
     std::string womBase = argv[++i];
     float width  = 0.45f;
@@ -6900,7 +6901,7 @@ int handleChimney(int& i, int argc, char** argv) {
 int handlePergola(int& i, int argc, char** argv) {
     // Pergola: 4 corner posts holding 2 long perimeter beams plus
     // N cross-beams running between the long beams. Distinct from
-    // --gen-mesh-canopy because there's no flat overhead panel —
+    // --gen-mesh-canopy because there's no flat overhead panel -
     // the open lattice top reads as a garden arbor / sun-trellis
     // rather than a closed-top market stall. The 59th procedural
     // mesh primitive.
@@ -6979,7 +6980,7 @@ int handlePergola(int& i, int argc, char** argv) {
 int handleDock(int& i, int argc, char** argv) {
     // Wooden dock / pier: a flat plank deck supported by N pairs
     // of square pilings. Distinct from --gen-mesh-bridge which
-    // arcs OVER an obstacle — a dock walks straight out from a
+    // arcs OVER an obstacle - a dock walks straight out from a
     // shoreline on stilts to the water. The 58th procedural mesh
     // primitive.
     std::string womBase = argv[++i];
@@ -7016,7 +7017,7 @@ int handleDock(int& i, int argc, char** argv) {
     // N pairs of pilings: pilingsPerSide along each long edge,
     // evenly spaced. Outer face of each piling sits inside the deck
     // outline by pilingW so the deck overhangs the pilings slightly
-    // — the standard "boards rest ON TOP of the posts" look.
+    // - the standard "boards rest ON TOP of the posts" look.
     const float pilingHY = height * 0.5f;
     const float pilingX = W2 - pilingW;
     for (int p = 0; p < pilingsPerSide; ++p) {
@@ -7108,7 +7109,7 @@ int handleHaystack(int& i, int argc, char** argv) {
                 {bot + s, top + s, bot + s + 1,
                  bot + s + 1, top + s, top + s + 1});
         }
-        // Top shelf annulus: this is what makes the terraced look —
+        // Top shelf annulus: this is what makes the terraced look -
         // the visible step where this layer meets the smaller
         // layer above. Faces +Y.
         uint32_t shelfOuter = static_cast<uint32_t>(wom.vertices.size());
@@ -7190,7 +7191,7 @@ int handleCanopy(int& i, int argc, char** argv) {
     // Market-stall canopy: 4 corner posts holding a flat fabric
     // panel overhead. Optional drape lip hanging down from each
     // edge of the panel for a real awning look. All axis-aligned
-    // boxes — closed solid for collision baking. The 56th
+    // boxes - closed solid for collision baking. The 56th
     // procedural mesh primitive.
     std::string womBase = argv[++i];
     float width  = 1.6f;
@@ -7232,7 +7233,7 @@ int handleCanopy(int& i, int argc, char** argv) {
     addBox(-postX, postCY, +postZ, postR, postHY, postR);
     addBox(+postX, postCY, -postZ, postR, postHY, postR);
     addBox(-postX, postCY, -postZ, postR, postHY, postR);
-    // Top fabric panel — a thin slab spanning the full footprint.
+    // Top fabric panel - a thin slab spanning the full footprint.
     addBox(0, postH + panelT * 0.5f, 0, W2, panelT * 0.5f, D2);
     // Optional drape lips hanging down from each panel edge.
     if (drape > 0.0f) {
@@ -7344,7 +7345,7 @@ int handleFirepit(int& i, int argc, char** argv) {
                       float hx, float hy, float hz) {
         addFlatBox(wom, cx, cy, cz, hx, hy, hz);
     };
-    // Ring of stones — N axis-aligned cube stones evenly placed
+    // Ring of stones - N axis-aligned cube stones evenly placed
     // around the firepit center. Slight Y offset puts them sitting
     // on the ground rather than sunk into it.
     const float pi = 3.14159265358979f;
@@ -7387,7 +7388,7 @@ struct PackItem {
 // Emit every PackItem in `items` into <outDir>/. Returns 0 on full
 // success or the first non-zero rc the handler produced. Each
 // handler runs with a synthetic argv whose index 0 is the flag and
-// index 1 is the destination wom-base — handlers do argv[++i] from
+// index 1 is the destination wom-base - handlers do argv[++i] from
 // the flag's position to read that base, so this matches the normal
 // CLI invocation contract exactly.
 int emitMeshPack(const std::string& outDir, const char* packName,
@@ -7415,7 +7416,7 @@ int emitMeshPack(const std::string& outDir, const char* packName,
         }
         ++produced;
     }
-    std::printf("\nWrote %s to %s/ — %d primitives\n",
+    std::printf("\nWrote %s to %s/ - %d primitives\n",
                 packName, outDir.c_str(), produced);
     return 0;
 }
@@ -7570,7 +7571,7 @@ int handleGenKitchenPack(int& i, int /*argc*/, char** argv) {
     // cauldron (large hanging pot), table (prep surface), stool
     // (the cook's seat), barrel (water / ale / flour storage),
     // mug (drink ready for the inn customer), mortar-pestle
-    // (herb / spice grinding). The 11th themed pack — pairs
+    // (herb / spice grinding). The 11th themed pack - pairs
     // with --gen-tavern-pack as the back-of-house complement
     // to that pack's front-of-house common-room props.
     std::string outDir = argv[++i];
@@ -7626,7 +7627,7 @@ int handleGenVillagePack(int& i, int /*argc*/, char** argv) {
 
 namespace {
 // Table-driven dispatch for every --gen-mesh-* flag. minNextArgs
-// is the count of *required* positional args after the flag — used
+// is the count of *required* positional args after the flag - used
 // as a guard so a bare `--gen-mesh-X` (or `--gen-mesh-X` followed
 // only by the next switch) is rejected by the dispatcher even
 // without consulting kArgRequired. Every primitive in this file

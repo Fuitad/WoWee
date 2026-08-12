@@ -1,4 +1,6 @@
 #include "cli_spell_proc_rules_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -19,11 +21,6 @@ namespace cli {
 
 namespace {
 
-std::string stripWprcExt(std::string base) {
-    stripExt(base, ".wprc");
-    return base;
-}
-
 const char* triggerEventName(uint8_t e) {
     using P = wowee::pipeline::WoweeSpellProcRules;
     switch (e) {
@@ -40,15 +37,6 @@ const char* triggerEventName(uint8_t e) {
     }
 }
 
-bool saveOrError(const wowee::pipeline::WoweeSpellProcRules& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeSpellProcRulesLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wprc\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeSpellProcRules& c,
                      const std::string& base) {
@@ -61,10 +49,10 @@ int handleGenWeapon(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "WeaponEnchantProcs";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWprcExt(base);
+    base = cli::withoutExt(base, ".wprc");
     auto c = wowee::pipeline::WoweeSpellProcRulesLoader::
         makeWeaponProcs(name);
-    if (!saveOrError(c, base, "gen-prc-weapon")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellProcRulesLoader>(c, base, "gen-prc-weapon", ".wprc")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -73,10 +61,10 @@ int handleGenRet(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "RetributionPaladinProcs";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWprcExt(base);
+    base = cli::withoutExt(base, ".wprc");
     auto c = wowee::pipeline::WoweeSpellProcRulesLoader::
         makeRetPaladin(name);
-    if (!saveOrError(c, base, "gen-prc-ret")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellProcRulesLoader>(c, base, "gen-prc-ret", ".wprc")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -85,10 +73,10 @@ int handleGenRage(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "RageGenerationProcs";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWprcExt(base);
+    base = cli::withoutExt(base, ".wprc");
     auto c = wowee::pipeline::WoweeSpellProcRulesLoader::
         makeRageGen(name);
-    if (!saveOrError(c, base, "gen-prc-rage")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellProcRulesLoader>(c, base, "gen-prc-rage", ".wprc")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -96,7 +84,7 @@ int handleGenRage(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWprcExt(base);
+    base = cli::withoutExt(base, ".wprc");
     if (!wowee::pipeline::WoweeSpellProcRulesLoader::exists(base)) {
         std::fprintf(stderr, "WPRC not found: %s.wprc\n",
                      base.c_str());
@@ -200,12 +188,9 @@ bool readEnumField(const nlohmann::json& je,
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWprcExt(base);
+    base = cli::withoutExt(base, ".wprc");
     if (!wowee::pipeline::WoweeSpellProcRulesLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wprc: WPRC not found: %s.wprc\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wprc", "WPRC", base, ".wprc");
     }
     auto c = wowee::pipeline::WoweeSpellProcRulesLoader::load(base);
     std::vector<std::string> errors;
@@ -226,11 +211,11 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": name is empty");
         if (e.sourceSpellId == 0)
             errors.push_back(ctx +
-                ": sourceSpellId is 0 — proc has no "
+                ": sourceSpellId is 0 - proc has no "
                 "owning aura");
         if (e.procEffectSpellId == 0)
             errors.push_back(ctx +
-                ": procEffectSpellId is 0 — proc has "
+                ": procEffectSpellId is 0 - proc has "
                 "nothing to trigger");
         if (e.triggerEvent > 8) {
             errors.push_back(ctx + ": triggerEvent " +
@@ -239,7 +224,7 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         if (e.procChancePct == 0) {
             errors.push_back(ctx +
-                ": procChancePct is 0 — proc never "
+                ": procChancePct is 0 - proc never "
                 "fires");
         }
         if (e.procChancePct > 10000) {
@@ -249,7 +234,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 " exceeds 10000 (100% in basis points)");
         }
         // Self-proc on OnCast is the most dangerous
-        // case — sourceSpellId == procEffectSpellId
+        // case - sourceSpellId == procEffectSpellId
         // with OnCast trigger could create an infinite
         // proc loop where the effect spell triggers
         // its own re-cast. Other triggers are usually
@@ -262,11 +247,11 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx +
                 ": sourceSpellId == procEffectSpellId="
                 + std::to_string(e.sourceSpellId) +
-                " on OnCast trigger — infinite proc "
+                " on OnCast trigger - infinite proc "
                 "loop (effect re-casts itself)");
         }
         // 100% proc chance with 0 ICD on OnHit/OnCrit
-        // = every-melee-swing spam — almost certainly
+        // = every-melee-swing spam - almost certainly
         // unintended performance footgun. Warn unless
         // it's an OnCast bookkeeping rule (those are
         // intentional).
@@ -279,57 +264,29 @@ int handleValidate(int& i, int argc, char** argv) {
                 ": 100% proc chance + 0ms ICD on "
                 "high-frequency event (" +
                 std::string(triggerEventName(e.triggerEvent)) +
-                ") — would spam every swing; verify "
+                ") - would spam every swing; verify "
                 "intentional or add an ICD");
         }
         if (!idsSeen.insert(e.procRuleId).second) {
             errors.push_back(ctx + ": duplicate procRuleId");
         }
     }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wprc"] = base + ".wprc";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wprc: %s.wprc\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu procs, all procRuleIds "
+    return cli::reportValidation("wprc", base, jsonOut, errors, warnings,
+                                 formatted("%zu procs, all procRuleIds "
                     "unique, sourceSpellId+procEffectSpellId "
                     "non-zero, triggerEvent 0..8, "
                     "procChancePct 1..10000, no infinite "
-                    "self-proc loop on OnCast\n",
-                    c.entries.size());
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+                    "self-proc loop on OnCast", c.entries.size()));
 }
 
 int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWprcExt(base);
+    base = cli::withoutExt(base, ".wprc");
     if (out.empty()) out = base + ".wprc.json";
     if (!wowee::pipeline::WoweeSpellProcRulesLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wprc-json: WPRC not found: %s.wprc\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wprc-json", "WPRC", base, ".wprc");
     }
     auto c = wowee::pipeline::WoweeSpellProcRulesLoader::load(base);
     nlohmann::json j;
@@ -370,16 +327,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wprc.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wprc");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wprc");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,

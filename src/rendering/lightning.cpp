@@ -45,32 +45,86 @@ Lightning::~Lightning() {
     shutdown();
 }
 
+/// The bolt pipeline: line-list geometry, additive, no depth test.
+///
+/// initialize() and recreatePipelines() described this and the flash pipeline
+/// below identically, vertex layout included, so each was stated twice.
+void Lightning::buildBoltPipeline(VkDevice device,
+                                  const VkPipelineShaderStageCreateInfo& vertStage,
+                                  const VkPipelineShaderStageCreateInfo& fragStage) {
+    const std::vector<VkDynamicState> dynamicStates = viewportAndScissorDynamic();
+
+    // Vertex input: position only (vec3)
+    VkVertexInputBindingDescription binding{};
+    binding.binding = 0;
+    binding.stride = sizeof(glm::vec3);
+    binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+    VkVertexInputAttributeDescription posAttr{};
+    posAttr.location = 0;
+    posAttr.binding = 0;
+    posAttr.format = VK_FORMAT_R32G32B32_SFLOAT;
+    posAttr.offset = 0;
+
+    boltPipeline = PipelineBuilder()
+        .setShaders(vertStage, fragStage)
+        .setVertexInput({binding}, {posAttr})
+        .setTopology(VK_PRIMITIVE_TOPOLOGY_LINE_STRIP)
+        .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
+        .setNoDepthTest()  // Always visible (like the GL version)
+        .setColorBlendAttachment(PipelineBuilder::blendAdditive())  // Additive for electric glow
+        .setMultisample(vkCtx->getMsaaSamples())
+        .setLayout(boltPipelineLayout)
+        .setRenderPass(vkCtx->getImGuiRenderPass())
+        .setDynamicStates(dynamicStates)
+        .build(device, vkCtx->getPipelineCache());
+}
+
+/// The flash pipeline: a fullscreen quad tinting the sky when a bolt strikes.
+void Lightning::buildFlashPipeline(VkDevice device,
+                                   const VkPipelineShaderStageCreateInfo& vertStage,
+                                   const VkPipelineShaderStageCreateInfo& fragStage) {
+    const std::vector<VkDynamicState> dynamicStates = viewportAndScissorDynamic();
+
+    // Vertex input: position only (vec2)
+    VkVertexInputBindingDescription binding{};
+    binding.binding = 0;
+    binding.stride = 2 * sizeof(float);
+    binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+    VkVertexInputAttributeDescription posAttr{};
+    posAttr.location = 0;
+    posAttr.binding = 0;
+    posAttr.format = VK_FORMAT_R32G32_SFLOAT;
+    posAttr.offset = 0;
+
+    flashPipeline = PipelineBuilder()
+        .setShaders(vertStage, fragStage)
+        .setVertexInput({binding}, {posAttr})
+        .setTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP)
+        .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
+        .setNoDepthTest()
+        .setColorBlendAttachment(PipelineBuilder::blendAlpha())
+        .setMultisample(vkCtx->getMsaaSamples())
+        .setLayout(flashPipelineLayout)
+        .setRenderPass(vkCtx->getImGuiRenderPass())
+        .setDynamicStates(dynamicStates)
+        .build(device, vkCtx->getPipelineCache());
+}
+
 bool Lightning::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout) {
     core::Logger::getInstance().info("Initializing lightning system...");
 
     vkCtx = ctx;
     VkDevice device = vkCtx->getDevice();
 
-    std::vector<VkDynamicState> dynamicStates = {
-        VK_DYNAMIC_STATE_VIEWPORT,
-        VK_DYNAMIC_STATE_SCISSOR
-    };
 
     // ---- Bolt pipeline (LINE_STRIP) ----
     {
-        VkShaderModule vertModule;
-        if (!vertModule.loadFromFile(device, "assets/shaders/lightning_bolt.vert.spv")) {
-            core::Logger::getInstance().error("Failed to load lightning_bolt vertex shader");
-            return false;
-        }
-        VkShaderModule fragModule;
-        if (!fragModule.loadFromFile(device, "assets/shaders/lightning_bolt.frag.spv")) {
-            core::Logger::getInstance().error("Failed to load lightning_bolt fragment shader");
-            return false;
-        }
-
-        VkPipelineShaderStageCreateInfo vertStage = vertModule.stageInfo(VK_SHADER_STAGE_VERTEX_BIT);
-        VkPipelineShaderStageCreateInfo fragStage = fragModule.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT);
+        auto shaders = loadShaderPair(device, "assets/shaders/lightning_bolt.vert.spv", "assets/shaders/lightning_bolt.frag.spv", "lightning_bolt");
+        if (!shaders) return false;
+        const auto& vertStage = shaders.vertStage;
+        const auto& fragStage = shaders.fragStage;
 
         // Push constant: { float brightness; } = 4 bytes
         VkPushConstantRange pushRange{};
@@ -84,33 +138,8 @@ bool Lightning::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout)
             return false;
         }
 
-        // Vertex input: position only (vec3)
-        VkVertexInputBindingDescription binding{};
-        binding.binding = 0;
-        binding.stride = sizeof(glm::vec3);
-        binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+        buildBoltPipeline(device, vertStage, fragStage);
 
-        VkVertexInputAttributeDescription posAttr{};
-        posAttr.location = 0;
-        posAttr.binding = 0;
-        posAttr.format = VK_FORMAT_R32G32B32_SFLOAT;
-        posAttr.offset = 0;
-
-        boltPipeline = PipelineBuilder()
-            .setShaders(vertStage, fragStage)
-            .setVertexInput({binding}, {posAttr})
-            .setTopology(VK_PRIMITIVE_TOPOLOGY_LINE_STRIP)
-            .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
-            .setNoDepthTest()  // Always visible (like the GL version)
-            .setColorBlendAttachment(PipelineBuilder::blendAdditive())  // Additive for electric glow
-            .setMultisample(vkCtx->getMsaaSamples())
-            .setLayout(boltPipelineLayout)
-            .setRenderPass(vkCtx->getImGuiRenderPass())
-            .setDynamicStates(dynamicStates)
-            .build(device, vkCtx->getPipelineCache());
-
-        vertModule.destroy();
-        fragModule.destroy();
 
         if (boltPipeline == VK_NULL_HANDLE) {
             core::Logger::getInstance().error("Failed to create bolt pipeline");
@@ -120,19 +149,10 @@ bool Lightning::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout)
 
     // ---- Flash pipeline (fullscreen quad, TRIANGLE_STRIP) ----
     {
-        VkShaderModule vertModule;
-        if (!vertModule.loadFromFile(device, "assets/shaders/lightning_flash.vert.spv")) {
-            core::Logger::getInstance().error("Failed to load lightning_flash vertex shader");
-            return false;
-        }
-        VkShaderModule fragModule;
-        if (!fragModule.loadFromFile(device, "assets/shaders/lightning_flash.frag.spv")) {
-            core::Logger::getInstance().error("Failed to load lightning_flash fragment shader");
-            return false;
-        }
-
-        VkPipelineShaderStageCreateInfo vertStage = vertModule.stageInfo(VK_SHADER_STAGE_VERTEX_BIT);
-        VkPipelineShaderStageCreateInfo fragStage = fragModule.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT);
+        auto shaders = loadShaderPair(device, "assets/shaders/lightning_flash.vert.spv", "assets/shaders/lightning_flash.frag.spv", "lightning_flash");
+        if (!shaders) return false;
+        const auto& vertStage = shaders.vertStage;
+        const auto& fragStage = shaders.fragStage;
 
         // Push constant: { float intensity; } = 4 bytes
         VkPushConstantRange pushRange{};
@@ -146,33 +166,8 @@ bool Lightning::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout)
             return false;
         }
 
-        // Vertex input: position only (vec2)
-        VkVertexInputBindingDescription binding{};
-        binding.binding = 0;
-        binding.stride = 2 * sizeof(float);
-        binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+        buildFlashPipeline(device, vertStage, fragStage);
 
-        VkVertexInputAttributeDescription posAttr{};
-        posAttr.location = 0;
-        posAttr.binding = 0;
-        posAttr.format = VK_FORMAT_R32G32_SFLOAT;
-        posAttr.offset = 0;
-
-        flashPipeline = PipelineBuilder()
-            .setShaders(vertStage, fragStage)
-            .setVertexInput({binding}, {posAttr})
-            .setTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP)
-            .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
-            .setNoDepthTest()
-            .setColorBlendAttachment(PipelineBuilder::blendAlpha())
-            .setMultisample(vkCtx->getMsaaSamples())
-            .setLayout(flashPipelineLayout)
-            .setRenderPass(vkCtx->getImGuiRenderPass())
-            .setDynamicStates(dynamicStates)
-            .build(device, vkCtx->getPipelineCache());
-
-        vertModule.destroy();
-        fragModule.destroy();
 
         if (flashPipeline == VK_NULL_HANDLE) {
             core::Logger::getInstance().error("Failed to create flash pipeline");
@@ -223,33 +218,13 @@ void Lightning::shutdown() {
         VkDevice device = vkCtx->getDevice();
         VmaAllocator allocator = vkCtx->getAllocator();
 
-        if (boltPipeline != VK_NULL_HANDLE) {
-            vkDestroyPipeline(device, boltPipeline, nullptr);
-            boltPipeline = VK_NULL_HANDLE;
-        }
-        if (boltPipelineLayout != VK_NULL_HANDLE) {
-            vkDestroyPipelineLayout(device, boltPipelineLayout, nullptr);
-            boltPipelineLayout = VK_NULL_HANDLE;
-        }
-        if (boltDynamicVB != VK_NULL_HANDLE) {
-            vmaDestroyBuffer(allocator, boltDynamicVB, boltDynamicVBAlloc);
-            boltDynamicVB = VK_NULL_HANDLE;
-            boltDynamicVBAlloc = VK_NULL_HANDLE;
-        }
+        destroy(device, boltPipeline);
+        destroy(device, boltPipelineLayout);
+        destroy(allocator, boltDynamicVB, boltDynamicVBAlloc);
 
-        if (flashPipeline != VK_NULL_HANDLE) {
-            vkDestroyPipeline(device, flashPipeline, nullptr);
-            flashPipeline = VK_NULL_HANDLE;
-        }
-        if (flashPipelineLayout != VK_NULL_HANDLE) {
-            vkDestroyPipelineLayout(device, flashPipelineLayout, nullptr);
-            flashPipelineLayout = VK_NULL_HANDLE;
-        }
-        if (flashQuadVB != VK_NULL_HANDLE) {
-            vmaDestroyBuffer(allocator, flashQuadVB, flashQuadVBAlloc);
-            flashQuadVB = VK_NULL_HANDLE;
-            flashQuadVBAlloc = VK_NULL_HANDLE;
-        }
+        destroy(device, flashPipeline);
+        destroy(device, flashPipelineLayout);
+        destroy(allocator, flashQuadVB, flashQuadVBAlloc);
     }
 
     vkCtx = nullptr;
@@ -260,100 +235,30 @@ void Lightning::recreatePipelines() {
     VkDevice device = vkCtx->getDevice();
 
     // Destroy old pipelines (NOT layouts)
-    if (boltPipeline != VK_NULL_HANDLE) {
-        vkDestroyPipeline(device, boltPipeline, nullptr);
-        boltPipeline = VK_NULL_HANDLE;
-    }
-    if (flashPipeline != VK_NULL_HANDLE) {
-        vkDestroyPipeline(device, flashPipeline, nullptr);
-        flashPipeline = VK_NULL_HANDLE;
-    }
+    destroy(device, boltPipeline);
+    destroy(device, flashPipeline);
 
-    std::vector<VkDynamicState> dynamicStates = {
-        VK_DYNAMIC_STATE_VIEWPORT,
-        VK_DYNAMIC_STATE_SCISSOR
-    };
 
     // ---- Rebuild bolt pipeline (LINE_STRIP) ----
     {
-        VkShaderModule vertModule;
-        VkShaderModule fragModule;
-        if (!vertModule.loadFromFile(device, "assets/shaders/lightning_bolt.vert.spv") ||
-            !fragModule.loadFromFile(device, "assets/shaders/lightning_bolt.frag.spv")) {
-            LOG_ERROR("Lightning::recreatePipelines: failed to load bolt shader modules");
-            return;
-        }
+        auto shaders = loadShaderPair(device, "assets/shaders/lightning_bolt.vert.spv", "assets/shaders/lightning_bolt.frag.spv", "lightning_bolt");
+        if (!shaders) return;
+        const auto& vertStage = shaders.vertStage;
+        const auto& fragStage = shaders.fragStage;
 
-        VkPipelineShaderStageCreateInfo vertStage = vertModule.stageInfo(VK_SHADER_STAGE_VERTEX_BIT);
-        VkPipelineShaderStageCreateInfo fragStage = fragModule.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT);
+        buildBoltPipeline(device, vertStage, fragStage);
 
-        VkVertexInputBindingDescription binding{};
-        binding.binding = 0;
-        binding.stride = sizeof(glm::vec3);
-        binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-        VkVertexInputAttributeDescription posAttr{};
-        posAttr.location = 0;
-        posAttr.binding = 0;
-        posAttr.format = VK_FORMAT_R32G32B32_SFLOAT;
-        posAttr.offset = 0;
-
-        boltPipeline = PipelineBuilder()
-            .setShaders(vertStage, fragStage)
-            .setVertexInput({binding}, {posAttr})
-            .setTopology(VK_PRIMITIVE_TOPOLOGY_LINE_STRIP)
-            .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
-            .setNoDepthTest()
-            .setColorBlendAttachment(PipelineBuilder::blendAdditive())
-            .setMultisample(vkCtx->getMsaaSamples())
-            .setLayout(boltPipelineLayout)
-            .setRenderPass(vkCtx->getImGuiRenderPass())
-            .setDynamicStates(dynamicStates)
-            .build(device, vkCtx->getPipelineCache());
-
-        vertModule.destroy();
-        fragModule.destroy();
     }
 
     // ---- Rebuild flash pipeline (TRIANGLE_STRIP) ----
     {
-        VkShaderModule vertModule;
-        VkShaderModule fragModule;
-        if (!vertModule.loadFromFile(device, "assets/shaders/lightning_flash.vert.spv") ||
-            !fragModule.loadFromFile(device, "assets/shaders/lightning_flash.frag.spv")) {
-            LOG_ERROR("Lightning::recreatePipelines: failed to load flash shader modules");
-            return;
-        }
+        auto shaders = loadShaderPair(device, "assets/shaders/lightning_flash.vert.spv", "assets/shaders/lightning_flash.frag.spv", "lightning_flash");
+        if (!shaders) return;
+        const auto& vertStage = shaders.vertStage;
+        const auto& fragStage = shaders.fragStage;
 
-        VkPipelineShaderStageCreateInfo vertStage = vertModule.stageInfo(VK_SHADER_STAGE_VERTEX_BIT);
-        VkPipelineShaderStageCreateInfo fragStage = fragModule.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT);
+        buildFlashPipeline(device, vertStage, fragStage);
 
-        VkVertexInputBindingDescription binding{};
-        binding.binding = 0;
-        binding.stride = 2 * sizeof(float);
-        binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-        VkVertexInputAttributeDescription posAttr{};
-        posAttr.location = 0;
-        posAttr.binding = 0;
-        posAttr.format = VK_FORMAT_R32G32_SFLOAT;
-        posAttr.offset = 0;
-
-        flashPipeline = PipelineBuilder()
-            .setShaders(vertStage, fragStage)
-            .setVertexInput({binding}, {posAttr})
-            .setTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP)
-            .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
-            .setNoDepthTest()
-            .setColorBlendAttachment(PipelineBuilder::blendAlpha())
-            .setMultisample(vkCtx->getMsaaSamples())
-            .setLayout(flashPipelineLayout)
-            .setRenderPass(vkCtx->getImGuiRenderPass())
-            .setDynamicStates(dynamicStates)
-            .build(device, vkCtx->getPipelineCache());
-
-        vertModule.destroy();
-        fragModule.destroy();
     }
 }
 

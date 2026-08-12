@@ -88,10 +88,39 @@ struct CharSectionsFields {
 /**
  * Detect the actual CharSections.dbc field layout by probing record data.
  * @param dbc  Loaded CharSections.dbc file (must not be null).
- * @param csL  JSON-derived field map (may be null — defaults used).
+ * @param csL  JSON-derived field map (may be null - defaults used).
  * @return Resolved field indices for this particular DBC binary.
  */
 CharSectionsFields detectCharSectionsFields(const DBCFile* dbc, const DBCFieldMap* csL);
+
+/**
+ * Which columns of CharacterFacialHairStyles.dbc hold the geoset numbers.
+ *
+ * Two shapes ship. The stock 3.3.5a file has nine columns with three unused
+ * ones after the variation, so the geosets are at 6, 7, 8. The eight-column
+ * file - which is what both installs on this machine carry - puts them at
+ * 3, 4, 5 and fills 6 and 7 with zero or 0xCCCCCCCC.
+ *
+ * Reading the wrong pair is silent: the geosets come out zero, so a beard, a
+ * moustache, a pair of sideburns or a draenei's face tendrils simply are not
+ * drawn, and nothing anywhere reports it. Index 8 does not even exist in the
+ * shorter file.
+ *
+ * The order within the triple is the documented quirk and is the same in both:
+ * the first column is geoset group 100, the second 300, the third 200.
+ */
+struct FacialHairFields {
+    uint32_t geoset100 = 6;
+    uint32_t geoset300 = 7;
+    uint32_t geoset200 = 8;
+};
+
+/**
+ * Detect the actual CharacterFacialHairStyles.dbc geoset columns.
+ * @param dbc  Loaded CharacterFacialHairStyles.dbc (may be null).
+ * @param fhL  JSON-derived field map (may be null - defaults used).
+ */
+FacialHairFields detectFacialHairFields(const DBCFile* dbc, const DBCFieldMap* fhL);
 
 /**
  * Resolve the SpellItemEnchantment.dbc name (description) field index.
@@ -102,9 +131,35 @@ CharSectionsFields detectCharSectionsFields(const DBCFile* dbc, const DBCFieldMa
  * produces a garbled name ("Rockbiter 3" read as "ockbiter 3") instead of failing.
  *
  * @param dbc  Loaded SpellItemEnchantment.dbc (must not be null).
- * @param sieL JSON-derived field map (may be null — field count decides).
+ * @param sieL JSON-derived field map (may be null - field count decides).
  * @return Name field index for this particular DBC binary.
  */
+/// Spell.dbc's three timing columns, which move together as the record grows.
+struct SpellTimingFields {
+    uint32_t castingTimeIndex;      ///< → SpellCastTimes.dbc
+    uint32_t recoveryTime;          ///< the spell's own cooldown, in ms
+    uint32_t categoryRecoveryTime;  ///< its category's cooldown, in ms
+};
+
+/**
+ * Resolve those three from the file rather than from dbc_layouts.json.
+ *
+ * The record is 173 fields in Vanilla, 216 in TBC and 234 in WotLK, and the
+ * three columns sit at 18/19/20, 22/23/24 and 28/29/30 respectively. Which one
+ * an install has is a property of the file, not of the expansion being played -
+ * a Classic profile with no Spell.dbc of its own reads the shared WotLK one.
+ *
+ * The JSON had CastingTimeIndex at 15 for Classic and Turtle, which is
+ * RequiresSpellFocus and reads zero for every spell, and named neither cooldown
+ * column at all outside TBC. A missing name answers 0xFFFFFFFF, the read is
+ * skipped, and every cooldown this client works out for itself came back zero.
+ *
+ * @param dbc    Loaded Spell.dbc (must not be null).
+ * @param spellL JSON-derived field map, consulted only for CastingTimeIndex and
+ *               only when it agrees with the shape - see the note above.
+ */
+SpellTimingFields detectSpellTimingFields(const DBCFile* dbc, const DBCFieldMap* spellL);
+
 uint32_t detectEnchantmentNameField(const DBCFile* dbc, const DBCFieldMap* sieL);
 
 /**
@@ -113,8 +168,12 @@ uint32_t detectEnchantmentNameField(const DBCFile* dbc, const DBCFieldMap* sieL)
  */
 uint32_t detectEnchantmentItemVisualField(const DBCFile* dbc, const DBCFieldMap* sieL);
 
+/// SpellItemEnchantment's Src_ItemID column - the gem an enchantment came from.
+/// Zero when the file has no such column, which is every pre-TBC shape.
+uint32_t detectEnchantmentGemItemField(const DBCFile* dbc, const DBCFieldMap* sieL);
+
 /**
- * Model paths for the effect an enchant puts on the item it is applied to — the
+ * Model paths for the effect an enchant puts on the item it is applied to - the
  * glint on a freshly sharpened blade.
  *
  * Chain: SpellItemEnchantment.ItemVisual → ItemVisuals.dbc (5 effect slots) →

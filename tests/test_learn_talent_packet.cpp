@@ -1,14 +1,14 @@
 // CMSG_LEARN_TALENT rank encoding.
 //
 // The rank field is the index into TalentEntry::RankID and counts from zero,
-// while the rest of the client counts a talent's first rank as 1 — that is what
+// while the rest of the client counts a talent's first rank as 1 - that is what
 // SMSG_TALENTS_INFO is stored as (rank + 1) and what the talent frame spends.
 //
 // Sent unconverted, the first rank of an untrained talent arrives as 1, which
 // the server reads as the SECOND rank: Player::LearnTalent charges
 // `talentRank - currentTalentRank + 1` = 2 points to a player holding 1, and
 // the rank below it is missing besides. It returns without a word and answers
-// the unchanged talents — a confirmation, the staged point handed straight
+// the unchanged talents - a confirmation, the staged point handed straight
 // back, and nothing learned.
 #include <catch_amalgamated.hpp>
 #include "game/world_packets.hpp"
@@ -58,7 +58,7 @@ TEST_CASE("CMSG_LEARN_TALENT counts ranks from zero on the wire", "[talent][pack
     }
 
     SECTION("rank 0 does not wrap to four billion") {
-        // Nothing should ask for rank 0 — it is not a rank — but an unsigned
+        // Nothing should ask for rank 0 - it is not a rank - but an unsigned
         // decrement there would send 0xFFFFFFFF, which is >= MAX_TALENT_RANK
         // and silently drops the request.
         auto p = LearnTalentPacket::build(1578, 0);

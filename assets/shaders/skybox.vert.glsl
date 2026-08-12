@@ -1,6 +1,6 @@
 #version 450
 
-// Fullscreen triangle sky — no vertex buffer, no mesh.
+// Fullscreen triangle sky - no vertex buffer, no mesh.
 // Draws 3 vertices covering the entire screen, depth forced to 1.0 (far plane).
 
 layout(location = 0) out vec2 TexCoord;

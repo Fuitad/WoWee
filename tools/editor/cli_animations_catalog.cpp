@@ -1,4 +1,6 @@
 #include "cli_animations_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -18,20 +20,6 @@ namespace cli {
 
 namespace {
 
-std::string stripWaniExt(std::string base) {
-    stripExt(base, ".wani");
-    return base;
-}
-
-bool saveOrError(const wowee::pipeline::WoweeAnimation& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeAnimationLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wani\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeAnimation& c,
                      const std::string& base) {
@@ -44,9 +32,9 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterAnimations";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWaniExt(base);
+    base = cli::withoutExt(base, ".wani");
     auto c = wowee::pipeline::WoweeAnimationLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-animations")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeAnimationLoader>(c, base, "gen-animations", ".wani")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -55,9 +43,9 @@ int handleGenCombat(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "CombatAnimations";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWaniExt(base);
+    base = cli::withoutExt(base, ".wani");
     auto c = wowee::pipeline::WoweeAnimationLoader::makeCombat(name);
-    if (!saveOrError(c, base, "gen-animations-combat")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeAnimationLoader>(c, base, "gen-animations-combat", ".wani")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -66,9 +54,9 @@ int handleGenMovement(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "MovementAnimations";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWaniExt(base);
+    base = cli::withoutExt(base, ".wani");
     auto c = wowee::pipeline::WoweeAnimationLoader::makeMovement(name);
-    if (!saveOrError(c, base, "gen-animations-movement")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeAnimationLoader>(c, base, "gen-animations-movement", ".wani")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -76,10 +64,9 @@ int handleGenMovement(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWaniExt(base);
+    base = cli::withoutExt(base, ".wani");
     if (!wowee::pipeline::WoweeAnimationLoader::exists(base)) {
-        std::fprintf(stderr, "WANI not found: %s.wani\n", base.c_str());
-        return 1;
+        return reportMissing("WANI", base, ".wani");
     }
     auto c = wowee::pipeline::WoweeAnimationLoader::load(base);
     if (jsonOut) {
@@ -126,65 +113,37 @@ int handleExportJson(int& i, int argc, char** argv) {
     // open format. Each animation emits all 8 scalar fields
     // plus a dual int + name form for behaviorTier so
     // hand-edits can use either representation.
-    std::string base = argv[++i];
-    std::string outPath;
-    if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWaniExt(base);
-    if (outPath.empty()) outPath = base + ".wani.json";
-    if (!wowee::pipeline::WoweeAnimationLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wani-json: WANI not found: %s.wani\n", base.c_str());
-        return 1;
-    }
-    auto c = wowee::pipeline::WoweeAnimationLoader::load(base);
-    nlohmann::json j;
-    j["name"] = c.name;
-    nlohmann::json arr = nlohmann::json::array();
-    for (const auto& e : c.entries) {
-        arr.push_back({
-            {"animationId", e.animationId},
-            {"name", e.name},
-            {"description", e.description},
-            {"fallbackId", e.fallbackId},
-            {"behaviorId", e.behaviorId},
-            {"behaviorTier", e.behaviorTier},
-            {"behaviorTierName", wowee::pipeline::WoweeAnimation::behaviorTierName(e.behaviorTier)},
-            {"flags", e.flags},
-            {"weaponFlags", e.weaponFlags},
-            {"loopDurationMs", e.loopDurationMs},
+    return cli::exportCatalogJson<wowee::pipeline::WoweeAnimationLoader>(
+        i, argc, argv, "wani", "WANI", "animations ",
+        [](const auto& c) {
+        nlohmann::json j;
+        j["name"] = c.name;
+        nlohmann::json arr = nlohmann::json::array();
+        for (const auto& e : c.entries) {
+            arr.push_back({
+                {"animationId", e.animationId},
+                {"name", e.name},
+                {"description", e.description},
+                {"fallbackId", e.fallbackId},
+                {"behaviorId", e.behaviorId},
+                {"behaviorTier", e.behaviorTier},
+                {"behaviorTierName", wowee::pipeline::WoweeAnimation::behaviorTierName(e.behaviorTier)},
+                {"flags", e.flags},
+                {"weaponFlags", e.weaponFlags},
+                {"loopDurationMs", e.loopDurationMs},
+            });
+        }
+        j["entries"] = arr;
+            return j;
         });
-    }
-    j["entries"] = arr;
-    std::ofstream out(outPath);
-    if (!out) {
-        std::fprintf(stderr,
-            "export-wani-json: cannot write %s\n", outPath.c_str());
-        return 1;
-    }
-    out << j.dump(2) << "\n";
-    out.close();
-    std::printf("Wrote %s\n", outPath.c_str());
-    std::printf("  source     : %s.wani\n", base.c_str());
-    std::printf("  animations : %zu\n", c.entries.size());
-    return 0;
 }
 
 int handleImportJson(int& i, int argc, char** argv) {
     std::string jsonPath = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = jsonPath;
-        std::string suffix = ".wani.json";
-        if (outBase.size() > suffix.size() &&
-            outBase.substr(outBase.size() - suffix.size()) == suffix) {
-            outBase = outBase.substr(0, outBase.size() - suffix.size());
-        } else if (outBase.size() > 5 &&
-                   outBase.substr(outBase.size() - 5) == ".json") {
-            outBase = outBase.substr(0, outBase.size() - 5);
-        }
-    }
-    outBase = stripWaniExt(outBase);
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(jsonPath, ".wani");
+    outBase = cli::withoutExt(outBase, ".wani");
     std::ifstream in(jsonPath);
     if (!in) {
         std::fprintf(stderr,
@@ -247,11 +206,9 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWaniExt(base);
+    base = cli::withoutExt(base, ".wani");
     if (!wowee::pipeline::WoweeAnimationLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wani: WANI not found: %s.wani\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wani", "WANI", base, ".wani");
     }
     auto c = wowee::pipeline::WoweeAnimationLoader::load(base);
     std::vector<std::string> errors;
@@ -259,8 +216,8 @@ int handleValidate(int& i, int argc, char** argv) {
     if (c.entries.empty()) {
         warnings.push_back("catalog has zero entries");
     }
-    std::vector<uint32_t> idsSeen;
-    // First pass — collect all animationIds for fallback
+    cli::DuplicateIdCheck idsSeen;
+    // First pass - collect all animationIds for fallback
     // resolution.
     std::vector<uint32_t> allIds;
     for (const auto& e : c.entries) allIds.push_back(e.animationId);
@@ -297,7 +254,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 std::to_string(e.fallbackId) +
                 " not found in this catalog (resolved at runtime)");
         }
-        // Looped animations must have a non-zero duration —
+        // Looped animations must have a non-zero duration -
         // otherwise the renderer divides by zero stepping the
         // animation cursor.
         if ((e.flags & wowee::pipeline::WoweeAnimation::kFlagLooped) &&
@@ -306,48 +263,17 @@ int handleValidate(int& i, int argc, char** argv) {
                 ": kFlagLooped set but loopDurationMs=0 "
                 "(animation cursor would divide by zero)");
         }
-        // Mutually exclusive — Looped + OneShot is contradictory.
+        // Mutually exclusive - Looped + OneShot is contradictory.
         if ((e.flags & wowee::pipeline::WoweeAnimation::kFlagLooped) &&
             (e.flags & wowee::pipeline::WoweeAnimation::kFlagOneShot)) {
             errors.push_back(ctx +
                 ": both kFlagLooped and kFlagOneShot set "
                 "(mutually exclusive)");
         }
-        for (uint32_t prev : idsSeen) {
-            if (prev == e.animationId) {
-                errors.push_back(ctx + ": duplicate animationId");
-                break;
-            }
-        }
-        idsSeen.push_back(e.animationId);
+        if (!idsSeen.add(e.animationId)) errors.push_back(ctx + ": duplicate animationId");
     }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wani"] = base + ".wani";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wani: %s.wani\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu animations, all animationIds unique\n",
-                    c.entries.size());
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+    return cli::reportValidation("wani", base, jsonOut, errors, warnings,
+                                 formatted("%zu animations, all animationIds unique", c.entries.size()));
 }
 
 } // namespace

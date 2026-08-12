@@ -1,4 +1,6 @@
 #include "cli_realm_list_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -18,11 +20,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWmspExt(std::string base) {
-    stripExt(base, ".wmsp");
-    return base;
-}
 
 const char* realmTypeName(uint8_t t) {
     using R = wowee::pipeline::WoweeRealmList;
@@ -70,15 +67,6 @@ const char* populationName(uint8_t p) {
     }
 }
 
-bool saveOrError(const wowee::pipeline::WoweeRealmList& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeRealmListLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wmsp\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeRealmList& c,
                      const std::string& base) {
@@ -91,9 +79,9 @@ int handleGenSingle(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "SingleRealm";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWmspExt(base);
+    base = cli::withoutExt(base, ".wmsp");
     auto c = wowee::pipeline::WoweeRealmListLoader::makeSingleRealm(name);
-    if (!saveOrError(c, base, "gen-msp")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeRealmListLoader>(c, base, "gen-msp", ".wmsp")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -102,9 +90,9 @@ int handleGenCluster(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "PvPCluster";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWmspExt(base);
+    base = cli::withoutExt(base, ".wmsp");
     auto c = wowee::pipeline::WoweeRealmListLoader::makePvPCluster(name);
-    if (!saveOrError(c, base, "gen-msp-cluster")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeRealmListLoader>(c, base, "gen-msp-cluster", ".wmsp")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -113,9 +101,9 @@ int handleGenMultiExp(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "MultiExpansion";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWmspExt(base);
+    base = cli::withoutExt(base, ".wmsp");
     auto c = wowee::pipeline::WoweeRealmListLoader::makeMultiExpansion(name);
-    if (!saveOrError(c, base, "gen-msp-multi")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeRealmListLoader>(c, base, "gen-msp-multi", ".wmsp")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -123,10 +111,9 @@ int handleGenMultiExp(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWmspExt(base);
+    base = cli::withoutExt(base, ".wmsp");
     if (!wowee::pipeline::WoweeRealmListLoader::exists(base)) {
-        std::fprintf(stderr, "WMSP not found: %s.wmsp\n", base.c_str());
-        return 1;
+        return reportMissing("WMSP", base, ".wmsp");
     }
     auto c = wowee::pipeline::WoweeRealmListLoader::load(base);
     if (jsonOut) {
@@ -270,20 +257,17 @@ bool readEnumField(const nlohmann::json& je,
             return true;
         }
     }
-    return true;   // field absent — leave outValue at default
+    return true;   // field absent - leave outValue at default
 }
 
 int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWmspExt(base);
+    base = cli::withoutExt(base, ".wmsp");
     if (out.empty()) out = base + ".wmsp.json";
     if (!wowee::pipeline::WoweeRealmListLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wmsp-json: WMSP not found: %s.wmsp\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wmsp-json", "WMSP", base, ".wmsp");
     }
     auto c = wowee::pipeline::WoweeRealmListLoader::load(base);
     nlohmann::json j;
@@ -339,16 +323,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wmsp.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wmsp");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wmsp");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,
@@ -426,12 +401,9 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWmspExt(base);
+    base = cli::withoutExt(base, ".wmsp");
     if (!wowee::pipeline::WoweeRealmListLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wmsp: WMSP not found: %s.wmsp\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wmsp", "WMSP", base, ".wmsp");
     }
     auto c = wowee::pipeline::WoweeRealmListLoader::load(base);
     std::vector<std::string> errors;
@@ -439,7 +411,7 @@ int handleValidate(int& i, int argc, char** argv) {
     if (c.entries.empty()) {
         warnings.push_back("catalog has zero entries");
     }
-    std::vector<uint32_t> idsSeen;
+    cli::DuplicateIdCheck idsSeen;
     std::set<std::string> namesSeen;
     for (size_t k = 0; k < c.entries.size(); ++k) {
         const auto& e = c.entries[k];
@@ -453,14 +425,14 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": name is empty");
         if (e.address.empty()) {
             errors.push_back(ctx +
-                ": address is empty — login server cannot "
+                ": address is empty - login server cannot "
                 "route session to this realm");
         }
         // Address must contain a colon-separated port.
         if (!e.address.empty() &&
             e.address.find(':') == std::string::npos) {
             warnings.push_back(ctx + ": address '" + e.address +
-                "' has no port — login client typically "
+                "' has no port - login client typically "
                 "expects 'host:port' form (defaults to "
                 "8085 if absent)");
         }
@@ -490,58 +462,28 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         if (e.characterCap == 0) {
             errors.push_back(ctx +
-                ": characterCap=0 — players can't create "
+                ": characterCap=0 - players can't create "
                 "any character on this realm");
         }
-        // Build number sanity check — known WoW build
+        // Build number sanity check - known WoW build
         // numbers are at least 5000.
         if (e.buildNumber > 0 && e.buildNumber < 5000) {
             warnings.push_back(ctx + ": buildNumber " +
                 std::to_string(e.buildNumber) +
-                " < 5000 — known WoW client builds start "
+                " < 5000 - known WoW client builds start "
                 "at 5875 (Vanilla 1.12.1)");
         }
         // Realm names must be unique on the picker.
         if (!namesSeen.insert(e.name).second) {
             errors.push_back(ctx +
                 ": duplicate realm name '" + e.name +
-                "' — picker requires unique display names");
+                "' - picker requires unique display names");
         }
-        for (uint32_t prev : idsSeen) {
-            if (prev == e.realmId) {
-                errors.push_back(ctx + ": duplicate realmId");
-                break;
-            }
-        }
-        idsSeen.push_back(e.realmId);
+        if (!idsSeen.add(e.realmId)) errors.push_back(ctx + ": duplicate realmId");
     }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wmsp"] = base + ".wmsp";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wmsp: %s.wmsp\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu realms, all realmIds + names "
-                    "unique\n", c.entries.size());
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+    return cli::reportValidation("wmsp", base, jsonOut, errors, warnings,
+                                 formatted("%zu realms, all realmIds + names "
+                    "unique", c.entries.size()));
 }
 
 } // namespace

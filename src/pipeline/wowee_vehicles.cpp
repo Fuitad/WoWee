@@ -1,4 +1,5 @@
 #include "pipeline/wowee_vehicles.hpp"
+#include "pipeline/wowee_binary_io.hpp"
 
 #include <cstdio>
 #include <cstring>
@@ -11,45 +12,7 @@ namespace {
 
 constexpr char kMagic[4] = {'W', 'V', 'H', 'C'};
 constexpr uint32_t kVersion = 1;
-
-template <typename T>
-void writePOD(std::ofstream& os, const T& v) {
-    os.write(reinterpret_cast<const char*>(&v), sizeof(T));
-}
-
-template <typename T>
-bool readPOD(std::ifstream& is, T& v) {
-    is.read(reinterpret_cast<char*>(&v), sizeof(T));
-    return is.gcount() == static_cast<std::streamsize>(sizeof(T));
-}
-
-void writeStr(std::ofstream& os, const std::string& s) {
-    uint32_t n = static_cast<uint32_t>(s.size());
-    writePOD(os, n);
-    if (n > 0) os.write(s.data(), n);
-}
-
-bool readStr(std::ifstream& is, std::string& s) {
-    uint32_t n = 0;
-    if (!readPOD(is, n)) return false;
-    if (n > (1u << 20)) return false;
-    s.resize(n);
-    if (n > 0) {
-        is.read(s.data(), n);
-        if (is.gcount() != static_cast<std::streamsize>(n)) {
-            s.clear();
-            return false;
-        }
-    }
-    return true;
-}
-
-std::string normalizePath(std::string base) {
-    if (base.size() < 5 || base.substr(base.size() - 5) != ".wvhc") {
-        base += ".wvhc";
-    }
-    return base;
-}
+constexpr char kExtension[] = ".wvhc";
 
 } // namespace
 
@@ -97,15 +60,9 @@ const char* WoweeVehicle::powerTypeName(uint8_t p) {
 }
 
 bool WoweeVehicleLoader::save(const WoweeVehicle& cat,
-                              const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath), std::ios::binary);
-    if (!os) return false;
-    os.write(kMagic, 4);
-    writePOD(os, kVersion);
-    writeStr(os, cat.name);
-    uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writePOD(os, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeVehicle::Entry& e) {
         writePOD(os, e.vehicleId);
         writePOD(os, e.creatureId);
         writeStr(os, e.name);
@@ -114,14 +71,12 @@ bool WoweeVehicleLoader::save(const WoweeVehicle& cat,
         writePOD(os, e.movementKind);
         uint8_t seatCount = static_cast<uint8_t>(e.seats.size());
         writePOD(os, seatCount);
-        uint8_t pad = 0;
-        writePOD(os, pad);
+        writePadding(os, 1);
         writePOD(os, e.turnSpeed);
         writePOD(os, e.pitchSpeed);
         writePOD(os, e.flightCapabilityId);
         writePOD(os, e.powerType);
-        uint8_t pad3[3] = {0, 0, 0};
-        os.write(reinterpret_cast<const char*>(pad3), 3);
+        writePadding(os, 3);
         writePOD(os, e.maxPower);
         for (const auto& s : e.seats) {
             writePOD(os, s.seatIndex);
@@ -133,75 +88,45 @@ bool WoweeVehicleLoader::save(const WoweeVehicle& cat,
             writePOD(os, s.exitSpellId);
             writePOD(os, s.passengerYaw);
         }
-    }
-    return os.good();
+                       });
 }
 
-WoweeVehicle WoweeVehicleLoader::load(const std::string& basePath) {
-    WoweeVehicle out;
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    if (!is) return out;
-    char magic[4];
-    is.read(magic, 4);
-    if (std::memcmp(magic, kMagic, 4) != 0) return out;
-    uint32_t version = 0;
-    if (!readPOD(is, version) || version != kVersion) return out;
-    if (!readStr(is, out.name)) return out;
-    uint32_t entryCount = 0;
-    if (!readPOD(is, entryCount)) return out;
-    if (entryCount > (1u << 20)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
+WoweeVehicle WoweeVehicleLoader::load(
+    const std::string& basePath) {
+    return loadCatalog<WoweeVehicle>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeVehicle::Entry& e) {
         if (!readPOD(is, e.vehicleId) ||
-            !readPOD(is, e.creatureId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name) || !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
+            !readPOD(is, e.creatureId)) { return false; }
+        if (!readStr(is, e.name) || !readStr(is, e.description)) { return false; }
         uint8_t seatCount = 0;
         if (!readPOD(is, e.vehicleKind) ||
             !readPOD(is, e.movementKind) ||
-            !readPOD(is, seatCount)) {
-            out.entries.clear(); return out;
-        }
-        uint8_t pad = 0;
-        if (!readPOD(is, pad)) { out.entries.clear(); return out; }
+            !readPOD(is, seatCount)) { return false; }
+        if (!skipPadding(is, 1)) { return false; }
         if (!readPOD(is, e.turnSpeed) ||
             !readPOD(is, e.pitchSpeed) ||
             !readPOD(is, e.flightCapabilityId) ||
-            !readPOD(is, e.powerType)) {
-            out.entries.clear(); return out;
-        }
-        uint8_t pad3[3];
-        is.read(reinterpret_cast<char*>(pad3), 3);
-        if (is.gcount() != 3) { out.entries.clear(); return out; }
-        if (!readPOD(is, e.maxPower)) {
-            out.entries.clear(); return out;
-        }
-        if (seatCount > 64) { out.entries.clear(); return out; }
+            !readPOD(is, e.powerType)) { return false; }
+        if (!skipPadding(is, 3)) { return false; }
+        if (!readPOD(is, e.maxPower)) { return false; }
+        if (seatCount > 64) { return false; }
         e.seats.resize(seatCount);
         for (auto& s : e.seats) {
             if (!readPOD(is, s.seatIndex) ||
                 !readPOD(is, s.seatFlags) ||
-                !readPOD(is, s.attachmentId)) {
-                out.entries.clear(); return out;
-            }
+                !readPOD(is, s.attachmentId)) { return false; }
             uint8_t spad = 0;
-            if (!readPOD(is, spad)) { out.entries.clear(); return out; }
+            if (!readPOD(is, spad)) { return false; }
             if (!readPOD(is, s.controlSpellId) ||
                 !readPOD(is, s.exitSpellId) ||
-                !readPOD(is, s.passengerYaw)) {
-                out.entries.clear(); return out;
-            }
+                !readPOD(is, s.passengerYaw)) { return false; }
         }
-    }
-    return out;
+                                  return true;
+                              });
 }
 
 bool WoweeVehicleLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeVehicle WoweeVehicleLoader::makeStarter(const std::string& catalogName) {
@@ -212,7 +137,7 @@ WoweeVehicle WoweeVehicleLoader::makeStarter(const std::string& catalogName) {
         WoweeVehicle::Entry e;
         e.vehicleId = 1; e.creatureId = 28829;
         e.name = "Mechano-Hog";
-        e.description = "Engineering chopper — driver + 1 passenger.";
+        e.description = "Engineering chopper - driver + 1 passenger.";
         e.vehicleKind = WoweeVehicle::Chopper;
         e.movementKind = WoweeVehicle::Ground;
         e.powerType = WoweeVehicle::Energy;
@@ -233,7 +158,7 @@ WoweeVehicle WoweeVehicleLoader::makeStarter(const std::string& catalogName) {
         WoweeVehicle::Entry e;
         e.vehicleId = 2; e.creatureId = 1908;
         e.name = "Wind Rider";
-        e.description = "Horde flying mount — single rider.";
+        e.description = "Horde flying mount - single rider.";
         e.vehicleKind = WoweeVehicle::FlyingMount;
         e.movementKind = WoweeVehicle::Air;
         // flightCapabilityId 1 matches WMNT.makeStarter mountId.
@@ -300,15 +225,15 @@ WoweeVehicle WoweeVehicleLoader::makeSiege(const std::string& catalogName) {
     };
     add(100, 28593, "Demolisher",
         WoweeVehicle::Demolisher, WoweeVehicle::Pyrite,
-        50990, 50652, "2-seat catapult — driver steers, "
+        50990, 50652, "2-seat catapult - driver steers, "
                        "gunner launches boulders.");
     add(101, 28781, "Glaive Thrower",
         WoweeVehicle::SiegeWeapon, WoweeVehicle::Pyrite,
-        53908, 0,    "Single-seat ballista — fires armor-piercing "
+        53908, 0,    "Single-seat ballista - fires armor-piercing "
                        "glaives.");
     add(102, 33113, "Salvaged Cannon",
         WoweeVehicle::SiegeWeapon, WoweeVehicle::Heat,
-        62307, 0,    "Stationary cannon — overheats on rapid fire.");
+        62307, 0,    "Stationary cannon - overheats on rapid fire.");
     return c;
 }
 
@@ -347,7 +272,7 @@ WoweeVehicle WoweeVehicleLoader::makeFlying(const std::string& catalogName) {
     add(201, 478,   "Storm Gryphon",  2, 0,
         "Single-seat alliance flying mount.");
     add(202, 30414, "Twilight Drake", 3, 1,
-        "2-seat drake — driver + 1 passenger.");
+        "2-seat drake - driver + 1 passenger.");
     return c;
 }
 

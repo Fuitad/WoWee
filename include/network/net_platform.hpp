@@ -36,6 +36,9 @@
 #endif
 
 #include <cstring>
+#include <string>
+
+#include "core/logger.hpp"
 
 namespace wowee {
 namespace net {
@@ -128,13 +131,47 @@ inline const char* errorString(int err) {
 #endif
 }
 
-// Portable send — Windows recv/send take char*, not void*.
+// Portable send - Windows recv/send take char*, not void*.
 inline ssize_t portableSend(socket_t s, const uint8_t* data, size_t len) {
     return ::send(s, reinterpret_cast<const char*>(data), static_cast<int>(len), 0);
 }
 
 inline ssize_t portableRecv(socket_t s, uint8_t* buf, size_t len) {
     return ::recv(s, reinterpret_cast<char*>(buf), static_cast<int>(len), 0);
+}
+
+/// Open a non-blocking TCP socket and resolve host into an address to connect
+/// to. Answers INVALID_SOCK when either step fails, having cleaned up after
+/// itself.
+///
+/// The connect itself is deliberately left to the caller: TCPSocket and
+/// WorldSocket wait on it differently, and only this setup was identical
+/// between them. It was written out twice, down to the log lines.
+inline socket_t openResolvedSocket(const std::string& host, uint16_t port,
+                                   struct sockaddr_in& addr) {
+    socket_t fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (fd == INVALID_SOCK) {
+        LOG_ERROR("Failed to create socket");
+        return INVALID_SOCK;
+    }
+    setNonBlocking(fd);
+
+    struct addrinfo hints{};
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
+    struct addrinfo* res = nullptr;
+    if (getaddrinfo(host.c_str(), nullptr, &hints, &res) != 0 || res == nullptr) {
+        LOG_ERROR("Failed to resolve host: ", host);
+        closeSocket(fd);
+        return INVALID_SOCK;
+    }
+
+    memset(&addr, 0, sizeof(addr));
+    addr.sin_family = AF_INET;
+    addr.sin_addr = reinterpret_cast<struct sockaddr_in*>(res->ai_addr)->sin_addr;
+    addr.sin_port = htons(port);
+    freeaddrinfo(res);
+    return fd;
 }
 
 } // namespace net

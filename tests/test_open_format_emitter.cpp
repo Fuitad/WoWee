@@ -1,4 +1,4 @@
-// Tests for the asset_extract open-format emitter — verifies that the
+// Tests for the asset_extract open-format emitter - verifies that the
 // MPQ→loose-files pipeline produces wowee-readable side-files for the
 // most common file types without touching the originals.
 #include <catch_amalgamated.hpp>

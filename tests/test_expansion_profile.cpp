@@ -4,17 +4,14 @@
 
 #include <cstdlib>
 #include <filesystem>
+#include "core/env.hpp"
 #include <fstream>
 
 namespace {
 
 void setBuildOverride(const char* value) {
-#ifdef _WIN32
-    _putenv_s("WOWEE_TEST_AUTH_BUILD", value ? value : "");
-#else
-    if (value) setenv("WOWEE_TEST_AUTH_BUILD", value, 1);
-    else unsetenv("WOWEE_TEST_AUTH_BUILD");
-#endif
+    if (value) wowee::core::setEnvVar("WOWEE_TEST_AUTH_BUILD", value);
+    else wowee::core::unsetEnvVar("WOWEE_TEST_AUTH_BUILD");
 }
 
 std::filesystem::path writeProfileTree() {

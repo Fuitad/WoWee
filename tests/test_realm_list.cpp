@@ -3,7 +3,7 @@
 // Vanilla-family servers disagree on the auth protocol byte (vmangos-derived
 // 1.12 realms speak protocol 8, stock mangos/cmangos speak 3) while still
 // sending the vanilla realm-entry shape, so the realm-list layout is selected
-// by expansion rather than by protocol version — and the parser additionally
+// by expansion rather than by protocol version - and the parser additionally
 // recovers in-place when a modern-layout parse visibly shifts the fields.
 #include <catch_amalgamated.hpp>
 #include "auth/auth_packets.hpp"
@@ -33,7 +33,7 @@ void putStr(Bytes& b, const char* s) {
 // Header shared by both layouts: size(2) + unknown(4), then the realm count,
 // whose width is what differs (uint8 vanilla, uint16 TBC/WotLK).
 void putHeader(Bytes& b, uint16_t realmCount, bool legacyVanilla) {
-    putU16(b, 0);   // packet size — parser reads and ignores it
+    putU16(b, 0);   // packet size - parser reads and ignores it
     putU32(b, 0);   // unknown
     if (legacyVanilla) putU8(b, static_cast<uint8_t>(realmCount));
     else               putU16(b, realmCount);
@@ -42,7 +42,7 @@ void putHeader(Bytes& b, uint16_t realmCount, bool legacyVanilla) {
 // Vanilla realm entry: uint32 icon, NO lock byte.
 void putVanillaRealm(Bytes& b, const char* name, const char* addr, uint8_t id) {
     putU32(b, 1);            // icon (uint32 in vanilla)
-    putU8(b, 0x00);          // flags — no version info
+    putU8(b, 0x00);          // flags - no version info
     putStr(b, name);
     putStr(b, addr);
     putF(b, 0.5f);           // population
@@ -115,7 +115,7 @@ TEST_CASE("Realm list: WotLK version block consumed, not leaked into next realm"
     CHECK(resp.realms[0].hasVersionInfo());
     CHECK(resp.realms[0].build == 12340);
     // The second realm only parses correctly if the version block above was
-    // fully consumed — a stray byte shifts every field from here on.
+    // fully consumed - a stray byte shifts every field from here on.
     CHECK(resp.realms[1].name == "Realm Two");
     CHECK(resp.realms[1].address == "127.0.0.1:8086");
     CHECK(resp.realms[1].id == 2);
@@ -123,8 +123,8 @@ TEST_CASE("Realm list: WotLK version block consumed, not leaked into next realm"
 
 TEST_CASE("Realm list: vanilla body under modern flag recovers in-place", "[realm_list]") {
     // vmangos: auth protocol 8 (so the caller may not set the legacy flag) but
-    // a vanilla-shaped realm body. The modern parse mis-slices this — the extra
-    // icon bytes swallow the name — and the parser must detect and re-read it.
+    // a vanilla-shaped realm body. The modern parse mis-slices this - the extra
+    // icon bytes swallow the name - and the parser must detect and re-read it.
     Bytes b;
     putHeader(b, 1, /*legacyVanilla=*/false);
     putVanillaRealm(b, "VMangos Realm", "127.0.0.1:8085", 1);
@@ -172,4 +172,52 @@ TEST_CASE("Logon proof PIN format includes security proof data", "[auth_packets]
 
     auto v8 = LogonProofPacket::build(A, M1, 0x01, &crc, &pinSalt, &pinHash);
     CHECK(v8.getSize() == 32 + 20 + 20 + 1 + 1 + 16 + 20);
+}
+
+// The recovery path re-reads the same bytes as a vanilla parse, so whatever it
+// produces has to match what the vanilla parse produces from the same body.
+// Two readings of one layout is the shape that drifts: a field added to one
+// and not the other shows up as a realm list that is right until the server is
+// a vmangos one, which is the case nobody tests by hand.
+TEST_CASE("Realm list: the recovery yields exactly the vanilla parse",
+          "[realm_list]") {
+    Bytes vanillaBody;
+    putVanillaRealm(vanillaBody, "Whitemane", "logon.example:8085", 7);
+
+    Bytes declared;
+    putHeader(declared, 1, /*legacyVanilla=*/true);
+    declared.insert(declared.end(), vanillaBody.begin(), vanillaBody.end());
+
+    Bytes recovered;
+    putHeader(recovered, 1, /*legacyVanilla=*/false);
+    recovered.insert(recovered.end(), vanillaBody.begin(), vanillaBody.end());
+
+    network::Packet declaredPacket(0, declared);
+    RealmListResponse fromFlag;
+    REQUIRE(RealmListResponseParser::parse(declaredPacket, fromFlag, /*legacyVanillaLayout=*/true));
+
+    network::Packet recoveredPacket(0, recovered);
+    RealmListResponse fromRecovery;
+    REQUIRE(RealmListResponseParser::parse(recoveredPacket, fromRecovery, /*legacyVanillaLayout=*/false));
+
+    REQUIRE(fromFlag.realms.size() == 1);
+    REQUIRE(fromRecovery.realms.size() == 1);
+    const Realm& a = fromFlag.realms[0];
+    const Realm& b = fromRecovery.realms[0];
+
+    CHECK(a.name == b.name);
+    CHECK(a.address == b.address);
+    CHECK(a.icon == b.icon);
+    CHECK(a.lock == b.lock);
+    CHECK(a.flags == b.flags);
+    CHECK(a.population == Catch::Approx(b.population));
+    CHECK(a.characters == b.characters);
+    CHECK(a.timezone == b.timezone);
+    CHECK(a.id == b.id);
+    CHECK(a.majorVersion == b.majorVersion);
+    CHECK(a.build == b.build);
+
+    // And it is the realm that was actually sent, not two matching wrongs.
+    CHECK(a.name == "Whitemane");
+    CHECK(a.id == 7);
 }

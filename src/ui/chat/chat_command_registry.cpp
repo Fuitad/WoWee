@@ -1,4 +1,4 @@
-// ChatCommandRegistry — command registration + dispatch.
+// ChatCommandRegistry - command registration + dispatch.
 // Moved from the if/else chain in ChatPanel::sendChatMessage() (Phase 3.1).
 #include "ui/chat/chat_command_registry.hpp"
 #include <algorithm>
@@ -12,8 +12,8 @@ void ChatCommandRegistry::registerCommand(std::unique_ptr<IChatCommand> cmd) {
     for (const auto& alias : raw->aliases()) {
         // Two commands claiming one name is always a mistake, and the one that
         // wins depends on nothing more than the order the register functions are
-        // called in. /logout was claimed twice — once talking to the server and
-        // once tearing the world down locally — and which you got was decided by
+        // called in. /logout was claimed twice - once talking to the server and
+        // once tearing the world down locally - and which you got was decided by
         // a line ordering in registerAllCommands().
         auto [it, inserted] = commandMap_.try_emplace(alias, raw);
         if (!inserted) {
@@ -46,23 +46,5 @@ std::vector<std::string> ChatCommandRegistry::getCompletions(const std::string& 
     std::sort(results.begin(), results.end());
     return results;
 }
-
-std::vector<std::pair<std::string, std::string>> ChatCommandRegistry::getHelpEntries() const {
-    std::vector<std::pair<std::string, std::string>> entries;
-    for (const auto& cmd : commands_) {
-        const auto& aliases = cmd->aliases();
-        std::string helpText = cmd->helpText();
-        if (!aliases.empty() && !helpText.empty()) {
-            entries.emplace_back("/" + aliases[0], helpText);
-        }
-    }
-    std::sort(entries.begin(), entries.end());
-    return entries;
-}
-
-bool ChatCommandRegistry::hasCommand(const std::string& alias) const {
-    return commandMap_.find(alias) != commandMap_.end();
-}
-
 } // namespace ui
 } // namespace wowee

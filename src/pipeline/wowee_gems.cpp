@@ -1,4 +1,5 @@
 #include "pipeline/wowee_gems.hpp"
+#include "pipeline/wowee_binary_io.hpp"
 
 #include <cstdio>
 #include <cstring>
@@ -11,45 +12,7 @@ namespace {
 
 constexpr char kMagic[4] = {'W', 'G', 'E', 'M'};
 constexpr uint32_t kVersion = 1;
-
-template <typename T>
-void writePOD(std::ofstream& os, const T& v) {
-    os.write(reinterpret_cast<const char*>(&v), sizeof(T));
-}
-
-template <typename T>
-bool readPOD(std::ifstream& is, T& v) {
-    is.read(reinterpret_cast<char*>(&v), sizeof(T));
-    return is.gcount() == static_cast<std::streamsize>(sizeof(T));
-}
-
-void writeStr(std::ofstream& os, const std::string& s) {
-    uint32_t n = static_cast<uint32_t>(s.size());
-    writePOD(os, n);
-    if (n > 0) os.write(s.data(), n);
-}
-
-bool readStr(std::ifstream& is, std::string& s) {
-    uint32_t n = 0;
-    if (!readPOD(is, n)) return false;
-    if (n > (1u << 20)) return false;
-    s.resize(n);
-    if (n > 0) {
-        is.read(s.data(), n);
-        if (is.gcount() != static_cast<std::streamsize>(n)) {
-            s.clear();
-            return false;
-        }
-    }
-    return true;
-}
-
-std::string normalizePath(std::string base) {
-    if (base.size() < 5 || base.substr(base.size() - 5) != ".wgem") {
-        base += ".wgem";
-    }
-    return base;
-}
+constexpr char kExtension[] = ".wgem";
 
 } // namespace
 
@@ -90,13 +53,10 @@ const char* WoweeGem::enchantSlotName(uint8_t s) {
 
 bool WoweeGemLoader::save(const WoweeGem& cat,
                           const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath), std::ios::binary);
+    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
     if (!os) return false;
-    os.write(kMagic, 4);
-    writePOD(os, kVersion);
-    writeStr(os, cat.name);
-    uint32_t gemCount = static_cast<uint32_t>(cat.gems.size());
-    writePOD(os, gemCount);
+    const uint32_t gemCount = static_cast<uint32_t>(cat.gems.size());
+    writeCatalogHeader(os, kMagic, kVersion, cat.name, gemCount);
     for (const auto& g : cat.gems) {
         writePOD(os, g.gemId);
         writePOD(os, g.itemIdToInsert);
@@ -104,11 +64,9 @@ bool WoweeGemLoader::save(const WoweeGem& cat,
         writePOD(os, g.color);
         writePOD(os, g.statType);
         writePOD(os, g.requiredItemQuality);
-        uint8_t pad = 0;
-        writePOD(os, pad);
+        writePadding(os, 1);
         writePOD(os, g.statValue);
-        uint8_t pad2[2] = {0, 0};
-        os.write(reinterpret_cast<const char*>(pad2), 2);
+        writePadding(os, 2);
         writePOD(os, g.spellId);
     }
     uint32_t enchCount = static_cast<uint32_t>(cat.enchantments.size());
@@ -120,31 +78,23 @@ bool WoweeGemLoader::save(const WoweeGem& cat,
         writeStr(os, e.iconPath);
         writePOD(os, e.enchantSlot);
         writePOD(os, e.statType);
-        uint8_t pad2[2] = {0, 0};
-        os.write(reinterpret_cast<const char*>(pad2), 2);
+        writePadding(os, 2);
         writePOD(os, e.statValue);
-        os.write(reinterpret_cast<const char*>(pad2), 2);
+        writePadding(os, 2);
         writePOD(os, e.spellId);
         writePOD(os, e.durationSeconds);
         writePOD(os, e.chargeCount);
-        os.write(reinterpret_cast<const char*>(pad2), 2);
+        writePadding(os, 2);
     }
     return os.good();
 }
 
 WoweeGem WoweeGemLoader::load(const std::string& basePath) {
     WoweeGem out;
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
+    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
     if (!is) return out;
-    char magic[4];
-    is.read(magic, 4);
-    if (std::memcmp(magic, kMagic, 4) != 0) return out;
-    uint32_t version = 0;
-    if (!readPOD(is, version) || version != kVersion) return out;
-    if (!readStr(is, out.name)) return out;
     uint32_t gemCount = 0;
-    if (!readPOD(is, gemCount)) return out;
-    if (gemCount > (1u << 20)) return out;
+    if (!readCatalogHeader(is, kMagic, kVersion, out.name, gemCount)) return out;
     out.gems.resize(gemCount);
     for (auto& g : out.gems) {
         if (!readPOD(is, g.gemId) ||
@@ -159,16 +109,13 @@ WoweeGem WoweeGemLoader::load(const std::string& basePath) {
             !readPOD(is, g.requiredItemQuality)) {
             out.gems.clear(); return out;
         }
-        uint8_t pad = 0;
-        if (!readPOD(is, pad)) {
+        if (!skipPadding(is, 1)) {
             out.gems.clear(); return out;
         }
         if (!readPOD(is, g.statValue)) {
             out.gems.clear(); return out;
         }
-        uint8_t pad2[2];
-        is.read(reinterpret_cast<char*>(pad2), 2);
-        if (is.gcount() != 2) { out.gems.clear(); return out; }
+        if (!skipPadding(is, 2)) { out.gems.clear(); return out; }
         if (!readPOD(is, g.spellId)) {
             out.gems.clear(); return out;
         }
@@ -193,16 +140,13 @@ WoweeGem WoweeGemLoader::load(const std::string& basePath) {
             !readPOD(is, e.statType)) {
             out.gems.clear(); out.enchantments.clear(); return out;
         }
-        uint8_t pad2[2];
-        is.read(reinterpret_cast<char*>(pad2), 2);
-        if (is.gcount() != 2) {
+        if (!skipPadding(is, 2)) {
             out.gems.clear(); out.enchantments.clear(); return out;
         }
         if (!readPOD(is, e.statValue)) {
             out.gems.clear(); out.enchantments.clear(); return out;
         }
-        is.read(reinterpret_cast<char*>(pad2), 2);
-        if (is.gcount() != 2) {
+        if (!skipPadding(is, 2)) {
             out.gems.clear(); out.enchantments.clear(); return out;
         }
         if (!readPOD(is, e.spellId) ||
@@ -210,8 +154,7 @@ WoweeGem WoweeGemLoader::load(const std::string& basePath) {
             !readPOD(is, e.chargeCount)) {
             out.gems.clear(); out.enchantments.clear(); return out;
         }
-        is.read(reinterpret_cast<char*>(pad2), 2);
-        if (is.gcount() != 2) {
+        if (!skipPadding(is, 2)) {
             out.gems.clear(); out.enchantments.clear(); return out;
         }
     }
@@ -219,8 +162,7 @@ WoweeGem WoweeGemLoader::load(const std::string& basePath) {
 }
 
 bool WoweeGemLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeGem WoweeGemLoader::makeStarter(const std::string& catalogName) {

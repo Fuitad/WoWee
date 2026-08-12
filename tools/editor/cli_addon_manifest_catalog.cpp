@@ -1,4 +1,6 @@
 #include "cli_addon_manifest_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -22,20 +24,6 @@ namespace cli {
 
 namespace {
 
-std::string stripWmodExt(std::string base) {
-    stripExt(base, ".wmod");
-    return base;
-}
-
-bool saveOrError(const wowee::pipeline::WoweeAddonManifest& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeAddonManifestLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wmod\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeAddonManifest& c,
                      const std::string& base) {
@@ -48,10 +36,10 @@ int handleGenStandard(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StandardAddons";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWmodExt(base);
+    base = cli::withoutExt(base, ".wmod");
     auto c = wowee::pipeline::WoweeAddonManifestLoader::
         makeStandardAddons(name);
-    if (!saveOrError(c, base, "gen-mod")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeAddonManifestLoader>(c, base, "gen-mod", ".wmod")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -60,10 +48,10 @@ int handleGenUI(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "UIReplacement";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWmodExt(base);
+    base = cli::withoutExt(base, ".wmod");
     auto c = wowee::pipeline::WoweeAddonManifestLoader::
         makeUIReplacement(name);
-    if (!saveOrError(c, base, "gen-mod-ui")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeAddonManifestLoader>(c, base, "gen-mod-ui", ".wmod")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -72,10 +60,10 @@ int handleGenUtility(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "UtilityAddons";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWmodExt(base);
+    base = cli::withoutExt(base, ".wmod");
     auto c = wowee::pipeline::WoweeAddonManifestLoader::
         makeUtility(name);
-    if (!saveOrError(c, base, "gen-mod-util")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeAddonManifestLoader>(c, base, "gen-mod-util", ".wmod")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -83,10 +71,9 @@ int handleGenUtility(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWmodExt(base);
+    base = cli::withoutExt(base, ".wmod");
     if (!wowee::pipeline::WoweeAddonManifestLoader::exists(base)) {
-        std::fprintf(stderr, "WMOD not found: %s.wmod\n", base.c_str());
-        return 1;
+        return reportMissing("WMOD", base, ".wmod");
     }
     auto c = wowee::pipeline::WoweeAddonManifestLoader::load(base);
     if (jsonOut) {
@@ -133,7 +120,7 @@ int handleInfo(int& i, int argc, char** argv) {
 
 // Stack-based DFS cycle detection. Returns the first
 // cycle found as a vector of addonIds. Empty if no
-// cycle. Considers ONLY required dependencies — optional
+// cycle. Considers ONLY required dependencies - optional
 // deps don't deadlock.
 std::vector<uint32_t> findFirstCycle(
     const wowee::pipeline::WoweeAddonManifest& c) {
@@ -154,7 +141,7 @@ std::vector<uint32_t> findFirstCycle(
         for (uint32_t dep : graph[node]) {
             if (!known.count(dep)) continue;
             if (color[dep] == Gray) {
-                // Found back-edge to gray node — extract
+                // Found back-edge to gray node - extract
                 // the cycle starting at dep in path.
                 auto it = std::find(path.begin(), path.end(), dep);
                 cycle.assign(it, path.end());
@@ -178,12 +165,9 @@ std::vector<uint32_t> findFirstCycle(
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWmodExt(base);
+    base = cli::withoutExt(base, ".wmod");
     if (!wowee::pipeline::WoweeAddonManifestLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wmod: WMOD not found: %s.wmod\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wmod", "WMOD", base, ".wmod");
     }
     auto c = wowee::pipeline::WoweeAddonManifestLoader::load(base);
     std::vector<std::string> errors;
@@ -212,7 +196,7 @@ int handleValidate(int& i, int argc, char** argv) {
             !namesSeen.insert(e.name).second) {
             errors.push_back(ctx +
                 ": duplicate addon name '" + e.name +
-                "' — addon-loader would dispatch ambiguously");
+                "' - addon-loader would dispatch ambiguously");
         }
         if (!idsSeen.insert(e.addonId).second) {
             errors.push_back(ctx + ": duplicate addonId");
@@ -236,10 +220,10 @@ int handleValidate(int& i, int argc, char** argv) {
             if (dep == e.addonId) {
                 warnings.push_back(ctx +
                     ": addon optionally depends on "
-                    "itself — has no effect, prune");
+                    "itself - has no effect, prune");
             }
             // Optional deps to unknown ids are NOT an
-            // error — addon may degrade gracefully if
+            // error - addon may degrade gracefully if
             // the optional dep is absent.
         }
         if (e.minClientBuild != 0 && e.minClientBuild < 4500) {
@@ -260,50 +244,23 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         errors.push_back("dependency cycle detected: " +
                           trail +
-                          " — addon-loader would deadlock");
+                          " - addon-loader would deadlock");
     }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wmod"] = base + ".wmod";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wmod: %s.wmod\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu addons, all addonIds + "
+    return cli::reportValidation("wmod", base, jsonOut, errors, warnings,
+                                 formatted("%zu addons, all addonIds + "
                     "names unique, no required-dep cycle, "
                     "no missing required deps, no self-"
-                    "deps\n", c.entries.size());
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+                    "deps", c.entries.size()));
 }
 
 int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWmodExt(base);
+    base = cli::withoutExt(base, ".wmod");
     if (out.empty()) out = base + ".wmod.json";
     if (!wowee::pipeline::WoweeAddonManifestLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wmod-json: WMOD not found: %s.wmod\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wmod-json", "WMOD", base, ".wmod");
     }
     auto c = wowee::pipeline::WoweeAddonManifestLoader::load(base);
     nlohmann::json j;
@@ -344,16 +301,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wmod.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wmod");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wmod");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,

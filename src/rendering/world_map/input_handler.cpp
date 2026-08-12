@@ -1,4 +1,4 @@
-// input_handler.cpp — Input processing for the world map.
+// input_handler.cpp - Input processing for the world map.
 // Extracted from WorldMap::render (Phase 9 of refactoring plan).
 #include "rendering/world_map/input_handler.hpp"
 #include "core/input.hpp"

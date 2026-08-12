@@ -56,10 +56,10 @@ public:
 
     /// The last spell the player cast while on foot. When mounting is detected,
     /// this identifies which of the player's indefinite self-cast auras is the
-    /// mount — scanning for one blindly can land on a racial or a tracking buff.
+    /// mount - scanning for one blindly can land on a racial or a tracking buff.
     uint32_t getLastGroundCastSpellId() const { return lastGroundCastSpellId_; }
 
-    /// Record a spell cast by using an item — pre-WotLK mounts are items, and
+    /// Record a spell cast by using an item - pre-WotLK mounts are items, and
     /// their on-use spell never passes through castSpell().
     void noteGroundCastSpell(uint32_t spellId) { lastGroundCastSpellId_ = spellId; }
     void cancelCast();
@@ -69,6 +69,7 @@ public:
     const std::unordered_set<uint32_t>& getKnownSpells() const { return knownSpells_; }
     const std::unordered_map<uint32_t, float>& getSpellCooldowns() const { return spellCooldowns_; }
     float getSpellCooldown(uint32_t spellId) const;
+    float getSpellCooldownTotal(uint32_t spellId) const;
 
     // Cast state
     bool isCasting() const { return casting_ || restorationActive_; }
@@ -97,11 +98,15 @@ public:
     uint32_t getCraftQueueSpellId() const { return craftQueueSpellId_; }
 
     // Crafting window (client-side; opened by casting a profession spell
-    // like Cooking or First Aid — see tradeskillOpenerSkillLine)
+    // like Cooking or First Aid - see tradeskillOpenerSkillLine)
     bool isCraftingWindowOpen() const { return craftingWindowOpen_; }
     uint32_t getCraftingSkillLine() const { return craftingSkillLine_; }
-    void openCraftingWindow(uint32_t skillLine) { craftingWindowOpen_ = true; craftingSkillLine_ = skillLine; }
-    void closeCraftingWindow() { craftingWindowOpen_ = false; }
+    /// Opening and closing a profession announce themselves, because the
+    /// interface's trade skill panel is driven entirely by these two events -
+    /// it hides on TRADE_SKILL_CLOSE and fills itself on TRADE_SKILL_SHOW.
+    /// Without them the panel could be complete and still never appear.
+    void openCraftingWindow(uint32_t skillLine);
+    void closeCraftingWindow();
     // Returns the skill line id if spellId is a tradeskill-window opener
     // (e.g. Cooking → 185) with at least one known recipe, else 0.
     uint32_t tradeskillOpenerSkillLine(uint32_t spellId);
@@ -211,6 +216,9 @@ public:
     // Talent wipe confirm dialog
     bool showTalentWipeConfirmDialog() const { return talentWipePending_; }
     uint32_t getTalentWipeCost() const { return talentWipeCost_; }
+    /// The trainer offering the wipe. The confirmation closes itself when the
+    /// player walks away from them.
+    uint64_t getTalentWipeNpcGuid() const { return talentWipeNpcGuid_; }
     void confirmTalentWipe();
     void cancelTalentWipe() { talentWipePending_ = false; }
 
@@ -221,11 +229,8 @@ public:
     void cancelPetUnlearn() { petUnlearnPending_ = false; }
 
     // Item use
-    void useItemBySlot(int backpackIndex);
-    void useItemInBag(int bagIndex, int slotIndex);
-    void useItemById(uint32_t itemId);
 
-    // Equipment sets — canonical data owned by InventoryHandler;
+    // Equipment sets - canonical data owned by InventoryHandler;
     // GameHandler::getEquipmentSets() delegates to inventoryHandler_.
 
     // Pet spells
@@ -241,8 +246,15 @@ public:
     const std::string& getSpellRank(uint32_t spellId) const;
     const std::string& getSpellDescription(uint32_t spellId) const;
     std::string getEnchantName(uint32_t enchantId) const;
+    /// The gem item an enchantment came out of (SpellItemEnchantment.Src_ItemID).
+    /// Zero when the enchantment is not a gem, or on a file with no such column.
+    /// This is the only route from an enchantment sitting in an item's socket
+    /// back to the gem that is in the socket - the item fields carry the
+    /// enchantment id and nothing else.
+    uint32_t getEnchantGemItem(uint32_t enchantId) const;
     uint8_t getSpellDispelType(uint32_t spellId) const;
     bool isSpellInterruptible(uint32_t spellId) const;
+    bool isSpellPassive(uint32_t spellId) const;
     uint32_t getSpellSchoolMask(uint32_t spellId) const;
     /// Spell.dbc Targets mask (SpellCastTargetFlags): 0x10 = TARGET_FLAG_ITEM.
     uint32_t getSpellTargetFlags(uint32_t spellId) const;
@@ -291,7 +303,35 @@ public:
     // DBC cache loading (called from GameHandler during login)
     void loadSpellNameCache() const;
     void loadSkillLineAbilityDbc();
-    void categorizeTrainerSpells();
+
+    /// Ask the server what the pet is called.
+    ///
+    /// The name a player gave a pet arrives only in answer to
+    /// CMSG_PET_NAME_QUERY. Without it a pet wears its creature template's
+    /// name - "Voidwalker" where the player wrote something else - which is
+    /// what the pet frame, its nameplate and the pet bar's tooltip all show.
+    ///
+    /// The pet number in that request is a key the server echoes back and does
+    /// not look anything up with: SendPetNameQuery finds the pet by guid. So
+    /// this sends a number of its own making and uses it to match the reply to
+    /// the pet it asked about, which is what the field would have been for.
+    void requestPetName(uint64_t petGuid);
+
+    /// Give a hunter's pet up for good. The interface asks first - this is the
+    /// other side of the ABANDON_PET dialog, whose accept called an unbound
+    /// name and raised.
+    /// The five values every UNIT_SPELLCAST_* event carries.
+    ///
+    /// unit, spell name, rank, cast id, spell id - in that order, which is what
+    /// FrameXML unpacks. These were being fired as just the unit and the spell
+    /// id, so the id sat where the name belongs and the cast id was absent.
+    std::vector<std::string> spellcastArgs(const std::string& unitId,
+                                           uint32_t spellId) const;
+
+    void abandonPet();
+
+    /// Buy the next stable slot from the stable master currently open.
+    void buyStableSlot();
 
     /// Ask the server what the pet is called.
     ///
@@ -385,7 +425,6 @@ private:
 
     // Find the on-use spell for an item (trigger=0 Use or trigger=5 NoDelay).
     // CMSG_USE_ITEM requires a valid spellId or the server silently ignores it.
-    uint32_t findOnUseSpellId(uint32_t itemId) const;
     void seedCooldownFromSpellInfo(uint32_t spellId);
     void handleSupercededSpell(network::Packet& packet);
     void handleRemovedSpell(network::Packet& packet);
@@ -398,6 +437,13 @@ private:
     // --- Spell state ---
     std::unordered_set<uint32_t> knownSpells_;
     std::unordered_map<uint32_t, float> spellCooldowns_;    // spellId -> remaining seconds
+    // spellId -> the length the cooldown had when it began. Kept beside the
+    // remaining time rather than derived from it because GetSpellCooldown is
+    // asked for (start, duration), and answering (now, remaining) redraws the
+    // swirl as a fresh full sweep every time the interface asks - which it does
+    // on every ACTIONBAR_UPDATE_COOLDOWN, so a long cooldown appears to restart
+    // whenever anything else is cast.
+    std::unordered_map<uint32_t, float> spellCooldownTotals_;
     uint8_t castCount_ = 0;
     bool casting_ = false;
     bool castIsChannel_ = false;

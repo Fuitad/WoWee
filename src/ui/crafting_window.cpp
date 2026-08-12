@@ -1,5 +1,5 @@
 // ============================================================
-// Crafting window — standalone tradeskill UI (part of WindowManager)
+// Crafting window - standalone tradeskill UI (part of WindowManager)
 // Opened by casting a profession spell (Cooking, First Aid, ...).
 // Recipe list with item icons, skill-based difficulty colors
 // (orange/yellow/green/gray), reagent have/need counts, and
@@ -32,40 +32,14 @@ constexpr ImVec4 kDiffGreen(0.3f, 0.8f, 0.3f, 1.0f);
 constexpr ImVec4 kDiffGray(0.5f, 0.5f, 0.5f, 1.0f);
 
 // 0=orange, 1=yellow, 2=green, 3=gray (also the sort order)
+// Both of these moved to GameHandler so the interface's trade skill panel and
+// this window read the same numbers; a recipe that is orange in one and yellow
+// in the other is a bug nobody can explain.
 int difficultyRank(game::GameHandler& gameHandler, uint32_t spellId) {
-    auto cit = gameHandler.spellNameCacheRef().find(spellId);
-    if (cit == gameHandler.spellNameCacheRef().end()) return 0;
-    const auto& se = cit->second;
-    if (se.trivialSkillHigh == 0 && se.trivialSkillLow == 0)
-        return 0; // no thresholds = always useful
-    auto slIt = gameHandler.spellToSkillLineRef().find(spellId);
-    if (slIt == gameHandler.spellToSkillLineRef().end()) return 0;
-    auto skIt = gameHandler.getPlayerSkills().find(slIt->second);
-    if (skIt == gameHandler.getPlayerSkills().end()) return 0;
-    uint32_t skill = skIt->second.effectiveValue();
-    if (skill >= se.trivialSkillHigh) return 3;
-    if (skill >= se.trivialSkillLow) return 2;
-    uint32_t yellowThresh = se.minSkillRank + (se.trivialSkillLow - se.minSkillRank) / 2;
-    if (skill >= yellowThresh) return 1;
-    return 0;
+    return gameHandler.getRecipeDifficulty(spellId);
 }
 
 // Total count of an item across the backpack and equipped bags
-uint32_t countInventoryItem(const game::Inventory& inv, uint32_t itemId) {
-    uint32_t total = 0;
-    for (int i = 0; i < inv.getBackpackSize(); ++i) {
-        const auto& slot = inv.getBackpackSlot(i);
-        if (!slot.empty() && slot.item.itemId == itemId) total += slot.item.stackCount;
-    }
-    for (int bag = 0; bag < game::Inventory::NUM_BAG_SLOTS; ++bag) {
-        int bagSize = inv.getBagSize(bag);
-        for (int s = 0; s < bagSize; ++s) {
-            const auto& slot = inv.getBagSlot(bag, s);
-            if (!slot.empty() && slot.item.itemId == itemId) total += slot.item.stackCount;
-        }
-    }
-    return total;
-}
 
 struct RecipeRow {
     uint32_t spellId = 0;
@@ -104,7 +78,6 @@ void WindowManager::renderCraftingWindow(game::GameHandler& gameHandler,
 
     gameHandler.loadSpellNameCache();
     auto* assetMgr = services_.assetManager;
-    const auto& inventory = gameHandler.getInventory();
 
     // ---- Collect known recipes of this skill line ----
     std::vector<RecipeRow> recipes;
@@ -129,7 +102,7 @@ void WindowManager::renderCraftingWindow(game::GameHandler& gameHandler,
         row.canMake = row.hasReagents ? 999 : 0;
         for (const auto& reagent : se.reagents) {
             if (reagent.itemId == 0 || reagent.count == 0) continue;
-            uint32_t have = countInventoryItem(inventory, reagent.itemId);
+            uint32_t have = gameHandler.countItemInBags(reagent.itemId);
             row.canMake = std::min(row.canMake, static_cast<int>(have / reagent.count));
         }
         recipes.push_back(row);
@@ -311,7 +284,7 @@ void WindowManager::renderCraftingWindow(game::GameHandler& gameHandler,
                         if (reagent.itemId == 0 || reagent.count == 0) continue;
                         gameHandler.ensureItemInfo(reagent.itemId);
                         const auto* rInfo = gameHandler.getItemInfo(reagent.itemId);
-                        uint32_t have = countInventoryItem(inventory, reagent.itemId);
+                        uint32_t have = gameHandler.countItemInBags(reagent.itemId);
                         bool enough = have >= reagent.count;
                         if (!enough) hasAllReagents = false;
                         ImVec4 haveCol = enough ? kLightGreen : ImVec4(1.0f, 0.6f, 0.6f, 1.0f);

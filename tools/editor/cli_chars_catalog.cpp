@@ -1,4 +1,6 @@
 #include "cli_chars_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -18,20 +20,6 @@ namespace cli {
 
 namespace {
 
-std::string stripWchcExt(std::string base) {
-    stripExt(base, ".wchc");
-    return base;
-}
-
-bool saveOrError(const wowee::pipeline::WoweeChars& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeCharsLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wchc\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeChars& c,
                      const std::string& base) {
@@ -45,9 +33,9 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterChars";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWchcExt(base);
+    base = cli::withoutExt(base, ".wchc");
     auto c = wowee::pipeline::WoweeCharsLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-chars")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCharsLoader>(c, base, "gen-chars", ".wchc")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -56,9 +44,9 @@ int handleGenAlliance(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "AllianceChars";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWchcExt(base);
+    base = cli::withoutExt(base, ".wchc");
     auto c = wowee::pipeline::WoweeCharsLoader::makeAlliance(name);
-    if (!saveOrError(c, base, "gen-chars-alliance")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCharsLoader>(c, base, "gen-chars-alliance", ".wchc")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -67,9 +55,9 @@ int handleGenAllRaces(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "AllRacesChars";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWchcExt(base);
+    base = cli::withoutExt(base, ".wchc");
     auto c = wowee::pipeline::WoweeCharsLoader::makeAllRaces(name);
-    if (!saveOrError(c, base, "gen-chars-allraces")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCharsLoader>(c, base, "gen-chars-allraces", ".wchc")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -77,10 +65,9 @@ int handleGenAllRaces(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWchcExt(base);
+    base = cli::withoutExt(base, ".wchc");
     if (!wowee::pipeline::WoweeCharsLoader::exists(base)) {
-        std::fprintf(stderr, "WCHC not found: %s.wchc\n", base.c_str());
-        return 1;
+        return reportMissing("WCHC", base, ".wchc");
     }
     auto c = wowee::pipeline::WoweeCharsLoader::load(base);
     if (jsonOut) {
@@ -199,12 +186,10 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWchcExt(base);
+    base = cli::withoutExt(base, ".wchc");
     if (outPath.empty()) outPath = base + ".wchc.json";
     if (!wowee::pipeline::WoweeCharsLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wchc-json: WCHC not found: %s.wchc\n", base.c_str());
-        return 1;
+        return reportMissing("export-wchc-json", "WCHC", base, ".wchc");
     }
     auto c = wowee::pipeline::WoweeCharsLoader::load(base);
     nlohmann::json j;
@@ -286,18 +271,8 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string jsonPath = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = jsonPath;
-        std::string suffix = ".wchc.json";
-        if (outBase.size() > suffix.size() &&
-            outBase.substr(outBase.size() - suffix.size()) == suffix) {
-            outBase = outBase.substr(0, outBase.size() - suffix.size());
-        } else if (outBase.size() > 5 &&
-                   outBase.substr(outBase.size() - 5) == ".json") {
-            outBase = outBase.substr(0, outBase.size() - 5);
-        }
-    }
-    outBase = stripWchcExt(outBase);
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(jsonPath, ".wchc");
+    outBase = cli::withoutExt(outBase, ".wchc");
     std::ifstream in(jsonPath);
     if (!in) {
         std::fprintf(stderr,
@@ -421,11 +396,9 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWchcExt(base);
+    base = cli::withoutExt(base, ".wchc");
     if (!wowee::pipeline::WoweeCharsLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wchc: WCHC not found: %s.wchc\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wchc", "WCHC", base, ".wchc");
     }
     auto c = wowee::pipeline::WoweeCharsLoader::load(base);
     std::vector<std::string> errors;
@@ -505,33 +478,8 @@ int handleValidate(int& i, int argc, char** argv) {
             }
         }
     }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wchc"] = base + ".wchc";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wchc: %s.wchc\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu classes, %zu races, %zu outfits, all IDs unique\n",
-                    c.classes.size(), c.races.size(), c.outfits.size());
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+    return cli::reportValidation("wchc", base, jsonOut, errors, warnings,
+                                 formatted("%zu classes, %zu races, %zu outfits, all IDs unique", c.classes.size(), c.races.size(), c.outfits.size()));
 }
 
 } // namespace

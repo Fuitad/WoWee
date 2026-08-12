@@ -1,4 +1,5 @@
 #include "pipeline/wowee_word_filters.hpp"
+#include "pipeline/wowee_binary_io.hpp"
 
 #include <cstdio>
 #include <cstring>
@@ -11,52 +12,7 @@ namespace {
 
 constexpr char kMagic[4] = {'W', 'W', 'F', 'L'};
 constexpr uint32_t kVersion = 1;
-
-template <typename T>
-void writePOD(std::ofstream& os, const T& v) {
-    os.write(reinterpret_cast<const char*>(&v), sizeof(T));
-}
-
-template <typename T>
-bool readPOD(std::ifstream& is, T& v) {
-    is.read(reinterpret_cast<char*>(&v), sizeof(T));
-    return is.gcount() == static_cast<std::streamsize>(sizeof(T));
-}
-
-void writeStr(std::ofstream& os, const std::string& s) {
-    uint32_t n = static_cast<uint32_t>(s.size());
-    writePOD(os, n);
-    if (n > 0) os.write(s.data(), n);
-}
-
-bool readStr(std::ifstream& is, std::string& s) {
-    uint32_t n = 0;
-    if (!readPOD(is, n)) return false;
-    if (n > (1u << 20)) return false;
-    s.resize(n);
-    if (n > 0) {
-        is.read(s.data(), n);
-        if (is.gcount() != static_cast<std::streamsize>(n)) {
-            s.clear();
-            return false;
-        }
-    }
-    return true;
-}
-
-std::string normalizePath(std::string base) {
-    if (base.size() < 5 || base.substr(base.size() - 5) != ".wwfl") {
-        base += ".wwfl";
-    }
-    return base;
-}
-
-uint32_t packRgba(uint8_t r, uint8_t g, uint8_t b, uint8_t a = 0xFF) {
-    return (static_cast<uint32_t>(a) << 24) |
-           (static_cast<uint32_t>(b) << 16) |
-           (static_cast<uint32_t>(g) << 8)  |
-            static_cast<uint32_t>(r);
-}
+constexpr char kExtension[] = ".wwfl";
 
 } // namespace
 
@@ -76,15 +32,9 @@ WoweeWordFilters::findByKind(uint8_t filterKind) const {
 }
 
 bool WoweeWordFiltersLoader::save(const WoweeWordFilters& cat,
-                                    const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath), std::ios::binary);
-    if (!os) return false;
-    os.write(kMagic, 4);
-    writePOD(os, kVersion);
-    writeStr(os, cat.name);
-    uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writePOD(os, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeWordFilters::Entry& e) {
         writePOD(os, e.filterId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -95,50 +45,28 @@ bool WoweeWordFiltersLoader::save(const WoweeWordFilters& cat,
         writePOD(os, e.caseSensitive);
         writePOD(os, e.pad0);
         writePOD(os, e.iconColorRGBA);
-    }
-    return os.good();
+                       });
 }
 
 WoweeWordFilters WoweeWordFiltersLoader::load(
     const std::string& basePath) {
-    WoweeWordFilters out;
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    if (!is) return out;
-    char magic[4];
-    is.read(magic, 4);
-    if (std::memcmp(magic, kMagic, 4) != 0) return out;
-    uint32_t version = 0;
-    if (!readPOD(is, version) || version != kVersion) return out;
-    if (!readStr(is, out.name)) return out;
-    uint32_t entryCount = 0;
-    if (!readPOD(is, entryCount)) return out;
-    if (entryCount > (1u << 20)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.filterId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name) || !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
+    return loadCatalog<WoweeWordFilters>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeWordFilters::Entry& e) {
+        if (!readPOD(is, e.filterId)) { return false; }
+        if (!readStr(is, e.name) || !readStr(is, e.description)) { return false; }
         if (!readStr(is, e.pattern) ||
-            !readStr(is, e.replacement)) {
-            out.entries.clear(); return out;
-        }
+            !readStr(is, e.replacement)) { return false; }
         if (!readPOD(is, e.filterKind) ||
             !readPOD(is, e.severity) ||
             !readPOD(is, e.caseSensitive) ||
             !readPOD(is, e.pad0) ||
-            !readPOD(is, e.iconColorRGBA)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.iconColorRGBA)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeWordFiltersLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeWordFilters WoweeWordFiltersLoader::makeSpamRMT(
@@ -160,7 +88,7 @@ WoweeWordFilters WoweeWordFiltersLoader::makeSpamRMT(
         e.iconColorRGBA = packRgba(220, 200, 80);   // RMT yellow
         c.entries.push_back(e);
     };
-    // RMT-pattern detection. All examples are PG —
+    // RMT-pattern detection. All examples are PG -
     // generic gold-seller phrases without profanity.
     add(1, "WtsGold",
         "wts gold", "***",
@@ -186,7 +114,7 @@ WoweeWordFilters WoweeWordFiltersLoader::makeSpamRMT(
     add(5, "FreeGold",
         "free gold", "***",
         F::Mute, 0,
-        "'free gold' adverts — almost always RMT or "
+        "'free gold' adverts - almost always RMT or "
         "phishing. Mute sender for 60s + drop message.");
     return c;
 }
@@ -214,7 +142,7 @@ WoweeWordFilters WoweeWordFiltersLoader::makeAllCaps(
         "ANYBODY",
         "anybody",
         F::Replace, 1,
-        "Single common all-caps word — replace with "
+        "Single common all-caps word - replace with "
         "lowercase. Case-sensitive match (caseSens=1) so "
         "'Anybody' isn't affected.");
     add(101, "AllCapsExclamation",
@@ -255,17 +183,17 @@ WoweeWordFilters WoweeWordFiltersLoader::makeURLDetect(
     add(200, "HttpUrl",
         "http://", "[link]",
         F::Replace, 0,
-        "HTTP URL — replace with [link] placeholder. "
+        "HTTP URL - replace with [link] placeholder. "
         "Server admins can decide per-channel whether "
         "to permit links via WCHN config.");
     add(201, "HttpsUrl",
         "https://", "[link]",
         F::Replace, 0,
-        "HTTPS URL — same handling as HTTP.");
+        "HTTPS URL - same handling as HTTP.");
     add(202, "WwwShortUrl",
         "www.", "[link]",
         F::Replace, 0,
-        "Bare www.example URL — common shortening when "
+        "Bare www.example URL - common shortening when "
         "the http:// prefix is omitted. Catch-all.");
     return c;
 }

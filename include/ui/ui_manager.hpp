@@ -13,6 +13,7 @@
 union SDL_Event;
 
 namespace wowee {
+namespace pipeline { class AssetManager; }
 
 // Forward declarations
 namespace core { class Window; class AppearanceComposer; enum class AppState; }
@@ -41,10 +42,20 @@ public:
     ///
     /// Separate from initialize because the asset path is not settled until
     /// after the expansion profile is chosen, and separate from drawing because
-    /// the glyph atlas is built once, before the first frame — adding a face
+    /// the glyph atlas is built once, before the first frame - adding a face
     /// afterwards means tearing the font texture down and rebuilding it, which
     /// cannot happen while a frame is in flight.
-    void loadInterfaceFont(const std::string& dataRoot);
+    /// Load the interface typefaces, from loose files or from the archives.
+    ///
+    /// `assets` may be null, and is only consulted when nothing was found on
+    /// disk: an install that never extracted its data keeps the fonts inside
+    /// the MPQs, where std::filesystem cannot see them. That is why this used
+    /// to work on one machine and not another with the same build - the case
+    /// of the directory was never the whole story.
+    void loadInterfaceFont(const std::string& dataRoot,
+                           pipeline::AssetManager* assets = nullptr);
+    /// Whether a face has already been taken; a second call is a no-op.
+    bool interfaceFontsLoaded_ = false;
 
     /**
      * Shutdown ImGui and cleanup
@@ -69,6 +80,11 @@ public:
      * Process SDL event for ImGui
      * @param event SDL event to process
      */
+    /// Close the ImGui frame. Separate from render() so the application can
+    /// draw FrameXML's panels between the two - they belong over the world
+    /// overlays that render() puts in the same draw list.
+    void finishImGuiFrame();
+
     void processEvent(const SDL_Event& event);
 
     /**

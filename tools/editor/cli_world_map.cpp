@@ -1,4 +1,5 @@
 #include "cli_world_map.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -23,15 +24,6 @@ std::string stripWomxExt(std::string base) {
     return base;
 }
 
-bool saveOrError(const wowee::pipeline::WoweeWorldMap& m,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeWorldMapLoader::save(m, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.womx\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeWorldMap& m,
                      const std::string& base) {
@@ -51,7 +43,7 @@ int handleGenContinent(int& i, int argc, char** argv) {
     if (i + 1 < argc && argv[i + 1][0] != '-') mapName = argv[++i];
     base = stripWomxExt(base);
     auto m = wowee::pipeline::WoweeWorldMapLoader::makeContinent(mapName);
-    if (!saveOrError(m, base, "gen-world-map")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeWorldMapLoader>(m, base, "gen-world-map", ".womx")) return 1;
     printGenSummary(m, base);
     return 0;
 }
@@ -62,7 +54,7 @@ int handleGenInstance(int& i, int argc, char** argv) {
     if (i + 1 < argc && argv[i + 1][0] != '-') mapName = argv[++i];
     base = stripWomxExt(base);
     auto m = wowee::pipeline::WoweeWorldMapLoader::makeInstance(mapName);
-    if (!saveOrError(m, base, "gen-world-map-instance")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeWorldMapLoader>(m, base, "gen-world-map-instance", ".womx")) return 1;
     printGenSummary(m, base);
     return 0;
 }
@@ -73,7 +65,7 @@ int handleGenArena(int& i, int argc, char** argv) {
     if (i + 1 < argc && argv[i + 1][0] != '-') mapName = argv[++i];
     base = stripWomxExt(base);
     auto m = wowee::pipeline::WoweeWorldMapLoader::makeArena(mapName);
-    if (!saveOrError(m, base, "gen-world-map-arena")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeWorldMapLoader>(m, base, "gen-world-map-arena", ".womx")) return 1;
     printGenSummary(m, base);
     return 0;
 }
@@ -83,8 +75,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = stripWomxExt(base);
     if (!wowee::pipeline::WoweeWorldMapLoader::exists(base)) {
-        std::fprintf(stderr, "WOMX not found: %s.womx\n", base.c_str());
-        return 1;
+        return reportMissing("WOMX", base, ".womx");
     }
     auto m = wowee::pipeline::WoweeWorldMapLoader::load(base);
     uint32_t total = static_cast<uint32_t>(m.gridSize) * m.gridSize;
@@ -121,7 +112,7 @@ int handleInfo(int& i, int argc, char** argv) {
 int handleExportJson(int& i, int argc, char** argv) {
     // Export a .womx to a human-editable JSON sidecar. Tiles
     // are represented as one '1'/'0' string per row (dense)
-    // because a full 64x64 continent has 4096 tiles — sparse
+    // because a full 64x64 continent has 4096 tiles - sparse
     // [[x,y]] arrays would be 4× larger and harder to spot
     // missing-row patterns visually. The dense string form is
     // easy to hand-edit ('1' = tile present, '0' = no tile).
@@ -131,10 +122,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = stripWomxExt(base);
     if (outPath.empty()) outPath = base + ".womx.json";
     if (!wowee::pipeline::WoweeWorldMapLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-womx-json: WOMX not found: %s.womx\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-womx-json", "WOMX", base, ".womx");
     }
     auto m = wowee::pipeline::WoweeWorldMapLoader::load(base);
     nlohmann::json j;
@@ -258,9 +246,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = stripWomxExt(base);
     if (!wowee::pipeline::WoweeWorldMapLoader::exists(base)) {
-        std::fprintf(stderr, "validate-womx: WOMX not found: %s.womx\n",
-                     base.c_str());
-        return 1;
+        return reportMissing("validate-womx", "WOMX", base, ".womx");
     }
     auto m = wowee::pipeline::WoweeWorldMapLoader::load(base);
     std::vector<std::string> errors;
@@ -297,7 +283,7 @@ int handleValidate(int& i, int argc, char** argv) {
     }
     std::printf("validate-womx: %s.womx\n", base.c_str());
     if (ok && warnings.empty()) {
-        std::printf("  OK — %ux%u grid, %u/%u tiles present\n",
+        std::printf("  OK - %ux%u grid, %u/%u tiles present\n",
                     m.gridSize, m.gridSize,
                     m.countTiles(),
                     static_cast<uint32_t>(m.gridSize) * m.gridSize);

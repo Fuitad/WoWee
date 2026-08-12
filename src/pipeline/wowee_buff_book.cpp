@@ -1,4 +1,5 @@
 #include "pipeline/wowee_buff_book.hpp"
+#include "pipeline/wowee_binary_io.hpp"
 
 #include <cstdio>
 #include <cstring>
@@ -12,52 +13,7 @@ namespace {
 
 constexpr char kMagic[4] = {'W', 'B', 'A', 'B'};
 constexpr uint32_t kVersion = 1;
-
-template <typename T>
-void writePOD(std::ofstream& os, const T& v) {
-    os.write(reinterpret_cast<const char*>(&v), sizeof(T));
-}
-
-template <typename T>
-bool readPOD(std::ifstream& is, T& v) {
-    is.read(reinterpret_cast<char*>(&v), sizeof(T));
-    return is.gcount() == static_cast<std::streamsize>(sizeof(T));
-}
-
-void writeStr(std::ofstream& os, const std::string& s) {
-    uint32_t n = static_cast<uint32_t>(s.size());
-    writePOD(os, n);
-    if (n > 0) os.write(s.data(), n);
-}
-
-bool readStr(std::ifstream& is, std::string& s) {
-    uint32_t n = 0;
-    if (!readPOD(is, n)) return false;
-    if (n > (1u << 20)) return false;
-    s.resize(n);
-    if (n > 0) {
-        is.read(s.data(), n);
-        if (is.gcount() != static_cast<std::streamsize>(n)) {
-            s.clear();
-            return false;
-        }
-    }
-    return true;
-}
-
-std::string normalizePath(std::string base) {
-    if (base.size() < 5 || base.substr(base.size() - 5) != ".wbab") {
-        base += ".wbab";
-    }
-    return base;
-}
-
-uint32_t packRgba(uint8_t r, uint8_t g, uint8_t b, uint8_t a = 0xFF) {
-    return (static_cast<uint32_t>(a) << 24) |
-           (static_cast<uint32_t>(b) << 16) |
-           (static_cast<uint32_t>(g) << 8)  |
-            static_cast<uint32_t>(r);
-}
+constexpr char kExtension[] = ".wbab";
 
 } // namespace
 
@@ -97,15 +53,9 @@ WoweeBuffBook::findChainTip(uint32_t buffId) const {
 }
 
 bool WoweeBuffBookLoader::save(const WoweeBuffBook& cat,
-                                 const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath), std::ios::binary);
-    if (!os) return false;
-    os.write(kMagic, 4);
-    writePOD(os, kVersion);
-    writeStr(os, cat.name);
-    uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writePOD(os, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeBuffBook::Entry& e) {
         writePOD(os, e.buffId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -120,31 +70,15 @@ bool WoweeBuffBookLoader::save(const WoweeBuffBook& cat,
         writePOD(os, e.previousRankId);
         writePOD(os, e.nextRankId);
         writePOD(os, e.iconColorRGBA);
-    }
-    return os.good();
+                       });
 }
 
-WoweeBuffBook WoweeBuffBookLoader::load(const std::string& basePath) {
-    WoweeBuffBook out;
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    if (!is) return out;
-    char magic[4];
-    is.read(magic, 4);
-    if (std::memcmp(magic, kMagic, 4) != 0) return out;
-    uint32_t version = 0;
-    if (!readPOD(is, version) || version != kVersion) return out;
-    if (!readStr(is, out.name)) return out;
-    uint32_t entryCount = 0;
-    if (!readPOD(is, entryCount)) return out;
-    if (entryCount > (1u << 20)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.buffId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name) || !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
+WoweeBuffBook WoweeBuffBookLoader::load(
+    const std::string& basePath) {
+    return loadCatalog<WoweeBuffBook>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeBuffBook::Entry& e) {
+        if (!readPOD(is, e.buffId)) { return false; }
+        if (!readStr(is, e.name) || !readStr(is, e.description)) { return false; }
         if (!readPOD(is, e.spellId) ||
             !readPOD(is, e.castClassMask) ||
             !readPOD(is, e.targetTypeMask) ||
@@ -155,16 +89,13 @@ WoweeBuffBook WoweeBuffBookLoader::load(const std::string& basePath) {
             !readPOD(is, e.duration) ||
             !readPOD(is, e.previousRankId) ||
             !readPOD(is, e.nextRankId) ||
-            !readPOD(is, e.iconColorRGBA)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.iconColorRGBA)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeBuffBookLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeBuffBook WoweeBuffBookLoader::makeMage(
@@ -191,19 +122,19 @@ WoweeBuffBook WoweeBuffBookLoader::makeMage(
         e.iconColorRGBA = packRgba(140, 200, 255);   // mage blue
         c.entries.push_back(e);
     };
-    // Arcane Intellect rank chain — spell IDs from
+    // Arcane Intellect rank chain - spell IDs from
     // Spell.dbc 3.3.5a; intellect bonus per rank.
     add(1, "ArcaneIntellect_R1", 1459, 1,  3, 0, 2,
-        "Arcane Intellect Rank 1 — +3 Intellect, "
+        "Arcane Intellect Rank 1 - +3 Intellect, "
         "30 min party-wide. Trained at level 8.");
     add(2, "ArcaneIntellect_R2", 1460, 2,  7, 1, 3,
-        "Arcane Intellect Rank 2 — +7 Intellect. "
+        "Arcane Intellect Rank 2 - +7 Intellect. "
         "Trained at level 22.");
     add(3, "ArcaneIntellect_R3", 1461, 3, 15, 2, 4,
-        "Arcane Intellect Rank 3 — +15 Intellect. "
+        "Arcane Intellect Rank 3 - +15 Intellect. "
         "Trained at level 36.");
     add(4, "ArcaneIntellect_R4", 10157, 4, 25, 3, 0,
-        "Arcane Intellect Rank 4 — +25 Intellect. "
+        "Arcane Intellect Rank 4 - +25 Intellect. "
         "Trained at level 50. (Max rank in this preset; "
         "real WoTLK has higher ranks via Brilliance "
         "variant.)");
@@ -237,19 +168,19 @@ WoweeBuffBook WoweeBuffBookLoader::makeDruid(
         c.entries.push_back(e);
     };
     add(100, "MarkOfTheWild_R1", 1126,  1,  3, 0, 101,
-        "Mark of the Wild Rank 1 — +3 to all stats. "
+        "Mark of the Wild Rank 1 - +3 to all stats. "
         "Trained at level 1.");
     add(101, "MarkOfTheWild_R2", 5232,  2,  6, 100, 102,
-        "Mark of the Wild Rank 2 — +6 to all stats. "
+        "Mark of the Wild Rank 2 - +6 to all stats. "
         "Trained at level 10.");
     add(102, "MarkOfTheWild_R3", 6756,  3, 10, 101, 103,
-        "Mark of the Wild Rank 3 — +10 to all stats. "
+        "Mark of the Wild Rank 3 - +10 to all stats. "
         "Trained at level 20.");
     add(103, "MarkOfTheWild_R4", 5234,  4, 14, 102, 104,
-        "Mark of the Wild Rank 4 — +14 to all stats. "
+        "Mark of the Wild Rank 4 - +14 to all stats. "
         "Trained at level 30.");
     add(104, "MarkOfTheWild_R5", 8907,  5, 18, 103, 0,
-        "Mark of the Wild Rank 5 — +18 to all stats. "
+        "Mark of the Wild Rank 5 - +18 to all stats. "
         "Trained at level 40. (Top rank in this preset.)");
     return c;
 }
@@ -275,7 +206,7 @@ WoweeBuffBook WoweeBuffBookLoader::makeRaidMax(
         e.maxStackCount = 1;
         e.statBonusAmount = statAmount;
         e.duration = duration;
-        // No rank chain — these are max-rank standalone
+        // No rank chain - these are max-rank standalone
         // entries pulled from each class's top buff.
         e.previousRankId = 0;
         e.nextRankId = 0;
@@ -286,37 +217,37 @@ WoweeBuffBook WoweeBuffBookLoader::makeRaidMax(
         B::TargetSelf | B::TargetRaid, B::AllStats,
         7, 35, 1800,
         packRgba(255, 125, 10),
-        "Druid raid buff — Mark of the Wild rank 7, "
+        "Druid raid buff - Mark of the Wild rank 7, "
         "+35 to all stats, 30min, raid-wide.");
     add(201, "PowerWordFortitude_Max", 25389, 16,
         B::TargetSelf | B::TargetRaid, B::Stamina,
         8, 79, 1800,
         packRgba(255, 255, 255),
-        "Priest raid buff — Prayer of Fortitude rank 4, "
+        "Priest raid buff - Prayer of Fortitude rank 4, "
         "+79 Stamina, 60min, raid-wide.");
     add(202, "ArcaneIntellect_Max", 27126, 128,
         B::TargetSelf | B::TargetRaid, B::Intellect,
         6, 60, 1800,
         packRgba(140, 200, 255),
-        "Mage raid buff — Arcane Brilliance rank 2, "
+        "Mage raid buff - Arcane Brilliance rank 2, "
         "+60 Intellect, 60min, raid-wide.");
     add(203, "BlessingOfKings", 25898, 2,
         B::TargetSelf | B::TargetRaid, B::AllStats,
         1, 10, 1800,
         packRgba(220, 220, 100),
-        "Paladin raid buff — Greater Blessing of Kings, "
+        "Paladin raid buff - Greater Blessing of Kings, "
         "+10% to all stats, 60min, raid-wide.");
     add(204, "BattleShout_Max", 47436, 1,
         B::TargetSelf | B::TargetParty, B::AttackPower,
         9, 553, 120,
         packRgba(220, 60, 60),
-        "Warrior raid buff — Battle Shout rank 9, "
+        "Warrior raid buff - Battle Shout rank 9, "
         "+553 Attack Power, 2min, party-wide.");
     add(205, "TrueshotAura_Max", 19506, 4,
         B::TargetSelf | B::TargetRaid, B::Other,
         3, 0, 0,
         packRgba(170, 210, 100),
-        "Hunter raid buff — Trueshot Aura, +10% AP "
+        "Hunter raid buff - Trueshot Aura, +10% AP "
         "for all party/raid (until cancel). statKind="
         "Other because it's a percentage modifier, not a "
         "flat stat.");

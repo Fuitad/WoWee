@@ -1,4 +1,5 @@
 #include "pipeline/wowee_guild_bank.hpp"
+#include "pipeline/wowee_binary_io.hpp"
 
 #include <cstdio>
 #include <cstring>
@@ -11,45 +12,7 @@ namespace {
 
 constexpr char kMagic[4] = {'W', 'G', 'B', 'K'};
 constexpr uint32_t kVersion = 1;
-
-template <typename T>
-void writePOD(std::ofstream& os, const T& v) {
-    os.write(reinterpret_cast<const char*>(&v), sizeof(T));
-}
-
-template <typename T>
-bool readPOD(std::ifstream& is, T& v) {
-    is.read(reinterpret_cast<char*>(&v), sizeof(T));
-    return is.gcount() == static_cast<std::streamsize>(sizeof(T));
-}
-
-void writeStr(std::ofstream& os, const std::string& s) {
-    uint32_t n = static_cast<uint32_t>(s.size());
-    writePOD(os, n);
-    if (n > 0) os.write(s.data(), n);
-}
-
-bool readStr(std::ifstream& is, std::string& s) {
-    uint32_t n = 0;
-    if (!readPOD(is, n)) return false;
-    if (n > (1u << 20)) return false;
-    s.resize(n);
-    if (n > 0) {
-        is.read(s.data(), n);
-        if (is.gcount() != static_cast<std::streamsize>(n)) {
-            s.clear();
-            return false;
-        }
-    }
-    return true;
-}
-
-std::string normalizePath(std::string base) {
-    if (base.size() < 5 || base.substr(base.size() - 5) != ".wgbk") {
-        base += ".wgbk";
-    }
-    return base;
-}
+constexpr char kExtension[] = ".wgbk";
 
 } // namespace
 
@@ -69,15 +32,9 @@ WoweeGuildBank::findByGuild(uint32_t guildId) const {
 }
 
 bool WoweeGuildBankLoader::save(const WoweeGuildBank& cat,
-                                  const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath), std::ios::binary);
-    if (!os) return false;
-    os.write(kMagic, 4);
-    writePOD(os, kVersion);
-    writeStr(os, cat.name);
-    uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writePOD(os, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeGuildBank::Entry& e) {
         writePOD(os, e.tabId);
         writePOD(os, e.guildId);
         writeStr(os, e.tabName);
@@ -89,52 +46,30 @@ bool WoweeGuildBankLoader::save(const WoweeGuildBank& cat,
              r < WoweeGuildBank::kRankCount; ++r) {
             writePOD(os, e.perRankWithdrawalLimit[r]);
         }
-    }
-    return os.good();
+                       });
 }
 
 WoweeGuildBank WoweeGuildBankLoader::load(
     const std::string& basePath) {
-    WoweeGuildBank out;
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    if (!is) return out;
-    char magic[4];
-    is.read(magic, 4);
-    if (std::memcmp(magic, kMagic, 4) != 0) return out;
-    uint32_t version = 0;
-    if (!readPOD(is, version) || version != kVersion) return out;
-    if (!readStr(is, out.name)) return out;
-    uint32_t entryCount = 0;
-    if (!readPOD(is, entryCount)) return out;
-    if (entryCount > (1u << 20)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
+    return loadCatalog<WoweeGuildBank>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeGuildBank::Entry& e) {
         if (!readPOD(is, e.tabId) ||
-            !readPOD(is, e.guildId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.tabName)) {
-            out.entries.clear(); return out;
-        }
+            !readPOD(is, e.guildId)) { return false; }
+        if (!readStr(is, e.tabName)) { return false; }
         if (!readPOD(is, e.iconIndex) ||
             !readPOD(is, e.depositOnly) ||
             !readPOD(is, e.pad0) ||
-            !readPOD(is, e.slotCount)) {
-            out.entries.clear(); return out;
-        }
+            !readPOD(is, e.slotCount)) { return false; }
         for (uint32_t r = 0;
              r < WoweeGuildBank::kRankCount; ++r) {
-            if (!readPOD(is, e.perRankWithdrawalLimit[r])) {
-                out.entries.clear(); return out;
-            }
+            if (!readPOD(is, e.perRankWithdrawalLimit[r])) { return false; }
         }
-    }
-    return out;
+                                  return true;
+                              });
 }
 
 bool WoweeGuildBankLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 namespace {
@@ -173,12 +108,12 @@ WoweeGuildBank WoweeGuildBankLoader::makeStandardBank(
     c.entries.push_back(makeTab(
         1, 1, "General", 1392, 0, 98,
         {G::kUnlimited, 50, 30, 20, 15, 10, 5, 0}));
-    // Materials: cloth/herb/leather pool — modest
+    // Materials: cloth/herb/leather pool - modest
     // caps for ranks 1-4, none below.
     c.entries.push_back(makeTab(
         2, 1, "Materials", 5765, 0, 98,
         {G::kUnlimited, 100, 50, 25, 10, 0, 0, 0}));
-    // Consumables: pots/scrolls/elixirs — generous
+    // Consumables: pots/scrolls/elixirs - generous
     // cap for raiders (rank 1-3), nothing for casuals.
     c.entries.push_back(makeTab(
         3, 1, "Consumables", 5764, 0, 98,
@@ -223,7 +158,7 @@ WoweeGuildBank WoweeGuildBankLoader::makeSmallGuild(
     using G = WoweeGuildBank;
     WoweeGuildBank c;
     c.name = catalogName;
-    // Small guild: tight controls — most ranks
+    // Small guild: tight controls - most ranks
     // capped at 5 slots/day for the General tab,
     // Officer tab is GM+officer only.
     c.entries.push_back(makeTab(

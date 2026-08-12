@@ -70,7 +70,7 @@ int handleInfoZoneDensity(int& i, int argc, char** argv) {
             auto t = worldToTile(s.position.x, s.position.y);
             auto it = tiles.find(t);
             if (it != tiles.end()) it->second.creatures++;
-            // Out-of-zone spawns silently dropped — they'll
+            // Out-of-zone spawns silently dropped - they'll
             // surface in --check-zone-refs / --check-zone-content.
         }
     }
@@ -145,13 +145,9 @@ int handleInfoProjectDensity(int& i, int argc, char** argv) {
             projectDir.c_str());
         return 1;
     }
-    std::vector<std::string> zones;
-    for (const auto& entry : fs::directory_iterator(projectDir)) {
-        if (!entry.is_directory()) continue;
-        if (!fs::exists(entry.path() / "zone.json")) continue;
-        zones.push_back(entry.path().string());
-    }
-    std::sort(zones.begin(), zones.end());
+    // What counts as a zone, and the order they are reported in,
+    // from one place.
+    std::vector<std::string> zones = wowee::editor::projectZoneDirs(projectDir);
     struct ZRow {
         std::string name;
         int tileCount = 0;

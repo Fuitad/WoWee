@@ -1,4 +1,4 @@
-// rare_tracker_layer.cpp — Nearby rare / rare-elite creature markers on the world map.
+// rare_tracker_layer.cpp - Nearby rare / rare-elite creature markers on the world map.
 // Only creatures the client currently has loaded (i.e. spawned and near the player) are
 // fed in, so a marker appearing means that rare is out right now.
 #include "rendering/world_map/layers/rare_tracker_layer.hpp"
@@ -11,23 +11,12 @@ namespace world_map {
 
 void RareTrackerLayer::render(const LayerContext& ctx) {
     if (!rares_ || rares_->empty()) return;
-    if (ctx.currentZoneIdx < 0) return;
-    if (ctx.viewLevel != ViewLevel::ZONE && ctx.viewLevel != ViewLevel::CONTINENT) return;
-    if (!ctx.zones) return;
-
-    const auto& zone = (*ctx.zones)[ctx.currentZoneIdx];
-    ZoneBounds bounds = zone.bounds;
-    bool isContinent = zone.areaID == 0;
-    if (isContinent) {
-        float l, r, t, b;
-        if (getContinentProjectionBounds(*ctx.zones, ctx.currentZoneIdx, l, r, t, b)) {
-            bounds = {l, r, t, b};
-        }
-    }
+    const auto projection = currentProjection(ctx);
+    if (!projection) return;
 
     ImFont* font = ImGui::GetFont();
     for (const auto& rare : *rares_) {
-        glm::vec2 uv = renderPosToMapUV(rare.renderPos, bounds, isContinent);
+        glm::vec2 uv = renderPosToMapUV(rare.renderPos, projection->bounds, projection->isContinent);
         if (uv.x < 0.0f || uv.x > 1.0f || uv.y < 0.0f || uv.y > 1.0f) continue;
         float px = ctx.imgMin.x + uv.x * ctx.displayW;
         float py = ctx.imgMin.y + uv.y * ctx.displayH;

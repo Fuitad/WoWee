@@ -1,4 +1,5 @@
 #include "pipeline/wowee_localization.hpp"
+#include "pipeline/wowee_binary_io.hpp"
 
 #include <cstdio>
 #include <cstring>
@@ -11,52 +12,7 @@ namespace {
 
 constexpr char kMagic[4] = {'W', 'L', 'A', 'N'};
 constexpr uint32_t kVersion = 1;
-
-template <typename T>
-void writePOD(std::ofstream& os, const T& v) {
-    os.write(reinterpret_cast<const char*>(&v), sizeof(T));
-}
-
-template <typename T>
-bool readPOD(std::ifstream& is, T& v) {
-    is.read(reinterpret_cast<char*>(&v), sizeof(T));
-    return is.gcount() == static_cast<std::streamsize>(sizeof(T));
-}
-
-void writeStr(std::ofstream& os, const std::string& s) {
-    uint32_t n = static_cast<uint32_t>(s.size());
-    writePOD(os, n);
-    if (n > 0) os.write(s.data(), n);
-}
-
-bool readStr(std::ifstream& is, std::string& s) {
-    uint32_t n = 0;
-    if (!readPOD(is, n)) return false;
-    if (n > (1u << 20)) return false;
-    s.resize(n);
-    if (n > 0) {
-        is.read(s.data(), n);
-        if (is.gcount() != static_cast<std::streamsize>(n)) {
-            s.clear();
-            return false;
-        }
-    }
-    return true;
-}
-
-std::string normalizePath(std::string base) {
-    if (base.size() < 5 || base.substr(base.size() - 5) != ".wlan") {
-        base += ".wlan";
-    }
-    return base;
-}
-
-uint32_t packRgba(uint8_t r, uint8_t g, uint8_t b, uint8_t a = 0xFF) {
-    return (static_cast<uint32_t>(a) << 24) |
-           (static_cast<uint32_t>(b) << 16) |
-           (static_cast<uint32_t>(g) << 8)  |
-            static_cast<uint32_t>(r);
-}
+constexpr char kExtension[] = ".wlan";
 
 } // namespace
 
@@ -90,15 +46,9 @@ WoweeLocalization::findByLanguage(uint8_t languageCode) const {
 }
 
 bool WoweeLocalizationLoader::save(const WoweeLocalization& cat,
-                                     const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath), std::ios::binary);
-    if (!os) return false;
-    os.write(kMagic, 4);
-    writePOD(os, kVersion);
-    writeStr(os, cat.name);
-    uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writePOD(os, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeLocalization::Entry& e) {
         writePOD(os, e.stringId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -109,52 +59,28 @@ bool WoweeLocalizationLoader::save(const WoweeLocalization& cat,
         writeStr(os, e.originalKey);
         writeStr(os, e.localizedText);
         writePOD(os, e.iconColorRGBA);
-    }
-    return os.good();
+                       });
 }
 
 WoweeLocalization WoweeLocalizationLoader::load(
     const std::string& basePath) {
-    WoweeLocalization out;
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    if (!is) return out;
-    char magic[4];
-    is.read(magic, 4);
-    if (std::memcmp(magic, kMagic, 4) != 0) return out;
-    uint32_t version = 0;
-    if (!readPOD(is, version) || version != kVersion) return out;
-    if (!readStr(is, out.name)) return out;
-    uint32_t entryCount = 0;
-    if (!readPOD(is, entryCount)) return out;
-    if (entryCount > (1u << 20)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.stringId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name) || !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
+    return loadCatalog<WoweeLocalization>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeLocalization::Entry& e) {
+        if (!readPOD(is, e.stringId)) { return false; }
+        if (!readStr(is, e.name) || !readStr(is, e.description)) { return false; }
         if (!readPOD(is, e.languageCode) ||
             !readPOD(is, e.namespace_) ||
             !readPOD(is, e.pad0) ||
-            !readPOD(is, e.pad1)) {
-            out.entries.clear(); return out;
-        }
+            !readPOD(is, e.pad1)) { return false; }
         if (!readStr(is, e.originalKey) ||
-            !readStr(is, e.localizedText)) {
-            out.entries.clear(); return out;
-        }
-        if (!readPOD(is, e.iconColorRGBA)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readStr(is, e.localizedText)) { return false; }
+        if (!readPOD(is, e.iconColorRGBA)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeLocalizationLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeLocalization WoweeLocalizationLoader::makeUIBasics(
@@ -176,7 +102,7 @@ WoweeLocalization WoweeLocalizationLoader::makeUIBasics(
         c.entries.push_back(e);
     };
     // Translations of the "Cancel" button across 5
-    // languages — common UI string used in every dialog
+    // languages - common UI string used in every dialog
     // box.
     add(1, "Cancel_deDE", L::deDE,
         "Cancel", "Abbrechen",
@@ -215,17 +141,17 @@ WoweeLocalization WoweeLocalizationLoader::makeQuestSample(
         e.iconColorRGBA = packRgba(220, 220, 100);   // quest gold
         c.entries.push_back(e);
     };
-    // One quest title in 3 languages — illustrates the
+    // One quest title in 3 languages - illustrates the
     // dotted-key convention "QUEST.123.title".
     add(100, "Quest123Title_deDE", L::deDE,
         "QUEST.123.title",
         "Die Verwüsteten Lande",
-        "Quest 123 title in German — placeholder "
+        "Quest 123 title in German - placeholder "
         "translation of 'The Blasted Lands'.");
     add(101, "Quest123Title_frFR", L::frFR,
         "QUEST.123.title",
         "Les Terres foudroyees",
-        "Quest 123 title in French — note: ASCII-only "
+        "Quest 123 title in French - note: ASCII-only "
         "approximation of 'foudroyées' to keep this "
         "source file ASCII-clean.");
     add(102, "Quest123Title_koKR", L::koKR,
@@ -253,7 +179,7 @@ WoweeLocalization WoweeLocalizationLoader::makeTooltipSet(
         e.iconColorRGBA = packRgba(180, 220, 180);   // tooltip green
         c.entries.push_back(e);
     };
-    // Item tooltip strings — high-volume client
+    // Item tooltip strings - high-volume client
     // localization use case. 4 strings × 2 languages
     // = 4 entries (deDE: 2, frFR: 2).
     add(200, "BindOnPickup_deDE", L::deDE,

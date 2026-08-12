@@ -29,6 +29,15 @@ public:
     void shutdown();
     bool isInitialized() const { return initialized_; }
 
+    /// The playback device miniaudio actually opened, by name.
+    ///
+    /// For the Sound panel's output dropdown, which lists the drivers the
+    /// client can use. This client opens whichever device the system offers
+    /// and does not switch between them, so the list is this one name - the
+    /// truth rather than a guess, and the same shape the video panel's
+    /// resolution list already takes. Empty if the engine is not up.
+    std::string getOutputDeviceName() const;
+
     // Master volume (0.0 = silent, 1.0 = full)
     void setMasterVolume(float volume);
     float getMasterVolume() const { return masterVolume_; }
@@ -45,7 +54,7 @@ public:
     bool playSound2D(const std::vector<uint8_t>& wavData, float volume = 1.0f, float pitch = 1.0f);
     bool playSound2D(const std::string& mpqPath, float volume = 1.0f, float pitch = 1.0f);
 
-    // Stoppable 2D sound — returns a non-zero handle, or 0 on failure
+    // Stoppable 2D sound - returns a non-zero handle, or 0 on failure
     uint32_t playSound2DStoppable(const std::vector<uint8_t>& wavData, float volume = 1.0f);
     // Stop a sound started with playSound2DStoppable (no-op if already finished)
     void stopSound(uint32_t id);

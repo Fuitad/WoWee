@@ -1,4 +1,6 @@
 #include "cli_spell_markers_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -19,11 +21,6 @@ namespace cli {
 
 namespace {
 
-std::string stripWspmExt(std::string base) {
-    stripExt(base, ".wspm");
-    return base;
-}
-
 const char* edgeFadeModeName(uint8_t m) {
     using S = wowee::pipeline::WoweeSpellMarkers;
     switch (m) {
@@ -34,15 +31,6 @@ const char* edgeFadeModeName(uint8_t m) {
     }
 }
 
-bool saveOrError(const wowee::pipeline::WoweeSpellMarkers& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeSpellMarkersLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wspm\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeSpellMarkers& c,
                      const std::string& base) {
@@ -55,9 +43,9 @@ int handleGenMage(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "MageAoEMarkers";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWspmExt(base);
+    base = cli::withoutExt(base, ".wspm");
     auto c = wowee::pipeline::WoweeSpellMarkersLoader::makeMageAoE(name);
-    if (!saveOrError(c, base, "gen-spm")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellMarkersLoader>(c, base, "gen-spm", ".wspm")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -66,9 +54,9 @@ int handleGenRaid(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "RaidHazardMarkers";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWspmExt(base);
+    base = cli::withoutExt(base, ".wspm");
     auto c = wowee::pipeline::WoweeSpellMarkersLoader::makeRaidHazards(name);
-    if (!saveOrError(c, base, "gen-spm-raid")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellMarkersLoader>(c, base, "gen-spm-raid", ".wspm")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -77,9 +65,9 @@ int handleGenEnvironment(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "EnvironmentMarkers";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWspmExt(base);
+    base = cli::withoutExt(base, ".wspm");
     auto c = wowee::pipeline::WoweeSpellMarkersLoader::makeEnvironment(name);
-    if (!saveOrError(c, base, "gen-spm-env")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellMarkersLoader>(c, base, "gen-spm-env", ".wspm")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -87,10 +75,9 @@ int handleGenEnvironment(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWspmExt(base);
+    base = cli::withoutExt(base, ".wspm");
     if (!wowee::pipeline::WoweeSpellMarkersLoader::exists(base)) {
-        std::fprintf(stderr, "WSPM not found: %s.wspm\n", base.c_str());
-        return 1;
+        return reportMissing("WSPM", base, ".wspm");
     }
     auto c = wowee::pipeline::WoweeSpellMarkersLoader::load(base);
     if (jsonOut) {
@@ -152,13 +139,10 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWspmExt(base);
+    base = cli::withoutExt(base, ".wspm");
     if (out.empty()) out = base + ".wspm.json";
     if (!wowee::pipeline::WoweeSpellMarkersLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wspm-json: WSPM not found: %s.wspm\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wspm-json", "WSPM", base, ".wspm");
     }
     auto c = wowee::pipeline::WoweeSpellMarkersLoader::load(base);
     nlohmann::json j;
@@ -204,16 +188,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wspm.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wspm");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wspm");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,
@@ -307,12 +282,9 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWspmExt(base);
+    base = cli::withoutExt(base, ".wspm");
     if (!wowee::pipeline::WoweeSpellMarkersLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wspm: WSPM not found: %s.wspm\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wspm", "WSPM", base, ".wspm");
     }
     auto c = wowee::pipeline::WoweeSpellMarkersLoader::load(base);
     std::vector<std::string> errors;
@@ -334,23 +306,23 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": name is empty");
         if (e.spellId == 0) {
             errors.push_back(ctx +
-                ": spellId is 0 — marker is not bound to "
+                ": spellId is 0 - marker is not bound to "
                 "any spell");
         }
         if (e.groundTexturePath.empty()) {
             errors.push_back(ctx +
-                ": groundTexturePath is empty — decal "
+                ": groundTexturePath is empty - decal "
                 "would render as untextured solid color");
         }
         if (e.radius <= 0.0f) {
             errors.push_back(ctx + ": radius " +
                 std::to_string(e.radius) +
-                " <= 0 — decal would have zero area");
+                " <= 0 - decal would have zero area");
         }
         if (e.radius > 100.0f) {
             warnings.push_back(ctx + ": radius " +
                 std::to_string(e.radius) +
-                " > 100 yards — covers more than the "
+                " > 100 yards - covers more than the "
                 "average raid arena, verify if intentional");
         }
         if (e.edgeFadeMode > 2) {
@@ -364,15 +336,15 @@ int handleValidate(int& i, int argc, char** argv) {
         if (e.tickIntervalMs > 0 && e.tickIntervalMs < 100) {
             warnings.push_back(ctx + ": tickIntervalMs " +
                 std::to_string(e.tickIntervalMs) +
-                " < 100ms — fires more than 10× per second; "
+                " < 100ms - fires more than 10× per second; "
                 "verify performance impact for stackable "
                 "markers");
         }
-        // Decal alpha=0 = invisible — likely an error.
+        // Decal alpha=0 = invisible - likely an error.
         uint8_t alpha = (e.decalColor >> 24) & 0xFF;
         if (alpha == 0) {
             warnings.push_back(ctx +
-                ": decalColor has alpha=0 — marker would "
+                ": decalColor has alpha=0 - marker would "
                 "render fully transparent / invisible");
         }
         // Multiple markers binding the same spellId is
@@ -381,40 +353,16 @@ int handleValidate(int& i, int argc, char** argv) {
             !spellIdsSeen.insert(e.spellId).second) {
             errors.push_back(ctx +
                 ": spellId " + std::to_string(e.spellId) +
-                " is already bound by another marker — "
+                " is already bound by another marker - "
                 "spell-cast lookup would be ambiguous");
         }
         if (!idsSeen.insert(e.markerId).second) {
             errors.push_back(ctx + ": duplicate markerId");
         }
     }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wspm"] = base + ".wspm";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wspm: %s.wspm\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu markers, all markerIds + "
-                    "spellIds unique\n", c.entries.size());
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+    return cli::reportValidation("wspm", base, jsonOut, errors, warnings,
+                                 formatted("%zu markers, all markerIds + "
+                    "spellIds unique", c.entries.size()));
 }
 
 } // namespace

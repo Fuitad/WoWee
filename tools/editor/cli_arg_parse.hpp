@@ -14,7 +14,7 @@ namespace cli {
 // across the two files were each writing this 3-line block manually.
 //
 // Each helper silently no-ops on parse failure so the caller's
-// default value is preserved — matches the prior try/catch
+// default value is preserved - matches the prior try/catch
 // behavior exactly.
 
 inline bool parseOptArg(int& i, int argc, char** argv) {

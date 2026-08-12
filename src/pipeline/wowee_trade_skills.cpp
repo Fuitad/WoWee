@@ -1,4 +1,5 @@
 #include "pipeline/wowee_trade_skills.hpp"
+#include "pipeline/wowee_binary_io.hpp"
 
 #include <cstdio>
 #include <cstring>
@@ -11,45 +12,7 @@ namespace {
 
 constexpr char kMagic[4] = {'W', 'T', 'S', 'K'};
 constexpr uint32_t kVersion = 1;
-
-template <typename T>
-void writePOD(std::ofstream& os, const T& v) {
-    os.write(reinterpret_cast<const char*>(&v), sizeof(T));
-}
-
-template <typename T>
-bool readPOD(std::ifstream& is, T& v) {
-    is.read(reinterpret_cast<char*>(&v), sizeof(T));
-    return is.gcount() == static_cast<std::streamsize>(sizeof(T));
-}
-
-void writeStr(std::ofstream& os, const std::string& s) {
-    uint32_t n = static_cast<uint32_t>(s.size());
-    writePOD(os, n);
-    if (n > 0) os.write(s.data(), n);
-}
-
-bool readStr(std::ifstream& is, std::string& s) {
-    uint32_t n = 0;
-    if (!readPOD(is, n)) return false;
-    if (n > (1u << 20)) return false;
-    s.resize(n);
-    if (n > 0) {
-        is.read(s.data(), n);
-        if (is.gcount() != static_cast<std::streamsize>(n)) {
-            s.clear();
-            return false;
-        }
-    }
-    return true;
-}
-
-std::string normalizePath(std::string base) {
-    if (base.size() < 5 || base.substr(base.size() - 5) != ".wtsk") {
-        base += ".wtsk";
-    }
-    return base;
-}
+constexpr char kExtension[] = ".wtsk";
 
 } // namespace
 
@@ -81,22 +44,15 @@ const char* WoweeTradeSkill::professionName(uint8_t p) {
 }
 
 bool WoweeTradeSkillLoader::save(const WoweeTradeSkill& cat,
-                                  const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath), std::ios::binary);
-    if (!os) return false;
-    os.write(kMagic, 4);
-    writePOD(os, kVersion);
-    writeStr(os, cat.name);
-    uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writePOD(os, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeTradeSkill::Entry& e) {
         writePOD(os, e.recipeId);
         writeStr(os, e.name);
         writeStr(os, e.description);
         writeStr(os, e.iconPath);
         writePOD(os, e.profession);
-        uint8_t pad3[3] = {0, 0, 0};
-        os.write(reinterpret_cast<const char*>(pad3), 3);
+        writePadding(os, 3);
         writePOD(os, e.skillId);
         writePOD(os, e.orangeRank);
         writePOD(os, e.yellowRank);
@@ -106,8 +62,7 @@ bool WoweeTradeSkillLoader::save(const WoweeTradeSkill& cat,
         writePOD(os, e.producedItemId);
         writePOD(os, e.producedMinCount);
         writePOD(os, e.producedMaxCount);
-        uint8_t pad2[2] = {0, 0};
-        os.write(reinterpret_cast<const char*>(pad2), 2);
+        writePadding(os, 2);
         writePOD(os, e.toolItemId);
         for (size_t k = 0; k < WoweeTradeSkill::kMaxReagents; ++k) {
             writePOD(os, e.reagentItemId[k]);
@@ -115,38 +70,18 @@ bool WoweeTradeSkillLoader::save(const WoweeTradeSkill& cat,
         for (size_t k = 0; k < WoweeTradeSkill::kMaxReagents; ++k) {
             writePOD(os, e.reagentCount[k]);
         }
-    }
-    return os.good();
+                       });
 }
 
-WoweeTradeSkill WoweeTradeSkillLoader::load(const std::string& basePath) {
-    WoweeTradeSkill out;
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    if (!is) return out;
-    char magic[4];
-    is.read(magic, 4);
-    if (std::memcmp(magic, kMagic, 4) != 0) return out;
-    uint32_t version = 0;
-    if (!readPOD(is, version) || version != kVersion) return out;
-    if (!readStr(is, out.name)) return out;
-    uint32_t entryCount = 0;
-    if (!readPOD(is, entryCount)) return out;
-    if (entryCount > (1u << 20)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.recipeId)) {
-            out.entries.clear(); return out;
-        }
+WoweeTradeSkill WoweeTradeSkillLoader::load(
+    const std::string& basePath) {
+    return loadCatalog<WoweeTradeSkill>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeTradeSkill::Entry& e) {
+        if (!readPOD(is, e.recipeId)) { return false; }
         if (!readStr(is, e.name) || !readStr(is, e.description) ||
-            !readStr(is, e.iconPath)) {
-            out.entries.clear(); return out;
-        }
-        if (!readPOD(is, e.profession)) {
-            out.entries.clear(); return out;
-        }
-        uint8_t pad3[3];
-        is.read(reinterpret_cast<char*>(pad3), 3);
-        if (is.gcount() != 3) { out.entries.clear(); return out; }
+            !readStr(is, e.iconPath)) { return false; }
+        if (!readPOD(is, e.profession)) { return false; }
+        if (!skipPadding(is, 3)) { return false; }
         if (!readPOD(is, e.skillId) ||
             !readPOD(is, e.orangeRank) ||
             !readPOD(is, e.yellowRank) ||
@@ -155,32 +90,21 @@ WoweeTradeSkill WoweeTradeSkillLoader::load(const std::string& basePath) {
             !readPOD(is, e.craftSpellId) ||
             !readPOD(is, e.producedItemId) ||
             !readPOD(is, e.producedMinCount) ||
-            !readPOD(is, e.producedMaxCount)) {
-            out.entries.clear(); return out;
-        }
-        uint8_t pad2[2];
-        is.read(reinterpret_cast<char*>(pad2), 2);
-        if (is.gcount() != 2) { out.entries.clear(); return out; }
-        if (!readPOD(is, e.toolItemId)) {
-            out.entries.clear(); return out;
+            !readPOD(is, e.producedMaxCount)) { return false; }
+        if (!skipPadding(is, 2)) { return false; }
+        if (!readPOD(is, e.toolItemId)) { return false; }
+        for (size_t k = 0; k < WoweeTradeSkill::kMaxReagents; ++k) {
+            if (!readPOD(is, e.reagentItemId[k])) { return false; }
         }
         for (size_t k = 0; k < WoweeTradeSkill::kMaxReagents; ++k) {
-            if (!readPOD(is, e.reagentItemId[k])) {
-                out.entries.clear(); return out;
-            }
+            if (!readPOD(is, e.reagentCount[k])) { return false; }
         }
-        for (size_t k = 0; k < WoweeTradeSkill::kMaxReagents; ++k) {
-            if (!readPOD(is, e.reagentCount[k])) {
-                out.entries.clear(); return out;
-            }
-        }
-    }
-    return out;
+                                  return true;
+                              });
 }
 
 bool WoweeTradeSkillLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeTradeSkill WoweeTradeSkillLoader::makeStarter(
@@ -188,7 +112,7 @@ WoweeTradeSkill WoweeTradeSkillLoader::makeStarter(
     WoweeTradeSkill c;
     c.name = catalogName;
     {
-        // Coarse Sharpening Stone — Blacksmithing 75.
+        // Coarse Sharpening Stone - Blacksmithing 75.
         WoweeTradeSkill::Entry e;
         e.recipeId = 1; e.name = "Coarse Sharpening Stone";
         e.description = "Use stone on a weapon to apply +2 damage "
@@ -207,7 +131,7 @@ WoweeTradeSkill WoweeTradeSkillLoader::makeStarter(
         c.entries.push_back(e);
     }
     {
-        // Linen Bandage — First Aid 1.
+        // Linen Bandage - First Aid 1.
         WoweeTradeSkill::Entry e;
         e.recipeId = 2; e.name = "Linen Bandage";
         e.description = "Heal target for 66 health over 8 seconds.";
@@ -224,7 +148,7 @@ WoweeTradeSkill WoweeTradeSkillLoader::makeStarter(
         c.entries.push_back(e);
     }
     {
-        // Minor Healing Potion — Alchemy 1.
+        // Minor Healing Potion - Alchemy 1.
         WoweeTradeSkill::Entry e;
         e.recipeId = 3; e.name = "Minor Healing Potion";
         e.description = "Restores 70 to 90 health.";
@@ -272,7 +196,7 @@ WoweeTradeSkill WoweeTradeSkillLoader::makeBlacksmithing(
     };
     add(100, "RoughSharpeningStone", 1, 25, 50, 75, 2660, 2862, 5956,
         2835, 1, 0, 0, 0, 0,
-        "Apply to weapon — minor temp damage buff.");
+        "Apply to weapon - minor temp damage buff.");
     add(101, "CopperChainBelt",      50, 70, 90, 110, 2664, 2386, 5956,
         2840, 4, 0, 0, 0, 0,
         "Light chain belt for early-level warriors.");
@@ -281,10 +205,10 @@ WoweeTradeSkill WoweeTradeSkillLoader::makeBlacksmithing(
         "Bracers with a minor magic enhancement.");
     add(103, "IronforgeBreastplate", 195, 215, 235, 255, 9959, 7915, 5956,
         2842, 8, 3858, 4, 0, 0,
-        "Heavy iron breastplate — Ironforge guard standard issue.");
+        "Heavy iron breastplate - Ironforge guard standard issue.");
     add(104, "TruesilverChampion",   265, 285, 305, 325, 16728, 12793, 5956,
         7910, 10, 7910, 5, 12808, 1,
-        "Pinnacle 60-era plate — requires arcanite reagents.");
+        "Pinnacle 60-era plate - requires arcanite reagents.");
     return c;
 }
 
@@ -323,7 +247,7 @@ WoweeTradeSkill WoweeTradeSkillLoader::makeAlchemy(
         3819, 1, 3820, 1, "Restores 455 to 585 health.");
     add(204, "FlaskOfTheTitans", 300, 320, 340, 360, 17636, 13510, 1, 1,
         13463, 30, 13468, 10,
-        "2-hour flask — +400 max health, persists through death.");
+        "2-hour flask - +400 max health, persists through death.");
     return c;
 }
 

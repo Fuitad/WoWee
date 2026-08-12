@@ -37,7 +37,7 @@ int handleInfoExtract(int& i, int argc, char** argv) {
     // so the report can show coverage percentages. Track bytes
     // separately for proprietary vs open so the user can see how
     // much disk a "purge proprietary after open conversion"
-    // workflow would save (or cost — open formats are sometimes
+    // workflow would save (or cost - open formats are sometimes
     // larger, e.g. PNG vs DXT-compressed BLP).
     uint64_t blpCount = 0, pngSidecar = 0;
     uint64_t dbcCount = 0, jsonSidecar = 0;
@@ -142,7 +142,7 @@ int handleInfoExtract(int& i, int argc, char** argv) {
 int handleInfoExtractTree(int& i, int argc, char** argv) {
     // Hierarchical view of an extracted asset directory grouped
     // by top-level subdirectory and format. Useful for getting
-    // oriented after asset_extract finishes — '17 dirs, 142k
+    // oriented after asset_extract finishes - '17 dirs, 142k
     // files' is hard to reason about; this groups them for
     // at-a-glance comprehension.
     std::string dataDir = argv[++i];
@@ -206,7 +206,7 @@ int handleInfoExtractTree(int& i, int argc, char** argv) {
         std::printf("%s%s/  (%d files, %.1f MB)\n",
                     dBranch, d.name.c_str(), d.totalFiles,
                     d.totalBytes / (1024.0 * 1024.0));
-        // Sort extensions by byte size descending — heaviest first.
+        // Sort extensions by byte size descending - heaviest first.
         std::vector<std::pair<std::string, ExtStats>> exts(
             d.byExt.begin(), d.byExt.end());
         std::sort(exts.begin(), exts.end(),
@@ -228,7 +228,7 @@ int handleInfoExtractTree(int& i, int argc, char** argv) {
 int handleInfoExtractBudget(int& i, int argc, char** argv) {
     // Per-extension byte breakdown of an extract dir, sorted
     // largest-first. Companion to --info-pack-budget (which
-    // operates on .wcp archives) — this answers 'where did my
+    // operates on .wcp archives) - this answers 'where did my
     // 31 GB extract go?' with a flat sortable table.
     std::string dataDir = argv[++i];
     bool jsonOut = (i + 1 < argc &&
@@ -351,7 +351,7 @@ int handleListMissingSidecars(int& i, int argc, char** argv) {
             missingWom.push_back(entry.path().string());
         else if (ext == ".wmo") {
             // Group files (Foo_NNN.wmo) don't get individual sidecars
-            // — only the parent file gets a .wob.
+            // - only the parent file gets a .wob.
             std::string fname = entry.path().filename().string();
             auto under = fname.rfind('_');
             bool isGroup = (under != std::string::npos &&

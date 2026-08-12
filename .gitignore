@@ -105,6 +105,11 @@ Data/*
 
 ingest/
 
+# Asset archives dropped at the repo root rather than into ingest/. An MPQ is
+# hundreds of megabytes and `git add -A` will take one without complaint.
+*.MPQ
+*.mpq
+
 # Asset pipeline state and texture packs
 asset_pipeline/
 
@@ -123,3 +128,11 @@ wowee_editor_layout.ini
 #agents
 AGENTS.md
 codex-loop.sh
+
+# The headless runner keeps its config here so it cannot overwrite the
+# player's missing-API and Lua-error lists.
+logs/framexml_run_config/
+
+# Canary builds: deliberately broken binaries for watching a check fail.
+# Kept out of build/ because that is what the player runs.
+build-canary/

@@ -1,4 +1,6 @@
 #include "cli_global_channels_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -18,11 +20,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWgchExt(std::string base) {
-    stripExt(base, ".wgch");
-    return base;
-}
 
 const char* channelKindName(uint8_t k) {
     using G = wowee::pipeline::WoweeGlobalChannels;
@@ -102,15 +99,6 @@ bool readEnumField(const nlohmann::json& je,
     return true;
 }
 
-bool saveOrError(const wowee::pipeline::WoweeGlobalChannels& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeGlobalChannelsLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wgch\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeGlobalChannels& c,
                      const std::string& base) {
@@ -123,10 +111,10 @@ int handleGenStandard(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StandardChatChannels";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWgchExt(base);
+    base = cli::withoutExt(base, ".wgch");
     auto c = wowee::pipeline::WoweeGlobalChannelsLoader::
         makeStandardChannels(name);
-    if (!saveOrError(c, base, "gen-gch")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeGlobalChannelsLoader>(c, base, "gen-gch", ".wgch")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -135,10 +123,10 @@ int handleGenRoleplay(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "RoleplayChannels";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWgchExt(base);
+    base = cli::withoutExt(base, ".wgch");
     auto c = wowee::pipeline::WoweeGlobalChannelsLoader::
         makeRoleplay(name);
-    if (!saveOrError(c, base, "gen-gch-rp")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeGlobalChannelsLoader>(c, base, "gen-gch-rp", ".wgch")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -147,10 +135,10 @@ int handleGenAdmin(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "AdminChannels";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWgchExt(base);
+    base = cli::withoutExt(base, ".wgch");
     auto c = wowee::pipeline::WoweeGlobalChannelsLoader::
         makeAdminChannels(name);
-    if (!saveOrError(c, base, "gen-gch-admin")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeGlobalChannelsLoader>(c, base, "gen-gch-admin", ".wgch")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -158,10 +146,9 @@ int handleGenAdmin(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWgchExt(base);
+    base = cli::withoutExt(base, ".wgch");
     if (!wowee::pipeline::WoweeGlobalChannelsLoader::exists(base)) {
-        std::fprintf(stderr, "WGCH not found: %s.wgch\n", base.c_str());
-        return 1;
+        return reportMissing("WGCH", base, ".wgch");
     }
     auto c = wowee::pipeline::WoweeGlobalChannelsLoader::load(base);
     if (jsonOut) {
@@ -210,12 +197,9 @@ int handleInfo(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWgchExt(base);
+    base = cli::withoutExt(base, ".wgch");
     if (!wowee::pipeline::WoweeGlobalChannelsLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wgch: WGCH not found: %s.wgch\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wgch", "WGCH", base, ".wgch");
     }
     auto c = wowee::pipeline::WoweeGlobalChannelsLoader::load(base);
     std::vector<std::string> errors;
@@ -245,83 +229,55 @@ int handleValidate(int& i, int argc, char** argv) {
                 std::to_string(e.accessKind) +
                 " out of range (must be 0..3)");
         }
-        // AutoJoinOnZone REQUIRES zoneDefaultMapId — else
+        // AutoJoinOnZone REQUIRES zoneDefaultMapId - else
         // the auto-join trigger never fires.
         using G = wowee::pipeline::WoweeGlobalChannels;
         if (e.accessKind == G::AutoJoinOnZone &&
             e.zoneDefaultMapId == 0) {
             errors.push_back(ctx +
                 ": AutoJoinOnZone access kind with "
-                "zoneDefaultMapId=0 — auto-join trigger "
+                "zoneDefaultMapId=0 - auto-join trigger "
                 "would never fire (no zone bound to "
                 "this channel)");
         }
         // Inverse: zoneDefaultMapId set with non-AutoJoin
-        // kind is dead data — warn.
+        // kind is dead data - warn.
         if (e.zoneDefaultMapId != 0 &&
             e.accessKind != G::AutoJoinOnZone) {
             warnings.push_back(ctx +
                 ": zoneDefaultMapId=" +
                 std::to_string(e.zoneDefaultMapId) +
                 " set but accessKind is not AutoJoinOn"
-                "Zone — the field is ignored at runtime");
+                "Zone - the field is ignored at runtime");
         }
-        // Channel names must be unique — chat-window
+        // Channel names must be unique - chat-window
         // dispatch identifies channels by name in /chat
         // commands.
         if (!e.name.empty() &&
             !namesSeen.insert(e.name).second) {
             errors.push_back(ctx +
                 ": duplicate channel name '" + e.name +
-                "' — /join command would route "
+                "' - /join command would route "
                 "ambiguously");
         }
         if (!idsSeen.insert(e.channelId).second) {
             errors.push_back(ctx + ": duplicate channelId");
         }
     }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wgch"] = base + ".wgch";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wgch: %s.wgch\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu channels, all channelIds "
+    return cli::reportValidation("wgch", base, jsonOut, errors, warnings,
+                                 formatted("%zu channels, all channelIds "
                     "+ names unique, AutoJoinOnZone "
-                    "channels have zoneDefaultMapId set\n",
-                    c.entries.size());
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+                    "channels have zoneDefaultMapId set", c.entries.size()));
 }
 
 int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWgchExt(base);
+    base = cli::withoutExt(base, ".wgch");
     if (out.empty()) out = base + ".wgch.json";
     if (!wowee::pipeline::WoweeGlobalChannelsLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wgch-json: WGCH not found: %s.wgch\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wgch-json", "WGCH", base, ".wgch");
     }
     auto c = wowee::pipeline::WoweeGlobalChannelsLoader::load(base);
     nlohmann::json j;
@@ -364,16 +320,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wgch.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wgch");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wgch");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,

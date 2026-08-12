@@ -8,7 +8,7 @@ namespace wowee {
 namespace pipeline {
 
 // Wowee Open Chat Slash Commands catalog (.wcmd)
-// — novel replacement for the implicit slash-
+// - novel replacement for the implicit slash-
 // command registry vanilla WoW carried in the
 // client's ChatFrame.lua + server-side per-command
 // CommandHandler hooks (no formal data-driven
@@ -22,7 +22,7 @@ namespace pipeline {
 // debug-only commands), and category.
 //
 // Cross-references with previously-added formats:
-//   None directly — commands are dispatched by
+//   None directly - commands are dispatched by
 //   handlerKey hash to server-side handlers, but the
 //   handler code itself lives outside the catalog.
 //
@@ -34,22 +34,22 @@ namespace pipeline {
 //   entries (each):
 //     cmdId (uint32)
 //     commandLen + command (the canonical /name)
-//     minSecurityLevel (uint8)     — 0=Player /
+//     minSecurityLevel (uint8)     - 0=Player /
 //                                     1=Helper /
 //                                     2=Moderator /
 //                                     3=GameMaster /
 //                                     4=Admin
-//     category (uint8)             — 0=Info /
+//     category (uint8)             - 0=Info /
 //                                     1=Movement /
 //                                     2=Communication
 //                                     /3=Admin /
 //                                     4=Debug
-//     isHidden (uint8)             — 0/1 — debug-
+//     isHidden (uint8)             - 0/1 - debug-
 //                                     only commands
 //                                     hidden from
 //                                     /help listing
 //     pad0 (uint8)
-//     throttleMs (uint32)          — per-player rate
+//     throttleMs (uint32)          - per-player rate
 //                                     limit (0 = no
 //                                     throttle)
 //     argSchemaLen + argSchema
@@ -93,7 +93,7 @@ struct WoweeChatCommands {
 
     const Entry* findById(uint32_t cmdId) const;
 
-    // Resolves a chat command by typed string —
+    // Resolves a chat command by typed string -
     // matches against canonical command name OR
     // any alias. Used by the chat parser hot path.
     const Entry* findByCommand(const std::string& cmd) const;
@@ -113,15 +113,15 @@ public:
 
     // Preset emitters used by --gen-cmd* variants.
     //
-    //   makeBasicCommands  — 4 standard player-info
+    //   makeBasicCommands  - 4 standard player-info
     //                         commands (/who /played
     //                         /time /ginfo) all at
     //                         Player security level,
     //                         no throttle.
-    //   makeMovementCommands — 3 emote-style commands
+    //   makeMovementCommands - 3 emote-style commands
     //                         (/sit /stand /sleep)
     //                         with short aliases.
-    //   makeAdminCommands  — 3 admin-only commands
+    //   makeAdminCommands  - 3 admin-only commands
     //                         (/announce /kick /ban)
     //                         at GameMaster security
     //                         level with throttling.

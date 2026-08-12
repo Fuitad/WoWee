@@ -22,7 +22,6 @@ public:
                               game::GameHandler& gameHandler,
                               WorldLoader* worldLoader,
                               EntitySpawner* entitySpawner,
-                              audio::AudioCoordinator* audioCoordinator,
                               pipeline::AssetManager* assetManager);
 
     void setupCallbacks();
@@ -70,7 +69,6 @@ private:
     game::GameHandler& gameHandler_;
     WorldLoader* worldLoader_;
     EntitySpawner* entitySpawner_;
-    audio::AudioCoordinator* audioCoordinator_;
     pipeline::AssetManager* assetManager_;
 
     // Hearth teleport: freeze player until terrain loads at destination (moved from Application)

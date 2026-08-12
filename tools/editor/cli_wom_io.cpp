@@ -1,4 +1,6 @@
 #include "cli_wom_io.hpp"
+#include "gltf_glb.hpp"
+#include "cli_catalog_paths.hpp"
 
 #include "pipeline/wowee_model.hpp"
 #include <glm/glm.hpp>
@@ -23,7 +25,7 @@ namespace cli {
 namespace {
 
 int handleExportObj(int& i, int argc, char** argv) {
-    // Convert WOM (our open M2 replacement) to Wavefront OBJ — a
+    // Convert WOM (our open M2 replacement) to Wavefront OBJ - a
     // universally supported text format that opens directly in
     // Blender, MeshLab, ZBrush, Maya, and basically every other 3D
     // tool ever made. Makes the open-format ecosystem actually
@@ -37,8 +39,7 @@ int handleExportObj(int& i, int argc, char** argv) {
     if (base.size() >= 4 && base.substr(base.size() - 4) == ".wom")
         base = base.substr(0, base.size() - 4);
     if (!wowee::pipeline::WoweeModelLoader::exists(base)) {
-        std::fprintf(stderr, "WOM not found: %s.wom\n", base.c_str());
-        return 1;
+        return reportMissing("WOM", base, ".wom");
     }
     if (outPath.empty()) outPath = base + ".obj";
     auto wom = wowee::pipeline::WoweeModelLoader::load(base);
@@ -51,7 +52,7 @@ int handleExportObj(int& i, int argc, char** argv) {
         std::fprintf(stderr, "Failed to open output file: %s\n", outPath.c_str());
         return 1;
     }
-    // Header — preserves provenance so a designer reopening the OBJ
+    // Header - preserves provenance so a designer reopening the OBJ
     // weeks later knows where it came from. The MTL line is a
     // courtesy: we don't currently emit a .mtl, but downstream
     // tools won't error without one either.
@@ -61,7 +62,7 @@ int handleExportObj(int& i, int argc, char** argv) {
         << " Tris: " << wom.indices.size() / 3
         << " Textures: " << wom.texturePaths.size() << "\n\n";
     obj << "o " << (wom.name.empty() ? "WoweeModel" : wom.name) << "\n";
-    // Positions (v), texcoords (vt), normals (vn) — OBJ flips V so
+    // Positions (v), texcoords (vt), normals (vn) - OBJ flips V so
     // that the same UVs that look right in our Vulkan renderer
     // also look right in Blender's bottom-left UV convention.
     for (const auto& v : wom.vertices) {
@@ -75,7 +76,7 @@ int handleExportObj(int& i, int argc, char** argv) {
         obj << "vn " << v.normal.x << " " << v.normal.y
             << " " << v.normal.z << "\n";
     }
-    // Faces — split per-batch so each material/texture range becomes
+    // Faces - split per-batch so each material/texture range becomes
     // its own group. Falls back to a single group when the WOM
     // wasn't authored with batches (WOM1/WOM2). OBJ indices are
     // 1-based, hence the +1.
@@ -122,7 +123,7 @@ int handleExportObj(int& i, int argc, char** argv) {
 }
 
 int handleExportGlb(int& i, int argc, char** argv) {
-    // glTF 2.0 binary (.glb) export — modern industry standard
+    // glTF 2.0 binary (.glb) export - modern industry standard
     // that, unlike OBJ, supports skinning + animations + PBR
     // materials natively. v1 here writes positions/normals/UVs/
     // indices as a single mesh (or one primitive per WOM3 batch);
@@ -142,8 +143,7 @@ int handleExportGlb(int& i, int argc, char** argv) {
     if (base.size() >= 4 && base.substr(base.size() - 4) == ".wom")
         base = base.substr(0, base.size() - 4);
     if (!wowee::pipeline::WoweeModelLoader::exists(base)) {
-        std::fprintf(stderr, "WOM not found: %s.wom\n", base.c_str());
-        return 1;
+        return reportMissing("WOM", base, ".wom");
     }
     if (outPath.empty()) outPath = base + ".glb";
     auto wom = wowee::pipeline::WoweeModelLoader::load(base);
@@ -151,7 +151,7 @@ int handleExportGlb(int& i, int argc, char** argv) {
         std::fprintf(stderr, "WOM has no geometry: %s.wom\n", base.c_str());
         return 1;
     }
-    // BIN chunk layout — sections ordered so each accessor's
+    // BIN chunk layout - sections ordered so each accessor's
     // byteOffset is naturally aligned for its component type:
     //   positions (vec3 float)  : 12 bytes/vert, offset 0
     //   normals   (vec3 float)  : 12 bytes/vert
@@ -180,7 +180,7 @@ int handleExportGlb(int& i, int argc, char** argv) {
         std::memcpy(&bin[uvOff  + v * 8  + 4], &vert.texCoord.y, 4);
     }
     std::memcpy(&bin[idxOff], wom.indices.data(), iCount * 4);
-    // Compute bounds for the position accessor's min/max — glTF
+    // Compute bounds for the position accessor's min/max - glTF
     // viewers rely on these for camera framing and culling.
     glm::vec3 bMin{1e30f}, bMax{-1e30f};
     for (const auto& v : wom.vertices) {
@@ -237,7 +237,7 @@ int handleExportGlb(int& i, int argc, char** argv) {
         {"bufferView", 2}, {"componentType", 5126},
         {"count", vCount}, {"type", "VEC2"}
     });
-    // Build primitives — one per WOM3 batch, or one over the
+    // Build primitives - one per WOM3 batch, or one over the
     // whole index range if no batches.
     nlohmann::json primitives = nlohmann::json::array();
     auto addPrimitive = [&](uint32_t idxStart, uint32_t idxCount) {
@@ -266,48 +266,23 @@ int handleExportGlb(int& i, int argc, char** argv) {
     gj["meshes"] = nlohmann::json::array({nlohmann::json{
         {"primitives", primitives}
     }});
-    // Serialize JSON to bytes; pad to 4-byte boundary with spaces
-    // (glTF spec requires JSON chunk padded with 0x20).
-    std::string jsonStr = gj.dump();
-    while (jsonStr.size() % 4 != 0) jsonStr += ' ';
-    // BIN chunk pads to 4-byte boundary with zeros (already
-    // satisfied since binSize = idxOff + iCount*4 and idxOff is
-    // 4-byte aligned).
-    uint32_t jsonLen = static_cast<uint32_t>(jsonStr.size());
-    uint32_t binLen = binSize;
-    uint32_t totalLen = 12 + 8 + jsonLen + 8 + binLen;
-    std::ofstream out(outPath, std::ios::binary);
-    if (!out) {
-        std::fprintf(stderr, "Failed to open output: %s\n", outPath.c_str());
+    // The container itself - header, JSON chunk, BIN chunk, and the padding
+    // each of them needs - is the same for every exporter here.
+    std::string glbError;
+    if (!writeGlb(outPath, gj, bin, glbError)) {
+        std::fprintf(stderr, "Failed to write GLB: %s\n", glbError.c_str());
         return 1;
     }
-    // Header: magic, version, total length (all little-endian uint32)
-    uint32_t magic = 0x46546C67;  // 'glTF'
-    uint32_t version = 2;
-    out.write(reinterpret_cast<const char*>(&magic), 4);
-    out.write(reinterpret_cast<const char*>(&version), 4);
-    out.write(reinterpret_cast<const char*>(&totalLen), 4);
-    // JSON chunk header + payload
-    uint32_t jsonChunkType = 0x4E4F534A;  // 'JSON'
-    out.write(reinterpret_cast<const char*>(&jsonLen), 4);
-    out.write(reinterpret_cast<const char*>(&jsonChunkType), 4);
-    out.write(jsonStr.data(), jsonLen);
-    // BIN chunk header + payload
-    uint32_t binChunkType = 0x004E4942;  // 'BIN\0'
-    out.write(reinterpret_cast<const char*>(&binLen), 4);
-    out.write(reinterpret_cast<const char*>(&binChunkType), 4);
-    out.write(reinterpret_cast<const char*>(bin.data()), binLen);
-    out.close();
     std::printf("Exported %s.wom -> %s\n", base.c_str(), outPath.c_str());
     std::printf("  %u verts, %u tris, %zu primitive(s), %u-byte binary chunk\n",
-                vCount, iCount / 3, primitives.size(), binLen);
+                vCount, iCount / 3, primitives.size(), binSize);
     return 0;
 }
 
 int handleExportStl(int& i, int argc, char** argv) {
-    // ASCII STL export — single most universal 3D-printer format.
+    // ASCII STL export - single most universal 3D-printer format.
     // Cura, PrusaSlicer, Bambu Studio, Slic3r, OctoPrint, MakerBot
-    // — every slicer made in the last 25 years opens STL natively.
+    // - every slicer made in the last 25 years opens STL natively.
     // Lets WOM models drive physical prints with no conversion
     // friction beyond this one command.
     std::string base = argv[++i];
@@ -316,8 +291,7 @@ int handleExportStl(int& i, int argc, char** argv) {
     if (base.size() >= 4 && base.substr(base.size() - 4) == ".wom")
         base = base.substr(0, base.size() - 4);
     if (!wowee::pipeline::WoweeModelLoader::exists(base)) {
-        std::fprintf(stderr, "WOM not found: %s.wom\n", base.c_str());
-        return 1;
+        return reportMissing("WOM", base, ".wom");
     }
     if (outPath.empty()) outPath = base + ".stl";
     auto wom = wowee::pipeline::WoweeModelLoader::load(base);
@@ -339,7 +313,7 @@ int handleExportStl(int& i, int argc, char** argv) {
               (c >= '0' && c <= '9') || c == '_')) c = '_';
     }
     out << "solid " << solidName << "\n";
-    // Per-triangle facet — STL has no shared vertex pool, every
+    // Per-triangle facet - STL has no shared vertex pool, every
     // triangle stands alone. Compute face normal from cross product
     // (STL spec requires unit-length face normal; viewers fall
     // back to per-vertex if zero, but most slicers want the real
@@ -359,7 +333,7 @@ int handleExportStl(int& i, int argc, char** argv) {
         glm::vec3 n = glm::cross(e1, e2);
         float len = glm::length(n);
         if (len > 1e-12f) n /= len;
-        else n = {0, 0, 1};  // degenerate — STL spec allows any unit normal
+        else n = {0, 0, 1};  // degenerate - STL spec allows any unit normal
         out << "  facet normal " << n.x << " " << n.y << " " << n.z << "\n"
             << "    outer loop\n"
             << "      vertex " << v0.x << " " << v0.y << " " << v0.z << "\n"
@@ -406,7 +380,7 @@ int handleImportStl(int& i, int argc, char** argv) {
     // Dedupe key: 6 floats (pos + normal) packed as a string. Loose
     // matching, but exact for round-trips since we write the same
     // floats back. Real-world STLs from CAD tools rarely benefit
-    // from looser tolerance — they already share verts at the
+    // from looser tolerance - they already share verts at the
     // exporter level.
     std::unordered_map<std::string, uint32_t> dedupe;
     auto interVert = [&](const glm::vec3& pos, const glm::vec3& nrm) {
@@ -462,7 +436,7 @@ int handleImportStl(int& i, int argc, char** argv) {
             }
             facetVerts.clear();
         }
-        // 'outer loop', 'endloop', 'endsolid' ignored — we infer
+        // 'outer loop', 'endloop', 'endsolid' ignored - we infer
         // from the vertex count per facet.
     }
     if (wom.vertices.empty() || wom.indices.empty()) {
@@ -473,7 +447,7 @@ int handleImportStl(int& i, int argc, char** argv) {
     wom.name = solidName.empty()
         ? std::filesystem::path(stlPath).stem().string()
         : solidName;
-    // Compute bounds — renderer culls by these so wrong values
+    // Compute bounds - renderer culls by these so wrong values
     // make models disappear at distance.
     wom.boundMin = wom.vertices[0].position;
     wom.boundMax = wom.boundMin;
@@ -528,7 +502,7 @@ int handleImportObj(int& i, int argc, char** argv) {
         std::fprintf(stderr, "Failed to open OBJ: %s\n", objPath.c_str());
         return 1;
     }
-    // Pools — OBJ stores positions/UVs/normals in independent
+    // Pools - OBJ stores positions/UVs/normals in independent
     // arrays and references them by index in face lines, so we
     // collect each pool first then expand into WOM vertices on
     // the fly (one WOM vertex per (vIdx, vtIdx, vnIdx) triple
@@ -640,7 +614,7 @@ int handleImportObj(int& i, int argc, char** argv) {
                 wom.indices.push_back(static_cast<uint32_t>(resolved[k + 1]));
             }
         }
-        // mtllib/usemtl/g/s lines are silently skipped — material
+        // mtllib/usemtl/g/s lines are silently skipped - material
         // info doesn't survive the round-trip but groups would
         // (left as future work; current import keeps it simple).
     }
@@ -652,7 +626,7 @@ int handleImportObj(int& i, int argc, char** argv) {
     wom.name = objectName.empty()
         ? std::filesystem::path(objPath).stem().string()
         : objectName;
-    // Compute bounds from positions — the renderer culls by these
+    // Compute bounds from positions - the renderer culls by these
     // so wrong values cause the model to disappear at distance.
     wom.boundMin = wom.vertices[0].position;
     wom.boundMax = wom.boundMin;

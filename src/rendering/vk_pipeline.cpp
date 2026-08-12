@@ -27,13 +27,6 @@ PipelineBuilder& PipelineBuilder::setVertexInput(
     vertexAttributes_ = attributes;
     return *this;
 }
-
-PipelineBuilder& PipelineBuilder::setNoVertexInput() {
-    vertexBindings_.clear();
-    vertexAttributes_.clear();
-    return *this;
-}
-
 PipelineBuilder& PipelineBuilder::setTopology(VkPrimitiveTopology topology,
     VkBool32 primitiveRestart)
 {
@@ -76,7 +69,10 @@ PipelineBuilder& PipelineBuilder::setDepthBias(float constantFactor, float slope
 PipelineBuilder& PipelineBuilder::setColorBlendAttachment(
     VkPipelineColorBlendAttachmentState blendState)
 {
-    colorBlendAttachments_ = {blendState};
+    // assign, not an initializer_list. GCC 13 at -O2 traces the list's
+    // temporary array through the vector's memmove and reports a false
+    // -Warray-bounds against it, which -Werror turns into a build failure.
+    colorBlendAttachments_.assign(1, blendState);
     return *this;
 }
 
@@ -111,7 +107,7 @@ PipelineBuilder& PipelineBuilder::setDynamicStates(const std::vector<VkDynamicSt
     return *this;
 }
 
-// Pipeline derivatives — hint driver to share compiled state between similar pipelines
+// Pipeline derivatives - hint driver to share compiled state between similar pipelines
 PipelineBuilder& PipelineBuilder::setFlags(VkPipelineCreateFlags flags) {
     flags_ = flags;
     return *this;
@@ -216,7 +212,7 @@ VkPipeline PipelineBuilder::build(VkDevice device, VkPipelineCache cache) const 
     return pipeline;
 }
 
-// All RGBA channels enabled — used by every blend mode since we never need to
+// All RGBA channels enabled - used by every blend mode since we never need to
 // mask individual channels (WoW's fixed-function pipeline always writes all four).
 static constexpr VkColorComponentFlags kColorWriteAll =
     VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
@@ -241,20 +237,6 @@ VkPipelineColorBlendAttachmentState PipelineBuilder::blendAlpha() {
     state.alphaBlendOp = VK_BLEND_OP_ADD;
     return state;
 }
-
-VkPipelineColorBlendAttachmentState PipelineBuilder::blendPremultiplied() {
-    VkPipelineColorBlendAttachmentState state{};
-    state.colorWriteMask = kColorWriteAll;
-    state.blendEnable = VK_TRUE;
-    state.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
-    state.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-    state.colorBlendOp = VK_BLEND_OP_ADD;
-    state.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-    state.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-    state.alphaBlendOp = VK_BLEND_OP_ADD;
-    return state;
-}
-
 VkPipelineColorBlendAttachmentState PipelineBuilder::blendAdditive() {
     VkPipelineColorBlendAttachmentState state{};
     state.colorWriteMask = kColorWriteAll;

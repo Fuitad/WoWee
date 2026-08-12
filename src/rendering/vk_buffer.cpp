@@ -61,15 +61,6 @@ bool VkBuffer::createMapped(VmaAllocator allocator, VkDeviceSize size,
 
     return true;
 }
-
-void VkBuffer::updateMapped(const void* data, VkDeviceSize size, VkDeviceSize offset) {
-    if (!buf_.info.pMappedData) {
-        LOG_ERROR("Attempted to update non-mapped buffer");
-        return;
-    }
-    std::memcpy(static_cast<uint8_t*>(buf_.info.pMappedData) + offset, data, size);
-}
-
 void VkBuffer::destroy() {
     if (buf_.buffer && allocator_) {
         destroyBuffer(allocator_, buf_);

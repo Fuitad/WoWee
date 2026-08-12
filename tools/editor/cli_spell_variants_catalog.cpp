@@ -1,4 +1,6 @@
 #include "cli_spell_variants_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -20,11 +22,6 @@ namespace cli {
 
 namespace {
 
-std::string stripWspvExt(std::string base) {
-    stripExt(base, ".wspv");
-    return base;
-}
-
 const char* conditionKindName(uint8_t k) {
     using V = wowee::pipeline::WoweeSpellVariants;
     switch (k) {
@@ -38,15 +35,6 @@ const char* conditionKindName(uint8_t k) {
     }
 }
 
-bool saveOrError(const wowee::pipeline::WoweeSpellVariants& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeSpellVariantsLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wspv\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeSpellVariants& c,
                      const std::string& base) {
@@ -59,9 +47,9 @@ int handleGenWarrior(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "WarriorStanceVariants";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWspvExt(base);
+    base = cli::withoutExt(base, ".wspv");
     auto c = wowee::pipeline::WoweeSpellVariantsLoader::makeWarriorStance(name);
-    if (!saveOrError(c, base, "gen-spv")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellVariantsLoader>(c, base, "gen-spv", ".wspv")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -70,9 +58,9 @@ int handleGenTalent(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "TalentModifiedVariants";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWspvExt(base);
+    base = cli::withoutExt(base, ".wspv");
     auto c = wowee::pipeline::WoweeSpellVariantsLoader::makeTalentMod(name);
-    if (!saveOrError(c, base, "gen-spv-talent")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellVariantsLoader>(c, base, "gen-spv-talent", ".wspv")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -81,9 +69,9 @@ int handleGenRacial(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "RacialVariants";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWspvExt(base);
+    base = cli::withoutExt(base, ".wspv");
     auto c = wowee::pipeline::WoweeSpellVariantsLoader::makeRacial(name);
-    if (!saveOrError(c, base, "gen-spv-racial")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellVariantsLoader>(c, base, "gen-spv-racial", ".wspv")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -91,10 +79,9 @@ int handleGenRacial(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWspvExt(base);
+    base = cli::withoutExt(base, ".wspv");
     if (!wowee::pipeline::WoweeSpellVariantsLoader::exists(base)) {
-        std::fprintf(stderr, "WSPV not found: %s.wspv\n", base.c_str());
-        return 1;
+        return reportMissing("WSPV", base, ".wspv");
     }
     auto c = wowee::pipeline::WoweeSpellVariantsLoader::load(base);
     if (jsonOut) {
@@ -153,13 +140,10 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWspvExt(base);
+    base = cli::withoutExt(base, ".wspv");
     if (out.empty()) out = base + ".wspv.json";
     if (!wowee::pipeline::WoweeSpellVariantsLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wspv-json: WSPV not found: %s.wspv\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wspv-json", "WSPV", base, ".wspv");
     }
     auto c = wowee::pipeline::WoweeSpellVariantsLoader::load(base);
     nlohmann::json j;
@@ -199,16 +183,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wspv.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wspv");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wspv");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,
@@ -283,12 +258,9 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWspvExt(base);
+    base = cli::withoutExt(base, ".wspv");
     if (!wowee::pipeline::WoweeSpellVariantsLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wspv: WSPV not found: %s.wspv\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wspv", "WSPV", base, ".wspv");
     }
     auto c = wowee::pipeline::WoweeSpellVariantsLoader::load(base);
     std::vector<std::string> errors;
@@ -298,7 +270,7 @@ int handleValidate(int& i, int argc, char** argv) {
     }
     std::set<uint32_t> idsSeen;
     // Per-(baseSpell, conditionKind, conditionValue,
-    // priority) tuple uniqueness — two variants with all
+    // priority) tuple uniqueness - two variants with all
     // four matching would tie at runtime and resolve
     // non-deterministically.
     std::set<uint64_t> tupleSeen;
@@ -325,12 +297,12 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": name is empty");
         if (e.baseSpellId == 0) {
             errors.push_back(ctx +
-                ": baseSpellId is 0 — variant has no "
+                ": baseSpellId is 0 - variant has no "
                 "base spell to substitute for");
         }
         if (e.variantSpellId == 0) {
             errors.push_back(ctx +
-                ": variantSpellId is 0 — variant has no "
+                ": variantSpellId is 0 - variant has no "
                 "spell to substitute INTO");
         }
         if (e.conditionKind > 5) {
@@ -340,7 +312,7 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         if (e.conditionValue == 0) {
             warnings.push_back(ctx +
-                ": conditionValue is 0 — condition would "
+                ": conditionValue is 0 - condition would "
                 "match the always-zero default; verify "
                 "if intentional (the gate becomes a "
                 "no-op)");
@@ -361,41 +333,16 @@ int handleValidate(int& i, int argc, char** argv) {
                 ", priority=" +
                 std::to_string(e.priority) +
                 ") tuple already bound by another variant "
-                "— spell-cast pipeline lookup would be "
+                "- spell-cast pipeline lookup would be "
                 "non-deterministic");
         }
         if (!idsSeen.insert(e.variantId).second) {
             errors.push_back(ctx + ": duplicate variantId");
         }
     }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wspv"] = base + ".wspv";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wspv: %s.wspv\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu variants, all variantIds + "
-                    "(base,kind,val,prio) tuples unique\n",
-                    c.entries.size());
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+    return cli::reportValidation("wspv", base, jsonOut, errors, warnings,
+                                 formatted("%zu variants, all variantIds + "
+                    "(base,kind,val,prio) tuples unique", c.entries.size()));
 }
 
 } // namespace

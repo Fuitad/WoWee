@@ -16,7 +16,7 @@ TEST_CASE("stock hill climbing limits are shared by all surfaces") {
 // A walkable slope can rise faster than the step-up budget allows for, which is
 // why grounding cannot rely on the budget alone. At the steepest walkable angle
 // a mounted player crosses more ground per frame than kMaxStepUp covers as soon
-// as the frame runs long — and the floor selection rejects any surface above
+// as the frame runs long - and the floor selection rejects any surface above
 // feet + budget as unreachable, so the terrain under a climbing player stops
 // counting as ground and they sink into the hill.
 TEST_CASE("a walkable slope out-climbs the step-up budget in a long frame") {
@@ -45,7 +45,7 @@ TEST_CASE("a walkable slope out-climbs the step-up budget in a long frame") {
 // converts render → game every frame. Both directions of that conversion were
 // hand-written at four call sites, two of them inverting the other two from
 // memory. If they ever disagree, facing a target writes one value and the next
-// frame reads back another — which is how a cast could be accepted and then
+// frame reads back another - which is how a cast could be accepted and then
 // fail the server's arc check a second and a half later.
 TEST_CASE("character yaw and canonical yaw convert back to each other") {
     using namespace wowee::core::coords;
@@ -84,7 +84,7 @@ TEST_CASE("character yaw and canonical yaw convert back to each other") {
 
 // Standing on the hillside over a cave used to drop the player onto the cave's
 // ceiling. Being "inside" a WMO is decided by bounding-box containment, and an
-// underground WMO's interior box reaches up through the ground above it — so
+// underground WMO's interior box reaches up through the ground above it - so
 // the terrain veto meant for Undercity's halls fired out in the open, leaving
 // the WMO as the only floor candidate and its ceiling as the nearest surface
 // below.

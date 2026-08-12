@@ -167,7 +167,7 @@ int handleRename(int& i, int argc, char** argv) {
     dst.replace_extension(fmt->extension);
     if (src == dst) {
         std::printf("rename-by-magic: %s already has correct "
-                     "extension (%s) — no change\n",
+                     "extension (%s) - no change\n",
                      filePath.c_str(), fmt->extension);
         return 0;
     }

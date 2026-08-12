@@ -1,5 +1,5 @@
 /**
- * CharacterRenderer — GPU rendering of M2 character models with skeletal animation (Vulkan)
+ * CharacterRenderer - GPU rendering of M2 character models with skeletal animation (Vulkan)
  *
  * Handles:
  *  - Uploading M2 vertex/index data to Vulkan buffers via VMA
@@ -15,11 +15,14 @@
  * the original WoW Model Viewer (charcontrol.h, REGION_FAC=2).
  */
 #include <atomic>
+#include "rendering/shadow_params.hpp"
 #include "rendering/character_renderer.hpp"
+#include "rendering/normal_map.hpp"
 #include "rendering/m2_track_sampler.hpp"
 #include "rendering/animation/animation_ids.hpp"
 #include "core/thread_pool.hpp"
 #include "rendering/vk_context.hpp"
+#include "rendering/bone_slots.hpp"
 #include "rendering/vk_texture.hpp"
 #include "rendering/vk_pipeline.hpp"
 #include "rendering/vk_shader.hpp"
@@ -36,6 +39,7 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtx/quaternion.hpp>
 #include <algorithm>
+#include <climits>
 #include <cmath>
 #include <filesystem>
 #include <future>
@@ -177,7 +181,7 @@ static constexpr int kBaseTexSize    = 256;  // NPC baked texture default
 static constexpr int kUpscaleTexSize = 512;  // Target size for region compositing
 static constexpr int32_t kPreviewSimpleTextureMode = -31336;
 
-// WOWEE_SCENE_DIAG=1 — dump what each glue-scene backdrop batch is handed at draw
+// WOWEE_SCENE_DIAG=1 - dump what each glue-scene backdrop batch is handed at draw
 // time. The scene renders through the character path, so when it comes out wrong
 // the question is always which texture, blend mode and shader path it actually got.
 static bool sceneDiagEnabled() {
@@ -260,6 +264,64 @@ CharacterRenderer::CharacterRenderer() {
 
 CharacterRenderer::~CharacterRenderer() {
     shutdown();
+}
+
+/// Builds the five main-pass pipelines from an already-loaded shader pair.
+///
+/// initialize() and recreatePipelines() both need exactly these five, blend
+/// state apart, and each described the vertex layout and the builder for
+/// itself. The layout is the part worth having once: the bone weights and
+/// indices are packed bytes, so a description that drifts from the struct
+/// feeds the skinning garbage rather than failing to build.
+void CharacterRenderer::buildMainPassPipelines(VkDevice device, VkRenderPass mainPass,
+                                               VkSampleCountFlagBits samples,
+                                               wowee::rendering::VkShaderModule& charVert,
+                                               wowee::rendering::VkShaderModule& charFrag) {
+    // --- Vertex input ---
+    // CharVertexGPU: vec3 pos(12) + uint8[4] boneWeights(4) + uint8[4] boneIndices(4) +
+    //               vec3 normal(12) + vec2 texCoords(8) + vec4 tangent(16) = 56 bytes
+    VkVertexInputBindingDescription charBinding{};
+    charBinding.binding = 0;
+    charBinding.stride = sizeof(CharVertexGPU);
+    charBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+    std::vector<VkVertexInputAttributeDescription> charAttrs = {
+        {0, 0, VK_FORMAT_R32G32B32_SFLOAT, static_cast<uint32_t>(offsetof(CharVertexGPU, position))},
+        {1, 0, VK_FORMAT_R8G8B8A8_UNORM,   static_cast<uint32_t>(offsetof(CharVertexGPU, boneWeights))},
+        {2, 0, VK_FORMAT_R8G8B8A8_UINT,     static_cast<uint32_t>(offsetof(CharVertexGPU, boneIndices))},
+        {3, 0, VK_FORMAT_R32G32B32_SFLOAT,  static_cast<uint32_t>(offsetof(CharVertexGPU, normal))},
+        {4, 0, VK_FORMAT_R32G32_SFLOAT,     static_cast<uint32_t>(offsetof(CharVertexGPU, texCoords))},
+        {5, 0, VK_FORMAT_R32G32B32A32_SFLOAT, static_cast<uint32_t>(offsetof(CharVertexGPU, tangent))},
+    };
+
+    // --- Build pipelines ---
+    auto buildCharPipeline = [&](VkPipelineColorBlendAttachmentState blendState,
+                                  bool depthWrite, bool alphaToCoverage = false) -> VkPipeline {
+        auto builder = PipelineBuilder()
+            .setShaders(charVert.stageInfo(VK_SHADER_STAGE_VERTEX_BIT),
+                        charFrag.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT))
+            .setVertexInput({charBinding}, charAttrs)
+            .setTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
+            .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
+            .setDepthTest(true, depthWrite, VK_COMPARE_OP_LESS)
+            .setDepthBias(0.0f, 0.0f)
+            .setColorBlendAttachment(blendState)
+            .setMultisample(samples);
+        if (alphaToCoverage)
+            builder.setAlphaToCoverage(true);
+        return builder
+            .setLayout(pipelineLayout_)
+            .setRenderPass(mainPass)
+            .setDynamicStates({VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR, VK_DYNAMIC_STATE_DEPTH_BIAS})
+            .build(device, vkCtx_->getPipelineCache());
+    };
+
+    opaquePipeline_ = buildCharPipeline(PipelineBuilder::blendDisabled(), true);
+    alphaTestPipeline_ = buildCharPipeline(PipelineBuilder::blendDisabled(), true, true);
+    alphaPipeline_ = buildCharPipeline(PipelineBuilder::blendAlpha(), false);
+    additivePipeline_ = buildCharPipeline(PipelineBuilder::blendAdditive(), false);
+    translucentPipeline_ = buildCharPipeline(PipelineBuilder::blendAlpha(), true);
+
 }
 
 bool CharacterRenderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout,
@@ -400,50 +462,7 @@ bool CharacterRenderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFram
     VkRenderPass mainPass = renderPassOverride_ ? renderPassOverride_ : vkCtx_->getImGuiRenderPass();
     VkSampleCountFlagBits samples = renderPassOverride_ ? msaaSamplesOverride_ : vkCtx_->getMsaaSamples();
 
-    // --- Vertex input ---
-    // CharVertexGPU: vec3 pos(12) + uint8[4] boneWeights(4) + uint8[4] boneIndices(4) +
-    //               vec3 normal(12) + vec2 texCoords(8) + vec4 tangent(16) = 56 bytes
-    VkVertexInputBindingDescription charBinding{};
-    charBinding.binding = 0;
-    charBinding.stride = sizeof(CharVertexGPU);
-    charBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-    std::vector<VkVertexInputAttributeDescription> charAttrs = {
-        {0, 0, VK_FORMAT_R32G32B32_SFLOAT, static_cast<uint32_t>(offsetof(CharVertexGPU, position))},
-        {1, 0, VK_FORMAT_R8G8B8A8_UNORM,   static_cast<uint32_t>(offsetof(CharVertexGPU, boneWeights))},
-        {2, 0, VK_FORMAT_R8G8B8A8_UINT,     static_cast<uint32_t>(offsetof(CharVertexGPU, boneIndices))},
-        {3, 0, VK_FORMAT_R32G32B32_SFLOAT,  static_cast<uint32_t>(offsetof(CharVertexGPU, normal))},
-        {4, 0, VK_FORMAT_R32G32_SFLOAT,     static_cast<uint32_t>(offsetof(CharVertexGPU, texCoords))},
-        {5, 0, VK_FORMAT_R32G32B32A32_SFLOAT, static_cast<uint32_t>(offsetof(CharVertexGPU, tangent))},
-    };
-
-    // --- Build pipelines ---
-    auto buildCharPipeline = [&](VkPipelineColorBlendAttachmentState blendState,
-                                  bool depthWrite, bool alphaToCoverage = false) -> VkPipeline {
-        auto builder = PipelineBuilder()
-            .setShaders(charVert.stageInfo(VK_SHADER_STAGE_VERTEX_BIT),
-                        charFrag.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT))
-            .setVertexInput({charBinding}, charAttrs)
-            .setTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
-            .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
-            .setDepthTest(true, depthWrite, VK_COMPARE_OP_LESS)
-            .setDepthBias(0.0f, 0.0f)
-            .setColorBlendAttachment(blendState)
-            .setMultisample(samples);
-        if (alphaToCoverage)
-            builder.setAlphaToCoverage(true);
-        return builder
-            .setLayout(pipelineLayout_)
-            .setRenderPass(mainPass)
-            .setDynamicStates({VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR, VK_DYNAMIC_STATE_DEPTH_BIAS})
-            .build(device, vkCtx_->getPipelineCache());
-    };
-
-    opaquePipeline_ = buildCharPipeline(PipelineBuilder::blendDisabled(), true);
-    alphaTestPipeline_ = buildCharPipeline(PipelineBuilder::blendDisabled(), true, true);
-    alphaPipeline_ = buildCharPipeline(PipelineBuilder::blendAlpha(), false);
-    additivePipeline_ = buildCharPipeline(PipelineBuilder::blendAdditive(), false);
-    translucentPipeline_ = buildCharPipeline(PipelineBuilder::blendAlpha(), true);
+    buildMainPassPipelines(device, mainPass, samples, charVert, charFrag);
 
     // Clean up shader modules
     charVert.destroy();
@@ -513,7 +532,7 @@ void CharacterRenderer::shutdown() {
 
     // Destroy pipelines
     auto destroyPipeline = [&](VkPipeline& p) {
-        if (p) { vkDestroyPipeline(device, p, nullptr); p = VK_NULL_HANDLE; }
+        destroy(device, p);
     };
     destroyPipeline(opaquePipeline_);
     destroyPipeline(alphaTestPipeline_);
@@ -521,7 +540,7 @@ void CharacterRenderer::shutdown() {
     destroyPipeline(additivePipeline_);
     destroyPipeline(translucentPipeline_);
 
-    if (pipelineLayout_) { vkDestroyPipelineLayout(device, pipelineLayout_, nullptr); pipelineLayout_ = VK_NULL_HANDLE; }
+    destroy(device, pipelineLayout_);
 
     // Destroy material ring buffers
     for (int i = 0; i < 2; i++) {
@@ -536,25 +555,20 @@ void CharacterRenderer::shutdown() {
 
     // Destroy descriptor pools and layouts
     for (int i = 0; i < 2; i++) {
-        if (materialDescPools_[i]) {
-            vkDestroyDescriptorPool(device, materialDescPools_[i], nullptr);
-            materialDescPools_[i] = VK_NULL_HANDLE;
-        }
+        destroy(device, materialDescPools_[i]);
     }
     if (boneDescPool_) {
         if (boneDescPoolGeneration_) boneDescPoolGeneration_->fetch_add(1, std::memory_order_relaxed);
         vkDestroyDescriptorPool(device, boneDescPool_, nullptr);
         boneDescPool_ = VK_NULL_HANDLE;
     }
-    if (materialSetLayout_) { vkDestroyDescriptorSetLayout(device, materialSetLayout_, nullptr); materialSetLayout_ = VK_NULL_HANDLE; }
-    if (boneSetLayout_) { vkDestroyDescriptorSetLayout(device, boneSetLayout_, nullptr); boneSetLayout_ = VK_NULL_HANDLE; }
+    destroy(device, materialSetLayout_);
+    destroy(device, boneSetLayout_);
 
     // Shadow resources
-    if (shadowPipeline_) { vkDestroyPipeline(device, shadowPipeline_, nullptr); shadowPipeline_ = VK_NULL_HANDLE; }
-    if (shadowPipelineLayout_) { vkDestroyPipelineLayout(device, shadowPipelineLayout_, nullptr); shadowPipelineLayout_ = VK_NULL_HANDLE; }
-    if (shadowParamsPool_) { vkDestroyDescriptorPool(device, shadowParamsPool_, nullptr); shadowParamsPool_ = VK_NULL_HANDLE; }
-    if (shadowParamsLayout_) { vkDestroyDescriptorSetLayout(device, shadowParamsLayout_, nullptr); shadowParamsLayout_ = VK_NULL_HANDLE; }
-    if (shadowParamsUBO_) { vmaDestroyBuffer(alloc, shadowParamsUBO_, shadowParamsAlloc_); shadowParamsUBO_ = VK_NULL_HANDLE; shadowParamsAlloc_ = VK_NULL_HANDLE; }
+    destroy(device, shadowPipeline_);
+    destroy(device, shadowPipelineLayout_);
+    destroyShadowParamsSet(device, alloc, shadowParams_);
 
     vkCtx_ = nullptr;
 }
@@ -619,7 +633,7 @@ void CharacterRenderer::clear() {
         materialRingOffset_[i] = 0;
     }
 
-    // Reset descriptor pools (don't destroy — reuse for new allocations)
+    // Reset descriptor pools (don't destroy - reuse for new allocations)
     for (int i = 0; i < 2; i++) {
         if (materialDescPools_[i]) {
             vkResetDescriptorPool(device, materialDescPools_[i], 0);
@@ -684,42 +698,18 @@ void CharacterRenderer::destroyModelGPU(M2ModelGPU& gpuModel, bool defer) {
 
 void CharacterRenderer::destroyInstanceBones(CharacterInstance& inst, bool defer) {
     if (!vkCtx_) return;
-    VmaAllocator alloc = vkCtx_->getAllocator();
-    VkDevice device = vkCtx_->getDevice();
     for (int i = 0; i < 2; i++) {
-        VkDescriptorSet boneSet = inst.boneSet[i];
-        ::VkBuffer boneBuf = inst.boneBuffer[i];
-        VmaAllocation boneAlloc = inst.boneAlloc[i];
+        // Snapshot the handles, clear the slot, then release the copies.
+        const VkDescriptorSet boneSet = inst.boneSet[i];
+        const ::VkBuffer boneBuf = inst.boneBuffer[i];
+        const VmaAllocation boneAlloc = inst.boneAlloc[i];
         inst.boneSet[i] = VK_NULL_HANDLE;
         inst.boneBuffer[i] = VK_NULL_HANDLE;
         inst.boneAlloc[i] = VK_NULL_HANDLE;
         inst.boneMapped[i] = nullptr;
 
-        if (!defer) {
-            if (boneSet != VK_NULL_HANDLE && boneDescPool_ != VK_NULL_HANDLE) {
-                vkFreeDescriptorSets(device, boneDescPool_, 1, &boneSet);
-            }
-            if (boneBuf) {
-                vmaDestroyBuffer(alloc, boneBuf, boneAlloc);
-            }
-        } else if (boneSet != VK_NULL_HANDLE || boneBuf) {
-            // Loop destroys bone sets for ALL frame slots — the other slot's
-            // command buffer may still be in flight. Wait for all fences.
-            VkDescriptorPool pool = boneDescPool_;
-            auto poolGeneration = boneDescPoolGeneration_;
-            uint64_t generation = poolGeneration ? poolGeneration->load(std::memory_order_relaxed) : 0;
-            vkCtx_->deferAfterAllFrameFences([device, alloc, pool, poolGeneration, generation, boneSet, boneBuf, boneAlloc]() {
-                const bool poolStillValid =
-                    poolGeneration && poolGeneration->load(std::memory_order_relaxed) == generation;
-                if (boneSet != VK_NULL_HANDLE && pool != VK_NULL_HANDLE && poolStillValid) {
-                    VkDescriptorSet s = boneSet;
-                    vkFreeDescriptorSets(device, pool, 1, &s);
-                }
-                if (boneBuf) {
-                    vmaDestroyBuffer(alloc, boneBuf, boneAlloc);
-                }
-            });
-        }
+        releaseBoneSlot(*vkCtx_, boneDescPool_, boneDescPoolGeneration_,
+                        boneSet, boneBuf, boneAlloc, defer);
     }
 }
 
@@ -743,6 +733,44 @@ std::unique_ptr<VkTexture> CharacterRenderer::generateNormalHeightMap(
 }
 
 // Static, thread-safe CPU-only normal map generation (no GPU access)
+bool CharacterRenderer::queueNormalMapGeneration(const std::string& cacheKey,
+                                                std::vector<uint8_t> pixels,
+                                                uint32_t width, uint32_t height) {
+    // Every surface this renderer draws derives its normal map from its own
+    // diffuse art, and this is the one place that starts that work. It used to
+    // be spelled out inside the file-loading path alone - so a texture that
+    // never came from a file never got one, and a character's body is exactly
+    // that: composited in memory from a skin, a face and whatever armour is
+    // worn. The largest lit surface on screen was the one surface with no
+    // normal map, which reads as the lighting working everywhere except on
+    // people.
+    if (width < 32 || height < 32) return false;
+    // Use acq_rel so the increment is visible to shutdown()'s acquire load
+    // before the thread body begins (relaxed could delay visibility and cause
+    // shutdown() to see 0 and proceed while a thread is still running).
+    pendingNormalMapCount_.fetch_add(1, std::memory_order_acq_rel);
+    auto* self = this;
+    std::thread([self, ck = cacheKey, px = std::move(pixels), width, height]() mutable {
+        // try-catch guarantees the counter is decremented even if the compute
+        // throws (e.g., bad_alloc). Without this, shutdown() would deadlock
+        // waiting for a count that never reaches zero.
+        try {
+            auto result = generateNormalHeightMapCPU(std::move(ck), std::move(px),
+                                                     width, height);
+            {
+                std::lock_guard<std::mutex> lock(self->normalMapResultsMutex_);
+                self->completedNormalMaps_.push_back(std::move(result));
+            }
+        } catch (const std::exception& e) {
+            LOG_ERROR("Normal map generation failed: ", e.what());
+        }
+        if (self->pendingNormalMapCount_.fetch_sub(1, std::memory_order_release) == 1) {
+            self->normalMapDoneCV_.notify_one();
+        }
+    }).detach();
+    return true;
+}
+
 CharacterRenderer::NormalMapResult CharacterRenderer::generateNormalHeightMapCPU(
         std::string cacheKey, std::vector<uint8_t> srcPixels, uint32_t width, uint32_t height) {
     NormalMapResult result;
@@ -750,78 +778,10 @@ CharacterRenderer::NormalMapResult CharacterRenderer::generateNormalHeightMapCPU
     result.width = width;
     result.height = height;
     result.variance = 0.0f;
-
-    const uint32_t totalPixels = width * height;
-    const uint8_t* pixels = srcPixels.data();
-
-    // Step 1: Compute height from luminance
-    constexpr float kInv255 = 1.0f / 255.0f;
-    std::vector<float> heightMap(totalPixels);
-    double sumH = 0.0, sumH2 = 0.0;
-    for (uint32_t i = 0; i < totalPixels; i++) {
-        float r = pixels[i * 4 + 0] * kInv255;
-        float g = pixels[i * 4 + 1] * kInv255;
-        float b = pixels[i * 4 + 2] * kInv255;
-        float h = 0.299f * r + 0.587f * g + 0.114f * b;
-        heightMap[i] = h;
-        sumH += h;
-        sumH2 += static_cast<double>(h) * static_cast<double>(h);
-    }
-    double mean = sumH / totalPixels;
-    result.variance = static_cast<float>(sumH2 / totalPixels - mean * mean);
-
-    // Step 1.5: Box blur the height map to reduce noise from diffuse textures
-    auto wrapSample = [&](const std::vector<float>& map, int x, int y) -> float {
-        x = ((x % static_cast<int>(width)) + static_cast<int>(width)) % static_cast<int>(width);
-        y = ((y % static_cast<int>(height)) + static_cast<int>(height)) % static_cast<int>(height);
-        return map[y * width + x];
-    };
-
-    std::vector<float> blurredHeight(totalPixels);
-    for (uint32_t y = 0; y < height; y++) {
-        for (uint32_t x = 0; x < width; x++) {
-            int ix = static_cast<int>(x), iy = static_cast<int>(y);
-            float sum = 0.0f;
-            for (int dy = -1; dy <= 1; dy++)
-                for (int dx = -1; dx <= 1; dx++)
-                    sum += wrapSample(heightMap, ix + dx, iy + dy);
-            blurredHeight[y * width + x] = sum / 9.0f;
-        }
-    }
-
-    // Step 2: Sobel 3x3 → normal map
-    const float strength = 5.0f;
-    result.pixels.resize(totalPixels * 4);
-
-    auto sampleH = [&](int x, int y) -> float {
-        x = ((x % static_cast<int>(width)) + static_cast<int>(width)) % static_cast<int>(width);
-        y = ((y % static_cast<int>(height)) + static_cast<int>(height)) % static_cast<int>(height);
-        return heightMap[y * width + x];
-    };
-
-    for (uint32_t y = 0; y < height; y++) {
-        for (uint32_t x = 0; x < width; x++) {
-            int ix = static_cast<int>(x);
-            int iy = static_cast<int>(y);
-            float gx = -sampleH(ix-1, iy-1) - 2.0f*sampleH(ix-1, iy) - sampleH(ix-1, iy+1)
-                       + sampleH(ix+1, iy-1) + 2.0f*sampleH(ix+1, iy) + sampleH(ix+1, iy+1);
-            float gy = -sampleH(ix-1, iy-1) - 2.0f*sampleH(ix, iy-1) - sampleH(ix+1, iy-1)
-                       + sampleH(ix-1, iy+1) + 2.0f*sampleH(ix, iy+1) + sampleH(ix+1, iy+1);
-
-            float nx = -gx * strength;
-            float ny = -gy * strength;
-            float nz = 1.0f;
-            float len = std::sqrt(nx*nx + ny*ny + nz*nz);
-            if (len > 0.0f) { nx /= len; ny /= len; nz /= len; }
-
-            uint32_t idx = (y * width + x) * 4;
-            result.pixels[idx + 0] = static_cast<uint8_t>(std::clamp((nx * 0.5f + 0.5f) * 255.0f, 0.0f, 255.0f));
-            result.pixels[idx + 1] = static_cast<uint8_t>(std::clamp((ny * 0.5f + 0.5f) * 255.0f, 0.0f, 255.0f));
-            result.pixels[idx + 2] = static_cast<uint8_t>(std::clamp((nz * 0.5f + 0.5f) * 255.0f, 0.0f, 255.0f));
-            result.pixels[idx + 3] = static_cast<uint8_t>(std::clamp(blurredHeight[y * width + x] * 255.0f, 0.0f, 255.0f));
-        }
-    }
-
+    // Five, where the WMO renderer asks for two: this is skin and cloth seen
+    // close up, and it wants the gradient exaggerated.
+    result.pixels = rendering::generateNormalHeightMap(
+        srcPixels.data(), width, height, /*strength=*/5.0f, result.variance);
     return result;
 }
 
@@ -927,36 +887,11 @@ VkTexture* CharacterRenderer::loadTexture(const std::string& path) {
     e.hasAlpha = hasAlpha;
     e.colorKeyBlack = colorKeyBlackHint;
 
-    // Launch normal map generation on background thread — CPU work is pure compute,
+    // Launch normal map generation on background thread - CPU work is pure compute,
     // only the GPU upload (in processPendingNormalMaps) needs the main thread (~1-2ms).
-    if (blpImage.width >= 32 && blpImage.height >= 32) {
-        uint32_t w = blpImage.width, h = blpImage.height;
-        std::string ck = key;
-        std::vector<uint8_t> px(blpImage.data.begin(), blpImage.data.end());
-        // Use acq_rel so the increment is visible to shutdown()'s acquire load
-        // before the thread body begins (relaxed could delay visibility and cause
-        // shutdown() to see 0 and proceed while a thread is still running).
-        pendingNormalMapCount_.fetch_add(1, std::memory_order_acq_rel);
-        auto* self = this;
-        std::thread([self, ck = std::move(ck), px = std::move(px), w, h]() mutable {
-            // try-catch guarantees the counter is decremented even if the compute
-            // throws (e.g., bad_alloc). Without this, shutdown() would deadlock
-            // waiting for a count that never reaches zero.
-            try {
-                auto result = generateNormalHeightMapCPU(std::move(ck), std::move(px), w, h);
-                {
-                    std::lock_guard<std::mutex> lock(self->normalMapResultsMutex_);
-                    self->completedNormalMaps_.push_back(std::move(result));
-                }
-            } catch (const std::exception& e) {
-                LOG_ERROR("Normal map generation failed: ", e.what());
-            }
-            if (self->pendingNormalMapCount_.fetch_sub(1, std::memory_order_release) == 1) {
-                self->normalMapDoneCV_.notify_one();
-            }
-        }).detach();
-        e.normalMapPending = true;
-    }
+    e.normalMapPending = queueNormalMapGeneration(
+        key, std::vector<uint8_t>(blpImage.data.begin(), blpImage.data.end()),
+        blpImage.width, blpImage.height);
 
     textureCacheBytes_ += e.approxBytes;
     texturePropsByPtr_[texPtr] = {hasAlpha, colorKeyBlackHint};
@@ -983,7 +918,7 @@ void CharacterRenderer::processPendingNormalMaps(int budget) {
         }
     }
 
-    // GPU upload only (~1-2ms each) — CPU work already done on background thread
+    // GPU upload only (~1-2ms each) - CPU work already done on background thread
     for (auto& result : ready) {
         auto it = textureCache.find(result.cacheKey);
         if (it == textureCache.end()) continue;  // texture was evicted
@@ -1165,6 +1100,48 @@ static void blitOverlayDownscaleN(std::vector<uint8_t>& composite, int compW, in
     }
 }
 
+namespace {
+
+/// Where a character-texture overlay belongs on the body atlas, in the
+/// coordinates of the 256x256 reference atlas everything is expressed in.
+///
+/// One table, consulted twice: once to work out how big the canvas has to be
+/// for the art being laid on it, and once to place each layer. It was written
+/// out inline at the placement site alone, and then the size question could
+/// only be answered by guessing.
+struct AtlasRegion256 { int x, y, w, h; bool known; };
+
+AtlasRegion256 regionFor(const std::string& pathLower) {
+    if (pathLower.find("faceupper") != std::string::npos) return {  0, 160, 128, 32, true};
+    if (pathLower.find("facelower") != std::string::npos) return {  0, 192, 128, 64, true};
+    if (pathLower.find("pelvis")    != std::string::npos) return {128,  96, 128, 64, true};
+    if (pathLower.find("torso")     != std::string::npos) return {128,   0, 128, 64, true};
+    if (pathLower.find("armupper")  != std::string::npos) return {  0,   0, 128, 64, true};
+    if (pathLower.find("armlower")  != std::string::npos) return {  0,  64, 128, 64, true};
+    if (pathLower.find("hand")      != std::string::npos) return {  0, 128, 128, 32, true};
+    if (pathLower.find("foot")      != std::string::npos ||
+        pathLower.find("feet")      != std::string::npos) return {128, 224, 128, 32, true};
+    if (pathLower.find("legupper")  != std::string::npos ||
+        pathLower.find("leg")       != std::string::npos) return {128, 160, 128, 64, true};
+    return {0, 0, 0, 0, false};
+}
+
+std::string lowerPath(const std::string& s) {
+    std::string out = s;
+    for (auto& c : out) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    return out;
+}
+
+/// The atlas scale a layer of this size implies for its region. A face authored
+/// at 512x256 belongs in a 128x64 region, so it is asking for a 1024 atlas.
+int impliedScale(const AtlasRegion256& region, int overlayWidth) {
+    if (!region.known || region.w <= 0 || overlayWidth <= 0) return 1;
+    int scale = overlayWidth / region.w;
+    return scale < 1 ? 1 : scale;
+}
+
+}  // namespace
+
 VkTexture* CharacterRenderer::compositeTextures(const std::vector<std::string>& layerPaths) {
     if (layerPaths.empty() || !assetManager || !assetManager->isInitialized()) {
         return whiteTexture_.get();
@@ -1226,15 +1203,26 @@ VkTexture* CharacterRenderer::compositeTextures(const std::vector<std::string>& 
     int coordScale = width / 256;
     if (coordScale < 1) coordScale = 1;
 
-    // Atlas region sizes at 256x256 base (w, h) for known regions
-    struct AtlasRegion { int x, y, w, h; };
-    static const AtlasRegion faceLowerRegion256 = {0, 192, 128, 64};
-    static const AtlasRegion faceUpperRegion256 = {0, 160, 128, 32};
-
-    // Alpha-blend each overlay onto the composite
+    // Load every overlay before deciding how big the canvas is.
+    //
+    // The body decided the atlas size on its own, and each overlay was then
+    // squeezed into whatever region that gave it. An HD art set ships a body at
+    // the size the stock one uses and a face at twice it - so a 512x256 face was
+    // resampled down to 256x128 to fit a 512 body, which throws away exactly the
+    // detail the art exists for and lands it soft next to a crisp body.
+    //
+    // The canvas is sized to the most demanding layer instead. Nothing changes
+    // for art that agrees with its body, which is every set that shipped with
+    // the game; a set that asks for more gets a bigger atlas and is placed at
+    // its own resolution.
+    struct LoadedOverlay { std::string path; pipeline::BLPImage image; };
+    std::vector<LoadedOverlay> overlays;
+    overlays.reserve(layerPaths.size());
+    int requiredScale = coordScale;
+    int largestRegionScale = 1;
+    bool sawRegionLayer = false;
     for (size_t layer = 1; layer < layerPaths.size(); layer++) {
         if (layerPaths[layer].empty()) continue;
-
         pipeline::BLPImage overlay;
         if (predecodedBLPCache_) {
             std::string key = layerPaths[layer];
@@ -1249,61 +1237,90 @@ VkTexture* CharacterRenderer::compositeTextures(const std::vector<std::string>& 
         }
         if (!overlay.isValid()) overlay = assetManager->loadTexture(layerPaths[layer]);
         if (!overlay.isValid()) {
-            core::Logger::getInstance().warning("Composite: FAILED to load overlay: ", layerPaths[layer]);
+            core::Logger::getInstance().warning("Composite: FAILED to load overlay: ",
+                                                layerPaths[layer]);
             continue;
         }
         applyMagentaKeyIfNeeded(overlay, layerPaths[layer]);
+        // A full-atlas layer speaks for itself and is not a region at all.
+        if (overlay.width != width || overlay.height != height) {
+            const AtlasRegion256 region = regionFor(lowerPath(layerPaths[layer]));
+            if (region.known) {
+                const int want = impliedScale(region, overlay.width);
+                if (want > largestRegionScale) largestRegionScale = want;
+                sawRegionLayer = true;
+            }
+        }
+        overlays.push_back({layerPaths[layer], std::move(overlay)});
+    }
 
-        core::Logger::getInstance().info("Composite: overlay ", layerPaths[layer],
+    // Grow to the most demanding layer.
+    //
+    // A layer that does not fit its region is not merely higher resolution. A
+    // draenei's HD faceLower is a front-facing head where the stock one is a
+    // side profile, and a tauren's is a muzzle seen head on where the stock one
+    // is the side of a head - different pictures, not larger ones, and shrinking
+    // them into a region sized for the stock art puts the wrong thing on the
+    // face. At 512x256 they are exactly their region on a 1024 atlas, which is
+    // the size their scale is asking for.
+    //
+    // The cost is the layers that do fit: a body, a pelvis and a torso authored
+    // for a 512 atlas get upscaled to sit beside them. That is softer, and
+    // softer in the right place beats sharp in the wrong one. It applies only
+    // to the four race and sex pairs that ship such a layer; every other set
+    // agrees with its body and is untouched.
+    if (sawRegionLayer && largestRegionScale > coordScale) {
+        requiredScale = largestRegionScale;
+    }
+
+    if (requiredScale > coordScale) {
+        const int newSize = 256 * requiredScale;
+        std::vector<uint8_t> grown(static_cast<size_t>(newSize) * newSize * 4);
+        const int factor = newSize / width;
+        for (int y = 0; y < newSize; y++) {
+            const int srcY = y / factor;
+            for (int x = 0; x < newSize; x++) {
+                const int srcIdx = (srcY * width + x / factor) * 4;
+                const int dstIdx = (y * newSize + x) * 4;
+                grown[dstIdx + 0] = composite[srcIdx + 0];
+                grown[dstIdx + 1] = composite[srcIdx + 1];
+                grown[dstIdx + 2] = composite[srcIdx + 2];
+                grown[dstIdx + 3] = composite[srcIdx + 3];
+            }
+        }
+        core::Logger::getInstance().info("Composite: body is ", width, "x", height,
+                                         " but its art asks for ", newSize, "x", newSize,
+                                         " - growing the atlas to keep the detail");
+        composite = std::move(grown);
+        width = height = newSize;
+        coordScale = requiredScale;
+    }
+
+    // Alpha-blend each overlay onto the composite
+    for (auto& loaded : overlays) {
+        const pipeline::BLPImage& overlay = loaded.image;
+
+        core::Logger::getInstance().info("Composite: overlay ", loaded.path,
             " (", overlay.width, "x", overlay.height, ")");
 
         if (overlay.width == width && overlay.height == height) {
             // Same size: full alpha-blend
             blitOverlay(composite, width, height, overlay, 0, 0);
         } else {
-            // Determine region by filename keywords
-            // Coordinates scale with base texture size (256x256 is reference)
-            int dstX = 0, dstY = 0;
-            int expectedW256 = 0, expectedH256 = 0; // Expected size at 256-base
-            std::string pathLower = layerPaths[layer];
-            for (auto& c : pathLower) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-
-            if (pathLower.find("faceupper") != std::string::npos) {
-                dstX = faceUpperRegion256.x; dstY = faceUpperRegion256.y;
-                expectedW256 = faceUpperRegion256.w; expectedH256 = faceUpperRegion256.h;
-            } else if (pathLower.find("facelower") != std::string::npos) {
-                dstX = faceLowerRegion256.x; dstY = faceLowerRegion256.y;
-                expectedW256 = faceLowerRegion256.w; expectedH256 = faceLowerRegion256.h;
-            } else if (pathLower.find("pelvis") != std::string::npos) {
-                dstX = 128; dstY = 96;
-                expectedW256 = 128; expectedH256 = 64;
-            } else if (pathLower.find("torso") != std::string::npos) {
-                dstX = 128; dstY = 0;
-                expectedW256 = 128; expectedH256 = 64;
-            } else if (pathLower.find("armupper") != std::string::npos) {
-                dstX = 0; dstY = 0;
-                expectedW256 = 128; expectedH256 = 64;
-            } else if (pathLower.find("armlower") != std::string::npos) {
-                dstX = 0; dstY = 64;
-                expectedW256 = 128; expectedH256 = 64;
-            } else if (pathLower.find("hand") != std::string::npos) {
-                dstX = 0; dstY = 128;
-                expectedW256 = 128; expectedH256 = 32;
-            } else if (pathLower.find("foot") != std::string::npos || pathLower.find("feet") != std::string::npos) {
-                dstX = 128; dstY = 224;
-                expectedW256 = 128; expectedH256 = 32;
-            } else if (pathLower.find("legupper") != std::string::npos || pathLower.find("leg") != std::string::npos) {
-                dstX = 128; dstY = 160;
-                expectedW256 = 128; expectedH256 = 64;
-            } else {
+            // Where this layer belongs, from the one table that also sized the
+            // canvas above.
+            const AtlasRegion256 region = regionFor(lowerPath(loaded.path));
+            if (!region.known) {
                 // Unknown -- center placement as fallback
-                dstX = (width - overlay.width) / 2;
-                dstY = (height - overlay.height) / 2;
+                const int cx = (width - overlay.width) / 2;
+                const int cy = (height - overlay.height) / 2;
                 core::Logger::getInstance().info("Composite: UNKNOWN region for '",
-                    layerPaths[layer], "', centering at (", dstX, ",", dstY, ")");
-                blitOverlay(composite, width, height, overlay, dstX, dstY);
+                    loaded.path, "', centering at (", cx, ",", cy, ")");
+                blitOverlay(composite, width, height, overlay, cx, cy);
                 continue;
             }
+            int dstX = region.x, dstY = region.y;
+            const int expectedW256 = region.w, expectedH256 = region.h;
 
             // Scale coordinates from 256-base to actual canvas
             dstX *= coordScale;
@@ -1315,8 +1332,8 @@ VkTexture* CharacterRenderer::compositeTextures(const std::vector<std::string>& 
             // grew: an overlay arriving larger than its region was pasted at its
             // own size, spilling across neighbouring regions and dragging every
             // feature on the head to the wrong scale. These assets ship at two
-            // resolutions — a 256-wide face belongs in a 128-wide slot on a
-            // 256-wide atlas — so the two can meet whenever a lookup resolves
+            // resolutions - a 256-wide face belongs in a 128-wide slot on a
+            // 256-wide atlas - so the two can meet whenever a lookup resolves
             // the body and the face from different sets.
             const int expectedW = expectedW256 * coordScale;
             const int expectedH = expectedH256 * coordScale;
@@ -1325,17 +1342,17 @@ VkTexture* CharacterRenderer::compositeTextures(const std::vector<std::string>& 
 
             if (needsResample) {
                 // Resampling here means this overlay was authored for a different
-                // atlas size than the body it is going onto — the two came from
+                // atlas size than the body it is going onto - the two came from
                 // different art sets. It will be placed correctly, but a quarter
                 // resolution face stretched over an HD head is soft and muddy
                 // next to a crisp body, and that reads as the face not fitting.
                 core::Logger::getInstance().warning(
-                    "Composite: '", layerPaths[layer], "' is ", overlay.width, "x",
+                    "Composite: '", loaded.path, "' is ", overlay.width, "x",
                     overlay.height, " but its region on this ", width, "x", height,
                     " body is ", expectedW, "x", expectedH,
-                    " — mismatched art sets; resampling to fit");
+                    " - mismatched art sets; resampling to fit");
             } else {
-                core::Logger::getInstance().info("Composite: placing '", layerPaths[layer],
+                core::Logger::getInstance().info("Composite: placing '", loaded.path,
                     "' (", overlay.width, "x", overlay.height,
                     ") at (", dstX, ",", dstY, ") on ", width, "x", height);
             }
@@ -1370,6 +1387,12 @@ VkTexture* CharacterRenderer::compositeTextures(const std::vector<std::string>& 
     e.hasAlpha = hasAlpha;
     e.colorKeyBlack = false;
     texturePropsByPtr_[texPtr] = {hasAlpha, false};
+    // No derived normal map for a composited body, and this is why: the
+    // derivation reads luminance as height, which holds for stone and bark and
+    // does not hold for skin. Every freckle, every painted shadow under a
+    // collarbone, becomes a ridge - and on a character that reads as stretch
+    // marks. Art authored as a surface gets one; art authored as a person does
+    // not.
     textureCache.emplace(cacheKey, std::move(e));
 
     core::Logger::getInstance().info("Composite texture created: ", width, "x", height, " from ", layerPaths.size(), " layers");
@@ -1457,6 +1480,20 @@ VkTexture* CharacterRenderer::compositeWithRegions(const std::string& basePath,
     std::vector<uint8_t> composite;
     int width = base.width;
     int height = base.height;
+
+    // No atlas growth on this path, and the reason is the equipment.
+    //
+    // Growing it here scales the region coordinates but not the art placed into
+    // them: the equipment layers are authored for a 512 atlas, so on a 1024 one
+    // they land at quarter size in the right corner of the right region, and a
+    // fully armoured NPC comes out naked with fragments of armour scattered
+    // over it. That is what growing this path did, and it is worse than what it
+    // was meant to fix.
+    //
+    // The face it was meant to fix is a dwarf's, and a dwarf's HD faceLower is
+    // a faithful 2x of the stock one - same parts in the same places - so
+    // resampling it down gives back the stock picture. Softer, and right.
+    // compositeTextures still grows, because it has no equipment to misplace.
 
     // If base texture is 256x256 (e.g., baked NPC texture), upscale to 512x512
     // so equipment regions can be composited at correct coordinates
@@ -1605,10 +1642,10 @@ VkTexture* CharacterRenderer::compositeWithRegions(const std::string& basePath,
         int expectedW = regionSizes256[regionIdx][0] * scaleX;
         int expectedH = regionSizes256[regionIdx][1] * scaleY;
         if (overlay.width == expectedW && overlay.height == expectedH) {
-            // Exact match — blit 1:1
+            // Exact match - blit 1:1
             blitOverlay(composite, width, height, overlay, dstX, dstY);
         } else if (overlay.width * 2 == expectedW && overlay.height * 2 == expectedH) {
-            // Overlay is half size — upscale 2x
+            // Overlay is half size - upscale 2x
             blitOverlayScaled2x(composite, width, height, overlay, dstX, dstY);
         } else if (overlay.width > expectedW && overlay.height > expectedH &&
                    expectedW > 0 && expectedH > 0) {
@@ -1623,7 +1660,7 @@ VkTexture* CharacterRenderer::compositeWithRegions(const std::string& basePath,
                 blitOverlay(composite, width, height, overlay, dstX, dstY);
             }
         } else {
-            // Size mismatch — blit at natural size (may clip or leave gap)
+            // Size mismatch - blit at natural size (may clip or leave gap)
             core::Logger::getInstance().warning("compositeWithRegions: region ", regionIdx,
                 " at (", dstX, ",", dstY, ") overlay=", overlay.width, "x", overlay.height,
                 " expected=", expectedW, "x", expectedH, " from ", rl.second);
@@ -1652,6 +1689,7 @@ VkTexture* CharacterRenderer::compositeWithRegions(const std::string& basePath,
     entry.hasAlpha = hasAlpha;
     entry.colorKeyBlack = false;
     texturePropsByPtr_[texPtr] = {hasAlpha, false};
+    // Skin again, with armour composited onto it. Same reason as above.
     auto ins = textureCache.emplace(storageKey, std::move(entry));
     if (!ins.second) {
         // Existing texture already owns this key; keep pointer stable.
@@ -1682,11 +1720,6 @@ void CharacterRenderer::setModelTexture(uint32_t modelId, uint32_t textureSlot, 
     gpuModel.textureIds[textureSlot] = texture;
     core::Logger::getInstance().debug("Replaced model ", modelId, " texture slot ", textureSlot, " with composited texture");
 }
-
-void CharacterRenderer::resetModelTexture(uint32_t modelId, uint32_t textureSlot) {
-    setModelTexture(modelId, textureSlot, whiteTexture_.get());
-}
-
 bool CharacterRenderer::loadModel(const pipeline::M2Model& model, uint32_t id) {
     if (!model.isValid()) {
         core::Logger::getInstance().error("Cannot load invalid M2 model");
@@ -1784,7 +1817,7 @@ void CharacterRenderer::setupModelBuffers(M2ModelGPU& gpuModel) {
 
     // Copy base vertex data
     size_t numBones = model.bones.size();
-    int outOfRangeCount = 0, ge128Count = 0, nonzeroWeightOOR = 0;
+    int outOfRangeCount = 0, nonzeroWeightOOR = 0;
     for (size_t i = 0; i < vertCount; i++) {
         const auto& src = model.vertices[i];
         auto& dst = gpuVerts[i];
@@ -1803,13 +1836,21 @@ void CharacterRenderer::setupModelBuffers(M2ModelGPU& gpuModel) {
                 outOfRangeCount++;
                 if (bw > 0) nonzeroWeightOOR++;
             }
-            if (bi >= 128) ge128Count++;
         }
     }
-    if (outOfRangeCount > 0 || ge128Count > 0) {
-        LOG_WARNING("VERTEX DIAG: model bones=", numBones, " verts=", vertCount,
-                    " outOfRange=", outOfRangeCount, " (nonzeroWeight=", nonzeroWeightOOR, ")",
-                    " ge128=", ge128Count);
+    // A bone index past the end of the bone list, which is a broken model or a
+    // misread one.
+    //
+    // An index at or above 128 is not that: it is what any model with more than
+    // 128 bones has, and the character models have 219. Warning on it fired on
+    // every character in the world and reported outOfRange=0 every time - a
+    // line per model saying nothing was wrong, in a log whose whole value is
+    // that what is in it is.
+    if (outOfRangeCount > 0) {
+        LOG_WARNING("Model has bone indices past its bone list: bones=", numBones,
+                    " verts=", vertCount, " outOfRange=", outOfRangeCount,
+                    " (nonzeroWeight=", nonzeroWeightOOR, ")",
+                    " - those vertices skin to nothing and collapse to the origin");
     }
 
     // Accumulate tangent/bitangent per triangle
@@ -2012,7 +2053,7 @@ void CharacterRenderer::update(float deltaTime, const glm::vec3& cameraPos) {
             }
         }
 
-        // Skip weapon instances for animation — their transforms are set by parent
+        // Skip weapon instances for animation - their transforms are set by parent
         // bones. Enchant visuals are the exception: they are pure animated FX.
         if (inst.hasOverrideModelMatrix && !inst.isEffectModel) continue;
 
@@ -2153,8 +2194,8 @@ void CharacterRenderer::update(float deltaTime, const glm::vec3& cameraPos) {
                 wa.localTransform;
 
             // Back-sheathed weapons: the swinging left arm passes through the
-            // canted blade while running. Sample the whole arm — shoulder,
-            // elbow, hand attachment points plus segment midpoints — against
+            // canted blade while running. Sample the whole arm - shoulder,
+            // elbow, hand attachment points plus segment midpoints - against
             // the weapon model's AABB and ease the blade outward, away from
             // the spine, so the arm pushes it instead of clipping. A single
             // sphere at the elbow joint missed forearm/upper-arm contact.
@@ -2224,38 +2265,6 @@ void CharacterRenderer::update(float deltaTime, const glm::vec3& cameraPos) {
         }
     }
 }
-
-void CharacterRenderer::updateAnimation(CharacterInstance& instance, float deltaTime) {
-    if (!instance.cachedModel) return;
-    const auto& model = instance.cachedModel->data;
-
-    if (model.sequences.empty()) {
-        return;
-    }
-
-    // Resolve sequence index if not set
-    if (instance.currentSequenceIndex < 0) {
-        instance.currentSequenceIndex = 0;
-        instance.currentAnimationId = model.sequences[0].id;
-    }
-
-    const auto& sequence = model.sequences[instance.currentSequenceIndex];
-
-    // Update animation time (convert to milliseconds)
-    instance.animationTime += deltaTime * 1000.0f;
-
-    if (sequence.duration > 0 && instance.animationTime >= static_cast<float>(sequence.duration)) {
-        if (instance.animationLoop) {
-            instance.animationTime = std::fmod(instance.animationTime, static_cast<float>(sequence.duration));
-        } else {
-            instance.animationTime = static_cast<float>(sequence.duration);
-        }
-    }
-
-    // Update bone matrices
-    calculateBoneMatrices(instance);
-}
-
 // --- Bone transform calculation ---
 
 constexpr int32_t kKeyBoneSpineLow = 4;
@@ -2281,7 +2290,7 @@ void CharacterRenderer::calculateBoneMatrices(CharacterInstance& instance) {
             const auto& bone = model.bones[i];
             if (bone.parentBone >= 0 && static_cast<size_t>(bone.parentBone) >= i) {
                 LOG_WARNING("Bone ", i, " references parent ", bone.parentBone,
-                            " which comes AFTER it — will use stale matrix!");
+                            " which comes AFTER it - will use stale matrix!");
             }
         }
     }
@@ -2710,10 +2719,60 @@ void CharacterRenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet,
                     // Even without a geoset filter, skip eye glow (group 17)
                     // and group 18 unless explicitly opted in. These geosets are
                     // only for DK/NE eye glow and should be off by default.
+                    //
+                    // Group 15 joins them, for the same reason and a visible
+                    // one: it is the cloak, and its variants above 1501 are
+                    // cloaks that exist. A model drawn with no filter drew one
+                    // whether or not the character wore anything - and with no
+                    // cloak texture to bind, a white sheet. An NPC that owns a
+                    // cape says so by naming the geoset; one that says nothing
+                    // has none.
                     uint16_t grp = batch.submeshId / 100;
-                    if (grp == 17 || grp == 18) continue;
+                    if (grp == 17 || grp == 18 || grp == 15) continue;
                 }
-                // M2 color-alpha animation gates prop submeshes per animation —
+                // One line per head batch, for the first few instances: which
+                // texture slot it resolved to and what type that slot is. The
+                // player and an NPC use the same model, the same art and the
+                // same pairing, and one of them draws a face - so the answer is
+                // in what each batch actually got, which nothing has yet shown.
+                // Only instances that are actually a character in the world: one
+                // with per-instance texture overrides is an NPC, and the player
+                // is the one that draws its head detail. The first run of this
+                // spent all its lines on the character-select models before a
+                // single NPC had spawned.
+                const bool worldCharacter =
+                    !instance.textureSlotOverrides.empty() || instance.drawSkinExtra;
+                if (batch.submeshId == 0 && worldCharacter && headBatchCanaryCount_ < 24) {
+                    ++headBatchCanaryCount_;
+                    uint32_t chosenType = 0;
+                    if (batch.textureIndex != 0xFFFF && !gpuModel.data.textureLookup.empty()) {
+                        uint16_t sl = gpuModel.data.textureLookup[batch.textureIndex];
+                        if (sl < gpuModel.data.textures.size())
+                            chosenType = gpuModel.data.textures[sl].type;
+                    }
+                    VkTexture* rt = resolveBatchTexture(instance, gpuModel, batch);
+                    // At debug: this canary was for heads resolving to the
+                    // white texture, and they resolve to a texture. Twenty-four
+                    // of them a session is noise in a log read for faults.
+                    core::Logger::getInstance().debug(
+                        "Head batch: instance=", pair.first, " model=", instance.modelId,
+                        " geoset=", batch.submeshId, " firstSlotType=", chosenType,
+                        " resolved=", (rt == whiteTexture_.get() ? "WHITE"
+                                       : (rt == nullptr ? "null" : "texture")),
+                        " ptr=", static_cast<const void*>(rt),
+                        " overrides=", instance.textureSlotOverrides.size(),
+                        " drawSkinExtra=", (instance.drawSkinExtra ? 1 : 0),
+                        " verts=", gpuModel.data.vertices.size());
+                }
+                // Note on the Skin Extra batch, since it has been misread twice:
+                // it is NOT a layer over the head. On an HD character model it
+                // is its own section - 703 vertices and 634 triangles of the
+                // human female's head, separate from the 403 and 877 of the
+                // sections beside it - carrying the eyes, the mouth, the ears
+                // and the eyelashes. Skipping it does not remove a detail pass,
+                // it removes a face's features. Whatever is wrong with an NPC
+                // face, it is not this batch existing.
+                // M2 color-alpha animation gates prop submeshes per animation -
                 // e.g. the peasant lumberjack carry model has two wood-bundle
                 // submeshes and only one is alpha-1 in any given animation.
                 // Opaque batches can't express alpha in the shader, so cull
@@ -2809,7 +2868,7 @@ void CharacterRenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet,
                     }
                 }
                 // A scene means what its materials say. Stormwind's walls are DXT5 with
-                // an unused alpha channel — every texel below the 0.5 cutoff — so
+                // an unused alpha channel - every texel below the 0.5 cutoff - so
                 // inferring a cutout from "the texture has alpha" discards the whole
                 // building and leaves the sky showing through it. Only an alpha-key
                 // material (blendMode 1) cuts out here.
@@ -2836,12 +2895,12 @@ void CharacterRenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet,
                 if (instance.isEffectModel) {
                     // Enchant visuals are glow cards drawn on black. Their materials
                     // declare Mod/alpha blending, which would composite that black
-                    // background as an opaque quad — force additive so only the light adds.
+                    // background as an opaque quad - force additive so only the light adds.
                     desiredPipeline = additivePipeline_;
                 } else if (additiveBlend) {
                     // Decided before the fade branch below, not after it. An
-                    // additive card fades by adding less light — matData.opacity
-                    // already scales what it contributes — so a partial alpha is
+                    // additive card fades by adding less light - matData.opacity
+                    // already scales what it contributes - so a partial alpha is
                     // not a reason to divert it to the translucent pipeline, and
                     // diverting it composites the card's black backing as black.
                     //
@@ -2864,7 +2923,7 @@ void CharacterRenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet,
                     // additiveBlend (3/4/6/7) is handled above; only the
                     // non-additive modes reach here. 4/Add is the one that used
                     // to fall through to the alpha pipeline, which composited a
-                    // glow card's black backing as an actual black quad — every
+                    // glow card's black backing as an actual black quad - every
                     // material on Wisp.m2 declares it.
                     switch (blendMode) {
                         case 0: desiredPipeline = opaquePipeline_; break;
@@ -2966,7 +3025,7 @@ void CharacterRenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet,
                 }
 
                 // WOWEE_SCENE_DIAG=1 dumps what each backdrop batch is actually told to
-                // draw — texture, blend mode, shader path — once per scene model.
+                // draw - texture, blend mode, shader path - once per scene model.
                 static int sceneDiagLines = 0;
                 if (instance.isSceneModel && sceneDiagEnabled() && sceneDiagLines++ < 40) {
                     std::string texName = "<white>";
@@ -3082,92 +3141,17 @@ bool CharacterRenderer::initializeShadow(VkRenderPass shadowRenderPass) {
         int32_t colorKeyBlack = 0;
     };
 
-    // Create ShadowCharParams UBO
-    VkBufferCreateInfo bufCI{VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
-    bufCI.size = sizeof(ShadowCharParams);
-    bufCI.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
-    VmaAllocationCreateInfo allocCI{};
-    allocCI.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
-    allocCI.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
-    VmaAllocationInfo allocInfo{};
-    if (vmaCreateBuffer(vkCtx_->getAllocator(), &bufCI, &allocCI,
-            &shadowParamsUBO_, &shadowParamsAlloc_, &allocInfo) != VK_SUCCESS) {
-        LOG_ERROR("CharacterRenderer: failed to create shadow params UBO");
-        return false;
-    }
-    ShadowCharParams defaultParams{};
-    std::memcpy(allocInfo.pMappedData, &defaultParams, sizeof(defaultParams));
-
-    // Descriptor set layout for set 1: binding 0 = sampler2D, binding 1 = ShadowCharParams UBO
-    VkDescriptorSetLayoutBinding layoutBindings[2]{};
-    layoutBindings[0].binding = 0;
-    layoutBindings[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    layoutBindings[0].descriptorCount = 1;
-    layoutBindings[0].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-    layoutBindings[1].binding = 1;
-    layoutBindings[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    layoutBindings[1].descriptorCount = 1;
-    layoutBindings[1].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-    VkDescriptorSetLayoutCreateInfo layoutCI{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
-    layoutCI.bindingCount = 2;
-    layoutCI.pBindings = layoutBindings;
-    if (vkCreateDescriptorSetLayout(device, &layoutCI, nullptr, &shadowParamsLayout_) != VK_SUCCESS) {
-        LOG_ERROR("CharacterRenderer: failed to create shadow params layout");
+    // The same set the other three shadow passes bind - a sampler and a small
+    // uniform buffer - with this pass's own params behind binding 1.
+    if (!createShadowParamsSet(device, vkCtx_->getAllocator(), sizeof(ShadowCharParams),
+                               whiteTexture_->getImageView(), whiteTexture_->getSampler(),
+                               "CharacterRenderer", shadowParams_)) {
         return false;
     }
 
-    // Descriptor pool (1 set)
-    VkDescriptorPoolSize poolSizes[2]{};
-    poolSizes[0].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    poolSizes[0].descriptorCount = 1;
-    poolSizes[1].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    poolSizes[1].descriptorCount = 1;
-    VkDescriptorPoolCreateInfo poolCI{VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
-    poolCI.maxSets = 1;
-    poolCI.poolSizeCount = 2;
-    poolCI.pPoolSizes = poolSizes;
-    if (vkCreateDescriptorPool(device, &poolCI, nullptr, &shadowParamsPool_) != VK_SUCCESS) {
-        LOG_ERROR("CharacterRenderer: failed to create shadow params pool");
-        return false;
-    }
-
-    // Allocate descriptor set
-    VkDescriptorSetAllocateInfo setAlloc{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
-    setAlloc.descriptorPool = shadowParamsPool_;
-    setAlloc.descriptorSetCount = 1;
-    setAlloc.pSetLayouts = &shadowParamsLayout_;
-    if (vkAllocateDescriptorSets(device, &setAlloc, &shadowParamsSet_) != VK_SUCCESS) {
-        LOG_ERROR("CharacterRenderer: failed to allocate shadow params set");
-        return false;
-    }
-
-    // Write descriptors (white dummy texture + ShadowCharParams UBO)
-    VkDescriptorImageInfo imgInfo{};
-    imgInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    imgInfo.imageView = whiteTexture_->getImageView();
-    imgInfo.sampler = whiteTexture_->getSampler();
-    VkDescriptorBufferInfo bufInfo{};
-    bufInfo.buffer = shadowParamsUBO_;
-    bufInfo.offset = 0;
-    bufInfo.range = sizeof(ShadowCharParams);
-    VkWriteDescriptorSet writes[2]{};
-    writes[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    writes[0].dstSet = shadowParamsSet_;
-    writes[0].dstBinding = 0;
-    writes[0].descriptorCount = 1;
-    writes[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    writes[0].pImageInfo = &imgInfo;
-    writes[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    writes[1].dstSet = shadowParamsSet_;
-    writes[1].dstBinding = 1;
-    writes[1].descriptorCount = 1;
-    writes[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    writes[1].pBufferInfo = &bufInfo;
-    vkUpdateDescriptorSets(device, 2, writes, 0, nullptr);
-
-    // Pipeline layout: set 0 = perFrameLayout_ (dummy), set 1 = shadowParamsLayout_, set 2 = boneSetLayout_
+    // Pipeline layout: set 0 = perFrameLayout_ (dummy), set 1 = shadowParams_.layout, set 2 = boneSetLayout_
     // Push constant: 128 bytes (lightSpaceMatrix + model), VERTEX stage
-    VkDescriptorSetLayout setLayouts[] = {perFrameLayout_, shadowParamsLayout_, boneSetLayout_};
+    VkDescriptorSetLayout setLayouts[] = {perFrameLayout_, shadowParams_.layout, boneSetLayout_};
     VkPushConstantRange pc{};
     pc.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
     pc.offset = 0;
@@ -3210,19 +3194,11 @@ bool CharacterRenderer::initializeShadow(VkRenderPass shadowRenderPass) {
         {3, 0, VK_FORMAT_R32G32_SFLOAT,    static_cast<uint32_t>(offsetof(CharVertexGPU, texCoords))},
     };
 
-    shadowPipeline_ = PipelineBuilder()
-        .setShaders(vertShader.stageInfo(VK_SHADER_STAGE_VERTEX_BIT),
-                    fragShader.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT))
-        .setVertexInput({vertBind}, vertAttrs)
-        .setTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
-        .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
-        .setDepthTest(true, true, VK_COMPARE_OP_LESS_OR_EQUAL)
-        .setDepthBias(0.05f, 0.20f)
-        .setNoColorAttachment()
-        .setLayout(shadowPipelineLayout_)
-        .setRenderPass(shadowRenderPass)
-        .setDynamicStates({VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR})
-        .build(device, vkCtx_->getPipelineCache());
+    shadowPipeline_ = buildShadowPipeline(
+        device, vkCtx_->getPipelineCache(),
+        vertShader.stageInfo(VK_SHADER_STAGE_VERTEX_BIT),
+        fragShader.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT),
+        vertBind, vertAttrs, shadowPipelineLayout_, shadowRenderPass);
 
     vertShader.destroy();
     fragShader.destroy();
@@ -3237,7 +3213,7 @@ bool CharacterRenderer::initializeShadow(VkRenderPass shadowRenderPass) {
 
 void CharacterRenderer::renderShadow(VkCommandBuffer cmd, const glm::mat4& lightSpaceMatrix,
                                      const glm::vec3& shadowCenter, float shadowRadius) {
-    if (!shadowPipeline_ || !shadowParamsSet_) return;
+    if (!shadowPipeline_ || !shadowParams_.set) return;
     if (instances.empty() || models.empty()) return;
     if (boneDescPool_ == VK_NULL_HANDLE || boneSetLayout_ == VK_NULL_HANDLE) return;
 
@@ -3248,7 +3224,7 @@ void CharacterRenderer::renderShadow(VkCommandBuffer cmd, const glm::mat4& light
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, shadowPipeline_);
     // Bind shadow params set at set 1
     vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, shadowPipelineLayout_,
-        1, 1, &shadowParamsSet_, 0, nullptr);
+        1, 1, &shadowParams_.set, 0, nullptr);
 
     const float shadowRadiusSq = shadowRadius * shadowRadius;
     for (auto& pair : instances) {
@@ -3524,6 +3500,13 @@ void CharacterRenderer::setActiveGeosets(uint32_t instanceId, const std::unorder
     }
 }
 
+void CharacterRenderer::setDrawSkinExtra(uint32_t instanceId, bool enabled) {
+    auto it = instances.find(instanceId);
+    if (it != instances.end()) {
+        it->second.drawSkinExtra = enabled;
+    }
+}
+
 void CharacterRenderer::setGroupTextureOverride(uint32_t instanceId, uint16_t geosetGroup, VkTexture* texture) {
     auto it = instances.find(instanceId);
     if (it != instances.end()) {
@@ -3586,7 +3569,7 @@ void CharacterRenderer::removeInstance(uint32_t instanceId) {
         for (const auto& fx : wa.effects) unloadModelIfUnused(fx.effectModelId);
     }
 
-    // Defer bone buffer destruction — in-flight command buffers may still
+    // Defer bone buffer destruction - in-flight command buffers may still
     // reference these descriptor sets.
     destroyInstanceBones(it->second, /*defer=*/true);
 
@@ -4049,11 +4032,11 @@ void CharacterRenderer::recreatePipelines() {
     VkDevice device = vkCtx_->getDevice();
 
     // Destroy old main-pass pipelines (NOT shadow, NOT pipeline layout)
-    if (opaquePipeline_)    { vkDestroyPipeline(device, opaquePipeline_, nullptr); opaquePipeline_ = VK_NULL_HANDLE; }
-    if (alphaTestPipeline_) { vkDestroyPipeline(device, alphaTestPipeline_, nullptr); alphaTestPipeline_ = VK_NULL_HANDLE; }
-    if (alphaPipeline_)     { vkDestroyPipeline(device, alphaPipeline_, nullptr); alphaPipeline_ = VK_NULL_HANDLE; }
-    if (additivePipeline_)  { vkDestroyPipeline(device, additivePipeline_, nullptr); additivePipeline_ = VK_NULL_HANDLE; }
-    if (translucentPipeline_) { vkDestroyPipeline(device, translucentPipeline_, nullptr); translucentPipeline_ = VK_NULL_HANDLE; }
+    destroy(device, opaquePipeline_);
+    destroy(device, alphaTestPipeline_);
+    destroy(device, alphaPipeline_);
+    destroy(device, additivePipeline_);
+    destroy(device, translucentPipeline_);
 
     // --- Load shaders ---
     rendering::VkShaderModule charVert, charFrag;
@@ -4066,51 +4049,11 @@ void CharacterRenderer::recreatePipelines() {
     VkRenderPass mainPass = renderPassOverride_ ? renderPassOverride_ : vkCtx_->getImGuiRenderPass();
     VkSampleCountFlagBits samples = renderPassOverride_ ? msaaSamplesOverride_ : vkCtx_->getMsaaSamples();
 
-    // --- Vertex input ---
-    VkVertexInputBindingDescription charBinding{};
-    charBinding.binding = 0;
-    charBinding.stride = sizeof(CharVertexGPU);
-    charBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-    std::vector<VkVertexInputAttributeDescription> charAttrs = {
-        {0, 0, VK_FORMAT_R32G32B32_SFLOAT, static_cast<uint32_t>(offsetof(CharVertexGPU, position))},
-        {1, 0, VK_FORMAT_R8G8B8A8_UNORM,   static_cast<uint32_t>(offsetof(CharVertexGPU, boneWeights))},
-        {2, 0, VK_FORMAT_R8G8B8A8_UINT,     static_cast<uint32_t>(offsetof(CharVertexGPU, boneIndices))},
-        {3, 0, VK_FORMAT_R32G32B32_SFLOAT,  static_cast<uint32_t>(offsetof(CharVertexGPU, normal))},
-        {4, 0, VK_FORMAT_R32G32_SFLOAT,     static_cast<uint32_t>(offsetof(CharVertexGPU, texCoords))},
-        {5, 0, VK_FORMAT_R32G32B32A32_SFLOAT, static_cast<uint32_t>(offsetof(CharVertexGPU, tangent))},
-    };
-
-    auto buildCharPipeline = [&](VkPipelineColorBlendAttachmentState blendState,
-                                  bool depthWrite, bool alphaToCoverage = false) -> VkPipeline {
-        auto builder = PipelineBuilder()
-            .setShaders(charVert.stageInfo(VK_SHADER_STAGE_VERTEX_BIT),
-                        charFrag.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT))
-            .setVertexInput({charBinding}, charAttrs)
-            .setTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
-            .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
-            .setDepthTest(true, depthWrite, VK_COMPARE_OP_LESS)
-            .setDepthBias(0.0f, 0.0f)
-            .setColorBlendAttachment(blendState)
-            .setMultisample(samples);
-        if (alphaToCoverage)
-            builder.setAlphaToCoverage(true);
-        return builder
-            .setLayout(pipelineLayout_)
-            .setRenderPass(mainPass)
-            .setDynamicStates({VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR, VK_DYNAMIC_STATE_DEPTH_BIAS})
-            .build(device, vkCtx_->getPipelineCache());
-    };
-
     LOG_INFO("CharacterRenderer::recreatePipelines: renderPass=", (void*)mainPass,
              " samples=", static_cast<int>(samples),
              " pipelineLayout=", (void*)pipelineLayout_);
 
-    opaquePipeline_ = buildCharPipeline(PipelineBuilder::blendDisabled(), true);
-    alphaTestPipeline_ = buildCharPipeline(PipelineBuilder::blendDisabled(), true, true);
-    alphaPipeline_ = buildCharPipeline(PipelineBuilder::blendAlpha(), false);
-    additivePipeline_ = buildCharPipeline(PipelineBuilder::blendAdditive(), false);
-    translucentPipeline_ = buildCharPipeline(PipelineBuilder::blendAlpha(), true);
+    buildMainPassPipelines(device, mainPass, samples, charVert, charFrag);
 
     charVert.destroy();
     charFrag.destroy();

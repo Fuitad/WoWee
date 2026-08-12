@@ -1,4 +1,5 @@
 #include "pipeline/wowee_combat_maneuvers.hpp"
+#include "pipeline/wowee_binary_io.hpp"
 
 #include <cstdio>
 #include <cstring>
@@ -11,52 +12,7 @@ namespace {
 
 constexpr char kMagic[4] = {'W', 'C', 'M', 'G'};
 constexpr uint32_t kVersion = 1;
-
-template <typename T>
-void writePOD(std::ofstream& os, const T& v) {
-    os.write(reinterpret_cast<const char*>(&v), sizeof(T));
-}
-
-template <typename T>
-bool readPOD(std::ifstream& is, T& v) {
-    is.read(reinterpret_cast<char*>(&v), sizeof(T));
-    return is.gcount() == static_cast<std::streamsize>(sizeof(T));
-}
-
-void writeStr(std::ofstream& os, const std::string& s) {
-    uint32_t n = static_cast<uint32_t>(s.size());
-    writePOD(os, n);
-    if (n > 0) os.write(s.data(), n);
-}
-
-bool readStr(std::ifstream& is, std::string& s) {
-    uint32_t n = 0;
-    if (!readPOD(is, n)) return false;
-    if (n > (1u << 20)) return false;
-    s.resize(n);
-    if (n > 0) {
-        is.read(s.data(), n);
-        if (is.gcount() != static_cast<std::streamsize>(n)) {
-            s.clear();
-            return false;
-        }
-    }
-    return true;
-}
-
-std::string normalizePath(std::string base) {
-    if (base.size() < 5 || base.substr(base.size() - 5) != ".wcmg") {
-        base += ".wcmg";
-    }
-    return base;
-}
-
-uint32_t packRgba(uint8_t r, uint8_t g, uint8_t b, uint8_t a = 0xFF) {
-    return (static_cast<uint32_t>(a) << 24) |
-           (static_cast<uint32_t>(b) << 16) |
-           (static_cast<uint32_t>(g) << 8)  |
-            static_cast<uint32_t>(r);
-}
+constexpr char kExtension[] = ".wcmg";
 
 } // namespace
 
@@ -86,15 +42,9 @@ WoweeCombatManeuvers::findGroupForSpell(uint32_t spellId) const {
 }
 
 bool WoweeCombatManeuversLoader::save(const WoweeCombatManeuvers& cat,
-                                       const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath), std::ios::binary);
-    if (!os) return false;
-    os.write(kMagic, 4);
-    writePOD(os, kVersion);
-    writeStr(os, cat.name);
-    uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writePOD(os, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeCombatManeuvers::Entry& e) {
         writePOD(os, e.groupId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -107,60 +57,34 @@ bool WoweeCombatManeuversLoader::save(const WoweeCombatManeuvers& cat,
         uint32_t memberCount = static_cast<uint32_t>(e.members.size());
         writePOD(os, memberCount);
         for (uint32_t m : e.members) writePOD(os, m);
-    }
-    return os.good();
+                       });
 }
 
 WoweeCombatManeuvers WoweeCombatManeuversLoader::load(
     const std::string& basePath) {
-    WoweeCombatManeuvers out;
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    if (!is) return out;
-    char magic[4];
-    is.read(magic, 4);
-    if (std::memcmp(magic, kMagic, 4) != 0) return out;
-    uint32_t version = 0;
-    if (!readPOD(is, version) || version != kVersion) return out;
-    if (!readStr(is, out.name)) return out;
-    uint32_t entryCount = 0;
-    if (!readPOD(is, entryCount)) return out;
-    if (entryCount > (1u << 20)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.groupId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name) || !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
+    return loadCatalog<WoweeCombatManeuvers>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeCombatManeuvers::Entry& e) {
+        if (!readPOD(is, e.groupId)) { return false; }
+        if (!readStr(is, e.name) || !readStr(is, e.description)) { return false; }
         if (!readPOD(is, e.classMask) ||
             !readPOD(is, e.categoryKind) ||
             !readPOD(is, e.exclusive) ||
             !readPOD(is, e.pad0) ||
             !readPOD(is, e.pad1) ||
-            !readPOD(is, e.iconColorRGBA)) {
-            out.entries.clear(); return out;
-        }
+            !readPOD(is, e.iconColorRGBA)) { return false; }
         uint32_t memberCount = 0;
-        if (!readPOD(is, memberCount)) {
-            out.entries.clear(); return out;
-        }
-        if (memberCount > (1u << 16)) {
-            out.entries.clear(); return out;
-        }
+        if (!readPOD(is, memberCount)) { return false; }
+        if (memberCount > (1u << 16)) { return false; }
         e.members.resize(memberCount);
         for (uint32_t k = 0; k < memberCount; ++k) {
-            if (!readPOD(is, e.members[k])) {
-                out.entries.clear(); return out;
-            }
+            if (!readPOD(is, e.members[k])) { return false; }
         }
-    }
-    return out;
+                                  return true;
+                              });
 }
 
 bool WoweeCombatManeuversLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeCombatManeuvers WoweeCombatManeuversLoader::makeWarrior(
@@ -172,7 +96,7 @@ WoweeCombatManeuvers WoweeCombatManeuversLoader::makeWarrior(
     e.groupId = 1;
     e.name = "WarriorStances";
     e.description =
-        "Warrior combat stances — only one stance active "
+        "Warrior combat stances - only one stance active "
         "at a time. Battle Stance is the leveling default; "
         "Defensive is tank-focused; Berserker enables "
         "high-damage abilities at the cost of armor.";
@@ -217,7 +141,7 @@ WoweeCombatManeuvers WoweeCombatManeuversLoader::makeDruid(
             33891,   // Tree of Life
             24858,   // Moonkin Form
         },
-        "Druid ground shapeshift forms — only one active "
+        "Druid ground shapeshift forms - only one active "
         "at a time. Switching to a new form cancels the "
         "previous and breaks invisible/stealth in many "
         "cases.");
@@ -227,7 +151,7 @@ WoweeCombatManeuvers WoweeCombatManeuversLoader::makeDruid(
             33943,   // Flight Form
             40120,   // Swift Flight Form
         },
-        "Druid flight forms — separate mutex bucket from "
+        "Druid flight forms - separate mutex bucket from "
         "ground shapeshift forms. Only available in flying "
         "zones (Outland, Northrend, post-Cata old world).");
     return c;
@@ -267,7 +191,7 @@ WoweeCombatManeuvers WoweeCombatManeuversLoader::makeAllMutex(
             20043,    // Aspect of the Wild
         },
         packRgba(170, 210, 100),
-        "Hunter aspect mutex — 7 aspects, only one active "
+        "Hunter aspect mutex - 7 aspects, only one active "
         "at a time. Dragonhawk added in WotLK; Beast and "
         "Wild present since Vanilla.");
     add(202, "DKPresences", 32, C::Presence,

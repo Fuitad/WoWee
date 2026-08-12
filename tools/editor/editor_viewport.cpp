@@ -35,7 +35,7 @@ bool EditorViewport::initialize(rendering::VkContext* ctx, pipeline::AssetManage
 
     m2Renderer_ = std::make_unique<rendering::M2Renderer>();
     if (!m2Renderer_->initialize(ctx, perFrameSetLayout_, am)) {
-        LOG_WARNING("M2 renderer init failed — object rendering disabled");
+        LOG_WARNING("M2 renderer init failed - object rendering disabled");
         m2Renderer_.reset();
     } else {
         m2Renderer_->setForceNoCull(true);
@@ -43,7 +43,7 @@ bool EditorViewport::initialize(rendering::VkContext* ctx, pipeline::AssetManage
 
     wmoRenderer_ = std::make_unique<rendering::WMORenderer>();
     if (!wmoRenderer_->initialize(ctx, perFrameSetLayout_, am)) {
-        LOG_WARNING("WMO renderer init failed — building rendering disabled");
+        LOG_WARNING("WMO renderer init failed - building rendering disabled");
         wmoRenderer_.reset();
     }
 
@@ -132,7 +132,7 @@ void EditorViewport::rebuildObjects(const std::vector<PlacedObject>& objects,
     clearObjects();
     if (objects.empty() && npcs.empty()) return;
 
-    // Don't call beginUploadBatch here — loadModel starts its own batch.
+    // Don't call beginUploadBatch here - loadModel starts its own batch.
     // Use the persistent model-id maps so models stay cached across rebuilds.
     auto& m2ModelIds = persistentM2ModelIds_;
     auto& wmoModelIds = persistentWMOModelIds_;
@@ -168,10 +168,7 @@ void EditorViewport::rebuildObjects(const std::vector<PlacedObject>& objects,
                     model = pipeline::M2Loader::load(data);
                     // Always load skin (WotLK M2s need it for geometry)
                     {
-                        std::string skinPath = obj.path;
-                        auto dotPos = skinPath.rfind('.');
-                        if (dotPos != std::string::npos)
-                            skinPath = skinPath.substr(0, dotPos) + "00.skin";
+                        std::string skinPath = pipeline::skinPathForM2(obj.path);
                         auto skinData = assetManager_->readFile(skinPath);
                         if (!skinData.empty())
                             pipeline::M2Loader::loadSkin(skinData, model);
@@ -306,10 +303,7 @@ void EditorViewport::rebuildObjects(const std::vector<PlacedObject>& objects,
                     }
                     model = pipeline::M2Loader::load(data);
                     {
-                        std::string skinPath = npc.modelPath;
-                        auto dotPos = skinPath.rfind('.');
-                        if (dotPos != std::string::npos)
-                            skinPath = skinPath.substr(0, dotPos) + "00.skin";
+                        std::string skinPath = pipeline::skinPathForM2(npc.modelPath);
                         auto skinData = assetManager_->readFile(skinPath);
                         if (!skinData.empty())
                             pipeline::M2Loader::loadSkin(skinData, model);
@@ -439,7 +433,7 @@ void EditorViewport::setPathPreview(const glm::vec3& start, const glm::vec3& end
     glm::vec2 delta(end.x - start.x, end.y - start.y);
     float dlen = glm::length(delta);
     // start == end would produce NaN dir/perp from glm::normalize and then
-    // NaN positions in the path ribbon — Vulkan would either drop the draw
+    // NaN positions in the path ribbon - Vulkan would either drop the draw
     // or crash on validation. Hide the preview instead.
     if (dlen < 1e-4f) { pathVisible_ = false; return; }
     glm::vec2 dir = delta / dlen;
@@ -587,7 +581,7 @@ void EditorViewport::updateNpcMarkers(const std::vector<CreatureSpawn>& npcs) {
     struct MV { float pos[3]; float color[4]; };
     std::vector<MV> verts;
     for (const auto& npc : npcs) {
-        // Skip NPCs with non-finite position — would produce NaN vertices
+        // Skip NPCs with non-finite position - would produce NaN vertices
         // in the marker mesh (Vulkan validation drops the whole batch).
         if (!std::isfinite(npc.position.x) || !std::isfinite(npc.position.y) ||
             !std::isfinite(npc.position.z)) continue;
@@ -658,7 +652,7 @@ void EditorViewport::update(float deltaTime) {
 void EditorViewport::setGhostPreview(const std::string& path, const glm::vec3& pos,
                                       const glm::vec3& rotDeg, float scale) {
     if (!m2Renderer_) return;
-    // Reject NaN inputs — would propagate into the M2 renderer transform
+    // Reject NaN inputs - would propagate into the M2 renderer transform
     // and either crash on the GPU or silently render at the origin.
     if (!std::isfinite(pos.x) || !std::isfinite(pos.y) || !std::isfinite(pos.z) ||
         !std::isfinite(rotDeg.x) || !std::isfinite(rotDeg.y) || !std::isfinite(rotDeg.z) ||
@@ -674,10 +668,7 @@ void EditorViewport::setGhostPreview(const std::string& path, const glm::vec3& p
         if (data.empty()) { LOG_WARNING("Ghost: file not found: ", path); return; }
         auto model = pipeline::M2Loader::load(data);
         if (!model.isValid()) {
-            std::string skinPath = path;
-            auto dotPos = skinPath.rfind('.');
-            if (dotPos != std::string::npos)
-                skinPath = skinPath.substr(0, dotPos) + "00.skin";
+            std::string skinPath = pipeline::skinPathForM2(path);
             auto skinData = assetManager_->readFile(skinPath);
             if (!skinData.empty())
                 pipeline::M2Loader::loadSkin(skinData, model);
@@ -720,7 +711,7 @@ void EditorViewport::clearGhostPreview() {
         ghostInstanceId_ = 0;
     }
     if (ghostModelId_ != 0 && m2Renderer_) {
-        // Ghost ID is reserved for previews only — safe to unload so a path
+        // Ghost ID is reserved for previews only - safe to unload so a path
         // change can re-load with the new model under the same ID.
         m2Renderer_->unloadModel(ghostModelId_);
         ghostModelId_ = 0;
@@ -747,7 +738,7 @@ void EditorViewport::render(VkCommandBuffer cmd) {
 
     waterRenderer_.render(cmd, perFrameSet);
 
-    // NPC position markers — render AFTER gizmo (no depth test = always on top)
+    // NPC position markers - render AFTER gizmo (no depth test = always on top)
 
     // Brush indicator circle
     if (brushVisible_ && brushVB_ && brushVertCount_ > 0) {
@@ -800,7 +791,7 @@ void EditorViewport::render(VkCommandBuffer cmd) {
 
     gizmo_.render(cmd, perFrameSet);
 
-    // NPC markers — render with water pipeline (pos+color, alpha blend)
+    // NPC markers - render with water pipeline (pos+color, alpha blend)
     if (showNpcMarkers_ && npcMarkerVB_ && npcMarkerVertCount_ > 0) {
         auto* waterPipeline = waterRenderer_.getPipeline();
         auto* waterLayout = waterRenderer_.getPipelineLayout();

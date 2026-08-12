@@ -89,7 +89,7 @@ if [ ! -f "$BINARY" ]; then
     if [ ! -d "$BUILD_DIR" ]; then
         CMAKE_EXTRA_ARGS=()
         # On macOS, Homebrew installs to a non-default prefix that CMake
-        # can't find automatically — pass it explicitly.
+        # can't find automatically - pass it explicitly.
         if command -v brew &>/dev/null; then
             BREW="$(brew --prefix)"
             CMAKE_EXTRA_ARGS+=(

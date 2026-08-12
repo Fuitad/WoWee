@@ -194,7 +194,7 @@ int handleValidateOrInfoGlb(int& i, int argc, char** argv) {
         std::printf("  PASSED\n");
         return 0;
     }
-    std::printf("  FAILED — %d error(s):\n", errorCount);
+    std::printf("  FAILED - %d error(s):\n", errorCount);
     for (const auto& e : errors) std::printf("    - %s\n", e.c_str());
     return isValidate ? 1 : 0;
 }
@@ -320,7 +320,7 @@ int handleInfoGlbTree(int& i, int /*argc*/, char** argv) {
                         cont(lastM), branch(lastP), p, modeName, idxAcc);
         }
     }
-    // Nodes (flat list — could be tree but glTF nodes are a graph)
+    // Nodes (flat list - could be tree but glTF nodes are a graph)
     int nNode = (gj.contains("nodes") && gj["nodes"].is_array())
                  ? static_cast<int>(gj["nodes"].size()) : 0;
     std::printf("├─ nodes (%d)\n", nNode);
@@ -530,7 +530,7 @@ int handleInfoGlbBytes(int& i, int argc, char** argv) {
 int handleCheckGlbBounds(int& i, int argc, char** argv) {
     // Cross-checks every position accessor's claimed min/max
     // against the actual data in the BIN chunk. glTF viewers use
-    // these for camera framing and frustum culling — stale
+    // these for camera framing and frustum culling - stale
     // values (e.g. from a tool that edited geometry without
     // recomputing) cause models to vanish at certain angles or
     // get framed wrong on load.
@@ -581,7 +581,7 @@ int handleCheckGlbBounds(int& i, int argc, char** argv) {
     std::vector<std::string> errors;
     int posAccessors = 0, mismatched = 0;
     // Walk all primitives, collect their POSITION accessor index,
-    // dedupe (multiple primitives can share an accessor — only
+    // dedupe (multiple primitives can share an accessor - only
     // recompute once per unique).
     std::set<int> posAccIndices;
     if (gj.contains("meshes") && gj["meshes"].is_array()) {
@@ -683,7 +683,7 @@ int handleCheckGlbBounds(int& i, int argc, char** argv) {
         std::printf("  PASSED\n");
         return 0;
     }
-    std::printf("  FAILED — %zu error(s):\n", errors.size());
+    std::printf("  FAILED - %zu error(s):\n", errors.size());
     for (const auto& e : errors) std::printf("    - %s\n", e.c_str());
     return 1;
 }

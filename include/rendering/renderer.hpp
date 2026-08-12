@@ -104,19 +104,7 @@ public:
      */
     void setWireframeMode(bool enabled);
 
-    /**
-     * Load terrain tiles around position
-     * @param mapName Map name (e.g., "Azeroth", "Kalimdor")
-     * @param centerX Center tile X coordinate
-     * @param centerY Center tile Y coordinate
-     * @param radius Load radius in tiles
-     */
-    bool loadTerrainArea(const std::string& mapName, int centerX, int centerY, int radius = 1);
 
-    /**
-     * Enable/disable terrain streaming
-     */
-    void setTerrainStreaming(bool enabled);
 
     /**
      * Render performance HUD
@@ -146,6 +134,9 @@ public:
     SkySystem* getSkySystem() const { return skySystem.get(); }
     const std::string& getCurrentZoneName() const;
     uint32_t getCurrentZoneId() const;
+    /// The area under the player, asked of AreaTable rather than resolved to a
+    /// zone first - the world PvP flag is on the subzone. See ZoneManager.
+    bool isOnOutdoorPvpObjective() const;
     bool isPlayerIndoors() const { return playerIndoors_; }
     VkContext* getVkContext() const { return vkCtx; }
     VkDescriptorSetLayout getPerFrameSetLayout() const { return perFrameSetLayout; }
@@ -158,7 +149,7 @@ public:
     float getCharacterYaw() const { return characterYaw; }
     void setCharacterYaw(float yawDeg) { characterYaw = yawDeg; }
 
-    // Screenshot capture — copies swapchain image to PNG file
+    // Screenshot capture - copies swapchain image to PNG file
     bool captureScreenshot(const std::string& outputPath);
 
     // Spell visual effects (SMSG_PLAY_SPELL_VISUAL / SMSG_PLAY_SPELL_IMPACT)
@@ -185,7 +176,7 @@ public:
     double getLastTerrainRenderMs() const { return lastTerrainRenderMs; }
     double getLastWMORenderMs() const { return lastWMORenderMs; }
     double getLastM2RenderMs() const { return lastM2RenderMs; }
-    // Audio coordinator — owned by Application, set via setAudioCoordinator().
+    // Audio coordinator - owned by Application, set via setAudioCoordinator().
     void setAudioCoordinator(audio::AudioCoordinator* ac) { audioCoordinator_ = ac; }
     audio::AudioCoordinator* getAudioCoordinator() { return audioCoordinator_; }
     game::ZoneManager* getZoneManager() { return zoneManager.get(); }
@@ -263,7 +254,6 @@ private:
     bool shadowsEnabled = true;
     float shadowDistance_ = 300.0f;  // Shadow frustum half-extent (default: 300 units)
     float viewDistance_ = 1200.0f;
-    uint32_t shadowFrameCounter_ = 0;
 
 
 public:
@@ -281,13 +271,12 @@ public:
     int getTerrainUnloadRadius() const { return getTerrainLoadRadius() + 3; }
     void setMsaaSamples(VkSampleCountFlagBits samples);
 
-    // Post-process pipeline API — delegates to PostProcessPipeline (§4.3)
+    // Post-process pipeline API - delegates to PostProcessPipeline (§4.3)
     PostProcessPipeline* getPostProcessPipeline() const;
     void setFSREnabled(bool enabled);
     void setFSR2Enabled(bool enabled);
 
     void setWaterRefractionEnabled(bool enabled);
-    bool isWaterRefractionEnabled() const;
 
 private:
     void applyMsaaChange();
@@ -300,10 +289,10 @@ private:
     std::vector<pipeline::CustomZoneInfo> customZones_;
     pipeline::AssetManager* cachedAssetManager = nullptr;
 
-    // Spell visual effects — owned SpellVisualSystem (extracted from Renderer §4.4)
+    // Spell visual effects - owned SpellVisualSystem (extracted from Renderer §4.4)
     std::unique_ptr<SpellVisualSystem> spellVisualSystem_;
 
-    // Post-process pipeline — owns all FSR/FXAA/FSR2 state (extracted §4.3)
+    // Post-process pipeline - owns all FSR/FXAA/FSR2 state (extracted §4.3)
     std::unique_ptr<PostProcessPipeline> postProcessPipeline_;
 
     bool playerIndoors_ = false;  // Cached WMO inside state for macro conditionals
@@ -392,11 +381,11 @@ private:
 
     bool ghostMode_ = false;  // set each frame from gameHandler->isPlayerGhost()
 
-    // Render Graph — declarative pass ordering with automatic barriers
+    // Render Graph - declarative pass ordering with automatic barriers
     std::unique_ptr<RenderGraph> renderGraph_;
     void buildFrameGraph(game::GameHandler* gameHandler);
 
-    // HiZ occlusion culling — builds depth pyramid each frame
+    // HiZ occlusion culling - builds depth pyramid each frame
     std::unique_ptr<HiZSystem> hizSystem_;
 
     // CPU timing stats (last frame/update).

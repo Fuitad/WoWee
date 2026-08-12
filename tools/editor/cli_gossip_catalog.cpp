@@ -1,4 +1,6 @@
 #include "cli_gossip_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -18,11 +20,6 @@ namespace cli {
 
 namespace {
 
-std::string stripWgspExt(std::string base) {
-    stripExt(base, ".wgsp");
-    return base;
-}
-
 void appendOptFlagsStr(std::string& s, uint32_t flags) {
     if (flags & wowee::pipeline::WoweeGossip::AllianceOnly) s += "alliance ";
     if (flags & wowee::pipeline::WoweeGossip::HordeOnly)    s += "horde ";
@@ -33,15 +30,6 @@ void appendOptFlagsStr(std::string& s, uint32_t flags) {
     else if (s.back() == ' ') s.pop_back();
 }
 
-bool saveOrError(const wowee::pipeline::WoweeGossip& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeGossipLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wgsp\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 uint32_t totalOptions(const wowee::pipeline::WoweeGossip& c) {
     uint32_t n = 0;
@@ -61,9 +49,9 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterGossip";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWgspExt(base);
+    base = cli::withoutExt(base, ".wgsp");
     auto c = wowee::pipeline::WoweeGossipLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-gossip")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeGossipLoader>(c, base, "gen-gossip", ".wgsp")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -72,9 +60,9 @@ int handleGenInnkeeper(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "InnkeeperGossip";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWgspExt(base);
+    base = cli::withoutExt(base, ".wgsp");
     auto c = wowee::pipeline::WoweeGossipLoader::makeInnkeeper(name);
-    if (!saveOrError(c, base, "gen-gossip-innkeeper")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeGossipLoader>(c, base, "gen-gossip-innkeeper", ".wgsp")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -83,9 +71,9 @@ int handleGenQuestGiver(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "QuestGiverGossip";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWgspExt(base);
+    base = cli::withoutExt(base, ".wgsp");
     auto c = wowee::pipeline::WoweeGossipLoader::makeQuestGiver(name);
-    if (!saveOrError(c, base, "gen-gossip-questgiver")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeGossipLoader>(c, base, "gen-gossip-questgiver", ".wgsp")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -93,10 +81,9 @@ int handleGenQuestGiver(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWgspExt(base);
+    base = cli::withoutExt(base, ".wgsp");
     if (!wowee::pipeline::WoweeGossipLoader::exists(base)) {
-        std::fprintf(stderr, "WGSP not found: %s.wgsp\n", base.c_str());
-        return 1;
+        return reportMissing("WGSP", base, ".wgsp");
     }
     auto c = wowee::pipeline::WoweeGossipLoader::load(base);
     if (jsonOut) {
@@ -161,77 +148,49 @@ int handleExportJson(int& i, int argc, char** argv) {
     // open format. Each menu emits scalar fields plus the
     // options array; option.kind and requiredFlags emit dual
     // int + name forms.
-    std::string base = argv[++i];
-    std::string outPath;
-    if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWgspExt(base);
-    if (outPath.empty()) outPath = base + ".wgsp.json";
-    if (!wowee::pipeline::WoweeGossipLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wgsp-json: WGSP not found: %s.wgsp\n", base.c_str());
-        return 1;
-    }
-    auto c = wowee::pipeline::WoweeGossipLoader::load(base);
-    nlohmann::json j;
-    j["name"] = c.name;
-    nlohmann::json arr = nlohmann::json::array();
-    for (const auto& e : c.entries) {
-        nlohmann::json je;
-        je["menuId"] = e.menuId;
-        je["titleText"] = e.titleText;
-        nlohmann::json opts = nlohmann::json::array();
-        for (const auto& o : e.options) {
-            nlohmann::json jo;
-            jo["optionId"] = o.optionId;
-            jo["text"] = o.text;
-            jo["kind"] = o.kind;
-            jo["kindName"] = wowee::pipeline::WoweeGossip::optionKindName(o.kind);
-            jo["actionTarget"] = o.actionTarget;
-            jo["requiredFlags"] = o.requiredFlags;
-            nlohmann::json fa = nlohmann::json::array();
-            if (o.requiredFlags & wowee::pipeline::WoweeGossip::AllianceOnly) fa.push_back("alliance");
-            if (o.requiredFlags & wowee::pipeline::WoweeGossip::HordeOnly)    fa.push_back("horde");
-            if (o.requiredFlags & wowee::pipeline::WoweeGossip::Coinpouch)    fa.push_back("coin");
-            if (o.requiredFlags & wowee::pipeline::WoweeGossip::QuestGated)   fa.push_back("quest-gated");
-            if (o.requiredFlags & wowee::pipeline::WoweeGossip::Closes)       fa.push_back("closes");
-            jo["requiredFlagsList"] = fa;
-            jo["moneyCostCopper"] = o.moneyCostCopper;
-            opts.push_back(jo);
+    return cli::exportCatalogJson<wowee::pipeline::WoweeGossipLoader>(
+        i, argc, argv, "wgsp", "WGSP", "menus  ",
+        [](const auto& c) {
+        nlohmann::json j;
+        j["name"] = c.name;
+        nlohmann::json arr = nlohmann::json::array();
+        for (const auto& e : c.entries) {
+            nlohmann::json je;
+            je["menuId"] = e.menuId;
+            je["titleText"] = e.titleText;
+            nlohmann::json opts = nlohmann::json::array();
+            for (const auto& o : e.options) {
+                nlohmann::json jo;
+                jo["optionId"] = o.optionId;
+                jo["text"] = o.text;
+                jo["kind"] = o.kind;
+                jo["kindName"] = wowee::pipeline::WoweeGossip::optionKindName(o.kind);
+                jo["actionTarget"] = o.actionTarget;
+                jo["requiredFlags"] = o.requiredFlags;
+                nlohmann::json fa = nlohmann::json::array();
+                if (o.requiredFlags & wowee::pipeline::WoweeGossip::AllianceOnly) fa.push_back("alliance");
+                if (o.requiredFlags & wowee::pipeline::WoweeGossip::HordeOnly)    fa.push_back("horde");
+                if (o.requiredFlags & wowee::pipeline::WoweeGossip::Coinpouch)    fa.push_back("coin");
+                if (o.requiredFlags & wowee::pipeline::WoweeGossip::QuestGated)   fa.push_back("quest-gated");
+                if (o.requiredFlags & wowee::pipeline::WoweeGossip::Closes)       fa.push_back("closes");
+                jo["requiredFlagsList"] = fa;
+                jo["moneyCostCopper"] = o.moneyCostCopper;
+                opts.push_back(jo);
+            }
+            je["options"] = opts;
+            arr.push_back(je);
         }
-        je["options"] = opts;
-        arr.push_back(je);
-    }
-    j["entries"] = arr;
-    std::ofstream out(outPath);
-    if (!out) {
-        std::fprintf(stderr,
-            "export-wgsp-json: cannot write %s\n", outPath.c_str());
-        return 1;
-    }
-    out << j.dump(2) << "\n";
-    out.close();
-    std::printf("Wrote %s\n", outPath.c_str());
-    std::printf("  source : %s.wgsp\n", base.c_str());
-    std::printf("  menus  : %zu\n", c.entries.size());
-    return 0;
+        j["entries"] = arr;
+            return j;
+        });
 }
 
 int handleImportJson(int& i, int argc, char** argv) {
     std::string jsonPath = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = jsonPath;
-        std::string suffix = ".wgsp.json";
-        if (outBase.size() > suffix.size() &&
-            outBase.substr(outBase.size() - suffix.size()) == suffix) {
-            outBase = outBase.substr(0, outBase.size() - suffix.size());
-        } else if (outBase.size() > 5 &&
-                   outBase.substr(outBase.size() - 5) == ".json") {
-            outBase = outBase.substr(0, outBase.size() - 5);
-        }
-    }
-    outBase = stripWgspExt(outBase);
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(jsonPath, ".wgsp");
+    outBase = cli::withoutExt(outBase, ".wgsp");
     std::ifstream in(jsonPath);
     if (!in) {
         std::fprintf(stderr,
@@ -319,11 +278,9 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWgspExt(base);
+    base = cli::withoutExt(base, ".wgsp");
     if (!wowee::pipeline::WoweeGossipLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wgsp: WGSP not found: %s.wgsp\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wgsp", "WGSP", base, ".wgsp");
     }
     auto c = wowee::pipeline::WoweeGossipLoader::load(base);
     std::vector<std::string> errors;
@@ -331,7 +288,7 @@ int handleValidate(int& i, int argc, char** argv) {
     if (c.entries.empty()) {
         warnings.push_back("catalog has zero entries");
     }
-    std::vector<uint32_t> idsSeen;
+    cli::DuplicateIdCheck idsSeen;
     idsSeen.reserve(c.entries.size());
     // Build the set of menuIds present so we can verify
     // intra-format Submenu cross-references resolve.
@@ -377,7 +334,7 @@ int handleValidate(int& i, int argc, char** argv) {
                         " does not exist in this catalog");
                 }
             }
-            // Coinpouch flag without moneyCost is misleading — the
+            // Coinpouch flag without moneyCost is misleading - the
             // coin icon would show with no actual fee.
             if ((o.requiredFlags & wowee::pipeline::WoweeGossip::Coinpouch) &&
                 o.moneyCostCopper == 0) {
@@ -390,41 +347,10 @@ int handleValidate(int& i, int argc, char** argv) {
                     ": AllianceOnly and HordeOnly both set (incoherent)");
             }
         }
-        for (uint32_t prev : idsSeen) {
-            if (prev == e.menuId) {
-                errors.push_back(ctx + ": duplicate menuId");
-                break;
-            }
-        }
-        idsSeen.push_back(e.menuId);
+        if (!idsSeen.add(e.menuId)) errors.push_back(ctx + ": duplicate menuId");
     }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wgsp"] = base + ".wgsp";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wgsp: %s.wgsp\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu menus (%u options), all menuIds unique\n",
-                    c.entries.size(), totalOptions(c));
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+    return cli::reportValidation("wgsp", base, jsonOut, errors, warnings,
+                                 formatted("%zu menus (%u options), all menuIds unique", c.entries.size(), totalOptions(c)));
 }
 
 } // namespace

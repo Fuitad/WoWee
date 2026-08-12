@@ -11,7 +11,7 @@
 namespace wowee {
 namespace rendering {
 
-// Push constant struct — must match skybox.frag.glsl layout
+// Push constant struct - must match skybox.frag.glsl layout
 struct SkyPushConstants {
     glm::vec4 zenithColor;    // DBC skyTopColor
     glm::vec4 midColor;       // DBC skyMiddleColor
@@ -35,20 +35,10 @@ bool Skybox::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout) {
     VkDevice device = vkCtx->getDevice();
 
     // Load SPIR-V shaders
-    VkShaderModule vertModule;
-    if (!vertModule.loadFromFile(device, "assets/shaders/skybox.vert.spv")) {
-        LOG_ERROR("Failed to load skybox vertex shader");
-        return false;
-    }
-
-    VkShaderModule fragModule;
-    if (!fragModule.loadFromFile(device, "assets/shaders/skybox.frag.spv")) {
-        LOG_ERROR("Failed to load skybox fragment shader");
-        return false;
-    }
-
-    VkPipelineShaderStageCreateInfo vertStage = vertModule.stageInfo(VK_SHADER_STAGE_VERTEX_BIT);
-    VkPipelineShaderStageCreateInfo fragStage = fragModule.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT);
+    auto shaders = loadShaderPair(device, "assets/shaders/skybox.vert.spv", "assets/shaders/skybox.frag.spv", "skybox");
+    if (!shaders) return false;
+    const auto& vertStage = shaders.vertStage;
+    const auto& fragStage = shaders.fragStage;
 
     // Push constant range: 5 x vec4 = 80 bytes
     VkPushConstantRange pushRange{};
@@ -63,12 +53,9 @@ bool Skybox::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout) {
         return false;
     }
 
-    // Fullscreen triangle — no vertex buffer, no vertex input.
+    // Fullscreen triangle - no vertex buffer, no vertex input.
     // Dynamic viewport and scissor
-    std::vector<VkDynamicState> dynamicStates = {
-        VK_DYNAMIC_STATE_VIEWPORT,
-        VK_DYNAMIC_STATE_SCISSOR
-    };
+    std::vector<VkDynamicState> dynamicStates = viewportAndScissorDynamic();
 
     pipeline = PipelineBuilder()
         .setShaders(vertStage, fragStage)
@@ -84,8 +71,6 @@ bool Skybox::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout) {
         .build(device, vkCtx->getPipelineCache());
 
     // Shader modules can be freed after pipeline creation
-    vertModule.destroy();
-    fragModule.destroy();
 
     if (pipeline == VK_NULL_HANDLE) {
         LOG_ERROR("Failed to create skybox pipeline");
@@ -100,27 +85,14 @@ void Skybox::recreatePipelines() {
     if (!vkCtx) return;
     VkDevice device = vkCtx->getDevice();
 
-    if (pipeline != VK_NULL_HANDLE) { vkDestroyPipeline(device, pipeline, nullptr); pipeline = VK_NULL_HANDLE; }
+    destroy(device, pipeline);
 
-    VkShaderModule vertModule;
-    if (!vertModule.loadFromFile(device, "assets/shaders/skybox.vert.spv")) {
-        LOG_ERROR("Skybox::recreatePipelines: failed to load vertex shader");
-        return;
-    }
-    VkShaderModule fragModule;
-    if (!fragModule.loadFromFile(device, "assets/shaders/skybox.frag.spv")) {
-        LOG_ERROR("Skybox::recreatePipelines: failed to load fragment shader");
-        vertModule.destroy();
-        return;
-    }
+    auto shaders = loadShaderPair(device, "assets/shaders/skybox.vert.spv", "assets/shaders/skybox.frag.spv", "skybox");
+    if (!shaders) return;
+    const auto& vertStage = shaders.vertStage;
+    const auto& fragStage = shaders.fragStage;
 
-    VkPipelineShaderStageCreateInfo vertStage = vertModule.stageInfo(VK_SHADER_STAGE_VERTEX_BIT);
-    VkPipelineShaderStageCreateInfo fragStage = fragModule.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT);
-
-    std::vector<VkDynamicState> dynamicStates = {
-        VK_DYNAMIC_STATE_VIEWPORT,
-        VK_DYNAMIC_STATE_SCISSOR
-    };
+    std::vector<VkDynamicState> dynamicStates = viewportAndScissorDynamic();
 
     pipeline = PipelineBuilder()
         .setShaders(vertStage, fragStage)
@@ -135,8 +107,6 @@ void Skybox::recreatePipelines() {
         .setDynamicStates(dynamicStates)
         .build(device, vkCtx->getPipelineCache());
 
-    vertModule.destroy();
-    fragModule.destroy();
 
     if (pipeline == VK_NULL_HANDLE) {
         LOG_ERROR("Skybox::recreatePipelines: failed to create pipeline");
@@ -146,14 +116,8 @@ void Skybox::recreatePipelines() {
 void Skybox::shutdown() {
     if (vkCtx) {
         VkDevice device = vkCtx->getDevice();
-        if (pipeline != VK_NULL_HANDLE) {
-            vkDestroyPipeline(device, pipeline, nullptr);
-            pipeline = VK_NULL_HANDLE;
-        }
-        if (pipelineLayout != VK_NULL_HANDLE) {
-            vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
-            pipelineLayout = VK_NULL_HANDLE;
-        }
+        destroy(device, pipeline);
+        destroy(device, pipelineLayout);
     }
 
     vkCtx = nullptr;
@@ -177,7 +141,7 @@ void Skybox::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const SkyP
     // Bind pipeline
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 
-    // Bind per-frame descriptor set (set 0 — camera UBO)
+    // Bind per-frame descriptor set (set 0 - camera UBO)
     vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout,
         0, 1, &perFrameSet, 0, nullptr);
 
@@ -186,7 +150,7 @@ void Skybox::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const SkyP
         VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
         0, sizeof(push), &push);
 
-    // Draw fullscreen triangle — no vertex buffer needed
+    // Draw fullscreen triangle - no vertex buffer needed
     vkCmdDraw(cmd, 3, 1, 0, 0);
 }
 

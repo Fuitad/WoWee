@@ -1,6 +1,6 @@
 #pragma once
 /**
- * handler_types.hpp — Shared struct definitions used by GameHandler and domain handlers.
+ * handler_types.hpp - Shared struct definitions used by GameHandler and domain handlers.
  *
  * These types were previously duplicated across GameHandler, SpellHandler, SocialHandler,
  * ChatHandler, QuestHandler, and InventoryHandler.  Now they live here at namespace scope,
@@ -12,6 +12,7 @@
 #include <chrono>
 #include <cstdint>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace wowee {
@@ -41,10 +42,10 @@ struct TalentTabEntry {
 // ---- Spell / cast state ----
 
 // Spell targeting classification for animation selection.
-// Derived from the spell packet's targetGuid field — NOT the player's UI target.
-//   DIRECTED — spell targets a specific unit (Frostbolt, Heal, Shadow Bolt)
-//   OMNI     — self-cast / no explicit target (Arcane Explosion, buffs)
-//   AREA     — ground-targeted AoE (Blizzard, Rain of Fire, Flamestrike)
+// Derived from the spell packet's targetGuid field - NOT the player's UI target.
+//   DIRECTED - spell targets a specific unit (Frostbolt, Heal, Shadow Bolt)
+//   OMNI     - self-cast / no explicit target (Arcane Explosion, buffs)
+//   AREA     - ground-targeted AoE (Blizzard, Rain of Fire, Flamestrike)
 enum class SpellCastType : uint8_t {
     DIRECTED = 0,  // Has a specific unit target
     OMNI     = 1,  // Self / no target
@@ -96,6 +97,46 @@ struct InspectResult {
     std::array<uint32_t, 19> itemEntries{};
     std::array<uint16_t, 19> enchantIds{};
     std::vector<InspectArenaTeam> arenaTeams;
+    /// The inspected player's own talents, as talent id -> rank, for their
+    /// active spec. The inspect talent tab draws from these; without them it
+    /// fell back to the viewer's own tree and attributed it to the target.
+    std::unordered_map<uint32_t, uint8_t> talentRanks;
+    uint8_t classId = 0;
+
+    /// The honour tab, which arrives separately: MSG_INSPECT_HONOR_STATS is
+    /// asked for by the tab when it opens and answered with its own packet.
+    /// `hasHonorData` is what tells "not asked yet" from "asked and all zero",
+    /// which is the difference between requesting again and drawing zeros.
+    bool     hasHonorData = false;
+    uint32_t honorTodayKills = 0;
+    uint32_t honorYesterdayKills = 0;
+    uint32_t honorTodayContribution = 0;
+    uint32_t honorYesterdayContribution = 0;
+    uint32_t honorLifetimeKills = 0;
+    uint8_t  honorRank = 0;
+};
+
+/// An event argument that should arrive in Lua as nil rather than as text.
+///
+/// Every argument crosses this boundary as a string, and Lua has exactly two
+/// false values - nil and false. Neither can be spelled as a string: "0" is a
+/// number and true, "" is a string and true. So an event with a *false*
+/// argument in front of a true one had no way to be fired correctly at all.
+///
+/// A start-of-heading byte, because it cannot appear in a name, a guid or any
+/// game text that also crosses here.
+inline constexpr const char* kEventNil = "\x01";
+
+/// A boolean event argument: present when true, nil when false.
+inline const char* eventBool(bool value) { return value ? "1" : kEventNil; }
+
+/// One member of a chat channel, as SMSG_CHANNEL_LIST describes them.
+struct ChannelMember {
+    uint64_t guid = 0;
+    std::string name;
+    bool owner = false;
+    bool moderator = false;
+    bool muted = false;
 };
 
 // ---- Who ----
@@ -120,7 +161,7 @@ struct BgQueueSlot {
     uint32_t avgWaitTimeSec = 0;
     uint32_t timeInQueueSec = 0;
     // The level range comes with the status, so a queued battleground can say
-    // what it is without the available-battleground list having arrived — that
+    // what it is without the available-battleground list having arrived - that
     // list only turns up at a battlemaster, and the interface asks for the range
     // every time it draws the queue.
     uint32_t minLevel = 0;
@@ -160,7 +201,7 @@ struct BgPlayerScore {
     /// and saying so is better than answering zero as though it meant Horde.
     bool        hasTeam         = false;
     /// The objective values, in the order the battleground writes them. The
-    /// names are not on the wire — this used to read one before each value and
+    /// names are not on the wire - this used to read one before each value and
     /// took every value after the first from the wrong offset.
     std::vector<std::pair<std::string, uint32_t>> bgStats;
 };
@@ -186,6 +227,35 @@ struct BgPlayerPosition {
     int      group = 0;
 };
 
+// ---- Guild event log (MSG_GUILD_EVENT_LOG_QUERY) ----
+//
+// Layout verified against AzerothCore's GuildEventLogQueryResults::Write
+// (GuildPackets.cpp:146) rather than guessed: uint8 count, then per entry a
+// type byte, the acting player's guid, a second guid only when the type is
+// neither join nor leave, a rank byte only for promote and demote, and a date
+// that is seconds *ago* rather than absolute.
+struct GuildEventLogEntry {
+    uint8_t  type = 0;
+    uint64_t playerGuid = 0;
+    uint64_t otherGuid = 0;      // 0 when the type carries none
+    uint8_t  newRank = 0;        // only meaningful for promote/demote
+    uint32_t secondsAgo = 0;
+};
+
+/// One line of a guild bank tab's log, or of the money tab's.
+///
+/// Types are AzerothCore's GuildBankEventLogTypes: 1 deposit item, 2 withdraw
+/// item, 3 move item, 4 deposit money, 5 withdraw money, 6 repair, 7 move item
+/// between tabs, 9 buy a tab. Which fields carry anything depends on which.
+struct GuildBankLogEntry {
+    uint8_t  type = 0;
+    uint64_t playerGuid = 0;
+    uint32_t itemId = 0;      ///< item types only
+    uint32_t count = 0;       ///< stack size for items, copper for money
+    uint8_t  otherTab = 0;    ///< a move's destination
+    uint32_t secondsAgo = 0;
+};
+
 // ---- Guild petition ----
 
 struct PetitionSignature {
@@ -198,9 +268,23 @@ struct PetitionInfo {
     uint64_t ownerGuid = 0;
     std::string guildName;
     uint32_t signatureCount = 0;
+    /// How many signatures the charter needs. Only SMSG_PETITION_QUERY_RESPONSE
+    /// says, so this is the fallback until that reply lands - nine is retail's
+    /// guild figure, and AzerothCore's is a config the reply carries.
     uint32_t signaturesRequired = 9;
+    /// Guild or arena, from the query reply. The signature frame writes a
+    /// different heading and a different confirmation for each, and calling
+    /// every charter a guild charter mislabels all three arena ones.
+    bool isArena = false;
     std::vector<PetitionSignature> signatures;
     bool showUI = false;
+};
+
+/// One dungeon of an LFG role check: its id, and the type packed into the top
+/// byte of the entry SMSG_LFG_ROLE_CHECK_UPDATE sends.
+struct LfgRoleCheckDungeon {
+    uint32_t dungeonId = 0;
+    uint8_t typeId = 0;
 };
 
 // ---- Ready check ----
@@ -234,6 +318,100 @@ struct GossipPoi {
 };
 
 // ---- Instance lockouts ----
+
+/// What a random dungeon pays out the first time it is run each day.
+struct LfgRewardItem {
+    uint32_t itemId = 0;
+    uint32_t displayInfoId = 0;
+    uint32_t count = 0;
+};
+struct LfgReward {
+    uint32_t dungeonId = 0;
+    bool done = false;          // already claimed today
+    uint32_t money = 0;
+    uint32_t experience = 0;
+    std::vector<LfgRewardItem> items;
+};
+
+/// One row of the dungeon-ready dialog: who the proposal is offering, and
+/// whether they have answered it yet.
+///
+/// The server sends no names or levels here - only what each player is for and
+/// what they have said - so those stay empty rather than being invented.
+struct LfgProposalMember {
+    uint32_t role = 0;      // LFG role mask, same bits SetLFGRoles sends
+    bool isSelf = false;
+    bool inDungeon = false;
+    bool sameGroup = false;
+    bool answered = false;
+    bool accepted = false;
+};
+
+/// A mount or a critter the player knows, as the character sheet's pet tab
+/// lists them. Both are spells; what separates them is what the spell does.
+struct Companion {
+    uint32_t spellId = 0;
+    uint32_t creatureId = 0;   // EffectMiscValue - the creature summoned or ridden
+    std::string name;
+    bool isMount = false;
+};
+
+/// One row of LFGDungeons.dbc, as the dungeon finder needs it.
+///
+/// Field indices were read off the file rather than assumed: 195 records of 49
+/// fields, checked against values that can be recognised - Wailing Caverns on
+/// map 43, Ragefire Chasm faction 0 where everything else is -1, Karazhan in
+/// the Burning Crusade raid group. The layout table only ever named ID and
+/// Name, which is why the picker had nothing to list.
+/// What a finished dungeon-finder run paid out, from SMSG_LFG_PLAYER_REWARD.
+///
+/// Kept because the alert frame reads it back rather than being handed it:
+/// LFG_COMPLETION_REWARD carries no arguments, and
+/// DungeonCompletionAlertFrame_ShowAlert then asks GetLFGCompletionReward for
+/// all nine values and GetLFGCompletionRewardItem for each item.
+struct LfgCompletionReward {
+    struct Item {
+        uint32_t itemId = 0;
+        uint32_t displayId = 0;
+        uint32_t count = 0;
+    };
+    uint32_t randomDungeonId = 0;  ///< the "Random ..." entry that was queued for
+    uint32_t dungeonId = 0;        ///< the dungeon actually finished
+    bool done = false;
+    uint32_t money = 0;            ///< copper
+    uint32_t xp = 0;
+    std::vector<Item> items;
+    bool valid = false;
+};
+
+struct LfgDungeon {
+    uint32_t id = 0;
+    std::string name;
+    uint32_t minLevel = 0;
+    uint32_t maxLevel = 0;
+    uint32_t recLevel = 0;      // target level
+    uint32_t minRecLevel = 0;
+    uint32_t maxRecLevel = 0;
+    uint32_t mapId = 0;
+    uint32_t difficulty = 0;
+    uint32_t typeId = 0;        // 1 dungeon, 2 raid, 4 zone, 5 heroic, 6 random
+    int32_t  faction = -1;      // -1 both, 0 Horde, 1 Alliance
+    std::string texture;
+    uint32_t expansion = 0;
+    uint32_t orderIndex = 0;
+    uint32_t groupId = 0;       // 0 means it belongs under no header
+    std::string description;    // the blurb the random/holiday panel prints
+    bool isHoliday = false;     // group 11, the four seasonal bosses
+};
+
+/// What LFGDungeons.dbc calls each kind of row.
+enum class LfgTypeId : uint32_t {
+    Dungeon = 1,
+    Raid    = 2,
+    Zone    = 4,
+    Heroic  = 5,
+    Random  = 6,
+};
 
 struct InstanceLockout {
     uint32_t mapId       = 0;
@@ -274,6 +452,11 @@ struct ArenaTeamMember {
     uint64_t    guid            = 0;
     std::string name;
     bool        online          = false;
+    /// The three the roster carries between the name and the record. They were
+    /// on the wire all along and read as part of the games played.
+    bool        isCaptain       = false;
+    uint8_t     level           = 0;
+    uint8_t     classId         = 0;
     uint32_t    weekGames       = 0;
     uint32_t    weekWins        = 0;
     uint32_t    seasonGames     = 0;

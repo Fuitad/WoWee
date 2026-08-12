@@ -1,4 +1,4 @@
-// poi_marker_layer.cpp — Town/dungeon/capital POI icons on the world map.
+// poi_marker_layer.cpp - Town/dungeon/capital POI icons on the world map.
 // Extracted from WorldMap::renderPOIMarkers (Phase 8 of refactoring plan).
 #include "rendering/world_map/layers/poi_marker_layer.hpp"
 #include "rendering/world_map/coordinate_projection.hpp"
@@ -11,19 +11,8 @@ namespace world_map {
 
 void POIMarkerLayer::render(const LayerContext& ctx) {
     if (!markers_ || markers_->empty()) return;
-    if (ctx.currentZoneIdx < 0) return;
-    if (ctx.viewLevel != ViewLevel::ZONE && ctx.viewLevel != ViewLevel::CONTINENT) return;
-    if (!ctx.zones) return;
-
-    const auto& zone = (*ctx.zones)[ctx.currentZoneIdx];
-    ZoneBounds bounds = zone.bounds;
-    bool isContinent = zone.areaID == 0;
-    if (isContinent) {
-        float l, r, t, b;
-        if (getContinentProjectionBounds(*ctx.zones, ctx.currentZoneIdx, l, r, t, b)) {
-            bounds = {l, r, t, b};
-        }
-    }
+    const auto projection = currentProjection(ctx);
+    if (!projection) return;
 
     ImVec2 mp = ImGui::GetMousePos();
     ImFont* font = ImGui::GetFont();
@@ -33,7 +22,7 @@ void POIMarkerLayer::render(const LayerContext& ctx) {
 
         glm::vec3 rPos = core::coords::canonicalToRender(
             glm::vec3(poi.wowX, poi.wowY, poi.wowZ));
-        glm::vec2 uv = renderPosToMapUV(rPos, bounds, isContinent);
+        glm::vec2 uv = renderPosToMapUV(rPos, projection->bounds, projection->isContinent);
         if (uv.x < 0.0f || uv.x > 1.0f || uv.y < 0.0f || uv.y > 1.0f) continue;
 
         float px = ctx.imgMin.x + uv.x * ctx.displayW;

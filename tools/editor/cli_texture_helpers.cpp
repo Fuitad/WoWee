@@ -22,7 +22,7 @@ namespace {
 int handleGenTexture(int& i, int argc, char** argv) {
     // Synthesize a placeholder PNG texture. Lets users add a
     // working texture to their project without an external
-    // image editor — useful for prototyping new meshes,
+    // image editor - useful for prototyping new meshes,
     // filling out a zone before art is final, or generating
     // test fixtures.
     //
@@ -134,7 +134,7 @@ int handleGenTexture(int& i, int argc, char** argv) {
 int handleAddTextureToZone(int& i, int argc, char** argv) {
     // Import an existing PNG into a zone directory. Useful
     // for the "I have an artist-painted texture, get it into
-    // my project" workflow — complements --gen-texture
+    // my project" workflow - complements --gen-texture
     // (procedural placeholder) and --convert-blp-png (legacy
     // BLP migration).
     //
@@ -187,7 +187,7 @@ int handleAddTextureToZone(int& i, int argc, char** argv) {
     std::string destPath = zoneDir + "/" + destLeaf;
     std::error_code ec;
     if (fs::exists(destPath)) {
-        // Allow re-running if the bytes already match — makes
+        // Allow re-running if the bytes already match - makes
         // makefile-driven workflows idempotent.
         if (fs::file_size(srcPng, ec) == fs::file_size(destPath, ec)) {
             std::ifstream a(srcPng, std::ios::binary);

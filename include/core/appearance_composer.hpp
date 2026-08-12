@@ -1,5 +1,6 @@
 #pragma once
 
+#include "core/geoset_rules.hpp"
 #include "game/character.hpp"
 #include <string>
 #include <vector>
@@ -16,26 +17,16 @@ namespace core {
 
 class EntitySpawner;
 
-// Default (bare) geoset IDs per equipment group.
-// Each group's base is groupNumber * 100; variant 01 is typically bare/default.
-constexpr uint16_t kGeosetDefaultConnector = 101;   // Group  1: default hair connector
-constexpr uint16_t kGeosetBareForearms     = 401;   // Group  4: no gloves
-constexpr uint16_t kGeosetBareShins        = 501;   // Group  5: no boots
-constexpr uint16_t kGeosetDefaultEars      = 702;   // Group  7: ears
-constexpr uint16_t kGeosetBareSleeves      = 801;   // Group  8: no chest armor sleeves
-constexpr uint16_t kGeosetDefaultKneepads  = 902;   // Group  9: kneepads
-constexpr uint16_t kGeosetDefaultTabard    = 1201;  // Group 12: tabard base
-constexpr uint16_t kGeosetBarePants        = 1301;  // Group 13: no leggings
-constexpr uint16_t kGeosetNoCape           = 1501;  // Group 15: no cape
-constexpr uint16_t kGeosetWithCape         = 1502;  // Group 15: with cape
-constexpr uint16_t kGeosetBareFeet         = 2002;  // Group 20: bare feet
-
 /// Resolved texture paths from CharSections.dbc for player character compositing.
 struct PlayerTextureInfo {
     std::string bodySkinPath;
     std::string faceLowerPath;
     std::string faceUpperPath;
     std::string hairTexturePath;
+    /// CharSections' second texture on the skin row - the "Extra" art an HD
+    /// character model asks for as texture type 8. Empty on the stock models,
+    /// which have no type-8 texture and never look for one.
+    std::string skinExtraPath;
     std::vector<std::string> underwearPaths;
 };
 
@@ -46,7 +37,6 @@ public:
     AppearanceComposer(rendering::Renderer* renderer,
                        pipeline::AssetManager* assetManager,
                        game::GameHandler* gameHandler,
-                       pipeline::DBCLayout* dbcLayout,
                        EntitySpawner* entitySpawner);
 
     // Player model path resolution
@@ -105,7 +95,6 @@ private:
     rendering::Renderer* renderer_;
     pipeline::AssetManager* assetManager_;
     game::GameHandler* gameHandler_;
-    pipeline::DBCLayout* dbcLayout_;
     EntitySpawner* entitySpawner_;
 
     // Saved at spawn for skin re-compositing on equipment changes

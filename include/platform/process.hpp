@@ -70,7 +70,7 @@ inline ProcessHandle spawnProcess(const std::vector<std::string>& args) {
     cmdBuf.push_back('\0');
 
     BOOL ok = CreateProcessA(
-        nullptr,          // lpApplicationName — resolve from PATH
+        nullptr,          // lpApplicationName - resolve from PATH
         cmdBuf.data(),    // lpCommandLine
         nullptr, nullptr, // process/thread security
         FALSE,            // inherit handles

@@ -1,4 +1,6 @@
 #include "cli_tabards_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -18,11 +20,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWtbdExt(std::string base) {
-    stripExt(base, ".wtbd");
-    return base;
-}
 
 const char* backgroundPatternName(uint8_t p) {
     using T = wowee::pipeline::WoweeTabards;
@@ -47,15 +44,6 @@ const char* borderPatternName(uint8_t p) {
     }
 }
 
-bool saveOrError(const wowee::pipeline::WoweeTabards& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeTabardsLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wtbd\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeTabards& c,
                      const std::string& base) {
@@ -68,9 +56,9 @@ int handleGenAlliance(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "AllianceClassicTabards";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWtbdExt(base);
+    base = cli::withoutExt(base, ".wtbd");
     auto c = wowee::pipeline::WoweeTabardsLoader::makeAllianceClassic(name);
-    if (!saveOrError(c, base, "gen-tbd")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeTabardsLoader>(c, base, "gen-tbd", ".wtbd")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -79,9 +67,9 @@ int handleGenHorde(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "HordeClassicTabards";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWtbdExt(base);
+    base = cli::withoutExt(base, ".wtbd");
     auto c = wowee::pipeline::WoweeTabardsLoader::makeHordeClassic(name);
-    if (!saveOrError(c, base, "gen-tbd-horde")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeTabardsLoader>(c, base, "gen-tbd-horde", ".wtbd")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -90,9 +78,9 @@ int handleGenFaction(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "FactionVendorTabards";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWtbdExt(base);
+    base = cli::withoutExt(base, ".wtbd");
     auto c = wowee::pipeline::WoweeTabardsLoader::makeFactionVendor(name);
-    if (!saveOrError(c, base, "gen-tbd-faction")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeTabardsLoader>(c, base, "gen-tbd-faction", ".wtbd")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -100,10 +88,9 @@ int handleGenFaction(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWtbdExt(base);
+    base = cli::withoutExt(base, ".wtbd");
     if (!wowee::pipeline::WoweeTabardsLoader::exists(base)) {
-        std::fprintf(stderr, "WTBD not found: %s.wtbd\n", base.c_str());
-        return 1;
+        return reportMissing("WTBD", base, ".wtbd");
     }
     auto c = wowee::pipeline::WoweeTabardsLoader::load(base);
     if (jsonOut) {
@@ -215,13 +202,10 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWtbdExt(base);
+    base = cli::withoutExt(base, ".wtbd");
     if (out.empty()) out = base + ".wtbd.json";
     if (!wowee::pipeline::WoweeTabardsLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wtbd-json: WTBD not found: %s.wtbd\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wtbd-json", "WTBD", base, ".wtbd");
     }
     auto c = wowee::pipeline::WoweeTabardsLoader::load(base);
     nlohmann::json j;
@@ -268,16 +252,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wtbd.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wtbd");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wtbd");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,
@@ -349,12 +324,9 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWtbdExt(base);
+    base = cli::withoutExt(base, ".wtbd");
     if (!wowee::pipeline::WoweeTabardsLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wtbd: WTBD not found: %s.wtbd\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wtbd", "WTBD", base, ".wtbd");
     }
     auto c = wowee::pipeline::WoweeTabardsLoader::load(base);
     std::vector<std::string> errors;
@@ -386,7 +358,7 @@ int handleValidate(int& i, int argc, char** argv) {
         if (e.emblemId > 1023) {
             warnings.push_back(ctx + ": emblemId " +
                 std::to_string(e.emblemId) +
-                " > 1023 — beyond the canonical glyph "
+                " > 1023 - beyond the canonical glyph "
                 "range; verify the renderer supports it");
         }
         // All three colors should have non-zero alpha
@@ -396,7 +368,7 @@ int handleValidate(int& i, int argc, char** argv) {
             uint8_t a = (color >> 24) & 0xFF;
             if (a == 0) {
                 warnings.push_back(ctx + ": " + what +
-                    " has alpha=0 — this layer would "
+                    " has alpha=0 - this layer would "
                     "render fully transparent");
             }
         };
@@ -417,41 +389,16 @@ int handleValidate(int& i, int argc, char** argv) {
             warnings.push_back(ctx +
                 ": emblemColor is visually similar to "
                 "backgroundColor (squared RGB distance < "
-                "1500) — emblem may not be readable; "
+                "1500) - emblem may not be readable; "
                 "consider a contrasting color");
         }
         if (!idsSeen.insert(e.tabardId).second) {
             errors.push_back(ctx + ": duplicate tabardId");
         }
     }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wtbd"] = base + ".wtbd";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wtbd: %s.wtbd\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu tabards, all tabardIds "
-                    "unique, contrasting colors\n",
-                    c.entries.size());
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+    return cli::reportValidation("wtbd", base, jsonOut, errors, warnings,
+                                 formatted("%zu tabards, all tabardIds "
+                    "unique, contrasting colors", c.entries.size()));
 }
 
 } // namespace

@@ -1,4 +1,4 @@
-// player_marker_layer.hpp — Directional player arrow on the world map.
+// player_marker_layer.hpp - Directional player arrow on the world map.
 #pragma once
 #include "rendering/world_map/overlay_renderer.hpp"
 #include "rendering/vk_texture.hpp"

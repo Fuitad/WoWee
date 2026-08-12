@@ -337,6 +337,14 @@ const char* getItemSubclassName(uint32_t itemClass, uint32_t subClass) {
     return "";
 }
 
+network::Packet SocketGemsPacket::build(uint64_t itemGuid,
+                                        const std::array<uint64_t, 3>& gemGuids) {
+    network::Packet packet(wireOpcode(Opcode::CMSG_SOCKET_GEMS));
+    packet.writeUInt64(itemGuid);
+    for (uint64_t guid : gemGuids) packet.writeUInt64(guid);
+    return packet;
+}
+
 bool ItemQueryResponseParser::parse(network::Packet& packet, ItemQueryResponseData& data) {
     // Validate minimum packet size: entry(4) + item not found check
     if (packet.getSize() < 4) {
@@ -382,7 +390,7 @@ bool ItemQueryResponseParser::parse(network::Packet& packet, ItemQueryResponseDa
     // after it by one field.
     //
     // Telling them apart from InventoryType alone does not work. On a server
-    // without BuyCount, reading five fields lands on AllowableClass — and a
+    // without BuyCount, reading five fields lands on AllowableClass - and a
     // class-restricted item's mask is a small number, so it passes any range
     // check InventoryType would. Priest-only is 16, which is a plausible enough
     // "Back" that Friar's Robes of the Light claimed to be a cloak while the
@@ -440,7 +448,7 @@ bool ItemQueryResponseParser::parse(network::Packet& packet, ItemQueryResponseDa
         // A vendor never sells an item for more than it buys it back for.
         if (out.sellPrice <= buyPrice) out.score++;
         // The decisive one when everything else looks plausible either way:
-        // BuyCount is how many the vendor sells at once — 1 for almost
+        // BuyCount is how many the vendor sells at once - 1 for almost
         // everything, a stack at most. Reading a layout that has no BuyCount as
         // though it did lands a price there, and prices are not small.
         constexpr uint32_t kMaxBuyCount = 100;
@@ -472,20 +480,8 @@ bool ItemQueryResponseParser::parse(network::Packet& packet, ItemQueryResponseDa
         LOG_ERROR("SMSG_ITEM_QUERY_SINGLE_RESPONSE: truncated before statsCount (entry=", data.entry, ")");
         return false;
     }
-    data.allowableClass = packet.readUInt32(); // AllowableClass
-    data.allowableRace  = packet.readUInt32(); // AllowableRace
-    data.itemLevel = packet.readUInt32();
-    data.requiredLevel = packet.readUInt32();
-    data.requiredSkill     = packet.readUInt32(); // RequiredSkill
-    data.requiredSkillRank = packet.readUInt32(); // RequiredSkillRank
-    packet.readUInt32(); // RequiredSpell
-    packet.readUInt32(); // RequiredHonorRank
-    packet.readUInt32(); // RequiredCityRank
-    data.requiredReputationFaction = packet.readUInt32(); // RequiredReputationFaction
-    data.requiredReputationRank    = packet.readUInt32(); // RequiredReputationRank
-    data.maxCount = static_cast<int32_t>(packet.readUInt32()); // MaxCount (1 = Unique)
-    data.maxStack = static_cast<int32_t>(packet.readUInt32()); // Stackable
-    data.containerSlots = packet.readUInt32();
+    // The run every expansion sends identically, read in one place.
+    if (!data.readCommonRequirements(packet)) return false;
 
     // Read statsCount with bounds validation
     if (!packet.hasRemaining(4)) {
@@ -512,17 +508,7 @@ bool ItemQueryResponseParser::parse(network::Packet& packet, ItemQueryResponseDa
         }
         uint32_t statType = packet.readUInt32();
         int32_t statValue = static_cast<int32_t>(packet.readUInt32());
-        switch (statType) {
-            case 3: data.agility = statValue; break;
-            case 4: data.strength = statValue; break;
-            case 5: data.intellect = statValue; break;
-            case 6: data.spirit = statValue; break;
-            case 7: data.stamina = statValue; break;
-            default:
-                if (statValue != 0)
-                    data.extraStats.push_back({statType, statValue});
-                break;
-        }
+        data.applyStat(statType, statValue);
     }
 
     // ScalingStatDistribution and ScalingStatValue
@@ -590,7 +576,7 @@ bool ItemQueryResponseParser::parse(network::Packet& packet, ItemQueryResponseDa
     if (packet.hasRemaining(16)) {
         data.pageTextId = packet.readUInt32(); // PageText
         packet.readUInt32(); // LanguageID
-        packet.readUInt32(); // PageMaterial
+        data.pageMaterial = packet.readUInt32(); // PageMaterial
         data.startQuestId = packet.readUInt32(); // StartQuest
     }
 
@@ -605,16 +591,25 @@ bool ItemQueryResponseParser::parse(network::Packet& packet, ItemQueryResponseDa
         data.itemSetId = packet.readUInt32(); // ItemSet(6)
         // MaxDurability(7), Area(8), Map(9), BagFamily(10), TotemCategory(11)
         for (size_t i = 0; i < 5; ++i) packet.readUInt32();
-        // 3 socket slots: socketColor (4 bytes each)
-        data.socketColor[0] = packet.readUInt32();
-        data.socketColor[1] = packet.readUInt32();
-        data.socketColor[2] = packet.readUInt32();
-        // 3 socket content (gem enchantment IDs — skip, not currently displayed)
-        packet.readUInt32();
-        packet.readUInt32();
-        packet.readUInt32();
+        // The three sockets, colour and content together, one socket at a
+        // time - `for (s) { << Socket[s].Color; << Socket[s].Content; }`.
+        // Read as three colours followed by three contents this took the
+        // first socket's *content* as the second socket's colour, and a
+        // template's sockets are empty, so that is zero: an item with three
+        // sockets showed one, and a two-socket item showed its second colour
+        // in the third position. The bonus that landed after them was right
+        // only because six reads is six reads either way.
+        for (size_t i = 0; i < 3; ++i) {
+            data.socketColor[i]   = packet.readUInt32();
+            data.socketContent[i] = packet.readUInt32();
+        }
         // socketBonus (enchantmentId)
         data.socketBonus = packet.readUInt32();
+        // GemProperties.dbc id - non-zero when this item *is* a gem, and how
+        // its colour is known. An item carries no socket colour of its own.
+        if (packet.hasRemaining(4)) {
+            data.gemProperties = packet.readUInt32();
+        }
     }
 
     data.valid = !data.name.empty();
@@ -645,31 +640,10 @@ bool MonsterMoveParser::parse(network::Packet& packet, MonsterMoveData& data) {
     packet.readUInt32();
 
     // uint8 moveType
-    if (!packet.hasData()) return false;
-    data.moveType = packet.readUInt8();
-
-    if (data.moveType == 1) {
-        // Stop - no more required data
-        data.destX = data.x;
-        data.destY = data.y;
-        data.destZ = data.z;
-        data.hasDest = false;
-        return true;
-    }
-
-    // Read facing data based on move type
-    if (data.moveType == 2) {
-        // FacingSpot: float x, y, z
-        if (!packet.hasRemaining(12)) return false;
-        packet.readFloat(); packet.readFloat(); packet.readFloat();
-    } else if (data.moveType == 3) {
-        // FacingTarget: uint64 guid
-        if (!packet.hasRemaining(8)) return false;
-        data.facingTarget = packet.readUInt64();
-    } else if (data.moveType == 4) {
-        // FacingAngle: float angle
-        if (!packet.hasRemaining(4)) return false;
-        data.facingAngle = packet.readFloat();
+    {
+        bool stopped = false;
+        if (!parseMonsterMoveFacing(packet, data, stopped)) return false;
+        if (stopped) return true;
     }
 
     // uint32 splineFlags
@@ -728,25 +702,10 @@ bool MonsterMoveParser::parseVanilla(network::Packet& packet, MonsterMoveData& d
     /*uint32_t splineIdOrTick =*/ packet.readUInt32();
 
     if (!packet.hasData()) return false;
-    data.moveType = packet.readUInt8();
-
-    if (data.moveType == 1) {
-        data.destX = data.x;
-        data.destY = data.y;
-        data.destZ = data.z;
-        data.hasDest = false;
-        return true;
-    }
-
-    if (data.moveType == 2) {
-        if (!packet.hasRemaining(12)) return false;
-        packet.readFloat(); packet.readFloat(); packet.readFloat();
-    } else if (data.moveType == 3) {
-        if (!packet.hasRemaining(8)) return false;
-        data.facingTarget = packet.readUInt64();
-    } else if (data.moveType == 4) {
-        if (!packet.hasRemaining(4)) return false;
-        data.facingAngle = packet.readFloat();
+    {
+        bool stopped = false;
+        if (!parseMonsterMoveFacing(packet, data, stopped)) return false;
+        if (stopped) return true;
     }
 
     if (!packet.hasRemaining(4)) return false;
@@ -928,7 +887,7 @@ bool SpellDamageLogParser::parse(network::Packet& packet, SpellDamageLogData& da
     (void)packet.readUInt8(); // periodicLog (not displayed)
     packet.readUInt8(); // unused
     packet.readUInt32(); // blocked
-    uint32_t flags = packet.readUInt32();  // flags IS used — bit 0x02 = crit
+    uint32_t flags = packet.readUInt32();  // flags IS used - bit 0x02 = crit
     data.isCrit = (flags & 0x02) != 0;
 
     LOG_DEBUG("Spell damage: spellId=", data.spellId, " dmg=", data.damage,
@@ -1119,22 +1078,7 @@ network::Packet CastSpellPacket::build(uint32_t spellId, uint64_t targetGuid, ui
         packet.writeUInt32(0x02); // TARGET_FLAG_UNIT
 
         // Write packed GUID
-        uint8_t mask = 0;
-        uint8_t bytes[8];
-        int byteCount = 0;
-        uint64_t g = targetGuid;
-        for (int i = 0; i < 8; ++i) {
-            uint8_t b = g & 0xFF;
-            if (b != 0) {
-                mask |= (1 << i);
-                bytes[byteCount++] = b;
-            }
-            g >>= 8;
-        }
-        packet.writeUInt8(mask);
-        for (int i = 0; i < byteCount; ++i) {
-            packet.writeUInt8(bytes[i]);
-        }
+        packet.writePackedGuid(targetGuid);
     } else {
         packet.writeUInt32(0x00); // TARGET_FLAG_SELF
     }
@@ -1246,7 +1190,7 @@ bool SpellStartParser::parse(network::Packet& packet, SpellStartData& data) {
         return false;
     }
 
-    // WotLK 3.3.5a SpellCastTargets — consume ALL target payload bytes so that
+    // WotLK 3.3.5a SpellCastTargets - consume ALL target payload bytes so that
     // subsequent fields (e.g. school mask, cast flags 0x20 extra data) are not
     // misaligned for ground-targeted or AoE spells.
     uint32_t targetFlags = packet.readUInt32();

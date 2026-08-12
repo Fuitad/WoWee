@@ -1,4 +1,6 @@
 #include "cli_combat_maneuvers_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -19,11 +21,6 @@ namespace cli {
 
 namespace {
 
-std::string stripWcmgExt(std::string base) {
-    stripExt(base, ".wcmg");
-    return base;
-}
-
 const char* categoryKindName(uint8_t k) {
     using C = wowee::pipeline::WoweeCombatManeuvers;
     switch (k) {
@@ -37,15 +34,6 @@ const char* categoryKindName(uint8_t k) {
     }
 }
 
-bool saveOrError(const wowee::pipeline::WoweeCombatManeuvers& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeCombatManeuversLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wcmg\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeCombatManeuvers& c,
                      const std::string& base) {
@@ -61,9 +49,9 @@ int handleGenWarrior(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "WarriorStanceMutex";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWcmgExt(base);
+    base = cli::withoutExt(base, ".wcmg");
     auto c = wowee::pipeline::WoweeCombatManeuversLoader::makeWarrior(name);
-    if (!saveOrError(c, base, "gen-cmg")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCombatManeuversLoader>(c, base, "gen-cmg", ".wcmg")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -72,9 +60,9 @@ int handleGenDruid(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "DruidShapeshiftMutex";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWcmgExt(base);
+    base = cli::withoutExt(base, ".wcmg");
     auto c = wowee::pipeline::WoweeCombatManeuversLoader::makeDruid(name);
-    if (!saveOrError(c, base, "gen-cmg-druid")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCombatManeuversLoader>(c, base, "gen-cmg-druid", ".wcmg")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -83,9 +71,9 @@ int handleGenAllMutex(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "AllClassMutexGroups";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWcmgExt(base);
+    base = cli::withoutExt(base, ".wcmg");
     auto c = wowee::pipeline::WoweeCombatManeuversLoader::makeAllMutex(name);
-    if (!saveOrError(c, base, "gen-cmg-all")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCombatManeuversLoader>(c, base, "gen-cmg-all", ".wcmg")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -93,10 +81,9 @@ int handleGenAllMutex(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWcmgExt(base);
+    base = cli::withoutExt(base, ".wcmg");
     if (!wowee::pipeline::WoweeCombatManeuversLoader::exists(base)) {
-        std::fprintf(stderr, "WCMG not found: %s.wcmg\n", base.c_str());
-        return 1;
+        return reportMissing("WCMG", base, ".wcmg");
     }
     auto c = wowee::pipeline::WoweeCombatManeuversLoader::load(base);
     if (jsonOut) {
@@ -174,13 +161,10 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWcmgExt(base);
+    base = cli::withoutExt(base, ".wcmg");
     if (out.empty()) out = base + ".wcmg.json";
     if (!wowee::pipeline::WoweeCombatManeuversLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wcmg-json: WCMG not found: %s.wcmg\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wcmg-json", "WCMG", base, ".wcmg");
     }
     auto c = wowee::pipeline::WoweeCombatManeuversLoader::load(base);
     nlohmann::json j;
@@ -220,16 +204,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wcmg.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wcmg");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wcmg");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,
@@ -317,12 +292,9 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWcmgExt(base);
+    base = cli::withoutExt(base, ".wcmg");
     if (!wowee::pipeline::WoweeCombatManeuversLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wcmg: WCMG not found: %s.wcmg\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wcmg", "WCMG", base, ".wcmg");
     }
     auto c = wowee::pipeline::WoweeCombatManeuversLoader::load(base);
     std::vector<std::string> errors;
@@ -330,9 +302,9 @@ int handleValidate(int& i, int argc, char** argv) {
     if (c.entries.empty()) {
         warnings.push_back("catalog has zero entries");
     }
-    std::vector<uint32_t> idsSeen;
+    cli::DuplicateIdCheck idsSeen;
     // Track which spell IDs appear in any exclusive group
-    // — a spell that appears in TWO different exclusive
+    // - a spell that appears in TWO different exclusive
     // groups creates an undecidable mutex (which group's
     // outline does the action bar use?).
     std::set<uint32_t> spellInExclusiveGroup;
@@ -349,7 +321,7 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": name is empty");
         if (e.classMask == 0) {
             errors.push_back(ctx +
-                ": classMask is 0 — group is not "
+                ": classMask is 0 - group is not "
                 "associated with any class");
         }
         if (e.categoryKind > 5) {
@@ -359,14 +331,14 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         if (e.members.empty()) {
             errors.push_back(ctx +
-                ": members[] is empty — mutex group has "
+                ": members[] is empty - mutex group has "
                 "nothing to switch between");
         }
         // A single-member mutex group is technically legal
         // but suggests a content authoring error.
         if (e.members.size() == 1) {
             warnings.push_back(ctx +
-                ": only 1 member spell — mutex with one "
+                ": only 1 member spell - mutex with one "
                 "element has no exclusion to enforce; "
                 "verify if intentional");
         }
@@ -392,51 +364,19 @@ int handleValidate(int& i, int argc, char** argv) {
                 }
             }
         }
-        for (uint32_t prev : idsSeen) {
-            if (prev == e.groupId) {
-                errors.push_back(ctx + ": duplicate groupId");
-                break;
-            }
-        }
-        idsSeen.push_back(e.groupId);
+        if (!idsSeen.add(e.groupId)) errors.push_back(ctx + ": duplicate groupId");
     }
     for (auto [spellId, groupId] : doubleAssign) {
         errors.push_back(
             "spellId " + std::to_string(spellId) +
             " appears in multiple exclusive groups "
             "(latest: groupId " + std::to_string(groupId) +
-            ") — action bar mutex would be undecidable");
+            ") - action bar mutex would be undecidable");
     }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wcmg"] = base + ".wcmg";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wcmg: %s.wcmg\n", base.c_str());
-    if (ok && warnings.empty()) {
-        size_t totalSpells = 0;
-        for (const auto& e : c.entries) totalSpells += e.members.size();
-        std::printf("  OK — %zu groups, %zu member spells, all "
-                    "groupIds unique\n",
-                    c.entries.size(), totalSpells);
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+    size_t totalSpells = 0;
+    for (const auto& e : c.entries) totalSpells += e.members.size();
+    return cli::reportValidation("wcmg", base, jsonOut, errors, warnings,
+                                 cli::formatted("%zu groups, %zu member spells, all groupIds unique", c.entries.size(), totalSpells));
 }
 
 } // namespace

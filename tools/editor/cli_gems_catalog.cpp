@@ -1,4 +1,6 @@
 #include "cli_gems_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -18,20 +20,6 @@ namespace cli {
 
 namespace {
 
-std::string stripWgemExt(std::string base) {
-    stripExt(base, ".wgem");
-    return base;
-}
-
-bool saveOrError(const wowee::pipeline::WoweeGem& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeGemLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wgem\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeGem& c,
                      const std::string& base) {
@@ -45,9 +33,9 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterGems";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWgemExt(base);
+    base = cli::withoutExt(base, ".wgem");
     auto c = wowee::pipeline::WoweeGemLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-gems")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeGemLoader>(c, base, "gen-gems", ".wgem")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -56,9 +44,9 @@ int handleGenGemSet(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "FullGemSet";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWgemExt(base);
+    base = cli::withoutExt(base, ".wgem");
     auto c = wowee::pipeline::WoweeGemLoader::makeGemSet(name);
-    if (!saveOrError(c, base, "gen-gems-set")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeGemLoader>(c, base, "gen-gems-set", ".wgem")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -67,9 +55,9 @@ int handleGenEnchants(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "EnchantSet";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWgemExt(base);
+    base = cli::withoutExt(base, ".wgem");
     auto c = wowee::pipeline::WoweeGemLoader::makeEnchants(name);
-    if (!saveOrError(c, base, "gen-gems-enchants")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeGemLoader>(c, base, "gen-gems-enchants", ".wgem")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -77,10 +65,9 @@ int handleGenEnchants(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWgemExt(base);
+    base = cli::withoutExt(base, ".wgem");
     if (!wowee::pipeline::WoweeGemLoader::exists(base)) {
-        std::fprintf(stderr, "WGEM not found: %s.wgem\n", base.c_str());
-        return 1;
+        return reportMissing("WGEM", base, ".wgem");
     }
     auto c = wowee::pipeline::WoweeGemLoader::load(base);
     if (jsonOut) {
@@ -162,12 +149,10 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWgemExt(base);
+    base = cli::withoutExt(base, ".wgem");
     if (outPath.empty()) outPath = base + ".wgem.json";
     if (!wowee::pipeline::WoweeGemLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wgem-json: WGEM not found: %s.wgem\n", base.c_str());
-        return 1;
+        return reportMissing("export-wgem-json", "WGEM", base, ".wgem");
     }
     auto c = wowee::pipeline::WoweeGemLoader::load(base);
     nlohmann::json j;
@@ -223,18 +208,8 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string jsonPath = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = jsonPath;
-        std::string suffix = ".wgem.json";
-        if (outBase.size() > suffix.size() &&
-            outBase.substr(outBase.size() - suffix.size()) == suffix) {
-            outBase = outBase.substr(0, outBase.size() - suffix.size());
-        } else if (outBase.size() > 5 &&
-                   outBase.substr(outBase.size() - 5) == ".json") {
-            outBase = outBase.substr(0, outBase.size() - 5);
-        }
-    }
-    outBase = stripWgemExt(outBase);
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(jsonPath, ".wgem");
+    outBase = cli::withoutExt(outBase, ".wgem");
     std::ifstream in(jsonPath);
     if (!in) {
         std::fprintf(stderr,
@@ -325,11 +300,9 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWgemExt(base);
+    base = cli::withoutExt(base, ".wgem");
     if (!wowee::pipeline::WoweeGemLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wgem: WGEM not found: %s.wgem\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wgem", "WGEM", base, ".wgem");
     }
     auto c = wowee::pipeline::WoweeGemLoader::load(base);
     std::vector<std::string> errors;
@@ -394,33 +367,8 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         enchIdsSeen.push_back(e.enchantId);
     }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wgem"] = base + ".wgem";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wgem: %s.wgem\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu gems, %zu enchantments, all IDs unique\n",
-                    c.gems.size(), c.enchantments.size());
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+    return cli::reportValidation("wgem", base, jsonOut, errors, warnings,
+                                 formatted("%zu gems, %zu enchantments, all IDs unique", c.gems.size(), c.enchantments.size()));
 }
 
 } // namespace

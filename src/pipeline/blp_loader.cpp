@@ -1,3 +1,4 @@
+#include "pipeline/dxt_block.hpp"
 #include "pipeline/blp_loader.hpp"
 #include "core/logger.hpp"
 #include <cstring>
@@ -46,7 +47,7 @@ BLPImage BLPLoader::loadBLP1(const uint8_t* data, size_t size) {
     image.mipLevels = header.hasMips ? 16 : 1;
 
     // BLP1 compression: 0=JPEG (not used in WoW), 1=palette/indexed
-    // BLP1 does NOT support DXT — only palette with optional alpha
+    // BLP1 does NOT support DXT - only palette with optional alpha
     if (header.compression == 1) {
         image.compression = BLPCompression::PALETTE;
     } else if (header.compression == 0) {
@@ -205,22 +206,9 @@ void BLPLoader::decompressDXT1(const uint8_t* src, uint8_t* dst, int width, int 
         for (int bx = 0; bx < blockWidth; bx++) {
             const uint8_t* block = src + (by * blockWidth + bx) * 8;
 
-            // Read color endpoints (RGB565)
-            uint16_t c0 = block[0] | (block[1] << 8);
-            uint16_t c1 = block[2] | (block[3] << 8);
-
-            // Convert RGB565 to RGB888: extract 5/6/5-bit channels and scale to [0..255].
-            // R = bits[15:11] (5-bit, /31), G = bits[10:5] (6-bit, /63), B = bits[4:0] (5-bit, /31)
-            uint8_t r0 = ((c0 >> 11) & 0x1F) * 255 / 31;
-            uint8_t g0 = ((c0 >> 5) & 0x3F) * 255 / 63;
-            uint8_t b0 = (c0 & 0x1F) * 255 / 31;
-
-            uint8_t r1 = ((c1 >> 11) & 0x1F) * 255 / 31;
-            uint8_t g1 = ((c1 >> 5) & 0x3F) * 255 / 63;
-            uint8_t b1 = (c1 & 0x1F) * 255 / 31;
-
-            // Read 4x4 color indices (2 bits per pixel)
-            uint32_t indices = block[4] | (block[5] << 8) | (block[6] << 16) | (block[7] << 24);
+            // DXT1 reads the endpoint order as a mode flag, which is how a
+            // cut-out texture encodes its transparent pixels.
+            const DxtColorBlock colors = decodeDxtColorBlock(block, /*allowPunchThrough=*/true);
 
             // Decompress 4x4 block
             for (int py = 0; py < 4; py++) {
@@ -230,25 +218,13 @@ void BLPLoader::decompressDXT1(const uint8_t* src, uint8_t* dst, int width, int 
 
                     if (x >= width || y >= height) continue;
 
-                    int index = (indices >> ((py * 4 + px) * 2)) & 0x3;
+                    const int index = colors.indexAt(px, py);
                     uint8_t* pixel = dst + (y * width + x) * 4;
 
-                    // Interpolate colors based on index
-                    if (c0 > c1) {
-                        switch (index) {
-                            case 0: pixel[0] = r0; pixel[1] = g0; pixel[2] = b0; pixel[3] = 255; break;
-                            case 1: pixel[0] = r1; pixel[1] = g1; pixel[2] = b1; pixel[3] = 255; break;
-                            case 2: pixel[0] = (2*r0 + r1) / 3; pixel[1] = (2*g0 + g1) / 3; pixel[2] = (2*b0 + b1) / 3; pixel[3] = 255; break;
-                            case 3: pixel[0] = (r0 + 2*r1) / 3; pixel[1] = (g0 + 2*g1) / 3; pixel[2] = (b0 + 2*b1) / 3; pixel[3] = 255; break;
-                        }
-                    } else {
-                        switch (index) {
-                            case 0: pixel[0] = r0; pixel[1] = g0; pixel[2] = b0; pixel[3] = 255; break;
-                            case 1: pixel[0] = r1; pixel[1] = g1; pixel[2] = b1; pixel[3] = 255; break;
-                            case 2: pixel[0] = (r0 + r1) / 2; pixel[1] = (g0 + g1) / 2; pixel[2] = (b0 + b1) / 2; pixel[3] = 255; break;
-                            case 3: pixel[0] = 0; pixel[1] = 0; pixel[2] = 0; pixel[3] = 0; break;  // Transparent
-                        }
-                    }
+                    pixel[0] = colors.rgb[index][0];
+                    pixel[1] = colors.rgb[index][1];
+                    pixel[2] = colors.rgb[index][2];
+                    pixel[3] = (colors.index3IsTransparent && index == 3) ? 0 : 255;
                 }
             }
         }
@@ -270,21 +246,11 @@ void BLPLoader::decompressDXT3(const uint8_t* src, uint8_t* dst, int width, int 
                 alphaBlock |= static_cast<uint64_t>(block[i]) << (i * 8);
             }
 
-            // Color block (same as DXT1) starts at byte 8
-            const uint8_t* colorBlock = block + 8;
-
-            uint16_t c0 = colorBlock[0] | (colorBlock[1] << 8);
-            uint16_t c1 = colorBlock[2] | (colorBlock[3] << 8);
-
-            uint8_t r0 = ((c0 >> 11) & 0x1F) * 255 / 31;
-            uint8_t g0 = ((c0 >> 5) & 0x3F) * 255 / 63;
-            uint8_t b0 = (c0 & 0x1F) * 255 / 31;
-
-            uint8_t r1 = ((c1 >> 11) & 0x1F) * 255 / 31;
-            uint8_t g1 = ((c1 >> 5) & 0x3F) * 255 / 63;
-            uint8_t b1 = (c1 & 0x1F) * 255 / 31;
-
-            uint32_t indices = colorBlock[4] | (colorBlock[5] << 8) | (colorBlock[6] << 16) | (colorBlock[7] << 24);
+            // The colour half is the same eight bytes DXT1 uses, at byte 8.
+            // Alpha is carried separately here, so the endpoint order is not a
+            // mode flag and there is no transparent index.
+            const DxtColorBlock colors =
+                decodeDxtColorBlock(block + 8, /*allowPunchThrough=*/false);
 
             for (int py = 0; py < 4; py++) {
                 for (int px = 0; px < 4; px++) {
@@ -293,16 +259,12 @@ void BLPLoader::decompressDXT3(const uint8_t* src, uint8_t* dst, int width, int 
 
                     if (x >= width || y >= height) continue;
 
-                    int index = (indices >> ((py * 4 + px) * 2)) & 0x3;
+                    const int index = colors.indexAt(px, py);
                     uint8_t* pixel = dst + (y * width + x) * 4;
 
-                    // DXT3 always uses 4-color mode for the color portion
-                    switch (index) {
-                        case 0: pixel[0] = r0; pixel[1] = g0; pixel[2] = b0; break;
-                        case 1: pixel[0] = r1; pixel[1] = g1; pixel[2] = b1; break;
-                        case 2: pixel[0] = (2*r0 + r1) / 3; pixel[1] = (2*g0 + g1) / 3; pixel[2] = (2*b0 + b1) / 3; break;
-                        case 3: pixel[0] = (r0 + 2*r1) / 3; pixel[1] = (g0 + 2*g1) / 3; pixel[2] = (b0 + 2*b1) / 3; break;
-                    }
+                    pixel[0] = colors.rgb[index][0];
+                    pixel[1] = colors.rgb[index][1];
+                    pixel[2] = colors.rgb[index][2];
 
                     // Apply 4-bit alpha: scale [0..15] → [0..255] via (n * 255 / 15)
                     int alphaIndex = py * 4 + px;
@@ -353,21 +315,11 @@ void BLPLoader::decompressDXT5(const uint8_t* src, uint8_t* dst, int width, int 
                 alphaIndices |= static_cast<uint64_t>(block[i]) << ((i - 2) * 8);
             }
 
-            // Color block (same as DXT1) starts at byte 8
-            const uint8_t* colorBlock = block + 8;
-
-            uint16_t c0 = colorBlock[0] | (colorBlock[1] << 8);
-            uint16_t c1 = colorBlock[2] | (colorBlock[3] << 8);
-
-            uint8_t r0 = ((c0 >> 11) & 0x1F) * 255 / 31;
-            uint8_t g0 = ((c0 >> 5) & 0x3F) * 255 / 63;
-            uint8_t b0 = (c0 & 0x1F) * 255 / 31;
-
-            uint8_t r1 = ((c1 >> 11) & 0x1F) * 255 / 31;
-            uint8_t g1 = ((c1 >> 5) & 0x3F) * 255 / 63;
-            uint8_t b1 = (c1 & 0x1F) * 255 / 31;
-
-            uint32_t indices = colorBlock[4] | (colorBlock[5] << 8) | (colorBlock[6] << 16) | (colorBlock[7] << 24);
+            // The colour half is the same eight bytes DXT1 uses, at byte 8.
+            // Alpha is carried separately here, so the endpoint order is not a
+            // mode flag and there is no transparent index.
+            const DxtColorBlock colors =
+                decodeDxtColorBlock(block + 8, /*allowPunchThrough=*/false);
 
             for (int py = 0; py < 4; py++) {
                 for (int px = 0; px < 4; px++) {
@@ -376,16 +328,12 @@ void BLPLoader::decompressDXT5(const uint8_t* src, uint8_t* dst, int width, int 
 
                     if (x >= width || y >= height) continue;
 
-                    int index = (indices >> ((py * 4 + px) * 2)) & 0x3;
+                    const int index = colors.indexAt(px, py);
                     uint8_t* pixel = dst + (y * width + x) * 4;
 
-                    // DXT5 always uses 4-color mode for the color portion
-                    switch (index) {
-                        case 0: pixel[0] = r0; pixel[1] = g0; pixel[2] = b0; break;
-                        case 1: pixel[0] = r1; pixel[1] = g1; pixel[2] = b1; break;
-                        case 2: pixel[0] = (2*r0 + r1) / 3; pixel[1] = (2*g0 + g1) / 3; pixel[2] = (2*b0 + b1) / 3; break;
-                        case 3: pixel[0] = (r0 + 2*r1) / 3; pixel[1] = (g0 + 2*g1) / 3; pixel[2] = (b0 + 2*b1) / 3; break;
-                    }
+                    pixel[0] = colors.rgb[index][0];
+                    pixel[1] = colors.rgb[index][1];
+                    pixel[2] = colors.rgb[index][2];
 
                     // Apply interpolated alpha
                     int alphaIdx = (alphaIndices >> ((py * 4 + px) * 3)) & 0x7;

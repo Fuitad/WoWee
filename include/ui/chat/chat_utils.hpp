@@ -50,8 +50,25 @@ inline std::string toLower(std::string s) {
 std::string replaceGenderPlaceholders(const std::string& text,
                                        game::GameHandler& gameHandler);
 
-/** Get display name for any entity (Player/Unit/GameObject). */
-std::string getEntityDisplayName(const std::shared_ptr<game::Entity>& entity);
+// getEntityDisplayName was here, as a sixth copy of game::entityDisplayName
+// under a different name. Callers use that one now - it is beside the classes
+// whose names it is asking about.
+
+/// The PortBot destination a whispered word means, or "" for none.
+///
+/// The chat panel's whisper path and the /whisper command each had an
+/// identical copy of this, so the same whisper behaved differently depending
+/// on which of the two a player happened to type it through - and each carried
+/// its own help line listing the aliases, which is a third copy of the same
+/// vocabulary and the one that goes stale first.
+std::string portBotCommandFor(const std::string& rawInput);
+
+/// The line to print when someone asks PortBot for help. Built from the same
+/// table, so an alias added is an alias mentioned.
+std::string portBotHelpText();
+
+/// Whether a whisper target is the teleport bot.
+bool isPortBotTarget(const std::string& target);
 
 } // namespace chat_utils
 } // namespace ui

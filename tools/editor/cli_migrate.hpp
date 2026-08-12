@@ -4,7 +4,7 @@ namespace wowee {
 namespace editor {
 namespace cli {
 
-// Dispatch the schema-migration handlers — these upgrade older
+// Dispatch the schema-migration handlers - these upgrade older
 // on-disk asset versions in-place so newer tooling stops rejecting
 // or silently misreading them. All migrators are idempotent:
 // already-modern files become no-ops.

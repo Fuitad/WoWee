@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Buff & Aura Book catalog (.wbab) — novel
+// Wowee Open Buff & Aura Book catalog (.wbab) - novel
 // replacement for the implicit rank-chain relationships
 // that vanilla WoW encoded by burying nextRank/prevRank
 // pointers inside Spell.dbc. Each entry is one long-
@@ -30,7 +30,7 @@ namespace pipeline {
 //   WCHC: castClassMask uses the WCHC class-bit
 //         convention.
 //   WBAB: previousRankId / nextRankId reference OTHER
-//         entries in the same WBAB catalog — internal
+//         entries in the same WBAB catalog - internal
 //         self-reference for the rank chain. Validator
 //         can check the back-edges (if A.next=B then
 //         B.prev should = A).
@@ -46,21 +46,21 @@ namespace pipeline {
 //     descLen + description
 //     spellId (uint32)
 //     castClassMask (uint32)
-//     targetTypeMask (uint8)    — Self / Party / Raid /
+//     targetTypeMask (uint8)    - Self / Party / Raid /
 //                                  Friendly bitmask
-//     statBonusKind (uint8)     — Stamina / Intellect /
+//     statBonusKind (uint8)     - Stamina / Intellect /
 //                                  Spirit / AllStats /
 //                                  Armor / SpellPower /
 //                                  AttackPower / Crit /
 //                                  Haste / Mastery
-//     rank (uint8)              — 1-based rank number
-//     maxStackCount (uint8)     — typically 1
-//     statBonusAmount (int32)   — signed magnitude
+//     rank (uint8)              - 1-based rank number
+//     maxStackCount (uint8)     - typically 1
+//     statBonusAmount (int32)   - signed magnitude
 //                                  (negative = debuff)
-//     duration (uint32)         — seconds (0 = until
+//     duration (uint32)         - seconds (0 = until
 //                                  cancel / log out)
-//     previousRankId (uint32)   — 0 if rank 1
-//     nextRankId (uint32)       — 0 if max rank
+//     previousRankId (uint32)   - 0 if rank 1
+//     nextRankId (uint32)       - 0 if max rank
 //     iconColorRGBA (uint32)
 struct WoweeBuffBook {
     enum TargetTypeBit : uint8_t {
@@ -134,16 +134,16 @@ public:
 
     // Preset emitters used by --gen-bab* variants.
     //
-    //   makeMage      — 4 entries: Arcane Intellect ranks
+    //   makeMage      - 4 entries: Arcane Intellect ranks
     //                    1-4 with explicit rank chain.
-    //   makeDruid     — 5 entries: Mark of the Wild ranks
+    //   makeDruid     - 5 entries: Mark of the Wild ranks
     //                    1-5 with explicit rank chain.
-    //   makeRaidMax   — 6 entries: one max-rank buff per
+    //   makeRaidMax   - 6 entries: one max-rank buff per
     //                    buffing class (Mark of the Wild
     //                    R7, Power Word: Fortitude R8,
     //                    Arcane Intellect R6, Blessing
     //                    of Kings R1, Battle Shout R9,
-    //                    Trueshot Aura R3) — no chain
+    //                    Trueshot Aura R3) - no chain
     //                    edges since each is standalone.
     static WoweeBuffBook makeMage(const std::string& catalogName);
     static WoweeBuffBook makeDruid(const std::string& catalogName);

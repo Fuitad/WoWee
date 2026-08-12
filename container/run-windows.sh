@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# run-windows.sh — Cross-compile WoWee for Windows (x86_64) inside a Docker container.
+# run-windows.sh - Cross-compile WoWee for Windows (x86_64) inside a Docker container.
 #
 # Usage (run from project root):
 #   ./container/run-windows.sh [--rebuild-image]
 #
 # Environment variables:
-#   WOWEE_FFX_SDK_REPO  — FidelityFX SDK git repo URL (passed through to container)
-#   WOWEE_FFX_SDK_REF   — FidelityFX SDK git ref / tag      (passed through to container)
-#   REBUILD_IMAGE       — Set to 1 to force a fresh docker build (same as --rebuild-image)
+#   WOWEE_FFX_SDK_REPO  - FidelityFX SDK git repo URL (passed through to container)
+#   WOWEE_FFX_SDK_REF   - FidelityFX SDK git ref / tag      (passed through to container)
+#   REBUILD_IMAGE       - Set to 1 to force a fresh docker build (same as --rebuild-image)
 #
 # Toolchain: LLVM-MinGW (Clang + LLD) targeting x86_64-w64-mingw32-ucrt
 # vcpkg triplet: x64-mingw-static

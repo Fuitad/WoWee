@@ -1,9 +1,11 @@
 #include "core/entity_spawner.hpp"
 #include "core/helm_visual.hpp"
+#include "core/geoset_rules.hpp"
+#include "core/character_paths.hpp"
+#include "pipeline/char_sections.hpp"
 
 // M2 attachment 11 is the helm. 0 is the shield mount, which is where head gear
 // was going: it attached, reported success, and hung off the forearm.
-namespace { constexpr uint32_t kAttachHelm = 11; }
 #include "core/coordinates.hpp"
 #include "core/logger.hpp"
 #include "rendering/renderer.hpp"
@@ -19,6 +21,8 @@ namespace { constexpr uint32_t kAttachHelm = 11; }
 #include "pipeline/dbc_loader.hpp"
 #include "pipeline/asset_manager.hpp"
 #include "pipeline/dbc_layout.hpp"
+#include "pipeline/item_textures.hpp"
+#include "pipeline/m2_asset_loader.hpp"
 #include "game/game_handler.hpp"
 #include "game/game_services.hpp"
 #include "game/transport_manager.hpp"
@@ -35,27 +39,35 @@ namespace wowee {
 namespace core {
 
 namespace {
-// Default (bare) geoset IDs per equipment group.
-// Each group's base is groupNumber * 100; variant 01 is typically bare/default.
-constexpr uint16_t kGeosetDefaultConnector = 101;   // Group  1: default hair connector
-constexpr uint16_t kGeosetBareForearms     = 401;   // Group  4: no gloves
-constexpr uint16_t kGeosetBareShins        = 501;   // Group  5: no boots
-constexpr uint16_t kGeosetDefaultEars      = 702;   // Group  7: ears
-constexpr uint16_t kGeosetBareSleeves      = 801;   // Group  8: no chest armor sleeves
-constexpr uint16_t kGeosetDefaultKneepads  = 902;   // Group  9: kneepads
-constexpr uint16_t kGeosetDefaultTabard    = 1201;  // Group 12: tabard base
-constexpr uint16_t kGeosetBarePants        = 1301;  // Group 13: no leggings
-constexpr uint16_t kGeosetNoCape           = 1501;  // Group 15: no cape
-constexpr uint16_t kGeosetWithCape         = 1502;  // Group 15: with cape
-constexpr uint16_t kGeosetBareFeet         = 2002;  // Group 20: bare feet
+// The bare geoset ids, the group arithmetic and the appearance key all live in
+// core/geoset_rules.hpp. This file used to carry its own copy of the constants,
+// and the copy went stale: it named 2002 as "the" bare feet and never learned
+// about 2001, which is how an HD model that spells its feet the other way lost
+// them here while keeping them in the portrait.
+
+// The head of a character's bare geoset set: the body, the one scalp it wears,
+// and its facial hair.
+//
+// Two places build a player's geosets - one for a player seen across the world,
+// one for the equipped composition - and they had already drifted: only one of
+// them knew about the second bare-feet id, and only one of them treated a zero
+// facial variant as "none" rather than as geoset x00.
+std::unordered_set<uint16_t> bareGeosetsFor(uint16_t scalp,
+                                            const EntitySpawner::FacialHairGeosets* facial,
+                                            uint8_t raceId) {
+    // No row for this character: the first variant of each facial group, which
+    // on most models is the absence of the feature.
+    const uint16_t f100 = facial ? facial->geoset100 : 1;
+    const uint16_t f200 = facial ? facial->geoset200 : 1;
+    const uint16_t f300 = facial ? facial->geoset300 : 1;
+    return bareCharacterGeosets(scalp, f100, f200, f300, raceId);
+}
 
 uint16_t selectHairScalpGeoset(const std::unordered_map<uint32_t, uint16_t>& hairGeosets,
                                uint8_t raceId,
                                uint8_t genderId,
                                uint8_t hairStyleId) {
-    const uint32_t key = (static_cast<uint32_t>(raceId) << 16) |
-                         (static_cast<uint32_t>(genderId) << 8) |
-                         static_cast<uint32_t>(hairStyleId);
+    const uint32_t key = appearanceKey(raceId, genderId, hairStyleId);
     auto it = hairGeosets.find(key);
     if (it != hairGeosets.end() && it->second > 0) {
         return it->second;
@@ -73,7 +85,7 @@ void EntitySpawner::spawnOnlinePlayer(uint64_t guid,
     if (!renderer_ || !renderer_->getCharacterRenderer() || !assetManager_ || !assetManager_->isInitialized()) return;
     if (playerInstances_.count(guid)) return;
 
-    // Skip local player — already spawned as the main character
+    // Skip local player - already spawned as the main character
     if (gameHandler_) {
         uint64_t localGuid = gameHandler_->getPlayerGuid();
         uint64_t activeGuid = gameHandler_->getActiveCharacterGuid();
@@ -110,21 +122,6 @@ void EntitySpawner::spawnOnlinePlayer(uint64_t guid,
             return;
         }
 
-        // Parse modelDir/baseName for skin/anim loading
-        std::string modelDir;
-        std::string baseName;
-        {
-            size_t slash = m2Path.rfind('\\');
-            if (slash != std::string::npos) {
-                modelDir = m2Path.substr(0, slash + 1);
-                baseName = m2Path.substr(slash + 1);
-            } else {
-                baseName = m2Path;
-            }
-            size_t dot = baseName.rfind('.');
-            if (dot != std::string::npos) baseName = baseName.substr(0, dot);
-        }
-
         auto m2Data = assetManager_->readFile(m2Path);
         if (m2Data.empty()) {
             LOG_WARNING("spawnOnlinePlayer: failed to read M2: ", m2Path);
@@ -138,7 +135,7 @@ void EntitySpawner::spawnOnlinePlayer(uint64_t guid,
         }
 
         // Skin file (only for WotLK M2s - vanilla has embedded skin)
-        std::string skinPath = modelDir + baseName + "00.skin";
+        std::string skinPath = pipeline::skinPathForM2(m2Path);
         auto skinData = assetManager_->readFile(skinPath);
         if (!skinData.empty() && model.version >= 264) {
             pipeline::M2Loader::loadSkin(skinData, model);
@@ -150,24 +147,11 @@ void EntitySpawner::spawnOnlinePlayer(uint64_t guid,
             return;
         }
 
-        // Load only core external animations (stand/walk/run) to avoid stalls
-        for (uint32_t si = 0; si < model.sequences.size(); si++) {
-            if (!(model.sequences[si].flags & 0x20)) {
-                uint32_t animId = model.sequences[si].id;
-                if (animId != rendering::anim::STAND && animId != rendering::anim::WALK && animId != rendering::anim::RUN) continue;
-                char animFileName[256];
-                snprintf(animFileName, sizeof(animFileName),
-                         "%s%s%04u-%02u.anim",
-                         modelDir.c_str(),
-                         baseName.c_str(),
-                         animId,
-                         model.sequences[si].variationIndex);
-                auto animData = assetManager_->readFileOptional(animFileName);
-                if (!animData.empty()) {
-                    pipeline::M2Loader::loadAnimFile(m2Data, animData, si, model);
-                }
-            }
-        }
+        // Only the three animations a standing player needs. Loading every
+        // external sequence of a character model stalls the frame.
+        pipeline::loadExternalAnimations(
+            *assetManager_, m2Path, m2Data, model,
+            {rendering::anim::STAND, rendering::anim::WALK, rendering::anim::RUN});
 
         modelId = nextPlayerModelId_++;
         if (!charRenderer->loadModel(model, modelId)) {
@@ -188,7 +172,7 @@ void EntitySpawner::spawnOnlinePlayer(uint64_t guid,
                     uint32_t t = md->textures[ti].type;
                     if (t == 1 && slots.skin < 0) slots.skin = static_cast<int>(ti);
                     else if (t == 6 && slots.hair < 0) slots.hair = static_cast<int>(ti);
-                    else if (t == 8 && slots.underwear < 0) slots.underwear = static_cast<int>(ti);
+                    else if (t == 8 && slots.skinExtra < 0) slots.skinExtra = static_cast<int>(ti);
                 }
             }
             slotIt->second = slots;
@@ -201,116 +185,57 @@ void EntitySpawner::spawnOnlinePlayer(uint64_t guid,
     uint32_t instanceId = charRenderer->createInstance(modelId, renderPos, glm::vec3(0.0f, 0.0f, renderYaw), 1.0f);
     if (instanceId == 0) return;
 
-    // Resolve skin/hair texture paths via CharSections, then apply as per-instance overrides
-    const char* raceFolderName = "Human";
-    switch (static_cast<game::Race>(raceId)) {
-        case game::Race::HUMAN: raceFolderName = "Human"; break;
-        case game::Race::ORC: raceFolderName = "Orc"; break;
-        case game::Race::DWARF: raceFolderName = "Dwarf"; break;
-        case game::Race::NIGHT_ELF: raceFolderName = "NightElf"; break;
-        case game::Race::UNDEAD: raceFolderName = "Scourge"; break;
-        case game::Race::TAUREN: raceFolderName = "Tauren"; break;
-        case game::Race::GNOME: raceFolderName = "Gnome"; break;
-        case game::Race::TROLL: raceFolderName = "Troll"; break;
-        case game::Race::BLOOD_ELF: raceFolderName = "BloodElf"; break;
-        case game::Race::DRAENEI: raceFolderName = "Draenei"; break;
-        default: break;
-    }
-    const char* genderFolder = (genderId == 1) ? "Female" : "Male";
-    std::string raceGender = std::string(raceFolderName) + genderFolder;
-    std::string bodySkinPath = std::string("Character\\") + raceFolderName + "\\" + genderFolder + "\\" + raceGender + "Skin00_00.blp";
-    std::string pelvisPath = std::string("Character\\") + raceFolderName + "\\" + genderFolder + "\\" + raceGender + "NakedPelvisSkin00_00.blp";
+    // The character's textures, through the one reader in
+    // pipeline/char_sections.hpp - the same scan the local player, the NPCs and
+    // the portrait use. This path used to carry a fourth copy of it, and the
+    // copy did not read the skin row's second texture, which is the head detail
+    // an HD model draws its ears and eyelashes from. Every other player in the
+    // world had skin-coloured eyelashes for exactly that reason.
+    const std::string defaultSkin = defaultBodySkinPath(raceId, genderId);
+    const std::string pelvisPath = defaultPelvisPath(raceId, genderId);
+    const AppearanceBytes look = unpackAppearanceBytes(appearanceBytes);
+    const uint8_t hairStyleId = look.hairStyleId;
+
+    std::string bodySkinPath = defaultSkin;
+    std::string skinExtraPath, hairTexturePath, faceLowerPath, faceUpperPath;
     std::vector<std::string> underwearPaths;
-    std::string hairTexturePath;
-    std::string faceLowerPath;
-    std::string faceUpperPath;
 
-    uint8_t skinId = appearanceBytes & 0xFF;
-    uint8_t faceId = (appearanceBytes >> 8) & 0xFF;
-    uint8_t hairStyleId = (appearanceBytes >> 16) & 0xFF;
-    uint8_t hairColorId = (appearanceBytes >> 24) & 0xFF;
+    if (auto charSectionsDbc = assetManager_->loadDBC("CharSections.dbc");
+        charSectionsDbc && charSectionsDbc->isLoaded()) {
+        const auto* csL = pipeline::getActiveDBCLayout()
+            ? pipeline::getActiveDBCLayout()->getLayout("CharSections") : nullptr;
+        const auto csF = pipeline::detectCharSectionsFields(charSectionsDbc.get(), csL);
 
-    if (auto charSectionsDbc = assetManager_->loadDBC("CharSections.dbc"); charSectionsDbc && charSectionsDbc->isLoaded()) {
-        const auto* csL = pipeline::getActiveDBCLayout() ? pipeline::getActiveDBCLayout()->getLayout("CharSections") : nullptr;
-        auto csF = pipeline::detectCharSectionsFields(charSectionsDbc.get(), csL);
-        uint32_t targetRaceId = raceId;
-        uint32_t targetSexId = genderId;
+        pipeline::CharacterAppearance who;
+        who.raceId = raceId;
+        who.sexId = genderId;
+        who.skinId = look.skinId;
+        who.faceId = look.faceId;
+        who.hairStyleId = look.hairStyleId;
+        who.hairColorId = look.hairColorId;
 
-        bool foundSkin = false;
-        bool foundUnderwear = false;
-        bool foundHair = false;
-        bool foundFaceLower = false;
-        // Same nearest-face fallback the local player's composer uses. These two
-        // appearance paths have to stay in step: one is every other player in
-        // the world, the other is you, and a face that resolves for one and not
-        // the other is exactly the kind of difference nobody thinks to check.
-        std::string faceAltLower, faceAltUpper;
-        bool haveFaceAlt = false;
+        // The underwear rows name art that was never shipped for some skin
+        // colours - Draenei 10 to 16 among them - and this caller can check.
+        const auto sections = pipeline::resolveCharacterSections(
+            charSectionsDbc.get(), csF, who,
+            [](const std::string& path, void* ctx) {
+                return static_cast<pipeline::AssetManager*>(ctx)->fileExists(path);
+            },
+            assetManager_);
 
-        for (uint32_t r = 0; r < charSectionsDbc->getRecordCount(); r++) {
-            uint32_t rRace = charSectionsDbc->getUInt32(r, csF.raceId);
-            uint32_t rSex = charSectionsDbc->getUInt32(r, csF.sexId);
-            uint32_t baseSection = charSectionsDbc->getUInt32(r, csF.baseSection);
-            uint32_t variationIndex = charSectionsDbc->getUInt32(r, csF.variationIndex);
-            uint32_t colorIndex = charSectionsDbc->getUInt32(r, csF.colorIndex);
+        if (!sections.bodySkin.empty()) bodySkinPath = sections.bodySkin;
+        skinExtraPath = sections.skinExtra;
+        faceLowerPath = sections.faceLower;
+        faceUpperPath = sections.faceUpper;
+        hairTexturePath = sections.hair;
+        underwearPaths = sections.underwear;
 
-            if (rRace != targetRaceId || rSex != targetSexId) continue;
-
-            if (baseSection == 0 && !foundSkin && colorIndex == skinId) {
-                std::string tex1 = charSectionsDbc->getString(r, csF.texture1);
-                if (!tex1.empty()) { bodySkinPath = tex1; foundSkin = true; }
-            } else if (baseSection == 3 && !foundHair &&
-                       variationIndex == hairStyleId && colorIndex == hairColorId) {
-                hairTexturePath = charSectionsDbc->getString(r, csF.texture1);
-                if (!hairTexturePath.empty()) foundHair = true;
-            } else if (baseSection == 4 && !foundUnderwear && colorIndex == skinId) {
-                // Verify textures exist — some DBC entries reference BLPs
-                // that were never shipped (e.g. Draenei skin colors 10-16).
-                bool allExist = true;
-                std::vector<std::string> candidateUW;
-                for (uint32_t f = csF.texture1; f <= csF.texture1 + 2; f++) {
-                    std::string tex = charSectionsDbc->getString(r, f);
-                    if (!tex.empty()) {
-                        if (assetManager_->fileExists(tex))
-                            candidateUW.push_back(tex);
-                        else
-                            allExist = false;
-                    }
-                }
-                if (allExist || !candidateUW.empty()) {
-                    underwearPaths = std::move(candidateUW);
-                    foundUnderwear = true;
-                }
-            } else if (baseSection == 1 && !foundFaceLower &&
-                       variationIndex == faceId && colorIndex == skinId) {
-                std::string tex1 = charSectionsDbc->getString(r, csF.texture1);
-                std::string tex2 = charSectionsDbc->getString(r, csF.texture2);
-                if (!tex1.empty()) faceLowerPath = tex1;
-                if (!tex2.empty()) faceUpperPath = tex2;
-                foundFaceLower = true;
-            } else if (baseSection == 1 && !foundFaceLower && !haveFaceAlt &&
-                       (variationIndex == faceId || colorIndex == skinId)) {
-                std::string tex1 = charSectionsDbc->getString(r, csF.texture1);
-                if (!tex1.empty()) {
-                    faceAltLower = tex1;
-                    faceAltUpper = charSectionsDbc->getString(r, csF.texture2);
-                    haveFaceAlt = true;
-                }
-            }
-
-            if (foundSkin && foundUnderwear && foundHair && foundFaceLower) break;
-        }
-
-        if (!foundFaceLower) {
+        if (!sections.exactFace) {
             LOG_WARNING("spawnOnlinePlayer: no DBC face match for face=",
-                        static_cast<int>(faceId), " skin=", static_cast<int>(skinId),
-                        " race=", targetRaceId, " sex=", targetSexId,
-                        haveFaceAlt ? " — using the nearest face instead"
-                                    : " — this player will render with no face");
-            if (haveFaceAlt) {
-                faceLowerPath = faceAltLower;
-                faceUpperPath = faceAltUpper;
-            }
+                        static_cast<int>(look.faceId), " skin=", static_cast<int>(look.skinId),
+                        " race=", raceId, " sex=", genderId,
+                        sections.haveFace ? " - using the nearest face instead"
+                                          : " - this player will render with no face");
         }
     }
 
@@ -333,9 +258,14 @@ void EntitySpawner::spawnOnlinePlayer(uint64_t guid,
     if (!hairTexturePath.empty()) {
         hairTex = charRenderer->loadTexture(hairTexturePath);
     }
-    rendering::VkTexture* underwearTex = nullptr;
-    if (!underwearPaths.empty()) underwearTex = charRenderer->loadTexture(underwearPaths[0]);
-    else underwearTex = charRenderer->loadTexture(pelvisPath);
+    // Texture type 8 is Skin Extra: the head detail sheet an HD model draws its
+    // ears, eyes and eyelashes from. CharSections names it in the skin row's
+    // second texture, which the tables the game shipped leave blank - so on a
+    // stock model this still falls through to the underwear art it always used.
+    rendering::VkTexture* skinExtraTex = nullptr;
+    if (!skinExtraPath.empty()) skinExtraTex = charRenderer->loadTexture(skinExtraPath);
+    else if (!underwearPaths.empty()) skinExtraTex = charRenderer->loadTexture(underwearPaths[0]);
+    else skinExtraTex = charRenderer->loadTexture(pelvisPath);
 
     const PlayerTextureSlots& slots = playerTextureSlotsByModelId_[modelId];
     if (slots.skin >= 0 && compositeTex) {
@@ -344,37 +274,20 @@ void EntitySpawner::spawnOnlinePlayer(uint64_t guid,
     if (slots.hair >= 0 && hairTex) {
         charRenderer->setTextureSlotOverride(instanceId, static_cast<uint16_t>(slots.hair), hairTex);
     }
-    if (slots.underwear >= 0 && underwearTex) {
-        charRenderer->setTextureSlotOverride(instanceId, static_cast<uint16_t>(slots.underwear), underwearTex);
+    if (slots.skinExtra >= 0 && skinExtraTex) {
+        charRenderer->setTextureSlotOverride(instanceId, static_cast<uint16_t>(slots.skinExtra), skinExtraTex);
     }
 
     // Geosets: body + selected hair/facial hair. Do not enable every group-0
     // submesh; that activates all hair scalp variants at once.
-    std::unordered_set<uint16_t> activeGeosets;
     const uint16_t selectedHairScalp = selectHairScalpGeoset(hairGeosetMap_, raceId, genderId, hairStyleId);
-    activeGeosets.insert(0);
-    activeGeosets.insert(selectedHairScalp);
-    const uint32_t facialKey = (static_cast<uint32_t>(raceId) << 16) |
-                               (static_cast<uint32_t>(genderId) << 8) |
-                               static_cast<uint32_t>(facialFeatures);
-    auto itFacial = facialHairGeosetMap_.find(facialKey);
-    if (itFacial != facialHairGeosetMap_.end()) {
-        activeGeosets.insert(static_cast<uint16_t>(100 + itFacial->second.geoset100));
-        activeGeosets.insert(static_cast<uint16_t>(200 + itFacial->second.geoset200));
-        activeGeosets.insert(static_cast<uint16_t>(300 + itFacial->second.geoset300));
-    } else {
-        activeGeosets.insert(101);
-        activeGeosets.insert(201);
-        activeGeosets.insert(301);
-    }
-    activeGeosets.insert(kGeosetBareForearms);
-    activeGeosets.insert(kGeosetBareShins);
-    activeGeosets.insert(kGeosetDefaultEars);
-    activeGeosets.insert(kGeosetBareSleeves);
-    activeGeosets.insert(kGeosetDefaultKneepads);
-    activeGeosets.insert(kGeosetBarePants);
+    auto itFacial = facialHairGeosetMap_.find(appearanceKey(raceId, genderId, facialFeatures));
+    std::unordered_set<uint16_t> activeGeosets = bareGeosetsFor(
+        selectedHairScalp,
+        itFacial != facialHairGeosetMap_.end() ? &itFacial->second : nullptr, raceId);
+    // This one is drawn before equipment is known and wants the no-cloak panel;
+    // the shared set leaves group 15 alone so the equipment pass can decide.
     activeGeosets.insert(kGeosetNoCape);
-    activeGeosets.insert(kGeosetBareFeet);
     charRenderer->setActiveGeosets(instanceId, activeGeosets);
 
     if (deadCreatureGuids_.count(guid)) {
@@ -415,7 +328,7 @@ void EntitySpawner::setOnlinePlayerEquipment(uint64_t guid,
                                           const std::array<uint8_t, 19>& inventoryTypes) {
     if (!renderer_ || !renderer_->getCharacterRenderer() || !assetManager_ || !assetManager_->isInitialized()) return;
 
-    // Skip local player — equipment handled by GameScreen::updateCharacterGeosets/Textures
+    // Skip local player - equipment handled by GameScreen::updateCharacterGeosets/Textures
     // via consumeOnlineEquipmentDirty(), which fires on the same server update.
     if (gameHandler_) {
         uint64_t localGuid = gameHandler_->getPlayerGuid();
@@ -437,7 +350,7 @@ void EntitySpawner::setOnlinePlayerEquipment(uint64_t guid,
 
     if (st.bodySkinPath.empty()) {
         LOG_DEBUG("setOnlinePlayerEquipment: bodySkinPath empty for guid=0x", std::hex, guid, std::dec,
-                    " instanceId=", st.instanceId, " — skipping equipment");
+                    " instanceId=", st.instanceId, " - skipping equipment");
         return;
     }
 
@@ -486,27 +399,16 @@ void EntitySpawner::setOnlinePlayerEquipment(uint64_t guid,
     // keep other-player rendering consistent with the local character preview.
     // Group 4 (4xx) = forearms/gloves, 5 (5xx) = shins/boots, 8 (8xx) = wrists/sleeves,
     // 13 (13xx) = legs/trousers.  Missing defaults caused the shin-mesh gap (status.md).
-    std::unordered_set<uint16_t> geosets;
     uint8_t hairStyleId = static_cast<uint8_t>((st.appearanceBytes >> 16) & 0xFF);
     const uint16_t selectedHairScalp = selectHairScalpGeoset(hairGeosetMap_, st.raceId, st.genderId, hairStyleId);
-    geosets.insert(0);
-    geosets.insert(selectedHairScalp);
-    const uint32_t facialKey = (static_cast<uint32_t>(st.raceId) << 16) |
-                               (static_cast<uint32_t>(st.genderId) << 8) |
-                               static_cast<uint32_t>(st.facialFeatures);
-    auto itFacial = facialHairGeosetMap_.find(facialKey);
-    if (itFacial != facialHairGeosetMap_.end()) {
-        geosets.insert(static_cast<uint16_t>(100 + itFacial->second.geoset100));
-        geosets.insert(static_cast<uint16_t>(200 + itFacial->second.geoset200));
-        geosets.insert(static_cast<uint16_t>(300 + itFacial->second.geoset300));
-    } else {
-        geosets.insert(101);
-        geosets.insert(201);
-        geosets.insert(301);
-    }
-    geosets.insert(701);                  // Ears
-    geosets.insert(kGeosetDefaultKneepads); // Kneepads
-    geosets.insert(kGeosetBareFeet);        // Bare feet mesh
+    auto itFacial = facialHairGeosetMap_.find(
+        appearanceKey(st.raceId, st.genderId, st.facialFeatures));
+    // The same bare set as everywhere else. This built its own and had drifted:
+    // it named ears 701 where the other three name 702, which is the variant
+    // that has ears on it - so a player composed through this path lost them.
+    std::unordered_set<uint16_t> geosets = bareGeosetsFor(
+        selectedHairScalp,
+        itFacial != facialHairGeosetMap_.end() ? &itFacial->second : nullptr, st.raceId);
 
     const uint32_t geosetGroup1Field = idiL ? (*idiL)["GeosetGroup1"] : 7;
     const uint32_t geosetGroup3Field = idiL ? (*idiL)["GeosetGroup3"] : 9;
@@ -528,6 +430,25 @@ void EntitySpawner::setOnlinePlayerEquipment(uint64_t guid,
         }
     };
 
+    // NOTE (2026-08-11, unverified): this does NOT use core::resolveGeoset,
+    // and the character preview's identically-named lambda does.
+    //
+    // geoset_rules.hpp says of that rule "it lives here now, with a test, and
+    // the call sites ask rather than decide". This call site still decides -
+    // it takes an exact match or the caller's fallback and nothing else.
+    //
+    // Where the two differ: an *equipped* geoset (a real variant, not a bare
+    // 401/501/801/1301, which both treat as none and never substitute) that
+    // the model does not carry. The preview substitutes the lowest member of
+    // that group and shows some armour mesh; this returns the bare default, or
+    // nothing at all if the model lacks that too. So a race whose model is
+    // missing a variant would look bare in the world and dressed on the
+    // character screen.
+    //
+    // Deliberately not changed here. It is a difference in what gets drawn on
+    // the character you play, in the same area as the unresolved bare-shin
+    // width bug, and it wants someone looking at the screen - which is the one
+    // thing this pass could not do.
     auto pickGeoset = [&](uint16_t preferred, uint16_t fallback) -> uint16_t {
         if (preferred != 0 && modelGeosets.count(preferred) > 0) return preferred;
         if (fallback != 0 && modelGeosets.count(fallback) > 0) return fallback;
@@ -544,7 +465,7 @@ void EntitySpawner::setOnlinePlayerEquipment(uint64_t guid,
         return best;
     };
 
-    // Per-group defaults — overridden below when equipment provides a geoset value.
+    // Per-group defaults - overridden below when equipment provides a geoset value.
     uint16_t geosetGloves  = pickGeoset(kGeosetBareForearms, kGeosetBareForearms);
     uint16_t geosetBoots   = pickGeoset(kGeosetBareShins, lowestInGroup(5));
     uint16_t geosetSleeves = pickGeoset(kGeosetBareSleeves, kGeosetBareSleeves);
@@ -554,31 +475,31 @@ void EntitySpawner::setOnlinePlayerEquipment(uint64_t guid,
     {
         uint32_t did = findDisplayIdByInvType({4, 5, 20});
         uint32_t gg1 = getGeosetGroup(did, geosetGroup1Field);
-        if (gg1 > 0) geosetSleeves = pickGeoset(static_cast<uint16_t>(kGeosetBareSleeves + gg1), kGeosetBareSleeves);
+        if (gg1 > 0) geosetSleeves = pickGeoset(equippedGeoset(equipment::kChestBare, gg1), kGeosetBareSleeves);
         // Robe kilt → leg group 13
         uint32_t gg3 = getGeosetGroup(did, geosetGroup3Field);
-        if (gg3 > 0) geosetPants = pickGeoset(static_cast<uint16_t>(kGeosetBarePants + gg3), kGeosetBarePants);
+        if (gg3 > 0) geosetPants = pickGeoset(equippedGeoset(equipment::kRobeKiltBare, gg3), kGeosetBarePants);
     }
 
     // Legs (invType 7) → leg group 13
     {
         uint32_t did = findDisplayIdByInvType({7});
         uint32_t gg1 = getGeosetGroup(did, geosetGroup1Field);
-        if (gg1 > 0) geosetPants = pickGeoset(static_cast<uint16_t>(kGeosetBarePants + gg1), kGeosetBarePants);
+        if (gg1 > 0) geosetPants = pickGeoset(equippedGeoset(equipment::kLegsBare, gg1), kGeosetBarePants);
     }
 
     // Feet/Boots (invType 8) → shin group 5
     {
         uint32_t did = findDisplayIdByInvType({8});
         uint32_t gg1 = getGeosetGroup(did, geosetGroup1Field);
-        if (gg1 > 0) geosetBoots = pickGeoset(static_cast<uint16_t>(501 + gg1), lowestInGroup(5));
+        if (gg1 > 0) geosetBoots = pickGeoset(equippedGeoset(equipment::kBootsBare, gg1), lowestInGroup(5));
     }
 
     // Hands/Gloves (invType 10) → forearm group 4
     {
         uint32_t did = findDisplayIdByInvType({10});
         uint32_t gg1 = getGeosetGroup(did, geosetGroup1Field);
-        if (gg1 > 0) geosetGloves = pickGeoset(static_cast<uint16_t>(kGeosetBareForearms + gg1), kGeosetBareForearms);
+        if (gg1 > 0) geosetGloves = pickGeoset(equippedGeoset(equipment::kGlovesBare, gg1), kGeosetBareForearms);
     }
 
     // Wrists/Bracers (invType 9) → sleeve group 8 (only if chest/shirt didn't set it)
@@ -586,7 +507,7 @@ void EntitySpawner::setOnlinePlayerEquipment(uint64_t guid,
         uint32_t did = findDisplayIdByInvType({9});
         if (did != 0 && geosetSleeves == kGeosetBareSleeves) {
             uint32_t gg1 = getGeosetGroup(did, geosetGroup1Field);
-            if (gg1 > 0) geosetSleeves = pickGeoset(static_cast<uint16_t>(kGeosetBareSleeves + gg1), kGeosetBareSleeves);
+            if (gg1 > 0) geosetSleeves = pickGeoset(equippedGeoset(equipment::kChestBare, gg1), kGeosetBareSleeves);
         }
     }
 
@@ -595,7 +516,7 @@ void EntitySpawner::setOnlinePlayerEquipment(uint64_t guid,
     {
         uint32_t did = findDisplayIdByInvType({6});
         uint32_t gg1 = getGeosetGroup(did, geosetGroup1Field);
-        if (gg1 > 0) geosetBelt = pickGeoset(static_cast<uint16_t>(1801 + gg1), 0);
+        if (gg1 > 0) geosetBelt = pickGeoset(equippedGeoset(equipment::kBeltBase, gg1), 0);
     }
 
     eraseGroup(4);
@@ -631,7 +552,7 @@ void EntitySpawner::setOnlinePlayerEquipment(uint64_t guid,
     // HEAD slot is index 0 in the 19-element equipment array.
     // Helmet M2s are race/gender-specific (e.g. Helm_Plate_B_01_HuM.m2 for Human Male).
     if (displayInfoIds[0] != 0) {
-        // Only the helm point — detaching 0 as well would drop the shield.
+        // Only the helm point - detaching 0 as well would drop the shield.
         charRenderer->detachWeapon(st.instanceId, kAttachHelm);
 
         const core::HelmVisual helm = core::resolveHelmVisual(
@@ -659,7 +580,7 @@ void EntitySpawner::setOnlinePlayerEquipment(uint64_t guid,
             }
         }
     } else {
-        // No helmet equipped — detach any existing helmet model
+        // No helmet equipped - detach any existing helmet model
         charRenderer->detachWeapon(st.instanceId, kAttachHelm);
     }
 
@@ -766,7 +687,7 @@ void EntitySpawner::setOnlinePlayerEquipment(uint64_t guid,
             }
         }
     } else {
-        // No shoulders equipped — detach any existing shoulder models
+        // No shoulders equipped - detach any existing shoulder models
         charRenderer->detachWeapon(st.instanceId, 5);
         charRenderer->detachWeapon(st.instanceId, 6);
     }
@@ -783,7 +704,7 @@ void EntitySpawner::setOnlinePlayerEquipment(uint64_t guid,
                 // RightModelTexture is the field right after LeftModelTexture.
                 // Some cloaks (e.g. Jaina's Radiance) carry their texture only in
                 // the right field; the character-preview screen checks both, so
-                // match it here — otherwise the world model shows the cape mesh
+                // match it here - otherwise the world model shows the cape mesh
                 // untextured even though the paperdoll preview looks correct.
                 const uint32_t rightTexField = leftTexField + 1;
                 std::string leftName = displayInfoDbc->getString(
@@ -801,43 +722,17 @@ void EntitySpawner::setOnlinePlayerEquipment(uint64_t guid,
                 else                  { addCapeName(leftName);  addCapeName(rightName); }
 
                 if (!capeNames.empty()) {
-                    auto hasBlpExt = [](const std::string& p) {
-                        if (p.size() < 4) return false;
-                        std::string ext = p.substr(p.size() - 4);
-                        std::transform(ext.begin(), ext.end(), ext.begin(),
-                                       [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-                        return ext == ".blp";
-                    };
-
+                    // Where a cape's art might be, in the order to try it -
+                    // pipeline/item_textures.hpp. Written out here, in the NPC
+                    // path and in the portrait, identically, which is the only
+                    // reason the three agreed.
                     std::vector<std::string> capeCandidates;
-                    auto addCapeCandidate = [&](const std::string& p) {
-                        if (p.empty()) return;
-                        if (std::find(capeCandidates.begin(), capeCandidates.end(), p) == capeCandidates.end()) {
-                            capeCandidates.push_back(p);
-                        }
-                    };
-
-                    for (std::string capeName : capeNames) {
-                        std::replace(capeName.begin(), capeName.end(), '/', '\\');
-                        const bool hasDir = (capeName.find('\\') != std::string::npos);
-                        const bool hasExt = hasBlpExt(capeName);
-                        if (hasDir) {
-                            if (hasExt) addCapeCandidate(capeName);
-                            else addCapeCandidate(capeName + ".blp");
-                        } else {
-                            std::string baseObj = "Item\\ObjectComponents\\Cape\\" + capeName;
-                            std::string baseTex = "Item\\TextureComponents\\Cape\\" + capeName;
-                            if (hasExt) {
-                                addCapeCandidate(baseObj);
-                                addCapeCandidate(baseTex);
-                            } else {
-                                addCapeCandidate(baseObj + ".blp");
-                                addCapeCandidate(baseTex + ".blp");
+                    for (const auto& capeName : capeNames) {
+                        for (auto& c : pipeline::capeTextureCandidates(capeName, st.genderId == 1)) {
+                            if (std::find(capeCandidates.begin(), capeCandidates.end(), c) ==
+                                capeCandidates.end()) {
+                                capeCandidates.push_back(std::move(c));
                             }
-                            addCapeCandidate(baseObj + (st.genderId == 1 ? "_F.blp" : "_M.blp"));
-                            addCapeCandidate(baseObj + "_U.blp");
-                            addCapeCandidate(baseTex + (st.genderId == 1 ? "_F.blp" : "_M.blp"));
-                            addCapeCandidate(baseTex + "_U.blp");
                         }
                     }
 
@@ -868,16 +763,6 @@ void EntitySpawner::setOnlinePlayerEquipment(uint64_t guid,
     }
 
     // --- Textures (skin atlas compositing) ---
-    static constexpr const char* componentDirs[] = {
-        "ArmUpperTexture",
-        "ArmLowerTexture",
-        "HandTexture",
-        "TorsoUpperTexture",
-        "TorsoLowerTexture",
-        "LegUpperTexture",
-        "LegLowerTexture",
-        "FootTexture",
-    };
 
     uint32_t texRegionFields[8];
     pipeline::getItemDisplayInfoTextureFields(*displayInfoDbc, idiL, texRegionFields);
@@ -896,15 +781,9 @@ void EntitySpawner::setOnlinePlayerEquipment(uint64_t guid,
                 static_cast<uint32_t>(recIdx), texRegionFields[region]);
             if (texName.empty()) continue;
 
-            std::string base = "Item\\TextureComponents\\" + std::string(componentDirs[region]) + "\\" + texName;
-            std::string genderPath = base + (isFemale ? "_F.blp" : "_M.blp");
-            std::string unisexPath = base + "_U.blp";
-            std::string basePath = base + ".blp";
-            std::string fullPath;
-            if (assetManager_->fileExists(genderPath)) fullPath = genderPath;
-            else if (assetManager_->fileExists(unisexPath)) fullPath = unisexPath;
-            else if (assetManager_->fileExists(basePath)) fullPath = basePath;
-            else continue;
+            std::string fullPath = pipeline::resolveItemRegionTexture(
+                *assetManager_, region, texName, isFemale);
+            if (fullPath.empty()) continue;
 
             regionLayers.emplace_back(region, fullPath);
         }
@@ -933,11 +812,6 @@ void EntitySpawner::setOnlinePlayerEquipment(uint64_t guid,
         { 16, 2 },  // OFF_HAND  → left hand
     };
 
-    const uint32_t modelFieldL = idiL ? (*idiL)["LeftModel"] : 1u;
-    const uint32_t modelFieldR = idiL ? (*idiL)["RightModel"] : 2u;
-    const uint32_t texFieldL   = idiL ? (*idiL)["LeftModelTexture"] : 3u;
-    const uint32_t texFieldR   = idiL ? (*idiL)["RightModelTexture"] : 4u;
-
     for (const auto& ws : weaponSlots) {
         uint32_t weapDisplayId = displayInfoIds[ws.slotIndex];
         if (weapDisplayId == 0) {
@@ -951,25 +825,14 @@ void EntitySpawner::setOnlinePlayerEquipment(uint64_t guid,
             continue;
         }
 
-        // Prefer LeftModel (full weapon), fall back to RightModel (hilt variants)
-        std::string modelName = displayInfoDbc->getString(static_cast<uint32_t>(recIdx), modelFieldL);
-        std::string textureName = displayInfoDbc->getString(static_cast<uint32_t>(recIdx), texFieldL);
-        if (modelName.empty()) {
-            modelName = displayInfoDbc->getString(static_cast<uint32_t>(recIdx), modelFieldR);
-            textureName = displayInfoDbc->getString(static_cast<uint32_t>(recIdx), texFieldR);
-        }
-        if (modelName.empty()) {
+        const auto art = pipeline::readItemDisplayArt(*displayInfoDbc,
+                                                      static_cast<uint32_t>(recIdx));
+        if (art.modelFile.empty()) {
             charRenderer->detachWeapon(st.instanceId, ws.attachmentId);
             continue;
         }
-
-        // Convert .mdx → .m2
-        std::string modelFile = modelName;
-        {
-            size_t dotPos = modelFile.rfind('.');
-            if (dotPos != std::string::npos) modelFile = modelFile.substr(0, dotPos);
-            modelFile += ".m2";
-        }
+        const std::string& modelFile = art.modelFile;
+        const std::string& textureName = art.textureName;
 
         // Try Weapon directory first, then Shield
         std::string m2Path = "Item\\ObjectComponents\\Weapon\\" + modelFile;
@@ -1096,7 +959,7 @@ void EntitySpawner::spawnOnlineGameObject(uint64_t guid, uint32_t entry, uint32_
         // A tracked instance ID is only meaningful while the renderer still holds
         // it. Renderer-wide clears (map change, device reset) drop instances
         // without going through despawnGameObject(), which used to leave this map
-        // pointing at a dead handle — every later server CREATE for that GUID then
+        // pointing at a dead handle - every later server CREATE for that GUID then
         // took the position-update path below and the object stayed invisible for
         // the rest of the session. Treat a dead handle as "not spawned".
         bool instanceAlive = false;
@@ -1110,7 +973,7 @@ void EntitySpawner::spawnOnlineGameObject(uint64_t guid, uint32_t entry, uint32_
             }
         }
         if (!instanceAlive) {
-            LOG_WARNING("GO render instance vanished — respawning: guid=0x", std::hex, guid, std::dec,
+            LOG_WARNING("GO render instance vanished - respawning: guid=0x", std::hex, guid, std::dec,
                         " displayId=", displayId, " instanceId=", goIt->second.instanceId);
             gameObjectInstances_.erase(goIt);
             goIt = gameObjectInstances_.end();
@@ -1133,7 +996,7 @@ void EntitySpawner::spawnOnlineGameObject(uint64_t guid, uint32_t entry, uint32_
             return;
         }
 
-        // Already have a render instance — update its position (e.g. transport re-creation)
+        // Already have a render instance - update its position (e.g. transport re-creation)
         auto& info = goIt->second;
         glm::vec3 renderPos = core::coords::canonicalToRender(glm::vec3(x, y, z));
         LOG_DEBUG("GameObject position update: displayId=", displayId, " guid=0x", std::hex, guid, std::dec,
@@ -1258,10 +1121,10 @@ void EntitySpawner::spawnOnlineGameObject(uint64_t guid, uint32_t entry, uint32_
                     }
                 } else {
                     LOG_WARNING("No WMO groups loaded for gameobject: ", modelPath,
-                                " — falling back to M2");
+                                " - falling back to M2");
                 }
             } else {
-                LOG_WARNING("Failed to read gameobject WMO: ", modelPath, " — falling back to M2");
+                LOG_WARNING("Failed to read gameobject WMO: ", modelPath, " - falling back to M2");
             }
         }
 
@@ -1324,7 +1187,7 @@ void EntitySpawner::spawnOnlineGameObject(uint64_t guid, uint32_t entry, uint32_
             return;
         }
 
-        // WMO failed — fall through to try as M2
+        // WMO failed - fall through to try as M2
         // Convert .wmo path to .m2 for fallback
         modelPath = modelPath.substr(0, modelPath.size() - 4) + ".m2";
     }
@@ -1345,7 +1208,7 @@ void EntitySpawner::spawnOnlineGameObject(uint64_t guid, uint32_t entry, uint32_
             if (!m2Renderer->hasModel(modelId)) {
                 LOG_WARNING("GO M2 cache hit but model gone: displayId=", displayId,
                             " modelId=", modelId, " path=", modelPath,
-                            " — reloading");
+                            " - reloading");
                 gameObjectDisplayIdModelCache_.erase(itCache);
                 itCache = gameObjectDisplayIdModelCache_.end();
             }
@@ -1371,7 +1234,7 @@ void EntitySpawner::spawnOnlineGameObject(uint64_t guid, uint32_t entry, uint32_
                 return;
             }
 
-            std::string skinPath = modelPath.substr(0, modelPath.size() - 3) + "00.skin";
+            std::string skinPath = pipeline::skinPathForM2(modelPath);
             auto skinData = assetManager_->readFile(skinPath);
             if (!skinData.empty() && model.version >= 264) {
                 pipeline::M2Loader::loadSkin(skinData, model);
@@ -1394,7 +1257,7 @@ void EntitySpawner::spawnOnlineGameObject(uint64_t guid, uint32_t entry, uint32_
 
             // Keep game object models resident across the away-and-back cycle.
             // Leaving town drops every instance of them, and the 60s reaper then
-            // evicted the model — the log showed PostBoxHuman.m2 (the mailbox)
+            // evicted the model - the log showed PostBoxHuman.m2 (the mailbox)
             // going through exactly that reap/reload churn on every return trip.
             m2Renderer->setModelPinned(modelId, true);
             gameObjectDisplayIdModelCache_[displayId] = modelId;

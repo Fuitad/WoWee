@@ -48,7 +48,7 @@
 // of error strings (empty == passed) keeps callers simple.
 // Minimal SHA-256 implementation (FIPS 180-4) used by --export-zone-checksum
 // to produce hashes that interoperate with `sha256sum -c`. Not exposed beyond
-// this file — about 90 LoC, no external deps. See RFC 6234 for the algorithm.
+// this file - about 90 LoC, no external deps. See RFC 6234 for the algorithm.
 
 
 
@@ -92,7 +92,7 @@ int main(int argc, char* argv[]) {
         if (wowee::editor::cli::tryDispatchAll(i, argc, argv, outRc)) {
             return outRc;
         }
-        // GUI-state args don't return — they're absorbed and
+        // GUI-state args don't return - they're absorbed and
         // applied to the EditorApp after argv parsing finishes.
         if (std::strcmp(argv[i], "--data") == 0 && i + 1 < argc) {
             dataPath = argv[++i];

@@ -1,4 +1,6 @@
 #include "cli_token_rewards_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -19,20 +21,6 @@ namespace cli {
 
 namespace {
 
-std::string stripWtbrExt(std::string base) {
-    stripExt(base, ".wtbr");
-    return base;
-}
-
-bool saveOrError(const wowee::pipeline::WoweeTokenReward& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeTokenRewardLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wtbr\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeTokenReward& c,
                      const std::string& base) {
@@ -45,9 +33,9 @@ int handleGenRaid(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "RaidTokenRewards";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWtbrExt(base);
+    base = cli::withoutExt(base, ".wtbr");
     auto c = wowee::pipeline::WoweeTokenRewardLoader::makeRaidTokens(name);
-    if (!saveOrError(c, base, "gen-tbr")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeTokenRewardLoader>(c, base, "gen-tbr", ".wtbr")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -56,9 +44,9 @@ int handleGenPvP(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "PvPTokenRewards";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWtbrExt(base);
+    base = cli::withoutExt(base, ".wtbr");
     auto c = wowee::pipeline::WoweeTokenRewardLoader::makePvP(name);
-    if (!saveOrError(c, base, "gen-tbr-pvp")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeTokenRewardLoader>(c, base, "gen-tbr-pvp", ".wtbr")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -67,9 +55,9 @@ int handleGenFaction(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "FactionTokenRewards";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWtbrExt(base);
+    base = cli::withoutExt(base, ".wtbr");
     auto c = wowee::pipeline::WoweeTokenRewardLoader::makeFaction(name);
-    if (!saveOrError(c, base, "gen-tbr-faction")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeTokenRewardLoader>(c, base, "gen-tbr-faction", ".wtbr")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -77,10 +65,9 @@ int handleGenFaction(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWtbrExt(base);
+    base = cli::withoutExt(base, ".wtbr");
     if (!wowee::pipeline::WoweeTokenRewardLoader::exists(base)) {
-        std::fprintf(stderr, "WTBR not found: %s.wtbr\n", base.c_str());
-        return 1;
+        return reportMissing("WTBR", base, ".wtbr");
     }
     auto c = wowee::pipeline::WoweeTokenRewardLoader::load(base);
     if (jsonOut) {
@@ -136,12 +123,9 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWtbrExt(base);
+    base = cli::withoutExt(base, ".wtbr");
     if (!wowee::pipeline::WoweeTokenRewardLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wtbr-json: WTBR not found: %s.wtbr\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wtbr-json", "WTBR", base, ".wtbr");
     }
     auto c = wowee::pipeline::WoweeTokenRewardLoader::load(base);
     if (outPath.empty()) outPath = base + ".wtbr.json";
@@ -277,21 +261,8 @@ int handleImportJson(int& i, int argc, char** argv) {
             c.entries.push_back(e);
         }
     }
-    if (outBase.empty()) {
-        outBase = jsonPath;
-        const std::string suffix1 = ".wtbr.json";
-        const std::string suffix2 = ".json";
-        if (outBase.size() >= suffix1.size() &&
-            outBase.compare(outBase.size() - suffix1.size(),
-                            suffix1.size(), suffix1) == 0) {
-            outBase.resize(outBase.size() - suffix1.size());
-        } else if (outBase.size() >= suffix2.size() &&
-                   outBase.compare(outBase.size() - suffix2.size(),
-                                   suffix2.size(), suffix2) == 0) {
-            outBase.resize(outBase.size() - suffix2.size());
-        }
-    }
-    outBase = stripWtbrExt(outBase);
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(jsonPath, ".wtbr");
+    outBase = cli::withoutExt(outBase, ".wtbr");
     if (!wowee::pipeline::WoweeTokenRewardLoader::save(c, outBase)) {
         std::fprintf(stderr,
             "import-wtbr-json: failed to save %s.wtbr\n",
@@ -305,105 +276,64 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWtbrExt(base);
-    if (!wowee::pipeline::WoweeTokenRewardLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wtbr: WTBR not found: %s.wtbr\n", base.c_str());
-        return 1;
-    }
-    auto c = wowee::pipeline::WoweeTokenRewardLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    std::vector<uint32_t> idsSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.tokenRewardId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.tokenRewardId == 0)
-            errors.push_back(ctx + ": tokenRewardId is 0");
-        if (e.name.empty())
-            errors.push_back(ctx + ": name is empty");
-        if (e.spentTokenItemId == 0)
-            errors.push_back(ctx +
-                ": spentTokenItemId is 0 — missing token currency");
-        if (e.spentTokenCount == 0)
-            errors.push_back(ctx +
-                ": spentTokenCount is 0 — would grant reward for free");
-        if (e.rewardKind > wowee::pipeline::WoweeTokenReward::Cosmetic) {
-            errors.push_back(ctx + ": rewardKind " +
-                std::to_string(e.rewardKind) + " not in 0..7");
-        }
-        if (e.requiredFactionStanding > wowee::pipeline::WoweeTokenReward::Exalted) {
-            errors.push_back(ctx + ": requiredFactionStanding " +
-                std::to_string(e.requiredFactionStanding) +
-                " not in 0..7");
-        }
-        if (e.rewardId == 0)
-            warnings.push_back(ctx +
-                ": rewardId is 0 — no actual reward target, "
-                "vendor will offer the entry but grant nothing");
-        // requiredFactionStanding > Neutral with no
-        // requiredFactionId is contradictory — the gate
-        // can't apply.
-        if (e.requiredFactionStanding > wowee::pipeline::WoweeTokenReward::Neutral &&
-            e.requiredFactionId == 0) {
-            warnings.push_back(ctx +
-                ": requiredFactionStanding=" +
-                wowee::pipeline::WoweeTokenReward::factionStandingName(e.requiredFactionStanding) +
-                " set but requiredFactionId=0 — rep gate "
-                "has no faction to check, gate will be ignored");
-        }
-        // Currency conversion to same item is suspicious
-        // (1 X -> N X is usually a config bug).
-        if (e.rewardKind == wowee::pipeline::WoweeTokenReward::Currency &&
-            e.rewardId == e.spentTokenItemId) {
-            warnings.push_back(ctx +
-                ": Currency conversion from item " +
-                std::to_string(e.spentTokenItemId) +
-                " to itself — usually a typo");
-        }
-        for (uint32_t prev : idsSeen) {
-            if (prev == e.tokenRewardId) {
-                errors.push_back(ctx + ": duplicate tokenRewardId");
-                break;
+    return cli::validateCatalog<wowee::pipeline::WoweeTokenRewardLoader>(
+        i, argc, argv, "wtbr", "WTBR",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.tokenRewardId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.tokenRewardId == 0)
+                errors.push_back(ctx + ": tokenRewardId is 0");
+            if (e.name.empty())
+                errors.push_back(ctx + ": name is empty");
+            if (e.spentTokenItemId == 0)
+                errors.push_back(ctx +
+                    ": spentTokenItemId is 0 - missing token currency");
+            if (e.spentTokenCount == 0)
+                errors.push_back(ctx +
+                    ": spentTokenCount is 0 - would grant reward for free");
+            if (e.rewardKind > wowee::pipeline::WoweeTokenReward::Cosmetic) {
+                errors.push_back(ctx + ": rewardKind " +
+                    std::to_string(e.rewardKind) + " not in 0..7");
             }
+            if (e.requiredFactionStanding > wowee::pipeline::WoweeTokenReward::Exalted) {
+                errors.push_back(ctx + ": requiredFactionStanding " +
+                    std::to_string(e.requiredFactionStanding) +
+                    " not in 0..7");
+            }
+            if (e.rewardId == 0)
+                warnings.push_back(ctx +
+                    ": rewardId is 0 - no actual reward target, "
+                    "vendor will offer the entry but grant nothing");
+            // requiredFactionStanding > Neutral with no
+            // requiredFactionId is contradictory - the gate
+            // can't apply.
+            if (e.requiredFactionStanding > wowee::pipeline::WoweeTokenReward::Neutral &&
+                e.requiredFactionId == 0) {
+                warnings.push_back(ctx +
+                    ": requiredFactionStanding=" +
+                    wowee::pipeline::WoweeTokenReward::factionStandingName(e.requiredFactionStanding) +
+                    " set but requiredFactionId=0 - rep gate "
+                    "has no faction to check, gate will be ignored");
+            }
+            // Currency conversion to same item is suspicious
+            // (1 X -> N X is usually a config bug).
+            if (e.rewardKind == wowee::pipeline::WoweeTokenReward::Currency &&
+                e.rewardId == e.spentTokenItemId) {
+                warnings.push_back(ctx +
+                    ": Currency conversion from item " +
+                    std::to_string(e.spentTokenItemId) +
+                    " to itself - usually a typo");
+            }
+            if (!idsSeen.add(e.tokenRewardId)) errors.push_back(ctx + ": duplicate tokenRewardId");
         }
-        idsSeen.push_back(e.tokenRewardId);
-    }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wtbr"] = base + ".wtbr";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wtbr: %s.wtbr\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu rewards, all tokenRewardIds unique\n",
-                    c.entries.size());
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+            return formatted("%zu rewards, all tokenRewardIds unique", c.entries.size());
+        });
 }
 
 } // namespace

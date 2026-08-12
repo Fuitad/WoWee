@@ -1,4 +1,6 @@
 #include "cli_creature_behavior_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -18,11 +20,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWbhvExt(std::string base) {
-    stripExt(base, ".wbhv");
-    return base;
-}
 
 const char* creatureKindName(uint8_t k) {
     using B = wowee::pipeline::WoweeCreatureBehavior;
@@ -48,15 +45,6 @@ const char* evadeBehaviorName(uint8_t e) {
     }
 }
 
-bool saveOrError(const wowee::pipeline::WoweeCreatureBehavior& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeCreatureBehaviorLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wbhv\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeCreatureBehavior& c,
                      const std::string& base) {
@@ -69,10 +57,10 @@ int handleGenMelee(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "MeleeBehaviors";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWbhvExt(base);
+    base = cli::withoutExt(base, ".wbhv");
     auto c = wowee::pipeline::WoweeCreatureBehaviorLoader::
         makeMeleeBehaviors(name);
-    if (!saveOrError(c, base, "gen-bhv-melee")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCreatureBehaviorLoader>(c, base, "gen-bhv-melee", ".wbhv")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -81,10 +69,10 @@ int handleGenCaster(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "CasterBehaviors";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWbhvExt(base);
+    base = cli::withoutExt(base, ".wbhv");
     auto c = wowee::pipeline::WoweeCreatureBehaviorLoader::
         makeCasterBehaviors(name);
-    if (!saveOrError(c, base, "gen-bhv-caster")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCreatureBehaviorLoader>(c, base, "gen-bhv-caster", ".wbhv")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -93,10 +81,10 @@ int handleGenBoss(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "BossBehaviors";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWbhvExt(base);
+    base = cli::withoutExt(base, ".wbhv");
     auto c = wowee::pipeline::WoweeCreatureBehaviorLoader::
         makeBossBehaviors(name);
-    if (!saveOrError(c, base, "gen-bhv-boss")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCreatureBehaviorLoader>(c, base, "gen-bhv-boss", ".wbhv")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -104,7 +92,7 @@ int handleGenBoss(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWbhvExt(base);
+    base = cli::withoutExt(base, ".wbhv");
     if (!wowee::pipeline::WoweeCreatureBehaviorLoader::exists(base)) {
         std::fprintf(stderr, "WBHV not found: %s.wbhv\n",
                      base.c_str());
@@ -226,12 +214,9 @@ bool readEnumField(const nlohmann::json& je,
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWbhvExt(base);
+    base = cli::withoutExt(base, ".wbhv");
     if (!wowee::pipeline::WoweeCreatureBehaviorLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wbhv: WBHV not found: %s.wbhv\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wbhv", "WBHV", base, ".wbhv");
     }
     auto c = wowee::pipeline::WoweeCreatureBehaviorLoader::load(base);
     std::vector<std::string> errors;
@@ -267,7 +252,7 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         // CRITICAL invariant: leashRadius MUST be >=
         // aggroRadius, else the creature would evade
-        // back to spawn before reaching its target —
+        // back to spawn before reaching its target -
         // permanently un-killable from outside the
         // leash radius.
         if (e.leashRadius > 0.f &&
@@ -277,7 +262,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 std::to_string(e.leashRadius) +
                 " < aggroRadius=" +
                 std::to_string(e.aggroRadius) +
-                " — creature would evade before "
+                " - creature would evade before "
                 "engaging (un-killable from outside "
                 "the leash)");
         }
@@ -289,7 +274,7 @@ int handleValidate(int& i, int argc, char** argv) {
             warnings.push_back(ctx +
                 ": corpseDurationSec=" +
                 std::to_string(e.corpseDurationSec) +
-                " is below 60s — looting may fail in "
+                " is below 60s - looting may fail in "
                 "busy zones");
         }
         // Per-special checks.
@@ -303,19 +288,19 @@ int handleValidate(int& i, int argc, char** argv) {
                     "].spellId is 0");
             }
             // useChancePct == 0 means the ability is
-            // never auto-fired — only valid for owner-
+            // never auto-fired - only valid for owner-
             // triggered (e.g., warlock Sacrifice).
             // Warn so the editor flags it.
             if (sp.useChancePct == 0 && sp.spellId != 0) {
                 warnings.push_back(ctx +
                     ": specialAbility[" +
                     std::to_string(s) +
-                    "].useChancePct=0 — ability never "
+                    "].useChancePct=0 - ability never "
                     "auto-fires; verify intentional "
                     "(e.g. owner-triggered like Sacrifice)");
             }
             // Same spellId twice in same behavior is
-            // a copy-paste bug — both entries would
+            // a copy-paste bug - both entries would
             // share an internal-cooldown bucket but
             // count as separate slots.
             if (sp.spellId != 0 &&
@@ -323,7 +308,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 errors.push_back(ctx +
                     ": specialAbility spellId " +
                     std::to_string(sp.spellId) +
-                    " appears twice in same behavior — "
+                    " appears twice in same behavior - "
                     "duplicate slot is wasted (merge or "
                     "rename)");
             }
@@ -332,51 +317,23 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": duplicate behaviorId");
         }
     }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wbhv"] = base + ".wbhv";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wbhv: %s.wbhv\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu behaviors, all behaviorIds "
+    return cli::reportValidation("wbhv", base, jsonOut, errors, warnings,
+                                 formatted("%zu behaviors, all behaviorIds "
                     "unique, creatureKind 0..5, evadeBehavior "
                     "0..3, aggroRadius > 0, leashRadius >= "
                     "aggroRadius (creature can engage), no "
                     "zero-spellId specials, no duplicate "
-                    "specials within same behavior\n",
-                    c.entries.size());
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+                    "specials within same behavior", c.entries.size()));
 }
 
 int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWbhvExt(base);
+    base = cli::withoutExt(base, ".wbhv");
     if (out.empty()) out = base + ".wbhv.json";
     if (!wowee::pipeline::WoweeCreatureBehaviorLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wbhv-json: WBHV not found: %s.wbhv\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wbhv-json", "WBHV", base, ".wbhv");
     }
     auto c = wowee::pipeline::WoweeCreatureBehaviorLoader::load(base);
     nlohmann::json j;
@@ -427,16 +384,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wbhv.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wbhv");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wbhv");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,

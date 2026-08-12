@@ -64,7 +64,6 @@ public:
                    const glm::vec3& position);
     void playCombatAttack(uint64_t npcGuid, uint32_t displayId,
                           const glm::vec3& position);
-    void playFlee(uint64_t npcGuid, VoiceType voiceType, const glm::vec3& position);
 
     void setVolumeScale(float scale) { volumeScale_ = scale; }
     float getVolumeScale() const { return volumeScale_; }

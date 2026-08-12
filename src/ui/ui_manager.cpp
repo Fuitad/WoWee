@@ -1,4 +1,6 @@
 #include "ui/ui_manager.hpp"
+#include <cstring>
+#include "pipeline/asset_manager.hpp"
 #include "ui/interface_fonts.hpp"
 
 #include <algorithm>
@@ -102,12 +104,24 @@ bool UIManager::initialize(core::Window* win) {
     return true;
 }
 
-void UIManager::loadInterfaceFont(const std::string& dataRoot) {
+void UIManager::loadInterfaceFont(const std::string& dataRoot,
+                                  pipeline::AssetManager* assets) {
     if (!imguiInitialized) return;
+    // Called more than once on purpose: with the archives open and again after
+    // in case they never opened, and against more than one root because the
+    // fonts do not sit in the same place in every install. Whichever gets
+    // there first takes the face, and the atlas can only be added to before
+    // the first frame anyway.
+    //
+    // The flag latches on success only. It used to be set on the way in, so a
+    // root with no fonts under it stopped every later attempt: pointing this
+    // at the expansion overlay left an install that keeps its fonts in the
+    // base Data on the built-in face, and the second call could not save it.
+    if (interfaceFontsLoaded_) return;
     if (dataRoot.empty()) {
         // Nothing to search is not the same as searching and finding nothing,
         // and both end up in the built-in face.
-        LOG_WARNING("No data directory to load interface fonts from — keeping "
+        LOG_WARNING("No data directory to load interface fonts from - keeping "
                     "the built-in face");
         return;
     }
@@ -149,7 +163,7 @@ void UIManager::loadInterfaceFont(const std::string& dataRoot) {
         // Said out loud: the client still runs, in a face that is not the
         // game's, and nothing else reports why.
         LOG_WARNING("No interface fonts under ", dataRoot,
-                    " — keeping the built-in face, so text will not look right");
+                    " - keeping the built-in face, so text will not look right");
         return;
     }
 
@@ -183,20 +197,39 @@ void UIManager::loadInterfaceFont(const std::string& dataRoot) {
 
     // FRIZQT at the client's size, first, because ImGui draws with whichever
     // face was added first and that is what everything without an opinion gets
-    // — this client's own windows included. The same face is added again below
+    // - this client's own windows included. The same face is added again below
     // at the atlas size for the interface, which asks for it by name.
+    // A font the archives hold, handed to ImGui as bytes. An install that never
+    // extracted its data keeps every font inside the MPQs, where the directory
+    // walk above sees nothing at all - which is why the same build found them
+    // on one machine and not another. The bytes are copied because ImGui takes
+    // ownership of the buffer it is given and frees it with its own allocator.
+    auto addFromArchive = [&](const char* name, float size) -> ImFont* {
+        if (!assets) return nullptr;
+        auto data = assets->readFileOptional(std::string("Fonts\\") + name);
+        if (data.empty()) return nullptr;
+        void* owned = IM_ALLOC(data.size());
+        std::memcpy(owned, data.data(), data.size());
+        ImFontConfig cfg;
+        cfg.FontDataOwnedByAtlas = true;
+        return io.Fonts->AddFontFromMemoryTTF(owned, static_cast<int>(data.size()),
+                                              size, &cfg);
+    };
+
     const fs::path frizqt = resolve("frizqt__.ttf");
-    if (!frizqt.empty()) {
+    if (frizqt.empty() && addFromArchive("FRIZQT__.TTF", kClientSize)) {
+        LOG_INFO("Interface font read from the archives rather than from disk");
+    } else if (!frizqt.empty()) {
         if (!io.Fonts->AddFontFromFileTTF(frizqt.string().c_str(), kClientSize)) {
             // Found and refused is a different problem from not found, and
             // reads identically on screen.
             LOG_WARNING("Could not read the interface font at ", frizqt.string(),
-                        " — keeping the built-in face");
+                        " - keeping the built-in face");
             io.Fonts->AddFontDefault();
         }
     } else {
         LOG_WARNING("No frizqt__.ttf in ", fontDir.string(),
-                    " — keeping the built-in face");
+                    " - keeping the built-in face");
         io.Fonts->AddFontDefault();
     }
 
@@ -208,13 +241,23 @@ void UIManager::loadInterfaceFont(const std::string& dataRoot) {
     int loaded = 0;
     for (const char* name : faces) {
         const fs::path file = resolve(name);
-        if (file.empty()) continue;
-        if (ImFont* f = io.Fonts->AddFontFromFileTTF(file.string().c_str(), kAtlasSize)) {
+        ImFont* f = file.empty()
+            ? nullptr
+            : io.Fonts->AddFontFromFileTTF(file.string().c_str(), kAtlasSize);
+        if (!f) {
+            // The archives spell them in upper case, which matters on a
+            // filesystem that cares and costs nothing on one that does not.
+            std::string upper(name);
+            for (char& c : upper) c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+            f = addFromArchive(upper.c_str(), kAtlasSize);
+        }
+        if (f) {
             registerInterfaceFace(name, f);
             ++loaded;
         }
     }
     LOG_WARNING("Interface fonts loaded: ", loaded, " of 5 from ", fontDir.string());
+    if (loaded > 0) interfaceFontsLoaded_ = true;
 }
 
 void UIManager::shutdown() {
@@ -245,7 +288,7 @@ void UIManager::render(core::AppState appState, auth::AuthHandler* authHandler, 
 
     // Two ~150-200ms spikes land here every launch, before login. Decoding the
     // auth background off the main thread did not move them, so report which
-    // application state was being drawn when one happens — that narrows it to a
+    // application state was being drawn when one happens - that narrows it to a
     // screen before anyone goes looking inside one.
     const auto uiRenderStart = std::chrono::steady_clock::now();
     struct StateReport {
@@ -313,7 +356,17 @@ void UIManager::render(core::AppState appState, auth::AuthHandler* authHandler, 
             break;
     }
 
-    // Finalize ImGui draw data (actual rendering happens in the command buffer)
+}
+
+void UIManager::finishImGuiFrame() {
+    // Finalize ImGui draw data (actual rendering happens in the command buffer).
+    //
+    // Split out of render() so the application can put something between the
+    // two. FrameXML's panels draw into the same background list the nameplates
+    // and minimap blips use, and the last thing added to that list is on top,
+    // so the panels have to go in after this stage has drawn the world's
+    // overlays - and before the draw data is closed, which is here.
+    if (!imguiInitialized) return;
     ImGui::Render();
 }
 

@@ -1,4 +1,6 @@
 #include "cli_chat_links_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -19,11 +21,6 @@ namespace cli {
 
 namespace {
 
-std::string stripWlnkExt(std::string base) {
-    stripExt(base, ".wlnk");
-    return base;
-}
-
 const char* linkKindName(uint8_t k) {
     using L = wowee::pipeline::WoweeChatLinks;
     switch (k) {
@@ -37,15 +34,6 @@ const char* linkKindName(uint8_t k) {
     }
 }
 
-bool saveOrError(const wowee::pipeline::WoweeChatLinks& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeChatLinksLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wlnk\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeChatLinks& c,
                      const std::string& base) {
@@ -58,10 +46,10 @@ int handleGenStandard(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StandardChatLinks";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWlnkExt(base);
+    base = cli::withoutExt(base, ".wlnk");
     auto c = wowee::pipeline::WoweeChatLinksLoader::
         makeStandardLinks(name);
-    if (!saveOrError(c, base, "gen-lnk-std")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeChatLinksLoader>(c, base, "gen-lnk-std", ".wlnk")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -70,10 +58,10 @@ int handleGenTalentTrade(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "TalentTradeChatLinks";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWlnkExt(base);
+    base = cli::withoutExt(base, ".wlnk");
     auto c = wowee::pipeline::WoweeChatLinksLoader::
         makeTalentTrade(name);
-    if (!saveOrError(c, base, "gen-lnk-talent")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeChatLinksLoader>(c, base, "gen-lnk-talent", ".wlnk")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -82,10 +70,10 @@ int handleGenColorVariants(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "ItemQualityColorVariants";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWlnkExt(base);
+    base = cli::withoutExt(base, ".wlnk");
     auto c = wowee::pipeline::WoweeChatLinksLoader::
         makeColorVariants(name);
-    if (!saveOrError(c, base, "gen-lnk-quality")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeChatLinksLoader>(c, base, "gen-lnk-quality", ".wlnk")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -93,7 +81,7 @@ int handleGenColorVariants(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWlnkExt(base);
+    base = cli::withoutExt(base, ".wlnk");
     if (!wowee::pipeline::WoweeChatLinksLoader::exists(base)) {
         std::fprintf(stderr, "WLNK not found: %s.wlnk\n",
                      base.c_str());
@@ -154,7 +142,7 @@ int countPlaceholders(const std::string& tpl) {
             ++count;
             ++i;  // skip the format char
         } else if (c == '%') {
-            ++i;  // literal %% — don't count
+            ++i;  // literal %% - don't count
         }
     }
     return count;
@@ -212,12 +200,9 @@ bool readEnumField(const nlohmann::json& je,
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWlnkExt(base);
+    base = cli::withoutExt(base, ".wlnk");
     if (!wowee::pipeline::WoweeChatLinksLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wlnk: WLNK not found: %s.wlnk\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wlnk", "WLNK", base, ".wlnk");
     }
     auto c = wowee::pipeline::WoweeChatLinksLoader::load(base);
     std::vector<std::string> errors;
@@ -238,7 +223,7 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": name is empty");
         if (e.linkTemplate.empty()) {
             errors.push_back(ctx +
-                ": linkTemplate is empty — link "
+                ": linkTemplate is empty - link "
                 "composer would have nothing to "
                 "format");
         }
@@ -250,7 +235,7 @@ int handleValidate(int& i, int argc, char** argv) {
         // CRITICAL: linkTemplate MUST contain at
         // least one %d or %s placeholder. A template
         // with no placeholders never substitutes link
-        // parameters — the chat composer would emit
+        // parameters - the chat composer would emit
         // a static string regardless of which item /
         // quest / spell was clicked.
         int placeholderCount = countPlaceholders(e.linkTemplate);
@@ -258,11 +243,11 @@ int handleValidate(int& i, int argc, char** argv) {
             placeholderCount == 0) {
             errors.push_back(ctx +
                 ": linkTemplate has no %%d / %%s "
-                "placeholders — composer would emit "
+                "placeholders - composer would emit "
                 "a static string regardless of input "
                 "(every link would render identically)");
         }
-        // Warn on excessive placeholders (> 12) —
+        // Warn on excessive placeholders (> 12) -
         // the achievement template legitimately has
         // 9 (achievementId + chardate + 5 progress
         // criteria + completion state + name) but
@@ -271,15 +256,15 @@ int handleValidate(int& i, int argc, char** argv) {
             warnings.push_back(ctx +
                 ": linkTemplate has " +
                 std::to_string(placeholderCount) +
-                " placeholders — > 12 is unusual; "
+                " placeholders - > 12 is unusual; "
                 "verify all are intentional");
         }
-        // colorRGBA = 0 means fully transparent —
+        // colorRGBA = 0 means fully transparent -
         // link text would be invisible. Warn.
         if (e.colorRGBA == 0) {
             warnings.push_back(ctx +
                 ": colorRGBA is 0 (fully transparent)"
-                " — link text would be invisible; "
+                " - link text would be invisible; "
                 "set a quality color");
         }
         // requireServerLookup=true with no template
@@ -291,7 +276,7 @@ int handleValidate(int& i, int argc, char** argv) {
             e.tooltipTemplate.empty()) {
             warnings.push_back(ctx +
                 ": requireServerLookup=true but "
-                "tooltipTemplate is empty — server "
+                "tooltipTemplate is empty - server "
                 "data would not be displayed anywhere "
                 "(verify intentional)");
         }
@@ -299,49 +284,21 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": duplicate linkId");
         }
     }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wlnk"] = base + ".wlnk";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wlnk: %s.wlnk\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu links, all linkIds unique, "
+    return cli::reportValidation("wlnk", base, jsonOut, errors, warnings,
+                                 formatted("%zu links, all linkIds unique, "
                     "linkKind 0..5, linkTemplate non-empty "
                     "with at least one %%d/%%s placeholder, "
-                    "non-zero colorRGBA\n",
-                    c.entries.size());
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+                    "non-zero colorRGBA", c.entries.size()));
 }
 
 int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWlnkExt(base);
+    base = cli::withoutExt(base, ".wlnk");
     if (out.empty()) out = base + ".wlnk.json";
     if (!wowee::pipeline::WoweeChatLinksLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wlnk-json: WLNK not found: %s.wlnk\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wlnk-json", "WLNK", base, ".wlnk");
     }
     auto c = wowee::pipeline::WoweeChatLinksLoader::load(base);
     nlohmann::json j;
@@ -381,16 +338,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wlnk.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wlnk");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wlnk");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,

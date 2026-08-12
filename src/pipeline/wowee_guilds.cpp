@@ -1,4 +1,5 @@
 #include "pipeline/wowee_guilds.hpp"
+#include "pipeline/wowee_binary_io.hpp"
 
 #include <cstdio>
 #include <cstring>
@@ -11,45 +12,7 @@ namespace {
 
 constexpr char kMagic[4] = {'W', 'G', 'L', 'D'};
 constexpr uint32_t kVersion = 1;
-
-template <typename T>
-void writePOD(std::ofstream& os, const T& v) {
-    os.write(reinterpret_cast<const char*>(&v), sizeof(T));
-}
-
-template <typename T>
-bool readPOD(std::ifstream& is, T& v) {
-    is.read(reinterpret_cast<char*>(&v), sizeof(T));
-    return is.gcount() == static_cast<std::streamsize>(sizeof(T));
-}
-
-void writeStr(std::ofstream& os, const std::string& s) {
-    uint32_t n = static_cast<uint32_t>(s.size());
-    writePOD(os, n);
-    if (n > 0) os.write(s.data(), n);
-}
-
-bool readStr(std::ifstream& is, std::string& s) {
-    uint32_t n = 0;
-    if (!readPOD(is, n)) return false;
-    if (n > (1u << 20)) return false;
-    s.resize(n);
-    if (n > 0) {
-        is.read(s.data(), n);
-        if (is.gcount() != static_cast<std::streamsize>(n)) {
-            s.clear();
-            return false;
-        }
-    }
-    return true;
-}
-
-std::string normalizePath(std::string base) {
-    if (base.size() < 5 || base.substr(base.size() - 5) != ".wgld") {
-        base += ".wgld";
-    }
-    return base;
-}
+constexpr char kExtension[] = ".wgld";
 
 } // namespace
 
@@ -67,15 +30,9 @@ const char* WoweeGuild::factionName(uint8_t f) {
 }
 
 bool WoweeGuildLoader::save(const WoweeGuild& cat,
-                            const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath), std::ios::binary);
-    if (!os) return false;
-    os.write(kMagic, 4);
-    writePOD(os, kVersion);
-    writeStr(os, cat.name);
-    uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writePOD(os, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeGuild::Entry& e) {
         writePOD(os, e.guildId);
         writeStr(os, e.name);
         writeStr(os, e.leaderName);
@@ -85,8 +42,7 @@ bool WoweeGuildLoader::save(const WoweeGuild& cat,
         writePOD(os, e.experience);
         writePOD(os, e.level);
         writePOD(os, e.factionId);
-        uint8_t pad1 = 0;
-        writePOD(os, pad1);
+        writePadding(os, 1);
         writePOD(os, e.bankCopper);
         writePOD(os, e.emblem);
 
@@ -96,8 +52,7 @@ bool WoweeGuildLoader::save(const WoweeGuild& cat,
         for (uint8_t k = 0; k < rankCount; ++k) {
             const auto& r = e.ranks[k];
             writePOD(os, r.rankIndex);
-            uint8_t pad3[3] = {0, 0, 0};
-            os.write(reinterpret_cast<const char*>(pad3), 3);
+            writePadding(os, 3);
             writeStr(os, r.name);
             writePOD(os, r.permissionsMask);
             writePOD(os, r.moneyPerDayCopper);
@@ -109,8 +64,7 @@ bool WoweeGuildLoader::save(const WoweeGuild& cat,
             const auto& m = e.members[k];
             writeStr(os, m.characterName);
             writePOD(os, m.rankIndex);
-            uint8_t pad7[7] = {0};
-            os.write(reinterpret_cast<const char*>(pad7), 7);
+            writePadding(os, 7);
             writePOD(os, m.joinedDate);
             writeStr(os, m.publicNote);
             writeStr(os, m.officerNote);
@@ -121,8 +75,7 @@ bool WoweeGuildLoader::save(const WoweeGuild& cat,
         for (uint8_t k = 0; k < tabCount; ++k) {
             const auto& t = e.bankTabs[k];
             writePOD(os, t.tabIndex);
-            uint8_t pad3b[3] = {0, 0, 0};
-            os.write(reinterpret_cast<const char*>(pad3b), 3);
+            writePadding(os, 3);
             writeStr(os, t.name);
             writeStr(os, t.iconPath);
             writePOD(os, t.depositPermissionMask);
@@ -138,26 +91,17 @@ bool WoweeGuildLoader::save(const WoweeGuild& cat,
             writeStr(os, p.name);
             writePOD(os, p.spellId);
             writePOD(os, p.requiredGuildLevel);
-            uint8_t pad2c[2] = {0, 0};
-            os.write(reinterpret_cast<const char*>(pad2c), 2);
+            writePadding(os, 2);
         }
-    }
-    return os.good();
+                       });
 }
 
 WoweeGuild WoweeGuildLoader::load(const std::string& basePath) {
     WoweeGuild out;
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
+    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
     if (!is) return out;
-    char magic[4];
-    is.read(magic, 4);
-    if (std::memcmp(magic, kMagic, 4) != 0) return out;
-    uint32_t version = 0;
-    if (!readPOD(is, version) || version != kVersion) return out;
-    if (!readStr(is, out.name)) return out;
     uint32_t entryCount = 0;
-    if (!readPOD(is, entryCount)) return out;
-    if (entryCount > (1u << 20)) return out;
+    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
     out.entries.resize(entryCount);
     auto fail = [&]() {
         out.entries.clear();
@@ -171,8 +115,7 @@ WoweeGuild WoweeGuildLoader::load(const std::string& basePath) {
             !readPOD(is, e.experience) ||
             !readPOD(is, e.level) ||
             !readPOD(is, e.factionId)) return fail();
-        uint8_t pad1 = 0;
-        if (!readPOD(is, pad1)) return fail();
+        if (!skipPadding(is, 1)) return fail();
         if (!readPOD(is, e.bankCopper) || !readPOD(is, e.emblem)) return fail();
 
         uint8_t rankCount = 0;
@@ -181,9 +124,7 @@ WoweeGuild WoweeGuildLoader::load(const std::string& basePath) {
         for (uint8_t k = 0; k < rankCount; ++k) {
             auto& r = e.ranks[k];
             if (!readPOD(is, r.rankIndex)) return fail();
-            uint8_t pad3[3];
-            is.read(reinterpret_cast<char*>(pad3), 3);
-            if (is.gcount() != 3) return fail();
+            if (!skipPadding(is, 3)) return fail();
             if (!readStr(is, r.name)) return fail();
             if (!readPOD(is, r.permissionsMask) ||
                 !readPOD(is, r.moneyPerDayCopper)) return fail();
@@ -195,9 +136,7 @@ WoweeGuild WoweeGuildLoader::load(const std::string& basePath) {
             auto& m = e.members[k];
             if (!readStr(is, m.characterName)) return fail();
             if (!readPOD(is, m.rankIndex)) return fail();
-            uint8_t pad7[7];
-            is.read(reinterpret_cast<char*>(pad7), 7);
-            if (is.gcount() != 7) return fail();
+            if (!skipPadding(is, 7)) return fail();
             if (!readPOD(is, m.joinedDate)) return fail();
             if (!readStr(is, m.publicNote) || !readStr(is, m.officerNote)) return fail();
         }
@@ -207,9 +146,7 @@ WoweeGuild WoweeGuildLoader::load(const std::string& basePath) {
         for (uint8_t k = 0; k < tabCount; ++k) {
             auto& t = e.bankTabs[k];
             if (!readPOD(is, t.tabIndex)) return fail();
-            uint8_t pad3b[3];
-            is.read(reinterpret_cast<char*>(pad3b), 3);
-            if (is.gcount() != 3) return fail();
+            if (!skipPadding(is, 3)) return fail();
             if (!readStr(is, t.name) || !readStr(is, t.iconPath)) return fail();
             if (!readPOD(is, t.depositPermissionMask) ||
                 !readPOD(is, t.withdrawPermissionMask) ||
@@ -224,17 +161,14 @@ WoweeGuild WoweeGuildLoader::load(const std::string& basePath) {
             if (!readStr(is, p.name)) return fail();
             if (!readPOD(is, p.spellId) ||
                 !readPOD(is, p.requiredGuildLevel)) return fail();
-            uint8_t pad2c[2];
-            is.read(reinterpret_cast<char*>(pad2c), 2);
-            if (is.gcount() != 2) return fail();
+            if (!skipPadding(is, 2)) return fail();
         }
     }
     return out;
 }
 
 bool WoweeGuildLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 namespace {

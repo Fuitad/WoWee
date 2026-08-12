@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Heroic Loot Scaling catalog (.whrd) —
+// Wowee Open Heroic Loot Scaling catalog (.whrd) -
 // novel replacement for the implicit Heroic-mode loot
 // rules vanilla WoW encoded in the dungeon/raid script
 // system: a Normal-mode boss drops items from one loot
@@ -37,21 +37,21 @@ namespace pipeline {
 //     nameLen + name
 //     descLen + description
 //     mapId (uint32) / difficultyId (uint32)
-//     itemLevelDelta (int16)        — bonus ilvl over
+//     itemLevelDelta (int16)        - bonus ilvl over
 //                                      Normal (often
 //                                      +13 for 5-man
 //                                      Heroic, +13 to +26
 //                                      for raid Heroic)
-//     bonusQualityChance (uint16)   — 0..10000 (basis
+//     bonusQualityChance (uint16)   - 0..10000 (basis
 //                                      points, 100 = 1%);
 //                                      probability of a
 //                                      bonus +1-tier
 //                                      quality drop
-//     dropChanceMultiplier (float)  — 1.0 = same drop
+//     dropChanceMultiplier (float)  - 1.0 = same drop
 //                                      rate, 1.5 = +50%,
 //                                      etc.
-//     heroicTokenItemId (uint32)    — 0 if no token
-//     bonusEmblemCount (uint8)      — extra emblem-token
+//     heroicTokenItemId (uint32)    - 0 if no token
+//     bonusEmblemCount (uint8)      - extra emblem-token
 //                                      rewards on top of
 //                                      base 1× per boss
 //     pad0 / pad1 / pad2 (uint8)
@@ -99,19 +99,19 @@ public:
 
     // Preset emitters used by --gen-hrd* variants.
     //
-    //   makeWotLK5manHeroic — 5 WotLK 5-man Heroic
+    //   makeWotLK5manHeroic - 5 WotLK 5-man Heroic
     //                          scalings (Utgarde Keep /
     //                          Nexus / Azjol-Nerub /
     //                          Ahn'kahet / Drak'Tharon).
     //                          +13 ilvl, 1.0× drop
     //                          chance, 2× Emblem of
     //                          Heroism.
-    //   makeRaid25Heroic    — 4 25H raid scalings (Naxx
+    //   makeRaid25Heroic    - 4 25H raid scalings (Naxx
     //                          / EoE / Ulduar / ICC).
     //                          +26 ilvl, 1.5× drop chance
     //                          on rare items, 1× Emblem
     //                          of Frost per boss.
-    //   makeChallengeMode   — 3 challenge-mode tier
+    //   makeChallengeMode   - 3 challenge-mode tier
     //                          scalings (Bronze / Silver
     //                          / Gold). Anachronistic
     //                          for WotLK but useful

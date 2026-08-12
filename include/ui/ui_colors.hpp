@@ -2,6 +2,7 @@
 
 #include <imgui.h>
 #include "game/inventory.hpp"
+#include "game/item_text.hpp"
 
 namespace wowee::ui {
 
@@ -12,6 +13,11 @@ namespace colors {
     constexpr ImVec4 kBrightGreen = {0.3f, 1.0f, 0.3f, 1.0f};
     constexpr ImVec4 kYellow      = {1.0f, 1.0f, 0.3f, 1.0f};
     constexpr ImVec4 kGray        = {0.6f, 0.6f, 0.6f, 1.0f};
+    // The three steps of the level-difficulty scale that had no name, written
+    // out identically at each of the places that drew one.
+    constexpr ImVec4 kSkullRed       = {1.0f, 0.1f, 0.1f, 1.0f};
+    constexpr ImVec4 kDifficultOrange= {1.0f, 0.5f, 0.1f, 1.0f};
+    constexpr ImVec4 kEvenYellow     = {1.0f, 1.0f, 0.1f, 1.0f};
     constexpr ImVec4 kDarkGray    = {0.5f, 0.5f, 0.5f, 1.0f};
     constexpr ImVec4 kLightGray   = {0.7f, 0.7f, 0.7f, 1.0f};
     constexpr ImVec4 kWhite       = {1.0f, 1.0f, 1.0f, 1.0f};
@@ -67,6 +73,62 @@ namespace colors {
     constexpr ImVec4 kGold   = {1.00f, 0.82f, 0.00f, 1.0f};
     constexpr ImVec4 kSilver = {0.80f, 0.80f, 0.80f, 1.0f};
     constexpr ImVec4 kCopper = {0.72f, 0.45f, 0.20f, 1.0f};
+// ---- Health bar colour ----
+//
+// Green above half, yellow above a fifth, red below. Every unit frame agreed on
+// where the two thresholds are and none of them agreed on the three colours:
+// four palettes across seven bars, so a mob at a third health was one yellow on
+// the target frame and a slightly duller one on the frame below it. These are
+// the shades the target frame and the party list were already using.
+//
+// The player's own bar is not one of these - it ramps continuously between the
+// thresholds and pulses when critical - and neither is the boss frame, which is
+// deliberately a red-to-yellow scale rather than a green one.
+inline ImVec4 healthBarColor(float pct) {
+    if (pct > 0.5f) return kHealthGreen;
+    if (pct > 0.2f) return kMidHealthYellow;
+    return kLowHealthRed;
+}
+
+/// The same colour packed the way a draw list wants it.
+inline ImU32 healthBarColorU32(float pct) {
+    return ImGui::ColorConvertFloat4ToU32(healthBarColor(pct));
+}
+
+/// An item's durability, coloured the same way in the bag and in the tooltip.
+///
+/// Two copies with the same thresholds and different greens, so the strip under
+/// an icon and the line in its own tooltip disagreed about the same item. The
+/// strip is drawn semi-transparent, which is why the alpha is the caller's.
+inline ImVec4 durabilityColor(float pct) {
+    if (pct > 0.5f) return {0.1f, 1.0f, 0.1f, 1.0f};
+    if (pct > 0.25f) return {1.0f, 1.0f, 0.0f, 1.0f};
+    return kBrightRed;
+}
+
+// ---- Power bar colour ----
+//
+// Five places mapped a power type to its bar colour and none of them covered
+// the same set. The pet frame stopped at Energy, so a hunter pet - the one unit
+// whose power is Happiness - drew a mana-blue bar for it. The focus frame had
+// no Focus and no Happiness either.
+//
+// `fallback` is what an unrecognised type gets. Mana blue everywhere except the
+// raid list, which greys a power it does not know rather than claiming it is
+// mana.
+inline ImVec4 powerTypeColor(uint8_t powerType, ImVec4 fallback = kManaBlue) {
+    switch (powerType) {
+        case 0: return kManaBlue;
+        case 1: return kDarkRed;            // rage
+        case 2: return kOrange;             // focus
+        case 3: return kEnergyYellow;       // energy
+        case 4: return kHappinessGreen;     // happiness - a hunter pet's
+        case 6: return kRunicRed;           // runic power
+        case 7: return kSoulShardPurple;    // soul shards
+        default: return fallback;
+    }
+}
+
 } // namespace colors
 
 // ---- Item quality colors ----
@@ -140,15 +202,37 @@ inline const char* getInventorySlotName(uint32_t inventoryType) {
     }
 }
 
+// ---- Aura border colours ----
+//
+// One colour per dispel type, and green for anything that is a buff. Five
+// places drew this border and four agreed; the raid panel's copy was a shade
+// off on all four types - brighter magic, deeper curse, lighter disease and
+// poison - so the same debuff was one colour on a unit frame and another in the
+// raid list.
+//
+// The four that agreed are the ones kept, on the same grounds as any other
+// majority: they are what the game has been showing.
+inline ImVec4 dispelTypeColor(uint8_t dispelType) {
+    switch (dispelType) {
+        case 1:  return ImVec4(0.15f, 0.50f, 1.00f, 0.9f);  // magic: blue
+        case 2:  return ImVec4(0.70f, 0.20f, 0.90f, 0.9f);  // curse: purple
+        case 3:  return ImVec4(0.55f, 0.30f, 0.10f, 0.9f);  // disease: brown
+        case 4:  return ImVec4(0.10f, 0.70f, 0.10f, 0.9f);  // poison: green
+        default: return ImVec4(0.80f, 0.20f, 0.20f, 0.9f);  // undispellable: red
+    }
+}
+
+/// The border an aura icon is drawn with: green when it is a buff, otherwise
+/// the colour of what would remove it.
+inline ImVec4 auraBorderColor(bool isBuff, uint8_t dispelType) {
+    if (isBuff) return ImVec4(0.2f, 0.8f, 0.2f, 0.9f);
+    return dispelTypeColor(dispelType);
+}
+
 // ---- Binding type display ----
 inline void renderBindingType(uint32_t bindType) {
-    const auto& kBindColor = colors::kTooltipGold;
-    switch (bindType) {
-        case 1: ImGui::TextColored(kBindColor, "Binds when picked up"); break;
-        case 2: ImGui::TextColored(kBindColor, "Binds when equipped"); break;
-        case 3: ImGui::TextColored(kBindColor, "Binds when used"); break;
-        case 4: ImGui::TextColored(kBindColor, "Quest Item"); break;
-        default: break;
+    if (const char* text = game::itemBindText(bindType)) {
+        ImGui::TextColored(colors::kTooltipGold, "%s", text);
     }
 }
 
@@ -208,9 +292,14 @@ inline ImVec4 getClassColor(uint8_t classId) {
 }
 
 inline ImU32 getClassColorU32(uint8_t classId, int alpha = 255) {
-    ImVec4 c = getClassColor(classId);
-    return IM_COL32(static_cast<int>(c.x * 255), static_cast<int>(c.y * 255),
-                    static_cast<int>(c.z * 255), alpha);
+    // ColorConvertFloat4ToU32 rounds to the nearest byte where a cast to int
+    // truncates, and the panels that draw a name as an ImVec4 get the rounded
+    // one. Truncating here made the same class one step darker on the minimap
+    // and the nameplates than in the party list beside them - the druid orange
+    // came out 7c where the rest of the client draws 7d.
+    const ImVec4 c = getClassColor(classId);
+    return ImGui::ColorConvertFloat4ToU32(
+        ImVec4(c.x, c.y, c.z, static_cast<float>(alpha) / 255.0f));
 }
 
 } // namespace wowee::ui

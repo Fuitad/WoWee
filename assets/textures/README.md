@@ -29,5 +29,5 @@ These HD BLP textures are ready for integration with:
 
 Textures are loaded via the BLP pipeline and applied to WMO/M2 renderers.
 HD texture overrides (e.g. TurtleHD packs) can be placed as PNG files
-alongside the original BLP paths — the asset manager checks for `.png`
+alongside the original BLP paths - the asset manager checks for `.png`
 overrides before loading the `.blp` version.

@@ -1,4 +1,6 @@
 #include "cli_creature_difficulties_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -20,20 +22,6 @@ namespace cli {
 
 namespace {
 
-std::string stripWcdfExt(std::string base) {
-    stripExt(base, ".wcdf");
-    return base;
-}
-
-bool saveOrError(const wowee::pipeline::WoweeCreatureDifficulty& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeCreatureDifficultyLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wcdf\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeCreatureDifficulty& c,
                      const std::string& base) {
@@ -46,9 +34,9 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterDifficulties";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWcdfExt(base);
+    base = cli::withoutExt(base, ".wcdf");
     auto c = wowee::pipeline::WoweeCreatureDifficultyLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-cdf")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCreatureDifficultyLoader>(c, base, "gen-cdf", ".wcdf")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -57,9 +45,9 @@ int handleGenWotlkRaid(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "WotlkICCBosses";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWcdfExt(base);
+    base = cli::withoutExt(base, ".wcdf");
     auto c = wowee::pipeline::WoweeCreatureDifficultyLoader::makeWotlkRaid(name);
-    if (!saveOrError(c, base, "gen-cdf-wotlk-raid")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCreatureDifficultyLoader>(c, base, "gen-cdf-wotlk-raid", ".wcdf")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -68,9 +56,9 @@ int handleGenFiveMan(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "FiveManDungeons";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWcdfExt(base);
+    base = cli::withoutExt(base, ".wcdf");
     auto c = wowee::pipeline::WoweeCreatureDifficultyLoader::makeFiveMan(name);
-    if (!saveOrError(c, base, "gen-cdf-fiveman")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCreatureDifficultyLoader>(c, base, "gen-cdf-fiveman", ".wcdf")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -78,10 +66,9 @@ int handleGenFiveMan(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWcdfExt(base);
+    base = cli::withoutExt(base, ".wcdf");
     if (!wowee::pipeline::WoweeCreatureDifficultyLoader::exists(base)) {
-        std::fprintf(stderr, "WCDF not found: %s.wcdf\n", base.c_str());
-        return 1;
+        return reportMissing("WCDF", base, ".wcdf");
     }
     auto c = wowee::pipeline::WoweeCreatureDifficultyLoader::load(base);
     if (jsonOut) {
@@ -130,12 +117,9 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWcdfExt(base);
+    base = cli::withoutExt(base, ".wcdf");
     if (!wowee::pipeline::WoweeCreatureDifficultyLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wcdf-json: WCDF not found: %s.wcdf\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wcdf-json", "WCDF", base, ".wcdf");
     }
     auto c = wowee::pipeline::WoweeCreatureDifficultyLoader::load(base);
     if (outPath.empty()) outPath = base + ".wcdf.json";
@@ -241,21 +225,8 @@ int handleImportJson(int& i, int argc, char** argv) {
             c.entries.push_back(e);
         }
     }
-    if (outBase.empty()) {
-        outBase = jsonPath;
-        const std::string suffix1 = ".wcdf.json";
-        const std::string suffix2 = ".json";
-        if (outBase.size() >= suffix1.size() &&
-            outBase.compare(outBase.size() - suffix1.size(),
-                            suffix1.size(), suffix1) == 0) {
-            outBase.resize(outBase.size() - suffix1.size());
-        } else if (outBase.size() >= suffix2.size() &&
-                   outBase.compare(outBase.size() - suffix2.size(),
-                                   suffix2.size(), suffix2) == 0) {
-            outBase.resize(outBase.size() - suffix2.size());
-        }
-    }
-    outBase = stripWcdfExt(outBase);
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(jsonPath, ".wcdf");
+    outBase = cli::withoutExt(outBase, ".wcdf");
     if (!wowee::pipeline::WoweeCreatureDifficultyLoader::save(c, outBase)) {
         std::fprintf(stderr,
             "import-wcdf-json: failed to save %s.wcdf\n",
@@ -269,122 +240,81 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWcdfExt(base);
-    if (!wowee::pipeline::WoweeCreatureDifficultyLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wcdf: WCDF not found: %s.wcdf\n", base.c_str());
-        return 1;
-    }
-    auto c = wowee::pipeline::WoweeCreatureDifficultyLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    std::vector<uint32_t> idsSeen;
-    std::vector<uint32_t> baseSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.difficultyId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.difficultyId == 0)
-            errors.push_back(ctx + ": difficultyId is 0");
-        if (e.name.empty())
-            errors.push_back(ctx + ": name is empty");
-        if (e.spawnGroupKind > wowee::pipeline::WoweeCreatureDifficulty::WorldBoss) {
-            errors.push_back(ctx + ": spawnGroupKind " +
-                std::to_string(e.spawnGroupKind) + " not in 0..5");
-        }
-        if (e.baseCreatureId == 0)
-            errors.push_back(ctx +
-                ": baseCreatureId is 0 — missing WCRT cross-ref");
-        // World bosses don't scale, so all 4 variant fields
-        // should be 0 (engine falls through to base).
-        if (e.spawnGroupKind == wowee::pipeline::WoweeCreatureDifficulty::WorldBoss &&
-            (e.normal10Id || e.normal25Id || e.heroic10Id || e.heroic25Id)) {
-            warnings.push_back(ctx +
-                ": WorldBoss kind with non-zero variant ids — "
-                "world bosses don't scale, set variant fields to 0");
-        }
-        // The asymmetric case n25 set without n10 is
-        // suspicious — typically a typo, since raid
-        // sequencing always introduces n10 alongside n25.
-        // (5-man bosses legitimately have only n10/h10, so
-        // we don't warn on missing n25 alone.)
-        if (e.spawnGroupKind == wowee::pipeline::WoweeCreatureDifficulty::Boss &&
-            e.normal25Id && !e.normal10Id) {
-            warnings.push_back(ctx +
-                ": Boss has normal25Id but not normal10Id — "
-                "raid sequencing introduces n10 alongside n25; "
-                "this is probably a typo");
-        }
-        for (uint32_t prev : idsSeen) {
-            if (prev == e.difficultyId) {
-                errors.push_back(ctx + ": duplicate difficultyId");
-                break;
+    return cli::validateCatalog<wowee::pipeline::WoweeCreatureDifficultyLoader>(
+        i, argc, argv, "wcdf", "WCDF",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        std::vector<uint32_t> baseSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.difficultyId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.difficultyId == 0)
+                errors.push_back(ctx + ": difficultyId is 0");
+            if (e.name.empty())
+                errors.push_back(ctx + ": name is empty");
+            if (e.spawnGroupKind > wowee::pipeline::WoweeCreatureDifficulty::WorldBoss) {
+                errors.push_back(ctx + ": spawnGroupKind " +
+                    std::to_string(e.spawnGroupKind) + " not in 0..5");
             }
-        }
-        idsSeen.push_back(e.difficultyId);
-        // Two routes for the same base creature collide —
-        // engine would only honor the first.
-        if (e.baseCreatureId != 0) {
-            for (uint32_t prevBase : baseSeen) {
-                if (prevBase == e.baseCreatureId) {
+            if (e.baseCreatureId == 0)
+                errors.push_back(ctx +
+                    ": baseCreatureId is 0 - missing WCRT cross-ref");
+            // World bosses don't scale, so all 4 variant fields
+            // should be 0 (engine falls through to base).
+            if (e.spawnGroupKind == wowee::pipeline::WoweeCreatureDifficulty::WorldBoss &&
+                (e.normal10Id || e.normal25Id || e.heroic10Id || e.heroic25Id)) {
+                warnings.push_back(ctx +
+                    ": WorldBoss kind with non-zero variant ids - "
+                    "world bosses don't scale, set variant fields to 0");
+            }
+            // The asymmetric case n25 set without n10 is
+            // suspicious - typically a typo, since raid
+            // sequencing always introduces n10 alongside n25.
+            // (5-man bosses legitimately have only n10/h10, so
+            // we don't warn on missing n25 alone.)
+            if (e.spawnGroupKind == wowee::pipeline::WoweeCreatureDifficulty::Boss &&
+                e.normal25Id && !e.normal10Id) {
+                warnings.push_back(ctx +
+                    ": Boss has normal25Id but not normal10Id - "
+                    "raid sequencing introduces n10 alongside n25; "
+                    "this is probably a typo");
+            }
+            if (!idsSeen.add(e.difficultyId)) errors.push_back(ctx + ": duplicate difficultyId");
+            // Two routes for the same base creature collide -
+            // engine would only honor the first.
+            if (e.baseCreatureId != 0) {
+                for (uint32_t prevBase : baseSeen) {
+                    if (prevBase == e.baseCreatureId) {
+                        warnings.push_back(ctx +
+                            ": duplicate baseCreatureId " +
+                            std::to_string(e.baseCreatureId) +
+                            " - only the first route entry will be honored");
+                        break;
+                    }
+                }
+                baseSeen.push_back(e.baseCreatureId);
+            }
+            // Check for self-reference loops (base == any
+            // variant) which are valid for world bosses but
+            // nonsensical otherwise.
+            if (e.spawnGroupKind != wowee::pipeline::WoweeCreatureDifficulty::WorldBoss) {
+                if ((e.normal10Id == e.baseCreatureId &&
+                     e.normal25Id == e.baseCreatureId &&
+                     e.heroic10Id == e.baseCreatureId &&
+                     e.heroic25Id == e.baseCreatureId) &&
+                    e.normal10Id != 0) {
                     warnings.push_back(ctx +
-                        ": duplicate baseCreatureId " +
-                        std::to_string(e.baseCreatureId) +
-                        " — only the first route entry will be honored");
-                    break;
+                        ": all four variants point at baseCreatureId - "
+                        "creature doesn't scale; consider WorldBoss kind");
                 }
             }
-            baseSeen.push_back(e.baseCreatureId);
         }
-        // Check for self-reference loops (base == any
-        // variant) which are valid for world bosses but
-        // nonsensical otherwise.
-        if (e.spawnGroupKind != wowee::pipeline::WoweeCreatureDifficulty::WorldBoss) {
-            if ((e.normal10Id == e.baseCreatureId &&
-                 e.normal25Id == e.baseCreatureId &&
-                 e.heroic10Id == e.baseCreatureId &&
-                 e.heroic25Id == e.baseCreatureId) &&
-                e.normal10Id != 0) {
-                warnings.push_back(ctx +
-                    ": all four variants point at baseCreatureId — "
-                    "creature doesn't scale; consider WorldBoss kind");
-            }
-        }
-    }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wcdf"] = base + ".wcdf";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wcdf: %s.wcdf\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu routes, all difficultyIds unique, all base ids set\n",
-                    c.entries.size());
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+            return formatted("%zu routes, all difficultyIds unique, all base ids set", c.entries.size());
+        });
 }
 
 } // namespace

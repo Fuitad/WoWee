@@ -31,12 +31,16 @@ void SpellVisualSystem::shutdown() {
 // to build cast/impact M2 path lookup maps.
 void SpellVisualSystem::loadSpellVisualDbc() {
     if (spellVisualDbcLoaded_) return;
-    spellVisualDbcLoaded_ = true; // Set early to prevent re-entry on failure
 
     if (!cachedAssetManager_) {
         cachedAssetManager_ = core::Application::getInstance().getAssetManager();
     }
+    // Not an attempt. "Set early to prevent re-entry on failure" was the
+    // intent, but there is no failure yet - only assets that have not
+    // arrived. Latching here left spell visuals off for the session
+    // whenever this was reached first.
     if (!cachedAssetManager_) return;
+    spellVisualDbcLoaded_ = true;  // a real attempt follows; do not repeat it
 
     auto* layout = pipeline::getActiveDBCLayout();
     const pipeline::DBCFieldMap* svLayout  = layout ? layout->getLayout("SpellVisual")           : nullptr;
@@ -64,7 +68,7 @@ void SpellVisualSystem::loadSpellVisualDbc() {
     for (size_t k = 0; k < numKitFields; ++k)
         kitFields[k] = kitLayout ? kitLayout->field(kitFieldDefs[k].name) : kitFieldDefs[k].fallback;
 
-    // Load SpellVisualEffectName.dbc — ID → M2 path
+    // Load SpellVisualEffectName.dbc - ID → M2 path
     auto fxDbc = cachedAssetManager_->loadDBC("SpellVisualEffectName.dbc");
     if (!fxDbc || !fxDbc->isLoaded() || fxDbc->getFieldCount() <= fxFilePathField) {
         LOG_DEBUG("SpellVisual: SpellVisualEffectName.dbc unavailable (fc=",
@@ -76,20 +80,14 @@ void SpellVisualSystem::loadSpellVisualDbc() {
         uint32_t id   = fxDbc->getUInt32(i, 0);
         std::string p = fxDbc->getString(i, fxFilePathField);
         if (id && !p.empty()) {
-            // DBC stores old-format extensions (.mdx, .mdl) but extracted assets are .m2
-            if (p.size() > 4) {
-                std::string ext = p.substr(p.size() - 4);
-                // Case-insensitive extension check
-                for (auto& c : ext) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-                if (ext == ".mdx" || ext == ".mdl") {
-                    p = p.substr(0, p.size() - 4) + ".m2";
-                }
-            }
+            // The DBC stores the extension the art was authored with; what
+            // shipped is .m2.
+            p = pipeline::modelPathToM2(p);
             effectPaths[id] = p;
         }
     }
 
-    // Load SpellVisualKit.dbc — kitId → best SpellVisualEffectName ID
+    // Load SpellVisualKit.dbc - kitId → best SpellVisualEffectName ID
     // Probes all effect slots in priority order and keeps the first valid hit.
     auto kitDbc = cachedAssetManager_->loadDBC("SpellVisualKit.dbc");
     std::unordered_map<uint32_t, uint32_t> kitToEffectName; // kitId → effectNameId
@@ -121,7 +119,7 @@ void SpellVisualSystem::loadSpellVisualDbc() {
         return (fxIt != effectPaths.end()) ? fxIt->second : std::string{};
     };
 
-    // Load SpellVisual.dbc — visualId → cast/impact M2 paths via kit chain
+    // Load SpellVisual.dbc - visualId → cast/impact M2 paths via kit chain
     auto svDbc = cachedAssetManager_->loadDBC("SpellVisual.dbc");
     if (!svDbc || !svDbc->isLoaded()) {
         LOG_DEBUG("SpellVisual: SpellVisual.dbc unavailable");
@@ -226,7 +224,7 @@ void SpellVisualSystem::playSpellVisualPrecast(uint32_t visualId, const glm::vec
     // Try precast path first, fall back to cast path
     auto pathIt = spellVisualPrecastPath_.find(visualId);
     if (pathIt == spellVisualPrecastPath_.end()) {
-        // No precast kit — fall back to playing cast kit
+        // No precast kit - fall back to playing cast kit
         playSpellVisual(visualId, worldPosition, false, attachInstanceId);
         return;
     }
@@ -277,7 +275,7 @@ void SpellVisualSystem::playSpellVisualPrecast(uint32_t visualId, const glm::vec
             return;
         }
         if (model.version >= 264) {
-            std::string skinPath = modelPath.substr(0, modelPath.rfind('.')) + "00.skin";
+            std::string skinPath = pipeline::skinPathForM2(modelPath);
             auto skinData = cachedAssetManager_->readFile(skinPath);
             if (!skinData.empty()) {
                 pipeline::M2Loader::loadSkin(skinData, model);
@@ -330,7 +328,7 @@ void SpellVisualSystem::playSpellVisualPrecast(uint32_t visualId, const glm::vec
     // otherwise fall back to M2 animation duration, then default.
     float duration;
     if (castTimeMs >= 500) {
-        // Server cast time available — precast should last the full cast duration
+        // Server cast time available - precast should last the full cast duration
         duration = std::clamp(static_cast<float>(castTimeMs) / 1000.0f, 0.5f, 30.0f);
     } else {
         float animDurMs = m2Renderer_->getInstanceAnimDuration(instanceId);
@@ -429,7 +427,7 @@ void SpellVisualSystem::playSpellVisual(uint32_t visualId, const glm::vec3& worl
         }
         // Load skin file for WotLK-format M2s
         if (model.version >= 264) {
-            std::string skinPath = modelPath.substr(0, modelPath.rfind('.')) + "00.skin";
+            std::string skinPath = pipeline::skinPathForM2(modelPath);
             auto skinData = cachedAssetManager_->readFile(skinPath);
             if (!skinData.empty()) pipeline::M2Loader::loadSkin(skinData, model);
         }
@@ -443,7 +441,7 @@ void SpellVisualSystem::playSpellVisual(uint32_t visualId, const glm::vec3& worl
     }
 
     // Determine attachment point for bone tracking on cast effects. Only the
-    // caster identified by attachInstanceId may be tracked — never default to
+    // caster identified by attachInstanceId may be tracked - never default to
     // the local player (that glued every nearby unit's cast kit to the
     // player's hands).
     uint32_t attachId = 0;
@@ -535,9 +533,7 @@ void SpellVisualSystem::playPhysicalProjectile(const std::string& modelPath,
         pipeline::M2Model model = pipeline::M2Loader::load(bytes);
         if (model.name.empty()) model.name = modelPath;
         if (model.version >= 264) {
-            const size_t dot = modelPath.rfind('.');
-            const std::string skinPath =
-                (dot == std::string::npos ? modelPath : modelPath.substr(0, dot)) + "00.skin";
+            const std::string skinPath = pipeline::skinPathForM2(modelPath);
             auto skin = cachedAssetManager_->readFile(skinPath);
             if (!skin.empty()) pipeline::M2Loader::loadSkin(skin, model);
         }
@@ -572,7 +568,7 @@ void SpellVisualSystem::update(float deltaTime) {
             m2Renderer_->removeInstance(it->instanceId);
             it = activeSpellVisuals_.erase(it);
         } else {
-            // Update position for bone-tracked effects — follow the CASTER's
+            // Update position for bone-tracked effects - follow the CASTER's
             // hands/chest/head, not the local player's.
             if (it->attachmentId != 0 && it->attachInstanceId != 0 && charRenderer) {
                 glm::mat4 attachMat;

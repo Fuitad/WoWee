@@ -8,7 +8,7 @@ namespace wowee {
 namespace pipeline {
 
 // Loader for the Wowee Open Terrain format (.wot/.whm)
-// Novel format — no Blizzard structures, fully portable
+// Novel format - no Blizzard structures, fully portable
 class WoweeTerrainLoader {
 public:
     // Load terrain from .whm binary heightmap file

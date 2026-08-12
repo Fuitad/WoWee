@@ -90,7 +90,7 @@ int handleExport(int& i, int argc, char** argv) {
     std::vector<JobResult> rows;
     for (const auto& entry : fs::recursive_directory_iterator(dir)) {
         if (!entry.is_regular_file()) continue;
-        // Skip files that are themselves .json sidecars —
+        // Skip files that are themselves .json sidecars -
         // export only operates on binary .w* sources.
         if (entry.path().extension() == ".json") continue;
         char magic[4];
@@ -154,7 +154,7 @@ int handleExport(int& i, int argc, char** argv) {
     std::printf("  failed           : %zu\n", failCount);
     std::printf("  skipped (no exp) : %zu\n", skipCount);
     if (ok) {
-        std::printf("  OK — every catalog with an exporter wrote a .json sidecar\n");
+        std::printf("  OK - every catalog with an exporter wrote a .json sidecar\n");
         return 0;
     }
     std::printf("\n  failures:\n");
@@ -256,7 +256,7 @@ int handleImport(int& i, int argc, char** argv) {
     std::printf("  failed           : %zu\n", failCount);
     std::printf("  skipped (no imp) : %zu\n", skipCount);
     if (ok) {
-        std::printf("  OK — every .json sidecar was imported back to binary\n");
+        std::printf("  OK - every .json sidecar was imported back to binary\n");
         return 0;
     }
     std::printf("\n  failures:\n");

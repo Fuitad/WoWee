@@ -147,6 +147,16 @@ private:
     bool extractPlayerAppearance(const FlatFieldMap& fields,
                                  uint8_t& outRace, uint8_t& outGender,
                                  uint32_t& outAppearanceBytes, uint8_t& outFacial) const;
+
+public:
+    /// The same, for a player already in the world, read from the fields the
+    /// entity is still holding. The spawn path takes this once and hands it to
+    /// a callback; anything wanting it later - a portrait, an inspect window -
+    /// has nowhere to ask, and the fields are right there.
+    bool getPlayerAppearance(uint64_t guid, uint8_t& outRace, uint8_t& outGender,
+                             uint32_t& outAppearanceBytes, uint8_t& outFacial) const;
+
+private:
     void maybeDetectCoinageIndex(const FlatFieldMap& oldFields,
                                  const FlatFieldMap& newFields);
 
@@ -182,6 +192,16 @@ private:
         uint16_t level, faction, flags, dynFlags, auraState;
         uint16_t displayId, mountDisplayId, npcFlags, npcEmoteState;
         uint16_t bytes0, bytes1;
+        /// A hunter pet carries its own experience, on the pet's unit rather
+        /// than on the player's.
+        uint16_t petXp, petNextLevelXp;
+        /// ...and its own stats and resistances, which the pet paperdoll reads
+        /// through UnitStat("pet") and UnitResistance("pet"). Armor is
+        /// resistances index 0.
+        uint16_t stat0, resistances;
+        /// ...and what it hits for, which the pet tab's damage and
+        /// attack-power lines read.
+        uint16_t attackPower, minDamage, maxDamage;
         static UnitFieldIndices resolve();
     };
     struct PlayerFieldIndices {
@@ -194,21 +214,31 @@ private:
         uint16_t spDmg1, healBonus;
         uint16_t blockPct, dodgePct, parryPct, critPct, rangedCritPct;
         uint16_t sCrit1, rating1;
+        uint16_t expertise, offhandExpertise;
+        uint16_t manaRegen, manaRegenCasting;
         static PlayerFieldIndices resolve();
     };
     struct UnitFieldUpdateResult {
         bool healthChanged = false;
+        /// Separately, because a frame registers for the two apart: the value
+        /// and the scale it is drawn against are different questions.
+        bool maxHealthChanged = false;
         bool powerChanged = false;
+        /// Which power moved, as an index into the power tables, or -1. The
+        /// event a WotLK interface listens for is named after the power, so
+        /// knowing that something changed is not enough to tell it.
+        int  powerTypeChanged = -1;
+        int  maxPowerTypeChanged = -1;
         bool displayIdChanged = false;
         bool npcDeathNotified = false;
         bool npcRespawnNotified = false;
-        // Set when UNIT_DYNFLAG_LOOTABLE went away this update — the corpse has
+        // Set when UNIT_DYNFLAG_LOOTABLE went away this update - the corpse has
         // been looted empty. Acted on after the field loop, never inside it.
         bool lootableCleared = false;
         uint32_t oldDisplayId = 0;
     };
 
-    // Entity factory — creates the correct Entity subclass for the given block.
+    // Entity factory - creates the correct Entity subclass for the given block.
     std::shared_ptr<Entity> createEntityFromBlock(const UpdateBlock& block);
     // Track player-on-transport state from movement blocks.
     /// Take the server's position for the player when the two have diverged
@@ -220,11 +250,11 @@ private:
                                     const std::shared_ptr<Entity>& entity,
                                     const glm::vec3& canonicalPos, float oCanonical,
                                     bool updateMovementInfoPos);
-    // Apply unit fields during CREATE — returns true if entity is initially dead.
+    // Apply unit fields during CREATE - returns true if entity is initially dead.
     bool applyUnitFieldsOnCreate(const UpdateBlock& block,
                                   std::shared_ptr<Unit>& unit,
                                   const UnitFieldIndices& ufi);
-    // Apply unit fields during VALUES — returns change tracking result.
+    // Apply unit fields during VALUES - returns change tracking result.
     UnitFieldUpdateResult applyUnitFieldsOnUpdate(const UpdateBlock& block,
                                                     const std::shared_ptr<Entity>& entity,
                                                     std::shared_ptr<Unit>& unit,
@@ -232,7 +262,7 @@ private:
     // Apply player stat fields (XP, inventory, skills, etc.). isCreate=true for CREATE path.
     bool applyPlayerStatFields(const FlatFieldMap& fields,
                                 const PlayerFieldIndices& pfi, bool isCreate);
-    // Dispatch spawn callbacks (creature/player) — deduplicates CREATE and VALUES paths.
+    // Dispatch spawn callbacks (creature/player) - deduplicates CREATE and VALUES paths.
     void dispatchEntitySpawn(uint64_t guid, ObjectType objectType,
                               const std::shared_ptr<Entity>& entity,
                               const std::shared_ptr<Unit>& unit, bool isDead);

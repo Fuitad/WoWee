@@ -85,7 +85,7 @@ void EditorCamera::processMiddleMouseMotion(int dx, int dy, const glm::vec3& piv
     pitch_ = std::clamp(pitch_, -89.0f, 89.0f);
     camera_.setRotation(yaw_, pitch_);
 
-    // Orbit: maintain distance from pivot. Reject NaN pivot — would
+    // Orbit: maintain distance from pivot. Reject NaN pivot - would
     // poison the camera position permanently and the next frame would
     // produce NaN view/proj matrices.
     if (!std::isfinite(pivotPoint.x) || !std::isfinite(pivotPoint.y) ||

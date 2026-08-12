@@ -1,6 +1,0 @@
-## Interface: 30300
-## Title: Wowee XML Demo
-## Notes: A frame declared in XML, the way FrameXML and most addons do it.
-## Author: wowee
-
-WoweeXmlDemo.xml

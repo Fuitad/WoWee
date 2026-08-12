@@ -194,7 +194,9 @@
   "SkillLine": {
     "Category": 1,
     "ID": 0,
-    "Name": 3
+    "Name": 3,
+    "SpellIcon": 21,
+    "Description": 12
   },
   "SkillLineAbility": {
     "SkillLineID": 1,
@@ -204,7 +206,7 @@
     "Attributes": 5,
     "AttributesEx": 6,
     "Targets": 13,
-    "CastingTimeIndex": 15,
+    "CastingTimeIndex": 18,
     "DispelType": 4,
     "DurationIndex": 40,
     "EffectBasePoints0": 80,
@@ -225,7 +227,12 @@
     "SchoolEnum": 1,
     "SpellVisualID": 115,
     "TargetAuraState": 17,
-    "Tooltip": 147
+    "Tooltip": 147,
+    "EffectApplyAuraName0": 91,
+    "EffectApplyAuraName1": 92,
+    "EffectApplyAuraName2": 93,
+    "RecoveryTime": 19,
+    "CategoryRecoveryTime": 20
   },
   "SpellIcon": {
     "ID": 0,

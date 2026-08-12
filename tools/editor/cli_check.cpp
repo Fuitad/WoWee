@@ -165,7 +165,7 @@ int handleCheckZoneRefs(int& i, int argc, char** argv) {
         std::printf("  PASSED\n");
         return 0;
     }
-    std::printf("  FAILED — %d issue(s):\n", totalErrors);
+    std::printf("  FAILED - %d issue(s):\n", totalErrors);
     for (const auto& e : errors) std::printf("    - %s\n", e.c_str());
     return 1;
 }
@@ -175,7 +175,7 @@ int handleCheckZoneContent(int& i, int argc, char** argv) {
     // values. --check-zone-refs catches dangling references;
     // this catches data-quality issues like creatures with 0 HP,
     // objects with negative scale, quests with no objectives.
-    // Both are needed — a quest can have valid NPC IDs (refs OK)
+    // Both are needed - a quest can have valid NPC IDs (refs OK)
     // AND no objectives (content broken).
     std::string zoneDir = argv[++i];
     bool jsonOut = (i + 1 < argc &&
@@ -296,7 +296,7 @@ int handleCheckZoneContent(int& i, int argc, char** argv) {
         std::printf("  PASSED\n");
         return 0;
     }
-    std::printf("  FAILED — %d total warning(s):\n", total);
+    std::printf("  FAILED - %d total warning(s):\n", total);
     for (const auto& w : warnings) std::printf("    - %s\n", w.c_str());
     return 1;
 }
@@ -317,13 +317,9 @@ int handleCheckProjectContent(int& i, int argc, char** argv) {
             projectDir.c_str());
         return 1;
     }
-    std::vector<std::string> zones;
-    for (const auto& entry : fs::directory_iterator(projectDir)) {
-        if (!entry.is_directory()) continue;
-        if (!fs::exists(entry.path() / "zone.json")) continue;
-        zones.push_back(entry.path().string());
-    }
-    std::sort(zones.begin(), zones.end());
+    // What counts as a zone, and the order they are reported in,
+    // from one place.
+    std::vector<std::string> zones = wowee::editor::projectZoneDirs(projectDir);
     // Same per-zone walks as --check-zone-content. Reuse the
     // logic by counting issues directly here (cheaper than
     // shelling out to a sub-invocation per zone).
@@ -426,13 +422,9 @@ int handleCheckProjectRefs(int& i, int argc, char** argv) {
             projectDir.c_str());
         return 1;
     }
-    std::vector<std::string> zones;
-    for (const auto& entry : fs::directory_iterator(projectDir)) {
-        if (!entry.is_directory()) continue;
-        if (!fs::exists(entry.path() / "zone.json")) continue;
-        zones.push_back(entry.path().string());
-    }
-    std::sort(zones.begin(), zones.end());
+    // What counts as a zone, and the order they are reported in,
+    // from one place.
+    std::vector<std::string> zones = wowee::editor::projectZoneDirs(projectDir);
     // Same model-resolve logic as --check-zone-refs, applied
     // per zone with the appropriate root list.
     auto stripExt = [](const std::string& p, const char* ext) {

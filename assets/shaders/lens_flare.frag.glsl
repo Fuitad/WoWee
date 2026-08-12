@@ -16,7 +16,7 @@ void main() {
     float dist = length(center);
     float alpha = smoothstep(0.5, 0.0, dist);
     float glow = exp(-dist * dist * 8.0) * 0.5;
-    // Fade to zero before the quad boundary — the glow term alone stays
+    // Fade to zero before the quad boundary - the glow term alone stays
     // visibly nonzero at dist 0.5, which draws the billboard as a bright
     // square behind the sun.
     float edgeFade = 1.0 - smoothstep(0.30, 0.48, dist);

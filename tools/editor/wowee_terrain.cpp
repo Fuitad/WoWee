@@ -1,4 +1,5 @@
 #include "wowee_terrain.hpp"
+#include "cli_catalog_paths.hpp"
 #include "pipeline/wowee_terrain_loader.hpp"
 #include "core/logger.hpp"
 #include "stb_image_write.h"
@@ -43,7 +44,7 @@ bool WoweeTerrain::exportOpen(const pipeline::ADTTerrain& terrain,
                 if (!std::isfinite(clean[i])) clean[i] = 0.0f;
             }
             f.write(reinterpret_cast<const char*>(clean), 145 * 4);
-            // Cap alpha size at 64KB (matches loader cap) — alphaMap is
+            // Cap alpha size at 64KB (matches loader cap) - alphaMap is
             // bounded in practice but defensive truncation prevents a
             // stale memory state from producing an unloadable WHM.
             uint32_t alphaSize = std::min<uint32_t>(
@@ -212,7 +213,7 @@ bool WoweeTerrain::exportHeightmapPreview(const pipeline::ADTTerrain& terrain,
         }
     }
 
-    std::filesystem::create_directories(std::filesystem::path(path).parent_path());
+    cli::ensureParentDirectory(path);
     stbi_write_png(path.c_str(), res, res, 1, pixels.data(), res);
     return true;
 }
@@ -224,7 +225,7 @@ bool WoweeTerrain::exportWaterMask(const pipeline::ADTTerrain& terrain,
     for (int ci = 0; ci < 256; ci++)
         pixels[ci] = terrain.waterData[ci].hasWater() ? 255 : 0;
 
-    std::filesystem::create_directories(std::filesystem::path(path).parent_path());
+    cli::ensureParentDirectory(path);
     stbi_write_png(path.c_str(), res, res, 1, pixels.data(), res);
     return true;
 }
@@ -236,7 +237,7 @@ bool WoweeTerrain::exportHoleMask(const pipeline::ADTTerrain& terrain,
     for (int ci = 0; ci < 256; ci++)
         pixels[ci] = (terrain.chunks[ci].holes != 0) ? 255 : 0;
 
-    std::filesystem::create_directories(std::filesystem::path(path).parent_path());
+    cli::ensureParentDirectory(path);
     stbi_write_png(path.c_str(), res, res, 1, pixels.data(), res);
     return true;
 }

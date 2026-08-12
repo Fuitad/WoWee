@@ -1,4 +1,6 @@
 #include "cli_spell_durations_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -19,20 +21,6 @@ namespace cli {
 
 namespace {
 
-std::string stripWsdrExt(std::string base) {
-    stripExt(base, ".wsdr");
-    return base;
-}
-
-bool saveOrError(const wowee::pipeline::WoweeSpellDuration& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeSpellDurationLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wsdr\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeSpellDuration& c,
                      const std::string& base) {
@@ -45,9 +33,9 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterDurations";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWsdrExt(base);
+    base = cli::withoutExt(base, ".wsdr");
     auto c = wowee::pipeline::WoweeSpellDurationLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-sdr")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellDurationLoader>(c, base, "gen-sdr", ".wsdr")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -56,9 +44,9 @@ int handleGenBuffs(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "LongDurationBuffs";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWsdrExt(base);
+    base = cli::withoutExt(base, ".wsdr");
     auto c = wowee::pipeline::WoweeSpellDurationLoader::makeBuffs(name);
-    if (!saveOrError(c, base, "gen-sdr-buffs")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellDurationLoader>(c, base, "gen-sdr-buffs", ".wsdr")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -67,9 +55,9 @@ int handleGenDot(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "DoTHoTDurations";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWsdrExt(base);
+    base = cli::withoutExt(base, ".wsdr");
     auto c = wowee::pipeline::WoweeSpellDurationLoader::makeDot(name);
-    if (!saveOrError(c, base, "gen-sdr-dot")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellDurationLoader>(c, base, "gen-sdr-dot", ".wsdr")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -77,10 +65,9 @@ int handleGenDot(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWsdrExt(base);
+    base = cli::withoutExt(base, ".wsdr");
     if (!wowee::pipeline::WoweeSpellDurationLoader::exists(base)) {
-        std::fprintf(stderr, "WSDR not found: %s.wsdr\n", base.c_str());
-        return 1;
+        return reportMissing("WSDR", base, ".wsdr");
     }
     auto c = wowee::pipeline::WoweeSpellDurationLoader::load(base);
     if (jsonOut) {
@@ -126,12 +113,9 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWsdrExt(base);
+    base = cli::withoutExt(base, ".wsdr");
     if (!wowee::pipeline::WoweeSpellDurationLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wsdr-json: WSDR not found: %s.wsdr\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wsdr-json", "WSDR", base, ".wsdr");
     }
     auto c = wowee::pipeline::WoweeSpellDurationLoader::load(base);
     if (outPath.empty()) outPath = base + ".wsdr.json";
@@ -231,21 +215,8 @@ int handleImportJson(int& i, int argc, char** argv) {
             c.entries.push_back(e);
         }
     }
-    if (outBase.empty()) {
-        outBase = jsonPath;
-        const std::string suffix1 = ".wsdr.json";
-        const std::string suffix2 = ".json";
-        if (outBase.size() >= suffix1.size() &&
-            outBase.compare(outBase.size() - suffix1.size(),
-                            suffix1.size(), suffix1) == 0) {
-            outBase.resize(outBase.size() - suffix1.size());
-        } else if (outBase.size() >= suffix2.size() &&
-                   outBase.compare(outBase.size() - suffix2.size(),
-                                   suffix2.size(), suffix2) == 0) {
-            outBase.resize(outBase.size() - suffix2.size());
-        }
-    }
-    outBase = stripWsdrExt(outBase);
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(jsonPath, ".wsdr");
+    outBase = cli::withoutExt(outBase, ".wsdr");
     if (!wowee::pipeline::WoweeSpellDurationLoader::save(c, outBase)) {
         std::fprintf(stderr,
             "import-wsdr-json: failed to save %s.wsdr\n",
@@ -259,110 +230,69 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWsdrExt(base);
-    if (!wowee::pipeline::WoweeSpellDurationLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wsdr: WSDR not found: %s.wsdr\n", base.c_str());
-        return 1;
-    }
-    auto c = wowee::pipeline::WoweeSpellDurationLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    std::vector<uint32_t> idsSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.durationId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.durationId == 0)
-            errors.push_back(ctx + ": durationId is 0");
-        if (e.name.empty())
-            errors.push_back(ctx + ": name is empty");
-        if (e.durationKind > wowee::pipeline::WoweeSpellDuration::UntilDeath) {
-            errors.push_back(ctx + ": durationKind " +
-                std::to_string(e.durationKind) + " not in 0..4");
-        }
-        if (e.maxDurationMs < 0)
-            errors.push_back(ctx + ": maxDurationMs < 0");
-        if (e.perLevelMs < 0)
-            warnings.push_back(ctx +
-                ": perLevelMs < 0 — duration shrinks with "
-                "level, double-check this is intentional");
-        // Instant kind should have base == 0.
-        if (e.durationKind == wowee::pipeline::WoweeSpellDuration::Instant &&
-            e.baseDurationMs != 0) {
-            warnings.push_back(ctx +
-                ": Instant kind with baseDurationMs=" +
-                std::to_string(e.baseDurationMs) +
-                " — engine will track it as a timed aura");
-        }
-        // UntilCancelled / UntilDeath should signal "no
-        // timer" via baseDurationMs<0; otherwise the engine
-        // would tick down to expiry.
-        if ((e.durationKind == wowee::pipeline::WoweeSpellDuration::UntilCancelled ||
-             e.durationKind == wowee::pipeline::WoweeSpellDuration::UntilDeath) &&
-            e.baseDurationMs >= 0) {
-            warnings.push_back(ctx +
-                ": permanent kind with non-negative "
-                "baseDurationMs — engine treats this as timed; "
-                "set baseDurationMs=-1 to flag as no-timer");
-        }
-        // Timed/TickBased should have base > 0.
-        if ((e.durationKind == wowee::pipeline::WoweeSpellDuration::Timed ||
-             e.durationKind == wowee::pipeline::WoweeSpellDuration::TickBased) &&
-            e.baseDurationMs <= 0) {
-            errors.push_back(ctx +
-                ": Timed/TickBased kind requires "
-                "baseDurationMs > 0");
-        }
-        // maxDurationMs<base is contradictory.
-        if (e.maxDurationMs > 0 && e.baseDurationMs > e.maxDurationMs) {
-            errors.push_back(ctx + ": baseDurationMs " +
-                std::to_string(e.baseDurationMs) +
-                " > maxDurationMs " +
-                std::to_string(e.maxDurationMs));
-        }
-        for (uint32_t prev : idsSeen) {
-            if (prev == e.durationId) {
-                errors.push_back(ctx + ": duplicate durationId");
-                break;
+    return cli::validateCatalog<wowee::pipeline::WoweeSpellDurationLoader>(
+        i, argc, argv, "wsdr", "WSDR",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.durationId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.durationId == 0)
+                errors.push_back(ctx + ": durationId is 0");
+            if (e.name.empty())
+                errors.push_back(ctx + ": name is empty");
+            if (e.durationKind > wowee::pipeline::WoweeSpellDuration::UntilDeath) {
+                errors.push_back(ctx + ": durationKind " +
+                    std::to_string(e.durationKind) + " not in 0..4");
             }
+            if (e.maxDurationMs < 0)
+                errors.push_back(ctx + ": maxDurationMs < 0");
+            if (e.perLevelMs < 0)
+                warnings.push_back(ctx +
+                    ": perLevelMs < 0 - duration shrinks with "
+                    "level, double-check this is intentional");
+            // Instant kind should have base == 0.
+            if (e.durationKind == wowee::pipeline::WoweeSpellDuration::Instant &&
+                e.baseDurationMs != 0) {
+                warnings.push_back(ctx +
+                    ": Instant kind with baseDurationMs=" +
+                    std::to_string(e.baseDurationMs) +
+                    " - engine will track it as a timed aura");
+            }
+            // UntilCancelled / UntilDeath should signal "no
+            // timer" via baseDurationMs<0; otherwise the engine
+            // would tick down to expiry.
+            if ((e.durationKind == wowee::pipeline::WoweeSpellDuration::UntilCancelled ||
+                 e.durationKind == wowee::pipeline::WoweeSpellDuration::UntilDeath) &&
+                e.baseDurationMs >= 0) {
+                warnings.push_back(ctx +
+                    ": permanent kind with non-negative "
+                    "baseDurationMs - engine treats this as timed; "
+                    "set baseDurationMs=-1 to flag as no-timer");
+            }
+            // Timed/TickBased should have base > 0.
+            if ((e.durationKind == wowee::pipeline::WoweeSpellDuration::Timed ||
+                 e.durationKind == wowee::pipeline::WoweeSpellDuration::TickBased) &&
+                e.baseDurationMs <= 0) {
+                errors.push_back(ctx +
+                    ": Timed/TickBased kind requires "
+                    "baseDurationMs > 0");
+            }
+            // maxDurationMs<base is contradictory.
+            if (e.maxDurationMs > 0 && e.baseDurationMs > e.maxDurationMs) {
+                errors.push_back(ctx + ": baseDurationMs " +
+                    std::to_string(e.baseDurationMs) +
+                    " > maxDurationMs " +
+                    std::to_string(e.maxDurationMs));
+            }
+            if (!idsSeen.add(e.durationId)) errors.push_back(ctx + ": duplicate durationId");
         }
-        idsSeen.push_back(e.durationId);
-    }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wsdr"] = base + ".wsdr";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wsdr: %s.wsdr\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu buckets, all durationIds unique\n",
-                    c.entries.size());
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+            return formatted("%zu buckets, all durationIds unique", c.entries.size());
+        });
 }
 
 } // namespace

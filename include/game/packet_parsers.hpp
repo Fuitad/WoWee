@@ -18,6 +18,17 @@ namespace game {
  * in world_packets.hpp. Expansion subclasses override the methods that
  * differ from WotLK.
  */
+/// SMSG_CHAR_ENUM as Classic and TBC send it; see world_packets.cpp for why
+/// WotLK is not folded in. hasEnchantment is the whole difference between the
+/// two: TBC equipment entries carry a trailing uint32, Classic ones do not.
+bool parseCharEnumPreWotlk(network::Packet& packet, CharEnumResponse& response,
+                           bool hasEnchantment, const char* tag);
+
+/// SMSG_ITEM_QUERY_SINGLE_RESPONSE as classic and TBC send it. The two differ
+/// in one field: TBC carries a SoundOverrideSubclass after subClass.
+bool parseItemQueryPreWotlk(network::Packet& packet, ItemQueryResponseData& data,
+                            bool hasSoundOverrideSubclass, const char* tag);
+
 class PacketParsers {
 public:
     virtual ~PacketParsers() = default;
@@ -59,7 +70,7 @@ public:
         return CastSpellPacket::buildGameObjectTarget(spellId, targetGuid, castCount);
     }
 
-    /** Build CMSG_CAST_SPELL with SpellCastTargets targeting an item — Disenchant,
+    /** Build CMSG_CAST_SPELL with SpellCastTargets targeting an item - Disenchant,
      *  Prospecting, Milling and the enchant formulas. */
     virtual network::Packet buildCastSpellOnItem(uint32_t spellId, uint64_t itemGuid) {
         return CastSpellPacket::buildItemTarget(spellId, itemGuid, 0);
@@ -143,7 +154,7 @@ public:
      *  TBC/Classic: spellId(u32) + result(u8)  (no castCount prefix).
      *  Classic/TBC result enums have no SUCCESS entry, so parsers shift +1.
      *  miscArg/miscArg2 receive the trailing ids of spell-focus and totem
-     *  failures (0 otherwise) — see readCastResultArgs.
+     *  failures (0 otherwise) - see readCastResultArgs.
      */
     virtual bool parseCastResult(network::Packet& packet, uint32_t& spellId, uint8_t& result,
                                  uint32_t& miscArg, uint32_t& miscArg2) {
@@ -386,7 +397,7 @@ public:
     // TBC 2.4.3 quest log has 4 update fields per slot (questId, state, counts, timer)
     // WotLK expands this to 5 (splits counts into two fields).
     uint8_t questLogStride() const override { return 4; }
-    // TBC 2.4.3 CMSG_QUESTGIVER_QUERY_QUEST: guid(8) + questId(4) — no trailing
+    // TBC 2.4.3 CMSG_QUESTGIVER_QUERY_QUEST: guid(8) + questId(4) - no trailing
     // isDialogContinued byte that WotLK added
     network::Packet buildQueryQuestPacket(uint64_t npcGuid, uint32_t questId) override;
     // TBC 2.4.3 SMSG_QUESTGIVER_QUEST_DETAILS (cmangos-tbc GossipDef.cpp):
@@ -425,7 +436,7 @@ public:
  *
  * Differences from TBC:
  * - No moveFlags2 byte (TBC has u8, Classic has none)
- * - Only 6 speed fields (no flight speeds — flying added in TBC)
+ * - Only 6 speed fields (no flight speeds - flying added in TBC)
  * - SPLINE_ENABLED at 0x00400000 (TBC/WotLK: 0x08000000)
  * - Transport data has no timestamp (TBC adds u32 timestamp)
  * - Pitch: only SWIMMING (no ONTRANSPORT secondary pitch)

@@ -1,7 +1,10 @@
 #include "cli_loading_screens_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
+#include "pipeline/wowee_expansion_names.hpp"
 #include "pipeline/wowee_loading_screens.hpp"
 #include <nlohmann/json.hpp>
 
@@ -18,20 +21,6 @@ namespace cli {
 
 namespace {
 
-std::string stripWldsExt(std::string base) {
-    stripExt(base, ".wlds");
-    return base;
-}
-
-bool saveOrError(const wowee::pipeline::WoweeLoadingScreen& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeLoadingScreenLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wlds\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeLoadingScreen& c,
                      const std::string& base) {
@@ -44,9 +33,9 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterLoadingScreens";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWldsExt(base);
+    base = cli::withoutExt(base, ".wlds");
     auto c = wowee::pipeline::WoweeLoadingScreenLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-lds")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeLoadingScreenLoader>(c, base, "gen-lds", ".wlds")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -55,9 +44,9 @@ int handleGenInstances(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "InstanceLoadingScreens";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWldsExt(base);
+    base = cli::withoutExt(base, ".wlds");
     auto c = wowee::pipeline::WoweeLoadingScreenLoader::makeInstances(name);
-    if (!saveOrError(c, base, "gen-lds-instances")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeLoadingScreenLoader>(c, base, "gen-lds-instances", ".wlds")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -66,9 +55,9 @@ int handleGenRaidIntros(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "RaidIntroLoadingScreens";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWldsExt(base);
+    base = cli::withoutExt(base, ".wlds");
     auto c = wowee::pipeline::WoweeLoadingScreenLoader::makeRaidIntros(name);
-    if (!saveOrError(c, base, "gen-lds-raid")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeLoadingScreenLoader>(c, base, "gen-lds-raid", ".wlds")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -76,10 +65,9 @@ int handleGenRaidIntros(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWldsExt(base);
+    base = cli::withoutExt(base, ".wlds");
     if (!wowee::pipeline::WoweeLoadingScreenLoader::exists(base)) {
-        std::fprintf(stderr, "WLDS not found: %s.wlds\n", base.c_str());
-        return 1;
+        return reportMissing("WLDS", base, ".wlds");
     }
     auto c = wowee::pipeline::WoweeLoadingScreenLoader::load(base);
     if (jsonOut) {
@@ -130,69 +118,41 @@ int handleExportJson(int& i, int argc, char** argv) {
     // Mirrors the JSON pairs added for every other novel
     // open format. Each screen emits all 11 scalar fields
     // plus a dual int + name form for expansionRequired.
-    std::string base = argv[++i];
-    std::string outPath;
-    if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWldsExt(base);
-    if (outPath.empty()) outPath = base + ".wlds.json";
-    if (!wowee::pipeline::WoweeLoadingScreenLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wlds-json: WLDS not found: %s.wlds\n", base.c_str());
-        return 1;
-    }
-    auto c = wowee::pipeline::WoweeLoadingScreenLoader::load(base);
-    nlohmann::json j;
-    j["name"] = c.name;
-    nlohmann::json arr = nlohmann::json::array();
-    for (const auto& e : c.entries) {
-        arr.push_back({
-            {"screenId", e.screenId},
-            {"mapId", e.mapId},
-            {"name", e.name},
-            {"description", e.description},
-            {"texturePath", e.texturePath},
-            {"iconPath", e.iconPath},
-            {"attribution", e.attribution},
-            {"minLevel", e.minLevel},
-            {"maxLevel", e.maxLevel},
-            {"displayWeight", e.displayWeight},
-            {"expansionRequired", e.expansionRequired},
-            {"expansionRequiredName", wowee::pipeline::WoweeLoadingScreen::expansionGateName(e.expansionRequired)},
-            {"isAnimated", e.isAnimated},
-            {"isWideAspect", e.isWideAspect},
+    return cli::exportCatalogJson<wowee::pipeline::WoweeLoadingScreenLoader>(
+        i, argc, argv, "wlds", "WLDS", "screens ",
+        [](const auto& c) {
+        nlohmann::json j;
+        j["name"] = c.name;
+        nlohmann::json arr = nlohmann::json::array();
+        for (const auto& e : c.entries) {
+            arr.push_back({
+                {"screenId", e.screenId},
+                {"mapId", e.mapId},
+                {"name", e.name},
+                {"description", e.description},
+                {"texturePath", e.texturePath},
+                {"iconPath", e.iconPath},
+                {"attribution", e.attribution},
+                {"minLevel", e.minLevel},
+                {"maxLevel", e.maxLevel},
+                {"displayWeight", e.displayWeight},
+                {"expansionRequired", e.expansionRequired},
+                {"expansionRequiredName", wowee::pipeline::WoweeLoadingScreen::expansionGateName(e.expansionRequired)},
+                {"isAnimated", e.isAnimated},
+                {"isWideAspect", e.isWideAspect},
+            });
+        }
+        j["entries"] = arr;
+            return j;
         });
-    }
-    j["entries"] = arr;
-    std::ofstream out(outPath);
-    if (!out) {
-        std::fprintf(stderr,
-            "export-wlds-json: cannot write %s\n", outPath.c_str());
-        return 1;
-    }
-    out << j.dump(2) << "\n";
-    out.close();
-    std::printf("Wrote %s\n", outPath.c_str());
-    std::printf("  source  : %s.wlds\n", base.c_str());
-    std::printf("  screens : %zu\n", c.entries.size());
-    return 0;
 }
 
 int handleImportJson(int& i, int argc, char** argv) {
     std::string jsonPath = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = jsonPath;
-        std::string suffix = ".wlds.json";
-        if (outBase.size() > suffix.size() &&
-            outBase.substr(outBase.size() - suffix.size()) == suffix) {
-            outBase = outBase.substr(0, outBase.size() - suffix.size());
-        } else if (outBase.size() > 5 &&
-                   outBase.substr(outBase.size() - 5) == ".json") {
-            outBase = outBase.substr(0, outBase.size() - 5);
-        }
-    }
-    outBase = stripWldsExt(outBase);
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(jsonPath, ".wlds");
+    outBase = cli::withoutExt(outBase, ".wlds");
     std::ifstream in(jsonPath);
     if (!in) {
         std::fprintf(stderr,
@@ -207,12 +167,9 @@ int handleImportJson(int& i, int argc, char** argv) {
             jsonPath.c_str(), e.what());
         return 1;
     }
+    // The same four words the exporter writes, from beside them.
     auto expansionFromName = [](const std::string& s) -> uint8_t {
-        if (s == "classic") return wowee::pipeline::WoweeLoadingScreen::Classic;
-        if (s == "tbc")     return wowee::pipeline::WoweeLoadingScreen::TBC;
-        if (s == "wotlk")   return wowee::pipeline::WoweeLoadingScreen::WotLK;
-        if (s == "turtle")  return wowee::pipeline::WoweeLoadingScreen::TurtleWoW;
-        return wowee::pipeline::WoweeLoadingScreen::Classic;
+        return wowee::pipeline::expansionFromName(s);
     };
     wowee::pipeline::WoweeLoadingScreen c;
     c.name = j.value("name", std::string{});
@@ -258,105 +215,64 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWldsExt(base);
-    if (!wowee::pipeline::WoweeLoadingScreenLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wlds: WLDS not found: %s.wlds\n", base.c_str());
-        return 1;
-    }
-    auto c = wowee::pipeline::WoweeLoadingScreenLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    std::vector<uint32_t> idsSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.screenId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.screenId == 0)
-            errors.push_back(ctx + ": screenId is 0");
-        if (e.name.empty())
-            errors.push_back(ctx + ": name is empty");
-        if (e.texturePath.empty())
-            errors.push_back(ctx + ": texturePath is empty "
-                "(screen has no image to display)");
-        if (e.expansionRequired > wowee::pipeline::WoweeLoadingScreen::TurtleWoW) {
-            errors.push_back(ctx + ": expansionRequired " +
-                std::to_string(e.expansionRequired) + " not in 0..3");
-        }
-        if (e.minLevel > e.maxLevel) {
-            errors.push_back(ctx + ": minLevel " +
-                std::to_string(e.minLevel) + " > maxLevel " +
-                std::to_string(e.maxLevel));
-        }
-        if (e.displayWeight == 0) {
-            warnings.push_back(ctx +
-                ": displayWeight=0 (screen is in pool but never picked)");
-        }
-        // mapId=0 means catch-all — flag if there are
-        // multiple catch-all screens in the same level
-        // bracket, since the random pick becomes ambiguous.
-        if (e.mapId == 0 && c.entries.size() > 1) {
-            uint32_t conflicts = 0;
-            for (size_t m = 0; m < c.entries.size(); ++m) {
-                if (m == k) continue;
-                const auto& other = c.entries[m];
-                if (other.mapId != 0) continue;
-                // Overlap level brackets count as conflicts.
-                if (other.minLevel <= e.maxLevel &&
-                    other.maxLevel >= e.minLevel) {
-                    ++conflicts;
+    return cli::validateCatalog<wowee::pipeline::WoweeLoadingScreenLoader>(
+        i, argc, argv, "wlds", "WLDS",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.screenId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.screenId == 0)
+                errors.push_back(ctx + ": screenId is 0");
+            if (e.name.empty())
+                errors.push_back(ctx + ": name is empty");
+            if (e.texturePath.empty())
+                errors.push_back(ctx + ": texturePath is empty "
+                    "(screen has no image to display)");
+            if (e.expansionRequired > wowee::pipeline::WoweeLoadingScreen::TurtleWoW) {
+                errors.push_back(ctx + ": expansionRequired " +
+                    std::to_string(e.expansionRequired) + " not in 0..3");
+            }
+            if (e.minLevel > e.maxLevel) {
+                errors.push_back(ctx + ": minLevel " +
+                    std::to_string(e.minLevel) + " > maxLevel " +
+                    std::to_string(e.maxLevel));
+            }
+            if (e.displayWeight == 0) {
+                warnings.push_back(ctx +
+                    ": displayWeight=0 (screen is in pool but never picked)");
+            }
+            // mapId=0 means catch-all - flag if there are
+            // multiple catch-all screens in the same level
+            // bracket, since the random pick becomes ambiguous.
+            if (e.mapId == 0 && c.entries.size() > 1) {
+                uint32_t conflicts = 0;
+                for (size_t m = 0; m < c.entries.size(); ++m) {
+                    if (m == k) continue;
+                    const auto& other = c.entries[m];
+                    if (other.mapId != 0) continue;
+                    // Overlap level brackets count as conflicts.
+                    if (other.minLevel <= e.maxLevel &&
+                        other.maxLevel >= e.minLevel) {
+                        ++conflicts;
+                    }
+                }
+                if (conflicts > 0) {
+                    warnings.push_back(ctx +
+                        ": catch-all screen (mapId=0) overlaps " +
+                        std::to_string(conflicts) +
+                        " other catch-all in same level bracket "
+                        "- random pick is non-deterministic");
                 }
             }
-            if (conflicts > 0) {
-                warnings.push_back(ctx +
-                    ": catch-all screen (mapId=0) overlaps " +
-                    std::to_string(conflicts) +
-                    " other catch-all in same level bracket "
-                    "— random pick is non-deterministic");
-            }
+            if (!idsSeen.add(e.screenId)) errors.push_back(ctx + ": duplicate screenId");
         }
-        for (uint32_t prev : idsSeen) {
-            if (prev == e.screenId) {
-                errors.push_back(ctx + ": duplicate screenId");
-                break;
-            }
-        }
-        idsSeen.push_back(e.screenId);
-    }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wlds"] = base + ".wlds";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wlds: %s.wlds\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu screens, all screenIds unique, no overlap conflicts\n",
-                    c.entries.size());
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+            return formatted("%zu screens, all screenIds unique, no overlap conflicts", c.entries.size());
+        });
 }
 
 } // namespace

@@ -1,4 +1,6 @@
 #include "cli_auction_houses_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -20,11 +22,6 @@ namespace cli {
 
 namespace {
 
-std::string stripWauhExt(std::string base) {
-    stripExt(base, ".wauh");
-    return base;
-}
-
 const char* factionAccessName(uint8_t f) {
     using A = wowee::pipeline::WoweeAuctionHouses;
     switch (f) {
@@ -36,15 +33,6 @@ const char* factionAccessName(uint8_t f) {
     }
 }
 
-bool saveOrError(const wowee::pipeline::WoweeAuctionHouses& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeAuctionHousesLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wauh\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeAuctionHouses& c,
                      const std::string& base) {
@@ -57,10 +45,10 @@ int handleGenStormwind(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StormwindAH";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWauhExt(base);
+    base = cli::withoutExt(base, ".wauh");
     auto c = wowee::pipeline::WoweeAuctionHousesLoader::
         makeStormwindAH(name);
-    if (!saveOrError(c, base, "gen-auh-stormwind")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeAuctionHousesLoader>(c, base, "gen-auh-stormwind", ".wauh")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -69,10 +57,10 @@ int handleGenOrgrimmar(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "OrgrimmarAH";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWauhExt(base);
+    base = cli::withoutExt(base, ".wauh");
     auto c = wowee::pipeline::WoweeAuctionHousesLoader::
         makeOrgrimmarAH(name);
-    if (!saveOrError(c, base, "gen-auh-orgrimmar")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeAuctionHousesLoader>(c, base, "gen-auh-orgrimmar", ".wauh")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -81,10 +69,10 @@ int handleGenBootyBay(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "BootyBayAH";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWauhExt(base);
+    base = cli::withoutExt(base, ".wauh");
     auto c = wowee::pipeline::WoweeAuctionHousesLoader::
         makeBootyBayAH(name);
-    if (!saveOrError(c, base, "gen-auh-bootybay")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeAuctionHousesLoader>(c, base, "gen-auh-bootybay", ".wauh")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -92,7 +80,7 @@ int handleGenBootyBay(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWauhExt(base);
+    base = cli::withoutExt(base, ".wauh");
     if (!wowee::pipeline::WoweeAuctionHousesLoader::exists(base)) {
         std::fprintf(stderr, "WAUH not found: %s.wauh\n",
                      base.c_str());
@@ -196,12 +184,9 @@ bool readEnumField(const nlohmann::json& je,
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWauhExt(base);
+    base = cli::withoutExt(base, ".wauh");
     if (!wowee::pipeline::WoweeAuctionHousesLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wauh: WAUH not found: %s.wauh\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wauh", "WAUH", base, ".wauh");
     }
     auto c = wowee::pipeline::WoweeAuctionHousesLoader::load(base);
     std::vector<std::string> errors;
@@ -242,7 +227,7 @@ int handleValidate(int& i, int argc, char** argv) {
         // must be < 10000 (100%), else seller would
         // lose money on every successful sale.
         // Pretty close to 100% (e.g. 50% + 50% = 100%
-        // is valid but unsellable) — error at sum >=
+        // is valid but unsellable) - error at sum >=
         // 10000.
         uint32_t totalRate = static_cast<uint32_t>(
             e.depositRatePct) +
@@ -253,24 +238,24 @@ int handleValidate(int& i, int argc, char** argv) {
                 std::to_string(e.depositRatePct) +
                 " + cutPct=" + std::to_string(e.cutPct)
                 + " = " + std::to_string(totalRate) +
-                " basis points — seller would lose "
+                " basis points - seller would lose "
                 "money on every sale (combined rates "
                 ">= 100%)");
         }
-        // Warn on combined > 50% — economically
+        // Warn on combined > 50% - economically
         // viable but harsh enough that listings would
         // dry up.
         if (totalRate > 5000 && totalRate < 10000) {
             warnings.push_back(ctx +
                 ": combined deposit+cut=" +
                 std::to_string(totalRate / 100) +
-                "% exceeds 50% — sellers might find "
+                "% exceeds 50% - sellers might find "
                 "this AH unprofitable; verify intentional"
                 " (e.g. neutral AH penalty)");
         }
         if (e.maxListingDurationHours == 0) {
             errors.push_back(ctx +
-                ": maxListingDurationHours is 0 — no "
+                ": maxListingDurationHours is 0 - no "
                 "duration available, AH would reject "
                 "all listings");
         }
@@ -281,11 +266,11 @@ int handleValidate(int& i, int argc, char** argv) {
                 std::to_string(e.minListingDurationHours) +
                 " > maxListingDurationHours=" +
                 std::to_string(e.maxListingDurationHours)
-                + " — no valid duration in range");
+                + " - no valid duration in range");
         }
         if (e.npcAuctioneerId == 0) {
             warnings.push_back(ctx +
-                ": npcAuctioneerId is 0 — no NPC bound,"
+                ": npcAuctioneerId is 0 - no NPC bound,"
                 " AH only reachable via direct UI "
                 "(e.g. console command)");
         }
@@ -296,10 +281,10 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx +
                 ": npcAuctioneerId " +
                 std::to_string(e.npcAuctioneerId) +
-                " already bound to another AH — gossip "
+                " already bound to another AH - gossip "
                 "dispatch would be ambiguous");
         }
-        // Duplicate (faction, name) — UI tab dispatch
+        // Duplicate (faction, name) - UI tab dispatch
         // would tie.
         if (e.factionAccess <= 3 && !e.name.empty()) {
             Pair p{e.factionAccess, e.name};
@@ -308,7 +293,7 @@ int handleValidate(int& i, int argc, char** argv) {
                     ": duplicate (factionAccess=" +
                     std::to_string(e.factionAccess) +
                     ", name=" + e.name +
-                    ") — AH browser would route "
+                    ") - AH browser would route "
                     "ambiguously");
             }
         }
@@ -316,51 +301,23 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": duplicate ahId");
         }
     }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wauh"] = base + ".wauh";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wauh: %s.wauh\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu houses, all ahIds + "
+    return cli::reportValidation("wauh", base, jsonOut, errors, warnings,
+                                 formatted("%zu houses, all ahIds + "
                     "(faction,name) + npcAuctioneerId "
                     "unique, factionAccess 0..3, "
                     "depositRatePct + cutPct in 0..10000 "
                     "and combined < 10000, valid "
-                    "min<=max listing duration\n",
-                    c.entries.size());
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+                    "min<=max listing duration", c.entries.size()));
 }
 
 int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWauhExt(base);
+    base = cli::withoutExt(base, ".wauh");
     if (out.empty()) out = base + ".wauh.json";
     if (!wowee::pipeline::WoweeAuctionHousesLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wauh-json: WAUH not found: %s.wauh\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wauh-json", "WAUH", base, ".wauh");
     }
     auto c = wowee::pipeline::WoweeAuctionHousesLoader::load(base);
     nlohmann::json j;
@@ -403,16 +360,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wauh.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wauh");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wauh");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,

@@ -177,5 +177,17 @@ std::string getPlayerModelPath(Race race, Gender gender, bool useFemaleModel = f
  */
 std::string getPlayerModelPath(const Character& character);
 
+/// Whether this client has a character model for that race at all.
+///
+/// getPlayerModelPath answers HumanMale for anything it does not know, which
+/// is the right thing for a player - every playable race is in it, and a
+/// silhouette beats nothing. It is the wrong thing for a creature display:
+/// CreatureDisplayInfoExtra gives naga, broken, skeletons and a dozen other
+/// NPC-only races the same skin-and-face columns a character has, and drawing
+/// one of those as a human male puts a human in the target frame where a naga
+/// is standing. Those have a creature model of their own, and it is better to
+/// go and load it.
+bool hasPlayerModel(Race race);
+
 } // namespace game
 } // namespace wowee

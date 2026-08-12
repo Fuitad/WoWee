@@ -1,4 +1,5 @@
 #include "pipeline/wowee_locks.hpp"
+#include "pipeline/wowee_binary_io.hpp"
 
 #include <cstdio>
 #include <cstring>
@@ -11,47 +12,9 @@ namespace {
 
 constexpr char kMagic[4] = {'W', 'L', 'C', 'K'};
 constexpr uint32_t kVersion = 1;
+constexpr char kExtension[] = ".wlck";
 // SkillLine canonical ID for lockpicking (matches AzerothCore).
 constexpr uint32_t kLockpickingSkill = 633;
-
-template <typename T>
-void writePOD(std::ofstream& os, const T& v) {
-    os.write(reinterpret_cast<const char*>(&v), sizeof(T));
-}
-
-template <typename T>
-bool readPOD(std::ifstream& is, T& v) {
-    is.read(reinterpret_cast<char*>(&v), sizeof(T));
-    return is.gcount() == static_cast<std::streamsize>(sizeof(T));
-}
-
-void writeStr(std::ofstream& os, const std::string& s) {
-    uint32_t n = static_cast<uint32_t>(s.size());
-    writePOD(os, n);
-    if (n > 0) os.write(s.data(), n);
-}
-
-bool readStr(std::ifstream& is, std::string& s) {
-    uint32_t n = 0;
-    if (!readPOD(is, n)) return false;
-    if (n > (1u << 20)) return false;
-    s.resize(n);
-    if (n > 0) {
-        is.read(s.data(), n);
-        if (is.gcount() != static_cast<std::streamsize>(n)) {
-            s.clear();
-            return false;
-        }
-    }
-    return true;
-}
-
-std::string normalizePath(std::string base) {
-    if (base.size() < 5 || base.substr(base.size() - 5) != ".wlck") {
-        base += ".wlck";
-    }
-    return base;
-}
 
 } // namespace
 
@@ -74,69 +37,42 @@ const char* WoweeLock::channelKindName(uint8_t k) {
 }
 
 bool WoweeLockLoader::save(const WoweeLock& cat,
-                           const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath), std::ios::binary);
-    if (!os) return false;
-    os.write(kMagic, 4);
-    writePOD(os, kVersion);
-    writeStr(os, cat.name);
-    uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writePOD(os, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeLock::Entry& e) {
         writePOD(os, e.lockId);
         writeStr(os, e.name);
         writePOD(os, e.flags);
         for (int k = 0; k < WoweeLock::kChannelSlots; ++k) {
             const auto& ch = e.channels[k];
             writePOD(os, ch.kind);
-            uint8_t pad = 0;
-            writePOD(os, pad);
+            writePadding(os, 1);
             writePOD(os, ch.skillRequired);
             writePOD(os, ch.targetId);
         }
-    }
-    return os.good();
+                       });
 }
 
-WoweeLock WoweeLockLoader::load(const std::string& basePath) {
-    WoweeLock out;
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    if (!is) return out;
-    char magic[4];
-    is.read(magic, 4);
-    if (std::memcmp(magic, kMagic, 4) != 0) return out;
-    uint32_t version = 0;
-    if (!readPOD(is, version) || version != kVersion) return out;
-    if (!readStr(is, out.name)) return out;
-    uint32_t entryCount = 0;
-    if (!readPOD(is, entryCount)) return out;
-    if (entryCount > (1u << 20)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.lockId)) { out.entries.clear(); return out; }
-        if (!readStr(is, e.name)) { out.entries.clear(); return out; }
-        if (!readPOD(is, e.flags)) { out.entries.clear(); return out; }
+WoweeLock WoweeLockLoader::load(
+    const std::string& basePath) {
+    return loadCatalog<WoweeLock>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeLock::Entry& e) {
+        if (!readPOD(is, e.lockId)) { return false; }
+        if (!readStr(is, e.name)) { return false; }
+        if (!readPOD(is, e.flags)) { return false; }
         for (int k = 0; k < WoweeLock::kChannelSlots; ++k) {
             auto& ch = e.channels[k];
-            if (!readPOD(is, ch.kind)) {
-                out.entries.clear(); return out;
-            }
-            uint8_t pad = 0;
-            if (!readPOD(is, pad)) {
-                out.entries.clear(); return out;
-            }
+            if (!readPOD(is, ch.kind)) { return false; }
+            if (!skipPadding(is, 1)) { return false; }
             if (!readPOD(is, ch.skillRequired) ||
-                !readPOD(is, ch.targetId)) {
-                out.entries.clear(); return out;
-            }
+                !readPOD(is, ch.targetId)) { return false; }
         }
-    }
-    return out;
+                                  return true;
+                              });
 }
 
 bool WoweeLockLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeLock WoweeLockLoader::makeStarter(const std::string& catalogName) {
@@ -183,7 +119,7 @@ WoweeLock WoweeLockLoader::makeDungeon(const std::string& catalogName) {
         WoweeLock::Entry e;
         e.lockId = 300; e.name = "Boss Vault Seal";
         e.flags = WoweeLock::DestructOnOpen;
-        // Quest key only — no lockpick option (story-gated).
+        // Quest key only - no lockpick option (story-gated).
         e.channels[0] = {WoweeLock::ChannelItem, 0, 5200};
         c.entries.push_back(e);
     }

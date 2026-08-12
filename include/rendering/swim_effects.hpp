@@ -22,6 +22,22 @@ public:
     [[nodiscard]] bool initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout);
     void shutdown();
     void recreatePipelines();
+    /// The three pipelines both initialize() and recreatePipelines() need.
+    void buildRipplePipeline(
+        VkDevice device, const VkPipelineShaderStageCreateInfo& vertStage,
+        const VkPipelineShaderStageCreateInfo& fragStage,
+        const VkVertexInputBindingDescription& binding,
+        const std::vector<VkVertexInputAttributeDescription>& attrs);
+    void buildBubblePipeline(
+        VkDevice device, const VkPipelineShaderStageCreateInfo& vertStage,
+        const VkPipelineShaderStageCreateInfo& fragStage,
+        const VkVertexInputBindingDescription& binding,
+        const std::vector<VkVertexInputAttributeDescription>& attrs);
+    void buildInsectPipeline(
+        VkDevice device, const VkPipelineShaderStageCreateInfo& vertStage,
+        const VkPipelineShaderStageCreateInfo& fragStage,
+        const VkVertexInputBindingDescription& binding,
+        const std::vector<VkVertexInputAttributeDescription>& attrs);
 
     /// Select the render pass these particles will be recorded into. Water now
     /// draws after them in a pass of its own, so the spray has to move into that

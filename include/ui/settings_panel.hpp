@@ -13,6 +13,7 @@ namespace ui {
 
 class InventoryScreen;
 class ChatPanel;
+struct ChatSettings;
 
 /**
  * Settings panel (extracted from GameScreen)
@@ -26,6 +27,9 @@ public:
     // ---- Settings UI visibility flags (written by EscapeMenu / Escape key) ----
     bool showEscapeSettingsNotice = false;
     bool showSettingsWindow = false;
+    /// Which tab to jump to on the next draw, set by whoever opened the window.
+    /// Cleared once honoured, so a later click on a tab is not fought over.
+    std::string requestedTab_;
     bool settingsInit = false;
 
     // ---- Pending video / graphics settings ----
@@ -46,6 +50,13 @@ public:
     int pendingMusicVolume = 30;
     int pendingAmbientVolume = 100;
     int pendingBellVolume = 50;
+    /// One scale over every sound that is not music or ambience.
+    ///
+    /// WoW has a single Sound Effects slider and this client has seven - ui,
+    /// combat, spell, movement, footsteps, activity, mount - plus the two voice
+    /// managers. This multiplies them all, so Blizzard's slider has something to
+    /// be, and the individual ones stay as the balance between them.
+    int pendingEffectsVolume = 100;
     int pendingUiVolume = 100;
     int pendingCombatVolume = 100;
     int pendingSpellVolume = 100;
@@ -165,11 +176,52 @@ public:
     // ---- Public methods ----
 
     /// Render the settings window (call from GameScreen::render)
-    void renderSettingsWindow(InventoryScreen& inventoryScreen, ChatPanel& chatPanel,
-                              std::function<void()> saveCallback);
+    ///
+    /// The bag windows used to be handed in as well, so that three settings
+    /// could be pushed at them. They are reached through setInventoryScreen
+    /// now, which is what lets those three work when they are changed from the
+    /// interface's options rather than only from these sliders.
+    void renderSettingsWindow(ChatPanel& chatPanel, std::function<void()> saveCallback);
 
     /// Apply audio volume levels to all audio coordinator sound managers
     void applyAudioVolumes(audio::AudioCoordinator* ac);
+
+    /// Read or write a setting by the key the schema names it with.
+    ///
+    /// Here rather than in the Lua bridge because this is where the fields are.
+    /// The bridge was growing a second copy of the mapping - a branch per
+    /// setting in a lambda in Application - which is the shape that ends with
+    /// two lists of settings that disagree about which ones exist.
+    ///
+    /// Values are strings, because a CVar is a string. Unknown keys answer
+    /// empty and change nothing.
+    std::string settingValue(const std::string& key) const;
+    bool setSettingValue(const std::string& key, const std::string& value);
+
+    /// Push a setting that has just changed at the thing it affects.
+    ///
+    /// The settings window does this at each slider. A change arriving from
+    /// FrameXML's options or the Wowee panel comes through setSettingValue
+    /// instead, and without this it would update the number, save it, and
+    /// change nothing on screen.
+    void applySettingSideEffects(const std::string& key);
+
+    /// Draw every setting the schema files under `category`, as ImGui
+    /// controls, with a heading wherever the section changes.
+    ///
+    /// The label, the range, the choices and the hover text all come from the
+    /// schema - the same rows the interface's options panels are built from -
+    /// so the two windows cannot end up describing one setting differently, and
+    /// a setting added to the schema appears in both.
+    void drawSchemaCategory(const char* category, const std::function<void()>& saveCallback);
+
+    /// Put every setting in `category` back to what the schema says it is when
+    /// nobody has chosen. A null category restores all of them.
+    ///
+    /// One list rather than one per restore button - there were three, and each
+    /// of them was free to disagree with the value the client actually starts
+    /// with, which is the same list a fourth time.
+    void restoreSchemaDefaults(const char* category);
 
     /// Apply the persisted global ImGui window scale without compounding ratios.
     void applyWindowUiScale();
@@ -180,19 +232,29 @@ public:
     /// Set services (dependency injection)
     void setServices(const UIServices& services) { services_ = services; }
 
+    /// The chat panel's settings, so that the chat keys can be answered here
+    /// alongside every other setting rather than through a second bridge.
+    void setChatSettings(ChatSettings* settings) { chatSettings_ = settings; }
+
+    /// The bag windows, so that the three settings that only they can apply -
+    /// separate windows, the keyring, the scale - take effect when they are
+    /// changed from the interface's options rather than only from the slider.
+    void setInventoryScreen(InventoryScreen* screen) { inventoryScreen_ = screen; }
+
 private:
     UIServices services_;  // Injected service references
+    ChatSettings* chatSettings_ = nullptr;      // Owned by ChatPanel, not by this
+    InventoryScreen* inventoryScreen_ = nullptr;  // Owned by GameScreen
     float appliedWindowUiScale_ = 1.0f;
     bool windowUiScaleEditing_ = false;
 
-    // Keybinding customization (private — only used in Controls tab)
+    // Keybinding customization (private - only used in Controls tab)
     int pendingRebindAction_ = -1;  // -1 = not rebinding, otherwise action index
     bool awaitingKeyPress_ = false;
 
     // Settings tab rendering
     void renderSettingsInterfaceTab(std::function<void()> saveCallback);
-    void renderSettingsGameplayTab(InventoryScreen& inventoryScreen,
-                                   std::function<void()> saveCallback);
+    void renderSettingsGameplayTab(std::function<void()> saveCallback);
     void renderSettingsControlsTab(std::function<void()> saveCallback);
     void renderSettingsAudioTab(std::function<void()> saveCallback);
     void renderSettingsAboutTab();

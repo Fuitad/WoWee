@@ -7,20 +7,20 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Lock Template (.wlck) — novel replacement for
+// Wowee Open Lock Template (.wlck) - novel replacement for
 // Blizzard's Lock.dbc. The 18th open format added to the
 // editor. Closes the cross-reference gap from WGOT.entry.lockId
-// (and the future WIT lockbox subset) — until now those
+// (and the future WIT lockbox subset) - until now those
 // fields pointed to a format that didn't exist yet.
 //
 // A lock is a multi-channel security check. Each lock has up
 // to 5 independent channels; a player can open the lock by
 // satisfying ANY ONE channel. Channels can be:
-//   • Item    — requires a specific key item (WIT cross-ref)
-//   • Lockpick — requires the lockpicking skill at a minimum
+//   • Item    - requires a specific key item (WIT cross-ref)
+//   • Lockpick - requires the lockpicking skill at a minimum
 //                 rank (rogue / engineering profession)
-//   • Spell   — requires casting a specific spell
-//   • Damage  — can be forced open with attack damage
+//   • Spell   - requires casting a specific spell
+//   • Damage  - can be forced open with attack damage
 //
 // Cross-references with previously-added formats:
 //   WGOT.entry.lockId  → WLCK.entry.lockId
@@ -79,7 +79,7 @@ struct WoweeLock {
 
     bool isValid() const { return !entries.empty(); }
 
-    // Lookup by lockId — nullptr if not present.
+    // Lookup by lockId - nullptr if not present.
     const Entry* findById(uint32_t lockId) const;
 
     static const char* channelKindName(uint8_t k);
@@ -94,16 +94,16 @@ public:
 
     // Preset emitters used by --gen-locks* variants.
     //
-    //   makeStarter — 2 locks: a basic wooden chest lock
+    //   makeStarter - 2 locks: a basic wooden chest lock
     //                  (lockId=1, requires no skill, can be
     //                  forced open) plus a small key-required
     //                  lockbox (lockId=2). lockId=1 matches
     //                  WGOT.makeDungeon's iron-door lockId.
-    //   makeDungeon — 3 dungeon-tier locks: light lockpick
+    //   makeDungeon - 3 dungeon-tier locks: light lockpick
     //                  (lockId=2 matching WGOT bandit chest),
     //                  steel chest (heavy lockpick OR specific
     //                  key), and a quest-key-only seal.
-    //   makeProfessions — 4 profession-keyed locks: lockpick at
+    //   makeProfessions - 4 profession-keyed locks: lockpick at
     //                      ranks 1/100/175/250 covering the
     //                      classic-tier rogue / engineering
     //                      progression curve.

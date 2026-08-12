@@ -74,6 +74,23 @@ enum class UpdateType : uint8_t {
     NEAR_OBJECTS = 5         // Objects entered view range
 };
 
+/// The update type's own name, for a log line.
+///
+/// Beside the enum rather than in the two parsers that print it - the WotLK one
+/// and the vanilla one had an identical copy each, and they are the two files
+/// where a value added to this list would need noticing.
+inline const char* updateTypeName(UpdateType type) {
+    switch (type) {
+        case UpdateType::VALUES:               return "VALUES";
+        case UpdateType::MOVEMENT:             return "MOVEMENT";
+        case UpdateType::CREATE_OBJECT:        return "CREATE_OBJECT";
+        case UpdateType::CREATE_OBJECT2:       return "CREATE_OBJECT2";
+        case UpdateType::OUT_OF_RANGE_OBJECTS: return "OUT_OF_RANGE_OBJECTS";
+        case UpdateType::NEAR_OBJECTS:         return "NEAR_OBJECTS";
+    }
+    return "UNKNOWN";
+}
+
 /**
  * Base entity class for all game objects
  */
@@ -113,7 +130,7 @@ public:
             return;
         }
         // Build cumulative distances for proportional time assignment.
-        // (Stored in a tiny stack/heap vector — typical N is <=15 waypoints,
+        // (Stored in a tiny stack/heap vector - typical N is <=15 waypoints,
         // and keeping float precision matters for the timeMs rescale below.)
         std::vector<float> cumDist(path.size(), 0.0f);
         float totalDist = 0.0f;
@@ -201,7 +218,7 @@ public:
         float impliedVX = (destX - fromX) / durationSec;
         float impliedVY = (destY - fromY) / durationSec;
         float impliedVZ = (destZ - fromZ) / durationSec;
-        // Exponential moving average on velocity — 65% new sample, 35% previous.
+        // Exponential moving average on velocity - 65% new sample, 35% previous.
         // Smooths out jitter from irregular server update intervals (~200-600ms)
         // without introducing visible lag on direction changes.
         const float alpha = 0.65f;
@@ -246,7 +263,7 @@ public:
                 y = moveEndY_ + velY_ * overrun;
                 z = moveEndZ_ + velZ_ * overrun;
             } else {
-                // Two intervals with no update — entity has probably stopped.
+                // Two intervals with no update - entity has probably stopped.
                 x = moveEndX_; y = moveEndY_; z = moveEndZ_;
                 velX_ = 0.0f; velY_ = 0.0f; velZ_ = 0.0f;
                 isMoving_ = false;
@@ -305,7 +322,7 @@ protected:
     float z = 0.0f;
     float orientation = 0.0f;
 
-    // Update fields (dynamic values) — flat sorted vector. See FlatFieldMap docs.
+    // Update fields (dynamic values) - flat sorted vector. See FlatFieldMap docs.
     FlatFieldMap fields;
 
     // Movement interpolation state
@@ -340,7 +357,7 @@ public:
     uint32_t getMaxHealth() const { return maxHealth; }
     void setMaxHealth(uint32_t h) { maxHealth = h; }
 
-    // Power (mana/rage/energy) — indexed by power type (0-6)
+    // Power (mana/rage/energy) - indexed by power type (0-6)
     uint32_t getPower() const { return powers[powerType < 7 ? powerType : 0]; }
     void setPower(uint32_t p) { powers[powerType < 7 ? powerType : 0] = p; }
     void setPowerByType(uint8_t type, uint32_t p) { if (type < 7) powers[type] = p; }
@@ -394,7 +411,7 @@ public:
     uint32_t getNpcFlags() const { return npcFlags; }
     void setNpcFlags(uint32_t f) { npcFlags = f; }
 
-    // NPC emote state (UNIT_NPC_EMOTESTATE) — persistent looping animation for NPCs
+    // NPC emote state (UNIT_NPC_EMOTESTATE) - persistent looping animation for NPCs
     uint32_t getNpcEmoteState() const { return npcEmoteState; }
     void setNpcEmoteState(uint32_t e) { npcEmoteState = e; }
 
@@ -430,7 +447,7 @@ protected:
 
 /**
  * Player entity
- * Name is inherited from Unit — do NOT redeclare it here or the
+ * Name is inherited from Unit - do NOT redeclare it here or the
  * shadowed field will diverge from Unit::name, causing nameplates
  * and other Unit*-based lookups to read an empty string.
  */
@@ -462,6 +479,32 @@ protected:
     uint32_t entry = 0;
     uint32_t displayId = 0;
 };
+
+/// What to call this entity on screen, whatever kind it turns out to be.
+///
+/// The name lives on Unit and on GameObject and not on Entity, so anything
+/// wanting to write one down has to ask which kind it is holding first. Five
+/// places did that for themselves - the four files GameScreen was split into
+/// and the chat commands - in identical copies, and two of the four never
+/// called their own.
+///
+/// "Unknown" rather than an empty string, because every caller is putting this
+/// in a sentence: an entity whose name has not arrived yet reads as a gap in
+/// the line otherwise, with nothing to say a name was expected.
+inline std::string entityDisplayName(const std::shared_ptr<Entity>& entity) {
+    if (!entity) return "Unknown";
+    if (entity->getType() == ObjectType::PLAYER) {
+        auto player = std::static_pointer_cast<Player>(entity);
+        if (!player->getName().empty()) return player->getName();
+    } else if (entity->getType() == ObjectType::UNIT) {
+        auto unit = std::static_pointer_cast<Unit>(entity);
+        if (!unit->getName().empty()) return unit->getName();
+    } else if (entity->getType() == ObjectType::GAMEOBJECT) {
+        auto go = std::static_pointer_cast<GameObject>(entity);
+        if (!go->getName().empty()) return go->getName();
+    }
+    return "Unknown";
+}
 
 /**
  * Entity manager for tracking all entities in view

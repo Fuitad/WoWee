@@ -1,4 +1,6 @@
 #include "cli_liquids_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -18,20 +20,6 @@ namespace cli {
 
 namespace {
 
-std::string stripWliqExt(std::string base) {
-    stripExt(base, ".wliq");
-    return base;
-}
-
-bool saveOrError(const wowee::pipeline::WoweeLiquid& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeLiquidLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wliq\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeLiquid& c,
                      const std::string& base) {
@@ -44,9 +32,9 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterLiquids";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWliqExt(base);
+    base = cli::withoutExt(base, ".wliq");
     auto c = wowee::pipeline::WoweeLiquidLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-liquids")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeLiquidLoader>(c, base, "gen-liquids", ".wliq")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -55,9 +43,9 @@ int handleGenMagical(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "MagicalLiquids";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWliqExt(base);
+    base = cli::withoutExt(base, ".wliq");
     auto c = wowee::pipeline::WoweeLiquidLoader::makeMagical(name);
-    if (!saveOrError(c, base, "gen-liquids-magical")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeLiquidLoader>(c, base, "gen-liquids-magical", ".wliq")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -66,9 +54,9 @@ int handleGenHazardous(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "HazardousLiquids";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWliqExt(base);
+    base = cli::withoutExt(base, ".wliq");
     auto c = wowee::pipeline::WoweeLiquidLoader::makeHazardous(name);
-    if (!saveOrError(c, base, "gen-liquids-hazardous")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeLiquidLoader>(c, base, "gen-liquids-hazardous", ".wliq")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -76,10 +64,9 @@ int handleGenHazardous(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWliqExt(base);
+    base = cli::withoutExt(base, ".wliq");
     if (!wowee::pipeline::WoweeLiquidLoader::exists(base)) {
-        std::fprintf(stderr, "WLIQ not found: %s.wliq\n", base.c_str());
-        return 1;
+        return reportMissing("WLIQ", base, ".wliq");
     }
     auto c = wowee::pipeline::WoweeLiquidLoader::load(base);
     if (jsonOut) {
@@ -138,74 +125,46 @@ int handleExportJson(int& i, int argc, char** argv) {
     // open format. Each liquid emits all 14 scalar fields
     // (including 3-byte fog color) plus a dual int + name
     // form for liquidKind so hand-edits can use either.
-    std::string base = argv[++i];
-    std::string outPath;
-    if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWliqExt(base);
-    if (outPath.empty()) outPath = base + ".wliq.json";
-    if (!wowee::pipeline::WoweeLiquidLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wliq-json: WLIQ not found: %s.wliq\n", base.c_str());
-        return 1;
-    }
-    auto c = wowee::pipeline::WoweeLiquidLoader::load(base);
-    nlohmann::json j;
-    j["name"] = c.name;
-    nlohmann::json arr = nlohmann::json::array();
-    for (const auto& e : c.entries) {
-        arr.push_back({
-            {"liquidId", e.liquidId},
-            {"name", e.name},
-            {"description", e.description},
-            {"shaderPath", e.shaderPath},
-            {"materialPath", e.materialPath},
-            {"liquidKind", e.liquidKind},
-            {"liquidKindName", wowee::pipeline::WoweeLiquid::liquidKindName(e.liquidKind)},
-            {"fogColorR", e.fogColorR},
-            {"fogColorG", e.fogColorG},
-            {"fogColorB", e.fogColorB},
-            {"fogDensity", e.fogDensity},
-            {"ambientSoundId", e.ambientSoundId},
-            {"splashSoundId", e.splashSoundId},
-            {"damageSpellId", e.damageSpellId},
-            {"damagePerSecond", e.damagePerSecond},
-            {"minimapColor", e.minimapColor},
-            {"flowDirection", e.flowDirection},
-            {"flowSpeed", e.flowSpeed},
-            {"viscosity", e.viscosity},
+    return cli::exportCatalogJson<wowee::pipeline::WoweeLiquidLoader>(
+        i, argc, argv, "wliq", "WLIQ", "liquids ",
+        [](const auto& c) {
+        nlohmann::json j;
+        j["name"] = c.name;
+        nlohmann::json arr = nlohmann::json::array();
+        for (const auto& e : c.entries) {
+            arr.push_back({
+                {"liquidId", e.liquidId},
+                {"name", e.name},
+                {"description", e.description},
+                {"shaderPath", e.shaderPath},
+                {"materialPath", e.materialPath},
+                {"liquidKind", e.liquidKind},
+                {"liquidKindName", wowee::pipeline::WoweeLiquid::liquidKindName(e.liquidKind)},
+                {"fogColorR", e.fogColorR},
+                {"fogColorG", e.fogColorG},
+                {"fogColorB", e.fogColorB},
+                {"fogDensity", e.fogDensity},
+                {"ambientSoundId", e.ambientSoundId},
+                {"splashSoundId", e.splashSoundId},
+                {"damageSpellId", e.damageSpellId},
+                {"damagePerSecond", e.damagePerSecond},
+                {"minimapColor", e.minimapColor},
+                {"flowDirection", e.flowDirection},
+                {"flowSpeed", e.flowSpeed},
+                {"viscosity", e.viscosity},
+            });
+        }
+        j["entries"] = arr;
+            return j;
         });
-    }
-    j["entries"] = arr;
-    std::ofstream out(outPath);
-    if (!out) {
-        std::fprintf(stderr,
-            "export-wliq-json: cannot write %s\n", outPath.c_str());
-        return 1;
-    }
-    out << j.dump(2) << "\n";
-    out.close();
-    std::printf("Wrote %s\n", outPath.c_str());
-    std::printf("  source  : %s.wliq\n", base.c_str());
-    std::printf("  liquids : %zu\n", c.entries.size());
-    return 0;
 }
 
 int handleImportJson(int& i, int argc, char** argv) {
     std::string jsonPath = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = jsonPath;
-        std::string suffix = ".wliq.json";
-        if (outBase.size() > suffix.size() &&
-            outBase.substr(outBase.size() - suffix.size()) == suffix) {
-            outBase = outBase.substr(0, outBase.size() - suffix.size());
-        } else if (outBase.size() > 5 &&
-                   outBase.substr(outBase.size() - 5) == ".json") {
-            outBase = outBase.substr(0, outBase.size() - 5);
-        }
-    }
-    outBase = stripWliqExt(outBase);
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(jsonPath, ".wliq");
+    outBase = cli::withoutExt(outBase, ".wliq");
     std::ifstream in(jsonPath);
     if (!in) {
         std::fprintf(stderr,
@@ -279,105 +238,64 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWliqExt(base);
-    if (!wowee::pipeline::WoweeLiquidLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wliq: WLIQ not found: %s.wliq\n", base.c_str());
-        return 1;
-    }
-    auto c = wowee::pipeline::WoweeLiquidLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    std::vector<uint32_t> idsSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.liquidId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.liquidId == 0)
-            errors.push_back(ctx + ": liquidId is 0");
-        if (e.name.empty())
-            errors.push_back(ctx + ": name is empty");
-        if (e.shaderPath.empty())
-            errors.push_back(ctx + ": shaderPath is empty");
-        if (e.materialPath.empty())
-            errors.push_back(ctx + ": materialPath is empty");
-        if (e.liquidKind > wowee::pipeline::WoweeLiquid::UnderworldGoo) {
-            errors.push_back(ctx + ": liquidKind " +
-                std::to_string(e.liquidKind) + " not in 0..9");
-        }
-        if (e.fogDensity < 0.0f || e.fogDensity > 1.0f) {
-            errors.push_back(ctx + ": fogDensity " +
-                std::to_string(e.fogDensity) + " not in 0..1");
-        }
-        if (e.viscosity < 0.0f || e.viscosity > 1.0f) {
-            errors.push_back(ctx + ": viscosity " +
-                std::to_string(e.viscosity) + " not in 0..1");
-        }
-        // Magma / Slime / FelFire / AcidBog liquids without
-        // any damage source are mechanically harmless — flag
-        // as a warning so the caller can confirm intent.
-        bool hazardous =
-            e.liquidKind == wowee::pipeline::WoweeLiquid::Magma ||
-            e.liquidKind == wowee::pipeline::WoweeLiquid::Slime ||
-            e.liquidKind == wowee::pipeline::WoweeLiquid::FelFire ||
-            e.liquidKind == wowee::pipeline::WoweeLiquid::AcidBog;
-        if (hazardous && e.damageSpellId == 0 &&
-            e.damagePerSecond == 0) {
-            warnings.push_back(ctx +
-                ": hazardous liquid kind but no damageSpellId / "
-                "damagePerSecond (won't hurt anything)");
-        }
-        // Water and OceanSalt with non-zero damage is unusual
-        // — could be intentional acid water but worth checking.
-        if ((e.liquidKind == wowee::pipeline::WoweeLiquid::Water ||
-             e.liquidKind == wowee::pipeline::WoweeLiquid::OceanSalt) &&
-            e.damagePerSecond > 0) {
-            warnings.push_back(ctx +
-                ": Water/OceanSalt with damagePerSecond>0 "
-                "(unusual — verify intent)");
-        }
-        for (uint32_t prev : idsSeen) {
-            if (prev == e.liquidId) {
-                errors.push_back(ctx + ": duplicate liquidId");
-                break;
+    return cli::validateCatalog<wowee::pipeline::WoweeLiquidLoader>(
+        i, argc, argv, "wliq", "WLIQ",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.liquidId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.liquidId == 0)
+                errors.push_back(ctx + ": liquidId is 0");
+            if (e.name.empty())
+                errors.push_back(ctx + ": name is empty");
+            if (e.shaderPath.empty())
+                errors.push_back(ctx + ": shaderPath is empty");
+            if (e.materialPath.empty())
+                errors.push_back(ctx + ": materialPath is empty");
+            if (e.liquidKind > wowee::pipeline::WoweeLiquid::UnderworldGoo) {
+                errors.push_back(ctx + ": liquidKind " +
+                    std::to_string(e.liquidKind) + " not in 0..9");
             }
+            if (e.fogDensity < 0.0f || e.fogDensity > 1.0f) {
+                errors.push_back(ctx + ": fogDensity " +
+                    std::to_string(e.fogDensity) + " not in 0..1");
+            }
+            if (e.viscosity < 0.0f || e.viscosity > 1.0f) {
+                errors.push_back(ctx + ": viscosity " +
+                    std::to_string(e.viscosity) + " not in 0..1");
+            }
+            // Magma / Slime / FelFire / AcidBog liquids without
+            // any damage source are mechanically harmless - flag
+            // as a warning so the caller can confirm intent.
+            bool hazardous =
+                e.liquidKind == wowee::pipeline::WoweeLiquid::Magma ||
+                e.liquidKind == wowee::pipeline::WoweeLiquid::Slime ||
+                e.liquidKind == wowee::pipeline::WoweeLiquid::FelFire ||
+                e.liquidKind == wowee::pipeline::WoweeLiquid::AcidBog;
+            if (hazardous && e.damageSpellId == 0 &&
+                e.damagePerSecond == 0) {
+                warnings.push_back(ctx +
+                    ": hazardous liquid kind but no damageSpellId / "
+                    "damagePerSecond (won't hurt anything)");
+            }
+            // Water and OceanSalt with non-zero damage is unusual
+            // - could be intentional acid water but worth checking.
+            if ((e.liquidKind == wowee::pipeline::WoweeLiquid::Water ||
+                 e.liquidKind == wowee::pipeline::WoweeLiquid::OceanSalt) &&
+                e.damagePerSecond > 0) {
+                warnings.push_back(ctx +
+                    ": Water/OceanSalt with damagePerSecond>0 "
+                    "(unusual - verify intent)");
+            }
+            if (!idsSeen.add(e.liquidId)) errors.push_back(ctx + ": duplicate liquidId");
         }
-        idsSeen.push_back(e.liquidId);
-    }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wliq"] = base + ".wliq";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wliq: %s.wliq\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu liquids, all liquidIds unique\n",
-                    c.entries.size());
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+            return formatted("%zu liquids, all liquidIds unique", c.entries.size());
+        });
 }
 
 } // namespace

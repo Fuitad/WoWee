@@ -79,7 +79,7 @@ void ActivityFSM::setStandState(uint8_t standState) {
     standState_ = standState;
 
     if (standState == STAND_STATE_STAND) {
-        // Standing up — exit via SIT_UP if we have an exit animation
+        // Standing up - exit via SIT_UP if we have an exit animation
         return;
     }
 
@@ -105,7 +105,7 @@ void ActivityFSM::setStandState(uint8_t standState) {
         sitDownFrames_ = 0;
         state_ = State::SIT_DOWN;
     } else if (standState >= STAND_STATE_SIT_CHAIR && standState <= STAND_STATE_SIT_HIGH) {
-        // Chair variants — no transition animation, go directly to loop
+        // Chair variants - no transition animation, go directly to loop
         sitDownAnim_ = 0;
         sitUpAnim_   = 0;
         if (standState == STAND_STATE_SIT_LOW) {

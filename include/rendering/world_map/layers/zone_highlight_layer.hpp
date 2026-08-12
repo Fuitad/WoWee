@@ -1,4 +1,4 @@
-// zone_highlight_layer.hpp — Continent view zone rectangles + hover effects.
+// zone_highlight_layer.hpp - Continent view zone rectangles + hover effects.
 #pragma once
 #include "rendering/world_map/overlay_renderer.hpp"
 #include "rendering/world_map/zone_metadata.hpp"

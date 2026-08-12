@@ -8,7 +8,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Battleground Definition catalog (.wbgd) —
+// Wowee Open Battleground Definition catalog (.wbgd) -
 // novel replacement for Blizzard's BattlemasterList.dbc +
 // PvpDifficulty.dbc + the AzerothCore-style
 // battleground_template SQL tables. The 33rd open format
@@ -48,11 +48,11 @@ namespace pipeline {
 struct WoweeBattleground {
     enum ObjectiveKind : uint8_t {
         Annihilation = 0,    // wipe the opposing team
-        CaptureFlag  = 1,    // CTF — Warsong Gulch
-        ControlNodes = 2,    // node capture — Arathi Basin / Eye of the Storm
+        CaptureFlag  = 1,    // CTF - Warsong Gulch
+        ControlNodes = 2,    // node capture - Arathi Basin / Eye of the Storm
         KingOfHill   = 3,    // hold a single point
         ResourceRace = 4,    // Alterac Valley (general/wing-tower scoring)
-        CarryObject  = 5,    // carry a relic / orb — Eye of the Storm flag
+        CarryObject  = 5,    // carry a relic / orb - Eye of the Storm flag
     };
 
     struct Entry {
@@ -95,14 +95,14 @@ public:
 
     // Preset emitters used by --gen-bg* variants.
     //
-    //   makeStarter — 1 simple king-of-hill BG (10v10, 3-cap
+    //   makeStarter - 1 simple king-of-hill BG (10v10, 3-cap
     //                  to win, 30 min time limit).
-    //   makeClassic — Warsong Gulch (CTF) + Arathi Basin
+    //   makeClassic - Warsong Gulch (CTF) + Arathi Basin
     //                  (control nodes) + Alterac Valley
     //                  (resource race), each with WMS+WTKN
     //                  cross-references and authentic player
     //                  counts (10 / 15 / 40 per side).
-    //   makeArena   — 3 arena formats: 2v2 / 3v3 / 5v5 with
+    //   makeArena   - 3 arena formats: 2v2 / 3v3 / 5v5 with
     //                  small map IDs and annihilation
     //                  objectives.
     static WoweeBattleground makeStarter(const std::string& catalogName);

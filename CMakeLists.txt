@@ -26,12 +26,26 @@ endif()
 # Options
 option(BUILD_SHARED_LIBS "Build shared libraries" OFF)
 option(WOWEE_BUILD_TESTS "Build tests" ON)
-option(WOWEE_SYSTEM_LUA "Link against an installed Lua 5.1 instead of the vendored copy" OFF)
 option(WOWEE_ENABLE_ASAN "Enable AddressSanitizer + UBSan (applied to all build configs; pairs well with Debug)" OFF)
 option(WOWEE_ENABLE_TRACY "Enable Tracy profiler instrumentation" OFF)
-option(WOWEE_ENABLE_AMD_FSR2 "Enable AMD FidelityFX FSR2 backend when SDK is present" ON)
-option(WOWEE_ENABLE_AMD_FSR3_FRAMEGEN "Enable AMD FidelityFX SDK FSR3 frame generation interface probe when SDK is present" ON)
-option(WOWEE_BUILD_AMD_FSR3_RUNTIME "Build native AMD FidelityFX VK runtime (Path A) from extern/FidelityFX-SDK/Kits" ON)
+# AMD's FidelityFX SDK backends, off by default.
+#
+# They give neither a performance nor a quality gain here today, and FSR3 frame
+# generation is broken on RADV/Mesa. Turning them off also takes AMD's headers
+# out of the build, which -Werror was policing: the macOS build failed on a
+# -Wmissing-braces inside ffx_internal_types.h.
+#
+# This client's own upscaling is unaffected. FSR 1 (fsr_easu/fsr_rcas) and the
+# fsr2_* compute shaders are in-tree and stay in the build; only the vendored
+# SDK path is gone.
+#
+# To build it back, set any of these ON and place the SDKs under extern/:
+#   extern/FidelityFX-FSR2   github.com/GPUOpen-Effects/FidelityFX-FSR2 (master)
+#   extern/FidelityFX-SDK    github.com/Kelsidavis/FidelityFX-SDK (main)
+# CI used to clone both on every run and no longer does.
+option(WOWEE_ENABLE_AMD_FSR2 "Enable AMD FidelityFX FSR2 backend when SDK is present" OFF)
+option(WOWEE_ENABLE_AMD_FSR3_FRAMEGEN "Enable AMD FidelityFX SDK FSR3 frame generation interface probe when SDK is present" OFF)
+option(WOWEE_BUILD_AMD_FSR3_RUNTIME "Build native AMD FidelityFX VK runtime (Path A) from extern/FidelityFX-SDK/Kits" OFF)
 
 # AMD FidelityFX FSR2 SDK detection (drop-in under extern/FidelityFX-FSR2)
 set(WOWEE_AMD_FSR2_DIR ${CMAKE_SOURCE_DIR}/extern/FidelityFX-FSR2)
@@ -68,7 +82,10 @@ if(WOWEE_ENABLE_AMD_FSR2 AND EXISTS ${WOWEE_AMD_FSR2_HEADER} AND EXISTS ${WOWEE_
         CXX_STANDARD 17
         CXX_STANDARD_REQUIRED ON
     )
-    target_include_directories(wowee_fsr2_amd_vk PUBLIC
+    # SYSTEM: these are AMD's headers, not ours. Without it they are ordinary
+    # -I includes and -Werror polices vendored code, which failed the macOS
+    # build on a -Wmissing-braces inside ffx_internal_types.h.
+    target_include_directories(wowee_fsr2_amd_vk SYSTEM PUBLIC
         ${WOWEE_AMD_FSR2_DIR}/src
         ${WOWEE_AMD_FSR2_DIR}/src/ffx-fsr2-api
         ${WOWEE_AMD_FSR2_DIR}/src/ffx-fsr2-api/vk
@@ -120,7 +137,8 @@ if(WOWEE_ENABLE_AMD_FSR3_FRAMEGEN AND WOWEE_AMD_FFX_SDK_KITS_READY)
         CXX_STANDARD 17
         CXX_STANDARD_REQUIRED ON
     )
-    target_include_directories(wowee_fsr3_framegen_amd_vk_probe PUBLIC
+    # SYSTEM, for the reason given at the FSR2 target above.
+    target_include_directories(wowee_fsr3_framegen_amd_vk_probe SYSTEM PUBLIC
         ${WOWEE_AMD_FFX_SDK_KITS_DIR}/upscalers/include
         ${WOWEE_AMD_FFX_SDK_KITS_DIR}/upscalers/fsr3/include
         ${WOWEE_AMD_FFX_SDK_KITS_DIR}/framegeneration/fsr3/include
@@ -267,7 +285,7 @@ if(NOT Vulkan_FOUND)
                 add_library(Vulkan::Vulkan INTERFACE IMPORTED)
             endif()
             # Vulkan::Headers is provided by vcpkg's vulkan-headers port and carries
-            # the correct MinGW include path — no Linux system headers involved.
+            # the correct MinGW include path - no Linux system headers involved.
             set_property(TARGET Vulkan::Vulkan APPEND PROPERTY
                 INTERFACE_LINK_LIBRARIES Vulkan::Headers)
             # Link against the Vulkan loader import library (vulkan-1.dll).
@@ -339,7 +357,7 @@ if(NOT Vulkan_FOUND)
     endif()
 endif()
 # macOS cross-compilation: the Vulkan loader (MoltenVK) is not available at link
-# time. Allow unresolved Vulkan symbols — they are resolved at runtime.
+# time. Allow unresolved Vulkan symbols - they are resolved at runtime.
 if(CMAKE_CROSSCOMPILING AND CMAKE_SYSTEM_NAME STREQUAL "Darwin")
     set(WOWEE_MACOS_CROSS_COMPILE TRUE)
 endif()
@@ -354,7 +372,7 @@ endif()
 if(PkgConfig_FOUND)
     pkg_check_modules(FFMPEG libavformat libavcodec libswscale libavutil)
 else()
-    # Fallback for MSVC/vcpkg — find FFmpeg libraries manually
+    # Fallback for MSVC/vcpkg - find FFmpeg libraries manually
     find_path(FFMPEG_INCLUDE_DIRS libavformat/avformat.h)
     find_library(AVFORMAT_LIB NAMES avformat)
     find_library(AVCODEC_LIB  NAMES avcodec)
@@ -369,7 +387,7 @@ elseif(FFMPEG_FOUND)
     set(HAVE_FFMPEG TRUE)
 else()
     set(HAVE_FFMPEG FALSE)
-    message(WARNING "FFmpeg not found — video_player will be disabled. Install via vcpkg: ffmpeg:x64-windows")
+    message(WARNING "FFmpeg not found - video_player will be disabled. Install via vcpkg: ffmpeg:x64-windows")
 endif()
 
 # Unicorn Engine (x86 emulator for cross-platform Warden module execution)
@@ -404,12 +422,26 @@ else()
     message(WARNING "Shaders will not be compiled to SPIR-V.")
 endif()
 
+# Shaders carry no source information by default, because -O strips it. Without
+# it a GPU-assisted validation error names a pipeline handle and an instruction
+# index and nothing else - which is a shader you then have to identify by
+# elimination, and that has already cost a full session once.
+#
+#   cmake -B build -DWOWEE_SHADER_DEBUG_INFO=ON && cmake --build build
+#
+# Off by default and worth keeping that way: it disables optimisation as well,
+# since an optimised shader has no line numbers left to report. The .spv files
+# are tracked, so a debug build rewrites them in place - check them out again
+# before committing anything else.
+option(WOWEE_SHADER_DEBUG_INFO
+       "Compile shaders unoptimised and with debug info, so GPU validation can name a line" OFF)
+
 # Function to compile GLSL shaders to SPIR-V
 function(compile_shaders TARGET_NAME)
     set(SHADER_DIR ${CMAKE_CURRENT_SOURCE_DIR}/assets/shaders)
     # Compile in place, next to the GLSL. The .spv files are tracked (they are the
     # fallback when glslc is absent), and the POST_BUILD step below copies the whole
-    # source assets/ tree over the runtime one — so compiling into the runtime tree
+    # source assets/ tree over the runtime one - so compiling into the runtime tree
     # would just be overwritten by the committed .spv, silently running stale shaders.
     set(SPV_DIR ${SHADER_DIR})
     file(MAKE_DIRECTORY ${SPV_DIR})
@@ -467,7 +499,8 @@ if(EXISTS ${IMGUI_DIR})
         ${IMGUI_DIR}/backends/imgui_impl_sdl2.cpp
         ${IMGUI_DIR}/backends/imgui_impl_vulkan.cpp
     )
-    target_include_directories(imgui PUBLIC
+    # SYSTEM: vendored, so -Werror on wowee does not police it.
+    target_include_directories(imgui SYSTEM PUBLIC
         ${IMGUI_DIR}
         ${IMGUI_DIR}/backends
     )
@@ -483,7 +516,7 @@ if(EXISTS ${VK_BOOTSTRAP_DIR})
     add_library(vk-bootstrap STATIC
         ${VK_BOOTSTRAP_DIR}/src/VkBootstrap.cpp
     )
-    target_include_directories(vk-bootstrap PUBLIC ${VK_BOOTSTRAP_DIR}/src)
+    target_include_directories(vk-bootstrap SYSTEM PUBLIC ${VK_BOOTSTRAP_DIR}/src)
     target_link_libraries(vk-bootstrap PUBLIC Vulkan::Vulkan)
 else()
     message(FATAL_ERROR "vk-bootstrap not found in extern/vk-bootstrap")
@@ -542,6 +575,8 @@ set(WOWEE_SOURCES
     src/game/game_handler_packets.cpp
     src/game/game_handler_callbacks.cpp
     src/game/chat_handler.cpp
+    src/game/text_tokens.cpp
+    src/game/text_tokens_subject.cpp
     src/game/movement_handler.cpp
     src/game/combat_handler.cpp
     src/game/spell_handler.cpp
@@ -568,6 +603,7 @@ set(WOWEE_SOURCES
     src/game/world_packets_world.cpp
     src/game/world_packets_economy.cpp
     src/game/spline_packet.cpp
+    src/game/calendar_data.cpp
     src/game/faction_hostility.cpp
     src/game/packet_parsers_tbc.cpp
     src/game/packet_parsers_classic.cpp
@@ -747,6 +783,10 @@ set(WOWEE_SOURCES
     src/pipeline/wowee_combat_formulas.cpp
     src/pipeline/wowee_chat_links.cpp
     src/pipeline/custom_zone_discovery.cpp
+    src/pipeline/char_sections.cpp
+    src/ui/settings_schema.cpp
+    src/pipeline/item_textures.cpp
+    src/pipeline/m2_asset_loader.cpp
     src/pipeline/dbc_layout.cpp
 
     src/pipeline/terrain_mesh.cpp
@@ -767,6 +807,7 @@ set(WOWEE_SOURCES
     src/rendering/camera_controller.cpp
     src/rendering/material.cpp
     src/rendering/terrain_renderer.cpp
+    src/rendering/shadow_params.cpp
     src/rendering/terrain_manager.cpp
     src/rendering/frustum.cpp
     src/rendering/performance_hud.cpp
@@ -784,6 +825,9 @@ set(WOWEE_SOURCES
     src/rendering/character_renderer.cpp
     src/rendering/character_preview.cpp
     src/rendering/wmo_renderer.cpp
+    src/rendering/imgui_texture.cpp
+    src/rendering/bone_slots.cpp
+    src/rendering/normal_map.cpp
     src/rendering/m2_renderer.cpp
     src/rendering/m2_renderer_render.cpp
     src/rendering/m2_renderer_particles.cpp
@@ -838,9 +882,12 @@ set(WOWEE_SOURCES
 
     # UI
     src/ui/ui_manager.cpp
+    src/ui/ui_upload_budget.cpp
     src/ui/widget_tree.cpp
     src/ui/xml_parser.cpp
     src/ui/framexml_emitter.cpp
+    src/ui/framexml_takeover.cpp
+    src/ui/unit_portrait.cpp
     src/ui/interface_fonts.cpp
     src/ui/widget_renderer.cpp
     src/ui/ui_raid_icons.cpp
@@ -848,22 +895,23 @@ set(WOWEE_SOURCES
     src/ui/realm_screen.cpp
     src/ui/character_create_screen.cpp
     src/ui/character_screen.cpp
+    src/ui/escape_action.cpp
     src/ui/game_screen.cpp
     src/ui/scene_pick.cpp
     src/ui/game_screen_frames.cpp
     src/ui/game_screen_hud.cpp
     src/ui/game_screen_minimap.cpp
     src/ui/chat_panel.cpp
+    src/ui/macro_text.cpp
     src/ui/chat/chat_settings.cpp
     src/ui/chat/chat_input.cpp
     src/ui/chat/chat_utils.cpp
-    src/ui/chat/chat_tab_manager.cpp
     src/ui/chat/chat_bubble_manager.cpp
     src/ui/chat/chat_markup_parser.cpp
+    src/ui/plural_escape.cpp
     src/ui/chat/chat_markup_renderer.cpp
     src/ui/chat/item_tooltip_renderer.cpp
     src/ui/chat/chat_command_registry.cpp
-    src/ui/chat/chat_tab_completer.cpp
     src/ui/chat/macro_evaluator.cpp
     src/ui/chat/macro_eval_convenience.cpp
     src/ui/chat/game_state_adapter.cpp
@@ -902,6 +950,8 @@ set(WOWEE_SOURCES
     src/addons/lua_spell_api.cpp
     src/addons/lua_inventory_api.cpp
     src/addons/lua_quest_api.cpp
+    src/addons/lua_lfg_api.cpp
+    src/addons/lua_socket_api.cpp
     src/addons/lua_social_api.cpp
     src/addons/lua_system_api.cpp
     src/addons/lua_action_api.cpp
@@ -1044,7 +1094,7 @@ set(WOWEE_PLATFORM_SOURCES)
 if(WIN32)
     # Copy icon into build tree so windres can find it via the relative path
     # in wowee.rc ("assets\\wowee.ico").  Tell the RC compiler to also search
-    # the build directory — GNU windres uses cwd (already the build dir) but
+    # the build directory - GNU windres uses cwd (already the build dir) but
     # llvm-windres resolves relative to the .rc file, so it needs the hint.
     configure_file(
         ${CMAKE_CURRENT_SOURCE_DIR}/assets/Wowee.ico
@@ -1054,39 +1104,6 @@ if(WIN32)
     set(CMAKE_RC_FLAGS "${CMAKE_RC_FLAGS} -I ${CMAKE_CURRENT_BINARY_DIR} -I ${CMAKE_CURRENT_SOURCE_DIR}")
     list(APPEND WOWEE_PLATFORM_SOURCES resources/wowee.rc)
 endif()
-
-# ---- Lua 5.1 ----
-#
-# Vendored by default and system-provided on request, and the target the rest of
-# this file links against is called lua51 either way.
-#
-# Off by default rather than "use it if it happens to be installed": which Lua a
-# build linked would otherwise depend on what was lying around on the machine,
-# and the interface this client runs is a large body of Lua whose behaviour is
-# the thing under test. A distribution packaging this wants the system copy and
-# can say so; everyone else gets the same interpreter as CI.
-#
-# 5.1 exactly. The addon and FrameXML code this runs is written for it — 5.2
-# removed setfenv and the arg table, 5.3 changed integer division and string
-# coercion — so a 5.4 found under the name "Lua" is not a substitute, and a
-# wrong-version link fails at configure time rather than at the first addon.
-#
-# The check is not redundant with the version given to find_package: that is a
-# minimum, and CMake's own FindLua reports a 5.4 install as satisfying it. Asked
-# for 5.1 on a machine carrying only 5.4, find_package succeeds and says so.
-if(WOWEE_SYSTEM_LUA)
-    find_package(Lua 5.1 REQUIRED)
-    if(NOT LUA_VERSION_STRING MATCHES "^5\\.1")
-        message(FATAL_ERROR
-            "WOWEE_SYSTEM_LUA is on and the Lua found is ${LUA_VERSION_STRING}. "
-            "This client needs 5.1 (Debian and Ubuntu call it liblua5.1-0-dev), "
-            "or turn the option off to build the vendored copy.")
-    endif()
-    add_library(lua51 INTERFACE)
-    target_include_directories(lua51 SYSTEM INTERFACE ${LUA_INCLUDE_DIR})
-    target_link_libraries(lua51 INTERFACE ${LUA_LIBRARIES})
-    message(STATUS "Lua: system ${LUA_VERSION_STRING} (${LUA_LIBRARIES})")
-else()
 
 # ---- Lua 5.1.5 (vendored, static library) ----
 set(LUA_DIR ${CMAKE_CURRENT_SOURCE_DIR}/extern/lua-5.1.5/src)
@@ -1104,18 +1121,15 @@ set(LUA_SOURCES
 )
 add_library(lua51 STATIC ${LUA_SOURCES})
 set_target_properties(lua51 PROPERTIES LINKER_LANGUAGE C C_STANDARD 99 POSITION_INDEPENDENT_CODE ON)
-target_include_directories(lua51 PUBLIC ${LUA_DIR})
+target_include_directories(lua51 SYSTEM PUBLIC ${LUA_DIR})
 if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(lua51 PRIVATE -w)
-endif()
-message(STATUS "Lua: vendored 5.1.5 (set WOWEE_SYSTEM_LUA=ON to link an installed one)")
-
 endif()
 
 # Create executable
 add_executable(wowee ${WOWEE_SOURCES} ${WOWEE_HEADERS} ${WOWEE_PLATFORM_SOURCES} ${WOWEE_MACOS_SOURCES})
 
-# Tracy profiler — zero overhead when WOWEE_ENABLE_TRACY is OFF
+# Tracy profiler - zero overhead when WOWEE_ENABLE_TRACY is OFF
 if(WOWEE_ENABLE_TRACY)
     target_sources(wowee PRIVATE ${CMAKE_SOURCE_DIR}/extern/tracy/public/TracyClient.cpp)
     target_compile_definitions(wowee PRIVATE TRACY_ENABLE)
@@ -1127,7 +1141,7 @@ if(TARGET opcodes-generate)
     add_dependencies(wowee opcodes-generate)
 endif()
 # macOS cross-compilation: MoltenVK is not available at link time.
-# Allow unresolved Vulkan symbols — resolved at runtime. Scoped to wowee only.
+# Allow unresolved Vulkan symbols - resolved at runtime. Scoped to wowee only.
 if(WOWEE_MACOS_CROSS_COMPILE)
     target_link_options(wowee PRIVATE "-undefined" "dynamic_lookup")
 endif()
@@ -1234,7 +1248,7 @@ endif()
 if(TARGET wowee_fsr3_official_runtime_copy)
     # FSR3 Path A runtime is an opt-in artifact; build explicitly with:
     #   cmake --build build --target wowee_fsr3_official_runtime_copy
-    # Do NOT add as a hard dependency of wowee — it would break arm64 and Windows CI
+    # Do NOT add as a hard dependency of wowee - it would break arm64 and Windows CI
     # (no DXC available on arm64; bash context issues on MSYS2 Windows).
 endif()
 
@@ -1255,11 +1269,37 @@ elseif(glm_FOUND)
     target_include_directories(wowee PRIVATE ${GLM_INCLUDE_DIRS})
 endif()
 
-# Compiler warnings
+# Compiler warnings.
+#
+# Errors by default: a warning left standing accumulates into tech debt and
+# hides real defects. Two found this way while turning it on: an NPC boot
+# geoset read out of CreatureDisplayInfoExtra and never applied, and a dead
+# duplicate of the character atlas region lookup.
+#
+# WOWEE_WARNINGS_AS_ERRORS=OFF turns it off for a bisect or a new-compiler
+# build, where an unfamiliar diagnostic should not stop the build outright.
+option(WOWEE_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" ON)
+
 if(MSVC)
     target_compile_options(wowee PRIVATE /W4)
+    if(WOWEE_WARNINGS_AS_ERRORS)
+        target_compile_options(wowee PRIVATE /WX)
+    endif()
 else()
     target_compile_options(wowee PRIVATE -Wall -Wextra -Wpedantic -Wno-missing-field-initializers)
+    # A constant left behind by a deleted function is not in -Wall for C++ on
+    # every clang, and the macOS and Windows runners have it where the clang
+    # here does not, so it failed two of five CI jobs and no local build.
+    #
+    # Clang only. GCC applies the same flag to header constants that exist to
+    # write down a whole wire enum, InvType::AMMO and GuildEvent::SIGNED_ON
+    # among them, and those are documentation rather than dead code.
+    if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        target_compile_options(wowee PRIVATE -Wunused-const-variable)
+    endif()
+    if(WOWEE_WARNINGS_AS_ERRORS)
+        target_compile_options(wowee PRIVATE -Werror)
+    endif()
     # GCC LTO emits -Wodr for FFX enum-name mismatches across SDK generations.
     # We intentionally keep FSR2+FSR3 integrations in separate TUs and suppress
     # this linker-time diagnostic to avoid CI noise.
@@ -1271,10 +1311,10 @@ endif()
 
 # Debug build flags
 if(MSVC)
-    # /ZI  — Edit-and-Continue debug info (works with hot-reload in VS 2022)
-    # /RTC1 — stack-frame and uninitialised-variable runtime checks (Debug only)
-    # /sdl  — additional SDL security checks
-    # /Od   — disable optimisation so stepping matches source lines exactly
+    # /ZI  - Edit-and-Continue debug info (works with hot-reload in VS 2022)
+    # /RTC1 - stack-frame and uninitialised-variable runtime checks (Debug only)
+    # /sdl  - additional SDL security checks
+    # /Od   - disable optimisation so stepping matches source lines exactly
     target_compile_options(wowee PRIVATE
         $<$<CONFIG:Debug>:/ZI /RTC1 /sdl /Od>
     )
@@ -1284,9 +1324,9 @@ if(MSVC)
         $<$<CONFIG:RelWithDebInfo>:/DEBUG:FASTLINK>
     )
 else()
-    # -g3          — maximum DWARF debug info (includes macro definitions)
-    # -Og          — optimise for debugging (better than -O0, keeps most frames)
-    # -fno-omit-frame-pointer — preserve frame pointers so stack traces are clean
+    # -g3          - maximum DWARF debug info (includes macro definitions)
+    # -Og          - optimise for debugging (better than -O0, keeps most frames)
+    # -fno-omit-frame-pointer - preserve frame pointers so stack traces are clean
     # Frame pointers in all configs (negligible perf cost, critical for crash backtraces)
     target_compile_options(wowee PRIVATE
         -fno-omit-frame-pointer
@@ -1301,7 +1341,7 @@ if(WOWEE_BUILD_TESTS)
     add_subdirectory(tests)
 endif()
 
-# AddressSanitizer — catch buffer overflows, use-after-free, etc.
+# AddressSanitizer - catch buffer overflows, use-after-free, etc.
 # Enable with:  cmake ... -DWOWEE_ENABLE_ASAN=ON -DCMAKE_BUILD_TYPE=Debug
 if(WOWEE_ENABLE_ASAN)
     if(MSVC)
@@ -1367,7 +1407,7 @@ if(WIN32)
             COMMENT "Copying vulkan-1.dll to output directory"
         )
     else()
-        message(STATUS "  vulkan-1.dll not found — skipping copy (MSYS2 provides it via PATH)")
+        message(STATUS "  vulkan-1.dll not found - skipping copy (MSYS2 provides it via PATH)")
     endif()
 endif()
 
@@ -1409,12 +1449,725 @@ if(UNIX AND NOT APPLE)
         RENAME wowee.png)
 endif()
 
-# The command-line tools and the packaging rules, which are long, optional
-# and independent of the client's own build. Included rather than inlined so
-# this file stays about the client — see #107.
-include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/Tools.cmake)
+# ---- Tool: framexml_run (load FrameXML for real, headless) ----
+#
+# Every sweep in tools/ reads the interface as text and they are at their
+# floor. What is left is what only happens when it runs: a Lua error raised
+# inside a handler and swallowed, which looks exactly like a handler that
+# decided to do nothing. This target is that run without the client - the real
+# emitter, the real bindings, no game behind them and no window.
+#
+# Off by default because it compiles the client a second time, which is a cost
+# only worth paying on the machine asking the question. Other platforms and CI
+# are untouched.
+#
+#     cmake -S . -B build -DWOWEE_BUILD_FRAMEXML_RUN=ON
+#     cmake --build build --target framexml_run
+#     ./build/bin/framexml_run Data 'ToggleGameMenu()'
+option(WOWEE_BUILD_FRAMEXML_RUN
+       "Build the headless FrameXML runner (tools/framexml_run.cpp)" OFF)
+if(WOWEE_BUILD_FRAMEXML_RUN)
+    set(WOWEE_HEADLESS_SOURCES ${WOWEE_SOURCES})
+    list(REMOVE_ITEM WOWEE_HEADLESS_SOURCES src/main.cpp)
+    add_executable(framexml_run
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/framexml_run.cpp
+        ${WOWEE_HEADLESS_SOURCES}
+        ${WOWEE_PLATFORM_SOURCES}
+        ${WOWEE_MACOS_SOURCES}
+    )
+    # Copied from the client rather than written out again. This target is the
+    # client minus its main, so any answer that differs from wowee's is wrong
+    # by construction - and a hand-kept second list would drift the first time
+    # a dependency moved.
+    get_target_property(_wowee_libs wowee LINK_LIBRARIES)
+    get_target_property(_wowee_incs wowee INCLUDE_DIRECTORIES)
+    get_target_property(_wowee_defs wowee COMPILE_DEFINITIONS)
+    if(_wowee_libs)
+        target_link_libraries(framexml_run PRIVATE ${_wowee_libs})
+    endif()
+    if(_wowee_incs)
+        target_include_directories(framexml_run PRIVATE ${_wowee_incs})
+    endif()
+    if(_wowee_defs)
+        target_compile_definitions(framexml_run PRIVATE ${_wowee_defs})
+    endif()
+    target_include_directories(framexml_run SYSTEM PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/extern
+        ${CMAKE_CURRENT_SOURCE_DIR}/extern/vk-bootstrap/src)
+    add_dependencies(framexml_run wowee_version)
+    if(TARGET opcodes-generate)
+        add_dependencies(framexml_run opcodes-generate)
+    endif()
+endif()
 
-# What was configured, printed after everything that could change it.
+# ---- Tool: asset_extract (MPQ → loose files) ----
+if(STORMLIB_LIBRARY AND STORMLIB_INCLUDE_DIR)
+    add_executable(asset_extract
+        tools/asset_extract/main.cpp
+        tools/asset_extract/extractor.cpp
+        tools/asset_extract/path_mapper.cpp
+        tools/asset_extract/manifest_writer.cpp
+        tools/asset_extract/open_format_emitter.cpp
+        src/pipeline/dbc_loader.cpp
+        src/pipeline/blp_loader.cpp
+        src/pipeline/m2_loader.cpp
+        src/pipeline/wmo_loader.cpp
+        src/pipeline/adt_loader.cpp
+        src/pipeline/wowee_model.cpp
+        src/pipeline/wowee_building.cpp
+        src/pipeline/wowee_collision.cpp
+        src/core/logger.cpp
+    )
+    target_include_directories(asset_extract PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/asset_extract
+        ${STORMLIB_INCLUDE_DIR}
+    )
+    target_include_directories(asset_extract SYSTEM PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/extern
+    )
+    target_link_libraries(asset_extract PRIVATE
+        ${STORMLIB_LIBRARY}
+        ZLIB::ZLIB
+        Threads::Threads
+    )
+    if(WIN32)
+        find_library(WININET_LIB wininet)
+        find_library(BZ2_LIB bz2)
+        find_library(TOMCRYPT_LIB NAMES tomcrypt libtomcrypt)
+        find_library(TOMMATH_LIB NAMES tommath libtommath)
+        if(WININET_LIB)
+            target_link_libraries(asset_extract PRIVATE ${WININET_LIB})
+        endif()
+        if(BZ2_LIB)
+            target_link_libraries(asset_extract PRIVATE ${BZ2_LIB})
+        endif()
+        if(TOMCRYPT_LIB AND TOMMATH_LIB)
+            # Static StormLib exposes its LibTomCrypt/LibTomMath dependencies.
+            target_link_libraries(asset_extract PRIVATE ${TOMCRYPT_LIB} ${TOMMATH_LIB})
+        else()
+            message(FATAL_ERROR
+                "Static StormLib on Windows requires LibTomCrypt and LibTomMath")
+        endif()
+    endif()
+    set_target_properties(asset_extract PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
+    )
+    install(TARGETS asset_extract RUNTIME DESTINATION bin)
+    message(STATUS "  asset_extract tool: ENABLED")
+else()
+    message(STATUS "  asset_extract tool: DISABLED (requires StormLib)")
+endif()
+
+# ---- Tool: dbc_to_csv (DBC → CSV text) ----
+add_executable(dbc_to_csv
+    tools/dbc_to_csv/main.cpp
+    src/pipeline/dbc_loader.cpp
+    src/core/logger.cpp
+)
+target_include_directories(dbc_to_csv PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/extern
+)
+target_link_libraries(dbc_to_csv PRIVATE Threads::Threads)
+set_target_properties(dbc_to_csv PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
+)
+install(TARGETS dbc_to_csv RUNTIME DESTINATION bin)
+
+# ---- Tool: auth_probe (LOGON_CHALLENGE probe) ----
+add_executable(auth_probe
+    tools/auth_probe/main.cpp
+    src/auth/auth_packets.cpp
+    src/auth/auth_opcodes.cpp
+    src/auth/crypto.cpp
+    src/network/packet.cpp
+    src/network/socket.cpp
+    src/network/tcp_socket.cpp
+    src/core/logger.cpp
+)
+target_include_directories(auth_probe PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+target_link_libraries(auth_probe PRIVATE Threads::Threads OpenSSL::Crypto
+    $<$<BOOL:${WIN32}>:ws2_32>)
+set_target_properties(auth_probe PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
+)
+install(TARGETS auth_probe RUNTIME DESTINATION bin)
+
+# ---- Tool: auth_login_probe (challenge + proof probe) ----
+add_executable(auth_login_probe
+    tools/auth_login_probe/main.cpp
+    src/auth/auth_packets.cpp
+    src/auth/auth_opcodes.cpp
+    src/auth/crypto.cpp
+    src/auth/integrity.cpp
+    src/auth/big_num.cpp
+    src/auth/srp.cpp
+    src/network/packet.cpp
+    src/network/socket.cpp
+    src/network/tcp_socket.cpp
+    src/core/logger.cpp
+)
+target_include_directories(auth_login_probe PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+target_link_libraries(auth_login_probe PRIVATE Threads::Threads OpenSSL::Crypto
+    $<$<BOOL:${WIN32}>:ws2_32>)
+set_target_properties(auth_login_probe PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
+)
+install(TARGETS auth_login_probe RUNTIME DESTINATION bin)
+
+# ---- Tool: blp_convert (BLP ↔ PNG) ----
+add_executable(blp_convert
+    tools/blp_convert/main.cpp
+    src/pipeline/blp_loader.cpp
+    src/core/logger.cpp
+)
+target_include_directories(blp_convert PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/extern
+)
+target_link_libraries(blp_convert PRIVATE Threads::Threads)
+set_target_properties(blp_convert PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
+)
+install(TARGETS blp_convert RUNTIME DESTINATION bin)
+
+# ---- Tool: wowee_editor (Standalone World Editor) ----
+# Off the default build: it is a large standalone tool that compiles on every
+# `cmake --build build` for no benefit to ordinary client work. Still built on
+# demand with `cmake --build build --target wowee_editor`, or configured back
+# into the default build with -DWOWEE_BUILD_EDITOR=ON.
+option(WOWEE_BUILD_EDITOR
+       "Build the standalone world editor as part of the default build" OFF)
+add_executable(wowee_editor
+    tools/editor/main.cpp
+    tools/editor/cli_gen_audio.cpp
+    tools/editor/cli_zone_packs.cpp
+    tools/editor/cli_audits.cpp
+    tools/editor/cli_readmes.cpp
+    tools/editor/cli_zone_inventory.cpp
+    tools/editor/cli_project_inventory.cpp
+    tools/editor/cli_help.cpp
+    tools/editor/cli_gen_texture.cpp
+    tools/editor/cli_gen_mesh.cpp
+    tools/editor/cli_mesh_io.cpp
+    tools/editor/cli_mesh_edit.cpp
+    tools/editor/cli_wom_info.cpp
+    tools/editor/cli_format_validate.cpp
+    tools/editor/cli_convert.cpp
+    tools/editor/cli_format_info.cpp
+    tools/editor/cli_pack.cpp
+    tools/editor/cli_content_info.cpp
+    tools/editor/cli_zone_info.cpp
+    tools/editor/cli_data_tree.cpp
+    tools/editor/cli_diff.cpp
+    tools/editor/cli_spawn_audit.cpp
+    tools/editor/cli_items.cpp
+    tools/editor/cli_extract_info.cpp
+    tools/editor/cli_export.cpp
+    tools/editor/cli_bake.cpp
+    tools/editor/cli_migrate.cpp
+    tools/editor/cli_convert_single.cpp
+    tools/editor/cli_validate_interop.cpp
+    tools/editor/cli_glb_inspect.cpp
+    tools/editor/cli_wom_io.cpp
+    tools/editor/cli_world_io.cpp
+    tools/editor/cli_info_tree.cpp
+    tools/editor/cli_info_bytes.cpp
+    tools/editor/cli_info_extents.cpp
+    tools/editor/cli_info_water.cpp
+    tools/editor/cli_info_density.cpp
+    tools/editor/cli_info_audio.cpp
+    tools/editor/cli_world_info.cpp
+    tools/editor/cli_world_map.cpp
+    tools/editor/cli_sound_catalog.cpp
+    tools/editor/cli_spawns_catalog.cpp
+    tools/editor/cli_items_catalog.cpp
+    tools/editor/cli_loot_catalog.cpp
+    tools/editor/cli_creatures_catalog.cpp
+    tools/editor/cli_quests_catalog.cpp
+    tools/editor/cli_objects_catalog.cpp
+    tools/editor/cli_factions_catalog.cpp
+    tools/editor/cli_locks_catalog.cpp
+    tools/editor/cli_skills_catalog.cpp
+    tools/editor/cli_spells_catalog.cpp
+    tools/editor/cli_achievements_catalog.cpp
+    tools/editor/cli_trainers_catalog.cpp
+    tools/editor/cli_gossip_catalog.cpp
+    tools/editor/cli_taxi_catalog.cpp
+    tools/editor/cli_talents_catalog.cpp
+    tools/editor/cli_maps_catalog.cpp
+    tools/editor/cli_chars_catalog.cpp
+    tools/editor/cli_tokens_catalog.cpp
+    tools/editor/cli_triggers_catalog.cpp
+    tools/editor/cli_titles_catalog.cpp
+    tools/editor/cli_events_catalog.cpp
+    tools/editor/cli_mounts_catalog.cpp
+    tools/editor/cli_battlegrounds_catalog.cpp
+    tools/editor/cli_mail_catalog.cpp
+    tools/editor/cli_gems_catalog.cpp
+    tools/editor/cli_guilds_catalog.cpp
+    tools/editor/cli_conditions_catalog.cpp
+    tools/editor/cli_pets_catalog.cpp
+    tools/editor/cli_auction_catalog.cpp
+    tools/editor/cli_channels_catalog.cpp
+    tools/editor/cli_cinematics_catalog.cpp
+    tools/editor/cli_glyphs_catalog.cpp
+    tools/editor/cli_vehicles_catalog.cpp
+    tools/editor/cli_holidays_catalog.cpp
+    tools/editor/cli_liquids_catalog.cpp
+    tools/editor/cli_list_formats.cpp
+    tools/editor/cli_info_magic.cpp
+    tools/editor/cli_animations_catalog.cpp
+    tools/editor/cli_spell_visuals_catalog.cpp
+    tools/editor/cli_format_table.cpp
+    tools/editor/cli_summary_dir.cpp
+    tools/editor/cli_rename_magic.cpp
+    tools/editor/cli_world_state_ui_catalog.cpp
+    tools/editor/cli_player_conditions_catalog.cpp
+    tools/editor/cli_trade_skills_catalog.cpp
+    tools/editor/cli_creature_equipment_catalog.cpp
+    tools/editor/cli_item_sets_catalog.cpp
+    tools/editor/cli_touch_tree.cpp
+    tools/editor/cli_game_tips_catalog.cpp
+    tools/editor/cli_companions_catalog.cpp
+    tools/editor/cli_spell_mechanics_catalog.cpp
+    tools/editor/cli_keybindings_catalog.cpp
+    tools/editor/cli_tree_summary_md.cpp
+    tools/editor/cli_spell_schools_catalog.cpp
+    tools/editor/cli_lfg_catalog.cpp
+    tools/editor/cli_catalog_grep.cpp
+    tools/editor/cli_diff_headers.cpp
+    tools/editor/cli_audit_tree.cpp
+    tools/editor/cli_magic_fix.cpp
+    tools/editor/cli_bulk_validate.cpp
+    tools/editor/cli_bulk_json.cpp
+    tools/editor/cli_diff_tree.cpp
+    tools/editor/cli_orphan_jsons.cpp
+    tools/editor/cli_list_by_magic.cpp
+    tools/editor/cli_catalog_stats.cpp
+    tools/editor/cli_macros_catalog.cpp
+    tools/editor/cli_char_features_catalog.cpp
+    tools/editor/cli_pvp_catalog.cpp
+    tools/editor/cli_bags_catalog.cpp
+    tools/editor/cli_runes_catalog.cpp
+    tools/editor/cli_loading_screens_catalog.cpp
+    tools/editor/cli_item_suffixes_catalog.cpp
+    tools/editor/cli_combat_ratings_catalog.cpp
+    tools/editor/cli_unit_movement_catalog.cpp
+    tools/editor/cli_quest_sorts_catalog.cpp
+    tools/editor/cli_spell_ranges_catalog.cpp
+    tools/editor/cli_spell_cast_times_catalog.cpp
+    tools/editor/cli_spell_durations_catalog.cpp
+    tools/editor/cli_spell_cooldowns_catalog.cpp
+    tools/editor/cli_creature_families_catalog.cpp
+    tools/editor/cli_spell_power_costs_catalog.cpp
+    tools/editor/cli_glyph_slots_catalog.cpp
+    tools/editor/cli_creature_difficulties_catalog.cpp
+    tools/editor/cli_item_materials_catalog.cpp
+    tools/editor/cli_player_spawn_profiles_catalog.cpp
+    tools/editor/cli_talent_tabs_catalog.cpp
+    tools/editor/cli_currency_types_catalog.cpp
+    tools/editor/cli_spell_reagents_catalog.cpp
+    tools/editor/cli_achievement_criteria_catalog.cpp
+    tools/editor/cli_spell_effect_types_catalog.cpp
+    tools/editor/cli_spell_aura_types_catalog.cpp
+    tools/editor/cli_item_qualities_catalog.cpp
+    tools/editor/cli_skill_costs_catalog.cpp
+    tools/editor/cli_item_flags_catalog.cpp
+    tools/editor/cli_npc_services_catalog.cpp
+    tools/editor/cli_token_rewards_catalog.cpp
+    tools/editor/cli_spell_procs_catalog.cpp
+    tools/editor/cli_creature_patrols_catalog.cpp
+    tools/editor/cli_boss_encounters_catalog.cpp
+    tools/editor/cli_instance_lockouts_catalog.cpp
+    tools/editor/cli_stable_slots_catalog.cpp
+    tools/editor/cli_stat_curves_catalog.cpp
+    tools/editor/cli_action_bars_catalog.cpp
+    tools/editor/cli_group_compositions_catalog.cpp
+    tools/editor/cli_hearth_binds_catalog.cpp
+    tools/editor/cli_server_broadcasts_catalog.cpp
+    tools/editor/cli_combat_maneuvers_catalog.cpp
+    tools/editor/cli_realm_list_catalog.cpp
+    tools/editor/cli_emotes_catalog.cpp
+    tools/editor/cli_buff_book_catalog.cpp
+    tools/editor/cli_tabards_catalog.cpp
+    tools/editor/cli_spell_markers_catalog.cpp
+    tools/editor/cli_learning_notifications_catalog.cpp
+    tools/editor/cli_creature_resists_catalog.cpp
+    tools/editor/cli_pet_talents_catalog.cpp
+    tools/editor/cli_heroic_scaling_catalog.cpp
+    tools/editor/cli_reputation_rewards_catalog.cpp
+    tools/editor/cli_minimap_levels_catalog.cpp
+    tools/editor/cli_pet_care_catalog.cpp
+    tools/editor/cli_movie_credits_catalog.cpp
+    tools/editor/cli_spell_variants_catalog.cpp
+    tools/editor/cli_voiceovers_catalog.cpp
+    tools/editor/cli_trade_rules_catalog.cpp
+    tools/editor/cli_word_filters_catalog.cpp
+    tools/editor/cli_raid_markers_catalog.cpp
+    tools/editor/cli_loot_modes_catalog.cpp
+    tools/editor/cli_sky_params_catalog.cpp
+    tools/editor/cli_server_config_catalog.cpp
+    tools/editor/cli_anniversary_events_catalog.cpp
+    tools/editor/cli_pvp_ranks_catalog.cpp
+    tools/editor/cli_localization_catalog.cpp
+    tools/editor/cli_global_channels_catalog.cpp
+    tools/editor/cli_addon_manifest_catalog.cpp
+    tools/editor/cli_spell_pack_catalog.cpp
+    tools/editor/cli_player_movement_anim_catalog.cpp
+    tools/editor/cli_transit_schedule_catalog.cpp
+    tools/editor/cli_mage_portals_catalog.cpp
+    tools/editor/cli_combat_stats_catalog.cpp
+    tools/editor/cli_guild_bank_catalog.cpp
+    tools/editor/cli_quest_graph_catalog.cpp
+    tools/editor/cli_crafting_recipes_catalog.cpp
+    tools/editor/cli_world_locations_catalog.cpp
+    tools/editor/cli_soulbind_rules_catalog.cpp
+    tools/editor/cli_creature_behavior_catalog.cpp
+    tools/editor/cli_random_property_catalog.cpp
+    tools/editor/cli_spell_proc_rules_catalog.cpp
+    tools/editor/cli_auction_houses_catalog.cpp
+    tools/editor/cli_battleground_rewards_catalog.cpp
+    tools/editor/cli_sound_swap_catalog.cpp
+    tools/editor/cli_tutorial_steps_catalog.cpp
+    tools/editor/cli_chat_commands_catalog.cpp
+    tools/editor/cli_camera_presets_catalog.cpp
+    tools/editor/cli_combat_formulas_catalog.cpp
+    tools/editor/cli_chat_links_catalog.cpp
+    tools/editor/cli_catalog_pluck.cpp
+    tools/editor/cli_catalog_find.cpp
+    tools/editor/cli_catalog_by_name.cpp
+    tools/editor/cli_catalog_id_range.cpp
+    tools/editor/cli_quest_objective.cpp
+    tools/editor/cli_quest_reward.cpp
+    tools/editor/cli_clone.cpp
+    tools/editor/cli_remove.cpp
+    tools/editor/cli_add.cpp
+    tools/editor/cli_random.cpp
+    tools/editor/cli_items_export.cpp
+    tools/editor/cli_items_mutate.cpp
+    tools/editor/cli_zone_create.cpp
+    tools/editor/cli_tiles.cpp
+    tools/editor/cli_zone_mgmt.cpp
+    tools/editor/cli_strip.cpp
+    tools/editor/cli_repair.cpp
+    tools/editor/cli_makefile.cpp
+    tools/editor/cli_zone_list.cpp
+    tools/editor/cli_tilemap.cpp
+    tools/editor/cli_deps.cpp
+    tools/editor/cli_for_each.cpp
+    tools/editor/cli_check.cpp
+    tools/editor/cli_introspect.cpp
+    tools/editor/cli_subprocess.cpp
+    tools/editor/cli_texture_helpers.cpp
+    tools/editor/cli_mesh_info.cpp
+    tools/editor/cli_zone_data.cpp
+    tools/editor/cli_project_actions.cpp
+    tools/editor/cli_zone_export.cpp
+    tools/editor/cli_arg_required.cpp
+    tools/editor/cli_multi_arg_required.cpp
+    tools/editor/cli_weld.cpp
+    tools/editor/cli_box_emitter.cpp
+    tools/editor/cli_dispatch.cpp
+    tools/editor/editor_app.cpp
+    tools/editor/editor_camera.cpp
+    tools/editor/editor_viewport.cpp
+    tools/editor/editor_ui.cpp
+    tools/editor/editor_brush.cpp
+    tools/editor/editor_history.cpp
+    tools/editor/terrain_editor.cpp
+    tools/editor/texture_painter.cpp
+    tools/editor/object_placer.cpp
+    tools/editor/npc_spawner.cpp
+    tools/editor/npc_presets.cpp
+    tools/editor/sql_exporter.cpp
+    tools/editor/server_module_gen.cpp
+    tools/editor/quest_editor.cpp
+    tools/editor/transform_gizmo.cpp
+    tools/editor/zone_manifest.cpp
+    tools/editor/content_pack.cpp
+    tools/editor/wowee_terrain.cpp
+    tools/editor/editor_project.cpp
+    tools/editor/texture_exporter.cpp
+    tools/editor/dbc_exporter.cpp
+    tools/editor/asset_browser.cpp
+    tools/editor/editor_water.cpp
+    tools/editor/editor_markers.cpp
+    tools/editor/adt_writer.cpp
+
+    # Pipeline (asset loading)
+    src/pipeline/blp_loader.cpp
+    src/pipeline/dbc_loader.cpp
+    src/pipeline/char_sections.cpp
+    src/ui/settings_schema.cpp
+    src/pipeline/item_textures.cpp
+    src/pipeline/m2_asset_loader.cpp
+    src/pipeline/dbc_layout.cpp
+    src/pipeline/asset_manager.cpp
+    src/pipeline/asset_manifest.cpp
+    src/pipeline/loose_file_reader.cpp
+    src/pipeline/m2_loader.cpp
+    src/pipeline/wmo_loader.cpp
+    src/pipeline/adt_loader.cpp
+    src/pipeline/wdt_loader.cpp
+    src/pipeline/wowee_terrain_loader.cpp
+    src/pipeline/wowee_model.cpp
+    src/pipeline/wowee_model_fromm2.cpp
+    src/pipeline/wowee_building.cpp
+    src/pipeline/wowee_collision.cpp
+    src/pipeline/wowee_light.cpp
+    src/pipeline/wowee_weather.cpp
+    src/pipeline/wowee_world_map.cpp
+    src/pipeline/wowee_sound.cpp
+    src/pipeline/wowee_spawns.cpp
+    src/pipeline/wowee_items.cpp
+    src/pipeline/wowee_loot.cpp
+    src/pipeline/wowee_creatures.cpp
+    src/pipeline/wowee_quests.cpp
+    src/pipeline/wowee_objects.cpp
+    src/pipeline/wowee_factions.cpp
+    src/pipeline/wowee_locks.cpp
+    src/pipeline/wowee_skills.cpp
+    src/pipeline/wowee_spells.cpp
+    src/pipeline/wowee_achievements.cpp
+    src/pipeline/wowee_trainers.cpp
+    src/pipeline/wowee_gossip.cpp
+    src/pipeline/wowee_taxi.cpp
+    src/pipeline/wowee_talents.cpp
+    src/pipeline/wowee_maps.cpp
+    src/pipeline/wowee_chars.cpp
+    src/pipeline/wowee_tokens.cpp
+    src/pipeline/wowee_triggers.cpp
+    src/pipeline/wowee_titles.cpp
+    src/pipeline/wowee_events.cpp
+    src/pipeline/wowee_mounts.cpp
+    src/pipeline/wowee_battlegrounds.cpp
+    src/pipeline/wowee_mail.cpp
+    src/pipeline/wowee_gems.cpp
+    src/pipeline/wowee_guilds.cpp
+    src/pipeline/wowee_conditions.cpp
+    src/pipeline/wowee_pets.cpp
+    src/pipeline/wowee_auction.cpp
+    src/pipeline/wowee_channels.cpp
+    src/pipeline/wowee_cinematics.cpp
+    src/pipeline/wowee_glyphs.cpp
+    src/pipeline/wowee_vehicles.cpp
+    src/pipeline/wowee_holidays.cpp
+    src/pipeline/wowee_liquids.cpp
+    src/pipeline/wowee_animations.cpp
+    src/pipeline/wowee_spell_visuals.cpp
+    src/pipeline/wowee_world_state_ui.cpp
+    src/pipeline/wowee_player_conditions.cpp
+    src/pipeline/wowee_trade_skills.cpp
+    src/pipeline/wowee_creature_equipment.cpp
+    src/pipeline/wowee_item_sets.cpp
+    src/pipeline/wowee_game_tips.cpp
+    src/pipeline/wowee_companions.cpp
+    src/pipeline/wowee_spell_mechanics.cpp
+    src/pipeline/wowee_keybindings.cpp
+    src/pipeline/wowee_spell_schools.cpp
+    src/pipeline/wowee_lfg.cpp
+    src/pipeline/wowee_macros.cpp
+    src/pipeline/wowee_char_features.cpp
+    src/pipeline/wowee_pvp.cpp
+    src/pipeline/wowee_bags.cpp
+    src/pipeline/wowee_runes.cpp
+    src/pipeline/wowee_loading_screens.cpp
+    src/pipeline/wowee_item_suffixes.cpp
+    src/pipeline/wowee_combat_ratings.cpp
+    src/pipeline/wowee_unit_movement.cpp
+    src/pipeline/wowee_quest_sorts.cpp
+    src/pipeline/wowee_spell_ranges.cpp
+    src/pipeline/wowee_spell_cast_times.cpp
+    src/pipeline/wowee_spell_durations.cpp
+    src/pipeline/wowee_spell_cooldowns.cpp
+    src/pipeline/wowee_creature_families.cpp
+    src/pipeline/wowee_spell_power_costs.cpp
+    src/pipeline/wowee_glyph_slots.cpp
+    src/pipeline/wowee_creature_difficulties.cpp
+    src/pipeline/wowee_item_materials.cpp
+    src/pipeline/wowee_player_spawn_profiles.cpp
+    src/pipeline/wowee_talent_tabs.cpp
+    src/pipeline/wowee_currency_types.cpp
+    src/pipeline/wowee_spell_reagents.cpp
+    src/pipeline/wowee_achievement_criteria.cpp
+    src/pipeline/wowee_spell_effect_types.cpp
+    src/pipeline/wowee_spell_aura_types.cpp
+    src/pipeline/wowee_item_qualities.cpp
+    src/pipeline/wowee_skill_costs.cpp
+    src/pipeline/wowee_item_flags.cpp
+    src/pipeline/wowee_npc_services.cpp
+    src/pipeline/wowee_token_rewards.cpp
+    src/pipeline/wowee_spell_procs.cpp
+    src/pipeline/wowee_creature_patrols.cpp
+    src/pipeline/wowee_boss_encounters.cpp
+    src/pipeline/wowee_instance_lockouts.cpp
+    src/pipeline/wowee_stable_slots.cpp
+    src/pipeline/wowee_stat_curves.cpp
+    src/pipeline/wowee_action_bars.cpp
+    src/pipeline/wowee_group_compositions.cpp
+    src/pipeline/wowee_hearth_binds.cpp
+    src/pipeline/wowee_server_broadcasts.cpp
+    src/pipeline/wowee_combat_maneuvers.cpp
+    src/pipeline/wowee_realm_list.cpp
+    src/pipeline/wowee_emotes.cpp
+    src/pipeline/wowee_buff_book.cpp
+    src/pipeline/wowee_tabards.cpp
+    src/pipeline/wowee_spell_markers.cpp
+    src/pipeline/wowee_learning_notifications.cpp
+    src/pipeline/wowee_creature_resists.cpp
+    src/pipeline/wowee_pet_talents.cpp
+    src/pipeline/wowee_heroic_scaling.cpp
+    src/pipeline/wowee_reputation_rewards.cpp
+    src/pipeline/wowee_minimap_levels.cpp
+    src/pipeline/wowee_pet_care.cpp
+    src/pipeline/wowee_movie_credits.cpp
+    src/pipeline/wowee_spell_variants.cpp
+    src/pipeline/wowee_voiceovers.cpp
+    src/pipeline/wowee_trade_rules.cpp
+    src/pipeline/wowee_word_filters.cpp
+    src/pipeline/wowee_raid_markers.cpp
+    src/pipeline/wowee_loot_modes.cpp
+    src/pipeline/wowee_sky_params.cpp
+    src/pipeline/wowee_server_config.cpp
+    src/pipeline/wowee_anniversary_events.cpp
+    src/pipeline/wowee_pvp_ranks.cpp
+    src/pipeline/wowee_localization.cpp
+    src/pipeline/wowee_global_channels.cpp
+    src/pipeline/wowee_addon_manifest.cpp
+    src/pipeline/wowee_spell_pack.cpp
+    src/pipeline/wowee_player_movement_anim.cpp
+    src/pipeline/wowee_transit_schedule.cpp
+    src/pipeline/wowee_mage_portals.cpp
+    src/pipeline/wowee_combat_stats.cpp
+    src/pipeline/wowee_guild_bank.cpp
+    src/pipeline/wowee_quest_graph.cpp
+    src/pipeline/wowee_crafting_recipes.cpp
+    src/pipeline/wowee_world_locations.cpp
+    src/pipeline/wowee_soulbind_rules.cpp
+    src/pipeline/wowee_creature_behavior.cpp
+    src/pipeline/wowee_random_property.cpp
+    src/pipeline/wowee_spell_proc_rules.cpp
+    src/pipeline/wowee_auction_houses.cpp
+    src/pipeline/wowee_battleground_rewards.cpp
+    src/pipeline/wowee_sound_swap.cpp
+    src/pipeline/wowee_tutorial_steps.cpp
+    src/pipeline/wowee_chat_commands.cpp
+    src/pipeline/wowee_camera_presets.cpp
+    src/pipeline/wowee_combat_formulas.cpp
+    src/pipeline/wowee_chat_links.cpp
+    src/pipeline/custom_zone_discovery.cpp
+    src/pipeline/terrain_mesh.cpp
+
+    # Rendering core
+    src/rendering/vk_context.cpp
+    src/rendering/vk_utils.cpp
+    src/rendering/vk_shader.cpp
+    src/rendering/vk_texture.cpp
+    src/rendering/vk_buffer.cpp
+    src/rendering/vk_pipeline.cpp
+    src/rendering/camera.cpp
+    src/rendering/terrain_renderer.cpp
+    src/rendering/shadow_params.cpp
+    src/rendering/m2_renderer.cpp
+    src/rendering/m2_renderer_instance.cpp
+    src/rendering/m2_renderer_particles.cpp
+    src/rendering/m2_renderer_render.cpp
+    src/rendering/m2_model_classifier.cpp
+    src/rendering/wmo_renderer.cpp
+    src/rendering/imgui_texture.cpp
+    src/rendering/bone_slots.cpp
+    src/rendering/normal_map.cpp
+    src/rendering/frustum.cpp
+
+    # Core
+    src/core/window.cpp
+    src/core/logger.cpp
+    src/core/memory_monitor.cpp
+
+    # stb_image (needed by AssetManager for PNG overrides)
+    tools/editor/stb_image_impl.cpp
+
+    ${WOWEE_MACOS_SOURCES}
+)
+target_include_directories(wowee_editor PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/tools/editor
+)
+target_include_directories(wowee_editor SYSTEM PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/extern
+    ${CMAKE_CURRENT_SOURCE_DIR}/extern/vk-bootstrap/src
+)
+target_link_libraries(wowee_editor PRIVATE
+    SDL2::SDL2
+    Vulkan::Vulkan
+    Threads::Threads
+    ZLIB::ZLIB
+    ${CMAKE_DL_LIBS}
+    imgui
+    vk-bootstrap
+)
+if(TARGET glm::glm-header-only)
+    target_link_libraries(wowee_editor PRIVATE glm::glm-header-only)
+elseif(TARGET glm::glm)
+    target_link_libraries(wowee_editor PRIVATE glm::glm)
+elseif(glm_FOUND)
+    target_include_directories(wowee_editor PRIVATE ${GLM_INCLUDE_DIRS})
+endif()
+if(UNIX AND NOT APPLE)
+    find_package(X11 QUIET)
+    if(X11_FOUND)
+        target_link_libraries(wowee_editor PRIVATE X11)
+    endif()
+endif()
+if(APPLE)
+    target_link_libraries(wowee_editor PRIVATE "-framework Foundation")
+endif()
+if(WIN32)
+    target_link_libraries(wowee_editor PRIVATE ws2_32)
+    if(TARGET SDL2::SDL2main)
+        target_link_libraries(wowee_editor PRIVATE SDL2::SDL2main)
+    endif()
+endif()
+if(NOT MSVC)
+    # The editor's CLI handlers share a `(int& i, int argc, char** argv)`
+    # signature so they can be plugged into a function-pointer dispatch
+    # table; many handlers don't reference argc directly. Suppress that
+    # warning here rather than littering 30+ handlers with [[maybe_unused]].
+    target_compile_options(wowee_editor PRIVATE
+        -Wall -Wextra -Wpedantic
+        -Wno-missing-field-initializers
+        -Wno-unused-parameter)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        target_compile_options(wowee_editor PRIVATE -Wunused-const-variable)
+    endif()
+    if(WOWEE_WARNINGS_AS_ERRORS)
+        target_compile_options(wowee_editor PRIVATE -Werror)
+    endif()
+endif()
+if(GLSLC)
+    add_dependencies(wowee_editor wowee_shaders)
+endif()
+set_target_properties(wowee_editor PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
+    EXCLUDE_FROM_ALL $<NOT:$<BOOL:${WOWEE_BUILD_EDITOR}>>
+)
+if(WOWEE_BUILD_EDITOR)
+    # Only installable when it is part of the default build - installing a
+    # target excluded from ALL fails at install time on a missing binary.
+    install(TARGETS wowee_editor RUNTIME DESTINATION bin)
+    message(STATUS "  wowee_editor tool: ENABLED (in default build)")
+else()
+    message(STATUS "  wowee_editor tool: on demand only (--target wowee_editor)")
+endif()
+
+# Print configuration summary
 message(STATUS "")
 message(STATUS "Wowee Configuration:")
 message(STATUS "  C++ Standard: ${CMAKE_CXX_STANDARD}")
@@ -1423,6 +2176,88 @@ message(STATUS "  SDL2: ${SDL2_VERSION}")
 message(STATUS "  OpenSSL: ${OPENSSL_VERSION}")
 message(STATUS "  ImGui: ${IMGUI_DIR}")
 message(STATUS "  ASAN: ${WOWEE_ENABLE_ASAN}")
+if(APPLE)
+    # Release CI pins this (13.0); a local build that leaves it unset is stamped
+    # with the build host's own OS version and will not launch on anything
+    # older. Worth seeing which one you got.
+    if(CMAKE_OSX_DEPLOYMENT_TARGET)
+        message(STATUS "  macOS target: ${CMAKE_OSX_DEPLOYMENT_TARGET}")
+    else()
+        message(STATUS "  macOS target: build host's version "
+                       "(pass -DCMAKE_OSX_DEPLOYMENT_TARGET=13.0 to match release CI)")
+    endif()
+endif()
 message(STATUS "")
 
-include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/Packaging.cmake)
+# ---- CPack packaging ----
+set(CPACK_PACKAGE_NAME "wowee")
+set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "World of Warcraft client emulator")
+set(CPACK_PACKAGE_VENDOR "Wowee")
+set(CPACK_PACKAGE_INSTALL_DIRECTORY "Wowee")
+set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
+
+if(WIN32)
+    set(CPACK_GENERATOR "NSIS")
+    set(CPACK_NSIS_DISPLAY_NAME "Wowee")
+    set(CPACK_NSIS_PACKAGE_NAME "Wowee")
+    set(CPACK_NSIS_INSTALL_ROOT "$PROGRAMFILES64")
+    set(CPACK_NSIS_ENABLE_UNINSTALL_BEFORE_INSTALL ON)
+    # Run wowee from bin/ so that ./assets/ resolves correctly.
+    # SetOutPath sets the shortcut's working directory in NSIS.
+    set(CPACK_NSIS_CREATE_ICONS_EXTRA
+        "SetOutPath '$INSTDIR\\\\bin'\nCreateShortCut '$SMPROGRAMS\\\\$STARTMENU_FOLDER\\\\Wowee.lnk' '$INSTDIR\\\\bin\\\\wowee.exe'")
+    set(CPACK_NSIS_DELETE_ICONS_EXTRA
+        "Delete '$SMPROGRAMS\\\\$STARTMENU_FOLDER\\\\Wowee.lnk'")
+elseif(APPLE)
+    set(CPACK_GENERATOR "DragNDrop")
+else()
+    # Linux - generate postinst/prerm wrapper scripts
+    file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/packaging)
+    # postinst: write a wrapper script at /usr/local/bin/wowee that cd's to
+    # the install dir so ./assets/ resolves correctly.
+    file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/packaging/postinst
+[[#!/bin/sh
+cat > /usr/local/bin/wowee << 'WOWEE_WRAPPER'
+#!/bin/sh
+cd /opt/wowee/bin
+exec ./wowee "$@"
+WOWEE_WRAPPER
+chmod +x /usr/local/bin/wowee
+]])
+    file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/packaging/prerm
+"#!/bin/sh\nrm -f /usr/local/bin/wowee\n")
+    file(CHMOD
+        ${CMAKE_CURRENT_BINARY_DIR}/packaging/postinst
+        ${CMAKE_CURRENT_BINARY_DIR}/packaging/prerm
+        PERMISSIONS
+            OWNER_EXECUTE OWNER_WRITE OWNER_READ
+            GROUP_EXECUTE GROUP_READ
+            WORLD_EXECUTE WORLD_READ)
+
+    set(CPACK_GENERATOR "DEB")
+    set(CPACK_PACKAGING_INSTALL_PREFIX "/opt/wowee")
+    set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Wowee")
+    set(CPACK_DEBIAN_PACKAGE_SECTION "games")
+    set(CPACK_DEBIAN_PACKAGE_DEPENDS
+        "libsdl2-2.0-0, libvulkan1, libssl3, zlib1g")
+    set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA
+        "${CMAKE_CURRENT_BINARY_DIR}/packaging/postinst;${CMAKE_CURRENT_BINARY_DIR}/packaging/prerm")
+    if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
+        set(CPACK_DEBIAN_PACKAGE_ARCHITECTURE "amd64")
+    elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|ARM64")
+        set(CPACK_DEBIAN_PACKAGE_ARCHITECTURE "arm64")
+    endif()
+endif()
+
+include(CPack)
+
+# Bundled addons ship next to the executable, so the client finds them without
+# anyone copying files into an extracted game install. AddonManager searches
+# here as well as the game data's own Interface/AddOns.
+add_custom_target(copy_bundled_addons ALL
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+            ${CMAKE_SOURCE_DIR}/addons $<TARGET_FILE_DIR:wowee>/addons
+    COMMENT "Copying bundled addons")
+add_dependencies(copy_bundled_addons wowee)
+

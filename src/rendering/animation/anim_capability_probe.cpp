@@ -46,7 +46,7 @@ AnimCapabilitySet AnimCapabilityProbe::probe(Renderer* renderer, uint32_t instan
 
     // ── Locomotion ──────────────────────────────────────────────────────
     // STAND is animation ID 0. Every M2 model has sequence 0 as its base idle.
-    // Cannot use ternary `has(0) ? 0 : 0` — both branches are 0.
+    // Cannot use ternary `has(0) ? 0 : 0` - both branches are 0.
     caps.resolvedStand = anim::STAND;
     caps.hasStand = has(anim::STAND);
 
@@ -228,7 +228,7 @@ AnimCapabilitySet AnimCapabilityProbe::probe(Renderer* renderer, uint32_t instan
     caps.resolvedShieldBash = has(anim::SHIELD_BASH) ? anim::SHIELD_BASH : 0;
 
     // ── Combat idle ─────────────────────────────────────────────────────
-    // Base combat idle — weapon-specific stances are resolved per-frame
+    // Base combat idle - weapon-specific stances are resolved per-frame
     // using ready stance fields above
     caps.resolvedCombatIdle = has(anim::READY_1H) ? anim::READY_1H
                             : (has(anim::READY_UNARMED) ? anim::READY_UNARMED : 0);
@@ -262,14 +262,5 @@ AnimCapabilitySet AnimCapabilityProbe::probe(Renderer* renderer, uint32_t instan
 
     return caps;
 }
-
-AnimCapabilitySet AnimCapabilityProbe::probeMountModel(Renderer* /*renderer*/, uint32_t /*mountInstanceId*/) {
-    // Mount models use M2Renderer, not CharacterRenderer
-    // For now, mount capabilities are handled separately via MountAnimSet discovery
-    // This stub returns an empty set — mount animations are discovered in setMounted()
-    AnimCapabilitySet caps;
-    return caps;
-}
-
 } // namespace rendering
 } // namespace wowee

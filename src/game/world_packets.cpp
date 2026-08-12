@@ -14,23 +14,83 @@
 #include <iomanip>
 #include <zlib.h>
 
-namespace {
-    const char* updateTypeName(wowee::game::UpdateType type) {
-        using wowee::game::UpdateType;
-        switch (type) {
-            case UpdateType::VALUES: return "VALUES";
-            case UpdateType::MOVEMENT: return "MOVEMENT";
-            case UpdateType::CREATE_OBJECT: return "CREATE_OBJECT";
-            case UpdateType::CREATE_OBJECT2: return "CREATE_OBJECT2";
-            case UpdateType::OUT_OF_RANGE_OBJECTS: return "OUT_OF_RANGE_OBJECTS";
-            case UpdateType::NEAR_OBJECTS: return "NEAR_OBJECTS";
-            default: return "UNKNOWN";
-        }
-    }
-}
-
 namespace wowee {
 namespace game {
+
+bool AttackerStateUpdateData::readCommonHead(network::Packet& packet, size_t startPos) {
+    auto rem = [&]() { return packet.getRemainingSize(); };
+
+    hitInfo = packet.readUInt32();
+    if (!packet.hasFullPackedGuid()) {
+        packet.setReadPos(startPos);
+        return false;
+    }
+    attackerGuid = packet.readPackedGuid();
+    if (!packet.hasFullPackedGuid()) {
+        packet.setReadPos(startPos);
+        return false;
+    }
+    targetGuid = packet.readPackedGuid();
+
+    // int32 totalDamage + uint8 subDamageCount
+    if (rem() < 5) {
+        packet.setReadPos(startPos);
+        return false;
+    }
+    totalDamage = static_cast<int32_t>(packet.readUInt32());
+    subDamageCount = packet.readUInt8();
+
+    // A count the packet cannot back up is a count from a misread, so it is
+    // capped by what is actually left rather than trusted.
+    const uint8_t maxSubDamageCount = static_cast<uint8_t>(std::min<size_t>(rem() / 20, 64));
+    if (subDamageCount > maxSubDamageCount) {
+        subDamageCount = maxSubDamageCount;
+    }
+
+    subDamages.reserve(subDamageCount);
+    for (uint8_t i = 0; i < subDamageCount; ++i) {
+        if (rem() < 20) {
+            packet.setReadPos(startPos);
+            return false;
+        }
+        SubDamage sub;
+        sub.schoolMask = packet.readUInt32();
+        sub.damage     = packet.readFloat();
+        sub.intDamage  = packet.readUInt32();
+        sub.absorbed   = packet.readUInt32();
+        sub.resisted   = packet.readUInt32();
+        subDamages.push_back(sub);
+    }
+    subDamageCount = static_cast<uint8_t>(subDamages.size());
+    return true;
+}
+
+bool ItemQueryResponseData::readCommonRequirements(network::Packet& packet) {
+    // Out of line rather than in the header beside the struct, and not for
+    // compile time: read_never_written_check takes its field names from
+    // world_packets.hpp and then skips that file when it looks for writers,
+    // so that a default initialiser is not mistaken for one. A parser method
+    // living there is invisible to it the same way - the moment these five
+    // fields moved into the header they were reported as read and never
+    // written, all five of them, and the ceiling is zero.
+    if (!packet.hasRemaining(14 * 4)) return false;
+    allowableClass = packet.readUInt32();
+    allowableRace = packet.readUInt32();
+    itemLevel = packet.readUInt32();
+    requiredLevel = packet.readUInt32();
+    requiredSkill = packet.readUInt32();
+    requiredSkillRank = packet.readUInt32();
+    packet.readUInt32();  // RequiredSpell
+    packet.readUInt32();  // RequiredHonorRank
+    packet.readUInt32();  // RequiredCityRank
+    requiredReputationFaction = packet.readUInt32();
+    requiredReputationRank = packet.readUInt32();
+    maxCount = static_cast<int32_t>(packet.readUInt32());  // 1 = Unique
+    maxStack = static_cast<int32_t>(packet.readUInt32());
+    containerSlots = packet.readUInt32();
+    return true;
+}
+
 
 std::string normalizeWowTextTokens(std::string text, const std::string& playerName) {
     if (text.empty()) return text;
@@ -253,7 +313,7 @@ bool AuthChallengeParser::parse(network::Packet& packet, AuthChallengeData& data
         LOG_INFO("SMSG_AUTH_CHALLENGE: TBC format (", packet.getSize(), " bytes)");
     } else if (packet.getSize() < 40) {
         // Vanilla with encryption seeds (36 bytes): serverSeed + 32 bytes seeds
-        // No "unknown1" prefix — first uint32 IS the server seed
+        // No "unknown1" prefix - first uint32 IS the server seed
         data.unknown1 = 0;
         data.serverSeed = packet.readUInt32();
         LOG_INFO("SMSG_AUTH_CHALLENGE: Classic+seeds format (", packet.getSize(), " bytes)");
@@ -401,6 +461,101 @@ network::Packet CharEnumPacket::build() {
     LOG_DEBUG("Built CMSG_CHAR_ENUM packet (no body)");
 
     return packet;
+}
+
+/// SMSG_CHAR_ENUM as Classic and TBC send it.
+///
+/// The two differ in exactly one thing: a TBC equipment entry carries a
+/// trailing uint32 enchantment and a Classic one does not, which also moves
+/// the minimum entry size from 20*5 to 20*9. Everything else, down to the
+/// count cap and the order of the fields, was written out twice.
+///
+/// WotLK is deliberately not folded in here. CharEnumParser::parse guards
+/// every field individually and substitutes a default when one is short,
+/// where these two check the whole entry once and then read straight through.
+/// That is a different answer to a malformed packet, not a different layout,
+/// and choosing one for all three is a decision rather than a tidy-up.
+bool parseCharEnumPreWotlk(network::Packet& packet, CharEnumResponse& response,
+                           bool hasEnchantment, const char* tag) {
+    if (packet.getSize() < 1) {
+        LOG_ERROR(tag, " SMSG_CHAR_ENUM packet too small: ", packet.getSize(), " bytes");
+        return false;
+    }
+
+    uint8_t count = packet.readUInt8();
+
+    // Cap count to prevent excessive memory allocation
+    constexpr uint8_t kMaxCharacters = 32;
+    if (count > kMaxCharacters) {
+        LOG_WARNING(tag, " Character count ", static_cast<int>(count), " exceeds max ",
+                    static_cast<int>(kMaxCharacters), ", capping");
+        count = kMaxCharacters;
+    }
+
+    LOG_INFO(tag, " Parsing SMSG_CHAR_ENUM: ", static_cast<int>(count), " characters");
+
+    response.characters.clear();
+    response.characters.reserve(count);
+
+    // guid(8) + name(1) + race(1) + class(1) + gender(1) + appearance(4)
+    // + facialFeatures(1) + level(1) + zone(4) + map(4) + pos(12) + guild(4)
+    // + flags(4) + firstLogin(1) + pet(12) + 20 equipment entries.
+    const size_t bytesPerItem = hasEnchantment ? 9 : 5;
+    const size_t minCharacterSize =
+        8 + 1 + 1 + 1 + 1 + 4 + 1 + 1 + 4 + 4 + 12 + 4 + 4 + 1 + 12 + (20 * bytesPerItem);
+
+    for (uint8_t i = 0; i < count; ++i) {
+        if (!packet.hasRemaining(minCharacterSize)) {
+            LOG_WARNING(tag, " Character enum packet truncated at character ",
+                        static_cast<int>(i + 1), ", pos=", packet.getReadPos(),
+                        " needed=", minCharacterSize, " size=", packet.getSize());
+            break;
+        }
+
+        Character character;
+        character.guid = packet.readUInt64();
+        character.name = packet.readString();
+        character.race = static_cast<Race>(packet.readUInt8());
+        character.characterClass = static_cast<Class>(packet.readUInt8());
+        character.gender = static_cast<Gender>(packet.readUInt8());
+        // Appearance (skin, face, hairStyle, hairColor packed) then facial hair.
+        character.appearanceBytes = packet.readUInt32();
+        character.facialFeatures = packet.readUInt8();
+        character.level = packet.readUInt8();
+        character.zoneId = packet.readUInt32();
+        character.mapId = packet.readUInt32();
+        character.x = packet.readFloat();
+        character.y = packet.readFloat();
+        character.z = packet.readFloat();
+        character.guildId = packet.readUInt32();
+        character.flags = packet.readUInt32();
+        // One byte here, where WotLK sends uint32 customization + uint8 unknown.
+        /*uint8_t firstLogin =*/ packet.readUInt8();
+
+        // Pet data, always present even with no pet.
+        character.pet.displayModel = packet.readUInt32();
+        character.pet.level = packet.readUInt32();
+        character.pet.family = packet.readUInt32();
+
+        // Twenty items, where WotLK has twenty-three.
+        character.equipment.reserve(20);
+        for (int j = 0; j < 20; ++j) {
+            EquipmentItem item;
+            item.displayModel = packet.readUInt32();
+            item.inventoryType = packet.readUInt8();
+            item.enchantment = hasEnchantment ? packet.readUInt32() : 0;
+            character.equipment.push_back(item);
+        }
+
+        LOG_DEBUG("  Character ", static_cast<int>(i + 1), ": ", character.name,
+                  " (", getRaceName(character.race), " ", getClassName(character.characterClass),
+                  " level ", static_cast<int>(character.level), " zone ", character.zoneId, ")");
+
+        response.characters.push_back(character);
+    }
+
+    LOG_INFO(tag, " Parsed ", response.characters.size(), " characters");
+    return true;
 }
 
 bool CharEnumParser::parse(network::Packet& packet, CharEnumResponse& response) {
@@ -903,15 +1058,15 @@ bool UpdateObjectParser::parseMovementBlock(network::Packet& packet, UpdateBlock
         // Swimming/flying pitch
         // WotLK 3.3.5a movement flags (wire format):
         //   SWIMMING          = 0x00200000
-        //   CAN_FLY           = 0x01000000  (ability to fly — no pitch field)
-        //   FLYING            = 0x02000000  (actively flying — has pitch field)
+        //   CAN_FLY           = 0x01000000  (ability to fly - no pitch field)
+        //   FLYING            = 0x02000000  (actively flying - has pitch field)
         //   SPLINE_ELEVATION  = 0x04000000  (smooth vertical spline offset)
         // MovementFlags2:
         //   MOVEMENTFLAG2_ALWAYS_ALLOW_PITCHING = 0x0020
         //
         // Pitch is present when SWIMMING or FLYING are set, or the always-allow flag is set.
         // Note: CAN_FLY (0x01000000) does NOT gate pitch; only FLYING (0x02000000) does.
-        // (TBC uses 0x01000000 for FLYING — see TbcMoveFlags in packet_parsers_tbc.cpp.)
+        // (TBC uses 0x01000000 for FLYING - see TbcMoveFlags in packet_parsers_tbc.cpp.)
         if ((moveFlags & 0x00200000) /* SWIMMING */ ||
             (moveFlags & 0x02000000) /* FLYING */ ||
             (moveFlags2 & 0x0020)    /* MOVEMENTFLAG2_ALWAYS_ALLOW_PITCHING */) {
@@ -1089,7 +1244,7 @@ bool UpdateObjectParser::parseUpdateFields(network::Packet& packet, UpdateBlock&
         // Validate 4 bytes available before each block read
         if (!packet.hasRemaining(4)) {
             LOG_WARNING("UpdateObjectParser: truncated update mask at block ", i,
-                        " type=", updateTypeName(block.updateType),
+                        " type=", wowee::game::updateTypeName(block.updateType),
                         " objectType=", static_cast<int>(block.objectType),
                         " guid=0x", std::hex, block.guid, std::dec,
                         " readPos=", packet.getReadPos(),
@@ -1137,7 +1292,7 @@ bool UpdateObjectParser::parseUpdateFields(network::Packet& packet, UpdateBlock&
             // Validate 4 bytes available before reading field value
             if (!packet.hasRemaining(4)) {
                 LOG_WARNING("UpdateObjectParser: truncated field value at field ", fieldIndex,
-                            " type=", updateTypeName(block.updateType),
+                            " type=", wowee::game::updateTypeName(block.updateType),
                             " objectType=", static_cast<int>(block.objectType),
                             " guid=0x", std::hex, block.guid, std::dec,
                             " readPos=", packet.getReadPos(),
@@ -1147,7 +1302,7 @@ bool UpdateObjectParser::parseUpdateFields(network::Packet& packet, UpdateBlock&
                 return false;
             }
             uint32_t value = packet.readUInt32();
-            // fieldIndex is monotonically increasing here — append directly to the
+            // fieldIndex is monotonically increasing here - append directly to the
             // sorted flat vector (no tree-node allocation per field anymore).
             block.fields.append_sorted(fieldIndex, value);
             valuesReadCount++;
@@ -1190,7 +1345,7 @@ bool UpdateObjectParser::parseUpdateBlock(network::Packet& packet, UpdateBlock& 
         }
 
         case UpdateType::MOVEMENT: {
-            // Movement update — WotLK 3.3.5a uses PackedGuid (NOT full uint64)
+            // Movement update - WotLK 3.3.5a uses PackedGuid (NOT full uint64)
             if (!packet.hasData()) return false;
             block.guid = packet.readPackedGuid();
             LOG_DEBUG("  MOVEMENT update for GUID: 0x", std::hex, block.guid, std::dec);
@@ -1320,7 +1475,7 @@ bool UpdateObjectParser::parse(network::Packet& packet, UpdateObjectData& data) 
                 // The failing block is partially parsed: parseMovementBlock stores its
                 // updateFlags/moveFlags into `block` before it can fail, and the object
                 // type is read first. Log them here so the FIRST block failing (i==0, no
-                // prevBlock context) still reveals which movement layout desynced — the
+                // prevBlock context) still reveals which movement layout desynced - the
                 // moveFlags identify which optional field (transport/spline/falling/pitch)
                 // consumed the wrong byte count and misaligned the update-field mask.
                 LOG_ERROR("  failedBlock: updateType=", static_cast<int>(block.updateType),
@@ -1377,7 +1532,7 @@ bool UpdateObjectParser::parse(network::Packet& packet, UpdateObjectData& data) 
 bool DestroyObjectParser::parse(network::Packet& packet, DestroyObjectData& data) {
     // SMSG_DESTROY_OBJECT format:
     // uint64 guid
-    // uint8 isDeath (0 = despawn, 1 = death) — WotLK only; vanilla/TBC omit this
+    // uint8 isDeath (0 = despawn, 1 = death) - WotLK only; vanilla/TBC omit this
 
     if (packet.getSize() < 8) {
         LOG_ERROR("SMSG_DESTROY_OBJECT packet too small: ", packet.getSize(), " bytes");

@@ -1,6 +1,6 @@
-// map_resolver.cpp — Centralized map navigation resolution for the world map.
+// map_resolver.cpp - Centralized map navigation resolution for the world map.
 // Map folder names resolved from a built-in table matching
-// Data/interface/worldmap/ — no dependency on WorldLoader.
+// Data/interface/worldmap/ - no dependency on WorldLoader.
 #include "rendering/world_map/map_resolver.hpp"
 #include "rendering/world_map/coordinate_projection.hpp"
 #include "core/logger.hpp"
@@ -23,7 +23,7 @@ struct MapFolderEntry {
 };
 
 static constexpr MapFolderEntry kMapFolders[] = {
-    // Special UI-only views (no DBC MapID — sentinel values)
+    // Special UI-only views (no DBC MapID - sentinel values)
     { UINT32_MAX,     "World",        "World"            },
     { UINT32_MAX - 1, "Cosmic",       "Cosmic"           },
     // Continents
@@ -128,14 +128,14 @@ MapResolveResult resolveWorldRegionClick(uint32_t regionMapId,
     MapResolveResult result;
 
     if (static_cast<int>(regionMapId) == currentMapId) {
-        // Target map is already loaded — navigate to the matching continent
+        // Target map is already loaded - navigate to the matching continent
         // within the current zone data (no reload needed).
         int contIdx = findContinentForMapId(zones, regionMapId, cosmicIdx);
         if (contIdx >= 0) {
             result.action = MapResolveAction::NAVIGATE_CONTINENT;
             result.targetZoneIdx = contIdx;
             LOG_INFO("resolveWorldRegionClick: mapId=", regionMapId,
-                     " matches current map — NAVIGATE_CONTINENT idx=", contIdx);
+                     " matches current map - NAVIGATE_CONTINENT idx=", contIdx);
         } else {
             LOG_WARNING("resolveWorldRegionClick: mapId=", regionMapId,
                         " matches current but no continent found");
@@ -143,7 +143,7 @@ MapResolveResult resolveWorldRegionClick(uint32_t regionMapId,
         return result;
     }
 
-    // Different map — need to load it
+    // Different map - need to load it
     const char* folder = mapIdToFolder(regionMapId);
     if (folder[0]) {
         result.action = MapResolveAction::LOAD_MAP;

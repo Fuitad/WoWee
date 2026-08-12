@@ -1,4 +1,5 @@
 #include "pipeline/wowee_companions.hpp"
+#include "pipeline/wowee_binary_io.hpp"
 
 #include <cstdio>
 #include <cstring>
@@ -11,45 +12,7 @@ namespace {
 
 constexpr char kMagic[4] = {'W', 'C', 'M', 'P'};
 constexpr uint32_t kVersion = 1;
-
-template <typename T>
-void writePOD(std::ofstream& os, const T& v) {
-    os.write(reinterpret_cast<const char*>(&v), sizeof(T));
-}
-
-template <typename T>
-bool readPOD(std::ifstream& is, T& v) {
-    is.read(reinterpret_cast<char*>(&v), sizeof(T));
-    return is.gcount() == static_cast<std::streamsize>(sizeof(T));
-}
-
-void writeStr(std::ofstream& os, const std::string& s) {
-    uint32_t n = static_cast<uint32_t>(s.size());
-    writePOD(os, n);
-    if (n > 0) os.write(s.data(), n);
-}
-
-bool readStr(std::ifstream& is, std::string& s) {
-    uint32_t n = 0;
-    if (!readPOD(is, n)) return false;
-    if (n > (1u << 20)) return false;
-    s.resize(n);
-    if (n > 0) {
-        is.read(s.data(), n);
-        if (is.gcount() != static_cast<std::streamsize>(n)) {
-            s.clear();
-            return false;
-        }
-    }
-    return true;
-}
-
-std::string normalizePath(std::string base) {
-    if (base.size() < 5 || base.substr(base.size() - 5) != ".wcmp") {
-        base += ".wcmp";
-    }
-    return base;
-}
+constexpr char kExtension[] = ".wcmp";
 
 } // namespace
 
@@ -94,15 +57,9 @@ const char* WoweeCompanion::factionRestrictionName(uint8_t f) {
 }
 
 bool WoweeCompanionLoader::save(const WoweeCompanion& cat,
-                                 const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath), std::ios::binary);
-    if (!os) return false;
-    os.write(kMagic, 4);
-    writePOD(os, kVersion);
-    writeStr(os, cat.name);
-    uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writePOD(os, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeCompanion::Entry& e) {
         writePOD(os, e.companionId);
         writePOD(os, e.creatureId);
         writeStr(os, e.name);
@@ -111,57 +68,34 @@ bool WoweeCompanionLoader::save(const WoweeCompanion& cat,
         writePOD(os, e.companionKind);
         writePOD(os, e.rarity);
         writePOD(os, e.factionRestriction);
-        uint8_t pad = 0;
-        writePOD(os, pad);
+        writePadding(os, 1);
         writePOD(os, e.learnSpellId);
         writePOD(os, e.itemId);
         writePOD(os, e.idleSoundId);
-    }
-    return os.good();
+                       });
 }
 
-WoweeCompanion WoweeCompanionLoader::load(const std::string& basePath) {
-    WoweeCompanion out;
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    if (!is) return out;
-    char magic[4];
-    is.read(magic, 4);
-    if (std::memcmp(magic, kMagic, 4) != 0) return out;
-    uint32_t version = 0;
-    if (!readPOD(is, version) || version != kVersion) return out;
-    if (!readStr(is, out.name)) return out;
-    uint32_t entryCount = 0;
-    if (!readPOD(is, entryCount)) return out;
-    if (entryCount > (1u << 20)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
+WoweeCompanion WoweeCompanionLoader::load(
+    const std::string& basePath) {
+    return loadCatalog<WoweeCompanion>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeCompanion::Entry& e) {
         if (!readPOD(is, e.companionId) ||
-            !readPOD(is, e.creatureId)) {
-            out.entries.clear(); return out;
-        }
+            !readPOD(is, e.creatureId)) { return false; }
         if (!readStr(is, e.name) || !readStr(is, e.description) ||
-            !readStr(is, e.iconPath)) {
-            out.entries.clear(); return out;
-        }
+            !readStr(is, e.iconPath)) { return false; }
         if (!readPOD(is, e.companionKind) ||
             !readPOD(is, e.rarity) ||
-            !readPOD(is, e.factionRestriction)) {
-            out.entries.clear(); return out;
-        }
-        uint8_t pad = 0;
-        if (!readPOD(is, pad)) { out.entries.clear(); return out; }
+            !readPOD(is, e.factionRestriction)) { return false; }
+        if (!skipPadding(is, 1)) { return false; }
         if (!readPOD(is, e.learnSpellId) ||
             !readPOD(is, e.itemId) ||
-            !readPOD(is, e.idleSoundId)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.idleSoundId)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeCompanionLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeCompanion WoweeCompanionLoader::makeStarter(
@@ -184,14 +118,14 @@ WoweeCompanion WoweeCompanionLoader::makeStarter(
     };
     add(1, 7560, "MechanicalSquirrel", 4055, 4401,
         WoweeCompanion::Mechanical,
-        "Engineering-built mechanical squirrel — clicks "
+        "Engineering-built mechanical squirrel - clicks "
         "and chitters as it follows.");
     add(2, 7349, "Cat",                10684, 8491,
         WoweeCompanion::Critter,
-        "Generic alley cat — purrs when stationary.");
+        "Generic alley cat - purrs when stationary.");
     add(3, 7547, "PrairieDog",         9484, 7560,
         WoweeCompanion::Critter,
-        "Tan prairie dog — pops up to look around "
+        "Tan prairie dog - pops up to look around "
         "every few seconds.");
     return c;
 }
@@ -250,13 +184,13 @@ WoweeCompanion WoweeCompanionLoader::makeFaction(
     };
     add(200, 17254, "AllianceLionCub",   29726, 23713,
         WoweeCompanion::Critter, WoweeCompanion::AllianceOnly,
-        "Stormwind orphan-week reward — Alliance only.");
+        "Stormwind orphan-week reward - Alliance only.");
     add(201, 17255, "HordeMottledBoar",  29727, 23714,
         WoweeCompanion::Critter, WoweeCompanion::HordeOnly,
-        "Orgrimmar orphan-week reward — Horde only.");
+        "Orgrimmar orphan-week reward - Horde only.");
     add(202, 33272, "ArgentSquire",      54187, 39286,
         WoweeCompanion::Critter, WoweeCompanion::AnyFaction,
-        "Argent Tournament squire — any faction may purchase.");
+        "Argent Tournament squire - any faction may purchase.");
     return c;
 }
 

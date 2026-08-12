@@ -1,4 +1,6 @@
 #include "cli_hearth_binds_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -17,11 +19,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWhrtExt(std::string base) {
-    stripExt(base, ".whrt");
-    return base;
-}
 
 const char* bindKindName(uint8_t k) {
     using H = wowee::pipeline::WoweeHearthBinds;
@@ -46,15 +43,6 @@ const char* factionMaskName(uint8_t f) {
     }
 }
 
-bool saveOrError(const wowee::pipeline::WoweeHearthBinds& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeHearthBindsLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.whrt\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeHearthBinds& c,
                      const std::string& base) {
@@ -67,9 +55,9 @@ int handleGenStarterCities(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterCityBinds";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWhrtExt(base);
+    base = cli::withoutExt(base, ".whrt");
     auto c = wowee::pipeline::WoweeHearthBindsLoader::makeStarterCities(name);
-    if (!saveOrError(c, base, "gen-hrt")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeHearthBindsLoader>(c, base, "gen-hrt", ".whrt")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -78,9 +66,9 @@ int handleGenCapitals(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "CapitalBinds";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWhrtExt(base);
+    base = cli::withoutExt(base, ".whrt");
     auto c = wowee::pipeline::WoweeHearthBindsLoader::makeCapitals(name);
-    if (!saveOrError(c, base, "gen-hrt-capitals")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeHearthBindsLoader>(c, base, "gen-hrt-capitals", ".whrt")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -89,9 +77,9 @@ int handleGenStarterInns(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterInns";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWhrtExt(base);
+    base = cli::withoutExt(base, ".whrt");
     auto c = wowee::pipeline::WoweeHearthBindsLoader::makeStarterInns(name);
-    if (!saveOrError(c, base, "gen-hrt-inns")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeHearthBindsLoader>(c, base, "gen-hrt-inns", ".whrt")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -99,10 +87,9 @@ int handleGenStarterInns(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWhrtExt(base);
+    base = cli::withoutExt(base, ".whrt");
     if (!wowee::pipeline::WoweeHearthBindsLoader::exists(base)) {
-        std::fprintf(stderr, "WHRT not found: %s.whrt\n", base.c_str());
-        return 1;
+        return reportMissing("WHRT", base, ".whrt");
     }
     auto c = wowee::pipeline::WoweeHearthBindsLoader::load(base);
     if (jsonOut) {
@@ -174,13 +161,10 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWhrtExt(base);
+    base = cli::withoutExt(base, ".whrt");
     if (out.empty()) out = base + ".whrt.json";
     if (!wowee::pipeline::WoweeHearthBindsLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-whrt-json: WHRT not found: %s.whrt\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-whrt-json", "WHRT", base, ".whrt");
     }
     auto c = wowee::pipeline::WoweeHearthBindsLoader::load(base);
     nlohmann::json j;
@@ -224,16 +208,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".whrt.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".whrt");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".whrt");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,
@@ -330,104 +305,63 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWhrtExt(base);
-    if (!wowee::pipeline::WoweeHearthBindsLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-whrt: WHRT not found: %s.whrt\n", base.c_str());
-        return 1;
-    }
-    auto c = wowee::pipeline::WoweeHearthBindsLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    std::vector<uint32_t> idsSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.bindId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.bindId == 0)
-            errors.push_back(ctx + ": bindId is 0");
-        if (e.name.empty())
-            errors.push_back(ctx + ": name is empty");
-        if (e.factionMask == 0 || e.factionMask > 3) {
-            errors.push_back(ctx + ": factionMask " +
-                std::to_string(e.factionMask) +
-                " out of range (must be 1=A / 2=H / 3=Both)");
-        }
-        if (e.bindKind > 5) {
-            errors.push_back(ctx + ": bindKind " +
-                std::to_string(e.bindKind) +
-                " out of range (must be 0..5)");
-        }
-        // Bind position must not be at origin (probably
-        // unset). Origin coords often indicate a forgotten
-        // SetPosition call in a content authoring tool.
-        if (e.x == 0.0f && e.y == 0.0f && e.z == 0.0f) {
-            warnings.push_back(ctx +
-                ": position is (0,0,0) — likely forgotten "
-                "SetPosition; bind would teleport player to "
-                "world origin");
-        }
-        // Inn-kind bindings should have an NPC bind clerk
-        // (the innkeeper). SpecialPort bindings often
-        // don't. Warn if Inn and npcId=0.
-        using H = wowee::pipeline::WoweeHearthBinds;
-        if (e.bindKind == H::Inn && e.npcId == 0) {
-            warnings.push_back(ctx +
-                ": Inn bind has no NPC innkeeper (npcId=0). "
-                "Inn bindings should reference the WCRT "
-                "innkeeper entry.");
-        }
-        // Quest-given bindings without level gate are
-        // suspicious — quest binds usually require level
-        // (Theramore at 30+, Wyrmrest at 70+).
-        if (e.bindKind == H::Quest && e.levelMin == 0) {
-            warnings.push_back(ctx +
-                ": Quest bind has levelMin=0 — quest "
-                "bindings usually have a minimum level "
-                "gate; verify if intentional");
-        }
-        for (uint32_t prev : idsSeen) {
-            if (prev == e.bindId) {
-                errors.push_back(ctx + ": duplicate bindId");
-                break;
+    return cli::validateCatalog<wowee::pipeline::WoweeHearthBindsLoader>(
+        i, argc, argv, "whrt", "WHRT",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.bindId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.bindId == 0)
+                errors.push_back(ctx + ": bindId is 0");
+            if (e.name.empty())
+                errors.push_back(ctx + ": name is empty");
+            if (e.factionMask == 0 || e.factionMask > 3) {
+                errors.push_back(ctx + ": factionMask " +
+                    std::to_string(e.factionMask) +
+                    " out of range (must be 1=A / 2=H / 3=Both)");
             }
+            if (e.bindKind > 5) {
+                errors.push_back(ctx + ": bindKind " +
+                    std::to_string(e.bindKind) +
+                    " out of range (must be 0..5)");
+            }
+            // Bind position must not be at origin (probably
+            // unset). Origin coords often indicate a forgotten
+            // SetPosition call in a content authoring tool.
+            if (e.x == 0.0f && e.y == 0.0f && e.z == 0.0f) {
+                warnings.push_back(ctx +
+                    ": position is (0,0,0) - likely forgotten "
+                    "SetPosition; bind would teleport player to "
+                    "world origin");
+            }
+            // Inn-kind bindings should have an NPC bind clerk
+            // (the innkeeper). SpecialPort bindings often
+            // don't. Warn if Inn and npcId=0.
+            using H = wowee::pipeline::WoweeHearthBinds;
+            if (e.bindKind == H::Inn && e.npcId == 0) {
+                warnings.push_back(ctx +
+                    ": Inn bind has no NPC innkeeper (npcId=0). "
+                    "Inn bindings should reference the WCRT "
+                    "innkeeper entry.");
+            }
+            // Quest-given bindings without level gate are
+            // suspicious - quest binds usually require level
+            // (Theramore at 30+, Wyrmrest at 70+).
+            if (e.bindKind == H::Quest && e.levelMin == 0) {
+                warnings.push_back(ctx +
+                    ": Quest bind has levelMin=0 - quest "
+                    "bindings usually have a minimum level "
+                    "gate; verify if intentional");
+            }
+            if (!idsSeen.add(e.bindId)) errors.push_back(ctx + ": duplicate bindId");
         }
-        idsSeen.push_back(e.bindId);
-    }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["whrt"] = base + ".whrt";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-whrt: %s.whrt\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu binds, all bindIds unique\n",
-                    c.entries.size());
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+            return formatted("%zu binds, all bindIds unique", c.entries.size());
+        });
 }
 
 } // namespace

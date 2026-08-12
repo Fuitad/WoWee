@@ -1,4 +1,6 @@
 #include "cli_instance_lockouts_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -19,20 +21,6 @@ namespace cli {
 
 namespace {
 
-std::string stripWhldExt(std::string base) {
-    stripExt(base, ".whld");
-    return base;
-}
-
-bool saveOrError(const wowee::pipeline::WoweeInstanceLockout& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeInstanceLockoutLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.whld\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeInstanceLockout& c,
                      const std::string& base) {
@@ -45,9 +33,9 @@ int handleGenRaidWeekly(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "RaidWeeklyLockouts";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWhldExt(base);
+    base = cli::withoutExt(base, ".whld");
     auto c = wowee::pipeline::WoweeInstanceLockoutLoader::makeRaidWeekly(name);
-    if (!saveOrError(c, base, "gen-hld")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeInstanceLockoutLoader>(c, base, "gen-hld", ".whld")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -56,9 +44,9 @@ int handleGenDungeonDaily(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "DungeonDailyLockouts";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWhldExt(base);
+    base = cli::withoutExt(base, ".whld");
     auto c = wowee::pipeline::WoweeInstanceLockoutLoader::makeDungeonDaily(name);
-    if (!saveOrError(c, base, "gen-hld-dungeon")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeInstanceLockoutLoader>(c, base, "gen-hld-dungeon", ".whld")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -67,9 +55,9 @@ int handleGenWorldEvent(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "WorldEventLockouts";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWhldExt(base);
+    base = cli::withoutExt(base, ".whld");
     auto c = wowee::pipeline::WoweeInstanceLockoutLoader::makeWorldEvent(name);
-    if (!saveOrError(c, base, "gen-hld-event")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeInstanceLockoutLoader>(c, base, "gen-hld-event", ".whld")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -91,10 +79,9 @@ void formatInterval(uint32_t ms, char* buf, size_t bufSize) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWhldExt(base);
+    base = cli::withoutExt(base, ".whld");
     if (!wowee::pipeline::WoweeInstanceLockoutLoader::exists(base)) {
-        std::fprintf(stderr, "WHLD not found: %s.whld\n", base.c_str());
-        return 1;
+        return reportMissing("WHLD", base, ".whld");
     }
     auto c = wowee::pipeline::WoweeInstanceLockoutLoader::load(base);
     if (jsonOut) {
@@ -145,12 +132,9 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWhldExt(base);
+    base = cli::withoutExt(base, ".whld");
     if (!wowee::pipeline::WoweeInstanceLockoutLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-whld-json: WHLD not found: %s.whld\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-whld-json", "WHLD", base, ".whld");
     }
     auto c = wowee::pipeline::WoweeInstanceLockoutLoader::load(base);
     if (outPath.empty()) outPath = base + ".whld.json";
@@ -253,21 +237,8 @@ int handleImportJson(int& i, int argc, char** argv) {
             c.entries.push_back(e);
         }
     }
-    if (outBase.empty()) {
-        outBase = jsonPath;
-        const std::string suffix1 = ".whld.json";
-        const std::string suffix2 = ".json";
-        if (outBase.size() >= suffix1.size() &&
-            outBase.compare(outBase.size() - suffix1.size(),
-                            suffix1.size(), suffix1) == 0) {
-            outBase.resize(outBase.size() - suffix1.size());
-        } else if (outBase.size() >= suffix2.size() &&
-                   outBase.compare(outBase.size() - suffix2.size(),
-                                   suffix2.size(), suffix2) == 0) {
-            outBase.resize(outBase.size() - suffix2.size());
-        }
-    }
-    outBase = stripWhldExt(outBase);
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(jsonPath, ".whld");
+    outBase = cli::withoutExt(outBase, ".whld");
     if (!wowee::pipeline::WoweeInstanceLockoutLoader::save(c, outBase)) {
         std::fprintf(stderr,
             "import-whld-json: failed to save %s.whld\n",
@@ -281,102 +252,61 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWhldExt(base);
-    if (!wowee::pipeline::WoweeInstanceLockoutLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-whld: WHLD not found: %s.whld\n", base.c_str());
-        return 1;
-    }
-    auto c = wowee::pipeline::WoweeInstanceLockoutLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    std::vector<uint32_t> idsSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.lockoutId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.lockoutId == 0)
-            errors.push_back(ctx + ": lockoutId is 0");
-        if (e.name.empty())
-            errors.push_back(ctx + ": name is empty");
-        if (e.raidLockoutKind > wowee::pipeline::WoweeInstanceLockout::Custom) {
-            errors.push_back(ctx + ": raidLockoutKind " +
-                std::to_string(e.raidLockoutKind) + " not in 0..3");
-        }
-        if (e.resetIntervalMs == 0)
-            errors.push_back(ctx +
-                ": resetIntervalMs is 0 — lockout would never reset");
-        // Standard sizes are 5/10/25/40 — anything else is a
-        // server-custom raid size.
-        if (e.raidGroupSize != 5 && e.raidGroupSize != 10 &&
-            e.raidGroupSize != 25 && e.raidGroupSize != 40) {
-            warnings.push_back(ctx +
-                ": non-standard raidGroupSize " +
-                std::to_string(e.raidGroupSize) +
-                " (canonical sizes are 5/10/25/40)");
-        }
-        // Daily kind with non-daily interval is suspicious.
-        if (e.raidLockoutKind == wowee::pipeline::WoweeInstanceLockout::Daily &&
-            e.resetIntervalMs != wowee::pipeline::WoweeInstanceLockout::kDailyMs) {
-            warnings.push_back(ctx +
-                ": Daily kind with resetIntervalMs " +
-                std::to_string(e.resetIntervalMs) +
-                " — canonical Daily is 86400000ms (24h)");
-        }
-        // Weekly kind with non-weekly interval is suspicious.
-        if (e.raidLockoutKind == wowee::pipeline::WoweeInstanceLockout::Weekly &&
-            e.resetIntervalMs != wowee::pipeline::WoweeInstanceLockout::kWeeklyMs) {
-            warnings.push_back(ctx +
-                ": Weekly kind with resetIntervalMs " +
-                std::to_string(e.resetIntervalMs) +
-                " — canonical Weekly is 604800000ms (7d)");
-        }
-        if (e.maxBossKillsPerLockout == 0)
-            warnings.push_back(ctx +
-                ": maxBossKillsPerLockout=0 — instance grants no "
-                "lockout-bound kills, every visit is fresh");
-        for (uint32_t prev : idsSeen) {
-            if (prev == e.lockoutId) {
-                errors.push_back(ctx + ": duplicate lockoutId");
-                break;
+    return cli::validateCatalog<wowee::pipeline::WoweeInstanceLockoutLoader>(
+        i, argc, argv, "whld", "WHLD",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.lockoutId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.lockoutId == 0)
+                errors.push_back(ctx + ": lockoutId is 0");
+            if (e.name.empty())
+                errors.push_back(ctx + ": name is empty");
+            if (e.raidLockoutKind > wowee::pipeline::WoweeInstanceLockout::Custom) {
+                errors.push_back(ctx + ": raidLockoutKind " +
+                    std::to_string(e.raidLockoutKind) + " not in 0..3");
             }
+            if (e.resetIntervalMs == 0)
+                errors.push_back(ctx +
+                    ": resetIntervalMs is 0 - lockout would never reset");
+            // Standard sizes are 5/10/25/40 - anything else is a
+            // server-custom raid size.
+            if (e.raidGroupSize != 5 && e.raidGroupSize != 10 &&
+                e.raidGroupSize != 25 && e.raidGroupSize != 40) {
+                warnings.push_back(ctx +
+                    ": non-standard raidGroupSize " +
+                    std::to_string(e.raidGroupSize) +
+                    " (canonical sizes are 5/10/25/40)");
+            }
+            // Daily kind with non-daily interval is suspicious.
+            if (e.raidLockoutKind == wowee::pipeline::WoweeInstanceLockout::Daily &&
+                e.resetIntervalMs != wowee::pipeline::WoweeInstanceLockout::kDailyMs) {
+                warnings.push_back(ctx +
+                    ": Daily kind with resetIntervalMs " +
+                    std::to_string(e.resetIntervalMs) +
+                    " - canonical Daily is 86400000ms (24h)");
+            }
+            // Weekly kind with non-weekly interval is suspicious.
+            if (e.raidLockoutKind == wowee::pipeline::WoweeInstanceLockout::Weekly &&
+                e.resetIntervalMs != wowee::pipeline::WoweeInstanceLockout::kWeeklyMs) {
+                warnings.push_back(ctx +
+                    ": Weekly kind with resetIntervalMs " +
+                    std::to_string(e.resetIntervalMs) +
+                    " - canonical Weekly is 604800000ms (7d)");
+            }
+            if (e.maxBossKillsPerLockout == 0)
+                warnings.push_back(ctx +
+                    ": maxBossKillsPerLockout=0 - instance grants no "
+                    "lockout-bound kills, every visit is fresh");
+            if (!idsSeen.add(e.lockoutId)) errors.push_back(ctx + ": duplicate lockoutId");
         }
-        idsSeen.push_back(e.lockoutId);
-    }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["whld"] = base + ".whld";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-whld: %s.whld\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu lockouts, all lockoutIds unique\n",
-                    c.entries.size());
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+            return formatted("%zu lockouts, all lockoutIds unique", c.entries.size());
+        });
 }
 
 } // namespace

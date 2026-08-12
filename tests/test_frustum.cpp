@@ -76,7 +76,7 @@ TEST_CASE("Frustum intersectsSphere", "[frustum]") {
     // Large sphere that straddles the near plane
     REQUIRE(f.intersectsSphere(glm::vec3(0, 0, 0), 5.0f));
 
-    // Sphere at edge of frustum — large radius should still intersect
+    // Sphere at edge of frustum - large radius should still intersect
     REQUIRE(f.intersectsSphere(glm::vec3(0, 0, -105), 10.0f));
 }
 
@@ -108,7 +108,7 @@ TEST_CASE("Frustum getPlane returns 6 planes", "[frustum]") {
     Frustum f;
     f.extractFromMatrix(proj);
 
-    // Access all 6 planes — should not crash
+    // Access all 6 planes - should not crash
     for (int i = 0; i < 6; ++i) {
         const auto& p = f.getPlane(static_cast<Frustum::Side>(i));
         // Normal should be a unit vector (after normalization)
@@ -127,6 +127,6 @@ TEST_CASE("Frustum box far right is outside", "[frustum]") {
     Frustum f;
     f.extractFromMatrix(proj * view);
 
-    // Box far off to the right — outside the frustum
+    // Box far off to the right - outside the frustum
     REQUIRE_FALSE(f.intersectsAABB(glm::vec3(200, 0, -10), glm::vec3(201, 1, -9)));
 }

@@ -8,7 +8,7 @@ namespace pipeline { class AssetManager; }
 namespace ui {
 
 /// Number of raid target markers: Star, Circle, Diamond, Triangle, Moon,
-/// Square, Cross, Skull — in that order, matching the server's icon indices.
+/// Square, Cross, Skull - in that order, matching the server's icon indices.
 inline constexpr uint8_t kRaidTargetIconCount = 8;
 
 /**
@@ -21,7 +21,7 @@ inline constexpr uint8_t kRaidTargetIconCount = 8;
  *
  * Textures are uploaded once and cached for the process. Returns
  * VK_NULL_HANDLE if the icon index is out of range, the BLP is missing, or the
- * upload fails — a failed upload is not cached, so it is retried next frame.
+ * upload fails - a failed upload is not cached, so it is retried next frame.
  */
 VkDescriptorSet getRaidTargetIcon(uint8_t icon, pipeline::AssetManager* assetManager);
 

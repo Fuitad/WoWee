@@ -54,9 +54,9 @@ int handleCloneQuest(int& i, int argc, char** argv) {
     // .reward are STL containers so the copy is automatic.
     wowee::editor::Quest clone = qe.getQuests()[qIdx];
     // Reset id so the editor's auto-id sequence assigns a fresh
-    // one — addQuest does this internally if id==0.
+    // one - addQuest does this internally if id==0.
     clone.id = 0;
-    // Reset chain link too — copying a chained quest with the
+    // Reset chain link too - copying a chained quest with the
     // same nextQuestId would corrupt the chain semantics.
     clone.nextQuestId = 0;
     clone.title = newTitle.empty()
@@ -132,7 +132,7 @@ int handleCloneCreature(int& i, int argc, char** argv) {
     clone.position.x += dx;
     clone.position.y += dy;
     clone.position.z += dz;
-    // Patrol path is intentionally NOT offset — patrol points are
+    // Patrol path is intentionally NOT offset - patrol points are
     // typically authored as world-space waypoints, not relative to
     // the spawn. Designers re-author the path if needed.
     sp.getSpawns().push_back(clone);

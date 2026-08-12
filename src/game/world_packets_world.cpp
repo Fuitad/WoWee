@@ -14,18 +14,6 @@
 #include <iomanip>
 #include <zlib.h>
 
-namespace {
-
-inline uint32_t bswap32(uint32_t v) {
-    return ((v & 0xFF000000u) >> 24) | ((v & 0x00FF0000u) >> 8)
-         | ((v & 0x0000FF00u) << 8)  | ((v & 0x000000FFu) << 24);
-}
-
-inline uint16_t bswap16(uint16_t v) {
-    return static_cast<uint16_t>(((v & 0xFF00u) >> 8) | ((v & 0x00FFu) << 8));
-}
-
-} // anonymous namespace
 
 namespace wowee {
 namespace game {
@@ -98,7 +86,7 @@ bool SpellGoParser::parse(network::Packet& packet, SpellGoData& data) {
     const size_t missCountPos = packet.getReadPos();
     const uint8_t rawMissCount = packet.readUInt8();
     if (rawMissCount > 20) {
-        // Likely offset error — dump context bytes for diagnostics.
+        // Likely offset error - dump context bytes for diagnostics.
         const auto& raw = packet.getData();
         std::string hexCtx;
         size_t dumpStart = (missCountPos >= 8) ? missCountPos - 8 : startPos;
@@ -159,7 +147,7 @@ bool SpellGoParser::parse(network::Packet& packet, SpellGoData& data) {
         return true;
     }
 
-    // WotLK 3.3.5a SpellCastTargets — consume ALL target payload bytes so that
+    // WotLK 3.3.5a SpellCastTargets - consume ALL target payload bytes so that
     // any trailing fields after the target section are not misaligned for
     // ground-targeted or AoE spells.  Same layout as SpellStartParser.
     if (packet.hasData()) {
@@ -387,7 +375,7 @@ bool GroupListParser::parse(network::Packet& packet, GroupListData& data,
         if (rem() < 5) return false;
         packet.readUInt8();  // lfg state
         packet.readUInt32(); // lfg entry
-        // WotLK 3.3.5a may or may not send the lfg flags byte — read it only if present
+        // WotLK 3.3.5a may or may not send the lfg flags byte - read it only if present
         if (rem() >= 13) { // enough for lfgFlags(1)+groupGuid(8)+counter(4)
             packet.readUInt8(); // lfg flags
         }
@@ -438,9 +426,9 @@ bool GroupListParser::parse(network::Packet& packet, GroupListData& data,
         data.lootMethod   = packet.readUInt8();
         data.looterGuid   = packet.readUInt64();
         data.lootThreshold = packet.readUInt8();
-        // Dungeon difficulty (heroic/normal) — Classic doesn't send this; TBC/WotLK do
+        // Dungeon difficulty (heroic/normal) - Classic doesn't send this; TBC/WotLK do
         if (rem() >= 1) data.difficultyId     = packet.readUInt8();
-        // Raid difficulty — WotLK only
+        // Raid difficulty - WotLK only
         if (rem() >= 1) data.raidDifficultyId = packet.readUInt8();
         // Extra byte in some 3.3.5a builds
         if (hasRoles && rem() >= 1) packet.readUInt8();
@@ -498,14 +486,14 @@ network::Packet AutostoreLootItemPacket::build(uint8_t slotIndex) {
 network::Packet UseItemPacket::build(uint8_t bagIndex, uint8_t slotIndex,
                                      uint64_t itemGuid, uint32_t spellId,
                                      uint64_t targetGuid, uint64_t itemTargetGuid,
-                                     uint64_t gameObjectGuid) {
+                                     uint64_t gameObjectGuid, uint32_t glyphIndex) {
     network::Packet packet(wireOpcode(Opcode::CMSG_USE_ITEM));
     packet.writeUInt8(bagIndex);
     packet.writeUInt8(slotIndex);
     packet.writeUInt8(0);  // cast count
     packet.writeUInt32(spellId); // spell id from item data
     packet.writeUInt64(itemGuid); // full 8-byte GUID
-    packet.writeUInt32(0); // glyph index
+    packet.writeUInt32(glyphIndex); // the socket, when a glyph is being placed
     packet.writeUInt8(0);  // cast flags
     if (itemTargetGuid != 0) {
         // Sharpening stones, weightstones and weapon oils enchant another item:
@@ -600,7 +588,7 @@ bool LootResponseParser::parse(network::Packet& packet, LootResponseData& data, 
     data.lootGuid = packet.readUInt64();
     data.lootType = packet.readUInt8();
 
-    // Short failure packet — no gold/item data follows.
+    // Short failure packet - no gold/item data follows.
     avail = packet.getRemainingSize();
     if (avail < 5) {
         LOG_DEBUG("LootResponseParser: lootType=", static_cast<int>(data.lootType), " (empty/failure response)");
@@ -712,7 +700,7 @@ bool QuestDetailsParser::parse(network::Packet& packet, QuestDetailsData& data) 
     data.questId = packet.readUInt32();
     data.title = normalizeWowTextTokens(packet.readString());
     if (data.title.empty() || data.questId > 100000) {
-        // Likely vanilla format — rewind past informUnit
+        // Likely vanilla format - rewind past informUnit
         packet.setReadPos(preInform);
         data.questId = packet.readUInt32();
         data.title = normalizeWowTextTokens(packet.readString());
@@ -725,12 +713,12 @@ bool QuestDetailsParser::parse(network::Packet& packet, QuestDetailsData& data) 
         return true;
     }
 
-    // WotLK 3.3.5a (AzerothCore/TrinityCore) — verified against GossipDef.cpp:
+    // WotLK 3.3.5a (AzerothCore/TrinityCore) - verified against GossipDef.cpp:
     // u8 activateAccept, u32 flags, u32 suggestedPlayers, u8 isFinished, then
     // VARIABLE-count reward arrays (count == entries actually written; only
-    // non-empty slots are serialized). No portrait strings — those are 4.x+.
+    // non-empty slots are serialized). No portrait strings - those are 4.x+.
     /*activateAccept*/ packet.readUInt8();
-    /*flags*/ packet.readUInt32();
+    data.questFlags = packet.readUInt32();
     data.suggestedPlayers = packet.readUInt32();
     /*isFinished*/ packet.readUInt8();
 
@@ -776,7 +764,28 @@ bool QuestDetailsParser::parse(network::Packet& packet, QuestDetailsData& data) 
     if (packet.hasRemaining(4))
         data.rewardXp = packet.readUInt32();
 
-    LOG_DEBUG("Quest details: id=", data.questId, " title='", data.title, "'");
+    // Then, unconditionally in GossipDef.cpp:472 onwards -
+    //
+    //     uint32 honor (already multiplied by ten)
+    //     float  unused, commented "honor multiplier?"
+    //     uint32 reward spell        <- the icon under "You will learn:"
+    //
+    // The cast id and the title id come next and are left on the wire: nothing
+    // reads them, and stopping here is honest about that.
+    //
+    // The offer panel gates its whole reward-spell row on being given one, so
+    // a quest that teaches a recipe showed no sign of it. Each read is guarded
+    // on its own: an older realm that stops short leaves the spell at zero
+    // rather than taking a value out of the next packet, and a realm whose
+    // layout differs here yields an id no spell answers to, which reads as
+    // no reward spell - the same as before.
+    if (packet.hasRemaining(4)) /*honor*/            packet.readUInt32();
+    if (packet.hasRemaining(4)) /*honorMultiplier*/  packet.readFloat();
+    if (packet.hasRemaining(4))
+        data.rewardSpellId = packet.readUInt32();
+
+    LOG_DEBUG("Quest details: id=", data.questId, " title='", data.title,
+              "' rewardSpell=", data.rewardSpellId);
     return true;
 }
 
@@ -981,11 +990,11 @@ bool QuestOfferRewardParser::parse(network::Packet& packet, QuestOfferRewardData
         return true;
     }
 
-    // WotLK 3.3.5a (AzerothCore/TrinityCore) — verified against GossipDef.cpp:
+    // WotLK 3.3.5a (AzerothCore/TrinityCore) - verified against GossipDef.cpp:
     // u8 autoFinish + u32 flags + u32 suggestedPlayers + emotes +
     // VARIABLE-count choice/reward arrays (count == entries written) +
     // money + xp + trailing (honor, spells, title, talents, reputation arrays).
-    // No portrait strings — those are 4.x+.
+    // No portrait strings - those are 4.x+.
     if (era == QuestPacketEra::WOTLK) {
         if (!packet.hasRemaining(9)) return true;
         packet.readUInt8();  // autoFinish
@@ -1032,6 +1041,30 @@ bool QuestOfferRewardParser::parse(network::Packet& packet, QuestOfferRewardData
             data.rewardMoney = packet.readUInt32();
         if (packet.hasRemaining(4))
             data.rewardXp = packet.readUInt32();
+        // The trailing block, in the wire's order (GossipDef.cpp): honour,
+        // an honour-multiplier float, an unused word, the reward spell and its
+        // cast id, the title id, then bonus talents and arena points. The
+        // honour is sent multiplied by ten and the panel shows honour points,
+        // so unscale it. Everything between is stepped over; each read is
+        // guarded so a short/older packet leaves the fields at zero rather than
+        // reading into the next packet.
+        if (packet.hasRemaining(4)) data.rewardHonor = packet.readUInt32() / 10u;
+        if (packet.hasRemaining(4)) packet.readFloat();   // honour multiplier
+        if (packet.hasRemaining(4)) packet.readUInt32();  // unused
+        if (packet.hasRemaining(4)) packet.readUInt32();  // reward spell
+        if (packet.hasRemaining(4)) packet.readUInt32();  // reward spell cast
+        if (packet.hasRemaining(4)) data.rewardTitleId = packet.readUInt32();
+        if (packet.hasRemaining(4)) data.rewardTalents = packet.readUInt32();
+        if (packet.hasRemaining(4)) data.rewardArenaPoints = packet.readUInt32();
+        // An unused word, then the three reputation arrays as in the query
+        // response: five faction ids, five value indices, five overrides. Read
+        // as a block so a short packet leaves them all zero.
+        if (packet.hasRemaining(4)) packet.readUInt32();  // unused
+        if (packet.hasRemaining(60)) {  // 15 × uint32
+            for (auto& fr : data.factionRewards) fr.factionId = packet.readUInt32();
+            for (auto& fr : data.factionRewards) fr.valueId = static_cast<int32_t>(packet.readUInt32());
+            for (auto& fr : data.factionRewards) fr.override = static_cast<int32_t>(packet.readUInt32());
+        }
 
         LOG_INFO("Quest offer reward: id=", data.questId, " title='", data.title,
                  "' choices=", data.choiceRewards.size(), " fixed=", data.fixedRewards.size(),
@@ -1045,7 +1078,7 @@ bool QuestOfferRewardParser::parse(network::Packet& packet, QuestOfferRewardData
         return true;
     }
 
-    // Classic/TBC — verified against vmangos / cmangos-tbc GossipDef.cpp:
+    // Classic/TBC - verified against vmangos / cmangos-tbc GossipDef.cpp:
     //   Classic 1.12 : u32 autoFinish                          (4-byte prefix)
     //   TBC 2.4.3    : u32 autoFinish + u32 suggestedPlayers   (8-byte prefix)
     // then emoteCount + count×(delay,emote), choiceCount + count×(id,count,display),
@@ -1221,8 +1254,37 @@ QuestQueryRewardsData QuestQueryRewardsParser::parse(const std::vector<uint8_t>&
     //   WotLK    (AzerothCore GossipDef):  money=abs13, pairs at abs26, choice abs34
     const size_t base = 8;
     size_t moneyField, rewardPairsField, choicePairsField;
+    // The quest's start item. Counted from the same base, at abs19 for WotLK:
+    // money(13), maxLevel(14), rewSpell(15), rewSpellCast(16), honorAddition(17),
+    // honorMultiplier(18), srcItemId(19) - which is 24 minus the four fields
+    // between it and the reward pairs, and lands exactly where the pairs start
+    // counting from. Left at zero for the earlier layouts: their field order
+    // between the money and the pairs has not been read off a serializer here,
+    // and a guess would put an arbitrary item on the watch frame.
+    size_t sourceItemField = 0;
+    size_t rewardSpellField = 0;
+    size_t xpIdField = 0, honorField = 0, talentsField = 0, arenaField = 0, titleField = 0;
+    size_t repFactionField = 0, repValueField = 0, repOverrideField = 0;
     if (questLogStride >= 5) {        // WotLK
         moneyField = 11; rewardPairsField = 24; choicePairsField = 32;
+        sourceItemField = 17;
+        // XPId sits immediately before the money field in the serializer
+        // (nextQuestInChain, XPId, RewOrReqMoney), so field 10 here - one below
+        // money's 11. Read only where the layout is confirmed, like the spell
+        // and start item above.
+        xpIdField = 10;
+        // Counted off the same serializer: RewHonorAddition at 15 (two past the
+        // spell), CharTitleId at 19 (two past the start item), BonusTalents at
+        // 21 and RewArenaPoints at 22 (three and two before the reward pairs).
+        honorField = 15; titleField = 19; talentsField = 21; arenaField = 22;
+        // The three reputation arrays follow the choice pairs (which end at 44):
+        // RewardFactionId[5] at 44, RewardFactionValueId[5] at 49, and the
+        // override[5] at 54.
+        repFactionField = 44; repValueField = 49; repOverrideField = 54;
+        // Counted from the same base as the four above: money is absolute 13
+        // and the start item absolute 19, and the serializer writes
+        // money(13), maxLevel(14), rewSpell(15) - so 13 here, which is 15 there.
+        rewardSpellField = 13;
     } else if (questLogStride == 4) { // TBC
         moneyField = 9;  rewardPairsField = 17; choicePairsField = 25;
     } else {                          // Classic / Turtle
@@ -1249,11 +1311,61 @@ QuestQueryRewardsData QuestQueryRewardsParser::parse(const std::vector<uint8_t>&
         out.choiceItemCount[i] = readU32At(base + (choicePairsField + i * 2 + 1) * 4u);
     }
     // Plausibility gate: a layout mismatch lands in string data or floats and
-    // produces absurd ids/counts — better to keep no reward data than garbage.
+    // produces absurd ids/counts - better to keep no reward data than garbage.
     for (size_t i = 0; i < 4; ++i)
         if (out.itemId[i] > 0x00FFFFFFu || out.itemCount[i] > 0xFFFFu) return {};
     for (size_t i = 0; i < 6; ++i)
         if (out.choiceItemId[i] > 0x00FFFFFFu || out.choiceItemCount[i] > 0xFFFFu) return {};
+    if (rewardSpellField) {
+        const uint32_t spell = readU32At(base + rewardSpellField * 4u);
+        // The same plausibility gate the items get: a layout that has slipped
+        // lands in float or string data and answers something enormous.
+        if (spell <= 0x000FFFFFu) out.rewardSpellId = spell;
+    }
+    if (xpIdField) {
+        // QuestXP.dbc has ten difficulty columns (indices 0..9), so a valid index
+        // is small; a slipped layout lands on an id or count and is far larger.
+        const uint32_t xp = readU32At(base + xpIdField * 4u);
+        if (xp <= 9u) out.xpId = xp;
+    }
+    // Honor, talents and arena points are direct amounts. A slipped layout lands
+    // on an item id or a float and reads as something enormous, so gate each on
+    // a generous ceiling - real quest honor is in the hundreds, talents are one
+    // or two, arena points a few hundred.
+    if (honorField) {
+        const uint32_t h = readU32At(base + honorField * 4u);
+        if (h <= 100000u) out.rewardHonor = h;
+    }
+    if (talentsField) {
+        const uint32_t t = readU32At(base + talentsField * 4u);
+        if (t <= 20u) out.bonusTalents = t;
+    }
+    if (arenaField) {
+        const uint32_t a = readU32At(base + arenaField * 4u);
+        if (a <= 100000u) out.arenaPoints = a;
+    }
+    if (titleField) {
+        // A CharTitles.dbc id - a few hundred rows, so small; a slipped layout
+        // reads far larger and is dropped.
+        const uint32_t t = readU32At(base + titleField * 4u);
+        if (t <= 500u) out.rewardTitleId = t;
+    }
+    // The three reputation arrays, once the packet is long enough to hold the
+    // last override at field repOverrideField+4. Values are signed (a quest can
+    // cost reputation), so no plausibility gate beyond the length check.
+    if (repFactionField && data.size() >= base + (repOverrideField + 5) * 4u) {
+        for (size_t i = 0; i < 5; ++i) {
+            out.factionId[i]           = readU32At(base + (repFactionField + i) * 4u);
+            out.factionValueId[i]      = static_cast<int32_t>(readU32At(base + (repValueField + i) * 4u));
+            out.factionValueOverride[i]= static_cast<int32_t>(readU32At(base + (repOverrideField + i) * 4u));
+        }
+    }
+    if (sourceItemField) {
+        const uint32_t srcItem = readU32At(base + sourceItemField * 4u);
+        // Same plausibility gate the rewards use: a layout mismatch lands in a
+        // float or a string and reads as an enormous item id.
+        if (srcItem <= 0x00FFFFFFu) out.sourceItemId = srcItem;
+    }
     out.valid = true;
     return out;
 }
@@ -1319,7 +1431,7 @@ network::Packet BuybackItemPacket::build(uint64_t vendorGuid, uint32_t slot) {
 }
 
 bool ListInventoryParser::parse(network::Packet& packet, ListInventoryData& data) {
-    // Preserve canRepair — it was set by the gossip handler before this packet
+    // Preserve canRepair - it was set by the gossip handler before this packet
     // arrived and is not part of the wire format.
     const bool savedCanRepair = data.canRepair;
     data = ListInventoryData{};
@@ -1457,102 +1569,6 @@ network::Packet TrainerBuySpellPacket::build(uint64_t trainerGuid, uint32_t spel
 // Talents
 // ============================================================
 
-bool TalentsInfoParser::parse(network::Packet& packet, TalentsInfoData& data) {
-    // SMSG_TALENTS_INFO format (AzerothCore variant):
-    // uint8  activeSpec
-    // uint8  unspentPoints
-    // be32   talentCount (metadata, may not match entry count)
-    // be16   entryCount (actual number of id+rank entries)
-    // Entry[entryCount]: { le32 id, uint8 rank }
-    // le32   glyphSlots
-    // le16   glyphIds[glyphSlots]
-
-    const size_t startPos = packet.getReadPos();
-    const size_t remaining = packet.getSize() - startPos;
-
-    if (remaining < 2 + 4 + 2) {
-        LOG_ERROR("SMSG_TALENTS_INFO: packet too short (remaining=", remaining, ")");
-        return false;
-    }
-
-    data = TalentsInfoData{};
-
-    // Read header
-    data.talentSpec = packet.readUInt8();
-    data.unspentPoints = packet.readUInt8();
-
-    // These two counts are big-endian (network byte order)
-    uint32_t talentCountBE = packet.readUInt32();
-    uint32_t talentCount = bswap32(talentCountBE);
-
-    uint16_t entryCountBE = packet.readUInt16();
-    uint16_t entryCount = bswap16(entryCountBE);
-
-    // Sanity check: prevent corrupt packets from allocating excessive memory
-    if (entryCount > 64) {
-        LOG_ERROR("SMSG_TALENTS_INFO: entryCount too large (", entryCount, "), rejecting packet");
-        return false;
-    }
-
-    LOG_INFO("SMSG_TALENTS_INFO: spec=", static_cast<int>(data.talentSpec),
-             " unspent=", static_cast<int>(data.unspentPoints),
-             " talentCount=", talentCount,
-             " entryCount=", entryCount);
-
-    // Parse learned entries (id + rank pairs)
-    // These may be talents, glyphs, or other learned abilities
-    data.talents.clear();
-    data.talents.reserve(entryCount);
-
-    for (uint16_t i = 0; i < entryCount; ++i) {
-        if (!packet.hasRemaining(5)) {
-            LOG_ERROR("SMSG_TALENTS_INFO: truncated entry list at i=", i);
-            return false;
-        }
-        uint32_t id = packet.readUInt32();  // LE
-        uint8_t rank = packet.readUInt8();
-        data.talents.push_back({id, rank});
-
-        LOG_INFO("  Entry: id=", id, " rank=", static_cast<int>(rank));
-    }
-
-    // Parse glyph tail: glyphSlots + glyphIds[]
-    if (!packet.hasRemaining(1)) {
-        LOG_WARNING("SMSG_TALENTS_INFO: no glyph tail data");
-        return true;  // Not fatal, older formats may not have glyphs
-    }
-
-    uint8_t glyphSlots = packet.readUInt8();
-
-    // Sanity check: Wrath has 6 glyph slots, cap at 12 for safety
-    if (glyphSlots > 12) {
-        LOG_WARNING("SMSG_TALENTS_INFO: glyphSlots too large (", static_cast<int>(glyphSlots), "), clamping to 12");
-        glyphSlots = 12;
-    }
-
-    LOG_INFO("  GlyphSlots: ", static_cast<int>(glyphSlots));
-
-    data.glyphs.clear();
-    data.glyphs.reserve(glyphSlots);
-
-    for (uint8_t i = 0; i < glyphSlots; ++i) {
-        if (!packet.hasRemaining(2)) {
-            LOG_ERROR("SMSG_TALENTS_INFO: truncated glyph list at i=", i);
-            return false;
-        }
-        uint16_t glyphId = packet.readUInt16();  // LE
-        data.glyphs.push_back(glyphId);
-        if (glyphId != 0) {
-            LOG_INFO("    Glyph slot ", i, ": ", glyphId);
-        }
-    }
-
-    LOG_INFO("SMSG_TALENTS_INFO: bytesConsumed=", (packet.getReadPos() - startPos),
-             " bytesRemaining=", (packet.getRemainingSize()));
-
-    return true;
-}
-
 network::Packet LearnTalentPacket::build(uint32_t talentId, uint32_t requestedRank) {
     network::Packet packet(wireOpcode(Opcode::CMSG_LEARN_TALENT));
     packet.writeUInt32(talentId);
@@ -1562,8 +1578,8 @@ network::Packet LearnTalentPacket::build(uint32_t talentId, uint32_t requestedRa
     // `talentRank - currentTalentRank + 1` points, so the first rank of an
     // untrained talent has to arrive as 0.
     //
-    // Sent as 1 it reads as the SECOND rank — two points for a player holding
-    // one, and a rank whose predecessor is missing — so the handler returned
+    // Sent as 1 it reads as the SECOND rank - two points for a player holding
+    // one, and a rank whose predecessor is missing - so the handler returned
     // without a word and answered the unchanged talents. That is exactly what
     // learning a talent looked like: a confirmation, the staged point handed
     // straight back, and nothing learned.
@@ -1582,8 +1598,8 @@ bool BattlefieldStatusPacket::parse(network::Packet& packet, BattlefieldStatusDa
     //     uint8 arenaType, uint8 isArena, uint32 bgTypeId, uint16 0x1F90,
     //     uint8 minLevel, uint8 maxLevel, uint32 instanceId, uint8 isRated
     //
-    // Read as `uint32 instanceId, uint8 isRated` — four bytes and one where the
-    // server sends seven — every field after it lands two bytes early, and the
+    // Read as `uint32 instanceId, uint8 isRated` - four bytes and one where the
+    // server sends seven - every field after it lands two bytes early, and the
     // status arrives as the top half of the instance id joined to the bottom
     // half of the status. The packet is the same length either way, so nothing
     // runs short and nothing reports anything; the status is simply never one
@@ -1625,7 +1641,7 @@ bool BattlefieldStatusPacket::parse(network::Packet& packet, BattlefieldStatusDa
             }
             // For an invitation this is how long it lasts, which is the
             // countdown on the accept dialog. Read from the first field after
-            // the type before this, which is the map id — so the dialog counted
+            // the type before this, which is the map id - so the dialog counted
             // down from a map number.
             if (packet.hasRemaining(4)) data.inviteTimeoutMs = packet.readUInt32();
             break;
@@ -1644,7 +1660,7 @@ network::Packet LfgJoinPacket::build(const std::vector<uint32_t>& dungeonIds,
     // between the slots and the comment were missing entirely. The four bytes
     // taken for Roles therefore swallowed the roles, both flags and the slot
     // count, the slot list came out empty, and HandleLfgJoinOpcode returns
-    // without a word when it is — so the queue was discarded in silence.
+    // without a word when it is - so the queue was discarded in silence.
     packet.writeUInt32(roles);
     packet.writeUInt8(0);                    // NoPartialClear
     packet.writeUInt8(0);                    // Achievements
@@ -1661,14 +1677,6 @@ network::Packet LfgJoinPacket::build(const std::vector<uint32_t>& dungeonIds,
 network::Packet TalentWipeConfirmPacket::build(bool accept) {
     network::Packet packet(wireOpcode(Opcode::MSG_TALENT_WIPE_CONFIRM));
     packet.writeUInt32(accept ? 1 : 0);
-    return packet;
-}
-
-network::Packet ActivateTalentGroupPacket::build(uint32_t group) {
-    // CMSG_SET_ACTIVE_TALENT_GROUP_OBSOLETE (0x4C3 in WotLK 3.3.5a)
-    // Payload: uint32 group (0 = primary, 1 = secondary)
-    network::Packet packet(wireOpcode(Opcode::CMSG_SET_ACTIVE_TALENT_GROUP_OBSOLETE));
-    packet.writeUInt32(group);
     return packet;
 }
 

@@ -34,20 +34,10 @@ bool StarField::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout)
     VkDevice device = vkCtx->getDevice();
 
     // Load SPIR-V shaders
-    VkShaderModule vertModule;
-    if (!vertModule.loadFromFile(device, "assets/shaders/starfield.vert.spv")) {
-        LOG_ERROR("Failed to load starfield vertex shader");
-        return false;
-    }
-
-    VkShaderModule fragModule;
-    if (!fragModule.loadFromFile(device, "assets/shaders/starfield.frag.spv")) {
-        LOG_ERROR("Failed to load starfield fragment shader");
-        return false;
-    }
-
-    VkPipelineShaderStageCreateInfo vertStage = vertModule.stageInfo(VK_SHADER_STAGE_VERTEX_BIT);
-    VkPipelineShaderStageCreateInfo fragStage = fragModule.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT);
+    auto shaders = loadShaderPair(device, "assets/shaders/starfield.vert.spv", "assets/shaders/starfield.frag.spv", "starfield");
+    if (!shaders) return false;
+    const auto& vertStage = shaders.vertStage;
+    const auto& fragStage = shaders.fragStage;
 
     // Push constants: float time + float intensity = 8 bytes
     VkPushConstantRange pushRange{};
@@ -66,32 +56,12 @@ bool StarField::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout)
     //   location 0: vec3  pos          (offset  0)
     //   location 1: float brightness   (offset 12)
     //   location 2: float twinklePhase (offset 16)
-    VkVertexInputBindingDescription binding{};
-    binding.binding = 0;
-    binding.stride = 5 * sizeof(float);
-    binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-    VkVertexInputAttributeDescription posAttr{};
-    posAttr.location = 0;
-    posAttr.binding = 0;
-    posAttr.format = VK_FORMAT_R32G32B32_SFLOAT;
-    posAttr.offset = 0;
-
-    VkVertexInputAttributeDescription brightnessAttr{};
-    brightnessAttr.location = 1;
-    brightnessAttr.binding = 0;
-    brightnessAttr.format = VK_FORMAT_R32_SFLOAT;
-    brightnessAttr.offset = 3 * sizeof(float);
-
-    VkVertexInputAttributeDescription twinkleAttr{};
-    twinkleAttr.location = 2;
-    twinkleAttr.binding = 0;
-    twinkleAttr.format = VK_FORMAT_R32_SFLOAT;
-    twinkleAttr.offset = 4 * sizeof(float);
+    VkVertexInputBindingDescription binding = tightVertexBinding(5 * sizeof(float));
+    std::vector<VkVertexInputAttributeDescription> attrs = positionPlusTwoFloatsAttrs();
 
     pipeline = PipelineBuilder()
         .setShaders(vertStage, fragStage)
-        .setVertexInput({binding}, {posAttr, brightnessAttr, twinkleAttr})
+        .setVertexInput({binding}, attrs)
         .setTopology(VK_PRIMITIVE_TOPOLOGY_POINT_LIST)
         .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
         .setDepthTest(true, false, VK_COMPARE_OP_LESS_OR_EQUAL)  // depth test, no write (stars behind sky)
@@ -101,8 +71,6 @@ bool StarField::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout)
         .setRenderPass(vkCtx->getImGuiRenderPass())
         .build(device, vkCtx->getPipelineCache());
 
-    vertModule.destroy();
-    fragModule.destroy();
 
     if (pipeline == VK_NULL_HANDLE) {
         LOG_ERROR("Failed to create starfield pipeline");
@@ -121,50 +89,20 @@ void StarField::recreatePipelines() {
     if (!vkCtx) return;
     VkDevice device = vkCtx->getDevice();
 
-    if (pipeline != VK_NULL_HANDLE) { vkDestroyPipeline(device, pipeline, nullptr); pipeline = VK_NULL_HANDLE; }
+    destroy(device, pipeline);
 
-    VkShaderModule vertModule;
-    if (!vertModule.loadFromFile(device, "assets/shaders/starfield.vert.spv")) {
-        LOG_ERROR("StarField::recreatePipelines: failed to load vertex shader");
-        return;
-    }
-    VkShaderModule fragModule;
-    if (!fragModule.loadFromFile(device, "assets/shaders/starfield.frag.spv")) {
-        LOG_ERROR("StarField::recreatePipelines: failed to load fragment shader");
-        vertModule.destroy();
-        return;
-    }
-
-    VkPipelineShaderStageCreateInfo vertStage = vertModule.stageInfo(VK_SHADER_STAGE_VERTEX_BIT);
-    VkPipelineShaderStageCreateInfo fragStage = fragModule.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT);
+    auto shaders = loadShaderPair(device, "assets/shaders/starfield.vert.spv", "assets/shaders/starfield.frag.spv", "starfield");
+    if (!shaders) return;
+    const auto& vertStage = shaders.vertStage;
+    const auto& fragStage = shaders.fragStage;
 
     // Vertex input (same as initialize)
-    VkVertexInputBindingDescription binding{};
-    binding.binding = 0;
-    binding.stride = 5 * sizeof(float);
-    binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-    VkVertexInputAttributeDescription posAttr{};
-    posAttr.location = 0;
-    posAttr.binding = 0;
-    posAttr.format = VK_FORMAT_R32G32B32_SFLOAT;
-    posAttr.offset = 0;
-
-    VkVertexInputAttributeDescription brightnessAttr{};
-    brightnessAttr.location = 1;
-    brightnessAttr.binding = 0;
-    brightnessAttr.format = VK_FORMAT_R32_SFLOAT;
-    brightnessAttr.offset = 3 * sizeof(float);
-
-    VkVertexInputAttributeDescription twinkleAttr{};
-    twinkleAttr.location = 2;
-    twinkleAttr.binding = 0;
-    twinkleAttr.format = VK_FORMAT_R32_SFLOAT;
-    twinkleAttr.offset = 4 * sizeof(float);
+    VkVertexInputBindingDescription binding = tightVertexBinding(5 * sizeof(float));
+    std::vector<VkVertexInputAttributeDescription> attrs = positionPlusTwoFloatsAttrs();
 
     pipeline = PipelineBuilder()
         .setShaders(vertStage, fragStage)
-        .setVertexInput({binding}, {posAttr, brightnessAttr, twinkleAttr})
+        .setVertexInput({binding}, attrs)
         .setTopology(VK_PRIMITIVE_TOPOLOGY_POINT_LIST)
         .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
         .setDepthTest(true, false, VK_COMPARE_OP_LESS_OR_EQUAL)
@@ -174,8 +112,6 @@ void StarField::recreatePipelines() {
         .setRenderPass(vkCtx->getImGuiRenderPass())
         .build(device, vkCtx->getPipelineCache());
 
-    vertModule.destroy();
-    fragModule.destroy();
 
     if (pipeline == VK_NULL_HANDLE) {
         LOG_ERROR("StarField::recreatePipelines: failed to create pipeline");
@@ -187,14 +123,8 @@ void StarField::shutdown() {
 
     if (vkCtx) {
         VkDevice device = vkCtx->getDevice();
-        if (pipeline != VK_NULL_HANDLE) {
-            vkDestroyPipeline(device, pipeline, nullptr);
-            pipeline = VK_NULL_HANDLE;
-        }
-        if (pipelineLayout != VK_NULL_HANDLE) {
-            vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
-            pipelineLayout = VK_NULL_HANDLE;
-        }
+        destroy(device, pipeline);
+        destroy(device, pipelineLayout);
     }
 
     vkCtx = nullptr;
@@ -226,7 +156,7 @@ void StarField::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet,
 
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 
-    // Bind per-frame descriptor set (set 0 — camera UBO with view/projection)
+    // Bind per-frame descriptor set (set 0 - camera UBO with view/projection)
     vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout,
         0, 1, &perFrameSet, 0, nullptr);
 

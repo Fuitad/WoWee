@@ -18,7 +18,6 @@ public:
     TransportCallbackHandler(EntitySpawner& entitySpawner,
                              rendering::Renderer& renderer,
                              game::GameHandler& gameHandler,
-                             WorldLoader* worldLoader,
                              AppearanceComposer* appearanceComposer);
 
     void setupCallbacks();
@@ -27,7 +26,6 @@ private:
     EntitySpawner& entitySpawner_;
     rendering::Renderer& renderer_;
     game::GameHandler& gameHandler_;
-    WorldLoader* worldLoader_;
     AppearanceComposer* appearanceComposer_;
 };
 

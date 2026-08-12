@@ -20,7 +20,7 @@ enum class AmbientEmitterType : uint8_t {
 
 /**
  * Output of classifyM2Model(): all name/geometry-based flags for an M2 model.
- * Pure data — no Vulkan, GPU, or asset-manager dependencies.
+ * Pure data - no Vulkan, GPU, or asset-manager dependencies.
  */
 struct M2ClassificationResult {
     // --- Collision shape selectors ---
@@ -52,7 +52,7 @@ struct M2ClassificationResult {
     bool isBrazierOrFire    = false; ///< Brazier / campfire / bonfire model
     bool isGroundFire       = false; ///< Ground fire whose halo follows its lowest flame emitter
     bool isTorch            = false; ///< Wall-mounted or standing torch
-    bool isForge            = false; ///< Smithy forge — a contained fire that lights its surroundings
+    bool isForge            = false; ///< Smithy forge - a contained fire that lights its surroundings
     bool isSkyBird          = false; ///< Flying bird/bat doodad (hide until animation range)
     bool isLightBeam        = false; ///< Distant rotating lighthouse/light-ray beam
     bool isTransportDoodad  = false; ///< Ship sail/paddle child whose motion must remain visible
@@ -68,7 +68,7 @@ struct M2ClassificationResult {
 /**
  * Classify an M2 model by name and geometry.
  *
- * Pure function — no Vulkan, VkContext, or AssetManager dependencies.
+ * Pure function - no Vulkan, VkContext, or AssetManager dependencies.
  * All results are derived solely from the model name string and tight vertex bounds.
  *
  * @param name         Full model path/name from the M2 header (any case)
@@ -89,9 +89,9 @@ M2ClassificationResult classifyM2Model(
 // ---------------------------------------------------------------------------
 
 /**
- * Per-batch texture key classification — glow / tint token flags.
+ * Per-batch texture key classification - glow / tint token flags.
  * Input must be a lowercased, backslash-normalised texture path (as stored in
- * M2Renderer's textureKeysLower vector).  Pure data — no Vulkan dependencies.
+ * M2Renderer's textureKeysLower vector).  Pure data - no Vulkan dependencies.
  */
 struct M2BatchTexClassification {
     bool exactLanternGlowTex = false; ///< One of the known exact lantern-glow texture paths
@@ -107,7 +107,7 @@ struct M2BatchTexClassification {
 /**
  * Classify a batch texture by its lowercased path for glow/tint hinting.
  *
- * Pure function — no Vulkan, VkContext, or AssetManager dependencies.
+ * Pure function - no Vulkan, VkContext, or AssetManager dependencies.
  *
  * @param lowerTexKey Lowercased, backslash-normalised texture path (may be empty)
  */

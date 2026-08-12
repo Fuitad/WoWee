@@ -1,4 +1,4 @@
-# .dockerignore — Exclude files from the Docker build context.
+# .dockerignore - Exclude files from the Docker build context.
 # Keeps the context small and prevents leaking build artifacts or secrets.
 
 # Build outputs

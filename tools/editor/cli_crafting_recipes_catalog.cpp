@@ -1,4 +1,6 @@
 #include "cli_crafting_recipes_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -19,11 +21,6 @@ namespace cli {
 
 namespace {
 
-std::string stripWcraExt(std::string base) {
-    stripExt(base, ".wcra");
-    return base;
-}
-
 const char* tradeSkillName(uint16_t s) {
     switch (s) {
         case 164: return "Blacksmithing";
@@ -38,15 +35,6 @@ const char* tradeSkillName(uint16_t s) {
     }
 }
 
-bool saveOrError(const wowee::pipeline::WoweeCraftingRecipes& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeCraftingRecipesLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wcra\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeCraftingRecipes& c,
                      const std::string& base) {
@@ -59,10 +47,10 @@ int handleGenAlchemy(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "AlchemyPotions";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWcraExt(base);
+    base = cli::withoutExt(base, ".wcra");
     auto c = wowee::pipeline::WoweeCraftingRecipesLoader::
         makeAlchemyPotions(name);
-    if (!saveOrError(c, base, "gen-cra-alchemy")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCraftingRecipesLoader>(c, base, "gen-cra-alchemy", ".wcra")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -71,10 +59,10 @@ int handleGenEngineering(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "EngineeringRecipes";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWcraExt(base);
+    base = cli::withoutExt(base, ".wcra");
     auto c = wowee::pipeline::WoweeCraftingRecipesLoader::
         makeEngineering(name);
-    if (!saveOrError(c, base, "gen-cra-engineering")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCraftingRecipesLoader>(c, base, "gen-cra-engineering", ".wcra")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -83,10 +71,10 @@ int handleGenBlacksmithing(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "BlacksmithingRecipes";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWcraExt(base);
+    base = cli::withoutExt(base, ".wcra");
     auto c = wowee::pipeline::WoweeCraftingRecipesLoader::
         makeBlacksmithing(name);
-    if (!saveOrError(c, base, "gen-cra-blacksmithing")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCraftingRecipesLoader>(c, base, "gen-cra-blacksmithing", ".wcra")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -94,7 +82,7 @@ int handleGenBlacksmithing(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWcraExt(base);
+    base = cli::withoutExt(base, ".wcra");
     if (!wowee::pipeline::WoweeCraftingRecipesLoader::exists(base)) {
         std::fprintf(stderr, "WCRA not found: %s.wcra\n",
                      base.c_str());
@@ -153,12 +141,9 @@ int handleInfo(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWcraExt(base);
+    base = cli::withoutExt(base, ".wcra");
     if (!wowee::pipeline::WoweeCraftingRecipesLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wcra: WCRA not found: %s.wcra\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wcra", "WCRA", base, ".wcra");
     }
     auto c = wowee::pipeline::WoweeCraftingRecipesLoader::load(base);
     std::vector<std::string> errors;
@@ -196,7 +181,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 "items)");
         }
         // Vanilla skill cap is 300. Skill > 300 is
-        // valid for TBC (375) and WotLK (450) — only
+        // valid for TBC (375) and WotLK (450) - only
         // warn if absurdly above all expansions.
         if (e.requiredSkillLevel > 450) {
             warnings.push_back(ctx +
@@ -209,7 +194,7 @@ int handleValidate(int& i, int argc, char** argv) {
         // unusual. Warn.
         if (e.reagents.empty()) {
             warnings.push_back(ctx +
-                ": no reagents — recipe is "
+                ": no reagents - recipe is "
                 "free-to-craft (unusual; verify "
                 "intentional)");
         }
@@ -229,14 +214,14 @@ int handleValidate(int& i, int argc, char** argv) {
                     "].count is 0");
             }
             // Same itemId listed twice in the reagent
-            // array — should be merged into one
+            // array - should be merged into one
             // reagent with summed count.
             if (reagent.itemId != 0 &&
                 !reagentItems.insert(reagent.itemId).second) {
                 warnings.push_back(ctx +
                     ": reagent itemId " +
                     std::to_string(reagent.itemId) +
-                    " appears twice — should be merged "
+                    " appears twice - should be merged "
                     "into single entry with summed count");
             }
         }
@@ -249,69 +234,41 @@ int handleValidate(int& i, int argc, char** argv) {
                     ": reagent itemId equals "
                     "producedItemId=" +
                     std::to_string(e.producedItemId) +
-                    " — recipe consumes what it makes "
+                    " - recipe consumes what it makes "
                     "(perpetual-motion bug)");
             }
         }
-        // Duplicate spellId — recipe-cast handler
+        // Duplicate spellId - recipe-cast handler
         // would resolve ambiguously.
         if (e.spellId != 0 &&
             !spellIdsSeen.insert(e.spellId).second) {
             errors.push_back(ctx +
                 ": duplicate spellId " +
                 std::to_string(e.spellId) +
-                " — two recipes would respond to the "
+                " - two recipes would respond to the "
                 "same cast");
         }
         if (!idsSeen.insert(e.recipeId).second) {
             errors.push_back(ctx + ": duplicate recipeId");
         }
     }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wcra"] = base + ".wcra";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wcra: %s.wcra\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu recipes, all recipeIds + "
+    return cli::reportValidation("wcra", base, jsonOut, errors, warnings,
+                                 formatted("%zu recipes, all recipeIds + "
                     "spellIds unique, non-zero spellId/"
                     "tradeSkillId/producedItemId/"
                     "producedCount, no zero-item/zero-count "
                     "reagents, no duplicate reagent itemIds "
-                    "in same recipe, no self-reagent\n",
-                    c.entries.size());
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+                    "in same recipe, no self-reagent", c.entries.size()));
 }
 
 int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWcraExt(base);
+    base = cli::withoutExt(base, ".wcra");
     if (out.empty()) out = base + ".wcra.json";
     if (!wowee::pipeline::WoweeCraftingRecipesLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wcra-json: WCRA not found: %s.wcra\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wcra-json", "WCRA", base, ".wcra");
     }
     auto c = wowee::pipeline::WoweeCraftingRecipesLoader::load(base);
     nlohmann::json j;
@@ -360,16 +317,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wcra.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wcra");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wcra");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,

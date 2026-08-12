@@ -1,4 +1,5 @@
 #include "cli_mesh_edit.hpp"
+#include "cli_catalog_paths.hpp"
 
 #include "pipeline/wowee_model.hpp"
 #include <glm/glm.hpp>
@@ -27,7 +28,7 @@ int handleAddTextureToMesh(int& i, int argc, char** argv) {
     // (or reusing the slot if already present) and pointing
     // the chosen batch at it.
     //
-    // The PNG path stored in the WOM is just the leaf — the
+    // The PNG path stored in the WOM is just the leaf - the
     // runtime resolves textures relative to the model's own
     // directory, so the user is responsible for placing the
     // PNG next to the WOM.
@@ -106,7 +107,7 @@ int handleAddTextureToMesh(int& i, int argc, char** argv) {
                 pngLeaf.c_str(), womBase.c_str(),
                 batchIdx, texIdx);
     std::printf("  total texture slots : %zu\n", wom.texturePaths.size());
-    // Warn if the PNG isn't sitting next to the WOM — the
+    // Warn if the PNG isn't sitting next to the WOM - the
     // runtime resolves leaf paths relative to the WOM dir.
     std::string womDir = fs::path(womBase).parent_path().string();
     if (womDir.empty()) womDir = ".";
@@ -221,7 +222,7 @@ int handleTranslateMesh(int& i, int argc, char** argv) {
     for (auto& v : wom.vertices) v.position += d;
     for (auto& b : wom.bones) b.pivot += d;
     // Bone-relative animation translations don't shift with
-    // the model — only the bone pivots do, since translations
+    // the model - only the bone pivots do, since translations
     // are in bone-local space. Leave anim keyframes alone.
     wom.boundMin += d;
     wom.boundMax += d;
@@ -243,7 +244,7 @@ int handleTranslateMesh(int& i, int argc, char** argv) {
 int handleStripMesh(int& i, int argc, char** argv) {
     // Drop bones and/or animations from a WOM in place. Use
     // case: a model imported with full skeleton + anims that
-    // will only ever be placed as static decoration — there's
+    // will only ever be placed as static decoration - there's
     // no point shipping the bone data, and stripping it can
     // shrink the file substantially.
     //
@@ -267,7 +268,7 @@ int handleStripMesh(int& i, int argc, char** argv) {
     }
     if (!dropBones && !dropAnims) {
         std::fprintf(stderr,
-            "strip-mesh: no --bones / --anims / --all specified — nothing to do\n");
+            "strip-mesh: no --bones / --anims / --all specified - nothing to do\n");
         return 1;
     }
     if (womBase.size() >= 4 &&
@@ -424,7 +425,7 @@ int handleRotateMesh(int& i, int argc, char** argv) {
 int handleCenterMesh(int& i, int argc, char** argv) {
     // Translate the mesh so the bounds center lands at the
     // origin. Convenience for "this mesh's pivot is in some
-    // weird corner — make it center-pivoted." Doesn't change
+    // weird corner - make it center-pivoted." Doesn't change
     // shape, just shifts.
     std::string womBase = argv[++i];
     if (womBase.size() >= 4 &&
@@ -463,7 +464,7 @@ int handleCenterMesh(int& i, int argc, char** argv) {
 
 int handleFlipMeshNormals(int& i, int argc, char** argv) {
     // Invert every vertex normal. Use case: an OBJ imported
-    // with flipped winding renders inside-out — flipping the
+    // with flipped winding renders inside-out - flipping the
     // normals makes shading correct without re-winding the
     // index buffer (which would also need batch-aware care).
     // Also useful for skybox-like meshes where the "outside"
@@ -551,7 +552,7 @@ int handleMirrorMesh(int& i, int argc, char** argv) {
         std::swap(wom.indices[k + 1], wom.indices[k + 2]);
     }
     // Bounds: the mirrored extent on this axis is just the
-    // negation of the previous extent — recompute from
+    // negation of the previous extent - recompute from
     // vertices to be safe.
     wom.boundMin = glm::vec3(1e30f);
     wom.boundMax = glm::vec3(-1e30f);
@@ -587,7 +588,7 @@ int handleSmoothMeshNormals(int& i, int argc, char** argv) {
     //     a smooth re-shade for stylistic reasons.
     //
     // The cross-product magnitude is twice the triangle area,
-    // which weights large faces more — bigger triangles
+    // which weights large faces more - bigger triangles
     // contribute more to the local surface direction.
     std::string womBase = argv[++i];
     if (womBase.size() >= 4 &&
@@ -634,7 +635,7 @@ int handleSmoothMeshNormals(int& i, int argc, char** argv) {
             v.normal /= len;
             normalized++;
         } else {
-            // Vertex unreferenced or sum cancelled — fall
+            // Vertex unreferenced or sum cancelled - fall
             // back to "up" rather than leaving zero so the
             // shader doesn't get a dark NaN spot.
             v.normal = glm::vec3(0, 1, 0);
@@ -665,7 +666,7 @@ int handleMergeMeshes(int& i, int argc, char** argv) {
     // the first mesh's index count and their textureIndex
     // shifted by the first mesh's texture-slot count.
     //
-    // Bones/animations are NOT merged — that requires
+    // Bones/animations are NOT merged - that requires
     // skeleton retargeting which is beyond a simple
     // concatenation. If either input has bones, the merged
     // output is treated as static (bones cleared, weights
@@ -756,7 +757,7 @@ int handleMergeMeshes(int& i, int argc, char** argv) {
     out.boundMax = glm::max(a.boundMax, b.boundMax);
     out.boundRadius = glm::length(out.boundMax - out.boundMin) * 0.5f;
     std::filesystem::path outPath(outBase);
-    std::filesystem::create_directories(outPath.parent_path());
+    ensureParentDirectory(outPath);
     if (!wowee::pipeline::WoweeModelLoader::save(out, outBase)) {
         std::fprintf(stderr,
             "merge-meshes: failed to save %s.wom\n", outBase.c_str());

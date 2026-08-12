@@ -18,7 +18,7 @@ struct SkyParams;
  * Sun-lit edges, self-shadowing, and DBC-driven cloud colors for realistic appearance.
  *
  * Pipeline layout:
- *   set 0 = perFrameLayout  (camera UBO — view, projection, etc.)
+ *   set 0 = perFrameLayout  (camera UBO - view, projection, etc.)
  *   push  = CloudPush       (3 x vec4 = 48 bytes)
  */
 class Clouds {
@@ -29,6 +29,10 @@ public:
     bool initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout);
     void shutdown();
     void recreatePipelines();
+    /// The pipeline both initialize() and recreatePipelines() need.
+    void buildPipeline(VkDevice device,
+                       const VkPipelineShaderStageCreateInfo& vertStage,
+                       const VkPipelineShaderStageCreateInfo& fragStage);
 
     /**
      * Render clouds using DBC-driven colors and sun lighting.
@@ -55,7 +59,7 @@ public:
     float getWindSpeed() const { return windSpeed_; }
 
 private:
-    // Push constant block — must match clouds.frag.glsl
+    // Push constant block - must match clouds.frag.glsl
     struct CloudPush {
         glm::vec4 cloudColor;     // xyz = DBC-derived base cloud color, w = unused
         glm::vec4 sunDirDensity;  // xyz = sun direction, w = density

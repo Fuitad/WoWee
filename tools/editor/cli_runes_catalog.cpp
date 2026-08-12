@@ -1,4 +1,6 @@
 #include "cli_runes_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -18,20 +20,6 @@ namespace cli {
 
 namespace {
 
-std::string stripWrunExt(std::string base) {
-    stripExt(base, ".wrun");
-    return base;
-}
-
-bool saveOrError(const wowee::pipeline::WoweeRuneCost& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeRuneCostLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wrun\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeRuneCost& c,
                      const std::string& base) {
@@ -44,9 +32,9 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterRuneCosts";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWrunExt(base);
+    base = cli::withoutExt(base, ".wrun");
     auto c = wowee::pipeline::WoweeRuneCostLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-rune")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeRuneCostLoader>(c, base, "gen-rune", ".wrun")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -55,9 +43,9 @@ int handleGenBlood(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "BloodTreeRuneCosts";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWrunExt(base);
+    base = cli::withoutExt(base, ".wrun");
     auto c = wowee::pipeline::WoweeRuneCostLoader::makeBlood(name);
-    if (!saveOrError(c, base, "gen-rune-blood")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeRuneCostLoader>(c, base, "gen-rune-blood", ".wrun")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -66,9 +54,9 @@ int handleGenFrost(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "FrostTreeRuneCosts";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWrunExt(base);
+    base = cli::withoutExt(base, ".wrun");
     auto c = wowee::pipeline::WoweeRuneCostLoader::makeFrost(name);
-    if (!saveOrError(c, base, "gen-rune-frost")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeRuneCostLoader>(c, base, "gen-rune-frost", ".wrun")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -76,10 +64,9 @@ int handleGenFrost(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWrunExt(base);
+    base = cli::withoutExt(base, ".wrun");
     if (!wowee::pipeline::WoweeRuneCostLoader::exists(base)) {
-        std::fprintf(stderr, "WRUN not found: %s.wrun\n", base.c_str());
-        return 1;
+        return reportMissing("WRUN", base, ".wrun");
     }
     auto c = wowee::pipeline::WoweeRuneCostLoader::load(base);
     if (jsonOut) {
@@ -134,66 +121,38 @@ int handleExportJson(int& i, int argc, char** argv) {
     // open format. Each rune cost emits all 9 scalar fields
     // plus a dual int + name form for spellTreeBranch so
     // hand-edits can use either representation.
-    std::string base = argv[++i];
-    std::string outPath;
-    if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWrunExt(base);
-    if (outPath.empty()) outPath = base + ".wrun.json";
-    if (!wowee::pipeline::WoweeRuneCostLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wrun-json: WRUN not found: %s.wrun\n", base.c_str());
-        return 1;
-    }
-    auto c = wowee::pipeline::WoweeRuneCostLoader::load(base);
-    nlohmann::json j;
-    j["name"] = c.name;
-    nlohmann::json arr = nlohmann::json::array();
-    for (const auto& e : c.entries) {
-        arr.push_back({
-            {"runeCostId", e.runeCostId},
-            {"spellId", e.spellId},
-            {"name", e.name},
-            {"description", e.description},
-            {"bloodCost", e.bloodCost},
-            {"frostCost", e.frostCost},
-            {"unholyCost", e.unholyCost},
-            {"anyDeathConvertCost", e.anyDeathConvertCost},
-            {"runicPowerCost", e.runicPowerCost},
-            {"spellTreeBranch", e.spellTreeBranch},
-            {"spellTreeBranchName", wowee::pipeline::WoweeRuneCost::spellTreeBranchName(e.spellTreeBranch)},
+    return cli::exportCatalogJson<wowee::pipeline::WoweeRuneCostLoader>(
+        i, argc, argv, "wrun", "WRUN", "costs  ",
+        [](const auto& c) {
+        nlohmann::json j;
+        j["name"] = c.name;
+        nlohmann::json arr = nlohmann::json::array();
+        for (const auto& e : c.entries) {
+            arr.push_back({
+                {"runeCostId", e.runeCostId},
+                {"spellId", e.spellId},
+                {"name", e.name},
+                {"description", e.description},
+                {"bloodCost", e.bloodCost},
+                {"frostCost", e.frostCost},
+                {"unholyCost", e.unholyCost},
+                {"anyDeathConvertCost", e.anyDeathConvertCost},
+                {"runicPowerCost", e.runicPowerCost},
+                {"spellTreeBranch", e.spellTreeBranch},
+                {"spellTreeBranchName", wowee::pipeline::WoweeRuneCost::spellTreeBranchName(e.spellTreeBranch)},
+            });
+        }
+        j["entries"] = arr;
+            return j;
         });
-    }
-    j["entries"] = arr;
-    std::ofstream out(outPath);
-    if (!out) {
-        std::fprintf(stderr,
-            "export-wrun-json: cannot write %s\n", outPath.c_str());
-        return 1;
-    }
-    out << j.dump(2) << "\n";
-    out.close();
-    std::printf("Wrote %s\n", outPath.c_str());
-    std::printf("  source : %s.wrun\n", base.c_str());
-    std::printf("  costs  : %zu\n", c.entries.size());
-    return 0;
 }
 
 int handleImportJson(int& i, int argc, char** argv) {
     std::string jsonPath = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = jsonPath;
-        std::string suffix = ".wrun.json";
-        if (outBase.size() > suffix.size() &&
-            outBase.substr(outBase.size() - suffix.size()) == suffix) {
-            outBase = outBase.substr(0, outBase.size() - suffix.size());
-        } else if (outBase.size() > 5 &&
-                   outBase.substr(outBase.size() - 5) == ".json") {
-            outBase = outBase.substr(0, outBase.size() - 5);
-        }
-    }
-    outBase = stripWrunExt(outBase);
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(jsonPath, ".wrun");
+    outBase = cli::withoutExt(outBase, ".wrun");
     std::ifstream in(jsonPath);
     if (!in) {
         std::fprintf(stderr,
@@ -255,112 +214,71 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWrunExt(base);
-    if (!wowee::pipeline::WoweeRuneCostLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wrun: WRUN not found: %s.wrun\n", base.c_str());
-        return 1;
-    }
-    auto c = wowee::pipeline::WoweeRuneCostLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    std::vector<uint32_t> idsSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.runeCostId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.runeCostId == 0)
-            errors.push_back(ctx + ": runeCostId is 0");
-        if (e.name.empty())
-            errors.push_back(ctx + ": name is empty");
-        if (e.spellId == 0)
-            errors.push_back(ctx +
-                ": spellId is 0 (rune cost not bound to a WSPL spell)");
-        if (e.spellTreeBranch > wowee::pipeline::WoweeRuneCost::Generic) {
-            errors.push_back(ctx + ": spellTreeBranch " +
-                std::to_string(e.spellTreeBranch) + " not in 0..3");
-        }
-        // A DK has 6 runes total (2 of each kind) — a single
-        // ability cost shouldn't exceed 2 of any one type
-        // because the system can't satisfy it.
-        if (e.bloodCost > 2)
-            errors.push_back(ctx + ": bloodCost " +
-                std::to_string(e.bloodCost) + " exceeds 2 (DK only "
-                "has 2 blood runes)");
-        if (e.frostCost > 2)
-            errors.push_back(ctx + ": frostCost " +
-                std::to_string(e.frostCost) + " exceeds 2");
-        if (e.unholyCost > 2)
-            errors.push_back(ctx + ": unholyCost " +
-                std::to_string(e.unholyCost) + " exceeds 2");
-        // A spell with no rune cost AND no runic-power cost
-        // is weird — every DK ability either consumes
-        // resources, generates them, or applies a stance.
-        // We don't have stance info here, so warn.
-        bool noResourceCost = e.bloodCost == 0 && e.frostCost == 0 &&
-                              e.unholyCost == 0 &&
-                              e.anyDeathConvertCost == 0 &&
-                              e.runicPowerCost == 0;
-        if (noResourceCost) {
-            warnings.push_back(ctx +
-                ": no rune or runic-power cost — verify this is "
-                "intentional (passive / stance / forms only)");
-        }
-        // RP cost > 100 isn't possible — max RP cap is 100.
-        if (e.runicPowerCost > 100) {
-            errors.push_back(ctx +
-                ": runicPowerCost " +
-                std::to_string(e.runicPowerCost) +
-                " exceeds 100 (DK runic power max)");
-        }
-        if (e.runicPowerCost < -25) {
-            warnings.push_back(ctx +
-                ": runicPowerCost " +
-                std::to_string(e.runicPowerCost) +
-                " generates more than 25 RP per cast — unusual");
-        }
-        for (uint32_t prev : idsSeen) {
-            if (prev == e.runeCostId) {
-                errors.push_back(ctx + ": duplicate runeCostId");
-                break;
+    return cli::validateCatalog<wowee::pipeline::WoweeRuneCostLoader>(
+        i, argc, argv, "wrun", "WRUN",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.runeCostId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.runeCostId == 0)
+                errors.push_back(ctx + ": runeCostId is 0");
+            if (e.name.empty())
+                errors.push_back(ctx + ": name is empty");
+            if (e.spellId == 0)
+                errors.push_back(ctx +
+                    ": spellId is 0 (rune cost not bound to a WSPL spell)");
+            if (e.spellTreeBranch > wowee::pipeline::WoweeRuneCost::Generic) {
+                errors.push_back(ctx + ": spellTreeBranch " +
+                    std::to_string(e.spellTreeBranch) + " not in 0..3");
             }
+            // A DK has 6 runes total (2 of each kind) - a single
+            // ability cost shouldn't exceed 2 of any one type
+            // because the system can't satisfy it.
+            if (e.bloodCost > 2)
+                errors.push_back(ctx + ": bloodCost " +
+                    std::to_string(e.bloodCost) + " exceeds 2 (DK only "
+                    "has 2 blood runes)");
+            if (e.frostCost > 2)
+                errors.push_back(ctx + ": frostCost " +
+                    std::to_string(e.frostCost) + " exceeds 2");
+            if (e.unholyCost > 2)
+                errors.push_back(ctx + ": unholyCost " +
+                    std::to_string(e.unholyCost) + " exceeds 2");
+            // A spell with no rune cost AND no runic-power cost
+            // is weird - every DK ability either consumes
+            // resources, generates them, or applies a stance.
+            // We don't have stance info here, so warn.
+            bool noResourceCost = e.bloodCost == 0 && e.frostCost == 0 &&
+                                  e.unholyCost == 0 &&
+                                  e.anyDeathConvertCost == 0 &&
+                                  e.runicPowerCost == 0;
+            if (noResourceCost) {
+                warnings.push_back(ctx +
+                    ": no rune or runic-power cost - verify this is "
+                    "intentional (passive / stance / forms only)");
+            }
+            // RP cost > 100 isn't possible - max RP cap is 100.
+            if (e.runicPowerCost > 100) {
+                errors.push_back(ctx +
+                    ": runicPowerCost " +
+                    std::to_string(e.runicPowerCost) +
+                    " exceeds 100 (DK runic power max)");
+            }
+            if (e.runicPowerCost < -25) {
+                warnings.push_back(ctx +
+                    ": runicPowerCost " +
+                    std::to_string(e.runicPowerCost) +
+                    " generates more than 25 RP per cast - unusual");
+            }
+            if (!idsSeen.add(e.runeCostId)) errors.push_back(ctx + ": duplicate runeCostId");
         }
-        idsSeen.push_back(e.runeCostId);
-    }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wrun"] = base + ".wrun";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wrun: %s.wrun\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu rune costs, all runeCostIds unique, all costs within DK budget\n",
-                    c.entries.size());
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+            return formatted("%zu rune costs, all runeCostIds unique, all costs within DK budget", c.entries.size());
+        });
 }
 
 } // namespace

@@ -4,7 +4,7 @@ namespace wowee {
 namespace editor {
 namespace cli {
 
-// Dispatch the audio-config audit handlers — print the
+// Dispatch the audio-config audit handlers - print the
 // music / day-ambience / night-ambience / volume settings
 // stored in zone.json. Useful for spot-checking that a zone
 // is wired up to the right audio assets, and for catching

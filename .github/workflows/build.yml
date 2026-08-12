@@ -9,10 +9,6 @@ on:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  WOWEE_AMD_FSR2_REPO: https://github.com/GPUOpen-Effects/FidelityFX-FSR2.git
-  WOWEE_AMD_FSR2_REF: master
-  WOWEE_FFX_SDK_REPO: https://github.com/Kelsidavis/FidelityFX-SDK.git
-  WOWEE_FFX_SDK_REF: main
 
 jobs:
   build:
@@ -66,40 +62,19 @@ jobs:
           libx11-dev
         sudo apt-get install -y libstorm-dev || true
 
-    - name: Fetch AMD FSR2 SDK
-      run: |
-        rm -rf extern/FidelityFX-FSR2
-        git clone --depth 1 --branch "${WOWEE_AMD_FSR2_REF}" "${WOWEE_AMD_FSR2_REPO}" extern/FidelityFX-FSR2
-        rm -rf extern/FidelityFX-SDK
-        git clone --depth 1 --branch "${WOWEE_FFX_SDK_REF}" "${WOWEE_FFX_SDK_REPO}" extern/FidelityFX-SDK
-
-    - name: Check AMD FSR2 Vulkan permutation headers
-      run: |
-        set -euo pipefail
-        SDK_DIR="$PWD/extern/FidelityFX-FSR2"
-        OUT_DIR="$SDK_DIR/src/ffx-fsr2-api/vk/shaders"
-        if [ -f "$OUT_DIR/ffx_fsr2_accumulate_pass_permutations.h" ]; then
-          echo "AMD FSR2 Vulkan permutation headers detected."
-        else
-          echo "AMD FSR2 Vulkan permutation headers not found in SDK checkout."
-          echo "WoWee CMake will bootstrap vendored headers."
-        fi
-
-    - name: Check FidelityFX-SDK Kits framegen headers
-      run: |
-        set -euo pipefail
-        KITS_DIR="$PWD/extern/FidelityFX-SDK/Kits/FidelityFX"
-        test -f "$KITS_DIR/upscalers/fsr3/include/ffx_fsr3upscaler.h"
-        test -f "$KITS_DIR/framegeneration/fsr3/include/ffx_frameinterpolation.h"
-        test -f "$KITS_DIR/framegeneration/fsr3/include/ffx_opticalflow.h"
-        test -f "$KITS_DIR/backend/vk/ffx_vk.h"
-        echo "FidelityFX-SDK Kits framegen headers detected."
-
-    - name: Configure (AMD ON)
-      run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DWOWEE_ENABLE_AMD_FSR2=ON -DWOWEE_BUILD_TESTS=ON
+    - name: Configure
+      run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DWOWEE_BUILD_TESTS=ON
 
     - name: Assert AMD FSR2 target
-      run: cmake --build build --target wowee_fsr2_amd_vk --parallel ${{ matrix.build_jobs }}
+      run: |
+        set -euo pipefail
+        # Built only when the backend is enabled. It is off by default now,
+        # so the target does not exist unless someone asks for it.
+        if cmake --build build --target help | grep -q 'wowee_fsr2_amd_vk'; then
+          cmake --build build --target wowee_fsr2_amd_vk --parallel ${{ matrix.build_jobs }}
+        else
+          echo "AMD FSR2 backend disabled; nothing to assert."
+        fi
 
     - name: Assert AMD FSR3 framegen probe target (if present)
       run: |
@@ -113,6 +88,15 @@ jobs:
     - name: Build
       run: cmake --build build --parallel ${{ matrix.build_jobs }}
 
+    # The editor is off the default build - it is large and ordinary client
+    # work does not need it - so nothing was compiling it, here or locally, and
+    # it rotted: twenty files lost an include and a helper lost a method that
+    # twelve callers still used, and it sat broken with no signal at all.
+    # Built on this job only; one platform is enough to catch a missing include
+    # or a changed signature, and the other jobs stay as quick as they were.
+    - name: Build editor
+      run: cmake --build build --target wowee_editor --parallel ${{ matrix.build_jobs }}
+
     - name: Run tests
       run: cd build && ctest --output-on-failure
 
@@ -120,7 +104,7 @@ jobs:
       run: cd build && cpack -G DEB
 
     - name: Upload DEB
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         name: wowee-linux-${{ matrix.arch }}-deb
         path: build/wowee-*.deb
@@ -147,13 +131,6 @@ jobs:
         brew install cmake pkg-config sdl2 glm openssl@3 zlib ffmpeg unicorn \
           stormlib vulkan-loader vulkan-headers molten-vk shaderc
 
-    - name: Fetch AMD FSR2 SDK
-      run: |
-        rm -rf extern/FidelityFX-FSR2
-        git clone --depth 1 --branch "${WOWEE_AMD_FSR2_REF}" "${WOWEE_AMD_FSR2_REPO}" extern/FidelityFX-FSR2
-        rm -rf extern/FidelityFX-SDK
-        git clone --depth 1 --branch "${WOWEE_FFX_SDK_REF}" "${WOWEE_FFX_SDK_REPO}" extern/FidelityFX-SDK
-
     - name: Configure
       run: |
         BREW=$(brew --prefix)
@@ -164,11 +141,19 @@ jobs:
           -DCMAKE_OSX_DEPLOYMENT_TARGET=13.0 \
           -DCMAKE_PREFIX_PATH="$BREW" \
           -DOPENSSL_ROOT_DIR="$(brew --prefix openssl@3)" \
-          -DWOWEE_ENABLE_AMD_FSR2=ON \
+          \
           -DWOWEE_BUILD_TESTS=ON
 
     - name: Assert AMD FSR2 target
-      run: cmake --build build --target wowee_fsr2_amd_vk --parallel "$(sysctl -n hw.logicalcpu)"
+      run: |
+        set -euo pipefail
+        # Built only when the backend is enabled. It is off by default now,
+        # so the target does not exist unless someone asks for it.
+        if cmake --build build --target help | grep -q 'wowee_fsr2_amd_vk'; then
+          cmake --build build --target wowee_fsr2_amd_vk --parallel "$(sysctl -n hw.logicalcpu)"
+        else
+          echo "AMD FSR2 backend disabled; nothing to assert."
+        fi
 
     - name: Assert AMD FSR3 framegen probe target (if present)
       run: |
@@ -397,7 +382,7 @@ jobs:
           --verbose=2 Wowee.dmg
 
     - name: Upload DMG
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         name: wowee-macos-${{ matrix.arch }}-dmg
         path: Wowee.dmg
@@ -423,7 +408,7 @@ jobs:
         cache: false
 
     # Install packages in a separate retried step rather than the action's `install:`
-    # list — the ARM MSYS2 mirrors intermittently drop the initial download/keyring
+    # list - the ARM MSYS2 mirrors intermittently drop the initial download/keyring
     # sync, which fails the whole setup with no retry. Mirrors the release workflow.
     - name: Install dependencies with mirror retry
       shell: msys2 {0}
@@ -459,7 +444,7 @@ jobs:
       shell: msys2 {0}
       run: |
         git clone --depth 1 https://github.com/ladislav-zezula/StormLib.git /tmp/StormLib
-        # Disable x86 inline asm in bundled libtomcrypt (bswapl/movl) —
+        # Disable x86 inline asm in bundled libtomcrypt (bswapl/movl) -
         # __MINGW32__ is defined on CLANGARM64 which incorrectly enables x86 asm
         cmake -S /tmp/StormLib -B /tmp/StormLib/build -G Ninja \
           -DCMAKE_BUILD_TYPE=Release \
@@ -470,21 +455,21 @@ jobs:
         cmake --build /tmp/StormLib/build --parallel $(nproc)
         cmake --install /tmp/StormLib/build
 
-    - name: Fetch AMD FSR2 SDK
-      shell: msys2 {0}
-      run: |
-        rm -rf extern/FidelityFX-FSR2
-        git clone --depth 1 --branch "${WOWEE_AMD_FSR2_REF}" "${WOWEE_AMD_FSR2_REPO}" extern/FidelityFX-FSR2
-        rm -rf extern/FidelityFX-SDK
-        git clone --depth 1 --branch "${WOWEE_FFX_SDK_REF}" "${WOWEE_FFX_SDK_REPO}" extern/FidelityFX-SDK
-
     - name: Configure
       shell: msys2 {0}
-      run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DWOWEE_ENABLE_AMD_FSR2=ON
+      run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 
     - name: Assert AMD FSR2 target
       shell: msys2 {0}
-      run: cmake --build build --target wowee_fsr2_amd_vk --parallel $(nproc)
+      run: |
+        set -euo pipefail
+        # Built only when the backend is enabled. It is off by default now,
+        # so the target does not exist unless someone asks for it.
+        if cmake --build build --target help | grep -q 'wowee_fsr2_amd_vk'; then
+          cmake --build build --target wowee_fsr2_amd_vk --parallel $(nproc)
+        else
+          echo "AMD FSR2 backend disabled; nothing to assert."
+        fi
 
     - name: Assert AMD FSR3 framegen probe target (if present)
       shell: msys2 {0}
@@ -512,7 +497,7 @@ jobs:
       run: cd build && cpack -G ZIP
 
     - name: Upload ZIP
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         name: wowee-windows-arm64-zip
         path: build/wowee-*.zip
@@ -564,21 +549,21 @@ jobs:
         cmake --build /tmp/StormLib/build --parallel $(nproc)
         cmake --install /tmp/StormLib/build
 
-    - name: Fetch AMD FSR2 SDK
-      shell: msys2 {0}
-      run: |
-        rm -rf extern/FidelityFX-FSR2
-        git clone --depth 1 --branch "${WOWEE_AMD_FSR2_REF}" "${WOWEE_AMD_FSR2_REPO}" extern/FidelityFX-FSR2
-        rm -rf extern/FidelityFX-SDK
-        git clone --depth 1 --branch "${WOWEE_FFX_SDK_REF}" "${WOWEE_FFX_SDK_REPO}" extern/FidelityFX-SDK
-
     - name: Configure
       shell: msys2 {0}
-      run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DWOWEE_ENABLE_AMD_FSR2=ON
+      run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 
     - name: Assert AMD FSR2 target
       shell: msys2 {0}
-      run: cmake --build build --target wowee_fsr2_amd_vk --parallel $(nproc)
+      run: |
+        set -euo pipefail
+        # Built only when the backend is enabled. It is off by default now,
+        # so the target does not exist unless someone asks for it.
+        if cmake --build build --target help | grep -q 'wowee_fsr2_amd_vk'; then
+          cmake --build build --target wowee_fsr2_amd_vk --parallel $(nproc)
+        else
+          echo "AMD FSR2 backend disabled; nothing to assert."
+        fi
 
     - name: Assert AMD FSR3 framegen probe target (if present)
       shell: msys2 {0}
@@ -606,7 +591,7 @@ jobs:
       run: cd build && cpack -G NSIS
 
     - name: Upload installer
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         name: wowee-windows-x86-64-installer
         path: build/wowee-*.exe

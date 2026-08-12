@@ -1,4 +1,5 @@
 #include "ui/spellbook_screen.hpp"
+#include "ui/ui_upload_budget.hpp"
 #include "ui/ui_colors.hpp"
 #include "ui/keybinding_manager.hpp"
 #include "core/input.hpp"
@@ -174,7 +175,9 @@ void SpellbookScreen::loadSpellDBC(pipeline::AssetManager* assetManager) {
         try { descriptionField = (*spellL)["Description"]; } catch (...) {}
         try { powerTypeField   = (*spellL)["PowerType"]; } catch (...) {}
         try { manaCostField    = (*spellL)["ManaCost"]; } catch (...) {}
-        try { castTimeIdxField = (*spellL)["CastingTimeIndex"]; } catch (...) {}
+        // From the file's own shape rather than the expansion's name for it:
+        // Classic and Turtle named this 15, which is RequiresSpellFocus.
+        castTimeIdxField = pipeline::detectSpellTimingFields(dbc.get(), spellL).castingTimeIndex;
         try { rangeIdxField    = (*spellL)["RangeIndex"]; } catch (...) {}
         try { casterAuraStateField = (*spellL)["CasterAuraState"]; } catch (...) {}
         try { casterAuraStateNotField = (*spellL)["CasterAuraStateNot"]; } catch (...) {}
@@ -262,9 +265,12 @@ void SpellbookScreen::getSpellAuraStateInfo(uint32_t spellId, pipeline::AssetMan
 
 void SpellbookScreen::loadSpellIconDBC(pipeline::AssetManager* assetManager) {
     if (iconDbLoaded) return;
-    iconDbLoaded = true;
 
     if (!assetManager || !assetManager->isInitialized()) return;
+    // Not an attempt: the assets are not up yet, and a caller can reach
+    // this before they are. Latching here recorded "read" for a file
+    // never opened, and disabled it for the rest of the session.
+    iconDbLoaded = true;
 
     auto dbc = assetManager->loadDBC("SpellIcon.dbc");
     if (!dbc || !dbc->isLoaded()) return;
@@ -281,9 +287,12 @@ void SpellbookScreen::loadSpellIconDBC(pipeline::AssetManager* assetManager) {
 
 void SpellbookScreen::loadSkillLineDBCs(pipeline::AssetManager* assetManager) {
     if (skillLineDbLoaded) return;
-    skillLineDbLoaded = true;
 
     if (!assetManager || !assetManager->isInitialized()) return;
+    // Not an attempt: the assets are not up yet, and a caller can reach
+    // this before they are. Latching here recorded "read" for a file
+    // never opened, and disabled it for the rest of the session.
+    skillLineDbLoaded = true;
 
     auto skillLineDbc = assetManager->loadDBC("SkillLine.dbc");
     const auto* slL = pipeline::getActiveDBCLayout() ? pipeline::getActiveDBCLayout()->getLayout("SkillLine") : nullptr;
@@ -470,13 +479,9 @@ VkDescriptorSet SpellbookScreen::getSpellIcon(uint32_t iconId, pipeline::AssetMa
 
     // Rate-limit GPU uploads to avoid a multi-frame stall when switching tabs.
     // Icons not loaded this frame will be retried next frame (progressive load).
-    static int loadsThisFrame = 0;
-    static int lastImGuiFrame = -1;
-    int curFrame = ImGui::GetFrameCount();
-    if (curFrame != lastImGuiFrame) { loadsThisFrame = 0; lastImGuiFrame = curFrame; }
-    // Defer without caching — returning null here allows retry next frame when
+    // Defer without caching - returning null here allows retry next frame when
     // the budget resets, rather than permanently blacklisting the icon as missing
-    if (loadsThisFrame >= 4) return VK_NULL_HANDLE;
+    if (!claimUiTextureUpload()) return VK_NULL_HANDLE;
 
     auto pit = spellIconPaths.find(iconId);
     if (pit == spellIconPaths.end()) {
@@ -504,7 +509,6 @@ VkDescriptorSet SpellbookScreen::getSpellIcon(uint32_t iconId, pipeline::AssetMa
         return VK_NULL_HANDLE;
     }
 
-    ++loadsThisFrame;
     VkDescriptorSet ds = vkCtx->uploadImGuiTexture(image.data.data(), image.width, image.height);
     spellIconCache[iconId] = ds;
     return ds;
@@ -533,7 +537,7 @@ void SpellbookScreen::renderSpellTooltip(const SpellInfo* info, game::GameHandle
         ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f), "Passive");
     }
 
-    // Spell school — only show for non-physical schools (physical is the default/implicit)
+    // Spell school - only show for non-physical schools (physical is the default/implicit)
     if (info->schoolMask != 0 && info->schoolMask != 1 /*physical*/) {
         struct SchoolEntry { uint32_t mask; const char* name; ImVec4 color; };
         static constexpr SchoolEntry kSchools[] = {
@@ -564,13 +568,10 @@ void SpellbookScreen::renderSpellTooltip(const SpellInfo* info, game::GameHandle
         // Left: resource cost (with talent flat/pct modifier applied)
         char costBuf[64] = "";
         if (info->manaCost > 0) {
-            const char* powerName = "Mana";
-            switch (info->powerType) {
-                case 1: powerName = "Rage";   break;
-                case 3: powerName = "Energy"; break;
-                case 4: powerName = "Focus";  break;
-                default: break;
-            }
+            // Was its own table with Focus at 4, which is Happiness - a spell
+            // costing Focus said "Mana" and one costing Happiness said "Focus".
+            const char* powerName = game::powerTypeName(info->powerType);
+            if (!powerName) powerName = "Mana";
             // Apply SMSG_SET_FLAT/PCT_SPELL_MODIFIER Cost modifier (SpellModOp::Cost = 14)
             int32_t flatCost = gameHandler.getSpellFlatMod(game::GameHandler::SpellModOp::Cost);
             int32_t pctCost  = gameHandler.getSpellPctMod(game::GameHandler::SpellModOp::Cost);
@@ -624,14 +625,14 @@ void SpellbookScreen::renderSpellTooltip(const SpellInfo* info, game::GameHandle
         ImGui::TextColored(ui::colors::kRed, "Cooldown: %.1fs", cd);
     }
 
-    // Description — resolve WoW $-tokens (e.g. "increased by $s1") to concrete values.
+    // Description - resolve WoW $-tokens (e.g. "increased by $s1") to concrete values.
     if (!info->description.empty()) {
         ImGui::Spacing();
         std::string desc = gameHandler.formatSpellDescription(info->spellId, info->description);
         ImGui::TextWrapped("%s", desc.c_str());
     }
 
-    // Usage hints — only shown when browsing the spellbook, not on action bar hover
+    // Usage hints - only shown when browsing the spellbook, not on action bar hover
     if (!info->isPassive() && showUsageHints) {
         ImGui::Spacing();
         ImGui::TextColored(ui::colors::kBrightGreen, "Drag to action bar");
@@ -771,11 +772,8 @@ void SpellbookScreen::render(game::GameHandler& gameHandler, pipeline::AssetMana
                                 }
                             }
                             if (ImGui::MenuItem("Copy Spell Link")) {
-                                char linkBuf[256];
-                                snprintf(linkBuf, sizeof(linkBuf),
-                                    "|cffffd000|Hspell:%u|h[%s]|h|r",
-                                    info->spellId, info->name.c_str());
-                                pendingChatSpellLink_ = linkBuf;
+                                pendingChatSpellLink_ =
+                                    game::spellChatLink(info->spellId, info->name);
                             }
                             ImGui::EndPopup();
                         }
@@ -869,12 +867,10 @@ void SpellbookScreen::render(game::GameHandler& gameHandler, pipeline::AssetMana
                         if (rowHovered) {
                             // Shift-click to insert spell link into chat
                             if (rowClicked && ImGui::GetIO().KeyShift && !info->name.empty()) {
-                                // WoW spell link format: |cffffd000|Hspell:<spellId>|h[Name]|h|r
-                                char linkBuf[256];
-                                snprintf(linkBuf, sizeof(linkBuf),
-                                    "|cffffd000|Hspell:%u|h[%s]|h|r",
-                                    info->spellId, info->name.c_str());
-                                pendingChatSpellLink_ = linkBuf;
+                                // Retail writes a spell link in ff71d5ff; this said
+                                // ffd000, which is the gold an item name uses.
+                                pendingChatSpellLink_ =
+                                    game::spellChatLink(info->spellId, info->name);
                             }
                             // Start drag on click (not passive, not shift-click)
                             else if (rowClicked && !isPassive && !ImGui::GetIO().KeyShift) {

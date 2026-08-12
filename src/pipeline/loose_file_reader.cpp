@@ -33,15 +33,5 @@ bool LooseFileReader::fileExists(const std::string& filesystemPath) {
     std::error_code ec;
     return std::filesystem::exists(filesystemPath, ec);
 }
-
-uint64_t LooseFileReader::getFileSize(const std::string& filesystemPath) {
-    std::error_code ec;
-    auto size = std::filesystem::file_size(filesystemPath, ec);
-    if (ec) {
-        return 0;
-    }
-    return static_cast<uint64_t>(size);
-}
-
 } // namespace pipeline
 } // namespace wowee

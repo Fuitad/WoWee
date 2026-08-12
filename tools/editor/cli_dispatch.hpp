@@ -7,7 +7,7 @@ namespace cli {
 // Try every registered handler family in turn against argv[i].
 // Returns true if a handler claimed the flag (sets outRc); the
 // caller should return outRc immediately. Returns false if no
-// handler matched — the caller falls through to its own
+// handler matched - the caller falls through to its own
 // inline-handler chain (for handlers needing extra parameters
 // like dataPath, or for the GUI-state args --data / --adt).
 //

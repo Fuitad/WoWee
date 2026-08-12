@@ -3,6 +3,8 @@
 #include "ui/xml_parser.hpp"
 #include "ui/framexml_emitter.hpp"
 
+#include <fstream>
+#include <iterator>
 #include <string>
 
 using namespace wowee::ui;
@@ -83,6 +85,122 @@ TEST_CASE("A frame emits CreateFrame with its type and parent", "[framexml][emit
     REQUIRE(has(r.lua, "CreateFrame(\"Button\", \"MyButton\", UIParent)"));
 }
 
+// ── The real files ──────────────────────────────────────────────────────────
+//
+// The cases above emit XML written for them, which proves the emitter handles a
+// shape and nothing about whether it handles Blizzard's. characterframe.xml has
+// been reported three times as a window that will not open, and every link in
+// ToggleCharacter's chain reads correct - so the question worth asking here is
+// the one that can be answered without the game: does the frame get built at
+// all, and does its first tab get the id ToggleCharacter reads?
+
+namespace {
+/// A FrameXML file as shipped, or an empty node when it is not there - the
+/// tests using it skip rather than fail, since the interface is data and a
+/// checkout without it is not a broken emitter.
+XmlNode parseShippedFile(const std::string& name) {
+    XmlNode root;
+    // Anchored to the source tree rather than the working directory. ctest runs
+    // from the build directory, where a relative path finds nothing and the
+    // test passes by skipping - which is worse than not having it.
+    std::ifstream in(std::string(WOWEE_SOURCE_DIR) +
+                     "/Data/interface/framexml/" + name);
+    if (!in) return root;
+    std::string src((std::istreambuf_iterator<char>(in)),
+                    std::istreambuf_iterator<char>());
+    std::string err;
+    parseXml(src, root, err);
+    return root;
+}
+}  // namespace
+
+TEST_CASE("characterframe.xml builds the frame the C key opens",
+          "[framexml][emit][shipped]") {
+    XmlNode root = parseShippedFile("characterframe.xml");
+    if (root.children.empty()) return;   // interface data not present
+    const EmitResult r = emitFrameXml(root);
+
+    REQUIRE(has(r.lua, "CreateFrame(\"Frame\", \"CharacterFrame\", UIParent)"));
+    // Hidden in its XML, which is what makes ToggleCharacter take the show
+    // branch rather than the hide one on the first press.
+    REQUIRE(has(r.lua, ":Hide()"));
+}
+
+TEST_CASE("paperdollframe.xml builds the tab and gives it its id",
+          "[framexml][emit][shipped]") {
+    XmlNode root = parseShippedFile("paperdollframe.xml");
+    if (root.children.empty()) return;
+    const EmitResult r = emitFrameXml(root);
+
+    REQUIRE(has(r.lua, "\"PaperDollFrame\""));
+    // ToggleCharacter reads subFrame:GetID() and hands it to
+    // PanelTemplates_SetTab. The XML says id="1"; without it the tab is zero
+    // and the wrong one is selected.
+    REQUIRE(has(r.lua, ":SetID(1)"));
+}
+
+TEST_CASE("A message frame keeps as many lines as it asks for",
+          "[framexml][emit]") {
+    // Twenty-two frames ask for three. Without this each kept the default of a
+    // hundred and twenty-eight and drew far past the box drawn for it.
+    XmlNode root = parseOrFail(
+        "<Ui><MessageFrame name=\"M\" parent=\"UIParent\" maxLines=\"3\"/></Ui>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE(has(r.lua, ":SetMaxLines(3)"));
+}
+
+TEST_CASE("A frame that says nothing about its lines is left alone",
+          "[framexml][emit]") {
+    XmlNode root = parseOrFail(
+        "<Ui><MessageFrame name=\"M\" parent=\"UIParent\"/></Ui>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE_FALSE(has(r.lua, "SetMaxLines"));
+}
+
+TEST_CASE("A binding becomes a listed command and a callable body",
+          "[framexml][emit][bindings]") {
+    XmlNode root = parseOrFail(
+        "<Bindings><Binding name=\"JUMP\" header=\"MOVEMENT\">"
+        "DoJump();</Binding></Bindings>");
+    const EmitResult r = emitFrameXml(root);
+    // The header opens a row of its own, before the command that declared it.
+    REQUIRE(has(r.lua, "\"HEADER_MOVEMENT\""));
+    REQUIRE(has(r.lua, "\"JUMP\""));
+    REQUIRE(r.lua.find("HEADER_MOVEMENT") < r.lua.find("+1] = \"JUMP\""));
+    REQUIRE(has(r.lua, "__WoweeBindingScripts[\"JUMP\"] = function(keystate)"));
+    REQUIRE(has(r.lua, "DoJump();"));
+}
+
+TEST_CASE("A binding without a header adds no row of its own",
+          "[framexml][emit][bindings]") {
+    XmlNode root = parseOrFail("<Bindings><Binding name=\"JUMP\"/></Bindings>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE_FALSE(has(r.lua, "HEADER"));
+    REQUIRE(has(r.lua, "\"JUMP\""));
+    // Nothing to run is not the same as a body that does nothing: RunBinding
+    // has to be able to tell them apart.
+    REQUIRE_FALSE(has(r.lua, "__WoweeBindingScripts[\"JUMP\"]"));
+}
+
+TEST_CASE("runOnUp is carried, because a release means something to some",
+          "[framexml][emit][bindings]") {
+    XmlNode root = parseOrFail(
+        "<Bindings><Binding name=\"MOVEFORWARD\" runOnUp=\"true\">go()</Binding>"
+        "<Binding name=\"SCREENSHOT\">snap()</Binding></Bindings>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE(has(r.lua, "__WoweeBindingRunOnUp[\"MOVEFORWARD\"] = true"));
+    REQUIRE_FALSE(has(r.lua, "__WoweeBindingRunOnUp[\"SCREENSHOT\"]"));
+}
+
+TEST_CASE("A bindings file is not reported as the wrong kind of document",
+          "[framexml][emit][bindings]") {
+    // <Bindings> is a root in its own right. Warning about it would say the
+    // file is broken when it is exactly what it should be.
+    XmlNode root = parseOrFail("<Bindings><Binding name=\"JUMP\"/></Bindings>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE(r.warnings.empty());
+}
+
 TEST_CASE("Size and anchors become the same calls a script would make",
           "[framexml][emit]") {
     XmlNode root = parseOrFail(
@@ -114,6 +232,18 @@ TEST_CASE("$parent expands against the frame that owns the region",
     REQUIRE(has(r.lua, "CreateTexture(\"FooFrameBg\", \"BACKGROUND\")"));
     REQUIRE(has(r.lua, "SetTexture(\"Interface\\\\Foo\")"));
     REQUIRE(has(r.lua, ":SetAllPoints("));
+}
+
+TEST_CASE("alphaMode reaches the texture as a blend mode", "[framexml][emit]") {
+    // Art declared this way is a glow on black with no alpha channel of its
+    // own. Dropping the attribute draws it as an opaque black shape over
+    // whatever it was meant to light up.
+    XmlNode root = parseOrFail(
+        "<Ui><Frame name=\"FooFrame\"><Layers><Layer level=\"OVERLAY\">"
+        "<Texture name=\"$parentGlow\" file=\"Interface\\Glow\" alphaMode=\"ADD\"/>"
+        "</Layer></Layers></Frame></Ui>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE(has(r.lua, ":SetBlendMode(\"ADD\")"));
 }
 
 TEST_CASE("A virtual frame becomes a template rather than a frame",
@@ -195,7 +325,7 @@ TEST_CASE("$parent inside a template resolves to the frame that inherits it",
           "[framexml][emit]") {
     // The subtlety that makes templates work at all. A region named $parentBg in
     // a template must become FooFrameBg on the frame inheriting it, not
-    // TemplateNameBg — the template's own name is never the answer, and every
+    // TemplateNameBg - the template's own name is never the answer, and every
     // frame sharing that template would collide on it if it were.
     XmlNode root = parseOrFail(
         "<Ui><Frame name=\"MyTemplate\" virtual=\"true\"><Layers><Layer>"
@@ -209,7 +339,7 @@ TEST_CASE("$parent inside a template resolves to the frame that inherits it",
 }
 
 TEST_CASE("A template installs OnLoad but does not run it", "[framexml][emit]") {
-    // A frame is loaded once, when it is finished — not once per template it
+    // A frame is loaded once, when it is finished - not once per template it
     // is built from. Running it per template fired ChatFrameEditBoxTemplate's
     // OnLoad before the edit box's own OnLoad had set self.chatFrame, which is
     // the first thing that handler indexes.
@@ -220,7 +350,7 @@ TEST_CASE("A template installs OnLoad but does not run it", "[framexml][emit]") 
         "<Frame name=\"Real\" inherits=\"T\"/></Ui>");
     const EmitResult r = emitFrameXml(root);
 
-    // Once, for the real frame — not inside the template body.
+    // Once, for the real frame - not inside the template body.
     const std::string fire = ":GetScript(\"OnLoad\")(";
     size_t count = 0;
     for (size_t at = r.lua.find(fire); at != std::string::npos;
@@ -244,14 +374,16 @@ TEST_CASE("$parent skips unnamed frames to the nearest named one",
         "</Frames></Frame></Ui>");
     const EmitResult r = emitFrameXml(root);
 
-    // Named from the template root, which is the only thing with a name.
-    REQUIRE(has(r.lua, "((self:GetName() or \"\") .. \"Name\")"));
+    // Named from the template root, which is the only thing with a name -
+    // and only if it has one, since an owner with no name lends none.
+    REQUIRE(has(r.lua, "self:GetName() .. \"Name\""));
+    REQUIRE(has(r.lua, "self:GetName() and"));
 }
 
 TEST_CASE("A frame can fill its parent instead of anchoring", "[framexml][emit]") {
     // Honoured for regions and ignored for frames, which is 139 declarations
     // across 53 files. An unanchored frame falls to the centre-on-parent
-    // default with no size, so its centre is the screen's — PlayerFrame's name
+    // default with no size, so its centre is the screen's - PlayerFrame's name
     // sat in the middle of the world because two frames above it said
     // setAllPoints and nothing acted on it.
     XmlNode root = parseOrFail(
@@ -307,8 +439,8 @@ TEST_CASE("A slider carries its range, step and grip", "[framexml][emit]") {
 
 TEST_CASE("A frame's id becomes SetID", "[framexml][emit]") {
     // How a frame in a numbered set knows which one it is. FrameXML builds
-    // names out of it — PartyMemberFrame_RefreshPetDebuffs reaches for
-    // _G["PartyMemberFrame" .. self:GetID() .. "PetFrame"] — and 848 of these
+    // names out of it - PartyMemberFrame_RefreshPetDebuffs reaches for
+    // _G["PartyMemberFrame" .. self:GetID() .. "PetFrame"] - and 848 of these
     // are declared across 57 files.
     XmlNode root = parseOrFail("<Ui><Frame name=\"F\" id=\"3\"/></Ui>");
     REQUIRE(has(emitFrameXml(root).lua, ":SetID(3)"));
@@ -331,8 +463,8 @@ TEST_CASE("parentKey binds a region to a field on its owner", "[framexml][emit]"
 }
 
 TEST_CASE("A template that inherits another applies it too", "[framexml][emit]") {
-    // Templates are built from other templates constantly — 217 of FrameXML's
-    // virtual frames inherit one — and the virtual branch used to return before
+    // Templates are built from other templates constantly - 217 of FrameXML's
+    // virtual frames inherit one - and the virtual branch used to return before
     // inherits was ever emitted. InterfaceOptionsListButtonTemplate silently
     // dropped the OptionsListButtonTemplate it is built on, so it arrived with
     // no highlight texture and no size.
@@ -352,7 +484,7 @@ TEST_CASE("A template that inherits another applies it too", "[framexml][emit]")
 TEST_CASE("A frame's own $parent anchor means its parent, not itself",
           "[framexml][emit]") {
     // A sibling reference. VideoOptionsFrameCancel anchors to $parentApply,
-    // meaning the Apply button beside it on the frame holding both — not a
+    // meaning the Apply button beside it on the frame holding both - not a
     // child of the Cancel button. Resolving it against the button's own name
     // produced VideoOptionsFrameCancelApply, which nothing is called, so the
     // anchor silently fell back to the parent and the button sat in the wrong
@@ -377,7 +509,7 @@ TEST_CASE("Button art declared outside a Layer is still created",
           "[framexml][emit]") {
     // <NormalTexture> and <ButtonText> are regions like any other, just
     // declared as their own element with an implied layer and a setter. The
-    // emitter ignored all of them, so the names they declare never existed —
+    // emitter ignored all of them, so the names they declare never existed -
     // _G["DropDownList1Button1NormalText"] among them, which is what stopped
     // UIDropDownMenu loading. The highlight belongs on its own layer, and the
     // label above the art rather than under it.
@@ -395,7 +527,7 @@ TEST_CASE("Button art declared outside a Layer is still created",
     REQUIRE(has(r.lua, ":SetFontString("));
     REQUIRE(has(r.lua, "\"HIGHLIGHT\""));
     REQUIRE(has(r.lua, "\"OVERLAY\""));
-    // A font string, not a texture — the element name does not say so.
+    // A font string, not a texture - the element name does not say so.
     REQUIRE(has(r.lua, "CreateFontString(\"MyButtonNormalText\""));
 }
 
@@ -450,8 +582,8 @@ TEST_CASE("A nested frame anchors to its container, not the screen",
 
 TEST_CASE("An anchor inside a template resolves its parent at replay time",
           "[framexml][emit]") {
-    // The containing frame is not known while emitting a template — it is
-    // whichever frame inherits it — so the parent has to be asked for then.
+    // The containing frame is not known while emitting a template - it is
+    // whichever frame inherits it - so the parent has to be asked for then.
     XmlNode root = parseOrFail(
         "<Ui><Frame name=\"T\" virtual=\"true\"><Anchors>"
         "<Anchor point=\"CENTER\"/></Anchors></Frame></Ui>");
@@ -465,13 +597,35 @@ TEST_CASE("A FontString's inherits names a font object, not a template",
     // that is where their size and colour come from. FrameXML does it more than
     // three thousand times, so treating it as a template would leave every
     // label the same size in the same colour.
+    //
+    // It is not either/or, though: FrameXML declares virtual FontStrings too,
+    // and the name alone does not say which kind it is. So the emitted line
+    // asks - but a font object must still reach SetFontObject, which is what
+    // this checks.
     XmlNode root = parseOrFail(
         "<Ui><Frame name=\"F\"><Layers><Layer>"
         "<FontString name=\"$parentT\" inherits=\"GameFontNormalLarge\" text=\"Hi\"/>"
         "</Layer></Layers></Frame></Ui>");
     const EmitResult r = emitFrameXml(root);
     REQUIRE(has(r.lua, ":SetFontObject(\"GameFontNormalLarge\")"));
-    REQUIRE_FALSE(has(r.lua, "__WoweeTemplates[\"GameFontNormalLarge\"]"));
+    REQUIRE(has(r.lua, "else "));
+}
+
+TEST_CASE("A virtual Texture becomes a template a region can inherit",
+          "[framexml][emit]") {
+    // Twenty-two of these sit at the top level of FrameXML - the dialog
+    // button's normal, pushed and highlight art among them. None was emitted,
+    // so every button inheriting its art had none.
+    XmlNode root = parseOrFail(
+        "<Ui>"
+        "<Texture name=\"DialogButtonNormalTexture\" file=\"Interface\\Up\" virtual=\"true\"/>"
+        "<Frame name=\"F\"><Layers><Layer>"
+        "<Texture name=\"$parentArt\" inherits=\"DialogButtonNormalTexture\"/>"
+        "</Layer></Layers></Frame></Ui>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE(has(r.lua, "__WoweeTemplates[\"DialogButtonNormalTexture\"] = function(self)"));
+    REQUIRE(has(r.lua, "self:SetTexture(\"Interface\\\\Up\")"));
+    REQUIRE(has(r.lua, "__WoweeTemplates[\"DialogButtonNormalTexture\"](__w[2])"));
 }
 
 TEST_CASE("A Texture's inherits is not treated as a font object",
@@ -487,7 +641,7 @@ TEST_CASE("A Texture's inherits is not treated as a font object",
 TEST_CASE("Handler bodies get their arguments by name", "[framexml][emit]") {
     // Blizzard's inline scripts use their argument names without declaring
     // them. Passed positionally instead, an OnUpdate body's `elapsed` is nil
-    // and the first arithmetic on it fails — which is most of FrameXML's
+    // and the first arithmetic on it fails - which is most of FrameXML's
     // OnUpdate handlers.
     XmlNode root = parseOrFail(
         "<Ui><Frame name=\"F\"><Scripts>"
@@ -518,7 +672,7 @@ TEST_CASE("A handler with no named arguments still takes self",
 TEST_CASE("Every handler is vararg whatever its named arguments",
           "[framexml][emit]") {
     // A body is free to use `...` whatever handler it belongs to, and a
-    // parameter list without it does not merely lose the values — it fails to
+    // parameter list without it does not merely lose the values - it fails to
     // compile, taking the whole template with it.
     XmlNode root = parseOrFail(
         "<Ui><Frame name=\"F\"><Scripts>"
@@ -537,7 +691,7 @@ TEST_CASE("Every handler is vararg whatever its named arguments",
 TEST_CASE("A $parent relativeTo becomes a name, not a bare symbol",
           "[framexml][emit]") {
     // $parentBg is not a Lua identifier. Pasted in as one it is a syntax error,
-    // which does not lose the anchor — it loses the whole file.
+    // which does not lose the anchor - it loses the whole file.
     XmlNode root = parseOrFail(
         "<Ui><Frame name=\"FooFrame\"><Layers><Layer>"
         "<Texture name=\"$parentBg\"/>"
@@ -553,7 +707,7 @@ TEST_CASE("A $parent relativeTo becomes a name, not a bare symbol",
 TEST_CASE("Temporaries do not run into Lua's local-variable limit",
           "[framexml][emit]") {
     // Lua allows 200 locals per function. A large file declares far more
-    // widgets than that, and going over does not degrade — the whole chunk
+    // widgets than that, and going over does not degrade - the whole chunk
     // refuses to compile. FriendsFrame and InterfaceOptionsPanels both did.
     std::string xml = "<Ui><Frame name=\"Big\"><Layers><Layer>";
     for (int i = 0; i < 300; ++i) {
@@ -582,4 +736,438 @@ TEST_CASE("An empty function attribute is not emitted as a handler name",
     const EmitResult r = emitFrameXml(root);
     REQUIRE_FALSE(has(r.lua, "SetScript(\"OnMouseWheel\", )"));
     REQUIRE(has(r.lua, "SetScript(\"OnShow\", RealHandler)"));
+}
+
+TEST_CASE("$parent follows the parent attribute, not the file structure",
+          "[framexml][emit]") {
+    // A frame written at the top level with parent="Something" belongs to that
+    // frame, and its $parent means it. WorldMapTitleButton is declared this way
+    // and anchors to $parentMiniBorderLeft - the world map's own border. Taken
+    // from where it sits in the file instead, there is no containing frame to
+    // name, so $parent collapsed to the bare suffix and SetPoint looked up a
+    // global that nothing has.
+    XmlNode root = parseOrFail(
+        "<Ui>"
+        "<Frame name=\"Panel\"><Layers><Layer>"
+        "<Texture name=\"$parentEdge\" file=\"Interface\\Edge\"/>"
+        "</Layer></Layers></Frame>"
+        "<Button name=\"PanelTitle\" parent=\"Panel\">"
+        "<Anchors><Anchor point=\"TOPLEFT\" relativeTo=\"$parentEdge\"/></Anchors>"
+        "</Button></Ui>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE(has(r.lua, "CreateTexture(\"PanelEdge\""));
+    REQUIRE(has(r.lua, ":SetPoint(\"TOPLEFT\", \"PanelEdge\""));
+    REQUIRE_FALSE(has(r.lua, "\"Edge\""));
+}
+
+TEST_CASE("A $parent name on an unnamed owner is no name at all",
+          "[framexml][emit]") {
+    // Inside a template the owner is not known until replay, so the name is
+    // built then. If the frame inheriting the template has no name there is
+    // nothing to build from, and WoW gives the region no name - where falling
+    // back to an empty string publishes the bare suffix as a global.
+    // ContainerFrameTemplate replayed onto an unnamed frame created a texture
+    // called "Portrait", and the next frame to do the same overwrote it.
+    XmlNode root = parseOrFail(
+        "<Ui><Frame name=\"T\" virtual=\"true\"><Layers><Layer>"
+        "<Texture name=\"$parentPortrait\"/>"
+        "</Layer></Layers></Frame></Ui>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE(has(r.lua, "self:GetName() and"));
+    REQUIRE(has(r.lua, "or nil)"));
+    REQUIRE_FALSE(has(r.lua, "or \"\") .. \"Portrait\""));
+}
+
+TEST_CASE("A frame with hover handlers takes the mouse without saying so",
+          "[framexml][emit]") {
+    // Blizzard's StatFrameTemplate carries OnEnter and OnLeave and no
+    // enableMouse, and the character sheet's stat tooltips depend on it.
+    XmlNode root = parseOrFail(
+        "<Ui><Frame name=\"Stat\">"
+        "<Scripts><OnEnter>Tip(self)</OnEnter><OnLeave>Hide()</OnLeave></Scripts>"
+        "</Frame></Ui>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE(has(r.lua, "EnableMouse(true)"));
+}
+
+TEST_CASE("An explicit enableMouse=false is not overridden by a hover handler",
+          "[framexml][emit]") {
+    XmlNode root = parseOrFail(
+        "<Ui><Frame name=\"Quiet\" enableMouse=\"false\">"
+        "<Scripts><OnEnter>Tip(self)</OnEnter></Scripts>"
+        "</Frame></Ui>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE(has(r.lua, "EnableMouse(false)"));
+    REQUIRE_FALSE(has(r.lua, "EnableMouse(true)"));
+}
+
+TEST_CASE("A drag handler also asks for the mouse", "[framexml][emit]") {
+    XmlNode root = parseOrFail(
+        "<Ui><Frame name=\"Draggable\">"
+        "<Scripts><OnMouseDown>Grab(self)</OnMouseDown></Scripts>"
+        "</Frame></Ui>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE(has(r.lua, "EnableMouse(true)"));
+}
+
+TEST_CASE("The wheel is its own switch, not the mouse", "[framexml][emit]") {
+    // A scrolling frame takes the wheel without taking clicks: enabling the
+    // mouse as well would have it swallow clicks meant for what is under it.
+    XmlNode root = parseOrFail(
+        "<Ui><Frame name=\"Scroller\">"
+        "<Scripts><OnMouseWheel>Scroll(self)</OnMouseWheel></Scripts>"
+        "</Frame></Ui>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE(has(r.lua, "EnableMouseWheel(true)"));
+    REQUIRE_FALSE(has(r.lua, "EnableMouse(true)"));
+}
+
+TEST_CASE("An explicit enableMouseWheel is honoured", "[framexml][emit]") {
+    XmlNode root = parseOrFail(
+        "<Ui><Frame name=\"NoScroll\" enableMouseWheel=\"false\">"
+        "<Scripts><OnMouseWheel>Scroll(self)</OnMouseWheel></Scripts>"
+        "</Frame></Ui>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE(has(r.lua, "EnableMouseWheel(false)"));
+    REQUIRE_FALSE(has(r.lua, "EnableMouseWheel(true)"));
+}
+
+TEST_CASE("A frame with no hover handlers is left alone", "[framexml][emit]") {
+    XmlNode root = parseOrFail(
+        "<Ui><Frame name=\"Plain\">"
+        "<Scripts><OnShow>Nothing()</OnShow></Scripts>"
+        "</Frame></Ui>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE_FALSE(has(r.lua, "EnableMouse"));
+}
+
+TEST_CASE("A Backdrop element becomes a SetBackdrop call", "[framexml][emit]") {
+    XmlNode root = parseOrFail(
+        "<Ui><Frame name=\"Panel\">"
+        "<Backdrop bgFile=\"bg.blp\" edgeFile=\"edge.blp\" tile=\"true\">"
+        "<BackgroundInsets><AbsInset left=\"11\" right=\"12\" top=\"13\" bottom=\"14\"/></BackgroundInsets>"
+        "<TileSize><AbsValue val=\"32\"/></TileSize>"
+        "<EdgeSize><AbsValue val=\"16\"/></EdgeSize>"
+        "</Backdrop></Frame></Ui>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE(has(r.lua, "SetBackdrop("));
+    REQUIRE(has(r.lua, "bgFile=\"bg.blp\""));
+    REQUIRE(has(r.lua, "edgeFile=\"edge.blp\""));
+    REQUIRE(has(r.lua, "tile=true"));
+    REQUIRE(has(r.lua, "tileSize=32"));
+    REQUIRE(has(r.lua, "edgeSize=16"));
+    REQUIRE(has(r.lua, "insets={left=11, right=12, top=13, bottom=14}"));
+}
+
+TEST_CASE("A Backdrop with only an edge file still emits", "[framexml][emit]") {
+    // 17 of the 77 in FrameXML have no bgFile: a border and nothing behind it.
+    XmlNode root = parseOrFail(
+        "<Ui><Frame name=\"Edged\">"
+        "<Backdrop edgeFile=\"edge.blp\" tile=\"false\">"
+        "<EdgeSize><AbsValue val=\"8\"/></EdgeSize>"
+        "</Backdrop></Frame></Ui>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE(has(r.lua, "SetBackdrop("));
+    REQUIRE(has(r.lua, "edgeSize=8"));
+    REQUIRE(has(r.lua, "tile=false"));
+    REQUIRE_FALSE(has(r.lua, "bgFile="));
+}
+
+TEST_CASE("A frame with no Backdrop emits no SetBackdrop", "[framexml][emit]") {
+    XmlNode root = parseOrFail("<Ui><Frame name=\"Bare\"/></Ui>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE_FALSE(has(r.lua, "SetBackdrop"));
+}
+
+TEST_CASE("A declared alpha reaches SetAlpha", "[framexml][emit]") {
+    XmlNode root = parseOrFail(
+        "<Ui><Frame name=\"Dim\" alpha=\"0.5\">"
+        "<Layers><Layer><Texture name=\"$parentTex\" alpha=\"0.25\"/></Layer></Layers>"
+        "</Frame></Ui>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE(has(r.lua, "SetAlpha(0.5)"));
+    REQUIRE(has(r.lua, "SetAlpha(0.25)"));
+}
+
+TEST_CASE("justifyV reaches the font string", "[framexml][emit]") {
+    XmlNode root = parseOrFail(
+        "<Ui><Frame name=\"F\"><Layers><Layer>"
+        "<FontString name=\"$parentTop\" justifyV=\"TOP\" justifyH=\"LEFT\"/>"
+        "</Layer></Layers></Frame></Ui>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE(has(r.lua, "SetJustifyV(\"TOP\")"));
+    REQUIRE(has(r.lua, "SetJustifyH(\"LEFT\")"));
+}
+
+TEST_CASE("A button's NormalFont reaches its label", "[framexml][emit]") {
+    XmlNode root = parseOrFail(
+        "<Ui><Button name=\"Btn\">"
+        "<NormalFont style=\"GameFontNormal\"/>"
+        "</Button></Ui>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE(has(r.lua, "SetNormalFontObject(\"GameFontNormal\")"));
+}
+
+TEST_CASE("HitRectInsets become a SetHitRectInsets call", "[framexml][emit]") {
+    XmlNode root = parseOrFail(
+        "<Ui><Frame name=\"Panel\">"
+        "<HitRectInsets><AbsInset left=\"0\" right=\"30\" top=\"0\" bottom=\"45\"/></HitRectInsets>"
+        "</Frame></Ui>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE(has(r.lua, "SetHitRectInsets(0, 30, 0, 45)"));
+}
+
+TEST_CASE("A font object's Shadow reaches the table", "[framexml][emit]") {
+    XmlNode root = parseOrFail(
+        "<Ui><Font name=\"Shadowed\" font=\"F.ttf\">"
+        "<FontHeight><AbsValue val=\"12\"/></FontHeight>"
+        "<Shadow><Offset><AbsDimension x=\"1\" y=\"-1\"/></Offset>"
+        "<Color r=\"0\" g=\"0\" b=\"0\" a=\"1\"/></Shadow>"
+        "</Font></Ui>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE(has(r.lua, "Shadowed.shadowX = 1"));
+    REQUIRE(has(r.lua, "Shadowed.shadowY = -1"));
+    REQUIRE(has(r.lua, "Shadowed.shadowA = 1"));
+}
+
+TEST_CASE("A font object without a Shadow says nothing about one",
+          "[framexml][emit]") {
+    XmlNode root = parseOrFail(
+        "<Ui><Font name=\"Plain\" font=\"F.ttf\">"
+        "<FontHeight><AbsValue val=\"12\"/></FontHeight></Font></Ui>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE_FALSE(has(r.lua, "shadow"));
+}
+
+TEST_CASE("An Animations block becomes group and animation calls",
+          "[framexml][emit]") {
+    XmlNode root = parseOrFail(
+        "<Ui><Frame name=\"Pulse\">"
+        "<Animations><AnimationGroup name=\"$parentGroup\" looping=\"BOUNCE\">"
+        "<Alpha change=\"-0.7\" duration=\"0.75\" order=\"1\" startDelay=\"0.2\"/>"
+        "<Translation offsetX=\"10\" offsetY=\"-5\" duration=\"1\"/>"
+        "</AnimationGroup></Animations></Frame></Ui>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE(has(r.lua, "CreateAnimationGroup(\"PulseGroup\")"));
+    REQUIRE(has(r.lua, "SetLooping(\"BOUNCE\")"));
+    REQUIRE(has(r.lua, "CreateAnimation(\"Alpha\")"));
+    REQUIRE(has(r.lua, "SetChange(-0.7)"));
+    REQUIRE(has(r.lua, "SetStartDelay(0.2)"));
+    REQUIRE(has(r.lua, "CreateAnimation(\"Translation\")"));
+    REQUIRE(has(r.lua, "SetOffset(10, -5)"));
+    // The vars are table slots, not names: "local __w[3]" would not parse.
+    REQUIRE_FALSE(has(r.lua, "local __w["));
+}
+
+TEST_CASE("A TitleRegion makes a frame draggable", "[framexml][emit]") {
+    XmlNode root = parseOrFail(
+        "<Ui><Frame name=\"Loot\"><TitleRegion setAllPoints=\"true\"/></Frame></Ui>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE(has(r.lua, "SetMovable(true)"));
+    REQUIRE(has(r.lua, "RegisterForDrag(\"LeftButton\")"));
+    REQUIRE(has(r.lua, "StartMoving()"));
+}
+
+TEST_CASE("A frame with its own drag scripts keeps them", "[framexml][emit]") {
+    // The chat frame has a title region and five OnDragStart handlers; the
+    // generic pair must not replace behaviour that is deliberately specific.
+    XmlNode root = parseOrFail(
+        "<Ui><Frame name=\"Chat\">"
+        "<TitleRegion setAllPoints=\"true\"/>"
+        "<Scripts><OnDragStart>Special(self)</OnDragStart></Scripts>"
+        "</Frame></Ui>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE(has(r.lua, "SetMovable(true)"));
+    REQUIRE_FALSE(has(r.lua, "StartMoving()"));
+}
+
+TEST_CASE("PushedTextOffset reaches the button", "[framexml][emit]") {
+    XmlNode root = parseOrFail(
+        "<Ui><Button name=\"Btn\">"
+        "<PushedTextOffset><AbsDimension x=\"1\" y=\"-1\"/></PushedTextOffset>"
+        "</Button></Ui>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE(has(r.lua, "SetPushedTextOffset(1, -1)"));
+}
+
+TEST_CASE("Element names are matched without regard to case",
+          "[framexml][emit]") {
+    // Blizzard's own floatingchatframe.xml declares <Fontstring>, and WoW's
+    // parser does not care. Addons are written less carefully still.
+    XmlNode root = parseOrFail(
+        "<Ui><frame name=\"Mixed\"><layers><Layer>"
+        "<Fontstring name=\"$parentLabel\" text=\"hi\"/>"
+        "</Layer></layers></frame></Ui>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE(has(r.lua, "CreateFrame(\"Frame\", \"Mixed\""));
+    REQUIRE(has(r.lua, "CreateFontString"));
+    REQUIRE(r.warnings.empty());
+}
+
+TEST_CASE("An element nobody knows is still reported", "[framexml][emit]") {
+    // Canonicalising must not quietly accept anything: an unknown element is
+    // a frame, and everything inside it, that never gets built.
+    XmlNode root = parseOrFail("<Ui><Wibble name=\"X\"/></Ui>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE_FALSE(r.warnings.empty());
+}
+
+TEST_CASE("A button's state fonts reach it", "[framexml][emit]") {
+    XmlNode root = parseOrFail(
+        "<Ui><Button name=\"Btn\">"
+        "<NormalFont style=\"GameFontNormal\"/>"
+        "<HighlightFont style=\"GameFontHighlight\"/>"
+        "<DisabledFont style=\"GameFontDisable\"/>"
+        "</Button></Ui>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE(has(r.lua, "SetNormalFontObject(\"GameFontNormal\")"));
+    REQUIRE(has(r.lua, "SetHighlightFontObject(\"GameFontHighlight\")"));
+    REQUIRE(has(r.lua, "SetDisabledFontObject(\"GameFontDisable\")"));
+}
+
+TEST_CASE("A key handler asks for the keyboard", "[framexml][emit]") {
+    XmlNode root = parseOrFail(
+        "<Ui><Frame name=\"Dialog\">"
+        "<Scripts><OnKeyDown>Handle(self, key)</OnKeyDown></Scripts>"
+        "</Frame></Ui>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE(has(r.lua, "EnableKeyboard(true)"));
+}
+
+TEST_CASE("A frame with no key handler does not take the keyboard",
+          "[framexml][emit]") {
+    // The safety property: nothing listens during ordinary play, so movement
+    // keys are never swallowed by a frame that merely exists.
+    XmlNode root = parseOrFail(
+        "<Ui><Frame name=\"Quiet\">"
+        "<Scripts><OnShow>Nothing()</OnShow></Scripts>"
+        "</Frame></Ui>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE_FALSE(has(r.lua, "EnableKeyboard"));
+}
+
+TEST_CASE("An edit box is built as it was declared", "[framexml][emit]") {
+    // Every one of these had a method and a field behind it and no way to
+    // reach them from the XML, so a box came out with the defaults whatever
+    // it said. SendMailBodyEditBox declares letters="500" multiLine="true",
+    // and without them it was a single-line box with no limit - a letter
+    // nobody could write a second line in.
+    XmlNode root = parseOrFail(
+        "<Ui><EditBox name=\"E\" letters=\"500\" multiLine=\"true\"/></Ui>");
+    const std::string lua = emitFrameXml(root).lua;
+    REQUIRE(has(lua, ":SetMaxLetters(500)"));
+    REQUIRE(has(lua, ":SetMultiLine(true)"));
+}
+
+TEST_CASE("An edit box that says nothing about itself is left alone",
+          "[framexml][emit]") {
+    // The defaults belong to the widget, not to the emitter: writing
+    // SetMultiLine(false) for a box that never mentioned it would override
+    // whatever a template had already set.
+    XmlNode root = parseOrFail("<Ui><EditBox name=\"E\"/></Ui>");
+    const std::string lua = emitFrameXml(root).lua;
+    REQUIRE_FALSE(has(lua, ":SetMaxLetters"));
+    REQUIRE_FALSE(has(lua, ":SetMultiLine"));
+    REQUIRE_FALSE(has(lua, ":SetAutoFocus"));
+}
+
+TEST_CASE("autoFocus false is carried, because it is why it is written",
+          "[framexml][emit]") {
+    // Declared false on nearly every box in FrameXML. A box that takes focus
+    // when it appears swallows the keyboard from whatever the player was
+    // doing, so the false is the whole point of the attribute.
+    XmlNode root = parseOrFail(
+        "<Ui><EditBox name=\"E\" autoFocus=\"false\" numeric=\"true\"/></Ui>");
+    const std::string lua = emitFrameXml(root).lua;
+    REQUIRE(has(lua, ":SetAutoFocus(false)"));
+    REQUIRE(has(lua, ":SetNumeric(true)"));
+}
+
+TEST_CASE("text= names a global, not a caption", "[framexml][emit]") {
+    // CharacterFrameTab1 says text="CHARACTER", and CHARACTER is a global
+    // holding the word "Character". Emitting the literal put the key on screen
+    // and - because the tab is sized from the width of its own label - made
+    // every tab on the character sheet a sliver with the text clipped inside.
+    XmlNode root = parseOrFail(
+        "<Ui><Button name=\"B\" text=\"CHARACTER\"/></Ui>");
+    REQUIRE(has(emitFrameXml(root).lua, ":SetText(_G[\"CHARACTER\"] or \"CHARACTER\")"));
+}
+
+TEST_CASE("A caption that is not a name is used as written",
+          "[framexml][emit]") {
+    // Only a bare key is looked up. Anything with a space or a lower-case
+    // letter is the text itself, and _G would answer nil for it.
+    XmlNode root = parseOrFail(
+        "<Ui><Button name=\"B\" text=\"Click me\"/></Ui>");
+    const std::string lua = emitFrameXml(root).lua;
+    REQUIRE(has(lua, ":SetText(\"Click me\")"));
+    REQUIRE_FALSE(has(lua, "_G["));
+}
+
+
+TEST_CASE("A button gets its font string before its text", "[framexml][emit]") {
+    // The character sheet's tabs are the case this is about. The label comes
+    // from text= on the tab, but the font string it lands on is declared by
+    // the template the tab inherits - so two separate emissions have to happen
+    // in the right order, and SetText only forwards to a font string that is
+    // already attached. Set the text first and it goes into __text, where
+    // nothing draws it and nothing measures it.
+    //
+    // Both of the tab's symptoms come out of that single ordering: no label,
+    // and - because PanelTemplates_TabResize sizes the tab from
+    // CharacterFrameTab1Text:GetWidth() - a sliver barely wider than its
+    // borders.
+    XmlNode root = parseOrFail(
+        "<Ui>"
+        "<Button name=\"TabTemplate\" virtual=\"true\">"
+        "  <ButtonText name=\"$parentText\"/>"
+        "</Button>"
+        "<Button name=\"Tab1\" inherits=\"TabTemplate\" text=\"CHARACTER\"/>"
+        "</Ui>");
+    const std::string lua = emitFrameXml(root).lua;
+
+    // The template runs from inherits=, so what has to be ordered here is the
+    // inherits call against the tab's own SetText.
+    const size_t inherit = lua.find("__WoweeTemplates[\"TabTemplate\"]");
+    const size_t setText = lua.find(":SetText(_G[\"CHARACTER\"]");
+    REQUIRE(inherit != std::string::npos);
+    REQUIRE(setText != std::string::npos);
+    REQUIRE(inherit < setText);
+
+    // And the template itself must attach the font string rather than merely
+    // create it, or the tab has a named region no button knows about.
+    REQUIRE(has(lua, ":SetFontString("));
+}
+
+TEST_CASE("OnEvent takes its arguments through the varargs, not by name",
+          "[framexml][emit]") {
+    // Both spellings are in the interface and both have to work. A body that
+    // says `arg1` needs the name; a body that hands `...` to a Lua function
+    // needs the varargs - and fifty-three of them do, ContainerFrame among
+    // them. Naming arg1..arg9 as parameters served only the first, because
+    // every value that arrived was bound to a name and `...` came out empty:
+    // ContainerFrame_OnEvent compared a nil arg1 against the bag's own id, so
+    // no open bag ever redrew on BAG_UPDATE.
+    XmlNode root = parseOrFail(
+        "<Ui><Frame name=\"F\"><Scripts>"
+        "<OnEvent><![CDATA[ Handler(self, event, ...) ]]></OnEvent>"
+        "</Scripts></Frame></Ui>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE(has(r.lua, ":SetScript(\"OnEvent\", function(self, event, ...)"));
+    // ...and the names still exist, bound off those same varargs.
+    REQUIRE(has(r.lua, "local arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9 = ...;"));
+    REQUIRE(has(r.lua, "Handler(self, event, ...)"));
+}
+
+TEST_CASE("every other handler keeps its named arguments", "[framexml][emit]") {
+    // OnEvent is the exception, not the new rule. An OnUpdate body says
+    // `elapsed` and does arithmetic with it, and a prelude would be dead
+    // weight in front of every one of them.
+    XmlNode root = parseOrFail(
+        "<Ui><Frame name=\"F\"><Scripts>"
+        "<OnUpdate><![CDATA[ self.t = self.t + elapsed ]]></OnUpdate>"
+        "</Scripts></Frame></Ui>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE(has(r.lua, ":SetScript(\"OnUpdate\", function(self, elapsed, ...)"));
+    REQUIRE_FALSE(has(r.lua, "local arg1"));
 }

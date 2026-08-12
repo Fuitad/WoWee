@@ -45,10 +45,22 @@ inline uint32_t normalizeQuestObjectiveEntry(uint32_t wireEntry) {
     return wireEntry & 0x7FFFFFFFu;
 }
 
+/// The quest slot's state byte, wherever the expansion keeps it.
+inline uint32_t questSlotState(uint8_t questLogStride, uint32_t stateField) {
+    return questLogStride <= 3 ? (stateField >> 24) & 0xFFu : stateField;
+}
+
 inline bool isQuestSlotComplete(uint8_t questLogStride, uint32_t stateField) {
-    const uint32_t state = questLogStride <= 3 ? (stateField >> 24) & 0xFFu
-                                               : stateField;
-    return (state & 0x1u) != 0;
+    return (questSlotState(questLogStride, stateField) & 0x1u) != 0;
+}
+
+/// A timed quest whose timer ran out, or one the server failed for any other
+/// reason. The bit sits beside the complete one in the same field - the
+/// server's own header names them QUEST_STATE_COMPLETE = 0x0001 and
+/// QUEST_STATE_FAIL = 0x0002 - so this was being read and dropped for as long
+/// as completion was being read.
+inline bool isQuestSlotFailed(uint8_t questLogStride, uint32_t stateField) {
+    return (questSlotState(questLogStride, stateField) & 0x2u) != 0;
 }
 
 } // namespace wowee::game

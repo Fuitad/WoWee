@@ -1,4 +1,6 @@
 #include "cli_emotes_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -18,11 +20,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWemoExt(std::string base) {
-    stripExt(base, ".wemo");
-    return base;
-}
 
 const char* emoteKindName(uint8_t k) {
     using E = wowee::pipeline::WoweeEmotes;
@@ -56,15 +53,6 @@ const char* ttsHintName(uint8_t h) {
     }
 }
 
-bool saveOrError(const wowee::pipeline::WoweeEmotes& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeEmotesLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wemo\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeEmotes& c,
                      const std::string& base) {
@@ -77,9 +65,9 @@ int handleGenBasic(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "BasicSocialEmotes";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWemoExt(base);
+    base = cli::withoutExt(base, ".wemo");
     auto c = wowee::pipeline::WoweeEmotesLoader::makeBasic(name);
-    if (!saveOrError(c, base, "gen-emo")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeEmotesLoader>(c, base, "gen-emo", ".wemo")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -88,9 +76,9 @@ int handleGenCombat(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "CombatEmotes";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWemoExt(base);
+    base = cli::withoutExt(base, ".wemo");
     auto c = wowee::pipeline::WoweeEmotesLoader::makeCombat(name);
-    if (!saveOrError(c, base, "gen-emo-combat")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeEmotesLoader>(c, base, "gen-emo-combat", ".wemo")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -99,9 +87,9 @@ int handleGenRolePlay(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "RolePlayEmotes";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWemoExt(base);
+    base = cli::withoutExt(base, ".wemo");
     auto c = wowee::pipeline::WoweeEmotesLoader::makeRolePlay(name);
-    if (!saveOrError(c, base, "gen-emo-rp")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeEmotesLoader>(c, base, "gen-emo-rp", ".wemo")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -109,10 +97,9 @@ int handleGenRolePlay(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWemoExt(base);
+    base = cli::withoutExt(base, ".wemo");
     if (!wowee::pipeline::WoweeEmotesLoader::exists(base)) {
-        std::fprintf(stderr, "WEMO not found: %s.wemo\n", base.c_str());
-        return 1;
+        return reportMissing("WEMO", base, ".wemo");
     }
     auto c = wowee::pipeline::WoweeEmotesLoader::load(base);
     if (jsonOut) {
@@ -188,7 +175,7 @@ int parseTtsHintToken(const std::string& s) {
     return -1;
 }
 
-// Generic int-or-token coercion — same shape as the
+// Generic int-or-token coercion - same shape as the
 // WMSP helper. Returns false on parse error (hard error)
 // and reports via stderr; returns true on success OR
 // when the field is absent (leave outValue at default).
@@ -234,13 +221,10 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWemoExt(base);
+    base = cli::withoutExt(base, ".wemo");
     if (out.empty()) out = base + ".wemo.json";
     if (!wowee::pipeline::WoweeEmotesLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wemo-json: WEMO not found: %s.wemo\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wemo-json", "WEMO", base, ".wemo");
     }
     auto c = wowee::pipeline::WoweeEmotesLoader::load(base);
     nlohmann::json j;
@@ -286,16 +270,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wemo.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wemo");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wemo");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,
@@ -356,11 +331,9 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWemoExt(base);
+    base = cli::withoutExt(base, ".wemo");
     if (!wowee::pipeline::WoweeEmotesLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wemo: WEMO not found: %s.wemo\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wemo", "WEMO", base, ".wemo");
     }
     auto c = wowee::pipeline::WoweeEmotesLoader::load(base);
     std::vector<std::string> errors;
@@ -368,7 +341,7 @@ int handleValidate(int& i, int argc, char** argv) {
     if (c.entries.empty()) {
         warnings.push_back("catalog has zero entries");
     }
-    std::vector<uint32_t> idsSeen;
+    cli::DuplicateIdCheck idsSeen;
     std::set<std::string> commandsSeen;
     for (size_t k = 0; k < c.entries.size(); ++k) {
         const auto& e = c.entries[k];
@@ -382,7 +355,7 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": name is empty");
         if (e.slashCommand.empty()) {
             errors.push_back(ctx +
-                ": slashCommand is empty — chat parser "
+                ": slashCommand is empty - chat parser "
                 "would fail to dispatch");
         }
         // Slash command should not start with '/' (the
@@ -390,17 +363,17 @@ int handleValidate(int& i, int argc, char** argv) {
         if (!e.slashCommand.empty() &&
             e.slashCommand[0] == '/') {
             errors.push_back(ctx + ": slashCommand starts "
-                "with '/' — store it bare (chat parser "
+                "with '/' - store it bare (chat parser "
                 "strips the leading slash before lookup)");
         }
-        // Lowercase only — chat commands are
+        // Lowercase only - chat commands are
         // case-folded before lookup, so an uppercase
         // letter would be unreachable.
         for (char ch : e.slashCommand) {
             if (ch >= 'A' && ch <= 'Z') {
                 errors.push_back(ctx + ": slashCommand '" +
                     e.slashCommand +
-                    "' contains uppercase — chat parser "
+                    "' contains uppercase - chat parser "
                     "lowercases input before lookup so "
                     "this entry would be unreachable");
                 break;
@@ -437,60 +410,29 @@ int handleValidate(int& i, int argc, char** argv) {
             warnings.push_back(ctx +
                 ": targetMessage has " +
                 std::to_string(tgtTokens) +
-                " %s token(s) — expected 2 (actor name + "
+                " %s token(s) - expected 2 (actor name + "
                 "target name)");
         }
         if (!e.noTargetMessage.empty() && noTgtTokens != 1) {
             warnings.push_back(ctx +
                 ": noTargetMessage has " +
                 std::to_string(noTgtTokens) +
-                " %s token(s) — expected exactly 1 (actor "
+                " %s token(s) - expected exactly 1 (actor "
                 "name)");
         }
-        // Slash commands must be unique — chat parser
+        // Slash commands must be unique - chat parser
         // dispatches by exact match.
         if (!e.slashCommand.empty() &&
             !commandsSeen.insert(e.slashCommand).second) {
             errors.push_back(ctx + ": duplicate slashCommand "
-                "'" + e.slashCommand + "' — chat parser "
+                "'" + e.slashCommand + "' - chat parser "
                 "would dispatch ambiguously");
         }
-        for (uint32_t prev : idsSeen) {
-            if (prev == e.emoteId) {
-                errors.push_back(ctx + ": duplicate emoteId");
-                break;
-            }
-        }
-        idsSeen.push_back(e.emoteId);
+        if (!idsSeen.add(e.emoteId)) errors.push_back(ctx + ": duplicate emoteId");
     }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wemo"] = base + ".wemo";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wemo: %s.wemo\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu emotes, all emoteIds + "
-                    "slash commands unique\n",
-                    c.entries.size());
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+    return cli::reportValidation("wemo", base, jsonOut, errors, warnings,
+                                 formatted("%zu emotes, all emoteIds + "
+                    "slash commands unique", c.entries.size()));
 }
 
 } // namespace

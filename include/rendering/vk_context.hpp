@@ -41,10 +41,16 @@ public:
     /// than one thread, which is unsafe and matches what validation reports.
     void noteImmediateSubmitThread(const char* who);
 
-    /// Which incarnation of ImGui's Vulkan backend is current. See
-    /// imguiBackendGeneration_.
-    uint32_t imguiBackendGeneration() const { return imguiBackendGeneration_; }
-    void noteImGuiBackendRestarted() { ++imguiBackendGeneration_; }
+    /// Which incarnation of the UI textures is current. Anything holding a
+    /// descriptor set from uploadImGuiTexture caches this alongside it and
+    /// drops the cache when it moves, because those sets are this context's to
+    /// free and are not valid across the free.
+    ///
+    /// Counted against the destruction rather than against an ImGui backend
+    /// restart, which is what it used to key on: the restart was removed, its
+    /// only caller went with it, and the check downstream quietly became dead
+    /// code that never fired.
+    uint32_t uiTextureGeneration() const { return uiTextureGeneration_; }
 
     VkContext() = default;
     ~VkContext();
@@ -72,6 +78,9 @@ public:
     // Batch upload mode: records multiple upload commands into a single
     // command buffer, then submits with ONE fence wait instead of one per upload.
     void beginUploadBatch();
+    /// Opens the batch command buffer on first record, so a batch that
+    /// nothing writes to never allocates one.
+    void ensureBatchCmd();
     void endUploadBatch();       // Async: submits but does NOT wait for fence
     void endUploadBatchSync();   // Sync: submits and waits (for load screens)
     bool isInUploadBatch() const { return inUploadBatch_; }
@@ -92,7 +101,7 @@ public:
     // such as descriptor sets and buffers freed during streaming/unload.
     void deferAfterFrameFence(std::function<void()>&& fn);
     // Like deferAfterFrameFence, but waits until ALL in-flight frame slots have
-    // been fenced — safe for shared resources bound by multiple frames' command
+    // been fenced - safe for shared resources bound by multiple frames' command
     // buffers (material descriptor sets, vertex/index buffers, etc.).
     void deferAfterAllFrameFences(std::function<void()>&& fn);
 
@@ -163,7 +172,7 @@ public:
     VkImageView getDepthImageView() const { return depthImageView; }
 
     // Sampler cache: returns a shared VkSampler matching the given create info.
-    // Callers must NOT destroy the returned sampler — it is owned by VkContext.
+    // Callers must NOT destroy the returned sampler - it is owned by VkContext.
     // Automatically clamps anisotropy if the device doesn't support it.
     VkSampler getOrCreateSampler(const VkSamplerCreateInfo& info);
 
@@ -176,7 +185,7 @@ public:
 
     // UI texture upload: creates a Vulkan texture from RGBA data and returns
     // a VkDescriptorSet suitable for use as ImTextureID.
-    // The caller does NOT need to free the result — resources are tracked and
+    // The caller does NOT need to free the result - resources are tracked and
     // cleaned up when the VkContext is destroyed.
     VkDescriptorSet uploadImGuiTexture(const uint8_t* rgba, int width, int height);
 
@@ -325,14 +334,13 @@ private:
 
     // Shared sampler for UI textures (created on first uploadImGuiTexture call)
     VkSampler uiTextureSampler_ = VK_NULL_HANDLE;
-    /// Bumped whenever ImGui's Vulkan backend is torn down and started again.
+    /// Bumped whenever the UI textures and the pool their descriptor sets came
+    /// from are destroyed.
     ///
-    /// Every descriptor set handed out by uploadImGuiTexture comes from ImGui's
-    /// own descriptor pool, and shutting the backend down frees that pool. Any
-    /// cache of those sets is dangling from that moment, and drawing with one
-    /// is a fault the GPU reports by resetting. Callers that keep sets compare
-    /// this against what they last saw and throw their cache away.
-    uint32_t imguiBackendGeneration_ = 0;
+    /// Any cache of those sets is dangling from that moment, and drawing with
+    /// one is a fault the GPU reports by resetting. Callers that keep sets
+    /// compare this against what they last saw and throw their cache away.
+    uint32_t uiTextureGeneration_ = 0;
     /// How many asynchronous upload batches have been submitted and retired.
     /// Only used to name the first fence and to say how many are outstanding.
     uint64_t batchesSubmitted_ = 0;
@@ -341,7 +349,7 @@ private:
     /// A descriptor pool and layout this context owns, for UI textures.
     ///
     /// ImGui_ImplVulkan_AddTexture allocates from ImGui's pool, which is
-    /// destroyed whenever the backend restarts — and the backend restarts on
+    /// destroyed whenever the backend restarts - and the backend restarts on
     /// every anti-aliasing change, because that is how its render pass is
     /// rebound. Ten different caches around the interface hold sets from that
     /// pool and none of them hear about it. Allocating from a pool owned here
@@ -359,7 +367,7 @@ private:
     };
     std::vector<UiTexture> uiTextures_;
 
-    // Sampler cache — deduplicates VkSamplers by configuration hash.
+    // Sampler cache - deduplicates VkSamplers by configuration hash.
     std::mutex samplerCacheMutex_;
     std::unordered_map<uint64_t, VkSampler> samplerCache_;
     bool samplerAnisotropySupported_ = false;

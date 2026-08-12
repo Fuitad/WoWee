@@ -1,4 +1,5 @@
 #include "cli_mesh_io.hpp"
+#include "cli_catalog_paths.hpp"
 
 #include "pipeline/wowee_model.hpp"
 #include <glm/glm.hpp>
@@ -133,7 +134,7 @@ int handleGenMeshFromHeightmap(int& i, int argc, char** argv) {
     // pixels rise 2 yards above black).
     //
     // Normals are computed from finite differences against
-    // the height field — gives smooth shading across the
+    // the height field - gives smooth shading across the
     // surface. Single batch covers all indices; one empty
     // texture slot for downstream binding via --add-
     // texture-to-mesh.
@@ -175,7 +176,7 @@ int handleGenMeshFromHeightmap(int& i, int argc, char** argv) {
         return 1;
     }
     // Capacity guard: a 1024x1024 PNG would be 1M verts /
-    // ~6M tris — well past what makes sense for a single
+    // ~6M tris - well past what makes sense for a single
     // WOM placeholder. Cap at 512×512 = 262K verts.
     if (W > 512 || H > 512) {
         std::fprintf(stderr,
@@ -249,7 +250,7 @@ int handleGenMeshFromHeightmap(int& i, int argc, char** argv) {
     wom.batches.push_back(b);
     wom.texturePaths.push_back("");
     std::filesystem::path womPath(womBase);
-    std::filesystem::create_directories(womPath.parent_path());
+    ensureParentDirectory(womPath);
     if (!wowee::pipeline::WoweeModelLoader::save(wom, womBase)) {
         std::fprintf(stderr,
             "gen-mesh-from-heightmap: failed to save %s.wom\n",
@@ -272,7 +273,7 @@ int handleExportMeshHeightmap(int& i, int argc, char** argv) {
     // Inverse of --gen-mesh-from-heightmap: extract a
     // grayscale PNG from a row-major W×H heightmap mesh.
     // The user supplies W and H since arbitrary meshes
-    // aren't necessarily heightmap-shaped — taking the
+    // aren't necessarily heightmap-shaped - taking the
     // dimensions explicitly avoids guessing wrong on a
     // mesh with vertex count W*H but a different layout.
     //

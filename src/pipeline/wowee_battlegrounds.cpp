@@ -1,4 +1,5 @@
 #include "pipeline/wowee_battlegrounds.hpp"
+#include "pipeline/wowee_binary_io.hpp"
 
 #include <cstdio>
 #include <cstring>
@@ -11,45 +12,7 @@ namespace {
 
 constexpr char kMagic[4] = {'W', 'B', 'G', 'D'};
 constexpr uint32_t kVersion = 1;
-
-template <typename T>
-void writePOD(std::ofstream& os, const T& v) {
-    os.write(reinterpret_cast<const char*>(&v), sizeof(T));
-}
-
-template <typename T>
-bool readPOD(std::ifstream& is, T& v) {
-    is.read(reinterpret_cast<char*>(&v), sizeof(T));
-    return is.gcount() == static_cast<std::streamsize>(sizeof(T));
-}
-
-void writeStr(std::ofstream& os, const std::string& s) {
-    uint32_t n = static_cast<uint32_t>(s.size());
-    writePOD(os, n);
-    if (n > 0) os.write(s.data(), n);
-}
-
-bool readStr(std::ifstream& is, std::string& s) {
-    uint32_t n = 0;
-    if (!readPOD(is, n)) return false;
-    if (n > (1u << 20)) return false;
-    s.resize(n);
-    if (n > 0) {
-        is.read(s.data(), n);
-        if (is.gcount() != static_cast<std::streamsize>(n)) {
-            s.clear();
-            return false;
-        }
-    }
-    return true;
-}
-
-std::string normalizePath(std::string base) {
-    if (base.size() < 5 || base.substr(base.size() - 5) != ".wbgd") {
-        base += ".wbgd";
-    }
-    return base;
-}
+constexpr char kExtension[] = ".wbgd";
 
 } // namespace
 
@@ -72,15 +35,9 @@ const char* WoweeBattleground::objectiveKindName(uint8_t k) {
 }
 
 bool WoweeBattlegroundLoader::save(const WoweeBattleground& cat,
-                                   const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath), std::ios::binary);
-    if (!os) return false;
-    os.write(kMagic, 4);
-    writePOD(os, kVersion);
-    writeStr(os, cat.name);
-    uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writePOD(os, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeBattleground::Entry& e) {
         writePOD(os, e.battlegroundId);
         writePOD(os, e.mapId);
         writeStr(os, e.name);
@@ -88,15 +45,13 @@ bool WoweeBattlegroundLoader::save(const WoweeBattleground& cat,
         writePOD(os, e.objectiveKind);
         writePOD(os, e.minPlayersPerSide);
         writePOD(os, e.maxPlayersPerSide);
-        uint8_t pad1 = 0;
-        writePOD(os, pad1);
+        writePadding(os, 1);
         writePOD(os, e.minLevel);
         writePOD(os, e.maxLevel);
         writePOD(os, e.scoreToWin);
         writePOD(os, e.timeLimitSeconds);
         writePOD(os, e.bracketSize);
-        uint8_t pad3[3] = {0, 0, 0};
-        os.write(reinterpret_cast<const char*>(pad3), 3);
+        writePadding(os, 3);
         writePOD(os, e.allianceStart.x);
         writePOD(os, e.allianceStart.y);
         writePOD(os, e.allianceStart.z);
@@ -106,53 +61,28 @@ bool WoweeBattlegroundLoader::save(const WoweeBattleground& cat,
         writePOD(os, e.hordeStart.z);
         writePOD(os, e.hordeFacing);
         writePOD(os, e.respawnTimeSeconds);
-        os.write(reinterpret_cast<const char*>(pad3), 2);
+        writePadding(os, 2);
         writePOD(os, e.markTokenId);
-    }
-    return os.good();
+                       });
 }
 
-WoweeBattleground WoweeBattlegroundLoader::load(const std::string& basePath) {
-    WoweeBattleground out;
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    if (!is) return out;
-    char magic[4];
-    is.read(magic, 4);
-    if (std::memcmp(magic, kMagic, 4) != 0) return out;
-    uint32_t version = 0;
-    if (!readPOD(is, version) || version != kVersion) return out;
-    if (!readStr(is, out.name)) return out;
-    uint32_t entryCount = 0;
-    if (!readPOD(is, entryCount)) return out;
-    if (entryCount > (1u << 20)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
+WoweeBattleground WoweeBattlegroundLoader::load(
+    const std::string& basePath) {
+    return loadCatalog<WoweeBattleground>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeBattleground::Entry& e) {
         if (!readPOD(is, e.battlegroundId) ||
-            !readPOD(is, e.mapId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name) || !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
+            !readPOD(is, e.mapId)) { return false; }
+        if (!readStr(is, e.name) || !readStr(is, e.description)) { return false; }
         if (!readPOD(is, e.objectiveKind) ||
             !readPOD(is, e.minPlayersPerSide) ||
-            !readPOD(is, e.maxPlayersPerSide)) {
-            out.entries.clear(); return out;
-        }
-        uint8_t pad1 = 0;
-        if (!readPOD(is, pad1)) {
-            out.entries.clear(); return out;
-        }
+            !readPOD(is, e.maxPlayersPerSide)) { return false; }
+        if (!skipPadding(is, 1)) { return false; }
         if (!readPOD(is, e.minLevel) ||
             !readPOD(is, e.maxLevel) ||
             !readPOD(is, e.scoreToWin) ||
             !readPOD(is, e.timeLimitSeconds) ||
-            !readPOD(is, e.bracketSize)) {
-            out.entries.clear(); return out;
-        }
-        uint8_t pad3[3];
-        is.read(reinterpret_cast<char*>(pad3), 3);
-        if (is.gcount() != 3) { out.entries.clear(); return out; }
+            !readPOD(is, e.bracketSize)) { return false; }
+        if (!skipPadding(is, 3)) { return false; }
         if (!readPOD(is, e.allianceStart.x) ||
             !readPOD(is, e.allianceStart.y) ||
             !readPOD(is, e.allianceStart.z) ||
@@ -161,21 +91,15 @@ WoweeBattleground WoweeBattlegroundLoader::load(const std::string& basePath) {
             !readPOD(is, e.hordeStart.y) ||
             !readPOD(is, e.hordeStart.z) ||
             !readPOD(is, e.hordeFacing) ||
-            !readPOD(is, e.respawnTimeSeconds)) {
-            out.entries.clear(); return out;
-        }
-        is.read(reinterpret_cast<char*>(pad3), 2);
-        if (is.gcount() != 2) { out.entries.clear(); return out; }
-        if (!readPOD(is, e.markTokenId)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.respawnTimeSeconds)) { return false; }
+        if (!skipPadding(is, 2)) { return false; }
+        if (!readPOD(is, e.markTokenId)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeBattlegroundLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeBattleground WoweeBattlegroundLoader::makeStarter(const std::string& catalogName) {

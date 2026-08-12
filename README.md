@@ -1,4 +1,4 @@
-# WoWee — World of Warcraft Engine Experiment
+# WoWee - World of Warcraft Engine Experiment
 
 <p align="center">
   <img src="assets/Wowee.png" alt="WoWee logo" width="240" />
@@ -312,7 +312,7 @@ core, and reproduction steps.
 WoWee source code is available under the [MIT License](LICENSE). World of
 Warcraft and its assets are property of Blizzard Entertainment, Inc.
 
-- [WoWDev Wiki](https://wowdev.wiki/) — file-format documentation
-- [TrinityCore](https://github.com/TrinityCore/TrinityCore) — server reference
-- [MaNGOS](https://github.com/cmangos/mangos-wotlk) — server reference
-- [StormLib](https://github.com/ladislav-zezula/StormLib) — MPQ library
+- [WoWDev Wiki](https://wowdev.wiki/) - file-format documentation
+- [TrinityCore](https://github.com/TrinityCore/TrinityCore) - server reference
+- [MaNGOS](https://github.com/cmangos/mangos-wotlk) - server reference
+- [StormLib](https://github.com/ladislav-zezula/StormLib) - MPQ library

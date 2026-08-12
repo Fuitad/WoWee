@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Spell Pack catalog (.wspk) — novel
+// Wowee Open Spell Pack catalog (.wspk) - novel
 // replacement for the implicit per-class spellbook
 // layout that vanilla WoW derived from
 // SkillLineAbility.dbc + SpellTabIcon mappings + the
@@ -29,18 +29,18 @@ namespace pipeline {
 //   nameLen + name (catalog label)
 //   entryCount (uint32)
 //   entries (each):
-//     packId (uint32)        — surrogate primary key
+//     packId (uint32)        - surrogate primary key
 //                               for cross-format
 //                               --catalog-find lookups
-//     classId (uint8)        — 1..11 vanilla class
-//     tabIndex (uint8)       — 0=General/3 spec tabs
-//     iconIndex (uint8)      — SpellIcon row id for
+//     classId (uint8)        - 1..11 vanilla class
+//     tabIndex (uint8)       - 0=General/3 spec tabs
+//     iconIndex (uint8)      - SpellIcon row id for
 //                               the tab header glyph
 //     pad0 (uint8)
-//     tabNameLen + tabName   — display label for the
+//     tabNameLen + tabName   - display label for the
 //                               spellbook tab
 //     spellCount (uint32)
-//     spellIds (uint32 × count)  — ordered display
+//     spellIds (uint32 × count)  - ordered display
 //                                   list (top-to-
 //                                   bottom in tab)
 struct WoweeSpellPack {
@@ -78,16 +78,16 @@ public:
 
     // Preset emitters used by --gen-spk* variants.
     //
-    //   makeWarriorPack — 4 tabs (General + 3 trees:
+    //   makeWarriorPack - 4 tabs (General + 3 trees:
     //                      Arms/Fury/Protection). Each
     //                      tab seeded with canonical
     //                      vanilla spellIds.
-    //   makeMagePack    — 4 tabs (General + Arcane/
+    //   makeMagePack    - 4 tabs (General + Arcane/
     //                      Fire/Frost). Frost tab
     //                      includes Frostbolt rank-1
-    //                      spellId 116 — the canonical
+    //                      spellId 116 - the canonical
     //                      "every mage starts here" spell.
-    //   makeRoguePack   — 4 tabs (General + Assassin/
+    //   makeRoguePack   - 4 tabs (General + Assassin/
     //                      Combat/Subtlety). Combat tab
     //                      seeded with poison-application
     //                      and lethality picks.

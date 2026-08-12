@@ -1,4 +1,5 @@
 #include "pipeline/wowee_pet_care.hpp"
+#include "pipeline/wowee_binary_io.hpp"
 
 #include <cstdio>
 #include <cstring>
@@ -11,52 +12,7 @@ namespace {
 
 constexpr char kMagic[4] = {'W', 'P', 'C', 'R'};
 constexpr uint32_t kVersion = 1;
-
-template <typename T>
-void writePOD(std::ofstream& os, const T& v) {
-    os.write(reinterpret_cast<const char*>(&v), sizeof(T));
-}
-
-template <typename T>
-bool readPOD(std::ifstream& is, T& v) {
-    is.read(reinterpret_cast<char*>(&v), sizeof(T));
-    return is.gcount() == static_cast<std::streamsize>(sizeof(T));
-}
-
-void writeStr(std::ofstream& os, const std::string& s) {
-    uint32_t n = static_cast<uint32_t>(s.size());
-    writePOD(os, n);
-    if (n > 0) os.write(s.data(), n);
-}
-
-bool readStr(std::ifstream& is, std::string& s) {
-    uint32_t n = 0;
-    if (!readPOD(is, n)) return false;
-    if (n > (1u << 20)) return false;
-    s.resize(n);
-    if (n > 0) {
-        is.read(s.data(), n);
-        if (is.gcount() != static_cast<std::streamsize>(n)) {
-            s.clear();
-            return false;
-        }
-    }
-    return true;
-}
-
-std::string normalizePath(std::string base) {
-    if (base.size() < 5 || base.substr(base.size() - 5) != ".wpcr") {
-        base += ".wpcr";
-    }
-    return base;
-}
-
-uint32_t packRgba(uint8_t r, uint8_t g, uint8_t b, uint8_t a = 0xFF) {
-    return (static_cast<uint32_t>(a) << 24) |
-           (static_cast<uint32_t>(b) << 16) |
-           (static_cast<uint32_t>(g) << 8)  |
-            static_cast<uint32_t>(r);
-}
+constexpr char kExtension[] = ".wpcr";
 
 } // namespace
 
@@ -84,15 +40,9 @@ WoweePetCare::findByKind(uint8_t actionKind) const {
 }
 
 bool WoweePetCareLoader::save(const WoweePetCare& cat,
-                                const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath), std::ios::binary);
-    if (!os) return false;
-    os.write(kMagic, 4);
-    writePOD(os, kVersion);
-    writeStr(os, cat.name);
-    uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writePOD(os, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweePetCare::Entry& e) {
         writePOD(os, e.actionId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -107,31 +57,15 @@ bool WoweePetCareLoader::save(const WoweePetCare& cat,
         writePOD(os, e.castTimeMs);
         writePOD(os, e.cooldownSec);
         writePOD(os, e.iconColorRGBA);
-    }
-    return os.good();
+                       });
 }
 
-WoweePetCare WoweePetCareLoader::load(const std::string& basePath) {
-    WoweePetCare out;
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    if (!is) return out;
-    char magic[4];
-    is.read(magic, 4);
-    if (std::memcmp(magic, kMagic, 4) != 0) return out;
-    uint32_t version = 0;
-    if (!readPOD(is, version) || version != kVersion) return out;
-    if (!readStr(is, out.name)) return out;
-    uint32_t entryCount = 0;
-    if (!readPOD(is, entryCount)) return out;
-    if (entryCount > (1u << 20)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.actionId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name) || !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
+WoweePetCare WoweePetCareLoader::load(
+    const std::string& basePath) {
+    return loadCatalog<WoweePetCare>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweePetCare::Entry& e) {
+        if (!readPOD(is, e.actionId)) { return false; }
+        if (!readStr(is, e.name) || !readStr(is, e.description)) { return false; }
         if (!readPOD(is, e.spellId) ||
             !readPOD(is, e.classFilter) ||
             !readPOD(is, e.actionKind) ||
@@ -142,16 +76,13 @@ WoweePetCare WoweePetCareLoader::load(const std::string& basePath) {
             !readPOD(is, e.reagentItemId) ||
             !readPOD(is, e.castTimeMs) ||
             !readPOD(is, e.cooldownSec) ||
-            !readPOD(is, e.iconColorRGBA)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.iconColorRGBA)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweePetCareLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweePetCare WoweePetCareLoader::makeHunterCare(
@@ -204,7 +135,7 @@ WoweePetCare WoweePetCareLoader::makeHunterCare(
         "No cost, no cooldown.");
     add(5, "TameBeast", 1515, P::Tame,
         0, 0, 0, 0, 20000,
-        "Tame a wild beast. 20s channel — beast attacks "
+        "Tame a wild beast. 20s channel - beast attacks "
         "during channel; succeed only if hunter survives. "
         "No reagent, no cost.");
     return c;
@@ -245,7 +176,7 @@ WoweePetCare WoweePetCareLoader::makeStableActions(
     add(101, "UntrainPet", 0, P::Untrain,
         10000,
         "Reset all pet talent points. Cost ramps with "
-        "each untrain (1g first, +1g each subsequent — "
+        "each untrain (1g first, +1g each subsequent - "
         "10000 copper = 1g shown as the base entry; "
         "client computes ramp at runtime).");
     add(102, "RenamePet", 0, P::Rename,
@@ -255,7 +186,7 @@ WoweePetCare WoweePetCareLoader::makeStableActions(
     add(103, "AbandonPet", 2641, P::Abandon,
         0,
         "Permanently release the active pet (back to "
-        "the wild). Free, instant — but PERMANENT. The "
+        "the wild). Free, instant - but PERMANENT. The "
         "pet is gone forever; cannot be re-tamed without "
         "finding the same beast in the world. UI "
         "confirmation prompt highly recommended.");
@@ -288,17 +219,17 @@ WoweePetCare WoweePetCareLoader::makeWarlockMinions(
     };
     // Reagent: Soul Shard (itemId 6265).
     add(200, "SummonImp",        688,  6265, 6500,
-        "Summon Imp — 6.5s cast, 1 Soul Shard. Imp is "
+        "Summon Imp - 6.5s cast, 1 Soul Shard. Imp is "
         "the leveling-default minion (ranged caster, "
         "Firebolt + Phase Shift).");
     add(201, "SummonVoidwalker", 697,  6265, 10000,
-        "Summon Voidwalker — 10s cast, 1 Soul Shard. "
+        "Summon Voidwalker - 10s cast, 1 Soul Shard. "
         "Tank minion (Sacrifice + Suffering taunt).");
     add(202, "SummonSuccubus",   712,  6265, 10000,
-        "Summon Succubus — 10s cast, 1 Soul Shard. "
+        "Summon Succubus - 10s cast, 1 Soul Shard. "
         "DPS minion (Lash of Pain + Seduce CC).");
     add(203, "SummonFelhunter",  691,  6265, 10000,
-        "Summon Felhunter — 10s cast, 1 Soul Shard. "
+        "Summon Felhunter - 10s cast, 1 Soul Shard. "
         "Anti-magic minion (Spell Lock interrupt + "
         "Devour Magic dispel).");
     return c;

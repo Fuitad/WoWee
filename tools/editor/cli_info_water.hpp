@@ -4,7 +4,7 @@ namespace wowee {
 namespace editor {
 namespace cli {
 
-// Dispatch the water-layer audit handlers — aggregate liquid
+// Dispatch the water-layer audit handlers - aggregate liquid
 // data (water/ocean/magma/slime) across a zone or project.
 // Useful for confirming a 'lake zone' actually carries water,
 // or for budget planning when many zones share liquid types.

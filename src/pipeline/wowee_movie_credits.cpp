@@ -1,4 +1,5 @@
 #include "pipeline/wowee_movie_credits.hpp"
+#include "pipeline/wowee_binary_io.hpp"
 
 #include <algorithm>
 #include <cstdio>
@@ -12,52 +13,7 @@ namespace {
 
 constexpr char kMagic[4] = {'W', 'M', 'V', 'C'};
 constexpr uint32_t kVersion = 1;
-
-template <typename T>
-void writePOD(std::ofstream& os, const T& v) {
-    os.write(reinterpret_cast<const char*>(&v), sizeof(T));
-}
-
-template <typename T>
-bool readPOD(std::ifstream& is, T& v) {
-    is.read(reinterpret_cast<char*>(&v), sizeof(T));
-    return is.gcount() == static_cast<std::streamsize>(sizeof(T));
-}
-
-void writeStr(std::ofstream& os, const std::string& s) {
-    uint32_t n = static_cast<uint32_t>(s.size());
-    writePOD(os, n);
-    if (n > 0) os.write(s.data(), n);
-}
-
-bool readStr(std::ifstream& is, std::string& s) {
-    uint32_t n = 0;
-    if (!readPOD(is, n)) return false;
-    if (n > (1u << 20)) return false;
-    s.resize(n);
-    if (n > 0) {
-        is.read(s.data(), n);
-        if (is.gcount() != static_cast<std::streamsize>(n)) {
-            s.clear();
-            return false;
-        }
-    }
-    return true;
-}
-
-std::string normalizePath(std::string base) {
-    if (base.size() < 5 || base.substr(base.size() - 5) != ".wmvc") {
-        base += ".wmvc";
-    }
-    return base;
-}
-
-uint32_t packRgba(uint8_t r, uint8_t g, uint8_t b, uint8_t a = 0xFF) {
-    return (static_cast<uint32_t>(a) << 24) |
-           (static_cast<uint32_t>(b) << 16) |
-           (static_cast<uint32_t>(g) << 8)  |
-            static_cast<uint32_t>(r);
-}
+constexpr char kExtension[] = ".wmvc";
 
 } // namespace
 
@@ -81,15 +37,9 @@ WoweeMovieCredits::findByCinematic(uint32_t cinematicId) const {
 }
 
 bool WoweeMovieCreditsLoader::save(const WoweeMovieCredits& cat,
-                                     const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath), std::ios::binary);
-    if (!os) return false;
-    os.write(kMagic, 4);
-    writePOD(os, kVersion);
-    writeStr(os, cat.name);
-    uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writePOD(os, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeMovieCredits::Entry& e) {
         writePOD(os, e.rollId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -106,32 +56,15 @@ bool WoweeMovieCreditsLoader::save(const WoweeMovieCredits& cat,
             e.lines.size());
         writePOD(os, lineCount);
         for (const auto& L : e.lines) writeStr(os, L);
-    }
-    return os.good();
+                       });
 }
 
 WoweeMovieCredits WoweeMovieCreditsLoader::load(
     const std::string& basePath) {
-    WoweeMovieCredits out;
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    if (!is) return out;
-    char magic[4];
-    is.read(magic, 4);
-    if (std::memcmp(magic, kMagic, 4) != 0) return out;
-    uint32_t version = 0;
-    if (!readPOD(is, version) || version != kVersion) return out;
-    if (!readStr(is, out.name)) return out;
-    uint32_t entryCount = 0;
-    if (!readPOD(is, entryCount)) return out;
-    if (entryCount > (1u << 20)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.rollId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name) || !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
+    return loadCatalog<WoweeMovieCredits>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeMovieCredits::Entry& e) {
+        if (!readPOD(is, e.rollId)) { return false; }
+        if (!readStr(is, e.name) || !readStr(is, e.description)) { return false; }
         if (!readPOD(is, e.cinematicId) ||
             !readPOD(is, e.category) ||
             !readPOD(is, e.pad0) ||
@@ -140,29 +73,20 @@ WoweeMovieCredits WoweeMovieCreditsLoader::load(
             !readPOD(is, e.orderHint) ||
             !readPOD(is, e.pad4) ||
             !readPOD(is, e.pad5) ||
-            !readPOD(is, e.iconColorRGBA)) {
-            out.entries.clear(); return out;
-        }
+            !readPOD(is, e.iconColorRGBA)) { return false; }
         uint32_t lineCount = 0;
-        if (!readPOD(is, lineCount)) {
-            out.entries.clear(); return out;
-        }
-        if (lineCount > 4096) {
-            out.entries.clear(); return out;
-        }
+        if (!readPOD(is, lineCount)) { return false; }
+        if (lineCount > 4096) { return false; }
         e.lines.resize(lineCount);
         for (uint32_t k = 0; k < lineCount; ++k) {
-            if (!readStr(is, e.lines[k])) {
-                out.entries.clear(); return out;
-            }
+            if (!readStr(is, e.lines[k])) { return false; }
         }
-    }
-    return out;
+                                  return true;
+                              });
 }
 
 bool WoweeMovieCreditsLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeMovieCredits WoweeMovieCreditsLoader::makeWotLKIntro(
@@ -193,7 +117,7 @@ WoweeMovieCredits WoweeMovieCreditsLoader::makeWotLKIntro(
             "Production Coordinator (placeholder)",
         },
         packRgba(220, 220, 100),
-        "WotLK intro — Production block. 6 lines: 3 "
+        "WotLK intro - Production block. 6 lines: 3 "
         "title + 3 name pairs.");
     add(2, "WotLK_Direction", M::Production, 20,
         {
@@ -203,7 +127,7 @@ WoweeMovieCredits WoweeMovieCreditsLoader::makeWotLKIntro(
             "Tech Director (placeholder)",
         },
         packRgba(220, 200, 80),
-        "WotLK intro — Direction block. 4 lines.");
+        "WotLK intro - Direction block. 4 lines.");
     add(3, "WotLK_Music", M::Music, 30,
         {
             "ORIGINAL SCORE COMPOSED BY",
@@ -214,7 +138,7 @@ WoweeMovieCredits WoweeMovieCreditsLoader::makeWotLKIntro(
             "Jason Hayes",
         },
         packRgba(180, 100, 240),
-        "WotLK intro — Music block. The actual WoTLK "
+        "WotLK intro - Music block. The actual WoTLK "
         "score credits, 6 lines.");
     add(4, "WotLK_Voice", M::Voice, 40,
         {
@@ -224,7 +148,7 @@ WoweeMovieCredits WoweeMovieCreditsLoader::makeWotLKIntro(
             "Narrator ............  Patrick Seitz",
         },
         packRgba(255, 220, 220),
-        "WotLK intro — Voice cast block. The iconic "
+        "WotLK intro - Voice cast block. The iconic "
         "Arthas/Terenas exchange in the cinematic.");
     add(5, "WotLK_SpecialThanks", M::Special, 90,
         {
@@ -235,7 +159,7 @@ WoweeMovieCredits WoweeMovieCreditsLoader::makeWotLKIntro(
             "FOR THE LICH KING",
         },
         packRgba(180, 220, 255),
-        "WotLK intro — Special Thanks block. End of "
+        "WotLK intro - Special Thanks block. End of "
         "the credit roll, traditionally last.");
     return c;
 }
@@ -264,7 +188,7 @@ WoweeMovieCredits WoweeMovieCreditsLoader::makeQuestCinema(
             "Quest Designer (placeholder)",
         },
         packRgba(140, 200, 255),
-        "Per-quest cinematic — Designer credit. Two "
+        "Per-quest cinematic - Designer credit. Two "
         "lines: title + name.");
     add(101, "QuestCine_Voice", M::Voice, 20,
         {
@@ -272,14 +196,14 @@ WoweeMovieCredits WoweeMovieCreditsLoader::makeQuestCinema(
             "NPC Voice Actor (placeholder)",
         },
         packRgba(255, 220, 220),
-        "Per-quest cinematic — single voice credit.");
+        "Per-quest cinematic - single voice credit.");
     add(102, "QuestCine_Director", M::Production, 30,
         {
             "CINEMATIC DIRECTOR",
             "Director (placeholder)",
         },
         packRgba(220, 220, 100),
-        "Per-quest cinematic — Cinematic Director "
+        "Per-quest cinematic - Cinematic Director "
         "credit. Always last per Blizzard convention.");
     return c;
 }
@@ -305,22 +229,22 @@ WoweeMovieCredits WoweeMovieCreditsLoader::makeStarterRoll(
     add(200, "Starter_Production", M::Production, 10,
         { "PRODUCTION", "Producer Name", "Co-Producer" },
         packRgba(220, 220, 100),
-        "Generic starter cinematic — 3-line Production "
+        "Generic starter cinematic - 3-line Production "
         "block.");
     add(201, "Starter_Engineering", M::Engineering, 20,
         { "ENGINEERING", "Lead Engineer", "Pipeline Tools" },
         packRgba(140, 200, 255),
-        "Generic starter cinematic — 3-line Engineering "
+        "Generic starter cinematic - 3-line Engineering "
         "block.");
     add(202, "Starter_Art", M::Art, 30,
         { "ART", "Concept Artist", "3D Modeler", "Animator" },
         packRgba(255, 180, 100),
-        "Generic starter cinematic — 4-line Art block.");
+        "Generic starter cinematic - 4-line Art block.");
     add(203, "Starter_Special", M::Special, 90,
         { "WITH SPECIAL THANKS TO", "Our players",
           "Our families" },
         packRgba(180, 220, 255),
-        "Generic starter cinematic — 3-line Special "
+        "Generic starter cinematic - 3-line Special "
         "Thanks block.");
     return c;
 }

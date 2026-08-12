@@ -25,7 +25,6 @@ public:
     // Factory methods
     static BigNum fromRandom(int bytes);
     static BigNum fromHex(const std::string& hex);
-    static BigNum fromDecimal(const std::string& dec);
 
     // Arithmetic operations
     BigNum add(const BigNum& other) const;
@@ -41,7 +40,6 @@ public:
     // Conversion
     std::vector<uint8_t> toArray(bool littleEndian = true, int minSize = 0) const;
     std::string toHex() const;
-    std::string toDecimal() const;
 
     // Direct access (for advanced operations)
     BIGNUM* getBN() { return bn; }

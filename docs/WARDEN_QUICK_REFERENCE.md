@@ -1,7 +1,7 @@
 # Warden Quick Reference
 
 Warden is WoW's client integrity checking system. Wowee implements full Warden module execution
-via Unicorn Engine CPU emulation — no Wine required.
+via Unicorn Engine CPU emulation - no Wine required.
 
 ---
 
@@ -74,10 +74,10 @@ grep -i warden logs/wowee.log
 ```
 
 Key messages:
-- `Warden: module loaded from cache` — cached path, fast startup
-- `Warden: executing module entry point` — emulation running
-- `Warden: check response sent` — working correctly
-- `packetsAfterGate=0` — server not responding after Warden exchange
+- `Warden: module loaded from cache` - cached path, fast startup
+- `Warden: executing module entry point` - emulation running
+- `Warden: check response sent` - working correctly
+- `packetsAfterGate=0` - server not responding after Warden exchange
 
 ---
 

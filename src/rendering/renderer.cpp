@@ -107,14 +107,6 @@ static bool envFlagEnabled(const char* key, bool defaultValue) {
     return !(v == "0" || v == "false" || v == "off" || v == "no");
 }
 
-static int envIntOrDefault(const char* key, int defaultValue) {
-    const char* raw = std::getenv(key);
-    if (!raw || !*raw) return defaultValue;
-    char* end = nullptr;
-    long n = std::strtol(raw, &end, 10);
-    if (end == raw) return defaultValue;
-    return static_cast<int>(n);
-}
 
 Renderer::Renderer() = default;
 Renderer::~Renderer() = default;
@@ -160,7 +152,7 @@ bool Renderer::createPerFrameResources() {
         }
     }
 
-    // --- Create shadow sampler (shared — read-only, no per-frame needed) ---
+    // --- Create shadow sampler (shared - read-only, no per-frame needed) ---
     VkSamplerCreateInfo sampCI{};
     sampCI.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
     sampCI.magFilter = VK_FILTER_LINEAR;
@@ -406,24 +398,15 @@ void Renderer::destroyPerFrameResources() {
     VkDevice device = vkCtx->getDevice();
 
     for (uint32_t i = 0; i < MAX_FRAMES; i++) {
-        if (perFrameUBOs[i]) {
-            vmaDestroyBuffer(vkCtx->getAllocator(), perFrameUBOs[i], perFrameUBOAllocs[i]);
-            perFrameUBOs[i] = VK_NULL_HANDLE;
-        }
+        destroy(vkCtx->getAllocator(), perFrameUBOs[i], perFrameUBOAllocs[i]);
     }
     if (reflPerFrameUBO) {
         vmaDestroyBuffer(vkCtx->getAllocator(), reflPerFrameUBO, reflPerFrameUBOAlloc);
         reflPerFrameUBO = VK_NULL_HANDLE;
         reflPerFrameUBOMapped = nullptr;
     }
-    if (sceneDescriptorPool) {
-        vkDestroyDescriptorPool(device, sceneDescriptorPool, nullptr);
-        sceneDescriptorPool = VK_NULL_HANDLE;
-    }
-    if (perFrameSetLayout) {
-        vkDestroyDescriptorSetLayout(device, perFrameSetLayout, nullptr);
-        perFrameSetLayout = VK_NULL_HANDLE;
-    }
+    destroy(device, sceneDescriptorPool);
+    destroy(device, perFrameSetLayout);
 
     // Destroy per-frame shadow resources
     for (uint32_t i = 0; i < MAX_FRAMES; i++) {
@@ -582,7 +565,7 @@ bool Renderer::initialize(core::Window* win) {
 
     LOG_INFO("Vulkan sub-renderers initialized (Phase 3)");
 
-    // LightingManager doesn't use GL — initialize for data-only use
+    // LightingManager doesn't use GL - initialize for data-only use
     lightingManager = std::make_unique<LightingManager>();
     auto* assetManager = core::Application::getInstance().getAssetManager();
 
@@ -598,10 +581,10 @@ bool Renderer::initialize(core::Window* win) {
 
     // Create secondary command buffer resources for multithreaded rendering
     if (!createSecondaryCommandResources()) {
-        LOG_WARNING("Failed to create secondary command buffers — falling back to single-threaded rendering");
+        LOG_WARNING("Failed to create secondary command buffers - falling back to single-threaded rendering");
     }
 
-    // Create PostProcessPipeline (§4.3 — owns FSR/FXAA/FSR2/FSR3/brightness)
+    // Create PostProcessPipeline (§4.3 - owns FSR/FXAA/FSR2/FSR3/brightness)
     postProcessPipeline_ = std::make_unique<PostProcessPipeline>();
     postProcessPipeline_->initialize(vkCtx);
 
@@ -770,15 +753,10 @@ void Renderer::unregisterPreview(CharacterPreview* preview) {
 void Renderer::setWaterRefractionEnabled(bool enabled) {
     if (waterRenderer) waterRenderer->setRefractionEnabled(enabled);
 }
-
-bool Renderer::isWaterRefractionEnabled() const {
-    return waterRenderer && waterRenderer->isRefractionEnabled();
-}
-
 void Renderer::setMsaaSamples(VkSampleCountFlagBits samples) {
     if (!vkCtx) return;
 
-    // FSR2 requires non-MSAA render pass — block MSAA changes while FSR2 is active
+    // FSR2 requires non-MSAA render pass - block MSAA changes while FSR2 is active
     if (postProcessPipeline_ && postProcessPipeline_->isFsr2BlockingMsaa() && samples > VK_SAMPLE_COUNT_1_BIT) return;
 
     // Clamp to device maximum
@@ -787,7 +765,7 @@ void Renderer::setMsaaSamples(VkSampleCountFlagBits samples) {
 
     if (samples == vkCtx->getMsaaSamples()) return;
 
-    // Defer to between frames — cannot destroy render pass/framebuffers mid-frame
+    // Defer to between frames - cannot destroy render pass/framebuffers mid-frame
     pendingMsaaSamples_ = samples;
     msaaChangePending_ = true;
 }
@@ -796,7 +774,7 @@ void Renderer::applyMsaaChange() {
     VkSampleCountFlagBits samples = pendingMsaaSamples_;
     msaaChangePending_ = false;
 
-    // FSR2 requires non-MSAA render pass — if FSR2 was enabled after the MSAA
+    // FSR2 requires non-MSAA render pass - if FSR2 was enabled after the MSAA
     // change was queued (startup race), force 1x to avoid framebuffer mismatch.
     if (samples > VK_SAMPLE_COUNT_1_BIT &&
         postProcessPipeline_ && postProcessPipeline_->isFsr2BlockingMsaa()) {
@@ -806,13 +784,13 @@ void Renderer::applyMsaaChange() {
     VkSampleCountFlagBits current = vkCtx->getMsaaSamples();
     if (samples == current) return;
 
-    // Single GPU wait — all subsequent operations are CPU-side object creation
+    // Single GPU wait - all subsequent operations are CPU-side object creation
     vkDeviceWaitIdle(vkCtx->getDevice());
 
     // Set new MSAA and recreate swapchain (render pass, depth, MSAA image, framebuffers)
     vkCtx->setMsaaSamples(samples);
     if (!vkCtx->recreateSwapchain(window->getWidth(), window->getHeight())) {
-        LOG_ERROR("MSAA change failed — reverting to 1x");
+        LOG_ERROR("MSAA change failed - reverting to 1x");
         vkCtx->setMsaaSamples(VK_SAMPLE_COUNT_1_BIT);
         (void)vkCtx->recreateSwapchain(window->getWidth(), window->getHeight());
     }
@@ -822,7 +800,7 @@ void Renderer::applyMsaaChange() {
     if (waterRenderer) {
         waterRenderer->recreatePipelines();
         // Under MSAA the water draws single-sampled in its own pass, after the
-        // scene has resolved — it is a large alpha-blended surface whose edges
+        // scene has resolved - it is a large alpha-blended surface whose edges
         // MSAA does nothing for, and drawing it there also keeps it out of its
         // own refraction copy.
         waterRenderer->destroyWater1xResources();
@@ -872,15 +850,15 @@ void Renderer::applyMsaaChange() {
     // ImGui is deliberately not restarted here.
     //
     // It always initialises at one sample into the overlay pass, which is
-    // itself always single-sampled and depends only on the swapchain format —
+    // itself always single-sampled and depends only on the swapchain format -
     // so a change of scene anti-aliasing does not change anything ImGui built.
     // Recreating the swapchain produces a new overlay pass handle, but a
     // structurally identical one, and Vulkan requires a pipeline's render pass
     // to be compatible rather than the same object.
     //
     // Tearing the backend down destroyed its descriptor pool, and every UI
-    // texture in the client — item and spell icons, raid icons, the talent
-    // background, the world map layers, the widget renderer — holds a
+    // texture in the client - item and spell icons, raid icons, the talent
+    // background, the world map layers, the widget renderer - holds a
     // descriptor set allocated from it. Nothing was told, so the next frame
     // drew with freed descriptors and the GPU was reset: the log shows the
     // swapchain and pipelines rebuilt, then the fence wait failing with
@@ -900,7 +878,7 @@ void Renderer::beginFrame() {
         // The rebuild destroys and remakes the swapchain, every render pass and
         // every pipeline. The frame slots are left mid-cycle by it, and the
         // next frame would reset a fence and re-record a command buffer the
-        // GPU has not finished with — which is what validation reports and the
+        // GPU has not finished with - which is what validation reports and the
         // driver answers by losing the device.
         if (vkCtx) vkCtx->resetFrameSyncState();
     }
@@ -909,13 +887,13 @@ void Renderer::beginFrame() {
     //
     // This was polled only from the terrain manager, so batches submitted by
     // anything else retired only while terrain happened to be streaming. A
-    // rebuild reported 1423 submitted against 1241 retired — 182 outstanding,
+    // rebuild reported 1423 submitted against 1241 retired - 182 outstanding,
     // each holding a fence, a command buffer and its staging buffers. With
     // FrameXML uploading hundreds of textures the backlog is much larger than
     // it was, and nothing bounded it.
     if (vkCtx) vkCtx->pollUploadBatches();
 
-    // Post-process resource management (§4.3 — delegates to PostProcessPipeline)
+    // Post-process resource management (§4.3 - delegates to PostProcessPipeline)
     if (postProcessPipeline_) postProcessPipeline_->manageResources();
 
     // Handle swapchain recreation if needed
@@ -935,7 +913,7 @@ void Renderer::beginFrame() {
         if (hizSystem_) {
             auto ext = vkCtx->getSwapchainExtent();
             if (!hizSystem_->resize(ext.width, ext.height)) {
-                LOG_WARNING("HiZ resize failed — disabling occlusion culling");
+                LOG_WARNING("HiZ resize failed - disabling occlusion culling");
                 if (m2Renderer) m2Renderer->setHiZSystem(nullptr);
                 hizSystem_->shutdown();
                 hizSystem_.reset();
@@ -950,7 +928,7 @@ void Renderer::beginFrame() {
         return;
     }
 
-    // FSR2 jitter pattern (§4.3 — delegates to PostProcessPipeline)
+    // FSR2 jitter pattern (§4.3 - delegates to PostProcessPipeline)
     if (postProcessPipeline_ && camera) postProcessPipeline_->applyJitter(camera.get());
 
     // Compute fresh shadow matrix BEFORE UBO update so shaders get current-frame data.
@@ -981,7 +959,7 @@ void Renderer::beginFrame() {
     }
 
     // --- Begin render pass ---
-    // Select framebuffer: PP off-screen target or swapchain (§4.3 — PostProcessPipeline)
+    // Select framebuffer: PP off-screen target or swapchain (§4.3 - PostProcessPipeline)
     VkRenderPassBeginInfo rpInfo{};
     rpInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
     rpInfo.renderPass = vkCtx->getImGuiRenderPass();
@@ -1042,7 +1020,7 @@ void Renderer::endFrame() {
     ZoneScopedN("Renderer::endFrame");
     if (!vkCtx || currentCmd == VK_NULL_HANDLE) return;
 
-    // Post-process execution (§4.3 — delegates to PostProcessPipeline). Whether
+    // Post-process execution (§4.3 - delegates to PostProcessPipeline). Whether
     // it swapped the scene pass for an INLINE one no longer matters to the
     // caller: the UI is drawn in the overlay pass, which this function opens
     // itself once whichever pass is current has been closed.
@@ -1098,7 +1076,7 @@ void Renderer::endFrame() {
         ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), currentCmd);
         vkCmdEndRenderPass(currentCmd);
     } else {
-        LOG_ERROR("Overlay render pass missing — UI not drawn this frame");
+        LOG_ERROR("Overlay render pass missing - UI not drawn this frame");
     }
 
     // Water now renders in the main pass (renderWorld), no separate 1x pass needed.
@@ -1264,9 +1242,7 @@ bool Renderer::ensureOutlandSkybox() {
 
     pipeline::M2Model model = pipeline::M2Loader::load(modelData);
     model.name = resolvedPath + "#original-sky";
-    const size_t resolvedDot = resolvedPath.find_last_of('.');
-    const std::string skinPath = (resolvedDot == std::string::npos
-        ? resolvedPath : resolvedPath.substr(0, resolvedDot)) + "00.skin";
+    const std::string skinPath = pipeline::skinPathForM2(resolvedPath);
     auto skinData = cachedAssetManager->readFileOptional(skinPath);
     if (!skinData.empty() && model.version >= 264) {
         pipeline::M2Loader::loadSkin(skinData, model);
@@ -1287,6 +1263,15 @@ bool Renderer::ensureOutlandSkybox() {
     outlandSkyRenderer_->setSkipCollision(outlandSkyInstanceId_, true);
     LOG_INFO("Outland original skybox active: ", resolvedPath);
     return true;
+}
+
+bool Renderer::isOnOutdoorPvpObjective() const {
+    if (!zoneManager || !terrainManager) return false;
+    if (const auto areaId = terrainManager->getAreaIdAt(
+            characterPosition.x, characterPosition.y)) {
+        return zoneManager->isOutdoorPvpArea(*areaId);
+    }
+    return false;
 }
 
 uint32_t Renderer::getCurrentZoneId() const {
@@ -1332,7 +1317,7 @@ void Renderer::update(float deltaTime) {
 
         // Update 3D audio listener position/orientation to match camera.
         // getUp() internally calls getRight() which calls getForward() again,
-        // and we ask for getForward() once more on the same line — that's 3
+        // and we ask for getForward() once more on the same line - that's 3
         // independent trig sequences. Cache the basis vectors once.
         if (camera) {
             const glm::vec3 fwd = camera->getForward();
@@ -1366,6 +1351,15 @@ void Renderer::update(float deltaTime) {
     uint32_t insideWmoId = 0;
     const bool insideWmo = canQueryWmo &&
         wmoRenderer->isInsideWMO(camPos.x, camPos.y, camPos.z, &insideWmoId);
+    // Announce the crossing. zonetext.lua and worldstateframe.lua both listen
+    // for ZONE_CHANGED_INDOORS, and WoW answers the way back out with a plain
+    // ZONE_CHANGED - there is no outdoors counterpart. Nothing fired either,
+    // so the state was known here and never left this file.
+    if (insideWmo != playerIndoors_) {
+        if (auto* gh = core::Application::getInstance().getGameHandler()) {
+            gh->fireAddonEvent(insideWmo ? "ZONE_CHANGED_INDOORS" : "ZONE_CHANGED", {});
+        }
+    }
     playerIndoors_ = insideWmo;
 
     // Update lighting system
@@ -1391,14 +1385,14 @@ void Renderer::update(float deltaTime) {
                 weather->setWeatherType(Weather::Type::NONE);
                 weather->setIntensity(0.0f);
             } else if (wType != 0) {
-                // Server-driven weather (SMSG_WEATHER) — authoritative
+                // Server-driven weather (SMSG_WEATHER) - authoritative
                 if (wType == 1)      weather->setWeatherType(Weather::Type::RAIN);
                 else if (wType == 2) weather->setWeatherType(Weather::Type::SNOW);
                 else if (wType == 3) weather->setWeatherType(Weather::Type::STORM);
                 else                 weather->setWeatherType(Weather::Type::NONE);
                 weather->setIntensity(wInt);
             } else {
-                // No server weather — use zone-based weather configuration
+                // No server weather - use zone-based weather configuration
                 weather->updateZoneWeather(getCurrentZoneId(), deltaTime);
             }
             weather->setEnabled(!insideWmo);
@@ -1408,7 +1402,7 @@ void Renderer::update(float deltaTime) {
                 lightning->setEnabled(false);
             }
         } else if (weather) {
-            // No game handler (single-player without network) — zone weather only
+            // No game handler (single-player without network) - zone weather only
             weather->updateZoneWeather(getCurrentZoneId(), deltaTime);
             weather->setEnabled(!insideWmo);
         }
@@ -1437,7 +1431,7 @@ void Renderer::update(float deltaTime) {
             if (toTarget.x * toTarget.x + toTarget.y * toTarget.y > 0.01f) {
                 // Go through canonical, the way spawning and the camera do.
                 // Taking atan2 of the render delta directly yields a heading in
-                // a different convention — a mirror about 135 degrees — so the
+                // a different convention - a mirror about 135 degrees - so the
                 // spin looked roughly right but the frame loop then converted it
                 // back to a canonical yaw that pointed somewhere else, and the
                 // server rejected the cast for not facing the target.
@@ -1524,7 +1518,7 @@ void Renderer::update(float deltaTime) {
         if (cameraController->isMoving()) {
             if (auto waterH = waterRenderer->getWaterHeightAt(charPos.x, charPos.y)) {
                 if (swimming) {
-                    // A wake only exists where the swimmer meets the surface —
+                    // A wake only exists where the swimmer meets the surface -
                     // diving deep leaves the surface undisturbed.
                     const float below = *waterH - charPos.z;
                     intensity = glm::clamp(1.0f - (below - 0.6f) / 1.4f, 0.0f, 1.0f);
@@ -1800,7 +1794,7 @@ void Renderer::renderWorld(game::World* world, game::GameHandler* gameHandler) {
     if (parallelRecordingEnabled_) {
         // --- Pre-compute state + GPU allocations on main thread (not thread-safe) ---
         if (m2Renderer && cameraController) {
-            // Use isInsideInteriorWMO (flag 0x2000) — not isInsideWMO which includes
+            // Use isInsideInteriorWMO (flag 0x2000) - not isInsideWMO which includes
             // outdoor WMO groups like archways/bridges that should receive shadows.
             m2Renderer->setInsideInterior(cameraController->isInsideInteriorWMO());
             m2Renderer->setOnTaxi(cameraController->isOnTaxi());
@@ -1964,7 +1958,7 @@ void Renderer::renderWorld(game::World* world, game::GameHandler* gameHandler) {
                     if (auto lt = waterRenderer->getWaterTypeAt(camPos.x, camPos.y))
                         canal = (*lt == 5 || *lt == 13 || *lt == 17);
                     // Until the eye passes the surface the view is darkened by
-                    // looking through the water plane itself, which is strong —
+                    // looking through the water plane itself, which is strong -
                     // its alpha runs up towards 0.9 with depth. Once the eye is
                     // under, that plane is behind the camera and contributes
                     // nothing, so this overlay is all that is left. Starting it
@@ -1981,7 +1975,7 @@ void Renderer::renderWorld(game::World* world, game::GameHandler* gameHandler) {
                         : glm::vec4(0.03f, 0.09f, 0.18f, fogStrength);
 
                     // Anchor the line to where the water plane actually meets the
-                    // view — its horizon — not to the middle of the screen. An
+                    // view - its horizon - not to the middle of the screen. An
                     // infinite horizontal plane projects to the horizon whichever
                     // side of it the eye is on, and the horizon sits above centre
                     // whenever the camera looks down, which is most of the time in
@@ -2077,7 +2071,7 @@ void Renderer::renderWorld(game::World* world, game::GameHandler* gameHandler) {
                         " wmo=", lastWMORenderMs, " m2=", lastM2RenderMs,
                         // Terrain is usually the critical path here, and its cost
                         // is one descriptor bind plus one draw per surviving
-                        // chunk — so the counts say whether a slow frame is draw
+                        // chunk - so the counts say whether a slow frame is draw
                         // volume or something else entirely.
                         " | terrain chunks drawn=",
                         terrainRenderer ? terrainRenderer->getRenderedChunkCount() : 0,
@@ -2191,7 +2185,7 @@ void Renderer::renderWorld(game::World* world, game::GameHandler* gameHandler) {
         if (questMarkerRenderer && camera) questMarkerRenderer->render(currentCmd, perFrameSet, *camera);
     }
 
-    // Underwater overlay and minimap — in the fallback path these run inline;
+    // Underwater overlay and minimap - in the fallback path these run inline;
     // in the parallel path they were already recorded into SEC_POST above.
     if (!parallelRecordingEnabled_) {
         if (overlaySystem_ && waterRenderer && camera) {
@@ -2311,7 +2305,7 @@ void Renderer::renderWorld(game::World* world, game::GameHandler* gameHandler) {
         waterRenderer->render(currentCmd, perFrameSet, *camera, globalTime, msaaOn, frameIdx);
 
         // Spray belongs on top of the surface it is thrown off. Recorded in the
-        // scene pass it went under the water instead, which the sheet then hid —
+        // scene pass it went under the water instead, which the sheet then hid -
         // barely at the shore where alpha sits near its floor, completely in the
         // deeper water you swim in.
         if (swimEffects && camera && swimEffectsDrawWithWater_) {
@@ -2364,7 +2358,7 @@ bool Renderer::waterDrawsInContinuePass() const {
     return vkCtx->getSceneContinueRenderPass() != VK_NULL_HANDLE;
 }
 
-// initPostProcess(), resizePostProcess(), shutdownPostProcess() removed —
+// initPostProcess(), resizePostProcess(), shutdownPostProcess() removed -
 // post-process pipeline is now handled by Vulkan (Phase 6 cleanup).
 
 bool Renderer::initializeRenderers(pipeline::AssetManager* assetManager, const std::string& mapName) {
@@ -2458,7 +2452,7 @@ bool Renderer::initializeRenderers(pipeline::AssetManager* assetManager, const s
         }
     }
 
-    // HiZ occlusion culling disabled — the pyramid build + blocking fence was
+    // HiZ occlusion culling disabled - the pyramid build + blocking fence was
     // the main frame-rate bottleneck.  GPU frustum culling alone provides good
     // draw-call reduction without the per-frame GPU stall.  HiZ can be re-
     // enabled once the pyramid build is moved to an async compute queue.
@@ -2517,7 +2511,7 @@ bool Renderer::initializeRenderers(pipeline::AssetManager* assetManager, const s
         if (wmoRenderer) {
             terrainManager->setWMORenderer(wmoRenderer.get());
         }
-        // A WMO's child M2 doodads — a ship's sails, its paddlewheel — are moved
+        // A WMO's child M2 doodads - a ship's sails, its paddlewheel - are moved
         // and destroyed through this pointer. It was never set, so every one of
         // those paths was behind a null check that never passed: the doodads
         // were created at the origin, never given their parent's transform, and
@@ -2729,136 +2723,6 @@ int Renderer::getTerrainLoadRadius() const {
     constexpr float kAdtTileSize = 533.33333f;
     return glm::clamp(static_cast<int>(std::ceil(viewDistance_ / kAdtTileSize)) + 1, 2, 6);
 }
-
-bool Renderer::loadTerrainArea(const std::string& mapName, int centerX, int centerY, int radius) {
-    // Create terrain renderer if not already created
-    if (!terrainRenderer) {
-        LOG_ERROR("Terrain renderer not initialized");
-        return false;
-    }
-
-    // Create terrain manager if not already created
-    if (!terrainManager) {
-        terrainManager = std::make_unique<TerrainManager>();
-        // Wire terrain manager to camera controller for grounding
-        if (cameraController) {
-            cameraController->setTerrainManager(terrainManager.get());
-        }
-    }
-
-    LOG_INFO("Loading terrain area: ", mapName, " [", centerX, ",", centerY, "] radius=", radius);
-
-    terrainManager->setMapName(mapName);
-    terrainManager->setLoadRadius(radius);
-    terrainManager->setUnloadRadius(radius + 1);
-
-    // Load tiles in radius
-    for (int dy = -radius; dy <= radius; dy++) {
-        for (int dx = -radius; dx <= radius; dx++) {
-            int tileX = centerX + dx;
-            int tileY = centerY + dy;
-
-            if (tileX >= 0 && tileX <= 63 && tileY >= 0 && tileY <= 63) {
-                terrainManager->loadTile(tileX, tileY);
-            }
-        }
-    }
-
-    terrainLoaded = true;
-
-    // Get asset manager from Application if not cached yet
-    if (!cachedAssetManager) {
-        cachedAssetManager = core::Application::getInstance().getAssetManager();
-    }
-
-    // Initialize music manager with asset manager
-    if (audioCoordinator_->getMusicManager() && cachedAssetManager) {
-        if (!audioCoordinator_->getMusicManager()->isInitialized()) {
-            audioCoordinator_->getMusicManager()->initialize(cachedAssetManager);
-        }
-    }
-    if (audioCoordinator_->getFootstepManager() && cachedAssetManager) {
-        if (!audioCoordinator_->getFootstepManager()->isInitialized()) {
-            audioCoordinator_->getFootstepManager()->initialize(cachedAssetManager);
-        }
-    }
-    if (audioCoordinator_->getActivitySoundManager() && cachedAssetManager) {
-        if (!audioCoordinator_->getActivitySoundManager()->isInitialized()) {
-            audioCoordinator_->getActivitySoundManager()->initialize(cachedAssetManager);
-        }
-    }
-    if (audioCoordinator_->getMountSoundManager() && cachedAssetManager) {
-        audioCoordinator_->getMountSoundManager()->initialize(cachedAssetManager);
-    }
-    if (audioCoordinator_->getNpcVoiceManager() && cachedAssetManager) {
-        audioCoordinator_->getNpcVoiceManager()->initialize(cachedAssetManager);
-    }
-    if (audioCoordinator_->getPlayerVoiceManager() && cachedAssetManager) {
-        audioCoordinator_->getPlayerVoiceManager()->initialize(cachedAssetManager);
-    }
-    if (!deferredWorldInitEnabled_) {
-        if (audioCoordinator_->getAmbientSoundManager() && cachedAssetManager) {
-            audioCoordinator_->getAmbientSoundManager()->initialize(cachedAssetManager);
-        }
-        if (audioCoordinator_->getUiSoundManager() && cachedAssetManager) {
-            audioCoordinator_->getUiSoundManager()->initialize(cachedAssetManager);
-        }
-        if (audioCoordinator_->getCombatSoundManager() && cachedAssetManager) {
-            audioCoordinator_->getCombatSoundManager()->initialize(cachedAssetManager);
-        }
-        if (audioCoordinator_->getSpellSoundManager() && cachedAssetManager) {
-            audioCoordinator_->getSpellSoundManager()->initialize(cachedAssetManager);
-        }
-        if (audioCoordinator_->getMovementSoundManager() && cachedAssetManager) {
-            audioCoordinator_->getMovementSoundManager()->initialize(cachedAssetManager);
-        }
-        if (questMarkerRenderer && cachedAssetManager) {
-            if (!questMarkerRenderer->initialize(vkCtx, perFrameSetLayout, cachedAssetManager))
-                LOG_WARNING("Quest marker renderer re-init failed (non-fatal)");
-        }
-        if (footprintRenderer && cachedAssetManager) {
-            if (!footprintRenderer->initialize(this, vkCtx, perFrameSetLayout, cachedAssetManager))
-                LOG_WARNING("Footprint renderer re-init failed (non-fatal)");
-        }
-    } else {
-        deferredWorldInitPending_ = true;
-        deferredWorldInitStage_ = 0;
-        deferredWorldInitCooldown_ = 0.1f;
-    }
-
-    // Wire ambient sound manager to terrain manager for emitter registration
-    if (terrainManager && audioCoordinator_->getAmbientSoundManager()) {
-        terrainManager->setAmbientSoundManager(audioCoordinator_->getAmbientSoundManager());
-    }
-
-    // Wire WMO, M2, and water renderer to camera controller
-    if (cameraController && wmoRenderer) {
-        cameraController->setWMORenderer(wmoRenderer.get());
-    }
-    if (cameraController && m2Renderer) {
-        cameraController->setM2Renderer(m2Renderer.get());
-    }
-    if (cameraController && waterRenderer) {
-        cameraController->setWaterRenderer(waterRenderer.get());
-    }
-
-    // Snap camera to ground now that terrain is loaded
-    if (cameraController) {
-        cameraController->reset();
-    }
-
-    LOG_INFO("Terrain area loaded: ", terrainManager->getLoadedTileCount(), " tiles");
-
-    return true;
-}
-
-void Renderer::setTerrainStreaming(bool enabled) {
-    if (terrainManager) {
-        terrainManager->setStreamingEnabled(enabled);
-        LOG_INFO("Terrain streaming: ", enabled ? "ON" : "OFF");
-    }
-}
-
 void Renderer::renderHUD() {
     if (currentCmd == VK_NULL_HANDLE) return;
     if (performanceHUD && camera) {
@@ -2870,7 +2734,7 @@ void Renderer::renderHUD() {
 // Shadow mapping helpers
 // ──────────────────────────────────────────────────────
 
-// initShadowMap() and compileShadowShader() removed — shadow resources now created
+// initShadowMap() and compileShadowShader() removed - shadow resources now created
 // in createPerFrameResources() as part of the Vulkan shadow infrastructure.
 
 glm::mat4 Renderer::computeLightSpaceMatrix() {
@@ -2972,7 +2836,7 @@ void Renderer::setupWater1xPass() {
         vkCtx->getSwapchainImageViews(), depthView, vkCtx->getSwapchainExtent());
 
     // The spray follows the water into its pass, and this is the first point at
-    // which that pass exists — the swim effects were built long before it, back
+    // which that pass exists - the swim effects were built long before it, back
     // when the only choice was the scene pass.
     refreshSwimEffectsPass();
 }
@@ -3196,16 +3060,16 @@ void Renderer::renderShadowPass() {
     if (shadowDepthImage[0] == VK_NULL_HANDLE) return;
     if (currentCmd == VK_NULL_HANDLE) return;
     // Shadows off still runs the pass, and the pass still clears the map and
-    // leaves it in the layout its readers expect — it simply draws nothing
+    // leaves it in the layout its readers expect - it simply draws nothing
     // into it. Returning here instead left the image untransitioned while it
     // stayed bound for sampling, which is the shape of fault that takes the
     // device down rather than drawing something wrong.
     const bool drawCasters = shadowsEnabled;
 
-    // Shadows render every frame — throttling causes visible flicker on player/NPCs
+    // Shadows render every frame - throttling causes visible flicker on player/NPCs
 
     // lightSpaceMatrix was already computed at frame start (before updatePerFrameUBO).
-    // Zero matrix means character position isn't set yet — skip shadow pass entirely.
+    // Zero matrix means character position isn't set yet - skip shadow pass entirely.
     if (lightSpaceMatrix == glm::mat4(0.0f)) return;
     uint32_t frame = vkCtx->getCurrentFrame();
 
@@ -3297,7 +3161,7 @@ void Renderer::buildFrameGraph(game::GameHandler* gameHandler) {
     auto shadowDepth = renderGraph_->findResource("shadow_depth");
     auto reflTex = renderGraph_->findResource("reflection_texture");
 
-    // Minimap composites (no dependencies — standalone off-screen render target)
+    // Minimap composites (no dependencies - standalone off-screen render target)
     renderGraph_->addPass("minimap_composite", {}, {},
         [this](VkCommandBuffer cmd) {
             if (minimap && minimap->isEnabled() && camera) {
@@ -3338,7 +3202,7 @@ void Renderer::buildFrameGraph(game::GameHandler* gameHandler) {
     // Left enabled even with shadows off, as long as the image exists.
     //
     // A disabled pass is skipped whole, and that includes the image barriers
-    // declared on it — so turning shadows off stopped the shadow map ever
+    // declared on it - so turning shadows off stopped the shadow map ever
     // being transitioned, while the passes that read it kept it bound and
     // sampled it in whatever layout it was last left in. The lambda above
     // already declines to draw anything; what has to keep happening is the

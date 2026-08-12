@@ -64,7 +64,7 @@ struct QueryTimer {
         if (totalMs) {
             auto end = std::chrono::steady_clock::now();
             double ms = std::chrono::duration<double, std::milli>(end - start).count();
-            // Relaxed is fine for diagnostics — exact ordering doesn't matter.
+            // Relaxed is fine for diagnostics - exact ordering doesn't matter.
             double old = totalMs->load(std::memory_order_relaxed);
             while (!totalMs->compare_exchange_weak(old, old + ms, std::memory_order_relaxed)) {}
         }

@@ -43,7 +43,7 @@ int handleInfoZoneExtents(int& i, int argc, char** argv) {
         std::fprintf(stderr, "info-zone-extents: parse failed\n");
         return 1;
     }
-    // Tile XY range — straightforward integer min/max.
+    // Tile XY range - straightforward integer min/max.
     int tileMinX = 64, tileMaxX = -1;
     int tileMinY = 64, tileMaxY = -1;
     for (const auto& [tx, ty] : zm.tiles) {
@@ -139,13 +139,9 @@ int handleInfoProjectExtents(int& i, int argc, char** argv) {
             projectDir.c_str());
         return 1;
     }
-    std::vector<std::string> zones;
-    for (const auto& entry : fs::directory_iterator(projectDir)) {
-        if (!entry.is_directory()) continue;
-        if (!fs::exists(entry.path() / "zone.json")) continue;
-        zones.push_back(entry.path().string());
-    }
-    std::sort(zones.begin(), zones.end());
+    // What counts as a zone, and the order they are reported in,
+    // from one place.
+    std::vector<std::string> zones = wowee::editor::projectZoneDirs(projectDir);
     constexpr float kTileSize = 533.33333f;
     struct ZBox {
         std::string name;

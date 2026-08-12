@@ -1,4 +1,4 @@
-// coordinate_projection.cpp — Pure coordinate math for world map UV projection.
+// coordinate_projection.cpp - Pure coordinate math for world map UV projection.
 // Extracted from WorldMap::renderPosToMapUV, findBestContinentForPlayer,
 // findZoneForPlayer, zoneBelongsToContinent, getContinentProjectionBounds,
 // isRootContinent, isLeafContinent (Phase 2 of refactoring plan).
@@ -54,6 +54,23 @@ glm::vec2 renderPosToMapUV(const glm::vec3& renderPos,
 }
 
 // ── Continent projection bounds ──────────────────────────────
+
+ZoneBounds projectionBoundsFor(const std::vector<Zone>& zones, int zoneIdx,
+                               bool& isContinent) {
+    isContinent = false;
+    if (zoneIdx < 0 || static_cast<size_t>(zoneIdx) >= zones.size()) return {};
+
+    const Zone& zone = zones[static_cast<size_t>(zoneIdx)];
+    ZoneBounds bounds = zone.bounds;
+    isContinent = (zone.areaID == 0);
+    if (isContinent) {
+        float left, right, top, bottom;
+        if (getContinentProjectionBounds(zones, zoneIdx, left, right, top, bottom)) {
+            bounds = {left, right, top, bottom};
+        }
+    }
+    return bounds;
+}
 
 bool getContinentProjectionBounds(const std::vector<Zone>& zones,
                                    int contIdx,
@@ -169,7 +186,7 @@ int findZoneForPlayer(const std::vector<Zone>& zones,
     // Winterspring's). Picking the smallest-area containing box mis-resolved a player
     // standing deep in a large zone to a smaller neighbor whose box merely reached them,
     // which left the real zone fogged. Instead pick the box the player sits deepest
-    // inside — the largest normalized distance to the nearest edge — which favors the
+    // inside - the largest normalized distance to the nearest edge - which favors the
     // zone genuinely containing them over one they only clip at the border. Smaller area
     // breaks ties so a subzone still wins over its parent when equally central.
     int bestIdx = -1;

@@ -1,4 +1,6 @@
 #include "cli_minimap_levels_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -21,20 +23,6 @@ namespace cli {
 
 namespace {
 
-std::string stripWmnlExt(std::string base) {
-    stripExt(base, ".wmnl");
-    return base;
-}
-
-bool saveOrError(const wowee::pipeline::WoweeMinimapLevels& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeMinimapLevelsLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wmnl\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeMinimapLevels& c,
                      const std::string& base) {
@@ -47,9 +35,9 @@ int handleGenStormwind(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StormwindMinimapLevels";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWmnlExt(base);
+    base = cli::withoutExt(base, ".wmnl");
     auto c = wowee::pipeline::WoweeMinimapLevelsLoader::makeStormwind(name);
-    if (!saveOrError(c, base, "gen-mnl")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeMinimapLevelsLoader>(c, base, "gen-mnl", ".wmnl")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -58,9 +46,9 @@ int handleGenDalaran(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "DalaranMinimapLevels";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWmnlExt(base);
+    base = cli::withoutExt(base, ".wmnl");
     auto c = wowee::pipeline::WoweeMinimapLevelsLoader::makeDalaran(name);
-    if (!saveOrError(c, base, "gen-mnl-dalaran")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeMinimapLevelsLoader>(c, base, "gen-mnl-dalaran", ".wmnl")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -69,9 +57,9 @@ int handleGenUndercity(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "UndercityMinimapLevels";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWmnlExt(base);
+    base = cli::withoutExt(base, ".wmnl");
     auto c = wowee::pipeline::WoweeMinimapLevelsLoader::makeUndercity(name);
-    if (!saveOrError(c, base, "gen-mnl-undercity")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeMinimapLevelsLoader>(c, base, "gen-mnl-undercity", ".wmnl")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -79,10 +67,9 @@ int handleGenUndercity(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWmnlExt(base);
+    base = cli::withoutExt(base, ".wmnl");
     if (!wowee::pipeline::WoweeMinimapLevelsLoader::exists(base)) {
-        std::fprintf(stderr, "WMNL not found: %s.wmnl\n", base.c_str());
-        return 1;
+        return reportMissing("WMNL", base, ".wmnl");
     }
     auto c = wowee::pipeline::WoweeMinimapLevelsLoader::load(base);
     if (jsonOut) {
@@ -129,13 +116,10 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWmnlExt(base);
+    base = cli::withoutExt(base, ".wmnl");
     if (out.empty()) out = base + ".wmnl.json";
     if (!wowee::pipeline::WoweeMinimapLevelsLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wmnl-json: WMNL not found: %s.wmnl\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wmnl-json", "WMNL", base, ".wmnl");
     }
     auto c = wowee::pipeline::WoweeMinimapLevelsLoader::load(base);
     nlohmann::json j;
@@ -176,16 +160,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wmnl.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wmnl");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wmnl");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,
@@ -237,12 +212,9 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWmnlExt(base);
+    base = cli::withoutExt(base, ".wmnl");
     if (!wowee::pipeline::WoweeMinimapLevelsLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wmnl: WMNL not found: %s.wmnl\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wmnl", "WMNL", base, ".wmnl");
     }
     auto c = wowee::pipeline::WoweeMinimapLevelsLoader::load(base);
     std::vector<std::string> errors;
@@ -269,23 +241,23 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": name is empty");
         if (e.areaId == 0) {
             errors.push_back(ctx +
-                ": areaId is 0 — level is unbound to "
+                ": areaId is 0 - level is unbound to "
                 "any WMS sub-area");
         }
         if (e.minZ >= e.maxZ) {
             errors.push_back(ctx + ": minZ " +
                 std::to_string(e.minZ) +
                 " >= maxZ " + std::to_string(e.maxZ) +
-                " — Z-range is empty or inverted");
+                " - Z-range is empty or inverted");
         }
         if (e.texturePath.empty()) {
             warnings.push_back(ctx +
-                ": texturePath is empty — minimap "
+                ": texturePath is empty - minimap "
                 "overlay layer would render untextured");
         }
         if (e.displayName.empty()) {
             warnings.push_back(ctx +
-                ": displayName is empty — UI level "
+                ": displayName is empty - UI level "
                 "picker would show blank entry");
         }
         if (!idsSeen.insert(e.levelId).second) {
@@ -318,7 +290,7 @@ int handleValidate(int& i, int argc, char** argv) {
                     std::to_string(areaId) +
                     "): two levels at levelIndex " +
                     std::to_string(L->levelIndex) +
-                    " — picker would show duplicate slot");
+                    " - picker would show duplicate slot");
             }
         }
         // Z-overlap check: for every pair of levels in
@@ -345,42 +317,17 @@ int handleValidate(int& i, int argc, char** argv) {
                         " (Z " +
                         std::to_string(Lb->minZ) + "-" +
                         std::to_string(Lb->maxZ) +
-                        ") — minimap renderer would "
+                        ") - minimap renderer would "
                         "flicker between layers in the "
                         "overlap region");
                 }
             }
         }
     }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wmnl"] = base + ".wmnl";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wmnl: %s.wmnl\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu levels, all levelIds + "
+    return cli::reportValidation("wmnl", base, jsonOut, errors, warnings,
+                                 formatted("%zu levels, all levelIds + "
                     "per-area levelIndices unique, no "
-                    "Z-range overlaps\n",
-                    c.entries.size());
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+                    "Z-range overlaps", c.entries.size()));
 }
 
 } // namespace

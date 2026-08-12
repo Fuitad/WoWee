@@ -1,4 +1,4 @@
-// Animation ID validation tests — covers nameFromId() and validateAgainstDBC()
+// Animation ID validation tests - covers nameFromId() and validateAgainstDBC()
 #include <catch_amalgamated.hpp>
 #include "rendering/animation/animation_ids.hpp"
 #include "pipeline/dbc_loader.hpp"
@@ -82,14 +82,14 @@ TEST_CASE("nameFromId covers first and last IDs", "[animation]") {
 // ── validateAgainstDBC tests ────────────────────────────────────────────────
 
 TEST_CASE("validateAgainstDBC handles null DBC", "[animation][dbc]") {
-    // Should not crash — just logs a warning
+    // Should not crash - just logs a warning
     anim::validateAgainstDBC(nullptr);
 }
 
 TEST_CASE("validateAgainstDBC handles unloaded DBC", "[animation][dbc]") {
     auto dbc = std::make_shared<DBCFile>();
     REQUIRE_FALSE(dbc->isLoaded());
-    // Should not crash — just logs a warning
+    // Should not crash - just logs a warning
     anim::validateAgainstDBC(dbc);
 }
 
@@ -105,12 +105,12 @@ TEST_CASE("validateAgainstDBC with perfect match", "[animation][dbc]") {
     REQUIRE(dbc->load(data));
     REQUIRE(dbc->getRecordCount() == anim::ANIM_COUNT);
 
-    // Should complete without crashing — all IDs match
+    // Should complete without crashing - all IDs match
     anim::validateAgainstDBC(dbc);
 }
 
 TEST_CASE("validateAgainstDBC with missing IDs in DBC", "[animation][dbc]") {
-    // DBC only contains a subset of IDs — misses many
+    // DBC only contains a subset of IDs - misses many
     std::vector<uint32_t> partialIds = {0, 1, 2, 4, 5};
     auto data = buildAnimationDBC(partialIds);
 

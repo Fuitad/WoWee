@@ -1,9 +1,17 @@
 #include "addons/addon_manager.hpp"
+#include "addons/addon_lua_snippets.hpp"
+
+extern "C" {
+#include <lua.h>
+}
+#include "addons/addon_globals.hpp"
+#include "ui/framexml_takeover.hpp"
 #include "core/logger.hpp"
 #include "core/config_paths.hpp"
 #include <sstream>
 #include "ui/xml_parser.hpp"
 #include "ui/framexml_emitter.hpp"
+#include <cctype>
 #include <algorithm>
 #include <set>
 #include <optional>
@@ -24,6 +32,18 @@ AddonManager::~AddonManager() { shutdown(); }
 bool AddonManager::initialize(game::GameHandler* gameHandler, const LuaServices& services) {
     gameHandler_ = gameHandler;
     luaServices_ = services;
+    // Supplied here rather than by the caller: the manager is what owns the
+    // list of load-on-demand addons and the Lua state that asks for them, and
+    // wiring it anywhere else would mean handing one to the other.
+    luaServices_.loadAddOn = [this](const std::string& name, std::string& reason) {
+        return loadAddOnByName(name, reason);
+    };
+    luaServices_.isAddOnLoaded = [this](const std::string& name) {
+        return isAddOnLoadedByName(name);
+    };
+    luaServices_.setAddOnEnabled = [this](const std::string& name, bool enabled) {
+        setAddonEnabled(name, enabled);
+    };
     if (!luaEngine_.initialize()) return false;
     luaEngine_.setGameHandler(gameHandler);
     luaEngine_.setLuaServices(luaServices_);
@@ -74,6 +94,8 @@ std::filesystem::path resolvePath(const std::filesystem::path& base,
 void AddonManager::scanAddons(const std::string& addonsPath) {
     addonsPath_ = addonsPath;
     addons_.clear();
+    lodAddons_.clear();
+    lodLoaded_.clear();
 
     // Two places are searched. The game data's own Interface\AddOns is where a
     // player's existing addons already live, and an "addons" directory beside
@@ -84,13 +106,31 @@ void AddonManager::scanAddons(const std::string& addonsPath) {
         // Same case problem as FrameXML: this install has interface/addons in
         // lower case, and a hardcoded AddOns misses it on a case-sensitive
         // filesystem.
+        //
+        // Every spelling is taken, not the first that exists. This install has
+        // *both* - an empty interface/AddOns beside the interface/addons that
+        // holds all twenty-four Blizzard addons - and looking only until one
+        // was found stopped at the empty one. Nothing load-on-demand had ever
+        // loaded here: no talent frame, no macro frame, no achievements, no
+        // key bindings, and Blizzard_GMChatUI reporting itself missing on
+        // every login.
         std::error_code ec;
-        fs::path p(addonsPath);
-        if (!fs::is_directory(p, ec)) {
-            p = resolvePath(fs::path(addonsPath).parent_path().parent_path(),
-                            "interface/AddOns");
+        const fs::path asked(addonsPath);
+        if (fs::is_directory(asked, ec)) roots.emplace_back(asked);
+
+        const fs::path interfaceDir = asked.parent_path();
+        if (fs::is_directory(interfaceDir, ec)) {
+            for (const auto& entry : fs::directory_iterator(interfaceDir, ec)) {
+                if (!entry.is_directory(ec)) continue;
+                std::string name = entry.path().filename().string();
+                for (char& c : name) {
+                    c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+                }
+                if (name != "addons") continue;
+                if (fs::equivalent(entry.path(), asked, ec)) continue;
+                roots.emplace_back(entry.path());
+            }
         }
-        if (!p.empty()) roots.emplace_back(p);
     }
     std::error_code rec;
     for (const char* local : {"addons", "../addons", "../../addons"}) {
@@ -119,12 +159,13 @@ void AddonManager::scanAddons(const std::string& addonsPath) {
     std::sort(dirs.begin(), dirs.end());
 
     // One addon per name, however many roots supply it. Searching more than one
-    // place means the same addon can be found twice — a copy staged beside the
-    // executable and the original it was staged from, say — and loading both
+    // place means the same addon can be found twice - a copy staged beside the
+    // executable and the original it was staged from, say - and loading both
     // runs its Lua twice, which builds two of every frame. They sit exactly on
     // top of each other, so it reads as one frame that will not hide: the
     // toggle hides the copy it has a handle to and the other stays.
     std::set<std::string> seen;
+    std::set<std::string> lodSeen;
     int duplicates = 0;
 
     for (const auto& dir : dirs) {
@@ -132,8 +173,8 @@ void AddonManager::scanAddons(const std::string& addonsPath) {
         std::string dirName = dir.filename().string();
         // The original interface is not an addon and must never be loaded as
         // one. It ships with a .toc of its own, so a scan that lands on
-        // Data/interface rather than Data/interface/AddOns — which is what a
-        // case-insensitive filesystem can produce — would find FrameXML and
+        // Data/interface rather than Data/interface/AddOns - which is what a
+        // case-insensitive filesystem can produce - would find FrameXML and
         // load the whole of it, with none of the opt-in that is supposed to
         // guard it. It has exactly one way in, and this is not it.
         {
@@ -143,7 +184,7 @@ void AddonManager::scanAddons(const std::string& addonsPath) {
             }
             if (lower == "framexml" || lower == "gluexml") {
                 LOG_WARNING("AddonManager: refusing to load ", dirName,
-                            " as an addon — the original interface loads only "
+                            " as an addon - the original interface loads only "
                             "through WOWEE_LOAD_FRAMEXML");
                 continue;
             }
@@ -155,6 +196,12 @@ void AddonManager::scanAddons(const std::string& addonsPath) {
 
         if (toc->isLoadOnDemand()) {
             ++loadOnDemand;
+            // Kept rather than dropped: LoadAddOn has to be able to find these,
+            // and GetAddOnInfo lists them alongside the rest. They are simply
+            // not run until something asks.
+            if (lodSeen.insert(toc->addonName).second) {
+                lodAddons_.push_back(*toc);
+            }
             continue;
         }
 
@@ -181,26 +228,143 @@ void AddonManager::scanAddons(const std::string& addonsPath) {
     loadEnabledState();
 }
 
+std::vector<std::string> AddonManager::deferredAddonGlobals() const {
+    std::vector<std::string> names;
+    for (const TocFile& addon : lodAddons_) {
+        // A disabled addon is never going to load, so its names stay absent -
+        // which is the same answer, arrived at for a different reason.
+        //
+        // The manifest is not the whole addon. A .toc commonly lists only the
+        // XML and lets `<Script file="...">` inside it pull the Lua in - the
+        // calendar's lists Blizzard_Calendar.xml and Localization.lua and not
+        // Blizzard_Calendar.lua, where all 248 of its functions live. Reading
+        // only what the manifest names left every one of those absent from
+        // this list, so the stand-in answered for them: a truthy table.
+        //
+        // That is the shape this list exists to prevent. FrameXML guards a
+        // load-on-demand addon with `if ( Calendar_Toggle ) then
+        // Calendar_Toggle() end`, and a truthy table walks past the guard and
+        // raises on the call - so opening the calendar from the minimap
+        // errored rather than doing nothing. Twenty-four addons include their
+        // Lua this way.
+        std::vector<std::string> queue(addon.files.begin(), addon.files.end());
+        std::set<std::string> seen;
+        for (size_t qi = 0; qi < queue.size(); ++qi) {
+            const std::string& rel = queue[qi];
+            if (!seen.insert(rel).second) continue;
+            const fs::path file = resolvePath(fs::path(addon.basePath), rel);
+            if (file.empty()) continue;
+            std::ifstream in(file, std::ios::binary);
+            if (!in) continue;
+            const std::string text((std::istreambuf_iterator<char>(in)),
+                                   std::istreambuf_iterator<char>());
+            const std::string ext = file.extension().string();
+            if (ext == ".lua" || ext == ".Lua" || ext == ".LUA") {
+                collectLuaGlobals(text, names);
+                continue;
+            }
+            collectXmlNames(text, names);
+            // And whatever this XML pulls in, appended so an include that
+            // includes further files is walked as well. Bounded by `seen`,
+            // because two files in one addon naming each other would
+            // otherwise not stop.
+            for (size_t at = text.find("<Script"); at != std::string::npos;
+                 at = text.find("<Script", at + 1)) {
+                const size_t fileAt = text.find("file=\"", at);
+                if (fileAt == std::string::npos) continue;
+                const size_t close = text.find('>', at);
+                if (close != std::string::npos && fileAt > close) continue;
+                const size_t start = fileAt + 6;
+                const size_t end = text.find('"', start);
+                if (end == std::string::npos) break;
+                std::string inc = text.substr(start, end - start);
+                std::replace(inc.begin(), inc.end(), '\\', '/');
+                if (!inc.empty()) queue.push_back(inc);
+            }
+        }
+    }
+    // Every addon's saved variables, whether or not it loads on demand.
+    //
+    // A saved variable is nil in WoW until the saved file restores it or the
+    // addon creates it, and addons test exactly that:
+    //
+    //     if ( not BlizzardStopwatchOptions ) then
+    //         BlizzardStopwatchOptions = {}
+    //     end
+    //
+    // Answered by the stand-in, that name is a truthy table, so the guard
+    // never runs and the variable is never made. What follows is worse than a
+    // missing setting: the addon then writes its fields into the stand-in -
+    // and the stand-in is *one shared table* that every unknown global
+    // resolves to, so a position saved by the stopwatch would appear on every
+    // other unbound name in the interface.
+    //
+    // These come from all addons rather than only the deferred ones, and
+    // declaring them costs nothing when the variable does exist: the fallback
+    // is only consulted for a name nothing has set, so a restored variable is
+    // a real global and never reaches it.
+    // Both lists: an addon is in one or the other, never both, and the
+    // stopwatch - the case this was written for - is a load-on-demand one.
+    for (const auto* list : {&addons_, &lodAddons_}) {
+        for (const TocFile& addon : *list) {
+            for (const std::string& v : addon.getSavedVariables()) {
+                if (!v.empty()) names.push_back(v);
+            }
+            for (const std::string& v : addon.getSavedVariablesPerCharacter()) {
+                if (!v.empty()) names.push_back(v);
+            }
+        }
+    }
+
+    std::sort(names.begin(), names.end());
+    names.erase(std::unique(names.begin(), names.end()), names.end());
+    return names;
+}
+
 void AddonManager::loadAllAddons() {
     // The original interface, when asked for. Before any addon, because addons
     // are written against a world where FrameXML has already defined its frames
     // and its several thousand functions.
     //
-    // Off by default and deliberately so: this is an experiment for now, it
-    // wants the missing-API fallback on beside it to get anywhere, and a
-    // half-loaded FrameXML on top of the client's own interface is not a state
-    // anyone wants to be in by accident.
+    // On by default on this branch, which exists to bring it up: the elements
+    // it has taken over are the ones being worked on, and needing a flag to
+    // see them means every test run starts by remembering the flag.
+    // WOWEE_LOAD_FRAMEXML=0 turns it off; master leaves it off unless asked.
+    // Before any of it runs: what the addons that have *not* loaded will define
+    // once they do. FrameXML asks for those names to decide whether to load the
+    // panel behind them, and the missing-API fallback answering with a truthy
+    // no-op turns every one of those tests into "already loaded" - the panel is
+    // never asked for and the branch runs against a stand-in.
+    luaEngine_.declareDeferredGlobals(deferredAddonGlobals());
+
     const char* wantFrameXml = std::getenv("WOWEE_LOAD_FRAMEXML");
-    if (wantFrameXml && *wantFrameXml && std::string(wantFrameXml) != "0" &&
-        !frameXmlDir_.empty()) {
+    const bool loadIt = wantFrameXml ? (std::string(wantFrameXml) != "0") : true;
+    if (loadIt && !frameXmlDir_.empty()) {
         loadFrameXml(frameXmlDir_);
+        // The client's own options, as a category in FrameXML's Interface
+        // Options. After FrameXML rather than in the bootstrap, because
+        // InterfaceOptions_AddCategory is FrameXML's - the bootstrap's stub for
+        // it is overwritten when the real one loads, and registering against the
+        // stub would put the panel nowhere.
+        registerWoweeOptionsPanel();
+        giveCoinAmountsClearance();
+        // Said once, after the interface is up: anything neither handed over
+        // nor hidden is about to be on screen twice.
+        ui::frameXmlReportUnaccountedElements();
     }
 
     // Only hand the Lua VM the addons that are actually enabled, so disabled ones
     // don't appear via GetNumAddOns/IsAddOnLoaded either.
     std::vector<TocFile> enabled;
-    enabled.reserve(addons_.size());
+    enabled.reserve(addons_.size() + lodAddons_.size());
     for (const auto& addon : addons_) {
+        if (isAddonEnabled(addon.addonName)) enabled.push_back(addon);
+    }
+    // Load-on-demand addons are listed too, as WoW lists them: an addon
+    // manager panel shows the talent tree and the auction house alongside
+    // everything else, and GetNumAddOns counts them. They carry a flag so
+    // IsAddOnLoaded does not mistake being listed for being loaded.
+    for (const auto& addon : lodAddons_) {
         if (isAddonEnabled(addon.addonName)) enabled.push_back(addon);
     }
     luaEngine_.setAddonList(enabled);
@@ -271,6 +435,53 @@ std::string AddonManager::getSavedVariablesPerCharacterPath(const TocFile& addon
     return addon.basePath + "/" + addon.addonName + "." + characterName_ + ".lua.saved";
 }
 
+// The client's settings, as panels in FrameXML's Interface Options.
+//
+// Built from WoweeSettingList() rather than written out here, so a setting
+// added to the schema appears without anyone editing Lua. Only the settings
+// with no Blizzard control of their own are in that list - the six that are
+// bound to the CVar their own Blizzard control already drives are named on the
+// root panel instead, so a player looking for one is told where it is.
+//
+// The layout is the game's own: a root category with a child per subject, each
+// laid out in sections, in two columns, with the game's fonts and its check
+// buttons, sliders and dropdowns. It is not Blizzard's Interface Options panel
+// reproduced - this client has settings that one never had - but it reads the
+// same way round.
+void AddonManager::registerWoweeOptionsPanel() {
+    static const char* kPanelScript = kWoweeOptionsPanelLua;
+    if (!luaEngine_.executeString(kPanelScript)) {
+        LOG_WARNING("Wowee options panel did not register: ", luaEngine_.lastError());
+    }
+}
+
+void AddonManager::giveCoinAmountsClearance() {
+    // Move the coin amounts off the coins.
+    //
+    // MoneyFrame_Update anchors each amount so its right edge is exactly the
+    // left edge of that denomination's coin - SetPoint("RIGHT", -iconWidth) -
+    // which leaves no room at all. On screen the numbers are drawn over the
+    // coins; in every measurement that can be taken here they are not, and the
+    // rects are right down to the tenth of a unit: the gold amount ends at
+    // 723.4 and its coin starts at 723.4, the next button begins four units
+    // after the previous one ends.
+    //
+    // So this is clearance rather than a diagnosis, and it is worth saying so:
+    // a few units of room costs nothing and fixes what is actually on screen,
+    // where knowing exactly why has cost a great deal and has not.
+    //
+    // Hooked rather than edited into MoneyFrame.lua, so the interface's own
+    // file stays Blizzard's and this stays visible as ours.
+    static const char* kScript = kCoinAmountClearanceLua;
+    if (!luaEngine_.executeString(kScript)) {
+        LOG_WARNING("Coin amount clearance did not apply: ", luaEngine_.lastError());
+    }
+    // The two Sound sliders this client has no lower setting for.
+    if (!luaEngine_.executeString(kAudioFixedSlidersLua)) {
+        LOG_WARNING("Audio fixed sliders did not apply: ", luaEngine_.lastError());
+    }
+}
+
 bool AddonManager::loadFrameXml(const std::string& frameXmlDir) {
     std::error_code ec;
     std::filesystem::path dir(frameXmlDir);
@@ -290,9 +501,26 @@ bool AddonManager::loadFrameXml(const std::string& frameXmlDir) {
         return false;
     }
     const std::string resolvedDir = dir.string();
+    // Kept, because an include that names a shared template by bare name is
+    // resolved against this and nothing else. Blizzard_InspectUI asks for
+    // PVPFrameTemplates.xml, which lives in FrameXML rather than beside it, and
+    // with an unopenable base the fallback below silently found nothing - the
+    // include failed, the file failed, and the whole addon failed to load, so
+    // inspecting another player did nothing at all.
+    frameXmlResolvedDir_ = resolvedDir;
 
-    LOG_WARNING("FrameXML: attempting to load the original interface — ",
+    LOG_WARNING("FrameXML: attempting to load the original interface - ",
                 toc->files.size(), " files from ", resolvedDir);
+
+    // Bindings are not in the manifest - the real client loads them itself, and
+    // before the interface, so that a script asking what a command is bound to
+    // during load gets an answer. Without this the file was never read at all
+    // and the key bindings list had nothing to list.
+    if (const auto bindings = resolveChild(dir, "Bindings.xml"); !bindings.empty()) {
+        if (!loadXmlFile(bindings.string(), 0)) {
+            LOG_WARNING("FrameXML: could not read the key bindings: ", lastXmlError_);
+        }
+    }
 
     int lua = 0, xml = 0, failed = 0;
     // Kept and printed together at the end. Spread through the log these are
@@ -301,7 +529,7 @@ bool AddonManager::loadFrameXml(const std::string& frameXmlDir) {
     // is seeing them side by side and spotting the cause they share.
     std::vector<std::pair<std::string, std::string>> failures;
     // Timed per file. This load runs on the main thread during world entry, so
-    // whatever it costs the client is frozen for — long enough and the server
+    // whatever it costs the client is frozen for - long enough and the server
     // drops the connection for want of a heartbeat. Knowing it is slow is not
     // useful; knowing which file is.
     const auto loadStart = std::chrono::steady_clock::now();
@@ -320,7 +548,7 @@ bool AddonManager::loadFrameXml(const std::string& frameXmlDir) {
     for (const auto& filename : toc->files) {
         const auto fileStart = std::chrono::steady_clock::now();
         // Named before it is loaded, not after. Timing it afterwards says
-        // nothing about the one case that matters — a file that never returns
+        // nothing about the one case that matters - a file that never returns
         // prints nothing at all, and the load simply stops with the last
         // successful file as the only clue.
         // At warning level because release builds drop INFO, and this is the
@@ -377,6 +605,385 @@ bool AddonManager::loadFrameXml(const std::string& frameXmlDir) {
     // LEFT_OFFSET to DEFAULT_FRAME_WIDTH one call deeper. The widths are
     // Blizzard's own defaults for a standard panel.
     luaEngine_.executeString(
+        std::string("__WoweeOwnsGameMenu = ") +
+        (ui::frameXmlOwns(ui::UiElement::GameMenu) ? "true" : "false") + "\n");
+
+    // The colour of every kind of chat message, which nothing had ever sent.
+    //
+    // chatframe.lua builds ChatTypeInfo with sticky and flashTab and no colour
+    // at all: r, g and b arrive from the client, one UPDATE_CHAT_COLOR per
+    // type, and the real client sends them as the interface comes up. This one
+    // never did, so every entry answered nil and every line of chat in the game
+    // drew white - guild, whisper, emote, loot and system alike, all of it
+    // indistinguishable.
+    //
+    // Fired straight into the interface rather than through ChangeChatColor.
+    // That binding asks the game handler to fire the event, and the application
+    // drops every event it is handed until addonsLoaded_ is true - which
+    // happens at world entry, long after this runs. So all twenty-six went
+    // nowhere and the table kept the white that chatframe.lua writes over it at
+    // file scope, and every line of chat in the game drew the same colour.
+    //
+    // Sent after FrameXML has loaded, since ChatFrame_OnLoad is what registers
+    // for the event. Same engine either way: the handler is what fills
+    // ChatTypeInfo and repaints the lines already on screen.
+    //
+    // 3.3.5's own palette. Anything not named here keeps white, which is what
+    // it had before, so a type left out is no worse than it was.
+    //
+    // Three decimals, because an event argument is only read back as a number
+    // when it is short: a full float arrives as a string and would be assigned
+    // straight into a colour field.
+    {
+        struct ChatColour { const char* type; float r, g, b; };
+        static constexpr ChatColour kChatColours[] = {
+            {"SYSTEM", 1.0f, 1.0f, 0.0f},    {"SAY", 1.0f, 1.0f, 1.0f},
+            {"YELL", 1.0f, 0.25f, 0.25f},    {"GUILD", 0.25f, 1.0f, 0.25f},
+            {"OFFICER", 0.25f, 0.75f, 0.25f},
+            {"GUILD_ACHIEVEMENT", 0.25f, 1.0f, 0.25f},
+            {"ACHIEVEMENT", 1.0f, 1.0f, 0.0f},
+            {"PARTY", 0.67f, 0.67f, 1.0f},   {"PARTY_LEADER", 0.46f, 0.78f, 1.0f},
+            {"RAID", 1.0f, 0.5f, 0.0f},      {"RAID_LEADER", 1.0f, 0.28f, 0.04f},
+            {"RAID_WARNING", 1.0f, 0.28f, 0.0f},
+            {"WHISPER", 1.0f, 0.5f, 1.0f},   {"WHISPER_INFORM", 1.0f, 0.5f, 1.0f},
+            {"EMOTE", 1.0f, 0.5f, 0.25f},    {"TEXT_EMOTE", 1.0f, 0.5f, 0.25f},
+            {"MONSTER_SAY", 1.0f, 1.0f, 1.0f},
+            {"MONSTER_YELL", 1.0f, 0.25f, 0.25f},
+            {"MONSTER_EMOTE", 1.0f, 0.5f, 0.25f},
+            {"MONSTER_WHISPER", 1.0f, 0.72f, 0.72f},
+            {"CHANNEL", 1.0f, 0.75f, 0.75f}, {"LOOT", 0.0f, 0.67f, 0.0f},
+            {"MONEY", 1.0f, 1.0f, 0.0f},
+            {"BG_SYSTEM_NEUTRAL", 1.0f, 1.0f, 0.5f},
+            {"BG_SYSTEM_ALLIANCE", 0.25f, 0.75f, 1.0f},
+            {"BG_SYSTEM_HORDE", 1.0f, 0.1f, 0.1f},
+        };
+        char r[16], g[16], b[16];
+        for (const auto& c : kChatColours) {
+            std::snprintf(r, sizeof(r), "%.3f", c.r);
+            std::snprintf(g, sizeof(g), "%.3f", c.g);
+            std::snprintf(b, sizeof(b), "%.3f", c.b);
+            luaEngine_.fireEvent("UPDATE_CHAT_COLOR", {c.type, r, g, b});
+        }
+    }
+
+    // Whether that landed. chatframe.lua sets every ChatTypeInfo entry to white
+    // at file scope and the colours only arrive from here, so if this says
+    // GUILD is still 1,1,1 the seeding did not reach the table - and every line
+    // of chat draws the same colour with nothing else to show for it.
+    {
+        lua_State* L = luaEngine_.getState();
+        if (L) {
+            lua_getglobal(L, "ChatTypeInfo");
+            if (lua_istable(L, -1)) {
+                lua_getfield(L, -1, "GUILD");
+                if (lua_istable(L, -1)) {
+                    lua_getfield(L, -1, "r"); const double r = lua_tonumber(L, -1); lua_pop(L, 1);
+                    lua_getfield(L, -1, "g"); const double g = lua_tonumber(L, -1); lua_pop(L, 1);
+                    lua_getfield(L, -1, "b"); const double b = lua_tonumber(L, -1); lua_pop(L, 1);
+                    // Only when it did not take. chatframe.lua writes white
+                    // over every entry at file scope and the colours arrive
+                    // only from here, so a GUILD still at white means the
+                    // seeding never reached the table - and every line of chat
+                    // draws the same colour with nothing else to show for it.
+                    if (r > 0.9 && g > 0.9 && b > 0.9) {
+                        LOG_WARNING("Chat colours did not take: GUILD is still ",
+                                    r, ",", g, ",", b, " - every kind of chat "
+                                    "message will draw the same colour");
+                    }
+                } else {
+                    LOG_WARNING("Chat colours: ChatTypeInfo has no GUILD entry");
+                }
+                lua_pop(L, 1);
+            } else {
+                LOG_WARNING("Chat colours: ChatTypeInfo is not a table");
+            }
+            lua_pop(L, 1);
+        }
+    }
+
+    // The three name tables the calendar reads its labels from.
+    //
+    // Blizzard_Calendar's own Localization.lua defines these in the real
+    // client; the copy here has the file but not the definitions, so the month
+    // title was blank and every weekday header with it. Built from the
+    // globalstrings the interface already carries rather than written out in
+    // English, so a localised data set names its own months.
+    //
+    // Before the addon loads, not after, so its Localization.lua still wins if
+    // a data set does define them. Sunday first, which is the order
+    // CALENDAR_WEEKDAY_NAMES is indexed in and the base CalendarGetDate
+    // already answers in.
+    luaEngine_.executeString(
+        "if not CALENDAR_MONTH_NAMES then\n"
+        "  local m = {'JANUARY','FEBRUARY','MARCH','APRIL','MAY','JUNE',\n"
+        "             'JULY','AUGUST','SEPTEMBER','OCTOBER','NOVEMBER','DECEMBER'}\n"
+        "  local w = {'SUNDAY','MONDAY','TUESDAY','WEDNESDAY','THURSDAY',\n"
+        "             'FRIDAY','SATURDAY'}\n"
+        "  CALENDAR_MONTH_NAMES = {}\n"
+        "  CALENDAR_FULLDATE_MONTH_NAMES = {}\n"
+        "  CALENDAR_WEEKDAY_NAMES = {}\n"
+        "  for i, name in ipairs(m) do\n"
+        "    CALENDAR_MONTH_NAMES[i] = _G['MONTH_'..name] or name\n"
+        "    CALENDAR_FULLDATE_MONTH_NAMES[i] =\n"
+        "      _G['FULLDATE_MONTH_'..name] or CALENDAR_MONTH_NAMES[i]\n"
+        "  end\n"
+        "  for i, name in ipairs(w) do\n"
+        "    CALENDAR_WEEKDAY_NAMES[i] = _G['WEEKDAY_'..name] or name\n"
+        "  end\n"
+        "end\n");
+
+    // The calendar's three option lists, which are spreads rather than tables.
+    //
+    // Each is handed straight into a vararg call -
+    // CalendarCreateEventTypeDropDown_InitEventTypes(self,
+    // CalendarEventGetTypes()) - so the *number* of values is the payload and
+    // answering nothing leaves the dropdown with no entries at all rather than
+    // raising. There is no way to pick an event type from an empty list.
+    //
+    // In Lua because the strings are the interface's own: reading
+    // CALENDAR_TYPE_RAID and friends out of globalstrings keeps a localised
+    // data set naming its own types, where a list written in C++ would be
+    // English for everyone.
+    //
+    // The order is the wire's, which is also constants.lua's: Raid, Dungeon,
+    // PvP, Meeting, Other, indexed from one by the interface and from zero on
+    // the wire.
+    luaEngine_.executeString(
+        "function CalendarEventGetTypes()\n"
+        "  return CALENDAR_TYPE_RAID, CALENDAR_TYPE_DUNGEON, CALENDAR_TYPE_PVP,\n"
+        "         CALENDAR_TYPE_MEETING, CALENDAR_TYPE_OTHER\n"
+        "end\n"
+        "function CalendarEventGetRepeatOptions()\n"
+        "  return CALENDAR_REPEAT_NEVER, CALENDAR_REPEAT_WEEKLY,\n"
+        "         CALENDAR_REPEAT_BIWEEKLY\n"
+        "end\n"
+        // The nine the interface knows, in CALENDAR_INVITESTATUS_* order.
+        // Not the ten the server has: it also carries REMOVED, which is an
+        // instruction rather than a state and has no row to show.
+        "function CalendarEventGetStatusOptions()\n"
+        "  return CALENDAR_STATUS_INVITED, CALENDAR_STATUS_ACCEPTED,\n"
+        "         CALENDAR_STATUS_DECLINED, CALENDAR_STATUS_CONFIRMED,\n"
+        "         CALENDAR_STATUS_OUT, CALENDAR_STATUS_STANDBY,\n"
+        "         CALENDAR_STATUS_SIGNEDUP, CALENDAR_STATUS_NOT_SIGNEDUP,\n"
+        "         CALENDAR_STATUS_TENTATIVE\n"
+        "end\n");
+
+    // Report the quest dialog's own geometry, at the moment it is built.
+    //
+    // Reported: the dialog is placed correctly and its contents are not - the
+    // panel at x 0..384 with its reward items eight hundred units to the
+    // right. The readiness dump covers these frames now, but it runs early and
+    // once, so it only ever catches them hidden and unanchored, which is their
+    // resting state and says nothing.
+    //
+    // QuestFrameDetailPanel_OnShow is where it is decided: it runs
+    // QuestInfo_Display twice, once into QuestDetailScrollChildFrame and once
+    // into QuestInfoFadingFrame, and the second parents the rewards to a frame
+    // the first is supposed to have anchored. If that anchoring did not
+    // happen, everything under it lands wherever the unanchored frame sits -
+    // which is the middle of the screen, and is what the numbers look like.
+    //
+    // Wrapped rather than hooked so this runs *after* the real work, and only
+    // ever reads.
+    luaEngine_.executeString(
+        // type() rather than truthiness: the missing-API stand-in is a
+        // callable table, so `if QuestFrameDetailPanel_OnShow then` passes for
+        // a name that does not exist and wraps the stand-in - which is exactly
+        // what happened on the first attempt at this, against a
+        // QuestFrame_ShowQuestDetail that FrameXML does not have. The wrapper
+        // then reported the geometry of a dialog nothing had built and it
+        // looked like the bug.
+        "if QuestFrameDetailPanel and QuestFrameDetailPanel.HookScript then\n"
+        "  QuestFrameDetailPanel:HookScript('OnShow', function()\n"
+        "    local function where(f, n)\n"
+        "      if not f then return n .. '=absent' end\n"
+        "      local p = f.GetParent and f:GetParent()\n"
+        "      return string.format('%s=(%.0f,%.0f %.0fx%.0f) pts=%d parent=%s',\n"
+        "        n, f:GetLeft() or -1, f:GetBottom() or -1,\n"
+        "        f:GetWidth() or 0, f:GetHeight() or 0,\n"
+        "        f:GetNumPoints() or 0,\n"
+        "        (p and p.GetName and p:GetName()) or '?')\n"
+        "    end\n"
+        "    -- The strings as well as the frames. Reported as a dialog with\n"
+        "    -- no content, and the frames all came back correct: the one\n"
+        "    -- thing not being said was whether there was any text in it.\n"
+        "    local function says(f, n)\n"
+        "      if not f then return n .. '=absent' end\n"
+        "      local t = f.GetText and f:GetText()\n"
+        "      return string.format('%s=%d chars (%.0f,%.0f %.0fx%.0f) vis=%s',\n"
+        "        n, t and #t or 0, f:GetLeft() or -1, f:GetBottom() or -1,\n"
+        "        f:GetWidth() or 0, f:GetHeight() or 0,\n"
+        "        tostring(f:IsVisible()))\n"
+        "    end\n"
+        "    __WoweeWarn('quest detail built: ' ..\n"
+        "      where(QuestFrame, 'QuestFrame') .. ' | ' ..\n"
+        "      where(QuestDetailScrollChildFrame, 'ScrollChild') .. ' | ' ..\n"
+        "      says(QuestInfoTitleHeader, 'Title') .. ' | ' ..\n"
+        "      says(QuestInfoDescriptionText, 'Description') .. ' | ' ..\n"
+        "      says(QuestInfoObjectivesText, 'Objectives') .. ' | ' ..\n"
+        "      where(QuestInfoRewardsFrame, 'Rewards') .. ' | ' ..\n"
+        "      where(QuestInfoItem1, 'Item1'))\n"
+        "  end)\n"
+        "end\n");
+
+    // Why the objectives tracker collapsed, when it collapses itself.
+    //
+    // Reported as "collapse the objectives and the text does not come back".
+    // FrameXML collapses that frame from two places and they mean opposite
+    // things: the button's OnClick, which is the player asking, and
+    // WatchFrame_Update, which does it when the objective handlers report that
+    // nothing was laid out - pixelsUsed of zero leaves totalOffset at its
+    // starting value, and that branch also *disables* the expand button. Since
+    // WatchFrame_Expand ends by calling WatchFrame_Update, an expand whose
+    // update measures nothing is undone in the same breath, which is exactly
+    // "it will not come back".
+    //
+    // userCollapsed is the discriminator and it is already there: the button's
+    // OnClick sets it, and the automatic path never does. One line, only when
+    // the tracker actually collapses, so it costs nothing until it happens.
+    //
+    // Wrapping the global rather than hooking a script, because
+    // WatchFrame_Collapse is called by name from FrameXML itself - this is the
+    // opposite case to the quest panels above, where what runs is the widget's
+    // stored script and only HookScript reaches it.
+    luaEngine_.executeString(
+        "if type(WatchFrame_Collapse) == 'function' then\n"
+        "  local original = WatchFrame_Collapse\n"
+        "  WatchFrame_Collapse = function(self)\n"
+        "    self = self or WatchFrame\n"
+        "    __WoweeWarn(string.format(\n"
+        "      'objectives tracker collapsing: %s (userCollapsed=%s, lines=%s)',\n"
+        "      self.userCollapsed and 'the player asked' or\n"
+        "        'BY ITSELF - an update measured nothing, and that also disables "
+        "the expand button',\n"
+        "      tostring(self.userCollapsed),\n"
+        "      tostring(WatchFrameLines and WatchFrameLines:IsShown())))\n"
+        "    return original(self)\n"
+        "  end\n"
+        "end\n");
+
+    // The same for the progress panel, which is the one a blank parchment was
+    // photographed on - Continue and Cancel, with nothing between them.
+    //
+    // It reports the *length* of each string as well as its rect, because the
+    // two failures look identical on screen and need opposite fixes: a string
+    // that is empty is missing data, and a string that has text but no height
+    // is missing a measurement.
+    luaEngine_.executeString(
+        // HookScript on the frame, not a wrapper around the global.
+        //
+        // Wrapping QuestFrameProgressPanel_OnShow fired in the runner, where
+        // the function is called by name, and never once in a real session -
+        // because what runs on screen is the *widget's* stored script, and
+        // replacing the global afterwards does not touch it. The hook has to
+        // go where the client actually dispatches.
+        "if QuestFrameProgressPanel and QuestFrameProgressPanel.HookScript then\n"
+        "  QuestFrameProgressPanel:HookScript('OnShow', function()\n"
+        "    local function say(f, n)\n"
+        "      if not f then return n .. '=absent' end\n"
+        "      local t = (f.GetText and f:GetText()) or ''\n"
+        "      return string.format('%s len=%d (%.0f,%.0f %.0fx%.0f) vis=%s',\n"
+        "        n, string.len(t), f:GetLeft() or -1, f:GetBottom() or -1,\n"
+        "        f:GetWidth() or 0, f:GetHeight() or 0,\n"
+        "        tostring(f:IsVisible()))\n"
+        "    end\n"
+        "    __WoweeWarn('quest progress built: ' ..\n"
+        "      say(QuestProgressText, 'ProgressText') .. ' | ' ..\n"
+        "      say(QuestProgressTitle, 'Title') .. ' | ' ..\n"
+        "      say(QuestFrameProgressPanel, 'Panel'))\n"
+        "  end)\n"
+        "end\n");
+
+    // The game-menu button opens this client's settings.
+    //
+    // ToggleGameMenu is FrameXML's own function and it shows GameMenuFrame,
+    // which is suppressed - so the button did nothing at all. Replaced rather
+    // than hooked, and only while this client owns that panel: with
+    // WOWEE_FRAMEXML_UI=gamemenu the original menu is drawn and should be the
+    // one that answers.
+    //
+    // After FrameXML has loaded, because a definition written before it would
+    // simply be overwritten by uiparent.lua.
+    luaEngine_.executeString(
+        "if not __WoweeOwnsGameMenu and __WoweeOpenClientSettings then\n"
+        "  ToggleGameMenu = function() __WoweeOpenClientSettings() end\n"
+        "end\n");
+
+    // Where FrameXML's own chat output goes when this client owns the chat.
+    //
+    // Twenty-nine places write through DEFAULT_CHAT_FRAME:AddMessage - the
+    // ready check's "you were away", the battleground countdowns, the world
+    // state warnings, uiparent's four. That name is ChatFrame1: chatframe.lua
+    // assigns it at file scope and ChatFrame1's own OnLoad assigns it again,
+    // and suppression only stops the frame being drawn, so every one of those
+    // lines was being stored on a hidden frame and never seen.
+    //
+    // Redirected rather than replaced. A bare table would raise the moment
+    // something asked for GetID, GetWidth, GetFont, SetPoint or
+    // IsUserPlaced - all of which FrameXML calls on this - so the frames stay
+    // frames and only AddMessage is pointed elsewhere. A field on the table
+    // wins over the metatable's method, which is what makes that work.
+    //
+    // All ten windows, not only the first: ChatFrame_MessageEventHandler
+    // writes to whichever window a message type is registered on.
+    luaEngine_.executeString(
+        std::string("__WoweeOwnsChat = ") +
+        (ui::frameXmlOwns(ui::UiElement::Chat) ? "true" : "false") + "\n");
+    luaEngine_.executeString(
+        "if not __WoweeOwnsChat and __WoweeClientChatAddMessage then\n"
+        "  for i = 1, 10 do\n"
+        "    local f = _G['ChatFrame' .. i]\n"
+        "    if type(f) == 'table' then\n"
+        "      f.AddMessage = __WoweeClientChatAddMessage\n"
+        "    end\n"
+        "  end\n"
+        "end\n");
+
+    // This client's own slash commands, into SlashCmdList.
+    //
+    // The registry in ChatPanel answers about seventy names FrameXML has no
+    // equivalent for - /unstuck, /coords, /whereami, /transport, /threat, the
+    // GM helpers, the helm and cloak toggles. It was reached from this
+    // client's own chat input and from nowhere else, so handing chat over took
+    // every one of them away: FrameXML's ChatEdit_ParseText walks SlashCmdList
+    // and consults nothing beyond it.
+    //
+    // After FrameXML has loaded, so the taken set below is complete and this
+    // can never shadow a command the interface already answers - /follow going
+    // to a no-op because both sides claimed it is a fault this file has seen.
+    //
+    // Registered whichever interface owns the chat. When this client owns it,
+    // sendChatMessage tries SlashCmdList before its own registry and will now
+    // find these first; that is one extra hop to the same command rather than
+    // a difference in behaviour, and it keeps the two paths identical.
+    luaEngine_.executeString(
+        "if __WoweeClientCommandNames and __WoweeRunClientCommand then\n"
+        // Every /name FrameXML already answers. The table is keyed by the
+        // slash text rather than by the SlashCmdList key, because that is what
+        // collides: two different keys can name the same command.
+        "  local taken = {}\n"
+        "  for k, v in pairs(_G) do\n"
+        "    if type(k) == 'string' and type(v) == 'string' and\n"
+        "       string.sub(k, 1, 6) == 'SLASH_' then\n"
+        "      taken[string.lower(v)] = true\n"
+        "    end\n"
+        "  end\n"
+        "  for _, name in ipairs(__WoweeClientCommandNames()) do\n"
+        "    local slash = '/' .. name\n"
+        "    if not taken[slash] then\n"
+        "      local key = 'WOWEE_' .. string.upper(name)\n"
+        "      _G['SLASH_' .. key .. '1'] = slash\n"
+        // Straight to the registry. Going back through the chat path would
+        // find the entry this handler was called from and recurse.
+        "      SlashCmdList[key] = function(msg)\n"
+        "        __WoweeRunClientCommand(name, msg or '')\n"
+        "      end\n"
+        "    end\n"
+        "  end\n"
+        "end\n");
+
+
+    luaEngine_.executeString(
         "if UIParent and UIParent.SetAttribute then\n"
         "  local defaults = {\n"
         "    TOP_OFFSET = 0, LEFT_OFFSET = 0, CENTER_OFFSET = 0,\n"
@@ -395,10 +1002,29 @@ bool AddonManager::loadFrameXml(const std::string& frameXmlDir) {
         "  end\n"
         "end\n");
 
+    // Let the bag windows and the character sheet be dragged around.
+    //
+    // A deliberate departure from 3.3.5, where neither can be moved: the bags
+    // arrange themselves up the right-hand side and the character sheet is a
+    // fixed panel. Asked for, and harmless - the item buttons inside them are
+    // what a drag starting on a slot picks up, because a drag belongs to the
+    // frame the press landed on.
+    luaEngine_.executeString(
+        "local function draggable(f)\n"
+        "  if not f then return end\n"
+        "  f:SetMovable(true)\n"
+        "  f:EnableMouse(true)\n"
+        "  f:RegisterForDrag('LeftButton')\n"
+        "  f:SetScript('OnDragStart', function(self) self:StartMoving() end)\n"
+        "  f:SetScript('OnDragStop', function(self) self:StopMovingOrSizing() end)\n"
+        "end\n"
+        "for i = 1, 13 do draggable(_G['ContainerFrame' .. i]) end\n"
+        "draggable(CharacterFrame)\n");
+
     LOG_WARNING("FrameXML: ", lua, " Lua files and ", xml, " XML files loaded, ",
                 failed, " failed in ", sinceMs(loadStart), "ms");
     for (const auto& [file, why] : failures) {
-        LOG_WARNING("FrameXML:   ", file, " — ", why);
+        LOG_WARNING("FrameXML:   ", file, " - ", why);
     }
     return failed == 0;
 }
@@ -435,23 +1061,62 @@ bool AddonManager::loadXmlFile(const std::string& path, int depth) {
         LOG_WARNING("AddonManager: ", path, ": ", w);
     }
 
+    // The Lua the XML became, on disk, when asked for.
+    //
+    // Everything downstream of here reads as a Lua problem - a global that is
+    // nil, a frame with no size - and the answer is nearly always in what the
+    // emitter wrote rather than in what the script did with it. Reading it is
+    // the difference between finding a mis-substituted $parent in one grep and
+    // inferring it from a frame that ended up in the wrong place.
+    if (const char* dumpDir = std::getenv("WOWEE_FRAMEXML_EMIT_DIR")) {
+        if (*dumpDir) {
+            std::error_code ec;
+            fs::create_directories(dumpDir, ec);
+            const fs::path out =
+                fs::path(dumpDir) / (fs::path(path).filename().string() + ".lua");
+            std::ofstream f(out);
+            if (f) f << emitted.lua;
+        }
+    }
+
     const fs::path dir = fs::path(path).parent_path();
     bool ok = true;
 
     // Resolved without regard to case, the same as the manifest's own files. A
     // Script element says MovieFrame.lua and the file on disk is
-    // movieframe.lua, so joining the two naively fails — which took out most of
+    // movieframe.lua, so joining the two naively fails - which took out most of
     // FrameXML on the first attempt, one referenced script at a time.
-    auto sibling = [&](const std::string& name) {
-        const fs::path p = resolvePath(dir, name);
-        return p.empty() ? (dir / name) : p;
+    auto sibling = [&](const std::string& rawName) {
+        // Windows separators, because the interface is written with them. On
+        // anything else a backslash is an ordinary character in a filename, so
+        // "..\\..\\FrameXML\\UIPanelTemplates.xml" resolved to nothing and the
+        // include silently failed - which failed the file that asked for it,
+        // and the guild bank's own XML is one of the two that do.
+        std::string name = rawName;
+        std::replace(name.begin(), name.end(), '\\', '/');
+
+        // Relative to the file that named it first.
+        if (fs::path p = resolvePath(dir, name); !p.empty()) return p;
+
+        // Then FrameXML itself. An addon includes a shared template by bare
+        // name - inspectpvpframe.xml asks for PVPFrameTemplates.xml - and by a
+        // path back out of its own folder, and both mean the same place.
+        const fs::path base = fs::path(frameXmlResolvedDir_.empty()
+                                           ? frameXmlDir_ : frameXmlResolvedDir_);
+        if (!base.empty()) {
+            if (fs::path p = resolvePath(base, fs::path(name).filename().string());
+                !p.empty()) {
+                return p;
+            }
+        }
+        return dir / name;
     };
 
     // Order matters and is not the order the emitter reports things in. Includes
     // carry the templates a file inherits from, and scripts define the functions
     // its handlers name, so both have to be in place before any frame is built.
     // A file is only as loadable as what it pulls in, so the reason kept here is
-    // the first real one — the include or script that actually broke — rather
+    // the first real one - the include or script that actually broke - rather
     // than the name of whichever file happened to reference it.
     for (const auto& inc : emitted.includeFiles) {
         if (!loadXmlFile(sibling(inc).string(), depth + 1)) {
@@ -501,8 +1166,15 @@ bool AddonManager::loadAddon(const TocFile& addon) {
         std::string lower = filename;
         for (char& c : lower) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
 
+        // Through resolvePath, because a .toc names its files the way Blizzard
+        // wrote them - Blizzard_TalentUI.xml - and this install has them in
+        // lower case. Concatenating the two finds nothing on a case-sensitive
+        // filesystem, which is every one of the Blizzard load-on-demand addons.
+        const fs::path resolved = resolvePath(fs::path(addon.basePath), filename);
+        const std::string fullPath =
+            resolved.empty() ? (addon.basePath + "/" + filename) : resolved.string();
+
         if (lower.size() >= 4 && lower.substr(lower.size() - 4) == ".lua") {
-            std::string fullPath = addon.basePath + "/" + filename;
             if (!luaEngine_.executeFile(fullPath)) {
                 LOG_ERROR("AddonManager: '", addon.addonName, "' failed on ", filename);
                 success = false;
@@ -510,7 +1182,7 @@ bool AddonManager::loadAddon(const TocFile& addon) {
                 LOG_INFO("AddonManager: ran ", addon.addonName, "/", filename);
             }
         } else if (lower.size() >= 4 && lower.substr(lower.size() - 4) == ".xml") {
-            if (!loadXmlFile(addon.basePath + "/" + filename, 0)) success = false;
+            if (!loadXmlFile(fullPath, 0)) success = false;
         }
     }
 
@@ -522,8 +1194,87 @@ bool AddonManager::loadAddon(const TocFile& addon) {
     return success;
 }
 
+namespace {
+std::string lowered(std::string v) {
+    for (char& c : v) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    return v;
+}
+}  // namespace
+
+bool AddonManager::isAddOnLoadedByName(const std::string& name) const {
+    return lodLoaded_.count(lowered(name)) != 0;
+}
+
+bool AddonManager::loadAddOnByName(const std::string& name, std::string& reason) {
+    const std::string key = lowered(name);
+    // Already loaded is success, not an error: FrameXML calls LoadAddOn every
+    // time a panel is opened and only checks the first return.
+    if (lodLoaded_.count(key)) { reason.clear(); return true; }
+
+    const TocFile* found = nullptr;
+    for (const TocFile& a : lodAddons_) {
+        if (lowered(a.addonName) == key) { found = &a; break; }
+    }
+    if (!found) {
+        // Not on the on-demand list is not the same as not present. An addon
+        // whose .toc omits LoadOnDemand is loaded at startup instead, and
+        // FrameXML still asks for it by name: uiparent.lua calls
+        // UIParentLoadAddOn("Blizzard_TokenUI"), whose .toc has no such line,
+        // and that reported MISSING for an addon already running - raising the
+        // "Couldn't load" popup over a UI that was working.
+        for (const TocFile& a : addons_) {
+            if (lowered(a.addonName) != key) continue;
+            if (!isAddonEnabled(a.addonName)) { reason = "DISABLED"; return false; }
+            // Only once the startup pass has actually run it. Before that it is
+            // listed but not loaded, and saying otherwise would have the caller
+            // use frames that do not exist yet.
+            if (addonsLoaded_) { reason.clear(); return true; }
+            break;
+        }
+        reason = "MISSING";
+        return false;
+    }
+    if (!isAddonEnabled(found->addonName)) { reason = "DISABLED"; return false; }
+
+    // Recorded before loading, not after: the addon's own files run during
+    // this call and one of them may call LoadAddOn on the same name, which
+    // would otherwise recurse until the stack gave out.
+    lodLoaded_.insert(key);
+    LOG_INFO("AddonManager: loading on demand: ", found->addonName);
+    if (!loadAddon(*found)) {
+        // CORRUPT, not a token of our own. UIParentLoadAddOn builds a
+        // global name out of whatever comes back - _G["ADDON_"..reason] -
+        // and hands it to format, so a reason globalstrings does not have
+        // makes the report raise instead of reporting. See lua_LoadAddOn,
+        // which will not let an unknown one through either.
+        reason = "CORRUPT";
+        LOG_WARNING("AddonManager: '", found->addonName, "' failed to load on demand");
+        // Left in the loaded set deliberately. A half-run addon has already
+        // built frames and set globals, and running its files a second time
+        // would build them again - the duplicate-frame problem the scan goes
+        // out of its way to avoid.
+        return false;
+    }
+    // What it draws is on screen from here, which for some of them is a second
+    // copy of something this client is already drawing.
+    ui::frameXmlNoteAddOnLoaded(found->addonName);
+    return true;
+}
+
 bool AddonManager::runScript(const std::string& code) {
     return luaEngine_.executeString(code);
+}
+
+void AddonManager::runInterfaceCommand(const std::string& lua) {
+    if (lua.empty()) return;
+    if (!luaEngine_.executeString(lua)) {
+        LOG_WARNING("interface command failed: ", lua);
+    }
+}
+
+bool AddonManager::interfaceCommandBoolean(const std::string& expression) {
+    if (expression.empty()) return false;
+    return luaEngine_.evaluateBoolean(expression);
 }
 
 void AddonManager::fireEvent(const std::string& event, const std::vector<std::string>& args) {

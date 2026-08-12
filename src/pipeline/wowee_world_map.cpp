@@ -1,4 +1,5 @@
 #include "pipeline/wowee_world_map.hpp"
+#include "pipeline/wowee_binary_io.hpp"
 
 #include <cstdio>
 #include <cstring>
@@ -11,24 +12,7 @@ namespace {
 
 constexpr char kMagic[4] = {'W', 'M', 'P', 'X'};
 constexpr uint32_t kVersion = 1;
-
-template <typename T>
-void writePOD(std::ofstream& os, const T& v) {
-    os.write(reinterpret_cast<const char*>(&v), sizeof(T));
-}
-
-template <typename T>
-bool readPOD(std::ifstream& is, T& v) {
-    is.read(reinterpret_cast<char*>(&v), sizeof(T));
-    return is.gcount() == static_cast<std::streamsize>(sizeof(T));
-}
-
-std::string normalizePath(std::string base) {
-    if (base.size() < 5 || base.substr(base.size() - 5) != ".womx") {
-        base += ".womx";
-    }
-    return base;
-}
+constexpr char kExtension[] = ".womx";
 
 size_t bitmapBytesFor(uint32_t gridSize) {
     return (static_cast<size_t>(gridSize) * gridSize + 7) / 8;
@@ -78,13 +62,11 @@ const char* WoweeWorldMap::worldTypeName(uint8_t t) {
 bool WoweeWorldMapLoader::save(const WoweeWorldMap& m,
                                const std::string& basePath) {
     if (m.gridSize == 0 || m.gridSize > 128) return false;
-    std::ofstream os(normalizePath(basePath), std::ios::binary);
+    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
     if (!os) return false;
     os.write(kMagic, 4);
     writePOD(os, kVersion);
-    uint32_t nameLen = static_cast<uint32_t>(m.name.size());
-    writePOD(os, nameLen);
-    if (nameLen > 0) os.write(m.name.data(), nameLen);
+    writeStr(os, m.name);
     writePOD(os, m.worldType);
     writePOD(os, m.gridSize);
     uint16_t pad = 0;
@@ -116,23 +98,15 @@ bool WoweeWorldMapLoader::save(const WoweeWorldMap& m,
 
 WoweeWorldMap WoweeWorldMapLoader::load(const std::string& basePath) {
     WoweeWorldMap out;
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
+    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
     if (!is) return out;
-    char magic[4];
-    is.read(magic, 4);
-    if (std::memcmp(magic, kMagic, 4) != 0) return out;
-    uint32_t version = 0;
-    if (!readPOD(is, version) || version != kVersion) return out;
-    uint32_t nameLen = 0;
-    if (!readPOD(is, nameLen)) return out;
-    if (nameLen > 0) {
-        out.name.resize(nameLen);
-        is.read(out.name.data(), nameLen);
-        if (is.gcount() != static_cast<std::streamsize>(nameLen)) {
-            out.name.clear();
-            return out;
-        }
-    }
+    // Magic and version only. This format's header does not continue into a
+    // name and an entry count - a world type and a grid size follow instead -
+    // so readCatalogHeader would eat four bytes of the world type.
+    if (!readMagicAndVersion(is, kMagic, kVersion)) return out;
+    // readStr rather than a hand-rolled length-and-bytes: this is the one place
+    // that spelled it out itself, and so the one place with no cap on the length.
+    if (!readStr(is, out.name)) return out;
     if (!readPOD(is, out.worldType)) return out;
     if (!readPOD(is, out.gridSize)) return out;
     uint16_t pad = 0;
@@ -145,7 +119,7 @@ WoweeWorldMap WoweeWorldMapLoader::load(const std::string& basePath) {
     if (!readPOD(is, reserved)) return out;
     uint32_t bitmapBytes = 0;
     if (!readPOD(is, bitmapBytes)) return out;
-    // Cap to a sane upper bound in case the file is corrupted —
+    // Cap to a sane upper bound in case the file is corrupted -
     // a 128×128 grid is 2048 bytes, so anything > 4 KiB is a sign
     // of trouble.
     if (bitmapBytes > 4096) {
@@ -165,8 +139,7 @@ WoweeWorldMap WoweeWorldMapLoader::load(const std::string& basePath) {
 }
 
 bool WoweeWorldMapLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeWorldMap WoweeWorldMapLoader::makeContinent(const std::string& mapName) {
@@ -175,7 +148,7 @@ WoweeWorldMap WoweeWorldMapLoader::makeContinent(const std::string& mapName) {
     m.worldType = WoweeWorldMap::Continent;
     m.gridSize = 64;
     m.tileBitmap.assign(bitmapBytesFor(64), 0xFF);
-    // Last byte may have spare bits past 64*64 — but 64*64 is
+    // Last byte may have spare bits past 64*64 - but 64*64 is
     // a multiple of 8 (4096), so this is exact and no masking
     // is needed.
     return m;

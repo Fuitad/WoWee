@@ -1,4 +1,4 @@
-// quest_poi_layer.hpp — Quest objective markers on the world map.
+// quest_poi_layer.hpp - Quest objective markers on the world map.
 #pragma once
 #include "rendering/world_map/overlay_renderer.hpp"
 #include "rendering/world_map/world_map_types.hpp"

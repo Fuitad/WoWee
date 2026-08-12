@@ -1,4 +1,6 @@
 #include "cli_reputation_rewards_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -20,11 +22,6 @@ namespace cli {
 
 namespace {
 
-std::string stripWrprExt(std::string base) {
-    stripExt(base, ".wrpr");
-    return base;
-}
-
 const char* standingTierName(int32_t standing) {
     if (standing >= 42000) return "Exalted";
     if (standing >= 21000) return "Revered";
@@ -36,16 +33,6 @@ const char* standingTierName(int32_t standing) {
     return "Hated";
 }
 
-bool saveOrError(const wowee::pipeline::WoweeReputationRewards& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeReputationRewardsLoader::save(
-            c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wrpr\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeReputationRewards& c,
                      const std::string& base) {
@@ -65,10 +52,10 @@ int handleGenArgent(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "ArgentCrusadeRewards";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWrprExt(base);
+    base = cli::withoutExt(base, ".wrpr");
     auto c = wowee::pipeline::WoweeReputationRewardsLoader::
         makeArgentCrusade(name);
-    if (!saveOrError(c, base, "gen-rpr")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeReputationRewardsLoader>(c, base, "gen-rpr", ".wrpr")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -77,10 +64,10 @@ int handleGenKaluak(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "KaluakRewards";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWrprExt(base);
+    base = cli::withoutExt(base, ".wrpr");
     auto c = wowee::pipeline::WoweeReputationRewardsLoader::
         makeKaluak(name);
-    if (!saveOrError(c, base, "gen-rpr-kaluak")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeReputationRewardsLoader>(c, base, "gen-rpr-kaluak", ".wrpr")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -89,10 +76,10 @@ int handleGenAccord(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "WyrmrestAccordRewards";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWrprExt(base);
+    base = cli::withoutExt(base, ".wrpr");
     auto c = wowee::pipeline::WoweeReputationRewardsLoader::
         makeAccordTabard(name);
-    if (!saveOrError(c, base, "gen-rpr-accord")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeReputationRewardsLoader>(c, base, "gen-rpr-accord", ".wrpr")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -100,11 +87,9 @@ int handleGenAccord(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWrprExt(base);
-    if (!wowee::pipeline::WoweeReputationRewardsLoader::exists(
-            base)) {
-        std::fprintf(stderr, "WRPR not found: %s.wrpr\n", base.c_str());
-        return 1;
+    base = cli::withoutExt(base, ".wrpr");
+    if (!wowee::pipeline::WoweeReputationRewardsLoader::exists(base)) {
+        return reportMissing("WRPR", base, ".wrpr");
     }
     auto c = wowee::pipeline::WoweeReputationRewardsLoader::load(
         base);
@@ -161,7 +146,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWrprExt(base);
+    base = cli::withoutExt(base, ".wrpr");
     if (out.empty()) out = base + ".wrpr.json";
     if (!wowee::pipeline::WoweeReputationRewardsLoader::exists(
             base)) {
@@ -211,16 +196,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wrpr.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wrpr");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wrpr");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,
@@ -300,7 +276,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWrprExt(base);
+    base = cli::withoutExt(base, ".wrpr");
     if (!wowee::pipeline::WoweeReputationRewardsLoader::exists(
             base)) {
         std::fprintf(stderr,
@@ -316,7 +292,7 @@ int handleValidate(int& i, int argc, char** argv) {
         warnings.push_back("catalog has zero entries");
     }
     std::set<uint32_t> idsSeen;
-    // (factionId, minStanding) tuple uniqueness — two
+    // (factionId, minStanding) tuple uniqueness - two
     // tiers binding the same (faction, standing) would
     // make the active-tier lookup ambiguous.
     std::set<uint64_t> tierTupleSeen;
@@ -337,7 +313,7 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": name is empty");
         if (e.factionId == 0) {
             errors.push_back(ctx +
-                ": factionId is 0 — tier is not bound "
+                ": factionId is 0 - tier is not bound "
                 "to any WFAC faction");
         }
         if (e.minStanding < -42000 || e.minStanding > 42000) {
@@ -349,7 +325,7 @@ int handleValidate(int& i, int argc, char** argv) {
         if (e.discountPct > 20) {
             warnings.push_back(ctx + ": discountPct " +
                 std::to_string(e.discountPct) +
-                " > 20%% — exceeds typical max vendor "
+                " > 20%% - exceeds typical max vendor "
                 "discount (Exalted is canonically 20%%)");
         }
         // No item/recipe IDs may be 0.
@@ -378,7 +354,7 @@ int handleValidate(int& i, int argc, char** argv) {
                     ", minStanding=" +
                     std::to_string(e.minStanding) +
                     ") combo already bound by another "
-                    "tier — active-tier lookup would be "
+                    "tier - active-tier lookup would be "
                     "ambiguous");
             }
         }
@@ -410,40 +386,15 @@ int handleValidate(int& i, int argc, char** argv) {
                     std::to_string(tiers[k]->minStanding) +
                     ", discount " +
                     std::to_string(tiers[k]->discountPct) +
-                    "%) — higher standing should not "
+                    "%) - higher standing should not "
                     "have worse discount");
             }
         }
     }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wrpr"] = base + ".wrpr";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wrpr: %s.wrpr\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu tiers, all tierIds + "
+    return cli::reportValidation("wrpr", base, jsonOut, errors, warnings,
+                                 formatted("%zu tiers, all tierIds + "
                     "(faction,standing) tuples unique, "
-                    "discounts monotonic per faction\n",
-                    c.entries.size());
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+                    "discounts monotonic per faction", c.entries.size()));
 }
 
 } // namespace

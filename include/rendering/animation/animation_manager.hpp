@@ -1,7 +1,7 @@
 #pragma once
 
 // Renamed from PlayerAnimator/NpcAnimator dual-map → unified CharacterAnimator registry.
-// NpcAnimator removed — all characters use the same generic CharacterAnimator.
+// NpcAnimator removed - all characters use the same generic CharacterAnimator.
 #include "rendering/animation/character_animator.hpp"
 #include "rendering/animation/anim_capability_set.hpp"
 #include <cstdint>
@@ -18,7 +18,7 @@ namespace rendering {
 // scattered AnimationController* passing.
 //
 // Single animator type:
-//   CharacterAnimator — generic animator for any character (player, NPC,
+//   CharacterAnimator - generic animator for any character (player, NPC,
 //                        companion). Full FSM composition with priority
 //                        resolver.
 //
@@ -31,8 +31,6 @@ public:
 
     // ── Character animators ─────────────────────────────────────────────
 
-    /// Get or create a CharacterAnimator for the given instance ID.
-    CharacterAnimator& getOrCreate(uint32_t instanceId);
 
     /// Get existing CharacterAnimator (nullptr if not found).
     CharacterAnimator* get(uint32_t instanceId);
@@ -42,8 +40,6 @@ public:
 
     // ── Per-frame ───────────────────────────────────────────────────────
 
-    /// Update all registered animators.
-    void updateAll(float dt);
 
     // ── Counts ──────────────────────────────────────────────────────────
     size_t count() const { return animators_.size(); }

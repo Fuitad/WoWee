@@ -534,7 +534,7 @@ MountFamily MountSoundManager::detectMountFamilyFromPath(const std::string& mode
 }
 
 MountFamily MountSoundManager::detectMountFamily(uint32_t creatureDisplayId) const {
-    // Undead horses (skeletal warhorses) — check before generic horse range
+    // Undead horses (skeletal warhorses) - check before generic horse range
     // Display IDs: 10670 (Skeletal Horse), 10671-10672, 5765-5768
     if ((creatureDisplayId >= 10670 && creatureDisplayId <= 10672) ||
         (creatureDisplayId >= 5765 && creatureDisplayId <= 5768))
@@ -589,7 +589,7 @@ MountFamily MountSoundManager::detectMountFamily(uint32_t creatureDisplayId) con
         creatureDisplayId == 10180 || creatureDisplayId == 14584)
         return MountFamily::MECHANOSTRIDER;
 
-    // Tallstriders (plainstrider mounts — Turtle WoW custom or future)
+    // Tallstriders (plainstrider mounts - Turtle WoW custom or future)
     // 1961-1964
     if (creatureDisplayId >= 1961 && creatureDisplayId <= 1964)
         return MountFamily::TALLSTRIDER;
@@ -635,7 +635,7 @@ void MountSoundManager::updateMountSounds() {
             }
         }
     }
-    // Ground mounts — use per-family sounds
+    // Ground mounts - use per-family sounds
     else if (currentMountType_ == MountType::GROUND && !flying_) {
         // Horse vocals are already driven semantically by MountFSM: rear-up uses
         // the aggro/whinny clip and the sparse idle timer uses the stand/snort clip.

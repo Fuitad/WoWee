@@ -49,25 +49,6 @@ bool AudioCoordinator::initialize() {
     LOG_INFO("AudioCoordinator initialized with ", 11, " audio managers");
     return true;
 }
-
-void AudioCoordinator::initializeWithAssets(pipeline::AssetManager* assetManager) {
-    if (!audioAvailable_ || !assetManager) return;
-
-    if (musicManager_) musicManager_->initialize(assetManager);
-    if (footstepManager_) footstepManager_->initialize(assetManager);
-    if (activitySoundManager_) activitySoundManager_->initialize(assetManager);
-    if (mountSoundManager_) mountSoundManager_->initialize(assetManager);
-    if (npcVoiceManager_) npcVoiceManager_->initialize(assetManager);
-    if (playerVoiceManager_) playerVoiceManager_->initialize(assetManager);
-    if (ambientSoundManager_) ambientSoundManager_->initialize(assetManager);
-    if (uiSoundManager_) uiSoundManager_->initialize(assetManager);
-    if (combatSoundManager_) combatSoundManager_->initialize(assetManager);
-    if (spellSoundManager_) spellSoundManager_->initialize(assetManager);
-    if (movementSoundManager_) movementSoundManager_->initialize(assetManager);
-
-    LOG_INFO("AudioCoordinator initialized with asset manager");
-}
-
 void AudioCoordinator::shutdown() {
     // Reset all managers first (they may reference AudioEngine)
     movementSoundManager_.reset();

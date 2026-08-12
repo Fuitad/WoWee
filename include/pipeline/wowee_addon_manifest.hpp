@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Addon Manifest catalog (.wmod) —
+// Wowee Open Addon Manifest catalog (.wmod) -
 // novel replacement for the per-addon TOC (.toc) text
 // files vanilla WoW scattered across Interface/AddOns/.
 // Each entry is one addon manifest binding the addon
@@ -22,7 +22,7 @@ namespace pipeline {
 // loops that would deadlock the addon loader.
 //
 // Cross-references with previously-added formats:
-//   None directly — addons are a client-side concept,
+//   None directly - addons are a client-side concept,
 //   so WMOD does not reference WMS / WCDB / spell
 //   data. Dependencies between WMOD entries are
 //   internal addonId references.
@@ -38,18 +38,18 @@ namespace pipeline {
 //     descLen + description
 //     versionLen + version (semver "1.2.3")
 //     authorLen + author
-//     minClientBuild (uint32)        — lowest
+//     minClientBuild (uint32)        - lowest
 //                                       supported
 //                                       client patch
 //                                       number; 0 = no
 //                                       gate
-//     requiresSavedVariables (uint8) — 0/1 bool
-//     loadOnDemand (uint8)           — 0/1 bool — LoD
+//     requiresSavedVariables (uint8) - 0/1 bool
+//     loadOnDemand (uint8)           - 0/1 bool - LoD
 //                                       addons skip
 //                                       initial load
 //     pad0 (uint16)
 //     dependencyCount (uint32)
-//     dependencies (uint32 × count)  — required addonIds
+//     dependencies (uint32 × count)  - required addonIds
 //     optionalDependencyCount (uint32)
 //     optionalDependencies (uint32 × count)
 struct WoweeAddonManifest {
@@ -90,7 +90,7 @@ public:
 
     // Preset emitters used by --gen-mod* variants.
     //
-    //   makeStandardAddons — 4 vanilla-era addons
+    //   makeStandardAddons - 4 vanilla-era addons
     //                          (Recount / Atlas /
     //                          Auctioneer / Questie)
     //                          with realistic deps.
@@ -98,15 +98,15 @@ public:
     //                          Auctioneer optionally
     //                          depends on Atlas for
     //                          map links.
-    //   makeUIReplacement  — 3 full-UI replacements
+    //   makeUIReplacement  - 3 full-UI replacements
     //                          (Bartender4 / ElvUI /
     //                          SuperOrders) with a
     //                          chain dep where Super
     //                          Orders requires Elv.
-    //   makeUtility        — 3 standalone utility
+    //   makeUtility        - 3 standalone utility
     //                          addons (XPerl /
     //                          Decursive / GearVendor)
-    //                          with no inter-deps —
+    //                          with no inter-deps -
     //                          baseline for the
     //                          empty-deps path.
     static WoweeAddonManifest makeStandardAddons(const std::string& catalogName);

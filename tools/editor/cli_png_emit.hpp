@@ -74,7 +74,7 @@ inline void printPngWrote(const std::string& outPath, int W, int H) {
 // Inline pixel-write helper for the inner loops of procedural
 // texture handlers. 30 sites in cli_gen_texture.cpp open-coded
 // the same 4-line index-and-write block. Header-inline because
-// the procedural handlers call this once per pixel — the
+// the procedural handlers call this once per pixel - the
 // abstraction shouldn't cost a function-call frame.
 inline void setPixelRGB(std::vector<uint8_t>& pixels, int W,
                         int x, int y,

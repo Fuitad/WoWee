@@ -11,7 +11,6 @@ public:
     ~World() = default;
 
     void update(float deltaTime);
-    void loadMap(uint32_t mapId);
 };
 
 } // namespace game

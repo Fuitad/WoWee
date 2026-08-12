@@ -8,8 +8,8 @@ Comprehensive documentation of the Docker-based build pipeline for each target p
 
 Each platform follows the same two-phase pattern:
 
-1. **Image Build** (one-time, cached by Docker) — installs compilers, toolchains, and pre-builds vcpkg dependencies.
-2. **Container Run** (each build) — copies source into the container, runs CMake configure + build, outputs artifacts to the host.
+1. **Image Build** (one-time, cached by Docker) - installs compilers, toolchains, and pre-builds vcpkg dependencies.
+2. **Container Run** (each build) - copies source into the container, runs CMake configure + build, outputs artifacts to the host.
 
 ```
 Host                              Docker
@@ -67,8 +67,8 @@ run-{platform}.sh/.ps1
 ```
 
 ### Output
-- `build/linux/bin/wowee` — ELF 64-bit x86-64 executable
-- `build/linux/bin/Data` — symlink to project Data/ directory
+- `build/linux/bin/wowee` - ELF 64-bit x86-64 executable
+- `build/linux/bin/Data` - symlink to project Data/ directory
 
 ---
 
@@ -80,7 +80,7 @@ run-{platform}.sh/.ps1
 **Base:** Ubuntu 24.04  
 **Targets:** arm64-apple-darwin24.5 (default), x86_64-apple-darwin24.5
 
-### Docker Image Build — Stage 1: SDK Fetcher
+### Docker Image Build - Stage 1: SDK Fetcher
 
 The macOS SDK is fetched automatically from Apple's public software update catalog.
 No manual download required.
@@ -100,7 +100,7 @@ No manual download required.
 5. Extracts via `cpio` to get the SDK directory
 6. Packages as `MacOSX<version>.sdk.tar.gz`
 
-### Docker Image Build — Stage 2: Builder
+### Docker Image Build - Stage 2: Builder
 
 | Step | What | Why |
 |------|------|-----|
@@ -123,7 +123,7 @@ No manual download required.
 
 ### Custom Toolchain Files
 
-**`macos/osxcross-toolchain.cmake`** — Auto-detecting CMake toolchain:
+**`macos/osxcross-toolchain.cmake`** - Auto-detecting CMake toolchain:
 - Detects SDK path via `file(GLOB)` in `/opt/osxcross/target/SDK/MacOSX*.sdk`
 - Detects darwin version from compiler binary names (e.g., `arm64-apple-darwin24.5-clang`)
 - Picks architecture from `CMAKE_OSX_ARCHITECTURES`
@@ -165,7 +165,7 @@ The main CMakeLists.txt has a macOS cross-compile branch that:
 - Adds `-undefined dynamic_lookup` linker flag for Vulkan loader symbols (resolved at runtime via MoltenVK)
 
 ### Output
-- `build/macos/bin/wowee` — Mach-O 64-bit arm64 (or x86_64) executable (~40 MB)
+- `build/macos/bin/wowee` - Mach-O 64-bit arm64 (or x86_64) executable (~40 MB)
 
 ---
 
@@ -225,7 +225,7 @@ Windows applications link against `vulkan-1.dll` (the Khronos Vulkan loader). Si
 This allows the linker to resolve Vulkan symbols at build time, while deferring actual loading to the runtime DLL.
 
 ### Output
-- `build/windows/bin/wowee.exe` — PE32+ x86-64 executable (~135 MB)
+- `build/windows/bin/wowee.exe` - PE32+ x86-64 executable (~135 MB)
 
 ---
 
@@ -253,8 +253,8 @@ tar -C /src \
 ### FidelityFX SDK Fetch
 
 All platforms clone the same two repos at build time:
-1. **FidelityFX-FSR2** — FSR 2.0 upscaling
-2. **FidelityFX-SDK** — FSR 3.0 frame generation (repo URL/ref configurable via env vars)
+1. **FidelityFX-FSR2** - FSR 2.0 upscaling
+2. **FidelityFX-SDK** - FSR 3.0 frame generation (repo URL/ref configurable via env vars)
 
 ### .dockerignore
 

@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Creature Patrol Path catalog (.wcmr) —
+// Wowee Open Creature Patrol Path catalog (.wcmr) -
 // novel replacement for AzerothCore's creature_movement /
 // waypoints SQL tables plus the per-spawn waypoint
 // arrays. Defines named waypoint paths that creatures
@@ -19,7 +19,7 @@ namespace pipeline {
 // to a sequence of (x, y, z, delayMs) waypoints. The
 // pathKind controls cycling behavior (Loop / OneShot /
 // Reverse / Random) and moveType controls the locomotion
-// kind (Walk / Run / Fly / Swim) — a flying patrol
+// kind (Walk / Run / Fly / Swim) - a flying patrol
 // ignores ground geometry, a swimming patrol stays
 // underwater.
 //
@@ -110,13 +110,13 @@ public:
 
     // Preset emitters used by --gen-cmr* variants.
     //
-    //   makePatrol — 3 small patrols showing each pathKind
+    //   makePatrol - 3 small patrols showing each pathKind
     //                 (4-pt Loop guard, 6-pt OneShot run,
     //                 8-pt Random tiger).
-    //   makeCity   — 4 capital-city guard routes (Stormwind /
+    //   makeCity   - 4 capital-city guard routes (Stormwind /
     //                 Orgrimmar / Ironforge / Thunder Bluff)
     //                 with 6-8 waypoints each.
-    //   makeBoss   — 3 raid-zone patrols (AQ40 12-pt Loop /
+    //   makeBoss   - 3 raid-zone patrols (AQ40 12-pt Loop /
     //                 Naxx 8-pt OneShot / ICC 16-pt Random)
     //                 demonstrating long-path support.
     static WoweeCreaturePatrol makePatrol(const std::string& catalogName);

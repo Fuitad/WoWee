@@ -1,7 +1,7 @@
 // SMSG_EQUIPMENT_SET_LIST and the three messages that answer it.
 //
-// Every guid in this family is packed — a mask byte and then only the non-zero
-// bytes — and all of them were read and written as fixed eight-byte values. A
+// Every guid in this family is packed - a mask byte and then only the non-zero
+// bytes - and all of them were read and written as fixed eight-byte values. A
 // set guid of one is two bytes on the wire, so the incoming read ate the set id
 // and the front of the name, and with more than one set the loop lost its place
 // entirely. The outgoing save was worse: a fixed eight bytes where the server
@@ -147,7 +147,7 @@ TEST_CASE("three sets do not run into each other", "[equipment_sets]") {
 TEST_CASE("a saved set is laid out the way the server reads it",
           "[equipment_sets]") {
     // HandleEquipmentSetSave: readPackGUID, index, name, icon, nineteen packed
-    // item guids. Read back here in exactly that order — a fixed eight bytes
+    // item guids. Read back here in exactly that order - a fixed eight bytes
     // for the guid leaves seven behind and every field after it lands wrong.
     Packet pkt(0);
     pkt.writePackedGuid(0);            // a new set has no guid yet

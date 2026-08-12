@@ -43,6 +43,23 @@ struct BuffBarMetrics {
     static constexpr float kMaxAutoScale = 2.0f;
 };
 
+/// How much of the right edge of the screen the minimap claims, in pixels.
+///
+/// This client's own minimap is 200px at a 10px margin whatever the resolution, so
+/// a constant was enough. FrameXML's MinimapCluster is 192 interface units wide,
+/// and an interface unit is a fixed fraction of the window height - at 1528px tall
+/// the cluster is 382px, nearly twice the constant. A row right-aligned against the
+/// smaller number therefore ends up underneath the minimap rather than beside it,
+/// which is what the buff bar did as soon as FrameXML took the minimap over.
+inline float minimapReservedWidth(float screenH, bool frameXmlMinimap) {
+    if (!frameXmlMinimap) return BuffBarMetrics::kMinimapLeftEdge;
+    // MinimapCluster's width, converted out of interface units. FrameXML is
+    // authored against a screen 768 units tall whatever the real height is.
+    constexpr float kClusterUnits = 192.0f;
+    constexpr float kInterfaceHeight = 768.0f;
+    return kClusterUnits * (screenH / kInterfaceHeight);
+}
+
 /// Icons track the window height so the bar keeps its proportions at any resolution,
 /// with the user's Buff Bar Scale setting layered on top.
 inline float buffBarScale(float screenH, float userScale) {
@@ -57,7 +74,9 @@ inline float buffBarScale(float screenH, float userScale) {
 /// Weapon enchants claim their slots first: a wall of buffs must not push a sharpening
 /// stone off the row. Anything that still does not fit is dropped rather than wrapped.
 inline BuffBarLayout computeBuffBarLayout(float screenW, float screenH, float userScale,
-                                          int auraCount, int enchantCount) {
+                                          int auraCount, int enchantCount,
+                                          float minimapWidth =
+                                              BuffBarMetrics::kMinimapLeftEdge) {
     using M = BuffBarMetrics;
 
     BuffBarLayout out;
@@ -67,7 +86,7 @@ inline BuffBarLayout computeBuffBarLayout(float screenW, float screenH, float us
     out.barY = M::kTopMargin;
 
     // Space between the left edge of the screen and the left edge of the minimap.
-    const float availableW = screenW - M::kMinimapLeftEdge - M::kRightGap - M::kScreenMargin;
+    const float availableW = screenW - minimapWidth - M::kRightGap - M::kScreenMargin;
     out.maxIcons = std::max(1, static_cast<int>(
         (availableW - M::kWindowPadding + out.iconSpacing) / (out.iconSize + out.iconSpacing)));
 
@@ -84,7 +103,7 @@ inline BuffBarLayout computeBuffBarLayout(float screenW, float screenH, float us
 
     // Right-align against the minimap's left edge, but never run off screen.
     out.barX = std::max(M::kScreenMargin,
-                        screenW - M::kMinimapLeftEdge - M::kRightGap - out.barWidth);
+                        screenW - minimapWidth - M::kRightGap - out.barWidth);
     return out;
 }
 

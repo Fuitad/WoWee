@@ -1,4 +1,6 @@
 #include "cli_player_movement_anim_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -21,11 +23,6 @@ namespace cli {
 
 namespace {
 
-std::string stripWphmExt(std::string base) {
-    stripExt(base, ".wphm");
-    return base;
-}
-
 const char* movementStateName(uint8_t s) {
     using P = wowee::pipeline::WoweePlayerMovementAnim;
     switch (s) {
@@ -42,7 +39,7 @@ const char* movementStateName(uint8_t s) {
 }
 
 const char* raceIdName(uint8_t r) {
-    // Vanilla 1.12 ChrRaces ids — display only.
+    // Vanilla 1.12 ChrRaces ids - display only.
     switch (r) {
         case 1:  return "Human";
         case 2:  return "Orc";
@@ -60,15 +57,6 @@ const char* genderName(uint8_t g) {
     return g == 0 ? "M" : (g == 1 ? "F" : "?");
 }
 
-bool saveOrError(const wowee::pipeline::WoweePlayerMovementAnim& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweePlayerMovementAnimLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wphm\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweePlayerMovementAnim& c,
                      const std::string& base) {
@@ -81,10 +69,10 @@ int handleGenHuman(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "HumanMovementAnim";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWphmExt(base);
+    base = cli::withoutExt(base, ".wphm");
     auto c = wowee::pipeline::WoweePlayerMovementAnimLoader::
         makeHumanMovement(name);
-    if (!saveOrError(c, base, "gen-phm-human")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweePlayerMovementAnimLoader>(c, base, "gen-phm-human", ".wphm")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -93,10 +81,10 @@ int handleGenOrc(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "OrcMovementAnim";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWphmExt(base);
+    base = cli::withoutExt(base, ".wphm");
     auto c = wowee::pipeline::WoweePlayerMovementAnimLoader::
         makeOrcMovement(name);
-    if (!saveOrError(c, base, "gen-phm-orc")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweePlayerMovementAnimLoader>(c, base, "gen-phm-orc", ".wphm")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -105,10 +93,10 @@ int handleGenUndead(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "UndeadMovementAnim";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWphmExt(base);
+    base = cli::withoutExt(base, ".wphm");
     auto c = wowee::pipeline::WoweePlayerMovementAnimLoader::
         makeUndeadMovement(name);
-    if (!saveOrError(c, base, "gen-phm-undead")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweePlayerMovementAnimLoader>(c, base, "gen-phm-undead", ".wphm")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -116,7 +104,7 @@ int handleGenUndead(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWphmExt(base);
+    base = cli::withoutExt(base, ".wphm");
     if (!wowee::pipeline::WoweePlayerMovementAnimLoader::exists(base)) {
         std::fprintf(stderr, "WPHM not found: %s.wphm\n",
                      base.c_str());
@@ -219,12 +207,9 @@ bool readEnumField(const nlohmann::json& je,
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWphmExt(base);
+    base = cli::withoutExt(base, ".wphm");
     if (!wowee::pipeline::WoweePlayerMovementAnimLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wphm: WPHM not found: %s.wphm\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wphm", "WPHM", base, ".wphm");
     }
     auto c = wowee::pipeline::WoweePlayerMovementAnimLoader::load(base);
     std::vector<std::string> errors;
@@ -269,17 +254,17 @@ int handleValidate(int& i, int argc, char** argv) {
             e.movementState != wowee::pipeline::
                 WoweePlayerMovementAnim::StateIdle) {
             errors.push_back(ctx +
-                ": baseAnimId 0 on non-Idle state — model "
+                ": baseAnimId 0 on non-Idle state - model "
                 "would freeze when entering this state");
         }
-        // (race, gender, state) MUST be unique — the
+        // (race, gender, state) MUST be unique - the
         // renderer dispatches by this triple. Two
         // bindings would non-deterministically tie.
         KeyTriple key{e.raceId, e.genderId, e.movementState};
         if (!tripleSeen.insert(key).second) {
             errors.push_back(ctx +
                 ": duplicate (raceId, genderId, "
-                "movementState) triple — renderer "
+                "movementState) triple - renderer "
                 "dispatch ambiguous");
         }
         if (!idsSeen.insert(e.mapId).second) {
@@ -287,12 +272,12 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         // Self-variant: variantAnimId pointing to the
         // same id as baseAnimId is meaningless overhead
-        // — it's still a valid setup but the variant
+        // - it's still a valid setup but the variant
         // would be a no-op.
         if (e.variantAnimId != 0 &&
             e.variantAnimId == e.baseAnimId) {
             warnings.push_back(ctx +
-                ": variantAnimId equals baseAnimId — the "
+                ": variantAnimId equals baseAnimId - the "
                 "variant would visually equal the base "
                 "(no-op overhead)");
         }
@@ -303,53 +288,25 @@ int handleValidate(int& i, int argc, char** argv) {
             warnings.push_back(ctx +
                 ": transitionMs=" +
                 std::to_string(e.transitionMs) +
-                " exceeds 2000ms — would feel like an "
+                " exceeds 2000ms - would feel like an "
                 "animation hang");
         }
     }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wphm"] = base + ".wphm";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wphm: %s.wphm\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu bindings, all mapIds unique, "
+    return cli::reportValidation("wphm", base, jsonOut, errors, warnings,
+                                 formatted("%zu bindings, all mapIds unique, "
                     "(race,gender,state) triple unique, "
                     "raceId 1..10, genderId 0..1, state "
-                    "0..7, no non-Idle baseAnim==0\n",
-                    c.entries.size());
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+                    "0..7, no non-Idle baseAnim==0", c.entries.size()));
 }
 
 int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWphmExt(base);
+    base = cli::withoutExt(base, ".wphm");
     if (out.empty()) out = base + ".wphm.json";
     if (!wowee::pipeline::WoweePlayerMovementAnimLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wphm-json: WPHM not found: %s.wphm\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wphm-json", "WPHM", base, ".wphm");
     }
     auto c = wowee::pipeline::WoweePlayerMovementAnimLoader::load(base);
     nlohmann::json j;
@@ -390,16 +347,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wphm.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wphm");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wphm");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,

@@ -118,7 +118,7 @@ bool NpcSpawner::saveToFile(const std::string& path) const {
 
 void NpcSpawner::scatter(const CreatureSpawn& base, const glm::vec3& center,
                           float radius, int count) {
-    // Defensive bounds — UI sliders cap these, but the function is also
+    // Defensive bounds - UI sliders cap these, but the function is also
     // callable programmatically. radius<=0 would either throw from the
     // uniform distribution constructor or divide by zero on the sqrt
     // line; an absurd count would freeze the editor and OOM.
@@ -154,7 +154,7 @@ bool NpcSpawner::loadFromFile(const std::string& path) {
         selectedIdx_ = -1;
         idCounter_ = 1;
 
-        // Cap NPC count — same defense pattern as QuestEditor / ObjectPlacer.
+        // Cap NPC count - same defense pattern as QuestEditor / ObjectPlacer.
         // 50k creatures is generous; each emits a creature_template +
         // creature INSERT, plus optional addon/waypoint rows.
         constexpr size_t kMaxSpawns = 50'000;
@@ -162,7 +162,7 @@ bool NpcSpawner::loadFromFile(const std::string& path) {
         for (const auto& js : arr) {
             if (spawns_.size() >= kMaxSpawns) {
                 LOG_WARNING("NPC cap reached (", kMaxSpawns,
-                            ") — remaining entries dropped");
+                            ") - remaining entries dropped");
                 break;
             }
             CreatureSpawn s;
@@ -208,7 +208,7 @@ bool NpcSpawner::loadFromFile(const std::string& path) {
             s.leashRadius = js.value("leashRadius", 40.0f);
             if (!std::isfinite(s.leashRadius) || s.leashRadius < 0.0f) s.leashRadius = 40.0f;
             s.respawnTimeMs = js.value("respawnTimeMs", 60000u);
-            // Cap respawn at 24h — typo guard, also matches AzerothCore.
+            // Cap respawn at 24h - typo guard, also matches AzerothCore.
             if (s.respawnTimeMs > 86'400'000u) s.respawnTimeMs = 86'400'000u;
             if (s.respawnTimeMs < 1000u) s.respawnTimeMs = 1000u;
             s.hostile = js.value("hostile", false);
@@ -225,7 +225,7 @@ bool NpcSpawner::loadFromFile(const std::string& path) {
                 s.position = glm::vec3(js["position"][0].get<float>(),
                                        js["position"][1].get<float>(),
                                        js["position"][2].get<float>());
-                // Reject NaN/inf positions — they crash the M2 renderer's
+                // Reject NaN/inf positions - they crash the M2 renderer's
                 // matrix math and produce invisible / chaos-shaped instances.
                 if (!std::isfinite(s.position.x) || !std::isfinite(s.position.y) ||
                     !std::isfinite(s.position.z)) {
@@ -234,7 +234,7 @@ bool NpcSpawner::loadFromFile(const std::string& path) {
             }
 
             if (js.contains("patrol") && js["patrol"].is_array()) {
-                // Cap patrol size at 256 waypoints — covers any realistic
+                // Cap patrol size at 256 waypoints - covers any realistic
                 // route and keeps SQL export size bounded for malformed
                 // input (a stale autosave that grew unbounded).
                 constexpr size_t kMaxPatrolPoints = 256;
@@ -243,7 +243,7 @@ bool NpcSpawner::loadFromFile(const std::string& path) {
                     if (pt.is_array() && pt.size() >= 4) {
                         PatrolPoint pp;
                         pp.position = glm::vec3(pt[0].get<float>(), pt[1].get<float>(), pt[2].get<float>());
-                        // Skip waypoints with NaN/inf — would produce a path
+                        // Skip waypoints with NaN/inf - would produce a path
                         // that warps the creature to garbage coords.
                         if (!std::isfinite(pp.position.x) || !std::isfinite(pp.position.y) ||
                             !std::isfinite(pp.position.z))

@@ -11,7 +11,7 @@ namespace ui {
  * Chat input state: buffer, whisper target, sent-history, focus management.
  *
  * Extracted from ChatPanel (Phase 1.2 of chat_panel_ref.md).
- * No UI or network dependencies — pure state management.
+ * No UI or network dependencies - pure state management.
  */
 class ChatInput {
 public:
@@ -40,9 +40,6 @@ public:
     }
 
     // ---- Sent-message history (Up/Down arrow recall) ----
-    void pushToHistory(const std::string& msg);
-    std::string historyUp();
-    std::string historyDown();
     void resetHistoryIndex() { historyIdx_ = -1; }
     int getHistoryIndex() const { return historyIdx_; }
     const std::vector<std::string>& getSentHistory() const { return sentHistory_; }

@@ -397,4 +397,4 @@ The authentication system can now reliably communicate with WoW 3.3.5a servers!
 
 ---
 
-**Status:** ✅ Auth-protocol framing is complete and exercised against AzerothCore, TrinityCore, Mangos, and Turtle WoW. World-protocol framing (with header encryption) lives in `WorldSocket` and is not described here — see "Auth Protocol Only" under Current Limitations.
+**Status:** ✅ Auth-protocol framing is complete and exercised against AzerothCore, TrinityCore, Mangos, and Turtle WoW. World-protocol framing (with header encryption) lives in `WorldSocket` and is not described here - see "Auth Protocol Only" under Current Limitations.

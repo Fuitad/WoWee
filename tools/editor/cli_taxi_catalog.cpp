@@ -1,4 +1,6 @@
 #include "cli_taxi_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -19,20 +21,6 @@ namespace cli {
 
 namespace {
 
-std::string stripWtaxExt(std::string base) {
-    stripExt(base, ".wtax");
-    return base;
-}
-
-bool saveOrError(const wowee::pipeline::WoweeTaxi& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeTaxiLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wtax\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 uint32_t totalWaypoints(const wowee::pipeline::WoweeTaxi& c) {
     uint32_t n = 0;
@@ -53,9 +41,9 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterTaxi";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWtaxExt(base);
+    base = cli::withoutExt(base, ".wtax");
     auto c = wowee::pipeline::WoweeTaxiLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-taxi")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeTaxiLoader>(c, base, "gen-taxi", ".wtax")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -64,9 +52,9 @@ int handleGenRegion(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "RegionTaxi";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWtaxExt(base);
+    base = cli::withoutExt(base, ".wtax");
     auto c = wowee::pipeline::WoweeTaxiLoader::makeRegion(name);
-    if (!saveOrError(c, base, "gen-taxi-region")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeTaxiLoader>(c, base, "gen-taxi-region", ".wtax")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -75,9 +63,9 @@ int handleGenContinent(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "ContinentTaxi";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWtaxExt(base);
+    base = cli::withoutExt(base, ".wtax");
     auto c = wowee::pipeline::WoweeTaxiLoader::makeContinent(name);
-    if (!saveOrError(c, base, "gen-taxi-continent")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeTaxiLoader>(c, base, "gen-taxi-continent", ".wtax")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -85,10 +73,9 @@ int handleGenContinent(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWtaxExt(base);
+    base = cli::withoutExt(base, ".wtax");
     if (!wowee::pipeline::WoweeTaxiLoader::exists(base)) {
-        std::fprintf(stderr, "WTAX not found: %s.wtax\n", base.c_str());
-        return 1;
+        return reportMissing("WTAX", base, ".wtax");
     }
     auto c = wowee::pipeline::WoweeTaxiLoader::load(base);
     if (jsonOut) {
@@ -167,12 +154,10 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWtaxExt(base);
+    base = cli::withoutExt(base, ".wtax");
     if (outPath.empty()) outPath = base + ".wtax.json";
     if (!wowee::pipeline::WoweeTaxiLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wtax-json: WTAX not found: %s.wtax\n", base.c_str());
-        return 1;
+        return reportMissing("export-wtax-json", "WTAX", base, ".wtax");
     }
     auto c = wowee::pipeline::WoweeTaxiLoader::load(base);
     nlohmann::json j;
@@ -227,18 +212,8 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string jsonPath = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = jsonPath;
-        std::string suffix = ".wtax.json";
-        if (outBase.size() > suffix.size() &&
-            outBase.substr(outBase.size() - suffix.size()) == suffix) {
-            outBase = outBase.substr(0, outBase.size() - suffix.size());
-        } else if (outBase.size() > 5 &&
-                   outBase.substr(outBase.size() - 5) == ".json") {
-            outBase = outBase.substr(0, outBase.size() - 5);
-        }
-    }
-    outBase = stripWtaxExt(outBase);
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(jsonPath, ".wtax");
+    outBase = cli::withoutExt(outBase, ".wtax");
     std::ifstream in(jsonPath);
     if (!in) {
         std::fprintf(stderr,
@@ -308,11 +283,9 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWtaxExt(base);
+    base = cli::withoutExt(base, ".wtax");
     if (!wowee::pipeline::WoweeTaxiLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wtax: WTAX not found: %s.wtax\n", base.c_str());
-        return 1;
+        return reportMissing("validate-wtax", "WTAX", base, ".wtax");
     }
     auto c = wowee::pipeline::WoweeTaxiLoader::load(base);
     std::vector<std::string> errors;
@@ -392,33 +365,8 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         pathIdsSeen.push_back(p.pathId);
     }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wtax"] = base + ".wtax";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wtax: %s.wtax\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu nodes, %zu paths, %u waypoints, all IDs unique\n",
-                    c.nodes.size(), c.paths.size(), totalWaypoints(c));
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+    return cli::reportValidation("wtax", base, jsonOut, errors, warnings,
+                                 formatted("%zu nodes, %zu paths, %u waypoints, all IDs unique", c.nodes.size(), c.paths.size(), totalWaypoints(c)));
 }
 
 } // namespace

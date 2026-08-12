@@ -1,5 +1,6 @@
-// player_marker_layer.cpp — Directional player arrow on the world map.
+// player_marker_layer.cpp - Directional player arrow on the world map.
 // Uses the WoW worldmapplayericon.blp texture, rendered as a rotated quad.
+#include "rendering/imgui_texture.hpp"
 #include "rendering/world_map/layers/player_marker_layer.hpp"
 #include "rendering/world_map/coordinate_projection.hpp"
 #include "rendering/vk_texture.hpp"
@@ -43,54 +44,33 @@ void PlayerMarkerLayer::ensureTexture() {
     if (loadAttempted_ || !vkCtx_ || !assetManager_) return;
     loadAttempted_ = true;
 
-    VkDevice device = vkCtx_->getDevice();
-
-    auto blp = assetManager_->loadTexture("Interface\\Minimap\\MinimapArrow.blp");
-    if (!blp.isValid()) {
-        LOG_WARNING("PlayerMarkerLayer: MinimapArrow.blp not found");
+    auto loaded = loadImGuiTexture(*assetManager_, *vkCtx_,
+                                   "Interface\\Minimap\\MinimapArrow.blp");
+    if (!loaded) {
+        LOG_WARNING("PlayerMarkerLayer: icon texture unavailable");
         return;
     }
-    auto tex = std::make_unique<VkTexture>();
-    if (!tex->upload(*vkCtx_, blp.data.data(), blp.width, blp.height,
-                     VK_FORMAT_R8G8B8A8_UNORM, false))
-        return;
-    if (!tex->createSampler(device, VK_FILTER_LINEAR, VK_FILTER_LINEAR,
-                            VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, 1.0f)) {
-        tex->destroy(device, vkCtx_->getAllocator());
-        return;
-    }
-    VkDescriptorSet ds = ImGui_ImplVulkan_AddTexture(
-        tex->getSampler(), tex->getImageView(),
-        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-    if (!ds) {
-        tex->destroy(device, vkCtx_->getAllocator());
-        return;
-    }
-    texture_ = std::move(tex);
-    imguiDS_ = ds;
-    LOG_INFO("PlayerMarkerLayer: loaded MinimapArrow.blp ", blp.width, "x", blp.height);
+    texture_ = std::move(loaded.texture);
+    imguiDS_ = loaded.descriptorSet;
+    LOG_INFO("PlayerMarkerLayer: loaded MinimapArrow.blp ", loaded.texture->getWidth(), "x",
+             loaded.texture->getHeight());
 }
 
 void PlayerMarkerLayer::render(const LayerContext& ctx) {
-    if (ctx.currentZoneIdx < 0) return;
-    if (ctx.viewLevel != ViewLevel::ZONE && ctx.viewLevel != ViewLevel::CONTINENT) return;
-    if (!ctx.zones) return;
+    const auto projection = currentProjection(ctx);
+    if (!projection) return;
 
-    const auto& zone = (*ctx.zones)[ctx.currentZoneIdx];
-    ZoneBounds bounds = zone.bounds;
-    bool isContinent = zone.areaID == 0;
-
-    if (isContinent) {
-        int playerZone = findZoneForPlayer(*ctx.zones, ctx.playerRenderPos, ctx.playerZoneId);
+    // The one extra question this layer asks: on a continent, the player is
+    // only drawn when they are actually somewhere on it. The marker layers
+    // around it draw things whose position is already known to belong here.
+    if (projection->isContinent) {
+        const int playerZone =
+            findZoneForPlayer(*ctx.zones, ctx.playerRenderPos, ctx.playerZoneId);
         if (playerZone < 0 || !zoneBelongsToContinent(*ctx.zones, playerZone, ctx.currentZoneIdx))
             return;
-        float l, r, t, b;
-        if (getContinentProjectionBounds(*ctx.zones, ctx.currentZoneIdx, l, r, t, b)) {
-            bounds = {l, r, t, b};
-        }
     }
 
-    glm::vec2 playerUV = renderPosToMapUV(ctx.playerRenderPos, bounds, isContinent);
+    glm::vec2 playerUV = renderPosToMapUV(ctx.playerRenderPos, projection->bounds, projection->isContinent);
     if (playerUV.x < 0.0f || playerUV.x > 1.0f ||
         playerUV.y < 0.0f || playerUV.y > 1.0f) return;
 

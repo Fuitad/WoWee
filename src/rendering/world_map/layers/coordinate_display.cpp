@@ -1,4 +1,4 @@
-// coordinate_display.cpp — WoW coordinates under cursor on the world map.
+// coordinate_display.cpp - WoW coordinates under cursor on the world map.
 // Extracted from WorldMap::renderImGuiOverlay (Phase 8 of refactoring plan).
 #include "rendering/world_map/layers/coordinate_display.hpp"
 #include "rendering/world_map/coordinate_projection.hpp"
@@ -11,9 +11,8 @@ namespace rendering {
 namespace world_map {
 
 void CoordinateDisplay::render(const LayerContext& ctx) {
-    if (ctx.currentZoneIdx < 0) return;
-    if (ctx.viewLevel != ViewLevel::ZONE && ctx.viewLevel != ViewLevel::CONTINENT) return;
-    if (!ctx.zones) return;
+    const auto projection = currentProjection(ctx);
+    if (!projection) return;
 
     auto& io = ImGui::GetIO();
     ImVec2 mp = io.MousePos;
@@ -24,14 +23,12 @@ void CoordinateDisplay::render(const LayerContext& ctx) {
     float mu = (mp.x - ctx.imgMin.x) / ctx.displayW;
     float mv = (mp.y - ctx.imgMin.y) / ctx.displayH;
 
-    const auto& zone = (*ctx.zones)[ctx.currentZoneIdx];
-    float left = zone.bounds.locLeft, right = zone.bounds.locRight;
-    float top = zone.bounds.locTop, bottom = zone.bounds.locBottom;
-    if (zone.areaID == 0) {
-        float l, r, t, b;
-        getContinentProjectionBounds(*ctx.zones, ctx.currentZoneIdx, l, r, t, b);
-        left = l; right = r; top = t; bottom = b;
-    }
+    // Through the shared helper, which keeps the zone's own projection->bounds when the
+    // continent lookup fails. This read the four floats out of the call without
+    // checking it succeeded - and on failure it leaves them untouched, so the
+    // coordinates under the cursor were computed from uninitialised stack.
+    const float left = projection->bounds.locLeft, right = projection->bounds.locRight;
+    const float top = projection->bounds.locTop, bottom = projection->bounds.locBottom;
 
     float hWowX = left - mu * (left - right);
     float hWowY = top  - mv * (top  - bottom);

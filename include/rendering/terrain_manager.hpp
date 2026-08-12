@@ -150,7 +150,7 @@ enum class FinalizationPhase {
 };
 
 /**
- * In-progress tile finalization state — tracks progress across frames
+ * In-progress tile finalization state - tracks progress across frames
  */
 struct FinalizingTile {
     std::shared_ptr<PendingTile> pending;
@@ -209,13 +209,6 @@ public:
     bool isCustomZone() const { return isCustomZone_; }
     void setCustomZone(bool custom) { isCustomZone_ = custom; }
 
-    /**
-     * Load a single tile
-     * @param x Tile X coordinate (0-63)
-     * @param y Tile Y coordinate (0-63)
-     * @return true if loaded successfully
-     */
-    bool loadTile(int x, int y);
 
     /**
      * Enqueue a tile for async loading (returns false if previously failed).
@@ -269,7 +262,7 @@ public:
      * True when the MCNK chunk containing this position is cut by terrain holes.
      * getHeightAt interpolates straight across a hole and reports a surface that
      * is not there, so anything reasoning about "below the terrain" has to know
-     * the heightfield is fiction here — hole-cut chunks are how cave mouths and
+     * the heightfield is fiction here - hole-cut chunks are how cave mouths and
      * below-ground entrances are opened up. Answered per chunk rather than per
      * quad: this only ever gates a safety net, and being coarse in the safe
      * direction beats depending on the hole bit's axis order.
@@ -285,12 +278,19 @@ public:
      */
     bool isHoleAt(float glX, float glY) const;
 
+    /**
+     * The chunk under a world position, plus the offsets within it that
+     * getHeightAt samples and isHoleAt reads a quad from. Shared so those two
+     * cannot drift: the first copy of this search that was written by hand
+     * omitted the full-scan fallback and answered "no hole" for chunks the
+     * index guess missed.
+     */
+    const pipeline::MapChunk* findChunkAt(float glX, float glY,
+                                          float& fracX, float& fracY) const;
+
     /** Get the precise MCNK AreaTable ID at a world position. */
     std::optional<uint32_t> getAreaIdAt(float glX, float glY) const;
 
-    // Collision queries using WOC data (custom zones)
-    bool isPositionWalkable(float glX, float glY) const;
-    uint8_t getCollisionFlags(float glX, float glY) const;
 
     /**
      * Get dominant terrain texture name at a GL position.
@@ -437,8 +437,6 @@ private:
     std::mutex tileCacheMutex_;
 
     std::shared_ptr<PendingTile> getCachedTile(const TileCoord& coord);
-    void putCachedTile(const std::shared_ptr<PendingTile>& tile);
-    size_t estimatePendingTileBytes(const PendingTile& tile) const;
     void logMissingAdtOnce(const std::string& adtPath);
     std::atomic<bool> workerRunning{false};
 
@@ -460,7 +458,7 @@ private:
     // MAIN-THREAD-ONLY: tiles beyond unloadRadius, queued by streamTiles() and drained a
     // time-budgeted batch at a time by processPendingUnloads() each frame. Unloading them
     // all synchronously in one call (e.g. ~100 tiles right after a taxi landing snaps the
-    // radius down) caused multi-second main-thread stalls — live-confirmed via "SLOW
+    // radius down) caused multi-second main-thread stalls - live-confirmed via "SLOW
     // terrainManager->update: 1943.71ms" immediately after "Unloaded 103 distant tiles" in
     // a real flight-landing log.
     //
@@ -468,7 +466,7 @@ private:
     // budget. That prevented the single-frame catastrophic stall but doesn't scale with
     // actual frame cost: streamTiles() discovers newly-out-of-range tiles at a roughly
     // constant real-world rate during a long, fast (taxi) flight, but a count-based drain
-    // processes fewer tiles per *second* whenever frame rate drops for any reason — and once
+    // processes fewer tiles per *second* whenever frame rate drops for any reason - and once
     // the backlog (and therefore loadedTiles_/streamTiles()'s own per-call scan cost) starts
     // growing, frame rate drops further, which throttles the count-based drain further still.
     // Live-reproduced: a long cross-continent taxi flight (the first sustained-large-radius

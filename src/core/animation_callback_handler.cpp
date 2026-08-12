@@ -113,13 +113,13 @@ bool AnimationCallbackHandler::updateCharge(float deltaTime) {
 }
 
 void AnimationCallbackHandler::setupCallbacks() {
-    // Sprint aura callback — use SPRINT(143) animation when sprint-type buff is active
+    // Sprint aura callback - use SPRINT(143) animation when sprint-type buff is active
     gameHandler_.setSprintAuraCallback([this](bool active) {
         auto* ac = renderer_.getAnimationController();
         if (ac) ac->setSprintAuraActive(active);
     });
 
-    // Vehicle state callback — hide player character when inside a vehicle
+    // Vehicle state callback - hide player character when inside a vehicle
     gameHandler_.setVehicleStateCallback([this](bool entered, uint32_t /*vehicleId*/) {
         auto* cr = renderer_.getCharacterRenderer();
         uint32_t instId = renderer_.getCharacterInstanceId();
@@ -127,7 +127,7 @@ void AnimationCallbackHandler::setupCallbacks() {
         cr->setInstanceVisible(instId, !entered);
     });
 
-    // Charge callback — warrior rushes toward target
+    // Charge callback - warrior rushes toward target
     gameHandler_.setChargeCallback([this](uint64_t targetGuid, float tx, float ty, float tz) {
         if (!renderer_.getCameraController()) return;
 
@@ -243,7 +243,7 @@ void AnimationCallbackHandler::setupCallbacks() {
         }
     });
 
-    // Hit reaction callback — plays one-shot dodge/block/wound animation on the victim
+    // Hit reaction callback - plays one-shot dodge/block/wound animation on the victim
     gameHandler_.setHitReactionCallback([this](uint64_t victimGuid, game::GameHandler::HitReaction reaction) {
         auto* cr = renderer_.getCharacterRenderer();
         if (!cr) return;
@@ -278,19 +278,19 @@ void AnimationCallbackHandler::setupCallbacks() {
             cr->playAnimation(instanceId, animId, false);
     });
 
-    // Stun state callback — enters/exits STUNNED animation on local player
+    // Stun state callback - enters/exits STUNNED animation on local player
     gameHandler_.setStunStateCallback([this](bool stunned) {
         auto* ac = renderer_.getAnimationController();
         if (ac) ac->setStunned(stunned);
     });
 
-    // Stealth state callback — switches to stealth animation variants
+    // Stealth state callback - switches to stealth animation variants
     gameHandler_.setStealthStateCallback([this](bool stealthed) {
         auto* ac = renderer_.getAnimationController();
         if (ac) ac->setStealthed(stealthed);
     });
 
-    // Player health callback — switches to wounded idle when HP < 20%
+    // Player health callback - switches to wounded idle when HP < 20%
     gameHandler_.setPlayerHealthCallback([this](uint32_t health, uint32_t maxHealth) {
         auto* ac = renderer_.getAnimationController();
         if (!ac) return;
@@ -298,7 +298,7 @@ void AnimationCallbackHandler::setupCallbacks() {
         ac->setLowHealth(lowHp);
     });
 
-    // Unit animation hint callback — plays jump (38=JumpMid) animation on other players/NPCs.
+    // Unit animation hint callback - plays jump (38=JumpMid) animation on other players/NPCs.
     // Swim/walking state is now authoritative from the move-flags callback below.
     // animId=38 (JumpMid): airborne jump animation; land detection is via per-frame sync.
     gameHandler_.setUnitAnimHintCallback([this](uint64_t guid, uint32_t animId) {
@@ -313,7 +313,7 @@ void AnimationCallbackHandler::setupCallbacks() {
         cr->playAnimation(instanceId, animId, /*loop=*/true);
     });
 
-    // Unit move-flags callback — updates swimming and walking state from every MSG_MOVE_* packet.
+    // Unit move-flags callback - updates swimming and walking state from every MSG_MOVE_* packet.
     // This is more reliable than opcode-based hints for cold joins and heartbeats:
     // a player already swimming when we join will have SWIMMING set on the first heartbeat.
     // Walking(4) vs Running(5) is also driven here from the WALKING flag.
@@ -332,7 +332,7 @@ void AnimationCallbackHandler::setupCallbacks() {
         else            flyState.erase(guid);
     });
 
-    // Emote animation callback — play server-driven emote animations on NPCs and other players.
+    // Emote animation callback - play server-driven emote animations on NPCs and other players.
     // isState marks persistent STATE_ emotes (UNIT_NPC_EMOTESTATE or state-type
     // SMSG_EMOTE): they loop until cleared and are retained across model
     // reloads. One-shots play once and resume the retained state loop.
@@ -354,7 +354,7 @@ void AnimationCallbackHandler::setupCallbacks() {
         if (emoteInstanceId != 0) {
             if (emoteAnim == 0) {
                 // A state clear returns to idle. A one-shot cancel (SMSG_EMOTE 0)
-                // must not stomp a persistent UNIT_NPC_EMOTESTATE work loop —
+                // must not stomp a persistent UNIT_NPC_EMOTESTATE work loop -
                 // resume it instead (Westfall woodworkers hammer through these).
                 if (isState) activeEmotes.erase(guid);
                 auto retained = activeEmotes.find(guid);
@@ -405,16 +405,16 @@ void AnimationCallbackHandler::setupCallbacks() {
         }
     });
 
-    // Spell cast animation callback — play cast animation on caster (player or NPC/other player)
+    // Spell cast animation callback - play cast animation on caster (player or NPC/other player)
     // WoW-accurate 3-phase spell animation sequence:
-    //   SPELL_PRECAST (31)              — one-shot wind-up
-    //   READY_SPELL_DIRECTED/OMNI (51/52) — looping hold while cast bar fills
-    //   SPELL_CAST_DIRECTED/OMNI/AREA (53/54/33) — one-shot release at completion
+    //   SPELL_PRECAST (31)              - one-shot wind-up
+    //   READY_SPELL_DIRECTED/OMNI (51/52) - looping hold while cast bar fills
+    //   SPELL_CAST_DIRECTED/OMNI/AREA (53/54/33) - one-shot release at completion
     // Channels use CHANNEL_CAST_DIRECTED/OMNI (124/125) or SPELL_CHANNEL_DIRECTED_OMNI (201).
     // castType comes from the spell packet's targetGuid:
-    //   DIRECTED — spell targets a specific unit  (Frostbolt, Heal)
-    //   OMNI     — self-cast / no explicit target (Arcane Explosion, buffs)
-    //   AREA     — ground-targeted AoE           (Blizzard, Rain of Fire)
+    //   DIRECTED - spell targets a specific unit  (Frostbolt, Heal)
+    //   OMNI     - self-cast / no explicit target (Arcane Explosion, buffs)
+    //   AREA     - ground-targeted AoE           (Blizzard, Rain of Fire)
     gameHandler_.setSpellCastAnimCallback([this](uint64_t guid, bool start, bool isChannel,
                                                   game::SpellCastType castType) {
         auto* cr = renderer_.getCharacterRenderer();
@@ -478,7 +478,7 @@ void AnimationCallbackHandler::setupCallbacks() {
                         // Standing, and looping for the length of the channel.
                         //
                         // Not the food path: that seats the player and swaps
-                        // the seated idle, and cannibalize does not sit — the
+                        // the seated idle, and cannibalize does not sit - the
                         // character stays on their feet over the corpse. Not
                         // the potion path either, which is one swig and done,
                         // where this runs until the channel ends.
@@ -495,7 +495,7 @@ void AnimationCallbackHandler::setupCallbacks() {
                             ac->startSpellCast(0, swigAnim, false, 0);
                         }
                     } else {
-                        // Weapons go straight to the back before the sit — the real
+                        // Weapons go straight to the back before the sit - the real
                         // client auto-sheathes on consume with no sheath animation
                         // (playing one here would fight the FSM's sit-down one-shot).
                         if (!appearanceComposer_.isWeaponsSheathed()) {
@@ -504,7 +504,7 @@ void AnimationCallbackHandler::setupCallbacks() {
                         }
                         // Food and water keep the player seated (UNIT_FIELD_BYTES_1)
                         // with the plain seated idle, exactly like the real client:
-                        // player models ship NO seated eating animation — EmoteEat is
+                        // player models ship NO seated eating animation - EmoteEat is
                         // authored standing (root bone stays at stand height) and
                         // looping it while seated pops the model upright. Only
                         // override the seated idle for models that truly have the
@@ -667,7 +667,7 @@ void AnimationCallbackHandler::setupCallbacks() {
             }
             } // end !isFishing
         } else {
-            // Cast/channel ended — plays finalization anim completely then returns to idle
+            // Cast/channel ended - plays finalization anim completely then returns to idle
             if (isLocalPlayer) {
                 appearanceComposer_.showMiningPick(false);
                 appearanceComposer_.showFishingPole(false);
@@ -682,7 +682,7 @@ void AnimationCallbackHandler::setupCallbacks() {
         }
     });
 
-    // Ghost state callback — make player semi-transparent when in spirit form
+    // Ghost state callback - make player semi-transparent when in spirit form
     gameHandler_.setGhostStateCallback([this](bool isGhost) {
         auto* cr = renderer_.getCharacterRenderer();
         if (!cr) return;
@@ -691,7 +691,7 @@ void AnimationCallbackHandler::setupCallbacks() {
         cr->setInstanceOpacity(charInstId, isGhost ? 0.5f : 1.0f);
     });
 
-    // Stand state animation callback — route through AnimationController state machine
+    // Stand state animation callback - route through AnimationController state machine
     // for proper sit/sleep/kneel transition animations (down → loop → up)
     gameHandler_.setStandStateCallback([this](uint8_t standState) {
         using AC = rendering::AnimationController;
@@ -706,7 +706,7 @@ void AnimationCallbackHandler::setupCallbacks() {
         auto* ac = renderer_.getAnimationController();
         if (!ac) return;
 
-        // Death is special — play directly, not through sit state machine
+        // Death is special - play directly, not through sit state machine
         if (standState == AC::STAND_STATE_DEAD) {
             auto* cr = renderer_.getCharacterRenderer();
             if (!cr) return;
@@ -719,7 +719,7 @@ void AnimationCallbackHandler::setupCallbacks() {
         ac->setStandState(standState);
         // Restoration food/water is an aura rather than MSG_CHANNEL_START on
         // supported realms. The aura update starts its loop; standing up ends it.
-        // Only stop the cast presentation while restoring — the server also
+        // Only stop the cast presentation while restoring - the server also
         // stands a seated player when a real cast begins, and stopping there
         // would kill that cast's animation as it starts.
         if (standState == AC::STAND_STATE_STAND) {
@@ -728,7 +728,7 @@ void AnimationCallbackHandler::setupCallbacks() {
         }
     });
 
-    // Loot window callback — play kneel/loot animation while looting
+    // Loot window callback - play kneel/loot animation while looting
     gameHandler_.setLootWindowCallback([this](bool open) {
         auto* ac = renderer_.getAnimationController();
         if (!ac) return;

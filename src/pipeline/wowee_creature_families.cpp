@@ -1,4 +1,5 @@
 #include "pipeline/wowee_creature_families.hpp"
+#include "pipeline/wowee_binary_io.hpp"
 
 #include <cstdio>
 #include <cstring>
@@ -11,52 +12,7 @@ namespace {
 
 constexpr char kMagic[4] = {'W', 'C', 'E', 'F'};
 constexpr uint32_t kVersion = 1;
-
-template <typename T>
-void writePOD(std::ofstream& os, const T& v) {
-    os.write(reinterpret_cast<const char*>(&v), sizeof(T));
-}
-
-template <typename T>
-bool readPOD(std::ifstream& is, T& v) {
-    is.read(reinterpret_cast<char*>(&v), sizeof(T));
-    return is.gcount() == static_cast<std::streamsize>(sizeof(T));
-}
-
-void writeStr(std::ofstream& os, const std::string& s) {
-    uint32_t n = static_cast<uint32_t>(s.size());
-    writePOD(os, n);
-    if (n > 0) os.write(s.data(), n);
-}
-
-bool readStr(std::ifstream& is, std::string& s) {
-    uint32_t n = 0;
-    if (!readPOD(is, n)) return false;
-    if (n > (1u << 20)) return false;
-    s.resize(n);
-    if (n > 0) {
-        is.read(s.data(), n);
-        if (is.gcount() != static_cast<std::streamsize>(n)) {
-            s.clear();
-            return false;
-        }
-    }
-    return true;
-}
-
-std::string normalizePath(std::string base) {
-    if (base.size() < 5 || base.substr(base.size() - 5) != ".wcef") {
-        base += ".wcef";
-    }
-    return base;
-}
-
-uint32_t packRgba(uint8_t r, uint8_t g, uint8_t b, uint8_t a = 0xFF) {
-    return (static_cast<uint32_t>(a) << 24) |
-           (static_cast<uint32_t>(b) << 16) |
-           (static_cast<uint32_t>(g) << 8)  |
-            static_cast<uint32_t>(r);
-}
+constexpr char kExtension[] = ".wcef";
 
 } // namespace
 
@@ -90,15 +46,9 @@ const char* WoweeCreatureFamily::petTalentTreeName(uint8_t t) {
 }
 
 bool WoweeCreatureFamilyLoader::save(const WoweeCreatureFamily& cat,
-                                      const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath), std::ios::binary);
-    if (!os) return false;
-    os.write(kMagic, 4);
-    writePOD(os, kVersion);
-    writeStr(os, cat.name);
-    uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writePOD(os, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeCreatureFamily::Entry& e) {
         writePOD(os, e.familyId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -109,48 +59,28 @@ bool WoweeCreatureFamilyLoader::save(const WoweeCreatureFamily& cat,
         writePOD(os, e.skillLine);
         writePOD(os, e.petFoodTypes);
         writePOD(os, e.iconColorRGBA);
-    }
-    return os.good();
+                       });
 }
 
 WoweeCreatureFamily WoweeCreatureFamilyLoader::load(
     const std::string& basePath) {
-    WoweeCreatureFamily out;
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    if (!is) return out;
-    char magic[4];
-    is.read(magic, 4);
-    if (std::memcmp(magic, kMagic, 4) != 0) return out;
-    uint32_t version = 0;
-    if (!readPOD(is, version) || version != kVersion) return out;
-    if (!readStr(is, out.name)) return out;
-    uint32_t entryCount = 0;
-    if (!readPOD(is, entryCount)) return out;
-    if (entryCount > (1u << 20)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.familyId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name) || !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
+    return loadCatalog<WoweeCreatureFamily>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeCreatureFamily::Entry& e) {
+        if (!readPOD(is, e.familyId)) { return false; }
+        if (!readStr(is, e.name) || !readStr(is, e.description)) { return false; }
         if (!readPOD(is, e.familyKind) ||
             !readPOD(is, e.petTalentTree) ||
             !readPOD(is, e.minLevelForTame) ||
             !readPOD(is, e.pad0) ||
             !readPOD(is, e.skillLine) ||
             !readPOD(is, e.petFoodTypes) ||
-            !readPOD(is, e.iconColorRGBA)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.iconColorRGBA)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeCreatureFamilyLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeCreatureFamily WoweeCreatureFamilyLoader::makeStarter(
@@ -175,19 +105,19 @@ WoweeCreatureFamily WoweeCreatureFamilyLoader::makeStarter(
     };
     add(1, "Bear",   F::Beast, F::Tenacity, 10,  208,
         F::Meat | F::Fish | F::Fruit | F::Fungus | F::Raw,
-        140, 100,  60, "Bear — tenacity tank pet, omnivore.");
+        140, 100,  60, "Bear - tenacity tank pet, omnivore.");
     add(2, "Cat",    F::Beast, F::Ferocity, 10,  209,
         F::Meat | F::Fish | F::Raw,
-        220, 180,  60, "Cat — ferocity DPS pet, carnivore.");
+        220, 180,  60, "Cat - ferocity DPS pet, carnivore.");
     add(3, "Wolf",   F::Beast, F::Ferocity, 10,  210,
         F::Meat | F::Raw,
-        180, 180, 180, "Wolf — ferocity DPS pet, meat-only.");
+        180, 180, 180, "Wolf - ferocity DPS pet, meat-only.");
     add(4, "Boar",   F::Beast, F::Tenacity, 10,  211,
         F::Meat | F::Fruit | F::Fungus | F::Bread,
-        160, 120, 100, "Boar — tenacity tank pet, ravenous omnivore.");
+        160, 120, 100, "Boar - tenacity tank pet, ravenous omnivore.");
     add(5, "Crab",   F::Beast, F::Tenacity, 10,  212,
         F::Fish | F::Meat | F::Raw,
-        120, 180, 200, "Crab — tenacity tank pet, prefers fish.");
+        120, 180, 200, "Crab - tenacity tank pet, prefers fish.");
     return c;
 }
 
@@ -206,17 +136,17 @@ WoweeCreatureFamily WoweeCreatureFamilyLoader::makeFerocity(
         e.minLevelForTame = minLvl;
         e.skillLine = skill;
         e.petFoodTypes = foods;
-        e.iconColorRGBA = packRgba(220, 60, 60);   // red — DPS
+        e.iconColorRGBA = packRgba(220, 60, 60);   // red - DPS
         c.entries.push_back(e);
     };
     add(100, "Cat",       10, 209, F::Meat | F::Fish | F::Raw,
-        "Cat — fast attack speed, claws hit hard.");
+        "Cat - fast attack speed, claws hit hard.");
     add(101, "Wolf",      10, 210, F::Meat | F::Raw,
-        "Wolf — Furious Howl pack buff (10% AP raid-wide).");
+        "Wolf - Furious Howl pack buff (10% AP raid-wide).");
     add(102, "Raptor",    10, 213, F::Meat | F::Raw,
-        "Raptor — bleed effect on melee strikes.");
+        "Raptor - bleed effect on melee strikes.");
     add(103, "Devilsaur", 30, 214, F::Meat | F::Raw,
-        "Devilsaur — Monstrous Bite armor reduction.");
+        "Devilsaur - Monstrous Bite armor reduction.");
     return c;
 }
 
@@ -235,21 +165,21 @@ WoweeCreatureFamily WoweeCreatureFamilyLoader::makeExotic(
         e.minLevelForTame = minLvl;
         e.skillLine = skill;
         e.petFoodTypes = foods;
-        e.iconColorRGBA = packRgba(200, 100, 240);   // purple — exotic
+        e.iconColorRGBA = packRgba(200, 100, 240);   // purple - exotic
         c.entries.push_back(e);
     };
     add(200, "Worm",       F::Tenacity, 50, 220,
         F::Meat | F::Fungus | F::Raw,
-        "Worm — exotic tenacity, Acid Spit reduces target armor.");
+        "Worm - exotic tenacity, Acid Spit reduces target armor.");
     add(201, "Devilsaur",  F::Ferocity, 60, 214,
         F::Meat | F::Raw,
-        "Devilsaur — exotic, Monstrous Bite + huge HP pool.");
+        "Devilsaur - exotic, Monstrous Bite + huge HP pool.");
     add(202, "Chimaera",   F::Cunning,  60, 221,
         F::Meat | F::Raw,
-        "Chimaera — exotic cunning, Froststorm Breath chain frost.");
+        "Chimaera - exotic cunning, Froststorm Breath chain frost.");
     add(203, "CoreHound",  F::Ferocity, 60, 222,
         F::Meat | F::Raw,
-        "Core Hound — exotic, Lava Breath + Ancient Hysteria "
+        "Core Hound - exotic, Lava Breath + Ancient Hysteria "
         "raid bloodlust.");
     return c;
 }

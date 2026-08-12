@@ -1,4 +1,6 @@
 #include "cli_spell_power_costs_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -19,20 +21,6 @@ namespace cli {
 
 namespace {
 
-std::string stripWspcExt(std::string base) {
-    stripExt(base, ".wspc");
-    return base;
-}
-
-bool saveOrError(const wowee::pipeline::WoweeSpellPowerCost& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeSpellPowerCostLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wspc\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeSpellPowerCost& c,
                      const std::string& base) {
@@ -45,9 +33,9 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterPowerCosts";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWspcExt(base);
+    base = cli::withoutExt(base, ".wspc");
     auto c = wowee::pipeline::WoweeSpellPowerCostLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-spc")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellPowerCostLoader>(c, base, "gen-spc", ".wspc")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -56,9 +44,9 @@ int handleGenRage(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "WarriorRageCosts";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWspcExt(base);
+    base = cli::withoutExt(base, ".wspc");
     auto c = wowee::pipeline::WoweeSpellPowerCostLoader::makeRage(name);
-    if (!saveOrError(c, base, "gen-spc-rage")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellPowerCostLoader>(c, base, "gen-spc-rage", ".wspc")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -67,9 +55,9 @@ int handleGenMixed(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "MixedClassPowerCosts";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWspcExt(base);
+    base = cli::withoutExt(base, ".wspc");
     auto c = wowee::pipeline::WoweeSpellPowerCostLoader::makeMixed(name);
-    if (!saveOrError(c, base, "gen-spc-mixed")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSpellPowerCostLoader>(c, base, "gen-spc-mixed", ".wspc")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -90,10 +78,9 @@ void appendCostFlagNames(uint32_t flags, std::string& out) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWspcExt(base);
+    base = cli::withoutExt(base, ".wspc");
     if (!wowee::pipeline::WoweeSpellPowerCostLoader::exists(base)) {
-        std::fprintf(stderr, "WSPC not found: %s.wspc\n", base.c_str());
-        return 1;
+        return reportMissing("WSPC", base, ".wspc");
     }
     auto c = wowee::pipeline::WoweeSpellPowerCostLoader::load(base);
     if (jsonOut) {
@@ -146,12 +133,9 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWspcExt(base);
+    base = cli::withoutExt(base, ".wspc");
     if (!wowee::pipeline::WoweeSpellPowerCostLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wspc-json: WSPC not found: %s.wspc\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wspc-json", "WSPC", base, ".wspc");
     }
     auto c = wowee::pipeline::WoweeSpellPowerCostLoader::load(base);
     if (outPath.empty()) outPath = base + ".wspc.json";
@@ -224,26 +208,15 @@ uint8_t parsePowerTypeToken(const nlohmann::json& jv,
 
 uint32_t parseCostFlagsField(const nlohmann::json& jv) {
     using F = wowee::pipeline::WoweeSpellPowerCost;
-    if (jv.is_number_integer() || jv.is_number_unsigned())
-        return jv.get<uint32_t>();
-    if (jv.is_string()) {
-        std::string s = jv.get<std::string>();
-        uint32_t out = 0;
-        size_t pos = 0;
-        while (pos < s.size()) {
-            size_t end = s.find('|', pos);
-            if (end == std::string::npos) end = s.size();
-            std::string tok = s.substr(pos, end - pos);
-            for (auto& ch : tok) ch = static_cast<char>(std::tolower(ch));
-            if (tok == "requirescombatstance") out |= F::RequiresCombatStance;
-            else if (tok == "refundonmiss")    out |= F::RefundOnMiss;
-            else if (tok == "doublesinform")   out |= F::DoublesInForm;
-            else if (tok == "scaleswithmastery") out |= F::ScalesWithMastery;
-            pos = end + 1;
-        }
-        return out;
-    }
-    return 0;
+    // The splitting is shared; the words and the bits are this
+    // format's own.
+    return cli::flagMaskFromJson(jv, [](const std::string& token) -> uint32_t {
+        if (token == "requirescombatstance") return F::RequiresCombatStance;
+        if (token == "refundonmiss") return F::RefundOnMiss;
+        if (token == "doublesinform") return F::DoublesInForm;
+        if (token == "scaleswithmastery") return F::ScalesWithMastery;
+        return 0;
+    });
 }
 
 int handleImportJson(int& i, int argc, char** argv) {
@@ -292,21 +265,8 @@ int handleImportJson(int& i, int argc, char** argv) {
             c.entries.push_back(e);
         }
     }
-    if (outBase.empty()) {
-        outBase = jsonPath;
-        const std::string suffix1 = ".wspc.json";
-        const std::string suffix2 = ".json";
-        if (outBase.size() >= suffix1.size() &&
-            outBase.compare(outBase.size() - suffix1.size(),
-                            suffix1.size(), suffix1) == 0) {
-            outBase.resize(outBase.size() - suffix1.size());
-        } else if (outBase.size() >= suffix2.size() &&
-                   outBase.compare(outBase.size() - suffix2.size(),
-                                   suffix2.size(), suffix2) == 0) {
-            outBase.resize(outBase.size() - suffix2.size());
-        }
-    }
-    outBase = stripWspcExt(outBase);
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(jsonPath, ".wspc");
+    outBase = cli::withoutExt(outBase, ".wspc");
     if (!wowee::pipeline::WoweeSpellPowerCostLoader::save(c, outBase)) {
         std::fprintf(stderr,
             "import-wspc-json: failed to save %s.wspc\n",
@@ -320,105 +280,64 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWspcExt(base);
-    if (!wowee::pipeline::WoweeSpellPowerCostLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wspc: WSPC not found: %s.wspc\n", base.c_str());
-        return 1;
-    }
-    auto c = wowee::pipeline::WoweeSpellPowerCostLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    std::vector<uint32_t> idsSeen;
-    constexpr uint32_t kKnownFlagMask =
-        wowee::pipeline::WoweeSpellPowerCost::RequiresCombatStance |
-        wowee::pipeline::WoweeSpellPowerCost::RefundOnMiss |
-        wowee::pipeline::WoweeSpellPowerCost::DoublesInForm |
-        wowee::pipeline::WoweeSpellPowerCost::ScalesWithMastery;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.powerCostId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.powerCostId == 0)
-            errors.push_back(ctx + ": powerCostId is 0");
-        if (e.name.empty())
-            errors.push_back(ctx + ": name is empty");
-        if (e.powerType > wowee::pipeline::WoweeSpellPowerCost::NoCost) {
-            errors.push_back(ctx + ": powerType " +
-                std::to_string(e.powerType) + " not in 0..11");
-        }
-        if (e.percentOfBase < 0.0f || e.percentOfBase > 1.0f) {
-            warnings.push_back(ctx +
-                ": percentOfBase " + std::to_string(e.percentOfBase) +
-                " is outside [0..1] — may overflow caster's max power");
-        }
-        if (e.costFlags & ~kKnownFlagMask) {
-            warnings.push_back(ctx +
-                ": costFlags has bits outside known mask " +
-                "(0x" + std::to_string(e.costFlags & ~kKnownFlagMask) +
-                ") — engine will ignore unknown flags");
-        }
-        // NoCost type with non-zero cost values is
-        // contradictory.
-        if (e.powerType == wowee::pipeline::WoweeSpellPowerCost::NoCost &&
-            (e.baseCost != 0 || e.perLevelCost != 0 ||
-             e.percentOfBase != 0.0f)) {
-            warnings.push_back(ctx +
-                ": NoCost type with non-zero cost fields — "
-                "engine treats this as free regardless");
-        }
-        // Spell with no cost fields set when not NoCost — is
-        // probably misconfigured (would be free).
-        if (e.powerType != wowee::pipeline::WoweeSpellPowerCost::NoCost &&
-            e.baseCost == 0 && e.perLevelCost == 0 &&
-            e.percentOfBase == 0.0f) {
-            warnings.push_back(ctx +
-                ": no cost fields set but powerType is " +
-                wowee::pipeline::WoweeSpellPowerCost::powerTypeName(e.powerType) +
-                " — spell will cast for free, switch to NoCost type if intended");
-        }
-        for (uint32_t prev : idsSeen) {
-            if (prev == e.powerCostId) {
-                errors.push_back(ctx + ": duplicate powerCostId");
-                break;
+    return cli::validateCatalog<wowee::pipeline::WoweeSpellPowerCostLoader>(
+        i, argc, argv, "wspc", "WSPC",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        constexpr uint32_t kKnownFlagMask =
+            wowee::pipeline::WoweeSpellPowerCost::RequiresCombatStance |
+            wowee::pipeline::WoweeSpellPowerCost::RefundOnMiss |
+            wowee::pipeline::WoweeSpellPowerCost::DoublesInForm |
+            wowee::pipeline::WoweeSpellPowerCost::ScalesWithMastery;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.powerCostId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.powerCostId == 0)
+                errors.push_back(ctx + ": powerCostId is 0");
+            if (e.name.empty())
+                errors.push_back(ctx + ": name is empty");
+            if (e.powerType > wowee::pipeline::WoweeSpellPowerCost::NoCost) {
+                errors.push_back(ctx + ": powerType " +
+                    std::to_string(e.powerType) + " not in 0..11");
             }
+            if (e.percentOfBase < 0.0f || e.percentOfBase > 1.0f) {
+                warnings.push_back(ctx +
+                    ": percentOfBase " + std::to_string(e.percentOfBase) +
+                    " is outside [0..1] - may overflow caster's max power");
+            }
+            if (e.costFlags & ~kKnownFlagMask) {
+                warnings.push_back(ctx +
+                    ": costFlags has bits outside known mask " +
+                    "(0x" + std::to_string(e.costFlags & ~kKnownFlagMask) +
+                    ") - engine will ignore unknown flags");
+            }
+            // NoCost type with non-zero cost values is
+            // contradictory.
+            if (e.powerType == wowee::pipeline::WoweeSpellPowerCost::NoCost &&
+                (e.baseCost != 0 || e.perLevelCost != 0 ||
+                 e.percentOfBase != 0.0f)) {
+                warnings.push_back(ctx +
+                    ": NoCost type with non-zero cost fields - "
+                    "engine treats this as free regardless");
+            }
+            // Spell with no cost fields set when not NoCost - is
+            // probably misconfigured (would be free).
+            if (e.powerType != wowee::pipeline::WoweeSpellPowerCost::NoCost &&
+                e.baseCost == 0 && e.perLevelCost == 0 &&
+                e.percentOfBase == 0.0f) {
+                warnings.push_back(ctx +
+                    ": no cost fields set but powerType is " +
+                    wowee::pipeline::WoweeSpellPowerCost::powerTypeName(e.powerType) +
+                    " - spell will cast for free, switch to NoCost type if intended");
+            }
+            if (!idsSeen.add(e.powerCostId)) errors.push_back(ctx + ": duplicate powerCostId");
         }
-        idsSeen.push_back(e.powerCostId);
-    }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wspc"] = base + ".wspc";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wspc: %s.wspc\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu buckets, all powerCostIds unique\n",
-                    c.entries.size());
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+            return formatted("%zu buckets, all powerCostIds unique", c.entries.size());
+        });
 }
 
 } // namespace

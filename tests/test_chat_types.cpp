@@ -7,7 +7,7 @@ using wowee::game::ChatType;
 // A chat type is a byte off the wire, and the name built from it decides which
 // event the interface hears: "CHAT_MSG_" with the type's name on the end. A
 // value that is absent from this enum falls to the default, is named UNKNOWN,
-// and the message is dropped by anything listening for the real name — no
+// and the message is dropped by anything listening for the real name - no
 // error, no log, just a line of chat that never appears.
 //
 // That is what happened to the whole run between LOOT and the battleground
@@ -19,7 +19,7 @@ using wowee::game::ChatType;
 TEST_CASE("The narrated messages run unbroken from LOOT to the BG block",
           "[chat][wire]") {
     // Contiguous by construction on the server, so a gap here means one was
-    // dropped again — which is exactly how they went missing the first time.
+    // dropped again - which is exactly how they went missing the first time.
     REQUIRE(static_cast<int>(ChatType::LOOT) == 0x1B);
     REQUIRE(static_cast<int>(ChatType::MONEY) == 0x1C);
     REQUIRE(static_cast<int>(ChatType::OPENING) == 0x1D);

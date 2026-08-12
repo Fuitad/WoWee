@@ -1,5 +1,5 @@
 // ============================================================================
-// animation_ids.cpp — Inverse lookup & DBC validation
+// animation_ids.cpp - Inverse lookup & DBC validation
 // Generated from animation_ids.hpp (452 constants, IDs 0–451)
 // ============================================================================
 #include "rendering/animation/animation_ids.hpp"
@@ -479,9 +479,9 @@ uint32_t flyVariant(uint32_t groundId) {
         185, 218, 229, 230, 231, 209, 232, 233, 219, 194,
         // 10-19
         195, 220, 221, 222, 223, 224, 225, 226, 227, 228,
-        // 20-29 (PARRY/READY/DODGE — no fly variants)
+        // 20-29 (PARRY/READY/DODGE - no fly variants)
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        // 30-39 (BLOCK/SPELL_PRECAST/NPC — no fly variants)
+        // 30-39 (BLOCK/SPELL_PRECAST/NPC - no fly variants)
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         // 40-49
         235, 236, 237, 238, 239, 240, 241, 242, 243, 244,
@@ -527,7 +527,7 @@ uint32_t flyVariant(uint32_t groundId) {
 
 void validateAgainstDBC(const std::shared_ptr<wowee::pipeline::DBCFile>& dbc) {
     if (!dbc || !dbc->isLoaded()) {
-        LOG_WARNING("AnimationData.dbc not available — skipping animation ID validation");
+        LOG_WARNING("AnimationData.dbc not available - skipping animation ID validation");
         return;
     }
 

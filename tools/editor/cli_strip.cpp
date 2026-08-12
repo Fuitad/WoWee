@@ -1,4 +1,5 @@
 #include "cli_strip.hpp"
+#include "zone_manifest.hpp"
 
 #include <algorithm>
 #include <cstdint>
@@ -52,7 +53,7 @@ int handleStripZone(int& i, int argc, char** argv) {
     int removed = 0;
     uint64_t bytesFreed = 0;
     std::error_code ec;
-    // Top-level only — do NOT recurse into data/ (those are
+    // Top-level only - do NOT recurse into data/ (those are
     // source sidecars).
     for (const auto& e : fs::directory_iterator(zoneDir, ec)) {
         if (!e.is_regular_file()) continue;
@@ -114,7 +115,7 @@ int handleStripProject(int& i, int argc, char** argv) {
             projectDir.c_str());
         return 1;
     }
-    // Same derived-classifier as --strip-zone — keep in sync.
+    // Same derived-classifier as --strip-zone - keep in sync.
     auto isDerivedExt = [](const std::string& ext) {
         return ext == ".glb" || ext == ".obj" || ext == ".stl" ||
                ext == ".html" || ext == ".dot" || ext == ".csv";
@@ -123,13 +124,9 @@ int handleStripProject(int& i, int argc, char** argv) {
         return name == "ZONE.md" || name == "DEPS.md" ||
                name == "quests.dot";
     };
-    std::vector<std::string> zones;
-    for (const auto& entry : fs::directory_iterator(projectDir)) {
-        if (!entry.is_directory()) continue;
-        if (!fs::exists(entry.path() / "zone.json")) continue;
-        zones.push_back(entry.path().string());
-    }
-    std::sort(zones.begin(), zones.end());
+    // What counts as a zone, and the order they are reported in,
+    // from one place.
+    std::vector<std::string> zones = wowee::editor::projectZoneDirs(projectDir);
     struct ZRow { std::string name; int removed = 0; uint64_t freed = 0; };
     std::vector<ZRow> rows;
     int totalRemoved = 0;

@@ -64,18 +64,6 @@ namespace {
     constexpr auto& kColorDarkGray   = kDarkGray;
 
 
-    bool raySphereIntersect(const wowee::rendering::Ray& ray, const glm::vec3& center, float radius, float& tOut) {
-        glm::vec3 oc = ray.origin - center;
-        float b = glm::dot(oc, ray.direction);
-        float c = glm::dot(oc, oc) - radius * radius;
-        float discriminant = b * b - c;
-        if (discriminant < 0.0f) return false;
-        float t = -b - std::sqrt(discriminant);
-        if (t < 0.0f) t = -b + std::sqrt(discriminant);
-        if (t < 0.0f) return false;
-        tOut = t;
-        return true;
-    }
 
     // Name a built-in pet bar slot. Both halves of the packed value matter:
     // the ids 0/1/2 mean stay/follow/attack as commands and passive/defensive/
@@ -119,19 +107,6 @@ namespace {
         return "Agg";
     }
 
-    std::string getEntityName(const std::shared_ptr<wowee::game::Entity>& entity) {
-        if (entity->getType() == wowee::game::ObjectType::PLAYER) {
-            auto player = std::static_pointer_cast<wowee::game::Player>(entity);
-            if (!player->getName().empty()) return player->getName();
-        } else if (entity->getType() == wowee::game::ObjectType::UNIT) {
-            auto unit = std::static_pointer_cast<wowee::game::Unit>(entity);
-            if (!unit->getName().empty()) return unit->getName();
-        } else if (entity->getType() == wowee::game::ObjectType::GAMEOBJECT) {
-            auto go = std::static_pointer_cast<wowee::game::GameObject>(entity);
-            if (!go->getName().empty()) return go->getName();
-        }
-        return "Unknown";
-    }
 
 }
 
@@ -188,7 +163,7 @@ void GameScreen::renderPlayerFrame(game::GameHandler& gameHandler) {
             ? classColorVec4(static_cast<uint8_t>(activeChar->characterClass))
             : kColorBrightGreen;
 
-        // Name in class color — clickable for self-target, right-click for menu
+        // Name in class color - clickable for self-target, right-click for menu
         ImGui::PushStyleColor(ImGuiCol_Text, classColor);
         if (ImGui::Selectable(playerName.c_str(), false, 0, ImVec2(0, 0))) {
             gameHandler.setTarget(gameHandler.getPlayerGuid());
@@ -236,18 +211,18 @@ void GameScreen::renderPlayerFrame(game::GameHandler& gameHandler) {
         if (gameHandler.isAfk()) {
             ImGui::SameLine();
             ImGui::TextColored(ImVec4(0.8f, 0.8f, 0.3f, 1.0f), "<AFK>");
-            if (ImGui::IsItemHovered()) ImGui::SetTooltip("Away from keyboard — /afk to cancel");
+            if (ImGui::IsItemHovered()) ImGui::SetTooltip("Away from keyboard - /afk to cancel");
         } else if (gameHandler.isDnd()) {
             ImGui::SameLine();
             ImGui::TextColored(ImVec4(0.9f, 0.5f, 0.2f, 1.0f), "<DND>");
-            if (ImGui::IsItemHovered()) ImGui::SetTooltip("Do not disturb — /dnd to cancel");
+            if (ImGui::IsItemHovered()) ImGui::SetTooltip("Do not disturb - /dnd to cancel");
         }
         if (auto* ren = services_.renderer) {
             if (auto* cam = ren->getCameraController()) {
                 if (cam->isAutoRunning()) {
                     ImGui::SameLine();
                     ImGui::TextColored(ImVec4(0.4f, 0.9f, 1.0f, 1.0f), "[Auto-Run]");
-                    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Auto-running — press ` or NumLock to stop");
+                    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Auto-running - press ` or NumLock to stop");
                 }
             }
         }
@@ -258,7 +233,7 @@ void GameScreen::renderPlayerFrame(game::GameHandler& gameHandler) {
             if (ImGui::IsItemHovered()) ImGui::SetTooltip("You are in combat");
         }
 
-        // Active title — shown in gold below the name/level line
+        // Active title - shown in gold below the name/level line
         {
             int32_t titleBit = gameHandler.getChosenTitleBit();
             if (titleBit >= 0) {
@@ -280,7 +255,7 @@ void GameScreen::renderPlayerFrame(game::GameHandler& gameHandler) {
             }
         }
 
-        // Health bar — color transitions green→yellow→red as HP drops
+        // Health bar - color transitions green→yellow→red as HP drops
         float pct = static_cast<float>(playerHp) / static_cast<float>(playerMaxHp);
         ImVec4 hpColor;
         if (isDead) {
@@ -291,7 +266,7 @@ void GameScreen::renderPlayerFrame(game::GameHandler& gameHandler) {
             float t = (pct - 0.2f) / 0.3f;  // 0 at 20%, 1 at 50%
             hpColor = ImVec4(0.9f - 0.7f * t, 0.4f + 0.4f * t, 0.0f, 1.0f); // orange→yellow
         } else {
-            // Critical — pulse red when < 20%
+            // Critical - pulse red when < 20%
             float pulse = 0.7f + 0.3f * std::sin(static_cast<float>(ImGui::GetTime()) * 3.5f);
             hpColor = ImVec4(0.9f * pulse, 0.05f, 0.05f, 1.0f);    // pulsing red
         }
@@ -312,25 +287,12 @@ void GameScreen::renderPlayerFrame(game::GameHandler& gameHandler) {
             if (maxPower == 0 && (powerType == 1 || powerType == 2 || powerType == 3 || powerType == 6)) maxPower = 100;
             if (maxPower > 0) {
                 float mpPct = static_cast<float>(power) / static_cast<float>(maxPower);
-                ImVec4 powerColor;
-                switch (powerType) {
-                    case 0: {
-                        // Mana: pulse desaturated blue when critically low (< 20%)
-                        if (mpPct < 0.2f) {
-                            float pulse = 0.6f + 0.4f * std::sin(static_cast<float>(ImGui::GetTime()) * 3.0f);
-                            powerColor = ImVec4(0.1f, 0.1f, 0.8f * pulse, 1.0f);
-                        } else {
-                            powerColor = colors::kManaBlue;
-                        }
-                        break;
-                    }
-                    case 1: powerColor = colors::kDarkRed; break; // Rage (red)
-                    case 2: powerColor = colors::kOrange; break; // Focus (orange)
-                    case 3: powerColor = colors::kEnergyYellow; break; // Energy (yellow)
-                    case 4: powerColor = colors::kHappinessGreen; break; // Happiness (green)
-                    case 6: powerColor = colors::kRunicRed; break; // Runic Power (crimson)
-                    case 7: powerColor = colors::kSoulShardPurple; break; // Soul Shards (purple)
-                    default: powerColor = colors::kManaBlue; break;
+                ImVec4 powerColor = colors::powerTypeColor(powerType);
+                // The player's own frame pulses its mana bar below a fifth, which
+                // no other frame does.
+                if (powerType == 0 && mpPct < 0.2f) {
+                    float pulse = 0.6f + 0.4f * std::sin(static_cast<float>(ImGui::GetTime()) * 3.0f);
+                    powerColor = ImVec4(0.1f, 0.1f, 0.8f * pulse, 1.0f);
                 }
                 ImGui::PushStyleColor(ImGuiCol_PlotHistogram, powerColor);
                 char mpOverlay[64];
@@ -340,7 +302,7 @@ void GameScreen::renderPlayerFrame(game::GameHandler& gameHandler) {
             }
         }
 
-        // Death Knight rune bar (class 6) — 6 colored squares with fill fraction
+        // Death Knight rune bar (class 6) - 6 colored squares with fill fraction
         if (gameHandler.getPlayerClass() == 6) {
             const auto& runes = gameHandler.getPlayerRunes();
             float dt = ImGui::GetIO().DeltaTime;
@@ -390,7 +352,7 @@ void GameScreen::renderPlayerFrame(game::GameHandler& gameHandler) {
             ImGui::Dummy(ImVec2(totalW, squareH));
         }
 
-        // Combo point display — Rogue (4) and Druid (11) in Cat Form
+        // Combo point display - Rogue (4) and Druid (11) in Cat Form
         {
             uint8_t cls = gameHandler.getPlayerClass();
             const bool isRogue  = (cls == 4);
@@ -411,8 +373,8 @@ void GameScreen::renderPlayerFrame(game::GameHandler& gameHandler) {
                     for (int i = 0; i < MAX_CP; ++i) {
                         float cx = startX + i * (DOT_R * 2.0f + SPACING) + DOT_R;
                         ImU32 col = (i < static_cast<int>(cp))
-                            ? IM_COL32(255, 210, 0, 240)   // bright gold — active
-                            : IM_COL32(60,  60, 60, 160);  // dark — empty
+                            ? IM_COL32(255, 210, 0, 240)   // bright gold - active
+                            : IM_COL32(60,  60, 60, 160);  // dark - empty
                         dl->AddCircleFilled(ImVec2(cx, cy), DOT_R, col);
                         dl->AddCircle(ImVec2(cx, cy), DOT_R, IM_COL32(160, 140, 0, 180), 0, 1.5f);
                     }
@@ -421,13 +383,13 @@ void GameScreen::renderPlayerFrame(game::GameHandler& gameHandler) {
             }
         }
 
-        // Shaman totem bar (class 7) — 4 slots: Earth, Fire, Water, Air
+        // Shaman totem bar (class 7) - 4 slots: Earth, Fire, Water, Air
         if (gameHandler.getPlayerClass() == 7) {
             static constexpr ImVec4 kTotemColors[] = {
-                ImVec4(0.80f, 0.55f, 0.25f, 1.0f), // Earth — brown
-                ImVec4(1.00f, 0.35f, 0.10f, 1.0f), // Fire  — orange-red
-                ImVec4(0.20f, 0.55f, 0.90f, 1.0f), // Water — blue
-                ImVec4(0.70f, 0.90f, 1.00f, 1.0f), // Air   — pale sky
+                ImVec4(0.80f, 0.55f, 0.25f, 1.0f), // Earth - brown
+                ImVec4(1.00f, 0.35f, 0.10f, 1.0f), // Fire  - orange-red
+                ImVec4(0.20f, 0.55f, 0.90f, 1.0f), // Water - blue
+                ImVec4(0.70f, 0.90f, 1.00f, 1.0f), // Air   - pale sky
             };
             static constexpr const char* kTotemNames[] = { "Earth", "Fire", "Water", "Air" };
 
@@ -464,7 +426,7 @@ void GameScreen::renderPlayerFrame(game::GameHandler& gameHandler) {
                     tdl->AddText(ImVec2(lx + 1, ly + 1), IM_COL32(0, 0, 0, 180), secBuf);
                     tdl->AddText(ImVec2(lx, ly), IM_COL32(255, 255, 255, 230), secBuf);
                 } else {
-                    // Inactive — show element letter
+                    // Inactive - show element letter
                     const char* letter = kTotemNames[i];
                     char single[2] = { letter[0], '\0' };
                     ImVec2 tsz = ImGui::CalcTextSize(single);
@@ -503,7 +465,7 @@ void GameScreen::renderPlayerFrame(game::GameHandler& gameHandler) {
         }
     }
 
-    // Melee swing timer — shown when player is auto-attacking
+    // Melee swing timer - shown when player is auto-attacking
     if (gameHandler.isAutoAttacking()) {
         const uint64_t lastSwingMs = gameHandler.getLastMeleeSwingMs();
         if (lastSwingMs > 0) {
@@ -581,7 +543,7 @@ void GameScreen::renderPetFrame(game::GameHandler& gameHandler) {
         const std::string& petName = petUnit->getName();
         uint32_t petLevel = petUnit->getLevel();
 
-        // Name + level on one row — clicking the pet name targets it
+        // Name + level on one row - clicking the pet name targets it
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.4f, 0.9f, 0.4f, 1.0f));
         char petLabel[96];
         snprintf(petLabel, sizeof(petLabel), "%s",
@@ -642,10 +604,7 @@ void GameScreen::renderPetFrame(game::GameHandler& gameHandler) {
         uint32_t maxHp = petUnit->getMaxHealth();
         if (maxHp > 0) {
             float pct = static_cast<float>(hp) / static_cast<float>(maxHp);
-            ImVec4 petHpColor = pct > 0.5f ? colors::kHealthGreen
-                              : pct > 0.2f ? ImVec4(0.9f, 0.6f, 0.0f, 1.0f)
-                              :              ImVec4(0.9f, 0.15f, 0.15f, 1.0f);
-            ImGui::PushStyleColor(ImGuiCol_PlotHistogram, petHpColor);
+            ImGui::PushStyleColor(ImGuiCol_PlotHistogram, colors::healthBarColor(pct));
             char hpText[32];
             snprintf(hpText, sizeof(hpText), "%u/%u", hp, maxHp);
             ImGui::ProgressBar(pct, ImVec2(-1, 14), hpText);
@@ -660,13 +619,7 @@ void GameScreen::renderPetFrame(game::GameHandler& gameHandler) {
         if (maxPower > 0) {
             float mpPct = static_cast<float>(power) / static_cast<float>(maxPower);
             ImVec4 powerColor;
-            switch (powerType) {
-                case 0: powerColor = colors::kManaBlue; break; // Mana
-                case 1: powerColor = colors::kDarkRed; break; // Rage
-                case 2: powerColor = colors::kOrange; break; // Focus (hunter pets)
-                case 3: powerColor = colors::kEnergyYellow; break; // Energy
-                default: powerColor = colors::kManaBlue; break;
-            }
+            powerColor = colors::powerTypeColor(static_cast<uint8_t>(powerType));
             ImGui::PushStyleColor(ImGuiCol_PlotHistogram, powerColor);
             char mpText[32];
             snprintf(mpText, sizeof(mpText), "%u/%u", power, maxPower);
@@ -674,7 +627,7 @@ void GameScreen::renderPetFrame(game::GameHandler& gameHandler) {
             ImGui::PopStyleColor();
         }
 
-        // Happiness bar — hunter pets store happiness as power type 4
+        // Happiness bar - hunter pets store happiness as power type 4
         {
             uint32_t happiness = petUnit->getPowerByType(4);
             uint32_t maxHappiness = petUnit->getMaxPowerByType(4);
@@ -707,14 +660,14 @@ void GameScreen::renderPetFrame(game::GameHandler& gameHandler) {
             ImGui::PopStyleColor();
         }
 
-        // Stance row: Passive / Defensive / Aggressive — with Dismiss right-aligned
+        // Stance row: Passive / Defensive / Aggressive - with Dismiss right-aligned
         {
             static constexpr const char* kReactLabels[]     = { "Psv", "Def", "Agg" };
             static constexpr const char* kReactTooltips[]   = { "Passive", "Defensive", "Aggressive" };
             static constexpr ImVec4 kReactColors[]    = {
-                colors::kLightBlue,  // passive  — blue
-                ImVec4(0.3f, 0.85f, 0.3f, 1.0f), // defensive — green
-                colors::kHostileRed,// aggressive — red
+                colors::kLightBlue,  // passive  - blue
+                ImVec4(0.3f, 0.85f, 0.3f, 1.0f), // defensive - green
+                colors::kHostileRed,// aggressive - red
             };
             static constexpr ImVec4 kReactDimColors[] = {
                 ImVec4(0.15f, 0.2f, 0.4f, 0.8f),
@@ -723,7 +676,7 @@ void GameScreen::renderPetFrame(game::GameHandler& gameHandler) {
             };
             uint8_t curReact = gameHandler.getPetReact(); // 0=passive,1=defensive,2=aggressive
 
-            // A stance slot is identified by its type as well as its id — the
+            // A stance slot is identified by its type as well as its id - the
             // ids 0/1/2 also name stay/follow/attack under the command type, so
             // matching on the id alone found the wrong slot.
             static constexpr uint32_t kReactActionIds[] = {
@@ -769,13 +722,13 @@ void GameScreen::renderPetFrame(game::GameHandler& gameHandler) {
             }
         }
 
-        // Pet action bar — show up to 10 action slots from SMSG_PET_SPELLS
+        // Pet action bar - show up to 10 action slots from SMSG_PET_SPELLS
         {
             const int slotCount = game::GameHandler::PET_ACTION_BAR_SLOTS;
             // Filter to non-zero slots; lay them out as small icon/text buttons.
             // Raw slot value layout (WotLK 3.3.5): low 24 bits = spell/action ID,
             // high byte = type. The built-in commands and stances share the ids
-            // 0/1/2, so what a slot means depends on both halves — see
+            // 0/1/2, so what a slot means depends on both halves - see
             // game/pet_action.hpp.
             auto* assetMgr = services_.assetManager;
             const float iconSz = 20.0f;
@@ -910,7 +863,7 @@ void GameScreen::renderPetFrame(game::GameHandler& gameHandler) {
 }
 
 // ============================================================
-// Totem Frame (Shaman — below pet frame / player frame)
+// Totem Frame (Shaman - below pet frame / player frame)
 // ============================================================
 
 void GameScreen::renderTotemFrame(game::GameHandler& gameHandler) {
@@ -1029,29 +982,11 @@ void GameScreen::renderTargetFrame(game::GameHandler& gameHandler) {
             uint32_t tgtDynFlags = u->getDynamicFlags();
             bool tgtTapped = (tgtDynFlags & 0x0004) != 0 && (tgtDynFlags & 0x0008) == 0;
             if (tgtTapped) {
-                hostileColor = kColorGray; // Grey — tapped by other
+                hostileColor = kColorGray;  // grey - tapped by someone else
             } else {
-            // WoW level-based color for hostile mobs
-            uint32_t playerLv = gameHandler.getPlayerLevel();
-            uint32_t mobLv = u->getLevel();
-            if (mobLv == 0) {
-                // Level 0 = unknown/?? (e.g. high-level raid bosses) — always skull red
-                hostileColor = ImVec4(1.0f, 0.1f, 0.1f, 1.0f);
-            } else {
-                int32_t diff = static_cast<int32_t>(mobLv) - static_cast<int32_t>(playerLv);
-                if (game::GameHandler::killXp(playerLv, mobLv) == 0) {
-                    hostileColor = kColorGray; // Grey - no XP
-                } else if (diff >= 10) {
-                    hostileColor = ImVec4(1.0f, 0.1f, 0.1f, 1.0f); // Red - skull/very hard
-                } else if (diff >= 5) {
-                    hostileColor = ImVec4(1.0f, 0.5f, 0.1f, 1.0f); // Orange - hard
-                } else if (diff >= -2) {
-                    hostileColor = ImVec4(1.0f, 1.0f, 0.1f, 1.0f); // Yellow - even
-                } else {
-                    hostileColor = kColorBrightGreen; // Green - easy
-                }
+                hostileColor = helpers::levelDifficultyColor(gameHandler.getPlayerLevel(),
+                                                             u->getLevel());
             }
-            } // end tapped else
         } else {
             hostileColor = kColorBrightGreen; // Friendly
         }
@@ -1083,7 +1018,7 @@ void GameScreen::renderTargetFrame(game::GameHandler& gameHandler) {
         // frame's, which is close enough for parking another window underneath.
         lastTargetFrameBottom_ = ImGui::GetWindowPos().y + ImGui::GetWindowSize().y;
         // Raid mark icon (Star/Circle/Diamond/Triangle/Moon/Square/Cross/Skull),
-        // drawn from the Blizzard artwork — the font has no glyphs for most of
+        // drawn from the Blizzard artwork - the font has no glyphs for most of
         // these symbols, so the previous text version rendered as '?' boxes.
         uint8_t mark = gameHandler.getEntityRaidMark(target->getGuid());
         if (mark < game::GameHandler::kRaidMarkCount) {
@@ -1097,8 +1032,8 @@ void GameScreen::renderTargetFrame(game::GameHandler& gameHandler) {
             }
         }
 
-        // Entity name and type — Selectable so we can attach a right-click context menu
-        std::string name = getEntityName(target);
+        // Entity name and type - Selectable so we can attach a right-click context menu
+        std::string name = game::entityDisplayName(target);
 
         // Player targets: use class color instead of the generic green
         ImVec4 nameColor = hostileColor;
@@ -1143,7 +1078,7 @@ void GameScreen::renderTargetFrame(game::GameHandler& gameHandler) {
                     gameHandler.proposeDuel(tGuid);
                 if (ImGui::MenuItem("Inspect")) {
                     gameHandler.inspectTarget();
-                    socialPanel_.showInspectWindow_ = true;
+                    socialPanel_.openInspectWindow(gameHandler);
                 }
                 ImGui::Separator();
                 if (ImGui::MenuItem("Add Friend"))
@@ -1167,7 +1102,7 @@ void GameScreen::renderTargetFrame(game::GameHandler& gameHandler) {
             ImGui::EndPopup();
         }
 
-        // Group leader crown — golden ♛ when the targeted player is the party/raid leader
+        // Group leader crown - golden ♛ when the targeted player is the party/raid leader
         if (gameHandler.isInGroup() && target->getType() == game::ObjectType::PLAYER) {
             if (gameHandler.getPartyData().leaderGuid == target->getGuid()) {
                 ImGui::SameLine(0, 4);
@@ -1176,7 +1111,7 @@ void GameScreen::renderTargetFrame(game::GameHandler& gameHandler) {
             }
         }
 
-        // Quest giver indicator — "!" for available quests, "?" for completable quests
+        // Quest giver indicator - "!" for available quests, "?" for completable quests
         {
             using QGS = game::QuestGiverStatus;
             QGS qgs = gameHandler.getQuestGiverStatus(target->getGuid());
@@ -1200,7 +1135,7 @@ void GameScreen::renderTargetFrame(game::GameHandler& gameHandler) {
         }
 
         // Player class, tinted with the class colour, flowed inline after the name.
-        // Note: do NOT right-align this to GetWindowContentRegionMax() — on an
+        // Note: do NOT right-align this to GetWindowContentRegionMax() - on an
         // AlwaysAutoResize window that edge is the *previous* frame's width, so
         // pinning content to it makes the frame keep any width a prior (wider)
         // target gave it and never shrink back. Inline keeps it "wide enough for
@@ -1223,7 +1158,7 @@ void GameScreen::renderTargetFrame(game::GameHandler& gameHandler) {
             }
         }
 
-        // Player guild name (e.g. "<My Guild>") — mirrors NPC subtitle styling
+        // Player guild name (e.g. "<My Guild>") - mirrors NPC subtitle styling
         if (target->getType() == game::ObjectType::PLAYER) {
             uint32_t guildId = gameHandler.getEntityGuildId(target->getGuid());
             if (guildId != 0) {
@@ -1267,7 +1202,7 @@ void GameScreen::renderTargetFrame(game::GameHandler& gameHandler) {
                 }
                 if (ImGui::MenuItem("Inspect")) {
                     gameHandler.inspectTarget();
-                    socialPanel_.showInspectWindow_ = true;
+                    socialPanel_.openInspectWindow(gameHandler);
                 }
                 ImGui::Separator();
                 if (ImGui::MenuItem("Add Friend")) {
@@ -1291,7 +1226,7 @@ void GameScreen::renderTargetFrame(game::GameHandler& gameHandler) {
             ImGui::EndPopup();
         }
 
-        // Level (for units/players) — colored by difficulty
+        // Level (for units/players) - colored by difficulty
         if (target->getType() == game::ObjectType::UNIT || target->getType() == game::ObjectType::PLAYER) {
             auto unit = std::static_pointer_cast<game::Unit>(target);
             ImGui::SameLine();
@@ -1310,19 +1245,19 @@ void GameScreen::renderTargetFrame(game::GameHandler& gameHandler) {
                 if (rank == 1) {
                     ImGui::SameLine(0, 4);
                     ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.2f, 1.0f), "[Elite]");
-                    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Elite — requires a group");
+                    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Elite - requires a group");
                 } else if (rank == 2) {
                     ImGui::SameLine(0, 4);
                     ImGui::TextColored(ImVec4(0.8f, 0.4f, 1.0f, 1.0f), "[Rare Elite]");
-                    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Rare Elite — uncommon spawn, group recommended");
+                    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Rare Elite - uncommon spawn, group recommended");
                 } else if (rank == 3) {
                     ImGui::SameLine(0, 4);
                     ImGui::TextColored(kColorRed, "[Boss]");
-                    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Boss — raid / dungeon boss");
+                    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Boss - raid / dungeon boss");
                 } else if (rank == 4) {
                     ImGui::SameLine(0, 4);
                     ImGui::TextColored(ImVec4(0.5f, 0.9f, 1.0f, 1.0f), "[Rare]");
-                    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Rare — uncommon spawn with better loot");
+                    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Rare - uncommon spawn with better loot");
                 }
             }
             // Creature type label (Beast, Humanoid, Demon, etc.)
@@ -1361,10 +1296,7 @@ void GameScreen::renderTargetFrame(game::GameHandler& gameHandler) {
             uint32_t maxHp = unit->getMaxHealth();
             if (maxHp > 0) {
                 float pct = static_cast<float>(hp) / static_cast<float>(maxHp);
-                ImGui::PushStyleColor(ImGuiCol_PlotHistogram,
-                    pct > 0.5f ? colors::kHealthGreen :
-                    pct > 0.2f ? colors::kMidHealthYellow :
-                                 colors::kLowHealthRed);
+                ImGui::PushStyleColor(ImGuiCol_PlotHistogram, colors::healthBarColor(pct));
 
                 char overlay[64];
                 snprintf(overlay, sizeof(overlay), "%u / %u", hp, maxHp);
@@ -1378,16 +1310,7 @@ void GameScreen::renderTargetFrame(game::GameHandler& gameHandler) {
                 if (targetMaxPower > 0) {
                     float mpPct = static_cast<float>(targetPower) / static_cast<float>(targetMaxPower);
                     ImVec4 targetPowerColor;
-                    switch (targetPowerType) {
-                        case 0: targetPowerColor = colors::kManaBlue; break; // Mana (blue)
-                        case 1: targetPowerColor = colors::kDarkRed; break; // Rage (red)
-                        case 2: targetPowerColor = colors::kOrange; break; // Focus (orange)
-                        case 3: targetPowerColor = colors::kEnergyYellow; break; // Energy (yellow)
-                        case 4: targetPowerColor = colors::kHappinessGreen; break; // Happiness (green)
-                        case 6: targetPowerColor = colors::kRunicRed; break; // Runic Power (crimson)
-                        case 7: targetPowerColor = colors::kSoulShardPurple; break; // Soul Shards (purple)
-                        default: targetPowerColor = colors::kManaBlue; break;
-                    }
+                    targetPowerColor = colors::powerTypeColor(static_cast<uint8_t>(targetPowerType));
                     ImGui::PushStyleColor(ImGuiCol_PlotHistogram, targetPowerColor);
                     char mpOverlay[64];
                     snprintf(mpOverlay, sizeof(mpOverlay), "%u / %u", targetPower, targetMaxPower);
@@ -1399,7 +1322,7 @@ void GameScreen::renderTargetFrame(game::GameHandler& gameHandler) {
             }
         }
 
-        // Combo points — shown when the player has combo points on this target
+        // Combo points - shown when the player has combo points on this target
         {
             uint8_t cp = gameHandler.getComboPoints();
             if (cp > 0 && gameHandler.getComboTarget() == target->getGuid()) {
@@ -1431,7 +1354,7 @@ void GameScreen::renderTargetFrame(game::GameHandler& gameHandler) {
             }
         }
 
-        // Target cast bar — shown when the target is casting
+        // Target cast bar - shown when the target is casting
         if (gameHandler.isTargetCasting()) {
             float castPct   = gameHandler.getTargetCastProgress();
             float castLeft  = gameHandler.getTargetCastTimeRemaining();
@@ -1490,10 +1413,10 @@ void GameScreen::renderTargetFrame(game::GameHandler& gameHandler) {
                 ImVec4 totColor(0.7f, 0.7f, 0.7f, 1.0f);
                 if (totGuid == gameHandler.getPlayerGuid()) {
                     auto playerEnt = gameHandler.getEntityManager().getEntity(totGuid);
-                    totName = playerEnt ? getEntityName(playerEnt) : "You";
+                    totName = playerEnt ? game::entityDisplayName(playerEnt) : "You";
                     totColor = kColorBrightGreen;
                 } else if (totEnt) {
-                    totName = getEntityName(totEnt);
+                    totName = game::entityDisplayName(totEnt);
                     uint8_t cid = entityClassId(totEnt.get());
                     if (cid != 0) totColor = classColorVec4(cid);
                 }
@@ -1508,18 +1431,15 @@ void GameScreen::renderTargetFrame(game::GameHandler& gameHandler) {
                         gameHandler.setTarget(totGuid);
                     }
 
-                    // Compact health bar for the ToT — essential for healers tracking boss target
+                    // Compact health bar for the ToT - essential for healers tracking boss target
                     if (totEnt) {
                         auto totUnit = std::dynamic_pointer_cast<game::Unit>(totEnt);
                         if (totUnit && totUnit->getMaxHealth() > 0) {
                             uint32_t totHp    = totUnit->getHealth();
                             uint32_t totMaxHp = totUnit->getMaxHealth();
                             float totPct = static_cast<float>(totHp) / static_cast<float>(totMaxHp);
-                            ImVec4 totBarColor =
-                                totPct > 0.5f ? colors::kCastGreen :
-                                totPct > 0.2f ? ImVec4(0.75f, 0.75f, 0.2f, 1.0f) :
-                                               ImVec4(0.75f, 0.2f, 0.2f, 1.0f);
-                            ImGui::PushStyleColor(ImGuiCol_PlotHistogram, totBarColor);
+                            ImGui::PushStyleColor(ImGuiCol_PlotHistogram,
+                                                  colors::healthBarColor(totPct));
                             ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.15f, 0.15f, 0.15f, 0.8f));
                             char totOverlay[32];
                             snprintf(totOverlay, sizeof(totOverlay), "%u%%",
@@ -1595,20 +1515,8 @@ void GameScreen::renderTargetFrame(game::GameHandler& gameHandler) {
                 ImGui::PushID(static_cast<int>(10000 + i));
 
                 bool isBuff = (aura.flags & 0x80) == 0;
-                ImVec4 auraBorderColor;
-                if (isBuff) {
-                    auraBorderColor = ImVec4(0.2f, 0.8f, 0.2f, 0.9f);
-                } else {
-                    // Debuff: color by dispel type, matching player buff bar convention
-                    uint8_t dt = gameHandler.getSpellDispelType(aura.spellId);
-                    switch (dt) {
-                        case 1:  auraBorderColor = ImVec4(0.15f, 0.50f, 1.00f, 0.9f); break; // magic: blue
-                        case 2:  auraBorderColor = ImVec4(0.70f, 0.20f, 0.90f, 0.9f); break; // curse: purple
-                        case 3:  auraBorderColor = ImVec4(0.55f, 0.30f, 0.10f, 0.9f); break; // disease: brown
-                        case 4:  auraBorderColor = ImVec4(0.10f, 0.70f, 0.10f, 0.9f); break; // poison: green
-                        default: auraBorderColor = ImVec4(0.80f, 0.20f, 0.20f, 0.9f); break; // other: red
-                    }
-                }
+                const ImVec4 auraBorderColor =
+                    wowee::ui::auraBorderColor(isBuff, gameHandler.getSpellDispelType(aura.spellId));
 
                 VkDescriptorSet iconTex = VK_NULL_HANDLE;
                 if (assetMgr) {
@@ -1702,7 +1610,7 @@ void GameScreen::renderTargetFrame(game::GameHandler& gameHandler) {
                         tTimerColor, timeStr);
                 }
 
-                // Stack / charge count — upper-left corner
+                // Stack / charge count - upper-left corner
                 if (aura.charges > 1) {
                     ImVec2 iconMin = ImGui::GetItemRectMin();
                     char chargeStr[8];
@@ -1766,7 +1674,7 @@ void GameScreen::renderTargetFrame(game::GameHandler& gameHandler) {
                         ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
                         ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar |
                         ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoScrollbar)) {
-                    std::string totName = getEntityName(totEntity);
+                    std::string totName = game::entityDisplayName(totEntity);
                     // Class color for players; gray for NPCs
                     ImVec4 totNameColor = colors::kSilver;
                     if (totEntity->getType() == game::ObjectType::PLAYER) {
@@ -1807,14 +1715,12 @@ void GameScreen::renderTargetFrame(game::GameHandler& gameHandler) {
                         if (maxHp > 0) {
                             float pct = static_cast<float>(hp) / static_cast<float>(maxHp);
                             ImGui::PushStyleColor(ImGuiCol_PlotHistogram,
-                                pct > 0.5f ? colors::kFriendlyGreen :
-                                pct > 0.2f ? ImVec4(0.7f, 0.7f, 0.2f, 1.0f) :
-                                             colors::kDangerRed);
+                                                  colors::healthBarColor(pct));
                             ImGui::ProgressBar(pct, ImVec2(-1, 10), "");
                             ImGui::PopStyleColor();
                         }
 
-                        // ToT cast bar — green if interruptible, red if not; pulses near completion
+                        // ToT cast bar - green if interruptible, red if not; pulses near completion
                         if (auto* totCs = gameHandler.getUnitCastState(totGuid)) {
                             float totCastPct = (totCs->timeTotal > 0.0f)
                                 ? (totCs->timeTotal - totCs->timeRemaining) / totCs->timeTotal : 0.0f;
@@ -1840,7 +1746,7 @@ void GameScreen::renderTargetFrame(game::GameHandler& gameHandler) {
                             ImGui::PopStyleColor();
                         }
 
-                        // ToT aura row — compact icons, debuffs first
+                        // ToT aura row - compact icons, debuffs first
                         {
                             const std::vector<game::AuraSlot>* totAuras = nullptr;
                             if (totGuid == gameHandler.getPlayerGuid())
@@ -1889,19 +1795,8 @@ void GameScreen::renderTargetFrame(game::GameHandler& gameHandler) {
                                         if (taShown > 0 && taShown % TA_PER_ROW != 0) ImGui::SameLine();
                                         ImGui::PushID(static_cast<int>(taIdx[si]) + 5000);
 
-                                        ImVec4 borderCol;
-                                        if (isBuff) {
-                                            borderCol = ImVec4(0.2f, 0.8f, 0.2f, 0.9f);
-                                        } else {
-                                            uint8_t dt = gameHandler.getSpellDispelType(aura.spellId);
-                                            switch (dt) {
-                                                case 1: borderCol = ImVec4(0.15f, 0.50f, 1.00f, 0.9f); break;
-                                                case 2: borderCol = ImVec4(0.70f, 0.20f, 0.90f, 0.9f); break;
-                                                case 3: borderCol = ImVec4(0.55f, 0.30f, 0.10f, 0.9f); break;
-                                                case 4: borderCol = ImVec4(0.10f, 0.70f, 0.10f, 0.9f); break;
-                                                default: borderCol = ImVec4(0.80f, 0.20f, 0.20f, 0.9f); break;
-                                            }
-                                        }
+                                        const ImVec4 borderCol =
+                                            wowee::ui::auraBorderColor(isBuff, gameHandler.getSpellDispelType(aura.spellId));
 
                                         VkDescriptorSet taIcon = (totAsset)
                                             ? getSpellIcon(aura.spellId, totAsset) : VK_NULL_HANDLE;
@@ -2001,24 +1896,9 @@ void GameScreen::renderFocusFrame(game::GameHandler& gameHandler) {
             if (focTapped) {
                 focusColor = kColorGray;
             } else {
-            uint32_t playerLv = gameHandler.getPlayerLevel();
-            uint32_t mobLv = u->getLevel();
-            if (mobLv == 0) {
-                focusColor = ImVec4(1.0f, 0.1f, 0.1f, 1.0f); // ?? level = skull red
-            } else {
-                int32_t diff = static_cast<int32_t>(mobLv) - static_cast<int32_t>(playerLv);
-                if (game::GameHandler::killXp(playerLv, mobLv) == 0)
-                    focusColor = kColorGray;
-                else if (diff >= 10)
-                    focusColor = ImVec4(1.0f, 0.1f, 0.1f, 1.0f);
-                else if (diff >= 5)
-                    focusColor = ImVec4(1.0f, 0.5f, 0.1f, 1.0f);
-                else if (diff >= -2)
-                    focusColor = ImVec4(1.0f, 1.0f, 0.1f, 1.0f);
-                else
-                    focusColor = kColorBrightGreen;
+                focusColor = helpers::levelDifficultyColor(gameHandler.getPlayerLevel(),
+                                                           u->getLevel());
             }
-            } // end tapped else
         } else {
             focusColor = kColorBrightGreen;
         }
@@ -2048,7 +1928,7 @@ void GameScreen::renderFocusFrame(game::GameHandler& gameHandler) {
             }
         }
 
-        std::string focusName = getEntityName(focus);
+        std::string focusName = game::entityDisplayName(focus);
         ImGui::PushStyleColor(ImGuiCol_Text, focusColor);
         ImGui::PushStyleColor(ImGuiCol_Header,        ImVec4(0,0,0,0));
         ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(1,1,1,0.08f));
@@ -2079,7 +1959,7 @@ void GameScreen::renderFocusFrame(game::GameHandler& gameHandler) {
                 if (ImGui::MenuItem("Inspect")) {
                     gameHandler.setTarget(focus->getGuid());
                     gameHandler.inspectTarget();
-                    socialPanel_.showInspectWindow_ = true;
+                    socialPanel_.openInspectWindow(gameHandler);
                 }
                 ImGui::Separator();
                 if (ImGui::MenuItem("Add Friend"))
@@ -2090,7 +1970,7 @@ void GameScreen::renderFocusFrame(game::GameHandler& gameHandler) {
             ImGui::EndPopup();
         }
 
-        // Group leader crown — golden ♛ when the focused player is the party/raid leader
+        // Group leader crown - golden ♛ when the focused player is the party/raid leader
         if (gameHandler.isInGroup() && focus->getType() == game::ObjectType::PLAYER) {
             if (gameHandler.getPartyData().leaderGuid == focus->getGuid()) {
                 ImGui::SameLine(0, 4);
@@ -2188,7 +2068,7 @@ void GameScreen::renderFocusFrame(game::GameHandler& gameHandler) {
                 if (ImGui::MenuItem("Inspect")) {
                     gameHandler.setTarget(fGuid);
                     gameHandler.inspectTarget();
-                    socialPanel_.showInspectWindow_ = true;
+                    socialPanel_.openInspectWindow(gameHandler);
                 }
                 ImGui::Separator();
                 if (ImGui::MenuItem("Add Friend"))
@@ -2214,10 +2094,7 @@ void GameScreen::renderFocusFrame(game::GameHandler& gameHandler) {
             uint32_t maxHp = unit->getMaxHealth();
             if (maxHp > 0) {
                 float pct = static_cast<float>(hp) / static_cast<float>(maxHp);
-                ImGui::PushStyleColor(ImGuiCol_PlotHistogram,
-                    pct > 0.5f ? colors::kFriendlyGreen :
-                    pct > 0.2f ? ImVec4(0.7f, 0.7f, 0.2f, 1.0f) :
-                                 colors::kDangerRed);
+                ImGui::PushStyleColor(ImGuiCol_PlotHistogram, colors::healthBarColor(pct));
                 char overlay[32];
                 snprintf(overlay, sizeof(overlay), "%u / %u", hp, maxHp);
                 ImGui::ProgressBar(pct, ImVec2(-1, 14), overlay);
@@ -2231,13 +2108,7 @@ void GameScreen::renderFocusFrame(game::GameHandler& gameHandler) {
                 if (maxPwr > 0) {
                     float mpPct = static_cast<float>(pwr) / static_cast<float>(maxPwr);
                     ImVec4 pwrColor;
-                    switch (pType) {
-                        case 0: pwrColor = colors::kManaBlue; break;
-                        case 1: pwrColor = colors::kDarkRed; break;
-                        case 3: pwrColor = colors::kEnergyYellow; break;
-                        case 6: pwrColor = colors::kRunicRed; break;
-                        default: pwrColor = colors::kManaBlue; break;
-                    }
+                    pwrColor = colors::powerTypeColor(static_cast<uint8_t>(pType));
                     ImGui::PushStyleColor(ImGuiCol_PlotHistogram, pwrColor);
                     ImGui::ProgressBar(mpPct, ImVec2(-1, 10), "");
                     ImGui::PopStyleColor();
@@ -2251,7 +2122,7 @@ void GameScreen::renderFocusFrame(game::GameHandler& gameHandler) {
                 float rem   = focusCast->timeRemaining;
                 float prog  = std::clamp(1.0f - rem / total, 0.f, 1.f);
                 const std::string& spName = gameHandler.getSpellName(focusCast->spellId);
-                // Pulse orange when > 80% complete — interrupt window closing
+                // Pulse orange when > 80% complete - interrupt window closing
                 ImVec4 focusCastColor;
                 if (prog > 0.8f) {
                     float pulse = 0.7f + 0.3f * std::sin(static_cast<float>(ImGui::GetTime()) * 8.0f);
@@ -2281,7 +2152,7 @@ void GameScreen::renderFocusFrame(game::GameHandler& gameHandler) {
             }
         }
 
-        // Focus auras — buffs first, then debuffs, up to 8 icons wide
+        // Focus auras - buffs first, then debuffs, up to 8 icons wide
         {
             const std::vector<game::AuraSlot>* focusAuras =
                 (focus->getGuid() == gameHandler.getTargetGuid())
@@ -2328,19 +2199,8 @@ void GameScreen::renderFocusFrame(game::GameHandler& gameHandler) {
                         if (faShown > 0 && faShown % FA_PER_ROW != 0) ImGui::SameLine();
                         ImGui::PushID(static_cast<int>(faIdx[si]) + 3000);
 
-                        ImVec4 borderCol;
-                        if (isBuff) {
-                            borderCol = ImVec4(0.2f, 0.8f, 0.2f, 0.9f);
-                        } else {
-                            uint8_t dt = gameHandler.getSpellDispelType(aura.spellId);
-                            switch (dt) {
-                                case 1: borderCol = ImVec4(0.15f, 0.50f, 1.00f, 0.9f); break;
-                                case 2: borderCol = ImVec4(0.70f, 0.20f, 0.90f, 0.9f); break;
-                                case 3: borderCol = ImVec4(0.55f, 0.30f, 0.10f, 0.9f); break;
-                                case 4: borderCol = ImVec4(0.10f, 0.70f, 0.10f, 0.9f); break;
-                                default: borderCol = ImVec4(0.80f, 0.20f, 0.20f, 0.9f); break;
-                            }
-                        }
+                        const ImVec4 borderCol =
+                            wowee::ui::auraBorderColor(isBuff, gameHandler.getSpellDispelType(aura.spellId));
 
                         VkDescriptorSet faIcon = (focusAsset)
                             ? getSpellIcon(aura.spellId, focusAsset) : VK_NULL_HANDLE;
@@ -2374,7 +2234,7 @@ void GameScreen::renderFocusFrame(game::GameHandler& gameHandler) {
                             ImGui::GetWindowDrawList()->AddText(ImVec2(cx, cy), IM_COL32(255, 255, 255, 220), ts);
                         }
 
-                        // Stack / charge count — upper-left corner (parity with target frame)
+                        // Stack / charge count - upper-left corner (parity with target frame)
                         if (aura.charges > 1) {
                             ImVec2 faMin = ImGui::GetItemRectMin();
                             char chargeStr[8];
@@ -2426,7 +2286,7 @@ void GameScreen::renderFocusFrame(game::GameHandler& gameHandler) {
                     fofName = "You";
                     fofColor = kColorBrightGreen;
                 } else if (fofEnt) {
-                    fofName = getEntityName(fofEnt);
+                    fofName = game::entityDisplayName(fofEnt);
                     uint8_t fcid = entityClassId(fofEnt.get());
                     if (fcid != 0) fofColor = classColorVec4(fcid);
                 }
@@ -2445,11 +2305,8 @@ void GameScreen::renderFocusFrame(game::GameHandler& gameHandler) {
                         if (fofUnit && fofUnit->getMaxHealth() > 0) {
                             float fofPct = static_cast<float>(fofUnit->getHealth()) /
                                            static_cast<float>(fofUnit->getMaxHealth());
-                            ImVec4 fofBarColor =
-                                fofPct > 0.5f ? colors::kCastGreen :
-                                fofPct > 0.2f ? ImVec4(0.75f, 0.75f, 0.2f, 1.0f) :
-                                               ImVec4(0.75f, 0.2f, 0.2f, 1.0f);
-                            ImGui::PushStyleColor(ImGuiCol_PlotHistogram, fofBarColor);
+                            ImGui::PushStyleColor(ImGuiCol_PlotHistogram,
+                                                  colors::healthBarColor(fofPct));
                             ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.15f, 0.15f, 0.15f, 0.8f));
                             char fofOverlay[32];
                             snprintf(fofOverlay, sizeof(fofOverlay), "%u%%",

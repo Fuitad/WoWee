@@ -1,4 +1,5 @@
 #include "pipeline/wowee_creature_patrols.hpp"
+#include "pipeline/wowee_binary_io.hpp"
 
 #include <cmath>
 #include <cstdio>
@@ -12,52 +13,7 @@ namespace {
 
 constexpr char kMagic[4] = {'W', 'C', 'M', 'R'};
 constexpr uint32_t kVersion = 1;
-
-template <typename T>
-void writePOD(std::ofstream& os, const T& v) {
-    os.write(reinterpret_cast<const char*>(&v), sizeof(T));
-}
-
-template <typename T>
-bool readPOD(std::ifstream& is, T& v) {
-    is.read(reinterpret_cast<char*>(&v), sizeof(T));
-    return is.gcount() == static_cast<std::streamsize>(sizeof(T));
-}
-
-void writeStr(std::ofstream& os, const std::string& s) {
-    uint32_t n = static_cast<uint32_t>(s.size());
-    writePOD(os, n);
-    if (n > 0) os.write(s.data(), n);
-}
-
-bool readStr(std::ifstream& is, std::string& s) {
-    uint32_t n = 0;
-    if (!readPOD(is, n)) return false;
-    if (n > (1u << 20)) return false;
-    s.resize(n);
-    if (n > 0) {
-        is.read(s.data(), n);
-        if (is.gcount() != static_cast<std::streamsize>(n)) {
-            s.clear();
-            return false;
-        }
-    }
-    return true;
-}
-
-std::string normalizePath(std::string base) {
-    if (base.size() < 5 || base.substr(base.size() - 5) != ".wcmr") {
-        base += ".wcmr";
-    }
-    return base;
-}
-
-uint32_t packRgba(uint8_t r, uint8_t g, uint8_t b, uint8_t a = 0xFF) {
-    return (static_cast<uint32_t>(a) << 24) |
-           (static_cast<uint32_t>(b) << 16) |
-           (static_cast<uint32_t>(g) << 8)  |
-            static_cast<uint32_t>(r);
-}
+constexpr char kExtension[] = ".wcmr";
 
 } // namespace
 
@@ -117,15 +73,9 @@ const char* WoweeCreaturePatrol::moveTypeName(uint8_t m) {
 }
 
 bool WoweeCreaturePatrolLoader::save(const WoweeCreaturePatrol& cat,
-                                      const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath), std::ios::binary);
-    if (!os) return false;
-    os.write(kMagic, 4);
-    writePOD(os, kVersion);
-    writeStr(os, cat.name);
-    uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writePOD(os, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeCreaturePatrol::Entry& e) {
         writePOD(os, e.pathId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -143,63 +93,39 @@ bool WoweeCreaturePatrolLoader::save(const WoweeCreaturePatrol& cat,
             writePOD(os, w.delayMs);
         }
         writePOD(os, e.iconColorRGBA);
-    }
-    return os.good();
+                       });
 }
 
 WoweeCreaturePatrol WoweeCreaturePatrolLoader::load(
     const std::string& basePath) {
-    WoweeCreaturePatrol out;
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    if (!is) return out;
-    char magic[4];
-    is.read(magic, 4);
-    if (std::memcmp(magic, kMagic, 4) != 0) return out;
-    uint32_t version = 0;
-    if (!readPOD(is, version) || version != kVersion) return out;
-    if (!readStr(is, out.name)) return out;
-    uint32_t entryCount = 0;
-    if (!readPOD(is, entryCount)) return out;
-    if (entryCount > (1u << 20)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.pathId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name) || !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
+    return loadCatalog<WoweeCreaturePatrol>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeCreaturePatrol::Entry& e) {
+        if (!readPOD(is, e.pathId)) { return false; }
+        if (!readStr(is, e.name) || !readStr(is, e.description)) { return false; }
         if (!readPOD(is, e.creatureGuid) ||
             !readPOD(is, e.pathKind) ||
             !readPOD(is, e.moveType) ||
             !readPOD(is, e.pad0) ||
-            !readPOD(is, e.pad1)) {
-            out.entries.clear(); return out;
-        }
+            !readPOD(is, e.pad1)) { return false; }
         uint32_t wpCount = 0;
-        if (!readPOD(is, wpCount)) { out.entries.clear(); return out; }
+        if (!readPOD(is, wpCount)) { return false; }
         // Cap to keep a corrupted file from allocating
-        // gigabytes — 64K waypoints per path is plenty.
-        if (wpCount > (1u << 16)) { out.entries.clear(); return out; }
+        // gigabytes - 64K waypoints per path is plenty.
+        if (wpCount > (1u << 16)) { return false; }
         e.waypoints.resize(wpCount);
         for (auto& w : e.waypoints) {
             if (!readPOD(is, w.x) ||
                 !readPOD(is, w.y) ||
                 !readPOD(is, w.z) ||
-                !readPOD(is, w.delayMs)) {
-                out.entries.clear(); return out;
-            }
+                !readPOD(is, w.delayMs)) { return false; }
         }
-        if (!readPOD(is, e.iconColorRGBA)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+        if (!readPOD(is, e.iconColorRGBA)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeCreaturePatrolLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeCreaturePatrol WoweeCreaturePatrolLoader::makePatrol(
@@ -227,7 +153,7 @@ WoweeCreaturePatrol WoweeCreaturePatrolLoader::makePatrol(
         { -8895.0f,  -120.0f, 82.0f, 1500 },
         { -8895.0f,  -150.0f, 82.0f, 1500 },
         { -8910.0f,  -150.0f, 82.0f, 1500 },
-    }, 100, 200, 240, "Stormwind guard — 4-point loop with 1.5s dwell at each waypoint.");
+    }, 100, 200, 240, "Stormwind guard - 4-point loop with 1.5s dwell at each waypoint.");
     add(2, "RunRouteOneShot6", 100002, P::OneShot, P::Run, {
         { -10000.0f,  500.0f, 30.0f, 0 },
         {  -9900.0f,  600.0f, 30.0f, 0 },
@@ -235,7 +161,7 @@ WoweeCreaturePatrol WoweeCreaturePatrolLoader::makePatrol(
         {  -9700.0f,  800.0f, 30.0f, 0 },
         {  -9600.0f,  900.0f, 30.0f, 0 },
         {  -9500.0f, 1000.0f, 30.0f, 0 },
-    }, 220, 180, 100, "Westfall harvester — 6-point one-shot run, ends at last waypoint.");
+    }, 220, 180, 100, "Westfall harvester - 6-point one-shot run, ends at last waypoint.");
     add(3, "TigerRandom8", 100003, P::Random, P::Walk, {
         { -11000.0f, -2000.0f, 30.0f, 3000 },
         { -10800.0f, -2100.0f, 30.0f, 3000 },
@@ -245,7 +171,7 @@ WoweeCreaturePatrol WoweeCreaturePatrolLoader::makePatrol(
         { -10900.0f, -2250.0f, 30.0f, 3000 },
         { -11100.0f, -2150.0f, 30.0f, 3000 },
         { -11050.0f, -1950.0f, 30.0f, 3000 },
-    }, 220, 100, 100, "Stranglethorn tiger — 8-point random patrol, "
+    }, 220, 100, 100, "Stranglethorn tiger - 8-point random patrol, "
         "3s dwell, picks next destination randomly.");
     return c;
 }
@@ -275,7 +201,7 @@ WoweeCreaturePatrol WoweeCreaturePatrolLoader::makeCity(
         { -8500.0f,  800.0f, 110.0f, 2000 },
         { -8540.0f,  820.0f, 110.0f, 2000 },
         { -8540.0f,  860.0f, 110.0f, 2000 },
-    }, "Stormwind cathedral square guard — 6-point perimeter loop.");
+    }, "Stormwind cathedral square guard - 6-point perimeter loop.");
     add(101, "OrgrimmarValleyOfStrengthLoop", 110002, {
         {  1640.0f, -4400.0f, 30.0f, 2000 },
         {  1680.0f, -4380.0f, 30.0f, 2000 },
@@ -283,7 +209,7 @@ WoweeCreaturePatrol WoweeCreaturePatrolLoader::makeCity(
         {  1680.0f, -4460.0f, 30.0f, 2000 },
         {  1640.0f, -4480.0f, 30.0f, 2000 },
         {  1620.0f, -4440.0f, 30.0f, 2000 },
-    }, "Orgrimmar Valley of Strength grunt — 6-point perimeter loop.");
+    }, "Orgrimmar Valley of Strength grunt - 6-point perimeter loop.");
     add(102, "IronforgeBankLoop", 110003, {
         { -4800.0f, -930.0f, 500.0f, 2500 },
         { -4760.0f, -910.0f, 500.0f, 2500 },
@@ -291,7 +217,7 @@ WoweeCreaturePatrol WoweeCreaturePatrolLoader::makeCity(
         { -4790.0f, -980.0f, 500.0f, 2500 },
         { -4830.0f, -960.0f, 500.0f, 2500 },
         { -4830.0f, -920.0f, 500.0f, 2500 },
-    }, "Ironforge bank district sentinel — 6-point perimeter loop.");
+    }, "Ironforge bank district sentinel - 6-point perimeter loop.");
     add(103, "ThunderBluffElderRiseLoop", 110004, {
         { -1250.0f,  120.0f, 130.0f, 2000 },
         { -1200.0f,  140.0f, 130.0f, 2000 },
@@ -299,7 +225,7 @@ WoweeCreaturePatrol WoweeCreaturePatrolLoader::makeCity(
         { -1220.0f,   80.0f, 130.0f, 2000 },
         { -1270.0f,  100.0f, 130.0f, 2000 },
         { -1280.0f,  150.0f, 130.0f, 2000 },
-    }, "Thunder Bluff Elder Rise warrior — 6-point loop on the upper plateau.");
+    }, "Thunder Bluff Elder Rise warrior - 6-point loop on the upper plateau.");
     return c;
 }
 
@@ -330,7 +256,7 @@ WoweeCreaturePatrol WoweeCreaturePatrolLoader::makeBoss(
     };
     P::Entry aq40;
     aq40.pathId = 200; aq40.name = "AQ40TrashLoop12";
-    aq40.description = "AQ40 chamber trash — 12-point Loop circle, "
+    aq40.description = "AQ40 chamber trash - 12-point Loop circle, "
         "500ms dwell.";
     aq40.creatureGuid = 200001;
     aq40.pathKind = P::Loop;
@@ -341,7 +267,7 @@ WoweeCreaturePatrol WoweeCreaturePatrolLoader::makeBoss(
 
     P::Entry naxx;
     naxx.pathId = 201; naxx.name = "NaxxTrashOneShot8";
-    naxx.description = "Naxxramas trash — 8-point one-shot ramp run.";
+    naxx.description = "Naxxramas trash - 8-point one-shot ramp run.";
     naxx.creatureGuid = 200002;
     naxx.pathKind = P::OneShot;
     naxx.moveType = P::Run;
@@ -358,7 +284,7 @@ WoweeCreaturePatrol WoweeCreaturePatrolLoader::makeBoss(
 
     P::Entry icc;
     icc.pathId = 202; icc.name = "ICCSpirePatrolRandom16";
-    icc.description = "Icecrown Citadel spire patrol — 16-point "
+    icc.description = "Icecrown Citadel spire patrol - 16-point "
         "Random walk over a 60-yard radius.";
     icc.creatureGuid = 200003;
     icc.pathKind = P::Random;

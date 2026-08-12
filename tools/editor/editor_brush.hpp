@@ -34,7 +34,7 @@ public:
     const glm::vec3& getPosition() const { return worldPos_; }
     void setPosition(const glm::vec3& pos) {
         // applyBrush already early-outs on NaN, but rejecting at the
-        // setter keeps the stored state itself sane — handy for UI
+        // setter keeps the stored state itself sane - handy for UI
         // panels that read the current brush position back.
         if (std::isfinite(pos.x) && std::isfinite(pos.y) && std::isfinite(pos.z))
             worldPos_ = pos;

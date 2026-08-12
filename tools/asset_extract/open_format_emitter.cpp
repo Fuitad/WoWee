@@ -117,10 +117,7 @@ bool emitWomFromM2(const std::string& m2Path, const std::string& womBase) {
     // it sits next to the .m2 (usual case after extraction).
     std::vector<uint8_t> skinBytes;
     {
-        std::string skinPath = m2Path;
-        auto dot = skinPath.rfind('.');
-        if (dot != std::string::npos)
-            skinPath = skinPath.substr(0, dot) + "00.skin";
+        std::string skinPath = pipeline::skinPathForM2(m2Path);
         skinBytes = readBytes(skinPath);
     }
     auto wom = pipeline::WoweeModelLoader::fromM2Bytes(m2Bytes, skinBytes);
@@ -147,7 +144,7 @@ static bool writeWhmWot(const pipeline::ADTTerrain& terrain,
     namespace fs = std::filesystem;
     fs::create_directories(fs::path(outBase).parent_path());
 
-    // .whm — binary heightmap, fixed 256 chunks * 145 floats
+    // .whm - binary heightmap, fixed 256 chunks * 145 floats
     {
         std::ofstream f(outBase + ".whm", std::ios::binary);
         if (!f) return false;
@@ -176,7 +173,7 @@ static bool writeWhmWot(const pipeline::ADTTerrain& terrain,
         }
     }
 
-    // .wot — JSON metadata (textures + chunkLayers + water + placements)
+    // .wot - JSON metadata (textures + chunkLayers + water + placements)
     {
         nlohmann::json j;
         j["format"] = "wot-1.0";
@@ -370,7 +367,7 @@ void emitOpenFormats(const std::string& rootDir,
             if (!skipIfFresh(base + ".wom"))  jobs.push_back({p, base, Kind::Wom});
         }
         else if (emitWob     && ext == ".wmo") {
-            // Skip group sub-files (<base>_NNN.wmo) — merged into root WMO.
+            // Skip group sub-files (<base>_NNN.wmo) - merged into root WMO.
             std::string fname = entry.path().filename().string();
             auto under = fname.rfind('_');
             bool isGroup = (under != std::string::npos &&

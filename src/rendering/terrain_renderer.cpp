@@ -1,3 +1,5 @@
+#include "rendering/terrain_vertex.hpp"
+#include "rendering/shadow_params.hpp"
 #include "rendering/terrain_renderer.hpp"
 #include "rendering/vk_context.hpp"
 #include "rendering/vk_texture.hpp"
@@ -32,6 +34,69 @@ TerrainRenderer::TerrainRenderer() = default;
 
 TerrainRenderer::~TerrainRenderer() {
     shutdown();
+}
+
+/// Builds the fill pipeline and its wireframe derivative from a loaded shader
+/// pair.
+///
+/// initialize() and recreatePipelines() both need exactly these two in exactly
+/// these states, and each described both for itself. Answers whether the fill
+/// pipeline built; the wireframe is a debug view, so its absence is a warning
+/// rather than a failure. Destroying the shader modules is left to the caller,
+/// which loaded them.
+bool TerrainRenderer::buildMainPassPipelines(VkDevice device,
+                                             wowee::rendering::VkShaderModule& vertShader,
+                                             wowee::rendering::VkShaderModule& fragShader) {
+    VkVertexInputBindingDescription vertexBinding{};
+    vertexBinding = perVertexBinding(sizeof(pipeline::TerrainVertex));
+    const std::vector<VkVertexInputAttributeDescription> vertexAttribs =
+        toVkAttributes(kTerrainVertexAttributes);
+
+    // --- Build fill pipeline (base for derivatives - shared state optimization) ---
+    VkRenderPass mainPass = vkCtx->getImGuiRenderPass();
+
+    pipeline = PipelineBuilder()
+        .setShaders(vertShader.stageInfo(VK_SHADER_STAGE_VERTEX_BIT),
+                    fragShader.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT))
+        .setVertexInput({ vertexBinding }, vertexAttribs)
+        .setTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
+        .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
+        .setDepthTest(true, true, VK_COMPARE_OP_LESS_OR_EQUAL)
+        .setColorBlendAttachment(PipelineBuilder::blendDisabled())
+        .setMultisample(vkCtx->getMsaaSamples())
+        .setLayout(pipelineLayout)
+        .setRenderPass(mainPass)
+        .setDynamicStates(viewportAndScissorDynamic())
+        .setFlags(VK_PIPELINE_CREATE_ALLOW_DERIVATIVES_BIT)
+        .build(device, vkCtx->getPipelineCache());
+
+    if (!pipeline) {
+        LOG_ERROR("TerrainRenderer: failed to create fill pipeline");
+        return false;
+    }
+
+    // --- Build wireframe pipeline (derivative of fill) ---
+    wireframePipeline = PipelineBuilder()
+        .setShaders(vertShader.stageInfo(VK_SHADER_STAGE_VERTEX_BIT),
+                    fragShader.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT))
+        .setVertexInput({ vertexBinding }, vertexAttribs)
+        .setTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
+        .setRasterization(VK_POLYGON_MODE_LINE, VK_CULL_MODE_NONE)
+        .setDepthTest(true, true, VK_COMPARE_OP_LESS_OR_EQUAL)
+        .setColorBlendAttachment(PipelineBuilder::blendDisabled())
+        .setMultisample(vkCtx->getMsaaSamples())
+        .setLayout(pipelineLayout)
+        .setRenderPass(mainPass)
+        .setDynamicStates(viewportAndScissorDynamic())
+        .setFlags(VK_PIPELINE_CREATE_DERIVATIVE_BIT)
+        .setBasePipeline(pipeline)
+        .build(device, vkCtx->getPipelineCache());
+
+    if (!wireframePipeline) {
+        LOG_WARNING("TerrainRenderer: wireframe pipeline not available");
+    }
+
+    return true;
 }
 
 bool TerrainRenderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout,
@@ -113,65 +178,10 @@ bool TerrainRenderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameL
     }
 
     // --- Vertex input ---
-    VkVertexInputBindingDescription vertexBinding{};
-    vertexBinding.binding = 0;
-    vertexBinding.stride = sizeof(pipeline::TerrainVertex);
-    vertexBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-    std::vector<VkVertexInputAttributeDescription> vertexAttribs(4);
-    vertexAttribs[0] = { 0, 0, VK_FORMAT_R32G32B32_SFLOAT,
-        static_cast<uint32_t>(offsetof(pipeline::TerrainVertex, position)) };
-    vertexAttribs[1] = { 1, 0, VK_FORMAT_R32G32B32_SFLOAT,
-        static_cast<uint32_t>(offsetof(pipeline::TerrainVertex, normal)) };
-    vertexAttribs[2] = { 2, 0, VK_FORMAT_R32G32_SFLOAT,
-        static_cast<uint32_t>(offsetof(pipeline::TerrainVertex, texCoord)) };
-    vertexAttribs[3] = { 3, 0, VK_FORMAT_R32G32_SFLOAT,
-        static_cast<uint32_t>(offsetof(pipeline::TerrainVertex, layerUV)) };
-
-    // --- Build fill pipeline (base for derivatives — shared state optimization) ---
-    VkRenderPass mainPass = vkCtx->getImGuiRenderPass();
-
-    pipeline = PipelineBuilder()
-        .setShaders(vertShader.stageInfo(VK_SHADER_STAGE_VERTEX_BIT),
-                    fragShader.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT))
-        .setVertexInput({ vertexBinding }, vertexAttribs)
-        .setTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
-        .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
-        .setDepthTest(true, true, VK_COMPARE_OP_LESS_OR_EQUAL)
-        .setColorBlendAttachment(PipelineBuilder::blendDisabled())
-        .setMultisample(vkCtx->getMsaaSamples())
-        .setLayout(pipelineLayout)
-        .setRenderPass(mainPass)
-        .setDynamicStates({ VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR })
-        .setFlags(VK_PIPELINE_CREATE_ALLOW_DERIVATIVES_BIT)
-        .build(device, vkCtx->getPipelineCache());
-
-    if (!pipeline) {
-        LOG_ERROR("TerrainRenderer: failed to create fill pipeline");
+    if (!buildMainPassPipelines(device, vertShader, fragShader)) {
         vertShader.destroy();
         fragShader.destroy();
         return false;
-    }
-
-    // --- Build wireframe pipeline (derivative of fill) ---
-    wireframePipeline = PipelineBuilder()
-        .setShaders(vertShader.stageInfo(VK_SHADER_STAGE_VERTEX_BIT),
-                    fragShader.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT))
-        .setVertexInput({ vertexBinding }, vertexAttribs)
-        .setTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
-        .setRasterization(VK_POLYGON_MODE_LINE, VK_CULL_MODE_NONE)
-        .setDepthTest(true, true, VK_COMPARE_OP_LESS_OR_EQUAL)
-        .setColorBlendAttachment(PipelineBuilder::blendDisabled())
-        .setMultisample(vkCtx->getMsaaSamples())
-        .setLayout(pipelineLayout)
-        .setRenderPass(mainPass)
-        .setDynamicStates({ VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR })
-        .setFlags(VK_PIPELINE_CREATE_DERIVATIVE_BIT)
-        .setBasePipeline(pipeline)
-        .build(device, vkCtx->getPipelineCache());
-
-    if (!wireframePipeline) {
-        LOG_WARNING("TerrainRenderer: wireframe pipeline not available");
     }
 
     vertShader.destroy();
@@ -260,8 +270,8 @@ void TerrainRenderer::recreatePipelines() {
     VkDevice device = vkCtx->getDevice();
 
     // Destroy old pipelines (keep layouts)
-    if (pipeline) { vkDestroyPipeline(device, pipeline, nullptr); pipeline = VK_NULL_HANDLE; }
-    if (wireframePipeline) { vkDestroyPipeline(device, wireframePipeline, nullptr); wireframePipeline = VK_NULL_HANDLE; }
+    destroy(device, pipeline);
+    destroy(device, wireframePipeline);
 
     // Load shaders
     VkShaderModule vertShader, fragShader;
@@ -275,64 +285,7 @@ void TerrainRenderer::recreatePipelines() {
         return;
     }
 
-    // Vertex input (same as initialize)
-    VkVertexInputBindingDescription vertexBinding{};
-    vertexBinding.binding = 0;
-    vertexBinding.stride = sizeof(pipeline::TerrainVertex);
-    vertexBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-    std::vector<VkVertexInputAttributeDescription> vertexAttribs(4);
-    vertexAttribs[0] = { 0, 0, VK_FORMAT_R32G32B32_SFLOAT,
-        static_cast<uint32_t>(offsetof(pipeline::TerrainVertex, position)) };
-    vertexAttribs[1] = { 1, 0, VK_FORMAT_R32G32B32_SFLOAT,
-        static_cast<uint32_t>(offsetof(pipeline::TerrainVertex, normal)) };
-    vertexAttribs[2] = { 2, 0, VK_FORMAT_R32G32_SFLOAT,
-        static_cast<uint32_t>(offsetof(pipeline::TerrainVertex, texCoord)) };
-    vertexAttribs[3] = { 3, 0, VK_FORMAT_R32G32_SFLOAT,
-        static_cast<uint32_t>(offsetof(pipeline::TerrainVertex, layerUV)) };
-
-    VkRenderPass mainPass = vkCtx->getImGuiRenderPass();
-
-    // Rebuild fill pipeline (base for derivatives — shared state optimization)
-    pipeline = PipelineBuilder()
-        .setShaders(vertShader.stageInfo(VK_SHADER_STAGE_VERTEX_BIT),
-                    fragShader.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT))
-        .setVertexInput({ vertexBinding }, vertexAttribs)
-        .setTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
-        .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
-        .setDepthTest(true, true, VK_COMPARE_OP_LESS_OR_EQUAL)
-        .setColorBlendAttachment(PipelineBuilder::blendDisabled())
-        .setMultisample(vkCtx->getMsaaSamples())
-        .setLayout(pipelineLayout)
-        .setRenderPass(mainPass)
-        .setDynamicStates({ VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR })
-        .setFlags(VK_PIPELINE_CREATE_ALLOW_DERIVATIVES_BIT)
-        .build(device, vkCtx->getPipelineCache());
-
-    if (!pipeline) {
-        LOG_ERROR("TerrainRenderer::recreatePipelines: failed to create fill pipeline");
-    }
-
-    // Rebuild wireframe pipeline (derivative of fill)
-    wireframePipeline = PipelineBuilder()
-        .setShaders(vertShader.stageInfo(VK_SHADER_STAGE_VERTEX_BIT),
-                    fragShader.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT))
-        .setVertexInput({ vertexBinding }, vertexAttribs)
-        .setTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
-        .setRasterization(VK_POLYGON_MODE_LINE, VK_CULL_MODE_NONE)
-        .setDepthTest(true, true, VK_COMPARE_OP_LESS_OR_EQUAL)
-        .setColorBlendAttachment(PipelineBuilder::blendDisabled())
-        .setMultisample(vkCtx->getMsaaSamples())
-        .setLayout(pipelineLayout)
-        .setRenderPass(mainPass)
-        .setDynamicStates({ VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR })
-        .setFlags(VK_PIPELINE_CREATE_DERIVATIVE_BIT)
-        .setBasePipeline(pipeline)
-        .build(device, vkCtx->getPipelineCache());
-
-    if (!wireframePipeline) {
-        LOG_WARNING("TerrainRenderer::recreatePipelines: wireframe pipeline not available");
-    }
+    buildMainPassPipelines(device, vertShader, fragShader);
 
     vertShader.destroy();
     fragShader.destroy();
@@ -349,7 +302,7 @@ void TerrainRenderer::shutdown() {
 
     clear();
     // clear() defers chunk destruction, and no further frames will run to drain
-    // the queue — so run it now, while the descriptor pools those lambdas free
+    // the queue - so run it now, while the descriptor pools those lambdas free
     // sets from are still alive. Without this every resident chunk's vertex and
     // index buffers outlived the device: twenty thousand of each.
     vkCtx->flushDeferredCleanup();
@@ -367,18 +320,16 @@ void TerrainRenderer::shutdown() {
     if (whiteTexture) { whiteTexture->destroy(device, allocator); whiteTexture.reset(); }
     if (opaqueAlphaTexture) { opaqueAlphaTexture->destroy(device, allocator); opaqueAlphaTexture.reset(); }
 
-    if (pipeline) { vkDestroyPipeline(device, pipeline, nullptr); pipeline = VK_NULL_HANDLE; }
-    if (wireframePipeline) { vkDestroyPipeline(device, wireframePipeline, nullptr); wireframePipeline = VK_NULL_HANDLE; }
-    if (pipelineLayout) { vkDestroyPipelineLayout(device, pipelineLayout, nullptr); pipelineLayout = VK_NULL_HANDLE; }
-    if (materialDescPool) { vkDestroyDescriptorPool(device, materialDescPool, nullptr); materialDescPool = VK_NULL_HANDLE; }
-    if (materialSetLayout) { vkDestroyDescriptorSetLayout(device, materialSetLayout, nullptr); materialSetLayout = VK_NULL_HANDLE; }
+    destroy(device, pipeline);
+    destroy(device, wireframePipeline);
+    destroy(device, pipelineLayout);
+    destroy(device, materialDescPool);
+    destroy(device, materialSetLayout);
 
     // Shadow pipeline cleanup
-    if (shadowPipeline_) { vkDestroyPipeline(device, shadowPipeline_, nullptr); shadowPipeline_ = VK_NULL_HANDLE; }
-    if (shadowPipelineLayout_) { vkDestroyPipelineLayout(device, shadowPipelineLayout_, nullptr); shadowPipelineLayout_ = VK_NULL_HANDLE; }
-    if (shadowParamsPool_) { vkDestroyDescriptorPool(device, shadowParamsPool_, nullptr); shadowParamsPool_ = VK_NULL_HANDLE; shadowParamsSet_ = VK_NULL_HANDLE; }
-    if (shadowParamsLayout_) { vkDestroyDescriptorSetLayout(device, shadowParamsLayout_, nullptr); shadowParamsLayout_ = VK_NULL_HANDLE; }
-    if (shadowParamsUBO_) { vmaDestroyBuffer(allocator, shadowParamsUBO_, shadowParamsAlloc_); shadowParamsUBO_ = VK_NULL_HANDLE; shadowParamsAlloc_ = VK_NULL_HANDLE; }
+    destroy(device, shadowPipeline_);
+    destroy(device, shadowPipelineLayout_);
+    destroyShadowParamsSet(device, allocator, shadowParams_);
 
     // Destroy mega buffers and indirect draw buffer
     if (megaVB_) { vmaDestroyBuffer(allocator, megaVB_, megaVBAlloc_); megaVB_ = VK_NULL_HANDLE; megaVBAlloc_ = VK_NULL_HANDLE; megaVBMapped_ = nullptr; }
@@ -422,7 +373,7 @@ bool TerrainRenderer::loadTerrain(const pipeline::TerrainMesh& mesh,
                 } else {
                     LOG_WARNING("Terrain[", tileX, ",", tileY, "] chunk[", x, ",", y,
                                 "] base textureId ", baseTexId, " >= texturePaths size ",
-                                texturePaths.size(), " — white fallback");
+                                texturePaths.size(), " - white fallback");
                     gpuChunk.baseTexture = whiteTexture.get();
                 }
 
@@ -437,7 +388,7 @@ bool TerrainRenderer::loadTerrain(const pipeline::TerrainMesh& mesh,
                         LOG_WARNING("Terrain[", tileX, ",", tileY, "] chunk[", x, ",", y,
                                     "] layer[", i, "] textureId ", layer.textureId,
                                     " >= texturePaths size ", texturePaths.size(),
-                                    " — white fallback");
+                                    " - white fallback");
                     }
                     gpuChunk.layerTextures[li] = layerTex;
 
@@ -472,12 +423,12 @@ bool TerrainRenderer::loadTerrain(const pipeline::TerrainMesh& mesh,
             allocCI.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
 
             VmaAllocationInfo mapInfo{};
-            // Check return value — a null UBO handle would cause the GPU to
+            // Check return value - a null UBO handle would cause the GPU to
             // read from an invalid descriptor, crashing the driver under
             // memory pressure instead of gracefully skipping the chunk.
             if (vmaCreateBuffer(vkCtx->getAllocator(), &bufCI, &allocCI,
                                 &gpuChunk.paramsUBO, &gpuChunk.paramsAlloc, &mapInfo) != VK_SUCCESS) {
-                LOG_WARNING("Terrain chunk UBO allocation failed — skipping chunk");
+                LOG_WARNING("Terrain chunk UBO allocation failed - skipping chunk");
                 destroyChunkGPU(gpuChunk);
                 continue;
             }
@@ -531,7 +482,7 @@ bool TerrainRenderer::loadTerrainIncremental(const pipeline::TerrainMesh& mesh,
             } else {
                 LOG_WARNING("Terrain[", tileX, ",", tileY, "] chunk[", cx, ",", cy,
                             "] base textureId ", baseTexId, " >= texturePaths size ",
-                            texturePaths.size(), " — white fallback");
+                            texturePaths.size(), " - white fallback");
                 gpuChunk.baseTexture = whiteTexture.get();
             }
 
@@ -546,7 +497,7 @@ bool TerrainRenderer::loadTerrainIncremental(const pipeline::TerrainMesh& mesh,
                     LOG_WARNING("Terrain[", tileX, ",", tileY, "] chunk[", cx, ",", cy,
                                 "] layer[", i, "] textureId ", layer.textureId,
                                 " >= texturePaths size ", texturePaths.size(),
-                                " — white fallback");
+                                " - white fallback");
                 }
                 gpuChunk.layerTextures[li] = layerTex;
 
@@ -582,9 +533,11 @@ bool TerrainRenderer::loadTerrainIncremental(const pipeline::TerrainMesh& mesh,
         VmaAllocationInfo mapInfo{};
         if (vmaCreateBuffer(vkCtx->getAllocator(), &bufCI, &allocCI,
                             &gpuChunk.paramsUBO, &gpuChunk.paramsAlloc, &mapInfo) != VK_SUCCESS) {
-            LOG_WARNING("Terrain chunk UBO allocation failed (incremental) — skipping chunk");
+            LOG_WARNING("Terrain[", tileX, ",", tileY, "] chunk UBO allocation failed"
+                        " - retrying next frame");
             destroyChunkGPU(gpuChunk);
-            continue;
+            chunkIndex--;
+            break;
         }
         if (mapInfo.pMappedData) {
             std::memcpy(mapInfo.pMappedData, &params, sizeof(params));
@@ -593,7 +546,17 @@ bool TerrainRenderer::loadTerrainIncremental(const pipeline::TerrainMesh& mesh,
         gpuChunk.materialSet = allocateMaterialSet();
         if (!gpuChunk.materialSet) {
             destroyChunkGPU(gpuChunk);
-            continue;
+            // Give the chunk back rather than dropping it. Both failures above
+            // are pressure, not corruption: the descriptor pool is shared by
+            // every resident tile and its sets come back only through
+            // deferAfterAllFrameFences, so a tile arriving while an unloaded
+            // one is still in flight can find the pool momentarily full. A
+            // dropped chunk was never retried - the tile counted as loaded
+            // with a hole in it, and the hole stayed for the rest of the
+            // session. Stepping the index back and leaving means the caller
+            // sees "not finished" and comes back once the frees have landed.
+            chunkIndex--;
+            break;
         }
         writeMaterialDescriptors(gpuChunk.materialSet, gpuChunk);
 
@@ -665,7 +628,7 @@ VkTexture* TerrainRenderer::loadTexture(const std::string& path) {
     }
     pipeline::BLPImage blp = assetManager->loadTexture(key);
     if (!blp.isValid()) {
-        // Return white fallback but don't cache the failure — allow retry
+        // Return white fallback but don't cache the failure - allow retry
         // on next tile load in case the asset becomes available.
         if (loggedTextureLoadFails_.insert(key).second) {
             LOG_WARNING("Failed to load texture: ", path);
@@ -885,10 +848,12 @@ void TerrainRenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, c
     // Use mega VB + IB when available.
     // Bind mega buffers once, then use direct draws with base vertex/index offsets.
     const bool useMegaBuffers = (megaVB_ && megaIB_);
+    bool megaBuffersBound = false;
     if (useMegaBuffers) {
         VkDeviceSize megaOffset = 0;
         vkCmdBindVertexBuffers(cmd, 0, 1, &megaVB_, &megaOffset);
         vkCmdBindIndexBuffer(cmd, megaIB_, 0, VK_INDEX_TYPE_UINT32);
+        megaBuffersBound = true;
     }
 
     for (const auto& chunk : chunks) {
@@ -911,7 +876,18 @@ void TerrainRenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, c
                                  1, 1, &chunk.materialSet, 0, nullptr);
 
         if (useMegaBuffers && chunk.megaBaseVertex >= 0) {
-            // Direct draw from mega buffer — single VB/IB already bound
+            // Rebound if a fallback chunk bound its own buffers since. The mega
+            // buffers are bound once before the loop, and a chunk without a
+            // place in them binds its own - which stays bound for whatever comes
+            // next. A chunk after that one then drew its mega offsets against a
+            // single chunk's buffer: firstIndex 6,290,784 into 3,072 bytes,
+            // which is what took the GPU down.
+            if (!megaBuffersBound) {
+                VkDeviceSize megaOffset = 0;
+                vkCmdBindVertexBuffers(cmd, 0, 1, &megaVB_, &megaOffset);
+                vkCmdBindIndexBuffer(cmd, megaIB_, 0, VK_INDEX_TYPE_UINT32);
+                megaBuffersBound = true;
+            }
             vkCmdDrawIndexed(cmd, chunk.indexCount, 1,
                              chunk.megaFirstIndex, chunk.megaBaseVertex, 0);
         } else {
@@ -920,6 +896,7 @@ void TerrainRenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, c
             vkCmdBindVertexBuffers(cmd, 0, 1, &chunk.vertexBuffer, &offset);
             vkCmdBindIndexBuffer(cmd, chunk.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
             vkCmdDrawIndexed(cmd, chunk.indexCount, 1, 0, 0, 0);
+            megaBuffersBound = false;
         }
         renderedChunks++;
     }
@@ -932,96 +909,19 @@ bool TerrainRenderer::initializeShadow(VkRenderPass shadowRenderPass) {
     VkDevice device = vkCtx->getDevice();
     VmaAllocator allocator = vkCtx->getAllocator();
 
-    // ShadowParams UBO — terrain uses no bones, no texture, no alpha test
-    VkBufferCreateInfo bufCI{};
-    bufCI.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    bufCI.size = sizeof(ShadowParamsUBO);
-    bufCI.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
-    VmaAllocationCreateInfo allocCI{};
-    allocCI.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
-    allocCI.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
-    VmaAllocationInfo allocInfo{};
-    if (vmaCreateBuffer(allocator, &bufCI, &allocCI,
-            &shadowParamsUBO_, &shadowParamsAlloc_, &allocInfo) != VK_SUCCESS) {
-        LOG_ERROR("TerrainRenderer: failed to create shadow params UBO");
-        return false;
-    }
-    ShadowParamsUBO defaultParams{};
-    std::memcpy(allocInfo.pMappedData, &defaultParams, sizeof(defaultParams));
-
-    // Descriptor set layout: binding 0 = combined sampler (unused), binding 1 = ShadowParams UBO
-    VkDescriptorSetLayoutBinding layoutBindings[2]{};
-    layoutBindings[0].binding = 0;
-    layoutBindings[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    layoutBindings[0].descriptorCount = 1;
-    layoutBindings[0].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-    layoutBindings[1].binding = 1;
-    layoutBindings[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    layoutBindings[1].descriptorCount = 1;
-    layoutBindings[1].stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
-
-    VkDescriptorSetLayoutCreateInfo layoutCI{};
-    layoutCI.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    layoutCI.bindingCount = 2;
-    layoutCI.pBindings = layoutBindings;
-    if (vkCreateDescriptorSetLayout(device, &layoutCI, nullptr, &shadowParamsLayout_) != VK_SUCCESS) {
-        LOG_ERROR("TerrainRenderer: failed to create shadow params set layout");
+    if (!createShadowParamsSet(device, allocator, sizeof(ShadowParamsUBO),
+                               whiteTexture->getImageView(),
+                               whiteTexture->getSampler(), "TerrainRenderer",
+                               shadowParams_)) {
         return false;
     }
 
-    VkDescriptorPoolSize poolSizes[2]{};
-    poolSizes[0].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    poolSizes[0].descriptorCount = 1;
-    poolSizes[1].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    poolSizes[1].descriptorCount = 1;
-    VkDescriptorPoolCreateInfo poolCI{};
-    poolCI.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    poolCI.maxSets = 1;
-    poolCI.poolSizeCount = 2;
-    poolCI.pPoolSizes = poolSizes;
-    if (vkCreateDescriptorPool(device, &poolCI, nullptr, &shadowParamsPool_) != VK_SUCCESS) {
-        LOG_ERROR("TerrainRenderer: failed to create shadow params pool");
-        return false;
-    }
-
-    VkDescriptorSetAllocateInfo setAlloc{};
-    setAlloc.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    setAlloc.descriptorPool = shadowParamsPool_;
-    setAlloc.descriptorSetCount = 1;
-    setAlloc.pSetLayouts = &shadowParamsLayout_;
-    if (vkAllocateDescriptorSets(device, &setAlloc, &shadowParamsSet_) != VK_SUCCESS) {
-        LOG_ERROR("TerrainRenderer: failed to allocate shadow params set");
-        return false;
-    }
-
-    // Write descriptors — sampler uses whiteTexture as dummy (useTexture=0 so never sampled)
-    VkDescriptorBufferInfo bufInfo{ shadowParamsUBO_, 0, sizeof(ShadowParamsUBO) };
-    VkDescriptorImageInfo imgInfo{};
-    imgInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    imgInfo.imageView   = whiteTexture->getImageView();
-    imgInfo.sampler     = whiteTexture->getSampler();
-
-    VkWriteDescriptorSet writes[2]{};
-    writes[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    writes[0].dstSet = shadowParamsSet_;
-    writes[0].dstBinding = 0;
-    writes[0].descriptorCount = 1;
-    writes[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    writes[0].pImageInfo = &imgInfo;
-    writes[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    writes[1].dstSet = shadowParamsSet_;
-    writes[1].dstBinding = 1;
-    writes[1].descriptorCount = 1;
-    writes[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    writes[1].pBufferInfo = &bufInfo;
-    vkUpdateDescriptorSets(device, 2, writes, 0, nullptr);
-
-    // Pipeline layout: set 0 = shadowParamsLayout_, push 128 bytes (lightSpaceMatrix + model)
+    // Pipeline layout: set 0 = shadowParams_.layout, push 128 bytes (lightSpaceMatrix + model)
     VkPushConstantRange pc{};
     pc.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
     pc.offset = 0;
     pc.size = 128;
-    shadowPipelineLayout_ = createPipelineLayout(device, {shadowParamsLayout_}, {pc});
+    shadowPipelineLayout_ = createPipelineLayout(device, {shadowParams_.layout}, {pc});
     if (!shadowPipelineLayout_) {
         LOG_ERROR("TerrainRenderer: failed to create shadow pipeline layout");
         return false;
@@ -1038,35 +938,19 @@ bool TerrainRenderer::initializeShadow(VkRenderPass shadowRenderPass) {
         return false;
     }
 
-    // Terrain vertex layout: pos(0,off0) normal(1,off12) texCoord(2,off24) layerUV(3,off32)
-    // stride = sizeof(TerrainVertex) = 44 bytes
-    // Shadow shader expects: aPos(loc0), aTexCoord(loc1), aBoneWeights(loc2), aBoneIndicesF(loc3)
-    // Alias unused bone attrs to position (offset 0); useBones=0 so they are never read.
-    const uint32_t stride = static_cast<uint32_t>(sizeof(pipeline::TerrainVertex));
-    VkVertexInputBindingDescription vertBind{};
-    vertBind.binding = 0;
-    vertBind.stride = stride;
-    vertBind.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-    std::vector<VkVertexInputAttributeDescription> vertAttrs = {
-        {0, 0, VK_FORMAT_R32G32B32_SFLOAT,    0},   // aPos         -> position
-        {1, 0, VK_FORMAT_R32G32_SFLOAT,       24},  // aTexCoord    -> texCoord (unused)
-        {2, 0, VK_FORMAT_R32G32B32A32_SFLOAT,  0},  // aBoneWeights -> position (unused)
-        {3, 0, VK_FORMAT_R32G32B32A32_SFLOAT,  0},  // aBoneIndices -> position (unused)
-    };
+    // The shadow shader is shared with the skinned renderers, so it declares
+    // bone inputs terrain has none of; kTerrainShadowVertexAttributes says
+    // where they point and why.
+    const VkVertexInputBindingDescription vertBind =
+        perVertexBinding(sizeof(pipeline::TerrainVertex));
+    const std::vector<VkVertexInputAttributeDescription> vertAttrs =
+        toVkAttributes(kTerrainShadowVertexAttributes);
 
-    shadowPipeline_ = PipelineBuilder()
-        .setShaders(vertShader.stageInfo(VK_SHADER_STAGE_VERTEX_BIT),
-                    fragShader.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT))
-        .setVertexInput({vertBind}, vertAttrs)
-        .setTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
-        .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
-        .setDepthTest(true, true, VK_COMPARE_OP_LESS_OR_EQUAL)
-        .setDepthBias(0.05f, 0.20f)
-        .setNoColorAttachment()
-        .setLayout(shadowPipelineLayout_)
-        .setRenderPass(shadowRenderPass)
-        .setDynamicStates({VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR})
-        .build(device, vkCtx->getPipelineCache());
+    shadowPipeline_ = buildShadowPipeline(
+        device, vkCtx->getPipelineCache(),
+        vertShader.stageInfo(VK_SHADER_STAGE_VERTEX_BIT),
+        fragShader.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT),
+        vertBind, vertAttrs, shadowPipelineLayout_, shadowRenderPass);
 
     vertShader.destroy();
     fragShader.destroy();
@@ -1081,14 +965,14 @@ bool TerrainRenderer::initializeShadow(VkRenderPass shadowRenderPass) {
 
 void TerrainRenderer::renderShadow(VkCommandBuffer cmd, const glm::mat4& lightSpaceMatrix,
                                     const glm::vec3& shadowCenter, float shadowRadius) {
-    if (!shadowPipeline_ || !shadowParamsSet_) return;
+    if (!shadowPipeline_ || !shadowParams_.set) return;
     if (chunks.empty()) return;
 
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, shadowPipeline_);
     vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, shadowPipelineLayout_,
-        0, 1, &shadowParamsSet_, 0, nullptr);
+        0, 1, &shadowParams_.set, 0, nullptr);
 
-    // Identity model matrix — terrain vertices are already in world space
+    // Identity model matrix - terrain vertices are already in world space
     static const glm::mat4 identity(1.0f);
     ShadowPush push{ lightSpaceMatrix, identity };
     vkCmdPushConstants(cmd, shadowPipelineLayout_, VK_SHADER_STAGE_VERTEX_BIT,
@@ -1096,10 +980,12 @@ void TerrainRenderer::renderShadow(VkCommandBuffer cmd, const glm::mat4& lightSp
 
     // Bind mega buffers once for shadow pass (same as opaque)
     const bool useMegaShadow = (megaVB_ && megaIB_);
+    bool megaShadowBound = false;
     if (useMegaShadow) {
         VkDeviceSize megaOffset = 0;
         vkCmdBindVertexBuffers(cmd, 0, 1, &megaVB_, &megaOffset);
         vkCmdBindIndexBuffer(cmd, megaIB_, 0, VK_INDEX_TYPE_UINT32);
+        megaShadowBound = true;
     }
 
     for (const auto& chunk : chunks) {
@@ -1112,12 +998,22 @@ void TerrainRenderer::renderShadow(VkCommandBuffer cmd, const glm::mat4& lightSp
         if (distSq > combinedRadius * combinedRadius) continue;
 
         if (useMegaShadow && chunk.megaBaseVertex >= 0) {
+            // Rebound after a fallback chunk, for the reason given in the main
+            // pass above: the mega offsets are meaningless against the buffer a
+            // single chunk left bound.
+            if (!megaShadowBound) {
+                VkDeviceSize megaOffset = 0;
+                vkCmdBindVertexBuffers(cmd, 0, 1, &megaVB_, &megaOffset);
+                vkCmdBindIndexBuffer(cmd, megaIB_, 0, VK_INDEX_TYPE_UINT32);
+                megaShadowBound = true;
+            }
             vkCmdDrawIndexed(cmd, chunk.indexCount, 1, chunk.megaFirstIndex, chunk.megaBaseVertex, 0);
         } else {
             VkDeviceSize offset = 0;
             vkCmdBindVertexBuffers(cmd, 0, 1, &chunk.vertexBuffer, &offset);
             vkCmdBindIndexBuffer(cmd, chunk.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
             vkCmdDrawIndexed(cmd, chunk.indexCount, 1, 0, 0, 0);
+            megaShadowBound = false;
         }
     }
 }

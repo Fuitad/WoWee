@@ -1,4 +1,4 @@
-// ChatBubbleManager — 3D-projected chat bubbles above entities.
+// ChatBubbleManager - 3D-projected chat bubbles above entities.
 // Moved from ChatPanel::renderBubbles / setupCallbacks (Phase 1.4).
 #include "ui/chat/chat_bubble_manager.hpp"
 #include "game/game_handler.hpp"
@@ -36,6 +36,9 @@ void ChatBubbleManager::addBubble(uint64_t senderGuid, const std::string& messag
 }
 
 void ChatBubbleManager::render(game::GameHandler& gameHandler, const UIServices& services) {
+    // Off means off: the queue is dropped as well, so turning the setting off
+    // clears what is on screen rather than leaving it to fade for five seconds.
+    if (!show_) { bubbles_.clear(); return; }
     if (bubbles_.empty()) return;
 
     auto* renderer = services.renderer;
@@ -75,7 +78,7 @@ void ChatBubbleManager::render(game::GameHandler& gameHandler, const UIServices&
         glm::vec2 ndc(clipPos.x / clipPos.w, clipPos.y / clipPos.w);
         float screenX = (ndc.x * 0.5f + 0.5f) * screenW;
         // Camera bakes the Vulkan Y-flip into the projection matrix:
-        // NDC y=-1 is top, y=1 is bottom — same convention as nameplate/minimap projection.
+        // NDC y=-1 is top, y=1 is bottom - same convention as nameplate/minimap projection.
         float screenY = (ndc.y * 0.5f + 0.5f) * screenH;
 
         // Skip if off-screen
@@ -88,7 +91,7 @@ void ChatBubbleManager::render(game::GameHandler& gameHandler, const UIServices&
             alpha = bubble.timeRemaining / 2.0f;
         }
 
-        // Draw bubble window — format the window ID into a stack buffer
+        // Draw bubble window - format the window ID into a stack buffer
         // so we don't allocate a fresh std::string per bubble per frame.
         char winId[40];
         std::snprintf(winId, sizeof(winId), "##ChatBubble%llu",

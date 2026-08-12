@@ -1,4 +1,7 @@
 #include "ui/game_screen.hpp"
+#include "ui/escape_action.hpp"
+#include "ui/display_modes.hpp"
+#include "ui/framexml_takeover.hpp"
 #include "ui/scene_pick.hpp"
 #include "ui/ui_colors.hpp"
 #include "ui/ui_helpers.hpp"
@@ -65,35 +68,10 @@ namespace {
     // sphere is a poor click target: the half-diagonal reaches well past the geometry and
     // swallows NPCs standing next to it, so those units become unclickable. Clamping the
     // GO pick radius keeps large objects clickable near their center without stealing the
-    // click from a neighbor. Units are never clamped — this is a GO-only correction, the
+    // click from a neighbor. Units are never clamped - this is a GO-only correction, the
     // same reasoning that already makes WMO GOs fall back to a conservative fixed sphere.
 
-    bool raySphereIntersect(const wowee::rendering::Ray& ray, const glm::vec3& center, float radius, float& tOut) {
-        glm::vec3 oc = ray.origin - center;
-        float b = glm::dot(oc, ray.direction);
-        float c = glm::dot(oc, oc) - radius * radius;
-        float discriminant = b * b - c;
-        if (discriminant < 0.0f) return false;
-        float t = -b - std::sqrt(discriminant);
-        if (t < 0.0f) t = -b + std::sqrt(discriminant);
-        if (t < 0.0f) return false;
-        tOut = t;
-        return true;
-    }
 
-    std::string getEntityName(const std::shared_ptr<wowee::game::Entity>& entity) {
-        if (entity->getType() == wowee::game::ObjectType::PLAYER) {
-            auto player = std::static_pointer_cast<wowee::game::Player>(entity);
-            if (!player->getName().empty()) return player->getName();
-        } else if (entity->getType() == wowee::game::ObjectType::UNIT) {
-            auto unit = std::static_pointer_cast<wowee::game::Unit>(entity);
-            if (!unit->getName().empty()) return unit->getName();
-        } else if (entity->getType() == wowee::game::ObjectType::GAMEOBJECT) {
-            auto go = std::static_pointer_cast<wowee::game::GameObject>(entity);
-            if (!go->getName().empty()) return go->getName();
-        }
-        return "Unknown";
-    }
 
     // Draw a four-edge screen vignette (gradient overlay along each edge).
     // Used for damage flash, low-health pulse, and level-up golden burst.
@@ -128,6 +106,17 @@ GameScreen::GameScreen() {
     loadSettings();
 }
 
+void GameScreen::applySavedAntiAliasing(rendering::Renderer* renderer) {
+    if (!renderer) return;
+    settingsPanel_.msaaSettingsApplied_ = true;
+    if (settingsPanel_.pendingAntiAliasing <= 0) return;
+    static const VkSampleCountFlagBits aaSamples[] = {
+        VK_SAMPLE_COUNT_1_BIT, VK_SAMPLE_COUNT_2_BIT,
+        VK_SAMPLE_COUNT_4_BIT, VK_SAMPLE_COUNT_8_BIT
+    };
+    renderer->setMsaaSamples(aaSamples[settingsPanel_.pendingAntiAliasing]);
+}
+
 // Set UI services and propagate to child components
 
 namespace {
@@ -137,7 +126,7 @@ namespace {
 /// This was a flat five pixels, which is a different gesture on different
 /// screens: five pixels is a third of a percent of a 1280-wide window and a
 /// tenth of that on a 3840-wide one, so the same small hand movement that reads
-/// as a click on a modest display reads as a drag on a large one — and a
+/// as a click on a modest display reads as a drag on a large one - and a
 /// discarded right-click is an NPC that cannot be interacted with at all.
 /// Scaled by the window, with a floor so it never becomes stricter than it was.
 float clickDragThreshold() {
@@ -145,6 +134,47 @@ float clickDragThreshold() {
     const float shorter = std::min(io.DisplaySize.x, io.DisplaySize.y);
     return std::max(5.0f, shorter * 0.008f);
 }
+}
+
+bool GameScreen::getFullscreen() const {
+    return services_.window ? services_.window->isFullscreen()
+                            : settingsPanel_.pendingFullscreen;
+}
+
+void GameScreen::setFullscreen(bool enabled) {
+    settingsPanel_.pendingFullscreen = enabled;
+    if (services_.window) services_.window->setFullscreen(enabled);
+}
+
+int GameScreen::getResolutionIndex() const {
+    if (!services_.window) return settingsPanel_.pendingResIndex;
+    return displayResolutionIndexFor(services_.window->getWidth(),
+                                     services_.window->getHeight());
+}
+
+void GameScreen::setResolutionIndex(int index) {
+    if (index < 0 || index >= kNumDisplayResolutions) return;
+    settingsPanel_.pendingResIndex = index;
+    settingsPanel_.pendingResolutionWidth  = kDisplayResolutions[index][0];
+    settingsPanel_.pendingResolutionHeight = kDisplayResolutions[index][1];
+    if (services_.window)
+        services_.window->applyResolution(settingsPanel_.pendingResolutionWidth,
+                                          settingsPanel_.pendingResolutionHeight);
+}
+
+/// Anti-aliasing, shared with the interface's own Multisampling dropdown.
+///
+/// Through applySettingSideEffects rather than by writing the field, so the
+/// renderer is told: the field alone is the value with nothing applying it,
+/// which is the shape [[state_without_an_event]] describes.
+int GameScreen::getAntiAliasingIndex() const {
+    return settingsPanel_.pendingAntiAliasing;
+}
+
+void GameScreen::setAntiAliasingIndex(int index) {
+    if (index < 0 || index > 3) return;
+    settingsPanel_.pendingAntiAliasing = index;
+    settingsPanel_.applySettingSideEffects("antialiasing");
 }
 
 void GameScreen::setServices(const UIServices& services) {
@@ -167,6 +197,12 @@ void GameScreen::setServices(const UIServices& services) {
     toastManager_.setServices(services);
     dialogManager_.setServices(services);
     settingsPanel_.setServices(services);
+    // The chat settings are the chat panel's, and the options panels ask the
+    // settings panel for every setting by name. Handing it the chat's own
+    // struct is what lets those keys be answered from the same place as the
+    // rest rather than through a second bridge with its own list of names.
+    settingsPanel_.setChatSettings(&chatPanel_.settings);
+    settingsPanel_.setInventoryScreen(&inventoryScreen);
     combatUI_.setServices(services);
     socialPanel_.setServices(services);
     actionBarPanel_.setServices(services);
@@ -209,12 +245,18 @@ void GameScreen::render(game::GameHandler& gameHandler) {
     // Set up UI error frame callback (once)
     if (!uiErrorCallbackSet_) {
         gameHandler.setUIErrorCallback([this](const std::string& msg) {
-            uiErrors_.push_back({msg, 0.0f});
-            if (uiErrors_.size() > 5) uiErrors_.erase(uiErrors_.begin());
-            // Play error sound for each new error (rate-limited by deque cap of 5)
+            // The sound first, and outside the gate. It belongs to no
+            // element - the error is the same error whoever draws the text -
+            // and it sat after the return, so handing the errors over would
+            // have taken the sound with them.
             if (auto* ac = services_.audioCoordinator) {
                 if (auto* sfx = ac->getUiSoundManager()) sfx->playError();
             }
+            // Both interfaces show these, and the event that carries them
+            // reaches whichever is drawing.
+            if (frameXmlOwns(UiElement::UiErrors)) return;
+            uiErrors_.push_back({msg, 0.0f});
+            if (uiErrors_.size() > 5) uiErrors_.erase(uiErrors_.begin());
         });
         uiErrorCallbackSet_ = true;
     }
@@ -294,16 +336,12 @@ void GameScreen::render(game::GameHandler& gameHandler) {
         }
     }
 
-    // Apply saved MSAA setting once when renderer is available
+    // Normally already done at startup - see applySavedAntiAliasing, which the
+    // application calls before the first frame. This is the fallback for a
+    // renderer that was not there yet, and it latches either way.
     if (!settingsPanel_.msaaSettingsApplied_ && settingsPanel_.pendingAntiAliasing > 0) {
-        auto* renderer = services_.renderer;
-        if (renderer) {
-            static const VkSampleCountFlagBits aaSamples[] = {
-                VK_SAMPLE_COUNT_1_BIT, VK_SAMPLE_COUNT_2_BIT,
-                VK_SAMPLE_COUNT_4_BIT, VK_SAMPLE_COUNT_8_BIT
-            };
-            renderer->setMsaaSamples(aaSamples[settingsPanel_.pendingAntiAliasing]);
-            settingsPanel_.msaaSettingsApplied_ = true;
+        if (auto* renderer = services_.renderer) {
+            applySavedAntiAliasing(renderer);
         }
     } else {
         settingsPanel_.msaaSettingsApplied_ = true;
@@ -400,10 +438,10 @@ void GameScreen::render(game::GameHandler& gameHandler) {
     // Process targeting input before UI windows
     processTargetInput(gameHandler);
 
-    renderPlayerFrame(gameHandler);
+    if (!frameXmlOwns(UiElement::PlayerFrame)) renderPlayerFrame(gameHandler);
 
     // Pet frame (below player frame, only when player has an active pet)
-    if (gameHandler.hasPet()) {
+    if (gameHandler.hasPet() && !frameXmlOwns(UiElement::PetFrame)) {
         renderPetFrame(gameHandler);
     }
 
@@ -414,17 +452,17 @@ void GameScreen::render(game::GameHandler& gameHandler) {
     }
 
     // Totem frame (Shaman only, when any totem is active)
-    if (gameHandler.getPlayerClass() == 7) {
+    if (gameHandler.getPlayerClass() == 7 && !frameXmlOwns(UiElement::Totems)) {
         renderTotemFrame(gameHandler);
     }
 
     // Target frame (only when we have a target)
-    if (gameHandler.hasTarget()) {
+    if (gameHandler.hasTarget() && !frameXmlOwns(UiElement::TargetFrame)) {
         renderTargetFrame(gameHandler);
     }
 
     // Focus target frame (only when we have a focus)
-    if (gameHandler.hasFocus()) {
+    if (gameHandler.hasFocus() && !frameXmlOwns(UiElement::FocusFrame)) {
         renderFocusFrame(gameHandler);
     }
 
@@ -437,99 +475,218 @@ void GameScreen::render(game::GameHandler& gameHandler) {
         renderEntityList(gameHandler);
     }
 
-    if (showChatWindow) {
-        chatPanel_.getSpellIcon = [this](uint32_t id, pipeline::AssetManager* am) {
-            return getSpellIcon(id, am);
-        };
-        if (!chatPanel_.saveSettingsFn)
-            chatPanel_.saveSettingsFn = [this]() { saveSettings(); };
-        chatPanel_.render(gameHandler, inventoryScreen, spellbookScreen, questLogScreen);
-        // Process slash commands that affect GameScreen state
+    // The chat window is FrameXML's and this client no longer draws one, but
+    // the slash commands still belong here: FrameXML's edit box hands an
+    // unknown command to runClientChatCommand, which is this client's own
+    // registry, and the handlers set the flags read below.
+    //
+    // These used to sit inside the same gate as the window that is gone, so
+    // every one of them ran, set its flag, and had it read by nobody:
+    // /inspect, /threat, /bgscore, /gm and /who all did nothing at all.
+    {
         auto cmds = chatPanel_.consumeSlashCommands();
-        if (cmds.showInspect) socialPanel_.showInspectWindow_ = true;
+        if (cmds.showInspect) socialPanel_.openInspectWindow(gameHandler);
         if (cmds.toggleThreat) combatUI_.showThreatWindow_ = !combatUI_.showThreatWindow_;
-        if (cmds.showBgScore) combatUI_.showBgScoreboard_ = !combatUI_.showBgScoreboard_;
-        if (cmds.showGmTicket) windowManager_.showGmTicketWindow_ = true;
-        if (cmds.showWho) socialPanel_.showWhoWindow_ = true;
+        // Both windows are gated on their element, so with either handed over
+        // the slash command set a flag whose only reader is switched off.
+        if (cmds.showBgScore) {
+            if (frameXmlOwns(UiElement::BattlegroundScore))
+                gameHandler.runInterfaceCommand("ToggleWorldStateScoreFrame()");
+            else
+                combatUI_.showBgScoreboard_ = !combatUI_.showBgScoreboard_;
+        }
+        if (cmds.showGmTicket) {
+            if (frameXmlOwns(UiElement::Help))
+                gameHandler.runInterfaceCommand("ToggleHelpFrame()");
+            else
+                windowManager_.showGmTicketWindow_ = true;
+        }
+        // Tab two is the who list. The client's own who window is gated on
+        // the social element like the rest of that panel's windows.
+        if (cmds.showWho) {
+            if (frameXmlOwns(UiElement::Social))
+                gameHandler.runInterfaceCommand("ToggleFriendsFrame(2)");
+            else
+                socialPanel_.showWhoWindow_ = true;
+        }
         if (cmds.toggleCombatLog) combatUI_.showCombatLog_ = !combatUI_.showCombatLog_;
-        if (cmds.takeScreenshot) takeScreenshot(gameHandler);
+        if (cmds.takeScreenshot) takeScreenshot();
     }
 
     // ---- New UI elements ----
-    actionBarPanel_.renderActionBar(gameHandler, settingsPanel_, chatPanel_,
-        inventoryScreen, spellbookScreen, questLogScreen,
-        [this](uint32_t id, pipeline::AssetManager* am) { return getSpellIcon(id, am); });
-    actionBarPanel_.renderStanceBar(gameHandler, settingsPanel_, spellbookScreen,
-        [this](uint32_t id, pipeline::AssetManager* am) { return getSpellIcon(id, am); });
-    if (actionBarPanel_.renderBagBar(gameHandler, settingsPanel_, inventoryScreen))
+    if (!frameXmlOwns(UiElement::ActionBar)) {
+        actionBarPanel_.renderActionBar(gameHandler, settingsPanel_, chatPanel_,
+            inventoryScreen, spellbookScreen, questLogScreen,
+            [this](uint32_t id, pipeline::AssetManager* am) { return getSpellIcon(id, am); });
+    }
+    if (!frameXmlOwns(UiElement::StanceBar)) {
+        actionBarPanel_.renderStanceBar(gameHandler, settingsPanel_, spellbookScreen,
+            [this](uint32_t id, pipeline::AssetManager* am) { return getSpellIcon(id, am); });
+    }
+    if (!frameXmlOwns(UiElement::BagBar) &&
+        actionBarPanel_.renderBagBar(gameHandler, settingsPanel_, inventoryScreen))
         saveSettings();
-    renderMicroMenu(gameHandler);
-    actionBarPanel_.renderXpBar(gameHandler, settingsPanel_);
-    actionBarPanel_.renderRepBar(gameHandler, settingsPanel_);
+    if (!frameXmlOwns(UiElement::MicroMenu)) renderMicroMenu(gameHandler);
+    if (!frameXmlOwns(UiElement::XpBar))
+        actionBarPanel_.renderXpBar(gameHandler, settingsPanel_);
+    if (!frameXmlOwns(UiElement::RepBar))
+        actionBarPanel_.renderRepBar(gameHandler, settingsPanel_);
     auto spellIconFn = [this](uint32_t id, pipeline::AssetManager* am) { return getSpellIcon(id, am); };
-    combatUI_.renderCastBar(gameHandler, spellIconFn);
-    renderMirrorTimers(gameHandler);
+    if (!frameXmlOwns(UiElement::CastBar))
+        combatUI_.renderCastBar(gameHandler, spellIconFn);
+    if (!frameXmlOwns(UiElement::PlayerFrame)) {
+        renderMirrorTimers(gameHandler);
+    }
     combatUI_.renderCooldownTracker(gameHandler, settingsPanel_, spellIconFn);
-    renderQuestObjectiveTracker(gameHandler);
+    if (!frameXmlOwns(UiElement::QuestTracker))
+        renderQuestObjectiveTracker(gameHandler);
     renderNameplates(gameHandler);  // player names always shown; NPC plates gated by showNameplates_
     combatUI_.renderBattlegroundScore(gameHandler);
     combatUI_.renderRaidWarningOverlay(gameHandler);
-    combatUI_.renderCombatText(gameHandler);
+    // Blizzard_CombatText draws its own once it is loaded, which happens the
+    // moment the player touches the float-mode dropdown in the interface
+    // options. Not an element gate: the addon arrives mid-run, so this has to
+    // keep drawing until it does and then stand down.
+    if (!frameXmlDrawsCombatText()) combatUI_.renderCombatText(gameHandler);
     combatUI_.renderDPSMeter(gameHandler, settingsPanel_, lastTargetFrameBottom_);
-    renderDurabilityWarning(gameHandler);
-    renderUIErrors(gameHandler, ImGui::GetIO().DeltaTime);
+    if (!frameXmlOwns(UiElement::Durability)) {
+        renderDurabilityWarning(gameHandler);
+    }
+    // Half of this handover was in place: UIErrorsFrame is suppressed when
+    // this client owns the errors, and this client kept drawing its own when
+    // FrameXML owned them. So every refusal the server sent was still shown
+    // twice, in the one direction the suppression could not reach.
+    if (!frameXmlOwns(UiElement::UiErrors)) {
+        renderUIErrors(gameHandler, ImGui::GetIO().DeltaTime);
+    }
     toastManager_.renderEarlyToasts(ImGui::GetIO().DeltaTime, gameHandler);
     if (socialPanel_.showRaidFrames_) {
-        socialPanel_.renderPartyFrames(gameHandler, chatPanel_, spellIconFn);
+        if (!frameXmlOwns(UiElement::PartyFrames)) {
+            socialPanel_.renderPartyFrames(gameHandler, chatPanel_, spellIconFn);
+        }
     }
-    socialPanel_.renderBossFrames(gameHandler, spellbookScreen, spellIconFn);
+    if (!frameXmlOwns(UiElement::TargetFrame)) {
+        socialPanel_.renderBossFrames(gameHandler, spellbookScreen, spellIconFn);
+    }
     dialogManager_.renderDialogs(gameHandler, inventoryScreen, chatPanel_);
-    socialPanel_.renderGuildRoster(gameHandler, chatPanel_);
-    socialPanel_.renderSocialFrame(gameHandler, chatPanel_);
-    combatUI_.renderBuffBar(gameHandler, spellbookScreen, inventoryScreen, settingsPanel_, spellIconFn);
-    windowManager_.renderLootWindow(gameHandler, inventoryScreen, chatPanel_);
-    windowManager_.renderGossipWindow(gameHandler, chatPanel_);
-    windowManager_.renderQuestDetailsWindow(gameHandler, chatPanel_, inventoryScreen);
-    windowManager_.renderQuestRequestItemsWindow(gameHandler, chatPanel_, inventoryScreen);
-    windowManager_.renderQuestOfferRewardWindow(gameHandler, chatPanel_, inventoryScreen);
-    windowManager_.renderVendorWindow(gameHandler, inventoryScreen, chatPanel_);
-    windowManager_.renderTrainerWindow(gameHandler,
-        [this](uint32_t id, pipeline::AssetManager* am) { return getSpellIcon(id, am); },
-        inventoryScreen);
-    windowManager_.renderCraftingWindow(gameHandler,
-        [this](uint32_t id, pipeline::AssetManager* am) { return getSpellIcon(id, am); },
-        inventoryScreen);
-    windowManager_.renderBarberShopWindow(gameHandler);
-    windowManager_.renderStableWindow(gameHandler);
+    // FriendsFrame is what "social" suppresses, and its tabs are the friends
+    // list, the who list and the guild roster. Only the friends list was gated
+    // on this side, so handing social over left two of this client's three
+    // windows drawing beside FrameXML's tabs.
+    if (!frameXmlOwns(UiElement::Social)) {
+        socialPanel_.renderGuildRoster(gameHandler, chatPanel_, inventoryScreen,
+                                       spellbookScreen, questLogScreen, spellIconFn);
+    }
+    if (!frameXmlOwns(UiElement::Social)) {
+        socialPanel_.renderSocialFrame(gameHandler, chatPanel_);
+    }
+    // FrameXML's buff frame is checked as in use beside the minimap cluster,
+    // and this one was drawn regardless - two bars of the same auras.
+    if (!frameXmlOwns(UiElement::Buffs)) {
+        combatUI_.renderBuffBar(gameHandler, spellbookScreen, inventoryScreen, settingsPanel_, spellIconFn);
+    }
+    if (!frameXmlOwns(UiElement::Loot)) {
+        windowManager_.renderLootWindow(gameHandler, inventoryScreen, chatPanel_);
+    }
+    if (!frameXmlOwns(UiElement::Gossip)) {
+        windowManager_.renderGossipWindow(gameHandler, chatPanel_);
+    }
+    if (!frameXmlOwns(UiElement::QuestGiver)) {
+        windowManager_.renderQuestDetailsWindow(gameHandler, chatPanel_, inventoryScreen);
+    }
+    if (!frameXmlOwns(UiElement::QuestGiver)) {
+        windowManager_.renderQuestRequestItemsWindow(gameHandler, chatPanel_, inventoryScreen);
+    }
+    if (!frameXmlOwns(UiElement::QuestGiver)) {
+        windowManager_.renderQuestOfferRewardWindow(gameHandler, chatPanel_, inventoryScreen);
+    }
+    if (!frameXmlOwns(UiElement::Vendor)) {
+        windowManager_.renderVendorWindow(gameHandler, inventoryScreen, chatPanel_);
+    }
+    if (!frameXmlOwns(UiElement::ClassTrainer)) {
+        windowManager_.renderTrainerWindow(gameHandler,
+            [this](uint32_t id, pipeline::AssetManager* am) { return getSpellIcon(id, am); },
+            inventoryScreen);
+    }
+    if (!frameXmlOwns(UiElement::TradeSkill)) {
+        windowManager_.renderCraftingWindow(gameHandler,
+            [this](uint32_t id, pipeline::AssetManager* am) { return getSpellIcon(id, am); },
+            inventoryScreen);
+    }
+    if (!frameXmlOwns(UiElement::BarberShop)) {
+        windowManager_.renderBarberShopWindow(gameHandler);
+    }
+    if (!frameXmlOwns(UiElement::Stable)) {
+        windowManager_.renderStableWindow(gameHandler);
+    }
     // Flight selection is handled by the world map's flight-map mode (see
     // renderWorldMap); the legacy list window remains as a fallback when the
     // world map system is unavailable.
     {
         auto* mapRenderer = core::Application::getInstance().getRenderer();
         if (!mapRenderer || !mapRenderer->getWorldMap()) {
-            windowManager_.renderTaxiWindow(gameHandler);
+            if (!frameXmlOwns(UiElement::Taxi)) {
+                windowManager_.renderTaxiWindow(gameHandler);
+            }
         }
     }
-    windowManager_.renderMailWindow(gameHandler, inventoryScreen, chatPanel_);
-    windowManager_.renderMailComposeWindow(gameHandler, inventoryScreen);
-    if (windowManager_.renderBankWindow(gameHandler, inventoryScreen, chatPanel_))
-        saveSettings();
-    windowManager_.renderGuildBankWindow(gameHandler, inventoryScreen, chatPanel_);
+    if (!frameXmlOwns(UiElement::Mail)) {
+        windowManager_.renderMailWindow(gameHandler, inventoryScreen, chatPanel_);
+    }
+    if (!frameXmlOwns(UiElement::Mail)) {
+        windowManager_.renderMailComposeWindow(gameHandler, inventoryScreen);
+    }
+    if (!frameXmlOwns(UiElement::Bank)) {
+        if (windowManager_.renderBankWindow(gameHandler, inventoryScreen, chatPanel_))
+            saveSettings();
+    }
+    if (!frameXmlOwns(UiElement::GuildBank)) {
+        windowManager_.renderGuildBankWindow(gameHandler, inventoryScreen, chatPanel_);
+    }
     windowManager_.renderGmCommandScreen(gameHandler);
-    windowManager_.renderAuctionHouseWindow(gameHandler, inventoryScreen, chatPanel_);
-    socialPanel_.renderDungeonFinderWindow(gameHandler, chatPanel_);
+    if (!frameXmlOwns(UiElement::AuctionHouse)) {
+        windowManager_.renderAuctionHouseWindow(gameHandler, inventoryScreen, chatPanel_);
+    }
+    if (!frameXmlOwns(UiElement::DungeonFinder)) {
+        socialPanel_.renderDungeonFinderWindow(gameHandler, chatPanel_);
+    }
     windowManager_.renderInstanceLockouts(gameHandler);
-    socialPanel_.renderWhoWindow(gameHandler, chatPanel_);
+    if (!frameXmlOwns(UiElement::Social)) {
+        socialPanel_.renderWhoWindow(gameHandler, chatPanel_);
+    }
     combatUI_.renderCombatLog(gameHandler, spellbookScreen);
-    windowManager_.renderAchievementWindow(gameHandler);
+    if (!frameXmlOwns(UiElement::Achievements)) {
+        windowManager_.renderAchievementWindow(gameHandler);
+    }
     windowManager_.renderSkillsWindow(gameHandler);
     windowManager_.renderTitlesWindow(gameHandler);
     windowManager_.renderEquipSetWindow(gameHandler);
-    windowManager_.renderGmTicketWindow(gameHandler);
-    socialPanel_.renderInspectWindow(gameHandler, inventoryScreen);
-    windowManager_.renderBookWindow(gameHandler);
+    if (!frameXmlOwns(UiElement::Help)) {
+        windowManager_.renderGmTicketWindow(gameHandler);
+    }
+    if (!frameXmlOwns(UiElement::Inspect)) {
+        socialPanel_.renderInspectWindow(gameHandler, inventoryScreen);
+    }
+    if (!frameXmlOwns(UiElement::Book)) {
+        windowManager_.renderBookWindow(gameHandler);
+    }
     combatUI_.renderThreatWindow(gameHandler);
-    combatUI_.renderBgScoreboard(gameHandler);
+    if (!frameXmlOwns(UiElement::BattlegroundScore)) {
+        combatUI_.renderBgScoreboard(gameHandler);
+    }
+    // The blips, whoever draws the ring around them.
+    //
+    // This was gated on the element the way every other pass is, and the
+    // minimap is the one place that is wrong: WoW's minimap blips come from
+    // the C client, not from the interface. minimap.xml declares the border,
+    // the buttons, the mail and battlefield icons and the north tag, and not
+    // one frame for a party member, a flight master or a corpse - so handing
+    // the minimap over and standing this down left the ring drawn, the map
+    // inside it drawn, and nothing on it at all.
+    //
+    // The pass stands down where FrameXML genuinely does own the work: its
+    // input, and the mail and battlefield indicators. Both gates are inside
+    // it now.
     if (showMinimap_) {
         renderMinimapMarkers(gameHandler);
     }
@@ -538,16 +695,33 @@ void GameScreen::render(game::GameHandler& gameHandler) {
     windowManager_.renderReclaimCorpseButton(gameHandler);
     dialogManager_.renderLateDialogs(gameHandler);
     chatPanel_.renderBubbles(gameHandler);
-    windowManager_.renderEscapeMenu(settingsPanel_);
-    settingsPanel_.renderSettingsWindow(inventoryScreen, chatPanel_, [this]() { saveSettings(); });
+    if (!frameXmlOwns(UiElement::GameMenu)) {
+        windowManager_.renderEscapeMenu(settingsPanel_, gameHandler);
+    }
+    // Not gated on GameMenu ownership. FrameXML's own options frames are shells
+    // - its menu buttons are routed here through ShowUIPanel - and this window
+    // draws nothing unless something opened it, so leaving it out cost every
+    // setting in it the moment the menu was handed over.
+    settingsPanel_.renderSettingsWindow(chatPanel_, [this]() { saveSettings(); });
     toastManager_.renderLateToasts(gameHandler);
     renderWeatherOverlay(gameHandler);
 
+    // Always, because this is the only thing that feeds the map its data and
+    // the only thing that draws it. Skipping it when FrameXML owns the map
+    // left the panel FrameXML drew with nothing in it - the half of that
+    // handover that positions the map inside WorldMapDetailFrame was built and
+    // the half that renders it was not. renderWorldMap decides for itself
+    // whether the map is wanted; under FrameXML that is FrameXML's frame being
+    // on screen rather than this client's own flag.
     renderWorldMap(gameHandler);
 
-    questLogScreen.render(gameHandler, inventoryScreen);
+    if (!frameXmlOwns(UiElement::QuestLog)) {
+        questLogScreen.render(gameHandler, inventoryScreen);
+    }
 
-    spellbookScreen.render(gameHandler, services_.assetManager);
+    if (!frameXmlOwns(UiElement::Spellbook)) {
+        spellbookScreen.render(gameHandler, services_.assetManager);
+    }
 
     // Insert spell link into chat if player shift-clicked a spellbook entry
     {
@@ -558,7 +732,9 @@ void GameScreen::render(game::GameHandler& gameHandler) {
     }
 
     // Talents (N key toggle handled inside)
-    talentScreen.render(gameHandler);
+    if (!frameXmlOwns(UiElement::Talents)) {
+        talentScreen.render(gameHandler);
+    }
 
     // Set up inventory screen asset manager + player appearance (re-init on character switch)
     {
@@ -589,7 +765,13 @@ void GameScreen::render(game::GameHandler& gameHandler) {
     if (gameHandler.isVendorWindowOpen()) {
         if (!windowManager_.vendorBagsOpened_) {
             windowManager_.vendorBagsOpened_ = true;
-            if (inventoryScreen.isSeparateBags()) {
+            // Opening a vendor or the guild bank puts the bags up so items
+            // can be dragged or right-clicked across. With the bags handed
+            // over that has to be FrameXML's, or the vendor opens beside
+            // nothing.
+            if (frameXmlOwns(UiElement::Bags)) {
+                gameHandler.runInterfaceCommand("OpenAllBags()");
+            } else if (inventoryScreen.isSeparateBags()) {
                 inventoryScreen.openAllBags();
             } else if (!inventoryScreen.isOpen()) {
                 inventoryScreen.setOpen(true);
@@ -604,7 +786,13 @@ void GameScreen::render(game::GameHandler& gameHandler) {
     if (gameHandler.isGuildBankOpen()) {
         if (!windowManager_.guildBankBagsOpened_) {
             windowManager_.guildBankBagsOpened_ = true;
-            if (inventoryScreen.isSeparateBags()) {
+            // Opening a vendor or the guild bank puts the bags up so items
+            // can be dragged or right-clicked across. With the bags handed
+            // over that has to be FrameXML's, or the vendor opens beside
+            // nothing.
+            if (frameXmlOwns(UiElement::Bags)) {
+                gameHandler.runInterfaceCommand("OpenAllBags()");
+            } else if (inventoryScreen.isSeparateBags()) {
                 inventoryScreen.openAllBags();
             } else if (!inventoryScreen.isOpen()) {
                 inventoryScreen.setOpen(true);
@@ -615,10 +803,14 @@ void GameScreen::render(game::GameHandler& gameHandler) {
     }
 
     inventoryScreen.setGameHandler(&gameHandler);
-    inventoryScreen.render(gameHandler.getInventory(), gameHandler.getMoneyCopper());
+    if (!frameXmlOwns(UiElement::Bags)) {
+        inventoryScreen.render(gameHandler.getInventory(), gameHandler.getMoneyCopper());
+    }
 
     // Character screen (C key toggle handled inside render())
-    inventoryScreen.renderCharacterScreen(gameHandler);
+    if (!frameXmlOwns(UiElement::CharacterFrame)) {
+        inventoryScreen.renderCharacterScreen(gameHandler);
+    }
 
     // Item-target cursor (sharpening stone / oil awaiting the item it applies to)
     inventoryScreen.renderItemTargetCursor();
@@ -739,20 +931,9 @@ void GameScreen::render(game::GameHandler& gameHandler) {
                     if (unit->getHealth() == 0 && unit->getMaxHealth() > 0) {
                         circleColor = glm::vec3(0.5f, 0.5f, 0.5f); // gray (dead)
                     } else if (unit->isHostile() || gameHandler.isAggressiveTowardPlayer(target->getGuid())) {
-                        uint32_t playerLv = gameHandler.getPlayerLevel();
-                        uint32_t mobLv = unit->getLevel();
-                        int32_t diff = static_cast<int32_t>(mobLv) - static_cast<int32_t>(playerLv);
-                        if (game::GameHandler::killXp(playerLv, mobLv) == 0) {
-                            circleColor = glm::vec3(0.6f, 0.6f, 0.6f); // grey
-                        } else if (diff >= 10) {
-                            circleColor = glm::vec3(1.0f, 0.1f, 0.1f); // red
-                        } else if (diff >= 5) {
-                            circleColor = glm::vec3(1.0f, 0.5f, 0.1f); // orange
-                        } else if (diff >= -2) {
-                            circleColor = glm::vec3(1.0f, 1.0f, 0.1f); // yellow
-                        } else {
-                            circleColor = glm::vec3(0.3f, 1.0f, 0.3f); // green
-                        }
+                        const ImVec4 c = ui::helpers::levelDifficultyColor(
+                            gameHandler.getPlayerLevel(), unit->getLevel());
+                        circleColor = glm::vec3(c.x, c.y, c.z);
                     } else {
                         circleColor = glm::vec3(0.3f, 1.0f, 0.3f); // green (friendly)
                     }
@@ -778,7 +959,7 @@ void GameScreen::render(game::GameHandler& gameHandler) {
         }
     }
 
-    // Screen edge damage flash — red vignette that fires on HP decrease
+    // Screen edge damage flash - red vignette that fires on HP decrease
     {
         const bool deadOrGhost = gameHandler.isPlayerDead() || gameHandler.isPlayerGhost();
         auto playerEntity = gameHandler.getEntityManager().getEntity(gameHandler.getPlayerGuid());
@@ -790,7 +971,7 @@ void GameScreen::render(game::GameHandler& gameHandler) {
                 currentHp = unit->getHealth();
         }
 
-        // Detect HP drop (ignore transitions from 0 — entity just spawned or uninitialized)
+        // Detect HP drop (ignore transitions from 0 - entity just spawned or uninitialized)
         if (!deadOrGhost && settingsPanel_.damageFlashEnabled_ &&
             lastPlayerHp_ > 0 && currentHp < lastPlayerHp_ && currentHp > 0) {
             damageFlashAlpha_ = 1.0f;
@@ -812,7 +993,7 @@ void GameScreen::render(game::GameHandler& gameHandler) {
         }
     }
 
-    // Persistent low-health vignette — pulsing red edges when HP < 20%
+    // Persistent low-health vignette - pulsing red edges when HP < 20%
     {
         auto playerEntity = gameHandler.getEntityManager().getEntity(gameHandler.getPlayerGuid());
         const bool deadOrGhost = gameHandler.isPlayerDead() || gameHandler.isPlayerGhost();
@@ -899,42 +1080,85 @@ void GameScreen::renderMicroMenu(game::GameHandler& gameHandler) {
             return clicked;
         };
 
+        // Each of these toggles a window whose draw is gated on the same
+        // ownership, so a button for a handed-over panel set a flag nothing
+        // read. Only Social asked; the rest are the same shape and were
+        // missing it.
+        //
+        // Reachable only from a hand-picked WOWEE_FRAMEXML_UI that names one
+        // of these panels without naming mainmenubar. Both the defaults and
+        // "candidates" include mainmenubar, which covers MicroMenu - so this
+        // whole menu is gated off there and none of these buttons is drawn at
+        // all. I claimed otherwise when writing this and was wrong: the group
+        // cover in coveredByGroup is easy to read past, and "bags is a default
+        // element" is true without meaning what it looks like it means.
         if (button("C##MicroCharacter", "Character", inventoryScreen.isCharacterOpen())) {
-            const bool wasOpen = inventoryScreen.isCharacterOpen();
-            inventoryScreen.toggleCharacter();
-            if (!wasOpen && gameHandler.isConnected()) gameHandler.requestPlayedTime();
+            if (frameXmlOwns(UiElement::CharacterFrame)) {
+                gameHandler.runInterfaceCommand("ToggleCharacter(\"PaperDollFrame\")");
+            } else {
+                const bool wasOpen = inventoryScreen.isCharacterOpen();
+                inventoryScreen.toggleCharacter();
+                if (!wasOpen && gameHandler.isConnected()) gameHandler.requestPlayedTime();
+            }
         }
         ImGui::SameLine();
         if (button("B##MicroBags", "Backpack", inventoryScreen.isBackpackOpen())) {
-            inventoryScreen.toggleBackpack();
+            if (frameXmlOwns(UiElement::Bags)) gameHandler.runInterfaceCommand("ToggleBackpack()");
+            else                               inventoryScreen.toggleBackpack();
         }
         ImGui::SameLine();
         if (button("P##MicroSpellbook", "Spellbook", spellbookScreen.isOpen())) {
-            spellbookScreen.toggle();
+            if (frameXmlOwns(UiElement::Spellbook))
+                gameHandler.runInterfaceCommand("ToggleSpellBook(BOOKTYPE_SPELL)");
+            else
+                spellbookScreen.toggle();
         }
         ImGui::SameLine();
         if (button("N##MicroTalents", "Talents", talentScreen.isOpen())) {
-            talentScreen.toggle();
+            if (frameXmlOwns(UiElement::Talents)) gameHandler.runInterfaceCommand("ToggleTalentFrame()");
+            else                                  talentScreen.toggle();
         }
         ImGui::SameLine();
         if (button("L##MicroQuests", "Quest Log", questLogScreen.isOpen())) {
-            questLogScreen.toggle();
+            if (frameXmlOwns(UiElement::QuestLog))
+                gameHandler.runInterfaceCommand("ToggleFrame(QuestLogFrame)");
+            else
+                questLogScreen.toggle();
         }
         ImGui::SameLine();
+        // Same as the K key does, which already routes: in FrameXML the skills
+        // list is a tab of the character sheet rather than a window of its own.
+        // The key and the button opened two different things.
         if (button("K##MicroSkills", "Skills", windowManager_.showSkillsWindow_)) {
-            windowManager_.showSkillsWindow_ = !windowManager_.showSkillsWindow_;
+            if (frameXmlOwns(UiElement::CharacterFrame))
+                gameHandler.runInterfaceCommand("ToggleCharacter(\"SkillFrame\")");
+            else
+                windowManager_.showSkillsWindow_ = !windowManager_.showSkillsWindow_;
         }
         ImGui::SameLine();
         if (button("O##MicroSocial", "Social", socialPanel_.showSocialFrame_)) {
-            socialPanel_.showSocialFrame_ = !socialPanel_.showSocialFrame_;
+            if (frameXmlOwns(UiElement::Social)) {
+                gameHandler.runInterfaceCommand("ToggleFriendsFrame(1)");
+            } else {
+                socialPanel_.showSocialFrame_ = !socialPanel_.showSocialFrame_;
+            }
         }
         ImGui::SameLine();
+        // Not routed, and there is nothing to route it to: FrameXML has no
+        // toggle for party frames, which simply appear while there is a party.
+        // With that element handed over this flips a flag whose only reader is
+        // gated off, which is a button that does nothing - but calling
+        // something that does not exist would be worse, and the frames are
+        // already on screen at that point.
         if (button("G##MicroGroup", "Party/Raid Frames", socialPanel_.showRaidFrames_)) {
             socialPanel_.showRaidFrames_ = !socialPanel_.showRaidFrames_;
         }
         ImGui::SameLine();
         if (button("M##MicroMap", "World Map", showWorldMap_)) {
-            showWorldMap_ = !showWorldMap_;
+            if (frameXmlOwns(UiElement::WorldMap))
+                gameHandler.runInterfaceCommand("ToggleFrame(WorldMapFrame)");
+            else
+                showWorldMap_ = !showWorldMap_;
         }
         ImGui::SameLine();
         if (button("GM##MicroGM", "GM Commands", windowManager_.showGmCommandScreen_)) {
@@ -1101,82 +1325,320 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
 
     // If the user is typing (or about to focus chat this frame), do not allow
     // A-Z or 1-0 shortcuts to fire.
-    if (!io.WantTextInput && !chatPanel_.isChatInputActive() && input.isKeyJustPressed(SDL_SCANCODE_SLASH)) {
-        chatPanel_.activateSlashInput();
+    // Enter and slash open the chat box. Which chat box depends on who owns it.
+    //
+    // These reached this client's panel unconditionally, and its render is
+    // gated on the same ownership - so with the chat handed over they set a
+    // focus flag on a panel that is never drawn, and the interface's own edit
+    // box stayed shut. There was no other way in: FrameXML's OPENCHAT and
+    // OPENCHATSLASH bindings are not in this client's route table, so with the
+    // chat owned there was no key at all that opened it.
+    //
+    // The keystrokes that follow do need a guard, and the reason they were
+    // thought not to is worth keeping: the application's key loop does hand
+    // FrameXML's focused box every press and stop there - but only on the
+    // event path. What is below reads the key state directly, once a frame,
+    // and a poll never went through that loop to be stopped by it. So typing
+    // did walk the character and did fire bindings, and the one question both
+    // paths now ask is interfaceTakingTypedInput.
+    const bool frameXmlChat = frameXmlOwns(UiElement::Chat);
+    if (!io.WantTextInput && !interfaceTakingTypedInput() &&
+        !chatPanel_.isChatInputActive() && input.isKeyJustPressed(SDL_SCANCODE_SLASH)) {
+        if (frameXmlChat) gameHandler.runInterfaceCommand("ChatFrame_OpenChat(\"/\")");
+        else              chatPanel_.activateSlashInput();
     }
+    // The same one line as Escape, for the same reason: the chain reads sound
+    // and the key does nothing, so what is wanted is which branch ran. The
+    // guards are reported too, because being refused before the branch is the
+    // likeliest answer and is the one that leaves no other trace.
+    if (KeybindingManager::getInstance().isActionPressed(KeybindingManager::Action::TOGGLE_CHAT, false)) {
+        if (io.WantTextInput || interfaceTakingTypedInput() ||
+            interfaceConsumedKey(ImGuiKey_Enter) ||
+            chatPanel_.isChatInputActive()) {
+            LOG_WARNING("Chat key: refused - ImGui wants text: ",
+                     io.WantTextInput ? "yes" : "no",
+                     ", the interface's box has focus: ",
+                     interfaceTakingTypedInput() ? "yes" : "no",
+                     ", the interface's box already took this press: ",
+                     interfaceConsumedKey(ImGuiKey_Enter) ? "yes" : "no",
+                     ", this client's chat input: ",
+                     chatPanel_.isChatInputActive() ? "active" : "idle");
+        } else {
+            LOG_WARNING("Chat key: opening ",
+                     frameXmlChat ? "the interface's box" : "this client's box");
+        }
+    }
+    // The interface's box gets this press first when it has focus, and Enter
+    // is where it says it is done: ChatEdit_OnEnterPressed sends the line and
+    // ends in ChatEdit_OnEscapePressed, which hides the box. That is also what
+    // clears the focus this poll's guard reads - so the press that sent the
+    // message opened the box again behind it.
     if (!io.WantTextInput && !chatPanel_.isChatInputActive() &&
+        !interfaceConsumedKey(ImGuiKey_Enter) &&
         KeybindingManager::getInstance().isActionPressed(KeybindingManager::Action::TOGGLE_CHAT, false)) {
-        chatPanel_.activateInput();
+        if (frameXmlChat) gameHandler.runInterfaceCommand("ChatFrame_OpenChat(\"\")");
+        else              chatPanel_.activateInput();
     }
 
-    const bool textFocus = chatPanel_.isChatInputActive() || io.WantTextInput;
+    // Anything at all is taking typed input: this client's chat box, an ImGui
+    // field, or one of the interface's own edit boxes.
+    //
+    // That third one was left out, and the block of game hotkeys further down
+    // asks only this. So every one of them fired while the player was typing
+    // into a FrameXML box - H opened the titles window from the middle of a
+    // mail recipient, C opened the character sheet, I the bags, and the digits
+    // fired action bar slots. The two places that had noticed named the
+    // interface's box separately, which is how the third came to be missing
+    // from the rest.
+    const bool textFocus = chatPanel_.isChatInputActive() || io.WantTextInput ||
+                           interfaceTakingTypedInput();
 
-    // Game hotkeys — gate on textFocus (chat/text-input active) rather than
+    // Game hotkeys - gate on textFocus (chat/text-input active) rather than
     // WantCaptureKeyboard so that toggle keys like M, C, I still work when an
     // ImGui window (character panel, map, etc.) happens to have focus.
     {
-        if (!textFocus && input.isKeyJustPressed(SDL_SCANCODE_TAB)) {
+        // Two guards, because Tab reaches a focused box two ways. While one
+        // holds focus the probe answers; when the box's own OnTabPressed moves
+        // to the next field, the box that had it has let go by the time this
+        // is asked - and cycling between two fields of a form would have
+        // changed the player's target on every press.
+        if (!textFocus &&
+            !interfaceConsumedKey(ImGuiKey_Tab) &&
+            input.isKeyJustPressed(SDL_SCANCODE_TAB)) {
             const auto& movement = gameHandler.getMovementInfo();
             gameHandler.tabTarget(movement.x, movement.y, movement.z);
         }
 
-        // Escape (TOGGLE_SETTINGS) must not fire while chat input is active —
+        // Escape (TOGGLE_SETTINGS) must not fire while chat input is active -
         // otherwise pressing Escape to close chat also closes any open window or
         // opens the escape menu, since ImGui deactivates InputText on Escape but
         // the same press still propagates here. KeybindingManager only blocks
         // A-Z/0-9 during text input, not Escape.
+        // Said out loud, at info, because this chain has now been read end to
+        // end five times without the fault appearing in it. Every link checks
+        // out on paper and the key still does nothing, which means the answer
+        // is which branch actually runs - and that is the one thing reading
+        // cannot tell you. One line per press, invisible unless someone asks
+        // for info, and it names the branch rather than the key.
+        //
+        // Asked of the key rather than of the binding, deliberately. The
+        // binding declines to fire while either interface is taking typed
+        // input, so routing this through it means a press that was swallowed
+        // for that reason produces no line - which reads exactly like a press
+        // that never arrived, and those are the two remaining explanations.
+        // Every press of the bound key now says something.
+        const ImGuiKey escapeKey = KeybindingManager::getInstance().getKeyForAction(
+            KeybindingManager::Action::TOGGLE_SETTINGS);
+        const bool escapePressed =
+            escapeKey != ImGuiKey_None && ImGui::IsKeyPressed(escapeKey, true);
+        // Nothing bound is its own explanation and looks identical to every
+        // other one from a log: no line at all. The keybindings are read from a
+        // config file that can rebind or clear this, and setKeyForAction turns
+        // a movement key into ImGuiKey_None outright - so "the action has no
+        // key" is a state the client can genuinely be in, and it would make
+        // Escape do nothing while every branch below remains correct.
+        //
+        // Said once rather than per frame, since it is a fact about the
+        // configuration and not about a press.
+        if (escapeKey == ImGuiKey_None) {
+            static bool saidUnbound = false;
+            if (!saidUnbound) {
+                saidUnbound = true;
+                LOG_WARNING("Escape: nothing is bound to the game-menu action, "
+                            "so no press can reach the chain");
+            }
+        }
+        if (escapePressed && textFocus) {
+            LOG_WARNING("Escape: swallowed before the chain - chat input ",
+                     chatPanel_.isChatInputActive() ? "active" : "idle",
+                     ", ImGui wants text: ", io.WantTextInput ? "yes" : "no",
+                     ", the interface's box has focus: ",
+                     interfaceTakingTypedInput() ? "yes" : "no");
+        }
         if (!textFocus &&
             KeybindingManager::getInstance().isActionPressed(KeybindingManager::Action::TOGGLE_SETTINGS, true)) {
-            if (settingsPanel_.showSettingsWindow) {
-                settingsPanel_.showSettingsWindow = false;
-            } else if (windowManager_.showEscapeMenu) {
-                windowManager_.showEscapeMenu = false;
-                settingsPanel_.showEscapeSettingsNotice = false;
-            } else if (gameHandler.isCasting()) {
-                gameHandler.cancelCast();
-            } else if (gameHandler.isLootWindowOpen()) {
-                gameHandler.closeLoot();
-            } else if (gameHandler.isGossipWindowOpen()) {
-                gameHandler.closeGossip();
-            } else if (gameHandler.isVendorWindowOpen()) {
-                gameHandler.closeVendor();
-            } else if (gameHandler.isBarberShopOpen()) {
-                gameHandler.closeBarberShop();
-            } else if (gameHandler.isBankOpen()) {
-                gameHandler.closeBank();
-            } else if (gameHandler.isGuildBankOpen()) {
-                gameHandler.closeGuildBank();
-            } else if (gameHandler.isTrainerWindowOpen()) {
-                gameHandler.closeTrainer();
-            } else if (gameHandler.isMailboxOpen()) {
-                gameHandler.closeMailbox();
-            } else if (gameHandler.isAuctionHouseOpen()) {
-                gameHandler.closeAuctionHouse();
-            } else if (gameHandler.isQuestDetailsOpen()) {
-                gameHandler.declineQuest();
-            } else if (gameHandler.isQuestOfferRewardOpen()) {
-                gameHandler.closeQuestOfferReward();
-            } else if (gameHandler.isQuestRequestItemsOpen()) {
-                gameHandler.closeQuestRequestItems();
-            } else if (gameHandler.isTradeOpen()) {
-                gameHandler.cancelTrade();
-            } else {
-                windowManager_.showEscapeMenu = true;
+            // Gathered, then decided, then done - rather than decided while
+            // being done. The order of these branches is the whole of what
+            // Escape means, and as a chain of else-if inside a draw there was
+            // no way to ask what the key would do without being in the
+            // situation. resolveEscape is that question on its own, and its
+            // test states each situation directly.
+            EscapeState st;
+            st.interfaceConsumedKey  = interfaceConsumedKey(ImGuiKey_Escape);
+            st.settingsWindowShown   = settingsPanel_.showSettingsWindow;
+            st.clientMenuShown       = windowManager_.showEscapeMenu;
+            st.casting               = gameHandler.isCasting();
+            st.lootOpen              = gameHandler.isLootWindowOpen();
+            st.gossipOpen            = gameHandler.isGossipWindowOpen();
+            st.vendorOpen            = gameHandler.isVendorWindowOpen();
+            st.barberShopOpen        = gameHandler.isBarberShopOpen();
+            st.bankOpen              = gameHandler.isBankOpen();
+            st.guildBankOpen         = gameHandler.isGuildBankOpen();
+            st.trainerOpen           = gameHandler.isTrainerWindowOpen();
+            st.mailboxOpen           = gameHandler.isMailboxOpen();
+            st.auctionHouseOpen      = gameHandler.isAuctionHouseOpen();
+            st.questDetailsOpen      = gameHandler.isQuestDetailsOpen();
+            st.questOfferRewardOpen  = gameHandler.isQuestOfferRewardOpen();
+            st.questRequestItemsOpen = gameHandler.isQuestRequestItemsOpen();
+            st.tradeOpen             = gameHandler.isTradeOpen();
+
+            const EscapeAction action = resolveEscape(st);
+            // At warning, like the three in the pump it pairs with.
+            //
+            // This chain has been read end to end more times than any other in
+            // the client and every link checks out on paper; what is missing is
+            // which branch actually runs, and that is the one thing reading
+            // cannot tell you. It was said at info, and the log a report
+            // arrives with is warnings only - so a session that reproduced
+            // "Escape does nothing" came back with no Escape line in it at all,
+            // and silence there meant nothing, because it is also exactly what
+            // a working press sounds like.
+            //
+            // One line per press, and Escape is not a key anyone holds down.
+            LOG_WARNING("Escape: ", escapeActionName(action),
+                        " (the interface owns the game menu: ",
+                        frameXmlOwns(UiElement::GameMenu) ? "yes" : "no", ")");
+            switch (action) {
+                case EscapeAction::CloseSettingsWindow:
+                    settingsPanel_.showSettingsWindow = false;
+                    break;
+                case EscapeAction::CloseClientMenu:
+                    windowManager_.showEscapeMenu = false;
+                    settingsPanel_.showEscapeSettingsNotice = false;
+                    break;
+                case EscapeAction::CancelCast:             gameHandler.cancelCast(); break;
+                case EscapeAction::CloseLoot:              gameHandler.closeLoot(); break;
+                case EscapeAction::CloseGossip:            gameHandler.closeGossip(); break;
+                case EscapeAction::CloseVendor:            gameHandler.closeVendor(); break;
+                case EscapeAction::CloseBarberShop:        gameHandler.closeBarberShop(); break;
+                case EscapeAction::CloseBank:              gameHandler.closeBank(); break;
+                case EscapeAction::CloseGuildBank:         gameHandler.closeGuildBank(); break;
+                case EscapeAction::CloseTrainer:           gameHandler.closeTrainer(); break;
+                case EscapeAction::CloseMailbox:           gameHandler.closeMailbox(); break;
+                case EscapeAction::CloseAuctionHouse:      gameHandler.closeAuctionHouse(); break;
+                case EscapeAction::DeclineQuest:           gameHandler.declineQuest(); break;
+                case EscapeAction::CloseQuestOfferReward:  gameHandler.closeQuestOfferReward(); break;
+                case EscapeAction::CloseQuestRequestItems: gameHandler.closeQuestRequestItems(); break;
+                case EscapeAction::CancelTrade:            gameHandler.cancelTrade(); break;
+                case EscapeAction::None: break;
+                case EscapeAction::AskTheInterface: {
+                    // Asked only here, because asking closes things. Everything
+                    // above is a window the *server* knows about and each has
+                    // to go through the client so the closing packet is sent -
+                    // CloseAllWindows would hide the frame and leave the server
+                    // believing the vendor was still open.
+                    //
+                    // In ToggleGameMenu's order, stopping at the first that
+                    // answers. A dropdown open over a panel has to go before
+                    // the panel does, or Escape closes the window out from
+                    // under the menu; the special windows are the list addons
+                    // add themselves to, and nothing has ever walked it.
+                    const bool closed = gameHandler.askInterface(
+                        "(CloseMenus and CloseMenus()) or "
+                        "(CloseSpecialWindows and CloseSpecialWindows()) or "
+                        "(CloseAllWindows and CloseAllWindows()) or false");
+                    const EscapeOutcome outcome = resolveAfterInterface(
+                        closed, frameXmlOwns(UiElement::GameMenu));
+                    // At warning, because this is the press the report is
+                    // about and the default log is warnings only.
+                    //
+                    // Every other branch of this chain speaks at info, so a
+                    // session that reproduces "Escape does nothing" came back
+                    // with no Escape line in it at all - and silence there
+                    // meant nothing, since it is also what a working press
+                    // sounds like. One line per press that gets this far, and
+                    // it names which of the two menus was chosen. If that line
+                    // is absent from a log where Escape was pressed with
+                    // nothing open, the key never reached this chain and the
+                    // fault is in the input path rather than here.
+                    if (outcome == EscapeOutcome::InterfaceClosedAPanel) {
+                        LOG_INFO("Escape: ", escapeOutcomeName(outcome));
+                    } else {
+                        LOG_WARNING("Escape: ", escapeOutcomeName(outcome));
+                    }
+                    switch (outcome) {
+                        case EscapeOutcome::InterfaceClosedAPanel:
+                            break;
+                        case EscapeOutcome::ToggleInterfaceMenu:
+                            // The interface's own way in, and the same function
+                            // its own Escape binding calls. This branch used to
+                            // set the flag behind *this* client's menu, and
+                            // that menu is only drawn while the element is not
+                            // handed over - so with it handed over, Escape set
+                            // a flag nobody read and nothing appeared.
+                            gameHandler.runInterfaceCommand("ToggleGameMenu()");
+                            // And whether it worked, which the line above
+                            // cannot say. Asked straight afterwards so the two
+                            // faults separate: shown but not on screen is a
+                            // drawing problem, not shown is a problem in
+                            // ToggleGameMenu - which runs clean headlessly.
+                            //
+                            // At warning when it did not work, because that is
+                            // the one outcome nobody would think to look for.
+                            // The whole of this chain has been read seven
+                            // times and every link checks out; the interface
+                            // side is settled too - headlessly ToggleGameMenu
+                            // shows GameMenuFrame at 195x240, visible, alpha
+                            // one, parented to UIParent. So the answer is in
+                            // the running client, and a line only the info
+                            // level shows is a line nobody has. This says it
+                            // where the default log will keep it.
+                            if (gameHandler.askInterface(
+                                    "GameMenuFrame and GameMenuFrame:IsShown()")) {
+                                LOG_INFO("Escape: the interface's menu is now shown");
+                            } else {
+                                LOG_WARNING(
+                                    "Escape: asked the interface for its game "
+                                    "menu and GameMenuFrame is still not shown "
+                                    "- ToggleGameMenu ran and left it hidden");
+                            }
+                            break;
+                        case EscapeOutcome::OpenClientMenu:
+                            windowManager_.showEscapeMenu = true;
+                            break;
+                    }
+                    break;
+                }
             }
         }
 
         if (!textFocus) {
             // Toggle character screen (C) and inventory/bags (I)
             if (KeybindingManager::getInstance().isActionPressed(KeybindingManager::Action::TOGGLE_CHARACTER_SCREEN)) {
-                const bool wasOpen = inventoryScreen.isCharacterOpen();
-                inventoryScreen.toggleCharacter();
-                if (!wasOpen && gameHandler.isConnected()) {
-                    gameHandler.requestPlayedTime();
+                // Whichever interface owns the character sheet is the one the
+                // key has to reach. Toggling this client's own state while
+                // FrameXML draws the window left the key doing nothing
+                // visible at all.
+                if (frameXmlOwns(UiElement::CharacterFrame)) {
+                    // Nothing, deliberately: the handover route table in
+                    // application.cpp already calls ToggleCharacter for this
+                    // key. Calling it here as well was the whole of the bug
+                    // reported three times. IsKeyPressed does not consume, so
+                    // both sites saw the same press and toggled in the same
+                    // frame - open, then shut, and nothing on screen. Every
+                    // link in the chain read correct because the chain was;
+                    // it simply ran twice.
+                    //
+                    // The other two handovers written here hid the same fault
+                    // by being broken: ToggleAllBags and ToggleWorldMap do not
+                    // exist in 3.3.5, so those calls did nothing and the route
+                    // table's single call was left to work.
+                } else {
+                    inventoryScreen.toggleCharacter();
                 }
+                if (gameHandler.isConnected()) gameHandler.requestPlayedTime();
             }
 
             if (KeybindingManager::getInstance().isActionPressed(KeybindingManager::Action::TOGGLE_INVENTORY)) {
-                inventoryScreen.toggle();
+                if (frameXmlOwns(UiElement::Bags)) {
+                    // ToggleAllBags is a later addition and is not in this
+                    // FrameXML, so this key did nothing at all once the bags
+                    // were handed over. OpenAllBags is 3.3.5's own name for
+                    // it, and it toggles rather than only opening.
+                    gameHandler.runInterfaceCommand("OpenAllBags()");
+                } else {
+                    inventoryScreen.toggle();
+                }
             }
 
             if (KeybindingManager::getInstance().isActionPressed(KeybindingManager::Action::TOGGLE_NAMEPLATES)) {
@@ -1187,11 +1649,27 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
             }
 
             if (KeybindingManager::getInstance().isActionPressed(KeybindingManager::Action::TOGGLE_WORLD_MAP)) {
-                showWorldMap_ = !showWorldMap_;
+                if (frameXmlOwns(UiElement::WorldMap)) {
+                    // Nothing: the route table owns this key too. The call
+                    // written here named ToggleWorldMap, which 3.3.5 does not
+                    // have, so it silently did nothing and left the map
+                    // working on the route table's single toggle.
+                } else {
+                    showWorldMap_ = !showWorldMap_;
+                }
             }
 
             if (KeybindingManager::getInstance().isActionPressed(KeybindingManager::Action::TOGGLE_MINIMAP)) {
                 showMinimap_ = !showMinimap_;
+                // This flag gates this client's marker pass, which is drawn
+                // over FrameXML's minimap on purpose rather than instead of it
+                // - so on its own the key hid the markers and left the minimap
+                // underneath them up. ToggleMinimap is what the interface's own
+                // TOGGLEMINIMAP binding calls, and it hides the frame the
+                // markers sit on, which is what makes the two agree.
+                if (frameXmlOwns(UiElement::Minimap)) {
+                    gameHandler.runInterfaceCommand("ToggleMinimap()");
+                }
             }
 
             if (KeybindingManager::getInstance().isActionPressed(KeybindingManager::Action::TOGGLE_RAID_FRAMES)) {
@@ -1199,20 +1677,30 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
             }
 
             if (KeybindingManager::getInstance().isActionPressed(KeybindingManager::Action::TOGGLE_ACHIEVEMENTS)) {
-                windowManager_.showAchievementWindow_ = !windowManager_.showAchievementWindow_;
+                if (frameXmlOwns(UiElement::Achievements)) {
+                    gameHandler.runInterfaceCommand("ToggleAchievementFrame()");
+                } else {
+                    windowManager_.showAchievementWindow_ = !windowManager_.showAchievementWindow_;
+                }
             }
             if (KeybindingManager::getInstance().isActionPressed(KeybindingManager::Action::TOGGLE_SKILLS)) {
-                windowManager_.showSkillsWindow_ = !windowManager_.showSkillsWindow_;
+                // The skills list is a tab of the character sheet in FrameXML
+                // rather than a window of its own.
+                if (frameXmlOwns(UiElement::CharacterFrame)) {
+                    gameHandler.runInterfaceCommand("ToggleCharacter(\"SkillFrame\")");
+                } else {
+                    windowManager_.showSkillsWindow_ = !windowManager_.showSkillsWindow_;
+                }
             }
 
-            // Toggle Titles window with H (hero/title screen — no conflicting keybinding)
+            // Toggle Titles window with H (hero/title screen - no conflicting keybinding)
             if (input.isKeyJustPressed(SDL_SCANCODE_H)) {
                 windowManager_.showTitlesWindow_ = !windowManager_.showTitlesWindow_;
             }
 
             // Screenshot (PrintScreen key)
             if (input.isKeyJustPressed(SDL_SCANCODE_PRINTSCREEN)) {
-                takeScreenshot(gameHandler);
+                takeScreenshot();
             }
 
             // Action bar keys (1-9, 0, -, =)
@@ -1277,7 +1765,9 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
     }
 
     // Cursor affordance: show hand cursor over interactable entities.
-    if (!io.WantCaptureMouse) {
+    // Not while the cursor is over a frame FrameXML owns: ImGui has never heard
+    // of those, so its own answer is no wherever they are.
+    if (!io.WantCaptureMouse && !frameXmlOwnsMouse()) {
         auto* renderer = services_.renderer;
         auto* camera = renderer ? renderer->getCamera() : nullptr;
         auto* window = services_.window;
@@ -1287,7 +1777,7 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
             float screenH = static_cast<float>(window->getHeight());
             rendering::Ray ray = camera->screenToWorldRay(mousePos.x, mousePos.y, screenW, screenH);
             // The same picker the click uses, so the cursor affordance cannot
-            // disagree with what clicking would actually select — including the
+            // disagree with what clicking would actually select - including the
             // tighter sphere critters get, which this copy did not have.
             const ui::ScenePick hoverPick =
                 ui::pickScene(gameHandler, ray, ui::ScenePickParams{});
@@ -1299,7 +1789,8 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
 
     // Left-click targeting: only on mouse-up if the mouse didn't drag (camera rotate)
     // Record press position on mouse-down
-    if (!io.WantCaptureMouse && input.isMouseButtonJustPressed(SDL_BUTTON_LEFT) && !input.isMouseButtonPressed(SDL_BUTTON_RIGHT)) {
+    if (!io.WantCaptureMouse && !frameXmlOwnsMouse() &&
+        input.isMouseButtonJustPressed(SDL_BUTTON_LEFT) && !input.isMouseButtonPressed(SDL_BUTTON_RIGHT)) {
         leftClickPressPos_ = input.getMousePosition();
         leftClickWasPress_ = true;
     }
@@ -1355,7 +1846,7 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
                         gameHandler.setTarget(closestGuid);
                     }
                 } else {
-                    // Clicked empty space — deselect current target
+                    // Clicked empty space - deselect current target
                     gameHandler.clearTarget();
                 }
             }
@@ -1364,9 +1855,10 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
 
     // Right-click: select NPC (if needed) then interact / loot / auto-attack.
     // Record the press position; the action only fires on release for a tap (below),
-    // never for a right-drag camera rotate — otherwise turning the view toward a nearby
+    // never for a right-drag camera rotate - otherwise turning the view toward a nearby
     // mob would auto-attack it without the player intending to engage.
-    if (!io.WantCaptureMouse && input.isMouseButtonJustPressed(SDL_BUTTON_RIGHT) && !input.isMouseButtonPressed(SDL_BUTTON_LEFT)) {
+    if (!io.WantCaptureMouse && !frameXmlOwnsMouse() &&
+        input.isMouseButtonJustPressed(SDL_BUTTON_RIGHT) && !input.isMouseButtonPressed(SDL_BUTTON_LEFT)) {
         rightClickPressPos_ = input.getMousePosition();
         rightClickWasPress_ = true;
     }
@@ -1377,7 +1869,7 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
         glm::vec2 rDragDelta = input.getMousePosition() - rightClickPressPos_;
         const float RCLICK_THRESHOLD = clickDragThreshold();
         if (glm::dot(rDragDelta, rDragDelta) >= RCLICK_THRESHOLD * RCLICK_THRESHOLD) {
-            // Treated as a camera rotate — do not interact/attack.
+            // Treated as a camera rotate - do not interact/attack.
             return;
         }
         // Fishing bobbers are tiny and partly submerged, so their model bounds can

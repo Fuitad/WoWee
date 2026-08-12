@@ -189,7 +189,7 @@ void TransportManager::registerTransport(uint64_t guid,
     // is turned 90° for it (renderYawM2go), while a WMO is placed unturned.
     // The transform below is rebuilt from scratch every frame, so a rotation
     // that skips the offset puts the model at right angles to where it was
-    // placed. Only route-less transports read this — a tangent-derived heading
+    // placed. Only route-less transports read this - a tangent-derived heading
     // carries its own convention and is left alone.
     transport.spawnYaw = spawnOrientation +
         (isM2 ? glm::half_pi<float>() : 0.0f);
@@ -267,12 +267,6 @@ void TransportManager::registerTransport(uint64_t guid,
                     " base=(", transport.basePosition.x, ",", transport.basePosition.y, ",", transport.basePosition.z, ")");
     }
 }
-
-void TransportManager::unregisterTransport(uint64_t guid) {
-    transports_.erase(guid);
-    LOG_INFO("TransportManager: Unregistered transport ", guid);
-}
-
 void TransportManager::clearTransports() {
     const size_t count = transports_.size();
     transports_.clear();
@@ -293,8 +287,8 @@ void TransportManager::resolveAndRegisterSpawn(uint64_t guid,
     uint32_t pathId = entry;
 
     // Check if we have a real usable path, otherwise remap/infer/fall back to stationary.
-    // Elevators used to be in this list — 807, 808, 2454 and 1587 are lifts,
-    // not airships — and the stricter "must travel 25 units" check below then
+    // Elevators used to be in this list - 807, 808, 2454 and 1587 are lifts,
+    // not airships - and the stricter "must travel 25 units" check below then
     // rejected their short vertical path, dropping them into the inference
     // that borrows a nearby route.
     const bool shipOrZeppelinDisplay = isVehicleTransportDisplay(displayId);
@@ -320,7 +314,7 @@ void TransportManager::resolveAndRegisterSpawn(uint64_t guid,
         // template data[0]), assigned by the GO-query hook. They must NOT infer a
         // nearby TransportAnimation.dbc path at spawn: a ship spawned in a harbour
         // can otherwise borrow an unrelated local animation loop (e.g. an elevator)
-        // and circle in place until — or unless — its taxi path arrives. The ship
+        // and circle in place until - or unless - its taxi path arrives. The ship
         // guard in pickFallbackMovingPath already returns 0 for these displays; skip
         // inference too so the same guard actually holds, leaving the ship docked.
         const bool looksLikeShip = isOceanGoingTransportDisplay(displayId);
@@ -377,7 +371,7 @@ glm::vec3 TransportManager::getPlayerWorldPosition(uint64_t transportGuid, const
     auto* transport = getTransport(transportGuid);
     if (!transport) {
         LOG_WARNING("getPlayerWorldPosition: transport 0x", std::hex, transportGuid, std::dec,
-                    " not found — returning localOffset as-is (callers should guard)");
+                    " not found - returning localOffset as-is (callers should guard)");
         return localOffset;
     }
 
@@ -486,15 +480,6 @@ std::optional<float> TransportManager::getTransportDeckFloorHeight(
     if (!floor || normalZ < 0.55f) return std::nullopt;
     return floor;
 }
-
-glm::mat4 TransportManager::getTransportInvTransform(uint64_t transportGuid) {
-    auto* transport = getTransport(transportGuid);
-    if (!transport) {
-        return glm::mat4(1.0f);  // Identity fallback
-    }
-    return transport->invTransform;
-}
-
 void TransportManager::loadPathFromNodes(uint32_t pathId, const std::vector<glm::vec3>& waypoints, bool looping, float speed) {
     pathRepo_.loadPathFromNodes(pathId, waypoints, looping, speed);
 }
@@ -569,7 +554,7 @@ void TransportManager::pushTransform(ActiveTransport& transport) {
             // Tell the static-world floor query this deck is in motion, so it
             // only counts as a floor when it is underfoot. Set here rather than
             // once at register so it survives an instance rebuild from
-            // streaming — the call is idempotent and cheap.
+            // streaming - the call is idempotent and cheap.
             wmoRenderer_->setInstanceIsTransport(transport.wmoInstanceId, true);
         }
     }
@@ -617,7 +602,7 @@ void TransportManager::updateServerTransport(uint64_t guid, const glm::vec3& pos
     }
 
     if (!pathEntry || pathEntry->spline.durationMs() == 0) {
-        // No path or stationary — handle directly before delegating to ClockSync.
+        // No path or stationary - handle directly before delegating to ClockSync.
         // Still track update count so future path assignments work.
         transport->serverUpdateCount++;
         transport->lastServerUpdate = elapsedTime_;

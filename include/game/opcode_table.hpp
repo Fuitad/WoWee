@@ -66,7 +66,6 @@ private:
 
     std::unordered_map<uint16_t, uint16_t> wireToLogical_;   // wire → LogicalOpcode (sparse)
 
-    static std::optional<LogicalOpcode> nameToLogical(const std::string& name);
 };
 
 /**

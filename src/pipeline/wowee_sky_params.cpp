@@ -1,4 +1,5 @@
 #include "pipeline/wowee_sky_params.hpp"
+#include "pipeline/wowee_binary_io.hpp"
 
 #include <algorithm>
 #include <cstdio>
@@ -12,52 +13,7 @@ namespace {
 
 constexpr char kMagic[4] = {'W', 'S', 'K', 'P'};
 constexpr uint32_t kVersion = 1;
-
-template <typename T>
-void writePOD(std::ofstream& os, const T& v) {
-    os.write(reinterpret_cast<const char*>(&v), sizeof(T));
-}
-
-template <typename T>
-bool readPOD(std::ifstream& is, T& v) {
-    is.read(reinterpret_cast<char*>(&v), sizeof(T));
-    return is.gcount() == static_cast<std::streamsize>(sizeof(T));
-}
-
-void writeStr(std::ofstream& os, const std::string& s) {
-    uint32_t n = static_cast<uint32_t>(s.size());
-    writePOD(os, n);
-    if (n > 0) os.write(s.data(), n);
-}
-
-bool readStr(std::ifstream& is, std::string& s) {
-    uint32_t n = 0;
-    if (!readPOD(is, n)) return false;
-    if (n > (1u << 20)) return false;
-    s.resize(n);
-    if (n > 0) {
-        is.read(s.data(), n);
-        if (is.gcount() != static_cast<std::streamsize>(n)) {
-            s.clear();
-            return false;
-        }
-    }
-    return true;
-}
-
-std::string normalizePath(std::string base) {
-    if (base.size() < 5 || base.substr(base.size() - 5) != ".wskp") {
-        base += ".wskp";
-    }
-    return base;
-}
-
-uint32_t packRgba(uint8_t r, uint8_t g, uint8_t b, uint8_t a = 0xFF) {
-    return (static_cast<uint32_t>(a) << 24) |
-           (static_cast<uint32_t>(b) << 16) |
-           (static_cast<uint32_t>(g) << 8)  |
-            static_cast<uint32_t>(r);
-}
+constexpr char kExtension[] = ".wskp";
 
 } // namespace
 
@@ -84,15 +40,9 @@ WoweeSkyParams::findByArea(uint32_t mapId,
 }
 
 bool WoweeSkyParamsLoader::save(const WoweeSkyParams& cat,
-                                  const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath), std::ios::binary);
-    if (!os) return false;
-    os.write(kMagic, 4);
-    writePOD(os, kVersion);
-    writeStr(os, cat.name);
-    uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writePOD(os, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeSkyParams::Entry& e) {
         writePOD(os, e.skyId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -113,32 +63,15 @@ bool WoweeSkyParamsLoader::save(const WoweeSkyParams& cat,
         writePOD(os, e.pad3);
         writePOD(os, e.pad4);
         writePOD(os, e.iconColorRGBA);
-    }
-    return os.good();
+                       });
 }
 
 WoweeSkyParams WoweeSkyParamsLoader::load(
     const std::string& basePath) {
-    WoweeSkyParams out;
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    if (!is) return out;
-    char magic[4];
-    is.read(magic, 4);
-    if (std::memcmp(magic, kMagic, 4) != 0) return out;
-    uint32_t version = 0;
-    if (!readPOD(is, version) || version != kVersion) return out;
-    if (!readStr(is, out.name)) return out;
-    uint32_t entryCount = 0;
-    if (!readPOD(is, entryCount)) return out;
-    if (entryCount > (1u << 20)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.skyId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name) || !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
+    return loadCatalog<WoweeSkyParams>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeSkyParams::Entry& e) {
+        if (!readPOD(is, e.skyId)) { return false; }
+        if (!readStr(is, e.name) || !readStr(is, e.description)) { return false; }
         if (!readPOD(is, e.mapId) ||
             !readPOD(is, e.areaId) ||
             !readPOD(is, e.timeOfDayHour) ||
@@ -155,16 +88,13 @@ WoweeSkyParams WoweeSkyParamsLoader::load(
             !readPOD(is, e.cloudSpeedX10) ||
             !readPOD(is, e.pad3) ||
             !readPOD(is, e.pad4) ||
-            !readPOD(is, e.iconColorRGBA)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.iconColorRGBA)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeSkyParamsLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeSkyParams WoweeSkyParamsLoader::makeStormwindDay(
@@ -199,7 +129,7 @@ WoweeSkyParams WoweeSkyParamsLoader::makeStormwindDay(
         packRgba(220, 160, 100),     // peach horizon
         packRgba(255, 220, 180),     // warm sun
         90.0f, 80.0f, 600.0f, 100, 25,
-        "Stormwind 6AM — sun at horizon (90deg "
+        "Stormwind 6AM - sun at horizon (90deg "
         "azimuth). Lavender zenith fading to peach. "
         "Light morning fog at 80yd.");
     add(2, "StormwindNoon",  12,
@@ -207,14 +137,14 @@ WoweeSkyParams WoweeSkyParamsLoader::makeStormwindDay(
         packRgba(180, 210, 240),     // pale horizon
         packRgba(255, 250, 230),     // bright sun
         180.0f, 200.0f, 800.0f, 80, 30,
-        "Stormwind noon — sun overhead (180deg). "
+        "Stormwind noon - sun overhead (180deg). "
         "Bright cyan-blue zenith, faint cloud layer.");
     add(3, "StormwindDusk",  18,
         packRgba(140, 100, 180),     // dusk purple
         packRgba(240, 140,  60),     // orange horizon
         packRgba(255, 180, 100),     // sunset sun
         270.0f, 70.0f, 500.0f, 120, 35,
-        "Stormwind 6PM — sun setting at western "
+        "Stormwind 6PM - sun setting at western "
         "horizon. Purple zenith fading to orange. "
         "Slightly heavier cloud layer.");
     add(4, "StormwindMidnight", 0,
@@ -222,7 +152,7 @@ WoweeSkyParams WoweeSkyParamsLoader::makeStormwindDay(
         packRgba( 30,  40,  80),     // navy horizon
         packRgba(180, 180, 220),     // moon
         180.0f, 60.0f, 400.0f, 60, 20,
-        "Stormwind midnight — moon at zenith. "
+        "Stormwind midnight - moon at zenith. "
         "Deep blue-black sky, short fog distance for "
         "intimate night feel.");
     return c;
@@ -261,7 +191,7 @@ WoweeSkyParams WoweeSkyParamsLoader::makeNorthrendArctic(
         packRgba(220, 200, 220),
         packRgba(220, 230, 240),
         90.0f, 50.0f, 350.0f, 200, 70,
-        "Arctic 6AM — pale steel-blue with weak peachy "
+        "Arctic 6AM - pale steel-blue with weak peachy "
         "horizon. Dense ice-fog at 50yd. Strong wind "
         "(7mph cloud drift).");
     add(101, "ArcticNoon", 12,
@@ -269,22 +199,22 @@ WoweeSkyParams WoweeSkyParamsLoader::makeNorthrendArctic(
         packRgba(200, 220, 240),
         packRgba(255, 255, 240),
         180.0f, 100.0f, 500.0f, 180, 60,
-        "Arctic noon — bright but flat steel-blue sky. "
+        "Arctic noon - bright but flat steel-blue sky. "
         "Snow glare from sun.");
     add(102, "ArcticDusk", 18,
         packRgba(100, 130, 180),
         packRgba(180, 140, 160),
         packRgba(220, 200, 200),
         270.0f, 40.0f, 300.0f, 220, 80,
-        "Arctic 6PM — pale violet zenith with washed-"
+        "Arctic 6PM - pale violet zenith with washed-"
         "rose horizon. Maximum fog density (300yd).");
     add(103, "ArcticMidnight", 0,
         packRgba( 20,  30,  60),
         packRgba( 40,  60,  80),
         packRgba(200, 220, 240),
         180.0f, 30.0f, 250.0f, 240, 50,
-        "Arctic midnight — near-pitch dark with cold "
-        "moon. Minimum fog visibility (30yd start) — "
+        "Arctic midnight - near-pitch dark with cold "
+        "moon. Minimum fog visibility (30yd start) - "
         "blizzard-style whiteout.");
     return c;
 }
@@ -321,23 +251,23 @@ WoweeSkyParams WoweeSkyParamsLoader::makeOutlandHellfire(
         packRgba(240, 120,  60),     // orange horizon
         packRgba(255, 200, 100),
         90.0f, 250.0f, 1200.0f, 120, 40,
-        "Hellfire 6AM — sky is permanently smoke-tinged. "
+        "Hellfire 6AM - sky is permanently smoke-tinged. "
         "Crimson zenith with orange horizon. Long sight "
-        "distance (1200yd) — Outland is sparse.");
+        "distance (1200yd) - Outland is sparse.");
     add(201, "OutlandNoon",  12,
         packRgba(200, 100,  80),
         packRgba(220, 160, 100),
         packRgba(255, 230, 180),
         180.0f, 300.0f, 1500.0f, 100, 35,
-        "Hellfire noon — peak orange sky, bright sun "
+        "Hellfire noon - peak orange sky, bright sun "
         "with maximum visibility.");
     add(202, "OutlandSunset", 18,
         packRgba(220,  80,  60),     // scarlet
         packRgba(240, 100,  40),     // deep orange
         packRgba(255, 160, 100),
         270.0f, 200.0f, 1000.0f, 140, 45,
-        "Hellfire sunset — most dramatic time, sky "
-        "fully scarlet. No midnight keyframe — Outland "
+        "Hellfire sunset - most dramatic time, sky "
+        "fully scarlet. No midnight keyframe - Outland "
         "is permanently lit by the gravitational anomaly "
         "of the Twisting Nether visible at zenith.");
     return c;

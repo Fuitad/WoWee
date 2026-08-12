@@ -18,42 +18,14 @@ Clouds::~Clouds() {
     shutdown();
 }
 
-bool Clouds::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout) {
-    LOG_INFO("Initializing cloud system (Vulkan)");
-
-    vkCtx_ = ctx;
-    VkDevice device = vkCtx_->getDevice();
-
-    // ------------------------------------------------------------------ shaders
-    VkShaderModule vertModule;
-    if (!vertModule.loadFromFile(device, "assets/shaders/clouds.vert.spv")) {
-        LOG_ERROR("Failed to load clouds vertex shader");
-        return false;
-    }
-
-    VkShaderModule fragModule;
-    if (!fragModule.loadFromFile(device, "assets/shaders/clouds.frag.spv")) {
-        LOG_ERROR("Failed to load clouds fragment shader");
-        return false;
-    }
-
-    VkPipelineShaderStageCreateInfo vertStage = vertModule.stageInfo(VK_SHADER_STAGE_VERTEX_BIT);
-    VkPipelineShaderStageCreateInfo fragStage = fragModule.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT);
-
-    // ------------------------------------------------------------------ push constants
-    // Fragment-only push: 3 x vec4 = 48 bytes
-    VkPushConstantRange pushRange{};
-    pushRange.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-    pushRange.offset     = 0;
-    pushRange.size       = sizeof(CloudPush); // 48 bytes
-
-    // ------------------------------------------------------------------ pipeline layout
-    pipelineLayout_ = createPipelineLayout(device, {perFrameLayout}, {pushRange});
-    if (pipelineLayout_ == VK_NULL_HANDLE) {
-        LOG_ERROR("Failed to create clouds pipeline layout");
-        return false;
-    }
-
+/// Builds the one pipeline this effect draws with.
+///
+/// initialize() and recreatePipelines() both need it, described identically,
+/// and the vertex layout went with it: a stride and an attribute stated twice
+/// in one file are two chances to disagree about what a vertex is.
+void Clouds::buildPipeline(VkDevice device,
+                           const VkPipelineShaderStageCreateInfo& vertStage,
+                           const VkPipelineShaderStageCreateInfo& fragStage) {
     // ------------------------------------------------------------------ vertex input
     VkVertexInputBindingDescription binding{};
     binding.binding   = 0;
@@ -66,10 +38,7 @@ bool Clouds::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout) {
     posAttr.format   = VK_FORMAT_R32G32B32_SFLOAT;
     posAttr.offset   = 0;
 
-    std::vector<VkDynamicState> dynamicStates = {
-        VK_DYNAMIC_STATE_VIEWPORT,
-        VK_DYNAMIC_STATE_SCISSOR
-    };
+    std::vector<VkDynamicState> dynamicStates = viewportAndScissorDynamic();
 
     // ------------------------------------------------------------------ pipeline
     pipeline_ = PipelineBuilder()
@@ -85,8 +54,36 @@ bool Clouds::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout) {
         .setDynamicStates(dynamicStates)
         .build(device, vkCtx_->getPipelineCache());
 
-    vertModule.destroy();
-    fragModule.destroy();
+
+}
+
+bool Clouds::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout) {
+    LOG_INFO("Initializing cloud system (Vulkan)");
+
+    vkCtx_ = ctx;
+    VkDevice device = vkCtx_->getDevice();
+
+    // ------------------------------------------------------------------ shaders
+    auto shaders = loadShaderPair(device, "assets/shaders/clouds.vert.spv", "assets/shaders/clouds.frag.spv", "clouds");
+    if (!shaders) return false;
+    const auto& vertStage = shaders.vertStage;
+    const auto& fragStage = shaders.fragStage;
+
+    // ------------------------------------------------------------------ push constants
+    // Fragment-only push: 3 x vec4 = 48 bytes
+    VkPushConstantRange pushRange{};
+    pushRange.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    pushRange.offset     = 0;
+    pushRange.size       = sizeof(CloudPush); // 48 bytes
+
+    // ------------------------------------------------------------------ pipeline layout
+    pipelineLayout_ = createPipelineLayout(device, {perFrameLayout}, {pushRange});
+    if (pipelineLayout_ == VK_NULL_HANDLE) {
+        LOG_ERROR("Failed to create clouds pipeline layout");
+        return false;
+    }
+
+    buildPipeline(device, vertStage, fragStage);
 
     if (pipeline_ == VK_NULL_HANDLE) {
         LOG_ERROR("Failed to create clouds pipeline");
@@ -105,58 +102,14 @@ void Clouds::recreatePipelines() {
     if (!vkCtx_) return;
     VkDevice device = vkCtx_->getDevice();
 
-    if (pipeline_ != VK_NULL_HANDLE) { vkDestroyPipeline(device, pipeline_, nullptr); pipeline_ = VK_NULL_HANDLE; }
+    destroy(device, pipeline_);
 
-    VkShaderModule vertModule;
-    if (!vertModule.loadFromFile(device, "assets/shaders/clouds.vert.spv")) {
-        LOG_ERROR("Clouds::recreatePipelines: failed to load vertex shader");
-        return;
-    }
-    VkShaderModule fragModule;
-    if (!fragModule.loadFromFile(device, "assets/shaders/clouds.frag.spv")) {
-        LOG_ERROR("Clouds::recreatePipelines: failed to load fragment shader");
-        vertModule.destroy();
-        return;
-    }
+    auto shaders = loadShaderPair(device, "assets/shaders/clouds.vert.spv", "assets/shaders/clouds.frag.spv", "clouds");
+    if (!shaders) return;
+    const auto& vertStage = shaders.vertStage;
+    const auto& fragStage = shaders.fragStage;
 
-    VkPipelineShaderStageCreateInfo vertStage = vertModule.stageInfo(VK_SHADER_STAGE_VERTEX_BIT);
-    VkPipelineShaderStageCreateInfo fragStage = fragModule.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT);
-
-    VkVertexInputBindingDescription binding{};
-    binding.binding   = 0;
-    binding.stride    = sizeof(glm::vec3);
-    binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-    VkVertexInputAttributeDescription posAttr{};
-    posAttr.location = 0;
-    posAttr.binding  = 0;
-    posAttr.format   = VK_FORMAT_R32G32B32_SFLOAT;
-    posAttr.offset   = 0;
-
-    std::vector<VkDynamicState> dynamicStates = {
-        VK_DYNAMIC_STATE_VIEWPORT,
-        VK_DYNAMIC_STATE_SCISSOR
-    };
-
-    pipeline_ = PipelineBuilder()
-        .setShaders(vertStage, fragStage)
-        .setVertexInput({binding}, {posAttr})
-        .setTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
-        .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
-        .setDepthTest(true, false, VK_COMPARE_OP_LESS_OR_EQUAL)
-        .setColorBlendAttachment(PipelineBuilder::blendAlpha())
-        .setMultisample(vkCtx_->getMsaaSamples())
-        .setLayout(pipelineLayout_)
-        .setRenderPass(vkCtx_->getImGuiRenderPass())
-        .setDynamicStates(dynamicStates)
-        .build(device, vkCtx_->getPipelineCache());
-
-    vertModule.destroy();
-    fragModule.destroy();
-
-    if (pipeline_ == VK_NULL_HANDLE) {
-        LOG_ERROR("Clouds::recreatePipelines: failed to create pipeline");
-    }
+    buildPipeline(device, vertStage, fragStage);
 }
 
 void Clouds::shutdown() {
@@ -164,14 +117,8 @@ void Clouds::shutdown() {
 
     if (vkCtx_) {
         VkDevice device = vkCtx_->getDevice();
-        if (pipeline_ != VK_NULL_HANDLE) {
-            vkDestroyPipeline(device, pipeline_, nullptr);
-            pipeline_ = VK_NULL_HANDLE;
-        }
-        if (pipelineLayout_ != VK_NULL_HANDLE) {
-            vkDestroyPipelineLayout(device, pipelineLayout_, nullptr);
-            pipelineLayout_ = VK_NULL_HANDLE;
-        }
+        destroy(device, pipeline_);
+        destroy(device, pipelineLayout_);
     }
 
     vkCtx_ = nullptr;
@@ -191,7 +138,7 @@ void Clouds::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const SkyP
     cloudBaseColor = glm::clamp(cloudBaseColor, glm::vec3(0.0f), glm::vec3(1.0f));
 
     // Sun direction (opposite of light direction). Guard the hemisphere like
-    // Celestial/SkySystem do — directionalDir's sign convention is not stable,
+    // Celestial/SkySystem do - directionalDir's sign convention is not stable,
     // and a flipped vector puts the cloud scatter glow opposite the real sun.
     glm::vec3 sunDir = -glm::normalize(params.directionalDir);
     if (sunDir.z < 0.0f) sunDir = -sunDir;
@@ -200,7 +147,7 @@ void Clouds::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const SkyP
     // Sun intensity based on elevation
     float sunIntensity = sunAboveHorizon;
 
-    // Ambient light — brighter during day, dimmer at night
+    // Ambient light - brighter during day, dimmer at night
     float ambient = glm::mix(0.3f, 0.7f, sunAboveHorizon);
 
     CloudPush push{};
@@ -244,14 +191,14 @@ void Clouds::setDensity(float density) {
 }
 
 // ---------------------------------------------------------------------------
-// Mesh generation — identical algorithm to GL version
+// Mesh generation - identical algorithm to GL version
 // ---------------------------------------------------------------------------
 
 void Clouds::generateMesh() {
     vertices_.clear();
     indices_.clear();
 
-    // Upper hemisphere — Z-up world: altitude goes into Z, horizontal spread in X/Y
+    // Upper hemisphere - Z-up world: altitude goes into Z, horizontal spread in X/Y
     for (int ring = 0; ring <= RINGS; ++ring) {
         float phi        = (ring / static_cast<float>(RINGS)) * (static_cast<float>(M_PI) * 0.5f);
         float altZ       = RADIUS * std::cos(phi);
@@ -314,16 +261,8 @@ void Clouds::destroyBuffers() {
 
     VmaAllocator allocator = vkCtx_->getAllocator();
 
-    if (vertexBuffer_ != VK_NULL_HANDLE) {
-        vmaDestroyBuffer(allocator, vertexBuffer_, vertexAlloc_);
-        vertexBuffer_ = VK_NULL_HANDLE;
-        vertexAlloc_  = VK_NULL_HANDLE;
-    }
-    if (indexBuffer_ != VK_NULL_HANDLE) {
-        vmaDestroyBuffer(allocator, indexBuffer_, indexAlloc_);
-        indexBuffer_ = VK_NULL_HANDLE;
-        indexAlloc_  = VK_NULL_HANDLE;
-    }
+    destroy(allocator, vertexBuffer_, vertexAlloc_);
+    destroy(allocator, indexBuffer_, indexAlloc_);
 }
 
 } // namespace rendering

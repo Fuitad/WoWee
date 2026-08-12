@@ -8,7 +8,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Light format (.wol) — novel replacement for WoW's
+// Wowee Open Light format (.wol) - novel replacement for WoW's
 // Light.dbc / LightParams.dbc / LightIntBand.dbc / LightFloatBand.dbc
 // stack. A WOL file holds a list of time-of-day keyframes for one
 // zone, each capturing the ambient + directional + fog state at that
@@ -59,7 +59,7 @@ public:
     // file users can edit.
     static WoweeLight makeDefaultDayNight(const std::string& zoneName);
 
-    // Preset variants for non-outdoor zones — these emit a
+    // Preset variants for non-outdoor zones - these emit a
     // single-keyframe WOL since the lighting doesn't vary by
     // time-of-day for an enclosed scene.
     //

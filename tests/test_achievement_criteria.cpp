@@ -10,7 +10,7 @@
 // Nothing about that fails loudly. The panel drew a number for every criteria
 // and the numbers were wrong, which is only visible to someone who knows what
 // the right one is. So the layout is pinned here against packets built the way
-// AzerothCore builds them — appendPackGUID and all.
+// AzerothCore builds them - appendPackGUID and all.
 
 #include <catch_amalgamated.hpp>
 

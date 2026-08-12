@@ -1,4 +1,5 @@
 #include "pipeline/wowee_action_bars.hpp"
+#include "pipeline/wowee_binary_io.hpp"
 
 #include <algorithm>
 #include <cstdio>
@@ -12,52 +13,7 @@ namespace {
 
 constexpr char kMagic[4] = {'W', 'A', 'C', 'T'};
 constexpr uint32_t kVersion = 1;
-
-template <typename T>
-void writePOD(std::ofstream& os, const T& v) {
-    os.write(reinterpret_cast<const char*>(&v), sizeof(T));
-}
-
-template <typename T>
-bool readPOD(std::ifstream& is, T& v) {
-    is.read(reinterpret_cast<char*>(&v), sizeof(T));
-    return is.gcount() == static_cast<std::streamsize>(sizeof(T));
-}
-
-void writeStr(std::ofstream& os, const std::string& s) {
-    uint32_t n = static_cast<uint32_t>(s.size());
-    writePOD(os, n);
-    if (n > 0) os.write(s.data(), n);
-}
-
-bool readStr(std::ifstream& is, std::string& s) {
-    uint32_t n = 0;
-    if (!readPOD(is, n)) return false;
-    if (n > (1u << 20)) return false;
-    s.resize(n);
-    if (n > 0) {
-        is.read(s.data(), n);
-        if (is.gcount() != static_cast<std::streamsize>(n)) {
-            s.clear();
-            return false;
-        }
-    }
-    return true;
-}
-
-std::string normalizePath(std::string base) {
-    if (base.size() < 5 || base.substr(base.size() - 5) != ".wact") {
-        base += ".wact";
-    }
-    return base;
-}
-
-uint32_t packRgba(uint8_t r, uint8_t g, uint8_t b, uint8_t a = 0xFF) {
-    return (static_cast<uint32_t>(a) << 24) |
-           (static_cast<uint32_t>(b) << 16) |
-           (static_cast<uint32_t>(g) << 8)  |
-            static_cast<uint32_t>(r);
-}
+constexpr char kExtension[] = ".wact";
 
 constexpr uint32_t CLS_WARRIOR = 1u << 0;
 constexpr uint32_t CLS_HUNTER  = 1u << 2;
@@ -101,15 +57,9 @@ const char* WoweeActionBar::barModeName(uint8_t m) {
 }
 
 bool WoweeActionBarLoader::save(const WoweeActionBar& cat,
-                                 const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath), std::ios::binary);
-    if (!os) return false;
-    os.write(kMagic, 4);
-    writePOD(os, kVersion);
-    writeStr(os, cat.name);
-    uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writePOD(os, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeActionBar::Entry& e) {
         writePOD(os, e.bindingId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -121,31 +71,15 @@ bool WoweeActionBarLoader::save(const WoweeActionBar& cat,
         writePOD(os, e.pad0);
         writePOD(os, e.pad1);
         writePOD(os, e.iconColorRGBA);
-    }
-    return os.good();
+                       });
 }
 
-WoweeActionBar WoweeActionBarLoader::load(const std::string& basePath) {
-    WoweeActionBar out;
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    if (!is) return out;
-    char magic[4];
-    is.read(magic, 4);
-    if (std::memcmp(magic, kMagic, 4) != 0) return out;
-    uint32_t version = 0;
-    if (!readPOD(is, version) || version != kVersion) return out;
-    if (!readStr(is, out.name)) return out;
-    uint32_t entryCount = 0;
-    if (!readPOD(is, entryCount)) return out;
-    if (entryCount > (1u << 20)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.bindingId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name) || !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
+WoweeActionBar WoweeActionBarLoader::load(
+    const std::string& basePath) {
+    return loadCatalog<WoweeActionBar>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeActionBar::Entry& e) {
+        if (!readPOD(is, e.bindingId)) { return false; }
+        if (!readStr(is, e.name) || !readStr(is, e.description)) { return false; }
         if (!readPOD(is, e.classMask) ||
             !readPOD(is, e.spellId) ||
             !readPOD(is, e.itemId) ||
@@ -153,16 +87,13 @@ WoweeActionBar WoweeActionBarLoader::load(const std::string& basePath) {
             !readPOD(is, e.barMode) ||
             !readPOD(is, e.pad0) ||
             !readPOD(is, e.pad1) ||
-            !readPOD(is, e.iconColorRGBA)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.iconColorRGBA)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeActionBarLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeActionBar WoweeActionBarLoader::makeWarrior(
@@ -181,27 +112,27 @@ WoweeActionBar WoweeActionBarLoader::makeWarrior(
         e.iconColorRGBA = packRgba(220, 60, 60);    // warrior red
         c.entries.push_back(e);
     };
-    // Warrior starter bindings — 10 abilities on slots 0-9.
+    // Warrior starter bindings - 10 abilities on slots 0-9.
     add(1,  "WarriorBtn0_HeroicStrike",  0, 78,
-        "Heroic Strike — replaces next melee swing.");
+        "Heroic Strike - replaces next melee swing.");
     add(2,  "WarriorBtn1_Charge",        1, 100,
-        "Charge — close gap from out of combat.");
+        "Charge - close gap from out of combat.");
     add(3,  "WarriorBtn2_Rend",          2, 772,
-        "Rend — physical bleed DoT.");
+        "Rend - physical bleed DoT.");
     add(4,  "WarriorBtn3_ThunderClap",   3, 6343,
-        "Thunder Clap — AoE damage + attack speed slow.");
+        "Thunder Clap - AoE damage + attack speed slow.");
     add(5,  "WarriorBtn4_BattleShout",   4, 6673,
-        "Battle Shout — party-wide attack power buff.");
+        "Battle Shout - party-wide attack power buff.");
     add(6,  "WarriorBtn5_SunderArmor",   5, 7386,
-        "Sunder Armor — armor reduction stack.");
+        "Sunder Armor - armor reduction stack.");
     add(7,  "WarriorBtn6_MockingBlow",   6, 694,
-        "Mocking Blow — taunt single target.");
+        "Mocking Blow - taunt single target.");
     add(8,  "WarriorBtn7_Hamstring",     7, 1715,
-        "Hamstring — movement-speed slow.");
+        "Hamstring - movement-speed slow.");
     add(9,  "WarriorBtn8_OverPower",     8, 7384,
-        "Overpower — instant strike after enemy dodge.");
+        "Overpower - instant strike after enemy dodge.");
     add(10, "WarriorBtn9_VictoryRush",   9, 34428,
-        "Victory Rush — instant strike after a kill.");
+        "Victory Rush - instant strike after a kill.");
     return c;
 }
 
@@ -222,25 +153,25 @@ WoweeActionBar WoweeActionBarLoader::makeMage(
         c.entries.push_back(e);
     };
     add(100, "MageBtn0_Fireball",     0, 133,
-        "Fireball — primary fire-school spell.");
+        "Fireball - primary fire-school spell.");
     add(101, "MageBtn1_Frostbolt",    1, 116,
-        "Frostbolt — primary frost-school spell with chill.");
+        "Frostbolt - primary frost-school spell with chill.");
     add(102, "MageBtn2_FrostNova",    2, 122,
-        "Frost Nova — AoE root and minor damage.");
+        "Frost Nova - AoE root and minor damage.");
     add(103, "MageBtn3_Polymorph",    3, 118,
-        "Polymorph — single-target sheep CC.");
+        "Polymorph - single-target sheep CC.");
     add(104, "MageBtn4_MageArmor",    4, 6117,
-        "Mage Armor — passive resistance + mana regen.");
+        "Mage Armor - passive resistance + mana regen.");
     add(105, "MageBtn5_ArcaneIntellect",5, 1459,
-        "Arcane Intellect — party-wide Intellect buff.");
+        "Arcane Intellect - party-wide Intellect buff.");
     add(106, "MageBtn6_Counterspell", 6, 2139,
-        "Counterspell — interrupt + 8s school lockout.");
+        "Counterspell - interrupt + 8s school lockout.");
     add(107, "MageBtn7_Blink",        7, 1953,
-        "Blink — 20y forward teleport, breaks roots.");
+        "Blink - 20y forward teleport, breaks roots.");
     add(108, "MageBtn8_FireBlast",    8, 2136,
-        "Fire Blast — instant fire damage, off-GCD trigger.");
+        "Fire Blast - instant fire damage, off-GCD trigger.");
     add(109, "MageBtn9_ConjureWater", 9, 5504,
-        "Conjure Water — create mana-restoring water stack.");
+        "Conjure Water - create mana-restoring water stack.");
     return c;
 }
 
@@ -256,33 +187,33 @@ WoweeActionBar WoweeActionBarLoader::makeHunterPet(
         e.classMask = CLS_HUNTER;
         e.spellId = spell;
         e.buttonSlot = slot;
-        // Pet bar — separate from main bar.
+        // Pet bar - separate from main bar.
         e.barMode = A::Pet;
         e.iconColorRGBA = packRgba(100, 200, 100);   // pet green
         c.entries.push_back(e);
     };
-    // Hunter pet bar — 10 standard slots on the dedicated
+    // Hunter pet bar - 10 standard slots on the dedicated
     // Pet bar mode (slots 0-9).
     add(200, "PetBtn0_Attack",        0,  2649,
-        "Attack — sic pet on current target.");
+        "Attack - sic pet on current target.");
     add(201, "PetBtn1_Follow",        1, 23110,
-        "Follow — recall pet to stand behind owner.");
+        "Follow - recall pet to stand behind owner.");
     add(202, "PetBtn2_Stay",          2,  6991,
-        "Stay — hold position, no auto-attack.");
+        "Stay - hold position, no auto-attack.");
     add(203, "PetBtn3_Aggressive",    3,  2106,
-        "Aggressive stance — auto-engage nearby hostiles.");
+        "Aggressive stance - auto-engage nearby hostiles.");
     add(204, "PetBtn4_Defensive",     4,  2104,
-        "Defensive stance — retaliate when hit.");
+        "Defensive stance - retaliate when hit.");
     add(205, "PetBtn5_Passive",       5,  2105,
-        "Passive stance — never auto-engage.");
+        "Passive stance - never auto-engage.");
     add(206, "PetBtn6_Bite",          6, 17253,
-        "Bite — pet's primary damage ability.");
+        "Bite - pet's primary damage ability.");
     add(207, "PetBtn7_Claw",          7, 16827,
-        "Claw — alt damage ability for cat/raptor families.");
+        "Claw - alt damage ability for cat/raptor families.");
     add(208, "PetBtn8_Growl",         8,  2649,
-        "Growl — pet's taunt ability.");
+        "Growl - pet's taunt ability.");
     add(209, "PetBtn9_DismissPet",    9,  2641,
-        "Dismiss Pet — return active pet to the stable.");
+        "Dismiss Pet - return active pet to the stable.");
     return c;
 }
 

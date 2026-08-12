@@ -27,7 +27,7 @@ struct DecodedWavCacheEntry {
 };
 
 static std::unordered_map<uint64_t, DecodedWavCacheEntry> gDecodedWavCache;
-// Protects gDecodedWavCache — shared_lock for reads, unique_lock for writes.
+// Protects gDecodedWavCache - shared_lock for reads, unique_lock for writes.
 // Required because playSound2D() can be called from multiple threads
 // (main thread, async loaders, animation callbacks).
 static std::shared_mutex gDecodedWavCacheMutex;
@@ -59,7 +59,7 @@ static bool decodeWavCached(const std::vector<uint8_t>& wavData, DecodedWavCache
 
     const uint64_t key = makeWavCacheKey(wavData);
 
-    // Fast path: shared (read) lock for cache hits — allows concurrent lookups.
+    // Fast path: shared (read) lock for cache hits - allows concurrent lookups.
     {
         std::shared_lock<std::shared_mutex> readLock(gDecodedWavCacheMutex);
         if (auto it = gDecodedWavCache.find(key); it != gDecodedWavCache.end()) {
@@ -112,7 +112,7 @@ static bool decodeWavCached(const std::vector<uint8_t>& wavData, DecodedWavCache
     // Evict oldest half when cache grows too large. 256 entries ≈ 50-100 MB of decoded
     // PCM data depending on file lengths; halving keeps memory bounded while retaining
     // recently-heard sounds (footsteps, UI clicks, combat hits) for instant replay.
-    // Exclusive (write) lock — only one thread can evict + insert.
+    // Exclusive (write) lock - only one thread can evict + insert.
     {
         std::lock_guard<std::shared_mutex> writeLock(gDecodedWavCacheMutex);
         // Re-check in case another thread inserted while we were decoding.
@@ -193,6 +193,13 @@ bool AudioEngine::initialize() {
     return true;
 }
 
+std::string AudioEngine::getOutputDeviceName() const {
+    if (!initialized_ || !engine_) return {};
+    const ma_device* device = ma_engine_get_device(const_cast<ma_engine*>(engine_));
+    if (!device || device->playback.name[0] == '\0') return {};
+    return device->playback.name;
+}
+
 void AudioEngine::shutdown() {
     if (!initialized_) {
         return;
@@ -262,7 +269,7 @@ bool AudioEngine::playSound2D(const std::vector<uint8_t>& wavData, float volume,
         decoded.pcmData->data(),
         nullptr  // No custom allocator
     );
-    // Must set explicitly — miniaudio defaults to device sample rate, which causes
+    // Must set explicitly - miniaudio defaults to device sample rate, which causes
     // pitch distortion if it differs from the file's native rate (e.g. 22050 vs 44100 Hz).
     bufferConfig.sampleRate = decoded.sampleRate;
 
@@ -419,7 +426,7 @@ bool AudioEngine::playSound3D(const std::vector<uint8_t>& wavData, const glm::ve
         decoded.pcmData->data(),
         nullptr
     );
-    // Must set explicitly — miniaudio defaults to device sample rate, which causes
+    // Must set explicitly - miniaudio defaults to device sample rate, which causes
     // pitch distortion if it differs from the file's native rate (e.g. 22050 vs 44100 Hz).
     bufferConfig.sampleRate = decoded.sampleRate;
 
@@ -620,7 +627,7 @@ void AudioEngine::update(float deltaTime) {
         return;
     }
 
-    // Clean up finished sounds — swap-and-pop avoids the O(N) shift that
+    // Clean up finished sounds - swap-and-pop avoids the O(N) shift that
     // vector::erase does for each removal (and the ref-count atomics in
     // ActiveSound's shared_ptr made that shift noticeably more expensive).
     for (size_t i = 0; i < activeSounds_.size(); ) {

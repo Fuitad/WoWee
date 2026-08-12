@@ -1,9 +1,9 @@
 #!/bin/bash
-# Windows cross-compile entrypoint — runs INSIDE the windows container.
+# Windows cross-compile entrypoint - runs INSIDE the windows container.
 # Toolchain: LLVM-MinGW (Clang + LLD), target: x86_64-w64-mingw32-ucrt
 # Bind-mounts:
-#   /src  (ro) — project source
-#   /out  (rw) — host ./build/windows
+#   /src  (ro) - project source
+#   /out  (rw) - host ./build/windows
 
 set -euo pipefail
 
@@ -15,7 +15,7 @@ TARGET=x86_64-w64-mingw32
 # vcpkg's MinGW applocal hook always appends a powershell.exe post-build step to
 # copy DLLs next to each binary, even when VCPKG_APPLOCAL_DEPS=OFF.  For the
 # x64-mingw-static triplet the bin/ dir is empty (no DLLs) so the script does
-# nothing — but it still needs to exit 0.  Provide a no-op stub if the real
+# nothing - but it still needs to exit 0.  Provide a no-op stub if the real
 # PowerShell isn't available.
 if ! command -v powershell.exe &>/dev/null; then
     printf '#!/bin/sh\nexit 0\n' > /usr/local/bin/powershell.exe
@@ -57,7 +57,7 @@ echo "==> [windows] Generating Vulkan import library for cross-compile..."
 # The cross-compile toolchain only ships Vulkan *headers* (via vcpkg), not the
 # import library.  Generate a minimal libvulkan-1.a from the header prototypes
 # so the linker can resolve vk* symbols → vulkan-1.dll at runtime.
-# We use the host libvulkan-dev header for function name extraction — the Vulkan
+# We use the host libvulkan-dev header for function name extraction - the Vulkan
 # API prototypes are platform-independent.
 VULKAN_IMP_DIR="${OUT}/vulkan-import"
 if [ ! -f "${VULKAN_IMP_DIR}/libvulkan-1.a" ]; then

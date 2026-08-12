@@ -1,4 +1,4 @@
-// WorldLoader — terrain streaming, map transitions, world preloading
+// WorldLoader - terrain streaming, map transitions, world preloading
 // Extracted from Application as part of god-class decomposition (Section 3.3)
 
 #include "core/world_loader.hpp"
@@ -77,10 +77,7 @@ void spawnInstancePortalVisuals(uint32_t mapId,
         pipeline::M2Model model = pipeline::M2Loader::load(m2Data);
         model.name = kPortalModelName;
 
-        std::string skinPath = std::string(kPortalPath);
-        size_t dotPos = skinPath.rfind('.');
-        if (dotPos != std::string::npos) skinPath = skinPath.substr(0, dotPos);
-        skinPath += "00.skin";
+        const std::string skinPath = pipeline::skinPathForM2(std::string(kPortalPath));
         auto skinData = assetManager->readFile(skinPath);
         if (!skinData.empty() && model.version >= 264) {
             pipeline::M2Loader::loadSkin(skinData, model);
@@ -176,7 +173,7 @@ const char* WorldLoader::mapDisplayName(uint32_t mapId) {
 
 const char* WorldLoader::mapIdToName(uint32_t mapId) {
     // Fallback when Map.dbc is unavailable. Names must match WDT directory names
-    // (case-insensitive — AssetManager lowercases all paths).
+    // (case-insensitive - AssetManager lowercases all paths).
     switch (mapId) {
         // Continents
         case 0: return "Azeroth";
@@ -266,16 +263,6 @@ const char* WorldLoader::mapIdToName(uint32_t mapId) {
         default: return "";
     }
 }
-
-int WorldLoader::mapNameToId(const std::string& name) {
-    // Reverse lookup: iterate known continent IDs and match against mapIdToName.
-    static constexpr uint32_t kContinentIds[] = {0, 1, 530, 571};
-    for (uint32_t id : kContinentIds) {
-        if (name == mapIdToName(id)) return static_cast<int>(id);
-    }
-    return -1;
-}
-
 void WorldLoader::processPendingEntry() {
     if (!pendingWorldEntry_ || loadingWorld_) return;
     auto entry = *pendingWorldEntry_;
@@ -295,279 +282,27 @@ void WorldLoader::processPendingEntry() {
     loadOnlineWorldTerrain(entry.mapId, entry.x, entry.y, entry.z);
 }
 
-void WorldLoader::loadOnlineWorldTerrain(uint32_t mapId, float x, float y, float z) {
-    if (!renderer_ || !assetManager_ || !assetManager_->isInitialized()) {
-        LOG_WARNING("Cannot load online terrain: renderer or assets not ready");
-        return;
-    }
+// Read the map's WDT, then load either its root WMO or its terrain tiles, and
+// precompute what the player will stand on.
+//
+// The longest step of a world load by far, which is why it carries the loading
+// screen with it: several of the stages inside take long enough that the window
+// would stop answering between them.
+void WorldLoader::LoadingUi::pump() const {
+    if (!ok || !screen || !window) return;
+    screen->render();
+    window->swapBuffers();
+}
 
-    // Guard against re-entrant calls. The worldEntryCallback defers new
-    // entries while this flag is set; we process them at the end.
-    loadingWorld_ = true;
-    pendingWorldEntry_.reset();
-
-    // --- Loading screen for online mode ---
-    rendering::LoadingScreen loadingScreen;
-    loadingScreen.setVkContext(window_->getVkContext());
-    loadingScreen.setSDLWindow(window_->getSDLWindow());
-    bool loadingScreenOk = loadingScreen.initialize();
-
-    auto showProgress = [&](const char* msg, float progress) {
-        SDL_Event event;
-        while (SDL_PollEvent(&event)) {
-            if (event.type == SDL_QUIT) {
-                window_->setShouldClose(true);
-                loadingScreen.shutdown();
-                return;
-            }
-            if (event.type == SDL_WINDOWEVENT &&
-                event.window.event == SDL_WINDOWEVENT_RESIZED) {
-                int w = event.window.data1;
-                int h = event.window.data2;
-                window_->setSize(w, h);
-                // Vulkan viewport set in command buffer
-                if (renderer_ && renderer_->getCamera()) {
-                    renderer_->getCamera()->setAspectRatio(static_cast<float>(w) / h);
-                }
-            }
-        }
-        // The world load blocks the main loop for over a second while presenting its
-        // own frames. Beat the watchdog so it does not read a healthy load as a hang
-        // and force-release the player's mouse capture.
-        app_.beatWatchdog();
-        if (!loadingScreenOk) return;
-        loadingScreen.setStatus(msg);
-        loadingScreen.setProgress(progress);
-        loadingScreen.render();
-        window_->swapBuffers();
-    };
-
-    // Set zone name on loading screen — prefer friendly display name, then DBC
-    {
-        const char* friendly = mapDisplayName(mapId);
-        if (friendly) {
-            loadingScreen.setZoneName(friendly);
-        } else if (gameHandler_) {
-            std::string dbcName = gameHandler_->getMapName(mapId);
-            if (!dbcName.empty())
-                loadingScreen.setZoneName(dbcName);
-            else
-                loadingScreen.setZoneName("Loading...");
-        }
-    }
-
-    showProgress("Entering world...", 0.0f);
-
-    // --- Clean up previous map's state on map change ---
-    // (Same cleanup as logout, but preserves player identity and renderer objects.)
-    LOG_DEBUG("loadOnlineWorldTerrain: mapId=", mapId, " loadedMapId_=", loadedMapId_);
-    bool hasRendererData = renderer_ && (renderer_->getWMORenderer() || renderer_->getM2Renderer());
-    if (loadedMapId_ != 0xFFFFFFFF || hasRendererData) {
-        LOG_WARNING("Map change: cleaning up old map ", loadedMapId_, " before loading map ", mapId);
-
-        // Clear pending queues first (these don't touch GPU resources)
-        entitySpawner_->clearAllQueues();
-
-        // Transport GUIDs are reused across maps (for example, Undercity elevator
-        // GUIDs become Deeprun tram GUIDs). The renderer instances are map-local,
-        // so the logical transport/path state must be map-local too; otherwise a
-        // newly spawned SubwayCar is rebound to the old elevator path.
-        if (gameHandler_) {
-            gameHandler_->clearPlayerTransport();
-            if (auto* tm = gameHandler_->getTransportManager()) {
-                tm->clearTransports();
-            }
-        }
-
-        if (renderer_) {
-            // Clear all world geometry from old map (including textures/models).
-            // WMO clearAll and M2 clear both call vkDeviceWaitIdle internally,
-            // ensuring no GPU command buffers reference old resources.
-            if (auto* wmo = renderer_->getWMORenderer()) {
-                wmo->clearAll();
-            }
-            if (auto* m2 = renderer_->getM2Renderer()) {
-                m2->clear();
-            }
-
-            // Full clear of character renderer: removes all instances, models,
-            // textures, and resets descriptor pools. This prevents stale GPU
-            // resources from accumulating across map changes (old creature
-            // models, bone buffers, texture descriptor sets) which can cause
-            // VK_ERROR_DEVICE_LOST on some drivers.
-            if (auto* cr = renderer_->getCharacterRenderer()) {
-                cr->clear();
-                renderer_->setCharacterFollow(0);
-            }
-            // Reset equipment dirty tracking so composited textures are rebuilt
-            // after spawnPlayerCharacter() recreates the character instance.
-            if (gameHandler_) {
-                gameHandler_->resetEquipmentDirtyTracking();
-            }
-
-            if (auto* terrain = renderer_->getTerrainManager()) {
-                terrain->softReset();
-                terrain->setStreamingEnabled(true);  // Re-enable in case previous map disabled it
-            }
-            if (auto* questMarkers = renderer_->getQuestMarkerRenderer()) {
-                questMarkers->clear();
-            }
-            if (auto* footprints = renderer_->getFootprintRenderer()) {
-                footprints->clear();
-            }
-            if (auto* ac = renderer_->getAnimationController()) ac->clearMount();
-        }
-
-        // Clear application-level instance tracking (after renderer cleanup)
-        entitySpawner_->resetAllState();
-
-        // Force player character re-spawn on new map
-        app_.playerCharacterSpawned = false;
-    }
-
-    // Resolve map folder name from Map.dbc (authoritative for world/instance maps).
-    // This is required for instances like DeeprunTram (map 369) that are not Azeroth/Kalimdor.
-    if (!mapNameCacheLoaded_ && assetManager_) {
-        mapNameCacheLoaded_ = true;
-        if (auto mapDbc = assetManager_->loadDBC("Map.dbc"); mapDbc && mapDbc->isLoaded()) {
-            mapNameById_.reserve(mapDbc->getRecordCount());
-            const auto* mapL = pipeline::getActiveDBCLayout() ? pipeline::getActiveDBCLayout()->getLayout("Map") : nullptr;
-            for (uint32_t i = 0; i < mapDbc->getRecordCount(); i++) {
-                uint32_t id = mapDbc->getUInt32(i, mapL ? (*mapL)["ID"] : 0);
-                std::string internalName = mapDbc->getString(i, mapL ? (*mapL)["InternalName"] : 1);
-                if (!internalName.empty() && mapNameById_.find(id) == mapNameById_.end()) {
-                    mapNameById_[id] = std::move(internalName);
-                }
-            }
-            LOG_INFO("Loaded Map.dbc map-name cache: ", mapNameById_.size(), " entries");
-        } else {
-            LOG_WARNING("Map.dbc not available; using fallback map-id mapping");
-        }
-    }
-
-    std::string mapName;
-    if (auto it = mapNameById_.find(mapId); it != mapNameById_.end()) {
-        mapName = it->second;
-    } else {
-        mapName = mapIdToName(mapId);
-    }
-    if (mapName.empty()) {
-        LOG_WARNING("Unknown mapId ", mapId, " (no Map.dbc entry); falling back to Azeroth");
-        mapName = "Azeroth";
-    }
-    LOG_INFO("Loading online world terrain for map '", mapName, "' (ID ", mapId, ")");
-
-    // Cancel any stale preload (if it was for a different map, the file cache
-    // still retains whatever was loaded — it doesn't hurt).
-    if (worldPreload_) {
-        if (worldPreload_->mapId == mapId) {
-            LOG_INFO("World preload: cache-warm hit for map '", mapName, "'");
-        } else {
-            LOG_INFO("World preload: map mismatch (preloaded ", worldPreload_->mapName,
-                     ", entering ", mapName, ")");
-        }
-    }
-    cancelWorldPreload();
-
-    // Save this world info for next session's early preload
-    saveLastWorldInfo(mapId, mapName, x, y);
-
-    // Convert server coordinates to canonical WoW coordinates
-    // Server sends: X=West (canonical.Y), Y=North (canonical.X), Z=Up
-    glm::vec3 spawnCanonical = core::coords::serverToCanonical(glm::vec3(x, y, z));
-    glm::vec3 spawnRender = core::coords::canonicalToRender(spawnCanonical);
-
-    // Set camera position and facing from server orientation
-    float spawnYawDeg = 0.0f;
-    if (gameHandler_) {
-        float canonicalYaw = gameHandler_->getMovementInfo().orientation;
-        spawnYawDeg = core::coords::canonicalToCharacterYawDeg(canonicalYaw);
-    }
-    if (renderer_->getCameraController()) {
-        renderer_->getCameraController()->setOnlineMode(true);
-        renderer_->getCameraController()->setDefaultSpawn(spawnRender, spawnYawDeg, -15.0f);
-        renderer_->getCameraController()->reset();
-    }
-    renderer_->setCharacterYaw(spawnYawDeg);
-
-    // Set map name for WMO renderer and reset instance mode
-    if (renderer_->getWMORenderer()) {
-        renderer_->getWMORenderer()->setMapName(mapName);
-        renderer_->getWMORenderer()->setWMOOnlyMap(false);
-    }
-
-    // Set map name for terrain manager
-    if (renderer_->getTerrainManager()) {
-        renderer_->getTerrainManager()->setMapName(mapName);
-    }
-
-    // NOTE: TransportManager renderer connection moved to after initializeRenderers (later in this function)
-
-    // Connect WMORenderer to M2Renderer (for hierarchical transforms: doodads following WMO parents)
-    if (renderer_->getWMORenderer() && renderer_->getM2Renderer()) {
-        renderer_->getWMORenderer()->setM2Renderer(renderer_->getM2Renderer());
-        LOG_INFO("WMORenderer connected to M2Renderer for hierarchical doodad transforms");
-    }
-
-    showProgress("Loading character model...", 0.05f);
-
-    // Build faction hostility map for this character's race
-    if (gameHandler_) {
-        const game::Character* activeChar = gameHandler_->getActiveCharacter();
-        if (activeChar) {
-            app_.buildFactionHostilityMap(static_cast<uint8_t>(activeChar->race));
-        }
-    }
-
-    // Spawn player model for online mode (skip if already spawned, e.g. teleport)
-    if (gameHandler_) {
-        const game::Character* activeChar = gameHandler_->getActiveCharacter();
-        if (activeChar) {
-            const uint64_t activeGuid = gameHandler_->getActiveCharacterGuid();
-            const bool appearanceChanged =
-                (activeGuid != app_.spawnedPlayerGuid_) ||
-                (activeChar->appearanceBytes != app_.spawnedAppearanceBytes_) ||
-                (activeChar->facialFeatures != app_.spawnedFacialFeatures_) ||
-                (activeChar->race != app_.playerRace_) ||
-                (activeChar->gender != app_.playerGender_) ||
-                (activeChar->characterClass != app_.playerClass_);
-
-            if (!app_.playerCharacterSpawned || appearanceChanged) {
-                if (appearanceChanged) {
-                    LOG_INFO("Respawning player model for new/changed character: guid=0x",
-                             std::hex, activeGuid, std::dec);
-                }
-                // Remove old instance so we don't keep stale visuals.
-                if (renderer_ && renderer_->getCharacterRenderer()) {
-                    uint32_t oldInst = renderer_->getCharacterInstanceId();
-                    if (oldInst > 0) {
-                        renderer_->setCharacterFollow(0);
-                        if (auto* ac = renderer_->getAnimationController()) ac->clearMount();
-                        renderer_->getCharacterRenderer()->removeInstance(oldInst);
-                    }
-                }
-                app_.playerCharacterSpawned = false;
-                app_.spawnedPlayerGuid_ = 0;
-                app_.spawnedAppearanceBytes_ = 0;
-                app_.spawnedFacialFeatures_ = 0;
-
-                app_.playerRace_ = activeChar->race;
-                app_.playerGender_ = activeChar->gender;
-                app_.playerClass_ = activeChar->characterClass;
-                app_.spawnSnapToGround = false;
-                if (appearanceComposer_) appearanceComposer_->setWeaponsSheathed(false);
-                if (appearanceComposer_) appearanceComposer_->loadEquippedWeapons(); // will no-op until instance exists
-                app_.spawnPlayerCharacter();
-            }
-            renderer_->getCharacterPosition() = spawnRender;
-            LOG_INFO("Online player at render pos (", spawnRender.x, ", ", spawnRender.y, ", ", spawnRender.z, ")");
-        } else {
-            LOG_WARNING("No active character found for player model spawning");
-        }
-    }
-
-    showProgress("Loading terrain...", 0.20f);
-
+void WorldLoader::loadMapGeometry(uint32_t mapId, const std::string& mapName,
+                                  const glm::vec3& spawnCanonical,
+                                  const glm::vec3& spawnRender,
+                                  const LoadingUi& ui) {
+    const auto& showProgress = ui.showProgress;
+    // The tile loader below drives the screen itself rather than through pump(),
+    // because it also writes the per-tile status line.
+    auto* loadingScreen = ui.screen;
+    const bool loadingScreenOk = ui.ok;
     // Check WDT to detect WMO-only maps (dungeons, raids, BGs)
     bool isWMOOnlyMap = false;
     pipeline::WDTInfo wdtInfo;
@@ -588,7 +323,7 @@ void WorldLoader::loadOnlineWorldTerrain(uint32_t mapId, float x, float y, float
 
     if (isWMOOnlyMap) {
         // ---- WMO-only map (dungeon/raid/BG): load root WMO directly ----
-        LOG_DEBUG("WMO-only map detected — loading root WMO: ", wdtInfo.rootWMOPath);
+        LOG_DEBUG("WMO-only map detected - loading root WMO: ", wdtInfo.rootWMOPath);
         showProgress("Loading instance geometry...", 0.25f);
 
         // Initialize renderers if they don't exist yet (first login to a WMO-only map).
@@ -739,13 +474,7 @@ void WorldLoader::loadOnlineWorldTerrain(uint32_t mapId, float x, float y, float
                                 std::string m2Path = nameIt->second;
                                 if (m2Path.empty()) continue;
 
-                                if (m2Path.size() > 4) {
-                                    std::string ext = m2Path.substr(m2Path.size() - 4);
-                                    for (char& c : ext) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-                                    if (ext == ".mdx" || ext == ".mdl") {
-                                        m2Path = m2Path.substr(0, m2Path.size() - 4) + ".m2";
-                                    }
-                                }
+                                m2Path = pipeline::modelPathToM2(m2Path);
 
                                 std::vector<uint8_t> m2Data = assetManager_->readFile(m2Path);
                                 if (m2Data.empty()) continue;
@@ -753,7 +482,7 @@ void WorldLoader::loadOnlineWorldTerrain(uint32_t mapId, float x, float y, float
                                 pipeline::M2Model m2Model = pipeline::M2Loader::load(m2Data);
                                 m2Model.name = m2Path;
 
-                                std::string skinPath = m2Path.substr(0, m2Path.size() - 3) + "00.skin";
+                                std::string skinPath = pipeline::skinPathForM2(m2Path);
                                 std::vector<uint8_t> skinData = assetManager_->readFile(skinPath);
                                 if (!skinData.empty() && m2Model.version >= 264) {
                                     pipeline::M2Loader::loadSkin(skinData, m2Model);
@@ -790,11 +519,11 @@ void WorldLoader::loadOnlineWorldTerrain(uint32_t mapId, float x, float y, float
 
             // Build collision cache for the instance WMO
             showProgress("Building collision cache...", 0.88f);
-            if (loadingScreenOk) { loadingScreen.render(); window_->swapBuffers(); }
+            ui.pump();
             wmoRenderer->loadFloorCache();
             if (wmoRenderer->getFloorCacheSize() == 0) {
                 showProgress("Computing walkable surfaces...", 0.90f);
-                if (loadingScreenOk) { loadingScreen.render(); window_->swapBuffers(); }
+                ui.pump();
                 wmoRenderer->precomputeFloorCache();
             }
         }
@@ -873,7 +602,7 @@ void WorldLoader::loadOnlineWorldTerrain(uint32_t mapId, float x, float y, float
             // then restore the full radius after entering the game.
             // This matches WoW's behavior: load quickly, stream the rest in-game.
             const int savedLoadRadius = 6;
-            terrainMgr->setLoadRadius(4);   // 9x9=81 tiles — prevents hitches on spawn
+            terrainMgr->setLoadRadius(4);   // 9x9=81 tiles - prevents hitches on spawn
             terrainMgr->setUnloadRadius(9);
 
             // Trigger tile streaming for surrounding area
@@ -897,7 +626,7 @@ void WorldLoader::loadOnlineWorldTerrain(uint32_t mapId, float x, float y, float
                 while (SDL_PollEvent(&event)) {
                     if (event.type == SDL_QUIT) {
                         window_->setShouldClose(true);
-                        loadingScreen.shutdown();
+                        loadingScreen->shutdown();
                         return;
                     }
                     if (event.type == SDL_WINDOWEVENT &&
@@ -912,7 +641,7 @@ void WorldLoader::loadOnlineWorldTerrain(uint32_t mapId, float x, float y, float
                     }
                 }
 
-                // Trigger new streaming — enqueue tiles for background workers
+                // Trigger new streaming - enqueue tiles for background workers
                 terrainMgr->update(*camera, 0.016f);
 
                 // Process ONE tile per iteration so the progress bar updates
@@ -941,9 +670,9 @@ void WorldLoader::loadOnlineWorldTerrain(uint32_t mapId, float x, float y, float
                 }
 
                 if (loadingScreenOk) {
-                    loadingScreen.setStatus(buf);
-                    loadingScreen.setProgress(progress);
-                    loadingScreen.render();
+                    loadingScreen->setStatus(buf);
+                    loadingScreen->setProgress(progress);
+                    loadingScreen->render();
                     window_->swapBuffers();
                 }
 
@@ -964,7 +693,7 @@ void WorldLoader::loadOnlineWorldTerrain(uint32_t mapId, float x, float y, float
                     break;
                 }
 
-                // Don't sleep if there are more tiles to finalize — keep processing
+                // Don't sleep if there are more tiles to finalize - keep processing
                 if (remaining > 0 && terrainMgr->getReadyQueueCount() == 0) {
                     SDL_Delay(16);
                 }
@@ -972,22 +701,306 @@ void WorldLoader::loadOnlineWorldTerrain(uint32_t mapId, float x, float y, float
 
             LOG_INFO("Online terrain streaming complete: ", terrainMgr->getLoadedTileCount(), " tiles loaded");
 
-            // Restore full load radius — remaining tiles stream in-game
+            // Restore full load radius - remaining tiles stream in-game
             terrainMgr->setLoadRadius(savedLoadRadius);
 
             // Load/precompute collision cache
             if (renderer_->getWMORenderer()) {
                 showProgress("Building collision cache...", 0.88f);
-                if (loadingScreenOk) { loadingScreen.render(); window_->swapBuffers(); }
+                ui.pump();
                 renderer_->getWMORenderer()->loadFloorCache();
                 if (renderer_->getWMORenderer()->getFloorCacheSize() == 0) {
                     showProgress("Computing walkable surfaces...", 0.90f);
-                    if (loadingScreenOk) { loadingScreen.render(); window_->swapBuffers(); }
+                    ui.pump();
                     renderer_->getWMORenderer()->precomputeFloorCache();
                 }
             }
         }
     }
+}
+
+void WorldLoader::loadOnlineWorldTerrain(uint32_t mapId, float x, float y, float z) {
+    if (!renderer_ || !assetManager_ || !assetManager_->isInitialized()) {
+        LOG_WARNING("Cannot load online terrain: renderer or assets not ready");
+        return;
+    }
+
+    // Guard against re-entrant calls. The worldEntryCallback defers new
+    // entries while this flag is set; we process them at the end.
+    loadingWorld_ = true;
+    pendingWorldEntry_.reset();
+
+    // --- Loading screen for online mode ---
+    rendering::LoadingScreen loadingScreen;
+    loadingScreen.setVkContext(window_->getVkContext());
+    loadingScreen.setSDLWindow(window_->getSDLWindow());
+    bool loadingScreenOk = loadingScreen.initialize();
+
+    auto showProgress = [&](const char* msg, float progress) {
+        SDL_Event event;
+        while (SDL_PollEvent(&event)) {
+            if (event.type == SDL_QUIT) {
+                window_->setShouldClose(true);
+                loadingScreen.shutdown();
+                return;
+            }
+            if (event.type == SDL_WINDOWEVENT &&
+                event.window.event == SDL_WINDOWEVENT_RESIZED) {
+                int w = event.window.data1;
+                int h = event.window.data2;
+                window_->setSize(w, h);
+                // Vulkan viewport set in command buffer
+                if (renderer_ && renderer_->getCamera()) {
+                    renderer_->getCamera()->setAspectRatio(static_cast<float>(w) / h);
+                }
+            }
+        }
+        // The world load blocks the main loop for over a second while presenting its
+        // own frames. Beat the watchdog so it does not read a healthy load as a hang
+        // and force-release the player's mouse capture.
+        app_.beatWatchdog();
+        if (!loadingScreenOk) return;
+        loadingScreen.setStatus(msg);
+        loadingScreen.setProgress(progress);
+        loadingScreen.render();
+        window_->swapBuffers();
+    };
+
+    // Everything a slow step needs to keep the screen alive.
+    LoadingUi loadingUi;
+    loadingUi.screen = &loadingScreen;
+    loadingUi.window = window_;
+    loadingUi.ok = loadingScreenOk;
+    loadingUi.showProgress = showProgress;
+
+    // Set zone name on loading screen - prefer friendly display name, then DBC
+    {
+        const char* friendly = mapDisplayName(mapId);
+        if (friendly) {
+            loadingScreen.setZoneName(friendly);
+        } else if (gameHandler_) {
+            std::string dbcName = gameHandler_->getMapName(mapId);
+            if (!dbcName.empty())
+                loadingScreen.setZoneName(dbcName);
+            else
+                loadingScreen.setZoneName("Loading...");
+        }
+    }
+
+    showProgress("Entering world...", 0.0f);
+
+    // --- Clean up previous map's state on map change ---
+    // (Same cleanup as logout, but preserves player identity and renderer objects.)
+    LOG_DEBUG("loadOnlineWorldTerrain: mapId=", mapId, " loadedMapId_=", loadedMapId_);
+    bool hasRendererData = renderer_ && (renderer_->getWMORenderer() || renderer_->getM2Renderer());
+    if (loadedMapId_ != 0xFFFFFFFF || hasRendererData) {
+        LOG_WARNING("Map change: cleaning up old map ", loadedMapId_, " before loading map ", mapId);
+
+        // Clear pending queues first (these don't touch GPU resources)
+        entitySpawner_->clearAllQueues();
+
+        // Transport GUIDs are reused across maps (for example, Undercity elevator
+        // GUIDs become Deeprun tram GUIDs). The renderer instances are map-local,
+        // so the logical transport/path state must be map-local too; otherwise a
+        // newly spawned SubwayCar is rebound to the old elevator path.
+        if (gameHandler_) {
+            gameHandler_->clearPlayerTransport();
+            if (auto* tm = gameHandler_->getTransportManager()) {
+                tm->clearTransports();
+            }
+        }
+
+        if (renderer_) {
+            // Clear all world geometry from old map (including textures/models).
+            // WMO clearAll and M2 clear both call vkDeviceWaitIdle internally,
+            // ensuring no GPU command buffers reference old resources.
+            if (auto* wmo = renderer_->getWMORenderer()) {
+                wmo->clearAll();
+            }
+            if (auto* m2 = renderer_->getM2Renderer()) {
+                m2->clear();
+            }
+
+            // Full clear of character renderer: removes all instances, models,
+            // textures, and resets descriptor pools. This prevents stale GPU
+            // resources from accumulating across map changes (old creature
+            // models, bone buffers, texture descriptor sets) which can cause
+            // VK_ERROR_DEVICE_LOST on some drivers.
+            if (auto* cr = renderer_->getCharacterRenderer()) {
+                cr->clear();
+                renderer_->setCharacterFollow(0);
+            }
+            // Reset equipment dirty tracking so composited textures are rebuilt
+            // after spawnPlayerCharacter() recreates the character instance.
+            if (gameHandler_) {
+                gameHandler_->resetEquipmentDirtyTracking();
+            }
+
+            if (auto* terrain = renderer_->getTerrainManager()) {
+                terrain->softReset();
+                terrain->setStreamingEnabled(true);  // Re-enable in case previous map disabled it
+            }
+            if (auto* questMarkers = renderer_->getQuestMarkerRenderer()) {
+                questMarkers->clear();
+            }
+            if (auto* footprints = renderer_->getFootprintRenderer()) {
+                footprints->clear();
+            }
+            if (auto* ac = renderer_->getAnimationController()) ac->clearMount();
+        }
+
+        // Clear application-level instance tracking (after renderer cleanup)
+        entitySpawner_->resetAllState();
+
+        // Force player character re-spawn on new map
+        app_.playerCharacterSpawned = false;
+    }
+
+    // Resolve map folder name from Map.dbc (authoritative for world/instance maps).
+    // This is required for instances like DeeprunTram (map 369) that are not Azeroth/Kalimdor.
+    if (!mapNameCacheLoaded_ && assetManager_ && assetManager_->isInitialized()) {
+        mapNameCacheLoaded_ = true;
+        if (auto mapDbc = assetManager_->loadDBC("Map.dbc"); mapDbc && mapDbc->isLoaded()) {
+            mapNameById_.reserve(mapDbc->getRecordCount());
+            const auto* mapL = pipeline::getActiveDBCLayout() ? pipeline::getActiveDBCLayout()->getLayout("Map") : nullptr;
+            for (uint32_t i = 0; i < mapDbc->getRecordCount(); i++) {
+                uint32_t id = mapDbc->getUInt32(i, mapL ? (*mapL)["ID"] : 0);
+                std::string internalName = mapDbc->getString(i, mapL ? (*mapL)["InternalName"] : 1);
+                if (!internalName.empty() && mapNameById_.find(id) == mapNameById_.end()) {
+                    mapNameById_[id] = std::move(internalName);
+                }
+            }
+            LOG_INFO("Loaded Map.dbc map-name cache: ", mapNameById_.size(), " entries");
+        } else {
+            LOG_WARNING("Map.dbc not available; using fallback map-id mapping");
+        }
+    }
+
+    std::string mapName;
+    if (auto it = mapNameById_.find(mapId); it != mapNameById_.end()) {
+        mapName = it->second;
+    } else {
+        mapName = mapIdToName(mapId);
+    }
+    if (mapName.empty()) {
+        LOG_WARNING("Unknown mapId ", mapId, " (no Map.dbc entry); falling back to Azeroth");
+        mapName = "Azeroth";
+    }
+    LOG_INFO("Loading online world terrain for map '", mapName, "' (ID ", mapId, ")");
+
+    // Cancel any stale preload (if it was for a different map, the file cache
+    // still retains whatever was loaded - it doesn't hurt).
+    if (worldPreload_) {
+        if (worldPreload_->mapId == mapId) {
+            LOG_INFO("World preload: cache-warm hit for map '", mapName, "'");
+        } else {
+            LOG_INFO("World preload: map mismatch (preloaded ", worldPreload_->mapName,
+                     ", entering ", mapName, ")");
+        }
+    }
+    cancelWorldPreload();
+
+    // Save this world info for next session's early preload
+    saveLastWorldInfo(mapId, mapName, x, y);
+
+    // Convert server coordinates to canonical WoW coordinates
+    // Server sends: X=West (canonical.Y), Y=North (canonical.X), Z=Up
+    glm::vec3 spawnCanonical = core::coords::serverToCanonical(glm::vec3(x, y, z));
+    glm::vec3 spawnRender = core::coords::canonicalToRender(spawnCanonical);
+
+    // Set camera position and facing from server orientation
+    float spawnYawDeg = 0.0f;
+    if (gameHandler_) {
+        float canonicalYaw = gameHandler_->getMovementInfo().orientation;
+        spawnYawDeg = core::coords::canonicalToCharacterYawDeg(canonicalYaw);
+    }
+    if (renderer_->getCameraController()) {
+        renderer_->getCameraController()->setOnlineMode(true);
+        renderer_->getCameraController()->setDefaultSpawn(spawnRender, spawnYawDeg, -15.0f);
+        renderer_->getCameraController()->reset();
+    }
+    renderer_->setCharacterYaw(spawnYawDeg);
+
+    // Set map name for WMO renderer and reset instance mode
+    if (renderer_->getWMORenderer()) {
+        renderer_->getWMORenderer()->setMapName(mapName);
+        renderer_->getWMORenderer()->setWMOOnlyMap(false);
+    }
+
+    // Set map name for terrain manager
+    if (renderer_->getTerrainManager()) {
+        renderer_->getTerrainManager()->setMapName(mapName);
+    }
+
+    // NOTE: TransportManager renderer connection moved to after initializeRenderers (later in this function)
+
+    // Connect WMORenderer to M2Renderer (for hierarchical transforms: doodads following WMO parents)
+    if (renderer_->getWMORenderer() && renderer_->getM2Renderer()) {
+        renderer_->getWMORenderer()->setM2Renderer(renderer_->getM2Renderer());
+        LOG_INFO("WMORenderer connected to M2Renderer for hierarchical doodad transforms");
+    }
+
+    showProgress("Loading character model...", 0.05f);
+
+    // Build faction hostility map for this character's race
+    if (gameHandler_) {
+        const game::Character* activeChar = gameHandler_->getActiveCharacter();
+        if (activeChar) {
+            app_.buildFactionHostilityMap(static_cast<uint8_t>(activeChar->race));
+        }
+    }
+
+    // Spawn player model for online mode (skip if already spawned, e.g. teleport)
+    if (gameHandler_) {
+        const game::Character* activeChar = gameHandler_->getActiveCharacter();
+        if (activeChar) {
+            const uint64_t activeGuid = gameHandler_->getActiveCharacterGuid();
+            const bool appearanceChanged =
+                (activeGuid != app_.spawnedPlayerGuid_) ||
+                (activeChar->appearanceBytes != app_.spawnedAppearanceBytes_) ||
+                (activeChar->facialFeatures != app_.spawnedFacialFeatures_) ||
+                (activeChar->race != app_.playerRace_) ||
+                (activeChar->gender != app_.playerGender_) ||
+                (activeChar->characterClass != app_.playerClass_);
+
+            if (!app_.playerCharacterSpawned || appearanceChanged) {
+                if (appearanceChanged) {
+                    LOG_INFO("Respawning player model for new/changed character: guid=0x",
+                             std::hex, activeGuid, std::dec);
+                }
+                // Remove old instance so we don't keep stale visuals.
+                if (renderer_ && renderer_->getCharacterRenderer()) {
+                    uint32_t oldInst = renderer_->getCharacterInstanceId();
+                    if (oldInst > 0) {
+                        renderer_->setCharacterFollow(0);
+                        if (auto* ac = renderer_->getAnimationController()) ac->clearMount();
+                        renderer_->getCharacterRenderer()->removeInstance(oldInst);
+                    }
+                }
+                app_.playerCharacterSpawned = false;
+                app_.spawnedPlayerGuid_ = 0;
+                app_.spawnedAppearanceBytes_ = 0;
+                app_.spawnedFacialFeatures_ = 0;
+
+                app_.playerRace_ = activeChar->race;
+                app_.playerGender_ = activeChar->gender;
+                app_.playerClass_ = activeChar->characterClass;
+                app_.spawnSnapToGround = false;
+                if (appearanceComposer_) appearanceComposer_->setWeaponsSheathed(false);
+                if (appearanceComposer_) appearanceComposer_->loadEquippedWeapons(); // will no-op until instance exists
+                app_.spawnPlayerCharacter();
+            }
+            renderer_->getCharacterPosition() = spawnRender;
+            LOG_INFO("Online player at render pos (", spawnRender.x, ", ", spawnRender.y, ", ", spawnRender.z, ")");
+        } else {
+            LOG_WARNING("No active character found for player model spawning");
+        }
+    }
+
+    showProgress("Loading terrain...", 0.20f);
+
+    // The map's geometry, and the loading screen it takes with it.
+    loadMapGeometry(mapId, mapName, spawnCanonical, spawnRender, loadingUi);
 
     // Snap player to loaded terrain so they don't spawn underground
     if (renderer_->getCameraController()) {
@@ -996,7 +1009,7 @@ void WorldLoader::loadOnlineWorldTerrain(uint32_t mapId, float x, float y, float
     renderer_->setCharacterYaw(spawnYawDeg);
     spawnInstancePortalVisuals(mapId, renderer_, assetManager_);
 
-    // Test transport disabled — real transports come from server via UPDATEFLAG_TRANSPORT
+    // Test transport disabled - real transports come from server via UPDATEFLAG_TRANSPORT
     showProgress("Finalizing world...", 0.94f);
     // setupTestTransport();
 
@@ -1096,10 +1109,10 @@ void WorldLoader::loadOnlineWorldTerrain(uint32_t mapId, float x, float y, float
             if (gameHandler_) gameHandler_->update(1.0f / 60.0f);
 
             // If a new world entry was deferred during packet processing,
-            // stop warming up this map — we'll load the new one after cleanup.
+            // stop warming up this map - we'll load the new one after cleanup.
             if (pendingWorldEntry_) {
                 LOG_DEBUG("loadOnlineWorldTerrain(map ", mapId,
-                            ") — deferred world entry pending, stopping warmup");
+                            ") - deferred world entry pending, stopping warmup");
                 break;
             }
 
@@ -1131,7 +1144,7 @@ void WorldLoader::loadOnlineWorldTerrain(uint32_t mapId, float x, float y, float
 
             // Don't exit warmup until the ground under the player exists.
             // In cities like Stormwind, players stand on WMO floors, not terrain.
-            // Check BOTH terrain AND WMO floor — require at least one to be valid.
+            // Check BOTH terrain AND WMO floor - require at least one to be valid.
             bool groundReady = false;
             if (renderer_) {
                 // spawnRender already went server -> canonical -> render above.
@@ -1148,7 +1161,7 @@ void WorldLoader::loadOnlineWorldTerrain(uint32_t mapId, float x, float y, float
                         groundReady = true;
                     }
                 }
-                // Check terrain — but only if it's close to spawn Z (within 15 units).
+                // Check terrain - but only if it's close to spawn Z (within 15 units).
                 // Terrain far below a WMO city doesn't count as ground.
                 if (!groundReady) {
                     if (auto* tm = renderer_->getTerrainManager()) {
@@ -1190,7 +1203,7 @@ void WorldLoader::loadOnlineWorldTerrain(uint32_t mapId, float x, float y, float
             bool readyToExit = (elapsed >= kMinWarmupSeconds && idleIterations >= kIdleThreshold && groundReady);
             if (readyToExit || elapsed >= kMaxWarmupSeconds) {
                 if (elapsed >= kMaxWarmupSeconds && !groundReady) {
-                    LOG_WARNING("Warmup hit hard cap (", kMaxWarmupSeconds, "s), ground NOT ready — may fall through world");
+                    LOG_WARNING("Warmup hit hard cap (", kMaxWarmupSeconds, "s), ground NOT ready - may fall through world");
                 } else if (elapsed >= kMaxWarmupSeconds) {
                     LOG_WARNING("Warmup hit hard cap (", kMaxWarmupSeconds, "s), entering world with pending work");
                 }
@@ -1238,7 +1251,7 @@ void WorldLoader::loadOnlineWorldTerrain(uint32_t mapId, float x, float y, float
             app_.worldEntryCallbacks_->setTaxiLandingClampTimer(0.0f);
             app_.worldEntryCallbacks_->setLastTaxiFlight(false);
         }
-        // Recursive call — sets loadedMapId_ and IN_GAME state for the final map.
+        // Recursive call - sets loadedMapId_ and IN_GAME state for the final map.
         loadOnlineWorldTerrain(entry.mapId, entry.x, entry.y, entry.z);
         return;  // The recursive call handles setState(IN_GAME).
     }
@@ -1266,6 +1279,12 @@ void WorldLoader::loadOnlineWorldTerrain(uint32_t mapId, float x, float y, float
         addonManager_->loadAllAddons();
         app_.addonsLoaded_ = true;
         addonManager_->fireEvent("VARIABLES_LOADED");
+        // After VARIABLES_LOADED, which is when the chat window
+        // settings are available to be read. Every chat frame
+        // answers this by applying its saved font, colour, size
+        // and docked state; without it they keep the defaults
+        // they were built with however much was saved.
+        addonManager_->fireEvent("UPDATE_CHAT_WINDOWS");
         addonManager_->fireEvent("PLAYER_LOGIN");
         addonManager_->fireEvent("PLAYER_ENTERING_WORLD");
     } else if (addonManager_ && app_.addonsLoaded_) {

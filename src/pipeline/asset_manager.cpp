@@ -192,7 +192,7 @@ void AssetManager::setBaseFallbackPath(const std::string& basePath) {
     std::string manifestPath = basePath + "/manifest.json";
     if (!std::filesystem::exists(manifestPath)) {
         LOG_DEBUG("AssetManager: base fallback manifest not found at ", manifestPath,
-                  " — fallback disabled");
+                  " - fallback disabled");
         return;
     }
     if (baseFallbackManifest_.load(manifestPath)) {
@@ -521,7 +521,7 @@ std::shared_ptr<DBCFile> AssetManager::loadDBCOptional(const std::string& name) 
     }
 
     if (dbcData.empty()) {
-        // Expected on some expansions — log at debug level only.
+        // Expected on some expansions - log at debug level only.
         LOG_DEBUG("Optional DBC not found (expected on some expansions): ", name);
         return nullptr;
     }
@@ -536,21 +536,25 @@ std::shared_ptr<DBCFile> AssetManager::loadDBCOptional(const std::string& name) 
     LOG_INFO("Loaded optional DBC: ", name, " (", dbc->getRecordCount(), " records)");
     return dbc;
 }
-
-std::shared_ptr<DBCFile> AssetManager::getDBC(const std::string& name) const {
-    auto it = dbcCache.find(name);
-    if (it != dbcCache.end()) {
-        return it->second;
-    }
-    return nullptr;
-}
-
 bool AssetManager::fileExists(const std::string& path) const {
     if (!initialized) {
         return false;
     }
     std::string normalized = normalizePath(path);
-    return manifest_.hasEntry(normalized);
+    // Resolved the same way a read is, not looked up in the primary manifest.
+    //
+    // A read walks override, primary manifest, base fallback manifest, then the
+    // loose file; this asked the primary manifest alone. With one asset source
+    // the two agree, which is why it stood. The moment an expansion overlay
+    // becomes the primary - an overlay holding a few thousand models over a
+    // two-hundred-thousand file base - this answered NO for every file in the
+    // base game, while the read that follows would have found it.
+    //
+    // Fifty-eight callers ask this before deciding what to read, so every one
+    // of them took the wrong branch at once: a weapon texture that is present
+    // under Weapon\ was declared missing and looked for under Shield\, where
+    // it has never been, and the weapon drew white.
+    return !resolveFile(normalized).empty();
 }
 
 std::vector<uint8_t> AssetManager::readFile(const std::string& path) const {
@@ -634,135 +638,6 @@ void AssetManager::clearCache() {
     fileCacheAccessCounter = 0;
     LOG_INFO("Cleared asset cache (DBC + file cache)");
 }
-
-size_t AssetManager::purgeExtractedAssets() {
-    clearCache();
-
-    if (dataPath.empty()) {
-        LOG_WARNING("Cannot purge: no data path set");
-        return 0;
-    }
-
-    size_t removed = 0;
-    namespace fs = std::filesystem;
-
-    // Extracted MPQ content directories
-    const char* extractedDirs[] = {
-        "db", "character", "creature", "terrain", "world",
-        "interface", "item", "sound", "spell", "environment",
-        "misc", "enUS",
-        // Case variants (Windows-extracted assets)
-        "Character", "Creature", "World"
-    };
-
-    for (const auto& dir : extractedDirs) {
-        fs::path p = fs::path(dataPath) / dir;
-        if (fs::exists(p)) {
-            std::error_code ec;
-            auto count = fs::remove_all(p, ec);
-            if (!ec) {
-                LOG_INFO("Purged: ", p.string(), " (", count, " entries)");
-                removed += count;
-            } else {
-                LOG_WARNING("Failed to remove ", p.string(), ": ", ec.message());
-            }
-        }
-    }
-
-    // Root manifest
-    fs::path manifestPath = fs::path(dataPath) / "manifest.json";
-    if (fs::exists(manifestPath)) {
-        std::error_code ec;
-        fs::remove(manifestPath, ec);
-        if (!ec) {
-            LOG_INFO("Purged: ", manifestPath.string());
-            ++removed;
-        }
-    }
-
-    // Override directory
-    if (!overridePath_.empty() && fs::exists(overridePath_)) {
-        std::error_code ec;
-        auto count = fs::remove_all(overridePath_, ec);
-        if (!ec) {
-            LOG_INFO("Purged: ", overridePath_, " (", count, " entries)");
-            removed += count;
-        }
-    }
-
-    // HD texture packs
-    fs::path hdPath = fs::path(dataPath) / "hd";
-    if (fs::exists(hdPath)) {
-        std::error_code ec;
-        auto count = fs::remove_all(hdPath, ec);
-        if (!ec) {
-            LOG_INFO("Purged: ", hdPath.string(), " (", count, " entries)");
-            removed += count;
-        }
-    }
-
-    // Per-expansion extracted assets, manifests, and overlays
-    fs::path expansionsDir = fs::path(dataPath) / "expansions";
-    if (fs::is_directory(expansionsDir)) {
-        for (auto& expEntry : fs::directory_iterator(expansionsDir)) {
-            if (!expEntry.is_directory()) continue;
-            fs::path expDir = expEntry.path();
-
-            // Extracted assets
-            fs::path assetsDir = expDir / "assets";
-            if (fs::exists(assetsDir)) {
-                std::error_code ec;
-                auto count = fs::remove_all(assetsDir, ec);
-                if (!ec) {
-                    LOG_INFO("Purged: ", assetsDir.string(), " (", count, " entries)");
-                    removed += count;
-                }
-            }
-
-            // Expansion manifest
-            fs::path expManifest = expDir / "manifest.json";
-            if (fs::exists(expManifest)) {
-                std::error_code ec;
-                fs::remove(expManifest, ec);
-                if (!ec) {
-                    LOG_INFO("Purged: ", expManifest.string());
-                    ++removed;
-                }
-            }
-
-            // Overlay
-            fs::path overlayDir = expDir / "overlay";
-            if (fs::exists(overlayDir)) {
-                std::error_code ec;
-                auto count = fs::remove_all(overlayDir, ec);
-                if (!ec) {
-                    LOG_INFO("Purged: ", overlayDir.string(), " (", count, " entries)");
-                    removed += count;
-                }
-            }
-
-            // Generated CSVs
-            fs::path dbDir = expDir / "db";
-            if (fs::is_directory(dbDir)) {
-                for (auto& f : fs::directory_iterator(dbDir)) {
-                    if (f.path().extension() == ".csv") {
-                        std::error_code ec;
-                        fs::remove(f.path(), ec);
-                        if (!ec) ++removed;
-                    }
-                }
-            }
-        }
-    }
-
-    // Reset manifest state so initialize() knows it needs re-extraction
-    manifest_ = AssetManifest();
-    initialized = false;
-
-    LOG_INFO("Purge complete: ", removed, " entries removed from ", dataPath);
-    return removed;
-}
-
 std::string AssetManager::normalizePath(const std::string& path) const {
     std::string normalized = path;
     std::replace(normalized.begin(), normalized.end(), '/', '\\');

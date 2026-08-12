@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Word Filter catalog (.wwfl) — novel
+// Wowee Open Word Filter catalog (.wwfl) - novel
 // replacement for the implicit chat-moderation patterns
 // vanilla WoW carried in the bad-word checker (the
 // hardcoded substring list the CMSG_MESSAGECHAT
@@ -22,7 +22,7 @@ namespace pipeline {
 // where embedded profanity would create reviewer-
 // experience and licensing concerns. The included
 // presets target SPAM, RMT (real-money-transfer
-// solicitations), URL leakage, and all-caps abuse —
+// solicitations), URL leakage, and all-caps abuse -
 // the moderation surfaces server admins actually need.
 // Profanity-list integration is left to deployment-
 // time configuration where local laws and community
@@ -44,13 +44,13 @@ namespace pipeline {
 //     descLen + description
 //     patLen + pattern
 //     replLen + replacement
-//     filterKind (uint8)         — Spam / GoldSeller /
+//     filterKind (uint8)         - Spam / GoldSeller /
 //                                   AllCaps / RepeatChar
 //                                   / URL / AdvertReward
 //                                   / Misc
-//     severity (uint8)           — Warn / Replace /
+//     severity (uint8)           - Warn / Replace /
 //                                   Drop / Mute
-//     caseSensitive (uint8)      — 0/1 bool
+//     caseSensitive (uint8)      - 0/1 bool
 //     pad0 (uint8)
 //     iconColorRGBA (uint32)
 struct WoweeWordFilters {
@@ -96,7 +96,7 @@ struct WoweeWordFilters {
 
     const Entry* findById(uint32_t filterId) const;
 
-    // Returns all filters of one kind — used by the
+    // Returns all filters of one kind - used by the
     // chat preprocessor to dispatch per-kind handlers
     // (URL kind hits the link expander, AllCaps kind
     // hits the shout-suppressor, etc.).
@@ -112,14 +112,14 @@ public:
 
     // Preset emitters used by --gen-wfl* variants.
     //
-    //   makeSpamRMT    — 5 RMT / spam patterns ("wts
+    //   makeSpamRMT    - 5 RMT / spam patterns ("wts
     //                     gold", "wtb gold", typo-
     //                     substituted "g0ld", "1000g",
     //                     "free gold").
-    //   makeAllCaps    — 3 all-caps detection patterns
+    //   makeAllCaps    - 3 all-caps detection patterns
     //                     (10+ uppercase chars, !!! at
     //                     line end, $$$ symbols).
-    //   makeURLDetect  — 3 URL leakage patterns
+    //   makeURLDetect  - 3 URL leakage patterns
     //                     (http://, www., suspicious
     //                     TLDs).
     static WoweeWordFilters makeSpamRMT(const std::string& catalogName);

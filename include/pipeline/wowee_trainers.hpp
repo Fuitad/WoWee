@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Trainer / Vendor catalog (.wtrn) — novel
+// Wowee Open Trainer / Vendor catalog (.wtrn) - novel
 // replacement for AzerothCore-style npc_trainer + npc_vendor
 // SQL tables PLUS the Blizzard TrainerSpells.dbc family.
 // The 22nd open format added to the editor.
@@ -15,7 +15,7 @@ namespace pipeline {
 // Unifies trainer spell lists and vendor inventories into one
 // per-NPC entry. A creature flagged Trainer or Vendor in WCRT
 // references a WTRN entry that lists what they teach / sell.
-// The same NPC can be both — kindMask is a bitmask covering
+// The same NPC can be both - kindMask is a bitmask covering
 // the Trainer (0x01) and Vendor (0x02) kinds.
 //
 // Cross-references with previously-added formats:
@@ -85,7 +85,7 @@ struct WoweeTrainer {
 
     bool isValid() const { return !entries.empty(); }
 
-    // Lookup by npcId — nullptr if not present.
+    // Lookup by npcId - nullptr if not present.
     const Entry* findByNpc(uint32_t npcId) const;
 
     // Decode the kindMask into a short string (e.g.
@@ -102,14 +102,14 @@ public:
 
     // Preset emitters used by --gen-trainers* variants.
     //
-    //   makeStarter — 1 NPC (Bartleby innkeeper, npcId=4001)
+    //   makeStarter - 1 NPC (Bartleby innkeeper, npcId=4001)
     //                  acting as both vendor + trainer: sells
     //                  3 starter items + teaches First Aid.
-    //   makeMageTrainer — npcId=4003 (alchemist) becomes a
+    //   makeMageTrainer - npcId=4003 (alchemist) becomes a
     //                      mage trainer offering Frostbolt /
     //                      Fireball / Arcane Intellect / Blink
     //                      at appropriate ranks.
-    //   makeWeaponVendor — npcId=4002 (smith) sells 5 weapons
+    //   makeWeaponVendor - npcId=4002 (smith) sells 5 weapons
     //                       across the WIT weapon catalog.
     static WoweeTrainer makeStarter(const std::string& catalogName);
     static WoweeTrainer makeMageTrainer(const std::string& catalogName);

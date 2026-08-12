@@ -1,6 +1,6 @@
-// coordinate_projection.hpp — Pure coordinate math for world map UV projection.
+// coordinate_projection.hpp - Pure coordinate math for world map UV projection.
 // Extracted from WorldMap methods (Phase 2 of refactoring plan).
-// All functions are stateless free functions — trivially testable.
+// All functions are stateless free functions - trivially testable.
 #pragma once
 
 #include "rendering/world_map/world_map_types.hpp"
@@ -23,6 +23,19 @@ bool getContinentProjectionBounds(const std::vector<Zone>& zones,
                                    float& left, float& right,
                                    float& top, float& bottom);
 
+/// The bounds a zone is projected against, and whether it is a continent.
+///
+/// A continent is drawn against bounds derived from its child zones, not its
+/// own: WorldMapArea gives a continent a box that does not match where its zones
+/// actually are, so projecting against that box puts every marker in the wrong
+/// place. A zone uses its own bounds.
+///
+/// Nine places worked this out for themselves - every marker layer and the
+/// facade - which is nine chances for one of them to project against the wrong
+/// rectangle and put its markers somewhere the others do not.
+ZoneBounds projectionBoundsFor(const std::vector<Zone>& zones, int zoneIdx,
+                               bool& isContinent);
+
 /// Find the best-fit continent index for a player position.
 /// Prefers the smallest containing continent; falls back to nearest center.
 int findBestContinentForPlayer(const std::vector<Zone>& zones,
@@ -32,7 +45,7 @@ int findBestContinentForPlayer(const std::vector<Zone>& zones,
 ///
 /// authoritativeZoneId is the zone the server says the player is in, from
 /// SMSG_INIT_WORLD_STATES. When it names a zone on this map that is the answer,
-/// full stop — no geometry involved.
+/// full stop - no geometry involved.
 ///
 /// The fallback below is a guess and reads like one. WorldMapArea bounds are
 /// axis-aligned boxes around irregular zones, so neighbours overlap heavily and

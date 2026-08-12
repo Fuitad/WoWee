@@ -1,4 +1,5 @@
 #include "pipeline/wowee_talents.hpp"
+#include "pipeline/wowee_binary_io.hpp"
 
 #include <cstdio>
 #include <cstring>
@@ -11,45 +12,7 @@ namespace {
 
 constexpr char kMagic[4] = {'W', 'T', 'A', 'L'};
 constexpr uint32_t kVersion = 1;
-
-template <typename T>
-void writePOD(std::ofstream& os, const T& v) {
-    os.write(reinterpret_cast<const char*>(&v), sizeof(T));
-}
-
-template <typename T>
-bool readPOD(std::ifstream& is, T& v) {
-    is.read(reinterpret_cast<char*>(&v), sizeof(T));
-    return is.gcount() == static_cast<std::streamsize>(sizeof(T));
-}
-
-void writeStr(std::ofstream& os, const std::string& s) {
-    uint32_t n = static_cast<uint32_t>(s.size());
-    writePOD(os, n);
-    if (n > 0) os.write(s.data(), n);
-}
-
-bool readStr(std::ifstream& is, std::string& s) {
-    uint32_t n = 0;
-    if (!readPOD(is, n)) return false;
-    if (n > (1u << 20)) return false;
-    s.resize(n);
-    if (n > 0) {
-        is.read(s.data(), n);
-        if (is.gcount() != static_cast<std::streamsize>(n)) {
-            s.clear();
-            return false;
-        }
-    }
-    return true;
-}
-
-std::string normalizePath(std::string base) {
-    if (base.size() < 5 || base.substr(base.size() - 5) != ".wtal") {
-        base += ".wtal";
-    }
-    return base;
-}
+constexpr char kExtension[] = ".wtal";
 
 } // namespace
 
@@ -69,14 +32,9 @@ const WoweeTalent::Talent* WoweeTalent::findTalent(uint32_t talentId) const {
 
 bool WoweeTalentLoader::save(const WoweeTalent& cat,
                              const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath), std::ios::binary);
-    if (!os) return false;
-    os.write(kMagic, 4);
-    writePOD(os, kVersion);
-    writeStr(os, cat.name);
-    uint32_t treeCount = static_cast<uint32_t>(cat.trees.size());
-    writePOD(os, treeCount);
-    for (const auto& t : cat.trees) {
+    return saveCatalogEntries(basePath, kMagic, kVersion, kExtension,
+                              cat.name, cat.trees,
+                              [](std::ofstream& os, const auto& t) {
         writePOD(os, t.treeId);
         writeStr(os, t.name);
         writeStr(os, t.iconPath);
@@ -84,41 +42,30 @@ bool WoweeTalentLoader::save(const WoweeTalent& cat,
         uint16_t talentCount = static_cast<uint16_t>(
             t.talents.size() > 0xFFFF ? 0xFFFF : t.talents.size());
         writePOD(os, talentCount);
-        uint8_t pad2[2] = {0, 0};
-        os.write(reinterpret_cast<const char*>(pad2), 2);
+        writePadding(os, 2);
         for (uint16_t k = 0; k < talentCount; ++k) {
             const auto& a = t.talents[k];
             writePOD(os, a.talentId);
             writePOD(os, a.row);
             writePOD(os, a.col);
             writePOD(os, a.maxRank);
-            uint8_t pad1 = 0;
-            writePOD(os, pad1);
+            writePadding(os, 1);
             writePOD(os, a.prereqTalentId);
             writePOD(os, a.prereqRank);
-            uint8_t pad3[3] = {0, 0, 0};
-            os.write(reinterpret_cast<const char*>(pad3), 3);
+            writePadding(os, 3);
             for (int r = 0; r < WoweeTalent::kMaxRanks; ++r) {
                 writePOD(os, a.rankSpellIds[r]);
             }
         }
-    }
-    return os.good();
+    });
 }
 
 WoweeTalent WoweeTalentLoader::load(const std::string& basePath) {
     WoweeTalent out;
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
+    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
     if (!is) return out;
-    char magic[4];
-    is.read(magic, 4);
-    if (std::memcmp(magic, kMagic, 4) != 0) return out;
-    uint32_t version = 0;
-    if (!readPOD(is, version) || version != kVersion) return out;
-    if (!readStr(is, out.name)) return out;
     uint32_t treeCount = 0;
-    if (!readPOD(is, treeCount)) return out;
-    if (treeCount > (1u << 20)) return out;
+    if (!readCatalogHeader(is, kMagic, kVersion, out.name, treeCount)) return out;
     out.trees.resize(treeCount);
     for (auto& t : out.trees) {
         if (!readPOD(is, t.treeId)) { out.trees.clear(); return out; }
@@ -132,9 +79,7 @@ WoweeTalent WoweeTalentLoader::load(const std::string& basePath) {
         if (!readPOD(is, talentCount)) {
             out.trees.clear(); return out;
         }
-        uint8_t pad2[2];
-        is.read(reinterpret_cast<char*>(pad2), 2);
-        if (is.gcount() != 2) { out.trees.clear(); return out; }
+        if (!skipPadding(is, 2)) { out.trees.clear(); return out; }
         t.talents.resize(talentCount);
         for (uint16_t k = 0; k < talentCount; ++k) {
             auto& a = t.talents[k];
@@ -144,17 +89,14 @@ WoweeTalent WoweeTalentLoader::load(const std::string& basePath) {
                 !readPOD(is, a.maxRank)) {
                 out.trees.clear(); return out;
             }
-            uint8_t pad1 = 0;
-            if (!readPOD(is, pad1)) {
+            if (!skipPadding(is, 1)) {
                 out.trees.clear(); return out;
             }
             if (!readPOD(is, a.prereqTalentId) ||
                 !readPOD(is, a.prereqRank)) {
                 out.trees.clear(); return out;
             }
-            uint8_t pad3[3];
-            is.read(reinterpret_cast<char*>(pad3), 3);
-            if (is.gcount() != 3) { out.trees.clear(); return out; }
+            if (!skipPadding(is, 3)) { out.trees.clear(); return out; }
             for (int r = 0; r < WoweeTalent::kMaxRanks; ++r) {
                 if (!readPOD(is, a.rankSpellIds[r])) {
                     out.trees.clear(); return out;
@@ -166,8 +108,7 @@ WoweeTalent WoweeTalentLoader::load(const std::string& basePath) {
 }
 
 bool WoweeTalentLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeTalent WoweeTalentLoader::makeStarter(const std::string& catalogName) {

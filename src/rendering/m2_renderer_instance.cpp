@@ -40,13 +40,14 @@ void M2Renderer::setInstancePosition(uint32_t instanceId, const glm::vec3& posit
     if (idxIt == instanceIndexById.end()) return;
     auto& inst = instances[idxIt->second];
 
-    // Save old grid cells
-    GridCell oldMinCell = toCell(inst.worldBoundsMin);
-    GridCell oldMaxCell = toCell(inst.worldBoundsMax);
+    // The box the instance is filed under, which is what it has to be taken
+    // out of once it has moved.
+    const glm::vec3 oldBoundsMin = inst.worldBoundsMin;
+    const glm::vec3 oldBoundsMax = inst.worldBoundsMax;
 
     inst.position = position;
     inst.updateModelMatrix();
-    // Use cachedModel instead of a fresh models.find() — the pointer was set
+    // Use cachedModel instead of a fresh models.find() - the pointer was set
     // at addInstance and stays valid as long as the instance exists.
     if (inst.cachedModel) {
         glm::vec3 localMin, localMax;
@@ -56,29 +57,8 @@ void M2Renderer::setInstancePosition(uint32_t instanceId, const glm::vec3& posit
     }
 
     // Incrementally update spatial grid
-    GridCell newMinCell = toCell(inst.worldBoundsMin);
-    GridCell newMaxCell = toCell(inst.worldBoundsMax);
-    if (oldMinCell.x != newMinCell.x || oldMinCell.y != newMinCell.y || oldMinCell.z != newMinCell.z ||
-        oldMaxCell.x != newMaxCell.x || oldMaxCell.y != newMaxCell.y || oldMaxCell.z != newMaxCell.z) {
-        for (int z = oldMinCell.z; z <= oldMaxCell.z; z++) {
-            for (int y = oldMinCell.y; y <= oldMaxCell.y; y++) {
-                for (int x = oldMinCell.x; x <= oldMaxCell.x; x++) {
-                    auto it = spatialGrid.find(GridCell{x, y, z});
-                    if (it != spatialGrid.end()) {
-                        auto& vec = it->second;
-                        vec.erase(std::remove(vec.begin(), vec.end(), instanceId), vec.end());
-                    }
-                }
-            }
-        }
-        for (int z = newMinCell.z; z <= newMaxCell.z; z++) {
-            for (int y = newMinCell.y; y <= newMaxCell.y; y++) {
-                for (int x = newMinCell.x; x <= newMaxCell.x; x++) {
-                    spatialGrid[GridCell{x, y, z}].push_back(instanceId);
-                }
-            }
-        }
-    }
+    refileBounds(spatialGrid, oldBoundsMin, oldBoundsMax,
+                 inst.worldBoundsMin, inst.worldBoundsMax, instanceId);
 }
 
 void M2Renderer::setInstanceAnimationFrozen(uint32_t instanceId, bool frozen) {
@@ -146,7 +126,7 @@ bool M2Renderer::getInstanceBounds(uint32_t instanceId, glm::vec3& outCenter, fl
 void M2Renderer::setInstanceTransform(uint32_t instanceId, const glm::mat4& transform) {
     auto idxIt = instanceIndexById.find(instanceId);
     if (idxIt == instanceIndexById.end()) return;
-    // Reject NaN matrix — would propagate into the model matrix uniform
+    // Reject NaN matrix - would propagate into the model matrix uniform
     // and the spatial-grid bounds, leaving stale grid cells pointing at
     // a NaN-bounded instance.
     for (int c = 0; c < 4; c++)
@@ -155,8 +135,8 @@ void M2Renderer::setInstanceTransform(uint32_t instanceId, const glm::mat4& tran
     auto& inst = instances[idxIt->second];
 
     // Remove old grid cells before updating bounds
-    GridCell oldMinCell = toCell(inst.worldBoundsMin);
-    GridCell oldMaxCell = toCell(inst.worldBoundsMax);
+    const glm::vec3 oldBoundsMin = inst.worldBoundsMin;
+    const glm::vec3 oldBoundsMax = inst.worldBoundsMax;
     const glm::vec3 oldPosition = inst.position;
 
     // Update model matrix directly
@@ -167,7 +147,7 @@ void M2Renderer::setInstanceTransform(uint32_t instanceId, const glm::mat4& tran
     inst.position = glm::vec3(transform[3]);
 
     // The dedup map is keyed on position, so it has to move with the instance.
-    // It did not, and only rebuildSpatialIndex ever put it right — which this
+    // It did not, and only rebuildSpatialIndex ever put it right - which this
     // path deliberately avoids. A ship's doodads are created at the origin and
     // moved here a frame later, so the origin key stayed pointing at them and
     // the next ship of the same class was handed the first ship's sails instead
@@ -202,32 +182,9 @@ void M2Renderer::setInstanceTransform(uint32_t instanceId, const glm::mat4& tran
     }
 
     // Incrementally update spatial grid (remove old cells, add new cells)
-    GridCell newMinCell = toCell(inst.worldBoundsMin);
-    GridCell newMaxCell = toCell(inst.worldBoundsMax);
-    if (oldMinCell.x != newMinCell.x || oldMinCell.y != newMinCell.y || oldMinCell.z != newMinCell.z ||
-        oldMaxCell.x != newMaxCell.x || oldMaxCell.y != newMaxCell.y || oldMaxCell.z != newMaxCell.z) {
-        // Remove from old cells
-        for (int z = oldMinCell.z; z <= oldMaxCell.z; z++) {
-            for (int y = oldMinCell.y; y <= oldMaxCell.y; y++) {
-                for (int x = oldMinCell.x; x <= oldMaxCell.x; x++) {
-                    auto it = spatialGrid.find(GridCell{x, y, z});
-                    if (it != spatialGrid.end()) {
-                        auto& vec = it->second;
-                        vec.erase(std::remove(vec.begin(), vec.end(), instanceId), vec.end());
-                    }
-                }
-            }
-        }
-        // Add to new cells
-        for (int z = newMinCell.z; z <= newMaxCell.z; z++) {
-            for (int y = newMinCell.y; y <= newMaxCell.y; y++) {
-                for (int x = newMinCell.x; x <= newMaxCell.x; x++) {
-                    spatialGrid[GridCell{x, y, z}].push_back(instanceId);
-                }
-            }
-        }
-    }
-    // No spatialIndexDirty_ = true — handled incrementally
+    refileBounds(spatialGrid, oldBoundsMin, oldBoundsMax,
+                 inst.worldBoundsMin, inst.worldBoundsMax, instanceId);
+    // No spatialIndexDirty_ = true - handled incrementally
 }
 
 void M2Renderer::removeInstance(uint32_t instanceId) {
@@ -239,19 +196,7 @@ void M2Renderer::removeInstance(uint32_t instanceId) {
     auto& inst = instances[idx];
 
     // Remove from spatial grid incrementally (same pattern as the move-update path)
-    GridCell minCell = toCell(inst.worldBoundsMin);
-    GridCell maxCell = toCell(inst.worldBoundsMax);
-    for (int z = minCell.z; z <= maxCell.z; z++) {
-        for (int y = minCell.y; y <= maxCell.y; y++) {
-            for (int x = minCell.x; x <= maxCell.x; x++) {
-                auto gIt = spatialGrid.find(GridCell{x, y, z});
-                if (gIt != spatialGrid.end()) {
-                    auto& vec = gIt->second;
-                    vec.erase(std::remove(vec.begin(), vec.end(), instanceId), vec.end());
-                }
-            }
-        }
-    }
+    eraseBounds(spatialGrid, inst.worldBoundsMin, inst.worldBoundsMax, instanceId);
 
     // Remove from dedup map
     if (!inst.cachedIsGroundDetail) {
@@ -471,21 +416,9 @@ void M2Renderer::setCollisionFocus(const glm::vec3& worldPos, float radius) {
     collisionFocusRadiusSq = collisionFocusRadius * collisionFocusRadius;
 }
 
-void M2Renderer::clearCollisionFocus() {
-    collisionFocusEnabled = false;
-}
-
 void M2Renderer::resetQueryStats() {
     queryTimeMs = 0.0;
     queryCallCount = 0;
-}
-
-M2Renderer::GridCell M2Renderer::toCell(const glm::vec3& p) const {
-    return GridCell{
-        static_cast<int>(std::floor(p.x / SPATIAL_CELL_SIZE)),
-        static_cast<int>(std::floor(p.y / SPATIAL_CELL_SIZE)),
-        static_cast<int>(std::floor(p.z / SPATIAL_CELL_SIZE))
-    };
 }
 
 void M2Renderer::rebuildSpatialIndex() {
@@ -532,15 +465,7 @@ void M2Renderer::rebuildSpatialIndex() {
             particleOnlyInstanceIndices_.push_back(i);
         }
 
-        GridCell minCell = toCell(inst.worldBoundsMin);
-        GridCell maxCell = toCell(inst.worldBoundsMax);
-        for (int z = minCell.z; z <= maxCell.z; z++) {
-            for (int y = minCell.y; y <= maxCell.y; y++) {
-                for (int x = minCell.x; x <= maxCell.x; x++) {
-                    spatialGrid[GridCell{x, y, z}].push_back(inst.id);
-                }
-            }
-        }
+        insertBounds(spatialGrid, inst.worldBoundsMin, inst.worldBoundsMax, inst.id);
     }
     spatialIndexDirty_ = false;
 }
@@ -548,25 +473,14 @@ void M2Renderer::rebuildSpatialIndex() {
 void M2Renderer::gatherCandidates(const glm::vec3& queryMin, const glm::vec3& queryMax,
                                   std::vector<size_t>& outIndices) const {
     outIndices.clear();
-    tl_m2_candidateIdScratch.clear();
 
-    GridCell minCell = toCell(queryMin);
-    GridCell maxCell = toCell(queryMax);
-    for (int z = minCell.z; z <= maxCell.z; z++) {
-        for (int y = minCell.y; y <= maxCell.y; y++) {
-            for (int x = minCell.x; x <= maxCell.x; x++) {
-                auto it = spatialGrid.find(GridCell{x, y, z});
-                if (it == spatialGrid.end()) continue;
-                for (uint32_t id : it->second) {
-                    if (!tl_m2_candidateIdScratch.insert(id).second) continue;
-                    auto idxIt = instanceIndexById.find(id);
-                    if (idxIt != instanceIndexById.end()) {
-                        outIndices.push_back(idxIt->second);
-                    }
-                }
-            }
-        }
-    }
+    gatherIds(spatialGrid, queryMin, queryMax, tl_m2_candidateIdScratch,
+              [&](uint32_t id) {
+                  auto idxIt = instanceIndexById.find(id);
+                  if (idxIt != instanceIndexById.end()) {
+                      outIndices.push_back(idxIt->second);
+                  }
+              });
 
     // Safety fallback to preserve collision correctness if the spatial index
     // misses candidates (e.g. during streaming churn).
@@ -599,22 +513,22 @@ void M2Renderer::cleanupUnusedModels() {
 
     // Find models with no instances that have exceeded the grace period.
     // Models that just lost their last instance get tracked but not evicted
-    // immediately — this prevents thrashing when GO models are briefly
+    // immediately - this prevents thrashing when GO models are briefly
     // instance-free between despawn and respawn cycles.
     std::vector<uint32_t> toRemove;
     for (const auto& [id, model] : models) {
         if (usedModelIds.find(id) != usedModelIds.end() ||
             pinnedModelIds_.find(id) != pinnedModelIds_.end()) {
-            // Model still in use or pinned — clear any pending unused timestamp
+            // Model still in use or pinned - clear any pending unused timestamp
             modelUnusedSince_.erase(id);
             continue;
         }
         auto unusedIt = modelUnusedSince_.find(id);
         if (unusedIt == modelUnusedSince_.end()) {
-            // First cycle with no instances — start the grace timer
+            // First cycle with no instances - start the grace timer
             modelUnusedSince_[id] = now;
         } else if (now - unusedIt->second >= kGracePeriod) {
-            // Grace period expired — mark for removal
+            // Grace period expired - mark for removal
             toRemove.push_back(id);
             modelUnusedSince_.erase(unusedIt);
         }
@@ -622,11 +536,11 @@ void M2Renderer::cleanupUnusedModels() {
 
     // Delete GPU resources and remove from map.
     // Wait for the GPU to finish all in-flight frames before destroying any
-    // buffers — the previous frame's command buffer may still be referencing
+    // buffers - the previous frame's command buffer may still be referencing
     // vertex/index buffers that are about to be freed. Without this wait,
     // the GPU reads freed memory, which can cause VK_ERROR_DEVICE_LOST.
     // Suspected (not yet confirmed) contributor to multi-second freezes seen
-    // right after taxi landings — timed here so the next repro pins it down.
+    // right after taxi landings - timed here so the next repro pins it down.
     if (!toRemove.empty() && vkCtx_) {
         const auto waitStart = std::chrono::steady_clock::now();
         vkDeviceWaitIdle(vkCtx_->getDevice());
@@ -895,7 +809,7 @@ std::optional<float> M2Renderer::getFloorHeight(float glX, float glY, float glZ,
                 // projection is not a world-vertical intersection.
                 continue;
             }
-            // Fall through to AABB floor — both contribute, highest wins
+            // Fall through to AABB floor - both contribute, highest wins
         }
 
         float zMargin = model.collisionBridge ? 25.0f : 2.0f;
@@ -1033,7 +947,7 @@ bool M2Renderer::checkCollision(const glm::vec3& from, const glm::vec3& to,
                 float distXY = std::sqrt(diff.x * diff.x + diff.y * diff.y);
 
                 if (distXY < localRadius && distXY > 1e-4f) {
-                    // Gentle push — very small fraction of penetration
+                    // Gentle push - very small fraction of penetration
                     float penetration = localRadius - distXY;
                     float pushDist = std::clamp(penetration * 0.08f, 0.001f, 0.015f);
                     float dx = (diff.x / distXY) * pushDist;
@@ -1044,7 +958,7 @@ bool M2Renderer::checkCollision(const glm::vec3& from, const glm::vec3& to,
                     totalPushY += dy;
                     pushed = true;
                 } else if (distXY < 1e-4f) {
-                    // On the plane — soft push along triangle normal XY
+                    // On the plane - soft push along triangle normal XY
                     glm::vec3 n = glm::cross(v1 - v0, v2 - v0);
                     float nxyLen = std::sqrt(n.x * n.x + n.y * n.y);
                     if (nxyLen > 1e-4f) {
@@ -1068,8 +982,8 @@ bool M2Renderer::checkCollision(const glm::vec3& from, const glm::vec3& to,
                 // Which doodad is in the way, once per model.
                 //
                 // A model that blocks and should not is reported as "I am
-                // stuck on this bush", and the one thing needed to fix it —
-                // the model's name — is the one thing nobody can see. The
+                // stuck on this bush", and the one thing needed to fix it -
+                // the model's name - is the one thing nobody can see. The
                 // classifier decides collision from that name, so without it
                 // the only way forward is guessing tokens, which is how the
                 // folder-token regression happened.
@@ -1080,7 +994,7 @@ bool M2Renderer::checkCollision(const glm::vec3& from, const glm::vec3& to,
                 static std::set<std::string> saidBlocked;
                 if (!model.name.empty() && saidBlocked.insert(model.name).second) {
                     LOG_WARNING("Collision: blocked by '", model.name,
-                                "' — if this should be walked through, that is "
+                                "' - if this should be walked through, that is "
                                 "the name the classifier needs");
                 }
             }
@@ -1164,12 +1078,12 @@ bool M2Renderer::checkCollision(const glm::vec3& from, const glm::vec3& to,
                 // The first of these lines went inside the branch for models
                 // that carry a collision mesh. A model without one is stopped
                 // by its bounding box here instead, so the doodads reported as
-                // wrongly solid — grass among them — were exactly the ones the
+                // wrongly solid - grass among them - were exactly the ones the
                 // diagnostic could not see.
                 static std::set<std::string> saidBoxBlocked;
                 if (!model.name.empty() && saidBoxBlocked.insert(model.name).second) {
                     LOG_WARNING("Collision: blocked by '", model.name,
-                                "' (bounding box, no collision mesh) — if this "
+                                "' (bounding box, no collision mesh) - if this "
                                 "should be walked through, that is the name the "
                                 "classifier needs");
                 }
@@ -1299,192 +1213,19 @@ void M2Renderer::recreatePipelines() {
     VkDevice device = vkCtx_->getDevice();
 
     // Destroy old main-pass pipelines (NOT shadow, NOT pipeline layouts)
-    if (opaquePipeline_)            { vkDestroyPipeline(device, opaquePipeline_, nullptr); opaquePipeline_ = VK_NULL_HANDLE; }
-    if (alphaTestPipeline_)         { vkDestroyPipeline(device, alphaTestPipeline_, nullptr); alphaTestPipeline_ = VK_NULL_HANDLE; }
-    if (alphaPipeline_)             { vkDestroyPipeline(device, alphaPipeline_, nullptr); alphaPipeline_ = VK_NULL_HANDLE; }
-    if (additivePipeline_)          { vkDestroyPipeline(device, additivePipeline_, nullptr); additivePipeline_ = VK_NULL_HANDLE; }
-    if (particlePipeline_)          { vkDestroyPipeline(device, particlePipeline_, nullptr); particlePipeline_ = VK_NULL_HANDLE; }
-    if (particleAdditivePipeline_)  { vkDestroyPipeline(device, particleAdditivePipeline_, nullptr); particleAdditivePipeline_ = VK_NULL_HANDLE; }
-    if (smokePipeline_)             { vkDestroyPipeline(device, smokePipeline_, nullptr); smokePipeline_ = VK_NULL_HANDLE; }
-    if (ribbonPipeline_)            { vkDestroyPipeline(device, ribbonPipeline_, nullptr); ribbonPipeline_ = VK_NULL_HANDLE; }
-    if (ribbonAdditivePipeline_)    { vkDestroyPipeline(device, ribbonAdditivePipeline_, nullptr); ribbonAdditivePipeline_ = VK_NULL_HANDLE; }
+    destroy(device, opaquePipeline_);
+    destroy(device, alphaTestPipeline_);
+    destroy(device, alphaPipeline_);
+    destroy(device, additivePipeline_);
+    destroy(device, particlePipeline_);
+    destroy(device, particleAdditivePipeline_);
+    destroy(device, smokePipeline_);
+    destroy(device, ribbonPipeline_);
+    destroy(device, ribbonAdditivePipeline_);
 
-    // --- Load shaders ---
-    rendering::VkShaderModule m2Vert, m2Frag;
-    rendering::VkShaderModule particleVert, particleFrag;
-    rendering::VkShaderModule smokeVert, smokeFrag;
-
-    (void)m2Vert.loadFromFile(device, "assets/shaders/m2.vert.spv");
-    (void)m2Frag.loadFromFile(device, "assets/shaders/m2.frag.spv");
-    (void)particleVert.loadFromFile(device, "assets/shaders/m2_particle.vert.spv");
-    (void)particleFrag.loadFromFile(device, "assets/shaders/m2_particle.frag.spv");
-    (void)smokeVert.loadFromFile(device, "assets/shaders/m2_smoke.vert.spv");
-    (void)smokeFrag.loadFromFile(device, "assets/shaders/m2_smoke.frag.spv");
-
-    if (!m2Vert.isValid() || !m2Frag.isValid()) {
-        LOG_ERROR("M2Renderer::recreatePipelines: missing required shaders");
-        return;
-    }
-
-    VkRenderPass mainPass = vkCtx_->getImGuiRenderPass();
-
-    // --- M2 model vertex input ---
-    VkVertexInputBindingDescription m2Binding{};
-    m2Binding.binding = 0;
-    m2Binding.stride = 18 * sizeof(float);
-    m2Binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-    std::vector<VkVertexInputAttributeDescription> m2Attrs = {
-        {0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0},                     // position
-        {1, 0, VK_FORMAT_R32G32B32_SFLOAT, 3 * sizeof(float)},     // normal
-        {2, 0, VK_FORMAT_R32G32_SFLOAT, 6 * sizeof(float)},        // texCoord0
-        {5, 0, VK_FORMAT_R32G32_SFLOAT, 8 * sizeof(float)},        // texCoord1
-        {3, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 10 * sizeof(float)}, // boneWeights
-        {4, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 14 * sizeof(float)}, // boneIndices (float)
-    };
-
-    // Pipeline derivatives — opaque is the base, others derive from it for shared state optimization
-    auto buildM2Pipeline = [&](VkPipelineColorBlendAttachmentState blendState, bool depthWrite,
-                               VkPipelineCreateFlags flags = 0, VkPipeline basePipeline = VK_NULL_HANDLE,
-                               bool alphaToCoverage = false) -> VkPipeline {
-        auto builder = PipelineBuilder()
-            .setShaders(m2Vert.stageInfo(VK_SHADER_STAGE_VERTEX_BIT),
-                        m2Frag.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT))
-            .setVertexInput({m2Binding}, m2Attrs)
-            .setTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
-            .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
-            .setDepthTest(!skyMode_, skyMode_ ? false : depthWrite,
-                          skyMode_ ? VK_COMPARE_OP_ALWAYS : VK_COMPARE_OP_LESS_OR_EQUAL)
-            .setColorBlendAttachment(blendState)
-            .setMultisample(vkCtx_->getMsaaSamples());
-        // MSAA alpha-to-coverage dithers the shader's sharpened cutout alpha
-        // across samples for smooth foliage/leaf silhouettes.
-        if (alphaToCoverage) builder.setAlphaToCoverage(true);
-        return builder
-            .setLayout(pipelineLayout_)
-            .setRenderPass(mainPass)
-            .setDynamicStates({VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR})
-            .setFlags(flags)
-            .setBasePipeline(basePipeline)
-            .build(device, vkCtx_->getPipelineCache());
-    };
-
-    opaquePipeline_ = buildM2Pipeline(PipelineBuilder::blendDisabled(), true,
-                                      VK_PIPELINE_CREATE_ALLOW_DERIVATIVES_BIT);
-    alphaTestPipeline_ = buildM2Pipeline(PipelineBuilder::blendAlpha(), true,
-                                         VK_PIPELINE_CREATE_DERIVATIVE_BIT, opaquePipeline_,
-                                         /*alphaToCoverage=*/true);
-    alphaPipeline_ = buildM2Pipeline(PipelineBuilder::blendAlpha(), false,
-                                     VK_PIPELINE_CREATE_DERIVATIVE_BIT, opaquePipeline_);
-    additivePipeline_ = buildM2Pipeline(PipelineBuilder::blendAdditive(), false,
-                                        VK_PIPELINE_CREATE_DERIVATIVE_BIT, opaquePipeline_);
-
-    // --- Particle pipelines ---
-    if (particleVert.isValid() && particleFrag.isValid()) {
-        VkVertexInputBindingDescription pBind{};
-        pBind.binding = 0;
-        pBind.stride = 9 * sizeof(float); // pos3 + color4 + size1 + tile1
-        pBind.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-        std::vector<VkVertexInputAttributeDescription> pAttrs = {
-            {0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0},                    // position
-            {1, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 3 * sizeof(float)}, // color
-            {2, 0, VK_FORMAT_R32_SFLOAT, 7 * sizeof(float)},          // size
-            {3, 0, VK_FORMAT_R32_SFLOAT, 8 * sizeof(float)},          // tile
-        };
-
-        auto buildParticlePipeline = [&](VkPipelineColorBlendAttachmentState blend) -> VkPipeline {
-            return PipelineBuilder()
-                .setShaders(particleVert.stageInfo(VK_SHADER_STAGE_VERTEX_BIT),
-                            particleFrag.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT))
-                .setVertexInput({pBind}, pAttrs)
-                .setTopology(VK_PRIMITIVE_TOPOLOGY_POINT_LIST)
-                .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
-                .setDepthTest(true, false, VK_COMPARE_OP_LESS_OR_EQUAL)
-                .setColorBlendAttachment(blend)
-                .setMultisample(vkCtx_->getMsaaSamples())
-                .setLayout(particlePipelineLayout_)
-                .setRenderPass(mainPass)
-                .setDynamicStates({VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR})
-                .build(device, vkCtx_->getPipelineCache());
-        };
-
-        particlePipeline_ = buildParticlePipeline(PipelineBuilder::blendAlpha());
-        particleAdditivePipeline_ = buildParticlePipeline(PipelineBuilder::blendAdditive());
-    }
-
-    // --- Smoke pipeline ---
-    if (smokeVert.isValid() && smokeFrag.isValid()) {
-        VkVertexInputBindingDescription sBind{};
-        sBind.binding = 0;
-        sBind.stride = 6 * sizeof(float); // pos3 + lifeRatio1 + size1 + isSpark1
-        sBind.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-        std::vector<VkVertexInputAttributeDescription> sAttrs = {
-            {0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0},           // position
-            {1, 0, VK_FORMAT_R32_SFLOAT, 3 * sizeof(float)}, // lifeRatio
-            {2, 0, VK_FORMAT_R32_SFLOAT, 4 * sizeof(float)}, // size
-            {3, 0, VK_FORMAT_R32_SFLOAT, 5 * sizeof(float)}, // isSpark
-        };
-
-        smokePipeline_ = PipelineBuilder()
-            .setShaders(smokeVert.stageInfo(VK_SHADER_STAGE_VERTEX_BIT),
-                        smokeFrag.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT))
-            .setVertexInput({sBind}, sAttrs)
-            .setTopology(VK_PRIMITIVE_TOPOLOGY_POINT_LIST)
-            .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
-            .setDepthTest(true, false, VK_COMPARE_OP_LESS_OR_EQUAL)
-            .setColorBlendAttachment(PipelineBuilder::blendAlpha())
-            .setMultisample(vkCtx_->getMsaaSamples())
-            .setLayout(smokePipelineLayout_)
-            .setRenderPass(mainPass)
-            .setDynamicStates({VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR})
-            .build(device, vkCtx_->getPipelineCache());
-    }
-
-    // --- Ribbon pipelines ---
-    {
-        rendering::VkShaderModule ribVert, ribFrag;
-        (void)ribVert.loadFromFile(device, "assets/shaders/m2_ribbon.vert.spv");
-        (void)ribFrag.loadFromFile(device, "assets/shaders/m2_ribbon.frag.spv");
-        if (ribVert.isValid() && ribFrag.isValid()) {
-            VkVertexInputBindingDescription rBind{};
-            rBind.binding = 0;
-            rBind.stride = 9 * sizeof(float);
-            rBind.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-            std::vector<VkVertexInputAttributeDescription> rAttrs = {
-                {0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0},
-                {1, 0, VK_FORMAT_R32G32B32_SFLOAT, 3 * sizeof(float)},
-                {2, 0, VK_FORMAT_R32_SFLOAT,       6 * sizeof(float)},
-                {3, 0, VK_FORMAT_R32G32_SFLOAT,    7 * sizeof(float)},
-            };
-
-            auto buildRibbonPipeline = [&](VkPipelineColorBlendAttachmentState blend) -> VkPipeline {
-                return PipelineBuilder()
-                    .setShaders(ribVert.stageInfo(VK_SHADER_STAGE_VERTEX_BIT),
-                                ribFrag.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT))
-                    .setVertexInput({rBind}, rAttrs)
-                    .setTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP)
-                    .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
-                    .setDepthTest(true, false, VK_COMPARE_OP_LESS_OR_EQUAL)
-                    .setColorBlendAttachment(blend)
-                    .setMultisample(vkCtx_->getMsaaSamples())
-                    .setLayout(ribbonPipelineLayout_)
-                    .setRenderPass(mainPass)
-                    .setDynamicStates({VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR})
-                    .build(device, vkCtx_->getPipelineCache());
-            };
-
-            ribbonPipeline_         = buildRibbonPipeline(PipelineBuilder::blendAlpha());
-            ribbonAdditivePipeline_ = buildRibbonPipeline(PipelineBuilder::blendAdditive());
-        }
-        ribVert.destroy(); ribFrag.destroy();
-    }
-
-    m2Vert.destroy(); m2Frag.destroy();
-    particleVert.destroy(); particleFrag.destroy();
-    smokeVert.destroy(); smokeFrag.destroy();
+    // The same nine pipelines initialize() builds, built by the same
+    // function. The layouts are untouched above, so it makes none.
+    buildMainPassPipelines(perFrameLayout_);
 
     core::Logger::getInstance().info("M2Renderer: pipelines recreated");
 }

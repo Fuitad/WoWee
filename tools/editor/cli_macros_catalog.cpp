@@ -1,4 +1,6 @@
 #include "cli_macros_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -18,20 +20,6 @@ namespace cli {
 
 namespace {
 
-std::string stripWmacExt(std::string base) {
-    stripExt(base, ".wmac");
-    return base;
-}
-
-bool saveOrError(const wowee::pipeline::WoweeMacro& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeMacroLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wmac\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeMacro& c,
                      const std::string& base) {
@@ -44,9 +32,9 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterMacros";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWmacExt(base);
+    base = cli::withoutExt(base, ".wmac");
     auto c = wowee::pipeline::WoweeMacroLoader::makeStarter(name);
-    if (!saveOrError(c, base, "gen-mac")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeMacroLoader>(c, base, "gen-mac", ".wmac")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -55,9 +43,9 @@ int handleGenCombat(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "CombatMacros";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWmacExt(base);
+    base = cli::withoutExt(base, ".wmac");
     auto c = wowee::pipeline::WoweeMacroLoader::makeCombat(name);
-    if (!saveOrError(c, base, "gen-mac-combat")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeMacroLoader>(c, base, "gen-mac-combat", ".wmac")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -66,9 +54,9 @@ int handleGenUtility(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "UtilityMacros";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWmacExt(base);
+    base = cli::withoutExt(base, ".wmac");
     auto c = wowee::pipeline::WoweeMacroLoader::makeUtility(name);
-    if (!saveOrError(c, base, "gen-mac-utility")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeMacroLoader>(c, base, "gen-mac-utility", ".wmac")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -76,10 +64,9 @@ int handleGenUtility(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWmacExt(base);
+    base = cli::withoutExt(base, ".wmac");
     if (!wowee::pipeline::WoweeMacroLoader::exists(base)) {
-        std::fprintf(stderr, "WMAC not found: %s.wmac\n", base.c_str());
-        return 1;
+        return reportMissing("WMAC", base, ".wmac");
     }
     auto c = wowee::pipeline::WoweeMacroLoader::load(base);
     if (jsonOut) {
@@ -127,68 +114,40 @@ int handleExportJson(int& i, int argc, char** argv) {
     // Mirrors the JSON pairs added for every other novel
     // open format. Each macro emits all 8 scalar fields
     // plus a dual int + name form for macroKind. The
-    // macroBody string is dumped verbatim — multi-line
+    // macroBody string is dumped verbatim - multi-line
     // bodies preserve '\n' as JSON-escape sequences which
     // most editors render readably.
-    std::string base = argv[++i];
-    std::string outPath;
-    if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWmacExt(base);
-    if (outPath.empty()) outPath = base + ".wmac.json";
-    if (!wowee::pipeline::WoweeMacroLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wmac-json: WMAC not found: %s.wmac\n", base.c_str());
-        return 1;
-    }
-    auto c = wowee::pipeline::WoweeMacroLoader::load(base);
-    nlohmann::json j;
-    j["name"] = c.name;
-    nlohmann::json arr = nlohmann::json::array();
-    for (const auto& e : c.entries) {
-        arr.push_back({
-            {"macroId", e.macroId},
-            {"name", e.name},
-            {"description", e.description},
-            {"iconPath", e.iconPath},
-            {"macroBody", e.macroBody},
-            {"bindKey", e.bindKey},
-            {"macroKind", e.macroKind},
-            {"macroKindName", wowee::pipeline::WoweeMacro::macroKindName(e.macroKind)},
-            {"requiredClassMask", e.requiredClassMask},
-            {"maxLength", e.maxLength},
+    return cli::exportCatalogJson<wowee::pipeline::WoweeMacroLoader>(
+        i, argc, argv, "wmac", "WMAC", "macros ",
+        [](const auto& c) {
+        nlohmann::json j;
+        j["name"] = c.name;
+        nlohmann::json arr = nlohmann::json::array();
+        for (const auto& e : c.entries) {
+            arr.push_back({
+                {"macroId", e.macroId},
+                {"name", e.name},
+                {"description", e.description},
+                {"iconPath", e.iconPath},
+                {"macroBody", e.macroBody},
+                {"bindKey", e.bindKey},
+                {"macroKind", e.macroKind},
+                {"macroKindName", wowee::pipeline::WoweeMacro::macroKindName(e.macroKind)},
+                {"requiredClassMask", e.requiredClassMask},
+                {"maxLength", e.maxLength},
+            });
+        }
+        j["entries"] = arr;
+            return j;
         });
-    }
-    j["entries"] = arr;
-    std::ofstream out(outPath);
-    if (!out) {
-        std::fprintf(stderr,
-            "export-wmac-json: cannot write %s\n", outPath.c_str());
-        return 1;
-    }
-    out << j.dump(2) << "\n";
-    out.close();
-    std::printf("Wrote %s\n", outPath.c_str());
-    std::printf("  source : %s.wmac\n", base.c_str());
-    std::printf("  macros : %zu\n", c.entries.size());
-    return 0;
 }
 
 int handleImportJson(int& i, int argc, char** argv) {
     std::string jsonPath = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = jsonPath;
-        std::string suffix = ".wmac.json";
-        if (outBase.size() > suffix.size() &&
-            outBase.substr(outBase.size() - suffix.size()) == suffix) {
-            outBase = outBase.substr(0, outBase.size() - suffix.size());
-        } else if (outBase.size() > 5 &&
-                   outBase.substr(outBase.size() - 5) == ".json") {
-            outBase = outBase.substr(0, outBase.size() - 5);
-        }
-    }
-    outBase = stripWmacExt(outBase);
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(jsonPath, ".wmac");
+    outBase = cli::withoutExt(outBase, ".wmac");
     std::ifstream in(jsonPath);
     if (!in) {
         std::fprintf(stderr,
@@ -251,97 +210,57 @@ int handleImportJson(int& i, int argc, char** argv) {
 }
 
 int handleValidate(int& i, int argc, char** argv) {
-    std::string base = argv[++i];
-    bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWmacExt(base);
-    if (!wowee::pipeline::WoweeMacroLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wmac: WMAC not found: %s.wmac\n", base.c_str());
-        return 1;
-    }
-    auto c = wowee::pipeline::WoweeMacroLoader::load(base);
-    std::vector<std::string> errors;
-    std::vector<std::string> warnings;
-    if (c.entries.empty()) {
-        warnings.push_back("catalog has zero entries");
-    }
-    std::vector<uint32_t> idsSeen;
-    for (size_t k = 0; k < c.entries.size(); ++k) {
-        const auto& e = c.entries[k];
-        std::string ctx = "entry " + std::to_string(k) +
-                          " (id=" + std::to_string(e.macroId);
-        if (!e.name.empty()) ctx += " " + e.name;
-        ctx += ")";
-        if (e.macroId == 0)
-            errors.push_back(ctx + ": macroId is 0");
-        if (e.name.empty())
-            errors.push_back(ctx + ": name is empty");
-        if (e.macroBody.empty())
-            errors.push_back(ctx +
-                ": macroBody is empty (macro does nothing)");
-        if (e.macroKind > wowee::pipeline::WoweeMacro::SharedMacro) {
-            errors.push_back(ctx + ": macroKind " +
-                std::to_string(e.macroKind) + " not in 0..4");
-        }
-        if (e.maxLength != 0 && e.macroBody.size() > e.maxLength) {
-            errors.push_back(ctx +
-                ": macroBody length " +
-                std::to_string(e.macroBody.size()) +
-                " exceeds maxLength " +
-                std::to_string(e.maxLength));
-        }
-        // Macro body must start with `/` (slash command) — any
-        // line that doesn't is a stray comment / orphan text.
-        if (!e.macroBody.empty() && e.macroBody[0] != '/' &&
-            e.macroBody[0] != '#') {
-            warnings.push_back(ctx +
-                ": macroBody doesn't start with '/' or '#' "
-                "(likely missing slash on first line)");
-        }
-        // SystemSlash macros are run by the engine, not by the
-        // player — assigning a class restriction makes no sense
-        // since the slash command is shared by all classes.
-        if (e.macroKind == wowee::pipeline::WoweeMacro::SystemSlash &&
-            e.requiredClassMask != 0) {
-            warnings.push_back(ctx +
-                ": SystemSlash kind with requiredClassMask != 0 "
-                "(slash commands are class-agnostic)");
-        }
-        for (uint32_t prev : idsSeen) {
-            if (prev == e.macroId) {
-                errors.push_back(ctx + ": duplicate macroId");
-                break;
+    return cli::validateCatalog<wowee::pipeline::WoweeMacroLoader>(
+        i, argc, argv, "wmac", "WMAC",
+        [](const auto& c, std::vector<std::string>& errors,
+           std::vector<std::string>& warnings) {
+        cli::DuplicateIdCheck idsSeen;
+        for (size_t k = 0; k < c.entries.size(); ++k) {
+            const auto& e = c.entries[k];
+            std::string ctx = "entry " + std::to_string(k) +
+                              " (id=" + std::to_string(e.macroId);
+            if (!e.name.empty()) ctx += " " + e.name;
+            ctx += ")";
+            if (e.macroId == 0)
+                errors.push_back(ctx + ": macroId is 0");
+            if (e.name.empty())
+                errors.push_back(ctx + ": name is empty");
+            if (e.macroBody.empty())
+                errors.push_back(ctx +
+                    ": macroBody is empty (macro does nothing)");
+            if (e.macroKind > wowee::pipeline::WoweeMacro::SharedMacro) {
+                errors.push_back(ctx + ": macroKind " +
+                    std::to_string(e.macroKind) + " not in 0..4");
             }
+            if (e.maxLength != 0 && e.macroBody.size() > e.maxLength) {
+                errors.push_back(ctx +
+                    ": macroBody length " +
+                    std::to_string(e.macroBody.size()) +
+                    " exceeds maxLength " +
+                    std::to_string(e.maxLength));
+            }
+            // Macro body must start with `/` (slash command) - any
+            // line that doesn't is a stray comment / orphan text.
+            if (!e.macroBody.empty() && e.macroBody[0] != '/' &&
+                e.macroBody[0] != '#') {
+                warnings.push_back(ctx +
+                    ": macroBody doesn't start with '/' or '#' "
+                    "(likely missing slash on first line)");
+            }
+            // SystemSlash macros are run by the engine, not by the
+            // player - assigning a class restriction makes no sense
+            // since the slash command is shared by all classes.
+            if (e.macroKind == wowee::pipeline::WoweeMacro::SystemSlash &&
+                e.requiredClassMask != 0) {
+                warnings.push_back(ctx +
+                    ": SystemSlash kind with requiredClassMask != 0 "
+                    "(slash commands are class-agnostic)");
+            }
+            if (!idsSeen.add(e.macroId)) errors.push_back(ctx + ": duplicate macroId");
         }
-        idsSeen.push_back(e.macroId);
-    }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wmac"] = base + ".wmac";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wmac: %s.wmac\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu macros, all macroIds unique, "
-                    "all bodies within length cap\n", c.entries.size());
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+            return formatted("%zu macros, all macroIds unique, "
+                    "all bodies within length cap", c.entries.size());
+        });
 }
 
 } // namespace

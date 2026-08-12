@@ -21,7 +21,7 @@ inline bool isReachableStep(float deltaZ) {
 
 /// Whether the outdoor heightfield at this spot is a roof rather than a floor.
 ///
-/// Inside an interior WMO group — Undercity's halls, a building's rooms — the
+/// Inside an interior WMO group - Undercity's halls, a building's rooms - the
 /// heightfield overhead is meaningless, and letting it stand as a floor
 /// candidate kicks the player up to the surface whenever the WMO floor query
 /// finds nothing underfoot.
@@ -29,7 +29,7 @@ inline bool isReachableStep(float deltaZ) {
 /// But being "inside" is decided by bounding-box containment, and an
 /// underground WMO's interior box reaches up through the ground above it. So
 /// standing on the hillside over a cave counts as inside, and discarding the
-/// terrain there leaves the WMO as the only candidate — whose nearest surface
+/// terrain there leaves the WMO as the only candidate - whose nearest surface
 /// below is the cave's ceiling. The player drops through the hill they are
 /// walking on and stands on the roof of the room underneath.
 ///

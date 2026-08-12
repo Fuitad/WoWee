@@ -1,4 +1,5 @@
 #include "cli_deps.hpp"
+#include "zone_manifest.hpp"
 
 #include "object_placer.hpp"
 #include "pipeline/wowee_building.hpp"
@@ -22,7 +23,7 @@ namespace cli {
 namespace {
 
 int handleListZoneDeps(int& i, int argc, char** argv) {
-    // Enumerate every external model path a zone references —
+    // Enumerate every external model path a zone references -
     // both directly placed (objects.json) and indirectly via
     // doodad placements inside any WOB sitting next to the
     // zone manifest. Useful when packaging a content pack to
@@ -69,7 +70,7 @@ int handleListZoneDeps(int& i, int argc, char** argv) {
     }
     // For each direct WMO placement, also recurse into the WOB
     // sitting at that path (relative to the zone) so transitive
-    // doodad deps surface — this matches the runtime's actual
+    // doodad deps surface - this matches the runtime's actual
     // load chain.
     for (const auto& [path, count] : directWMO) {
         // Strip extension since loader takes a base path.
@@ -131,7 +132,7 @@ int handleListProjectOrphans(int& i, int argc, char** argv) {
     // sitting on disk and the set of paths actually
     // referenced by objects.json placements + WOB doodad
     // lists. Files in the first set but not the second are
-    // orphans — candidates for removal before --pack-wcp so
+    // orphans - candidates for removal before --pack-wcp so
     // the archive doesn't carry dead weight.
     //
     // Comparison is by basename (extension stripped) since
@@ -148,13 +149,9 @@ int handleListProjectOrphans(int& i, int argc, char** argv) {
             projectDir.c_str());
         return 1;
     }
-    std::vector<std::string> zones;
-    for (const auto& entry : fs::directory_iterator(projectDir)) {
-        if (!entry.is_directory()) continue;
-        if (!fs::exists(entry.path() / "zone.json")) continue;
-        zones.push_back(entry.path().string());
-    }
-    std::sort(zones.begin(), zones.end());
+    // What counts as a zone, and the order they are reported in,
+    // from one place.
+    std::vector<std::string> zones = wowee::editor::projectZoneDirs(projectDir);
     // Project-wide reference set. Normalize by stripping
     // extension and any leading "./".
     auto normalize = [](std::string p) {
@@ -249,7 +246,7 @@ int handleListProjectOrphans(int& i, int argc, char** argv) {
     std::printf("  orphan .wom/.wob : %zu file(s), %.1f KB\n",
                 orphans.size(), totalOrphanBytes / 1024.0);
     if (orphans.empty()) {
-        std::printf("\n  (no orphans — every model file is referenced)\n");
+        std::printf("\n  (no orphans - every model file is referenced)\n");
         return 0;
     }
     std::printf("\n  zone                  bytes      path\n");
@@ -279,13 +276,9 @@ int handleRemoveProjectOrphans(int& i, int argc, char** argv) {
             projectDir.c_str());
         return 1;
     }
-    std::vector<std::string> zones;
-    for (const auto& entry : fs::directory_iterator(projectDir)) {
-        if (!entry.is_directory()) continue;
-        if (!fs::exists(entry.path() / "zone.json")) continue;
-        zones.push_back(entry.path().string());
-    }
-    std::sort(zones.begin(), zones.end());
+    // What counts as a zone, and the order they are reported in,
+    // from one place.
+    std::vector<std::string> zones = wowee::editor::projectZoneDirs(projectDir);
     // Same normalize + reference collection as --list-project-orphans.
     // Keep both functions in sync if the matching rules evolve.
     auto normalize = [](std::string p) {

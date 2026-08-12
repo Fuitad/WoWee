@@ -33,7 +33,7 @@ struct CreatureQueryResponseData;
 struct GameObjectQueryResponseData;
 
 // ---------------------------------------------------------------------------
-// IConnectionState — server connection and authentication state
+// IConnectionState - server connection and authentication state
 // ---------------------------------------------------------------------------
 class IConnectionState {
 public:
@@ -47,7 +47,7 @@ public:
 };
 
 // ---------------------------------------------------------------------------
-// ITargetingState — target, focus, and mouseover management
+// ITargetingState - target, focus, and mouseover management
 // ---------------------------------------------------------------------------
 class ITargetingState {
 public:
@@ -69,7 +69,7 @@ public:
 };
 
 // ---------------------------------------------------------------------------
-// IEntityAccess — entity queries and name/info caching
+// IEntityAccess - entity queries and name/info caching
 // ---------------------------------------------------------------------------
 class IEntityAccess {
 public:
@@ -88,7 +88,7 @@ public:
 };
 
 // ---------------------------------------------------------------------------
-// ISocialState — friends, ignore list, contacts, guild info
+// ISocialState - friends, ignore list, contacts, guild info
 // ---------------------------------------------------------------------------
 class ISocialState {
 public:
@@ -108,7 +108,7 @@ public:
 };
 
 // ---------------------------------------------------------------------------
-// IPvpState — battleground queues, arena teams, scoreboard
+// IPvpState - battleground queues, arena teams, scoreboard
 // ---------------------------------------------------------------------------
 class IPvpState {
 public:

@@ -1,4 +1,6 @@
 #include "cli_soulbind_rules_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -19,11 +21,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWbndExt(std::string base) {
-    stripExt(base, ".wbnd");
-    return base;
-}
 
 const char* bindKindName(uint8_t k) {
     using B = wowee::pipeline::WoweeSoulbindRules;
@@ -53,15 +50,6 @@ const char* qualityName(uint8_t q) {
     }
 }
 
-bool saveOrError(const wowee::pipeline::WoweeSoulbindRules& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeSoulbindRulesLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wbnd\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeSoulbindRules& c,
                      const std::string& base) {
@@ -74,10 +62,10 @@ int handleGenVanilla(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "VanillaSoulbindPolicy";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWbndExt(base);
+    base = cli::withoutExt(base, ".wbnd");
     auto c = wowee::pipeline::WoweeSoulbindRulesLoader::
         makeVanillaPolicy(name);
-    if (!saveOrError(c, base, "gen-bnd-vanilla")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSoulbindRulesLoader>(c, base, "gen-bnd-vanilla", ".wbnd")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -86,10 +74,10 @@ int handleGenTBC(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "TBCSoulbindPolicy";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWbndExt(base);
+    base = cli::withoutExt(base, ".wbnd");
     auto c = wowee::pipeline::WoweeSoulbindRulesLoader::
         makeTBCPolicy(name);
-    if (!saveOrError(c, base, "gen-bnd-tbc")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSoulbindRulesLoader>(c, base, "gen-bnd-tbc", ".wbnd")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -98,10 +86,10 @@ int handleGenWotLK(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "WotLKSoulbindPolicy";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWbndExt(base);
+    base = cli::withoutExt(base, ".wbnd");
     auto c = wowee::pipeline::WoweeSoulbindRulesLoader::
         makeWotLKPolicy(name);
-    if (!saveOrError(c, base, "gen-bnd-wotlk")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeSoulbindRulesLoader>(c, base, "gen-bnd-wotlk", ".wbnd")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -109,7 +97,7 @@ int handleGenWotLK(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWbndExt(base);
+    base = cli::withoutExt(base, ".wbnd");
     if (!wowee::pipeline::WoweeSoulbindRulesLoader::exists(base)) {
         std::fprintf(stderr, "WBND not found: %s.wbnd\n",
                      base.c_str());
@@ -228,12 +216,9 @@ bool readEnumField(const nlohmann::json& je,
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWbndExt(base);
+    base = cli::withoutExt(base, ".wbnd");
     if (!wowee::pipeline::WoweeSoulbindRulesLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wbnd: WBND not found: %s.wbnd\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wbnd", "WBND", base, ".wbnd");
     }
     auto c = wowee::pipeline::WoweeSoulbindRulesLoader::load(base);
     std::vector<std::string> errors;
@@ -272,7 +257,7 @@ int handleValidate(int& i, int argc, char** argv) {
             e.bindKind != B::BindOnPickup) {
             warnings.push_back(ctx +
                 ": tradableForRaidGroup=true but "
-                "bindKind is not BindOnPickup — flag "
+                "bindKind is not BindOnPickup - flag "
                 "would be ignored at runtime");
         }
         // tradableWindowSec only meaningful when raid-
@@ -283,7 +268,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 ": tradableWindowSec=" +
                 std::to_string(e.tradableWindowSec) +
                 " set but tradableForRaidGroup=false "
-                "— window would never be reachable");
+                "- window would never be reachable");
         }
         // tradableForRaidGroup=true with window=0 is
         // a contradiction (instant window expiry =
@@ -292,7 +277,7 @@ int handleValidate(int& i, int argc, char** argv) {
             e.tradableWindowSec == 0) {
             errors.push_back(ctx +
                 ": tradableForRaidGroup=true with "
-                "tradableWindowSec=0 — window expires "
+                "tradableWindowSec=0 - window expires "
                 "instantly, equivalent to no window");
         }
         // boeBecomesBoP only meaningful for BindOnEquip
@@ -301,7 +286,7 @@ int handleValidate(int& i, int argc, char** argv) {
         if (e.boeBecomesBoP && e.bindKind != B::BindOnEquip) {
             warnings.push_back(ctx +
                 ": boeBecomesBoP=true but bindKind is "
-                "not BindOnEquip — flag would never "
+                "not BindOnEquip - flag would never "
                 "fire");
         }
         // accountBoundCrossFaction only meaningful
@@ -310,11 +295,11 @@ int handleValidate(int& i, int argc, char** argv) {
             e.bindKind != B::BindOnAccount) {
             warnings.push_back(ctx +
                 ": accountBoundCrossFaction=true but "
-                "bindKind is not BindOnAccount — flag "
+                "bindKind is not BindOnAccount - flag "
                 "would never apply");
         }
         // (bindKind, itemQualityFloor) MUST be unique
-        // — runtime resolveForQuality() would
+        // - runtime resolveForQuality() would
         // ambiguously pick one rule when two rules
         // tie on (bindKind, floor).
         Pair p{e.bindKind, e.itemQualityFloor};
@@ -324,55 +309,27 @@ int handleValidate(int& i, int argc, char** argv) {
                 std::to_string(e.bindKind) +
                 ", itemQualityFloor=" +
                 std::to_string(e.itemQualityFloor) +
-                ") — resolveForQuality() tie");
+                ") - resolveForQuality() tie");
         }
         if (!idsSeen.insert(e.ruleId).second) {
             errors.push_back(ctx + ": duplicate ruleId");
         }
     }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wbnd"] = base + ".wbnd";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wbnd: %s.wbnd\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu rules, all ruleIds + "
+    return cli::reportValidation("wbnd", base, jsonOut, errors, warnings,
+                                 formatted("%zu rules, all ruleIds + "
                     "(bindKind,itemQualityFloor) unique, "
                     "bindKind 0..5, quality 0..7, no "
-                    "tradableForRaidGroup-with-window=0\n",
-                    c.entries.size());
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+                    "tradableForRaidGroup-with-window=0", c.entries.size()));
 }
 
 int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWbndExt(base);
+    base = cli::withoutExt(base, ".wbnd");
     if (out.empty()) out = base + ".wbnd.json";
     if (!wowee::pipeline::WoweeSoulbindRulesLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wbnd-json: WBND not found: %s.wbnd\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wbnd-json", "WBND", base, ".wbnd");
     }
     auto c = wowee::pipeline::WoweeSoulbindRulesLoader::load(base);
     nlohmann::json j;
@@ -416,16 +373,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wbnd.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wbnd");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wbnd");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,

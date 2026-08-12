@@ -71,7 +71,7 @@ void applyEdgeEnvelope(std::vector<int16_t>& samples, int sampleRate) {
 int handleTone(int& i, int argc, char** argv) {
     // Synthesize a procedural mono PCM-16 WAV. Opens a new
     // file family in the open-format ecosystem (alongside
-    // WOM/WOB/PNG/JSON) — proprietary MP3 placeholders can
+    // WOM/WOB/PNG/JSON) - proprietary MP3 placeholders can
     // be replaced with hand-synthesized WAVs that have no
     // patent or licensing baggage.
     std::string outPath = argv[++i];
@@ -150,11 +150,11 @@ int handleTone(int& i, int argc, char** argv) {
 
 int handleNoise(int& i, int argc, char** argv) {
     // Procedural noise WAV. Three "colors" in audio engineering:
-    //   white  — equal energy per Hz (uniform random samples)
-    //   pink   — equal energy per octave (1/f spectrum) via
+    //   white  - equal energy per Hz (uniform random samples)
+    //   pink   - equal energy per octave (1/f spectrum) via
     //            Voss-McCartney 7-band cascade. Sounds like
     //            rain or wind.
-    //   brown  — 1/f² spectrum via random walk (integrated
+    //   brown  - 1/f² spectrum via random walk (integrated
     //            white noise). Sounds like distant surf or
     //            rumbling weather.
     std::string outPath = argv[++i];

@@ -1,4 +1,5 @@
 #include "core/window.hpp"
+#include "core/env.hpp"
 #include "core/logger.hpp"
 #include "rendering/vk_context.hpp"
 #include <SDL2/SDL_vulkan.h>
@@ -78,10 +79,10 @@ bool Window::initialize() {
     // makes the loader include portability ICDs so SDL's VK_KHR_surface check
     // succeeds.
 #ifdef __APPLE__
-    setenv("VK_LOADER_ENABLE_PORTABILITY_DRIVERS", "1", 0 /*don't overwrite*/);
+    setEnvVar("VK_LOADER_ENABLE_PORTABILITY_DRIVERS", "1", /*overwrite=*/false);
     // Probe for MoltenVK's ICD JSON if VK_ICD_FILENAMES isn't already set.
     // Without it the Vulkan loader can't find MoltenVK and SDL's pre-instance
-    // VK_KHR_surface check fails — the typical symptom when building with the
+    // VK_KHR_surface check fails - the typical symptom when building with the
     // LunarG SDK without sourcing setup-env.sh first.  Check $VULKAN_SDK
     // (LunarG SDK) before falling back to the two common Homebrew prefixes.
     if (!std::getenv("VK_ICD_FILENAMES")) {
@@ -102,7 +103,7 @@ bool Window::initialize() {
             }
         }
         if (!foundIcd.empty()) {
-            setenv("VK_ICD_FILENAMES", foundIcd.c_str(), 1);
+            setEnvVar("VK_ICD_FILENAMES", foundIcd.c_str());
             LOG_INFO("Auto-detected MoltenVK ICD: ", foundIcd);
         }
     }
@@ -186,26 +187,6 @@ void Window::shutdown() {
     SDL_Quit();
     LOG_DEBUG("Window shutdown complete");
 }
-
-void Window::pollEvents() {
-    SDL_Event event;
-    while (SDL_PollEvent(&event)) {
-        if (event.type == SDL_QUIT) {
-            shouldCloseFlag = true;
-        }
-        else if (event.type == SDL_WINDOWEVENT) {
-            if (event.window.event == SDL_WINDOWEVENT_RESIZED) {
-                width = event.window.data1;
-                height = event.window.data2;
-                if (vkContext) {
-                    vkContext->markSwapchainDirty();
-                }
-                LOG_DEBUG("Window resized to ", width, "x", height);
-            }
-        }
-    }
-}
-
 void Window::setFullscreen(bool enable) {
     if (!window) return;
     if (enable == fullscreen) return;

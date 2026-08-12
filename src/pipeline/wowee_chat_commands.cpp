@@ -1,4 +1,5 @@
 #include "pipeline/wowee_chat_commands.hpp"
+#include "pipeline/wowee_binary_io.hpp"
 
 #include <cstdio>
 #include <cstring>
@@ -11,45 +12,7 @@ namespace {
 
 constexpr char kMagic[4] = {'W', 'C', 'M', 'D'};
 constexpr uint32_t kVersion = 1;
-
-template <typename T>
-void writePOD(std::ofstream& os, const T& v) {
-    os.write(reinterpret_cast<const char*>(&v), sizeof(T));
-}
-
-template <typename T>
-bool readPOD(std::ifstream& is, T& v) {
-    is.read(reinterpret_cast<char*>(&v), sizeof(T));
-    return is.gcount() == static_cast<std::streamsize>(sizeof(T));
-}
-
-void writeStr(std::ofstream& os, const std::string& s) {
-    uint32_t n = static_cast<uint32_t>(s.size());
-    writePOD(os, n);
-    if (n > 0) os.write(s.data(), n);
-}
-
-bool readStr(std::ifstream& is, std::string& s) {
-    uint32_t n = 0;
-    if (!readPOD(is, n)) return false;
-    if (n > (1u << 20)) return false;
-    s.resize(n);
-    if (n > 0) {
-        is.read(s.data(), n);
-        if (is.gcount() != static_cast<std::streamsize>(n)) {
-            s.clear();
-            return false;
-        }
-    }
-    return true;
-}
-
-std::string normalizePath(std::string base) {
-    if (base.size() < 5 || base.substr(base.size() - 5) != ".wcmd") {
-        base += ".wcmd";
-    }
-    return base;
-}
+constexpr char kExtension[] = ".wcmd";
 
 } // namespace
 
@@ -82,15 +45,9 @@ WoweeChatCommands::findByMinSecurity(uint8_t playerSec) const {
 }
 
 bool WoweeChatCommandsLoader::save(const WoweeChatCommands& cat,
-                                     const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath), std::ios::binary);
-    if (!os) return false;
-    os.write(kMagic, 4);
-    writePOD(os, kVersion);
-    writeStr(os, cat.name);
-    uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writePOD(os, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeChatCommands::Entry& e) {
         writePOD(os, e.cmdId);
         writeStr(os, e.command);
         writePOD(os, e.minSecurityLevel);
@@ -106,65 +63,37 @@ bool WoweeChatCommandsLoader::save(const WoweeChatCommands& cat,
         for (const auto& a : e.aliases) {
             writeStr(os, a);
         }
-    }
-    return os.good();
+                       });
 }
 
 WoweeChatCommands WoweeChatCommandsLoader::load(
     const std::string& basePath) {
-    WoweeChatCommands out;
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    if (!is) return out;
-    char magic[4];
-    is.read(magic, 4);
-    if (std::memcmp(magic, kMagic, 4) != 0) return out;
-    uint32_t version = 0;
-    if (!readPOD(is, version) || version != kVersion) return out;
-    if (!readStr(is, out.name)) return out;
-    uint32_t entryCount = 0;
-    if (!readPOD(is, entryCount)) return out;
-    if (entryCount > (1u << 20)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.cmdId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.command)) {
-            out.entries.clear(); return out;
-        }
+    return loadCatalog<WoweeChatCommands>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeChatCommands::Entry& e) {
+        if (!readPOD(is, e.cmdId)) { return false; }
+        if (!readStr(is, e.command)) { return false; }
         if (!readPOD(is, e.minSecurityLevel) ||
             !readPOD(is, e.category) ||
             !readPOD(is, e.isHidden) ||
             !readPOD(is, e.pad0) ||
-            !readPOD(is, e.throttleMs)) {
-            out.entries.clear(); return out;
-        }
+            !readPOD(is, e.throttleMs)) { return false; }
         if (!readStr(is, e.argSchema) ||
-            !readStr(is, e.helpText)) {
-            out.entries.clear(); return out;
-        }
+            !readStr(is, e.helpText)) { return false; }
         uint32_t aliasCount = 0;
-        if (!readPOD(is, aliasCount)) {
-            out.entries.clear(); return out;
-        }
-        // Sanity cap — no command should have more
+        if (!readPOD(is, aliasCount)) { return false; }
+        // Sanity cap - no command should have more
         // than 32 aliases.
-        if (aliasCount > 32) {
-            out.entries.clear(); return out;
-        }
+        if (aliasCount > 32) { return false; }
         e.aliases.resize(aliasCount);
         for (auto& a : e.aliases) {
-            if (!readStr(is, a)) {
-                out.entries.clear(); return out;
-            }
+            if (!readStr(is, a)) { return false; }
         }
-    }
-    return out;
+                                  return true;
+                              });
 }
 
 bool WoweeChatCommandsLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 namespace {
@@ -280,7 +209,7 @@ WoweeChatCommands WoweeChatCommandsLoader::makeAdminCommands(
         {}));
     c.entries.push_back(makeCmd(
         22, "ban", W::GameMaster, W::AdminCmd, 0,
-        10000 /* 10s throttle — bans are heavy */,
+        10000 /* 10s throttle - bans are heavy */,
         "<charname> <durationHours> <reason>",
         "Ban an account for the specified duration. "
         "Use durationHours=0 for permanent ban. "

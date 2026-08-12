@@ -4,7 +4,7 @@ namespace wowee {
 namespace editor {
 namespace cli {
 
-// Dispatch the zone-level visual / report export handlers —
+// Dispatch the zone-level visual / report export handlers -
 // render PNG previews of terrain, spawn distributions, and
 // Markdown dependency reports. All three operate per-zone.
 //   --export-png             heightmap + normals + zone-map PNG triplet

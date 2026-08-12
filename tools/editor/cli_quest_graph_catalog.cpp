@@ -1,4 +1,6 @@
 #include "cli_quest_graph_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -21,11 +23,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWqgrExt(std::string base) {
-    stripExt(base, ".wqgr");
-    return base;
-}
 
 const char* questTypeName(uint8_t t) {
     using G = wowee::pipeline::WoweeQuestGraph;
@@ -50,15 +47,6 @@ const char* factionAccessName(uint8_t f) {
     }
 }
 
-bool saveOrError(const wowee::pipeline::WoweeQuestGraph& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeQuestGraphLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wqgr\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeQuestGraph& c,
                      const std::string& base) {
@@ -71,10 +59,10 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "NorthshireStarterChain";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWqgrExt(base);
+    base = cli::withoutExt(base, ".wqgr");
     auto c = wowee::pipeline::WoweeQuestGraphLoader::
         makeStarterChain(name);
-    if (!saveOrError(c, base, "gen-qgr-starter")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeQuestGraphLoader>(c, base, "gen-qgr-starter", ".wqgr")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -83,10 +71,10 @@ int handleGenBranched(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "BranchedConvergingChain";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWqgrExt(base);
+    base = cli::withoutExt(base, ".wqgr");
     auto c = wowee::pipeline::WoweeQuestGraphLoader::
         makeBranchedChain(name);
-    if (!saveOrError(c, base, "gen-qgr-branched")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeQuestGraphLoader>(c, base, "gen-qgr-branched", ".wqgr")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -95,10 +83,10 @@ int handleGenDailies(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "DailyQuests";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWqgrExt(base);
+    base = cli::withoutExt(base, ".wqgr");
     auto c = wowee::pipeline::WoweeQuestGraphLoader::
         makeDailies(name);
-    if (!saveOrError(c, base, "gen-qgr-dailies")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeQuestGraphLoader>(c, base, "gen-qgr-dailies", ".wqgr")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -106,7 +94,7 @@ int handleGenDailies(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWqgrExt(base);
+    base = cli::withoutExt(base, ".wqgr");
     if (!wowee::pipeline::WoweeQuestGraphLoader::exists(base)) {
         std::fprintf(stderr, "WQGR not found: %s.wqgr\n",
                      base.c_str());
@@ -161,7 +149,7 @@ int handleInfo(int& i, int argc, char** argv) {
     return 0;
 }
 
-// DFS cycle detection over prevQuestIds — same
+// DFS cycle detection over prevQuestIds - same
 // stack-based pattern as WMOD addon manifest. A
 // cycle in quest prereqs means the quest is
 // unreachable (player would need to complete Q1 to
@@ -264,12 +252,9 @@ bool readEnumField(const nlohmann::json& je,
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWqgrExt(base);
+    base = cli::withoutExt(base, ".wqgr");
     if (!wowee::pipeline::WoweeQuestGraphLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wqgr: WQGR not found: %s.wqgr\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wqgr", "WQGR", base, ".wqgr");
     }
     auto c = wowee::pipeline::WoweeQuestGraphLoader::load(base);
     std::vector<std::string> errors;
@@ -312,7 +297,7 @@ int handleValidate(int& i, int argc, char** argv) {
             if (prev == e.questId) {
                 errors.push_back(ctx +
                     ": quest depends on itself "
-                    "(unreachable — catch-22)");
+                    "(unreachable - catch-22)");
             }
             if (!knownIds.count(prev)) {
                 errors.push_back(ctx +
@@ -322,14 +307,14 @@ int handleValidate(int& i, int argc, char** argv) {
             }
         }
         // Followup hints to unknown ids: NOT an
-        // error — followups are advisory hints,
+        // error - followups are advisory hints,
         // the missing target may live in a sibling
         // catalog. Just warn.
         for (uint32_t fol : e.followupQuestIds) {
             if (fol == e.questId) {
                 warnings.push_back(ctx +
                     ": followup hint points to self "
-                    "(no-op — prune)");
+                    "(no-op - prune)");
             }
             if (!knownIds.count(fol)) {
                 warnings.push_back(ctx +
@@ -340,20 +325,20 @@ int handleValidate(int& i, int argc, char** argv) {
             }
         }
         // chainHeadHint=1 with non-empty prereqs is a
-        // contradiction — a chain head BY DEFINITION
+        // contradiction - a chain head BY DEFINITION
         // has no prereqs. Warn.
         if (e.chainHeadHint && !e.prevQuestIds.empty()) {
             warnings.push_back(ctx +
                 ": chainHeadHint=1 but quest has " +
                 std::to_string(e.prevQuestIds.size()) +
-                " prereq(s) — chain heads should have "
+                " prereq(s) - chain heads should have "
                 "no prereqs");
         }
         if (!idsSeen.insert(e.questId).second) {
             errors.push_back(ctx + ": duplicate questId");
         }
     }
-    // DFS cycle on prevQuestIds — same pattern as WMOD.
+    // DFS cycle on prevQuestIds - same pattern as WMOD.
     auto cycle = findFirstCycle(c);
     if (!cycle.empty()) {
         std::string trail;
@@ -362,52 +347,24 @@ int handleValidate(int& i, int argc, char** argv) {
             trail += std::to_string(cycle[k]);
         }
         errors.push_back("prereq cycle detected: " + trail +
-                          " — quests would be unreachable "
+                          " - quests would be unreachable "
                           "(progression deadlock)");
     }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wqgr"] = base + ".wqgr";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wqgr: %s.wqgr\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu quests, all questIds unique, "
+    return cli::reportValidation("wqgr", base, jsonOut, errors, warnings,
+                                 formatted("%zu quests, all questIds unique, "
                     "questType 0..4, factionAccess 0..3, no "
                     "self-prereq, no missing prereq questId, "
-                    "no DFS cycle (no progression deadlock)\n",
-                    c.entries.size());
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+                    "no DFS cycle (no progression deadlock)", c.entries.size()));
 }
 
 int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWqgrExt(base);
+    base = cli::withoutExt(base, ".wqgr");
     if (out.empty()) out = base + ".wqgr.json";
     if (!wowee::pipeline::WoweeQuestGraphLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wqgr-json: WQGR not found: %s.wqgr\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wqgr-json", "WQGR", base, ".wqgr");
     }
     auto c = wowee::pipeline::WoweeQuestGraphLoader::load(base);
     nlohmann::json j;
@@ -452,16 +409,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wqgr.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wqgr");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wqgr");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,

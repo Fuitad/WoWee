@@ -1,4 +1,5 @@
 #include "pipeline/wowee_spell_proc_rules.hpp"
+#include "pipeline/wowee_binary_io.hpp"
 
 #include <cstdio>
 #include <cstring>
@@ -11,45 +12,7 @@ namespace {
 
 constexpr char kMagic[4] = {'W', 'P', 'R', 'C'};
 constexpr uint32_t kVersion = 1;
-
-template <typename T>
-void writePOD(std::ofstream& os, const T& v) {
-    os.write(reinterpret_cast<const char*>(&v), sizeof(T));
-}
-
-template <typename T>
-bool readPOD(std::ifstream& is, T& v) {
-    is.read(reinterpret_cast<char*>(&v), sizeof(T));
-    return is.gcount() == static_cast<std::streamsize>(sizeof(T));
-}
-
-void writeStr(std::ofstream& os, const std::string& s) {
-    uint32_t n = static_cast<uint32_t>(s.size());
-    writePOD(os, n);
-    if (n > 0) os.write(s.data(), n);
-}
-
-bool readStr(std::ifstream& is, std::string& s) {
-    uint32_t n = 0;
-    if (!readPOD(is, n)) return false;
-    if (n > (1u << 20)) return false;
-    s.resize(n);
-    if (n > 0) {
-        is.read(s.data(), n);
-        if (is.gcount() != static_cast<std::streamsize>(n)) {
-            s.clear();
-            return false;
-        }
-    }
-    return true;
-}
-
-std::string normalizePath(std::string base) {
-    if (base.size() < 5 || base.substr(base.size() - 5) != ".wprc") {
-        base += ".wprc";
-    }
-    return base;
-}
+constexpr char kExtension[] = ".wprc";
 
 } // namespace
 
@@ -79,14 +42,8 @@ WoweeSpellProcRules::findByEvent(uint8_t triggerEvent) const {
 bool WoweeSpellProcRulesLoader::save(
     const WoweeSpellProcRules& cat,
     const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath), std::ios::binary);
-    if (!os) return false;
-    os.write(kMagic, 4);
-    writePOD(os, kVersion);
-    writeStr(os, cat.name);
-    uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writePOD(os, entryCount);
-    for (const auto& e : cat.entries) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const auto& e) {
         writePOD(os, e.procRuleId);
         writeStr(os, e.name);
         writePOD(os, e.sourceSpellId);
@@ -97,32 +54,15 @@ bool WoweeSpellProcRulesLoader::save(
         writePOD(os, e.internalCooldownMs);
         writePOD(os, e.procFlagsMask);
         writePOD(os, e.pad0);
-    }
-    return os.good();
+    });
 }
 
 WoweeSpellProcRules WoweeSpellProcRulesLoader::load(
     const std::string& basePath) {
-    WoweeSpellProcRules out;
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    if (!is) return out;
-    char magic[4];
-    is.read(magic, 4);
-    if (std::memcmp(magic, kMagic, 4) != 0) return out;
-    uint32_t version = 0;
-    if (!readPOD(is, version) || version != kVersion) return out;
-    if (!readStr(is, out.name)) return out;
-    uint32_t entryCount = 0;
-    if (!readPOD(is, entryCount)) return out;
-    if (entryCount > (1u << 20)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.procRuleId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name)) {
-            out.entries.clear(); return out;
-        }
+    return loadCatalog<WoweeSpellProcRules>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeSpellProcRules::Entry& e) {
+        if (!readPOD(is, e.procRuleId)) { return false; }
+        if (!readStr(is, e.name)) { return false; }
         if (!readPOD(is, e.sourceSpellId) ||
             !readPOD(is, e.procEffectSpellId) ||
             !readPOD(is, e.triggerEvent) ||
@@ -130,17 +70,14 @@ WoweeSpellProcRules WoweeSpellProcRulesLoader::load(
             !readPOD(is, e.procChancePct) ||
             !readPOD(is, e.internalCooldownMs) ||
             !readPOD(is, e.procFlagsMask) ||
-            !readPOD(is, e.pad0)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.pad0)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeSpellProcRulesLoader::exists(
     const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 namespace {
@@ -172,7 +109,7 @@ WoweeSpellProcRules WoweeSpellProcRulesLoader::makeWeaponProcs(
     using P = WoweeSpellProcRules;
     WoweeSpellProcRules c;
     c.name = catalogName;
-    // Crusader (Enchant Weapon — Crusader, spellId
+    // Crusader (Enchant Weapon - Crusader, spellId
     // 20007) procs spell 20007 buff OnHit at ~2%
     // chance, no ICD, requires melee weapon.
     c.entries.push_back(makeRule(
@@ -183,7 +120,7 @@ WoweeSpellProcRules WoweeSpellProcRulesLoader::makeWeaponProcs(
         200 /* 2% basis points */,
         0,
         P::RequireMeleeWeapon | P::ExcludeAutoAttack));
-    // Lifesteal: spellId 20004 (Enchant Weapon —
+    // Lifesteal: spellId 20004 (Enchant Weapon -
     // Lifestealing) procs heal-on-hit. 5% chance,
     // no ICD.
     c.entries.push_back(makeRule(
@@ -221,7 +158,7 @@ WoweeSpellProcRules WoweeSpellProcRulesLoader::makeRetPaladin(
         9452 /* Vengeance talent */,
         9452 /* stacking buff */,
         P::OnCrit,
-        10000 /* 100% — every crit */,
+        10000 /* 100% - every crit */,
         0,
         0,
         5 /* max 5 stacks */));
@@ -255,7 +192,7 @@ WoweeSpellProcRules WoweeSpellProcRulesLoader::makeRetPaladin(
         20218 /* Sanctity Aura */,
         20221 /* Holy-amp passive */,
         P::OnCast,
-        10000 /* 100% — bookkeeping */,
+        10000 /* 100% - bookkeeping */,
         0,
         P::RequireSpellSchool));
     return c;
@@ -267,7 +204,7 @@ WoweeSpellProcRules WoweeSpellProcRulesLoader::makeRageGen(
     WoweeSpellProcRules c;
     c.name = catalogName;
     // Bloodrage: instant 10 Rage on cast, costs
-    // health. Always procs (100%, no ICD — has
+    // health. Always procs (100%, no ICD - has
     // its own 60s shared cooldown).
     c.entries.push_back(makeRule(
         20, "Bloodrage Instant Rage",
@@ -284,7 +221,7 @@ WoweeSpellProcRules WoweeSpellProcRulesLoader::makeRageGen(
         21, "Berserker Rage CC Immune",
         18499 /* Berserker Rage spell */,
         23691 /* Berserker Rage CC-immunity aura
-                 effect — distinct spellId so the
+                 effect - distinct spellId so the
                  OnCast trigger does NOT recurse
                  into the source spell */,
         P::OnCast,

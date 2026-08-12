@@ -8,8 +8,8 @@
 //     uint16 0x1F90, uint8 minLevel, uint8 maxLevel, uint32 instanceId,
 //     uint8 isRated, uint32 statusId
 //
-// Read as `uint32 instanceId, uint8 isRated` — five bytes where the server
-// sends seven — the status arrives as the top of the instance id joined to the
+// Read as `uint32 instanceId, uint8 isRated` - five bytes where the server
+// sends seven - the status arrives as the top of the instance id joined to the
 // bottom of the status, and is never one of the values it is compared against.
 // The packet is the same length either way, so nothing runs short and nothing
 // reports anything: a queue that exists reads as no queue at all, which is a

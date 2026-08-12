@@ -1,4 +1,5 @@
 #include "pipeline/wowee_conditions.hpp"
+#include "pipeline/wowee_binary_io.hpp"
 
 #include <cstdio>
 #include <cstring>
@@ -11,45 +12,7 @@ namespace {
 
 constexpr char kMagic[4] = {'W', 'P', 'C', 'D'};
 constexpr uint32_t kVersion = 1;
-
-template <typename T>
-void writePOD(std::ofstream& os, const T& v) {
-    os.write(reinterpret_cast<const char*>(&v), sizeof(T));
-}
-
-template <typename T>
-bool readPOD(std::ifstream& is, T& v) {
-    is.read(reinterpret_cast<char*>(&v), sizeof(T));
-    return is.gcount() == static_cast<std::streamsize>(sizeof(T));
-}
-
-void writeStr(std::ofstream& os, const std::string& s) {
-    uint32_t n = static_cast<uint32_t>(s.size());
-    writePOD(os, n);
-    if (n > 0) os.write(s.data(), n);
-}
-
-bool readStr(std::ifstream& is, std::string& s) {
-    uint32_t n = 0;
-    if (!readPOD(is, n)) return false;
-    if (n > (1u << 20)) return false;
-    s.resize(n);
-    if (n > 0) {
-        is.read(s.data(), n);
-        if (is.gcount() != static_cast<std::streamsize>(n)) {
-            s.clear();
-            return false;
-        }
-    }
-    return true;
-}
-
-std::string normalizePath(std::string base) {
-    if (base.size() < 5 || base.substr(base.size() - 5) != ".wpcd") {
-        base += ".wpcd";
-    }
-    return base;
-}
+constexpr char kExtension[] = ".wpcd";
 
 } // namespace
 
@@ -91,15 +54,9 @@ const char* WoweeCondition::aggregatorName(uint8_t a) {
 }
 
 bool WoweeConditionLoader::save(const WoweeCondition& cat,
-                                const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath), std::ios::binary);
-    if (!os) return false;
-    os.write(kMagic, 4);
-    writePOD(os, kVersion);
-    writeStr(os, cat.name);
-    uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writePOD(os, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeCondition::Entry& e) {
         writePOD(os, e.conditionId);
         writePOD(os, e.groupId);
         writeStr(os, e.name);
@@ -107,58 +64,33 @@ bool WoweeConditionLoader::save(const WoweeCondition& cat,
         writePOD(os, e.kind);
         writePOD(os, e.aggregator);
         writePOD(os, e.negated);
-        uint8_t pad = 0;
-        writePOD(os, pad);
+        writePadding(os, 1);
         writePOD(os, e.targetId);
         writePOD(os, e.minValue);
         writePOD(os, e.maxValue);
-    }
-    return os.good();
+                       });
 }
 
-WoweeCondition WoweeConditionLoader::load(const std::string& basePath) {
-    WoweeCondition out;
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    if (!is) return out;
-    char magic[4];
-    is.read(magic, 4);
-    if (std::memcmp(magic, kMagic, 4) != 0) return out;
-    uint32_t version = 0;
-    if (!readPOD(is, version) || version != kVersion) return out;
-    if (!readStr(is, out.name)) return out;
-    uint32_t entryCount = 0;
-    if (!readPOD(is, entryCount)) return out;
-    if (entryCount > (1u << 20)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
+WoweeCondition WoweeConditionLoader::load(
+    const std::string& basePath) {
+    return loadCatalog<WoweeCondition>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeCondition::Entry& e) {
         if (!readPOD(is, e.conditionId) ||
-            !readPOD(is, e.groupId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name) || !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
+            !readPOD(is, e.groupId)) { return false; }
+        if (!readStr(is, e.name) || !readStr(is, e.description)) { return false; }
         if (!readPOD(is, e.kind) ||
             !readPOD(is, e.aggregator) ||
-            !readPOD(is, e.negated)) {
-            out.entries.clear(); return out;
-        }
-        uint8_t pad = 0;
-        if (!readPOD(is, pad)) {
-            out.entries.clear(); return out;
-        }
+            !readPOD(is, e.negated)) { return false; }
+        if (!skipPadding(is, 1)) { return false; }
         if (!readPOD(is, e.targetId) ||
             !readPOD(is, e.minValue) ||
-            !readPOD(is, e.maxValue)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.maxValue)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeConditionLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeCondition WoweeConditionLoader::makeStarter(const std::string& catalogName) {

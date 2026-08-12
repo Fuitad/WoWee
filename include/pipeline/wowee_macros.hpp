@@ -7,7 +7,7 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Macro / Slash Command catalog (.wmac) — novel
+// Wowee Open Macro / Slash Command catalog (.wmac) - novel
 // open format with no direct DBC equivalent. WoW historically
 // stored player macros client-side in the user profile and
 // system slash commands as hardcoded engine handlers; this
@@ -25,7 +25,7 @@ namespace pipeline {
 //   WMAC.entry.requiredClassMask uses WCHC.classId bit
 //                                positions (same convention as
 //                                WGLY/WSET/WGTP).
-//   The macroBody text is opaque to this catalog — the
+//   The macroBody text is opaque to this catalog - the
 //   client parses /cast / /target / /run lines at runtime
 //   against WSPL spell names, action lists, and Lua scripting.
 //
@@ -46,7 +46,7 @@ namespace pipeline {
 //     maxLength (uint16) / pad[2]
 struct WoweeMacro {
     enum MacroKind : uint8_t {
-        SystemSlash    = 0,    // /sit, /dance, /yell — engine handlers
+        SystemSlash    = 0,    // /sit, /dance, /yell - engine handlers
         DefaultMacro   = 1,    // shipped with client, user can clone
         PlayerTemplate = 2,    // template for player-authored macros
         GuildMacro     = 3,    // guild-wide shared macro
@@ -84,16 +84,16 @@ public:
 
     // Preset emitters used by --gen-mac* variants.
     //
-    //   makeStarter — 3 system slash commands (/sit, /dance,
-    //                  /target) — SystemSlash kind, no class
+    //   makeStarter - 3 system slash commands (/sit, /dance,
+    //                  /target) - SystemSlash kind, no class
     //                  restriction.
-    //   makeCombat  — 4 warrior combat macros (heroic strike
+    //   makeCombat  - 4 warrior combat macros (heroic strike
     //                  spam, charge, intercept-on-cooldown,
-    //                  victory rush) — PlayerTemplate kind,
+    //                  victory rush) - PlayerTemplate kind,
     //                  classMask = Warrior.
-    //   makeUtility — 3 universal utility macros (/follow
+    //   makeUtility - 3 universal utility macros (/follow
     //                  target, mass invite, /releasecorpse)
-    //                  — DefaultMacro kind, no class
+    //                  - DefaultMacro kind, no class
     //                  restriction.
     static WoweeMacro makeStarter(const std::string& catalogName);
     static WoweeMacro makeCombat(const std::string& catalogName);

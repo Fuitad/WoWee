@@ -1,4 +1,5 @@
 #include "rendering/footprint_renderer.hpp"
+#include "pipeline/m2_loader.hpp"
 
 #include "core/logger.hpp"
 #include "pipeline/asset_manager.hpp"
@@ -40,9 +41,8 @@ std::string normalizeModelPath(std::string path) {
         if (c == '/') return '\\';
         return static_cast<char>(std::tolower(c));
     });
-    if (path.size() >= 4 && path.compare(path.size() - 4, 4, ".mdx") == 0)
-        path.replace(path.size() - 4, 4, ".m2");
-    return path;
+    // .mdx and .mdl both mean the .m2 that shipped; this knew only the first.
+    return pipeline::modelPathToM2(path);
 }
 
 std::string basenameOf(const std::string& path) {
@@ -86,18 +86,14 @@ void FootprintRenderer::shutdown() {
     vkDeviceWaitIdle(device);
 
     for (auto& texture : textures_) texture.destroy(device, allocator);
-    if (quadVB_) vmaDestroyBuffer(allocator, quadVB_, quadVBAlloc_);
-    if (pipeline_) vkDestroyPipeline(device, pipeline_, nullptr);
-    if (pipelineLayout_) vkDestroyPipelineLayout(device, pipelineLayout_, nullptr);
-    if (descriptorPool_) vkDestroyDescriptorPool(device, descriptorPool_, nullptr);
-    if (materialSetLayout_) vkDestroyDescriptorSetLayout(device, materialSetLayout_, nullptr);
+    // Through the helpers, which clear each handle as they destroy it, so the
+    // block of assignments that used to follow is gone.
+    destroy(allocator, quadVB_, quadVBAlloc_);
+    destroy(device, pipeline_);
+    destroy(device, pipelineLayout_);
+    destroy(device, descriptorPool_);
+    destroy(device, materialSetLayout_);
 
-    quadVB_ = VK_NULL_HANDLE;
-    quadVBAlloc_ = VK_NULL_HANDLE;
-    pipeline_ = VK_NULL_HANDLE;
-    pipelineLayout_ = VK_NULL_HANDLE;
-    descriptorPool_ = VK_NULL_HANDLE;
-    materialSetLayout_ = VK_NULL_HANDLE;
     textureSets_.fill(VK_NULL_HANDLE);
     profilesByPath_.clear();
     profilesByBasename_.clear();
@@ -166,7 +162,7 @@ bool FootprintRenderer::createPipeline() {
         .setMultisample(vkCtx_->getMsaaSamples())
         .setLayout(pipelineLayout_)
         .setRenderPass(vkCtx_->getImGuiRenderPass())
-        .setDynamicStates({VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR})
+        .setDynamicStates(viewportAndScissorDynamic())
         .build(device, vkCtx_->getPipelineCache());
     vert.destroy();
     frag.destroy();
@@ -238,7 +234,7 @@ bool FootprintRenderer::loadFootprintData(pipeline::AssetManager* assets) {
         std::string path = normalizeModelPath(modelDbc->getString(row, 2));
         // FootprintTextureLength/Width are inches; world units are yards, so the
         // conversion is /36.  Dividing by 12 yields feet and renders every print
-        // three times its real size — a human's came out a yard long.
+        // three times its real size - a human's came out a yard long.
         const float length = modelDbc->getFloat(row, 7) / 36.0f;
         const float width = modelDbc->getFloat(row, 8) / 36.0f;
         // Reject degenerate rows on the raw inches, so the /36 correction doesn't
@@ -300,7 +296,7 @@ void FootprintRenderer::spawn(const std::string& modelName, const glm::vec3& bas
     const Profile profile = resolveProfile(modelName, fallback);
     const glm::vec2 forward(std::cos(yawRadians), std::sin(yawRadians));
     const glm::vec2 right(-forward.y, forward.x);
-    // Stance is how far each foot sits off the centreline — a body dimension,
+    // Stance is how far each foot sits off the centreline - a body dimension,
     // roughly three quarters of a footprint's width to either side.  The
     // coefficient carries the /12-to-/36 correction so the gait stays as wide
     // as it was while the prints themselves shrink to life size.

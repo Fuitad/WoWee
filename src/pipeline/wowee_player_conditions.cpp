@@ -1,4 +1,5 @@
 #include "pipeline/wowee_player_conditions.hpp"
+#include "pipeline/wowee_binary_io.hpp"
 
 #include <cstdio>
 #include <cstring>
@@ -11,45 +12,7 @@ namespace {
 
 constexpr char kMagic[4] = {'W', 'P', 'C', 'N'};
 constexpr uint32_t kVersion = 1;
-
-template <typename T>
-void writePOD(std::ofstream& os, const T& v) {
-    os.write(reinterpret_cast<const char*>(&v), sizeof(T));
-}
-
-template <typename T>
-bool readPOD(std::ifstream& is, T& v) {
-    is.read(reinterpret_cast<char*>(&v), sizeof(T));
-    return is.gcount() == static_cast<std::streamsize>(sizeof(T));
-}
-
-void writeStr(std::ofstream& os, const std::string& s) {
-    uint32_t n = static_cast<uint32_t>(s.size());
-    writePOD(os, n);
-    if (n > 0) os.write(s.data(), n);
-}
-
-bool readStr(std::ifstream& is, std::string& s) {
-    uint32_t n = 0;
-    if (!readPOD(is, n)) return false;
-    if (n > (1u << 20)) return false;
-    s.resize(n);
-    if (n > 0) {
-        is.read(s.data(), n);
-        if (is.gcount() != static_cast<std::streamsize>(n)) {
-            s.clear();
-            return false;
-        }
-    }
-    return true;
-}
-
-std::string normalizePath(std::string base) {
-    if (base.size() < 5 || base.substr(base.size() - 5) != ".wpcn") {
-        base += ".wpcn";
-    }
-    return base;
-}
+constexpr char kExtension[] = ".wpcn";
 
 } // namespace
 
@@ -107,79 +70,47 @@ const char* WoweePlayerCondition::chainOpName(uint8_t c) {
 }
 
 bool WoweePlayerConditionLoader::save(const WoweePlayerCondition& cat,
-                                       const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath), std::ios::binary);
-    if (!os) return false;
-    os.write(kMagic, 4);
-    writePOD(os, kVersion);
-    writeStr(os, cat.name);
-    uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writePOD(os, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweePlayerCondition::Entry& e) {
         writePOD(os, e.conditionId);
         writeStr(os, e.name);
         writeStr(os, e.description);
         writePOD(os, e.conditionKind);
         writePOD(os, e.comparisonOp);
         writePOD(os, e.chainOp);
-        uint8_t pad = 0;
-        writePOD(os, pad);
+        writePadding(os, 1);
         writePOD(os, e.targetIdA);
         writePOD(os, e.targetIdB);
         writePOD(os, e.intValueA);
         writePOD(os, e.intValueB);
         writePOD(os, e.chainNextId);
         writeStr(os, e.failMessage);
-    }
-    return os.good();
+                       });
 }
 
 WoweePlayerCondition WoweePlayerConditionLoader::load(
     const std::string& basePath) {
-    WoweePlayerCondition out;
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    if (!is) return out;
-    char magic[4];
-    is.read(magic, 4);
-    if (std::memcmp(magic, kMagic, 4) != 0) return out;
-    uint32_t version = 0;
-    if (!readPOD(is, version) || version != kVersion) return out;
-    if (!readStr(is, out.name)) return out;
-    uint32_t entryCount = 0;
-    if (!readPOD(is, entryCount)) return out;
-    if (entryCount > (1u << 20)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.conditionId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name) || !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
+    return loadCatalog<WoweePlayerCondition>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweePlayerCondition::Entry& e) {
+        if (!readPOD(is, e.conditionId)) { return false; }
+        if (!readStr(is, e.name) || !readStr(is, e.description)) { return false; }
         if (!readPOD(is, e.conditionKind) ||
             !readPOD(is, e.comparisonOp) ||
-            !readPOD(is, e.chainOp)) {
-            out.entries.clear(); return out;
-        }
-        uint8_t pad = 0;
-        if (!readPOD(is, pad)) { out.entries.clear(); return out; }
+            !readPOD(is, e.chainOp)) { return false; }
+        if (!skipPadding(is, 1)) { return false; }
         if (!readPOD(is, e.targetIdA) ||
             !readPOD(is, e.targetIdB) ||
             !readPOD(is, e.intValueA) ||
             !readPOD(is, e.intValueB) ||
-            !readPOD(is, e.chainNextId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.failMessage)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.chainNextId)) { return false; }
+        if (!readStr(is, e.failMessage)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweePlayerConditionLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweePlayerCondition WoweePlayerConditionLoader::makeStarter(
@@ -273,13 +204,13 @@ WoweePlayerCondition WoweePlayerConditionLoader::makeComposite(
     };
     leaf(200, "Level80",        WoweePlayerCondition::Level,
         WoweePlayerCondition::GreaterOrEqual, 0, 80,
-        "Leaf — level 80 or higher.");
+        "Leaf - level 80 or higher.");
     leaf(201, "ClassWarriorLeaf", WoweePlayerCondition::Class,
         WoweePlayerCondition::Equal, 1, 0,
-        "Leaf — class is Warrior.");
+        "Leaf - class is Warrior.");
     leaf(202, "AllyMember",     WoweePlayerCondition::Faction,
         WoweePlayerCondition::Equal, 469, 0,
-        "Leaf — member of the Alliance "
+        "Leaf - member of the Alliance "
         "(WFAC factionId=469).");
     auto chain = [&](uint32_t id, const char* name, uint8_t headKind,
                       uint8_t headOp, uint32_t headTarget,
@@ -299,19 +230,19 @@ WoweePlayerCondition WoweePlayerConditionLoader::makeComposite(
         WoweePlayerCondition::Level,
         WoweePlayerCondition::GreaterOrEqual, 0, 80,
         WoweePlayerCondition::ChainAnd, 201,
-        "Composite — head=Level>=80 AND tail=Warrior.",
+        "Composite - head=Level>=80 AND tail=Warrior.",
         "Requires Warrior, level 80 or higher.");
     chain(301, "AllyOrHonored",
         WoweePlayerCondition::Reputation,
         WoweePlayerCondition::GreaterOrEqual, 72, 9000,
         WoweePlayerCondition::ChainOr, 202,
-        "Composite — head=Honored Stormwind OR tail=Alliance member.",
+        "Composite - head=Honored Stormwind OR tail=Alliance member.",
         "Requires Alliance membership or Honored Stormwind.");
     chain(302, "NotInCombat",
         WoweePlayerCondition::Always,
         WoweePlayerCondition::Equal, 0, 0,
         WoweePlayerCondition::ChainNot, 200,
-        "Composite — NOT (level 80 leaf) — sample inverted check.",
+        "Composite - NOT (level 80 leaf) - sample inverted check.",
         "Cannot be used at max level.");
     return c;
 }

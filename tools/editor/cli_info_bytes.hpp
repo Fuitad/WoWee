@@ -4,7 +4,7 @@ namespace wowee {
 namespace editor {
 namespace cli {
 
-// Dispatch the disk-byte audit handlers — per-file size
+// Dispatch the disk-byte audit handlers - per-file size
 // breakdowns grouped by category (open vs proprietary vs
 // derived). Useful for capacity planning and tracking the
 // open-format migration's progress against the proprietary

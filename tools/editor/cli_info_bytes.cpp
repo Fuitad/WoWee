@@ -1,4 +1,5 @@
 #include "cli_info_bytes.hpp"
+#include "zone_manifest.hpp"
 
 #include <nlohmann/json.hpp>
 
@@ -127,7 +128,7 @@ int handleInfoProjectBytes(int& i, int argc, char** argv) {
     // re-uses --info-zone-bytes' categorization, and prints a
     // per-zone breakdown table plus aggregated category totals.
     // The headline number is the proprietary-vs-open size split
-    // — surfaces how much disk a project still spends on .m2/
+    // - surfaces how much disk a project still spends on .m2/
     // .wmo/.blp/.dbc payloads vs the open WOM/WOB/PNG/JSON
     // replacements.
     std::string projectDir = argv[++i];
@@ -141,7 +142,7 @@ int handleInfoProjectBytes(int& i, int argc, char** argv) {
             projectDir.c_str());
         return 1;
     }
-    // Same categorizer used by --info-zone-bytes — keep in sync
+    // Same categorizer used by --info-zone-bytes - keep in sync
     // if categories evolve there.
     auto categorize = [](const fs::path& p) -> std::string {
         std::string ext = p.extension().string();
@@ -172,13 +173,9 @@ int handleInfoProjectBytes(int& i, int argc, char** argv) {
     auto isProprietary = [](const std::string& cat) {
         return cat.find("(proprietary)") != std::string::npos;
     };
-    std::vector<std::string> zones;
-    for (const auto& entry : fs::directory_iterator(projectDir)) {
-        if (!entry.is_directory()) continue;
-        if (!fs::exists(entry.path() / "zone.json")) continue;
-        zones.push_back(entry.path().string());
-    }
-    std::sort(zones.begin(), zones.end());
+    // What counts as a zone, and the order they are reported in,
+    // from one place.
+    std::vector<std::string> zones = wowee::editor::projectZoneDirs(projectDir);
     struct ZRow {
         std::string name;
         uint64_t totalBytes = 0;

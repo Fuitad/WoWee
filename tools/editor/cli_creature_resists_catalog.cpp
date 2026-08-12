@@ -1,4 +1,6 @@
 #include "cli_creature_resists_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -18,11 +20,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWcreExt(std::string base) {
-    stripExt(base, ".wcre");
-    return base;
-}
 
 std::string ccImmunityString(uint16_t mask) {
     using R = wowee::pipeline::WoweeCreatureResists;
@@ -50,15 +47,6 @@ std::string ccImmunityString(uint16_t mask) {
     return out.empty() ? "none" : out;
 }
 
-bool saveOrError(const wowee::pipeline::WoweeCreatureResists& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeCreatureResistsLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wcre\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeCreatureResists& c,
                      const std::string& base) {
@@ -71,9 +59,9 @@ int handleGenBosses(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "RaidBossResists";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWcreExt(base);
+    base = cli::withoutExt(base, ".wcre");
     auto c = wowee::pipeline::WoweeCreatureResistsLoader::makeRaidBosses(name);
-    if (!saveOrError(c, base, "gen-cre")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCreatureResistsLoader>(c, base, "gen-cre", ".wcre")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -82,9 +70,9 @@ int handleGenElites(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "EliteResists";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWcreExt(base);
+    base = cli::withoutExt(base, ".wcre");
     auto c = wowee::pipeline::WoweeCreatureResistsLoader::makeElites(name);
-    if (!saveOrError(c, base, "gen-cre-elites")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCreatureResistsLoader>(c, base, "gen-cre-elites", ".wcre")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -93,9 +81,9 @@ int handleGenImmunities(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "CCImmunityProfiles";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWcreExt(base);
+    base = cli::withoutExt(base, ".wcre");
     auto c = wowee::pipeline::WoweeCreatureResistsLoader::makeImmunities(name);
-    if (!saveOrError(c, base, "gen-cre-immune")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCreatureResistsLoader>(c, base, "gen-cre-immune", ".wcre")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -103,10 +91,9 @@ int handleGenImmunities(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWcreExt(base);
+    base = cli::withoutExt(base, ".wcre");
     if (!wowee::pipeline::WoweeCreatureResistsLoader::exists(base)) {
-        std::fprintf(stderr, "WCRE not found: %s.wcre\n", base.c_str());
-        return 1;
+        return reportMissing("WCRE", base, ".wcre");
     }
     auto c = wowee::pipeline::WoweeCreatureResistsLoader::load(base);
     if (jsonOut) {
@@ -196,13 +183,10 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWcreExt(base);
+    base = cli::withoutExt(base, ".wcre");
     if (out.empty()) out = base + ".wcre.json";
     if (!wowee::pipeline::WoweeCreatureResistsLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wcre-json: WCRE not found: %s.wcre\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wcre-json", "WCRE", base, ".wcre");
     }
     auto c = wowee::pipeline::WoweeCreatureResistsLoader::load(base);
     nlohmann::json j;
@@ -249,16 +233,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wcre.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wcre");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wcre");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,
@@ -348,12 +323,9 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWcreExt(base);
+    base = cli::withoutExt(base, ".wcre");
     if (!wowee::pipeline::WoweeCreatureResistsLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wcre: WCRE not found: %s.wcre\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wcre", "WCRE", base, ".wcre");
     }
     auto c = wowee::pipeline::WoweeCreatureResistsLoader::load(base);
     std::vector<std::string> errors;
@@ -375,7 +347,7 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": name is empty");
         if (e.creatureEntry == 0) {
             errors.push_back(ctx +
-                ": creatureEntry is 0 — resist profile is "
+                ": creatureEntry is 0 - resist profile is "
                 "not bound to any WCRT entry");
         }
         // Resist values: int16 covers -32768 to 32767.
@@ -386,7 +358,7 @@ int handleValidate(int& i, int argc, char** argv) {
             if (v < -100) {
                 warnings.push_back(ctx + ": " + school +
                     " resist " + std::to_string(v) +
-                    " < -100 — extreme negative resist "
+                    " < -100 - extreme negative resist "
                     "creates >2x damage taken; verify");
             }
         };
@@ -403,7 +375,7 @@ int handleValidate(int& i, int argc, char** argv) {
             warnings.push_back(ctx +
                 ": physicalResistPct " +
                 std::to_string(e.physicalResistPct) +
-                " > 75%% — clamped at runtime to game-"
+                " > 75%% - clamped at runtime to game-"
                 "engine cap (armor mitigation cap)");
         }
         // schoolImmunityMask uses bottom 6 bits (one per
@@ -411,7 +383,7 @@ int handleValidate(int& i, int argc, char** argv) {
         if (e.schoolImmunityMask & 0xC0) {
             warnings.push_back(ctx +
                 ": schoolImmunityMask has reserved bits "
-                "set (0xC0) — only bits 0-5 (Holy/Fire/"
+                "set (0xC0) - only bits 0-5 (Holy/Fire/"
                 "Nature/Frost/Shadow/Arcane) are meaningful");
         }
         // Multiple WCRE entries binding the same
@@ -422,41 +394,16 @@ int handleValidate(int& i, int argc, char** argv) {
                 ": creatureEntry " +
                 std::to_string(e.creatureEntry) +
                 " is already bound by another resist "
-                "profile — damage-calc lookup would be "
+                "profile - damage-calc lookup would be "
                 "ambiguous");
         }
         if (!idsSeen.insert(e.resistId).second) {
             errors.push_back(ctx + ": duplicate resistId");
         }
     }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wcre"] = base + ".wcre";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wcre: %s.wcre\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu resist profiles, all "
-                    "resistIds + creatureEntries unique\n",
-                    c.entries.size());
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+    return cli::reportValidation("wcre", base, jsonOut, errors, warnings,
+                                 formatted("%zu resist profiles, all "
+                    "resistIds + creatureEntries unique", c.entries.size()));
 }
 
 } // namespace

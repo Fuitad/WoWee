@@ -1,4 +1,5 @@
 #include "pipeline/wowee_light.hpp"
+#include "pipeline/wowee_binary_io.hpp"
 
 #include <algorithm>
 #include <cstdio>
@@ -12,36 +13,15 @@ namespace {
 
 constexpr char kMagic[4] = {'W', 'O', 'L', 'A'};
 constexpr uint32_t kVersion = 1;
-
-template <typename T>
-void writePOD(std::ofstream& os, const T& v) {
-    os.write(reinterpret_cast<const char*>(&v), sizeof(T));
-}
-
-template <typename T>
-bool readPOD(std::ifstream& is, T& v) {
-    is.read(reinterpret_cast<char*>(&v), sizeof(T));
-    return is.gcount() == static_cast<std::streamsize>(sizeof(T));
-}
+constexpr char kExtension[] = ".wol";
 
 } // namespace
 
 bool WoweeLightLoader::save(const WoweeLight& light,
                             const std::string& basePath) {
-    std::string path = basePath;
-    if (path.size() < 4 || path.substr(path.size() - 4) != ".wol") {
-        path += ".wol";
-    }
-    std::ofstream os(path, std::ios::binary);
-    if (!os) return false;
-    os.write(kMagic, 4);
-    writePOD(os, kVersion);
-    uint32_t nameLen = static_cast<uint32_t>(light.name.size());
-    writePOD(os, nameLen);
-    if (nameLen > 0) os.write(light.name.data(), nameLen);
-    uint32_t kfCount = static_cast<uint32_t>(light.keyframes.size());
-    writePOD(os, kfCount);
-    for (const auto& kf : light.keyframes) {
+    return saveCatalogEntries(basePath, kMagic, kVersion, kExtension,
+                              light.name, light.keyframes,
+                              [](std::ofstream& os, const auto& kf) {
         writePOD(os, kf.timeOfDayMin);
         writePOD(os, kf.ambientColor);
         writePOD(os, kf.directionalColor);
@@ -49,36 +29,17 @@ bool WoweeLightLoader::save(const WoweeLight& light,
         writePOD(os, kf.fogColor);
         writePOD(os, kf.fogStart);
         writePOD(os, kf.fogEnd);
-    }
-    return os.good();
+    });
 }
 
 WoweeLight WoweeLightLoader::load(const std::string& basePath) {
     WoweeLight out;
-    std::string path = basePath;
-    if (path.size() < 4 || path.substr(path.size() - 4) != ".wol") {
-        path += ".wol";
-    }
-    std::ifstream is(path, std::ios::binary);
+    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
     if (!is) return out;
-    char magic[4];
-    is.read(magic, 4);
-    if (std::memcmp(magic, kMagic, 4) != 0) return out;
-    uint32_t version = 0;
-    if (!readPOD(is, version)) return out;
-    if (version != kVersion) return out;
-    uint32_t nameLen = 0;
-    if (!readPOD(is, nameLen)) return out;
-    if (nameLen > 0) {
-        out.name.resize(nameLen);
-        is.read(out.name.data(), nameLen);
-        if (is.gcount() != static_cast<std::streamsize>(nameLen)) {
-            out.name.clear();
-            return out;
-        }
-    }
+    // Was a hand-written header whose name length had no cap at all: a corrupt
+    // file naming four billion characters got a resize() for them.
     uint32_t kfCount = 0;
-    if (!readPOD(is, kfCount)) return out;
+    if (!readCatalogHeader(is, kMagic, kVersion, out.name, kfCount)) return out;
     out.keyframes.resize(kfCount);
     for (auto& kf : out.keyframes) {
         if (!readPOD(is, kf.timeOfDayMin) ||
@@ -96,12 +57,7 @@ WoweeLight WoweeLightLoader::load(const std::string& basePath) {
 }
 
 bool WoweeLightLoader::exists(const std::string& basePath) {
-    std::string path = basePath;
-    if (path.size() < 4 || path.substr(path.size() - 4) != ".wol") {
-        path += ".wol";
-    }
-    std::ifstream is(path, std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeLight::Keyframe WoweeLightLoader::sampleAtTime(

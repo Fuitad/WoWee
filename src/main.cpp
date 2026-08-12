@@ -4,21 +4,31 @@
 #include <exception>
 #include <csignal>
 #include <cstdlib>
+#include "core/env.hpp"
 #include <cctype>
 #include <filesystem>
 #include <string>
 #include <SDL2/SDL.h>
 #ifdef __APPLE__
 #include <mach-o/dyld.h>
-#include <libgen.h>
-#include <unistd.h>
 #endif
-#ifdef __linux__
-#include <X11/Xlib.h>
+
+// backtrace(3) and friends live in libSystem on macOS and in glibc on Linux, so
+// the useful crash report - faulting address, symbolized frames, a copy in the
+// crash log - works the same on both. It used to be guarded on __linux__ alone,
+// which left a macOS crash with no backtrace and no log at all. Only the X11
+// mouse ungrab below is genuinely Linux-specific.
+#if defined(__linux__) || defined(__APPLE__)
+#define WOWEE_HAS_BACKTRACE 1
 #include <execinfo.h>
 #include <unistd.h>
 #include <libgen.h>
+#include <cstdio>
 #include <cstring>
+#endif
+
+#ifdef __linux__
+#include <X11/Xlib.h>
 
 // Keep a persistent X11 connection for emergency mouse release in signal handlers.
 // XOpenDisplay inside a signal handler is unreliable, so we open it once at startup.
@@ -35,7 +45,7 @@ static void releaseMouseGrab() {
 static void releaseMouseGrab() {}
 #endif
 
-#ifdef __linux__
+#ifdef WOWEE_HAS_BACKTRACE
 static void crashHandlerSigaction(int sig, siginfo_t* info, void* /*ucontext*/) {
     releaseMouseGrab();
     void* frames[64];
@@ -106,14 +116,30 @@ static void selectMacUserDataPath() {
     }
 
     if (hasManifest) {
-        setenv("WOW_DATA_PATH", dataRoot.c_str(), 0);
+        wowee::core::setEnvVar("WOW_DATA_PATH", dataRoot.c_str(), /*overwrite=*/false);
     }
 }
 #endif
 
 int main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[]) {
+#ifndef _WIN32
+    // Writing to a socket the server has already closed raises SIGPIPE, whose
+    // default action is to terminate - the client would vanish mid-frame with
+    // no log line and no crash report, because SIGPIPE is not one of the
+    // signals handled below. Ignoring it makes send() answer EPIPE instead,
+    // which the send paths already handle: they log the failure and stop
+    // writing, and the recv side sees the closed connection and disconnects.
+    //
+    // Done process-wide rather than per-socket: the flag that suppresses this
+    // at the call site is spelled differently on each platform (MSG_NOSIGNAL
+    // on Linux, the SO_NOSIGPIPE socket option on macOS/BSD), and nothing here
+    // wants SIGPIPE for anything.
+    std::signal(SIGPIPE, SIG_IGN);
+#endif
 #ifdef __linux__
     g_emergencyDisplay = XOpenDisplay(nullptr);
+#endif
+#ifdef WOWEE_HAS_BACKTRACE
     // Use sigaction for SIGSEGV/SIGABRT/SIGFPE to get si_addr (faulting address)
     {
         struct sigaction sa;

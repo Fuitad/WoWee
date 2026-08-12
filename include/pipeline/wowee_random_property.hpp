@@ -8,7 +8,7 @@ namespace wowee {
 namespace pipeline {
 
 // Wowee Open Item Random Property Pool catalog
-// (.wirc) — novel replacement for the random-
+// (.wirc) - novel replacement for the random-
 // suffix enchant pool that vanilla WoW carried in
 // ItemRandomProperties.dbc + ItemRandomSuffix.dbc
 // (TBC+) + the per-item RandomProperty rolls baked
@@ -42,10 +42,10 @@ namespace pipeline {
 //   entries (each):
 //     poolId (uint32)
 //     nameLen + name (suffix display: "of the X")
-//     scaleLevel (uint8)         — itemLevel band
+//     scaleLevel (uint8)         - itemLevel band
 //                                   (1..60 vanilla);
 //                                   0 = any
-//     allowedSlotsMask (uint8)   — 0x01=Helm,
+//     allowedSlotsMask (uint8)   - 0x01=Helm,
 //                                   0x02=Shoulder,
 //                                   0x04=Chest,
 //                                   0x08=Leg,
@@ -53,10 +53,10 @@ namespace pipeline {
 //                                   0x20=Glove,
 //                                   0x40=Bracer,
 //                                   0x80=Belt
-//     allowedClassesMask (uint16) — bitmask 1<<class
+//     allowedClassesMask (uint16) - bitmask 1<<class
 //                                    (0 = all
 //                                    classes)
-//     totalWeight (uint32)       — denormalized sum
+//     totalWeight (uint32)       - denormalized sum
 //                                   of enchant
 //                                   weights
 //     enchantCount (uint32)
@@ -96,7 +96,7 @@ struct WoweeRandomProperty {
     const Entry* findById(uint32_t poolId) const;
 
     // Returns pools applicable to a given slot mask
-    // — used by the loot generator to pick eligible
+    // - used by the loot generator to pick eligible
     // suffix pools at roll time.
     std::vector<const Entry*> findBySlot(uint8_t slotMask) const;
 };
@@ -110,15 +110,15 @@ public:
 
     // Preset emitters used by --gen-irc* variants.
     //
-    //   makeOfTheBear  — STA-focused suffix pool for
+    //   makeOfTheBear  - STA-focused suffix pool for
     //                     plate/mail slots (Helm,
     //                     Chest, Leg, Boot). 4
     //                     enchants weighted toward
     //                     +Sta variants.
-    //   makeOfTheEagle — INT+STA caster pool for
+    //   makeOfTheEagle - INT+STA caster pool for
     //                     cloth slots. 5 enchants
     //                     weighted toward +Int +Sta.
-    //   makeOfTheTiger — STR+AGI hybrid pool for
+    //   makeOfTheTiger - STR+AGI hybrid pool for
     //                     leather slots. 5 enchants
     //                     covering AGI/STR/AP
     //                     variants.

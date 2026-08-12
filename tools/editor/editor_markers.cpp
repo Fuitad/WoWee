@@ -43,7 +43,7 @@ void EditorMarkers::update(const std::vector<PlacedObject>& objects) {
     std::vector<MarkerVertex> verts;
 
     for (const auto& obj : objects) {
-        // Skip markers for objects with non-finite transform — would
+        // Skip markers for objects with non-finite transform - would
         // produce NaN vertex positions and trip Vulkan validation or
         // collapse the entire vertex buffer to garbage.
         if (!std::isfinite(obj.position.x) || !std::isfinite(obj.position.y) ||
@@ -128,16 +128,15 @@ bool EditorMarkers::createPipeline() {
     if (vkCreatePipelineLayout(dev, &layoutInfo, nullptr, &pipelineLayout_) != VK_SUCCESS)
         return false;
 
-    rendering::VkShaderModule vertMod, fragMod;
-    if (!vertMod.loadFromFile(dev, "assets/shaders/editor_water.vert.spv") ||
-        !fragMod.loadFromFile(dev, "assets/shaders/editor_water.frag.spv")) {
-        LOG_WARNING("Marker shaders not found — markers disabled");
+    // Not a failure: the editor runs without these and says so.
+    auto shaders = rendering::loadShaderPair(dev, "assets/shaders/editor_water.vert.spv",
+                                             "assets/shaders/editor_water.frag.spv", "editor_water");
+    if (!shaders) {
+        LOG_WARNING("Marker shaders not found - markers disabled");
         return true;
     }
 
-    VkPipelineShaderStageCreateInfo stages[2]{};
-    stages[0] = vertMod.stageInfo(VK_SHADER_STAGE_VERTEX_BIT);
-    stages[1] = fragMod.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT);
+    VkPipelineShaderStageCreateInfo stages[2]{shaders.vertStage, shaders.fragStage};
 
     VkVertexInputBindingDescription binding{};
     binding.stride = sizeof(MarkerVertex);

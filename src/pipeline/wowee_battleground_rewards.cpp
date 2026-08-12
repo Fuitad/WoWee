@@ -1,4 +1,5 @@
 #include "pipeline/wowee_battleground_rewards.hpp"
+#include "pipeline/wowee_binary_io.hpp"
 
 #include <cstdio>
 #include <cstring>
@@ -11,45 +12,7 @@ namespace {
 
 constexpr char kMagic[4] = {'W', 'B', 'R', 'D'};
 constexpr uint32_t kVersion = 1;
-
-template <typename T>
-void writePOD(std::ofstream& os, const T& v) {
-    os.write(reinterpret_cast<const char*>(&v), sizeof(T));
-}
-
-template <typename T>
-bool readPOD(std::ifstream& is, T& v) {
-    is.read(reinterpret_cast<char*>(&v), sizeof(T));
-    return is.gcount() == static_cast<std::streamsize>(sizeof(T));
-}
-
-void writeStr(std::ofstream& os, const std::string& s) {
-    uint32_t n = static_cast<uint32_t>(s.size());
-    writePOD(os, n);
-    if (n > 0) os.write(s.data(), n);
-}
-
-bool readStr(std::ifstream& is, std::string& s) {
-    uint32_t n = 0;
-    if (!readPOD(is, n)) return false;
-    if (n > (1u << 20)) return false;
-    s.resize(n);
-    if (n > 0) {
-        is.read(s.data(), n);
-        if (is.gcount() != static_cast<std::streamsize>(n)) {
-            s.clear();
-            return false;
-        }
-    }
-    return true;
-}
-
-std::string normalizePath(std::string base) {
-    if (base.size() < 5 || base.substr(base.size() - 5) != ".wbrd") {
-        base += ".wbrd";
-    }
-    return base;
-}
+constexpr char kExtension[] = ".wbrd";
 
 } // namespace
 
@@ -82,14 +45,8 @@ WoweeBattlegroundRewards::findByBg(uint16_t bgId) const {
 bool WoweeBattlegroundRewardsLoader::save(
     const WoweeBattlegroundRewards& cat,
     const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath), std::ios::binary);
-    if (!os) return false;
-    os.write(kMagic, 4);
-    writePOD(os, kVersion);
-    writeStr(os, cat.name);
-    uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writePOD(os, entryCount);
-    for (const auto& e : cat.entries) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const auto& e) {
         writePOD(os, e.rewardId);
         writePOD(os, e.battlegroundId);
         writePOD(os, e.bracketIndex);
@@ -102,26 +59,13 @@ bool WoweeBattlegroundRewardsLoader::save(
         writePOD(os, e.bonusItemId);
         writePOD(os, e.bonusItemCount);
         writePOD(os, e.pad0);
-    }
-    return os.good();
+    });
 }
 
 WoweeBattlegroundRewards WoweeBattlegroundRewardsLoader::load(
     const std::string& basePath) {
-    WoweeBattlegroundRewards out;
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    if (!is) return out;
-    char magic[4];
-    is.read(magic, 4);
-    if (std::memcmp(magic, kMagic, 4) != 0) return out;
-    uint32_t version = 0;
-    if (!readPOD(is, version) || version != kVersion) return out;
-    if (!readStr(is, out.name)) return out;
-    uint32_t entryCount = 0;
-    if (!readPOD(is, entryCount)) return out;
-    if (entryCount > (1u << 20)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
+    return loadCatalog<WoweeBattlegroundRewards>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeBattlegroundRewards::Entry& e) {
         if (!readPOD(is, e.rewardId) ||
             !readPOD(is, e.battlegroundId) ||
             !readPOD(is, e.bracketIndex) ||
@@ -133,17 +77,14 @@ WoweeBattlegroundRewards WoweeBattlegroundRewardsLoader::load(
             !readPOD(is, e.lossMarks) ||
             !readPOD(is, e.bonusItemId) ||
             !readPOD(is, e.bonusItemCount) ||
-            !readPOD(is, e.pad0)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readPOD(is, e.pad0)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeBattlegroundRewardsLoader::exists(
     const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 namespace {
@@ -178,7 +119,7 @@ WoweeBattlegroundRewards WoweeBattlegroundRewardsLoader::makeAlteracValley(
     WoweeBattlegroundRewards c;
     c.name = catalogName;
     // AV bgId=1, requires 20/side. Brackets 5
-    // (51-60) and 6 (61-69 — endgame). Mark of AV =
+    // (51-60) and 6 (61-69 - endgame). Mark of AV =
     // itemId 17502. Win 3 marks / loss 1 mark
     // baseline.
     c.entries.push_back(makeStage(

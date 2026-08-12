@@ -14,6 +14,51 @@ ItemDef makeItem(uint32_t id, ItemQuality quality, uint32_t stack = 1) {
     return def;
 }
 
+
+/// Reads a slot by the wire address the swap ops use.
+///
+/// Bag 0xFF addresses two different places, told apart by the slot number:
+/// slots NUM_EQUIP_SLOTS upwards are the backpack, and BANK_SLOT_START upwards
+/// are the main bank. Bag FIRST_BAG_EQUIP_SLOT + i is equip bag i, and
+/// BANK_BAG_CONTAINER_START + i is bank bag i.
+ItemDef itemAt(const Inventory& inv, uint8_t bag, uint8_t slot) {
+    if (bag == 0xFF) {
+        if (slot >= Inventory::BANK_SLOT_START) {
+            return inv.getBankSlot(slot - Inventory::BANK_SLOT_START).item;
+        }
+        return inv.getBackpackSlot(slot - Inventory::NUM_EQUIP_SLOTS).item;
+    }
+    if (bag >= Inventory::BANK_BAG_CONTAINER_START) {
+        return inv.getBankBagSlot(bag - Inventory::BANK_BAG_CONTAINER_START, slot).item;
+    }
+    return inv.getBagSlot(bag - Inventory::FIRST_BAG_EQUIP_SLOT, slot).item;
+}
+
+void setItemAt(Inventory& inv, uint8_t bag, uint8_t slot, const ItemDef& item) {
+    if (bag == 0xFF) {
+        if (slot >= Inventory::BANK_SLOT_START) {
+            inv.setBankSlot(slot - Inventory::BANK_SLOT_START, item);
+        } else {
+            inv.setBackpackSlot(slot - Inventory::NUM_EQUIP_SLOTS, item);
+        }
+    } else if (bag >= Inventory::BANK_BAG_CONTAINER_START) {
+        inv.setBankBagSlot(bag - Inventory::BANK_BAG_CONTAINER_START, slot, item);
+    } else {
+        inv.setBagSlot(bag - Inventory::FIRST_BAG_EQUIP_SLOT, slot, item);
+    }
+}
+
+/// Plays the swap plan out on an inventory, the way the server does when the
+/// ops reach it one at a time.
+void applySwaps(Inventory& inv, const std::vector<Inventory::SwapOp>& swaps) {
+    for (const auto& op : swaps) {
+        const ItemDef source = itemAt(inv, op.srcBag, op.srcSlot);
+        const ItemDef destination = itemAt(inv, op.dstBag, op.dstSlot);
+        setItemAt(inv, op.dstBag, op.dstSlot, source);
+        setItemAt(inv, op.srcBag, op.srcSlot, destination);
+    }
+}
+
 } // namespace
 
 TEST_CASE("sortBags orders backpack by quality then itemId", "[inventory]") {
@@ -109,7 +154,7 @@ TEST_CASE("sortBank pools bank bag contents into the main bank", "[inventory]") 
 
 TEST_CASE("sortBank respects the main slot count for Classic", "[inventory]") {
     Inventory inv;
-    // Only 24 main slots exist on Classic — item in slot 25 must not seed the sort,
+    // Only 24 main slots exist on Classic - item in slot 25 must not seed the sort,
     // and the sort must never write past slot 23.
     inv.setBankSlot(0, makeItem(500, ItemQuality::COMMON));
     inv.setBankSlot(1, makeItem(100, ItemQuality::RARE));
@@ -161,7 +206,7 @@ TEST_CASE("sortBankBag orders one bag without touching the rest of the bank",
     CHECK(inv.getBankBagSlot(0, 1).item.itemId == 500);
     CHECK(inv.getBankBagSlot(0, 4).empty());
 
-    // Nothing pooled into the main bank, and the other bag is untouched — which
+    // Nothing pooled into the main bank, and the other bag is untouched - which
     // is the whole point of sorting one bag rather than the whole bank.
     CHECK(inv.getBankSlot(0).item.itemId == 900);
     CHECK(inv.getBankSlot(1).empty());
@@ -279,4 +324,110 @@ TEST_CASE("merging pours partial stacks together", "[inventory]") {
         CHECK(ops[0].srcBag == Inventory::BANK_BAG_CONTAINER_START);
         CHECK(ops[0].dstBag == 0xFF);
     }
+}
+
+// ---- the plan and the sort have to agree ----
+//
+// Every sort exists twice: sortBags() rearranges the local copy, and
+// computeSortSwaps() plans the moves the server is asked to make. Nothing
+// checks the two against each other, and they cannot both be right by
+// construction because they are separate walks over the same slots.
+//
+// These are the oracle for that: apply the plan to one inventory, sort the
+// other in place, and require them to agree slot for slot. A plan that drops,
+// duplicates or misplaces an item fails here and nowhere else, because on a
+// live client the wrong answer is just an inventory in a slightly odd order.
+
+TEST_CASE("the bag sort plan lands where sortBags does", "[inventory]") {
+    Inventory planned;
+    planned.setBackpackSlot(0, makeItem(500, ItemQuality::COMMON));
+    planned.setBackpackSlot(1, makeItem(100, ItemQuality::RARE, 5));
+    planned.setBackpackSlot(4, makeItem(100, ItemQuality::RARE, 20));
+    planned.setBackpackSlot(9, makeItem(200, ItemQuality::UNCOMMON));
+    planned.setBackpackSlot(12, makeItem(300, ItemQuality::EPIC));
+
+    Inventory sorted = planned;
+    applySwaps(planned, planned.computeSortSwaps());
+    sorted.sortBags();
+
+    for (int i = 0; i < Inventory::BACKPACK_SLOTS; ++i) {
+        INFO("backpack slot " << i);
+        CHECK(planned.getBackpackSlot(i).item.itemId ==
+              sorted.getBackpackSlot(i).item.itemId);
+        CHECK(planned.getBackpackSlot(i).item.stackCount ==
+              sorted.getBackpackSlot(i).item.stackCount);
+    }
+}
+
+TEST_CASE("the bag sort plan carries items across bags", "[inventory]") {
+    // The case a single-container plan cannot get wrong: an item that has to
+    // leave one bag for another. The swap addresses are the only thing saying
+    // where it lands.
+    Inventory planned;
+    planned.setBagSize(0, 4);
+    planned.setBagSize(1, 4);
+    planned.setBackpackSlot(0, makeItem(900, ItemQuality::POOR));
+    planned.setBagSlot(0, 0, makeItem(100, ItemQuality::EPIC));
+    planned.setBagSlot(1, 2, makeItem(200, ItemQuality::RARE));
+
+    Inventory sorted = planned;
+    applySwaps(planned, planned.computeSortSwaps());
+    sorted.sortBags();
+
+    for (int i = 0; i < Inventory::BACKPACK_SLOTS; ++i) {
+        INFO("backpack slot " << i);
+        CHECK(planned.getBackpackSlot(i).item.itemId ==
+              sorted.getBackpackSlot(i).item.itemId);
+    }
+    for (int b = 0; b < 2; ++b) {
+        for (int s = 0; s < 4; ++s) {
+            INFO("bag " << b << " slot " << s);
+            CHECK(planned.getBagSlot(b, s).item.itemId ==
+                  sorted.getBagSlot(b, s).item.itemId);
+        }
+    }
+}
+
+TEST_CASE("the bank sort plan lands where sortBank does", "[inventory]") {
+    Inventory planned;
+    planned.setBankSlot(0, makeItem(500, ItemQuality::COMMON));
+    planned.setBankSlot(5, makeItem(100, ItemQuality::RARE));
+    planned.setBankSlot(11, makeItem(300, ItemQuality::EPIC));
+
+    Inventory sorted = planned;
+    applySwaps(planned, planned.computeBankSortSwaps(28));
+    sorted.sortBank(28);
+
+    for (int i = 0; i < 28; ++i) {
+        INFO("bank slot " << i);
+        CHECK(planned.getBankSlot(i).item.itemId == sorted.getBankSlot(i).item.itemId);
+    }
+}
+
+TEST_CASE("the bank bag sort plan lands where sortBankBag does", "[inventory]") {
+    Inventory planned;
+    planned.setBankBagSize(1, 6);
+    planned.setBankBagSlot(1, 0, makeItem(500, ItemQuality::COMMON));
+    planned.setBankBagSlot(1, 3, makeItem(100, ItemQuality::EPIC));
+    planned.setBankBagSlot(1, 5, makeItem(200, ItemQuality::RARE));
+
+    Inventory sorted = planned;
+    applySwaps(planned, planned.computeBankBagSortSwaps(1));
+    sorted.sortBankBag(1);
+
+    for (int s = 0; s < 6; ++s) {
+        INFO("bank bag slot " << s);
+        CHECK(planned.getBankBagSlot(1, s).item.itemId ==
+              sorted.getBankBagSlot(1, s).item.itemId);
+    }
+}
+
+TEST_CASE("a plan for an already sorted inventory is empty", "[inventory]") {
+    // Not a nicety: every op is a packet and a server round trip, and a sort
+    // that always moves everything is how a bank sort trips flood protection.
+    Inventory inv;
+    inv.setBackpackSlot(0, makeItem(100, ItemQuality::EPIC));
+    inv.setBackpackSlot(1, makeItem(200, ItemQuality::RARE));
+    inv.setBackpackSlot(2, makeItem(300, ItemQuality::COMMON));
+    CHECK(inv.computeSortSwaps().empty());
 }

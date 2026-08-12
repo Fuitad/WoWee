@@ -37,6 +37,8 @@ enum class UF : uint16_t {
     UNIT_NPC_FLAGS,
     UNIT_NPC_EMOTESTATE,       // Persistent NPC emote animation ID (uint32)
     UNIT_DYNAMIC_FLAGS,
+    UNIT_FIELD_PETEXPERIENCE,   // A hunter pet's experience toward its next level
+    UNIT_FIELD_PETNEXTLEVELEXP, // ...and what that level costs
     UNIT_FIELD_RESISTANCES,   // Physical armor (index 0 of the resistance array)
     UNIT_FIELD_STAT0,         // Strength (effective base, includes items)
     UNIT_FIELD_STAT1,         // Agility
@@ -45,9 +47,13 @@ enum class UF : uint16_t {
     UNIT_FIELD_STAT4,         // Spirit
     UNIT_END,
 
-    // Unit combat fields (WotLK: PRIVATE+OWNER — only visible for the player character)
+    // Unit combat fields (WotLK: PRIVATE+OWNER - only visible for the player character)
+    UNIT_FIELD_MINDAMAGE,            // Weapon damage low end (float bits)
+    UNIT_FIELD_MAXDAMAGE,            // ...and high end
     UNIT_FIELD_ATTACK_POWER,         // Melee attack power (int32)
     UNIT_FIELD_RANGED_ATTACK_POWER,  // Ranged attack power (int32)
+    UNIT_FIELD_POWER_REGEN_FLAT_MODIFIER,             // Power regen while not casting (float[7], mana=0); PRIVATE/OWNER
+    UNIT_FIELD_POWER_REGEN_INTERRUPTED_FLAT_MODIFIER, // ...and the reduced rate during the five-second rule
 
     // Player fields
     PLAYER_FLAGS,
@@ -67,11 +73,11 @@ enum class UF : uint16_t {
     PLAYER_EXPLORED_ZONES_START,
     PLAYER_CHOSEN_TITLE,         // Active title index (-1 = no title)
 
-    // Player spell power / healing bonus (WotLK: PRIVATE — int32 per school)
+    // Player spell power / healing bonus (WotLK: PRIVATE - int32 per school)
     PLAYER_FIELD_MOD_DAMAGE_DONE_POS,  // Spell damage bonus (first of 7 schools)
     PLAYER_FIELD_MOD_HEALING_DONE_POS, // Healing bonus
 
-    // Player combat stats (WotLK: PRIVATE — float values)
+    // Player combat stats (WotLK: PRIVATE - float values)
     PLAYER_BLOCK_PERCENTAGE,         // Block chance %
     PLAYER_DODGE_PERCENTAGE,         // Dodge chance %
     PLAYER_PARRY_PERCENTAGE,         // Parry chance %
@@ -79,22 +85,38 @@ enum class UF : uint16_t {
     PLAYER_RANGED_CRIT_PERCENTAGE,   // Ranged crit chance %
     PLAYER_SPELL_CRIT_PERCENTAGE1,   // Spell crit chance % (first school; 7 consecutive float fields)
     PLAYER_FIELD_COMBAT_RATING_1,    // First of 25 int32 combat rating slots (CR_* indices)
+    // Expertise, in expertise *points* rather than percent - the character
+    // sheet prints the points and works the percent out at a quarter of one
+    // each. Ints, not floats, unlike the percentages above. WotLK only here:
+    // the indices were read off AzerothCore's UpdateFields.h and checked by
+    // reproducing PLAYER_BLOCK_PERCENTAGE's known 1024 from the same UNIT_END.
+    PLAYER_EXPERTISE,
+    PLAYER_OFFHAND_EXPERTISE,
 
-    // Player PvP currency (TBC/WotLK only — Classic uses the old weekly honor system)
+    // Player PvP currency (TBC/WotLK only - Classic uses the old weekly honor system)
     PLAYER_FIELD_HONOR_CURRENCY,     // Accumulated honor points (uint32)
     PLAYER_FIELD_ARENA_CURRENCY,     // Accumulated arena points (uint32)
 
     // The player's active non-combat companion, as a 64-bit guid (low word at
-    // this index, high word at the next). WotLK only — no earlier expansion
+    // this index, high word at the next). WotLK only - no earlier expansion
     // published it, and none has CMSG_DISMISS_CRITTER to act on it either.
     UNIT_FIELD_CRITTER,
+    // Who this unit is controlling, and who is controlling it. Both are guid
+    // pairs. WotLK only for now: the indices below were read off AzerothCore's
+    // UpdateFields.h and checked against UNIT_FIELD_CRITTER, which that header
+    // puts at OBJECT_END + 4 and this client's table already has at 10 - so
+    // OBJECT_END is 6 and the table holds absolute indices. No such check was
+    // possible for the other three expansions, and an update field index
+    // guessed is an arbitrary field read.
+    UNIT_FIELD_CHARM,
+    UNIT_FIELD_CHARMEDBY,
 
     // GameObject fields
     GAMEOBJECT_DISPLAYID,
     GAMEOBJECT_BYTES_1,
     // MO_TRANSPORT route clock. LEVEL carries the route's period in ms; the high
     // int16 of DYNAMIC carries how far through that period the transport is, as a
-    // fraction of 65535. Both are WotLK-only — nothing before it published a
+    // fraction of 65535. Both are WotLK-only - nothing before it published a
     // transport's phase, so those expansions keep animating on their own clock.
     GAMEOBJECT_DYNAMIC,
     GAMEOBJECT_LEVEL,

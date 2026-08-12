@@ -42,7 +42,7 @@ sudo pacman -S --needed \
 
 > **Note:** `vulkan-headers` provides the `vulkan/vulkan.h` development headers required
 > at build time. `vulkan-devel` is a group that includes these on some distros but is not
-> available by name on Arch — install `vulkan-headers` and `vulkan-icd-loader` explicitly.
+> available by name on Arch - install `vulkan-headers` and `vulkan-icd-loader` explicitly.
 
 Install `unicorn` for optional Warden execution. StormLib is available from the
 AUR as `stormlib-git` if you need `asset_extract`.
@@ -123,6 +123,27 @@ cmake -S . -B build -DCMAKE_BUILD_TYPE=Release \
 cmake --build build -j"$(sysctl -n hw.logicalcpu)"
 ```
 
+### Minimum macOS version
+
+The command above leaves `CMAKE_OSX_DEPLOYMENT_TARGET` unset, so the binary is
+stamped with the build machine's own OS version and will not launch on anything
+older. That is fine for a local build.
+
+Release CI does not rely on that default — it pins `13.0` and bundles every
+non-system dylib into the `.app`, so shipped DMGs are not limited to whatever
+the runner happened to be on. To reproduce a release-like build locally, pass
+the same flag:
+
+```bash
+cmake -S . -B build -DCMAKE_OSX_DEPLOYMENT_TARGET=13.0 ...
+```
+
+Note that pinning below your Homebrew dylibs' own target makes `ld` warn on
+every link (`building for macOS-13.0, but linking with dylib ... built for
+newer version 26.0`). Those warnings are expected in a local pinned build:
+Homebrew builds for the host OS, and it is the bundling step in CI, not the
+flag, that makes the shipped app run on 13.0.
+
 ### Asset Extraction (macOS)
 
 The script will auto-build `asset_extract` if needed (requires `stormlib`).
@@ -145,7 +166,7 @@ Maintainers can find the CI credential contract and verification commands in
 
 ---
 
-## 🪟 Windows (MSYS2 — Recommended)
+## 🪟 Windows (MSYS2 - Recommended)
 
 MSYS2 provides the normal client dependencies as pre-built packages. StormLib
 is built separately only when the optional asset extractor is needed.

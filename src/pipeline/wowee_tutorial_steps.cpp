@@ -1,4 +1,5 @@
 #include "pipeline/wowee_tutorial_steps.hpp"
+#include "pipeline/wowee_binary_io.hpp"
 
 #include <algorithm>
 #include <cstdio>
@@ -12,45 +13,7 @@ namespace {
 
 constexpr char kMagic[4] = {'W', 'T', 'U', 'R'};
 constexpr uint32_t kVersion = 1;
-
-template <typename T>
-void writePOD(std::ofstream& os, const T& v) {
-    os.write(reinterpret_cast<const char*>(&v), sizeof(T));
-}
-
-template <typename T>
-bool readPOD(std::ifstream& is, T& v) {
-    is.read(reinterpret_cast<char*>(&v), sizeof(T));
-    return is.gcount() == static_cast<std::streamsize>(sizeof(T));
-}
-
-void writeStr(std::ofstream& os, const std::string& s) {
-    uint32_t n = static_cast<uint32_t>(s.size());
-    writePOD(os, n);
-    if (n > 0) os.write(s.data(), n);
-}
-
-bool readStr(std::ifstream& is, std::string& s) {
-    uint32_t n = 0;
-    if (!readPOD(is, n)) return false;
-    if (n > (1u << 20)) return false;
-    s.resize(n);
-    if (n > 0) {
-        is.read(s.data(), n);
-        if (is.gcount() != static_cast<std::streamsize>(n)) {
-            s.clear();
-            return false;
-        }
-    }
-    return true;
-}
-
-std::string normalizePath(std::string base) {
-    if (base.size() < 5 || base.substr(base.size() - 5) != ".wtur") {
-        base += ".wtur";
-    }
-    return base;
-}
+constexpr char kExtension[] = ".wtur";
 
 } // namespace
 
@@ -74,15 +37,9 @@ WoweeTutorialSteps::findByEvent(uint8_t triggerEvent) const {
 }
 
 bool WoweeTutorialStepsLoader::save(const WoweeTutorialSteps& cat,
-                                      const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath), std::ios::binary);
-    if (!os) return false;
-    os.write(kMagic, 4);
-    writePOD(os, kVersion);
-    writeStr(os, cat.name);
-    uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writePOD(os, entryCount);
-    for (const auto& e : cat.entries) {
+                     const std::string& basePath) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const WoweeTutorialSteps::Entry& e) {
         writePOD(os, e.tutId);
         writeStr(os, e.name);
         writePOD(os, e.stepIndex);
@@ -94,52 +51,30 @@ bool WoweeTutorialStepsLoader::save(const WoweeTutorialSteps& cat,
         writeStr(os, e.title);
         writeStr(os, e.body);
         writeStr(os, e.targetUIElementName);
-    }
-    return os.good();
+                       });
 }
 
 WoweeTutorialSteps WoweeTutorialStepsLoader::load(
     const std::string& basePath) {
-    WoweeTutorialSteps out;
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    if (!is) return out;
-    char magic[4];
-    is.read(magic, 4);
-    if (std::memcmp(magic, kMagic, 4) != 0) return out;
-    uint32_t version = 0;
-    if (!readPOD(is, version) || version != kVersion) return out;
-    if (!readStr(is, out.name)) return out;
-    uint32_t entryCount = 0;
-    if (!readPOD(is, entryCount)) return out;
-    if (entryCount > (1u << 20)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.tutId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name)) {
-            out.entries.clear(); return out;
-        }
+    return loadCatalog<WoweeTutorialSteps>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeTutorialSteps::Entry& e) {
+        if (!readPOD(is, e.tutId)) { return false; }
+        if (!readStr(is, e.name)) { return false; }
         if (!readPOD(is, e.stepIndex) ||
             !readPOD(is, e.triggerEvent) ||
             !readPOD(is, e.pad0) ||
             !readPOD(is, e.triggerValue) ||
             !readPOD(is, e.iconIndex) ||
-            !readPOD(is, e.hideAfterSec)) {
-            out.entries.clear(); return out;
-        }
+            !readPOD(is, e.hideAfterSec)) { return false; }
         if (!readStr(is, e.title) ||
             !readStr(is, e.body) ||
-            !readStr(is, e.targetUIElementName)) {
-            out.entries.clear(); return out;
-        }
-    }
-    return out;
+            !readStr(is, e.targetUIElementName)) { return false; }
+                                  return true;
+                              });
 }
 
 bool WoweeTutorialStepsLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 namespace {
@@ -238,7 +173,7 @@ WoweeTutorialSteps WoweeTutorialStepsLoader::makeLevelUpFlow(
         "Talent Tree Unlocked",
         "You can now spend your first talent point. "
         "Press N to open the talent tree and pick a "
-        "specialization. Choose carefully — talents "
+        "specialization. Choose carefully - talents "
         "cost gold to refund.",
         "TalentButton"));
     return c;

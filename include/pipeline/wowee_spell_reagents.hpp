@@ -7,15 +7,15 @@
 namespace wowee {
 namespace pipeline {
 
-// Wowee Open Spell Reagent catalog (.wspr) — novel
+// Wowee Open Spell Reagent catalog (.wspr) - novel
 // replacement for the per-spell reagent fields in
 // Spell.dbc (Reagent[8] + ReagentCount[8]). Defines the
 // item reagents that a spell consumes from the caster's
-// inventory each time it's cast — Mage Portal needs a
+// inventory each time it's cast - Mage Portal needs a
 // Rune of Portals, Resurrection needs an Ash of Eternity,
 // Warlock summons consume Soul Shards.
 //
-// One entry per spell that has reagents — most spells
+// One entry per spell that has reagents - most spells
 // have none and are absent from this catalog. Each entry
 // can list up to 8 (itemId, count) pairs which all must
 // be present for the spell to cast. The engine deducts
@@ -92,14 +92,14 @@ public:
 
     // Preset emitters used by --gen-spr* variants.
     //
-    //   makeMage     — 4 mage portal/teleport reagents
+    //   makeMage     - 4 mage portal/teleport reagents
     //                   (Stormwind, Ironforge, Darnassus,
     //                   Theramore) consuming Rune of
     //                   Teleportation x1.
-    //   makeWarlock  — 4 warlock summons consuming Soul
+    //   makeWarlock  - 4 warlock summons consuming Soul
     //                   Shards (Voidwalker, Imp, Succubus,
-    //                   Felhunter) — each takes 1 shard.
-    //   makeRez      — 3 resurrection reagents (Ankh of
+    //                   Felhunter) - each takes 1 shard.
+    //   makeRez      - 3 resurrection reagents (Ankh of
     //                   Reincarnation, Ash of Eternity for
     //                   priest mass-rez, druid Rebirth
     //                   no-cost). Mix of Standard,

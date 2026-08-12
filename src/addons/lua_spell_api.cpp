@@ -1,8 +1,80 @@
-// lua_spell_api.cpp — Spell info, casting, auras, and targeting Lua API bindings.
+// lua_spell_api.cpp - Spell info, casting, auras, and targeting Lua API bindings.
 // Extracted from lua_engine.cpp as part of §5.1 (Tame LuaEngine).
 #include "addons/lua_api_helpers.hpp"
+#include "game/item_text.hpp"
+#include "addons/lua_engine.hpp"
 
 namespace wowee::addons {
+
+// ---- Finishing a spell that is waiting for a target ----
+//
+// A spell cast with no target leaves the cursor holding it until something is
+// clicked; these are what the unit and party frames call when that click lands
+// on them. This client resolves a target at cast time instead - there is no
+// pending spell on the cursor to complete - so each answers false: nothing was
+// waiting, so nothing was consumed, and the frame falls through to its ordinary
+// click handling rather than swallowing it.
+static int lua_SpellTargetUnit(lua_State* L) { lua_pushboolean(L, 0); return 1; }
+static int lua_SpellTargetItem(lua_State* L) { lua_pushboolean(L, 0); return 1; }
+
+// Dropping what the cursor holds onto a unit, which opens a trade. The cursor
+// carries no item here, so there is nothing to drop.
+static int lua_DropItemOnUnit(lua_State* L) { lua_pushboolean(L, 0); return 1; }
+
+// The totem bar's per-slot spell choice, which needs the multi-cast action bar
+// this client does not model.
+static int lua_SetMultiCastSpell(lua_State* L) { (void)L; return 0; }
+
+
+// --- Totems ---
+//
+// Four slots, each holding a spell and how long it has left. The interface
+// wants the moment one was placed rather than its age, on the same clock
+// GetTime() reports - a bar that is drawn from start and duration cannot use a
+// figure measured from a different zero.
+
+// GetTotemInfo(slot) → haveTotem, name, startTime, duration, icon
+static int lua_GetTotemInfo(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const int slot = static_cast<int>(luaL_optnumber(L, 1, 0));
+    if (!gh || slot < 1 || slot > game::GameHandler::NUM_TOTEM_SLOTS) {
+        lua_pushboolean(L, 0);
+        lua_pushstring(L, "");
+        lua_pushnumber(L, 0);
+        lua_pushnumber(L, 0);
+        lua_pushnil(L);
+        return 5;
+    }
+    const auto& totem = gh->getTotemSlot(slot - 1);
+    const bool active = totem.active();
+    const double durationSec = totem.durationMs / 1000.0;
+    const double remainingSec = totem.remainingMs() / 1000.0;
+
+    lua_pushboolean(L, active ? 1 : 0);
+    lua_pushstring(L, active ? gh->getSpellName(totem.spellId).c_str() : "");
+    // Placed at however long ago it has already run for.
+    lua_pushnumber(L, active ? luaGetTimeNow() - (durationSec - remainingSec) : 0.0);
+    lua_pushnumber(L, active ? durationSec : 0.0);
+    if (active) {
+        const std::string icon = gh->getSpellIconPath(totem.spellId);
+        if (!icon.empty()) lua_pushstring(L, icon.c_str()); else lua_pushnil(L);
+    } else {
+        lua_pushnil(L);
+    }
+    return 5;
+}
+
+// GetTotemTimeLeft(slot) → seconds
+static int lua_GetTotemTimeLeft(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const int slot = static_cast<int>(luaL_optnumber(L, 1, 0));
+    if (!gh || slot < 1 || slot > game::GameHandler::NUM_TOTEM_SLOTS) {
+        lua_pushnumber(L, 0);
+        return 1;
+    }
+    lua_pushnumber(L, gh->getTotemSlot(slot - 1).remainingMs() / 1000.0);
+    return 1;
+}
 
 static int lua_IsSpellInRange(lua_State* L) {
     auto* gh = getGameHandler(L);
@@ -48,6 +120,40 @@ static int lua_IsSpellInRange(lua_State* L) {
 
 // UnitIsVisible(unit) → boolean (entity exists in the client's entity manager)
 
+/// Whether the player's class can remove a debuff of this dispel type.
+///
+/// The "RAID" filter FrameXML passes on party frames means "only what I can do
+/// something about", and it is what showDispelDebuffs turns on. Without it the
+/// filter string was accepted and ignored, so the frames showed every debuff
+/// however little the healer could do - and answering the CVar without this
+/// would have claimed a filter that does not filter.
+///
+/// Dispel types are Spell.dbc's: 1 Magic, 2 Curse, 3 Disease, 4 Poison. The
+/// class table is 3.3.5's, and it is about what the class can remove from a
+/// *friendly* target rather than what it can purge from an enemy.
+static bool classCanDispel(uint8_t classId, uint8_t dispelType) {
+    if (dispelType == 0) return false;
+    constexpr uint8_t kMagic = 1, kCurse = 2, kDisease = 3, kPoison = 4;
+    switch (classId) {
+        case 2:  // Paladin - Cleanse
+            return dispelType == kMagic || dispelType == kPoison || dispelType == kDisease;
+        case 5:  // Priest - Dispel Magic, Abolish Disease
+            return dispelType == kMagic || dispelType == kDisease;
+        case 7:  // Shaman - Cure Toxins, Cleanse Spirit at 51
+            return dispelType == kCurse || dispelType == kPoison || dispelType == kDisease;
+        case 8:  // Mage - Remove Curse
+            return dispelType == kCurse;
+        case 11: // Druid - Remove Curse, Abolish Poison
+            return dispelType == kCurse || dispelType == kPoison;
+        case 6:  // Death Knight - the pet's Leech, and unholy's disease removal
+            return dispelType == kDisease;
+        case 9:  // Warlock - the Felhunter's Devour Magic
+            return dispelType == kMagic;
+        default: // Warrior, Hunter, Rogue: nothing
+            return false;
+    }
+}
+
 static int lua_UnitAura(lua_State* L, bool wantBuff) {
     auto* gh = getGameHandler(L);
     if (!gh) { return luaReturnNil(L); }
@@ -68,12 +174,29 @@ static int lua_UnitAura(lua_State* L, bool wantBuff) {
     }
     if (!auras) { return luaReturnNil(L); }
 
+    // "RAID" on a debuff means only what this character can remove. The index
+    // counts into the filtered list, so the test has to come before the count
+    // - filtering after it would answer the wrong aura for every index past
+    // the first one skipped.
+    const char* filterArg = luaL_optstring(L, 3, "");
+    bool dispellableOnly = false;
+    if (!wantBuff && filterArg) {
+        std::string f(filterArg);
+        for (char& c : f) c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+        dispellableOnly = f.find("RAID") != std::string::npos;
+    }
+    const uint8_t playerClass = gh->getPlayerClass();
+
     // Filter to buffs or debuffs and find the Nth one
     int found = 0;
     for (const auto& aura : *auras) {
         if (aura.isEmpty() || aura.spellId == 0) continue;
         bool isDebuff = (aura.flags & 0x80) != 0;
         if (wantBuff ? isDebuff : !isDebuff) continue;
+        if (dispellableOnly &&
+            !classCanDispel(playerClass, gh->getSpellDispelType(aura.spellId))) {
+            continue;
+        }
         found++;
         if (found == index) {
             // Return: name, rank, icon, count, debuffType, duration, expirationTime, ...spellId
@@ -137,7 +260,7 @@ static int lua_UnitAura(lua_State* L, bool wantBuff) {
 static int lua_UnitBuff(lua_State* L) { return lua_UnitAura(L, true); }
 static int lua_UnitDebuff(lua_State* L) { return lua_UnitAura(L, false); }
 
-// UnitAura(unit, index, filter) — generic aura query with filter string
+// UnitAura(unit, index, filter) - generic aura query with filter string
 // filter: "HELPFUL" = buffs, "HARMFUL" = debuffs, "PLAYER" = cast by player,
 //         "HELPFUL|PLAYER" = buffs cast by player, etc.
 static int lua_UnitAuraGeneric(lua_State* L) {
@@ -204,11 +327,21 @@ static int lua_UnitCastInfo(lua_State* L, bool wantChannel) {
     double startTimeMs = (nowSec - (timeTotal - timeRemaining)) * 1000.0;
     double endTimeMs   = (nowSec + timeRemaining) * 1000.0;
 
-    // Return values match WoW API:
-    // UnitCastingInfo: name, text, texture, startTime, endTime, isTradeSkill, castID, notInterruptible
-    // UnitChannelInfo: name, text, texture, startTime, endTime, isTradeSkill, notInterruptible
+    // The real signatures, which are one wider than what this used to send:
+    //
+    //   UnitCastingInfo → name, nameSubtext, text, texture, startTime,
+    //                     endTime, isTradeSkill, castID, notInterruptible
+    //   UnitChannelInfo → the same without castID
+    //
+    // nameSubtext is the rank, and leaving it out shifted every value after it
+    // by one. castingbarframe.lua destructures all nine by name, so it read the
+    // icon path as the bar's text, a timestamp as the texture, and a boolean as
+    // endTime - then computed (endTime - startTime) and raised, which is why no
+    // cast bar was ever drawn rather than a wrong one.
     lua_pushstring(L, name.empty() ? "Unknown" : name.c_str()); // name
-    lua_pushstring(L, "");                                       // text (sub-text, usually empty)
+    const std::string& rank = gh->getSpellRank(spellId);
+    lua_pushstring(L, rank.c_str());                             // nameSubtext
+    lua_pushstring(L, "");                                       // text
     if (!iconPath.empty()) lua_pushstring(L, iconPath.c_str());
     else lua_pushstring(L, "Interface\\Icons\\INV_Misc_QuestionMark");  // texture
     lua_pushnumber(L, startTimeMs);                              // startTime (ms)
@@ -218,7 +351,7 @@ static int lua_UnitCastInfo(lua_State* L, bool wantChannel) {
         lua_pushnumber(L, spellId);                              // castID (UnitCastingInfo only)
     }
     lua_pushboolean(L, interruptible ? 0 : 1);                  // notInterruptible
-    return wantChannel ? 7 : 8;
+    return wantChannel ? 8 : 9;
 }
 
 static int lua_UnitCastingInfo(lua_State* L) { return lua_UnitCastInfo(L, false); }
@@ -252,7 +385,16 @@ static int lua_CastSpellByName(lua_State* L) {
         if (rank > bestRank) { bestRank = rank; bestId = sid; }
     }
     if (bestId != 0) {
-        uint64_t target = gh->hasTarget() ? gh->getTargetGuid() : 0;
+        // The same second argument, and the same branch of SECURE_ACTIONS.spell
+        // reaches here: a spell named rather than numbered is cast by name, and
+        // the unit clicked still says who it lands on.
+        uint64_t target = 0;
+        if (const char* unit = luaL_optstring(L, 2, nullptr)) {
+            std::string u(unit);
+            toLowerInPlace(u);
+            target = resolveUnitGuid(gh, u);
+        }
+        if (target == 0 && gh->hasTarget()) target = gh->getTargetGuid();
         gh->castSpell(bestId, target);
     }
     return 0;
@@ -275,17 +417,49 @@ static int lua_GetNumSpellTabs(lua_State* L) {
     return 1;
 }
 
-// GetSpellTabInfo(tabIndex) → name, texture, offset, numSpells
+// GetSpellTabInfo(tabIndex) → name, texture, offset, numSpells,
+//                             highestRankOffset, highestRankNumSpells
 // tabIndex is 1-based; offset is 1-based global spell book slot
+//
+// Six values, and the last two are not optional. SpellBook_GetTabInfo unpacks
+// all six and then, when ShowAllSpellRanks is off - which is the default -
+// throws away offset and numSpells and uses the highest-rank pair instead. So
+// a four-value answer leaves both nil on the ordinary path and the spellbook
+// raises on the arithmetic, showing nothing at all.
+//
+// The comment here used to say four. Cutting the returns to match it would
+// have emptied the spellbook, which is exactly what a stubbed four-value
+// version did when it was tried.
 static int lua_GetSpellTabInfo(lua_State* L) {
     auto* gh = getGameHandler(L);
     int tabIdx = static_cast<int>(luaL_checknumber(L, 1));
+    // An empty tab rather than one nil, because the caller does arithmetic on
+    // what comes back without checking it.
+    //
+    // SpellBookFrame's own OnLoad ends with SpellBookSkillLineTab_OnClick(nil,
+    // 1), and three frames down that divides numSpells by the page size. In
+    // WoW tab one is General and always exists, so FrameXML never guards it -
+    // here it does not exist until the spell list has arrived, and a single
+    // nil made that a raise inside OnLoad, which loses the whole file.
+    // SpellBookFrame.xml was failing to load outright.
+    //
+    // Six zeroes give a book with no pages, which is what a player with no
+    // spells yet has, and the frame loads and fills in when they arrive.
+    auto emptyTab = [](lua_State* s) {
+        lua_pushstring(s, "");   // name
+        lua_pushstring(s, "");   // texture
+        lua_pushnumber(s, 0);    // offset
+        lua_pushnumber(s, 0);    // numSpells
+        lua_pushnumber(s, 0);    // highestRankOffset
+        lua_pushnumber(s, 0);    // highestRankNumSpells
+        return 6;
+    };
     if (!gh || tabIdx < 1) {
-        return luaReturnNil(L);
+        return emptyTab(L);
     }
     const auto& tabs = gh->getSpellBookTabs();
     if (tabIdx > static_cast<int>(tabs.size())) {
-        return luaReturnNil(L);
+        return emptyTab(L);
     }
     // Compute offset: sum of spells in all preceding tabs (1-based)
     int offset = 0;
@@ -297,7 +471,7 @@ static int lua_GetSpellTabInfo(lua_State* L) {
     lua_pushnumber(L, offset);                     // offset (0-based for WoW compat)
     lua_pushnumber(L, tab.spellIds.size());        // numSpells
     // The highest-rank pair, which is what FrameXML actually reads: with
-    // ShowAllSpellRanks off — the default — SpellBook_GetTabInfo throws away
+    // ShowAllSpellRanks off - the default - SpellBook_GetTabInfo throws away
     // the first offset and count and keeps these. Returning four values left
     // numSpells nil and the page count divided by nothing. This client does
     // not track ranks separately, so the whole tab is the highest rank.
@@ -352,105 +526,125 @@ static int lua_GetSpellBookItemName(lua_State* L) {
     return 1;
 }
 
-// GetSpellDescription(spellId) → description string
-// Clean spell description template variables for display
-static std::string cleanSpellDescription(const std::string& raw, const int32_t effectBase[3] = nullptr, float durationSec = 0.0f) {
-    if (raw.empty() || raw.find('$') == std::string::npos) return raw;
-    std::string result;
-    result.reserve(raw.size());
-    for (size_t i = 0; i < raw.size(); ++i) {
-        if (raw[i] == '$' && i + 1 < raw.size()) {
-            char next = raw[i + 1];
-            if (next == 's' || next == 'S') {
-                // $s1, $s2, $s3 — substitute with effect base points + 1
-                i += 1; // skip 's'
-                int idx = 0;
-                if (i + 1 < raw.size() && raw[i + 1] >= '1' && raw[i + 1] <= '3') {
-                    idx = raw[i + 1] - '1';
-                    ++i;
-                }
-                if (effectBase && effectBase[idx] != 0) {
-                    int32_t val = std::abs(effectBase[idx]) + 1;
-                    result += std::to_string(val);
-                } else {
-                    result += 'X';
-                }
-                while (i + 1 < raw.size() && raw[i + 1] >= '0' && raw[i + 1] <= '9') ++i;
-            } else if (next == 'o' || next == 'O') {
-                // $o1 = periodic total (base * ticks). Ticks = duration / 3sec for most spells
-                i += 1;
-                int idx = 0;
-                if (i + 1 < raw.size() && raw[i + 1] >= '1' && raw[i + 1] <= '3') {
-                    idx = raw[i + 1] - '1';
-                    ++i;
-                }
-                if (effectBase && effectBase[idx] != 0 && durationSec > 0.0f) {
-                    int32_t perTick = std::abs(effectBase[idx]) + 1;
-                    int ticks = static_cast<int>(durationSec / 3.0f);
-                    if (ticks < 1) ticks = 1;
-                    result += std::to_string(perTick * ticks);
-                } else {
-                    result += 'X';
-                }
-                while (i + 1 < raw.size() && raw[i + 1] >= '0' && raw[i + 1] <= '9') ++i;
-            } else if (next == 'e' || next == 'E' || next == 't' || next == 'T' ||
-                next == 'h' || next == 'H' || next == 'u' || next == 'U') {
-                // Other variables — insert "X" placeholder
-                result += 'X';
-                i += 1;
-                while (i + 1 < raw.size() && raw[i + 1] >= '0' && raw[i + 1] <= '9') ++i;
-            } else if (next == 'd' || next == 'D') {
-                // $d = duration
-                if (durationSec > 0.0f) {
-                    if (durationSec >= 60.0f)
-                        result += std::to_string(static_cast<int>(durationSec / 60.0f)) + " min";
-                    else
-                        result += std::to_string(static_cast<int>(durationSec)) + " sec";
-                } else {
-                    result += "X sec";
-                }
-                ++i;
-                while (i + 1 < raw.size() && raw[i + 1] >= '0' && raw[i + 1] <= '9') ++i;
-            } else if (next == 'a' || next == 'A') {
-                // $a1 = radius
-                result += "X";
-                ++i;
-                while (i + 1 < raw.size() && raw[i + 1] >= '0' && raw[i + 1] <= '9') ++i;
-            } else if (next == 'b' || next == 'B' || next == 'n' || next == 'N' ||
-                       next == 'i' || next == 'I' || next == 'x' || next == 'X') {
-                // misc variables
-                result += "X";
-                ++i;
-                while (i + 1 < raw.size() && raw[i + 1] >= '0' && raw[i + 1] <= '9') ++i;
-            } else if (next == '$') {
-                // $$ = literal $
-                result += '$';
-                ++i;
-            } else if (next == '{' || next == '<') {
-                // ${...} or $<...> — skip entire block
-                char close = (next == '{') ? '}' : '>';
-                size_t end = raw.find(close, i + 2);
-                if (end != std::string::npos) i = end;
-                else result += raw[i]; // no closing — keep $
-            } else {
-                result += raw[i]; // unknown $ pattern — keep
-            }
-        } else {
-            result += raw[i];
-        }
-    }
-    return result;
+
+// ── The spellbook's older API ──────────────────────────────────────────────
+//
+// SpellBookFrame in WotLK uses both generations at once: the newer
+// GetSpellBookItem* alongside GetSpellName and CastSpell, which take the same
+// slot and book. The newer half was implemented and the older was not, so the
+// panel could name a spell and not cast it.
+
+
+/// GetSpellName(slot, bookType) → name, rank.
+static int lua_GetSpellName(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    // Through spellIdForCall, which reads the book as well as the slot. The
+    // spellbook passes SpellBookFrame.bookType to every one of these, and
+    // resolving a pet slot through the player's tabs names one of the player's
+    // own spells - the wrong answer wearing the shape of a right one.
+    const uint32_t id = spellIdForCall(L, gh);
+    if (id == 0) { return luaReturnNil(L); }
+    const std::string& name = gh->getSpellName(id);
+    lua_pushstring(L, name.empty() ? "Unknown" : name.c_str());
+    lua_pushstring(L, "");
+    return 2;
 }
+
+/// CastSpell(slot, bookType) - cast what is in that slot at the current
+/// target, which is what clicking a spellbook entry does.
+static int lua_CastSpell(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    // Same resolver, and here it decides what is cast: clicking a pet spell
+    // resolved through the player's tabs cast whichever of the player's spells
+    // sat at that index.
+    const uint32_t id = spellIdForCall(L, gh);
+    if (id != 0) gh->castSpell(id, gh->getTargetGuid());
+    return 0;
+}
+
+/// IsPassiveSpell(slot, bookType) → whether the spell is passive, which is how
+/// the book decides not to draw a cast button for it. Spell attributes are not
+/// read from the DBC yet, so this answers no - which draws a button for a
+/// passive rather than hiding a real one, the less wrong way round.
+/// IsPassiveSpell(id or index, bookType) → whether the spell is never cast.
+///
+/// It answered no for everything, so the spell book drew a passive with the
+/// same cast border as an ability and let it be dragged onto the action bar,
+/// where it would sit doing nothing. Spell.dbc's base attribute word carries
+/// it - bit 6 - beside the Ex word the client already read for
+/// interruptibility.
+static int lua_IsPassiveSpell(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    if (!gh) { lua_pushboolean(L, 0); return 1; }
+    // Both forms: IsPassiveSpell(spellId) and IsPassiveSpell(slot, bookType),
+    // which is the one the spellbook uses - and reading a slot as an id
+    // answered for whichever spell happens to carry the number 1, 2 or 3.
+    // The result decides whether a spell is drawn as castable at all.
+    const uint32_t id = spellIdForCall(L, gh);
+    lua_pushboolean(L, gh->isSpellPassive(id) ? 1 : 0);
+    return 1;
+}
+
+/// IsSelectedSpell(slot, bookType) → whether the book is highlighting it.
+/// Nothing selects a spell here; the highlight follows the cursor.
+static int lua_IsSelectedSpell(lua_State* L) {
+    lua_pushboolean(L, 0);
+    return 1;
+}
+
+/// GetSpellAutocast(slot, bookType) → autocastable, currently autocasting.
+/// Pet spells only, and pet action bars are not modelled: false says the
+/// little rotating border is not drawn, which is right for every spell a
+/// player has.
+static int lua_GetSpellAutocast(lua_State* L) {
+    lua_pushboolean(L, 0);
+    lua_pushboolean(L, 0);
+    return 2;
+}
+/// GetKnownSlotFromHighestRankSlot(slot) → the slot actually known. The book
+/// shows the highest rank and this maps back; with one entry per spell here
+/// the two are the same slot.
+static int lua_GetKnownSlotFromHighestRankSlot(lua_State* L) {
+    lua_pushnumber(L, luaL_optnumber(L, 1, 0));
+    return 1;
+}
+
+/// UpdateSpells() - redraw the spell book page.
+///
+/// The list itself needs no rebuilding, which is why this was a no-op. But in
+/// WoW the call is what makes the client announce SPELLS_CHANGED, and that
+/// event is the only thing that redraws a spell button: SpellButton_OnEvent
+/// answers it with SpellButton_UpdateButton, and nothing else calls that.
+///
+/// Six places in spellbookframe.lua call this, and every one of them is a
+/// "now redraw the page" - after a skill-line tab is clicked, after a page
+/// turn, after the book type changes. SpellBookFrame_ShowSpells only calls
+/// Show() on buttons that are already shown, so no OnShow fires and without
+/// the event the page kept whatever it was displaying before. That is the
+/// whole of "the spell book does not update when the tab changes": the offset
+/// moved and nothing ever re-read it.
+static int lua_UpdateSpells(lua_State* L) {
+    lua_getfield(L, LUA_REGISTRYINDEX, "wowee_lua_engine");
+    auto* engine = static_cast<LuaEngine*>(lua_touserdata(L, -1));
+    lua_pop(L, 1);
+    // Safe against the obvious loop: SpellBookFrame_OnEvent answers
+    // SPELLS_CHANGED with SpellBookFrame_Update() and no argument, and the
+    // branch that would call back here only runs when it is passed one.
+    if (engine) engine->fireEvent("SPELLS_CHANGED", {});
+    return 0;
+}
+
 
 static int lua_GetSpellDescription(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (!gh) { lua_pushstring(L, ""); return 1; }
     uint32_t spellId = static_cast<uint32_t>(luaL_checknumber(L, 1));
-    const std::string& desc = gh->getSpellDescription(spellId);
-    const int32_t* ebp = gh->getSpellEffectBasePoints(spellId);
-    float dur = gh->getSpellDuration(spellId);
-    std::string cleaned = cleanSpellDescription(desc, ebp, dur);
-    lua_pushstring(L, cleaned.c_str());
+    // The shared formatter, which is what every other description path uses.
+    // The local one this replaced knew $s and $o and wrote a literal "X" for
+    // $d and the rest, so a duration read as "lasts X sec".
+    const std::string desc =
+        gh->formatSpellDescription(spellId, gh->getSpellDescription(spellId));
+    lua_pushstring(L, desc.c_str());
     return 1;
 }
 
@@ -467,23 +661,18 @@ static int lua_GetEnchantInfo(lua_State* L) {
 
 static int lua_GetSpellCooldown(lua_State* L) {
     auto* gh = getGameHandler(L);
-    if (!gh) { lua_pushnumber(L, 0); lua_pushnumber(L, 0); return 2; }
-    // Accept spell name or ID
-    uint32_t spellId = 0;
-    if (lua_isnumber(L, 1)) {
-        spellId = static_cast<uint32_t>(lua_tonumber(L, 1));
-    } else {
-        const char* name = luaL_checkstring(L, 1);
-        std::string nameLow(name);
-        toLowerInPlace(nameLow);
-        for (uint32_t sid : gh->getKnownSpells()) {
-            std::string sn = gh->getSpellName(sid);
-            toLowerInPlace(sn);
-            if (sn == nameLow) { spellId = sid; break; }
-        }
-    }
+    // Three values on this path too, like every other. The cooldown frame does
+    // `start > 0 and duration > 0 and enable > 0`, and `and` short-circuits, so
+    // a missing third value is only ever reached when the first two say a
+    // cooldown is running - which this path cannot say, because it answers
+    // zero. Safe by accident rather than by design, and the next person to give
+    // this branch a real start time would have found out the hard way.
+    if (!gh) { lua_pushnumber(L, 0); lua_pushnumber(L, 0); lua_pushnumber(L, 1); return 3; }
+    // A name, an id, or a book slot with the book beside it - the spellbook
+    // asks in the last of those three.
+    const uint32_t spellId = spellIdForCall(L, gh);
     float cd = gh->getSpellCooldown(spellId);
-    // Also check GCD — if spell has no individual cooldown but GCD is active,
+    // Also check GCD - if spell has no individual cooldown but GCD is active,
     // return the GCD timing (this is how WoW handles it)
     float gcdRem = gh->getGCDRemaining();
     float gcdTotal = gh->getGCDTotal();
@@ -492,12 +681,21 @@ static int lua_GetSpellCooldown(lua_State* L) {
     double nowSec = luaGetTimeNow();
 
     if (cd > 0.01f) {
-        // Spell-specific cooldown (longer than GCD)
-        double start = nowSec - 0.01; // approximate start as "just now" minus epsilon
+        // Spell-specific cooldown (longer than GCD). The pair asked for is
+        // (start, duration), not (now, remaining) - the cooldown frame draws a
+        // sweep of `duration` beginning at `start`, so saying it began now with
+        // a length of whatever is left restarts the swirl at full every time
+        // the interface asks. It asks on every ACTIONBAR_UPDATE_COOLDOWN, which
+        // fires on every cast, so a five-minute cooldown looked like it kept
+        // starting over. Wound back the same way the GCD branch below already
+        // does it.
+        double total = gh->getSpellCooldownTotal(spellId);
+        if (total < cd) total = cd;   // a total never recorded falls back to what is left
+        double start = nowSec - (total - cd);
         lua_pushnumber(L, start);
-        lua_pushnumber(L, cd);
+        lua_pushnumber(L, total);
     } else if (gcdRem > 0.01f) {
-        // GCD is active — return GCD timing
+        // GCD is active - return GCD timing
         double elapsed = gcdTotal - gcdRem;
         double start = nowSec - elapsed;
         lua_pushnumber(L, start);
@@ -516,7 +714,7 @@ static int lua_HasTarget(lua_State* L) {
     return 1;
 }
 
-// TargetUnit(unitId) — set current target
+// TargetUnit(unitId) - set current target
 static int lua_TargetUnit(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (!gh) return 0;
@@ -528,14 +726,14 @@ static int lua_TargetUnit(lua_State* L) {
     return 0;
 }
 
-// ClearTarget() — clear current target
+// ClearTarget() - clear current target
 static int lua_ClearTarget(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (gh) gh->clearTarget();
     return 0;
 }
 
-// FocusUnit(unitId) — set focus target
+// FocusUnit(unitId) - set focus target
 static int lua_FocusUnit(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (!gh) return 0;
@@ -548,14 +746,14 @@ static int lua_FocusUnit(lua_State* L) {
     return 0;
 }
 
-// ClearFocus() — clear focus target
+// ClearFocus() - clear focus target
 static int lua_ClearFocus(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (gh) gh->clearFocus();
     return 0;
 }
 
-// AssistUnit(unitId) — target whatever the given unit is targeting
+// AssistUnit(unitId) - target whatever the given unit is targeting
 static int lua_AssistUnit(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (!gh) return 0;
@@ -569,24 +767,33 @@ static int lua_AssistUnit(lua_State* L) {
     return 0;
 }
 
-// TargetLastTarget() — re-target previous target
+// TargetLastTarget() - re-target previous target
 static int lua_TargetLastTarget(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (gh) gh->targetLastTarget();
     return 0;
 }
 
-// TargetNearestEnemy() — tab-target nearest enemy
+// TargetNearestEnemy() - tab-target nearest enemy
+// The argument is the direction, and it was being thrown away. Bindings.xml
+// binds two keys to each of these - `TargetNearestEnemy()` forwards and
+// `TargetNearestEnemy(1)` backwards, with a comment on that line saying so -
+// so cycling backwards through targets went forwards instead, and the second
+// key of every such pair did what the first did.
+static bool wantsReverse(lua_State* L) {
+    return lua_toboolean(L, 1) != 0;
+}
+
 static int lua_TargetNearestEnemy(lua_State* L) {
     auto* gh = getGameHandler(L);
-    if (gh) gh->targetEnemy(false);
+    if (gh) gh->targetEnemy(wantsReverse(L));
     return 0;
 }
 
-// TargetNearestFriend() — target nearest friendly unit
+// TargetNearestFriend([reverse]) - target nearest friendly unit
 static int lua_TargetNearestFriend(lua_State* L) {
     auto* gh = getGameHandler(L);
-    if (gh) gh->targetFriend(false);
+    if (gh) gh->targetFriend(wantsReverse(L));
     return 0;
 }
 
@@ -605,7 +812,7 @@ static int lua_GetRaidTargetIndex(lua_State* L) {
     return 1;
 }
 
-// SetRaidTarget(unit, index) — set raid marker (1-8, or 0 to clear)
+// SetRaidTarget(unit, index) - set raid marker (1-8, or 0 to clear)
 static int lua_SetRaidTarget(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (!gh) return 0;
@@ -686,13 +893,28 @@ static int lua_GetSpellInfo(lua_State* L) {
     std::string iconPath = gh->getSpellIconPath(spellId);
     if (!iconPath.empty()) lua_pushstring(L, iconPath.c_str());
     else lua_pushnil(L);                                     // 3: icon texture path
-    // Resolve cast time and range from Spell.dbc → SpellCastTimes.dbc / SpellRange.dbc
+    // The client's order, which this did not follow.
+    //
+    //   name, rank, icon, cost, isFunnel, powerType, castTime, minRange, maxRange
+    //
+    // Seven values were returned and only the first three were in the right
+    // places. Everything asking for a cost got a cast time in milliseconds,
+    // everything asking for a cast time got the spell id - so a spell read as
+    // taking several thousand seconds to cast - and the two ranges were nil.
+    // The interface unpacks all nine in one line in multicastactionbarframe,
+    // and any addon reading a spell does the same.
+    //
+    // isFunnel is the one value with nothing behind it here. False is right
+    // for every spell but a handful of warlock drains, and it is what the
+    // callers branch on rather than display.
     auto spellData = gh->getSpellData(spellId);
-    lua_pushnumber(L, spellData.castTimeMs);                 // 4: castTime (ms)
-    lua_pushnumber(L, spellData.minRange);                   // 5: minRange (yards)
-    lua_pushnumber(L, spellData.maxRange);                   // 6: maxRange (yards)
-    lua_pushnumber(L, spellId);                              // 7: spellId
-    return 7;
+    lua_pushnumber(L, spellData.manaCost);                   // 4: cost
+    lua_pushboolean(L, 0);                                   // 5: isFunnel
+    lua_pushnumber(L, spellData.powerType);                  // 6: powerType
+    lua_pushnumber(L, spellData.castTimeMs);                 // 7: castTime (ms)
+    lua_pushnumber(L, spellData.minRange);                   // 8: minRange (yards)
+    lua_pushnumber(L, spellData.maxRange);                   // 9: maxRange (yards)
+    return 9;
 }
 
 // GetSpellTexture(spellIdOrName) -> icon texture path string
@@ -700,20 +922,7 @@ static int lua_GetSpellTexture(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (!gh) { return luaReturnNil(L); }
 
-    uint32_t spellId = 0;
-    if (lua_isnumber(L, 1)) {
-        spellId = static_cast<uint32_t>(lua_tonumber(L, 1));
-    } else if (lua_isstring(L, 1)) {
-        const char* name = lua_tostring(L, 1);
-        if (!name || !*name) { return luaReturnNil(L); }
-        std::string nameLow(name);
-        toLowerInPlace(nameLow);
-        for (uint32_t sid : gh->getKnownSpells()) {
-            std::string sn = gh->getSpellName(sid);
-            toLowerInPlace(sn);
-            if (sn == nameLow) { spellId = sid; break; }
-        }
-    }
+    const uint32_t spellId = spellIdForCall(L, gh);
     if (spellId == 0) { return luaReturnNil(L); }
     std::string iconPath = gh->getSpellIconPath(spellId);
     if (!iconPath.empty()) lua_pushstring(L, iconPath.c_str());
@@ -727,58 +936,78 @@ static int lua_GetSpellLink(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (!gh) { return luaReturnNil(L); }
 
-    uint32_t spellId = 0;
-    if (lua_isnumber(L, 1)) {
-        spellId = static_cast<uint32_t>(lua_tonumber(L, 1));
-    } else if (lua_isstring(L, 1)) {
-        const char* name = lua_tostring(L, 1);
-        if (!name || !*name) { return luaReturnNil(L); }
-        std::string nameLow(name);
-        toLowerInPlace(nameLow);
-        for (uint32_t sid : gh->getKnownSpells()) {
-            std::string sn = gh->getSpellName(sid);
-            toLowerInPlace(sn);
-            if (sn == nameLow) { spellId = sid; break; }
-        }
-    }
+    const uint32_t spellId = spellIdForCall(L, gh);
     if (spellId == 0) { return luaReturnNil(L); }
     std::string name = gh->getSpellName(spellId);
     if (name.empty()) { return luaReturnNil(L); }
-    char link[256];
-    snprintf(link, sizeof(link), "|cff71d5ff|Hspell:%u|h[%s]|h|r", spellId, name.c_str());
-    lua_pushstring(L, link);
+    const std::string link = game::spellChatLink(spellId, name);
+    lua_pushstring(L, link.c_str());
     return 1;
 }
 
+/// CancelUnitBuff(unit, indexOrName [, filterOrRank]) - both forms.
+///
+/// The interface uses both and this took only the index, through
+/// luaL_checknumber - so the two name forms raised on the spot rather than
+/// cancelling anything. The possess bar cancels the aura holding the player in
+/// a vehicle by name, and /cancelaura passes what was typed; both were an
+/// error message where an aura should have dropped.
+///
+/// The third argument is a filter for the index form and a rank for the name
+/// form, which is how WoW spells it. Only HELPFUL is answerable - a debuff
+/// cannot be cancelled - so the filter decides nothing here beyond confirming
+/// buffs are what is being counted.
 static int lua_CancelUnitBuff(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (!gh) return 0;
-    const char* uid = luaL_optstring(L, 1, "player");
-    std::string uidStr(uid);
+    std::string uidStr(luaL_optstring(L, 1, "player"));
     toLowerInPlace(uidStr);
-    if (uidStr != "player") return 0; // Can only cancel own buffs
-    int index = static_cast<int>(luaL_checknumber(L, 2));
+    if (uidStr != "player") return 0;   // only one's own auras can be cancelled
+
     const auto& auras = gh->getPlayerAuras();
-    // Find the Nth buff (non-debuff)
+    const bool byName = lua_isstring(L, 2) && !lua_isnumber(L, 2);
+
+    if (byName) {
+        std::string want(lua_tostring(L, 2));
+        toLowerInPlace(want);
+        for (const auto& a : auras) {
+            if (a.isEmpty() || (a.flags & 0x80) != 0) continue;
+            std::string have = gh->getSpellName(a.spellId);
+            toLowerInPlace(have);
+            if (have == want) { gh->cancelAura(a.spellId); return 0; }
+        }
+        return 0;
+    }
+
+    const int index = static_cast<int>(luaL_optnumber(L, 2, 0));
+    if (index < 1) return 0;
     int buffCount = 0;
     for (const auto& a : auras) {
         if (a.isEmpty()) continue;
-        if ((a.flags & 0x80) != 0) continue; // skip debuffs
-        if (++buffCount == index) {
-            gh->cancelAura(a.spellId);
-            break;
-        }
+        if ((a.flags & 0x80) != 0) continue;   // debuffs are not cancellable
+        if (++buffCount == index) { gh->cancelAura(a.spellId); return 0; }
     }
     return 0;
 }
 
-// CastSpellByID(spellId) — cast spell by numeric ID
+// CastSpellByID(spellId) - cast spell by numeric ID
 static int lua_CastSpellByID(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (!gh) return 0;
     uint32_t spellId = static_cast<uint32_t>(luaL_checknumber(L, 1));
     if (spellId == 0) return 0;
-    uint64_t target = gh->hasTarget() ? gh->getTargetGuid() : 0;
+    // The second argument names who it is cast on, and this is the click-cast
+    // path: SECURE_ACTIONS.spell does CastSpellByID(spellID, unit) with the
+    // unit off the button that was clicked. Ignoring it cast on whatever was
+    // targeted instead, so healing a party member through their frame hit the
+    // current target.
+    uint64_t target = 0;
+    if (const char* unit = luaL_optstring(L, 2, nullptr)) {
+        std::string u(unit);
+        toLowerInPlace(u);
+        target = resolveUnitGuid(gh, u);
+    }
+    if (target == 0 && gh->hasTarget()) target = gh->getTargetGuid();
     gh->castSpell(spellId, target);
     return 0;
 }
@@ -831,16 +1060,32 @@ static int lua_IsUsableSpell(lua_State* L) {
 
 void registerSpellLuaAPI(lua_State* L) {
     static const struct { const char* name; lua_CFunction func; } api[] = {
+                {"GetTotemInfo",     lua_GetTotemInfo},
+                // DestroyTotem(slot) - pull one down early. The totem bar's
+                // right-click, and the slot is all the request carries.
+                {"DestroyTotem", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const int slot = static_cast<int>(luaL_optnumber(L, 1, 0));
+            // The bar counts from one and the request from zero.
+            if (gh && slot >= 1) gh->destroyTotem(slot - 1);
+            return 0;
+        }},
+                {"GetTotemTimeLeft", lua_GetTotemTimeLeft},
                 {"SpellStopCasting", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             if (gh) gh->cancelCast();
             return 0;
         }},
                 {"SpellStopTargeting", [](lua_State* L) -> int {
-            (void)L; return 0; // No targeting reticle in this client
+            // No AoE reticle, but the item cursor a stone or an oil arms is a
+            // kind of targeting and escape has to put it down.
+            auto* gh = getGameHandler(L);
+            if (gh && gh->isAwaitingItemTarget()) gh->cancelItemTargeting();
+            return 0;
         }},
                 {"SpellIsTargeting", [](lua_State* L) -> int {
-            lua_pushboolean(L, 0); // No AoE targeting reticle
+            auto* gh = getGameHandler(L);
+            lua_pushboolean(L, gh && gh->isAwaitingItemTarget());
             return 1;
         }},
                 {"IsSpellInRange",    lua_IsSpellInRange},
@@ -856,6 +1101,17 @@ void registerSpellLuaAPI(lua_State* L) {
                 {"GetSpellTabInfo",   lua_GetSpellTabInfo},
                 {"GetSpellBookItemInfo", lua_GetSpellBookItemInfo},
                 {"GetSpellBookItemName", lua_GetSpellBookItemName},
+                {"GetSpellName",      lua_GetSpellName},
+                {"SpellTargetUnit",   lua_SpellTargetUnit},
+                {"SpellTargetItem",   lua_SpellTargetItem},
+                {"DropItemOnUnit",    lua_DropItemOnUnit},
+                {"SetMultiCastSpell", lua_SetMultiCastSpell},
+                {"CastSpell",         lua_CastSpell},
+                {"IsPassiveSpell",    lua_IsPassiveSpell},
+                {"IsSelectedSpell",   lua_IsSelectedSpell},
+                {"GetSpellAutocast",  lua_GetSpellAutocast},
+                {"GetKnownSlotFromHighestRankSlot", lua_GetKnownSlotFromHighestRankSlot},
+                {"UpdateSpells",      lua_UpdateSpells},
                 {"GetSpellCooldown",  lua_GetSpellCooldown},
                 {"GetSpellPowerCost", lua_GetSpellPowerCost},
                 {"GetSpellDescription", lua_GetSpellDescription},
@@ -895,7 +1151,7 @@ void registerSpellLuaAPI(lua_State* L) {
             (void)L; lua_pushboolean(L, 0); return 1; // Stub
         }},
                 {"CastShapeshiftForm", [](lua_State* L) -> int {
-            // CastShapeshiftForm(index) — cast the spell for the given form slot
+            // CastShapeshiftForm(index) - cast the spell for the given form slot
             auto* gh = getGameHandler(L);
             int index = static_cast<int>(luaL_checknumber(L, 1));
             if (!gh || index < 1) return 0;
@@ -925,7 +1181,7 @@ void registerSpellLuaAPI(lua_State* L) {
             return 0;
         }},
                 {"CancelShapeshiftForm", [](lua_State* L) -> int {
-            // Cancel current form — cast spell 0 or cancel aura
+            // Cancel current form - cast spell 0 or cancel aura
             auto* gh = getGameHandler(L);
             if (gh && gh->getShapeshiftFormId() != 0) {
                 // Cancelling a form is done by re-casting the same form spell
@@ -933,11 +1189,11 @@ void registerSpellLuaAPI(lua_State* L) {
             }
             return 0;
         }},
-                {"GetShapeshiftFormCooldown", [](lua_State* L) -> int {
-            // No per-form cooldown tracking — return no cooldown
-            lua_pushnumber(L, 0); lua_pushnumber(L, 0); lua_pushnumber(L, 1);
-            return 3;
-        }},
+                // GetShapeshiftFormCooldown is defined in the bootstrap, over
+                // GetShapeshiftFormInfo and GetSpellCooldown, because those are
+                // in two different files and it needs both. A stub here would
+                // be dead - the bootstrap runs after these are registered - and
+                // framexml_lua_override_check exists to catch exactly that.
                 {"GetShapeshiftForm", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             lua_pushnumber(L, gh ? gh->getShapeshiftFormId() : 0);
@@ -954,15 +1210,35 @@ void registerSpellLuaAPI(lua_State* L) {
             // Priest: Shadowform(1)
             // Paladin: varies by level/talents
             // DK: Blood Presence, Frost, Unholy (3)
-            switch (classId) {
-                case 1: lua_pushnumber(L, 3); break;  // Warrior
-                case 2: lua_pushnumber(L, 3); break;  // Paladin (auras)
-                case 4: lua_pushnumber(L, 1); break;  // Rogue
-                case 5: lua_pushnumber(L, 1); break;  // Priest
-                case 6: lua_pushnumber(L, 3); break;  // Death Knight
-                case 11: lua_pushnumber(L, 6); break; // Druid
-                default: lua_pushnumber(L, 0); break;
+            // Only the forms this character has actually learned.
+            //
+            // A count fixed per class puts a stance button on the bar for
+            // something the player cannot use: a level 14 priest was offered
+            // Shadowform, which is learned at 40, and a new warrior all three
+            // stances when they have one.
+            struct Forms { uint8_t classId; const uint32_t* spells; size_t count; };
+            static const uint32_t kWarrior[] = {2457, 71, 2458};
+            static const uint32_t kPaladin[] = {465, 7294, 19746, 19876, 19888, 19891, 32223};
+            static const uint32_t kRogue[]   = {1784};
+            static const uint32_t kPriest[]  = {15473};
+            static const uint32_t kDeathKnight[] = {48266, 48263, 48265};
+            static const uint32_t kDruid[]   = {5487, 1066, 768, 783, 24858, 33891, 33943, 40120};
+            static const Forms kByClass[] = {
+                {1,  kWarrior,     3}, {2,  kPaladin,     7},
+                {4,  kRogue,       1}, {5,  kPriest,      1},
+                {6,  kDeathKnight, 3}, {11, kDruid,       8},
+            };
+
+            const auto& known = gh->getKnownSpells();
+            int count = 0;
+            for (const Forms& f : kByClass) {
+                if (f.classId != classId) continue;
+                for (size_t i = 0; i < f.count; ++i) {
+                    if (known.count(f.spells[i])) ++count;
+                }
+                break;
             }
+            lua_pushnumber(L, count);
             return 1;
         }},
     };

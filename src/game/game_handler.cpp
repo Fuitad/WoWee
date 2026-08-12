@@ -1,4 +1,5 @@
 #include "game/game_handler.hpp"
+#include "game/item_text.hpp"
 #include "game/achievement_criteria.hpp"
 #include "game/game_utils.hpp"
 #include "game/chat_handler.hpp"
@@ -60,69 +61,14 @@
 namespace wowee {
 namespace game {
 
-namespace {
-const char* worldStateName(WorldState state) {
-    switch (state) {
-        case WorldState::DISCONNECTED: return "DISCONNECTED";
-        case WorldState::CONNECTING: return "CONNECTING";
-        case WorldState::CONNECTED: return "CONNECTED";
-        case WorldState::CHALLENGE_RECEIVED: return "CHALLENGE_RECEIVED";
-        case WorldState::AUTH_SENT: return "AUTH_SENT";
-        case WorldState::AUTHENTICATED: return "AUTHENTICATED";
-        case WorldState::READY: return "READY";
-        case WorldState::CHAR_LIST_REQUESTED: return "CHAR_LIST_REQUESTED";
-        case WorldState::CHAR_LIST_RECEIVED: return "CHAR_LIST_RECEIVED";
-        case WorldState::ENTERING_WORLD: return "ENTERING_WORLD";
-        case WorldState::IN_WORLD: return "IN_WORLD";
-        case WorldState::FAILED: return "FAILED";
-    }
-    return "UNKNOWN";
-}
-
-} // end anonymous namespace
-
-std::string formatCopperAmount(uint32_t amount) {
-    uint32_t gold = amount / game::COPPER_PER_GOLD;
-    uint32_t silver = (amount / game::COPPER_PER_SILVER) % 100;
-    uint32_t copper = amount % game::COPPER_PER_SILVER;
-
-    std::ostringstream oss;
-    bool wrote = false;
-    if (gold > 0) {
-        oss << gold << "g";
-        wrote = true;
-    }
-    if (silver > 0) {
-        if (wrote) oss << " ";
-        oss << silver << "s";
-        wrote = true;
-    }
-    if (copper > 0 || !wrote) {
-        if (wrote) oss << " ";
-        oss << copper << "c";
-    }
-    return oss.str();
-}
 
 // Registration helpers for common dispatch table patterns
 void GameHandler::registerSkipHandler(LogicalOpcode op) {
     dispatchTable_[op] = [](network::Packet& packet) { packet.skipAll(); };
 }
-void GameHandler::registerErrorHandler(LogicalOpcode op, const char* msg) {
-    dispatchTable_[op] = [this, msg](network::Packet&) {
-        addUIError(msg);
-        addSystemChatMessage(msg);
-    };
-}
 void GameHandler::registerHandler(LogicalOpcode op, void (GameHandler::*handler)(network::Packet&)) {
     dispatchTable_[op] = [this, handler](network::Packet& packet) { (this->*handler)(packet); };
 }
-void GameHandler::registerWorldHandler(LogicalOpcode op, void (GameHandler::*handler)(network::Packet&)) {
-    dispatchTable_[op] = [this, handler](network::Packet& packet) {
-        if (state == WorldState::IN_WORLD) (this->*handler)(packet);
-    };
-}
-
 GameHandler::GameHandler(GameServices& services)
     : services_(services) {
     LOG_DEBUG("GameHandler created");
@@ -315,7 +261,30 @@ bool GameHandler::isConnected() const {
     return socket && socket->isConnected();
 }
 
+void GameHandler::sortBags() {
+    if (!sortSwapQueue_.empty()) return;   // one sort at a time
+    auto& inv = getInventory();
+    // Pour partial stacks together first, so the sort places one stack of
+    // twenty rather than two of ten. Merging both plans and applies, so the
+    // swaps below are computed from the merged layout.
+    auto merges = inv.mergePartialStacks();
+    auto swaps = inv.computeSortSwaps();
+    // The local layout changes now so the bags read as sorted immediately; the
+    // server is told the same thing over the following ticks.
+    inv.sortBags();
+    for (auto& m : merges) sortSwapQueue_.push_back(m);
+    for (auto& s : swaps)  sortSwapQueue_.push_back(s);
+}
+
 void GameHandler::updateNetworking(float deltaTime) {
+    // One queued sort move per tick. A sort is dozens of swaps and the server
+    // drops a burst of them, so they go out at the rate anything else does.
+    if (!sortSwapQueue_.empty()) {
+        const auto op = sortSwapQueue_.front();
+        sortSwapQueue_.pop_front();
+        swapContainerItems(op.srcBag, op.srcSlot, op.dstBag, op.dstSlot);
+    }
+
     // Reset per-tick monster-move budget tracking (Classic/Turtle flood protection).
     if (movementHandler_) {
         movementHandler_->monsterMovePacketsThisTickRef() = 0;
@@ -370,11 +339,11 @@ void GameHandler::updateNetworking(float deltaTime) {
             std::chrono::steady_clock::now() - lastRxTime_).count();
         if (silenceMs > game::RX_SILENCE_WARNING_MS && !rxSilenceLogged_) {
             rxSilenceLogged_ = true;
-            LOG_WARNING("RX SILENCE: No packets from server for ", silenceMs, "ms — possible soft disconnect");
+            LOG_WARNING("RX SILENCE: No packets from server for ", silenceMs, "ms - possible soft disconnect");
         }
         if (silenceMs > game::RX_SILENCE_CRITICAL_MS && !rxSilence15sLogged_) {
             rxSilence15sLogged_ = true;
-            LOG_WARNING("RX SILENCE: 15s — server appears to have stopped sending");
+            LOG_WARNING("RX SILENCE: 15s - server appears to have stopped sending");
         }
     }
 
@@ -556,10 +525,10 @@ void GameHandler::updateTimers(float deltaTime) {
     }
 
     // Tick InventoryHandler's auction search cooldown (the authoritative
-    // timer — GameHandler previously ticked its own never-set duplicate).
+    // timer - GameHandler previously ticked its own never-set duplicate).
     if (inventoryHandler_) inventoryHandler_->tickAuctionSearchDelay(deltaTime);
 
-    // Tick QuestHandler's pending-accept timeouts (the authoritative maps —
+    // Tick QuestHandler's pending-accept timeouts (the authoritative maps -
     // GameHandler previously ticked its own never-populated copies, so lost
     // or rejected quest accepts were never resynced or unblocked).
     if (questHandler_) {
@@ -578,6 +547,18 @@ void GameHandler::updateTimers(float deltaTime) {
             } else {
                 ++it;
             }
+        }
+    }
+
+    // Announce the corpse-proximity crossing. FrameXML answers CORPSE_IN_RANGE
+    // with StaticPopup "RECOVER_CORPSE", whose button calls RetrieveCorpse;
+    // without the edge that prompt could never appear and this client's own
+    // button was the only way back from a corpse run.
+    {
+        const bool inRange = releasedSpirit_ && canReclaimCorpse();
+        if (inRange != corpseInRangeAnnounced_) {
+            corpseInRangeAnnounced_ = inRange;
+            fireAddonEvent(inRange ? "CORPSE_IN_RANGE" : "CORPSE_OUT_OF_RANGE", {});
         }
     }
 
@@ -669,7 +650,7 @@ void GameHandler::updateTimers(float deltaTime) {
                 if (guid == playerGuid) continue;
                 auto player = std::static_pointer_cast<Player>(entity);
                 if (!player->getName().empty()) continue;
-                // Player entity exists with empty name and no pending query — resend.
+                // Player entity exists with empty name and no pending query - resend.
                 entityController_->queryPlayerName(guid);
             }
         }
@@ -734,14 +715,12 @@ void GameHandler::updateTimers(float deltaTime) {
 }
 
 void GameHandler::update(float deltaTime) {
-    // Fire deferred char-create callback (outside ImGui render)
-    if (pendingCharCreateResult_) {
-        pendingCharCreateResult_ = false;
-        if (charCreateCallback_) {
-            charCreateCallback_(pendingCharCreateSuccess_, pendingCharCreateMsg_);
-        }
-    }
-
+    // The char-create callback used to be deferred to here, out of the packet
+    // handler and so out of any render pass. It is not any more: the
+    // SMSG_CHAR_CREATE handler calls charCreateCallback_ itself, and nothing
+    // had set the flag this waited on for long enough that the three members
+    // behind it were never written at all. A block that cannot run, guarding a
+    // deferral that no longer happens, reads as though both still do.
     if (!socket) {
         return;
     }
@@ -755,7 +734,7 @@ void GameHandler::update(float deltaTime) {
     if (pendingCharDeleteResponse_) {
         pendingDeleteTimer_ += deltaTime;
         if (pendingDeleteTimer_ >= 3.0f) {
-            LOG_WARNING("No SMSG_CHAR_DELETE response after 3s — requesting character list to verify");
+            LOG_WARNING("No SMSG_CHAR_DELETE response after 3s - requesting character list to verify");
             pendingCharDeleteResponse_ = false;
             pendingDeleteFallbackEnum_ = true;
             requestCharacterList();
@@ -780,7 +759,7 @@ void GameHandler::update(float deltaTime) {
             msg = "Character deleted.";
         } else {
             msg = "Delete failed: the server did not respond. "
-                  "This usually happens if you recently logged out — "
+                  "This usually happens if you recently logged out - "
                   "wait 20-30 seconds and try again.";
         }
         if (charDeleteCallback_) charDeleteCallback_(deleted, msg);
@@ -804,14 +783,14 @@ void GameHandler::update(float deltaTime) {
     }
 
     // Entering and leaving combat is fired from the update block that carries
-    // UNIT_FLAG_IN_COMBAT, in EntityController — not from here.
+    // UNIT_FLAG_IN_COMBAT, in EntityController - not from here.
     //
     // Both places used to fire it, so every fight announced itself twice: the
     // combat text showed "Entering Combat" and then "Entering Combat" again,
     // and the same on the way out. The two do not even agree on the question.
     // This one asked isInCombat(), which is `autoAttacking_ ||
-    // !hostileAttackers_.empty()` — the client's own inference from what it has
-    // seen swing — while the other reads the flag the *server* sets, which is
+    // !hostileAttackers_.empty()` - the client's own inference from what it has
+    // seen swing - while the other reads the flag the *server* sets, which is
     // what PLAYER_REGEN_DISABLED means in WoW and what decides whether a panel
     // may be changed. Two sources, two edges, at slightly different moments.
 
@@ -888,7 +867,7 @@ void GameHandler::update(float deltaTime) {
                 // sends SMSG_SPELL_GO when the cast completes server-side (~50-200ms
                 // after the client timer expires due to float precision/frame timing).
                 // handleSpellGo checks `wasInTimedCast = casting_ && spellId == currentCastSpellId_`
-                // — if we clear those fields now, wasInTimedCast is false and the loot
+                // - if we clear those fields now, wasInTimedCast is false and the loot
                 // path (CMSG_LOOT via lastInteractedGoGuid_) never fires.
                 // Let the cast bar sit at 100% until SMSG_SPELL_GO arrives to clean up.
                 pendingGameObjectInteractGuid_ = 0;
@@ -965,25 +944,6 @@ void GameHandler::update(float deltaTime) {
 // XP tracking
 // ============================================================
 
-// WotLK 3.3.5a XP-to-next-level table (from player_xp_for_level)
-static constexpr uint32_t XP_TABLE[] = {
-    0,       // level 0 (unused)
-    400,     900,     1400,    2100,    2800,    3600,    4500,    5400,    6500,    7600,     // 1-10
-    8700,    9800,    11000,   12300,   13600,   15000,   16400,   17800,   19300,   20800,    // 11-20
-    22400,   24000,   25500,   27200,   28900,   30500,   32200,   33900,   36300,   38800,    // 21-30
-    41600,   44600,   48000,   51400,   55000,   58700,   62400,   66200,   70200,   74300,    // 31-40
-    78500,   82800,   87100,   91600,   96300,   101000,  105800,  110700,  115700,  120900,   // 41-50
-    126100,  131500,  137000,  142500,  148200,  154000,  159900,  165800,  172000,  290000,   // 51-60
-    317000,  349000,  386000,  428000,  475000,  527000,  585000,  648000,  717000,  1523800,  // 61-70
-    1539600, 1555700, 1571800, 1587900, 1604200, 1620700, 1637400, 1653900, 1670800           // 71-79
-};
-static constexpr uint32_t XP_TABLE_SIZE = sizeof(XP_TABLE) / sizeof(XP_TABLE[0]);
-
-uint32_t GameHandler::xpForLevel(uint32_t level) {
-    if (level == 0 || level >= XP_TABLE_SIZE) return 0;
-    return XP_TABLE[level];
-}
-
 uint32_t GameHandler::killXp(uint32_t playerLevel, uint32_t victimLevel) {
     return CombatHandler::killXp(playerLevel, victimLevel);
 }
@@ -998,6 +958,19 @@ void GameHandler::addMoneyCopper(uint32_t amount) {
 
 void GameHandler::addSystemChatMessage(const std::string& message) {
     if (chatHandler_) chatHandler_->addSystemChatMessage(message);
+}
+void GameHandler::addLocalChatLine(game::ChatType type, const std::string& message) {
+    if (chatHandler_) chatHandler_->addLocalChatLine(type, message);
+}
+
+void GameHandler::raiseUiError(const std::string& message) {
+    addSystemChatMessage(message);
+    // Through addUIError rather than firing the event again here. That already
+    // existed and already raises UI_ERROR_MESSAGE, and it also reaches this
+    // client's own on-screen error line through uiErrorCallback_ - which a
+    // second copy of the event would have missed. Adding one was how this file
+    // grew a second answer to a question already answered two headers away.
+    addUIError(message);
 }
 
 // ============================================================
@@ -1083,13 +1056,43 @@ void GameHandler::fail(const std::string& reason) {
 static const std::string kEmptySkillName;
 
 const std::string& GameHandler::getSkillName(uint32_t skillId) const {
+    // Asked for a name is a reason to read the file. The load used to be
+    // driven only from the *write* paths - a player update block carrying
+    // skill fields, the spellbook building its tabs - so if every one of those
+    // ran before the assets were up, nothing ever went back for it and every
+    // skill stayed nameless. getSpellName has always done this; this did not.
+    loadSkillLineDbc();
     auto it = skillLineNames_.find(skillId);
     return (it != skillLineNames_.end()) ? it->second : kEmptySkillName;
 }
 
 uint32_t GameHandler::getSkillCategory(uint32_t skillId) const {
+    // Loaded on the ask, like getSkillName above and for the same reason: the
+    // write paths can all have run before the assets were up, and then nothing
+    // goes back for the file.
+    loadSkillLineDbc();
     auto it = skillLineCategories_.find(skillId);
     return (it != skillLineCategories_.end()) ? it->second : 0;
+}
+
+const std::string& GameHandler::getSkillCategoryName(uint32_t categoryId) const {
+    loadSkillLineDbc();
+    auto it = skillCategoryNames_.find(categoryId);
+    return (it != skillCategoryNames_.end()) ? it->second : kEmptySkillName;
+}
+
+uint32_t GameHandler::getSkillCategorySortIndex(uint32_t categoryId) const {
+    loadSkillLineDbc();
+    auto it = skillCategorySort_.find(categoryId);
+    // Unknown headings sort last rather than first, so a category this build's
+    // file does not name cannot displace the ones it does.
+    return (it != skillCategorySort_.end()) ? it->second : 0xFFFFFFFFu;
+}
+
+void GameHandler::setSkillCategoryCollapsed(uint32_t categoryId, bool collapsed) {
+    if (categoryId == 0) return;
+    if (collapsed) collapsedSkillCategories_.insert(categoryId);
+    else           collapsedSkillCategories_.erase(categoryId);
 }
 
 bool GameHandler::isProfessionSpell(uint32_t spellId) const {
@@ -1101,7 +1104,7 @@ bool GameHandler::isProfessionSpell(uint32_t spellId) const {
     return catIt->second == 11 || catIt->second == 9;
 }
 
-void GameHandler::loadSkillLineDbc() {
+void GameHandler::loadSkillLineDbc() const {
     if (spellHandler_) spellHandler_->loadSkillLineDbc();
 }
 
@@ -1122,6 +1125,109 @@ static const std::string EMPTY_MACRO_TEXT;
 const std::string& GameHandler::getMacroText(uint32_t macroId) const {
     auto it = macros_.find(macroId);
     return (it != macros_.end()) ? it->second : EMPTY_MACRO_TEXT;
+}
+
+int GameHandler::getRecipeDifficulty(uint32_t spellId) const {
+    auto cit = spellNameCache_.find(spellId);
+    if (cit == spellNameCache_.end()) return 0;
+    const auto& se = cit->second;
+    // No thresholds means the recipe never greys out.
+    if (se.trivialSkillHigh == 0 && se.trivialSkillLow == 0) return 0;
+    auto slIt = spellToSkillLine_.find(spellId);
+    if (slIt == spellToSkillLine_.end()) return 0;
+    auto skIt = getPlayerSkills().find(slIt->second);
+    if (skIt == getPlayerSkills().end()) return 0;
+    const uint32_t skill = skIt->second.effectiveValue();
+    if (skill >= se.trivialSkillHigh) return 3;
+    if (skill >= se.trivialSkillLow)  return 2;
+    const uint32_t yellow = se.minSkillRank +
+                            (se.trivialSkillLow - se.minSkillRank) / 2;
+    if (skill >= yellow) return 1;
+    return 0;
+}
+
+uint32_t GameHandler::countItemInBags(uint32_t itemId) const {
+    const auto& inv = getInventory();
+    uint32_t total = 0;
+    for (int i = 0; i < inv.getBackpackSize(); ++i) {
+        const auto& slot = inv.getBackpackSlot(i);
+        if (!slot.empty() && slot.item.itemId == itemId) total += slot.item.stackCount;
+    }
+    for (int bag = 0; bag < Inventory::NUM_BAG_SLOTS; ++bag) {
+        const int bagSize = inv.getBagSize(bag);
+        for (int sIdx = 0; sIdx < bagSize; ++sIdx) {
+            const auto& slot = inv.getBagSlot(bag, sIdx);
+            if (!slot.empty() && slot.item.itemId == itemId) {
+                total += slot.item.stackCount;
+            }
+        }
+    }
+    return total;
+}
+
+std::vector<GameHandler::CraftRecipe> GameHandler::getCraftingRecipes() const {
+    std::vector<CraftRecipe> out;
+    const uint32_t skillLine = getCraftingSkillLine();
+    if (skillLine == 0) return out;
+    for (uint32_t spellId : getKnownSpells()) {
+        auto slIt = spellToSkillLine_.find(spellId);
+        if (slIt == spellToSkillLine_.end() || slIt->second != skillLine) continue;
+        auto cit = spellNameCache_.find(spellId);
+        if (cit == spellNameCache_.end()) continue;
+        const auto& se = cit->second;
+
+        bool hasReagents = false;
+        for (const auto& r : se.reagents) {
+            if (r.itemId != 0) { hasReagents = true; break; }
+        }
+        // The window-opener spell and passive skill ranks are not recipes.
+        if (!hasReagents && se.createdItemId == 0) continue;
+
+        CraftRecipe row;
+        row.spellId = spellId;
+        row.name = se.name;
+        row.difficulty = getRecipeDifficulty(spellId);
+        row.canMake = hasReagents ? 999 : 0;
+        for (const auto& r : se.reagents) {
+            if (r.itemId == 0 || r.count == 0) continue;
+            row.canMake = std::min(row.canMake,
+                static_cast<int>(countItemInBags(r.itemId) / r.count));
+        }
+        out.push_back(std::move(row));
+    }
+    std::sort(out.begin(), out.end(),
+              [](const CraftRecipe& a, const CraftRecipe& b) {
+                  return a.name < b.name;
+              });
+    return out;
+}
+
+const std::string& GameHandler::getMacroName(uint32_t macroId) const {
+    auto it = macroNames_.find(macroId);
+    return (it != macroNames_.end()) ? it->second : EMPTY_MACRO_TEXT;
+}
+
+const std::string& GameHandler::getMacroIcon(uint32_t macroId) const {
+    auto it = macroIcons_.find(macroId);
+    return (it != macroIcons_.end()) ? it->second : EMPTY_MACRO_TEXT;
+}
+
+void GameHandler::setMacroMeta(uint32_t macroId, const std::string& name,
+                               const std::string& icon) {
+    if (name.empty()) macroNames_.erase(macroId); else macroNames_[macroId] = name;
+    if (icon.empty()) macroIcons_.erase(macroId); else macroIcons_[macroId] = icon;
+    saveCharacterConfig();
+}
+
+std::vector<uint32_t> GameHandler::getMacroIds() const {
+    std::vector<uint32_t> ids;
+    ids.reserve(macros_.size());
+    for (const auto& [id, text] : macros_) { (void)text; ids.push_back(id); }
+    // Ascending, because the interface indexes macros by position in this list
+    // and an unordered_map hands them back in whatever order it likes - the
+    // same macro would answer to a different index each session.
+    std::sort(ids.begin(), ids.end());
+    return ids;
 }
 
 void GameHandler::setMacroText(uint32_t macroId, const std::string& text) {
@@ -1172,15 +1278,17 @@ void GameHandler::saveCharacterConfig() {
             out << "macro_" << id << "_text=" << escaped << "\n";
         }
     }
-
-    // Save quest log
-    out << "quest_log_count=" << questLog_.size() << "\n";
-    for (size_t i = 0; i < questLog_.size(); i++) {
-        const auto& quest = questLog_[i];
-        out << "quest_" << i << "_id=" << quest.questId << "\n";
-        out << "quest_" << i << "_title=" << quest.title << "\n";
-        out << "quest_" << i << "_complete=" << (quest.complete ? 1 : 0) << "\n";
+    for (const auto& [id, name] : macroNames_) {
+        if (!name.empty()) out << "macro_" << id << "_name=" << name << "\n";
     }
+    for (const auto& [id, icon] : macroIcons_) {
+        if (!icon.empty()) out << "macro_" << id << "_icon=" << icon << "\n";
+    }
+
+    // The quest log itself is not saved: the server sends it on every login,
+    // so a stored copy could only ever be staler than what arrives. What is
+    // saved below is the tracker selection, which is a client-side choice the
+    // server knows nothing about.
 
     // Save tracked quest IDs so the quest tracker restores on login
     if (!trackedQuestIds_.empty()) {
@@ -1201,6 +1309,25 @@ void GameHandler::saveCharacterConfig() {
             ids += std::to_string(qid);
         }
         out << "map_visible_quests=" << ids << "\n";
+    }
+
+    // Which reputation headers are closed. The server has no opinion about it,
+    // so this file is the only place it can survive a logout.
+    if (!collapsedFactionIds_.empty()) {
+        std::string ids;
+        for (uint32_t fid : collapsedFactionIds_) {
+            if (!ids.empty()) ids += ',';
+            ids += std::to_string(fid);
+        }
+        out << "collapsed_factions=" << ids << "\n";
+    }
+    if (!collapsedSkillCategories_.empty()) {
+        std::string ids;
+        for (uint32_t cid : collapsedSkillCategories_) {
+            if (!ids.empty()) ids += ',';
+            ids += std::to_string(cid);
+        }
+        out << "collapsed_skill_categories=" << ids << "\n";
     }
 
     LOG_INFO("Character config saved to ", path);
@@ -1260,12 +1387,21 @@ void GameHandler::loadCharacterConfig() {
                     }
                 }
                 macros_[macroId] = std::move(unescaped);
+            } else if (key.substr(secondUnder + 1) == "name" && !val.empty()) {
+                macroNames_[macroId] = val;
+            } else if (key.substr(secondUnder + 1) == "icon" && !val.empty()) {
+                macroIcons_[macroId] = val;
             }
-        } else if ((key == "tracked_quests" || key == "map_visible_quests") &&
-                   !val.empty()) {
-            // Parse comma-separated quest IDs into the appropriate selection.
-            auto& destination = key == "tracked_quests"
-                ? trackedQuestIds_ : mapVisibleQuestIds_;
+        } else if ((key == "tracked_quests" || key == "map_visible_quests" ||
+                    key == "collapsed_factions" ||
+                    key == "collapsed_skill_categories") && !val.empty()) {
+            // Parse a comma-separated id list into the matching selection.
+            auto& destination =
+                  key == "tracked_quests"    ? trackedQuestIds_
+                : key == "collapsed_factions" ? collapsedFactionIds_
+                : key == "collapsed_skill_categories" ? collapsedSkillCategories_
+                                                      : mapVisibleQuestIds_;
+            if (key == "collapsed_factions") reputationRowsDirty_ = true;
             destination.clear();
             size_t tqPos = 0;
             while (tqPos <= val.size()) {
@@ -1407,6 +1543,10 @@ void GameHandler::mailDelete(uint32_t mailId) {
     if (inventoryHandler_) inventoryHandler_->mailDelete(mailId);
 }
 
+void GameHandler::mailReturnToSender(uint32_t mailId) {
+    if (inventoryHandler_) inventoryHandler_->mailReturnToSender(mailId);
+}
+
 void GameHandler::mailMarkAsRead(uint32_t mailId) {
     if (inventoryHandler_) inventoryHandler_->mailMarkAsRead(mailId);
 }
@@ -1417,7 +1557,7 @@ glm::vec3 GameHandler::getComposedWorldPosition() {
         if (tr) {
             return transportManager_->getPlayerWorldPosition(playerTransportGuid_, playerTransportOffset_);
         }
-        // Transport not tracked — fall through to normal position
+        // Transport not tracked - fall through to normal position
     }
     // Not on transport, return normal movement position
     return glm::vec3(movementInfo.x, movementInfo.y, movementInfo.z);
@@ -1705,7 +1845,7 @@ void GameHandler::updateM2TransportBoarding(const glm::vec3& playerCanonical) {
         const bool hasDeckSupport =
             tm->isPointOnTransportDeck(getPlayerTransportGuid(), playerCanonical, 3.0f);
 
-        // The footprint above is deliberately generous — larger than any hull —
+        // The footprint above is deliberately generous - larger than any hull -
         // so it only catches someone clearly away from the ship. Stepping off
         // onto the pier alongside leaves the rider well inside it, which is why
         // they stayed attached while standing on the dock. Losing the deck is
@@ -1837,12 +1977,28 @@ void GameHandler::withdrawGuildBankMoney(uint32_t amount) {
     if (inventoryHandler_) inventoryHandler_->withdrawGuildBankMoney(amount);
 }
 
-void GameHandler::guildBankWithdrawItem(uint8_t tabId, uint8_t bankSlot, uint8_t destBag, uint8_t destSlot) {
-    if (inventoryHandler_) inventoryHandler_->guildBankWithdrawItem(tabId, bankSlot, destBag, destSlot);
+void GameHandler::guildBankWithdrawItem(uint8_t tabId, uint8_t bankSlot, uint8_t destBag,
+                                        uint8_t destSlot, uint32_t splitCount) {
+    if (inventoryHandler_) inventoryHandler_->guildBankWithdrawItem(tabId, bankSlot, destBag,
+                                                                   destSlot, splitCount);
 }
 
 void GameHandler::guildBankDepositItem(uint8_t tabId, uint8_t bankSlot, uint8_t srcBag, uint8_t srcSlot) {
     if (inventoryHandler_) inventoryHandler_->guildBankDepositItem(tabId, bankSlot, srcBag, srcSlot);
+}
+
+void GameHandler::queryGuildBankText(uint8_t tabId) {
+    if (inventoryHandler_) inventoryHandler_->queryGuildBankText(tabId);
+}
+
+const std::string& GameHandler::getGuildBankTabText(uint8_t tabId) const {
+    static const std::string kNone;
+    return inventoryHandler_ ? inventoryHandler_->getGuildBankTabText(tabId) : kNone;
+}
+
+void GameHandler::setGuildBankTabInfo(uint8_t tabId, const std::string& name,
+                                      const std::string& icon) {
+    if (inventoryHandler_) inventoryHandler_->setGuildBankTabInfo(tabId, name, icon);
 }
 
 void GameHandler::guildBankDepositFromInventory(uint8_t srcBag, uint8_t srcSlot) {
@@ -1863,8 +2019,9 @@ void GameHandler::closeAuctionHouse() {
 
 void GameHandler::auctionSearch(const std::string& name, uint8_t levelMin, uint8_t levelMax,
                                  uint32_t quality, uint32_t itemClass, uint32_t itemSubClass,
-                                 uint32_t invTypeMask, uint8_t usableOnly, uint32_t offset) {
-    if (inventoryHandler_) inventoryHandler_->auctionSearch(name, levelMin, levelMax, quality, itemClass, itemSubClass, invTypeMask, usableOnly, offset);
+                                 uint32_t invTypeMask, uint8_t usableOnly, uint32_t offset,
+                                 const std::vector<AuctionSortKey>& sort) {
+    if (inventoryHandler_) inventoryHandler_->auctionSearch(name, levelMin, levelMax, quality, itemClass, itemSubClass, invTypeMask, usableOnly, offset, sort);
 }
 
 void GameHandler::auctionSellItem(int backpackIndex, uint32_t bid,
@@ -1957,6 +2114,10 @@ void GameHandler::acceptTrade() {
     if (inventoryHandler_) inventoryHandler_->acceptTrade();
 }
 
+void GameHandler::unacceptTrade() {
+    if (inventoryHandler_) inventoryHandler_->unacceptTrade();
+}
+
 void GameHandler::cancelTrade() {
     if (inventoryHandler_) inventoryHandler_->cancelTrade();
 }
@@ -1987,17 +2148,20 @@ void GameHandler::sendLootRoll(uint64_t objectGuid, uint32_t slot, uint8_t rollT
 
 // ---------------------------------------------------------------------------
 // SMSG_ACHIEVEMENT_EARNED (WotLK 3.3.5a wire 0x468)
-//   uint64 guid          — player who earned it (may be another player)
-//   uint32 achievementId — Achievement.dbc ID
-//   PackedTime date      — uint32 bitfield (seconds since epoch)
-//   uint32 realmFirst    — how many on realm also got it (0 = realm first)
+//   uint64 guid          - player who earned it (may be another player)
+//   uint32 achievementId - Achievement.dbc ID
+//   PackedTime date      - uint32 bitfield (seconds since epoch)
+//   uint32 realmFirst    - how many on realm also got it (0 = realm first)
 // ---------------------------------------------------------------------------
 void GameHandler::loadTitleNameCache() const {
     if (titleNameCacheLoaded_) return;
-    titleNameCacheLoaded_ = true;
 
     auto* am = services_.assetManager;
+    // Not an attempt: the assets are not there to read yet, and a
+    // caller can reach this before they are. Marking it loaded here
+    // meant one early call disabled this file for the whole session.
     if (!am || !am->isInitialized()) return;
+    titleNameCacheLoaded_ = true;
 
     auto dbc = am->loadDBC("CharTitles.dbc");
     if (!dbc || !dbc->isLoaded() || dbc->getFieldCount() < 5) return;
@@ -2011,10 +2175,14 @@ void GameHandler::loadTitleNameCache() const {
     if (bitField   == 0xFFFFFFFF) bitField   = static_cast<uint32_t>(dbc->getFieldCount() - 1);
 
     for (uint32_t i = 0; i < dbc->getRecordCount(); ++i) {
-        uint32_t bit = dbc->getUInt32(i, bitField);
-        if (bit == 0) continue;
+        const uint32_t id = dbc->getUInt32(i, 0);   // the row id a quest reward references
         std::string name = dbc->getString(i, titleField);
-        if (!name.empty()) titleNameCache_[bit] = std::move(name);
+        if (name.empty()) continue;
+        // By id for a quest reward (which carries the id), and by mask bit for
+        // the worn title (which is a bit off the player's own fields).
+        if (id != 0) titleFormatById_[id] = name;
+        uint32_t bit = dbc->getUInt32(i, bitField);
+        if (bit != 0) titleNameCache_[bit] = std::move(name);
     }
     LOG_INFO("CharTitles: loaded ", titleNameCache_.size(), " title names from DBC");
 }
@@ -2023,12 +2191,133 @@ std::string GameHandler::getFormattedTitle(uint32_t bit) const {
     loadTitleNameCache();
     auto it = titleNameCache_.find(bit);
     if (it == titleNameCache_.end() || it->second.empty()) return {};
+    return formatTitleString(it->second);
+}
 
+std::string GameHandler::getFormattedTitleById(uint32_t id) const {
+    loadTitleNameCache();
+    auto it = titleFormatById_.find(id);
+    if (it == titleFormatById_.end() || it->second.empty()) return {};
+    return formatTitleString(it->second);
+}
+
+float GameHandler::critPercentFromGameTable(std::vector<float>& baseCache,
+                                            std::vector<float>& ratioCache, bool& loaded,
+                                            const char* baseDbc, const char* ratioDbc,
+                                            int statIdx) const {
+    const uint8_t pclass = getPlayerClass();
+    uint32_t level = getPlayerLevel();
+    if (pclass == 0 || pclass > 11 || level == 0) return 0.0f;
+    constexpr uint32_t kGtMaxLevel = 100;
+    if (level > kGtMaxLevel) level = kGtMaxLevel;
+    if (!loaded) {
+        loaded = true;
+        auto* am = services_.assetManager;
+        if (am && am->isInitialized()) {
+            // Single-column float game tables; getFloat reads that one column.
+            if (auto base = am->loadDBC(baseDbc); base && base->isLoaded())
+                for (uint32_t i = 0; i < base->getRecordCount(); ++i)
+                    baseCache.push_back(base->getFloat(i, 0));
+            if (auto ratio = am->loadDBC(ratioDbc); ratio && ratio->isLoaded())
+                for (uint32_t i = 0; i < ratio->getRecordCount(); ++i)
+                    ratioCache.push_back(ratio->getFloat(i, 0));
+        }
+    }
+    const size_t baseIdx  = static_cast<size_t>(pclass - 1);
+    const size_t ratioIdx = static_cast<size_t>(pclass - 1) * kGtMaxLevel + (level - 1);
+    if (baseIdx >= baseCache.size() || ratioIdx >= ratioCache.size()) return 0.0f;
+    const float stat = static_cast<float>(std::max(0, getPlayerStat(statIdx)));
+    return (baseCache[baseIdx] + stat * ratioCache[ratioIdx]) * 100.0f;  // the sheet reads a percent
+}
+
+float GameHandler::getMeleeCritFromAgility() const {
+    return critPercentFromGameTable(gtMeleeCritBase_, gtMeleeCrit_, gtMeleeCritLoaded_,
+                                    "gtChanceToMeleeCritBase.dbc", "gtChanceToMeleeCrit.dbc",
+                                    /*STAT_AGILITY=*/1);
+}
+
+float GameHandler::getSpellCritFromIntellect() const {
+    return critPercentFromGameTable(gtSpellCritBase_, gtSpellCrit_, gtSpellCritLoaded_,
+                                    "gtChanceToSpellCritBase.dbc", "gtChanceToSpellCrit.dbc",
+                                    /*STAT_INTELLECT=*/3);
+}
+
+namespace {
+// A single-column float game table into a flat vector.
+void loadFloatColumn(pipeline::AssetManager* am, const char* dbc, std::vector<float>& out) {
+    if (auto t = am->loadDBC(dbc); t && t->isLoaded())
+        for (uint32_t i = 0; i < t->getRecordCount(); ++i) out.push_back(t->getFloat(i, 0));
+}
+}  // namespace
+
+float GameHandler::getHealthRegenFromSpirit() const {
+    const uint8_t pclass = getPlayerClass();
+    uint32_t level = getPlayerLevel();
+    if (pclass == 0 || pclass > 11 || level == 0) return 0.0f;
+    constexpr uint32_t kGtMaxLevel = 100;
+    if (level > kGtMaxLevel) level = kGtMaxLevel;
+    if (!gtRegenLoaded_) {
+        gtRegenLoaded_ = true;
+        if (auto* am = services_.assetManager; am && am->isInitialized()) {
+            loadFloatColumn(am, "gtOCTRegenHP.dbc", gtOctRegenHp_);
+            loadFloatColumn(am, "gtRegenHPPerSpt.dbc", gtRegenHpPerSpt_);
+            loadFloatColumn(am, "gtRegenMPPerSpt.dbc", gtRegenMpPerSpt_);
+        }
+    }
+    const size_t idx = static_cast<size_t>(pclass - 1) * kGtMaxLevel + (level - 1);
+    if (idx >= gtOctRegenHp_.size() || idx >= gtRegenHpPerSpt_.size()) return 0.0f;
+    const float spirit = static_cast<float>(std::max(0, getPlayerStat(/*SPIRIT=*/4)));
+    const float baseSpirit = std::min(spirit, 50.0f);
+    const float moreSpirit = spirit - baseSpirit;
+    return (baseSpirit * gtOctRegenHp_[idx] + moreSpirit * gtRegenHpPerSpt_[idx]) * 2.0f;
+}
+
+float GameHandler::getManaRegenFromSpirit() const {
+    const uint8_t pclass = getPlayerClass();
+    uint32_t level = getPlayerLevel();
+    if (pclass == 0 || pclass > 11 || level == 0) return 0.0f;
+    constexpr uint32_t kGtMaxLevel = 100;
+    if (level > kGtMaxLevel) level = kGtMaxLevel;
+    if (!gtRegenLoaded_) { getHealthRegenFromSpirit(); }  // shares the same lazy load
+    const size_t idx = static_cast<size_t>(pclass - 1) * kGtMaxLevel + (level - 1);
+    if (idx >= gtRegenMpPerSpt_.size()) return 0.0f;
+    const float spirit = static_cast<float>(std::max(0, getPlayerStat(/*SPIRIT=*/4)));
+    return spirit * gtRegenMpPerSpt_[idx];
+}
+
+float GameHandler::getCombatRatingBonus(int cr) const {
+    const uint8_t pclass = getPlayerClass();
+    uint32_t level = getPlayerLevel();
+    constexpr uint32_t kGtMaxLevel = 100, kGtMaxRating = 32;
+    if (pclass == 0 || pclass > 11 || level == 0 || cr < 0 ||
+        cr >= static_cast<int>(kGtMaxRating)) return 0.0f;
+    if (level > kGtMaxLevel) level = kGtMaxLevel;
+    if (!gtCombatRatingsLoaded_) {
+        gtCombatRatingsLoaded_ = true;
+        auto* am = services_.assetManager;
+        if (am && am->isInitialized()) {
+            if (auto t = am->loadDBC("gtCombatRatings.dbc"); t && t->isLoaded())
+                for (uint32_t i = 0; i < t->getRecordCount(); ++i)
+                    gtCombatRatings_.push_back(t->getFloat(i, 0));
+            // The scalar table is id + ratio; the ratio is the second column.
+            if (auto s = am->loadDBC("gtOCTClassCombatRatingScalar.dbc"); s && s->isLoaded())
+                for (uint32_t i = 0; i < s->getRecordCount(); ++i)
+                    gtClassRatingScalar_.push_back(s->getFloat(i, 1));
+        }
+    }
+    const size_t coefIdx   = static_cast<size_t>(cr) * kGtMaxLevel + (level - 1);
+    const size_t scalarIdx = static_cast<size_t>(pclass - 1) * kGtMaxRating + cr;
+    if (coefIdx >= gtCombatRatings_.size() || scalarIdx >= gtClassRatingScalar_.size()) return 0.0f;
+    const float coef = gtCombatRatings_[coefIdx];
+    if (coef == 0.0f) return 0.0f;
+    const float ratingValue = static_cast<float>(std::max(0, getCombatRating(cr)));
+    return ratingValue * (gtClassRatingScalar_[scalarIdx] / coef);
+}
+
+std::string GameHandler::formatTitleString(const std::string& fmt) const {
     const auto& ln2 = lookupName(playerGuid);
     static const std::string kUnknown = "unknown";
     const std::string& pName = ln2.empty() ? kUnknown : ln2;
-
-    const std::string& fmt = it->second;
     size_t pos = fmt.find("%s");
     if (pos != std::string::npos) {
         return fmt.substr(0, pos) + pName + fmt.substr(pos + 2);
@@ -2046,10 +2335,13 @@ void GameHandler::sendSetTitle(int32_t bit) {
 
 void GameHandler::loadAchievementNameCache() {
     if (achievementNameCacheLoaded_) return;
-    achievementNameCacheLoaded_ = true;
 
     auto* am = services_.assetManager;
+    // Not an attempt: the assets are not there to read yet, and a
+    // caller can reach this before they are. Marking it loaded here
+    // meant one early call disabled this file for the whole session.
     if (!am || !am->isInitialized()) return;
+    achievementNameCacheLoaded_ = true;
 
     auto dbc = am->loadDBC("Achievement.dbc");
     if (!dbc || !dbc->isLoaded() || dbc->getFieldCount() < 22) return;
@@ -2083,8 +2375,289 @@ void GameHandler::loadAchievementNameCache() {
             uint32_t iconId = dbc->getUInt32(i, iconField);
             if (iconId > 0) achievementIconCache_[id] = iconId;
         }
+        // Field 41 is Flags. Read here rather than in the category loader,
+        // which used to read it separately for the statistic bit alone - one
+        // pass over the file, one idea of what the column is. Confirmed twice
+        // over: bit 0x1 agrees with "does this row's category descend from
+        // Statistics" on all 1817 rows, and FrameXML's own constants.lua names
+        // that same bit ACHIEVEMENT_FLAGS_STATISTIC.
+        if (fieldCount > 41) {
+            uint32_t flags = dbc->getUInt32(i, 41);
+            if (flags != 0) achievementFlagsCache_[id] = flags;
+        }
     }
     LOG_INFO("Achievement: loaded ", achievementNameCache_.size(), " names from Achievement.dbc");
+}
+
+const GameHandler::BattlemasterEntry* GameHandler::getBattlemasterInfo(uint32_t bgTypeId) {
+    if (!battlemasterListLoaded_) {
+        auto* am = services_.assetManager;
+        // Checked before the latch, as with the other DBC caches here.
+        if (!am || !am->isInitialized()) return nullptr;
+        battlemasterListLoaded_ = true;
+        auto dbc = am->loadDBC("BattlemasterList.dbc");
+        if (dbc && dbc->isLoaded() && dbc->getFieldCount() > 31) {
+            for (uint32_t i = 0; i < dbc->getRecordCount(); ++i) {
+                const uint32_t id = dbc->getUInt32(i, 0);
+                if (id == 0) continue;
+                BattlemasterEntry e;
+                e.id           = id;
+                e.name         = dbc->getString(i, 11);
+                e.maxGroupSize = dbc->getUInt32(i, 28);
+                e.minLevel     = dbc->getUInt32(i, 30);
+                e.maxLevel     = dbc->getUInt32(i, 31);
+                // Fields 1-8 are map ids, 0xFFFFFFFF where unused, and field 9
+                // is the instance type - verified against the file rather than
+                // taken from a layout table, which does not carry this row.
+                e.instanceType = dbc->getUInt32(i, 9);
+                for (uint32_t f = 1; f <= 8; ++f) {
+                    const uint32_t mapId = dbc->getUInt32(i, f);
+                    if (mapId == 0xFFFFFFFFu) continue;
+                    e.mapCount++;
+                    e.mapIds.push_back(mapId);
+                }
+                if (e.instanceType == 3 && !e.name.empty()) battlegroundTypes_.push_back(e);
+                battlemasterList_[id] = std::move(e);
+            }
+            // Ordered by id, so an index handed to the interface still means
+            // the same battleground the next time it asks.
+            std::sort(battlegroundTypes_.begin(), battlegroundTypes_.end(),
+                      [](const BattlemasterEntry& a, const BattlemasterEntry& b) {
+                          return a.id < b.id;
+                      });
+            LOG_INFO("Battleground: ", battlemasterList_.size(), " from BattlemasterList.dbc");
+        }
+    }
+    auto it = battlemasterList_.find(bgTypeId);
+    return it != battlemasterList_.end() ? &it->second : nullptr;
+}
+
+bool GameHandler::isBattlegroundMap(uint32_t mapId) {
+    // Only the battleground rows, so an arena does not read as one. The pooled
+    // "Random Battleground" row names the same maps the individual rows do, so
+    // it costs nothing to walk and cannot answer wrongly.
+    for (const auto& bg : getBattlegroundTypes()) {
+        for (uint32_t id : bg.mapIds) {
+            if (id == mapId) return true;
+        }
+    }
+    return false;
+}
+
+bool GameHandler::isArenaMap(uint32_t mapId) {
+    getBattlemasterInfo(0);   // latch the load, as isBattlegroundMap does
+    for (const auto& [id, e] : battlemasterList_) {
+        (void)id;
+        if (e.instanceType != 4) continue;   // 4 = arena
+        for (uint32_t m : e.mapIds) {
+            if (m == mapId) return true;
+        }
+    }
+    return false;
+}
+
+const std::vector<GameHandler::BattlemasterEntry>& GameHandler::getBattlegroundTypes() {
+    // Through the same accessor, because that is where the load is latched.
+    // Asking for the list before anything asked for an entry would otherwise
+    // answer empty and latch nothing.
+    getBattlemasterInfo(0);
+    return battlegroundTypes_;
+}
+
+// CurrencyTypes.dbc: id, then the item that carries the amount. Everything the
+// currency tab shows about a currency - name, icon, how many - comes from that
+// item, so the row itself needs nothing else.
+const std::vector<GameHandler::CurrencyType>& GameHandler::getCurrencyTypes() {
+    if (currencyTypesLoaded_) return currencyTypes_;
+    auto* am = services_.assetManager;
+    // Checked before the latch: an early ask would otherwise leave the tab
+    // permanently empty for the session.
+    if (!am || !am->isInitialized()) return currencyTypes_;
+    currencyTypesLoaded_ = true;
+
+    auto dbc = am->loadDBC("CurrencyTypes.dbc");
+    if (!dbc || !dbc->isLoaded() || dbc->getFieldCount() < 2) return currencyTypes_;
+    for (uint32_t i = 0; i < dbc->getRecordCount(); ++i) {
+        CurrencyType c;
+        c.id     = dbc->getUInt32(i, 0);
+        c.itemId = dbc->getUInt32(i, 1);
+        if (c.id == 0 || c.itemId == 0) continue;
+        currencyTypes_.push_back(c);
+    }
+    LOG_INFO("Currency: ", currencyTypes_.size(), " types from CurrencyTypes.dbc");
+    return currencyTypes_;
+}
+
+// Achievement.dbc field 38 is the category. It is not in the layout file, but
+// the fields either side of it are - Points at 39, Description at 21, IconID at
+// 42 - which is the stock 3.3.5a order, so 38 is where the category sits.
+void GameHandler::ensureGlyphPropertiesLoaded() {
+    if (glyphPropertiesLoaded_) return;
+    auto* am = services_.assetManager;
+    // Checked before the latch, like the achievement loader below: one call
+    // made before the asset manager is up would disable this for the session.
+    if (!am || !am->isInitialized()) return;
+    glyphPropertiesLoaded_ = true;
+
+    auto dbc = am->loadDBC("GlyphProperties.dbc");
+    if (!dbc || !dbc->isLoaded() || dbc->getFieldCount() < 2) return;
+    for (uint32_t i = 0; i < dbc->getRecordCount(); ++i) {
+        const uint32_t id = dbc->getUInt32(i, 0);
+        const uint32_t spellId = dbc->getUInt32(i, 1);
+        if (id != 0 && spellId != 0) glyphSpellCache_[id] = spellId;
+    }
+    LOG_INFO("Glyphs: ", glyphSpellCache_.size(), " properties mapped to spells");
+}
+
+void GameHandler::ensureAchievementCategoriesLoaded() {
+    if (achievementCategoriesLoaded_) return;
+    auto* am = services_.assetManager;
+    // Checked before the latch, not after: one call made before the asset
+    // manager is up would otherwise disable this for the rest of the session.
+    if (!am || !am->isInitialized()) return;
+    loadAchievementNameCache();
+    achievementCategoriesLoaded_ = true;
+
+    auto dbc = am->loadDBC("Achievement.dbc");
+    if (!dbc || !dbc->isLoaded()) return;
+    const uint32_t fieldCount = dbc->getFieldCount();
+    if (fieldCount <= 38) return;
+    // Field 41 is Flags, and bit 0x1 marks a statistic rather than an
+    // achievement - verified against all 1817 rows of the 3.3.5a file by the
+    // other thing that says the same: whether the row's category descends from
+    // the top-level Statistics category. The two agree on every record, and no
+    // category holds a mixture, so either signal alone would do; the flag is
+    // used because it does not depend on a category being named in English.
+    std::unordered_set<uint32_t> statisticCategories;
+    const bool haveFlags = fieldCount > 41;
+    for (uint32_t i = 0; i < dbc->getRecordCount(); ++i) {
+        const uint32_t id = dbc->getUInt32(i, 0);
+        if (id == 0 || achievementNameCache_.find(id) == achievementNameCache_.end()) continue;
+        const uint32_t category = dbc->getUInt32(i, 38);
+        achievementCategoryCache_[id] = category;
+        categoryAchievements_[category].push_back(id);
+        if (haveFlags && (getAchievementFlags(id) & 0x1u) != 0)
+            statisticCategories.insert(category);
+        // Field 3 is Supercedes: the achievement this one follows on from.
+        // Checked by reading it - "Level 20" points at "Level 10" and "Expert
+        // Cook" at "Journeyman Cook", and all 176 non-zero values are ids that
+        // exist. Kept both ways round because the panel walks it backwards to
+        // list a finished chain and forwards to find the step still open.
+        const uint32_t supercedes = dbc->getUInt32(i, 3);
+        if (supercedes != 0) {
+            achievementSupercedes_[id] = supercedes;
+            achievementSupercededBy_[supercedes] = id;
+        }
+    }
+
+    // Achievement_Category.dbc: id, parent, then the localised names. A parent
+    // of -1 (0xFFFFFFFF) means the category sits at the top of the tree.
+    auto catDbc = am->loadDBC("Achievement_Category.dbc");
+    if (catDbc && catDbc->isLoaded() && catDbc->getFieldCount() >= 3) {
+        for (uint32_t i = 0; i < catDbc->getRecordCount(); ++i) {
+            const uint32_t id = catDbc->getUInt32(i, 0);
+            const uint32_t parent = catDbc->getUInt32(i, 1);
+            AchievementCategoryInfo info;
+            info.name = catDbc->getString(i, 2);
+            info.parentId = (parent == 0xFFFFFFFFu) ? -1 : static_cast<int32_t>(parent);
+            // Field 19 is where a category sits among its siblings. Sorted by
+            // it, the top level comes out General, Quests, Exploration, Player
+            // vs. Player, Dungeons & Raids, Professions, Reputation, World
+            // Events, Feats of Strength, Statistics - which is the order the
+            // real client shows. Record order is not that, so the tree would
+            // otherwise read scrambled.
+            if (catDbc->getFieldCount() > 19) info.uiOrder = catDbc->getUInt32(i, 19);
+            achievementCategoryInfo_[id] = std::move(info);
+            achievementCategoryOrder_.push_back(id);
+        }
+
+        // A category holding statistics is one, and so is every category above
+        // it: the Statistics root holds no rows of its own, so marking only the
+        // leaves would leave the tab with children and no trees to hang them
+        // on. Walking up from each marked leaf reaches exactly 34 of the 86
+        // categories, all of them descending from the one top-level Statistics
+        // category and none of them shared with an achievement category.
+        for (uint32_t leaf : statisticCategories) {
+            for (int32_t c = static_cast<int32_t>(leaf); c >= 0; ) {
+                auto it = achievementCategoryInfo_.find(static_cast<uint32_t>(c));
+                if (it == achievementCategoryInfo_.end() || it->second.isStatistic) break;
+                it->second.isStatistic = true;
+                c = it->second.parentId;
+            }
+        }
+        // Id breaks ties, so the order is total and the same on every load -
+        // siblings share a ui_order across different parents.
+        std::sort(achievementCategoryOrder_.begin(), achievementCategoryOrder_.end(),
+                  [this](uint32_t a, uint32_t b) {
+                      const uint32_t oa = achievementCategoryInfo_[a].uiOrder;
+                      const uint32_t ob = achievementCategoryInfo_[b].uiOrder;
+                      if (oa != ob) return oa < ob;
+                      return a < b;
+                  });
+        // Split into the two lists the two tabs ask for, keeping that order.
+        auto split = std::stable_partition(
+            achievementCategoryOrder_.begin(), achievementCategoryOrder_.end(),
+            [this](uint32_t c) { return !achievementCategoryInfo_[c].isStatistic; });
+        statisticCategoryOrder_.assign(split, achievementCategoryOrder_.end());
+        achievementCategoryOrder_.erase(split, achievementCategoryOrder_.end());
+    }
+    LOG_INFO("Achievement: ", achievementCategoryOrder_.size(), " categories, ",
+             statisticCategoryOrder_.size(), " statistic categories, ",
+             achievementCategoryCache_.size(), " achievements placed");
+}
+
+// Achievement_Criteria.dbc: id, achievement, type, asset, quantity, then the
+// localised descriptions. Type and asset are what the panel needs to tell a
+// "kill N" criterion from a "reach level N" one.
+void GameHandler::ensureAchievementCriteriaLoaded() {
+    if (achievementCriteriaLoaded_) return;
+    auto* am = services_.assetManager;
+    if (!am || !am->isInitialized()) return;
+    achievementCriteriaLoaded_ = true;
+
+    auto dbc = am->loadDBC("Achievement_Criteria.dbc");
+    if (!dbc || !dbc->isLoaded() || dbc->getFieldCount() < 10) return;
+
+    const auto* critL = pipeline::getActiveDBCLayout()
+        ? pipeline::getActiveDBCLayout()->getLayout("AchievementCriteria") : nullptr;
+    auto fieldOr = [&](const char* name, uint32_t fallback) {
+        const uint32_t f = critL ? critL->field(name) : 0xFFFFFFFFu;
+        return (f == 0xFFFFFFFFu) ? fallback : f;
+    };
+    const uint32_t achField  = fieldOr("AchievementID", 1);
+    const uint32_t qtyField  = fieldOr("Quantity", 4);
+    const uint32_t descField = fieldOr("Description", 9);
+    // Field 29 holds the timer, where there is one. Fifty-nine criteria have a
+    // non-zero value and every one is a round number of seconds that the
+    // criteria's own description states in words - 420 against "Win Warsong
+    // Gulch in under 7 minutes", 1200 against "Kill Maexxna within 20 minutes",
+    // 60 against "Kill 100 Risen Zombies in 1 minute". No other field in the
+    // record agrees with the text that way.
+    const uint32_t limitField = fieldOr("TimeLimit", 29);
+    // Field 26, identified the same way field 29 was: the hundred and sixty
+    // rows with bit one set are the "Complete N quests" family that WoW draws
+    // as bars, and the large-quantity rows without it - weapon skills at four
+    // hundred, reputations at forty-two thousand - are the ones it draws as
+    // text. Fields 9 to 25 are the sixteen locale strings and their mask, so
+    // this is the first word past them.
+    const uint32_t flagsField = fieldOr("Flags", 26);
+    const uint32_t fieldCount = dbc->getFieldCount();
+
+    for (uint32_t i = 0; i < dbc->getRecordCount(); ++i) {
+        AchievementCriterion c;
+        c.id = dbc->getUInt32(i, 0);
+        const uint32_t achId = dbc->getUInt32(i, achField);
+        if (achId == 0) continue;
+        if (fieldCount > 2) c.type    = dbc->getUInt32(i, 2);
+        if (fieldCount > 3) c.assetId = dbc->getUInt32(i, 3);
+        if (qtyField  < fieldCount) c.quantity    = dbc->getUInt32(i, qtyField);
+        if (descField < fieldCount) c.description = dbc->getString(i, descField);
+        if (limitField < fieldCount) c.timeLimit = dbc->getUInt32(i, limitField);
+        if (flagsField < fieldCount) c.flags = dbc->getUInt32(i, flagsField);
+        achievementCriterionById_[c.id] = {achId, c.timeLimit};
+        achievementCriteria_[achId].push_back(std::move(c));
+    }
+    LOG_INFO("Achievement: criteria for ", achievementCriteria_.size(), " achievements");
 }
 
 // ---------------------------------------------------------------------------
@@ -2109,7 +2682,7 @@ void GameHandler::handleAllAchievementData(network::Packet& packet) {
 
     // Parse the criteria block: records until an id of -1. The record's shape
     // is in readCriteriaProgressTail, which SMSG_CRITERIA_UPDATE reads with too
-    // — the server builds both from the same lines.
+    // - the server builds both from the same lines.
     criteriaProgress_.clear();
     while (packet.hasRemaining(4)) {
         uint32_t id = packet.readUInt32();
@@ -2121,6 +2694,10 @@ void GameHandler::handleAllAchievementData(network::Packet& packet) {
 
     LOG_INFO("SMSG_ALL_ACHIEVEMENT_DATA: loaded ", earnedAchievements_.size(),
              " achievements, ", criteriaProgress_.size(), " criteria");
+    // The panel builds its whole tree on this, and it arrives once at login -
+    // well before anything opens the panel - so without the event a panel
+    // opened later showed the empty state it was built with.
+    if (addonEventCallback_) addonEventCallback_("RECEIVED_ACHIEVEMENT_LIST", {});
 }
 
 // ---------------------------------------------------------------------------
@@ -2138,10 +2715,13 @@ void GameHandler::handleAllAchievementData(network::Packet& packet) {
 
 void GameHandler::loadFactionNameCache() const {
     if (factionNameCacheLoaded_) return;
-    factionNameCacheLoaded_ = true;
 
     auto* am = services_.assetManager;
+    // Not an attempt: the assets are not there to read yet, and a
+    // caller can reach this before they are. Marking it loaded here
+    // meant one early call disabled this file for the whole session.
     if (!am || !am->isInitialized()) return;
+    factionNameCacheLoaded_ = true;
 
     auto dbc = am->loadDBC("Faction.dbc");
     if (!dbc || !dbc->isLoaded()) return;
@@ -2159,13 +2739,18 @@ void GameHandler::loadFactionNameCache() const {
     //  23:    Name (English locale, string ref)
     constexpr uint32_t ID_FIELD      = 0;
     constexpr uint32_t REPLIST_FIELD = 1;
+    constexpr uint32_t PARENT_FIELD  = 18;
     constexpr uint32_t NAME_FIELD    = 23;  // enUS name string
 
     // Classic/TBC have fewer fields; fall back gracefully
     const bool hasRepListField = dbc->getFieldCount() > REPLIST_FIELD;
+    // The parent chain is what groups the reputation panel into the headers
+    // the original interface draws. Read here rather than in a second pass so
+    // there is one opinion about which field holds it.
+    const bool hasParentField = dbc->getFieldCount() > PARENT_FIELD;
     if (dbc->getFieldCount() <= NAME_FIELD) {
         LOG_WARNING("Faction.dbc: unexpected field count ", dbc->getFieldCount());
-        // Don't abort — still try to load names from a shorter layout
+        // Don't abort - still try to load names from a shorter layout
     }
     const uint32_t nameField = (dbc->getFieldCount() > NAME_FIELD) ? NAME_FIELD : 22u;
 
@@ -2177,6 +2762,12 @@ void GameHandler::loadFactionNameCache() const {
             std::string name = dbc->getString(i, nameField);
             if (!name.empty()) {
                 factionNameCache_[factionId] = std::move(name);
+            }
+        }
+        if (hasParentField) {
+            const uint32_t parentId = dbc->getUInt32(i, PARENT_FIELD);
+            if (parentId != 0 && parentId != factionId) {
+                factionParent_[factionId] = parentId;
             }
         }
         // Build repListId ↔ factionId mapping (WotLK field 1)
@@ -2269,10 +2860,13 @@ const std::string& GameHandler::getFactionNamePublic(uint32_t factionId) const {
 
 void GameHandler::loadAreaNameCache() const {
     if (areaNameCacheLoaded_) return;
-    areaNameCacheLoaded_ = true;
 
     auto* am = services_.assetManager;
+    // Not an attempt: the assets are not there to read yet, and a
+    // caller can reach this before they are. Marking it loaded here
+    // meant one early call disabled this file for the whole session.
     if (!am || !am->isInitialized()) return;
+    areaNameCacheLoaded_ = true;
 
     // AreaTable.dbc has the canonical zone/area names keyed by AreaID.
     // Field 0 = ID, field 11 = AreaName (enUS locale).
@@ -2284,6 +2878,13 @@ void GameHandler::loadAreaNameCache() const {
             std::string name = areaDbc->getString(i, 11);
             if (!name.empty()) {
                 areaNameCache_[areaId] = std::move(name);
+            }
+            // Field 4 is the flag word and field 28 the controlling team, which
+            // together are the whole of what GetZonePVPInfo answers. Read while
+            // the file is open rather than opening it twice.
+            if (areaDbc->getFieldCount() > 28) {
+                areaPvpCache_[areaId] = AreaPvpInfo{areaDbc->getUInt32(i, 4),
+                                                    areaDbc->getUInt32(i, 28)};
             }
         }
     }
@@ -2301,7 +2902,7 @@ void GameHandler::loadAreaNameCache() const {
                 uint32_t areaId = dbc->getUInt32(i, areaIdField);
                 if (areaId == 0) continue;
                 std::string name = dbc->getString(i, areaNameField);
-                // Don't overwrite AreaTable names — those are authoritative
+                // Don't overwrite AreaTable names - those are authoritative
                 if (!name.empty() && !areaNameCache_.count(areaId)) {
                     areaNameCache_[areaId] = std::move(name);
                 }
@@ -2321,10 +2922,13 @@ std::string GameHandler::getAreaName(uint32_t areaId) const {
 
 void GameHandler::loadMapNameCache() const {
     if (mapNameCacheLoaded_) return;
-    mapNameCacheLoaded_ = true;
 
     auto* am = services_.assetManager;
+    // Not an attempt: the assets are not there to read yet, and a
+    // caller can reach this before they are. Marking it loaded here
+    // meant one early call disabled this file for the whole session.
     if (!am || !am->isInitialized()) return;
+    mapNameCacheLoaded_ = true;
 
     auto dbc = am->loadDBC("Map.dbc");
     if (!dbc || !dbc->isLoaded()) return;
@@ -2349,16 +2953,115 @@ std::string GameHandler::getMapName(uint32_t mapId) const {
     return (it != mapNameCache_.end()) ? it->second : std::string{};
 }
 
+void GameHandler::sendOptOutOfLoot(bool optOut) {
+    if (!isInWorld() || !getSocket()) return;
+    // One uint32, one or zero. The server keeps the state and never sends it
+    // back, which is why the interface remembers its own copy.
+    network::Packet packet(wireOpcode(Opcode::CMSG_OPT_OUT_OF_LOOT));
+    packet.writeUInt32(optOut ? 1u : 0u);
+    getSocket()->send(packet);
+    LOG_INFO("CMSG_OPT_OUT_OF_LOOT: ", optOut ? "opting out" : "opting in");
+}
+
+void GameHandler::runInterfaceCommand(const std::string& lua) const {
+    if (!interfaceCommand_) {
+        // A key reaching here before the interface is up does nothing, and does
+        // it silently. Said out loud, because "the window did not open" is
+        // otherwise indistinguishable from a key that never arrived.
+        LOG_WARNING("interface command dropped, no interface yet: ", lua);
+        return;
+    }
+    // At warning level, because the file log filters info out by default and
+    // this is the line that separates "the key never arrived" from "the key
+    // arrived and the interface did nothing with it".
+    LOG_WARNING("interface command: ", lua);
+    interfaceCommand_(lua);
+}
+
+void GameHandler::requestGuildBankLog(uint8_t tab) {
+    if (socialHandler_) socialHandler_->requestGuildBankLog(tab);
+}
+
+const std::vector<GuildBankLogEntry>& GameHandler::getGuildBankLog(uint8_t tab) const {
+    static const std::vector<GuildBankLogEntry> empty;
+    return socialHandler_ ? socialHandler_->getGuildBankLog(tab) : empty;
+}
+
+void GameHandler::requestChannelList(const std::string& channel) {
+    if (chatHandler_) chatHandler_->requestChannelList(channel);
+}
+
+const std::vector<ChannelMember>&
+GameHandler::getChannelRoster(const std::string& channel) const {
+    static const std::vector<ChannelMember> empty;
+    return chatHandler_ ? chatHandler_->getChannelRoster(channel) : empty;
+}
+
+uint64_t GameHandler::getEncounterUnitGuid(uint32_t slot) const {
+    return socialHandler_ ? socialHandler_->getEncounterUnitGuid(slot) : 0;
+}
+
+bool GameHandler::getInstanceLockPrompt(float& secondsLeft, bool& previouslySaved,
+                                        uint32_t& completedMask) const {
+    if (!socialHandler_) return false;
+    const auto& prompt = socialHandler_->getInstanceLockPrompt();
+    if (!prompt.active) return false;
+    secondsLeft = prompt.secondsLeft;
+    previouslySaved = prompt.previouslySaved;
+    completedMask = prompt.completedEncounterMask;
+    return true;
+}
+
+void GameHandler::respondInstanceLock(bool accept) {
+    if (socialHandler_) socialHandler_->respondInstanceLock(accept);
+}
+
+uint32_t GameHandler::getDungeonEncounterCount(uint32_t mapId, uint32_t difficulty) const {
+    if (!dungeonEncounterCacheLoaded_) {
+        auto* am = services_.assetManager;
+        // Not an attempt: the assets are not there to read yet, and a caller
+        // can reach this before they are.
+        if (!am || !am->isInitialized()) return 0;
+        dungeonEncounterCacheLoaded_ = true;
+
+        auto dbc = am->loadDBC("DungeonEncounter.dbc");
+        if (dbc && dbc->isLoaded()) {
+            // ID, MapID, Difficulty, OrderIndex, Bit, Name[17], SpellIconID.
+            // Verified against record 0: id 464, map 33 (Shadowfang Keep),
+            // difficulty 0, order 0, bit 0.
+            constexpr uint32_t kMapField = 1, kDiffField = 2;
+            for (uint32_t i = 0; i < dbc->getRecordCount(); ++i) {
+                const uint64_t map = dbc->getUInt32(i, kMapField);
+                const uint64_t diff = dbc->getUInt32(i, kDiffField);
+                dungeonEncounterCounts_[(map << 32) | diff]++;
+                // Most instances list their bosses once, under difficulty 0,
+                // and apply to every difficulty. Keeping a per-map total means
+                // a heroic run still has a number to show.
+                dungeonEncounterCounts_[(map << 32) | 0xFFFFFFFFull]++;
+            }
+        }
+        LOG_INFO("DungeonEncounter.dbc: ", dungeonEncounterCounts_.size(), " map/difficulty pairs");
+    }
+
+    auto it = dungeonEncounterCounts_.find((static_cast<uint64_t>(mapId) << 32) | difficulty);
+    if (it != dungeonEncounterCounts_.end()) return it->second;
+    it = dungeonEncounterCounts_.find((static_cast<uint64_t>(mapId) << 32) | 0xFFFFFFFFull);
+    return (it != dungeonEncounterCounts_.end()) ? it->second : 0;
+}
+
 // ---------------------------------------------------------------------------
 // LFG dungeon name cache (WotLK: LFGDungeons.dbc)
 // ---------------------------------------------------------------------------
 
 void GameHandler::loadLfgDungeonDbc() const {
     if (lfgDungeonNameCacheLoaded_) return;
-    lfgDungeonNameCacheLoaded_ = true;
 
     auto* am = services_.assetManager;
+    // Not an attempt: the assets are not there to read yet, and a
+    // caller can reach this before they are. Marking it loaded here
+    // meant one early call disabled this file for the whole session.
     if (!am || !am->isInitialized()) return;
+    lfgDungeonNameCacheLoaded_ = true;
 
     auto dbc = am->loadDBC("LFGDungeons.dbc");
     if (!dbc || !dbc->isLoaded()) return;
@@ -2368,14 +3071,233 @@ void GameHandler::loadLfgDungeonDbc() const {
     const uint32_t idField   = layout ? (*layout)["ID"]   : 0;
     const uint32_t nameField = layout ? (*layout)["Name"] : 1;
 
+    // Everything past the name, which the layout table does not describe. The
+    // WotLK file is 49 fields wide: sixteen name locales and their flags fill
+    // 1-17, and the rest follow in this order. Read off the file and checked
+    // against rows that can be recognised rather than taken on trust - Wailing
+    // Caverns on map 43, Ragefire Chasm the one entry with faction 0, Karazhan
+    // grouped with the Burning Crusade raids.
+    constexpr uint32_t kMinLevel = 18, kMaxLevel = 19, kTargetLevel = 20;
+    constexpr uint32_t kTargetMin = 21, kTargetMax = 22, kMapId = 23;
+    constexpr uint32_t kDifficulty = 24, kTypeId = 26, kFaction = 27;
+    constexpr uint32_t kTexture = 28, kExpansion = 29, kOrderIndex = 30, kGroupId = 31;
+    // 32 through 48 are the description in each locale. Only the holiday rows
+    // and a handful of others carry one.
+    constexpr uint32_t kDescription = 32;
+    // Group 11 is the four seasonal bosses - the Headless Horseman, Ahune,
+    // Coren Direbrew and the Crown Chemical Co. - and nothing else. The file
+    // has no holiday flag of its own; the group is the flag.
+    constexpr uint32_t kHolidayGroup = 11;
+    const bool wideEnough = dbc->getFieldCount() > kGroupId;
+    if (!wideEnough) {
+        LOG_WARNING("LFGDungeons.dbc has only ", dbc->getFieldCount(),
+                    " fields - the dungeon finder will list names only");
+    }
+
     for (uint32_t i = 0; i < dbc->getRecordCount(); ++i) {
         uint32_t id = dbc->getUInt32(i, idField);
         if (id == 0) continue;
         std::string name = dbc->getString(i, nameField);
-        if (!name.empty())
-            lfgDungeonNameCache_[id] = std::move(name);
+        if (name.empty()) continue;
+        lfgDungeonNameCache_[id] = name;
+        if (!wideEnough) continue;
+
+        LfgDungeon d;
+        d.id          = id;
+        d.name        = std::move(name);
+        d.minLevel    = dbc->getUInt32(i, kMinLevel);
+        d.maxLevel    = dbc->getUInt32(i, kMaxLevel);
+        d.recLevel    = dbc->getUInt32(i, kTargetLevel);
+        d.minRecLevel = dbc->getUInt32(i, kTargetMin);
+        d.maxRecLevel = dbc->getUInt32(i, kTargetMax);
+        d.mapId       = dbc->getUInt32(i, kMapId);
+        d.difficulty  = dbc->getUInt32(i, kDifficulty);
+        d.typeId      = dbc->getUInt32(i, kTypeId);
+        d.faction     = static_cast<int32_t>(dbc->getUInt32(i, kFaction));
+        d.texture     = dbc->getString(i, kTexture);
+        d.expansion   = dbc->getUInt32(i, kExpansion);
+        d.orderIndex  = dbc->getUInt32(i, kOrderIndex);
+        d.groupId     = dbc->getUInt32(i, kGroupId);
+        d.isHoliday   = (d.groupId == kHolidayGroup);
+        if (dbc->getFieldCount() > kDescription) {
+            d.description = dbc->getString(i, kDescription);
+        }
+        lfgDungeons_.push_back(std::move(d));
     }
-    LOG_INFO("LFGDungeons.dbc: loaded ", lfgDungeonNameCache_.size(), " dungeon names");
+    // The order the picker lists them in: by group, then by the level the
+    // dungeon is meant for, so a category reads from lowest to highest.
+    std::sort(lfgDungeons_.begin(), lfgDungeons_.end(),
+              [](const LfgDungeon& a, const LfgDungeon& b) {
+                  if (a.groupId != b.groupId) return a.groupId < b.groupId;
+                  if (a.orderIndex != b.orderIndex) return a.orderIndex < b.orderIndex;
+                  if (a.recLevel != b.recLevel) return a.recLevel < b.recLevel;
+                  return a.id < b.id;
+              });
+    LOG_INFO("LFGDungeons.dbc: loaded ", lfgDungeonNameCache_.size(), " dungeon names, ",
+             lfgDungeons_.size(), " listable entries");
+}
+
+// ---------------------------------------------------------------------------
+// Mounts and critters
+//
+// The pet tab lists both, and both are spells the player knows. What separates
+// them is what the spell does, which is in Spell.dbc:
+//
+//   a mount   applies aura 78 (SPELL_AURA_MOUNTED)
+//   a critter uses effect 28 (SPELL_EFFECT_SUMMON) with EffectMiscValueB 41,
+//             which is the critter SummonProperties row
+//
+// Both checked against the file rather than assumed: aura 78 picks out Brown
+// Horse, Gray Wolf and White Stallion, and effect 28 with miscB 41 picks out
+// Mechanical Squirrel, Cockroach and Worg Pup. EffectMiscValue beside it is the
+// creature, which is what GetCompanionInfo reports first.
+// ---------------------------------------------------------------------------
+void GameHandler::rebuildCompanions() const {
+    const auto& known = getKnownSpells();
+    // Only the spellbook changing can change the answer, and it changes rarely.
+    if (companionsBuiltFromSpellCount_ == known.size()) return;
+    companionsBuiltFromSpellCount_ = known.size();
+    mountSpells_.clear();
+    critterSpells_.clear();
+
+    auto* am = services_.assetManager;
+    if (!am || !am->isInitialized()) return;
+    auto dbc = am->loadDBC("Spell.dbc");
+    if (!dbc || !dbc->isLoaded()) return;
+
+    const auto* layout = pipeline::getActiveDBCLayout()
+        ? pipeline::getActiveDBCLayout()->getLayout("Spell") : nullptr;
+    if (!layout) return;
+    const uint32_t idField = (*layout)["ID"];
+
+    // Built once per rebuild rather than searched per spell: the file is fifty
+    // thousand rows and the spellbook is a few hundred.
+    std::unordered_map<uint32_t, uint32_t> rowOfSpell;
+    rowOfSpell.reserve(dbc->getRecordCount());
+    for (uint32_t row = 0; row < dbc->getRecordCount(); ++row) {
+        rowOfSpell[dbc->getUInt32(row, idField)] = row;
+    }
+
+    constexpr uint32_t kAuraMounted = 78;
+    constexpr uint32_t kEffectSummon = 28;
+    constexpr uint32_t kCritterSummonProperties = 41;
+
+    for (uint32_t spellId : known) {
+        auto it = rowOfSpell.find(spellId);
+        if (it == rowOfSpell.end()) continue;
+        const uint32_t row = it->second;
+
+        Companion c;
+        c.spellId = spellId;
+        c.name = getSpellName(spellId);
+        if (c.name.empty()) continue;
+
+        bool mount = false, critter = false;
+        for (int i = 0; i < 3 && !mount && !critter; ++i) {
+            const std::string idx = std::to_string(i);
+            if (dbc->getUInt32(row, (*layout)["EffectApplyAuraName" + idx]) == kAuraMounted) {
+                mount = true;
+                // SPELL_AURA_MOUNTED's misc value is a creature *entry*, the
+                // same number space a summon's is. AuraEffect::HandleAuraMounted
+                // opens with `uint32 creatureEntry = GetMiscValue();` and then
+                // picks the model with ChooseDisplayId on that entry's
+                // template - it is not handed to Player::Mount as a display id,
+                // which is what the comment here used to say. Stored as the
+                // entry and resolved by the reader, exactly like a critter's.
+                c.creatureId = dbc->getUInt32(row, (*layout)["EffectMiscValue" + idx]);
+            } else if (dbc->getUInt32(row, (*layout)["Effect" + idx]) == kEffectSummon &&
+                       dbc->getUInt32(row, (*layout)["EffectMiscValueB" + idx]) ==
+                           kCritterSummonProperties) {
+                critter = true;
+                // A summon's misc value is a creature *entry*, not a display
+                // id, and the model frame takes a display id. Left as the entry
+                // and resolved in GetCompanionInfo, which is the only reader.
+                // Both kinds are entries, so it no longer matters there which
+                // kind was asked for.
+                //
+                // It used to resolve here when the cache happened to be warm
+                // and leave the entry when it did not, on the reading that a
+                // later rebuild would catch it - but nothing rebuilds on a
+                // query answer and nothing sent the query, so the field meant a
+                // display id or an entry depending on what had been near the
+                // player. One number space, decided in one place.
+                c.creatureId = dbc->getUInt32(row, (*layout)["EffectMiscValue" + idx]);
+            }
+        }
+        if (!mount && !critter) continue;
+        c.isMount = mount;
+        (mount ? mountSpells_ : critterSpells_).push_back(std::move(c));
+    }
+
+    auto byName = [](const Companion& a, const Companion& b) { return a.name < b.name; };
+    std::sort(mountSpells_.begin(), mountSpells_.end(), byName);
+    std::sort(critterSpells_.begin(), critterSpells_.end(), byName);
+    LOG_INFO("Companions: ", mountSpells_.size(), " mounts, ",
+             critterSpells_.size(), " critters from ", known.size(), " known spells");
+}
+
+uint32_t GameHandler::getBonusActionBarOffset() const {
+    const uint8_t form = shapeshiftFormId_;
+    if (form == 0) return 0;
+
+    // Cached per form: the file does not change, and this is asked on every
+    // action button update.
+    static std::unordered_map<uint8_t, uint32_t> barOfForm;
+    if (auto it = barOfForm.find(form); it != barOfForm.end()) return it->second;
+
+    uint32_t bar = 0;
+    auto* am = services_.assetManager;
+    if (am && am->isInitialized()) {
+        if (auto dbc = am->loadDBC("SpellShapeshiftForm.dbc"); dbc && dbc->isLoaded()) {
+            const auto* layout = pipeline::getActiveDBCLayout()
+                ? pipeline::getActiveDBCLayout()->getLayout("SpellShapeshiftForm") : nullptr;
+            const uint32_t idField  = layout ? (*layout)["ID"] : 0;
+            const uint32_t barField = layout ? (*layout)["BonusActionBar"] : 1;
+            for (uint32_t row = 0; row < dbc->getRecordCount(); ++row) {
+                if (dbc->getUInt32(row, idField) != form) continue;
+                bar = dbc->getUInt32(row, barField);
+                break;
+            }
+        }
+    }
+    barOfForm[form] = bar;
+    return bar;
+}
+
+void GameHandler::announceCompanionChange() {
+    if (!addonEventCallback_) return;
+    for (bool mounts : {true, false}) {
+        uint32_t active = 0;
+        for (const auto& c : getCompanions(mounts)) {
+            for (const auto& a : getPlayerAuras()) {
+                if (a.spellId == c.spellId) { active = c.spellId; break; }
+            }
+            if (active) break;
+        }
+        uint32_t& remembered = mounts ? activeMountSpell_ : activeCritterSpell_;
+        if (remembered == active) continue;
+        remembered = active;
+        addonEventCallback_("COMPANION_UPDATE", {mounts ? "MOUNT" : "CRITTER"});
+    }
+}
+
+const std::vector<Companion>& GameHandler::getCompanions(bool mounts) const {
+    rebuildCompanions();
+    return mounts ? mountSpells_ : critterSpells_;
+}
+std::string GameHandler::companionKindForCreature(uint32_t entry) const {
+    if (entry == 0) return {};
+    // Both lists, not critters alone. A mount's creature id was taken for a
+    // display id already, and it is not one: AzerothCore reads the mounted
+    // aura's misc value with GetCreatureTemplate and picks the model with
+    // ChooseDisplayId, so it is a template entry exactly as a critter's is.
+    // Leaving mounts out meant a mount's model waited on a query that nothing
+    // reported the answer to, and appeared on the next login instead.
+    for (const Companion& c : getCompanions(/*mounts=*/false))
+        if (c.creatureId == entry) return "CRITTER";
+    for (const Companion& c : getCompanions(/*mounts=*/true))
+        if (c.creatureId == entry) return "MOUNT";
+    return {};
 }
 
 std::string GameHandler::getLfgDungeonName(uint32_t dungeonId) const {
@@ -2407,14 +3329,77 @@ void GameHandler::declineBfMgrInvite() {
     if (socialHandler_) socialHandler_->declineBfMgrInvite();
 }
 
+void GameHandler::respondBfMgrQueueInvite(uint32_t battleId, bool accept) {
+    if (socialHandler_) socialHandler_->respondBfMgrQueueInvite(battleId, accept);
+}
+
+void GameHandler::requestBfMgrExit(uint32_t battleId) {
+    if (socialHandler_) socialHandler_->requestBfMgrExit(battleId);
+}
+
 // ---- WotLK Calendar ----
 
 void GameHandler::requestCalendar() {
     if (socialHandler_) socialHandler_->requestCalendar();
 }
 
+void GameHandler::inviteToCalendarEvent(uint64_t eventId, uint64_t inviteId,
+                                        const std::string& name,
+                                        bool isPreInvite, bool isGuildEvent) {
+    if (socialHandler_) {
+        socialHandler_->inviteToCalendarEvent(eventId, inviteId, name,
+                                              isPreInvite, isGuildEvent);
+    }
+}
+
+void GameHandler::massInviteGuildToCalendarEvent(uint32_t minLevel,
+                                                 uint32_t maxLevel,
+                                                 uint32_t minRank) {
+    if (socialHandler_) {
+        socialHandler_->massInviteGuildToCalendarEvent(minLevel, maxLevel, minRank);
+    }
+}
+
+void GameHandler::updateCalendarEvent(uint64_t eventId, uint64_t inviteId,
+                                      const CalendarEventDraft& draft) {
+    if (socialHandler_) socialHandler_->updateCalendarEvent(eventId, inviteId, draft);
+}
+
+void GameHandler::removeCalendarEvent(uint64_t eventId, uint64_t inviteId) {
+    if (socialHandler_) socialHandler_->removeCalendarEvent(eventId, inviteId);
+}
+
+void GameHandler::setCalendarInviteStatus(uint64_t inviteeGuid, uint64_t eventId,
+                                          uint64_t inviteId, uint8_t status) {
+    if (socialHandler_) {
+        socialHandler_->setCalendarInviteStatus(inviteeGuid, eventId, inviteId, status);
+    }
+}
+
+void GameHandler::setCalendarInviteModerator(uint64_t inviteeGuid, uint64_t eventId,
+                                             uint64_t inviteId, uint8_t rank) {
+    if (socialHandler_) {
+        socialHandler_->setCalendarInviteModerator(inviteeGuid, eventId, inviteId, rank);
+    }
+}
+
+void GameHandler::requestCalendarEvent(uint64_t eventId) {
+    if (socialHandler_) socialHandler_->requestCalendarEvent(eventId);
+}
+
+void GameHandler::createCalendarEvent(const CalendarEventDraft& draft) {
+    if (socialHandler_) socialHandler_->createCalendarEvent(draft);
+}
+
+void GameHandler::respondToCalendarInvite(uint64_t eventId, uint64_t inviteId,
+                                          uint32_t status) {
+    if (socialHandler_) {
+        socialHandler_->respondToCalendarInvite(eventId, inviteId, status);
+    }
+}
+
 // ============================================================
-// Delegating getters — SocialHandler owns the canonical state
+// Delegating getters - SocialHandler owns the canonical state
 // ============================================================
 
 uint32_t GameHandler::getTotalTimePlayed() const {
@@ -2442,6 +3427,10 @@ const GroupListData& GameHandler::getPartyData() const {
 
 uint32_t GameHandler::getWhoOnlineCount() const {
     return socialHandler_ ? socialHandler_->getWhoOnlineCount() : 0;
+}
+
+void GameHandler::setWhoToUI(bool toUI) {
+    if (socialHandler_) socialHandler_->setWhoToUI(toUI);
 }
 
 const std::array<GameHandler::BgQueueSlot, 3>& GameHandler::getBgQueues() const {
@@ -2546,6 +3535,126 @@ bool GameHandler::hasPetitionShowlist() const {
     return socialHandler_ ? socialHandler_->hasPetitionShowlist() : false;
 }
 
+void GameHandler::sortArenaTeamRosters(const std::string& key) {
+    if (key.empty()) return;
+    // The same column twice reverses. A different one starts again in the
+    // direction that column reads best: a name from A, a number from the top.
+    if (key == arenaSortKey_) {
+        arenaSortAscending_ = !arenaSortAscending_;
+    } else {
+        arenaSortKey_ = key;
+        arenaSortAscending_ = (key == "name" || key == "class");
+    }
+    const bool asc = arenaSortAscending_;
+
+    auto value = [&key](const ArenaTeamMember& m) -> uint64_t {
+        if (key == "class")        return m.classId;
+        if (key == "played")       return m.weekGames;
+        if (key == "won")          return m.weekWins;
+        if (key == "seasonplayed") return m.seasonGames;
+        if (key == "seasonwon")    return m.seasonWins;
+        if (key == "rating")       return m.personalRating;
+        return 0;
+    };
+
+    for (auto& roster : arenaTeamRosters_) {
+        std::stable_sort(roster.members.begin(), roster.members.end(),
+            [&](const ArenaTeamMember& a, const ArenaTeamMember& b) {
+                if (key == "name") {
+                    return asc ? (a.name < b.name) : (b.name < a.name);
+                }
+                const uint64_t va = value(a), vb = value(b);
+                if (va == vb) return a.name < b.name;   // steady under ties
+                return asc ? (va < vb) : (vb < va);
+            });
+    }
+}
+
+void GameHandler::requestItemRefundInfo(uint64_t itemGuid) {
+    if (itemGuid == 0) return;
+    if (getState() != WorldState::IN_WORLD || !getSocket()) return;
+    if (!itemRefundAsked_.insert(itemGuid).second) return;   // asked already
+    network::Packet packet(wireOpcode(Opcode::CMSG_ITEM_REFUND_INFO));
+    packet.writeUInt64(itemGuid);
+    getSocket()->send(packet);
+}
+
+void GameHandler::refundItem(uint64_t itemGuid) {
+    if (itemGuid == 0) return;
+    if (getState() != WorldState::IN_WORLD || !getSocket()) return;
+    network::Packet packet(wireOpcode(Opcode::CMSG_ITEM_REFUND));
+    packet.writeUInt64(itemGuid);
+    getSocket()->send(packet);
+}
+
+void GameHandler::resolveGMResponse() {
+    if (getState() != WorldState::IN_WORLD || !getSocket()) return;
+    network::Packet packet(wireOpcode(Opcode::CMSG_GMRESPONSE_RESOLVE));
+    getSocket()->send(packet);
+}
+
+void GameHandler::renamePetition(uint64_t petitionGuid, const std::string& newName) {
+    if (petitionGuid == 0 || newName.empty()) return;
+    if (getState() != WorldState::IN_WORLD || !getSocket()) return;
+    // MSG_, not CMSG_: the server answers on the same opcode with the name it
+    // accepted, which is why the interface does not redraw from its own text.
+    network::Packet packet(wireOpcode(Opcode::MSG_PETITION_RENAME));
+    packet.writeUInt64(petitionGuid);
+    packet.writeString(newName);
+    getSocket()->send(packet);
+}
+
+void GameHandler::removeGlyphFromSocket(uint32_t slot) {
+    if (slot >= MAX_GLYPH_SLOTS) return;
+    if (getState() != WorldState::IN_WORLD || !getSocket()) return;
+    network::Packet packet(wireOpcode(Opcode::CMSG_REMOVE_GLYPH));
+    packet.writeUInt32(slot);
+    getSocket()->send(packet);
+}
+
+void GameHandler::acceptArenaTeamInvite() {
+    if (socialHandler_) socialHandler_->acceptArenaTeamInvite();
+}
+
+void GameHandler::declineArenaTeamInvite() {
+    if (socialHandler_) socialHandler_->declineArenaTeamInvite();
+}
+
+void GameHandler::arenaTeamInvite(uint32_t teamId, const std::string& name) {
+    if (socialHandler_) socialHandler_->arenaTeamInvite(teamId, name);
+}
+void GameHandler::arenaTeamLeave(uint32_t teamId) {
+    if (socialHandler_) socialHandler_->arenaTeamLeave(teamId);
+}
+void GameHandler::arenaTeamRemove(uint32_t teamId, const std::string& name) {
+    if (socialHandler_) socialHandler_->arenaTeamRemove(teamId, name);
+}
+void GameHandler::arenaTeamSetLeader(uint32_t teamId, const std::string& name) {
+    if (socialHandler_) socialHandler_->arenaTeamSetLeader(teamId, name);
+}
+void GameHandler::disbandArenaTeam(uint32_t teamId) {
+    if (socialHandler_) socialHandler_->disbandArenaTeam(teamId);
+}
+
+void GameHandler::reportMailSpam(uint64_t senderGuid, uint32_t mailId) {
+    if (socialHandler_) socialHandler_->reportMailSpam(senderGuid, mailId);
+}
+
+bool GameHandler::getPetitionCharter(int index, uint32_t& itemId,
+                                     uint32_t& displayId, uint32_t& cost) const {
+    if (!socialHandler_ || index < 0) return false;
+    const auto& charters = socialHandler_->getPetitionCharters();
+    if (index >= static_cast<int>(charters.size())) return false;
+    itemId    = charters[static_cast<size_t>(index)].itemId;
+    displayId = charters[static_cast<size_t>(index)].displayId;
+    cost      = charters[static_cast<size_t>(index)].cost;
+    return true;
+}
+
+void GameHandler::closePetitionVendor() {
+    if (socialHandler_) socialHandler_->closePetitionVendor();
+}
+
 uint32_t GameHandler::getPetitionCost() const {
     return socialHandler_ ? socialHandler_->getPetitionCost() : 0;
 }
@@ -2622,6 +3731,11 @@ GameHandler::LfgState GameHandler::getLfgState() const {
     return socialHandler_ ? socialHandler_->getLfgState() : LfgState::None;
 }
 
+const LfgCompletionReward& GameHandler::getLfgCompletionReward() const {
+    static const LfgCompletionReward kNone;
+    return socialHandler_ ? socialHandler_->getLfgCompletionReward() : kNone;
+}
+
 bool GameHandler::isLfgQueued() const {
     return socialHandler_ ? socialHandler_->isLfgQueued() : false;
 }
@@ -2642,6 +3756,32 @@ uint32_t GameHandler::getLfgProposalId() const {
     return socialHandler_ ? socialHandler_->getLfgProposalId() : 0;
 }
 
+uint8_t GameHandler::getLfgOfferedRoles() const {
+    return socialHandler_ ? socialHandler_->getLfgOfferedRoles() : 0;
+}
+
+int32_t GameHandler::getLfgWaitTank() const   { return socialHandler_ ? socialHandler_->getLfgWaitTank()   : -1; }
+int32_t GameHandler::getLfgWaitHealer() const { return socialHandler_ ? socialHandler_->getLfgWaitHealer() : -1; }
+int32_t GameHandler::getLfgWaitDps() const    { return socialHandler_ ? socialHandler_->getLfgWaitDps()    : -1; }
+uint8_t GameHandler::getLfgNeedTank() const   { return socialHandler_ ? socialHandler_->getLfgNeedTank()   : 0; }
+uint8_t GameHandler::getLfgNeedHealer() const { return socialHandler_ ? socialHandler_->getLfgNeedHealer() : 0; }
+uint8_t GameHandler::getLfgNeedDps() const    { return socialHandler_ ? socialHandler_->getLfgNeedDps()    : 0; }
+
+const std::vector<LfgProposalMember>& GameHandler::getLfgProposalMembers() const {
+    static const std::vector<LfgProposalMember> empty;
+    return socialHandler_ ? socialHandler_->getLfgProposalMembers() : empty;
+}
+
+const std::unordered_map<uint32_t, uint32_t>& GameHandler::getLfgLocks() const {
+    static const std::unordered_map<uint32_t, uint32_t> empty;
+    return socialHandler_ ? socialHandler_->getLfgLocks() : empty;
+}
+
+const std::vector<LfgReward>& GameHandler::getLfgRewards() const {
+    static const std::vector<LfgReward> empty;
+    return socialHandler_ ? socialHandler_->getLfgRewards() : empty;
+}
+
 int32_t GameHandler::getLfgAvgWaitSec() const {
     return socialHandler_ ? socialHandler_->getLfgAvgWaitSec() : -1;
 }
@@ -2652,6 +3792,28 @@ uint32_t GameHandler::getLfgTimeInQueueMs() const {
 
 uint32_t GameHandler::getLfgBootVotes() const {
     return socialHandler_ ? socialHandler_->getLfgBootVotes() : 0;
+}
+
+const std::vector<GameHandler::LfgRoleCheckDungeon>&
+GameHandler::getLfgRoleCheckDungeons() const {
+    static const std::vector<LfgRoleCheckDungeon> empty;
+    return socialHandler_ ? socialHandler_->getLfgRoleCheckDungeons() : empty;
+}
+
+uint8_t GameHandler::getLfgRoleCheckMembers() const {
+    return socialHandler_ ? socialHandler_->getLfgRoleCheckMembers() : 0u;
+}
+
+bool GameHandler::isLfgBootInProgress() const {
+    return socialHandler_ && socialHandler_->isLfgBootInProgress();
+}
+
+bool GameHandler::hasLfgBootVoted() const {
+    return socialHandler_ && socialHandler_->hasLfgBootVoted();
+}
+
+bool GameHandler::getLfgBootMyVote() const {
+    return socialHandler_ && socialHandler_->getLfgBootMyVote();
 }
 
 uint32_t GameHandler::getLfgBootTotal() const {
@@ -2736,6 +3898,301 @@ const GossipMessageData& GameHandler::getCurrentGossip() const {
     if (questHandler_) return questHandler_->getCurrentGossip();
     return currentGossip;
 }
+int32_t GameHandler::getFactionStanding(uint32_t factionId) const {
+    auto it = factionStandings_.find(factionId);
+    if (it != factionStandings_.end()) return it->second;
+    // Nothing in the by-faction map means nothing has *changed* since login:
+    // SMSG_SET_FACTION_STANDING is what writes it, and it only arrives when
+    // reputation moves. The standings the character logged in with come in
+    // SMSG_INITIALIZE_FACTIONS, indexed by ReputationListID rather than by
+    // faction, and the two were never joined - so every faction read zero and
+    // the reputation tab drew every bar empty at Neutral, whatever the
+    // character had earned, until the next point of reputation with it.
+    const uint32_t repListId = getRepListIdByFactionId(factionId);
+    if (repListId < initialFactions_.size()) {
+        return initialFactions_[repListId].standing;
+    }
+    return 0;
+}
+
+const std::vector<GameHandler::ReputationEntry>& GameHandler::getReputationList() const {
+    // Nothing to resolve until the server has sent the standings, and building
+    // an empty list once would keep it empty for the session.
+    if (reputationListBuilt_ || initialFactions_.empty()) return reputationList_;
+
+    // The reputation index to faction id mapping already exists: the faction
+    // name cache reads it out of Faction.dbc and keeps both directions. Reading
+    // the file a second time here would be a second opinion about which field
+    // holds the index, and the two could disagree.
+    // getFactionIdByRepListId loads the cache itself on the first ask, so there
+    // is nothing to prime here.
+    reputationListBuilt_ = true;
+
+    for (size_t repIndex = 0; repIndex < initialFactions_.size(); ++repIndex) {
+        const auto& standing = initialFactions_[repIndex];
+        // Hidden factions are never shown, and one the player has not met yet
+        // is not visible either.
+        if ((standing.flags & FACTION_FLAG_HIDDEN) != 0) continue;
+        if ((standing.flags & FACTION_FLAG_VISIBLE) == 0) continue;
+
+        const uint32_t factionId =
+            getFactionIdByRepListId(static_cast<uint32_t>(repIndex));
+        if (factionId == 0) continue;
+
+        ReputationEntry e;
+        e.factionId = factionId;
+        e.reputationIndex = static_cast<uint32_t>(repIndex);
+        e.name = getFactionNamePublic(factionId);
+        e.flags = standing.flags;
+        reputationList_.push_back(std::move(e));
+    }
+    // Walked in the server's own order already, so no sort is needed.
+    LOG_INFO("Reputation: ", reputationList_.size(), " visible factions");
+    return reputationList_;
+}
+
+const std::string& GameHandler::getLanguageName(uint32_t languageId) const {
+    static const std::string kUniversal = "Universal";
+    static const std::string kNone;
+    // Zero is not in the file: it is the "everyone understands this" language,
+    // and it is also the name the interface tests for before deciding whether
+    // to print a language header at all.
+    if (languageId == 0) return kUniversal;
+    if (!languageNamesLoaded_) {
+        auto* am = services().assetManager;
+        if (am && am->isInitialized()) {
+            languageNamesLoaded_ = true;
+            if (auto dbc = am->loadDBC("Languages.dbc"); dbc && dbc->isLoaded()) {
+                for (uint32_t i = 0; i < dbc->getRecordCount(); ++i) {
+                    const uint32_t id = dbc->getUInt32(i, 0);
+                    std::string name = dbc->getString(i, 1);
+                    if (id != 0 && !name.empty()) languageNames_[id] = std::move(name);
+                }
+                LOG_INFO("Languages.dbc: loaded ", languageNames_.size(), " languages");
+            }
+        }
+    }
+    auto it = languageNames_.find(languageId);
+    return it != languageNames_.end() ? it->second : kNone;
+}
+
+const std::string& GameHandler::getPageTextMaterialName(uint32_t materialId) const {
+    static const std::string kNone;
+    if (!pageTextMaterialsLoaded_) {
+        auto* am = services().assetManager;
+        // Not an attempt while the assets are down: marking it loaded here
+        // would disable the file for the session, the way the faction and
+        // skill caches beside it were once caught doing.
+        if (am && am->isInitialized()) {
+            pageTextMaterialsLoaded_ = true;
+            if (auto dbc = am->loadDBC("PageTextMaterial.dbc"); dbc && dbc->isLoaded()) {
+                for (uint32_t i = 0; i < dbc->getRecordCount(); ++i) {
+                    const uint32_t id = dbc->getUInt32(i, 0);
+                    std::string name = dbc->getString(i, 1);
+                    if (id != 0 && !name.empty()) {
+                        pageTextMaterialNames_[id] = std::move(name);
+                    }
+                }
+                LOG_INFO("PageTextMaterial.dbc: loaded ",
+                         pageTextMaterialNames_.size(), " page materials");
+            }
+        }
+    }
+    auto it = pageTextMaterialNames_.find(materialId);
+    return it != pageTextMaterialNames_.end() ? it->second : kNone;
+}
+
+uint32_t GameHandler::getFactionParentId(uint32_t factionId) const {
+    loadFactionNameCache();
+    auto it = factionParent_.find(factionId);
+    return (it != factionParent_.end()) ? it->second : 0u;
+}
+
+void GameHandler::setFactionCollapsed(uint32_t factionId, bool collapsed) {
+    if (factionId == 0) return;
+    const bool changed = collapsed ? collapsedFactionIds_.insert(factionId).second
+                                   : collapsedFactionIds_.erase(factionId) > 0;
+    // Rebuilding on a no-op would be harmless but the redraw is not: the
+    // reputation panel reads its scroll position back from the row count.
+    if (changed) reputationRowsDirty_ = true;
+}
+
+const std::vector<GameHandler::ReputationRow>& GameHandler::getReputationRows() const {
+    const auto& flat = getReputationList();
+    if (!reputationRowsDirty_) return reputationRows_;
+    reputationRows_.clear();
+    // An empty list means the standings have not arrived, not that there are
+    // none - latching that would leave the panel empty for the session.
+    if (flat.empty()) return reputationRows_;
+    reputationRowsDirty_ = false;
+
+    // Everything drawn: the visible factions, plus every faction one of them
+    // descends from. A group whose members the player has not met is not drawn
+    // at all, so its heading is not either.
+    std::unordered_map<uint32_t, const ReputationEntry*> byId;
+    std::unordered_set<uint32_t> displayed;
+    for (const auto& e : flat) { byId[e.factionId] = &e; displayed.insert(e.factionId); }
+    for (const auto& e : flat) {
+        // Faction.dbc is data, and a cycle in it would spin here. The real
+        // chain is three deep, so a small ceiling costs nothing.
+        uint32_t p = getFactionParentId(e.factionId);
+        for (int depth = 0; p != 0 && depth < 8; ++depth) {
+            displayed.insert(p);
+            p = getFactionParentId(p);
+        }
+    }
+
+    // Where each group sits: at its first member's place in the server's list.
+    // Ordering by the heading's own repListId instead would scatter the groups,
+    // since Classic is 96 while the factions inside it start at 10.
+    constexpr size_t kNoRank = static_cast<size_t>(-1);
+    std::unordered_map<uint32_t, size_t> rank;
+    for (uint32_t id : displayed) rank[id] = kNoRank;
+    for (size_t i = 0; i < flat.size(); ++i) {
+        uint32_t id = flat[i].factionId;
+        for (int depth = 0; id != 0 && depth < 9; ++depth) {
+            auto it = rank.find(id);
+            if (it != rank.end() && i < it->second) it->second = i;
+            id = getFactionParentId(id);
+        }
+    }
+
+    // The tree, with a parent outside the drawn set counting as no parent.
+    std::unordered_map<uint32_t, std::vector<uint32_t>> children;
+    for (uint32_t id : displayed) {
+        const uint32_t parent = getFactionParentId(id);
+        children[displayed.count(parent) ? parent : 0u].push_back(id);
+    }
+    const auto byRank = [&](uint32_t a, uint32_t b) {
+        if (rank[a] != rank[b]) return rank[a] < rank[b];
+        return getFactionNamePublic(a) < getFactionNamePublic(b);
+    };
+    for (auto& [parent, kids] : children) {
+        (void)parent;
+        std::sort(kids.begin(), kids.end(), byRank);
+    }
+
+    // Depth first, so a heading is immediately followed by what is under it.
+    // FrameXML draws a flat list and takes the nesting from isHeader/isChild,
+    // which means the order *is* the grouping: emitting in the server's order
+    // and relying on the flags would file each faction under whichever heading
+    // happened to be printed last.
+    std::vector<std::pair<uint32_t, int>> stack;
+    for (auto it = children[0].rbegin(); it != children[0].rend(); ++it) {
+        stack.emplace_back(*it, 0);
+    }
+    while (!stack.empty()) {
+        const auto [factionId, depth] = stack.back();
+        stack.pop_back();
+
+        auto kidsIt = children.find(factionId);
+        const bool isHeader = kidsIt != children.end() && !kidsIt->second.empty();
+
+        ReputationRow row;
+        row.factionId = factionId;
+        row.isHeader = isHeader;
+        // Only two levels are drawn: FrameXML knows a heading and an indented
+        // row and nothing deeper, so everything below the top shares one indent.
+        row.isChild = depth > 0;
+        auto entry = byId.find(factionId);
+        if (entry != byId.end()) {
+            row.reputationIndex = entry->second->reputationIndex;
+            row.name = entry->second->name;
+            row.flags = entry->second->flags;
+            row.hasRep = true;
+        } else {
+            // A heading the player has no standing with - Classic and the two
+            // expansion groups are the usual ones. Drawn as a bare heading.
+            row.name = getFactionNamePublic(factionId);
+            row.hasRep = false;
+        }
+        reputationRows_.push_back(std::move(row));
+
+        // A closed group keeps its heading and loses everything under it: the
+        // panel counts rows and indexes into them, so a hidden row must not be
+        // in the list at all.
+        if (!isHeader || isFactionCollapsed(factionId)) continue;
+        for (auto it = kidsIt->second.rbegin(); it != kidsIt->second.rend(); ++it) {
+            stack.emplace_back(*it, depth + 1);
+        }
+    }
+    return reputationRows_;
+}
+
+const GameHandler::ContinentBounds&
+GameHandler::getContinentBounds(uint32_t mapId) const {
+    auto cached = continentBoundsCache_.find(mapId);
+    if (cached != continentBoundsCache_.end()) return cached->second;
+
+    ContinentBounds bounds;
+    auto* am = services_.assetManager;
+    if (am && am->isInitialized()) {
+        if (auto dbc = am->loadDBC("WorldMapArea.dbc"); dbc && dbc->isLoaded()) {
+            const auto* layout = pipeline::getActiveDBCLayout()
+                ? pipeline::getActiveDBCLayout()->getLayout("WorldMapArea") : nullptr;
+            const auto field = [&](const char* name, uint32_t fallback) {
+                return layout ? (*layout)[name] : fallback;
+            };
+            for (uint32_t i = 0; i < dbc->getRecordCount(); ++i) {
+                if (dbc->getUInt32(i, field("MapID", 1)) != mapId) continue;
+                // The continent's own row, not one of its zones.
+                if (dbc->getUInt32(i, field("AreaID", 2)) != 0) continue;
+                bounds.left   = dbc->getFloat(i, field("LocLeft", 4));
+                bounds.right  = dbc->getFloat(i, field("LocRight", 5));
+                bounds.top    = dbc->getFloat(i, field("LocTop", 6));
+                bounds.bottom = dbc->getFloat(i, field("LocBottom", 7));
+                // A degenerate rectangle projects everything to one point, so
+                // it is no more usable than a missing row.
+                bounds.valid = std::abs(bounds.left - bounds.right) > 0.001f &&
+                               std::abs(bounds.top - bounds.bottom) > 0.001f;
+                break;
+            }
+        }
+    }
+    if (!bounds.valid) {
+        LOG_WARNING("No continent-wide WorldMapArea row for map ", mapId,
+                    " - anything projecting onto its map will have nothing to "
+                    "project against");
+    }
+    return continentBoundsCache_.emplace(mapId, bounds).first->second;
+}
+
+const GameHandler::ExtendedCostEntry*
+GameHandler::getExtendedCost(uint32_t extendedCostId) const {
+    if (!extendedCostCacheLoaded_) {
+        extendedCostCacheLoaded_ = true;
+        auto* am = services_.assetManager;
+        if (am && am->isInitialized()) {
+            if (auto dbc = am->loadDBC("ItemExtendedCost.dbc"); dbc && dbc->isLoaded()) {
+                // WotLK layout: 0=ID, 1=honorPoints, 2=arenaPoints,
+                // 3=arenaSlotRestrictions, 4-8=itemId[5], 9-13=itemCount[5],
+                // 14=reqRating, 15=purchaseGroup
+                for (uint32_t i = 0; i < dbc->getRecordCount(); ++i) {
+                    const uint32_t id = dbc->getUInt32(i, 0);
+                    if (id == 0) continue;
+                    ExtendedCostEntry e;
+                    e.honorPoints = dbc->getUInt32(i, 1);
+                    e.arenaPoints = dbc->getUInt32(i, 2);
+                    for (int j = 0; j < 5; ++j) {
+                        e.itemId[j]    = dbc->getUInt32(i, 4 + j);
+                        e.itemCount[j] = dbc->getUInt32(i, 9 + j);
+                    }
+                    extendedCostCache_[id] = e;
+                }
+                LOG_INFO("ItemExtendedCost.dbc: loaded ", extendedCostCache_.size(),
+                         " entries");
+            }
+        }
+    }
+    auto it = extendedCostCache_.find(extendedCostId);
+    return it == extendedCostCache_.end() ? nullptr : &it->second;
+}
+
+const std::string& GameHandler::getQuestGreeting() const {
+    static const std::string empty;
+    if (questHandler_) return questHandler_->getQuestGreeting();
+    return empty;
+}
 const std::string& GameHandler::getNpcText(uint32_t textId) const {
     static const std::string empty;
     if (questHandler_) return questHandler_->getNpcText(textId);
@@ -2744,6 +4201,10 @@ const std::string& GameHandler::getNpcText(uint32_t textId) const {
 bool GameHandler::isQuestDetailsOpen() {
     if (questHandler_) return questHandler_->isQuestDetailsOpen();
     return questDetailsOpen;
+}
+bool GameHandler::questDetailsItemInfoReady() const {
+    if (questHandler_) return questHandler_->questDetailsItemInfoReady();
+    return true;
 }
 const QuestDetailsData& GameHandler::getQuestDetails() const {
     if (questHandler_) return questHandler_->getQuestDetails();
@@ -2764,6 +4225,11 @@ QuestGiverStatus GameHandler::getQuestGiverStatus(uint64_t guid) const {
     if (questHandler_) return questHandler_->getQuestGiverStatus(guid);
     return QuestGiverStatus::NONE;
 }
+std::vector<std::pair<uint32_t, uint32_t>> GameHandler::getQuestTimers() const {
+    if (questHandler_) return questHandler_->getQuestTimers();
+    return {};
+}
+
 const std::vector<GameHandler::QuestLogEntry>& GameHandler::getQuestLog() const {
     if (questHandler_) return questHandler_->getQuestLog();
     static const std::vector<QuestLogEntry> empty;
@@ -2799,6 +4265,9 @@ const QuestRequestItemsData& GameHandler::getQuestRequestItems() const {
 }
 int GameHandler::getSelectedQuestLogIndex() const {
     return questHandler_ ? questHandler_->getSelectedQuestLogIndex() : 0;
+}
+void GameHandler::setSelectedQuestLogIndex(int idx) {
+    if (questHandler_) questHandler_->setSelectedQuestLogIndex(idx);
 }
 uint32_t GameHandler::getSharedQuestId() const {
     return questHandler_ ? questHandler_->getSharedQuestId() : 0;

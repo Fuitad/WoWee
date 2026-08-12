@@ -1,4 +1,5 @@
 #include "pipeline/wowee_reputation_rewards.hpp"
+#include "pipeline/wowee_binary_io.hpp"
 
 #include <algorithm>
 #include <cstdio>
@@ -12,52 +13,7 @@ namespace {
 
 constexpr char kMagic[4] = {'W', 'R', 'P', 'R'};
 constexpr uint32_t kVersion = 1;
-
-template <typename T>
-void writePOD(std::ofstream& os, const T& v) {
-    os.write(reinterpret_cast<const char*>(&v), sizeof(T));
-}
-
-template <typename T>
-bool readPOD(std::ifstream& is, T& v) {
-    is.read(reinterpret_cast<char*>(&v), sizeof(T));
-    return is.gcount() == static_cast<std::streamsize>(sizeof(T));
-}
-
-void writeStr(std::ofstream& os, const std::string& s) {
-    uint32_t n = static_cast<uint32_t>(s.size());
-    writePOD(os, n);
-    if (n > 0) os.write(s.data(), n);
-}
-
-bool readStr(std::ifstream& is, std::string& s) {
-    uint32_t n = 0;
-    if (!readPOD(is, n)) return false;
-    if (n > (1u << 20)) return false;
-    s.resize(n);
-    if (n > 0) {
-        is.read(s.data(), n);
-        if (is.gcount() != static_cast<std::streamsize>(n)) {
-            s.clear();
-            return false;
-        }
-    }
-    return true;
-}
-
-std::string normalizePath(std::string base) {
-    if (base.size() < 5 || base.substr(base.size() - 5) != ".wrpr") {
-        base += ".wrpr";
-    }
-    return base;
-}
-
-uint32_t packRgba(uint8_t r, uint8_t g, uint8_t b, uint8_t a = 0xFF) {
-    return (static_cast<uint32_t>(a) << 24) |
-           (static_cast<uint32_t>(b) << 16) |
-           (static_cast<uint32_t>(g) << 8)  |
-            static_cast<uint32_t>(r);
-}
+constexpr char kExtension[] = ".wrpr";
 
 } // namespace
 
@@ -100,14 +56,8 @@ WoweeReputationRewards::findByFaction(uint32_t factionId) const {
 bool WoweeReputationRewardsLoader::save(
     const WoweeReputationRewards& cat,
     const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath), std::ios::binary);
-    if (!os) return false;
-    os.write(kMagic, 4);
-    writePOD(os, kVersion);
-    writeStr(os, cat.name);
-    uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writePOD(os, entryCount);
-    for (const auto& e : cat.entries) {
+    return saveCatalog(cat, basePath, kMagic, kVersion, kExtension,
+                       [](std::ofstream& os, const auto& e) {
         writePOD(os, e.tierId);
         writeStr(os, e.name);
         writeStr(os, e.description);
@@ -126,75 +76,43 @@ bool WoweeReputationRewardsLoader::save(
             e.unlockedRecipeIds.size());
         writePOD(os, recipeCount);
         for (uint32_t id : e.unlockedRecipeIds) writePOD(os, id);
-    }
-    return os.good();
+    });
 }
 
 WoweeReputationRewards WoweeReputationRewardsLoader::load(
     const std::string& basePath) {
-    WoweeReputationRewards out;
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    if (!is) return out;
-    char magic[4];
-    is.read(magic, 4);
-    if (std::memcmp(magic, kMagic, 4) != 0) return out;
-    uint32_t version = 0;
-    if (!readPOD(is, version) || version != kVersion) return out;
-    if (!readStr(is, out.name)) return out;
-    uint32_t entryCount = 0;
-    if (!readPOD(is, entryCount)) return out;
-    if (entryCount > (1u << 20)) return out;
-    out.entries.resize(entryCount);
-    for (auto& e : out.entries) {
-        if (!readPOD(is, e.tierId)) {
-            out.entries.clear(); return out;
-        }
-        if (!readStr(is, e.name) || !readStr(is, e.description)) {
-            out.entries.clear(); return out;
-        }
+    return loadCatalog<WoweeReputationRewards>(basePath, kMagic, kVersion, kExtension,
+                              [](std::ifstream& is, WoweeReputationRewards::Entry& e) {
+        if (!readPOD(is, e.tierId)) { return false; }
+        if (!readStr(is, e.name) || !readStr(is, e.description)) { return false; }
         if (!readPOD(is, e.factionId) ||
             !readPOD(is, e.minStanding) ||
             !readPOD(is, e.discountPct) ||
             !readPOD(is, e.grantsTabard) ||
             !readPOD(is, e.grantsMount) ||
             !readPOD(is, e.pad0) ||
-            !readPOD(is, e.iconColorRGBA)) {
-            out.entries.clear(); return out;
-        }
+            !readPOD(is, e.iconColorRGBA)) { return false; }
         uint32_t itemCount = 0;
-        if (!readPOD(is, itemCount)) {
-            out.entries.clear(); return out;
-        }
-        if (itemCount > (1u << 16)) {
-            out.entries.clear(); return out;
-        }
+        if (!readPOD(is, itemCount)) { return false; }
+        if (itemCount > (1u << 16)) { return false; }
         e.unlockedItemIds.resize(itemCount);
         for (uint32_t k = 0; k < itemCount; ++k) {
-            if (!readPOD(is, e.unlockedItemIds[k])) {
-                out.entries.clear(); return out;
-            }
+            if (!readPOD(is, e.unlockedItemIds[k])) { return false; }
         }
         uint32_t recipeCount = 0;
-        if (!readPOD(is, recipeCount)) {
-            out.entries.clear(); return out;
-        }
-        if (recipeCount > (1u << 16)) {
-            out.entries.clear(); return out;
-        }
+        if (!readPOD(is, recipeCount)) { return false; }
+        if (recipeCount > (1u << 16)) { return false; }
         e.unlockedRecipeIds.resize(recipeCount);
         for (uint32_t k = 0; k < recipeCount; ++k) {
-            if (!readPOD(is, e.unlockedRecipeIds[k])) {
-                out.entries.clear(); return out;
-            }
+            if (!readPOD(is, e.unlockedRecipeIds[k])) { return false; }
         }
-    }
-    return out;
+                                  return true;
+                              });
 }
 
 bool WoweeReputationRewardsLoader::exists(
     const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeReputationRewards
@@ -225,23 +143,23 @@ WoweeReputationRewardsLoader::makeArgentCrusade(
     // Revered=21000, Exalted=42000.
     add(1, "ArgentCrusade_Friendly", 3000, 0, 0, 0,
         { 44128 }, {},
-        "Friendly tier — basic faction recognition. "
+        "Friendly tier - basic faction recognition. "
         "Quartermaster opens. No discount yet.");
     add(2, "ArgentCrusade_Honored", 9000, 5, 1, 0,
         { 44128, 44131, 44137 }, { 49736 },
-        "Honored tier — 5%% vendor discount, tabard "
+        "Honored tier - 5%% vendor discount, tabard "
         "becomes purchasable, first crafting recipe "
         "(Argent Sword pattern) unlocks.");
     add(3, "ArgentCrusade_Revered", 21000, 10, 1, 0,
         { 44128, 44131, 44137, 44141, 44144 },
         { 49736, 49737 },
-        "Revered tier — 10%% vendor discount. Two "
+        "Revered tier - 10%% vendor discount. Two "
         "additional rare items + second recipe (Argent "
         "Plate Gauntlets) unlock.");
     add(4, "ArgentCrusade_Exalted", 42000, 15, 1, 1,
         { 44128, 44131, 44137, 44141, 44144, 44171, 44174 },
         { 49736, 49737, 49738 },
-        "Exalted tier — 15%% vendor discount, the Argent "
+        "Exalted tier - 15%% vendor discount, the Argent "
         "Charger mount unlocks (3500g, paladin-only "
         "originally), full set of rare items, all recipes.");
     return c;
@@ -272,20 +190,20 @@ WoweeReputationRewards WoweeReputationRewardsLoader::makeKaluak(
     };
     add(100, "Kaluak_Friendly", 3000, 0, 0,
         { 44707 }, {},
-        "Friendly — basic Kalu'ak fishing pole "
+        "Friendly - basic Kalu'ak fishing pole "
         "purchasable.");
     add(101, "Kaluak_Honored", 9000, 5, 0,
         { 44707, 44710 }, { 45550 },
-        "Honored — Kalu'ak Cured Sweet Potato cooking "
+        "Honored - Kalu'ak Cured Sweet Potato cooking "
         "recipe unlocks.");
     add(102, "Kaluak_Revered", 21000, 10, 1,
         { 44707, 44710, 44715 }, { 45550, 45551 },
-        "Revered — Kalu'ak Tabard purchasable, second "
+        "Revered - Kalu'ak Tabard purchasable, second "
         "cooking recipe unlocks.");
     add(103, "Kaluak_Exalted", 42000, 15, 1,
         { 44707, 44710, 44715, 44722 },
         { 45550, 45551, 45552 },
-        "Exalted — Pygmy Suit cosmetic + 3rd cooking "
+        "Exalted - Pygmy Suit cosmetic + 3rd cooking "
         "recipe (Imperial Manta Steak) unlock. No "
         "mount reward for Kalu'ak.");
     return c;
@@ -315,16 +233,16 @@ WoweeReputationRewardsLoader::makeAccordTabard(
     };
     add(200, "WyrmrestAccord_Honored", 9000, 5, 0, 0,
         { 44156, 44158 },
-        "Honored — first ring + cloak unlock. No tabard "
+        "Honored - first ring + cloak unlock. No tabard "
         "yet (Accord makes you wait until Revered).");
     add(201, "WyrmrestAccord_Revered", 21000, 10, 1, 0,
         { 44156, 44158, 44160 },
-        "Revered — Accord Tabard purchasable + medallion. "
+        "Revered - Accord Tabard purchasable + medallion. "
         "Equipping the tabard counts Wyrmrest rep on "
         "ALL Northrend Heroic kills.");
     add(202, "WyrmrestAccord_Exalted", 42000, 15, 1, 1,
         { 44156, 44158, 44160, 44178 },
-        "Exalted — the Reins of the Red Drake mount "
+        "Exalted - the Reins of the Red Drake mount "
         "unlocks (3000g). One of the iconic Wrath rep "
         "rewards.");
     return c;

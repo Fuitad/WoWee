@@ -1,4 +1,6 @@
 #include "cli_combat_formulas_catalog.hpp"
+#include "cli_catalog_paths.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -19,11 +21,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWcfrExt(std::string base) {
-    stripExt(base, ".wcfr");
-    return base;
-}
 
 const char* outputStatKindName(uint8_t k) {
     using F = wowee::pipeline::WoweeCombatFormulas;
@@ -52,15 +49,6 @@ const char* inputStatKindName(uint8_t k) {
     }
 }
 
-bool saveOrError(const wowee::pipeline::WoweeCombatFormulas& c,
-                 const std::string& base, const char* cmd) {
-    if (!wowee::pipeline::WoweeCombatFormulasLoader::save(c, base)) {
-        std::fprintf(stderr, "%s: failed to save %s.wcfr\n",
-                     cmd, base.c_str());
-        return false;
-    }
-    return true;
-}
 
 void printGenSummary(const wowee::pipeline::WoweeCombatFormulas& c,
                      const std::string& base) {
@@ -73,10 +61,10 @@ int handleGenWarrior(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "WarriorCombatFormulas";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWcfrExt(base);
+    base = cli::withoutExt(base, ".wcfr");
     auto c = wowee::pipeline::WoweeCombatFormulasLoader::
         makeWarriorFormulas(name);
-    if (!saveOrError(c, base, "gen-cfr-warrior")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCombatFormulasLoader>(c, base, "gen-cfr-warrior", ".wcfr")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -85,10 +73,10 @@ int handleGenMage(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "MageCombatFormulas";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWcfrExt(base);
+    base = cli::withoutExt(base, ".wcfr");
     auto c = wowee::pipeline::WoweeCombatFormulasLoader::
         makeMageFormulas(name);
-    if (!saveOrError(c, base, "gen-cfr-mage")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCombatFormulasLoader>(c, base, "gen-cfr-mage", ".wcfr")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -97,10 +85,10 @@ int handleGenRogue(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "RogueCombatFormulas";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWcfrExt(base);
+    base = cli::withoutExt(base, ".wcfr");
     auto c = wowee::pipeline::WoweeCombatFormulasLoader::
         makeRogueFormulas(name);
-    if (!saveOrError(c, base, "gen-cfr-rogue")) return 1;
+    if (!saveOrError<wowee::pipeline::WoweeCombatFormulasLoader>(c, base, "gen-cfr-rogue", ".wcfr")) return 1;
     printGenSummary(c, base);
     return 0;
 }
@@ -108,7 +96,7 @@ int handleGenRogue(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWcfrExt(base);
+    base = cli::withoutExt(base, ".wcfr");
     if (!wowee::pipeline::WoweeCombatFormulasLoader::exists(base)) {
         std::fprintf(stderr, "WCFR not found: %s.wcfr\n",
                      base.c_str());
@@ -233,12 +221,9 @@ bool readEnumField(const nlohmann::json& je,
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWcfrExt(base);
+    base = cli::withoutExt(base, ".wcfr");
     if (!wowee::pipeline::WoweeCombatFormulasLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wcfr: WCFR not found: %s.wcfr\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wcfr", "WCFR", base, ".wcfr");
     }
     auto c = wowee::pipeline::WoweeCombatFormulasLoader::load(base);
     std::vector<std::string> errors;
@@ -270,11 +255,11 @@ int handleValidate(int& i, int argc, char** argv) {
                 " out of range (0..4)");
         }
         // Conversion ratio = 0 means input stat
-        // never produces any output — a no-op
+        // never produces any output - a no-op
         // formula. Almost certainly a typo.
         if (e.conversionRatioFp_x100 == 0) {
             errors.push_back(ctx +
-                ": conversionRatioFp_x100 is 0 — "
+                ": conversionRatioFp_x100 is 0 - "
                 "input stat never produces output "
                 "(no-op formula)");
         }
@@ -295,7 +280,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 " (= " +
                 std::to_string(e.conversionRatioFp_x100 /
                                 100.0) +
-                "x) — exceeds 100x ratio; likely a "
+                "x) - exceeds 100x ratio; likely a "
                 "units-mismatch typo (forgot to divide "
                 "by 100?)");
         }
@@ -320,57 +305,29 @@ int handleValidate(int& i, int argc, char** argv) {
                 std::to_string(e.classRestriction) +
                 ", levelMin=" +
                 std::to_string(e.levelMin) +
-                ") — runtime stat-compute would apply "
+                ") - runtime stat-compute would apply "
                 "both formulas, doubling the contribution");
         }
         if (!idsSeen.insert(e.formulaId).second) {
             errors.push_back(ctx + ": duplicate formulaId");
         }
     }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wcfr"] = base + ".wcfr";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
-    std::printf("validate-wcfr: %s.wcfr\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu formulas, all formulaIds + "
+    return cli::reportValidation("wcfr", base, jsonOut, errors, warnings,
+                                 formatted("%zu formulas, all formulaIds + "
                     "(output,input,classMask,levelMin) quads "
                     "unique, outputStatKind 0..7, "
                     "inputStatKind 0..4, conversionRatio > 0, "
-                    "valid level range\n",
-                    c.entries.size());
-        return 0;
-    }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+                    "valid level range", c.entries.size()));
 }
 
 int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWcfrExt(base);
+    base = cli::withoutExt(base, ".wcfr");
     if (out.empty()) out = base + ".wcfr.json";
     if (!wowee::pipeline::WoweeCombatFormulasLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wcfr-json: WCFR not found: %s.wcfr\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wcfr-json", "WCFR", base, ".wcfr");
     }
     auto c = wowee::pipeline::WoweeCombatFormulasLoader::load(base);
     nlohmann::json j;
@@ -413,16 +370,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wcfr.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wcfr");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wcfr");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,

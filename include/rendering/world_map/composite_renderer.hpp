@@ -1,6 +1,6 @@
-// composite_renderer.hpp — Vulkan off-screen composite rendering for the world map.
+// composite_renderer.hpp - Vulkan off-screen composite rendering for the world map.
 // Extracted from WorldMap (Phase 7 of refactoring plan).
-// SRP — all GPU resource management separated from domain logic.
+// SRP - all GPU resource management separated from domain logic.
 #pragma once
 
 #include "rendering/world_map/world_map_types.hpp"
@@ -90,7 +90,7 @@ public:
     static constexpr int FBO_W = GRID_COLS * TILE_PX;
     static constexpr int FBO_H = GRID_ROWS * TILE_PX;
 
-    // WoW's WorldMapDetailFrame is 1002x668 — the visible map content area.
+    // WoW's WorldMapDetailFrame is 1002x668 - the visible map content area.
     // The FBO is 1024x768 so we crop UVs to show only the actual map region.
     static constexpr int MAP_W = 1002;
     static constexpr int MAP_H = 668;
