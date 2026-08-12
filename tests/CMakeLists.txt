@@ -555,6 +555,21 @@ endif()
 add_test(NAME use_item_packet COMMAND test_use_item_packet)
 register_test_target(test_use_item_packet)
 
+# ── test_asset_manifest_load ───────────────────────────────────────────
+# The 32 MB asset manifest, pinned so a change to how it is read cannot change
+# what it read. Skips when Data/manifest.json is not in the checkout.
+add_executable(test_asset_manifest_load
+    test_asset_manifest_load.cpp
+    ${TEST_COMMON_SOURCES}
+    ${CMAKE_SOURCE_DIR}/src/pipeline/asset_manifest.cpp)
+target_include_directories(test_asset_manifest_load PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_asset_manifest_load SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_asset_manifest_load PRIVATE catch2_main)
+wowee_test_link_glm(test_asset_manifest_load)
+add_test(NAME asset_manifest_load COMMAND test_asset_manifest_load
+         WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
+register_test_target(test_asset_manifest_load)
+
 # ── test_char_enum_layout ──────────────────────────────────────────────
 # SMSG_CHAR_ENUM, parsed by three separate functions with no coverage at all.
 # Links the same set test_taxi_packets does: the classic and TBC parsers pull
