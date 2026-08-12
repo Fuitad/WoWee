@@ -402,6 +402,39 @@ target_link_libraries(test_srp PRIVATE catch2_main OpenSSL::SSL OpenSSL::Crypto)
 add_test(NAME srp COMMAND test_srp)
 register_test_target(test_srp)
 
+# ── test_chunk_surface ───────────────────────────────────────
+# Where a point inside a terrain chunk sits in the world. The clutter and
+# doodad scatterers each had their own copy, including the crossed axes.
+add_executable(test_chunk_surface
+    test_chunk_surface.cpp
+    ${TEST_COMMON_SOURCES}
+    ${CMAKE_SOURCE_DIR}/src/pipeline/terrain_mesh.cpp
+    ${CMAKE_SOURCE_DIR}/src/pipeline/adt_loader.cpp
+)
+target_include_directories(test_chunk_surface PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_chunk_surface SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_chunk_surface PRIVATE catch2_main)
+wowee_test_link_glm(test_chunk_surface)
+add_test(NAME chunk_surface COMMAND test_chunk_surface)
+register_test_target(test_chunk_surface)
+
+# ── test_spline_body ─────────────────────────────────────────
+# The body of SMSG_MONSTER_MOVE, whose head two parsers shared and neither
+# covered. Checked against AzerothCore's own WriteCommonMonsterMovePart.
+add_executable(test_spline_body
+    test_spline_body.cpp
+    ${TEST_COMMON_SOURCES}
+    ${CMAKE_SOURCE_DIR}/src/game/spline_packet.cpp
+    ${CMAKE_SOURCE_DIR}/src/network/packet.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/logger.cpp
+)
+target_include_directories(test_spline_body PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_spline_body SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_spline_body PRIVATE catch2_main)
+wowee_test_link_glm(test_spline_body)
+add_test(NAME spline_body COMMAND test_spline_body)
+register_test_target(test_spline_body)
+
 # ── test_spline ──────────────────────────────────────────────
 add_executable(test_spline
     test_spline.cpp

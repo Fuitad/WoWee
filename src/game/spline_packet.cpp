@@ -32,18 +32,28 @@ glm::vec3 decodePackedDelta(uint32_t packed, const glm::vec3& midpoint) {
 
 // ── MonsterMove spline body (post-splineFlags) ─────────────────
 
-bool parseMonsterMoveSplineBody(
-    network::Packet& packet,
-    SplineBlockData& out,
-    uint32_t splineFlags,
-    const glm::vec3& startPos,
-    bool useTbcUncompressedMask,
-    SplineFlagSet flagSet)
-{
+namespace {
+
+/// The head every MonsterMove spline body starts with, whatever expansion
+/// wrote it: an optional animation block, the duration, an optional parabolic
+/// block, then the point count.
+///
+/// Written out twice, once in each of the two parsers below, and the only
+/// difference between the copies was which bit means animation. That bit moved
+/// in WotLK, from 0x00400000 to 0x00200000, so the caller passes the one its
+/// generation uses; honouring the other reads five bytes that are not there
+/// and shifts every field after it.
+///
+/// This is the order AzerothCore's WriteCommonMonsterMovePart writes.
+///
+/// Answers false only on a truncated packet. A point count of zero is a
+/// complete body, not a failure: the server sends one for a spline that just
+/// turns a creature on the spot.
+bool readSplineBodyHead(network::Packet& packet, SplineBlockData& out,
+                        uint32_t splineFlags, uint32_t animationBit,
+                        uint32_t& outPointCount) {
     out.splineFlags = splineFlags;
-    const bool wotlk = (flagSet == SplineFlagSet::Wotlk);
-    const uint32_t animationBit = wotlk ? SplineFlagWotlk::ANIMATION
-                                        : SplineFlag::ANIMATION;
+    outPointCount = 0;
 
     // Animation: uint8 animType + uint32 animStartTime
     if (splineFlags & animationBit) {
@@ -53,11 +63,10 @@ bool parseMonsterMoveSplineBody(
         out.animationStartTime = packet.readUInt32();
     }
 
-    // Duration
     if (!packet.hasRemaining(4)) return false;
     out.duration = packet.readUInt32();
 
-    // Parabolic (0x00000800 in MonsterMove): float vertAccel + uint32 startTime
+    // Parabolic: float vertAccel + uint32 startTime
     if (splineFlags & SplineFlag::PARABOLIC_MM) {
         if (!packet.hasRemaining(8)) return false;
         out.hasParabolic = true;
@@ -65,11 +74,32 @@ bool parseMonsterMoveSplineBody(
         out.parabolicStartTime = packet.readUInt32();
     }
 
-    // Point count
     if (!packet.hasRemaining(4)) return false;
-    uint32_t pointCount = packet.readUInt32();
-    if (pointCount == 0) return true;
+    const uint32_t pointCount = packet.readUInt32();
+    // A count read out of the wrong bytes is usually enormous, and reserving
+    // for it is how a malformed packet becomes an allocation failure.
     if (pointCount > 1000) return false;
+    outPointCount = pointCount;
+    return true;
+}
+
+}  // namespace
+
+bool parseMonsterMoveSplineBody(
+    network::Packet& packet,
+    SplineBlockData& out,
+    uint32_t splineFlags,
+    const glm::vec3& startPos,
+    bool useTbcUncompressedMask,
+    SplineFlagSet flagSet)
+{
+    const bool wotlk = (flagSet == SplineFlagSet::Wotlk);
+    const uint32_t animationBit = wotlk ? SplineFlagWotlk::ANIMATION
+                                        : SplineFlag::ANIMATION;
+
+    uint32_t pointCount = 0;
+    if (!readSplineBodyHead(packet, out, splineFlags, animationBit, pointCount)) return false;
+    if (pointCount == 0) return true;
 
     // Determine compressed vs uncompressed
     uint32_t uncompMask = useTbcUncompressedMask
@@ -154,33 +184,11 @@ bool parseMonsterMoveSplineBodyVanilla(
     uint32_t splineFlags,
     const glm::vec3& startPos)
 {
-    out.splineFlags = splineFlags;
-
-    // Animation (0x00400000): uint8 animType + uint32 animStartTime
-    if (splineFlags & SplineFlag::ANIMATION) {
-        if (!packet.hasRemaining(5)) return false;
-        out.hasAnimation = true;
-        out.animationType = packet.readUInt8();
-        out.animationStartTime = packet.readUInt32();
+    uint32_t pointCount = 0;
+    if (!readSplineBodyHead(packet, out, splineFlags, SplineFlag::ANIMATION, pointCount)) {
+        return false;
     }
-
-    // Duration
-    if (!packet.hasRemaining(4)) return false;
-    out.duration = packet.readUInt32();
-
-    // Parabolic (0x00000800)
-    if (splineFlags & SplineFlag::PARABOLIC_MM) {
-        if (!packet.hasRemaining(8)) return false;
-        out.hasParabolic = true;
-        out.verticalAcceleration = packet.readFloat();
-        out.parabolicStartTime = packet.readUInt32();
-    }
-
-    // Point count
-    if (!packet.hasRemaining(4)) return false;
-    uint32_t pointCount = packet.readUInt32();
     if (pointCount == 0) return true;
-    if (pointCount > 1000) return false;
 
     // Always compressed in Vanilla: dest (12 bytes) + packed deltas (4 bytes each)
     size_t requiredBytes = 12;

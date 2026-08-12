@@ -1,4 +1,5 @@
 #include "pipeline/terrain_mesh.hpp"
+#include <algorithm>
 #include "core/coordinates.hpp"
 #include "core/logger.hpp"
 #include <cmath>
@@ -357,6 +358,33 @@ void TerrainMeshGenerator::decompressNormal(const int8_t* compressedNormal, floa
         normal[1] = 0.0f;
         normal[2] = 1.0f;
     }
+}
+
+glm::vec3 TerrainMeshGenerator::chunkSurfacePoint(const float chunkPosition[3],
+                                                  const HeightMap& heightMap,
+                                                  float fracX, float fracY,
+                                                  float unitSize) {
+    // The axes cross: world X runs against grid Y and world Y against grid X.
+    const float worldX = chunkPosition[0] - fracY * unitSize;
+    const float worldY = chunkPosition[1] - fracX * unitSize;
+
+    const int gx0 = glm::clamp(static_cast<int>(std::floor(fracX)), 0, 8);
+    const int gy0 = glm::clamp(static_cast<int>(std::floor(fracY)), 0, 8);
+    const int gx1 = std::min(gx0 + 1, 8);
+    const int gy1 = std::min(gy0 + 1, 8);
+    const float tx = fracX - static_cast<float>(gx0);
+    const float ty = fracY - static_cast<float>(gy0);
+
+    const float h00 = heightMap.getHeight(gx0, gy0);
+    const float h10 = heightMap.getHeight(gx1, gy0);
+    const float h01 = heightMap.getHeight(gx0, gy1);
+    const float h11 = heightMap.getHeight(gx1, gy1);
+    const float worldZ = chunkPosition[2] +
+                         (h00 * (1 - tx) * (1 - ty) +
+                          h10 * tx * (1 - ty) +
+                          h01 * (1 - tx) * ty +
+                          h11 * tx * ty);
+    return glm::vec3(worldX, worldY, worldZ);
 }
 
 int TerrainMeshGenerator::getVertexIndex(int x, int y) {

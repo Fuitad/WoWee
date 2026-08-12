@@ -2270,24 +2270,11 @@ void TerrainManager::generateGroundClutterPlacements(std::shared_ptr<PendingTile
                         }
                     }
 
-                    float worldX = chunk.position[0] - fracY * unitSize;
-                    float worldY = chunk.position[1] - fracX * unitSize;
-
-                    int gx0 = glm::clamp(static_cast<int>(std::floor(fracX)), 0, 8);
-                    int gy0 = glm::clamp(static_cast<int>(std::floor(fracY)), 0, 8);
-                    int gx1 = std::min(gx0 + 1, 8);
-                    int gy1 = std::min(gy0 + 1, 8);
-                    float tx = fracX - static_cast<float>(gx0);
-                    float ty = fracY - static_cast<float>(gy0);
-                    float h00 = chunk.heightMap.getHeight(gx0, gy0);
-                    float h10 = chunk.heightMap.getHeight(gx1, gy0);
-                    float h01 = chunk.heightMap.getHeight(gx0, gy1);
-                    float h11 = chunk.heightMap.getHeight(gx1, gy1);
-                    float worldZ = chunk.position[2] +
-                                 (h00 * (1 - tx) * (1 - ty) +
-                                  h10 * tx * (1 - ty) +
-                                  h01 * (1 - tx) * ty +
-                                  h11 * tx * ty);
+                    const glm::vec3 surfacePoint = pipeline::TerrainMeshGenerator::chunkSurfacePoint(
+                        chunk.position, chunk.heightMap, fracX, fracY, unitSize);
+                    const float worldX = surfacePoint.x;
+                    const float worldY = surfacePoint.y;
+                    const float worldZ = surfacePoint.z;
 
                     PendingTile::M2Placement p;
                     p.modelId = modelId;
@@ -2340,24 +2327,11 @@ void TerrainManager::generateGroundClutterPlacements(std::shared_ptr<PendingTile
                             roadRejected++;
                             continue;
                         }
-                        float worldX = chunk.position[0] - fracY * unitSize;
-                        float worldY = chunk.position[1] - fracX * unitSize;
-
-                        int gx0 = glm::clamp(static_cast<int>(std::floor(fracX)), 0, 8);
-                        int gy0 = glm::clamp(static_cast<int>(std::floor(fracY)), 0, 8);
-                        int gx1 = std::min(gx0 + 1, 8);
-                        int gy1 = std::min(gy0 + 1, 8);
-                        float tx = fracX - static_cast<float>(gx0);
-                        float ty = fracY - static_cast<float>(gy0);
-                        float h00 = chunk.heightMap.getHeight(gx0, gy0);
-                        float h10 = chunk.heightMap.getHeight(gx1, gy0);
-                        float h01 = chunk.heightMap.getHeight(gx0, gy1);
-                        float h11 = chunk.heightMap.getHeight(gx1, gy1);
-                        float worldZ = chunk.position[2] +
-                                     (h00 * (1 - tx) * (1 - ty) +
-                                      h10 * tx * (1 - ty) +
-                                      h01 * (1 - tx) * ty +
-                                      h11 * tx * ty);
+                        const glm::vec3 surfacePoint = pipeline::TerrainMeshGenerator::chunkSurfacePoint(
+                            chunk.position, chunk.heightMap, fracX, fracY, unitSize);
+                        const float worldX = surfacePoint.x;
+                        const float worldY = surfacePoint.y;
+                        const float worldZ = surfacePoint.z;
 
                         PendingTile::M2Placement p;
                         p.modelId = proxyModelId;
