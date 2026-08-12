@@ -360,7 +360,13 @@ bool Application::initialize() {
         // own fonts on one machine and not on another. assetPath, not the raw
         // dataPath: extract_assets.sh always writes with --expansion-subdir,
         // so fonts live under expansions/<id>/ alongside everything else.
-        if (uiManager) uiManager->loadInterfaceFont(assetPath, assetManager.get());
+        // assetPath first, then dataPath: an extraction made with
+        // --expansion-subdir keeps its fonts under expansions/<id>/, and one
+        // made without keeps them in the base Data. Both exist in the wild.
+        if (uiManager) {
+            uiManager->loadInterfaceFont(assetPath, assetManager.get());
+            uiManager->loadInterfaceFont(dataPath, assetManager.get());
+        }
 
         // Renderer creation precedes AssetManager creation, so DBC-driven
         // lighting must be initialized here rather than in Renderer::initialize.
@@ -1155,7 +1161,10 @@ bool Application::initialize() {
 
     // If the archives never opened, the fonts were not tried at all. Loose
     // files are still worth a look, and this is still before the first frame.
-    if (uiManager) uiManager->loadInterfaceFont(assetPath, nullptr);
+    if (uiManager) {
+        uiManager->loadInterfaceFont(assetPath, nullptr);
+        uiManager->loadInterfaceFont(dataPath, nullptr);
+    }
 
     // Set up UI callbacks
     setupUICallbacks();

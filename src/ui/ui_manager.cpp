@@ -107,11 +107,17 @@ bool UIManager::initialize(core::Window* win) {
 void UIManager::loadInterfaceFont(const std::string& dataRoot,
                                   pipeline::AssetManager* assets) {
     if (!imguiInitialized) return;
-    // Called twice on purpose: once with the archives open, and once after in
-    // case they never opened. Whichever gets there first takes the face, and
-    // the atlas can only be added to before the first frame anyway.
+    // Called more than once on purpose: with the archives open and again after
+    // in case they never opened, and against more than one root because the
+    // fonts do not sit in the same place in every install. Whichever gets
+    // there first takes the face, and the atlas can only be added to before
+    // the first frame anyway.
+    //
+    // The flag latches on success only. It used to be set on the way in, so a
+    // root with no fonts under it stopped every later attempt: pointing this
+    // at the expansion overlay left an install that keeps its fonts in the
+    // base Data on the built-in face, and the second call could not save it.
     if (interfaceFontsLoaded_) return;
-    interfaceFontsLoaded_ = true;
     if (dataRoot.empty()) {
         // Nothing to search is not the same as searching and finding nothing,
         // and both end up in the built-in face.
@@ -251,6 +257,7 @@ void UIManager::loadInterfaceFont(const std::string& dataRoot,
         }
     }
     LOG_WARNING("Interface fonts loaded: ", loaded, " of 5 from ", fontDir.string());
+    if (loaded > 0) interfaceFontsLoaded_ = true;
 }
 
 void UIManager::shutdown() {
