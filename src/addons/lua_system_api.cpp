@@ -2233,7 +2233,15 @@ static int lua_GetBattlefieldFlagPosition(lua_State* L) {
 struct ChatWindowSettings {
     std::string name;
     float fontSize = 14.0f;
-    float r = 1.0f, g = 1.0f, b = 1.0f, alpha = 1.0f;
+    // Black at a quarter alpha, which is what the interface seeds a fresh
+    // window with: DEFAULT_CHATFRAME_COLOR is {0,0,0} and
+    // DEFAULT_CHATFRAME_ALPHA is 0.25, both in floatingchatframe.lua.
+    //
+    // These were white at full alpha. FCF_LoadChatSettings hands whatever is
+    // here to FCF_SetWindowColor and FCF_SetWindowAlpha for every window that
+    // has no saved settings of its own, so the chat opened behind an opaque
+    // white panel with the text on it.
+    float r = 0.0f, g = 0.0f, b = 0.0f, alpha = 0.25f;
     bool shown = false;
     bool locked = false;
     int  docked = 0;            // 0 = not docked; otherwise its place on the dock
