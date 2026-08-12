@@ -84,7 +84,6 @@ private:
     };
     static constexpr float WHISPER_TOAST_DURATION = 5.0f;
     std::vector<WhisperToastEntry> whisperToasts_;
-    size_t whisperSeenCount_ = 0;
     void renderWhisperToasts();
 
     // ---- Quest objective progress toast ----

@@ -132,27 +132,41 @@ def main():
             return False                       # anything else reads it
         return True
 
-    ACCESS = re.compile(r"^\s*(public|protected|private)\s*:", re.M)
-    AGGREGATE = re.compile(r"^\s*(class|struct)\s+\w", re.M)
+    # Access level, tracked with a brace stack rather than guessed from the
+    # nearest keyword.
+    #
+    # The guess broke on a nested aggregate: ToastManager::whisperSeenCount_
+    # follows `struct WhisperToastEntry { ... };`, and taking the last
+    # class-or-struct keyword before it read that struct's public default
+    # instead of the enclosing class's private section. It was reported as
+    # debt and not as a build failure, and Windows found it.
+    OPENER = re.compile(r"\b(class|struct|union)\b[^;{}]*\{")
+    ACCESS_LABEL = re.compile(r"\b(public|protected|private)\s*:")
 
-    def is_private(text, at):
-        """Access of a member at this offset, approximated from the labels.
-
-        Whichever came last before the declaration wins: an access label, or
-        the class or struct that opened. class defaults to private, struct to
-        public, which is the distinction clang's warning turns on.
-        """
-        label = None
-        for m in ACCESS.finditer(text, 0, at):
-            label = m.group(1)
-            label_at = m.start()
-        opener = None
-        for m in AGGREGATE.finditer(text, 0, at):
-            opener = m.group(1)
-            opener_at = m.start()
-        if label and (not opener or label_at > opener_at):
-            return label == "private"
-        return opener == "class"
+    def is_private_at(text, at):
+        """Whether a declaration at this offset sits in a private section."""
+        stack = []
+        i = 0
+        while i < at:
+            ch = text[i]
+            if ch == "{":
+                line_start = text.rfind("\n", 0, i) + 1
+                m = OPENER.search(text[line_start:i + 1])
+                stack.append(("private" if m.group(1) == "class" else "public")
+                             if m else None)
+            elif ch == "}":
+                if stack:
+                    stack.pop()
+            elif ch == ":":
+                line_start = text.rfind("\n", 0, i) + 1
+                m = ACCESS_LABEL.search(text[line_start:i + 1])
+                if m and stack and stack[-1] is not None:
+                    stack[-1] = m.group(1)
+            i += 1
+        for access in reversed(stack):
+            if access is not None:
+                return access == "private"
+        return False
 
     def never_referenced(name, path, decl_line, scope):
         """True when the declaration is the only mention anywhere."""
@@ -184,7 +198,7 @@ def main():
             # build failure on the Windows image, so it is counted apart from
             # the rest, which is debt rather than breakage.
             if never_referenced(name, header, decl_line, scope) and \
-                    is_private(text, m.start()):
+                    is_private_at(text, m.start()):
                 unreferenced.append(entry)
 
     print(f"{len(headers)} headers, {len(lines_for)} member names\n")

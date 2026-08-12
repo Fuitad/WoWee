@@ -331,7 +331,7 @@ local function buildPanel(category, settings)
 
     local title = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
     title:SetPoint("TOPLEFT", 16, -16)
-    title:SetText(ROOT .. " — " .. category)
+    title:SetText(ROOT .. ": " .. category)
 
     local layout = newLayout(panel)
     local controls = {}
@@ -485,13 +485,13 @@ elsewhereText:SetJustifyV("TOP")
 elsewhereText:SetText(
     "Some settings are driven by the game's own controls rather than repeated "
     .. "here, so that the two cannot disagree:\n\n"
-    .. "|cffffd100Video|r  —  resolution, view distance, ground clutter\n"
-    .. "|cffffd100Sound|r  —  enable sound, master, music, ambience, "
+    .. "|cffffd100Video|r  ..  resolution, view distance, ground clutter\n"
+    .. "|cffffd100Sound|r  ..  enable sound, master, music, ambience, "
     .. "sound effects\n"
-    .. "|cffffd100Interface|r  —  mouse look speed, the minimap clock, "
+    .. "|cffffd100Interface|r  ..  mouse look speed, the minimap clock, "
     .. "friendly nameplates\n"
-    .. "|cffffd100Interface, Social|r  —  chat timestamps\n"
-    .. "|cffffd100Key Bindings|r  —  every key")
+    .. "|cffffd100Interface, Social|r  ..  chat timestamps\n"
+    .. "|cffffd100Key Bindings|r  ..  every key")
 
 -- What this build is. The version comes from the client rather than being
 -- written here, where it would go stale the first time a tag was cut.
@@ -511,9 +511,9 @@ aboutText:SetPoint("TOPLEFT", 16, -398) -- needs 42
 aboutText:SetWidth(560)
 aboutText:SetJustifyH("LEFT")
 aboutText:SetJustifyV("TOP")
-aboutText:SetText("WoWee — a World of Warcraft client\n"
+aboutText:SetText("WoWee, a World of Warcraft client\n"
     .. (WoweeVersion and WoweeVersion() or "") .. "\n\n"
-    .. "Kelsi Davis  —  |cff66b3ffgithub.com/Kelsidavis/WoWee|r")
+    .. "Kelsi Davis  ..  |cff66b3ffgithub.com/Kelsidavis/WoWee|r")
 
 -- Find a setting without knowing which panel it is on.
 --
@@ -568,7 +568,7 @@ local function runSearch(query)
             -- straight through the two blocks under it.
             if found <= 5 then
                 shown[#shown + 1] = "|cffffd100" .. setting.label ..
-                                    "|r  —  " .. setting.category
+                                    "|r  in  " .. setting.category
             end
         end
     end

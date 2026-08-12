@@ -263,7 +263,6 @@ private:
 
     // Current state
     LightingParams currentParams_;
-    LightingParams targetParams_;  // For smooth blending
     std::vector<WeightedVolume> activeVolumes_;
     glm::vec3 currentPlayerPos_{0.0f};
     uint32_t currentMapId_ = 0;
