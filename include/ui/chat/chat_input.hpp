@@ -41,8 +41,6 @@ public:
 
     // ---- Sent-message history (Up/Down arrow recall) ----
     void pushToHistory(const std::string& msg);
-    std::string historyUp();
-    std::string historyDown();
     void resetHistoryIndex() { historyIdx_ = -1; }
     int getHistoryIndex() const { return historyIdx_; }
     const std::vector<std::string>& getSentHistory() const { return sentHistory_; }

@@ -192,11 +192,6 @@ void SkySystem::setWhiteLadyPhase(float phase) {
 void SkySystem::setBlueChildPhase(float phase) {
     if (celestial_) celestial_->setBlueChildPhase(phase);
 }
-
-float SkySystem::getWhiteLadyPhase() const {
-    return celestial_ ? celestial_->getMoonPhase() : 0.5f;
-}
-
 float SkySystem::getBlueChildPhase() const {
     return celestial_ ? celestial_->getBlueChildPhase() : 0.25f;
 }

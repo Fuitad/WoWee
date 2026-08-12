@@ -327,17 +327,6 @@ std::vector<TerrainIndex> TerrainMeshGenerator::generateIndices(const MapChunk& 
 
     return indices;
 }
-
-void TerrainMeshGenerator::calculateTexCoords(TerrainVertex& vertex, int x, int y) {
-    // Base texture coordinates (0-1 range across chunk)
-    vertex.texCoord[0] = x / 16.0f;
-    vertex.texCoord[1] = y / 16.0f;
-
-    // Layer UVs (same as base for now)
-    vertex.layerUV[0] = vertex.texCoord[0];
-    vertex.layerUV[1] = vertex.texCoord[1];
-}
-
 void TerrainMeshGenerator::decompressNormal(const int8_t* compressedNormal, float* normal) {
     // WoW stores normals as signed bytes (-127 to 127)
     // Convert to float and normalize
@@ -386,27 +375,5 @@ glm::vec3 TerrainMeshGenerator::chunkSurfacePoint(const float chunkPosition[3],
                           h11 * tx * ty);
     return glm::vec3(worldX, worldY, worldZ);
 }
-
-int TerrainMeshGenerator::getVertexIndex(int x, int y) {
-    // Convert virtual grid position (0-16) to actual vertex index (0-144)
-    // Outer vertices (even positions): 0-80 (9x9 grid)
-    // Inner vertices (odd positions): 81-144 (8x8 grid)
-
-    bool isOuter = (y % 2 == 0) && (x % 2 == 0);
-    bool isInner = (y % 2 == 1) && (x % 2 == 1);
-
-    if (isOuter) {
-        int gridX = x / 2;
-        int gridY = y / 2;
-        return gridY * 9 + gridX;  // 0-80
-    } else if (isInner) {
-        int gridX = (x - 1) / 2;
-        int gridY = (y - 1) / 2;
-        return 81 + gridY * 8 + gridX;  // 81-144
-    }
-
-    return -1;  // Invalid position
-}
-
 } // namespace pipeline
 } // namespace wowee

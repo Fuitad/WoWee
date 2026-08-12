@@ -114,7 +114,6 @@ public:
     void setWhiteLadyPhase(float phase);
     void setBlueChildPhase(float phase);
 
-    float getWhiteLadyPhase() const;
     float getBlueChildPhase() const;
 
     // Component accessors (for direct control if needed)

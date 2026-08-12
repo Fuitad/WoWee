@@ -186,13 +186,6 @@ public:
     WardenModuleManager();
     ~WardenModuleManager();
 
-    /**
-     * Check if we have module cached locally
-     *
-     * @param md5Hash Module identifier
-     * @return true if module is cached
-     */
-    bool hasModule(const std::vector<uint8_t>& md5Hash);
 
     /**
      * Get or create module instance

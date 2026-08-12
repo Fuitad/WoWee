@@ -108,8 +108,6 @@ public:
     /// that project inside it.
     std::vector<Landmark> currentLandmarks() const;
 
-    /// The area id the map is showing, or zero at continent and cosmic level.
-    uint32_t currentAreaId() const;
 
     /// The zone under a point on the map being shown, in [0,1] map space, or
     /// -1. Continent view only: a zone's own map has no child zones to name.

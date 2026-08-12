@@ -64,8 +64,6 @@ public:
     VkImage getSceneDepthImage() const;
     bool sceneDepthIsMsaa() const;
 
-    /// True if any post-process pipeline is active (FSR/FXAA/FSR2).
-    bool hasActivePostProcess() const;
 
     /// True when FXAA alone (no FSR2) needs its own off-screen pass.
     bool useFXAAPostPass() const { return fxaa_.enabled; }
@@ -285,7 +283,6 @@ private:
     bool initFSR2Resources();
     void destroyFSR2Resources();
     void dispatchMotionVectors();
-    void dispatchTemporalAccumulate();
     void dispatchAmdFsr2();
     void dispatchAmdFsr3Framegen();
     void renderFSR2Sharpen();

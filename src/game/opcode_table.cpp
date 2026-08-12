@@ -197,15 +197,6 @@ static bool loadOpcodeJsonRecursive(const std::filesystem::path& path,
     loadingStack.erase(canonicalKey);
     return ok;
 }
-
-std::optional<LogicalOpcode> OpcodeTable::nameToLogical(const std::string& name) {
-    const std::string_view canonical = canonicalOpcodeName(name);
-    for (size_t i = 0; i < kOpcodeNameCount; ++i) {
-        if (canonical == kOpcodeNames[i].name) return kOpcodeNames[i].op;
-    }
-    return std::nullopt;
-}
-
 const char* OpcodeTable::logicalToName(LogicalOpcode op) {
     uint16_t val = static_cast<uint16_t>(op);
     for (size_t i = 0; i < kOpcodeNameCount; ++i) {

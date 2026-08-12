@@ -179,41 +179,6 @@ void CameraController::startIntroPan(float durationSec, float orbitDegrees) {
     introEndDistance = currentDistance;
     thirdPerson = true;
 }
-
-std::optional<float> CameraController::getCachedFloorHeight(float x, float y, float z) {
-    // Check cache validity (position within threshold and frame count)
-    glm::vec2 queryPos(x, y);
-    glm::vec2 cachedPos(lastFloorQueryPos.x, lastFloorQueryPos.y);
-    glm::vec2 dq = queryPos - cachedPos;
-    float distSq = glm::dot(dq, dq);
-    constexpr float kFloorThresholdSq = FLOOR_QUERY_DISTANCE_THRESHOLD * FLOOR_QUERY_DISTANCE_THRESHOLD;
-
-    if (distSq < kFloorThresholdSq && floorQueryFrameCounter < FLOOR_QUERY_FRAME_INTERVAL) {
-        floorQueryFrameCounter++;
-        return cachedFloorHeight;
-    }
-
-    // Cache miss - query and update
-    floorQueryFrameCounter = 0;
-    lastFloorQueryPos = glm::vec3(x, y, z);
-
-    std::optional<float> result;
-    if (terrainManager) {
-        result = terrainManager->getHeightAt(x, y);
-    }
-    if (wmoRenderer) {
-        auto wh = wmoRenderer->getFloorHeight(x, y, z + 2.0f);
-        if (wh && (!result || *wh > *result)) result = wh;
-    }
-    if (m2Renderer && !externalFollow_) {
-        auto mh = m2Renderer->getFloorHeight(x, y, z);
-        if (mh && (!result || *mh > *result)) result = mh;
-    }
-
-    cachedFloorHeight = result;
-    return result;
-}
-
 float CameraController::raymarchTerrainCameraLimit(const glm::vec3& pivot, const glm::vec3& camDir,
                                                    float maxDist) const {
     if (!terrainManager || maxDist <= MIN_DISTANCE) return maxDist;

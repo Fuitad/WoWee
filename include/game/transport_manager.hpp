@@ -201,7 +201,6 @@ public:
     glm::vec3 getPlayerWorldPosition(uint64_t transportGuid, const glm::vec3& localOffset);
     glm::vec3 serverToTransportLocal(uint64_t transportGuid,
                                      const glm::vec3& serverOffset) const;
-    glm::mat4 getTransportInvTransform(uint64_t transportGuid);
     // Adopt the server's published route phase for a transport. phase is a
     // fraction in [0,1) of periodMs. Cheap and idempotent - safe to call on every
     // object update that carries the fields.

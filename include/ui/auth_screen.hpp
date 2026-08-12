@@ -144,7 +144,6 @@ private:
     std::future<DecodedBackground> bgDecodeFuture;
     bool bgDecodeStarted = false;
     bool uploadBackgroundImage(const unsigned char* pixels);
-    void destroyBackgroundImage();
     rendering::VkContext* bgVkCtx = nullptr;
     VkImage bgImage = VK_NULL_HANDLE;
     VkDeviceMemory bgMemory = VK_NULL_HANDLE;

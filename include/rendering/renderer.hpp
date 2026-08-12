@@ -289,7 +289,6 @@ public:
     void setFSR2Enabled(bool enabled);
 
     void setWaterRefractionEnabled(bool enabled);
-    bool isWaterRefractionEnabled() const;
 
 private:
     void applyMsaaChange();

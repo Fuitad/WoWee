@@ -130,10 +130,6 @@ private:
      */
     static std::vector<TerrainIndex> generateIndices(const MapChunk& chunk);
 
-    /**
-     * Calculate texture coordinates for vertex
-     */
-    static void calculateTexCoords(TerrainVertex& vertex, int x, int y);
 
     /**
      * Convert WoW's compressed normals to float
@@ -145,10 +141,6 @@ private:
      */
     static float getHeightAt(const HeightMap& heightMap, int x, int y);
 
-    /**
-     * Convert grid coordinates to vertex index
-     */
-    static int getVertexIndex(int x, int y);
 
 
     // Terrain constants

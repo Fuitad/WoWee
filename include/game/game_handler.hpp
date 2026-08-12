@@ -249,7 +249,6 @@ public:
     void setActiveCharacterGuid(uint64_t guid) { activeCharacterGuid_ = guid; }
     uint64_t getActiveCharacterGuid() const { return activeCharacterGuid_; }
     const Character* getActiveCharacter() const;
-    const Character* getFirstCharacter() const;
 
     /**
      * Get current player movement info
@@ -3050,7 +3049,6 @@ public:
     bool isSocketingOpen() const;
     uint64_t getSocketItemGuid() const;
     uint32_t getSocketItemId() const;
-    uint64_t getSocketPendingGemGuid(int index) const;
     uint32_t getSocketPendingGemItemId(int index) const;
     void openSocketing(uint64_t itemGuid);
     void closeSocketing();
@@ -3701,9 +3699,6 @@ public:
     /// summons with SummonProperties 41. Rebuilt when the spellbook changes,
     /// because that is the only thing that can change the answer.
     const std::vector<Companion>& getCompanions(bool mounts) const;
-    /// Whether a creature template entry is one a known critter spell summons,
-    /// so a query answer about it is worth telling the companion tab about.
-    bool isCompanionCreature(uint32_t entry) const;
     /// "MOUNT", "CRITTER", or empty for a creature that is neither. Both kinds
     /// hold a creature template entry and both need a display id looked up, so
     /// both wait on a query coming back - and the tab is told which list to
@@ -3940,8 +3935,6 @@ private:
     void clearPendingQuestAccept(uint32_t questId);
     void triggerQuestAcceptResync(uint32_t questId, uint64_t npcGuid, const char* reason);
     bool hasQuestInLog(uint32_t questId) const;
-    std::string getQuestTitle(uint32_t questId) const;
-    const QuestLogEntry* findQuestLogEntry(uint32_t questId) const;
     int findQuestLogSlotIndexFromServer(uint32_t questId) const;
     void addQuestToLocalLogIfMissing(uint32_t questId, const std::string& title, const std::string& objectives);
     bool resyncQuestLogFromServerSlots(bool forceQueryMetadata);
@@ -4833,7 +4826,6 @@ private:
     uint32_t playerRestedXp_ = 0;
     bool isResting_ = false;
     uint32_t serverPlayerLevel_ = 1;
-    static uint32_t xpForLevel(uint32_t level);
 
     // ---- Server time tracking (for deterministic celestial/sky systems) ----
     float gameTime_ = 0.0f;       // Server game time in seconds

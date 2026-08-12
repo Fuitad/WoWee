@@ -1306,11 +1306,6 @@ void WMORenderer::setCollisionFocus(const glm::vec3& worldPos, float radius) {
     collisionFocusRadius = std::max(0.0f, radius);
     collisionFocusRadiusSq = collisionFocusRadius * collisionFocusRadius;
 }
-
-void WMORenderer::clearCollisionFocus() {
-    collisionFocusEnabled = false;
-}
-
 // setLighting is now a no-op (lighting is in the per-frame UBO)
 
 void WMORenderer::resetQueryStats() {
@@ -2930,23 +2925,6 @@ void WMORenderer::GroupResources::buildCollisionGrid() {
         }
     }
 }
-
-const std::vector<uint32_t>* WMORenderer::GroupResources::getTrianglesAtLocal(float localX, float localY) const {
-    if (gridCellsX == 0 || gridCellsY == 0) return nullptr;
-
-    float extentX = boundingBoxMax.x - boundingBoxMin.x;
-    float extentY = boundingBoxMax.y - boundingBoxMin.y;
-    float invCellW = gridCellsX / std::max(0.01f, extentX);
-    float invCellH = gridCellsY / std::max(0.01f, extentY);
-
-    int cx = static_cast<int>((localX - gridOrigin.x) * invCellW);
-    int cy = static_cast<int>((localY - gridOrigin.y) * invCellH);
-
-    if (cx < 0 || cx >= gridCellsX || cy < 0 || cy >= gridCellsY) return nullptr;
-
-    return &cellTriangles[cy * gridCellsX + cx];
-}
-
 /// The triangles of one cell array that a query box reaches.
 ///
 /// Three queries walk this grid, for any triangle, for floors and for walls,

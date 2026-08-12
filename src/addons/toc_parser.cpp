@@ -8,12 +8,6 @@ std::string TocFile::getTitle() const {
     auto it = directives.find("Title");
     return (it != directives.end()) ? it->second : addonName;
 }
-
-std::string TocFile::getInterface() const {
-    auto it = directives.find("Interface");
-    return (it != directives.end()) ? it->second : "";
-}
-
 bool TocFile::isLoadOnDemand() const {
     auto it = directives.find("LoadOnDemand");
     return (it != directives.end()) && it->second == "1";

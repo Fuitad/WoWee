@@ -66,8 +66,6 @@ public:
                             const std::string& senderName,
                             const std::string* targetName = nullptr) const;
 
-    /// Get the full EmoteInfo for a command (nullptr if not found).
-    const EmoteInfo* findInfo(const std::string& command) const;
 
 private:
     EmoteRegistry() = default;

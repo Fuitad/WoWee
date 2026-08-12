@@ -263,16 +263,6 @@ const char* WorldLoader::mapIdToName(uint32_t mapId) {
         default: return "";
     }
 }
-
-int WorldLoader::mapNameToId(const std::string& name) {
-    // Reverse lookup: iterate known continent IDs and match against mapIdToName.
-    static constexpr uint32_t kContinentIds[] = {0, 1, 530, 571};
-    for (uint32_t id : kContinentIds) {
-        if (name == mapIdToName(id)) return static_cast<int>(id);
-    }
-    return -1;
-}
-
 void WorldLoader::processPendingEntry() {
     if (!pendingWorldEntry_ || loadingWorld_) return;
     auto entry = *pendingWorldEntry_;

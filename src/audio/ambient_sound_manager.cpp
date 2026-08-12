@@ -561,11 +561,6 @@ void AmbientSoundManager::removeEmitter(uint64_t id) {
         emitters_.end()
     );
 }
-
-void AmbientSoundManager::clearEmitters() {
-    emitters_.clear();
-}
-
 void AmbientSoundManager::setGameTime(float hours) {
     gameTimeHours_ = std::fmod(hours, 24.0f);
     if (gameTimeHours_ < 0.0f) gameTimeHours_ += 24.0f;

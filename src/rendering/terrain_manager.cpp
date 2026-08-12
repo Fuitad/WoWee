@@ -2778,10 +2778,5 @@ uint8_t TerrainManager::getCollisionFlags(float glX, float glY) const {
     }
     return 0x01; // default walkable if no collision data
 }
-
-bool TerrainManager::isPositionWalkable(float glX, float glY) const {
-    return (getCollisionFlags(glX, glY) & 0x01) != 0;
-}
-
 } // namespace rendering
 } // namespace wowee

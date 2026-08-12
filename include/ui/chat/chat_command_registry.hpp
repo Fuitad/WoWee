@@ -33,11 +33,7 @@ public:
     /** Get all command aliases matching a prefix (for tab completion). */
     std::vector<std::string> getCompletions(const std::string& prefix) const;
 
-    /** Get help entries: (alias, helpText) for all registered commands. */
-    std::vector<std::pair<std::string, std::string>> getHelpEntries() const;
 
-    /** Check if a command alias is registered. */
-    bool hasCommand(const std::string& alias) const;
 
 private:
     // alias → raw pointer (non-owning, commands_ owns the objects)

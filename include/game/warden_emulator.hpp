@@ -98,10 +98,6 @@ public:
      */
     bool freeMemory(uint32_t address);
 
-    /**
-     * Get CPU register value
-     */
-    uint32_t getRegister(int regId);
 
     /**
      * Set CPU register value

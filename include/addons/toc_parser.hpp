@@ -15,7 +15,6 @@ struct TocFile {
     std::vector<std::string> files;
 
     std::string getTitle() const;
-    std::string getInterface() const;
     bool isLoadOnDemand() const;
     std::vector<std::string> getSavedVariables() const;
     std::vector<std::string> getSavedVariablesPerCharacter() const;

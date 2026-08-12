@@ -416,10 +416,6 @@ void M2Renderer::setCollisionFocus(const glm::vec3& worldPos, float radius) {
     collisionFocusRadiusSq = collisionFocusRadius * collisionFocusRadius;
 }
 
-void M2Renderer::clearCollisionFocus() {
-    collisionFocusEnabled = false;
-}
-
 void M2Renderer::resetQueryStats() {
     queryTimeMs = 0.0;
     queryCallCount = 0;

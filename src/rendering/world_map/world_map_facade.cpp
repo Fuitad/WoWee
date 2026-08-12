@@ -727,14 +727,6 @@ std::vector<OverlayEntry> WorldMapFacade::currentOverlays() const {
     if (zones[static_cast<size_t>(idx)].areaID == 0) return {};
     return zones[static_cast<size_t>(idx)].overlays;
 }
-
-uint32_t WorldMapFacade::currentAreaId() const {
-    const int idx = impl_->viewState.currentZoneIdx();
-    const auto& zones = impl_->data.zones();
-    if (idx < 0 || idx >= static_cast<int>(zones.size())) return 0;
-    return zones[static_cast<size_t>(idx)].areaID;
-}
-
 bool WorldMapFacade::mapUVForCanonical(float wowX, float wowY, float wowZ,
                                        float& u, float& v) const {
     const int idx = impl_->viewState.currentZoneIdx();

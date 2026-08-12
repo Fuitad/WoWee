@@ -425,15 +425,6 @@ bool WardenEmulator::freeMemory(uint32_t address) {
 
     return true;
 }
-
-uint32_t WardenEmulator::getRegister(int regId) {
-    uint32_t value = 0;
-    if (uc_) {
-        uc_reg_read(uc_, regId, &value);
-    }
-    return value;
-}
-
 void WardenEmulator::setRegister(int regId, uint32_t value) {
     if (uc_) {
         uc_reg_write(uc_, regId, &value);

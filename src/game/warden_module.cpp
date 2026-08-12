@@ -1216,18 +1216,6 @@ WardenModuleManager::WardenModuleManager() {
 WardenModuleManager::~WardenModuleManager() {
     modules_.clear();
 }
-
-bool WardenModuleManager::hasModule(const std::vector<uint8_t>& md5Hash) {
-    // Check in-memory cache
-    if (modules_.find(md5Hash) != modules_.end()) {
-        return modules_[md5Hash]->isLoaded();
-    }
-
-    // Check disk cache
-    std::vector<uint8_t> dummy;
-    return loadCachedModule(md5Hash, dummy);
-}
-
 std::shared_ptr<WardenModule> WardenModuleManager::getModule(const std::vector<uint8_t>& md5Hash) {
     auto it = modules_.find(md5Hash);
     if (it != modules_.end()) {

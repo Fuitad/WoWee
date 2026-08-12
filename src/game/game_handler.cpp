@@ -969,12 +969,6 @@ static constexpr uint32_t XP_TABLE[] = {
     1539600, 1555700, 1571800, 1587900, 1604200, 1620700, 1637400, 1653900, 1670800           // 71-79
 };
 static constexpr uint32_t XP_TABLE_SIZE = sizeof(XP_TABLE) / sizeof(XP_TABLE[0]);
-
-uint32_t GameHandler::xpForLevel(uint32_t level) {
-    if (level == 0 || level >= XP_TABLE_SIZE) return 0;
-    return XP_TABLE[level];
-}
-
 uint32_t GameHandler::killXp(uint32_t playerLevel, uint32_t victimLevel) {
     return CombatHandler::killXp(playerLevel, victimLevel);
 }
@@ -3316,11 +3310,6 @@ const std::vector<Companion>& GameHandler::getCompanions(bool mounts) const {
     rebuildCompanions();
     return mounts ? mountSpells_ : critterSpells_;
 }
-
-bool GameHandler::isCompanionCreature(uint32_t entry) const {
-    return !companionKindForCreature(entry).empty();
-}
-
 std::string GameHandler::companionKindForCreature(uint32_t entry) const {
     if (entry == 0) return {};
     // Both lists, not critters alone. A mount's creature id was taken for a

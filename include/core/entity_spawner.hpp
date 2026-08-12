@@ -266,7 +266,6 @@ public:
         /// this as nothing to draw.
         bool valid() const { return !m2Path.empty() && !skin1.empty(); }
     };
-    CreatureModel creatureModelFor(uint32_t displayId) const;
     uint32_t getGryphonDisplayId() const { return gryphonDisplayId_; }
     uint32_t getWyvernDisplayId() const { return wyvernDisplayId_; }
 

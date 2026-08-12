@@ -519,12 +519,6 @@ const Character* GameHandler::getActiveCharacter() const {
     }
     return nullptr;
 }
-
-const Character* GameHandler::getFirstCharacter() const {
-    if (characters.empty()) return nullptr;
-    return &characters.front();
-}
-
 void GameHandler::playErrorSpeech(audio::PlayerErrorSpeech type) {
     auto* ac = services_.audioCoordinator;
     if (!ac) return;
@@ -1269,12 +1263,6 @@ uint64_t GameHandler::getSocketItemGuid() const {
 uint32_t GameHandler::getSocketItemId() const {
     return inventoryHandler_ ? inventoryHandler_->getSocketSession().itemId : 0;
 }
-
-uint64_t GameHandler::getSocketPendingGemGuid(int index) const {
-    if (!inventoryHandler_ || index < 0 || index > 2) return 0;
-    return inventoryHandler_->getSocketSession().newGemGuid[index];
-}
-
 uint32_t GameHandler::getSocketPendingGemItemId(int index) const {
     if (!inventoryHandler_ || index < 0 || index > 2) return 0;
     return inventoryHandler_->getSocketSession().newGemItemId[index];
@@ -3149,23 +3137,6 @@ std::string GameHandler::guidToUnitId(uint64_t guid) const {
     if (guid == petGuid_)        return "pet";
     return {};
 }
-
-// Both read through getQuestLog(), which delegates to QuestHandler - the only
-// place a quest log is ever filled in. They used to walk a GameHandler member
-// of the same name that the decomposition left behind and nothing ever wrote,
-// so every title came back empty and every lookup came back null.
-std::string GameHandler::getQuestTitle(uint32_t questId) const {
-    for (const auto& q : getQuestLog())
-        if (q.questId == questId && !q.title.empty()) return q.title;
-    return {};
-}
-
-const GameHandler::QuestLogEntry* GameHandler::findQuestLogEntry(uint32_t questId) const {
-    for (const auto& q : getQuestLog())
-        if (q.questId == questId) return &q;
-    return nullptr;
-}
-
 int GameHandler::findQuestLogSlotIndexFromServer(uint32_t questId) const {
     if (questHandler_) return questHandler_->findQuestLogSlotIndexFromServer(questId);
     return 0;

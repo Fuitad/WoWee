@@ -536,15 +536,6 @@ std::shared_ptr<DBCFile> AssetManager::loadDBCOptional(const std::string& name) 
     LOG_INFO("Loaded optional DBC: ", name, " (", dbc->getRecordCount(), " records)");
     return dbc;
 }
-
-std::shared_ptr<DBCFile> AssetManager::getDBC(const std::string& name) const {
-    auto it = dbcCache.find(name);
-    if (it != dbcCache.end()) {
-        return it->second;
-    }
-    return nullptr;
-}
-
 bool AssetManager::fileExists(const std::string& path) const {
     if (!initialized) {
         return false;

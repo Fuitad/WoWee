@@ -25,7 +25,6 @@ public:
     // Factory methods
     static BigNum fromRandom(int bytes);
     static BigNum fromHex(const std::string& hex);
-    static BigNum fromDecimal(const std::string& dec);
 
     // Arithmetic operations
     BigNum add(const BigNum& other) const;

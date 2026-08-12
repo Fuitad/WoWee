@@ -62,22 +62,6 @@ EntitySpawner::EntitySpawner(rendering::Renderer* renderer,
 }
 
 EntitySpawner::~EntitySpawner() = default;
-
-EntitySpawner::CreatureModel EntitySpawner::creatureModelFor(uint32_t displayId) const {
-    CreatureModel out;
-    const auto display = displayDataMap_.find(displayId);
-    if (display == displayDataMap_.end()) return out;
-
-    out.modelId = display->second.modelId;
-    out.skin1 = display->second.skin1;
-    out.skin2 = display->second.skin2;
-    out.skin3 = display->second.skin3;
-
-    const auto path = modelIdToPath_.find(out.modelId);
-    if (path != modelIdToPath_.end()) out.m2Path = path->second;
-    return out;
-}
-
 // --- Lifecycle ---
 
 void EntitySpawner::initialize() {

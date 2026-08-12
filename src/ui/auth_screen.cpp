@@ -1089,18 +1089,6 @@ bool AuthScreen::uploadBackgroundImage(const unsigned char* data) {
     LOG_INFO("Auth screen background loaded: ", bgWidth, "x", bgHeight);
     return true;
 }
-
-void AuthScreen::destroyBackgroundImage() {
-    if (!bgVkCtx) return;
-    VkDevice device = bgVkCtx->getDevice();
-    vkDeviceWaitIdle(device);
-    if (bgDescriptorSet) { ImGui_ImplVulkan_RemoveTexture(bgDescriptorSet); bgDescriptorSet = VK_NULL_HANDLE; }
-    bgSampler = VK_NULL_HANDLE; // Owned by VkContext sampler cache
-    if (bgImageView) { vkDestroyImageView(device, bgImageView, nullptr); bgImageView = VK_NULL_HANDLE; }
-    if (bgImage) { vkDestroyImage(device, bgImage, nullptr); bgImage = VK_NULL_HANDLE; }
-    if (bgMemory) { vkFreeMemory(device, bgMemory, nullptr); bgMemory = VK_NULL_HANDLE; }
-}
-
 // ---------------------------------------------------------------------------
 // Login-screen graphics settings popup
 // ---------------------------------------------------------------------------

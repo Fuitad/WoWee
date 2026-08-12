@@ -486,15 +486,6 @@ std::optional<float> TransportManager::getTransportDeckFloorHeight(
     if (!floor || normalZ < 0.55f) return std::nullopt;
     return floor;
 }
-
-glm::mat4 TransportManager::getTransportInvTransform(uint64_t transportGuid) {
-    auto* transport = getTransport(transportGuid);
-    if (!transport) {
-        return glm::mat4(1.0f);  // Identity fallback
-    }
-    return transport->invTransform;
-}
-
 void TransportManager::loadPathFromNodes(uint32_t pathId, const std::vector<glm::vec3>& waypoints, bool looping, float speed) {
     pathRepo_.loadPathFromNodes(pathId, waypoints, looping, speed);
 }

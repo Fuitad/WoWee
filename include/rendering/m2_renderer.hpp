@@ -472,7 +472,6 @@ public:
     std::optional<float> getFloorHeight(float glX, float glY, float glZ, float* outNormalZ = nullptr) const;
     float raycastBoundingBoxes(const glm::vec3& origin, const glm::vec3& direction, float maxDistance) const;
     void setCollisionFocus(const glm::vec3& worldPos, float radius);
-    void clearCollisionFocus();
 
     void resetQueryStats();
     double getQueryTimeMs() const { return queryTimeMs; }

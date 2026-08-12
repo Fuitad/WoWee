@@ -94,12 +94,6 @@ public:
      */
     std::shared_ptr<DBCFile> loadDBCOptional(const std::string& name);
 
-    /**
-     * Get a cached DBC file
-     * @param name DBC file name
-     * @return Cached DBC or nullptr if not loaded
-     */
-    std::shared_ptr<DBCFile> getDBC(const std::string& name) const;
 
     /**
      * Check if a file exists

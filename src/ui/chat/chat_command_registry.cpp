@@ -46,23 +46,5 @@ std::vector<std::string> ChatCommandRegistry::getCompletions(const std::string& 
     std::sort(results.begin(), results.end());
     return results;
 }
-
-std::vector<std::pair<std::string, std::string>> ChatCommandRegistry::getHelpEntries() const {
-    std::vector<std::pair<std::string, std::string>> entries;
-    for (const auto& cmd : commands_) {
-        const auto& aliases = cmd->aliases();
-        std::string helpText = cmd->helpText();
-        if (!aliases.empty() && !helpText.empty()) {
-            entries.emplace_back("/" + aliases[0], helpText);
-        }
-    }
-    std::sort(entries.begin(), entries.end());
-    return entries;
-}
-
-bool ChatCommandRegistry::hasCommand(const std::string& alias) const {
-    return commandMap_.find(alias) != commandMap_.end();
-}
-
 } // namespace ui
 } // namespace wowee

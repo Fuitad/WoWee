@@ -382,8 +382,6 @@ private:
     static constexpr float FLOOR_QUERY_DISTANCE_THRESHOLD = 2.0f;  // Increased from 1.0
     static constexpr int FLOOR_QUERY_FRAME_INTERVAL = 5;  // Increased from 3
 
-    // Helper to get cached floor height (reduces expensive queries)
-    std::optional<float> getCachedFloorHeight(float x, float y, float z);
 
     // Ray-march the terrain heightfield along pivot→camDir and return the
     // farthest camera distance that keeps clearance above the terrain surface.

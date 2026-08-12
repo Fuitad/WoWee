@@ -381,7 +381,6 @@ public:
      * Limit expensive collision/raycast queries to objects near a focus point.
      */
     void setCollisionFocus(const glm::vec3& worldPos, float radius);
-    void clearCollisionFocus();
 
     void resetQueryStats();
     double getQueryTimeMs() const { return queryTimeMs; }
@@ -536,8 +535,6 @@ private:
         // Build the spatial grid from collision geometry
         void buildCollisionGrid();
 
-        // Get triangle indices for a local-space XY point
-        const std::vector<uint32_t>* getTrianglesAtLocal(float localX, float localY) const;
 
         // Get triangle indices for a local-space XY range (for wall collision)
         /// The triangles of one of the three cell arrays that a query box
@@ -889,8 +886,6 @@ private:
                static_cast<uint64_t>(static_cast<uint32_t>(iy));
     }
 
-    // Compute floor height for a single cell (expensive, done at load time)
-    std::optional<float> computeFloorHeightSlow(float x, float y, float refZ) const;
 
     // Active WMO group tracking - reduces per-query group iteration
     struct ActiveGroupInfo {

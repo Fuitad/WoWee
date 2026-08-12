@@ -29,11 +29,6 @@ public:
      */
     static bool fileExists(const std::string& filesystemPath);
 
-    /**
-     * Get file size without reading
-     * @return Size in bytes, or 0 if not found
-     */
-    static uint64_t getFileSize(const std::string& filesystemPath);
 };
 
 } // namespace pipeline

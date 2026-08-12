@@ -244,20 +244,6 @@ VkPipelineColorBlendAttachmentState PipelineBuilder::blendAlpha() {
     state.alphaBlendOp = VK_BLEND_OP_ADD;
     return state;
 }
-
-VkPipelineColorBlendAttachmentState PipelineBuilder::blendPremultiplied() {
-    VkPipelineColorBlendAttachmentState state{};
-    state.colorWriteMask = kColorWriteAll;
-    state.blendEnable = VK_TRUE;
-    state.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
-    state.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-    state.colorBlendOp = VK_BLEND_OP_ADD;
-    state.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-    state.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-    state.alphaBlendOp = VK_BLEND_OP_ADD;
-    return state;
-}
-
 VkPipelineColorBlendAttachmentState PipelineBuilder::blendAdditive() {
     VkPipelineColorBlendAttachmentState state{};
     state.colorWriteMask = kColorWriteAll;

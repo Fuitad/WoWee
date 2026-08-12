@@ -351,12 +351,6 @@ bool EmoteRegistry::isStateEmote(uint32_t emoteId) const {
 uint32_t EmoteRegistry::getStateVariant(uint32_t oneShotAnimId) const {
     return getEmoteStateVariantStatic(oneShotAnimId);
 }
-
-const EmoteInfo* EmoteRegistry::findInfo(const std::string& command) const {
-    auto it = emoteTable_.find(command);
-    return it != emoteTable_.end() ? &it->second : nullptr;
-}
-
 std::string EmoteRegistry::textFor(const std::string& emoteName,
                                    const std::string* targetName) const {
     auto it = emoteTable_.find(emoteName);

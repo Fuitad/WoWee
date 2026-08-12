@@ -190,9 +190,6 @@ private:
      *  chat, Whispers tab → whisper with last sender, Trade/LFG → channel). */
     void onTabActivated(int tab, game::GameHandler& gameHandler);
 
-    /** Tab key with an empty input: cycle Say → Party → Guild → Whisper →
-     *  Channel through the types currently available to the player. */
-    void cycleChatType(bool backwards);
 
     // Macro stop flag
     bool macroStopped_ = false;
@@ -237,7 +234,6 @@ private:
     // ---- Helpers ----
     void sendChatMessage(game::GameHandler& gameHandler);
     static int inputTextCallback(ImGuiInputTextCallbackData* data);
-    void detectChannelPrefix(game::GameHandler& gameHandler);
 
     // Cached game handler for input callback (set each frame in render)
     game::GameHandler* cachedGameHandler_ = nullptr;

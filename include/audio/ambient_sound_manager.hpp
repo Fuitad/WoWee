@@ -78,7 +78,6 @@ public:
 
     uint64_t addEmitter(const glm::vec3& position, AmbientType type);
     void removeEmitter(uint64_t id);
-    void clearEmitters();
 
     // Time of day control (0-24 hours)
     void setGameTime(float hours);

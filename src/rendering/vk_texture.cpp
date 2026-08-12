@@ -263,24 +263,6 @@ bool VkTexture::createSampler(VkDevice device,
     samplerInfo.maxLod = static_cast<float>(mipLevels_ > 0 ? mipLevels_ - 1 : 0);
     return finalizeSampler(device, samplerInfo);
 }
-
-bool VkTexture::createShadowSampler(VkDevice device) {
-    VkSamplerCreateInfo samplerInfo{};
-    samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-    samplerInfo.minFilter = VK_FILTER_NEAREST;
-    samplerInfo.magFilter = VK_FILTER_NEAREST;
-    samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
-    samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
-    samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
-    samplerInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
-    samplerInfo.compareEnable = VK_TRUE;
-    samplerInfo.compareOp = VK_COMPARE_OP_GREATER_OR_EQUAL;
-    samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
-    samplerInfo.minLod = 0.0f;
-    samplerInfo.maxLod = 0.0f;
-    return finalizeSampler(device, samplerInfo);
-}
-
 void VkTexture::destroy(VkDevice device, VmaAllocator allocator) {
     if (sampler_ != VK_NULL_HANDLE && ownsSampler_) {
         vkDestroySampler(device, sampler_, nullptr);

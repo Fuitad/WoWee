@@ -2153,31 +2153,5 @@ void WaterRenderer::destroyWater1xResources() {
     destroy(device, water1xPipeline);
     if (water1xRenderPass) { vkDestroyRenderPass(device, water1xRenderPass, nullptr); water1xRenderPass = VK_NULL_HANDLE; }
 }
-
-bool WaterRenderer::beginWater1xPass(VkCommandBuffer cmd, uint32_t imageIndex, VkExtent2D extent) {
-    if (!water1xRenderPass || imageIndex >= water1xFramebuffers.size() || !water1xFramebuffers[imageIndex])
-        return false;
-
-    VkRenderPassBeginInfo rpBI{};
-    rpBI.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    rpBI.renderPass = water1xRenderPass;
-    rpBI.framebuffer = water1xFramebuffers[imageIndex];
-    rpBI.renderArea = {{0, 0}, extent};
-    rpBI.clearValueCount = 0;
-    rpBI.pClearValues = nullptr;
-    vkCmdBeginRenderPass(cmd, &rpBI, VK_SUBPASS_CONTENTS_INLINE);
-
-    VkViewport vp{0, 0, static_cast<float>(extent.width), static_cast<float>(extent.height), 0.0f, 1.0f};
-    vkCmdSetViewport(cmd, 0, 1, &vp);
-    VkRect2D sc{{0, 0}, extent};
-    vkCmdSetScissor(cmd, 0, 1, &sc);
-
-    return true;
-}
-
-void WaterRenderer::endWater1xPass(VkCommandBuffer cmd) {
-    vkCmdEndRenderPass(cmd);
-}
-
 } // namespace rendering
 } // namespace wowee

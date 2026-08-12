@@ -753,11 +753,6 @@ void Renderer::unregisterPreview(CharacterPreview* preview) {
 void Renderer::setWaterRefractionEnabled(bool enabled) {
     if (waterRenderer) waterRenderer->setRefractionEnabled(enabled);
 }
-
-bool Renderer::isWaterRefractionEnabled() const {
-    return waterRenderer && waterRenderer->isRefractionEnabled();
-}
-
 void Renderer::setMsaaSamples(VkSampleCountFlagBits samples) {
     if (!vkCtx) return;
 

@@ -176,13 +176,6 @@ bool PostProcessPipeline::sceneDepthIsMsaa() const {
     if (fsr_.enabled && fsr_.sceneFramebuffer) return fsr_.sceneDepthResolve.image == VK_NULL_HANDLE;
     return true;
 }
-
-bool PostProcessPipeline::hasActivePostProcess() const {
-    return (fsr2_.enabled && fsr2_.sceneFramebuffer)
-        || (needsFXAAPass() && fxaa_.sceneFramebuffer)
-        || (fsr_.enabled && fsr_.sceneFramebuffer);
-}
-
 bool PostProcessPipeline::executePostProcessing(VkCommandBuffer cmd, uint32_t imageIndex,
                                                   Camera* camera, float deltaTime) {
     ZoneScopedN("PostProcess::execute");
@@ -1382,76 +1375,6 @@ void PostProcessPipeline::dispatchMotionVectors() {
         VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
         VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
 }
-
-void PostProcessPipeline::dispatchTemporalAccumulate() {
-    if (!fsr2_.accumulatePipeline || currentCmd_ == VK_NULL_HANDLE) return;
-
-    VkExtent2D swapExtent = vkCtx_->getSwapchainExtent();
-    uint32_t outputIdx = fsr2_.currentHistory;
-    uint32_t inputIdx = 1 - outputIdx;
-
-    // Transition scene color: PRESENT_SRC_KHR → SHADER_READ_ONLY
-    transitionImageLayout(currentCmd_, fsr2_.sceneColor.image,
-        VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
-
-    // History layout lifecycle:
-    //   First frame: both in UNDEFINED
-    //   Subsequent frames: both in SHADER_READ_ONLY (output was transitioned for sharpen,
-    //                      input was left in SHADER_READ_ONLY from its sharpen read)
-    VkImageLayout historyOldLayout = fsr2_.needsHistoryReset
-        ? VK_IMAGE_LAYOUT_UNDEFINED
-        : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-    // Transition history input: SHADER_READ_ONLY → SHADER_READ_ONLY (barrier for sync)
-    transitionImageLayout(currentCmd_, fsr2_.history[inputIdx].image,
-        historyOldLayout, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,  // sharpen read in previous frame
-        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
-
-    // Transition history output: SHADER_READ_ONLY → GENERAL (for compute write)
-    transitionImageLayout(currentCmd_, fsr2_.history[outputIdx].image,
-        historyOldLayout, VK_IMAGE_LAYOUT_GENERAL,
-        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
-
-    vkCmdBindPipeline(currentCmd_, VK_PIPELINE_BIND_POINT_COMPUTE, fsr2_.accumulatePipeline);
-    vkCmdBindDescriptorSets(currentCmd_, VK_PIPELINE_BIND_POINT_COMPUTE,
-        fsr2_.accumulatePipelineLayout, 0, 1, &fsr2_.accumulateDescSets[outputIdx], 0, nullptr);
-
-    // Push constants
-    struct {
-        glm::vec4 internalSize;
-        glm::vec4 displaySize;
-        glm::vec4 jitterOffset;
-        glm::vec4 params;
-    } pc;
-
-    pc.internalSize = glm::vec4(
-        static_cast<float>(fsr2_.internalWidth), static_cast<float>(fsr2_.internalHeight),
-        1.0f / fsr2_.internalWidth, 1.0f / fsr2_.internalHeight);
-    pc.displaySize = glm::vec4(
-        static_cast<float>(swapExtent.width), static_cast<float>(swapExtent.height),
-        1.0f / swapExtent.width, 1.0f / swapExtent.height);
-    glm::vec2 jitter = camera_->getJitter();
-    pc.jitterOffset = glm::vec4(jitter.x, jitter.y, 0.0f, 0.0f);
-    pc.params = glm::vec4(
-        fsr2_.needsHistoryReset ? 1.0f : 0.0f,
-        fsr2_.sharpness,
-        static_cast<float>(fsr2_.convergenceFrame),
-        0.0f);
-
-    vkCmdPushConstants(currentCmd_, fsr2_.accumulatePipelineLayout,
-        VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(pc), &pc);
-
-    uint32_t gx = (swapExtent.width + 7) / 8;
-    uint32_t gy = (swapExtent.height + 7) / 8;
-    vkCmdDispatch(currentCmd_, gx, gy, 1);
-
-    fsr2_.needsHistoryReset = false;
-}
-
 void PostProcessPipeline::dispatchAmdFsr2() {
     if (currentCmd_ == VK_NULL_HANDLE || !camera_) return;
 #if WOWEE_HAS_AMD_FSR2
