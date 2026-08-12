@@ -1545,19 +1545,10 @@ void VkContext::destroyImGuiResources() {
     // This context's own UI texture pool, which the sets above were allocated
     // from. Freed with them rather than with ImGui's, which is the whole point
     // of it existing.
-    if (uiTexturePool_) {
-        vkDestroyDescriptorPool(device, uiTexturePool_, nullptr);
-        uiTexturePool_ = VK_NULL_HANDLE;
-    }
-    if (uiTextureLayout_) {
-        vkDestroyDescriptorSetLayout(device, uiTextureLayout_, nullptr);
-        uiTextureLayout_ = VK_NULL_HANDLE;
-    }
+    destroy(device, uiTexturePool_);
+    destroy(device, uiTextureLayout_);
 
-    if (imguiDescriptorPool) {
-        vkDestroyDescriptorPool(device, imguiDescriptorPool, nullptr);
-        imguiDescriptorPool = VK_NULL_HANDLE;
-    }
+    destroy(device, imguiDescriptorPool);
     destroyMsaaColorImage();
     destroyDepthResolveImage();
     destroyDepthBuffer();

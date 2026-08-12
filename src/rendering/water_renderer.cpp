@@ -218,7 +218,7 @@ void WaterRenderer::recreatePipelines() {
                                 vkCtx->getDepthFormat());
 
     // Destroy old pipeline (keep layout)
-    if (waterPipeline) { vkDestroyPipeline(device, waterPipeline, nullptr); waterPipeline = VK_NULL_HANDLE; }
+    destroy(device, waterPipeline);
 
     // Load shaders
     VkShaderModule vertShader, fragShader;
@@ -324,12 +324,12 @@ void WaterRenderer::shutdown() {
     destroyWater1xResources();
     destroyReflectionResources();
     destroySceneHistoryResources();
-    if (waterPipeline) { vkDestroyPipeline(device, waterPipeline, nullptr); waterPipeline = VK_NULL_HANDLE; }
-    if (pipelineLayout) { vkDestroyPipelineLayout(device, pipelineLayout, nullptr); pipelineLayout = VK_NULL_HANDLE; }
-    if (sceneDescPool) { vkDestroyDescriptorPool(device, sceneDescPool, nullptr); sceneDescPool = VK_NULL_HANDLE; }
-    if (sceneSetLayout) { vkDestroyDescriptorSetLayout(device, sceneSetLayout, nullptr); sceneSetLayout = VK_NULL_HANDLE; }
-    if (materialDescPool) { vkDestroyDescriptorPool(device, materialDescPool, nullptr); materialDescPool = VK_NULL_HANDLE; }
-    if (materialSetLayout) { vkDestroyDescriptorSetLayout(device, materialSetLayout, nullptr); materialSetLayout = VK_NULL_HANDLE; }
+    destroy(device, waterPipeline);
+    destroy(device, pipelineLayout);
+    destroy(device, sceneDescPool);
+    destroy(device, sceneSetLayout);
+    destroy(device, materialDescPool);
+    destroy(device, materialSetLayout);
 
     vkCtx = nullptr;
 }
@@ -2254,7 +2254,7 @@ void WaterRenderer::destroyWater1xResources() {
         if (fb) vkDestroyFramebuffer(device, fb, nullptr);
     }
     water1xFramebuffers.clear();
-    if (water1xPipeline) { vkDestroyPipeline(device, water1xPipeline, nullptr); water1xPipeline = VK_NULL_HANDLE; }
+    destroy(device, water1xPipeline);
     if (water1xRenderPass) { vkDestroyRenderPass(device, water1xRenderPass, nullptr); water1xRenderPass = VK_NULL_HANDLE; }
 }
 

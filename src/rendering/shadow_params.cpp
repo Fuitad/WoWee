@@ -3,6 +3,7 @@
 #include <cstring>
 
 #include "core/logger.hpp"
+#include "rendering/vk_utils.hpp"
 
 namespace wowee {
 namespace rendering {
@@ -118,10 +119,7 @@ void destroyShadowParamsSet(VkDevice device, VmaAllocator allocator, ShadowParam
         // Freed with the pool, so this handle is only ever stale after it.
         s.set = VK_NULL_HANDLE;
     }
-    if (s.layout) {
-        vkDestroyDescriptorSetLayout(device, s.layout, nullptr);
-        s.layout = VK_NULL_HANDLE;
-    }
+    destroy(device, s.layout);
     if (s.ubo) {
         vmaDestroyBuffer(allocator, s.ubo, s.alloc);
         s.ubo = VK_NULL_HANDLE;

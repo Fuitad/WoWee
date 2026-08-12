@@ -455,10 +455,7 @@ void CharacterPreview::destroyFBO() {
         }
     }
 
-    if (previewDescPool_) {
-        vkDestroyDescriptorPool(device, previewDescPool_, nullptr);
-        previewDescPool_ = VK_NULL_HANDLE;
-    }
+    destroy(device, previewDescPool_);
 
     // dummyShadowSampler_ is owned by VkContext sampler cache - do NOT destroy
     if (dummyShadowView_) { vkDestroyImageView(device, dummyShadowView_, nullptr); dummyShadowView_ = VK_NULL_HANDLE; }

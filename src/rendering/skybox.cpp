@@ -85,7 +85,7 @@ void Skybox::recreatePipelines() {
     if (!vkCtx) return;
     VkDevice device = vkCtx->getDevice();
 
-    if (pipeline != VK_NULL_HANDLE) { vkDestroyPipeline(device, pipeline, nullptr); pipeline = VK_NULL_HANDLE; }
+    destroy(device, pipeline);
 
     auto shaders = loadShaderPair(device, "assets/shaders/skybox.vert.spv", "assets/shaders/skybox.frag.spv", "skybox");
     if (!shaders) return;
@@ -116,14 +116,8 @@ void Skybox::recreatePipelines() {
 void Skybox::shutdown() {
     if (vkCtx) {
         VkDevice device = vkCtx->getDevice();
-        if (pipeline != VK_NULL_HANDLE) {
-            vkDestroyPipeline(device, pipeline, nullptr);
-            pipeline = VK_NULL_HANDLE;
-        }
-        if (pipelineLayout != VK_NULL_HANDLE) {
-            vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
-            pipelineLayout = VK_NULL_HANDLE;
-        }
+        destroy(device, pipeline);
+        destroy(device, pipelineLayout);
     }
 
     vkCtx = nullptr;

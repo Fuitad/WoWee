@@ -176,28 +176,16 @@ void ChargeEffect::shutdown() {
         VkDevice device = vkCtx_->getDevice();
         VmaAllocator allocator = vkCtx_->getAllocator();
 
-        if (ribbonPipeline_ != VK_NULL_HANDLE) {
-            vkDestroyPipeline(device, ribbonPipeline_, nullptr);
-            ribbonPipeline_ = VK_NULL_HANDLE;
-        }
-        if (ribbonPipelineLayout_ != VK_NULL_HANDLE) {
-            vkDestroyPipelineLayout(device, ribbonPipelineLayout_, nullptr);
-            ribbonPipelineLayout_ = VK_NULL_HANDLE;
-        }
+        destroy(device, ribbonPipeline_);
+        destroy(device, ribbonPipelineLayout_);
         if (ribbonDynamicVB_ != VK_NULL_HANDLE) {
             vmaDestroyBuffer(allocator, ribbonDynamicVB_, ribbonDynamicVBAlloc_);
             ribbonDynamicVB_ = VK_NULL_HANDLE;
             ribbonDynamicVBAlloc_ = VK_NULL_HANDLE;
         }
 
-        if (dustPipeline_ != VK_NULL_HANDLE) {
-            vkDestroyPipeline(device, dustPipeline_, nullptr);
-            dustPipeline_ = VK_NULL_HANDLE;
-        }
-        if (dustPipelineLayout_ != VK_NULL_HANDLE) {
-            vkDestroyPipelineLayout(device, dustPipelineLayout_, nullptr);
-            dustPipelineLayout_ = VK_NULL_HANDLE;
-        }
+        destroy(device, dustPipeline_);
+        destroy(device, dustPipelineLayout_);
         if (dustDynamicVB_ != VK_NULL_HANDLE) {
             vmaDestroyBuffer(allocator, dustDynamicVB_, dustDynamicVBAlloc_);
             dustDynamicVB_ = VK_NULL_HANDLE;
@@ -215,14 +203,8 @@ void ChargeEffect::recreatePipelines() {
     VkDevice device = vkCtx_->getDevice();
 
     // Destroy old pipelines (NOT layouts)
-    if (ribbonPipeline_ != VK_NULL_HANDLE) {
-        vkDestroyPipeline(device, ribbonPipeline_, nullptr);
-        ribbonPipeline_ = VK_NULL_HANDLE;
-    }
-    if (dustPipeline_ != VK_NULL_HANDLE) {
-        vkDestroyPipeline(device, dustPipeline_, nullptr);
-        dustPipeline_ = VK_NULL_HANDLE;
-    }
+    destroy(device, ribbonPipeline_);
+    destroy(device, dustPipeline_);
 
     std::vector<VkDynamicState> dynamicStates = viewportAndScissorDynamic();
 

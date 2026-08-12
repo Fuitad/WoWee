@@ -1125,10 +1125,10 @@ void M2Renderer::shutdown() {
     destroyPipeline(ribbonPipeline_);
     destroyPipeline(ribbonAdditivePipeline_);
 
-    if (pipelineLayout_) { vkDestroyPipelineLayout(device, pipelineLayout_, nullptr); pipelineLayout_ = VK_NULL_HANDLE; }
-    if (particlePipelineLayout_) { vkDestroyPipelineLayout(device, particlePipelineLayout_, nullptr); particlePipelineLayout_ = VK_NULL_HANDLE; }
-    if (smokePipelineLayout_) { vkDestroyPipelineLayout(device, smokePipelineLayout_, nullptr); smokePipelineLayout_ = VK_NULL_HANDLE; }
-    if (ribbonPipelineLayout_) { vkDestroyPipelineLayout(device, ribbonPipelineLayout_, nullptr); ribbonPipelineLayout_ = VK_NULL_HANDLE; }
+    destroy(device, pipelineLayout_);
+    destroy(device, particlePipelineLayout_);
+    destroy(device, smokePipelineLayout_);
+    destroy(device, ribbonPipelineLayout_);
 
     // Destroy descriptor pools and layouts
     if (dummyBoneBuffer_) { vmaDestroyBuffer(alloc, dummyBoneBuffer_, dummyBoneAlloc_); dummyBoneBuffer_ = VK_NULL_HANDLE; }
@@ -1140,7 +1140,7 @@ void M2Renderer::shutdown() {
         megaBoneMapped_[i] = nullptr;
         megaBoneSet_[i] = VK_NULL_HANDLE;
     }
-    if (materialDescPool_) { vkDestroyDescriptorPool(device, materialDescPool_, nullptr); materialDescPool_ = VK_NULL_HANDLE; }
+    destroy(device, materialDescPool_);
     if (boneDescPool_) {
         if (boneDescPoolGeneration_) boneDescPoolGeneration_->fetch_add(1, std::memory_order_relaxed);
         vkDestroyDescriptorPool(device, boneDescPool_, nullptr);
@@ -1152,13 +1152,13 @@ void M2Renderer::shutdown() {
         instanceMapped_[i] = nullptr;
         instanceSet_[i] = VK_NULL_HANDLE;
     }
-    if (instanceDescPool_) { vkDestroyDescriptorPool(device, instanceDescPool_, nullptr); instanceDescPool_ = VK_NULL_HANDLE; }
+    destroy(device, instanceDescPool_);
 
     // GPU frustum culling compute pipeline + buffers cleanup
-    if (cullHiZPipeline_) { vkDestroyPipeline(device, cullHiZPipeline_, nullptr); cullHiZPipeline_ = VK_NULL_HANDLE; }
-    if (cullHiZPipelineLayout_) { vkDestroyPipelineLayout(device, cullHiZPipelineLayout_, nullptr); cullHiZPipelineLayout_ = VK_NULL_HANDLE; }
-    if (cullPipeline_) { vkDestroyPipeline(device, cullPipeline_, nullptr); cullPipeline_ = VK_NULL_HANDLE; }
-    if (cullPipelineLayout_) { vkDestroyPipelineLayout(device, cullPipelineLayout_, nullptr); cullPipelineLayout_ = VK_NULL_HANDLE; }
+    destroy(device, cullHiZPipeline_);
+    destroy(device, cullHiZPipelineLayout_);
+    destroy(device, cullPipeline_);
+    destroy(device, cullPipelineLayout_);
     for (int i = 0; i < 2; i++) {
         if (cullUniformBuffer_[i]) { vmaDestroyBuffer(alloc, cullUniformBuffer_[i], cullUniformAlloc_[i]); cullUniformBuffer_[i] = VK_NULL_HANDLE; }
         if (cullInputBuffer_[i])   { vmaDestroyBuffer(alloc, cullInputBuffer_[i], cullInputAlloc_[i]); cullInputBuffer_[i] = VK_NULL_HANDLE; }
@@ -1166,17 +1166,17 @@ void M2Renderer::shutdown() {
         cullUniformMapped_[i] = cullInputMapped_[i] = cullOutputMapped_[i] = nullptr;
         cullSet_[i] = VK_NULL_HANDLE;
     }
-    if (cullDescPool_) { vkDestroyDescriptorPool(device, cullDescPool_, nullptr); cullDescPool_ = VK_NULL_HANDLE; }
-    if (cullSetLayout_) { vkDestroyDescriptorSetLayout(device, cullSetLayout_, nullptr); cullSetLayout_ = VK_NULL_HANDLE; }
+    destroy(device, cullDescPool_);
+    destroy(device, cullSetLayout_);
 
-    if (materialSetLayout_) { vkDestroyDescriptorSetLayout(device, materialSetLayout_, nullptr); materialSetLayout_ = VK_NULL_HANDLE; }
-    if (boneSetLayout_) { vkDestroyDescriptorSetLayout(device, boneSetLayout_, nullptr); boneSetLayout_ = VK_NULL_HANDLE; }
-    if (instanceSetLayout_) { vkDestroyDescriptorSetLayout(device, instanceSetLayout_, nullptr); instanceSetLayout_ = VK_NULL_HANDLE; }
-    if (particleTexLayout_) { vkDestroyDescriptorSetLayout(device, particleTexLayout_, nullptr); particleTexLayout_ = VK_NULL_HANDLE; }
+    destroy(device, materialSetLayout_);
+    destroy(device, boneSetLayout_);
+    destroy(device, instanceSetLayout_);
+    destroy(device, particleTexLayout_);
 
     // Destroy shadow resources
     destroyPipeline(shadowPipeline_);
-    if (shadowPipelineLayout_) { vkDestroyPipelineLayout(device, shadowPipelineLayout_, nullptr); shadowPipelineLayout_ = VK_NULL_HANDLE; }
+    destroy(device, shadowPipelineLayout_);
     for (auto& pool : shadowTexPool_) { if (pool) { vkDestroyDescriptorPool(device, pool, nullptr); pool = VK_NULL_HANDLE; } }
     destroyShadowParamsSet(device, alloc, shadowParams_);
 

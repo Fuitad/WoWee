@@ -348,17 +348,17 @@ void WMORenderer::shutdown() {
     vkCtx_->flushDeferredCleanup();
 
     // Destroy pipelines
-    if (opaquePipeline_) { vkDestroyPipeline(device, opaquePipeline_, nullptr); opaquePipeline_ = VK_NULL_HANDLE; }
-    if (transparentPipeline_) { vkDestroyPipeline(device, transparentPipeline_, nullptr); transparentPipeline_ = VK_NULL_HANDLE; }
-    if (glassPipeline_) { vkDestroyPipeline(device, glassPipeline_, nullptr); glassPipeline_ = VK_NULL_HANDLE; }
-    if (wireframePipeline_) { vkDestroyPipeline(device, wireframePipeline_, nullptr); wireframePipeline_ = VK_NULL_HANDLE; }
-    if (pipelineLayout_) { vkDestroyPipelineLayout(device, pipelineLayout_, nullptr); pipelineLayout_ = VK_NULL_HANDLE; }
-    if (materialDescPool_) { vkDestroyDescriptorPool(device, materialDescPool_, nullptr); materialDescPool_ = VK_NULL_HANDLE; }
-    if (materialSetLayout_) { vkDestroyDescriptorSetLayout(device, materialSetLayout_, nullptr); materialSetLayout_ = VK_NULL_HANDLE; }
+    destroy(device, opaquePipeline_);
+    destroy(device, transparentPipeline_);
+    destroy(device, glassPipeline_);
+    destroy(device, wireframePipeline_);
+    destroy(device, pipelineLayout_);
+    destroy(device, materialDescPool_);
+    destroy(device, materialSetLayout_);
 
     // Destroy shadow resources
-    if (shadowPipeline_) { vkDestroyPipeline(device, shadowPipeline_, nullptr); shadowPipeline_ = VK_NULL_HANDLE; }
-    if (shadowPipelineLayout_) { vkDestroyPipelineLayout(device, shadowPipelineLayout_, nullptr); shadowPipelineLayout_ = VK_NULL_HANDLE; }
+    destroy(device, shadowPipeline_);
+    destroy(device, shadowPipelineLayout_);
     destroyShadowParamsSet(device, allocator, shadowParams_);
 
     vkCtx_ = nullptr;
@@ -4207,10 +4207,10 @@ void WMORenderer::recreatePipelines() {
     VkDevice device = vkCtx_->getDevice();
 
     // Destroy old main-pass pipelines (NOT shadow, NOT pipeline layout)
-    if (opaquePipeline_)      { vkDestroyPipeline(device, opaquePipeline_, nullptr); opaquePipeline_ = VK_NULL_HANDLE; }
-    if (transparentPipeline_) { vkDestroyPipeline(device, transparentPipeline_, nullptr); transparentPipeline_ = VK_NULL_HANDLE; }
-    if (glassPipeline_)       { vkDestroyPipeline(device, glassPipeline_, nullptr); glassPipeline_ = VK_NULL_HANDLE; }
-    if (wireframePipeline_)   { vkDestroyPipeline(device, wireframePipeline_, nullptr); wireframePipeline_ = VK_NULL_HANDLE; }
+    destroy(device, opaquePipeline_);
+    destroy(device, transparentPipeline_);
+    destroy(device, glassPipeline_);
+    destroy(device, wireframePipeline_);
 
     // --- Load shaders ---
     VkShaderModule vertShader, fragShader;

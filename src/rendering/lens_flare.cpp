@@ -119,14 +119,8 @@ void LensFlare::shutdown() {
             vertexBuffer = VK_NULL_HANDLE;
             vertexAlloc  = VK_NULL_HANDLE;
         }
-        if (pipeline != VK_NULL_HANDLE) {
-            vkDestroyPipeline(device, pipeline, nullptr);
-            pipeline = VK_NULL_HANDLE;
-        }
-        if (pipelineLayout != VK_NULL_HANDLE) {
-            vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
-            pipelineLayout = VK_NULL_HANDLE;
-        }
+        destroy(device, pipeline);
+        destroy(device, pipelineLayout);
     }
 
     vkCtx = nullptr;
@@ -137,10 +131,7 @@ void LensFlare::recreatePipelines() {
     VkDevice device = vkCtx->getDevice();
 
     // Destroy old pipeline (NOT layout)
-    if (pipeline != VK_NULL_HANDLE) {
-        vkDestroyPipeline(device, pipeline, nullptr);
-        pipeline = VK_NULL_HANDLE;
-    }
+    destroy(device, pipeline);
 
     auto shaders = loadShaderPair(device, "assets/shaders/lens_flare.vert.spv", "assets/shaders/lens_flare.frag.spv", "lens_flare");
     if (!shaders) return;

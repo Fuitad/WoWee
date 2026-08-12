@@ -119,26 +119,14 @@ void QuestMarkerRenderer::shutdown() {
     }
 
     // Destroy descriptor pool (frees all descriptor sets allocated from it)
-    if (descriptorPool_ != VK_NULL_HANDLE) {
-        vkDestroyDescriptorPool(device, descriptorPool_, nullptr);
-        descriptorPool_ = VK_NULL_HANDLE;
-    }
+    destroy(device, descriptorPool_);
 
     // Destroy descriptor set layout
-    if (materialSetLayout_ != VK_NULL_HANDLE) {
-        vkDestroyDescriptorSetLayout(device, materialSetLayout_, nullptr);
-        materialSetLayout_ = VK_NULL_HANDLE;
-    }
+    destroy(device, materialSetLayout_);
 
     // Destroy pipeline
-    if (pipeline_ != VK_NULL_HANDLE) {
-        vkDestroyPipeline(device, pipeline_, nullptr);
-        pipeline_ = VK_NULL_HANDLE;
-    }
-    if (pipelineLayout_ != VK_NULL_HANDLE) {
-        vkDestroyPipelineLayout(device, pipelineLayout_, nullptr);
-        pipelineLayout_ = VK_NULL_HANDLE;
-    }
+    destroy(device, pipeline_);
+    destroy(device, pipelineLayout_);
 
     // Destroy quad vertex buffer
     if (quadVB_ != VK_NULL_HANDLE) {
@@ -156,10 +144,7 @@ void QuestMarkerRenderer::recreatePipelines() {
     VkDevice device = vkCtx_->getDevice();
 
     // Destroy old pipeline (NOT layout)
-    if (pipeline_ != VK_NULL_HANDLE) {
-        vkDestroyPipeline(device, pipeline_, nullptr);
-        pipeline_ = VK_NULL_HANDLE;
-    }
+    destroy(device, pipeline_);
 
     auto shaders = loadShaderPair(device, "assets/shaders/quest_marker.vert.spv", "assets/shaders/quest_marker.frag.spv", "quest_marker");
     if (!shaders) return;

@@ -1299,15 +1299,15 @@ void M2Renderer::recreatePipelines() {
     VkDevice device = vkCtx_->getDevice();
 
     // Destroy old main-pass pipelines (NOT shadow, NOT pipeline layouts)
-    if (opaquePipeline_)            { vkDestroyPipeline(device, opaquePipeline_, nullptr); opaquePipeline_ = VK_NULL_HANDLE; }
-    if (alphaTestPipeline_)         { vkDestroyPipeline(device, alphaTestPipeline_, nullptr); alphaTestPipeline_ = VK_NULL_HANDLE; }
-    if (alphaPipeline_)             { vkDestroyPipeline(device, alphaPipeline_, nullptr); alphaPipeline_ = VK_NULL_HANDLE; }
-    if (additivePipeline_)          { vkDestroyPipeline(device, additivePipeline_, nullptr); additivePipeline_ = VK_NULL_HANDLE; }
-    if (particlePipeline_)          { vkDestroyPipeline(device, particlePipeline_, nullptr); particlePipeline_ = VK_NULL_HANDLE; }
-    if (particleAdditivePipeline_)  { vkDestroyPipeline(device, particleAdditivePipeline_, nullptr); particleAdditivePipeline_ = VK_NULL_HANDLE; }
-    if (smokePipeline_)             { vkDestroyPipeline(device, smokePipeline_, nullptr); smokePipeline_ = VK_NULL_HANDLE; }
-    if (ribbonPipeline_)            { vkDestroyPipeline(device, ribbonPipeline_, nullptr); ribbonPipeline_ = VK_NULL_HANDLE; }
-    if (ribbonAdditivePipeline_)    { vkDestroyPipeline(device, ribbonAdditivePipeline_, nullptr); ribbonAdditivePipeline_ = VK_NULL_HANDLE; }
+    destroy(device, opaquePipeline_);
+    destroy(device, alphaTestPipeline_);
+    destroy(device, alphaPipeline_);
+    destroy(device, additivePipeline_);
+    destroy(device, particlePipeline_);
+    destroy(device, particleAdditivePipeline_);
+    destroy(device, smokePipeline_);
+    destroy(device, ribbonPipeline_);
+    destroy(device, ribbonAdditivePipeline_);
 
     // The same nine pipelines initialize() builds, built by the same
     // function. The layouts are untouched above, so it makes none.

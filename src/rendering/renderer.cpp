@@ -408,14 +408,8 @@ void Renderer::destroyPerFrameResources() {
         reflPerFrameUBO = VK_NULL_HANDLE;
         reflPerFrameUBOMapped = nullptr;
     }
-    if (sceneDescriptorPool) {
-        vkDestroyDescriptorPool(device, sceneDescriptorPool, nullptr);
-        sceneDescriptorPool = VK_NULL_HANDLE;
-    }
-    if (perFrameSetLayout) {
-        vkDestroyDescriptorSetLayout(device, perFrameSetLayout, nullptr);
-        perFrameSetLayout = VK_NULL_HANDLE;
-    }
+    destroy(device, sceneDescriptorPool);
+    destroy(device, perFrameSetLayout);
 
     // Destroy per-frame shadow resources
     for (uint32_t i = 0; i < MAX_FRAMES; i++) {

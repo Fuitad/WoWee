@@ -516,7 +516,7 @@ void CharacterRenderer::shutdown() {
 
     // Destroy pipelines
     auto destroyPipeline = [&](VkPipeline& p) {
-        if (p) { vkDestroyPipeline(device, p, nullptr); p = VK_NULL_HANDLE; }
+        destroy(device, p);
     };
     destroyPipeline(opaquePipeline_);
     destroyPipeline(alphaTestPipeline_);
@@ -524,7 +524,7 @@ void CharacterRenderer::shutdown() {
     destroyPipeline(additivePipeline_);
     destroyPipeline(translucentPipeline_);
 
-    if (pipelineLayout_) { vkDestroyPipelineLayout(device, pipelineLayout_, nullptr); pipelineLayout_ = VK_NULL_HANDLE; }
+    destroy(device, pipelineLayout_);
 
     // Destroy material ring buffers
     for (int i = 0; i < 2; i++) {
@@ -539,22 +539,19 @@ void CharacterRenderer::shutdown() {
 
     // Destroy descriptor pools and layouts
     for (int i = 0; i < 2; i++) {
-        if (materialDescPools_[i]) {
-            vkDestroyDescriptorPool(device, materialDescPools_[i], nullptr);
-            materialDescPools_[i] = VK_NULL_HANDLE;
-        }
+        destroy(device, materialDescPools_[i]);
     }
     if (boneDescPool_) {
         if (boneDescPoolGeneration_) boneDescPoolGeneration_->fetch_add(1, std::memory_order_relaxed);
         vkDestroyDescriptorPool(device, boneDescPool_, nullptr);
         boneDescPool_ = VK_NULL_HANDLE;
     }
-    if (materialSetLayout_) { vkDestroyDescriptorSetLayout(device, materialSetLayout_, nullptr); materialSetLayout_ = VK_NULL_HANDLE; }
-    if (boneSetLayout_) { vkDestroyDescriptorSetLayout(device, boneSetLayout_, nullptr); boneSetLayout_ = VK_NULL_HANDLE; }
+    destroy(device, materialSetLayout_);
+    destroy(device, boneSetLayout_);
 
     // Shadow resources
-    if (shadowPipeline_) { vkDestroyPipeline(device, shadowPipeline_, nullptr); shadowPipeline_ = VK_NULL_HANDLE; }
-    if (shadowPipelineLayout_) { vkDestroyPipelineLayout(device, shadowPipelineLayout_, nullptr); shadowPipelineLayout_ = VK_NULL_HANDLE; }
+    destroy(device, shadowPipeline_);
+    destroy(device, shadowPipelineLayout_);
     destroyShadowParamsSet(device, alloc, shadowParams_);
 
     vkCtx_ = nullptr;
@@ -4088,11 +4085,11 @@ void CharacterRenderer::recreatePipelines() {
     VkDevice device = vkCtx_->getDevice();
 
     // Destroy old main-pass pipelines (NOT shadow, NOT pipeline layout)
-    if (opaquePipeline_)    { vkDestroyPipeline(device, opaquePipeline_, nullptr); opaquePipeline_ = VK_NULL_HANDLE; }
-    if (alphaTestPipeline_) { vkDestroyPipeline(device, alphaTestPipeline_, nullptr); alphaTestPipeline_ = VK_NULL_HANDLE; }
-    if (alphaPipeline_)     { vkDestroyPipeline(device, alphaPipeline_, nullptr); alphaPipeline_ = VK_NULL_HANDLE; }
-    if (additivePipeline_)  { vkDestroyPipeline(device, additivePipeline_, nullptr); additivePipeline_ = VK_NULL_HANDLE; }
-    if (translucentPipeline_) { vkDestroyPipeline(device, translucentPipeline_, nullptr); translucentPipeline_ = VK_NULL_HANDLE; }
+    destroy(device, opaquePipeline_);
+    destroy(device, alphaTestPipeline_);
+    destroy(device, alphaPipeline_);
+    destroy(device, additivePipeline_);
+    destroy(device, translucentPipeline_);
 
     // --- Load shaders ---
     rendering::VkShaderModule charVert, charFrag;

@@ -82,7 +82,7 @@ void Celestial::recreatePipelines() {
     if (!vkCtx_) return;
     VkDevice device = vkCtx_->getDevice();
 
-    if (pipeline_ != VK_NULL_HANDLE) { vkDestroyPipeline(device, pipeline_, nullptr); pipeline_ = VK_NULL_HANDLE; }
+    destroy(device, pipeline_);
 
     auto shaders = loadShaderPair(device, "assets/shaders/celestial.vert.spv", "assets/shaders/celestial.frag.spv", "celestial");
     if (!shaders) return;
@@ -119,14 +119,8 @@ void Celestial::shutdown() {
 
     if (vkCtx_) {
         VkDevice device = vkCtx_->getDevice();
-        if (pipeline_ != VK_NULL_HANDLE) {
-            vkDestroyPipeline(device, pipeline_, nullptr);
-            pipeline_ = VK_NULL_HANDLE;
-        }
-        if (pipelineLayout_ != VK_NULL_HANDLE) {
-            vkDestroyPipelineLayout(device, pipelineLayout_, nullptr);
-            pipelineLayout_ = VK_NULL_HANDLE;
-        }
+        destroy(device, pipeline_);
+        destroy(device, pipelineLayout_);
     }
 
     vkCtx_ = nullptr;

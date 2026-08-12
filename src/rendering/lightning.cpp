@@ -198,28 +198,16 @@ void Lightning::shutdown() {
         VkDevice device = vkCtx->getDevice();
         VmaAllocator allocator = vkCtx->getAllocator();
 
-        if (boltPipeline != VK_NULL_HANDLE) {
-            vkDestroyPipeline(device, boltPipeline, nullptr);
-            boltPipeline = VK_NULL_HANDLE;
-        }
-        if (boltPipelineLayout != VK_NULL_HANDLE) {
-            vkDestroyPipelineLayout(device, boltPipelineLayout, nullptr);
-            boltPipelineLayout = VK_NULL_HANDLE;
-        }
+        destroy(device, boltPipeline);
+        destroy(device, boltPipelineLayout);
         if (boltDynamicVB != VK_NULL_HANDLE) {
             vmaDestroyBuffer(allocator, boltDynamicVB, boltDynamicVBAlloc);
             boltDynamicVB = VK_NULL_HANDLE;
             boltDynamicVBAlloc = VK_NULL_HANDLE;
         }
 
-        if (flashPipeline != VK_NULL_HANDLE) {
-            vkDestroyPipeline(device, flashPipeline, nullptr);
-            flashPipeline = VK_NULL_HANDLE;
-        }
-        if (flashPipelineLayout != VK_NULL_HANDLE) {
-            vkDestroyPipelineLayout(device, flashPipelineLayout, nullptr);
-            flashPipelineLayout = VK_NULL_HANDLE;
-        }
+        destroy(device, flashPipeline);
+        destroy(device, flashPipelineLayout);
         if (flashQuadVB != VK_NULL_HANDLE) {
             vmaDestroyBuffer(allocator, flashQuadVB, flashQuadVBAlloc);
             flashQuadVB = VK_NULL_HANDLE;
@@ -235,14 +223,8 @@ void Lightning::recreatePipelines() {
     VkDevice device = vkCtx->getDevice();
 
     // Destroy old pipelines (NOT layouts)
-    if (boltPipeline != VK_NULL_HANDLE) {
-        vkDestroyPipeline(device, boltPipeline, nullptr);
-        boltPipeline = VK_NULL_HANDLE;
-    }
-    if (flashPipeline != VK_NULL_HANDLE) {
-        vkDestroyPipeline(device, flashPipeline, nullptr);
-        flashPipeline = VK_NULL_HANDLE;
-    }
+    destroy(device, boltPipeline);
+    destroy(device, flashPipeline);
 
     std::vector<VkDynamicState> dynamicStates = viewportAndScissorDynamic();
 

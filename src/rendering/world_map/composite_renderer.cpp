@@ -227,12 +227,12 @@ void CompositeRenderer::shutdown() {
 
     vkDeviceWaitIdle(device);
 
-    if (tilePipeline) { vkDestroyPipeline(device, tilePipeline, nullptr); tilePipeline = VK_NULL_HANDLE; }
-    if (tilePipelineLayout) { vkDestroyPipelineLayout(device, tilePipelineLayout, nullptr); tilePipelineLayout = VK_NULL_HANDLE; }
-    if (overlayPipeline_) { vkDestroyPipeline(device, overlayPipeline_, nullptr); overlayPipeline_ = VK_NULL_HANDLE; }
-    if (overlayPipelineLayout_) { vkDestroyPipelineLayout(device, overlayPipelineLayout_, nullptr); overlayPipelineLayout_ = VK_NULL_HANDLE; }
-    if (descPool) { vkDestroyDescriptorPool(device, descPool, nullptr); descPool = VK_NULL_HANDLE; }
-    if (samplerSetLayout) { vkDestroyDescriptorSetLayout(device, samplerSetLayout, nullptr); samplerSetLayout = VK_NULL_HANDLE; }
+    destroy(device, tilePipeline);
+    destroy(device, tilePipelineLayout);
+    destroy(device, overlayPipeline_);
+    destroy(device, overlayPipelineLayout_);
+    destroy(device, descPool);
+    destroy(device, samplerSetLayout);
     if (quadVB) { vmaDestroyBuffer(alloc, quadVB, quadVBAlloc); quadVB = VK_NULL_HANDLE; }
 
     for (auto& tex : zoneTextures) {

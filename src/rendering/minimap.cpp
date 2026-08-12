@@ -219,12 +219,12 @@ void Minimap::shutdown() {
 
     vkDeviceWaitIdle(device);
 
-    if (tilePipeline) { vkDestroyPipeline(device, tilePipeline, nullptr); tilePipeline = VK_NULL_HANDLE; }
-    if (displayPipeline) { vkDestroyPipeline(device, displayPipeline, nullptr); displayPipeline = VK_NULL_HANDLE; }
-    if (tilePipelineLayout) { vkDestroyPipelineLayout(device, tilePipelineLayout, nullptr); tilePipelineLayout = VK_NULL_HANDLE; }
-    if (displayPipelineLayout) { vkDestroyPipelineLayout(device, displayPipelineLayout, nullptr); displayPipelineLayout = VK_NULL_HANDLE; }
-    if (descPool) { vkDestroyDescriptorPool(device, descPool, nullptr); descPool = VK_NULL_HANDLE; }
-    if (samplerSetLayout) { vkDestroyDescriptorSetLayout(device, samplerSetLayout, nullptr); samplerSetLayout = VK_NULL_HANDLE; }
+    destroy(device, tilePipeline);
+    destroy(device, displayPipeline);
+    destroy(device, tilePipelineLayout);
+    destroy(device, displayPipelineLayout);
+    destroy(device, descPool);
+    destroy(device, samplerSetLayout);
 
     if (quadVB) { vmaDestroyBuffer(alloc, quadVB, quadVBAlloc); quadVB = VK_NULL_HANDLE; }
 
@@ -244,7 +244,7 @@ void Minimap::recreatePipelines() {
     if (!vkCtx || !displayPipelineLayout) return;
     VkDevice device = vkCtx->getDevice();
 
-    if (displayPipeline) { vkDestroyPipeline(device, displayPipeline, nullptr); displayPipeline = VK_NULL_HANDLE; }
+    destroy(device, displayPipeline);
 
     VkShaderModule vs, fs;
     if (!vs.loadFromFile(device, "assets/shaders/minimap_display.vert.spv") ||

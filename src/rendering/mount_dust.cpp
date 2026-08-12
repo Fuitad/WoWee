@@ -97,14 +97,8 @@ void MountDust::shutdown() {
         VkDevice device = vkCtx->getDevice();
         VmaAllocator allocator = vkCtx->getAllocator();
 
-        if (pipeline != VK_NULL_HANDLE) {
-            vkDestroyPipeline(device, pipeline, nullptr);
-            pipeline = VK_NULL_HANDLE;
-        }
-        if (pipelineLayout != VK_NULL_HANDLE) {
-            vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
-            pipelineLayout = VK_NULL_HANDLE;
-        }
+        destroy(device, pipeline);
+        destroy(device, pipelineLayout);
         if (dynamicVB != VK_NULL_HANDLE) {
             vmaDestroyBuffer(allocator, dynamicVB, dynamicVBAlloc);
             dynamicVB = VK_NULL_HANDLE;
@@ -121,10 +115,7 @@ void MountDust::recreatePipelines() {
     VkDevice device = vkCtx->getDevice();
 
     // Destroy old pipeline (NOT layout)
-    if (pipeline != VK_NULL_HANDLE) {
-        vkDestroyPipeline(device, pipeline, nullptr);
-        pipeline = VK_NULL_HANDLE;
-    }
+    destroy(device, pipeline);
 
     auto shaders = loadShaderPair(device, "assets/shaders/mount_dust.vert.spv", "assets/shaders/mount_dust.frag.spv", "mount_dust");
     if (!shaders) return;

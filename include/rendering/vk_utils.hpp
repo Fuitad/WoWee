@@ -25,6 +25,54 @@ struct AllocatedImage {
     VkFormat format = VK_FORMAT_UNDEFINED;
 };
 
+// Destroying a handle and forgetting it, which the renderers do about two
+// hundred and twenty times between them.
+//
+// Every one of those sites was the same four lines: test the handle, destroy
+// it, set it back to VK_NULL_HANDLE. Written out, the last step is easy to
+// leave off, and a handle that still holds a destroyed object is a double
+// destroy the next time a shutdown runs. Taking the handle by reference makes
+// forgetting it part of destroying it.
+
+inline void destroy(VkDevice device, VkPipeline& pipeline) {
+    if (pipeline == VK_NULL_HANDLE) return;
+    vkDestroyPipeline(device, pipeline, nullptr);
+    pipeline = VK_NULL_HANDLE;
+}
+
+inline void destroy(VkDevice device, VkPipelineLayout& layout) {
+    if (layout == VK_NULL_HANDLE) return;
+    vkDestroyPipelineLayout(device, layout, nullptr);
+    layout = VK_NULL_HANDLE;
+}
+
+inline void destroy(VkDevice device, VkDescriptorSetLayout& layout) {
+    if (layout == VK_NULL_HANDLE) return;
+    vkDestroyDescriptorSetLayout(device, layout, nullptr);
+    layout = VK_NULL_HANDLE;
+}
+
+inline void destroy(VkDevice device, VkDescriptorPool& pool) {
+    if (pool == VK_NULL_HANDLE) return;
+    vkDestroyDescriptorPool(device, pool, nullptr);
+    pool = VK_NULL_HANDLE;
+}
+
+inline void destroy(VkDevice device, VkSampler& sampler) {
+    if (sampler == VK_NULL_HANDLE) return;
+    vkDestroySampler(device, sampler, nullptr);
+    sampler = VK_NULL_HANDLE;
+}
+
+/// A buffer and its allocation go together, and forgetting one of the two is
+/// the same fault as forgetting the handle.
+inline void destroy(VmaAllocator allocator, VkBuffer& buffer, VmaAllocation& allocation) {
+    if (buffer == VK_NULL_HANDLE) return;
+    vmaDestroyBuffer(allocator, buffer, allocation);
+    buffer = VK_NULL_HANDLE;
+    allocation = VK_NULL_HANDLE;
+}
+
 // Buffer creation
 AllocatedBuffer createBuffer(VmaAllocator allocator, VkDeviceSize size,
     VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage);

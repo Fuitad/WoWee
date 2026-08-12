@@ -90,7 +90,7 @@ void Clouds::recreatePipelines() {
     if (!vkCtx_) return;
     VkDevice device = vkCtx_->getDevice();
 
-    if (pipeline_ != VK_NULL_HANDLE) { vkDestroyPipeline(device, pipeline_, nullptr); pipeline_ = VK_NULL_HANDLE; }
+    destroy(device, pipeline_);
 
     auto shaders = loadShaderPair(device, "assets/shaders/clouds.vert.spv", "assets/shaders/clouds.frag.spv", "clouds");
     if (!shaders) return;
@@ -134,14 +134,8 @@ void Clouds::shutdown() {
 
     if (vkCtx_) {
         VkDevice device = vkCtx_->getDevice();
-        if (pipeline_ != VK_NULL_HANDLE) {
-            vkDestroyPipeline(device, pipeline_, nullptr);
-            pipeline_ = VK_NULL_HANDLE;
-        }
-        if (pipelineLayout_ != VK_NULL_HANDLE) {
-            vkDestroyPipelineLayout(device, pipelineLayout_, nullptr);
-            pipelineLayout_ = VK_NULL_HANDLE;
-        }
+        destroy(device, pipeline_);
+        destroy(device, pipelineLayout_);
     }
 
     vkCtx_ = nullptr;

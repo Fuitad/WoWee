@@ -89,7 +89,7 @@ void StarField::recreatePipelines() {
     if (!vkCtx) return;
     VkDevice device = vkCtx->getDevice();
 
-    if (pipeline != VK_NULL_HANDLE) { vkDestroyPipeline(device, pipeline, nullptr); pipeline = VK_NULL_HANDLE; }
+    destroy(device, pipeline);
 
     auto shaders = loadShaderPair(device, "assets/shaders/starfield.vert.spv", "assets/shaders/starfield.frag.spv", "starfield");
     if (!shaders) return;
@@ -123,14 +123,8 @@ void StarField::shutdown() {
 
     if (vkCtx) {
         VkDevice device = vkCtx->getDevice();
-        if (pipeline != VK_NULL_HANDLE) {
-            vkDestroyPipeline(device, pipeline, nullptr);
-            pipeline = VK_NULL_HANDLE;
-        }
-        if (pipelineLayout != VK_NULL_HANDLE) {
-            vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
-            pipelineLayout = VK_NULL_HANDLE;
-        }
+        destroy(device, pipeline);
+        destroy(device, pipelineLayout);
     }
 
     vkCtx = nullptr;

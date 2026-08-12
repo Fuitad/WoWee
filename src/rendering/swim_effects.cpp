@@ -207,42 +207,24 @@ void SwimEffects::shutdown() {
         VkDevice device = vkCtx->getDevice();
         VmaAllocator allocator = vkCtx->getAllocator();
 
-        if (ripplePipeline != VK_NULL_HANDLE) {
-            vkDestroyPipeline(device, ripplePipeline, nullptr);
-            ripplePipeline = VK_NULL_HANDLE;
-        }
-        if (ripplePipelineLayout != VK_NULL_HANDLE) {
-            vkDestroyPipelineLayout(device, ripplePipelineLayout, nullptr);
-            ripplePipelineLayout = VK_NULL_HANDLE;
-        }
+        destroy(device, ripplePipeline);
+        destroy(device, ripplePipelineLayout);
         if (rippleDynamicVB != VK_NULL_HANDLE) {
             vmaDestroyBuffer(allocator, rippleDynamicVB, rippleDynamicVBAlloc);
             rippleDynamicVB = VK_NULL_HANDLE;
             rippleDynamicVBAlloc = VK_NULL_HANDLE;
         }
 
-        if (bubblePipeline != VK_NULL_HANDLE) {
-            vkDestroyPipeline(device, bubblePipeline, nullptr);
-            bubblePipeline = VK_NULL_HANDLE;
-        }
-        if (bubblePipelineLayout != VK_NULL_HANDLE) {
-            vkDestroyPipelineLayout(device, bubblePipelineLayout, nullptr);
-            bubblePipelineLayout = VK_NULL_HANDLE;
-        }
+        destroy(device, bubblePipeline);
+        destroy(device, bubblePipelineLayout);
         if (bubbleDynamicVB != VK_NULL_HANDLE) {
             vmaDestroyBuffer(allocator, bubbleDynamicVB, bubbleDynamicVBAlloc);
             bubbleDynamicVB = VK_NULL_HANDLE;
             bubbleDynamicVBAlloc = VK_NULL_HANDLE;
         }
 
-        if (insectPipeline != VK_NULL_HANDLE) {
-            vkDestroyPipeline(device, insectPipeline, nullptr);
-            insectPipeline = VK_NULL_HANDLE;
-        }
-        if (insectPipelineLayout != VK_NULL_HANDLE) {
-            vkDestroyPipelineLayout(device, insectPipelineLayout, nullptr);
-            insectPipelineLayout = VK_NULL_HANDLE;
-        }
+        destroy(device, insectPipeline);
+        destroy(device, insectPipelineLayout);
         if (insectDynamicVB != VK_NULL_HANDLE) {
             vmaDestroyBuffer(allocator, insectDynamicVB, insectDynamicVBAlloc);
             insectDynamicVB = VK_NULL_HANDLE;
@@ -268,18 +250,9 @@ void SwimEffects::recreatePipelines() {
     }
 
     // Destroy old pipelines (NOT layouts)
-    if (ripplePipeline != VK_NULL_HANDLE) {
-        vkDestroyPipeline(device, ripplePipeline, nullptr);
-        ripplePipeline = VK_NULL_HANDLE;
-    }
-    if (bubblePipeline != VK_NULL_HANDLE) {
-        vkDestroyPipeline(device, bubblePipeline, nullptr);
-        bubblePipeline = VK_NULL_HANDLE;
-    }
-    if (insectPipeline != VK_NULL_HANDLE) {
-        vkDestroyPipeline(device, insectPipeline, nullptr);
-        insectPipeline = VK_NULL_HANDLE;
-    }
+    destroy(device, ripplePipeline);
+    destroy(device, bubblePipeline);
+    destroy(device, insectPipeline);
 
     // Shared vertex input: pos(vec3) + size(float) + alpha(float) = 5 floats
     VkVertexInputBindingDescription binding = tightVertexBinding(5 * sizeof(float));

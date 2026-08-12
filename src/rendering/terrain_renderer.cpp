@@ -261,8 +261,8 @@ void TerrainRenderer::recreatePipelines() {
     VkDevice device = vkCtx->getDevice();
 
     // Destroy old pipelines (keep layouts)
-    if (pipeline) { vkDestroyPipeline(device, pipeline, nullptr); pipeline = VK_NULL_HANDLE; }
-    if (wireframePipeline) { vkDestroyPipeline(device, wireframePipeline, nullptr); wireframePipeline = VK_NULL_HANDLE; }
+    destroy(device, pipeline);
+    destroy(device, wireframePipeline);
 
     // Load shaders
     VkShaderModule vertShader, fragShader;
@@ -368,15 +368,15 @@ void TerrainRenderer::shutdown() {
     if (whiteTexture) { whiteTexture->destroy(device, allocator); whiteTexture.reset(); }
     if (opaqueAlphaTexture) { opaqueAlphaTexture->destroy(device, allocator); opaqueAlphaTexture.reset(); }
 
-    if (pipeline) { vkDestroyPipeline(device, pipeline, nullptr); pipeline = VK_NULL_HANDLE; }
-    if (wireframePipeline) { vkDestroyPipeline(device, wireframePipeline, nullptr); wireframePipeline = VK_NULL_HANDLE; }
-    if (pipelineLayout) { vkDestroyPipelineLayout(device, pipelineLayout, nullptr); pipelineLayout = VK_NULL_HANDLE; }
-    if (materialDescPool) { vkDestroyDescriptorPool(device, materialDescPool, nullptr); materialDescPool = VK_NULL_HANDLE; }
-    if (materialSetLayout) { vkDestroyDescriptorSetLayout(device, materialSetLayout, nullptr); materialSetLayout = VK_NULL_HANDLE; }
+    destroy(device, pipeline);
+    destroy(device, wireframePipeline);
+    destroy(device, pipelineLayout);
+    destroy(device, materialDescPool);
+    destroy(device, materialSetLayout);
 
     // Shadow pipeline cleanup
-    if (shadowPipeline_) { vkDestroyPipeline(device, shadowPipeline_, nullptr); shadowPipeline_ = VK_NULL_HANDLE; }
-    if (shadowPipelineLayout_) { vkDestroyPipelineLayout(device, shadowPipelineLayout_, nullptr); shadowPipelineLayout_ = VK_NULL_HANDLE; }
+    destroy(device, shadowPipeline_);
+    destroy(device, shadowPipelineLayout_);
     destroyShadowParamsSet(device, allocator, shadowParams_);
 
     // Destroy mega buffers and indirect draw buffer
