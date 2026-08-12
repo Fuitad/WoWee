@@ -66,7 +66,6 @@ private:
     float achievementToastTimer_ = 0.0f;
     uint32_t achievementToastId_ = 0;
     std::string achievementToastName_;
-    bool achievementCallbackSet_ = false;
     void renderAchievementToast();
 
     // ---- Area discovery toast ----

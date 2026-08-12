@@ -149,35 +149,10 @@ bool WorldSocket::connect(const std::string& host, uint16_t port) {
 
     stopAsyncPump();
 
-    // Create socket
-    sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    if (sockfd == INVALID_SOCK) {
-        LOG_ERROR("Failed to create socket");
-        return false;
-    }
-
-    // Set non-blocking
-    net::setNonBlocking(sockfd);
-
-    // Resolve host
-    struct addrinfo hints{};
-    hints.ai_family = AF_INET;
-    hints.ai_socktype = SOCK_STREAM;
-    struct addrinfo* res = nullptr;
-    if (getaddrinfo(host.c_str(), nullptr, &hints, &res) != 0 || res == nullptr) {
-        LOG_ERROR("Failed to resolve host: ", host);
-        net::closeSocket(sockfd);
-        sockfd = INVALID_SOCK;
-        return false;
-    }
-
-    // Connect
+    // Socket open, non-blocking, and the address resolved.
     struct sockaddr_in serverAddr;
-    memset(&serverAddr, 0, sizeof(serverAddr));
-    serverAddr.sin_family = AF_INET;
-    serverAddr.sin_addr = reinterpret_cast<struct sockaddr_in*>(res->ai_addr)->sin_addr;
-    serverAddr.sin_port = htons(port);
-    freeaddrinfo(res);
+    sockfd = net::openResolvedSocket(host, port, serverAddr);
+    if (sockfd == INVALID_SOCK) return false;
 
     int result = ::connect(sockfd, (struct sockaddr*)&serverAddr, sizeof(serverAddr));
     if (result < 0) {

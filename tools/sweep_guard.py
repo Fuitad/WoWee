@@ -64,8 +64,13 @@ CHECKS = [
      r"^(\d+) redefined without an #ifndef", 0,
      "macros the build defines, redefined unguarded"),
     ("unused_member_check.py",
-     r"^(\d+) members stored and never read", 161,
+     r"^(\d+) members stored and never read", 137,
      "class members stored and never read"),
+    # The subset clang's -Wunused-private-field rejects outright, which is a
+    # failed Windows build rather than debt. Zero, and it stays there.
+    ("unused_member_check.py",
+     r"^(\d+) private and never referenced", 0,
+     "private members nothing mentions, which fail the Windows build"),
     ("test_glm_link_check.py",
      r"^(\d+) reach glm without it", 0,
      "test targets that build on Linux and fail on macOS"),

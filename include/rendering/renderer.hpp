@@ -266,7 +266,6 @@ private:
     bool shadowsEnabled = true;
     float shadowDistance_ = 300.0f;  // Shadow frustum half-extent (default: 300 units)
     float viewDistance_ = 1200.0f;
-    uint32_t shadowFrameCounter_ = 0;
 
 
 public:

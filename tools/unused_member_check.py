@@ -132,7 +132,40 @@ def main():
             return False                       # anything else reads it
         return True
 
-    dead = []
+    ACCESS = re.compile(r"^\s*(public|protected|private)\s*:", re.M)
+    AGGREGATE = re.compile(r"^\s*(class|struct)\s+\w", re.M)
+
+    def is_private(text, at):
+        """Access of a member at this offset, approximated from the labels.
+
+        Whichever came last before the declaration wins: an access label, or
+        the class or struct that opened. class defaults to private, struct to
+        public, which is the distinction clang's warning turns on.
+        """
+        label = None
+        for m in ACCESS.finditer(text, 0, at):
+            label = m.group(1)
+            label_at = m.start()
+        opener = None
+        for m in AGGREGATE.finditer(text, 0, at):
+            opener = m.group(1)
+            opener_at = m.start()
+        if label and (not opener or label_at > opener_at):
+            return label == "private"
+        return opener == "class"
+
+    def never_referenced(name, path, decl_line, scope):
+        """True when the declaration is the only mention anywhere."""
+        for where, raw in lines_for.get(name, []):
+            if scope is not None and where not in scope:
+                if not re.search(r"(?:\.|->)\s*%s\b" % re.escape(name), raw):
+                    continue
+            if where == path and raw.strip() == decl_line.strip():
+                continue
+            return False
+        return True
+
+    dead, unreferenced = [], []
     for header in sorted(headers):
         text = corpus[header]
         scope = scope_for(header)
@@ -144,13 +177,27 @@ def main():
             if not is_write_only(name, header, decl_line, scope):
                 continue
             line = text.count("\n", 0, m.start()) + 1
-            dead.append((str(header.relative_to(ROOT)), line, name))
+            entry = (str(header.relative_to(ROOT)), line, name)
+            dead.append(entry)
+            # Clang's -Wunused-private-field fires only for a member nothing
+            # mentions at all; a write still counts as a use. That subset is a
+            # build failure on the Windows image, so it is counted apart from
+            # the rest, which is debt rather than breakage.
+            if never_referenced(name, header, decl_line, scope) and \
+                    is_private(text, m.start()):
+                unreferenced.append(entry)
 
     print(f"{len(headers)} headers, {len(lines_for)} member names\n")
     print(f"{len(dead)} members stored and never read:")
     for path, line, name in dead:
         print(f"  {path}:{line}  {name}")
     if not dead:
+        print("  (none)")
+    print()
+    print(f"{len(unreferenced)} private and never referenced, which clang rejects:")
+    for path, line, name in unreferenced:
+        print(f"  {path}:{line}  {name}")
+    if not unreferenced:
         print("  (none)")
     return 1 if dead else 0
 

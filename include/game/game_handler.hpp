@@ -4064,17 +4064,10 @@ private:
     // Movement
     MovementInfo movementInfo;               // Current player movement state
     uint32_t movementTime = 0;               // Movement timestamp counter
-    std::chrono::steady_clock::time_point movementClockStart_ = std::chrono::steady_clock::now();
-    uint32_t lastMovementTimestampMs_ = 0;
-    bool serverMovementAllowed_ = true;
-    uint32_t monsterMovePacketsThisTick_ = 0;
-    uint32_t monsterMovePacketsDroppedThisTick_ = 0;
 
     // Fall/jump tracking for movement packet correctness.
     // fallTime must be the elapsed ms since the FALLING flag was set; the server
     // uses it for fall-damage calculations and anti-cheat validation.
-    bool isFalling_ = false;
-    uint32_t fallStartMs_ = 0;  // movementInfo.time value when FALLING started
 
     // Inventory
     Inventory inventory;
@@ -4108,17 +4101,7 @@ private:
     uint32_t pingSequence = 0;               // Ping sequence number (increments)
     float timeSinceLastPing = 0.0f;          // Time since last ping sent (seconds)
     float pingInterval = 30.0f;              // Ping interval (30 seconds)
-    float timeSinceLastMoveHeartbeat_ = 0.0f; // Periodic movement heartbeat to keep server position synced
     float moveHeartbeatInterval_ = 0.5f;
-    uint32_t lastHeartbeatSendTimeMs_ = 0;
-    float lastHeartbeatX_ = 0.0f;
-    float lastHeartbeatY_ = 0.0f;
-    float lastHeartbeatZ_ = 0.0f;
-    uint32_t lastHeartbeatFlags_ = 0;
-    uint64_t lastHeartbeatTransportGuid_ = 0;
-    uint32_t lastNonHeartbeatMoveSendTimeMs_ = 0;
-    uint32_t lastFacingSendTimeMs_ = 0;
-    float lastFacingSentOrientation_ = 0.0f;
     uint32_t lastLatency = 0;                // Last measured latency (milliseconds)
     std::chrono::steady_clock::time_point pingTimestamp_;  // Time CMSG_PING was sent
     /// When the instance boot timer runs out. Unset while none is running.
@@ -4158,7 +4141,6 @@ private:
 
     // ---- Logout state ----
     bool  loggingOut_        = false;
-    float logoutCountdown_   = 0.0f;   // seconds remaining before server logs us out (0 = instant/done)
 
     // ---- Display state ----
     bool helmVisible_ = true;

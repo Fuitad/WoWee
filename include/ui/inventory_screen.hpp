@@ -217,7 +217,6 @@ private:
 
     // Drop confirmation (drag-outside-window destroy)
     bool dropConfirmOpen_ = false;
-    int dropBackpackIndex_ = -1;
     std::string dropItemName_;
 
     // Destroy confirmation (Shift+right-click destroy)

@@ -80,8 +80,6 @@ private:
     int prevRangeSkin_ = -1;
     int prevRangeHairStyle_ = -1;
     float createTimer_ = -1.0f;  // >=0 while waiting for SMSG_CHAR_CREATE response
-    bool draggingPreview_ = false;
-    float dragStartX_ = 0.0f;
 
     void updatePreviewIfNeeded();
     void updateAppearanceRanges();
