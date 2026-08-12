@@ -1461,6 +1461,25 @@ wowee_test_link_glm(test_camera)
 add_test(NAME camera COMMAND test_camera)
 register_test_target(test_camera)
 
+# ── test_gltf_terrain_bin ────────────────────────────────────
+# The BIN chunk of a terrain .glb, packed byte for byte by two exporters.
+# Checked against the glTF 2.0 layout rather than against the old code.
+add_executable(test_gltf_terrain_bin
+    test_gltf_terrain_bin.cpp
+    ${TEST_COMMON_SOURCES})
+target_include_directories(test_gltf_terrain_bin PRIVATE
+    ${TEST_INCLUDE_DIRS}
+    ${CMAKE_SOURCE_DIR}/tools/editor
+)
+target_include_directories(test_gltf_terrain_bin SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS}
+    ${CMAKE_SOURCE_DIR}/extern/nlohmann
+)
+target_link_libraries(test_gltf_terrain_bin PRIVATE catch2_main)
+wowee_test_link_glm(test_gltf_terrain_bin)
+add_test(NAME gltf_terrain_bin COMMAND test_gltf_terrain_bin)
+register_test_target(test_gltf_terrain_bin)
+
 # ── test_editor_units (SQL escape, quest validation, …) ─────
 add_executable(test_editor_units
     test_editor_units.cpp

@@ -256,23 +256,14 @@ int handleExportWhmGlb(int& i, int argc, char** argv) {
     // Synthesize normals as +Z (terrain is Z-up). Real per-vertex
     // normals would need a smoothing pass across chunk boundaries
     // - skip for v1, viewers can compute their own from positions.
+    const auto packed = packTerrainBin(positions, indices);
+    const std::vector<uint8_t>& bin = packed.bytes;
     const uint32_t totalV = static_cast<uint32_t>(positions.size());
     const uint32_t totalI = static_cast<uint32_t>(indices.size());
-    const uint32_t posOff = 0;
-    const uint32_t nrmOff = posOff + totalV * 12;
-    const uint32_t idxOff = nrmOff + totalV * 12;
-    const uint32_t binSize = idxOff + totalI * 4;
-    std::vector<uint8_t> bin(binSize);
-    for (uint32_t v = 0; v < totalV; ++v) {
-        std::memcpy(&bin[posOff + v * 12 + 0], &positions[v].x, 4);
-        std::memcpy(&bin[posOff + v * 12 + 4], &positions[v].y, 4);
-        std::memcpy(&bin[posOff + v * 12 + 8], &positions[v].z, 4);
-        float nx = 0, ny = 0, nz = 1;
-        std::memcpy(&bin[nrmOff + v * 12 + 0], &nx, 4);
-        std::memcpy(&bin[nrmOff + v * 12 + 4], &ny, 4);
-        std::memcpy(&bin[nrmOff + v * 12 + 8], &nz, 4);
-    }
-    std::memcpy(&bin[idxOff], indices.data(), totalI * 4);
+    const uint32_t posOff = packed.positionOffset;
+    const uint32_t nrmOff = packed.normalOffset;
+    const uint32_t idxOff = packed.indexOffset;
+    const uint32_t binSize = static_cast<uint32_t>(bin.size());
     // Build glTF JSON.
     nlohmann::json gj;
     gj["asset"] = {{"version", "2.0"},
