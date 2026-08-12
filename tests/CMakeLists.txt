@@ -613,6 +613,19 @@ wowee_test_link_glm(test_macro_text)
 add_test(NAME macro_text COMMAND test_macro_text)
 register_test_target(test_macro_text)
 
+# ── test_water_surface_grid ──────────────────────────────────
+# Projecting a world position onto a water surface's grid, which
+# water_renderer.cpp did in four places and never tested.
+add_executable(test_water_surface_grid
+    test_water_surface_grid.cpp
+    ${TEST_COMMON_SOURCES})
+target_include_directories(test_water_surface_grid PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_water_surface_grid SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_water_surface_grid PRIVATE catch2_main)
+wowee_test_link_glm(test_water_surface_grid)
+add_test(NAME water_surface_grid COMMAND test_water_surface_grid)
+register_test_target(test_water_surface_grid)
+
 # ── test_dxt_block ───────────────────────────────────────────
 # The colour half of a DXT block, decoded three times in blp_loader.cpp and
 # never tested; the BLP tests stop at header validation.

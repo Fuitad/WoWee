@@ -1,3 +1,4 @@
+#include "rendering/water_surface_grid.hpp"
 #include "rendering/water_mask.hpp"
 #include "rendering/water_renderer.hpp"
 #include "rendering/water_mask.hpp"
@@ -1422,17 +1423,11 @@ std::optional<float> WaterRenderer::getWaterHeightAt(float glX, float glY) const
     std::optional<float> best;
 
     for (const auto& surface : surfaces) {
-        glm::vec2 rel(glX - surface.origin.x, glY - surface.origin.y);
-        glm::vec2 sX(surface.stepX.x, surface.stepX.y);
-        glm::vec2 sY(surface.stepY.x, surface.stepY.y);
-        float lenSqX = glm::dot(sX, sX);
-        float lenSqY = glm::dot(sY, sY);
-        if (lenSqX < 1e-6f || lenSqY < 1e-6f) continue;
-        float gx = glm::dot(rel, sX) / lenSqX;
-        float gy = glm::dot(rel, sY) / lenSqY;
-
-        if (gx < 0.0f || gx > static_cast<float>(surface.width) ||
-            gy < 0.0f || gy > static_cast<float>(surface.height)) continue;
+        const auto grid = surfaceGridPosition(surface.origin, surface.stepX, surface.stepY,
+                                              surface.width, surface.height, glX, glY);
+        if (!grid) continue;
+        const float gx = grid->x;
+        const float gy = grid->y;
 
         int gridWidth = surface.width + 1;
         int ix = static_cast<int>(gx);
@@ -1472,17 +1467,11 @@ std::optional<float> WaterRenderer::getNearestWaterHeightAt(float glX, float glY
     float bestDist = 1e9f;
 
     for (const auto& surface : surfaces) {
-        glm::vec2 rel(glX - surface.origin.x, glY - surface.origin.y);
-        glm::vec2 sX(surface.stepX.x, surface.stepX.y);
-        glm::vec2 sY(surface.stepY.x, surface.stepY.y);
-        float lenSqX = glm::dot(sX, sX);
-        float lenSqY = glm::dot(sY, sY);
-        if (lenSqX < 1e-6f || lenSqY < 1e-6f) continue;
-        float gx = glm::dot(rel, sX) / lenSqX;
-        float gy = glm::dot(rel, sY) / lenSqY;
-
-        if (gx < 0.0f || gx > static_cast<float>(surface.width) ||
-            gy < 0.0f || gy > static_cast<float>(surface.height)) continue;
+        const auto grid = surfaceGridPosition(surface.origin, surface.stepX, surface.stepY,
+                                              surface.width, surface.height, glX, glY);
+        if (!grid) continue;
+        const float gx = grid->x;
+        const float gy = grid->y;
 
         int gridWidth = surface.width + 1;
         int ix = static_cast<int>(gx);
@@ -1530,17 +1519,11 @@ std::optional<uint16_t> WaterRenderer::getWaterTypeAt(float glX, float glY) cons
     std::optional<uint16_t> bestType;
 
     for (const auto& surface : surfaces) {
-        glm::vec2 rel(glX - surface.origin.x, glY - surface.origin.y);
-        glm::vec2 sX(surface.stepX.x, surface.stepX.y);
-        glm::vec2 sY(surface.stepY.x, surface.stepY.y);
-        float lenSqX = glm::dot(sX, sX);
-        float lenSqY = glm::dot(sY, sY);
-        if (lenSqX < 1e-6f || lenSqY < 1e-6f) continue;
-
-        float gx = glm::dot(rel, sX) / lenSqX;
-        float gy = glm::dot(rel, sY) / lenSqY;
-        if (gx < 0.0f || gx > static_cast<float>(surface.width) ||
-            gy < 0.0f || gy > static_cast<float>(surface.height)) continue;
+        const auto grid = surfaceGridPosition(surface.origin, surface.stepX, surface.stepY,
+                                              surface.width, surface.height, glX, glY);
+        if (!grid) continue;
+        const float gx = grid->x;
+        const float gy = grid->y;
 
         int ix = static_cast<int>(gx);
         int iy = static_cast<int>(gy);
@@ -1566,17 +1549,10 @@ std::optional<uint16_t> WaterRenderer::getWaterTypeAt(float glX, float glY) cons
 bool WaterRenderer::isWmoWaterAt(float glX, float glY) const {
     for (const auto& surface : surfaces) {
         if (surface.wmoId == 0) continue;
-        glm::vec2 rel(glX - surface.origin.x, glY - surface.origin.y);
-        glm::vec2 sX(surface.stepX.x, surface.stepX.y);
-        glm::vec2 sY(surface.stepY.x, surface.stepY.y);
-        float lenSqX = glm::dot(sX, sX);
-        float lenSqY = glm::dot(sY, sY);
-        if (lenSqX < 1e-6f || lenSqY < 1e-6f) continue;
-        float gx = glm::dot(rel, sX) / lenSqX;
-        float gy = glm::dot(rel, sY) / lenSqY;
-        if (gx >= 0.0f && gx <= static_cast<float>(surface.width) &&
-            gy >= 0.0f && gy <= static_cast<float>(surface.height))
+        if (surfaceGridPosition(surface.origin, surface.stepX, surface.stepY,
+                                surface.width, surface.height, glX, glY)) {
             return true;
+        }
     }
     return false;
 }
