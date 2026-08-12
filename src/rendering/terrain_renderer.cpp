@@ -1,3 +1,4 @@
+#include "rendering/terrain_vertex.hpp"
 #include "rendering/shadow_params.hpp"
 #include "rendering/terrain_renderer.hpp"
 #include "rendering/vk_context.hpp"
@@ -115,19 +116,9 @@ bool TerrainRenderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameL
 
     // --- Vertex input ---
     VkVertexInputBindingDescription vertexBinding{};
-    vertexBinding.binding = 0;
-    vertexBinding.stride = sizeof(pipeline::TerrainVertex);
-    vertexBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-    std::vector<VkVertexInputAttributeDescription> vertexAttribs(4);
-    vertexAttribs[0] = { 0, 0, VK_FORMAT_R32G32B32_SFLOAT,
-        static_cast<uint32_t>(offsetof(pipeline::TerrainVertex, position)) };
-    vertexAttribs[1] = { 1, 0, VK_FORMAT_R32G32B32_SFLOAT,
-        static_cast<uint32_t>(offsetof(pipeline::TerrainVertex, normal)) };
-    vertexAttribs[2] = { 2, 0, VK_FORMAT_R32G32_SFLOAT,
-        static_cast<uint32_t>(offsetof(pipeline::TerrainVertex, texCoord)) };
-    vertexAttribs[3] = { 3, 0, VK_FORMAT_R32G32_SFLOAT,
-        static_cast<uint32_t>(offsetof(pipeline::TerrainVertex, layerUV)) };
+    vertexBinding = perVertexBinding(sizeof(pipeline::TerrainVertex));
+    const std::vector<VkVertexInputAttributeDescription> vertexAttribs =
+        toVkAttributes(kTerrainVertexAttributes);
 
     // --- Build fill pipeline (base for derivatives - shared state optimization) ---
     VkRenderPass mainPass = vkCtx->getImGuiRenderPass();
@@ -278,19 +269,9 @@ void TerrainRenderer::recreatePipelines() {
 
     // Vertex input (same as initialize)
     VkVertexInputBindingDescription vertexBinding{};
-    vertexBinding.binding = 0;
-    vertexBinding.stride = sizeof(pipeline::TerrainVertex);
-    vertexBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-    std::vector<VkVertexInputAttributeDescription> vertexAttribs(4);
-    vertexAttribs[0] = { 0, 0, VK_FORMAT_R32G32B32_SFLOAT,
-        static_cast<uint32_t>(offsetof(pipeline::TerrainVertex, position)) };
-    vertexAttribs[1] = { 1, 0, VK_FORMAT_R32G32B32_SFLOAT,
-        static_cast<uint32_t>(offsetof(pipeline::TerrainVertex, normal)) };
-    vertexAttribs[2] = { 2, 0, VK_FORMAT_R32G32_SFLOAT,
-        static_cast<uint32_t>(offsetof(pipeline::TerrainVertex, texCoord)) };
-    vertexAttribs[3] = { 3, 0, VK_FORMAT_R32G32_SFLOAT,
-        static_cast<uint32_t>(offsetof(pipeline::TerrainVertex, layerUV)) };
+    vertexBinding = perVertexBinding(sizeof(pipeline::TerrainVertex));
+    const std::vector<VkVertexInputAttributeDescription> vertexAttribs =
+        toVkAttributes(kTerrainVertexAttributes);
 
     VkRenderPass mainPass = vkCtx->getImGuiRenderPass();
 
@@ -986,21 +967,13 @@ bool TerrainRenderer::initializeShadow(VkRenderPass shadowRenderPass) {
         return false;
     }
 
-    // Terrain vertex layout: pos(0,off0) normal(1,off12) texCoord(2,off24) layerUV(3,off32)
-    // stride = sizeof(TerrainVertex) = 44 bytes
-    // Shadow shader expects: aPos(loc0), aTexCoord(loc1), aBoneWeights(loc2), aBoneIndicesF(loc3)
-    // Alias unused bone attrs to position (offset 0); useBones=0 so they are never read.
-    const uint32_t stride = static_cast<uint32_t>(sizeof(pipeline::TerrainVertex));
-    VkVertexInputBindingDescription vertBind{};
-    vertBind.binding = 0;
-    vertBind.stride = stride;
-    vertBind.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-    std::vector<VkVertexInputAttributeDescription> vertAttrs = {
-        {0, 0, VK_FORMAT_R32G32B32_SFLOAT,    0},   // aPos         -> position
-        {1, 0, VK_FORMAT_R32G32_SFLOAT,       24},  // aTexCoord    -> texCoord (unused)
-        {2, 0, VK_FORMAT_R32G32B32A32_SFLOAT,  0},  // aBoneWeights -> position (unused)
-        {3, 0, VK_FORMAT_R32G32B32A32_SFLOAT,  0},  // aBoneIndices -> position (unused)
-    };
+    // The shadow shader is shared with the skinned renderers, so it declares
+    // bone inputs terrain has none of; kTerrainShadowVertexAttributes says
+    // where they point and why.
+    const VkVertexInputBindingDescription vertBind =
+        perVertexBinding(sizeof(pipeline::TerrainVertex));
+    const std::vector<VkVertexInputAttributeDescription> vertAttrs =
+        toVkAttributes(kTerrainShadowVertexAttributes);
 
     shadowPipeline_ = buildShadowPipeline(
         device, vkCtx->getPipelineCache(),

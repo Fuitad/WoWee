@@ -4,6 +4,8 @@
 #include <vector>
 #include <string>
 
+#include "rendering/vertex_layout.hpp"
+
 namespace wowee {
 namespace rendering {
 
@@ -160,6 +162,45 @@ inline std::vector<VkVertexInputAttributeDescription> positionPlusUvAttrs() {
 /// pipeline - which is every pipeline here, because the window can resize.
 inline std::vector<VkDynamicState> viewportAndScissorDynamic() {
     return {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
+}
+
+/// A vertex attribute description, from the layout stated without Vulkan.
+///
+/// The component count is the whole mapping: every vertex attribute in this
+/// renderer is floats, so 2, 3 and 4 are the only widths there are.
+inline VkVertexInputAttributeDescription toVkAttribute(const VertexAttribute& attribute,
+                                                       uint32_t binding = 0) {
+    VkFormat format = VK_FORMAT_UNDEFINED;
+    switch (attribute.componentCount) {
+        case 2: format = VK_FORMAT_R32G32_SFLOAT; break;
+        case 3: format = VK_FORMAT_R32G32B32_SFLOAT; break;
+        case 4: format = VK_FORMAT_R32G32B32A32_SFLOAT; break;
+        default: break;
+    }
+    return VkVertexInputAttributeDescription{attribute.location, binding, format,
+                                             attribute.offset};
+}
+
+/// The same for a whole layout.
+template <typename Attributes>
+std::vector<VkVertexInputAttributeDescription> toVkAttributes(const Attributes& attributes,
+                                                              uint32_t binding = 0) {
+    std::vector<VkVertexInputAttributeDescription> out;
+    out.reserve(attributes.size());
+    for (const VertexAttribute& attribute : attributes) {
+        out.push_back(toVkAttribute(attribute, binding));
+    }
+    return out;
+}
+
+/// The binding a per-vertex layout of the given stride is read through.
+inline VkVertexInputBindingDescription perVertexBinding(uint32_t stride,
+                                                        uint32_t binding = 0) {
+    VkVertexInputBindingDescription description{};
+    description.binding = binding;
+    description.stride = stride;
+    description.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+    return description;
 }
 
 /// The depth-only pipeline every renderer draws its shadow pass with.

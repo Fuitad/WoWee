@@ -613,6 +613,22 @@ wowee_test_link_glm(test_macro_text)
 add_test(NAME macro_text COMMAND test_macro_text)
 register_test_target(test_macro_text)
 
+# ── test_vertex_layouts ──────────────────────────────────────
+# The WMO and terrain vertex layouts against the shaders that read them. Each
+# layout was stated three or four times, once with the stride and every offset
+# as a literal; the shader source is the outside oracle.
+add_executable(test_vertex_layouts
+    test_vertex_layouts.cpp
+    ${TEST_COMMON_SOURCES})
+target_include_directories(test_vertex_layouts PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_vertex_layouts SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
+target_compile_definitions(test_vertex_layouts PRIVATE
+    WOWEE_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+target_link_libraries(test_vertex_layouts PRIVATE catch2_main)
+wowee_test_link_glm(test_vertex_layouts)
+add_test(NAME vertex_layouts COMMAND test_vertex_layouts)
+register_test_target(test_vertex_layouts)
+
 # ── test_movement_flags ──────────────────────────────────────
 # What the movement flag word means. Two handlers spelled these out against
 # their own copy of the flags; they now both ask MovementInfo. Header-only, so

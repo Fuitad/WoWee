@@ -1,3 +1,4 @@
+#include "rendering/wmo_vertex.hpp"
 #include "rendering/shadow_params.hpp"
 #include "rendering/wmo_renderer.hpp"
 #include "rendering/normal_map.hpp"
@@ -152,31 +153,10 @@ bool WMORenderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayou
     }
 
     // --- Vertex input ---
-    // WMO vertex: pos3 + normal3 + texCoord2 + color4 + tangent4 = 64 bytes
-    struct WMOVertexData {
-        glm::vec3 position;
-        glm::vec3 normal;
-        glm::vec2 texCoord;
-        glm::vec4 color;
-        glm::vec4 tangent;  // xyz=tangent dir, w=handedness ±1
-    };
-
-    VkVertexInputBindingDescription vertexBinding{};
-    vertexBinding.binding = 0;
-    vertexBinding.stride = sizeof(WMOVertexData);
-    vertexBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-    std::vector<VkVertexInputAttributeDescription> vertexAttribs(5);
-    vertexAttribs[0] = { 0, 0, VK_FORMAT_R32G32B32_SFLOAT,
-        static_cast<uint32_t>(offsetof(WMOVertexData, position)) };
-    vertexAttribs[1] = { 1, 0, VK_FORMAT_R32G32B32_SFLOAT,
-        static_cast<uint32_t>(offsetof(WMOVertexData, normal)) };
-    vertexAttribs[2] = { 2, 0, VK_FORMAT_R32G32_SFLOAT,
-        static_cast<uint32_t>(offsetof(WMOVertexData, texCoord)) };
-    vertexAttribs[3] = { 3, 0, VK_FORMAT_R32G32B32A32_SFLOAT,
-        static_cast<uint32_t>(offsetof(WMOVertexData, color)) };
-    vertexAttribs[4] = { 4, 0, VK_FORMAT_R32G32B32A32_SFLOAT,
-        static_cast<uint32_t>(offsetof(WMOVertexData, tangent)) };
+    const VkVertexInputBindingDescription vertexBinding =
+        perVertexBinding(sizeof(WMOVertex));
+    const std::vector<VkVertexInputAttributeDescription> vertexAttribs =
+        toVkAttributes(kWmoVertexAttributes);
 
     // --- Build opaque pipeline (base for derivatives - shared state optimization) ---
     VkRenderPass mainPass = vkCtx_->getImGuiRenderPass();
@@ -1809,19 +1789,12 @@ bool WMORenderer::initializeShadow(VkRenderPass shadowRenderPass) {
         return false;
     }
 
-    // WMO vertex layout: pos(loc0,off0) normal(loc1,off12) texCoord(loc2,off24) color(loc3,off32) tangent(loc4,off48), stride=64
-    // Shadow shader locations: 0=aPos, 1=aTexCoord, 2=aBoneWeights, 3=aBoneIndicesF
-    // useBones=0 so locations 2,3 are never read; we alias them to existing data offsets
-    VkVertexInputBindingDescription vertBind{};
-    vertBind.binding = 0;
-    vertBind.stride = 64;
-    vertBind.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-    std::vector<VkVertexInputAttributeDescription> vertAttrs = {
-        {0, 0, VK_FORMAT_R32G32B32_SFLOAT,    0},   // aPos       -> position
-        {1, 0, VK_FORMAT_R32G32_SFLOAT,       24},  // aTexCoord  -> texCoord
-        {2, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 32},  // aBoneWeights (aliased to color, not used)
-        {3, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 32},  // aBoneIndicesF (aliased to color, not used)
-    };
+    // The shadow shader is shared with the skinned renderers, so it declares
+    // bone inputs this geometry has none of; kWmoShadowVertexAttributes says
+    // where they point and why.
+    const VkVertexInputBindingDescription vertBind = perVertexBinding(sizeof(WMOVertex));
+    const std::vector<VkVertexInputAttributeDescription> vertAttrs =
+        toVkAttributes(kWmoShadowVertexAttributes);
 
     shadowPipeline_ = buildShadowPipeline(
         device, vkCtx_->getPipelineCache(),
@@ -1923,20 +1896,11 @@ bool WMORenderer::createGroupResources(const pipeline::WMOGroup& group, GroupRes
     resources.boundingBoxMin = group.boundingBoxMin;
     resources.boundingBoxMax = group.boundingBoxMax;
 
-    // Create vertex data (position, normal, texcoord, color, tangent)
-    struct VertexData {
-        glm::vec3 position;
-        glm::vec3 normal;
-        glm::vec2 texCoord;
-        glm::vec4 color;
-        glm::vec4 tangent;  // xyz=tangent dir, w=handedness ±1
-    };
-
-    std::vector<VertexData> vertices;
+    std::vector<WMOVertex> vertices;
     vertices.reserve(group.vertices.size());
 
     for (const auto& v : group.vertices) {
-        VertexData vd;
+        WMOVertex vd;
         vd.position = v.position;
         vd.normal = v.normal;
         vd.texCoord = v.texCoord;
@@ -2006,7 +1970,7 @@ bool WMORenderer::createGroupResources(const pipeline::WMOGroup& group, GroupRes
 
     // Upload vertex buffer to GPU
     AllocatedBuffer vertBuf = uploadBuffer(*vkCtx_, vertices.data(),
-        vertices.size() * sizeof(VertexData),
+        vertices.size() * sizeof(WMOVertex),
         VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
     resources.vertexBuffer = vertBuf.buffer;
     resources.vertexAlloc = vertBuf.allocation;
@@ -4169,31 +4133,10 @@ void WMORenderer::recreatePipelines() {
     }
 
     // --- Vertex input ---
-    // WMO vertex: pos3 + normal3 + texCoord2 + color4 + tangent4 = 64 bytes
-    struct WMOVertexData {
-        glm::vec3 position;
-        glm::vec3 normal;
-        glm::vec2 texCoord;
-        glm::vec4 color;
-        glm::vec4 tangent;  // xyz=tangent dir, w=handedness ±1
-    };
-
-    VkVertexInputBindingDescription vertexBinding{};
-    vertexBinding.binding = 0;
-    vertexBinding.stride = sizeof(WMOVertexData);
-    vertexBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-    std::vector<VkVertexInputAttributeDescription> vertexAttribs(5);
-    vertexAttribs[0] = { 0, 0, VK_FORMAT_R32G32B32_SFLOAT,
-        static_cast<uint32_t>(offsetof(WMOVertexData, position)) };
-    vertexAttribs[1] = { 1, 0, VK_FORMAT_R32G32B32_SFLOAT,
-        static_cast<uint32_t>(offsetof(WMOVertexData, normal)) };
-    vertexAttribs[2] = { 2, 0, VK_FORMAT_R32G32_SFLOAT,
-        static_cast<uint32_t>(offsetof(WMOVertexData, texCoord)) };
-    vertexAttribs[3] = { 3, 0, VK_FORMAT_R32G32B32A32_SFLOAT,
-        static_cast<uint32_t>(offsetof(WMOVertexData, color)) };
-    vertexAttribs[4] = { 4, 0, VK_FORMAT_R32G32B32A32_SFLOAT,
-        static_cast<uint32_t>(offsetof(WMOVertexData, tangent)) };
+    const VkVertexInputBindingDescription vertexBinding =
+        perVertexBinding(sizeof(WMOVertex));
+    const std::vector<VkVertexInputAttributeDescription> vertexAttribs =
+        toVkAttributes(kWmoVertexAttributes);
 
     VkRenderPass mainPass = vkCtx_->getImGuiRenderPass();
 
