@@ -13,6 +13,7 @@
 
 #include "rendering/water_surface_grid.hpp"
 
+using wowee::rendering::sampleGridHeight;
 using wowee::rendering::surfaceGridPosition;
 
 namespace {
@@ -107,4 +108,81 @@ TEST_CASE("the z components of the steps do not enter into it", "[watergrid]") {
                                           kOrigin.x + 10.0f, kOrigin.y);
     REQUIRE(grid.has_value());
     CHECK(grid->x == Catch::Approx(1.0f));
+}
+
+// ---- the height at a grid position ----
+
+namespace {
+
+/// A (width+1) x (height+1) corner grid filled by a rule.
+std::vector<float> corners(int width, int height, float (*rule)(int, int)) {
+    std::vector<float> out;
+    out.reserve(static_cast<size_t>((width + 1) * (height + 1)));
+    for (int y = 0; y <= height; ++y) {
+        for (int x = 0; x <= width; ++x) out.push_back(rule(x, y));
+    }
+    return out;
+}
+
+}  // namespace
+
+TEST_CASE("a level surface is the same height everywhere", "[watergrid]") {
+    const auto heights = corners(8, 8, [](int, int) { return 42.0f; });
+    for (float g = 0.0f; g <= 8.0f; g += 2.0f) {
+        INFO("at " << g);
+        const auto h = sampleGridHeight(heights, 8, 8, g, g);
+        REQUIRE(h.has_value());
+        CHECK(*h == Catch::Approx(42.0f));
+    }
+}
+
+TEST_CASE("the height is interpolated across the cell", "[watergrid]") {
+    // Height equals the x corner index, so halfway along a cell is halfway
+    // between its corners. A sampler that snapped to a corner instead would
+    // step the water surface in visible terraces.
+    const auto heights = corners(8, 8, [](int x, int) { return static_cast<float>(x); });
+    CHECK(*sampleGridHeight(heights, 8, 8, 0.5f, 0.0f) == Catch::Approx(0.5f));
+    CHECK(*sampleGridHeight(heights, 8, 8, 3.25f, 4.0f) == Catch::Approx(3.25f));
+}
+
+TEST_CASE("both axes are interpolated", "[watergrid]") {
+    const auto heights = corners(8, 8, [](int x, int y) {
+        return static_cast<float>(x) + 10.0f * static_cast<float>(y);
+    });
+    CHECK(*sampleGridHeight(heights, 8, 8, 0.5f, 0.5f) == Catch::Approx(5.5f));
+}
+
+TEST_CASE("the far edge samples the last cell rather than falling off",
+          "[watergrid]") {
+    // A grid of eight cells has nine corners, so grid position 8 is the last
+    // corner, not the start of a ninth cell. Reading it as a cell start walks
+    // off the array and drops the answer, which leaves a seam between two
+    // surfaces that the player falls through.
+    const auto heights = corners(8, 8, [](int x, int) { return static_cast<float>(x); });
+    const auto h = sampleGridHeight(heights, 8, 8, 8.0f, 8.0f);
+    REQUIRE(h.has_value());
+    CHECK(*h == Catch::Approx(8.0f));
+}
+
+TEST_CASE("a position behind the grid has no height", "[watergrid]") {
+    const auto heights = corners(8, 8, [](int, int) { return 1.0f; });
+    CHECK_FALSE(sampleGridHeight(heights, 8, 8, -0.5f, 0.0f).has_value());
+    CHECK_FALSE(sampleGridHeight(heights, 8, 8, 0.0f, -0.5f).has_value());
+}
+
+TEST_CASE("a short height array answers nothing rather than reading past it",
+          "[watergrid]") {
+    // A surface whose heights failed to load. Answering a height read from
+    // whatever follows the array is worse than answering none.
+    const std::vector<float> tooShort(4, 5.0f);
+    CHECK_FALSE(sampleGridHeight(tooShort, 8, 8, 4.0f, 4.0f).has_value());
+    CHECK_FALSE(sampleGridHeight({}, 8, 8, 0.0f, 0.0f).has_value());
+}
+
+TEST_CASE("a non-square surface indexes by its own width", "[watergrid]") {
+    // Row stride is width + 1, not height + 1. Swapping them reads the height
+    // of a different part of the lake, which is a plausible number.
+    const auto heights = corners(4, 8, [](int, int y) { return static_cast<float>(y); });
+    CHECK(*sampleGridHeight(heights, 4, 8, 0.0f, 3.0f) == Catch::Approx(3.0f));
+    CHECK(*sampleGridHeight(heights, 4, 8, 4.0f, 6.0f) == Catch::Approx(6.0f));
 }

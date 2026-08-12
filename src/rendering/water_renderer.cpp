@@ -1429,32 +1429,18 @@ std::optional<float> WaterRenderer::getWaterHeightAt(float glX, float glY) const
         const float gx = grid->x;
         const float gy = grid->y;
 
-        int gridWidth = surface.width + 1;
-        int ix = static_cast<int>(gx);
-        int iy = static_cast<int>(gy);
-        float fx = gx - ix;
-        float fy = gy - iy;
-
-        if (ix >= surface.width) { ix = surface.width - 1; fx = 1.0f; }
-        if (iy >= surface.height) { iy = surface.height - 1; fy = 1.0f; }
-        if (ix < 0 || iy < 0) continue;
-
+        // The cell the point lands in, clamped at the far edge.
+        const int ix = std::min(static_cast<int>(gx), static_cast<int>(surface.width) - 1);
+        const int iy = std::min(static_cast<int>(gy), static_cast<int>(surface.height) - 1);
         if (!waterCellRendered(surface.mask, surface.wmoId, surface.width,
                                surface.xOffset, surface.yOffset, ix, iy)) {
             continue;
         }
 
-        int idx00 = iy * gridWidth + ix;
-        int idx10 = idx00 + 1;
-        int idx01 = idx00 + gridWidth;
-        int idx11 = idx01 + 1;
-
-        int total = static_cast<int>(surface.heights.size());
-        if (idx11 >= total) continue;
-
-        float h00 = surface.heights[idx00], h10 = surface.heights[idx10];
-        float h01 = surface.heights[idx01], h11 = surface.heights[idx11];
-        float h = h00*(1-fx)*(1-fy) + h10*fx*(1-fy) + h01*(1-fx)*fy + h11*fx*fy;
+        const auto sampled = sampleGridHeight(surface.heights, surface.width,
+                                              surface.height, gx, gy);
+        if (!sampled) continue;
+        const float h = *sampled;
 
         if (!best || h > *best) best = h;
     }
@@ -1473,32 +1459,18 @@ std::optional<float> WaterRenderer::getNearestWaterHeightAt(float glX, float glY
         const float gx = grid->x;
         const float gy = grid->y;
 
-        int gridWidth = surface.width + 1;
-        int ix = static_cast<int>(gx);
-        int iy = static_cast<int>(gy);
-        float fx = gx - ix;
-        float fy = gy - iy;
-
-        if (ix >= surface.width) { ix = surface.width - 1; fx = 1.0f; }
-        if (iy >= surface.height) { iy = surface.height - 1; fy = 1.0f; }
-        if (ix < 0 || iy < 0) continue;
-
+        // The cell the point lands in, clamped at the far edge.
+        const int ix = std::min(static_cast<int>(gx), static_cast<int>(surface.width) - 1);
+        const int iy = std::min(static_cast<int>(gy), static_cast<int>(surface.height) - 1);
         if (!waterCellRendered(surface.mask, surface.wmoId, surface.width,
                                surface.xOffset, surface.yOffset, ix, iy)) {
             continue;
         }
 
-        int idx00 = iy * gridWidth + ix;
-        int idx10 = idx00 + 1;
-        int idx01 = idx00 + gridWidth;
-        int idx11 = idx01 + 1;
-
-        int total = static_cast<int>(surface.heights.size());
-        if (idx11 >= total) continue;
-
-        float h00 = surface.heights[idx00], h10 = surface.heights[idx10];
-        float h01 = surface.heights[idx01], h11 = surface.heights[idx11];
-        float h = h00*(1-fx)*(1-fy) + h10*fx*(1-fy) + h01*(1-fx)*fy + h11*fx*fy;
+        const auto sampled = sampleGridHeight(surface.heights, surface.width,
+                                              surface.height, gx, gy);
+        if (!sampled) continue;
+        const float h = *sampled;
 
         // Only consider water that's above queryZ but not too far above
         if (h < queryZ - 2.0f) continue;  // water below camera, skip
