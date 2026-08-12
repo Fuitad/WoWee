@@ -41,7 +41,12 @@ SOURCES = [ROOT / "include", ROOT / "src", ROOT / "tools"]
 DECL = re.compile(
     r"^\s{2,}(?:mutable\s+|static\s+|const\s+)*"
     r"[A-Za-z_][\w:<>,\s\*&]*?[\s\*&]"
-    r"(\w+_)\s*(?:=[^;]*)?;\s*(?://.*)?$", re.M)
+    # [ \t]* rather than \s*: under re.M a \s* here runs past the newline and
+    # swallows the next blank line and comment into the match, after which the
+    # declaration no longer equals its own line and is counted as a read. Every
+    # member followed by a comment was silently skipped, which is how
+    # AssetManager::looseReader_ reached Windows CI.
+    r"(\w+_)[ \t]*(?:=[^;]*)?;[ \t]*(?://.*)?$", re.M)
 
 # Settled: names whose only readers are outside what this can see.
 EXPECTED = set()

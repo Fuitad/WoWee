@@ -172,7 +172,6 @@ private:
 
     // Base manifest (loaded from dataPath/manifest.json)
     AssetManifest manifest_;
-    LooseFileReader looseReader_;
 
     // Optional base-path fallback: used when manifest_ doesn't contain a file.
     // Populated by setBaseFallbackPath(); ignored if baseFallbackDataPath_ is empty.

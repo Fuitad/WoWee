@@ -13,7 +13,13 @@
 #include <cstring>
 
 #if defined(_WIN32)
-#  define WIN32_LEAN_AND_MEAN
+// Guarded, because the build already defines it: CMakeLists adds
+// WIN32_LEAN_AND_MEAN to add_compile_definitions, and redefining it is an
+// error under -Werror. The five other places that reach for windows.h all
+// test first; this was the one that did not.
+#  ifndef WIN32_LEAN_AND_MEAN
+#    define WIN32_LEAN_AND_MEAN
+#  endif
 #  include <windows.h>
 #  include <shellapi.h>
 #elif defined(__APPLE__)

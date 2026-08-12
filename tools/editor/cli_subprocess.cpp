@@ -5,7 +5,11 @@
 #include <vector>
 
 #if defined(_WIN32)
-#  define WIN32_LEAN_AND_MEAN
+// Guarded: the build already defines it, and redefining is an error under
+// -Werror.
+#  ifndef WIN32_LEAN_AND_MEAN
+#    define WIN32_LEAN_AND_MEAN
+#  endif
 #  include <windows.h>
 #  include <string>
 #else
