@@ -879,6 +879,12 @@ private:
     // Helper to destroy instance bone buffers.
     // When defer=true, destruction is scheduled via deferAfterFrameFence so
     // in-flight command buffers are not invalidated (use for streaming unload).
+    /// Starts a new instance's animation and seeds its bones from a
+    /// sibling of the same model, so it draws on the frame it spawns.
+    /// Both spawn paths need it and each used to have its own copy.
+    void seedInstanceAnimation(const M2ModelGPU& model, uint32_t modelId,
+                               M2Instance& instance);
+
     void destroyInstanceBones(M2Instance& inst, bool defer = false);
 };
 

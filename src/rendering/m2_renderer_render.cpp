@@ -36,6 +36,51 @@
 namespace wowee {
 namespace rendering {
 
+/// Starts a new instance's animation and gives it bones to draw with now.
+///
+/// Both spawn paths need this: the one that takes a position and the one that
+/// takes a whole matrix, and each had its own copy.
+///
+/// The bone seed is what keeps a new instance from being invisible for a
+/// frame. Bones are computed in update(), so an instance spawned mid-frame has
+/// none until the next one; copying them from a sibling of the same model
+/// draws it immediately. A seed entry pointing at an instance that has since
+/// gone is dropped rather than followed.
+void M2Renderer::seedInstanceAnimation(const M2ModelGPU& model, uint32_t modelId,
+                                       M2Instance& instance) {
+        if (!model.sequences.empty()) {
+            instance.currentSequenceIndex = 0;
+            instance.idleSequenceIndex = 0;
+            instance.animDuration = static_cast<float>(model.sequences[0].duration);
+            instance.animTime = static_cast<float>(randRange(std::max(1u, model.sequences[0].duration)));
+            instance.variationTimer = randFloat(rendering::M2_VARIATION_TIMER_MIN_MS, rendering::M2_VARIATION_TIMER_MAX_MS);
+        }
+
+    auto seedIt = boneSeedInstanceByModel_.find(modelId);
+    if (seedIt != boneSeedInstanceByModel_.end()) {
+        auto idxIt = instanceIndexById.find(seedIt->second);
+        if (idxIt != instanceIndexById.end() && idxIt->second < instances.size()) {
+            const auto& existing = instances[idxIt->second];
+            if (existing.modelId == modelId && !existing.boneMatrices.empty()) {
+                instance.boneMatrices = existing.boneMatrices;
+                instance.bonesDirty[0] = instance.bonesDirty[1] = true;
+            } else {
+                boneSeedInstanceByModel_.erase(seedIt);  // stale entry
+            }
+        } else {
+            boneSeedInstanceByModel_.erase(seedIt);  // that instance is gone
+        }
+    }
+
+    // No sibling to copy from, so pay for the bones now.
+    if (instance.boneMatrices.empty()) {
+        computeBoneMatrices(model, instance);
+    }
+    if (!instance.boneMatrices.empty()) {
+        boneSeedInstanceByModel_.emplace(modelId, instance.id);
+    }
+}
+
 uint32_t M2Renderer::createInstance(uint32_t modelId, const glm::vec3& position,
                                      const glm::vec3& rotation, float scale,
                                      bool allowPositionDedup) {
@@ -104,39 +149,7 @@ uint32_t M2Renderer::createInstance(uint32_t modelId, const glm::vec3& position,
     // Initialize animation: play first sequence (usually Stand/Idle)
     const auto& mdl = mdlRef;
     if (mdl.hasAnimation && !mdl.disableAnimation) {
-        if (!mdl.sequences.empty()) {
-            instance.currentSequenceIndex = 0;
-            instance.idleSequenceIndex = 0;
-            instance.animDuration = static_cast<float>(mdl.sequences[0].duration);
-            instance.animTime = static_cast<float>(randRange(std::max(1u, mdl.sequences[0].duration)));
-            instance.variationTimer = randFloat(rendering::M2_VARIATION_TIMER_MIN_MS, rendering::M2_VARIATION_TIMER_MAX_MS);
-        }
-
-        // Seed bone matrices from an existing instance of the same model so the
-        // new instance renders immediately instead of being invisible until the
-        // next update() computes bones (prevents pop-in flash).
-        auto seedIt = boneSeedInstanceByModel_.find(modelId);
-        if (seedIt != boneSeedInstanceByModel_.end()) {
-            auto idxIt = instanceIndexById.find(seedIt->second);
-            if (idxIt != instanceIndexById.end() && idxIt->second < instances.size()) {
-                const auto& existing = instances[idxIt->second];
-                if (existing.modelId == modelId && !existing.boneMatrices.empty()) {
-                    instance.boneMatrices = existing.boneMatrices;
-                    instance.bonesDirty[0] = instance.bonesDirty[1] = true;
-                } else {
-                    boneSeedInstanceByModel_.erase(seedIt);  // stale entry
-                }
-            } else {
-                boneSeedInstanceByModel_.erase(seedIt);  // that instance is gone
-            }
-        }
-        // If no sibling exists yet, compute bones immediately
-        if (instance.boneMatrices.empty()) {
-            computeBoneMatrices(mdlRef, instance);
-        }
-        if (!instance.boneMatrices.empty()) {
-            boneSeedInstanceByModel_.emplace(modelId, instance.id);
-        }
+        seedInstanceAnimation(mdlRef, modelId, instance);
     }
 
     // Register in dedup map before pushing (uses original position, not ground-adjusted)
@@ -231,37 +244,17 @@ uint32_t M2Renderer::createInstanceWithMatrix(uint32_t modelId, const glm::mat4&
 
     // Initialize animation
     if (mdl2.hasAnimation && !mdl2.disableAnimation) {
-        if (!mdl2.sequences.empty()) {
-            instance.currentSequenceIndex = 0;
-            instance.idleSequenceIndex = 0;
-            instance.animDuration = static_cast<float>(mdl2.sequences[0].duration);
-            instance.animTime = static_cast<float>(randRange(std::max(1u, mdl2.sequences[0].duration)));
-            instance.variationTimer = randFloat(rendering::M2_VARIATION_TIMER_MIN_MS, rendering::M2_VARIATION_TIMER_MAX_MS);
-        }
-
-        // Seed bone matrices from an existing sibling so the instance renders immediately
-        auto seedIt = boneSeedInstanceByModel_.find(modelId);
-        if (seedIt != boneSeedInstanceByModel_.end()) {
-            auto idxIt = instanceIndexById.find(seedIt->second);
-            if (idxIt != instanceIndexById.end() && idxIt->second < instances.size()) {
-                const auto& existing = instances[idxIt->second];
-                if (existing.modelId == modelId && !existing.boneMatrices.empty()) {
-                    instance.boneMatrices = existing.boneMatrices;
-                    instance.bonesDirty[0] = instance.bonesDirty[1] = true;
-                } else {
-                    boneSeedInstanceByModel_.erase(seedIt);  // stale entry
-                }
-            } else {
-                boneSeedInstanceByModel_.erase(seedIt);  // that instance is gone
-            }
-        }
-        if (instance.boneMatrices.empty()) {
-            computeBoneMatrices(mdl2, instance);
-        }
-        if (!instance.boneMatrices.empty()) {
-            boneSeedInstanceByModel_.emplace(modelId, instance.id);
-        }
+        seedInstanceAnimation(mdl2, modelId, instance);
     } else {
+        // A model with no skeleton can still have particle emitters, and their
+        // rate and lifespan tracks are sampled at animTime. Starting every
+        // instance at zero puts a courtyard of identical torches in lockstep,
+        // so the phase is spread.
+        //
+        // createInstance above does not do this, so doodads spawned by
+        // position keep the lockstep this avoids. Which of the two is right is
+        // a question for whoever next looks at particle timing; they differ
+        // today and this is the difference.
         instance.animTime = randFloat(0.0f, 10000.0f);
     }
 
