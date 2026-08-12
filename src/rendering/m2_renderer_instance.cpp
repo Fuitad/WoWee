@@ -604,21 +604,26 @@ VkTexture* M2Renderer::loadTexture(const std::string& path, uint32_t texFlags) {
         return whiteTexture_.get();
     }
 
-    auto containsToken = [](const std::string& haystack, const char* token) {
-        return haystack.find(token) != std::string::npos;
+    // The black key discards every pixel darker than the threshold, so a
+    // texture it is applied to wrongly loses its dark areas. Ask the file
+    // name, not the path: 3338 of the 4929 textures this used to match were
+    // matched by a directory alone, among them every character leg and boot
+    // component, because Item/TextureComponents/LegLowerTexture spells "glow".
+    const auto namedFor = [&key](const char* token) {
+        return assetNameHasToken(key, token);
     };
     const bool colorKeyBlackHint =
-        containsToken(key, "candle") ||
-        containsToken(key, "flame") ||
-        containsToken(key, "fire") ||
-        containsToken(key, "torch") ||
-        containsToken(key, "lamp") ||
-        containsToken(key, "lantern") ||
-        containsToken(key, "glow") ||
-        containsToken(key, "flare") ||
-        containsToken(key, "brazier") ||
-        containsToken(key, "campfire") ||
-        containsToken(key, "bonfire");
+        namedFor("candle") ||
+        namedFor("flame") ||
+        namedFor("fire") ||
+        namedFor("torch") ||
+        namedFor("lamp") ||
+        namedFor("lantern") ||
+        namedFor("glow") ||
+        namedFor("flare") ||
+        namedFor("brazier") ||
+        namedFor("campfire") ||
+        namedFor("bonfire");
 
     // Check pre-decoded BLP cache first (populated by background worker threads)
     pipeline::BLPImage blp;

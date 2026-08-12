@@ -1835,3 +1835,18 @@ target_include_directories(test_wmo_material_class SYSTEM PRIVATE
 target_link_libraries(test_wmo_material_class PRIVATE catch2_main)
 add_test(NAME wmo_material_class COMMAND test_wmo_material_class)
 register_test_target(test_wmo_material_class)
+
+# ── test_asset_token_name ────────────────────────────────────
+# Which part of an asset path a token check may read. A directory name
+# poisons every token under it: Item/TextureComponents/LegLowerTexture
+# spells "glow", so every leg and boot texture was being colour-keyed.
+add_executable(test_asset_token_name
+    test_asset_token_name.cpp
+    ${CMAKE_SOURCE_DIR}/src/rendering/m2_model_classifier.cpp
+)
+target_include_directories(test_asset_token_name PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_asset_token_name SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_asset_token_name PRIVATE catch2_main)
+wowee_test_link_glm(test_asset_token_name)
+add_test(NAME asset_token_name COMMAND test_asset_token_name)
+register_test_target(test_asset_token_name)
