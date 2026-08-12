@@ -101,7 +101,6 @@ private:
     float bagScale_ = 1.0f;
     bool backpackOpen_ = false;
     std::array<bool, 4> bagOpen_{};
-    bool cKeyWasDown = false;
     bool equipmentDirty = false;
     bool inventoryDirty = false;
 

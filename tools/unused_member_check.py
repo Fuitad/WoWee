@@ -46,7 +46,10 @@ DECL = re.compile(
     # declaration no longer equals its own line and is counted as a read. Every
     # member followed by a comment was silently skipped, which is how
     # AssetManager::looseReader_ reached Windows CI.
-    r"(\w+_)[ \t]*(?:=[^;]*)?;[ \t]*(?://.*)?$", re.M)
+    # The name, with or without the trailing underscore this codebase mostly
+    # uses. Matching only the underscored form left 314 members invisible, and
+    # InventoryScreen::cKeyWasDown reached Windows CI through that hole.
+    r"(\w+)[ \t]*(?:=[^;]*)?;[ \t]*(?://.*)?$", re.M)
 
 # Settled: names whose only readers are outside what this can see.
 EXPECTED = set()
@@ -169,14 +172,32 @@ def main():
         return False
 
     def never_referenced(name, path, decl_line, scope):
-        """True when the declaration is the only mention anywhere."""
-        for where, raw in lines_for.get(name, []):
-            if scope is not None and where not in scope:
-                if not re.search(r"(?:\.|->)\s*%s\b" % re.escape(name), raw):
-                    continue
-            if where == path and raw.strip() == decl_line.strip():
+        """True when the declaration is the only mention of this member.
+
+        Searched directly rather than through the mention index, because that
+        index is keyed on the trailing-underscore convention and this question
+        has to cover members that do not follow it.
+        """
+        word = re.compile(r"\b%s\b" % re.escape(name))
+        qualified = re.compile(r"(?:\.|->)\s*%s\b" % re.escape(name))
+        for where in (scope if scope is not None else corpus):
+            text = corpus.get(where)
+            if text is None or not word.search(text):
                 continue
-            return False
+            for raw in text.split("\n"):
+                if not word.search(raw):
+                    continue
+                if where == path and raw.strip() == decl_line.strip():
+                    continue
+                return False
+        # A public member can be read through an object from anywhere, so a
+        # qualified mention outside the scope still counts.
+        if scope is not None:
+            for where, text in corpus.items():
+                if where in scope:
+                    continue
+                if qualified.search(text):
+                    return False
         return True
 
     dead, unreferenced = [], []
@@ -188,11 +209,22 @@ def main():
             if name in EXPECTED or name.startswith("__"):
                 continue
             decl_line = m.group(0)
+            # clang's -Wunused-private-field is about non-static data members.
+            # A static or constexpr constant is not one, and `operator` is the
+            # tail of a deleted assignment operator rather than a member name.
+            if name == "operator" or re.search(
+                    r"\b(?:static|constexpr|enum|using|typedef)\b", decl_line):
+                continue
             if not is_write_only(name, header, decl_line, scope):
                 continue
             line = text.count("\n", 0, m.start()) + 1
             entry = (str(header.relative_to(ROOT)), line, name)
-            dead.append(entry)
+            # The debt count stays on the trailing-underscore convention it
+            # was built for: its read/write analysis works off an index keyed
+            # that way, and widening it there would report every local that
+            # shares a name. The clang question below is asked of every member.
+            if name.endswith("_"):
+                dead.append(entry)
             # Clang's -Wunused-private-field fires only for a member nothing
             # mentions at all; a write still counts as a use. That subset is a
             # build failure on the Windows image, so it is counted apart from

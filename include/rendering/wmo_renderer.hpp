@@ -880,7 +880,6 @@ private:
     // Floor height cache - persistent precomputed grid
     static constexpr float FLOOR_GRID_CELL_SIZE = 2.0f;  // 2 unit grid cells
     mutable std::unordered_map<uint64_t, float> precomputedFloorGrid;  // key -> floor height
-    mutable bool floorGridDirty = true;  // Rebuild when instances change
     mutable uint32_t currentFrameId = 0;
 
     uint64_t floorGridKey(float x, float y) const {
