@@ -293,34 +293,10 @@ bool Application::initialize() {
     // Scan for available expansion profiles
     expansionRegistry_->initialize(dataPath);
 
-    // Load expansion-specific opcode table
+    // Load the tables this expansion's protocol is described by.
     if (gameHandler && expansionRegistry_) {
-        auto* profile = expansionRegistry_->getActive();
-        if (profile) {
-            std::string opcodesPath = profile->dataPath + "/opcodes.json";
-            if (!gameHandler->getOpcodeTable().loadFromJson(opcodesPath)) {
-                LOG_ERROR("Failed to load opcodes from ", opcodesPath);
-            }
-            game::setActiveOpcodeTable(&gameHandler->getOpcodeTable());
-
-            // Load expansion-specific update field table
-            std::string updateFieldsPath = profile->dataPath + "/update_fields.json";
-            if (!gameHandler->getUpdateFieldTable().loadFromJson(updateFieldsPath)) {
-                LOG_ERROR("Failed to load update fields from ", updateFieldsPath);
-            }
-            game::setActiveUpdateFieldTable(&gameHandler->getUpdateFieldTable());
-
-            // Create expansion-specific packet parsers
-            gameHandler->setPacketParsers(game::createPacketParsers(profile->id));
-
-            // Load expansion-specific DBC layouts
-            if (dbcLayout_) {
-                std::string dbcLayoutsPath = profile->dataPath + "/dbc_layouts.json";
-                if (!dbcLayout_->loadFromJson(dbcLayoutsPath)) {
-                    LOG_ERROR("Failed to load DBC layouts from ", dbcLayoutsPath);
-                }
-                pipeline::setActiveDBCLayout(dbcLayout_.get());
-            }
+        if (auto* profile = expansionRegistry_->getActive()) {
+            loadExpansionTables(*profile);
         }
     }
 
@@ -1861,6 +1837,44 @@ bool Application::setAssetExpansionOverride(const std::string& id) {
     return true;
 }
 
+/// Loads the four things that make a protocol profile: its opcode table, its
+/// update field table, the packet parsers built for it, and its DBC layouts.
+///
+/// Read at startup and again whenever the expansion changes, and each of those
+/// had its own copy. A table added to one and not the other is invisible until
+/// somebody switches expansion, or until somebody does not: the fault appears
+/// on exactly one of the two paths, and which one depends on which copy was
+/// edited.
+///
+/// Each table is set active as it loads, because a failed load leaves the
+/// previous expansion's table in place rather than none at all, and a wrong
+/// table reads better than a null one.
+void Application::loadExpansionTables(const game::ExpansionProfile& profile) {
+    if (!gameHandler) return;
+
+    const std::string opcodesPath = profile.dataPath + "/opcodes.json";
+    if (!gameHandler->getOpcodeTable().loadFromJson(opcodesPath)) {
+        LOG_ERROR("Failed to load opcodes from ", opcodesPath);
+    }
+    game::setActiveOpcodeTable(&gameHandler->getOpcodeTable());
+
+    const std::string updateFieldsPath = profile.dataPath + "/update_fields.json";
+    if (!gameHandler->getUpdateFieldTable().loadFromJson(updateFieldsPath)) {
+        LOG_ERROR("Failed to load update fields from ", updateFieldsPath);
+    }
+    game::setActiveUpdateFieldTable(&gameHandler->getUpdateFieldTable());
+
+    gameHandler->setPacketParsers(game::createPacketParsers(profile.id));
+
+    if (dbcLayout_) {
+        const std::string dbcLayoutsPath = profile.dataPath + "/dbc_layouts.json";
+        if (!dbcLayout_->loadFromJson(dbcLayoutsPath)) {
+            LOG_ERROR("Failed to load DBC layouts from ", dbcLayoutsPath);
+        }
+        pipeline::setActiveDBCLayout(dbcLayout_.get());
+    }
+}
+
 void Application::reloadExpansionData() {
     if (!expansionRegistry_ || !gameHandler) return;
     auto* profile = expansionRegistry_->getActive();
@@ -1868,27 +1882,7 @@ void Application::reloadExpansionData() {
 
     LOG_INFO("Reloading expansion data for: ", profile->name);
 
-    std::string opcodesPath = profile->dataPath + "/opcodes.json";
-    if (!gameHandler->getOpcodeTable().loadFromJson(opcodesPath)) {
-        LOG_ERROR("Failed to load opcodes from ", opcodesPath);
-    }
-    game::setActiveOpcodeTable(&gameHandler->getOpcodeTable());
-
-    std::string updateFieldsPath = profile->dataPath + "/update_fields.json";
-    if (!gameHandler->getUpdateFieldTable().loadFromJson(updateFieldsPath)) {
-        LOG_ERROR("Failed to load update fields from ", updateFieldsPath);
-    }
-    game::setActiveUpdateFieldTable(&gameHandler->getUpdateFieldTable());
-
-    gameHandler->setPacketParsers(game::createPacketParsers(profile->id));
-
-    if (dbcLayout_) {
-        std::string dbcLayoutsPath = profile->dataPath + "/dbc_layouts.json";
-        if (!dbcLayout_->loadFromJson(dbcLayoutsPath)) {
-            LOG_ERROR("Failed to load DBC layouts from ", dbcLayoutsPath);
-        }
-        pipeline::setActiveDBCLayout(dbcLayout_.get());
-    }
+    loadExpansionTables(*profile);
 
     // Update expansion data path for CSV DBC lookups and clear DBC cache
     if (assetManager && !profile->dataPath.empty()) {
