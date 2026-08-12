@@ -59,6 +59,7 @@ public:
     void setEnabled(bool enabled) { renderingEnabled_ = enabled; }
     bool isEnabled() const { return renderingEnabled_; }
 
+    // --- Moon phases ---
     float getMoonPhase() const { return whiteLadyPhase_; }
 
     /** Set Blue Child phase (secondary moon, 0 = new, 0.5 = full, 1 = new). */

@@ -39,6 +39,7 @@ public:
         whisperBuffer_[sizeof(whisperBuffer_) - 1] = '\0';
     }
 
+    // ---- Sent-message history (Up/Down arrow recall) ----
     void resetHistoryIndex() { historyIdx_ = -1; }
     int getHistoryIndex() const { return historyIdx_; }
     const std::vector<std::string>& getSentHistory() const { return sentHistory_; }
