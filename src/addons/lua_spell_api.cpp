@@ -1,5 +1,6 @@
 // lua_spell_api.cpp - Spell info, casting, auras, and targeting Lua API bindings.
 // Extracted from lua_engine.cpp as part of §5.1 (Tame LuaEngine).
+#include "game/shapeshift_forms.hpp"
 #include "addons/lua_api_helpers.hpp"
 #include "game/item_text.hpp"
 #include "addons/lua_engine.hpp"
@@ -1159,28 +1160,9 @@ void registerSpellLuaAPI(lua_State* L) {
             int index = static_cast<int>(luaL_checknumber(L, 1));
             if (!gh || index < 1) return 0;
             uint8_t classId = gh->getPlayerClass();
-            // Map class + index to spell IDs
-            // Warrior stances
-            static const uint32_t warriorSpells[] = {2457, 71, 2458}; // Battle, Defensive, Berserker
-            // Druid forms
-            static const uint32_t druidSpells[] = {5487, 783, 768, 40120, 24858, 33891}; // Bear, Travel, Cat, Swift Flight, Moonkin, Tree
-            // DK presences
-            static const uint32_t dkSpells[] = {48266, 48263, 48265}; // Blood, Frost, Unholy
-            // Rogue
-            static const uint32_t rogueSpells[] = {1784}; // Stealth
-
-            const uint32_t* spells = nullptr;
-            int numSpells = 0;
-            switch (classId) {
-                case 1: spells = warriorSpells; numSpells = 3; break;
-                case 6: spells = dkSpells; numSpells = 3; break;
-                case 4: spells = rogueSpells; numSpells = 1; break;
-                case 11: spells = druidSpells; numSpells = 6; break;
-                default: return 0;
-            }
-            if (index <= numSpells) {
-                gh->castSpell(spells[index - 1], 0);
-            }
+            const auto forms = game::knownShapeshiftForms(classId, gh->getKnownSpells());
+            if (static_cast<size_t>(index) > forms.size()) return 0;
+            gh->castSpell(forms[static_cast<size_t>(index) - 1].spellId, 0);
             return 0;
         }},
                 {"CancelShapeshiftForm", [](lua_State* L) -> int {
@@ -1207,41 +1189,13 @@ void registerSpellLuaAPI(lua_State* L) {
             auto* gh = getGameHandler(L);
             if (!gh) { return luaReturnZero(L); }
             uint8_t classId = gh->getPlayerClass();
-            // Druid: Bear(1), Aquatic(2), Cat(3), Travel(4), Moonkin/Tree(5/6)
-            // Warrior: Battle(1), Defensive(2), Berserker(3)
-            // Rogue: Stealth(1)
-            // Priest: Shadowform(1)
-            // Paladin: varies by level/talents
-            // DK: Blood Presence, Frost, Unholy (3)
-            // Only the forms this character has actually learned.
-            //
-            // A count fixed per class puts a stance button on the bar for
-            // something the player cannot use: a level 14 priest was offered
-            // Shadowform, which is learned at 40, and a new warrior all three
-            // stances when they have one.
-            struct Forms { uint8_t classId; const uint32_t* spells; size_t count; };
-            static const uint32_t kWarrior[] = {2457, 71, 2458};
-            static const uint32_t kPaladin[] = {465, 7294, 19746, 19876, 19888, 19891, 32223};
-            static const uint32_t kRogue[]   = {1784};
-            static const uint32_t kPriest[]  = {15473};
-            static const uint32_t kDeathKnight[] = {48266, 48263, 48265};
-            static const uint32_t kDruid[]   = {5487, 1066, 768, 783, 24858, 33891, 33943, 40120};
-            static const Forms kByClass[] = {
-                {1,  kWarrior,     3}, {2,  kPaladin,     7},
-                {4,  kRogue,       1}, {5,  kPriest,      1},
-                {6,  kDeathKnight, 3}, {11, kDruid,       8},
-            };
-
-            const auto& known = gh->getKnownSpells();
-            int count = 0;
-            for (const Forms& f : kByClass) {
-                if (f.classId != classId) continue;
-                for (size_t i = 0; i < f.count; ++i) {
-                    if (known.count(f.spells[i])) ++count;
-                }
-                break;
-            }
-            lua_pushnumber(L, count);
+            // Only the forms this character has actually learned, from the
+            // one table GetShapeshiftFormInfo and CastShapeshiftForm also read.
+            // The bar walks 1..this and asks the other two about each index, so
+            // a count taken from a different list describes one form and casts
+            // another.
+            lua_pushnumber(L, static_cast<double>(
+                game::knownShapeshiftForms(classId, gh->getKnownSpells()).size()));
             return 1;
         }},
     };

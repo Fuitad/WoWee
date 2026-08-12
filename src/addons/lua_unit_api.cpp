@@ -1,5 +1,6 @@
 // lua_unit_api.cpp - Unit query, stats, party/raid, and player state Lua API bindings.
 // Extracted from lua_engine.cpp as part of §5.1 (Tame LuaEngine).
+#include "game/shapeshift_forms.hpp"
 #include "game/bg_score_defs.hpp"
 #include "addons/lua_api_helpers.hpp"
 
@@ -2464,41 +2465,13 @@ void registerUnitLuaAPI(lua_State* L) {
             uint8_t classId = gh->getPlayerClass();
             uint8_t currentForm = gh->getShapeshiftFormId();
 
-            // Form tables per class: {formId, spellId, name, icon}
-            struct FormInfo { uint8_t formId; const char* name; const char* icon; };
-            static const FormInfo warriorForms[] = {
-                {17, "Battle Stance", "Interface\\Icons\\Ability_Warrior_OffensiveStance"},
-                {18, "Defensive Stance", "Interface\\Icons\\Ability_Warrior_DefensiveStance"},
-                {19, "Berserker Stance", "Interface\\Icons\\Ability_Racial_Avatar"},
-            };
-            static const FormInfo druidForms[] = {
-                {1,  "Bear Form", "Interface\\Icons\\Ability_Racial_BearForm"},
-                {4,  "Travel Form", "Interface\\Icons\\Ability_Druid_TravelForm"},
-                {3,  "Cat Form", "Interface\\Icons\\Ability_Druid_CatForm"},
-                {27, "Swift Flight Form", "Interface\\Icons\\Ability_Druid_FlightForm"},
-                {31, "Moonkin Form", "Interface\\Icons\\Spell_Nature_ForceOfNature"},
-                {36, "Tree of Life", "Interface\\Icons\\Ability_Druid_TreeofLife"},
-            };
-            static const FormInfo dkForms[] = {
-                {32, "Blood Presence", "Interface\\Icons\\Spell_Deathknight_BloodPresence"},
-                {33, "Frost Presence", "Interface\\Icons\\Spell_Deathknight_FrostPresence"},
-                {34, "Unholy Presence", "Interface\\Icons\\Spell_Deathknight_UnholyPresence"},
-            };
-            static const FormInfo rogueForms[] = {
-                {30, "Stealth", "Interface\\Icons\\Ability_Stealth"},
-            };
-
-            const FormInfo* forms = nullptr;
-            int numForms = 0;
-            switch (classId) {
-                case 1: forms = warriorForms; numForms = 3; break;
-                case 6: forms = dkForms; numForms = 3; break;
-                case 4: forms = rogueForms; numForms = 1; break;
-                case 11: forms = druidForms; numForms = 6; break;
-                default: lua_pushnil(L); return 1;
-            }
-            if (index > numForms) { return luaReturnNil(L); }
-            const auto& fi = forms[index - 1];
+            // The one table CastShapeshiftForm and GetNumShapeshiftForms
+            // also read, filtered the same way. The bar walks
+            // 1..GetNumShapeshiftForms() and asks about each index, so all
+            // three have to be looking at the same list in the same order.
+            const auto forms = game::knownShapeshiftForms(classId, gh->getKnownSpells());
+            if (static_cast<size_t>(index) > forms.size()) { return luaReturnNil(L); }
+            const auto& fi = forms[static_cast<size_t>(index) - 1];
             lua_pushstring(L, fi.icon);                          // icon
             lua_pushstring(L, fi.name);                          // name
             lua_pushboolean(L, currentForm == fi.formId ? 1 : 0); // isActive

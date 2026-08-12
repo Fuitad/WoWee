@@ -420,6 +420,19 @@ wowee_test_link_glm(test_m2_ribbon_tracks)
 add_test(NAME m2_ribbon_tracks COMMAND test_m2_ribbon_tracks)
 register_test_target(test_m2_ribbon_tracks)
 
+# ── test_shapeshift_forms ────────────────────────────────────
+# The stance bar's three questions, which used to be three different lists.
+add_executable(test_shapeshift_forms
+    test_shapeshift_forms.cpp
+    ${TEST_COMMON_SOURCES}
+    ${CMAKE_SOURCE_DIR}/src/game/shapeshift_forms.cpp)
+target_include_directories(test_shapeshift_forms PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_shapeshift_forms SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_shapeshift_forms PRIVATE catch2_main)
+wowee_test_link_glm(test_shapeshift_forms)
+add_test(NAME shapeshift_forms COMMAND test_shapeshift_forms)
+register_test_target(test_shapeshift_forms)
+
 # ── test_tile_size_agreement ─────────────────────────────────
 # The ADT tile size, which three headers each declared and two files spelled
 # with two fewer decimals. Pins the value against its own arithmetic.
