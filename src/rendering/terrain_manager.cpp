@@ -336,39 +336,6 @@ void TerrainManager::update(const Camera& camera, float deltaTime) {
     }
 }
 
-// Synchronous fallback for initial tile loading (before worker thread is useful)
-bool TerrainManager::loadTile(int x, int y) {
-    TileCoord coord = {x, y};
-
-    // Check if already loaded
-    if (loadedTiles.find(coord) != loadedTiles.end()) {
-        return true;
-    }
-
-    // Don't retry tiles that already failed
-    if (failedTiles.find(coord) != failedTiles.end()) {
-        return false;
-    }
-
-    LOG_INFO("Loading terrain tile [", x, ",", y, "] (synchronous)");
-
-    auto pending = prepareTile(x, y);
-    if (!pending) {
-        failedTiles[coord] = true;
-        return false;
-    }
-
-    VkContext* vkCtx = terrainRenderer ? terrainRenderer->getVkContext() : nullptr;
-    if (vkCtx) vkCtx->beginUploadBatch();
-
-    FinalizingTile ft;
-    ft.pending = std::move(pending);
-    while (!advanceFinalization(ft)) {}
-
-    if (vkCtx) vkCtx->endUploadBatchSync();  // Sync - caller expects tile ready
-    return true;
-}
-
 bool TerrainManager::enqueueTile(int x, int y) {
     TileCoord coord = {x, y};
     if (loadedTiles.find(coord) != loadedTiles.end()) {
@@ -1679,54 +1646,6 @@ std::shared_ptr<PendingTile> TerrainManager::getCachedTile(const TileCoord& coor
     it->second.lruIt = tileCacheLru_.begin();
     return it->second.tile;
 }
-size_t TerrainManager::estimatePendingTileBytes(const PendingTile& tile) const {
-    size_t bytes = 0;
-    bytes += sizeof(PendingTile);
-    bytes += tile.terrain.textures.size() * 64;
-    bytes += tile.terrain.doodadNames.size() * 64;
-    bytes += tile.terrain.wmoNames.size() * 64;
-    bytes += tile.terrain.doodadPlacements.size() * sizeof(pipeline::ADTTerrain::DoodadPlacement);
-    bytes += tile.terrain.wmoPlacements.size() * sizeof(pipeline::ADTTerrain::WMOPlacement);
-
-    for (const auto& chunk : tile.terrain.chunks) {
-        bytes += sizeof(chunk);
-        bytes += chunk.layers.size() * sizeof(pipeline::TextureLayer);
-        bytes += chunk.alphaMap.size();
-    }
-
-    for (const auto& cm : tile.mesh.chunks) {
-        bytes += cm.vertices.size() * sizeof(pipeline::TerrainVertex);
-        bytes += cm.indices.size() * sizeof(pipeline::TerrainIndex);
-        for (const auto& layer : cm.layers) {
-            bytes += layer.alphaData.size();
-        }
-    }
-
-    for (const auto& ready : tile.m2Models) {
-        bytes += ready.model.vertices.size() * sizeof(pipeline::M2Vertex);
-        bytes += ready.model.indices.size() * sizeof(uint16_t);
-        bytes += ready.model.textures.size() * sizeof(pipeline::M2Texture);
-    }
-    bytes += tile.m2Placements.size() * sizeof(PendingTile::M2Placement);
-
-    for (const auto& ready : tile.wmoModels) {
-        for (const auto& group : ready.model.groups) {
-            bytes += group.vertices.size() * sizeof(pipeline::WMOVertex);
-            bytes += group.indices.size() * sizeof(uint16_t);
-            bytes += group.batches.size() * sizeof(pipeline::WMOBatch);
-            bytes += group.portalVertices.size() * sizeof(glm::vec3);
-            bytes += group.portals.size() * sizeof(pipeline::WMOPortal);
-            bytes += group.bspNodes.size();
-        }
-    }
-    bytes += tile.wmoDoodads.size() * sizeof(PendingTile::WMODoodadReady);
-
-    for (const auto& [_, img] : tile.preloadedTextures) {
-        bytes += img.data.size();
-    }
-    return bytes;
-}
-
 void TerrainManager::unloadTile(int x, int y) {
     TileCoord coord = {x, y};
 

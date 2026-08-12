@@ -40,8 +40,6 @@ public:
     /// Look up an emote by chat command (e.g. "dance", "wave").
     std::optional<EmoteResult> findEmote(const std::string& command) const;
 
-    /// Get the animation ID for an EmotesText.dbc text-emote ID.
-    uint32_t animByDbcId(uint32_t dbcId) const;
 
     /// Get the animation ID for an Emotes.dbc emote ID, as used by SMSG_EMOTE
     /// and UNIT_NPC_EMOTESTATE.

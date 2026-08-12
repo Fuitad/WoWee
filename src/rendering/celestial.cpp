@@ -373,12 +373,6 @@ void Celestial::update(float deltaTime) {
     constexpr float BLUE_CHILD_CYCLE = 210.0f; // Slightly faster: 3.5 minutes
     blueChildPhase_ = std::fmod(moonPhaseTimer_ / BLUE_CHILD_CYCLE, 1.0f);
 }
-
-void Celestial::setMoonPhase(float phase) {
-    whiteLadyPhase_ = glm::clamp(phase, 0.0f, 1.0f);
-    moonPhaseTimer_ = whiteLadyPhase_ * MOON_CYCLE_DURATION;
-}
-
 void Celestial::setBlueChildPhase(float phase) {
     blueChildPhase_ = glm::clamp(phase, 0.0f, 1.0f);
 }

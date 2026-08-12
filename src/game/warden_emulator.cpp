@@ -248,15 +248,6 @@ uint32_t WardenEmulator::writeData(const void* data, size_t size) {
     }
     return addr;
 }
-
-std::vector<uint8_t> WardenEmulator::readData(uint32_t address, size_t size) {
-    std::vector<uint8_t> result(size);
-    if (!readMemory(address, result.data(), size)) {
-        return {};
-    }
-    return result;
-}
-
 uint32_t WardenEmulator::callFunction(uint32_t address, const std::vector<uint32_t>& args) {
     if (!uc_) {
         LOG_ERROR("WardenEmulator: Not initialized");
@@ -425,12 +416,6 @@ bool WardenEmulator::freeMemory(uint32_t address) {
 
     return true;
 }
-void WardenEmulator::setRegister(int regId, uint32_t value) {
-    if (uc_) {
-        uc_reg_write(uc_, regId, &value);
-    }
-}
-
 // ============================================================================
 // Windows API Implementations
 // ============================================================================
@@ -610,11 +595,9 @@ std::string WardenEmulator::readString(uint32_t, size_t) { return {}; }
 uint32_t WardenEmulator::allocateMemory(size_t, uint32_t) { return 0; }
 bool WardenEmulator::freeMemory(uint32_t) { return false; }
 uint32_t WardenEmulator::getRegister(int) { return 0; }
-void WardenEmulator::setRegister(int, uint32_t) {}
 void WardenEmulator::setupCommonAPIHooks() {}
 uint32_t WardenEmulator::getAPIAddress(const std::string&, const std::string&) const { return 0; }
 uint32_t WardenEmulator::writeData(const void*, size_t) { return 0; }
-std::vector<uint8_t> WardenEmulator::readData(uint32_t, size_t) { return {}; }
 void WardenEmulator::hookCode(uc_engine*, uint64_t, uint32_t, void*) {}
 void WardenEmulator::hookMemInvalid(uc_engine*, int, uint64_t, int, int64_t, void*) {}
 #endif // HAVE_UNICORN

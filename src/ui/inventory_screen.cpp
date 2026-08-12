@@ -985,16 +985,6 @@ void InventoryScreen::toggleCombinedBags() {
         open = true;
     }
 }
-
-bool InventoryScreen::bagHasAnyItems(const game::Inventory& inventory, int bagIndex) const {
-    int bagSize = inventory.getBagSize(bagIndex);
-    if (bagSize <= 0) return false;
-    for (int i = 0; i < bagSize; ++i) {
-        if (!inventory.getBagSlot(bagIndex, i).empty()) return true;
-    }
-    return false;
-}
-
 void InventoryScreen::render(game::Inventory& inventory, uint64_t moneyCopper) {
     // Bags toggle (B key, edge-triggered)
     bool bagsDown = KeybindingManager::getInstance().isActionPressed(

@@ -209,7 +209,6 @@ private:
     game::EquipSlot getEquipSlotForType(uint8_t inventoryType, game::Inventory& inv);
     void renderHeldItem();
     void renderEquipConfirmationPopup(game::Inventory& inventory);
-    bool bagHasAnyItems(const game::Inventory& inventory, int bagIndex) const;
 
     // Drop confirmation (drag-outside-window destroy)
     bool dropConfirmOpen_ = false;

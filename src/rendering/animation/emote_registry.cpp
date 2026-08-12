@@ -330,15 +330,6 @@ std::optional<EmoteRegistry::EmoteResult> EmoteRegistry::findEmote(const std::st
     if (info.animId == 0) return std::nullopt;
     return EmoteResult{info.animId, info.loop};
 }
-
-uint32_t EmoteRegistry::animByDbcId(uint32_t dbcId) const {
-    auto it = emoteByDbcId_.find(dbcId);
-    if (it != emoteByDbcId_.end()) {
-        return it->second->animId;
-    }
-    return 0;
-}
-
 uint32_t EmoteRegistry::animByEmotesId(uint32_t emoteId) const {
     auto it = animByEmotesId_.find(emoteId);
     return it != animByEmotesId_.end() ? it->second : 0;

@@ -209,13 +209,6 @@ public:
     bool isCustomZone() const { return isCustomZone_; }
     void setCustomZone(bool custom) { isCustomZone_ = custom; }
 
-    /**
-     * Load a single tile
-     * @param x Tile X coordinate (0-63)
-     * @param y Tile Y coordinate (0-63)
-     * @return true if loaded successfully
-     */
-    bool loadTile(int x, int y);
 
     /**
      * Enqueue a tile for async loading (returns false if previously failed).
@@ -444,7 +437,6 @@ private:
     std::mutex tileCacheMutex_;
 
     std::shared_ptr<PendingTile> getCachedTile(const TileCoord& coord);
-    size_t estimatePendingTileBytes(const PendingTile& tile) const;
     void logMissingAdtOnce(const std::string& adtPath);
     std::atomic<bool> workerRunning{false};
 
