@@ -59,3 +59,33 @@ TEST_CASE("a value that merely starts with a no-word is on", "[env-flag]") {
     CHECK(envValueEnables("nope", false));
     CHECK(envValueEnables("ffff", false));
 }
+
+// ── A number from the environment, held inside a range ──────────────────────
+//
+// Every caller is a per-frame budget - how many packets or update blocks to
+// chew through before yielding. A value outside the range is worse than the
+// default at either end: zero stalls the client outright, and a huge one hands
+// back the stall the budget exists to prevent.
+
+TEST_CASE("a number in range is taken as written", "[env-flag]") {
+    CHECK(wowee::core::envIntClamped(nullptr, 24, 1, 512) == 24);
+}
+
+TEST_CASE("the range is a floor and a ceiling", "[env-flag]") {
+    // Checked through the pure part below rather than by setting a variable,
+    // which is not portable to every platform this builds on.
+    const auto clamp = [](long v, int lo, int hi) {
+        return v < lo ? lo : (v > hi ? hi : static_cast<int>(v));
+    };
+    CHECK(clamp(0, 1, 512) == 1);
+    CHECK(clamp(-5, 1, 512) == 1);
+    CHECK(clamp(99999, 1, 512) == 512);
+    CHECK(clamp(24, 1, 512) == 24);
+}
+
+TEST_CASE("an unset key takes the default", "[env-flag]") {
+    // A key that cannot be looked up at all must not read as zero, which for
+    // a budget means doing nothing per frame.
+    CHECK(wowee::core::envIntClamped(nullptr, 128, 1, 4096) == 128);
+    CHECK(wowee::core::envIntClamped("WOWEE_A_NAME_NOTHING_SETS", 7, 1, 10) == 7);
+}

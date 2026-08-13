@@ -37,6 +37,27 @@ inline bool envValueEnables(const std::string& raw, bool defaultValue) {
     return !(v == "0" || v == "false" || v == "off" || v == "no");
 }
 
+/// A whole number from the environment, held inside a range.
+///
+/// Two files had the same copy of this, next to the two-rule flag reader that
+/// was the reason for this header. Every caller is a per-frame budget - how
+/// many packets or update blocks to chew through - where a value outside the
+/// range is worse than the default: zero stalls the client outright and a
+/// huge one gives back the stall the budget exists to prevent.
+///
+/// Anything that is not a number at all takes the default rather than zero,
+/// which is what strtol would otherwise hand back for a typo.
+inline int envIntClamped(const char* key, int defaultValue, int minValue, int maxValue) {
+    const char* raw = key ? std::getenv(key) : nullptr;
+    if (!raw || !*raw) return defaultValue;
+    char* end = nullptr;
+    const long parsed = std::strtol(raw, &end, 10);
+    if (end == raw) return defaultValue;
+    if (parsed < minValue) return minValue;
+    if (parsed > maxValue) return maxValue;
+    return static_cast<int>(parsed);
+}
+
 /// Whether the named environment variable is set to something meaning "on".
 inline bool envFlagEnabled(const char* key, bool defaultValue = false) {
     const char* raw = key ? std::getenv(key) : nullptr;

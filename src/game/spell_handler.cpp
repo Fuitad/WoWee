@@ -42,18 +42,10 @@ static float mergeCooldownSeconds(float current, float incoming) {
 }
 
 namespace {
-constexpr uint32_t kItemClassConsumable = 0;
-constexpr uint32_t kConsumableSubclassBandage = 7;
 constexpr uint8_t kSpellFailedNotReady = 67;
 constexpr uint8_t kSpellFailedAlreadyOpen = 8;
 constexpr uint8_t kSpellFailedChestInUse = 25;
 constexpr uint8_t kSpellFailedTryAgain = 132;
-
-bool isBandageItem(const ItemQueryResponseData* info) {
-    return info && info->valid &&
-           info->itemClass == kItemClassConsumable &&
-           info->subClass == kConsumableSubclassBandage;
-}
 
 bool isBandageSpell(const GameHandler& owner, uint32_t spellId) {
     if (spellId == 0) return false;

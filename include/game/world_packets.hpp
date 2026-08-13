@@ -1823,6 +1823,16 @@ public:
 };
 
 /** SMSG_ITEM_QUERY_SINGLE_RESPONSE data */
+/// Whether an item query describes a bandage.
+///
+/// The pair is what identifies one - class alone is every consumable and
+/// subclass alone means something different in every other class - so the two
+/// halves are checked together, in one place, rather than in each subsystem
+/// that cares. The inventory handler and the spell handler each had their own
+/// copy of this and of the two numbers behind it.
+struct ItemQueryResponseData;
+bool isBandageItem(const ItemQueryResponseData* info);
+
 struct ItemQueryResponseData {
     uint32_t entry = 0;
     std::string name;

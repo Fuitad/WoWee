@@ -24,26 +24,17 @@ namespace game {
 namespace {
 
 
-int parseEnvIntClamped(const char* key, int defaultValue, int minValue, int maxValue) {
-    const char* raw = std::getenv(key);
-    if (!raw || !*raw) return defaultValue;
-    char* end = nullptr;
-    long parsed = std::strtol(raw, &end, 10);
-    if (end == raw) return defaultValue;
-    return static_cast<int>(std::clamp<long>(parsed, minValue, maxValue));
-}
-
 int updateObjectBlocksBudgetPerUpdate(WorldState state) {
     static const int inWorldBudget =
-        parseEnvIntClamped("WOWEE_NET_MAX_UPDATE_OBJECT_BLOCKS", 24, 1, 2048);
+        core::envIntClamped("WOWEE_NET_MAX_UPDATE_OBJECT_BLOCKS", 24, 1, 2048);
     static const int loginBudget =
-        parseEnvIntClamped("WOWEE_NET_MAX_UPDATE_OBJECT_BLOCKS_LOGIN", 128, 1, 4096);
+        core::envIntClamped("WOWEE_NET_MAX_UPDATE_OBJECT_BLOCKS_LOGIN", 128, 1, 4096);
     return state == WorldState::IN_WORLD ? inWorldBudget : loginBudget;
 }
 
 float slowUpdateObjectBlockLogThresholdMs() {
     static const int thresholdMs =
-        parseEnvIntClamped("WOWEE_NET_SLOW_UPDATE_BLOCK_LOG_MS", 10, 1, 60000);
+        core::envIntClamped("WOWEE_NET_SLOW_UPDATE_BLOCK_LOG_MS", 10, 1, 60000);
     return static_cast<float>(thresholdMs);
 }
 
