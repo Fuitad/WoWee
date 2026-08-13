@@ -41,6 +41,13 @@ WRAPPED = {
     "unsetenv": "include/core/env.hpp",
     "localtime_r": "include/core/local_time.hpp",
     "gmtime_r": "include/core/local_time.hpp",
+    # Not a Windows problem: these exist everywhere. They hand back a pointer
+    # into one shared buffer, so the next caller on any thread overwrites what
+    # the last one is still reading - a combat log line stamped with a mail
+    # expiry date, and no way to reproduce it on purpose. Same rule, same
+    # wrapper: it returns the struct by value.
+    "localtime": "include/core/local_time.hpp",
+    "gmtime": "include/core/local_time.hpp",
 }
 
 
@@ -70,7 +77,7 @@ def main():
                 for name, wrapper in WRAPPED.items():
                     if rel == wrapper:
                         continue
-                    if re.search(r"(?<![\w:])%s\s*\(" % re.escape(name), raw):
+                    if re.search(r"(?<![\w:])(?:std::)?%s\s*\(" % re.escape(name), raw):
                         offenders.append((rel, i + 1, name, wrapper))
 
     print(f"{len(WRAPPED)} POSIX-only function(s) with a portable wrapper\n")

@@ -1,5 +1,6 @@
 // lua_quest_api.cpp - Quest log, skills, talents, glyphs, and achievements Lua API bindings.
 // Extracted from lua_engine.cpp as part of §5.1 (Tame LuaEngine).
+#include "core/local_time.hpp"
 #include "game/item_text.hpp"
 #include "addons/lua_api_helpers.hpp"
 #include "addons/lua_engine.hpp"
@@ -4053,8 +4054,8 @@ void registerQuestLuaAPI(lua_State* L) {
                 }
             }
             const time_t now = time(nullptr);
-            struct tm* t = localtime(&now);
-            const int secondsIntoDay = t ? (t->tm_hour * 3600 + t->tm_min * 60 + t->tm_sec) : 0;
+            const std::tm t = core::localTime(now);
+            const int secondsIntoDay = t.tm_hour * 3600 + t.tm_min * 60 + t.tm_sec;
             lua_pushnumber(L, 86400 - secondsIntoDay);
             return 1;
         }},

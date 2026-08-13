@@ -1,3 +1,4 @@
+#include "core/local_time.hpp"
 #include "zone_manifest.hpp"
 #include "core/logger.hpp"
 #include <nlohmann/json.hpp>
@@ -31,7 +32,8 @@ bool ZoneManifest::save(const std::string& path) const {
         auto now = std::chrono::system_clock::now();
         auto time = std::chrono::system_clock::to_time_t(now);
         char timeBuf[32];
-        std::strftime(timeBuf, sizeof(timeBuf), "%Y-%m-%dT%H:%M:%S", std::localtime(&time));
+        const std::tm tm = wowee::core::localTime(time);
+        std::strftime(timeBuf, sizeof(timeBuf), "%Y-%m-%dT%H:%M:%S", &tm);
         j["exportTime"] = timeBuf;
     }
 

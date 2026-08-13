@@ -1,3 +1,4 @@
+#include "core/local_time.hpp"
 #include "rendering/lighting_manager.hpp"
 #include "rendering/light_coords.hpp"
 #include "rendering/light_band_block.hpp"
@@ -291,10 +292,10 @@ void LightingManager::update(const glm::vec3& playerPos, uint32_t mapId, uint32_
         } else {
             // Fallback: use real time for day/night cycle
             std::time_t now = std::time(nullptr);
-            std::tm* localTime = std::localtime(&now);
-            float secondsSinceMidnight = localTime->tm_hour * 3600.0f +
-                                          localTime->tm_min * 60.0f +
-                                          localTime->tm_sec;
+            const std::tm localTime = core::localTime(now);
+            float secondsSinceMidnight = localTime.tm_hour * 3600.0f +
+                                          localTime.tm_min * 60.0f +
+                                          localTime.tm_sec;
             timeOfDay_ = secondsSinceMidnight / 86400.0f;  // 0.0-1.0
         }
     }

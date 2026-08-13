@@ -3930,7 +3930,6 @@ private:
      */
     void handlePong(network::Packet& packet);
 
-    void handleItemQueryResponse(network::Packet& packet);
     void emitOtherPlayerEquipment(uint64_t guid);
     void emitAllOtherPlayerEquipment();
 
@@ -3992,7 +3991,6 @@ private:
     // ---- Taxi handlers ----
 
     // ---- Server info handlers ----
-    void handleQueryTimeResponse(network::Packet& packet);
 
     // ---- Social handlers ----
 

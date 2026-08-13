@@ -67,9 +67,8 @@ static std::pair<int, int>& calendarViewedMonthState() {
     static std::pair<int, int> viewed{0, 0};
     if (viewed.first == 0) {
         const std::time_t now = std::time(nullptr);
-        const std::tm* t = std::localtime(&now);
-        if (t) viewed = {t->tm_mon + 1, t->tm_year + 1900};
-        else   viewed = {1, 2000};
+        const std::tm t = core::localTime(now);
+        viewed = {t.tm_mon + 1, t.tm_year + 1900};
     }
     return viewed;
 }
@@ -86,13 +85,12 @@ static void calendarSetViewedMonth(int month, int year) {
 /// One end of the range the calendar offers, as weekday, month, day, year -
 /// the order the interface unpacks it in.
 static int pushCalendarBoundDate(lua_State* L, int monthOffset) {
-    const auto viewedNow = calendarViewedMonth();
     // From today's month rather than the viewed one: a bound that moved as the
     // player paged would let them page for ever.
     const std::time_t now = std::time(nullptr);
-    const std::tm* t = std::localtime(&now);
-    const int baseMonth = t ? t->tm_mon + 1 : viewedNow.first;
-    const int baseYear  = t ? t->tm_year + 1900 : viewedNow.second;
+    const std::tm t = core::localTime(now);
+    const int baseMonth = t.tm_mon + 1;
+    const int baseYear  = t.tm_year + 1900;
     const auto info =
         wowee::game::calendarMonthAt(baseMonth, baseYear, monthOffset);
     // The first of that month at the near end, its last day at the far end, so
@@ -6305,11 +6303,11 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"CalendarGetDate", [](lua_State* L) -> int {
             // CalendarGetDate() → weekday, month, day, year
             time_t now = time(nullptr);
-            struct tm* t = localtime(&now);
-            lua_pushnumber(L, t->tm_wday + 1); // weekday (1=Sun)
-            lua_pushnumber(L, t->tm_mon + 1);  // month (1-12)
-            lua_pushnumber(L, t->tm_mday);     // day
-            lua_pushnumber(L, t->tm_year + 1900); // year
+            const std::tm t = core::localTime(now);
+            lua_pushnumber(L, t.tm_wday + 1); // weekday (1=Sun)
+            lua_pushnumber(L, t.tm_mon + 1);  // month (1-12)
+            lua_pushnumber(L, t.tm_mday);     // day
+            lua_pushnumber(L, t.tm_year + 1900); // year
             return 4;
         }},
                 // How many calendar invites are waiting to be answered. The
@@ -6617,11 +6615,11 @@ void registerSystemLuaAPI(lua_State* L) {
             // somewhere real rather than on 1 January 2000.
             const auto viewed = calendarViewedMonth();
             const std::time_t now = std::time(nullptr);
-            const std::tm* t = std::localtime(&now);
+            const std::tm t = core::localTime(now);
             auto& d = calendarDraft();
             d.eventTime.month = viewed.first;
             d.eventTime.yearSince2000 = viewed.second - 2000;
-            d.eventTime.day = t ? t->tm_mday : 1;
+            d.eventTime.day = t.tm_mday;
             d.eventTime.hour = 12;
             return 0;
         }},

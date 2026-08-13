@@ -1991,10 +1991,6 @@ void GameHandler::queryItemInfo(uint32_t entry, uint64_t guid) {
     if (inventoryHandler_) inventoryHandler_->queryItemInfo(entry, guid);
 }
 
-void GameHandler::handleItemQueryResponse(network::Packet& packet) {
-    if (inventoryHandler_) inventoryHandler_->handleItemQueryResponse(packet);
-}
-
 uint64_t GameHandler::resolveOnlineItemGuid(uint32_t itemId) const {
     return inventoryHandler_ ? inventoryHandler_->resolveOnlineItemGuid(itemId) : 0;
 }

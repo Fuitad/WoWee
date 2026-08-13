@@ -1,3 +1,4 @@
+#include "core/local_time.hpp"
 #include "sql_exporter.hpp"
 #include "core/coordinates.hpp"
 #include "core/logger.hpp"
@@ -50,7 +51,8 @@ bool SQLExporter::exportCreatures(const std::vector<CreatureSpawn>& spawns,
     auto now = std::chrono::system_clock::now();
     auto time = std::chrono::system_clock::to_time_t(now);
     char timeBuf[32];
-    std::strftime(timeBuf, sizeof(timeBuf), "%Y-%m-%d %H:%M:%S", std::localtime(&time));
+    const std::tm tm = wowee::core::localTime(time);
+    std::strftime(timeBuf, sizeof(timeBuf), "%Y-%m-%d %H:%M:%S", &tm);
 
     f << "-- Wowee World Editor - Creature Spawn Export\n";
     f << "-- Generated: " << timeBuf << "\n";

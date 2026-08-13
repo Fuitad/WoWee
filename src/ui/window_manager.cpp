@@ -2,6 +2,7 @@
 // WindowManager - extracted from GameScreen
 // Owns all NPC interaction windows, popup dialogs, etc.
 // ============================================================
+#include "core/local_time.hpp"
 #include "ui/window_manager.hpp"
 #include "ui/ui_texture_load.hpp"
 #include "game/item_text.hpp"
@@ -2970,18 +2971,18 @@ void WindowManager::renderMailWindow(game::GameHandler& gameHandler,
                 if (mail.expirationTime > 0.0f) {
                     time_t expT = std::time(nullptr) +
                         static_cast<time_t>(mail.expirationTime * 86400.0f);
-                    struct tm* tmExp = std::localtime(&expT);
-                    if (tmExp) {
-                        const char* mname = kMonthAbbrev[tmExp->tm_mon];
+                    const std::tm tmExp = core::localTime(expT);
+                    {
+                        const char* mname = kMonthAbbrev[tmExp.tm_mon];
                         int daysLeft = static_cast<int>(mail.expirationTime);
                         if (mail.expirationTime < 3.0f) {
                             ImGui::TextColored(kColorRed,
                                 "Expires: %s %d, %d (%d day%s!)",
-                                mname, tmExp->tm_mday, 1900 + tmExp->tm_year,
+                                mname, tmExp.tm_mday, 1900 + tmExp.tm_year,
                                 daysLeft, daysLeft == 1 ? "" : "s");
                         } else {
                             ImGui::TextDisabled("Expires: %s %d, %d",
-                                mname, tmExp->tm_mday, 1900 + tmExp->tm_year);
+                                mname, tmExp.tm_mday, 1900 + tmExp.tm_year);
                         }
                     }
                 }

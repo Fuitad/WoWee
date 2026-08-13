@@ -964,24 +964,6 @@ void GameHandler::activateTaxi(uint32_t destNodeId) {
 // Server Info Command Handlers
 // ============================================================
 
-void GameHandler::handleQueryTimeResponse(network::Packet& packet) {
-    QueryTimeResponseData data;
-    if (!QueryTimeResponseParser::parse(packet, data)) {
-        LOG_WARNING("Failed to parse SMSG_QUERY_TIME_RESPONSE");
-        return;
-    }
-
-    // Convert Unix timestamp to readable format
-    time_t serverTime = static_cast<time_t>(data.serverTime);
-    struct tm* timeInfo = localtime(&serverTime);
-    char timeStr[64];
-    strftime(timeStr, sizeof(timeStr), "%Y-%m-%d %H:%M:%S", timeInfo);
-
-    std::string msg = "Server time: " + std::string(timeStr);
-    addSystemChatMessage(msg);
-    LOG_INFO("Server time: ", data.serverTime, " (", timeStr, ")");
-}
-
 uint32_t GameHandler::generateClientSeed() {
     // Generate cryptographically random seed
     std::random_device rd;

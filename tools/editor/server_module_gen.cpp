@@ -1,3 +1,4 @@
+#include "core/local_time.hpp"
 #include "server_module_gen.hpp"
 #include "sql_exporter.hpp"
 #include "core/logger.hpp"
@@ -36,7 +37,8 @@ bool ServerModuleGenerator::generate(const ZoneManifest& manifest,
     auto now = std::chrono::system_clock::now();
     auto time = std::chrono::system_clock::to_time_t(now);
     char timeBuf[32];
-    std::strftime(timeBuf, sizeof(timeBuf), "%Y-%m-%d %H:%M:%S", std::localtime(&time));
+    const std::tm tm = wowee::core::localTime(time);
+    std::strftime(timeBuf, sizeof(timeBuf), "%Y-%m-%d %H:%M:%S", &tm);
 
     Config cfg;
     cfg.mapId = manifest.mapId;
