@@ -1956,3 +1956,19 @@ target_include_directories(test_m2_color_track SYSTEM PRIVATE
 target_link_libraries(test_m2_color_track PRIVATE catch2_main)
 add_test(NAME m2_color_track COMMAND test_m2_color_track)
 register_test_target(test_m2_color_track)
+
+# ── test_dbc_layout_columns ──────────────────────────────────
+# Every column a layout names has to exist in the file it describes. A DBC
+# asked for a field past the end answers zero for every row, forever, which
+# is how the light bands read as empty for as long as they did.
+add_executable(test_dbc_layout_columns
+    test_dbc_layout_columns.cpp
+    ${TEST_COMMON_SOURCES})
+target_include_directories(test_dbc_layout_columns PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_dbc_layout_columns SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS})
+target_compile_definitions(test_dbc_layout_columns PRIVATE
+    WOWEE_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+target_link_libraries(test_dbc_layout_columns PRIVATE catch2_main)
+add_test(NAME dbc_layout_columns COMMAND test_dbc_layout_columns)
+register_test_target(test_dbc_layout_columns)
