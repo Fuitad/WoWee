@@ -40,7 +40,7 @@
 
 #include "game/expansion_profile.hpp"
 #include "game/character.hpp"
-#include "game/stance_spells.hpp"
+#include "game/shapeshift_forms.hpp"
 #include "core/logger.hpp"
 #include <imgui.h>
 #include <imgui_internal.h>
@@ -1721,17 +1721,15 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
             // Only fires for classes that use a stance bar; same slot ordering as
             // renderStanceBar: Warrior, DK, Druid, Rogue, Priest.
             if (ctrlDown) {
-                const auto stances =
-                    game::stanceSpellsForClass(gameHandler.getPlayerClass());
-                const uint32_t* stArr = stances.count > 0 ? stances.spells : nullptr;
-                const int stCnt = stances.count;
-                if (stArr) {
-                    const auto& known = gameHandler.getKnownSpells();
-                    // Build available list (same order as UI)
+                // The list the bar is drawn from, so key N presses the form
+                // in position N rather than the Nth of a differently ordered
+                // table - which is what a second copy of these forms caused.
+                const auto forms = game::knownShapeshiftForms(
+                    gameHandler.getPlayerClass(), gameHandler.getKnownSpells());
+                if (!forms.empty()) {
                     std::vector<uint32_t> avail;
-                    avail.reserve(stCnt);
-                    for (int i = 0; i < stCnt; ++i)
-                        if (known.count(stArr[i])) avail.push_back(stArr[i]);
+                    avail.reserve(forms.size());
+                    for (const auto& form : forms) avail.push_back(form.spellId);
                     // Ctrl+1 = first stance, Ctrl+2 = second, …
                     for (int i = 0; i < static_cast<int>(avail.size()) && i < 8; ++i) {
                         if (input.isKeyJustPressed(actionBarKeys[i]))

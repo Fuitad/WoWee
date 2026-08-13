@@ -20,7 +20,7 @@
 #include "core/window.hpp"
 #include "game/game_handler.hpp"
 #include "game/spell_classification.hpp"
-#include "game/stance_spells.hpp"
+#include "game/shapeshift_forms.hpp"
 #include "pipeline/asset_manager.hpp"
 #include "pipeline/dbc_layout.hpp"
 #include "audio/ui_sound_manager.hpp"
@@ -1200,21 +1200,20 @@ void ActionBarPanel::renderStanceBar(game::GameHandler& gameHandler,
                              SpellIconFn getSpellIcon) {
     uint8_t playerClass = gameHandler.getPlayerClass();
 
-    // Stance/form spells in display order. The Ctrl+1..Ctrl+8 bindings count
-    // in this same order, so both read it from one place.
-    const auto stances = game::stanceSpellsForClass(playerClass);
-    if (stances.count == 0) return;  // this class has no stance bar
-    const uint32_t* stanceArr = stances.spells;
-    const int stanceCount = stances.count;
+    // The same list FrameXML's stance bar is built from, in the same order.
+    //
+    // This kept its own table of the five classes' forms and the Ctrl+1..8
+    // bindings read that. It disagreed with this one: nine druid entries in a
+    // different order against eight, because Dire Bear replaces Bear on a
+    // button rather than adding one. So the key pressed a different form than
+    // the bar drew, which is the hazard a shared order exists to stop.
+    const auto forms = game::knownShapeshiftForms(playerClass,
+                                                  gameHandler.getKnownSpells());
+    if (forms.empty()) return;
 
-    // Filter to spells the player actually knows
-    const auto& known = gameHandler.getKnownSpells();
     std::vector<uint32_t> available;
-    available.reserve(stanceCount);
-    for (int i = 0; i < stanceCount; ++i)
-        if (known.count(stanceArr[i])) available.push_back(stanceArr[i]);
-
-    if (available.empty()) return;
+    available.reserve(forms.size());
+    for (const auto& form : forms) available.push_back(form.spellId);
 
     // Detect active stance from permanent player auras (maxDurationMs == -1)
     uint32_t activeStance = 0;
