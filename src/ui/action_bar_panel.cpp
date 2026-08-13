@@ -4,6 +4,7 @@
 // XP bar, reputation bar, macro resolution.
 // ============================================================
 #include "ui/framexml_takeover.hpp"
+#include "ui/ui_texture_load.hpp"
 #include "ui/action_bar_panel.hpp"
 #include "ui/chat_panel.hpp"
 #include "ui/settings_panel.hpp"
@@ -1381,16 +1382,9 @@ bool ActionBarPanel::renderBagBar(game::GameHandler& gameHandler,
 
         // Load backpack icon if needed
         if (!backpackIconTexture_ && assetMgr && assetMgr->isInitialized()) {
-            auto blpData = assetMgr->readFile("Interface\\Buttons\\Button-Backpack-Up.blp");
-            if (!blpData.empty()) {
-                auto image = pipeline::BLPLoader::load(blpData);
-                if (image.isValid()) {
-                    auto* w = services_.window;
-                    auto* vkCtx = w ? w->getVkContext() : nullptr;
-                    if (vkCtx)
-                        backpackIconTexture_ = vkCtx->uploadImGuiTexture(image.data.data(), image.width, image.height);
-                }
-            }
+            backpackIconTexture_ = uploadUiTextureFromBlp(
+                assetMgr, "Interface\\Buttons\\Button-Backpack-Up.blp",
+                services_.window);
         }
 
         // Track bag slot screen rects for drop detection

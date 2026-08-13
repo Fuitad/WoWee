@@ -1,4 +1,5 @@
 #include "game/reputation_standing.hpp"
+#include "ui/ui_texture_load.hpp"
 #include "ui/ui_upload_budget.hpp"
 #include "ui/inventory_screen.hpp"
 #include "game/inventory_slots.hpp"
@@ -15,7 +16,6 @@
 #include "rendering/renderer.hpp"
 #include "pipeline/asset_manager.hpp"
 #include "pipeline/dbc_loader.hpp"
-#include "pipeline/blp_loader.hpp"
 #include "pipeline/dbc_layout.hpp"
 #include "core/logger.hpp"
 #include <imgui.h>
@@ -295,31 +295,18 @@ VkDescriptorSet InventoryScreen::getItemIcon(uint32_t displayInfoId) {
     }
 
     std::string iconPath = "Interface\\Icons\\" + iconName + ".blp";
-    auto blpData = assetManager_->readFile(iconPath);
-    if (blpData.empty()) {
+    UiTextureLoad why{};
+    VkDescriptorSet ds = uploadUiTextureFromBlp(
+        assetManager_, iconPath, core::Application::getInstance().getWindow(),
+        &why);
+    // Which of the two failures happened is worth saying: a missing file is a
+    // gap in the assets, an undecodable one is a file we cannot read.
+    if (why == UiTextureLoad::NotFound) {
         LOG_WARNING("getItemIcon: BLP not found at '", iconPath,
                     "' (displayInfoId=", displayInfoId, ")");
-        iconCache_[displayInfoId] = VK_NULL_HANDLE;
-        return VK_NULL_HANDLE;
+    } else if (why == UiTextureLoad::DecodeFailed) {
+        LOG_WARNING("getItemIcon: BLP decode failed for '", iconPath, "'");
     }
-
-    auto image = pipeline::BLPLoader::load(blpData);
-    if (!image.isValid()) {
-        LOG_WARNING("getItemIcon: BLP decode failed for '", iconPath,
-                    "' (size=", blpData.size(), ")");
-        iconCache_[displayInfoId] = VK_NULL_HANDLE;
-        return VK_NULL_HANDLE;
-    }
-
-    // Upload to Vulkan via VkContext
-    auto* window = core::Application::getInstance().getWindow();
-    auto* vkCtx = window ? window->getVkContext() : nullptr;
-    if (!vkCtx) {
-        iconCache_[displayInfoId] = VK_NULL_HANDLE;
-        return VK_NULL_HANDLE;
-    }
-
-    VkDescriptorSet ds = vkCtx->uploadImGuiTexture(image.data.data(), image.width, image.height);
     iconCache_[displayInfoId] = ds;
     return ds;
 }

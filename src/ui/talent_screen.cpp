@@ -1,4 +1,5 @@
 #include "ui/talent_screen.hpp"
+#include "ui/ui_texture_load.hpp"
 #include "ui/ui_upload_budget.hpp"
 #include "ui/ui_colors.hpp"
 #include "ui/keybinding_manager.hpp"
@@ -7,7 +8,6 @@
 #include "core/logger.hpp"
 #include "rendering/vk_context.hpp"
 #include "pipeline/asset_manager.hpp"
-#include "pipeline/blp_loader.hpp"
 #include "pipeline/dbc_layout.hpp"
 #include "pipeline/spell_icon_paths.hpp"
 #include <algorithm>
@@ -290,17 +290,8 @@ void TalentScreen::renderTalentTree(game::GameHandler& gameHandler, uint32_t tab
             std::string bgPath = bgFile;
             for (auto& c : bgPath) { if (c == '\\') c = '/'; }
             bgPath += ".blp";
-            auto blpData = assetManager->readFile(bgPath);
-            if (!blpData.empty()) {
-                auto image = pipeline::BLPLoader::load(blpData);
-                if (image.isValid()) {
-                    auto* window = core::Application::getInstance().getWindow();
-                    auto* vkCtx = window ? window->getVkContext() : nullptr;
-                    if (vkCtx) {
-                        bgTex = vkCtx->uploadImGuiTexture(image.data.data(), image.width, image.height);
-                    }
-                }
-            }
+            bgTex = uploadUiTextureFromBlp(
+                assetManager, bgPath, core::Application::getInstance().getWindow());
             // Cache even if null to avoid retrying every frame on missing files
             bgTextureCache_[tabId] = bgTex;
         }
@@ -818,26 +809,10 @@ VkDescriptorSet TalentScreen::getSpellIcon(uint32_t iconId, pipeline::AssetManag
     }
 
     std::string iconPath = pit->second + ".blp";
-    auto blpData = assetManager->readFile(iconPath);
-    if (blpData.empty()) {
-        spellIconCache[iconId] = VK_NULL_HANDLE;
-        return VK_NULL_HANDLE;
-    }
-
-    auto image = pipeline::BLPLoader::load(blpData);
-    if (!image.isValid()) {
-        spellIconCache[iconId] = VK_NULL_HANDLE;
-        return VK_NULL_HANDLE;
-    }
-
-    auto* window = core::Application::getInstance().getWindow();
-    auto* vkCtx = window ? window->getVkContext() : nullptr;
-    if (!vkCtx) {
-        spellIconCache[iconId] = VK_NULL_HANDLE;
-        return VK_NULL_HANDLE;
-    }
-
-    VkDescriptorSet ds = vkCtx->uploadImGuiTexture(image.data.data(), image.width, image.height);
+    // Cached either way, failures included, so a missing icon is not retried
+    // on every frame the tree is open.
+    VkDescriptorSet ds = uploadUiTextureFromBlp(
+        assetManager, iconPath, core::Application::getInstance().getWindow());
     spellIconCache[iconId] = ds;
     return ds;
 }

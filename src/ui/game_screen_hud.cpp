@@ -1,4 +1,5 @@
 #include "ui/game_screen.hpp"
+#include "ui/ui_texture_load.hpp"
 #include "ui/ui_upload_budget.hpp"
 #include "core/helm_visual.hpp"
 #include "ui/ui_raid_icons.hpp"
@@ -831,27 +832,10 @@ VkDescriptorSet GameScreen::getSpellIcon(uint32_t spellId, pipeline::AssetManage
 
     // Path from DBC has no extension - append .blp
     std::string iconPath = pit->second + ".blp";
-    auto blpData = am->readFile(iconPath);
-    if (blpData.empty()) {
-        spellIconCache_[spellId] = VK_NULL_HANDLE;
-        return VK_NULL_HANDLE;
-    }
-
-    auto image = pipeline::BLPLoader::load(blpData);
-    if (!image.isValid()) {
-        spellIconCache_[spellId] = VK_NULL_HANDLE;
-        return VK_NULL_HANDLE;
-    }
-
-    // Upload to Vulkan via VkContext
-    auto* window = services_.window;
-    auto* vkCtx = window ? window->getVkContext() : nullptr;
-    if (!vkCtx) {
-        spellIconCache_[spellId] = VK_NULL_HANDLE;
-        return VK_NULL_HANDLE;
-    }
-
-    VkDescriptorSet ds = vkCtx->uploadImGuiTexture(image.data.data(), image.width, image.height);
+    // Cached either way, failures included: the HUD asks for this every frame
+    // an aura is up, so a missing icon must not be retried each time.
+    VkDescriptorSet ds =
+        uploadUiTextureFromBlp(am, iconPath, services_.window);
     spellIconCache_[spellId] = ds;
     return ds;
 }

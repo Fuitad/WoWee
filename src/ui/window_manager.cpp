@@ -3,6 +3,7 @@
 // Owns all NPC interaction windows, popup dialogs, etc.
 // ============================================================
 #include "ui/window_manager.hpp"
+#include "ui/ui_texture_load.hpp"
 #include "game/item_text.hpp"
 #include "ui/framexml_takeover.hpp"
 #include "ui/ui_upload_budget.hpp"
@@ -24,7 +25,6 @@
 #include "game/packed_time.hpp"
 #include "pipeline/asset_manager.hpp"
 #include "pipeline/dbc_layout.hpp"
-#include "pipeline/blp_loader.hpp"
 #include "audio/audio_coordinator.hpp"
 #include "audio/ui_sound_manager.hpp"
 #include "audio/music_manager.hpp"
@@ -4741,16 +4741,12 @@ VkDescriptorSet WindowManager::getAchievementIcon(uint32_t spellIconId) {
         return VK_NULL_HANDLE;
     }
 
-    auto blpData = am->readFile(pit->second + ".blp");
-    if (blpData.empty()) { achievementIconCache_[spellIconId] = VK_NULL_HANDLE; return VK_NULL_HANDLE; }
-    auto image = pipeline::BLPLoader::load(blpData);
-    if (!image.isValid()) { achievementIconCache_[spellIconId] = VK_NULL_HANDLE; return VK_NULL_HANDLE; }
-
-    auto* window = services_.window;
-    auto* vkCtx = window ? window->getVkContext() : nullptr;
-    if (!vkCtx) return VK_NULL_HANDLE;  // no context yet - retry next frame
-
-    VkDescriptorSet ds = vkCtx->uploadImGuiTexture(image.data.data(), image.width, image.height);
+    UiTextureLoad why{};
+    VkDescriptorSet ds = uploadUiTextureFromBlp(am, pit->second + ".blp",
+                                                services_.window, &why);
+    // A missing or unreadable file is cached as a miss; no context yet is not,
+    // because that resolves on its own and the icon should be retried.
+    if (why == UiTextureLoad::NoContext) return VK_NULL_HANDLE;
     achievementIconCache_[spellIconId] = ds;
     return ds;
 }

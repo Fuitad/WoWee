@@ -1,4 +1,5 @@
 #include "ui/spellbook_screen.hpp"
+#include "ui/ui_texture_load.hpp"
 #include "ui/ui_upload_budget.hpp"
 #include "ui/ui_colors.hpp"
 #include "ui/keybinding_manager.hpp"
@@ -7,7 +8,6 @@
 #include "rendering/vk_context.hpp"
 #include "pipeline/asset_manager.hpp"
 #include "pipeline/dbc_loader.hpp"
-#include "pipeline/blp_loader.hpp"
 #include "pipeline/dbc_layout.hpp"
 #include "core/logger.hpp"
 #include "pipeline/spell_icon_paths.hpp"
@@ -481,26 +481,10 @@ VkDescriptorSet SpellbookScreen::getSpellIcon(uint32_t iconId, pipeline::AssetMa
     }
 
     std::string iconPath = pit->second + ".blp";
-    auto blpData = assetManager->readFile(iconPath);
-    if (blpData.empty()) {
-        spellIconCache[iconId] = VK_NULL_HANDLE;
-        return VK_NULL_HANDLE;
-    }
-
-    auto image = pipeline::BLPLoader::load(blpData);
-    if (!image.isValid()) {
-        spellIconCache[iconId] = VK_NULL_HANDLE;
-        return VK_NULL_HANDLE;
-    }
-
-    auto* window = core::Application::getInstance().getWindow();
-    auto* vkCtx = window ? window->getVkContext() : nullptr;
-    if (!vkCtx) {
-        spellIconCache[iconId] = VK_NULL_HANDLE;
-        return VK_NULL_HANDLE;
-    }
-
-    VkDescriptorSet ds = vkCtx->uploadImGuiTexture(image.data.data(), image.width, image.height);
+    // Cached either way, including the failures, so a missing icon is not
+    // retried on every frame the spellbook is open.
+    VkDescriptorSet ds = ui::uploadUiTextureFromBlp(
+        assetManager, iconPath, core::Application::getInstance().getWindow());
     spellIconCache[iconId] = ds;
     return ds;
 }

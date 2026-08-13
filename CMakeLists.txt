@@ -893,6 +893,7 @@ set(WOWEE_SOURCES
     src/ui/interface_fonts.cpp
     src/ui/widget_renderer.cpp
     src/ui/ui_raid_icons.cpp
+    src/ui/ui_texture_load.cpp
     src/ui/auth_screen.cpp
     src/ui/realm_screen.cpp
     src/ui/character_create_screen.cpp
