@@ -2,6 +2,7 @@
 #include "rendering/m2_renderer.hpp"
 #include "rendering/m2_renderer_internal.h"
 #include "rendering/m2_blend_mode.hpp"
+#include "rendering/m2_glow_card.hpp"
 #include "core/thread_pool.hpp"
 #include "rendering/m2_model_classifier.hpp"
 #include "rendering/hiz_system.hpp"
@@ -1281,23 +1282,22 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
                     if (batch.indexCount == 0) continue;
                     if (!model.isGroundDetail && batch.submeshLevel != lod) continue;
                     if (batch.batchOpacity < 0.01f) continue;
-
-                    // Glow sprite check (per model+batch, sprites generated per instance)
-                    const bool koboldFlameCard = batch.colorKeyBlack && model.isKoboldFlame;
-                    const bool smallCardLikeBatch =
-                        (batch.glowSize <= 1.35f) ||
-                        (batch.lanternGlowHint && batch.glowSize <= 6.0f);
                     const bool batchUnlit = (batch.materialFlags & 0x01) != 0;
-                    const bool shouldUseGlowSprite =
-                        !koboldFlameCard &&
-                        (model.isElvenLike ||
-                         ((model.isLanternLike || model.isTorch || model.isBrazierOrFire) &&
-                          batch.lanternGlowHint)) &&
-                        !model.isSpellEffect &&
-                        smallCardLikeBatch &&
-                        (batch.lanternGlowHint ||
-                         (batch.blendMode >= 3) ||
-                         (batch.colorKeyBlack && batchUnlit && batch.blendMode >= 1));
+                    M2GlowCardBatch glowCard;
+                    glowCard.glowSize = batch.glowSize;
+                    glowCard.blendMode = batch.blendMode;
+                    glowCard.lanternGlowHint = batch.lanternGlowHint;
+                    glowCard.glowCardLike = batch.glowCardLike;
+                    glowCard.colorKeyBlack = batch.colorKeyBlack;
+                    glowCard.unlit = batchUnlit;
+                    glowCard.preserveGlowMesh = batch.preserveGlowMesh;
+                    glowCard.modelIsElvenLike = model.isElvenLike;
+                    glowCard.modelIsLanternLike = model.isLanternLike;
+                    glowCard.modelIsTorch = model.isTorch;
+                    glowCard.modelIsBrazierOrFire = model.isBrazierOrFire;
+                    glowCard.modelIsSpellEffect = model.isSpellEffect;
+                    glowCard.modelIsKoboldFlame = model.isKoboldFlame;
+                    const bool shouldUseGlowSprite = m2WantsGlowSprite(glowCard);
                     if (shouldUseGlowSprite) {
                         // Generate glow sprites for each instance in the group
                         for (size_t j = lodIdx; j < lodEnd; j++) {
@@ -1409,16 +1409,7 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
                             }
                             glowSprites_.push_back(halo);
                         }
-                        const bool cardLikeSkipMesh =
-                            !batch.preserveGlowMesh &&
-                            (batch.glowCardLike || (batch.blendMode >= 3) ||
-                             batch.colorKeyBlack || batchUnlit);
-                        const bool lanternGlowCardSkip =
-                            (model.isLanternLike || model.isTorch || model.isBrazierOrFire) &&
-                            batch.lanternGlowHint &&
-                            smallCardLikeBatch && cardLikeSkipMesh;
-                        if (lanternGlowCardSkip || (cardLikeSkipMesh && !model.isLanternLike))
-                            continue;
+                        if (m2GlowSpriteReplacesMesh(glowCard)) continue;
                     }
 
                     // Opaque gate - transparent glow cards were handled above so their
@@ -1644,30 +1635,22 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
 
             // Skip glow sprites (handled in opaque pass)
             const bool batchUnlit = (batch.materialFlags & 0x01) != 0;
-            const bool koboldFlameCard = batch.colorKeyBlack && model.isKoboldFlame;
-            const bool smallCardLikeBatch =
-                (batch.glowSize <= 1.35f) ||
-                (batch.lanternGlowHint && batch.glowSize <= 6.0f);
-            const bool shouldUseGlowSprite =
-                !koboldFlameCard &&
-                (model.isElvenLike ||
-                 ((model.isLanternLike || model.isTorch || model.isBrazierOrFire) &&
-                  batch.lanternGlowHint)) &&
-                !model.isSpellEffect &&
-                smallCardLikeBatch &&
-                (batch.lanternGlowHint || (batch.blendMode >= 3) ||
-                 (batch.colorKeyBlack && batchUnlit && batch.blendMode >= 1));
-            if (shouldUseGlowSprite) {
-                const bool cardLikeSkipMesh = !batch.preserveGlowMesh &&
-                    (batch.glowCardLike || (batch.blendMode >= 3) ||
-                     batch.colorKeyBlack || batchUnlit);
-                const bool lanternGlowCardSkip =
-                    (model.isLanternLike || model.isTorch || model.isBrazierOrFire) &&
-                    batch.lanternGlowHint &&
-                    smallCardLikeBatch &&
-                    cardLikeSkipMesh;
-                if (lanternGlowCardSkip || (cardLikeSkipMesh && !model.isLanternLike))
-                    continue;
+            M2GlowCardBatch glowCard;
+            glowCard.glowSize = batch.glowSize;
+            glowCard.blendMode = batch.blendMode;
+            glowCard.lanternGlowHint = batch.lanternGlowHint;
+            glowCard.glowCardLike = batch.glowCardLike;
+            glowCard.colorKeyBlack = batch.colorKeyBlack;
+            glowCard.unlit = batchUnlit;
+            glowCard.preserveGlowMesh = batch.preserveGlowMesh;
+            glowCard.modelIsElvenLike = model.isElvenLike;
+            glowCard.modelIsLanternLike = model.isLanternLike;
+            glowCard.modelIsTorch = model.isTorch;
+            glowCard.modelIsBrazierOrFire = model.isBrazierOrFire;
+            glowCard.modelIsSpellEffect = model.isSpellEffect;
+            glowCard.modelIsKoboldFlame = model.isKoboldFlame;
+            if (m2WantsGlowSprite(glowCard) && m2GlowSpriteReplacesMesh(glowCard)) {
+                continue;
             }
 
             if (particleDominantEffect) continue; // emission-only mesh

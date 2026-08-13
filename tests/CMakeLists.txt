@@ -1927,3 +1927,18 @@ target_include_directories(test_m2_blend_mode SYSTEM PRIVATE
 target_link_libraries(test_m2_blend_mode PRIVATE catch2_main)
 add_test(NAME m2_blend_mode COMMAND test_m2_blend_mode)
 register_test_target(test_m2_blend_mode)
+
+# ── test_m2_glow_card ────────────────────────────────────────
+# What the renderer does with a glow-card batch. Three decisions the two
+# render passes each made for themselves, in expressions identical down to
+# the constants; a batch is skipped by one pass and drawn by the other, so
+# drift there draws the card twice or never.
+add_executable(test_m2_glow_card
+    test_m2_glow_card.cpp
+    ${TEST_COMMON_SOURCES})
+target_include_directories(test_m2_glow_card PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_m2_glow_card SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_m2_glow_card PRIVATE catch2_main)
+add_test(NAME m2_glow_card COMMAND test_m2_glow_card)
+register_test_target(test_m2_glow_card)
