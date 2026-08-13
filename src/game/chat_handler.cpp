@@ -1362,14 +1362,5 @@ void ChatHandler::handleMotd(network::Packet& packet) {
     }
 }
 
-void ChatHandler::handleNotification(network::Packet& packet) {
-    // SMSG_NOTIFICATION: single null-terminated string
-    std::string message = packet.readString();
-    if (!message.empty()) {
-        LOG_INFO("Server notification: ", message);
-        addSystemChatMessage(message);
-    }
-}
-
 } // namespace game
 } // namespace wowee

@@ -74,6 +74,15 @@ CHECKS = [
     ("settings_persist_check.py",
      r"^(\d+) written but never read back", 0,
      "settings saved to the config file and never loaded"),
+    # GameHandler was split into ChatHandler, SocialHandler and the rest, and
+    # every move left the original method where it was. Most became forwarders
+    # and are still dispatched. Three were not: a second whole implementation
+    # of SMSG_NOTIFICATION and SMSG_QUERY_TIME_RESPONSE, and a forwarder no
+    # table names. The dead-symbol sweep passes all three, because it matches
+    # on the name and the name does have a caller - just not that copy's.
+    ("handler_twin_check.py",
+     r"^(\d+) copy that nothing reaches", 0,
+     "handlers left behind in the class they were moved out of"),
     # Both halves still write to the chat window. The handler adds a line and
     # fires the event; chatframe.lua's own branch formats the same fact from
     # the event and adds it too, and the player reads it twice.
