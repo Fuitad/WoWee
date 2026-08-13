@@ -2117,6 +2117,21 @@ wowee_test_link_glm(test_player_model_path)
 add_test(NAME player_model_path COMMAND test_player_model_path)
 register_test_target(test_player_model_path)
 
+# ── test_equipment_hash ──────────────────────────────────────
+# The fingerprint a cache redraws on when the outfit changes. Two copies
+# existed, each deciding for itself which fields change how an item looks.
+add_executable(test_equipment_hash
+    test_equipment_hash.cpp
+    ${TEST_COMMON_SOURCES}
+    ${CMAKE_SOURCE_DIR}/src/game/character.cpp)
+target_include_directories(test_equipment_hash PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_equipment_hash SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_equipment_hash PRIVATE catch2_main)
+wowee_test_link_glm(test_equipment_hash)
+add_test(NAME equipment_hash COMMAND test_equipment_hash)
+register_test_target(test_equipment_hash)
+
 # ── test_env_flag ────────────────────────────────────────────
 # Reading a boolean out of an environment variable. Five files had their own
 # copy and two rules: one read "off" as enabled because it tested only the

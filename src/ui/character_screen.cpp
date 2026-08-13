@@ -1,4 +1,5 @@
 #include "ui/character_screen.hpp"
+#include "game/equipment_hash.hpp"
 #include "ui/selection_screen_layout.hpp"
 #include "ui/ui_colors.hpp"
 #include "rendering/character_preview.hpp"
@@ -21,26 +22,6 @@ namespace wowee { namespace ui {
 CharacterScreen::CharacterScreen() {
 }
 
-static uint64_t hashEquipment(const std::vector<game::EquipmentItem>& eq) {
-    // FNV-1a 64-bit over (displayModel, inventoryType, enchantment)
-    uint64_t h = 1469598103934665603ull;
-    auto mix8 = [&](uint8_t b) {
-        h ^= b;
-        h *= 1099511628211ull;
-    };
-    auto mix32 = [&](uint32_t v) {
-        mix8(static_cast<uint8_t>(v & 0xFF));
-        mix8(static_cast<uint8_t>((v >> 8) & 0xFF));
-        mix8(static_cast<uint8_t>((v >> 16) & 0xFF));
-        mix8(static_cast<uint8_t>((v >> 24) & 0xFF));
-    };
-    for (const auto& it : eq) {
-        mix32(it.displayModel);
-        mix8(it.inventoryType);
-        mix32(it.enchantment);
-    }
-    return h;
-}
 
 static ImVec4 classColor(uint8_t classId) { return ui::getClassColor(classId); }
 
@@ -317,7 +298,7 @@ void CharacterScreen::render(game::GameHandler& gameHandler) {
                 }
             }
             if (preview_) {
-                const uint64_t equipHash = hashEquipment(character.equipment);
+                const uint64_t equipHash = game::hashEquipmentAppearance(character.equipment);
                 const bool changed =
                     (previewGuid_ != character.guid) ||
                     (previewAppearanceBytes_ != character.appearanceBytes) ||
