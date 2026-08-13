@@ -613,6 +613,16 @@ void AuthScreen::render(auth::AuthHandler& authHandler) {
         if (ImGui::Button("Settings", ImVec2(160, 40))) {
             showLoginSettings_ = true;
         }
+
+        // The only way out of the login screen was the window's own close
+        // button: Escape here clears the field it is in rather than leaving,
+        // and there is no game menu until a character is in the world.
+        ImGui::SameLine();
+        if (ImGui::Button("Quit", ImVec2(160, 40))) {
+            if (auto* window = core::Application::getInstance().getWindow()) {
+                window->setShouldClose(true);
+            }
+        }
     }
 
     ImGui::Spacing();
