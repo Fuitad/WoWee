@@ -429,10 +429,18 @@ void WidgetRenderer::drawMarkupText(ImDrawList* dl, ImFont* font, float size,
     const float lineH = size * 1.2f;
     float y = at.y;
     for (const auto& line : lines) {
+        // A picture contributes its own width, not its (empty) text's, or a
+        // centred line of coins would be justified as if it were blank.
+        const auto runWidth = [&](const TextRun& run) {
+            if (!run.texture.empty()) {
+                return run.texWidth > 0.0f    ? run.texWidth
+                     : run.texHeight > 0.0f   ? run.texHeight
+                                              : size;
+            }
+            return font->CalcTextSizeA(size, FLT_MAX, 0.0f, run.text.c_str()).x;
+        };
         float lineW = 0.0f;
-        for (const TextRun& run : line) {
-            lineW += font->CalcTextSizeA(size, FLT_MAX, 0.0f, run.text.c_str()).x;
-        }
+        for (const TextRun& run : line) lineW += runWidth(run);
         // Each line justifies inside the box on its own, which is what makes a
         // centred paragraph look centred rather than ragged from one offset.
         float x = at.x;
@@ -441,6 +449,28 @@ void WidgetRenderer::drawMarkupText(ImDrawList* dl, ImFont* font, float size,
             else if (std::string(justifyH) == "RIGHT") x = at.x + wrapWidth - lineW;
         }
         for (const TextRun& run : line) {
+            if (!run.texture.empty()) {
+                const float w = runWidth(run);
+                const float h = run.texHeight > 0.0f ? run.texHeight : size;
+                // Only on the pass that draws the text. The shadow and outline
+                // passes repeat the same runs offset by a pixel, and an icon
+                // drawn three times reads as a smear rather than as depth.
+                if (!forceColor) {
+                    VkDescriptorSet tex = resident(run.texture);
+                    if (tex != kMissing) {
+                        // Sat on the baseline like a capital, which is where
+                        // the interface's own money frames put a coin.
+                        const float top = y + (lineH - h) * 0.5f;
+                        dl->AddImage(reinterpret_cast<ImTextureID>(tex),
+                                     ImVec2(x, top), ImVec2(x + w, top + h),
+                                     ImVec2(0, 0), ImVec2(1, 1),
+                                     IM_COL32(255, 255, 255,
+                                              static_cast<int>(alpha * 255.0f)));
+                    }
+                }
+                x += w;
+                continue;
+            }
             uint32_t col = fallback;
             // The shadow and outline passes draw the same glyphs in one colour;
             // a run's own colour would light them up.

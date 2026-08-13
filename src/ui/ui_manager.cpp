@@ -204,13 +204,25 @@ void UIManager::loadInterfaceFont(const std::string& dataRoot,
     // walk above sees nothing at all - which is why the same build found them
     // on one machine and not another. The bytes are copied because ImGui takes
     // ownership of the buffer it is given and frees it with its own allocator.
+    // Weight, not size. A font string carries its own height and most of
+    // FrameXML asks for ten to fourteen, so nearly every label is drawn scaled
+    // down from the atlas above - and downscaling an antialiased glyph spreads
+    // each stroke over fewer pixels, which reads as faint rather than small.
+    // Brightening the rasterized coverage puts the weight back; it is what
+    // ImGui offers for exactly this and costs nothing at draw time.
+    auto interfaceFontConfig = [] {
+        ImFontConfig cfg;
+        cfg.RasterizerMultiply = 1.35f;
+        return cfg;
+    };
+
     auto addFromArchive = [&](const char* name, float size) -> ImFont* {
         if (!assets) return nullptr;
         auto data = assets->readFileOptional(std::string("Fonts\\") + name);
         if (data.empty()) return nullptr;
         void* owned = IM_ALLOC(data.size());
         std::memcpy(owned, data.data(), data.size());
-        ImFontConfig cfg;
+        ImFontConfig cfg = interfaceFontConfig();
         cfg.FontDataOwnedByAtlas = true;
         return io.Fonts->AddFontFromMemoryTTF(owned, static_cast<int>(data.size()),
                                               size, &cfg);
@@ -220,7 +232,9 @@ void UIManager::loadInterfaceFont(const std::string& dataRoot,
     if (frizqt.empty() && addFromArchive("FRIZQT__.TTF", kClientSize)) {
         LOG_INFO("Interface font read from the archives rather than from disk");
     } else if (!frizqt.empty()) {
-        if (!io.Fonts->AddFontFromFileTTF(frizqt.string().c_str(), kClientSize)) {
+        ImFontConfig clientCfg = interfaceFontConfig();
+        if (!io.Fonts->AddFontFromFileTTF(frizqt.string().c_str(), kClientSize,
+                                          &clientCfg)) {
             // Found and refused is a different problem from not found, and
             // reads identically on screen.
             LOG_WARNING("Could not read the interface font at ", frizqt.string(),
@@ -241,9 +255,11 @@ void UIManager::loadInterfaceFont(const std::string& dataRoot,
     int loaded = 0;
     for (const char* name : faces) {
         const fs::path file = resolve(name);
+        ImFontConfig faceCfg = interfaceFontConfig();
         ImFont* f = file.empty()
             ? nullptr
-            : io.Fonts->AddFontFromFileTTF(file.string().c_str(), kAtlasSize);
+            : io.Fonts->AddFontFromFileTTF(file.string().c_str(), kAtlasSize,
+                                           &faceCfg);
         if (!f) {
             // The archives spell them in upper case, which matters on a
             // filesystem that cares and costs nothing on one that does not.

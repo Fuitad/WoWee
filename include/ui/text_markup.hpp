@@ -7,9 +7,10 @@
 // any other label. Drawn without parsing, the escape is what appears on
 // screen, which is what the map button's tooltip was showing.
 //
-// Also dropped here: |H...|h link markers, which wrap the display text of an
-// item or spell link, and |T...|t inline textures, which name a file this has
-// no way to place mid-line. "||" is a literal bar.
+// Also handled: |H...|h link markers, which wrap the display text of an item
+// or spell link, and |T...|t inline textures, which name a file to draw in
+// the middle of a line. Those used to be dropped, so a price came out as
+// bare numbers with no coin beside them. "||" is a literal bar.
 // The wrap works on these too, so there is one definition rather than two
 // that have to agree - see ui/text_wrap.hpp.
 //
@@ -20,6 +21,7 @@
 
 #include "ui/text_wrap.hpp"
 
+#include <cstdlib>
 #include <string>
 #include <vector>
 
@@ -92,11 +94,42 @@ inline std::vector<WrapRun> parseMarkup(const std::string& in) {
             i += 2;
             continue;
         }
-        if (tag == 'T' || tag == 't') {
+        if (tag == 'T') {
+            // |Tpath:height:width:offsetX:offsetY|t. Everything after the path
+            // is optional and a zero means "the height of the line", which is
+            // what all three coin escapes ask for.
             const size_t end = in.find("|t", i + 2);
+            const size_t stop = (end == std::string::npos) ? in.size() : end;
+            const std::string payload = in.substr(i + 2, stop - (i + 2));
             i = (end == std::string::npos) ? in.size() : end + 2;
+
+            const size_t firstColon = payload.find(':');
+            std::string path = payload.substr(0, firstColon);
+            if (!path.empty()) {
+                flush();
+                WrapRun tex = cur;          // keeps the colour and link context
+                tex.text.clear();
+                tex.texture = std::move(path);
+                if (firstColon != std::string::npos) {
+                    // Height then width. Anything unparsable stays zero, which
+                    // is the same as the escape asking for the line height.
+                    size_t at = firstColon + 1;
+                    float* fields[2] = {&tex.texHeight, &tex.texWidth};
+                    for (float* field : fields) {
+                        if (at > payload.size()) break;
+                        const size_t next = payload.find(':', at);
+                        const std::string part = payload.substr(
+                            at, next == std::string::npos ? std::string::npos : next - at);
+                        *field = static_cast<float>(std::atof(part.c_str()));
+                        if (next == std::string::npos) break;
+                        at = next + 1;
+                    }
+                }
+                runs.push_back(std::move(tex));
+            }
             continue;
         }
+        if (tag == 't') { i += 2; continue; }   // a closing marker with no opener
         cur.text += in[i++];   // a bar that means nothing in particular
     }
     flush();

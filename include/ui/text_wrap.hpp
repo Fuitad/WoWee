@@ -28,6 +28,17 @@ struct WrapRun {
     /// has something to name; the display text alone cannot say what was
     /// clicked.
     std::string link;
+
+    /// An inline texture: the file named by a |Tpath:h:w:ox:oy|t escape.
+    ///
+    /// When this is set the run draws the picture and `text` is empty. Coin
+    /// amounts are written this way - GOLD_AMOUNT_TEXTURE is "%d" followed by
+    /// one of these - so a run of them is what a price is made of.
+    std::string texture;
+    /// Height and width from the escape, in interface units. Zero means "the
+    /// height of the line", which is what every coin escape asks for.
+    float texHeight = 0.0f;
+    float texWidth = 0.0f;
 };
 
 /// Whether two runs are the same style, so adjacent pieces can be merged back
@@ -36,6 +47,9 @@ inline bool sameStyle(const WrapRun& a, const WrapRun& b) {
     // Two links are not one run even in the same colour: merging them would
     // leave a single rect covering both, and a click could not say which.
     if (a.link != b.link) return false;
+    // A picture is never merged into a neighbouring run: it draws instead of
+    // text rather than beside it, so a merge would lose one or the other.
+    if (!a.texture.empty() || !b.texture.empty()) return false;
     if (a.hasColor != b.hasColor) return false;
     if (!a.hasColor) return true;
     return std::equal(std::begin(a.rgba), std::end(a.rgba), std::begin(b.rgba));
@@ -70,6 +84,24 @@ std::vector<std::vector<WrapRun>> wrapText(const std::vector<WrapRun>& runs,
     };
 
     for (const WrapRun& run : runs) {
+        // A picture is one indivisible piece. It carries no text, so the loop
+        // below would skip it entirely and the coin beside a price would be
+        // dropped between the parser and the screen.
+        if (!run.texture.empty()) {
+            // Zero means "as tall as the line", and the line's height is the
+            // font's - which the measure callable is the only way to reach
+            // from here.
+            const float w = run.texWidth > 0.0f    ? run.texWidth
+                          : run.texHeight > 0.0f   ? run.texHeight
+                                                   : measure("W");
+            if (wrapWidth > 0.0f && x > 0.0f && x + w > wrapWidth) {
+                lines.emplace_back();
+                x = 0.0f;
+            }
+            lines.back().push_back(run);
+            x += w;
+            continue;
+        }
         size_t at = 0;
         while (at < run.text.size()) {
             // A newline breaks the line whatever the width is. |n is WoW's

@@ -2512,18 +2512,43 @@ int lua_Tooltip_SetAuctionItem(lua_State* L) {
 /// Green, and after the item's own lines, which is where the real client puts
 /// it. Nothing is added when there is no temporary enchant, so a plain weapon
 /// reads as it did.
-static void appendTemporaryEnchantLine(wowee::ui::Widget* w, game::GameHandler* gh,
-                                       uint64_t itemGuid) {
+static void appendEnchantLines(wowee::ui::Widget* w, game::GameHandler* gh,
+                               uint64_t itemGuid) {
     if (!w || !gh || itemGuid == 0) return;
-    const uint32_t tempEnchantId = gh->getItemEnchantIds(itemGuid).second;
-    if (tempEnchantId == 0) return;
-    std::string name = gh->getEnchantName(tempEnchantId);
-    if (name.empty()) return;
-    wowee::ui::Widget::TooltipLine line;
-    line.left = std::move(name);
-    line.lc[0] = 0.0f; line.lc[1] = 1.0f; line.lc[2] = 0.0f; line.lc[3] = 1.0f;
-    line.rc[0] = line.rc[1] = line.rc[2] = line.rc[3] = 1.0f;
-    w->tooltipLines.push_back(std::move(line));
+    const auto [permanentId, temporaryId] = gh->getItemEnchantIds(itemGuid);
+
+    // Green, and after the item's own lines, which is where the real client
+    // puts both of them. The permanent one was not shown at all: an enchanted
+    // weapon described its base damage and said nothing about the enchant on
+    // it, in the bags and on the paperdoll alike.
+    const auto addLine = [&](uint32_t enchantId) {
+        if (enchantId == 0) return;
+        std::string name = gh->getEnchantName(enchantId);
+        if (name.empty()) return;
+        wowee::ui::Widget::TooltipLine line;
+        line.left = std::move(name);
+        line.lc[0] = 0.0f; line.lc[1] = 1.0f; line.lc[2] = 0.0f; line.lc[3] = 1.0f;
+        line.rc[0] = line.rc[1] = line.rc[2] = line.rc[3] = 1.0f;
+        w->tooltipLines.push_back(std::move(line));
+    };
+    addLine(permanentId);
+    addLine(temporaryId);
+}
+
+/// _WoweeAppendItemEnchants(self, bag, slot) - the enchants on a bag item.
+///
+/// The bag tooltip is built in Lua and had no way to reach an item's GUID,
+/// which is the only thing the enchant is keyed by - so a bag item never
+/// mentioned its enchant even though the paperdoll's did.
+int lua_Tooltip_AppendItemEnchants(lua_State* L) {
+    auto* w = widgetOf(L, 1);
+    auto* gh = wowee::addons::getGameHandler(L);
+    if (!w || !gh) return 0;
+    const int bag = static_cast<int>(luaL_optnumber(L, 2, -1));
+    const int slot = static_cast<int>(luaL_optnumber(L, 3, 0));
+    if (slot < 1) return 0;
+    appendEnchantLines(w, gh, gh->getBagItemGuid(bag, slot - 1));
+    return 0;
 }
 
 /// SetInventoryItem(unit, slot) - the gear on the paperdoll.
@@ -2557,7 +2582,7 @@ int lua_Tooltip_SetInventoryItem(lua_State* L) {
         fillItemTooltip(w, s.item, gh);
         fireTooltipSetItem(L);
     }
-    appendTemporaryEnchantLine(w, gh, gh->getEquipSlotGuid(slot - 1));
+    appendEnchantLines(w, gh, gh->getEquipSlotGuid(slot - 1));
     lua_pushboolean(L, 1);
     return 1;
 }
@@ -5180,6 +5205,7 @@ void LuaEngine::registerCoreAPI() {
         {"SetFont",         lua_FontString_SetFont},
         {"SetTalent",       lua_Tooltip_SetTalent},
         {"SetAuctionItem",  lua_Tooltip_SetAuctionItem},
+        {"_WoweeAppendItemEnchants", lua_Tooltip_AppendItemEnchants},
         {"SetTradeSkillItem", lua_Tooltip_SetTradeSkillItem},
         {"SetUnit",         lua_Tooltip_SetUnit},
         {"IsUnit",          lua_Tooltip_IsUnit},
@@ -6917,6 +6943,7 @@ void LuaEngine::registerCoreAPI() {
         "    local id = link:match('item:(%d+)')\n"
         "    if not id then return end\n"
         "    _WoweePopulateItemTooltip(self, tonumber(id))\n"
+        "    self:_WoweeAppendItemEnchants(bag, slot)\n"
         "    if count and count > 1 then self:AddLine('Count: '..count, 0.5, 0.5, 0.5) end\n"
         "end\n"
         // The spellbook's tooltip. SpellButton_OnEnter calls this and nothing
