@@ -373,13 +373,6 @@ bool npcWithinInteractRange(game::GameHandler* gh, uint64_t npcGuid) {
 /// The interface counts teams 1, 2, 3 for the three bracket sizes and passes
 /// that position; the wire wants the team's own id, which is what every arena
 /// command is addressed by. The same mapping the roster request uses.
-uint32_t arenaTeamIdAtIndex(game::GameHandler* gh, int index) {
-    if (!gh || index < 1) return 0;
-    const auto& teams = gh->getArenaTeamStats();
-    if (index > static_cast<int>(teams.size())) return 0;
-    return teams[static_cast<size_t>(index) - 1].teamId;
-}
-
 bool& guildShowOffline() { static bool show = true; return show; }
 std::string& guildSortField() { static std::string field = "name"; return field; }
 bool& guildSortReverse() { static bool rev = false; return rev; }
@@ -453,6 +446,15 @@ std::vector<const game::WhoEntry*> whoResultsView(game::GameHandler* gh) {
 }
 
 }  // namespace
+
+// Declared in lua_api_helpers.hpp: the system API asks the same question and
+// had its own copy under another name.
+uint32_t arenaTeamIdAtIndex(game::GameHandler* gh, int index) {
+    if (!gh || index < 1) return 0;
+    const auto& teams = gh->getArenaTeamStats();
+    if (index > static_cast<int>(teams.size())) return 0;
+    return teams[static_cast<size_t>(index) - 1].teamId;
+}
 
 // IsInGuild() → boolean
 static int lua_IsInGuild(lua_State* L) {

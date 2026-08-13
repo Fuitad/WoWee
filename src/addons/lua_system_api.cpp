@@ -3208,17 +3208,10 @@ static int lua_GetPVPRankProgress(lua_State* L) { lua_pushnumber(L, 0); return 1
 // ---- Arena team roster ----
 //
 // Which team an index names comes from the same list GetArenaTeam reads.
-static uint32_t arenaTeamIdAt(game::GameHandler* gh, int index) {
-    if (!gh || index < 1) return 0;
-    const auto& teams = gh->getArenaTeamStats();
-    if (index > static_cast<int>(teams.size())) return 0;
-    return teams[static_cast<size_t>(index) - 1].teamId;
-}
-
 // ArenaTeamRoster(index) - ask the server for the roster.
 static int lua_ArenaTeamRoster(lua_State* L) {
     auto* gh = getGameHandler(L);
-    const uint32_t teamId = arenaTeamIdAt(gh, static_cast<int>(luaL_optnumber(L, 1, 0)));
+    const uint32_t teamId = arenaTeamIdAtIndex(gh, static_cast<int>(luaL_optnumber(L, 1, 0)));
     if (gh && teamId) gh->requestArenaTeamRoster(teamId);
     return 0;
 }
@@ -3232,7 +3225,7 @@ static int lua_ArenaTeamRoster(lua_State* L) {
 // roster carries neither.
 static int lua_GetArenaTeamRosterInfo(lua_State* L) {
     auto* gh = getGameHandler(L);
-    const uint32_t teamId = arenaTeamIdAt(gh, static_cast<int>(luaL_optnumber(L, 1, 0)));
+    const uint32_t teamId = arenaTeamIdAtIndex(gh, static_cast<int>(luaL_optnumber(L, 1, 0)));
     const int member = static_cast<int>(luaL_optnumber(L, 2, 0));
     if (!gh || teamId == 0 || member < 1) return luaReturnNil(L);
     const auto* roster = gh->getArenaTeamRoster(teamId);
@@ -4183,7 +4176,7 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"GetNumArenaTeamMembers", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             const uint32_t teamId =
-                arenaTeamIdAt(gh, static_cast<int>(luaL_optnumber(L, 1, 0)));
+                arenaTeamIdAtIndex(gh, static_cast<int>(luaL_optnumber(L, 1, 0)));
             const auto* roster = (gh && teamId) ? gh->getArenaTeamRoster(teamId) : nullptr;
             lua_pushnumber(L, roster
                 ? static_cast<lua_Number>(roster->members.size()) : 0);

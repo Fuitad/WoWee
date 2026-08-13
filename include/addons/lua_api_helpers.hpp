@@ -869,4 +869,12 @@ const game::GameHandler::QuestLogEntry* questAtLogRow(game::GameHandler* gh, int
 /// through. Called when the game says the trade skill data moved.
 void invalidateTradeSkillRows();
 
+/// The team id at an arena team index, or zero when the index is off the end.
+///
+/// One-based, as the interface counts: ArenaTeamRoster(1) is the first team.
+/// Two files had this, under two names, each with its own off-by-one to get
+/// right - and an index convention is the kind of thing that goes wrong once
+/// and is then copied.
+uint32_t arenaTeamIdAtIndex(game::GameHandler* gh, int index);
+
 } // namespace wowee::addons

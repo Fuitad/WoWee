@@ -1202,19 +1202,7 @@ void M2Renderer::destroyModelGPU(M2ModelGPU& model) {
 
 void M2Renderer::destroyInstanceBones(M2Instance& inst, bool defer) {
     if (!vkCtx_) return;
-    for (int i = 0; i < 2; i++) {
-        // Snapshot the handles, clear the slot, then release the copies.
-        const VkDescriptorSet boneSet = inst.boneSet[i];
-        const ::VkBuffer boneBuf = inst.boneBuffer[i];
-        const VmaAllocation boneAlloc = inst.boneAlloc[i];
-        inst.boneSet[i] = VK_NULL_HANDLE;
-        inst.boneBuffer[i] = VK_NULL_HANDLE;
-        inst.boneAlloc[i] = VK_NULL_HANDLE;
-        inst.boneMapped[i] = nullptr;
-
-        releaseBoneSlot(*vkCtx_, boneDescPool_, boneDescPoolGeneration_,
-                        boneSet, boneBuf, boneAlloc, defer);
-    }
+    releaseInstanceBones(*vkCtx_, boneDescPool_, boneDescPoolGeneration_, inst, defer);
 }
 
 VkDescriptorSet M2Renderer::allocateMaterialSet() {
