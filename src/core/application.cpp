@@ -60,6 +60,7 @@
 #include <imgui.h>
 #include "pipeline/m2_loader.hpp"
 #include "pipeline/wmo_loader.hpp"
+#include "pipeline/wmo_group_path.hpp"
 #include "pipeline/wdt_loader.hpp"
 #include "pipeline/dbc_loader.hpp"
 #include "ui/ui_manager.hpp"
@@ -4786,19 +4787,19 @@ void Application::setupTestTransport() {
     // Load WMO groups
     int loadedGroups = 0;
     if (wmoModel.nGroups > 0) {
-        std::string basePath = transportWmoPath.substr(0, transportWmoPath.size() - 4);
-
         for (uint32_t gi = 0; gi < wmoModel.nGroups; gi++) {
-            char groupSuffix[16];
-            snprintf(groupSuffix, sizeof(groupSuffix), "_%03u.wmo", gi);
-            std::string groupPath = basePath + groupSuffix;
-            std::vector<uint8_t> groupData = assetManager->readFile(groupPath);
-
-            if (!groupData.empty()) {
+            bool loaded = false;
+            for (const std::string& groupPath :
+                 pipeline::wmoGroupCandidates(transportWmoPath, gi)) {
+                std::vector<uint8_t> groupData = assetManager->readFile(groupPath);
+                if (groupData.empty()) continue;
                 pipeline::WMOLoader::loadGroup(groupData, wmoModel, gi);
                 loadedGroups++;
-            } else {
-                LOG_WARNING("  Failed to load WMO group ", gi, " for: ", basePath);
+                loaded = true;
+                break;
+            }
+            if (!loaded) {
+                LOG_WARNING("  Failed to load WMO group ", gi, " for: ", transportWmoPath);
             }
         }
     }

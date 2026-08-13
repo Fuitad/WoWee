@@ -18,6 +18,7 @@
 #include "pipeline/adt_loader.hpp"
 #include "pipeline/m2_loader.hpp"
 #include "pipeline/wmo_loader.hpp"
+#include "pipeline/wmo_group_path.hpp"
 #include "pipeline/terrain_mesh.hpp"
 #include "core/logger.hpp"
 #include <glm/gtc/matrix_transform.hpp>
@@ -743,32 +744,14 @@ std::shared_ptr<PendingTile> TerrainManager::prepareTile(int x, int y) {
 
                 wmoModel = pipeline::WMOLoader::load(wmoData);
                 if (wmoModel.nGroups > 0) {
-                    std::string basePath = wmoPath;
-                    std::string extension;
-                    if (basePath.size() > 4) {
-                        extension = basePath.substr(basePath.size() - 4);
-                        std::string extLower = extension;
-                        for (char& c : extLower) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-                        if (extLower == ".wmo") {
-                            basePath = basePath.substr(0, basePath.size() - 4);
-                        }
-                    }
-
                     for (uint32_t gi = 0; gi < wmoModel.nGroups; gi++) {
-                        char groupSuffix[16];
-                        snprintf(groupSuffix, sizeof(groupSuffix), "_%03u%s", gi, extension.c_str());
-                        std::string groupPath = basePath + groupSuffix;
-                        std::vector<uint8_t> groupData = assetManager->readFile(groupPath);
-                        if (groupData.empty()) {
-                            snprintf(groupSuffix, sizeof(groupSuffix), "_%03u.wmo", gi);
-                            groupData = assetManager->readFile(basePath + groupSuffix);
-                        }
-                        if (groupData.empty()) {
-                            snprintf(groupSuffix, sizeof(groupSuffix), "_%03u.WMO", gi);
-                            groupData = assetManager->readFile(basePath + groupSuffix);
-                        }
-                        if (!groupData.empty()) {
+                        for (const std::string& groupPath :
+                             pipeline::wmoGroupCandidates(wmoPath, gi)) {
+                            std::vector<uint8_t> groupData =
+                                assetManager->readFile(groupPath);
+                            if (groupData.empty()) continue;
                             pipeline::WMOLoader::loadGroup(groupData, wmoModel, gi);
+                            break;
                         }
                     }
                 }

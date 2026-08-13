@@ -2166,6 +2166,21 @@ wowee_test_link_glm(test_equipment_hash)
 add_test(NAME equipment_hash COMMAND test_equipment_hash)
 register_test_target(test_equipment_hash)
 
+# ── test_wmo_group_path ──────────────────────────────────────
+# The names a WMO's group file might carry. Five loaders tried different
+# numbers of them, so a building spelled ".WMO" loaded its interior on some
+# paths and silently did not on others.
+add_executable(test_wmo_group_path
+    test_wmo_group_path.cpp
+    ${TEST_COMMON_SOURCES})
+target_include_directories(test_wmo_group_path PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_wmo_group_path SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_wmo_group_path PRIVATE catch2_main)
+wowee_test_link_glm(test_wmo_group_path)
+add_test(NAME wmo_group_path COMMAND test_wmo_group_path)
+register_test_target(test_wmo_group_path)
+
 # ── test_env_flag ────────────────────────────────────────────
 # Reading a boolean out of an environment variable. Five files had their own
 # copy and two rules: one read "off" as enabled because it tested only the
