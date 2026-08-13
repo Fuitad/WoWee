@@ -164,7 +164,14 @@ void main() {
     if (unlit != 0) {
         result = texColor.rgb * emissiveBoost;
         if (emissiveBoost > 1.0) {
-            result += vec3(0.32, 0.14, 0.025) * (emissiveBoost - 1.0);
+            // Weighted by the texel's own brightness. Added flat it lit the
+            // whole quad, and a glow card is black everywhere but its middle,
+            // so the card's rectangle appeared as an orange panel hanging on
+            // whatever was behind the fire. Black has nothing to boost.
+            float emissiveWeight =
+                dot(texColor.rgb, vec3(0.299, 0.587, 0.114));
+            result += vec3(0.32, 0.14, 0.025) * (emissiveBoost - 1.0) *
+                      emissiveWeight;
         }
     } else {
         vec3 viewDir = normalize(viewPos.xyz - FragPos);
