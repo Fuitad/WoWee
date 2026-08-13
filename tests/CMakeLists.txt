@@ -2166,6 +2166,20 @@ wowee_test_link_glm(test_equipment_hash)
 add_test(NAME equipment_hash COMMAND test_equipment_hash)
 register_test_target(test_equipment_hash)
 
+# ── test_footstep_paths ──────────────────────────────────────
+# The names the footstep sounds are stored under. Six families, none derivable
+# from another, and a name that stops matching the archive is silent.
+add_executable(test_footstep_paths
+    test_footstep_paths.cpp
+    ${TEST_COMMON_SOURCES})
+target_include_directories(test_footstep_paths PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_footstep_paths SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_footstep_paths PRIVATE catch2_main)
+wowee_test_link_glm(test_footstep_paths)
+add_test(NAME footstep_paths COMMAND test_footstep_paths)
+register_test_target(test_footstep_paths)
+
 # ── test_placement_transform ─────────────────────────────────
 # The model matrix a doodad or a building placement becomes. The two renderers
 # composed the rotation in different orders, and nothing on flat ground can
