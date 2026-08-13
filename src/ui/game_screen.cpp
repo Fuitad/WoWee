@@ -40,6 +40,7 @@
 
 #include "game/expansion_profile.hpp"
 #include "game/character.hpp"
+#include "game/stance_spells.hpp"
 #include "core/logger.hpp"
 #include <imgui.h>
 #include <imgui_internal.h>
@@ -1720,19 +1721,10 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
             // Only fires for classes that use a stance bar; same slot ordering as
             // renderStanceBar: Warrior, DK, Druid, Rogue, Priest.
             if (ctrlDown) {
-                static constexpr uint32_t warriorStances[]  = { 2457, 71, 2458 };
-                static constexpr uint32_t dkPresences[]     = { 48266, 48263, 48265 };
-                static constexpr uint32_t druidForms[]      = { 5487, 9634, 768, 783, 1066, 24858, 33891, 33943, 40120 };
-                static constexpr uint32_t rogueForms[]      = { 1784 };
-                static constexpr uint32_t priestForms[]     = { 15473 };
-                const uint32_t* stArr = nullptr; int stCnt = 0;
-                switch (gameHandler.getPlayerClass()) {
-                    case 1:  stArr = warriorStances; stCnt = 3; break;
-                    case 6:  stArr = dkPresences;    stCnt = 3; break;
-                    case 11: stArr = druidForms;     stCnt = 9; break;
-                    case 4:  stArr = rogueForms;     stCnt = 1; break;
-                    case 5:  stArr = priestForms;    stCnt = 1; break;
-                }
+                const auto stances =
+                    game::stanceSpellsForClass(gameHandler.getPlayerClass());
+                const uint32_t* stArr = stances.count > 0 ? stances.spells : nullptr;
+                const int stCnt = stances.count;
                 if (stArr) {
                     const auto& known = gameHandler.getKnownSpells();
                     // Build available list (same order as UI)

@@ -19,6 +19,7 @@
 #include "core/window.hpp"
 #include "game/game_handler.hpp"
 #include "game/spell_classification.hpp"
+#include "game/stance_spells.hpp"
 #include "pipeline/asset_manager.hpp"
 #include "pipeline/dbc_layout.hpp"
 #include "audio/ui_sound_manager.hpp"
@@ -1198,25 +1199,12 @@ void ActionBarPanel::renderStanceBar(game::GameHandler& gameHandler,
                              SpellIconFn getSpellIcon) {
     uint8_t playerClass = gameHandler.getPlayerClass();
 
-    // Stance/form spell IDs per class (ordered by display priority)
-    // Class IDs: 1=Warrior, 4=Rogue, 5=Priest, 6=DeathKnight, 11=Druid
-    static const uint32_t warriorStances[]  = { 2457, 71, 2458 };        // Battle, Defensive, Berserker
-    static const uint32_t dkPresences[]     = { 48266, 48263, 48265 };   // Blood, Frost, Unholy
-    static const uint32_t druidForms[]      = { 5487, 9634, 768, 783, 1066, 24858, 33891, 33943, 40120 };
-    //                                           Bear, DireBear, Cat, Travel, Aquatic, Moonkin, Tree, Flight, SwiftFlight
-    static const uint32_t rogueForms[]      = { 1784 };  // Stealth
-    static const uint32_t priestForms[]     = { 15473 }; // Shadowform
-
-    const uint32_t* stanceArr = nullptr;
-    int stanceCount = 0;
-    switch (playerClass) {
-        case 1:  stanceArr = warriorStances; stanceCount = 3; break;
-        case 6:  stanceArr = dkPresences;    stanceCount = 3; break;
-        case 11: stanceArr = druidForms;     stanceCount = 9; break;
-        case 4:  stanceArr = rogueForms;     stanceCount = 1; break;
-        case 5:  stanceArr = priestForms;    stanceCount = 1; break;
-        default: return;
-    }
+    // Stance/form spells in display order. The Ctrl+1..Ctrl+8 bindings count
+    // in this same order, so both read it from one place.
+    const auto stances = game::stanceSpellsForClass(playerClass);
+    if (stances.count == 0) return;  // this class has no stance bar
+    const uint32_t* stanceArr = stances.spells;
+    const int stanceCount = stances.count;
 
     // Filter to spells the player actually knows
     const auto& known = gameHandler.getKnownSpells();

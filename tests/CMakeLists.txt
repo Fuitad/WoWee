@@ -2020,6 +2020,20 @@ wowee_test_link_glm(test_movement_flag_bits)
 add_test(NAME movement_flag_bits COMMAND test_movement_flag_bits)
 register_test_target(test_movement_flag_bits)
 
+# ── test_stance_spells ───────────────────────────────────────
+# The stance bar's spells and their order, which the bar and the Ctrl+1..8
+# bindings both need. Both used to hold their own copy of all five tables.
+add_executable(test_stance_spells
+    test_stance_spells.cpp
+    ${TEST_COMMON_SOURCES})
+target_include_directories(test_stance_spells PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_stance_spells SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_stance_spells PRIVATE catch2_main)
+wowee_test_link_glm(test_stance_spells)
+add_test(NAME stance_spells COMMAND test_stance_spells)
+register_test_target(test_stance_spells)
+
 # ── test_party_wire_codes ────────────────────────────────────
 # Party operation and result codes against AzerothCore. PARTY_OP_SWAP is 4
 # and SWAP was declared 3, which is not an operation at all, so the field
