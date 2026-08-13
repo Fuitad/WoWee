@@ -780,6 +780,40 @@ endif()
 add_test(NAME attacker_state_layout COMMAND test_attacker_state_layout)
 register_test_target(test_attacker_state_layout)
 
+# ── test_spell_damage_log_layout ───────────────────────────────────────
+# SMSG_SPELLNONMELEEDAMAGELOG before WotLK, pinned before the Classic and TBC
+# readers were merged. The expansions differ by one field - overkill - and
+# reading it where it is absent shifts everything after it by four bytes.
+add_executable(test_spell_damage_log_layout
+    test_spell_damage_log_layout.cpp
+    ${TEST_COMMON_SOURCES}
+    ${CMAKE_SOURCE_DIR}/src/network/packet.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/opcode_table.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/expansion_profile.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/character.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/spline_packet.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/world_packets.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/world_packets_world.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/world_packets_entity.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/world_packets_social.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/world_packets_economy.cpp
+    ${CMAKE_SOURCE_DIR}/src/auth/crypto.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/packet_parsers_classic.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/packet_parsers_tbc.cpp
+)
+target_include_directories(test_spell_damage_log_layout PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_spell_damage_log_layout SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_spell_damage_log_layout PRIVATE catch2_main SDL2::SDL2
+                                                           ZLIB::ZLIB
+                                                           OpenSSL::SSL OpenSSL::Crypto)
+wowee_test_link_glm(test_spell_damage_log_layout)
+if(TARGET Vulkan::Vulkan)
+    target_link_libraries(test_spell_damage_log_layout PRIVATE Vulkan::Vulkan)
+endif()
+add_test(NAME spell_damage_log_layout COMMAND test_spell_damage_log_layout)
+register_test_target(test_spell_damage_log_layout)
+
 # ── test_prewotlk_build_packets ────────────────────────────────────────
 # The three client packets Classic and TBC build identically, pinned before
 # the builders were merged. Each is a WotLK packet minus a leading packed GUID

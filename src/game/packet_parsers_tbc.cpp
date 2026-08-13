@@ -1284,35 +1284,7 @@ bool TbcPacketParsers::parseAttackerStateUpdate(network::Packet& packet, Attacke
 // CMaNGOS TBC writes target and attacker as packed GUIDs.
 // ============================================================================
 bool TbcPacketParsers::parseSpellDamageLog(network::Packet& packet, SpellDamageLogData& data) {
-    data = SpellDamageLogData{};
-    auto rem = [&]() { return packet.getRemainingSize(); };
-
-    if (rem() < 2 || !packet.hasFullPackedGuid()) return false;
-    data.targetGuid = packet.readPackedGuid();
-    if (rem() < 1 || !packet.hasFullPackedGuid()) return false;
-    data.attackerGuid = packet.readPackedGuid();
-
-    // spellId + damage + schoolMask + absorbed + resisted + periodicLog + unused + blocked + flags
-    if (rem() < 21) return false;
-    data.spellId      = packet.readUInt32();
-    data.damage       = packet.readUInt32();
-    data.schoolMask   = packet.readUInt8();
-    data.absorbed     = packet.readUInt32();
-    data.resisted     = packet.readUInt32();
-
-    uint8_t periodicLog = packet.readUInt8();
-    (void)periodicLog;
-    packet.readUInt8();   // unused
-    packet.readUInt32();  // blocked
-    uint32_t flags = packet.readUInt32();
-    data.isCrit = (flags & 0x02) != 0;
-
-    // TBC does not have an overkill field here
-    data.overkill = 0;
-
-    LOG_DEBUG("[TBC] Spell damage: spellId=", data.spellId, " dmg=", data.damage,
-              data.isCrit ? " CRIT" : "");
-    return true;
+    return parseSpellDamageLogPreWotlk(packet, data, "[TBC]");
 }
 
 // ============================================================================

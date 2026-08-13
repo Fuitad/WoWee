@@ -757,16 +757,19 @@ bool ClassicPacketParsers::parseAttackerStateUpdate(network::Packet& packet, Att
 //       + uint32(damage) + uint8(schoolMask) + uint32(absorbed) + uint32(resisted)
 //       + uint8(periodicLog) + uint8(unused) + uint32(blocked) + uint32(flags)
 // ============================================================================
-bool ClassicPacketParsers::parseSpellDamageLog(network::Packet& packet, SpellDamageLogData& data) {
+bool parseSpellDamageLogPreWotlk(network::Packet& packet, SpellDamageLogData& data,
+                                 const char* tag) {
+    data = SpellDamageLogData{};
     auto rem = [&]() { return packet.getRemainingSize(); };
     if (rem() < 2 || !packet.hasFullPackedGuid()) return false;
 
-    data.targetGuid   = packet.readPackedGuid(); // PackedGuid in Vanilla
+    data.targetGuid   = packet.readPackedGuid(); // PackedGuid before WotLK
     if (rem() < 1 || !packet.hasFullPackedGuid()) return false;
-    data.attackerGuid = packet.readPackedGuid(); // PackedGuid in Vanilla
+    data.attackerGuid = packet.readPackedGuid();
 
     // uint32(spellId) + uint32(damage) + uint8(schoolMask) + uint32(absorbed)
-    // + uint32(resisted) + uint8 + uint8 + uint32(blocked) + uint32(flags) = 21 bytes
+    // + uint32(resisted) + uint8 + uint8 + uint32(blocked) + uint32(flags) = 21 bytes.
+    // No overkill: that is the field WotLK adds.
     if (rem() < 21) return false;
     data.spellId    = packet.readUInt32();
     data.damage     = packet.readUInt32();
@@ -776,13 +779,16 @@ bool ClassicPacketParsers::parseSpellDamageLog(network::Packet& packet, SpellDam
     packet.readUInt8();    // periodicLog
     packet.readUInt8();    // unused
     packet.readUInt32();   // blocked
-    uint32_t flags  = packet.readUInt32();
+    const uint32_t flags = packet.readUInt32();
     data.isCrit     = (flags & 0x02) != 0;
-    data.overkill   = 0;  // no overkill field in Vanilla (same as TBC)
 
-    LOG_DEBUG("[Classic] Spell damage: spellId=", data.spellId, " dmg=", data.damage,
+    LOG_DEBUG(tag, " Spell damage: spellId=", data.spellId, " dmg=", data.damage,
               data.isCrit ? " CRIT" : "");
     return true;
+}
+
+bool ClassicPacketParsers::parseSpellDamageLog(network::Packet& packet, SpellDamageLogData& data) {
+    return parseSpellDamageLogPreWotlk(packet, data, "[Classic]");
 }
 
 // ============================================================================

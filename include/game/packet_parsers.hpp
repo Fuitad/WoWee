@@ -39,6 +39,17 @@ bool parseItemQueryPreWotlk(network::Packet& packet, ItemQueryResponseData& data
 network::Packet buildQueryQuestPacketPreWotlk(uint64_t npcGuid, uint32_t questId);
 network::Packet buildAcceptQuestPacketPreWotlk(uint64_t npcGuid, uint32_t questId);
 
+/// SMSG_SPELLNONMELEEDAMAGELOG as Classic and TBC send it.
+///
+/// The expansions differ by one field: WotLK carries an overkill amount after
+/// the damage and these do not, so the pre-WotLK readers set it to zero
+/// themselves. Between Classic and TBC the packet is byte for byte the same,
+/// which is why one reader serves both - checked field by field rather than
+/// assumed, since reading four bytes that are not there would take the school
+/// mask out of the middle of the absorbed amount.
+bool parseSpellDamageLogPreWotlk(network::Packet& packet, SpellDamageLogData& data,
+                                 const char* tag);
+
 class PacketParsers {
 public:
     virtual ~PacketParsers() = default;
