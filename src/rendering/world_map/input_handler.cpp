@@ -24,9 +24,6 @@ InputResult InputHandler::process(ViewLevel currentLevel,
     // Scroll wheel zoom
     auto& io = ImGui::GetIO();
     float wheelDelta = io.MouseWheel;
-    if (std::abs(wheelDelta) < 0.001f)
-        wheelDelta = input.getMouseWheelDelta();
-
     if (wheelDelta > 0.0f) {
         result.action = InputAction::ZOOM_IN;
         return result;

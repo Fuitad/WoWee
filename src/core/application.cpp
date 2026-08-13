@@ -1991,7 +1991,8 @@ void Application::performLogoutToLogin() {
             m2->clear();
         }
         // Clear terrain tile tracking + water surfaces so next world entry starts fresh.
-        // Use softReset() instead of unloadAll() to avoid blocking on worker thread joins.
+        // softReset() rather than a full teardown: it clears the tile data
+        // without blocking on worker thread joins.
         if (auto* terrain = renderer->getTerrainManager()) {
             terrain->softReset();
         }

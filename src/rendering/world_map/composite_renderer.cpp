@@ -248,27 +248,6 @@ void CompositeRenderer::shutdown() {
     vkCtx = nullptr;
 }
 
-void CompositeRenderer::destroyZoneTextures(std::vector<Zone>& /*zones*/) {
-    if (!vkCtx) return;
-    VkDevice device = vkCtx->getDevice();
-    VmaAllocator alloc = vkCtx->getAllocator();
-
-    for (auto& tex : zoneTextures) {
-        if (tex) tex->destroy(device, alloc);
-    }
-    zoneTextures.clear();
-
-    for (auto& slots : zoneTextureSlots_) {
-        for (auto& tex : slots.tileTextures) tex = nullptr;
-        slots.tilesLoaded = false;
-        for (auto& ov : slots.overlays) {
-            for (auto& t : ov.tiles) t = nullptr;
-            ov.tilesLoaded = false;
-        }
-    }
-    zoneTextureSlots_.clear();
-}
-
 void CompositeRenderer::loadZoneTextures(int zoneIdx, std::vector<Zone>& zones,
                                           const std::string& mapName) {
     if (zoneIdx < 0 || zoneIdx >= static_cast<int>(zones.size())) return;

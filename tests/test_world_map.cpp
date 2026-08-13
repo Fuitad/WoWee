@@ -150,24 +150,6 @@ TEST_CASE("UV projection: continent mode applies vertical offset", "[world_map]"
     REQUIRE(uvCont.y == Catch::Approx(uvZone.y - 0.15f).margin(0.001f));
 }
 
-// ── Expansion level derivation ───────────────────────────────
-// Replicate the expansion detection logic from getExpansionLevel.
-
-static int deriveExpansionLevel(int maxLevel) {
-    if (maxLevel <= 60) return 0;   // vanilla
-    if (maxLevel <= 70) return 1;   // TBC
-    return 2;                        // WotLK
-}
-
-TEST_CASE("Expansion level from maxLevel", "[world_map]") {
-    REQUIRE(deriveExpansionLevel(60) == 0);   // vanilla
-    REQUIRE(deriveExpansionLevel(58) == 0);   // below vanilla cap
-    REQUIRE(deriveExpansionLevel(70) == 1);   // TBC
-    REQUIRE(deriveExpansionLevel(65) == 1);   // mid TBC range
-    REQUIRE(deriveExpansionLevel(80) == 2);   // WotLK
-    REQUIRE(deriveExpansionLevel(75) == 2);   // mid WotLK range
-}
-
 // ── Expansion continent filtering ────────────────────────────
 
 static std::vector<uint32_t> filterContinentsByExpansion(

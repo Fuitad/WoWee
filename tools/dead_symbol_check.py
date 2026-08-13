@@ -178,6 +178,15 @@ def use_counts(names):
                 # an identifier, not a string. The removal procedure greps for
                 # the quoted form deliberately, and should keep doing so.
                 stripped_line = STRING_LITERAL.sub('""', line)
+                # Nor is a name inside a comment. The terrain manager's
+                # finalize-everything variant had no caller for as long as the
+                # comment beside its replacement went on naming it: a note
+                # saying to use the bounded one instead read here as a call to
+                # the one it was telling you not to use. Strings are blanked
+                # first, so a "//" inside one cannot eat the rest of the line.
+                # This file's own prose is counted too, so do not name a dead
+                # function here.
+                stripped_line = re.sub(r"//.*|/\*.*?\*/", "", stripped_line)
                 for match in pattern.finditer(stripped_line):
                     name = match.group(1)
                     # A function's own definition is not a use of it; anything

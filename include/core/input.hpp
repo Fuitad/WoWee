@@ -12,7 +12,6 @@ public:
     static Input& getInstance();
 
     void update();
-    void handleEvent(const SDL_Event& event);
 
     // Keyboard
     bool isKeyPressed(SDL_Scancode key) const;
@@ -25,7 +24,6 @@ public:
 
     glm::vec2 getMousePosition() const { return mousePosition; }
     glm::vec2 getMouseDelta() const { return mouseDelta; }
-    float getMouseWheelDelta() const { return mouseWheelDelta; }
 
     bool isMouseLocked() const { return mouseLocked; }
 
@@ -47,7 +45,6 @@ private:
     glm::vec2 mousePosition = glm::vec2(0.0f);
     glm::vec2 previousMousePosition = glm::vec2(0.0f);
     glm::vec2 mouseDelta = glm::vec2(0.0f);
-    float mouseWheelDelta = 0.0f;
     bool mouseLocked = false;
 };
 

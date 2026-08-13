@@ -1563,36 +1563,6 @@ void TerrainManager::processPendingUnloads() {
     }
 }
 
-void TerrainManager::processAllReadyTiles() {
-    // Move all ready tiles into finalizing deque
-    // Keep in pendingTiles until committed (same as processReadyTiles)
-    {
-        std::lock_guard<std::mutex> lock(queueMutex);
-        while (!readyQueue.empty()) {
-            auto pending = readyQueue.front();
-            readyQueue.pop();
-            if (pending) {
-                FinalizingTile ft;
-                ft.pending = std::move(pending);
-                finalizingTiles_.push_back(std::move(ft));
-            }
-        }
-    }
-
-    // Batch all GPU uploads across all tiles into a single submission
-    VkContext* vkCtx = terrainRenderer ? terrainRenderer->getVkContext() : nullptr;
-    if (vkCtx) vkCtx->beginUploadBatch();
-
-    // Finalize all tiles completely (no time budget - used for loading screens)
-    while (!finalizingTiles_.empty()) {
-        auto& ft = finalizingTiles_.front();
-        while (!advanceFinalization(ft)) {}
-        finalizingTiles_.pop_front();
-    }
-
-    if (vkCtx) vkCtx->endUploadBatchSync();  // Sync - load screen needs data ready
-}
-
 void TerrainManager::processOneReadyTile() {
     // Move ready tiles into finalizing deque
     {
@@ -1742,75 +1712,6 @@ void TerrainManager::stopWorkers() {
     }
     workerThreads.clear();
     LOG_DEBUG("stopWorkers: done");
-}
-
-void TerrainManager::unloadAll() {
-    // Signal worker threads to stop and wait briefly for them to finish.
-    // Workers may be mid-prepareTile (reading MPQ / parsing ADT) which can
-    // take seconds, so use a short deadline and detach any stragglers.
-    if (workerRunning.load()) {
-        workerRunning.store(false);
-        queueCV.notify_all();
-
-        for (auto& t : workerThreads) {
-            if (t.joinable()) t.join();
-        }
-        workerThreads.clear();
-    }
-
-    // Clear queues
-    {
-        std::lock_guard<std::mutex> lock(queueMutex);
-        while (!loadQueue.empty()) loadQueue.pop_front();
-        while (!readyQueue.empty()) readyQueue.pop();
-    }
-    pendingTiles.clear();
-    finalizingTiles_.clear();
-    placedDoodadIds.clear();
-    placedWmoIds.clear();
-    {
-        std::lock_guard<std::mutex> lock(uploadedM2IdsMutex_);
-        uploadedM2Ids_.clear();
-    }
-    {
-        std::lock_guard<std::mutex> lock(preparedWmoUniqueIdsMutex_);
-        preparedWmoUniqueIds_.clear();
-    }
-
-    LOG_INFO("Unloading all terrain tiles");
-    loadedTiles.clear();
-    failedTiles.clear();
-
-    // Reset tile tracking so streaming re-triggers at the new location
-    currentTile = {-1, -1};
-    lastStreamTile = {-1, -1};
-
-    // Clear terrain renderer
-    if (terrainRenderer) {
-        terrainRenderer->clear();
-    }
-
-    // Clear water
-    if (waterRenderer) {
-        waterRenderer->clear();
-    }
-
-    // Clear WMO and M2 renderers so old-location geometry doesn't persist
-    if (wmoRenderer) {
-        wmoRenderer->clearInstances();
-    }
-    if (m2Renderer) {
-        m2Renderer->clear();
-    }
-
-    // Restart worker threads so streaming can resume (dynamic: scales with available cores)
-    // Use 75% of logical cores for decompression, leaving headroom for render/OS
-    workerRunning.store(true);
-    workerCount = computeTerrainWorkerCount();
-    workerThreads.reserve(workerCount);
-    for (int i = 0; i < workerCount; i++) {
-        workerThreads.emplace_back(&TerrainManager::workerLoop, this);
-    }
 }
 
 void TerrainManager::softReset() {

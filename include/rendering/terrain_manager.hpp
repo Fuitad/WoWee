@@ -223,10 +223,6 @@ public:
      */
     void unloadTile(int x, int y);
 
-    /**
-     * Unload all tiles
-     */
-    void unloadAll();
     void stopWorkers();  // Stop worker threads without restarting (for shutdown)
     void softReset();  // Clear tile data without stopping worker threads (non-blocking)
 
@@ -308,9 +304,6 @@ public:
     /** Total unfinished tiles (worker threads + ready queue + finalizing) */
     int getRemainingTileCount() const { return static_cast<int>(pendingTiles.size() + readyQueue.size() + finalizingTiles_.size()); }
     TileCoord getCurrentTile() const { return currentTile; }
-
-    /** Process all ready tiles immediately (use during loading screens) */
-    void processAllReadyTiles();
 
     /** Process one ready tile (for loading screens with per-tile progress updates) */
     void processOneReadyTile();
