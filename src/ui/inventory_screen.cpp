@@ -2983,23 +2983,10 @@ void InventoryScreen::renderItemSlot(game::Inventory& inventory, const game::Ite
             ImGui::IsMouseClicked(ImGuiMouseButton_Left) &&
             ImGui::GetIO().KeyShift &&
             item.itemId != 0 && !item.name.empty()) {
-            // Build WoW item link: |cff<qualHex>|Hitem:<id>:0:0:0:0:0:0:0:0|h[<name>]|h|r
-            const char* qualHex = "9d9d9d";
-            switch (item.quality) {
-                case game::ItemQuality::COMMON:    qualHex = "ffffff"; break;
-                case game::ItemQuality::UNCOMMON:  qualHex = "1eff00"; break;
-                case game::ItemQuality::RARE:      qualHex = "0070dd"; break;
-                case game::ItemQuality::EPIC:      qualHex = "a335ee"; break;
-                case game::ItemQuality::LEGENDARY: qualHex = "ff8000"; break;
-                case game::ItemQuality::ARTIFACT:  qualHex = "e6cc80"; break;
-                case game::ItemQuality::HEIRLOOM:  qualHex = "e6cc80"; break;
-                default: break;
-            }
-            char linkBuf[512];
-            snprintf(linkBuf, sizeof(linkBuf),
-                     "|cff%s|Hitem:%u:0:0:0:0:0:0:0:0|h[%s]|h|r",
-                     qualHex, item.itemId, item.name.c_str());
-            pendingChatItemLink_ = linkBuf;
+            // A shift-click writes the same link a Lua binding would, colour
+            // and all nine fields, rather than a sixth spelling of it.
+            pendingChatItemLink_ = game::itemChatLink(
+                item.itemId, static_cast<uint32_t>(item.quality), item.name);
         }
 
         if (ImGui::IsItemHovered() && !holdingItem) {

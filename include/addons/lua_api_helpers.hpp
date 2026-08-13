@@ -8,6 +8,7 @@
 #include <cstring>
 #include <algorithm>
 
+#include "game/item_text.hpp"
 #include "addons/lua_services.hpp"
 #include "game/game_handler.hpp"
 #include "game/entity.hpp"
@@ -219,19 +220,13 @@ inline constexpr const char* kLuaPowerNames[] = {
     "MANA","RAGE","FOCUS","ENERGY","HAPPINESS","RUNES","RUNIC_POWER"
 };
 
-// ---- Quality hex strings ----
-// No alpha prefix - for item links
-inline constexpr const char* kQualHexNoAlpha[] = {
-    "9d9d9d","ffffff","1eff00","0070dd","a335ee","ff8000","e6cc80","e6cc80"
-};
-// With ff alpha prefix - for Lua color returns
-// Heirloom is e6cc80, the same gold as an artifact - the table beside this one
-// has always said so and this one said 00ccff, which is a later expansion's
-// token colour and not a quality 3.3.5 has. An item link for an heirloom came
-// out cyan.
-inline constexpr const char* kQualHexAlpha[] = {
-    "ff9d9d9d","ffffffff","ff1eff00","ff0070dd","ffa335ee","ffff8000","ffe6cc80","ffe6cc80"
-};
+// The quality colours live in item_text.hpp and are not restated here. They
+// were written out as two tables in this header - one with the alpha, one
+// without - and the pair drifted: this one said heirlooms were 00ccff, a later
+// expansion's token colour, so an heirloom link from the Lua side came out
+// cyan while the same item shift-clicked out of a bag came out gold. Both
+// spellings now come from itemQualityColorHex, and the sixteen places that
+// built a link around them call itemChatLink instead.
 
 // ---- Retrieve GameHandler pointer stored in Lua registry ----
 inline game::GameHandler* getGameHandler(lua_State* L) {

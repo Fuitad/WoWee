@@ -1,5 +1,6 @@
 // lua_action_api.cpp - Action bar, cursor/pickup, keyboard input, key bindings, and pet actions Lua API bindings.
 // Extracted from lua_engine.cpp as part of §5.1 (Tame LuaEngine).
+#include "game/item_text.hpp"
 #include "addons/lua_api_helpers.hpp"
 // For fireEvent: paging has to reach the frames as well as the addons.
 #include "addons/lua_engine.hpp"
@@ -1356,11 +1357,8 @@ static int pushTradeLink(lua_State* L, game::GameHandler* gh,
                          const game::GameHandler::TradeSlot& slot) {
     const auto* info = (gh && slot.occupied) ? gh->getItemInfo(slot.itemId) : nullptr;
     if (!info || info->name.empty()) { return luaReturnNil(L); }
-    const char* ch = (info->quality < 8) ? kQualHexAlpha[info->quality] : "ffffffff";
-    char link[256];
-    snprintf(link, sizeof(link), "|c%s|Hitem:%u:0:0:0:0:0:0:0:0|h[%s]|h|r",
-             ch, slot.itemId, info->name.c_str());
-    lua_pushstring(L, link);
+    const std::string link = game::itemChatLink(slot.itemId, static_cast<uint32_t>(info->quality), info->name);
+    lua_pushstring(L, link.c_str());
     return 1;
 }
 

@@ -1,5 +1,6 @@
 // lua_inventory_api.cpp - Items, containers, merchant, loot, equipment, trading, auction, and mail Lua API bindings.
 // Extracted from lua_engine.cpp as part of §5.1 (Tame LuaEngine).
+#include "game/item_text.hpp"
 #include "addons/lua_api_helpers.hpp"
 #include "game/inventory_slots.hpp"
 #include "game/game_utils.hpp"
@@ -286,11 +287,8 @@ static int lua_GetBuybackItemLink(lua_State* L) {
     if (index > static_cast<int>(items.size())) { return luaReturnNil(L); }
     const auto& bi = items[index - 1];
     const int q = static_cast<int>(bi.item.quality);
-    const char* ch = (q >= 0 && q < 8) ? kQualHexAlpha[q] : "ffffffff";
-    char link[256];
-    snprintf(link, sizeof(link), "|c%s|Hitem:%u:0:0:0:0:0:0:0:0|h[%s]|h|r",
-             ch, bi.item.itemId, bi.item.name.c_str());
-    lua_pushstring(L, link);
+    const std::string link = game::itemChatLink(bi.item.itemId, static_cast<uint32_t>(q), bi.item.name);
+    lua_pushstring(L, link.c_str());
     return 1;
 }
 
@@ -395,11 +393,8 @@ static int lua_GetMerchantItemCostItem(lua_State* L) {
         lua_pushstring(L, info ? gh->getItemIconPath(info->displayInfoId).c_str() : "");
         lua_pushnumber(L, cost->itemCount[j]);
         if (info && !info->name.empty()) {
-            const char* ch = (info->quality < 8) ? kQualHexAlpha[info->quality] : "ffffffff";
-            char link[256];
-            snprintf(link, sizeof(link), "|c%s|Hitem:%u:0:0:0:0:0:0:0:0|h[%s]|h|r",
-                     ch, cost->itemId[j], info->name.c_str());
-            lua_pushstring(L, link);
+    const std::string link = game::itemChatLink(cost->itemId[j], static_cast<uint32_t>(info->quality), info->name);
+            lua_pushstring(L, link.c_str());
         } else {
             lua_pushnil(L);
         }
@@ -461,10 +456,8 @@ static int lua_GetMerchantItemLink(lua_State* L) {
     const auto* info = gh->getItemInfo(vi.itemId);
     if (!info) { return luaReturnNil(L); }
 
-    const char* ch = (info->quality < 8) ? kQualHexAlpha[info->quality] : "ffffffff";
-    char link[256];
-    snprintf(link, sizeof(link), "|c%s|Hitem:%u:0:0:0:0:0:0:0:0|h[%s]|h|r", ch, vi.itemId, info->name.c_str());
-    lua_pushstring(L, link);
+    const std::string link = game::itemChatLink(vi.itemId, static_cast<uint32_t>(info->quality), info->name);
+    lua_pushstring(L, link.c_str());
     return 1;
 }
 
@@ -595,11 +588,8 @@ static int lua_GetItemInfo(lua_State* L) {
 
     lua_pushstring(L, info->name.c_str());          // 1: name
     // Build item link with quality-colored text
-    const char* colorHex = (info->quality < 8) ? kQualHexAlpha[info->quality] : "ffffffff";
-    char link[256];
-    snprintf(link, sizeof(link), "|c%s|Hitem:%u:0:0:0:0:0:0:0:0|h[%s]|h|r",
-             colorHex, itemId, info->name.c_str());
-    lua_pushstring(L, link);                         // 2: link
+    const std::string link = game::itemChatLink(itemId, static_cast<uint32_t>(info->quality), info->name);
+    lua_pushstring(L, link.c_str());                         // 2: link
     lua_pushnumber(L, info->quality);                // 3: quality
     lua_pushnumber(L, info->itemLevel);              // 4: iLevel
     lua_pushnumber(L, info->requiredLevel);          // 5: requiredLevel
@@ -899,10 +889,8 @@ void pushItemLinkOrNil(lua_State* L, game::GameHandler* gh, uint32_t itemId) {
     const auto* info = itemId ? gh->getItemInfo(itemId) : nullptr;
     if (!info || info->name.empty()) { lua_pushnil(L); return; }
     const uint32_t quality = info->quality < 8 ? info->quality : 1u;
-    char link[256];
-    snprintf(link, sizeof(link), "|cff%s|Hitem:%u:0:0:0:0:0:0:0:0|h[%s]|h|r",
-             kQualHexNoAlpha[quality], itemId, info->name.c_str());
-    lua_pushstring(L, link);
+    const std::string link = game::itemChatLink(itemId, quality, info->name);
+    lua_pushstring(L, link.c_str());
 }
 
 /// years, months, days, hours - each counted *ago*, which is how
@@ -1034,11 +1022,8 @@ static int lua_GetInboxItemLink(lua_State* L) {
     const auto* att = attachmentAt(mail, static_cast<int>(luaL_optnumber(L, 2, 1)));
     const auto* info = att ? gh->getItemInfo(att->itemId) : nullptr;
     if (!info || info->name.empty()) { return luaReturnNil(L); }
-    const char* ch = (info->quality < 8) ? kQualHexAlpha[info->quality] : "ffffffff";
-    char link[256];
-    snprintf(link, sizeof(link), "|c%s|Hitem:%u:0:0:0:0:0:0:0:0|h[%s]|h|r",
-             ch, att->itemId, info->name.c_str());
-    lua_pushstring(L, link);
+    const std::string link = game::itemChatLink(att->itemId, static_cast<uint32_t>(info->quality), info->name);
+    lua_pushstring(L, link.c_str());
     return 1;
 }
 
@@ -2299,10 +2284,8 @@ static int lua_GetContainerItemInfo(lua_State* L) {
     uint32_t q = info ? info->quality : 0;
 
     uint32_t qi = q < 8 ? q : 1u;
-    char link[256];
-    snprintf(link, sizeof(link), "|cff%s|Hitem:%u:0:0:0:0:0:0:0:0|h[%s]|h|r",
-             kQualHexNoAlpha[qi], itemSlot->item.itemId, name.c_str());
-    lua_pushstring(L, link);  // link
+    const std::string link = game::itemChatLink(itemSlot->item.itemId, qi, name);
+    lua_pushstring(L, link.c_str());  // link
     return 7;
 }
 
@@ -2323,12 +2306,8 @@ static int lua_GetContainerItemLink(lua_State* L) {
     const auto* info = gh->getItemInfo(itemSlot->item.itemId);
     std::string name = info ? info->name : ("Item #" + std::to_string(itemSlot->item.itemId));
     uint32_t q = info ? info->quality : 0;
-    char link[256];
-
-    uint32_t qi = q < 8 ? q : 1u;
-    snprintf(link, sizeof(link), "|cff%s|Hitem:%u:0:0:0:0:0:0:0:0|h[%s]|h|r",
-             kQualHexNoAlpha[qi], itemSlot->item.itemId, name.c_str());
-    lua_pushstring(L, link);
+    const std::string link = game::itemChatLink(itemSlot->item.itemId, q, name);
+    lua_pushstring(L, link.c_str());
     return 1;
 }
 
@@ -2554,10 +2533,8 @@ static int lua_GetInventoryItemLink(lua_State* L) {
     }
 
     uint32_t qi = q < 8 ? q : 1u;
-    char link[256];
-    snprintf(link, sizeof(link), "|cff%s|Hitem:%u:0:0:0:0:0:0:0:0|h[%s]|h|r",
-             kQualHexNoAlpha[qi], itemId, name.c_str());
-    lua_pushstring(L, link);
+    const std::string link = game::itemChatLink(itemId, qi, name);
+    lua_pushstring(L, link.c_str());
     return 1;
 }
 
@@ -2917,10 +2894,8 @@ static int lua_GetLootSlotLink(lua_State* L) {
     if (!info || info->name.empty()) { return luaReturnNil(L); }
 
     uint32_t qi = info->quality < 8 ? info->quality : 1u;
-    char link[256];
-    snprintf(link, sizeof(link), "|cff%s|Hitem:%u:0:0:0:0:0:0:0:0|h[%s]|h|r",
-             kQualHexNoAlpha[qi], item.itemId, info->name.c_str());
-    lua_pushstring(L, link);
+    const std::string link = game::itemChatLink(item.itemId, qi, info->name);
+    lua_pushstring(L, link.c_str());
     return 1;
 }
 
@@ -3190,10 +3165,8 @@ static int lua_GetItemLink(lua_State* L) {
     if (!info || info->name.empty()) { return luaReturnNil(L); }
 
     uint32_t qi = info->quality < 8 ? info->quality : 1u;
-    char link[256];
-    snprintf(link, sizeof(link), "|cff%s|Hitem:%u:0:0:0:0:0:0:0:0|h[%s]|h|r",
-             kQualHexNoAlpha[qi], itemId, info->name.c_str());
-    lua_pushstring(L, link);
+    const std::string link = game::itemChatLink(itemId, qi, info->name);
+    lua_pushstring(L, link.c_str());
     return 1;
 }
 
@@ -3791,14 +3764,10 @@ void registerInventoryLuaAPI(lua_State* L) {
             // The same shape GetContainerItemLink builds, so a link from
             // the guild bank behaves like one from a bag everywhere it is
             // handed on to.
-            const uint32_t qi = info->quality < 8 ? info->quality : 1u;
-            char link[256];
-            snprintf(link, sizeof(link),
-                     "|cff%s|Hitem:%u:%u:0:0:0:0:%d:0|h[%s]|h|r",
-                     kQualHexNoAlpha[qi], it.itemEntry, it.enchantId,
-                     static_cast<int>(it.randomPropertyId),
-                     info->name.c_str());
-            lua_pushstring(L, link);
+            const std::string link = game::itemChatLink(
+                it.itemEntry, info->quality, info->name, it.enchantId,
+                static_cast<int32_t>(it.randomPropertyId));
+            lua_pushstring(L, link.c_str());
             return 1;
         }},
                 // Moving an item within the bank needs a cursor that can hold
@@ -4568,10 +4537,8 @@ void registerInventoryLuaAPI(lua_State* L) {
             const auto* info = gh->getItemInfo(itemId);
             if (!info) { return luaReturnNil(L); }
         
-            const char* ch = (info->quality < 8) ? kQualHexAlpha[info->quality] : "ffffffff";
-            char link[256];
-            snprintf(link, sizeof(link), "|c%s|Hitem:%u:0:0:0:0:0:0:0:0|h[%s]|h|r", ch, itemId, info->name.c_str());
-            lua_pushstring(L, link);
+    const std::string link = game::itemChatLink(itemId, static_cast<uint32_t>(info->quality), info->name);
+            lua_pushstring(L, link.c_str());
             return 1;
         }},
                 // Two values: how many are in the inbox, and how many the

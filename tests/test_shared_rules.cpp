@@ -285,6 +285,68 @@ TEST_CASE("an item's bind line and spell line", "[item]") {
     }
 }
 
+TEST_CASE("an item's colour by quality", "[item]") {
+    // Six tables carried these eight colours. They are the retail ones, and a
+    // player reads quality off the colour before they read the name, so a
+    // table that drifts renames an epic without saying so - which is how one
+    // of the six came to write heirlooms in a later expansion's cyan.
+    CHECK(std::string(game::itemQualityColorHex(0)) == "ff9d9d9d");  // poor
+    CHECK(std::string(game::itemQualityColorHex(1)) == "ffffffff");  // common
+    CHECK(std::string(game::itemQualityColorHex(2)) == "ff1eff00");  // uncommon
+    CHECK(std::string(game::itemQualityColorHex(3)) == "ff0070dd");  // rare
+    CHECK(std::string(game::itemQualityColorHex(4)) == "ffa335ee");  // epic
+    CHECK(std::string(game::itemQualityColorHex(5)) == "ffff8000");  // legendary
+    CHECK(std::string(game::itemQualityColorHex(6)) == "ffe6cc80");  // artifact
+    // Heirloom is the artifact gold in 3.3.5a, not cyan.
+    CHECK(std::string(game::itemQualityColorHex(7)) == "ffe6cc80");
+
+    SECTION("a quality this expansion does not have reads as common") {
+        CHECK(std::string(game::itemQualityColorHex(8)) == "ffffffff");
+        CHECK(std::string(game::itemQualityColorHex(4000)) == "ffffffff");
+    }
+
+    SECTION("the six-digit form is the eight-digit one without its alpha") {
+        // Half the callers write |cff and half write |c, so the two forms have
+        // to stay the same colour or the same item links in two shades.
+        for (uint32_t q = 0; q < 9; ++q) {
+            CHECK(std::string(game::itemQualityColorHex(q)).substr(2) ==
+                  game::itemQualityColorHexRGB(q));
+        }
+    }
+}
+
+TEST_CASE("an item hyperlink as 3.3.5a writes one", "[item]") {
+    // Nine fields after "item:": id, enchant, four gems, suffix, unique id and
+    // level. Sixteen places built this by hand; the ones that wrote eight gave
+    // an addon a differently shaped link from the one a shift-click produced.
+    CHECK(game::itemChatLink(3299, 0, "Fractured Canine") ==
+          "|cff9d9d9d|Hitem:3299:0:0:0:0:0:0:0:0|h[Fractured Canine]|h|r");
+    CHECK(game::itemChatLink(19019, 4, "Thunderfury") ==
+          "|cffa335ee|Hitem:19019:0:0:0:0:0:0:0:0|h[Thunderfury]|h|r");
+
+    SECTION("an enchant and a suffix keep the field count") {
+        // The guild bank wrote eight fields where everything else wrote nine,
+        // dropping the level, so a link from a bank slot had a different shape
+        // from the same item linked out of a bag.
+        const std::string link = game::itemChatLink(19019, 4, "Thunderfury", 2504, -37);
+        CHECK(link == "|cffa335ee|Hitem:19019:2504:0:0:0:0:-37:0:0"
+                      "|h[Thunderfury]|h|r");
+        const std::string plain = game::itemChatLink(19019, 4, "Thunderfury");
+        auto fields = [](const std::string& s) {
+            const size_t start = s.find("|Hitem:") + 7;
+            return std::count(s.begin() + static_cast<long>(start),
+                              s.begin() + static_cast<long>(s.find("|h[")), ':');
+        };
+        CHECK(fields(link) == fields(plain));
+    }
+
+    SECTION("an out-of-range quality still produces a usable link") {
+        const std::string link = game::itemChatLink(1, 99, "X");
+        CHECK(link.find("|Hitem:1:") != std::string::npos);
+        CHECK(link.substr(0, 10) == "|cffffffff");
+    }
+}
+
 TEST_CASE("the .skin beside a model", "[m2]") {
     CHECK(pipeline::skinPathForM2("Character\\Human\\Male\\HumanMale.m2") ==
           "Character\\Human\\Male\\HumanMale00.skin");

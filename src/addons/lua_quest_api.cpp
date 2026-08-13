@@ -1,5 +1,6 @@
 // lua_quest_api.cpp - Quest log, skills, talents, glyphs, and achievements Lua API bindings.
 // Extracted from lua_engine.cpp as part of §5.1 (Tame LuaEngine).
+#include "game/item_text.hpp"
 #include "addons/lua_api_helpers.hpp"
 #include "addons/lua_engine.hpp"
 #include "game/auction_filters.hpp"
@@ -1022,10 +1023,8 @@ static int lua_GetQuestLogSpecialItemInfo(lua_State* L) {
     if (!info || info->name.empty()) { return luaReturnNil(L); }
 
     const uint32_t quality = info->quality < 8 ? info->quality : 1u;
-    char link[256];
-    snprintf(link, sizeof(link), "|cff%s|Hitem:%u:0:0:0:0:0:0:0:0|h[%s]|h|r",
-             kQualHexNoAlpha[quality], item.itemId, info->name.c_str());
-    lua_pushstring(L, link);                                        // 1: link
+    const std::string link = game::itemChatLink(item.itemId, quality, info->name);
+    lua_pushstring(L, link.c_str());                                        // 1: link
 
     // A nil texture is an empty slot to the interface, and the button draws
     // its background art instead of the item.

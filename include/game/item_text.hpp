@@ -142,6 +142,16 @@ inline const char* itemQualityColorHex(uint32_t quality) {
     return quality < 8 ? kByQuality[quality] : "ffffffff";
 }
 
+/// The same colour without its alpha, for the callers that write "|cff".
+///
+/// Half the places that build a link write the alpha themselves and half take
+/// it from the string, so the two forms lived as two tables. Deriving one from
+/// the other is what keeps them the same colour: the pair that were written
+/// out separately disagreed about heirlooms for as long as both existed.
+inline const char* itemQualityColorHexRGB(uint32_t quality) {
+    return itemQualityColorHex(quality) + 2;
+}
+
 /// A chat hyperlink for an item, as 3.3.5a writes one.
 ///
 /// Nine fields after "item:": the id, then enchant, four gems, suffix, unique
@@ -154,9 +164,18 @@ inline const char* itemQualityColorHex(uint32_t quality) {
 /// stop at the first colon, and FrameXML hands the whole link back to
 /// SetHyperlink rather than splitting it. It is a difference waiting for the
 /// first thing that does split it.
-inline std::string itemChatLink(uint32_t itemId, uint32_t quality, const std::string& name) {
+/// `enchantId` and `randomPropertyId` are the second and seventh fields. They
+/// default to none, which is what every caller but the guild bank wants: a
+/// link written with an enchant is what a bank slot's contents actually are,
+/// and dropping it would show an enchanted weapon as a plain one.
+inline std::string itemChatLink(uint32_t itemId, uint32_t quality,
+                                const std::string& name,
+                                uint32_t enchantId = 0,
+                                int32_t randomPropertyId = 0) {
     return std::string("|c") + itemQualityColorHex(quality) + "|Hitem:" +
-           std::to_string(itemId) + ":0:0:0:0:0:0:0:0|h[" + name + "]|h|r";
+           std::to_string(itemId) + ":" + std::to_string(enchantId) +
+           ":0:0:0:0:" + std::to_string(randomPropertyId) + ":0:0|h[" + name +
+           "]|h|r";
 }
 
 
