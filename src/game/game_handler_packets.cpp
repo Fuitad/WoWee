@@ -13,11 +13,11 @@
 #include "game/social_handler.hpp"
 #include "game/quest_handler.hpp"
 #include "game/warden_handler.hpp"
-#include "game/packet_parsers.hpp"
-#include "game/transport_manager.hpp"
 #include "game/warden_crypto.hpp"
 #include "game/warden_memory.hpp"
 #include "game/warden_module.hpp"
+#include "game/packet_parsers.hpp"
+#include "game/transport_manager.hpp"
 #include "game/opcodes.hpp"
 #include "game/update_field_table.hpp"
 #include "game/expansion_profile.hpp"
@@ -3482,9 +3482,6 @@ void GameHandler::handlePacket(network::Packet& packet) {
     }
 
     auto preLogicalOp = opcodeTable_.fromWire(opcode);
-    if (wardenGateSeen_ && (!preLogicalOp || *preLogicalOp != Opcode::SMSG_WARDEN_DATA)) {
-        ++wardenPacketsAfterGate_;
-    }
     if (preLogicalOp && isAuthCharPipelineOpcode(*preLogicalOp)) {
         LOG_DEBUG("AUTH/CHAR RX opcode=0x", std::hex, opcode, std::dec,
                  " logical=", static_cast<uint32_t>(*preLogicalOp),

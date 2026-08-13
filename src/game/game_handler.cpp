@@ -10,11 +10,11 @@
 #include "game/social_handler.hpp"
 #include "game/quest_handler.hpp"
 #include "game/warden_handler.hpp"
-#include "game/packet_parsers.hpp"
-#include "game/transport_manager.hpp"
 #include "game/warden_crypto.hpp"
 #include "game/warden_memory.hpp"
 #include "game/warden_module.hpp"
+#include "game/packet_parsers.hpp"
+#include "game/transport_manager.hpp"
 #include "game/opcodes.hpp"
 #include "game/update_field_table.hpp"
 #include "game/expansion_profile.hpp"
@@ -83,7 +83,6 @@ GameHandler::GameHandler(GameServices& services)
     transportManager_ = std::make_unique<TransportManager>();
 
     // Initialize Warden module manager
-    wardenModuleManager_ = std::make_unique<WardenModuleManager>();
 
     // Initialize domain handlers
     entityController_ = std::make_unique<EntityController>(*this);
@@ -145,8 +144,6 @@ bool GameHandler::connect(const std::string& host,
     // Diagnostic: dump session key for AUTH_REJECT debugging
     LOG_INFO("GameHandler session key (", sessionKey.size(), "): ",
              core::toHexString(sessionKey.data(), sessionKey.size()));
-    resetWardenState();
-
     // Generate random client seed
     this->clientSeed = generateClientSeed();
     LOG_DEBUG("Generated client seed: 0x", std::hex, clientSeed, std::dec);
@@ -174,22 +171,6 @@ bool GameHandler::connect(const std::string& host,
     return true;
 }
 
-void GameHandler::resetWardenState() {
-    requiresWarden_ = false;
-    wardenGateSeen_ = false;
-    wardenGateElapsed_ = 0.0f;
-    wardenGateNextStatusLog_ = 2.0f;
-    wardenPacketsAfterGate_ = 0;
-    wardenCharEnumBlockedLogged_ = false;
-    wardenCrypto_.reset();
-    wardenState_ = WardenState::WAIT_MODULE_USE;
-    wardenModuleHash_.clear();
-    wardenModuleKey_.clear();
-    wardenModuleSize_ = 0;
-    wardenModuleData_.clear();
-    wardenLoadedModule_.reset();
-}
-
 void GameHandler::disconnect() {
     if (onTaxiFlight_) {
         taxiRecoverPending_ = true;
@@ -206,7 +187,9 @@ void GameHandler::disconnect() {
     friendGuids_.clear();
     contacts_.clear();
     transportAttachments_.clear();
-    resetWardenState();
+    // Warden state is WardenHandler's; this used to clear a second copy of it
+    // that nothing ever filled.
+    if (wardenHandler_) wardenHandler_->reset();
     pendingIncomingPackets_.clear();
     // Fire despawn callbacks so the renderer releases M2/character model resources.
     for (const auto& [guid, entity] : entityController_->getEntityManager().getEntities()) {
@@ -294,7 +277,7 @@ void GameHandler::sortBankBag(int bagIndex) {
     for (auto& s : swaps) sortSwapQueue_.push_back(s);
 }
 
-void GameHandler::updateNetworking(float deltaTime) {
+void GameHandler::updateNetworking() {
     // One queued sort move per tick. A sort is dozens of swaps and the server
     // drops a burst of them, so they go out at the rate anything else does.
     if (!sortSwapQueue_.empty()) {
@@ -330,26 +313,6 @@ void GameHandler::updateNetworking(float deltaTime) {
         }
     }
 
-    // Drain pending async Warden response (built on background thread to avoid 5s stalls)
-    if (wardenResponsePending_) {
-        auto status = wardenPendingEncrypted_.wait_for(std::chrono::milliseconds(0));
-        if (status == std::future_status::ready) {
-            auto plaintext = wardenPendingEncrypted_.get();
-            wardenResponsePending_ = false;
-            if (!plaintext.empty() && wardenCrypto_) {
-                std::vector<uint8_t> encrypted = wardenCrypto_->encrypt(plaintext);
-                network::Packet response(wireOpcode(Opcode::CMSG_WARDEN_DATA));
-                for (uint8_t byte : encrypted) {
-                    response.writeUInt8(byte);
-                }
-                if (socket && socket->isConnected()) {
-                    socket->send(response);
-                    LOG_WARNING("Warden: Sent async CHEAT_CHECKS_RESULT (", plaintext.size(), " bytes plaintext)");
-                }
-            }
-        }
-    }
-
     // Detect RX silence (server stopped sending packets but TCP still open)
     if (isInWorld() && socket->isConnected() &&
         lastRxTime_.time_since_epoch().count() > 0) {
@@ -376,16 +339,6 @@ void GameHandler::updateNetworking(float deltaTime) {
                   " queued packet(s) and update-object batch(es) pending dispatch");
     }
 
-    // Post-gate visibility: determine whether server goes silent or closes after Warden requirement.
-    if (wardenGateSeen_ && socket && socket->isConnected()) {
-        wardenGateElapsed_ += deltaTime;
-        if (wardenGateElapsed_ >= wardenGateNextStatusLog_) {
-            LOG_DEBUG("Warden gate status: elapsed=", wardenGateElapsed_,
-                     "s connected=", socket->isConnected() ? "yes" : "no",
-                     " packetsAfterGate=", wardenPacketsAfterGate_);
-            wardenGateNextStatusLog_ += game::WARDEN_GATE_LOG_INTERVAL_SEC;
-        }
-    }
 }
 
 void GameHandler::updateTaxiAndMountState(float deltaTime) {
@@ -743,7 +696,7 @@ void GameHandler::update(float deltaTime) {
         return;
     }
 
-    updateNetworking(deltaTime);
+    updateNetworking();
     if (!socket) return;  // disconnect() may have been called
 
     // Fallback for CMSG_CHAR_DELETE with no server response: if the server

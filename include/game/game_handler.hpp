@@ -957,7 +957,6 @@ public:
     void reportPlayer(uint64_t targetGuid, const std::string& reason);
     void stopCasting();
     void resetCastState();       // force-clear all cast/craft/queue state without sending packets
-    void resetWardenState();     // clear all warden module/crypto state for connect/disconnect
     void clearUnitCaches();      // clear per-unit cast states and aura caches
 
     void queryPlayerName(uint64_t guid);
@@ -3348,7 +3347,7 @@ public:
      * @param deltaTime Time since last update in seconds
      */
     void update(float deltaTime);
-    void updateNetworking(float deltaTime);
+    void updateNetworking();
     void updateTimers(float deltaTime);
     void updateEntityInterpolation(float deltaTime);
     void updateTaxiAndMountState(float deltaTime);
@@ -4799,15 +4798,6 @@ private:
     uint64_t pendingDeleteGuid_ = 0;
     float pendingDeleteTimer_ = 0.0f;
     bool pendingDeleteFallbackEnum_ = false;
-    bool requiresWarden_ = false;
-    bool wardenGateSeen_ = false;
-    float wardenGateElapsed_ = 0.0f;
-    float wardenGateNextStatusLog_ = 2.0f;
-    uint32_t wardenPacketsAfterGate_ = 0;
-    bool wardenCharEnumBlockedLogged_ = false;
-    std::unique_ptr<WardenCrypto> wardenCrypto_;
-    std::unique_ptr<WardenMemory> wardenMemory_;
-    std::unique_ptr<WardenModuleManager> wardenModuleManager_;
 
     // Warden module download state
     enum class WardenState {
@@ -4816,12 +4806,6 @@ private:
         WAIT_HASH_REQUEST,   // Module received, waiting for HASH_REQUEST
         WAIT_CHECKS,         // Hash sent, waiting for check requests
     };
-    WardenState wardenState_ = WardenState::WAIT_MODULE_USE;
-    std::vector<uint8_t> wardenModuleHash_;    // 16 bytes MD5
-    std::vector<uint8_t> wardenModuleKey_;     // 16 bytes RC4
-    uint32_t wardenModuleSize_ = 0;
-    std::vector<uint8_t> wardenModuleData_;    // Downloaded module chunks
-    std::shared_ptr<WardenModule> wardenLoadedModule_; // Loaded Warden module
 
     // Pre-computed challenge/response entries from .cr file
     struct WardenCREntry {
@@ -4835,8 +4819,6 @@ private:
     uint8_t wardenCheckOpcodes_[9] = {};
 
     // Async Warden response: avoids 5-second main-loop stalls from PAGE_A/PAGE_B code pattern searches
-    std::future<std::vector<uint8_t>> wardenPendingEncrypted_;  // encrypted response bytes
-    bool wardenResponsePending_ = false;
 
     // ---- RX silence detection ----
     std::chrono::steady_clock::time_point lastRxTime_{};

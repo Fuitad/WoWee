@@ -11,11 +11,11 @@
 #include "game/social_handler.hpp"
 #include "game/quest_handler.hpp"
 #include "game/warden_handler.hpp"
-#include "game/packet_parsers.hpp"
-#include "game/transport_manager.hpp"
 #include "game/warden_crypto.hpp"
 #include "game/warden_memory.hpp"
 #include "game/warden_module.hpp"
+#include "game/packet_parsers.hpp"
+#include "game/transport_manager.hpp"
 #include "game/opcodes.hpp"
 #include "game/update_field_table.hpp"
 #include "game/expansion_profile.hpp"
@@ -302,12 +302,6 @@ void GameHandler::handleAuthResponse(network::Packet& packet) {
 }
 
 void GameHandler::requestCharacterList() {
-    if (requiresWarden_) {
-        // Gate already surfaced via failure callback/chat; avoid per-frame warning spam.
-        wardenCharEnumBlockedLogged_ = true;
-        return;
-    }
-
     if (state == WorldState::FAILED || !socket || !socket->isConnected()) {
         return;
     }
@@ -393,15 +387,6 @@ void GameHandler::createCharacter(const CharCreateData& data) {
         LOG_WARNING("Cannot create character: not connected");
         if (charCreateCallback_) {
             charCreateCallback_(false, "Not connected to server");
-        }
-        return;
-    }
-
-    if (requiresWarden_) {
-        std::string msg = "Server requires anti-cheat/Warden; character creation blocked.";
-        LOG_WARNING("Blocking CMSG_CHAR_CREATE while Warden gate is active");
-        if (charCreateCallback_) {
-            charCreateCallback_(false, msg);
         }
         return;
     }
