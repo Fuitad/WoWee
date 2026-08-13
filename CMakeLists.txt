@@ -789,6 +789,7 @@ set(WOWEE_SOURCES
     src/pipeline/item_textures.cpp
     src/pipeline/m2_asset_loader.cpp
     src/pipeline/dbc_layout.cpp
+    src/pipeline/spell_icon_paths.cpp
 
     src/pipeline/terrain_mesh.cpp
 
@@ -1908,6 +1909,7 @@ add_executable(wowee_editor
     src/pipeline/item_textures.cpp
     src/pipeline/m2_asset_loader.cpp
     src/pipeline/dbc_layout.cpp
+    src/pipeline/spell_icon_paths.cpp
     src/pipeline/asset_manager.cpp
     src/pipeline/asset_manifest.cpp
     src/pipeline/loose_file_reader.cpp

@@ -28,6 +28,7 @@
 #include "audio/audio_coordinator.hpp"
 #include "audio/ui_sound_manager.hpp"
 #include "audio/music_manager.hpp"
+#include "pipeline/spell_icon_paths.hpp"
 #include <imgui.h>
 #include <imgui_internal.h>
 #include <algorithm>
@@ -4726,16 +4727,7 @@ VkDescriptorSet WindowManager::getAchievementIcon(uint32_t spellIconId) {
     // Lazy-load SpellIcon.dbc (ID → texture path) once.
     if (!achievementIconDbLoaded_) {
         achievementIconDbLoaded_ = true;
-        auto iconDbc = am->loadDBC("SpellIcon.dbc");
-        const auto* iconL = pipeline::getActiveDBCLayout()
-            ? pipeline::getActiveDBCLayout()->getLayout("SpellIcon") : nullptr;
-        if (iconDbc && iconDbc->isLoaded()) {
-            for (uint32_t i = 0; i < iconDbc->getRecordCount(); ++i) {
-                uint32_t id = iconDbc->getUInt32(i, iconL ? (*iconL)["ID"] : 0);
-                std::string path = iconDbc->getString(i, iconL ? (*iconL)["Path"] : 1);
-                if (id > 0 && !path.empty()) achievementIconPaths_[id] = std::move(path);
-            }
-        }
+        pipeline::loadSpellIconPaths(am, achievementIconPaths_);
     }
 
     // Rate-limit GPU uploads per frame to avoid a stall when the list first scrolls

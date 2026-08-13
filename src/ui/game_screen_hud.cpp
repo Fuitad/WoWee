@@ -59,6 +59,7 @@
 #include <unordered_set>
 #include "ui/framexml_takeover.hpp"
 #include "core/local_time.hpp"
+#include "pipeline/spell_icon_paths.hpp"
 
 namespace {
     using namespace wowee::ui::colors;
@@ -771,17 +772,7 @@ VkDescriptorSet GameScreen::getSpellIcon(uint32_t spellId, pipeline::AssetManage
         spellIconDbLoaded_ = true;
 
         // Load SpellIcon.dbc: field 0 = ID, field 1 = icon path
-        auto iconDbc = am->loadDBC("SpellIcon.dbc");
-        const auto* iconL = pipeline::getActiveDBCLayout() ? pipeline::getActiveDBCLayout()->getLayout("SpellIcon") : nullptr;
-        if (iconDbc && iconDbc->isLoaded()) {
-            for (uint32_t i = 0; i < iconDbc->getRecordCount(); i++) {
-                uint32_t id = iconDbc->getUInt32(i, iconL ? (*iconL)["ID"] : 0);
-                std::string path = iconDbc->getString(i, iconL ? (*iconL)["Path"] : 1);
-                if (!path.empty() && id > 0) {
-                    spellIconPaths_[id] = path;
-                }
-            }
-        }
+        pipeline::loadSpellIconPaths(am, spellIconPaths_);
 
         // Load Spell.dbc: SpellIconID field
         auto spellDbc = am->loadDBC("Spell.dbc");

@@ -9,6 +9,7 @@
 #include "pipeline/asset_manager.hpp"
 #include "pipeline/blp_loader.hpp"
 #include "pipeline/dbc_layout.hpp"
+#include "pipeline/spell_icon_paths.hpp"
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
@@ -699,17 +700,7 @@ void TalentScreen::loadSpellIconDBC(pipeline::AssetManager* assetManager) {
     // never opened, and disabled it for the rest of the session.
     iconDbcLoaded = true;
 
-    auto dbc = assetManager->loadDBC("SpellIcon.dbc");
-    if (!dbc || !dbc->isLoaded()) return;
-
-    const auto* iconL = pipeline::getActiveDBCLayout() ? pipeline::getActiveDBCLayout()->getLayout("SpellIcon") : nullptr;
-    for (uint32_t i = 0; i < dbc->getRecordCount(); i++) {
-        uint32_t id = dbc->getUInt32(i, iconL ? (*iconL)["ID"] : 0);
-        std::string path = dbc->getString(i, iconL ? (*iconL)["Path"] : 1);
-        if (!path.empty() && id > 0) {
-            spellIconPaths[id] = path;
-        }
-    }
+    pipeline::loadSpellIconPaths(assetManager, spellIconPaths);
 }
 
 void TalentScreen::loadGlyphPropertiesDBC(pipeline::AssetManager* assetManager) {

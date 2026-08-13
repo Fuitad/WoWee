@@ -2020,6 +2020,23 @@ wowee_test_link_glm(test_movement_flag_bits)
 add_test(NAME movement_flag_bits COMMAND test_movement_flag_bits)
 register_test_target(test_movement_flag_bits)
 
+# ── test_spell_icon_columns ──────────────────────────────────
+# Which columns of SpellIcon.dbc hold the id and the path, against the shipped
+# file. Five places carried their own copy of these two numbers, and a wrong
+# column answers empty for every row rather than failing.
+add_executable(test_spell_icon_columns
+    test_spell_icon_columns.cpp
+    ${TEST_COMMON_SOURCES})
+target_include_directories(test_spell_icon_columns PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_spell_icon_columns SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS})
+target_compile_definitions(test_spell_icon_columns PRIVATE
+    WOWEE_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+target_link_libraries(test_spell_icon_columns PRIVATE catch2_main)
+wowee_test_link_glm(test_spell_icon_columns)
+add_test(NAME spell_icon_columns COMMAND test_spell_icon_columns)
+register_test_target(test_spell_icon_columns)
+
 # ── test_stance_spells ───────────────────────────────────────
 # The stance bar's spells and their order, which the bar and the Ctrl+1..8
 # bindings both need. Both used to hold their own copy of all five tables.

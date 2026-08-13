@@ -73,6 +73,7 @@
 #include "game/packet_parsers.hpp"
 #include "pipeline/asset_manager.hpp"
 #include "pipeline/dbc_layout.hpp"
+#include "pipeline/spell_icon_paths.hpp"
 
 #include <SDL2/SDL.h>
 #include <cstdlib>
@@ -774,15 +775,7 @@ bool Application::initialize() {
                     // before the assets are up, and latching on that left both
                     // tables empty for the rest of the session.
                     *loaded = true;
-                    auto iconDbc = am->loadDBC("SpellIcon.dbc");
-                    const auto* iconL = pipeline::getActiveDBCLayout() ? pipeline::getActiveDBCLayout()->getLayout("SpellIcon") : nullptr;
-                    if (iconDbc && iconDbc->isLoaded()) {
-                        for (uint32_t i = 0; i < iconDbc->getRecordCount(); i++) {
-                            uint32_t id = iconDbc->getUInt32(i, iconL ? (*iconL)["ID"] : 0);
-                            std::string path = iconDbc->getString(i, iconL ? (*iconL)["Path"] : 1);
-                            if (!path.empty() && id > 0) (*spellIconPaths)[id] = path;
-                        }
-                    }
+                    pipeline::loadSpellIconPaths(am, *spellIconPaths);
                     auto spellDbc = am->loadDBC("Spell.dbc");
                     const auto* spellL = pipeline::getActiveDBCLayout() ? pipeline::getActiveDBCLayout()->getLayout("Spell") : nullptr;
                     if (spellDbc && spellDbc->isLoaded()) {
