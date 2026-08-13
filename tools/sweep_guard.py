@@ -62,6 +62,15 @@ CHECKS = [
     ("audio_channel_restore_check.py",
      r"^(\d+) silenced and never turned back up", 0,
      "sound channels silenced with nothing to turn them back up"),
+    # A renderer builds its pipeline twice - once in initialize, once in
+    # recreatePipelines when the swapchain or the sample count changes - and
+    # the two have to describe the same thing. Celestial's did not: no depth
+    # test in one and a depth test in the other, so the sun and moon changed
+    # behaviour on the first resolution change, long after anyone was looking
+    # at the code that caused it.
+    ("pipeline_recreate_check.py",
+     r"^(\d+) that rebuild a different one", 0,
+     "renderers that rebuild a different pipeline than they built"),
     ("settings_persist_check.py",
      r"^(\d+) written but never read back", 0,
      "settings saved to the config file and never loaded"),
