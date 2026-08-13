@@ -92,11 +92,25 @@ def main() -> int:
               f"right - the scan broke rather than the code improving.")
         return 1
 
-    lua = sorted((REPO / "Data" / "interface").rglob("*.lua"))
+    interface = REPO / "Data" / "interface"
+    lua = sorted(interface.rglob("*.lua"))
     lua += sorted((REPO / "Data" / "expansions").rglob("*/overlay/interface/**/*.lua"))
     if not lua:
-        print("No interface Lua found; the zero below would mean the scan broke.")
-        return 1
+        # Data/ is gitignored, so a checkout without the game's files has no
+        # interface to read. That is the ordinary state on CI and is not a
+        # broken scan - report nothing found and let the count stand at zero,
+        # which is what every other sweep over this data does.
+        #
+        # Told apart from a real break by whether the directory is there at
+        # all: present but empty means the glob stopped matching, and that is
+        # worth failing over.
+        if interface.is_dir():
+            print("Data/interface is here but holds no Lua; the scan broke "
+                  "rather than the interface emptying.")
+            return 1
+        print("0 presence test(s) the shared metatable always passes")
+        print("  (no interface data in this checkout - Data/ is not tracked)")
+        return 0
 
     # `if ( x.Method )` and `if not x.Method then` - asking whether it is
     # there, rather than calling it.
