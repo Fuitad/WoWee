@@ -29,6 +29,9 @@ layout(set = 1, binding = 2) uniform M2Material {
     float interiorDarken;
     float specularIntensity;
     float emissiveBoost;
+    float tintR;
+    float tintG;
+    float tintB;
 };
 
 layout(set = 0, binding = 1) uniform sampler2DShadow uShadowMap;
@@ -85,6 +88,10 @@ float bayerDither4x4(ivec2 p) {
 
 void main() {
     vec4 texColor = hasTexture != 0 ? texture(uTexture, TexCoord) : vec4(1.0);
+    // The batch's authored colour. A glow card is painted white and coloured
+    // here - Orgrimmar's bonfire carries (1.0, 0.329, 0.0) - so without it
+    // every fire in the world burns white.
+    texColor.rgb *= vec3(tintR, tintG, tintB);
 
     bool isFoliage = (alphaTest == 2);
 

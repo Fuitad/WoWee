@@ -1925,6 +1925,12 @@ bool M2Renderer::loadModel(const pipeline::M2Model& model, uint32_t modelId) {
             // that first keyframe would make the entire batch permanently invisible.
             if (bgpu.batchOpacity > 0.0f) {
                 float animAlpha = 1.0f;
+                if (batch.colorIndex < model.colorRGB.size()) {
+                    // The batch's authored colour. A glow card is painted
+                    // white and coloured here, so without it every fire in the
+                    // world burns white: Orgrimmar's carries (1.0, 0.329, 0.0).
+                    bgpu.tint = model.colorRGB[batch.colorIndex];
+                }
                 if (batch.colorIndex < model.colorAlphas.size()) {
                     float ca = model.colorAlphas[batch.colorIndex];
                     if (ca > 0.001f) animAlpha *= ca;
@@ -2116,6 +2122,9 @@ bool M2Renderer::loadModel(const pipeline::M2Model& model, uint32_t modelId) {
             mat.alphaTest = m2BatchNeedsAlphaTest(bgpu.blendMode, bgpu.hasAlpha) ? 1 : 0;
             mat.colorKeyBlack =
                 m2BatchWantsColorKey(bgpu.blendMode, bgpu.colorKeyBlack) ? 1 : 0;
+            mat.tintR = bgpu.tint.r;
+            mat.tintG = bgpu.tint.g;
+            mat.tintB = bgpu.tint.b;
             mat.colorKeyThreshold = 0.08f;
             mat.unlit = (bgpu.materialFlags & 0x01) ? 1 : 0;
             mat.blendMode = bgpu.blendMode;

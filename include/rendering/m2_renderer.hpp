@@ -56,6 +56,7 @@ struct M2ModelGPU {
         uint32_t indexCount = 0;
         bool hasAlpha = false;
         bool colorKeyBlack = false;
+        glm::vec3 tint{1.0f};  ///< the batch's authored colour
         uint16_t textureAnimIndex = 0xFFFF; // 0xFFFF = no texture animation
         uint16_t blendMode = 0;   // 0=Opaque, 1=AlphaKey, 2=Alpha, 3=Add, etc.
         uint16_t materialFlags = 0; // M2 material flags (0x01=Unlit, 0x04=TwoSided, 0x10=NoDepthWrite)
@@ -334,6 +335,12 @@ struct M2MaterialUBO {
     float interiorDarken;
     float specularIntensity;
     float emissiveBoost;
+    // The batch's authored colour, from the M2's colour track, with any
+    // flicker already folded in. Three scalars rather than a vec3 so the
+    // std140 rules stay trivial.
+    float tintR;
+    float tintG;
+    float tintB;
 };
 
 // M2 params UBO - matches M2Params in m2.vert.glsl (set 1, binding 1)

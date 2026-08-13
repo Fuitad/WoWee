@@ -247,6 +247,13 @@ struct M2Model {
     // One entry per color animation slot; batch.colorIndex indexes directly into this.
     // Value 0=transparent, 1=opaque. Independent from textureWeights.
     std::vector<float> colorAlphas;
+    /// At-rest RGB of each colour track, parallel to colorAlphas.
+    ///
+    /// An M2Color is a vec3 colour track followed by an alpha track, and only
+    /// the alpha was read. The colour is what tints a batch: Orgrimmar's
+    /// bonfire glow is authored white and carries (1.0, 0.329, 0.0) here, so
+    /// without it the fire renders as a white blob.
+    std::vector<glm::vec3> colorRGB;
 
     // Full per-sequence alpha keyframes for the same color slots. Evaluated at
     // render time to hide batches whose alpha animates to 0 in the current

@@ -1713,6 +1713,20 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
                 mat->interiorDarken = 0.0f;
                 if (batch.colorKeyBlack)
                     mat->colorKeyThreshold = (effectiveBlendMode == 4 || effectiveBlendMode == 5) ? 0.7f : 0.08f;
+
+                // A fire's own glow breathes. The same clock and parameters as
+                // the lamp sprites and the local light they cast, so a brazier
+                // and the pool of light under it rise and fall together
+                // instead of beating against each other.
+                if (m2BlendIsAdditive(batch.blendMode) &&
+                    (model.isBrazierOrFire || model.isTorch || model.isLanternLike)) {
+                    const float flicker = lampFlicker(
+                        instance.position, lampFlickerClockSeconds(),
+                        0.82f, 0.12f, 0.06f);
+                    mat->tintR = batch.tint.r * flicker;
+                    mat->tintG = batch.tint.g * flicker;
+                    mat->tintB = batch.tint.b * flicker;
+                }
             }
 
             if (!batch.materialSet) continue;
