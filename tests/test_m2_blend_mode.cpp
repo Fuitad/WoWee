@@ -20,6 +20,7 @@
 #include "rendering/m2_blend_mode.hpp"
 
 using wowee::rendering::m2BatchNeedsAlphaTest;
+using wowee::rendering::m2BatchWantsColorKey;
 using wowee::rendering::m2BlendIsAdditive;
 
 TEST_CASE("the Orgrimmar bonfire's glow card is not alpha tested", "[m2]") {
@@ -68,4 +69,30 @@ TEST_CASE("the modulate modes keep the old fallback", "[m2]") {
     CHECK(m2BatchNeedsAlphaTest(6, false));
     CHECK_FALSE(m2BatchNeedsAlphaTest(5, true));
     CHECK_FALSE(m2BatchNeedsAlphaTest(6, true));
+}
+
+TEST_CASE("an additive card is not colour keyed", "[m2]") {
+    // The key discards every texel below a threshold so a card with a black
+    // backing can be drawn opaquely. Additive has no such problem, and the key
+    // ruins it: the transparent pass raised the threshold to 0.7 for blend
+    // mode 4, and a glow card is a radial gradient from black to white, so
+    // everything below the bright core was thrown away and the soft falloff
+    // became a hard-edged disc. That is what Orgrimmar's bonfires were.
+    CHECK_FALSE(m2BatchWantsColorKey(4, true));
+    CHECK_FALSE(m2BatchWantsColorKey(3, true));
+}
+
+TEST_CASE("everything else that asked for the key still gets it", "[m2]") {
+    // The key is how a black-backed card survives being drawn opaquely, which
+    // is still what happens for every non-additive mode.
+    CHECK(m2BatchWantsColorKey(0, true));
+    CHECK(m2BatchWantsColorKey(1, true));
+    CHECK(m2BatchWantsColorKey(2, true));
+    CHECK(m2BatchWantsColorKey(5, true));
+
+    // And a texture nothing marked is never keyed, whatever it blends as.
+    for (uint8_t mode = 0; mode <= 6; ++mode) {
+        INFO("blend mode " << int(mode));
+        CHECK_FALSE(m2BatchWantsColorKey(mode, false));
+    }
 }

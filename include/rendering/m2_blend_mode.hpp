@@ -53,4 +53,17 @@ inline bool m2BatchNeedsAlphaTest(uint8_t blendMode, bool hasAlpha) {
     return blendMode >= M2_BLEND_ALPHA && !hasAlpha;
 }
 
+/// Should this batch have its black keyed out?
+///
+/// The key discards every texel darker than a threshold, and exists so a card
+/// authored with a black backing can be drawn opaquely without the backing
+/// showing. An additive batch has no such problem - black adds nothing - and
+/// the key actively destroys it: a glow card is a radial gradient from black
+/// to white, so discarding everything below the threshold turns a soft falloff
+/// into a hard-edged disc. Orgrimmar's bonfires used a threshold of 0.7 on
+/// exactly such a card.
+inline bool m2BatchWantsColorKey(uint8_t blendMode, bool textureIsKeyed) {
+    return textureIsKeyed && !m2BlendIsAdditive(blendMode);
+}
+
 }  // namespace wowee::rendering
