@@ -2695,9 +2695,13 @@ static int lua_GetQuestReward(lua_State* L) {
 static int lua_CloseQuest(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (!gh) return 0;
-    if (gh->isQuestOfferRewardOpen())      gh->closeQuestOfferReward();
-    else if (gh->isQuestRequestItemsOpen()) gh->closeQuestRequestItems();
-    else                                    gh->declineQuest();
+    // Without announcing. This is QuestFrame telling the client it has closed
+    // - it runs from QuestFrame_OnHide - and answering with QUEST_FINISHED,
+    // which is the event that hides QuestFrame, closes it a second time from
+    // inside its own closing.
+    if (gh->isQuestOfferRewardOpen())       gh->closeQuestOfferReward(false);
+    else if (gh->isQuestRequestItemsOpen()) gh->closeQuestRequestItems(false);
+    else                                    gh->declineQuest(false);
     return 0;
 }
 
@@ -3058,7 +3062,9 @@ void registerQuestLuaAPI(lua_State* L) {
         }},
                 {"DeclineQuest", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
-            if (gh) gh->declineQuest();
+            // Announcing: the button was pressed, and the frame has not hidden
+            // itself yet. QUEST_FINISHED is what hides it.
+            if (gh) gh->declineQuest(true);
             return 0;
         }},
                 // The other party member's quest, not the one on the table.

@@ -2041,7 +2041,7 @@ public:
     void selectGossipOption(uint32_t optionId, const std::string& code = "");
     void selectGossipQuest(uint32_t questId);
     void acceptQuest();
-    void declineQuest();
+    void declineQuest(bool announce = true);
     void closeGossip();
     // Quest-starting items: right-click triggers quest offer dialog via questgiver protocol
     void offerQuestFromItem(uint64_t itemGuid, uint32_t questId);
@@ -2068,12 +2068,12 @@ public:
     bool isQuestRequestItemsOpen() const;
     const QuestRequestItemsData& getQuestRequestItems() const;
     void completeQuest();       // Send CMSG_QUESTGIVER_COMPLETE_QUEST
-    void closeQuestRequestItems();
+    void closeQuestRequestItems(bool announce = true);
 
     bool isQuestOfferRewardOpen() const;
     const QuestOfferRewardData& getQuestOfferReward() const;
     void chooseQuestReward(uint32_t rewardIndex);  // Send CMSG_QUESTGIVER_CHOOSE_REWARD
-    void closeQuestOfferReward();
+    void closeQuestOfferReward(bool announce = true);
 
     // Quest log
     using QuestLogEntry = QuestHandler::QuestLogEntry;

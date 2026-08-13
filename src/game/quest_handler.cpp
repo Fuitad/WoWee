@@ -1542,22 +1542,29 @@ void QuestHandler::acceptQuest() {
     }
 }
 
-void QuestHandler::dismissQuestDetails() {
+void QuestHandler::dismissQuestDetails(bool announce) {
     questDetailsOpen_ = false;
     questDetailsOpenTime_ = std::chrono::steady_clock::time_point{};
     currentQuestDetails_ = QuestDetailsData{};
-    // The same signal decline sends. The interface's quest frame opens on
-    // QUEST_DETAIL and closes on this and nothing else, so an accept that only
-    // reset the state left FrameXML's window open over the world while this
-    // client's own window - which reads isQuestDetailsOpen directly - closed.
-    if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("QUEST_FINISHED", {});
+    // The interface's quest frame opens on QUEST_DETAIL and closes on this and
+    // nothing else, so an accept that only reset the state left FrameXML's
+    // window open over the world while this client's own window - which reads
+    // isQuestDetailsOpen directly - closed.
+    //
+    // Not when the interface is the one closing it. QuestFrame_OnHide calls
+    // CloseQuest, and answering that with the event that hides QuestFrame is
+    // an echo: the panel is told to close by its own closing. It is absorbed
+    // today only because OnHide is deferred a frame, and it is the reason
+    // OnHide cannot simply be made synchronous.
+    if (announce && owner_.addonEventCallbackRef()) {
+        owner_.addonEventCallbackRef()("QUEST_FINISHED", {});
+    }
 }
 
-void QuestHandler::declineQuest() {
-    questDetailsOpen_ = false;
-    questDetailsOpenTime_ = std::chrono::steady_clock::time_point{};
-    currentQuestDetails_ = QuestDetailsData{};
-    if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("QUEST_FINISHED", {});
+void QuestHandler::declineQuest(bool announce) {
+    // Declining and dismissing leave the client in the same state and always
+    // did, character for character.
+    dismissQuestDetails(announce);
 }
 
 void QuestHandler::closeGossip() {
@@ -1600,14 +1607,17 @@ void QuestHandler::completeQuest() {
     currentQuestRequestItems_ = QuestRequestItemsData{};
 }
 
-void QuestHandler::closeQuestRequestItems() {
+void QuestHandler::closeQuestRequestItems(bool announce) {
     pendingTurnInRewardRequest_ = false;
     questRequestItemsOpen_ = false;
     currentQuestRequestItems_ = QuestRequestItemsData{};
     // What closes the quest frame. It opens on QUEST_DETAIL, QUEST_PROGRESS or
     // QUEST_COMPLETE and hides on this, so without it the window would open and
-    // stay open over whatever came next.
-    if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("QUEST_FINISHED", {});
+    // stay open over whatever came next - unless the interface is the one
+    // closing it, in which case see dismissQuestDetails.
+    if (announce && owner_.addonEventCallbackRef()) {
+        owner_.addonEventCallbackRef()("QUEST_FINISHED", {});
+    }
 }
 
 void QuestHandler::chooseQuestReward(uint32_t rewardIndex) {
@@ -1632,11 +1642,13 @@ void QuestHandler::chooseQuestReward(uint32_t rewardIndex) {
     }
 }
 
-void QuestHandler::closeQuestOfferReward() {
+void QuestHandler::closeQuestOfferReward(bool announce) {
     pendingTurnInRewardRequest_ = false;
     questOfferRewardOpen_ = false;
     currentQuestOfferReward_ = QuestOfferRewardData{};
-    if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("QUEST_FINISHED", {});
+    if (announce && owner_.addonEventCallbackRef()) {
+        owner_.addonEventCallbackRef()("QUEST_FINISHED", {});
+    }
 }
 
 void QuestHandler::abandonQuest(uint32_t questId) {

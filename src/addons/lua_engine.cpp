@@ -2992,24 +2992,23 @@ int lua_Region_Show(lua_State* L) {
     return 0;
 }
 int lua_Region_Hide(lua_State* L) {
-    // No OnHide from here, deliberately, and it is not the asymmetry with
-    // Show that it looks like.
+    // No OnHide from here, and it is not the asymmetry with Show it looks
+    // like. Running it here is what the real client does and it fixes a real
+    // fault - ContainerFrame_GenerateFrame indexes its bag list by a counter
+    // ContainerFrame_OnHide maintains, so OpenAllBags, which hides every open
+    // bag and reopens it in one breath, rebuilds that list from a stale count
+    // and the bags come back stacked.
     //
-    // Firing it here is what the real client does, and it fixes a real fault:
-    // ContainerFrame_GenerateFrame keeps its bag list indexed by a counter
-    // that ContainerFrame_OnHide maintains, so with the handler deferred,
-    // OpenAllBags - which hides every open bag and reopens it in one breath -
-    // rebuilds that list from a stale count and the bags come back stacked.
+    // It also stops ShowUIPanel from leaving QuestFrame shown, and the four
+    // NPC dialogs then fill themselves in from nothing. Measured, not
+    // guessed: with OnHide deferred ShowUIPanel(QuestFrame) returns with the
+    // frame shown, and with it immediate the same call returns with the frame
+    // hidden, so something in UIParent's panel management is ordering-
+    // sensitive in a way this client does not reproduce. check_npc_dialogs_fill
+    // catches it.
     //
-    // It also breaks the NPC dialogs, which is worse. QuestFrame_OnHide calls
-    // CloseQuest, and this client answers that by declining the offer and
-    // dropping the greeting it is holding. Deferred, that lands after the
-    // panel has rebuilt; immediate, it lands in the middle of the rebuild and
-    // the panel fills itself in from state that has just been thrown away.
-    // check_npc_dialogs_fill catches it.
-    //
-    // So the ordering stays as it is until CloseQuest stops tearing down state
-    // the panel is about to read - the fault is there rather than here.
+    // The vendor and guild bank no longer take the reopen path - see
+    // openBagsForTrading - so what is left exposed is the bag keybind.
     if (auto* w = widgetOf(L, 1)) {
         if (w->shown && w->shownToggles < 200) ++w->shownToggles;
         w->shown = false;

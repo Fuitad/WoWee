@@ -3144,8 +3144,8 @@ void GameHandler::acceptQuest() {
     if (questHandler_) questHandler_->acceptQuest();
 }
 
-void GameHandler::declineQuest() {
-    if (questHandler_) questHandler_->declineQuest();
+void GameHandler::declineQuest(bool announce) {
+    if (questHandler_) questHandler_->declineQuest(announce);
 }
 
 void GameHandler::abandonQuest(uint32_t questId) {
@@ -3162,16 +3162,16 @@ void GameHandler::completeQuest() {
     if (questHandler_) questHandler_->completeQuest();
 }
 
-void GameHandler::closeQuestRequestItems() {
-    if (questHandler_) questHandler_->closeQuestRequestItems();
+void GameHandler::closeQuestRequestItems(bool announce) {
+    if (questHandler_) questHandler_->closeQuestRequestItems(announce);
 }
 
 void GameHandler::chooseQuestReward(uint32_t rewardIndex) {
     if (questHandler_) questHandler_->chooseQuestReward(rewardIndex);
 }
 
-void GameHandler::closeQuestOfferReward() {
-    if (questHandler_) questHandler_->closeQuestOfferReward();
+void GameHandler::closeQuestOfferReward(bool announce) {
+    if (questHandler_) questHandler_->closeQuestOfferReward(announce);
 }
 
 void GameHandler::closeGossip() {

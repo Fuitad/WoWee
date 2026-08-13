@@ -1216,6 +1216,79 @@ QuestGetAutoAccept    = function() return false end
 """
 
 
+def check_bags_tile():
+    """Bags reopened in one breath are still tiled, not stacked.
+
+    ContainerFrame_GenerateFrame writes `bags[bagsShown + 1]`, anchors the
+    whole list, and only then calls Show - and `bagsShown` is maintained by
+    ContainerFrame_OnShow and ContainerFrame_OnHide. OpenAllBags hides every
+    open bag and reopens it in one breath, so if either handler is late the
+    count is stale for the entire sequence: three reopened bags write
+    themselves over one index and the anchor pass sees a list with a name
+    missing. Every bag but the first then keeps the position its XML gave it,
+    which is the same position - and walking up to a vendor with bags already
+    open stacked them on top of each other.
+
+    Counts the list rather than reading positions, because the list is what
+    the anchor pass walks and a wrong list is the fault. Three bags in, three
+    names out, and each anchored to a different frame.
+    """
+    exe = ROOT / "build" / "bin" / "framexml_run"
+    data = ROOT / "Data"
+    what = "bags reopened together are tiled rather than stacked"
+    if not exe.exists() or not data.is_dir():
+        return None, what
+    # The command the client actually sends, read out of the call site rather
+    # than written again here - so putting OpenAllBags back would be run by
+    # this check, and this check would fail.
+    source = (ROOT / "src" / "ui" / "game_screen.cpp").read_text(errors="ignore")
+    opener = re.search(r'kOpenBagsCommand\s*=\s*\n?\s*"([^"]+)"', source)
+    if not opener:
+        return False, what + " - kOpenBagsCommand is gone, so what the vendor " \
+                             "sends is no longer what this checks"
+    # Three chunks, not one. The fault needs a frame boundary between the bag
+    # being opened and the vendor opening - which is the real situation, and
+    # which is also when the deferred OnHide would have run. In a single chunk
+    # both commands look identical and this check proves nothing.
+    argv = [str(exe), str(data),
+            "GetContainerNumSlots = function() return 16 end OpenBag(1)",
+            opener.group(1),
+            "local n = 0 "
+            "for _ in ipairs(ContainerFrame1.bags) do n = n + 1 end "
+            "local shown = 0 "
+            "for i = 1, 13 do local f = _G['ContainerFrame'..i] "
+            "  if f and f:IsShown() then shown = shown + 1 end end "
+            "if n ~= shown then error('the bag list holds '..n..' names for '"
+            "..shown..' open bags - the anchor pass walks that list, so the "
+            "ones missing from it keep the position their XML gave them, which "
+            "is the same position') end "
+            # A stack is the same anchor *and* the same offsets. Anchoring two
+            # bags to UIParent is not one: that is how a second column starts,
+            # and those two differ by a column's width.
+            "local seen = {} "
+            "for _, name in ipairs(ContainerFrame1.bags) do "
+            "  local point, rel, relPoint, x, y = _G[name]:GetPoint(1) "
+            "  local key = tostring(point)..'|'..tostring(rel and rel:GetName() or '?') "
+            "    ..'|'..tostring(relPoint)..'|'..tostring(x)..'|'..tostring(y) "
+            "  if seen[key] then error('two bags share an anchor point exactly "
+            "- they are drawn in the same place') end "
+            "  seen[key] = true "
+            "end"]
+    try:
+        out = subprocess.run(argv, capture_output=True, text=True, timeout=300)
+    except subprocess.TimeoutExpired:
+        return False, what + " (timed out)"
+    if out.returncode != 0:
+        # The runner echoes the script it was given before running it, and
+        # that echo contains the error text too; the line that matters is the
+        # one Lua raised, which carries its chunk name.
+        detail = next((ln.split(": ", 2)[-1].strip()
+                       for ln in (out.stdout + out.stderr).splitlines()
+                       if "script error" in ln), "")
+        return False, what + (" - " + detail if detail else "")
+    return True, what
+
+
 def check_npc_dialogs_fill():
     """All four NPC dialogs put their text on screen.
 
@@ -1566,7 +1639,8 @@ def main():
 
     for ok, what in (check_without_the_standin(), check_rebuild_idiom(),
                      check_paragraph_wrapping(), check_binding_dispatch(),
-                     check_npc_dialogs_fill(), check_nothing_unsized(),
+                     check_npc_dialogs_fill(), check_bags_tile(),
+                     check_nothing_unsized(),
                      check_panels_without_the_standin(),
                      check_dialogs_without_the_standin(),
                      check_tooltip_colour_arguments()):
