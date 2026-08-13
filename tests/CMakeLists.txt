@@ -1972,3 +1972,19 @@ target_compile_definitions(test_dbc_layout_columns PRIVATE
 target_link_libraries(test_dbc_layout_columns PRIVATE catch2_main)
 add_test(NAME dbc_layout_columns COMMAND test_dbc_layout_columns)
 register_test_target(test_dbc_layout_columns)
+
+# ── test_update_field_indices ────────────────────────────────
+# Update field slot numbers against AzerothCore's UpdateFields.h. Reading
+# the wrong slot returns a neighbouring field, usually zero for a guid, so
+# the feature looks unsent rather than misread.
+add_executable(test_update_field_indices
+    test_update_field_indices.cpp
+    ${TEST_COMMON_SOURCES})
+target_include_directories(test_update_field_indices PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_update_field_indices SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS})
+target_compile_definitions(test_update_field_indices PRIVATE
+    WOWEE_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+target_link_libraries(test_update_field_indices PRIVATE catch2_main)
+add_test(NAME update_field_indices COMMAND test_update_field_indices)
+register_test_target(test_update_field_indices)
