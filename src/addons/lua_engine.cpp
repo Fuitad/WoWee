@@ -852,6 +852,36 @@ int lua_Region_GetCenter(lua_State* L) {
     return 2;
 }
 
+/// SetParent/GetParent. Shared with the region method table: a texture's
+/// parent can be changed as well as a frame's, and that table used to carry
+/// its own copy of both bodies.
+static int lua_Region_SetParent(lua_State* L) {
+    luaL_checktype(L, 1, LUA_TTABLE);
+    // A name is as good as a table here, and FrameXML passes both.
+    if (lua_isstring(L, 2) && !lua_isnumber(L, 2)) {
+        lua_getglobal(L, lua_tostring(L, 2));
+        lua_replace(L, 2);
+    }
+    if (!lua_istable(L, 2) && !lua_isnil(L, 2)) return 0;
+    lua_pushvalue(L, 2);
+    lua_setfield(L, 1, "__parent");
+    // And the widget, which is what everything inherited actually follows.
+    // Writing only the field left GetParent answering the new parent while the
+    // frame stayed laid out, clipped and shown by the old one.
+    if (auto* tree = wowee::addons::getWidgetTree(L)) {
+        const uint32_t id = widgetIdOf(L, 1);
+        const uint32_t np = lua_istable(L, 2) ? widgetIdOf(L, 2) : 0;
+        if (id != 0) tree->setParent(id, np);
+    }
+    return 0;
+}
+
+static int lua_Region_GetParent(lua_State* L) {
+    luaL_checktype(L, 1, LUA_TTABLE);
+    lua_getfield(L, 1, "__parent");
+    return 1;
+}
+
 int lua_Region_GetRight(lua_State* L) {
     const auto* w = measuredWidgetOf(L, 1);
     lua_pushnumber(L, w ? (w->left + w->rectW) : 0.0);
@@ -3410,31 +3440,11 @@ void installRegionMethods(lua_State* L, bool isTexture, bool isFontString) {
     // PlayerTalentFrameActiveSpecTabHighlight is a Texture and the talent
     // frame moves it between the two spec tabs by reparenting it, so the
     // highlight stayed wherever it was first put.
-    set("SetParent", [](lua_State* L) -> int {
-        luaL_checktype(L, 1, LUA_TTABLE);
-        if (lua_isstring(L, 2) && !lua_isnumber(L, 2)) {
-            lua_getglobal(L, lua_tostring(L, 2));
-            lua_replace(L, 2);
-        }
-        if (!lua_istable(L, 2) && !lua_isnil(L, 2)) return 0;
-        lua_pushvalue(L, 2);
-        lua_setfield(L, 1, "__parent");
-        // And the widget behind it, which is what layout and drawing follow.
-        if (auto* tree = wowee::addons::getWidgetTree(L)) {
-            const uint32_t id = widgetIdOf(L, 1);
-            const uint32_t np = lua_istable(L, 2) ? widgetIdOf(L, 2) : 0;
-            if (id != 0) tree->setParent(id, np);
-        }
-        return 0;
-    });
+    set("SetParent", lua_Region_SetParent);
     // A region has a centre like any other measured thing, and the frame
     // table has answered this since it was written.
     set("GetCenter", lua_Region_GetCenter);
-    set("GetParent", [](lua_State* L) -> int {
-        luaL_checktype(L, 1, LUA_TTABLE);
-        lua_getfield(L, 1, "__parent");
-        return 1;
-    });
+    set("GetParent", lua_Region_GetParent);
     set("SetPoint", lua_Region_SetPoint);
     set("ClearAllPoints", lua_Region_ClearAllPoints);
     set("SetAllPoints", lua_Region_SetAllPoints);
@@ -4551,32 +4561,6 @@ static int lua_GetScreenHeight(lua_State* L) {
 // nothing, and stood as an alternative implementation for anyone reading -
 // the shape where a later fix lands on the copy nothing calls.
 
-static int lua_Frame_SetParent(lua_State* L) {
-    luaL_checktype(L, 1, LUA_TTABLE);
-    // A name is as good as a table here, and FrameXML passes both.
-    if (lua_isstring(L, 2) && !lua_isnumber(L, 2)) {
-        lua_getglobal(L, lua_tostring(L, 2));
-        lua_replace(L, 2);
-    }
-    if (!lua_istable(L, 2) && !lua_isnil(L, 2)) return 0;
-    lua_pushvalue(L, 2);
-    lua_setfield(L, 1, "__parent");
-    // And the widget, which is what everything inherited actually follows.
-    // Writing only the field left GetParent answering the new parent while the
-    // frame stayed laid out, clipped and shown by the old one.
-    if (auto* tree = wowee::addons::getWidgetTree(L)) {
-        const uint32_t id = widgetIdOf(L, 1);
-        const uint32_t np = lua_istable(L, 2) ? widgetIdOf(L, 2) : 0;
-        if (id != 0) tree->setParent(id, np);
-    }
-    return 0;
-}
-
-static int lua_Frame_GetParent(lua_State* L) {
-    luaL_checktype(L, 1, LUA_TTABLE);
-    lua_getfield(L, 1, "__parent");
-    return 1;
-}
 
 
 /// Records a global FrameXML or an addon asked for and did not find. Logged
@@ -5327,8 +5311,8 @@ void LuaEngine::registerCoreAPI() {
         {"GetCooldownTimes",      lua_Cooldown_GetCooldownTimes},
         {"SetFrameStrata",  lua_Frame_SetFrameStrata},
         {"SetFrameLevel",   lua_Frame_SetFrameLevel},
-        {"SetParent",       lua_Frame_SetParent},
-        {"GetParent",       lua_Frame_GetParent},
+        {"SetParent",       lua_Region_SetParent},
+        {"GetParent",       lua_Region_GetParent},
         {"GetChildren",     lua_Frame_GetChildren},
         {"CreateTexture",   lua_Frame_CreateTexture},
         {"CreateFontString", lua_Frame_CreateFontString},
