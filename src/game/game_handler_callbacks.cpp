@@ -1,4 +1,5 @@
 #include "game/game_handler.hpp"
+#include "game/gather_spells.hpp"
 #include "game/packed_time.hpp"
 #include "game/inventory_slots.hpp"
 #include "game/game_utils.hpp"
@@ -189,32 +190,17 @@ uint32_t gatherSpellForGameObject(const GameObjectQueryResponseData* info, const
         "nightmare vine", "mana thistle"
     };
 
-    if (containsAnyTerm(lower, kMiningTerms, sizeof(kMiningTerms) / sizeof(kMiningTerms[0]))) return 2575; // Mining
-    if (containsAnyTerm(lower, kHerbTerms, sizeof(kHerbTerms) / sizeof(kHerbTerms[0]))) return 2366; // Herb Gathering
+    if (containsAnyTerm(lower, kMiningTerms, sizeof(kMiningTerms) / sizeof(kMiningTerms[0]))) return kMiningBaseSpellId;
+    if (containsAnyTerm(lower, kHerbTerms, sizeof(kHerbTerms) / sizeof(kHerbTerms[0]))) return kHerbBaseSpellId;
     return 0;
 }
 
 uint32_t knownGatherRank(const SpellHandler* spellHandler, uint32_t baseSpellId) {
     if (!spellHandler) return 0;
 
-    static constexpr uint32_t kMiningRanks[] = {
-        2575, 2576, 3564, 10248, 29354
-    };
-    static constexpr uint32_t kHerbRanks[] = {
-        2366, 2368, 3570, 11993, 28695
-    };
-
-    const uint32_t* ranks = nullptr;
     size_t count = 0;
-    if (baseSpellId == kMiningRanks[0]) {
-        ranks = kMiningRanks;
-        count = sizeof(kMiningRanks) / sizeof(kMiningRanks[0]);
-    } else if (baseSpellId == kHerbRanks[0]) {
-        ranks = kHerbRanks;
-        count = sizeof(kHerbRanks) / sizeof(kHerbRanks[0]);
-    } else {
-        return 0;
-    }
+    const uint32_t* ranks = gatherRanksForBase(baseSpellId, count);
+    if (!ranks) return 0;
 
     for (size_t i = count; i > 0; --i) {
         const uint32_t spellId = ranks[i - 1];
@@ -2971,7 +2957,8 @@ void GameHandler::performGameObjectInteractionNow(uint64_t guid) {
     if (gatherBaseSpellId != 0) {
         const uint32_t gatherSpellId = knownGatherRank(spellHandler_.get(), gatherBaseSpellId);
         if (gatherSpellId == 0) {
-            addSystemChatMessage(gatherBaseSpellId == 2575 ? "Requires Mining." : "Requires Herbalism.");
+            addSystemChatMessage(gatherBaseSpellId == kMiningBaseSpellId ? "Requires Mining."
+                                                    : "Requires Herbalism.");
             LOG_INFO("GO gather skipped: no known rank for base spell=", gatherBaseSpellId,
                      " guid=0x", std::hex, guid, std::dec, " name='", goName, "'");
             return;

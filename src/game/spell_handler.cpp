@@ -1,4 +1,5 @@
 #include "game/spell_handler.hpp"
+#include "game/gather_spells.hpp"
 #include "game/spell_classification.hpp"
 #include "game/pet_action.hpp"
 #include "game/game_handler.hpp"
@@ -140,14 +141,7 @@ std::string castFailureMessage(const GameHandler& owner, uint32_t spellId,
 }
 
 bool isGatherSpellId(uint32_t spellId) {
-    static constexpr uint32_t kGatherRanks[] = {
-        2575, 2576, 3564, 10248, 29354, // Mining
-        2366, 2368, 3570, 11993, 28695  // Herbalism
-    };
-    for (uint32_t rankSpellId : kGatherRanks) {
-        if (spellId == rankSpellId) return true;
-    }
-    return false;
+    return isGatherRank(spellId);
 }
 
 bool shouldDespawnGatherTarget(uint8_t result) {
@@ -155,11 +149,7 @@ bool shouldDespawnGatherTarget(uint8_t result) {
 }
 
 bool isMiningGatherSpell(uint32_t spellId) {
-    static constexpr uint32_t kMiningRanks[] = {2575, 2576, 3564, 10248, 29354};
-    for (uint32_t rank : kMiningRanks) {
-        if (spellId == rank) return true;
-    }
-    return false;
+    return isMiningRank(spellId);
 }
 
 uint32_t gatherRequiredSkillRank(GameHandler& owner, uint64_t goGuid) {
