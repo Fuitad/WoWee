@@ -4323,7 +4323,19 @@ void Application::spawnPlayerCharacter() {
     auto* charRenderer = renderer->getCharacterRenderer();
     auto* camera = renderer->getCamera();
     bool loaded = false;
-    std::string m2Path = appearanceComposer_->getPlayerModelPath(playerRace_, playerGender_);
+    // A nonbinary character chose which body to wear, and that choice lives on
+    // the character rather than in the gender. Without it this took the
+    // two-argument default - the male model - so the paper doll and the
+    // character screen showed the body the player picked and the world showed
+    // the other one. The voice below already resolves it this way.
+    bool useFemaleModel = false;
+    if (playerGender_ == game::Gender::NONBINARY && gameHandler) {
+        if (const game::Character* ch = gameHandler->getActiveCharacter()) {
+            useFemaleModel = ch->useFemaleModel;
+        }
+    }
+    std::string m2Path =
+        game::getPlayerModelPath(playerRace_, playerGender_, useFemaleModel);
 
     // Try loading selected character model from MPQ
     if (assetManager && assetManager->isInitialized()) {
@@ -4357,7 +4369,8 @@ void Application::spawnPlayerCharacter() {
                             appearanceBytes = activeChar->appearanceBytes;
                         }
                     }
-                    texInfo = appearanceComposer_->resolvePlayerTextures(model, playerRace_, playerGender_, appearanceBytes);
+                    texInfo = appearanceComposer_->resolvePlayerTextures(
+                        model, playerRace_, playerGender_, appearanceBytes, useFemaleModel);
                 }
 
                 // Load external .anim files for sequences with external data.

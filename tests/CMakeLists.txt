@@ -2101,6 +2101,22 @@ wowee_test_link_glm(test_auction_slot_filter)
 add_test(NAME auction_slot_filter COMMAND test_auction_slot_filter)
 register_test_target(test_auction_slot_filter)
 
+# ── test_player_model_path ───────────────────────────────────
+# Which body a character wears. Gender alone does not answer it: a nonbinary
+# character picks one, and the preview, the world spawn and the skin textures
+# each read that choice differently.
+add_executable(test_player_model_path
+    test_player_model_path.cpp
+    ${TEST_COMMON_SOURCES}
+    ${CMAKE_SOURCE_DIR}/src/game/character.cpp)
+target_include_directories(test_player_model_path PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_player_model_path SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_player_model_path PRIVATE catch2_main)
+wowee_test_link_glm(test_player_model_path)
+add_test(NAME player_model_path COMMAND test_player_model_path)
+register_test_target(test_player_model_path)
+
 # ── test_inventory_count ─────────────────────────────────────
 # How many of an item the bags hold. Counted in five places with two rules:
 # the Lua bindings read an occupied slot with a zero stack as one item and the

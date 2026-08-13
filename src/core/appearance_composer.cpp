@@ -90,17 +90,18 @@ AppearanceComposer::AppearanceComposer(rendering::Renderer* renderer,
 {
 }
 
-std::string AppearanceComposer::getPlayerModelPath(game::Race race, game::Gender gender) const {
-    return game::getPlayerModelPath(race, gender);
-}
-
 PlayerTextureInfo AppearanceComposer::resolvePlayerTextures(pipeline::M2Model& model,
                                                             game::Race race, game::Gender gender,
-                                                            uint32_t appearanceBytes) {
+                                                            uint32_t appearanceBytes,
+                                                            bool useFemaleModel) {
     PlayerTextureInfo result;
 
     uint32_t targetRaceId = static_cast<uint32_t>(race);
-    uint32_t targetSexId = (gender == game::Gender::FEMALE) ? 1u : 0u;
+    // The same rule the model path uses: a nonbinary character wears the body
+    // they chose, and the skins have to be that body's.
+    const bool female = (gender == game::Gender::FEMALE) ||
+                        (gender == game::Gender::NONBINARY && useFemaleModel);
+    uint32_t targetSexId = female ? 1u : 0u;
 
     const char* raceFolderName = raceModelFolder(targetRaceId);
     result.bodySkinPath = defaultBodySkinPath(targetRaceId, targetSexId);
