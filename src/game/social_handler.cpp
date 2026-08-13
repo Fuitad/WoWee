@@ -73,6 +73,36 @@ static const char* lfgJoinResultString(uint32_t result) {
     }
 }
 
+// ArenaTeamCommandErrors, as SMSG_ARENA_TEAM_COMMAND_RESULT sends them. The
+// range is sparse - the server sends 0x08 for two different refusals and skips
+// most of what lies between - so a table indexed by the value would be mostly
+// holes and would answer the wrong sentence for anything the server adds.
+static const char* arenaTeamErrorString(uint32_t error) {
+    switch (error) {
+        case 0x01: return "Internal arena team error.";
+        case 0x02: return "You are already in an arena team of that size.";
+        case 0x03: return "That player is already in an arena team of that size.";
+        case 0x04: return "You have already been invited to an arena team.";
+        case 0x05: return "That player has already been invited to an arena team.";
+        case 0x06: return "That arena team name is invalid.";
+        case 0x07: return "That arena team name already exists.";
+        // The server reuses this value for the captain leaving and for acting
+        // without the rank to do so.
+        case 0x08: return "The captain cannot leave; permissions denied.";
+        case 0x09: return "You are not in an arena team of that size.";
+        case 0x0A: return "That player is not in your arena team.";
+        case 0x0B: return "No player of that name was found.";
+        case 0x0C: return "That player is of the opposing faction.";
+        case 0x13: return "That player is ignoring you.";
+        case 0x15: return "That player's level is too low.";
+        case 0x16: return "That player's level is too high.";
+        case 0x17: return "The arena team is full.";
+        case 0x1B: return "No arena team of that name was found.";
+        case 0x1E: return "Arena teams are locked for the season.";
+        default:   return "The arena team command was refused.";
+    }
+}
+
 static const char* lfgTeleportDeniedString(uint32_t reason) {
     switch (reason) {
         case 0:  return "You are not in a LFG group.";
@@ -3864,15 +3894,50 @@ void SocialHandler::lfgSetBootVote(bool vote) {
 // Arena Handlers
 // ============================================================
 
+// command(4) + team name + player name + error(4).
+//
+// The player name was never read, so the error came out of the first four
+// bytes of it - a name, so never zero, and every command result read as a
+// failure however well it had gone. Where the server sends no player name the
+// error slid one byte instead, which is the same fault with a different value.
+// Both strings are needed anyway: the server names the team and the player
+// separately because most of these results are about one acting on the other.
 void SocialHandler::handleArenaTeamCommandResult(network::Packet& packet) {
-    if (!packet.hasRemaining(8)) return;
-    uint32_t command = packet.readUInt32();
-    std::string name = packet.readString();
-    uint32_t error = packet.readUInt32();
-    static const char* commands[] = {"create","invite","leave","remove","disband","leader"};
-    std::string cmdName = (command < 6) ? commands[command] : "unknown";
-    if (error == 0) owner_.addSystemChatMessage("Arena team " + cmdName + " successful" + (name.empty() ? "." : ": " + name));
-    else owner_.addSystemChatMessage("Arena team " + cmdName + " failed" + (name.empty() ? "." : " for " + name + "."));
+    if (!packet.hasRemaining(10)) return;
+    const uint32_t command = packet.readUInt32();
+    const std::string teamName = packet.readString();
+    const std::string playerName = packet.readString();
+    if (!packet.hasRemaining(4)) return;
+    const uint32_t error = packet.readUInt32();
+
+    // ArenaTeamCommandTypes, and it is not a dense range: 2, and everything
+    // between 4 and 13, are values the server never sends. The old table read
+    // it as 0..5 in a row, so a quit reported itself as a remove and a change
+    // of captain fell off the end.
+    const char* cmdName = "arena team";
+    switch (command) {
+        case 0x00: cmdName = "arena team create"; break;
+        case 0x01: cmdName = "arena team invite"; break;
+        case 0x03: cmdName = "arena team quit"; break;
+        case 0x0E: cmdName = "arena team captain"; break;
+        default: break;
+    }
+
+    // Whichever name the result is about. A create names the team, an invite
+    // names the player, and both are sent for the ones that concern both.
+    std::string about;
+    if (!teamName.empty()) about = teamName;
+    if (!playerName.empty())
+        about = about.empty() ? playerName : about + " / " + playerName;
+
+    if (error == 0) {
+        owner_.addSystemChatMessage(std::string(cmdName) + " succeeded" +
+                                    (about.empty() ? "." : ": " + about));
+        return;
+    }
+    owner_.addSystemChatMessage(std::string(cmdName) + " failed" +
+                                (about.empty() ? "" : " (" + about + ")") +
+                                ": " + arenaTeamErrorString(error));
 }
 
 void SocialHandler::handleArenaTeamQueryResponse(network::Packet& packet) {

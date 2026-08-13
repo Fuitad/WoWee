@@ -104,6 +104,48 @@ CLIENT_WIDTH = {"readUInt8": 1, "readInt8": 1, "readUInt16": 2, "readInt16": 2,
                 "readUInt32": 4, "readInt32": 4, "readUInt64": 8, "readInt64": 8,
                 "readFloat": 4, "readDouble": 8}
 
+# The declared type of a bare `data << name`. AzerothCore writes a great many
+# fields that way rather than through a cast, and every one of them used to end
+# the prefix - so a packet whose second field is a plain variable was compared
+# one field deep and reported as agreeing.
+DECLARED_WIDTH = {
+    "uint8": 1, "int8": 1, "uint16": 2, "int16": 2, "uint32": 4, "int32": 4,
+    "uint64": 8, "int64": 8, "float": 4, "double": 8, "bool": 1,
+    "std::string": "S", "string": "S",
+    "ObjectGuid": 8,
+}
+
+# Calls whose return type is known without resolving anything. A name is a
+# NUL-terminated string on the wire and lines the two sequences up exactly as a
+# packed guid does, so it is a token rather than a stop.
+KNOWN_CALL_WIDTH = {
+    "GetName": "S",
+}
+
+
+def _declared_width(src, before, name):
+    """The width of a bare `data << name`, from the name's declaration.
+
+    The scope searched is the text back to the previous top-level close brace,
+    which is the enclosing function often enough to be worth having and never
+    reaches into another one. An unresolved name still ends the prefix, so a
+    missed declaration costs coverage rather than correctness.
+    """
+    scope_start = src.rfind("\n}", 0, before)
+    scope = src[scope_start if scope_start != -1 else 0:before]
+    decl = re.findall(
+        r"(?:^|[\s(,])((?:std::)?\w+)(?:\s+const)?\s*&?\s*\b"
+        + re.escape(name) + r"\b\s*(?:=|;|,|\))", scope)
+    for kind in reversed(decl):
+        if kind in DECLARED_WIDTH:
+            return DECLARED_WIDTH[kind]
+        if kind in ("return", "case", "const"):
+            continue
+        # A type this does not know is not a guess to make: the field could be
+        # an enum of any width, a struct, or something with its own operator<<.
+        return None
+    return None
+
 
 def server_layouts(server_root):
     """SMSG name -> the widths it writes, up to the first variable field."""
@@ -142,6 +184,27 @@ def server_layouts(server_root):
                             r"(?:\(\))?\s*;", s):
                     widths.append(8)
                     continue
+                # A string literal and a name are both NUL-terminated on the
+                # wire, so they line the two sequences up rather than ending
+                # them - the same argument as the packed guid above. This is
+                # the field that ends most of the remaining prefixes, and
+                # MSG_LIST_STABLED_PETS was misread from the field *after* its
+                # name, three past where the comparison used to stop.
+                if re.match(r"[*]?" + re.escape(var) + r'\s*<<\s*"', s):
+                    widths.append("S")
+                    continue
+                call = re.match(r"[*]?" + re.escape(var) +
+                                r"\s*<<\s*[\w>.\[\]()-]*?(\w+)\(\s*\)\s*;", s)
+                if call and call.group(1) in KNOWN_CALL_WIDTH:
+                    widths.append(KNOWN_CALL_WIDTH[call.group(1)])
+                    continue
+                # `data << count;` - the width is the variable's declared type.
+                bare = re.match(r"[*]?" + re.escape(var) + r"\s*<<\s*(\w+)\s*;", s)
+                if bare:
+                    width = _declared_width(src, m.end(), bare.group(1))
+                    if width is not None:
+                        widths.append(width)
+                        continue
                 break
             # The longest reading wins: several call sites build the same
             # opcode and only the fullest one describes the whole prefix.
@@ -207,6 +270,8 @@ def _widths_in(body, var):
             widths.append(CLIENT_WIDTH[call])
         elif call == "readPackedGuid":
             widths.append("P")
+        elif call == "readString":
+            widths.append("S")
         elif call.startswith("read") or call in ("skipAll",):
             break
     return widths

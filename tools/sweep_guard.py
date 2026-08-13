@@ -90,6 +90,13 @@ CHECKS = [
     ("function_similarity_check.py",
      r"^(\d+) pair\(s\) that are one function written twice", 0,
      "one function written twice under two names"),
+    # The other end of copying: not a whole function repeated but one line
+    # copied down a run of axes with an edit left unfinished. Every line reads
+    # correctly on its own, which is why reading them confirms nothing; what
+    # gives it away is the column that stops walking with the others.
+    ("copy_paste_axis_check.py",
+     r"^(\d+) run\(s\) where one axis disagrees", 0,
+     "axes written out per line with one left behind"),
     # Both halves still write to the chat window. The handler adds a line and
     # fires the event; chatframe.lua's own branch formats the same fact from
     # the event and adds it too, and the player reads it twice.
