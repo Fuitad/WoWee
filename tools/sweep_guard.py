@@ -83,6 +83,13 @@ CHECKS = [
     ("handler_twin_check.py",
      r"^(\d+) copy that nothing reaches", 0,
      "handlers left behind in the class they were moved out of"),
+    # The block scan reads a twelve-line window and is at zero, and most
+    # functions here are shorter than that. Comparing whole bodies instead
+    # found five pairs it could not see, including two renderers that had
+    # disagreed about a rotation order for a long time.
+    ("function_similarity_check.py",
+     r"^(\d+) pair\(s\) that are one function written twice", 0,
+     "one function written twice under two names"),
     # Both halves still write to the chat window. The handler adds a line and
     # fires the event; chatframe.lua's own branch formats the same fact from
     # the event and adds it too, and the player reads it twice.

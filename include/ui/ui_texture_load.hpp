@@ -18,7 +18,9 @@
 ///   - The bag icons log which of the two failures happened, which is why
 ///     this reports a reason rather than just failing.
 
+#include <cstdint>
 #include <string>
+#include <unordered_map>
 
 #include <vulkan/vulkan.h>
 
@@ -49,5 +51,19 @@ VkDescriptorSet uploadUiTextureFromBlp(pipeline::AssetManager* assetManager,
                                        const std::string& path,
                                        core::Window* window,
                                        UiTextureLoad* why = nullptr);
+
+/// One icon, uploaded at most once and at most one per frame's budget.
+///
+/// The spellbook and the talent tree ask this the same way and want the same
+/// three answers, and each wrote them out: a cached set is returned, a refused
+/// upload budget defers *without* caching so the icon is retried next frame,
+/// and an icon id with no path caches a null so a missing file is not looked
+/// for again every frame the panel is open. Deferring and failing look alike
+/// at the call site and must not be cached alike; that distinction is the
+/// reason this is one function rather than two copies of four branches.
+VkDescriptorSet cachedIconTexture(
+    uint32_t iconId, pipeline::AssetManager* assetManager, core::Window* window,
+    const std::unordered_map<uint32_t, std::string>& paths,
+    std::unordered_map<uint32_t, VkDescriptorSet>& cache);
 
 }  // namespace wowee::ui

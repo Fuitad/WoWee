@@ -791,30 +791,9 @@ void TalentScreen::renderGlyphs(game::GameHandler& gameHandler) {
 }
 
 VkDescriptorSet TalentScreen::getSpellIcon(uint32_t iconId, pipeline::AssetManager* assetManager) {
-    if (iconId == 0 || !assetManager) return VK_NULL_HANDLE;
-
-    auto cit = spellIconCache.find(iconId);
-    if (cit != spellIconCache.end()) return cit->second;
-
-    // Rate-limit texture uploads to avoid multi-hundred-ms stalls when switching
-    // to a tab whose icons are not yet cached (each upload is a blocking GPU op).
-    // Allow at most 4 new icon loads per frame; the rest show a blank icon and
-    // load on the next frame, spreading the cost across ~5 frames.
-    if (!claimUiTextureUpload()) return VK_NULL_HANDLE;  // defer, don't cache null
-
-    auto pit = spellIconPaths.find(iconId);
-    if (pit == spellIconPaths.end()) {
-        spellIconCache[iconId] = VK_NULL_HANDLE;
-        return VK_NULL_HANDLE;
-    }
-
-    std::string iconPath = pit->second + ".blp";
-    // Cached either way, failures included, so a missing icon is not retried
-    // on every frame the tree is open.
-    VkDescriptorSet ds = uploadUiTextureFromBlp(
-        assetManager, iconPath, core::Application::getInstance().getWindow());
-    spellIconCache[iconId] = ds;
-    return ds;
+    return cachedIconTexture(iconId, assetManager,
+                             core::Application::getInstance().getWindow(),
+                             spellIconPaths, spellIconCache);
 }
 
 }} // namespace wowee::ui

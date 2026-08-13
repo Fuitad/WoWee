@@ -463,30 +463,9 @@ void SpellbookScreen::categorizeSpells(const std::unordered_set<uint32_t>& known
 }
 
 VkDescriptorSet SpellbookScreen::getSpellIcon(uint32_t iconId, pipeline::AssetManager* assetManager) {
-    if (iconId == 0 || !assetManager) return VK_NULL_HANDLE;
-
-    auto cit = spellIconCache.find(iconId);
-    if (cit != spellIconCache.end()) return cit->second;
-
-    // Rate-limit GPU uploads to avoid a multi-frame stall when switching tabs.
-    // Icons not loaded this frame will be retried next frame (progressive load).
-    // Defer without caching - returning null here allows retry next frame when
-    // the budget resets, rather than permanently blacklisting the icon as missing
-    if (!claimUiTextureUpload()) return VK_NULL_HANDLE;
-
-    auto pit = spellIconPaths.find(iconId);
-    if (pit == spellIconPaths.end()) {
-        spellIconCache[iconId] = VK_NULL_HANDLE;
-        return VK_NULL_HANDLE;
-    }
-
-    std::string iconPath = pit->second + ".blp";
-    // Cached either way, including the failures, so a missing icon is not
-    // retried on every frame the spellbook is open.
-    VkDescriptorSet ds = ui::uploadUiTextureFromBlp(
-        assetManager, iconPath, core::Application::getInstance().getWindow());
-    spellIconCache[iconId] = ds;
-    return ds;
+    return ui::cachedIconTexture(iconId, assetManager,
+                                 core::Application::getInstance().getWindow(),
+                                 spellIconPaths, spellIconCache);
 }
 
 const SpellInfo* SpellbookScreen::getSpellInfo(uint32_t spellId) const {
