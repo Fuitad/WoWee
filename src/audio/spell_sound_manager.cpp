@@ -1,4 +1,5 @@
 #include "audio/spell_sound_manager.hpp"
+#include "audio/sample_load.hpp"
 #include "audio/audio_engine.hpp"
 #include "pipeline/asset_manager.hpp"
 #include "core/logger.hpp"
@@ -136,20 +137,8 @@ void SpellSoundManager::shutdown() {
 }
 
 bool SpellSoundManager::loadSound(const std::string& path, SpellSample& sample, pipeline::AssetManager* assets) {
-    sample.path = path;
-    sample.loaded = false;
-
-    try {
-        sample.data = assets->readFile(path);
-        if (!sample.data.empty()) {
-            sample.loaded = true;
-            return true;
-        }
-    } catch (const std::exception& e) {
-        // Silently fail - not all sounds may exist
-    }
-
-    return false;
+    // Quietly: not every sound in this bank ships with every install.
+    return loadSampleFile(path, sample, assets, nullptr);
 }
 
 void SpellSoundManager::playSound(const std::vector<SpellSample>& library, float volumeMultiplier) {
