@@ -4661,6 +4661,10 @@ static int lua_RecordMissingApi(lua_State* L) {
 static int lua_CreateFrame(lua_State* L) {
     const char* frameType = luaL_optstring(L, 1, "Frame");
     const char* name = luaL_optstring(L, 2, nullptr);
+    // Which of the per-type methods go on this frame; see where they are set,
+    // below the metatable.
+    bool createdStatusBar = false;
+    bool createdSlider = false;
 
     // Create the frame table
     lua_newtable(L);
@@ -4726,6 +4730,8 @@ static int lua_CreateFrame(lua_State* L) {
             w->objectType = ft;
             w->mouseEnabled = (ft == "Button" || ft == "CheckButton");
             w->isStatusBar = (ft == "StatusBar");
+            createdStatusBar = w->isStatusBar;
+            createdSlider = (ft == "Slider");
             // A slider takes the mouse by nature: it exists to be dragged.
             w->isSlider = (ft == "Slider");
             // And it runs top to bottom unless it says otherwise. A Slider's
@@ -4793,6 +4799,34 @@ static int lua_CreateFrame(lua_State* L) {
     // Apply frame metatable with methods
     lua_getglobal(L, "__WoweeFrameMT");
     lua_setmetatable(L, -2);
+
+    // GetCurrentValue and SetDisplayValue belong to a StatusBar, and are put on
+    // the frame itself rather than on the metatable every frame shares, because
+    // FrameXML asks whether they exist and means it.
+    //
+    // BlizzardOptionsPanel_Slider_Refresh reads a slider's value with
+    // `if ( slider.GetCurrentValue ) then ... elseif ( slider.cvar ) then` -
+    // the first branch is for the handful of controls that define a closure of
+    // that name themselves, and every other slider is meant to fall through to
+    // its CVar. With the pair on the shared table the test never failed, so
+    // every options slider read a status bar's value, which is zero, and wrote
+    // that back when the panel closed. Opening Video Options and closing it set
+    // the UI scale to the smallest the range allows.
+    if (createdStatusBar) {
+        lua_pushcfunction(L, lua_StatusBar_GetCurrentValue);
+        lua_setfield(L, -2, "GetCurrentValue");
+        lua_pushcfunction(L, lua_StatusBar_SetDisplayValue);
+        lua_setfield(L, -2, "SetDisplayValue");
+    } else if (createdSlider) {
+        // A slider gets SetDisplayValue and not GetCurrentValue. Setting the
+        // displayed value is what the graphics-quality presets do to move a
+        // slider without writing its CVar, and for a slider that is simply
+        // SetValue - the display and the value are the same number. Leaving
+        // GetCurrentValue off is the point: the refresh reads a slider's
+        // CVar only when it is absent.
+        lua_pushcfunction(L, lua_StatusBar_SetValue);
+        lua_setfield(L, -2, "SetDisplayValue");
+    }
 
     // The fourth argument names a template, which FrameXML uses constantly:
     // CreateFrame("BUTTON", name, self, "OptionsListButtonTemplate"). Ignoring
@@ -5328,8 +5362,6 @@ void LuaEngine::registerCoreAPI() {
         {"GetHitRectInsets",      lua_Frame_GetHitRectInsets},
         {"SetUserPlaced",         lua_Frame_SetUserPlaced},
         {"IsUserPlaced",          lua_Frame_IsUserPlaced},
-        {"GetCurrentValue",       lua_StatusBar_GetCurrentValue},
-        {"SetDisplayValue",       lua_StatusBar_SetDisplayValue},
         {"EnableKeyboard",        lua_Frame_EnableKeyboard},
         {"IsKeyboardEnabled",     lua_Frame_IsKeyboardEnabled},
         {"SetPropagateKeyboardInput", lua_Frame_SetPropagateKeyboardInput},

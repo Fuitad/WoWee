@@ -59,6 +59,11 @@ impl |= set(re.findall(r"\"mt\['(\w+)'\]", src))
 impl |= set(re.findall(r"function\s+[\w.]*[Mm][Tt]\w*\s*:\s*(\w+)", src))
 impl |= set(re.findall(r"function\s+\w*[Mm]eta\w*\s*:\s*(\w+)", src))
 impl |= set(re.findall(r"\w+\.(\w+)\s*=\s*function\s*\(self", src))
+# Installed on the frame table itself rather than on the metatable, which
+# is how a method that only some frame types have is given out - FrameXML
+# tests for the presence of those, so they cannot live on the table every
+# frame shares. Capitalised only: the same call writes __wid and __name.
+impl |= set(re.findall(r'lua_setfield\(L, -2, "([A-Z]\w+)"\)', src))
 
 answered = known | impl
 
