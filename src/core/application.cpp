@@ -476,6 +476,10 @@ bool Application::initialize() {
             sp.applyAudioVolumes(audioCoordinator_.get());
             gs.saveSettings();
         };
+        luaSvc.reapplyAudioVolumes = [uim = uiManager.get(), this]() {
+            if (!uim) return;
+            uim->getGameScreen().getSettingsPanel().applyAudioVolumes(audioCoordinator_.get());
+        };
         luaSvc.runMacroText = [uim = uiManager.get(), gh = gameHandler.get()](const std::string& body) {
             if (uim && gh) uim->getGameScreen().getChatPanel().executeMacroText(*gh, body);
         };

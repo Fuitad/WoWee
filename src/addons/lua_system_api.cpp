@@ -623,6 +623,14 @@ static void applySoundCVars(lua_State* L) {
     auto* ac = svc ? svc->audioCoordinator : nullptr;
     if (!ac) return;
 
+    // The sliders first, then the switches on top. Each switch is applied by
+    // zeroing a channel and zeroing has no inverse, so without this the "on"
+    // case wrote nothing at all: turning sound effects off and on again left
+    // all nine effect channels silent until the client's own settings window
+    // was touched. Recomputing from the store is what the note above says this
+    // does, and now does.
+    if (svc->reapplyAudioVolumes) svc->reapplyAudioVolumes();
+
     // Master, music and ambience are the client's own settings now, reached
     // through SetCVar above - this function must not write them too, or the two
     // fight and the last writer wins.

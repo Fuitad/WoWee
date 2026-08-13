@@ -65,6 +65,14 @@ struct LuaServices {
     std::function<float(const std::string&)> getAudioSetting;
     std::function<void(const std::string&, float)> setAudioSetting;
 
+    /// Push the client's own volume sliders at the audio system again.
+    ///
+    /// The interface's three enable switches multiply on top of what those
+    /// sliders set, and they are applied by zeroing a channel. Zeroing has no
+    /// inverse, so turning one back on needs the sliders re-applied underneath
+    /// it before the switches are composed over them again.
+    std::function<void()> reapplyAudioVolumes;
+
     /// Open this client's settings window, on a named tab when one is given.
     ///
     /// FrameXML's GameMenuFrame has Video, Sound and Interface buttons that
