@@ -2421,14 +2421,20 @@ bool Renderer::initializeRenderers(pipeline::AssetManager* assetManager, const s
         }
     }
 
-    // Outland's original client skies are camera-centered M2 models selected
-    // through LightParams/LightSkybox. Keep them in a dedicated no-depth
-    // renderer so they draw behind terrain and never enter world collision.
-    if (mapName == "Outland" && !skyboxModelRenderer_) {
+    // The original client's skies are camera-centered M2 models selected
+    // through LightParams and LightSkybox, on every map that names one - not
+    // Outland alone, which is where this was built and where it stayed. The
+    // lookup was opened to all maps and this was not, so it went on doing
+    // nothing anywhere else: without the renderer there is nothing to draw
+    // into.
+    //
+    // It keeps its own no-depth renderer so the sky draws behind terrain and
+    // never enters world collision.
+    if (!skyboxModelRenderer_) {
         skyboxModelRenderer_ = std::make_unique<M2Renderer>();
         skyboxModelRenderer_->setSkyMode(true);
         if (!skyboxModelRenderer_->initialize(vkCtx, perFrameSetLayout, assetManager)) {
-            LOG_WARNING("Outland sky M2 renderer initialization failed");
+            LOG_WARNING("Sky M2 renderer initialization failed");
             skyboxModelRenderer_.reset();
         }
     }

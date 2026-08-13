@@ -1489,8 +1489,15 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
                     // treating the whole model this way turned the masonry and
                     // ironwork additive, which is to say translucent.
                     const bool fireEffectModel = batch.forgeFireCard;
+                    // A batch the artist marked additive is already doing
+                    // what the cutout and the colour key are approximations
+                    // of: black adds nothing, so it disappears on its own.
+                    // Forcing it opaque and then keying the black out leaves
+                    // the bright middle of a glow card as a solid disc, which
+                    // is what Orgrimmar's bonfires were.
                     const bool forceCutout =
                         !model.isSpellEffect && !fireEffectModel &&
+                        !m2BlendIsAdditive(batch.blendMode) &&
                         (model.isGroundDetail || foliageCutout ||
                          m2BatchNeedsAlphaTest(batch.blendMode, batch.hasAlpha) ||
                          batch.colorKeyBlack);
