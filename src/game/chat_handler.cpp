@@ -1334,9 +1334,17 @@ void ChatHandler::submitGmTicket(const std::string& text) {
     // the end of the buffer. AzerothCore catches that, logs, and drops the
     // packet: the ticket was never created and nothing said so.
     //
-    // Sent in this one shape on every expansion. The prefix through the
-    // message is what the pre-WotLK cores read, and they ignore what follows
-    // it rather than refusing the packet, so there is nothing here to gate.
+    // One shape on every expansion, and it is the long one.
+    //
+    // The prefix through the message is what all three read: a 1.12 and a
+    // 2.4.3 server take mapId, x, y, z and the message and stop there. The
+    // four fields after it are 3.x, and the asymmetry is what decides this -
+    // a WotLK server that does not get them reads off the end of the buffer
+    // and drops the whole request, while a vanilla or TBC one simply leaves
+    // them unread. Trailing bytes nobody reads cost nothing; missing ones
+    // cost the ticket. So there is nothing to gate on the expansion here, and
+    // a gate would be a second thing to keep right.
+    //
     // The chat log is a client-side transcript this client does not keep, so
     // both of its lengths go across as zero, which is how the real client
     // sends a ticket raised outside a conversation.
