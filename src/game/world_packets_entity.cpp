@@ -255,7 +255,8 @@ bool parseGameObjectQueryBody(network::Packet& packet,
     // settles it is a 2.4.3 server's bytes, and guessing wrong breaks TBC
     // either way. test_gameobject_query_layout pins all three counts, so
     // whichever way it is settled, the change is one number and a failing
-    // test rather than an archaeology exercise.
+    // test rather than an archaeology exercise. The alignment check after the
+    // data fields below is what asks the server, so one TBC session answers it.
     for (int i = 0; i < extraStrings; ++i) packet.readString();
 
     // Read 24 type-specific data fields
@@ -265,6 +266,31 @@ bool parseGameObjectQueryBody(network::Packet& packet,
             data.data[i] = packet.readUInt32();
         }
         data.hasData = true;
+        // Whether the string count above was right, asked without knowing what
+        // the tail is on this expansion.
+        //
+        // Everything past the data fields is four bytes wide - the size float,
+        // and the quest item ids where they exist - so a correct count leaves a
+        // whole number of them. A count one short leaves the unread string's
+        // NUL in front of the data fields instead, every one of the
+        // twenty-four is read a byte early, and what is left over stops
+        // dividing by four. That is the whole tell, and it does not need the
+        // tail's length: only that the tail is made of four-byte fields.
+        //
+        // This is what settles the TBC count named above. Two strings there
+        // against AzerothCore's three is a difference no source on hand can
+        // decide, and one short costs nothing visible - the strings are almost
+        // always empty, so it is one byte, and a chest simply reports a lock it
+        // does not have. Connecting to a 2.4.3 server once now says which it
+        // is, in one line.
+        const size_t leftOver = packet.getRemainingSize();
+        if (leftOver % 4 != 0) {
+            LOG_WARNING("SMSG_GAMEOBJECT_QUERY_RESPONSE: ", leftOver,
+                        " bytes left after the data fields, which is not a whole"
+                        " number of them - the ", extraStrings,
+                        " strings read before them is one too few (entry=",
+                        data.entry, ")");
+        }
     } else if (remaining > 0) {
         // Partial data field; read what we can
         uint32_t fieldsToRead = remaining / 4;

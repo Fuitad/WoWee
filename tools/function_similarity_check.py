@@ -52,7 +52,8 @@ were fine.
 WHAT IT CANNOT SEE
 
 Lambdas, and anything under five code lines - which is how the box-distance
-helper hid: it is three. A pair whose
+helper hid: it is three. Nor a pair whose lengths differ by more than about
+eighteen code lines, which is where the bucket band stops. A pair whose
 bodies were reworded past 0.88 similarity - the block scan cannot see those
 either, and `repeated_literal_check.py` is the third angle for exactly that.
 
@@ -240,7 +241,17 @@ def main() -> int:
     settled = settled_pairs()
     seen, hits = set(), []
     for key, group in sorted(buckets.items()):
-        near = group + buckets.get(key + 1, [])
+        # Every bucket within six of this one, not just the next.
+        #
+        # Buckets are three code lines wide, so comparing only the neighbour
+        # meant two functions whose lengths differed by more than about six
+        # lines were never compared at all - however alike they were. A
+        # ninety-line parser and its ninety-eight-line copy score 0.96 and were
+        # invisible; so, for that matter, would the guild roster's 31-line and
+        # 99-line copies have been. Costs seven seconds over the whole tree.
+        near = []
+        for offset in range(-6, 7):
+            near += buckets.get(key + offset, [])
         for file_a, name_a, code_a in group:
             for file_b, name_b, code_b in near:
                 if (file_a, name_a) == (file_b, name_b):

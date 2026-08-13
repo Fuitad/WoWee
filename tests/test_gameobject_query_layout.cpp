@@ -133,6 +133,36 @@ TEST_CASE("one string too few shifts every data field", "[gameobject][wire]") {
     CHECK(data.data[0] != 0xA000);
 }
 
+TEST_CASE("what is left after the data fields says whether the count was right",
+          "[gameobject][wire]") {
+    // The tell the parser warns on, pinned here so it keeps working.
+    //
+    // Everything past the twenty-four data fields is four bytes wide - the
+    // size float, and the quest item ids where a server sends them - so a
+    // correct string count leaves a whole number of them over. One short
+    // leaves the unread string's NUL in front of the data fields as well, and
+    // the leftover stops dividing by four.
+    //
+    // This is what a TBC server settles the two-or-three question with,
+    // without anyone having to know how long its tail is: only that the tail
+    // is made of four-byte fields, which has been true of every expansion.
+    const auto bytes = buildResponse(1731, 3, "Copper Vein", 3);
+
+    SECTION("the right count leaves whole fields") {
+        auto packet = makePacket(bytes);
+        GameObjectQueryResponseData data;
+        REQUIRE(GameObjectQueryResponseParser::parse(packet, data));
+        CHECK(packet.getRemainingSize() % 4 == 0);
+    }
+    SECTION("one short does not") {
+        auto packet = makePacket(bytes);
+        GameObjectQueryResponseData data;
+        TbcPacketParsers parsers;
+        REQUIRE(parsers.parseGameObjectQueryResponse(packet, data));
+        CHECK(packet.getRemainingSize() % 4 != 0);
+    }
+}
+
 TEST_CASE("an entry the server does not know stops at the flag",
           "[gameobject][wire]") {
     // The high bit means "no such gameobject" and nothing follows it. Reading
