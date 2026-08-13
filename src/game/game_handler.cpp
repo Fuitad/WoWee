@@ -276,6 +276,24 @@ void GameHandler::sortBags() {
     for (auto& s : swaps)  sortSwapQueue_.push_back(s);
 }
 
+void GameHandler::sortBank(int mainSlotCount) {
+    if (!sortSwapQueue_.empty()) return;   // one sort at a time
+    auto& inv = getInventory();
+    auto merges = inv.mergeBankPartialStacks(mainSlotCount);
+    auto swaps = inv.computeBankSortSwaps(mainSlotCount);
+    inv.sortBank(mainSlotCount);
+    for (auto& m : merges) sortSwapQueue_.push_back(m);
+    for (auto& s : swaps)  sortSwapQueue_.push_back(s);
+}
+
+void GameHandler::sortBankBag(int bagIndex) {
+    if (!sortSwapQueue_.empty()) return;   // one sort at a time
+    auto& inv = getInventory();
+    auto swaps = inv.computeBankBagSortSwaps(bagIndex);
+    inv.sortBankBag(bagIndex);
+    for (auto& s : swaps) sortSwapQueue_.push_back(s);
+}
+
 void GameHandler::updateNetworking(float deltaTime) {
     // One queued sort move per tick. A sort is dozens of swaps and the server
     // drops a burst of them, so they go out at the rate anything else does.

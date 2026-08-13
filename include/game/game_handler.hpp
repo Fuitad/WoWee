@@ -3044,7 +3044,20 @@ public:
     /// burst of them, and a sort is dozens.
     void sortBags();
     /// Whether a sort is still sending. The button reads it to disable itself.
-    bool isSortingBags() const { return !sortSwapQueue_.empty(); }
+    /// One item sort at a time, whichever container it is over.
+    ///
+    /// Bags and the bank both move items with CMSG_SWAP_ITEM and the server
+    /// takes them one at a time, so they share a queue rather than racing two.
+    bool isSortingItems() const { return !sortSwapQueue_.empty(); }
+    /// The bank, main slots and bank bags together. Mirrors sortBags: merge
+    /// partial stacks, plan the swaps against the merged layout, show the
+    /// result at once locally, and let the queue tell the server over the
+    /// following ticks.
+    void sortBank(int mainSlotCount);
+    /// One bank bag, leaving the rest of the bank alone. No stack merging:
+    /// pouring partials together across the bank is what Sort All is for, and
+    /// doing it here would move items out of the bag being sorted.
+    void sortBankBag(int bagIndex);
     void swapBagSlots(int srcBagIndex, int dstBagIndex);
     void useItemById(uint32_t itemId, uint64_t unitTarget = 0);
     /// Put a glyph from a bag slot into a socket, counted from zero.

@@ -1589,7 +1589,7 @@ void InventoryScreen::renderBagsFooter(uint64_t moneyCopper) {
     // handler's own guard refuses a second sort while one is in flight, and it
     // sends a swap per network tick rather than per frame, which is the rate
     // the server will take a burst of them at.
-    bool sorting = gameHandler_ && gameHandler_->isSortingBags();
+    bool sorting = gameHandler_ && gameHandler_->isSortingItems();
     if (sorting) ImGui::BeginDisabled();
     if (ImGui::SmallButton(sorting ? "Sorting..." : "Sort Bags") && gameHandler_) {
         gameHandler_->sortBags();

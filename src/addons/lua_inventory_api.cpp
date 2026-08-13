@@ -3464,7 +3464,7 @@ void registerInventoryLuaAPI(lua_State* L) {
                 // a tick at a time.
                 {"IsSortingBags", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
-            lua_pushboolean(L, (gh && gh->isSortingBags()) ? 1 : 0);
+            lua_pushboolean(L, (gh && gh->isSortingItems()) ? 1 : 0);
             return 1;
         }},
                 {"GetContainerNumSlots",    lua_GetContainerNumSlots},

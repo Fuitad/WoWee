@@ -34,7 +34,6 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
-#include <deque>
 #include <numeric>
 #include <string>
 #include <fstream>
@@ -3497,19 +3496,19 @@ bool WindowManager::renderBankWindow(game::GameHandler& gameHandler,
     int bankBagCount = gameHandler.getEffectiveBankBagSlots();
 
     // "Combine bags" is a persisted member (bankCombineBags_) so it survives
-    // relaunches; the sort queue is transient client-side state.
-    static std::deque<game::Inventory::SwapOp> bankSortQueue;
-
-    // Toolbar: Sort button + contiguous-view toggle
-    bool sorting = !bankSortQueue.empty();
+    // relaunches.
+    //
+    // The sort goes through the game handler, which owns the one item sort
+    // there is. This kept a static deque of its own and drained it a swap per
+    // frame: a function-local static outlives the character it was filled for,
+    // so a sort interrupted by a logout resumed against the next character's
+    // bank, and it raced the bag sort for a server that takes one swap at a
+    // time. The handler refuses a second sort while one is in flight and sends
+    // them at the rate the rest of the client does.
+    bool sorting = gameHandler.isSortingItems();
     if (sorting) ImGui::BeginDisabled();
     if (ImGui::SmallButton(sorting ? "Sorting..." : "Sort All")) {
-        // Compute swaps before mutating local state, apply the local preview, then queue packets.
-        auto merges = inv.mergeBankPartialStacks(bankSlotCount);
-        auto swaps = inv.computeBankSortSwaps(bankSlotCount);
-        inv.sortBank(bankSlotCount);
-        for (auto& m : merges) bankSortQueue.push_back(m);
-        for (auto& s : swaps) bankSortQueue.push_back(s);
+        gameHandler.sortBank(bankSlotCount);
     }
     if (sorting) ImGui::EndDisabled();
     if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
@@ -3521,13 +3520,6 @@ bool WindowManager::renderBankWindow(game::GameHandler& gameHandler,
         settingChanged = true;
     if (ImGui::IsItemHovered()) {
         ImGui::SetTooltip("Show every bank slot as one continuous grid\ninstead of splitting bank bags into separate sections.");
-    }
-
-    // Process one queued sort swap per frame (server enforces one CMSG_SWAP_ITEM at a time).
-    if (!bankSortQueue.empty()) {
-        auto op = bankSortQueue.front();
-        bankSortQueue.pop_front();
-        gameHandler.swapContainerItems(op.srcBag, op.srcSlot, op.dstBag, op.dstSlot);
     }
 
     ImGui::Separator();
@@ -3584,9 +3576,7 @@ bool WindowManager::renderBankWindow(game::GameHandler& gameHandler,
             ImGui::PushID(3000 + bagIdx);
             if (sorting) ImGui::BeginDisabled();
             if (ImGui::SmallButton("Sort")) {
-                auto bagSwaps = inv.computeBankBagSortSwaps(bagIdx);
-                inv.sortBankBag(bagIdx);
-                for (auto& sw : bagSwaps) bankSortQueue.push_back(sw);
+                gameHandler.sortBankBag(bagIdx);
             }
             if (sorting) ImGui::EndDisabled();
             if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
