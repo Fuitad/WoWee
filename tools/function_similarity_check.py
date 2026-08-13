@@ -32,9 +32,16 @@ on its first run, with the block scan reporting nothing:
 
 WHAT IT DOES
 
-Extracts every function definition of five to forty-three code lines from src/
-and include/ - members and free functions, .cpp, .hpp and .h - strips comments
-and blank lines, and compares bodies of similar length with difflib. Pairs at 0.88 or above are reported unless they
+Extracts every function definition of five to two hundred and fifty code lines
+from src/ and include/ - members and free functions, .cpp, .hpp and .h - strips
+comments and blank lines, and compares bodies of similar length with difflib.
+
+The cap was forty-three, and raising it is what found the guild roster: three
+parsers of 31, 99 and 100 lines for one packet, differing in two facts, one of
+which was a field the TBC copy read and threw away. A function longer than the
+old cap was invisible to this *and* to the block scan, whose window is twelve
+lines and which only matches text exactly - so a long reworded pair was seen by
+nothing. Pairs at 0.88 or above are reported unless they
 are named in SETTLED below.
 
 Comments are stripped deliberately: two functions that differ only in how
@@ -61,7 +68,7 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 THRESHOLD = 0.88
 MIN_LINES = 5
-MAX_LINES = 43
+MAX_LINES = 250
 
 # Pairs read and judged as deliberately separate. Keyed by the two qualified
 # names, sorted, so a pair stops resurfacing once someone has looked at it.
@@ -115,6 +122,40 @@ SETTLED = {
     # buffer or clear it twice at a point where the caller is mid-teardown.
     "socket close": [
         ("TCPSocket::disconnect", "WorldSocket::closeSocketNoJoin"),
+    ],
+    # SMSG_MONSTER_MOVE. WotLK carries a byte after the guid that vanilla does
+    # not, and the two hand off to different spline body readers because the
+    # flag sets differ. Both were checked against the wire; what is left is the
+    # difference itself.
+    "monster move": [
+        ("MonsterMoveParser::parse", "MonsterMoveParser::parseVanilla"),
+    ],
+    # Two power queries that differ only in which of the two fields they read,
+    # and two attack-power ones the same. Collapsing each pair into one
+    # function taking a field index trades two obvious readers for one that
+    # has to be read twice.
+    "paired unit queries": [
+        ("lua_UnitPower", "lua_UnitPowerMax"),
+        ("lua_GetAttackPower", "lua_GetRangedAttackPower"),
+        ("lua_AddQuestWatch", "lua_RemoveQuestWatch"),
+    ],
+    # One samples a colour band and one a float band out of the same table.
+    # The interpolation is shared; the types either side of it are not.
+    "lighting bands": [
+        ("LightingManager::sampleColorBand", "LightingManager::sampleFloatBand"),
+    ],
+    # Same handshake, one starting from a password and one from a stored hash.
+    # What differs is where the SRP verifier comes from, which is the whole
+    # point of having both.
+    "auth entry points": [
+        ("AuthHandler::authenticate", "AuthHandler::authenticateWithHash"),
+    ],
+    # The TBC channel join prefixes a channel id and two flags the vanilla
+    # builder does not send; the rest is the same string pair. Merging them
+    # would put the prefix behind a flag on a builder whose callers are
+    # already per-expansion.
+    "channel join": [
+        ("JoinChannelPacket::build", "TbcPacketParsers::buildJoinChannel"),
     ],
 }
 

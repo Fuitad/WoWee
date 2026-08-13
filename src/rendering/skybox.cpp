@@ -114,11 +114,7 @@ void Skybox::recreatePipelines() {
 }
 
 void Skybox::shutdown() {
-    if (vkCtx) {
-        VkDevice device = vkCtx->getDevice();
-        destroy(device, pipeline);
-        destroy(device, pipelineLayout);
-    }
+    if (vkCtx) destroyPipeline(vkCtx->getDevice(), pipeline, pipelineLayout);
 
     vkCtx = nullptr;
 }

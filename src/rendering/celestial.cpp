@@ -104,11 +104,7 @@ void Celestial::recreatePipelines() {
 void Celestial::shutdown() {
     destroyQuad();
 
-    if (vkCtx_) {
-        VkDevice device = vkCtx_->getDevice();
-        destroy(device, pipeline_);
-        destroy(device, pipelineLayout_);
-    }
+    if (vkCtx_) destroyPipeline(vkCtx_->getDevice(), pipeline_, pipelineLayout_);
 
     vkCtx_ = nullptr;
 }
