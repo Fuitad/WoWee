@@ -2071,6 +2071,21 @@ wowee_test_link_glm(test_spell_icon_columns)
 add_test(NAME spell_icon_columns COMMAND test_spell_icon_columns)
 register_test_target(test_spell_icon_columns)
 
+# ── test_json_table_scan ─────────────────────────────────────
+# The scanner both expansion table loaders now share. The value parser is the
+# point: stoul on "0x12" in base ten answers 0 without raising, and 0 is a
+# real opcode and a real update field index.
+add_executable(test_json_table_scan
+    test_json_table_scan.cpp
+    ${TEST_COMMON_SOURCES})
+target_include_directories(test_json_table_scan PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_json_table_scan SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_json_table_scan PRIVATE catch2_main)
+wowee_test_link_glm(test_json_table_scan)
+add_test(NAME json_table_scan COMMAND test_json_table_scan)
+register_test_target(test_json_table_scan)
+
 # ── test_stance_spells ───────────────────────────────────────
 # The stance bar's spells and their order, which the bar and the Ctrl+1..8
 # bindings both need. Both used to hold their own copy of all five tables.

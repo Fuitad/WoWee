@@ -1,4 +1,5 @@
 #include "game/update_field_table.hpp"
+#include "game/json_table_scan.hpp"
 #include "core/logger.hpp"
 #include <fstream>
 #include <sstream>
@@ -111,37 +112,15 @@ bool UpdateFieldTable::loadFromJson(const std::string& path) {
 
     fieldMap_.clear();
     size_t loaded = 0;
-    size_t pos = 0;
 
-    while (pos < json.size()) {
-        size_t keyStart = json.find('"', pos);
-        if (keyStart == std::string::npos) break;
-        size_t keyEnd = json.find('"', keyStart + 1);
-        if (keyEnd == std::string::npos) break;
-        std::string key = json.substr(keyStart + 1, keyEnd - keyStart - 1);
+    forEachJsonKeyValue(json, [&](const std::string& key, const std::string& valStr) {
+        uint32_t parsed = 0;
+        // Skipped rather than stored when it is not wholly a number. Storing
+        // what a partial parse returned would put index 0 - the object GUID -
+        // under a name that reads correctly everywhere it is used.
+        if (!parseTableNumber(valStr, parsed)) return;
+        const uint16_t idx = static_cast<uint16_t>(parsed);
 
-        size_t colon = json.find(':', keyEnd);
-        if (colon == std::string::npos) break;
-
-        size_t valStart = colon + 1;
-        while (valStart < json.size() && (json[valStart] == ' ' || json[valStart] == '\t' ||
-               json[valStart] == '\r' || json[valStart] == '\n'))
-            ++valStart;
-
-        size_t valEnd = json.find_first_of(",}\r\n", valStart);
-        if (valEnd == std::string::npos) valEnd = json.size();
-        std::string valStr = json.substr(valStart, valEnd - valStart);
-        // Trim whitespace
-        while (!valStr.empty() && (valStr.back() == ' ' || valStr.back() == '\t'))
-            valStr.pop_back();
-
-        uint16_t idx = 0;
-        try { idx = static_cast<uint16_t>(std::stoul(valStr)); } catch (...) {
-            pos = valEnd + 1;
-            continue;
-        }
-
-        // Find matching UF enum
         for (size_t i = 0; i < kUFNameCount; ++i) {
             if (key == kUFNames[i].name) {
                 fieldMap_[static_cast<uint16_t>(kUFNames[i].field)] = idx;
@@ -149,9 +128,7 @@ bool UpdateFieldTable::loadFromJson(const std::string& path) {
                 break;
             }
         }
-
-        pos = valEnd + 1;
-    }
+    });
 
     if (loaded == 0) {
         LOG_WARNING("UpdateFieldTable: no fields loaded from ", path);
