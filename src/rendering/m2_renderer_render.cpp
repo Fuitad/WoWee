@@ -1,6 +1,7 @@
 #include "rendering/shadow_params.hpp"
 #include "rendering/m2_renderer.hpp"
 #include "rendering/m2_renderer_internal.h"
+#include "rendering/m2_blend_mode.hpp"
 #include "core/thread_pool.hpp"
 #include "rendering/m2_model_classifier.hpp"
 #include "rendering/hiz_system.hpp"
@@ -1491,8 +1492,7 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
                     const bool forceCutout =
                         !model.isSpellEffect && !fireEffectModel &&
                         (model.isGroundDetail || foliageCutout ||
-                         batch.blendMode == 1 ||
-                         (batch.blendMode >= 2 && !batch.hasAlpha) ||
+                         m2BatchNeedsAlphaTest(batch.blendMode, batch.hasAlpha) ||
                          batch.colorKeyBlack);
 
                     uint8_t effectiveBlendMode = batch.blendMode;

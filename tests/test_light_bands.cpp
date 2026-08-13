@@ -178,3 +178,26 @@ TEST_CASE("channel 2 is a switch, not the cloud density", "[light]") {
     for (float v : channel2) CHECK(v == 1.0f);
     CHECK(channel3[0] < channel3[3]);
 }
+
+TEST_CASE("a band colour has red in the high byte", "[light]") {
+    // The value is packed 0x00RRGGBB. Read the other way round, red and blue
+    // swap: Teldrassil's violet canopies come out magenta, and every zone's
+    // light pulls against its own sky.
+    //
+    // The oracle is the file rather than the layout's name for the field.
+    // Across the 844 LightParams rows carrying a first channel, taking red
+    // from the high byte makes 66% of them warm at noon and 64% blue at
+    // midnight. Taking it from the low byte gives 35% and 41% - worse than
+    // chance in both directions, which is what a colour read backwards looks
+    // like.
+    //
+    // These are real values from LightParams 208, which lights Teldrassil.
+    const uint32_t noonAmbient = 0xFFE0A9;   // channel 0 at 1440
+    CHECK(((noonAmbient >> 16) & 0xFF) == 0xFF);  // red, and it is the largest
+    CHECK(((noonAmbient >> 8) & 0xFF) == 0xE0);
+    CHECK((noonAmbient & 0xFF) == 0xA9);          // blue, the smallest
+
+    // Warm at noon means red >= blue once decoded that way, and the reverse
+    // reading would have claimed the opposite.
+    CHECK(((noonAmbient >> 16) & 0xFF) > (noonAmbient & 0xFF));
+}

@@ -1898,3 +1898,32 @@ target_link_libraries(test_light_bands PRIVATE catch2_main)
 wowee_test_link_glm(test_light_bands)
 add_test(NAME light_bands COMMAND test_light_bands)
 register_test_target(test_light_bands)
+
+# ── test_light_headroom ──────────────────────────────────────
+# Keeping ambient + diffuse inside 1.0. 82% of the client's LightParams
+# rows exceed it at noon, and per-channel clipping shifts hue: Mulgore's
+# grass went searing yellow, Teldrassil's canopies magenta.
+add_executable(test_light_headroom
+    test_light_headroom.cpp
+    ${TEST_COMMON_SOURCES})
+target_include_directories(test_light_headroom PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_light_headroom SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_light_headroom PRIVATE catch2_main)
+wowee_test_link_glm(test_light_headroom)
+add_test(NAME light_headroom COMMAND test_light_headroom)
+register_test_target(test_light_headroom)
+
+# ── test_m2_blend_mode ───────────────────────────────────────
+# Whether an M2 batch is alpha tested. Additive batches were forced onto
+# the cutout pipeline when their texture had no alpha, which drew every
+# glow card as a flat opaque disc.
+add_executable(test_m2_blend_mode
+    test_m2_blend_mode.cpp
+    ${TEST_COMMON_SOURCES})
+target_include_directories(test_m2_blend_mode PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_m2_blend_mode SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_m2_blend_mode PRIVATE catch2_main)
+add_test(NAME m2_blend_mode COMMAND test_m2_blend_mode)
+register_test_target(test_m2_blend_mode)

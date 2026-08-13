@@ -1,4 +1,5 @@
 #include "rendering/renderer.hpp"
+#include "rendering/sky_params_from_lighting.hpp"
 #include "core/coordinates.hpp"
 #include "rendering/camera.hpp"
 #include "rendering/camera_controller.hpp"
@@ -1865,25 +1866,12 @@ void Renderer::renderWorld(game::World* world, game::GameHandler* gameHandler) {
             VkCommandBuffer cmd = beginSecondary(SEC_SKY);
             setSecondaryViewportScissor(cmd);
             if (skySystem && camera && !skipSky) {
-                rendering::SkyParams skyParams;
-                skyParams.timeOfDay = timeOfDay;
-                skyParams.gameTime = gameHandler ? gameHandler->getGameTime() : -1.0f;
-                if (lightingManager) {
-                    const auto& lighting = lightingManager->getLightingParams();
-                    skyParams.directionalDir = lighting.directionalDir;
-                    skyParams.sunColor = lighting.diffuseColor;
-                    skyParams.skyTopColor = lighting.skyTopColor;
-                    skyParams.skyMiddleColor = lighting.skyMiddleColor;
-                    skyParams.skyBand1Color = lighting.skyBand1Color;
-                    skyParams.skyBand2Color = lighting.skyBand2Color;
-                    skyParams.cloudDensity = lighting.cloudDensity;
-                    skyParams.fogDensity = lighting.fogDensity;
-                    skyParams.horizonGlow = lighting.horizonGlow;
-                }
-                if (gameHandler) skyParams.weatherIntensity = gameHandler->getWeatherIntensity();
-                skyParams.skyboxModelId = 0;
-                skyParams.skyboxHasStars = useOriginalSkybox;
-                skyParams.useOriginalSkybox = useOriginalSkybox;
+                const rendering::SkyParams skyParams = rendering::skyParamsFromLighting(
+                    timeOfDay,
+                    gameHandler ? gameHandler->getGameTime() : -1.0f,
+                    gameHandler ? gameHandler->getWeatherIntensity() : 0.0f,
+                    lightingManager ? &lightingManager->getLightingParams() : nullptr,
+                    useOriginalSkybox);
                 skySystem->render(cmd, perFrameSet, *camera, skyParams);
                 if (useOriginalSkybox) {
                     skyboxModelRenderer_->render(cmd, perFrameSet, *camera);
@@ -2107,25 +2095,12 @@ void Renderer::renderWorld(game::World* world, game::GameHandler* gameHandler) {
         // ── Fallback: single-threaded inline recording (original path) ──
 
         if (skySystem && camera && !skipSky) {
-            rendering::SkyParams skyParams;
-            skyParams.timeOfDay = timeOfDay;
-            skyParams.gameTime = gameHandler ? gameHandler->getGameTime() : -1.0f;
-            if (lightingManager) {
-                const auto& lighting = lightingManager->getLightingParams();
-                skyParams.directionalDir = lighting.directionalDir;
-                skyParams.sunColor = lighting.diffuseColor;
-                skyParams.skyTopColor = lighting.skyTopColor;
-                skyParams.skyMiddleColor = lighting.skyMiddleColor;
-                skyParams.skyBand1Color = lighting.skyBand1Color;
-                skyParams.skyBand2Color = lighting.skyBand2Color;
-                skyParams.cloudDensity = lighting.cloudDensity;
-                skyParams.fogDensity = lighting.fogDensity;
-                skyParams.horizonGlow = lighting.horizonGlow;
-            }
-            if (gameHandler) skyParams.weatherIntensity = gameHandler->getWeatherIntensity();
-            skyParams.skyboxModelId = 0;
-            skyParams.skyboxHasStars = useOriginalSkybox;
-            skyParams.useOriginalSkybox = useOriginalSkybox;
+            const rendering::SkyParams skyParams = rendering::skyParamsFromLighting(
+                timeOfDay,
+                gameHandler ? gameHandler->getGameTime() : -1.0f,
+                gameHandler ? gameHandler->getWeatherIntensity() : 0.0f,
+                lightingManager ? &lightingManager->getLightingParams() : nullptr,
+                useOriginalSkybox);
             skySystem->render(currentCmd, perFrameSet, *camera, skyParams);
             if (useOriginalSkybox) {
                 skyboxModelRenderer_->prepareRender(frameIdx, *camera);

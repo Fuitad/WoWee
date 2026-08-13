@@ -1,6 +1,7 @@
 #include "rendering/lighting_manager.hpp"
 #include "rendering/light_coords.hpp"
 #include "rendering/light_band_block.hpp"
+#include "rendering/light_headroom.hpp"
 #include <glm/gtc/constants.hpp>
 #include "pipeline/asset_manager.hpp"
 #include "pipeline/dbc_loader.hpp"
@@ -405,6 +406,15 @@ void LightingManager::update(const glm::vec3& playerPos, uint32_t mapId, uint32_
         applyZoneAmbienceOverride(zoneId, newParams);
     }
 
+    // Every lit shader adds these as `ambient + diffuse * N-dot-L`, and on
+    // ground facing the sun that is nearly their plain sum. 82% of the
+    // client's 844 LightParams rows exceed 1.0 in some channel at noon, the
+    // worst reaching 2.00, and clipping happens per channel - the ones that
+    // overflow stop while the rest keep their value, and the hue slides toward
+    // whatever saturated. Scaling both together keeps the hue and only ever
+    // darkens.
+    applyLightHeadroom(newParams.ambientColor, newParams.diffuseColor);
+
     // Smooth temporal blending to avoid snapping (5.0 = blend rate)
     float deltaTime = 0.016f;  // Assume ~60 FPS for now
     float blendFactor = 1.0f - std::exp(-deltaTime * 5.0f);
@@ -638,10 +648,18 @@ float LightingManager::sampleFloatBand(const FloatBand& band, uint16_t timeHalfM
 }
 
 glm::vec3 LightingManager::dbcColorToVec3(uint32_t dbcColor) const {
-    // DBC colors are stored as BGR (0x00BBGGRR on little-endian)
-    uint8_t b = (dbcColor >> 16) & 0xFF;
-    uint8_t g = (dbcColor >> 8) & 0xFF;
-    uint8_t r = dbcColor & 0xFF;
+    // Red is the high byte: the packed value is 0x00RRGGBB. Reading it the
+    // other way round swaps red and blue, which turns Teldrassil's violet
+    // canopies magenta and leaves every zone's light fighting its own sky.
+    //
+    // Checked against the file rather than the layout's name for it. Over the
+    // 844 LightParams rows that carry a first channel, taking red from the
+    // high byte makes 66% of them warm at noon and 64% blue at midnight;
+    // taking it from the low byte gives 35% and 41%, which is worse than
+    // chance in both directions - the mark of a colour read backwards.
+    const uint8_t r = (dbcColor >> 16) & 0xFF;
+    const uint8_t g = (dbcColor >> 8) & 0xFF;
+    const uint8_t b = dbcColor & 0xFF;
 
     return glm::vec3(r / 255.0f, g / 255.0f, b / 255.0f);
 }

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ui/graphics_defaults.hpp"
 #include "ui/ui_services.hpp"
 #include <vulkan/vulkan.h>
 #include <string>
@@ -15,14 +16,6 @@ class InventoryScreen;
 class ChatPanel;
 struct ChatSettings;
 
-/// The graphics defaults a fresh install starts at.
-///
-/// Spelled in four places before: the settings panel's pending fields, the
-/// login screen's copy of the same struct, and a third constant the reset
-/// button used. A default that disagrees with itself is a setting that
-/// changes when you open a different window.
-inline constexpr float kDefaultViewDistance = 1900.0f;
-inline constexpr int   kDefaultGroundClutter = 70;
 
 /**
  * Settings panel (extracted from GameScreen)

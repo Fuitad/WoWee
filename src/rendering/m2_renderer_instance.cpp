@@ -605,12 +605,23 @@ VkTexture* M2Renderer::loadTexture(const std::string& path, uint32_t texFlags) {
     }
 
     // The black key discards every pixel darker than the threshold, so a
-    // texture it is applied to wrongly loses its dark areas. Ask the file
-    // name, not the path: 3338 of the 4929 textures this used to match were
-    // matched by a directory alone, among them every character leg and boot
-    // component, because Item/TextureComponents/LegLowerTexture spells "glow".
-    const auto namedFor = [&key](const char* token) {
-        return assetNameHasToken(key, token);
+    // texture it is applied to wrongly loses its dark areas.
+    //
+    // The tokens are matched against the whole path, because a fire doodad's
+    // cards are routinely named for what they are made of rather than what
+    // they do - the Orgrimmar bonfire's flame sits in a BRAZIERS directory
+    // under the name ASHENVALEBURNINGSTUMP - and the directory is the only
+    // thing that says it burns.
+    //
+    // Character texture components are the exception, and were the whole of
+    // the harm: 3191 of the 4929 paths this matches are under
+    // Item/TextureComponents, every one of them because LegLowerTexture spells
+    // "glow", and they are skin and cloth rather than anything that glows.
+    const bool isCharacterComponent =
+        key.find("texturecomponents") != std::string::npos;
+    const auto namedFor = [&key, isCharacterComponent](const char* token) {
+        if (isCharacterComponent) return false;
+        return key.find(token) != std::string::npos;
     };
     const bool colorKeyBlackHint =
         namedFor("candle") ||

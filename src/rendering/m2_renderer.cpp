@@ -1,6 +1,7 @@
 #include <atomic>
 #include "rendering/m2_renderer.hpp"
 #include "rendering/m2_renderer_internal.h"
+#include "rendering/m2_blend_mode.hpp"
 #include "pipeline/model_bounds.hpp"
 #include "rendering/render_constants.hpp"
 #include "rendering/m2_model_classifier.hpp"
@@ -2036,7 +2037,7 @@ bool M2Renderer::loadModel(const pipeline::M2Model& model, uint32_t modelId) {
                              "' blend=", static_cast<int>(bgpu.blendMode),
                              " matFlags=0x", std::hex, bgpu.materialFlags, std::dec,
                              " alphaTestWillBe=",
-                             (bgpu.blendMode == 1 || (bgpu.blendMode >= 2 && !bgpu.hasAlpha)) ? 1 : 0,
+                             m2BatchNeedsAlphaTest(bgpu.blendMode, bgpu.hasAlpha) ? 1 : 0,
                              " hasAlpha=", bgpu.hasAlpha ? "Y" : "N",
                              " colorKey=", bgpu.colorKeyBlack ? "Y" : "N",
                              " glowCardLike=", bgpu.glowCardLike ? "Y" : "N",
@@ -2112,7 +2113,7 @@ bool M2Renderer::loadModel(const pipeline::M2Model& model, uint32_t modelId) {
             // Write initial material data (static per-batch - fadeAlpha/interiorDarken updated at draw time)
             M2MaterialUBO mat{};
             mat.hasTexture = (bgpu.texture != nullptr && bgpu.texture != whiteTexture_.get()) ? 1 : 0;
-            mat.alphaTest = (bgpu.blendMode == 1 || (bgpu.blendMode >= 2 && !bgpu.hasAlpha)) ? 1 : 0;
+            mat.alphaTest = m2BatchNeedsAlphaTest(bgpu.blendMode, bgpu.hasAlpha) ? 1 : 0;
             mat.colorKeyBlack = bgpu.colorKeyBlack ? 1 : 0;
             mat.colorKeyThreshold = 0.08f;
             mat.unlit = (bgpu.materialFlags & 0x01) ? 1 : 0;

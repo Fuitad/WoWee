@@ -20,7 +20,7 @@
 #include <sstream>
 #include <string>
 
-#include "ui/settings_panel.hpp"
+#include "ui/graphics_defaults.hpp"
 
 namespace {
 
