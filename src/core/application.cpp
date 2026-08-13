@@ -4636,25 +4636,17 @@ void Application::updateQuestMarkers() {
         // Determine marker type
         int markerType = -1;  // -1 = no marker
 
-        using game::QuestGiverStatus;
-        float markerGrayscale = 0.0f;  // 0 = colour, 1 = grey (trivial quests)
-        switch (status) {
-            case QuestGiverStatus::AVAILABLE:
-                markerType = 0;  // Yellow !
-                break;
-            case QuestGiverStatus::AVAILABLE_LOW:
-                markerType = 0;  // Grey ! (same texture, desaturated in shader)
-                markerGrayscale = 1.0f;
-                break;
-            case QuestGiverStatus::REWARD:
-            case QuestGiverStatus::REWARD_REP:
-                markerType = 1;  // Yellow ?
-                break;
-            case QuestGiverStatus::INCOMPLETE:
-                markerType = 2;  // Grey ?
-                break;
-            default:
-                break;
+        // One mapping for all five places that draw this - see
+        // quest_giver_status.hpp. Five of the eleven statuses the server can
+        // send had no name here, so an NPC whose quests you have out-levelled
+        // got no marker at all.
+        const auto marker = game::questGiverMarker(status);
+        float markerGrayscale = marker.dim ? 1.0f : 0.0f;
+        if (marker.symbol) {
+            const bool bang = marker.symbol[0] == '!';
+            // 0 is the exclamation texture, 1 the gold question mark and 2 the
+            // grey one; the shader desaturates from markerGrayscale.
+            markerType = bang ? 0 : (marker.dim ? 2 : 1);
         }
 
         if (markerType < 0) continue;

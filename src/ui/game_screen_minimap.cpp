@@ -875,24 +875,13 @@ void GameScreen::renderMinimapChests(const MinimapFrame& frame, const EntityList
 void GameScreen::renderMinimapQuestGivers(const MinimapFrame& frame, const QuestStatusMap& statuses,
                                          game::GameHandler& gameHandler) {
     for (const auto& [guid, status] : statuses) {
-        ImU32 dotColor;
-        const char* marker = nullptr;
-        if (status == game::QuestGiverStatus::AVAILABLE) {
-            dotColor = IM_COL32(255, 210, 0, 255);
-            marker = "!";
-        } else if (status == game::QuestGiverStatus::AVAILABLE_LOW) {
-            dotColor = IM_COL32(160, 160, 160, 255);
-            marker = "!";
-        } else if (status == game::QuestGiverStatus::REWARD ||
-                   status == game::QuestGiverStatus::REWARD_REP) {
-            dotColor = IM_COL32(255, 210, 0, 255);
-            marker = "?";
-        } else if (status == game::QuestGiverStatus::INCOMPLETE) {
-            dotColor = IM_COL32(160, 160, 160, 255);
-            marker = "?";
-        } else {
-            continue;
-        }
+        // Status 9 is a turn-in the server deliberately keeps off the map,
+        // which is the only thing separating it from 10.
+        const auto mark = game::questGiverMarker(status);
+        if (!mark.symbol || !mark.onMinimap) continue;
+        const ImU32 dotColor = mark.dim ? IM_COL32(160, 160, 160, 255)
+                                        : IM_COL32(255, 210, 0, 255);
+        const char* marker = mark.symbol;
 
         auto entity = gameHandler.getEntityManager().getEntity(guid);
         if (!entity) continue;
@@ -917,8 +906,8 @@ void GameScreen::renderMinimapQuestGivers(const MinimapFrame& frame, const Quest
                     npcName = npcUnit->getName();
                 }
                 if (!npcName.empty()) {
-                    bool hasQuest = (status == game::QuestGiverStatus::AVAILABLE ||
-                                     status == game::QuestGiverStatus::AVAILABLE_LOW);
+                    const auto mark2 = game::questGiverMarker(status);
+                    const bool hasQuest = mark2.symbol && mark2.symbol[0] == '!';
                     ImGui::SetTooltip("%s\n%s", npcName.c_str(),
                                       hasQuest ? "Has a quest for you" : "Quest ready to turn in");
                 }

@@ -908,21 +908,32 @@ const Suppress kSuppress[] = {
     };
 }  // namespace
 
-std::vector<std::string> frameXmlSuppressedFrames() {
+/// The frame names in one suppression entry, which are held as a single
+/// space-separated string.
+///
+/// Both readers of kSuppress walked this themselves, and they did not agree
+/// about whether `frames` may be null: the lazy one skips a null entry and the
+/// other constructed a std::string from it. No entry is null today, so the
+/// difference is a crash waiting for the first entry that names no frames.
+void appendFrameNames(const char* frames, std::vector<std::string>& out) {
+    if (!frames) return;
+    const std::string all(frames);
+    size_t at = 0;
+    while (at < all.size()) {
+        const size_t sp = all.find(' ', at);
+        std::string one = all.substr(
+            at, sp == std::string::npos ? std::string::npos : sp - at);
+        if (!one.empty()) out.push_back(std::move(one));
+        if (sp == std::string::npos) break;
+        at = sp + 1;
+    }
+}
 
+std::vector<std::string> frameXmlSuppressedFrames() {
     std::vector<std::string> out;
     for (const Suppress& s : kSuppress) {
         if (frameXmlOwns(s.element)) continue;   // it is the one in use
-        std::string all(s.frames);
-        size_t at = 0;
-        while (at < all.size()) {
-            const size_t sp = all.find(' ', at);
-            std::string one = all.substr(
-                at, sp == std::string::npos ? std::string::npos : sp - at);
-            if (!one.empty()) out.push_back(std::move(one));
-            if (sp == std::string::npos) break;
-            at = sp + 1;
-        }
+        appendFrameNames(s.frames, out);
     }
     return out;
 }
@@ -930,17 +941,8 @@ std::vector<std::string> frameXmlSuppressedFrames() {
 std::vector<std::string> frameXmlLazySuppressedFrames() {
     std::vector<std::string> out;
     for (const Suppress& s : kSuppress) {
-        if (!s.lazy || !s.frames) continue;
-        std::string all(s.frames);
-        size_t at = 0;
-        while (at < all.size()) {
-            const size_t sp = all.find(' ', at);
-            std::string one = all.substr(
-                at, sp == std::string::npos ? std::string::npos : sp - at);
-            if (!one.empty()) out.push_back(std::move(one));
-            if (sp == std::string::npos) break;
-            at = sp + 1;
-        }
+        if (!s.lazy) continue;
+        appendFrameNames(s.frames, out);
     }
     return out;
 }

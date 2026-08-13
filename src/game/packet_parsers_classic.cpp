@@ -2094,7 +2094,9 @@ bool TurtlePacketParsers::parseMonsterMove(network::Packet& packet, MonsterMoveD
 // Vanilla sends status as uint32 with different enum values:
 //   0=NONE, 1=UNAVAILABLE, 2=CHAT, 3=INCOMPLETE, 4=REWARD_REP, 5=AVAILABLE
 // WotLK uses uint8 with:
-//   0=NONE, 1=UNAVAILABLE, 5=INCOMPLETE, 6=REWARD_REP, 7=AVAILABLE_LOW, 8=AVAILABLE, 10=REWARD
+//   0=NONE, 1=UNAVAILABLE, 2=LOW_LEVEL_AVAILABLE, 3=LOW_LEVEL_REWARD_REP,
+//   4=LOW_LEVEL_AVAILABLE_REP, 5=INCOMPLETE, 6=REWARD_REP, 7=AVAILABLE_REP,
+//   8=AVAILABLE, 9=REWARD2, 10=REWARD
 //
 // Read uint32, translate to WotLK enum values.
 // ============================================================================

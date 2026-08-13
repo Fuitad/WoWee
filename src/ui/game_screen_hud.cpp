@@ -619,22 +619,14 @@ void GameScreen::renderWorldMap(game::GameHandler& gameHandler) {
             qp.wowX = entity->getX();
             qp.wowY = entity->getY();
             qp.name = std::static_pointer_cast<game::Unit>(entity)->getName();
-            switch (status) {
-                case game::QuestGiverStatus::AVAILABLE:
-                    qp.kind = rendering::WorldMap::QuestPoi::Kind::AVAILABLE;
-                    break;
-                case game::QuestGiverStatus::AVAILABLE_LOW:
-                    qp.kind = rendering::WorldMap::QuestPoi::Kind::AVAILABLE_LOW;
-                    break;
-                case game::QuestGiverStatus::REWARD:
-                case game::QuestGiverStatus::REWARD_REP:
-                    qp.kind = rendering::WorldMap::QuestPoi::Kind::REWARD;
-                    break;
-                case game::QuestGiverStatus::INCOMPLETE:
-                    qp.kind = rendering::WorldMap::QuestPoi::Kind::INCOMPLETE;
-                    break;
-                default:
-                    continue;
+            const auto marker = game::questGiverMarker(status);
+            if (!marker.symbol) continue;
+            if (marker.symbol[0] == '!') {
+                qp.kind = marker.dim ? rendering::WorldMap::QuestPoi::Kind::AVAILABLE_LOW
+                                     : rendering::WorldMap::QuestPoi::Kind::AVAILABLE;
+            } else {
+                qp.kind = marker.dim ? rendering::WorldMap::QuestPoi::Kind::INCOMPLETE
+                                     : rendering::WorldMap::QuestPoi::Kind::REWARD;
             }
             qpois.push_back(std::move(qp));
         }
@@ -1817,21 +1809,11 @@ void GameScreen::renderNameplates(game::GameHandler& gameHandler) {
 
             // Quest giver indicator: "!" for available quests, "?" for completable/incomplete
             if (!isPlayer) {
-                using QGS = game::QuestGiverStatus;
-                QGS qgs = gameHandler.getQuestGiverStatus(guid);
-                const char* qSym = nullptr;
-                ImU32 qCol = IM_COL32(255, 210, 0, A(255));
-                if (qgs == QGS::AVAILABLE) {
-                    qSym = "!";
-                } else if (qgs == QGS::AVAILABLE_LOW) {
-                    qSym = "!";
-                    qCol = IM_COL32(160, 160, 160, A(220));
-                } else if (qgs == QGS::REWARD || qgs == QGS::REWARD_REP) {
-                    qSym = "?";
-                } else if (qgs == QGS::INCOMPLETE) {
-                    qSym = "?";
-                    qCol = IM_COL32(160, 160, 160, A(220));
-                }
+                const auto mark = game::questGiverMarker(
+                    gameHandler.getQuestGiverStatus(guid));
+                const char* qSym = mark.symbol;
+                const ImU32 qCol = mark.dim ? IM_COL32(160, 160, 160, A(220))
+                                            : IM_COL32(255, 210, 0, A(255));
                 if (qSym) {
                     drawList->AddText(ImVec2(questIconX + 1.0f, nameY + 1.0f), IM_COL32(0, 0, 0, A(160)), qSym);
                     drawList->AddText(ImVec2(questIconX,         nameY),         qCol, qSym);

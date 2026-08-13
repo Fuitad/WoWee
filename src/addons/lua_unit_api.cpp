@@ -281,7 +281,16 @@ static int lua_UnitIsDeadOrGhost(lua_State* L) {
 }
 
 // UnitIsAFK(unit), UnitIsDND(unit)
-static int lua_UnitIsAFK(lua_State* L) {
+/// A unit predicate answered from one bit of PLAYER_FLAGS.
+///
+/// Answers 1 or nil, the way WoW answers a Unit predicate. bnet.lua tests
+/// `UnitIsAFK("player") == 1`, which a boolean fails silently, and the two
+/// chat sites test it for truth - 1 and nil satisfy both, where true/false
+/// and 1/0 each break one of them.
+///
+/// PLAYER_FLAGS, not UNIT_FIELD_FLAGS: 0x01 there is UNIT_FLAG_SERVER_CONTROLLED
+/// and has nothing to do with being away.
+static int pushPlayerFlagPredicate(lua_State* L, uint32_t bit) {
     const char* uid = luaL_optstring(L, 1, "player");
     auto* gh = getGameHandler(L);
     if (!gh) { return luaReturnFalse(L); }
@@ -291,14 +300,8 @@ static int lua_UnitIsAFK(lua_State* L) {
     if (guid != 0) {
         auto entity = gh->getEntityManager().getEntity(guid);
         if (entity) {
-            // AFK is PLAYER_FLAGS bit 0x01, NOT UNIT_FIELD_FLAGS (where 0x01
-            // is UNIT_FLAG_SERVER_CONTROLLED - completely unrelated).
             uint32_t playerFlags = entity->getField(game::fieldIndex(game::UF::PLAYER_FLAGS));
-            // 1 or nil, the way WoW answers a Unit predicate. bnet.lua tests
-            // `UnitIsAFK("player") == 1`, which a boolean fails silently, and
-            // the two chat sites test it for truth - 1 and nil satisfy both,
-            // where true/false and 1/0 each break one of them.
-            if (playerFlags & 0x01) lua_pushnumber(L, 1); else lua_pushnil(L);
+            if (playerFlags & bit) lua_pushnumber(L, 1); else lua_pushnil(L);
             return 1;
         }
     }
@@ -306,25 +309,12 @@ static int lua_UnitIsAFK(lua_State* L) {
     return 1;
 }
 
+static int lua_UnitIsAFK(lua_State* L) {
+    return pushPlayerFlagPredicate(L, 0x01);
+}
+
 static int lua_UnitIsDND(lua_State* L) {
-    const char* uid = luaL_optstring(L, 1, "player");
-    auto* gh = getGameHandler(L);
-    if (!gh) { return luaReturnFalse(L); }
-    std::string uidStr(uid);
-    toLowerInPlace(uidStr);
-    uint64_t guid = resolveUnitGuid(gh, uidStr);
-    if (guid != 0) {
-        auto entity = gh->getEntityManager().getEntity(guid);
-        if (entity) {
-            // DND is PLAYER_FLAGS bit 0x02, NOT UNIT_FIELD_FLAGS.
-            uint32_t playerFlags = entity->getField(game::fieldIndex(game::UF::PLAYER_FLAGS));
-            // 1 or nil, as UnitIsAFK above and for the same reason.
-            if (playerFlags & 0x02) lua_pushnumber(L, 1); else lua_pushnil(L);
-            return 1;
-        }
-    }
-    lua_pushnil(L);
-    return 1;
+    return pushPlayerFlagPredicate(L, 0x02);
 }
 
 // UnitPlayerControlled(unit) - true for players and player-controlled pets

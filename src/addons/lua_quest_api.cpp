@@ -248,7 +248,12 @@ static int lua_ProcessQuestLogRewardFactions(lua_State* L) { (void)L; return 0; 
 // The selected quest's five reputation reward slots, packed to the front (the
 // panel walks 1..GetNumQuestLogRewardFactions expecting no gaps). Inlined
 // selection because selectedQuest is defined further down.
-static const game::QuestHandler::QuestLogEntry* selectedQuestForReward(game::GameHandler* gh) {
+/// The quest log entry the player has selected, or null when nothing is.
+///
+/// The log index is 1-based, as the interface counts it. This was defined
+/// twice in this file under two names, identically - one for the reward
+/// panels and one for everything else - which is one function.
+static const game::QuestHandler::QuestLogEntry* selectedQuest(game::GameHandler* gh) {
     if (!gh) return nullptr;
     const int index = gh->getSelectedQuestLogIndex();
     const auto& log = gh->getQuestLog();
@@ -266,7 +271,7 @@ static std::vector<RewardFaction> currentFactionRewards(game::GameHandler* gh) {
     if (gh->isQuestOfferRewardOpen()) {
         for (const auto& fr : gh->getQuestOfferReward().factionRewards)
             if (fr.factionId != 0) out.push_back({fr.factionId, fr.valueId, fr.override});
-    } else if (const auto* q = selectedQuestForReward(gh)) {
+    } else if (const auto* q = selectedQuest(gh)) {
         for (const auto& fr : q->factionRewards)
             if (fr.factionId != 0) out.push_back({fr.factionId, fr.valueId, fr.override});
     }
@@ -613,14 +618,6 @@ static int lua_GetQuestLogSelection(lua_State* L) {
 }
 
 /// The quest the log has selected, or null if none is.
-static const game::QuestHandler::QuestLogEntry* selectedQuest(game::GameHandler* gh) {
-    if (!gh) return nullptr;
-    const int index = gh->getSelectedQuestLogIndex();
-    const auto& log = gh->getQuestLog();
-    if (index < 1 || index > static_cast<int>(log.size())) return nullptr;
-    return &log[static_cast<size_t>(index - 1)];
-}
-
 // GetQuestLogPushable() → whether the selected quest may be offered to the party.
 //
 // Yes for any real selection. Which quests the server will actually share is a

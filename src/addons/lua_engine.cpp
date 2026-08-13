@@ -2903,6 +2903,23 @@ static void queueAnimFinished(lua_State* L, int frameIndex) {
     lua_pop(L, 1);
 }
 
+/// Whether every ancestor is shown, read off the flags rather than the layout.
+///
+/// Show and Hide both ask this, and they have to ask it the same way: a frame
+/// whose parent is hidden is not on screen either way round, and answering the
+/// two differently would fire one handler of a pair and not the other.
+static bool ancestorsShown(lua_State* L, const wowee::ui::Widget* w) {
+    auto* tree = wowee::addons::getWidgetTree(L);
+    if (!tree) return true;
+    for (uint32_t at = w->parent; at != 0;) {
+        const auto* p = tree->get(at);
+        if (!p) break;
+        if (!p->shown) return false;
+        at = p->parent;
+    }
+    return true;
+}
+
 /// Run a frame's OnShow now, from inside Show().
 ///
 /// The visibility pass that normally fires it runs once a frame, and that is
@@ -2969,21 +2986,30 @@ int lua_Region_Show(lua_State* L) {
     // order, on purpose - Hide fires no handler of its own, so running OnShow
     // here would put it before the OnHide that is owed. One toggle means this
     // Show is the only thing that happened since the last pass.
-    if (w && becameShown && w->shownToggles <= 1) {
-        bool chainShown = true;
-        if (auto* tree = wowee::addons::getWidgetTree(L)) {
-            for (uint32_t at = w->parent; at != 0;) {
-                const auto* p = tree->get(at);
-                if (!p) break;
-                if (!p->shown) { chainShown = false; break; }
-                at = p->parent;
-            }
-        }
-        if (chainShown) fireOnShowNow(L, 1, w);
+    if (w && becameShown && w->shownToggles <= 1 && ancestorsShown(L, w)) {
+        fireOnShowNow(L, 1, w);
     }
     return 0;
 }
 int lua_Region_Hide(lua_State* L) {
+    // No OnHide from here, deliberately, and it is not the asymmetry with
+    // Show that it looks like.
+    //
+    // Firing it here is what the real client does, and it fixes a real fault:
+    // ContainerFrame_GenerateFrame keeps its bag list indexed by a counter
+    // that ContainerFrame_OnHide maintains, so with the handler deferred,
+    // OpenAllBags - which hides every open bag and reopens it in one breath -
+    // rebuilds that list from a stale count and the bags come back stacked.
+    //
+    // It also breaks the NPC dialogs, which is worse. QuestFrame_OnHide calls
+    // CloseQuest, and this client answers that by declining the offer and
+    // dropping the greeting it is holding. Deferred, that lands after the
+    // panel has rebuilt; immediate, it lands in the middle of the rebuild and
+    // the panel fills itself in from state that has just been thrown away.
+    // check_npc_dialogs_fill catches it.
+    //
+    // So the ordering stays as it is until CloseQuest stops tearing down state
+    // the panel is about to read - the fault is there rather than here.
     if (auto* w = widgetOf(L, 1)) {
         if (w->shown && w->shownToggles < 200) ++w->shownToggles;
         w->shown = false;

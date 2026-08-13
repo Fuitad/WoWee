@@ -1342,7 +1342,7 @@ uint8_t TbcPacketParsers::readQuestGiverStatus(network::Packet& packet) {
         case 2: return 0;   // CHAT → NONE (no marker)
         case 3: return 5;   // INCOMPLETE → WotLK INCOMPLETE
         case 4: return 6;   // REWARD_REP → WotLK REWARD_REP
-        case 5: return 7;   // AVAILABLE_REP → WotLK AVAILABLE_LOW_LEVEL
+        case 5: return 7;   // AVAILABLE_REP → WotLK AVAILABLE_REP
         case 6: return 8;   // AVAILABLE → WotLK AVAILABLE
         case 7: return 10;  // REWARD2 → WotLK REWARD
         case 8: return 10;  // REWARD → WotLK REWARD

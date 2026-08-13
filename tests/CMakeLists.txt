@@ -2166,6 +2166,20 @@ wowee_test_link_glm(test_equipment_hash)
 add_test(NAME equipment_hash COMMAND test_equipment_hash)
 register_test_target(test_equipment_hash)
 
+# ── test_quest_giver_status ──────────────────────────────────
+# DIALOG_STATUS_* and the mark it draws. Five of the eleven values had no name,
+# and a value with no name drew nothing at all.
+add_executable(test_quest_giver_status
+    test_quest_giver_status.cpp
+    ${TEST_COMMON_SOURCES})
+target_include_directories(test_quest_giver_status PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_quest_giver_status SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_quest_giver_status PRIVATE catch2_main)
+wowee_test_link_glm(test_quest_giver_status)
+add_test(NAME quest_giver_status COMMAND test_quest_giver_status)
+register_test_target(test_quest_giver_status)
+
 # ── test_collision_geometry ──────────────────────────────────
 # The ray, box and focus tests every collision query is built from. Both
 # renderers had their own copy, and a difference moves where the world is solid.

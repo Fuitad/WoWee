@@ -1,5 +1,6 @@
 #pragma once
 
+#include "game/quest_giver_status.hpp"
 #include "game/calendar_data.hpp"
 #include "game/game_interfaces.hpp"
 #include "game/world_packets.hpp"
@@ -66,16 +67,6 @@ struct PlayerSkill {
 /**
  * Quest giver status values (WoW 3.3.5a)
  */
-enum class QuestGiverStatus : uint8_t {
-    NONE = 0,
-    UNAVAILABLE = 1,
-    INCOMPLETE = 5,    // ? (gray)
-    REWARD_REP = 6,
-    AVAILABLE_LOW = 7, // ! (gray, low-level)
-    AVAILABLE = 8,     // ! (yellow)
-    REWARD = 10        // ? (yellow)
-};
-
 /**
  * A single contact list entry (friend, ignore, or mute).
  */

@@ -32,9 +32,9 @@ on its first run, with the block scan reporting nothing:
 
 WHAT IT DOES
 
-Extracts every out-of-line member function definition of five to forty-three
-code lines from src/, strips comments and blank lines, and compares bodies of
-similar length with difflib. Pairs at 0.88 or above are reported unless they
+Extracts every function definition of five to forty-three code lines from src/
+and include/ - members and free functions, .cpp, .hpp and .h - strips comments
+and blank lines, and compares bodies of similar length with difflib. Pairs at 0.88 or above are reported unless they
 are named in SETTLED below.
 
 Comments are stripped deliberately: two functions that differ only in how
@@ -44,7 +44,8 @@ were fine.
 
 WHAT IT CANNOT SEE
 
-Free functions, lambdas, and anything under five code lines. A pair whose
+Lambdas, and anything under five code lines - which is how the box-distance
+helper hid: it is three. A pair whose
 bodies were reworded past 0.88 similarity - the block scan cannot see those
 either, and `repeated_literal_check.py` is the third angle for exactly that.
 
@@ -91,6 +92,22 @@ SETTLED = {
     "particle system teardown": [
         ("MountDust::shutdown", "Weather::shutdown"),
     ],
+    # Two independent on-disk formats whose factionAccess enums happen to
+    # agree today - Both 0, Alliance 1, Horde 2, Neutral 3 - so the filter
+    # reads the same. Sharing it would couple two published formats to one
+    # numbering, which is the coupling the rest of this list exists to avoid:
+    # WoweeAuction, a third format with "auction" in its name, numbers the same
+    # four values in a different order entirely.
+    "faction filter over two formats": [
+        ("findByFaction", "findByFaction"),
+    ],
+    # One advances a cursor and one reads at a fixed offset, which is what
+    # their callers need: the WMO loader walks a chunk front to back and the M2
+    # loader jumps to offsets its header supplies. Both bound-check the same
+    # way, which is the part that matters.
+    "binary readers": [
+        ("read", "readValue"),
+    ],
     # Two unrelated sockets closing a file descriptor. The world socket leaves
     # its receive buffer alone because its caller clears that along with the
     # crypto state and the trace window; the plain socket owns its buffer and
@@ -101,7 +118,17 @@ SETTLED = {
     ],
 }
 
-DEF = re.compile(r"^[\w:<>,&\*][\w:<>,&\* ]*?\b(\w+)::(\w+)\([^;]*?\)\s*(?:const\s*)?\{?\s*$")
+# Member definitions and free functions alike, at column 0. Both are needed:
+# rayTriangleIntersect and pointAABBDistanceSq were duplicated between the two
+# renderers as free functions, one of them in a .h rather than a .hpp, and a
+# member-only scan over src/*.cpp could see neither.
+DEF = re.compile(
+    r"^(?:static\s+|inline\s+|constexpr\s+)*"
+    r"[\w:<>,&\*][\w:<>,&\* ]*?\b(?:(\w+)::)?(\w+)\([^;]*?\)\s*"
+    r"(?:const\s*)?(?:noexcept\s*)?\{?\s*$")
+
+# Words that start a statement and would otherwise parse as a definition.
+NOT_A_NAME = {"if", "for", "while", "switch", "return", "catch", "else", "do"}
 
 
 def settled_pairs():
@@ -130,6 +157,9 @@ def bodies(path):
             j += 1
             if started and depth <= 0:
                 break
+        if m.group(2) in NOT_A_NAME:
+            i = j
+            continue
         if MIN_LINES + 2 <= len(span) <= MAX_LINES + 2:
             code = []
             for line in span[1:-1]:
@@ -138,7 +168,9 @@ def bodies(path):
                     continue
                 code.append(re.sub(r"\s+", " ", stripped))
             if len(code) >= MIN_LINES:
-                out.append((f"{m.group(1)}::{m.group(2)}", code))
+                qualified = (f"{m.group(1)}::{m.group(2)}" if m.group(1)
+                             else m.group(2))
+                out.append((qualified, code))
         i = j
     return out
 
@@ -150,9 +182,12 @@ def main() -> int:
         return 1
 
     found = []
-    for path in sorted(src.rglob("*.cpp")):
-        for name, code in bodies(path):
-            found.append((str(path.relative_to(ROOT)), name, code))
+    for base in (ROOT / "src", ROOT / "include"):
+        for path in sorted(base.rglob("*")):
+            if path.suffix not in (".cpp", ".hpp", ".h"):
+                continue
+            for name, code in bodies(path):
+                found.append((str(path.relative_to(ROOT)), name, code))
     if not found:
         print("Found no function bodies at all, which cannot be right.")
         return 1

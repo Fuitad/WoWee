@@ -402,30 +402,15 @@ void WindowManager::renderGossipWindow(game::GameHandler& gameHandler,
                 const auto& quest = gossip.quests[qi];
                 ImGui::PushID(static_cast<int>(qi));
 
-                // Determine icon and color based on QuestGiverStatus stored in questIcon
-                // 5=INCOMPLETE (gray?), 6=REWARD_REP (yellow?), 7=AVAILABLE_LOW (gray!),
-                // 8=AVAILABLE (yellow!), 10=REWARD (yellow?)
-                const char* statusIcon = "!";
-                ImVec4 statusColor = kColorYellow; // yellow
-                switch (quest.questIcon) {
-                    case 5:  // INCOMPLETE - in progress but not done
-                        statusIcon = "?";
-                        statusColor = colors::kMediumGray; // gray
-                        break;
-                    case 6:  // REWARD_REP - repeatable, ready to turn in
-                    case 10: // REWARD - ready to turn in
-                        statusIcon = "?";
-                        statusColor = kColorYellow; // yellow
-                        break;
-                    case 7:  // AVAILABLE_LOW - available but gray (low-level)
-                        statusIcon = "!";
-                        statusColor = colors::kMediumGray; // gray
-                        break;
-                    default: // AVAILABLE (8) and any others
-                        statusIcon = "!";
-                        statusColor = kColorYellow; // yellow
-                        break;
-                }
+                // questIcon is a DIALOG_STATUS_*; see quest_giver_status.hpp,
+                // which is the one mapping all six drawing sites now share.
+                // This one named 7 "low level" - it is available-with-rep -
+                // and had no case for 2, 3, 4 or 9, which fell to the default
+                // and drew a gold "!" on quests that were nothing of the sort.
+                const auto mark = game::questGiverMarker(
+                    static_cast<game::QuestGiverStatus>(quest.questIcon));
+                const char* statusIcon = mark.symbol ? mark.symbol : "!";
+                ImVec4 statusColor = mark.dim ? colors::kMediumGray : kColorYellow;
 
                 // Render: colored icon glyph then [Lv] Title
                 ImGui::TextColored(statusColor, "%s", statusIcon);
