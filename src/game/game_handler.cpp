@@ -830,27 +830,13 @@ void GameHandler::update(float deltaTime) {
 
         const bool classicLikeCombatSync =
             (combatHandler_ && combatHandler_->hasAutoAttackIntent()) && (isPreWotlk());
-        // Must match the locomotion bitmask in movement_handler.cpp so both
-        // sites agree on what constitutes "moving" for heartbeat throttling.
-        const uint32_t locomotionFlags =
-            static_cast<uint32_t>(MovementFlags::FORWARD) |
-            static_cast<uint32_t>(MovementFlags::BACKWARD) |
-            static_cast<uint32_t>(MovementFlags::STRAFE_LEFT) |
-            static_cast<uint32_t>(MovementFlags::STRAFE_RIGHT) |
-            static_cast<uint32_t>(MovementFlags::TURN_LEFT) |
-            static_cast<uint32_t>(MovementFlags::TURN_RIGHT) |
-            static_cast<uint32_t>(MovementFlags::ASCENDING) |
-            static_cast<uint32_t>(MovementFlags::DESCENDING) |
-            static_cast<uint32_t>(MovementFlags::SWIMMING) |
-            static_cast<uint32_t>(MovementFlags::FALLING) |
-            static_cast<uint32_t>(MovementFlags::FALLINGFAR);
         const bool onRealTaxiFlight = movementHandler_ && movementHandler_->isOnTaxiFlight();
         const bool classicLikeStationaryCombatSync =
             classicLikeCombatSync &&
             !onRealTaxiFlight &&
             !taxiActivatePending_ &&
             !taxiClientActive_ &&
-            (movementInfo.flags & locomotionFlags) == 0;
+            (movementInfo.flags & kLocomotionFlags) == 0;
         float heartbeatInterval = (onRealTaxiFlight || taxiActivatePending_ || taxiClientActive_)
                                       ? game::HEARTBEAT_INTERVAL_TAXI
                                       : (classicLikeStationaryCombatSync ? game::HEARTBEAT_INTERVAL_STATIONARY_COMBAT

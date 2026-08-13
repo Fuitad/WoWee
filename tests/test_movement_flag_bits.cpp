@@ -23,6 +23,7 @@
 #include "game/world_packets.hpp"
 
 using wowee::game::MovementFlags;
+using wowee::game::kLocomotionFlags;
 
 namespace {
 
@@ -115,4 +116,54 @@ TEST_CASE("no two flags share a bit", "[movement-flags]") {
         }
         seen[bit] = name;
     }
+}
+
+// ── What counts as being under way ──────────────────────────────────────────
+//
+// Two sites asked "is the player moving": the heartbeat throttle in
+// movement_handler and the send cadence in game_handler. Each wrote out its
+// own list of flags, above a comment saying the two had to match. They had
+// drifted - ASCENDING was in both and DESCENDING in only one - so a player
+// swimming or flying downwards was moving to one site and standing still to
+// the other, and the heartbeats they owed were throttled away as if they were
+// idle. Nothing raises when that happens; the server simply stops hearing
+// where a descending player is.
+
+TEST_CASE("vertical motion counts in both directions", "[movement-flags]") {
+    // The property that broke. Up and down are the same kind of thing, so a
+    // mask with one and not the other is wrong whichever way round it is.
+    CHECK((kLocomotionFlags & bits(MovementFlags::ASCENDING)) != 0);
+    CHECK((kLocomotionFlags & bits(MovementFlags::DESCENDING)) != 0);
+}
+
+TEST_CASE("every way of moving counts as moving", "[movement-flags]") {
+    for (const MovementFlags f : {MovementFlags::FORWARD, MovementFlags::BACKWARD,
+                                  MovementFlags::STRAFE_LEFT, MovementFlags::STRAFE_RIGHT,
+                                  MovementFlags::TURN_LEFT, MovementFlags::TURN_RIGHT,
+                                  MovementFlags::ASCENDING, MovementFlags::DESCENDING,
+                                  MovementFlags::SWIMMING, MovementFlags::FALLING,
+                                  MovementFlags::FALLINGFAR}) {
+        INFO("flag " << bits(f));
+        CHECK((kLocomotionFlags & bits(f)) != 0);
+    }
+}
+
+TEST_CASE("a state the player is in is not a way of moving", "[movement-flags]") {
+    // WALKING says how they move rather than that they do, ONTRANSPORT moves
+    // the floor rather than the player, and the rest are states a standing
+    // character can hold. Any of these in the mask would make a stationary
+    // player look permanently under way and defeat the throttle entirely.
+    for (const MovementFlags f : {MovementFlags::WALKING, MovementFlags::ONTRANSPORT,
+                                  MovementFlags::LEVITATING, MovementFlags::ROOT,
+                                  MovementFlags::CAN_FLY, MovementFlags::FLYING,
+                                  MovementFlags::WATER_WALK, MovementFlags::FEATHER_FALL,
+                                  MovementFlags::HOVER}) {
+        INFO("flag " << bits(f));
+        CHECK((kLocomotionFlags & bits(f)) == 0);
+    }
+}
+
+TEST_CASE("standing still is not moving", "[movement-flags]") {
+    CHECK((kLocomotionFlags & bits(MovementFlags::NONE)) == 0);
+    CHECK(kLocomotionFlags != 0);
 }

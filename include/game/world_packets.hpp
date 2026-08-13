@@ -413,6 +413,33 @@ enum class MovementFlags : uint32_t {
     HOVER               = 0x40000000,
 };
 
+/// The flags that mean the player is under way, as opposed to standing in a
+/// state.
+///
+/// Two sites decide whether the player is moving - the heartbeat throttle in
+/// movement_handler and the send cadence in game_handler - and each wrote out
+/// its own list with a comment saying the two had to match. They did not:
+/// ASCENDING was in both and DESCENDING in only one, so swimming or flying
+/// downwards counted as motion for one and as standing still for the other,
+/// and the heartbeats a descending player owed were throttled away.
+///
+/// Vertical motion is motion in both directions or in neither, which is the
+/// property that broke here. Nothing that describes a state the player is in
+/// rather than a way they are moving belongs in this - WALKING says how they
+/// move, not that they do, and ONTRANSPORT moves the floor rather than them.
+inline constexpr uint32_t kLocomotionFlags =
+    static_cast<uint32_t>(MovementFlags::FORWARD) |
+    static_cast<uint32_t>(MovementFlags::BACKWARD) |
+    static_cast<uint32_t>(MovementFlags::STRAFE_LEFT) |
+    static_cast<uint32_t>(MovementFlags::STRAFE_RIGHT) |
+    static_cast<uint32_t>(MovementFlags::TURN_LEFT) |
+    static_cast<uint32_t>(MovementFlags::TURN_RIGHT) |
+    static_cast<uint32_t>(MovementFlags::ASCENDING) |
+    static_cast<uint32_t>(MovementFlags::DESCENDING) |
+    static_cast<uint32_t>(MovementFlags::SWIMMING) |
+    static_cast<uint32_t>(MovementFlags::FALLING) |
+    static_cast<uint32_t>(MovementFlags::FALLINGFAR);
+
 /**
  * Movement info structure
  *

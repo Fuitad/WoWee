@@ -701,24 +701,13 @@ void MovementHandler::sendMovement(Opcode opcode) {
     }
 
     if (opcode == Opcode::MSG_MOVE_HEARTBEAT && isClassicLikeExpansion()) {
-        const uint32_t locomotionFlags =
-            static_cast<uint32_t>(MovementFlags::FORWARD) |
-            static_cast<uint32_t>(MovementFlags::BACKWARD) |
-            static_cast<uint32_t>(MovementFlags::STRAFE_LEFT) |
-            static_cast<uint32_t>(MovementFlags::STRAFE_RIGHT) |
-            static_cast<uint32_t>(MovementFlags::TURN_LEFT) |
-            static_cast<uint32_t>(MovementFlags::TURN_RIGHT) |
-            static_cast<uint32_t>(MovementFlags::ASCENDING) |
-            static_cast<uint32_t>(MovementFlags::FALLING) |
-            static_cast<uint32_t>(MovementFlags::FALLINGFAR) |
-            static_cast<uint32_t>(MovementFlags::SWIMMING);
         const bool stationaryIdle =
             !onTaxiFlight_ &&
             !taxiMountActive_ &&
             !taxiActivatePending_ &&
             !taxiClientActive_ &&
             !includeTransportInWire &&
-            (movementInfo.flags & locomotionFlags) == 0;
+            (movementInfo.flags & kLocomotionFlags) == 0;
         const uint32_t sinceLastHeartbeatMs =
             lastHeartbeatSendTimeMs_ != 0 && movementTime >= lastHeartbeatSendTimeMs_
                 ? (movementTime - lastHeartbeatSendTimeMs_)
