@@ -4116,10 +4116,12 @@ void registerInventoryLuaAPI(lua_State* L) {
             const int invIdx = static_cast<int>(luaOptNumberText(L, 4, 0));
             const int clsIdx = static_cast<int>(luaOptNumberText(L, 5, 0));
             const int subIdx = static_cast<int>(luaOptNumberText(L, 6, 0));
-            const uint32_t inv = (invIdx > 0 && invIdx < game::kNumAuctionSlots)
-                ? game::kAuctionSlots[invIdx].invType : game::kAuctionAny;
             const uint32_t cls = (clsIdx > 0 && clsIdx < game::kNumAuctionClasses)
                 ? game::kAuctionClasses[clsIdx].classId : game::kAuctionAny;
+            // The slot arrives as a position in the list GetAuctionInvTypes
+            // offered for this class, which is a subset - so it has to be read
+            // back through the same subset rather than straight off the table.
+            const uint32_t inv = game::auctionSlotIdAt(cls, subIdx, invIdx);
             uint32_t sub = game::kAuctionAny;
             if (cls != game::kAuctionAny && subIdx > 0) {
                 int count = 0;
@@ -4451,13 +4453,46 @@ void registerInventoryLuaAPI(lua_State* L) {
             for (int i = 1; i < count; ++i) lua_pushstring(L, subs[i].label);
             return count - 1;
         }},
-                // Nothing, deliberately. The slot list this client offers is one
-                // flat set rather than a different set per subclass, and hanging
-                // all twenty under every subclass of every category would be a
-                // third tier the real one does not have. Answering none leaves
-                // selectedInvtypeIndex nil, which arrives as zero and reads as
-                // "any" - the slot filter simply stays unused rather than wrong.
-                {"GetAuctionInvTypes",       [](lua_State* L) -> int { (void)L; return 0; }},
+                // The third tier of the filter tree: where an item is worn.
+                //
+                // This answered nothing, on the grounds that the real client
+                // has no such tier. It does - Armor, Cloth, Head - and with
+                // nothing here the auction house could not be searched by slot
+                // at all.
+                //
+                // Pairs, which is the shape AuctionFrameFilters_UpdateInvTypes
+                // reads: the name of a global string, then a flag saying the
+                // row is offered. The interface resolves the name itself, so
+                // the wording is not written out a second time here.
+                //
+                // The number handed back is a position in kAuctionSlots, and
+                // QueryAuctionItems reads that same table at that position -
+                // so a renumbered subset would search a slot other than the
+                // one clicked, silently. auctionSlotsFor answers positions for
+                // exactly that reason.
+                {"GetAuctionInvTypes", [](lua_State* L) -> int {
+            const int ci = static_cast<int>(luaL_optnumber(L, 1, 0));
+            const int si = static_cast<int>(luaL_optnumber(L, 2, 0));
+            if (ci < 1 || ci >= game::kNumAuctionClasses) return 0;
+            int count = 0;
+            const uint8_t* slots =
+                game::auctionSlotsFor(game::kAuctionClasses[ci].classId, si, count);
+            if (!slots || count <= 0) return 0;
+            // Two per row, and Lua guarantees room for twenty results without
+            // being asked. Asking is what makes a longer list safe.
+            if (!lua_checkstack(L, count * 2)) return 0;
+            int pushed = 0;
+            for (int i = 0; i < count; ++i) {
+                const uint8_t at = slots[i];
+                if (at >= game::kNumAuctionSlots) continue;
+                lua_pushstring(L, game::kAuctionSlots[at].token);
+                // The interface reads this only as "this row is offered"; the
+                // row's own number is its position in what is returned here.
+                lua_pushnumber(L, 1);
+                pushed += 2;
+            }
+            return pushed;
+        }},
                 {"GetNumAuctionItems", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             const char* listType = luaL_optstring(L, 1, "list");

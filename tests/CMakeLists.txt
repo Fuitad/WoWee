@@ -2086,6 +2086,21 @@ wowee_test_link_glm(test_json_table_scan)
 add_test(NAME json_table_scan COMMAND test_json_table_scan)
 register_test_target(test_json_table_scan)
 
+# ── test_auction_slot_filter ─────────────────────────────────
+# The auction house's equipment-slot filter. FrameXML numbers the rows it is
+# given from one, so the number that comes back is a position in the subset
+# offered for that class rather than in the whole slot table.
+add_executable(test_auction_slot_filter
+    test_auction_slot_filter.cpp
+    ${TEST_COMMON_SOURCES})
+target_include_directories(test_auction_slot_filter PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_auction_slot_filter SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_auction_slot_filter PRIVATE catch2_main)
+wowee_test_link_glm(test_auction_slot_filter)
+add_test(NAME auction_slot_filter COMMAND test_auction_slot_filter)
+register_test_target(test_auction_slot_filter)
+
 # ── test_stance_spells ───────────────────────────────────────
 # The stance bar's spells and their order, which the bar and the Ctrl+1..8
 # bindings both need. Both used to hold their own copy of all five tables.
